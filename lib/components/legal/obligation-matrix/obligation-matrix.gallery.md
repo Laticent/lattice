@@ -182,8 +182,8 @@ Neutral ink — data first.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · obligation-matrix" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · obligation-matrix · 1 of 2" -->
 
 ## When NOT to reach for obligation-matrix.
 
@@ -191,6 +191,14 @@ Neutral ink — data first.
   - Past one row vs another the grid loses its purpose. Use `compare-prose` or `table` for two-regime comparisons.
 - Mixed cell content
   - Don't mix state markers with prose values in the same matrix — the cell width has to grow to fit prose and the marker grid collapses. Pick one cell type.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · obligation-matrix · 2 of 2" -->
+
+## When NOT to reach for obligation-matrix.
+
 - Restating the key in prose
   - The grid now draws its own key — one named marker per state the cells actually carry — so a trailing sentence repeating 'filled = applies, half = partial' costs a line and can go stale against the markers on the slide. Rename the words with a label set instead; keep the paragraph for what the key cannot say.
 

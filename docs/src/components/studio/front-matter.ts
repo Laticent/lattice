@@ -51,13 +51,30 @@ export function stripFrontMatter(source: string): string {
  * scalars that would corrupt the source. A bare header with no indented children is
  * just an empty flat scalar. `finish:` etc. stay flat.
  */
-function parseFm(source: string): { pairs: [string, string][]; blocks: [string, string[]][] } {
+function parseFm(source: string): { pairs: [string, string][]; blocks: [string, string[]][]; scalars: Map<string, { head: string; body: string[] }> } {
 	const m = FM_RE.exec(String(source ?? ''));
-	if (!m) return { pairs: [], blocks: [] };
+	const scalars = new Map<string, { head: string; body: string[] }>();
+	if (!m) return { pairs: [], blocks: [], scalars };
 	const pairs: [string, string][] = [];
 	const blocks: [string, string[]][] = [];
 	const lines = m[1].split(/\r?\n/);
 	for (let i = 0; i < lines.length; i++) {
+		// A BLOCK SCALAR (`style: |`, `header: >-`) is one flat pair whose value is the indicator,
+		// and its indented lines are its BODY — never pairs of their own. Reading them as pairs let a
+		// CSS line named like a register (`  lift: on`) read as that register, and let a write or a
+		// preset Reset of the register rewrite the author's CSS. `frontMatterKeySpan` skips the same
+		// lines. The body is kept verbatim so the nested-block writers re-emit it intact.
+		const scalar = BLOCK_SCALAR_RE.exec(lines[i]);
+		if (scalar) {
+			const base = scalar[1].length;
+			const body: string[] = [];
+			while (i + 1 < lines.length && (!lines[i + 1].trim() || (lines[i + 1].match(/^(\s*)/)?.[1] ?? '').length > base)) body.push(lines[++i]);
+			// Trailing blanks belong to the gap after the block, not to the scalar.
+			while (body.length && !body[body.length - 1].trim()) body.pop();
+			pairs.push([scalar[2], scalar[3].trim()]);
+			scalars.set(scalar[2], { head: scalar[3].trim(), body });
+			continue;
+		}
 		const head = lines[i].match(/^(\s*)([A-Za-z][\w-]*):[ \t]*$/); // bare `key:` — no value
 		if (head) {
 			const base = head[1].length;
@@ -76,13 +93,21 @@ function parseFm(source: string): { pairs: [string, string][]; blocks: [string, 
 		const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(lines[i].trim());
 		if (kv) pairs.push([kv[1], unquote(kv[2])]);
 	}
-	return { pairs, blocks };
+	return { pairs, blocks, scalars };
 }
 
+/** A block-scalar header line: `key: |`, `key: >-`, `key: |2+`, optionally with a trailing
+ *  comment. Group 1 is the indent, 2 the key, 3 the indicator (plus any comment), verbatim. */
+const BLOCK_SCALAR_RE = /^(\s*)([A-Za-z][\w-]*):[ \t]+([|>](?:[1-9][+-]?|[+-][1-9]?)?(?:[ \t]+#.*)?)[ \t]*\r?$/;
+
 /** Re-emit a front-matter block from flat pairs + nested blocks (verbatim child lines),
- *  or the bare body when nothing remains. Nested blocks trail the flat keys. */
-function emitFm(pairs: [string, string][], blocks: [string, string[]][], body: string): string {
-	const lines = pairs.map(([k, v]) => `${k}: ${quoteIfNeeded(v)}`);
+ *  or the bare body when nothing remains. Nested blocks trail the flat keys. A block scalar
+ *  re-emits its indicator and body verbatim, never the quoted string `"|"`. */
+function emitFm(pairs: [string, string][], blocks: [string, string[]][], body: string, scalars = new Map<string, { head: string; body: string[] }>()): string {
+	const lines = pairs.flatMap(([k, v]) => {
+		const s = scalars.get(k);
+		return s && s.head === v ? [`${k}: ${s.head}`, ...s.body] : [`${k}: ${quoteIfNeeded(v)}`];
+	});
 	for (const [k, child] of blocks) {
 		lines.push(`${k}:`);
 		for (const c of child) lines.push(c);
@@ -182,6 +207,21 @@ export function frontMatterKeySpan(source: string, key: string): { start: number
 	for (let i = 0; i < lines.length; i++) {
 		const raw = lines[i];
 		const line = bare(raw);
+		// A block scalar: the header is the flat pair, its indented lines are its body and are
+		// skipped — the same lines `parseFm` skips, so no write can land inside the author's CSS.
+		const scalar = BLOCK_SCALAR_RE.exec(line);
+		if (scalar) {
+			if (scalar[2] === key) return { start: at, end: at + line.length, indent: scalar[1] };
+			const base = scalar[1].length;
+			at += raw.length + 1;
+			while (i + 1 < lines.length) {
+				const next = bare(lines[i + 1]);
+				if (next.trim() && (next.match(/^(\s*)/)?.[1] ?? '').length <= base) break;
+				i++;
+				at += lines[i].length + 1;
+			}
+			continue;
+		}
 		const head = line.match(/^(\s*)([A-Za-z][\w-]*):[ \t]*$/); // a bare `key:` — no value
 		if (head) {
 			// Look ahead for indented children WITHOUT consuming: a header that owns them is a
@@ -391,7 +431,7 @@ export function withPrintCanvas(source: string): string {
 export function setFrontMatterBlock(source: string, key: string, entries: Iterable<[string, string]>): string {
 	const list = [...entries];
 	const body = stripFrontMatter(source);
-	const { pairs: all, blocks: allBlocks } = parseFm(source);
+	const { pairs: all, blocks: allBlocks, scalars } = parseFm(source);
 	const pairs = all.filter(([k]) => k !== key);
 	const blocks = allBlocks.filter(([k]) => k !== key);
 	if (list.length) {
@@ -402,7 +442,7 @@ export function setFrontMatterBlock(source: string, key: string, entries: Iterab
 		const child = list.map(([k, v]) => `  "${esc(String(k))}": ${quoteIfNeeded(String(v))}`);
 		blocks.push([key, child]);
 	}
-	return emitFm(pairs, blocks, body);
+	return emitFm(pairs, blocks, body, scalars);
 }
 
 /** One acronym registry entry: the spoken expansion (required) + an optional glossary definition. */
@@ -433,7 +473,7 @@ const ACRONYM_TERM_RE = /^[A-Za-z0-9][\w.&/-]*$/;
  */
 export function setFrontMatterAcronyms(source: string, entries: Iterable<[string, AcronymEntry]>): string {
 	const body = stripFrontMatter(source);
-	const { pairs: all, blocks: allBlocks } = parseFm(source);
+	const { pairs: all, blocks: allBlocks, scalars } = parseFm(source);
 	const pairs = all.filter(([k]) => k !== 'acronyms');
 	const blocks = allBlocks.filter(([k]) => k !== 'acronyms');
 	// De-dupe by term (last wins, mirroring the parser), preserving first-seen order.
@@ -457,5 +497,5 @@ export function setFrontMatterAcronyms(source: string, entries: Iterable<[string
 		}
 	}
 	if (child.length) blocks.push(['acronyms', child]);
-	return emitFm(pairs, blocks, body);
+	return emitFm(pairs, blocks, body, scalars);
 }

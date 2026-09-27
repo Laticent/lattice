@@ -165,7 +165,8 @@ centre box (25–75% × 30–70%), which the ellipse covers by construction; it 
 the text is. That was the gap in the evidence, not only in the code.
 
 **Decision (owner):** clear = the frame's content box, heading and body both, for the register
-and for Fabricate's baked clearance alike; soft edge on screen, hard edge in exports.
+and for Fabricate's baked clearance alike; soft edge on screen, hard edge in exports. (§4.7 made
+the export edge soft as well.)
 
 **Mechanism:** the section's padding IS the frame margin, and `.backdrop` covers the section's
 padding box, so `.backdrop` and `.backdrop-mask` inherit that padding and the mask's `::before`
@@ -217,6 +218,57 @@ bookend, tone slide} × light/dark, all `60 clear`, measured inside the content 
 every text element's box read from the DOM, against the same slides with `finish-none`: screen
 face 0.0 difference everywhere behind the content (72 slides), print face at most 2/255
 (anti-aliasing at the edge). The finish remains in the margin (mean difference 1.6–2.6).
+
+### 4.7 The export edge is soft too (reverses §4.6's "hard edge in exports")
+
+**Symptom (owner, 2026-09-26, iPhone):** a deck with `backdrop: clear` showed a soft fade in the
+Studio but a hard-edged panel in the exported PDF, in both Adobe Acrobat and Safari.
+
+**Why §4.6 chose a hard edge:** a blurred layer is not vector. Chromium embeds a CSS `filter` as an
+image when it prints, and the note wanted a fully vector page.
+
+**Candidates, measured on `examples/backdrop-register.md` (10 pages, 8 cleared):**
+
+| Candidate | PDF size | Result |
+|---|---|---|
+| Hard edge (§4.6) | 253 KB | Vector. The panel the owner rejected |
+| Keep the blur in print | 909 KB | Matches the Studio. Chromium embeds ONLY the clear layer as a 300 ppi image with an alpha channel (about 82 KB a slide); the finish under it and the text stay vector |
+| Gradient `mask-image` (two axis ramps, `mask-composite: intersect`) | 342 KB | Vector and within 1–3 levels of the blur, but Apple PDFKit drops CSS masks (`engineering/gotchas/export.md`), and PDFKit is the owner's viewer. It could not be checked on iOS from the sandbox |
+| Nine gradient tiles (a solid centre, four edge ramps, four radial corners) | ~vector | Poppler and Ghostscript both draw a 1px lighter seam where a corner tile meets an edge tile: each rasterizer paints the shared boundary pixel from both tiles |
+| Nested solid rectangles, one alpha step each | ~vector | Visible banding and square corners |
+
+**Decision (owner):** keep the blur in every face. Both export guards stop zeroing
+`--backdrop-clear-bleed` and `--backdrop-clear-filter`. A slide without the clear layer carries
+no filter work in the PDF: `finish-backdrops`, `accent-finishes` and `finish-per-slide` export at
+the same byte count before and after. The `blur(0px)` warning in §4.6 still holds: a 0px blur
+rasterizes the page for nothing and poppler outlines the box in gray.
+
+### 4.8 The Studio download (2026-09-27)
+
+The Studio's PDF download is a different export from the CLI's: html-to-image photographs
+each slide with `.lattice-exporting` on, and a pdf-lib worker packs the pictures. The owner's
+first hard-edged PDF came from here. Measured through html-to-image on the owner's own deck:
+
+- **The switch has to stay.** Without `.lattice-exporting`, html-to-image draws the screen
+  face's `color-mix(…, transparent)` washes as solid color blobs, as `deck-export.js` warns.
+- **The spotlight** printed a solid arc: the switch swapped in the hard-edged mirror meant for
+  the vector PDF. Its feathered scrim is a transparent-to-canvas radial with no color-mix, and
+  html-to-image draws it cleanly, so the Studio switch no longer flips `--backdrop-scrim` or a
+  baked `--fin-backdrop-mask`.
+- **The clear edge.** Keeping the blur (§4.7) made it soft, but over a dot texture (strata)
+  html-to-image drew the blurred layer as vertical stripes. The Studio switch draws the same
+  falloff with a two-axis gradient MASK instead. §4.7 rejected a mask for the vector PDF because
+  Apple PDFKit can drop it; a Studio PDF is pictures, so the mask is flattened to pixels before
+  any viewer sees it.
+
+**Every mask type, through html-to-image with `.lattice-exporting`** (the Studio's capture),
+light and dark, against the live Studio: `clear`, `open`, `spot-c`, `40`, `40 spot-bl`, halo and
+gallery (whose looks are spotlights) with `clear`, a Fabricate finish with a baked clearance and
+one with a baked spotlight, and a finish saved with the legacy ellipse. All draw soft. The
+Fabricate spotlight needed its own fix: `generateFinishCss` writes the finish's Studio export
+rule itself and flipped `--fin-backdrop-mask` to the hard mirror there too; it now flips it for
+print only. **A Fabricate spotlight finish saved before this change keeps the old generated rule,
+and so its hard-edged Studio download, until it is re-saved.**
 
 ### 4.5 `finish-override.backdrop`
 

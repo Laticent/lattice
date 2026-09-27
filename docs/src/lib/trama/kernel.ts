@@ -1,8 +1,8 @@
 /**
- * graph-layout — the chart family's shared graph layout and elbow router: dagre places
- * the boxes, this routes the lines. First consumer: the flowchart. Written so the state
- * chart can adopt it later (engineering/decisions/2026-09-25-flowchart-authoring.md §7
- * and §14).
+ * Trama kernel: dagre places the boxes, and `solveRoutes` routes the lines. The layout
+ * half of the graph-chart library (engineering/decisions/2026-09-27-trama-graph-chart-library.md);
+ * it moved here from `lib/components/chart/_chart-family/graph-layout.js`, where the
+ * flowchart shipped it (2026-09-25-flowchart-authoring.md §7).
  *
  * ONE SELF-CONTAINED FUNCTION, ON PURPOSE. A chart's browser pass is shipped as
  * `fn.toString()` source (the state chart's `STATE_CHART_BROWSER_JS`), so it can import
@@ -28,22 +28,101 @@
  * reversed, so dagre's own cycle breaker never chooses. Sizes are quantized to half a
  * unit before layout. dagre itself has no randomness.
  */
-function graphLayoutKernel() {
-  const Q = (v) => Math.round(v * 2) / 2;
-  const R1 = (v) => Math.round(v * 10) / 10;
+import type { Box, DagreLike, Geometry, GraphEdge, GraphGroup, GraphKernel, GraphModel, KernelStats, LayoutOptions, Point, Quality, Rect, Route, Size, SizeMap } from './types';
 
-  /** Lay out one direction. Returns the geometry, or null without dagre. */
-  function layoutOnce(model, sizes, opts, dagre) {
-    if (!dagre?.layout || !dagre.Graph) return null;
+// Local shapes. Types are erased, so none of these reaches the serialized kernel.
+
+/** The four sides of a box a line may leave or reach. */
+type Side = 'L' | 'R' | 'T' | 'B';
+/** One end of a line: the box side it sits on and its offset from that side's middle. */
+interface PortEnd { side: Side; off: number; lock?: boolean }
+interface Ports { start: PortEnd; end: PortEnd }
+/** A route's ends as the spread last saw them; a line never placed has offsets only. */
+interface LoosePorts { start: { side?: Side; off: number; lock?: boolean }; end: { side?: Side; off: number; lock?: boolean } }
+type End = 'start' | 'end';
+interface BBox { x0: number; y0: number; x1: number; y1: number }
+/** A group's title band, and the room a title needs in it. */
+interface Band extends Rect { lo: number; hi: number; need: number }
+type Cut = [number, number];
+interface Seat { at: Point; c: number }
+interface Candidate { pts: Point[]; sS: Side; sT: Side; offS: number; offT: number; lb: number }
+interface RouteResult { pts: Point[]; cost: number; port: Ports }
+interface Bounds { width: number; height: number; grew: boolean }
+interface LoopPad { r: number; t: number; b: number }
+/** One authored edge, resolved to the members it is laid out between. */
+interface Laid { i: number; e: GraphEdge; a: string; b: string; loose: boolean; label: Size | null }
+interface SolveCtx {
+  nodes: Record<string, Box>;
+  gboxes: Record<string, Box>;
+  lineageOf: (id: string) => Set<string>;
+  groups: GraphGroup[];
+  lr: boolean;
+  tips: Set<string>;
+  titleSizes: Record<string, Size>;
+  titleInset: number;
+}
+/** What dagre's graphlib hands back for a node once laid out (it mutates these in place). */
+interface DagreNode { x: number; y: number; width: number; height: number }
+/** A laid-out edge label: dagre's waypoints, and the label's centre when it had a size. */
+interface DagreEdgeLabel { points?: Point[]; x?: number; y?: number }
+interface DagreEdgeRef { v: string; w: string; name?: string }
+/** The slice of graphlib's untyped Graph API this kernel calls. */
+interface DagreGraph {
+  setGraph(label: Record<string, unknown>): void;
+  setDefaultEdgeLabel(fn: () => Record<string, unknown>): void;
+  setNode(v: string, label: Record<string, unknown>): void;
+  setParent(v: string, parent: string): void;
+  setEdge(v: string, w: string, label: Record<string, unknown>, name: string): void;
+  node(v: string): DagreNode | undefined;
+  edge(e: DagreEdgeRef): DagreEdgeLabel;
+  edge(v: string, w: string, name: string): DagreEdgeLabel | undefined;
+  nodes(): string[];
+  edges(): DagreEdgeRef[];
+}
+
+export function graphLayoutKernel(): GraphKernel {
+  const Q = (v: number) => Math.round(v * 2) / 2;
+  const R1 = (v: number) => Math.round(v * 10) / 10;
+
+  /**
+   * A stand-in for graphlib's Graph, for a layout whose boxes are placed without dagre
+   * (the reading-order grid, or positions the caller fixed). It keeps exactly what the
+   * rest of layoutOnce reads back: node boxes, and edges with no waypoints. So a chain-only
+   * chart lays out and routes with no dagre loaded at all.
+   */
+  function miniGraph(): DagreGraph {
+    const nodes = new Map<string, DagreNode>();
+    const edges = new Map<string, { ref: DagreEdgeRef; label: DagreEdgeLabel }>();
+    const edge = ((a: DagreEdgeRef | string, _w?: string, name?: string) => edges.get(typeof a === 'string' ? (name as string) : (a.name as string))?.label) as DagreGraph['edge'];
+    return {
+      setGraph() {},
+      setDefaultEdgeLabel() {},
+      setNode(v, label) { nodes.set(v, label as unknown as DagreNode); },
+      setParent() {},
+      setEdge(v, w, label, name) { edges.set(name, { ref: { v, w, name }, label: label as DagreEdgeLabel }); },
+      node: (v) => nodes.get(v),
+      edge,
+      nodes: () => [...nodes.keys()],
+      edges: () => [...edges.values()].map((x) => x.ref),
+    };
+  }
+
+  /** Lay out one direction. Returns the geometry, or null without dagre (or a grid that cannot hold the shapes). */
+  function layoutOnce(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | Bounds | null {
+    // Boxes placed without dagre: the reading-order grid (`grid`, a line count), or the
+    // caller's own positions (`positions`, the fixed-positions router). Neither holds
+    // groups: a group's box comes from dagre's cluster layout.
+    const fixed = opts.grid != null || opts.positions != null;
+    if (fixed ? (model.groups || []).length > 0 : !dagre?.layout || !dagre.Graph) return null;
     const dir = opts.dir === 'tb' ? 'TB' : 'LR';
     const lr = dir === 'LR';
     const sp = opts.spacing || {};
-    const g = new dagre.Graph({ multigraph: true, compound: true });
+    const g = fixed ? miniGraph() : new (dagre as DagreLike).Graph({ multigraph: true, compound: true }) as DagreGraph;
     g.setGraph({ rankdir: dir, nodesep: sp.node != null ? sp.node : 30, ranksep: sp.rank != null ? sp.rank : 60, edgesep: sp.edge != null ? sp.edge : 14, marginx: 0, marginy: 0 });
     g.setDefaultEdgeLabel(() => ({}));
 
-    const key = new Map(); // model id → graph key
-    const idOf = new Map();
+    const key = new Map<string, string>(); // model id → graph key
+    const idOf = new Map<string, string>();
     let k = 0;
     const groups = model.groups || [];
     const shapes = model.shapes || [];
@@ -51,13 +130,13 @@ function graphLayoutKernel() {
     for (const s of shapes) { const nk = `n${k++}`; key.set(s.id, nk); idOf.set(nk, s.id); }
     const pad = sp.groupPad != null ? sp.groupPad : 14;
     const padTop = sp.groupPadTop != null ? sp.groupPadTop : 30;
-    for (const gr of groups) g.setNode(key.get(gr.id), { paddingTop: padTop, paddingBottom: pad, paddingLeft: pad, paddingRight: pad });
+    for (const gr of groups) g.setNode(key.get(gr.id)!, { paddingTop: padTop, paddingBottom: pad, paddingLeft: pad, paddingRight: pad });
     // A shape that three or more lines leave (or enter) along the flow grows across it,
     // so the router can give every line its own port 12 units apart: six lines off a box
     // 42 tall were once squeezed 5 units apart, and the crowd turned into detours (the demo
     // deck's line-vocabulary slide).
     const PORT = 12;
-    const outs = new Map(), ins = new Map();
+    const outs = new Map<string, number>(), ins = new Map<string, number>();
     let grew = false;
     for (const e of model.edges || []) {
       if (e.style?.loose || e.from === e.to) continue;
@@ -69,9 +148,9 @@ function graphLayoutKernel() {
     // each 10 units outside the one before it. dagre never sees loops, so the nesting's
     // room is reserved on the box, on both sides the loops reach, and taken back off
     // after layout: `loopPad` is { r, t, b } in units, keyed by shape.
-    const loopCount = {};
+    const loopCount: Record<string, number> = {};
     for (const e of model.edges || []) if (e.from === e.to && !e.style?.loose) loopCount[e.from] = (loopCount[e.from] || 0) + 1;
-    const loopPad = {};
+    const loopPad: Record<string, LoopPad> = {};
     for (const [id, c] of Object.entries(loopCount)) {
       const j = 10 * (c - 1);
       loopPad[id] = dir === 'LR' ? { r: j, t: j, b: 0 } : { r: j, t: 0, b: j };
@@ -87,40 +166,99 @@ function graphLayoutKernel() {
         if (s.shape === 'circle') w = h = Math.max(w, h);
       }
       const lp = loopPad[s.id] || { r: 0, t: 0, b: 0 };
-      g.setNode(key.get(s.id), { width: Q(w) + lp.r, height: Q(h) + lp.t + lp.b });
+      g.setNode(key.get(s.id)!, { width: Q(w) + lp.r, height: Q(h) + lp.t + lp.b });
     }
-    for (const x of [...groups, ...shapes]) if (x.parent && key.has(x.parent)) g.setParent(key.get(x.id), key.get(x.parent));
+    for (const x of [...groups, ...shapes]) if (x.parent && key.has(x.parent)) g.setParent(key.get(x.id)!, key.get(x.parent)!);
 
     // dagre cannot attach an edge to a cluster: an edge to or from a GROUP is laid out
     // between representative members (its first member in authored order, descending
     // into nested groups) and trimmed to the group's border afterwards.
     const isGroup = new Set(groups.map((x) => x.id));
-    const firstLeaf = (gid) => {
+    const firstLeaf = (gid: string): string | null => {
       for (const s of shapes) { let p = s.parent; while (p) { if (p === gid) return s.id; p = groups.find((x) => x.id === p)?.parent; } }
       return null;
     };
-    const rep = (id) => (isGroup.has(id) ? firstLeaf(id) : id);
+    const rep = (id: string) => (isGroup.has(id) ? firstLeaf(id) : id);
 
     const edges = model.edges || [];
     const labelSizes = opts.labelSizes || {};
-    const laid = [];
+    const laid: Laid[] = [];
     edges.forEach((e, i) => {
       const a = rep(e.from), b = rep(e.to);
       if (!a || !b) return;
       const loose = !!(e.style?.loose);
       const lb = e.label ? labelSizes[i] || { w: e.label.length * 7 + 12, h: 16 } : null;
-      const attrs = { weight: e.heavy ? 4 : 1, minlen: 1 };
+      const attrs: { weight: number; minlen: number; width?: number; height?: number; labelpos?: string } = { weight: e.heavy ? 4 : 1, minlen: 1 };
       if (lb) { attrs.width = Q(lb.w); attrs.height = Q(lb.h); attrs.labelpos = 'c'; }
       const rec = { i, e, a, b, loose, label: lb };
       laid.push(rec);
       if (loose || a === b) return; // loose lines and self-loops are routed after layout
       // The grammar kernel already chose the back edges (authored-order walk): hand dagre
       // the reversed edge so its own cycle breaker never has to decide.
-      if (e.back) g.setEdge(key.get(b), key.get(a), attrs, `e${i}`);
-      else g.setEdge(key.get(a), key.get(b), attrs, `e${i}`);
+      if (e.back) g.setEdge(key.get(b)!, key.get(a)!, attrs, `e${i}`);
+      else g.setEdge(key.get(a)!, key.get(b)!, attrs, `e${i}`);
     });
 
-    dagre.layout(g);
+    if (!fixed) (dagre as DagreLike).layout(g);
+    else if (!placeFixed()) return null;
+
+    /**
+     * Place every shape's box without dagre. `positions` is the caller's own (each box's
+     * centre). `grid` lays the shapes out in READING ORDER on that many lines, every line
+     * running the same way (the state chart's wrapping chain): cell i sits at line
+     * floor(i / per), column i % per, each column as wide as its widest box along the
+     * flow and each line as deep as its deepest box across it. The gaps leave room for the
+     * router's lanes and for the widest label, since a wrap connector and a skip both run
+     * through the channel between lines. Every line holds at least two shapes: a lone
+     * shape on the last line reads as an afterthought, not a continuation.
+     */
+    function placeFixed(): boolean {
+      // Every shape was given a node above; a missing one is a kernel bug, said by name.
+      const nodeOf = (id: string): DagreNode => {
+        const n = g.node(key.get(id) ?? '');
+        if (!n) throw new Error(`trama: no box for shape ${id}`);
+        return n;
+      };
+      if (opts.positions) {
+        for (const s of shapes) {
+          const at = opts.positions[s.id];
+          if (!at) return false;
+          const n = nodeOf(s.id);
+          n.x = at.x; n.y = at.y;
+        }
+        return true;
+      }
+      const lines = opts.grid as number;
+      const N = shapes.length;
+      if (!(lines >= 1) || N < 2) return false;
+      const per = Math.ceil(N / lines);
+      const nLines = Math.ceil(N / per);
+      if (nLines !== lines || (nLines > 1 && N - (nLines - 1) * per < Math.min(2, per))) return false;
+      let labW = 0, labH = 0;
+      for (const r of laid) if (r.label) { labW = Math.max(labW, r.label.w); labH = Math.max(labH, r.label.h); }
+      const rankGap = sp.rank != null ? sp.rank : 60;
+      const flowGap = Math.max(rankGap, labW ? (lr ? labW : labH) + 36 : 0);
+      const lineGap = Math.max(rankGap, labW ? 2 * (lr ? labH : labW) + 36 : 0);
+      const along = (n: DagreNode) => (lr ? n.width : n.height);
+      const across = (n: DagreNode) => (lr ? n.height : n.width);
+      const colA: number[] = new Array(per).fill(0), lineC: number[] = new Array(nLines).fill(0);
+      shapes.forEach((s, i) => {
+        const n = nodeOf(s.id);
+        colA[i % per] = Math.max(colA[i % per], along(n));
+        lineC[Math.floor(i / per)] = Math.max(lineC[Math.floor(i / per)], across(n));
+      });
+      const colStart: number[] = [], lineStart: number[] = [];
+      let acc = 0;
+      for (let j = 0; j < per; j++) { colStart.push(acc); acc += colA[j] + flowGap; }
+      acc = 0;
+      for (let j = 0; j < nLines; j++) { lineStart.push(acc); acc += lineC[j] + lineGap; }
+      shapes.forEach((s, i) => {
+        const n = nodeOf(s.id);
+        const u = colStart[i % per] + colA[i % per] / 2, v = lineStart[Math.floor(i / per)] + lineC[Math.floor(i / per)] / 2;
+        n.x = lr ? u : v; n.y = lr ? v : u;
+      });
+      return true;
+    }
 
     // dagre never reads a cluster's padding: a group's top gap is whatever its border rank
     // (along the flow) or its node spacing (across it) happens to give, and in a compact lr
@@ -132,24 +270,24 @@ function graphLayoutKernel() {
     // it sits beside the group, so nothing moves into it, and moving it would carry it level
     // with the title. Order is kept both ways, so nothing that was clear starts to overlap.
     // Outer groups first; each band is measured after the ones before it.
-    const depthOf = (gid) => { let d = 0; for (let p = groups.find((x) => x.id === gid)?.parent; p; p = groups.find((x) => x.id === p)?.parent) d++; return d; };
+    const depthOf = (gid: string) => { let d = 0; for (let p = groups.find((x) => x.id === gid)?.parent; p; p = groups.find((x) => x.id === p)?.parent) d++; return d; };
     const clusters = new Set(groups.map((gr) => key.get(gr.id)));
     const titleH = opts.groupTitleSizes || {};
     for (const gr of [...groups].sort((u, v) => depthOf(u.id) - depthOf(v.id))) {
-      const gn = g.node(key.get(gr.id));
+      const gn = g.node(key.get(gr.id)!);
       if (!gn) continue;
       const top = gn.y - gn.height / 2;
       let first = Infinity;
       for (const x of [...shapes, ...groups]) {
         if (x.parent !== gr.id) continue;
-        const n = g.node(key.get(x.id));
+        const n = g.node(key.get(x.id)!);
         if (n) first = Math.min(first, n.y - n.height / 2);
       }
       const need = top + 6 + (titleH[gr.id]?.h || 14) + 4 - first;
       if (!(need > 0.5)) continue;
       const cut = top + 0.5;
       for (const v of g.nodes()) {
-        const n = g.node(v), t = n.y - n.height / 2;
+        const n = g.node(v)!, t = n.y - n.height / 2;
         if (t >= cut) n.y += need;
         else if (t + n.height > cut && clusters.has(v)) { n.height += need; n.y += need / 2; }
       }
@@ -160,10 +298,10 @@ function graphLayoutKernel() {
       }
     }
 
-    const box = (gk) => { const n = g.node(gk); return { x: n.x - n.width / 2, y: n.y - n.height / 2, w: n.width, h: n.height, cx: n.x, cy: n.y }; };
-    const nodes = {};
+    const box = (gk: string): Box => { const n = g.node(gk)!; return { x: n.x - n.width / 2, y: n.y - n.height / 2, w: n.width, h: n.height, cx: n.x, cy: n.y }; };
+    const nodes: Record<string, Box> = {};
     for (const s of shapes) {
-      const b = box(key.get(s.id)), lp = loopPad[s.id];
+      const b = box(key.get(s.id)!), lp = loopPad[s.id];
       if (lp) {
         b.y += lp.t;
         b.h -= lp.t + lp.b;
@@ -173,8 +311,8 @@ function graphLayoutKernel() {
       }
       nodes[s.id] = b;
     }
-    const gboxes = {};
-    for (const gr of groups) gboxes[gr.id] = box(key.get(gr.id));
+    const gboxes: Record<string, Box> = {};
+    for (const gr of groups) gboxes[gr.id] = box(key.get(gr.id)!);
     // The boxes alone: a lower bound on the drawing's size (lines and labels only add to
     // it), which `layout()` uses to skip routing a direction that cannot win.
     if (opts.boundsOnly) {
@@ -189,21 +327,21 @@ function graphLayoutKernel() {
     const along = lr ? 'cx' : 'cy';
     const extent = lr ? 'w' : 'h';
     const rankPos = [...new Set(shapes.map((s) => R1(nodes[s.id][along])))].sort((p, q) => p - q);
-    const rankHalf = new Map(rankPos.map((p) => [p, 0]));
-    for (const s of shapes) { const n = nodes[s.id]; const p = R1(n[along]); rankHalf.set(p, Math.max(rankHalf.get(p), n[extent] / 2)); }
+    const rankHalf = new Map<number, number>(rankPos.map((p) => [p, 0]));
+    for (const s of shapes) { const n = nodes[s.id]; const p = R1(n[along]); rankHalf.set(p, Math.max(rankHalf.get(p)!, n[extent] / 2)); }
 
     // ── routing ────────────────────────────────────────────────────────────
-    const P = (a, c) => (lr ? { x: a, y: c } : { x: c, y: a }); // (along, cross) → point
-    const A = (pt) => (lr ? pt.x : pt.y);
-    const C = (pt) => (lr ? pt.y : pt.x);
+    const P = (a: number, c: number): Point => (lr ? { x: a, y: c } : { x: c, y: a }); // (along, cross) → point
+    const A = (pt: Point) => (lr ? pt.x : pt.y);
+    const C = (pt: Point) => (lr ? pt.y : pt.x);
 
     // The gap a vertical (cross-axis) jog may use between two along-positions.
-    const gapMid = (p, q) => {
+    const gapMid = (p: number, q: number) => {
       const lo = Math.min(p, q), hi = Math.max(p, q);
       let best = (lo + hi) / 2;
       for (let r = 0; r < rankPos.length - 1; r++) {
-        const right = rankPos[r] + rankHalf.get(rankPos[r]);
-        const left = rankPos[r + 1] - rankHalf.get(rankPos[r + 1]);
+        const right = rankPos[r] + rankHalf.get(rankPos[r])!;
+        const left = rankPos[r + 1] - rankHalf.get(rankPos[r + 1])!;
         if (right >= lo - 0.5 && left <= hi + 0.5 && left > right) { best = (right + left) / 2; break; }
       }
       return best;
@@ -212,18 +350,18 @@ function graphLayoutKernel() {
     // Lanes: a jog takes the free lane nearest its gap's middle, where "free" means no
     // earlier jog runs within a stroke gap of it over an overlapping stretch. Lanes stay
     // inside the gap between the ranks' boxes, so a jog never folds back into a shape.
-    const taken = [];
-    const lane = (mid, c0, c1) => {
+    const taken: { v: number; c0: number; c1: number }[] = [];
+    const lane = (mid: number, c0: number, c1: number) => {
       const step = sp.lane != null ? sp.lane : 8;
       let lo = -Infinity, hi = Infinity;
       for (let r = 0; r < rankPos.length - 1; r++) {
-        const right = rankPos[r] + rankHalf.get(rankPos[r]);
-        const left = rankPos[r + 1] - rankHalf.get(rankPos[r + 1]);
+        const right = rankPos[r] + rankHalf.get(rankPos[r])!;
+        const left = rankPos[r + 1] - rankHalf.get(rankPos[r + 1])!;
         if (mid > right - 0.5 && mid < left + 0.5) { lo = right + 6; hi = left - 6; break; }
       }
       const a0 = Math.min(c0, c1) - 2, a1 = Math.max(c0, c1) + 2;
-      const free = (v) => taken.every((t) => Math.abs(t.v - v) >= step - 0.5 || t.c1 < a0 || t.c0 > a1);
-      let pick = null;
+      const free = (v: number) => taken.every((t) => Math.abs(t.v - v) >= step - 0.5 || t.c1 < a0 || t.c0 > a1);
+      let pick: number | null = null;
       for (let k = 0; k < 64 && pick == null; k++) {
         const v = mid + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * step;
         if (v >= lo && v <= hi && free(v)) pick = v;
@@ -233,8 +371,8 @@ function graphLayoutKernel() {
       return pick;
     };
 
-    const routes = [];
-    const loopsOn = {};
+    const routes: Route[] = [];
+    const loopsOn: Record<string, number> = {};
     for (const rec of laid) {
       const { e } = rec;
       // Route from the REPRESENTATIVE members, along dagre's crossing-free waypoints, and
@@ -242,8 +380,8 @@ function graphLayoutKernel() {
       // would start the line on the wrong side and double back across its members).
       const src = nodes[rec.a];
       const dst = nodes[rec.b];
-      let pts;
-      let labelAt = null;
+      let pts: Point[];
+      let labelAt: Point | null = null;
       if (rec.a === rec.b && !isGroup.has(e.from) && !isGroup.has(e.to)) {
         // Self-loop: a hook off the far corner, outside the box. A later loop on the same
         // box nests outside the one before it: its outer runs 10 units further out, its
@@ -267,10 +405,10 @@ function graphLayoutKernel() {
       } else if (rec.loose) {
         pts = straightElbow(src, dst);
       } else {
-        const ge = g.edge(key.get(e.back ? rec.b : rec.a), key.get(e.back ? rec.a : rec.b), `e${rec.i}`);
+        const ge = g.edge(key.get(e.back ? rec.b : rec.a)!, key.get(e.back ? rec.a : rec.b)!, `e${rec.i}`);
         const raw = ge?.points ? ge.points.map((p) => ({ x: p.x, y: p.y })) : [];
         if (e.back) raw.reverse();
-        if (ge && rec.label && ge.x != null) labelAt = { x: ge.x, y: ge.y };
+        if (ge && rec.label && ge.x != null) labelAt = { x: ge.x, y: ge.y as number };
         pts = orthogonalize(raw, src, dst, labelAt, rec.label);
       }
       if (isGroup.has(e.from)) pts = trimAtBorder(pts, gboxes[e.from], 'start');
@@ -286,7 +424,7 @@ function graphLayoutKernel() {
 
     // Bounds.
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    const grow = (x0, y0, x1, y1) => { minX = Math.min(minX, x0); minY = Math.min(minY, y0); maxX = Math.max(maxX, x1); maxY = Math.max(maxY, y1); };
+    const grow = (x0: number, y0: number, x1: number, y1: number) => { minX = Math.min(minX, x0); minY = Math.min(minY, y0); maxX = Math.max(maxX, x1); maxY = Math.max(maxY, y1); };
     for (const b of Object.values(nodes)) grow(b.x, b.y, b.x + b.w, b.y + b.h);
     for (const b of Object.values(gboxes)) grow(b.x, b.y, b.x + b.w, b.y + b.h);
     for (const r of routes) {
@@ -296,7 +434,7 @@ function graphLayoutKernel() {
     if (!Number.isFinite(minX)) { minX = 0; minY = 0; maxX = 0; maxY = 0; }
     const m = opts.margin != null ? opts.margin : 6;
     const dx = m - minX, dy = m - minY;
-    const shift = (b) => ({ ...b, x: R1(b.x + dx), y: R1(b.y + dy), cx: R1(b.cx + dx), cy: R1(b.cy + dy), w: R1(b.w), h: R1(b.h) });
+    const shift = (b: Box): Box => ({ ...b, x: R1(b.x + dx), y: R1(b.y + dy), cx: R1(b.cx + dx), cy: R1(b.cy + dy), w: R1(b.w), h: R1(b.h) });
     for (const id of Object.keys(nodes)) nodes[id] = shift(nodes[id]);
     for (const id of Object.keys(gboxes)) gboxes[id] = shift(gboxes[id]);
     for (const r of routes) {
@@ -311,7 +449,7 @@ function graphLayoutKernel() {
     return { dir: lr ? 'lr' : 'tb', width, height, nodes, groups: gboxes, titles, routes, quality: measureQuality(nodes, gboxes, routes, titles), crossings: countCrossings(routes), grew, tidy: { crowded: crowded(routes), grazes: grazes(routes) } };
 
     // ── helpers (hoisted; they close over this call's state) ─────────────────
-    function orthogonalize(raw, s, t, lab, labSize) {
+    function orthogonalize(raw: Point[], s: Box, t: Box, lab: Point | null, labSize: Size | null): Point[] {
       // Waypoints: the source's exit, dagre's interior points, the target's entry.
       const inner = raw.length > 2 ? raw.slice(1, -1) : [];
       const exitAlong = A({ x: s.cx, y: s.cy }) + (A({ x: t.cx, y: t.cy }) >= A({ x: s.cx, y: s.cy }) ? 1 : -1) * (lr ? s.w : s.h) / 2;
@@ -338,13 +476,13 @@ function graphLayoutKernel() {
       // happen OUTSIDE the label's extent: between the previous waypoint and the label's
       // near edge, and between its far edge and the next waypoint.
       const half = lab && labSize ? (lr ? labSize.w : labSize.h) / 2 + 4 : 0;
-      const isLab = (p) => lab && Math.abs(A(p) - A(lab)) < 0.5 && Math.abs(C(p) - C(lab)) < 0.5;
+      const isLab = (p: Point) => lab && Math.abs(A(p) - A(lab)) < 0.5 && Math.abs(C(p) - C(lab)) < 0.5;
       const out = [way[0]];
       for (let j = 1; j < way.length; j++) {
         const a = out[out.length - 1], b = way[j];
         if (Math.abs(C(a) - C(b)) < 0.5) { out.push(P(A(b), C(a))); continue; }
         const dirSign = A(b) >= A(a) ? 1 : -1;
-        let mid;
+        let mid: number;
         if (isLab(b)) mid = (A(a) + (A(b) - dirSign * half)) / 2;
         else if (isLab(way[j - 1])) mid = ((A(a) + dirSign * half) + A(b)) / 2;
         else mid = gapMid(A(a), A(b));
@@ -359,14 +497,14 @@ function graphLayoutKernel() {
      * group there) or from the end (it enters there). Orthogonal runs cross a rectangle's
      * edge at one point, found exactly per segment.
      */
-    function trimAtBorder(pts, gb, which) {
-      const inRect = (p) => p.x > gb.x + 0.01 && p.x < gb.x + gb.w - 0.01 && p.y > gb.y + 0.01 && p.y < gb.y + gb.h - 0.01;
+    function trimAtBorder(pts: Point[], gb: Box, which: 'start' | 'end'): Point[] {
+      const inRect = (p: Point) => p.x > gb.x + 0.01 && p.x < gb.x + gb.w - 0.01 && p.y > gb.y + 0.01 && p.y < gb.y + gb.h - 0.01;
       const seq = which === 'start' ? pts : pts.slice().reverse();
       let k = 0;
       while (k < seq.length - 1 && inRect(seq[k + 1])) k++;
       if (k >= seq.length - 1) return pts;
       const a = seq[k], b = seq[k + 1];
-      let cut;
+      let cut: Point;
       if (Math.abs(a.x - b.x) < 0.05) cut = { x: a.x, y: b.y > a.y ? gb.y + gb.h : gb.y };
       else cut = { x: b.x > a.x ? gb.x + gb.w : gb.x, y: a.y };
       const out = [cut, ...seq.slice(k + 1)];
@@ -374,8 +512,8 @@ function graphLayoutKernel() {
     }
 
 
-    function placeTitles(rs) {
-      const titles = {};
+    function placeTitles(rs: Route[]): Record<string, Rect> {
+      const titles: Record<string, Rect> = {};
       const tsz = opts.groupTitleSizes || {};
       const inset = sp.titleInset != null ? sp.titleInset : 10;
       for (const gr of groups) {
@@ -394,9 +532,9 @@ function graphLayoutKernel() {
     }
 
     // The shape or group and every group holding it.
-    function lineageOf(id) {
+    function lineageOf(id: string): Set<string> {
       const out = new Set([id]);
-      let q = id;
+      let q: string | null | undefined = id;
       for (;;) {
         const x = groups.find((gr) => gr.id === q) || shapes.find((sh) => sh.id === q);
         q = x?.parent;
@@ -406,7 +544,7 @@ function graphLayoutKernel() {
     }
     // A run passing within 5 units of a stranger's box (the box grown by 6, less pathHits'
     // 1-unit inset), without entering it, reads as touching it.
-    function grazes(rs) {
+    function grazes(rs: Route[]) {
       let n = 0;
       for (const r of rs) {
         for (const [id, b] of Object.entries(nodes)) {
@@ -418,8 +556,8 @@ function graphLayoutKernel() {
     }
     // Two line ends on one side of a box closer than 10 units read as one port, or as a
     // doubled line (a fan into Mitigate once landed 7 units from another line's end).
-    function crowded(rs) {
-      const ends = [];
+    function crowded(rs: Route[]) {
+      const ends: Point[] = [];
       for (const r of rs) if (r.points.length > 1) ends.push(r.points[0], r.points[r.points.length - 1]);
       let n = 0;
       for (let i = 0; i < ends.length; i++) {
@@ -436,7 +574,7 @@ function graphLayoutKernel() {
 
 
     /** Is the point on one of the path's segments? */
-    function onPath(pts, q) {
+    function onPath(pts: Point[], q: Point) {
       for (let j = 1; j < pts.length; j++) {
         const a = pts[j - 1], b = pts[j];
         const inX = q.x >= Math.min(a.x, b.x) - 0.5 && q.x <= Math.max(a.x, b.x) + 0.5;
@@ -447,8 +585,8 @@ function graphLayoutKernel() {
     }
 
     /** The middle of the path's longest run: where a label re-seats when its slot moved. */
-    function onLongestRun(pts) {
-      let best = null, len = -1;
+    function onLongestRun(pts: Point[]): Point | null {
+      let best: Point | null = null, len = -1;
       for (let j = 1; j < pts.length; j++) {
         const a = pts[j - 1], b = pts[j];
         const l = Math.hypot(b.x - a.x, b.y - a.y);
@@ -457,7 +595,7 @@ function graphLayoutKernel() {
       return best;
     }
 
-    function straightElbow(s, t) {
+    function straightElbow(s: Box, t: Box): Point[] {
       const forward = A({ x: t.cx, y: t.cy }) >= A({ x: s.cx, y: s.cy });
       const sA = A({ x: s.cx, y: s.cy }) + (forward ? 1 : -1) * (lr ? s.w : s.h) / 2;
       const tA = A({ x: t.cx, y: t.cy }) - (forward ? 1 : -1) * (lr ? t.w : t.h) / 2;
@@ -507,50 +645,50 @@ function graphLayoutKernel() {
    * sweep and the spread still run and the refinements stop.
    * Deterministic: fixed orders, no randomness, and a budget counted in work, not time.
    */
-  function solveRoutes(rs, ctx) {
+  function solveRoutes(rs: Route[], ctx: SolveCtx): void {
     const { nodes, gboxes, lineageOf, groups } = ctx;
     const STUB = 14, SLOT = 14, HALO = 6, NEAR = 6;
     const W = { cross: 1000, label: 1000, thru: 300, foreign: 400, band: 2500, arrive: 120, load: 20, bend: 40, kink: 300, cramped: 300, offMid: 2, sym: 120, inside: 100, hug: 40, out: 6, tipOff: 20, tipLoad: 600 };
     const lr = ctx.lr;
-    const aLo = (b) => (lr ? b.x : b.y), aHi = (b) => (lr ? b.x + b.w : b.y + b.h), aMid = (b) => (lr ? b.cx : b.cy);
+    const aLo = (b: Box) => (lr ? b.x : b.y), aHi = (b: Box) => (lr ? b.x + b.w : b.y + b.h), aMid = (b: Box) => (lr ? b.cx : b.cy);
     // A line arrives on the side of its target that faces its source along the flow, when
     // the source lies upstream or downstream of it: a child is entered from the top in a
     // top-to-bottom chart, never from its flank. (Leaving by a flank is fine: that is the
     // owner's side balance.)
-    const facing = (S, T) => (aMid(S) < aLo(T) ? (lr ? 'L' : 'T') : aMid(S) > aHi(T) ? (lr ? 'R' : 'B') : null);
-    const boxOf = (id) => nodes[id] || gboxes[id];
-    const NORMAL = { L: { x: -1, y: 0 }, R: { x: 1, y: 0 }, T: { x: 0, y: -1 }, B: { x: 0, y: 1 } };
-    const onVertical = (side) => side === 'L' || side === 'R';
-    const sideLen = (b, side) => (onVertical(side) ? b.h : b.w);
-    const portAt = (b, side, off) => {
+    const facing = (S: Box, T: Box): Side | null => (aMid(S) < aLo(T) ? (lr ? 'L' : 'T') : aMid(S) > aHi(T) ? (lr ? 'R' : 'B') : null);
+    const boxOf = (id: string): Box | undefined => nodes[id] || gboxes[id];
+    const NORMAL: Record<Side, Point> = { L: { x: -1, y: 0 }, R: { x: 1, y: 0 }, T: { x: 0, y: -1 }, B: { x: 0, y: 1 } };
+    const onVertical = (side: Side) => side === 'L' || side === 'R';
+    const sideLen = (b: Box, side: Side) => (onVertical(side) ? b.h : b.w);
+    const portAt = (b: Box, side: Side, off: number): Point => {
       if (side === 'L') return { x: b.x, y: b.cy + off };
       if (side === 'R') return { x: b.x + b.w, y: b.cy + off };
       if (side === 'T') return { x: b.cx + off, y: b.y };
       return { x: b.cx + off, y: b.y + b.h };
     };
-    const sideOf = (q, b) => {
-      const d = { L: Math.abs(q.x - b.x), R: Math.abs(q.x - b.x - b.w), T: Math.abs(q.y - b.y), B: Math.abs(q.y - b.y - b.h) };
-      return Object.keys(d).reduce((m, k) => (d[k] < d[m] ? k : m));
+    const sideOf = (q: Point, b: Box): Side => {
+      const d: Record<Side, number> = { L: Math.abs(q.x - b.x), R: Math.abs(q.x - b.x - b.w), T: Math.abs(q.y - b.y), B: Math.abs(q.y - b.y - b.h) };
+      return (Object.keys(d) as Side[]).reduce((m, k) => (d[k] < d[m] ? k : m));
     };
-    const len = (pts) => pts.slice(1).reduce((a, q, j) => a + Math.abs(q.x - pts[j].x) + Math.abs(q.y - pts[j].y), 0);
-    const grown = (b, m) => ({ x: b.x - m, y: b.y - m, w: b.w + 2 * m, h: b.h + 2 * m });
+    const len = (pts: Point[]) => pts.slice(1).reduce((a, q, j) => a + Math.abs(q.x - pts[j].x) + Math.abs(q.y - pts[j].y), 0);
+    const grown = (b: Rect, m: number): Rect => ({ x: b.x - m, y: b.y - m, w: b.w + 2 * m, h: b.h + 2 * m });
     // Each group's title band, and the room a title needs in it (placeTitles' rule: the
     // title plus 6 clear each side, between the insets).
-    const bands = groups.filter((g) => gboxes[g.id]).map((g) => {
+    const bands: Band[] = groups.filter((g) => gboxes[g.id]).map((g) => {
       const b = gboxes[g.id], z = ctx.titleSizes[g.id] || { w: g.name.length * 7 + 8 };
       return { x: b.x, y: b.y + 6, w: b.w, h: 14, lo: b.x + ctx.titleInset - 6, hi: b.x + b.w - ctx.titleInset + 6, need: z.w + 12 };
     });
     // Where the other lines already cut each band, gathered once per route (`cutsFor`).
-    let bandCuts = null;
-    const cutsOf = (band, pts, into) => {
+    let bandCuts = null as Cut[][] | null;
+    const cutsOf = (band: Rect, pts: Point[], into: Cut[]) => {
       for (let j = 1; j < pts.length; j++) {
         const a = pts[j - 1], q = pts[j];
         if (pathHits([a, q], band)) into.push([Math.min(a.x, q.x), Math.max(a.x, q.x)]);
       }
       return into;
     };
-    const cutsFor = (r) => bands.map((band) => {
-      const cuts = [];
+    const cutsFor = (r: Route): Cut[][] => bands.map((band) => {
+      const cuts: Cut[] = [];
       for (const o of work) if (o !== r && port.has(o)) cutsOf(band, o.points, cuts);
       for (const o of loops) cutsOf(band, o.points, cuts);
       // placeTitles steps around labels as well as lines.
@@ -558,8 +696,8 @@ function graphLayoutKernel() {
       return cuts;
     });
     // Is there still a slot for the title once `extra` runs cross its band too?
-    const titleFits = (band, extra) => slotLeft(band, cutsOf(band, extra, bandCuts[bands.indexOf(band)].slice()));
-    const slotLeft = (band, cuts) => {
+    const titleFits = (band: Band, extra: Point[]) => slotLeft(band, cutsOf(band, extra, bandCuts![bands.indexOf(band)].slice()));
+    const slotLeft = (band: Band, cuts: Cut[]) => {
       cuts.sort((u, v) => u[0] - v[0]);
       let from = band.lo;
       for (const [a, q] of cuts) {
@@ -571,7 +709,7 @@ function graphLayoutKernel() {
 
     // Lanes: the midline of every channel between box edges, with offsets either side, and
     // lanes just outside the whole drawing. Coordinates closer than 3 merge.
-    const lanes = (edges, lo, hi) => {
+    const lanes = (edges: number[], lo: number, hi: number) => {
       const e = [...new Set(edges.map((v) => Math.round(v * 2) / 2))].sort((a, b) => a - b);
       const out = [lo - 20, lo - 32, hi + 20, hi + 32];
       for (let i = 1; i < e.length; i++) {
@@ -593,19 +731,19 @@ function graphLayoutKernel() {
     // lines it may not run along or cross, and their ends load their sides.
     const loops = rs.filter((r) => r.from === r.to && r.points.length > 1);
     // ends[id|side] = the routes (and which end) currently on that side of that box
-    const port = new Map(); // route -> { start: {side, off}, end: {side, off} }
+    const port = new Map<Route, Ports>(); // route -> { start: {side, off}, end: {side, off} }
 
     // Two runs within NEAR of each other, parallel, overlapping more than 10, are one line
     // to a reader. Runs that leave (or reach) the same box side are exempt until the ports
     // spread: they start at one provisional point by design.
-    const sharesRun = (pts, r, o) => {
+    const sharesRun = (pts: Point[], r: Route, o: Route) => {
       // The exempt pairs: the two runs that touch the one side both lines use.
       const po = port.get(o), q = o.points, J = pts.length - 1, Kq = q.length - 1;
       // In strict mode (the spread's last fallback) an end the spread has locked is never
       // exempt: a run on top of it is a shared run like any other.
-      const exempt = (j, k) => !!po && !(strict && ((j === 1 && (o.from === r.from ? po.start.lock : po.end.lock)) || (j === J && (o.to === r.to ? po.end.lock : po.start.lock)))) && (
-        (j === 1 && ((o.from === r.from && po.start.side === cur.sS && k === 1) || (o.to === r.from && po.end.side === cur.sS && k === Kq))) ||
-        (j === J && ((o.to === r.to && po.end.side === cur.sT && k === Kq) || (o.from === r.to && po.start.side === cur.sT && k === 1))));
+      const exempt = (j: number, k: number) => !!po && !(strict && ((j === 1 && (o.from === r.from ? po.start.lock : po.end.lock)) || (j === J && (o.to === r.to ? po.end.lock : po.start.lock)))) && (
+        (j === 1 && ((o.from === r.from && po.start.side === cur!.sS && k === 1) || (o.to === r.from && po.end.side === cur!.sS && k === Kq))) ||
+        (j === J && ((o.to === r.to && po.end.side === cur!.sT && k === Kq) || (o.from === r.to && po.start.side === cur!.sT && k === 1))));
       for (let j = 1; j < pts.length; j++) for (let k = 1; k < q.length; k++) {
         const a = pts[j - 1], b = pts[j], c = q[k - 1], d = q[k];
         const h1 = Math.abs(a.y - b.y) < 0.05, h2 = Math.abs(c.y - d.y) < 0.05;
@@ -618,11 +756,11 @@ function graphLayoutKernel() {
       }
       return false;
     };
-    let cur = null; // the side pair under evaluation, for sharesRun's exemption
+    let cur = null as { sS: Side; sT: Side } | null; // the side pair under evaluation, for sharesRun's exemption
     let strict = false; // see sharesRun
     let wide = false; // the two-lane search's last resort: more lanes, every side pair
-    const boxes = new WeakMap(); // points array -> its bounding box
-    const bboxOf = (pts) => {
+    const boxes = new WeakMap<Point[], BBox>(); // points array -> its bounding box
+    const bboxOf = (pts: Point[]) => {
       let b = boxes.get(pts);
       if (!b) {
         b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
@@ -634,7 +772,7 @@ function graphLayoutKernel() {
     // Two parallel runs closer than 12 over more than 20 read as a crowded pair, though they
     // stay two lines: a soft cost, so a lane further off wins when it costs little else.
     // (Runs closer than NEAR that overlap are sharesRun's, and never allowed.)
-    const hugs = (p, q) => {
+    const hugs = (p: Point[], q: Point[]) => {
       let n = 0;
       for (let j = 1; j < p.length; j++) for (let k = 1; k < q.length; k++) {
         const a = p[j - 1], b = p[j], c = q[k - 1], d = q[k];
@@ -654,9 +792,9 @@ function graphLayoutKernel() {
 
     // The part of a candidate's cost that needs no collision test: a lower bound on the
     // whole, so candidates can be sorted by it and the search stop early.
-    let loads = null; // id|side -> ends of OTHER lines there, for the line being routed
-    const loadsFor = (r) => {
-      const m = new Map();
+    let loads = null as Map<string, number> | null; // id|side -> ends of OTHER lines there, for the line being routed
+    const loadsFor = (r: Route) => {
+      const m = new Map<string, number>();
       for (const o of loops) {
         const b = boxOf(o.from);
         if (!b) continue;
@@ -669,16 +807,16 @@ function graphLayoutKernel() {
       return m;
     };
     // The drawing's frame: every box and group. `env` adds the other lines, per route.
-    const frame = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    const frame: BBox = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
     for (const b of [...Object.values(nodes), ...Object.values(gboxes)]) { frame.x0 = Math.min(frame.x0, b.x); frame.y0 = Math.min(frame.y0, b.y); frame.x1 = Math.max(frame.x1, b.x + b.w); frame.y1 = Math.max(frame.y1, b.y + b.h); }
-    let env = null;
-    const cap = (b, side) => Math.max(1, Math.floor((sideLen(b, side) - 16) / 10) + 1);
-    const cheap = (pts, r, sS, sT, offS, offT) => {
-      const S = boxOf(r.from), T = boxOf(r.to);
+    let env = null as BBox | null;
+    const cap = (b: Box, side: Side) => Math.max(1, Math.floor((sideLen(b, side) - 16) / 10) + 1);
+    const cheap = (pts: Point[], r: Route, sS: Side, sT: Side, offS: number, offT: number) => {
+      const S = boxOf(r.from)!, T = boxOf(r.to)!;
       let c = 0;
       const face = facing(S, T);
       if (face && sT !== face) c += W.arrive;
-      const nS = loads.get(`${r.from}|${sS}`) || 0, nT = loads.get(`${r.to}|${sT}`) || 0;
+      const nS = loads!.get(`${r.from}|${sS}`) || 0, nT = loads!.get(`${r.to}|${sT}`) || 0;
       // A side holds one end per 10 units of its length (less 8 clear at each corner); a
       // full side is not a candidate at all, so a crowd moves to another side.
       if (nS >= cap(S, sS) || nT >= cap(T, sT)) return Infinity;
@@ -703,8 +841,8 @@ function graphLayoutKernel() {
       }
       return c;
     };
-    const haloed = Object.fromEntries(Object.entries(nodes).map(([id, b]) => [id, grown(b, HALO)]));
-    const gHalo = Object.fromEntries(Object.entries(gboxes).map(([id, b]) => [id, grown(b, 2)]));
+    const haloed: Record<string, Rect> = Object.fromEntries(Object.entries(nodes).map(([id, b]) => [id, grown(b, HALO)]));
+    const gHalo: Record<string, Rect> = Object.fromEntries(Object.entries(gboxes).map(([id, b]) => [id, grown(b, 2)]));
     // A work budget, counted in candidate evaluations so the result is the same on every
     // machine: every corpus chart and the demo deck stay far under it (17,370 at most);
     // a dense chart past it keeps its first sweep and a spread that holds sides, and skips
@@ -712,19 +850,19 @@ function graphLayoutKernel() {
     const BUDGET = 20000;
     let evals = 0;
     const over = () => evals > BUDGET;
-    let mine = null; // the lineage of the line being routed
-    let oneSided = []; // the groups the line enters: holding its target but not its source
-    const lineage = (r) => {
+    let mine = null as Set<string> | null; // the lineage of the line being routed
+    let oneSided: string[] = []; // the groups the line enters: holding its target but not its source
+    const lineage = (r: Route) => {
       const a = lineageOf(r.from), b = lineageOf(r.to);
       mine = new Set([...a, ...b]);
       oneSided = [...b].filter((g) => gboxes[g] && g !== r.to && !a.has(g));
     };
     // A label is part of its route: each candidate is charged for the best seat it offers,
     // against the shapes, the group borders and titles, and every label already seated.
-    const labelOf = new Map(); // route -> its seated label box
-    const seatOf = new WeakMap(); // candidate points -> { at, c }
-    const boxAt = (r, q) => ({ x: q.x - r.labelSize.w / 2, y: q.y - r.labelSize.h / 2, w: r.labelSize.w, h: r.labelSize.h });
-    const seatCost = (r, box) => {
+    const labelOf = new Map<Route, Rect>(); // route -> its seated label box
+    const seatOf = new WeakMap<Point[], Seat>(); // candidate points -> { at, c }
+    const boxAt = (r: Route, q: Point): Rect => ({ x: q.x - r.labelSize!.w / 2, y: q.y - r.labelSize!.h / 2, w: r.labelSize!.w, h: r.labelSize!.h });
+    const seatCost = (r: Route, box: Rect) => {
       const near = { x: box.x - 4, y: box.y - 3, w: box.w + 8, h: box.h + 6 };
       let c = 0;
       for (const id in nodes) if (overlaps(near, nodes[id])) c += overlaps(box, nodes[id]) ? W.label : 30;
@@ -754,9 +892,9 @@ function graphLayoutKernel() {
       }
       return c;
     };
-    const labelSeat = (pts, r) => {
-      const { w, h } = r.labelSize;
-      let best = null;
+    const labelSeat = (pts: Point[], r: Route): Seat => {
+      const { w, h } = r.labelSize!;
+      let best: Seat | null = null;
       for (let j = 1; j < pts.length; j++) {
         const a = pts[j - 1], b = pts[j];
         const horiz = Math.abs(a.y - b.y) < 0.05;
@@ -786,7 +924,7 @@ function graphLayoutKernel() {
       }
       return best || { at: longestRunMid(pts), c: W.label };
     };
-    const commit = (r, pts) => {
+    const commit = (r: Route, pts: Point[]) => {
       r.points = pts;
       if (!r.labelSize) return;
       const s = seatOf.get(pts) || labelSeat(pts, r);
@@ -794,9 +932,9 @@ function graphLayoutKernel() {
       labelOf.set(r, boxAt(r, s.at));
     };
     // The full cost of one candidate against every other line as it stands. Infinity = never.
-    const costOf = (pts, r, sS, sT, offS, offT, base, limit) => {
+    const costOf = (pts: Point[], r: Route, sS: Side, sT: Side, offS: number, offT: number, base?: number | null, limit?: number | null) => {
       evals++;
-      const S = boxOf(r.from), T = boxOf(r.to);
+      const S = boxOf(r.from)!, T = boxOf(r.to)!;
       for (let j = 1; j < pts.length; j++) {
         const a = pts[j - 1], b = pts[j];
         if (Math.abs(a.x - b.x) > 0.05 && Math.abs(a.y - b.y) > 0.05) return Infinity;
@@ -830,7 +968,7 @@ function graphLayoutKernel() {
         c += W.cross * crossings(pts, o.points);
       }
       if (limit != null && c >= limit) return c;
-      for (const g of groups) if (gboxes[g.id] && !mine.has(g.id) && pathHits(pts, gHalo[g.id])) c += W.foreign;
+      for (const g of groups) if (gboxes[g.id] && !mine!.has(g.id) && pathHits(pts, gHalo[g.id])) c += W.foreign;
       // A line into a group its source is not in enters straight: its turns sit outside.
       // (A line leaving a group turns inside it as it must.)
       for (const gid of oneSided) {
@@ -846,7 +984,7 @@ function graphLayoutKernel() {
         c += titleFits(band, pts) ? 60 : W.band;
       }
       for (const [o, lb] of labelOf) if (o !== r && pathHits(pts, lb)) c += W.thru;
-      if (r.labelSize && !(limit <= c)) {
+      if (r.labelSize && !((limit as number) <= c)) {
         const seat = labelSeat(pts, r);
         seatOf.set(pts, seat);
         c += seat.c;
@@ -854,7 +992,7 @@ function graphLayoutKernel() {
       return c;
     };
     // The drawing's span without `r`: every box and every other line.
-    const envFor = (r) => {
+    const envFor = (r: Route): BBox => {
       const e = { ...frame };
       for (const o of [...work, ...loops]) {
         if (o === r || (o.from !== o.to && !port.has(o))) continue;
@@ -863,7 +1001,7 @@ function graphLayoutKernel() {
       }
       return e;
     };
-    const evalFull = (pts, r, sS, sT, offS, offT) => {
+    const evalFull = (pts: Point[], r: Route, sS: Side, sT: Side, offS: number, offT: number) => {
       env = envFor(r);
       bandCuts = cutsFor(r);
       loads = loadsFor(r);
@@ -872,9 +1010,9 @@ function graphLayoutKernel() {
     };
 
     // Build one candidate from its ports and core points; null if it doubles back.
-    const build = (pS, nS, pT, nT, core) => {
+    const build = (pS: Point, nS: Point, pT: Point, nT: Point, core: Point[]): Point[] | null => {
       const raw = [pS, ...core, pT];
-      const pts = [];
+      const pts: Point[] = [];
       for (const q of raw) {
         const last = pts[pts.length - 1];
         if (last && Math.abs(last.x - q.x) < 0.05 && Math.abs(last.y - q.y) < 0.05) continue;
@@ -900,15 +1038,15 @@ function graphLayoutKernel() {
     };
 
     // The best route for one line, given every other line; `fixed` holds its ports.
-    const route = (r, fixed, hold) => {
-      const S = boxOf(r.from), T = boxOf(r.to);
+    const route = (r: Route, fixed: Ports | null, hold?: boolean): RouteResult | null => {
+      const S = boxOf(r.from)!, T = boxOf(r.to)!;
       env = envFor(r);
       bandCuts = cutsFor(r);
       loads = loadsFor(r);
       lineage(r);
-      let best = null, bestCost = Infinity, bestPort = null;
-      let cands = [];
-      const tryOne = (pts, sS, sT, offS, offT) => {
+      let best = null as Point[] | null, bestCost = Infinity, bestPort = null as Ports | null;
+      let cands: Candidate[] = [];
+      const tryOne = (pts: Point[] | null, sS: Side, sT: Side, offS: number, offT: number) => {
         if (!pts) return;
         cands.push({ pts, sS, sT, offS, offT, lb: cheap(pts, r, sS, sT, offS, offT) });
       };
@@ -922,25 +1060,25 @@ function graphLayoutKernel() {
         }
         cands = [];
       };
-      const sides = ['R', 'B', 'L', 'T'];
+      const sides: Side[] = ['R', 'B', 'L', 'T'];
       // Side pairs, cheapest possible first: a pair whose bound (distance between its
       // ports, and the arrival, crowding and turn it cannot avoid) cannot beat the best so
       // far is never built.
       const face = facing(S, T);
-      const pairs = [];
+      const pairs: { sS: Side; sT: Side; bound: number }[] = [];
       for (const sS of sides) for (const sT of sides) {
         const a = portAt(S, sS, 0), b = portAt(T, sT, 0);
         const turns = sS === sT || (onVertical(sS) !== onVertical(sT) ? 1 : 0);
-        const bound = Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + (face && sT !== face ? W.arrive : 0) + W.load * ((loads.get(`${r.from}|${sS}`) || 0) + (loads.get(`${r.to}|${sT}`) || 0)) + W.bend * turns;
+        const bound = Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + (face && sT !== face ? W.arrive : 0) + W.load * ((loads!.get(`${r.from}|${sS}`) || 0) + (loads!.get(`${r.to}|${sT}`) || 0)) + W.bend * (turns as number);
         pairs.push({ sS, sT, bound });
       }
       pairs.sort((u, v) => u.bound - v.bound);
-      const near = (L, a, b) => L.filter((v) => v > Math.min(a, b) - 120 && v < Math.max(a, b) + 120);
+      const near = (L: number[], a: number, b: number) => L.filter((v) => v > Math.min(a, b) - 120 && v < Math.max(a, b) + 120);
       const lx1 = near(LX, S.cx, T.cx), ly1 = near(LY, S.cy, T.cy);
       for (const { sS, sT, bound } of pairs) {
         if (bound >= bestCost) break;
         // A spread line keeps both its sides: only its offsets moved, so the passes converge.
-        if (hold && (sS !== fixed.start.side || sT !== fixed.end.side)) continue;
+        if (hold && (sS !== fixed!.start.side || sT !== fixed!.end.side)) continue;
         const offS = fixed && fixed.start.side === sS ? fixed.start.off : 0;
         const offT = fixed && fixed.end.side === sT ? fixed.end.off : 0;
         const pS = portAt(S, sS, offS), pT = portAt(T, sT, offT);
@@ -958,11 +1096,11 @@ function graphLayoutKernel() {
           const hS = onVertical(sS), hT = onVertical(sT);
           const spanS = hS ? [S.y + 8, S.y + S.h - 8] : [S.x + 8, S.x + S.w - 8];
           const spanT = hT ? [T.y + 8, T.y + T.h - 8] : [T.x + 8, T.x + T.w - 8];
-          const center = (bx, h) => (h ? bx.cy : bx.cx);
-          const inS = (v) => v >= spanS[0] && v <= spanS[1], inT = (v) => v >= spanT[0] && v <= spanT[1];
+          const center = (bx: Box, h: boolean) => (h ? bx.cy : bx.cx);
+          const inS = (v: number) => v >= spanS[0] && v <= spanS[1], inT = (v: number) => v >= spanT[0] && v <= spanT[1];
           if (hS === hT && nS.x === -nT.x && nS.y === -nT.y && (freeS || freeT)) {
             const lo = Math.max(spanS[0], spanT[0]), hi = Math.min(spanS[1], spanT[1]);
-            const mids = [];
+            const mids: number[] = [];
             // Both ends free: the run halfway between the two middles, or at either middle
             // (a diamond wants its tip); one end held: the run where that end is.
             if (freeS && freeT) { if (lo <= hi) for (const v of [(center(S, hS) + center(T, hT)) / 2, center(S, hS), center(T, hT)]) mids.push(Math.min(Math.max(v, lo), hi)); }
@@ -1000,9 +1138,9 @@ function graphLayoutKernel() {
         }
         // A lane outside the span of the two stub points only adds length, so the search
         // tries the lanes inside it and the three nearest either side.
-        const pick = (L, a, b) => {
+        const pick = (L: number[], a: number, b: number) => {
           const lo = Math.min(a, b), hi = Math.max(a, b);
-          const inside = [], below = [], above = [];
+          const inside: number[] = [], below: number[] = [], above: number[] = [];
           for (const v of L) (v < lo ? below : v > hi ? above : inside).push(v);
           // Inside, the lanes near either stub and near the middle are the ones that differ:
           // at most nine of them.
@@ -1014,12 +1152,12 @@ function graphLayoutKernel() {
           return [...below.slice(-3), ...mid, ...above.slice(0, 3)];
         };
         // A lane behind a stub point would double the line back on it: never built.
-        const ahead = (v, q, n, axis) => n[axis] === 0 || (v - q[axis]) * n[axis] >= -0.05;
+        const ahead = (v: number, q: Point, n: Point, axis: 'x' | 'y') => n[axis] === 0 || (v - q[axis]) * n[axis] >= -0.05;
         // A Z's length is known before it is built: a lane whose detour alone cannot beat the
         // best so far is skipped. `bound` already counts the turns the pair cannot avoid, so
         // it is the whole base: counting two more would skip lanes that collapse to an L.
         const zBase = bound;
-        const detour = (v, a, b) => Math.abs(a - v) + Math.abs(v - b) - Math.abs(a - b);
+        const detour = (v: number, a: number, b: number) => Math.abs(a - v) + Math.abs(v - b) - Math.abs(a - b);
         for (const x of pick(lx1, qS.x, qT.x)) if (ahead(x, qS, nS, 'x') && ahead(x, qT, nT, 'x') && zBase + detour(x, qS.x, qT.x) < bestCost) tryOne(build(pS, nS, pT, nT, [qS, { x, y: qS.y }, { x, y: qT.y }, qT]), sS, sT, offS, offT);
         for (const y of pick(ly1, qS.y, qT.y)) if (ahead(y, qS, nS, 'y') && ahead(y, qT, nT, 'y') && zBase + detour(y, qS.y, qT.y) < bestCost) tryOne(build(pS, nS, pT, nT, [qS, { x: qS.x, y }, { x: qT.x, y }, qT]), sS, sT, offS, offT);
         settle();
@@ -1028,13 +1166,13 @@ function graphLayoutKernel() {
       if (bestCost >= W.cross && !over()) {
         // The four lanes nearest each stub point, on each axis; twelve, and every side
         // pair, in the spread's last resort (`wide`), where the near ones found nothing.
-        const nearest = (L, a, b) => {
+        const nearest = (L: number[], a: number, b: number) => {
           const n = wide ? 12 : 4;
           return [...new Set([...L.slice().sort((u, v) => Math.abs(u - a) - Math.abs(v - a)).slice(0, n), ...L.slice().sort((u, v) => Math.abs(u - b) - Math.abs(v - b)).slice(0, n)])];
         };
         for (const { sS, sT, bound } of (hold || wide ? pairs : pairs.slice(0, 6))) {
           if (bound >= bestCost) break;
-          if (hold && (sS !== fixed.start.side || sT !== fixed.end.side)) continue;
+          if (hold && (sS !== fixed!.start.side || sT !== fixed!.end.side)) continue;
           const offS = fixed && fixed.start.side === sS ? fixed.start.off : 0;
           const offT = fixed && fixed.end.side === sT ? fixed.end.off : 0;
           const pS = portAt(S, sS, offS), pT = portAt(T, sT, offT);
@@ -1048,11 +1186,11 @@ function graphLayoutKernel() {
         }
       }
       settle();
-      return best ? { pts: best, cost: bestCost, port: bestPort } : null;
+      return best ? { pts: best, cost: bestCost, port: bestPort! } : null;
     };
 
-    const order = work.slice().sort((a, b) => (a.loose - b.loose) || (b.heavy - a.heavy) || a.index - b.index);
-    const seed = new Map(work.map((r) => [r, r.points]));
+    const order = work.slice().sort((a, b) => ((a.loose as unknown as number) - (b.loose as unknown as number)) || ((b.heavy as unknown as number) - (a.heavy as unknown as number)) || a.index - b.index);
+    const seed = new Map<Route, Point[]>(work.map((r) => [r, r.points]));
 
     // Sweep 1 builds, later sweeps rip up and reroute, until nothing improves.
     for (let sweep = 0; sweep < 4; sweep++) {
@@ -1075,7 +1213,7 @@ function graphLayoutKernel() {
         const got = route(r, null);
         if (got && got.cost < c0 - 0.5) { commit(r, got.pts); port.set(r, got.port); changed = true; }
         else if (had) { port.set(r, had); if (hadLabel) labelOf.set(r, hadLabel); }
-        else { commit(r, seed.get(r)); port.set(r, { start: { side: sideOf(r.points[0], boxOf(r.from)), off: 0 }, end: { side: sideOf(r.points[r.points.length - 1], boxOf(r.to)), off: 0 } }); }
+        else { commit(r, seed.get(r)!); port.set(r, { start: { side: sideOf(r.points[0], boxOf(r.from)!), off: 0 }, end: { side: sideOf(r.points[r.points.length - 1], boxOf(r.to)!), off: 0 } }); }
       }
       if (!changed) break;
     }
@@ -1083,11 +1221,11 @@ function graphLayoutKernel() {
     // Spread: the ends on one side sit symmetrically about its middle, SLOT apart (closer
     // if the side is short), ordered by where each line heads so none crosses another.
     // The offsets of every end on one side of a box but `skip`'s, self-loops' included.
-    const endsOn = (id, side, skip) => {
-      const offs = [];
+    const endsOn = (id: string, side: Side, skip: Route | null) => {
+      const offs: number[] = [];
       for (const o of work) {
         if (o === skip || !port.has(o)) continue;
-        const po = port.get(o);
+        const po = port.get(o)!;
         if (o.from === id && po.start.side === side) offs.push(po.start.off);
         if (o.to === id && po.end.side === side) offs.push(po.end.off);
       }
@@ -1103,14 +1241,14 @@ function graphLayoutKernel() {
     };
     // Place ends (wants in order) on a side of half-width `half`, `step` apart from each
     // other and from the fixed offsets, moving them as little as possible. null: no fit.
-    const placeAround = (wants, fixedOffs, step, half) => {
+    const placeAround = (wants: number[], fixedOffs: number[], step: number, half: number): number[] | null => {
       const fx = fixedOffs.slice().sort((u, v) => u - v);
-      const gaps = [];
+      const gaps: Cut[] = [];
       let lo = -half;
       for (const f of fx) { gaps.push([lo, f - step]); lo = f + step; }
       gaps.push([lo, half]);
       const n = wants.length;
-      const fill = (i, j, g) => {
+      const fill = (i: number, j: number, g: number): { ps: number[]; c: number } | null => {
         const [a, b] = gaps[g], k = j - i;
         if (b - a < (k - 1) * step - 0.05) return null;
         const w = wants.slice(i, j), ps = w.slice();
@@ -1125,7 +1263,7 @@ function graphLayoutKernel() {
       };
       // best[i][g]: the cheapest placement of the first i ends using gaps before g.
       const G = gaps.length;
-      const best = Array.from({ length: n + 1 }, () => Array(G + 1).fill(null));
+      const best: ({ c: number; ps: number[] } | null)[][] = Array.from({ length: n + 1 }, () => Array(G + 1).fill(null));
       best[0][0] = { c: 0, ps: [] };
       for (let g = 0; g < G; g++) for (let i = 0; i <= n; i++) {
         const cur = best[i][g];
@@ -1134,24 +1272,24 @@ function graphLayoutKernel() {
           const f = j === i ? { ps: [], c: 0 } : fill(i, j, g);
           if (!f) break;
           const nx = { c: cur.c + f.c, ps: cur.ps.concat(f.ps) };
-          if (!best[j][g + 1] || nx.c < best[j][g + 1].c) best[j][g + 1] = nx;
+          if (!best[j][g + 1] || nx.c < best[j][g + 1]!.c) best[j][g + 1] = nx;
         }
       }
-      return best[n][G] ? best[n][G].ps : null;
+      return best[n][G] ? best[n][G]!.ps : null;
     };
     const spread = () => {
-      const sides = new Map();
+      const sides = new Map<string, { id: string; side: Side; list: { r: Route; at: End }[] }>();
       for (const r of work) {
         const p = port.get(r);
         if (!p) continue;
-        for (const at of ['start', 'end']) {
+        for (const at of ['start', 'end'] as const) {
           const id = at === 'start' ? r.from : r.to, side = p[at].side, k = `${id}|${side}`;
           if (!sides.has(k)) sides.set(k, { id, side, list: [] });
-          sides.get(k).list.push({ r, at });
+          sides.get(k)!.list.push({ r, at });
         }
       }
       // A self-loop's ends hold their side too: fixed members the others spread around.
-      const pins = new Map();
+      const pins = new Map<string, number[]>();
       for (const o of loops) {
         const b = boxOf(o.from);
         if (!b) continue;
@@ -1159,44 +1297,44 @@ function graphLayoutKernel() {
           const side = sideOf(q, b);
           const k = `${o.from}|${side}`;
           if (!pins.has(k)) pins.set(k, []);
-          pins.get(k).push(onVertical(side) ? q.y - b.cy : q.x - b.cx);
+          pins.get(k)!.push(onVertical(side) ? q.y - b.cy : q.x - b.cx);
         }
       }
-      const moved = new Set();
+      const moved = new Set<Route>();
       for (const { id, side, list: all } of sides.values()) {
-        const b = boxOf(id);
+        const b = boxOf(id)!;
         // A straight line holds its end when the side also has bent lines to move instead:
         // spreading its port could leave the other box's side and break the straight run.
         const loopOffs = pins.get(`${id}|${side}`) || [];
         const stiffAll = all.filter((it) => it.r.points.length === 2);
-        let stiff = [];
+        let stiff: { r: Route; at: End }[] = [];
         if (stiffAll.length && stiffAll.length < all.length) {
-          const offs = stiffAll.map((it) => port.get(it.r)[it.at].off).concat(loopOffs).sort((u, v) => u - v);
+          const offs = stiffAll.map((it) => port.get(it.r)![it.at].off).concat(loopOffs).sort((u, v) => u - v);
           const s0 = Math.min(SLOT, (sideLen(b, side) - 16) / Math.max(1, all.length + loopOffs.length - 1));
           if (offs.every((v, i) => !i || v - offs[i - 1] >= s0 - 0.05)) stiff = stiffAll;
         }
-        for (const it of stiff) { const p = port.get(it.r); p[it.at] = { side, off: p[it.at].off, lock: true }; }
+        for (const it of stiff) { const p = port.get(it.r)!; p[it.at] = { side, off: p[it.at].off, lock: true }; }
         const list = all.filter((it) => !stiff.includes(it)), n = list.length;
         // The order that crosses nothing: lines turning toward the side's low end, the
         // earliest turn outermost; then lines running straight off, by where they land;
         // then lines turning toward the high end, the earliest turn outermost again.
-        const heading = (it) => {
+        const heading = (it: { r: Route; at: End }) => {
           const pts = it.at === 'start' ? it.r.points : it.r.points.slice().reverse();
-          const v = onVertical(side), along = (q) => (v ? q.y : q.x), out = (q) => (v ? q.x : q.y);
+          const v = onVertical(side), along = (q: Point) => (v ? q.y : q.x), out = (q: Point) => (v ? q.x : q.y);
           if (pts.length < 3) return along(pts[pts.length - 1]) * 1e-3;
           const turn = Math.sign(along(pts[2]) - along(pts[1])), dist = Math.abs(out(pts[1]) - out(pts[0]));
           return turn < 0 ? -1e6 + dist : turn > 0 ? 1e6 - dist : along(pts[pts.length - 1]) * 1e-3;
         };
         // A lone end keeps the port the search chose for it (an L's port slides to meet its
         // turn). Several share the side around their ends' mean, SLOT apart, kept inside it.
-        const fixedOffs = loopOffs.concat(stiff.map((it) => port.get(it.r)[it.at].off));
+        const fixedOffs = loopOffs.concat(stiff.map((it) => port.get(it.r)![it.at].off));
         if (!n || n + fixedOffs.length < 2) continue;
         list.sort((u, v) => heading(u) - heading(v) || u.r.index - v.r.index);
         // Each end keeps the offset the search chose; ends closer than the step are pushed
         // apart by the least amount, and the set is kept inside the side.
         const room = sideLen(b, side) - 16;
         const step = Math.min(SLOT, room / Math.max(1, n + fixedOffs.length - 1));
-        const want = list.map((it) => port.get(it.r)[it.at].off);
+        const want = list.map((it) => port.get(it.r)![it.at].off);
         // The pins split the side into gaps; the movable ends, in heading order, fill them
         // left to right with the least total movement (a small exact search), each gap
         // pushed and centered. If they do not fit, the step tightens to 10; then every end
@@ -1207,14 +1345,14 @@ function graphLayoutKernel() {
           stiff.length = 0;
           list.sort((u, v) => heading(u) - heading(v) || u.r.index - v.r.index);
           want.length = 0;
-          want.push(...list.map((it) => port.get(it.r)[it.at].off));
+          want.push(...list.map((it) => port.get(it.r)![it.at].off));
           pos = placeAround(want, loopOffs, Math.min(SLOT, room / Math.max(1, list.length + loopOffs.length - 1)), room / 2);
         }
         if (!pos) pos = placeAround(want, fixedOffs, Math.min(step, 8), room / 2);
         if (!pos) pos = placeAround(want, [], Math.min(step, room / Math.max(1, list.length - 1)), room / 2);
         list.forEach((it, i) => {
-          const off = R1(pos[i]);
-          const p = port.get(it.r);
+          const off = R1(pos![i]);
+          const p = port.get(it.r)!;
           const same = Math.abs(p[it.at].off - off) < 0.05 && p[it.at].lock;
           p[it.at] = { side, off, lock: true };
           if (!same) moved.add(it.r);
@@ -1225,11 +1363,11 @@ function graphLayoutKernel() {
       for (const r of work) {
         const p = port.get(r);
         if (!p || r.points.length !== 2 || !moved.has(r) || onVertical(p.start.side) !== onVertical(p.end.side) || p.start.side === p.end.side) continue;
-        const S = boxOf(r.from), T = boxOf(r.to), v = onVertical(p.start.side);
+        const S = boxOf(r.from)!, T = boxOf(r.to)!, v = onVertical(p.start.side);
         const cS = v ? S.cy : S.cx, cT = v ? T.cy : T.cx;
         const aS = cS + p.start.off, aT = cT + p.end.off;
         if (Math.abs(aS - aT) < 0.05) continue;
-        const fits = (id, b, side, off) => {
+        const fits = (id: string, b: Box, side: Side, off: number) => {
           const room = sideLen(b, side) - 16;
           if (Math.abs(off) > room / 2 + 0.05) return false;
           const others = endsOn(id, side, r);
@@ -1248,11 +1386,11 @@ function graphLayoutKernel() {
       return moved;
     };
     // Where each line's ends sat when the spread last looked, to slide from on a fallback.
-    const placed = new Map();
+    const placed = new Map<Route, Ports>();
     const note = () => { for (const r of work) { const p = port.get(r); if (p) placed.set(r, { start: { ...p.start }, end: { ...p.end } }); } };
-    const slideEnds = (r, want, had) => {
+    const slideEnds = (r: Route, want: Ports, had: LoosePorts) => {
       let pts = r.points.map((q) => ({ ...q }));
-      for (const at of ['start', 'end']) {
+      for (const at of ['start', 'end'] as const) {
         const d = want[at].off - had[at].off;
         if (Math.abs(d) < 0.05) continue;
         const v = onVertical(want[at].side); // ports on a left/right side move in y
@@ -1260,7 +1398,7 @@ function graphLayoutKernel() {
           // A straight line gets a jog halfway, so only this end moves.
           const a = pts[0], b = pts[1];
           const m = v ? { x: (a.x + b.x) / 2 } : { y: (a.y + b.y) / 2 };
-          pts = v ? [a, { x: m.x, y: a.y }, { x: m.x, y: b.y }, b] : [a, { x: a.x, y: m.y }, { x: b.x, y: m.y }, b];
+          pts = v ? [a, { x: m.x!, y: a.y }, { x: m.x!, y: b.y }, b] : [a, { x: a.x, y: m.y! }, { x: b.x, y: m.y! }, b];
         }
         const j0 = at === 'start' ? 0 : pts.length - 1, j1 = at === 'start' ? 1 : pts.length - 2;
         for (const j of [j0, j1]) pts[j] = v ? { x: pts[j].x, y: R1(pts[j].y + d) } : { x: R1(pts[j].x + d), y: pts[j].y };
@@ -1278,8 +1416,8 @@ function graphLayoutKernel() {
       const hold = pass >= 3 || over();
       for (const r of order) {
         if (!moved.has(r)) continue;
-        const fixed = port.get(r);
-        const was = placed.get(r) || { start: { off: 0 }, end: { off: 0 } };
+        const fixed = port.get(r)!;
+        const was: LoosePorts = placed.get(r) || { start: { off: 0 }, end: { off: 0 } };
         const before = { pts: r.points, label: labelOf.get(r), at: r.labelAt };
         port.delete(r);
         labelOf.delete(r);
@@ -1287,7 +1425,7 @@ function graphLayoutKernel() {
         const got = route(r, fixed, hold) || (hold ? route(r, fixed, false) : null);
         if (got) {
           commit(r, got.pts);
-          const keep = (g, f) => (g.side === f.side && f.lock ? { ...g, off: f.off, lock: true } : g);
+          const keep = (g: PortEnd, f: PortEnd) => (g.side === f.side && f.lock ? { ...g, off: f.off, lock: true } : g);
           port.set(r, { start: keep(got.port.start, fixed.start), end: keep(got.port.end, fixed.end) });
           continue;
         }
@@ -1299,7 +1437,7 @@ function graphLayoutKernel() {
         strict = wide = true;
         const free = route(r, null);
         strict = wide = false;
-        const apart = (g) => ['start', 'end'].every((w) => !endsOn(w === 'start' ? r.from : r.to, g.port[w].side, r).some((v) => Math.abs(v - g.port[w].off) < NEAR));
+        const apart = (g: RouteResult) => (['start', 'end'] as const).every((w) => !endsOn(w === 'start' ? r.from : r.to, g.port[w].side, r).some((v) => Math.abs(v - g.port[w].off) < NEAR));
         // (and no title left without a slot: a slid line is not searched, so it gets no
         // benefit of the doubt past one crossing)
         if (costOf(slid, r, fixed.start.side, fixed.end.side, fixed.start.off, fixed.end.off) < 2 * W.cross) {
@@ -1357,7 +1495,7 @@ function graphLayoutKernel() {
       strict = true;
       const got = route(r, null);
       strict = false;
-      const clear = (w) => !endsOn(w === 'start' ? r.from : r.to, got.port[w].side, r).some((v) => Math.abs(v - got.port[w].off) < 10 - 0.05);
+      const clear = (w: End) => !endsOn(w === 'start' ? r.from : r.to, got!.port[w].side, r).some((v) => Math.abs(v - got!.port[w].off) < 10 - 0.05);
       if (got && got.cost < c0 - 0.5 && clear('start') && clear('end')) {
         commit(r, got.pts);
         port.set(r, { start: { ...got.port.start, lock: true }, end: { ...got.port.end, lock: true } });
@@ -1374,16 +1512,16 @@ function graphLayoutKernel() {
       if (over()) break;
       const pts = r.points, had = port.get(r);
       if (!had || pts.length < 4) continue;
-      const jogs = [];
+      const jogs: { d: number; vert: boolean }[] = [];
       for (let j = 2; j < pts.length - 1; j++) {
         const l = Math.abs(pts[j].x - pts[j - 1].x) + Math.abs(pts[j].y - pts[j - 1].y);
         if (l < 12) jogs.push({ d: pts[j].x - pts[j - 1].x + pts[j].y - pts[j - 1].y, vert: Math.abs(pts[j].x - pts[j - 1].x) < 0.05 });
       }
       if (!jogs.length) continue;
       const c0 = evalFull(pts, r, had.start.side, had.end.side, had.start.off, had.end.off);
-      let best = null;
-      for (const { d, vert } of jogs) for (const at of ['start', 'end']) for (const sgn of [1, -1]) {
-        const e = had[at], b = boxOf(at === 'start' ? r.from : r.to);
+      let best: { got: RouteResult; fixed: Ports } | null = null;
+      for (const { d, vert } of jogs) for (const at of ['start', 'end'] as const) for (const sgn of [1, -1]) {
+        const e = had[at], b = boxOf(at === 'start' ? r.from : r.to)!;
         // A port on a left or right side moves in y, so it removes a vertical jog.
         if (onVertical(e.side) !== vert) continue;
         const off = R1(e.off + sgn * d), room = sideLen(b, e.side) - 16;
@@ -1392,7 +1530,7 @@ function graphLayoutKernel() {
         const step = Math.min(SLOT, room / Math.max(1, others.length));
         // A step short by a unit or two reads the same; a jog does not.
         if (others.some((v) => Math.abs(v - off) < step * 0.85 - 0.05)) continue;
-        const fixed = { start: { ...had.start, lock: true }, end: { ...had.end, lock: true } };
+        const fixed: Ports = { start: { ...had.start, lock: true }, end: { ...had.end, lock: true } };
         fixed[at] = { side: e.side, off, lock: true };
         port.delete(r);
         const was = labelOf.get(r);
@@ -1405,10 +1543,10 @@ function graphLayoutKernel() {
       if (best) { commit(r, best.got.pts); port.set(r, best.fixed); continue; }
       // Or shift every end on that side together: two lines between the same boxes spread
       // on both sides, and one end alone cannot move past its sibling.
-      shift: for (const { d, vert } of jogs) for (const at of ['start', 'end']) for (const sgn of [1, -1]) {
-        const e = had[at], id = at === 'start' ? r.from : r.to, b = boxOf(id);
+      shift: for (const { d, vert } of jogs) for (const at of ['start', 'end'] as const) for (const sgn of [1, -1]) {
+        const e = had[at], id = at === 'start' ? r.from : r.to, b = boxOf(id)!;
         if (onVertical(e.side) !== vert) continue;
-        const group = [];
+        const group: [Route, End][] = [];
         for (const o of work) {
           const po = port.get(o);
           if (!po) continue;
@@ -1417,18 +1555,18 @@ function graphLayoutKernel() {
         }
         if (group.length < 2) continue;
         const room = sideLen(b, e.side) - 16, shift = sgn * d;
-        if (group.some(([o, w]) => Math.abs(port.get(o)[w].off + shift) > room / 2 + 0.05)) continue;
-        const pins = endsOn(id, e.side, null).filter((v) => !group.some(([o, w]) => Math.abs(port.get(o)[w].off - v) < 0.05));
+        if (group.some(([o, w]) => Math.abs(port.get(o)![w].off + shift) > room / 2 + 0.05)) continue;
+        const pins = endsOn(id, e.side, null).filter((v) => !group.some(([o, w]) => Math.abs(port.get(o)![w].off - v) < 0.05));
         const step = Math.min(SLOT, room / Math.max(1, group.length + pins.length - 1));
-        if (group.some(([o, w]) => pins.some((v) => Math.abs(port.get(o)[w].off + shift - v) < step * 0.85 - 0.05))) continue;
+        if (group.some(([o, w]) => pins.some((v) => Math.abs(port.get(o)![w].off + shift - v) < step * 0.85 - 0.05))) continue;
         // Reroute each member with its shifted end held, against the others as they stand.
-        const saved = group.map(([o]) => ({ o, pts: o.points, port: port.get(o), label: labelOf.get(o) }));
+        const saved = group.map(([o]) => ({ o, pts: o.points, port: port.get(o)!, label: labelOf.get(o) }));
         const olds = new Set(group.map(([o]) => o));
         let before = 0, after = 0, bendsBefore = 0, bendsAfter = 0, ok = true;
         for (const { o, pts: op, port: po } of saved) { before += evalFull(op, o, po.start.side, po.end.side, po.start.off, po.end.off); bendsBefore += op.length; }
         for (const o of olds) {
-          const po = port.get(o);
-          const fixed = { start: { ...po.start, lock: true }, end: { ...po.end, lock: true } };
+          const po = port.get(o)!;
+          const fixed: Ports = { start: { ...po.start, lock: true }, end: { ...po.end, lock: true } };
           for (const [g, w] of group) if (g === o) fixed[w] = { ...fixed[w], off: R1(fixed[w].off + shift) };
           port.delete(o);
           labelOf.delete(o);
@@ -1437,7 +1575,7 @@ function graphLayoutKernel() {
           commit(o, got.pts);
           port.set(o, fixed);
         }
-        if (ok) for (const o of olds) { const po = port.get(o); after += evalFull(o.points, o, po.start.side, po.end.side, po.start.off, po.end.off); bendsAfter += o.points.length; }
+        if (ok) for (const o of olds) { const po = port.get(o)!; after += evalFull(o.points, o, po.start.side, po.end.side, po.start.off, po.end.off); bendsAfter += o.points.length; }
         if (ok && bendsAfter < bendsBefore && after <= before + 0.5) break shift;
         for (const { o, pts: op, port: po, label } of saved) { o.points = op; port.set(o, po); if (label) { labelOf.set(o, label); } else labelOf.delete(o); }
         for (const { o, label } of saved) if (label && o.labelSize) o.labelAt = { x: label.x + o.labelSize.w / 2, y: label.y + o.labelSize.h / 2 };
@@ -1446,16 +1584,16 @@ function graphLayoutKernel() {
     // Symmetry: a fan whose far ends sit mirrored about its parent is drawn as a mirror
     // image, one half copied onto the other, when that is legal and costs under W.sym a pair
     // more than the solver's own pick (so symmetry never buys a crossing).
-    const mirrorSide = (sd) => (lr ? { T: 'B', B: 'T' }[sd] || sd : { L: 'R', R: 'L' }[sd] || sd);
-    const mirrorPort = (e) => ({ side: mirrorSide(e.side), off: (lr ? onVertical(e.side) : !onVertical(e.side)) ? -e.off : e.off, lock: true });
+    const mirrorSide = (sd: Side): Side => (lr ? ({ T: 'B', B: 'T' } as Partial<Record<Side, Side>>)[sd] || sd : ({ L: 'R', R: 'L' } as Partial<Record<Side, Side>>)[sd] || sd);
+    const mirrorPort = (e: PortEnd): PortEnd => ({ side: mirrorSide(e.side), off: (lr ? onVertical(e.side) : !onVertical(e.side)) ? -e.off : e.off, lock: true });
     for (const id in nodes) {
       if (over()) break;
       const P = nodes[id], axis = lr ? P.cy : P.cx;
       const fan = work.filter((r) => (r.from === id) !== (r.to === id) && port.has(r) && nodes[r.from === id ? r.to : r.from]);
       if (fan.length < 2) continue;
-      const far = (r) => nodes[r.from === id ? r.to : r.from];
-      const at = (r) => (lr ? far(r).cy : far(r).cx) - axis;
-      const halves = [[], []], pairOf = new Map();
+      const far = (r: Route) => nodes[r.from === id ? r.to : r.from];
+      const at = (r: Route) => (lr ? far(r).cy : far(r).cx) - axis;
+      const halves: Route[][] = [[], []], pairOf = new Map<Route, Route>();
       let ok = true;
       for (const r of fan) {
         const X = far(r), d = at(r);
@@ -1468,24 +1606,24 @@ function graphLayoutKernel() {
         halves[d < 0 ? 1 : 0].push(mate);
       }
       if (!ok || !halves[0].length) continue;
-      const mirrored = (r) => { const q = pairOf.get(r); return JSON.stringify(q.points.map((z) => lr ? [z.x, R1(2 * axis - z.y)] : [R1(2 * axis - z.x), z.y])) === JSON.stringify(r.points.map((z) => [z.x, z.y])); };
+      const mirrored = (r: Route) => { const q = pairOf.get(r)!; return JSON.stringify(q.points.map((z) => lr ? [z.x, R1(2 * axis - z.y)] : [R1(2 * axis - z.x), z.y])) === JSON.stringify(r.points.map((z) => [z.x, z.y])); };
       if (halves[0].every(mirrored)) continue;
-      const costNow = (rs) => rs.reduce((a, r) => { const po = port.get(r); return a + evalFull(r.points, r, po.start.side, po.end.side, po.start.off, po.end.off); }, 0);
-      let best = null;
+      const costNow = (rs: Route[]) => rs.reduce((a, r) => { const po = port.get(r)!; return a + evalFull(r.points, r, po.start.side, po.end.side, po.start.off, po.end.off); }, 0);
+      let best: { src: number; after: number; state: { o: Route; pts: Point[]; port: Ports; label: Rect | undefined; at: Point | null | undefined }[] } | null = null;
       for (const src of [0, 1]) {
-        const from = halves[src].concat(halves[src].map((r) => pairOf.get(r)));
+        const from = halves[src].concat(halves[src].map((r) => pairOf.get(r)!));
         const targets = from.slice(halves[src].length);
-        const saved = targets.map((o) => ({ o, pts: o.points, port: port.get(o), label: labelOf.get(o), at: o.labelAt }));
+        const saved = targets.map((o) => ({ o, pts: o.points, port: port.get(o)!, label: labelOf.get(o), at: o.labelAt }));
         const before = costNow(fan);
         for (const t of targets) { port.delete(t); labelOf.delete(t); }
         let legal = true;
         for (const t of targets) {
-          const m = pairOf.get(t), mp = port.get(m);
+          const m = pairOf.get(t)!, mp = port.get(m)!;
           const pts = m.points.map((z) => (lr ? { x: z.x, y: R1(2 * axis - z.y) } : { x: R1(2 * axis - z.x), y: z.y }));
-          const np = { start: mirrorPort(mp.start), end: mirrorPort(mp.end) };
+          const np: Ports = { start: mirrorPort(mp.start), end: mirrorPort(mp.end) };
           // A mirrored end may not crowd an end already on that side.
-          for (const w of ['start', 'end']) {
-            const bid = w === 'start' ? t.from : t.to, b = boxOf(bid);
+          for (const w of ['start', 'end'] as const) {
+            const bid = w === 'start' ? t.from : t.to, b = boxOf(bid)!;
             const step = Math.min(SLOT, (sideLen(b, np[w].side) - 16) / 2) * 0.85;
             if (endsOn(bid, np[w].side, t).some((v) => Math.abs(v - np[w].off) < step - 0.05)) legal = false;
           }
@@ -1493,7 +1631,7 @@ function graphLayoutKernel() {
           port.set(t, np);
         }
         const after = legal ? costNow(fan) : Infinity;
-        if (after < Infinity && after <= before + W.sym * halves[src].length && (!best || after < best.after)) best = { src, after, state: targets.map((o) => ({ o, pts: o.points, port: port.get(o), label: labelOf.get(o), at: o.labelAt })) };
+        if (after < Infinity && after <= before + W.sym * halves[src].length && (!best || after < best.after)) best = { src, after, state: targets.map((o) => ({ o, pts: o.points, port: port.get(o)!, label: labelOf.get(o), at: o.labelAt })) };
         for (const { o, pts, port: po, label, at: la } of saved) { o.points = pts; port.set(o, po); o.labelAt = la; if (label) labelOf.set(o, label); else labelOf.delete(o); }
       }
       if (best) for (const { o, pts, port: po, label, at: la } of best.state) { o.points = pts; port.set(o, po); o.labelAt = la; if (label) labelOf.set(o, label); else labelOf.delete(o); }
@@ -1512,14 +1650,14 @@ function graphLayoutKernel() {
     for (const r of work) if (r.labelAt && !onPathK(r.points, r.labelAt)) r.labelAt = longestRunMid(r.points);
   }
 
-  function onPathK(pts, q) {
+  function onPathK(pts: Point[], q: Point) {
     for (let j = 1; j < pts.length; j++) {
       const a = pts[j - 1], b = pts[j];
       if (q.x >= Math.min(a.x, b.x) - 0.6 && q.x <= Math.max(a.x, b.x) + 0.6 && q.y >= Math.min(a.y, b.y) - 0.6 && q.y <= Math.max(a.y, b.y) + 0.6) return true;
     }
     return false;
   }
-  function longestRunMid(pts) {
+  function longestRunMid(pts: Point[]): Point {
     let best = 0, at = { x: pts[0].x, y: pts[0].y };
     for (let j = 1; j < pts.length; j++) {
       const a = pts[j - 1], b = pts[j], l = Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
@@ -1529,8 +1667,8 @@ function graphLayoutKernel() {
   }
 
   /** Drop repeated and collinear points. */
-  function simplify(pts) {
-    const out = [];
+  function simplify(pts: Point[]): Point[] {
+    const out: Point[] = [];
     for (const p of pts) {
       const last = out[out.length - 1];
       if (last && Math.abs(last.x - p.x) < 0.05 && Math.abs(last.y - p.y) < 0.05) continue;
@@ -1549,9 +1687,9 @@ function graphLayoutKernel() {
    * The render check's facts: a line through a shape it does not connect, a label on a
    * shape or another label, two lines sharing a run. The gallery must read zero on all.
    */
-  function overlaps(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+  function overlaps(a: Rect, b: Rect) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
   /** How many times two orthogonal paths cross (a proper X, not a touch at an end). */
-  function crossings(p, q) {
+  function crossings(p: Point[], q: Point[]) {
     let n = 0;
     for (let i = 1; i < p.length; i++) {
       const a = p[i - 1], b = p[i];
@@ -1569,14 +1707,14 @@ function graphLayoutKernel() {
   }
   // Crossings are a cost to minimize, not a defect to forbid: some graphs cannot be drawn
   // without one. So they sit beside the quality counts, not in them, and a test pins the total.
-  function countCrossings(routes) {
+  function countCrossings(routes: Route[]) {
     let n = 0;
     for (let i = 0; i < routes.length; i++) for (let k = i + 1; k < routes.length; k++) n += crossings(routes[i].points, routes[k].points);
     return n;
   }
-  function labelBox(r) { return { x: r.labelAt.x - r.labelSize.w / 2, y: r.labelAt.y - r.labelSize.h / 2, w: r.labelSize.w, h: r.labelSize.h }; }
+  function labelBox(r: Route): Rect { return { x: r.labelAt!.x - r.labelSize!.w / 2, y: r.labelAt!.y - r.labelSize!.h / 2, w: r.labelSize!.w, h: r.labelSize!.h }; }
   /** Does an orthogonal path pass through the box's interior? */
-  function pathHits(pts, box) {
+  function pathHits(pts: Point[], box: Rect) {
     for (let j = 1; j < pts.length; j++) {
       const a = pts[j - 1], b = pts[j];
       const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
@@ -1585,9 +1723,9 @@ function graphLayoutKernel() {
     return false;
   }
 
-  function measureQuality(nodes, gboxes, routes, titles) {
-    const inside = (p, b, m) => p.x > b.x + m && p.x < b.x + b.w - m && p.y > b.y + m && p.y < b.y + b.h - m;
-    const segHits = (a, b, box) => {
+  function measureQuality(nodes: Record<string, Box>, gboxes: Record<string, Box>, routes: Route[], titles: Record<string, Rect>): Quality {
+    const inside = (p: Point, b: Rect, m: number) => p.x > b.x + m && p.x < b.x + b.w - m && p.y > b.y + m && p.y < b.y + b.h - m;
+    const segHits = (a: Point, b: Point, box: Rect) => {
       const steps = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4));
       for (let s = 1; s < steps; s++) { const t = s / steps; if (inside({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, box, 1)) return true; }
       return false;
@@ -1612,8 +1750,8 @@ function graphLayoutKernel() {
       for (const b of own) for (let j = 1; j < r.points.length && !hit; j++) hit = segHits(r.points[j - 1], r.points[j], b);
       if (hit) linesThroughEnds++;
     }
-    const lbs = routes.filter((r) => r.labelAt && r.labelSize).map((r) => ({ x: r.labelAt.x - r.labelSize.w / 2, y: r.labelAt.y - r.labelSize.h / 2, w: r.labelSize.w, h: r.labelSize.h }));
-    const over = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    const lbs = routes.filter((r) => r.labelAt && r.labelSize).map((r) => ({ x: r.labelAt!.x - r.labelSize!.w / 2, y: r.labelAt!.y - r.labelSize!.h / 2, w: r.labelSize!.w, h: r.labelSize!.h }));
+    const over = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
     let labelCollisions = 0;
     for (let i = 0; i < lbs.length; i++) {
       for (const b of Object.values(nodes)) if (over(lbs[i], b)) labelCollisions++;
@@ -1652,7 +1790,7 @@ function graphLayoutKernel() {
     }
     // Two lines closer than 6 units for more than a few units read as one line.
     let sharedRuns = 0;
-    const segsOf = (r) => r.points.slice(1).map((b, j) => [r.points[j], b]);
+    const segsOf = (r: Route): [Point, Point][] => r.points.slice(1).map((b, j) => [r.points[j], b]);
     for (let i = 0; i < routes.length; i++) for (let k = i + 1; k < routes.length; k++) {
       let shared = false;
       for (const [a, b] of segsOf(routes[i])) for (const [c, d] of segsOf(routes[k])) {
@@ -1676,7 +1814,7 @@ function graphLayoutKernel() {
     let endsOffBox = 0;
     for (const r of routes) {
       if (r.from === r.to || r.points.length < 2) continue;
-      for (const [q, id] of [[r.points[0], r.from], [r.points[r.points.length - 1], r.to]]) {
+      for (const [q, id] of [[r.points[0], r.from], [r.points[r.points.length - 1], r.to]] as [Point, string][]) {
         const b = nodes[id] || gboxes[id];
         if (!b) continue;
         const onX = Math.abs(q.x - b.x) < 0.6 || Math.abs(q.x - b.x - b.w) < 0.6, onY = Math.abs(q.y - b.y) < 0.6 || Math.abs(q.y - b.y - b.h) < 0.6;
@@ -1697,19 +1835,19 @@ function graphLayoutKernel() {
   // A browser pass redraws a chart on load, when fonts arrive and on resize, often with the
   // same inputs; the layout is a pure function of them, so each kernel keeps its recent
   // results (by the inputs' JSON) and hands back a copy, since painters adjust the points.
-  const cache = new Map();
+  const cache = new Map<string, string>();
   const CACHE_MAX = 64;
   // Work counts, for the bench (test/benchmark, the flowchart tier): integers that only
   // move when the work does, so they gate where a millisecond cannot.
-  const stats = { calls: 0, hits: 0, routed: 0, bounded: 0 };
-  function layout(model, sizes, opts, dagre) {
+  const stats: KernelStats = { calls: 0, hits: 0, routed: 0, bounded: 0 };
+  function layout(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | null {
     stats.calls++;
     // Without dagre there is no layout to cache (it degrades to null).
     if (!dagre || typeof dagre.layout !== 'function') return layoutFresh(model, sizes, opts, dagre);
-    let key = null;
+    let key: string | null = null;
     try { key = JSON.stringify([model, sizes, opts]); } catch (_e) { /* uncacheable input */ }
     if (key != null && cache.has(key)) {
-      const hit = cache.get(key);
+      const hit = cache.get(key)!;
       stats.hits++;
       cache.delete(key);
       cache.set(key, hit);
@@ -1718,29 +1856,32 @@ function graphLayoutKernel() {
     const geo = layoutFresh(model, sizes, opts, dagre);
     if (key != null && geo) {
       cache.set(key, JSON.stringify(geo));
-      if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+      if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value!);
     }
     return geo;
   }
-  function layoutFresh(model, sizes, opts, dagre) {
-    const dirs = opts.dir === 'lr' || opts.dir === 'tb' ? [opts.dir] : ['lr', 'tb'];
-    let best = null;
-    const scaleOf = (w, h) => {
+  function layoutFresh(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | null {
+    const dirs: ('lr' | 'tb')[] = opts.dir === 'lr' || opts.dir === 'tb' ? [opts.dir] : ['lr', 'tb'];
+    let best: { geo: Geometry; reach: number } | null = null;
+    const scaleOf = (w: number, h: number) => {
       const st = opts.stage || { w, h };
       return Math.min(opts.maxScale != null ? opts.maxScale : 1.2, st.w / Math.max(1, w), st.h / Math.max(1, h));
     };
-    const scaled = (geo) => {
+    const scaled = (geo: Geometry) => {
       geo.scale = Math.round(scaleOf(geo.width, geo.height) * 1000) / 1000;
       return geo;
     };
     // Hard faults outrank soft ones: one line through a shape is worse than any number of
     // crowded labels.
-    const HARD = ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine'];
-    const hard = (geo) => HARD.reduce((a, k) => a + (geo.quality[k] || 0), 0);
-    const soft = (geo) => Object.values(geo.quality).reduce((a, b) => a + b, 0) - hard(geo);
+    const HARD: (keyof Quality)[] = ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine'];
+    const hard = (geo: Geometry) => HARD.reduce((a, k) => a + (geo.quality[k] || 0), 0);
+    const soft = (geo: Geometry) => Object.values(geo.quality).reduce((a, b) => a + b, 0) - hard(geo);
     // [hard, soft, crossings, crowded ends, grazes], compared in that order.
-    const rank = (geo) => [hard(geo), soft(geo), geo.crossings, geo.tidy.crowded, geo.tidy.grazes];
-    const cmp = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; };
+    const rank = (geo: Geometry) => [hard(geo), soft(geo), geo.crossings, geo.tidy.crowded, geo.tidy.grazes];
+    const cmp = (a: number[], b: number[]) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; };
+    // No dagre: a chart that wraps still lays out on the grid, which needs none (a chain
+    // ships without the dagre script; a machine that branches falls back to the grid).
+    if (opts.wrap && (!dagre || typeof dagre.layout !== 'function')) return wrapped(null);
     for (const d of dirs) {
       // A later direction wins only by beating the best so far by 3%, and its scale is at
       // most what its boxes alone allow (grown or plain; lines only add size). When that
@@ -1753,7 +1894,7 @@ function graphLayoutKernel() {
         let bound = scaleOf(gb.width, gb.height);
         if (gb.grew) {
           const pb = layoutOnce(model, sizes, { ...opts, dir: d, grow: false, boundsOnly: true }, dagre);
-          bound = Math.max(bound, scaleOf(pb.width, pb.height));
+          bound = Math.max(bound, scaleOf(pb!.width, pb!.height));
         }
         if (Math.round(bound * 1000) / 1000 <= best.reach * 1.03) continue;
       }
@@ -1763,26 +1904,92 @@ function graphLayoutKernel() {
       // (fewer of any of those, or fewer crowded ends or grazes) or costs no type at all. A
       // growth that buys nothing and shrinks the type must not tip the direction choice
       // below: its 3% and that 3% used to add up.
-      const grown = layoutOnce(model, sizes, { ...opts, dir: d }, dagre);
+      const grown = layoutOnce(model, sizes, { ...opts, dir: d }, dagre) as Geometry | null;
       if (!grown) return null;
       scaled(grown);
       // Nothing grew: the second run would repeat the first.
-      const plain = grown.grew ? scaled(layoutOnce(model, sizes, { ...opts, dir: d, grow: false }, dagre)) : grown;
+      const plain = grown.grew ? scaled(layoutOnce(model, sizes, { ...opts, dir: d, grow: false }, dagre) as Geometry) : grown;
       const rg = rank(grown), rp = rank(plain);
       const noWorse = rg[0] <= rp[0] && rg[1] <= rp[1] && rg[2] <= rp[2];
       const buys = cmp(rg, rp) < 0;
-      const geo = grown === plain || (noWorse && (buys ? grown.scale >= plain.scale * 0.97 : grown.scale >= plain.scale)) ? grown : plain;
+      const geo = grown === plain || (noWorse && (buys ? grown.scale! >= plain.scale! * 0.97 : grown.scale! >= plain.scale!)) ? grown : plain;
       // Ties go to the first direction in preference order: a hair of difference must not
       // flip a chart between edits. Each direction is judged by the best type it can reach,
       // grown or plain, so a growth kept for its ports cannot tip the direction by the few
       // percent it cost.
-      const reach = Math.max(grown.scale, plain.scale);
+      const reach = Math.max(grown.scale!, plain.scale!);
       if (!best || reach > best.reach * 1.03) best = { geo, reach };
     }
-    return best.geo;
+    if (opts.wrap) return wrapped(best);
+    return best!.geo;
+
+    /**
+     * THE READING-ORDER GRID (`opts.wrap`, the state chart's rule, kept from v1). A chain
+     * on one line is the right picture until it stops fitting, and past that point dagre
+     * can only shrink it; laid out on several lines in reading order, the type keeps its
+     * size. So a chart that asks for `wrap` also gets grid candidates: every line count
+     * from 1 (a chain) or 2 (a machine that branches) to half its shapes, in each
+     * direction. The simplest candidate wins (fewest lines, then the stage's own
+     * direction) unless a more-wrapped one sets the type WRAP_GAIN larger. A chain has
+     * no two shapes on one rank, ranking only its forward lines in authored order; a
+     * machine that branches keeps dagre's layout as its one-line candidate, so it
+     * wraps only by that clear margin. Grid candidates are bounded by their boxes first,
+     * and only those that could still be picked are routed.
+     */
+    function wrapped(dagreBest: { geo: Geometry; reach: number } | null): Geometry | null {
+      const shapes = model.shapes || [];
+      if ((model.groups || []).length || shapes.length < 2) return dagreBest ? dagreBest.geo : null;
+      const WRAP_GAIN = 1.12;
+      const order = new Map(shapes.map((x, i) => [x.id, i]));
+      const at = (id: string) => order.get(id) ?? -1;
+      const rankOf = new Array(shapes.length).fill(0);
+      const fwd = (model.edges || []).filter((e) => !e.style?.loose && order.has(e.from) && order.has(e.to) && at(e.to) > at(e.from))
+        .sort((a, b) => at(a.to) - at(b.to));
+      for (const e of fwd) rankOf[at(e.to)] = Math.max(rankOf[at(e.to)], rankOf[at(e.from)] + 1);
+      const chain = new Set(rankOf).size === shapes.length;
+      const st = opts.stage;
+      const pref: 'lr' | 'tb' = dirs.length === 1 ? dirs[0] : st && st.h > st.w ? 'tb' : 'lr';
+      const cands: { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null }[] = [];
+      if (dagreBest && !chain) cands.push({ lines: 1, dir: dagreBest.geo.dir, bound: dagreBest.geo.scale ?? 0, geo: dagreBest.geo });
+      for (const d of dirs) {
+        for (let L = chain ? 1 : 2; L <= Math.ceil(shapes.length / 2); L++) {
+          const b = layoutOnce(model, sizes, { ...opts, dir: d, grid: L, grow: false, boundsOnly: true }, dagre);
+          if (b) cands.push({ lines: L, dir: d, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000, geo: null });
+        }
+      }
+      if (!cands.length) return dagreBest ? dagreBest.geo : null;
+      cands.sort((a, b) => (a.lines - b.lines) || ((a.dir === pref ? 0 : 1) - (b.dir === pref ? 0 : 1)));
+      const route = (c: (typeof cands)[number]) => {
+        if (!c.geo) {
+          const g = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false }, dagre) as Geometry | null;
+          c.geo = g ? scaled(g) : null;
+          if (c.geo) c.geo.lines = c.lines;
+        }
+        return c.geo ? c.geo.scale ?? 0 : 0;
+      };
+      // The candidate that can reach furthest sets a floor: one whose bound cannot come
+      // within WRAP_GAIN of it is never picked, so it is never routed.
+      const top = cands.reduce((m, c) => (c.bound > m.bound ? c : m));
+      const floor = route(top);
+      const live = cands.filter((c) => c === top || c.bound * WRAP_GAIN >= floor);
+      let bestScore = 0;
+      for (const c of live) bestScore = Math.max(bestScore, route(c));
+      for (const c of live) if (c.geo && (c.geo.scale ?? 0) * WRAP_GAIN >= bestScore) return c.geo;
+      return top.geo || (dagreBest ? dagreBest.geo : null);
+    }
   }
 
-  return { layout, layoutOnce, simplify, stats };
+  /**
+   * THE FIXED-POSITIONS ROUTER. Route every line between boxes the caller has already
+   * placed (each shape's centre in `positions`), with the same solver, never-rules and
+   * quality counts as `layout`: for a chart whose positions an axis fixes (a gantt's
+   * bars), where dagre must not move anything. No dagre is needed; groups are not held.
+   */
+  function route(model: GraphModel, sizes: SizeMap, positions: Record<string, Point>, opts: LayoutOptions = {}): Geometry | null {
+    return layoutOnce(model, sizes, { ...opts, positions, grow: false }, null) as Geometry | null;
+  }
+
+  return { layout, layoutOnce, route, simplify, stats };
 }
 
-module.exports = { graphLayoutKernel };
+

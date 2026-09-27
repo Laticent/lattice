@@ -127,12 +127,13 @@ function declaredFor(manifest, family) {
   return null;
 }
 
-/** The lint table's number for `comp` at this run's scale and element length, shaped
- * like `declaredFor` so the report below reads the same. */
-function scaleDeclared(comp, wordsPer) {
-  const { SCALE_CAPACITY } = require('../lib/authoring/lint-core.js');
-  const v = SCALE_CAPACITY[comp]?.[wordsPer]?.[['l', 'xl', '2xl'].indexOf(SCALE) + 1];
-  return v == null ? null : { hard: v, source: `lint-core SCALE_CAPACITY[${comp}][${wordsPer}] at scale-${SCALE}` };
+/** The manifest's `venueCapacity` number for `comp` at this run's scale and element length,
+ * shaped like `declaredFor` so the report below reads the same. `--scale l|xl|2xl` is the
+ * huddle / conference / hall rung. */
+function scaleDeclared(manifest, wordsPer) {
+  const venue = { l: 'huddle', xl: 'conference', '2xl': 'hall' }[SCALE];
+  const v = manifest.venueCapacity?.byWords?.[wordsPer]?.[venue];
+  return v == null ? null : { hard: v, source: `venueCapacity.byWords[${wordsPer}].${venue}` };
 }
 
 /** The pane share a component is budgeted at: its `pane.budget.at` (default 50), or `--share`. */
@@ -207,11 +208,11 @@ for (const comp of components) {
   for (const family of PANE ? ['wide'] : TARGET_FAMILIES) {
     const { firstOver, ceiling } = measure(comp, family, wordsPer, share);
     // At a projection scale the manifest's `hard` is the wrong yardstick — it is a
-    // designed-size budget. The number lint enforces there is the measured table in
-    // lint-core (`SCALE_CAPACITY`), so that is what this run checks, at the exact length
-    // it was measured at. A table value above the ceiling measured now means the engine
+    // designed-size budget. The number lint enforces there is the manifest's measured
+    // `venueCapacity` row, so that is what this run checks, at the exact length it was
+    // measured at. A table value above the ceiling measured now means the engine
     // moved and lint would forecast a fit it no longer has.
-    const declared = PANE ? declaredPane(manifest) : SCALE ? scaleDeclared(comp, wordsPer) : declaredFor(manifest, family);
+    const declared = PANE ? declaredPane(manifest) : SCALE ? scaleDeclared(manifest, wordsPer) : declaredFor(manifest, family);
     const over = declared && ceiling != null && declared.hard != null && declared.hard > ceiling;
     if (over) violations++;
     results.push({ component: comp, family, pane: PANE, share, wordsPer, ceiling, firstOver, declared, exceedsCeiling: !!over });

@@ -140,5 +140,23 @@
       "min": 3
     },
     "review": "stack 50 measured, 60 reviewed: rows crowd below 60%."
+  },
+  "venueCapacity": {
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 8,
+        "huddle": 7,
+        "conference": 6,
+        "hall": 5
+      },
+      "12": {
+        "laptop": 8,
+        "huddle": 7,
+        "conference": 6,
+        "hall": 3
+      }
+    }
   }
 }

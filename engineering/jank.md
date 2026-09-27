@@ -356,7 +356,11 @@ enrolling it in splitting), `--anchors` stopped reporting its `*Most chosen*` co
 and its `[/]` slashed badge: two positioned marks the shipped component really has, and
 the corner tag is *precisely* the fixed-element-that-must-hold-position this tool exists
 to police. Nothing warned; two arms of `jank-sweep.test.js` failed and that is the only
-reason it was noticed.
+reason it was noticed. **Adding a BUILDER does the same** to a component that already has a
+`capacity.axis`: #2399 gave `cycle`, `table`, `kanban`, `roadmap` and `policy-recommendation`
+builders for their per-venue budgets, and `cycle`'s shipped-CSS arm in `jank-sweep.test.js`
+flipped from a heading sweep to a count sweep and failed on the ring re-laying out; the arm now
+pins `--axis heading`. Pin the axis in any caller that means one.
 
 The general shape: **for any capacity-bearing component whose real chrome is optional — a
 featured flag, a variant-only badge — a count sweep under-reports.** `split-compare` was

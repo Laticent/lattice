@@ -190,6 +190,10 @@ export function walkChipLabel(kind: string, variantLabels: Record<string, string
 	if (kind === 'default') return 'Default';
 	if (kind === 'stress') return 'Stress test';
 	if (kind === 'anti-patterns') return 'Anti-patterns';
+	// A gallery pages its anti-patterns once they run long (tools/build-component-docs.js
+	// `antiPatternPages`), so the second and third slides carry `anti-patterns:2` / `:3`.
+	const a = /^anti-patterns:(\d+)$/.exec(kind);
+	if (a) return `Anti-patterns ${a[1]}`;
 	if (kind === 'see-also') return 'See also';
 	const v = /^variant:(.+)$/.exec(kind);
 	if (v) return variantLabels[v[1]] || v[1];

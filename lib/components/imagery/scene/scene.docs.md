@@ -10,6 +10,8 @@ Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a sli
 
 ## Agent contract
 
+**By venue** no count budget. A motion scene's still fills its box and scales, so no element count marks where it stops fitting.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

@@ -12,6 +12,8 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 
 **Density** aim ~20 words per item; past ~32 it reads as a wall of text — each side's case in a sentence or two.
 
+**By venue** (`venue:`, ~20 words each) it holds laptop ~5 · huddle ~4 · conference ~3 · hall ~3 items. At ~6 words each: 9 · 8 · 8 · 7. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

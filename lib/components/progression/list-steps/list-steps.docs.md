@@ -14,7 +14,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one sentence per step, not a paragraph. The strip gives every card the tallest card's height, so one long step tightens the whole row, and a body that outgrows the card spills past its bottom edge and is clipped at the stage.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`, or `venue: huddle` / `conference` / `hall`) it holds ~4 / ~4 / ~3 items of ~14 words at a wide @size; past that, expect the whole deck to render at the largest smaller scale every slide fits, so it stays one size, rather than clip — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~14 words each) it holds laptop ~5 · huddle ~4 · conference ~4 · hall ~3 items. At ~6 words each: 5 · 5 · 5 · 5. No venue goes past the Capacity max of 5, which holds in every room. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

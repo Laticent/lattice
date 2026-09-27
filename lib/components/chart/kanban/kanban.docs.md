@@ -16,6 +16,8 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a terse card title.
 
+**By venue** (`venue:`, ~19 words each) it holds laptop ~6 · huddle ~3 · conference ~3 · hall ~3 items. At ~15 words each: 6 · 4 · 4 · 4. No venue goes past the Capacity max of 6, which holds in every room. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

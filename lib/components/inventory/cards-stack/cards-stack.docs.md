@@ -6,7 +6,7 @@
 
 **Tags** `overview` · `summary` · `reference`
 
-Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best (a fourth fits with the `compact` modifier).
+Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best.
 
 ## Agent contract
 
@@ -14,7 +14,7 @@ Use when the items want vertical reading order — sequential exploration rather
 
 **Density** aim ~16 words per item; past ~26 it reads as a wall of text — a stacked card is a short paragraph at most.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`, or `venue: huddle` / `conference` / `hall`) it holds ~4 / ~2 / ~2 items of ~16 words at a wide @size; past that, expect the whole deck to render at the largest smaller scale every slide fits, so it stays one size, rather than clip — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~16 words each) it holds laptop ~4 · huddle ~4 · conference ~2 · hall ~2 items. At ~6 words each: 4 · 4 · 3 · 3. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 
@@ -32,7 +32,6 @@ Use when the items want vertical reading order — sequential exploration rather
 ### Common mistakes
 
 - **Adding a `numbered` class to the slide, expecting it to turn on corner numbers.** There is no `numbered` CSS class — the ranking numbers come purely from authoring the cards as an ordered list (`1.`) instead of `-`.
-- **Adding a fourth card without the `compact` modifier.** A fourth card at or near the density budget (16-26 words) needs `compact` to avoid overflowing the frame — the component's own stress sample demonstrates `cards-stack compact` at four full-budget rows. Four short cards can fit without it; `compact` is a density fix, not a hard card-count switch.
 
 ## When to use
 
@@ -42,7 +41,7 @@ Use when the items want vertical reading order — sequential exploration rather
 
 ## When NOT to use
 
-- **Five or more items.** A fourth card fits with the `compact` modifier; past four the stack overflows. For five or more parallel items reach for cards-grid four, or split across slides.
+- **Five or more items.** Past four the stack overflows. For five or more parallel items reach for cards-grid four, or split across slides.
 - **One-line cards.** If each card is a single short phrase, the stack reads as a padded list. Drop to `list` (or its `takeaway` variant) and reclaim the vertical space.
 - **Forced sequence.** Cards-stack is parallel content read in vertical order, not a numbered sequence. For explicit steps, use list-steps or `list takeaway numbered`.
 

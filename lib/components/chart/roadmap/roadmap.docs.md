@@ -14,6 +14,8 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 **Capacity** ~4 columns (over 5 overflows) — past that, split across slides. Columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (one card per page since #2016 — the four-page budget it used to name is gone).
 
+**By venue** (`venue:`, ~12 words each) it holds laptop ~5 · huddle ~5 · conference ~5 · hall ~5 columns. No venue goes past the Capacity max of 5, which holds in every room. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

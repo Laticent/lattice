@@ -1,7 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { loadStudioPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // Slice: Architect selection Refine. With a model connected, selecting text in the
 // editor reveals a "Refine" control (Polish / Formalize / Elaborate / Shorten);

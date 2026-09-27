@@ -190,7 +190,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
+<!-- _class: cards-stack -->
 <!-- _footer: "Anti-patterns · journey" -->
 
 ## When NOT to reach for journey.

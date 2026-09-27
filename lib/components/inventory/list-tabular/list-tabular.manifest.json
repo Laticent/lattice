@@ -297,5 +297,23 @@
       },
       "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 6 words per element, half the slide density (side 50%: clips at 8; stack 50/50: clips at 4). sweet sits below it."
     }
+  },
+  "venueCapacity": {
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 6,
+        "hall": 5
+      },
+      "12": {
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 6,
+        "hall": 5
+      }
+    }
   }
 }

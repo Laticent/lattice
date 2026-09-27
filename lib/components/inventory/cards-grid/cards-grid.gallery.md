@@ -148,8 +148,8 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · cards-grid" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · cards-grid · 1 of 2" -->
 
 ## When NOT to reach for cards-grid.
 
@@ -159,6 +159,14 @@ header: "Lattice · cards-grid"
   - Use list-steps or `list takeaway numbered`. cards-grid is for parallel options, not sequences.
 - Lopsided density
   - Equalize the prose when one card has three sentences and the rest have one. Otherwise change layout.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · cards-grid · 2 of 2" -->
+
+## When NOT to reach for cards-grid.
+
 - Inline-code-only body
   - A body bullet containing only `code` gets promoted to an eyebrow label. Mix it with surrounding prose.
 

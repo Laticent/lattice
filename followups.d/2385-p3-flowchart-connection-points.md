@@ -11,7 +11,7 @@ why now   — The owner's idea, raised on #2385. The solver picks every port its
             the right default. An author has no way to say "leave from the right
             side" or "enter at the top" when the default reads wrong.
 where     — lib/core/flowchart-grammar.js (a span word on the connection, e.g.
-            `:from-right` / `:to-top`, or per-shape named points); graph-layout.js
+            `:from-right` / `:to-top`, or per-shape named points); docs/src/lib/trama/kernel.ts
             (`solveRoutes`: a pinned side is a fixed port, as self-loops already are);
             lint-core.js; flowchart.docs.md.
 done when — A connection can pin the side it leaves from and the side it arrives at

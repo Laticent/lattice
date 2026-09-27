@@ -18,3 +18,6 @@ rechecked — 2026-09-26, after #2386 opted the card catalog into `cards:`: STIL
             list 3 (6; its sweet 5 and soft 6 are also above the ceiling). No manifest moved. Related:
             list.gallery p9, an 8-line "hard ceiling" stress slide, is one of the clips in
             `2378-p2-new-gallery-clips-2377-2380.md`.
+rechecked — 2026-09-27, while giving every component a per-venue budget: STILL OPEN, and one more.
+            The rig's new `cycle` builder measures 5 stages of 12 words at `wide` (hard 6):
+            `node tools/calibrate-capacity.js cycle --family wide --words soft`.

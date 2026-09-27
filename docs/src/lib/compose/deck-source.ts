@@ -1,9 +1,12 @@
-import { MARKER_CLASS } from '../../../../lib/core/state-marks.js';
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import stateMarks from '../../../../lib/core/state-marks.js';
 import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
 import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
 import { splitSlides } from '../../components/studio/lint';
 import { fenceRanges } from '../../components/studio/slide-directives';
 import { normalizeSourceText } from '../normalize-source-text';
+
+const { MARKER_CLASS } = stateMarks;
 
 // Pure deck-source helpers — the fence-aware split/join between a Lattice deck's
 // canonical markdown and its parts (front-matter, per-slide directives, prose).

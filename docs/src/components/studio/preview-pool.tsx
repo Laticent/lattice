@@ -311,12 +311,26 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		// say, even where the tile itself is hidden. Stopping at the wrapper is load-bearing, not an
 		// optimization — see `visibleBox`.
 		const v = visibleBox(el, layer.parentElement, false, FRAME_BLEED);
+		// IN THE LAYER'S OWN, UNTRANSFORMED UNITS. `getBoundingClientRect` reports what is on screen,
+		// so under a scaled ancestor every box comes back scaled — and the frames, which live inside
+		// that ancestor, get scaled AGAIN when painted. Add slide opens with a zoom from 95%, and it
+		// is kept mounted between opens (ui/persistent-surface.tsx), so every reopen replays the
+		// zoom: a pass measured mid-animation left every preview at 95% of its tile, shifted up and
+		// left, until something moved the layout. Dividing by the layer's own scale makes the
+		// measurement right at any point of the animation.
+		// The laid-out size comes from the computed style, which is fractional and ignores transforms,
+		// so the ratio is exact: 1 unscaled, 0.995 in the last frames of the zoom.
+		const cs = getComputedStyle(layer);
+		const laidW = Number.parseFloat(cs.width);
+		const laidH = Number.parseFloat(cs.height);
+		const sx = laidW > 0 && b.width > 0 ? b.width / laidW : 1;
+		const sy = laidH > 0 && b.height > 0 ? b.height / laidH : 1;
 		return {
-			top: a.top - b.top,
-			left: a.left - b.left,
-			width: a.width,
-			height: a.height,
-			clip: { top: v.top - b.top, left: v.left - b.left, width: Math.max(0, v.right - v.left), height: Math.max(0, v.bottom - v.top) },
+			top: (a.top - b.top) / sy,
+			left: (a.left - b.left) / sx,
+			width: a.width / sx,
+			height: a.height / sy,
+			clip: { top: (v.top - b.top) / sy, left: (v.left - b.left) / sx, width: Math.max(0, v.right - v.left) / sx, height: Math.max(0, v.bottom - v.top) / sy },
 		};
 	}, []);
 
@@ -457,12 +471,22 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				// A free slot of the same IDENTITY, preferring one that also matches the shape so the
 				// render patches instead of rewriting. Never a slot of another identity, whatever the
 				// pressure: that one is not a cost, it is a wrong answer.
+				//
+				// A NEW SLOT OF THIS SHAPE BEATS A FREE ONE OF ANOTHER — under the ceiling, and one past it
+				// for a shape the pool holds no slot of at all. Taking the other shape's slot is a full
+				// rewrite now and another when a tile of that shape wants it back: two fresh documents, on
+				// WebKit two permanent ones, on every traversal. Measured on the Add slide gallery, which is
+				// kept mounted between opens and fills the ceiling at 1440 px: its one Mermaid tile cost two
+				// `srcdoc` writes on every reopen. One slot of its own shape, once, costs less. Still bounded
+				// by HARD_MAX_SLOTS.
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
-				let slot = free.find((s) => s.key === k) ?? free[0];
-				if (!slot && next.length < cap) {
+				let slot = free.find((s) => s.key === k);
+				const shapeless = !next.some((s) => s.key === k && s.id === idk);
+				if (!slot && (next.length < cap || (shapeless && next.length < HARD_MAX_SLOTS))) {
 					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
 					next.push(slot);
 				}
+				slot ??= free[0];
 				if (!slot) {
 					// LAST RESORT: re-key a free slot of another identity. Bumping `gen` makes React unmount
 					// and remount it, which destroys a document — the thing this module exists to avoid — so it
@@ -564,8 +588,15 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	// still armed after unmount. `alive` is what actually stops it: `schedule()` refuses to arm once
 	// the pool is gone. Without it the callback holds this pool's closures for up to APPLY_MS past
 	// unmount, in the one module whose subject is retained memory.
-	React.useEffect(
-		() => () => {
+	// The body sets `alive` back to true because StrictMode (the dev server) runs this cleanup and
+	// then re-runs the effect on the SAME refs; without that reset the pool never armed again and
+	// painted nothing on `astro dev`. It then arms one pass, because the tiles' own effects re-ran
+	// FIRST (children before parent) and their `schedule()` calls were refused while `alive` was
+	// false. `schedule` is stable (its one dependency, `rectOf`, has none), so this runs once.
+	React.useEffect(() => {
+		alive.current = true;
+		schedule();
+		return () => {
 			alive.current = false;
 			if (pending.current !== null) window.clearTimeout(pending.current);
 			pending.current = null;
@@ -573,9 +604,8 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 			raf.current = 0;
 			for (const off of nested.current.values()) off();
 			nested.current.clear();
-		},
-		[],
-	);
+		};
+	}, [schedule]);
 
 	React.useEffect(() => {
 		const layer = layerRef.current;

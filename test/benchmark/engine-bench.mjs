@@ -422,7 +422,7 @@ async function editTier() {
 
 // ── FLOWCHART LAYOUT TIER ────────────────────────────────────────────────────
 //
-// The flowchart's browser pass calls `graphLayoutKernel().layout()` for every chart on
+// The flowchart's browser pass calls Trama's `graphLayoutKernel().layout()` for every chart on
 // load, again when fonts arrive, and on resize. This tier replays the exact calls one
 // Chromium render of examples/flowchart.md made (test/benchmark/fixtures/
 // flowchart-deck-layouts.json) through a fresh kernel, the way a page does, and a second
@@ -438,8 +438,13 @@ async function flowchartTier() {
   const { createRequire } = await import('node:module');
   const req = createRequire(import.meta.url);
   const fixture = join(ROOT, 'test/benchmark/fixtures/flowchart-deck-layouts.json');
-  const kernelPath = join(ROOT, 'lib/components/chart/_chart-family/graph-layout.js');
-  if (!existsSync(fixture) || !existsSync(kernelPath)) return { summary: [] };
+  // Trama's built kernel (the graph-chart library), or, on a tree from before Trama, the
+  // kernel's old home in the chart family, so a base arm cut from an older main still runs.
+  const kernelPath = [
+    join(ROOT, 'docs/src/lib/trama/dist/index.cjs'),
+    join(ROOT, 'lib/components/chart/_chart-family/graph-layout.js'),
+  ].find((p) => existsSync(p));
+  if (!existsSync(fixture) || !kernelPath) return { summary: [] };
   req(join(ROOT, 'lib/core/dagre-layout.js'));
   const dagre = globalThis.__latticeDagre;
   const { graphLayoutKernel } = req(kernelPath);

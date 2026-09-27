@@ -10,6 +10,8 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 
 ## Agent contract
 
+**By venue** no count budget. Its rows are a state-marker grid the calibration rig cannot author yet; not measured per venue.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

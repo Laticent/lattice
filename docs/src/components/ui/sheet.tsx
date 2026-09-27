@@ -1,7 +1,7 @@
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 import type * as React from "react"
-
+import { usePersistentIds } from "@/components/ui/persistent-surface"
 import { cn } from "@/lib/utils"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
@@ -42,12 +42,28 @@ function SheetOverlay({
   )
 }
 
+/** The box a sheet draws on each side — shared with `PanelSheet`'s persistent variant. */
+export function sheetBox(side: "top" | "right" | "bottom" | "left") {
+  return cn(
+    "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500",
+    side === "right" &&
+      "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
+    side === "left" &&
+      "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
+    side === "top" &&
+      "inset-x-0 top-0 h-auto border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+    side === "bottom" &&
+      "inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom"
+  )
+}
+
 function SheetContent({
   className,
   children,
   side = "right",
   showCloseButton = true,
   overlay = true,
+  overlayClassName,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -56,25 +72,19 @@ function SheetContent({
    * on the Root) so the page behind stays interactive and is NOT scroll-locked —
    * a modal scroll-lock lingers on iOS Safari and freezes the surface behind. */
   overlay?: boolean
+  /** Extra classes for the backdrop — e.g. switching its fade-in off. */
+  overlayClassName?: string
 }) {
   return (
     <SheetPortal>
-      {overlay && <SheetOverlay />}
+      {overlay && <SheetOverlay className={overlayClassName} />}
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
           // lx-ui carries the scoped reset (tailwind.css) into the Radix portal,
           // which mounts outside the island root. Keep first.
           "lx-ui",
-          "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500",
-          side === "right" &&
-            "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
-          side === "left" &&
-            "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
-          side === "top" &&
-            "inset-x-0 top-0 h-auto border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
-          side === "bottom" &&
-            "inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+          sheetBox(side),
           className
         )}
         {...props}
@@ -126,8 +136,11 @@ function SheetTitle({
   className,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Title>) {
+  const persistentIds = usePersistentIds()
   return (
     <SheetPrimitive.Title
+      // Inside a PersistentSurface the dialog element is ours, so its label ids are too.
+      {...(persistentIds ? { id: persistentIds.titleId } : {})}
       data-slot="sheet-title"
       className={cn("font-semibold text-foreground", className)}
       {...props}
@@ -139,8 +152,11 @@ function SheetDescription({
   className,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Description>) {
+  const persistentIds = usePersistentIds()
   return (
     <SheetPrimitive.Description
+      // Inside a PersistentSurface the dialog element is ours, so its label ids are too.
+      {...(persistentIds ? { id: persistentIds.descriptionId } : {})}
       data-slot="sheet-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}

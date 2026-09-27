@@ -196,7 +196,7 @@ describe('finish-generate', () => {
 		expect(generateFinishCss('x', coerceRecipe({ backdrop: { strength: 1 } }))).not.toMatch(/--fin-backdrop/);
 	});
 
-	it('re-points a baked SPOTLIGHT mask to its opaque mirror in BOTH generated export rules', () => {
+	it('re-points a baked SPOTLIGHT mask to its opaque mirror for print only; the Studio raster keeps the feather', () => {
 		// PDF-safety: the finish's own `section.finish.finish-<slug>` (0,2,1) rich setter would
 		// beat base.finish.css's (0,1,1) `section.finish` flip, so the feathered mask would gray
 		// in the vector PDF. generateFinishCss must emit the flip at its OWN specificity. A baked
@@ -204,8 +204,10 @@ describe('finish-generate', () => {
 		const css = generateFinishCss('x', coerceRecipe({ backdrop: { spotlight: { x: 50, y: 50, radius: 30 } } }));
 		const print = css.slice(css.indexOf('@media print'), css.indexOf(':where('));
 		expect(print).toMatch(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque,\s*none\)/); // @media print
+		// The Studio raster (html-to-image) draws the feathered radial cleanly; the hard mirror
+		// printed a solid-edged window in every Studio download (backdrop-register.md §4.8).
 		const exporting = css.slice(css.indexOf(':where('));
-		expect(exporting).toMatch(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque,\s*none\)/); // .lattice-exporting
+		expect(exporting).not.toMatch(/--fin-backdrop-mask/); // .lattice-exporting
 		expect(generateFinishCss('x', coerceRecipe({ backdrop: { clearance: true } }))).not.toMatch(/--fin-backdrop-mask/);
 		// no baked clearance → no backdrop-mask flip in the export rules
 		expect(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } }))).not.toMatch(/--fin-backdrop-mask:/);
@@ -217,8 +219,8 @@ describe('finish-generate', () => {
 		expect(css).toMatch(/--fin-backdrop-mask:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 42%, var\(--fin-canvas, var\(--bg\)\) 96%\)/);
 		expect(css).toMatch(/--fin-backdrop-mask-opaque:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 70%, var\(--fin-canvas, var\(--bg\)\) 70%\)/);
 		expect(css).not.toMatch(/--backdrop-clear-mask/); // spotlight won — clearance shape not used
-		// the export rules flip the spotlight mask to its hard mirror in BOTH guards
-		expect((css.match(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque, none\)/g) || []).length).toBe(2);
+		// only the print rule flips the spotlight mask to its hard mirror; the Studio raster keeps the feather
+		expect((css.match(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque, none\)/g) || []).length).toBe(1);
 	});
 
 	it('mergeFinishOverride swaps a baked clearance for a deck spotlight (triple string)', () => {

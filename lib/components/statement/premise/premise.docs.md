@@ -14,7 +14,7 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 
 **Density** aim ~14 words per item; past ~18 it reads as a wall of text — the description clause plus the trailing question, combined — not a sentence each.
 
-**At a projection scale** (`scale-l` / `scale-xl` / `scale-2xl`, or `venue: huddle` / `conference` / `hall`) it holds ~8 / ~8 / ~6 items of ~14 words at a wide @size; past that, expect the whole deck to render at the largest smaller scale every slide fits, so it stays one size, rather than clip — `lint:deck` flags it first (`capacity-scale`). See engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~14 words each) it holds laptop ~8 · huddle ~8 · conference ~8 · hall ~6 items. At ~6 words each: 8 · 8 · 8 · 6. No venue goes past the Capacity max of 8, which holds in every room. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

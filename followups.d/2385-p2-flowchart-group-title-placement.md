@@ -7,10 +7,10 @@ recorded: 2026-09-26
 # Let an author place a flowchart group's title, with a default that heals itself
 
 why now   — The owner flagged it reviewing #2385. `placeTitles` in
-            `lib/components/chart/_chart-family/graph-layout.js` always puts a group's
+            `docs/src/lib/trama/kernel.ts` always puts a group's
             title at the top-left inset. It slides it right only to dodge a line or a
             label, and an author cannot choose top-center, top-right or a bottom band.
-where     — graph-layout.js (`placeTitles`, the title bands in `solveRoutes`, the band
+where     — docs/src/lib/trama/kernel.ts (`placeTitles`, the title bands in `solveRoutes`, the band
             opened after dagre); lib/core/flowchart-grammar.js (a span word on the
             group's row, e.g. `:title-center`); flowchart.styles.css; flowchart.docs.md.
 done when — An author can set a group's title position (at least left, center and

@@ -1,8 +1,8 @@
 import { AlertTriangle, Check, Info, OctagonAlert, Sparkles, X } from 'lucide-react';
 import type * as React from 'react';
 import { cn } from '@/lib/utils';
-import { DiffCard } from '../ArchitectChat';
 import type { Finding } from '../architect';
+import { DiffCard } from '../diff-card';
 
 // The per-finding fix lifecycle, owned by StudioShell and rendered here. A finding is
 // either untouched (no entry), being drafted ('working', the pill cycles through the

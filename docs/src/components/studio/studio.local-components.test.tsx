@@ -1,7 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { loadStudioPanels, waitForPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // Slice: insert + render a SAVED LOCAL component. A component authored in the
 // Fabricate Layout Studio (component-library, IndexedDB) must (1) appear in the
@@ -93,7 +97,10 @@ describe('Studio — insert + render a saved local component', () => {
 		// A success toast confirms the insert, and the preview now carries the
 		// component's CSS (the deck uses `.mybox`, so usedLocalCss → extraCss).
 		expect(await screen.findByText(/Inserted/)).toBeInTheDocument();
-		const preview = await screen.findByTestId('deck-preview');
+		// The Studio's own preview. The closed gallery stays mounted and keeps its tiles' previews
+		// (ui/persistent-surface.tsx), so a page-wide lookup now finds those too.
+		const preview = (await screen.findAllByTestId('deck-preview')).find((el) => !el.closest('[data-slot="persistent-surface"]'));
+		if (!preview) throw new Error("the Studio's own preview is missing");
 		expect(preview.getAttribute('data-extra-css')).toContain('section.mybox');
 	});
 
@@ -103,6 +110,7 @@ describe('Studio — insert + render a saved local component', () => {
 		await user.click(await screen.findByText('mybox'));
 
 		await user.click(screen.getByRole('button', { name: 'Share' }));
+		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Share/ }));
 		// PDF opens the Options step; Download runs the exporter.
 		await user.click(sheet.getByText('PDF'));
@@ -122,6 +130,7 @@ describe('Studio — insert + render a saved local component', () => {
 		await user.click(await screen.findByText('mybox'));
 
 		await user.click(screen.getByRole('button', { name: 'Share' }));
+		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Share/ }));
 		await user.click(sheet.getByText('Markdown'));
 		const md = shareSpies.shareMarkdown.mock.calls.at(-1) as unknown[];
@@ -136,6 +145,7 @@ describe('Studio — insert + render a saved local component', () => {
 	it('hands no components to the exports when the deck uses none', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Share' }));
+		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Share/ }));
 		await user.click(sheet.getByText('Markdown'));
 		const md = shareSpies.shareMarkdown.mock.calls.at(-1) as unknown[];

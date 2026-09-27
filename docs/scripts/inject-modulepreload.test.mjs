@@ -7,10 +7,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ENTRIES, findEntryChunk, injectIntoPage, MARKER, processEntry, resolveTransitiveDeps } from './inject-modulepreload.mjs';
+import { ENTRIES, findEntryChunk, findLazyOnlyLeaks, injectIntoPage, MARKER, processEntry, resolveTransitiveDeps } from './inject-modulepreload.mjs';
 
-function chunk({ facadeModuleId = null, imports = [], dynamicImports = [], css = [] } = {}) {
-	return { facadeModuleId, moduleIds: [], imports, dynamicImports, css };
+function chunk({ facadeModuleId = null, imports = [], dynamicImports = [], css = [], moduleIds = [] } = {}) {
+	return { facadeModuleId, moduleIds, imports, dynamicImports, css };
 }
 
 describe('findEntryChunk', () => {
@@ -266,5 +266,42 @@ describe('processEntry', () => {
 		processEntry(graph, studioEntry, tmp);
 		const html = fs.readFileSync(path.join(tmp, studioEntry.page), 'utf8');
 		expect(html).toContain('<link rel="modulepreload" href="/_astro/lint-kernel.js">');
+	});
+});
+
+// The six Studio panels and the narration stack load on first open
+// (engineering/decisions/2026-09-26-studio-panel-lazy-loading.md). The build fails when one of
+// them is back in the Studio's startup closure, and names it.
+describe('lazy-only modules', () => {
+	const graph = {
+		'_astro/StudioIsland.js': chunk({ facadeModuleId: '/repo/src/components/studio/StudioIsland.tsx', imports: ['_astro/shell.js'], moduleIds: ['/repo/src/components/studio/StudioIsland.tsx'] }),
+		'_astro/shell.js': chunk({ moduleIds: ['/repo/src/components/studio/StudioShell.tsx', '/repo/src/components/studio/panel-shells.tsx'], dynamicImports: ['_astro/ShareSheet.js'] }),
+		'_astro/ShareSheet.js': chunk({ facadeModuleId: '/repo/src/components/studio/ShareSheet.tsx', moduleIds: ['/repo/src/components/studio/ShareSheet.tsx'] }),
+	};
+
+	it('finds nothing while the panels stay behind a dynamic import', () => {
+		const { jsChunks } = resolveTransitiveDeps(graph, '_astro/StudioIsland.js');
+		expect(findLazyOnlyLeaks(graph, jsChunks, ['src/components/studio/ShareSheet.tsx'])).toEqual([]);
+	});
+
+	it('names a panel that an eager chunk pulled back in', () => {
+		const leaked = { ...graph, '_astro/shell.js': chunk({ moduleIds: ['/repo/src/components/studio/StudioShell.tsx', '/repo/src/components/studio/ShareSheet.tsx'] }) };
+		const { jsChunks } = resolveTransitiveDeps(leaked, '_astro/StudioIsland.js');
+		expect(findLazyOnlyLeaks(leaked, jsChunks, ['src/components/studio/ShareSheet.tsx'])).toEqual(['src/components/studio/ShareSheet.tsx']);
+	});
+
+	it('guards the six panels and the narration stack on the real Studio entry', () => {
+		const studio = ENTRIES.find((e) => e.page === 'studio/index.html');
+		expect(studio.lazyOnlySuffixes).toEqual(
+			expect.arrayContaining([
+				'src/components/studio/ShareSheet.tsx',
+				'src/components/studio/WorkspaceSheet.tsx',
+				'src/components/studio/ArchitectChat.tsx',
+				'src/components/studio/Library.tsx',
+				'src/components/studio/SlideContext.tsx',
+				'src/components/studio/LensesPanel.tsx',
+				'src/playground/read-along-core.generated.js',
+			]),
+		);
 	});
 });

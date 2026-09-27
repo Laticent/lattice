@@ -258,5 +258,18 @@
       "note": "Phase columns: a stacked band is full width. Judgment: the calibration rig has no element builder for this component.",
       "min": 2
     }
+  },
+  "venueCapacity": {
+    "axis": "col",
+    "at": "wide",
+    "atLeast": ["laptop", "huddle"],
+    "byWords": {
+      "12": {
+        "laptop": 12,
+        "huddle": 12,
+        "conference": 10,
+        "hall": 9
+      }
+    }
   }
 }

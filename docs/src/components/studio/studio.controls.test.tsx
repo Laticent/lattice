@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadStudioPanels, waitForPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // Stub the live preview (its engine poller leaks a post-teardown timer in jsdom).
 // The stub also SURFACES `deckId`, because that string is what the preview's diagram-hold
@@ -423,6 +427,7 @@ describe('Studio — Architect + editor controls respond', () => {
 	it('the Lenses panel adds a reader view and gates it behind approval (deterministic, real)', async () => {
 		const user = await setup();
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Reader views' })); // open the Lenses panel (first-class now)
+		await waitForPanels();
 		// The Lenses panel: add a Bottom-line reader view…
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
 		await user.click(screen.getByRole('button', { name: /Bottom line/ }));

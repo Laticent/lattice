@@ -253,8 +253,8 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · line" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · line · 1 of 2" -->
 
 ## When NOT to reach for line.
 
@@ -264,6 +264,14 @@ A measure plotted across an ordered axis, so the movement is the read — one li
   - Joining 'Legal, Finance, Sales, Ops' asserts a progression that does not exist. Use `bar`, or `stacked-bar` if each one decomposes.
 - A filled area for several series
   - Two opaque regions hide each other. Use `stacked-area` when the series sum to a total; the kernel drops the fill rather than lie.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · line · 2 of 2" -->
+
+## When NOT to reach for line.
+
 - A trend where the story is attainment against a target
   - If the question is 'did we hit the number', the target is not on the line. `bullet` puts actual, target and a band on one row.
 

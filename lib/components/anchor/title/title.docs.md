@@ -10,6 +10,8 @@ First slide of every deck. Sets the topic and the visual tone. Suppresses header
 
 ## Agent contract
 
+**By venue** no count budget. A bookend: one heading and a line or two, with no repeated element to count.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

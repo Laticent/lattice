@@ -127,7 +127,7 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
+<!-- _class: cards-stack -->
 <!-- _footer: "Anti-patterns · matrix-grid" -->
 
 ## When NOT to reach for matrix-grid.

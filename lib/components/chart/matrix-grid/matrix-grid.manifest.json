@@ -207,5 +207,8 @@
       },
       "note": "A grid of shaped cells. Judgment: the calibration rig has no element builder for this component."
     }
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
   }
 }

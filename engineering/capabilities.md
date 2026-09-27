@@ -135,6 +135,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `theme-catalog:check` | Freshness gate for the generated Studio palette catalog. |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
 | `theme-core:check` | Freshness gate for the theme-core bundle. |
+| `trama-lib:build` | Build the Trama graph-chart library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require('@laticent/trama') resolves for the runtime, the emulator and the tests. |
+| `trama-lib:check` | Freshness gate for the Trama library dist/ (stale vs docs/src/lib/trama/*.ts). |
 | `vetrina-lib:build` | Build the Vetrina library dist/ (two ESM + two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine. |
 | `vetrina-lib:check` | Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts). |
 
@@ -297,6 +299,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `followups` | List followups.d/ — every pending item with no issue, one line each (contract: followups.d/README.md). |
 | `prepare` | npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
+| `test:trama` | **TODO: describe `test:trama` in tools/build-capabilities.js (SCRIPT_META).** |
 
 ## Tools — `tools/`
 
@@ -441,6 +444,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-stress-deck.js` | build-stress-deck — assemble one bucket's CEILING cases into a single deck. |
 | `tools/build-suono-lib.js` | Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type |
 | `tools/build-theme-catalog.js` | Generates docs/src/components/studio/palettes.generated.ts — the palette picker's |
+| `tools/build-trama-lib.js` | Build the Trama library's consumable dist/: the ESM and CJS entries and the type |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/calibrate-capacity.js` | calibrate-capacity — find the ELEMENT COUNT a layout overflows at, per box |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |

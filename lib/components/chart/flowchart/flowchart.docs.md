@@ -12,6 +12,8 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 
 ## Agent contract
 
+**By venue** no count budget. A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

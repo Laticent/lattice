@@ -193,8 +193,8 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: cards-stack compact cards-stretch -->
-<!-- _footer: "Anti-patterns · slope" -->
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · slope · 1 of 2" -->
 
 ## When NOT to reach for slope.
 
@@ -202,6 +202,14 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
   - A two-point `line` chart draws the same two segments, then buries the crossing under a two-tick category axis, a grid and a legend. Three or more points is `line`'s job, not this one's.
 - Values that are not on one scale
   - Every entity shares one vertical scale, so a revenue line crossing a headcount line means nothing. One metric per slope; if the metrics differ, use `stats` or one slope each.
+
+---
+
+<!-- _class: cards-stack -->
+<!-- _footer: "Anti-patterns · slope · 2 of 2" -->
+
+## When NOT to reach for slope.
+
 - signal on a metric where up is bad
   - Rising unit cost painted green says the opposite of the truth. On cost, churn, cycle time or defects, mark the lines that matter with a status pill and leave the rest neutral.
 - Reading a gap against zero

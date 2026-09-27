@@ -271,7 +271,7 @@ or fabricated, without changing the finish itself. It takes up to two words, one
 |---|---|---|---|
 | Strength | `20` `40` `60` `80` | `backdrop-20` … `backdrop-80` | The whole finish at that opacity |
 | Strength | `full` | `backdrop-full` | Full strength, discarding a finish's own baked dim |
-| Mask | `clear` | `backdrop-clear` | The frame's content box (eyebrow, heading and body) is clean canvas; the finish reads only in the margin, fading in softly on screen and hard-edged in exports |
+| Mask | `clear` | `backdrop-clear` | The frame's content box (eyebrow, heading and body) is clean canvas; the finish reads only in the margin, fading in softly on screen and in the PDF, HTML and image exports alike |
 | Mask | `spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br` | `backdrop-spot-<pos>` | The finish shows in one window at that anchor, and nowhere else |
 | Mask | `open` | `backdrop-open` | No mask, discarding a finish's own baked clearance or spotlight |
 
@@ -769,6 +769,10 @@ shared screen.
 which a venue lifts past the body because the smallest text fails first at distance.
 If your back row is farther from the screen than the band assumes (for example, 30
 people and a small TV), pick the next venue up.
+
+Each component's `.docs.md` prints how many elements it holds at each venue (its
+"**By venue**" line), and `dist/docs/components.pick.md` has the same numbers in a
+`by venue` column — pick for the room before you write.
 
 A slide too full for the venue's size does not clip and does not render smaller than
 its neighbors: the whole deck renders at the largest size every slide fits, and the

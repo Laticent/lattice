@@ -99,5 +99,8 @@
     "side": 35,
     "stack": 60,
     "noBudget": "a Mermaid diagram scales to its box; its node count is not a list the linter can read"
+  },
+  "venueCapacity": {
+    "none": "Mermaid scales the whole diagram to its box, so no node count marks where it stops fitting."
   }
 }

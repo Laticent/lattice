@@ -118,6 +118,17 @@ owe nothing here. See
   works in dev and the bundle/gate can go). Until then the bundle is the contract.
 - **Commit:** `fix(docs): load Architect authoring cores via an esbuild bundle so
   they work in astro dev`.
+- **The same trap, second shape: a NAMED import off a CJS leaf.** Since #2119,
+  `docs/src/plugins/vite-cjs-lib-dev.mjs` serves a CJS leaf under `lib/` (one that
+  requires nothing) with a `default` export in dev, and nothing else. So
+  `import x from '…/lib/core/state-marks.js'` works in dev and build, while
+  `import { MARKER_CLASS } from …` builds and then dies in dev with `does not provide
+  an export named 'MARKER_CLASS'`. Seen twice more: the Studio's webpage export
+  (`fromBase64` from `base64-utf8.js`) failed its diagram bake and shipped raw
+  Mermaid source, and the whole Compose view failed to load (`state-marks.js`,
+  `fence-languages.js`). **Fix:** `import x from …;` then `const { a } = x;`.
+  `docs/src/plugins/vite-cjs-lib-dev.test.ts` fails on any named or namespace
+  import from a CJS leaf in a non-test `docs/src` file.
 
 ## Every Fabricate preview is EMPTY in `astro dev` only (StrictMode disposes the renderer, and the sentinel hides it)
 
@@ -159,11 +170,15 @@ owe nothing here. See
   `npm run dev` alone reports the OPPOSITE of the truth here, in both directions —
   a dev-only break reads as shipped, and a dev-only pass would too. **Drive
   `docs/dist`** (`cd docs && npm run build && npx astro preview --port 4322`).
-- **Not fixed** (pre-existing, and off the path of the change that found it — HARD
-  RULE #18). The candidate fix is to re-create the renderer when it has been
-  disposed rather than only when the ref is null — i.e. make the lazy init an effect
-  that owns the whole lifecycle, not a render-body guard paired with an effect
-  cleanup.
+- **Fixed 2026-09-27** (`followups.d/2391-p2`, which found the same trap under the pooled
+  preset and Reshape pickers). The unmount cleanup already nulled `engineRef`; the missing half
+  was a rebuild, because the render body that builds the renderer does not re-run between the
+  StrictMode cleanup and the effect re-run. `runRenderRef` now rebuilds it from the first
+  render's arguments (`makeEngineRef`) when it is null and the host is mounted. Measured on
+  `astro dev`: Fabricate's three specimen figures went from 0 children each to 1, and the
+  preset picker from 1 iframe to 5. `DeckPreview.test.tsx` pins it under `<StrictMode>`.
+  `preview-pool.tsx` had a second copy of the trap in its own `alive` ref, fixed the same day.
+  The verification advice above still stands: a dev-only pass is not a shipped pass.
 - **Unrelated, despite arriving together:** the `/playground/v/<hash>/themes/fab-<id>.css`
   **404**. A theme authored in the browser cannot exist under a build-time staged
   asset path. It is present on the built site too, where the preview renders

@@ -69,6 +69,7 @@ const EXPECTED_UNCOMMITTED = new Set([
   // `dist/` covers, exactly as it does for the four sibling library dists below.
   'build-ltt-lib.js',
   'build-cadenza-lib.js',
+  'build-trama-lib.js',
   'build-vetrina-lib.js',
   'build-lente-lib.js',
   'build-suono-lib.js',

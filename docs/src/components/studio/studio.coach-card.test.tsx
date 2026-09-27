@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadStudioPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // The Coach quick-read card's ASYNC seams. `theAsk`, `structureCheck` and `pacing(src, minutes)`
 // all await a lazily-imported chunk, so a click stays in flight long enough for the user to act

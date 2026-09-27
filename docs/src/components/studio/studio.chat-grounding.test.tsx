@@ -1,8 +1,12 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadStudioPanels } from '@/test/panels';
 import { assessDeck } from './coach/coach-core';
 import StudioShell from './StudioShell';
+
+// The Studio's panels load on first open; load them up front so no test races a shell.
+beforeAll(loadStudioPanels);
 
 // P2b wiring: the Coach's assessment and the component catalog have to actually REACH
 // `chatComplete`. `chat-grounding.test.ts` pins what the prompt looks like once the

@@ -122,7 +122,7 @@ const manifestSchemas = require('./manifest-schemas'); // the four manifest fami
 const { checkManifestSchemas } = manifestSchemas;
 const {
   loadAll, manifestBucket, BUCKETS,
-  UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, TAGS,
+  UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, TAGS, MODIFIER_GROUPS,
 } = require('../lib/components');
 const { TRANSFORMERS } = require('../lib/transformers/registry');
 const { PAIRS: TOKEN_CROSSWALK } = require('../lib/tokens/crosswalk');
@@ -2736,6 +2736,253 @@ function checkMarginDiscipline(errors) {
     errors.push(
       `stale margin sanction in tools/check-ownership.js — \`${s.value}\` in ${s.file} is no longer ` +
       `present (HARD RULE #20). Remove the SANCTIONED_MARGINS entry so the allowlist stays honest.`,
+    );
+  }
+}
+
+// ─── One type size per deck (typography.md §7, "One size across modifiers") ──
+// THE RULE: a type role's size is set by the deck's venue, and no per-slide class changes
+// it. Spacing, chrome and color may change per slide; the size of `--fs-body`, `--fs-h2`
+// and the rest may not. Record: engineering/decisions/2026-09-25-font-scale-fit.md,
+// Amendment 2026-09-27 (P2).
+//
+// WHY A GATE. LEVEL (lib/core/scale-fit.js rule 7) keeps every slide of a deck on one
+// scale rung, and the owner's direction is that type size never differs from slide to
+// slide. A modifier that sets its own font size breaks that from the other side: a
+// `compact` q-and-a slide dropped its questions from `--fs-message` to `--fs-body` and its
+// answers to `--fs-body-compact`, so that one slide read smaller than its neighbors, which
+// is the per-slide shrink the rung exists to prevent. Nothing caught it; a grep does.
+//
+// TWO ARMS, and what each deliberately leaves alone:
+//
+//   A. A TYPE-ROLE TOKEN (`--fs-*`, and `--venue-meta-lift`, the label lift) is declared
+//      only on `:root` / `section` in a `*.tokens.css` file or by a venue / scale rung rule
+//      (`section.venue-*`, `section.scale-*`) — the classes whose whole job is the size. Any
+//      other rule that redeclares one changes a role's size on the slides it matches.
+//      THE ONE CARVE-OUT, stated rather than hidden: a rung is the explicit magnitude ask,
+//      and an author CAN put it on one slide (`_class: scale-xl` is a documented spot
+//      directive, typography.md §7), which then differs in size from its neighbors. That is
+//      the case the owner ruled on: a `lint:deck` warning rather than a gate
+//      (followups.d/2361-p2-lint-warns-on-spot-scale.md), so this gate exempts every rung.
+//
+//   B. A CROSS-COMPONENT MODIFIER (a token in a MODIFIER_GROUPS group other than `aliases`,
+//      which rename component variants) never sets a type size — `font-size`, the `font`
+//      shorthand, or a custom property named as a size or aliasing a role — on a slide's
+//      content. It composes with every component, so a size it set would be a per-slide
+//      shrink wherever it is used. A rule on the modifier that is also that component's OWN
+//      declared variant is a layout choice (`divider.light`), not this. Pseudo-elements are
+//      chrome (the state stamps, a drawn mark) and are left alone, as are classes inside
+//      `:not()`, which exclude rather than apply.
+//
+// NOT covered: a COMPONENT'S OWN variant assigning its elements to type roles
+// (`list.principles` sets its rows in `--fs-emphasis`). That is a different layout of the
+// component, and the role it picks still has one size per deck. The dense-cell step
+// (`--fs-body-compact` in tables and ledgers) is a role, not a modifier, for the same reason.
+//
+// KNOWN LIMITS (none present in lib/ or themes/ when this landed): a modifier applied to a
+// descendant rather than the rule's subject (`section.x .compact p`), `transform: scale()`, a
+// size alias written as a calc or with a fallback (`calc(var(--fs-body) * .8)`), and native
+// CSS nesting, which the scanner does not descend into.
+//
+// Budget 0, and SANCTIONED_TYPE_SIZE_MODIFIERS for the provably size-neutral: each entry
+// carries its reason, and a stale one fails, as #20 / #22 / #26 do.
+const TYPE_SIZE_MODIFIER_BUDGET = 0;
+// Matched by file + modifier; `count` is how many declarations the entry covers, and a count
+// that no longer matches exactly (fewer OR more) fails, so the list cannot rot or quietly grow.
+const SANCTIONED_TYPE_SIZE_MODIFIERS = [
+  {
+    file: 'lib/components/chart/kanban/kanban.styles.css',
+    modifier: 'dark',
+    count: 1,
+    why: 'Size-neutral. `:is(section.kanban, figure.kanban).dark .kanban-size` shares one rule with the bare `.kanban-size` selector, so the chip is `--fs-meta` on both canvases; the arm exists only to outrank an earlier dark treatment of the chip.',
+  },
+];
+
+/** Every style rule in a stylesheet as { selector, decls: [{ prop, value }] }. Quote- and
+ * paren-aware, so a `{` inside `content: "{"` or `:is(...)` does not open a block. Rules
+ * inside @media / @supports are included; @keyframes and @font-face bodies are not. */
+function styleRulesWithDecls(css) {
+  const clean = stripComments(css);
+  const rules = [];
+  const stack = [];
+  let buf = '';
+  let paren = 0;
+  let quote = null;
+  let body = null;
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    if (quote) {
+      if (ch === '\\') { buf += ch + (clean[i + 1] || ''); i++; continue; }
+      if (ch === quote) quote = null;
+      buf += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; buf += ch; continue; }
+    if (ch === '(') paren++;
+    else if (ch === ')') paren--;
+    if (paren > 0) { buf += ch; continue; }
+    if (ch === '{') {
+      const prelude = buf.trim();
+      buf = '';
+      if (prelude.startsWith('@')) {
+        const name = prelude.slice(1).split(/[\s({]/)[0].toLowerCase();
+        stack.push(name === 'keyframes' || name === 'font-face' ? 'atSkip' : 'atNest');
+      } else {
+        stack.push('rule');
+        body = stack.includes('atSkip') ? null : { selector: prelude, decls: [] };
+      }
+    } else if (ch === '}') {
+      const kind = stack.pop();
+      if (kind === 'rule' && body) {
+        for (const d of splitDecls(buf)) body.decls.push(d);
+        rules.push(body);
+      }
+      body = null;
+      buf = '';
+    } else if (ch === ';' && stack[stack.length - 1] !== 'rule') {
+      buf = '';
+    } else {
+      buf += ch;
+    }
+  }
+  return rules;
+}
+
+function splitDecls(text) {
+  const out = [];
+  let depth = 0;
+  let quote = null;
+  let cur = '';
+  const push = () => {
+    const i = cur.indexOf(':');
+    if (i > 0) out.push({ prop: cur.slice(0, i).trim().toLowerCase(), value: cur.slice(i + 1).trim() });
+    cur = '';
+  };
+  for (const ch of text) {
+    if (quote) { if (ch === quote) quote = null; cur += ch; continue; }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (ch === ';' && depth === 0) { push(); continue; }
+    cur += ch;
+  }
+  if (cur.trim()) push();
+  return out;
+}
+
+/** The classes a selector APPLIES in its first compound (the element the rule is keyed on,
+ * normally the section), counting `:is()` / `:where()` arms and skipping `:not()`. */
+function subjectClasses(selector) {
+  // The first compound ends at the first top-level combinator.
+  let depth = 0;
+  let end = selector.length;
+  for (let i = 0; i < selector.length; i++) {
+    const ch = selector[i];
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
+    else if (depth === 0 && /[\s>+~]/.test(ch)) { end = i; break; }
+  }
+  let compound = selector.slice(0, end);
+  // Drop every :not(...) — paren-aware — so an excluded class is never read as applied.
+  for (let at = compound.indexOf(':not('); at >= 0; at = compound.indexOf(':not(')) {
+    let d = 0;
+    let j = at + 4;
+    for (; j < compound.length; j++) {
+      if (compound[j] === '(') d++;
+      else if (compound[j] === ')' && --d === 0) break;
+    }
+    compound = compound.slice(0, at) + compound.slice(j + 1);
+  }
+  return [...compound.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+}
+
+const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift)$/;
+const RUNG_RULE = /^section\.(venue|scale)-[a-z0-9]+$/;
+const isPseudoElement = (sel) => /::?(before|after|marker|placeholder)\b/.test(sel);
+
+/** The type-size context the gate reads: component names, each component's own variant
+ * tokens, and the cross-component modifier tokens. */
+function typeSizeContext() {
+  const manifests = loadAll();
+  return {
+    components: new Set(manifests.map((m) => m.name)),
+    ownVariants: new Map(manifests.map((m) => [m.name, new Set((m.variants || []).flatMap((v) => String(v).split(/\s+/)))])),
+    crossComponent: new Set(MODIFIER_GROUPS.filter((g) => g.name !== 'aliases').flatMap((g) => g.tokens)),
+  };
+}
+
+/** The per-slide type-size changes in one stylesheet. Pure (css in, offenses out), so the
+ * two arms are unit-tested on fixtures (test/unit/tools/type-size-modifiers.test.js). */
+function typeSizeOffensesIn(css, rel, ctx) {
+  const { components, ownVariants, crossComponent } = ctx;
+  const isTokens = rel.endsWith('.tokens.css');
+  const offenses = [];
+  for (const rule of styleRulesWithDecls(css)) {
+    for (const selector of splitTopLevel(rule.selector)) {
+      const classes = subjectClasses(selector);
+      const comps = classes.filter((c) => components.has(c));
+      for (const { prop, value } of rule.decls) {
+        if (TYPE_ROLE_TOKEN.test(prop)) {
+          if ((isTokens && !classes.length) || RUNG_RULE.test(selector.trim())) continue;
+          offenses.push({ arm: 'A', file: rel, selector, modifier: null, decl: `${prop}: ${value}` });
+          continue;
+        }
+        // A custom property is a size when it is NAMED as one (`--list-row-fs`) or is a bare
+        // alias of a role (`--qa-index: var(--fs-body)`). A spacing calc that merely reads a
+        // role (`--footer-reserve: calc(... + var(--fs-meta) + ...)`) is spacing.
+        const sizes = prop === 'font-size' || prop === 'font' || prop === 'zoom' || prop === 'scale'
+          || (prop.startsWith('--') && (/-fs$|-font-size$/.test(prop) || /^var\(\s*--fs-[a-z0-9-]+\s*\)$/.test(value)));
+        if (!sizes || isPseudoElement(selector)) continue;
+        for (const mod of classes.filter((c) => crossComponent.has(c) && !components.has(c))) {
+          if (comps.some((c) => ownVariants.get(c)?.has(mod))) continue;
+          offenses.push({ arm: 'B', file: rel, selector, modifier: mod, decl: `${prop}: ${value}` });
+        }
+      }
+    }
+  }
+  return offenses;
+}
+
+function typeSizeModifierOffenses() {
+  const ctx = typeSizeContext();
+  const offenses = [];
+  for (const file of [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)]) {
+    offenses.push(...typeSizeOffensesIn(fs.readFileSync(file, 'utf8'), path.relative(ROOT, file), ctx));
+  }
+  return offenses;
+}
+
+/** Consume sanctions against offenses: `remaining` is what no sanction covers, `stale` every
+ * sanction whose count no longer matches exactly. Keyed on file + modifier, not selector, so
+ * swapping one sanctioned declaration for another in the same file keeps the count — review
+ * catches that; the count catches growth and removal. */
+function applyTypeSizeSanctions(offenses, sanctions) {
+  const remaining = [...offenses];
+  const stale = [];
+  for (const s of sanctions) {
+    const hits = remaining.filter((o) => o.file === s.file && o.modifier === s.modifier);
+    if (hits.length !== s.count) stale.push({ ...s, found: hits.length });
+    for (const h of hits) remaining.splice(remaining.indexOf(h), 1);
+  }
+  return { remaining, stale };
+}
+
+function checkTypeSizeModifiers(errors) {
+  const { remaining, stale } = applyTypeSizeSanctions(typeSizeModifierOffenses(), SANCTIONED_TYPE_SIZE_MODIFIERS);
+  if (remaining.length > TYPE_SIZE_MODIFIER_BUDGET) {
+    const list = remaining.slice(0, 6).map((o) => `${o.file}: \`${o.selector.replace(/\s+/g, ' ')}\` sets \`${o.decl}\`${o.modifier ? ` under \`${o.modifier}\`` : ''}`).join('; ');
+    errors.push(
+      `${remaining.length} per-slide type-size change(s) in engine CSS — one type size per deck ` +
+      '(engineering/typography.md §7): a modifier may change spacing, chrome and color, never a type role\'s size, ' +
+      'and a role token is declared only in a *.tokens.css file or a venue / scale rung. Change the spacing instead, ' +
+      `or, if the rule is provably size-neutral, add it to SANCTIONED_TYPE_SIZE_MODIFIERS with its reason. Offending: ${list}.`,
+    );
+  }
+  for (const s of stale) {
+    errors.push(
+      `type-size sanction out of date in tools/check-ownership.js — \`${s.modifier}\` in ${s.file} covers ${s.count} ` +
+      `declaration(s) and ${s.found} match now. Update the count if the change is deliberate, or remove the ` +
+      'SANCTIONED_TYPE_SIZE_MODIFIERS entry once the size change is gone, so the allowlist stays honest.',
     );
   }
 }
@@ -5491,19 +5738,25 @@ const SANCTIONED_PREVIEW_BUILDERS = [
 // Browser passes outside lib/runtime that write markup after the sanitizer ran. The state
 // chart's pass (state-chart.transform.js) is the other member of this class and is NOT listed
 // yet: followups.d/2385-p2-state-chart-pass-census.md.
+//
+// Trama's pipeline (docs/src/lib/trama/pipeline.ts) is the one graph-chart writer: it writes
+// whatever an ADAPTER paints, so each adapter that calls it owns sanitizing its model, and a
+// new adapter is a new provenance to write down here (2026-09-27-trama-graph-chart-library.md).
 const RUNTIME_MARKUP_EXTRA_FILES = [
-  'lib/components/chart/flowchart/flowchart.layout.js',
+  'docs/src/lib/trama/pipeline.ts',
 ];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   {
-    file: 'lib/components/chart/flowchart/flowchart.layout.js',
+    file: 'docs/src/lib/trama/pipeline.ts',
     sink: 'svg.innerHTML',
     count: 1,
     provenance:
-      'OURS — the flowchart painter, built from `data-fc-model`. A deck can FORGE that attribute in ' +
-      'raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so the pass trusts none of ' +
-      'it: sanitizeModel rebuilds every structural field from a closed set or an integer range and ' +
-      'drops the rest, and every author string is escaped where it is painted. Pinned by ' +
+      'OURS — Trama writes the markup its adapter paints (and the same string again when a live layout ' +
+      'holds the last drawing). Today one adapter calls it: the flowchart ' +
+      '(lib/components/chart/flowchart/flowchart.layout.js), painting from `data-fc-model`. A deck can ' +
+      'FORGE that attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so the ' +
+      'adapter trusts none of it: sanitizeModel rebuilds every structural field from a closed set or an ' +
+      'integer range and drops the rest, and every author string is escaped where it is painted. Pinned by ' +
       'test/unit/components/flowchart.test.js "a forged model cannot inject markup".',
   },
   {
@@ -8007,6 +8260,25 @@ function checkCadenzaBoundary(errors, dir = CADENZA_DIR) {
       `docs/src/lib/cadenza/, and its one dependency is '${CADENZA_SANCTIONED_DEP}' by that exact ` +
       `name (2026-09-24-lattice-timing-track.md §6). Move shared code into the folder — Cadenza has no ` +
       `peer-dep seam and must not couple to the host.`,
+  });
+}
+
+// ── Trama (docs/src/lib/trama) — the graph-chart library ────────────────────
+// Trama's kernel, pipeline and every adapter ship as `fn.toString()` source (the CLI
+// export's bootstrap script, the Studio worker), so a value import would be a free variable
+// inside the shipped function. So Trama has NO dependencies at all, not even `node:`:
+// every import resolves inside the folder, dagre arrives as an argument, and type-only
+// imports are erased (2026-09-27-trama-graph-chart-library.md §2-§3).
+const TRAMA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'trama');
+function checkTramaBoundary(errors, dir = TRAMA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Trama folder. Trama ships its kernel and ` +
+      `pipeline as serialized source, so it has no dependencies (dagre is passed in): every ` +
+      `import must resolve inside docs/src/lib/trama/ ` +
+      `(engineering/decisions/2026-09-27-trama-graph-chart-library.md).`,
   });
 }
 
@@ -12386,6 +12658,7 @@ function run() {
   checkTypographyTokens(errors);
   checkLabelVoiceFont(errors);
   checkMarginDiscipline(errors);
+  checkTypeSizeModifiers(errors);
   checkStageInsetOwnership(errors);
   checkBackgroundLayerVars(errors);
   checkMathRendererParity(errors);
@@ -12422,6 +12695,7 @@ function run() {
   checkVoiceSampleAssets(errors);
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
+  checkTramaBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
   checkLttBoundary(errors);
@@ -12483,6 +12757,10 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  checkTypeSizeModifiers,
+  typeSizeOffensesIn,
+  applyTypeSizeSanctions,
+  SANCTIONED_TYPE_SIZE_MODIFIERS,
   checkRelatedTargets,
   run,
   checkE2ESleeps,
