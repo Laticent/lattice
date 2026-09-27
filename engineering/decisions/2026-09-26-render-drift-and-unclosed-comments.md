@@ -172,9 +172,8 @@ through `docs/e2e/preview-documents.ts`, because an element count cannot see a f
 place. MR-3's "closing releases every document" is restated as what it guarded: no per-open
 residue, and a reopen that makes no documents. The WebKit-phone test asserts the reopen.
 
-**Scope.** Only Add slide is persistent. The deck panel's preset tiles (the inspector, and its
-phone sheet) and Present's overview still rebuild their frames on each reopen, as on main. That
-work stays in `followups.d/2391-p3`, which now has the primitive to use.
+**Scope.** This change made only Add slide persistent. The deck settings and Present's overview
+followed in the next PR (below).
 
 **Open, recorded, not fixed here:**
 - Hidden frames keep their event loops running (the inversion review measured rAF at full rate).
@@ -189,6 +188,73 @@ no flash. Both were checked against the preview deploy of `bbe4b31`.
 reopens; VoiceOver on the phone's second open; and a rotation with the gallery open. The WebKit
 figures above come from Playwright's WebKit on Linux, the same engine as iOS Safari but a
 different memory manager.
+
+### The deck settings and the slide overview stay mounted too
+
+The follow-up (`followups.d/2391-p3`, now deleted). The same WebKit cost, on two more surfaces:
+the deck settings' preset tiles, and the grid Present opens on `g`. Both now mount on their first
+open and are only hidden after that. The shared pieces are in `docs/src/components/ui/keep-mounted.tsx`.
+
+- **The overview** (`SlideOverview.tsx`) is the simple case. It is an absolute layer inside
+  Present, so it renders once, hides by class while closed, and drops `role="dialog"` then. A
+  `Frozen` wrapper skips its re-render while closed, because Present re-renders on every slide
+  change. It lives as long as Present does: closing Present unmounts it.
+- **The phone's settings sheet** passes `persistent` to `PanelSheet`. That is the same
+  `PersistentSurface` Add slide uses, frozen while closed.
+- **The docked settings (desktop, tablet)** could not simply stay mounted. The column is a
+  react-resizable-panels `Panel`, and the set of panels in the group is the key the Studio stores
+  each layout's widths under (`splitPanelIds`, and the pre-paint boot that reads the same bucket).
+  A column that stayed in the group while closed would move every "settings closed" layout to a
+  new bucket. So the column is now an empty slot, and `SettingsDock`
+  (`docs/src/components/studio/settings-dock.tsx`) draws the panel over it. The dock is absolute in
+  `<main>` and copies the slot's box from a ResizeObserver callback, which runs after layout and
+  before paint, so a drag of the handle moves it in the same frame. The whole panel moves as one
+  piece, scroller and frames together. That is the line the frame dock crossed and this does not
+  cross: iOS still scrolls the frames natively with their tiles. The dock sits before the split
+  on desktop, where the column is first, and after it on tablet, where it is last, so the tab
+  order still follows the screen. Crossing between desktop and tablet therefore remounts it; the
+  column moves sides there anyway.
+- **What used to reset by remounting still resets on each open.** The content under the preview
+  pool is keyed on a show counter (`useShowCount`), so every open starts it fresh (open sections,
+  a half-typed field) while the pool outside the key keeps its frames and re-points them at the
+  new tiles. The chrome above the body is keyed the same way. The deck scroller returns to the
+  top through `ScrollTopOnMount`, keyed on the same counter and rendered inside the kept content.
+  A reset run from the parent was a no-op on desktop, because the dock is still `display: none`
+  for one render after it opens; the new e2e test caught it at 574 px.
+- **A Slide → Deck switch no longer rebuilds the tiles either.** The deck body stays mounted,
+  hidden and frozen, under the Slide scope. The Slide body has no previews, and it still mounts
+  per switch.
+- **Hidden by class and by attribute.** The Studio's stylesheet has no `[hidden]` rule that beats
+  `flex`. The first build hid the dock with the attribute alone, and the closed panel stayed
+  drawn where it last was. The class does the hiding. The attribute is also set, for code that
+  reads the DOM rather than the CSS (jsdom, testing-library); a Studio unit test read the closed
+  panel's live region without it. (`engineering/gotchas/studio-playground.md`.)
+- **A hint no longer pops up when a panel hands focus back after a tap.** The persistent sheet
+  returns focus to its launcher on close, as a Radix dialog does. Radix opens a tooltip on any
+  focus that no pointer press just preceded, so after a tap on a phone the Settings button's
+  hint appeared over the toolbar. main's non-persistent sheet left focus on `<body>`. `Tip`
+  (`docs/src/components/ui/tooltip.tsx`) now opens on focus only when the focus is
+  `:focus-visible`, which is the browser's own test for a keyboard focus. Tab and hover behave as
+  before. The same case was latent on Add slide's launchers.
+
+**Measured** on Playwright WebKit, 1440×900, production builds on the same box. The script
+(`.scratch/perf/webkit-panel-mem.mjs`) opens the surface, scrolls every scroller in it, closes it,
+and repeats six times.
+
+| | main | this change |
+|---|---|---|
+| deck settings: new preview documents per reopen | 8, every cycle | **0** |
+| deck settings: RSS over baseline after each cycle | +31, +99, +91, +119, +177, +197 MB | +16, +14, +24, +39, +60, +39 MB |
+| overview: new preview documents per reopen | 14, every cycle | **0** |
+| overview: RSS over baseline after each cycle | +0, +88, +135, +172, +188, +260 MB | −1, −5, −5, −4, −3, −1 MB |
+| script time typing 49 characters after one settings open and close (Chromium, 3 runs) | 0.95, 0.98, 1.06 s | 1.05, 0.99, 0.93 s |
+
+Screenshots of the settings open, closed and reopened at 1440, 820 and 390 px are
+pixel-identical to main (Chromium), except the tooltip above, which is now fixed.
+`docs/e2e/settings-reopen.spec.ts` pins it on the desktop, tablet (820 px), mobile and
+WebKit-phone projects. Two reopens must make 0 documents and open at the top, and a closed overview
+must not be a dialog. Against main, that spec fails: 16 documents from two deck-settings reopens,
+and documents on the overview's reopens.
 
 ### Tried first, and why they failed
 

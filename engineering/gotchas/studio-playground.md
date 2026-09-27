@@ -1573,3 +1573,22 @@ never turn "passed in headless" into "works on iOS."
   wait for the panel's own content, or for `[data-panel-shell]` to detach; a service worker
   fetches the chunk out of `page.route()`'s sight, so a test that holds chunks must block
   service workers (`serviceWorkers: 'block'`).
+
+## A closed Studio panel stays on screen, or a test still finds its content
+
+- **Symptom** — an element given the `hidden` attribute is still drawn in the Studio. Or a
+  closed deck-settings panel, Add slide or slide overview is still found by a jsdom query, or
+  its old live region still reads in `queryAllByRole('status')`.
+- **Cause** — two things. First, the Studio's stylesheet has no `[hidden]` rule strong enough to
+  beat a `flex` or `block` class, so the attribute alone hides nothing there (measured on the
+  settings dock: the closed panel stayed drawn where it last was). Second, those three surfaces
+  are KEPT MOUNTED after their first open, because WebKit never frees a preview
+  document whose frame is destroyed (`docs/src/components/ui/keep-mounted.tsx`,
+  `engineering/decisions/2026-09-26-render-drift-and-unclosed-comments.md` §5). Closed, they are
+  hidden, not gone. jsdom does not apply Tailwind, so a `hidden` class alone hides nothing to a
+  jsdom test.
+- **Fix** — hide with the class (`hidden`, or `data-[hidden]:hidden`) AND set the attribute: the
+  class for the browser, the attribute for whatever reads the DOM rather than the CSS
+  (testing-library treats `[hidden]` as inaccessible). A closed kept surface also drops its
+  `role="dialog"`, so `getByRole('dialog')` means "open". In Playwright, filter with
+  `{ visible: true }` rather than counting elements.

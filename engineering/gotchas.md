@@ -293,6 +293,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A CSS comment in ComposeView's stylesheet breaks the whole file, with errors 130 lines away](gotchas/studio-playground.md#a-css-comment-in-composeviews-stylesheet-breaks-the-whole-file-with-errors-130-lines-away)
 - [A notification's button can't be clicked while a Studio sheet is open](gotchas/studio-playground.md#a-notifications-button-cant-be-clicked-while-a-studio-sheet-is-open)
 - [A Studio test can't find the panel it just opened, or clicks a row that does nothing](gotchas/studio-playground.md#a-studio-test-cant-find-the-panel-it-just-opened-or-clicks-a-row-that-does-nothing)
+- [A closed Studio panel stays on screen, or a test still finds its content](gotchas/studio-playground.md#a-closed-studio-panel-stays-on-screen-or-a-test-still-finds-its-content)
 
 ### [VS Code / marp-vscode](gotchas/vscode.md)
 

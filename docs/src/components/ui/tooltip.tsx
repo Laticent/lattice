@@ -80,6 +80,14 @@ function TooltipContent({
 // one-line wrap (`<Tip label="Collapse">{button}</Tip>`) instead of a four-node
 // Tooltip tree at every call site. Keep the child's own `aria-label` for the
 // accessible NAME — the tooltip is the DESCRIPTION (Radix wires aria-describedby).
+function keyboardFocusOnly(e: React.FocusEvent<HTMLElement>) {
+  try {
+    if (!e.currentTarget.matches(":focus-visible")) e.preventDefault()
+  } catch {
+    // An engine without `:focus-visible` keeps Radix's default.
+  }
+}
+
 function Tip({
   label,
   children,
@@ -100,7 +108,15 @@ function Tip({
   if (label == null || label === "") return <>{children}</>
   return (
     <Tooltip delayDuration={delayDuration}>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      {/* ON FOCUS, ONLY A KEYBOARD FOCUS. Radix opens a tooltip on any focus that no pointer press
+          just preceded, and that includes focus a surface hands BACK on close: a kept-mounted sheet
+          (ui/persistent-surface.tsx) returns focus to its launcher, and after a tap on a phone the
+          launcher's hint popped up over the toolbar. `:focus-visible` is the browser's own answer to
+          "did this focus come from the keyboard"; Radix skips its open when the event is
+          default-prevented. Hover is untouched. */}
+      <TooltipTrigger asChild onFocus={keyboardFocusOnly}>
+        {children}
+      </TooltipTrigger>
       <TooltipContent side={side} align={align} sideOffset={sideOffset} className={className}>
         {label}
       </TooltipContent>
