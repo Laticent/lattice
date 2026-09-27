@@ -24,6 +24,24 @@ progress  — 2026-09-27 (PR #2410, font-scale-fit.md Amendment (4)): interpolat
             mermaid), pessimistic rows for some `list takeaway` / `glossary` slides (false 21, 28,
             58, 66), and "length in characters, not words" (not attempted). The 11-slide test deck
             named in the brief was not found in the tree, so it was not scored.
+progress  — 2026-09-27 (2): two more measured rows. `list takeaway` with a trailing callout
+            (`venueCapacity.variants.takeaway.insight`, 8/7/6/5 at 6 words, 8/7/6/2 at 10, 4/3/3/2 at
+            14; the bare `list` pair had charged it 0 at hall) and the `code` pane with a callout
+            (`lines.insight` 11/9/8/7, `lines.eyebrowInsight` 10/8/7/5). Talk, right/false/missed:
+            huddle 16/3/1 (unchanged), conference 26/4/5 (was 25/4/6), hall 40/1/7 (was 38/1/9).
+            TRIED AND REVERTED: judging a slide by FILL (each element takes 1/N(w) of the box at its
+            own length) instead of by its longest element. False + missed across the three venues:
+            22 with the rows above, 21 with fill interpolated, 23 with fill read at the next measured
+            length. It swaps misses for false warnings instead of removing either: a title-plus-body
+            item takes two lines whatever its word count (slide 31), and interpolating across the
+            one-line → two-line cliff undercounts a 12-word item (slide 22). The next step is a LINE
+            model (characters per line at each rung, a nested title as its own line), not a better
+            word model. Still missed: matrix-2x2 (20, every venue — no count row), cards-grid and
+            cycle with a callout at conference (56, 9), `list takeaway numbered` with a callout (62),
+            compare-code (16, 32 — lint counts no compare-code pane), roadmap (54), table-fill (55),
+            and a code slide whose two-line heading the pane row does not see (41 at conference).
+            Still false: list-steps / cards-grid with a callout (5, 7, 36), long-item `list takeaway`
+            (21, 28, 58), glossary (66).
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.

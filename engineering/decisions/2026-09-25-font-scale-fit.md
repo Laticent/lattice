@@ -580,3 +580,12 @@ at 6 words and 5 / 4 / 2 / 2 at 16. `scaleCapacityFor` already reads a variant r
 carries the token, so only the rows were missing: a five-pair `q-and-a compact` slide at huddle is
 judged against 4 rather than the bare 3. The docs line caps a compact row at `withCompact.hard`,
 the number lint judges a compact slide by (`cards-stack` has none, so its row stays capped at 4).
+
+**Callout rows (follow-up, 2026-09-27).** Two rows a trailing callout needed. `list takeaway`
+measured with its callout (`variants.takeaway.insight`: 4 / 3 / 3 / 2 at 14 words), because the
+bare `list` pair charges nothing at hall. The `code` pane with a callout (`lines.insight`
+11 / 9 / 8 / 7, `lines.eyebrowInsight` 10 / 8 / 7 / 5), read when the slide ends in a `> …`
+blockquote; its "clipped at any size" claim stays on the row without the callout, the number the
+designed-size code rules enforce. Talk, right / false / missed: conference 26 / 4 / 5, hall
+40 / 1 / 7; huddle unchanged. A fill model (each element at its own length) was tried and reverted,
+with its numbers in the follow-up: the error is in counting words where the box counts lines.

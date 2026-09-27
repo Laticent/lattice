@@ -43,6 +43,8 @@ test('lint reads the manifests\' numbers, in laptop/huddle/conference/hall order
   assert.deepEqual(core.CODE_LINES_AT_SCALE, {
     bare: VENUES.map((v) => code.bare[v]),
     eyebrow: VENUES.map((v) => code.eyebrow[v]),
+    insight: VENUES.map((v) => code.insight[v]),
+    eyebrowInsight: VENUES.map((v) => code.eyebrowInsight[v]),
   });
   assert.equal(core.SCALE_CAPACITY, generated.items);
 });

@@ -141,6 +141,18 @@
         "huddle": 11,
         "conference": 10,
         "hall": 8
+      },
+      "insight": {
+        "laptop": 11,
+        "huddle": 9,
+        "conference": 8,
+        "hall": 7
+      },
+      "eyebrowInsight": {
+        "laptop": 10,
+        "huddle": 8,
+        "conference": 7,
+        "hall": 5
       }
     }
   }

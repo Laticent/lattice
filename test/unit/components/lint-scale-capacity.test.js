@@ -139,6 +139,31 @@ describe('capacity-scale — a code block', () => {
     assert.equal(lint(deck('scale-xl', code(browXl + 1, true))).length, 1);
   });
 
+  test('a trailing callout costs the pane its measured lines, and never claims a 1x clip', () => {
+    const [, , calloutXl] = core.CODE_LINES_AT_SCALE.insight;
+    const [, , browCalloutXl] = core.CODE_LINES_AT_SCALE.eyebrowInsight;
+    assert.ok(calloutXl < bareXl && browCalloutXl < browXl);
+    const withCallout = (n, eyebrow) => `${code(n, eyebrow)}\n> The line to remember.\n`;
+    assert.deepEqual(lint(deck('scale-xl', code(calloutXl + 1))), [], 'without the callout it fits');
+    const out = lint(deck('scale-xl', withCallout(calloutXl + 1)));
+    assert.equal(out.length, 1);
+    assert.match(out[0].message, new RegExp(`the pane holds about ${calloutXl} with the callout`));
+    assert.doesNotMatch(out[0].message, /designed size/);
+    assert.deepEqual(lint(deck('scale-xl', withCallout(calloutXl))), []);
+    assert.equal(lint(deck('scale-xl', withCallout(browCalloutXl + 1, true))).length, 1);
+  });
+
+  test('a block the callout pushes past the designed-size pane is never sent to a smaller venue', () => {
+    const [calloutOne] = core.CODE_LINES_AT_SCALE.insight;
+    const [bareOne] = core.CODE_LINES_AT_SCALE.bare;
+    assert.ok(calloutOne < bareOne);
+    const out = lint(`---\nmarp: true\nvenue: conference\n---\n\n${code(calloutOne + 1)}\n> The line to remember.\n`);
+    assert.equal(out.length, 1);
+    assert.doesNotMatch(out[0].fix, /venue: laptop/);
+    assert.match(out[0].fix, /speaker notes/);
+    assert.doesNotMatch(out[0].message, /designed size/, 'the 1x clip claim stays on the row without the callout');
+  });
+
   test('a line past the scaled column budget, but inside the designed one, is named', () => {
     const wide = '```js\n' + 'x'.repeat(90) + '\n```\n';
     const out = lint(deck('scale-xl', `<!-- _class: code -->\n\n## H.\n\n${wide}`));
@@ -308,6 +333,14 @@ describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () =
     assert.match(out[0].message, /'compare-prose vertical with its callout'/);
     assert.doesNotMatch(out[0].message, /designed size/);
     assert.deepEqual(core.lintTextWith(src.replace('venue: hall\n', ''), vv).filter((f) => f.rule === 'capacity-scale'), []);
+  });
+
+  test('a variant measured with its callout is judged by that row: list takeaway with a callout', () => {
+    // list takeaway at 10 words holds 3 at hall, and 2 with a trailing callout (measured).
+    assert.deepEqual(run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(3, 10)}\n`)), []);
+    const out = run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(3, 10)}\n\n> The line to remember.\n`));
+    assert.equal(out.length, 1);
+    assert.match(out[0].message, /'list takeaway with its callout' holds about 2/);
   });
 
   test('a variant finding names the variant row it quotes', () => {

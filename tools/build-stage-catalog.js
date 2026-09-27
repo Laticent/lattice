@@ -391,7 +391,12 @@ function buildVenueLint() {
     if (vc.lines) {
       // A line budget per code pane. Lint reads `code`'s (CODE_LINES_AT_SCALE); another pane
       // component's (compare-code) serves its docs line and pick list only.
-      if (m.name === 'code') code = { bare: row(vc.lines.bare), eyebrow: row(vc.lines.eyebrow) };
+      if (m.name === 'code') {
+        code = { bare: row(vc.lines.bare), eyebrow: row(vc.lines.eyebrow) };
+        // The same pane with the slide ending in a `> …` callout, when measured (`--insight`).
+        if (vc.lines.insight) code.insight = row(vc.lines.insight);
+        if (vc.lines.eyebrowInsight) code.eyebrowInsight = row(vc.lines.eyebrowInsight);
+      }
       continue;
     }
     const words = (byWords) => Object.fromEntries(Object.entries(byWords).map(([w, r]) => [w, row(r)]));
