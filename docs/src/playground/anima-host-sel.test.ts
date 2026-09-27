@@ -89,10 +89,14 @@ describe('hasAnimatableChart', () => {
   it('true for a Mermaid diagram — roles, no `data-mark`', () => {
     expect(hasAnimatableChart(section('', DIAGRAM))).toBe(true);
   });
-  it('false for a chart with roles but no data-mark (a plain line chart) — the role arm is Mermaid-only', () => {
+  it('true for a chart with roles but no data-mark — a plain line chart with no detail bullets', () => {
     const line = '<div class="line-figure"><svg><path data-anima-role="line"/><circle data-anima-role="point"/></svg></div>';
-    expect(hasAnimatableChart(section('line', line))).toBe(false);
-    expect(motionMarkCount(section('line', line))).toBe(0);
+    expect(hasAnimatableChart(section('line', line))).toBe(true);
+    expect(motionMarkCount(section('line', line))).toBe(2);
+  });
+  it('false for an svg whose only roles are labels — nothing to build', () => {
+    const labels = '<div class="line-figure"><svg><text data-anima-role="label">Q1</text></svg></div>';
+    expect(hasAnimatableChart(section('line', labels))).toBe(false);
   });
   it('false for an untagged Mermaid diagram (a family we do not animate)', () => {
     expect(hasAnimatableChart(section('', '<div class="mermaid"><svg><g class="task"><rect/></g></svg></div>'))).toBe(false);
@@ -165,5 +169,29 @@ describe('prehideEligibleCharts / revealPrehiddenCharts — the flash pre-hide',
     expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(true);
     revealPrehiddenCharts(r);
     expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(false);
+  });
+});
+
+describe('a plain line chart is a motion target (the real engine, not a fixture)', () => {
+  it('the rendered line sample — no detail bullets, so no data-mark — is found and builds its lines', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join, resolve } = await import('node:path');
+    const { createRequire } = await import('node:module');
+    const { chartToScene } = await import('@/lib/chart-anima');
+    const root = resolve(__dirname, '../../..');
+    const req = createRequire(join(root, 'package.json'));
+    const engine = req('./lib/engine');
+    const { sample } = JSON.parse(readFileSync(join(root, 'lib/components/chart/line/line.manifest.json'), 'utf8'));
+    const html = engine.render(`---\nmarp: true\n---\n\n${sample}`, 'indaco', { preview: true }).html;
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const sec = Array.from(doc.querySelectorAll('section')).find((s) => s.querySelector('svg.line-svg'));
+    expect(sec, 'the sample renders a line chart').toBeTruthy();
+    expect(sec?.querySelector('svg [data-mark]'), 'the fixture must have no data-mark, or it proves nothing').toBeNull();
+    expect(hasAnimatableChart(sec as Element)).toBe(true);
+    const built = chartToScene((sec?.querySelector('svg') as Element).outerHTML);
+    // chartToScene has no `line` role, so each series path builds as a `bar` (reveal), then its points.
+    const count = (role: string) => built?.roles.filter((r) => r.role === role).length;
+    expect(count('bar')).toBe(3); // Enterprise, Mid-market, Services
+    expect(count('point')).toBe(18); // 3 series × 6 quarters
   });
 });

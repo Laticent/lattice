@@ -132,3 +132,12 @@ describe('collidesWithShipped — save-time guard', () => {
     assert.equal(collidesWithShipped('', SHIPPED), false);
   });
 });
+
+// A component used ONLY in a pane is used: its CSS has to ship with the deck, or the pane renders
+// unstyled. The Studio's saved components and the CLI's installed packages both go through here.
+test('referencedComponents counts a component a pane marker names', () => {
+  const src = '## T\n\n<!-- pane: corner-stat -->\n\n- 4\n\n<!-- pane: list -->\n\n- x\n';
+  assert.deepEqual(referencedComponents(src, LIB), ['corner-stat']);
+  // A marker for a component the library does not hold is not a reference.
+  assert.deepEqual(referencedComponents('<!-- pane: nothing -->', LIB), []);
+});

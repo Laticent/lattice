@@ -15,7 +15,8 @@
  *
  * The chart-marks surface is behavior, not style (the motion host reads the class
  * at play time), so it is measured by asking the render for the host's own target:
- * `svg [data-mark]` or a `data-scene-spec`.
+ * `MOTION_TARGET_SEL` (read from docs/src/playground/anima-host-sel.ts, so the probe
+ * and the host cannot disagree) or a `data-scene-spec`.
  *
  * PROBED: the surfaces whose answer is DERIVED here — heading, eyebrow, table,
  * card-row, card-surface, card-rail, chart-marks. The key-insight / below-note /
@@ -160,8 +161,18 @@ function render(src, tag, assetDir) {
   });
 }
 
+// The motion host's own target selector, read from its ONE copy. The host is TypeScript
+// the docs site bundles, so this reads the literal rather than importing it, and fails
+// loudly if the declaration ever changes shape.
+function motionTargetSel() {
+  const src = fs.readFileSync(path.join(ROOT, 'docs/src/playground/anima-host-sel.ts'), 'utf8');
+  const m = src.match(/export const MOTION_TARGET_SEL = '([^']+)';/);
+  if (!m) throw new Error('check-modifier-effects: MOTION_TARGET_SEL not found in docs/src/playground/anima-host-sel.ts');
+  return m[1];
+}
+
 // Runs in the page: one fingerprint per slide, plus whether it draws motion marks.
-function measureInPage() {
+function measureInPage(targetSel) {
   const probe = getComputedStyle(document.documentElement);
   const props = [];
   // Properties that never change what the slide shows are left out.
@@ -199,7 +210,7 @@ function measureInPage() {
     out[sec.getAttribute('data-lattice-slide')] = {
       fp: hash(parts.join('|')),
       boxes,
-      marks: !!sec.querySelector('svg [data-mark]') || sec.hasAttribute('data-scene-spec') || !!sec.querySelector('[data-scene-spec]'),
+      marks: !!sec.querySelector(targetSel) || sec.hasAttribute('data-scene-spec') || !!sec.querySelector('[data-scene-spec]'),
     };
   }
   return out;
@@ -212,7 +223,7 @@ async function measureComponent(browser, m, probes) {
   const page = await browser.newPage();
   try {
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0', timeout: 180000 });
-    const slides = await page.evaluate(measureInPage);
+    const slides = await page.evaluate(measureInPage, motionTargetSel());
     // A heading split or an auto-split would shift every slide after it.
     if (Object.keys(slides).length !== roster.length) throw new Error(`${m.name}: rendered ${Object.keys(slides).length} slides for a roster of ${roster.length} — the probe deck split`);
     const at = (i) => slides[String(i + 1)];

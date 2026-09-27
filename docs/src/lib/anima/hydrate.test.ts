@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import base64Utf8 from '../../../../lib/core/base64-utf8.js';
 import { rendererFor } from './backends/registry';
 import { decodeSpec, effectiveTier, hasContinuousMotion, hydrateScene, toLegible, whollyVestibular } from './hydrate';
 import { parseScene, usedVerbs } from './schema';
@@ -73,6 +74,28 @@ describe('decodeSpec', () => {
     expect(decodeSpec(Buffer.from('{ not json').toString('base64'))).toBeNull();
     expect(decodeSpec(b64({ source: 'built' }))).toBeNull(); // fails the schema (no duration/elements)
     expect(decodeSpec('%%%not-base64%%%')).toBeNull();
+  });
+  it('reads back non-ASCII text the fence packed with toBase64 (a bare atob gave `xÂ²`)', () => {
+    // The ```anima fence (plugins.js animaSceneFences) packs with base64-utf8's toBase64, so
+    // this is the real producer's bytes. A pathRef that mangles matches no path, and that
+    // part of the drawing never draws.
+    const spec = {
+      source: 'svg',
+      asset: 'curve',
+      duration: 900,
+      hero: 1,
+      elements: [{ id: 'x²', pathRef: 'x² — é', motion: [{ verb: 'draw', at: 0, span: 1 }] }],
+    };
+    const scene = decodeSpec(base64Utf8.toBase64(JSON.stringify(spec)));
+    expect(scene?.source).toBe('svg');
+    expect(scene?.elements[0]).toMatchObject({ id: 'x²', pathRef: 'x² — é' });
+  });
+  it('decodes exactly what base64-utf8.fromBase64 decodes (the mirrored pair cannot drift)', () => {
+    const json = JSON.stringify({ source: 'built', duration: 1000, hero: 0.5, elements: [{ id: 'ñ²—🙂', shape: 'cone' }] });
+    const packed = base64Utf8.toBase64(json);
+    expect(JSON.stringify(decodeSpec(packed)?.elements.map((e) => e.id))).toBe(
+      JSON.stringify(JSON.parse(base64Utf8.fromBase64(packed)).elements.map((e: { id: string }) => e.id)),
+    );
   });
   it('rejects an oversized spec BEFORE decoding it (client-DoS guard)', () => {
     expect(decodeSpec('A'.repeat(256 * 1024 + 1))).toBeNull();

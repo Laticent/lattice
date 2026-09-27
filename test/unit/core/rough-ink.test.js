@@ -222,3 +222,34 @@ describe('rough-ink — shiftPath', () => {
     );
   });
 });
+
+// A PANE's structures (lib/core/panes.js): `<lat-pane>` sits inside the host's stage, so the slide
+// selectors cannot reach its table, and a table pane in a sketch deck was never inked — then the
+// host's handover rules took its fallback frame away. Checked against a real engine render.
+describe('rough ink reaches a pane', () => {
+  const { JSDOM } = require('jsdom');
+  const { render } = require('../../../lib/engine/index.js');
+  const md = '---\nmode: sketch\n---\n\n## T\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| x | y |\n|---|---|\n| 1 | 2 |\n';
+  const doc = new JSDOM(render(md, 'lattice').html).window.document;
+  const sel = (id) => ROUGH_INK_STRUCTURES.find((s) => s.id === id).sel;
+  test('the table entry selects the table pane\'s table, and the painter positions against the host', () => {
+    const hits = [...doc.querySelectorAll(sel('table'))];
+    assert.equal(hits.length, 1);
+    assert.ok(hits[0].closest('lat-pane.table'));
+    assert.ok(hits[0].closest('section').classList.contains('lat-pane-host'));
+  });
+  test('a list pane is not a table: nothing else on the slide enrolls', () => {
+    assert.equal(doc.querySelectorAll(`${sel('tabular')}, ${sel('principles')}`).length, 0);
+  });
+});
+
+describe('an agenda pane keeps its own wave', () => {
+  // Its wave strip is handed over by a rule keyed on the section holding the overlay, which a pane
+  // never is — so inking an agenda pane drew a second "you are here" line over the wave.
+  const { JSDOM } = require('jsdom');
+  const doc = new JSDOM('<section class="sketch lat-pane-host"><div class="cell-stage"><lat-pane class="agenda progress-2 sketch form"><div class="cell-stage"><ol><li>a</li><li>b</li></ol></div></lat-pane></div></section>').window.document;
+  test('the agenda-active entry does not enroll a pane\'s rows', () => {
+    const sel = ROUGH_INK_STRUCTURES.find((s) => s.id === 'agenda-active').sel;
+    assert.equal(doc.querySelectorAll(sel).length, 0);
+  });
+});

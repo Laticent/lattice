@@ -67,6 +67,14 @@ export type DeckPreviewProps = {
 	/** An explicit page of the shown slide's split run, from the host's navigation (a swipe, an
 	 *  arrow key, the ‹ › buttons). Wins over `caretText` while it is set. */
 	pageIndex?: number;
+	/** How many rendered slides each of the host's slides becomes, when a panes slide the engine
+	 *  SPLITS makes one become two (studio/pane-pages.ts `paneSplitCounts`). Index-aligned with
+	 *  the host's slides; omit it when every slide is one. The preview then narrows to the right
+	 *  section after a split, and shows a split slide one page at a time. */
+	paneCounts?: number[];
+	/** The page of the shown slide's pane split that holds the caret, or absent to keep the page
+	 *  shown. `pageIndex` wins over it. */
+	panePage?: number;
 	/** Reports each definitive render of a slide: which slide it showed, and, when that slide
 	 *  split, which page of how many. `page` is `null` for an unsplit slide and for a failed
 	 *  render. The host's navigation steps through the run, and waits for this after it moves. */
@@ -184,6 +192,8 @@ export function DeckPreview({
 	slideMarkdown,
 	caretText,
 	pageIndex,
+	paneCounts,
+	panePage,
 	onSplitPage,
 	deckId,
 	webOrigins,
@@ -235,7 +245,12 @@ export function DeckPreview({
 	// The slide and deck the render in flight was ISSUED for. Renders on a host never overlap, so the
 	// status that comes back belongs to these, not to whatever the props say by the time it lands.
 	const issuedRef = React.useRef<{ slide: number; deck: string } | null>(null);
-	const splitCaret = splitPage ? caretText : undefined;
+	// A split PANES slide takes its page from `panePage`, which the host derives from the caret, so
+	// the caret text itself need not re-render it.
+	const splitCaret = splitPage && !((paneCounts?.[slideIndex ?? -1] ?? 1) > 1) ? caretText : undefined;
+	// The pane map by VALUE: the host rebuilds the array per keystroke, and an identity dep would
+	// re-render on every one of them for nothing.
+	const paneKey = paneCounts ? paneCounts.join(',') : '';
 	// One dot per page of the run, keyed by page position (the run is a fixed sequence, so position IS
 	// the page's identity here).
 	const splitDots = React.useMemo(
@@ -406,13 +421,13 @@ export function DeckPreview({
 	// an edit) — so we must also depend on the css. Deps compare strings by value,
 	// and `extraTheme.css` is a stable reference for a given theme, so identical
 	// content never thrashes; only a real css change re-renders.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: extraTheme is read whole; its identity is captured by (name, css) — depending on the wrapper object would thrash.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: extraTheme is read whole; its identity is captured by (name, css) — depending on the wrapper object would thrash. paneCounts is captured by `paneKey`, its value, for the same reason.
 	const render = React.useCallback(() => {
 		const host = stageRef.current;
 		if (!host || !activeRef.current) return;
 		// The deck-context opts travel as one object, passed only when `slideIndex` is set, so an
 		// omitting host hands the renderer no opts at all — byte-identical to the pre-deck-context call.
-		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? (allowWeb?.length ? { webOrigins: allowWeb } : undefined) : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex, webOrigins: allowWeb });
+		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? (allowWeb?.length ? { webOrigins: allowWeb } : undefined) : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex, ...(paneCounts ? { paneCounts, panePage } : {}), webOrigins: allowWeb });
 		issuedRef.current = slideIndex === undefined ? null : { slide: slideIndex, deck: deckId ?? '' };
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
@@ -425,7 +440,7 @@ export function DeckPreview({
 		return done;
 		// `splitCaret` is read through `caretRef`; it is listed so a caret move re-renders ONLY while
 		// the shown slide is split.
-	}, [sample, slideIndex, slideCount, slideMarkdown, splitCaret, pageIndex, deckId, webOriginsKey, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
+	}, [sample, slideIndex, slideCount, slideMarkdown, splitCaret, pageIndex, paneKey, panePage, deckId, webOriginsKey, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
 
 	// Always hold the LATEST render closure in a ref, so the frame scheduler and the
 	// active rising-edge effect can reach the current render WITHOUT listing it as a
