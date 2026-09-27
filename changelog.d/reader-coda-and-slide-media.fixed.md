@@ -1,0 +1,1 @@
+- Read · Article now prints a slide's closing key-insight panel and below-note, after the body: the panel as a callout, the note as a closing note. Before, 239 of the 242 slides in the committed decks that carry one lost it from the article while narration still read it.

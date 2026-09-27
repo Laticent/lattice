@@ -69,6 +69,11 @@ const READ_ARTICLE_CSS = `
 .st-read-article .lp-kicker{font-size:.76rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);padding:0 0 .25em}
 /* The slide's subtitle: the line the masthead seats under the heading, read as its dek. */
 .st-read-article .lp-subtitle{font-style:italic;color:var(--text-muted);font-size:1.02rem;padding:0 0 1em}
+/* The slide's coda: the key-insight panel as a callout, the below-note as a closing note. */
+.st-read-article .lp-insight{background:var(--bg-alt);border-radius:0 8px 8px 0;margin:0 0 1.2em;padding:.75em 1.1em}
+.st-read-article .lp-insight>*{margin:0}
+.st-read-article .lp-insight>:last-child{padding-bottom:0}
+.st-read-article .lp-note{border-top:1px solid var(--border);padding:.6em 0 1.2em;color:var(--text-muted);font-size:.92rem}
 /* A video: a link card in the prose column, the play mark drawn (HARD RULE #29), never typed. */
 .st-read-article .lp-video{margin:0;padding:.2em 0 1.2em}
 .st-read-article .lp-video-link{display:flex;align-items:center;gap:.75em;width:100%;max-width:24em;box-sizing:border-box;padding:.65em 1.1em .65em .65em;border:1px solid var(--border);border-radius:12px;background:var(--bg-alt);color:var(--text-heading);font-weight:600;text-decoration:none}

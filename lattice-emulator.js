@@ -5961,6 +5961,10 @@ html,body{background:var(--bg,#fff)}
 #lat-read blockquote{border-left:3px solid var(--accent,#4338ca);padding:.15em 0 .15em 1em;color:var(--text-heading,#111)}
 #lat-read .lp-kicker{font-size:.76rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted,#777);padding:0 0 .25em}
 #lat-read .lp-subtitle{font-style:italic;color:var(--text-muted,#777);font-size:1.02rem;padding:0 0 1em}
+#lat-read .lp-insight{background:var(--bg-alt,#f7f7f7);border-radius:0 8px 8px 0;margin:0 0 1.2em;padding:.75em 1.1em;color:var(--text-heading,#111)}
+#lat-read .lp-insight>*{margin:0}
+#lat-read .lp-insight>:last-child{padding-bottom:0}
+#lat-read .lp-note{border-top:1px solid var(--border,#ddd);padding:.6em 0 1.2em;color:var(--text-muted,#777);font-size:.92rem}
 #lat-read .lp-video{margin:0;padding:.2em 0 1.2em}
 #lat-read .lp-video-link{display:flex;align-items:center;gap:.75em;width:100%;max-width:24em;box-sizing:border-box;padding:.65em 1.1em .65em .65em;border:1px solid var(--border,#ddd);border-radius:12px;background:var(--bg-alt,#f7f7f7);color:var(--text-heading,#111);font-weight:600;text-decoration:none}
 #lat-read .lp-video-link:hover{border-color:var(--accent,#4338ca)}

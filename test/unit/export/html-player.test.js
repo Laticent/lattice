@@ -1577,7 +1577,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// own viewBox SVG at full width, with 2% inline padding for a glyph that breathes past the
 	// viewBox. Only the `#lp-article .lp-spatial` rules and their comment moved, plus the
 	// flow-height comment's "unlike lp-spatial".
-	assert.equal(sha, '4546174251c0cbef8a4feb956a52736a1f3fd90a6b09c65898a878c1c92df3b8', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Then the coda (followup 2358-p1): the embedded prose projection gained `projectCoda`, so a
+	// slide's key-insight panel and below-note reach the article as `.lp-insight` / `.lp-note`,
+	// and the article CSS gained those two rules plus the insight's first/last-child reset. The
+	// projection kernel and those three rules are the only things that moved.
+	assert.equal(sha, 'd2e5804cfdf780c75d59fc05dbc316c7187e5f7336d8e5ab54eff887b9743e4a', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
