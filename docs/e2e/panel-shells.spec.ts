@@ -91,9 +91,12 @@ async function slideInDone(page: Page) {
 }
 
 for (const panel of PANELS) {
-	test(`the ${panel.name} shell draws its frame exactly where the panel does`, async ({ page }) => {
-		await gotoStudio(page);
+	test(`the ${panel.name} shell draws its frame exactly where the panel does${panel.sheet ? ' @crosswidth @webkit-phone' : ''}`, async ({ page }) => {
+		// Held BEFORE the page loads: the idle warm-up fetches every panel shortly after startup,
+		// and a hold installed after it would miss that request (the first nightly run flaked
+		// on exactly this for Share, the warm-up's first panel).
 		const hold = await holdChunk(page, panel.chunk);
+		await gotoStudio(page);
 		await panel.open(page);
 		await expect(shell(page)).toHaveCount(1);
 		if (panel.sheet) await slideInDone(page); // measure the shell where it rests, not mid-slide
@@ -111,15 +114,19 @@ for (const panel of PANELS) {
 	});
 }
 
-test('a cold sheet slides in once, even when its code arrives mid-slide', async ({ page }) => {
-	await gotoStudio(page);
+test('a cold sheet slides in once, even when its code arrives mid-slide @crosswidth @webkit-phone', async ({ page }) => {
 	const hold = await holdChunk(page, chunkRe('ShareSheet'));
+	await gotoStudio(page);
 	await page.evaluate(() => {
 		const w = window as unknown as { __xs: number[] };
 		w.__xs = [];
 		const tick = () => {
 			const d = [...document.querySelectorAll('[role=dialog]')].filter((e) => e.getClientRects().length).at(-1);
-			if (d) w.__xs.push(Math.round(d.getBoundingClientRect().x));
+			// x for a right sheet, y for a phone's bottom sheet: whichever way it slides, the sum falls.
+			if (d) {
+				const r = d.getBoundingClientRect();
+				w.__xs.push(Math.round(r.x + r.y));
+			}
 			requestAnimationFrame(tick);
 		};
 		requestAnimationFrame(tick);
@@ -131,14 +138,14 @@ test('a cold sheet slides in once, even when its code arrives mid-slide', async 
 	await expect(shell(page)).toHaveCount(0);
 	await expect(topDialog(page).getByText('Present link')).toBeVisible();
 	const xs = await page.evaluate(() => (window as unknown as { __xs: number[] }).__xs);
-	// A second slide-in shows as the sheet moving back out: x growing after it had been falling.
+	// A second slide-in shows as the sheet moving back out: the position growing after it had been falling.
 	const backwards = xs.filter((x, i) => i > 0 && x - xs[i - 1] > 4).length;
-	expect(backwards, `sheet x per frame: ${xs.join(',')}`).toBe(0);
+	expect(backwards, `sheet position per frame: ${xs.join(',')}`).toBe(0);
 });
 
-test('Escape closes a sheet while its shell is still up', async ({ page }) => {
-	await gotoStudio(page);
+test('Escape closes a sheet while its shell is still up @crosswidth @webkit-phone', async ({ page }) => {
 	const hold = await holdChunk(page, chunkRe('WorkspaceSheet'));
+	await gotoStudio(page);
 	await page.getByRole('button', { name: CHROME.workspaceSettings, exact: true }).first().click();
 	await expect(shell(page)).toHaveCount(1);
 	await page.keyboard.press('Escape');
@@ -146,9 +153,10 @@ test('Escape closes a sheet while its shell is still up', async ({ page }) => {
 	await hold.release();
 });
 
-test('a panel whose code fails to load shows the reload card inside its own frame', async ({ page }) => {
-	await gotoStudio(page);
+test('a panel whose code fails to load shows the reload card inside its own frame @crosswidth @webkit-phone', async ({ page }) => {
+	// Before the page loads, so the warm-up's request fails too (see the frame test above).
 	await page.route(chunkRe('ShareSheet'), (route) => route.fulfill({ status: 404, body: '' }));
+	await gotoStudio(page);
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
 	const alert = topDialog(page).getByRole('alert');
 	await expect(alert).toContainText(/couldn't load part of the app/i);
