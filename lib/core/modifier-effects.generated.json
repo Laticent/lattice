@@ -185,6 +185,13 @@
         "table"
       ]
     },
+    "hub-spoke": {
+      "surfaces": [
+        "chart-marks",
+        "eyebrow",
+        "heading"
+      ]
+    },
     "image": {
       "surfaces": [],
       "inert": [
