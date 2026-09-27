@@ -468,7 +468,7 @@ boundary parser's straight-line block installer).
 | File | Job |
 |---|---|
 | `resolve.js` | every rule that fails the build by name: one-to-one, dependencies, cycles, anchors, trigger/token/component collisions |
-| `host-grammar.mjs` | installs plugin rules in dependency order (ESM, library-free) — the engine AND the boundary parser call it |
+| `host-grammar.mjs` | installs plugin rules in dependency order (ESM, library-free) — the engine's path; the boundary parser installs the same block rules through the generated `blocks.generated.mjs`, held to this order by tests |
 | `host.js` | the engine's entry: grammar plus renderers, each wrapped fail-soft, with a frozen `ctx` |
 
 `lib/engine/index.js` calls `installPlugins` where it used to call `installMath`, and names no

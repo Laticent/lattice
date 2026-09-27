@@ -605,8 +605,9 @@ code. What changed because of them:
 
 - **Phase A, the host core and math: done, on this branch.** `lib/plugins/` holds the schema
   (`plugin.schema.json`, registered as a `tools/manifest-schemas.js` family), the resolver
-  (`resolve.js`), the grammar host (`host-grammar.mjs`, shared by the engine and the boundary
-  parser), the engine host (`host.js`), and `math/` — manifest, `math.syntax.mjs` (the inline and
+  (`resolve.js`), the grammar host (`host-grammar.mjs`, the engine's path; the boundary parser
+  installs the same block rules through the generated `blocks.generated.mjs`), the engine host
+  (`host.js`), and `math/` — manifest, `math.syntax.mjs` (the inline and
   block rules and `detect`, merged from `lib/engine/math.js`, `lib/core/math-block-rule.mjs` and
   `lib/engine/math-detect.mjs`), `math.render.js` (KaTeX, moved from `lib/engine/math.js`),
   docs and fixtures. `tools/build-plugin-registry.js` writes `grammar.generated.mjs`,
@@ -638,6 +639,17 @@ code. What changed because of them:
   sequence); and a syntax module exports each rule under its token type instead of in one `rules`
   object, so a bundler keeps only what a consumer imports. Measured as a pair after both:
   618,220 → **618,330 (+110 bytes)**, inside the budget, which is unchanged.
+  **A second checker pass, on that commit alone,** confirmed the install order holds for
+  several plugins mixing `before` and `after` on one anchor (it built a scratch tree and compared
+  both installers) and found four things, all fixed: the agreement test had one block rule, so it
+  could not catch an ordering bug (a new test now builds a three-plugin tree through
+  `tools/build-plugin-registry.js --root` and compares the two installers; mutation-proved); a
+  plugin with a syntax module but no syntax and no `detect` generated a named import of `detect`
+  that failed to link (the grammar now imports only what the module exports; mutation-proved);
+  three docs still described the host as the boundary parser's path or a `rules` object; and the
+  one-to-one check's reverse arm (an exported thing the manifest does not declare) now guards
+  `renderers` only — an undeclared exported RULE is never installed by any path, so it cannot lie,
+  and the resolver says so.
   **Byte identity re-taken after the rebase:** 455 files × 9 = 4,095 renders against `origin/main`
   `706847f`; every deck identical, the only differences the five Markdown docs this PR adds, moves
   or edits; the boundary-parser token streams likewise.

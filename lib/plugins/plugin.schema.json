@@ -36,7 +36,7 @@
       "properties": {
         "syntax": {
           "type": "object",
-          "description": "markdown-it rules, keyed by the TOKEN TYPE each rule emits. The host installs them; the plugin's `<name>.syntax.mjs` exports a `rules` object with the same keys and its `<name>.render.js` a `renderers` object with the same keys.",
+          "description": "markdown-it rules, keyed by the TOKEN TYPE each rule emits. The host installs them; the plugin's `<name>.syntax.mjs` exports each rule under its key (a named export per token type, so a bundler keeps only the rules a consumer imports) and its `<name>.render.js` a `renderers` object with the same keys.",
           "minProperties": 1,
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
           "additionalProperties": { "$ref": "#/$defs/syntaxRule" }

@@ -109,10 +109,16 @@ const ident = (name) => `p_${name.replace(/-/g, '_')}`;
 
 function renderGrammar(ordered, exportsByName) {
   const imports = ordered
-    .filter((p) => exportsByName.get(p.manifest.name).hasSyntax)
+    .filter((p) => {
+      const exp = exportsByName.get(p.manifest.name);
+      return exp.hasSyntax && (exp.rules.length || exp.detect);
+    })
     .map((p) => {
-      // Sorted, as the repo's formatter sorts named imports.
-      const names = [...Object.keys(p.manifest.contributes.syntax || {}), 'detect'].sort();
+      // Only names the module really exports: a plugin may ship a syntax module and declare no
+      // syntax (so need no `detect`), and a named import of a missing export fails to LINK,
+      // where the old `import * as` read undefined. Sorted, as the repo's formatter sorts them.
+      const exp = exportsByName.get(p.manifest.name);
+      const names = [...exp.rules, ...(exp.detect ? ['detect'] : [])].sort();
       return `import { ${names.map((n) => `${n} as ${ident(p.manifest.name)}__${n}`).join(', ')} } from './${p.folder}/${p.manifest.name}.syntax.mjs';`;
     });
   const entries = ordered.map((p) => {
@@ -137,7 +143,7 @@ function renderGrammar(ordered, exportsByName) {
       `    components: Object.freeze(${JSON.stringify(m.contributes.components || [])}),`,
       `    diagnostics: Object.freeze(${JSON.stringify(m.contributes.diagnostics || {})}),`,
       `    syntax: Object.freeze({${syntax.length ? `\n${syntax.join('\n')}\n    ` : ''}}),`,
-      `    detect: ${mod ? `${mod}__detect` : 'null'},`,
+      `    detect: ${mod && exportsByName.get(p.manifest.name).detect ? `${mod}__detect` : 'null'},`,
       '  }),',
     ].join('\n');
   });
