@@ -28,6 +28,7 @@
 // class contract the shared projection emits, so the markup stays one thing.
 
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
+import { scanTags } from '../../../../lib/core/top-level-h2.mjs';
 import { buildDeckRender, type DeckRender, type ExtraTheme, loadDeckRenderFonts } from './share-export';
 
 // Every module the projection loads on demand, named once so the idle warm-up fetches the same
@@ -94,11 +95,33 @@ export const ARTICLE_ROOT = '.st-read-article';
  * for a paint — several hundred ms against a projection that runs in 3.5-11.8 ms. A deck with
  * no runtime-drawn content would pay all of it for a byte-identical result.
  */
-// The leading `\s` is required, not cosmetic: a bare `class="` also matches `data-class="`,
-// which carries the author's RAW `_class:` payload rather than the resolved list (#1358), and
-// `check-ownership.js` rejects the unguarded form.
-// A plugin figure is found by the plugin host's own marker (lib/plugins/host.js), not by naming a plugin.
-const RUNTIME_DRAWN = /<code[^>]*\sclass="[^"]*language-mermaid|data-lattice-hydrate=/;
+// The resolved `class` of ONE tag, read with `readClassAttr`'s own grammar (lib/core/section-walk.js
+// `CLASS_ATTR`) — that module is CommonJS with dependencies this bundle cannot interop. The leading
+// `(?:^|\s)` is what keeps it off `data-class=`, which carries the author's RAW `_class:` payload
+// rather than the resolved list (#1358). Linear: `scanTags` has already bounded the tag.
+const CLASS_ATTR = /(?:^|\s)class="([^"]*)"/;
+const readClassAttr = (tag: string): string => tag.match(CLASS_ATTR)?.[1] ?? '';
+
+/**
+ * Does the render carry runtime-drawn content? A plugin figure is found by the plugin host's own
+ * marker (`data-lattice-hydrate`, lib/plugins/host.js), never by naming a plugin; a Mermaid fence
+ * by a `<code>` tag whose resolved class list names `language-mermaid`.
+ *
+ * WALKED, NOT MATCHED. This was one regex, `/<code[^>]*\sclass="[^"]*language-mermaid|…/`, and
+ * `[^>]*\s` is ambiguous: every `<code` with no `>` after it rescanned to the end, so the time grew
+ * with the square of the input — measured 16 → 68 → 247 ms for 2,000 → 4,000 → 8,000 repeated
+ * `<code`, on deck text that can come from a shared link (CodeQL js/polynomial-redos on #2439).
+ * The repo's one tag tokenizer (`scanTags`) walks it in a single pass.
+ */
+export function hasRuntimeDrawn(html: string): boolean {
+	if (html.includes('data-lattice-hydrate=')) return true;
+	if (!html.includes('language-mermaid')) return false;
+	for (const t of scanTags(html)) {
+		if (t.kind !== 'tag' || t.isClose || t.name !== 'code') continue;
+		if (readClassAttr(html.slice(t.start, t.end)).split(/\s+/).includes('language-mermaid')) return true;
+	}
+	return false;
+}
 
 /**
  * Bake the runtime-drawn content into the render's own markup, or return null to say
@@ -123,7 +146,7 @@ const RUNTIME_DRAWN = /<code[^>]*\sclass="[^"]*language-mermaid|data-lattice-hyd
  * deck that never said something from one whose article ate it.
  */
 async function bakeArticleSections(render: DeckRender, staticSections: string[], isStale?: () => boolean): Promise<string[] | null> {
-	if (!RUNTIME_DRAWN.test(render.html)) return null;
+	if (!hasRuntimeDrawn(render.html)) return null;
 	try {
 		const { bakeDeckSections } = await loadDeckExport();
 		// A view switch or a palette toggle while the bake is in flight makes this render

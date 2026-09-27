@@ -46,3 +46,7 @@
 - The plugin conformance harness now also parses every fixture with the engine's own parser, and
   proves every plugin rule declines every character it does not declare as a trigger — the two
   limits phase A recorded.
+- **Fixed: the Studio's Read pane no longer scans deck HTML in quadratic time** to decide whether
+  to bake it. A run of unclosed `<code` tags (deck text can come from a shared link) took 247 ms
+  at 8,000 and four times that at twice as many; the check is now one pass of the shared tag
+  tokenizer.

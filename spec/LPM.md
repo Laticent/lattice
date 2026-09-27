@@ -82,9 +82,9 @@ installation, CSS order and hydrate order, and nothing else.
 |---|---|---|
 | `syntax` | markdown-it rules, keyed by the TOKEN TYPE each emits: `{ kind: "inline" \| "block", anchor: { before \| after: <host rule> }, triggers: [<char>…], opaque? }` | a rule export per key in `syntax.mjs`, `detect`, and a renderer per key in `render.js` `renderers` |
 | `fences` | fenced blocks, keyed by NAME: `{ body: "json" \| "tex" \| "text", aliases?: [{ name, deprecated? }] }` | a renderer per name in `render.js` `fences` |
-| `hydrate` | a browser half: `{ budgetMs? }` (default 4000) | `hydrate.js` exporting `hydrate` |
+| `hydrate` | a browser half: `{ budgetMs? }` — an integer 100–30000, default 4000 | `hydrate.js` exporting `hydrate` |
 | `styles` | `true` | `styles.css` |
-| `diagnostics` | `{ "<name>/<id>": "message" }` — every ID the plugin reports | — |
+| `diagnostics` | `{ "<name>/<id>": "message" }` — every ID reported on the plugin's behalf. **In api 1 only the HOST reports**, and only `<name>/deprecated-alias` (a deprecated fence alias was used); a plugin module has no `ctx.report` yet | — |
 
 ### 3.4 `payload`, `tokens`, `render`
 
@@ -141,8 +141,10 @@ through `ctx` (§5.2).
 
 ### 4.4 `styles.css`
 
-Token-only CSS: every color and type size through `var(--token)`, and it passes every gate
-component CSS passes (no hex, the `--fs-*` roles, no `margin`, no `@layer`, no typed glyphs). It is
+Token-only CSS: every color through `var(--token)`, and it passes every gate component CSS
+passes — no hex, no spacing `margin` (a bare `margin: 0` reset is fine), no `@layer`, no typed
+glyphs, and monospace only where `tools/check-ownership.js` sanctions it. Type sizes SHOULD use the
+`--fs-*` roles; no gate enforces that yet. It is
 bundled into one slot of `dist/lattice.css`, in dependency order. A layout that sizes a plugin
 figure selects the host's marker `[data-lattice-hydrate]`, never the plugin's own classes.
 
@@ -186,11 +188,11 @@ host's code:
 | `pending` | the ENGINE | not settled; every capture waits |
 | `hydrating` | the host | being drawn; every other pass and host skips it, and captures wait |
 | `rendered` | the host | `hydrate` returned |
-| `error` | the plugin | a failure, shown on the slide |
+| `error` | the plugin, or the host when `hydrate` throws or its promise rejects | a failure, shown on the slide |
 | `unavailable` | the host | the library never arrived; the author's source is shown. Recoverable |
 
-`data-lattice-final` closes an element: a capture that stopped waiting, or a `hydrate` past its
-`budgetMs`, sets it (with `unavailable` and the source shown), and nothing touches the element
+`data-lattice-final` closes an element: a capture that stopped waiting, or a `hydrate` whose
+returned promise is still pending at `budgetMs` (a synchronous `hydrate` has no budget), sets it (with `unavailable` and the source shown), and nothing touches the element
 again — a late draw is discarded. Every capture — the CLI's PDF, PNG and PPTX, the `--player`
 bake, the Studio's export — waits until no element matches
 `[data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="hydrating"]):not([data-lattice-final])`,
@@ -201,6 +203,13 @@ at once.
 
 The build (`tools/build-plugin-registry.js`, through `lib/plugins/resolve.js`) fails, naming the
 plugin, when:
+
+- a plugin is declared twice, its folder does not match its name, or its `api` is unknown;
+- it depends on itself, lists one name as both `requires` and `optional`, requires a plugin that is
+  not installed, or sits on a dependency cycle;
+- a syntax anchor is not a host rule, an inline trigger is a character markdown-it's `text` rule
+  does not stop at, or an inline rule is marked `opaque`;
+- `payload` is declared without `hydrate`, or names more than one file;
 
 - a declared contribution has no module export, or a module exports one the manifest does not
   declare (syntax renderers, fence renderers, `hydrate`, `styles.css`, `tokens`);
@@ -218,7 +227,8 @@ plugin, when:
 ## 8. Fail-soft
 
 A renderer that throws or returns a non-string renders the plugin's `degradesTo`, and the rest of
-the deck renders. A tokenizer rule is not wrapped — a throw mid-scan leaves markdown-it's position
+the deck renders. For a FENCE renderer, `source` means a code block of the body — a paragraph would
+flatten a multi-line config into one line. A tokenizer rule is not wrapped — a throw mid-scan leaves markdown-it's position
 undefined — so the conformance harness feeds each rule its malformed fixtures instead. A `hydrate`
 that throws settles `error`; one that overruns its budget is closed (§6).
 
@@ -248,9 +258,12 @@ A shipped plugin's name is reserved.
 lattice packages new plugin <name>
 ```
 
-writes a folder with a manifest, a fence renderer, a stylesheet, docs and fixtures that passes the
-build and the harness untouched. Run `npm run build` to regenerate the registry, then
-`npm run test:plugins`.
+writes a folder with a manifest, a fence renderer, a stylesheet, docs and fixtures. Run
+`npm run build` to regenerate the registry; the scaffold then passes `npm run build:check`,
+`npm run test:plugins` and the full `npm test` unedited — its Marp-export row is derived from its
+manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a plugin fence, a
+highlight.js language or alias, or a name the engine renders (`mermaid`), and at most 64
+characters.
 
 ## 12. Changes
 

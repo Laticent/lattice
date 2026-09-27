@@ -796,6 +796,18 @@ code. What changed because of them:
   input shapes, silent and not, and must decline without moving the parser. Both mutation-proved: a
   `math_inline` that also opens on `#` fails the trigger arm (the first cut's single probe shape
   missed it, so three were added), and a harness that drops the engine parse fails its own arm.
+  **Checker (tier 1) on the scaffold and the harness** — fix-then-ship, folded: the scaffold passed
+  `test:plugins` but failed the full `npm test` (the Marp fidelity ledger demanded a row for every
+  fence plugin — now derived from the manifest for any plugin without a hand row); the first
+  `npm run build` after scaffolding shipped `lattice.css` without the new plugin's CSS (the registry
+  step ran after `build-css`; it now runs before); LPM promised plugin-reported diagnostics api 1
+  cannot emit (the spec now says only the host reports, and only `deprecated-alias`); the trigger
+  arm let through a rule opening on `%%`, `##`, `€`, one mutating `parentType`, and one firing only
+  mid-text (now seven shapes, two positions, non-ASCII characters and a state check — all five
+  mutations fail it); scaffold edges (a name cap of 64, a stray second name refused, the figure's
+  default margin reset). Re-proven: a scaffolded plugin, one `npm run build`, then the full
+  `npm test`, with its CSS in `dist/lattice.css`. Left: `createEngine()._tokens` is reachable from
+  any page that loads the engine — a test seam, undocumented, read-only.
 
 ## References
 

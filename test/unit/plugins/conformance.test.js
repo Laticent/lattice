@@ -213,36 +213,59 @@ describe('plugin conformance — every in-tree plugin, from its own fixtures', (
  */
 describe('plugin rules fire only on their declared triggers', () => {
   const md = new MarkdownIt('commonmark');
-  const ascii = [];
-  for (let c = 0x20; c < 0x7f; c++) ascii.push(String.fromCharCode(c));
+  // Every printable ASCII character, plus a few non-ASCII ones a rule could wrongly claim: a
+  // block rule runs at EVERY line start, so it sees these too (HARD RULE #25 checker: a block rule
+  // opening on `€` passed the ASCII-only first cut).
+  const chars = [];
+  for (let c = 0x20; c < 0x7f; c++) chars.push(String.fromCharCode(c));
+  chars.push('€', '\u00a0', '§', '·', '→', '\u200b');
 
-  for (const plugin of PLUGINS) {
-    for (const [token, rule] of Object.entries(plugin.syntax)) {
-      test(`${plugin.name}: ${token} declines every character but ${rule.triggers.join(' ')}`, () => {
-        const claimed = [];
-        for (const ch of ascii) {
-          if (rule.triggers.includes(ch)) continue;
-          // A BLOCK rule reads a line after its indentation (`bMarks + tShift`), so a leading space
-          // is not the character at the rule's start — the `$` behind it is, and that one is declared.
-          if (rule.kind === 'block' && ch === ' ') continue;
-          // The undeclared character at the start, in shapes a rule that wrongly opened on it would
-          // go on to CLOSE: the character as its own closer, a real `$` closer, and a real `$$`
-          // block after it. (A first cut used only the last shape; a mutated inline rule that
-          // opened on `#` then saw `$$`, declined for its own reason, and passed — measured.)
-          for (const src of [`${ch}a${ch} tail`, `${ch}a$ tail`, `${ch}a b\n`, `${ch}$$x$$ $a$\n$$\nb\n$$\n`])
+  // The undeclared character, in shapes a rule that wrongly opened on it would go on to CLOSE:
+  // itself as its own closer, doubled and tripled (a `%%` or `###` run), a real `$` closer, and a
+  // real `$$` block after it. The first cut used one shape and missed `#`; the second used four and
+  // missed `%%`, `##` and a non-zero position — all measured by mutation.
+  const shapes = (ch) => [
+    `${ch}a${ch} tail`, `${ch}${ch}a${ch}${ch} tail`, `${ch}${ch}${ch}a${ch}${ch}${ch}\n`,
+    `${ch}a$ tail`, `${ch}${ch}a$ tail`, `${ch}a b\n`, `${ch}$$x$$ $a$\n$$\nb\n$$\n`,
+  ];
+
+  const rules = PLUGINS.flatMap((plugin) => Object.entries(plugin.syntax).map(([token, rule]) => ({ plugin, token, rule })));
+  test('there are rules to check (guard against a vacuous pass)', () => {
+    assert.ok(rules.length > 0, 'no plugin declares a syntax rule, so this arm checks nothing');
+  });
+
+  for (const { plugin, token, rule } of rules) {
+    test(`${plugin.name}: ${token} declines every character but ${rule.triggers.join(' ')}`, () => {
+      const claimed = [];
+      for (const ch of chars) {
+        if (rule.triggers.includes(ch)) continue;
+        // A BLOCK rule reads a line after its indentation (`bMarks + tShift`), so leading
+        // whitespace is not the character at the rule's start — the `$` behind it is, and that one
+        // is declared. NBSP is not indentation to markdown-it, so it stays in.
+        if (rule.kind === 'block' && ch === ' ') continue;
+        for (const shape of shapes(ch)) {
           for (const silent of [true, false]) {
+            const where = `${JSON.stringify(ch)} in ${JSON.stringify(shape.slice(0, 12))} (silent=${silent})`;
             if (rule.kind === 'inline') {
-              const state = new md.inline.State(src, md, {}, []);
-              if (rule.run(state, silent) || state.pos !== 0 || state.tokens.length) claimed.push(`${JSON.stringify(ch)} (silent=${silent})`);
+              // At the start of the text AND mid-text: an inline rule is asked at every position.
+              for (const [src, pos] of [[shape, 0], [`x ${shape}`, 2]]) {
+                const state = new md.inline.State(src, md, {}, []);
+                state.pos = pos;
+                const pending = state.pending;
+                if (rule.run(state, silent) || state.pos !== pos || state.tokens.length || state.pending !== pending) claimed.push(`${where} at ${pos}`);
+              }
             } else {
-              const state = new md.block.State(src, md, {}, []);
-              if (rule.run(state, 0, state.lineMax, silent) || state.line !== 0 || state.tokens.length) claimed.push(`${JSON.stringify(ch)} (silent=${silent})`);
+              const state = new md.block.State(shape, md, {}, []);
+              const before = { parentType: state.parentType, lineMax: state.lineMax, blkIndent: state.blkIndent };
+              const moved = rule.run(state, 0, state.lineMax, silent) || state.line !== 0 || state.tokens.length
+                || state.parentType !== before.parentType || state.lineMax !== before.lineMax || state.blkIndent !== before.blkIndent;
+              if (moved) claimed.push(where);
             }
           }
         }
-        assert.deepEqual(claimed, [], `${token} claimed characters it does not declare as triggers`);
-      });
-    }
+      }
+      assert.deepEqual(claimed, [], `${token} claimed characters it does not declare as triggers, or changed the parser's state while declining`);
+    });
   }
 });
 

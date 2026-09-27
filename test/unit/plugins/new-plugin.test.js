@@ -91,6 +91,8 @@ describe('packages new plugin — the command', () => {
     assert.match(nameRefusal('math', taken), /already exists/);
     assert.match(nameRefusal('latticeplot', taken), /already a fence/);
     assert.match(nameRefusal('json', taken), /code language/);
+    assert.match(nameRefusal('mermaid', { ...taken, hostReserved: new Set(['mermaid']) }), /the engine itself renders/);
+    assert.match(nameRefusal(`a${'b'.repeat(64)}`, taken), /at most 64 characters/);
     assert.equal(nameRefusal('zz-scaffold-probe', taken), null);
   });
 
@@ -105,6 +107,8 @@ describe('packages new plugin — the command', () => {
       assert.match(out.join('\n'), /already exists/);
       assert.equal(await main(['new', 'plugin', 'json', '--dir', dir], { log, err: log }), 1);
       assert.equal(await main(['new', 'theme', 'x', '--dir', dir], { log, err: log }), 1);
+      assert.equal(await main(['new', 'plugin', 'a', 'b', '--dir', dir], { log, err: log }), 1, 'a stray second name is refused, not ignored');
+      assert.equal(fs.existsSync(path.join(dir, 'a')), false, 'and nothing is written');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

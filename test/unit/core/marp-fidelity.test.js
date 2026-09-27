@@ -24,7 +24,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { LEDGER, unmirroredEntries, fidelityNotes } = require('../../../lib/core/marp-fidelity');
+const { LEDGER, allEntries, pluginPackageRows, unmirroredEntries, fidelityNotes } = require('../../../lib/core/marp-fidelity');
 const { readme } = require('../../../lib/core/marp-bundle');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -94,9 +94,14 @@ describe('marp fidelity ledger — the classification is complete', () => {
       .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
       .map((d) => JSON.parse(read(`lib/plugins/${d.name}/${d.name}.manifest.json`)));
     assert.ok(manifests.some((m) => m.contributes.fences), 'expected at least one fence plugin (guard against a vacuous pass)');
-    const rows = new Set(LEDGER.map((e) => e.package).filter(Boolean));
+    const rows = new Set(allEntries().map((e) => e.package).filter(Boolean));
     const missing = manifests.filter((m) => m.contributes.fences && !rows.has(m.name)).map((m) => m.name);
-    assert.deepEqual(missing, [], 'a fence plugin needs a lib/core/marp-fidelity.js `package` row');
+    assert.deepEqual(missing, [], 'a fence plugin needs a lib/core/marp-fidelity.js `package` row, hand-written or derived');
+    // The shipped fence plugins carry hand rows (their notes were observed or reasoned); a derived
+    // row is for a plugin an author just scaffolded, so it must not stand in for one of these.
+    for (const shipped of ['function-plot', 'anima', 'math']) {
+      assert.ok(!pluginPackageRows().some((r) => r.package === shipped), `${shipped} fell back to a derived row — keep its hand row`);
+    }
     const names = new Set(manifests.map((m) => m.name));
     assert.deepEqual([...rows].filter((r) => !names.has(r)), [], 'these ledger rows outlived their plugin package');
   });
