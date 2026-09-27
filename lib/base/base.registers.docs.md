@@ -107,8 +107,8 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 
 | `fit:` value | Resolves to | Effect |
 |---|---|---|
-| `report` | `fit-report` | The engine changes nothing and only flags. No SPLIT, no STEP, no TRIM: a slide that does not fit clips; the export's `⚠ OVERFLOW` line and "Content clipped" tag say so, and the live preview rings it. The switch for "this is misbehaving", and for an exact reproduction. |
-| `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes, and STEP renders a slide that does not fit the deck's `scale-l/xl/2xl` at the designed size instead. |
+| `report` | `fit-report` | The engine changes nothing and only flags. No SPLIT, no TRIM: a slide that does not fit clips; the export's `⚠ OVERFLOW` line and "Content clipped" tag say so, and the live preview rings it. The switch for "this is misbehaving", and for an exact reproduction. |
+| `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes. |
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
 
 **The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
@@ -119,15 +119,15 @@ wins. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-
 `guards-strict` / `guards-loose`). The per-slide token **evicts** the deck token rather
 than stacking on it, so a slide's own choice always wins.
 
-**Two invariants, not settings.** No level goes below the designed type scale (STEP's
-floor is 1x), and no level changes what is REPORTED — `report` changes what the engine
-does, never what it tells you.
+**Two invariants, not settings.** No level changes the type size, and no level changes
+what is REPORTED — `report` changes what the engine does, never what it tells you.
 
-**A scaled deck renders at one size.** When a slide does not fit the deck's scale, every
-slide that asked for that scale renders at the largest size all of them fit (1.15x in a
-1.3x deck, say), and the export names the slides to trim for the full size. `report` turns
-this off along with every other move. See `engineering/decisions/2026-09-25-font-scale-fit.md`
-(amended 2026-09-26, which replaced the earlier "two sizes at most" rule).
+**A scaled deck renders at exactly the size it asks for.** `venue:` and `scale-l/xl/2xl`
+are fixed settings, like desktop zoom: every slide renders at that size whatever its
+content, and none is shrunk to fit. A slide too full for the size clips, and `lint:deck`,
+the Studio's ring and the export's `⚠ OVERFLOW` line name it. The automatic step-down
+(STEP and LEVEL, #2378/#2390) was retired on 2026-09-27; see
+`engineering/decisions/2026-09-25-font-scale-fit.md`, Amendment 2026-09-27 (3).
 
 ### What `trim` does, and why it does far less than the name suggests
 
@@ -774,11 +774,16 @@ Each component's `.docs.md` prints how many elements it holds at each venue (its
 "**By venue**" line), and `dist/docs/components.pick.md` has the same numbers in a
 `by venue` column — pick for the room before you write.
 
-A slide too full for the venue's size does not clip and does not render smaller than
-its neighbors: the whole deck renders at the largest size every slide fits, and the
-export's `↓ SCALE` line names the slides to trim. `lint:deck` warns (`capacity-scale`)
-on a slide past its budget for the room, and `unknown-venue` catches a typo. A
-per-slide `_class: venue-*` overrides the deck's venue. The derivation — the viewing
+**A venue is a fixed setting, like desktop zoom.** Every slide renders at the venue's
+size, whatever its content; the engine never shrinks a slide, or the deck, to fit. A
+slide too full for the room clips, and three surfaces name it: `lint:deck` warns
+(`capacity-scale`) on a slide past its budget while you write, the Studio rings it and
+offers a one-click fix (split the slide, or move the deck to the next venue down), and
+the export's `⚠ OVERFLOW` line lists it. In the Studio, pick the venue in deck settings
+(**Look → Venue**), or switch it live on the Present stage without editing the deck.
+`unknown-venue` catches a typo. A
+per-slide `_class: venue-*` overrides the deck's venue, but that slide then differs in size from its
+neighbors, so `lint:deck` warns (`spot-scale`) — set the room once, in the front matter. The derivation — the viewing
 angle, the reading thresholds and the room bands — is `engineering/typography.md` §7
 "Venue". Resolver: `lib/core/resolve-venue.js`.
 

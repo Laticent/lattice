@@ -20,12 +20,16 @@
     "axis": "item",
     "min": 2,
     "sweet": 4,
-    "soft": 5,
-    "hard": 5,
+    "soft": 4,
+    "hard": 4,
+    "withCompact": {
+      "soft": 5,
+      "hard": 5
+    },
     "escalateTo": [
       "split across slides (automatic)"
     ],
-    "note": "four pairs fit at body size and a fifth with `compact`, which tightens the spacing; past five, split the slide"
+    "note": "four pairs fit bare and a fifth with `compact`, which tightens the spacing (measured); past five, split the slide"
   },
   "density": {
     "axis": "item",

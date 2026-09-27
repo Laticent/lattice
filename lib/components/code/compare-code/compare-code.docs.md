@@ -10,7 +10,7 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 
 ## Agent contract
 
-**By venue** no count budget. Two code panes side by side; not measured per venue yet (the rig measures the single `code` pane).
+**By venue** the pane holds laptop ~20 · huddle ~17 · conference ~15 · hall ~13 lines (laptop ~19 · huddle ~16 · conference ~14 · hall ~11 under an eyebrow). Past the room's number the slide still renders at the venue's size and the pane clips its lines; the export's `⚠ OVERFLOW` line and the Studio's ring name it (`lint:deck` does not count these panes yet). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

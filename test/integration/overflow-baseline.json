@@ -6,9 +6,6 @@
     "examples/README.md": [
       1
     ],
-    "examples/font-scale-fit.md": [
-      8
-    ],
     "examples/marker-corner.md": [
       3,
       4
@@ -21,6 +18,9 @@
     "examples/overflow-guards.md": [
       2,
       4
+    ],
+    "examples/retire-automatic-scale-fit.md": [
+      3
     ],
     "lib/components/chart/bar/bar.gallery.md": [
       3,

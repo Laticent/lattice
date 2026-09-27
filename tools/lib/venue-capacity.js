@@ -49,10 +49,12 @@ function venueDocsLine(m, noun) {
   if (!vc) return null;
   const how = 'Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.';
   if (vc.none) return `**By venue** no count budget. ${vc.none}`;
-  const past = 'Past the room\'s number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export\'s `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`).';
+  const past = 'Past the room\'s number the slide still renders at the venue\'s size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export\'s `⚠ OVERFLOW` line and the Studio\'s ring name it.';
   if (vc.lines) {
     const fmt = (r) => VENUES.map((v) => `${v} ~${r[v]}`).join(' · ');
-    return `**By venue** the pane holds ${fmt(vc.lines.bare)} lines (${fmt(vc.lines.eyebrow)} under an eyebrow). ${past} ${how}`;
+    // Lint reads only `code`'s line budget, so another pane component's line promises no warning.
+    const pastLines = m.name === 'code' ? past : 'Past the room\'s number the slide still renders at the venue\'s size and the pane clips its lines; the export\'s `⚠ OVERFLOW` line and the Studio\'s ring name it (`lint:deck` does not count these panes yet).';
+    return `**By venue** the pane holds ${fmt(vc.lines.bare)} lines (${fmt(vc.lines.eyebrow)} under an eyebrow). ${pastLines} ${how}`;
   }
   const { words, row, lengths } = authoredRow(vc);
   const cap = hardCap(m);
@@ -66,7 +68,24 @@ function venueDocsLine(m, noun) {
   const capped = cap != null && Object.values(vc.byWords).some((r) => VENUES.some((v) => r[v] > cap))
     ? ` No venue goes past the Capacity max of ${cap}, which holds in every room.`
     : '';
-  return `**By venue** (\`venue:\`, ~${words} words each) it holds ${main} ${noun}.${short}${capped}${floor} ${past} ${how}`;
+  // A variant with its own row, and the cost of a trailing insight callout, when measured
+  // (lint-core `scaleCapacityFor` applies both). Each at its longest measured length.
+  const at = (byWords) => {
+    const len = Object.keys(byWords).map(Number).sort((a, b) => a - b).find((l) => l >= words) ?? Math.max(...Object.keys(byWords).map(Number));
+    return { len, r: byWords[String(len)] };
+  };
+  const variants = Object.entries(vc.variants || {}).map(([tok, v]) => {
+    const { len, r } = at(v.byWords);
+    return ` With \`${tok}\` (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
+  }).join('');
+  const insight = vc.insight
+    ? (() => {
+      const len = Object.keys(vc.insight.byWords)[0];
+      const r = vc.insight.byWords[len];
+      return ` Ending in a \`> …\` callout (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
+    })()
+    : '';
+  return `**By venue** (\`venue:\`, ~${words} words each) it holds ${main} ${noun}.${short}${variants}${insight}${capped}${floor} ${past} ${how}`;
 }
 
 /** The pick-list cell: laptop/huddle/conference/hall at the authored length, capped by the

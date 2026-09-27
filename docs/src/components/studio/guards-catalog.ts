@@ -35,7 +35,7 @@ export const GUARDS: GuardsEntry[] = [
 	},
 	{
 		name: 'heal', label: 'Heal',
-		blurb: 'The engine fixes what it can without losing words: it splits a slide or steps its font scale down. The default.',
+		blurb: 'The engine fixes what it can without losing words: it splits an overfull slide at portrait sizes. The default. It never changes the type size.',
 		swatch: { background: lines('64%') },
 	},
 	{

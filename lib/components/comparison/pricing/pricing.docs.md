@@ -12,7 +12,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 
 **Capacity** ~3 items (over 4 overflows) — past that, table / split across slides. Two tiers read as a binary and four is the widest row that holds; past four the tiers narrow until a feature label wraps to three lines. A split run paces ONE tier per page and carries a derived “Option N of M · comparing …” signal, so the pages still read as one comparison (§0b connected members).
 
-**By venue** (`venue:`, ~12 words each) it holds laptop ~3 · huddle ~3 · conference ~3 · hall ~3 items. At ~6 words each: 3 · 3 · 3 · 3. Past the room's number, every slide that asked for that venue renders at the largest size they all fit, so the deck stays one size and the export's `↓ SCALE` line names the slide to trim; `lint:deck` flags it first (`capacity-scale`). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~12 words each) it holds laptop ~3 · huddle ~3 · conference ~3 · hall ~3 items. At ~6 words each: 3 · 3 · 3 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

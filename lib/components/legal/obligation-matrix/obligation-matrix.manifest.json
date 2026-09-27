@@ -220,6 +220,15 @@
     }
   },
   "venueCapacity": {
-    "none": "Its rows are a state-marker grid the calibration rig cannot author yet; not measured per venue."
+    "axis": "row",
+    "at": "wide",
+    "byWords": {
+      "2": {
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 6,
+        "hall": 5
+      }
+    }
   }
 }

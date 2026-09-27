@@ -945,12 +945,6 @@ const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_
 // `x-guards-loose guards-strict` disabled it here and not there. Same deck, two answers
 // about whether a slide is trimmable at all (HARD RULE #1). Injected from the kernel.
 const { GUARDS_ENABLED_SRC } = require('./lib/core/resolve-guards');
-// STEP — a slide that overflows at the deck's projection font scale (`scale-l/xl/2xl`)
-// is taken back down the same ladder, rung by rung, never below the designed size.
-// Injected into both the explicit pass below and the watcher embedded in the exported
-// .html, so the PDF and the .html agree (HARD RULE #1). See lib/core/scale-fit.js and
-// engineering/decisions/2026-09-25-font-scale-fit.md.
-const { SCALE_FIT_SRC, SCALE_LEVEL_SRC, scaleLevelReport } = require('./lib/core/scale-fit');
 // The verdict half of the same measurement — extent + legibility → the
 // `{ ratio, canSplit, splitRatio }` the overflow RING reads. (It fed `resplitDoc` until
 // 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
@@ -3231,8 +3225,6 @@ ${ENGINE_SCRIPT_OPEN}
   var overflowTabText = ${OVERFLOW_TAB_TEXT_SRC};
   var probeSectionOverflow = ${PROBE_SRC};
   var probeContentClipped = ${CONTENT_CLIPPED_SRC};
-  var fitScaleStep = ${SCALE_FIT_SRC};
-  var levelScaleSteps = ${SCALE_LEVEL_SRC};
   var probeFigureLegibility = ${LEGIBILITY_SRC};
   // The legibility tab's LABEL and its add/update/remove decision are injected from the
   // same policy module the live runtime imports (lib/runtime/fluid-view-policy.js), not
@@ -3249,16 +3241,6 @@ ${ENGINE_SCRIPT_OPEN}
   var settleFonts = ${SETTLE_FONTS_SRC};
   function check(){
     var sections = Array.prototype.slice.call(document.querySelectorAll('section[data-lattice-slide]'));
-    // STEP then LEVEL before any probe, so the ring reports the slide the reader sees,
-    // at the one size every slide that asked for a scale shares (lib/core/scale-fit.js
-    // rule 7). A no-op below scale 1.01 (rule 1) -- a deck without a scale class is
-    // never written to. Same kernels as the export pass, so the PDF and this .html agree.
-    // (No backticks in this comment -- it is injected into a template literal.)
-    sections.forEach(function(s){
-      fitScaleStep(s, { probeSectionOverflow: probeSectionOverflow, probeContentClipped: probeContentClipped },
-        { clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: TOL });
-    });
-    levelScaleSteps(sections);
     sections.forEach(function(s){
       // Cell-aware probe — a clipping content cell hides its overflow from the
       // section, so probe the cells too (lib/core/overflow-probe.js).
@@ -3940,24 +3922,6 @@ async function renderBody(browser, g, closeBrowser) {
   // `guards: strict` deck — the console printed "✂ TRIMMED … pages 1" naming a cut present in
   // no artifact (the extracted prose is character-identical either way) AND suppressed the
   // honest "NOT APPLIED" line. That is the exact failure this constant was introduced to end.
-  // STEP (lib/core/scale-fit.js) — BEFORE the trim and before the overflow measurement,
-  // because it is the cheaper move: it loses no content, where TRIM cuts text. The
-  // embedded watcher runs the same kernel when the page settles; this explicit pass is
-  // what makes the order deterministic rather than a race with that watcher, and it is
-  // idempotent, so running both is safe. A deck with no scale class returns [] without a
-  // single write (rule 1), which is why no golden moves.
-  const scaleLevel = await g(() => page.evaluate(({ fitSrc, levelSrc, probeSrc, clippedSrc, slidesSrc, clipSel, ignoreSel, bearerSel, tol }) => {
-    const fitScaleStep = new Function('return (' + fitSrc + ')')();
-    const levelScaleSteps = new Function('return (' + levelSrc + ')')();
-    const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
-    const probeContentClipped = new Function('return (' + clippedSrc + ')')();
-    const deckSlideSections = new Function('return (' + slidesSrc + ')')();
-    const sections = deckSlideSections(document);
-    for (const s of sections) fitScaleStep(s, { probeSectionOverflow, probeContentClipped }, { clipSel, ignoreSel, bearerSel, tol });
-    // LEVEL (rule 7): every slide that asked for one scale renders at one rung.
-    return levelScaleSteps(sections).groups;
-  }, { fitSrc: SCALE_FIT_SRC, levelSrc: SCALE_LEVEL_SRC, probeSrc: PROBE_SRC, clippedSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE }), 'fit the font scale');
-  for (const line of scaleLevelReport(scaleLevel)) console.warn(line);
   const FLUID_WINS = FLUID_VIEW && FLUID_BEATS_READ;
   const TRIM_REACHES_DELIVERABLE = !(OUT_FORMAT === 'html' && !FLUID_WINS && !PLAYER);
   const trimmed = TRIM_REACHES_DELIVERABLE

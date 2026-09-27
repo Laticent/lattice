@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Maximize, Minimize, Minimize2, Monitor, MousePointer2, Pause, Play, RotateCcw, Rows3, Sparkles, StickyNote, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Maximize, Minimize, Minimize2, Monitor, MousePointer2, Pause, Play, RotateCcw, Rows3, Sparkles, StickyNote, Timer, Users, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
@@ -6,6 +6,7 @@ import DeckPreview from '@/components/DeckPreview';
 import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present/rehearsal.js';
 import { STAGE_CHROME_CSS } from '@/components/studio/present/stage-chrome.js';
 import { createStageController } from '@/components/studio/present/stage-window.js';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
@@ -41,8 +42,8 @@ import { cueDisplayText,
 	isAside,POINTER_BOX, planSlide, type SlidePlan, setSaid, wordRangeIn } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
-
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
+import { deckVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 
 /** Emphasis spans over a slide's narration text — char offsets from the shared projection. */
 type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
@@ -126,9 +127,24 @@ type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
 type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: RehearsalSlide[] };
 
-export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, webOrigins }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; /** Web origins the reader allowed this deck's images to load from (trio follow-up 11). */ webOrigins?: string[] }) {
+export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter: deckFrontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, webOrigins }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; /** Web origins the reader allowed this deck's images to load from (trio follow-up 11). */ webOrigins?: string[] }) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fire-once-on-mount by design; onReady is a stable callback.
 	React.useEffect(() => { onReady?.(); }, []);
+	// THE VENUE SWITCH — change the room size for THIS showing without editing the deck (owner
+	// ruling 2026-09-27). The walk-in: the room is bigger than the deck was written for. It
+	// rewrites `venue:` in the front matter every Present surface renders from (this stage, the
+	// second-screen Stage, the overview grid), never the saved source. `undefined` = the deck's
+	// own venue; `null` = the designed size. Reset when Present closes, like its other transients.
+	const [venuePick, setVenuePick] = React.useState<VenueName | null | undefined>(undefined);
+	React.useEffect(() => {
+		if (!open) setVenuePick(undefined);
+	}, [open]);
+	const authoredVenue = React.useMemo(() => deckVenue(deckFrontMatter), [deckFrontMatter]);
+	const frontMatter = React.useMemo(
+		() => (venuePick === undefined || venuePick === authoredVenue ? deckFrontMatter : withVenue(deckFrontMatter, venuePick)),
+		[deckFrontMatter, venuePick, authoredVenue],
+	);
+	const shownVenue = venuePick === undefined ? authoredVenue : venuePick;
 	const wideRoom = useConsolePanel();
 	// Notes on a narrow console: opened deliberately, because a phone-width Present has no
 	// room to keep them up. Reset whenever Present closes, like every other transient here.
@@ -1992,6 +2008,23 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				{zoomed && (
 					<Tip label="Reset zoom to fit"><button ref={zoomBadgeRef} type="button" onClick={() => zoomRef.current?.reset()} aria-label={`Reset zoom to fit — currently ${Math.round(zoomScaleRef.current * 100)}%`} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--accent)] sm:text-[13px]"><Minimize2 className="size-4" />{`${Math.round(zoomScaleRef.current * 100)}%`}</button></Tip>
 				)}
+				<DropdownMenu>
+					<Tip label="Venue — the room size, for this showing only">
+						<DropdownMenuTrigger asChild>
+							<button type="button" aria-label={`Venue: ${venueOption(shownVenue)?.label ?? 'Default'}`} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', venuePick !== undefined && venuePick !== authoredVenue ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Users className="size-4" /><span className="hidden md:inline">{venueOption(shownVenue)?.label ?? 'Venue'}</span></button>
+						</DropdownMenuTrigger>
+					</Tip>
+					<DropdownMenuContent align="end" className="z-[130] w-60 bg-card shadow-xl">
+						<DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Room size · this showing</DropdownMenuLabel>
+						<DropdownMenuItem onSelect={() => setVenuePick(null)}>Default<span className="ml-2 text-muted-foreground">designed size</span>{shownVenue === null && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
+						{VENUES.map((v) => (
+							<DropdownMenuItem key={v.value} onSelect={() => setVenuePick(v.value)} className="gap-2">
+								<span className="flex min-w-0 flex-col"><span>{v.label} · {v.scale}x{authoredVenue === v.value ? ' (deck)' : ''}</span><span className="text-[11px] text-muted-foreground">{v.who}</span></span>
+								{shownVenue === v.value && <Check className="ml-auto size-3.5 shrink-0 text-[var(--accent)]" />}
+							</DropdownMenuItem>
+						))}
+					</DropdownMenuContent>
+				</DropdownMenu>
 				<Tip label="All slides (G) — jump anywhere"><button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} aria-label="Slides" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden md:inline">Slides</span></button></Tip>
 				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" /><span className="hidden md:inline">Rehearse</span></button>
 				{/* ONE LADDER FOR THE WHOLE CLUSTER. Slides · Rehearse · Fullscreen · Stage

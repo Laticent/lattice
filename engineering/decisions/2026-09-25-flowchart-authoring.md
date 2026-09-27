@@ -296,10 +296,11 @@ flowchart takes part in all three levels:
 
 | `fit:` level | The flowchart |
 |---|---|
-| `heal` (default) | Heals without losing words: automatic `compact` spacing when text would land under the floor, the direction and wrap fit, and STEP (below). |
+| `heal` (default) | Heals without losing words: automatic `compact` spacing when text would land under the floor, the direction and wrap fit. (STEP, below, was retired on 2026-09-27.) |
 | `report` | None of those moves: the spacing and direction as written. Lint **warns** with the measured size, because nothing will heal it. |
 | `trim` | Everything `heal` does, then note text may be ellipsized. **Shape names and edge labels are never cut** (the owner's ruling): a clipped label changes what a relationship says. Still under the floor after that, it is reported. |
 
+- *(Retired 2026-09-27: STEP no longer exists — a venue is a fixed size, `2026-09-25-font-scale-fit.md` Amendment 2026-09-27 (3). A flowchart under the floor at a venue is reported, not stepped; the bullet below is history.)*
 - **STEP needs one new signal.** STEP's rule 3 says "fits" means what the
   overflow ring means, but a flowchart never overflows: it shrinks its own text.
   So the flowchart reports *text under the floor at this slide's scale* (the TYPE

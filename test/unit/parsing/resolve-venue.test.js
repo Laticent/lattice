@@ -14,7 +14,6 @@ const {
   VENUE_NAMES, VENUE_TOKENS, VENUE_SCALE, venueClass, venueClassFromSource, isKnownVenue, isVenueToken,
 } = require('../../../lib/core/resolve-venue');
 const lint = require('../../../lib/authoring/lint-core');
-const { SCALE_STEPS } = require('../../../lib/core/scale-fit');
 
 const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.modifiers.css'), 'utf8');
 
@@ -25,7 +24,13 @@ test('four venues, laptop first and classless', () => {
 });
 
 test('one venue per rung of the scale ladder', () => {
-  assert.deepEqual(Object.values(VENUE_SCALE).sort((a, b) => b - a), [...SCALE_STEPS]);
+  // The ladder is the designed size plus the three `scale-*` classes in base.modifiers.css.
+  const rungs = ['l', 'xl', '2xl'].map((k) => {
+    const m = css.match(new RegExp(`section\\.scale-${k}\\s*\\{[^}]*--fs-scale:\\s*([\\d.]+)`));
+    assert.ok(m, `scale-${k} declares --fs-scale`);
+    return Number(m[1]);
+  });
+  assert.deepEqual(Object.values(VENUE_SCALE).sort((a, b) => a - b), [1, ...rungs]);
 });
 
 test('the CSS gives each venue class the rung VENUE_SCALE names', () => {

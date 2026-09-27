@@ -62,14 +62,10 @@
     "cards-stack": {
       "surfaces": [
         "card-rail",
+        "card-row",
         "card-surface",
         "heading"
-      ],
-      "variants": {
-        "horizontal": [
-          "card-row"
-        ]
-      }
+      ]
     },
     "checklist": {
       "surfaces": [
@@ -154,6 +150,13 @@
       ],
       "unmeasurable": [
         "numbered"
+      ]
+    },
+    "flowchart": {
+      "surfaces": [
+        "chart-marks",
+        "eyebrow",
+        "heading"
       ]
     },
     "funnel": {
