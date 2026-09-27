@@ -65,6 +65,7 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
+import { FrameDockHost, surfacesRoot } from './frame-dock';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
@@ -6018,7 +6019,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    active body as the desktop/tablet column, just wrapped in a Sheet
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
 					{mobile && (
-						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md">
+						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md" container={surfacesRoot()}>
 							<PanelHeader
 								icon={<Settings2 />}
 								title="Settings"
@@ -6121,6 +6122,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			)}
 			{cmdPalette}
+			{/* The Studio's one set of preview frames (frame-dock.tsx) — mounted for the session. */}
+			<FrameDockHost />
 			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}
 			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />

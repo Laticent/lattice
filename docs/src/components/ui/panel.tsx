@@ -485,8 +485,11 @@ export function PanelSheet({
 	overlay = true,
 	modal = true,
 	className,
+	container,
 	children,
 }: {
+	/** Where the sheet's portal mounts — see DialogContent's `container`. */
+	container?: HTMLElement | null;
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
 	side?: 'left' | 'right';
@@ -512,6 +515,7 @@ export function PanelSheet({
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
 			<SheetContent
+				container={container}
 				side={mobile ? 'bottom' : side}
 				overlay={overlay}
 				showCloseButton={false}

@@ -9,6 +9,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { NEW_SLIDE } from './deck-ops';
+import { surfacesRoot } from './frame-dock';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { componentLooks, type VariantAxis, variantSample } from './slide-variants';
 import { loadPickerView, loadSettings, type PickerView, SETTINGS_EVENT, savePickerView } from './studio-store';
@@ -418,7 +419,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		// bottom sheet at `h-[100dvh]`: a full-screen page with a 16px radius pretending
 		// to be a sheet. 85dvh still leaves ~717px of gallery on a 390×844 phone.
 		return (
-			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg">
+			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg" container={surfacesRoot()}>
 				{/* `title` — one name for one door. This sheet and the desktop dialog below share
 				    it, and so do all five launchers (rail, editor header, this drawer row, the
 				    command palette, the Compose divider): "Add a slide" / "Add slide" (#1654).
@@ -440,7 +441,10 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			    width above 640px. The dialog had been rendering at 512px — under half its
 			    intended width — which is what shrank the previews to ~93px and truncated every
 			    name to three characters. Match the modifier and the override lands (#1657). */}
-			<DialogContent className="flex h-[min(84vh,760px)] sm:max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
+			{/* Centered with `inset-0 m-auto`, not the primitive's `translate(-50%, -50%)`: the frame dock
+			    places each preview by anchor positioning, which ignores transforms, so a translated dialog
+			    got every frame ~630 px off its tile (frame-dock.tsx). Same box, same place. */}
+			<DialogContent container={surfacesRoot()} className="inset-0 m-auto flex h-[min(84vh,760px)] translate-x-0 translate-y-0 sm:max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
 				{/* `title` — "Add a slide" — on BOTH transports, from the one `title` const. Keep
 				    it that way: a previous pass renamed the phone sheet and left the desktop
 				    dialog saying something else, so the very defect being fixed survived on the

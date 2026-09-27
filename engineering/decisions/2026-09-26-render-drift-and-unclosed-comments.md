@@ -76,15 +76,80 @@ proved by reverting the fix it covers.
 **Left alone:** `chart-family.js` `proseAttr` keeps its regex — it reads a subtitle's
 *rendered* HTML, where markdown-it has already escaped any unclosed `<!--`.
 
-## 5. Tried and reverted: preview posters for the WebKit reopen cost
+## 5. The WebKit reopen cost: one frame dock for the whole Studio
 
-`followups.d/2391-p3` was confirmed on real WebKit and is wider than recorded: the Add slide
-dialog strands ~45 MB per reopen as the deck panel strands ~30. Posters (a settled pool frame
-captured into an SVG `foreignObject` and shown as a WebP on the next open) were built on this
-branch and reverted before merge. Reopening minted no frames and the images matched the live
-tiles to 2–9/255 per channel, but **each capture is itself an SVG-image decode, and WebKit keeps
-those documents too** (~3.5 MB each in a synthetic harness). With the gallery scrolled on every
-open, memory grew exactly as on main: +391 → +1070 MB against +493 → +1097 MB over five
-cycles. The measurements, the two other designs that fail on WebKit (`moveBefore` is
-Chromium-only; a force-mounted Radix modal hides the whole Studio), and the one design left —
-a Studio-level frame layer that surfaces borrow — are in the follow-up file, which stays open.
+`followups.d/2391-p3`, confirmed on real WebKit (Playwright WebKit 26, production docs build) and
+wider than recorded. The preview pool (`2026-09-13-gallery-preview-memory.md`) stops churn
+*inside* an open grid, but the pool lived in the grid, so closing a surface destroyed its frames
+and WebKit never gives a destroyed preview document back. Add slide stranded ~45 MB per reopen
+(9 frames), the deck panel's preset tiles ~30 MB (4 frames); Present's overview and Reshape share
+the pattern. Chromium reclaims and stays flat.
+
+### What shipped
+
+`docs/src/components/studio/frame-dock.tsx`: ONE set of preview frames for the Studio's lifetime,
+mounted once (`FrameDockHost`) in a layer at the end of `<body>`. A pool BORROWS slots and gives
+them back on unmount with their documents intact, so the next open re-points them through
+`single-slide-render`'s patch path. A frame stays on its tile through CSS anchor positioning
+(`anchor-name` on the tile, `anchor()` / `anchor-size()` on the frame), so scrolling needs no
+script — the property the in-grid layer had, which a JS scroll sync would have lost.
+
+Four conditions, each found by measurement, each written into the module:
+
+1. **Tree order.** An anchor resolves only if it precedes the positioned element; Radix portals a
+   dialog to the end of `<body>`, after the dock. So the dock creates `#lattice-surfaces` before
+   itself, and the pooled surfaces portal there (`container` on DialogContent / SheetContent /
+   PopoverContent / PanelSheet). Their own menus and tooltips still portal to the end.
+2. **Viewport containing block.** An anchor outside the positioned element's subtree resolves
+   only when that element's containing block is the viewport, so the frame is `position: fixed`
+   and nested `overflow: hidden` wrappers cannot clip it (they resolved nothing, both engines).
+   The clip is a `clip-path: inset()` on the slot's viewport-sized root, set to the tile's
+   scrollports — which do not move when the grid scrolls; it is recomputed on resize, on an
+   animation settling (a phone sheet measured mid-slide clipped to nothing), and on any scroll,
+   patching only a clip that moved (the nested looks panel is the case that moves).
+3. **No transforms.** Anchor positioning ignores transforms: Add slide's dialog, centered with
+   `translate(-50%, -50%)`, put every frame ~630 px off its tile. It is centered with
+   `inset-0 m-auto` now (same box, measured at 1440/820/390). A pool under a lasting transform —
+   Reshape's popover, which Radix positions by transform — keeps its own frames (`canDock`).
+4. **Stacking.** A slot takes the z-index of its tile's outermost stacking ancestor (Present's
+   overlay is z-102) and paints above that surface by being later in tree order.
+
+Where anchor positioning is missing (Safari before 26, jsdom) or a pool is not placed before
+the dock, `canDock` is false and the pool keeps its frames in its own layer, exactly as before.
+
+### Measured
+
+Real WebKit, 1440×900, a production build, `main` and the branch on the same box:
+
+| | main | frame dock |
+|---|---|---|
+| new preview documents per Add slide reopen (iframes + srcdoc writes) | 12 + 14, every cycle | **0 + 0** after the first |
+| Add slide, open + scroll all + close, RSS over baseline | +291 → +445 → +535 → +732 → +884 MB | +383 → +374 → +371 → +510 → +549 → +550 → +604 → +597 MB |
+| deck panel, 6 open/close cycles | +128 → +132 → +161 → +185 → +246 → +276 MB | +129 → +86 → +95 → +110 → +124 → +109 MB |
+| dock slots after each of 8 full-scroll cycles (Chromium) | — | 13, every time |
+
+Read the MB with the 09-13 note's ±200 warning; the document counts are exact. The Add slide
+row still rises ~30 MB per cycle with zero new preview documents, so that residue is something
+else — recorded, not chased here. One refinement came out of the counts: a pool with no free
+slot of a tile's SHAPE takes an exact-shape dock slot (or a new one) rather than rewriting one
+of the other shape — the gallery's Mermaid tile had cost two fresh documents per reopen.
+
+Every surface checked at 1440, 820 and 390 on Chromium and WebKit: each docked frame sits on its
+tile to the pixel, clipped by its scroller. The pool oracles (`gallery-preview-budget`,
+`gallery-preview-metamorphic`, `preview-shared-sheet`) now find a surface's frames through
+`docs/e2e/pool-frames.ts`, since a docked frame is not inside the surface it serves; MR-3's
+"closing releases every document" is restated as what it guarded — no per-open residue — and the
+WebKit-phone test now asserts that a reopen mints none.
+
+**Unverified:** a real iPhone. Whether anchored frames track momentum scrolling there without lag
+cannot be driven from this sandbox.
+
+### Tried first, and why they failed
+
+- **Posters** (capture a settled frame into an SVG `foreignObject`, show a WebP on reopen): built
+  and reverted. Each capture is itself an SVG-image decode that WebKit also keeps (~3.5 MB), so a
+  scrolled gallery grew as on main (+493 → +1097 MB against +391 → +1070 MB).
+- **Parking frames between opens:** needs a state-preserving DOM move; `Element.moveBefore` is
+  Chromium-only (measured absent on WebKit 26).
+- **Keeping a surface mounted but hidden:** a force-mounted Radix modal runs `hideOthers` on mount,
+  hiding the whole Studio from assistive tech while "closed", and keeps its scroll lock.

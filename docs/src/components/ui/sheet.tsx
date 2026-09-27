@@ -48,6 +48,7 @@ function SheetContent({
   side = "right",
   showCloseButton = true,
   overlay = true,
+  container,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -56,9 +57,11 @@ function SheetContent({
    * on the Root) so the page behind stays interactive and is NOT scroll-locked —
    * a modal scroll-lock lingers on iOS Safari and freezes the surface behind. */
   overlay?: boolean
+  /** Where the portal mounts (default: `document.body`) — see DialogContent's `container`. */
+  container?: HTMLElement | null
 }) {
   return (
-    <SheetPortal>
+    <SheetPortal container={container}>
       {overlay && <SheetOverlay />}
       <SheetPrimitive.Content
         data-slot="sheet-content"

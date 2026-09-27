@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { poolFrameSelector } from './pool-frames';
 import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 
 // ONE PARSED STYLESHEET FOR EVERY PREVIEW FRAME (#1538), on the real surface.
@@ -82,10 +83,10 @@ test('@crosswidth the gallery serves ONE sheet to every tile, and the tiles load
 
 	// Wait for tiles to have PAINTED, not merely mounted — a frame mid-write has no faces yet.
 	await expect
-		.poll(async () => (await faceCensus(page, `${SCROLLER} iframe.live`)).length, { timeout: 45_000, message: 'no gallery tile ever painted a slide' })
+		.poll(async () => (await faceCensus(page, await poolFrameSelector(page, SCROLLER))).length, { timeout: 45_000, message: 'no gallery tile ever painted a slide' })
 		.toBeGreaterThan(1);
 
-	const sheets = await sheetCensus(page, `${SCROLLER} iframe.live`);
+	const sheets = await sheetCensus(page, await poolFrameSelector(page, SCROLLER));
 	expect(sheets.frames, 'no gallery tile was readable').toBeGreaterThan(1);
 	// THE SHARING CLAIM. Every tile takes the sheet by link, and they all name the SAME one —
 	// which is the entire mechanism: N frames, one parsed stylesheet.
@@ -98,14 +99,14 @@ test('@crosswidth the gallery serves ONE sheet to every tile, and the tiles load
 	await expect
 		.poll(
 			async () => {
-				const census = await faceCensus(page, `${SCROLLER} iframe.live`);
+				const census = await faceCensus(page, await poolFrameSelector(page, SCROLLER));
 				return census.filter((c) => c.declared > 0 && c.loaded === 0).length;
 			},
 			{ timeout: 45_000, message: 'gallery tiles declared font faces and loaded none of them — the deck is rendering in fallback faces' },
 		)
 		.toBe(0);
 
-	const census = await faceCensus(page, `${SCROLLER} iframe.live`);
+	const census = await faceCensus(page, await poolFrameSelector(page, SCROLLER));
 	const errored = census.filter((c) => c.errored > 0);
 	expect(errored, `tile(s) with font faces in an ERROR state: ${errored.map((c) => `${c.errored}/${c.declared}`).join(' · ')}`).toEqual([]);
 });

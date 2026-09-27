@@ -650,3 +650,51 @@ describe('PooledThumbFace — the tile box', () => {
 		spec.unmount();
 	});
 });
+
+// ── THE FRAME DOCK (frame-dock.tsx) ─────────────────────────────────────────────────────
+// With CSS anchor positioning available and a FrameDockHost mounted, a pool BORROWS its frames
+// from the dock instead of owning them, and gives them back — documents intact — when its grid
+// unmounts. The WebKit contract, as a mount count: closing and reopening a surface must not mount
+// a single new DeckPreview (each mount is a preview document WebKit would never free). Where the
+// frames land on screen needs a real browser: docs/e2e/gallery-preview-metamorphic.spec.ts.
+describe('PreviewPool — borrowing from the frame dock', () => {
+	let restoreCss = () => {};
+	beforeEach(async () => {
+		const { _resetDock } = await import('./frame-dock');
+		_resetDock();
+		const had = (globalThis as { CSS?: unknown }).CSS;
+		(globalThis as { CSS?: unknown }).CSS = { supports: () => true };
+		restoreCss = () => {
+			(globalThis as { CSS?: unknown }).CSS = had;
+		};
+	});
+	afterEach(() => restoreCss());
+
+	it('a reopened grid re-points the dock frames it gave back, and mounts none', async () => {
+		const { FrameDockHost } = await import('./frame-dock');
+		const host = render(<FrameDockHost />);
+		// A surface portals into the dock's surfaces root, BEFORE the dock — the condition anchor
+		// positioning needs, and the one the pool checks before borrowing.
+		const surface = () => document.getElementById('lattice-surfaces')?.appendChild(document.createElement('div')) as HTMLElement;
+		const first = render(<Grid n={2} />, { container: surface() });
+		intersect(face(first.container, 0), true);
+		intersect(face(first.container, 1), true);
+		settle();
+		expect(document.querySelectorAll('#lattice-frame-dock [data-testid="deck-preview"]').length, 'the grid did not borrow from the dock').toBe(2);
+		expect(first.container.querySelector('[data-testid="deck-preview"]'), 'a docked grid kept a frame of its own').toBeNull();
+		const mountedOnce = mounts;
+
+		first.unmount(); // the surface closes
+		settle();
+		expect(unmounts, 'closing the surface destroyed a dock frame').toBe(0);
+
+		const again = render(<Grid n={2} />, { container: surface() }); // …and reopens
+		intersect(face(again.container, 0), true);
+		intersect(face(again.container, 1), true);
+		settle();
+		expect(mounts, 'reopening minted a new preview document').toBe(mountedOnce);
+		expect([...document.querySelectorAll('#lattice-frame-dock [data-dock-shown] [data-testid="deck-preview"]')].map((f) => f.getAttribute('data-sample')).sort()).toEqual(['# 0', '# 1']);
+		again.unmount();
+		host.unmount();
+	});
+});

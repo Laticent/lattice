@@ -3,6 +3,7 @@ import DeckPreview from '@/components/DeckPreview';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
+import { acquireSlot, anchorNameOf, canDock, dockSlot, placementOf, releaseSlots, sameClip, updateSlots } from './frame-dock';
 import { hasMermaid } from './slide-thumb';
 
 // ── A POOL OF PREVIEW FRAMES THAT ARE NEVER DESTROYED (#1538) ───────────────────────
@@ -282,13 +283,28 @@ export const RELEASE_GRACE = 600;
  * One pool per grid rather than one per app, deliberately: two grids open at once (the picker
  * and its looks panel) have different coordinate spaces, and a pool's positions are only
  * meaningful inside one of them.
+ *
+ * WHERE THE FRAMES LIVE. Where CSS anchor positioning is available and the grid sits before the
+ * Studio's frame dock, the pool BORROWS its frames from the dock (frame-dock.tsx) instead of
+ * owning them: the grid's own layer stays empty, and closing the grid hands its frames back with
+ * their documents alive, so a reopen mints none — the WebKit cost this pool alone could not
+ * reach. Everywhere else (no anchor positioning, a grid under a transform) the frames live in the
+ * layer below, as they always did. The assignment logic is the same in both.
  */
 export function PreviewPool({ children, className }: { children: React.ReactNode; className?: string }) {
 	const layerRef = React.useRef<HTMLDivElement>(null);
 	const tiles = React.useRef(new Map<number, Tile>());
 	const seq = React.useRef(0);
+	/** This pool's identity with the frame dock (frame-dock.tsx). */
+	const poolId = React.useRef(0);
+	if (poolId.current === 0) poolId.current = nextPoolId++;
+	/** Whether this pool's frames come from the DOCK rather than its own layer. Decided at the
+	 *  first assignment pass, not at mount: the dock host registers in an effect, and a pool mounted
+	 *  in the same commit would otherwise read "no dock" for its whole life. Fixed once decided —
+	 *  a pool never has frames in both places. */
+	const docked = React.useRef<boolean | null>(null);
 	// slot index → the tile it currently shows, and the shape its document was last built for.
-	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number }[]>([]);
+	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number; dockId?: number }[]>([]);
 	const slotsRef = React.useRef(slots);
 	slotsRef.current = slots;
 	const pending = React.useRef<number | null>(null);
@@ -384,6 +400,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		pending.current = window.setTimeout(() => {
 			pending.current = null;
 			lastApply.current = Date.now();
+			if (docked.current === null) docked.current = canDock(layerRef.current);
 			const now = Date.now();
 			// A tile still inside its grace window keeps its slot, so a tile that flickers across
 			// the band edge during a scroll does not cost two re-points.
@@ -459,11 +476,32 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				// pressure: that one is not a cost, it is a wrong answer.
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
 				let slot = free.find((s) => s.key === k) ?? free[0];
-				if (!slot && next.length < cap) {
-					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
-					next.push(slot);
+				// DOCKED, AND NO FREE SLOT OF THIS SHAPE HERE: take one of this shape from the dock — one another
+				// surface gave back, or a new one under the dock's ceiling. The gallery's one Mermaid tile used to
+				// borrow a free slot of the other shape and hand it back: two full rewrites, two fresh documents,
+				// on every reopen of Add slide (measured). One extra slot of that shape, once, costs less.
+				if (docked.current && (!slot || slot.key !== k)) {
+					const ds = acquireSlot(poolId.current, idk, k, true);
+					if (ds) {
+						slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: ds.props, key: ds.key, id: ds.idk, gen: 0, dockId: ds.id };
+						next.push(slot);
+					}
 				}
-				if (!slot) {
+				if (!slot && next.length < cap) {
+					if (docked.current) {
+						// BORROW from the dock: a slot someone gave back keeps its document, so a reopened
+						// surface re-points it instead of minting one.
+						const ds = acquireSlot(poolId.current, idk, k);
+						if (ds) {
+							slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: ds.props, key: ds.key, id: ds.idk, gen: 0, dockId: ds.id };
+							next.push(slot);
+						}
+					} else {
+						slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
+						next.push(slot);
+					}
+				}
+				if (!slot && !docked.current) {
 					// LAST RESORT: re-key a free slot of another identity. Bumping `gen` makes React unmount
 					// and remount it, which destroys a document — the thing this module exists to avoid — so it
 					// happens only when the alternative is a tile that can never be shown at all. Reachable only
@@ -555,6 +593,65 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		[schedule, watchNested],
 	);
 
+	// DOCKED: after each pass, point this pool's borrowed dock slots at their tiles — by ANCHOR
+	// NAME, not by rect, so the browser keeps each frame on its tile through scrolling
+	// (frame-dock.tsx). A slot with no tile is hidden, and its document stays alive.
+	React.useEffect(() => {
+		if (!docked.current) return;
+		const patches: Parameters<typeof updateSlots>[0] = [];
+		for (const s of slots) {
+			if (s.dockId === undefined) continue;
+			const t = s.tileId === null ? null : tiles.current.get(s.tileId);
+			if (!t) {
+				patches.push({ id: s.dockId, patch: { props: s.props, key: s.key, anchor: null, clip: null } });
+				continue;
+			}
+			const { clip, z } = placementOf(t.el);
+			patches.push({ id: s.dockId, patch: { props: s.props, key: s.key, anchor: anchorNameOf(t.el, 'tile'), clip, z } });
+		}
+		updateSlots(patches);
+	}, [slots]);
+
+	// DOCKED: keep each frame's CLIP current. A single scroller's scrollport does not move when it
+	// scrolls, so an ordinary scroll changes no clip and patches nothing. What does move one: a
+	// resize, an animation settling, and a NESTED scroller (the gallery's looks panel) carried by its outer scroller —
+	// which is why this listens to every scroll, once per frame, and patches only a clip that moved.
+	React.useEffect(() => {
+		if (typeof window === 'undefined') return;
+		let frame = 0;
+		const refresh = () => {
+			frame = 0;
+			if (!docked.current) return;
+			const patches: Parameters<typeof updateSlots>[0] = [];
+			for (const s of slotsRef.current) {
+				if (s.dockId === undefined || s.tileId === null) continue;
+				const t = tiles.current.get(s.tileId);
+				if (!t) continue;
+				const { clip, z } = placementOf(t.el);
+				const cur = dockSlot(s.dockId);
+				if (cur && (!sameClip(cur.clip, clip) || cur.z !== z)) patches.push({ id: s.dockId, patch: { clip, z } });
+			}
+			updateSlots(patches);
+		};
+		const on = () => {
+			if (!frame) frame = window.requestAnimationFrame(refresh);
+		};
+		window.addEventListener('scroll', on, { capture: true, passive: true });
+		window.addEventListener('resize', on);
+		// A surface that ANIMATES in (the phone sheet slides up) was measured mid-flight: its clip came
+		// out empty and stayed empty, so the preset tiles showed no preview at all (WebKit, 390 px).
+		// Re-measure when any animation or transition settles.
+		window.addEventListener('animationend', on, true);
+		window.addEventListener('transitionend', on, true);
+		return () => {
+			window.removeEventListener('scroll', on, { capture: true });
+			window.removeEventListener('resize', on);
+			window.removeEventListener('animationend', on, true);
+			window.removeEventListener('transitionend', on, true);
+			if (frame) window.cancelAnimationFrame(frame);
+		};
+	}, []);
+
 	// The layout moving is the ONLY thing that invalidates a position, so it is the only thing
 	// that recomputes one. Covers a resize, a column-count change, a filter shortening the grid
 	// and a looks panel opening a row — all of which move tiles without any of them scrolling.
@@ -567,6 +664,8 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	React.useEffect(
 		() => () => {
 			alive.current = false;
+			// Give the borrowed frames back to the dock. Their documents stay; the next open re-points them.
+			if (docked.current) releaseSlots(poolId.current);
 			if (pending.current !== null) window.clearTimeout(pending.current);
 			pending.current = null;
 			if (raf.current) window.cancelAnimationFrame(raf.current);
@@ -587,12 +686,12 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 
 	return (
 		<PoolContext.Provider value={api}>
-			<div className={cn('relative', className)}>
+			<div className={cn('relative', className)} data-preview-pool={poolId.current}>
 				{children}
 				{/* The frames. `aria-hidden` and `pointer-events-none`: every tile's chrome is a real
 				    button in `children` above, and this layer must never take a click or a tab stop. */}
 				<div ref={layerRef} aria-hidden className="pointer-events-none absolute inset-0">
-					{slots.map((s, i) => {
+					{docked.current ? null : slots.map((s, i) => {
 						// TWO BOXES, and the outer one is what stops a frame painting where its tile is
 						// hidden. The OUTER box is the visible part of the tile (`rect.clip`) and clips;
 						// the INNER box is the tile's WHOLE rect, offset back into place. The frame has to
@@ -625,6 +724,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 }
 
 let nextTileId = 1;
+let nextPoolId = 1;
 
 /**
  * A tile's preview box. Renders NOTHING but an empty box of the right size — the pixels come
