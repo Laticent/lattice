@@ -5491,19 +5491,25 @@ const SANCTIONED_PREVIEW_BUILDERS = [
 // Browser passes outside lib/runtime that write markup after the sanitizer ran. The state
 // chart's pass (state-chart.transform.js) is the other member of this class and is NOT listed
 // yet: followups.d/2385-p2-state-chart-pass-census.md.
+//
+// Trama's pipeline (docs/src/lib/trama/pipeline.ts) is the one graph-chart writer: it writes
+// whatever an ADAPTER paints, so each adapter that calls it owns sanitizing its model, and a
+// new adapter is a new provenance to write down here (2026-09-27-trama-graph-chart-library.md).
 const RUNTIME_MARKUP_EXTRA_FILES = [
-  'lib/components/chart/flowchart/flowchart.layout.js',
+  'docs/src/lib/trama/pipeline.ts',
 ];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   {
-    file: 'lib/components/chart/flowchart/flowchart.layout.js',
+    file: 'docs/src/lib/trama/pipeline.ts',
     sink: 'svg.innerHTML',
     count: 1,
     provenance:
-      'OURS — the flowchart painter, built from `data-fc-model`. A deck can FORGE that attribute in ' +
-      'raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so the pass trusts none of ' +
-      'it: sanitizeModel rebuilds every structural field from a closed set or an integer range and ' +
-      'drops the rest, and every author string is escaped where it is painted. Pinned by ' +
+      'OURS — Trama writes the markup its adapter paints (and the same string again when a live layout ' +
+      'holds the last drawing). Today one adapter calls it: the flowchart ' +
+      '(lib/components/chart/flowchart/flowchart.layout.js), painting from `data-fc-model`. A deck can ' +
+      'FORGE that attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so the ' +
+      'adapter trusts none of it: sanitizeModel rebuilds every structural field from a closed set or an ' +
+      'integer range and drops the rest, and every author string is escaped where it is painted. Pinned by ' +
       'test/unit/components/flowchart.test.js "a forged model cannot inject markup".',
   },
   {
@@ -8007,6 +8013,25 @@ function checkCadenzaBoundary(errors, dir = CADENZA_DIR) {
       `docs/src/lib/cadenza/, and its one dependency is '${CADENZA_SANCTIONED_DEP}' by that exact ` +
       `name (2026-09-24-lattice-timing-track.md §6). Move shared code into the folder — Cadenza has no ` +
       `peer-dep seam and must not couple to the host.`,
+  });
+}
+
+// ── Trama (docs/src/lib/trama) — the graph-chart library ────────────────────
+// Trama's kernel, pipeline and every adapter ship as `fn.toString()` source (the CLI
+// export's bootstrap script, the Studio worker), so a value import would be a free variable
+// inside the shipped function. So Trama has NO dependencies at all, not even `node:`:
+// every import resolves inside the folder, dagre arrives as an argument, and type-only
+// imports are erased (2026-09-27-trama-graph-chart-library.md §2-§3).
+const TRAMA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'trama');
+function checkTramaBoundary(errors, dir = TRAMA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Trama folder. Trama ships its kernel and ` +
+      `pipeline as serialized source, so it has no dependencies (dagre is passed in): every ` +
+      `import must resolve inside docs/src/lib/trama/ ` +
+      `(engineering/decisions/2026-09-27-trama-graph-chart-library.md).`,
   });
 }
 
@@ -12422,6 +12447,7 @@ function run() {
   checkVoiceSampleAssets(errors);
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
+  checkTramaBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
   checkLttBoundary(errors);

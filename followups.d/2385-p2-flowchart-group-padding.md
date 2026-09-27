@@ -12,7 +12,7 @@ why now   — The owner flagged it reviewing #2385: a group's title hugs the sha
             the title's height, 6 above and 4 below, because dagre never reads a
             cluster's padding. The side padding (groupPad 14, compact 10) is likewise
             whatever dagre's node spacing happens to give.
-where     — graph-layout.js (the title band after `dagre.layout`, the group boxes);
+where     — docs/src/lib/trama/kernel.ts (the title band after `dagre.layout`, the group boxes);
             flowchart.layout.js (the spacing it passes: groupPad, groupPadTop);
             flowchart.styles.css / tokens (the spacing should come from a token, not
             a literal).

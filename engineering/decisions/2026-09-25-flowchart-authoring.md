@@ -1,11 +1,11 @@
 ---
-status: proposed
+status: in-progress
 summary: The flowchart chart's authoring grammar and rendering rules, decided with the owner over a design competition, eight prototype rounds and an adversarial review. Every list item is a shape named by its text; a sub-list of shapes makes a group; spaced arrows (`->` `<-` `<->` `--`, heavy `=>`) connect, on the item row or as sub-items; a trailing inline-code span styles what it follows; the key sits below the outline and is derived, notes are nested blockquotes. Dagre lays it out with a new shared elbow-first router (ELK declined), edge labels never get a painted background, legibility uses the existing `compact` and `scale-*` words against the 11px chart floor, and the `motion-flow` dots run only on live surfaces.
 ---
 
 # Flowchart authoring and rendering (2026-09-25)
 
-**Status: proposed.** Nothing here is built. The prototypes that proved each rule
+**Status: in progress.** Slices 1–3 shipped in #2385 (slices 4–5 pending). *(Its layout kernel and browser pipeline moved into Trama, `@laticent/trama`, on 2026-09-27: see `2026-09-27-trama-graph-chart-library.md`. Paths below that name `_chart-family/graph-layout.js` now mean `docs/src/lib/trama/kernel.ts`.)* The prototypes that proved each rule
 were throwaway scripts under `.scratch/flow/`, so this note is the record. The
 images in the companion folder `2026-09-25-flowchart-authoring/` were rendered
 by those prototypes inside real Lattice slides (real theme tokens, real finish

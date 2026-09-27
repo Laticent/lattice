@@ -137,6 +137,8 @@ const SCRIPT_META = {
   'read-along-core:check':    ['Build & bundle', 'Freshness gate for the read-along-core Playground bundle.'],
   'cadenza-lib:build':        ['Build & bundle', 'Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@laticent/cadenza\') resolves — the workspace package that retires the caption hand-mirrors.'],
   'cadenza-lib:check':        ['Build & bundle', 'Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts).'],
+  'trama-lib:build':          ['Build & bundle', 'Build the Trama graph-chart library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require(\'@laticent/trama\') resolves for the runtime, the emulator and the tests.'],
+  'trama-lib:check':          ['Build & bundle', 'Freshness gate for the Trama library dist/ (stale vs docs/src/lib/trama/*.ts).'],
   'vetrina-lib:build':        ['Build & bundle', 'Build the Vetrina library dist/ (two ESM + two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine.'],
   'vetrina-lib:check':        ['Build & bundle', 'Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts).'],
   'lente-lib:build':          ['Build & bundle', 'Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@laticent/lente\') and npm publish resolve — the fourth spin-off sibling\'s consumable artifact.'],

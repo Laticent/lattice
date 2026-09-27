@@ -159,7 +159,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
   // gets painted, and that the first draw never waits.
   const { JSDOM } = require('jsdom');
   require('../../../lib/core/dagre-layout.js');
-  const { graphLayoutKernel } = require('../../../lib/components/chart/_chart-family/graph-layout.js');
+  const { graphLayoutKernel } = require('@laticent/trama');
   const figHtml = (names) => {
     // Ids come from names, as the grammar makes them: a rename is a new id.
     const id = (n) => n.toLowerCase();

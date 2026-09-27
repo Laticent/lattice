@@ -47,6 +47,22 @@ const argv   = process.argv.slice(2);
 const check  = argv.includes('--check');
 const silent = argv.includes('--silent') || check;
 
+// `packages: 'external'`, except the workspace libraries in INLINE_PACKAGES.
+const INLINE_PACKAGES = ['@laticent/trama'];
+
+function inlineWorkspaceLibs() {
+  return {
+    name: 'inline-workspace-libs',
+    setup(build) {
+      build.onResolve({ filter: /^[^./]/ }, (args) => {
+        const bare = args.path;
+        if (INLINE_PACKAGES.some((p) => bare === p || bare.startsWith(`${p}/`))) return undefined;
+        return { path: bare, external: true };
+      });
+    },
+  };
+}
+
 const BUILD_OPTIONS = {
   entryPoints: [ENTRY],
   bundle: true,
@@ -57,8 +73,14 @@ const BUILD_OPTIONS = {
   // function-plot, puppeteer) and node builtins resolve at runtime from the
   // install's node_modules, the same way the loose source resolves them.
   // Only the local relative graph (./lib, ./package.json) is
-  // inlined.
-  packages: 'external',
+  // inlined, plus the workspace libraries below.
+  // One exception: the workspace libraries the export path draws with
+  // (`@laticent/trama`, the graph-chart kernel and pipeline) are INLINED. They
+  // resolve in the repo only through the workspace symlink and are not in
+  // `dependencies`, so leaving them external made an install without the
+  // symlink throw inside the flowchart script builder, which the CLI swallows:
+  // every flowchart exported as its fallback tiles, silently.
+  plugins: [inlineWorkspaceLibs()],
   // Inlined source map so a single committed file carries debugging info
   // without a sidecar .map artifact. esbuild is deterministic, so identical
   // sources rebuild byte-for-byte — the --check diff relies on that.

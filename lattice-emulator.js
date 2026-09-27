@@ -3078,7 +3078,11 @@ if (hasFlowchart) {
       try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* the harness stays up */ }
     }
     flowchartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${flowchartBrowserJs()}\n</script>`;
-  } catch (_e) { /* kernel unavailable; the harness tiles show */ }
+  } catch (e) {
+    // The harness tiles show. Say so: a missing Trama once exported every flowchart
+    // as tiles with no word to the author.
+    console.warn(`  ⚠ flowchart layout unavailable (${e?.message ? e.message.split('\n')[0] : e}) — flowcharts export as their fallback tiles.`);
+  }
 }
 
 // ── Document accessibility metadata (WCAG 2.4.2 title, 3.1.1 language) ─────────

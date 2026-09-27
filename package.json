@@ -47,6 +47,7 @@
     "docs/src/lib/lente",
     "docs/src/lib/ltt",
     "docs/src/lib/suono",
+    "docs/src/lib/trama",
     "docs/src/lib/vetrina"
   ],
   "files": [
@@ -150,6 +151,8 @@
     "read-along-core:check": "node tools/build-read-along-core.js --check",
     "cadenza-lib:build": "node tools/build-cadenza-lib.js",
     "cadenza-lib:check": "node tools/build-cadenza-lib.js --check",
+    "trama-lib:build": "node tools/build-trama-lib.js",
+    "trama-lib:check": "node tools/build-trama-lib.js --check",
     "engine-hash:build": "node tools/lib/timing-engine-hash.js",
     "vetrina-lib:build": "node tools/build-vetrina-lib.js",
     "vetrina-lib:check": "node tools/build-vetrina-lib.js --check",
@@ -244,6 +247,7 @@
     "test:mermaid": "node --test --test-reporter=dot 'test/unit/mermaid/*.test.js'",
     "test:parsing": "node --test --test-reporter=dot 'test/unit/parsing/*.test.js'",
     "test:components": "node --test --test-reporter=dot 'test/unit/components/*.test.js'",
+    "test:trama": "node --test --test-reporter=dot 'test/unit/trama/*.test.js'",
     "test:cli": "node --test --test-reporter=dot 'test/unit/cli/*.test.js'",
     "test:playground": "node --test --test-reporter=dot 'test/unit/playground/*.test.js'",
     "test:engine": "node --test --test-reporter=dot 'test/unit/engine/*.test.js'",
