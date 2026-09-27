@@ -14,7 +14,7 @@ source: engineering/decisions/2026-09-26-studio-panel-lazy-loading.md § Warming
                    any diagram the browser has never rendered since the last deploy falls back
                    to its source text. Seen on Fabricate's Diagram specimen offline.
        where     — docs/src/playground/deck-preview.js and single-slide-render.ts (where the
-                   bundle URL is built); docs/src/components/studio/StudioShell.tsx › studioWarmQueue.
+                   bundle URL is built); docs/src/components/studio/studio-warm.ts › startStudioWarmUp.
        done when — the note records a rule (warm when the deck on screen has a diagram, as the
                    KaTeX provider does for math; or never, with the bytes argued), and the rule
                    is implemented if it warms anything.

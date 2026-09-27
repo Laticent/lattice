@@ -161,24 +161,6 @@ export function PanelLoader<C extends React.ComponentType<never>>({
 export type Warmable = { load(): Promise<void> };
 
 /**
- * A chunk the warm-up should fetch that is not a `LazyPanel` — a `React.lazy` surface such as
- * Present. Loads once; a failure is swallowed, because the surface's own `React.lazy` import is
- * what reports it, through its error boundary, when someone opens it.
- */
-export function warmable(loader: () => Promise<unknown>): Warmable {
-	let inflight: Promise<void> | null = null;
-	return {
-		load: () => {
-			inflight ??= loader().then(
-				() => {},
-				() => {},
-			);
-			return inflight;
-		},
-	};
-}
-
-/**
  * Load the panels in the background once the Studio is idle, so a panel opened later renders on
  * its first frame. It is also what keeps a never-opened panel working offline and across a
  * deploy: the service worker caches `/_astro/` chunks only once they have been fetched

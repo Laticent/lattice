@@ -15,3 +15,6 @@ export const libraryPanel = lazyPanel('The Library', () => import('./Library').t
 export const lensesPanel = lazyPanel('Reader views', () => import('./LensesPanel').then((m) => m.LensesPanel));
 /** In warm-up order: Share first, as the panel most likely wanted offline. */
 export const STUDIO_PANELS = [sharePanel, workspacePanel, slideSettingsPanel, chatPanel, libraryPanel, lensesPanel];
+
+/** Set by Fabricate's first open (`StudioShell.tsx`); read by the idle warm-up (`studio-warm.ts`). */
+export const FABRICATE_USED_KEY = 'lattice-studio-fabricate-used';

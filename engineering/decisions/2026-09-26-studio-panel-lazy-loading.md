@@ -363,7 +363,11 @@ logged in `followups.d/2402-p3-persist-rect-mid-rotation.md`.
 The follow-up to this PR (`followups.d/2402-p3-warm-present-fabricate-read-for-offline.md`).
 All three are `React.lazy` in `StudioShell.tsx`, and nothing fetched them until someone opened
 them, so a user who went offline first got the chunk-load card. The idle warm-up now fetches
-them after the six panels (`studioWarmQueue` in `StudioShell.tsx`).
+them after the six panels (`startStudioWarmUp` in `studio-warm.ts`, a module StudioShell loads
+after mount so the queue adds almost nothing to startup: about 230 bytes gz, the effect that loads
+it). A first cut that imported `studio-panels` from that module split it into a startup chunk of its
+own, +3.2KB gz to save 1.9KB, so the module imports nothing the startup bundle has and StudioShell
+passes those pieces in.
 
 **Warming a surface's chunk is not enough.** A first cut warmed the three chunks alone. On the
 built site, Present opened offline but the reading view showed "This deck could not be turned

@@ -5,7 +5,7 @@ import { CHROME, waitForStudioPaint } from './studio-fixture';
 // Compose, Present, the reading view and Fabricate open OFFLINE after an online visit that never
 // opened them. They are React.lazy, and the service worker caches a /_astro/ chunk only once it has been
 // fetched (docs/public/sw.js has no precache list), so without the idle warm-up
-// (StudioShell.tsx › studioWarmQueue) an offline open shows the chunk-load card. Fabricate warms
+// (studio-warm.ts › startStudioWarmUp) an offline open shows the chunk-load card. Fabricate warms
 // only for a browser that has opened it before, so the first test also pins that a visitor who
 // never has does not download it.
 // See engineering/decisions/2026-09-26-studio-panel-lazy-loading.md § Warming Present,

@@ -2,7 +2,8 @@ import { act, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PanelSheetInstantCtx } from '@/components/ui/panel';
-import { lazyPanel, PanelLoader, SHEET_ENTER_MS, SHEET_EXIT_MS, useLatch, warmable, warmPanels } from './lazy-panel';
+import { lazyPanel, PanelLoader, SHEET_ENTER_MS, SHEET_EXIT_MS, useLatch, warmPanels } from './lazy-panel';
+import { warmable } from './studio-warm';
 
 function Real({ label }: { label: string }) {
 	const instant = React.useContext(PanelSheetInstantCtx);
