@@ -12,7 +12,7 @@ why now   — The owner asked for it on #2385. The only spacing control today is
             cannot open up a crowded chart, tighten one that sprawls, or space groups
             apart from each other independently of the shapes inside them.
 where     — flowchart.layout.js (the `spacing` it passes to the kernel);
-            graph-layout.js (dagre's nodesep / ranksep / edgesep, the gap between
+            docs/src/lib/trama/kernel.ts (dagre's nodesep / ranksep / edgesep, the gap between
             sibling groups); the `flowchart:` front-matter register planned for
             slice 4 (lib/base/base.registers.docs.md) and/or a span word on the
             chart; tokens for the defaults. Pairs with

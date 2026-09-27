@@ -178,7 +178,11 @@ export interface KernelStats {
 export interface GraphKernel {
   layout(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | null;
   layoutOnce(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | { width: number; height: number; grew: boolean } | null;
-  /** Route lines between boxes the caller placed (each shape's centre); no dagre. */
+  /**
+   * Route lines between boxes the caller placed (each shape's centre); no dagre. The
+   * drawing comes back moved so its top-left sits at the margin: the positions are
+   * relative. Positions must be finite.
+   */
   route(model: GraphModel, sizes: SizeMap, positions: Record<string, Point>, opts?: LayoutOptions): Geometry | null;
   simplify(pts: Point[]): Point[];
   stats: KernelStats;

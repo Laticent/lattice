@@ -81,7 +81,7 @@ async function buildBundles(outDir) {
       format,
       platform: 'node',
       target: ['es2022'],
-      minify: false, // committed, human-readable source
+      minify: false, // human-readable: the functions ship as source via toString()
       legalComments: 'none',
       // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json
       // walking up from the entry. That ambient config `extends astro/tsconfigs/strict`,
@@ -252,7 +252,7 @@ async function main() {
       const drift = diffTrees(readTree(tmp), readTree(DIST_DIR));
       if (drift.length) {
         console.error(
-          '[build-trama-lib] STALE — run `npm run trama-lib:build` and commit docs/src/lib/trama/dist:\n  ' +
+          '[build-trama-lib] STALE — run `npm run trama-lib:build` (docs/src/lib/trama/dist is generated, never committed):\n  ' +
             drift.join('\n  '),
         );
         process.exit(1);

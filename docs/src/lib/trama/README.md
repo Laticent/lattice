@@ -43,13 +43,18 @@ are cached per kernel.
 
 - **`opts.wrap: true`** also tries laying the shapes out in authored order on one or
   more lines, every line running the same way, the way a state machine's chain reads.
-  The simplest candidate wins (fewest lines, then the stage's own direction) unless a
-  more-wrapped one sets the type 12% larger; a graph that branches keeps dagre's layout
+  The kernel finds the candidate that sets the type largest, then takes the simplest
+  candidate (fewest lines, then the stage's own direction) within 12% of it. So a
+  wrapped layout wins only when every simpler one sets the type more than 12% smaller; a graph that branches keeps dagre's layout
   unless the grid beats it by that margin. The grid needs **no dagre**: pass `null` and a
   chain still lays out. `geo.lines` says how many lines it chose. Groups are never gridded.
 - **`K.route(model, sizes, positions, opts)`** routes lines between boxes you have already
   placed (each shape's centre), with the same solver and never-rules, for a chart whose
-  positions an axis fixes. No dagre.
+  positions an axis fixes. No dagre. The positions set the boxes' places RELATIVE to each
+  other: the drawing comes back moved so its top-left sits at the margin, so read the
+  offset from any one box (`positions.a.x - geo.nodes.a.cx`). A shape with two or more
+  self-loops gets room for them and can shift a few units. Positions must be finite
+  numbers.
 - Shape kinds **`start`** and **`end`** (a filled dot; a ring around a dot) are ordinary
   small boxes to the kernel; the pipeline's `outline` draws them.
 

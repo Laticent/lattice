@@ -46,4 +46,14 @@ describe('trama — serialization', () => {
   test('the emulator bootstrap is one self-contained script', () => {
     assert.doesNotThrow(() => new Function(browserJs()));
   });
+
+  test('the published CLI bundle carries Trama inline, not as a runtime require', (t) => {
+    // Trama is a workspace package, not a dependency: outside the repo nothing resolves
+    // it, and the CLI swallowed the throw and exported every flowchart as tiles.
+    const bundle = path.join(__dirname, '../../../dist/lattice-emulator.js');
+    if (!fs.existsSync(bundle)) return t.skip('dist/lattice-emulator.js not built');
+    const src = fs.readFileSync(bundle, 'utf8');
+    assert.ok(!/require\(["']@laticent\/trama["']\)/.test(src), 'dist/lattice-emulator.js requires @laticent/trama at runtime');
+    assert.ok(src.includes('graphLayoutKernel'), 'the kernel is inlined');
+  });
 });

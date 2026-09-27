@@ -12,7 +12,7 @@ why now   — On the typing test deck's Services slide (17 shapes, compact, past
             but clear of the title. At that chart's scale it reads as a doubled border.
             #2385 found it and left it: it predates the title-band fix there, and no
             quality count sees it.
-where     — lib/components/chart/_chart-family/graph-layout.js: `solveRoutes` costs a
+where     — docs/src/lib/trama/kernel.ts: `solveRoutes` costs a
             run along a band only when it leaves the title no slot; nothing charges a
             run that rides a group border it does not cross.
 done when — a run parallel to a group's border within its title band (or within ~6 of

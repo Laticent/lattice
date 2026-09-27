@@ -19,7 +19,7 @@ function chain(n, extra = []) {
   const shapes = Array.from({ length: n }, (_, i) => ({ id: `s${i}`, name: `State ${i}` }));
   const edges = shapes.slice(1).map((s, i) => ({ from: `s${i}`, to: s.id, label: 'next' })).concat(extra);
   const sizes = Object.fromEntries(shapes.map((s) => [s.id, { w: 120, h: 44 }]));
-  const labelSizes = Object.fromEntries(edges.map((e, i) => [i, { w: 40, h: 16 }]));
+  const labelSizes = Object.fromEntries(edges.map((_e, i) => [i, { w: 40, h: 16 }]));
   return { model: { shapes, edges }, sizes, opts: { stage: STAGE, maxScale: 1.25, labelSizes, wrap: true } };
 }
 
@@ -58,7 +58,7 @@ describe('trama — the reading-order grid', () => {
 
   test('a back edge and a self-loop on a wrapped chain keep every never-rule', () => {
     const { model, sizes, opts } = chain(8, [{ from: 's5', to: 's1', label: 'reject', back: true }, { from: 's3', to: 's3', label: 'retry' }]);
-    opts.labelSizes = Object.fromEntries(model.edges.map((e, i) => [i, { w: 44, h: 16 }]));
+    opts.labelSizes = Object.fromEntries(model.edges.map((_e, i) => [i, { w: 44, h: 16 }]));
     const geo = graphLayoutKernel().layout(model, sizes, opts, dagre);
     assert.equal(hard(geo.quality), 0, JSON.stringify(geo.quality));
     assert.equal(geo.quality.labelCollisions, 0);

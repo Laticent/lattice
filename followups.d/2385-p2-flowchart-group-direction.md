@@ -13,7 +13,7 @@ why now   — The owner flagged it reviewing #2385. The chart's direction (`lr` 
             per graph, so a per-group direction needs the group laid out on its own
             and placed as one box.
 where     — lib/core/flowchart-grammar.js (a span word on the group's row, e.g.
-            `:tb` / `:lr`); graph-layout.js (lay a directed group out separately,
+            `:tb` / `:lr`); docs/src/lib/trama/kernel.ts (lay a directed group out separately,
             size it, place it as a compound node, then route lines into it);
             flowchart.docs.md; lint-core.js.
 done when — A group can pin its inner direction with one span word. By default it
