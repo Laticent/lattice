@@ -5,7 +5,7 @@ summary: Lattice draws a label on a card six different ways. Four are copies of 
 
 # One card tag — an audit, a design and a plan
 
-**Status:** in progress. Phase 1 (the CSS kernel) is built; phases 2–5 are not. The owner settled all six questions on
+**Status:** in progress. Phase 1 (the CSS kernel) and phase 2 (the `tag:` register's color and size axes) are built; phases 3–5 are not. The owner settled all six questions on
 2026-09-27 (§7).
 
 ## 1. The problem in one example
@@ -157,7 +157,7 @@ cycle.
 | Axis | Words | Effect |
 |---|---|---|
 | **Color** | `color` | The component's native color: accent for a sequence (cards-grid, compare-prose), the categorical cycle for independent slots (decision, capsule). **The default** |
-| | `plain` | Neutral: a `--bg-alt` fill with `--text-secondary` ink, for decks where color is already busy. Not `--text-label`, which most themes tint with the brand |
+| | `plain` | Neutral: a `--bg` fill with `--text-body` ink and a hairline edge (the pill look), for decks where color is already busy. Not `--bg-alt`, which is the card's own fill, so a tag in it vanished (found building phase 2); not `--text-label`, which most themes tint with the brand |
 | | `none` | No fill and no box. The label stays, as bare `--text-secondary` ink |
 | **Placement** (relative to the card) | `corner` | Flush into the top-left corner. **The default for card grids** |
 | | `foot` | Flush into the bottom-left corner |
@@ -213,8 +213,8 @@ or will get, a contrast test:
 |---|---|---|---|
 | `color`, sequence | `--accent` | `--on-accent` | Exists: `tools/contrast-audit.js:230` via `theme-surface-aa.test.js`. Phase 1 confirms it covers dark mode on every theme |
 | `color`, categorical | `--cat-N-mark` | `--cat-on-mark` | Exists: `contrast.test.js:156` |
-| `plain` | `--bg-alt` | `--text-secondary` | **New**, added to the same audit in phase 1 |
-| `none` | transparent | `--text-secondary` on the card's own surface | Covered by the text-tier tests |
+| `plain` | `--bg` | `--text-body` | **New**, pinned light and dark in `contrast.test.js` (phase 2) |
+| `none` | transparent | `--text-secondary` on the card's own `--bg-alt` | **New**, pinned light and dark in `contrast.test.js` (phase 2) |
 
 `capsule` today uses the pale `--cat-N-fill` with `--cat-on-fill`. Under this design the
 categorical cycle uses the saturated mark tier for every tag, so capsule moves from pale
@@ -262,7 +262,7 @@ and renders every shipped deck unchanged unless the phase says otherwise.
 | Phase | What lands | Visible change | Proof |
 |---|---|---|---|
 | **1. Kernel (CSS only)** | `base.card-tag.css` and the `--card-tag-*` tokens; the seven recipes move onto it at their current look, each component keeping only its counter or label and which fill/ink pair it wears; `sketch` reaches every tag through two token re-points; a light-and-dark pin for the `--on-accent` pair. **No markup changes** (owner decision, §7 Q6) | The drift fixes: one padding (in em, so it follows venue and orientation), one tracking, one reserve formula, `sketch` everywhere. A two- and three-line corner label now clears the body | Pixel diff of the affected galleries before and after, with every changed slide listed and explained |
-| **2. Register** | `resolve-card-tag.js`, `tag:` and `tag-*` on all paths, lint, docs | None unless a deck opts in | Unit: resolver, slide-over-deck per axis on the engine and the runtime bundle. Demo deck, light and dark |
+| **2. Register: color and size** | `resolve-card-tag.js`; `tag:` and `tag-*` on the engine and the runtime, per-axis eviction, split pages, lint (`unknown-tag`), the modifier vocabulary, the Studio's value completion, docs. The color axis (`color` · `plain` · `none`) and the size axis (`small` · `regular` · `large`). Placement and alignment wait for phase 3 so every word works on every layout; until then the linter names them as not yet available | None unless a deck opts in | Unit: resolver, slide-over-deck per axis on the engine AND the runtime bundle, lint, CSS contract; `plain`/`none` pairs AA-pinned light and dark. Demo deck extended, light and dark |
 | **3. The element, placements and equal height** | The real `card-tag` element on every render path (§3.1, with a CSS fallback for script-less pages), then `foot`, `notch`, `band` on every qualifying layout, `inline`, text alignment, size, and the measure pass | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
 | **4. Aliases** | `banner-tag` and `capsule` as aliases with lint hints. The legal inline-eyebrow layouts stay out (§7 Q5) | capsule moves to the saturated tier (§3.5) | Gallery pixel diff |
 | **5. Studio** | The Tag row in deck settings and the slide drawer | Studio only | `docs/e2e` spec with screenshots at 1440, 820 and 390px |

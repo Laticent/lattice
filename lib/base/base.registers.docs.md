@@ -39,6 +39,7 @@ model, see `design/concepts.md`.
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
+| [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color and its size | *(the component's)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
 
@@ -891,6 +892,45 @@ pull-quote, margin and triptych forms, `regulatory-update timeline`, `statute-st
 hierarchy/bands/preemption/lane forms, the `list-steps` column variants (`vertical`, `chevron`, …), `list-steps capsule` (already content height) and
 `compare-prose decision` (its label sits at mid-stage). See
 `engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5, §12 and §13.
+
+## The `tag:` front-matter register (card tags)
+
+A **card tag** is the small label that names a card: the number on a `cards-grid` or
+`cards-stack` card written as `1. … 2. …`, the slot label on a `compare-prose` or `decision`
+card (and its `banner-tag` band), the split-compare verdict, and the list-steps `STEP 01`
+label. All of them are drawn by one recipe, `lib/base/base.card-tag.css`, and `tag:` sets
+how they look. It takes up to two words, one per axis, in any order:
+
+| Axis | Deck value | Per-slide class | Effect |
+|---|---|---|---|
+| Color | `color` | `tag-color` | The component's own pair: the accent, or decision's categorical cycle. **The default** (omit the key) |
+| Color | `plain` | `tag-plain` | A neutral pill: page fill, body ink, a hairline edge. For a deck where color is already busy |
+| Color | `none` | `tag-none` | No box. The label stays, as bare text in the secondary ink. It never hides the words |
+| Size | `small` `regular` `large` | `tag-small` … | The tag at 0.85×, 1× or 1.2×. Its padding and the space above the card body follow |
+
+```markdown
+---
+tag: plain large
+---
+
+<!-- _class: decision tag-color -->
+```
+
+The deck line stamps `tag-plain tag-large` on every slide. The decision slide above returns to
+its categorical colors and keeps the large size: a slide's word on one axis replaces the deck's
+word on that axis and leaves the other alone.
+
+**Most specific wins:** a slide class, then the deck's `tag:`, then the component's own tag.
+`tag-color` and `tag-regular` exist so a slide can return to the component's own look inside a
+deck that set another.
+
+**Placement and alignment come next.** Where a tag sits on its card (corner, bottom corner,
+notch, full-width band, inline) and how its text aligns inside it are designed but not yet
+built; they land together so every word works on every tagged layout. Until then `lint:deck`
+flags those words (`unknown-tag`), and a full-width band on `decision` or `compare-prose` is
+still the `banner-tag` class. An unknown word, or a second word on one axis, is also
+`unknown-tag`. Kernel: `lib/core/resolve-card-tag.js`; CSS: `lib/base/base.card-tag.css`
+§ REGISTER; record: `engineering/decisions/2026-09-27-card-tag-register.md`.
 
 ## The slide's corner — `corners:`
 

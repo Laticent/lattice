@@ -22,9 +22,13 @@
  * --pill-fs pattern, lib/typography/emit.js).
  *
  *   --card-tag-fs      font size: the meta role × --card-tag-scale
- *   --card-tag-pad-y/x padding as a multiple of the tag's own font size, so the box
- *                      grows with the text at every venue and orientation. 0.36 ×
- *                      0.84 reproduces the old landscape corner tag to the pixel.
+ *   --card-tag-pad-y/x padding in the tag's own em, so the box grows with the text at
+ *                      every venue and orientation. 0.36 × 0.84em reproduces the old
+ *                      landscape corner tag to the pixel. pad-y is a bare multiplier
+ *                      (--card-tag-h needs it as a number); pad-x is a length, and since
+ *                      an unregistered custom property substitutes as written, `0.84em`
+ *                      resolves against the TAG's font where padding reads it. `tag: none`
+ *                      re-points it to the card's own inset so bare text lines up.
  *   --card-tag-lh      a flush tag's line height: 1, a chip sized to its caps. A band
  *                      (a header strip) takes 1.2 through --card-tag-band-lh.
  *   --card-tag-track   letter-spacing. The trailing track after the last glyph is
@@ -37,6 +41,10 @@
  *   --card-tag-radius  the flush-corner shape. `sketch` re-points it.
  *   --card-tag-num-font the face a NUMBER tag uses. `sketch` re-points it to the
  *                      hand display face; labels keep --font-label.
+ *   --card-tag-edge    a hairline drawn INSIDE the tag (box-shadow, so it adds no size).
+ *                      Off unless the register asks for it (`tag: plain`).
+ *   --card-tag-inline-ink
+ *                      the ink of a tag with no box (the list-steps STEP label).
  *   --card-tag-band-pad-y / --card-tag-band-lh
  *                      the band placement's vertical padding (× font size) and line
  *                      height — a header strip wants more air than a chip.
@@ -51,7 +59,7 @@
   --card-tag-scale: 1;
   --card-tag-fs: calc(var(--fs-meta) * var(--card-tag-scale));
   --card-tag-pad-y: 0.36;
-  --card-tag-pad-x: 0.84;
+  --card-tag-pad-x: 0.84em;
   --card-tag-lh: 1;
   --card-tag-track: 0.08em;
   --card-tag-h: calc(var(--card-tag-fs) * (var(--card-tag-lh) + 2 * var(--card-tag-pad-y)));
@@ -60,6 +68,8 @@
   --card-tag-num-font: var(--font-label);
   --card-tag-band-pad-y: 0.6;
   --card-tag-band-lh: 1.2;
+  --card-tag-edge: none;
+  --card-tag-inline-ink: var(--text-label);
 }
 
 /* ── The shared voice — every tag, whatever its placement ── */
@@ -105,13 +115,14 @@ section.split-compare .verdict::before {
   margin: 0;
   padding:
     calc(var(--card-tag-pad-y) * 1em)
-    calc(var(--card-tag-pad-x) * 1em - var(--card-tag-track))
+    calc(var(--card-tag-pad-x) - var(--card-tag-track))
     calc(var(--card-tag-pad-y) * 1em)
-    calc(var(--card-tag-pad-x) * 1em);
+    var(--card-tag-pad-x);
   line-height: var(--card-tag-lh);
   border-radius: var(--card-tag-radius);
   background: var(--card-tag-fill, var(--accent));
   color: var(--card-tag-ink, var(--on-accent, var(--on-dark-primary)));
+  box-shadow: var(--card-tag-edge);
 }
 /* The card clears the tag: one line of tag, then the card's own top padding. */
 section.cards-grid > .cell-stage > ol > li,
@@ -162,7 +173,52 @@ section.banner-tag.compare-prose:not(.axis) .compare-prose-inner .card:has(> str
   border-radius: 0;
   background: var(--card-tag-fill, var(--accent));
   color: var(--card-tag-ink, var(--on-accent, var(--on-dark-primary)));
+  box-shadow: var(--card-tag-edge);
 }
 
 /* ── Placement: inline — in the text flow above the title, no box (list-steps) ──
- * The ink is the component's; the voice is the kernel's. */
+ * The voice is the kernel's; the ink is --card-tag-inline-ink, which the component's rule
+ * reads, so the register can re-point it. */
+
+/* ── REGISTER — `tag:` in front matter, `tag-*` on a slide ────────────────────
+ * lib/core/resolve-card-tag.js stamps the classes (deck word, then a slide's word evicts it
+ * on its own axis). Each rule here only re-points tokens.
+ *
+ * Size re-points the scale on the slide; padding and the reserve follow because both are
+ * derived from --card-tag-fs.
+ *
+ * Color sets the pair on the TAG ITSELF — the pseudo-element or the lifted <strong> — not on
+ * the card. A value declared on an element beats one it would inherit, so `plain` wins over a
+ * component's native pair (decision's categorical cycle, set on its cards) with no selector
+ * contest. The selectors also reach `li::before` / first-child `strong` on layouts that carry
+ * no tag; those only receive custom properties nothing there reads.
+ *
+ *   plain  the neutral pill: page fill, body ink, a hairline edge. Not --bg-alt, which is the
+ *          card's own fill — a tag in it would vanish. Pair: --text-body on --bg.
+ *   none   no box: the label as bare text in the secondary ink. Pair: --text-secondary on the
+ *          card (--bg-alt). Both pairs are AA-pinned in test/unit/palette/contrast.test.js.
+ *   color  the component's own pair — the default, written so a slide can return to it. */
+section.tag-small { --card-tag-scale: 0.85; }
+section.tag-large { --card-tag-scale: 1.2; }
+
+section.tag-plain li::before,
+section.tag-plain .card::before,
+section.tag-plain .verdict::before,
+section.tag-plain li > strong:first-child,
+section.tag-plain .card > strong:first-child {
+  --card-tag-fill: var(--bg);
+  --card-tag-ink: var(--text-body);
+  --card-tag-edge: inset 0 0 0 1px var(--muted-mark);
+  --card-tag-inline-ink: var(--text-secondary);
+}
+section.tag-none li::before,
+section.tag-none .card::before,
+section.tag-none .verdict::before,
+section.tag-none li > strong:first-child,
+section.tag-none .card > strong:first-child {
+  --card-tag-fill: transparent;
+  --card-tag-ink: var(--text-secondary);
+  --card-tag-edge: none;
+  --card-tag-pad-x: var(--sp-md);   /* no box, so the text lines up with the card's own */
+  --card-tag-inline-ink: var(--text-secondary);
+}

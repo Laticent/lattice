@@ -9,7 +9,7 @@ header: "Lattice · Card tags"
 
 # One recipe for every card tag.
 
-Numbers, slot labels, the verdict and the step label now share one kernel.
+Numbers, slot labels, the verdict and the step label share one kernel, styled deck-wide by `tag:`.
 
 ---
 
@@ -28,9 +28,9 @@ Numbers, slot labels, the verdict and the step label now share one kernel.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-stack tag-none -->
 
-## A numbered stack uses the same tag.
+## tag-none keeps the number and drops the box.
 
 1. False signal amplification
    - One loud voice dominating the decision. The model caps any source at 30%.
@@ -122,3 +122,16 @@ Building is settled; the question is which layers earn our engineers.
    - Source of truth for calibration.
 4. Review
    - A monthly look at the weights.
+
+---
+
+<!-- _class: decision tag-plain tag-large -->
+
+## tag-plain and tag-large quiet the color and lift the size.
+
+- Build
+  - Owns the scoring policy, the calibration loop and the pager.
+- Why not buy
+  - Neither vendor exposes the calibration weights.
+- Why not delay
+  - The competitive window closes in 18 months.

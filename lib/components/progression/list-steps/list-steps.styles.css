@@ -38,7 +38,7 @@ section.list-steps ol > li:not(:last-child)::after {
   border-left:10px solid var(--border);
   z-index:1;
 }
-section.list-steps ol > li::before { content:'STEP ' counter(step-counter, decimal-leading-zero); color:var(--text-label); }   /* the tag voice: lib/base/base.card-tag.css */
+section.list-steps ol > li::before { content:'STEP ' counter(step-counter, decimal-leading-zero); color:var(--card-tag-inline-ink); }   /* the tag voice: lib/base/base.card-tag.css */
 section.list-steps ol > li strong { display:block; }
 section.list-steps ol > li p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); margin:0; }
 section.list-steps ol > li:not(:has(> ul)) > p { flex:1; }
