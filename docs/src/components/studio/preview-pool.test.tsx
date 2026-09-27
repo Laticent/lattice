@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { act } from 'react';
+import { act, StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The engine host is stubbed. These tests are about WHICH TILE GETS A FRAME and — the property
@@ -526,6 +526,24 @@ describe('PreviewPool — which tiles hold a frame', () => {
 			intersect(face(container, i), true);
 		}
 		settle();
+		unmount();
+		expect(vi.getTimerCount(), 'a pass is still armed after the pool unmounted').toBe(0);
+	});
+
+	it('still paints after a StrictMode remount', () => {
+		// StrictMode (the dev server's Studio island) mounts, runs every cleanup, then re-runs every
+		// effect on the SAME refs. The teardown sets `alive` false; if the re-run does not set it
+		// back, `schedule()` refuses to arm for the pool's whole life and every tile stays blank on
+		// `astro dev` while the production build paints — followups.d/2391-p2, measured 0 slots.
+		const { container, unmount } = render(
+			<StrictMode>
+				<Grid n={2} />
+			</StrictMode>,
+		);
+		onScreen(face(container, 0));
+		intersect(face(container, 0), true);
+		settle();
+		expect(showing(container), 'the pool stopped scheduling after a StrictMode remount').toEqual(['# 0']);
 		unmount();
 		expect(vi.getTimerCount(), 'a pass is still armed after the pool unmounted').toBe(0);
 	});

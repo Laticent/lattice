@@ -97,3 +97,11 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 		expect(presetSampleDeck('', 'minimal').startsWith('---\npreset: minimal\n---\n')).toBe(true);
 	});
 });
+
+describe('deck-preset — Reset never reaches into a `style: |` block (followups.d/2391-p3)', () => {
+	it('clears the real overrides and leaves CSS lines named like registers alone', () => {
+		const src = deck('preset: brand', 'lift: off', 'style: |', '  lift: on', '  rule: short');
+		expect(presetChanges(deck('preset: brand', 'style: |', '  lift: on', '  rule: short'))).toEqual([]);
+		expect(clearPresetOverrides(src)).toBe(deck('preset: brand', 'style: |', '  lift: on', '  rule: short'));
+	});
+});

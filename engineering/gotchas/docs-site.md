@@ -170,11 +170,15 @@ owe nothing here. See
   `npm run dev` alone reports the OPPOSITE of the truth here, in both directions —
   a dev-only break reads as shipped, and a dev-only pass would too. **Drive
   `docs/dist`** (`cd docs && npm run build && npx astro preview --port 4322`).
-- **Not fixed** (pre-existing, and off the path of the change that found it — HARD
-  RULE #18). The candidate fix is to re-create the renderer when it has been
-  disposed rather than only when the ref is null — i.e. make the lazy init an effect
-  that owns the whole lifecycle, not a render-body guard paired with an effect
-  cleanup.
+- **Fixed 2026-09-27** (`followups.d/2391-p2`, which found the same trap under the pooled
+  preset and Reshape pickers). The unmount cleanup already nulled `engineRef`; the missing half
+  was a rebuild, because the render body that builds the renderer does not re-run between the
+  StrictMode cleanup and the effect re-run. `runRenderRef` now rebuilds it from the first
+  render's arguments (`makeEngineRef`) when it is null and the host is mounted. Measured on
+  `astro dev`: Fabricate's three specimen figures went from 0 children each to 1, and the
+  preset picker from 1 iframe to 5. `DeckPreview.test.tsx` pins it under `<StrictMode>`.
+  `preview-pool.tsx` had a second copy of the trap in its own `alive` ref, fixed the same day.
+  The verification advice above still stands: a dev-only pass is not a shipped pass.
 - **Unrelated, despite arriving together:** the `/playground/v/<hash>/themes/fab-<id>.css`
   **404**. A theme authored in the browser cannot exist under a build-time staged
   asset path. It is present on the built site too, where the preview renders
