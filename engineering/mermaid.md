@@ -1291,6 +1291,14 @@ plus a `data-anima-order` sort key. The key exists because Mermaid paints the ar
 (they sit underneath), so document order would draw the arrows first; a sequence diagram's
 participants also key on their x position, because Mermaid writes them right to left.
 
+**Which slides a deck-level `motion: on` reaches.** The host (`hasAnimatableChart`,
+`docs/src/playground/anima-host-sel.ts`) looks for `MOTION_TARGET_SEL`: an svg part with a
+`data-mark`, or one with a non-label `data-anima-role`. The role arm used to be scoped to the
+Mermaid hosts, which silently left out a plain line chart: the line puts `data-mark` only on the
+hit rect it draws for a detail bullet. Widening it added exactly one component across the chart
+bucket, `line` (measured with `npm run check:modifier-effects`, which reads the same selector).
+Demo: `examples/line-motion.md`.
+
 | Family | Builds |
 | --- | --- |
 | flowchart, state, class, ER, mindmap (anything with a `g.nodes` group) | subgraphs → nodes → edges → labels |
