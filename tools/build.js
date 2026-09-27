@@ -127,6 +127,10 @@ const STEPS = [
   // projection it evaluates inside its own Chromium page), so esbuild inlines it at
   // bundle time and a stale file would be baked into dist/lattice-emulator.js.
   { label: 'speech-projection bundle (engine export)', script: 'build-speech-projection-bundle.js' },
+  // Trama, the graph-chart library (2026-09-27-trama-graph-chart-library.md). FOREGROUND and
+  // ahead of the runtime and the emulator, which both bundle `@laticent/trama` from this
+  // dist/: as a background step it would be joined only at player-core, far too late.
+  { label: 'Trama library dist (CJS + .d.ts)', script: 'build-trama-lib.js', uncommitted: true },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
   { label: 'VS Code snippets', script: 'build-snippets.js' },

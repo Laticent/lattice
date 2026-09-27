@@ -1,6 +1,6 @@
 /**
  * Unit: the chart family's shared graph layout + elbow router
- * (lib/components/chart/_chart-family/graph-layout.js).
+ * (Trama's kernel, @laticent/trama: docs/src/lib/trama/kernel.ts).
  *
  * What is pinned, and why each one:
  *
@@ -23,7 +23,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 require('../../../lib/core/dagre-layout.js');
-const { graphLayoutKernel } = require('../../../lib/components/chart/_chart-family/graph-layout.js');
+const { graphLayoutKernel } = require('@laticent/trama');
 const { parseFlowchart, outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
 
 const dagre = globalThis.__latticeDagre;
