@@ -217,11 +217,12 @@ is a **code package**, and every surface treats it the same way:
      OpenRouter OAuth key (HARD RULE #24). A `default-src 'none'` content-security
      policy blocks network exfiltration. This is designed and still needs a proof
      on the real Studio (HARD RULE #23).
-   - **CLI:** a child process under Node's `--permission` model. **Measured on our
-     floor (Node 22.22): it blocks the filesystem and subprocesses but not the
-     network** — `fetch` succeeded under `--permission`. So in the CLI a trusted
-     transform can read the deck's content and send it somewhere, and the consent
-     prompt is the real boundary. The prompt text says so.
+   - **CLI:** first designed as a child process under Node's `--permission` model.
+     **Measured on our floor (Node 22.22): it blocks the filesystem and subprocesses
+     but not the network** — `fetch` succeeded under `--permission`. So the owner chose
+     a locked Chromium page instead, and it is built and measured: two walls, each
+     stopping 34 hostile vectors alone, over Chromium's OS sandbox where the machine
+     allows it (`2026-09-24-code-package-contract.md` §4 and §9).
 
 **The cost the owner accepted.** Every code-package import becomes a security
 decision a user has to make, and the CLI can't fully contain what they approve.
@@ -291,9 +292,14 @@ the repo, a manifest, a zip that matches the folder, and a place in `list`.
 lattice packages list   [--type theme|component|finish|motion]   shipped + installed, with a SOURCE column
 lattice packages add    <file.zip | folder> [--replace]          gate, then copy into the store
 lattice packages check  <file.zip | folder>                      gate only; install nothing
-lattice packages export <type>/<name> [-o file.zip]              zip one package (refused if it carries code)
+lattice packages export <type>/<name> [-o file.zip]              zip one package (a shipped code package is refused)
 lattice packages remove <type>/<name>                            installed packages only; shipped are read-only
+lattice packages trust  component/<name> [--yes]                 approve an installed code package's code
+lattice packages untrust component/<name>                        withdraw that approval
 ```
+
+`add --trust` approves a code package's code without a prompt. A render that uses a code package
+the user has not approved at its current SHA-256 fails with its name (contract note §9).
 
 **Where the CLI keeps user packages:** a user-global `~/.lattice/packages/<type>/<name>/`,
 overridable with a `LATTICE_HOME` environment variable (so CI and tests can point

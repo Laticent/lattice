@@ -11,7 +11,7 @@ Spec: `engineering/decisions/2026-09-23-portable-packages.md`.
 
 ```text
 why now   — the owner chose to let packages carry JavaScript; this is the riskiest phase and comes last.
-where     — the CLI's locked page (step 1, done 2026-09-26); the export step that bundles each package self-contained (step 2, done 2026-09-26); then consent pinned to a SHA-256, the Studio's sandboxed iframe, and the doors (step 3). Contract: engineering/decisions/2026-09-24-code-package-contract.md §8.
+where     — the CLI's locked page (step 1, done 2026-09-26); the export step that bundles each package self-contained (step 2, done 2026-09-26); consent pinned to a SHA-256 and the CLI door (step 3, done 2026-09-27); then the Studio's sandboxed iframe (step 4). Contract: engineering/decisions/2026-09-24-code-package-contract.md §8, §9.
 done when — a user transform renders in the Studio and the CLI after consent, and is refused without it.
 evidence  — the adversarial trio's findings folded in; the Studio sandbox proven on the real surface.
 verify    — full adversarial trio (#25).
@@ -163,3 +163,29 @@ exports every shipped transform as a package and runs it in the sandbox with onl
 provided, and it matches the in-repo render; the QR components (`contact`, `wifi`, `video`) are
 bundled through a browser-safe path or excluded from code-package export with the reason stated.
 
+
+## Step 3 done (2026-09-27): consent and the CLI door
+
+A third-party code package renders in the CLI after the user approves its code at its SHA-256 (and
+at the OS layer shown), and a render that uses one without that approval exits 1 with its name.
+Every item on "the doors must carry" list above is met for the CLI, and the OS-sandbox decision is
+built: as root on Linux the sandbox browser runs as `nobody` with Chromium's OS sandbox on, measured
+by the renderers' seccomp mode, and where it can't, the consent text and the render say that layer
+is missing, why, and how to fix it. The adversarial trio reviewed it and changed it substantially:
+packages now run in a registry slot right after the charts (and inside panes), not after the whole
+render; a package keeps only the addresses and engine markers it was handed; the approved OS layer
+is pinned. The contract note's §9 has the design, the measurements and where each piece lives;
+`code-package-door.test.js` is the network log on the real CLI, with a control.
+
+**Open for the owner (the inversion lens):** the INPUT a package is handed. It is the engine's
+rendered `<section>` at the chart slot (§8's `{ html, index, idPrefix, baseUrl }`), so that markup
+becomes a frozen promise to every third-party package. §5's first proposal was plain data (the
+markdown, list items, directives, token names) with the door owning the frame. Changing it is cheap
+until the first stranger's package exists. Options: (a) keep `{ html }` at the chart slot, as
+shipped; (b) plain data in, body out, the door owns the section and every channel.
+
+**Still open:** the Studio's door (step 4): consent in the Library import, the transform in a
+sandboxed iframe, the same sanitizer and attribute rule (the shared kernel is
+`lib/packages/code-door-core.mjs`), proven with a network log on the real Studio. Until it lands the
+Studio keeps refusing a package that carries code, so the two front doors disagree about code
+packages for now: the CLI installs one the Studio refuses.

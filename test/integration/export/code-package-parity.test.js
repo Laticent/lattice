@@ -31,6 +31,8 @@ const { splitSections } = require('../../../lib/core/split-sections.js');
 const { enterSlideIds, renderIdPrefix } = require('../../../lib/core/render-ids.js');
 const { LAYOUTS } = require('../../../lib/components/chart/_chart-family/chart-registry.generated.js');
 const engine = require('../../../lib/engine');
+const { openSanitizerPage } = require('../../../lib/packages/code-door-worker.js');
+const { doorFilterAttr, handedOf } = require('../../../lib/core/remote-ref.js');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const TIMEOUT = 600000;
@@ -104,13 +106,52 @@ const chartOf = (openTag) => {
 describe('code packages: every shipped transform runs in the locked page and matches the in-repo render', { timeout: TIMEOUT }, () => {
   const puppeteer = require('puppeteer');
   let browser;
+  let sanitizer;
+  let nodeSanitize;
+  let census;
+  const losses = new Map();
   const table = [];
+  const afterDoor = { changed: 0, slides: 0 };
 
   test.before(async () => {
     browser = await launchSandboxBrowser(puppeteer, { headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    // THE DOOR'S SANITIZER, and the export's Node one beside it with the same address rule (the
+    // package keeps only the addresses the slide it was handed held): the door's output must be
+    // what the export's own sanitizer makes of the in-repo render (followups.d/2314-p4, "run the
+    // parity comparison again after the door's sanitizer").
+    sanitizer = await openSanitizerPage(browser);
+    const { JSDOM } = require('jsdom');
+    const DOMPurify = require('dompurify');
+    const { createSlideSanitizer } = await import('../../../lib/core/sanitize-slide-html.mjs');
+    const win = new JSDOM('').window;
+    let filterAttr = () => false;
+    const sanitize = createSlideSanitizer(DOMPurify, win, { filterAttr: (t, n, v) => filterAttr(t, n, v) });
+    // What a door's sanitizer REMOVES from a slide: each element and each attribute the raw output
+    // has that the sanitized one lacks, as `tag` and `tag@attr` counts.
+    census = (html) => {
+      const tpl = win.document.createElement('template');
+      tpl.innerHTML = html;
+      const counts = new Map();
+      const bump = (k) => counts.set(k, (counts.get(k) || 0) + 1);
+      for (const el of tpl.content.querySelectorAll('*')) {
+        bump(el.localName);
+        for (const a of el.attributes) bump(`${el.localName}@${a.name}`);
+      }
+      return counts;
+    };
+    nodeSanitize = (html, handedHtml) => {
+      const tpl = win.document.createElement('template');
+      tpl.innerHTML = handedHtml;
+      const handed = tpl.content.querySelector('section');
+      filterAttr = doorFilterAttr(handedOf([handed, ...handed.querySelectorAll('*')]));
+      return sanitize(html);
+    };
   });
   test.after(async () => {
+    await sanitizer?.close();
     await browser?.close();
+    if (afterDoor.slides) console.log(`\nafter the door's sanitizer: ${afterDoor.slides} slides, ${afterDoor.changed} changed by it, every one equal to the export's Node sanitizer`);
+
     if (table.length) console.log(`\n${table.join('\n')}`);
   });
 
@@ -251,8 +292,32 @@ describe('code packages: every shipped transform runs in the locked page and mat
         assert.equal(got[k], s.expected, `slide ${s.slide.index + 1} of ${path.relative(ROOT, deck)}: the package differs from the in-repo render`);
       }
       assert.deepEqual(asked, [], 'the package asked for nothing');
+      // Again after the door's sanitizer: the same bytes as the export's own sanitizer makes of the
+      // in-repo render, with the slide's own classes kept, on every slide.
+      for (const [k, s] of all.entries()) {
+        const done = await sanitizer.finish(got[k], s.slide.html, 10000);
+        assert.equal(done.error, undefined, `slide ${s.slide.index + 1}: the door refused the package's output: ${done.error}`);
+        assert.equal(done.html, nodeSanitize(s.expected, s.slide.html), `slide ${s.slide.index + 1} of ${path.relative(ROOT, deck)}: the door's sanitizer differs from the export's`);
+        afterDoor.slides++;
+        if (done.html !== s.expected) afterDoor.changed++;
+        const [before, after] = [census(s.expected), census(done.html)];
+        for (const [k, n] of before) if ((after.get(k) || 0) < n) losses.set(`${pkg.name} ${k}`, (losses.get(`${pkg.name} ${k}`) || 0) + n - (after.get(k) || 0));
+      }
       const bundle = await bundled(pkg.name);
       table.push(`${pkg.name.padEnd(14)} ${String(owned.length).padStart(3)} + ${String(others.length).padStart(2)} slides  ${String(bundle.bytes).padStart(7)} B  ${bundle.inputs.length} files  sha256 ${bundle.sha256.slice(0, 12)}`);
     });
   }
+  // What the door's sanitizer REMOVES from our own 29, pinned: the sanitizer must not quietly start
+  // eating content a package draws (the inversion lens: comparing the door with the export's
+  // sanitizer on the same input could never see that, since both remove the same thing). Each entry
+  // is a loss the door means to cause:
+  //   journey p@data-lattice-desc — an engine-namespaced attribute the slide did not hand over;
+  //       a package names its own data-* attributes (lib/core/remote-ref.js doorFilterAttr).
+  //   video a@href, a@style       — the poster link and thumbnail are addresses the transform
+  //       BUILT from the bullet's text; the slide held none as an address, so the door drops them.
+  //   video a@target              — the slide sanitizer strips target="_blank" from every slide.
+  test("the door's sanitizer removes only what it means to from the 29 packages' output", () => {
+    assert.ok(afterDoor.slides > 0, 'runs after the package tests');
+    assert.deepEqual([...losses].sort(), [['journey p@data-lattice-desc', 9], ['video a@href', 7], ['video a@style', 3], ['video a@target', 7]]);
+  });
 });

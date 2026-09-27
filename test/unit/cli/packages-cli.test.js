@@ -20,7 +20,8 @@ const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `lattice-pkgcli-${p}-`)
 
 async function run(argv) {
   const out = [];
-  const code = await main(argv, { log: (s) => out.push(s), err: (s) => out.push(s) });
+  // No browser here: the consent text's OS-sandbox line is stubbed, and nobody answers the prompt.
+  const code = await main(argv, { log: (s) => out.push(s), err: (s) => out.push(s), ask: async () => false, probe: async () => 'probe skipped' });
   return { code, text: out.join('\n') };
 }
 
@@ -77,17 +78,85 @@ describe('lattice packages', () => {
     assert.equal(fs.readFileSync(path.join(dir, 'kpi-custom.gallery.md'), 'utf8'), '<!-- _class: kpi-custom -->\n\n## kpi');
   });
 
-  test('a code package is refused by name; nothing is installed', async () => {
-    const store = tmp('store');
-    const r = await run(['add', await zipOf('bars', {
-      'bars.manifest.json': JSON.stringify({ name: 'bars', type: 'component', format: 1 }),
-      'bars.styles.css': 'section.bars {}',
-      'bars.gallery.md': '<!-- _class: bars -->',
-      'bars.transform.js': 'module.exports = () => ""',
-    }), '--packages', store]);
-    assert.equal(r.code, 1);
-    assert.match(r.text, /refused {2}bars: it carries code/);
-    assert.equal(fs.existsSync(path.join(store, 'component/bars')), false);
+  describe('code packages (contract note §9)', () => {
+    const transform = 'function t(s){return s.html}export{t as default};';
+    const comp = (name, extra = {}) => ({
+      [`${name}.manifest.json`]: JSON.stringify({ name, type: 'component', format: 1 }),
+      [`${name}.styles.css`]: `section.${name} {}`,
+      [`${name}.gallery.md`]: `<!-- _class: ${name} -->`,
+      [`${name}.transform.js`]: transform,
+      ...extra,
+    });
+    // Consent lives in $LATTICE_HOME/trust.json; point it at a fresh folder for each case.
+    const withHome = async (fn) => {
+      const before = process.env.LATTICE_HOME;
+      process.env.LATTICE_HOME = tmp('home');
+      try {
+        return await fn(path.join(process.env.LATTICE_HOME, 'packages'));
+      } finally {
+        if (before === undefined) delete process.env.LATTICE_HOME;
+        else process.env.LATTICE_HOME = before;
+      }
+    };
+
+    test('installs after the gate, shows its code and digest, and is NOT approved without an answer', () =>
+      withHome(async (store) => {
+        const r = await run(['add', await zipOf('bars', comp('bars'))]);
+        assert.equal(r.code, 0, r.text);
+        assert.match(r.text, /bars\.transform\.js \(\d+ bytes, sha256 [0-9a-f]{64}\)/);
+        assert.match(r.text, /the OS sandbox on this machine: probe skipped/);
+        assert.match(r.text, /not approved: a render that uses component\/bars fails until you run `lattice packages trust component\/bars`/);
+        assert.ok(fs.existsSync(path.join(store, 'component/bars/bars.transform.js')));
+        assert.match((await run(['list', '--type', 'component'])).text, /bars\s+installed {2}\(code, NOT approved/);
+      }));
+
+    test('--trust approves at the digest; trust, untrust and changed code', () =>
+      withHome(async (store) => {
+        const r = await run(['add', await zipOf('bars', comp('bars')), '--trust']);
+        assert.equal(r.code, 0, r.text);
+        assert.match(r.text, /approved component\/bars \(sha256 [0-9a-f]{64}\)/);
+        assert.match((await run(['list', '--type', 'component'])).text, /bars\s+installed {2}\(code, approved\)/);
+        const trust = JSON.parse(fs.readFileSync(path.join(process.env.LATTICE_HOME, 'trust.json'), 'utf8'));
+        assert.match(trust.trusted['component/bars'].sha256, /^[0-9a-f]{64}$/);
+        fs.appendFileSync(path.join(store, 'component/bars/bars.transform.js'), ' ');
+        assert.match((await run(['list', '--type', 'component'])).text, /code, NOT approved/, 'changed code is not the approved code');
+        assert.equal((await run(['trust', 'component/bars', '--yes'])).code, 0);
+        assert.match((await run(['list', '--type', 'component'])).text, /code, approved/);
+        assert.match((await run(['untrust', 'component/bars'])).text, /withdrew the approval of component\/bars/);
+        assert.match((await run(['list', '--type', 'component'])).text, /code, NOT approved/);
+        const no = await run(['trust', 'component/bars']);
+        assert.equal(no.code, 1, 'no answer is no');
+      }));
+
+    test('refused shapes: not the export form, a second script, a reserved name; a theme script is left out', () =>
+      withHome(async (store) => {
+        const cases = [
+          ['commonjs', comp('commonjs', { 'commonjs.transform.js': 'module.exports = () => ""' }), /does not end in `export \{ name as default \}`/],
+          ['twoscripts', comp('twoscripts', { 'helper.mjs': 'export const x = 1;' }), /a script other than twoscripts\.transform\.js \(helper\.mjs\)/],
+          ['kpi', comp('kpi'), /"kpi" is a name Lattice uses, and a code package can't be renamed/],
+        ];
+        for (const [name, files, why] of cases) {
+          const r = await run(['add', await zipOf(name, files)]);
+          assert.equal(r.code, 1, `${name}: ${r.text}`);
+          assert.match(r.text, why, name);
+          assert.equal(fs.existsSync(path.join(store, 'component', name)), false, `${name} must not install`);
+          assert.equal(fs.existsSync(path.join(store, 'component', `${name}-custom`)), false, `${name} must not install renamed`);
+        }
+        // A theme has no code role: the spine leaves the script out, so it never reaches the store.
+        const themed = await run(['add', await zipOf('probe-brand', { ...theme('probe-brand'), 'probe-brand.transform.js': transform })]);
+        assert.match(themed.text, /left out probe-brand\.transform\.js/);
+        assert.equal(fs.existsSync(path.join(store, 'theme/probe-brand/probe-brand.transform.js')), false);
+      }));
+
+    test('an installed code package exports as it is, so its digest survives the round trip', () =>
+      withHome(async () => {
+        await run(['add', await zipOf('bars', comp('bars')), '--trust']);
+        const out = path.join(tmp('out'), 'bars.zip');
+        const r = await run(['export', 'component/bars', '-o', out]);
+        assert.equal(r.code, 0, r.text);
+        const zip = await JSZip.loadAsync(fs.readFileSync(out));
+        assert.equal(await zip.file('bars/bars.transform.js').async('string'), transform);
+      }));
   });
 
   test('CSS that reaches off the device is refused, by the same rules as the Studio', async () => {
@@ -134,7 +203,7 @@ describe('lattice packages', () => {
   test('export refuses a shipped code package', async () => {
     const r = await run(['export', 'component/state-chart', '--packages', tmp('store')]);
     assert.equal(r.code, 1);
-    assert.match(r.text, /carries code/);
+    assert.match(r.text, /shipped components are not exported as code packages/);
   });
 
   test('check gates without installing', async () => {
