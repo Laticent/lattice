@@ -115,18 +115,24 @@ export function speedToDurationMs(speed: MotionSpeed, markCount: number): number
   return Math.max(2400, Math.min(5400, 1600 + Math.max(0, markCount) * 640));
 }
 
-/** What makes a section animatable: a chart's per-mark index (`data-mark`), or a MERMAID diagram's
- *  declared roles (it has no popover marks, only the roles `lib/integrations/mermaid/motion-roles.js`
- *  writes). The role arm is scoped to the Mermaid hosts on purpose: a plain line chart also declares
- *  roles without `data-mark`, and widening the arm to every svg would change which charts a deck-level
- *  `motion: on` animates — a chart decision this change does not make. */
-const ANIMATABLE_PART_SEL = 'svg [data-mark], .mermaid svg [data-anima-role], .mermaid-svg svg [data-anima-role]';
+/** What makes a section animatable: an svg part the motion layer can BUILD — a chart's per-mark index
+ *  (`data-mark`), or any part that declares a non-label `data-anima-role`. That is the candidate set
+ *  `chartToScene`'s geometry loop reads (`[data-mark], [data-anima-role]`), minus the labels: a label
+ *  arrives with the shape it names, so an svg holding only labels has nothing to build.
+ *
+ *  The role arm used to be scoped to the Mermaid hosts, and that silently left out a plain line
+ *  chart: `line.transform.js` puts `data-mark` only on the per-category hit rect it draws for a
+ *  detail bullet, so `motion: on` built every other chart and skipped the commonest one. Every chart
+ *  kernel already declares roles on its marks (the line's paths and points too), so the role is the
+ *  honest target. Measured over the chart bucket, the line is the only component the widening adds
+ *  (`npm run check:modifier-effects`, lib/core/modifier-effects.generated.json). `MOTION_TARGET_SEL`
+ *  is the ONE copy: `tools/check-modifier-effects.js` measures `chart-marks` with it. */
+export const MOTION_TARGET_SEL = 'svg [data-mark], svg [data-anima-role]:not([data-anima-role="label"])';
 
 /** Whether a section holds an animatable chart — used to find the sections a deck-level `motion: on`
- *  applies to, since those carry no `motion-*` class. Keys on the SAME candidate set `chartToScene`'s
- *  geometry loop reads. jsdom-safe (no CSS `:has`). */
+ *  applies to, since those carry no `motion-*` class. jsdom-safe (no CSS `:has`). */
 export function hasAnimatableChart(section: Element): boolean {
-  return section.querySelector(ANIMATABLE_PART_SEL) != null;
+  return section.querySelector(MOTION_TARGET_SEL) != null;
 }
 
 /** Whether an svg is a rendered Mermaid diagram. The runtime writes every diagram into a
@@ -136,13 +142,12 @@ export function isMermaidSvg(svg: Element): boolean {
 }
 
 /** How many marks a section's chart builds — the `auto` speed's pacing input. A chart counts its
- *  `data-mark` indices, exactly as before (a chart with none still paces as zero marks). A Mermaid
- *  diagram has none, so it counts its non-label roles instead; without this every diagram would pace
- *  as a zero-mark chart. */
+ *  `data-mark` indices, exactly as before. A Mermaid diagram, or a plain line chart, has none, so it
+ *  counts its non-label roles instead; without this each would pace as a zero-mark chart. */
 export function motionMarkCount(section: Element): number {
   const marks = section.querySelectorAll('svg [data-mark]').length;
   if (marks > 0) return marks;
-  return section.querySelectorAll('.mermaid svg [data-anima-role]:not([data-anima-role="label"]), .mermaid-svg svg [data-anima-role]:not([data-anima-role="label"])').length;
+  return section.querySelectorAll('svg [data-anima-role]:not([data-anima-role="label"])').length;
 }
 
 /** Preview-only marker: the live host stamps this on a motion-eligible chart FIGURE so it starts HIDDEN

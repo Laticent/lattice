@@ -228,6 +228,7 @@
     },
     "line": {
       "surfaces": [
+        "chart-marks",
         "heading"
       ]
     },

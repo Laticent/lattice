@@ -28,14 +28,17 @@ import { rendererFor } from '@/lib/anima/backends/registry';
 import { hydrateScene } from '@/lib/anima/hydrate';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
 import { cn } from '@/lib/utils';
+import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
 import { MOTION_PALETTE_FALLBACK } from './palette-fallback';
 
-/** Base64 for the spec, because `hydrate.ts`'s `decodeSpec` runs `atob` on the attribute. Every id
- *  the intake mints is ASCII for the same reason — `atob` never UTF-8-decodes, so a non-ASCII
- *  codepoint would round-trip as mojibake. */
-function encodeSpec(spec: Scene): string | null {
+/** Base64 for the spec, packed as UTF-8 the way the ```anima fence packs it (`toBase64`), because
+ *  `hydrate.ts`'s `decodeSpec` reads the attribute back as UTF-8. A bare `btoa` wrote Latin-1 bytes
+ *  instead: an imported SVG whose author id was `café` kept that id in its `pathRef`, the decoder
+ *  read the lone E9 byte as U+FFFD, and the part matched no path and sat still (it also threw on any
+ *  codepoint past U+00FF). Exported for the round-trip test. */
+export function encodeSpec(spec: Scene): string | null {
 	try {
-		return btoa(JSON.stringify(spec));
+		return base64Utf8.toBase64(JSON.stringify(spec));
 	} catch {
 		return null;
 	}
