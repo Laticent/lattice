@@ -36,6 +36,15 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const YAML = require('yaml');
 
+// A git hook exports GIT_DIR (and GIT_INDEX_FILE, GIT_WORK_TREE) to everything it runs, and this
+// file builds throwaway repos with `git init` + `git config`. With GIT_DIR inherited, those calls
+// land on the REAL repo instead: `git init` re-initializes it as bare (core.bare=true, because
+// GIT_DIR names no work tree) and `git config user.name t` rewrites its identity, which broke every
+// git command in a checkout whose pre-commit hook ran this suite. Cleared for the whole file, so
+// the code under test inherits the clean environment too; `node --test` runs each file in its own
+// process, so nothing outside this file sees the change.
+for (const k of Object.keys(process.env)) if (k.startsWith('GIT_')) delete process.env[k];
+
 const { classify } = require('../../../tools/build-staged-pdfs.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
