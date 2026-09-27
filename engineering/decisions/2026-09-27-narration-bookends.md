@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`. Each takes `true` or custom text with a `{greeting}` placeholder. The viewer's local clock picks "Good morning", "Good afternoon" or "Good evening". Each plays at most once per page load, in the Studio's Present view and in the exported Player. The Player cannot synthesize speech, so the Studio export records four greetings (three periods plus a neutral "Hello") and the Player picks one at playback, with video always taking the neutral one. The timing track carries a new top-level `bookends` section outside its one-segment-per-slide table, keeps version 1.0, and older players ignore it.
+summary: A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`. Each takes `true` or custom text with a `{greeting}` placeholder. The viewer's local clock picks "Good morning", "Good afternoon" or "Good evening". Each plays at most once per page load, in the Studio's Present view and in the exported Player. The Player cannot synthesize speech, so the Studio export records four greetings (three periods plus a neutral "Hello") and the Player picks one at playback, with video always taking the neutral one. The timing track carries a new top-level `bookends` section outside its one-segment-per-slide table, and the track stays at version 1.0. Lattice is pre-GA, so no older player needs to keep working.
 ---
 
 # Narration bookends: a spoken greeting and closing (2026-09-27)
@@ -128,16 +128,12 @@ So the track gains an optional top-level `bookends` object next to `segments`:
 }
 ```
 
-**An additive section with no version bump is safe, and a version bump is not.** A
-code check on 2026-09-27 found three things:
-- The root object in `ltt.schema.json` has no `additionalProperties:false`, and
-  `validateLtt` closes only the track, cue and word keys (`validate.ts` ~:18-27). An
-  unknown top-level key passes, and `engineering/ltt.md` ~:169 and :215 say so.
-- The Player's `loadLtt` reads only `segments` and never checks `version`, so an older
-  Player ignores `bookends` and plays the deck without a greeting.
-- The schema pins `"version": {"const": "1.0"}`, and `validateLtt` rejects anything
-  else (~:228). Bumping to 1.1 would make every older validator reject the file, so
-  `version` stays `"1.0"`.
+**No backward compatibility is needed.** Lattice has not reached general availability
+(GA), so no exported file in the wild has to keep playing. The owner confirmed this on
+2026-09-27. `bookends` is a first-class part of the track, not an optional add-on an
+old reader skips: `types.ts` declares it, `validateLtt` checks its cues, and every
+reader in this change learns it. `version` stays `"1.0"` (the schema pins it as a
+constant, ~:228), because a bump would buy nothing without old readers to protect.
 
 **Where it sits under `ltt.md` G4 (§Layers).** G4 says a new *layer* changes what
 `positionAt` returns and needs its own record and owner sign-off, and that anything
@@ -255,8 +251,6 @@ reader, the export bake, and the CLI captions path. That gives one reading of th
 - **Verification.** The code touches `lib/core` and the export pipeline, so it gets a
   maker-checker review. Each surface is verified on the real surface (HARD RULE #23):
   - A Player export played in Chromium with the clock stubbed to each period.
-  - An **older** Player build fed a bookended track, to show it plays the deck
-    without the greeting.
   - A video export of the demo deck that succeeds and opens with "Hello".
   - The Studio Present view driven in the built docs site, including a deck that
     ends on a silent slide.
