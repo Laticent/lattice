@@ -647,10 +647,11 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		}
 	}, [slots]);
 
-	// DOCKED: keep each frame's CLIP current. A single scroller's scrollport does not move when it
-	// scrolls, so an ordinary scroll changes no clip and patches nothing. What does move one: a
-	// resize, an animation settling, and a NESTED scroller (the gallery's looks panel) carried by its outer scroller —
-	// which is why this listens to every scroll, once per frame, and patches only a clip that moved.
+	// DOCKED: keep each frame's CLIP current. The clip is the intersection of the tile's clipping
+	// ancestors, and those include the tile's own `overflow-hidden` card, which moves with every
+	// scroll — so a scroll does patch clips, once per frame (the red team counted 538 dock style
+	// writes over 30 wheel ticks; the clip stayed on its tile, both engines). Also: a resize, an
+	// animation starting or settling, and a nested scroller (the gallery's looks panel).
 	React.useEffect(() => {
 		if (typeof window === 'undefined') return;
 		let frame = 0;

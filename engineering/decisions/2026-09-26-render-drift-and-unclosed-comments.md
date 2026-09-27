@@ -104,15 +104,29 @@ Four conditions, each found by measurement, each written into the module:
    only when that element's containing block is the viewport, so the frame is `position: fixed`
    and nested `overflow: hidden` wrappers cannot clip it (they resolved nothing, both engines).
    The clip is a `clip-path: inset()` on the slot's viewport-sized root, set to the tile's
-   scrollports — which do not move when the grid scrolls; it is recomputed on resize, on an
-   animation settling (a phone sheet measured mid-slide clipped to nothing), and on any scroll,
-   patching only a clip that moved (the nested looks panel is the case that moves).
+   clipping ancestors, the tile's own `overflow-hidden` card among them. That card moves with
+   the grid, so the clip is patched once per frame while scrolling, and again on resize and when
+   an animation starts or settles (a phone sheet measured mid-slide clipped to nothing).
 3. **No transforms.** Anchor positioning ignores transforms: Add slide's dialog, centered with
    `translate(-50%, -50%)`, put every frame ~630 px off its tile. It is centered with
    `inset-0 m-auto` now (same box, measured at 1440/820/390). A pool under a lasting transform —
    Reshape's popover, which Radix positions by transform — keeps its own frames (`canDock`).
 4. **Stacking.** A slot takes the z-index of its tile's outermost stacking ancestor (Present's
-   overlay is z-102) and paints above that surface by being later in tree order.
+   overlay is z-102) and paints above that surface by being later in tree order. Three
+   consequences, all found by the red-team review and fixed:
+   - **Tile chrome.** The frame paints above the WHOLE surface, so Add slide's Insert bar and
+     the overview's slide numbers, which sat at `z-10` inside the tile, were hidden. A
+     `PooledThumbFace` now takes an `overlay` and portals it into its dock slot, above the frame.
+     Hover and keyboard focus on the tile's button are mirrored onto it (`data-hot`), because
+     `group-hover` cannot reach across a portal.
+   - **Two surfaces at one z.** The phone's Settings sheet and Add slide's sheet are both z-50.
+     The older one's frames showed through the newer. The host now shows only the newest
+     surface at each z, numbering surfaces in the order they open (`surfaceLayer`).
+   - **Closing.** Radix plays a surface's exit animation before the pool unmounts, and anchor
+     positioning ignores the exit transform. So the frames stayed drawn over the editor while
+     the sheet slid away. A pool now hides its frames when its surface is marked
+     `data-state="closed"`: measured between 179 ms and 249 ms into the close, where they used to
+     stay until about 800 ms.
 
 Where anchor positioning is missing (Safari before 26, jsdom) or a pool is not placed before
 the dock, `canDock` is false and the pool keeps its frames in its own layer, exactly as before.
@@ -151,6 +165,10 @@ tile to the pixel, clipped by its scroller. The pool oracles (`gallery-preview-b
 `docs/e2e/pool-frames.ts`, since a docked frame is not inside the surface it serves; MR-3's
 "closing releases every document" is restated as what it guarded — no per-open residue — and the
 WebKit-phone test now asserts that a reopen mints none.
+
+Proof that the oracles can fail: a mutant dock that remounts a frame whenever it lends a
+slot out keeps the element count flat. It fails MR-3 on desktop (52 documents over two reopens)
+and the WebKit-phone test (8 on one reopen). The real code passes both.
 
 That last oracle, as first written, counted `iframe.live` elements and could not fail on the
 ceiling case above. `countDocuments` (in `pool-frames.ts`) now counts what WebKit keeps: each
