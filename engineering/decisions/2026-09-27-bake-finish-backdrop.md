@@ -40,7 +40,7 @@ Measured with poppler at 150 dpi, one slide:
 | Whole backdrop as one image, 2× JPEG 100 | 7.0 MB | 15 s | size rejected |
 | **Hybrid (this decision)** | **214 KB** | **4.9 s** | "it's fine" (prototype) |
 
-With `backdrop: clear` on all 16 slides the hybrid is 342 KB (today's hard-edged export: 222 KB).
+With `backdrop: clear` on all 16 slides the hybrid is 318 KB (today's hard-edged export: 222 KB).
 PR #2400 (keep the blur in print) was the first answer to the clear edge; it embeds a 300 ppi
 image with an alpha channel per cleared slide and is superseded by this.
 
@@ -79,10 +79,15 @@ in screen media, so it captures the Studio's face.
 
 ## 6. Costs and limits
 
-- The soft layers are a 320-pixel image. They are smooth, so upscaling loses nothing visible; a
-  hard shape inside the wash (none of the shipped washes has one) would soften.
+- The soft layers are a 320-pixel image. They are smooth, so upscaling loses nothing visible.
+  The one HARD shape a shipped wash carries, strata's 4px hairline strip (and Fabricate's
+  `wash.hairline`), is drawn live instead: the generator publishes it as `--fin-wash-hairline`.
 - The clear fade on the texture is 12 steps. On a finish's faint 1px lines the steps are well
-  under one level of visible difference.
-- A mark's opacity is one value at its center, where the Studio fades a long mark (ledger's bar)
-  slightly along its length.
-- Export time: each finish slide adds one small screenshot.
+  under one level of visible difference. Where two lines cross, their alpha is not doubled as
+  it is in CSS; the dot this leaves is below visible in a normal view.
+- A mark's opacity is one value: the fade averaged over its box (for a glyph, the glyph's own
+  box, measured by laying the same text out in a probe). The Studio fades a large glyph across
+  its body; the PDF dims it evenly.
+- The live mark and hard edge are pinned to their SCREEN values: `page.pdf()` prints, and the
+  print flip would otherwise swap in the opaque mirror (ledger's fold covered the texture).
+- Export time: about 0.12 s per finish slide (a 128-slide deck: 3.5 s → 18.8 s).

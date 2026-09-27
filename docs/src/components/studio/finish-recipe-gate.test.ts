@@ -21,7 +21,7 @@ const baseFinishCss = readFileSync(resolve(process.cwd(), '../lib/base/base.fini
 // The slots the PDF EXPORT reads rather than the compositor: lattice-emulator.js
 // (bakeFinishBackdropsInPage) redraws the texture as vector lines from these and keeps a hard
 // edge live. Each must really be read there, so this list cannot outlive its reader.
-const EXPORT_READ_SLOTS = new Set(['--fin-texture-geo', '--fin-texture-ink', '--fin-edge-kind']);
+const EXPORT_READ_SLOTS = new Set(['--fin-texture-geo', '--fin-texture-ink', '--fin-edge-kind', '--fin-wash-hairline']);
 const emulatorSrc = readFileSync(resolve(process.cwd(), '../lattice-emulator.js'), 'utf8');
 
 // Every distinct `--fin-*` custom property the compositor (base.finish.css) READS via

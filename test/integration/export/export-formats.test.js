@@ -373,6 +373,12 @@ describe('export-formats', () => {
     }
     const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
     assert.match(text, /Body text stays vector/, 'slide text must stay selectable');
+    // The texture is redrawn as vector lines that fade under `clear` in constant-opacity steps:
+    // page 1 carries several distinct stroke opacities, not one.
+    const svgOut = path.join(dir, 'p1.svg');
+    execFileSync('pdftocairo', ['-svg', '-f', '1', '-l', '1', out, svgOut]);
+    const opacities = new Set(fs.readFileSync(svgOut, 'utf8').match(/stroke-opacity="[\d.]+"/g) || []);
+    assert.ok(opacities.size >= 6, `expected the grid to fade in steps, got ${opacities.size} stroke opacities`);
   });
 
   test('print mode exports no finish at all', { timeout: TIMEOUT }, () => {
@@ -385,6 +391,10 @@ describe('export-formats', () => {
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.equal(pdfImageRows(out).length, 0, 'a print-mode deck bakes nothing: the finish is off');
+    // …and prints no finish as vector either: the grid would be translucent strokes.
+    const svgOut = path.join(dir, 'p1.svg');
+    execFileSync('pdftocairo', ['-svg', '-f', '1', '-l', '1', out, svgOut]);
+    assert.doesNotMatch(fs.readFileSync(svgOut, 'utf8'), /stroke-opacity="0\./, 'no translucent texture lines in print mode');
   });
 
   test('--keep-vector-finish prints the finish as vector drawing (opt-out)', { timeout: TIMEOUT }, () => {

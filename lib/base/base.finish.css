@@ -770,6 +770,7 @@ section.finish-strata {
   --fin-texture-geo: dots 26;
   --fin-texture-ink: color-mix(in srgb, var(--field-accent) 15%, transparent);
   --fin-edge-kind: none;
+  --fin-wash-hairline: linear-gradient(90deg, var(--field-accent) 0%, color-mix(in srgb, var(--field-accent) 35%, transparent) 55%, transparent 100%);
 }
 
 /* ── 4 · HALO — Centered spotlight + concentric rings + an inset vignette. (lib/finishes/halo/) */

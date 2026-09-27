@@ -5459,13 +5459,11 @@ async function bakeFinishBackdropsInPage(g, page, slideW, slideH) {
       st.id = 'lattice-bake-style';
       // Hide the content while its backdrop is captured. Gallery's frame keyline is held off
       // too: the print face's opaque backdrop always covered it, and on screen it strikes
-      // through the header (followup 2388-p3-gallery-frame-crosses-header). The hybrid
-      // capture also leaves out what it redraws live: the texture, the mark, a hard edge.
+      // through the header (followup 2388-p3-gallery-frame-crosses-header). What the hybrid
+      // redraws live is taken out of its capture per slide, inline (see planLiveLayers).
       st.textContent = [
         'section[data-lattice-baking] > :not(.backdrop) { opacity: 0 !important; transition: none !important; }',
         'section[data-lattice-baking] { --fin-frame: 0 0 transparent !important; }',
-        'section[data-lattice-baking="hybrid"] { --fin-texture: none !important; --fin-mark: none !important; --fin-mark-text: "" !important; }',
-        'section[data-lattice-baking="hybrid"][data-lattice-hard-edge] { --fin-edge: none !important; }',
       ].join('\n');
       document.head.appendChild(st);
     }
@@ -5488,12 +5486,15 @@ async function bakeFinishBackdropsInPage(g, page, slideW, slideH) {
         const el = await g(() => page.$(`section[data-lattice-bake="${i}"] > .backdrop`), 'bake backdrop');
         // Measure the live layers BEFORE the capture hides them.
         const plan = mode === 'hybrid' ? await g(() => el.evaluate(planLiveLayers), 'bake plan') : null;
-        await g(() => el.evaluate((b, mode, hard) => {
+        await g(() => el.evaluate((b, mode, capture) => {
           const s = b.parentElement;
-          if (hard) s.dataset.latticeHardEdge = '';
+          // Leave out of the soft image what the hybrid draws live. The texture and the wash
+          // keep their LAYER COUNT (transparent stand-ins), or every later layer would take a
+          // texture layer's size and repeat from the shared --fin-size / --fin-repeat lists.
+          for (const [k, val] of Object.entries(capture || {})) s.style.setProperty(k, val, 'important');
           s.dataset.latticeBaking = mode;
           s.scrollIntoView();
-        }, mode, !!plan?.hardEdge), 'bake hide content');
+        }, mode, plan?.capture), 'bake hide content');
         // Capture only the viewport: a capture beyond it re-rasterizes the whole tall page for
         // every slide (a 121-slide deck took 74 s).
         const buf = await g(() => el.screenshot({ type: 'jpeg', quality: 100, captureBeyondViewport: false }), 'bake screenshot');
@@ -5519,7 +5520,10 @@ async function bakeFinishBackdropsInPage(g, page, slideW, slideH) {
           const pre = new Image();
           pre.src = src;
           await pre.decode().catch(() => null);
-          b.querySelector(':scope > .backdrop-mask')?.remove();
+          for (const k of Object.keys(plan.capture)) b.parentElement.style.removeProperty(k);
+          // Pin the live layers to the SCREEN face: `page.pdf()` prints, and the print flip
+          // would swap in the opaque mirror (ledger's fold would cover the texture).
+          for (const [k, val] of Object.entries(plan.pins)) b.style.setProperty(k, val, 'important');
           b.style.setProperty('background-image', `url("${src}")`, 'important');
           b.style.setProperty('background-size', '100% 100%', 'important');
           b.style.setProperty('background-position', '0 0', 'important');
@@ -5541,16 +5545,30 @@ async function bakeFinishBackdropsInPage(g, page, slideW, slideH) {
             svg.setAttribute('style', 'position:absolute;left:0;top:0;z-index:-1;pointer-events:none;overflow:hidden');
             b.prepend(svg);
           }
+          if (plan.hairline) {
+            // The wash's hard hairline strip, live and under the texture, as the wash paints it.
+            const h = document.createElement('div');
+            h.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;z-index:-1;pointer-events:none;`
+              + `background-image:${plan.hairline.image};background-size:${plan.hairline.size};background-repeat:no-repeat;`
+              + `background-position:0 0;opacity:${plan.hairline.opacity}`;
+            b.prepend(h);
+          }
+          // Last, now that the image and every live layer are in: the mask's work is in the image.
+          b.querySelector(':scope > .backdrop-mask')?.remove();
         }, b64, plan), 'bake swap');
         baked++;
       } catch (err) {
         // A slide that cannot be rebuilt keeps its vector finish: the deck must never be lost
-        // to a speed fix (the same rule as the SVG pass below).
+        // to a speed fix (the same rule as the SVG pass below). Undo the capture overrides.
+        await page.evaluate((i, keys) => {
+          const s = document.querySelector(`section[data-lattice-bake="${i}"]`);
+          for (const k of keys) s?.style.removeProperty(k);
+        }, i, ['--fin-texture', '--fin-wash', '--fin-mark', '--fin-mark-text', '--fin-edge']).catch(() => {});
         console.warn(`  ⚠ Finish: slide backdrop ${i + 1} kept vector — ${String(err?.message || err).split('\n')[0]}`);
       } finally {
         await page.evaluate((i) => {
           const s = document.querySelector(`section[data-lattice-bake="${i}"]`);
-          if (s) { delete s.dataset.latticeBaking; delete s.dataset.latticeHardEdge; delete s.dataset.latticeBake; }
+          if (s) { delete s.dataset.latticeBaking; delete s.dataset.latticeBake; }
         }, i).catch(() => {});
       }
     }
@@ -5593,8 +5611,9 @@ function planLiveLayers(b) {
     probe.remove();
   }
   const sigma = mcs ? num((mcs.filter.match(/blur\(([\d.]+)px\)/) || [])[1]) : 0;
-  const strengthVar = num(v('--backdrop-strength-opacity')) || num(v('--fin-backdrop-strength'));
-  const strength = strengthVar > 0 ? Math.min(1, strengthVar) : 1;
+  // The register's step wins over a baked strength; 0 is a real value (Fabricate emits 0.00).
+  const strengthRaw = v('--backdrop-strength-opacity') || v('--fin-backdrop-strength');
+  const strength = strengthRaw === '' || !Number.isFinite(Number.parseFloat(strengthRaw)) ? 1 : Math.max(0, Math.min(1, Number.parseFloat(strengthRaw)));
   const erf = (x) => {
     const t = 1 / (1 + 0.3275911 * Math.abs(x));
     const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
@@ -5608,28 +5627,87 @@ function planLiveLayers(b) {
     const dy = Math.max(cy0 - y, y - cy1);
     return strength * (1 - cover1(dx) * cover1(dy));
   };
-  // A background-painted pseudo's first layer box, from its computed size and position.
-  const layerCenter = (pcs) => {
+  // A background-painted pseudo's first layer box [x, y, w, h], from its computed size and position.
+  const layerBox = (pcs) => {
     const size = (pcs.backgroundSize.split(',')[0] || 'auto').trim().split(/\s+/);
     const pos = (pcs.backgroundPosition.split(',')[0] || '0% 0%').trim().split(/\s+/);
     const len = (t, ref, dflt) => (t.endsWith('%') ? (num(t) / 100) * ref : t.endsWith('px') ? num(t) : dflt);
     const bw = len(size[0] || 'auto', W, W);
     const bh = len(size[1] || size[0] || 'auto', H, H);
     const off = (t, free) => (t.endsWith('%') ? (num(t) / 100) * free : num(t));
-    return [off(pos[0] || '0%', W - bw) + bw / 2, off(pos[1] || pos[0] || '0%', H - bh) + bh / 2];
+    return [off(pos[0] || '0%', W - bw), off(pos[1] || pos[0] || '0%', H - bh), bw, bh];
+  };
+  // Average visibility over a box (a 5 × 5 sample), so a long or large mark gets the fade its
+  // body actually sits in, not the fade at one point.
+  const visBox = (x0, y0, w, h) => {
+    let t = 0;
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) t += vis(x0 + (w * (i + 0.5)) / 5, y0 + (h * (j + 0.5)) / 5);
+    return t / 25;
   };
   const before = getComputedStyle(b, '::before');
-  const text = before.content && before.content !== 'none' && before.content !== '""';
-  let mc;
+  const text = before.content && before.content !== 'none' && before.content !== '""' && before.content !== 'normal';
+  let markVis;
   if (text) {
-    const r = { l: num(before.left), t: num(before.top), w: num(before.width), h: num(before.height) };
-    mc = [r.l + r.w / 2, r.t + r.h / 2];
-  } else mc = layerCenter(before);
+    // A glyph mark (monogram, numeral) is text laid out INSIDE an inset-0 pseudo by alignment
+    // and a transform, so the pseudo's box says nothing about where the glyph is. Lay the same
+    // text out in a probe carrying every computed property of the pseudo, and measure the glyph.
+    const probe = document.createElement('div');
+    for (let k = 0; k < before.length; k++) probe.style.setProperty(before[k], before.getPropertyValue(before[k]));
+    probe.style.setProperty('visibility', 'hidden');
+    let label = before.content;
+    try { label = JSON.parse(label); } catch (_e) { label = label.replace(/^["']|["']$/g, ''); }
+    probe.textContent = label;
+    b.appendChild(probe);
+    const range = document.createRange();
+    range.selectNodeContents(probe);
+    const gr = range.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
+    probe.remove();
+    markVis = gr.width > 0 ? visBox(gr.left - br.left, gr.top - br.top, gr.width, gr.height) : vis(W / 2, H / 2);
+  } else {
+    const [mx, my, mw, mh] = layerBox(before);
+    markVis = visBox(mx, my, mw, mh);
+  }
   const edgeKind = v('--fin-edge-kind');
   const hardEdge = edgeKind === 'fold' || edgeKind === 'margin-rule';
-  const ec = layerCenter(getComputedStyle(b, '::after'));
+  const [ex, ey, ew, eh] = layerBox(getComputedStyle(b, '::after'));
   const round = (x) => Math.round(Math.max(0, Math.min(1, x)) * 1000) / 1000;
-  const plan = { markOpacity: round(vis(mc[0], mc[1])), edgeOpacity: round(vis(ec[0], ec[1])), hardEdge, svg: '' };
+  // Split a background list at its top-level commas.
+  const layers = (x) => {
+    const out = [];
+    let depth = 0;
+    let cur = '';
+    for (const ch of x) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+    }
+    if (cur.trim()) out.push(cur.trim());
+    return out;
+  };
+  const CLEAR = 'linear-gradient(transparent, transparent)';
+  const texture = v('--fin-texture');
+  const wash = v('--fin-wash');
+  const hairImage = v('--fin-wash-hairline');
+  const capture = {
+    '--fin-texture': !texture || texture === 'none' ? 'none' : layers(texture).map(() => CLEAR).join(', '),
+    '--fin-mark': 'none',
+    '--fin-mark-text': '""',
+  };
+  let hairline = null;
+  if (hairImage && wash && wash !== 'none') {
+    const w = layers(wash);
+    w[0] = CLEAR;
+    capture['--fin-wash'] = w.join(', ');
+    const texCount = !texture || texture === 'none' ? 1 : layers(texture).length;
+    const size = layers(cs.backgroundSize)[texCount] || '100% 4px';
+    hairline = { image: hairImage, size, opacity: round(visBox(0, 0, W, 4)) };
+  }
+  if (hardEdge) capture['--fin-edge'] = 'none';
+  // The live layers pinned to their screen values (see the swap).
+  const pins = { '--fin-mark': v('--fin-mark') || 'none', '--fin-mark-text': v('--fin-mark-text') || '""' };
+  if (hardEdge) pins['--fin-edge'] = v('--fin-edge') || 'none';
+  const plan = { markOpacity: round(markVis), edgeOpacity: round(visBox(ex, ey, ew, eh)), hardEdge, capture, pins, hairline, svg: '' };
 
   const [type, scaleStr] = v('--fin-texture-geo').split(/\s+/);
   const sp = num(scaleStr);
