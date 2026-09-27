@@ -24,65 +24,75 @@ test.describe.configure({ timeout: 300_000 });
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
-test('a deck’s web images stay blocked until the reader loads them, in the preview and the PDF', async ({ page }) => {
-	const hits: string[] = [];
-	const server = http.createServer((req, res) => {
-		hits.push(req.url || '');
-		res.writeHead(200, { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': '*' });
-		res.end(PNG);
-	});
-	await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
-	const { port } = server.address() as { port: number };
-	const origin = `http://127.0.0.1:${port}`;
-	// Plus two spellings the markup rewrite cannot reach, a CSS escape (`\\68` is `h`) and an
-	// image-set(): only the frame's policy (in the preview) and the capture sweep (in the export)
-	// stand between them and this server.
-	const deck = `<!-- _class: content -->\n\n# A photo from the web\n\n![team photo](${origin}/team.png)\n\n<div style="width:160px;height:40px;background-image:url(\\68ttp://127.0.0.1:${port}/escaped.png)"></div>\n<div style="width:160px;height:40px;background-image:image-set('${origin}/set.png' 1x)"></div>\n\nThe copy around it still renders.`;
+// All three engines (#2387's raise-it-by line): the no-request claim is about what the BROWSER
+// fetches, which is engine behavior, so Chromium alone cannot stand for Gecko or WebKit. Two titles,
+// per playwright.config.ts: `@gecko` runs on the desktop (Chromium) project AND the gecko one, and
+// the `@webkit-tablet` twin runs on WebKit only (the desktop project skips a title naming @webkit).
+for (const tag of [' @gecko', ' @webkit-tablet']) {
+	test(`a deck’s web images stay blocked until the reader loads them, in the preview and the PDF${tag}`, async ({ page }) => {
+		const hits: string[] = [];
+		const server = http.createServer((req, res) => {
+			hits.push(req.url || '');
+			res.writeHead(200, { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': '*' });
+			res.end(PNG);
+		});
+		await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+		const { port } = server.address() as { port: number };
+		const origin = `http://127.0.0.1:${port}`;
+		// Plus two spellings the markup rewrite cannot reach, a CSS escape (`\\68` is `h`) and an
+		// image-set(): only the frame's policy (in the preview) and the capture sweep (in the export)
+		// stand between them and this server.
+		const deck = `<!-- _class: content -->\n\n# A photo from the web\n\n![team photo](${origin}/team.png)\n\n<div style="width:160px;height:40px;background-image:url(\\68ttp://127.0.0.1:${port}/escaped.png)"></div>\n<div style="width:160px;height:40px;background-image:image-set('${origin}/set.png' 1x)"></div>\n\nThe copy around it still renders.`;
 
-	try {
-		await gotoStudio(page);
-		await setEditorContent(page, deck);
-		const notice = page.locator('[data-slot="web-images"]');
-		const preview = livePreview(page);
+		try {
+			await gotoStudio(page);
+			await setEditorContent(page, deck);
+			const notice = page.locator('[data-slot="web-images"]');
+			const preview = livePreview(page);
 
-		// 1. BLOCKED.
-		await expect(notice).toHaveAttribute('data-state', 'blocked', { timeout: 30_000 });
-		await expect(notice).toContainText(`from 127.0.0.1:${port}.`);
-		const placeholder = preview.locator(`img[data-lattice-web-src="${origin}/team.png"]`);
-		await expect(placeholder).toHaveCount(1, { timeout: 30_000 });
-		await expect(preview.locator(`img[src^="${origin}"]`)).toHaveCount(0);
-		await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', /img-src 'self' data: blob:;/);
-		expect(hits, `the blocked preview fetched: ${hits.join(', ')}`).toEqual([]);
+			// 1. BLOCKED.
+			await expect(notice).toHaveAttribute('data-state', 'blocked', { timeout: 30_000 });
+			await expect(notice).toContainText(`from 127.0.0.1:${port}.`);
+			const placeholder = preview.locator(`img[data-lattice-web-src="${origin}/team.png"]`);
+			await expect(placeholder).toHaveCount(1, { timeout: 30_000 });
+			await expect(preview.locator(`img[src^="${origin}"]`)).toHaveCount(0);
+			await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', /img-src 'self' data: blob:;/);
+			expect(hits, `the blocked preview fetched: ${hits.join(', ')}`).toEqual([]);
 
-		await page.getByRole('button', { name: 'Share', exact: true }).click();
-		let download = page.waitForEvent('download', { timeout: 180_000 });
-		await shareExport(page, 'pdf');
-		await (await download).path();
-		expect(hits, `the blocked PDF export fetched: ${hits.join(', ')}`).toEqual([]);
-		await page.keyboard.press('Escape');
+			await page.getByRole('button', { name: 'Share', exact: true }).click();
+			let download = page.waitForEvent('download', { timeout: 180_000 });
+			await shareExport(page, 'pdf');
+			await (await download).path();
+			expect(hits, `the blocked PDF export fetched: ${hits.join(', ')}`).toEqual([]);
+			await page.keyboard.press('Escape');
 
-		// 2. CONTROL.
-		await notice.getByRole('button', { name: /^Load \d+ images? from/ }).click();
-		await expect(notice).toHaveAttribute('data-state', 'loaded');
-		await expect(preview.locator(`img[src="${origin}/team.png"]`)).toHaveCount(1, { timeout: 30_000 });
-		await expect.poll(() => hits.length, { timeout: 30_000 }).toBeGreaterThan(0);
-		await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', new RegExp(`img-src 'self' data: blob: ${origin.replace(/[.*+?^${}()|[\]\\:/]/g, '\\$&')};`));
-		const previewHits = hits.length;
+			// 2. CONTROL.
+			await notice.getByRole('button', { name: /^Load \d+ images? from/ }).click();
+			await expect(notice).toHaveAttribute('data-state', 'loaded');
+			await expect(preview.locator(`img[src="${origin}/team.png"]`)).toHaveCount(1, { timeout: 30_000 });
+			await expect.poll(() => hits.length, { timeout: 30_000 }).toBeGreaterThan(0);
+			await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', new RegExp(`img-src 'self' data: blob: ${origin.replace(/[.*+?^${}()|[\]\\:/]/g, '\\$&')};`));
+			const previewHits = hits.length;
 
-		await page.getByRole('button', { name: 'Share', exact: true }).click();
-		download = page.waitForEvent('download', { timeout: 180_000 });
-		await shareExport(page, 'pdf');
-		await (await download).path();
-		expect(hits.length, 'the export of an allowed deck loads its image').toBeGreaterThan(previewHits);
-		await page.keyboard.press('Escape');
+			await page.getByRole('button', { name: 'Share', exact: true }).click();
+			download = page.waitForEvent('download', { timeout: 180_000 });
+			await shareExport(page, 'pdf');
+			await (await download).path();
+			expect(hits.length, 'the export of an allowed deck loads its image').toBeGreaterThan(previewHits);
+			await page.keyboard.press('Escape');
 
-		// 3. Remembered, and reversible.
-		await page.reload();
-		await expect(notice).toHaveAttribute('data-state', 'loaded', { timeout: 60_000 });
-		await notice.getByRole('button', { name: /Block this deck's web images again/ }).click();
-		await expect(notice).toHaveAttribute('data-state', 'blocked');
-		await expect(preview.locator(`img[data-lattice-web-src="${origin}/team.png"]`)).toHaveCount(1, { timeout: 30_000 });
-	} finally {
+			// 3. Remembered, and reversible.
+			await page.reload();
+			await expect(notice).toHaveAttribute('data-state', 'loaded', { timeout: 60_000 });
+			await notice.getByRole('button', { name: /Block this deck's web images again/ }).click();
+			await expect(notice).toHaveAttribute('data-state', 'blocked');
+			await expect(preview.locator(`img[data-lattice-web-src="${origin}/team.png"]`)).toHaveCount(1, { timeout: 30_000 });
+		} finally {
+			// `close()` waits for every open connection, and the browser can still hold one to this
+		// server (an image it loaded): the nightly's first desktop run spent 290 s here after every
+		// step had passed, then timed out. End them first.
+		server.closeAllConnections();
 		await new Promise((r) => server.close(() => r(null)));
-	}
-});
+		}
+	});
+}
