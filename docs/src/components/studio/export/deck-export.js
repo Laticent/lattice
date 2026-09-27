@@ -1748,9 +1748,16 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		section.style.transform = 'none';
 		section.style.transformOrigin = '';
 		section.style.marginBottom = '0';
+		// The FIT agent also clamps `.lattice` to the SCALED filmstrip's height and clips it.
+		// Unscaled, the slide reaches past that clip, where every paint-over hit-test either
+		// finds nothing (outside the viewport) or finds the page beneath (clipped): lift it.
+		const strip = section.parentElement;
+		const clip = strip && { height: strip.style.height, overflow: strip.style.overflow };
+		if (strip) { strip.style.height = 'auto'; strip.style.overflow = 'visible'; }
 		try {
 			return fn();
 		} finally {
+			if (strip) { strip.style.height = clip.height; strip.style.overflow = clip.overflow; }
 			section.style.transform = fit.transform;
 			section.style.transformOrigin = fit.origin;
 			section.style.marginBottom = fit.mb;

@@ -283,7 +283,7 @@ Order of work, all in one PR (#2404):
     to `.lattice` long ago. It erased the deck's own tone rail and finish frame from every
     Studio image export, the photo lanes and PPTX included, while the CLI kept them. The reset
     is gone.
-- **Big screens: borders are vectors (candidate, pending the owner's pick).** At 4K a 1x photo
+- **Big screens: borders are vectors (the owner's pick, over a 2x photo).** At 4K a 1x photo
   smears a 1px card border or heading rule across 5 to 6 px (measured on slide 2 of the
   Northwind deck). Solid HTML borders are now drawn as vectors (straight sides as rectangles,
   an even rounded border as a ring) and made transparent in the photo, and they match Chrome's
@@ -291,7 +291,24 @@ Order of work, all in one PR (#2404):
   whatever the photo still carries inside the box. Dashed or mixed-color borders, elliptical
   radii, and borders something paints over stay in the photo. The alternative under test is a
   2x photo: nearly as sharp, but 500 KB against 204 KB for the dark deck.
+- **The second checker pass (on the border work and the late fixes) found:**
+  - **Blocking, from earlier in this PR:** SVG shapes ignored the `<svg>` viewport and
+    overflow-clipping HTML ancestors, so every KaTeX square root ran its bar (drawn 400em wide)
+    to the edge of the page. The gallery comparison missed it: a 1px line moves under 1% of a
+    page, so a percentage ranking cannot surface a thin-line defect. SVG shapes now carry both
+    clips.
+  - **Borders drawn wrong, now refused:** inside a see-through group, around an inline box that
+    wraps, in a collapsed table, and on an element with an outline.
+  - **A blind hit-test:** `elementsFromPoint` skips `pointer-events: none`, which is how scrims
+    are written, so a border (or text) under one was judged uncovered. Everything hit-tests
+    during the read.
+  - **The Studio:** its unscaled slide reached past the filmstrip's clip. That clip is lifted
+    while the slide is read.
+  - Also fixed: inner curves use CSS's clamped radius, and a child that inherits its border
+    color keeps it.
 - **Known limits:**
+  - A later sibling's outer `box-shadow` over a border is not hit-testable, so a border can
+    draw over it.
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`
     trades size for it.
   - Pseudo-element text, emoji and system-font characters stay in the (2x) photo.

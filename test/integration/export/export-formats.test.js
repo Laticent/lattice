@@ -432,6 +432,57 @@ describe('export-formats', () => {
     assert.deepEqual(Object.keys(report.refusedShapes || {}).filter((k) => k.startsWith('border-')), [], 'no card border is left in the photo');
   });
 
+  test('a border the writer cannot draw exactly stays in the photo', { timeout: TIMEOUT }, () => {
+    // Each slide is a case the checker broke (2026-09-27): drawn over the photo, the border
+    // came out wrong, so it must be refused and left where the browser painted it.
+    const dir = tmpDir();
+    const src = path.join(dir, 'refuse.md');
+    const slides = [
+      // A see-through group: the border blends over the backdrop, not the box's own fill.
+      '<div style="background:#f00;padding:40px;width:600px"><div style="opacity:0.5"><div style="background:#fff;border:20px solid #000;height:100px"></div></div></div>',
+      // An inline box that wraps: one border piece per line, not one box around them all.
+      '<p style="font-size:40px;width:500px">Lead text and then <span style="border:3px solid #e00;padding:0 4px">a bordered inline span that wraps across several lines here</span> and more.</p>',
+      // Collapsed table borders are shared between cells.
+      '<table style="border-collapse:collapse"><tr><td style="border:6px solid #00c;padding:20px">A</td><td style="border:6px solid #00c;padding:20px">B</td></tr></table>',
+      // An overlay with pointer-events:none still paints over the border.
+      '<div style="position:relative;width:400px;height:200px"><div style="border:8px solid #0a0;width:300px;height:150px"></div><div style="position:absolute;left:0;top:0;width:400px;height:40px;background:#fc0;pointer-events:none"></div></div>',
+    ];
+    fs.writeFileSync(src, `---\ntheme: cuoio\n---\n\n${slides.map((h, i) => `## Case ${i + 1}\n\n${h}`).join('\n\n---\n\n')}\n`);
+    const out = path.join(dir, 'refuse.pdf'), rep = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const refused = JSON.parse(fs.readFileSync(rep, 'utf8')).refusedShapes || {};
+    for (const why of ['border-opacity', 'border-wrapped', 'border-collapsed-table', 'border-covered']) {
+      assert.ok(refused[why] > 0, `${why} is refused (report: ${JSON.stringify(refused)})`);
+    }
+  });
+
+  test('a KaTeX square root keeps its bar inside the root, as the browser clips it', { timeout: TIMEOUT }, () => {
+    // KaTeX draws the bar 400em wide and crops it with the SVG viewport and an overflow:hidden
+    // span; the writer once ignored both and ran the bar to the edge of the page.
+    const dir = tmpDir();
+    const src = path.join(dir, 'root.md');
+    fs.writeFileSync(src, '---\ntheme: cuoio\nmath: katex\n---\n\n## Root\n\n$$\\sqrt{x^2+1}$$\n');
+    // Dark pixels in the right quarter of the page, where the formula does not reach.
+    const inkRight = (pdf) => {
+      const base = pdf.replace(/\.pdf$/, '-g');
+      execFileSync('pdftoppm', ['-gray', '-r', '48', '-f', '1', '-l', '1', pdf, base]);
+      const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
+      const buf = fs.readFileSync(file);
+      const [, w, h] = buf.toString('latin1', 0, 20).match(/P5\s+(\d+)\s+(\d+)\s+255\s/).map(Number);
+      const px = buf.subarray(buf.length - w * h);
+      let n = 0;
+      for (let y = Math.round(h * 0.2); y < Math.round(h * 0.9); y++) for (let x = Math.round(w * 0.75); x < w; x++) if (px[y * w + x] < 200) n++;
+      return n;
+    };
+    const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
+    for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+      assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    }
+    assert.ok(inkRight(mine) <= inkRight(chrome) + 5, `no bar runs to the page edge (${inkRight(mine)} dark px vs Chrome's ${inkRight(chrome)})`);
+  });
+
   test('a Mermaid flowchart keeps its edges and arrowheads', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const src = path.join(dir, 'flow.md');
