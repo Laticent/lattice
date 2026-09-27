@@ -1,12 +1,14 @@
 ---
 status: proposed
-summary: A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`. Each takes `true` or custom text with a `{greeting}` placeholder. The viewer's local clock picks "Good morning", "Good afternoon" or "Good evening". Each plays at most once per page load, in the Studio's Present view and in the exported Player. The Player cannot synthesize speech, so an export bakes all three greetings and picks one at playback, and video export bakes a neutral "Hello". The timing track carries the two clips outside its one-segment-per-slide table.
+summary: A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`. Each takes `true` or custom text with a `{greeting}` placeholder. The viewer's local clock picks "Good morning", "Good afternoon" or "Good evening". Each plays at most once per page load, in the Studio's Present view and in the exported Player. The Player cannot synthesize speech, so the Studio export records four greetings (three periods plus a neutral "Hello") and the Player picks one at playback, with video always taking the neutral one. The timing track carries a new top-level `bookends` section outside its one-segment-per-slide table, keeps version 1.0, and older players ignore it.
 ---
 
 # Narration bookends: a spoken greeting and closing (2026-09-27)
 
 **Status: proposed.** The owner set the direction and answered four design questions
-on 2026-09-27. Nothing is built yet. This note is the plan the build follows.
+on 2026-09-27. A fact-check the same day confirmed every mechanism the note cites, and
+added the scope for video, packing and a silent last slide in §6–§7. Nothing is built
+yet. This note is the plan the build follows.
 
 ## 1. What the owner asked for
 
@@ -65,9 +67,11 @@ and returns `morning`, `afternoon` or `evening`:
 | 17:00–03:59 | evening |
 
 It never says "good night", which in English is a farewell. The Studio calls the kernel
-with `new Date().getHours()`. The Player carries a copy of the function inline, since
-the Player's script is self-contained under its Content-Security-Policy (CSP) hash. A
-unit test pins the inline copy to the kernel so the two cannot drift.
+with `new Date().getHours()`. The Player's script is self-contained under its
+Content-Security-Policy (CSP) hash, so it inlines the kernel. It does that the way it
+already inlines its other kernels, by `.toString()` (`player-core.mjs` ~:2130-2138),
+which `test/unit/export/inlinable-kernels.test.js` pins. It does not hand-copy the
+function.
 
 ## 5. The constraint that shapes the design: the Player cannot speak
 
@@ -75,49 +79,93 @@ Narration runs differently on each surface:
 
 - **Studio (`PresentOverlay.tsx`, `read-aloud.ts`).** It synthesizes speech live, through
   the user's OpenRouter key and then in-browser Kokoro. It can resolve the greeting's
-  period when Play is pressed and synthesize only that one line.
+  period when Play is pressed and synthesize only that one line. `PresentOverlay` is
+  the Studio's only narration transport. `ReadAloudOverlay.tsx` is a debug panel
+  rendered inside it, and it plays nothing.
 - **Player (`lib/export/player-core.mjs`).** It replays MP3 clips and a timing track
-  (the Lattice Timing Track, LTT) that the Studio baked at export (`narration-bake.ts`,
-  `narrationPayload`). Its CSP is `default-src 'none'` with `media-src data:`, so it
-  has no network and no text-to-speech (TTS). It cannot produce "Good afternoon" on
-  the viewer's machine. **An export therefore bakes three greeting clips, one per
-  period, and the Player picks one from the viewer's clock.** The cost is three short
+  (the Lattice Timing Track, LTT) that the Studio baked at export (`narration-bake.ts`
+  `bakeNarration`, called from `share-export.ts`, and then `narrationPayload`). Its CSP
+  is `default-src 'none'` with `media-src data:`, so it has no network and no
+  text-to-speech (TTS). It cannot produce "Good afternoon" on the viewer's machine.
+  **The Studio bake therefore records four greeting clips, one per period plus a
+  neutral `Hello`, and the Player picks one at playback.** The cost is four short
   clips, about 2–4 seconds each.
-- **Video (`lib/export/video.mjs`).** It muxes the Player's clips in headless Chromium,
-  so it has no meaningful viewer clock. It bakes and plays a fourth variant, `Hello`.
+- **Video (`lib/export/video.mjs`).** It records nothing. It opens an existing narrated
+  HTML export in headless Chromium with `window.__lpRender` set, and muxes that
+  export's own clips. **Rule: when `__lpRender` is set, the Player picks the `neutral`
+  variant.** That is how video gets "Hello" without a clock.
+- **The command-line interface (CLI) records no audio.** `--player` calls
+  `buildPlayerHtml` without narration (`lattice-emulator.js` ~:4991), and
+  `video-cli.mjs` says the CLI "has no speech engine". Only the Studio produces
+  narration audio. The CLI's `--captions` `.vtt` output is the one CLI surface this
+  touches.
 
 ## 6. Timing-track format
 
-`validateLtt` (`docs/src/lib/ltt/validate.ts`) and `deckLtt` (`lib/core/ltt-deck.mjs`)
-require exactly one segment per slide, in order, with slide 0 at hold 0. Bookends are
-not slides, and making them fake segments would break that rule and every consumer
-that indexes `segments[i]` by slide number.
+`validateLtt` (`docs/src/lib/ltt/validate.ts` ~:303-307) and `deckLtt`
+(`lib/core/ltt-deck.mjs` ~:86-125) require exactly one segment per slide, in order,
+with slide 0 at hold 0. Bookends are not slides, and making them fake segments would
+break that rule and every consumer that indexes `segments[i]` by slide number.
 
-So the track gains an optional `bookends` object next to `segments`:
+So the track gains an optional top-level `bookends` object next to `segments`:
 
 ```jsonc
 {
+  "version": "1.0",
   "segments": [ /* unchanged: one per slide */ ],
   "bookends": {
     "greeting": {
       "variants": {
-        "morning":   { /* cues + clip ref, same cue shape as a segment */ },
+        "morning":   { /* cues, same cue shape as a segment */ },
         "afternoon": { /* … */ },
         "evening":   { /* … */ },
         "neutral":   { /* … */ }
       },
       "gapMs": 600
     },
-    "closing": { /* cues + clip ref */, "gapMs": 600 }
+    "closing": { /* cues */, "gapMs": 600 }
   }
 }
 ```
 
-- A track without `bookends` validates and plays exactly as it does today.
-- The schema (`ltt.schema.json`), the types (`types.ts`), `validateLtt` and
-  `engineering/ltt.md` §Segments all gain the section in the same change.
-- The clips ride in the existing audio block mechanism (`AUDIO_BLOCK_MIME`), under keys
-  that cannot collide with a slide index.
+**An additive section with no version bump is safe, and a version bump is not.** A
+code check on 2026-09-27 found three things:
+- The root object in `ltt.schema.json` has no `additionalProperties:false`, and
+  `validateLtt` closes only the track, cue and word keys (`validate.ts` ~:18-27). An
+  unknown top-level key passes, and `engineering/ltt.md` ~:169 and :215 say so.
+- The Player's `loadLtt` reads only `segments` and never checks `version`, so an older
+  Player ignores `bookends` and plays the deck without a greeting.
+- The schema pins `"version": {"const": "1.0"}`, and `validateLtt` rejects anything
+  else (~:228). Bumping to 1.1 would make every older validator reject the file, so
+  `version` stays `"1.0"`.
+
+**Where it sits under `ltt.md` G4 (§Layers).** G4 says a new *layer* changes what
+`positionAt` returns and needs its own record and owner sign-off, and that anything
+else is metadata. `bookends` is neither a layer nor metadata. It is a separate timing
+section outside `segments`, and it changes the *deck* timeline (`timeline()`), not any
+segment's `positionAt`. This note is its record, and the owner approved the design on
+2026-09-27. `ltt.md` gains a §Bookends section that says this.
+
+Files this touches:
+- `docs/src/lib/ltt/types.ts`. The schema is **generated** from it
+  (`npm run ltt-schema:build`, which `build:check` enforces), so the schema is never
+  hand-edited.
+- `validate.ts`, which validates the section's cues.
+- `encode.ts` `pack`/`unpack` (~:98-116). Today they pass `...rest` through, so without
+  a change `bookends` survives but its cues are not packed.
+- `position.ts` `timeline()` (~:143), which gains a lead-in for the greeting and a
+  tail for the closing.
+- The `@laticent/ltt` package's built output.
+
+**Audio blocks.** Bookend clips ride in the existing `AUDIO_BLOCK_MIME` blocks under
+the non-numeric keys `greeting-morning`, `greeting-afternoon`, `greeting-evening`,
+`greeting-neutral` and `closing`. Two readers accept numeric keys only today, and both
+would silently drop these clips:
+- The Player's `clipUri` matches only `#lp-audio/(\d+)/(\d+)` and plays only its own
+  slide's block (~:1880-1881).
+- `video.mjs` ~:60 and :70 accept only `/^\d+$/` block keys.
+
+Both regexes widen to the closed set of bookend keys.
 
 ## 7. Playback rules (both surfaces)
 
@@ -127,45 +175,77 @@ So the track gains an optional `bookends` object next to `segments`:
   - Starting narration on any other slide skips it for good. A viewer who jumped in
     mid-deck is not greeted later.
   - Pause and resume, seeking back to slide 1, and Play again do not repeat it.
-- **Closing.** It plays when narration finishes the last slide's cues and the closing
-  has not played yet this page load.
-  - Arriving on the last slide by navigation, without narrating to its end, does not
-    trigger it.
+- **Closing.** It plays when narration reaches the end of the deck, whether the last
+  slide was narrated or silent, and the closing has not played yet this page load.
+  - A silent last slide, such as the common "Thank you" slide, is exactly where a
+    closing belongs, so autoplay arriving on it plays the closing.
+  - Arriving on the last slide by manual navigation does not trigger it.
   - Pausing during the greeting or the closing pauses that clip. Navigating away
     cancels it and marks it as played.
 - **State.** Two flags per page load, `greeted` and `closed`, in memory only, with no
-  `sessionStorage`.
+  `sessionStorage`. The Studio has no equivalent of the Player's `spokeSlide`, so it
+  also keeps a `spokeAny` flag for "nothing spoken yet". It needs that because
+  `readerRef.current.play()` handles both a fresh start and a resume.
+- **Autoplay policy.** Not a problem. The greeting starts inside the Play click, and
+  the Player reuses the one `<audio>` element that click unlocks (~:1852-1857). Slide 1
+  then chains from `onended`, as slide-to-slide playback does today. A
+  `NotAllowedError` stops narration there too (~:2038-2039).
 - **Captions.** The greeting and closing show in the caption band like any other
-  line. The `.vtt` producers (`read-along-vtt.js`, `vtt.ts`, `share-export.ts`
-  `shareCaptions`, `video.mjs`) emit a cue for them. The track itself carries all four
-  greeting variants, so a downloaded `.vtt` uses the neutral line.
+  line. The four `.vtt` producers emit a cue for them, using the neutral line, because
+  a file has no viewer clock:
+  - `read-along-vtt.js`;
+  - `cadenza/vtt.ts`;
+  - `share-export.ts` `shareCaptions`;
+  - `video.mjs` `toVtt`.
 
-Hook points found by a code map on 2026-09-27:
+Hook points, checked against the code on 2026-09-27:
 
-- **Player (`narrationJs`).** The greeting goes in `toggleNarration`'s start branch when
-  `t.index===0` and nothing has been spoken yet (`spokeSlide===-1`). The closing goes in
-  `endSlide`'s last-slide branch.
-- **Studio.** The greeting goes in `PresentOverlay.tsx`'s `togglePresentation` start
-  branch, and the closing in `onFinish`'s end-of-deck branch.
+- **Player (`narrationJs`).**
+  - Greeting: `toggleNarration`'s start branch (~:2057-2059). It is
+    `setPlaying(true);speakSlide(t.index)` today, and gains the guard
+    `t.index===0&&spokeSlide===-1&&!greeted`, where `spokeSlide` starts at -1 (~:1851).
+  - Closing: `endSlide`'s last-slide branch (~:2042-2044), which silent slides already
+    route through during autoplay.
+  - `onSlideShown` (~:2076), which ends narration on a silent last slide reached by
+    navigation, stays as it is, per the navigation rule above.
+- **Studio (`PresentOverlay.tsx`).**
+  - Greeting: `togglePresentation`'s start branch (~:1391-1393).
+  - Closing, in two places. `onFinish`'s end-of-deck branch (~:626) is the first.
+    **The second is the empty-slide auto-skip (~:733-744)**, which ends autoplay on a
+    silent last slide without calling `onFinish`.
+- **Video (`video.mjs`). This is the largest change, and without it video export
+  breaks.** `video.mjs` builds its own timeline from `ltt.segments` only (~:84-98). It
+  then throws in three cases (~:474-490):
+  - the render log's length differs from the number of voiced clips;
+  - a logged cue start drifts from `timeline()` by more than half a frame;
+  - a slide arrives outside the layout.
+
+  A greeting adds a log entry and shifts every start after it, so every narrated deck
+  with a greeting would fail to export. The fix spans three pieces:
+  - `timeline()` and `cueTimes` learn the bookends;
+  - the `RENDER.log` entry shape `{slide,cue}` gains `{bookend,cue}`;
+  - the `silentFirst` lead-in logic (~:372) accounts for a greeting before a silent
+    slide 1.
 
 ## 8. Resolution kernel
 
 `lib/core/resolve-bookends.mjs` is modeled on `resolve-pace.mjs` and
 `resolve-delivery.mjs`. It reads the two keys and returns
 `{ greeting: { template } | null, closing: { text } | null }`. It also returns a pure
-`greetingText(template, period)` expander. The Studio's live reader, the export bake
-and the command-line interface (CLI) captions path all call it, so there is one reading
-of the keys (HARD RULE #1).
+`greetingText(template, period)` expander. Three callers use it: the Studio's live
+reader, the export bake, and the CLI captions path. That gives one reading of the keys
+(HARD RULE #1).
 
 ## 9. Scope and gates
 
 | Area | Files |
 |---|---|
 | Kernels | `lib/core/greeting-period.js`, `lib/core/resolve-bookends.mjs` + unit tests |
-| Timing track | `lib/core/ltt-deck.mjs`, `docs/src/lib/ltt/{validate,types}.ts`, `ltt.schema.json`, `engineering/ltt.md` |
-| Studio | `PresentOverlay.tsx`, `read-aloud.ts`, `narration-bake.ts`, `share-export.ts` |
-| Player | `player-core.mjs` (`narrationPayload`, `narrationJs`, the CSP hash is regenerated) |
-| Video + captions | `video.mjs`, `read-along-vtt.js`, `cadenza/vtt.ts` |
+| Timing track | `lib/core/ltt-deck.mjs`, `docs/src/lib/ltt/{types,validate,encode,position}.ts`, the generated schema (`npm run ltt-schema:build`), the `@laticent/ltt` built output, `engineering/ltt.md` §Bookends |
+| Studio | `PresentOverlay.tsx` (both end-of-deck paths), `read-aloud.ts`, `narration-bake.ts` (four greeting clips + closing), `share-export.ts` |
+| Player | `player-core.mjs`: `narrationPayload` (keyed bookend blocks), `narrationJs` (hooks, `clipUri`, neutral under `__lpRender`), the kernel inlined by `.toString()`; rerun `tools/build-player-core.js`, since its `--check` is a freshness gate. The CSP hash needs no step, because `caps.sha256(js)` computes it at every export (~:2857) |
+| Video | `video.mjs`: block-key regexes, `timeline()`/`cueTimes`, the `RENDER.log` shape, the `silentFirst` lead-in, `toVtt` |
+| Captions | `read-along-vtt.js`, `cadenza/vtt.ts`, `shareCaptions` |
 | Authoring | `lint-core.js` rules, `lib/base/base.registers.docs.md` section, `design/skills/speaker-notes.md` |
 | Record | `changelog.d/narration-bookends.feature.md`, a demo deck `examples/narration-bookends.md` (HARD RULE #9) |
 
@@ -173,15 +253,20 @@ of the keys (HARD RULE #1).
   QUALITY BAR the owner signs off on a narrated demo export in dark and light mode
   before merge.
 - **Verification.** The code touches `lib/core` and the export pipeline, so it gets a
-  maker-checker review. Each surface is verified on the real surface (HARD RULE #23): a
-  Player export played in Chromium at a stubbed clock for each period, and the Studio
-  Present view driven in the built docs site.
+  maker-checker review. Each surface is verified on the real surface (HARD RULE #23):
+  - A Player export played in Chromium with the clock stubbed to each period.
+  - An **older** Player build fed a bookended track, to show it plays the deck
+    without the greeting.
+  - A video export of the demo deck that succeeds and opens with "Hello".
+  - The Studio Present view driven in the built docs site, including a deck that
+    ends on a silent slide.
 
 ## 10. Not decided / deliberately out
 
 - A per-deck `timezone:` override. The owner declined it. Revisit only if presenting
   to a room in another zone becomes a real request.
-- Localized greetings. `lang:` today only switches off English pronunciation rules.
-  A non-English deck with `greeting: true` still says "Good morning". The lint should
-  suggest custom text when `lang:` is not English.
+- Localized greetings. `lang:` today only makes a non-English deck bypass the English
+  say-as rules (`read-along-build.js` ~:91). A non-English deck with `greeting: true`
+  still says "Good morning". The lint should suggest custom text when `lang:` is not
+  English.
 - An `{audience}` or `{title}` placeholder. Custom text already covers it.
