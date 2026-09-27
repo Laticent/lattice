@@ -256,3 +256,31 @@ the static assets (`sync-playground-assets.mjs`).
 **Deferred:** a Drawing Board opt-out toggle in the export menu; optionally a
 heavier tier shipping a zero-dep browser linter (the bundled `lint-core` already
 exists) so the recipient can validate edits without a Node dependency.
+
+## 11. Panes degrade to their content, stacked (2026-09-27, PR #2420)
+
+Marp has no carve, so a panes slide (`<!-- pane: X -->`, lib/core/panes.js) cannot lay out two
+components side by side there. The export always degraded to the two panes' content, stacked,
+because Marp ignores the markers. But it keeps every HTML comment that is not its own directive
+as a SPEAKER NOTE, so `examples/panes.md` put 21 lines like "pane: list" and "panes: 35/65" in
+the presenter's notes.
+
+Both producers (`tools/export-marp.js` and the Studio's `deck-export.js`) now run
+`stripPaneMarkers` (lib/core/bake-splits.js) after the split bake. It finds a marker the way the
+carve does, as a whole top-level comment block on the shared boundary parser, so a marker quoted in
+a code sample stays. Each run of markers becomes one `<!-- markdownlint-capture -->`, because a
+marker was also a separator: dropped outright, a list pane beside a list pane closed up into one
+list. Marpit skips markdownlint's magic comments when it collects notes, and `capture` does
+nothing unless a `restore` reads it.
+
+Measured with marp-cli 4 on `examples/panes.md`, light and dark: all 8 slides pixel-identical to
+the export before the change (AE = 0), and the notes carry no pane line (21 → 0). The checker
+repeated it for `panes-sketch.md` and `panes-mermaid.md` (all slides identical, 9 → 0 and 12 → 0),
+and found marp-cli's HTML output byte-identical apart from the notes.
+
+**What it costs, accepted by the owner (2026-09-27).** The markers were also what let a bundle's
+`.md` open in Lattice again as a panes deck. Dropped, it opens as stacked content. The recipient's
+README says so (the `panes` row in lib/core/marp-fidelity.js). Two more limits of the same
+degrade: a panes slide Lattice would SPLIT into one slide per pane stays one slide in Marp; and the
+Studio now skips a tooling comment when it reads a note, as the engine does, so the separator is not
+shown as a re-imported slide's speaker note.

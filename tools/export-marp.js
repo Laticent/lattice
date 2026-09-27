@@ -64,7 +64,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { bakeSplits } = require('../lib/core/bake-splits');
+const { bakeSplits, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
@@ -334,7 +334,9 @@ function main(argv) {
   //    (The glossary bake had to precede it too: it appends a whole slide and strips
   //    its own `glossary:` trigger.) Both are idempotent and self-contained, so the
   //    emitted `.md` renders identically on any Marp tool and stays editable.
-  const baked = bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels);
+  //    Then the pane markers go (`stripPaneMarkers`): Marp cannot carve a pane, and it would
+  //    read every marker as a speaker note, so a panes slide exports as its panes, stacked.
+  const baked = stripPaneMarkers(bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels));
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const localizedFm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
   const bakedBody = fmMatch ? baked.slice(fmMatch[0].length) : baked;

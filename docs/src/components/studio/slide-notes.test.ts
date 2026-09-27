@@ -52,3 +52,12 @@ describe('a panes slide — its markers are structure, not the note', () => {
 		expect(setNote(out, '')).toContain('<!-- pane: table -->');
 	});
 });
+
+describe('a tooling comment is not the note', () => {
+	it('skips markdownlint / prettier magic comments, as the engine does', () => {
+		// Export-to-Marp writes `markdownlint-capture` where a panes deck's markers were.
+		expect(getNote('## T\n\n<!-- markdownlint-capture -->\n\n- a')).toBe('');
+		expect(getNote('## T\n\n<!-- prettier-ignore -->\n\n<!-- say it -->')).toBe('say it');
+		expect(setNote('## T\n\n<!-- markdownlint-capture -->\n\n- a', 'hi')).toContain('<!-- markdownlint-capture -->');
+	});
+});

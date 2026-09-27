@@ -675,8 +675,9 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    it would be alone (`lib/transformers/prose-projection.mjs`), so a chart pane is a styled
    `chart-frame` figure. The Studio's Present steps through a split panes slide's pages and sizes
    its frame to the deck's shape (a fixed 16:9 frame cropped every portrait slide below its
-   heading, panes or not). The slide strip names a panes slide "panes". Export-to-Marp is what
-   is left, and it changes exported bytes, so it goes to the owner for sign-off.
+   heading, panes or not). The slide strip names a panes slide "panes". Export-to-Marp drops the
+   markers Marp would keep as speaker notes and degrades each panes slide to its panes, stacked
+   (`stripPaneMarkers`, lib/core/bake-splits.js; `2026-06-13-export-to-marp.md` §11).
 7. **Retire the chart stand-in heading** — **closed** (the pane-follow-ups PR). The chart wrap
    accepts a heading-less body when the section is a pane (`data-pane-view`), so
    `renderPane` writes no `## \u200b` and `dropMasthead` lost its zero-width-h2 branch. An
