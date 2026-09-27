@@ -1581,7 +1581,10 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// slide's key-insight panel and below-note reach the article as `.lp-insight` / `.lp-note`,
 	// and the article CSS gained those two rules plus the insight's first/last-child reset. The
 	// projection kernel and those three rules are the only things that moved.
-	assert.equal(sha, 'd2e5804cfdf780c75d59fc05dbc316c7187e5f7336d8e5ab54eff887b9743e4a', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Then a slide's web link (followup 2358-p3): the sanitizer drops `target`, so a video poster
+	// took the player's own tab to the clip. The player script gained one delegated click handler
+	// on #lp-stage that opens a slide's http(s) link in a new tab; nothing else moved.
+	assert.equal(sha, '80209b7eada65ee7e01a31f032471b5f8285bc4e75aca97bfd201e9899373338', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

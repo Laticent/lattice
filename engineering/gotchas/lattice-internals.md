@@ -817,6 +817,20 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Pinned by:** "the Studio preview plays a poster tapped at its screen position" in
   `docs/e2e/video-overlay-provider.spec.ts`.
 
+## Tapping a link on a slide in the exported player loses the deck
+
+- **Symptom:** in a `--player` export (or the Studio's player download), a click on a
+  video poster, a contact link or a closing URL sends the player's own tab to the
+  site. Offline it lands on an error page. The reader has to go Back to find the deck.
+- **Cause:** the engine writes `target="_blank"` on those links, but the slide
+  sanitizer (DOMPurify, `lib/core/sanitize-slide-html.mjs`) drops `target`, so they
+  reach the player as plain links.
+- **Fix:** the player script opens a slide's http(s) link in a new tab from one
+  delegated click handler on `#lp-stage` (`lib/export/player-core.mjs`). A modified
+  click (new tab, new window) is left to the browser. The sanitizer is unchanged.
+- **Pinned by:** "a slide link opens a new tab, the deck stays" in
+  `test/integration/export/html-player.test.js`, which clicks the poster in Chromium.
+
 ## A code block or a prose line after a heading is pulled into the masthead band
 
 - **Symptom:** in the engine HTML, `.masthead-lede` holds a `<pre>`, or a paragraph
