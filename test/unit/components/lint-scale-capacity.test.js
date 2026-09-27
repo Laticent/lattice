@@ -339,3 +339,27 @@ describe('spot-scale — a scale or venue on some slides, not the deck', () => {
     assert.deepEqual(rules(one('')), []);
   });
 });
+
+describe('withCompact — a budget that knows `compact` (#2361 P3)', () => {
+  const qa = require('../../../lib/components/inventory/q-and-a/q-and-a.manifest.json').capacity;
+  const v = { names: new Set(['q-and-a']), modifiers: new Set(['compact']), capacity: { 'q-and-a': qa } };
+  const pairs = (n) => Array.from({ length: n }, (_, i) => `- Question ${i + 1}?\n  - A short answer.`).join('\n');
+  const run = (cls, n) => core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H.\n\n${pairs(n)}\n`, v).filter((f) => /^capacity-/.test(f.rule));
+
+  test('a bare five-pair q-and-a is named, and the fix points at compact', () => {
+    const out = run('q-and-a', 5);
+    assert.equal(out.length, 1);
+    assert.equal(out[0].rule, 'capacity-overflow');
+    assert.match(out[0].fix, /Add `compact`.*holds 5/);
+  });
+
+  test('the same five pairs with compact are silent', () => {
+    assert.deepEqual(run('q-and-a compact', 5), []);
+  });
+
+  test('past what compact holds, the fix does not offer it', () => {
+    const out = run('q-and-a', 6);
+    assert.equal(out.length, 1);
+    assert.doesNotMatch(out[0].fix, /Add `compact`/);
+  });
+});

@@ -10,7 +10,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 ## Agent contract
 
-**Capacity** ~4 items (over 5 overflows) — past that, split across slides (automatic). Four pairs fit at body size and a fifth with `compact`, which tightens the spacing; past five, split the slide.
+**Capacity** ~4 items (over 4 overflows) — past that, split across slides (automatic). Four pairs fit bare and a fifth with `compact`, which tightens the spacing (measured); past five, split the slide.
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a one-line question and a short answer.
 

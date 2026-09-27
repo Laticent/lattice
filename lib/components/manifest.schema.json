@@ -798,6 +798,16 @@
       ],
       "description": "Optional content-capacity contract: how many elements the layout holds along the axis it is built on, so the author/agent picks by content SHAPE and the linter can warn before an overflow. `soft`/`hard` are element counts on `axis` (a focusAxes member): past `soft` the layout begins to crowd (soft warning); past `hard` it overflows / loses legibility (overflow warning). Advisory only — never blocks. Counted approximately at authoring time (lib/authoring/lint-core.js `countPrimaryCollection`) and exactly at render time (lib/core/collections.js). See engineering/decisions/2026-06-17-content-capacity-contract.md.",
       "properties": {
+        "withCompact": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The budget on a slide that carries `compact`, which tightens spacing (never type size) so the layout holds more. Measured, like the bare numbers. Lint judges a `compact` slide by it and names `compact` as the fix for a bare slide it would hold.",
+          "properties": {
+            "sweet": { "type": "integer", "minimum": 1 },
+            "soft": { "type": "integer", "minimum": 1 },
+            "hard": { "type": "integer", "minimum": 1 }
+          }
+        },
         "axis": {
           "enum": [
             "item",

@@ -123,9 +123,14 @@ function measure(m) {
   if (m.capacity?.axis && m.capacity.soft != null && m.capacity.hard != null) {
     const sd = stressDocOf(m);
     if (sd) {
-      const n = countPrimaryCollection(sd.sample, m.capacity.axis);
-      const lo = Math.min(m.capacity.soft + 1, m.capacity.hard);
-      if (n != null && (n < lo || n > m.capacity.hard)) flags.add('band');
+      // A stress slide that carries `compact` is judged by the capacity it has WITH compact
+      // (`capacity.withCompact`), as lint judges it — q-and-a's ceiling specimen is five pairs
+      // with compact, where the bare slide holds four.
+      const compact = /<!--\s*_class:[^>]*\bcompact\b/.test(sd.sample) && m.capacity.withCompact;
+      const cap = compact ? { ...m.capacity, ...m.capacity.withCompact } : m.capacity;
+      const n = countPrimaryCollection(sd.sample, cap.axis);
+      const lo = Math.min(cap.soft + 1, cap.hard);
+      if (n != null && (n < lo || n > cap.hard)) flags.add('band');
     }
   }
   return flags;
