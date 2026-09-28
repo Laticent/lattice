@@ -26,8 +26,9 @@ if [ ! -d node_modules/puppeteer ]; then
   esac
 fi
 # `npm ci` builds dist/ through `prepare`; a checkout where that did not run needs it built once.
+# The check needs only the layout CSS, so build that one step.
 if [ ! -f dist/lattice.css ]; then
-  echo "Building the repository once (dist/ is missing; about a minute)..."
-  node tools/build.js --only-uncommitted || { echo "The build failed; see the messages above."; exit 1; }
+  echo "Building the layout CSS once (dist/lattice.css is missing; under a minute)..."
+  node tools/build-css.js || { echo "The build failed; see the messages above."; exit 1; }
 fi
 exec node tools/verify-code-sandbox.mjs "$@"

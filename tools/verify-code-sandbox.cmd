@@ -35,11 +35,12 @@ if not exist "node_modules\puppeteer" (
     exit /b 1
   )
 )
-rem `npm ci` does not build dist\ on Windows: package.json `prepare` chains with `;`, which cmd.exe
-rem does not read as a separator (followups.d/2459-p2-windows-prepare-skips-the-build.md).
+rem `npm ci` does not build dist\ on Windows, and the full build does not run there either
+rem (followups.d/2459-p2-windows-prepare-skips-the-build.md). The check needs only the layout CSS,
+rem and its one build step works on Windows.
 if not exist "dist\lattice.css" (
-  echo Building the repository once ^(dist\ is missing; about a minute^)...
-  node tools\build.js --only-uncommitted
+  echo Building the layout CSS once ^(dist\lattice.css is missing; under a minute^)...
+  node tools\build-css.js
   if errorlevel 1 (
     echo The build failed; see the messages above.
     pause

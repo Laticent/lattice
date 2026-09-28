@@ -348,7 +348,7 @@ async function main() {
     let depsOk = true;
     let browserError = '';
     const built = fs.existsSync(path.join(ROOT, 'dist', 'lattice.css'));
-    if (!built) console.log(red('  The repository is not built (dist/lattice.css is missing). Fix: node tools/build.js --only-uncommitted'));
+    if (!built) console.log(red('  The repository is not built (dist/lattice.css is missing). Fix: node tools/build-css.js'));
     try {
       const puppeteer = require('puppeteer');
       const { detectChromeExecutable } = require(path.join(ROOT, 'lib/core/chrome-exec.js'));
