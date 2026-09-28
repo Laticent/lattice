@@ -1,7 +1,7 @@
 {
   "name": "@laticent/segno",
   "version": "0.1.0",
-  "description": "A grammar engine that only builds grammars it can prove are linear (LL(1) over characters), and the one inline notation Lattice reads with it: values, [lists] and {records}, one separator, name=value, schema-bound types with aliases and shortcuts. Framework-free, zero-dependency, no DOM.",
+  "description": "A general-purpose grammar engine that only builds grammars it can prove are linear (LL(1) over characters), and a small inline notation built on it: values, [lists] and {records}, one separator, name=value, and schema-bound types with aliases and shortcuts. Framework-free, zero-dependency, no DOM.",
   "license": "AGPL-3.0-only",
   "type": "module",
   "sideEffects": false,

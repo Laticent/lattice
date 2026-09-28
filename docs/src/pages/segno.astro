@@ -1,6 +1,7 @@
 ---
 // Segno — a standalone, framework-free showcase driven by the REAL library (docs/src/lib/segno):
-// the inline notation parsed and bound live against Lattice's slot schemas, the per-deck
+// the inline notation parsed and bound live against example slot schemas (general ones, then its
+// first user Lattice's), the per-document
 // spelling check, the compiler refusing a grammar it cannot prove linear, and the hostile-input
 // ladder timed in the visitor's own browser. No React, no slide engine — the honest proof the
 // grammar engine is a self-contained, no-DOM library. Reached at /segno.
@@ -69,6 +70,8 @@
 				border-radius: 4px; padding: 0 4px; }
 
 			.slots { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+			.slot-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -4px 0 12px; }
+			.slot-group .slots { margin-bottom: 0; }
 			.chip { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans); font-size: 13px;
 				font-weight: 600; border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: transform .08s ease, border-color .12s ease; }
 			.chip:hover { transform: translateY(-1px); border-color: var(--accent); }
@@ -187,9 +190,10 @@
 			</header>
 			<p class="sub">
 				<b>Write a grammar as data, and Segno compiles it into a parser</b> that reads any input in one left-to-right
-				pass — or refuses the grammar, naming the rule that would make it guess. Its first grammar is
-				Lattice's <b>one inline notation</b>: a value, a [list] or a &#123;record&#125;, commas between items, <b>name=value</b> when you
-				want to be explicit, and double quotes that must close, with a schema per slot saying what each word means.
+				pass — or refuses the grammar, naming the rule that would make it guess. Built on it is
+				a small <b>inline notation</b> for directives that live inside other text: a value, a [list] or a &#123;record&#125;, commas
+				between items, <b>name=value</b> when you want to be explicit, and double quotes that must close, with a schema
+				per place saying what each word means. General-purpose and dependency-free; <b>Lattice is its first user</b>.
 				Everything below runs the <b>real library</b>, in this page.
 			</p>
 
@@ -217,9 +221,10 @@
 			</section>
 
 			<section class="stage" aria-labelledby="try-h">
-				<h2 id="try-h">Its first grammar: Lattice's inline notation</h2>
+				<h2 id="try-h">The notation: typed values, in any order</h2>
 				<p class="lede">Past the parse tree, the notation has a second layer: a schema per slot binds each word to a meaning. Pick where the span sits, then type. The same notation means different things in different slots; the slot's schema decides, and an error names what the slot takes.</p>
 				<div class="slots" id="slots" role="group" aria-label="Slot"></div>
+				<div class="slot-group"><span class="label">Lattice's slots</span><div class="slots" id="slotsLattice" role="group" aria-label="Lattice slot"></div></div>
 				<div class="editor"><input id="src" spellcheck="false" autocomplete="off" aria-label="Span text" /></div>
 				<div class="tokens" id="tokens" aria-live="polite"></div>
 				<div class="result">
@@ -234,14 +239,14 @@
 			</section>
 
 			<section class="stage" aria-labelledby="one-h">
-				<h2 id="one-h">One notation, where there were many</h2>
-				<p class="lede">Lattice ships 27 inline-code grammars that use 21 sigils between them. Here are some, beside what each becomes. Try any row in the editor above.</p>
+				<h2 id="one-h">First user: Lattice</h2>
+				<p class="lede"><a href="/">Lattice</a> renders slide decks from Markdown, and its inline code spans carry directives. It had grown 27 hand-written grammars for them, with 21 sigils between them; it is moving every one onto this notation. Some of them, beside what each becomes — try any row in the editor above.</p>
 				<div class="scroll"><table id="gallery"><thead><tr><th>Where</th><th>Before</th><th>Segno</th><th></th></tr></thead><tbody></tbody></table></div>
 			</section>
 
 			<section class="stage" aria-labelledby="deck-h">
-				<h2 id="deck-h">Aliases, shortcuts, and one spelling per deck</h2>
-				<p class="lede"><code>[x]</code>, <code>&#123;done&#125;</code> and <code>&#123;yes&#125;</code> all mean the same state. That is kind per span and messy per deck, so Segno reports every span written differently from the deck's most common spelling — with a fix. One state mark per line:</p>
+				<h2 id="deck-h">Aliases, shortcuts, and one spelling per document</h2>
+				<p class="lede"><code>[x]</code>, <code>&#123;done&#125;</code> and <code>&#123;yes&#125;</code> all mean the same state. That is kind per span and messy per document, so Segno reports every span written differently from the document's most common spelling — with a fix. One state mark per line:</p>
 				<textarea class="deck" id="deck" spellcheck="false" aria-label="State marks, one per line"></textarea>
 				<div class="findings" id="findings" aria-live="polite"></div>
 			</section>
@@ -283,45 +288,68 @@
 				try { localStorage.setItem(THEME_LS, next); } catch {}
 			});
 
-			// ── The slots, declared the way Lattice declares them (phase 2 moves them into the manifests) ──
+			// ── The slots: general examples first, then the ones Lattice declares (its first user) ──
 			const STATES = ['done', 'partial', 'fail', 'unknown', 'todo', 'skip'];
 			const STATUS = ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot', 'decision', 'deferred'];
 			const SLOTS = {
+				rollout: {
+					label: 'Rollout rule', sample: '{new-checkout, beta, 25%, [eu, us], sticky}',
+					slot: record({ label: 'a rollout rule', positional: [{ name: 'flag', type: text() }], params: {
+						stage: oneOf(['off', 'beta', 'on'], { aliases: { on: ['live', 'ga'] } }), percent: number(),
+						regions: list(oneOf(['eu', 'us', 'apac'])), sticky: flag('sticky') } }),
+				},
+				retry: {
+					label: 'Retry policy', sample: '{attempts=3, backoff=250ms, jitter}',
+					slot: record({ label: 'a retry policy', params: { attempts: named(number()), backoff: named(text()), jitter: flag('jitter') } }),
+				},
+				check: {
+					label: 'Checkbox', sample: '[x]',
+					slot: record({ label: 'a checkbox', params: { state: oneOf(['done', 'todo', 'skip'], { aliases: { done: ['yes'], skip: ['n/a'] } }) },
+						shortcuts: { '[x]': '{done}', '[ ]': '{todo}', '[/]': '{skip}' } }),
+				},
 				pill: {
+					lattice: true,
 					label: 'Pill', sample: '{BETA, tag, c4}',
 					slot: record({ label: 'a pill', positional: [{ name: 'value', type: text() }], params: {
 						shape: oneOf(['pill', 'chip', 'tag', 'tag-bordered', 'circle', 'chevron-right', 'chevron-left', 'diamond']),
 						color: color({ max: 12 }), size: oneOf(['sm', 'md', 'lg']) } }),
 				},
 				state: {
+					lattice: true,
 					label: 'State mark', sample: '[x]',
 					slot: record({ label: 'a state mark', params: { state: oneOf(STATES, { aliases: { done: ['yes', 'pass'], fail: ['no'] } }) },
 						shortcuts: { '[x]': '{done}', '[-]': '{partial}', '[!]': '{fail}', '[?]': '{unknown}', '[ ]': '{todo}', '[/]': '{skip}' } }),
 				},
 				axis: {
+					lattice: true,
 					label: 'Quadrant axes', sample: '[{Effort, 0..10, 5}, {Reach, 0..100}]',
 					slot: list(record({ label: 'an axis', positional: [{ name: 'name', type: text() }], params: { domain: range(number()), target: number() } }), { max: 3, label: 'a quadrant axis line' }),
 				},
 				point: {
+					lattice: true,
 					label: 'Quadrant point', sample: '{$1.2M, 70, size=12}',
 					slot: record({ label: 'a point', positional: [{ name: 'x', type: number() }, { name: 'y', type: number(), required: true }], params: { size: number() } }),
 				},
 				journey: {
+					lattice: true,
 					label: 'Journey task', sample: '{@Customer, mood=4, volume=120}',
 					slot: record({ label: 'a journey task', params: { who: text(), mood: named(number()), volume: named(number()) }, sigils: { '@': 'who' } }),
 				},
 				gantt: {
+					lattice: true,
 					label: 'Gantt task pill', sample: 'after=Design',
 					slot: record({ label: 'a gantt task pill', params: { span: range(time()), after: named(text()), milestone: flag('milestone'), status: oneOf(STATUS) } }),
 				},
 			};
-			let current = 'pill';
-			const slotsEl = $('#slots'), src = $('#src');
+			let current = 'rollout';
+			const slotsEl = $('#slots'), slotsLattice = $('#slotsLattice'), src = $('#src');
+			const slotChips = [];
 			for (const [key, s] of Object.entries(SLOTS)) {
 				const b = document.createElement('button');
 				b.type = 'button'; b.className = 'chip'; b.textContent = s.label; b.dataset.slot = key;
 				b.addEventListener('click', () => { current = key; src.value = s.sample; render(); });
-				slotsEl.append(b);
+				(s.lattice ? slotsLattice : slotsEl).append(b);
+				slotChips.push(b);
 			}
 
 			// Colour a span by what the notation read, without a second parser: walk the parsed items.
@@ -351,7 +379,7 @@
 
 			let pendingFix = null;
 			function render() {
-				for (const b of slotsEl.children) b.setAttribute('aria-pressed', String(b.dataset.slot === current));
+				for (const b of slotChips) b.setAttribute('aria-pressed', String(b.dataset.slot === current));
 				const textIn = src.value;
 				const parsed = parse(textIn);
 				const r = SLOTS[current].slot.read(textIn);
@@ -361,7 +389,8 @@
 				if (r.ok) {
 					statusEl.dataset.ok = 'true';
 					$('#statusText').textContent = `A valid ${SLOTS[current].label.toLowerCase()}`;
-					why.textContent = r.spellings.length ? `Words bound: ${r.spellings.map((s) => `${s.written} is ${s.param} ${s.canonical}`).join('; ')}` : 'Every item bound to exactly one parameter.';
+					// "beta binds stage"; an alias shows what it stands for: "yes binds state=done".
+					why.textContent = r.spellings.length ? `Words bound: ${r.spellings.map((s) => `${s.written} binds ${s.param}${s.canonical !== s.written ? `=${s.canonical}` : ''}`).join('; ')}` : 'Every item bound to exactly one parameter.';
 					$('#bound').textContent = pretty(r.value);
 					fixBtn.hidden = true;
 				} else {
@@ -385,7 +414,7 @@
 				src.value = t.slice(0, pendingFix.from) + pendingFix.insert + t.slice(pendingFix.to);
 				render();
 			});
-			src.value = SLOTS.pill.sample;
+			src.value = SLOTS.rollout.sample;
 			render();
 
 			// ── Before / after gallery ──
@@ -638,11 +667,11 @@ return {
 
 			// ── The ladder ──
 			const SHAPES = [
-				['An unclosed quote (axis)', (n) => `["${'a, '.repeat(n / 3)}]`, 'axis'],
-				['Spaces in a member (axis)', (n) => `[a${' '.repeat(n)}b]`, 'axis'],
-				['Many members (axis)', (n) => `[${'a, '.repeat(n / 3)}b]`, 'axis'],
-				['Many modifiers (pill)', (n) => `{X${', tag'.repeat(n / 5)}}`, 'pill'],
-				['Long quoted label (pill)', (n) => `{"${'a'.repeat(n)}"}`, 'pill'],
+				['An unclosed quote (list)', (n) => `["${'a, '.repeat(n / 3)}]`, 'axis'],
+				['Spaces in an item (list)', (n) => `[a${' '.repeat(n)}b]`, 'axis'],
+				['Many items (list)', (n) => `[${'a, '.repeat(n / 3)}b]`, 'axis'],
+				['Many words (record)', (n) => `{X${', tag'.repeat(n / 5)}}`, 'pill'],
+				['Long quoted text (record)', (n) => `{"${'a'.repeat(n)}"}`, 'pill'],
 			];
 			$('#runBtn').addEventListener('click', async () => {
 				const btn = $('#runBtn');

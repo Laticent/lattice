@@ -1,34 +1,39 @@
 # Segno
 
-**A grammar engine that only builds grammars it can prove are linear — and the one inline notation Lattice reads with it.**
+**A grammar engine that only builds grammars it can prove are linear — and a small inline notation, with typed values, built on it.**
 
 Segno turns a grammar written as data into a parser, and refuses the grammar if it cannot be read
 left to right with one character of lookahead and no backtracking (LL(1) over characters). That
 refusal is the point: a grammar Segno builds parses in time proportional to its input, on any
-input, so an author's span — or a hostile one pasted into the Studio — can never make the linter
-hang. The properties a hand-written scanner only has by careful review are, here, a condition of
-compiling at all.
+input, so a hostile string pasted into your editor, form or config can never make it hang. The
+properties a hand-written scanner only has by careful review are, here, a condition of compiling
+at all.
 
-On top of the engine sits **the inline notation**: three shapes, one separator, one escape.
+It is **general-purpose**, **framework-free**, **zero-dependency** and has **no DOM**: it runs in
+the browser, Node, a worker or an edge function. [Lattice](#first-user-lattice) is its first user.
+
+Two layers, usable apart:
+
+1. **The engine** — write any grammar, get a parser: a tree of the pieces you marked, or an error
+   with a position and what was expected. [Write a grammar](#write-a-grammar).
+2. **The notation** — for short directives that live inside other text (a code span, a table
+   cell, a config value, a chat command): three shapes, one separator, one escape, and a schema
+   per place that says what each word means. [Declare a slot](#declare-a-slot).
 
 ```
-{BETA, tag, c4}                 a record: a primary value, then words and name=value
-[{Effort, 0..10, 5}, Reach]     a list; an empty element holds its place: [, Reach]
-"Cost, excluding tax"           quoted text: protects separators, forces the text type
-after=Design                    a named item on its own
-\{BETA}                         a leading backslash turns the whole span off
+{new-checkout, beta, 25%, [eu, us], sticky}   a record: a primary value, then words and name=value
+[eu, us, apac]                                a list; an empty element holds its place: [, us]
+"Cost, excluding tax"                         quoted text: protects separators, forces the text type
+attempts=3                                    a named item on its own
+\{beta}                                       a leading backslash turns the whole span off
 ```
 
-What a span MEANS comes from a **slot** — a declarative schema for the place it sits (a pill, a
-quadrant axis, a gantt task). A bare word binds to the one parameter whose type accepts it, so
-`{BETA, tag, c4}` and `{BETA, c4, tag}` are the same pill — and a schema in which a word could bind
-two ways does not build.
+What a span MEANS comes from a **slot** — a declarative schema for the place it sits. A bare word
+binds to the one parameter whose type accepts it, so `{new-checkout, beta, 25%}` and
+`{new-checkout, 25%, beta}` mean the same thing — and a schema in which a word could bind two ways
+does not build.
 
-It is **framework-free**, **zero-dependency** and has **no DOM**. The design and the owner's
-decisions: [`engineering/decisions/2026-09-28-segno-unified-inline-notation.md`](../../../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md).
-Why an owned engine rather than a library: [`2026-09-28-parser-library-bakeoff.md`](../../../../engineering/decisions/2026-09-28-parser-library-bakeoff.md).
-
-(segno, Italian: sign, mark — and the musical *dal segno*, next to Cadenza.)
+(segno, Italian: sign, mark — and the musical *dal segno*.)
 
 ## Write a grammar
 
@@ -67,27 +72,32 @@ notation ships generated (`notation.generated.ts`), and a test holds the two to 
 
 ## Declare a slot
 
-```ts
-import { color, list, number, oneOf, range, record, text } from '@laticent/segno';
+A feature-flag rollout rule, written inline:
 
-const pill = record({
-  label: 'a pill',
-  positional: [{ name: 'value', type: text() }],
+```ts
+import { flag, list, named, number, oneOf, record, text } from '@laticent/segno';
+
+const rollout = record({
+  label: 'a rollout rule',
+  positional: [{ name: 'flag', type: text() }],
   params: {
-    shape: oneOf(['pill', 'chip', 'tag', 'circle', 'diamond']),
-    color: color({ max: 12 }),
-    size: oneOf(['sm', 'md', 'lg']),
+    stage: oneOf(['off', 'beta', 'on'], { aliases: { on: ['live', 'ga'] } }),
+    percent: number(),
+    regions: list(oneOf(['eu', 'us', 'apac'])),
+    sticky: flag('sticky'),
   },
 });
 
-pill.read('{BETA, c4, tag}');   // { ok: true, value: { value: 'BETA', shape: 'tag', color: 4 } }
-pill.read('{BETA, tag, c13}');  // { ok: false, diagnostics: [{ code: 'unknown-word', message: '… color (a color c1–c12) …' }] }
+rollout.read('{new-checkout, beta, 25%, [eu, us], sticky}');
+// { ok: true, value: { flag: 'new-checkout', stage: 'beta', percent: { value: 25, unit: '%', … },
+//                      regions: ['eu', 'us'], sticky: true } }
+rollout.read('{new-checkout, [eu], 25%, live}');   // any order; `live` is an alias of `on`
+rollout.read('{new-checkout, beta, 25%, mars}');
+// { ok: false, diagnostics: [{ code: 'unknown-word', message: '"mars" is not anything a rollout rule
+//   takes — it takes flag (text), stage (one of off, beta, on), percent (a number), …', from: 26, to: 30 }] }
 
-const axes = list(record({
-  positional: [{ name: 'name', type: text() }],
-  params: { domain: range(number()), target: number() },
-}), { max: 3 });
-axes.read('[{Effort, 5, 0..10}, Reach]'); // domain 0..10 and target 5, whatever the order
+// Two numbers could claim the same bare word, so they must be named: {attempts=3, backoff=250ms}
+const retry = record({ label: 'a retry policy', params: { attempts: named(number()), backoff: named(text()) } });
 ```
 
 Binding, in order: positional items fill `positional`; `name=value` fills that parameter; any other
@@ -97,7 +107,7 @@ unbound and reports it with a range and, where one exists, a fix. Nothing is hal
 
 `record` throws a `SchemaError` when two parameters of one class could take the same bare word. The
 fix is to make one positional, or to wrap it in `named(...)` so it must be written `name=value`
-(journey's `mood=4` and `volume=120` are both numbers).
+(the retry policy's `attempts` above).
 
 ### Types
 
@@ -106,13 +116,13 @@ fix is to make one positional, or to wrap it in `named(...)` so it must be writt
 | `text()` | anything; the only type quoted text can be |
 | `oneOf(values, { aliases })` | declared words, case-insensitive, with extra spellings |
 | `flag(word)` | a word that switches something on: `milestone` |
-| `color({ max })` | `c1`…`cN`, the ceiling set per slot |
+| `color({ max })` | `c1`…`cN`, as a palette names its colors; the ceiling is set per slot |
 | `id()` | `#api` |
-| `number()` | `42` `-$0.8M` `12%` `($1.2M)` `1,25M` `1.234.567` — Lattice's chart-value rules |
-| `time()` | `2026-03-15` `2026 Q1` `Q3` `Jan` — Lattice's gantt rules |
+| `number()` | numbers as people write them: `42` `-$0.8M` `12%` `($1.2M)` `1,25M` `1.234.567` |
+| `time()` | dates as people write them: `2026-03-15` `2026 Q1` `Q3` `Jan` |
 | `range(of)` | `a..b` over another type |
 
-### Aliases, shortcuts, sigils — and one spelling per deck
+### Aliases, shortcuts, sigils — and one spelling per document
 
 ```ts
 const state = record({
@@ -126,13 +136,23 @@ state.read('{yes}'); // { state: 'done' }
 A **shortcut** is an exact whole-span token that stands for a record; a **sigil** is a leading
 character that names a parameter (`sigils: { '@': 'who' }` makes `@Customer` mean `who=Customer`).
 Both are checked when the schema is built. Every successful bind returns the `spellings` it used, and
-`consistency(uses)` reports each occurrence written differently from its deck's most common spelling,
-with a fix.
+`consistency(uses)` reports each occurrence written differently from the most common spelling in
+the same document (whatever you group by: a file, a config, a slide deck), with a fix.
+
+## First user: Lattice
+
+[Lattice](../../../../README.md) renders slide decks from Markdown, and its inline code spans carry
+directives: `` `{BETA, tag, c4}` `` is a pill, `` `[x]` `` a state mark, `` `[{Effort, 0..10}, Reach]` ``
+a chart's axes. Before Segno it had 27 hand-written grammars for them with 21 sigils between them;
+it is moving all of them onto the one notation, with one schema per place a span can sit. Why it
+built an engine rather than adopting a parser library, and what it measured:
+[`engineering/decisions/2026-09-28-parser-library-bakeoff.md`](../../../../engineering/decisions/2026-09-28-parser-library-bakeoff.md).
+The design: [`2026-09-28-segno-unified-inline-notation.md`](../../../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md).
 
 ## Speed
 
-Measured against the kernels it replaces, on the inline-code spans and bracket lists in the
-shipped decks (`npm run parser:bakeoff:segno`; best of seven long rounds, one machine):
+Measured against the hand-written parsers it replaces in Lattice, on the inline-code spans and
+bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best of seven long rounds, one machine):
 
 | job | kernel | Segno | ratio |
 |---|---|---|---|

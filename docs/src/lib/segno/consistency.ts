@@ -1,21 +1,22 @@
 /**
- * One spelling per deck.
+ * One spelling per document.
  *
  * Aliases and shortcuts let an author write `[x]`, `{done}` or `{yes}` for the same state. That
- * is a kindness per span and a mess per deck, so the host collects every Spelling a deck's spans
- * bound (schema.ts) and asks this module which ones disagree. For each (slot, parameter, value)
- * written more than one way, the spelling the deck uses MOST is the house form, and every other
- * occurrence gets a warning with a fix to it. A tie goes to the spelling that appears first, so
- * the answer never depends on anything but the deck.
+ * is a kindness per span and a mess per document, so the host collects every Spelling its spans
+ * bound (schema.ts) and asks this module which ones disagree. A "document" is whatever the host
+ * groups by — a file, a config, a slide deck (Lattice checks one deck at a time). For each (slot,
+ * parameter, value) written more than one way, the spelling used MOST is the house form, and every
+ * other occurrence gets a warning with a fix to it. A tie goes to the spelling that appears first,
+ * so the answer never depends on anything but the uses passed in.
  */
 
 import type { Diagnostic } from './notation.js';
 import type { Spelling } from './schema.js';
 
 export interface Use extends Spelling {
-  /** Which slot bound it: "pill", "state". Spellings are only compared within one slot. */
+  /** Which slot bound it: "badge", "state". Spellings are only compared within one slot. */
   readonly slot: string;
-  /** Where the span is in the deck — any stable key the host can map back (a line, an offset). */
+  /** Where the span is in the document — any stable key the host can map back (a line, an offset). */
   readonly where: string;
 }
 
@@ -44,7 +45,7 @@ export function consistency(uses: readonly Use[]): Inconsistency[] {
     const preferShortcut = g.some((u) => u.written === preferred && u.shortcut);
     for (const u of g) {
       if (u.written === preferred) continue;
-      const message = `this deck writes "${u.canonical}" as "${preferred}" ${counts.get(preferred)} time(s) and as "${u.written}" here — pick one`;
+      const message = `"${u.canonical}" is written "${preferred}" ${counts.get(preferred)} time(s) elsewhere and "${u.written}" here — pick one`;
       out.push({ use: u, preferred, diagnostic: { code: 'mixed-spelling', severity: 'warning', message, from: u.from, to: u.to, ...fixFor(u, preferred, preferShortcut) } });
     }
   }

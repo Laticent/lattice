@@ -7,17 +7,18 @@
  * parameter in the highest class that accepts it, and a schema in which two parameters of
  * the same class could both accept one word does not build (schema.ts).
  *
- *   vocab  — declared words: enum values, their aliases, flags, color slots
+ *   vocab  — declared words: enum values, their aliases, flags, indexed slots like c1…c12
  *   id     — `#api`
  *   number — `42` `-$0.8M` `12%` `($1.2M)` `1,25M`
  *   time   — `2026-03-15` `2026 Q1` `Q3` `Jan`
  *   range  — `0..10` `Q1..Q3`
  *   text   — anything, and the ONLY class a quoted string can land in
  *
- * The number and time readers carry the rules Lattice's kernels settled after real decks
- * broke them (lib/core/chart-values.js, lib/core/gantt-time.js): four sign spellings, the
- * accounting parenthesis, European separators, the magnitude letter, calendar round-trips.
- * One reader each, for every chart.
+ * The number and time readers are for numbers and dates as PEOPLE write them, not as a
+ * programming language does: four sign spellings, the accounting parenthesis `($1.2M)`, European
+ * separators `1.234,5`, a magnitude letter `k` `M` `B`, a unit, and quarters and months as well as
+ * dates. The rules were settled in Lattice's chart readers after real slides broke them, and a
+ * parity test in this folder holds the two identical.
  */
 
 export type Cls = 'vocab' | 'id' | 'number' | 'time' | 'range' | 'text';
@@ -31,7 +32,7 @@ export interface Type<T> {
   readonly words?: readonly string[];
   /** The value, or undefined when this spelling is not this type's. */
   read(text: string, quoted: boolean): T | undefined;
-  /** For vocab types: the canonical spelling a word resolves to (for per-deck consistency). */
+  /** For vocab types: the canonical spelling a word resolves to (for per-document consistency). */
   canonical?(text: string): string | undefined;
   /** Only ever bound by `name=value`, never by a bare word (see `named`). */
   readonly namedOnly?: boolean;
@@ -98,7 +99,7 @@ export function flag(word: string, options: { aliases?: readonly string[] } = {}
   };
 }
 
-/** A categorical color slot `c1`…`cN`. The ceiling is the SLOT's, so `c9` on an 8-slot chart names the limit. */
+/** An indexed color slot `c1`…`cN`, as a palette names its colors. The ceiling is the SLOT's, so `c9` where 8 are allowed names the limit. */
 export function color(options: { max: number }): Type<number> {
   const words = Array.from({ length: options.max }, (_, i) => `c${i + 1}`);
   return {

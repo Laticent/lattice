@@ -76,11 +76,17 @@ describe('a grammar that compiles', () => {
   });
 
   it('is linear: 16x the input costs about 16x the time, never 256x', () => {
+    // Best of seven single parses per size: a garbage-collection pause only ever ADDS time, so
+    // the minimum is the parser's real cost. An average of five failed once on a cold machine.
     const t = (n: number) => {
       const s = `[${Array.from({ length: n }, () => '7').join(',')}]`;
-      const t0 = performance.now();
-      for (let k = 0; k < 5; k++) g.parse(s);
-      return (performance.now() - t0) / 5;
+      let best = Infinity;
+      for (let k = 0; k < 7; k++) {
+        const t0 = performance.now();
+        g.parse(s);
+        best = Math.min(best, performance.now() - t0);
+      }
+      return best;
     };
     t(2000); // warm
     const small = t(4000);

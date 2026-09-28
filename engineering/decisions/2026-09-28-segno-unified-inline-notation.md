@@ -61,6 +61,7 @@ them, and the rest are ordinary code that must stay literal.
 | 10 | **Coordinates are one record** for quadrant and scatter alike: `{3, 70, size=12}` | owner |
 | 11 | **Journey is a record** `{who=Customer, mood=4, volume=120}`, with `@Customer` kept as a declared shortcut for `who=`; `:4` and `+120` are dropped | owner |
 | 12 | **One `color` type**, `c1`–`c12`, and each slot declares its ceiling (the flowchart's is 8), so `c9` on a flowchart is an error that names the limit | owner |
+| 13 | **Segno is a general-purpose library; Lattice is its first user.** It will be published for non-Lattice uses, so nothing in its API, messages or docs may assume Lattice: "per deck" is "per document", examples lead with general cases (a rollout rule, a retry policy), and Lattice is the documented first user. The phase-1 audit and what it left open: § Published, not Lattice's | owner |
 
 ## The notation
 
@@ -282,6 +283,33 @@ with a handful of inputs, and V8 names no single deoptimization; chasing it furt
 one JIT, so it stops here. In absolute terms a pill costs 0.7 µs, and the shipped decks hold 24
 of them. **Check-in:** phase 2 either accepts 2.0x on pills or binds straight off the flat tree,
 which removes the tree-to-values step (about 80 ns) and most of the binding allocations.
+
+## Published, not Lattice's
+
+Decision 13 makes Segno a library other projects will adopt. Phase 1 audited it for Lattice leaking in:
+
+- **Code:** clean. Nothing in the source imports outside its folder (`checkSegnoBoundary`), and no
+  message or type depends on Lattice.
+- **Fixed in phase 1:**
+  - `consistency()` said "this deck writes…" to every user; it now says where else the value is
+    written, and "document" is whatever the host groups by.
+  - An unlabeled list named itself "this list" in errors; it now says what it holds.
+  - A list's spellings reported the element type's description as their parameter; they now report
+    the parameter.
+  - The README, package description and `/segno` page lead with the general engine, with Lattice
+    as its first user.
+- **Open, for the owner, before the first publish:**
+  - **License.** The package carries `AGPL-3.0-only`, copied from its sibling libraries. AGPL
+    requires anyone who serves software built on it over a network to publish their source, which
+    many companies will not accept in a dependency. A permissive license (MIT, Apache-2.0) is the
+    usual choice for a library meant for broad adoption; the choice is the owner's.
+  - **`color({ max })`** spells indexed colors `c1…cN`, a Lattice convention. It is harmless as a
+    convenience, but a general `indexed(prefix, { max })` would serve other palettes.
+  - **`number()`'s rules** (accounting parentheses, `k`/`M`/`B`, European separators) are
+    documented as "numbers as people write them". They are opinionated; the parity test that holds
+    them to `lib/core/chart-values.js` is Lattice's contract, and belongs on Lattice's side if the
+    library moves to its own repository.
+  - **Publishing** to npm is external and cannot be taken back; it waits for its own go-ahead.
 
 ## Demo page and branding
 

@@ -2,17 +2,16 @@
  * Slots and schemas: what a span MEANS where it sits.
  *
  * The notation only says a span is a record, a list or a value. A SLOT says what that shape is
- * for — a pill in prose, a quadrant's axis line, a gantt task's trailing pills — by declaring
- * its parameters:
+ * for — a badge, a retry policy, a chart axis — by declaring its parameters:
  *
- *   const pill = record({
- *     positional: [{ name: 'value', type: text() }],
- *     params: { shape: oneOf(SHAPES), color: color({ max: 12 }), size: oneOf(['sm', 'md', 'lg']) },
+ *   const badge = record({
+ *     positional: [{ name: 'label', type: text() }],
+ *     params: { shape: oneOf(['pill', 'tag', 'circle']), size: oneOf(['sm', 'md', 'lg']) },
  *   });
  *
  * BINDING IS DETERMINISTIC, and the rules are short:
  *
- *   1. positional items fill `positional` in order (a pill's label, a point's x and y);
+ *   1. positional items fill `positional` in order (a badge's label, a point's x and y);
  *   2. `name=value` fills that parameter; an unknown name is an error;
  *   3. any other bare item fills THE ONE parameter, in the highest precedence class
  *      (types.ts CLASS_ORDER), whose type accepts its spelling;
@@ -22,7 +21,7 @@
  * Rule 3 never has to guess, because `record()` REFUSES to build a schema in which two
  * parameters of one class could accept the same word: two enums sharing a word, two
  * numbers, two ids. Ambiguity is a build error for the schema's author, never a surprise
- * for a deck's author.
+ * for whoever writes the span.
  *
  * Shortcuts and sigils are declared here too. A shortcut is an exact whole-span token that
  * stands for a record (`[x]` → `{done}`); a sigil is a leading character that names a
@@ -48,11 +47,11 @@ export interface RecordSpec {
   readonly shortcuts?: Readonly<Record<string, string>>;
   /** Leading characters that name a parameter: `{ '@': 'who' }` makes `@Customer` mean `who=Customer`. */
   readonly sigils?: Readonly<Record<string, string>>;
-  /** A human name for messages: "a pill", "a quadrant axis". */
+  /** A human name for messages: "a badge", "a retry policy". */
   readonly label?: string;
 }
 
-/** What a slot reports about each vocab word it bound, for per-deck consistency. */
+/** What a slot reports about each vocab word it bound, for per-document consistency. */
 export interface Spelling {
   readonly param: string;
   /** The canonical value (an enum value, a flag word). */
@@ -80,7 +79,7 @@ export interface Slot<T> {
   readonly label: string;
   /** Bind a parsed value. */
   bind(v: Value): Bound<T>;
-  /** Bind items spread over several spans (a gantt task's trailing pills), as one record. */
+  /** Bind items spread over several spans (Lattice's gantt task pills, say), as one record. */
   bindItems?(items: readonly Item[]): Bound<T>;
   /** Parse and bind one span's text. */
   read(text: string): Bound<T>;
@@ -214,7 +213,7 @@ class Binding {
       if (!r.ok) { for (const d of r.diagnostics) this.problem(d); return; }
       this.out[name] = r.value;
       // A nested slot's words are its own: `axis.state`, so two sub-slots never share a group.
-      if (r.spellings.length) (this.spellings ??= []).push(...r.spellings.map((sp) => ({ ...sp, param: `${name}.${sp.param}` })));
+      if (r.spellings.length) (this.spellings ??= []).push(...r.spellings.map((sp) => ({ ...sp, param: sp.param ? `${name}.${sp.param}` : name })));
       return;
     }
     if (v.kind !== 'scalar') { this.problem(err('wrong-shape', `expected ${t.describe}, found a ${v.kind}`, v.from, v.to)); return; }
@@ -387,7 +386,11 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
 
 /** A list slot: `[a, b, c]`, each element bound by `of`. Empty elements hold their place as `null`. */
 export function list<T>(of: Slot<T> | Type<T>, options: { max?: number; label?: string } = {}): Slot<(T | null)[]> {
-  const label = options.label ?? 'this list';
+  // Unlabeled, a list says what it holds, so an error names it usefully: "a list of one of eu, us".
+  const label = options.label ?? `a list of ${isSlot(of) ? of.label : of.describe}`;
+  // Built once, not per element. Its spellings name no parameter of their own, so a list under
+  // `regions` reports `regions`, not `regions.one of eu, us, apac`.
+  const element: Slot<T> = isSlot(of) ? of : value(of, { spellingParam: '' });
   const slot: Slot<(T | null)[]> = {
     kind: 'list',
     label,
@@ -402,7 +405,7 @@ export function list<T>(of: Slot<T> | Type<T>, options: { max?: number; label?: 
       const diags: Diagnostic[] = [];
       for (const el of v.items) {
         if (el === null) { out.push(null); continue; }
-        const r = isSlot(of) ? of.bind(el) : value(of).bind(el);
+        const r = element.bind(el);
         if (r.ok) { out.push(r.value as T); spellings.push(...r.spellings); } else diags.push(...r.diagnostics);
       }
       return diags.length ? { ok: false, diagnostics: diags } : { ok: true, value: out, spellings };
@@ -417,9 +420,10 @@ export function list<T>(of: Slot<T> | Type<T>, options: { max?: number; label?: 
   return slot;
 }
 
-/** A value slot: one bare or quoted value of a type (a gantt span `Q1..Q3`, a status word). */
-export function value<T>(type: Type<T>, options: { label?: string } = {}): Slot<T> {
+/** A value slot: one bare or quoted value of a type (a span of quarters `Q1..Q3`, a status word). */
+export function value<T>(type: Type<T>, options: { label?: string; spellingParam?: string } = {}): Slot<T> {
   const label = options.label ?? type.describe;
+  const spellingParam = options.spellingParam ?? label;
   const slot: Slot<T> = {
     kind: 'value',
     label,
@@ -428,7 +432,7 @@ export function value<T>(type: Type<T>, options: { label?: string } = {}): Slot<
       if (v.kind !== 'scalar') return { ok: false, diagnostics: [err('wrong-shape', `expected ${type.describe}, found a ${v.kind}`, v.from, v.to)] };
       const got = type.read(v.text, v.quoted);
       if (got === undefined) return { ok: false, diagnostics: [err('wrong-type', `"${v.text}" is not ${type.describe}`, v.from, v.to)] };
-      const spellings: Spelling[] = type.cls === 'vocab' ? [{ param: label, canonical: type.canonical?.(v.text) ?? v.text, written: v.text.toLowerCase(), from: v.from, to: v.to, shortcut: false }] : [];
+      const spellings: Spelling[] = type.cls === 'vocab' ? [{ param: spellingParam, canonical: type.canonical?.(v.text) ?? v.text, written: v.text.toLowerCase(), from: v.from, to: v.to, shortcut: false }] : [];
       return { ok: true, value: got, spellings };
     },
     read(text: string) {

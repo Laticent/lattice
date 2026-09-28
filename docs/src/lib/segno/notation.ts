@@ -1,15 +1,16 @@
 /**
- * The inline notation — Segno's first grammar, written in its own vocabulary.
+ * The inline notation — Segno's first grammar, written in its own vocabulary. It is for short
+ * directives that live inside other text: a code span in Markdown, a cell, a config value.
  *
  *   `{BETA, tag, c4}`           a record: a primary value, then words and name=value
  *   `[{Effort, 0..10}, Reach]`  a list; an empty element holds its place: `[, Reach]`
  *   `"Cost, excluding tax"`     quoted text: protects separators, forces the text type
- *   `after=Design`              a named item on its own (a trailing chart pill)
+ *   `after=Design`              a named item on its own
  *   `$4.2M`  `Q1..Q3`  `at-risk` a bare value; its type is the slot's to decide
  *   `\{BETA}`                   the leading backslash turns the whole span off
  *
  * Separators: `,` between items and `=` after a name — nothing else. `|` is reserved: it
- * is an error inside a record, so it can be given a meaning later without breaking a deck.
+ * is an error inside a record, so it can be given a meaning later without breaking anyone.
  * A `{` must be followed directly by a non-space (`{ ok, scene }` is code, not a record).
  *
  * The grammar below is compiled by grammar.ts, which proves it LL(1) — so every span is read

@@ -1,5 +1,6 @@
-// Segno — the public surface. A grammar engine that only builds grammars it can prove are
-// linear, and the one inline notation Lattice reads with it. Framework-free, zero-dependency,
+// Segno — the public surface. A general-purpose grammar engine that only builds grammars it can
+// prove are linear, and a small inline notation (values, [lists], {records}) with schema-bound
+// types built on it. Lattice is its first user. Framework-free, zero-dependency,
 // no DOM. Design: engineering/decisions/2026-09-28-segno-unified-inline-notation.md
 //
 // (segno, Italian: sign, mark — and the musical *dal segno*, next to cadenza.)

@@ -198,3 +198,11 @@ describe('what the checker found', () => {
     expect(() => oneOf(['a'], { aliases: { a: ['b, c'] } })).toThrow(/cannot be written/);
   });
 });
+
+describe('spellings name their parameter plainly', () => {
+  it('words in a list under a parameter report that parameter', () => {
+    const rule = record({ positional: [{ name: 'flag', type: text() }], params: { regions: list(oneOf(['eu', 'us'])) } });
+    const r = rule.read('{x, [eu, us]}');
+    expect(r.ok && r.spellings.map((sp) => sp.param)).toEqual(['regions', 'regions']);
+  });
+});
