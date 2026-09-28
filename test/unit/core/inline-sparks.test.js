@@ -33,15 +33,22 @@ describe('inline-sparks — what it renders', () => {
     assert.equal(sparks.COLORS.length, 12);
   });
 
-  test(':framed applies to every type and marks the host, and nothing else changes', () => {
+  test('frame, surface and corners are per-spark axes that mark the host and leave the drawing alone', () => {
     for (const text of ['~{1 2 3}', '~{1 -1}:winloss', '~{72%}', '~{3/4}:bullet']) {
       const bare = sparks.resolve(text);
-      const framed = sparks.resolve(`${text}:framed`);
-      assert.equal(framed.framed, true, text);
-      assert.deepEqual(framed.marks, bare.marks, `${text}: the frame is CSS, the drawing is unchanged`);
+      for (const mod of ['framed', 'bare', 'solid', 'outline', 'square', 'rounded']) {
+        assert.deepEqual(sparks.resolve(`${text}:${mod}`).marks, bare.marks, `${text}:${mod}: the frame is CSS`);
+      }
     }
-    assert.match(sparks.sparkHtml('~{1 2}:framed:c3'), /data-c="c3" data-framed=""/);
-    assert.equal(sparks.resolve('~{1 2}:framed:framed'), null);
+    // Only what the author wrote reaches the host; the slide and deck fill in the rest in CSS.
+    assert.doesNotMatch(sparks.sparkHtml('~{1 2}'), /data-frame|data-surface|data-corners/);
+    assert.match(sparks.sparkHtml('~{1 2}:bare:outline:rounded:c3'),
+      /data-c="c3" data-frame="bare" data-surface="outline" data-corners="rounded"/);
+    // One word per axis.
+    for (const text of ['~{1 2}:framed:bare', '~{1 2}:solid:outline', '~{1 2}:square:rounded']) {
+      assert.equal(sparks.resolve(text), null, text);
+      assert.match(sparks.diagnose(text), /repeats the/, text);
+    }
   });
 
   test('modifier order is free — the axes are sorted, not positional', () => {

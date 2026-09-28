@@ -44,21 +44,22 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 
 <!-- _class: table table-fill -->
 
-## Markers point at a value; color and frames match pills.
+## Every spark is framed, and the frame is yours to set.
 
 | Modifier | Effect | Spark |
 | --- | --- | --- |
 | `:end` `:minmax` | dot the latest value; the low and the high | `~{31 28 33 30 38 35 41 44}:lg:end` `~{31 28 33 30 38 35 41 44}:lg:minmax` |
 | `:c3` `:c5` | a categorical color slot | `~{31 28 33 30 38 35 41 44}:lg:c3:end` `~{44 41 35 38 30 33 28 31}:lg:c5:end` |
-| `:framed` | a pill's capsule behind it, same height | `~{31 28 33 30 38 35 41 44}:framed:end` `{ON PLAN}` `~{72%}:framed` |
-| `:framed:c3` | the slot's fill and edge, like `{X}:c3` | `~{31 28 33 30 38 35 41 44}:framed:c3` `{ON PLAN}:c3` `~{3 4 2 5}:bar:framed:c3` |
+| default | a squared 3:2 frame, a step taller than a pill | `~{31 28 33 30 38 35 41 44}:end` `{ON PLAN}` `~{72%}` |
+| `:outline` `:rounded` | an edge only; the theme's small radius | `~{31 28 33 30 38 35 41 44}:outline` `~{31 28 33 30 38 35 41 44}:rounded` `~{3 4 2 5}:bar:outline:rounded` |
+| `:bare` | no frame, just ink | `~{31 28 33 30 38 35 41 44}:bare:end` `~{3 4 2 5}:bar:bare` |
 | negatives | zero line appears when data crosses it | `~{4 2 -1 -3 1 3 5}:bar:lg` `~{4 2 -1 -3 1 3 5}:lg:end` |
 
 ---
 
-<!-- _class: content -->
+<!-- _class: content spark-bare -->
 
-## A spark sits in a sentence at the size of the words.
+## On a prose slide, `spark-bare` keeps the lines even.
 
 Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21}:end` over eight weeks, while churn held flat `~{4 4 5 4 4 4 5 4}:zero`.
 
@@ -104,7 +105,7 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21}:end` over
    - target $2.2B · +9% `On plan`
 2. 42%
    - Gross margin
-   - `~{38 39 39 40 41 42}:framed:end` +2pp QoQ `On plan`
+   - `~{38 39 39 40 41 42}:end` +2pp QoQ `On plan`
 3. $1.1B
    - Cash & equivalents
    - `~{0.8 0.9 0.85 0.95 1.0 1.1}:bar` +$180M QoQ `On plan`

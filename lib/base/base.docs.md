@@ -1623,10 +1623,11 @@ signs. The reader's number is already in the text beside the spark.
 
 ### Size — `:sm` `:md` `:lg` and `:fill`
 
-Sizes are in em, so a spark scales with the text around it. `:sm` (0.8em × 3em) keeps a
-line of prose even; `:md`, the default (1em × 4.5em), suits table cells and list items;
-`:lg` (1.7em × 7.5em) suits a caption under a big number. Widths are fixed per size, so
-every row's spark in a table can be compared. `:fill` puts the spark on a line of its
+A **framed** spark (the default) is a tile measured in a pill's type size, so it matches
+the pills around it wherever it sits: 1.25× a pill's height at `:md`, and 0.85× or 1.6×
+that at `:sm` and `:lg`. A **bare** spark is measured in the text's own em instead:
+`:sm` is 0.8em × 3em, `:md` 1em × 4.5em, `:lg` 1.7em × 7.5em. Either way widths are fixed
+per size, so every row's spark in a table can be compared. `:fill` puts the spark on a line of its
 own and stretches it to the width of the text block it sits in. In a `kpi` hero tile that
 is the width of the tile's widest line, which is what lets a trend underline the metric.
 Keep `:fill` out of a sentence, because it breaks the paragraph. It works on every type
@@ -1646,18 +1647,38 @@ slide. `:minmax` dots the low and the high. Both apply to `line`, `area` and `st
 
 ### Color — `:c1` … `:c12`
 
-A spark takes the color of the text it sits in. `:c1`–`:c12` point it at the same
-categorical slots pills use. A `winloss` loss is `--accent`, but its position below the
-line carries the meaning.
+A framed spark draws in a pill's ink; a bare or `outline` one takes the color of the text
+it sits in. `:c1`–`:c12` point it at the same categorical slots pills use: a framed spark
+takes the slot's fill, edge and on-fill ink, as `` `{X}:c3` `` does, and a bare one draws
+in the slot's mark. A `winloss` loss is `--accent`, but its position below the line
+carries the meaning.
 
-### Frame — `:framed`
+### Frame — framed by default, and yours to set
 
-A spark is bare ink by default, which is what keeps a table of them quiet. `:framed` puts
-a pill's capsule behind it: the pill's own height, padding, edge, radius and fill, so a
-spark next to a pill on a `kpi` line reads as its pair (`` `~{38 39 40 42}:framed:end` ``
-beside `` `On plan` ``). With a color slot it takes the slot's fill and edge, as
-`` `{X}:c3` `` does. It also helps a spark hold contrast on a tinted panel or a backdrop. It
-works on every type.
+Every spark sits in a **squared frame**: a 3:2 tile (a ring's is square) about 1.25× a pill's
+height, measured in the pill's type size and wearing its fill and edge, but a visible step
+taller, so it reads as a small chart and never as a pill. With a color slot the frame takes the slot's fill and edge, as
+`` `{X}:c3` `` does. The frame has three axes, and each can be set for one spark, one slide or
+the whole deck:
+
+| Axis | Words | Default |
+|---|---|---|
+| Frame | `framed` · `bare` (no frame, just ink) | `framed` |
+| Surface | `solid` (a tinted well) · `outline` (the edge alone) | `solid` |
+| Corners | `square` · `rounded` (the theme's small radius) | `square` |
+
+- **One spark:** the word as a modifier, `` `~{1 3 2}:bare` `` or `` `~{1 3 2}:outline:rounded` ``.
+- **One slide:** the word as a class with `spark-` in front, `<!-- _class: table spark-bare -->`.
+- **The deck:** the `spark:` front-matter register, `spark: bare` or `spark: outline rounded`
+  ([`base.registers.docs.md`](base.registers.docs.md) § `spark:`).
+
+The most specific wins, one axis at a time: the spark, then the slide, then the deck, then the
+default. `:framed`, `:solid` and `:square` (and the matching classes) exist so a spark or a
+slide can return to the default inside a deck that set another value. A spark that names its
+own surface or corners (`` `~{…}:outline` ``) wants a frame, so it keeps one on a bare slide or
+in a bare deck unless it also says `:bare`. The three sizes scale
+the whole tile (0.85× / 1× / 1.6×). A frame adds a little height to a line of prose, so a
+paragraph with several sparks may read better with `spark-bare` on that slide.
 
 Modifier order is free: `` `~{1 3 2}:area:c4:lg` `` and `` `~{1 3 2}:lg:c4:area` `` are
 the same spark. Each spark carries `role="img"` and a spoken label with its numbers

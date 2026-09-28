@@ -1,0 +1,198 @@
+---
+title: Sparks
+description: A chart the size of a word — put numbers in `~{…}` inside inline code and it draws a line, bars or a ring, framed, anywhere text goes.
+---
+
+import CraftLab from '../../../components/craft/CraftLab.astro';
+
+export const LAB_TABLE = `<!-- _class: table -->
+
+## In a table, every row's trend reads at a glance.
+
+| Region | Q3 revenue | Last 8 quarters | Plan |
+| --- | ---: | --- | --- |
+| North America | $4.2M | \`~{3.1 3.3 3.2 3.6 3.8 3.9 4.0 4.2}:end\` | \`~{4.2/4.0}:bullet\` |
+| Europe | $2.8M | \`~{2.9 2.8 2.9 2.7 2.8 2.6 2.7 2.8}:end\` | \`~{2.8/3.1}:bullet\` |
+| Asia Pacific | $1.9M | \`~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9}:end\` | \`~{1.9/1.6}:bullet\` |
+`;
+
+export const LAB_TYPES = `<!-- _class: list-tabular -->
+
+## Seven types, one grammar.
+
+1. Change over time
+   - \`~{12 14 13 17 16 21 24}\` \`~{12 14 13 17 16 21 24}:area\` \`~{12 14 13 17 16 21 24}:bar\` \`~{2 2 3 3 3 5 4}:step\`
+2. Hit or miss
+   - \`~{1 1 -1 1 0 -1 1 1}:winloss\`
+3. One value against a whole
+   - \`~{72%}\` \`~{72/80}:bullet\`
+`;
+
+export const LAB_FRAMES = `---
+spark: outline
+---
+
+<!-- _class: list-tabular -->
+
+## The deck says outline; one spark says otherwise.
+
+1. The deck's word
+   - \`~{31 28 33 30 38 35 41 44}:end\` \`{ON PLAN}\`
+2. One spark's word
+   - \`~{31 28 33 30 38 35 41 44}:solid:rounded\` \`~{31 28 33 30 38 35 41 44}:bare:end\`
+`;
+
+A **spark** is a chart the size of a word: no axes, no labels, no legend. Edward
+Tufte called the line version a *sparkline*. You make one by writing numbers in
+`~{…}` inside **single-backtick** inline code:
+
+```markdown
+Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21}:end` in eight weeks.
+```
+
+Like a [pill](/guides/status/pills/), a spark works on every slide, anywhere inline code
+can go: a table cell, a `kpi` line, a caption, a sentence. It belongs beside a
+**current number that has a history**, where the history changes how you read the
+number.
+
+<CraftLab
+	label="A trend and a plan in every row"
+	kind="none"
+	editMarkdown
+	markdown={LAB_TABLE}
+	size="short"
+	hint="Change Europe's last value to 3.4 and watch its line turn up and its bullet pass the target tick."
+/>
+
+## How to read a spark
+
+```
+`~{12 14 13 17 21}:bar:c3:lg:end`
+  ───────┬──────  ─┬─ ─┬ ─┬ ─┬─
+         │         │   │  │  └ marker
+         │         │   │  └ size
+         │         │   └ color slot
+         │         └ type
+         └ the data, in ~{ }
+```
+
+Everything after the closing brace is a **modifier**, each starting with a colon, in
+any order: `` `~{1 3 2}:area:c4:lg` `` and `` `~{1 3 2}:lg:c4:area` `` are the same
+spark. Leave a modifier out and you get the default.
+
+## The data
+
+- **A series** is two to 48 numbers, oldest first: `~{12 14 13 17 21}`.
+- **A ratio** is one value against a whole or a target: `~{72/80}`, or `~{72%}` for 72 of 100.
+
+Numbers only. A sign and decimals are fine; units, thousands commas and currency signs
+are not. The reader's number is already in the text beside the spark, so the spark
+only has to carry the shape.
+
+## Type
+
+| Modifier | Data | Shows | Use it for |
+|---|---|---|---|
+| *(none)* for a series, `:line` | series | the shape of change | revenue by quarter, weekly signups |
+| `:area` | series | the same, with weight | a hero trend under a `kpi` value |
+| `:bar` | series | the size of each period | monthly counts |
+| `:step` | series | levels that hold, then jump | headcount, a price tier |
+| `:winloss` | series | the sign only: hits above, misses below | sprints, quarters beat or missed |
+| *(none)* for a ratio, `:ring` | ratio | one part of a whole | completion, utilization |
+| `:bullet` | ratio | a value against a target tick | plan attainment |
+
+<CraftLab
+	label="Every type"
+	kind="none"
+	editMarkdown
+	markdown={LAB_TYPES}
+	size="short"
+	hint="Add :lg to one spark, or put a comma in a number and watch it fall back to plain code."
+/>
+
+## The frame
+
+Every spark sits in a **squared frame**: a 3:2 tile (a ring's is square) a step taller
+than a pill, so it reads as a small chart and never as a label. The frame has three settings, and each
+one can be set for one spark, one slide or the whole deck:
+
+| Setting | Words | Default |
+|---|---|---|
+| Frame | `framed` · `bare` (no frame, just ink in the line) | `framed` |
+| Surface | `solid` (a tinted well) · `outline` (the edge alone) | `solid` |
+| Corners | `square` · `rounded` (the theme's small radius) | `square` |
+
+- **One spark:** the word as a modifier, `` `~{1 3 2}:bare` ``.
+- **One slide:** the word as a class, `<!-- _class: table spark-bare -->`.
+- **The whole deck:** the `spark:` line in front matter, `spark: outline rounded`.
+
+The most specific wins, one setting at a time: the spark, then the slide, then the
+deck. A slide that says `spark-bare` keeps the deck's `outline` for any spark that asks
+for its frame back, and a spark that names its own surface or corners asks for it.
+
+<CraftLab
+	label="Deck, slide and spark settings"
+	kind="none"
+	editMarkdown
+	markdown={LAB_FRAMES}
+	size="short"
+	hint="Change the deck's line to spark: bare rounded. The first row loses its frame; the :solid:rounded spark keeps one."
+/>
+
+A frame adds a little height to a line of prose. A paragraph with several sparks may
+read better with `spark-bare` on that slide.
+
+## Size — `:sm`, `:lg` and `:fill`
+
+A framed spark is measured in a pill's type size, so it matches the pills around it,
+and a bare one in the text's own size. `:sm` and `:lg` step either down and up; widths
+are fixed per size, so every row's spark in a table can be compared. `:fill`
+stretches a spark to the width of its line, for a trend under a big number, and
+puts it on a line of its own.
+
+## Scale — `:zero`
+
+A line runs from its own low to its own high, which shows the **shape** of change. It
+also makes a series that barely moved look dramatic: churn between 4% and 5% draws as
+spikes. `:zero` starts the line at zero instead, so the same churn reads flat. Use it
+when the point is that something held. Bars always start at zero, because a bar's
+length is its value.
+
+## Markers and color
+
+- `:end` dots the latest value in the accent color, so "now" looks the same in every spark.
+- `:minmax` dots the low and the high.
+- `:c1` … `:c12` are the same numbered [color slots](/guides/status/pills/#color--c1--c12)
+  pills use. A framed spark takes the slot's fill, edge and ink, like a pill; a bare one
+  draws in the slot's color.
+
+## When a spark stays code
+
+**A mistake shows up as code, not as a wrong chart.** A span that opens with `~{`,
+with a digit in its data or a spark modifier after it, is a spark attempt. If it
+doesn't parse, it renders as the code you typed: `` `~{1,200 1,450}` `` (a comma),
+`` `~{72%}:bar` `` (a bar needs a series), `` `~{3 5 4}:c13` `` (there are twelve slots).
+`lint:deck` warns with the reason, and the Studio's editor underlines the span.
+
+To keep the text on purpose, put a backslash in front: `` `\~{1,200}` `` renders as
+`~{1,200}` and silences the warning. LaTeX's `` `\~{}` `` and `` `\~{n}` `` have no
+digit, so they are never read as sparks.
+
+Sparks follow the same switch as pills: `inline-code: literal` in front matter turns
+them off for the whole deck.
+
+## Where sparks belong
+
+| Place | How |
+|---|---|
+| `kpi` | a supporting line under the value, or `:fill:area` under the hero number |
+| `table` | a trend column beside the current value, a `:bullet` plan column |
+| `big-number` | in the caption, `:lg` |
+| a sentence or a list | the default, or `spark-bare` if the lines start to spread |
+
+Leave them out of the chart components (a chart inside a chart) and out of chart
+captions, which stack an inline element on its own row for now.
+
+## Next
+
+Pills are the label-sized sibling: [Pills you place](/guides/status/pills/).

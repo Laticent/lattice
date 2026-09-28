@@ -963,6 +963,37 @@ still the `banner-tag` class. An unknown word, or a second word on one axis, is 
 `unknown-tag`. Kernel: `lib/core/resolve-card-tag.js`; CSS: `lib/base/base.card-tag.css`
 § REGISTER; record: `engineering/decisions/2026-09-27-card-tag-register.md`.
 
+## The `spark:` front-matter register (inline sparks)
+
+A **spark** is the word-sized chart an author writes in inline code (`` `~{12 14 17}` ``,
+[`base.docs.md`](base.docs.md) § Inline sparks). Every spark is framed by default: a squared
+3:2 tile with a tinted well. `spark:` changes that for the whole deck (`lib/core/resolve-spark.js`).
+It takes up to three words, one per axis, in any order:
+
+| Axis | Deck value | Per-slide class | Effect |
+|---|---|---|---|
+| Frame | `framed` | `spark-framed` | The squared frame. **The default** (omit the key) |
+| Frame | `bare` | `spark-bare` | No frame: the spark is bare ink in the line |
+| Surface | `solid` | `spark-solid` | A tinted well behind the drawing. **The default** |
+| Surface | `outline` | `spark-outline` | The frame's edge alone |
+| Corners | `square` | `spark-square` | Hard corners. **The default** |
+| Corners | `rounded` | `spark-rounded` | The theme's small radius (`--radius-sm`) |
+
+```markdown
+---
+spark: outline rounded
+---
+
+<!-- _class: table spark-bare -->
+```
+
+**Most specific wins, one axis at a time:** the spark's own modifier (`` `~{…}:framed` ``), then
+the slide's class, then the deck's `spark:`, then the default. A spark that names its own
+surface or corners keeps a frame in a bare deck unless it also says `:bare`. A ring's frame is
+square rather than 3:2. The table slide above drops the
+frame and keeps the deck's outline and rounded words for any spark that asks for a frame back.
+`lint:deck` warns (`unknown-spark`) on a word it does not know and on a second word for one axis.
+
 ## The slide's corner — `corners:`
 
 Whether the slide's own surface is square or rounded. A sibling register of the ones

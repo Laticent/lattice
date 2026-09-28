@@ -228,6 +228,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Authoring decks', slug: 'guides/authoring' },
 						{ label: 'Deck settings', slug: 'guides/deck-settings' },
+						{ label: 'Sparks', slug: 'guides/sparks' },
 						{ label: 'Themes & palettes', slug: 'guides/themes' },
 						{ label: 'Using the command line', slug: 'guides/cli' },
 					],

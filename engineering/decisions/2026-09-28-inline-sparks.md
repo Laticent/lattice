@@ -66,7 +66,7 @@ thousands commas, no currency signs**: `1,200` is literal code. The number the r
 is already in the text next to the spark, and the spark only has to carry its shape. This
 also keeps the parser a whitespace split, with no locale rules.
 
-### 3.2 Modifiers — seven axes
+### 3.2 Modifiers — nine axes
 
 | Axis | Values | Default | Applies to |
 |---|---|---|---|
@@ -76,7 +76,9 @@ also keeps the parser a whitespace split, with no locale rules.
 | **width** | `fill` — its own line, as wide as the text block | the size's fixed width | all but ring |
 | **scale** | `zero` — start the value axis at 0 | low-to-high | line, area, step |
 | **markers** | `end` (latest value), `minmax` (low and high); both allowed | none | line, area, step |
-| **frame** | `framed` — a pill's capsule behind it (added 2026-09-28, §10 h) | bare | all |
+| **frame** | `framed` · `bare` — a squared 3:2 frame, or bare ink (§10 i) | `framed` | all |
+| **surface** | `solid` · `outline` — a tinted well, or the edge alone (§10 i) | `solid` | all |
+| **corners** | `square` · `rounded` — hard, or the theme's small radius (§10 i) | `square` | all |
 
 **A spark attempt is a `~{` with a digit in its data, or with a spark modifier after it**
 (`~{abc}:bar`), so LaTeX's `\~{}` and `\~{n}` are never read as broken sparks. **An attempt that doesn't parse stays literal code, and nothing is
@@ -112,7 +114,10 @@ pill's reason: a wrong chart that looks plausible survives review, while a liter
 
 ## 5. The three sizes
 
-Sizes are in **em**, so a spark scales with the text it sits in. The same `md` spark is small
+*(Superseded in part by §10 i: this section describes the BARE spark. A framed spark, now
+the default, is a tile measured in a pill's type size — 1.25× a pill's height at `md`,
+0.85× / 1.6× at `sm` / `lg`, 3:2 except a ring's square.)* Sizes are in **em**, so a spark
+scales with the text it sits in. The same `md` spark is small
 in a table cell and larger in a `kpi` line without any per-component CSS.
 
 | Size | Box (height × width) | Where |
@@ -149,6 +154,8 @@ A zero line (dashed, `--muted-mark`) appears only when a series crosses zero.
 
 ## 7. Color and marks
 
+- *(§10 i: a FRAMED spark, the default, draws in a pill's ink, `--pill-fg`, or with a slot
+  its `--cat-on-fill` on the slot's fill; what follows describes a bare or outline spark.)*
 - **Ink is `currentColor`.** A spark takes the color of the text it sits in, so it follows the
   theme, dark mode and any component that recolors its text (HARD RULE #3: no hex anywhere).
 - **`c1`–`c12`** set it to `--cat-N-mark`, the same slots pills use.
@@ -215,7 +222,7 @@ every ruling.
 - **(e) Loss color in `winloss`: `--accent`.** It stays palette-blind. *Alternative:* a status
   token (the red/green register), which reads faster but ties sparks to the status palette.
 - **(f) 48 points maximum.** Past that, bars merge at `md` and the data is a chart, not a spark.
-- **(h) Framing — settled 2026-09-28: opt-in `:framed`, bare by default.** Asked after the
+- **(h) Framing — settled 2026-09-28, then superseded by (i) the same day: opt-in `:framed`, bare by default.** Asked after the
   implementation. A frame per spark would make every table busier than its numbers, so bare
   stays the default. The opt-in frame reuses the pill's own measures (font size, padding, 1px
   edge, radius, fill; a color slot's fill and edge), so a framed spark and a pill stand the
@@ -223,6 +230,16 @@ every ruling.
   pills differently (plain `--pill-fs`, on a baseline-aligned flex row), so `kpi.styles.css`
   matches them there; measured equal heights on the demo deck's `kpi` slide. The frame is a
   `::before` inside the span's padding, not a border plus margin (HARD RULE #20).
+- **(i) Framing, revised by the owner 2026-09-28 — supersedes (h).** Framed BY DEFAULT, in a
+  SQUARED frame, not a pill's capsule: a 3:2 tile about 1.25× a pill's height, so a spark is
+  visibly not a pill. Configurable on three axes (frame `framed`/`bare`, surface
+  `solid`/`outline`, corners `square`/`rounded`) at three levels, most specific wins: the spark's
+  modifier, the slide's `spark-*` class, the deck's `spark:` register (`lib/core/resolve-spark.js`,
+  shaped like `tag:`). The owner picked all three recommendations in one round: the register
+  shape, 3:2 over 4:3 or 1:1 (a 12-point series stays readable), and 0 radius. The surface axis
+  is `solid`/`outline`, not `filled`, because `:fill` already means "span the line". The framed
+  sizes step 0.85× / 1× / 1.6×, wider than a pill's, because a frame has to read as a chart at
+  every size; the 1.2× a pill uses left `:lg` barely bigger than `:md`.
 - **(g) `lint:deck` coaching.** A span that opens with `~{` but doesn't parse gets a warning
   naming the reason (the pill rule has no such warning today). Recommended, since the literal
   fallback is silent otherwise.
