@@ -1,7 +1,8 @@
 - **Breaking:** `theme: carbone` now resolves **light**. Carbone was curated a real light
   face and takes the house two-file shape, so a deck that wants the graphite canvas asks
-  for `theme: carbone-dark`. Every dark value is byte-identical to what carbone shipped
-  before. One rendering DOES change on the dark face, and for the better: a
+  for `theme: carbone-dark`. The dark surfaces and ink are the ones carbone shipped
+  before (its categorical order changed later; see the carbone-curation entry). One
+  rendering DOES change on the dark face, and for the better: a
   `<!-- _class: light -->` slide used to keep a graphite canvas while its inks flipped
   light (the #1527 seam), and now the canvas genuinely goes light.
 - Carbone gained a curated light face. The electric lime `#7DE38A` measures 1.47:1 on an
