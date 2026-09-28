@@ -147,7 +147,7 @@ describe('rough-ink — column rules are opt-in at the source', () => {
 
 describe('rough-ink — the structure registry', () => {
   test('every entry names a known kind and a non-empty selector', () => {
-    const KINDS = new Set(['grid', 'ledger', 'rows', 'mid', 'underline']);
+    const KINDS = new Set(['grid', 'ledger', 'rows', 'mid', 'underline', 'spark']);
     for (const s of ROUGH_INK_STRUCTURES) {
       assert.ok(KINDS.has(s.kind), `${s.id}: unknown kind ${s.kind}`);
       assert.ok(s.sel.trim().length > 0, `${s.id}: empty selector`);
@@ -177,6 +177,42 @@ describe('rough-ink — the structure registry', () => {
     const divider = ROUGH_INK_STRUCTURES.find((s) => s.id === 'divider');
     assert.match(divider.sel, /:not\(\.masthead-rule\)/);
     assert.ok(ROUGH_INK_STRUCTURES.some((s) => s.id === 'masthead-rule'));
+  });
+});
+
+describe('rough-ink — sparks', () => {
+  const plan = {
+    key: 'spark:0:0', kind: 'spark', x: 100, y: 50, w: 60, h: 30, hLines: [], vLines: [],
+    stroke: 'rgb(1,2,3)', strokeWidth: 0.9,
+    frame: { x: 3, y: 0, w: 54, h: 30 },
+    marks: [
+      { t: 'line', pts: [[8, 20], [20, 12], [40, 16]], stroke: 'rgb(9,9,9)', w: 1.5 },
+      { t: 'rect', x: 10, y: 15, w: 4, h: 8, stroke: 'rgb(8,8,8)', sw: 1 },
+      { t: 'arc', cx: 30, cy: 15, r: 9, frac: 0.72, stroke: 'rgb(7,7,7)', sw: 3 },
+      { t: 'arc', cx: 30, cy: 15, r: 9, frac: 0, stroke: 'rgb(7,7,7)', sw: 3 },
+    ],
+  };
+
+  test('draws the tile in the plan stroke and each mark in its own color and width', () => {
+    const paths = pathsForPlan(plan);
+    const by = (c) => paths.filter((p) => p.stroke === c);
+    assert.ok(by('rgb(1,2,3)').length > 0, 'the tile');
+    assert.ok(by('rgb(1,2,3)').every((p) => p.strokeWidth === 0.9));
+    assert.ok(by('rgb(9,9,9)').length > 0 && by('rgb(9,9,9)').every((p) => p.strokeWidth === 1.5), 'the line');
+    assert.ok(by('rgb(8,8,8)').length > 0, 'the bar outline');
+    // A 0% ring has no arc to draw; the 72% one does.
+    assert.equal(by('rgb(7,7,7)').length, 1);
+  });
+
+  test('is in section coordinates and byte-stable across renders', () => {
+    const a = pathsForPlan(plan);
+    assert.deepEqual(pathsForPlan(plan), a, 'a re-render draws the same hand');
+    const xs = a.flatMap((p) => p.d.match(/-?\d*\.?\d+/g).filter((_, i) => i % 2 === 0).map(Number));
+    assert.ok(Math.min(...xs) > 90, `every x is shifted by the plan's x: ${Math.min(...xs)}`);
+  });
+
+  test('a spark plan with no frame and no marks draws nothing', () => {
+    assert.deepEqual(pathsForPlan({ ...plan, frame: undefined, marks: [] }), []);
   });
 });
 

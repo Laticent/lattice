@@ -1,6 +1,9 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { buildSrcdoc } from '../playground/deck-preview.js';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
+
+const require = createRequire(import.meta.url);
 
 // The #616 T-CONTENT guard: engine-rendered slide HTML is written into a
 // same-origin, un-sandboxed preview frame, so any script in it executes in the
@@ -49,6 +52,21 @@ describe('sanitizeSlideHtml — preserves legitimate engine output', () => {
 		expect(out).toContain('viewBox="0 0 1 1"');
 		expect(out).toContain('--funnel-stages:3'); // chart custom property survives
 		expect(out).toContain('data-mood="4"');
+	});
+	it('keeps an inline spark whole: its svg marks, the ring dash and the placed dots', () => {
+		// The engine's own output for three sparks (lib/core/inline-sparks.js), so a sanitizer
+		// config change that drops a spark's geometry fails here, not on a slide.
+		const sparks = require('../../../lib/core/inline-sparks.js') as { sparkHtml: (t: string) => string };
+		const html = ['~{1 3 2 5}:area:end:minmax', '~{72%}', '~{3/4}:bullet:fill'].map((t) => sparks.sparkHtml(t)).join('');
+		const out = sanitizeSlideHtml(html);
+		for (const kept of [
+			'class="lat-spark"', 'role="img"', 'aria-label="Trend, 4 points', 'data-fill=""',
+			'preserveAspectRatio="none"', '<circle', 'stroke-dasharray=', 'transform="rotate(-90 12 12)"',
+			'class="s-area"', 'class="s-target"', 'class="lat-spark-dot s-end"', 'style="--x:97;--y:13.33"',
+		]) {
+			expect(out, kept).toContain(kept);
+		}
+		expect(out.match(/lat-spark-dot/g)).toHaveLength(3);
 	});
 	it('keeps inline style url() — the engine emits it for bg images + logo masks', () => {
 		expect(sanitizeSlideHtml('<div class="lattice-bg" style="background-image:url(\'/samples/a.svg\')"></div>')).toContain('url(');

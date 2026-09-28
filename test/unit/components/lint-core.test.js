@@ -1255,6 +1255,34 @@ describe('lint-core: crowded circle / diamond pills (pill-shape-crowded)', () =>
   });
 });
 
+describe('lint-core: a spark that renders as code (spark-literal)', () => {
+  const literal = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'spark-literal');
+  const deck = (body) => `${FM}## Heading\n\n${body}\n`;
+
+  test('it WARNS with the kernel\'s own reason, and names the span for the underline', () => {
+    const [f] = literal(deck('Revenue `~{1,200 1,450}` this year.'));
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.span, '`~{1,200 1,450}`');
+    assert.match(f.message, /`1,200` is not a number/);
+    assert.match(f.fix, /\\~\{1,200 1,450\}/, 'the fix offers the escape');
+  });
+
+  test('a working spark, an escaped attempt and non-spark code are not its business', () => {
+    assert.equal(literal(deck('`~{1 2 3}:bar` `\\~{1,2}` `~15` `{LIVE}` `~~x~~`')).length, 0);
+  });
+
+  test('a code block and a literal deck render no sparks, so they get no finding', () => {
+    assert.equal(literal(deck('```\n`~{1,2}`\n```')).length, 0);
+    assert.equal(literal(`---\nmarp: true\ninline-code: literal\n---\n\n## H\n\n\`~{1,2}\`\n`).length, 0);
+  });
+
+  test('every refusal the kernel makes has a reason the rule can show', () => {
+    for (const bad of ['~{1 2}:bar:end', '~{72%}:bar', '~{1 2}:c13', '~{5}']) {
+      assert.equal(literal(deck(`\`${bad}\``)).length, 1, bad);
+    }
+  });
+});
+
 describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
   const glyphs = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'typed-shape-glyph');
   const slide = (cls, body) => `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;

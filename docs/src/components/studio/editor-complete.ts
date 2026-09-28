@@ -68,6 +68,7 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'venue', info: 'Where the deck is seen — sets the type size for the back row. laptop (default) · huddle (4–6 people) · conference (10–30) · hall (50+).' },
 	{ key: 'cards', info: 'Where a card row puts spare height — center / stretch / top / spread. Omit it and the component decides.' },
 	{ key: 'corners', info: 'Slide surface corners — square (default) / rounded.' },
+	{ key: 'spark', info: 'Inline sparks (`~{12 14 17}`) — frame framed (default) / bare, look pigment (default) / etching / tone, corners square (default) / rounded. Up to one word per axis.' },
 	{ key: 'claim', info: 'How much frame the content sits inside — framed (default) / quiet / hero / bleed.' },
 	{ key: 'fit', info: 'What the engine may do to make a slide fit — report (change nothing, only flag) / heal (default: split an overfull slide, lose no words) / trim (heal, and also cut text that does not fit). Replaces guards:.' },
 	// Chrome
@@ -160,6 +161,7 @@ export const VOCAB_VALUE_FIELDS: Record<string, string> = {
 	lift: 'liftNames',
 	backdrop: 'backdropNames',
 	tag: 'tagNames',
+	spark: 'sparkNames',
 	venue: 'venueNames',
 	preset: 'presetNames',
 	delivery: 'deliveryNames',
@@ -225,6 +227,63 @@ function inFrontMatter(doc: string, pos: number): boolean {
 	return pos <= close;
 }
 
+/** What may come next in a spark or pill — lint-core's `inlineCodeCompletions()` shape. */
+export type InlineNext = { next: string; words: { label: string; axis: string; info: string }[] };
+
+/** Starter sparks, offered once `` `~ `` is typed. */
+const SPARK_TEMPLATES: Completion[] = [
+	['~{12 14 13 17 21}', 'line'],
+	['~{12 14 13 17 21}:bar', 'bars'],
+	['~{1 1 -1 1 -1 1}:winloss', 'win-loss'],
+	['~{72%}', 'ring'],
+	['~{72/80}:bullet', 'bullet'],
+].map(([label, detail]) => ({ label, detail, type: 'snippet' }));
+
+const WORD = /^[\w-]*$/;
+
+/**
+ * Completion inside a spark (`` `~{…}:` ``) or a pill (`` `{LABEL}:` ``), by POSITION like the
+ * `_class:` line (slide-context.js classTokenResult): the menu holds only the NEXT open axis —
+ * a type, then a size, then a color … — and only the words the kernel accepts there. When what
+ * the author types matches none of those (`c3` while types are showing), it widens to every
+ * valid word, grouped by axis; `validFor` switches on that keystroke, the same way.
+ *
+ * The cursor is inside a span when an odd number of backticks precede it. `next` is lint-core's
+ * `inlineCodeCompletions` (null before the lazy core arrives, or for a span that is not one).
+ */
+export function inlineCodeCompletion(
+	before: string,
+	next: ((span: string) => InlineNext | null) | null,
+): { typed: string; options: Completion[]; validFor: (text: string) => boolean } | null {
+	if (((before.match(/`/g) || []).length & 1) === 0) return null;
+	const inside = before.slice(before.lastIndexOf('`') + 1);
+	if (/^~\{?$/.test(inside)) return { typed: inside, options: SPARK_TEMPLATES, validFor: (t) => /^~\{?[^`]*$/.test(t) };
+	const m = /^(~?\{[^}`]*\}(?::[\w-]+)*):([\w-]*)$/.exec(inside);
+	const got = m && next ? next(m[1]) : null;
+	if (!m || !got) return null;
+	const typed = m[2];
+	// `boost` keeps the kernel's order inside a step (sm md lg, c1 … c12), not the alphabet's.
+	const option = (w: InlineNext['words'][number], rank: number, i: number): Completion => ({
+		label: w.label,
+		type: 'keyword',
+		detail: w.axis,
+		info: w.info,
+		section: { name: w.axis, rank },
+		boost: 99 - i,
+	});
+	const axes = [...new Set(got.words.map((w) => w.axis))];
+	const primary = got.words.filter((w) => w.axis === got.next);
+	const inPrimary = (t: string) => primary.some((w) => w.label.startsWith(t));
+	if (inPrimary(typed)) {
+		return { typed, options: primary.map((w, i) => option(w, 0, i)), validFor: (t) => WORD.test(t) && inPrimary(t) };
+	}
+	return {
+		typed,
+		options: got.words.map((w, i) => option(w, axes.indexOf(w.axis), i)),
+		validFor: (t) => WORD.test(t) && !inPrimary(t),
+	};
+}
+
 /**
  * Build a CodeMirror CompletionSource from the component catalog. Returns null
  * when nothing applies, so other sources (none, here) can take over.
@@ -242,7 +301,10 @@ export function makeStudioCompletion(
 	//     (`registerValueLists(lintVocab)`), offered on a top-level `key:` line.
 	//   vocab     — the lint vocab's modifier registry; drives the positional
 	//     `_class:` completion (falls back to the flat `modifiers` list).
-	opts: { modifiers?: string[]; palettes?: string[]; registers?: Record<string, string[]>; vocab?: CompletionVocab | null } = {},
+	//   inlineNext — what may come next in a spark or pill (lint-core's
+	//     `inlineCodeCompletions`, read from the kernels), offered after `` `~{…}: `` or
+	//     `` `{LABEL}: ``. Null until the lazy lint core arrives; the menu stays closed till then.
+	opts: { modifiers?: string[]; palettes?: string[]; registers?: Record<string, string[]>; vocab?: CompletionVocab | null; inlineNext?: ((span: string) => InlineNext | null) | null } = {},
 ) {
 	// The `finish:` front-matter VALUE vocabulary — built-in presets (bare, e.g.
 	// `atrium`; the engine adds the prefix) PLUS the user's saved finishes, which
@@ -271,6 +333,10 @@ export function makeStudioCompletion(
 	return function studioComplete(context: CompletionContext): CompletionResult | null {
 		const line = context.state.doc.lineAt(context.pos);
 		const before = line.text.slice(0, context.pos - line.from);
+
+		// 0. Inside a spark (`` `~{12 14 17}:bar:lg` ``) or a pill (`` `{LIVE}:tag:c4` ``).
+		const inline = inlineCodeCompletion(before, opts.inlineNext ?? null);
+		if (inline) return { from: context.pos - inline.typed.length, options: inline.options, validFor: inline.validFor };
 
 		// 1. A `_class:` directive token, completed by POSITION like a shell command
 		// line: the first word is a component, and every later word is only what THAT

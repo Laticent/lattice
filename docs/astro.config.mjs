@@ -90,6 +90,8 @@ export default defineConfig({
 		'/workbench': '/studio/',
 		// The one "Pills and marks" page became the "Status and labels" track.
 		'/guides/pills': '/guides/status/',
+		// Sparks moved under the Inline elements group, beside marks and pills.
+		'/guides/sparks': '/guides/inline/sparks/',
 	},
 	// HTML navigation is cheap, so warm it everywhere: every internal <a>
 	// prefetches its destination on hover/focus (the `hover` strategy). The one
@@ -233,31 +235,46 @@ export default defineConfig({
 					],
 				},
 				{
-					// How to say status on a slide: state marks, pills, status words and
-					// label sets. A track read in order, not a reference, because the
-					// confusion it exists to prevent is between neighbors (a mark vs a
-					// pill, `[!]` vs `[ ]`), and a neighbor only makes sense once you have
-					// met the thing beside it. The cheat sheet is the reference.
-					label: 'Status and labels',
+					// Elements that sit INSIDE a line of text: state marks, pills and sparks.
+					// One group because they are one syntax family (inline code, one dispatcher
+					// in lib/core/inline-code-directives.js, one `\` escape), and a new inline
+					// form lands here rather than in Guides, whose pages cover the whole deck.
+					label: 'Inline elements',
 					items: [
-						{ label: 'Saying status on a slide', slug: 'guides/status' },
-						{ label: 'The six answers', slug: 'guides/status/answers' },
-						{ label: 'Marks in layouts', slug: 'guides/status/marks-in-layouts' },
-						{ label: 'Pills you place', slug: 'guides/status/pills' },
-						{ label: 'Pills a component places', slug: 'guides/status/component-pills' },
-						{ label: 'Upgrading an older deck', slug: 'guides/status/upgrading' },
-						{ label: 'Cheat sheet', slug: 'guides/status/cheat-sheet' },
+						{ label: 'Things you put in a line', slug: 'guides/inline' },
+						{
+							// How to say status on a slide: state marks, pills, status words and
+							// label sets. A track read in order, not a reference, because the
+							// confusion it exists to prevent is between neighbors (a mark vs a
+							// pill, `[!]` vs `[ ]`), and a neighbor only makes sense once you have
+							// met the thing beside it. Its cheat sheet is a lookup page, so it lives
+							// under Reference, not in this track (see there).
+							label: 'Status and labels',
+							items: [
+								{ label: 'Saying status on a slide', slug: 'guides/status' },
+								{ label: 'The six answers', slug: 'guides/status/answers' },
+								{ label: 'Marks in layouts', slug: 'guides/status/marks-in-layouts' },
+								{ label: 'Pills you place', slug: 'guides/status/pills' },
+								{ label: 'Pills a component places', slug: 'guides/status/component-pills' },
+								{ label: 'Upgrading an older deck', slug: 'guides/status/upgrading' },
+							],
+						},
+						{ label: 'Sparks', slug: 'guides/inline/sparks' },
 					],
 				},
 				{
 					// Lookup pages, as opposed to the learning tracks above: read a Guide once,
 					// in order; come back to Reference when you know what you want and need
 					// the exact spelling. Each Guide links to its Reference page.
+					// EVERY CHEAT SHEET LIVES HERE AND ONLY HERE. A cheat sheet is a lookup page,
+					// and listing it both in its guide's group and here showed one page twice in
+					// one sidebar; the guides link to their cheat sheet in the text instead.
 					label: 'Reference',
 					items: [
 						{ label: 'Front matter', slug: 'reference/front-matter' },
 						{ label: 'CLI', slug: 'reference/cli' },
 						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
+						{ label: 'Sparks cheat sheet', slug: 'guides/inline/sparks-cheat-sheet' },
 					],
 				},
 				{

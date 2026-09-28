@@ -1,0 +1,49 @@
+/* PROTOTYPE spark styles. Sizes are em, so a spark scales with the text it sits in. */
+.lat-spark {
+  display:inline-block;
+  position:relative;
+  box-sizing:content-box;
+  padding-inline:0.15em;
+  vertical-align:middle;
+  line-height:0;
+  color:inherit;
+  --spark-h:1em;  --spark-w:4.5em;  --spark-stroke:max(1.25px, 0.07em);
+}
+.lat-spark[data-size='sm'] { --spark-h:0.8em; --spark-w:3em;   --spark-stroke:max(1px, 0.06em); }
+.lat-spark[data-size='lg'] { --spark-h:1.7em; --spark-w:7.5em; --spark-stroke:max(1.5px, 0.08em); }
+.lat-spark { height:var(--spark-h); width:var(--spark-w); }
+.lat-spark[data-type='ring'] { width:var(--spark-h); }
+.lat-spark[data-type='ring'][data-size='md'] { --spark-h:1.1em; }
+.lat-spark[data-fill] { display:block; width:100%; }
+.lat-spark svg { display:block; width:100%; height:100%; overflow:visible; }
+.lat-spark svg * { vector-effect:non-scaling-stroke; }
+
+.lat-spark .s-line { fill:none; stroke:currentColor; stroke-width:var(--spark-stroke); stroke-linejoin:round; stroke-linecap:round; }
+.lat-spark .s-area { fill:color-mix(in srgb, currentColor 20%, transparent); stroke:none; }
+.lat-spark .s-zero { fill:none; stroke:var(--muted-mark); stroke-width:1px; stroke-dasharray:2 2; }
+.lat-spark .s-up { fill:currentColor; }
+.lat-spark .s-down { fill:var(--spark-down, var(--accent)); }
+.lat-spark .s-tie { fill:var(--muted-mark); }
+.lat-spark .s-dot {
+  position:absolute;
+  left:calc(0.15em + (100% - 0.3em) * var(--x) / 100); top:var(--y);
+  width:var(--spark-dot); height:var(--spark-dot);
+  translate:-50% -50%;
+  border-radius:50%;
+  background:currentColor;
+  --spark-dot:calc(var(--spark-stroke) * 3.4);
+}
+.lat-spark .s-end { background:var(--accent); --spark-dot:calc(var(--spark-stroke) * 3.8); }
+.lat-spark .s-track { fill:color-mix(in srgb, currentColor 16%, transparent); }
+.lat-spark .s-value { fill:currentColor; }
+.lat-spark .s-target { stroke:var(--text-heading); stroke-width:calc(var(--spark-stroke) * 1.6); }
+.lat-spark[data-type='ring'] svg * { vector-effect:none; }
+.lat-spark[data-type='ring'] .s-track { fill:none; stroke:color-mix(in srgb, currentColor 18%, transparent); stroke-width:4; }
+.lat-spark[data-type='ring'] .s-arc { fill:none; stroke:currentColor; stroke-width:4; stroke-linecap:butt; }
+
+.lat-spark[data-c='c1'] { color:var(--cat-1-mark); }  .lat-spark[data-c='c2'] { color:var(--cat-2-mark); }
+.lat-spark[data-c='c3'] { color:var(--cat-3-mark); }  .lat-spark[data-c='c4'] { color:var(--cat-4-mark); }
+.lat-spark[data-c='c5'] { color:var(--cat-5-mark); }  .lat-spark[data-c='c6'] { color:var(--cat-6-mark); }
+.lat-spark[data-c='c7'] { color:var(--cat-7-mark); }  .lat-spark[data-c='c8'] { color:var(--cat-8-mark); }
+.lat-spark[data-c='c9'] { color:var(--cat-9-mark); }  .lat-spark[data-c='c10'] { color:var(--cat-10-mark); }
+.lat-spark[data-c='c11'] { color:var(--cat-11-mark); } .lat-spark[data-c='c12'] { color:var(--cat-12-mark); }

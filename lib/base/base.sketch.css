@@ -50,7 +50,9 @@
  * the HTML legend, and card text — but it cannot reach inside a chart's
  * SVG geometry, so wedges/bars/lines keep their own marks. Hand-drawn
  * chart MARKS are a deferred follow-up (chart-family SVG work); see
- * engineering/decisions/2026-06-11-sketch-finish.md.
+ * engineering/decisions/2026-06-11-sketch-finish.md. Inline SPARKS are the
+ * exception: they are enrolled in the rough ink (part 3), tile and marks,
+ * at the end of this file.
  *
  * Bundle position: tail, alongside the other Finish-tier modifiers, so
  * its slide-scoped selectors (section.sketch …) compose on top of every
@@ -906,3 +908,26 @@ section.sketch.agenda.rail > .cell-stage > ol > li::before {
   border-color: var(--sketch-ink);
   border-radius: 50% 47% 53% 49% / 49% 53% 47% 51%;
 }
+
+/* ── Inline sparks — the tile and the marks, drawn by hand ─────────────────
+ * A spark (lib/core/inline-sparks.js) is enrolled as a rough-ink structure (`kind: 'spark'`,
+ * lib/core/rough-ink.js): the ink redraws the tile's edge in the spark's own `--spark-edge`, and
+ * each line, step, bar outline, bullet tick and ring arc in that mark's own color, read from
+ * computed style. Fills stay as the look drew them; only the LINES change hand.
+ *
+ * The handover below hides the clean versions once the slide has ink, keyed on the overlay as
+ * every other handover in this file is. It hides with `stroke-opacity: 0` and a transparent
+ * `border-color`, never `stroke: none` / `border: none`: the measurer re-reads each mark's
+ * `stroke` on every re-measure, and the box must not move under it. The zero baseline is not
+ * redrawn and stays visible — its dashes are part of what it says. */
+section.sketch .lat-spark {
+  --rough-ink-stroke: var(--spark-edge);
+  --rough-ink-width: 0.9;
+}
+/* Header and footer sparks are not inked (chrome sits above the overlay; lib/core/rough-ink-dom.js),
+ * so the handover leaves them alone too — a mark is always exactly one of clean or inked. One
+ * trade, stated: a mark whose paint an author's `<style>` sets to something that is not a color
+ * (`url(…)`) is dropped by the measurer's validation AND hidden here, so it disappears rather
+ * than reaching an SVG attribute (HARD RULE #22). */
+section.sketch:has(> svg[data-lattice-rough-ink]) .lat-spark:not(:is(header, footer) .lat-spark)::before { border-color: transparent; }
+section.sketch:has(> svg[data-lattice-rough-ink]) .lat-spark:not(:is(header, footer) .lat-spark) > svg > :is(.s-line, .s-target, .s-arc, rect:not(.s-track)) { stroke-opacity: 0; }

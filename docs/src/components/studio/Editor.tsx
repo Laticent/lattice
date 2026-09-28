@@ -3,12 +3,13 @@ import { defaultKeymap, history, historyField, historyKeymap } from '@codemirror
 import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
-import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
+import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/lint';
 import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
+import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
-import { type CompletionComponent, type CompletionVocab, makeStudioCompletion, registerValueLists } from './editor-complete';
+import { type CompletionComponent, type CompletionVocab, type InlineNext, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { slideEditableOffset, slideIndexAt } from './lint';
 import { tourChromeMargin } from './tour-chrome';
@@ -320,8 +321,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  programmatic doc sync when `value` changes. Distinguishes a real edit from
 	 *  an external setSource so callers can react to authoring, not to their own writes. */
 	onUserEdit?: () => void;
+	/** Sparks the preview MEASURED too big for their space (docs/src/lib/spark-fit.ts), on the
+	 *  slide at `slideIndex`. Lint cannot see a layout, so these arrive from the preview and
+	 *  join the lint pass as `spark-too-big` warnings with a one-click resize. */
+	measuredSparks?: { slideIndex: number; reports: SparkFitReport[] } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onCursorText, onSelectionChange, onUserEdit, onLintCounts, carryKey, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onCursorText, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, carryKey, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -409,8 +414,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// freshly-saved finish stops being flagged / starts completing immediately.
 	const acComp = React.useRef(new Compartment());
 	const lintComp = React.useRef(new Compartment());
+	// What may come next in a spark or pill, from the lint core once it has loaded (read at
+	// completion time, so the menu works the moment the core arrives, without a reconfigure).
+	const inlineNext = (span: string): InlineNext | null => lintCoreMod?.inlineCodeCompletions?.(span) ?? null;
+	// The latest measured sparks, read by the lint pass; a new measurement re-runs it.
+	const measuredRef = React.useRef(measuredSparks);
+	measuredRef.current = measuredSparks;
 	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab })], activateOnTyping: true, icons: false, maxRenderedOptions: 300 });
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext })], activateOnTyping: true, icons: false, maxRenderedOptions: 300 });
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {
@@ -434,14 +445,35 @@ export const Editor = React.forwardRef<EditorHandle, {
 						reportLint(view, null);
 						return [];
 					}
-					reportLint(view, findings);
-					return findingsToDiagnostics(view.state.doc, findings, {
+					const fixOpts = {
 						// biome-ignore lint/suspicious/noExplicitAny: lint-core finding + CM view.
 						onFix: (v: any, f: any) => {
 							const out = core.applyFix(v.state.doc.toString(), f);
 							if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out } });
 						},
-					}) as Diagnostic[];
+					};
+					// Measured, not linted: sparks the preview found too big for their space. Only the
+					// slide the preview shows was measured, so a span elsewhere with the same text is
+					// not flagged — each warning is kept only if it lands on that slide.
+					const m = measuredRef.current;
+					const measured: Diagnostic[] = [];
+					const measuredFindings: Array<{ autofixable?: boolean }> = [];
+					if (m?.reports.length && core.sparkFitFindings) {
+						const text = view.state.doc.toString();
+						for (const f of core.sparkFitFindings(text, m.reports)) {
+							const [d] = findingsToDiagnostics(view.state.doc, [f], fixOpts) as Diagnostic[];
+							if (!d || slideIndexAt(text, d.from) !== m.slideIndex) continue;
+							measured.push(d);
+							// Counted, but NOT as bulk-fixable: "Fix all" runs applyAllFixes over the
+							// linted findings only and cannot see a measurement, so counting these as
+							// fixable would light a button that does nothing (StudioShell's lint-counts
+							// comment records that bug). Each keeps its own one-click fix.
+							measuredFindings.push({ ...f, autofixable: false });
+						}
+					}
+					reportLint(view, measuredFindings.length ? findings.concat(measuredFindings) : findings);
+					const diags = findingsToDiagnostics(view.state.doc, findings, fixOpts) as Diagnostic[];
+					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
 				})
 			: makeLinter(known, reportLint);
 
@@ -793,6 +825,18 @@ export const Editor = React.forwardRef<EditorHandle, {
 	React.useEffect(() => {
 		viewRef.current?.dispatch({ effects: lintComp.current.reconfigure(buildLint()) });
 	}, [vocabSets, known]);
+
+	// A new measurement from the preview re-runs the lint pass, so the warning appears (or clears)
+	// without waiting for the next keystroke. Keyed on the content, not the object identity.
+	const measuredKey = measuredSparks ? `${measuredSparks.slideIndex}|${measuredSparks.reports.map((r) => `${r.src}>${r.to}`).join(',')}` : '';
+	const lastMeasuredKey = React.useRef('');
+	React.useEffect(() => {
+		// Nothing measured before and nothing now: no pass to re-run (and forcing one on mount
+		// would run the linter before the real lint core is configured).
+		if (measuredKey === lastMeasuredKey.current) return;
+		lastMeasuredKey.current = measuredKey;
+		if (viewRef.current) forceLinting(viewRef.current);
+	}, [measuredKey]);
 
 	// External value changes — a version restore, an AI apply, a surgical slide-settings or
 	// note write — replace the doc without losing the editor. Two shapes:

@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
@@ -8,7 +9,7 @@ import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
-import { FRONT_MATTER_KEYS, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
+import { FRONT_MATTER_KEYS, inlineCodeCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -456,5 +457,47 @@ describe('front-matter registers — keys and values', () => {
 		expect(written.has('fit'), 'the Fit field\'s write must stay visible to this check').toBe(true);
 		const offered = new Set(FRONT_MATTER_KEYS.map((k) => k.key));
 		expect([...written].filter((k) => !offered.has(k))).toEqual([]);
+	});
+});
+
+describe('inlineCodeCompletion — only what comes next, in a spark or a pill', () => {
+	// The real kernels, through lint-core — the same answers the Studio gets.
+	const req = createRequire(import.meta.url);
+	const core = req('../../../../lib/authoring/lint-core.js');
+	const next = (span: string) => core.inlineCodeCompletions(span);
+	const labels = (before: string) => inlineCodeCompletion(before, next)?.options.map((o) => o.label);
+
+	it('offers starter sparks right after the opening backtick and `~`', () => {
+		const r = inlineCodeCompletion('Revenue `~', next);
+		expect(r?.typed).toBe('~');
+		expect(r?.options.map((o) => o.label)).toContain('~{12 14 13 17 21}');
+	});
+	it('offers one axis at a time: a type, then a size, then a color', () => {
+		expect(labels('`~{1 2 3}:')).toEqual(['line', 'area', 'bar', 'step', 'winloss']);
+		expect(labels('`~{1 2 3}:bar:')).toEqual(['sm', 'md', 'lg']);
+		expect(labels('`~{1 2 3}:bar:lg:')?.[0]).toBe('c1');
+	});
+	it('offers only what the kernel accepts: one value gets a ring or bullet, never a line', () => {
+		expect(labels('`~{72%}:')).toEqual(['ring', 'bullet']);
+	});
+	it('widens to every valid word when the typing matches nothing in the next step', () => {
+		const r = inlineCodeCompletion('`~{1 2 3}:c3', next);
+		expect(r?.typed).toBe('c3');
+		expect(r?.options.some((o) => o.label === 'c3')).toBe(true);
+		expect(r?.options.some((o) => o.label === 'line')).toBe(true); // still valid, in its own section
+		// …and a bar never offers markers, which it does not take
+		expect(inlineCodeCompletion('`~{1 2 3}:bar:e', next)?.options.some((o) => o.label === 'end')).toBe(false);
+	});
+	it('pills: shape, then color, then size', () => {
+		expect(labels('A `{LIVE}:')?.[0]).toBe('pill');
+		expect(labels('A `{LIVE}:tag:')?.[0]).toBe('c1');
+		expect(labels('A `{LIVE}:tag:c3:')).toEqual(['sm', 'md', 'lg']);
+		expect(labels('A `{LIVE}:tag:c3:lg:')).toBeUndefined(); // nothing left to set
+	});
+	it('stays closed outside a span, before the data closes, and before the lint core loads', () => {
+		expect(inlineCodeCompletion('`~{1 2 3}` and ~{1}:', next)).toBeNull();
+		expect(inlineCodeCompletion('`~{1 2 3', next)).toBeNull();
+		expect(inlineCodeCompletion('`~{1 2 3}:', null)).toBeNull();
+		expect(inlineCodeCompletion('`getUser():', next)).toBeNull();
 	});
 });
