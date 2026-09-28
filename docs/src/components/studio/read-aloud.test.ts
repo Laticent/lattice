@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import { loadCalibration, recordObservation, resetCalibration } from '@/playground/readaloud-calibration';
-import { bakeClipKeys, GUIDE_LEAD_MS, previewTtsVoice, SYNC_LEAD_MS, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
+import { bakeClipKeys, GUIDE_LEAD_MAX_MS, GUIDE_LEAD_MS, GUIDE_SETTLE_MS, guideLeadFor, previewTtsVoice, SYNC_LEAD_MS, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
 
 // The audio backend is now a Suono stage + sequence (not voice.speak). Two stubs:
 //   • the voice model — SYNTHESIZES bytes (synthOne, fed to the sequence's produce, never invoked
@@ -238,6 +238,33 @@ describe('useReadAloud — onFinish (autoplay chain signal)', () => {
 		});
 		const later = result.current.active;
 		expect(later && (later.cueIndex > 0 || later.wordIndex > 0)).toBe(true);
+	});
+
+	it('a device whose focus paints late gets a longer lead, measured rather than guessed', async () => {
+		// Every beat reports its paint 200 ms after the Guide's tick: a busy phone. The lead grows
+		// from the 120 ms default to that delay plus the fade's settle.
+		const { result } = renderHook(() => useReadAloud('Alpha bravo charlie. Delta echo. Foxtrot golf. Hotel india. Juliet kilo.'));
+		act(() => result.current.play());
+		const first: { reader: number[]; guide: number[] } = { reader: [], guide: [] };
+		let reported = -1;
+		for (let t = 0; t < 14000; t += 10) {
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(10);
+			});
+			const r = result.current.active?.cueIndex ?? -1;
+			const g = result.current.guideCue;
+			if (g >= 0 && g !== reported) {
+				reported = g;
+				result.current.reportGuidePaint(g, performance.now() + 200);
+			}
+			if (first.reader[r] === undefined && r >= 0) first.reader[r] = t;
+			if (first.guide[g] === undefined && g >= 0) first.guide[g] = t;
+		}
+		// By the last sentence the lead has been measured: ~270 ms, not 120.
+		const k = 4;
+		const early = (first.reader[k] as number) - (first.guide[k] as number);
+		expect(early).toBeGreaterThanOrEqual(200 + GUIDE_SETTLE_MS - 30);
+		expect(early).toBeLessThanOrEqual(GUIDE_LEAD_MAX_MS + 20);
 	});
 
 	it('the Guide reaches each sentence GUIDE_LEAD_MS before the reader does, and never falls behind it', async () => {
@@ -652,5 +679,19 @@ describe('the bake seam hands the voice model exactly the identity it was given'
 		expect(res.ok).toBe(false);
 		expect(synthForCalls).toHaveLength(0);
 		expect(res.error).toMatch(/on-device/);
+	});
+});
+
+describe('guideLeadFor — the lead from measured paint delays', () => {
+	it('starts at the default before anything is measured', () => {
+		expect(guideLeadFor([])).toBe(GUIDE_LEAD_MS);
+	});
+	it('is the median delay plus the fade\'s settle, so one slow frame does not swing it', () => {
+		expect(guideLeadFor([20, 20, 20, 400])).toBe(20 + GUIDE_SETTLE_MS);
+		expect(guideLeadFor([30, 50, 70])).toBe(50 + GUIDE_SETTLE_MS);
+	});
+	it('never drops under the settle, and is capped above', () => {
+		expect(guideLeadFor([0, 0, 0])).toBe(GUIDE_SETTLE_MS);
+		expect(guideLeadFor([900, 900, 900])).toBe(GUIDE_LEAD_MAX_MS);
 	});
 });

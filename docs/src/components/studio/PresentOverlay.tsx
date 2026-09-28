@@ -1337,6 +1337,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// slide's binding does not apply.
 		const scene = !bookend && narration.refs && style ? { refs: narration.refs, at: cueAt, style } : null;
 		guide.beat({ slide: narration.idx, cue: activeCue, texts: reader.track.cues.map(cueDisplayText), track: reader.track, delivering: guideDelivering, delivery, scene });
+		// THE LEAD'S CALIBRATION: the frame this beat's focus paints in, reported back to the reader, which
+		// sizes the lead from how long this device takes to get there (read-aloud.ts `guideLeadFor`).
+		if (!guideDelivering || activeCue < 0) return;
+		const raf = requestAnimationFrame((paintedAt) => reader.reportGuidePaint(activeCue, paintedAt));
+		return () => cancelAnimationFrame(raf);
 	}, [guideBeat, guideLive, guideRoot]);
 
 	// THE READ-ALONG (owner, 2026-09-26). Inside the focused TEXT element, the word being spoken
