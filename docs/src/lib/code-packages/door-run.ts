@@ -138,6 +138,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			continue;
 		}
 		let why: string | null = null;
+		// A refusal of the manifest's facts version (slideInput marks it), which re-importing fixes.
+		let manifestRefusal = false;
 		let out = '';
 		if (Date.now() - started > RENDER_BUDGET_MS) why = `the render's ${RENDER_BUDGET_MS / 1000} s budget for code packages ran out`;
 		else {
@@ -153,6 +155,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 				else out = spliced(c.html, done.html, done.classes, c.pkg);
 			} catch (e) {
 				why = e instanceof Error ? e.message : String(e);
+				manifestRefusal = (e as { factsVersion?: boolean })?.factsVersion === true;
 			}
 		}
 		if (why) {
@@ -163,8 +166,9 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			// failure of TIME (a deadline, the budget, a stopped sandbox, a load that ran long) may be
 			// the machine's, not the package's, and runs again next time (the inversion lens).
 			// A facts-version refusal is the MANIFEST's, and the memo keys on the code alone: re-importing with
-			// the declaration fixed must draw, so it is not remembered either.
-			if (!/budget|was stopped|did not finish|not loaded|in all|slide facts/.test(why)) remember(key, noted);
+			// the declaration fixed must draw, so it is not remembered either (marked by slideInput, never
+			// matched from a message a package could also throw).
+			if (!manifestRefusal && !/budget|was stopped|did not finish|not loaded|in all/.test(why)) remember(key, noted);
 		} else {
 			remember(key, out);
 			sections.set(key, out);

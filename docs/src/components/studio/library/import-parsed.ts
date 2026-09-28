@@ -112,8 +112,10 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 		let why: ImportRename['why'] = 'shipped';
 		if (keepMine) {
 			const mine = mineComps.find((x) => x.name === name);
-			// Unchanged means the same code too: a package whose transform changed is a new import.
-			if (mine && mine.css === renameComponentSelectors(c.css, c.name, name) && (mine.pkg?.files?.['transform.js'] ?? null) === (c.pkg?.files?.['transform.js'] ?? null)) {
+			// Unchanged means the same code too: a package whose transform changed is a new import, and so
+			// is one whose declared slide-facts version changed (the only way to fix a record saved
+			// before the declaration existed).
+			if (mine && mine.css === renameComponentSelectors(c.css, c.name, name) && (mine.pkg?.files?.['transform.js'] ?? null) === (c.pkg?.files?.['transform.js'] ?? null) && (mine.pkg?.manifest?.facts ?? null) === (c.pkg?.manifest?.facts ?? null)) {
 				t.unchanged++;
 				if (name !== c.name) rename({ kind: 'component', from: c.name, to: name, why });
 				continue;

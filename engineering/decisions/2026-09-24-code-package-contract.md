@@ -644,8 +644,15 @@ three points this section does not settle:
    CLI render (the gate re-runs there) and the Studio's Library import refuse the same packages in
    the same words. Each door then hands the package facts in the version its manifest declared
    (`slideInput(claim, tokens, version)`), which throws for an undeclared one: a Studio package saved
-   before this change keeps its slide with a note until it is imported again, and the Studio does
-   not remember that note, since its memo keys on the code and the fix is in the manifest. The day
+   before this change keeps its slide with a note until a copy that declares `"facts"` is imported
+   over it. Its own export does not declare it, so its author adds the line. The Library treats a
+   changed declaration as a changed package (the keep-mine import and the Library's change check both
+   compare it), and the door does not remember that note: `slideInput` marks the refusal, and the
+   memo keys on the code while the fix is in the manifest. Editing a code package in a faculty keeps
+   its manifest with its transform, so an edit never drops the declaration (the checker found the
+   first cut did: the edited component was refused on its next render, and its export on
+   re-import). A missing declaration is checked LAST in `refuseCode`, so a package with a real
+   problem hears about that first. The day
    `facts` changes shape, `FACTS_VERSIONS` grows and `slideFacts` learns to write each version it
    lists; nothing about packages already in the wild has to be guessed.
 3. Additive, when a package needs them: table cells as runs, a pane's box, an eyebrow's role (a
