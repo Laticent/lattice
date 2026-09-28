@@ -19,3 +19,10 @@
   with a green accent. Every lightness is held and the chroma drops to 15% (paper C
   0.0068 → 0.0013), so text contrast moves by under 0.05 and the lime is the only color
   on the slide.
+- **Eight themes' dark-mode diagram boxes are jewel tones now, not raw primaries.** The
+  dark `--cat-N-fill` arms of ardesia, atelier, brina, burgundy, crepuscolo, laguna,
+  magnolia and mustard reached OKLCH chroma 0.215–0.256 (electric blue `#0d0dc9`, hot
+  violet `#6b0dc9`), where indaco and cuoio cap at 0.150. Each is now held at 0.16 with
+  its lightness and hue kept. Two slots needed more than the cap to stay as far from their
+  neighbor as before: laguna's slot 4 moves back to its own family's hue (295°), and
+  burgundy's slot 5 sits at 310° / 0.17.
