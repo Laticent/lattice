@@ -192,3 +192,68 @@ describe('trama pipeline — the fit and the type floor, solved on the first dra
     assert.equal(t.fig.querySelector('svg').innerHTML, fresh.fig.querySelector('svg').innerHTML);
   });
 });
+
+describe('trama pipeline — live: the drawing at rest is the one a fresh page draws', () => {
+  // The same stand-in chart, in a live preview: a section, a dagre tag, and a Worker stand-in
+  // that runs the stand-in kernel a tick later. Its drawing names its chart and its floor.
+  const live = () => ({
+    ...adapter(),
+    signature(fig) { return [fig.getAttribute('data-g-model'), fig.getAttribute('data-rev') || '']; },
+    paint(model, m) { return `<text font-size="${m.floor}">${model.shapes[0].id}</text>`; },
+  });
+  function setupLive(isLive) {
+    const dom = new JSDOM('<!doctype html><head><script src="https://x.test/lattice-dagre.js"></script></head><body><section><div class="g-figure" data-g-model="1"><div class="g-box"><div class="g-harness"></div><svg><title>Chart</title></svg></div></div></section></body>', { runScripts: 'outside-only' });
+    const w = dom.window;
+    const fig = w.document.querySelector('.g-figure');
+    fig.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 1000, width: 1000, height: 1000 });
+    w.__latticeDagre = { layout() {} };
+    const log = { posts: [], paints: [], workers: 0 };
+    const kernel = () => ({ layout(_m, sizes) { return { width: 400 + 60 * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] }; } });
+    w.URL.createObjectURL = () => 'blob:test';
+    w.URL.revokeObjectURL = () => {};
+    w.Worker = class {
+      constructor() { this.n = ++log.workers; }
+      postMessage(d) {
+        log.posts.push({ floor: d.sizes.a.w, via: this.n });
+        setTimeout(() => this.onmessage({ data: { id: d.id, geo: kernel().layout(d.model, d.sizes) } }), 5);
+      }
+      terminate() {}
+    };
+    const pass = w.eval(`(${installGraphPass.toString()})`);
+    const run = () => pass(w.document, kernel, live, { live: isLive });
+    new w.MutationObserver(() => log.paints.push(fig.querySelector('svg').innerHTML)).observe(fig.querySelector('svg'), { childList: true, subtree: true });
+    return { fig, log, run, svg: () => fig.querySelector('svg').innerHTML };
+  }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  test('the settle fits from a cold start on the search worker, paints only its last round, and ends as a fresh page', async () => {
+    const fresh = setupLive(false);
+    fresh.run();
+    const t = setupLive(true);
+    t.run();
+    t.fig.setAttribute('data-rev', '1');
+    t.run();
+    await sleep(100);
+    const n = t.log.posts.length;
+    const p = t.log.paints.length;
+    await sleep(600);
+    const settle = t.log.posts.slice(n);
+    assert.ok(settle.length >= 2, `the settle ran its fit rounds: ${JSON.stringify(settle)}`);
+    assert.equal(settle[0].floor, 11, 'it starts cold, at the declared floor');
+    assert.ok(settle.every((x) => x.via === 2), 'on the search worker');
+    assert.ok(t.log.paints.slice(p).every((x) => !/font-size="11"/.test(x)), 'no cold round is painted');
+    assert.equal(t.svg(), fresh.svg());
+  });
+
+  test('a chain in flight for the chart this element held before never paints over the next one', async () => {
+    const t = setupLive(true);
+    t.run();
+    t.fig.setAttribute('data-rev', '1');
+    t.run();
+    t.fig.setAttribute('data-g-model', '2');
+    t.run();
+    assert.match(t.svg(), />a2</);
+    await sleep(700);
+    assert.match(t.svg(), />a2</, 'the stale chain for chart 1 was dropped');
+  });
+});

@@ -14,6 +14,8 @@ recorded: 2026-09-28
                    the CLI export. A host that blocks blob workers falls back to drawing in
                    place on every edit, and that path still starts its fit from the scale it
                    remembers, so its drawing at rest can differ slightly from the export.
+                   The same warm path runs when the worker dies mid-session (it falls back
+                   to drawing in place for good) and while dagre's script has not loaded yet.
                    Every tested host has a worker, so no tested surface regressed.
        where     — docs/src/lib/trama/pipeline.ts: the synchronous branch of `draw` (after
                    `liveWorker()` returns null) and the SETTLE in the live branch.

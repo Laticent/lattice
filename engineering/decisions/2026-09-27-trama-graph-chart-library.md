@@ -260,7 +260,7 @@ The owner settled the open questions on 2026-09-27.
     (20 of 20). Rows hold while typing (an edit the pinned grid cannot hold, or a
     direction change, searches at once), and a key shows sooner (real Studio, same
     machine: an 11-state state chart 280–325 -> 158–202 ms, the flowchart of it 230–241 ->
-    193–214 ms). The full search runs 300 ms after the last pinned draw lands, and the chart takes its
+    193–214 ms). The full search runs 300 ms after a live redraw's last round lands, and the chart takes its
     choice, so the drawing at rest matches the export; content that wants other rows
     reflows then, once (the owner chose this over keeping the rows until reload). Tried
     and dropped on the way, measured: a smaller router budget while typing (drafts cost
