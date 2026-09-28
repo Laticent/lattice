@@ -70,8 +70,11 @@ is the authoring surface around it:
    styles it as a title, counts it against the pane's budget, or lines up two panes' titles.
    (Measured on a render: `<lat-pane …><div class="cell-stage"><h3>…</h3><ul>…`.)
 3. **A `##` inside a pane breaks the slide.** The default `split: headings` starts a new slide at
-   every `##`, so a pane can never use the slide's heading level. That is why the pane title is
-   `###` and not `##`, and why the slide's heading block is always written before the panes.
+   every `##` after a slide's first (`lib/core/heading-split-core.js`), so a pane `##` on a slide
+   that already has its title cuts the slide in two. (On a slide with no title, the carve lifts
+   the pane's `##` up to be the slide's title instead.) Either way a pane cannot use the slide's
+   heading level. That is why the pane title is `###` and not `##`, and why the slide's heading
+   block is always written before the panes.
 4. **The layouts people reach for are welded to one purpose.** `split-panel`'s feature side is
    a heading slot, not a box, and `image`'s `split` / `spotlight` / `gallery` compositions exist
    only inside `image`. Those stay as they are (§8); this design adds the generic ones beside
@@ -241,14 +244,17 @@ standard, but there is a clear majority word, and it is "columns". Lattice's per
 | Marp | plain-text native (P1) | "split backgrounds" (`![bg left:40%]`) | — |
 
 Slidev's and Quarto's names are checked against their current documentation. The PowerPoint
-and Google Slides names are their stock layout names.
+and Google Slides names are their stock layout names. The positioning note names Marp, Slidev,
+Beamer and Quarto for P1; pairing Google Slides and PowerPoint with P3 and P4 is this note's
+inference (those personas make decks in office suites), not the positioning note's claim.
 
-- **`columns`** is the word four of the six use (Slidev abbreviates it to `cols`), and it extends to three columns without a
-  rename.
+- **`columns`** is the word four of the six use (Slidev abbreviates it to `cols`), and it
+  extends to three columns without a rename.
 - **`rows`** pairs with `columns` as it does in every spreadsheet and CSS grid. It replaces
   `panes: stack`.
-- **Not `split`.** The repo already uses it four ways: the `split:` front-matter setting,
-  auto-splitting a slide into pages, a modifier on `image` / `redline` / `citation-card`, and
+- **Not `split`.** The repo already uses it at least four ways: the `split:` front-matter
+  setting, auto-splitting a slide into pages, a modifier on `image` / `scene` / `redline` /
+  `citation-card`, and
   `form: split` in manifests. A fifth meaning would guarantee confusion.
 - **Not `two-cols` or "two content".** Those bake the count into the name; `columns` does not.
 - **`_pane` keeps the word "pane"** because "column" does not fit a box in `rows`, and "pane" is
