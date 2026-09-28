@@ -311,7 +311,7 @@
     "archetype": "compare",
     "units": {
       "side": {
-        "select": "li:not(li li):nth-child({n})"
+        "select": "li:not(li li)"
       }
     }
   }

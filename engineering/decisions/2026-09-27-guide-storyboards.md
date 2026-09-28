@@ -202,16 +202,19 @@ Every manifest has a `gesture` block. Lean by default: most name their archetype
 - **One merge**, `mergeGesture` in `lib/core/scene-resolve.mjs`. The build and the gates call it
   through `lib/core/gesture.js`; the Guide calls it on lookup. The generated catalog ships the
   archetypes once plus each component's own block: shipping 71 merged copies cost the player's
-  Guide 13.6 KB (50.5 KB to 64.1 KB, over §8's budget); shipping the parts costs 4.8 KB (55.3 KB).
+  Guide 13.6 KB (50.5 KB to 64.1 KB, over §8's budget); shipping the parts costs 4.7 KB (55.2 KB).
 - **Placeholders are the binding's ids.** Tables use matrix-grid's existing `{tr}`/`{td}`, 1-based
-  as `:nth-child` counts; lists use `{n}`. With the ids removed a selector matches every unit of its
-  kind (`anySelector`), which is how peers are found.
+  as `:nth-child` counts. With the ids removed a selector matches every unit of its kind
+  (`anySelector`), which is how peers are found. List, statement and media units carry no ordinal
+  yet: `:nth-child({n})` counts siblings per parent, so on a two-column slide item 1 would be two
+  items (checker, 2026-09-28). Step 3 adds an ordinal counted across the slide.
 - **A binding plays only on the slide it was written for.** Every component now has a gesture, so
-  "has a gesture" no longer says a binding belongs to a slide. The test is the UNITS: a slide plays
-  its refs as a scene only when some ref names a unit its gesture has. A chart narrator that reads a
-  prose slide as a board (kanban's docs, rendered as `content`) names `column`, which `content`
-  lacks, and the Guide reads that slide's words, as before. The Studio (`scene()`) and the corpus
-  gate apply the same rule.
+  "has a gesture" no longer says a binding belongs to a slide, and archetypes share unit names with
+  narrators under other ids (a table's `row` is `{tr}`, a heatmap's is `{row}`). The test is that
+  some ref RESOLVES on the slide, checked once per slide in `scene()`. A chart narrator that reads a
+  prose slide as a board (kanban's docs, rendered as `content`) resolves nothing, and the whole slide
+  reads its words, as before. The corpus gate skips such a slide only when its component names no
+  units of its own; a chart whose narrator's units have all drifted from its manifest is reported.
 - **Binding goes past charts** (step 3). Prose, lists and tables are bound by the projection that
   already writes their narration: `projectDeckToScript` in `lib/transformers/prose-projection.mjs`
   builds each sentence by walking the rendered section, so it can record which `li`, `tr` or `p`
@@ -220,9 +223,12 @@ Every manifest has a `gesture` block. Lean by default: most name their archetype
   (`emphasisSpansFor`), and a phrase said twice is skipped. Nothing on any slide is found by matching
   words once a slide is bound; the word matcher remains only for authored captions.
 - **Gates** (`test/unit/core/scene-binding.test.js`): every one of the 71 manifests declares a
-  gesture; on every slide of every component's own gallery, some unit of its gesture finds a drawn
-  part; every unit a manifest declares for itself finds one on at least one gallery slide; and every
-  bound sentence in every tracked deck resolves. `gesture` is not schema-required, so a component an
+  gesture, over an archetype the schema's enum and the defaults both name; every slide of every
+  component's own gallery draws its archetype's primary unit or one of its own units (a variant may
+  draw only its own: roadmap's horizons, statute-stack lane's rows); every unit a manifest declares
+  for itself draws on at least one gallery slide; and every bound sentence in every tracked deck
+  resolves. Filing `list` under `table` fails it. The one blind spot is `statement`, whose primary
+  is a heading, which every slide has: a component misfiled AS a statement passes. `gesture` is not schema-required, so a component an
   author writes in the Studio still validates without one.
 
 ## 8. Lean and fast

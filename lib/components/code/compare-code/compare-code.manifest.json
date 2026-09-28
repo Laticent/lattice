@@ -151,7 +151,7 @@
     "archetype": "compare",
     "units": {
       "side": {
-        "select": ".code-col:nth-child({n})"
+        "select": ".code-col"
       }
     }
   }

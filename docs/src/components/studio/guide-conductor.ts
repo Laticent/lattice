@@ -160,7 +160,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 	// THE SCENE'S STATE, per slide: the group an `enter` opened (a line's own dots stay near while
 	// its other points recede deeper), the key beat's index, and the last parts focused, so a pause
 	// on a held sentence comes back to them.
-	let scene: { slide: number; refs: readonly SceneRef[]; key: number; group: Element[] | null; parts: FocusParts | null } | null = null;
+	let scene: { slide: number; refs: readonly SceneRef[]; owned: boolean; key: number; group: Element[] | null; parts: FocusParts | null } | null = null;
 
 	const setAiming = (on: boolean) => {
 		if (aiming === on) return;
@@ -203,15 +203,18 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		const section = host.section?.() ?? null;
 		const spec = sceneOf(section);
 		if (!section || !spec || !play.refs.length || play.at < 0) return false;
-		// A binding written for another component is not this slide's: a chart narrator that reads a
-		// prose slide as a board names units a `content` slide does not have. Every component has a
-		// gesture, so it is the units, not the gesture, that say the binding is the slide's.
-		if (!play.refs.some((r) => r.unit && Object.hasOwn(spec.units, r.unit))) return false;
 		if (!scene || scene.slide !== slide || scene.refs !== play.refs) {
 			// A new slide starts bare: nothing carries across a slide change.
 			if (scene && scene.slide !== slide) unmark();
-			scene = { slide, refs: play.refs, key: keyIndex(play.refs, spec.key), group: null, parts: null };
+			// A binding written for another component is not this slide's. Every component has a
+			// gesture, and archetypes share unit names with narrators (`row`, `column`) under other ids,
+			// so the test is that some ref RESOLVES here, not that it names a known unit: a chart
+			// narrator that reads a prose slide as a board finds nothing, and the whole slide reads its
+			// words, asides included (checker, 2026-09-28). Resolved once per slide.
+			const owned = play.refs.some((r) => r.unit && resolveUnit(section, spec.units, r));
+			scene = { slide, refs: play.refs, owned, key: keyIndex(play.refs, spec.key), group: null, parts: null };
 		}
+		if (!scene.owned) return false;
 		const i = refAt(play.refs, play.at);
 		const ref = i >= 0 ? play.refs[i] : null;
 		const act = ref?.act ?? 'aside';

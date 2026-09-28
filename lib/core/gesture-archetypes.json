@@ -1,12 +1,12 @@
 {
-  "$comment": "The ten structures every component is one of, and the units the Guide can address in each. A manifest `gesture` names its archetype and overrides only what its own render does differently (lib/core/gesture.js merges them). Selectors are scoped to the slide's section; `{id}` placeholders are filled by a binding, and with them removed a selector matches every unit of its kind (lib/core/scene-resolve.mjs). The FIRST unit is the archetype's primary: the gate requires it to resolve on every member's gallery. engineering/decisions/2026-09-27-guide-storyboards.md §5.",
+  "$comment": "The ten structures every component is one of, and the units the Guide can address in each. A manifest `gesture` names its archetype and overrides only what its own render does differently (lib/core/gesture.js merges them). Selectors are scoped to the slide's section; `{id}` placeholders are filled by a binding, and with them removed a selector matches every unit of its kind (lib/core/scene-resolve.mjs). A component's FIRST unit (its own override, else the archetype's first) is its primary: the gate requires it to resolve on every slide of its gallery. List, statement and media units carry no ordinal yet: a binding that names one (storyboards step 3) adds it, counted across the slide, not per parent. engineering/decisions/2026-09-27-guide-storyboards.md §5.",
   "statement": {
     "units": {
       "heading": {
         "select": ":is(h1, h2):not(header *):not(footer *)"
       },
       "paragraph": {
-        "select": "p:not(header *):not(footer *):not(li *):nth-of-type({n})"
+        "select": "p:not(header *):not(footer *):not(li *)"
       }
     },
     "key": "first"
@@ -14,10 +14,10 @@
   "list": {
     "units": {
       "item": {
-        "select": "li:not(li li):nth-child({n})"
+        "select": "li:not(li li)"
       },
       "title": {
-        "select": "li:not(li li):nth-child({n}) > strong:first-child"
+        "select": "li:not(li li) > strong:first-child"
       }
     },
     "key": "first"
@@ -25,10 +25,10 @@
   "grid": {
     "units": {
       "card": {
-        "select": "li:not(li li):nth-child({n})"
+        "select": "li:not(li li)"
       },
       "name": {
-        "select": "li:not(li li):nth-child({n}) > strong:first-child"
+        "select": "li:not(li li) > strong:first-child"
       }
     },
     "key": "first"
@@ -57,10 +57,10 @@
   "compare": {
     "units": {
       "side": {
-        "select": ":is(.compare-left, .compare-right, .panel-left, .panel-right, .compare-col):nth-child({n})"
+        "select": ":is(.compare-left, .compare-right, .panel-left, .panel-right, .compare-col)"
       },
       "item": {
-        "select": "li:not(li li):nth-child({n})"
+        "select": "li:not(li li)"
       }
     },
     "key": "act:compare"
@@ -111,7 +111,7 @@
         "labels": "[data-mark-for=\"{mark}\"]"
       },
       "step": {
-        "select": "[role=listitem]:nth-child({n})"
+        "select": "[role=listitem]"
       },
       "figure": {
         "select": ":is(.chart-body, svg):not(header *)"
@@ -125,7 +125,7 @@
         "select": ":is(figure, img, video, pre, svg, .katex-display, .qr-card):not(header *):not(footer *):not(figure *):not(.qr-card *)"
       },
       "caption": {
-        "select": "p:not(header *):not(footer *):not(li *):nth-of-type({n})"
+        "select": "p:not(header *):not(footer *):not(li *)"
       }
     },
     "key": "first"

@@ -24,7 +24,7 @@ const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const { narrateChartScript } = require('../../../lib/core/chart-narration.js');
 const { loadAll } = require('../../../lib/components');
-const { gestureOf } = require('../../../lib/core/gesture.js');
+const { ARCHETYPES, gestureOf } = require('../../../lib/core/gesture.js');
 const { execSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -54,6 +54,7 @@ test.before(async () => {
 	({ resolveUnit, anySelector } = await import('../../../lib/core/scene-resolve.mjs'));
 });
 
+const manifests = Object.fromEntries(loadAll().map((m) => [m.name, m]));
 const SCENES = Object.fromEntries(loadAll().map((m) => [m.name, gestureOf(m)]));
 
 test('every component declares a gesture, and the chart components name their own units', () => {
@@ -84,7 +85,9 @@ test('every bound sentence in every deck names a drawn part, and leaves its peer
 		// A binding written for another component is not this slide's: a chart narrator that reads a
 		// prose slide as a board (kanban's docs, rendered as `content`) names units the slide's
 		// component does not have, and the Guide reads its words instead (`scene()`, the same rule).
-		if (!script.refs.some((r) => r.unit && Object.hasOwn(units, r.unit))) continue;
+		// Only for a component that names no units of its own: a chart whose manifest does, and whose
+		// narrator's units have all drifted from it, is reported below rather than skipped.
+		if (!manifests[name]?.gesture?.units && !script.refs.some((r) => r.unit && Object.hasOwn(units, r.unit))) continue;
 		for (const ref of script.refs) {
 			if (!ref.unit) continue;
 			bound++;
@@ -137,17 +140,29 @@ test('every component\'s gesture finds its structure on every gallery slide', ()
 		const found = new Set();
 		slides.forEach((md, i) => {
 			const root = new JSDOM(engine.render(fm + md, 'indaco', { preview: true }).html).window.document.querySelector('section');
-			let any = false;
+			// Each slide draws its archetype's PRIMARY unit (its first) or one of the component's own
+			// units (a variant may draw only its own: roadmap's horizons, statute-stack lane's rows).
+			// "Any unit" was too weak: every slide has a heading, so every component passed as a
+			// statement (checker, 2026-09-28). `statement` still asks only for a heading, since that
+			// is all a statement is; it is the one archetype this cannot tell apart.
+			const primary = Object.keys(ARCHETYPES[g.archetype].units)[0];
+			const own = Object.keys(m.gesture.units || {});
+			let ok = false;
 			for (const [unit, spec] of Object.entries(g.units)) {
 				const n = [...root.querySelectorAll(anySelector(spec.select))].filter((el) => !el.closest('.chart-sr-only, template')).length;
-				if (n) {
-					any = true;
-					found.add(unit);
-				}
+				if (!n) continue;
+				found.add(unit);
+				if (unit === primary || own.includes(unit)) ok = true;
 			}
-			if (!any) problems.push(`${m.name}: gallery slide ${i + 1} renders none of the ${g.archetype} units (${Object.keys(g.units).join(', ')})`);
+			if (!ok) problems.push(`${m.name}: gallery slide ${i + 1} draws neither its ${g.archetype} primary unit "${primary}" nor a unit of its own (${own.join(', ') || 'none'})`);
 		});
 		for (const unit of Object.keys(m.gesture.units || {})) if (!found.has(unit)) problems.push(`${m.name}: its own unit "${unit}" finds nothing on any gallery slide`);
 	}
 	assert.deepEqual(problems, []);
+});
+
+test('the manifest schema names exactly the archetypes the defaults define', () => {
+	const schema = require('../../../lib/components/manifest.schema.json');
+	const { ARCHETYPE_NAMES } = require('../../../lib/core/gesture.js');
+	assert.deepEqual([...schema.properties.gesture.properties.archetype.enum].sort(), [...ARCHETYPE_NAMES].sort());
 });
