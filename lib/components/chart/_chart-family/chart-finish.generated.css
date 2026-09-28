@@ -208,8 +208,7 @@ figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-node, .h
   color: var(--text-body) !important;
 }
 
-/* STATUS — the member's own status channel. Under tone the body joins the one hue
-   and the status is carried by its edge, which is its own semantic ink. */
+/* STATUS — the member's own status channel; the hue is the meaning, so it stays. */
 section.chart-finish-pigment :where(.gantt-bar[data-s]),
 figure.chart-finish-pigment :where(.gantt-bar[data-s]) {
   fill: light-dark(color-mix(in oklab, var(--fill-hue) 40%, var(--chart-cat-base)), color-mix(in oklab, var(--fill-hue) 46%, var(--chart-cat-base))) !important;
@@ -570,8 +569,7 @@ figure.chart-finish-etching :where(:is(.cell-filled, .chart-status, .fc-node, .h
   color: var(--text-body) !important;
 }
 
-/* STATUS — the member's own status channel. Under tone the body joins the one hue
-   and the status is carried by its edge, which is its own semantic ink. */
+/* STATUS — the member's own status channel; the hue is the meaning, so it stays. */
 section.chart-finish-etching :where(.gantt-bar[data-s]),
 figure.chart-finish-etching :where(.gantt-bar[data-s]) {
   fill: light-dark(color-mix(in oklab, var(--fill-hue) 14%, var(--bg)), color-mix(in oklab, var(--fill-hue) 19%, var(--bg))) !important;
@@ -614,50 +612,50 @@ figure.chart-finish-etching :where(.waterfall-bar[data-s="down"]) {
 /* RAMP — scaled into the finish's band; --mix stays the datum. */
 section.chart-finish-etching :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="fill"]),
 figure.chart-finish-etching :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="fill"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--mix, 50%) * 0.24), var(--heatmap-base)) !important;
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--mix, 50%) * 0.4), var(--heatmap-base)) !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 75%, transparent) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
 section.chart-finish-etching :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="bg"]),
 figure.chart-finish-etching :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="bg"]) {
-  background: color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--mix, 50%) * 0.24), var(--heatmap-base)) !important;
+  background: color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--mix, 50%) * 0.4), var(--heatmap-base)) !important;
 }
 section.chart-finish-etching :where(:is(.map-region--on, .chart-key-swatch)[data-encodes="ramp"][data-paint="fill"]),
 figure.chart-finish-etching :where(:is(.map-region--on, .chart-key-swatch)[data-encodes="ramp"][data-paint="fill"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--mix, 50%) * 0.24), var(--map-base)) !important;
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--mix, 50%) * 0.4), var(--map-base)) !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 75%, transparent) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
 section.chart-finish-etching :where(:is(.map-region--on, .chart-key-swatch)[data-encodes="ramp"][data-paint="bg"]),
 figure.chart-finish-etching :where(:is(.map-region--on, .chart-key-swatch)[data-encodes="ramp"][data-paint="bg"]) {
-  background: color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--mix, 50%) * 0.24), var(--map-base)) !important;
+  background: color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--mix, 50%) * 0.4), var(--map-base)) !important;
 }
 section.chart-finish-etching :where(.heatmap-value[data-step="1"]),
 figure.chart-finish-etching :where(.heatmap-value[data-step="1"]) {
   fill: var(--text-heading) !important;
-  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step1, 18%) * 0.24), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step1, 18%) * 0.4), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
 }
 section.chart-finish-etching :where(.heatmap-value[data-step="2"]),
 figure.chart-finish-etching :where(.heatmap-value[data-step="2"]) {
   fill: var(--text-heading) !important;
-  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step2, 36.5%) * 0.24), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step2, 36.5%) * 0.4), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
 }
 section.chart-finish-etching :where(.heatmap-value[data-step="3"]),
 figure.chart-finish-etching :where(.heatmap-value[data-step="3"]) {
   fill: var(--text-heading) !important;
-  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step3, 55%) * 0.24), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step3, 55%) * 0.4), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
 }
 section.chart-finish-etching :where(.heatmap-value[data-step="4"]),
 figure.chart-finish-etching :where(.heatmap-value[data-step="4"]) {
   fill: var(--text-heading) !important;
-  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step4, 73.5%) * 0.24), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step4, 73.5%) * 0.4), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
 }
 section.chart-finish-etching :where(.heatmap-value[data-step="5"]),
 figure.chart-finish-etching :where(.heatmap-value[data-step="5"]) {
   fill: var(--text-heading) !important;
-  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step5, 92%) * 0.24), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+  fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step5, 92%) * 0.4), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
 }
 
 /* LAYERED — a flat alpha of the series body; the edge carries the series. */
@@ -992,42 +990,41 @@ figure.chart-finish-tone :where(:is(.cell-filled, .chart-status, .fc-node, .hori
   color: var(--text-body) !important;
 }
 
-/* STATUS — the member's own status channel. Under tone the body joins the one hue
-   and the status is carried by its edge, which is its own semantic ink. */
+/* STATUS — the member's own status channel; the hue is the meaning, so it stays. */
 section.chart-finish-tone :where(.gantt-bar[data-s]),
 figure.chart-finish-tone :where(.gantt-bar[data-s]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 30%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 35%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fill-hue) 30%, var(--bg)), color-mix(in oklab, var(--fill-hue) 35%, var(--bg))) !important;
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2.5) !important;
   vector-effect: non-scaling-stroke !important;
 }
 section.chart-finish-tone :where(:is(.gantt-milestone, .gantt-legend-swatch)[data-s]),
 figure.chart-finish-tone :where(:is(.gantt-milestone, .gantt-legend-swatch)[data-s]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg)) !important;
+  fill: color-mix(in oklab, var(--fill-hue) 61%, var(--bg)) !important;
   stroke: var(--fill-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
 section.chart-finish-tone :where(.progress-fill[data-s]),
 figure.chart-finish-tone :where(.progress-fill[data-s]) {
-  background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 30%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 35%, var(--bg))) !important;
+  background: light-dark(color-mix(in oklab, var(--fill-hue) 30%, var(--bg)), color-mix(in oklab, var(--fill-hue) 35%, var(--bg))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * 2.5) var(--fill-ink) !important;
 }
 section.chart-finish-tone :where(.chart-status[data-s]),
 figure.chart-finish-tone :where(.chart-status[data-s]) {
-  background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 30%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 35%, var(--bg))) !important;
+  background: light-dark(color-mix(in oklab, var(--pill-hue) 30%, var(--bg)), color-mix(in oklab, var(--pill-hue) 35%, var(--bg))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * 2.5) var(--pill-ink) !important;
 }
 section.chart-finish-tone :where(.waterfall-bar[data-s="up"]),
 figure.chart-finish-tone :where(.waterfall-bar[data-s="up"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg)) !important;
+  fill: color-mix(in oklab, var(--state-pass-hue) 61%, var(--bg)) !important;
   stroke: var(--state-pass-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
 section.chart-finish-tone :where(.waterfall-bar[data-s="down"]),
 figure.chart-finish-tone :where(.waterfall-bar[data-s="down"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg)) !important;
+  fill: color-mix(in oklab, var(--state-fail-hue) 61%, var(--bg)) !important;
   stroke: var(--state-fail-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;

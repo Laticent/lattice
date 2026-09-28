@@ -10,9 +10,11 @@ deck register with a per-slide token (`chart-finish-<name>`, `chart-finish-off` 
 out), a lint rule, and Studio controls in deck settings (**Look → Chart finish**) and in
 a chart slide's own **Look** tab. The default is `off`: a deck without the key renders
 pixel-identically. The rules are generated from the manifests by
-`tools/build-chart-finish-css.js`. `engineering/chart-styling.md` §3 records the six
+`tools/build-chart-finish-css.js`. `engineering/chart-styling.md` §3 records the seven
 measured choices, including the ones that correct this folder's levels: tone's text-ramp
-band, the dark ramp band, and the canvas base for etching and tone.
+band, the dark ramp band, the canvas base for etching and tone, and a status keeping its
+own hue under tone (`finish-coherence.md` sent it to the one hue, which made a gantt key of
+identical swatches).
 
 The mark contract now covers every member a finish can reach: the ten that lacked it,
 plus every legend swatch. The census agrees on 58 mark classes across 23 members.

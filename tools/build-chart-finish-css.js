@@ -64,7 +64,10 @@ const TONE_TEXT_D = [35, 31, 28, 24, 21, 17, 14, 10];
 /** The levels, per finish (finish-coherence.md §Levels). `[light, dark]` pairs. */
 const F = {
   pigment: { body: [82, 82], backdrop: [40, 46], ramp: [16, 0.54], rampText: [[16, 0.54], [16, 0.37]], layered: 0.55, edge: 1, edgeBackdrop: 1 },
-  etching: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.24], rampText: [[6, 0.24], [6, 0.24]], layered: 0.18, edge: 2, edgeBackdrop: 3 },
+  // Etching's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
+  // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
+  // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
+  etching: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.4], rampText: [[6, 0.4], [6, 0.4]], layered: 0.18, edge: 2, edgeBackdrop: 3 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp
   // that PRINTS ITS VALUE takes (a heatmap cell), as [light, dark]: shorter, because its top
   // step must still carry text at 4.5:1. Tone's text band tops out at 70% on light, not the
@@ -214,13 +217,19 @@ function build() {
       }
     }
 
-    // ── STATUS — the body joins the finish; the status stays on the edge ────
-    w('\n/* STATUS — the member\'s own status channel. Under tone the body joins the one hue');
-    w('   and the status is carried by its edge, which is its own semantic ink. */');
+    // ── STATUS — a meaning, so it keeps its own hue under every finish ───────
+    // The prototype sent a status body to the one hue under tone and left the status on the
+    // edge. On the render that made a gantt key of four identical swatches — done, live,
+    // at-risk and blocked told apart by a 1px outline — which is the flattening defect
+    // (finish-render-defects.md) in the status channel. A status is not one of the eight
+    // categories tone collapses; it is a meaning the reader must decode. So under tone it
+    // keeps its hue at tone's quiet level (the text-bearing step for a mark that carries text,
+    // the middle step for one that does not), and the finish still quiets it.
+    w('\n/* STATUS — the member\'s own status channel; the hue is the meaning, so it stays. */');
     for (const s of STATUS_MARKS) {
       const lvl = s.bears ? 'backdrop' : 'body';
       const body = tone
-        ? (s.bears ? ld(mix(ONE, `${TONE_TEXT[0]}%`), mix(ONE, `${TONE_TEXT_D[0]}%`)) : mix(ONE, `${TONE[1]}%`))
+        ? (s.bears ? pair(s.hue, [TONE_TEXT[0], TONE_TEXT_D[0]]) : pair(s.hue, [TONE[2], TONE[2]]))
         : pair(s.hue, f[lvl]);
       const decls = paintDecls(s.paint, body, s.ink, s.bears ? f.edgeBackdrop : f.edge);
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.

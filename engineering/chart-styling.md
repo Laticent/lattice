@@ -131,7 +131,7 @@ paint, so the register changed nothing that already renders. Two things hold in
 ### How the engine applies them
 
 `tools/build-chart-finish-css.js` generates the rules from each manifest's
-`kernel.marks`; its header is the long form. Six choices in it were settled by
+`kernel.marks`; its header is the long form. Seven choices in it were settled by
 measurement, and each undoes a defect the first render showed:
 
 - **Specificity (0,1,1), on purpose.** Every rule is
@@ -146,7 +146,9 @@ measurement, and each undoes a defect the first render showed:
 - **A ramp scales from its own member's empty end** (`--heatmap-base`,
   `--map-base`). A ramp that prints its value takes a shorter band: tone tops out
   at 70% on light and every finish near 50% on dark, where light text stopped
-  clearing carbone's lime top step (3.39:1).
+  clearing carbone's lime top step (3.39:1). Etching's ramp is wider than its
+  whisper of a body (6→43%): at the prototype's 6→28% a dark heatmap read as one
+  flat navy, and a ramp's identity is value.
 - **A heatmap value picks its own ink.** The theme solves each step's ink against
   the shipped fill, and a finish changes the fill, so no fixed ink holds (the
   strong ink fell to 3.34:1 on the a11y themes). The value's fill is its cell's
@@ -157,6 +159,11 @@ measurement, and each undoes a defect the first render showed:
 - **A text-bearing mark** (the manifest's `bears`) takes the quieter backdrop
   level, and an HTML mark's own text moves to `--text-body`, the color the level
   was measured against.
+- **A status keeps its own hue, under `tone` too.** The prototype sent a status
+  body to the one hue and left the status on a 1px edge. On the render, a gantt
+  key's done, live, at-risk and blocked swatches came out identical. A status is
+  a meaning the reader decodes, not one of the categories tone collapses, so it
+  keeps its hue at tone's quiet level.
 - **The key follows the marks.** A legend swatch carries the mark contract, so a
   tone finish cannot leave a key of five categorical colors beside tonal wedges.
 

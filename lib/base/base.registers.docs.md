@@ -816,8 +816,9 @@ deck. The slide token replaces the deck's; it never stacks with it.
 (`data-hue` · `data-encodes` · `data-paint`), so it reaches every mark that encodes a
 category, a magnitude (a heatmap or map ramp) or a layered series, and the chart's key
 with it. It does not reach a mark painted by a stroke or by type, which is `line`, `slope`
-and `word-cloud`. It also leaves a status color's meaning on the mark's edge. Under
-`tone`, a gantt bar's body joins the one hue and its status stays on the outline.
+and `word-cloud`. A status color (a gantt bar's `done` or `blocked`) is a meaning, not a
+category, so it keeps its own hue under every finish, `tone` included, at the finish's
+quieter level.
 
 **What a finish never costs.** Every mark keeps an ink edge. A heatmap value picks black or
 white from its own cell's color and clears 4.5:1 on every step of every theme. On the a11y
