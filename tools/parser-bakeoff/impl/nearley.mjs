@@ -209,7 +209,7 @@ H.partner = (at, q) => {
     if (s[j] !== q) continue;
     let k = j + 1;
     while (k < s.length && h.isWsCh(s[k])) k++;
-    if (k >= s.length || s[k] === ',' || s[k] === '}' || s[k] === ']') return true;
+    if (k >= s.length || s[k] === ',' || s[k] === '}') return true;
   }
   return false;
 };

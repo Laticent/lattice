@@ -325,6 +325,9 @@ describe('bracket-list — an unclosed quote is text', () => {
   });
   test('a partner quote must END a part — a later mid-word apostrophe is not one', () => {
     assert.deepEqual(parseBracketList("['90s cohort, Customer's spend]"), [["'90s cohort"], ["Customer's spend"]]);
+    // A stray `]` inside the list does not end a part, so the apostrophe before it is no
+    // partner and the comma still splits (the bake-off fuzz found the old reading).
+    assert.deepEqual(parseBracketList("['90s cohor{, Customer']s spend]"), [["'90s cohor{"], ["Customer']s spend"]]);
     assert.deepEqual(parseBracketList("[{'x, y', 0..1}, z]"), [['x, y', '0..1'], ['z']]);
   });
 });

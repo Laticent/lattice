@@ -225,7 +225,7 @@ class AxisParser extends EmbeddedActionsParser {
         if (t.tokenType !== q) continue;
         let n = this.LA(k + 1);
         if (is(n, A.Ws)) n = this.LA(k + 2);
-        if (n.tokenType === EOF || is(n, A.Comma) || is(n, A.RCurly) || is(n, A.RSq)) return true;
+        if (n.tokenType === EOF || is(n, A.Comma) || is(n, A.RCurly)) return true;
       }
     };
     const atBrace = () => is(this.LA(1), A.LCurly) || (is(this.LA(1), A.Ws) && is(this.LA(2), A.LCurly));

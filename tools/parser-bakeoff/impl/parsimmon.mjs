@@ -60,7 +60,7 @@ const valueP = P.seq(
 );
 
 // ── axis ────────────────────────────────────────────────────────────────────
-const stop = P.alt(P.oneOf(',}]'), P.eof);
+const stop = P.alt(P.oneOf(',}'), P.eof);
 const quotedOf = (q) => str(q)
   .skip(P.lookahead(P.notFollowedBy(P.seq(str(q), ws, stop)).then(P.any).many().then(P.seq(str(q), ws, stop))))
   .then(tie(P.noneOf(q))).skip(str(q)).map((b) => `${q}${b}${q}`);

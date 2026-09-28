@@ -1,0 +1,1 @@
+- **Fixed: a stray `]` inside a chart's bracketed axis or key list no longer swallows a comma.** A quote only protects commas when its closing partner ends a part, and a `]` in the middle of the list was mistaken for the list's own closing bracket. So `['90s cohort, Customer']s spend]` read as one axis instead of two. No shipped deck contained the pattern.

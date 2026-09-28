@@ -12,8 +12,8 @@ summary: >
   under 8 ms, because the same three rules (a quote's partner, the parts cap, the arrow's word
   boundary and label cap) need an escape hatch in every library. Recommendation: keep the
   kernels, make the parity harness the contract, and use Peggy for the first genuinely
-  recursive grammar. The harness also found a stray-] quirk in bracket-list.js and a
-  Chevrotain lexer bug that silently drops input.
+  recursive grammar. The harness also found a stray-] quirk in bracket-list.js (fixed) and
+  a Chevrotain lexer bug that silently drops input.
 ---
 
 # Parser libraries against our hand-written grammars: every one can say it, none should ship it
@@ -68,8 +68,8 @@ Three results decide it:
 
 What does scale is what this bake-off had to build to be fair: a **parity harness** — real
 corpus, seeded fuzz, a scaling ladder, per-process timing — that any grammar kernel can be
-held to. Outside the libraries it found a latent quirk in a shipped kernel and a lexer bug
-in the one library already in our tree (§ "What the harness found").
+held to. Outside the libraries it found a latent quirk in a shipped kernel (fixed here) and a
+lexer bug in the one library already in our tree (§ "What the harness found").
 
 ## Why these candidates
 
@@ -113,9 +113,9 @@ few seeds the real corpus lacks are added to the fuzz only: braced members of th
 parts, where the cap bites, and arrow labels at the 61-unit limit, some in emoji.
 
 The correctness table prints how many inputs the incumbent ACCEPTS, because parity on rejects
-alone would be cheap. Across the fuzz sets it accepts 13,835 axis inputs, 3,275 arrow-bearing
+alone would be cheap. Across the fuzz sets it accepts 13,806 axis inputs, 3,275 arrow-bearing
 rows, 1,048 gantt spans, 4,631 value pills and 1,406 inline directives; on the real corpus,
-61, 48, 60, 361 and 38.
+60, 48, 60, 361 and 38.
 
 **One process per timing cell, under a deadline.** A super-linear candidate cannot stall
 the table or warm the JIT for the next one (`speed-cell.mjs`).
@@ -281,17 +281,17 @@ and name the fix; a library's message would be an input to that, not a replaceme
 
 ## What the harness found
 
-**1. A latent quirk in the incumbent.** `parseBracketList` decides whether a quote has a
-partner by scanning right to left and asking whether the next non-space character is `,`,
-`}` or `]`. It seeds that scan with the closing bracket's code, and never tells the closing
-bracket apart from a stray `]` inside the list. So in `` `['90s cohor{, Customer']s spend]` ``
-the apostrophe before `]s` counts as a partner, the leading quote opens, and the comma is
-swallowed: one member, where the grammar as documented says two. Peggy's first grammar
-followed the documented rule and disagreed on exactly this fuzz input. The challengers now
-reproduce the incumbent (`End` includes `]`) so parity holds; whether the incumbent should
-change is a separate, one-line question and is **not** decided here. Measured: a grammar that
-follows the documented rule reads all 4,476 real inputs the same as the kernel and differs
-on that one fuzz input, so no shipped deck depends on the quirk either way.
+**1. A latent quirk in the incumbent — fixed in this PR.** `parseBracketList` decides
+whether a quote has a partner by scanning right to left and asking whether the next
+non-space character is `,`, `}` or the closing `]`. It seeded that scan with the closing
+bracket's own code, so a stray `]` INSIDE the list counted too. In
+`` `['90s cohor{, Customer']s spend]` `` the apostrophe before `]s` became a partner, the
+leading quote opened, and the comma was swallowed: one member, where the documented rule
+says two. Peggy's first grammar followed the documented rule and disagreed on exactly this
+fuzz input. The owner chose to fix the kernel: the scan now seeds a sentinel for the closing
+bracket, `bracket-list.test.js` pins the two-member reading, and every challenger follows
+the corrected rule. Measured before the fix landed: 0 of the 10,129 deck and doc spans read
+differently, capped or uncapped, so no shipped deck changes.
 
 **2. A Chevrotain lexer bug that silently drops input.** Chevrotain 12's "first char" lexer
 optimization reads the character class `[\s\S]` — the lint-preferred spelling of "any
@@ -356,11 +356,10 @@ hurts with the second. Peggy is the right library for the first grammar that is 
 recursive — nesting, precedence, an expression language — and nothing we ship today is. D
 is independent of A and worth its own brief if editor highlighting becomes a goal.
 
-Two smaller calls ride on this note and are also the owner's: whether the incumbent's
-stray-`]` quirk (§ "What the harness found", 1) should be fixed — a one-line change to
-`bracket-list.js` that changes one fuzz input of 20,000 and none of the 4,476 real ones — and
-whether the harness should run in CI. It should not: it needs five uninstalled packages and
-takes fifteen minutes, which is why it follows `dom:bakeoff` as an on-demand tool.
+One smaller call rides on this note: whether the harness should run in CI. It should not:
+it needs five uninstalled packages and takes about twenty minutes, which is why it follows
+`dom:bakeoff` as an on-demand tool. (The stray-`]` quirk was the other; the owner chose to
+fix it, and it is fixed here.)
 
 ## Reproduce
 

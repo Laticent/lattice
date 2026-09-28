@@ -34,7 +34,5 @@ Quoted
   = "\"" &((!("\"" _ End) .)* "\"" _ End) b:$[^"]* "\"" { return `"${b}"`; }
   / "'" &((!("'" _ End) .)* "'" _ End) b:$[^']* "'" { return `'${b}'`; }
 
-// `]` too: the incumbent reads a stray `]` inside the list as ending a part (its right-to-left
-// scan seeds `next` with the closing bracket code and never tells the two apart). Found by fuzz.
-End = "," / "}" / "]" / !. ;
+End = "," / "}" / !. ;
 _   = [\t-\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]*

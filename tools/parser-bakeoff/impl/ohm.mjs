@@ -86,7 +86,7 @@ ${levels.join('\n')}
   barePart = ws* quoted? (~"," any)*
   quoted = "\"" &((~("\"" ws* stop) any)* "\"" ws* stop) (~"\"" any)* "\""  -- dq
          | "'" &((~("'" ws* stop) any)* "'" ws* stop) (~"'" any)* "'"  -- sq
-  stop = "," | "}" | "]" | end
+  stop = "," | "}" | end
   ws = ${WS}
 }`;
 }
