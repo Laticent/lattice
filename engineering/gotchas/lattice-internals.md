@@ -794,14 +794,22 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `lib/transformers/image-adaptive.js` stamps the Clean floor at once and re-stamps
   `data-img-bucket` / `data-img-composition` when its probe loads, and the bucket
   sizes the card. The preview's reveal gate waited for fonts, never for the probe.
-- **Fix:** each probe started before the first reveal publishes a promise that always
-  settles on `window.__latticeImageProbes`. `fontGateAgent` waits for them after the
-  faces, capped by `PREVIEW_IMAGE_GATE_MS` (4 s), armed only when a probe is pending. A
-  probe that lands past the cap fires `lattice:layout-late`, and `single-slide-render`
-  fades the frame through the relayout. A probe started after the reveal (an edit
-  re-creates the section) is neither published nor announced. The two whole-deck
-  documents (the Playground filmstrip, the Stage window) pass `0` and do not wait, so
-  one slow photo cannot hold every slide hidden.
+- **First fix, since removed:** the reveal gate (`fontGateAgent`) waited for every photo
+  probe after the faces, up to 4 s. The rule below ("the text waits for the photo") made
+  that wait redundant, and it cost a blank slide: with the photo held 2 s, the Studio's
+  frame stayed at opacity 0 until the photo landed (WebKit, iPhone profile) instead of
+  showing the placeholder. The gate now waits for the faces only, and nothing publishes
+  probes for it (followup 2412-p2). A size that lands after the text was released (the
+  4 s cap below) and changes the composition fires `lattice:layout-late`, and
+  `single-slide-render` fades the frame through the relayout.
+- **WebKit's `document.fonts.ready` waits for the photo too.** It resolves only once the
+  document's other loads finish, although `document.fonts.status` reads `"loaded"` as
+  soon as the faces are in (a face served in 600ms and a photo held 2 s: status at
+  ~700ms, `ready` at 2016ms, no `loadingdone` event). So with the image wait gone the
+  reveal still fell to the gate's 1.5 s backstop on the iPhone. The gate now also polls
+  `status` every 50ms from one tick after its layout flush, never inline: both engines
+  read `"loading"` right after the flush, and one that did not would reveal the fallback
+  solve.
 - **The same jump on a slide CHANGE** (the patch path, which no reveal gate covers): the
   swapped-in section painted for ~150ms with no composition at all (the panel filled the
   whole slide), then as the Clean floor, then final. `single-slide-render` now keeps every

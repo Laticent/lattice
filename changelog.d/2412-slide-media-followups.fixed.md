@@ -1,1 +1,2 @@
 - A stats or kpi slide's line typed after its stat list (a `*Source: …*` note followed by a key insight) now reaches Read · Article and the narration, after the stats. Both dropped it before.
+- The Studio's first load no longer holds an image slide blank while its photo loads. The preview appears as soon as its fonts are in, showing the photo's placeholder with the slide's text held back until the photo's size is known; before, the whole slide stayed hidden for up to 4 s.

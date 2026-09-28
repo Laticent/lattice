@@ -1261,9 +1261,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	 * transition. A fade instead of a jump; nothing is hidden for longer than one ease.
 	 * Armed once per document.
 	 *
-	 * `lattice:layout-late` is the same case for an adaptive IMAGE: the gate holds the reveal for
-	 * the photo's aspect up to PREVIEW_IMAGE_GATE_MS, and a photo slower than that re-lays out the
-	 * card when it lands (lib/transformers/image-adaptive.js).
+	 * `lattice:layout-late` is the same case for an adaptive IMAGE: a slide whose photo is loading
+	 * holds its text back until the photo's size is in, up to the runtime's PENDING_CAP_MS, and a
+	 * photo slower than that re-lays out the card when it lands (lib/transformers/image-adaptive.js).
 	 */
 	function armLateFonts(fr: HTMLIFrameElement) {
 		try {
