@@ -42,7 +42,9 @@ import {
 // the punctuation the projection rewrites; and honest silence when nothing matches.
 
 /** The pointer's real ink footprint: a POINTER_BOX square centered on where it is placed. */
-const atPoint = (x: number, y: number) => ({ left: x - POINTER_BOX / 2, top: y - POINTER_BOX / 2, width: POINTER_BOX, height: POINTER_BOX }) as DOMRect;
+// The arrow's body where Vetrina draws it: the TIP at the point, the body hanging down and right
+// (`paintCursorAt`). A box centered on the point missed its lower half (2026-09-27).
+const atPoint = (x: number, y: number) => ({ left: x, top: y, width: POINTER_BOX, height: POINTER_BOX }) as DOMRect;
 /** Do two boxes overlap at all? Touching edges do not count as covering. */
 const pointerCovers = (p: { left: number; top: number; width: number; height: number }, t: { left: number; top: number; width: number; height: number }): boolean =>
 	p.left < t.left + t.width && p.left + p.width > t.left && p.top < t.top + t.height && p.top + p.height > t.top;
@@ -967,10 +969,10 @@ describe('pointerAnchor — the fallback placement', () => {
 		const frame = { left: 0, top: 0, width: 960, height: 540 };
 		const { x, y } = pointerAnchor(box, frame, [box]);
 		expect(pointerCovers(atPoint(x, y), box), `the pointer box overlaps the text at (${x},${y})`).toBe(false);
-		expect(x - POINTER_BOX / 2).toBeGreaterThanOrEqual(frame.left);
-		expect(x + POINTER_BOX / 2).toBeLessThanOrEqual(frame.left + frame.width);
-		expect(y - POINTER_BOX / 2).toBeGreaterThanOrEqual(frame.top);
-		expect(y + POINTER_BOX / 2).toBeLessThanOrEqual(frame.top + frame.height);
+		expect(x).toBeGreaterThanOrEqual(frame.left);
+		expect(x + POINTER_BOX).toBeLessThanOrEqual(frame.left + frame.width);
+		expect(y).toBeGreaterThanOrEqual(frame.top);
+		expect(y + POINTER_BOX).toBeLessThanOrEqual(frame.top + frame.height);
 	});
 
 	it('clears the NEIGHBORING block too, not just its own target', () => {
@@ -998,7 +1000,7 @@ describe('pointerAnchor — the fallback placement', () => {
 		const box = { left: 100, top: 300, width: 900, height: 40 };
 		const atFull = pointerAnchor(box, frame, [box], POINTER_BOX / 2);
 		const atHalf = pointerAnchor(box, frame, [box], POINTER_BOX / 2 / 0.5);
-		expect(pointerCovers({ left: atHalf.x - POINTER_BOX, top: atHalf.y - POINTER_BOX, width: POINTER_BOX * 2, height: POINTER_BOX * 2 }, box)).toBe(false);
+		expect(pointerCovers({ left: atHalf.x, top: atHalf.y, width: POINTER_BOX * 2, height: POINTER_BOX * 2 }, box)).toBe(false);
 		expect(Math.abs(atHalf.x - box.left)).toBeGreaterThan(Math.abs(atFull.x - box.left));
 	});
 
@@ -1146,7 +1148,9 @@ describe('guideCueFor, with line boxes', () => {
 			d.documentElement.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 1280, height: 720, right: 1280, bottom: 720, toJSON: () => ({}) }) as DOMRect;
 			const [a, b] = [...d.querySelectorAll('p')] as HTMLElement[];
 			a.getBoundingClientRect = () => ({ x: 0, y: 0, left: 100, top: 100, width: 300, height: 24, right: 400, bottom: 124, toJSON: () => ({}) }) as DOMRect;
-			b.getBoundingClientRect = () => ({ x: 0, y: 0, left: 440, top: 165, width: 260, height: 35, right: 700, bottom: 200, toJSON: () => ({}) }) as DOMRect;
+			// The neighbor sits just clear of the arrow's body at 1:1 (tip at the stroke's end, body
+			// hanging down-right to x 447) and inside it at 1:2.
+			b.getBoundingClientRect = () => ({ x: 0, y: 0, left: 460, top: 165, width: 260, height: 35, right: 720, bottom: 200, toJSON: () => ({}) }) as DOMRect;
 			return {
 				contentDocument: d,
 				offsetWidth: 1280,

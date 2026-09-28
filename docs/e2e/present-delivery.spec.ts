@@ -1,13 +1,13 @@
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
-// THE DELIVERY PRESETS on the real Present surface (engineering/decisions/
-// 2026-09-25-vetrina-delivery-presets.md §6). Both claims are about a real reader driving a real
-// Guide over a real slide, so jsdom cannot settle them (HARD RULE #23):
+// THE DELIVERIES on the real Present surface (engineering/decisions/
+// 2026-09-27-delivery-styles-and-component-scenes.md §4, superseding the 2026-09-25 budget). The
+// claims are about a real reader driving a real Guide over a real slide, so jsdom cannot settle
+// them (HARD RULE #23):
 //
-//   - `restrained` focuses at most TWO moments on a slide however many blocks it narrates, spends
-//     them on the figures rather than on the first things said, and draws no overlay ink;
-//   - `expressive` focuses more, and inks only its top moment;
-//   - `somber` recedes the rest gently, and shows NO cursor and NO ink.
+//   - `restrained` focuses every block the narration names, one at a time, and draws no ink;
+//   - `expressive` focuses the same blocks and inks each one, with the cursor on;
+//   - `somber` gestures once, on the slide's top-ranked moment, with NO cursor and NO ink.
 //
 // No key and no voice: the silent reader drives the cue clock exactly as a narrated one does.
 
@@ -87,21 +87,21 @@ async function foci(dialog: import('@playwright/test').Locator, ms: number): Pro
 	}, ms);
 }
 
-test('restrained focuses at most two moments, and draws no ink', async ({ page }) => {
+test('restrained focuses every bullet the narration names, and draws no ink', async ({ page }) => {
 	const dialog = await present(page, DENSE('restrained'));
 	const [lit, bursts] = await Promise.all([foci(dialog, 25_000), inkBursts(page, 25_000)]);
-	expect(lit.length, 'no focus at all: the plan chose nothing, or the Guide never ran').toBeGreaterThan(0);
-	expect(lit.length, 'restrained focused past its budget of two').toBeLessThanOrEqual(2);
-	expect(lit.join(' | '), 'the figure is the moment this slide exists for').toContain('$48.6M');
+	// No budget: a slide read in five bullets shows five quiet focuses, so nothing named goes dark.
+	expect(lit.length, 'restrained left named bullets dark').toBeGreaterThanOrEqual(4);
+	expect(lit.join(' | '), 'the figure is focused when it is read').toContain('$48.6M');
 	expect(bursts, 'restrained changes the element; it draws no overlay').toBe(0);
 });
 
-test('expressive focuses more of the same slide, and inks only its top moment', async ({ page }) => {
+test('expressive focuses the same bullets, and inks each one', async ({ page }) => {
 	const dialog = await present(page, DENSE('expressive'));
 	const [lit, bursts] = await Promise.all([foci(dialog, 25_000), inkBursts(page, 25_000)]);
-	expect(lit.length, 'expressive focused no more than restrained is allowed to').toBeGreaterThan(2);
-	expect(lit.length, 'expressive focused past its budget of four').toBeLessThanOrEqual(4);
-	expect(bursts, 'expressive inks its top moment, and only that one').toBe(1);
+	expect(lit.length, 'expressive left named bullets dark').toBeGreaterThanOrEqual(4);
+	// Ink marks every act, not only the top moment (owner, 2026-09-27).
+	expect(bursts, 'expressive inks each named block').toBeGreaterThanOrEqual(4);
 });
 
 test('somber focuses the figure: the rest recedes gently, with no cursor and no ink', async ({ page }) => {

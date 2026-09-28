@@ -9,7 +9,7 @@ companion:
 
 # Delivery styles and component scenes: each delivery its own character, each component its own gestures
 
-**Status:** accepted (owner, 2026-09-27). The owner's answers to §10 are recorded there.
+**Status:** accepted (owner, 2026-09-27) and built in #2415 (§12). The owner's answers to §10 are recorded there.
 **Supersedes, if accepted:** the preset model of
 [`2026-09-25-vetrina-delivery-presets.md`](2026-09-25-vetrina-delivery-presets.md) §3 (a preset
 sets only budget and loudness) and §6.1's "one lever, focus" ruling. Salience (§4), timing
@@ -282,6 +282,48 @@ Each step is one commit and stands on its own.
 3. Vetrina in the export: **not yet.** An exported expressive deck plays with focus only until a
    later PR, so it looks close to restrained. Step 4 builds `trace` for the Studio only.
 4. #2415: **held.** This work lands on the same branch and merges with it.
+
+## 12. Built (2026-09-27, #2415)
+
+- **Binding.** `narrateChartScript` (`lib/core/chart-narration.js`) returns the narration and its
+  refs, `{ start, end, act, unit, id, value, label }` over the text. A `Said` is a String object,
+  so every narrator's text is byte-identical with or without the binding (the 3,000-test core
+  suite pins it). 17 narrators bind; flowchart, Mermaid and tables do not yet
+  (`followups.d/2415-p2-scene-gaps.md`).
+- **Scenes.** 22 chart manifests declare `scene: { units, key }` (schema in
+  `lib/components/manifest.schema.json`). A unit's `select` may be a list, united (a line's point
+  is its dot AND its own line), and may carry a `fallback` (radar `benchmark` folds every
+  competitor into one envelope). The key rule takes an optional unit, `largest:series`, because a
+  line's largest VALUE picked a point, not the series with the largest move (measured on the
+  filmstrip). `tools/build-guide-handles.js` projects the scenes into `GUIDE_SCENES`.
+- **Resolver.** `lib/core/scene-resolve.mjs`, shared by the Studio, the player and the gate. It
+  never matches the chart's hidden screen-reader table or a `<template>`, and it escapes every
+  punctuation character in a filled value, because jsdom split "Sprig + Log" on its ` + `.
+- **Gate.** `test/unit/core/scene-binding.test.js` renders every narrated slide in every tracked
+  deck (galleries, component docs, `examples/`, baseline decks: 478 slides, 3,358 bound sentences)
+  and checks that each binding resolves to a drawn part carrying the name the sentence said, with
+  some other part left to recede. The gallery-only first version found five mismatches (grouped
+  bars, stacked areas, radar benchmark, quadrant bubble and trail variants, roadmap horizons); the
+  independent checker then found 27 more on example decks (a slope row with a status pill, the
+  portrait journey, unmarked roadmap bets), which is why it reads every deck now.
+- **A miss never goes dark.** A binding that resolves to nothing on the slide (a variant a scene
+  does not cover yet) returns the cue to the text path, as before binding (`scene()` returns null).
+- **The export carries the binding.** `narration-bake.ts` attaches it and `share-export.ts` passes it
+  on; `share-narrated-player.spec.ts` exports a funnel from the Studio and plays the file offline. The
+  checker found the share path dropping it while `verify-guide-player.mjs`, which injects its own
+  refs, passed.
+- **Styles.** `lib/core/delivery-styles/{restrained,expressive,somber}.mjs`, each owning its `look`
+  and its `express(act, ctx)`. `resolve-delivery.mjs` only gathers them. Budgets: 999 (no cap,
+  finite for JSON) for restrained and expressive, 1 for somber.
+- **Scores.** `lib/core/delivery-score.mjs` and one golden per chart in
+  `test/fixtures/delivery-scores/`, all three deliveries side by side.
+- **Runtime.** The director's `scene()` (`guide-kernel.ts`) plays a bound cue, found by its
+  `charOffset`; the Studio (`PresentOverlay.tsx`) adds expressive's ink through `sceneCue`
+  (`present-guide.ts`); the player (`guide-player.ts`) applies the focus only. A slide the narrator
+  does not bind falls through to the old text path.
+- **Vetrina `trace`** (`stage.ts`), sanctioned in `SANCTIONED_GESTURES`. Vetrina ships from its
+  `dist/`, so `npm run vetrina-lib:build` is part of any stage change: a first filmstrip showed no
+  trace at all because the Studio was still running the old `dist/`.
 
 ## 11. Not verified yet
 

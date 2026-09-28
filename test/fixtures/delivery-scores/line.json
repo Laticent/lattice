@@ -1,0 +1,698 @@
+{
+	"restrained": [
+		{
+			"said": "Services grew into the gap enterprise left.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each line tracks one measure across the axis, so the movement is the read.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Enterprise fell zero point six overall, from four point one to three point five.",
+			"act": "enter",
+			"unit": "series",
+			"select": "path.line-path[data-series=\"0\"], circle.line-dot[data-series=\"0\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2025, four point one.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q1 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2025, four point four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q2 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q3 2025, four point two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q3 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q4 2025, three point eight.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q4 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2026, three point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q1 2026\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2026, three point five.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q2 2026\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mid-market rose two overall, from two point six to four point six.",
+			"act": "enter",
+			"unit": "series",
+			"select": "path.line-path[data-series=\"1\"], circle.line-dot[data-series=\"1\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2025, two point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q1 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2025, two point nine.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q2 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q3 2025, three point four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q3 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q4 2025, three point nine.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q4 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2026, four point three.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q1 2026\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2026, four point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q2 2026\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Services rose four overall, from one point two to five point two.",
+			"act": "enter",
+			"unit": "series",
+			"select": "path.line-path[data-series=\"2\"], circle.line-dot[data-series=\"2\"]",
+			"key": true,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2025, one point two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q1 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2025, one point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q2 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q3 2025, two point three.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q3 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q4 2025, three point one.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q4 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2026, four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q1 2026\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2026, five point two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q2 2026\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Services grew into the gap enterprise left.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each line tracks one measure across the axis, so the movement is the read.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Enterprise fell zero point six overall, from four point one to three point five.",
+			"act": "enter",
+			"unit": "series",
+			"select": "path.line-path[data-series=\"0\"], circle.line-dot[data-series=\"0\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q1 2025, four point one.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q1 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q2 2025, four point four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q2 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q3 2025, four point two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q3 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q4 2025, three point eight.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q4 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q1 2026, three point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q1 2026\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q2 2026, three point five.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q2 2026\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Mid-market rose two overall, from two point six to four point six.",
+			"act": "enter",
+			"unit": "series",
+			"select": "path.line-path[data-series=\"1\"], circle.line-dot[data-series=\"1\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q1 2025, two point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q1 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q2 2025, two point nine.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q2 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q3 2025, three point four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q3 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q4 2025, three point nine.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q4 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q1 2026, four point three.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q1 2026\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q2 2026, four point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q2 2026\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Services rose four overall, from one point two to five point two.",
+			"act": "enter",
+			"unit": "series",
+			"select": "path.line-path[data-series=\"2\"], circle.line-dot[data-series=\"2\"]",
+			"key": true,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q1 2025, one point two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q1 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q2 2025, one point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q2 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q3 2025, two point three.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q3 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q4 2025, three point one.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q4 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q1 2026, four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q1 2026\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q2 2026, five point two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q2 2026\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Services grew into the gap enterprise left.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each line tracks one measure across the axis, so the movement is the read.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Enterprise fell zero point six overall, from four point one to three point five.",
+			"act": "enter",
+			"unit": "series",
+			"select": "path.line-path[data-series=\"0\"], circle.line-dot[data-series=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2025, four point one.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q1 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2025, four point four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q2 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q3 2025, four point two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q3 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q4 2025, three point eight.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q4 2025\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2026, three point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q1 2026\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2026, three point five.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"0\"][data-label=\"Q2 2026\"], path.line-path[data-series=\"0\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mid-market rose two overall, from two point six to four point six.",
+			"act": "enter",
+			"unit": "series",
+			"select": "path.line-path[data-series=\"1\"], circle.line-dot[data-series=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2025, two point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q1 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2025, two point nine.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q2 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q3 2025, three point four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q3 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q4 2025, three point nine.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q4 2025\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2026, four point three.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q1 2026\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2026, four point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"1\"][data-label=\"Q2 2026\"], path.line-path[data-series=\"1\"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Services rose four overall, from one point two to five point two.",
+			"act": "enter",
+			"unit": "series",
+			"select": "path.line-path[data-series=\"2\"], circle.line-dot[data-series=\"2\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2025, one point two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q1 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2025, one point six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q2 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q3 2025, two point three.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q3 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q4 2025, three point one.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q4 2025\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1 2026, four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q1 2026\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2 2026, five point two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "circle.line-dot[data-series=\"2\"][data-label=\"Q2 2026\"], path.line-path[data-series=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

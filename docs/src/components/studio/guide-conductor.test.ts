@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { DELIVERY_STYLES, resolveDelivery } from '@/lib/resolve-delivery';
 import { createGuideConductor, type GuideDelivery, type GuideStage } from './guide-conductor';
-import { findCueTarget, findTableRowTarget, focusContent, type GuideCue, planSlide } from './present-guide';
+import { findCueTarget, findTableRowTarget, focusContent, type GuideCue, planSlide, type SceneRef, type SceneStyle } from './present-guide';
 
 // The per-sentence rules Present and the exported player share (guide-conductor.ts). The host's
 // `aim` / `cue` are stubbed from a text → element table, so these pin the RULES — rest, pause and
@@ -194,6 +195,12 @@ describe('restrained audit fixes (owner, 2026-09-27)', () => {
 		expect(findTableRowTarget(section, 'Mid-market — Q3: 3.1%.')).toBeNull();
 	});
 
+	it('never finds a row in a chart’s hidden screen-reader table', () => {
+		document.body.innerHTML = `<div class="lattice"><section><div class="chart-body"><svg><path class="line-path" data-series="0" data-label="EMEA"></path></svg>
+			<table class="chart-sr-only"><tbody><tr><th scope="row">EMEA</th><td>4.1</td></tr></tbody></table></div></section></div>`;
+		expect(findTableRowTarget(document.querySelector('section') as Element, 'EMEA — Jan 2026: 4.1.')).toBeNull();
+	});
+
 	it('keeps a line point’s category label full and recedes the other categories', () => {
 		document.body.innerHTML = `<div class="lattice"><section><div class="chart-body"><svg>
 			<path class="line-path" data-series="0" data-label="EMEA"></path>
@@ -205,5 +212,128 @@ describe('restrained audit fixes (owner, 2026-09-27)', () => {
 		expect(feb.classList.contains('lat-guide-undim')).toBe(true);
 		expect(jan.classList.contains('lat-guide-dim')).toBe(true);
 		undo?.();
+	});
+});
+
+// THE SCENE — a bound sentence played in its delivery's own style (2026-09-27 note). The chart
+// narrator binds each sentence to an act and a unit; the line manifest's gesture finds the unit;
+// the style file decides what the act does. These pin the three characters on one line chart.
+describe('guide-conductor — a bound sentence in its delivery style', () => {
+	const LINE = `<div class="lattice"><section class="line"><div class="chart-body"><svg>
+		<path class="line-path" data-series="0" data-label="EMEA"></path>
+		<circle class="line-dot" data-series="0" data-label="Jan 2026"></circle><circle class="line-dot" data-series="0" data-label="Feb 2026"></circle>
+		<path class="line-path" data-series="1" data-label="APAC"></path>
+		<circle class="line-dot" data-series="1" data-label="Jan 2026"></circle><circle class="line-dot" data-series="1" data-label="Feb 2026"></circle>
+		<text class="cart-cat" data-label="Jan 2026">Jan 2026</text><text class="cart-cat" data-label="Feb 2026">Feb 2026</text>
+		<text class="cart-series" data-series-for="0">EMEA</text><text class="cart-series" data-series-for="1">APAC</text></svg></div></section></div>`;
+	// The narration's spans, as `narrateChartScript` binds a two-series line (each sentence 10 chars).
+	const REFS: SceneRef[] = [
+		{ start: 0, end: 10, act: 'frame' },
+		{ start: 10, end: 20, act: 'enter', unit: 'series', id: { series: 0 }, value: 0.8 },
+		{ start: 20, end: 30, act: 'visit', unit: 'point', id: { series: 0, cat: 'Jan 2026' } },
+		{ start: 30, end: 40, act: 'visit', unit: 'point', id: { series: 0, cat: 'Feb 2026' } },
+		{ start: 40, end: 50, act: 'note', unit: 'point', id: { series: 0, cat: 'Feb 2026' } },
+		{ start: 50, end: 60, act: 'enter', unit: 'series', id: { series: 1 }, value: 0.3 },
+	];
+	const TEXTS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+	const up = () => [...document.querySelectorAll('.lat-guide-undim')].map((e) => `${e.tagName.toLowerCase()}:${e.getAttribute('data-label') ?? e.textContent}`);
+	const inner = () => [...document.querySelectorAll('.lat-guide-dim-inner')].map((e) => e.getAttribute('data-label'));
+	function rig(fallbackSel: string | null = null) {
+		document.body.innerHTML = LINE;
+		const fallbackAim = fallbackSel ? document.querySelector(fallbackSel) : null;
+		const inks: string[] = [];
+		const stage: GuideStage = { gesture: async (kind) => void inks.push(kind), setCursorVisible: () => {} };
+		const cue = (el: Element): GuideCue => ({ el, kind: 'underline', strength: 'quiet', target: { getBoundingClientRect: () => el.getBoundingClientRect(), getClientRects: () => [] }, rest: null });
+		const g = createGuideConductor({
+			stage: () => stage,
+			aim: () => fallbackAim,
+			cue: () => (fallbackAim ? cue(fallbackAim) : null),
+			clearance: 19,
+			section: () => document.querySelector('section'),
+			sceneCue: (_s, els, kind) => (els[0] ? { ...cue(els[0]), kind } : null),
+		});
+		const play = (name: string, at: number, { slide = 0, delivering = true, refs = REFS }: { slide?: number; delivering?: boolean; refs?: SceneRef[] } = {}) => {
+			const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle }>)[name].express;
+			const d = { ...(resolveDelivery(name) as GuideDelivery), fade: 0 };
+			g.beat({ slide, cue: Math.floor(at / 10), texts: TEXTS, track: TEXTS, delivering, delivery: d, scene: { refs, at, style } });
+		};
+		return { g, play, inks };
+	}
+
+	it('restrained walks every named part: the line, then each point on it, with its category held', () => {
+		const { play, inks } = rig();
+		play('restrained', 10);
+		expect(up()).toEqual(expect.arrayContaining(['path:EMEA', 'text:EMEA']));
+		expect(document.querySelector('path[data-label="APAC"]')?.classList.contains('lat-guide-dim')).toBe(true);
+		play('restrained', 30);
+		// The Feb point, its own line and the Feb category label stay; EMEA's other point drops
+		// deeper than the rest, because the line being walked is the open group.
+		expect(up()).toEqual(expect.arrayContaining(['circle:Feb 2026', 'path:EMEA', 'text:Feb 2026']));
+		expect(inner()).toContain('Jan 2026');
+		// A note holds the point, and the frame brings the whole figure back.
+		const before = up();
+		play('restrained', 40);
+		expect(up()).toEqual(before);
+		play('restrained', 0);
+		expect(document.querySelectorAll('.lat-guide-dim').length).toBe(0);
+		expect(inks).toEqual([]); // restrained draws nothing
+	});
+
+	it('somber is still until the key beat (the line with the largest move), then holds it', () => {
+		const { play, inks } = rig();
+		play('somber', 0);
+		play('somber', 20);
+		expect(document.querySelectorAll('.lat-guide-dim').length).toBe(0);
+		// `line`'s key is `largest`: EMEA's enter (0.8) beats APAC's (0.3), so it is the one gesture.
+		const again = rig();
+		again.play('somber', 10);
+		expect(up()).toContain('path:EMEA');
+		again.play('somber', 30);
+		// Held: the whole EMEA line stays up and APAC stays down; the point sentence moved nothing.
+		expect(up()).toContain('path:EMEA');
+		expect(document.querySelector('path[data-label="APAC"]')?.classList.contains('lat-guide-dim')).toBe(true);
+		expect(inner()).toEqual([]);
+		expect([...inks, ...again.inks]).toEqual([]);
+	});
+
+	it('expressive inks each act, and focuses the same parts as restrained', async () => {
+		const { play, inks } = rig();
+		play('expressive', 30);
+		expect(up()).toContain('circle:Feb 2026');
+		play('expressive', 10);
+		expect(inks).toEqual(['tap', 'trace']);
+	});
+
+	it('a pause lifts the focus, and playing a held sentence brings it back', () => {
+		const { play } = rig();
+		play('restrained', 30);
+		play('restrained', 30, { delivering: false });
+		expect(document.querySelectorAll('.lat-guide-dim, .lat-guide-dim-inner').length).toBe(0);
+		play('restrained', 40);
+		expect(up()).toContain('circle:Feb 2026');
+	});
+
+	it('nothing carries across a slide change', () => {
+		const { play } = rig();
+		play('restrained', 30, { slide: 0 });
+		play('restrained', 0, { slide: 1 });
+		expect(document.querySelectorAll('.lat-guide-dim, .lat-guide-dim-inner').length).toBe(0);
+	});
+
+	it('a binding this render does not draw falls back to the words, rather than going dark', () => {
+		// The text path's aim answers with the APAC line; the binding names a point that is not drawn.
+		const { play } = rig('path[data-label="APAC"]');
+		play('restrained', 0, { refs: [{ start: 0, end: 10, act: 'visit', unit: 'point', id: { series: 9, cat: 'Dec 2031' } }] });
+		expect(up()).toContain('path:APAC');
+	});
+
+	it('somber keeps its key focus when the deck resumes on a sentence with no binding after it', () => {
+		const { play } = rig();
+		// EMEA's enter (10–20) is the key; 60+ is an unbound closing aside.
+		play('somber', 10);
+		play('somber', 10, { delivering: false });
+		expect(document.querySelectorAll('.lat-guide-dim').length).toBe(0);
+		play('somber', 65);
+		expect(up()).toContain('path:EMEA');
 	});
 });

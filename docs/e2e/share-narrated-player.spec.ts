@@ -62,3 +62,55 @@ test('the Webpage player the Studio exports plays itself from its timing track, 
 	expect(await p.evaluate(() => document.querySelector('body > #lp-bar > #lp-count')?.textContent?.trim())).toMatch(/^3 \//);
 	expect(errors).toEqual([]);
 });
+
+const GUIDED_CHART = `---
+marp: true
+theme: indaco
+pace: brisk
+delivery: restrained
+---
+
+<!-- _class: funnel -->
+
+## Where the pipeline drops off.
+
+- Visitors \`12,000\`
+- Signups \`4,800\`
+- Signed \`214\`
+`;
+
+// THE BINDING SURVIVES THE REAL EXPORT. The chart narrator binds each sentence to the stage it
+// names, and the player plays that scene without reading the words (2026-09-27 note). A checker
+// found the Studio's share path rebuilding each narration slide without the binding, so a sent
+// deck never played a scene while the player's own check (which injects the refs) passed.
+test('a delivery: chart deck exports its binding, and the player focuses the stage each sentence names', async ({ page, context }, testInfo) => {
+	await gotoStudio(page);
+	await setEditorContent(page, GUIDED_CHART);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await page.getByRole('button', { name: /Webpage/ }).click();
+	// Captions on: with no voice, the captions are the narration the Guide rides.
+	const captions = page.getByRole('switch', { name: 'Include captions' });
+	await expect(captions).toBeVisible();
+	if ((await captions.getAttribute('aria-checked')) !== 'true') await captions.click();
+	const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 180000 }), page.getByRole('button', { name: /Download webpage/ }).click()]);
+	const file = testInfo.outputPath('guided-chart.html');
+	await dl.saveAs(file);
+	const html = fs.readFileSync(file, 'utf8');
+	expect(html, 'the export carries the chart narration binding').toMatch(/"refs":\[\[/);
+	expect(html).toContain('"unit":"stage"');
+
+	await context.setOffline(true);
+	const p = await context.newPage();
+	const errors: string[] = [];
+	p.on('pageerror', (e) => errors.push(e.message));
+	await p.goto(`file://${file}`);
+	await p.waitForSelector('#lp-play');
+	await p.click('#lp-play');
+	// Every stage the narration names is focused in turn, from its binding; the other stages recede.
+	await p.waitForFunction(
+		() => !!document.querySelector('.lp-frame.lp-active polygon.funnel-band.lat-guide-undim') && document.querySelectorAll('.lp-frame.lp-active polygon.funnel-band.lat-guide-dim').length === 2,
+		null,
+		{ timeout: 20000 },
+	);
+	expect(errors).toEqual([]);
+});

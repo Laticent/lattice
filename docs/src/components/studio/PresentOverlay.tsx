@@ -11,7 +11,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
-import { frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
+import { DELIVERY_STYLES, frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
@@ -25,7 +25,7 @@ import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, reso
 // narrates chart slides from, so a given chart slide narrates identically on both
 // surfaces (they agree on which Markdown is a chart slide under the house `---`-per-
 // section convention; the export aligns to rendered sections, this to the `---` set). #902
-import { narrateChart } from '@/playground/read-along-core.generated.js';
+import { narrateChartScript } from '@/playground/read-along-core.generated.js';
 import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
@@ -39,7 +39,7 @@ import { type PresentLens, presentationPairs } from './lint';
 import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX } from './present-guide';
+import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection as shownSlideSection } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
@@ -356,15 +356,16 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// switch invalidates the tag) the markdown flatten keeps Present off dead air and off a
 	// stale lens's narration.
 	const narrationAt = React.useCallback(
-		(i: number): { text: string; emphasis?: EmphasisSpans } => {
+		(i: number): { text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] } => {
 			const md = set[i] ?? '';
 			const aligned = projected.set === set;
+			const script = narrateChartScript(md);
 			const text = resolveNarration({
 				say: getSayLine(md),
 				fmSay: fmSayMap.get((setIndices[i] ?? i) + 1), // front-matter say[author slide number]
 				// NO NOTE RUNG. A note is the presenter's, and it reaches the presenter's own
 				// panel below — never this, which is what the room hears and reads.
-				chart: narrateChart(md),
+				chart: script?.text ?? null,
 				projected: aligned ? (projected.texts[i] ?? '') : null,
 				fallback: aligned ? null : slideToSpeech(md),
 			});
@@ -373,7 +374,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// substitution replaces it, and reusing those offsets would land a beat mid-phrase. The
 			// same identity test the CLI export applies, so the two producers agree slide for slide.
 			const emphasis = aligned && text === (projected.texts[i] ?? '') ? projected.emphasis[i] : undefined;
-			return { text, emphasis };
+			// THE BINDING, by the same identity test: the chart narrator's refs are character spans
+			// over ITS text, so they hold only while that is the text being read (a caption replaces it).
+			const refs = script?.refs.length && text === script.text ? script.refs : undefined;
+			return { text, emphasis, refs };
 		},
 		[set, setIndices, fmSayMap, projected],
 	);
@@ -403,7 +407,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// A fresh record commits on every navigation regardless of what the text says, while the
 	// `track` memo still keys on the STRING, so identical text keeps the same track object and
 	// the reader is not needlessly torn down.
-	const [narration, setNarration] = React.useState<{ idx: number; text: string; emphasis?: EmphasisSpans }>({ idx: -1, text: '' });
+	const [narration, setNarration] = React.useState<{ idx: number; text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] }>({ idx: -1, text: '' });
 	// THE BOOKENDS (2026-09-27-narration-bookends.md): the deck's `greeting:` before slide 1 and
 	// `closing:` after the last slide. While one speaks, the reader reads IT instead of the slide —
 	// the same reader, caption band and voice, so a bookend sounds and looks like the deck. Each
@@ -818,7 +822,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		autoAdvanceRef.current = true; // play the next slide once it mounts
 		setIdx((i) => Math.min(i + 1, countRef.current - 1));
 		return true;
-	}, []);
+	}, [setIdx]);
 	const leaveFrom = React.useCallback(
 		(from: number) => {
 			const name = resolvePaceName(deckPace, pace.name) as PaceName;
@@ -1179,6 +1183,21 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// THE CURSOR'S KEEP-OUT is its own 28px footprint plus a hair, in PARENT pixels — the
 				// space Vetrina's stage works in (`guideCueFor` converts on the frame's side).
 				clearance: POINTER_BOX / 2 + 5,
+				// A BOUND SENTENCE's scene reads the shown slide's section and draws on known parts.
+				section: () => {
+					const w = guideWhereRef.current;
+					if (!w) return null;
+					try {
+						const found = w.onStage ? shownSlideSection(w.doc()) : (w.frame()?.contentDocument?.querySelector('section') ?? null);
+						return found && 'classList' in found ? found : null;
+					} catch {
+						return null;
+					}
+				},
+				sceneCue: (section, els, kind, strength) => {
+					const w = guideWhereRef.current;
+					return !w ? null : sceneCue(w.onStage ? null : w.frame, section, els, kind, strength);
+				},
 			}),
 		[],
 	);
@@ -1303,7 +1322,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			doc: () => stageHost?.win.document ?? null,
 			frame: () => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null,
 		};
-		guide.beat({ slide: narration.idx, cue: activeCue, texts: reader.track.cues.map(cueDisplayText), track: reader.track, delivering: guideDelivering, delivery });
+		// A BOUND SENTENCE plays its scene in the delivery's own style (engineering/decisions/
+		// 2026-09-27-delivery-styles-and-component-scenes.md): the narrator named the part, the
+		// component's scene finds it, the delivery's style file says what the act does. A slide the
+		// narrator does not bind (prose, an authored caption) takes the text path.
+		const cueAt = activeCue >= 0 ? (reader.track.cues[activeCue]?.charOffset ?? -1) : -1;
+		const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle } | undefined>)[delivery.name]?.express;
+		const scene = narration.refs && style ? { refs: narration.refs, at: cueAt, style } : null;
+		guide.beat({ slide: narration.idx, cue: activeCue, texts: reader.track.cues.map(cueDisplayText), track: reader.track, delivering: guideDelivering, delivery, scene });
 	}, [guideBeat, guideLive, guideRoot]);
 
 	// THE READ-ALONG (owner, 2026-09-26). Inside the focused TEXT element, the word being spoken
