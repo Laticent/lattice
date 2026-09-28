@@ -32,9 +32,9 @@
     "getting-started": {
       "html": "getting-started/index.html",
       "eagerJsGz": 76600,
-      "htmlRaw": 85500,
+      "htmlRaw": 81000,
       "_eagerJsGzNote": "The three content routes share a 71.0KB gz site shell — 5 chunks (client, PerfOverlay, StorageOverlay, page, NavActions), measured 2026-09-05 — out of each one's 72.6-77.2KB total; only 1.5-6.1KB per route is its own. EXPECT ALL THREE eagerJsGz NUMBERS TO MOVE TOGETHER on a shell change, and read that as ONE cause reported three times, not three problems. They are kept as three separate budgets on purpose: a per-route number is ~2.3KB of headroom against the shell, where the same bytes inside studio's 633KB budget have ~19KB — so this is where a small shell regression is actually caught. Set to measured + ~3% per _units above. Measured 74323 — the leanest of the three, and so the closest thing to a bare reading of the shared shell (98% of it).",
-      "_htmlRawNote": "Measured 75194 on 2026-09-05, the first budget for this route. Re-measured 78665 on 2026-09-24 (#2348): every docs page carries the sidebar, and #2348 added nine links to it (the seven-page Status and labels group, Deck settings, and a Reference group). Set to measured + ~3% per _units above. Raised to 85500 on 2026-09-28 (#2453): the owner asked for +5KB, and 85500 is the most this gate accepts (a budget more than 5% above the measurement fails as STALE, so 81256 caps it at 85532); the Sparks cheat sheet added two sidebar links (Inline elements and Reference, 158 bytes each); measured 81256 with both."
+      "_htmlRawNote": "Measured 75194 on 2026-09-05, the first budget for this route. Re-measured 78665 on 2026-09-24 (#2348): every docs page carries the sidebar, and #2348 added nine links to it (the seven-page Status and labels group, Deck settings, and a Reference group). Set to measured + ~3% per _units above."
     }
   }
 }
