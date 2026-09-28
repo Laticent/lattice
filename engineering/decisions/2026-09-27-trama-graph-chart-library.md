@@ -254,6 +254,18 @@ The owner settled the open questions on 2026-09-27.
     row wrapped out of order. A single connection never moves its target, and a chart
     with no chain row keeps its order exactly. Two flowchart demo slides written with
     chain rows changed their dagre tie-breaks (Checkout, Release train).
+  - *Sticky while typing* (owner, 2026-09-28: "make things faster without jank"). A live
+    redraw lays out the wrap the last full search chose, instead of searching again; laid
+    out directly, that grid is byte-identical to the search's pick on every recorded call
+    (20 of 20). Rows hold while typing (an edit the pinned grid cannot hold, or a
+    direction change, searches at once), and a key shows sooner (real Studio, same
+    machine: an 11-state state chart 280–325 -> 158–202 ms, the flowchart of it 230–241 ->
+    193–214 ms). The full search runs 300 ms after the last pinned draw lands, and the chart takes its
+    choice, so the drawing at rest matches the export; content that wants other rows
+    reflows then, once (the owner chose this over keeping the rows until reload). Tried
+    and dropped on the way, measured: a smaller router budget while typing (drafts cost
+    crossings and the refine was itself a jump, and it made the flowchart settle 2.5x
+    later), and a flowchart-sized state tile (0.7x -> 0.9x, but typing got no faster).
 
 ## 6. The three commits, in two PRs
 

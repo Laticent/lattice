@@ -128,6 +128,20 @@ When the host document's `<html>` carries `data-lattice-live-layout` (a preview 
 types into), a redraw of a chart already drawn at that position runs in a worker built
 from the kernel's source plus the page's `lattice-dagre` script. The figure keeps its last
 drawing, marked `data-<attr>-pending`, until the answer arrives, and only the newest edit
-is painted. Each round of the fit paints as it lands (a chart can take three), so a key
+is painted. Each round of the fit paints as it lands (a chart can take several), so a key
 shows after one layout, and the last round's drawing is the one that stays. The first draw, and every draw without the flag, stays synchronous, so a page
 being captured to PDF never captures a drawing in flight.
+
+**Sticky wrap.** A chart that asks for `wrap` remembers the wrap its last full search
+chose (the line count and direction), per chart position like the fit. A live redraw lays
+out that one grid (`wrap: false`, `grid`, `dir`, `grow: false`), which gives the same
+drawing the search would when the search keeps it, without the bounds passes, dagre's
+ceiling or a second routing. So a chart's rows hold while an author types, unless an edit
+leaves the pinned grid unable to hold the shapes (then that key searches), or the author
+changes the chart's direction (a pin holds only for the direction it was chosen under).
+Once the author pauses (300 ms after the pinned draw lands), the full search runs once and the chart
+takes its choice, so the drawing at rest is the one every export makes; when the content
+now wants other rows, that is the one reflow, at the pause. A pinned grid that can no
+longer hold the shapes falls back to the search. A chart whose search picked dagre's
+layout has no pin. A key typed while that search runs waits for it: the worker cannot
+cancel a job already running.

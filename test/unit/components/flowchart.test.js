@@ -172,13 +172,13 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
   const { JSDOM } = require('jsdom');
   require('../../../lib/core/dagre-layout.js');
   const { graphLayoutKernel } = require('@laticent/trama');
-  const figHtml = (names) => {
+  const figHtml = (names, dir) => {
     // Ids come from names, as the grammar makes them: a rename is a new id.
     const id = (n) => n.toLowerCase();
     const model = { shapes: names.map((n) => ({ id: id(n), name: n, shape: 'box' })), groups: [], edges: names.slice(1).map((n, i) => ({ from: id(names[i]), to: id(n), dir: 'out' })) };
     const attr = JSON.stringify(model).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     // An empty harness, as above: jsdom has no Range rects to measure text with.
-    return `<div class="flowchart-figure" data-fc-model="${attr}"><div class="fc-canvas"><div class="flowchart-scale"><div class="fc-harness"><ol class="fc-nodes"></ol></div>` +
+    return `<div class="flowchart-figure"${dir ? ` data-fc-dir="${dir}"` : ''} data-fc-model="${attr}"><div class="fc-canvas"><div class="flowchart-scale"><div class="fc-harness"><ol class="fc-nodes"></ol></div>` +
       '<svg class="flowchart-svg"><title>Flowchart</title></svg></div></div></div>';
   };
   const setup = (liveAttr, mode = 'answer', wrap = (h) => `<section class="flowchart">${h}</section>`) => {
@@ -193,16 +193,20 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const RealBlob = w.Blob;
     w.Blob = class extends RealBlob { constructor(parts, o) { super(parts, o); log.sources.push(parts.join('')); } };
     w.Worker = class {
+      constructor() { log.worker = this; }
       postMessage(d) {
         log.posts.push(d);
         if (mode === 'silent') return;
-        setTimeout(() => { log.answered++; this.onmessage({ data: { id: d.id, geo: mode === 'null' ? null : JSON.parse(JSON.stringify(K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre))) } }); }, 5);
+        // 'nolines': a search answers the way a search that picks dagre's layout does (no
+        // `lines`); the first draw (synchronous, the real kernel) still pins a grid.
+        const out = () => { const g = K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre); if (mode === 'nolines' && g && d.opts.wrap) delete g.lines; return g; };
+        setTimeout(() => { log.answered++; this.onmessage({ data: { id: d.id, geo: mode === 'null' ? null : JSON.parse(JSON.stringify(out())) } }); }, 5);
       }
       terminate() {}
     };
     const pass = () => w.eval(browserJs());
     // The Studio replaces the figure on every edit.
-    const edit = (names) => { (w.document.querySelector('section') || w.document.body).innerHTML = figHtml(names); pass(); };
+    const edit = (names, dir) => { (w.document.querySelector('section') || w.document.body).innerHTML = figHtml(names, dir); pass(); };
     pass();
     return { w, log, edit, fig: () => w.document.querySelector('.flowchart-figure'), text: () => w.document.querySelector('svg.flowchart-svg').textContent };
   };
@@ -232,8 +236,10 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.equal(t.fig().getAttribute('data-fc-drawn'), '1', 'the old drawing is up, not the tiles');
     assert.match(t.text(), /Gamma/);
     assert.equal(t.log.posts.length, 1);
-    // The flowchart asks Trama to wrap, like the state chart: a long flow goes into rows.
-    assert.equal(t.log.posts[0].opts.wrap, true);
+    // The flowchart asks Trama to wrap, like the state chart: its first draw searched the
+    // wraps, and a live keystroke lays out the grid that search pinned (sticky wrap). A
+    // chart that did not ask for wrap has no pin, so this post would carry no grid.
+    assert.ok(t.log.posts[0].opts.grid >= 1 && t.log.posts[0].opts.wrap === false, JSON.stringify(t.log.posts[0].opts));
     await settle(t);
     assert.equal(t.fig().getAttribute('data-fc-pending'), null);
     assert.match(t.text(), /Delta/);
@@ -289,7 +295,81 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.equal(t.fig().getAttribute('data-fc-drawn'), null);
     t.edit(['Alpha', 'Beta', 'Delta']);
     await settle(t);
-    assert.equal(t.log.posts.length, 2, 'one post per edit, and none from the passes between');
+    // The first edit laid out the pinned grid, which answered nothing, so it searched once
+    // and dropped the pin; the second edit searches. None from the passes between.
+    assert.equal(t.log.posts.length, 3, 'a pinned try, its search, then one search');
+    assert.ok(t.log.posts[0].opts.grid >= 1);
+    assert.equal(t.log.posts[1].opts.grid, undefined);
+    assert.equal(t.log.posts[2].opts.grid, undefined);
+  });
+
+  // STICKY WRAP (pipeline.ts): a keystroke lays out the grid the last search picked; the
+  // search runs again once the author pauses; a newer key cancels that search.
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  test('a keystroke lays out the pinned grid, and one search follows the pause', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    assert.equal(t.log.posts.length, 1);
+    await sleep(360);
+    await settle(t);
+    assert.equal(t.log.posts.length, 2, 'one search after the pause');
+    assert.equal(t.log.posts[1].opts.wrap, true);
+    assert.equal(t.log.posts[1].opts.grid, undefined);
+    assert.match(t.text(), /Delta/);
+    // Nothing more: the search kept the wrap, so no further round is asked for.
+    await sleep(360);
+    assert.equal(t.log.posts.length, 2);
+  });
+
+  test('a key inside the pause cancels the search; only the newest text is searched', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delt']);
+    await settle(t);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    await sleep(360);
+    await settle(t);
+    const searches = t.log.posts.filter((p) => p.opts.wrap === true);
+    assert.equal(searches.length, 1);
+    assert.equal(searches[0].model.shapes[2].name, 'Delta');
+    // The second key was pinned too: a pinned drawing never clears the pin it drew from.
+    assert.ok(t.log.posts[1].opts.grid >= 1 && t.log.posts[1].opts.wrap === false, JSON.stringify(t.log.posts[1].opts));
+  });
+
+  test('a search that picks dagre drops the pin, so the next key searches', async () => {
+    const t = setup(true, 'nolines');
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    await sleep(360);
+    await settle(t);
+    assert.equal(t.log.posts.length, 2, 'a pinned key, then the pause search');
+    t.edit(['Alpha', 'Beta', 'Delt']);
+    await settle(t);
+    assert.equal(t.log.posts.length, 3);
+    assert.equal(t.log.posts[2].opts.wrap, true, 'no pin left: the key searches');
+    assert.equal(t.log.posts[2].opts.grid, undefined);
+  });
+
+  test('a new direction searches at once; the pin holds only for the direction it was chosen under', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta'], 'tb');
+    await settle(t);
+    assert.equal(t.log.posts[0].opts.wrap, true);
+    assert.equal(t.log.posts[0].opts.dir, 'tb');
+  });
+
+  test('a worker dropped during the pause is never posted to again; the figure is not left pending', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    assert.equal(t.log.posts.length, 1);
+    t.log.worker.onerror();
+    await sleep(360);
+    await settle(t);
+    assert.equal(t.log.posts.length, 1, 'no search posted to the dropped worker');
+    assert.equal(t.fig().getAttribute('data-fc-pending'), null);
+    assert.match(t.text(), /Delta/);
   });
 
   test('a worker that stops answering is dropped and the chart draws in place', async () => {

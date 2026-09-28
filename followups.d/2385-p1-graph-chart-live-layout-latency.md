@@ -28,6 +28,11 @@ recorded: 2026-09-27
                    Measured on the real Studio after commits 3-5 (2 runs): key to visible
                    207-236 ms, last key of a 50 ms/key burst drawn 316-464 ms later, worker
                    104-111 ms per layout, 0 long tasks.
+                   Sticky wrap (#2424, last commit): a live keystroke lays out the wrap the last
+                   search chose; key to visible 280-325 -> 158-202 ms (state chart), 230-241 ->
+                   193-214 ms (flowchart), rows hold while typing. What remains: every
+                   routing of this chart hits the router's 20,000-evaluation cap, as a
+                   flowchart too; that is followups.d/2424-p3-trama-wrap-aware-placement.md.
        where     — docs/src/lib/trama/kernel.ts: `costOf` (~35% of self time), `cheap`,
                    `build`, `crossings`, `seatCost`, `sharesRun`; the fit's rounds in
                    pipeline.ts (the secant step in the cold-load PR cuts them).
