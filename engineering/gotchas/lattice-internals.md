@@ -766,17 +766,15 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `lib/transformers/prose-projection.mjs` is stage-scoped, so none saw it: 239 of 242
   coda slides in the committed decks lost it. The three that kept it had no
   `.cell-stage`, so the walk ran section-wide and printed the panel as a plain quote.
-- **Fix:** `projectCoda` projects the cell once, after the body: the key insight as
-  `<blockquote class="lp-insight">` (a callout), the below-note as
-  `<p class="lp-note">` (a closing note). The body walks skip `.cell-coda`
-  (`PROSE_SKIP_SELECTOR`), so nothing prints twice. `SKIP_SELECTOR` itself stays
-  without it, because `speakCoda` tests the cell against the speech selector. A
-  layout that claims its trailing block (`coda.claims`) never has it lifted, so its
-  body walk still prints it. A slide whose only content is its coda (a heading and a
-  key insight, or a split run's composed closing page) gets no "visual layout"
-  placeholder card. Both lookups read `:scope > .cell-coda`, as `coda.js` does, so an
-  author's own `<span class="cell-coda">` cannot hide the real cell. Both classes are
-  styled in all three article hosts.
+- **Fix:** `withCoda` (#2442) prints a host's direct-child coda after its body, and a
+  pane's own coda after that pane. A coda inside the element the body was read from (a
+  claimed block, or a stage-less slide read whole) is skipped, so every block prints
+  once. Each block lands as what it is: the key insight as `<blockquote
+  class="lp-insight">` (a callout), a below-note as `<p class="lp-note">` (a closing
+  note), both styled in all three article hosts. A slide whose only content is its
+  coda (a heading and a key insight, or a split run's composed closing page) gets no
+  "visual layout" placeholder card (`hasOwnCoda`). `projectQuote` skips a blockquote
+  inside the coda, so a Key Insight cannot stand in for the slide's quote.
 - **Pinned by:** the "coda:" arms in `test/unit/transformers/prose-projection.test.js`,
   rendered through the real engine.
 

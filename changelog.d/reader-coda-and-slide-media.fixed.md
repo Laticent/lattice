@@ -1,4 +1,4 @@
-- Read · Article now prints a slide's closing key-insight panel and below-note, after the body: the panel as a callout, the note as a closing note. Before, 239 of the 242 slides in the committed decks that carry one lost it from the article while narration still read it.
+- In Read · Article, a slide's Key Insight now reads as a callout and its below-note as a closing note, and a slide whose only content is its Key Insight no longer gets a "see the slide" placeholder card.
 - The Studio preview no longer shows an image slide in a provisional layout and then jumps when its picture arrives: the first reveal waits for the picture's size, up to 4 seconds, and a later arrival fades through instead of jumping.
 - Tapping a video's poster in the Studio preview plays the clip again, on desktop and touch. The preview's gesture layer had been swallowing the tap.
 - In an exported player, a slide's web link (a video poster, a contact or closing URL) now opens in a new tab. Before, it replaced the player in the same tab and the reader lost the deck.
