@@ -8,7 +8,7 @@ recorded: 2026-09-24
 
 why now   — A docs audit on #2348 found whole groups of shipped features that no site page teaches, so authors never find them. Worst: speaker notes ship inside every PDF by default and nothing on the site mentions `--strip-notes`.
 where     — The audit's groups, each a page in the Guides or Reference group (`docs/astro.config.mjs`):
-            1. Reference → Slide directives: `_focus`/`_focusStyle`/`_focusSteps`, `_build`, `<!-- describe: -->`, `<!-- caption: -->`, `<!-- stress-slide -->`, mid-deck `<!-- class: -->` (lib/engine/directives.js:38-76, lib/authoring/notes-core.js:249-279, lib/base/base.docs.md:1188-1300).
+            1. Reference → Slide directives: `_focus`/`_focusStyle`/`_focusSteps`, `_build`, `<!-- describe: -->`, `<!-- say: -->` (the spoken line; `caption:` retired 2026-09-28), `<!-- stress-slide -->`, mid-deck `<!-- class: -->` (lib/engine/directives.js:38-76, lib/authoring/notes-core.js:249-279, lib/base/base.docs.md:1188-1300).
             2. Reference → Modifiers, generated from the lint vocab's universal groups (66 tokens; zero site hits today for `light`, `numbered`, `scale-*`, `tone-*`, `insight-*`, `row-label`, `table-*`, stamps, `tint-*`/`mark-*`).
             3. Guides → Exporting & sharing: `--player`/`--read`/`--fluid`, image sets, `--print`/`--paper`, `--present`, `--embed-source`, `--overflow-marker`, the Marp bundle, `lattice packages` (lattice-emulator.js:376, 400-461), plus the Studio Share panels.
             4. Guides → Presenting, notes & narration: speaker notes and `--notes`/`--strip-notes`, captions and `--captions`, Present mode (overview, Stage, notes, clock, voice), lexicon/acronyms/pace (docs/src/components/studio/PresentOverlay.tsx:1787-2065, design/skills/speaker-notes.md).

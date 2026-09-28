@@ -21,7 +21,7 @@ import { americanize, withinDistance } from './intent-search';
 // them can hide a row the old rule showed:
 //
 //   MORPHOLOGY  A term matches a haystack word with the same Porter2 stem. "numbers" finds
-//               "Hide page number", "captions" finds "Caption what this slide reads aloud",
+//               "Hide page number", "captions" finds the Say row by its "caption" term,
 //               "aligned" finds "Headline alignment". Substring already covered the other
 //               direction (a query SHORTER than the label), never this one.
 //   VOCABULARY  A small table of words an author reaches for that no row says: "font" for

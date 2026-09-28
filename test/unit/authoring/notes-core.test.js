@@ -646,6 +646,24 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.match(out, /# Slide one/, 'body content untouched');
   });
 
+  // The RETIRED keys are scrubbed too. `--strip-captions` removed them, and an author who moves a
+  // script to `--strip-say` must not start shipping an old deck's public lines in the envelope
+  // source. A checker measured exactly that leak (a stale `captions:` map in the player envelope
+  // and the embedded PDF source) before this was added.
+  test('stripCaptionsFromSource ALSO scrubs the retired caption: comment and captions: map', () => {
+    const src = [
+      '---', 'theme: indaco', 'captions:', '  1: OLD MAP LINE', 'say:', '  2: NEW MAP LINE', '---', '',
+      '# S', '', '<!-- caption: OLD INLINE LINE -->', '<!-- Caption: OLD CAPITALIZED LINE -->',
+      '<!-- say: NEW INLINE LINE -->', '<!-- Say: a private note -->', '', 'Body.',
+    ].join('\n');
+    const out = core.stripCaptionsFromSource(src);
+    for (const gone of ['OLD MAP LINE', 'NEW MAP LINE', 'OLD INLINE LINE', 'OLD CAPITALIZED LINE', 'NEW INLINE LINE']) {
+      assert.doesNotMatch(out, new RegExp(gone), `${gone} is scrubbed`);
+    }
+    assert.match(out, /Say: a private note/, 'a capitalized Say: is a NOTE, left to --strip-notes');
+    assert.match(out, /theme: indaco/);
+  });
+
   test('stripCaptionsFrontMatter removes ONLY the captions: block; a captions word in the BODY is safe', () => {
     const src = '---\ntheme: indaco\nsay:\n  2: read this\n---\n\n# S\n\nThen say: the feature is great.\n';
     const out = core.stripCaptionsFrontMatter(src);

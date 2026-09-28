@@ -398,7 +398,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   (preserve wins, drop wins, neither does) — without it, narrowing the loop back to one cut left
   every gate in the tree green, the strip-notes e2e included, because that spec asserts only that
   the note text is gone and that is true on all three.
-- **`--strip-say` carried the same tell for one release, and closing it merged the two
+- **`--strip-say` (then `--strip-captions`) carried the same tell for one release, and closing it merged the two
   passes (#2003).** The #1985 fix was note-only: `stripCaptionsFromSource` stayed a span-only
   replace and nothing re-rendered from it, so the caption comment's line was left behind as an
   empty one AND the authored render still went through `stripCommentNodes`. Measured on a

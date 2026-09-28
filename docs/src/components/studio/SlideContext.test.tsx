@@ -510,7 +510,7 @@ describe('SlideContextBody controls', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'presenter');
 		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
 		// Its two neighbors in the same section stay out: a block filters like a row.
-		expect(screen.queryByRole('textbox', { name: 'Read-as caption for this slide' })).toBeNull();
+		expect(screen.queryByRole('textbox', { name: 'What this slide says aloud' })).toBeNull();
 		expect(screen.queryByRole('textbox', { name: 'Accessibility description for this slide' })).toBeNull();
 	});
 

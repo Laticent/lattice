@@ -95,15 +95,25 @@ the break loud:
 - **`--strip-captions`** exits with an error that names `--strip-say`, instead of the generic
   "unknown option". A script passing it asked for a privacy strip, so it must not silently get none.
 
-Under `--strip-say` the player envelope's `config` drops a stale `captions` key as well as `say`, so
-an old deck's map text cannot ride into a shared file under either name.
+**`--strip-say` still scrubs the retired keys.** The engine no longer speaks them, but `--strip-captions`
+removed them from every shipped copy, and an author who moves a script to `--strip-say` must not start
+shipping an old deck's public lines. So `--strip-say` removes a stale `<!-- caption: … -->` (any case)
+and a stale top-level `captions:` map from the embedded source, and drops both keys from the player
+envelope's `config`. The independent checker measured the leak before this was added: a stale
+`captions:` map rode verbatim into the player envelope and the PDF's embedded source under
+`--strip-say --strip-notes`. Scrubbing more under a privacy flag is the safe direction.
+
+**A capitalized `Caption:` is a warning, not an error.** The engine matched the old key in any case, so
+`Caption:` was spoken too. But it is also how a presenter opens a real private note ("Caption: fix the
+chart typo"), and an error would leave no way out but rewording. Lowercase `caption:`, the form the docs
+taught, is the error.
 
 ## What did not change
 
 - **Internal identifiers** still say caption for the spoken line: `CAPTION_MATCHER`,
   `captionFromHtml`, `extractSlideCaptions`, `stripCaptionsFromSource`, `resolve-captions.mjs`,
   `slide-caption.ts`, `isCaptionBody`, the `CommentKind` value `'caption'`. None of them is typed by
-  an author. Renaming them is a code-only follow-up, logged in `followups.d/`.
+  an author. Renaming them is a code-only follow-up, logged in `followups.d/2464-p3-internal-caption-names.md`.
 - **`--captions`**, the `.vtt` sidecar, the player's caption band and every figure caption keep the
   word, because they are visible text.
 - **Historical records** (`changelog.d/` fragments already written, earlier decision notes) describe

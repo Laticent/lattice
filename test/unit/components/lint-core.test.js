@@ -213,6 +213,20 @@ describe('lint-core: caption-key-retired', () => {
     assert.match(f[0].fix, /`say:`/);
   });
 
+  test('the engine\u2019s comment shapes are found, and the finding names the key line', () => {
+    for (const c of ['<!--- caption: a --->', '<!-- caption: a --!>', '<!--\ncaption: a -->']) {
+      const f = retired(`# One\n\n${c}\n`);
+      assert.equal(f.length, 1, c);
+      assert.match(f[0].line, /caption: a/, c);
+    }
+  });
+
+  test('a capitalized Caption: is only a WARNING — it may be a real private note', () => {
+    const f = retired('# One\n\n<!-- Caption: fix the chart typo -->\n');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].severity, 'warning');
+  });
+
   test('say:, a nested captions key, and the old syntax quoted in code are all clean', () => {
     const src = [
       '---', 'theme: indaco', 'speaker:', '  captions: nested, a different key', 'say:', '  1: The new map.', '---', '',
