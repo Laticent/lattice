@@ -11,6 +11,7 @@ const { JSDOM } = require('jsdom');
 const splitPanels = require('../../../lib/transformers/split-panels');
 const kernel = require('../../../lib/core/split-panels');
 const { extractSlideNotes } = require('../../../lib/authoring/notes-core');
+const { replaceClosedComments } = require('../../../lib/core/closed-comments');
 
 const BODY = {
   'split-panel': '<p><code>Eyebrow</code></p><h2>Headline</h2><p>Lede.</p><ul><li><strong>Point</strong><ul><li>body</li></ul></li></ul>',
@@ -251,7 +252,7 @@ describe('split-compare: an author block the layout does not claim', () => {
     for (const tail of ['<p>A</p><!<!-- x -->-- y -->', '<p>A</p><!-- never closed <p>B</p>']) {
       const html = `<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul>${tail}</section>`;
       const out = kernel.applyToRenderedHtml(html);
-      assert.doesNotMatch(out.replace(/<!--[\s\S]*?-->/g, ''), /<!--/);
+      assert.doesNotMatch(replaceClosedComments(out, () => ''), /<!--/);
       const sec = new JSDOM(out).window.document.querySelector('section');
       assert.equal(sec.querySelector('.compare-right > p')?.textContent, 'A');
       assert.ok(!sec.textContent.includes('--'), 'no comment fragment leaks into the visible text');
