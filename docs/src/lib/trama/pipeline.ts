@@ -204,7 +204,10 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         for (const f of doc.querySelectorAll(A.figure)) { const F = f as unknown as Bag; F[key('PendingSig')] = null; f.removeAttribute(`data-${P}-pending`); F[key('Sig')] = null; }
         drawAll();
       };
-      const DEADLINE = 3000;
+      // The search worker runs only settles, which nobody waits on, and its clock starts at the
+      // post, so it counts the queue behind other charts' settles and its first dagre load: a
+      // legitimately slow settle must not drop it (and send every settle back onto the keys').
+      const DEADLINE = slot === 'Search' ? 15000 : 3000;
       const send = (job: Bag) => {
         const id = ++W.id;
         W.jobs.set(id, job);
@@ -682,6 +685,12 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       };
       round(0, false);
       return;
+    }
+    // A synchronous draw in a live preview takes a token too, so a chain still in flight for
+    // the chart this element held before (a host that patches a figure in place) is dropped.
+    if (live) {
+      if (!D[key('Latest')]) D[key('Latest')] = new Map();
+      D[key('Latest')].set(fitKey, (D[key('Tokens')] = (D[key('Tokens')] || 0) + 1));
     }
     unlay();
     floorFor(kGuess);

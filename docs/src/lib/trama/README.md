@@ -139,7 +139,7 @@ drawing the search would when the search keeps it, without the bounds passes, da
 ceiling or a second routing. So a chart's rows hold while an author types, unless an edit
 leaves the pinned grid unable to hold the shapes (then that key searches), or the author
 changes the chart's direction (a pin holds only for the direction it was chosen under).
-Once the author pauses (300 ms after the pinned draw lands), the full search runs once and the chart
+Once the author pauses (300 ms after a live redraw's last round lands), the full search runs once and the chart
 takes its choice, so the drawing at rest is the one every export makes; when the content
 now wants other rows, that is the one reflow, at the pause. A pinned grid that can no
 longer hold the shapes falls back to the search. A chart whose search picked dagre's
