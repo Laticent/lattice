@@ -16,6 +16,7 @@ section.topic {
   --_hair:   calc(var(--_sec-1cqi, 1cqi) * 0.078125);   /* 1px @ HD */
   --_seam:   calc(var(--_sec-1cqi, 1cqi) * 0.25);
   --_tab-pad: calc(var(--_sec-1cqi, 1cqi) * 1.25);     /* 16px @ HD — a column's inset */
+  --_cap:     calc(var(--_sec-1cqi, 1cqi) * 0.5);       /* 2x the seam — the lit tab's top bar */
   /* The shelf is 25% of HEIGHT, expressed in cqi. A percentage padding resolves
    * against the INLINE size, so `25%` would reserve 25% of the WIDTH — 320px on
    * a 720px-tall slide. 0.25 * (9/16) = 14.0625cqi. */
@@ -169,7 +170,7 @@ section.topic > ul.tile-track {
   position: absolute;
   /* The columns carry their own inline padding (`--_tab-pad`) so the lit one has
    * room to be a filled tab. Bleeding the list out by that same amount keeps the
-   * LABELS on the gutter the heading stands on, rather than stepping them in. */
+   * track's outer edges on the heading's gutter, rather than stepping them in. */
   left: calc(var(--_gutter) - var(--_tab-pad));
   right: calc(var(--_gutter) - var(--_tab-pad));
   /* One seam ABOVE the band edge, so the lit tab paints over the seam and the
@@ -205,7 +206,18 @@ section.topic > ul.tile-track > li {
    * is what makes real labels fit. No `hyphens: auto` — headless Chromium ships
    * without the dictionaries, so the PDF and the browser would break differently. */
   overflow-wrap: break-word;
-  padding: calc(var(--_seam) + var(--sp-sm)) var(--_tab-pad) var(--sp-sm) var(--_tab-pad);
+  /* Each label sits in the MIDDLE of its column, both ways, so every column reads
+   * as a cell and the lit one as the selected cell. A COLUMN flexbox, not a row:
+   * a row would make the label an anonymous flex item whose min-content floor is
+   * its longest word, and `break-word` could then never break an over-long one.
+   * In a column the label stretches to the column's width and wraps inside it.
+   * The top padding is the seam the track sits over, so the middle is the middle
+   * of the VISIBLE band. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  padding: var(--_seam) var(--_tab-pad) 0 var(--_tab-pad);
   font-size: var(--fs-body);
   line-height: var(--lh-snug);
   color: var(--text-body);
@@ -223,7 +235,8 @@ section.topic > ul.tile-track > li::marker { content: none; }
  * carry on every shipped palette (the shelf note above: dL >= 0.129 on the
  * tightest). It needs no hue, so it survives the four palettes where `--accent`
  * collapses onto `--border` (onyx, a11y-achromatopsia, a11y-base, concrete),
- * and the label's display ink and weight code it a second and third time.
+ * and the top bar, the label's display ink and its weight code it three more
+ * times.
  *
  * The thin accent bar that used to mark this column was hue-and-weight on a
  * two-pixel line that sat ON the spectrum seam, so it read as part of the seam
@@ -243,8 +256,16 @@ section.topic > ul.tile-track > li::marker { content: none; }
  * `<!-- _track: … | [Payback] | … -->`, read by lib/core/track-spec.js, and
  * `topic-track.js` writes `class="on"` on the item it names. Every track this
  * rule sees was emitted by that kernel. */
+/* The TOP BAR caps the tab in the display ink — the same ink as the heading,
+ * which every palette guarantees against `--surface-inverse`. NOT `--accent`:
+ * on the light palettes the accent is a dark hue sitting on the dark tab and the
+ * dark band, and a bar in it rendered invisible on indaco itself. Painted as a
+ * background layer rather than a border, so it takes no room from the label. */
 section.topic > ul.tile-track > li.on {
   background-color: var(--surface-inverse);
+  background-image: linear-gradient(var(--text-display), var(--text-display));
+  background-size: 100% var(--_cap);
+  background-repeat: no-repeat;
   color: var(--text-display);
   font-weight: 600;
 }

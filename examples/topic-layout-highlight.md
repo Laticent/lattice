@@ -11,7 +11,7 @@ header: "Lattice · topic highlight"
 
 `topic · track polish`
 
-The topic above now reaches down into its column on the track, as a filled tab, so the audience sees where they are at a glance.
+The topic above now reaches down into its column on the track, as a filled tab with a bright top bar, so the audience sees where they are at a glance.
 
 ---
 
