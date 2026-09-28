@@ -140,7 +140,10 @@ export interface NumberValue {
 const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M: 1e6, b: 1e9, B: 1e9, bn: 1e9, T: 1e12 };
 // A WHOLLY numeric pill: optional sign or `(`, up to three symbol characters (a currency),
 // an optional inner sign, a digit run, an optional short unit, an optional `)`.
-const NUMERIC = /^[(+\-\u2212]?\s*[^\w\s]{0,3}\s*[-\u2212]?\d[\d,.]*\s*(?:%|\u2030|[A-Za-z]{1,6})?\s*\)?$/;
+// The same language as chart-values.js's pattern, written so no two `\s*` runs are separated
+// only by an optional piece: there, a failing match on a long run of tabs tried every way to
+// split it, and 20,000 tabs took 420 ms. Each optional piece now carries its own trailing space.
+const NUMERIC = /^[(+\-\u2212]?\s*(?:[^\w\s]{1,3}\s*)?[-\u2212]?\d[\d,.]*\s*(?:(?:%|\u2030|[A-Za-z]{1,6})\s*)?\)?$/;
 
 /** `1,234` groups; `1,25` is a decimal comma; two or more dots group; one dot is a decimal point. */
 function normalizeSeparators(s: string): string {

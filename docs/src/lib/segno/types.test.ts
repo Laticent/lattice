@@ -41,3 +41,12 @@ describe('readTime agrees with gantt-time.js', () => {
     });
   }
 });
+
+describe('readNumber on hostile input', () => {
+  it('a long run of tabs is rejected in linear time (CodeQL: polynomial regex)', () => {
+    const s = `1${'\t'.repeat(50_000)}x!`;
+    const t = performance.now();
+    expect(readNumber(s)).toBeUndefined();
+    expect(performance.now() - t).toBeLessThan(50); // the old pattern took ~2.8 s here
+  });
+});
