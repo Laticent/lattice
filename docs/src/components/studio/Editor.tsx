@@ -829,7 +829,6 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// A new measurement from the preview re-runs the lint pass, so the warning appears (or clears)
 	// without waiting for the next keystroke. Keyed on the content, not the object identity.
 	const measuredKey = measuredSparks ? `${measuredSparks.slideIndex}|${measuredSparks.reports.map((r) => `${r.src}>${r.to}`).join(',')}` : '';
-	// biome-ignore lint/correctness/useExhaustiveDependencies: measuredKey is the content proxy for `measuredSparks` (read through measuredRef); a new object with the same verdict must not re-lint.
 	const lastMeasuredKey = React.useRef('');
 	React.useEffect(() => {
 		// Nothing measured before and nothing now: no pass to re-run (and forcing one on mount
