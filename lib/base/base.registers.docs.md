@@ -1227,7 +1227,7 @@ the component says how that part is drawn. The delivery only decides what to DO 
 | | `restrained` | `expressive` | `somber` |
 |---|---|---|---|
 | How often | every sentence that names a part | every sentence that names a part | once a slide |
-| The rest recedes to | 0.45 (the chart hover's own value) | 0.30 | 0.62 |
+| The rest recedes to | 0.45 (the chart hover's own value) | 0.30 | 0.45, once, slowly |
 | A walked line's other points recede to | 0.30 | 0.20 | 0.50 |
 | Handoff crossfade | 200 ms | 160 ms | 600 ms, and it holds through a short aside ("Thank you.") |
 | Cursor and overlay ink | none | on every act, in the Studio | none |

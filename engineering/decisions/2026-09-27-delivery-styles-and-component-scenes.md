@@ -143,7 +143,7 @@ Bad news. Nothing moves that does not have to.
 
 | Act | Expression |
 |---|---|
-| the scene's **key** beat | focus the unit, the rest fades to 0.62 over 600 ms, held to the end of the slide |
+| the scene's **key** beat | focus the unit, the rest fades to 0.45 over 600 ms, held to the end of the slide |
 | every other act | nothing |
 
 **What this fixes.** "Nothing moved on the line under restrained" cannot happen, because
@@ -282,6 +282,10 @@ Each step is one commit and stands on its own.
 3. Vetrina in the export: **not yet.** An exported expressive deck plays with focus only until a
    later PR, so it looks close to restrained. Step 4 builds `trace` for the Studio only.
 4. #2415: **held.** This work lands on the same branch and merges with it.
+5. (Second round.) Somber's depth: **0.45, like restrained.** At 0.62 its one gesture was barely
+   visible on a phone (filmstrip); somber is quiet by gesturing once and slowly.
+6. (Second round.) Prose slides: **keep** restrained focusing every named block and expressive
+   inking every one, so each delivery has one character on every slide.
 
 ## 12. Built (2026-09-27, #2415)
 
