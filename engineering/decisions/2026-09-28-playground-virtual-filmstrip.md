@@ -21,7 +21,7 @@ that work. The Jargon gallery (58 slides) built 2.6k nodes in the frame; a 522-s
 to its first slide.
 
 **Now.** Only the slides near the view are real `<section>`s. Every other slide is an empty
-`<div data-lv-ph>` that carries the slide's number, anchor id and sketch flag, and nothing else. The
+`<div data-lv-ph>` that carries the slide's number and anchor id, and nothing else. The
 fit agent scales a placeholder exactly like a slide, so the filmstrip's height, order and slide count
 never change — every consumer that finds a slide by position (the walk bar, section numbers,
 sketch-ink seeds, debug labels) reads the same answer mounted or not.
@@ -50,8 +50,8 @@ The controller lives in `docs/src/playground/deck-render.js` (Playground only), 
 out of the Studio's eager bundle; the pure window arithmetic and placeholder builder live in
 `virtual-window.js` — its own module, so the Studio's builder, which imports the patch kernel in
 `preview-virtual.js`, does not carry them. Kernel follow-through: `section-index` keeps the engine's
-`data-lat-section` stamp, rough ink seeds from `data-lv-i`, and the runtime installs sketch ink when
-a sketch placeholder exists.
+`data-lat-section` stamp in a virtual document, and rough ink seeds from `data-lv-i`. (Sketch ink on a
+slide mounted later needs nothing more: the runtime checks for a sketch slide on every pass.)
 
 ### Measured — `docs/scripts/playground-bench.mjs deck`, same machine, 1440×900, Edit view
 

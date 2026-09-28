@@ -60,8 +60,8 @@ const realIndices = (lattice: Element) =>
 		.filter((i) => i >= 0);
 
 describe('placeholders keep a slide identity and nothing else', () => {
-	it('carries the slide number, the anchor id and the sketch flag, and no content', () => {
-		expect(placeholderOf(slide(7))).toBe(`<div ${LV_ATTR}="" data-lattice-slide="8" id="s7" data-lv-sketch=""></div>`);
+	it('carries the slide number and the anchor id, and no content', () => {
+		expect(placeholderOf(slide(7))).toBe(`<div ${LV_ATTR}="" data-lattice-slide="8" id="s7"></div>`);
 		expect(placeholderOf(slide(3))).not.toContain('Slide');
 	});
 

@@ -32,9 +32,8 @@ export const SLIDE_SELECTOR = ':scope>section,:scope>div[data-lv-ph]';
 // median frame on a 4x-slowed CPU, worse than mounting everything. A `<div>` is invisible to it.
 //
 // What a placeholder still carries is the slide's IDENTITY, so nothing that addresses a slide
-// by number or anchor loses it: `data-lattice-slide` (the walk groups split pages by it), `id`
-// (an in-deck link target), and whether the slide is a sketch slide (the runtime installs its
-// hand-drawn ink only if one exists). Values are read from the SANITIZED open tag and must match
+// by number or anchor loses it: `data-lattice-slide` (the walk groups split pages by it) and `id`
+// (an in-deck link target). Values are read from the SANITIZED open tag and must match
 // a strict shape, so nothing reaches the frame the sanitizer did not pass (HARD RULE #22).
 function attrOf(openTag, name) {
 	const m = new RegExp(`\\s${name}="([^"]*)"`, 'i').exec(openTag);
@@ -43,11 +42,9 @@ function attrOf(openTag, name) {
 function placeholderFromTag(openTag) {
 	const slide = attrOf(openTag, 'data-lattice-slide');
 	const id = attrOf(openTag, 'id');
-	const cls = attrOf(openTag, 'class') || '';
 	let out = `<div ${LV_ATTR}=""`;
 	if (slide && /^[0-9.]+$/.test(slide)) out += ` data-lattice-slide="${slide}"`;
 	if (id && /^[A-Za-z0-9_-]+$/.test(id)) out += ` id="${id}"`;
-	if (/(^|\s)sketch(\s|$)/.test(cls)) out += ' data-lv-sketch=""';
 	return out + '></div>';
 }
 
