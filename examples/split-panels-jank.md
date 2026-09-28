@@ -59,12 +59,12 @@ The header and footer used to cross the seam in the panel's ink, where they vani
 
 ## Finish lands on the accent.
 
-### The panel is a pane over the slide's one finish
+### The panel keeps its field and its own copy of the finish
 
-- The field keeps its color
-  - The accent panel is still the accent panel, just short of opaque.
+- The field stays solid
+  - The accent panel is still the accent panel.
 - The texture reads on top
-  - The same finish runs faintly through it, across the seam.
+  - Strata's dots sit on the field, as on a title slide.
 - The content side has no background
   - The slide's finish shows through it.
 
@@ -91,12 +91,12 @@ Header budget, the finish on the panel, and the footer split-compare used to dro
 
 ## The tint stays the tint.
 
-*Does the category still read?* A proof panel keeps its category color, and the slide's finish runs faintly through it.
+*Does the category still read?* A proof panel keeps its category color, and the finish is composed against that color.
 
 - You know you're here when
   - The panel tint still names the stage on a finish deck.
-- One finish, one slide
-  - The texture carries across the seam unbroken.
+- The finish follows the field
+  - Its texture is mixed toward the tint, not the canvas.
 - The edge bar keeps its hue
   - The category mark still runs along the top.
 

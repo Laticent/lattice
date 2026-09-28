@@ -184,7 +184,7 @@
     },
     {
       "mistake": "Expecting a split-compare slide to drop the deck's `finish:`, or to show it on one side only.",
-      "fix": "One finish covers the whole slide, as on any other slide: the options side has no fill, so the finish shows under the cards and `backdrop: clear` clears behind them; the rail keeps its dark field as a pane at 90%, so the same finish reads faintly through it. The finish's corner mark is left off, since a split slide has no frame margin for it. `finish-none` on the slide keeps both sides solid."
+      "fix": "The finish covers both sides. The options side has no fill, so the slide's finish shows under the cards, as on any other slide, and the rail is finished like an anchor slide: its solid dark field with the finish mixed for it, in screen and PDF alike. `backdrop: clear` clears behind the content on both sides and leaves the finish in their margins. The finish's corner mark is left off, since a split slide has no frame margin for it. `finish-none` keeps both sides plain."
     }
   ],
   "specimenVoice": true,

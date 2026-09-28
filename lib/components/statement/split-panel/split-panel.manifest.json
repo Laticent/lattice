@@ -251,7 +251,7 @@
     },
     {
       "mistake": "Expecting a split-panel slide to drop the deck's `finish:`, or to show it on one side only.",
-      "fix": "One finish covers the whole slide, as on any other slide: the supporting side has no fill, so the finish shows under its content and `backdrop: clear` clears behind that content; the feature panel keeps its field as a pane at 90%, so the same finish reads faintly through it and runs unbroken across the seam. The pane is a shade lighter than a solid panel (carbone's near-black reads charcoal). On `metric` the pane is the dark right-hand panel. The finish's corner mark is left off, since a split slide has no frame margin for it. `finish-none` on the slide keeps both panels solid."
+      "fix": "The finish covers both sides. The supporting side has no fill, so the slide's finish shows under its content, as on any other slide. The feature panel is finished like an anchor slide: it keeps its solid field (dark, accent or category color) and the finish is painted on it, mixed for that field, in screen and PDF alike. On `metric` the finished field is the dark right-hand panel. `backdrop: clear` clears behind the content on both sides and leaves the finish in their margins (a `pullquote` panel keeps its finish, since its opening quote holds that layer). The finish's corner mark is left off, since a split slide has no frame margin for it. A finish whose CSS a deck wrote itself before this change shows on the supporting side and leaves the panel plain. `finish-none` keeps both sides plain."
     }
   ],
   "stressDoc": {

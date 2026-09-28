@@ -862,20 +862,35 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   A HALF field cannot use that trick, because one backdrop has one canvas. (2) `section header`
   / `section footer` are absolute across the whole slide, and the split frames ink them for
   the panel they START on, so the part past the seam is panel ink on canvas.
-- **Fix, as shipped:** ONE finish across the whole slide, as on any other slide (owner). The
-  supporting side (the cards) has no fill, so the slide's `.backdrop` shows under it, and the
-  feature panel keeps its field as a pane at 90% (`--_pane-alpha`), so the same finish reads
-  faintly through it. `backdrop: clear` needs the supporting zone's CONTENT box restated
-  (`--_clear-box`), because base.finish.css sizes the clear layer from the section's padding and
-  a split section has none. (A frosted veil over the whole slide, a finish on the panel only, and
-  a panel with its own re-mixed copy of the finish all shipped on #2457 first and were turned
-  down; the last needed both finish generators to change.) The chrome is budgeted to the field it
-  starts on, one ellipsized line each, with a constant band the field keeps clear
+- **Fix, as shipped:** the finish shows on BOTH sides (owner). The supporting side (the cards)
+  has no fill, so the slide's `.backdrop` shows under it, and the feature panel is finished like
+  an anchor slide: it keeps its solid field and paints its OWN copy of the finish. The generators
+  re-declare every finish on the split panels too (`finish-generate.js` `FINISH_SURFACES`), so
+  the panel's `--fin-canvas` re-mixes each layer for its field, and the panel paints
+  `--fin-surface-image` (base.finish.css § FINISH SURFACES) as its background. `backdrop: clear`
+  clears behind the content on both sides: the slide's layer on the supporting zone's content box
+  (`--_clear-box`, since a split section has no padding to size it), the panel's on its own
+  blurred `::before`. (A frosted veil, a finish on the panel only, and a 90% pane over one
+  continuous finish shipped first; the owner turned them down. The pane lifted carbone's
+  near-black to charcoal and showed a tenth of the finish.) The chrome is budgeted to the field
+  it starts on, one ellipsized line each, with a constant band the field keeps clear
   (split-panel.styles.css, the blocks at the foot of the file).
-  `test/integration/invariants/split-chrome-budget.test.js` measures every variant, and
-  `split-finish-pane.test.js` measures the pane and the clear box.
+  `test/integration/invariants/split-chrome-budget.test.js` measures every variant;
+  `split-finish-pane.test.js` and `split-finish-surface.test.js` measure the finish and clear.
 - **Two traps in that fix, both found by review, not by a gate.** `finish-none`,
   `backdrop-none` and `print` slides KEEP the bare `finish` class while base.finish.css zeroes
   every layer, so "is there a painted finish?" is `.finish:not(.finish-none, .backdrop-none,
   .print)`, not `.finish`. And the overflow probe skipped every `position: absolute` text bearer, so a
   cut in split chrome was never measured at all until `skipped()` learned the one exception.
+- **The trap in the both-sides fix: a panel cannot re-mix an inherited finish.** A custom
+  property's `var()` is substituted on the element that DECLARES it. A finish declared on the
+  section reaches the panel already mixed for the light deck canvas; the opaque export face ends
+  on solid canvas, so the dark panel would print light. The finish is re-declared on the panel
+  instead. A finish whose CSS predates that (a deck's own `<style>`) emits no
+  `--fin-surface-layers`, so its panel keeps the plain field, and its baked mask and clearance
+  are reset on the panel at zero-class specificity so they cannot paint it white.
+- **The panel's clear layer and the PDF writer.** The writer counts an ancestor's absolute fill
+  pseudo-element as covering text and moves those words into the page image. The panel's clear
+  layer is band 0 under the panel's text at band 1, so `read-slide.mjs` `stackedBelow` now lets
+  a pseudo that is provably below the text through. Without it every panel word on a `clear`
+  slide was rasterized.

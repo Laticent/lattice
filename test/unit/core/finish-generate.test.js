@@ -52,9 +52,13 @@ test('a manifest label or blurb cannot end the comment it is written into', () =
   assert.equal(inComment('x */ section { display:none } /*'), 'x * / section { display:none } /*');
 });
 
-test('every generated rule uses the shipped one-class selector', () => {
+test('every generated rule uses the shipped one-class selector, plus its finish surfaces', () => {
+  const surfaces = gen.FINISH_SURFACES.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   for (const { name, recipe: r } of FINISH_PRESETS) {
-    assert.match(gen.generatePresetCss(name, r), new RegExp(`^section\\.finish-${name} \\{\\n`));
+    const css = gen.generatePresetCss(name, r);
+    assert.match(css, new RegExp(`^section\\.finish-${name},\\nsection\\.finish-${name} ${surfaces} \\{\\n`));
+    // A surface paints only what the current generator re-mixes for it.
+    assert.match(css, /--fin-surface-layers: var\(--fin-texture\), var\(--fin-wash\);/);
   }
   assert.throws(() => gen.generatePresetCss('Bad Name', recipe('atrium')), /not a finish name/);
 });
@@ -78,6 +82,20 @@ test('the hairline strip sits on top of the wash, sized to a strip, in both face
   // The Studio face lines its aux slots up with the extra layer too.
   const studio = gen.generateFinishCss('mine', recipe('strata'));
   assert.match(studio, /--fin-size:26px 26px, 100% 0\.31cqi, cover/);
+});
+
+test('a Studio finish names its finish surfaces in every face, and only it emits the surface layers', () => {
+  const css = gen.generateFinishCss('mine', recipe('strata'));
+  const S = gen.FINISH_SURFACES;
+  // Rich, print and both export arms each re-declare on the surfaces, or a panel keeps a face
+  // mixed for the section's canvas: the print wash would end on the light deck canvas.
+  assert.ok(css.startsWith(`section.finish.finish-mine,\nsection.finish.finish-mine ${S} {`), css.slice(0, 120));
+  assert.ok(css.includes(`@media print {\n  section.finish.finish-mine,\nsection.finish.finish-mine ${S} {`));
+  assert.ok(css.includes(`:where(.lattice-exporting) section.finish.finish-mine ${S},`));
+  assert.ok(css.includes(`section.finish.finish-mine.lattice-exporting ${S} {`));
+  assert.match(css, /--fin-surface-layers: var\(--fin-texture\), var\(--fin-wash\)/);
+  // A crafted name still cannot leave the selector.
+  assert.ok(!gen.generateFinishCss('x { } body', recipe('strata')).includes('body {'));
 });
 
 test('a corner-anchored glyph is seated by alignment, a free one by translate', () => {

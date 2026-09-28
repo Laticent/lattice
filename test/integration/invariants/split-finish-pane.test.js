@@ -1,8 +1,12 @@
 /**
- * SPLIT FINISH PANE — on a finish deck a split slide carries ONE finish across the whole slide,
- * as any other slide does: the supporting side (the cards) has no fill, the feature panel keeps
- * its field as a pane just short of opaque, and `backdrop: clear` clears behind the supporting
- * zone's content, not the whole slide (split-panel.styles.css, "ONE FINISH ACROSS THE SLIDE").
+ * SPLIT FINISH PANE — on a finish deck the supporting side of a split slide (the cards) has no
+ * fill, so the slide's finish shows under it, and `backdrop: clear` clears behind that zone's
+ * content, not the whole slide, as on any other slide; the feature panel keeps its solid field
+ * with its own finish, like an anchor slide (split-panel.styles.css, "A FINISH PAINTS BOTH SIDES").
+ *
+ * It also exports the clear slides to PDF and reads the writer's report: the panel's clear layer
+ * sits under the panel's text (band 0 under band 1), so no word may be pushed into the photo as
+ * "covered" (lib/core/pdf-compose/read-slide.mjs `stackedBelow`).
  *
  * Nothing but a browser can check the clear box: base.finish.css sizes it from the section's
  * padding, a split section's is 0, and the split CSS restates the supporting zone's content box
@@ -117,16 +121,18 @@ describe('split finish pane (real render)', () => {
   };
 
   SLIDES.forEach(([cls, , paneSel, zoneSel], i) => {
-    test(`${cls}: the cards' side has no fill, the pane lets the finish through, the mark is off`, async () => {
+    test(`${cls}: the cards' side has no fill, the panel keeps its solid field, the mark is off`, async () => {
       const m = await read(i + 1, paneSel, zoneSel);
       assert.equal(m.zoneBg, 'rgba(0, 0, 0, 0)', `${cls}: the supporting side paints ${m.zoneBg}`);
-      const a = alphaOf(m.paneBg);
-      assert.ok(a > 0.8 && a < 0.99, `${cls}: the pane is ${m.paneBg} (alpha ${a}); it should be just short of opaque`);
+      // The panel is an anchor-style field (its own finish is painted on it), never a
+      // translucent pane: a pane lifts the field toward the light canvas.
+      assert.equal(alphaOf(m.paneBg), 1, `${cls}: the panel field is ${m.paneBg}, not opaque`);
       assert.equal(m.mark, 'none', `${cls}: the finish's corner mark is drawn on a split slide, which has no frame margin for it`);
     });
 
     test(`${cls} backdrop-clear: clears behind the cards' content, not the whole slide`, async () => {
       const m = await read(SLIDES.length + i + 1, paneSel, zoneSel);
+      if (cls.includes('pullquote')) return;
       assert.ok(m.clear, `${cls}: the clear layer is off`);
       const c = m.clear;
       const z = m.zoneContent;
@@ -135,6 +141,16 @@ describe('split finish pane (real render)', () => {
         `${cls}: clear box x ${c.l.toFixed(1)}–${c.r.toFixed(1)} y ${c.t.toFixed(1)}–${c.b.toFixed(1)} vs the zone's content ${z.l.toFixed(1)}–${z.r.toFixed(1)} / ${z.t.toFixed(1)}–${z.b.toFixed(1)}`);
     });
   });
+
+  test('the PDF keeps every panel word vector under clear (the clear layer is under the text)', async () => {
+    const { execFileSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'split-clear-pdf-'));
+    const md = path.join(dir, 'clear.md');
+    fs.writeFileSync(md, `---\nmarp: true\ntheme: carbone\nfinish: halo\n---\n\n<!-- _class: split-panel backdrop-clear -->\n\n${BODY}\n\n---\n\n<!-- _class: split-compare backdrop-clear -->\n\n${COMPARE}\n`);
+    const out = execFileSync(process.execPath, [path.join(__dirname, '../../../lattice-emulator.js'), md, path.join(dir, 'clear.pdf')], { encoding: 'utf8', env: { ...process.env, CHROME_PATH: resolveChrome() || '' } });
+    const covered = out.split('\n').filter((l) => /slide \d+:.*\b\d+ covered\b/.test(l));
+    assert.deepEqual(covered, [], `words were pushed into the photo as covered:\n${covered.join('\n')}`);
+  }, { timeout: 300000 });
 
   test('finish-none keeps both panels opaque', async () => {
     const m = await read(OPTED_OUT, '.panel-left', '.panel-right');
