@@ -189,13 +189,21 @@ test('every prose binding in every deck points back at the element it was spoken
 		}
 		for (const section of doc.querySelectorAll('section')) {
 			const [{ text, refs }] = projectDeckToScript([section]);
+			// Resolved the way the Guide resolves it: through the section's own component's gesture
+			// (`sceneOf`, merged over its archetype and the structure units), not a generic table.
+			const component = [...section.classList].find((c) => SCENES[c]);
+			const units = component ? SCENES[component].units : STRUCTURE_UNITS;
 			let last = 0;
 			for (const ref of refs) {
 				bound++;
-				const where = `${file} · ${ref.unit}#${ref.id.i} "${text.slice(ref.start, ref.end).slice(0, 50)}"`;
+				const where = `${file} · ${component ?? '(none)'} ${ref.unit}#${ref.id.i} "${text.slice(ref.start, ref.end).slice(0, 50)}"`;
 				if (!(ref.start >= last && ref.end > ref.start && ref.end <= text.length)) problems.push(`malformed span: ${where}`);
 				last = ref.end;
-				const hit = resolveUnit(section, STRUCTURE_UNITS, ref);
+				if (!Object.hasOwn(units, ref.unit)) {
+					problems.push(`names a unit its component's gesture lacks: ${where}`);
+					continue;
+				}
+				const hit = resolveUnit(section, units, ref);
 				if (!hit) {
 					problems.push(`resolves to nothing: ${where}`);
 					continue;
@@ -204,11 +212,21 @@ test('every prose binding in every deck points back at the element it was spoken
 				// value", a state word, "and") and drops some (a table value that ends in a colon), so
 				// the test is the element's FIRST word plus at least half of its words: an item bound to
 				// its neighbor shares few of either.
-				// Its words as the narration reads them (`speechText` skips KaTeX source and aria-hidden initials).
-				const words = speechText(hit.unit[0]).toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+				// Its words as the narration reads them (`speechText` skips KaTeX source and aria-hidden
+				// initials). The builder adds words ("key — header: value", a state word, "and") and drops
+				// some (a table value that ends in a colon), so the span holds MOST of the element's words,
+				// always including its first:
+				//   - more than three content words: the first, and at least half of them;
+				//   - fewer (an item "Q1", a formula, a three-word card): the first token and two thirds of
+				//     all of them, so "Q1" can never pass for "Q2".
+				const said = speechText(hit.unit[0]).toLowerCase();
 				const span = loose(text.slice(ref.start, ref.end));
-				const share = words.filter((w) => span.includes(w)).length / (words.length || 1);
-				if (words.length && !(span.includes(words[0]) && share >= 0.5)) problems.push(`points at the wrong element: ${where} → "${hit.unit[0].textContent.trim().slice(0, 50)}"`);
+				const tokens = said.match(/[a-z0-9]+/g) || [];
+				const content = tokens.filter((w) => w.length >= 3);
+				const [pool, need] = content.length > 3 ? [content, 0.5] : [tokens, 2 / 3];
+				const share = pool.filter((w) => span.includes(w)).length / (pool.length || 1);
+				const ok = !pool.length || (span.includes(pool[0]) && share >= need - 1e-9);
+				if (tokens.length && !ok) problems.push(`points at the wrong element: ${where} → "${hit.unit[0].textContent.trim().slice(0, 50)}"`);
 			}
 		}
 	}

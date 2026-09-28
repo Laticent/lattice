@@ -223,9 +223,13 @@ Every manifest has a `gesture` block. Lean by default: most name their archetype
   located where a sentence can begin, longest first; a form said twice, or overlapping a longer one,
   stays unbound. So the text is byte-identical and no walker changed, and a walker that reorders (a
   KPI speaks its value first) binds nothing rather than something wrong. Measured over every tracked
-  deck: 16,274 links (3,975 headings, 4,694 paragraphs, 6,631 items, 974 rows) covering 95.7% of the
+  deck: 16,301 links (3,984 headings, 4,700 paragraphs, 6,643 items, 974 rows) covering 95.7% of the
   narration text. The units share names across archetypes (`heading`, `paragraph`, `item`, `row`;
-  `STRUCTURE_UNITS` in `scene-resolve.mjs`, pinned equal to the archetypes). **The Guide does not
+  `STRUCTURE_UNITS` in `scene-resolve.mjs`, pinned equal to the archetypes), and `mergeGesture` lays
+  them under every component's gesture, so a chart's heading and a closing slide's list resolve too;
+  a name the component or its archetype defines keeps that definition (a heatmap's `row` is a
+  rect). Cost, jsdom over the 4,118 corpus sections: 8.5 s of 31.7 s of projection, about 2 ms a
+  slide, worst 72 ms; it runs when Present opens and on export, not per keystroke. **The Guide does not
   play these yet**: a prose slide still takes the text path, which picks somber's moment by
   `salience()`. Playing prose refs as scenes before step 4 gives prose its storyboards would swap
   that for a fixed key and expressive's underlines for taps. Step 5 carries the refs to the Studio
@@ -235,9 +239,11 @@ Every manifest has a `gesture` block. Lean by default: most name their archetype
   component's own gallery draws its archetype's primary unit or one of its own units (a variant may
   draw only its own: roadmap's horizons, statute-stack lane's rows); every unit a manifest declares
   for itself draws on at least one gallery slide; and every bound sentence in every tracked deck
-  resolves. The prose gate resolves every one of the 16,274 prose links back to an element that
-  holds its words (first word, and at least half of them, as the narration reads them); shifting
-  every ordinal by one makes it report 16,075 failures. Filing `list` under `table` fails it. The one blind spot is `statement`, whose primary
+  resolves. The prose gate resolves every one of the 16,301 prose links through the section's OWN
+  component's gesture, as the Guide does, back to an element that holds its words: its first word
+  and at least half of them, or, for an element of three words or fewer (an item "Q1", a formula),
+  its first token and two thirds of all of them, so "Q1" cannot pass for "Q2". Shifting every
+  ordinal by one makes it report 16,162 failures. Filing `list` under `table` fails it. The one blind spot is `statement`, whose primary
   is a heading, which every slide has: a component misfiled AS a statement passes. `gesture` is not schema-required, so a component an
   author writes in the Studio still validates without one.
 
