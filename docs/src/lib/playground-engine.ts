@@ -26,7 +26,9 @@ export type RenderResult =
 	// <section> nodes (cheap, ~2ms), false on a full srcdoc rewrite (theme/mode/size
 	// reparse). The frame scheduler reads it to render a patch next-frame-instant but
 	// coalesce a heavy write.
-	| { status: 'rendered'; count: number; state: PreviewState; geom: { w: number; h: number }; patched: boolean }
+	// `anchor` is where the reader was in the document a full write just replaced (null on a
+	// patch, or at the top) — the host scrolls the new document back to it.
+	| { status: 'rendered'; count: number; state: PreviewState; geom: { w: number; h: number }; patched: boolean; anchor: { index: number; frac: number; slide?: string } | null }
 	| { status: 'error'; message: string }
 	| { status: 'pending' }; // engine not loaded yet — caller should retry
 
@@ -153,6 +155,17 @@ export function createEngineBridge(
 				mode: deckMode,
 				geom,
 				sig: renderSig(theme, deckMode, geom.w, geom.h),
+				// What the document's SHAPE depends on. When only the theme or mode moved, the
+				// live document restyles in place (deck-preview.js `restyleDocument`) instead of
+				// being rewritten — no blank frame, and the reader keeps their scroll position.
+				restyleKey: `${geom.w}x${geom.h}`,
+				// A VIRTUAL filmstrip: only the slides in view are real in the frame; the rest are
+				// same-size placeholders (virtual-window.js). The host moves the window with
+				// `attachVirtual` / `syncVirtual` / `mountAround`.
+				virtual: true,
+				// The runtime waits for the faces these slides use, not all 17 the engine declares
+				// (lib/core/font-settle.js `settleLaidOutFonts`).
+				previewFonts: true,
 				state: fresh ? { ...state, frameSig: '' } : state,
 				fresh,
 				runtimeUrl,
@@ -170,7 +183,7 @@ export function createEngineBridge(
 				// EDGE"); this flag only has the fit agent tell it the on-screen scale.
 				slideEdge: true,
 			});
-			return { status: 'rendered', count: r.count, state: r.state, geom, patched: r.patched };
+			return { status: 'rendered', count: r.count, state: r.state, geom, patched: r.patched, anchor: r.anchor ?? null };
 		} catch (e) {
 			return { status: 'error', message: String((e as Error)?.message || e) };
 		}

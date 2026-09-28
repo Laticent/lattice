@@ -39,7 +39,9 @@ import { expect, test } from './studio-fixture';
  * exists on the touch projects). The rest are functional oracles and run on `desktop`.
  */
 
-/** A component with a long, stable plan — 15 slides, so a walk has somewhere to go. */
+/** A component with a long plan, so a walk has somewhere to go. Its length is read off the walk
+ *  bar, never written here: the plan grew from 13 to 15 slides with the catalog and five specs
+ *  broke on the literal while the behavior they guard was fine. */
 const DECK = 'kpi';
 
 /** Open Explore on `DECK` and wait for the deck to be on screen and settled. */
@@ -112,12 +114,16 @@ async function settle(page: Page, timeout = 10_000) {
  * reads 720 on a phone where the slide is 179px tall — an oracle built on it overstates
  * every slide by 4x and reports nonsense at exactly the narrow widths that matter. This is
  * a deliberate SECOND implementation of what `readingSlideIndex` ships, not a re-run of it.
+ *
+ * A SLIDE IS A SECTION OR A PLACEHOLDER. The filmstrip is virtual: only the slides near the
+ * view are real sections, every other is an empty `div[data-lv-ph]` fitted to the same box
+ * (deck-render.js). Counting sections alone indexes the mounted run, not the deck.
  */
 async function visibleFractions(page: Page): Promise<{ ofItself: number; ofPane: number }[]> {
 	return page.evaluate(() => {
 		const f = document.getElementById('preview') as HTMLIFrameElement | null;
 		const win = f?.contentWindow;
-		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
+		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section, .lattice > div[data-lv-ph]');
 		if (!win || !secs?.length) return [];
 		const top = win.scrollY;
 		const pane = win.innerHeight;
@@ -222,7 +228,9 @@ const prevSlide = (page: Page) => page.locator('.pg-walk-step').first();
 
 test('a wheel scroll moves the walk position with it', async ({ page }) => {
 	await gotoExplore(page);
-	expect(await claimed(page)).toEqual({ index: 1, count: 15 });
+	const start = await claimed(page);
+	expect(start.index).toBe(1);
+	expect(start.count).toBeGreaterThan(5);
 	await wheelOverPreview(page, 3600);
 	const on = await dominantSlide(page);
 	expect(on).toBeGreaterThan(3); // the wheel really did travel
@@ -324,14 +332,15 @@ test('@parity the arrow keys still turn the deck after the reader clicks the sli
 test('@parity PageDown / PageUp / Home / End come from the shared keymap', async ({ page }) => {
 	await gotoExplore(page);
 	// A presentation clicker emits PageDown/PageUp; the hand-written two-key map had neither.
+	const { count } = await claimed(page);
 	await page.keyboard.press('PageDown');
 	await settle(page);
 	expect((await claimed(page)).index).toBe(2);
 	await page.keyboard.press('End');
 	await settle(page);
-	expect((await claimed(page)).index).toBe(15);
-	// NOT `dominantSlide === 15`. At 390 and 820 this deck lays out three slides to a pane
-	// and the filmstrip clamps before the last one reaches the top, so slides 13, 14 and 15
+	expect((await claimed(page)).index).toBe(count);
+	// NOT `dominantSlide === count`. At 390 and 820 this deck lays out three slides to a pane
+	// and the filmstrip clamps before the last one reaches the top, so the last three slides
 	// are all fully on screen and the "dominant" one is the lowest of them. End put the
 	// reader at the end of the deck; the invariant is that the deck's end is what they see.
 	await expectPositionIsTruthful(page, 'End');
@@ -375,12 +384,13 @@ test('clicking the tab you are already on does not destroy the deck', async ({ p
 	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('ArrowRight');
 	await settle(page);
-	const before = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0);
-	expect(before).toBe(15);
+	const before = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0);
+	expect(before).toBe((await claimed(page)).count);
+	expect(before).toBeGreaterThan(5);
 	await page.getByRole('tab', { name: 'Explore' }).click();
 	await settle(page);
 	expect(
-		await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0),
+		await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0),
 		'the deck was replaced by re-entering the mode it was already in',
 	).toBe(before);
 	expect((await claimed(page)).index).toBe(3);
@@ -429,7 +439,7 @@ test('editing the deck in Edit re-points the walk instead of counting slides tha
 	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');
 	await settle(page);
 	const slides = await page.evaluate(
-		() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0,
+		() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0,
 	);
 	expect(slides).toBeGreaterThan(0);
 	expect((await claimed(page)).count, 'the bar counted the old plan, not the deck on screen').toBe(slides);
@@ -543,8 +553,9 @@ test('@mobile the picker panel stays above the soft keyboard', async ({ page }) 
 	await page.locator('#pg-template-trigger').click();
 	await expect(page.locator('[cmdk-list]')).toBeVisible();
 	await raiseSoftKeyboard(page);
+	const all = await page.locator('[cmdk-item]').count();
 	await page.locator('[cmdk-input]').fill('chart');
-	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69); // the search has re-ranked
+	await expect(page.locator('[cmdk-item]')).not.toHaveCount(all); // the search has re-ranked
 	const bottom = await page.locator('[cmdk-list]').evaluate((el) => Math.round(el.getBoundingClientRect().bottom));
 	const visible = await visibleBottomOf(page);
 	// Before: the list was a fixed 300px and ran 182px under the keyboard, with iOS's own
@@ -560,8 +571,9 @@ test('@mobile Return reveals the list instead of replacing the deck', async ({ p
 	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
 	await page.locator('#pg-template-trigger').click();
 	await raiseSoftKeyboard(page);
+	const all = await page.locator('[cmdk-item]').count();
 	await page.locator('[cmdk-input]').fill('chart');
-	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69);
+	await expect(page.locator('[cmdk-item]')).not.toHaveCount(all);
 	await page.locator('[cmdk-input]').press('Enter');
 	// An absence assertion needs a settled surface, and `settle` is a bounded poll: if
 	// Return HAD committed, the popover would be gone and the trigger renamed by now.
@@ -579,12 +591,15 @@ test('a search shows its top hit, not wherever the previous list was scrolled to
 	await gotoExplore(page, '?c=word-cloud&view=read');
 	await page.locator('#pg-template-trigger').click();
 	await expect(page.locator('[cmdk-list]')).toBeVisible();
+	// The unfiltered count, read rather than written: the catalog grows (it was 69 when this
+	// was written), and a literal made the wait below pass before the filter had run.
+	const all = await page.locator('[cmdk-item]').count();
 	await page.locator('[cmdk-input]').fill('chart');
-	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69);
-	// The TOP hit, whichever component ranks first for the query (a new chart component
-	// changes which one that is), rather than a named one.
-	await expect(page.locator('[cmdk-item]').first()).toHaveAttribute('data-selected', 'true');
-	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(/chart/);
+	await expect(page.locator('[cmdk-item]')).not.toHaveCount(all);
+	// The TOP hit is highlighted — whichever component ranks first for "chart" today. Naming it
+	// (`piechart`) broke the day a new component outranked it; the defect was the scroll.
+	const top = ((await page.locator('[cmdk-item]').first().textContent()) ?? '').trim();
+	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(top);
 	const seen = await page.evaluate(() => {
 		const list = document.querySelector('[cmdk-list]');
 		const sel = document.querySelector('[cmdk-item][data-selected="true"]');
@@ -653,7 +668,7 @@ test('a single jumping scroll inside the step guard is not stranded', async ({ p
 	await expect.poll(async () => (await claimed(page)).index).toBe(2);
 	await page.evaluate(() => {
 		const f = document.getElementById('preview') as HTMLIFrameElement | null;
-		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
+		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section, .lattice > div[data-lv-ph]');
 		if (f?.contentWindow && secs?.[9]) f.contentWindow.scrollTo({ top: secs[9].offsetTop - 16, behavior: 'auto' });
 	});
 	await settle(page);
@@ -725,7 +740,7 @@ test('a wheel right after a COLD step does not take the step back', async ({ pag
 	await expect(page.locator('#pg-walk .pg-walk-pos')).toContainText('1 / ');
 	const sectionsAtStep = await page.evaluate(() => {
 		const frame = document.getElementById('preview') as HTMLIFrameElement | null;
-		const n = frame?.contentDocument?.querySelectorAll('.lattice > section').length ?? -1;
+		const n = frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? -1;
 		(document.querySelector('.pg-walk-step.next') as HTMLButtonElement | null)?.click();
 		document.querySelector('.pg-preview-wrap')?.dispatchEvent(new WheelEvent('wheel', { deltaY: 40, bubbles: true }));
 		return n;
@@ -799,7 +814,7 @@ test('@mobile replacing the deck in Edit does not leave the walk counting the pl
 
 	const slides = await page.evaluate(() => {
 		const frame = document.getElementById('preview') as HTMLIFrameElement | null;
-		return frame?.contentDocument?.querySelectorAll('.lattice > section').length ?? -1;
+		return frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? -1;
 	});
 	const after = await claimed(page);
 	// The invariant is the one this whole file is about: the chrome never claims a count the
@@ -828,7 +843,7 @@ test('@mobile picking a component gives the same deck in Edit as in Explore', as
 	const deckSlides = () =>
 		page.evaluate(() => {
 			const frame = document.getElementById('preview') as HTMLIFrameElement | null;
-			return frame?.contentDocument?.querySelectorAll('.lattice > section').length ?? -1;
+			return frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? -1;
 		});
 	const pick = async (name: string) => {
 		await page.locator('#pg-template-trigger').click();

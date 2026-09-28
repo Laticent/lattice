@@ -10,6 +10,12 @@ summary: Scalable live preview for huge decks — incremental-patch path landed,
 > have landed; viewport virtualization is the remaining layer. The DOM changes
 > need a real browser to verify (the cloud sandbox can't run the Astro app).
 > When this note and a shipped surface disagree, the shipped surface wins.
+>
+> **Superseded for the Playground (2026-09-28).** `content-visibility:auto` skipped paint but
+> not the runtime's transform pass, the style recalc against the engine sheet, or the memory:
+> a 522-slide deck still took 8.5s to its first slide. The Playground now mounts only the
+> slides in view and keeps the rest as sized placeholders — see
+> `2026-09-28-playground-virtual-filmstrip.md`. The Studio's single-slide preview is unaffected.
 
 ## The problem (one sentence)
 

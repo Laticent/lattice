@@ -85,7 +85,7 @@ export const STEPS = [
 	{
 		element: '#pg-setup-trigger',
 		popover: {
-			title: 'Deck Setting',
+			title: 'Deck settings',
 			description: 'Finish, size, page numbers, the debug overlay — the deck-level dials. They apply to whatever deck you’re walking or editing.',
 			side: 'bottom',
 			align: 'end',

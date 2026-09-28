@@ -23,6 +23,7 @@ import {
 	BACKUP_KEY,
 	type Catalog,
 	COMPONENT_KEY,
+	caretSlideIndex,
 	classTokenLine,
 	detectComponent,
 	FOCUS_KEY,
@@ -48,12 +49,13 @@ import {
 	variantSource,
 	walkChipLabel,
 } from '@/lib/playground-controller';
-import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
+import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
 import { applyDebug } from '@/playground/debug-overlay.js';
 import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
+import { adoptBake } from '@/playground/newcomer-bake';
 import { captureFirstSectionFromFrame, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';
 import { createVideoOverlay } from '@/playground/video-overlay.js';
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
@@ -146,15 +148,11 @@ const REVEAL_CAP_MS = LAND_SETTLE_MS * (1 + LAND_ATTEMPTS) + 500;
  *  to the pane, so `offsetHeight` reports 720 on a phone where the slide is really 179px
  *  tall.
  *
- *  `offsetTop`, by contrast, IS right — but not for the reason it looks like. A transform
- *  never affects `offsetTop`; what makes the positions carry the scale is a second thing
- *  the same agent does, `s.style.marginBottom = (SH*sc - SH + GAP)` in
- *  `docs/src/playground/deck-preview.js`, a negative margin that pulls each following
- *  section's LAYOUT box up by exactly the scale difference. So this reads position from
- *  `offsetTop` and size from the rect, and **that pairing is only valid while that margin
- *  line exists** — change it and the band maths here goes with it. (An earlier draft of
- *  this comment credited the transform's origin, which would have read as reassurance that
- *  the margin was safe to touch. Found by an independent checker.) */
+ *  The top comes from the rect too, plus the frame's scroll: the transform's origin is the
+ *  section's top-left, so its rect top is its layout top, in the frame's viewport. (It used
+ *  to come from `offsetTop`, which is measured from the section's `offsetParent` — the
+ *  `.lattice` container, whose `filter` makes it one — so it left out the frame's html and
+ *  body padding, and every band sat 36px high.) */
 /** Line endings folded, for COMPARING two spellings of the same document — never for
  *  making one canonical. `\r\n?` and not `\r\n`: the second cannot match a classic-Mac
  *  lone CR at all, and the two cost the same (2026-08-04-line-endings-lf-boundaries.md). */
@@ -181,7 +179,9 @@ function bandSig(bands: SlideBand[]): string {
 function walkUnits(frame: HTMLIFrameElement, byAuthored: boolean): HTMLElement[][] {
 	let secs: NodeListOf<HTMLElement> | undefined;
 	try {
-		secs = frame.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
+		// Every slide, real or a virtual-filmstrip placeholder (deck-render.js), in deck order:
+		// the walk, the bands and the reading index count slides, not mounted ones.
+		secs = frame.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section, .lattice > div[data-lv-ph]');
 	} catch {
 		return []; // a frame mid-navigation; the next poll gets it
 	}
@@ -200,11 +200,16 @@ function walkUnits(frame: HTMLIFrameElement, byAuthored: boolean): HTMLElement[]
 }
 
 function frameBands(frame: HTMLIFrameElement, byAuthored = false): SlideBand[] {
+	const sy = frame.contentWindow?.scrollY ?? 0;
 	return walkUnits(frame, byAuthored).map((u) => {
-		const first = u[0];
-		const last = u[u.length - 1];
-		const height = u.length === 1 ? first.getBoundingClientRect().height : last.getBoundingClientRect().bottom - first.getBoundingClientRect().top;
-		return { top: first.offsetTop, height };
+		const first = u[0].getBoundingClientRect();
+		const last = u[u.length - 1].getBoundingClientRect();
+		// Position from the RECT plus the scroll, not `offsetTop`: `offsetTop` is measured from
+		// the `.lattice` container (its `filter` makes it the offsetParent), so it left out the
+		// frame's html and body padding and every band sat 36px above where the slide really is. A step aimed with it landed the slide 16px low —
+		// the previous slide's foot showing above it and the bottom of the target clipped, on
+		// every Next and every Prev at every width.
+		return { top: first.top + sy, height: last.bottom - first.top };
 	});
 }
 
@@ -485,7 +490,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// replaces the iframe doc). Export untouched (poster still).
 	const animaScenesRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	const editorRef = React.useRef<EditorAdapter | null>(null);
-	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { mermaidUrl, dagreUrl, katexUrl }));
+	// Built once. `useRef(createEngineBridge(...))` evaluated its argument on every render and
+	// threw the result away, so each commit of this surface built a bridge nobody used.
+	const engineRef = React.useRef<EngineBridge>(null as unknown as EngineBridge);
+	if (engineRef.current === null) engineRef.current = createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { mermaidUrl, dagreUrl, katexUrl });
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
 	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -551,6 +559,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// now paints the cached slide at the rect the filmstrip is about to use (#1563),
 			// the two pictures coincide and the swap is invisible rather than a jump.
 			wrap.classList.add('is-live');
+			// The app owns the reveal now; the bake's flag would hold a later write visible.
+			document.documentElement.removeAttribute('data-pg-bake');
 			// Tear the shell DOWN only once that fade has finished. Doing it here — as this
 			// did — pulled the cached slide the instant the iframe *started* fading in, so a
 			// half-transparent slide sat over the bare pane for the whole 200ms.
@@ -631,10 +641,55 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// The render-success path also rebinds these, but on a FRESH srcdoc write that
 	// runs before the new document has loaded (setting the hook on the old window),
 	// so re-install the parent-hosted bridges here against the now-live document.
+	// THE VIRTUAL FILMSTRIP moved its window: sections were mounted or returned to placeholders
+	// (deck-preview.js `attachVirtual`). The overlays bound to sections rebind to the new ones —
+	// the same set the render loop rebinds after a patch.
+	const onVirtualChange = React.useCallback(() => {
+		applyDebug(frameRef.current, { force: forceRef.current });
+		chartDetailRef.current?.rebind();
+		videoOverlayRef.current?.rebind();
+		animaScenesRef.current?.rebind();
+	}, []);
+	/** Mount the slides around section `index` before scrolling to it, so the reader lands on a
+	 *  real slide rather than a placeholder that fills in a frame later. */
+	const mountAroundIndex = React.useCallback(
+		(index: number) => {
+			const frame = frameRef.current;
+			if (frame && window.LatticeDeckPreview?.mountAround?.(frame, previewStateRef.current, index)) onVirtualChange();
+		},
+		[onVirtualChange],
+	);
+	// BACK INTO THE PAGE FROM THE BACK-FORWARD CACHE. iOS Safari restores the page with its
+	// preview frame intact, and the frame then takes no touch scroll until it is laid out again
+	// (reported on an iPhone: leave the Playground, come back, and the preview will not scroll;
+	// switching apps, which does not unload the page, is fine). So on a restore, lay the frame out
+	// afresh — take it out of layout for one forced reflow and put it back — re-fit it, and bring
+	// the virtual window to wherever it is scrolled. Invisible in one task, and a no-op anywhere
+	// the frame never lost its scroll.
+	React.useEffect(() => {
+		const onShow = (e: PageTransitionEvent) => {
+			if (!e.persisted) return;
+			// A gesture in flight when the page was left never got its touchend.
+			touchRef.current = null;
+			const frame = frameRef.current;
+			if (!frame) return;
+			const display = frame.style.display;
+			frame.style.display = 'none';
+			void frame.offsetHeight;
+			frame.style.display = display;
+			frame.contentWindow?.__latticeFit?.();
+			if (window.LatticeDeckPreview?.syncVirtual?.(frame, previewStateRef.current)) onVirtualChange();
+			bindDeckInputRef.current();
+		};
+		window.addEventListener('pageshow', onShow);
+		return () => window.removeEventListener('pageshow', onShow);
+	}, [onVirtualChange]);
 	const onFrameLoad = React.useCallback(() => {
 		// A full srcdoc write replaced the frame's document: rebind the deck's keyboard,
 		// touch and scroll listeners to the new one.
 		bindDeckInputRef.current();
+		// …and hand the new document's window to the virtual filmstrip, which follows its scroll.
+		if (frameRef.current) window.LatticeDeckPreview?.attachVirtual?.(frameRef.current, () => previewStateRef.current, onVirtualChange);
 		applyDebug(frameRef.current, { force: forceRef.current });
 		videoOverlayRef.current?.rebind();
 		animaScenesRef.current?.rebind();
@@ -642,13 +697,95 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// fresh document defined __latticeFit would silently no-op; the loaded doc
 		// re-fits itself here against the now-final pane width.
 		frameRef.current?.contentWindow?.__latticeFit?.();
-	}, []);
+		// A full write starts the new document at the top. Put the author on the slide they
+		// are editing if they just edited; otherwise back where they were reading.
+		const anchor = anchorRef.current;
+		anchorRef.current = null;
+		if (followPendingRef.current) followCaretRef.current(true);
+		else if (anchor && viewRef.current === 'edit') {
+			const frame = frameRef.current;
+			if (frame?.contentWindow) {
+				// By AUTHORED slide when the frame numbers them: a size change can split one slide
+				// into pages, and then the old section index names a different slide.
+				const secs = walkUnits(frame, false).map((u) => u[0]);
+				const byKey = anchor.slide ? secs.findIndex((el) => (el.getAttribute('data-lattice-slide') || '').split('.')[0] === anchor.slide) : -1;
+				const i = byKey >= 0 ? byKey : anchor.index;
+				mountAroundIndex(i);
+				const band = frameBands(frame)[i];
+				// The fraction only means something in the same slide at the same shape.
+				if (band) frame.contentWindow.scrollTo({ top: band.top + (byKey === anchor.index ? anchor.frac * band.height : 0), behavior: 'auto' });
+			}
+		}
+	}, [onVirtualChange, mountAroundIndex]);
 
 	// While the preview pane is collapsed, rendering into its 0-width iframe is
 	// both wasted work and the iOS FIT-blank precondition — defer instead, and
 	// let the expand path run one authoritative render.
 	const previewCollapsedRef = React.useRef(false);
 	const pendingWhileCollapsedRef = React.useRef(false);
+
+	// ── Edit view: the preview follows the caret ────────────────────────────────
+	// Typing on slide 6 while the preview sat on slide 1 meant editing blind — the change
+	// landed off screen. The caret's slide is found from the words on screen
+	// (`caretSlideIndex`), and the preview moves only when that slide is not already the
+	// one mostly in view, so a reader who scrolled the preview to look at something keeps
+	// it until they type or move the caret again.
+	const caretLineRef = React.useRef<number | null>(null);
+	const followTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	/** The author typed or moved the caret since the preview last followed. ONLY that moves
+	 *  the preview: a palette flip, a mode flip or a resize re-renders too, and following on
+	 *  those pulled a reader who had scrolled the preview to slide 3 back to the caret. */
+	const followPendingRef = React.useRef(false);
+	/** Where the reader was when a full write replaced the document (deck-preview.js
+	 *  `renderDeck` reads it off the old document), so the new one opens there. */
+	const anchorRef = React.useRef<{ index: number; frac: number; slide?: string } | null>(null);
+	const followCaret = React.useCallback((instant = false) => {
+		const frame = frameRef.current;
+		const line = caretLineRef.current;
+		if (!followPendingRef.current || !frame || line == null || viewRef.current !== 'edit' || previewCollapsedRef.current) return;
+		const win = frame.contentWindow;
+		if (!win || frame.clientHeight === 0) return;
+		const units = walkUnits(frame, false);
+		if (!units.length) return;
+		// Texts from the RENDER, not the frame: in the virtual filmstrip most sections are empty
+		// placeholders, and the caret's slide is usually one of them.
+		const rendered = previewStateRef.current?.lastSections;
+		const texts = Array.isArray(rendered) && rendered.length === units.length ? (rendered as string[]) : units.map((u) => u[0].textContent || '');
+		const i = caretSlideIndex(getSource(), line, texts);
+		// Not found YET is not "not found": a heading being typed has not rendered. Stay
+		// pending, and the render that lands it asks again.
+		if (i < 0) return;
+		followPendingRef.current = false;
+		mountAroundIndex(i);
+		const band = frameBands(frame)[i];
+		if (!band) return;
+		const top = win.scrollY;
+		const bottom = top + win.innerHeight;
+		const seen = Math.max(0, Math.min(bottom, band.top + band.height) - Math.max(top, band.top));
+		// Already readable: at least 60% of the slide, or the whole viewport's worth of it.
+		if (seen >= Math.min(band.height, win.innerHeight) * 0.6) return;
+		const inset = Math.max(0, (win.innerHeight - band.height) / 2);
+		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+		win.scrollTo({ top: Math.max(0, band.top - Math.min(inset, 24)), behavior: instant || reduce ? 'auto' : 'smooth' });
+	}, [getSource, mountAroundIndex]);
+	const followCaretRef = React.useRef(followCaret);
+	followCaretRef.current = followCaret;
+	const onCaret = React.useCallback((line: number) => {
+		caretLineRef.current = line;
+		followPendingRef.current = true;
+		if (followTimerRef.current) clearTimeout(followTimerRef.current);
+		followTimerRef.current = setTimeout(() => {
+			followTimerRef.current = null;
+			followCaretRef.current();
+		}, 140);
+	}, []);
+	React.useEffect(
+		() => () => {
+			if (followTimerRef.current) clearTimeout(followTimerRef.current);
+		},
+		[],
+	);
+
 
 	// ── The render loop (wraps the engine; never reimplements it) ───────────────
 	const render = React.useCallback(
@@ -691,11 +828,30 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				}
 			}
 			const mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
-			setStatusLine('Rendering…');
+			// "Rendering…" only for a render a person can WAIT on. A keystroke's render lands in
+			// a frame or two, and flipping the line to "Rendering…" and back on every one of them
+			// made the toolbar text flicker (and shift, the two strings differ in width) while
+			// the author typed — and cost two extra React commits of this whole surface per key.
+			const slowStatus = setTimeout(() => setStatusLine('Rendering…'), 300);
 			// Explore renders the walk deck; Edit renders the draft. Ref-read so the
 			// render loop sees a mode/walk change the moment it commits.
 			const src = viewRef.current === 'read' && exploreSourceRef.current != null ? exploreSourceRef.current : getSource();
-			const r = await engine.renderInto(frame, src, palette, mode, previewStateRef.current, fresh);
+			// THE NEWCOMER BAKE (playground.astro): the page may have loaded the document this very
+			// render would write. The first render adopts it — takes over the render state baked
+			// into it — and renders as an ordinary patch against that, so a current bake changes
+			// nothing and a stale one is patched or restyled in place. A bake that does not match
+			// this deck is dropped, and its reveal flag with it, before a new document is written.
+			let state = previewStateRef.current;
+			let isFresh = fresh;
+			if (!(state as { writeId?: number }).writeId && root.hasAttribute('data-pg-bake')) {
+				const baked = adoptBake(frame, src);
+				if (baked) {
+					state = baked;
+					isFresh = false;
+					window.LatticeDeckPreview?.attachVirtual?.(frame, () => previewStateRef.current, onVirtualChange);
+				} else root.removeAttribute('data-pg-bake');
+			}
+			const r = await engine.renderInto(frame, src, palette, mode, state, isFresh).finally(() => clearTimeout(slowStatus));
 			if (r.status === 'pending') {
 				// Single pending retry (see the !engine.ready() note above).
 				if (timerRef.current) clearTimeout(timerRef.current);
@@ -705,10 +861,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} else {
 				previewStateRef.current = r.state;
 				lastGeomRef.current = r.geom;
+				// A document of the app's own replaced the bake: from here the frame shows only
+				// once `is-live` says it has fitted.
+				if (!r.patched) root.removeAttribute('data-pg-bake');
+				if (!r.patched) anchorRef.current = r.anchor ?? null;
+				// A patch can change the slide count or restyle every slide; re-fit the virtual
+				// window to the scroll position (a full write does this on load, in onFrameLoad).
+				else if (window.LatticeDeckPreview?.syncVirtual?.(frame, r.state)) onVirtualChange();
 				// Record the source THIS frame renders, so a capture stamps the snapshot's
 				// identity from the bytes actually on screen (see lastRenderedEditSrcRef).
 				if (viewRef.current === 'edit') lastRenderedEditSrcRef.current = src;
-				lastRenderStatusRef.current = `Rendered ${r.count} slide(s).`;
+				lastRenderStatusRef.current = `Rendered ${r.count} ${r.count === 1 ? 'slide' : 'slides'}.`;
 				setStatusLine(lastRenderStatusRef.current);
 				// A full-deck walk learns its slide count from the render itself
 				// (no plan exists for authored gallery decks — slide-index positions).
@@ -721,6 +884,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// written against pre-FIT offsets is thrown away when it does (#2124).
 				bindDeckInputRef.current();
 				if (viewRef.current === 'read') landWalkRef.current();
+				// After a PATCH only. On a full write the frame still holds the outgoing document
+				// here; following now would scroll that one and clear the pending follow, and the
+				// new document would open on slide 1. `onFrameLoad` follows once it has loaded.
+				else if (r.patched) followCaretRef.current();
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
 				// so the skeleton / instant-shell covers the FIT window instead of the iframe
 				// flashing its opaque black body. This adds `is-live` (CSS reveals #preview +
@@ -749,7 +916,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				return { heavy: !r.patched };
 			}
 		},
-		[getSource, setStatusLine, palettes, markLiveWhenSlidesVisible],
+		[getSource, setStatusLine, palettes, markLiveWhenSlidesVisible, onVirtualChange],
 	);
 
 	// Latest render closure — the frame scheduler reaches it via this ref so it always
@@ -863,6 +1030,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		mql.addEventListener('change', sync);
 		return () => mql.removeEventListener('change', sync);
 	}, []);
+	// Explore above the tab breakpoint shows one slide at a time (playground.css sizes the frame
+	// to one slide), so the frame's fit agent widens the gap between slides until a centered one
+	// shows none of its neighbors. Below it, Explore is a scrolling filmstrip and keeps its gap.
+	const stage = view === 'read' && splitActive;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `stage` is the explicit re-fit trigger; the fit agent reads the attribute off the frame.
+	React.useEffect(() => {
+		// The attribute is already on the frame by the time this runs; re-fit so the gap follows.
+		frameRef.current?.contentWindow?.__latticeFit?.();
+	}, [stage]);
 	// px collapsed-pane rail width (the always-visible restore edge). Declared in pg-split.ts
 	// because the pre-paint seed needs it too: the library snaps a restored pane to THIS rather
 	// than to `minSize` below the midpoint of the two, and a seed that models only the clamp
@@ -919,6 +1095,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		onDragStart: () => frameRef.current?.contentWindow?.__latticeFitSuspend?.(),
 		onDragEnd: () => frameRef.current?.contentWindow?.__latticeFitResume?.(),
 	});
+	// EXPLORE NEVER SHOWS A COLLAPSED PREVIEW. Explore hides the editor, so a preview collapsed
+	// in Edit left the whole stage empty ("Preview collapsed — render deferred.") after any
+	// route into Explore: a component pick, a gallery load, the Explore tab. One rule here
+	// covers every route; the expand runs the render the collapse deferred.
+	React.useEffect(() => {
+		if (view === 'read' && splitActive && split.collapsed === 'b') split.expand('b');
+	}, [view, splitActive, split.collapsed, split.expand]);
 	// Mirror synchronously each render (the forceRef pattern above): the render
 	// loop must see the collapse the moment React commits it. Below the tab
 	// breakpoint the retained collapse is inert — the tabs own visibility.
@@ -965,9 +1148,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// animates under a deck-wide setting on THIS surface too — without it the Playground's own
 		// Deck Settings → Motion control would write front-matter this host never reads (every
 		// deck-level value, Off included, would be a silent no-op). Mirrors DeckPreview.
+		// Memoized on the source: a rebind follows every virtual-filmstrip move, and parsing a big
+		// deck's front matter three times per move was a measured scroll cost.
+		let motionSrc: string | null = null;
+		let motion: ReturnType<typeof parseDeckMotion> | null = null;
 		const as = createAnimaScenes({
 			getFrame: () => frameRef.current ?? frame,
-			getDeckMotion: () => parseDeckMotion(getFrontMatter(getSource(), 'motion'), getFrontMatter(getSource(), 'motion-style'), getFrontMatter(getSource(), 'motion-speed')),
+			getDeckMotion: () => {
+				const src = getSource();
+				if (src !== motionSrc || !motion) {
+					motion = parseDeckMotion(getFrontMatter(src, 'motion'), getFrontMatter(src, 'motion-style'), getFrontMatter(src, 'motion-speed'));
+					motionSrc = src;
+				}
+				return motion;
+			},
 		});
 		animaScenesRef.current = as;
 		return () => {
@@ -1042,9 +1236,24 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	);
 
 	// ── Edit handler: persist, sync pickers, debounced patch render ─────────────
+	// The version bump re-renders this whole surface (the toolbar, both sheets, the split) to
+	// refresh two things that only matter once the author pauses — the Deck settings cue and
+	// the Reset arm. Bumping it on every keystroke was a React commit of all of that per key,
+	// on top of the preview's own render. Trailing, so a burst of typing costs one commit.
+	const versionTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	React.useEffect(
+		() => () => {
+			if (versionTimerRef.current) clearTimeout(versionTimerRef.current);
+		},
+		[],
+	);
 	const onEdit = React.useCallback(() => {
 		saveSource();
-		setSourceVersion((v) => v + 1);
+		if (versionTimerRef.current) clearTimeout(versionTimerRef.current);
+		versionTimerRef.current = setTimeout(() => {
+			versionTimerRef.current = null;
+			setSourceVersion((v) => v + 1);
+		}, 250);
 		syncPickers();
 		scheduleRender();
 	}, [saveSource, syncPickers, scheduleRender]);
@@ -1296,6 +1505,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const win = frame.contentWindow;
 		const target = walkUnits(frame, w.kind === 'plan')[w.index]?.[0];
 		if (!win || !target) return;
+		// Mount the target's slides before the scroll (the virtual filmstrip), so the step lands on
+		// a real slide. Geometry is unchanged by a mount — a placeholder is sized like its slide.
+		const di = Array.prototype.indexOf.call(frame.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]') ?? [], target);
+		if (di >= 0) mountAroundIndex(di);
 		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 		const animated = smooth && !reduce;
 		const now = Date.now();
@@ -1324,8 +1537,24 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (landPendingRef.current) return;
 			reconcileRef.current();
 		}, window_ms + 40);
-		win.scrollTo({ top: Math.max(0, target.offsetTop - 16), behavior: animated ? 'smooth' : 'auto' });
-	}, []);
+		// Where the slide lands. When it nearly fills the pane (Explore's one-slide stage),
+		// CENTER it: one whole slide with an even margin above and below. When the pane is much
+		// taller than a slide (a tablet or phone filmstrip), centering would leave the previous
+		// slide showing above it, so pin it one gap below the top instead.
+		const band = frameBands(frame, w.kind === 'plan')[w.index];
+		const spare = band ? Math.max(0, (win.innerHeight - band.height) / 2) : 16;
+		// 40 is shared with the fit agent's STAGE gap (deck-preview.js): it widens the gap only
+		// where this centers, so the two agree on which regime a pane is in. The newcomer bake's
+		// loader (playground.astro) mirrors this for slide 1 — keep the two in step.
+		const inset = spare <= 40 ? spare : 16;
+		// …except the FIRST slide in that pinned regime, which has no previous slide to hide: it
+		// lands at the document's own top, the frame's padding above it. That is also where a
+		// document opens, so the newcomer bake (playground.astro), revealed before the app has
+		// run, is already where this lands it — pinning it 16px down moved the whole filmstrip
+		// 20px up under the reader the moment the app went live (measured at 390px).
+		const pinnedFirst = w.index === 0 && spare > 40;
+		win.scrollTo({ top: pinnedFirst ? 0 : Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset), behavior: animated ? 'smooth' : 'auto' });
+	}, [mountAroundIndex]);
 	scrollWalkRef.current = scrollWalk;
 
 	/**
@@ -2206,16 +2435,34 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const wrap = frameRef.current?.parentElement;
 		if (!wrap || typeof ResizeObserver === 'undefined') return;
 		let t: ReturnType<typeof setTimeout> | null = null;
+		// When this burst of resizing began. A reader who moves the deck after it has chosen a
+		// position, and the re-land must not take it back. EXACT only when the drive follows the
+		// burst's last tick; a wheel in the middle of a continuous drag keeps the reader near
+		// where they wheeled (the index reads whatever slide the final geometry puts under their
+		// offset), which beats the old behavior of pulling them back. Found by a checker.
+		let resizeAt = 0;
 		const ro = new ResizeObserver(() => {
 			// Claimed SYNCHRONOUSLY, before the debounce: the frame's own rescale lands inside
 			// that window, and `onDeckGeometry` must already know a re-land is coming.
 			landScheduledRef.current = true;
+			if (!t) resizeAt = Date.now();
 			if (t) clearTimeout(t);
 			t = setTimeout(() => {
 				t = null;
 				landScheduledRef.current = false;
 				if (viewRef.current !== 'read' || previewCollapsedRef.current) return;
-				frameRef.current?.contentWindow?.__latticeFit?.();
+				const frame = frameRef.current;
+				frame?.contentWindow?.__latticeFit?.();
+				// THE READER OUTRANKS THE RE-LAND. A wheel inside the debounce window used to be
+				// undone: resize, scroll to slide 4, and 120ms later the deck jumped back to the
+				// slide the index still named (the stress spec "a wheel during the post-render
+				// landing is obeyed" failed 4 of 4 on main). Adopt their position instead: take
+				// the new geometry as the one the index is read against, and read it.
+				if (frame && driveAtRef.current >= resizeAt) {
+					bandSigRef.current = bandSig(frameBands(frame, walkRef.current?.kind === 'plan'));
+					reconcileRef.current();
+					return;
+				}
 				landWalkRef.current();
 			}, SCROLL_IDLE_MS);
 		});
@@ -2582,7 +2829,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								</button>
 							)}
 						</div>
-						<EditorHost initialDoc={starter} vocab={lintVocab} onChange={onEdit} onReady={onEditorReady} />
+						<EditorHost initialDoc={starter} vocab={lintVocab} onChange={onEdit} onReady={onEditorReady} onCursor={onCaret} />
 					</section>
 					<button
 						type="button"
@@ -2638,7 +2885,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								suppressHydrationWarning
 								{...(shellHtml != null ? { dangerouslySetInnerHTML: { __html: shellHtml } } : {})}
 							/>
-							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} />
+							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
 						</div>
 					</section>
 					<button

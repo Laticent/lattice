@@ -145,9 +145,10 @@ describe('buildSrcdoc', () => {
 		};
 		// And every caller of the gated builder, with what it hands the knob.
 		const KNOB = {
-			// renderDeck's full write — the deck preview frame. Forwards `...opts`; every host
-			// that reaches it today is a live preview.
-			'playground/deck-preview.js': ['default'],
+			// renderDeck's full write — the deck preview frame (moved out of deck-preview.js into
+			// the Playground-only deck-render.js). Forwards `...opts`; every host that reaches it
+			// today is a live preview.
+			'playground/deck-render.js': ['default'],
 			// The print PREVIEW cells (watched), then the DESKTOP PRINT document (offscreen at
 			// -10000px, handed straight to print() — the author's PDF).
 			'components/studio/PrintOptionsPanel.tsx': ['default', 'false'],
@@ -305,7 +306,8 @@ describe('buildSrcdoc', () => {
 		const doc = buildSrcdoc({ ...BASE, gap: 22, sync: true });
 		// FIT declares GAP once (marginBottom = SH*sc - SH + GAP).
 		assert.match(doc, /GAP=22;/);
-		assert.match(doc, /marginBottom=\(SH\*sc-SH\+GAP\)/);
+		assert.match(doc, /MB=\(SH\*sc-SH\+GAP\)\+"px"/);
+		assert.match(doc, /marginBottom=MB/);
 		// SYNC: slot pitch = SH*(w/SW) + GAP — must agree with FIT or the scroll drifts.
 		assert.match(doc, /SH\*\(w\/SW\)\+22/);
 	});

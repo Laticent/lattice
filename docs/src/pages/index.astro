@@ -42,6 +42,7 @@ import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
+import PlaygroundWarm from '../components/site/PlaygroundWarm.astro';
 
 // Astro evaluates this frontmatter at build time with cwd = docs/, so anchor
 // repo reads to cwd (import.meta.url is unreliable once the page is bundled).
@@ -384,5 +385,8 @@ const nextSteps = nextStepsFor(url);
 		     destination loads on mount); a slow link or
 		     Save-Data stays hands-off. See src/lib/prefetch-engine.ts. -->
 		<EngineWarm allowEager />
+		{/* …and the rest of a first Playground visit: its baked first slide, its theme, and the
+		    page itself on hover. See PlaygroundWarm.astro. */}
+		<PlaygroundWarm />
 	</body>
 </html>

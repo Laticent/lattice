@@ -1,30 +1,27 @@
-// preview-virtual.js — pure, DOM-free core for the Drawing Board's incremental
-// live preview.
+// preview-virtual.js — pure, DOM-free core for the live filmstrip preview's PATCH path.
 //
 // WHY THIS EXISTS
 // The preview re-rendered the WHOLE deck into the iframe on every edit:
 // `frame.srcdoc = <all N slides>`, which makes the browser re-parse the doc,
 // re-run the runtime DOM transforms over every <section>, FIT-scale them, and
 // lay out N fixed 1280x720 slides — O(N) per keystroke, seconds on a big deck.
-// (The markdown->HTML render itself is cheap: marp-core does 800 slides in
-// ~285ms; the cost is the browser-side mount/layout of every slide.)
+// (The markdown->HTML render itself is cheap: 522 slides in ~310ms in the browser;
+// the cost is the browser-side mount/layout of every slide.)
 //
 // THE MODEL
 // Keep ONE persistent iframe. On edit, re-render the whole deck's HTML (cheap),
 // split it into per-slide strings, diff against the previous render, and replace
 // only the <section> nodes whose HTML changed — so the per-edit cost is
 // O(changed slides), not O(deck). A full srcdoc rewrite still runs on first
-// render and on palette/mode change (theme CSS + Mermaid theming bake into the
-// document). Off-screen virtualization is the browser's own `content-visibility:
-// auto` on the fixed-size slides (every node stays mounted; the browser skips
-// off-screen layout/paint) — not a JS virtual list, so this kernel needs no
-// windowing math.
+// render and on a size change (theme CSS bakes into the document). The Playground
+// also mounts only the slides in view — the virtual filmstrip, whose pure half is
+// `virtual-window.js`, kept apart so the Studio's builder does not carry it.
 //
 // This module is the pure kernel of the patch path: splitting the rendered HTML
 // into per-slide strings and diffing two renders. It is DOM-free, and its one
 // import (the shared section walker) is too, so it is unit-tested directly in Node. The
-// controller that consumes it is `renderDeck` in `deck-preview.js`, which re-exports
-// `splitSections` so every host shares one implementation.
+// controller that consumes it is `renderDeck` in `deck-render.js`; `deck-preview.js`
+// re-exports `splitSections` so every host shares one implementation.
 
 import { splitSections as splitSectionsCore, unclosedSectionAt } from '../../../lib/core/split-sections.mjs';
 

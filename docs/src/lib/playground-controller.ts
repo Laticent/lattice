@@ -407,3 +407,125 @@ export function readingSlideIndex(bands: SlideBand[], scrollY: number, viewportH
 	if (current >= 0 && current < bands.length && seen(bands[current]) * 2 >= bestSeen) return current;
 	return best;
 }
+
+// ── Caret → slide (the Edit view's preview follows the author) ───────────────
+//
+// Which rendered slide holds the editor's caret, answered from what is ON SCREEN rather than
+// by re-deriving the engine's split rules. The Playground splits on headings as well as rules
+// by default, and a portrait deck is further cut into pages (structural-split.js), so a count
+// of `---` lines disagrees with the preview on exactly the decks where following matters. Text
+// does not: the words on the caret's line are in the slide that renders them.
+//
+// The source-side count is kept, as a TIEBREAK — the same heading or bullet can appear on two
+// slides, and the one nearest the separator count (never before it, since headings only ever
+// ADD slides) is the one the author is in. `-1` means "cannot tell", and the caller then
+// leaves the preview where it is rather than guess.
+
+/** Letters, digits and single spaces, lowercased — the shape both sides are compared in. */
+export function foldSlideText(text: string): string {
+	return text
+		.replace(/<!--[\s\S]*?-->/g, ' ')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/&[#a-z0-9]+;/gi, ' ')
+		.replace(/\]\([^)]*\)/g, ' ')
+		.normalize('NFKD')
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}]+/gu, ' ')
+		.trim();
+}
+
+const HR_LINE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/;
+const ATX_SPLIT = /^ {0,3}#{1,2}[ \t]+\S/;
+const SETEXT_EQ = /^ {0,3}=+[ \t]*$/;
+const SETEXT_DASH = /^ {0,3}-+[ \t]*$/;
+
+/**
+ * The rendered slide index the caret sits in, or -1.
+ * `caretLine` is 1-based (CodeMirror's `line.number`); `slideTexts` is each rendered
+ * section's `textContent`, in order.
+ */
+export function caretSlideIndex(source: string, caretLine: number, slideTexts: string[]): number {
+	if (!slideTexts.length) return -1;
+	// The editor's own text — CodeMirror hands it over with `\n` line breaks already.
+	const lines = source.split('\n');
+	const at = Math.min(Math.max(caretLine - 1, 0), lines.length - 1);
+	// Front matter: a leading `---` block is config, not a slide boundary. It also says
+	// whether headings split slides (`split: rule` turns that off; the default is on).
+	let bodyStart = 0;
+	let byHeading = true;
+	if (lines[0]?.trim() === '---') {
+		const end = lines.findIndex((l, i) => i > 0 && /^(---|\.\.\.)\s*$/.test(l));
+		if (end > 0) {
+			bodyStart = end + 1;
+			const split = lines.slice(1, end).find((l) => /^split:/.test(l));
+			if (split && /^split:[ \t]*["']?rule\b/i.test(split)) byHeading = false;
+		}
+	}
+	if (at < bodyStart) return 0;
+	// Where each slide STARTS, the way the engine splits: a thematic break, and — under the
+	// default heading split — every h1/h2 after the first one in its chunk. A `---` straight
+	// under a line of text is a setext HEADING, not a break; a fenced block is quoted.
+	const isRule: boolean[] = new Array(lines.length).fill(false);
+	const starts: number[] = [];
+	let fence = '';
+	let headed = false;
+	for (let i = bodyStart; i < lines.length; i++) {
+		const l = lines[i];
+		const f = l.match(FENCE_LINE);
+		if (fence) {
+			if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = '';
+			continue;
+		}
+		if (f) {
+			fence = f[1];
+			continue;
+		}
+		const prevText = i > bodyStart && lines[i - 1].trim() !== '' && !isRule[i - 1];
+		const setext = prevText && (SETEXT_EQ.test(l) || SETEXT_DASH.test(l));
+		if (!setext && HR_LINE.test(l)) {
+			isRule[i] = true;
+			starts.push(i);
+			headed = false;
+			continue;
+		}
+		if (byHeading && (setext || ATX_SPLIT.test(l))) {
+			// A setext heading's text is the line above; the slide starts there.
+			if (headed) starts.push(setext ? i - 1 : i);
+			headed = true;
+		}
+	}
+	const startsBefore = starts.filter((i) => i <= at).length;
+	// The lines of the caret's own chunk, nearest first: the caret line, then outward. A
+	// directive comment or a blank line carries no text, so its neighbors speak for it.
+	const probes: number[] = [at];
+	for (let d = 1; d < 40; d++) {
+		if (at + d < lines.length && !isRule[at + d]) probes.push(at + d);
+		if (at - d >= bodyStart && !isRule[at - d]) probes.push(at - d);
+	}
+	// Whole words only — padded, so "cost" does not find "costs".
+	const folded = slideTexts.map((t) => ` ${foldSlideText(t)} `);
+	for (const i of probes) {
+		// Stay inside the caret's slide: a probe past a slide start belongs to another one.
+		if (i > at && starts.some((st) => st > at && st <= i)) continue;
+		if (i < at && starts.some((st) => st > i && st <= at)) continue;
+		const full = foldSlideText(lines[i]);
+		// A long line is cut at 60 characters, back to a whole word.
+		const needle = full.length > 60 ? full.slice(0, 60).replace(/ \S*$/, '').trim() : full;
+		if (needle.length < 3) continue;
+		let best = -1;
+		let bestCost = Number.POSITIVE_INFINITY;
+		folded.forEach((t, k) => {
+			if (t.indexOf(` ${needle} `) === -1) return;
+			// Nearest the source's own count, never before it: a portrait page split or a
+			// generated slide only ever ADDS sections ahead of the caret's slide.
+			const cost = k >= startsBefore ? k - startsBefore : 1000 + (startsBefore - k);
+			if (cost < bestCost) {
+				bestCost = cost;
+				best = k;
+			}
+		});
+		if (best >= 0) return best;
+	}
+	return -1;
+}

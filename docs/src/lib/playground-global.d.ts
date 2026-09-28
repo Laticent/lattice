@@ -61,10 +61,16 @@ export interface LatticePlaygroundEngine {
 	};
 }
 
+/** The virtual filmstrip's window controls (deck-preview.js). Optional: a bundle from before
+ *  the virtual list has none, and the host then runs fully mounted. */
+type VirtualState = { lastSections: unknown } | null | undefined;
 export interface LatticeDeckPreviewController {
+	attachVirtual?: (frame: HTMLIFrameElement, getState: () => VirtualState, onChange?: () => void) => void;
+	mountAround?: (frame: HTMLIFrameElement, state: VirtualState, index: number) => boolean;
+	syncVirtual?: (frame: HTMLIFrameElement, state: VirtualState) => boolean;
 	renderDeck: (
 		opts: Record<string, unknown>,
-	) => { state: { frameSig: string; lastSections: unknown }; count: number; patched: boolean };
+	) => { state: { frameSig: string; lastSections: unknown }; count: number; patched: boolean; restyled?: boolean; anchor?: { index: number; frac: number; slide?: string } | null };
 }
 
 declare global {

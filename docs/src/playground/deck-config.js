@@ -106,8 +106,41 @@ const FIELD_DEFAULTS = {
   // that already carries one keeps it verbatim through the `preserved` path — retiring a
   // control must not delete an author's line.)
   lang: '',
+  // THE LOOK — `preset:` and the family registers a preset sets (lib/core/front-matter-key.js
+  // PRESETS). Each is '' at rest: the value the deck resolves to is the preset's, and only a
+  // choice that DIFFERS from the preset is written (see normalize). The Studio surfaces these
+  // as first-class settings; the Playground had none of them, so a deck's headline alignment,
+  // heading rule, eyebrow and corners could only be changed by knowing the key names.
+  preset: '',
+  headline: '',
+  rule: '',
+  eyebrow: '',
+  corners: '',
+  // `venue:` — the room the deck is shown in; the engine sizes type for its back row
+  // (lib/core/resolve-venue.js). `laptop` is the designed size and the omitted default.
+  venue: '',
 };
 const MANAGED = Object.keys(FIELD_DEFAULTS);
+
+// The preset-family registers this panel manages, and their option labels. Values are the
+// engine's own (lib/core/resolve-{headline,rule,eyebrow,corners}.js); a value added there
+// and not here simply has no row until it is named.
+const LOOK_OPTIONS = {
+  headline: [['auto', 'Per layout'], ['left', 'Left'], ['center', 'Centered'], ['right', 'Right']],
+  rule: [['auto', 'Per layout'], ['full', 'Full hairline'], ['short', 'Short'], ['accent', 'Short, in the accent'], ['none', 'None']],
+  eyebrow: [['plain', 'Plain label'], ['dot', 'Dot'], ['bar', 'Bar'], ['arrow', 'Arrow'], ['underline', 'Underline']],
+  corners: [['square', 'Square'], ['rounded', 'Rounded']],
+};
+// Spelled out rather than `Object.keys(LOOK_OPTIONS)`: the Studio's editor imports
+// readFrontMatter from this module, and a literal lets the bundler leave the option labels
+// (read only by the panel) out of the Studio's eager bundle.
+const LOOK_KEYS = ['headline', 'rule', 'eyebrow', 'corners'];
+const VENUE_OPTIONS = [
+  ['laptop', 'Laptop — your own screen'],
+  ['huddle', 'Huddle — 4–6 around a TV'],
+  ['conference', 'Conference — 10–30 people'],
+  ['hall', 'Hall — 50 and up'],
+];
 
 // Human labels for the finish-register (backdrop) options (the names themselves
 // come from the resolve-finish handoff, so an added finish still appears —
@@ -135,7 +168,7 @@ const COLOR_MODE_OPTIONS = [
 
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'validate', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'preset', 'mode', 'color-mode', 'finish', 'headline', 'rule', 'eyebrow', 'corners', 'split', 'glossary', 'lift', 'size', 'venue', 'paginate', 'header', 'footer', 'class', 'validate', 'lang'];
 
 // Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
 //   author  — every field, `theme` included. `null` means "no allow-list", which is
@@ -244,6 +277,13 @@ export function readFrontMatter(source) {
     // the switch. On unless the deck explicitly opts out with a falsey value.
     validate: !FALSEY.test((map.validate || '').trim()),
     lang: map.lang || '',
+    preset: frontMatterKey.isKnownPreset(map.preset || '') ? String(map.preset).trim().toLowerCase() : '',
+    // What each look register resolves to: the deck's own value, else its preset's.
+    headline: (map.headline || presetBaseline(map.preset, 'headline')).trim().toLowerCase(),
+    rule: (map.rule || presetBaseline(map.preset, 'rule')).trim().toLowerCase(),
+    eyebrow: (map.eyebrow || presetBaseline(map.preset, 'eyebrow')).trim().toLowerCase(),
+    corners: (map.corners || presetBaseline(map.preset, 'corners')).trim().toLowerCase(),
+    venue: (map.venue || 'laptop').trim().toLowerCase(),
     // Whether the deck carries any NON-THEME managed front matter — drives the
     // trigger's "configured" cue. `theme` is excluded: with full sync nearly
     // every deck has one, so it isn't a signal of bespoke setup.
@@ -269,6 +309,10 @@ function isDefault(key, value) {
   // 'headings' is the default — same render as omitting split, so it's dropped
   // from the block; only the explicit 'rule' opt-out is written.
   if (key === 'split') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'headings'; }
+  // The look registers: the engine's own default reads as unset (the preset's is a choice).
+  if (LOOK_KEYS.includes(key)) { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === frontMatterKey.PRESET_DEFAULTS[key]; }
+  if (key === 'preset') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'classic'; }
+  if (key === 'venue') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'laptop'; }
   return (value == null ? '' : String(value)) === FIELD_DEFAULTS[key];
 }
 
@@ -294,6 +338,11 @@ function normalize(key, value, preset) {
   // boardroom = style (mode) baseline → omit.
   if (key === 'mode') { const s = v.toLowerCase(); return s === '' || s === 'boardroom' ? null : s; }
   if (key === 'split') { return v.toLowerCase() === 'rule' ? 'rule' : null; }
+  // A look register at the value the deck's preset already gives it is omitted; any other
+  // value is the override, written — the same rule `finish` and `lift` follow above.
+  if (LOOK_KEYS.includes(key)) { const s = v.toLowerCase(); return s === '' || s === presetBaseline(preset, key) ? null : s; }
+  if (key === 'preset') { const s = v.toLowerCase(); return s === '' || s === 'classic' ? null : s; }
+  if (key === 'venue') { const s = v.toLowerCase(); return s === '' || s === 'laptop' ? null : s; }
   if (v === '' || v === FIELD_DEFAULTS[key]) return null;
   return v;
 }
@@ -322,7 +371,10 @@ export function writeFrontMatter(source, key, value) {
   const preserved = []; // [k, rawScalar] OR [k, { block: [...] }] — emitted verbatim
   // The deck's preset decides which value of a family key is the omitted baseline.
   const presetEntry = entries.find(([k, v]) => k === 'preset' && !v?.block);
-  const preset = presetEntry ? stripQuotes(presetEntry[1]) : '';
+  // When the change IS the preset, the deck's other keys are read against the NEW one. Read
+  // against the old, an author's own `headline: left` under Editorial (whose baseline is left)
+  // counted as "at the preset" and was deleted — and under Brand the deck then centered.
+  const preset = key === 'preset' ? String(value ?? '').trim().toLowerCase() : presetEntry ? stripQuotes(presetEntry[1]) : '';
   for (const [k, raw] of entries) {
     if (k === 'marp') continue;
     if (raw?.block) {
@@ -505,6 +557,9 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
       'These live in the deck’s front matter — managed for you, so the Markdown stays clean. ' +
       'They apply to the whole deck and travel with an exported .md.'));
 
+    // A group heading only when the profile shows at least one of its rows.
+    const group = (title, keys) => { if (keys.some((k) => show(k))) host.append(el('h3', 'db-settings-head db-settings-subhead', title)); };
+    group('Look', ['theme', 'color-mode', 'preset', 'finish', ...LOOK_KEYS, 'lift', 'mode']);
     // Theme — the deck's palette, written into the deck's own front matter. This is
     // the INDEPENDENT axis, not a mirror of the site chrome: `resolveDeckTheme`
     // (docs/src/lib/deck-theme.ts) makes a deck's `theme:` authoritative and falls
@@ -536,16 +591,6 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
       }
     }
 
-    // Mode — the deck-wide rendering MODE (boardroom / sketch / sketch-clean),
-    // orthogonal to the palette AND the backdrop. Boardroom is the baseline, so
-    // picking it clears the key (a clean deck carries no mode:).
-    if (show('mode') && modes.length) {
-      const current = fm.mode && modes.includes(fm.mode) ? fm.mode : 'boardroom';
-      host.append(selectRow('mode', 'Mode',
-        'The rendering hand — clean or sketch — applies to the whole deck',
-        modes.map((s) => [s, MODE_LABELS[s] || titleCase(s)]), current));
-    }
-
     // Color mode — the deck-wide COLOR-MODE key. Theme default is the baseline (picking
     // it clears the key); light/dark PIN a side, System follows the viewer's OS, and
     // "Match site / host" adopts the host container's mode. Honored by every render surface.
@@ -556,6 +601,14 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
         COLOR_MODE_OPTIONS, cur));
     }
 
+    // Preset — one word that sets the look registers below it (and the finish and card lift).
+    // It re-renders the panel, because every row under it now reads the new preset's values.
+    if (show('preset')) {
+      host.append(selectRow('preset', 'Preset',
+        'A named look — sets the backdrop, alignment, heading rule, eyebrow, lift and corners. Any row below overrides it',
+        frontMatterKey.PRESET_NAMES.map((n) => [n, frontMatterKey.PRESETS[n].label + (n === 'classic' ? ' — the default' : '')]),
+        fm.preset || 'classic', true));
+    }
     // Finish — the deck-wide BACKDROP register (none / atrium … gallery), the
     // palette-blind layer stack painted behind content; composes with the mode. None
     // is the baseline, so picking it clears the key (a deck with no backdrop).
@@ -570,6 +623,41 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     // Fabricate designer and overridden per-deck through the `finish-override:` map — no
     // longer a Deck-setup control (the retired top-level `backdrop:` block).
 
+    // The look registers a preset sets. Each row shows what the deck resolves to — its own
+    // value, else its preset's — and writes only an override.
+    // A value the deck carries that the list does not name (a typo, a newer value) is shown
+    // as itself rather than as whichever option happens to be first.
+    const withValue = (opts, v) => (v && !opts.some(([o]) => o === v) ? [...opts, [v, `${v} — not recognized`]] : opts);
+    if (show('headline')) host.append(selectRow('headline', 'Headline alignment', 'Where the eyebrow, heading and subtitle sit on every slide', withValue(LOOK_OPTIONS.headline, fm.headline), fm.headline));
+    if (show('rule')) host.append(selectRow('rule', 'Heading rule', 'The line under each slide’s heading', withValue(LOOK_OPTIONS.rule, fm.rule), fm.rule));
+    if (show('eyebrow')) host.append(selectRow('eyebrow', 'Eyebrow', 'The mark before the small label above a heading', withValue(LOOK_OPTIONS.eyebrow, fm.eyebrow), fm.eyebrow));
+    if (show('corners')) host.append(selectRow('corners', 'Slide corners', 'Square, or rounded at the theme’s radius', withValue(LOOK_OPTIONS.corners, fm.corners), fm.corners));
+    // Card lift — the opt-in "Struck" elevation. Lifts card surfaces off the slide with a
+    // zero-blur shadow that reads in both light and dark and survives the PDF export
+    // (resolve-lift.js). Shows in the live preview. Per-slide `_class: lifted` / `flat`
+    // override the deck default in the source.
+    if (show('lift')) {
+      host.append(switchRow('lift', 'Card lift',
+        'Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export', fm.lift));
+    }
+
+    // Mode — the deck-wide rendering MODE (boardroom / sketch / sketch-clean),
+    // orthogonal to the palette AND the backdrop. Boardroom is the baseline, so
+    // picking it clears the key (a clean deck carries no mode:).
+    if (show('mode') && modes.length) {
+      const current = fm.mode && modes.includes(fm.mode) ? fm.mode : 'boardroom';
+      host.append(selectRow('mode', 'Mode',
+        'The rendering hand — clean or sketch — applies to the whole deck',
+        modes.map((s) => [s, MODE_LABELS[s] || titleCase(s)]), current));
+    }
+
+    group('Format', ['size', 'venue', 'split']);
+    if (show('size')) {
+      host.append(selectRow('size', 'Slide size', 'Landscape, or a portrait / square format for social & mobile', SIZE_OPTIONS, fm.size));
+    }
+
+    // Venue — the room the deck is shown in; the engine sizes type for its back row.
+    if (show('venue')) host.append(selectRow('venue', 'Venue', 'Where the deck is seen — larger rooms get larger type', withValue(VENUE_OPTIONS, fm.venue), fm.venue));
     // Slide splitting — how the body divides into slides. 'headings' (the
     // default) starts a slide at each ## (the first # is the lead) so the deck
     // needs no separators; 'rule' opts back to needing a `---` between slides.
@@ -587,6 +675,21 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     // preview. The hint says so, so the toggle doesn't
     // read as broken when the preview doesn't visibly change.
 
+    group('On every slide', ['paginate', 'header', 'footer']);
+    if (show('paginate')) host.append(switchRow('paginate', 'Page numbers', 'Show pagination on every slide', fm.paginate));
+    if (show('header')) host.append(textField('header', 'Header', 'Running header text on every slide', fm.header, 'e.g. Lattice · Q3 Board Review'));
+    if (show('footer')) host.append(textField('footer', 'Footer', 'Running footer text on every slide', fm.footer, 'e.g. Confidential'));
+
+    group('Editing', ['validate', 'glossary']);
+    // Inline validation — the editor's live deck-grammar check (the same findings
+    // the Architect lists), drawn as underlines + hover fixes. On by default; a
+    // deck can opt out (e.g. one built on bespoke local classes). The choice rides
+    // in the front matter, so it travels with the deck.
+    if (show('validate')) {
+      host.append(switchRow('validate', 'Inline validation',
+        'Underline layout/component grammar issues as you type, with a hover fix', fm.validate));
+    }
+
     // Auto-glossary — generate a reference-appendix slide from the acronym registry's
     // definitions (#920). Unlike auto-split, this DOES show in the live preview (the
     // shared transform runs at the render chokepoint), so no "export only" caveat. The
@@ -595,32 +698,6 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     if (show('glossary')) {
       host.append(switchRow('glossary', 'Auto-glossary',
         'Append a glossary slide built from your acronyms: definitions — needs at least one term with a definition', fm.glossary));
-    }
-
-    // Card lift — the opt-in "Struck" elevation. Lifts card surfaces off the slide with a
-    // zero-blur shadow that reads in both light and dark and survives the PDF export
-    // (resolve-lift.js). Shows in the live preview. Per-slide `_class: lifted` / `flat`
-    // override the deck default in the source.
-    if (show('lift')) {
-      host.append(switchRow('lift', 'Card lift',
-        'Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export', fm.lift));
-    }
-
-    if (show('size')) {
-      host.append(selectRow('size', 'Slide size', 'Landscape, or a portrait / square format for social & mobile', SIZE_OPTIONS, fm.size));
-    }
-
-    if (show('paginate')) host.append(switchRow('paginate', 'Page numbers', 'Show pagination on every slide', fm.paginate));
-    if (show('header')) host.append(textField('header', 'Header', 'Running header text on every slide', fm.header, 'e.g. Lattice · Q3 Board Review'));
-    if (show('footer')) host.append(textField('footer', 'Footer', 'Running footer text on every slide', fm.footer, 'e.g. Confidential'));
-
-    // Inline validation — the editor's live deck-grammar check (the same findings
-    // the Architect lists), drawn as underlines + hover fixes. On by default; a
-    // deck can opt out (e.g. one built on bespoke local classes). The choice rides
-    // in the front matter, so it travels with the deck.
-    if (show('validate')) {
-      host.append(switchRow('validate', 'Inline validation',
-        'Underline layout/component grammar issues as you type, with a hover fix', fm.validate));
     }
 
     // Advanced — the lower-traffic deck-authoring keys. Only shown when the
