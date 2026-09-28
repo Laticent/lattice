@@ -148,3 +148,12 @@ direction with `wrap: false`; half-typed text often parses as such a chart, and 
 with groups always is one. The pause search runs in a second worker, so a key typed while
 it runs never queues behind it (a worker cannot cancel a job already running, and a
 search a newer key made stale is dropped by its token).
+
+**The drawing at rest is a function of the text and the stage.** That search is the SETTLE:
+it fits from a cold start (k 1), as a paste, a reload or an export does, and paints only its
+last round, so its early rounds never flash a chart at the wrong type floor. Before it, a
+live redraw started its fit from the scale it remembered, and a fit started elsewhere could
+settle on another fixed point: the same text drew four ways depending on how it was typed.
+Now paste, reload, key by key and bursts at 50, 120 and 600 ms a key give one drawing on
+every chart measured, and the CLI export draws the same viewBox. A different chart at the
+same position (the next slide's) fits from a cold start too.

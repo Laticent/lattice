@@ -24,11 +24,13 @@ const adapter = () => ({
   parts(fig) {
     return { box: fig.querySelector('.g-box'), harness: fig.querySelector('.g-harness'), svg: fig.querySelector('svg'), port: fig };
   },
-  readModel() { return { shapes: [{ id: 'a' }], edges: [] }; },
+  // The model attribute names the chart: `1` and `2` are different charts (no shape in common).
+  // Three shapes, since a chart counts as the same one while all but two of them match.
+  readModel(fig) { const n = fig.getAttribute('data-g-model'); return { shapes: [{ id: `a${n}` }, { id: `b${n}` }, { id: `c${n}` }], edges: [] }; },
   signature() { return ['model']; },
   measure(model, ctx) {
     const floor = Number.parseFloat(ctx.fig.querySelector('.g-box').style.getPropertyValue('--chart-text-min')) || 11;
-    return { args: [model, { a: { w: floor, h: 10 } }, {}], floor };
+    return { args: [model, { a: { w: floor, h: 10, chart: model.shapes[0].id } }, {}], floor };
   },
   paint(_model, m) { return `<text font-size="${m.floor}">a</text>`; },
 });
@@ -44,7 +46,8 @@ function setup({ fonts, base = 400, perPx = 60 } = {}) {
   const kernel = () => ({
     layout(_model, sizes) {
       log.layouts.push(sizes.a.w);
-      return { width: base + perPx * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] };
+      // Chart `2` is wider, so its fit (and the floor it asks for) differs from chart `1`'s.
+      return { width: (sizes.a.chart === 'a2' ? 3 * base : base) + perPx * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] };
     },
   });
   const pass = w.eval(`(${installGraphPass.toString()})`);
@@ -172,5 +175,20 @@ describe('trama pipeline — the fit and the type floor, solved on the first dra
     t.fig.__gSig = null;
     t.run();
     assert.equal(t.log.layouts.length - n, 1);
+  });
+
+  test('another chart at the same position fits from a cold start, so it draws as a fresh page does', () => {
+    // A live preview draws the next slide's chart where the last one was; seeding its fit from
+    // the last chart's scale settled on another fixed point than an export of it.
+    const fresh = setup();
+    fresh.fig.setAttribute('data-g-model', '2');
+    fresh.run();
+    const t = setup();
+    t.run();
+    t.fig.setAttribute('data-g-model', '2');
+    t.fig.removeAttribute('data-g-drawn');
+    t.fig.__gSig = null;
+    t.run();
+    assert.equal(t.fig.querySelector('svg').innerHTML, fresh.fig.querySelector('svg').innerHTML);
   });
 });

@@ -613,13 +613,20 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // same ones (a keystroke renames one). A figure outside a section has no position to key on.
     const ids = model.shapes.map((x) => x.id);
     const same = prev ? ids.filter((id) => prev.ids.includes(id)).length : 0;
-    const W = live && sec && prev && same >= Math.max(ids.length, prev.ids.length) - 2 ? liveWorker() : null;
+    const sameChart = Boolean(prev && same >= Math.max(ids.length, prev.ids.length) - 2);
+    // Only the chart drawn here before starts from its remembered fit. Another chart at this
+    // position (the next slide's, in a live preview) fits from a cold start, as an export does.
+    if (!sameChart) kGuess = 1;
+    const W = live && sec && sameChart ? liveWorker() : null;
     if (W) {
       if (!D[key('Latest')]) D[key('Latest')] = new Map();
       const token = (D[key('Tokens')] = (D[key('Tokens')] || 0) + 1);
       D[key('Latest')].set(fitKey, token);
       const REWRAP_AFTER = 300;
-      const round = (r: number, search: boolean, via: Bag = W) => {
+      // SETTLE: the chain that runs once the drawing has stood REWRAP_AFTER. It searches, and it
+      // fits from a cold start (k 1, as a paste or an export does) with its rounds hidden, so the
+      // drawing at rest is a function of the text and the stage alone, never of the path typed.
+      const round = (r: number, search: boolean, via: Bag = W, settle = false) => {
         readVis(sec);
         unlay();
         floorFor(kGuess);
@@ -644,7 +651,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         via.post(fitKey, args, (geo: Geometry | null) => {
           if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected) return;
           // The pinned grid cannot hold the shapes (a line would drop under two): search.
-          if (!geo && pin) { D[key('Wrap')].delete(fitKey); last = null; round(r, true); return; }
+          if (!geo && pin) { D[key('Wrap')].delete(fitKey); last = null; round(r, true, via, settle); return; }
           // No layout: the measuring tiles, as a synchronous draw leaves them, never the old
           // drawing standing in for a chart that no longer looks like it.
           if (!geo) { unlay(); fig.removeAttribute(`data-${P}-pending`); F[key('PendingSig')] = null; F[key('NoLayoutSig')] = sigNow(); return; }
@@ -655,18 +662,21 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
           // chart). A round's drawing is already this keystroke's text, laid out; only its
           // type floor may still move a little, and the next round repaints it. The drawing
           // that remains is the last round's, the same as before.
-          if (r < ROUNDS - 1 && !settled(geo)) { finish(m as Measured & { geo: Geometry }); round(r + 1, search, via); return; }
+          // A settling chain paints only its last round: its early rounds start from a cold fit and
+          // would flash a chart drawn at the wrong type floor.
+          if (r < ROUNDS - 1 && !settled(geo)) { if (!settle) finish(m as Measured & { geo: Geometry }); round(r + 1, search, via, settle); return; }
           finish(m as Measured & { geo: Geometry });
-          if (!pin) return;
-          // The author paused: search once, so the drawing at rest is the one every export
-          // makes. When the search keeps the pinned wrap the drawing is identical, and the
+          if (settle) return;
+          // The author paused: settle once, so the drawing at rest is the one every export makes
+          // (the search's wrap, the cold fit's scale). When it matches the drawing up, the
           // painted markup is only replaced when it changed.
           setTimeout(() => {
             // A worker dropped meanwhile (an error, or another chart's deadline) already had the
             // chart redrawn synchronously; posting to it would leave the figure pending.
             if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected || D[key('Worker')] !== W) return;
+            kGuess = 1;
             last = null;
-            round(0, true, liveWorker('Search') || W);
+            round(0, true, liveWorker('Search') || W, true);
           }, REWRAP_AFTER);
         });
       };

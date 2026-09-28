@@ -275,6 +275,14 @@ The owner settled the open questions on 2026-09-27.
     and the pause search runs in a second worker. At 600 ms a key: an 11-state chart's key
     lands in 150 / 214 ms (median / p90; was 178 / 417), a composite chart's in 242 / 423
     ms (was 366 / 500), and no chart state goes unpainted.
+  - *The drawing at rest is a function of the text and the stage.* The pause search is
+    now the SETTLE: it fits from a cold start (k 1), as a paste or an export does, and
+    paints only its last round. A live redraw had started its fit from the scale it
+    remembered and could settle on another fixed point, so every typed path drew a
+    different width than a paste, on a 5-state chart too. Measured on the real Studio:
+    paste, reload, key by key and bursts at 50 / 120 / 600 ms a key (each also nudged)
+    now give one drawing on three charts (30 of 30), and the CLI export's viewBox matches
+    each. This closes `2385-p3-live-layout-not-deterministic`.
 
 ## 6. The three commits, in two PRs
 
