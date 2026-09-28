@@ -36,4 +36,7 @@ if not exist "node_modules\puppeteer" (
   )
 )
 node tools\verify-code-sandbox.mjs %*
+set "rc=!ERRORLEVEL!"
+rem Keep the window open for a tester who double-clicked; a CI run pipes nul in, so it returns at once.
 pause
+exit /b !rc!

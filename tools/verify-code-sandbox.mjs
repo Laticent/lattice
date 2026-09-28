@@ -57,8 +57,20 @@ const cyan = paint('36');
 
 // ── The terminal ────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * `--non-interactive`: no one at the keyboard (a CI runner). Every question takes its default, the
+ * approval uses `trust --yes`, the steps that need a person to read the system's own process viewer
+ * are recorded as not checked, and the process exits 1 if any step failed. The automatic checks are
+ * the same ones a tester's run makes.
+ */
+const AUTO = process.argv.includes('--non-interactive');
+
 /** One question, one answer. A fresh interface each time, so a child process can own stdin between questions. */
-function ask(question) {
+function ask(question, auto = '') {
+  if (AUTO) {
+    console.log(`${question}${dim(`[non-interactive: "${auto}"]`)}`);
+    return Promise.resolve(auto);
+  }
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     // Resolved BEFORE the close: `rl.close()` fires 'close' synchronously, and a close handler that
@@ -73,6 +85,10 @@ function ask(question) {
 }
 
 async function askYesNo(question) {
+  if (AUTO) {
+    console.log(`${question} ${dim('[non-interactive: y]')}`);
+    return true;
+  }
   for (;;) {
     const a = (await ask(`${question} ${dim('[y/n]')} `)).toLowerCase();
     if (process.stdin.readableEnded) throw new Error('the terminal closed (Ctrl-D); start the check again');
@@ -288,7 +304,7 @@ async function main() {
   console.log('  everything happens in a temporary folder that is removed at the end.');
   console.log(`  At the end it saves a report file. ${bold('Please send that file back.')}`);
   console.log();
-  const tester = await ask('  Your name (for the report; Enter to skip): ');
+  const tester = await ask('  Your name (for the report; Enter to skip): ', `non-interactive run on ${PLATFORM}`);
 
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-sandbox-check-'));
   const home = path.join(work, 'home');
@@ -397,7 +413,8 @@ async function main() {
     if (!(await gate())) return;
 
     // 4 ─ Approve
-    const trustArgs = [CLI, 'packages', 'trust', `component/${PKG}`];
+    // Non-interactive: the approval is given by flag, as `lattice packages trust --yes` would.
+    const trustArgs = [CLI, 'packages', 'trust', `component/${PKG}`, ...(AUTO ? ['--yes'] : [])];
     header(4, TOTAL, 'Approve the package', ['What it checks: approving shows the same prompt and records the approval.', '', `${bold('When it asks "Run this code…? [y/N]", type y and press Enter.')}`, '', `Command:  ${cyan(shown(trustArgs))}`]);
     const trust = await run(trustArgs, { env, interactive: true });
     const r4auto = trust.code === 0 && /approved component\//.test(trust.out) ? { pass: true, why: 'approved' } : { pass: false, why: `not approved (exit ${trust.code}; did you type y?)` };
@@ -555,7 +572,12 @@ async function measureLayer() {
         question = 'Did the renderers show Untrusted or AppContainer integrity (or you could not check)?';
       }
     }
-    if (question) {
+    if (question && AUTO) {
+      // Nobody can read Activity Monitor or Process Explorer on a runner: the automatic check stands
+      // alone, and the report says the manual half was not done.
+      seen = 'not checked (non-interactive run)';
+      question = null;
+    } else if (question) {
       const q = await ask(`  ${dim('Type what you saw (e.g. "Yes on 2 renderers"), then Enter:')} `);
       seen = q || undefined;
     }
@@ -590,6 +612,8 @@ function finish(stopped) {
   console.log(`  Report saved to: ${bold(file)}`);
   console.log('  Please send that file back. Thank you!');
   console.log();
+  // A run with no one watching must say so through its exit code (a CI job reads nothing else).
+  if (results.some((r) => r.result === 'FAIL') || (AUTO && results.length < TOTAL)) process.exitCode = 1;
 }
 
 main().catch((e) => {
