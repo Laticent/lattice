@@ -7,9 +7,11 @@ import { describe, expect, test } from 'vitest';
 import {
 	adjacentComponent,
 	type Catalog,
+	caretSlideIndex,
 	classTokenLine,
 	detectComponent,
 	fingerprint,
+	foldSlideText,
 	isPristine,
 	makeHandoff,
 	parsePlaygroundUrl,
@@ -358,5 +360,74 @@ describe('readingSlideIndex — the slide the reader is actually on', () => {
 			const visible = Math.min(y + PHONE_VH, b.top + b.height) - Math.max(y, b.top);
 			expect(visible, `slide ${got + 1} is off screen at scroll ${y}`).toBeGreaterThan(b.height * 0.5);
 		}
+	});
+});
+
+// ── caretSlideIndex — the Edit view's preview follows the caret ───────────────
+
+describe('caretSlideIndex', () => {
+	const src = ['---', 'theme: cuoio', '---', '', '# Opening', '', 'Why we are here.', '', '## Second slide', '', '- a point', '', '---', '', '<!-- _class: title -->', '', '# Third', ''].join('\n');
+	// What the preview shows: headings split too, so there are three sections.
+	const shown = ['Opening Why we are here.', 'Second slide a point', 'Third'];
+
+	test('finds the slide from the words on the caret line', () => {
+		expect(caretSlideIndex(src, 7, shown)).toBe(0); // "Why we are here."
+		expect(caretSlideIndex(src, 11, shown)).toBe(1); // "- a point", split by a heading, not a rule
+		expect(caretSlideIndex(src, 17, shown)).toBe(2); // "# Third"
+	});
+
+	test('a line with no words (a directive, a blank) takes its nearest neighbor in the same slide', () => {
+		expect(caretSlideIndex(src, 15, shown)).toBe(2); // the _class comment above "# Third"
+		expect(caretSlideIndex(src, 12, shown)).toBe(1); // the blank after "- a point"
+	});
+
+	test('front matter maps to the first slide', () => {
+		expect(caretSlideIndex(src, 2, shown)).toBe(0);
+	});
+
+	test('a repeated line resolves to the copy at or after the separator count', () => {
+		const dup = ['# Agenda', '', 'Next steps', '', '---', '', '# Close', '', 'Next steps', ''].join('\n');
+		expect(caretSlideIndex(dup, 9, ['Agenda Next steps', 'Close Next steps'])).toBe(1);
+		expect(caretSlideIndex(dup, 3, ['Agenda Next steps', 'Close Next steps'])).toBe(0);
+	});
+
+	test('a rule inside a code fence is not a slide boundary', () => {
+		const fenced = ['# One', '', '```', '---', '```', '', 'tail words', '', '---', '', '# Two', ''].join('\n');
+		expect(caretSlideIndex(fenced, 7, ['One tail words', 'Two'])).toBe(0);
+	});
+
+	test('says -1 rather than guess when no line matches', () => {
+		expect(caretSlideIndex('# Nothing here', 1, ['Something else'])).toBe(-1);
+		expect(caretSlideIndex('# x', 1, [])).toBe(-1);
+	});
+
+	test('folds markdown, case and typography out of both sides', () => {
+		expect(foldSlideText('## **The** `ledger` — names [who](https://x) owns “what”.')).toBe('the ledger names who owns what');
+	});
+});
+
+describe('caretSlideIndex under the default heading split', () => {
+	test('repeated words resolve to the caret’s own slide when headings split the deck', () => {
+		const src = ['# Growth drivers', '', 'Pricing power', '', '# Costs', '', 'Freight', '', '# Growth', '', 'Pricing', ''].join('\n');
+		const shown = ['Growth drivers Pricing power', 'Costs Freight', 'Growth Pricing'];
+		expect(caretSlideIndex(src, 9, shown)).toBe(2); // "# Growth", also a word in slide 0
+		expect(caretSlideIndex(src, 11, shown)).toBe(2); // "Pricing", also in slide 0
+		expect(caretSlideIndex(src, 3, shown)).toBe(0);
+	});
+
+	test('a setext heading is a heading, not a slide break', () => {
+		const src = ['# Lead', '', 'Setext title', '---', '', 'body under it', ''].join('\n');
+		// `Setext title` + `---` is an h2, which starts slide 1 under the heading split.
+		expect(caretSlideIndex(src, 6, ['Lead', 'Setext title body under it'])).toBe(1);
+		expect(caretSlideIndex(src, 1, ['Lead', 'Setext title body under it'])).toBe(0);
+	});
+
+	test('whole words only: "cost" does not match "costs"', () => {
+		expect(caretSlideIndex('# cost', 1, ['costs everywhere'])).toBe(-1);
+	});
+
+	test('split: rule turns heading splits off', () => {
+		const src = ['---', 'split: rule', '---', '# One', '', '## Two', '', 'text', ''].join('\n');
+		expect(caretSlideIndex(src, 8, ['One Two text'])).toBe(0);
 	});
 });

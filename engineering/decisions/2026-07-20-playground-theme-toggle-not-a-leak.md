@@ -103,3 +103,17 @@ code shipped — by the adversarial trio plus a ~10-minute discriminating measur
 maker-checker / trio ladder (HARD RULE #25) doing exactly its job, and the reason "verified" must name its
 surface and carry an artifact from it (HARD RULE #23): the real surface here was a real-GC memory measure,
 and it said "not a leak."
+
+## Addendum (2026-09-28): the Playground has a restyle path now
+
+The mechanism this note measured — a light/dark or palette flip rewrites the Playground's
+`srcdoc` — no longer holds for most decks. `renderDeck` in `docs/src/playground/deck-preview.js`
+now RESTYLES a live document when only the theme or mode moved: it swaps the one
+`<style id="lattice-doc">` (built by `docStyleText`, the same function `buildSrcdoc` uses) and
+replaces the sections, in one task, in the same realm. The reason was jank, not memory: the
+rewrite hid the deck until the new document fit and its fonts settled, and put an Edit-view
+reader back on slide 1. A deck with a Mermaid fence still takes the full write, because the
+runtime caches each diagram's SVG with its colors baked in (`lib/runtime/index.js`,
+"Theme-change caveat"). A size change or a deck swap is a full write too; for the size change
+the host now reopens the new document at the slide the reader was on (`readAnchor`).
+

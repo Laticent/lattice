@@ -24,11 +24,14 @@ export function EditorHost({
 	initialDoc,
 	onChange,
 	onReady,
+	onCursor,
 	vocab,
 }: {
 	initialDoc: string;
 	onChange: (value: string) => void;
 	onReady: (adapter: EditorAdapter) => void;
+	/** The caret's 1-based line, on every edit and every caret move. */
+	onCursor?: (line: number) => void;
 	// The deck-grammar lint vocabulary. When supplied, the editor runs inline
 	// validation (underlines, governed per deck by the `validate:` front-matter
 	// key); autocomplete stays off here (the playground's picker owns templates).
@@ -45,8 +48,10 @@ export function EditorHost({
 	// without going stale.
 	const onChangeRef = React.useRef(onChange);
 	const onReadyRef = React.useRef(onReady);
+	const onCursorRef = React.useRef(onCursor);
 	onChangeRef.current = onChange;
 	onReadyRef.current = onReady;
+	onCursorRef.current = onCursor;
 	// Vocab is static (page-build data); read it from a ref so the mount effect
 	// stays [] (one init) without taking a reactive dependency on the prop.
 	const vocabRef = React.useRef(vocab);
@@ -65,6 +70,7 @@ export function EditorHost({
 	React.useEffect(() => {
 		const host = hostRef.current;
 		if (!host || viewRef.current) return; // StrictMode double-mount guard
+		let replacing = false;
 		const ed = createEditor({
 			parent: host,
 			// The SEEDED text, not the starter — the same string the placeholder is showing.
@@ -78,12 +84,25 @@ export function EditorHost({
 			vocab: vocabRef.current,
 			autocomplete: false, // validation only on this surface; the picker owns templates
 			onChange: (v: string) => onChangeRef.current(v),
+			// Not while `setValue` is replacing the document: a Deck settings change, a component
+			// pick and a gallery load all rewrite the whole text, which puts the caret on line 1 —
+			// the author did not move it there, so the preview must not follow it there.
+			onCursor: (line: number) => {
+				if (!replacing) onCursorRef.current?.(line);
+			},
 		});
 		viewRef.current = ed;
 		setMounted(true); // drop the placeholder now that the real editor is up
 		onReadyRef.current({
 			getValue: () => ed.getValue(),
-			setValue: (t: string) => ed.setValue(t),
+			setValue: (t: string) => {
+				replacing = true;
+				try {
+					ed.setValue(t);
+				} finally {
+					replacing = false;
+				}
+			},
 			focus: () => ed.focus(),
 		});
 		return () => {

@@ -23,6 +23,7 @@ import {
 	BACKUP_KEY,
 	type Catalog,
 	COMPONENT_KEY,
+	caretSlideIndex,
 	classTokenLine,
 	detectComponent,
 	FOCUS_KEY,
@@ -646,6 +647,24 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// fresh document defined __latticeFit would silently no-op; the loaded doc
 		// re-fits itself here against the now-final pane width.
 		frameRef.current?.contentWindow?.__latticeFit?.();
+		// A full write starts the new document at the top. Put the author on the slide they
+		// are editing if they just edited; otherwise back where they were reading.
+		const anchor = anchorRef.current;
+		anchorRef.current = null;
+		if (followPendingRef.current) followCaretRef.current(true);
+		else if (anchor && viewRef.current === 'edit') {
+			const frame = frameRef.current;
+			if (frame?.contentWindow) {
+				// By AUTHORED slide when the frame numbers them: a size change can split one slide
+				// into pages, and then the old section index names a different slide.
+				const secs = walkUnits(frame, false).map((u) => u[0]);
+				const byKey = anchor.slide ? secs.findIndex((el) => (el.getAttribute('data-lattice-slide') || '').split('.')[0] === anchor.slide) : -1;
+				const i = byKey >= 0 ? byKey : anchor.index;
+				const band = frameBands(frame)[i];
+				// The fraction only means something in the same slide at the same shape.
+				if (band) frame.contentWindow.scrollTo({ top: band.top + (byKey === anchor.index ? anchor.frac * band.height : 0), behavior: 'auto' });
+			}
+		}
 	}, []);
 
 	// While the preview pane is collapsed, rendering into its 0-width iframe is
@@ -653,6 +672,64 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// let the expand path run one authoritative render.
 	const previewCollapsedRef = React.useRef(false);
 	const pendingWhileCollapsedRef = React.useRef(false);
+
+	// ── Edit view: the preview follows the caret ────────────────────────────────
+	// Typing on slide 6 while the preview sat on slide 1 meant editing blind — the change
+	// landed off screen. The caret's slide is found from the words on screen
+	// (`caretSlideIndex`), and the preview moves only when that slide is not already the
+	// one mostly in view, so a reader who scrolled the preview to look at something keeps
+	// it until they type or move the caret again.
+	const caretLineRef = React.useRef<number | null>(null);
+	const followTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	/** The author typed or moved the caret since the preview last followed. ONLY that moves
+	 *  the preview: a palette flip, a mode flip or a resize re-renders too, and following on
+	 *  those pulled a reader who had scrolled the preview to slide 3 back to the caret. */
+	const followPendingRef = React.useRef(false);
+	/** Where the reader was when a full write replaced the document (deck-preview.js
+	 *  `renderDeck` reads it off the old document), so the new one opens there. */
+	const anchorRef = React.useRef<{ index: number; frac: number; slide?: string } | null>(null);
+	const followCaret = React.useCallback((instant = false) => {
+		const frame = frameRef.current;
+		const line = caretLineRef.current;
+		if (!followPendingRef.current || !frame || line == null || viewRef.current !== 'edit' || previewCollapsedRef.current) return;
+		const win = frame.contentWindow;
+		if (!win || frame.clientHeight === 0) return;
+		const units = walkUnits(frame, false);
+		if (!units.length) return;
+		const i = caretSlideIndex(getSource(), line, units.map((u) => u[0].textContent || ''));
+		// Not found YET is not "not found": a heading being typed has not rendered. Stay
+		// pending, and the render that lands it asks again.
+		if (i < 0) return;
+		followPendingRef.current = false;
+		const band = frameBands(frame)[i];
+		if (!band) return;
+		const top = win.scrollY;
+		const bottom = top + win.innerHeight;
+		const seen = Math.max(0, Math.min(bottom, band.top + band.height) - Math.max(top, band.top));
+		// Already readable: at least 60% of the slide, or the whole viewport's worth of it.
+		if (seen >= Math.min(band.height, win.innerHeight) * 0.6) return;
+		const inset = Math.max(0, (win.innerHeight - band.height) / 2);
+		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+		win.scrollTo({ top: Math.max(0, band.top - Math.min(inset, 24)), behavior: instant || reduce ? 'auto' : 'smooth' });
+	}, [getSource]);
+	const followCaretRef = React.useRef(followCaret);
+	followCaretRef.current = followCaret;
+	const onCaret = React.useCallback((line: number) => {
+		caretLineRef.current = line;
+		followPendingRef.current = true;
+		if (followTimerRef.current) clearTimeout(followTimerRef.current);
+		followTimerRef.current = setTimeout(() => {
+			followTimerRef.current = null;
+			followCaretRef.current();
+		}, 140);
+	}, []);
+	React.useEffect(
+		() => () => {
+			if (followTimerRef.current) clearTimeout(followTimerRef.current);
+		},
+		[],
+	);
+
 
 	// ── The render loop (wraps the engine; never reimplements it) ───────────────
 	const render = React.useCallback(
@@ -713,10 +790,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} else {
 				previewStateRef.current = r.state;
 				lastGeomRef.current = r.geom;
+				if (!r.patched) anchorRef.current = r.anchor ?? null;
 				// Record the source THIS frame renders, so a capture stamps the snapshot's
 				// identity from the bytes actually on screen (see lastRenderedEditSrcRef).
 				if (viewRef.current === 'edit') lastRenderedEditSrcRef.current = src;
-				lastRenderStatusRef.current = `Rendered ${r.count} slide(s).`;
+				lastRenderStatusRef.current = `Rendered ${r.count} ${r.count === 1 ? 'slide' : 'slides'}.`;
 				setStatusLine(lastRenderStatusRef.current);
 				// A full-deck walk learns its slide count from the render itself
 				// (no plan exists for authored gallery decks — slide-index positions).
@@ -729,6 +807,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// written against pre-FIT offsets is thrown away when it does (#2124).
 				bindDeckInputRef.current();
 				if (viewRef.current === 'read') landWalkRef.current();
+				// After a PATCH only. On a full write the frame still holds the outgoing document
+				// here; following now would scroll that one and clear the pending follow, and the
+				// new document would open on slide 1. `onFrameLoad` follows once it has loaded.
+				else if (r.patched) followCaretRef.current();
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
 				// so the skeleton / instant-shell covers the FIT window instead of the iframe
 				// flashing its opaque black body. This adds `is-live` (CSS reveals #preview +
@@ -2612,7 +2694,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								</button>
 							)}
 						</div>
-						<EditorHost initialDoc={starter} vocab={lintVocab} onChange={onEdit} onReady={onEditorReady} />
+						<EditorHost initialDoc={starter} vocab={lintVocab} onChange={onEdit} onReady={onEditorReady} onCursor={onCaret} />
 					</section>
 					<button
 						type="button"
