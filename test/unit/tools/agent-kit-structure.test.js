@@ -402,7 +402,7 @@ test('agent kit structure', { skip }, async (t) => {
 	 * a fix and did not scale past the one pointer it was written for; resolving
 	 * every link mechanically is, and this is what holds it.
 	 *
-	 * `skills/` is exempt BY DECISION: those seven files ship verbatim so they
+	 * `skills/` is exempt BY DECISION: those files ship verbatim so they
 	 * stay byte-identical to `design/skills/`, and `skills/README.md` carries a
 	 * glossary for what they cite. Everything else in the kit must stand alone.
 	 */

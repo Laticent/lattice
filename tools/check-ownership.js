@@ -8921,7 +8921,7 @@ function checkDensityCoverage(manifests, errors) {
 }
 
 // ── design/skills/ freshness ─────────────────────────────────────────────
-// The seven design/skills/*.md files deliberately RESTATE canon and code
+// The design/skills/*.md files deliberately RESTATE canon and code
 // specifics (design/skills/README.md explains why: an agent building an
 // artifact mid-task shouldn't chase links). That sanctioned duplication is only
 // safe if it stays TRUE — so this gate ties each skill's inlined COUNTABLE facts

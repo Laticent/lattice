@@ -53,6 +53,16 @@ describe('export-formats', () => {
     assert.equal(fs.readFileSync(out).subarray(0, 5).toString(), '%PDF-', 'not a PDF');
   });
 
+  test('creates a missing output folder instead of crashing after the render', { timeout: TIMEOUT }, () => {
+    // A batch loop writes `out/<name>.pdf`; the folder may not exist yet. This used to
+    // die on ENOENT with a Node stack trace at the first write, after the whole render.
+    const out = path.join(tmpDir(), 'nested', 'out', 'deck.pdf');
+    const r = run(out);
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.doesNotMatch(r.stderr, /ENOENT/);
+    assert.equal(fs.readFileSync(out).subarray(0, 5).toString(), '%PDF-', 'not a PDF');
+  });
+
   test('--paper fits each slide onto a standard sheet with a baked paper MediaBox', { timeout: TIMEOUT }, () => {
     const out = path.join(tmpDir(), 'paper.pdf');
     const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--paper', 'a4', '--orientation', 'portrait'], {

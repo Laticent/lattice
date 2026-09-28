@@ -1,0 +1,5 @@
+- The docs site has a **Using the command line** guide: copy-and-paste recipes for rendering, printing, sharing, notes and captions, image sets, packages, video and batch runs. A new **CLI reference** page lists every flag, subcommand, environment variable and exit code.
+- The agent kit ships a `skills/cli.md` skill that teaches an agent to pick the right output for a recipient, render it, and check the result before handing it over. It also ships in the npm package under `design/skills/`.
+- A unit test ties the CLI docs to the argument parsers, so a new flag that ships undocumented, or a documented flag that no longer exists, fails the suite.
+- Fixed: the **Getting started** example deck authored its `big-number` slide with the number as a heading, which renders the number slot blank. The number is now a list item.
+- Fixed: `lattice deck.md out/deck.pdf` creates the `out/` folder when it is missing. It used to finish the render and then crash with a Node stack trace at the first write.

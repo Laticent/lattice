@@ -1,6 +1,6 @@
 # design/skills/ — the "create a killer X from scratch" skills
 
-Seven self-contained skill files. Each teaches an LLM (or a human) how to
+Eight self-contained skill files. Seven teach an LLM (or a human) how to
 create **one** kind of Lattice artifact from a blank file — with the concrete
 tokens, slots, budgets, gates, and commands inlined so you can execute the whole
 task from the one file. Each names what good looks like, what bad looks like,
@@ -17,7 +17,7 @@ same place for exactly this reason: **render it and actually look** (the QUALITY
 BAR's visual-review loop). Treat the skill as the floor that frees you to spend
 judgment on the last mile, not a guarantee of the ceiling.
 
-**Two of the seven can't finish from the file alone**, and say so: `lens.md`'s
+**Two of the seven creation skills can't finish from the file alone**, and say so: `lens.md`'s
 normal path runs through the Studio Lenses panel (the content hash is stamped by a
 human pressing Approve, not authored by hand), and `chart-component.md` defers the
 color method to the `dataviz`
@@ -34,6 +34,12 @@ skill. The other five are authorable end-to-end from the file.
 | A **finish** — a `finish:` backdrop layer stack | [`finish.md`](./finish.md) |
 | A **lens** — a reader-side subset projection of a deck (Lente) | [`lens.md`](./lens.md) |
 | **Speaker notes, reviews, and captions** — the channels that travel with a slide, plus the evaluative rubric for reviewing a deck | [`speaker-notes.md`](./speaker-notes.md) |
+
+The eighth skill does not create anything. It operates on a finished deck:
+
+| You want to… | Open |
+|---|---|
+| **Render, share or check** a deck from a terminal — PDF, PowerPoint, images, the player, handouts, packages | [`cli.md`](./cli.md) |
 
 ## How these differ from the rest of `design/`
 
@@ -65,7 +71,7 @@ all of them:
 8. **Common mistakes** — the anti-patterns, each with the fix.
 9. **Canonical sources** — links back to the owning canon.
 
-## Non-negotiables that cut across all seven
+## Non-negotiables that cut across all eight
 
 - **Palette-blind.** Layout and finish CSS never hardcodes a color — every color
   is `var(--token)` or `color-mix()` of one. Only `themes/*.css` and

@@ -63,9 +63,8 @@ A decision framework for product leaders.
 
 <!-- _class: big-number -->
 
-## 38%
-
-of pipeline stalls trace to a single approval step.
+- 38%
+  - of pipeline stalls trace to a single approval step.
 ```
 
 Build it with the same CLI — same rule, the extension picks the format:
@@ -83,8 +82,13 @@ Lattice itself never renders through Marp, and its front matter never needs
 `marp: true` — add that key only if you preview decks with the VS Code Marp
 extension, which activates on it.
 
+Every render option — palettes, handouts, the shareable player, speaker notes,
+image sets, packages — is a recipe in [Using the command line](/guides/cli/).
+
 ## What to read next
 
+- [Using the command line](/guides/cli/) — copy-and-paste commands for
+  everyday and advanced tasks.
 - [Authoring decks](/guides/authoring/) — the layout catalog and how to
   feed each layout.
 - [Themes & palettes](/guides/themes/) — pick a palette, or author your
