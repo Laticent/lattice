@@ -54,7 +54,7 @@
       {
         "class": "journey-mood-key-swatch",
         "paint": "bg",
-        "encodes": "hue",
+        "encodes": "none",
         "bears": false
       },
       {

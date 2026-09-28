@@ -137,6 +137,43 @@ describe('marks the gallery does not render', () => {
     assert.doesNotMatch(group, /data-hue/);
   });
 
+  // Inversion finding: marks only a variant draws were unpinned, so a dropped stamp would put
+  // one chart back on its shipped paint inside a finished deck. Each row renders the member's
+  // own docs example for that variant.
+  const docsExample = (member, variant) => {
+    const md = fs.readFileSync(path.join(__dirname, `../../../lib/components/chart/${member}/${member}.docs.md`), 'utf8');
+    const from = md.indexOf(`### \`${variant}\``);
+    assert.ok(from >= 0, `${member}.docs.md has a ${variant} section`);
+    const fence = /```markdown\n([\s\S]*?)\n```/.exec(md.slice(from));
+    return fence[1];
+  };
+  for (const [member, variant, cls, encodes] of [
+    ['line', 'area', 'line-area', 'hue'],
+    ['line', 'stacked-area', 'line-band', 'hue'],
+    ['scatter', 'bubble', 'scatter-bubble', 'layered'],
+    ['quadrant', 'bubble', 'quadrant-bubble', 'hue'],
+    ['quadrant', 'trail', 'quadrant-trail-after', 'hue'],
+    ['radar', 'quadrant', 'radar-sector', 'hue'],
+    ['flowchart', 'tb', 'fc-node', 'hue'],
+  ]) {
+    test(`${member} ${variant}: ${cls} carries the contract`, () => {
+      const tags = tagsOf(render(docsExample(member, variant)), null, cls);
+      const stamped = tags.filter((t) => t.includes(`data-encodes="${encodes}"`));
+      assert.ok(stamped.length, `no stamped ${cls} in the ${variant} example`);
+    });
+  }
+
+  // Found sweeping every variant's key: the cohort key kept the shipped colors while a finish
+  // repainted the dots it names. A quadrant key names its hue as data-key-hue (no a11y texture).
+  test('a quadrant cohort key carries the hue of the cohort it names', () => {
+    const keys = tagsOf(render(docsExample('quadrant', 'cohort')), 'rect', 'chart-key-swatch');
+    assert.ok(keys.length >= 2, 'the cohort key');
+    for (const k of keys) {
+      assert.match(k, /data-key-hue="\d" data-encodes="hue" data-paint="fill"/, k);
+      assert.doesNotMatch(k, / data-hue=/, k);
+    }
+  });
+
   // Checker finding: the band key kept the shipped ramp while its cells moved.
   test('a heatmap band key carries the ramp contract of the cells it keys', () => {
     const html = render('<!-- _class: heatmap scale -->\n\n## H\n\n|  | A | B |\n| --- | --: | --: |\n| X | 1 | 5 |\n| Y | 9 | 3 |\n');
