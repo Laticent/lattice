@@ -30,7 +30,10 @@ recorded: 2026-09-27
                    104-111 ms per layout, 0 long tasks.
                    Sticky wrap (#2424, last commit): a live keystroke lays out the wrap the last
                    search chose; key to visible 280-325 -> 158-202 ms (state chart), 230-241 ->
-                   193-214 ms (flowchart), rows hold while typing. What remains: every
+                   193-214 ms (flowchart), rows hold while typing. Then dagre picks pinned
+                   too and the pause search in its own worker: at 600 ms a key, a key's
+                   layout lands in 150 / 214 ms (median / p90, 11 states) and 242 / 423 ms
+                   (12 states with a composite), no state unpainted. What remains: every
                    routing of this chart hits the router's 20,000-evaluation cap, as a
                    flowchart too; that is followups.d/2424-p3-trama-wrap-aware-placement.md.
        where     — docs/src/lib/trama/kernel.ts: `costOf` (~35% of self time), `cheap`,
