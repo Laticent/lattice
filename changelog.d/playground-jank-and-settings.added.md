@@ -5,7 +5,11 @@
   still rebuild, and the preview then reopens at the slide you were reading.
 - **Fixed: in Explore, Next and Prev land the whole slide in view.** A step placed the
   slide 16px too low, so a strip of the previous slide showed above it and the bottom of
-  the one you asked for was cut off. Slides now center in the pane.
+  the one you asked for was cut off. On desktop a stepped slide now stands alone, centered,
+  with no part of its neighbors showing.
+- **Fixed: a collapsed preview no longer leaves Explore blank.** Collapsing the preview in
+  Edit and then picking a component, loading a gallery or switching to Explore showed an
+  empty stage. Entering Explore now opens the preview.
 - **Fixed: in Edit, the preview follows what you type.** Typing or moving the caret into
   another slide scrolls the preview to it, so an edit no longer lands off screen. Scroll
   the preview yourself and it stays put until you type again.
