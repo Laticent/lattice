@@ -54,6 +54,8 @@ const REGISTRY_FILE = path.join(PLUGINS_DIR, 'registry.generated.js');
 const BLOCKS_FILE = path.join(PLUGINS_DIR, 'blocks.generated.mjs');
 const HYDRATE_FILE = path.join(PLUGINS_DIR, 'hydrate.generated.js');
 const STYLES_FILE = path.join(PLUGINS_DIR, 'styles.generated.js');
+const BAKE_FILE = path.join(PLUGINS_DIR, 'bake.generated.js');
+const DRAWN_FILE = path.join(PLUGINS_DIR, 'drawn.generated.mjs');
 
 /** Every `lib/plugins/<folder>/` holding a `*.manifest.json`, `_`-prefixed folders skipped. */
 function listPlugins() {
@@ -116,6 +118,10 @@ async function readExports(folder, name, manifest) {
         .trim();
     }
   }
+  // The bake module is Node-only and may be heavy (it drives a render worker), so it is read for
+  // its export and never imported by anything the engine or a browser loads.
+  const bakePath = path.join(dir, `${name}.bake.js`);
+  if (fs.existsSync(bakePath)) out.hasBake = typeof require(bakePath).bake === 'function';
   const stylesPath = path.join(dir, `${name}.styles.css`);
   if (fs.existsSync(stylesPath)) {
     out.hasStyles = true;
@@ -127,12 +133,12 @@ async function readExports(folder, name, manifest) {
 /**
  * The fence names a plugin may NOT claim, because a code language already owns them: every
  * highlight.js language name and alias (claiming `json`, `tex` or `graph` would hijack every code
- * block in that language), plus the names the engine itself renders before any plugin exists.
- * Read from the installed highlight.js, so an upgrade that adds a language reserves it.
+ * block in that language). `mermaid` is not here: it is the mermaid plugin's fence (phase D), so
+ * the one-owner check covers it like any other plugin's. Read from the installed highlight.js, so an upgrade that adds a language reserves it.
  */
 function reservedFenceNames() {
   const hljs = require('highlight.js');
-  const names = new Set(['mermaid']);
+  const names = new Set();
   for (const lang of hljs.listLanguages()) {
     names.add(lang);
     for (const alias of hljs.getLanguage(lang)?.aliases || []) names.add(alias);
@@ -246,7 +252,8 @@ function renderGrammar(ordered, exportsByName) {
     });
     const fences = Object.entries(m.contributes.fences || {}).map(([fence, decl]) => {
       const aliases = (decl.aliases || []).map((a) => `Object.freeze({ name: ${JSON.stringify(a.name)}, deprecated: ${a.deprecated === true} })`);
-      return `      ${JSON.stringify(fence)}: Object.freeze({ body: ${JSON.stringify(decl.body)}, aliases: Object.freeze([${aliases.join(', ')}]) }),`;
+      const as = decl.as ? `, as: ${JSON.stringify(decl.as)}` : '';
+      return `      ${JSON.stringify(fence)}: Object.freeze({ body: ${JSON.stringify(decl.body)}${as}, aliases: Object.freeze([${aliases.join(', ')}]) }),`;
     });
     return [
       '  Object.freeze({',
@@ -258,6 +265,7 @@ function renderGrammar(ordered, exportsByName) {
       `    syntax: Object.freeze({${syntax.length ? `\n${syntax.join('\n')}\n    ` : ''}}),`,
       `    fences: Object.freeze({${fences.length ? `\n${fences.join('\n')}\n    ` : ''}}),`,
       `    hydrate: ${m.contributes.hydrate ? 'true' : 'false'},`,
+      `    runtimeDrawn: ${m.render?.exec?.hydrate === 'runtime'},`,
       `    detect: ${mod && exportsByName.get(p.manifest.name).detect ? `${mod}__detect` : 'null'},`,
       '  }),',
     ].join('\n');
@@ -327,6 +335,38 @@ module.exports = { HYDRATORS };
 }
 
 /**
+ * The fences a browser's RUNTIME draws from their highlighted code block (a code fence of a plugin
+ * with `render.exec.hydrate: "runtime"` — Mermaid). A surface that must tell "this render still
+ * owes a drawing" reads this instead of naming a plugin. Plain data, so a lazily loaded view can
+ * import it without the grammar behind it.
+ */
+function renderDrawn(ordered) {
+  const fences = ordered
+    .filter((p) => p.manifest.render?.exec?.hydrate === 'runtime')
+    .flatMap((p) => Object.entries(p.manifest.contributes.fences || {}).filter(([, d]) => d.as === 'code').map(([f]) => f));
+  return `${HEADER('The code fences a browser runtime draws (render.exec.hydrate "runtime"). Plain data.')}
+export const RUNTIME_DRAWN_FENCES = Object.freeze(${JSON.stringify(fences)});
+`;
+}
+
+/**
+ * The Node-side bakes, in dependency order: what lib/plugins/host-bake.js runs on the CLI before
+ * the engine renders. Each module is required LAZILY, so a deck that uses no baking plugin never
+ * loads one, and nothing a browser bundles can reach this file.
+ */
+function renderBake(ordered) {
+  const lines = ordered.filter((p) => p.manifest.contributes.bake).map((p) => {
+    const m = p.manifest;
+    return `  Object.freeze({ name: ${JSON.stringify(m.name)}, exec: ${JSON.stringify(m.render.exec.bake)}, load: () => require('./${p.folder}/${m.name}.bake.js') }),`;
+  });
+  return `${HEADER('The plugins\' Node-side BAKES, in dependency order. Required lazily; never bundled for a browser.')}
+const BAKERS = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
+
+module.exports = { BAKERS };
+`;
+}
+
+/**
  * The plugins' stylesheets, in dependency order: what tools/build-css.js bundles into the plugin
  * slot of dist/lattice.css. Paths from the repo root, as build-css lists every other source.
  */
@@ -385,6 +425,8 @@ async function build() {
       [BLOCKS_FILE, renderBlocks(ordered)],
       [HYDRATE_FILE, renderHydrate(ordered)],
       [STYLES_FILE, renderStyles(ordered)],
+      [BAKE_FILE, renderBake(ordered)],
+      [DRAWN_FILE, renderDrawn(ordered)],
     ],
   };
 }
@@ -404,7 +446,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,styles}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,styles,bake,drawn}.generated.*\n`);
 }
 
 if (require.main === module) {

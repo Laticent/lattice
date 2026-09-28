@@ -96,7 +96,10 @@ describe('mermaid-var-map', () => {
   // exception. Keeping the anchor here so the #511 lesson stays findable.
   test('neither render path defines a private map — the #511 drift is unrepresentable', () => {
     const root = path.join(__dirname, '..', '..', '..');
-    for (const rel of ['lattice-emulator.js', path.join('lib', 'runtime', 'index.js')]) {
+    // The emulator's diagram walk is the mermaid plugin's bake since plugin-system phase D.
+    assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(fs.readFileSync(path.join(root, 'lattice-emulator.js'), 'utf8')), false,
+      'lattice-emulator.js defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead');
+    for (const rel of [path.join('lib', 'plugins', 'mermaid', 'mermaid.bake.js'), path.join('lib', 'runtime', 'index.js')]) {
       const src = fs.readFileSync(path.join(root, rel), 'utf8');
       assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(src), false,
         `${rel} defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead`);

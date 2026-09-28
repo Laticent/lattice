@@ -67,6 +67,10 @@
             }
           }
         },
+        "bake": {
+          "const": true,
+          "description": "`<name>.bake.js` exports `bake(source, ctx)`: Node-side, run by the CLI export (lib/plugins/host-bake.js) over the deck's Markdown BEFORE the engine renders it, only for a deck that uses the plugin. It draws the plugin's figures into static markup and returns the new source. Never bundled for a browser. Requires `render.exec.bake`."
+        },
         "styles": {
           "const": true,
           "description": "`<name>.styles.css` exists: token-only CSS, bundled into the plugin slot of dist/lattice.css in dependency order. Every `var(--token)` it reads must be listed in `tokens`, and every listed token read."
@@ -90,7 +94,16 @@
           "type": "object",
           "additionalProperties": false,
           "description": "Where each code contribution runs.",
-          "properties": {"hydrate": {"const": "browser"}}
+          "properties": {
+            "hydrate": {
+              "enum": ["browser", "runtime"],
+              "description": "`browser`: `<name>.hydrate.js`, run by the plugin host on every browser surface. `runtime`: the runtime's own pass draws it (lib/runtime), with no hydrate module; the CLI export page carries no runtime, so such a plugin must declare `bake`."
+            },
+            "bake": {
+              "const": "subprocess",
+              "description": "The bake drives a separate process (a headless browser, a render worker) and blocks until it returns."
+            }
+          }
         },
         "surfaces": {
           "type": "object",
@@ -196,8 +209,12 @@
           }
         },
         "body": {
-          "enum": ["json", "tex", "text"],
+          "enum": ["json", "tex", "text", "mermaid"],
           "description": "The language of the fence body, for the editor's highlighter and the docs."
+        },
+        "as": {
+          "const": "code",
+          "description": "The engine renders this fence as the code block every other fence becomes — highlighted, `class=\"language-<name>\"` — and the plugin draws it later: its `bake` on the CLI, the runtime's own pass (`render.exec.hydrate: \"runtime\"`) in a browser. The fence is still the plugin's: no other plugin may claim the name, and it counts as use. `<name>.render.js` has no renderer for it, and it takes no aliases."
         }
       }
     }

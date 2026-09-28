@@ -44,7 +44,10 @@ const { renderDiagrams } = require('../../../lib/core/render-diagrams');
 const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8');
+// The PDF path's source: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D
+// moved the diagram walk there; the palette assembly stayed in the emulator).
+const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8')
+  + fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.bake.js'), 'utf8');
 const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
 
 /**
@@ -311,7 +314,7 @@ describe('neither path keeps a private copy', () => {
     // it: what has to be true now is that each path hands its ports to
     // `renderDiagrams`. A path that went back to assembling its own palette would
     // still import the map and would still pass the old form of this test.
-    assert.match(EMULATOR_SRC, /require\('\.\/lib\/core\/render-diagrams'\)/);
+    assert.match(EMULATOR_SRC, /require\('\.\.\/\.\.\/core\/render-diagrams'\)/);
     assert.match(RUNTIME_SRC, /require\('\.\.\/\.\.\/lib\/core\/render-diagrams'\)/);
     assert.match(EMULATOR_SRC, /renderDiagrams\(deck, \{/);
     assert.match(RUNTIME_SRC, /renderDiagrams\(deck, \{/);

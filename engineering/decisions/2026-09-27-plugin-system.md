@@ -418,6 +418,10 @@ which cannot carry imports.
   D adds anyway), so the resolver exempts it from the no-import rule; or (b) an esbuild IIFE built
   into `dist/` beside `dist/lattice-emulator.js` at `prepare`, never committed, which answers this
   paragraph's staleness objection. (a) is the likelier: Mermaid already bakes on the CLI.
+  **As built (phase D): (a).** `render.exec.hydrate: "runtime"` marks a plugin whose browser half
+  is the runtime's own pass, with no hydrate module to serialize; the resolver then REQUIRES a
+  `bake`, and the CLI draws the plugin there (`lib/plugins/host-bake.js`). Mermaid's fence is
+  declared `as: "code"`, so the engine's bytes did not move (§11, phase D).
 - **HTML player:** ships no plugin code; it bakes the hydrated page.
 
 **The settle barrier.** Today's PDF is correct only because the function-plot inflater runs
@@ -587,7 +591,10 @@ backspace plus `eta`, and `\alpha` makes `JSON.parse` throw — the red team ran
 Each phase ships on its own, leaves the tree green, and **deletes what it replaces in the same
 PR**. A `build:check` ratchet, `checkPluginMigration` in `tools/check-ownership.js`, counts what is
 left of the old mechanisms — entries in `LATTICE_PLUGINS`, fence wrappers in `plugins.js`,
-hand-named plugin selectors in the rosters of §3.2 — against a budget that only falls. So a
+hand-named plugin selectors in the rosters of §3.2 — against a budget that only falls. (As
+built, it counts fence wrappers and plugin token names from phase A, and the `language-<fence>`
+rosters of a runtime-drawn fence from phase D; `LATTICE_PLUGINS` entries and other selectors are
+not counted yet.) So a
 stalled phase leaves fewer idioms, never three. **The resting state if phase D never ships**: math
 and function-plot on the host; Mermaid and the charts on their current, working paths; the ratchet
 recording exactly what is left.
@@ -602,7 +609,10 @@ recording exactly what is left.
   settle barrier changes when the PDF is captured, so this phase carries **export sign-off**: the
   math gallery rendered in dark and light, sent before merge (QUALITY BAR).
 - **C. `lattice packages new plugin`**, the draft `spec/LPM.md`, and the author docs.
-- **D. Mermaid** — adds `bake` and `exec.bake`.
+- **D. Mermaid** — adds `bake` and `exec.bake`. **Done for the engine and the CLI** (§11); the
+  browser half — the payload loader, the settle state, the `language-mermaid` rosters — is
+  counted by the ratchet's `drawnFenceClasses` and recorded in
+  `followups.d/2417-p5-plugin-phase-d-browser-half.md`.
 - **E. The data layer** — zip import/export of plugins in the CLI and the Studio (§4.10).
 - **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels; renderer
   libraries move to `optionalDependencies` (export sign-off: it changes what installs).

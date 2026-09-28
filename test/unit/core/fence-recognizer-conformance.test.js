@@ -143,7 +143,7 @@ describe('fence recognizers — conformance against the engine', () => {
 	// furthest: a span that started N characters early (which deleted the author's prose) and a
 	// slide-boundary guard that covered `---` and not `***` (which deleted a whole slide). Both
 	// were correct about WHICH fences and wrong about WHAT THE SPLICE DOES — so ask that
-	// directly, the way `preprocessMermaid` does: splice a placeholder over every span the
+	// directly, the way the Mermaid bake (`mermaid.bake.js`) does: splice a placeholder over every span the
 	// walker reports, re-render, and require that nothing but the fence changed.
 	//
 	// Two properties, both against the real engine:
@@ -183,7 +183,7 @@ describe('fence recognizers — conformance against the engine', () => {
 
 		const sections = (body) => (render(FRONT_PLAIN + body).html.match(/<section/g) || []).length;
 		for (const { name, src } of decks) {
-			// Splice back-to-front so earlier offsets stay valid — what `preprocessMermaid` does.
+			// Splice back-to-front so earlier offsets stay valid — what the Mermaid bake (`mermaid.bake.js`) does.
 			let out = src;
 			for (const m of matchMermaidFences(src).slice().reverse()) {
 				out = out.slice(0, m.start) + '<div class="mermaid-svg"></div>' + out.slice(m.end);

@@ -326,7 +326,7 @@ shipped runtime plus the shipped stylesheet in real Chromium
 Two wrong versions of that gate shipped before this one, and both are worth knowing
 because both looked right:
 
-- **Ungated.** The rule matched anywhere the stylesheet did. `preprocessMermaid`
+- **Ungated.** The rule matched anywhere the stylesheet did. The Mermaid bake (`mermaid.bake.js`)
   (`lattice-emulator.js`) substituted only ```` ```mermaid ```` at the time, so a
   `~~~mermaid` fence reached the exported HTML unsubstituted with the runtime stripped —
   and the author's only signal that the CLI never drew their diagram became an empty slot,
@@ -435,7 +435,7 @@ instrument (`cd docs && npm run bench:flash`) and the options not taken:
 
 A hand-written `<div class="mermaid">` renders on NEITHER path and is a silent
 no-op: the emulator's pre-pass matches fences only
-(`preprocessMermaid`, `lattice-emulator.js`), and the runtime picks up
+(the mermaid plugin's bake, `lib/plugins/mermaid/mermaid.bake.js`), and the runtime picks up
 `pre > code.language-mermaid` and treats a sibling `div.mermaid` purely as the
 SVG *target* it inserts itself (`lib/runtime/index.js`). Earlier advice here to
 prefer that div over a fence was wrong; use the fence.
@@ -449,7 +449,7 @@ lays it out, so a wide graph flows down the tall frame instead of shrinking into
 A fence in a PANE turns for the pane's box, not the slide's. The engine stamps each
 `<lat-pane>` with its own orientation, and both render paths read that stamp:
 
-- the CLI bakes fences before the engine renders, so `preprocessMermaid` asks the engine
+- the CLI bakes fences before the engine renders, so the Mermaid bake (`mermaid.bake.js`) asks the engine
   (`engine.paneOrientations`, the same carve and box `renderPane` uses). The answer carries
   each pane's SOURCE LINES, and a fence takes the orientation of the pane whose lines hold it.
   A slide index would not do: `_focusSteps` renders one slide as several sections, and a first
@@ -1242,7 +1242,7 @@ prose must not be excused from the slide-count check.
 
 **What the gate structurally cannot see**, and is worth knowing before trusting it: it
 verifies `spans(md) ≡ render(md)`, while production needs
-`spans(md) ≡ render(preprocessMermaid(md))`. The bake splices SVG back into Markdown,
+`spans(md) ≡ render(bake(md))`. The bake splices SVG back into Markdown,
 and a blank line followed by `---` inside that SVG really does produce a section the
 reconstruction has no span for. That gap is not closable from this side — it is a
 consequence of baking before rendering at all, which is the question #1385 asks.

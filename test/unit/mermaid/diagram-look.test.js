@@ -30,7 +30,7 @@ const { MODE_REGISTER } = require('../../../lib/core/resolve-mode');
 const REPO = path.join(__dirname, '..', '..', '..');
 const THEMES = path.join(REPO, 'themes');
 
-// THE EMULATOR'S REAL SLICE. `preprocessMermaid` passes
+// THE EMULATOR'S REAL SLICE. The Mermaid bake (`mermaid.bake.js`) passes
 // `source.match(/^---\r?\n[\s\S]*?\r?\n---/)[0]`, which ENDS at the closing `---`
 // with NO trailing newline. The first cut of these tests appended one, so every
 // case exercised an input the engine never produces — and `mode: sketch` shipped

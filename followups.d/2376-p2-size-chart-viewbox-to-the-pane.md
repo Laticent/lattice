@@ -12,7 +12,7 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
             (cartesian.js viewFor) and the keyed ones re-fit their key (svg-legend.js
             fitKeyToPane). PR #2420 (2026-09-27) closed and measured more:
             - CLOSED: a Mermaid flowchart in a tall pane now turns top-to-bottom, on the CLI
-              (`preprocessMermaid` asks `engine.paneOrientations`, keyed on each pane's source
+              (the Mermaid bake, `mermaid.bake.js`, asks `engine.paneOrientations`, keyed on each pane's source
               lines) and in the browser (`fenceJob` reads the fence's `<lat-pane>`). Label height in a 35% pane: 11.5px -> 19.5px
               (34.8px on a full slide). examples/panes-mermaid.md.
             - MEASURED, NOT A GAP: the TYPE FLOOR probe (`probeFigureLegibility`) already reads a
