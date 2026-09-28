@@ -15,7 +15,7 @@
 # not apply that driver: it marks the PR `mergeable_state: dirty`, runs no
 # pull_request CI on it, and the queue cannot take it. PR #2466 hit exactly this
 # (local merge clean, GitHub dirty, CI silent for three pushes). So the check
-# reads attributes from an empty tree (`git --attr-source=<empty>`, git 2.42+),
+# reads attributes from an empty tree (`git --attr-source=<empty>`),
 # and an index clash reports as the conflict GitHub will see.
 #
 # Measured against 63 real rebases from 2026-09-20..28, replayed on the main the
@@ -25,7 +25,7 @@
 #
 # Exit codes: 0 clean (behind is fine, do not rebase) · 1 conflict — rebase ·
 # 3 could not check (the fetch failed, no origin/main ref, a shallow clone without
-# the merge base, or git older than 2.42) · 64 unknown argument. Output is one
+# the merge base, or a git too old for --attr-source) · 64 unknown argument. Output is one
 # line for humans; --json prints one {"systemMessage": …} object instead, for the
 # Stop hook, and nothing when the branch is clean.
 #
@@ -85,5 +85,5 @@ case "$status" in
     files=$(printf '%s\n' "$out" | awk 'NR>1' | clean_names)
     say 1 "Branch $branch conflicts with origin/main on GitHub's terms ($files) — rebase before the next push: git fetch origin main && git rebase origin/main. (Behind-but-clean needs nothing; the merge queue handles it.)" ;;
   *)
-    say 3 "Could not test $branch for conflicts with origin/main (shallow clone, or git older than 2.42). Before pushing, check the PR shows no conflict, or run: git fetch --deepen=200 origin main" ;;
+    say 3 "Could not test $branch for conflicts with origin/main (shallow clone, or a git too old for --attr-source). Before pushing, check the PR shows no conflict, or run: git fetch --deepen=200 origin main" ;;
 esac

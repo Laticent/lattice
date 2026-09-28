@@ -136,8 +136,9 @@ costs an ejection, not a broken `main`.
 
 Rebase an open PR only when:
 
-1. it conflicts with `main` (`mergeable_state: dirty`, or `git merge-tree
-   --write-tree HEAD origin/main` exits 1),
+1. it conflicts with `main` on GitHub's terms (`mergeable_state: dirty`, or
+   `npm run queue:precheck` exits 1 — a plain `git merge-tree` is not enough,
+   because it applies `merge=union` and GitHub does not; §4b),
 2. the queue ejected it, or
 3. it needs code that landed on `main`.
 

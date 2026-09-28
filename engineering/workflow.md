@@ -903,7 +903,7 @@ it alone.
    `mergeable_state: dirty`, or the local check says so:
    ```console
    $ npm run queue:precheck
-   queue-precheck: <branch> is 5 commit(s) behind origin/main and merges cleanly — no rebase needed.
+   queue-precheck: <branch> is 5 commit(s) behind origin/main and merges cleanly on GitHub's terms — no rebase needed.
    ```
    `tools/queue-precheck.sh` fetches `main` and merges in memory (`git merge-tree`;
    nothing on disk changes) **on GitHub's terms**: it switches off the merge
@@ -913,7 +913,8 @@ it alone.
    same PR as `mergeable_state: dirty`, runs no `pull_request` CI on it, and the
    queue will not take it. The script exits **0** clean, **1** on a conflict, and
    **3** when it cannot check (the fetch failed, there is no `origin/main`, the
-   clone is shallow and lacks the merge base, or git is older than 2.42). The Stop
+   clone is shallow and lacks the merge base, or git is too old for
+   `--attr-source`). The Stop
    hook (`.claude/hooks/stop-rebase-check.sh`) runs the same script with
    `--no-fetch` at the end of every turn, so its silence means "clean against the
    `main` you last fetched".
