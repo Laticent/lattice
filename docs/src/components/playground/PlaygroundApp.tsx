@@ -1018,6 +1018,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		onDragStart: () => frameRef.current?.contentWindow?.__latticeFitSuspend?.(),
 		onDragEnd: () => frameRef.current?.contentWindow?.__latticeFitResume?.(),
 	});
+	// EXPLORE NEVER SHOWS A COLLAPSED PREVIEW. Explore hides the editor, so a preview collapsed
+	// in Edit left the whole stage empty ("Preview collapsed — render deferred.") after any
+	// route into Explore: a component pick, a gallery load, the Explore tab. One rule here
+	// covers every route; the expand runs the render the collapse deferred.
+	React.useEffect(() => {
+		if (view === 'read' && splitActive && split.collapsed === 'b') split.expand('b');
+	}, [view, splitActive, split.collapsed, split.expand]);
 	// Mirror synchronously each render (the forceRef pattern above): the render
 	// loop must see the collapse the moment React commits it. Below the tab
 	// breakpoint the retained collapse is inert — the tabs own visibility.
