@@ -12,8 +12,9 @@ import { buildSrcdoc } from './deck-preview.js';
 /** The FIT agent's source, pulled out of a real srcdoc. */
 function fitSource(): string {
 	const doc = buildSrcdoc({ html: '<section></section>', css: '', mode: 'light', geom: { w: 1280, h: 720 }, runtimeUrl: '/r.js', gap: 16 });
-	const scripts = [...doc.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
-	const fit = scripts.find((s) => s.includes('window.__latticeFit=gatedFit'));
+	// Parsed, not matched: an HTML parser is the only honest way to find a script element.
+	const parsed = new DOMParser().parseFromString(doc, 'text/html');
+	const fit = [...parsed.querySelectorAll('script')].map((el) => el.textContent ?? '').find((s) => s.includes('window.__latticeFit=gatedFit'));
 	if (!fit) throw new Error('no fit agent in the srcdoc');
 	return fit;
 }
