@@ -3,6 +3,7 @@ marp: true
 size: 4k
 theme: indaco
 paginate: true
+venue: huddle
 header: "Agentic engineering · Practices that hold up"
 ---
 
@@ -63,7 +64,7 @@ Before any practices, here's the one thing I'd ask you to hold on to. There's no
 
 ---
 
-<!-- _class: compare-prose vertical insight-so-what -->
+<!-- _class: compare-prose insight-so-what -->
 
 `Your role · Floor and ceiling`
 
@@ -103,7 +104,7 @@ A director doesn't run the camera. They watch the take and judge what's actually
 
 ---
 
-<!-- _class: compare-prose vertical chosen insight-so-what -->
+<!-- _class: compare-prose chosen insight-so-what -->
 
 `Your role · The bar`
 
@@ -162,22 +163,22 @@ There are two ways to ask for work. Imperative means you spell out the steps, li
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: list-tabular -->
 
 `Your role · Declare the outcome`
 
 ## Declarative works when the spec leaves nothing to guess.
 
-- Define the shape
-  - A schema or types: what the data is, and what it can never be.
-- Name the constraints
-  - What must never happen, and which tradeoffs you accept.
-- Say how you'll know
-  - Checks that pass only when the outcome is right.
-- Stay imperative where order matters
-  - Migrations, rollouts and cut-overs: spell out the steps.
-- Read the how anyway
-  - The agent's code is still yours, including its speed and safety.
+1. Define the shape
+   - A schema or types: what the data is, and what it can never be.
+2. Name the constraints
+   - What must never happen, and which tradeoffs you accept.
+3. Say how you'll know
+   - Checks that pass only when the outcome is right.
+4. Stay imperative where order matters
+   - Migrations, rollouts and cut-overs: spell out the steps.
+5. Read the how anyway
+   - The agent's code is still yours, including its speed and safety.
 
 <!--
 Declarative style has one condition: the spec has to be complete, because the agent fills every gap with a confident guess. Five habits make it work. Define the shape: a schema or types that say what the data is and what it can never be. Can this field be empty? Say so. Name the constraints: what must never happen, like dropping a row silently, and which tradeoffs you accept, like slower but exact. Say how you'll know: tests and checks that pass only when the outcome is right. That's the verification practice again, and it's what turns a description into a contract. Then two cautions. Some work really is about order. A data migration, a rollout, a cut-over from one system to another: there the sequence is the point, so write the steps. And read the how anyway. A good declaration doesn't excuse you from looking at the code the agent chose, especially for speed and security, because you own it once it ships.
@@ -411,22 +412,22 @@ This is often the biggest single saving on the table. Models read and bill in to
 -->
 
 ---
-<!-- _class: list takeaway -->
+<!-- _class: list-tabular -->
 
 `Context · House style`
 
 ## Settle the house style before the first agent writes a line.
 
-- Spelling
-  - Pick one dialect, or you'll get "color" and "colour" in the same file.
-- Names
-  - One naming pattern for files, functions and fields.
-- Formats
-  - One way to write dates, numbers and units, everywhere.
-- Voice
-  - How you write docs, commit messages and error text.
-- A check
-  - A linter that flags drift, because agents copy whatever they read.
+1. Spelling
+   - Pick one dialect, or you'll get "color" and "colour" in the same file.
+2. Names
+   - One naming pattern for files, functions and fields.
+3. Formats
+   - One way to write dates, numbers and units, everywhere.
+4. Voice
+   - How you write docs, commit messages and error text.
+5. A check
+   - A linter that flags drift, because agents copy whatever they read.
 
 <!--
 Here's a small one that gets expensive. Decide your house style on day one and write it in the instruction file. Agents copy whatever they read, so if the first files mix American and British spelling, every file after them will too. Mix them long enough and you've accidentally invented Canadian English. The same goes for naming patterns, date and number formats, and the voice of your docs and error messages. Fixing it later is worse than it sounds. A big cleanup touches everything, and it can rewrite text you don't own: a field name in someone else's API, a customer's legal name, a word a user might type. So pick it early, write it down, and add a check that flags drift in every change.
@@ -488,7 +489,7 @@ Set agents up to act by default. If a written rule already says what the next st
 
 ---
 
-<!-- _class: matrix-2x2 insight-why -->
+<!-- _class: matrix-2x2 -->
 
 `Autonomy · The reach test`
 
@@ -506,8 +507,6 @@ Set agents up to act by default. If a written rule already says what the next st
 - **Hard to undo · Reaches others.**
   - Merges, releases, publishing
   - A person decides
-
-> Others act on shared state before you can undo a mistake there.
 
 <!--
 Two things decide the risk: how hard the change is to undo, and who else it affects. How difficult the work is doesn't matter. A tricky refactor on the agent's own branch is fine, because if it goes wrong you throw the branch away. A one-line change to labels the whole team relies on is different. Other people, and other agents, act on it before you notice. Say you ask an agent to mark about twelve issues as ready, and it decides sixty qualify. By the time you notice, other people are already working from that list.
@@ -614,7 +613,7 @@ Verification comes in three parts. First, proof: why an agent's report isn't the
 ---
 
 
-<!-- _class: compare-prose vertical insight-bottom-line -->
+<!-- _class: compare-prose insight-bottom-line -->
 
 `Verification · The gap`
 
@@ -684,22 +683,22 @@ Second, tests: the kinds that catch what ordinary tests miss, and how to tell a 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: list-tabular -->
 
 `Verification · Tests that look at reality`
 
 ## Beyond unit tests, each kind of test answers a different question.
 
-- Mutation test
-  - If I break the code on purpose, does a test fail?
-- Metamorphic test
-  - If I change the input in a known way, does the output follow?
-- Visual diff
-  - Does it look the same as before, unless I meant it to change?
-- Benchmark
-  - Did it get slower, and by how much?
-- Fuzz test
-  - Does strange or random input break it?
+1. Mutation test
+   - If I break the code on purpose, does a test fail?
+2. Metamorphic test
+   - If I change the input in a known way, does the output follow?
+3. Visual diff
+   - Does it look the same as before, unless I meant it to change?
+4. Benchmark
+   - Did it get slower, and by how much?
+5. Fuzz test
+   - Does strange or random input break it?
 
 <!--
 A check can go months without being able to fail, and nobody notices, because it stays green. A check that always passes looks exactly like one that works. Unit, integration and end-to-end tests are the starting point. These five go further, and each one answers a question the usual tests can't. A mutation test breaks your code on purpose and checks that some test notices. A metamorphic test changes the input in a known way and checks the output moves the way it should. For example, adding an item to a cart must never lower the total. A visual diff compares the output to the last approved picture. A benchmark runs against a committed baseline, so "it feels slower" becomes a number. And a fuzz test throws strange input at the code to see what breaks.
@@ -833,7 +832,7 @@ Who has corrected the same agent mistake more than once? This section makes sure
 -->
 ---
 
-<!-- _class: cycle insight-key -->
+<!-- _class: cycle -->
 
 `Learning · The loop`
 
@@ -849,8 +848,6 @@ Who has corrected the same agent mistake more than once? This section makes sure
   - A script enforces the rule where it can.
 - Retest
   - Retire the rule once its reason no longer holds.
-
-> Copy the loop, and let your own mistakes write your rules.
 
 <!--
 This loop is how the whole system improves. Something breaks. Someone writes a short, dated note: what happened, why, and what we decided. The decision becomes a one-line rule that says what enforces it, either a script or just the agent's own discipline. Where we can, a script does the enforcing. Then, every so often, we retest the rules. We retired one rule after two months when a retest showed it had never been true. Don't copy our rules. Copy the loop, and your own mistakes will write rules that fit your team.
@@ -975,7 +972,7 @@ Orchestration just means coordinating several agents. Instead of one general ass
 -->
 
 ---
-<!-- _class: compare-prose vertical insight-why -->
+<!-- _class: compare-prose insight-why -->
 
 `Orchestration · Two trios`
 
@@ -1020,22 +1017,22 @@ For a big, open design question, like an architecture or a data model, several i
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: list-tabular -->
 
 `Hard problems · The signs`
 
 ## Five signs a problem is hard.
 
-- Late feedback
-  - You only learn if it works after you build it, ship it or load it.
-- A distant cause
-  - The symptom shows up far from its cause, in another file or another week.
-- Every option costs
-  - No choice is free; each one gives up something you care about.
-- An unclear question
-  - You aren't sure it's the right problem, or what "good" means.
-- No way back
-  - A mistake can't be undone, or it reaches other people first.
+1. Late feedback
+   - You only learn if it works after you build it, ship it or load it.
+2. A distant cause
+   - The symptom shows up far from its cause, in another file or another week.
+3. Every option costs
+   - No choice is free; each one gives up something you care about.
+4. An unclear question
+   - You aren't sure it's the right problem, or what "good" means.
+5. No way back
+   - A mistake can't be undone, or it reaches other people first.
 
 <!--
 Most of what we do with agents is the easy loop: try it, see the result, fix it. Agents are brilliant at that loop. A problem is hard when something about it breaks the loop, and it's worth knowing the five ways that happens. Late feedback: you only find out after you've built it or put real load on it, like a query that's fast until the table grows. A distant cause: the symptom shows up somewhere else, like a test that fails one run in four, or two changes that are each fine and break together. Every option costs: speed against accuracy, scope against the date. An unclear question: nobody can say what done looks like, or the analysis rests on an assumption nobody checked. And no way back: a data migration, a release, a change to settings other people share. Most hard problems have two or three of these at once. Here's the warning sign to listen for: "this should be easy," on the third try. And here's why it matters with agents. An agent brings the easy loop to the hard problem. It takes the first fix that turns the check green, fills the gaps with confident guesses, and calls a failure flaky. On a hard problem, you slow the loop down and do the thinking yourself.
@@ -1043,22 +1040,22 @@ Most of what we do with agents is the easy loop: try it, see the result, fix it.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: list-tabular -->
 
 `Hard problems · The tactics`
 
 ## Hard problems need a slower loop.
 
-- Build a cheap probe
-  - Try the risky part on a small, real sample before building the rest.
-- Shrink it until it fails every time
-  - Change one thing at a time, and never accept "flaky" as a cause.
-- Name what must never happen
-  - Then take the option that gives up the least, and write down the cost.
-- Widen before you narrow
-  - Ask for several framings, ask how it would fail, and define done first.
-- Rehearse on a copy
-  - Keep the old path working, and have a person approve the last step.
+1. Build a cheap probe
+   - Try the risky part on a small, real sample before building the rest.
+2. Shrink it until it fails every time
+   - Change one thing at a time, and never accept "flaky" as a cause.
+3. Name what must never happen
+   - Then take the option that gives up the least, and write down the cost.
+4. Widen before you narrow
+   - Ask for several framings, ask how it would fail, and define done first.
+5. Rehearse on a copy
+   - Keep the old path working, and have a person approve the last step.
 
 <!--
 One tactic for each sign. For late feedback, build a cheap probe: try the risky part on a small, real sample before you build everything around it, and measure the real thing, never a stand-in. For a distant cause, shrink the problem until it fails every single time, then change one thing at a time. And never accept a label as a cause. "Flaky," "slow" and "weird" are descriptions; the cause is still out there. When every option costs, write down what must never happen, then pick the option that gives up the least, and say out loud what you gave up. For an unclear question, widen before you narrow: ask the agent for several framings or drafts, ask "how would this fail?", and agree on what done means before anyone builds. And when there's no way back, rehearse on a copy, stage the change, keep the old path working until the new one is proven, and have a person approve the last step. Four habits help with all five. Write down what you tried and rejected, so the next attempt doesn't repeat it. Use the stronger model and a second reviewer, which we'll come to in a moment. Time-box it, and when the box runs out, bring in a person instead of letting the agent keep guessing. And when you accept a cost, record it, so nobody mistakes it for an oversight later.
@@ -1109,22 +1106,22 @@ Here's what that looks like on problems you already have. Estimates: research on
 ---
 
 
-<!-- _class: list takeaway -->
+<!-- _class: list-tabular -->
 
 `Hard problems · The scientific habit`
 
 ## Work like a scientist, and ask your agent to do the same.
 
-- Say what you expect first
-  - Write the prediction down before you run anything.
-- Try to prove yourself wrong
-  - Design the test that would fail if you're mistaken.
-- Compare against a baseline
-  - A number means little until you know what it was before.
-- Run it more than once
-  - One run is an anecdote. Repeat it before you believe it.
-- Update when the evidence changes
-  - Retire a rule when a better test shows it no longer holds.
+1. Say what you expect first
+   - Write the prediction down before you run anything.
+2. Try to prove yourself wrong
+   - Design the test that would fail if you're mistaken.
+3. Compare against a baseline
+   - A number means little until you know what it was before.
+4. Run it more than once
+   - One run is an anecdote. Repeat it before you believe it.
+5. Update when the evidence changes
+   - Retire a rule when a better test shows it no longer holds.
 
 <!--
 The science on the last slide tells you what's already known. This slide is about how to find out what isn't. It's the scientific method, and it fits agent work well. First, say what you expect before you run anything, and ask the agent to do the same. A prediction written down in advance can be wrong, and that's what makes it useful. Second, try to prove yourself wrong. Design the test that would fail if you're mistaken, like breaking the code to see whether the test notices. Third, compare against a baseline. "It takes two seconds" means nothing until you know it took five before. Fourth, run it more than once. One run is an anecdote, especially with anything timing-related or random. And fifth, update when the evidence changes. The rules you wrote last year were based on what you knew then. When a better test says a rule no longer holds, retire it and write down why. Agents are very good at running experiments, cheaply and fast. What they don't do on their own is decide what would change their mind. That part is yours.
@@ -1132,7 +1129,7 @@ The science on the last slide tells you what's already known. This slide is abou
 
 ---
 
-<!-- _class: compare-prose vertical chosen insight-takeaway -->
+<!-- _class: compare-prose chosen insight-takeaway -->
 
 `Orchestration · Cast the model`
 
@@ -1201,7 +1198,6 @@ Each extra agent costs money, and it doesn't always make the result better. So b
 
 <!-- _class: list-steps insight-bottom-line -->
 
-`Live demo · One task, start to finish`
 
 ## One task, all five practices, start to finish.
 
@@ -1297,22 +1293,22 @@ Emergence is what a system does that none of its parts does alone, and agents ma
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: list-tabular -->
 
 `Make it stick · Guardrails`
 
 ## Five guardrails an agent can't forget.
 
-- Constraints
-  - A gate checks the rule on every build, so nobody has to remember it.
-- Budgets
-  - A ceiling on size, speed and agent count, because agents rarely remove.
-- Standards
-  - A contract per component, so "done" means the same thing every time.
-- Visibility
-  - Benchmarks and image diffs turn "feels slower" into a number.
-- Boundaries
-  - A library imports only itself, so a change stays where you made it.
+1. Constraints
+   - A gate checks the rule on every build, so nobody has to remember it.
+2. Budgets
+   - A ceiling on size, speed and agent count, because agents rarely remove.
+3. Standards
+   - A contract per component, so "done" means the same thing every time.
+4. Visibility
+   - Benchmarks and image diffs turn "feels slower" into a number.
+5. Boundaries
+   - A library imports only itself, so a change stays where you made it.
 
 <!--
 Habits hold when they live in the build. Five kinds of guardrail. Constraints: a check that runs on every build, like "no hard-coded colors in the UI" or "every untrusted string goes through a sanitizer." Let each exception carry a written reason, and fail the build when an exception is no longer used, so the list can't quietly rot. Budgets: agents add far more than they remove, so give everything a ceiling: the instruction file, the bundle, the response time, the number of agents per session. Standards: a written contract for each shared piece, so the agent builds against it instead of guessing. Visibility: benchmarks, contrast checks, and a before-and-after image on every pull request, so "feels slower" becomes a number. And boundaries, which is the next slide. The short version: an agent forgets a rule. A gate doesn't.
@@ -1340,7 +1336,7 @@ When code is shared, treat it like a library someone outside your team depends o
 ---
 
 
-<!-- _class: compare-prose vertical chosen insight-our-view -->
+<!-- _class: compare-prose chosen insight-our-view -->
 
 `Across teams · What to share`
 
@@ -1545,8 +1541,7 @@ Everything in this last section is in a kit folder next to this deck, ready to c
 ## Always
 - Run the tests before you say anything is done.
 - Failing test first, then the fix, then the same test passing.
-- "Verified" says where it ran and shows proof from there.
-  Otherwise, write UNVERIFIED.
+- "Verified" shows proof from where it ran, or says UNVERIFIED.
 
 ## Ask first, even when a rule points at it
 - Shared state: labels, boards, settings others read.
@@ -1575,11 +1570,9 @@ This is the heart of the instruction file. The "Always" section covers verificat
     "ask":   ["Bash(git push*)"],
     "deny":  ["Bash(git push --force*)", "Read(./.env)"]
   },
-  "hooks": {
-    "Stop": [{ "hooks": [{ "type": "command",
-      "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/tests-must-pass.sh"
-    }] }]
-  }
+  "hooks": { "Stop": [{ "hooks": [{ "type": "command",
+    "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/tests-must-pass.sh"
+  }] }] }
 }
 ```
 
@@ -1596,12 +1589,10 @@ The settings file does two things. The permission lists say what the agent may r
 ## The stop hook keeps the agent working until the tests pass.
 
 ```bash
-#!/usr/bin/env bash
 # Exit code 2 sends stderr back to Claude and keeps it working.
 input=$(cat)
 # Already sent back once by this hook? Let it stop.
 echo "$input" | grep -q '"stop_hook_active": *true' && exit 0
-
 log=$(mktemp)
 if ! npm test --silent >"$log" 2>&1; then
   echo "Tests are failing. Fix them before you finish:" >&2
@@ -1676,7 +1667,6 @@ Here's the evidence card as a blank template. The rule that matters is on the la
 ```markdown
 ---
 status: proposed      # proposed | shipped | superseded
-type: decision        # proposal | decision | spec | scoping
 summary: One line a reader can scan in the index
 ---
 # <The decision, as a sentence>
