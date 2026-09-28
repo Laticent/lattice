@@ -413,6 +413,29 @@ This is often the biggest single saving on the table. Models read and bill in to
 ---
 <!-- _class: list takeaway -->
 
+`Context · House style`
+
+## Settle the house style before the first agent writes a line.
+
+- Spelling
+  - Pick one dialect, or you'll get "color" and "colour" in the same file.
+- Names
+  - One naming pattern for files, functions and fields.
+- Formats
+  - One way to write dates, numbers and units, everywhere.
+- Voice
+  - How you write docs, commit messages and error text.
+- A check
+  - A linter that flags drift, because agents copy whatever they read.
+
+<!--
+Here's a small one that gets expensive. Decide your house style on day one and write it in the instruction file. Agents copy whatever they read, so if the first files mix American and British spelling, every file after them will too. Mix them long enough and you've accidentally invented Canadian English. The same goes for naming patterns, date and number formats, and the voice of your docs and error messages. Fixing it later is worse than it sounds. A big cleanup touches everything, and it can rewrite text you don't own: a field name in someone else's API, a customer's legal name, a word a user might type. So pick it early, write it down, and add a check that flags drift in every change.
+-->
+
+---
+
+<!-- _class: list takeaway -->
+
 `Context · In Claude Code`
 
 ## Claude Code gives you a setting for each of these habits.
