@@ -812,3 +812,56 @@ for (const c of [
 		await expect(page.locator('body')).toHaveAttribute('data-view', c.expected);
 	});
 }
+
+// ── The newcomer bake (scripts/bake-newcomer-frame.mjs, playground.astro, newcomer-bake.ts) ──
+//
+// A first-time visitor's preview frame is loaded with the document the app's first render would
+// write, during parse, and the app ADOPTS it rather than writing its own. Both halves are
+// asserted here because each can fail silently: a bake the page never loads is just the old
+// cold start, and a bake the app does not adopt is a slide that shows, blanks, and shows again.
+test.describe('the newcomer bake', () => {
+	/** Record every value `data-pg-bake` takes on <html>, and whether the app was live at the time. */
+	async function recordBakeFlag(page: import('@playwright/test').Page) {
+		await page.addInitScript(() => {
+			if (window.top !== window) return;
+			const seen: { flag: string | null; live: boolean }[] = [];
+			(window as unknown as { __bakeFlags: typeof seen }).__bakeFlags = seen;
+			// On the DOCUMENT: an init script runs before <html> exists.
+			new MutationObserver((rs) => {
+				for (const r of rs) if (r.target === document.documentElement) seen.push({ flag: document.documentElement.getAttribute('data-pg-bake'), live: !!document.querySelector('.pg-preview-wrap.is-live') });
+			}).observe(document, { subtree: true, attributes: true, attributeFilter: ['data-pg-bake'] });
+		});
+	}
+
+	test('@smoke a first visit shows the baked slide before the app is live, and the app keeps that very document', async ({ page }) => {
+		await recordBakeFlag(page);
+		await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
+		await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+		await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/^1 \/ \d+$/, { timeout: 30_000 });
+		const flags = await page.evaluate(() => (window as unknown as { __bakeFlags: { flag: string | null; live: boolean }[] }).__bakeFlags);
+		expect(flags.map((f) => f.flag), 'the page never loaded the bake').toEqual(['loading', 'shown', null]);
+		expect(flags[1].live, 'the bake was only revealed after the app went live — it bought nothing').toBe(false);
+		// ADOPTED, not replaced: the frame still holds the baked document, at its first write.
+		const doc = await page.evaluate(() => {
+			const d = (document.getElementById('preview') as HTMLIFrameElement).contentDocument;
+			return { baked: !!d?.documentElement.hasAttribute('data-pg-bake'), write: d?.documentElement.getAttribute('data-lattice-write'), slides: d?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0 };
+		});
+		expect(doc.baked, 'the app wrote its own document over the bake').toBe(true);
+		expect(doc.write).toBe('1');
+		expect(doc.slides).toBeGreaterThan(1);
+	});
+
+	test('a visit that boots another deck, or another step, never loads it', async ({ page }) => {
+		await recordBakeFlag(page);
+		for (const q of ['?c=agenda', '?s=default', '?view=edit']) {
+			await page.goto(`/playground/${q}`, { waitUntil: 'domcontentloaded' });
+			await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+			const got = await page.evaluate(() => ({
+				flags: (window as unknown as { __bakeFlags: unknown[] }).__bakeFlags.length,
+				src: document.getElementById('preview')?.getAttribute('src'),
+				baked: !!(document.getElementById('preview') as HTMLIFrameElement).contentDocument?.documentElement.hasAttribute('data-pg-bake'),
+			}));
+			expect(got, `${q} loaded the newcomer bake`).toEqual({ flags: 0, src: null, baked: false });
+		}
+	});
+});

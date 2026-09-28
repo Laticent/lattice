@@ -55,6 +55,7 @@ import { createAnimaScenes } from '@/playground/anima-scenes.ts';
 import { applyDebug } from '@/playground/debug-overlay.js';
 import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
+import { adoptBake } from '@/playground/newcomer-bake';
 import { captureFirstSectionFromFrame, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';
 import { createVideoOverlay } from '@/playground/video-overlay.js';
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
@@ -558,6 +559,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// now paints the cached slide at the rect the filmstrip is about to use (#1563),
 			// the two pictures coincide and the swap is invisible rather than a jump.
 			wrap.classList.add('is-live');
+			// The app owns the reveal now; the bake's flag would hold a later write visible.
+			document.documentElement.removeAttribute('data-pg-bake');
 			// Tear the shell DOWN only once that fade has finished. Doing it here — as this
 			// did — pulled the cached slide the instant the iframe *started* fading in, so a
 			// half-transparent slide sat over the bare pane for the whole 200ms.
@@ -808,7 +811,22 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// Explore renders the walk deck; Edit renders the draft. Ref-read so the
 			// render loop sees a mode/walk change the moment it commits.
 			const src = viewRef.current === 'read' && exploreSourceRef.current != null ? exploreSourceRef.current : getSource();
-			const r = await engine.renderInto(frame, src, palette, mode, previewStateRef.current, fresh).finally(() => clearTimeout(slowStatus));
+			// THE NEWCOMER BAKE (playground.astro): the page may have loaded the document this very
+			// render would write. The first render adopts it — takes over the render state baked
+			// into it — and renders as an ordinary patch against that, so a current bake changes
+			// nothing and a stale one is patched or restyled in place. A bake that does not match
+			// this deck is dropped, and its reveal flag with it, before a new document is written.
+			let state = previewStateRef.current;
+			let isFresh = fresh;
+			if (!(state as { writeId?: number }).writeId && root.hasAttribute('data-pg-bake')) {
+				const baked = adoptBake(frame, src);
+				if (baked) {
+					state = baked;
+					isFresh = false;
+					window.LatticeDeckPreview?.attachVirtual?.(frame, () => previewStateRef.current, onVirtualChange);
+				} else root.removeAttribute('data-pg-bake');
+			}
+			const r = await engine.renderInto(frame, src, palette, mode, state, isFresh).finally(() => clearTimeout(slowStatus));
 			if (r.status === 'pending') {
 				// Single pending retry (see the !engine.ready() note above).
 				if (timerRef.current) clearTimeout(timerRef.current);
@@ -818,6 +836,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} else {
 				previewStateRef.current = r.state;
 				lastGeomRef.current = r.geom;
+				// A document of the app's own replaced the bake: from here the frame shows only
+				// once `is-live` says it has fitted.
+				if (!r.patched) root.removeAttribute('data-pg-bake');
 				if (!r.patched) anchorRef.current = r.anchor ?? null;
 				// A patch can change the slide count or restyle every slide; re-fit the virtual
 				// window to the scroll position (a full write does this on load, in onFrameLoad).
@@ -1498,9 +1519,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const band = frameBands(frame, w.kind === 'plan')[w.index];
 		const spare = band ? Math.max(0, (win.innerHeight - band.height) / 2) : 16;
 		// 40 is shared with the fit agent's STAGE gap (deck-preview.js): it widens the gap only
-		// where this centers, so the two agree on which regime a pane is in.
+		// where this centers, so the two agree on which regime a pane is in. The newcomer bake's
+		// loader (playground.astro) mirrors this for slide 1 — keep the two in step.
 		const inset = spare <= 40 ? spare : 16;
-		win.scrollTo({ top: Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset), behavior: animated ? 'smooth' : 'auto' });
+		// …except the FIRST slide in that pinned regime, which has no previous slide to hide: it
+		// lands at the document's own top, the frame's padding above it. That is also where a
+		// document opens, so the newcomer bake (playground.astro), revealed before the app has
+		// run, is already where this lands it — pinning it 16px down moved the whole filmstrip
+		// 20px up under the reader the moment the app went live (measured at 390px).
+		const pinnedFirst = w.index === 0 && spare > 40;
+		win.scrollTo({ top: pinnedFirst ? 0 : Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset), behavior: animated ? 'smooth' : 'auto' });
 	}, [mountAroundIndex]);
 	scrollWalkRef.current = scrollWalk;
 

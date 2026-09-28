@@ -55,7 +55,6 @@ describe('live-preview surfaces warm the runtime', () => {
 	const cases = [
 		{ file: 'pages/index.astro', ownsUrl: true },
 		{ file: 'pages/studio.astro', ownsUrl: true },
-		{ file: 'pages/playground.astro', ownsUrl: true },
 		{ file: 'layouts/ComponentsLayout.astro', ownsUrl: false },
 	];
 	for (const { file, ownsUrl } of cases) {
@@ -68,6 +67,16 @@ describe('live-preview surfaces warm the runtime', () => {
 			if (ownsUrl) expect(s).toContain(RUNTIME_FILE);
 		});
 	}
+
+	// The Playground warms from its boot seed instead, and only when no newcomer bake is in play:
+	// a bake frame requests the runtime at once, and a prefetch racing it is a second download
+	// (measured on slow 4G: the runtime three times on the wire). Same URL, same cache entry.
+	it('pages/playground.astro prefetches the runtime unless the newcomer bake loads it', () => {
+		const s = read('pages/playground.astro');
+		expect(s).toContain(RUNTIME_FILE);
+		expect(s).toMatch(/runtime: url\(pg \+ 'lattice-runtime\.js'\)/);
+		expect(s).toMatch(/if \(!\(window\.__pgBoot && window\.__pgBoot\.bake\)\) \{[\s\S]*?rw\.rel = 'prefetch';[\s\S]*?rw\.href = bake\.runtime;/);
+	});
 
 	it('the component specimen (warmed by ComponentsLayout) is the runtime consumer', () => {
 		// ComponentsLayout carries <RuntimeWarm/> but delegates the actual runtime

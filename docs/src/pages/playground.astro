@@ -21,7 +21,6 @@ import '../styles/deck-config.css';
 import '../styles/chart-interact.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
-import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
@@ -32,7 +31,7 @@ import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPL
 // React or the island into this page's module graph — the same reason `pg-split.ts`
 // exists (#1495). Closes the drift risk the 2026-08-10 boot-state note recorded as a
 // known gap: a renamed key used to fail SILENTLY here, seeding the wrong first paint.
-import { HANDOFF_KEY, INSERTED_HASH_KEY, SOURCE_KEY, VIEW_KEY } from '../lib/playground-controller';
+import { COMPONENT_KEY, HANDOFF_KEY, INSERTED_HASH_KEY, SOURCE_KEY, VIEW_KEY, resolveComponent } from '../lib/playground-controller';
 import { joinBase } from '../lib/base-url.mjs';
 import { isPreviewDeploy } from '../lib/deploy-env.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
@@ -128,6 +127,12 @@ const gallerySources = Object.fromEntries(galleries.map((g) => [g.id, g.source])
 // serializes it); the deck sources can contain a literal `</script>` (the jargon
 // gallery ends with two), but as a serialized prop — not an inline <script> —
 // Astro escapes it safely, so the old `<` hand-escape is no longer needed.
+// The NEWCOMER'S FIRST PREVIEW DOCUMENT (scripts/bake-newcomer-frame.mjs bakes it after the
+// build): the first component's walk, in the default palette, one file per mode. The page loads
+// it into the preview frame during parse when the boot will show exactly that deck, and the app
+// adopts it on its first render instead of writing a new document.
+const bake = { component: resolveComponent(catalog, null).name, palette: 'cuoio', base: url(pg + 'newcomer/'), runtime: url(pg + 'lattice-runtime.js') };
+
 const pgData = {
 	catalog,
 	components,
@@ -160,10 +165,8 @@ const pgData = {
 		    for a dark-app visitor on a light-OS device. Must precede ResourceHints + the seed. */}
 		<ColorSchemeSeed />
 		<ResourceHints />
-		{/* Prefetch the preview runtime at parse time so the first live render's
-		    iframe finds it warm instead of cold-fetching it on the critical path
-		    (the FRAME REBUILD cost). Overlaps island hydration + the engine load. */}
-		<RuntimeWarm />
+		{/* The runtime prefetch that <RuntimeWarm> issues elsewhere is issued by the boot seed
+		    below on this page: it must NOT run beside the newcomer bake (see there). */}
 		<title>Lattice playground — try it in the browser</title>
 		<meta name="description" content="Write Lattice Markdown and watch it render to boardroom slides live in your browser. Start from any component template." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
@@ -184,6 +187,8 @@ const pgData = {
 				// test harness). Baked in at build time so the mirror below cannot diverge on
 				// that branch either.
 				exploreAvailable: !!pgData.plansBase,
+				bake,
+				COMPONENT_KEY,
 			}}
 		>
 			(function () {
@@ -338,6 +343,41 @@ const pgData = {
 					// the APP (PlaygroundApp's startup effect), because this read is the only one
 					// that happens before a child effect can consume the one-shot key.
 					window.__pgBoot = { view: view, hasHandoff: hasHandoff, src: src, insertedHash: ih, fp: fp };
+					// THE NEWCOMER BAKE (see `bake` in the frontmatter): when the boot will show exactly
+					// the baked deck — Explore without a handoff, the baked component (from ?c, the
+					// remembered one, or the catalog's first), no ?s step, the default palette — name the
+					// baked document; the body script loads it into the frame.
+					//
+					// NOTHING IS WARMED FROM HERE, and the measurement is why: a browser does not share
+					// an in-flight request between documents, so a head `fetch` of the bake or the
+					// runtime is a SECOND download racing the frame's own. On slow 4G over HTTP/2 that
+					// put the bake twice and the runtime three times on the wire, and the first slide
+					// arrived at 13.0s against 8.7s without the bake at all.
+					try {
+						var bq = new URLSearchParams(location.search || '');
+						var bcomp = bq.get('c') || localStorage.getItem(COMPONENT_KEY) || bake.component;
+						// NOT ON A CONSTRAINED LINK. The bake is ~560KB before its first slide (the document,
+						// the runtime, the faces), and it races the app's own JS for the same pipe. Measured
+						// over HTTP/2: the first slide 1373 → 618ms unthrottled and 5909 → 3126ms on fast 4G at
+						// 4x CPU, but 8655 → 9601ms on slow 4G at 1x, with the app interactive 2.2s later. So a
+						// reader who asked to save data, or whose link the browser rates 3G or worse, gets
+						// the app's own first render, as before.
+						var bconn = navigator.connection || {};
+						var bslow = bconn.saveData === true || /^(slow-2g|2g|3g)$/.test(bconn.effectiveType || '');
+						if (!bslow && view === 'read' && !hasHandoff && !bq.get('s') && bcomp === bake.component && (r.getAttribute('data-palette') || 'cuoio') === bake.palette) {
+							window.__pgBoot.bake = bake.base + (r.getAttribute('data-mode') === 'dark' ? 'dark' : 'light') + '/';
+						}
+					} catch (e5) {}
+					// The runtime PREFETCH (the other half of <RuntimeWarm>): only when no bake is in play.
+					// A bake frame asks for the runtime itself, at once; a prefetch beside it is the same
+					// bytes twice. Without a bake, the frame asks seconds later and finds it warm.
+					if (!(window.__pgBoot && window.__pgBoot.bake)) {
+						var rw = document.createElement('link');
+						rw.rel = 'prefetch';
+						rw.as = 'script';
+						rw.href = bake.runtime;
+						document.head.appendChild(rw);
+					}
 					} catch (e4) {}
 				} catch (e) {}
 			})();
@@ -351,6 +391,52 @@ const pgData = {
 		     Tabs, status, the Deck-setup + Galleries Sheets), the CodeMirror editor
 		     host, and the preview iframe. -->
 		<PlaygroundIsland client:load data={pgData} />
+
+		<!-- The newcomer bake (see `bake` in the frontmatter). Runs during body parse, right after
+		     the island's markup, so the frame loads before any of the app's code: a first-time
+		     visitor sees the first slide in the time it takes to fetch one document, its runtime
+		     and its fonts. The head seed decided whether the boot shows EXACTLY the baked deck
+		     (`__pgBoot.bake`), so the app's first render finds the document it would have written
+		     and adopts it (PlaygroundApp `adoptBake`).
+		     `data-pg-bake` holds the frame visible from the moment its own fit reveals the slides
+		     until the app goes live; it only ever moves loading → shown, and the app removes it
+		     the moment it takes over (or before it writes a document of its own). -->
+		<script is:inline>
+			(function () {
+				var root = document.documentElement;
+				var frame = document.getElementById('preview');
+				var url = window.__pgBoot && window.__pgBoot.bake;
+				if (!frame || !url) return;
+				root.setAttribute('data-pg-bake', 'loading');
+				// Explore above the tab breakpoint is the one-slide STAGE (PlaygroundApp `stage`, the
+				// same '(max-width: 820px)' split): marked before the frame loads, so its first fit
+				// already widens the gap the way the app's will.
+				if (!(window.matchMedia && matchMedia('(max-width: 820px)').matches)) frame.setAttribute('data-stage', '');
+				frame.src = url;
+				var start = Date.now();
+				var check = function () {
+					if (root.getAttribute('data-pg-bake') !== 'loading') return;
+					var shown = false;
+					try {
+						var win = frame.contentWindow;
+						var lat = frame.contentDocument && frame.contentDocument.querySelector('.lattice');
+						shown = !!(lat && win.getComputedStyle(lat).visibility === 'visible');
+						// …and land slide 1 where the app's walk will (PlaygroundApp `scrollWalk`, mirrored
+						// for the first slide only): centered when it nearly fills the pane, at the top
+						// otherwise. Done while the frame is still hidden, so the reader never sees it move.
+						var first = shown && lat.querySelector(':scope > section');
+						if (first) {
+							var fr = first.getBoundingClientRect();
+							var spare = Math.max(0, (win.innerHeight - fr.height) / 2);
+							if (spare <= 40) win.scrollTo(0, Math.max(0, win.scrollY + fr.top - spare));
+						}
+					} catch (e) {}
+					if (shown) root.setAttribute('data-pg-bake', 'shown');
+					else if (Date.now() - start < 15000) requestAnimationFrame(check);
+				};
+				requestAnimationFrame(check);
+			})();
+		</script>
 
 		<!-- Instant-shell pre-paint replay (kill the cold-load preview flash). Runs
 		     inline during body parse — BEFORE the island hydrates + the on-demand engine
