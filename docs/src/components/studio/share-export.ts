@@ -440,7 +440,8 @@ export async function shareHtmlPlayer(
 	// So its web images are placeholders on EVERY path, the bake's fallback (the static render)
 	// included, which used to ship the raw address and show a broken-image mark.
 	const { default: remoteRef } = (await import('../../../../lib/core/remote-ref.js')) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
-	const playerHtml = remoteRef.blockWebImages(out.html, []).html;
+	// `let`: the strip-notes cut below swaps in the scrubbed render, and the bake must bake THAT.
+	let playerHtml = remoteRef.blockWebImages(out.html, []).html;
 	let recordSections = sectionsOf(playerHtml);
 	let noteRecord = notesCore.slideNoteRecord(recordSections);
 	// `let`, because the guard below picks WHICH cut ships once it knows which one reproduces
@@ -477,12 +478,16 @@ export async function shareHtmlPlayer(
 			new Set(noteRecord.flatMap((r) => r.noteBodies || [])),
 			recordSections,
 			sectionsOf,
-			(src) => renderMarkdown(PG, src, theme, { styles: 'flat' }),
+			// Placeholders on the candidate too, so it compares like-for-like with `recordSections`.
+			(src) => renderMarkdown(PG, src, theme, { styles: 'flat' }).then((r) => ({ ...r, html: remoteRef.blockWebImages(r.html, []).html })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
 		if (cut.out && cut.sections) {
 			out = cut.out;
+			// The bake reads `playerHtml`, not `out.html`, so re-point it at the scrubbed render.
+			// Without this the bake shipped the AUTHORED render, note whitespace and all (#1985).
+			playerHtml = out.html;
 			recordSections = cut.sections;
 			noteRecord = notesCore.slideNoteRecord(cut.sections);
 		}

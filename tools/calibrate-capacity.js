@@ -32,6 +32,11 @@
  *              holds more or less than the bare component gets its own row.
  *   --insight  ends every probe slide with an `insight-so-what` callout (a one-line blockquote),
  *              the shape most real slides carry; the callout's height is what a bare row misses.
+ *   --panel    measures the CLAIM PANEL instead of the element count, for a component whose
+ *              binding box is a fixed-width panel (`split-panel`, its `proof` / `capstone`
+ *              registers): for a heading of each length in PANEL_HEADINGS, the most lede words the
+ *              panel holds, with an eyebrow and the component's usual points beside it. The row it
+ *              bounds is the manifest's `venueCapacity.panel` (a register's rows under `panel.variants`).
  *   node tools/calibrate-capacity.js --all [--family square]
  *
  *   node tools/calibrate-capacity.js <component>|--all --pane side|stack [--share N]
@@ -49,7 +54,7 @@
  */
 
 const {
-  SIZE_ALIAS, FAMILIES, BUILDERS, BODY_WRAP, NOT_COUNT_CALIBRATABLE, findManifest, gradedDeck, renderProbe,
+  SIZE_ALIAS, FAMILIES, BUILDERS, BODY_WRAP, NOT_COUNT_CALIBRATABLE, findManifest, gradedDeck, renderProbe, words, cap,
 } = require('./lib/calibrate-core.js');
 
 const argv = process.argv.slice(2);
@@ -111,6 +116,56 @@ if (!has('all') && !named) {
   die('Usage: node tools/calibrate-capacity.js <component> [--family square] [--all]');
 }
 const components = has('all') ? calibratable() : [named];
+
+// ── PANEL MODE ───────────────────────────────────────────────────────────────────
+// On `split-panel proof` the slide clips in its 31% claim panel, not its list: rendered at hall,
+// shortening the heading or the lede un-clips a real slide and shortening the points does not
+// (2026-09-25-font-scale-fit.md, Amendment (5)). So the row counts lede words per heading length.
+const PANEL_HEADINGS = [3, 6, 9, 12];
+// Plain English at the word length a real lede and heading run (about 5.4 characters a word with
+// its space; the shipped decks' ledes measure 5.1 and headings 5.6). The count rows' FILLER runs
+// 7.2, which made a word row here read 20–30% pessimistic: panel words are judged by the line
+// they wrap onto, so the letters per word decide the answer.
+const PANEL_PROSE = 'you recall syntax patterns and standards so the path is known and the job is to follow it without error while the team learns what a real answer should look like before anyone writes code'.split(' ');
+const prose = (n) => cap(Array.from({ length: n }, (_, i) => PANEL_PROSE[i % PANEL_PROSE.length]).join(' '));
+const PANEL_POINTS = {
+  // The real `proof` shape: a scenario signal and two proof cards, at the length the shipped decks write.
+  proof: `- You know you're here when\n  - ${cap(words(12))}.\n- ${cap(words(3))}\n  - ${cap(words(10))}.\n- ${cap(words(3))}\n  - ${cap(words(10))}.`,
+  default: Array.from({ length: 3 }, () => BUILDERS['split-panel'](10)).join('\n'),
+};
+PANEL_POINTS.capstone = PANEL_POINTS.proof;
+if (has('panel')) {
+  if (named !== 'split-panel') die('--panel measures split-panel only (its claim panel is the fixed box).');
+  const STEP = 4;
+  const ledes = Array.from({ length: Math.floor(parseInt(flag('max', '64'), 10) / STEP) + 1 }, (_, i) => i * STEP);
+  const combos = PANEL_HEADINGS.flatMap((h) => ledes.map((l) => ({ h, l })));
+  const points = PANEL_POINTS[VARIANT || 'default'] || PANEL_POINTS.default;
+  const deck = gradedDeck({
+    comp: [named, VARIANT].filter(Boolean).join(' '),
+    size: SIZE_ALIAS.wide,
+    scale: SCALE,
+    steps: combos,
+    slideFor: ({ h, l }) => ({
+      slide: `\`Calibration · eyebrow\`\n\n## ${prose(h)}.\n\n${l ? `${prose(l)}.\n\n` : ''}${points}`,
+    }),
+  });
+  const { overflowed } = renderProbe(deck, `${named}-panel${VARIANT ? `-${VARIANT}` : ''}${SCALE ? `-${SCALE}` : ''}`);
+  const row = {};
+  for (const h of PANEL_HEADINGS) {
+    let fit = null;
+    for (const l of ledes) {
+      if (overflowed.has(combos.findIndex((c) => c.h === h && c.l === l) + 1)) break;
+      fit = l;
+    }
+    row[h] = fit; // null: even a heading alone does not fit
+  }
+  if (JSON_OUT) console.log(JSON.stringify({ component: named, variant: VARIANT, scale: SCALE, ledeWordsByHeading: row }));
+  else {
+    console.log(`\n  ${[named, VARIANT].filter(Boolean).join(' ')} · claim panel · ${SCALE ? `scale-${SCALE}` : 'designed size'} · lede words held, by heading length (step ${STEP})`);
+    for (const h of PANEL_HEADINGS) console.log(`    ${String(h).padStart(2)}-word heading: ${row[h] == null ? 'clips with no lede' : `${row[h]}${row[h] === ledes[ledes.length - 1] ? '+ (raise --max)' : ''}`}`);
+  }
+  process.exit(0);
+}
 
 // No silent caps: an `--all` run that quietly omits four components reads as
 // "everything is covered". Say what was dropped and why, before the numbers.

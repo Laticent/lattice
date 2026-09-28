@@ -437,3 +437,72 @@ test('endsWithCallout tracks comments by state, including a second comment left 
   assert.equal(core.endsWithCallout('<!-- a --> <!-- b\n> inside a comment\n-->'), false);
   assert.equal(core.endsWithCallout('## H.\n\n<!-- note -->\n> The line.'), true);
 });
+
+describe('a claim panel is judged by its heading and lede (split-panel, Amendment (5))', () => {
+  const v = { names: new Set(['split-panel']), modifiers: new Set(['proof', 'capstone', 'metric']), capacity: {} };
+  const w = (n) => Array.from({ length: n }, (_, i) => `word${i}`).join(' ');
+  const points = '- You know you are here when\n  - The team ships.\n- Proof one\n  - It holds.\n- Proof two\n  - It lasts.\n';
+  const deck = (venue, cls, h, l) => `---\nmarp: true\nvenue: ${venue}\n---\n\n<!-- _class: ${cls} -->\n\n\`Step 1\`\n\n## ${w(h)}.\n\n*Why?* ${w(l - 1)}.\n\n${points}`;
+  const run = (...a) => core.lintTextWith(deck(...a), v).filter((f) => f.rule === 'capacity-scale');
+  const raw = (venue, cls, body) => core.lintTextWith(`---\nmarp: true\nvenue: ${venue}\n---\n\n<!-- _class: ${cls} -->\n\n${body}`, v).filter((f) => f.rule === 'capacity-scale');
+
+  test('a proof lede past the hall row warns and names the panel', () => {
+    // The proof row at hall holds 32 lede words under a 9-word heading.
+    assert.deepEqual(run('hall', 'split-panel proof', 9, 32), []);
+    const over = run('hall', 'split-panel proof', 9, 40);
+    assert.equal(over.length, 1);
+    assert.match(over[0].message, /'split-panel proof' panel holds about 32 lede words under a 9-word heading; this slide has 40/);
+    assert.match(over[0].fix, /Shorten the heading or the lede/);
+  });
+
+  test('the same slide fits a smaller room', () => {
+    assert.deepEqual(run('conference', 'split-panel proof', 9, 40), []);
+  });
+
+  test('capstone reads its own row, and the bare row is stricter', () => {
+    assert.deepEqual(run('hall', 'split-panel capstone', 9, 32), []);
+    assert.equal(run('hall', 'split-panel', 9, 32).length, 1);
+  });
+
+  test('a variant the bare row does not describe is not judged by it', () => {
+    assert.deepEqual(run('hall', 'split-panel metric', 9, 32), []);
+  });
+
+  test('a `#` inside a code fence is not the heading, and an image line is not the lede', () => {
+    const body = `\`\`\`sh\n# a comment\n\`\`\`\n\n## ${w(9)}.\n\n![A diagram](a.png)\n\n${w(40)}.\n\n${points}`;
+    assert.equal(raw('hall', 'split-panel proof', body).length, 1);
+  });
+
+  test('past the longest measured heading the row keeps falling, not flat', () => {
+    // 12 words hold 28 at hall and 9 hold 32, so a 15-word heading holds 24.
+    const [f] = run('hall', 'split-panel proof', 15, 26);
+    assert.match(f.message, /holds about 24 lede words under a 15-word heading/);
+  });
+
+  test('a row at the most the rig tried reads as a floor', () => {
+    const [f] = run('huddle', 'split-panel proof', 3, 90);
+    assert.match(f.message, /holds about 80\+ lede words/);
+  });
+
+  test('past the laptop row too, the fix offers no smaller room', () => {
+    const [f] = run('hall', 'split-panel', 12, 40);
+    assert.doesNotMatch(f.fix, /venue: laptop|for the whole deck/);
+    const [g] = run('hall', 'split-panel proof', 9, 40);
+    assert.match(g.fix, /for the whole deck/);
+  });
+
+  test('a panel over its row is reported beside an over-full list, not hidden by it', () => {
+    const long = Array.from({ length: 4 }, (_, i) => `- Point ${i}\n  - ${w(14)}.`).join('\n');
+    const found = raw('hall', 'split-panel', `## ${w(12)}.\n\n${w(40)}.\n\n${long}\n`);
+    assert.equal(found.length, 2);
+    assert.ok(found.some((f) => /panel holds/.test(f.message)) && found.some((f) => /items/.test(f.message)));
+  });
+});
+
+test('a row of 0 says the venue holds not one element, and never "keep 0"', () => {
+  const v = { names: new Set(['timeline-list']), modifiers: new Set(), capacity: {} };
+  const items = Array.from({ length: 2 }, (_, i) => `1. \`2025 Q${i + 1}\` Phase ${i}\n   - ${Array.from({ length: 16 }, (_, j) => `word${j}`).join(' ')}.`).join('\n');
+  const [f] = core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: timeline-list -->\n\n## H.\n\n${items}\n`, v).filter((x) => x.rule === 'capacity-scale');
+  assert.match(f.message, /holds not one item/);
+  assert.doesNotMatch(f.fix, /Keep 0/);
+});

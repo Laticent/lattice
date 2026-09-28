@@ -1181,9 +1181,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				setPane('preview');
 				document.body.setAttribute('data-pane', 'preview');
 			}
+			// A pick is `toPreview` intent, as in `applyDeck`: a preview the author collapsed in
+			// Edit would otherwise defer the walk's render, and Explore would show the previous
+			// deck under the new component's name. A no-op when the preview is already open; when
+			// it was collapsed, the expand's `onExpand` runs the one deferred render.
+			split.expand('b');
 			void startWalkRef.current(name, null);
 		},
-		[catalog],
+		[catalog, split.expand],
 	);
 
 	const onLoadGallery = React.useCallback(
@@ -1213,10 +1218,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			document.body.setAttribute('data-view', 'read');
 			setPane('preview');
 			document.body.setAttribute('data-pane', 'preview');
+			split.expand('b'); // the same `toPreview` intent as a component pick
 			freshRender();
 			requestAnimationFrame(() => frameRef.current?.contentWindow?.__latticeFit?.());
 		},
-		[gallerySources, setStatusLine, freshRender],
+		[gallerySources, setStatusLine, freshRender, split.expand],
 	);
 
 	// Reset reads the DRAFT's component at click time; when the draft holds none

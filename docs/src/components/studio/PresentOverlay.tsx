@@ -482,6 +482,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// there is one implementation of each, not a second hand-rolled copy — the cost
 	// that ruled out putting the browser itself on the projector.
 	const [stageHost, setStageHost] = React.useState<{ win: Window; cc: HTMLElement | null; rail: HTMLElement | null } | null>(null);
+	// A STAGE IS OPEN, which is not the same as "its host nodes are live". A rewrite (a lens,
+	// a site palette, a mode) drops `stageHost` to null until the new document says `ready`, so
+	// the portals let go of detached nodes; the presenter view, its talk clock and the Stage pill
+	// describe the open window and hold through it. Keyed on `stageHost` alone they blinked off
+	// for a frame on every palette change, and the talk clock re-zeroed (stage-window.spec :372).
+	const [stageRewriting, setStageRewriting] = React.useState(false);
+	const stageOn = !!stageHost || stageRewriting;
 	// ── PRESENT IS PRESENT UNTIL THERE IS A ROOM ───────────────────────────────────
 	//
 	// Present opens as Present: the slide, the transport, the lens, the grid. It becomes a
@@ -498,11 +505,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	//
 	// Width still gates the panel INSIDE that: a Stage opened from a narrow window still has
 	// no room for a side column, and the notes pill carries them there instead.
-	const presenterView = !!stageHost && wideRoom;
+	const presenterView = stageOn && wideRoom;
 	// The narrow half of the same rule: a Stage is open, but this console has no room for a
 	// side column, so the notes ride behind a pill instead. With NO Stage there is no notes
 	// affordance at all — that is what "Present stays Present" means.
-	const notesPill = !!stageHost && !wideRoom;
+	const notesPill = stageOn && !wideRoom;
 	/** Bumped when the SITE palette or mode changes, to force a Stage rebuild — see the
 	 *  subscription effect below for why the deck-theme props cannot carry that signal. */
 	const [chromeGen, setChromeGen] = React.useState(0);
@@ -535,7 +542,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// window handle is the same object. Setting the handle alone would let React
 			// bail out on `Object.is` and leave both portals rendering into two detached
 			// nodes in a document nobody is looking at any more.
-			onChange: (win: Window | null) =>
+			onChange: (win: Window | null, rewriting?: boolean) => {
+				setStageRewriting(!win && !!rewriting);
 				setStageHost(() => {
 					if (!win) return null;
 					try {
@@ -543,7 +551,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 					} catch {
 						return null; // not ours any more — the controller's poll will confirm it
 					}
-				}),
+				});
+			},
 			// THE ROOM WENT DARK AND NOBODY MEANT IT — said out loud (§4). Everything else
 			// about a lost Stage is already visible (the pill goes off, the captions and the
 			// rail come back to the dock), but none of it says whether the ROOM still has the
@@ -1516,19 +1525,20 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// appears with the Stage — so its zero point has to be the Stage too. Keyed on `open`
 	// alone it counted from Present-open, and a presenter who spent five minutes picking a
 	// lens before projecting saw "Talk time 5:00" the instant the room first saw a slide
-	// (measured). Only the null -> host transition re-zeros: a rewrite (lens, palette, mode)
+	// (measured). Only the closed -> open transition re-zeros. A rewrite (lens, palette, mode)
 	// briefly drops `stageHost` to null and restores it, and that must NOT reset a talk in
-	// progress, so the previous value is what decides.
+	// progress, so this keys on `stageOn`, which holds through a rewrite (keyed on `stageHost`
+	// it DID reset: the null it saw made the restore look like a fresh Stage).
 	const hadStageRef = React.useRef(false);
 	React.useEffect(() => {
-		const has = !!stageHost;
+		const has = stageOn;
 		if (has && !hadStageRef.current) {
 			talkStartRef.current = Date.now();
 			setResetArmed(false);
 			paintClock();
 		}
 		hadStageRef.current = has;
-	}, [stageHost, paintClock]);
+	}, [stageOn, paintClock]);
 	const resetTalkClock = React.useCallback(() => {
 		if (resetArmed) {
 			talkStartRef.current = Date.now();
@@ -2044,7 +2054,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				    (2026-08-24-stage-console-split.md §5). This opens the AUDIENCE's window.
 				    Still a ≥ md affordance — a phone has no second display to stage onto — and
 				    still the same pill as the rest of the staging cluster. */}
-				<Tip label={stageHost ? 'Close the Stage (S) — the deck window on your second screen' : 'Stage (S) — send the deck to your second screen, chrome-free'}><button type="button" onClick={() => openStage()} aria-pressed={!!stageHost} aria-label="Stage" className={cn('hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px] md:inline-flex', stageHost ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Monitor className="size-4" />{/* The label is STABLE — `aria-pressed` carries the on/off state. A label that
+				<Tip label={stageOn ? 'Close the Stage (S) — the deck window on your second screen' : 'Stage (S) — send the deck to your second screen, chrome-free'}><button type="button" onClick={() => openStage()} aria-pressed={stageOn} aria-label="Stage" className={cn('hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px] md:inline-flex', stageOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Monitor className="size-4" />{/* The label is STABLE — `aria-pressed` carries the on/off state. A label that
 						    changes with state reads to a screen reader as the control itself becoming a
 						    different control, and it is jarring mid-delivery. One rule, applied to every
 						    toggle on this bar. */}
@@ -2248,7 +2258,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						    would be the lie, since the second press does something the first did not. */}
 						{/* The clock is PRESENTER-VIEW furniture, so it arrives with the Stage and
 						    leaves with it. In plain Present there is no talk to time yet. */}
-						{!rehearse && !!stageHost && (
+						{!rehearse && stageOn && (
 							<>
 								<span className="hidden shrink-0 whitespace-nowrap font-mono text-[12px] tabular-nums text-muted-foreground sm:inline"><span className="sr-only">Talk time </span><span ref={clockRef}>0:00</span></span>
 								<Tip label={resetArmed ? 'Press again to reset the talk clock' : 'Reset the talk clock'}><button type="button" onClick={resetTalkClock} aria-label={resetArmed ? 'Confirm reset of the talk clock' : 'Reset the talk clock'} className={cn('hidden shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold sm:inline-flex', resetArmed ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><RotateCcw className="size-3.5" />{resetArmed ? 'Confirm' : 'Reset'}</button></Tip>

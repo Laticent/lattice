@@ -24,3 +24,13 @@ test('prose that names the OVERFLOW line is not read as it', () => {
 test('a deck that fits reports nothing', () => {
   assert.deepEqual(parseProbeLog('  ✓ rendered 8 pages'), { clipped: [] });
 });
+
+test('a --scale rung is measured at its VENUE, lift included, not at a bare scale-* class', () => {
+  const { gradedDeck } = require('../../../tools/lib/calibrate-core.js');
+  const deck = (scale) => gradedDeck({ comp: 'list', size: '16:9', scale, steps: [1], slideFor: () => ({ label: 'x', body: '- a' }) });
+  assert.match(deck('l'), /^---\nsize: 16:9\nvenue: huddle\n---/);
+  assert.match(deck('xl'), /\nvenue: conference\n/);
+  assert.match(deck('2xl'), /\nvenue: hall\n/);
+  assert.doesNotMatch(deck('2xl'), /scale-2xl/);
+  assert.doesNotMatch(deck(null), /venue:/);
+});

@@ -62,13 +62,28 @@ test('an imported theme cannot break out of the preview `<style>` (#1458, #1718)
 		hits.push(route.request().url());
 		return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
 	});
+	// Force the INLINE sheet delivery. Since #2185 the theme CSS normally reaches the frame as a
+	// shared blob `<link id="lattice-sheet">` (`sharedSheetHref`, single-slide-render.ts), which
+	// cannot be broken out of — RAWTEXT is a property of the `<style>` element. The inline
+	// `<style>` fallback, taken when `URL.createObjectURL` fails, is the only delivery where the
+	// guard matters, and with the link in play no `<style>` carried the CSS, so the arms below
+	// had nothing to inspect. Refusing CSS blobs sends the sheet down that fallback.
+	await page.addInitScript(() => {
+		const create = URL.createObjectURL.bind(URL);
+		URL.createObjectURL = (obj: Blob | MediaSource) => {
+			if (obj instanceof Blob && obj.type === 'text/css') throw new Error('e2e: force the inline sheet');
+			return create(obj);
+		};
+	});
 
 	await gotoStudio(page);
 
 	// Import through the REAL Library door — the attacker-supplied file, ingested by the
 	// code path a visitor actually uses.
 	await page.getByRole('button', { name: CHROME.library }).click();
-	await page.locator('input[type="file"]').first().setInputFiles({
+	// The Library's OWN input. The panel loads on first open (#2402), so a bare `.first()`
+	// resolved to the Studio's always-mounted deck opener before the Library had landed.
+	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({
 		name: `${THEME_NAME}.lattice-theme.zip`,
 		mimeType: 'application/zip',
 		buffer: await hostileThemeZip(),
@@ -211,15 +226,16 @@ test('an imported theme whose CSS reaches off the device is refused, and a clean
 
 	await gotoStudio(page);
 	await page.getByRole('button', { name: CHROME.library }).click();
-	await page.locator('input[type="file"]').first().setInputFiles({
+	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({
 		name: 'mixed.lattice-assets.zip',
 		mimeType: 'application/zip',
 		buffer: await mixedBundleZip(),
 	});
 
 	// Refused, and the author is told WHY rather than left with a silent no-op — the
-	// gate's message names the construct, not just "invalid".
-	await expect(page.getByText(/Refused Beaconing/)).toBeVisible({ timeout: 20_000 });
+	// gate's message names the construct, not just "invalid". One pill since #2202, the
+	// refusals listed under a count (`refusedDetail`, Library.tsx): "Refused 1:\nBeaconing — …".
+	await expect(page.getByText(/Refused 1:\s*Beaconing — /)).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByText(/fetches a remote resource/)).toBeVisible();
 
 	// PER ITEM: the clean theme in the same bundle still imported. The whole import

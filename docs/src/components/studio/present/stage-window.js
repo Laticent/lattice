@@ -535,10 +535,13 @@ function stageToken() {
  *     still in flight (the window opens on the gesture and fills in after).
  *   • getIndex() → the slide the console is on, posted the moment the Stage says
  *     it is ready.
- *   • onChange(win) → the live Stage window, or null. The console holds this in
+ *   • onChange(win, rewriting) → the live Stage window, or null. The console holds this in
  *     state: it is the portal host for the audience chrome and the root the
  *     Guide's cursor is mounted into, so "the Stage went away" has to be a
- *     rendered state, not a flag.
+ *     rendered state, not a flag. `rewriting` is true on the null a REWRITE sends
+ *     (the host nodes are gone until the new document says `ready`, and the Stage
+ *     is still open): the console lets go of its portals, and keeps the presenter
+ *     view, its talk clock and the Stage pill, which a real close takes down.
  *   • onNav(action) → a gesture made ON the Stage — 'next' | 'prev' | 'first' |
  *     'last'. DEFAULTED, and that default is load-bearing rather than cosmetic:
  *     these parameters carry no JSDoc types, so TypeScript infers the option bag
@@ -719,7 +722,7 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		// new document announces itself there is no live host — so without this the
 		// caption crawl and the rail render into limbo while the dock still refuses to
 		// show them, and they are on NEITHER surface for the length of an engine boot.
-		if (written) onChange?.(null);
+		if (written) onChange?.(null, true);
 		ready = false;
 		try {
 			stageWin.document.open();
@@ -731,6 +734,9 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			written = doc;
 		} catch {
 			written = '';
+			// Not a rewrite in flight any more: nothing will say `ready`, so the console must
+			// not keep the presenter view up for a Stage that is not showing the deck.
+			onChange?.(null);
 		}
 	}
 	/** Post the current slide index. No-op until the Stage's fit says it is listening. */

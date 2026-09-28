@@ -39,7 +39,7 @@ import { expect, test } from './studio-fixture';
  * exists on the touch projects). The rest are functional oracles and run on `desktop`.
  */
 
-/** A component with a long, stable plan — 13 slides, so a walk has somewhere to go. */
+/** A component with a long, stable plan — 15 slides, so a walk has somewhere to go. */
 const DECK = 'kpi';
 
 /** Open Explore on `DECK` and wait for the deck to be on screen and settled. */
@@ -222,7 +222,7 @@ const prevSlide = (page: Page) => page.locator('.pg-walk-step').first();
 
 test('a wheel scroll moves the walk position with it', async ({ page }) => {
 	await gotoExplore(page);
-	expect(await claimed(page)).toEqual({ index: 1, count: 13 });
+	expect(await claimed(page)).toEqual({ index: 1, count: 15 });
 	await wheelOverPreview(page, 3600);
 	const on = await dominantSlide(page);
 	expect(on).toBeGreaterThan(3); // the wheel really did travel
@@ -329,9 +329,9 @@ test('@parity PageDown / PageUp / Home / End come from the shared keymap', async
 	expect((await claimed(page)).index).toBe(2);
 	await page.keyboard.press('End');
 	await settle(page);
-	expect((await claimed(page)).index).toBe(13);
-	// NOT `dominantSlide === 13`. At 390 and 820 this deck lays out three slides to a pane
-	// and the filmstrip clamps before the last one reaches the top, so slides 11, 12 and 13
+	expect((await claimed(page)).index).toBe(15);
+	// NOT `dominantSlide === 15`. At 390 and 820 this deck lays out three slides to a pane
+	// and the filmstrip clamps before the last one reaches the top, so slides 13, 14 and 15
 	// are all fully on screen and the "dominant" one is the lowest of them. End put the
 	// reader at the end of the deck; the invariant is that the deck's end is what they see.
 	await expectPositionIsTruthful(page, 'End');
@@ -376,7 +376,7 @@ test('clicking the tab you are already on does not destroy the deck', async ({ p
 	await page.keyboard.press('ArrowRight');
 	await settle(page);
 	const before = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0);
-	expect(before).toBe(13);
+	expect(before).toBe(15);
 	await page.getByRole('tab', { name: 'Explore' }).click();
 	await settle(page);
 	expect(
@@ -581,7 +581,10 @@ test('a search shows its top hit, not wherever the previous list was scrolled to
 	await expect(page.locator('[cmdk-list]')).toBeVisible();
 	await page.locator('[cmdk-input]').fill('chart');
 	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69);
-	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(/piechart/);
+	// The TOP hit, whichever component ranks first for the query (a new chart component
+	// changes which one that is), rather than a named one.
+	await expect(page.locator('[cmdk-item]').first()).toHaveAttribute('data-selected', 'true');
+	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(/chart/);
 	const seen = await page.evaluate(() => {
 		const list = document.querySelector('[cmdk-list]');
 		const sel = document.querySelector('[cmdk-item][data-selected="true"]');
