@@ -2336,16 +2336,31 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const wrap = frameRef.current?.parentElement;
 		if (!wrap || typeof ResizeObserver === 'undefined') return;
 		let t: ReturnType<typeof setTimeout> | null = null;
+		// When this burst of resizing began. A reader who moves the deck after it has chosen a
+		// position in the NEW geometry, and the re-land must not take it back.
+		let resizeAt = 0;
 		const ro = new ResizeObserver(() => {
 			// Claimed SYNCHRONOUSLY, before the debounce: the frame's own rescale lands inside
 			// that window, and `onDeckGeometry` must already know a re-land is coming.
 			landScheduledRef.current = true;
+			if (!t) resizeAt = Date.now();
 			if (t) clearTimeout(t);
 			t = setTimeout(() => {
 				t = null;
 				landScheduledRef.current = false;
 				if (viewRef.current !== 'read' || previewCollapsedRef.current) return;
-				frameRef.current?.contentWindow?.__latticeFit?.();
+				const frame = frameRef.current;
+				frame?.contentWindow?.__latticeFit?.();
+				// THE READER OUTRANKS THE RE-LAND. A wheel inside the debounce window used to be
+				// undone: resize, scroll to slide 4, and 120ms later the deck jumped back to the
+				// slide the index still named (the stress spec "a wheel during the post-render
+				// landing is obeyed" failed 4 of 4 on main). Adopt their position instead: take
+				// the new geometry as the one the index is read against, and read it.
+				if (frame && driveAtRef.current >= resizeAt) {
+					bandSigRef.current = bandSig(frameBands(frame, walkRef.current?.kind === 'plan'));
+					reconcileRef.current();
+					return;
+				}
 				landWalkRef.current();
 			}, SCROLL_IDLE_MS);
 		});
