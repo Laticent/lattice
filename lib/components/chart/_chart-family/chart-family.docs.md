@@ -44,6 +44,7 @@ Every chart component renders into the same outer DOM shape:
     <p class="chart-subtitle"><code>…</code></p>
   </div>
   <p class="chart-lead">…</p>          <!-- every later paragraph before the figure -->
+  <div class="chart-lead-block">…</div> <!-- any other block there, kept whole -->
   <div class="chart-body">
     <!-- layout-specific markup goes here -->
   </div>
@@ -65,9 +66,22 @@ of it). The wrap used to keep the first alone and drop the rest without a word,
 on a chart slide and in a chart pane alike. At `claim-hero` / `claim-bleed` the
 leads hide with the eyebrow and subtitle, because the chart fills the slide. On a
 split chart (a portrait `kanban`, `roadmap` or `journey` run) the leads ride the
-cover, not every page. Only top-level paragraphs count: a code block, a
-blockquote or raw HTML between the heading and the figure is still not kept.
-Demo: `examples/chart-lead-paragraphs.md`.
+cover, not every page. Demo: `examples/chart-lead-paragraphs.md`.
+
+Every OTHER block there renders too — a code block, a blockquote, a table, raw
+HTML — whole and in the order written, each in a `div.chart-lead-block` above
+the figure. The wrap used to keep paragraphs only and drop these without a word.
+They hide at `claim-hero` / `claim-bleed` with the leads. On a split chart a
+block rides the first body page, not the cover (a cover's lede is text) and not
+every page. The Read · Article view carries each block ahead of the figure, on
+every chart. A block takes stage height from the figure, so a chart under a code
+block draws smaller. Demo: `examples/chart-lead-blocks.md`.
+
+Two limits. A chart whose DATA is a table (`heatmap`, `matrix-grid`, `roadmap`)
+reads the first table on the slide as its data, so a table written before the
+figure becomes the chart, not a lead. And the wrap finds blocks by tag depth, so
+unbalanced raw HTML (an unclosed `<div>`) swallows what follows it, as it always
+did; a self-closed `<div/>` or `<p/>` is skipped.
 
 The caption is one paragraph. `.chart-caption` is a block, so inline code,
 bold and plain text in it wrap as one sentence; its short hairline is a

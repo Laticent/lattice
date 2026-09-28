@@ -1446,12 +1446,13 @@ section.form.word-cloud:not(.claim-hero):not(.claim-bleed) .wc-svg {
 
 
 /* At hero/bleed the chart title lifts into the masthead Cell; the eyebrow, subtitle and leads
- * would then float in the band competing with the full-bleed chart, so hide them on
+ * (paragraphs and lead blocks alike) would then float in the band competing with the full-bleed chart, so hide them on
  * EVERY chart type at hero/bleed. (.viz-frame: the old `.chart-header::after` divider is
  * gone — the header hoisted, so there is no orphaned rule left to hide.) */
 section.chart-frame:is(.claim-hero, .claim-bleed) .chart-eyebrow,
 section.chart-frame:is(.claim-hero, .claim-bleed) .chart-subtitle,
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-lead {
+section.chart-frame:is(.claim-hero, .claim-bleed) .chart-lead,
+section.chart-frame:is(.claim-hero, .claim-bleed) .chart-lead-block {
   display: none;
 }
 

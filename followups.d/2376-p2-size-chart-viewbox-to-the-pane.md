@@ -29,9 +29,14 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               (`fitKeyToPane` `labelText` + `ceiling`). examples/panes-radar.md.
             - The HTML-drawn charts reflow in the pane box but were not audited at 25%.
             - CLOSED (panes-radar PR): the chart wrap keeps every lead paragraph (`.chart-lead`),
-              on a slide and in a pane. examples/chart-lead-paragraphs.md. Still dropped without
-              a word: any OTHER block between the heading and the figure (a code block, a
-              blockquote, a table, raw HTML) — the wrap keeps top-level paragraphs only.
+              on a slide and in a pane. examples/chart-lead-paragraphs.md.
+            - CLOSED (panes-probe-calibration PR): every OTHER block between the heading and the
+              figure (a code block, a blockquote, a table, raw HTML) renders too, whole, in a
+              `div.chart-lead-block`, and the Read · Article view carries it. A census of 309
+              decks found none, and all 309 render byte-identical HTML.
+              examples/chart-lead-blocks.md. Not closed, and pre-existing: unbalanced raw HTML
+              (an unclosed `<div>`, `<script>` holding a `<`) before the figure still swallows
+              what follows it, and a table before a table-data chart is read as its data.
             - CLOSED (panes-probe-calibration PR): the calibration measures the HTML-drawn and
               grouped charts too (builders for gantt, journey, matrix-grid, progress, quadrant,
               state-chart, word-cloud; kanban and roadmap had one), and all nine turned
@@ -52,7 +57,7 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               word-cloud), which this pass did not measure.
             - CLOSED (panes-probe-calibration PR): the type-floor probe sizes `<foreignObject>`
               labels (font-size x rect height / offsetHeight, over K). Export TYPE FLOOR lines
-              after it: mermaid-sketch-labels pages 4 (6.4px) and 5 (5.5px), diagram-narration
+              after it: mermaid-sketch-labels pages 4 (6.6px) and 5 (5.5px), diagram-narration
               page 5 (7px), typed-diagram-narration page 4 (6.9px), newly tagged; panes-mermaid
               stays quiet. Default (`reader`) exports are byte-identical, since the tab is
               author-only. The four decks are left as they are for the owner to fix or accept.

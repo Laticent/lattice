@@ -1934,3 +1934,24 @@ for (const [name, md] of [
 		assert.ok(fig < 0 || articleHtml.indexOf('Second line.') < fig, articleHtml);
 	});
 }
+
+// A chart's lead BLOCKS (`.chart-lead-block`: a code block, a blockquote) reach the article too,
+// once and before the figure, on every branch — the flow and placeholder branches re-host the
+// figure alone, so they used to drop the block the slide showed (the checker's reproduction).
+for (const [name, cls, data] of [
+	['bar (media)', 'bar', '- Licenses `42`\n- Services `47`\n'],
+	['progress (flow)', 'progress', '- Intake `92%` `on-track`\n- Scoring `68%` `at-risk`\n'],
+	['kanban (flow)', 'kanban', '- Backlog\n  - Waiting cards `S`\n- Review\n  - Almost done `S`\n'],
+	['journey (placeholder)', 'journey', '- Evaluate\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n'],
+]) {
+	test(`chart lead block: ${name} projects its code block and quote once, before the figure`, async () => {
+		const md = `<!-- _class: ${cls} -->\n\n## Head\n\nFirst line.\n\n\`\`\`js\nCODELB = 1\n\`\`\`\n\n> QUOTELB here.\n\n${data}`;
+		const { articleHtml } = project(await renderedSections(md));
+		for (const t of ['CODELB', 'QUOTELB']) {
+			assert.equal(articleHtml.split(t).length - 1, 1, `${t}: ${articleHtml}`);
+			const fig = articleHtml.indexOf('<figure');
+			assert.ok(fig < 0 || articleHtml.indexOf(t) < fig, articleHtml);
+		}
+		assert.match(articleHtml, /<pre[^>]*tabindex="0"/, 'the code block stays a focusable <pre>');
+	});
+}
