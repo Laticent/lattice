@@ -31,6 +31,7 @@ const { splitSections } = require('../../../lib/core/split-sections.js');
 const { enterSlideIds, renderIdPrefix } = require('../../../lib/core/render-ids.js');
 const { LAYOUTS } = require('../../../lib/components/chart/_chart-family/chart-registry.generated.js');
 const engine = require('../../../lib/engine');
+const { slideFacts } = require('../../../lib/packages/slide-facts.mjs');
 const { openSanitizerPage } = require('../../../lib/packages/code-door-worker.js');
 const { doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 
@@ -173,10 +174,12 @@ describe('code packages: every shipped transform runs in the locked page and mat
   });
 
   test('the transform is handed measure() and nothing else, in a worker with no document, and measure() works', async () => {
-    const probe = 'function t(s,k){return JSON.stringify([Object.keys(s),Object.keys(k),k.measure("Lattice","16px serif")>0,Object.isFrozen(k),typeof document,typeof location.assign])}export{t as default};';
+    const probe = 'function t(s,k){return JSON.stringify([Object.keys(s),Object.keys(k),k.measure("Lattice","16px serif")>0,Object.isFrozen(k),typeof document,typeof location.assign,Object.isFrozen(s.facts.blocks[0]),s.facts.title])}export{t as default};';
     const sandbox = await openPackageSandbox(browser, probe);
     try {
-      assert.equal(await runPackage(sandbox, { html: '<section></section>', index: 0 }), JSON.stringify([['html', 'index', 'idPrefix', 'baseUrl'], ['measure'], true, true, 'undefined', 'undefined']));
+      // `facts` (slide-facts.mjs) arrives frozen all the way down.
+      const facts = slideFacts('<section><h2>Hi</h2></section>');
+      assert.equal(await runPackage(sandbox, { html: '<section></section>', facts, index: 0 }), JSON.stringify([['html', 'facts', 'index', 'idPrefix', 'baseUrl'], ['measure'], true, true, 'undefined', 'undefined', true, 'Hi']));
     } finally {
       await sandbox.close();
     }

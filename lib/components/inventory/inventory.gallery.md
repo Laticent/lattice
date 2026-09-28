@@ -187,7 +187,7 @@ Inventory — parallel sets of related items.
 - And the answer?
   - Four words or so.
 - How many pairs fit?
-  - Five; six is the ceiling.
+  - Four; five with compact.
 - What if answers run long?
   - Use solo, one per slide.
 

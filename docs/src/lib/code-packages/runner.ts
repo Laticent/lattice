@@ -18,7 +18,8 @@
 
 import { FRAME_BOOTSTRAP, inlineScript, MAX_OUTPUT_CHARS, sandboxCsp, workerScript } from '../../../../lib/packages/code-door-core.mjs';
 
-export type CodeSlide = { html: string; index: number; idPrefix?: string; baseUrl?: string };
+// `facts` is the slide's plain content (lib/packages/slide-facts.mjs), read by the door, never by the package.
+export type CodeSlide = { html: string; facts?: unknown; index: number; idPrefix?: string; baseUrl?: string };
 export type PackageFrame = { run: (slide: CodeSlide, ms: number) => Promise<string>; close: () => void; readonly closed: boolean };
 
 let frameDocLoad: Promise<string> | null = null;
@@ -133,7 +134,7 @@ export async function openPackageFrame(code: string, { loadMs = 5000 }: { loadMs
 					close();
 				}, ms + 1000);
 				waiting.set(id, { resolve, reject, timer });
-				frame.contentWindow?.postMessage({ t: 'run', id, slide: { html: String(slide.html), index: slide.index, idPrefix: slide.idPrefix ?? '', baseUrl: slide.baseUrl ?? '' }, ms }, '*');
+				frame.contentWindow?.postMessage({ t: 'run', id, slide: { html: String(slide.html), facts: slide.facts ?? null, index: slide.index, idPrefix: slide.idPrefix ?? '', baseUrl: slide.baseUrl ?? '' }, ms }, '*');
 			}).catch((e: Error) => {
 				// A run past its time ends the worker, so this frame is spent; the caller opens another.
 				if (/did not finish within|was stopped|not loaded/.test(e.message)) close();

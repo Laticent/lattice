@@ -230,7 +230,7 @@ it by the SHA-256 of its text. A chart's adapter reaches all 22 chart kernels th
 generated dispatch table, so the export swaps that table for one naming only the chart being
 exported; the test checks each chart package carries its own kernel and no other.
 
-**The slide a transform receives is `{ html, index, idPrefix, baseUrl }`** for v1: the rendered
+**The slide a transform receives is `{ html, index, idPrefix, baseUrl }`** for v1 (§11 adds `facts`, the stable input): the rendered
 `<section>`, the slide's 0-based position in the deck, the deck render's id prefix, and the
 render's asset base. Position and prefix exist because a chart scopes the ids it mints in its
 `<defs>` by the slide's position (lib/core/render-ids.js); without them a slide transformed alone
@@ -347,7 +347,8 @@ by `createSlideSanitizer`'s new `filterAttr` in the same pass):
   `lattice-*` class. The inversion lens forged a speaker note (`aside.lattice-notes`) that
   `--strip-notes` then shipped.
 - The section's own tag stays the engine's (its id, slide attributes, style); the package gives the
-  class list, which must keep every class it was handed, and the body.
+  class list, which keeps every class it was handed (the door puts back any it leaves off, §11), and
+  the body.
 - The sanitizer runs in a page of our own in the same sandbox browser (Node has no DOM here; jsdom
   is a development dependency), in a context no package code runs in, and it is timed like a slide.
 - The author's comments (speaker notes) and the deck's `<style>` blocks, which ride in the first
@@ -417,10 +418,10 @@ numbers out of our `<ul><li>` breaks the day that markup changes. So:
 1. **Now:** the input stays `{ html, index, idPrefix, baseUrl }`, and it is **provisional**. A tweak
    package works today; the markup it receives may still change, and a package that depends on
    its exact shape does so at its own risk.
-2. **Next** (`followups.d/2411-p1-code-package-plain-data-input.md`): add the slide's plain facts
+2. **Next** (the follow-up `2411-p1`, closed by §11): add the slide's plain facts
    (its text, list items, directives and token names) beside the HTML. The facts become the stable
    promise; the HTML stays for tweaks. Adding a field breaks no package, so step 1 closes nothing.
-   Settle it before code packages are documented publicly.
+   Settle it before code packages are documented publicly. **Done, §11.**
 
 ## 10. Step 4: the Studio's door, and a worker in both doors (2026-09-27)
 
@@ -536,3 +537,92 @@ tagged too (`@gecko`, `@webkit-tablet`); their result is the nightly's, below th
 so a code package's slides show as its CSS draws the authored content (`lib/core/marp-fidelity.js`
 records the gap). The HTML player export is assembled from the already-rendered document
 (`lib/export/player-core.mjs` takes `docHtml`), so a package's drawing is baked into it.
+
+## 11. Step 2 of the input: the slide's plain facts (2026-09-27)
+
+§9's second step, done. A package's `slide` is now `{ html, facts, index, idPrefix, baseUrl }`.
+**`facts` is the stable promise; `html` is the tweak surface**, whose markup may still change.
+
+**What `facts` is** (`lib/packages/slide-facts.mjs`; its module note is the full reference):
+
+| Field | What it holds |
+|---|---|
+| `version` | `1`; moves only when a field changes meaning or goes away, never for a new field |
+| `classes` | the slide's `class` directive, split (its own, or the deck's where it sets none); never a class the engine adds |
+| `directives` | every per-slide directive the engine applied (`APPLIED_DIRECTIVES`), camelCase, the value as written |
+| `title` | the first h1 or h2's text, or `''` |
+| `blocks` | reading order: `heading`, `paragraph`, `list`, `table` (`caption`, `head`, `rows`), `code` (exact), `quote`, `image` |
+| `text` | every block's text, one block per line |
+| `tokens` | the palette token names every theme defines (`derive.js` `requiredTokenList()`, 118 today), with `--` |
+
+Headings, paragraphs and list items carry `text` and `runs`: the text cut where its marks change,
+each run `{ text, code?, pill?, strong?, em?, del?, mark?, math?, href? }`. A list item also carries
+`paragraphs` (each paragraph of a loose item) and its nested `items`. Text is plain: inline markup
+gone, entities decoded, white space collapsed, math as its TeX. Runs keep what that loses, which is
+what Lattice's own grammar uses to carry meaning: `` `12` `` is a value (our charts read a code span
+as a number, `lib/core/chart-values.js`), `` `{DONE}` `` a state (the engine's pill), `**Owner:**` a
+label, and a link keeps its address. The running `<header>` and `<footer>` the engine writes into
+every section are chrome, not content: their text is in `directives`, not in `blocks`.
+
+**Where it is read: on the host, from the section the package is handed.** `code-door-core.mjs`
+`slideInput` builds what both doors send: the CLI on the host before the job goes to the worker
+process, the Studio on the main thread before the frame gets the slide. Neither is a realm a package
+runs in. The worker freezes the facts all the way down, with `Object.freeze` and `Object.keys` taken
+before the bundle runs. The facts are read from `html`, so they carry nothing the package was not
+already handed, the address rule (`doorFilterAttr`) needs no change, and neither does a claim's cache
+key (`claimKey`). In the CLI the slide crosses into the locked page as JSON text, because the
+DevTools protocol's object transfer hung on facts nested 150 deep.
+
+**Why read them from the rendered section, not from the markdown.** The door's slot sits in the
+engine's HTML registry (§9), where the markdown is long gone, and a pane renders there as a
+one-slide deck of its own. The HTML at the slot still holds every distinction a package needs (the
+`<code>`, the pill's `span.lat-pill`, the `href`); only flattening would lose them, and `runs` keeps
+them. The promise holds because the DOOR owns the mapping: when our markup changes,
+`slide-facts.mjs` changes with it. The first test in `test/unit/cli/slide-facts.test.js` renders one
+slide of every kind through the real engine and pins the whole facts object, so an engine change
+that moves the facts fails there and becomes a decision, not a side effect.
+
+**Why a string scanner, not a DOM.** The CLI reads facts in Node, where the engine renders and jsdom
+is only a development dependency, and the Studio reads them in the browser. One pure module serves
+both (HARD RULE #1). The same test file pins its text against jsdom's on every slide of three
+galleries (`gallery.md`, `data-viz-gallery.md`, `gallery-jargon.md`), and checks that every node's
+runs join to its text. That sweep found the table caption the first cut dropped. The checker ran it
+over every `examples/*.md` as well: 2,149 slides, no difference.
+
+**It reads an author's HTML on the host, so it is bounded.** The red team crashed the CLI render
+with 22 KB of nested `<div>` (the reader recursed), and stretched a 3 s render to 24 s and 51 s with
+120 KB of stray `<` and of raw-text elements (three scans re-read what they had read). Now nesting
+past 128 flattens into its parent, a `<` that cannot open a tag is text at once, a raw element's end
+is found from where it starts, and adjacent text joins; each of those inputs reads in under 130 ms,
+pinned under a second in the test. A slide whose facts still fail to read gets its note in the CLI,
+never ends the render. A character whose lowercase is longer (`İ`) no longer shifts what a raw
+element hides.
+
+**The token list is a promise, and it is tested as one.** The same test reads every shipped theme,
+following a dark or a11y variant's `@import` to its base, and checks each defines all 118 names.
+
+**What the conformance package changed.** A package written against `facts` alone (`dateline`,
+in `code-package-door.test.js` and `docs/e2e/code-packages.spec.ts`) builds its section fresh, so it
+cannot repeat the classes the engine added: they are markup, not facts. The door refused every such
+slide ("dropped the slide's own classes content form"). `doorFinish` now puts the handed classes
+back, which yields exactly the section a package that kept them yields, so no new state is reachable
+(the red team checked; `code-door.test.js` pins it).
+
+**Measured.** The CLI (real `lattice-emulator.js`, HTML with `--allow-remote`): `dateline` draws its
+rows from the facts' list, plain (`**Kickoff**` arrives as `Kickoff`, a link as its words), paints
+with a token it found in `facts.tokens`, finds the facts frozen, and its attempt to send `facts.text`
+to the log server reaches nothing (0 requests). With the CLI door's `facts` forced to `null` the test
+fails. The Studio (desktop Chromium, `code-packages.spec.ts`): the same package draws the same rows,
+and reaches nothing. Gecko and WebKit run in the nightly. The 29-package parity run is unchanged:
+42 of 42, 316 slides, 214 changed by the sanitizer, as on `main`.
+
+**Open, for the owner, before code packages are documented publicly.** The inversion lens pressed
+three points this section does not settle:
+1. `tokens` is the theme contract (`REQUIRED_TOKENS`), not a list chosen for package authors: it
+   holds `scheme-dark-*` and `hljs-*`, two categorical families (`chart-cat1..8`, `cat-N-*`), and it
+   moves whenever the theme contract does. A curated, frozen subset is the alternative.
+2. A manifest could declare the facts version it reads (`"facts": 1`), and a door refuse a package
+   written for another.
+3. Additive, when a package needs them: table cells as runs, a pane's box, an eyebrow's role (a
+   code-only paragraph and an `h6` are two spellings of one role).
+Documenting code packages publicly is now unblocked, and it is a separate step.
