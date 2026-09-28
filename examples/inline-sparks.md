@@ -17,7 +17,7 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 
 <!-- _class: table table-fill -->
 
-## Five series types, three sizes, one grammar.
+## Seven types, three sizes, one grammar.
 
 | Type | Written as | `sm` | `md` | `lg` |
 | --- | --- | --- | --- | --- |
@@ -26,19 +26,20 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 | bar | `:bar` | `~{12 14 13 17 16 21 24}:bar:sm` | `~{12 14 13 17 16 21 24}:bar` | `~{12 14 13 17 16 21 24}:bar:lg` |
 | step | `:step` | `~{2 2 3 3 3 5 4}:step:sm` | `~{2 2 3 3 3 5 4}:step` | `~{2 2 3 3 3 5 4}:step:lg` |
 | win–loss | `:winloss` | `~{1 1 -1 1 0 -1 1 1}:winloss:sm` | `~{1 1 -1 1 0 -1 1 1}:winloss` | `~{1 1 -1 1 0 -1 1 1}:winloss:lg` |
+| ring · bullet | `\~{72%}` · `\~{72/80}:bullet` | `~{72%}:sm` `~{72/80}:bullet:sm` | `~{18/24}` `~{72/80}:bullet` | `~{72%}:lg` `~{91/80}:bullet:lg` |
 
 ---
 
 <!-- _class: table table-fill -->
 
-## Two types measure one value against a whole.
+## One color, three looks: pigment fills, etching draws, tone steps.
 
-| Type | Written as | `sm` | `md` | `lg` |
+| Look | Line and area | Bars | Ring | Bullet |
 | --- | --- | --- | --- | --- |
-| ring | `\~{72%}` | `~{72%}:sm` | `~{72%}` | `~{72%}:lg` |
-| ring, of a total | `\~{18/24}` | `~{18/24}:sm` | `~{18/24}` | `~{18/24}:lg` |
-| bullet | `\~{72/80}:bullet` | `~{72/80}:bullet:sm` | `~{72/80}:bullet` | `~{72/80}:bullet:lg` |
-| bullet, past target | `\~{91/80}:bullet` | `~{91/80}:bullet:sm` | `~{91/80}:bullet` | `~{91/80}:bullet:lg` |
+| `:pigment`, the default | `~{12 14 13 17 16 21 24}:c2:end` `~{12 14 13 17 16 21 24}:area:c2` | `~{3 5 4 6 7 5 8}:bar:c2` | `~{72%}:c2` | `~{72/80}:bullet:c2` |
+| `:etching` | `~{12 14 13 17 16 21 24}:c2:etching:end` `~{12 14 13 17 16 21 24}:area:c2:etching` | `~{3 5 4 6 7 5 8}:bar:c2:etching` | `~{72%}:c2:etching` | `~{72/80}:bullet:c2:etching` |
+| `:tone` | `~{12 14 13 17 16 21 24}:c2:tone:end` `~{12 14 13 17 16 21 24}:area:c2:tone` | `~{3 5 4 6 7 5 8}:bar:c2:tone` | `~{72%}:c2:tone` | `~{72/80}:bullet:c2:tone` |
+| `:tone`, no color | `~{12 14 13 17 16 21 24}:tone:end` `~{12 14 13 17 16 21 24}:area:tone` | `~{3 5 4 6 7 5 8}:bar:tone` | `~{72%}:tone` | `~{72/80}:bullet:tone` |
 
 ---
 
@@ -51,7 +52,7 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 | `:end` `:minmax` | dot the latest value; the low and the high | `~{31 28 33 30 38 35 41 44}:lg:end` `~{31 28 33 30 38 35 41 44}:lg:minmax` |
 | `:c3` `:c5` | a categorical color slot | `~{31 28 33 30 38 35 41 44}:lg:c3:end` `~{44 41 35 38 30 33 28 31}:lg:c5:end` |
 | default | a squared 3:2 frame, a step taller than a pill | `~{31 28 33 30 38 35 41 44}:end` `{ON PLAN}` `~{72%}` |
-| `:outline` `:rounded` | an edge only; the theme's small radius | `~{31 28 33 30 38 35 41 44}:outline` `~{31 28 33 30 38 35 41 44}:rounded` `~{3 4 2 5}:bar:outline:rounded` |
+| `:rounded` | the theme's small radius | `~{31 28 33 30 38 35 41 44}:rounded` `~{3 4 2 5}:bar:c4:etching:rounded` |
 | `:bare` | no frame, just ink | `~{31 28 33 30 38 35 41 44}:bare:end` `~{3 4 2 5}:bar:bare` |
 | negatives | zero line appears when data crosses it | `~{4 2 -1 -3 1 3 5}:bar:lg` `~{4 2 -1 -3 1 3 5}:lg:end` |
 

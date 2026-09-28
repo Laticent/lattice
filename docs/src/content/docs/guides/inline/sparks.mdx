@@ -29,17 +29,29 @@ export const LAB_TYPES = `<!-- _class: list-tabular -->
 `;
 
 export const LAB_FRAMES = `---
-spark: outline
+spark: etching
 ---
 
 <!-- _class: list-tabular -->
 
-## The deck says outline; one spark says otherwise.
+## The deck says etching; one spark says otherwise.
 
 1. The deck's word
-   - \`~{31 28 33 30 38 35 41 44}:end\` \`{ON PLAN}\`
+   - \`~{31 28 33 30 38 35 41 44}:c4:end\` \`{ON PLAN}:c4\`
 2. One spark's word
-   - \`~{31 28 33 30 38 35 41 44}:solid:rounded\` \`~{31 28 33 30 38 35 41 44}:bare:end\`
+   - \`~{31 28 33 30 38 35 41 44}:c4:pigment:rounded\` \`~{31 28 33 30 38 35 41 44}:c4:bare:end\`
+`;
+
+export const LAB_LOOKS = `<!-- _class: list-tabular -->
+
+## One color, three ways to spend it.
+
+1. Pigment — the hue fills the tile
+   - \`~{12 14 13 17 16 21 24}:c2:area\` \`~{3 5 4 6 7 5 8}:bar:c2\` \`~{72%}:c2\` \`~{72/80}:bullet:c2\`
+2. Etching — the hue is the line
+   - \`~{12 14 13 17 16 21 24}:c2:area:etching\` \`~{3 5 4 6 7 5 8}:bar:c2:etching\` \`~{72%}:c2:etching\` \`~{72/80}:bullet:c2:etching\`
+3. Tone — one hue, stepped by value
+   - \`~{12 14 13 17 16 21 24}:c2:area:tone\` \`~{3 5 4 6 7 5 8}:bar:c2:tone\` \`~{72%}:c2:tone\` \`~{72/80}:bullet:c2:tone\`
 `;
 
 A **spark** is a chart the size of a word: no axes, no labels, no legend. Edward
@@ -119,16 +131,16 @@ one can be set for one spark, one slide or the whole deck:
 | Setting | Words | Default |
 |---|---|---|
 | Frame | `framed` · `bare` (no frame, just ink in the line) | `framed` |
-| Surface | `solid` (a tinted well) · `outline` (the edge alone) | `solid` |
+| Look | `pigment` · `etching` · `tone` (how the color is spent, [below](#look--pigment-etching-and-tone)) | `pigment` |
 | Corners | `square` · `rounded` (the theme's small radius) | `square` |
 
 - **One spark:** the word as a modifier, `` `~{1 3 2}:bare` ``.
 - **One slide:** the word as a class, `<!-- _class: table spark-bare -->`.
-- **The whole deck:** the `spark:` line in front matter, `spark: outline rounded`.
+- **The whole deck:** the `spark:` line in front matter, `spark: etching rounded`.
 
 The most specific wins, one setting at a time: the spark, then the slide, then the
-deck. A slide that says `spark-bare` keeps the deck's `outline` for any spark that asks
-for its frame back, and a spark that names its own surface or corners asks for it.
+deck. A slide that says `spark-bare` keeps the deck's `etching` and `rounded` for any
+spark that asks for its frame back, and a spark that names its own corners asks for it.
 
 <CraftLab
 	label="Deck, slide and spark settings"
@@ -136,11 +148,39 @@ for its frame back, and a spark that names its own surface or corners asks for i
 	editMarkdown
 	markdown={LAB_FRAMES}
 	size="short"
-	hint="Change the deck's line to spark: bare rounded. The first row loses its frame; the :solid:rounded spark keeps one."
+	hint="Change the deck's line to spark: tone. The first row changes look; the :pigment spark keeps its own."
 />
 
 A frame adds a little height to a line of prose. A paragraph with several sparks may
 read better with `spark-bare` on that slide.
+
+## Look — `:pigment`, `:etching` and `:tone`
+
+A spark has three parts a color can go to: the **tile** behind it, the tile's **edge**,
+and the **marks** (the line, the bars, the ring). A look decides all three at once, from
+the one color you picked, so a spark stays on brand in every theme and you never mix a
+fill from one slot with an edge from another. The three looks are the ones Lattice's
+charts use, so a spark and a chart beside it speak the same language.
+
+| Look | The color goes to | Choose it for |
+|---|---|---|
+| `pigment` (the default) | the tile: the slot's fill, with the marks in the ink that reads on it | you want color |
+| `etching` | the line: a clear tile, the edge and marks in the slot's ink, bars a light wash | a modern, lighter look |
+| `tone` | one hue by value: a pale tile, a mid edge and bars, a deep line | a conservative, restrained look |
+
+Every look keeps an edge on the tile. A fill on its own is too faint to see against
+the slide; the edge is what makes the tile visible.
+
+<CraftLab
+	label="The three looks, one color"
+	kind="none"
+	editMarkdown
+	markdown={LAB_LOOKS}
+	size="short"
+	hint="Change every c2 to c7. All three looks follow the new color; none of them needs a second color picked by hand."
+/>
+
+A look with no color works too: the spark spends the text's ink the same three ways.
 
 ## Size — `:sm`, `:lg` and `:fill`
 
@@ -163,8 +203,8 @@ length is its value.
 - `:end` dots the latest value in the accent color, so "now" looks the same in every spark.
 - `:minmax` dots the low and the high.
 - `:c1` … `:c12` are the same numbered [color slots](/guides/status/pills/#color--c1--c12)
-  pills use. A framed spark takes the slot's fill, edge and ink, like a pill; a bare one
-  draws in the slot's color.
+  pills use. The [look](#look--pigment-etching-and-tone) decides where the color goes;
+  a bare spark draws in the slot's color.
 
 ## When a spark stays code
 

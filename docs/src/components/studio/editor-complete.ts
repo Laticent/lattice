@@ -68,7 +68,7 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'venue', info: 'Where the deck is seen — sets the type size for the back row. laptop (default) · huddle (4–6 people) · conference (10–30) · hall (50+).' },
 	{ key: 'cards', info: 'Where a card row puts spare height — center / stretch / top / spread. Omit it and the component decides.' },
 	{ key: 'corners', info: 'Slide surface corners — square (default) / rounded.' },
-	{ key: 'spark', info: 'Inline sparks (`~{12 14 17}`) — frame framed (default) / bare, surface solid (default) / outline, corners square (default) / rounded. Up to one word per axis.' },
+	{ key: 'spark', info: 'Inline sparks (`~{12 14 17}`) — frame framed (default) / bare, look pigment (default) / etching / tone, corners square (default) / rounded. Up to one word per axis.' },
 	{ key: 'claim', info: 'How much frame the content sits inside — framed (default) / quiet / hero / bleed.' },
 	{ key: 'fit', info: 'What the engine may do to make a slide fit — report (change nothing, only flag) / heal (default: split an overfull slide, lose no words) / trim (heal, and also cut text that does not fit). Replaces guards:.' },
 	// Chrome

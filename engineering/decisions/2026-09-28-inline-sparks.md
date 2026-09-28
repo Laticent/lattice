@@ -77,7 +77,7 @@ also keeps the parser a whitespace split, with no locale rules.
 | **scale** | `zero` — start the value axis at 0 | low-to-high | line, area, step |
 | **markers** | `end` (latest value), `minmax` (low and high); both allowed | none | line, area, step |
 | **frame** | `framed` · `bare` — a squared 3:2 frame, or bare ink (§10 i) | `framed` | all |
-| **surface** | `solid` · `outline` — a tinted well, or the edge alone (§10 i) | `solid` | all |
+| **look** | `pigment` · `etching` · `tone` — how one color is spent across tile, edge and marks (§10 j) | `pigment` | all |
 | **corners** | `square` · `rounded` — hard, or the theme's small radius (§10 i) | `square` | all |
 
 **A spark attempt is a `~{` with a digit in its data, or with a spark modifier after it**
@@ -154,8 +154,9 @@ A zero line (dashed, `--muted-mark`) appears only when a series crosses zero.
 
 ## 7. Color and marks
 
-- *(§10 i: a FRAMED spark, the default, draws in a pill's ink, `--pill-fg`, or with a slot
-  its `--cat-on-fill` on the slot's fill; what follows describes a bare or outline spark.)*
+- *(§10 j: with a color slot, the LOOK decides where the slot's hue goes — tile, edge, marks —
+  and draws from the chart cycle, `--chart-catN` / `--chart-catN-ink`; what follows describes a
+  spark with no color.)*
 - **Ink is `currentColor`.** A spark takes the color of the text it sits in, so it follows the
   theme, dark mode and any component that recolors its text (HARD RULE #3: no hex anywhere).
 - **`c1`–`c12`** set it to `--cat-N-mark`, the same slots pills use.
@@ -233,13 +234,31 @@ every ruling.
 - **(i) Framing, revised by the owner 2026-09-28 — supersedes (h).** Framed BY DEFAULT, in a
   SQUARED frame, not a pill's capsule: a 3:2 tile about 1.25× a pill's height, so a spark is
   visibly not a pill. Configurable on three axes (frame `framed`/`bare`, surface
-  `solid`/`outline`, corners `square`/`rounded`) at three levels, most specific wins: the spark's
+  `solid`/`outline` — replaced by the look axis in (j) — corners `square`/`rounded`) at three levels, most specific wins: the spark's
   modifier, the slide's `spark-*` class, the deck's `spark:` register (`lib/core/resolve-spark.js`,
   shaped like `tag:`). The owner picked all three recommendations in one round: the register
   shape, 3:2 over 4:3 or 1:1 (a 12-point series stays readable), and 0 radius. The surface axis
   is `solid`/`outline`, not `filled`, because `:fill` already means "span the line". The framed
   sizes step 0.85× / 1× / 1.6×, wider than a pill's, because a frame has to read as a chart at
   every size; the 1.2× a pill uses left `:lg` barely bigger than `:md`.
+- **(j) The look axis, added by the owner 2026-09-28 — replaces the surface axis.** The owner
+  asked for a look selector that controls the edge and the marks as well as the fill, works with
+  the chosen color, and stays on brand. A look spends ONE color across four parts — tile, edge,
+  ink (lines, dots, ring arc) and body (bars, area, bullet value) — and the three looks are the
+  chart family's finishes, `pigment` (default) · `etching` · `tone`
+  (`engineering/chart-styling.md` §3), so a spark and a chart speak one vocabulary. The owner
+  picked the chart names over spark-only words (`filled`/`line`/`tint`), and folded `solid` /
+  `outline` into the look (`etching` is the old outline) rather than keeping two overlapping
+  axes; neither word had shipped. A look is about color, so it does not imply a frame.
+  **The hue comes from the CHART cycle, not the pill cycle — a finding, not a preference.** The
+  first cut derived the looks from the pill slot's `--cat-N-fill` / `--cat-N-mark`, and rendering
+  it showed those are two separately curated cycles that do not share a hue: indaco slot 2 is a
+  tan fill with a maroon mark in light, a rust fill with a pale-pink mark in dark, so `etching`
+  and `tone` changed color against `pigment` and went near-gray in dark mode. The chart cycle
+  (`--chart-catN`, `--chart-catN-ink`, declared per theme) is one hue in both modes and is what a
+  chart paints the same slot. Cost: a `pigment` spark no longer matches a pill of the same slot.
+  Slots 9–12 have no chart hue and use the pill mark for hue and ink (a spark's ink draws strokes,
+  so the mark's 3:1 floor is its contract). Every look keeps an edge on the tile.
 - **(g) `lint:deck` coaching.** A span that opens with `~{` but doesn't parse gets a warning
   naming the reason (the pill rule has no such warning today). Recommended, since the literal
   fallback is silent otherwise.

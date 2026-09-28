@@ -1647,10 +1647,9 @@ slide. `:minmax` dots the low and the high. Both apply to `line`, `area` and `st
 
 ### Color — `:c1` … `:c12`
 
-A framed spark draws in a pill's ink; a bare or `outline` one takes the color of the text
-it sits in. `:c1`–`:c12` point it at the same categorical slots pills use: a framed spark
-takes the slot's fill, edge and on-fill ink, as `` `{X}:c3` `` does, and a bare one draws
-in the slot's mark. A `winloss` loss is `--accent`, but its position below the line
+A spark with no color spends the text's ink; `:c1`–`:c12` point it at the same categorical
+slots pills use. The **look** (below) decides where that one color goes. A bare spark draws in
+the slot's mark. A `winloss` loss is `--accent`, but its position below the line
 carries the meaning.
 
 ### Frame — framed by default, and yours to set
@@ -1664,21 +1663,39 @@ the whole deck:
 | Axis | Words | Default |
 |---|---|---|
 | Frame | `framed` · `bare` (no frame, just ink) | `framed` |
-| Surface | `solid` (a tinted well) · `outline` (the edge alone) | `solid` |
+| Look | `pigment` · `etching` · `tone` (how the color is spent, below) | `pigment` |
 | Corners | `square` · `rounded` (the theme's small radius) | `square` |
 
-- **One spark:** the word as a modifier, `` `~{1 3 2}:bare` `` or `` `~{1 3 2}:outline:rounded` ``.
+- **One spark:** the word as a modifier, `` `~{1 3 2}:bare` `` or `` `~{1 3 2}:etching:rounded` ``.
 - **One slide:** the word as a class with `spark-` in front, `<!-- _class: table spark-bare -->`.
-- **The deck:** the `spark:` front-matter register, `spark: bare` or `spark: outline rounded`
+- **The deck:** the `spark:` front-matter register, `spark: bare` or `spark: etching rounded`
   ([`base.registers.docs.md`](base.registers.docs.md) § `spark:`).
 
 The most specific wins, one axis at a time: the spark, then the slide, then the deck, then the
-default. `:framed`, `:solid` and `:square` (and the matching classes) exist so a spark or a
+default. `:framed`, `:pigment` and `:square` (and the matching classes) exist so a spark or a
 slide can return to the default inside a deck that set another value. A spark that names its
-own surface or corners (`` `~{…}:outline` ``) wants a frame, so it keeps one on a bare slide or
-in a bare deck unless it also says `:bare`. The three sizes scale
+own corners (`` `~{…}:rounded` ``) wants a frame, so it keeps one on a bare slide or in a bare
+deck unless it also says `:bare`. A look is about color, not the tile, so it does not. The three sizes scale
 the whole tile (0.85× / 1× / 1.6×). A frame adds a little height to a line of prose, so a
 paragraph with several sparks may read better with `spark-bare` on that slide.
+
+### Look — `pigment`, `etching`, `tone`
+
+A spark has four parts one color can go to: the **tile**, its **edge**, the **ink** every line,
+dot and ring arc draws in, and the **body** that fills bars, an area and a bullet's value. A
+look decides all four from the one color the spark names (or the text's ink), so the parts
+never come from two slots. The names are the chart family's three finishes
+(`engineering/chart-styling.md` §3):
+
+| Look | Tile | Edge | Ink | Body |
+|---|---|---|---|---|
+| `pigment` (default) | the slot's fill | the slot's ink | the ink that reads on the fill | the ink |
+| `etching` | clear | the slot's ink | the slot's ink | a 30% wash, ink-edged |
+| `tone` | a 12% tint | a 45% tint | the hue pulled toward the heading ink | a 55% tint |
+
+Every look keeps the edge: no fill clears the 3:1 graphical floor on its own, and the edge does.
+The CSS is `lib/base/base.modifiers.css` § Inline sparks; the four parts are `--spark-tile`,
+`--spark-edge`, `color` and `--spark-body`, all derived from `--spark-hue`.
 
 Modifier order is free: `` `~{1 3 2}:area:c4:lg` `` and `` `~{1 3 2}:lg:c4:area` `` are
 the same spark. Each spark carries `role="img"` and a spoken label with its numbers

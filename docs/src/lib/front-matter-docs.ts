@@ -59,7 +59,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	venue: { group: 'look', default: 'laptop', studio: 'Look → Venue', slide: '_class: venue-<value>', values: 'laptop · huddle · conference · hall', scope: 'type size, label size and lint budgets' },
 	cards: { group: 'look', default: 'each component decides', studio: 'Look → Frame and fit → Card rows', slide: '_class: cards-<value>' },
 	corners: { group: 'look', default: 'square', studio: 'Look → Frame and fit → Corners', slide: '_class: corners-<value>' },
-	spark: { group: 'look', default: 'framed solid square', slide: '_class: spark-<value>', values: 'a frame (framed · bare), a surface (solid · outline) and/or corners (square · rounded), e.g. bare or outline rounded', scope: 'inline sparks, ~{…}' },
+	spark: { group: 'look', default: 'framed pigment square', slide: '_class: spark-<value>', values: 'a frame (framed · bare), a look (pigment · etching · tone) and/or corners (square · rounded), e.g. bare or etching rounded', scope: 'inline sparks, ~{…}' },
 	claim: { group: 'look', default: 'framed', studio: 'Look → Frame and fit → Claim', slide: '_class: claim-<value>' },
 	fit: { group: 'look', default: 'heal', studio: 'Look → Frame and fit → Fit', slide: '_class: fit-<value>' },
 	header: { group: 'chrome', default: 'none', studio: 'Chrome → Header', slide: '<!-- _header: … -->', values: 'any text' },
