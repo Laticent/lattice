@@ -1,0 +1,519 @@
+---
+// Segno — a standalone, framework-free showcase driven by the REAL library (docs/src/lib/segno):
+// the inline notation parsed and bound live against Lattice's slot schemas, the per-deck
+// spelling check, the compiler refusing a grammar it cannot prove linear, and the hostile-input
+// ladder timed in the visitor's own browser. No React, no slide engine — the honest proof the
+// grammar engine is a self-contained, no-DOM library. Reached at /segno.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Segno — one inline notation, read in one pass</title>
+		<link rel="icon" href="/segno-mark.svg" type="image/svg+xml" />
+		<style is:global>
+			:root {
+				--paper: #f6f1ea; --stage: #efe8de; --ink: #1f2430; --muted: #776f64; --line: #e0d5c7;
+				--accent: #c4412b; --accent-ink: #fff; --accent-bg: #f7ddd5; --panel: #fffdf9; --mark-plate: #efe6d8;
+				--ok: #2f7a55; --ok-bg: #dcefe4; --warn: #9a5b00; --warn-bg: #f6e6c8;
+				--tok-brace: #1f2430; --tok-name: #6b4fb3; --tok-quote: #2f7a55; --tok-bare: #1f2430; --tok-sep: #a79c8e;
+				--shadow: 0 1px 2px rgba(31,36,48,.06), 0 8px 24px rgba(31,36,48,.06);
+				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-theme="light"]) {
+					--paper: #111318; --stage: #171a21; --ink: #e8e4de; --muted: #8d877c; --line: #272b34;
+					--accent: #ff7a5c; --accent-ink: #1a0d09; --accent-bg: #3a1f19; --panel: #14171d; --mark-plate: #1d2129;
+					--ok: #6fcf9a; --ok-bg: #173226; --warn: #f0b449; --warn-bg: #33270f;
+					--tok-brace: #e8e4de; --tok-name: #b9a2ff; --tok-quote: #6fcf9a; --tok-bare: #e8e4de; --tok-sep: #6c6a66;
+					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				}
+			}
+			:root[data-theme="dark"] {
+				--paper: #111318; --stage: #171a21; --ink: #e8e4de; --muted: #8d877c; --line: #272b34;
+				--accent: #ff7a5c; --accent-ink: #1a0d09; --accent-bg: #3a1f19; --panel: #14171d; --mark-plate: #1d2129;
+				--ok: #6fcf9a; --ok-bg: #173226; --warn: #f0b449; --warn-bg: #33270f;
+				--tok-brace: #e8e4de; --tok-name: #b9a2ff; --tok-quote: #6fcf9a; --tok-bare: #e8e4de; --tok-sep: #6c6a66;
+				--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5;
+				-webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 940px; margin: 0 auto; }
+			header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			/* The mark inline, so it follows the page's theme toggle — an <img> SVG only sees the OS setting. */
+			.m-plate { fill: var(--mark-plate); } .m-s { stroke: var(--ink); } .m-cut { stroke: var(--accent); } .m-dot { fill: var(--accent); }
+			h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
+				padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+			.nav { display: flex; gap: 14px; align-items: center; }
+			.home { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; }
+			.home:hover { color: var(--accent); }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px;
+				cursor: pointer; font-family: var(--sans); }
+			.sub { color: var(--muted); font-size: 15px; max-width: 68ch; margin: 10px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+
+			section.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(18px, 4vw, 32px); }
+			h2 { font-family: var(--serif); font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+			.lede { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; max-width: 70ch; }
+			.lede code, .foot code, td code { font-family: var(--mono); font-size: .92em; background: var(--panel); border: 1px solid var(--line);
+				border-radius: 4px; padding: 0 4px; }
+
+			.slots { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+			.chip { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans); font-size: 13px;
+				font-weight: 600; border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: transform .08s ease, border-color .12s ease; }
+			.chip:hover { transform: translateY(-1px); border-color: var(--accent); }
+			.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+			.editor { position: relative; }
+			.editor input { width: 100%; font-family: var(--mono); font-size: 17px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line);
+				background: var(--panel); color: var(--ink); outline: none; }
+			.editor input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+			.tokens { margin-top: 10px; font-family: var(--mono); font-size: 15px; min-height: 26px; white-space: pre-wrap; word-break: break-all; }
+			.tokens .brace { color: var(--tok-brace); font-weight: 700; }
+			.tokens .sep { color: var(--tok-sep); }
+			.tokens .name { color: var(--tok-name); }
+			.tokens .quote { color: var(--tok-quote); }
+			.tokens .bare { color: var(--tok-bare); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 4px; }
+			.tokens .bad { background: var(--accent-bg); color: var(--accent); border-bottom: 2px solid var(--accent); }
+			.result { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+			@media (max-width: 640px) { .result { grid-template-columns: minmax(0, 1fr); } }
+			.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+			.card .label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+			.card pre { margin: 0; font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+			.status { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
+			.status .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+			.status[data-ok="true"] .dot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+			.status[data-ok="false"] .dot { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+			.fix { margin-top: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-family: var(--sans); font-size: 12px;
+				font-weight: 600; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+			.why { margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+			table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+			th { text-align: left; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+			td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+			td:last-child { width: 1%; white-space: nowrap; }
+			.try { border: 1px solid var(--line); background: var(--panel); color: var(--accent); border-radius: 8px; font-size: 12px; font-weight: 600;
+				padding: 5px 10px; cursor: pointer; font-family: var(--sans); }
+			.try:hover { border-color: var(--accent); }
+			.scroll { overflow-x: auto; }
+			@media (max-width: 640px) {
+				#gallery thead { display: none; }
+				#gallery, #gallery tbody, #gallery tr, #gallery td { display: block; width: auto; }
+				#gallery tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+				#gallery td { border: 0; padding: 2px 0; white-space: normal; }
+				#gallery td:first-child { font-weight: 600; }
+				#gallery td[data-k]::before { content: attr(data-k); display: inline-block; min-width: 58px; font-size: 11px; letter-spacing: .08em;
+					text-transform: uppercase; color: var(--muted); font-weight: 700; }
+				#gallery td:last-child { padding-top: 6px; }
+			}
+
+			.deck { width: 100%; min-height: 150px; font-family: var(--mono); font-size: 13.5px; padding: 12px 14px; border-radius: 12px;
+				border: 1px solid var(--line); background: var(--panel); color: var(--ink); resize: vertical; }
+			.findings { margin-top: 12px; display: grid; gap: 8px; }
+			.finding { background: var(--warn-bg); color: var(--ink); border-radius: 10px; padding: 9px 12px; font-size: 13px; }
+			.finding b { color: var(--warn); }
+			.clean { background: var(--ok-bg); border-radius: 10px; padding: 9px 12px; font-size: 13px; }
+
+			.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+			.code { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-family: var(--mono);
+				font-size: 12.5px; white-space: pre-wrap; word-break: break-word; margin: 0; }
+			.verdict { margin-top: 10px; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-family: var(--mono); white-space: pre-wrap; }
+			.verdict[data-ok="true"] { background: var(--ok-bg); }
+			.verdict[data-ok="false"] { background: var(--accent-bg); }
+
+			.run { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-family: var(--sans); font-size: 13px;
+				font-weight: 600; border-radius: 999px; padding: 9px 18px; cursor: pointer; }
+			.run:disabled { opacity: .5; cursor: default; }
+			.bars { margin-top: 14px; display: grid; gap: 10px; }
+			.bar-row { display: grid; grid-template-columns: minmax(120px, 190px) minmax(0, 1fr); gap: 12px; align-items: center; font-size: 12.5px; }
+			.bar-row .nm { color: var(--muted); }
+			@media (max-width: 640px) { .bar-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+			.bar-row svg { width: 100%; height: 26px; display: block; }
+			.bar-row .fill { fill: var(--accent); }
+			.bar-row .track { fill: var(--panel); stroke: var(--line); }
+			.bar-row text { fill: var(--ink); font-family: var(--mono); font-size: 11px; }
+			.note { margin-top: 12px; font-size: 12.5px; color: var(--muted); }
+
+			.foot { margin-top: 26px; color: var(--muted); font-size: 12.5px; line-height: 1.7; }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<div class="brand">
+					<svg class="logo" viewBox="0 0 128 128" fill="none" aria-hidden="true"><rect x="6" y="6" width="116" height="116" rx="28" class="m-plate"/><path d="M84.5 38.5c-5.2-6.4-12.4-9.5-20.9-9.5-11.6 0-20.1 6.6-20.1 15.9 0 9.1 7.4 13.2 19.6 16.6 12.9 3.6 21.4 8.1 21.4 18.3 0 10.3-9.2 17.2-21.7 17.2-9.6 0-17.6-3.8-22.8-10.8" class="m-s" stroke-width="8.5" stroke-linecap="round"/><line x1="40" y1="96" x2="88" y2="32" class="m-cut" stroke-width="7" stroke-linecap="round"/><circle cx="37" cy="54" r="6.2" class="m-dot"/><circle cx="91" cy="74" r="6.2" class="m-dot"/></svg>
+					<h1>Segno</h1><span class="tag">grammar engine</span>
+				</div>
+				<div class="nav">
+					<a class="home" href="/">Back to Lattice</a>
+					<button class="theme" id="themeBtn" type="button">Theme</button>
+				</div>
+			</header>
+			<p class="sub">
+				One inline notation for every chart and directive: <b>a value, a [list] or a &#123;record&#125;</b>, commas between
+				items, <b>name=value</b> when you want to be explicit, and double quotes that must close. Segno reads it
+				in <b>one left-to-right pass</b> — its compiler refuses any grammar it cannot prove linear — and a schema per slot
+				says what each word means. Everything below runs the <b>real library</b>, in this page.
+			</p>
+
+			<section class="stage" aria-labelledby="try-h">
+				<h2 id="try-h">Type a span</h2>
+				<p class="lede">Pick where the span sits, then type. The same notation means different things in different slots; the slot's schema decides, and an error names what the slot takes.</p>
+				<div class="slots" id="slots" role="group" aria-label="Slot"></div>
+				<div class="editor"><input id="src" spellcheck="false" autocomplete="off" aria-label="Span text" /></div>
+				<div class="tokens" id="tokens" aria-live="polite"></div>
+				<div class="result">
+					<div class="card">
+						<div class="label">Reads as</div>
+						<div class="status" id="status" data-ok="true"><span class="dot"></span><span id="statusText"></span></div>
+						<div class="why" id="why"></div>
+						<button class="fix" id="fixBtn" type="button" hidden>Apply fix</button>
+					</div>
+					<div class="card"><div class="label">Bound value</div><pre id="bound"></pre></div>
+				</div>
+			</section>
+
+			<section class="stage" aria-labelledby="one-h">
+				<h2 id="one-h">One notation, where there were many</h2>
+				<p class="lede">Lattice ships 27 inline-code grammars that use 21 sigils between them. Here are some, beside what each becomes. Try any row in the editor above.</p>
+				<div class="scroll"><table id="gallery"><thead><tr><th>Where</th><th>Before</th><th>Segno</th><th></th></tr></thead><tbody></tbody></table></div>
+			</section>
+
+			<section class="stage" aria-labelledby="deck-h">
+				<h2 id="deck-h">Aliases, shortcuts, and one spelling per deck</h2>
+				<p class="lede"><code>[x]</code>, <code>&#123;done&#125;</code> and <code>&#123;yes&#125;</code> all mean the same state. That is kind per span and messy per deck, so Segno reports every span written differently from the deck's most common spelling — with a fix. One state mark per line:</p>
+				<textarea class="deck" id="deck" spellcheck="false" aria-label="State marks, one per line"></textarea>
+				<div class="findings" id="findings" aria-live="polite"></div>
+			</section>
+
+			<section class="stage" aria-labelledby="compile-h">
+				<h2 id="compile-h">The compiler says no</h2>
+				<p class="lede">A grammar builds only if every decision can be made from the next character, with no going back. That is what makes a Segno parser linear on any input. Three grammars, compiled live:</p>
+				<div class="presets" id="presets" role="group" aria-label="Grammar"></div>
+				<pre class="code" id="grammarCode"></pre>
+				<div class="verdict" id="verdict"></div>
+			</section>
+
+			<section class="stage" aria-labelledby="speed-h">
+				<h2 id="speed-h">Hostile input, timed in your browser</h2>
+				<p class="lede">The inputs that took parser libraries from one second to over sixteen in the bake-off, at 2k, 8k and 32k characters. Linear growth is about 4x per step; quadratic would be 16x.</p>
+				<button class="run" id="runBtn" type="button">Run the ladder</button>
+				<div class="bars" id="bars"></div>
+				<p class="note" id="speedNote"></p>
+			</section>
+
+			<p class="foot">
+				Segno is <code>@laticent/segno</code> — framework-free, zero-dependency, no DOM. Design and decisions:
+				<code>engineering/decisions/2026-09-28-segno-unified-inline-notation.md</code>. Why an owned engine:
+				<code>2026-09-28-parser-library-bakeoff.md</code>. <em>Segno</em> is Italian for sign or mark — and the musical <em>dal segno</em>.
+			</p>
+		</div>
+
+		<script>
+			import {
+				alt, any, chars, color, compile, consistency, flag, lint, list, many, named, number, oneOf, opt, parse, range, record, ref, seq, text, time,
+			} from '@/lib/segno';
+
+			const $ = (s) => document.querySelector(s);
+			const root = document.documentElement;
+			const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+			// Theme toggle (shared key with the docs site; see lente.astro for why `system` resolves here).
+			const THEME_LS = 'lattice-docs-mode';
+			const applyTheme = (t) => { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); };
+			const resolveThemePref = (t) => (t === 'light' || t === 'dark' ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+			try { applyTheme(resolveThemePref(localStorage.getItem(THEME_LS))); } catch {}
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+				const next = cur === 'dark' ? 'light' : 'dark';
+				applyTheme(next);
+				try { localStorage.setItem(THEME_LS, next); } catch {}
+			});
+
+			// ── The slots, declared the way Lattice declares them (phase 2 moves them into the manifests) ──
+			const STATES = ['done', 'partial', 'fail', 'unknown', 'todo', 'skip'];
+			const STATUS = ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot', 'decision', 'deferred'];
+			const SLOTS = {
+				pill: {
+					label: 'Pill', sample: '{BETA, tag, c4}',
+					slot: record({ label: 'a pill', positional: [{ name: 'value', type: text() }], params: {
+						shape: oneOf(['pill', 'chip', 'tag', 'tag-bordered', 'circle', 'chevron-right', 'chevron-left', 'diamond']),
+						color: color({ max: 12 }), size: oneOf(['sm', 'md', 'lg']) } }),
+				},
+				state: {
+					label: 'State mark', sample: '[x]',
+					slot: record({ label: 'a state mark', params: { state: oneOf(STATES, { aliases: { done: ['yes', 'pass'], fail: ['no'] } }) },
+						shortcuts: { '[x]': '{done}', '[-]': '{partial}', '[!]': '{fail}', '[?]': '{unknown}', '[ ]': '{todo}', '[/]': '{skip}' } }),
+				},
+				axis: {
+					label: 'Quadrant axes', sample: '[{Effort, 0..10, 5}, {Reach, 0..100}]',
+					slot: list(record({ label: 'an axis', positional: [{ name: 'name', type: text() }], params: { domain: range(number()), target: number() } }), { max: 3, label: 'a quadrant axis line' }),
+				},
+				point: {
+					label: 'Quadrant point', sample: '{$1.2M, 70, size=12}',
+					slot: record({ label: 'a point', positional: [{ name: 'x', type: number() }, { name: 'y', type: number(), required: true }], params: { size: number() } }),
+				},
+				journey: {
+					label: 'Journey task', sample: '{@Customer, mood=4, volume=120}',
+					slot: record({ label: 'a journey task', params: { who: text(), mood: named(number()), volume: named(number()) }, sigils: { '@': 'who' } }),
+				},
+				gantt: {
+					label: 'Gantt task pill', sample: 'after=Design',
+					slot: record({ label: 'a gantt task pill', params: { span: range(time()), after: named(text()), milestone: flag('milestone'), status: oneOf(STATUS) } }),
+				},
+			};
+			let current = 'pill';
+			const slotsEl = $('#slots'), src = $('#src');
+			for (const [key, s] of Object.entries(SLOTS)) {
+				const b = document.createElement('button');
+				b.type = 'button'; b.className = 'chip'; b.textContent = s.label; b.dataset.slot = key;
+				b.addEventListener('click', () => { current = key; src.value = s.sample; render(); });
+				slotsEl.append(b);
+			}
+
+			// Colour a span by what the notation read, without a second parser: walk the parsed items.
+			function tokenize(textIn, parsed) {
+				const cls = new Array(textIn.length).fill('sep');
+				for (let k = 0; k < textIn.length; k++) if ('{}[]'.includes(textIn[k])) cls[k] = 'brace';
+				const mark = (from, to, c) => { for (let k = from; k < to; k++) cls[k] = c; };
+				const walkValue = (v) => {
+					if (!v) return;
+					if (v.kind === 'scalar') mark(v.from, v.to, v.quoted ? 'quote' : 'bare');
+					else for (const it of v.items) it && (it.value ? walkItem(it) : walkValue(it));
+				};
+				const walkItem = (it) => { if (it.name) mark(it.from, it.from + it.name.length, 'name'); walkValue(it.value); };
+				if (parsed && parsed.ok) walkItem(parsed.item);
+				let html = '';
+				for (let k = 0; k < textIn.length;) {
+					let j = k;
+					while (j < textIn.length && cls[j] === cls[k]) j++;
+					html += `<span class="${cls[k]}">${esc(textIn.slice(k, j))}</span>`;
+					k = j;
+				}
+				return html;
+			}
+
+			// A typed number shows as a number, with its unit beside it when it has one.
+			const pretty = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && 'value' in x && 'signed' in x ? (x.unit ? { number: x.value, unit: x.unit } : x.value) : x), 2);
+
+			let pendingFix = null;
+			function render() {
+				for (const b of slotsEl.children) b.setAttribute('aria-pressed', String(b.dataset.slot === current));
+				const textIn = src.value;
+				const parsed = parse(textIn);
+				const r = SLOTS[current].slot.read(textIn);
+				let html = tokenize(textIn, parsed);
+				const statusEl = $('#status'), why = $('#why'), fixBtn = $('#fixBtn');
+				pendingFix = null;
+				if (r.ok) {
+					statusEl.dataset.ok = 'true';
+					$('#statusText').textContent = `A valid ${SLOTS[current].label.toLowerCase()}`;
+					why.textContent = r.spellings.length ? `Words bound: ${r.spellings.map((s) => `${s.written} is ${s.param} ${s.canonical}`).join('; ')}` : 'Every item bound to exactly one parameter.';
+					$('#bound').textContent = pretty(r.value);
+					fixBtn.hidden = true;
+				} else {
+					const d = r.diagnostics[0];
+					statusEl.dataset.ok = 'false';
+					$('#statusText').textContent = d.code;
+					why.textContent = d.message;
+					$('#bound').textContent = 'nothing: a span that does not bind is shown as written, and nothing is half-applied';
+					if (d.from < d.to) {
+						const before = textIn.slice(0, d.from), bad = textIn.slice(d.from, d.to), after = textIn.slice(d.to);
+						html = `${tokenize(before, null)}<span class="bad">${esc(bad)}</span>${esc(after)}`;
+					}
+					if (d.fix) { pendingFix = d.fix; fixBtn.hidden = false; } else fixBtn.hidden = true;
+				}
+				$('#tokens').innerHTML = html;
+			}
+			src.addEventListener('input', render);
+			$('#fixBtn').addEventListener('click', () => {
+				if (!pendingFix) return;
+				const t = src.value;
+				src.value = t.slice(0, pendingFix.from) + pendingFix.insert + t.slice(pendingFix.to);
+				render();
+			});
+			src.value = SLOTS.pill.sample;
+			render();
+
+			// ── Before / after gallery ──
+			// The mapping table in the decision note, rows 2, 1, 6, 8, 10, 17-19, 22, 25 and 27.
+			const GALLERY = [
+				['Pill', '{BETA}:tag:c4', '{BETA, tag, c4}', 'pill'],
+				['Pill', '{1}:circle:c5:lg', '{1, circle, c5, lg}', 'pill'],
+				['State mark', '[x]', '[x]  or  {done}', 'state', '[x]'],
+				['Quadrant axes', '[{Effort, 0..10, 5}, Reach]', 'unchanged; target=5 also accepted', 'axis', '[{Effort, 0..10, target=5}, Reach]'],
+				['Gantt window', '[{Timeline, 2026 Q1..2026 Q4, Q3}]', '[{Timeline, 2026 Q1..2026 Q4, today=Q3}]', null],
+				['Gantt dependency', 'after: Design', 'after=Design', 'gantt'],
+				['Quadrant point', '3, 70', '{3, 70}', 'point'],
+				['Scatter point', '$4.2M  62%  140  (three spans)', '{$4.2M, 62%, size=140}', 'point'],
+				['Journey task', '@Customer  :4  +120  (three spans)', '{@Customer, mood=4, volume=120}', 'journey'],
+				['State-chart edge', 'approve => 2', '{approve, to=2}', null],
+				['Flowchart node', '#api:diamond:c2', '{#api, diamond, c2}', null],
+				['Radar scale', 'Scale \u00b7 0\u2013100', '0..100', null],
+			];
+			const tbody = $('#gallery tbody');
+			for (const [where, before, after, slot, sample] of GALLERY) {
+				const tr = document.createElement('tr');
+				tr.innerHTML = `<td>${esc(where)}</td><td data-k="Before"><code>${esc(before)}</code></td><td data-k="Segno"><code>${esc(after)}</code></td><td></td>`;
+				if (slot) {
+					const b = document.createElement('button');
+					b.type = 'button'; b.className = 'try'; b.textContent = 'Try it';
+					b.addEventListener('click', () => { current = slot; src.value = sample ?? after; render(); src.focus(); src.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
+					tr.lastElementChild.append(b);
+				}
+				tbody.append(tr);
+			}
+
+			// ── Per-deck spelling ──
+			const deckEl = $('#deck');
+			deckEl.value = ['[x]', '[x]', '{done}', '[-]', '[x]', '{yes}', '[ ]'].join('\n');
+			function renderDeck() {
+				const uses = [];
+				const lines = deckEl.value.split('\n');
+				const bad = [];
+				lines.forEach((line, k) => {
+					if (!line.trim()) return;
+					const r = SLOTS.state.slot.read(line);
+					if (!r.ok) { bad.push(`line ${k + 1}: ${r.diagnostics[0].message}`); return; }
+					for (const s of r.spellings) uses.push({ ...s, slot: 'state', where: String(k) });
+				});
+				const found = consistency(uses);
+				const out = $('#findings');
+				out.innerHTML = '';
+				for (const m of bad) out.insertAdjacentHTML('beforeend', `<div class="finding"><b>not a state mark</b> — ${esc(m)}</div>`);
+				for (const f of found) {
+					const fx = f.diagnostic.fix;
+					const btn = fx ? ` <button class="try" type="button" data-line="${f.use.where}" data-from="${fx.from}" data-to="${fx.to}" data-insert="${esc(fx.insert)}">Write ${esc(fx.insert)}</button>` : '';
+					out.insertAdjacentHTML('beforeend', `<div class="finding"><b>line ${Number(f.use.where) + 1}</b> — ${esc(f.diagnostic.message)}${btn}</div>`);
+				}
+				if (!bad.length && !found.length) out.insertAdjacentHTML('beforeend', '<div class="clean">One spelling throughout. Nothing to report.</div>');
+			}
+			deckEl.addEventListener('input', renderDeck);
+			$('#findings').addEventListener('click', (e) => {
+				const b = e.target.closest('button[data-line]');
+				if (!b) return;
+				const lines = deckEl.value.split('\n');
+				const k = Number(b.dataset.line), line = lines[k];
+				lines[k] = line.slice(0, Number(b.dataset.from)) + b.dataset.insert + line.slice(Number(b.dataset.to));
+				deckEl.value = lines.join('\n');
+				renderDeck();
+			});
+			renderDeck();
+
+			// ── The compiler ──
+			const digit = chars('0123456789', 'a digit');
+			const PRESETS = [
+				{
+					name: 'A list of numbers',
+					code: "list: seq('[', opt(seq(num, many(seq(',', num)))), ']')\nnum:  many1(digit)",
+					spec: () => ({ start: 'list', rules: { list: seq('[', opt(seq(ref('num'), many(seq(',', ref('num'))))), ']'), num: seq(digit, many(digit)) } }),
+				},
+				{
+					name: 'Greedy text, then a quote',
+					code: "// the shape behind 'a quote opens only if a partner exists later'\ns: seq('\"', many(any()), '\"')",
+					spec: () => ({ start: 's', rules: { s: seq('"', many(any()), '"') } }),
+				},
+				{
+					name: 'Two ways to start',
+					code: "s: alt(seq('a', 'b'), seq('a', 'c'))",
+					spec: () => ({ start: 's', rules: { s: alt(seq('a', 'b'), seq('a', 'c')) } }),
+				},
+			];
+			const presetsEl = $('#presets');
+			function showPreset(k) {
+				for (const b of presetsEl.children) b.setAttribute('aria-pressed', String(Number(b.dataset.k) === k));
+				const p = PRESETS[k];
+				$('#grammarCode').textContent = p.code;
+				const problems = lint(p.spec());
+				const v = $('#verdict');
+				v.dataset.ok = String(!problems.length);
+				if (problems.length) v.textContent = `Refused. ${problems.join('\n')}`;
+				else {
+					const g = compile(p.spec());
+					const a = g.parse('[12,3,40]'), b = g.parse('[12;3]');
+					v.textContent = `Compiles. It reads in one pass.\n  "[12,3,40]" reads: ${a.ok ? 'ok' : 'error'}\n  "[12;3]" stops at offset ${b.ok ? '-' : b.error.at}: expected ${b.ok ? '-' : b.error.expected}, found ${b.ok ? '-' : JSON.stringify(b.error.found)}`;
+				}
+			}
+			PRESETS.forEach((p, k) => {
+				const b = document.createElement('button');
+				b.type = 'button'; b.className = 'chip'; b.textContent = p.name; b.dataset.k = String(k);
+				b.addEventListener('click', () => showPreset(k));
+				presetsEl.append(b);
+			});
+			showPreset(0);
+
+			// ── The ladder ──
+			const SHAPES = [
+				['An unclosed quote (axis)', (n) => `["${'a, '.repeat(n / 3)}]`, 'axis'],
+				['Spaces in a member (axis)', (n) => `[a${' '.repeat(n)}b]`, 'axis'],
+				['Many members (axis)', (n) => `[${'a, '.repeat(n / 3)}b]`, 'axis'],
+				['Many modifiers (pill)', (n) => `{X${', tag'.repeat(n / 5)}}`, 'pill'],
+				['Long quoted label (pill)', (n) => `{"${'a'.repeat(n)}"}`, 'pill'],
+			];
+			$('#runBtn').addEventListener('click', async () => {
+				const btn = $('#runBtn');
+				btn.disabled = true;
+				const bars = $('#bars');
+				bars.innerHTML = '';
+				const rows = [];
+				for (const [name, make, slot] of SHAPES) {
+					// The browser rounds performance.now() (to 0.1 ms here), so one call is below the
+					// clock's resolution. Repeat each input until a run lasts 30 ms, and keep the best of
+					// five runs: noise only ever adds time.
+					const ms = [2000, 8000, 32000].map((n) => {
+						const input = make(n);
+						const read = SLOTS[slot].slot;
+						let reps = 1;
+						for (;;) {
+							const t = performance.now();
+							for (let r = 0; r < reps; r++) read.read(input);
+							if (performance.now() - t >= 30) break;
+							reps *= 2;
+						}
+						let best = Infinity;
+						for (let round = 0; round < 5; round++) {
+							const t = performance.now();
+							for (let r = 0; r < reps; r++) read.read(input);
+							best = Math.min(best, (performance.now() - t) / reps);
+						}
+						return best;
+					});
+					rows.push([name, ms]);
+					await new Promise((r) => setTimeout(r, 0));
+				}
+				const max = Math.max(...rows.flatMap(([, ms]) => ms), 1);
+				for (const [name, ms] of rows) {
+					const w = (x) => Math.max(1.5, (x / max) * 100);
+					const row = document.createElement('div');
+					row.className = 'bar-row';
+					row.innerHTML = `<div class="nm">${esc(name)}</div><svg viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="${esc(name)}: ${ms.map((m) => m.toFixed(3)).join(', ')} ms">
+						<rect class="track" x="0" y="1" width="100" height="24" rx="4" vector-effect="non-scaling-stroke"/>
+						<rect class="fill" x="0" y="3" width="${w(ms[2])}" height="6" rx="2" opacity=".35"/>
+						<rect class="fill" x="0" y="10" width="${w(ms[1])}" height="6" rx="2" opacity=".6"/>
+						<rect class="fill" x="0" y="17" width="${w(ms[0])}" height="6" rx="2"/></svg>`;
+					bars.append(row);
+					const label = document.createElement('div');
+					label.className = 'note';
+					label.style.margin = '-6px 0 0';
+					const fmt = (m) => (m < 0.1 ? `${(m * 1000).toFixed(0)} \u00b5s` : `${m.toFixed(2)} ms`);
+					label.textContent = `${ms.map(fmt).join(' / ')}: ${(ms[2] / ms[1]).toFixed(1)}x for 4x the input`;
+					bars.append(label);
+				}
+				$('#speedNote').textContent = 'Bars, top to bottom: 32k, 8k and 2k characters. A browser tab\u2019s timing is noisy, so one row can jump; a reader that was quadratic would show about 16x on every row, every run.';
+				btn.disabled = false;
+			});
+		</script>
+	</body>
+</html>
