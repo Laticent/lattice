@@ -443,6 +443,15 @@ async function main() {
             if (!paint || paint === 'none' || paint === 'rgba(0, 0, 0, 0)') continue;
             classes = [UNDECLARED + ([...el.classList][0] || 'anonymous')];
           }
+          // THE STAMP BELONGS TO THE MOST SPECIFIC CLASS. A base class and its modifier are
+          // declared as different rows (`map-region` encodes nothing, `map-region--on` is the
+          // ramp), and the element carries ONE data-encodes — the modifier's. Filing that one
+          // value under the base too reported the base as disagreeing with its own manifest.
+          // The modifier is the class another declared class on the element is a prefix of;
+          // with no such pair, the last declared class wins. `bears` stays per class: text on
+          // the mark is text on every class it wears.
+          const stampOwner = classes.find((c) => classes.some((o) => o !== c && c.startsWith(o)))
+            || classes[classes.length - 1];
           for (const cls of classes) {
           const b = (bearing[cls] ||= { n: 0, withText: 0, ownText: 0, samples: [], paint: new Set(), encodes: new Set() });
           b.n += 1;
@@ -450,8 +459,8 @@ async function main() {
           // the declaration. The static gate can only match these as a SET over
           // a whole file; here each value is tied to the element it lands on,
           // which is the check that actually holds a member to its manifest.
-          if (el.hasAttribute('data-paint')) b.paint.add(el.getAttribute('data-paint'));
-          if (el.hasAttribute('data-encodes')) b.encodes.add(el.getAttribute('data-encodes'));
+          if (cls === stampOwner && el.hasAttribute('data-paint')) b.paint.add(el.getAttribute('data-paint'));
+          if (cls === stampOwner && el.hasAttribute('data-encodes')) b.encodes.add(el.getAttribute('data-encodes'));
           const mr = el.getBoundingClientRect();
           if (!mr.width || !mr.height) continue;
           // The mark's OWN best label: the text whose box lies most inside it.

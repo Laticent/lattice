@@ -35,7 +35,13 @@
         "class": "fc-shape",
         "paint": "fill",
         "encodes": "hue",
-        "bears": false
+        "bears": true
+      },
+      {
+        "class": "fc-node-group",
+        "paint": "none",
+        "encodes": "none",
+        "bears": true
       },
       {
         "class": "fc-group",
@@ -52,6 +58,12 @@
       {
         "class": "fc-head",
         "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "fc-key-swatch",
+        "paint": "bg",
         "encodes": "hue",
         "bears": false
       }

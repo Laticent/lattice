@@ -1125,7 +1125,8 @@ describe('markdown-it-plugins', () => {
     const { html } = m.render(md);
     assert.match(html, /<span class="cell cell-empty">/);
     assert.match(html, /<span class="cell cell-outlined">/);
-    assert.match(html, /<span class="cell cell-filled" data-label="Distinguished">Distinguished<\/span>/);
+    // The filled cell also names its row's hue — body row 0, so hue 1 (the mark contract).
+    assert.match(html, /<span class="cell cell-filled" data-label="Distinguished" data-hue="1" data-encodes="hue" data-paint="bg">Distinguished<\/span>/);
     // Outlined/empty carry no VISIBLE label, but do carry a screen-reader-only
     // state name — the a11y gap a maker-checker review found (#5): the shape +
     // hue alone name nothing for anything reading DOM text, not the render.

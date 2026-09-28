@@ -139,8 +139,9 @@ describe('matrix-grid cells — the two render paths agree', () => {
     const engineHtml = latticeEngine.createEngine().render(deck).html;
     // The filled cell's `data-label` (its identity for the Present Guide) is part of what must
     // agree: a path that dropped it would leave the pointer with nothing to find on that surface.
-    const engineCells = [...engineHtml.matchAll(/<span class="cell ([\w-]+)"(?: data-label="([^"]*)")?>([^<]*)/g)]
-      .map((m) => `${m[1]}:${m[2] ?? ''}:${m[3]}`);
+    // So is a filled cell's row hue (the mark contract a chart finish repaints through).
+    const engineCells = [...engineHtml.matchAll(/<span class="cell ([\w-]+)"(?: data-label="([^"]*)")?(?: data-hue="(\d)" data-encodes="hue" data-paint="bg")?>([^<]*)/g)]
+      .map((m) => `${m[1]}:${m[2] ?? ''}:${m[3] ?? ''}:${m[4]}`);
     assert.ok(engineCells.length >= 4, 'the engine path emitted cells at all');
 
     // Same table, but as the RAW markup marp-core produces (no Lattice plugins).
@@ -152,7 +153,8 @@ describe('matrix-grid cells — the two render paths agree', () => {
     ).window.document;
     kernel.applyToDom(doc);
     const domCells = [...doc.querySelectorAll('.cell')]
-      .map((el) => `${el.className.replace('cell ', '')}:${el.getAttribute('data-label') ?? ''}:${el.querySelector('.cell-sr-label') ? '' : el.textContent}`);
+      .map((el) => `${el.className.replace('cell ', '')}:${el.getAttribute('data-label') ?? ''}:${el.getAttribute('data-hue') ?? ''}:${el.querySelector('.cell-sr-label') ? '' : el.textContent}`);
     assert.deepEqual(domCells, engineCells);
+    assert.ok(engineCells.includes('cell-filled:Distinguished:1:Distinguished'), 'the filled cell names row 1\'s hue');
   });
 });
