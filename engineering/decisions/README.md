@@ -140,6 +140,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 
 - ◐ [2026-09-28-inline-sparks.md](2026-09-28-inline-sparks.md) — A spark is a word-sized chart an author writes in inline code, the way they write a pill — `~{12 14 13 17 21}:bar:c3:lg`.
 - ☐ [2026-09-28-parser-library-bakeoff.md](2026-09-28-parser-library-bakeoff.md) — Should the chart and inline grammars move to a parser library?
+- ☐ [2026-09-28-segno-unified-inline-notation.md](2026-09-28-segno-unified-inline-notation.md) — Segno is an owned grammar engine and ONE inline notation that replaces the 27 inline-code grammars Lattice ships today (34 counting…
 - ◐ [2026-09-27-card-tag-register.md](2026-09-27-card-tag-register.md) — Lattice draws a label on a card six different ways.
 - ◐ [2026-09-27-guide-in-the-exported-player.md](2026-09-27-guide-in-the-exported-player.md) — The owner ruled on 2026-09-27 (video note §6, fork 8) that the Guide goes into the exported player, so a narrated HTML export and the video…
 - ◐ [2026-09-27-plugin-system.md](2026-09-27-plugin-system.md) — The plugin system, designed whole and hardened by the adversarial trio before any code.
