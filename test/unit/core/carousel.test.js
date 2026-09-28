@@ -2012,3 +2012,39 @@ describe('core: carousel — a native slice stamps the member it carries', () =>
     }
   });
 });
+
+describe('core: carousel — compare-options reads the verdict from its slot', () => {
+  // `applyCompare` puts an author block no slot claims inside `.compare-right`, after `.options`
+  // and before `.verdict`. Reading "the first blockquote in the zone" then promoted a second quote
+  // to the recommendation and dropped the real one from the split run.
+  const inner = scSection.inner.replace('<div class="verdict">', '<p>UNCLAIMED NOTE</p><blockquote><p>SECOND QUOTE</p></blockquote><div class="verdict">');
+  const verdictText = (scSection.inner.match(/<div class="verdict"><blockquote>([\s\S]*?)<\/blockquote>/) || [])[1];
+  const parts = carouselize(scSection.openTag, inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }, 16 / 9, 'split-compare');
+  const run = (parts || []).join('');
+
+  test('the run still splits', () => assert.ok(parts && parts.length >= 3));
+  test('the real verdict is kept', () => assert.ok(verdictText && run.includes(verdictText)));
+  test('the unclaimed blocks ride the closing page, after the verdict (the band\'s beat order)', () => {
+    const closing = parts[parts.length - 1];
+    assert.match(closing, /UNCLAIMED NOTE/);
+    assert.match(closing, /SECOND QUOTE/);
+    assert.ok(closing.indexOf(verdictText) < closing.indexOf('UNCLAIMED NOTE'));
+    assert.ok(closing.indexOf(verdictText) < closing.indexOf('SECOND QUOTE'));
+  });
+  test('the slide\'s page number is chrome, not a closing-page beat', () => {
+    // Where the engine emits it: after the panels, beside the berth elements.
+    const paged = scSection.inner.replace('<div class="overflow-tab"', '<span class="lat-pagination">7</span><div class="overflow-tab"');
+    assert.notEqual(paged, scSection.inner);
+    const pages = carouselize(scSection.openTag, paged, { strategy: 'compare-options', axis: 'item', perPage: 1 }, 16 / 9, 'split-compare');
+    assert.doesNotMatch(pages[pages.length - 1].split('cell-footer')[0], /lat-pagination/);
+  });
+
+  test('verdict markup inside an option does not hide the unclaimed blocks', () => {
+    const tricky = inner.replace('<div class="option', '<div class="option"><div class="verdict">decoy</div></div><div class="option');
+    const run = (carouselize(scSection.openTag, tricky, { strategy: 'compare-options', axis: 'item', perPage: 1 }, 16 / 9, 'split-compare') || []).join('');
+    assert.match(run, /UNCLAIMED NOTE/);
+  });
+  test('each appears once', () => {
+    for (const s of ['UNCLAIMED NOTE', 'SECOND QUOTE', verdictText]) assert.equal(run.split(s).length - 1, 1, s);
+  });
+});
