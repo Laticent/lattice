@@ -1,1 +1,2 @@
 - **Fixed: a finish saved in Fabricate now appears in the Studio's image, PDF and PowerPoint exports.** The live preview showed it, but every export came out as if the deck had no finish. Finishes built in Fabricate pick up the fix without being saved again.
+- **Fixed: the frame line of the gallery finish (and Fabricate's Inset frame) now appears in exports.** It showed on screen but every PDF, image and PowerPoint export dropped it. The line also moved outward, so it now frames the header and page number instead of running through the header.

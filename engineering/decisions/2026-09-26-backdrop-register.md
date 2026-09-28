@@ -316,6 +316,40 @@ The CLI output does not change (the independent checker rendered nine finish var
 the default writer, `--chrome-pdf` and PNG: 0 pixels differ). `docs/e2e/saved-finish-export.spec.ts` pins the Images lane and fails without
 the fix.
 
+### 4.10 The frame keyline in exports (2026-09-28)
+
+**Symptom:** the `frame` edge (the gallery preset, Fabricate's "Inset frame") showed on screen and
+was missing from every export: the CLI's PDF through both writers, and the Studio's images, PDF
+and PowerPoint. It had been missing since the frame existed; gallery's export wash was the same
+before #2387.
+
+**Cause:** the frame was an inset `box-shadow` on the section (`--fin-frame`). The section is a
+stacking context (`isolation: isolate`) and `.backdrop` sits inside it at `z-index: -2`, so every
+finish layer paints over the section's own shadow. On screen those layers are mostly transparent
+and the line shows through; an export face's wash ends on solid canvas and covers it. Fabricate
+labels the frame "EDGE z4", the top of the stack, but it was drawn at the bottom.
+
+**Fix:** the keyline is drawn a second time, on top, as an `outline` on the mask layer's `::after`
+(`--fin-frame-mark`, the keyline color, written by the generator for a `frame` edge). An outline
+paints after the mask's own layers, so it sits above the veil and the clear layer in every face.
+The canvas-colored mat stays the section's shadow, underneath, so a texture still shows through
+it. Measured on screen, the outline lands on the old line: 0 pixels differ by more than 8 levels
+with the new outline switched off versus on (gallery, atrium, halo, a tone slide).
+
+**The inset moved from 2.6-2.82 to 1.1-1.32 section-cqi** (14-17px at 1280). At the old inset the
+keyline struck through the header (28-52px) on screen, which exports never showed only because
+they had no frame; drawing it in exports would have spread that collision to every PDF. At the new
+inset the frame encloses the header, the footer (to 696px) and the page number. This moves the
+gallery frame outward on screen too.
+
+**Measured:** decks without a frame export byte-identical (`accent-finishes`, both writers). In
+`finish-per-slide` and `finish-backdrops` the only pages that change are the gallery ones (page 4
+of 6, page 10 of 15), in both writers. On the real Studio, the saved Fabricate frame and gallery
+both carry the frame in Images, PDF and PowerPoint, including a tone slide.
+`docs/e2e/saved-finish-export.spec.ts` samples the keyline in an exported gallery slide and fails
+without the fix. Closes followups `2388-p3-studio-inset-frame-missing`,
+`2400-p3-gallery-frame-missing-studio-download` and `2388-p3-gallery-frame-crosses-header`.
+
 ### 4.5 `finish-override.backdrop`
 
 Keep it working. It still tunes the baked tier of a fabricated finish, and removing it would

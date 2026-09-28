@@ -74,3 +74,32 @@ test('a finish saved in Fabricate is painted in the Studio image export', async 
 	// Before the fix: 0.0 (identical). After: ~0.106 (the wash and the grid).
 	expect(differing).toBeGreaterThan(0.03);
 });
+
+// The frame keyline (gallery, and Fabricate's Inset frame) is drawn on top of the finish now
+// (backdrop-register.md §4.10). As the section's inset shadow it painted UNDER every finish layer,
+// and an export face's wash ends on solid canvas, so no export had a frame. The oracle samples a
+// row across the left keyline of an exported gallery slide: the line's pixels must differ from
+// the canvas just inside it.
+test('the gallery frame keyline survives the Studio image export', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await setEditorContent(page, deck('gallery'));
+	const png = await exportSlideTwo(page);
+	const contrast = await page.evaluate(async (b64) => {
+		const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+		const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+		const canvas = new OffscreenCanvas(bmp.width, bmp.height);
+		const ctx = canvas.getContext('2d')!;
+		ctx.drawImage(bmp, 0, 0);
+		const y = Math.round(bmp.height / 2);
+		const cqi = bmp.width / 100;
+		// Darkest pixel inside the keyline band vs the canvas 2 cqi further in.
+		const row = ctx.getImageData(0, y, Math.ceil(4 * cqi), 1).data;
+		const lum = (x: number) => (row[x * 4] + row[x * 4 + 1] + row[x * 4 + 2]) / 3;
+		let line = 255;
+		for (let x = Math.floor(1.0 * cqi); x <= Math.ceil(1.45 * cqi); x++) line = Math.min(line, lum(x));
+		return lum(Math.round(3.3 * cqi)) - line;
+	}, png);
+	// Before the fix: ~0 (no line). After: the keyline, tens of levels darker than the canvas.
+	expect(contrast).toBeGreaterThan(15);
+});

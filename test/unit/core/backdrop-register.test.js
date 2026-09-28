@@ -258,3 +258,29 @@ test('css: the on-screen clear fade is wide, and the content box stays canvas', 
   // Two standard deviations inside the bleed keeps the content box's edge ≥97.7% canvas.
   assert.ok(blur * 2 <= bleed, `blur ${blur}cqi reaches into the content box`);
 });
+
+test('css: the frame keyline is drawn on top of the finish, clear of the header chrome', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  // The section's inset shadow paints UNDER every finish layer, so an export face's solid wash
+  // buried it (backdrop-register.md §4.10). The keyline is drawn again as the mask's outline.
+  const top = css.match(/section\.finish > \.backdrop > \.backdrop-mask::after \{[^}]*\}/);
+  assert.ok(top, 'the on-top keyline rule is missing');
+  assert.match(top[0], /outline: calc\(0\.22 \* var\(--_sec-1cqi, 1cqi\)\) solid var\(--fin-frame-mark, transparent\);/);
+  assert.match(top[0], /outline-offset: calc\(-1\.32 \* var\(--_sec-1cqi, 1cqi\)\);/);
+  assert.match(css, /tone-skip\)\.finish > \.backdrop > \.backdrop-mask::after \{\s*left: -8px;/);
+  // Every opt-out that clears the shadow frame clears the keyline too.
+  const clears = css.match(/--fin-frame: 0 0 transparent;[^\n]*\n\s*--fin-frame-mark: transparent;/g) || [];
+  assert.equal(clears.length, 2, 'finish-none and print mode both clear --fin-frame-mark');
+  // The shipped gallery preset carries the keyline color, at the inset outside the header.
+  const gallery = css.match(/section\.finish-gallery \{[^}]*\}/)[0];
+  assert.match(gallery, /--fin-frame: inset 0 0 0 calc\(1\.1 \* var\(--_sec-1cqi, 1cqi\)\)/);
+  assert.match(gallery, /--fin-frame-mark: color-mix\(/);
+});
+
+test('generator: a frame edge writes the keyline color and the outer inset', () => {
+  const g = require('../../../lib/finishes/finish-generate.js');
+  const css = g.generateFinishCss('framed', { edge: { type: 'frame' } });
+  assert.match(css, /--fin-frame:inset 0 0 0 calc\(1\.1 \* var\(--_sec-1cqi, 1cqi\)\)[^;]*calc\(1\.32 \* var\(--_sec-1cqi, 1cqi\)\)/);
+  assert.match(css, /--fin-frame-mark:color-mix\(/);
+  assert.doesNotMatch(g.generateFinishCss('plain', { edge: { type: 'none' } }), /--fin-frame-mark/);
+});
