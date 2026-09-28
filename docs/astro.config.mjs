@@ -230,6 +230,7 @@ export default defineConfig({
 						{ label: 'Deck settings', slug: 'guides/deck-settings' },
 						{ label: 'Themes & palettes', slug: 'guides/themes' },
 						{ label: 'Using the command line', slug: 'guides/cli' },
+						{ label: 'Writing a code package', slug: 'guides/code-packages' },
 					],
 				},
 				{

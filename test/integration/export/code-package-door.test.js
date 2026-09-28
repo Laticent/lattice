@@ -251,6 +251,45 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     assert.deepEqual(hits, [], 'the package reached the network');
   });
 
+  // The public guide's complete example (docs/src/content/docs/guides/code-packages.md), read out of
+  // the page itself: the four files as the page prints them install, draw, and reach nothing. A page
+  // edit that breaks the example fails here, not in a reader's terminal.
+  test('the guide’s example package, as the page prints it, installs and draws with 0 requests', async () => {
+    const guide = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'src', 'content', 'docs', 'guides', 'code-packages.md'), 'utf8');
+    const example = guide.slice(guide.indexOf('## A complete example'));
+    const fileOf = (name) => {
+      // A plain search, not a RegExp built from the name (CodeQL: incomplete escaping).
+      const label = example.indexOf(`\`${name}\`:\n\n\`\`\``);
+      assert.ok(label >= 0, `the guide prints ${name}`);
+      const body = example.indexOf('\n', label + name.length + 6) + 1;
+      return `${example.slice(body, example.indexOf('\n```', body))}\n`;
+    };
+    const src = tmp('guide-src');
+    fs.mkdirSync(path.join(src, 'dateline'));
+    for (const f of ['dateline.manifest.json', 'dateline.styles.css', 'dateline.gallery.md', 'dateline.transform.js']) fs.writeFileSync(path.join(src, 'dateline', f), fileOf(f));
+    const guideHome = tmp('guide-home');
+    const env = { ...process.env, LATTICE_HOME: guideHome };
+    const run = (args) => new Promise((resolve) => execFile(process.execPath, [EMULATOR, 'packages', ...args], { encoding: 'utf8', env, timeout: TIMEOUT }, (e, stdout, stderr) => resolve({ status: e ? e.code || 1 : 0, text: `${stdout}\n${stderr}` })));
+    const added = await run(['add', path.join(src, 'dateline')]);
+    assert.equal(added.status, 0, added.text);
+    assert.equal((await run(['trust', 'component/dateline', '--yes'])).status, 0);
+    // The deck the page renders, from its last `md` fence.
+    const deck = [...example.matchAll(/```md\n([\s\S]*?)\n```/g)].pop()[1];
+    const dir = tmp('guide-html');
+    fs.writeFileSync(path.join(dir, 'deck.md'), `---\ntheme: indaco\n---\n\n${deck}\n`);
+    hits.length = 0;
+    const r = await new Promise((resolve) => execFile(process.execPath, [EMULATOR, path.join(dir, 'deck.md'), path.join(dir, 'deck.html'), '--allow-remote'], { encoding: 'utf8', env, timeout: TIMEOUT }, (e, stdout, stderr) => resolve({ e, text: `${stdout}\n${stderr}` })));
+    await settle();
+    assert.equal(r.e, null, r.text);
+    assert.doesNotMatch(r.text, /did not draw/, r.text);
+    const out = fs.readFileSync(path.join(dir, 'deck.html'), 'utf8');
+    assert.match(out, /<li class="dateline-row"><b class="dateline-date">2026-01-10<\/b> Kickoff<\/li>/, 'the page says Kickoff arrives without its asterisks');
+    assert.match(out, /<b class="dateline-date">2026-03-02<\/b> Beta &amp; pilot<\/li>/);
+    assert.match(out, /<b class="dateline-date">2026-06-30<\/b> General availability<\/li>/, 'the page says the link arrives as its words');
+    assert.match(out, /<section[^>]*class="dateline content form"/, 'the page says the door puts the engine’s classes back');
+    assert.deepEqual(hits, [], 'the example reached the network');
+  });
+
   test('the OS layer: as root on Linux, a Chromium the unprivileged user can run gets the OS sandbox, measured', async (t) => {
     const exe = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
     if (process.platform !== 'linux' || process.getuid?.() !== 0 || !fs.existsSync(exe)) return t.skip('needs root on Linux and a Chromium outside /root (the sandbox image has one at /opt/pw-browsers)');

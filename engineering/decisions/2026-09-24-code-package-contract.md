@@ -544,7 +544,7 @@ parity test logs how many class tokens the door strips from each (from 5 for `vi
   `chart-frame`, `logo` would add `logo-wall`), nor a runtime stem (`lat`, `lattice`, `mermaid`…):
   `codeNameRefusal`, at `add`, at the Studio's import and at render.
 - An `id` lives in the package's name or is one it was handed (a deck's `url(#id)` takes the first
-  element with it), and the runtime's markers (`data-mermaid-*`, `data-fp-*`, `data-img-*`,
+  element with it), and the runtime's markers (`data-mermaid-*`, `data-img-*`,
   `data-pane*`) survive only as handed.
 - The Studio's 4-million-character cap counts remembered output too, and a slide refused by the cap
   is not remembered as failed; a load that ran out of time is not retried within the same render;

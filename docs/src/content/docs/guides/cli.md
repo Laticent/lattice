@@ -399,6 +399,9 @@ as the Chrome that puppeteer downloads, even for an ordinary user. There the
 fix is an AppArmor profile that lets the browser create user namespaces, or
 setting the `kernel.apparmor_restrict_unprivileged_userns` sysctl to 0.
 
+To write a component that carries code, see
+[Writing a code package](/guides/code-packages/).
+
 ### Start a plugin
 
 In a clone of the repository, `packages new plugin` scaffolds a plugin in
