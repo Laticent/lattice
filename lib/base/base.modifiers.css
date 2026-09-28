@@ -4276,13 +4276,15 @@ section .lat-spark {
   padding:var(--spark-pad-y) var(--spark-pad);
   vertical-align:middle;
   line-height:0;
-  color:var(--pill-fg, var(--text-body));
   isolation:isolate;
-  /* The look's one color, and the four parts spent from it (the `pigment` values here). */
-  --spark-hue:var(--pill-fg, var(--text-body));
-  --spark-ink:var(--spark-hue);
-  --spark-tile:var(--pill-bg, color-mix(in srgb, currentColor 7%, var(--bg)));
-  --spark-edge:var(--pill-border, var(--muted-mark));
+  /* The look's one color, and the four parts spent from it (the `pigment` values here). A spark
+   * that names no color is `c1`, the deck's first chart hue (owner's call, 2026-09-28: a
+   * colorless spark matches the first series of any chart beside it). */
+  --spark-hue:var(--chart-cat1);
+  --spark-ink:var(--chart-cat1-ink, color-mix(in oklab, var(--spark-hue) 65%, var(--text-heading)));
+  color:var(--spark-ink);
+  --spark-tile:light-dark(color-mix(in oklab, var(--spark-hue) 24%, var(--bg)), color-mix(in oklab, var(--spark-hue) 40%, black));
+  --spark-edge:var(--spark-ink);
   --spark-body:currentColor;
   --spark-body-edge:none;
   --spark-area:color-mix(in srgb, currentColor 20%, transparent);
@@ -4296,18 +4298,6 @@ section .lat-spark[data-type='ring'] { width:var(--spark-h); --spark-bare-h:1.1e
 section .lat-spark[data-type='ring'][data-size='sm'] { --spark-bare-h:0.8em; }
 section .lat-spark[data-type='ring'][data-size='lg'] { --spark-bare-h:1.7em; }
 section .lat-spark[data-fill] { display:block; width:auto; }
-/* A color slot spends the CHART cycle's hue and its curated ink (`--chart-catN`,
- * `--chart-catN-ink`, declared per theme), not the pill cycle's two tiers: a pill slot's fill and
- * mark are separately curated and do not share a hue (indaco slot 2 is a tan fill with a maroon
- * mark in light, a rust fill with a pale-pink mark in dark), so a look built on them changed color
- * from look to look. The chart hue is one hue in both modes, and it is the hue a chart beside the
- * spark paints the same slot. Slots 9–12 have no chart hue and use the pill mark for both: a
- * spark's ink draws strokes, never text, so the mark's 3:1 graphical floor is its contract. */
-section .lat-spark[data-c] {
-  color:var(--spark-ink);
-  --spark-tile:light-dark(color-mix(in oklab, var(--spark-hue) 24%, var(--bg)), color-mix(in oklab, var(--spark-hue) 40%, black));
-  --spark-edge:var(--spark-ink);
-}
 section .lat-spark::before {
   content:'';
   position:absolute;
@@ -4338,9 +4328,7 @@ section .lat-spark > svg > * { vector-effect:non-scaling-stroke; }
   --spark-w:var(--spark-bare-w, 4.5em);
   --spark-pad:var(--spark-pad-out);
   --spark-pad-y:0px;
-  color:inherit;
 }
-:is(section.spark-bare .lat-spark:not([data-frame='framed'], [data-corners]), section .lat-spark[data-type][data-frame='bare'])[data-c] { color:var(--spark-ink); }
 :is(section.spark-bare .lat-spark:not([data-frame='framed'], [data-corners]), section .lat-spark[data-type][data-frame='bare'])::before { content:none; }
 /* `etching` — the hue is the LINE: a clear tile, the edge and every mark in the slot's ink, and
  * bars / area / a bullet's value a light wash of it with an ink edge, so a body never has to
@@ -4373,8 +4361,11 @@ section .lat-spark .s-area { fill:var(--spark-area); }
 section .lat-spark .s-zero { fill:none; stroke:var(--muted-mark); stroke-width:1px; stroke-dasharray:2 2; }
 section .lat-spark :is(.s-up, .s-value) { fill:var(--spark-body); stroke:var(--spark-body-edge); stroke-width:1px; }
 /* A loss sits BELOW the midline, so position carries the meaning; accent is a second
- * channel, and palette-blind (spec §10 e). */
-section .lat-spark .s-down { fill:var(--accent); }
+ * channel, and palette-blind (spec §10 e). It is also HOLLOW — a light accent wash inside an
+ * accent edge — because the spark's own hue can be the accent's: `c1`, the default, is blue in
+ * indaco and so is the accent, and solid losses then matched the wins. Shape separates them on
+ * every palette. */
+section .lat-spark .s-down { fill:color-mix(in oklab, var(--accent) 22%, transparent); stroke:var(--accent); stroke-width:1px; }
 section .lat-spark .s-tie { fill:var(--muted-mark); }
 section .lat-spark .s-track { fill:var(--spark-track); }
 section .lat-spark .s-target { stroke:var(--text-heading); stroke-width:calc(var(--spark-stroke) * 1.6); }
@@ -4399,6 +4390,14 @@ section .lat-spark-dot {
 /* "Now" is the accent in every spark on a slide, whatever the line's color. */
 section .lat-spark-dot.s-end { --spark-dot:calc(var(--spark-stroke) * 3.8); background:var(--accent); }
 
+/* A color slot spends the CHART cycle's hue and its curated ink (`--chart-catN`,
+ * `--chart-catN-ink`, declared per theme), not the pill cycle's two tiers: a pill slot's fill and
+ * mark are separately curated and do not share a hue (indaco slot 2 is a tan fill with a maroon
+ * mark in light, a rust fill with a pale-pink mark in dark), so a look built on them changed color
+ * from look to look. The chart hue is one hue in both modes, and it is the hue a chart beside the
+ * spark paints the same slot (the host rule above holds the recipe, and `c1` is the default).
+ * Slots 9–12 have no chart hue and use the pill mark for both: a
+ * spark's ink draws strokes, never text, so the mark's 3:1 graphical floor is its contract. */
 section .lat-spark[data-c='c1']   { --spark-hue:var(--chart-cat1); --spark-ink:var(--chart-cat1-ink, color-mix(in oklab, var(--spark-hue) 65%, var(--text-heading))); }
 section .lat-spark[data-c='c2']   { --spark-hue:var(--chart-cat2); --spark-ink:var(--chart-cat2-ink, color-mix(in oklab, var(--spark-hue) 65%, var(--text-heading))); }
 section .lat-spark[data-c='c3']   { --spark-hue:var(--chart-cat3); --spark-ink:var(--chart-cat3-ink, color-mix(in oklab, var(--spark-hue) 65%, var(--text-heading))); }

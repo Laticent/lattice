@@ -39,7 +39,7 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 | `:pigment`, the default | `~{12 14 13 17 16 21 24}:c2:end` `~{12 14 13 17 16 21 24}:area:c2` | `~{3 5 4 6 7 5 8}:bar:c2` | `~{72%}:c2` | `~{72/80}:bullet:c2` |
 | `:etching` | `~{12 14 13 17 16 21 24}:c2:etching:end` `~{12 14 13 17 16 21 24}:area:c2:etching` | `~{3 5 4 6 7 5 8}:bar:c2:etching` | `~{72%}:c2:etching` | `~{72/80}:bullet:c2:etching` |
 | `:tone` | `~{12 14 13 17 16 21 24}:c2:tone:end` `~{12 14 13 17 16 21 24}:area:c2:tone` | `~{3 5 4 6 7 5 8}:bar:c2:tone` | `~{72%}:c2:tone` | `~{72/80}:bullet:c2:tone` |
-| `:tone`, no color | `~{12 14 13 17 16 21 24}:tone:end` `~{12 14 13 17 16 21 24}:area:tone` | `~{3 5 4 6 7 5 8}:bar:tone` | `~{72%}:tone` | `~{72/80}:bullet:tone` |
+| `:tone`, no color (`c1`) | `~{12 14 13 17 16 21 24}:tone:end` `~{12 14 13 17 16 21 24}:area:tone` | `~{3 5 4 6 7 5 8}:bar:tone` | `~{72%}:tone` | `~{72/80}:bullet:tone` |
 
 ---
 

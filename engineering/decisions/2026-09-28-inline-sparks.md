@@ -72,7 +72,7 @@ also keeps the parser a whitespace split, with no locale rules.
 |---|---|---|---|
 | **type** | `line` `area` `bar` `step` `winloss` `ring` `bullet` | `line` for a series, `ring` for a ratio | — |
 | **size** | `sm` `md` `lg` | `md` | all |
-| **color** | `c1`–`c12`, the pills' categorical slots | the surrounding text color | all |
+| **color** | `c1`–`c12`, the pills' categorical slots | `c1` (§10 j) | all |
 | **width** | `fill` — its own line, as wide as the text block | the size's fixed width | all but ring |
 | **scale** | `zero` — start the value axis at 0 | low-to-high | line, area, step |
 | **markers** | `end` (latest value), `minmax` (low and high); both allowed | none | line, area, step |
@@ -154,16 +154,17 @@ A zero line (dashed, `--muted-mark`) appears only when a series crosses zero.
 
 ## 7. Color and marks
 
-- *(§10 j: with a color slot, the LOOK decides where the slot's hue goes — tile, edge, marks —
-  and draws from the chart cycle, `--chart-catN` / `--chart-catN-ink`; what follows describes a
-  spark with no color.)*
-- **Ink is `currentColor`.** A spark takes the color of the text it sits in, so it follows the
-  theme, dark mode and any component that recolors its text (HARD RULE #3: no hex anywhere).
-- **`c1`–`c12`** set it to `--cat-N-mark`, the same slots pills use.
+- **The LOOK decides where a slot's hue goes** — tile, edge, marks (§10 j) — and every slot draws
+  from the chart cycle, `--chart-catN` / `--chart-catN-ink` (9–12: the pill mark). A spark that
+  names no color is `c1`. Every color is a theme token, so a spark follows the theme and dark mode
+  (HARD RULE #3: no hex anywhere). *(Superseded: sparks first drew in `currentColor`, the text's
+  ink, when no slot was named.)*
 - **The `end` dot is `--accent`**, whatever the line color, so "now" looks the same in every
   spark on a slide.
 - **`minmax` dots are the line color**, slightly smaller than `end`.
-- **`winloss` draws a loss in `--accent`**, below the midline. The position carries the meaning,
+- **`winloss` draws a loss in `--accent`, hollow** (a 22% wash inside an accent edge), below the
+  midline. Hollow because the default `c1` can be the accent's hue (indaco: both blue), and solid
+  losses then matched the wins. The position carries the meaning,
   so the color is a second channel and not the only one. Whether losses should use a status
   token instead is question (e) in §10.
 - **Area fill** is the line color at 20%, and a **bullet or ring track** at 16–18%.
@@ -259,6 +260,11 @@ every ruling.
   chart paints the same slot. Cost: a `pigment` spark no longer matches a pill of the same slot.
   Slots 9–12 have no chart hue and use the pill mark for hue and ink (a spark's ink draws strokes,
   so the mark's 3:1 floor is its contract). Every look keeps an edge on the tile.
+  **A spark with no color is `c1`**, the owner's call after comparing neutral ink, the deck accent
+  and `c1` on the same slides in indaco and cuoio: a colorless spark then matches the first series
+  of any chart beside it. The cost, accepted: it overrides a component's own ink (the `kpi` pass
+  green no longer reaches its sparks), and the accent option was rejected partly because the
+  `:end` dot, which is the accent, vanished into an accent line.
 - **(g) `lint:deck` coaching.** A span that opens with `~{` but doesn't parse gets a warning
   naming the reason (the pill rule has no such warning today). Recommended, since the literal
   fallback is silent otherwise.

@@ -1647,8 +1647,9 @@ slide. `:minmax` dots the low and the high. Both apply to `line`, `area` and `st
 
 ### Color — `:c1` … `:c12`
 
-A spark with no color spends the text's ink; `:c1`–`:c12` point it at the same categorical
-slots pills use. The **look** (below) decides where that one color goes. A bare spark draws in
+A spark with no color is `:c1`, the deck's first chart hue; `:c1`–`:c12` are the same numbered
+slots pills use, drawn from the chart cycle (`--chart-catN`) so a spark shows a slot in the hue a
+chart gives it. The **look** (below) decides where that one color goes. A bare spark draws in
 the slot's mark. A `winloss` loss is `--accent`, but its position below the line
 carries the meaning.
 
@@ -1683,7 +1684,7 @@ paragraph with several sparks may read better with `spark-bare` on that slide.
 
 A spark has four parts one color can go to: the **tile**, its **edge**, the **ink** every line,
 dot and ring arc draws in, and the **body** that fills bars, an area and a bullet's value. A
-look decides all four from the one color the spark names (or the text's ink), so the parts
+look decides all four from the one color the spark names (`c1` when it names none), so the parts
 never come from two slots. The names are the chart family's three finishes
 (`engineering/chart-styling.md` §3):
 
