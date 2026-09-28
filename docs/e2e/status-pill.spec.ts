@@ -191,6 +191,10 @@ test('a status message raised inside the previous one’s exit window survives i
 	const duplicate = page.getByRole('button', { name: 'Duplicate slide' });
 	await duplicate.click();
 	await expect(pills(page).first()).toContainText('Slide duplicated.');
+	// Take the pointer off the pill. At 1440px the bottom-center pill lands on top of the
+	// rail's Duplicate button, so the pointer that clicked it now HOVERS the pill, and Sonner
+	// pauses every dwell while the stack is hovered (`dist/index.mjs:605`) — it never expires.
+	await page.mouse.move(0, 0);
 
 	await armExitReply(page, 'button[aria-label="Duplicate slide"]');
 
@@ -216,9 +220,9 @@ test('an action message raised inside a CLICKED affordance’s exit window survi
 	// Every Inspector write raises an Undo through the `action` kind (`settingsWrite`
 	// → `showUndo` → `notifyAction`). Two different toggles, so the second message is
 	// distinguishable from the first by text rather than by counting.
-	await page.getByRole('switch', { name: 'Section rail' }).click();
+	await page.getByRole('switch', { name: 'Inline pills and marks' }).click();
 	const undo = pills(page).first();
-	await expect(undo).toContainText('Section rail off');
+	await expect(undo).toContainText('Inline pills and marks off');
 
 	await armExitReply(page, 'button[role="switch"][aria-label="Auto-glossary"]');
 

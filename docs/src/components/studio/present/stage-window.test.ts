@@ -355,7 +355,7 @@ describe('stage-window — createStageController', () => {
 		// there is no live host — and without this the caption crawl and the rail rendered
 		// into limbo while the dock still refused to show them, leaving them on NEITHER
 		// surface for the length of an engine boot.
-		expect(onChange).toHaveBeenLastCalledWith(null);
+		expect(onChange).toHaveBeenLastCalledWith(null, true); // a REWRITE: the Stage is still open
 		// Nothing is posted at the old document either.
 		win.postMessage.mockClear();
 		ctl.show(4);
@@ -363,6 +363,23 @@ describe('stage-window — createStageController', () => {
 		postFromStage({ stage: 'ready' }, win);
 		expect(onChange).toHaveBeenLastCalledWith(win);
 		expect(win.postMessage).toHaveBeenCalledWith({ pv: 0 }, location.origin);
+	});
+
+	it('a rewrite that THROWS lets go for real, so the console does not hold a presenter view up', () => {
+		// `onChange(null, true)` tells the console a rewrite is in flight, and it keeps the
+		// presenter view, the talk clock and the pill up until `ready`. A write that throws never
+		// says `ready`, so the controller has to take that back with a plain null.
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onChange = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange, onLost: vi.fn(), onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		win.document.write.mockImplementation(() => {
+			throw new Error('write refused');
+		});
+		ctl.write('<stage-v2/>');
+		expect(onChange.mock.calls.slice(-2)).toEqual([[null, true], [null]]);
 	});
 
 	it('stays silent when WE closed the Stage — and when the PRESENTER closed the window', async () => {

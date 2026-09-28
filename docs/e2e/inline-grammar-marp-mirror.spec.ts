@@ -44,11 +44,11 @@ const BODY = [
 	'3. Axes',
 	'   - `{I}:c1:lg` `{J}:c12:sm`',
 	'4. Marks',
-	'   - `[x]` `[-]` `[ ]` `[/]`',
+	'   - `[x]` `[-]` `[ ]` `[/]` `[?]`',
 	// The literals are half the probe: this grammar reads every single-backtick span in
 	// every deck, so the drift that matters is `getUserId()` quietly becoming a pill.
 	'5. Literals',
-	'   - `[?]` `[data-mark]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
+	'   - `[data-mark]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
 	'6. Escaped',
 	'   - `\\{LIVE}` and `\\[x]` and `\\[a-z]` and `\\d+`',
 ].join('\n');
@@ -135,7 +135,7 @@ test('the runtime mirrors the engine over marp-shaped markup, and settles (#2066
 			return { what: el.getAttribute('data-shape') || el.getAttribute('aria-label'), w: r.width, h: r.height };
 		}),
 	);
-	expect(boxes.length).toBe(14);
+	expect(boxes.length).toBe(15);
 	expect(boxes.filter((b) => b.w < 1 || b.h < 1), 'a pill or mark painted at zero size').toEqual([]);
 	expect(errors, 'the runtime threw in the page').toEqual([]);
 });

@@ -502,9 +502,24 @@ export async function gotoStudio(page: Page): Promise<void> {
 	});
 	// On a desktop (fine-pointer) project, pressing Play starts the on-device voice's ~80 MB
 	// download in the background (the desktop default — voice-model.js › summonDefaultVoice).
-	// Fail its module request so a spec never pulls kokoro-js and the model weights over the
-	// network; the load fails fast, and the voice model stops trying for the session.
-	await page.context().route(/^https:\/\/esm\.run\/kokoro-js/, (route) => route.abort());
+	// Refuse to construct its worker, so a spec never pulls kokoro-js and the model weights over
+	// the network: the background load never falls back to the main thread, so it fails fast,
+	// and the voice model stops trying for the session.
+	//
+	// NOT a `route()`. Any request interception on the context or on this page stalls every
+	// request the Stage popup makes: the console opens it with `window.open('')` and writes
+	// the deck into it, and its parser-blocking runtime script never comes back, so the Stage
+	// never boots (measured on Playwright 1.56 with Chromium; no stall with no route).
+	await page.addInitScript(() => {
+		const NativeWorker = window.Worker;
+		if (!NativeWorker) return;
+		window.Worker = class extends NativeWorker {
+			constructor(url: string | URL, options?: WorkerOptions) {
+				if (/kokoro-worker/.test(String(url))) throw new Error('e2e: the on-device voice is off in tests');
+				super(url, options);
+			}
+		};
+	});
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
 }
