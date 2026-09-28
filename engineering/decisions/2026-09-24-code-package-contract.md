@@ -392,6 +392,14 @@ the render say so with that reason and the remedy (a Chromium the unprivileged u
 `--quiet` does not hide it. Code packages refuse a Chromium older than 131, the version the walls
 were measured on.
 
+**Measured as a non-root Linux user** (2026-09-28, `tools/verify-code-sandbox.mjs`, uid 1001,
+Chromium 141): Lattice reports "on", and every renderer reads `Seccomp: 2` under that uid; the
+approved package drew with 0 requests to the log server, whose control reached it. As root with a
+Chromium `nobody` can run, the same tool measured "on" as uid 65534; with puppeteer's browser under
+`/root`, "OFF" and `Seccomp: 0`, which is what Lattice said. macOS and Windows are not measured yet:
+the same tool reads the renderer command lines there and asks the tester to read the system's own
+sandbox column (Activity Monitor; Process Explorer's integrity level).
+
 **Measured on the real CLI** (`test/integration/export/code-package-door.test.js`): a hostile
 package that tries `fetch`, an image, a WebSocket and a beacon at load and on every slide, and
 returns a section padded with newlines that holds an image, a `srcset`, a video poster, an SVG
