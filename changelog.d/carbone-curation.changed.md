@@ -13,7 +13,7 @@
 - Carbone's chart `warn` and `fail` are now amber and signal red, where they were orange
   beside coral. Their worst-case separation across normal vision and the three simulated
   color-vision deficiencies rises from 0.026 to 0.075 (light) and 0.055 to 0.103 (dark).
-- `npm run scorecard` moves carbone from 69.6 (D) to 84.9 (B), level with `indaco`.
+- `npm run scorecard` moves carbone from 69.6 (D) to 84.8 (B), level with `indaco` (85.2).
 - **Carbone's light face is graphite now, not indaco's blue slate.** Its paper, cards and
   ink sat at OKLCH hue 248–252 beside indaco's 256–261, so carbone light read as indaco
   with a green accent. Every lightness is held and the chroma drops to 15% (paper C
