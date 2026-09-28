@@ -108,6 +108,11 @@
  *   --tight PX        clearance at or under this is reported TIGHT. Default 12.
  *   --max-drift PX    anchor movement over this fails, on either axis. Default 2 (sub-pixel
  *                     rounding, not a tolerance).
+ *   --max-growth PX   anchor SIZE change over this fails, on either axis. Off by default: DRIFT
+ *                     deliberately ignores a mark pinned at one edge that grows (the page
+ *                     numeral, #2168), so the GROWTH line reports size separately, and a mark
+ *                     whose contract is ONE size names the limit — `topic`'s lit tab, which
+ *                     must be the same rectangle on every slide of a section.
  *   --help            print the flags and exit 0.
  *   --json            machine-readable rows + summary.
  *   --advisory        never exit 1. A SETUP failure still exits 2 — suppressing a verdict
@@ -124,7 +129,7 @@
  * different claim: not that any component is clean, but that this rig can still go red. A
  * geometry rig degrades quietly, and every sweep after that reports "no collision" for the
  * same reason an unplugged smoke alarm reports no fire.
- * Exit 1 on a collision or drift past the limit, 2 on a setup failure, 0 otherwise. The
+ * Exit 1 on a collision, or drift (or, when limited, growth) past the limit, 2 on a setup failure, 0 otherwise. The
  * exit-2 set is deliberately wide, because the failure that matters for a measurement rig is
  * not a crash — it is a confident CLEAN over something it never measured: no Chromium, no
  * manifest, an unknown or unusable flag, a `--style` path that does not exist (it would
@@ -138,7 +143,7 @@ const {
 } = require('./lib/calibrate-core.js');
 const { resolveChrome } = require('./lib/resolve-chrome.js');
 // Split out so the move-vs-grow discrimination is testable without a browser (#2168).
-const { axisDrift } = require('./lib/jank-drift.js');
+const { axisDrift, axisGrowth } = require('./lib/jank-drift.js');
 
 // A pixel of slack, as in check-chart-fit: sub-pixel layout rounding routinely puts a box
 // a few hundredths past its neighbor with nothing visibly touching.
@@ -153,8 +158,8 @@ const SLACK = 1.0;
 // — a rig reporting clean because it was never told what to look at. Unknown flags and
 // unusable values are now refusals, not shrugs.
 const VALUE_FLAGS = new Set([
-  'anchor', 'axis', 'family', 'max', 'count', 'words', 'theme', 'tight', 'max-drift', 'style',
-  'front-matter',
+  'anchor', 'axis', 'family', 'max', 'count', 'words', 'theme', 'tight', 'max-drift', 'max-growth',
+  'style', 'front-matter',
 ]);
 // REPEATABLE flags accumulate instead of overwriting. A `Map.set` per occurrence made
 // `--front-matter 'paginate: true' --front-matter 'header: "x"'` silently keep only the
@@ -163,7 +168,7 @@ const VALUE_FLAGS = new Set([
 // this flag exists to remove.
 const MULTI_FLAGS = new Set(['front-matter']);
 const BOOL_FLAGS = new Set(['json', 'advisory', 'help', 'anchors']);
-const NUMERIC = { max: 'int', count: 'int', words: 'int', tight: 'float', 'max-drift': 'float' };
+const NUMERIC = { max: 'int', count: 'int', words: 'int', tight: 'float', 'max-drift': 'float', 'max-growth': 'float' };
 
 function die(msg, code = 2) { console.error(`check-jank: ${msg}`); process.exit(code); }
 
@@ -176,6 +181,7 @@ const USAGE = [
   '  --max N          last step             --count N     --words N',
   '  --tight PX       clearance at or under this is TIGHT (default 12)',
   '  --max-drift PX   anchor movement over this fails (default 2)',
+  '  --max-growth PX  anchor SIZE change over this fails (default: reported, never failed)',
   '  --style <css|f>  CSS injected as the deck\'s front-matter `style:`',
   "  --front-matter <k: v>  extra deck front matter, repeatable (e.g. 'paginate: true')",
   '  --anchors        list the marks this component HAS, and how far each moves',
@@ -244,6 +250,11 @@ const FAMILY = flag('family', 'wide');
 const THEME = flag('theme', 'indaco');
 const TIGHT = num('tight', '12');
 const MAX_DRIFT = num('max-drift', '2');
+// OFF unless named. Most marks may legitimately change size — the page numeral gains a digit
+// at page 10 — so failing growth by default would reopen the #2168 false verdict. A mark
+// whose contract is one size (the `topic` tab) names the limit.
+const MAX_GROWTH = opts.has('max-growth') ? num('max-growth', null) : null;
+if (MAX_GROWTH != null && MAX_GROWTH < 0) die(`--max-growth cannot be negative, got '${MAX_GROWTH}' — it would fail every run.`);
 const COUNT = num('count', '3');
 
 // A path that does not exist is a REFUSAL, not CSS. `--style ./my-fix.css` with a typo
@@ -428,12 +439,52 @@ function headingSweep() {
       + 'axis. Sweep --axis count (or --axis words) instead.');
   }
   const level = lines[at].match(/^#+/)[0];
+  const { carried, sampleHeading } = sampleDirectives(lines);
+  // Every directive line — carried from the sample, or already in the skeleton (a manifest
+  // with no skeleton sweeps its sample, whose `_track` names the sample's heading) — gets the
+  // swept heading in place of the sample's, so the lit label grows with the axis.
+  const swap = (l, heading) => (sampleHeading && DIRECTIVE.test(l) ? l.replaceAll(sampleHeading, heading) : l);
   return {
     steps: Array.from({ length: MAX }, (_, i) => i + 1),
-    slideFor: (n) => ({
-      slide: lines.map((l, i) => (i === at ? `${level} ${cap(words(n))}.` : l)).join('\n'),
-    }),
+    slideFor: (n) => {
+      const heading = `${cap(words(n))}.`;
+      return {
+        slide: [
+          ...carried.map((l) => swap(l, heading)),
+          ...lines.map((l, i) => (i === at ? `${level} ${heading}` : swap(l, heading))),
+        ].join('\n'),
+      };
+    },
   };
+}
+
+/**
+ * The SAMPLE's per-slide directives (`<!-- _track: … -->`) that the skeleton does not carry.
+ *
+ * A skeleton is the shape an author WRITES, and on `topic` that shape has no track: the
+ * kernel derives one from the section's sibling slides, and a one-slide-per-step sweep deck
+ * has no siblings. So the sweep drew no track at all, and the lit tab — the mark on this
+ * component that most needs to hold still — was "measurable on 0 of 24 slides". The
+ * sample names the track outright with `_track`, which is the same markup the derivation
+ * writes, so carrying it across puts the real chrome back on every step.
+ *
+ * Where a directive quotes the sample's own heading, the swept heading replaces it. That is
+ * what a derived track does — the lit label IS the slide's heading — so the lit column grows
+ * with the axis instead of sitting still on a word the slide no longer says.
+ *
+ * Read from the manifest, never keyed on a component name: today `topic` is the only
+ * manifest whose sample carries a directive its skeleton lacks, and a second one is swept
+ * the same way without an edit here.
+ */
+const DIRECTIVE = /^\s*<!--\s*_(?!class\b)[\w-]+\s*:.*-->\s*$/;
+function sampleDirectives(skeletonLines) {
+  const sample = (manifest.sample || '').split('\n');
+  const h = sample.find((l) => /^#{1,6}\s+\S/.test(l));
+  const sampleHeading = h ? h.replace(/^#+\s+/, '').trim() : null;
+  if (!manifest.sample || !manifest.skeleton) return { carried: [], sampleHeading };
+  const have = new Set(skeletonLines.filter((l) => DIRECTIVE.test(l)).map((l) => l.trim()));
+  const carried = sample.filter((l) => DIRECTIVE.test(l) && !have.has(l.trim())).map((l) => l.trim());
+  return { carried, sampleHeading };
 }
 
 /** calibrate-capacity's experiment: hold the body, grow the element COUNT. */
@@ -1172,6 +1223,16 @@ async function main() {
     }
     : null;
   const drift = driftAxes ? Math.max(driftAxes.vertical, driftAxes.horizontal) : null;
+  // SIZE, measured beside position and never folded into it (tools/lib/jank-drift.js).
+  const growthAxes = withAnchor.length > 1
+    ? {
+      height: axisGrowth(colOf('anchorTop'), colOf('anchorBottom')),
+      width: axisGrowth(colOf('anchorLeft'), colOf('anchorRight')),
+    }
+    : null;
+  const growth = growthAxes ? Math.max(growthAxes.height, growthAxes.width) : null;
+  const growthAxis = growthAxes && growthAxes.width > growthAxes.height ? 'width' : 'height';
+  const grew = growth != null && MAX_GROWTH != null && growth > MAX_GROWTH;
   const driftAxis = driftAxes && driftAxes.horizontal > driftAxes.vertical ? 'horizontal' : 'vertical';
   // A COLLISION is an intersection on BOTH axes, not merely a negative gap on one. An
   // anchor in a corner and ink in a column beside it can pass each other on the block axis
@@ -1219,6 +1280,7 @@ async function main() {
     component: CLASS, family: FAMILY, theme: THEME, axis: AXIS, steps: sweep.steps.length,
     anchor: ANCHOR, anchorErrors,
     drift, driftAxis, driftAxes, maxDrift: MAX_DRIFT,
+    growth, growthAxis, growthAxes, maxGrowth: MAX_GROWTH,
     unplaced: [...new Set(rows.flatMap((r) => r.unplaced || []))],
     anchorMatches: [...new Set(rows.map((r) => r.anchorCount).filter((n) => n > 1))],
     collision: collision && { step: collision.step, slide: collision.slide, clearance: collision.clearance },
@@ -1406,6 +1468,12 @@ async function main() {
       console.log(`  DRIFT     the anchor moved ${drift.toFixed(1)}px across the sweep, ${driftAxis} (limit ${MAX_DRIFT})`
         + `${drift > MAX_DRIFT ? '  ✗ it does not hold position' : '  ok'}`);
     }
+    if (growth != null) {
+      console.log(`  GROWTH    the anchor's ${growthAxis} changed by ${growth.toFixed(1)}px across the sweep`
+        + `${MAX_GROWTH == null
+          ? '  (advisory — pass --max-growth PX when this mark must hold one size)'
+          : ` (limit ${MAX_GROWTH})${grew ? '  ✗ it does not hold its size' : '  ok'}`}`);
+    }
     if (collision) {
       console.log(`  COLLISION step ${collision.step} (${collision.lines ?? '—'} lines, ${collision.chars ?? '—'} chars): `
         + `clearance ${collision.clearance}px${collision.over ? '' : ' — and the overflow probe says this slide is fine'}  ✗`);
@@ -1477,7 +1545,7 @@ async function main() {
   // collision" for the same reason an unplugged alarm reports no fire — and the one-line
   // ANCHOR note above is easy to read past. Exit 2, with the other tools' meaning: the rig
   // did not run, as distinct from the 1 that means it found something.
-  const failed = (drift != null && drift > MAX_DRIFT) || !!collision;
+  const failed = (drift != null && drift > MAX_DRIFT) || grew || !!collision;
   process.exitCode = failed && !ADVISORY ? 1 : 0;
 }
 

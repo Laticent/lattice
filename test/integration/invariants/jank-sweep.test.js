@@ -517,6 +517,42 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
       `discovery did not reach the section's own mark: ${JSON.stringify(d.candidates.map((c) => c.sel))}`);
   });
 
+  test('a mark whose contract is ONE SIZE is measured on every step, and GROWTH reds it where DRIFT cannot', () => {
+    // `topic`'s lit tab: pinned at its top, one rectangle for the whole section. Before the
+    // heading sweep carried the manifest sample's `_track`, a sweep deck had no track at all
+    // and this anchor was "measurable on 0 of N slides". And a tab that took its height from
+    // its label (the fixed foot removed) grows DOWNWARD from a pinned top — which DRIFT is
+    // built to call 0 (#2168) — so only the separate size measure can see it.
+    const run = (extra) => {
+      const args = [TOOL, 'topic', '--anchor', 'ul.tile-track > li.on', '--max', '12',
+        '--max-growth', '2', '--json', ...extra];
+      const r = spawnSync(process.execPath, args, {
+        cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
+      });
+      if (r.status === 2) assert.fail(`check-jank could not run (exit 2): ${r.stderr || r.stdout}`);
+      return parse(r);
+    };
+    const shipped = run([]);
+    // The INK does not move on this sweep (the eyebrow and the track bound it, and the heading
+    // wraps between them), so the tool calls the shipped run's ink verdicts vacuous. The claim
+    // here is about the ANCHOR, and the footless run below is the same experiment proving the
+    // lit label really grows — that pairing is what makes `growth 0` on the shipped run mean
+    // "held its size" rather than "had nothing to hold against".
+    assert.equal(shipped.rows.length, 12);
+    assert.ok(shipped.rows.every((row) => row.anchorTop != null), 'the lit tab is missing from some swept slide');
+    assert.ok(shipped.rows.some((row) => row.lines >= 3), 'the heading (and so the lit label) never wrapped');
+    assert.ok(shipped.summary.growth <= 2, `the shipped tab changed size by ${shipped.summary.growth}px`);
+    assert.equal(shipped.status, 0);
+
+    const footless = run(['--style', 'section.topic > ul.tile-track { bottom: auto; }']);
+    assert.ok(footless.summary.drift <= footless.summary.maxDrift,
+      'the footless tab now reads as DRIFT — the premise that only GROWTH can see it has changed');
+    assert.ok(footless.summary.growth > 50,
+      `a content-sized tab barely changed size (${footless.summary.growth}px) — the sweep no longer grows the lit label`);
+    assert.equal(footless.summary.growthAxis, 'height');
+    assert.equal(footless.status, 1, 'growth past --max-growth did not fail the run');
+  });
+
   test('readable content that is out of flow is ink, and a mark drawn in reserved padding is not a collision', () => {
     // TWO failures that pull in opposite directions, on the same run pair.
     //

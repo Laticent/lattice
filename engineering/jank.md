@@ -136,7 +136,27 @@ unplugged smoke alarm reports no fire.
 | `UNPLACED` | generated boxes that paint where the tool cannot place them. When this appears, a clean COLLISION line says "among the ink it could place" and withholds the word `ok` — see below |
 | `probe` | the engine's own overflow verdict for that page. A collision with `·` here is the silent case |
 
-Exit 1 on a collision or drift past `--max-drift`; exit 2 when the rig could not run,
+**DRIFT is position; GROWTH is size, and only one of them fails by default.** DRIFT
+ignores a mark pinned at one edge that merely grows — the page numeral gaining a digit at
+page 10 is not movement (#2168). That is wrong for a mark whose whole contract is ONE size,
+like `topic`'s lit tab: a tab that took its height from its label grew 256px downward over a
+heading sweep while DRIFT read `0.0px ok`. So every anchored run also prints a `GROWTH`
+line — how much the anchor's height or width changed — and `--max-growth PX` makes that
+fail. It is off by default, because most marks may legitimately change size:
+
+```sh
+node tools/check-jank.js topic --anchor 'ul.tile-track > li.on' --max-growth 2
+```
+
+**The sweep carries the sample's per-slide directives.** A skeleton is the shape an author
+writes, and `topic`'s has no track — the kernel derives one from sibling slides, which a
+one-slide-per-step sweep deck does not have. So the heading sweep copies any `<!-- _key: … -->`
+directive the manifest's `sample` carries and its `skeleton` lacks, and swaps the sample's
+heading for the swept one inside it. On `topic` that emits `_track` with the swept heading as
+the lit label, which is what a derived track does. It is read from the manifest, never keyed
+on a name; today `topic` is the only component it changes.
+
+Exit 1 on a collision, drift past `--max-drift`, or growth past `--max-growth` when given; exit 2 when the rig could not run,
 never a silent 0. **The exit-2 set is deliberately wide**, because the dangerous failure for
 a measurement rig is not a crash — it is a confident CLEAN over something it never measured.
 So: no Chromium, no manifest, an unknown or misspelled flag, a non-numeric `--tight` /

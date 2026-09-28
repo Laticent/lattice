@@ -67,4 +67,21 @@ function axisDrift(near, far) {
   return Math.min(spread(near), spread(far), spread(mid));
 }
 
-module.exports = { spread, axisDrift };
+/**
+ * How much the box's SIZE changed along one axis — the spread of `far - near`.
+ *
+ * The complement of `axisDrift`, and deliberately a separate number: `axisDrift` returns 0
+ * for a box pinned at one edge that merely grows, which is right for the page numeral
+ * gaining a digit and wrong for a mark whose whole contract is ONE size across a section.
+ * The lit tab on `topic` is that mark: pinned at its top, and a tab that took its height
+ * from its label grew downward by 256.5px over a 24-step heading sweep while DRIFT read 0.0px.
+ * So growth is measured always and failed on only when the caller names a limit.
+ */
+function axisGrowth(near, far) {
+  if (!Array.isArray(near) || !Array.isArray(far) || near.length !== far.length) {
+    throw new TypeError('jank-drift: near and far must be arrays of the same length');
+  }
+  return spread(far.map((f, i) => f - near[i]));
+}
+
+module.exports = { spread, axisDrift, axisGrowth };

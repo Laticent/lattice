@@ -38,12 +38,26 @@ section.topic {
    * `topic` slide in all 33 shipped palettes and sampling the PAINTED PIXELS of
    * both bands (oklch L, upper band vs shelf):
    *
-   *     dark arm    min 0.1294   median 0.1542   max 0.2002
-   *     light arm   min 0.6200   median 0.7561   max 0.9702
+   *     dark arm    min 0.1294   median 0.1586   max 0.3407
+   *     light arm   min 0.6200   median 0.7530   max 0.9702
    *     palettes where the two bands collapse (dL < 0.05):  0
    *
    * indaco-dark is the tightest at 0.1294 — which matters, because it is the
-   * family's default palette. To re-derive: render this component's deck once per
+   * family's default palette.
+   *
+   * dL is not the whole story near black, because a lightness step there buys
+   * little LUMINANCE contrast: onyx-dark had dL 0.2002, the widest of the dark
+   * set, and still the weakest tab — its black tab sat on a #161616 shelf at
+   * 1.16:1. The floor below (THE LIFT'S FLOOR) fixes that, so the second number
+   * that matters is the lit tab against the shelf beside it, as WCAG contrast of
+   * the painted pixels on the dark arm:
+   *
+   *     tab vs shelf   min 1.59 (laguna-dark)   median 1.68   max 1.79 (onyx-dark)
+   *
+   * Before the floor: min 1.16 (onyx-dark), median 1.63. It lifted five palettes
+   * and lowered none; the light arm is untouched. Sampled on slide 5 of
+   * examples/topic-layout-highlight.md at 1280x720: band (960,500), lit tab
+   * (960,600), shelf (300,640). To re-derive: render this component's deck once per
    * file in `themes/`, then sample a pixel in each band. RENDER, never parse the
    * theme CSS: the tokens are indirected through `var()` and resolved by
    * `light-dark()`, so a static read returns the wrong arm — an earlier attempt at
@@ -109,6 +123,42 @@ section.topic {
    * content cannot reach the track — which closes the silent-collision window a
    * bottom-positioned band otherwise opens (engineering/jank.md). */
   padding-bottom: calc(var(--_shelf) + var(--sp-lg));
+}
+/* THE LIFT'S FLOOR. The 20% lift is a fixed step in oklab LIGHTNESS, and a
+ * lightness step buys less and less LUMINANCE contrast the closer the band sits
+ * to black. On onyx-dark the band IS black, so the lifted shelf came out #161616
+ * and the lit tab (the band's own black) separated from it at 1.16:1 — tone is
+ * the tab's primary cue, and there it was nearly gone.
+ *
+ * So the dark arm's lightness never falls below 0.34. That value is the one the
+ * darkest possible band dictates: an L 0.34 gray is 1.79:1 over pure black,
+ * just past the 1.73:1 indaco-dark (the family default) carries. It is a floor
+ * on the RESULT, keeping the mix's own hue and chroma, so it bites only where
+ * the lift came out too dark — onyx-dark, and by a hair the four warmest-black
+ * palettes (mustard, burgundy, atelier, carbone), which it moves UP and so
+ * further apart. Measured table: the SHELF FILL note above.
+ *
+ * THE LIFT GOES THROUGH A REGISTERED `<color>` FIRST, and that is load-bearing.
+ * Chrome 131 — the build the export pipeline pins — WEDGES on `max()` inside a
+ * relative color whose origin still holds `light-dark()`: the page never
+ * finishes styling, and the render dies at its "load fonts" watchdog. Measured:
+ * carbone (the one palette whose `--text-display` nests a `var()` in
+ * `light-dark()`) never rendered, and a two-line page with
+ * `oklch(from light-dark(#111, #222) max(l, 0.34) c h)` hangs where `calc(l +
+ * 0.1)` does not. A registered `<color>` computes `light-dark()` down to one
+ * color, so the origin `max()` reads is a plain color and the hang cannot
+ * start. Do not inline `--_shelf-lift` back into the `oklch(from …)`.
+ *
+ * Behind `@supports` because relative color syntax is newer than `light-dark()`,
+ * and a custom property holding a function the engine cannot parse is not
+ * dropped at parse time — it goes invalid at computed time and takes the whole
+ * shelf with it. An engine without it keeps the un-floored lift above. */
+@property --_shelf-lift { syntax: "<color>"; inherits: true; initial-value: transparent; }
+@supports (color: oklch(from red l c h)) {
+  section.topic {
+    --_shelf-lift: color-mix(in oklab, var(--surface-inverse) 80%, var(--text-display));
+    --_shelf-fill: light-dark(var(--bg-alt), oklch(from var(--_shelf-lift) max(l, 0.34) c h));
+  }
 }
 section.topic > * { margin: 0; }
 
