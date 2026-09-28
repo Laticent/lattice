@@ -35,7 +35,7 @@ tester who has one; Windows comes later.
   advice there; it now names an AppArmor profile for the browser or that sysctl (p7, 2026-09-28,
   `os-sandbox.js` `offReason` / `offRemedy`; contract note §9).
 - Windows (`windows-latest`): after the launchers build only `tools/build-css.js` (the full build
-  fails on Windows, `followups.d/2459-p2-windows-prepare-skips-the-build.md`), all eight steps
+  failed on Windows then; `tools/prepare.js` fixed it in p7), all eight steps
   pass (run 36443137686). Lattice reports "on by the platform's default, not measured"; 3
   renderers, none with `--no-sandbox`. Process Explorer's integrity level needs a person.
 - macOS, rerun (runs 36438111974 and 36443137686): all eight steps pass, door test 6 of 6.

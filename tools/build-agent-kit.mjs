@@ -66,7 +66,7 @@ import {
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -936,11 +936,13 @@ function studioPromptsDoc() {
 
 /** authoring/primer.md — the Studio's layout dossier, body byte-identical. */
 async function buildPrimer() {
+  // As file:// URLs: `import()` of a bare Windows path (`D:\…`) reads `d:` as a URL scheme and
+  // throws, so this step failed on every Windows build (#2459's runner probe).
   const { buildStudioCatalog } = await import(
-    path.join(ROOT, 'docs', 'src', 'lib', 'studio-catalog.mjs')
+    pathToFileURL(path.join(ROOT, 'docs', 'src', 'lib', 'studio-catalog.mjs')).href
   );
   const { buildLatticePrimer, AUTHORING_RULES } = await import(
-    path.join(ROOT, 'docs', 'src', 'components', 'studio', 'ai', 'architect-knowledge.js')
+    pathToFileURL(path.join(ROOT, 'docs', 'src', 'components', 'studio', 'ai', 'architect-knowledge.js')).href
   );
   const catalog = buildStudioCatalog(ROOT);
   if (!catalog.length) {
