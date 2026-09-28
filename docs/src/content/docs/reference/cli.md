@@ -117,7 +117,7 @@ These apply to `.zip` output only.
 | `--notes-icon` | Show a clickable note icon on each slide with a note. Notes are embedded but hidden by default |
 | `--strip-notes` | Remove speaker notes from every copy: the HTML, the PDF annotations and any embedded source. `<!-- describe: -->` text stays |
 | `--captions` | Also write WebVTT captions: `<output>.vtt` for the deck and `<output>.NN.vtt` per slide |
-| `--strip-captions` | Remove the captions you wrote (`<!-- caption: -->` and `captions:`), keeping the generated ones |
+| `--strip-say` | Remove the spoken lines you wrote (`<!-- say: -->` and the front-matter `say:` map), keeping the generated narration. Replaces the retired `--strip-captions` |
 
 ## Palette resolution
 

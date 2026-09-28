@@ -251,7 +251,7 @@ export type PresentLens = string;
 
 /** The slides to present under a reader lens, EACH PAIRED with its original 0-based deck index (the
  *  author's slide order) — so a filtered/reordered lens still maps every shown slide back to the number
- *  the author wrote, which the front-matter `captions:` map is keyed on. Pure; always non-empty for a
+ *  the author wrote, which the front-matter `say:` map is keyed on. Pure; always non-empty for a
  *  non-empty deck under `full` (falls back to the full deck for an unknown lens rather than nothing).
  *
  *  Projection source: when `registry` defines `lens`, the deterministic, tag-driven @laticent/lente

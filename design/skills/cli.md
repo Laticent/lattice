@@ -87,7 +87,7 @@ render says it cannot find a browser, set `CHROME_PATH`.
 6. **Look at the result.** Open the PDF or a PNG of a slide and check it. A
    clean exit proves the render finished, not that it is right.
 7. **Strip before you share.** Anything that leaves the author's hands gets
-   `--strip-notes`, and `--strip-captions` too if the captions are private.
+   `--strip-notes`, and `--strip-say` too if the `say:` lines are private.
 
 ## The contract — copy, then change the names
 

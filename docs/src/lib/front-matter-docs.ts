@@ -90,7 +90,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	delivery: { group: 'speech', default: 'restrained', scope: 'the Present Guide while narration plays' },
 	lexicon: { group: 'speech', default: 'none', studio: 'Speech → Lexicon', values: 'a nested map: word → how to say it', scope: 'read-aloud' },
 	acronyms: { group: 'speech', default: 'none', studio: 'Speech → Acronyms', values: 'a nested map: term → expansion, optional definition', scope: 'read-aloud, and glossary: auto' },
-	captions: { group: 'speech', default: 'none', slide: '<!-- caption: … -->', values: 'a nested map: slide number → what to say', scope: 'read-aloud' },
+	say: { group: 'speech', default: 'none', slide: '<!-- say: … -->', values: 'a nested map: slide number → what that slide says', scope: 'read-aloud' },
 	present: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },
 	read: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },
 	fluid: { group: 'export', default: 'false', scope: 'command-line export only; yes/on and no/off also work' },

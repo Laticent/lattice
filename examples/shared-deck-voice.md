@@ -18,7 +18,7 @@ Everything built for “the deck presents itself” stopped at the Studio bounda
 
 <!-- _class: quote -->
 
-<!-- caption: A persistent clip store, prefetch windows, adaptive lookahead, a presentation beat, a readiness rail. On every shipped surface, the deck was silent. -->
+<!-- say: A persistent clip store, prefetch windows, adaptive lookahead, a presentation beat, a readiness rail. On every shipped surface, the deck was silent. -->
 
 > The product claim is a deck that presents itself to a board member. That deck is silent. Its most carefully engineered component is a progress bar nobody sees.
 
@@ -60,7 +60,7 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ## A silence you can fix beats one your audience discovers.
 
-<!-- caption: A live delivery that stumbles is a second-long gap the author can hear and re-run. A baked file is opened once, by someone else, with no way to fix it and no idea anything is wrong. -->
+<!-- say: A live delivery that stumbles is a second-long gap the author can hear and re-run. A baked file is opened once, by someone else, with no way to fix it and no idea anything is wrong. -->
 
 “Forty-two of forty-seven sentences have audio” is a number the author reads and dismisses. The missing five are what their board hears. So the failure moves back to the machine where it can still be repaired.
 
@@ -87,7 +87,7 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ## The performance becomes a property of the artifact.
 
-<!-- caption: The recipient has no key to resolve a voice with, so the author's choice of narrator has to be baked in. The same is true of the pace. -->
+<!-- say: The recipient has no key to resolve a voice with, so the author's choice of narrator has to be baked in. The same is true of the pace. -->
 
 The narrator defaults to the voice the deck was rehearsed in, and can be changed for one export. This deck asks for a deliberate pace, and the file holds that same beat between slides — the directorial choice travels rather than being re-decided by whichever browser opens it.
 

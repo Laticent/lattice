@@ -17,7 +17,7 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 ---
 
 <!-- _class: content -->
-<!-- caption: The quarter closed well. ARR closed at $48.6M, ahead of plan. Payback stretched to 19 months. -->
+<!-- say: The quarter closed well. ARR closed at $48.6M, ahead of plan. Payback stretched to 19 months. -->
 
 ## The quarter, line by line
 
@@ -29,7 +29,7 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 ---
 
 <!-- _class: table -->
-<!-- caption: Look at the SMB row first. Churn there reached 9.4% in the fourth quarter. Then read the Europe column. -->
+<!-- say: Look at the SMB row first. Churn there reached 9.4% in the fourth quarter. Then read the Europe column. -->
 
 ## SMB churn is the number to watch.
 
@@ -76,7 +76,7 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 ---
 
 <!-- _class: content -->
-<!-- caption: Three presets, three deliveries. Restrained recedes the rest to the chart hover's own depth. Somber recedes it gently and hands off slowly. Expressive recedes it deepest and draws ink on the moment that matters most. -->
+<!-- say: Three presets, three deliveries. Restrained recedes the rest to the chart hover's own depth. Somber recedes it gently and hands off slowly. Expressive recedes it deepest and draws ink on the moment that matters most. -->
 
 ## Three presets read three ways
 

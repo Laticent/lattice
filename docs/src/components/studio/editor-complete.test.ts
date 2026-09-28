@@ -393,7 +393,7 @@ describe('front-matter registers — keys and values', () => {
 
 	it('offers the keys that had no route but knowing they exist', () => {
 		const keys = done('---\n', 4);
-		for (const k of ['fit', 'cards', 'player-motion', 'captions', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
+		for (const k of ['fit', 'cards', 'player-motion', 'say', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
 			expect(keys, `${k} missing from key completion`).toContain(k);
 		}
 	});

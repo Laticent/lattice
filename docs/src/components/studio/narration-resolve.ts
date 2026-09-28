@@ -30,7 +30,7 @@
 // `design/skills/speaker-notes.md` opens by demanding "each in its own register, none bleeding
 // into the others" and that "a caption must never carry a private remark" — and then, two
 // sections on, documented the note BECOMING the caption. The CLI carried the consequence in
-// its own `--strip-captions` help: strip the PUBLIC channel for privacy and you were handed
+// its own `--strip-say` help: strip the PUBLIC channel for privacy and you were handed
 // the PRIVATE one, so it had to tell you to strip twice.
 //
 // The model is two things now. A caption is GENERATED from the slide's own content; an author
@@ -43,9 +43,9 @@ import { narrateChart as narrateChartDefault } from '@/playground/read-along-cor
 /** What a single slide offers, in precedence order. Every field is optional: each caller
  *  supplies the rungs it actually has, and a blank/whitespace value never wins. */
 export type NarrationChain = {
-	/** 1. the slide's inline `<!-- caption: … -->` — the author's exact read-as text. */
+	/** 1. the slide's inline `<!-- say: … -->` — the author's exact read-as text. */
 	caption?: string | null;
-	/** 2. the front-matter `captions:` entry for this slide (keyed by AUTHORED number). */
+	/** 2. the front-matter `say:` entry for this slide (keyed by AUTHORED number). */
 	fmCaption?: string | null;
 	/** 3. a recognized chart's COMPUTED facts (`narrateChart`) — a funnel's conversion rate,
 	 *     the auto-fit scale an unlabeled axis is plotted against — which exist only in the

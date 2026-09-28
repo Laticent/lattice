@@ -53,7 +53,7 @@ test('nothing to say → empty string', () => {
 // That single line-prefix test was the channel behind three leaks measured on real
 // exported bytes (2026-08-24-stage-console-split.md §10): a note in the `.vtt` with
 // default flags on a chart slide, a note in the `.vtt` under `--strip-notes`, and a
-// multi-line `<!-- caption: -->` surviving `--strip-captions`. The ladder cells all
+// multi-line `<!-- say: -->` surviving `--strip-say`. The ladder cells all
 // passed throughout, because every note in them was single-line.
 //
 // These are the shapes, at the kernel. The integration cells in

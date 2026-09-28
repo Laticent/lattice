@@ -7,7 +7,7 @@ footer: "Laticent · read-along captions"
 acronyms:
   ARR: annual recurring revenue
   NDR: net dollar retention
-captions:
+say:
   6: Your registry taught it ARR and NDR, so this slide speaks them in full — from the front matter captions map, keyed by slide number.
 ---
 
@@ -64,17 +64,17 @@ A slide that says `$4.2M`, or `18%`, is timed as four point two million dollars 
 
 Add an `acronyms:` block to your front matter and the narration expands the ones you own — `ARR` becomes "annual recurring revenue," `NDR` becomes "net dollar retention" — while the caption still shows the crisp glyph. The author owns the vocabulary, even overriding the built-in dictionary.
 
-This slide's spoken line comes from the front-matter `captions:` map — keyed by this slide's number — which the acronym registry then expands.
+This slide's spoken line comes from the front-matter `say:` map — keyed by this slide's number — which the acronym registry then expands.
 
 ---
 
 ## Any slide can override what it says.
 
-A `<!-- caption: … -->` comment is the exact read-as text for one slide. It *replaces* the generated line whole — an override is the caption, not an addition to it.
+A `<!-- say: … -->` comment is the exact read-as text for one slide. It *replaces* the generated line whole — an override, not an addition to it.
 
-Speaker notes are not in this chain at all. A note is yours; if a line is meant to be heard, it belongs in a `caption:`.
+Speaker notes are not in this chain at all. A note is yours; if a line is meant to be heard, it belongs in a `say:` line.
 
-<!-- caption: This spoken line comes from the slide's own caption comment, which replaces the line generated from the slide's content. -->
+<!-- say: This spoken line comes from the slide's own caption comment, which replaces the line generated from the slide's content. -->
 
 <!-- This note is the proof of the next slide's claim: it rides in the PDF and the PPTX for you, and it is nowhere in the .vtt. Nothing you write here is ever spoken. -->
 

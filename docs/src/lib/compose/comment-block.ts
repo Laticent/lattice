@@ -105,7 +105,7 @@ export function readCommentText(raw: string | null, origin?: string | null): { t
 
 // ── What CHANNEL is this comment on? ─────────────────────────────────────────
 // Not every `<!-- … -->` is a speaker note, and labeling them all "note" is wrong on the slide's
-// own terms: `caption:` is the text the slide NARRATES and `describe:` is its WCAG text
+// own terms: `say:` is the text the slide NARRATES and `describe:` is its WCAG text
 // alternative — different channels with different sinks, neither a note.
 //
 // The two predicates are REUSED from `slide-directives.ts`, which is the Studio's existing mirror
@@ -122,7 +122,7 @@ export function readCommentText(raw: string | null, origin?: string | null): { t
 // to get right). The kernel needs 15 value-constrained matchers to make that call; a label on a
 // pill does not earn that surface. A pragma now reads as a note, which is honest — it IS a comment
 // the author wrote — instead of confidently wrong.
-export type CommentKind = 'caption' | 'describe' | 'note';
+export type CommentKind = 'say' | 'describe' | 'note';
 
 /** The comment's body — its text with the fence removed and trimmed.
  *
@@ -149,25 +149,25 @@ export function commentBody(text: string): string {
 /** Which channel this comment belongs to. Drives the pill's LABEL only — the bytes are untouched. */
 export function commentKind(text: string): CommentKind {
 	const body = commentBody(text);
-	if (isCaptionBody(body)) return 'caption';
+	if (isCaptionBody(body)) return 'say';
 	if (isDescriptionBody(body)) return 'describe';
 	return 'note';
 }
 
 /** Drop the channel prefix from an already-extracted body. ONE implementation, because
  *  `commentText` (the pill's title) and `readableNote` (the panel's layout) both need it and a
- *  second copy is how `commentKind` and the strip could disagree — the pill saying "caption" while
- *  the panel still showed `caption:` to the reader.
+ *  second copy is how `commentKind` and the strip could disagree — the pill saying "say" while
+ *  the panel still showed `say:` to the reader.
  *
  *  The prefix is removed by SHAPE (`word:`) rather than by re-spelling the channel matchers: this
- *  runs only when `commentKind` already said the body starts with `caption:`/`describe:`, so the
+ *  runs only when `commentKind` already said the body starts with `say:`/`describe:`, so the
  *  greedy `[A-Za-z]+` can land on nothing else. */
 export function stripChannelPrefix(body: string, text: string): string {
 	return commentKind(text) === 'note' ? body : body.replace(/^[A-Za-z]+\s*:/, '').trim();
 }
 
 /** The words to SHOW for a comment — its body with the channel prefix stripped, because
- *  "caption: " is the syntax that selects the channel, not part of what the author wrote. */
+ *  "say: " is the syntax that selects the channel, not part of what the author wrote. */
 export function commentText(text: string): string {
 	return stripChannelPrefix(commentBody(text), text);
 }

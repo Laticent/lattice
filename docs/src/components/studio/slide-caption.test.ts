@@ -8,20 +8,20 @@ import { getNote, setNote } from './slide-notes';
 
 describe('slide-caption', () => {
 	it('reads a caption: comment, prefix stripped', () => {
-		expect(getCaption('# Hi\n\n<!-- caption: FY26 revenue grew forty percent. -->')).toBe(
+		expect(getCaption('# Hi\n\n<!-- say: FY26 revenue grew forty percent. -->')).toBe(
 			'FY26 revenue grew forty percent.',
 		);
 		expect(getCaption('# Hi\n\n<!-- just a note -->')).toBe('');
 	});
 
 	it('reads the LAST caption when several exist (an override supersedes)', () => {
-		expect(getCaption('# Hi\n\n<!-- caption: first -->\n\n<!-- caption: final -->')).toBe('final');
+		expect(getCaption('# Hi\n\n<!-- say: first -->\n\n<!-- say: final -->')).toBe('final');
 	});
 
 	it('a trailing EMPTY caption does not clobber a real one (parity with notes-core.captionFromHtml)', () => {
-		// last-NON-EMPTY-wins: `<!-- caption: real --><!-- caption: -->` must read "real", matching
+		// last-NON-EMPTY-wins: `<!-- say: real --><!-- say: -->` must read "real", matching
 		// the export's captionFromHtml — else the live overlay and the export narrate differently.
-		expect(getCaption('# Hi\n\n<!-- caption: real -->\n\n<!-- caption: -->')).toBe('real');
+		expect(getCaption('# Hi\n\n<!-- say: real -->\n\n<!-- say: -->')).toBe('real');
 	});
 
 	it('sets and replaces the caption, never stacking', () => {
@@ -29,7 +29,7 @@ describe('slide-caption', () => {
 		expect(getCaption(src)).toBe('First read-as line.');
 		src = setCaption(src, 'Revised read-as line.');
 		expect(getCaption(src)).toBe('Revised read-as line.');
-		expect((src.match(/caption:/g) ?? []).length).toBe(1); // replaced, not stacked
+		expect((src.match(/say:/g) ?? []).length).toBe(1); // replaced, not stacked
 	});
 
 	it('clears the caption with an empty string', () => {

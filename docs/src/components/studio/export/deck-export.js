@@ -601,7 +601,7 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
 }
 
 /**
- * The per-slide comment channel (note / `describe:` / `caption:`) for a deck, lifted from
+ * The per-slide comment channel (note / `describe:` / `say:`) for a deck, lifted from
  * the ENGINE render.
  *
  * Every capture-frame consumer needs this and none of them can read it out of the frame:

@@ -358,7 +358,7 @@ describe('notes-core: malformed input is linear (no ReDoS)', () => {
     // 2x per added pair, which is 48 characters for a second and a half. The first cut of this
     // arm tested a long run of SPACES instead, which is only the polynomial half and would have
     // passed at these sizes on the exponential bug.
-    const src = `---\ntheme: x\ncaptions:\n  1: a\n${'\r\n'.repeat(100000)}---\n\n# S\n`;
+    const src = `---\ntheme: x\nsay:\n  1: a\n${'\r\n'.repeat(100000)}---\n\n# S\n`;
     const t = Date.now();
     const out = core.stripCaptionsFromSource(src);
     const elapsed = Date.now() - t;
@@ -375,7 +375,7 @@ describe('notes-core: malformed input is linear (no ReDoS)', () => {
     // 10k spaces 163ms, 20k 627ms, 40k 2.5s, 80k 10s — 4x for every 2x, a render-DoS on a
     // malformed deck. `stripCaptionsFrontMatter` trims the line ARRAY instead, which is linear.
     // Same generous bound and the same reason as the arm above.
-    const src = `---\ntheme: x\ncaptions:\n  1: a\n${' '.repeat(200000)}\n---\n\n# S\n`;
+    const src = `---\ntheme: x\nsay:\n  1: a\n${' '.repeat(200000)}\n---\n\n# S\n`;
     const t = Date.now();
     const out = core.stripCaptionsFromSource(src);
     const elapsed = Date.now() - t;
@@ -436,30 +436,37 @@ describe('notes-core: accessible-description channel (describe:)', () => {
 });
 
 describe('notes-core: caption channel (caption:)', () => {
-  test('isCaptionComment recognizes the caption: prefix, not a note', () => {
-    assert.equal(core.isCaptionComment('caption: FY26 revenue grew forty percent.'), true);
-    assert.equal(core.isCaptionComment('Caption:  case-insensitive'), true);
+  test('isCaptionComment recognizes the say: prefix, not a note', () => {
+    assert.equal(core.isCaptionComment('say: FY26 revenue grew forty percent.'), true);
+    assert.equal(core.isCaptionComment('say:  two spaces after the colon'), true);
+    // LOWERCASE ONLY: the channel is public, and "Say: …" is how a presenter might start a
+    // PRIVATE note. A capitalized one stays a note (lint-core `say-key-case` points it out).
+    assert.equal(core.isCaptionComment('Say: thank the ops team'), false);
+    assert.equal(core.isCaptionComment('SAY: thank the ops team'), false);
     assert.equal(core.isCaptionComment('note: say this'), false);
     assert.equal(core.isCaptionComment('describe: whats there'), false);
-    assert.equal(core.isCaptionComment('caption the figure'), false); // no colon → prose note
+    assert.equal(core.isCaptionComment('say this slowly'), false); // no colon → prose note
+    // RETIRED 2026-09-28: the old key is no longer the channel. It reads as a note, which is
+    // exactly why lint-core's `caption-key-retired` rule is an error rather than a warning.
+    assert.equal(core.isCaptionComment('caption: the old key'), false);
   });
 
   test('a caption: comment is NOT collected as a speaker note (never embedded in the PDF)', () => {
-    assert.equal(core.notesFromHtml(sec('<!-- caption: The exact words this slide reads. -->')), null);
+    assert.equal(core.notesFromHtml(sec('<!-- say: The exact words this slide reads. -->')), null);
   });
 
   test('captionFromHtml returns the caption, prefix stripped; last-wins on override', () => {
     assert.equal(
-      core.captionFromHtml(sec('<!-- caption: Net dollar retention held at one twenty. -->')),
+      core.captionFromHtml(sec('<!-- say: Net dollar retention held at one twenty. -->')),
       'Net dollar retention held at one twenty.',
     );
     assert.equal(core.captionFromHtml(sec('<!-- a plain note -->')), null);
     // a caption REPLACES narration, so a second one supersedes (not concatenates)
-    assert.equal(core.captionFromHtml(sec('<!-- caption: first -->\n<!-- caption: second -->')), 'second');
+    assert.equal(core.captionFromHtml(sec('<!-- say: first -->\n<!-- say: second -->')), 'second');
   });
 
   test('note, description, and caption coexist on one slide without cross-contamination', () => {
-    const html = sec('<!-- Pause here. --><!-- describe: A pie chart. --><!-- caption: Three equal slices. -->');
+    const html = sec('<!-- Pause here. --><!-- describe: A pie chart. --><!-- say: Three equal slices. -->');
     assert.equal(core.notesFromHtml(html), 'Pause here.'); // note only (caption + describe excluded)
     assert.equal(core.descriptionFromHtml(html), 'A pie chart.'); // description only
     assert.equal(core.captionFromHtml(html), 'Three equal slices.'); // caption only
@@ -467,15 +474,15 @@ describe('notes-core: caption channel (caption:)', () => {
 
   test('extractSlideCaptions is index-aligned; null where a slide has no caption', () => {
     const slides = [
-      sec('<!-- caption: Opener. -->'),
+      sec('<!-- say: Opener. -->'),
       sec('<!-- just a note -->'),
-      sec('<!-- describe: a chart --><!-- caption: Closer. -->'),
+      sec('<!-- describe: a chart --><!-- say: Closer. -->'),
     ];
     assert.deepEqual(core.extractSlideCaptions(slides), ['Opener.', null, 'Closer.']);
   });
 
   test('stripCommentNodes removes a caption comment from the rendered HTML (no double-render)', () => {
-    const html = sec('<!-- caption: read this -->\n<p>Body</p>');
+    const html = sec('<!-- say: read this -->\n<p>Body</p>');
     const out = core.stripCommentNodes(html);
     assert.doesNotMatch(out, /caption:/);
     assert.match(out, /<p>Body<\/p>/);
@@ -548,7 +555,7 @@ describe('notes-core: caption channel (caption:)', () => {
 
     test('reads note, description and caption per slide', () => {
       const rec = core.slideNoteRecord([
-        '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- caption: Read aloud. --></section>',
+        '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- say: Read aloud. --></section>',
         '<section><h1>B</h1></section>',
       ]);
       assert.deepEqual(rec[0], { note: 'A note.', noteBodies: ['A note.'], description: 'A chart.', caption: 'Read aloud.' });
@@ -597,14 +604,14 @@ describe('notes-core: caption channel (caption:)', () => {
     });
   });
 
-  // The SEPARATE privacy strip for the caption channel (`--strip-captions`), orthogonal
+  // The SEPARATE privacy strip for the caption channel (`--strip-say`), orthogonal
   // to the note strip: captions are structurally identified (the `caption:` prefix), so
   // no rendered-body set is needed.
   test('stripCaptionsFromSource removes caption COMMENTS + the front-matter captions: block — notes, describe, directives, other keys survive', () => {
     const source = [
       '---',
       'theme: indaco',
-      'captions:',
+      'say:',
       '  1: Front matter secret caption one.',
       '  3: Another front-matter caption, keyed by slide.',
       'acronyms:',
@@ -616,19 +623,19 @@ describe('notes-core: caption channel (caption:)', () => {
       '<!-- _class: title -->',
       '<!-- Remember to pause here. -->',
       '<!-- describe: A pie chart with three equal slices. -->',
-      '<!-- caption: Three equal slices, one third each. -->',
-      '<!-- Caption: a SECOND caption, case-insensitive. -->',
+      '<!-- say: Three equal slices, one third each. -->',
+      '<!-- say:a SECOND say line, no space after the colon. -->',
       '',
       'Body.',
     ].join('\n');
     const out = core.stripCaptionsFromSource(source);
     // inline caption comments gone
     assert.doesNotMatch(out, /Three equal slices, one third/, 'the caption comment is gone');
-    assert.doesNotMatch(out, /a SECOND caption/, 'a second, differently-cased caption is gone');
+    assert.doesNotMatch(out, /a SECOND caption/, 'a second say line, spaced differently, is gone');
     // front-matter captions: block gone (the leak the checker caught)
     assert.doesNotMatch(out, /Front matter secret caption/, 'the front-matter caption text is gone');
     assert.doesNotMatch(out, /keyed by slide/, 'every front-matter caption line is gone');
-    assert.doesNotMatch(out, /^captions:/m, 'the captions: key itself is gone');
+    assert.doesNotMatch(out, /^say:/m, 'the captions: key itself is gone');
     // everything else survives
     assert.match(out, /theme: indaco/, 'a sibling front-matter key before captions survives');
     assert.match(out, /acronyms:/, 'a sibling front-matter key after captions survives');
@@ -640,28 +647,28 @@ describe('notes-core: caption channel (caption:)', () => {
   });
 
   test('stripCaptionsFrontMatter removes ONLY the captions: block; a captions word in the BODY is safe', () => {
-    const src = '---\ntheme: indaco\ncaptions:\n  2: read this\n---\n\n# S\n\nThe captions: feature is great.\n';
+    const src = '---\ntheme: indaco\nsay:\n  2: read this\n---\n\n# S\n\nThen say: the feature is great.\n';
     const out = core.stripCaptionsFrontMatter(src);
     assert.doesNotMatch(out, /2: read this/, 'the front-matter caption line is gone');
-    assert.doesNotMatch(out, /^captions:/m, 'the captions: key is gone from front matter');
-    assert.match(out, /The captions: feature is great\./, 'a captions: mention in the BODY is untouched');
+    assert.doesNotMatch(out, /^say:/m, 'the captions: key is gone from front matter');
+    assert.match(out, /Then say: the feature is great\./, 'a captions: mention in the BODY is untouched');
     assert.match(out, /theme: indaco/, 'sibling keys survive');
   });
 
   test('stripCaptionsFrontMatter is TOP-LEVEL only — a NESTED key named captions is preserved', () => {
     // The trio caught this: `^(\s*)captions` matched any indent and deleted an unrelated
     // nested key. A `captions:` under another mapping is a different key, not the channel.
-    const src = '---\nspeaker:\n  captions: a stage direction\n  name: Bob\ncaptions:\n  1: the real caption map\n---\n\n# S\n';
+    const src = '---\nspeaker:\n  say: a stage direction\n  name: Bob\nsay:\n  1: the real caption map\n---\n\n# S\n';
     const out = core.stripCaptionsFrontMatter(src);
-    assert.match(out, /captions: a stage direction/, 'the NESTED captions key is preserved');
+    assert.match(out, /say: a stage direction/, 'the NESTED captions key is preserved');
     assert.match(out, /name: Bob/, 'its sibling under speaker is preserved');
     assert.doesNotMatch(out, /the real caption map/, 'the TOP-LEVEL captions map is removed');
-    assert.doesNotMatch(out, /^captions:/m, 'the top-level captions: key is gone');
+    assert.doesNotMatch(out, /^say:/m, 'the top-level captions: key is gone');
   });
 
   test('stripCaptionsFrontMatter preserves CRLF line endings — byte-identical, and a no-op on a CRLF deck with no captions', () => {
     // The trio caught this: split(/\r?\n/)+join('\n') rewrote every CRLF body line to LF.
-    const withCaps = '---\r\ntheme: indaco\r\ncaptions:\r\n  1: x\r\ntitle: y\r\n---\r\n\r\n# S\r\n';
+    const withCaps = '---\r\ntheme: indaco\r\nsay:\r\n  1: x\r\ntitle: y\r\n---\r\n\r\n# S\r\n';
     const out = core.stripCaptionsFrontMatter(withCaps);
     assert.doesNotMatch(out, /1: x/, 'the caption line is gone');
     assert.match(out, /theme: indaco\r\n/, 'a CRLF sibling BEFORE captions keeps its CRLF');
@@ -677,12 +684,12 @@ describe('notes-core: caption channel (caption:)', () => {
     // a key was removed there. It has two shapes and both come out of how FRONT_MATTER_BLOCK
     // splits the fence — the close fence carries the LAST body line's terminator.
     assert.equal(
-      core.stripCaptionsFrontMatter('---\ntheme: indaco\ncaptions:\n  3: x\n---\n\n# S\n'),
+      core.stripCaptionsFrontMatter('---\ntheme: indaco\nsay:\n  3: x\n---\n\n# S\n'),
       '---\ntheme: indaco\n---\n\n# S\n',
       'captions: as the LAST key leaves no blank line before the close fence'
     );
     assert.equal(
-      core.stripCaptionsFrontMatter('---\r\ntheme: indaco\r\ncaptions:\r\n  1: x\r\n---\r\n\r\n# S\r\n'),
+      core.stripCaptionsFrontMatter('---\r\ntheme: indaco\r\nsay:\r\n  1: x\r\n---\r\n\r\n# S\r\n'),
       '---\r\ntheme: indaco\r\n---\r\n\r\n# S\r\n',
       'and on a CRLF deck, still byte-exact'
     );
@@ -695,7 +702,7 @@ describe('notes-core: caption channel (caption:)', () => {
       parseFrontMatter('---\n---\n\n# S\n').directives, {},
       'guard: an empty fence is not front matter to the engine'
     );
-    const only = '---\ncaptions:\n  3: x\n---\n\n# S\n';
+    const only = '---\nsay:\n  3: x\n---\n\n# S\n';
     assert.equal(core.stripCaptionsFrontMatter(only), '\n# S\n');
     assert.equal(
       core.stripCaptionsFrontMatter(only), parseFrontMatter(only).body,
@@ -707,12 +714,12 @@ describe('notes-core: caption channel (caption:)', () => {
     // eaten). A sibling key after the block is the other case: nothing there says a key was
     // removed, so the author's formatting survives.
     assert.equal(
-      core.stripCaptionsFrontMatter('---\ntitle: X\n\ncaptions:\n  1: a\n---\n\n# S\n'),
+      core.stripCaptionsFrontMatter('---\ntitle: X\n\nsay:\n  1: a\n---\n\n# S\n'),
       '---\ntitle: X\n---\n\n# S\n',
       'a blank line above the block goes with it'
     );
     assert.equal(
-      core.stripCaptionsFrontMatter('---\ntitle: X\n\ncaptions:\n  1: a\nkey2: y\n---\n\n# S\n'),
+      core.stripCaptionsFrontMatter('---\ntitle: X\n\nsay:\n  1: a\nkey2: y\n---\n\n# S\n'),
       '---\ntitle: X\n\nkey2: y\n---\n\n# S\n',
       'with a sibling key after the block, the author blank between two survivors stays'
     );
@@ -731,7 +738,7 @@ describe('notes-core: caption channel (caption:)', () => {
       '---\n\n---\n\nIntro paragraph.\n\n---\n\n# Slide two\n',            // empty front matter
       '---\ntheme: indaco\n---\n\n# S\n',                                  // ordinary
       '---\r\ntheme: indaco\r\n\r\n---\r\n\r\n# S\r\n',                    // CRLF, blank before the fence
-      '---\nspeaker:\n  captions: a stage direction\n---\n\n# S\n',        // only a NESTED captions key
+      '---\nspeaker:\n  say: a stage direction\n---\n\n# S\n',        // only a NESTED captions key
     ]) {
       assert.equal(core.stripCaptionsFrontMatter(src), src, `no captions key — verbatim: ${JSON.stringify(src)}`);
       assert.equal(core.stripCaptionsFromSource(src), src, `and through the full strip: ${JSON.stringify(src)}`);
@@ -747,10 +754,10 @@ describe('notes-core: caption channel (caption:)', () => {
   test('reverse orthogonality: stripNotesFromSource PRESERVES a caption comment', () => {
     // The note strip must never touch the caption channel (the trio flagged this direction
     // was unpinned). A caption body is never in the note-strip set (noteBodiesFromHtml excludes it).
-    const src = '# S\n\n<!-- Pause here. -->\n<!-- caption: The exact read-as line. -->\n\nBody.';
+    const src = '# S\n\n<!-- Pause here. -->\n<!-- say: The exact read-as line. -->\n\nBody.';
     const out = core.stripNotesFromSource(src, new Set(['Pause here.']));
     assert.doesNotMatch(out, /Pause here/, 'the note is stripped');
-    assert.match(out, /caption: The exact read-as line\./, 'the caption comment survives the NOTE strip');
+    assert.match(out, /say: The exact read-as line\./, 'the caption comment survives the NOTE strip');
   });
 
   test('stripCaptionsFromSource is a no-op on a deck with no captions; safe on null', () => {
@@ -758,7 +765,7 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.equal(core.stripCaptionsFromSource(null), '');
     assert.equal(core.stripCaptionsFrontMatter(null), '');
     // a deck with no front matter at all is returned verbatim
-    assert.equal(core.stripCaptionsFrontMatter('# No front matter\n\ncaptions: in prose\n'), '# No front matter\n\ncaptions: in prose\n');
+    assert.equal(core.stripCaptionsFrontMatter('# No front matter\n\nsay: in prose\n'), '# No front matter\n\nsay: in prose\n');
   });
 
   test('noteBodiesFromHtml returns INDIVIDUAL bodies — a note with an internal blank line stays whole', () => {
@@ -888,10 +895,10 @@ describe('notes-core: caption channel (caption:)', () => {
   });
 
   test('stripCaptionsFromSource is POSITION-aware for the same reason', () => {
-    const source = '```markdown\n<!-- caption: Read this aloud. -->\n```\n\n<!-- caption: Read this aloud. -->\n';
+    const source = '```markdown\n<!-- say: Read this aloud. -->\n```\n\n<!-- say: Read this aloud. -->\n';
     const out = core.stripCaptionsFromSource(source);
     assert.equal((out.match(/Read this aloud/g) || []).length, 1, 'the documented sample survives, the real caption goes');
-    assert.match(out, /```markdown\n<!-- caption: Read this aloud\. -->\n```/);
+    assert.match(out, /```markdown\n<!-- say: Read this aloud\. -->\n```/);
   });
 
   // ── The caption channel takes the note channel's cut (#2003) ──────────────────────────────
@@ -903,57 +910,57 @@ describe('notes-core: caption channel (caption:)', () => {
     // comment sat names WHICH slides carried one, in the source the envelope ships AND — since
     // the export re-renders that source — in the rendered bytes.
     assert.equal(
-      core.stripCaptionsFromSource('# Slide\n\n<!-- caption: Read this aloud. -->\n\nBody.\n'),
+      core.stripCaptionsFromSource('# Slide\n\n<!-- say: Read this aloud. -->\n\nBody.\n'),
       '# Slide\n\nBody.\n',
       'the caption line and one of its blank neighbors go; one blank line remains'
     );
     // No `\n\n\n` run left behind — the cheaper tell, readable with `grep -c` and no re-render.
     assert.doesNotMatch(
-      core.stripCaptionsFromSource('a\n\n<!-- caption: x -->\n\nb\n\n<!-- caption: y -->\n\nc\n'),
+      core.stripCaptionsFromSource('a\n\n<!-- say: x -->\n\nb\n\n<!-- say: y -->\n\nc\n'),
       /\n\n\n/,
       'two captions between blank lines leave no blank-line run'
     );
     assert.equal(
-      core.stripCaptionsFromSource('a\n  <!-- caption: x -->\nb\n'),
+      core.stripCaptionsFromSource('a\n  <!-- say: x -->\nb\n'),
       'a\n\nb\n',
       'the leading indent goes with the line, and the block boundary it was providing stays'
     );
     // CRLF: the `\r` travels with its line rather than being left dangling.
     assert.equal(
-      core.stripCaptionsFromSource('a\r\n\r\n<!-- caption: x -->\r\n\r\nb\r\n'),
+      core.stripCaptionsFromSource('a\r\n\r\n<!-- say: x -->\r\n\r\nb\r\n'),
       'a\r\n\r\nb\r\n',
       'a CRLF deck keeps CRLF throughout'
     );
     // An INLINE caption keeps its author-typed spaces — deleting one would join two words.
-    assert.equal(core.stripCaptionsFromSource('a <!-- caption: x --> b'), 'a  b');
+    assert.equal(core.stripCaptionsFromSource('a <!-- say: x --> b'), 'a  b');
   });
 
   test('stripCaptionsFromSource keeps the BLOCK BOUNDARY a caption comment was providing (#2003)', () => {
     // A caption comment is an HTML block just as a note comment is, so removing it outright
     // re-cuts the deck the same way: `Some text\n---` is a setext H2, not a slide break.
     assert.equal(
-      core.stripCaptionsFromSource('Some text\n<!-- caption: Read this. -->\n---\n'),
+      core.stripCaptionsFromSource('Some text\n<!-- say: Read this. -->\n---\n'),
       'Some text\n\n---\n',
       'the `---` stays a thematic break rather than becoming a setext underline'
     );
     assert.equal(
-      core.stripCaptionsFromSource('First paragraph.\n<!-- caption: Read this. -->\nSecond paragraph.\n'),
+      core.stripCaptionsFromSource('First paragraph.\n<!-- say: Read this. -->\nSecond paragraph.\n'),
       'First paragraph.\n\nSecond paragraph.\n',
       'two paragraphs stay two paragraphs'
     );
     // Both cuts offered, for the same reason the note strip offers them: inside a list item an
     // empty line turns a tight list loose, so the caller measures which reproduces the deck.
-    const list = '- one\n  <!-- caption: x -->\n- two\n';
+    const list = '- one\n  <!-- say: x -->\n- two\n';
     assert.equal(core.stripCaptionsFromSource(list, { boundary: 'drop' }), '- one\n- two\n');
     assert.equal(core.stripCaptionsFromSource(list, { boundary: 'preserve' }), '- one\n\n- two\n');
     // `preserve` is the default, so a caller that does not opt in gets the conservative cut.
-    const setext = 'Some text\n<!-- caption: x -->\n---\n';
+    const setext = 'Some text\n<!-- say: x -->\n---\n';
     assert.equal(core.stripCaptionsFromSource(setext), core.stripCaptionsFromSource(setext, { boundary: 'preserve' }));
     assert.equal(core.stripCaptionsFromSource(setext, { boundary: 'drop' }), 'Some text\n---\n');
   });
 
   test('the two channels come off in ONE pass, because chaining them does not commute (#2003)', () => {
-    // What the CLI runs under `--strip-notes --strip-captions`. The obvious composition —
+    // What the CLI runs under `--strip-notes --strip-say`. The obvious composition —
     // scrub notes, then scrub captions — was what shipped first, on the claim that the two are
     // "order-independent, the classes are disjoint". Disjoint BODIES is true and is not the
     // whole interaction: once both cuts became line-aware they meet through BLANK-LINE
@@ -966,7 +973,7 @@ describe('notes-core: caption channel (caption:)', () => {
     //
     // THIS GUARD IS A SEARCH, NOT A LITERAL, and the reason is that the literal it used to be
     // stopped measuring — THREE TIMES, all inside one change. It was
-    // `'## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n'`; closing the
+    // `'## Third slide\n\nClosing.\n<!-- say: c -->\n<!-- n -->\n'`; closing the
     // end-of-input residual (#2039) made the two orders agree on it, exactly as the comment here
     // predicted it would. Its replacement went quiet when the rule was widened to cover a blank
     // line AFTER the comment, and the replacement for THAT went quiet when the whole trailing
@@ -976,7 +983,7 @@ describe('notes-core: caption channel (caption:)', () => {
     // `' '` — a WHITESPACE-ONLY line — is load-bearing in this alphabet. The surviving
     // divergence is now mid-deck rather than at the end, and it is the two orders disagreeing
     // about whether the author's whitespace-only line survives between the comments.
-    const LINES = ['Text.', '', '<!-- n -->', '<!-- caption: c -->', ' '];
+    const LINES = ['Text.', '', '<!-- n -->', '<!-- say: c -->', ' '];
     const divergent = [];
     // Depth 5: the shape is `text / note / caption / whitespace-line / text`, which four lines
     // cannot express. Measured at ~160ms for the whole sweep, so the depth is affordable.
@@ -1000,7 +1007,7 @@ describe('notes-core: caption channel (caption:)', () => {
       + 'shape — do not delete the test, widen it and re-measure.'
     );
     // The shape the search finds today, pinned so a reader can see what it is without running it.
-    const src = 'Text.\n<!-- n -->\n<!-- caption: c -->\n \nText.';
+    const src = 'Text.\n<!-- n -->\n<!-- say: c -->\n \nText.';
     assert.ok(divergent.includes(src), 'the recorded divergent shape is still in the corpus');
     assert.notEqual(
       core.stripCaptionsFromSource(core.stripNotesFromSource(src, bodies)),
@@ -1014,7 +1021,7 @@ describe('notes-core: caption channel (caption:)', () => {
 
     // The ordinary shape, where the two agree: the composed result is the deck as if neither
     // comment had been typed.
-    const plain = '# Slide\n\n<!-- caption: Read this aloud. -->\n\nBody.\n\n<!-- Pause here. -->\n\nMore.\n';
+    const plain = '# Slide\n\n<!-- say: Read this aloud. -->\n\nBody.\n\n<!-- Pause here. -->\n\nMore.\n';
     assert.equal(
       core.stripChannelsFromSource(plain, { noteBodies: new Set(['Pause here.']), captions: true }),
       '# Slide\n\nBody.\n\nMore.\n'
@@ -1037,7 +1044,7 @@ describe('notes-core: caption channel (caption:)', () => {
     const opts = { noteBodies: new Set(['n']), captions: true };
     for (const boundary of core.SCRUB_BOUNDARIES) {
       assert.equal(
-        core.stripChannelsFromSource('## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n', { ...opts, boundary }),
+        core.stripChannelsFromSource('## Third slide\n\nClosing.\n<!-- say: c -->\n<!-- n -->\n', { ...opts, boundary }),
         '## Third slide\n\nClosing.\n',
         `two comments at end of input reproduce the counterfactual under \`${boundary}\``
       );
@@ -1131,7 +1138,7 @@ describe('notes-core: caption channel (caption:)', () => {
   });
 
   test('stripChannelsFromSource is a no-op when neither channel is asked for', () => {
-    const src = '# S\n\n<!-- a note -->\n\n<!-- caption: x -->\n';
+    const src = '# S\n\n<!-- a note -->\n\n<!-- say: x -->\n';
     assert.equal(core.stripChannelsFromSource(src, {}), src, 'no flags — verbatim');
     assert.equal(core.stripChannelsFromSource(src, { noteBodies: new Set() }), src, 'an empty note set is not a strip');
     assert.equal(core.stripChannelsFromSource(null, { captions: true }), '');
@@ -1569,7 +1576,7 @@ describe('notes-core: auditStrippedSource', () => {
       '<!-- _class: title -->',            // spot directive
       '<!-- markdownlint-disable MD033 -->', // tooling pragma
       '<!-- describe: A cover slide. -->',  // a11y description
-      '<!-- caption: Read this aloud. -->', // read-as caption
+      '<!-- say: Read this aloud. -->', // read-as caption
       '<!--   -->',                          // empty
     ].join('\n');
     assert.deepEqual(core.auditStrippedSource(src), []);
@@ -1735,7 +1742,7 @@ describe('notes-core: SCRUB_BOUNDARIES', () => {
     // CAPTION strip too, because the CLI now measures one cut for the combined source — a
     // caption strip that ignored `boundary` would make half of that measurement a no-op.
     const noteSrc = 'Some text\n<!-- a note -->\n---\n\nMore text\n';
-    const captionSrc = 'Some text\n<!-- caption: read this -->\n---\n\nMore text\n';
+    const captionSrc = 'Some text\n<!-- say: read this -->\n---\n\nMore text\n';
     const noteCuts = new Set(
       core.SCRUB_BOUNDARIES.map((boundary) => core.stripNotesFromSource(noteSrc, new Set(['a note']), { boundary })),
     );

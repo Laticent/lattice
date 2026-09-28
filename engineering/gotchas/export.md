@@ -398,13 +398,13 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   (preserve wins, drop wins, neither does) — without it, narrowing the loop back to one cut left
   every gate in the tree green, the strip-notes e2e included, because that spec asserts only that
   the note text is gone and that is true on all three.
-- **`--strip-captions` carried the same tell for one release, and closing it merged the two
+- **`--strip-say` carried the same tell for one release, and closing it merged the two
   passes (#2003).** The #1985 fix was note-only: `stripCaptionsFromSource` stayed a span-only
   replace and nothing re-rendered from it, so the caption comment's line was left behind as an
   empty one AND the authored render still went through `stripCommentNodes`. Measured on a
   three-slide deck — one caption, one note, one neither — exported with both flags and diffed
   against a re-render of its own envelope source: the captioned slide differed from its
-  neighbors by one byte, and the note channel was clean. `--strip-captions` alone had it too.
+  neighbors by one byte, and the note channel was clean. `--strip-say` alone had it too.
   The fix gives the caption strip the same line-aware cut (both now go through one
   `removeCommentSpans` in `notes-core.js`, so the channels cannot drift apart again) and makes
   pass 2 render the composed source the export actually ships — under ONE measured cut for both
@@ -414,7 +414,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   caption-free twin.
 - **"The two comment classes are disjoint, so the order is free" is HALF a truth, and the half
   it misses reintroduced the fingerprint.** Chaining the strips — scrub notes, then scrub
-  captions — is what shipped first. Disjoint BODIES is real (a `caption:` body is never a note
+  captions — is what shipped first. Disjoint BODIES is real (a `say:` body is never a note
   body) and it is not the whole interaction: once both cuts became line-aware the two channels
   meet through BLANK-LINE ACCOUNTING. The first scrub takes a line and, under `preserve`, may
   leave an empty one, so the second reads neighbors the author never wrote. Measured by an
@@ -483,8 +483,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   reason; a bigger number from a throwaway sweep is a figure nobody can re-derive.
 - **The natural way to tidy the FRONT-MATTER half's leftovers is an exponential regex, and the
   input that proves it is not the one you would guess.** (A different residue from the one above:
-  this is the blank tail a removed `captions:` block leaves in the rebuilt front matter, not the
-  comment cut's end-of-input case.) Dropping what a removed `captions:` block leaves behind reads
+  this is the blank tail a removed `say:` block leaves in the rebuilt front matter, not the
+  comment cut's end-of-input case.) Dropping what a removed `say:` block leaves behind reads
   as one regex over the rejoined body — `/(?:[ \t]*(?:\r\n|\r|\n))*$/` — and CodeQL failed the
   PR that shipped it. It has two backtracking behaviors. Polynomial on a long run of spaces with
   no newline (10k 163 ms, 20k 627 ms, 40k 2.5 s, 80k 10 s) is the one you find by reaching for a
@@ -509,14 +509,14 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   belief that `FRONT_MATTER_BLOCK`'s close fence always carries the last body line's terminator
   so `body` can never end with one. It can: the close group is a single `\r?\n---`, so an
   author's BLANK LINE before the fence leaves that newline inside `body`. A deck with **no
-  `captions:` key at all** then came back a byte shorter — `themes/palette-audit.md`, shipped
+  `say:` key at all** then came back a byte shorter — `themes/palette-audit.md`, shipped
   here, was the measured case — and a deck with an EMPTY front matter lost the whole fence.
   Neither changes the render, so the fidelity guard cannot see either, and the envelope's
   "verbatim source for lossless re-import" quietly was not. A source with no top-level
-  `captions:` key now returns byte-identical from an early return, pinned across all 1306 `.md`
+  `say:` key now returns byte-identical from an early return, pinned across all 1306 `.md`
   files in the tree.
 - **Front matter is part of the caption strip, and therefore part of pass 2's input.**
-  `--strip-captions` also drops the top-level `captions:` map, so pass 2 renders a deck with
+  `--strip-say` also drops the top-level `say:` map, so pass 2 renders a deck with
   different front matter. That is intended — it is why the map's text cannot survive in the
   envelope — and the fidelity guard covers it: the map is not a directive, so the rendered
   sections are unchanged and the two passes agree. A future front-matter key that DOES affect

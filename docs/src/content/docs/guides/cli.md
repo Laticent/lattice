@@ -240,15 +240,15 @@ npx lattice deck.md deck.pdf --strip-notes
 
 `--captions` writes WebVTT read-along captions: one `deck.vtt` for the whole
 deck, plus one `deck.01.vtt` per slide. Each slide reads its own content
-unless you wrote a `<!-- caption: … -->` for it.
+unless you wrote a `<!-- say: … -->` for it.
 
 ```sh
 npx lattice deck.md deck.pdf --captions
 ```
 
-`--strip-captions` removes the caption text you wrote yourself and keeps the
-generated version. It does not touch speaker notes, and `--strip-notes` does
-not touch captions.
+`--strip-say` removes the spoken lines you wrote yourself (`say:`) and keeps
+the generated narration. It does not touch speaker notes, and `--strip-notes`
+does not touch `say:` lines.
 
 ## Check a deck before you render it
 

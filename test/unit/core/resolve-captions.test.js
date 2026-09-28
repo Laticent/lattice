@@ -42,7 +42,7 @@ test('lexicon: a double-quoted value decodes escaped quotes/backslashes (writer�
 });
 
 test('captions: a double-quoted value decodes escaped quotes too', () => {
-  const { captions } = parseNarrationFrontMatter(fm('captions:\n  2: "she said \\"go\\"."'));
+  const { captions } = parseNarrationFrontMatter(fm('say:\n  2: "she said \\"go\\"."'));
   assert.equal(captions.get(2), 'she said "go".');
 });
 
@@ -111,7 +111,7 @@ test('blockLines is indent-aware: a nested key under lexicon is NOT double-parse
 test('all three parsers still round-trip together at the front-matter root', () => {
   // acronyms (Layer 2), lexicon (say-as), and captions (Layer 1) coexist and each parse cleanly.
   const { acronyms, lexicon, captions } = parseNarrationFrontMatter(
-    fm('acronyms:\n  CRO: chief revenue officer\nlexicon:\n  "→": to\n  Kubernetes: koober-net-eez\ncaptions:\n  2: FY26 revenue grew.'),
+    fm('acronyms:\n  CRO: chief revenue officer\nlexicon:\n  "→": to\n  Kubernetes: koober-net-eez\nsay:\n  2: FY26 revenue grew.'),
   );
   assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer');
   assert.equal(lexicon.get('→'), 'to');
@@ -143,26 +143,26 @@ test('absent key → empty map; non-string input is safe (never throws)', () => 
 // ── captions: (Layer 1 — slide-number-keyed read-as text) ───────────────────────────
 
 test('captions: slide-number keys → text, kept as authored 1-based numbers', () => {
-  const { captions } = parseNarrationFrontMatter(fm('captions:\n  3: FY26 revenue grew forty percent.\n  5: Net dollar retention held.'));
+  const { captions } = parseNarrationFrontMatter(fm('say:\n  3: FY26 revenue grew forty percent.\n  5: Net dollar retention held.'));
   assert.equal(captions.get(3), 'FY26 revenue grew forty percent.');
   assert.equal(captions.get(5), 'Net dollar retention held.');
   assert.equal(captions.size, 2);
 });
 
 test('captions: a quoted value keeps its leading/trailing space (quotes stripped)', () => {
-  const { captions } = parseNarrationFrontMatter(fm('captions:\n  2: "  spaced read.  "'));
+  const { captions } = parseNarrationFrontMatter(fm('say:\n  2: "  spaced read.  "'));
   assert.equal(captions.get(2), '  spaced read.  ');
 });
 
 test('captions: a non-integer key is skipped; an empty value is skipped', () => {
-  const { captions } = parseNarrationFrontMatter(fm('captions:\n  intro: not a number\n  4:\n  6: kept'));
+  const { captions } = parseNarrationFrontMatter(fm('say:\n  intro: not a number\n  4:\n  6: kept'));
   assert.equal(captions.has(4), false); // empty value
   assert.equal(captions.size, 1);
   assert.equal(captions.get(6), 'kept');
 });
 
 test('captions: last duplicate key wins', () => {
-  const { captions } = parseNarrationFrontMatter(fm('captions:\n  1: first\n  1: second'));
+  const { captions } = parseNarrationFrontMatter(fm('say:\n  1: first\n  1: second'));
   assert.equal(captions.get(1), 'second');
 });
 
@@ -170,7 +170,7 @@ test('captions: a lone YAML block/folded scalar indicator is skipped (never narr
   // `3: >` / `4: |` / `5: >-` are multi-line YAML forms the flat parser can't read; the body is
   // on deeper lines it skips — so it must NOT store the bare `>`/`|` as the caption.
   const { captions } = parseNarrationFrontMatter(
-    fm('captions:\n  3: >\n    folded body it cannot read\n  4: |\n  5: >-\n  6: kept line.'),
+    fm('say:\n  3: >\n    folded body it cannot read\n  4: |\n  5: >-\n  6: kept line.'),
   );
   assert.equal(captions.has(3), false);
   assert.equal(captions.has(4), false);
@@ -180,7 +180,7 @@ test('captions: a lone YAML block/folded scalar indicator is skipped (never narr
 
 test('captions: the block is scoped (a dedented sibling key ends it) and coexists with acronyms', () => {
   const { captions, acronyms } = parseNarrationFrontMatter(
-    fm('acronyms:\n  CRO: chief revenue officer\ncaptions:\n  1: opener line.\ntheme: indaco'),
+    fm('acronyms:\n  CRO: chief revenue officer\nsay:\n  1: opener line.\ntheme: indaco'),
   );
   assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer');
   assert.equal(captions.get(1), 'opener line.');
@@ -188,7 +188,7 @@ test('captions: the block is scoped (a dedented sibling key ends it) and coexist
 });
 
 test('frontMatterCaptions is the captions map directly; absent key + bad input → empty, never throws', () => {
-  assert.equal(frontMatterCaptions(fm('captions:\n  7: line.')).get(7), 'line.');
+  assert.equal(frontMatterCaptions(fm('say:\n  7: line.')).get(7), 'line.');
   assert.equal(frontMatterCaptions(fm('theme: indaco')).size, 0);
   for (const v of [null, undefined, 42, {}]) assert.equal(frontMatterCaptions(v).size, 0);
 });

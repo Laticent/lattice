@@ -175,18 +175,20 @@ describe('scope: the rule never hides text the slide renders', () => {
 
 describe('the comment CHANNEL drives the pill label, never the bytes', () => {
 	it('classifies the engine\u2019s two structured channels', () => {
-		expect(commentKind('<!-- caption: the slide reads as this. -->')).toBe('caption');
+		expect(commentKind('<!-- say: the slide reads as this. -->')).toBe('say');
 		expect(commentKind('<!-- describe: a bar chart with four bars. -->')).toBe('describe');
 		expect(commentKind('<!-- just a note to self -->')).toBe('note');
 	});
 
-	it('is case- and space-tolerant, the way the kernel is', () => {
-		expect(commentKind('<!--Caption : x-->')).toBe('caption');
+	it('is space-tolerant, and case-tolerant where the kernel is', () => {
+		expect(commentKind('<!--say : x-->')).toBe('say');
+		// `say:` is LOWERCASE ONLY (notes-core CAPTION_MATCHER): "Say: …" opens a private note.
+		expect(commentKind('<!--Say : x-->')).toBe('note');
 		expect(commentKind('<!--  DESCRIBE: x -->')).toBe('describe');
 	});
 
 	it('shows the words, not the channel prefix', () => {
-		expect(commentText('<!-- caption: FY26 revenue grew. -->')).toBe('FY26 revenue grew.');
+		expect(commentText('<!-- say: FY26 revenue grew. -->')).toBe('FY26 revenue grew.');
 		expect(commentText('<!-- describe: a bar chart. -->')).toBe('a bar chart.');
 		expect(commentText('<!-- a plain note -->')).toBe('a plain note');
 	});
@@ -236,7 +238,7 @@ describe('the comment CHANNEL drives the pill label, never the bytes', () => {
 		const samples = ['caption: x', 'describe: x', 'Caption : x', 'DESCRIBE:x', 'a plain note', 'captions are nice', 'described below', 'tier: short', 'markdownlint-disable'];
 		for (const body of samples) {
 			const text = `<!-- ${body} -->`;
-			expect([body, commentKind(text) === 'caption']).toEqual([body, kernel.isCaptionComment(body)]);
+			expect([body, commentKind(text) === 'say']).toEqual([body, kernel.isCaptionComment(body)]);
 			expect([body, commentKind(text) === 'describe']).toEqual([body, kernel.isDescriptionComment(body)]);
 		}
 	});

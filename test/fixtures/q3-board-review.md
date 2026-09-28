@@ -23,7 +23,7 @@ lexicon:
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-<!-- caption: Good morning. This is the third-quarter review for fiscal twenty-six. The short version: revenue beat plan, margin expanded, and one segment needs a decision from this board today. -->
+<!-- say: Good morning. This is the third-quarter review for fiscal twenty-six. The short version: revenue beat plan, margin expanded, and one segment needs a decision from this board today. -->
 
 # Q3 FY26: ahead on revenue, one call to make.
 
@@ -57,7 +57,7 @@ Prepared for the Northwind Analytics board of directors.
 
 <!-- _class: kpi -->
 
-<!-- caption: ARR closed at $48.6M, up 31% year over year and $1.2M ahead of plan. NDR held at 118%. Gross margin reached 74%, two points better than last quarter. CAC payback stretched to 19 months, and that is the number we will spend most of today on. -->
+<!-- say: ARR closed at $48.6M, up 31% year over year and $1.2M ahead of plan. NDR held at 118%. Gross margin reached 74%, two points better than last quarter. CAC payback stretched to 19 months, and that is the number we will spend most of today on. -->
 
 ## Revenue ahead of plan; payback is slipping.
 
@@ -83,7 +83,7 @@ Hartley & Stone on 9 October; the management letter had no findings.
 
 <!-- _class: waterfall -->
 
-<!-- caption: Here is how ARR moved from last quarter. New logos added $5.1M. Expansion added $3.4M. Churn took $2.2M, and contraction another $0.9M. Net, we grew $5.4M in ninety days. -->
+<!-- say: Here is how ARR moved from last quarter. New logos added $5.1M. Expansion added $3.4M. Churn took $2.2M, and contraction another $0.9M. Net, we grew $5.4M in ninety days. -->
 
 `ARR bridge · Q2 to Q3`
 
@@ -120,7 +120,7 @@ Hartley & Stone on 9 October; the management letter had no findings.
 
 <!-- _class: funnel -->
 
-<!-- caption: The pipeline tells the same story from the other end. We generated 12,400 qualified leads. 3,100 took a demo. 870 reached a proposal, and 214 signed. The drop between demo and proposal is where SMB deals stall. -->
+<!-- say: The pipeline tells the same story from the other end. We generated 12,400 qualified leads. 3,100 took a demo. 870 reached a proposal, and 214 signed. The drop between demo and proposal is where SMB deals stall. -->
 
 ## SMB deals stall between the demo and the proposal.
 
@@ -165,7 +165,7 @@ Hartley & Stone on 9 October; the management letter had no findings.
 
 <!-- _class: compare-prose -->
 
-<!-- caption: Two serious options are on the table. Fix it: a guided setup, a lighter tier, and pooled support, for about $2.1M next year. Or exit: stop selling to new SMB accounts, migrate the existing 640 to a partner, and put the sales capacity into mid-market. Keeping things as they are is not on the table. -->
+<!-- say: Two serious options are on the table. Fix it: a guided setup, a lighter tier, and pooled support, for about $2.1M next year. Or exit: stop selling to new SMB accounts, migrate the existing 640 to a partner, and put the sales capacity into mid-market. Keeping things as they are is not on the table. -->
 
 ## Fixing SMB costs $2.1M; exiting frees nine sellers for mid-market.
 
@@ -178,7 +178,7 @@ Hartley & Stone on 9 October; the management letter had no findings.
 
 <!-- _class: list-steps -->
 
-<!-- caption: If the board agrees to exit, this is the plan. First, we announce to customers in November with twelve months' notice. Second, the partner migration runs January through June. Third, the nine sellers move to mid-market on the first of December. Fourth, we report the churn impact at every board meeting until it closes. -->
+<!-- say: If the board agrees to exit, this is the plan. First, we announce to customers in November with twelve months' notice. Second, the partner migration runs January through June. Third, the nine sellers move to mid-market on the first of December. Fourth, we report the churn impact at every board meeting until it closes. -->
 
 ## How the exit would run.
 
@@ -202,7 +202,7 @@ Hartley & Stone on 9 October; the management letter had no findings.
 
 <!-- _class: decision -->
 
-<!-- caption: Our recommendation is to exit SMB. It is the faster path back to a fourteen-month payback. It keeps SOC 2 scope narrow. And it is reversible: the partner contract has a two-year buy-back clause. We did look hard at the fix. **It costs more than the segment earns.** -->
+<!-- say: Our recommendation is to exit SMB. It is the faster path back to a fourteen-month payback. It keeps SOC 2 scope narrow. And it is reversible: the partner contract has a two-year buy-back clause. We did look hard at the fix. **It costs more than the segment earns.** -->
 
 ## We recommend exiting SMB by June 2027.
 
@@ -222,7 +222,7 @@ Hartley & Stone on 9 October; the management letter had no findings.
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-<!-- caption: We are asking for one vote today: approve the SMB exit plan. Thank you. Questions? -->
+<!-- say: We are asking for one vote today: approve the SMB exit plan. Thank you. Questions? -->
 
 ## Approve the SMB exit plan.
 
