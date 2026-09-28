@@ -330,8 +330,8 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
-- ☑ [2026-09-27-narration-bookends.md](2026-09-27-narration-bookends.md) — A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`.
 - ☑ [2026-09-28-playground-virtual-filmstrip.md](2026-09-28-playground-virtual-filmstrip.md) — The Playground mounts only the slides in view, a newcomer's first preview document is baked at build time and adopted by the app, and a…
+- ☑ [2026-09-27-narration-bookends.md](2026-09-27-narration-bookends.md) — A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`.
 - ☑ [2026-09-27-voice-default-and-cheapest-toggle.md](2026-09-27-voice-default-and-cheapest-toggle.md) — The Studio's voice defaults, re-decided on measured bills.
 - ☑ [2026-09-26-deck-presets-and-settings-tiers.md](2026-09-26-deck-presets-and-settings-tiers.md) — The deck settings panel had grown to about 46 controls, ten of them accent dials that each opened on "Auto" or "None", and authors could…
 - ☑ [2026-09-26-render-drift-and-unclosed-comments.md](2026-09-26-render-drift-and-unclosed-comments.md) — The render tier had drifted 25–50% over its blessed baseline on the blessing machine, and an unclosed `<!--` made the render and the linter…
