@@ -196,8 +196,8 @@ slow-4G trace, font requests fell from 20 to 10 and the app went interactive 2.2
 - **iOS Safari's back-forward cache** restored the page with a preview that took no touch scroll
   (reported on an iPhone: leave the Playground, come back, and the preview would not scroll;
   switching apps was fine). On `pageshow` with `persisted`, the app now lays the frame out afresh,
-  re-fits it and re-syncs the window. UNVERIFIED on iOS from here — Chromium never lost the scroll,
-  and no WebKit build is available in this sandbox.
+  re-fits it and re-syncs the window. Verified by the owner on an iPhone on the deployed preview
+  (leave, come back, the preview scrolls); Chromium never lost the scroll.
 - **Before the app hydrates, nothing mounts.** The bake carries the first five slides; a newcomer
   who scrolls past them in the first second or two sees placeholders until the app's window takes
   over.
