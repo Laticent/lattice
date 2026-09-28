@@ -99,6 +99,32 @@ describe('the reserved fence names the build really uses', () => {
   });
 });
 
+describe('a highlight.js upgrade that takes a shipped fence name', () => {
+  // followups.d/2439-p2: the reserved set is read from the INSTALLED highlight.js, so a release
+  // adding a language named `math` would otherwise fail every build on a Dependabot bump.
+  const shipped = new Map([['plot', 'a']]);
+  const taken = new Set(['plot']);
+  test('a claim the committed registry ships for the same plugin is grandfathered with a warning', () => {
+    const { errors, warnings, order } = resolvePlugins([fencePlugin('a', { fences: { plot: { body: 'json' } } })], { reservedFences: taken, shippedFences: shipped });
+    assert.deepEqual(errors, []);
+    assert.deepEqual(order, ['a']);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /plugin "a" keeps fence "plot", which a code language now also names/);
+  });
+  test('a NEW claim on a taken name still fails, and so does a shipped name moving to another plugin', () => {
+    expectError([fencePlugin('b', { fences: { plot: { body: 'json' } } })], /plugin "b" claims fence "plot", which a code language already owns/, { reservedFences: taken, shippedFences: shipped });
+    expectError([fencePlugin('a', { fences: { other: { body: 'json', aliases: [{ name: 'json' }] } } })], /claims fence "json"/, { reservedFences: new Set(['json']), shippedFences: shipped });
+  });
+  test('the real build: a synthetic language set that takes every shipped fence builds, warning once per claim', async () => {
+    const { build, shippedFenceClaims } = require('../../../tools/build-plugin-registry.js');
+    const claims = await shippedFenceClaims();
+    for (const f of ['math', 'functionplot', 'latticeplot', 'anima']) assert.equal(typeof claims.get(f), 'string', `${f} should be a shipped claim`);
+    const result = await build({ reservedFences: new Set([...claims.keys(), 'json']) });
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.warnings.length, claims.size);
+  });
+});
+
 describe('the host fence table, on the real registry', () => {
   test('a fence name is the info string\'s first word', () => {
     assert.equal(fenceName('  functionplot  {.wide}'), 'functionplot');

@@ -71,7 +71,9 @@ plugin's renderer, and everything else to the renderer that was there before. It
 wrapper chain, where each fence plugin wrapped the previous rule and registration order decided who
 won. A fence renderer is `(token, ctx, env) → string`, `token.content` the body; a fence with a
 browser half returns `<div class="…" ${ctx.hydrateAttrs(token.content)}></div>`. A name two plugins
-claim, or one a code language owns (every highlight.js name and alias), fails the build. A deprecated alias still renders and reports `<name>/deprecated-alias`, which the manifest
+claim, or one a code language owns (every highlight.js name and alias), fails the build — with one
+exception: when a highlight.js upgrade later adds a language named like a fence the committed
+registry already ships, that plugin keeps the fence and the build warns. A deprecated alias still renders and reports `<name>/deprecated-alias`, which the manifest
 must declare. A fence counts as use: the host derives a plugin's `detect` probe from its fence names.
 
 ## A fence rendered as code, and the bake

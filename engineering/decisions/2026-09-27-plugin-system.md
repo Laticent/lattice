@@ -796,6 +796,9 @@ code. What changed because of them:
   **Left, with their reason:** the serialization limit for Mermaid (§4.7, phase D's call); a
   highlight.js upgrade that reserves a plugin fence name fails the build rather than grandfathering
   it; `--fluid` and plain `--html` link the library by a `file://` path (predates the plugin).
+  **The grandfathering has since landed:** the build reads the fence claims the committed
+  `grammar.generated.mjs` records, and the resolver turns a reserved-name collision on one of
+  those, for the same plugin, into a warning (`fence-hydrate-resolve.test.js`, red then green).
 
 - **Phase C (partial): the scaffold, the draft spec, and the harness's two known limits.**
   `lattice packages new plugin <name>` (`lib/packages/new-plugin.js`) writes a package that builds
