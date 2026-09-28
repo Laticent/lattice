@@ -334,12 +334,7 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		// own, so a square deck previewed rounded — and a `corners-rounded` section's
 		// `clip-path` clips its own box-shadow away. A drop-shadow on `.lattice` traces each
 		// slide's painted outline instead, square or rounded.
-		'.lattice{filter:' + slideFrameFilter('card') + ';}' +
-		// A VIRTUAL filmstrip's placeholder (deck-render.js): the slide's own box, empty, until the
-		// slide mounts. A faint wash of the frame's text color reads as "a slide is here" in light
-		// and dark alike, without guessing the slide's own palette. Inert everywhere else — no
-		// other host writes one.
-		'.lattice>div[data-lv-ph]{display:block;width:' + gw + 'px;height:' + gh + 'px;transform-origin:top left;background:color-mix(in srgb,currentColor 6%,transparent);}';
+		'.lattice{filter:' + slideFrameFilter('card') + ';}';
 	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';

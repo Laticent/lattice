@@ -353,6 +353,12 @@ function readAnchor(frame) {
 // forces a full write (deck swap → reset runtime/Mermaid state).
 export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), virtual = false, ...opts }) {
 	const st = state || { frameSig: '', lastSections: null };
+	// A VIRTUAL filmstrip's placeholder: the slide's own box, empty, until the slide mounts. A
+	// faint wash of the frame's text color reads as "a slide is here" in light and dark alike,
+	// without guessing the slide's own palette. Added here, not in the shared builder, so the
+	// Studio (which never writes a placeholder) does not carry it — and on both the write and
+	// the restyle path, which build the sheet from this same `css`.
+	if (virtual) css = `${css || ''}.lattice>div[data-lv-ph]{display:block;width:${geom?.w || 1280}px;height:${geom?.h || 720}px;transform-origin:top left;background:color-mix(in srgb,currentColor 6%,transparent);}`;
 	// INCREMENTAL SANITIZE (the typing hot path). #616 T-CONTENT still requires every
 	// section reach the frame sanitized — but DOMPurify over the WHOLE deck is ~half
 	// the per-keystroke render cost on a big deck and grows with slide count (a
