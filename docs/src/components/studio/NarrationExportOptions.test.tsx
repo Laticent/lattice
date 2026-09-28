@@ -303,6 +303,42 @@ describe('the copy at rest', () => {
 	});
 });
 
+// THE GUIDE IS AN EXPORT OPTION (owner, 2026-09-28), on by default whenever the export narrates, and
+// meaningless without narration, so it waits for captions or audio.
+describe('the Guide switch', () => {
+	const renderWith = (value: NarrationChoice, onChange: (v: NarrationChoice) => void = () => {}) => {
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: true });
+		voiceAvailability.mockResolvedValue({ rung: 'kokoro', openRouterReady: false, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
+		onDeviceBakeVoice.mockResolvedValue({ rung: 'kokoro' as const, model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 });
+		return render(<NarrationExportOptions source={'---\ntheme: indaco\n---\n\n# One\n\nA sentence.\n'} project={async () => ['A sentence.']} value={value} onChange={onChange} />);
+	};
+
+	it('waits for narration, then starts on', async () => {
+		const { unmount } = renderWith({ captions: false, audio: false, voice: VOICE, allowPartial: false });
+		const off = await screen.findByLabelText('Include the Guide');
+		expect(off.getAttribute('aria-checked')).toBe('false');
+		expect(off.hasAttribute('disabled') || off.getAttribute('data-disabled') !== null).toBe(true);
+		unmount();
+		renderWith({ captions: true, audio: false, voice: VOICE, allowPartial: false });
+		expect((await screen.findByLabelText('Include the Guide')).getAttribute('aria-checked')).toBe('true');
+	});
+
+	it('the size the bill adds for it stays within 5% of the real bundle', async () => {
+		const { GUIDE_EXPORT_BYTES } = await import('./NarrationExportOptions');
+		const { GUIDE_PLAYER_JS } = await import('../../../../lib/export/guide-player-bundle.generated.mjs');
+		// The bundle is most of it; the switch and the focus rules are the rest (~4 KB).
+		expect(Math.abs(GUIDE_EXPORT_BYTES - (GUIDE_PLAYER_JS.length + 4000)) / GUIDE_EXPORT_BYTES).toBeLessThan(0.05);
+	});
+
+	it('turning it off records guide: false for the export', async () => {
+		const seen: NarrationChoice[] = [];
+		renderWith({ captions: true, audio: false, voice: VOICE, allowPartial: false }, (v) => seen.push(v));
+		const sw = await screen.findByLabelText('Include the Guide');
+		act(() => sw.click());
+		expect(seen.at(-1)?.guide).toBe(false);
+	});
+});
+
 // A REHEARSED deck is the case this panel is least likely to be read carefully on, and the one
 // where it was most wrong. Compression moved to the bake, so the export now re-encodes every
 // clip the device already holds — free, but tens of seconds for a long deck. The panel went on

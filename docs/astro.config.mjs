@@ -117,7 +117,9 @@ export default defineConfig({
 		server: { fs: { allow: ['..'] } },
 		// Cadenza imports the LTT format by package name; the site reads it as SOURCE, the same
 		// alias docs/vitest.config.ts carries (its comment has the why).
-		resolve: { alias: { '@laticent/ltt': path.resolve(import.meta.dirname, 'src/lib/ltt/index.ts') } },
+		// `dedupe`: the narration encoder (lib/core/narration-encode.mjs) imports the MP3 encoder by
+		// name from outside this project, and the site bundles this project's copy, as vitest does.
+		resolve: { alias: { '@laticent/ltt': path.resolve(import.meta.dirname, 'src/lib/ltt/index.ts') }, dedupe: ['@breezystack/lamejs'] },
 		// Module (ESM) workers, not the default IIFE: the PDF export worker
 		// (src/components/studio/export/pdf-export-worker.js) bundles jspdf, whose internal
 		// dynamic imports force a code-splitting worker build — which Rollup

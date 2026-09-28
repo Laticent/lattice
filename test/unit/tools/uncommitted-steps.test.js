@@ -108,6 +108,7 @@ const EXPECTED_PR_OWNED = new Set([
   'build-landing-tokens.js', // docs/src/styles
   'build-spec-docs.js', // docs/src/content/docs/spec
   'build-anima-player.js', // lib/export
+  'build-guide-player.js', // lib/export — the Guide for narrated exports (committed, like Anima's)
   // Measured 2026-09-24: its whole write set is docs/src/lib/ltt/ltt.schema.json, which git
   // tracks — it is the generated half of guardrail G1, and build:check must compare it.
   'build-ltt-schema.js', // docs/src/lib/ltt

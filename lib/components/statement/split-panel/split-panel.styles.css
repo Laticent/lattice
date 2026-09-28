@@ -41,7 +41,11 @@
  */
 
 /* ── base = featured heading + findings (former split-brief) ─────────────── */
-section.split-panel { padding:0; flex-direction:row; }
+/* A full-bleed frame: its panes run to the slide's edges, so there is no padded column for a wide
+ * canvas's gutter to follow. The edge chrome keeps the 16:9 inset (base.tokens.css `--frame-inset-x`
+ * without `--_wide-gutter`), where it lines up with the panel text; with the gutter the footer crossed
+ * the panel seam and was cut on mobile-landscape. Equal to the token on every 16:9 canvas. */
+section.split-panel { padding:0; flex-direction:row; --frame-inset-x: calc(2.34375 * var(--_sec-1cqi, 1cqi)); }
 section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
 /* ── THE SLIDE'S TOP EDGE — one rule, two segments (2026-08-18) ─────────────
  * A sovereign split frame owns its own top edge. `base.elements.css` paints the

@@ -14,6 +14,14 @@ companion:
 > and hold, `_focus: mark|series`, the `delivery:` register with the salience plan, and content
 > marks. Steps 3 and 6–10 are recorded in `followups.d/2371-*`.
 >
+> **Resolver, 2026-09-27** (followups.d/2363-p3, closed): three more ways a narrator names things
+> resolve. A spoken period meets the slide's written one ("third quarter … fiscal twenty-six" →
+> `Q3 FY26`; a heard period weighs as a word, not a figure, so it labels a column without
+> outweighing the cell); one word of a card's LABEL names the card when nothing else painted on
+> the slide says it; and a pronoun-led sentence that shares a word with what the sentence before
+> named stays there ("It costs more…"). The fixture deck goes from 52 to 55 of 62 cues; the corpus
+> sweep resolves 13,744 of 14,279 before and after, with no deck's count changed.
+>
 > The owner settled the forks on 2026-09-25 (§9): three tone presets, model suggestions at
 > authoring time, the player embeds the kernel opt-in, decks reuse the LTT `actions` layer, and
 > the first slice is foundations — reordered after steps 1–2 to ship 4 with 5, and 3 with 8.

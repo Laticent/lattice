@@ -117,3 +117,53 @@ describe('the Marp `@size` stamp', () => {
     }
   });
 });
+
+// The phone-landscape canvas (#2372 fork 9). Every `--fs-*` / `--sp-*` token is width-relative,
+// so a canvas wider than 16:9 scales both back to their 16:9 pixels at its height; nothing changes
+// for 16:9 or narrower, which is what keeps every existing render byte-identical.
+describe('wider than 16:9 — the phone-landscape canvas', () => {
+  const { wideFactor, canvasWideFactor, withSize } = require('../../../lib/engine/sizes');
+  const { orientationCss } = require('../../../lib/engine/css');
+  const { SCALES } = require('../../../lib/typography/scale');
+
+  test('mobile-landscape is registered at HD height, 19.5:9', () => {
+    assert.deepEqual(SIZES['mobile-landscape'], { width: '1560px', height: '720px' });
+  });
+
+  test('wideFactor is 1 at 16:9 and narrower, and (16/9)/aspect wider', () => {
+    for (const [w, h] of [[1280, 720], [3840, 2160], [960, 720], [1080, 1920], [1080, 1080]]) assert.equal(wideFactor(`${w}px`, `${h}px`), 1, `${w}x${h}`);
+    assert.equal(wideFactor('1560px', '720px'), 0.8205);
+    assert.equal(wideFactor('nope', '720px'), 1);
+  });
+
+  test('the engine sets the 16:9 design unit only on a wider canvas', () => {
+    for (const s of ['hd', 'standard', '4K']) assert.equal(orientationCss(SIZES[s]), '', s);
+    const css = orientationCss(SIZES['mobile-landscape']);
+    // HD's 12.8px at 720 high, so every coefficient lands on its HD pixels (body 1.67 x 12.8).
+    assert.match(css, /--_sec-1cqi: 12\.800px; --_wide-gutter: 140\.0px;/);
+    assert.ok(SCALES.landscape.body * 12.8 > 21 && SCALES.landscape.body * 12.8 < 22);
+    // It must out-rank the physical stamp (`article.lattice > section, section`) and come after it.
+    assert.match(css, /^article\.lattice > section, section:not\(\[\\20 root\]\) \{/m);
+  });
+
+  test('the runtime reads a wide factor only off the shape of a registered wide canvas', () => {
+    assert.equal(canvasWideFactor(1560, 720), wideFactor(1560, 720));
+    assert.equal(canvasWideFactor(780, 360), wideFactor(1560, 720), 'a preview drawn at half size');
+    // A section at its content's height is not a canvas: before this, 1280x200 shrank the unit to 0.28.
+    assert.equal(canvasWideFactor(1280, 200), 1);
+    assert.equal(canvasWideFactor(1280, 720), 1);
+    assert.equal(canvasWideFactor(0, 0), 1);
+  });
+
+  test('withSize sets the register, collapses a duplicate, and adds front matter when there is none', () => {
+    assert.equal(withSize('---\ntheme: indaco\nsize: hd\n---\n\n# A\n', 'mobile-landscape'), '---\ntheme: indaco\nsize: mobile-landscape\n---\n\n# A\n');
+    assert.equal(withSize('---\nsize: hd\nsize: 4K\n---\n# A', 'story'), '---\nsize: story\n---\n# A');
+    assert.equal(withSize('---\ntheme: x\n---\n# A', 'story'), '---\ntheme: x\nsize: story\n---\n# A');
+    assert.equal(withSize('# A', 'story'), '---\nsize: story\n---\n\n# A');
+    // An indented size: is not the register, and a `$&` in the front matter is not expanded.
+    assert.equal(withSize('---\nfooter: "cost $& up"\nstyle: |\n  size: 3\n---\n# A', 'hd'), '---\nfooter: "cost $& up"\nstyle: |\n  size: 3\nsize: hd\n---\n# A');
+    // A CRLF deck stays CRLF, and an empty block gets the key instead of a second block before it.
+    assert.equal(withSize('---\r\ntheme: x\r\n---\r\n# A', 'story'), '---\r\ntheme: x\r\nsize: story\r\n---\r\n# A');
+    assert.equal(withSize('---\n---\n# A', 'story'), '---\nsize: story\n---\n# A');
+  });
+});

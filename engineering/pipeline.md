@@ -362,17 +362,41 @@ fonts embedded so each `.svg` opens anywhere.
 
 ## 6. Video (`lattice video`)
 
-`lattice video` renders a **narrated HTML export** to an MP4 and a `.vtt`:
+`lattice video` renders a narrated deck to an MP4 and a `.vtt`. It takes a deck or a narrated
+HTML export:
 
 ```bash
-node lattice-emulator.js video deck.html              # -> deck.mp4 + deck.vtt
+node lattice-emulator.js video deck.md                # voiced with Kokoro -> deck.mp4 + deck.vtt
+node lattice-emulator.js video deck.md --mode light   # the export's mode, over the deck's own
+node lattice-emulator.js video deck.md --no-guide     # no Guide (on by default; delivery: picks its style)
+node lattice-emulator.js video deck.md --no-captions  # no caption track and no .vtt (on by default)
+node lattice-emulator.js video deck.html              # a narrated export (the Studio's)
 node lattice-emulator.js video deck.html out.mp4 --fps 30 --lead-in 1000 --outro 1000
 ```
 
-The input is the export the Studio writes with narration, because the voice lives there: the CLI
-has no speech engine. The video is that export's own player, captured (the owner's rule in
+**A deck is voiced first, through the Studio's clip steps.** `lattice video deck.md` runs the
+CLI's own player export with `--narrate` (`lattice deck.md x.html --player --narrate`): the
+narration the `--captions` sidecars carry (inline caption, front-matter caption, then the slide's
+content projected to speech) is spoken sentence by sentence with Kokoro, the Studio's on-device voice
+(`onnx-community/Kokoro-82M-v1.0-ONNX`, q8, `af_heart`), and each clip goes through the Studio
+bake's own steps: `wavBlob` (`lib/core/speech-pcm.mjs`), then `compressClip`
+(`lib/core/narration-encode.mjs`, MP3 at 64 kb/s with its `leadMs`). kokoro-js is optional and
+its first run downloads the ~80 MB model: `npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7`.
+Without it the command stops and prints that line. The Studio runs the same model in a browser
+(WebGPU fp32 with a GPU, wasm q8 without), so the voice is the same and the samples are not
+guaranteed to be the same bits. **The CLI's sentences are not always the Studio's.** The CLI
+resolves narration per rendered page and the Studio's bake per source slide, and on a deck the
+render lengthens (`glossary: auto`) the Studio stands its projection down and narrates the markdown
+instead: on the Q3 fixture 7 of 17 slides say different words (dividers in another order, the
+table, the glossary slide). That split predates the voice (`--captions` already had it) and is
+recorded in `followups.d/2372-p2-cli-studio-narration-text.md`. `--player-mode light|dark|system` on the player export (and
+`--mode` on `lattice video`) sets the mode the file opens in.
+
+The video is the export's own player, captured (the owner's rule in
 [`decisions/2026-09-25-video-export.md`](decisions/2026-09-25-video-export.md) §0), so it shows
-what the export shows and nothing `lib/export/video.mjs` decides:
+what the export shows and nothing `lib/export/video.mjs` decides, the Guide's focus and gestures
+included unless the export was made with `--no-guide`
+([`decisions/2026-09-27-guide-in-the-exported-player.md`](decisions/2026-09-27-guide-in-the-exported-player.md)):
 
 1. It decodes every clip and writes each length into the export's LTT as `measuredMs`.
 2. It opens the export in headless Chromium with the player's render mode on

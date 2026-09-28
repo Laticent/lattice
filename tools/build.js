@@ -126,6 +126,10 @@ const STEPS = [
   // nothing caught it, because dist/ is gitignored and `build:check
   // --exclude-uncommitted` skips the emulator by design.
   { label: 'anima-player bundle (engine export)', script: 'build-anima-player.js' },
+  // The Guide for narrated exports, ahead of the emulator for the anima bundle's reason: the
+  // emulator's graph reaches lib/export/player-core.mjs, which imports this generated file. It
+  // reads SOURCES, never the background library dists, so it has no join to wait on.
+  { label: 'guide-player bundle (engine export)', script: 'build-guide-player.js' },
   // Ahead of the emulator bundle for the same reason as the two above: the emulator
   // dynamic-imports lib/export/speech-projection-bundle.generated.mjs (the caption
   // projection it evaluates inside its own Chromium page), so esbuild inlines it at

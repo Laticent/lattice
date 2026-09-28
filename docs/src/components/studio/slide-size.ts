@@ -24,6 +24,7 @@ export const SIZE_RATIO: Record<string, [number, number]> = {
 	'9:16': [9, 16],
 	reel: [9, 16],
 	mobile: [1080, 2340],
+	'mobile-landscape': [1560, 720],
 };
 
 // [16,9] is the engine's OWN default when a deck names no size (matches the app's

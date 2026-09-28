@@ -2017,7 +2017,7 @@ section.divider.numbered :is(h1, h2)::after {
    * eyebrow and heading below it — and clears the 0.46875cqi left spectrum rail twenty
    * times over. `divider.light` zeroes its own padding and centers; the mark stays here
    * anyway, so a deck that mixes the two does not shuffle it. */
-  left: calc(var(--_sec-1cqi, 1cqi) * 9.375);
+  left: calc(var(--_sec-1cqi, 1cqi) * 9.375 + var(--_wide-gutter, 0px)); /* + the wide canvas's gutter, as the divider's padding adds it */
   /* The rule stops just past mid-canvas — 9.375 + 45 = 54.375cqi of 100 — which leaves
    * the top-RIGHT corner entirely to the deck logo. */
   width: calc(var(--_sec-1cqi, 1cqi) * 45);

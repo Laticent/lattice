@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import { loadCalibration, recordObservation, resetCalibration } from '@/playground/readaloud-calibration';
-import { bakeClipKeys, previewTtsVoice, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
+import { bakeClipKeys, previewTtsVoice, SYNC_LEAD_MS, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
 
 // The audio backend is now a Suono stage + sequence (not voice.speak). Two stubs:
 //   • the voice model — SYNTHESIZES bytes (synthOne, fed to the sequence's produce, never invoked
@@ -303,6 +303,74 @@ describe('useReadAloud — audio-clock sync', () => {
 		});
 		const a = result.current.active;
 		expect(a && a.cueIndex === 0 && a.wordIndex > 0).toBe(true); // advanced WITHIN sentence 0, on the audio clock
+	});
+
+	// A clip starts before its voice: Kokoro leads each sentence with ~300 ms of near-silence. The
+	// caption must start where the SPEECH does, measured on the decoded clip (followups.d/2372-p3).
+	it("starts a cue at the voice's first word, not at the clip's silent head", async () => {
+		const rate = 24000;
+		const clipWithLead = (leadMs: number, totalMs: number) => {
+			const pcm = new Float32Array(Math.round((totalMs / 1000) * rate));
+			pcm.fill(0.5, Math.round((leadMs / 1000) * rate));
+			return { durationMs: totalMs, buffer: { sampleRate: rate, getChannelData: () => pcm } };
+		};
+		const at = async (withLead: boolean, clockMs: number) => {
+			const { result, unmount } = renderHook(() => useReadAloud('Alpha bravo charlie delta. Echo foxtrot.'));
+			await act(async () => {
+				await Promise.resolve();
+				await Promise.resolve();
+			});
+			act(() => result.current.play());
+			await act(async () => {
+				await Promise.resolve();
+				await Promise.resolve();
+			});
+			const clip = withLead ? clipWithLead(600, 2200) : undefined;
+			act(() => (stageCtl.onItemStart as unknown as (e: object) => void)?.({ index: 0, onsetMs: 9000, durationMs: 2200, clip }));
+			stageCtl.clockMs = 9000 + clockMs;
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(100);
+			});
+			const a = result.current.active;
+			unmount();
+			return a;
+		};
+		// 500 ms into the clip: the voice is still silent, so the first word is not yet lit…
+		expect((await at(false, 900))?.wordIndex).toBeGreaterThan(0); // (anchored on the clip, it was)
+		expect(await at(true, 500)).toEqual({ cueIndex: 0, wordIndex: 0 });
+		// …and once the voice is 800 ms in, the crawl is inside the sentence, on the speech's clock.
+		const a = await at(true, 600 + 800);
+		expect(a && a.cueIndex === 0 && a.wordIndex > 0).toBe(true);
+	});
+
+	// Between one clip ending and the next reporting its start, the next caption must not light: its
+	// clip has started, but its voice has not (measured live, it flashed for a frame, ~300 ms early).
+	it('keeps the caption on the sentence being spoken until the next voice begins', async () => {
+		const rate = 24000;
+		const pcm = new Float32Array(Math.round(2.2 * rate));
+		pcm.fill(0.5, Math.round(0.3 * rate));
+		const clip = { durationMs: 2200, buffer: { sampleRate: rate, getChannelData: () => pcm } };
+		const { result, unmount } = renderHook(() => useReadAloud('Alpha bravo charlie delta. Echo foxtrot golf.'));
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		act(() => result.current.play());
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		act(() => (stageCtl.onItemStart as unknown as (e: object) => void)?.({ index: 0, onsetMs: 9000, durationMs: 2200, clip }));
+		// Where the next clip starts (this clip's end plus the estimate's own gap), 50 ms in: its voice
+		// is still 250 ms away. SYNC_LEAD_MS is backed out so the hook's clock lands exactly there.
+		const t = result.current.track.cues;
+		const gap = (t[1]?.startMs ?? 0) - (t[0]?.endMs ?? 0);
+		stageCtl.clockMs = 9000 + 2200 + gap + 50 - SYNC_LEAD_MS;
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(100);
+		});
+		expect(result.current.active?.cueIndex).toBe(0);
+		unmount();
 	});
 
 	// Per-voice pace calibration (2026-07-12-per-voice-pace-calibration.md) — slice 1 is

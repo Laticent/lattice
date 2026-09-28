@@ -424,14 +424,19 @@ player, including the video export's capture of that player, must follow them.
    playback. **Lead trim:** a clip with leading silence (`leadMs`) starts playing
    `leadMs` in, and the cue is aligned to the clip's length **minus** `leadMs`,
    the speech alone. The Studio's bake (`compressClip` in
-   `docs/src/playground/narration-encode.js`) records `leadMs` as the MP3
-   encoder's delay (46 ms at 24 kHz) **plus the voice's own silence before its
-   first word**: the first sample above 2% of full scale, less a 10 ms pre-roll
-   (`speechOnsetMs`). Kokoro leaves 290–390 ms of it before every sentence, and a
-   lead that counted only the encoder lit each caption about 0.3 s early. A player
-   that skips the trim plays that silence before the first word while its crawl
-   clock already runs, so its caption leads the voice by the whole `leadMs`. A player that skips the trim lets the
-   crawl lag the voice by that much on every cue. The crawl's clock inside the
+   `lib/core/narration-encode.mjs`, which the CLI's `--narrate` shares) records
+   `leadMs` as the MP3 encoder's delay (46 ms at 24 kHz) **plus the voice's own
+   silence before its first word**: the first sample above 2% of full scale, less a
+   10 ms pre-roll (`speechOnsetMs`, `lib/core/speech-pcm.mjs`). Kokoro leaves
+   290–390 ms of it before every sentence, and a lead that counted only the encoder
+   lit each caption about 0.3 s early. A player that skips the trim plays that
+   silence before the first word while its crawl clock already runs, so its caption
+   leads the voice by the whole `leadMs`. **Present** plays the store's
+   uncompressed clips, which carry no `leadMs`, so it measures the same onset on
+   each decoded clip as it starts (`read-aloud.ts`, `onItemStart`) and aligns the
+   cue from there, for the speech that is left. It also moves the next cue's
+   estimate on by that lead, or the next caption would light as the next clip
+   starts and snap back when its own onset arrives. The crawl's clock inside the
    cue is the clip's `currentTime` minus `leadMs`, so it starts at the first
    word, not `leadMs` into it. The seek and the re-timing wait for a **known** duration
    longer than `leadMs`: WebKit can report `loadedmetadata` before it knows an
@@ -453,9 +458,10 @@ timing, and Anima motion, because the capture includes whatever the player draws
 The captions ride as a `tx3g` track in the MP4 (3GPP timed text, the subtitle format
 QuickTime reads; `lib/export/tx3g.mjs`) and a `.vtt` sidecar, both laid out by
 `timeline()` over the measured clip lengths; the caption band is not in the frame.
-**It does not guarantee** tour actions (no recorder writes a seekable run yet), the
-Guide's gestures (the exported player does not carry the Guide; the video note's
-fork 8), or the cursor's position mid-travel.
+The Guide's focus and gestures are in the frame, because a narrated export carries the
+Guide unless it was made with the Guide switched off (`--no-guide`, or the Studio's switch)
+(`decisions/2026-09-27-guide-in-the-exported-player.md`). **It does not guarantee**
+tour actions (no recorder writes a seekable run yet).
 
 **Render mode** is the player's one hook for the capture (`window.__lpRender`, set
 only by the capture). Media does not play on the capture's clock, so rule 3 cannot

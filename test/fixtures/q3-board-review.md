@@ -3,6 +3,7 @@ marp: true
 theme: indaco
 paginate: true
 pace: natural
+delivery: restrained
 lang: en
 header: "Northwind Analytics · Q3 FY26 board review"
 glossary: auto

@@ -37,6 +37,7 @@ section.image {
   isolation: isolate;
   overflow: hidden;
   padding: 0;
+  --frame-inset-x: calc(2.34375 * var(--_sec-1cqi, 1cqi)); /* full-bleed: the 16:9 inset, no wide gutter (split-panel.styles.css) */
   border: none;
   /* `border: none` drops EVERY bar, so the keyline draws every side (base.modifiers.css). */
   --_edge-t: 1; --_edge-r: 1; --_edge-b: 1; --_edge-l: 1;

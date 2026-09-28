@@ -36,7 +36,7 @@ for (const rel of LIVE_PATH) {
 	test(`${rel} does not compress on the reading path`, () => {
 		const text = src(rel);
 		assert.ok(
-			!/from ['"][^'"]*narration-encode(\.js)?['"]/.test(text),
+			!/(from |import\()['"][^'"]*narration-encode(\.m?js)?['"]/.test(text),
 			`${rel} imports narration-encode. Compression belongs to the bake (narration-bake.ts) and nowhere else: ` +
 				'a clip encoded here reaches the CACHE, and every replay of it then carries 46 ms of untrimmable ' +
 				'leading silence plus a synchronous encode in the middle of a read.',

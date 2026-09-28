@@ -127,7 +127,7 @@ const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, t
  * Smallest-containing-block first; a cue that no single block contains is then matched piecewise
  * (`findSpanningTarget`), which is how a label joined to its body finds the thing it names.
  */
-export function findCueTarget(frameDoc: Document | Element | null, text: string): Element | null {
+export function findCueTarget(frameDoc: Document | Element | null, text: string, prev?: string): Element | null {
 	const found =
 		findCueTargetIn(frameDoc, text) ??
 		findSpanningTarget(frameDoc, text) ??
@@ -137,6 +137,8 @@ export function findCueTarget(frameDoc: Document | Element | null, text: string)
 		findChartTextTarget(frameDoc, text) ??
 		findParaphraseTarget(frameDoc, text) ??
 		findValueLedMark(frameDoc, text) ??
+		findLabelTarget(frameDoc, text) ??
+		findContinuedTarget(frameDoc, text, prev) ??
 		findFigureTarget(frameDoc, text);
 	return found ? drawnTwin(found) : null;
 }
@@ -694,10 +696,11 @@ export function findDetailTarget(root: Document | Element | null, text: string):
 			return hay.includes(needle) && needle.length * 2 >= hay.length;
 		})) continue;
 		const chart = tpl.closest('.chart-body') ?? tpl.parentElement?.parentElement ?? root;
-		const mark = tpl.getAttribute('data-mark');
-		const el =
-			chart.querySelector(`[data-mark="${mark}"][data-label]:not(template)`) ??
-			chart.querySelector(`[data-mark="${mark}"]:not(template)`);
+		const mark = tpl.getAttribute('data-mark') ?? '';
+		// The value is deck HTML: matched by comparison, never spliced into a selector, where a quote
+		// in it threw (the red team).
+		const same = [...chart.querySelectorAll('[data-mark]:not(template)')].filter((e) => e.getAttribute('data-mark') === mark);
+		const el = same.find((e) => e.hasAttribute('data-label')) ?? same[0] ?? null;
 		if (el) {
 			figureHit += 1;
 			return el;
@@ -875,6 +878,48 @@ function spelledAmounts(words: readonly string[]): string[] {
 	return out;
 }
 
+const ORDINALS: Record<string, string> = { first: '1', second: '2', third: '3', fourth: '4' };
+
+/**
+ * A reporting period, said the way a presenter says it, keyed the way a slide writes it.
+ *
+ * A slide writes `Q3 FY26`; a narrator says "the third-quarter review for fiscal twenty-six".
+ * No word is shared, so the title slide that opens every board deck hid its Guide on the one
+ * sentence that names it (followups.d/2363-p3). So "third quarter" becomes `q3`, and "fiscal
+ * [year] 26" or "fiscal 2026" becomes `fy26`, which is also what `FY2026` on a slide keys to.
+ * Runs on the output of `spelledAmounts`, so "twenty-six" is already `26`.
+ *
+ * A PERIOD HEARD IN SPEECH WEIGHS AS ONE WORD, not as a figure (`heard`). A period labels a row or
+ * a column far more often than it names one cell: "Churn there reached 9.4% in the fourth quarter"
+ * is about the 9.4% cell, and at a figure's weight the `Q4` column header tied it and the Guide
+ * hid (measured on examples/delivery-spark.md). Typed `Q3` in a caption keeps its old weight.
+ */
+function periodSpellings(words: readonly string[], heard: Set<string>): string[] {
+	const out: string[] = [];
+	for (let i = 0; i < words.length; i++) {
+		const w = words[i];
+		if (Object.hasOwn(ORDINALS, w) && words[i + 1] === 'quarter') {
+			out.push(`q${ORDINALS[w]}`);
+			heard.add(`q${ORDINALS[w]}`);
+			i += 1;
+			continue;
+		}
+		if (w === 'fiscal') {
+			const at = words[i + 1] === 'year' ? i + 2 : i + 1;
+			const yr = words[at] ?? '';
+			if (/^(\d{2}|\d{4})$/.test(yr)) {
+				out.push(`fy${yr.slice(-2)}`);
+				heard.add(`fy${yr.slice(-2)}`);
+				i = at;
+				continue;
+			}
+		}
+		const fy = /^fy(\d{2}|\d{4})$/.exec(w);
+		out.push(fy ? `fy${fy[1].slice(-2)}` : w);
+	}
+	return out;
+}
+
 /** Suffixes stripped before the five-letter key, longest first, so "exiting" meets "exit" and
  *  "recommendation" meets "recommend". Crude on purpose: two spellings of one word only have to
  *  agree with each other, not with a dictionary. */
@@ -892,12 +937,13 @@ function contentKeys(s: string): Map<string, number> {
 	const words = loose(s)
 		.split(/[\s-]+/)
 		.map((raw) => raw.replace(/^'+|'+$/g, '').replace(/'s$/, ''));
-	for (const token of spelledAmounts(words)) {
+	const heard = new Set<string>();
+	for (const token of periodSpellings(spelledAmounts(words), heard)) {
 		let w = token;
 		if (!w || PARAPHRASE_STOP.has(w)) continue;
 		w = NUMBER_WORDS[w] ?? w;
 		if (/\p{N}/u.test(w)) {
-			keys.set(w, w.length > 1 ? 2 : 1);
+			keys.set(w, w.length > 1 && !heard.has(w) ? 2 : 1);
 			continue;
 		}
 		if (w.length < 3) continue;
@@ -1036,6 +1082,115 @@ export function isAside(text: string): boolean {
 	return contentKeys(text).size <= ASIDE_MAX_WORDS;
 }
 const ASIDE_MAX_WORDS = 3;
+
+/**
+ * THE LABEL TIER — a sentence that names a card by a word of its label.
+ *
+ * "We did look hard at the fix." is about the `Why not fix it` card, and a presenter's hand goes
+ * there. The paraphrase tier cannot say so: one shared word is below its floor, on purpose, since
+ * one word shared with an arbitrary block is how a sentence lands somewhere wrong. A card's LABEL
+ * is not an arbitrary block, though. It is the few words the author chose to name the card, so a
+ * sentence that says one of them is naming it, provided nothing else painted on the slide says
+ * that word too. The label is the card's own leading text (`headerRange`, the same handle the ink
+ * goes on); a bare item with no nested body has no label and is left to the tiers above.
+ *
+ * One label, or nothing: two cards whose labels both share a word with the sentence is a tie, and
+ * a tie hides. A number never carries this tier, and neither does a word anything else painted on
+ * the slide says (any text, or a chart mark's declared label). ONLY A SHORT SENTENCE, the size of an
+ * aside (`isAside`): a longer one has content of its own, and one word it shares with a label is
+ * incidental ("We fixed onboarding last spring, and churn did not move" is not about `Why not fix
+ * it`). Not on a slide with a figure, where a frame sentence is about the picture, for the headline
+ * fallback's reason. English only, for the paraphrase tier's reason.
+ */
+export function findLabelTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const lang = ((root as Document).documentElement ?? root.ownerDocument?.documentElement)?.getAttribute('lang') ?? '';
+	if (lang && !/^en\b/i.test(lang)) return null;
+	const all = contentKeys(text);
+	if (all.size > ASIDE_MAX_WORDS) return null;
+	const words = [...all.keys()].filter((k) => !/\p{N}/u.test(k));
+	if (!words.length) return null;
+	const scope = paraphraseScope(root);
+	if (!scope || scope.querySelector(FIGURE_SELECTOR)) return null;
+	let hit: Element | null = null;
+	let shared: string[] = [];
+	for (const li of scope.querySelectorAll('li')) {
+		if (li.closest(UNPAINTED)) continue;
+		const head = headerRange(li)?.toString();
+		if (!head) continue;
+		const keys = contentKeys(head);
+		const said = words.filter((k) => keys.has(k));
+		if (!said.length) continue;
+		if (hit) return null;
+		hit = li;
+		shared = said;
+	}
+	if (!hit) return null;
+	// Everything else the slide paints — every text node outside the card, and every mark's declared
+	// label — must not say the word, or the word names the slide's subject rather than the card.
+	const doc = scope.ownerDocument;
+	const walker = doc.createTreeWalker(scope, 4 /* SHOW_TEXT */);
+	let rest = '';
+	for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+		const parent = (n as Text).parentElement;
+		if (!parent || hit.contains(parent) || parent.closest(UNPAINTED)) continue;
+		rest += ` ${n.textContent ?? ''}`;
+	}
+	for (const mark of scope.querySelectorAll('[data-label]')) if (!hit.contains(mark)) rest += ` ${mark.getAttribute('data-label')}`;
+	const keys = contentKeys(rest);
+	if (shared.some((k) => keys.has(k))) return null;
+	labelHit += 1;
+	return hit;
+}
+
+/** Did the label tier answer the last cue? Same shape and reason as `paraphraseHit`. */
+export let labelHit = 0;
+export const resetLabelHit = (): number => {
+	const n = labelHit;
+	labelHit = 0;
+	return n;
+};
+
+/** A sentence that opens by pointing back: "It costs more…", "This is why…". */
+const ANAPHOR = /^(it|its|this|that|these|those|they|which)\b/i;
+
+/**
+ * THE CONTINUATION TIER — a sentence that goes on about what the last one named.
+ *
+ * "We did look hard at the fix. It costs more than the segment earns." The second sentence is
+ * about the same card, and it says so the way speech does: with "It". Alone it names nothing
+ * the resolver can find (its one shared word, "segment", is on two cards), so the hand hid
+ * between two sentences about one card. So a sentence that OPENS with a pronoun and resolves to
+ * nothing on its own takes the element the previous sentence resolved to, provided it shares at
+ * least one content word with that element, which keeps a pronoun that points elsewhere ("It was
+ * a good quarter.") from claiming it. One step back only: the previous sentence is resolved
+ * without its own predecessor, so a chain of pronouns cannot walk the hand anywhere.
+ *
+ * `prev` is the display text of the cue before this one on the same slide; callers that do not
+ * know it pass nothing and this tier stays silent.
+ */
+export function findContinuedTarget(root: Document | Element | null, text: string, prev?: string): Element | null {
+	if (!root || !prev) return null;
+	// English only: the pronoun list is English, as the paraphrase tier's stop list is.
+	const lang = ((root as Document).documentElement ?? root.ownerDocument?.documentElement)?.getAttribute('lang') ?? '';
+	if (lang && !/^en\b/i.test(lang)) return null;
+	if (!ANAPHOR.test(norm(text).replace(/^[^\p{L}]+/u, ''))) return null;
+	const before = findCueTarget(root, prev);
+	if (!before) return null;
+	const said = contentKeys(candidateText(before).trim() || before.textContent || '');
+	const cue = contentKeys(text);
+	if (![...cue.keys()].some((k) => said.has(k))) return null;
+	continuedHit += 1;
+	return before;
+}
+
+/** Did the continuation tier answer the last cue? Same shape and reason as `paraphraseHit`. */
+export let continuedHit = 0;
+export const resetContinuedHit = (): number => {
+	const n = continuedHit;
+	continuedHit = 0;
+	return n;
+};
 
 /** Did the paraphrase tier answer the last cue? Same shape and reason as `figureHit`. */
 export let paraphraseHit = 0;
@@ -1866,8 +2021,8 @@ export type GuideDecision = {
  * Returns null when nothing under `root` contains the sentence. That is a real state, not an
  * error — a slide narrated by a speaker note says things the slide does not show.
  */
-export function guideCueIn(root: Document | Element, text: string, frame: Box, half: number, pad: number = half + 5): GuideDecision | null {
-	const block = findCueTarget(root, text);
+export function guideCueIn(root: Document | Element, text: string, frame: Box, half: number, pad: number = half + 5, prev?: string): GuideDecision | null {
+	const block = findCueTarget(root, text, prev);
 	if (!block) return null;
 
 	const { el, notable } = aimTarget(block, text);
@@ -1990,8 +2145,8 @@ const frameDoc = (getFrame: () => HTMLIFrameElement | null): Document | null => 
  * cheaper. A layout flush per spoken sentence, on the one surface that must not stutter, is the
  * same bill arriving in a different envelope.
  */
-export function guideAimFor(getFrame: () => HTMLIFrameElement | null, text: string): Element | null {
-	const block = findCueTarget(frameDoc(getFrame), text);
+export function guideAimFor(getFrame: () => HTMLIFrameElement | null, text: string, prev?: string): Element | null {
+	const block = findCueTarget(frameDoc(getFrame), text, prev);
 	return block ? aimTarget(block, text).el : null;
 }
 
@@ -2003,7 +2158,7 @@ export function guideAimFor(getFrame: () => HTMLIFrameElement | null, text: stri
  * spoken. What moves is the FRAME, and mapping an inner rect out through `frameGeom` picks that
  * up for free — the same reason `frameRectSource` re-measures instead of snapshotting (#1400).
  */
-export function guideCueFor(getFrame: () => HTMLIFrameElement | null, text: string): GuideCue | null {
+export function guideCueFor(getFrame: () => HTMLIFrameElement | null, text: string, prev?: string): GuideCue | null {
 	const doc = frameDoc(getFrame);
 	if (!doc) return null;
 	const root = doc.documentElement.getBoundingClientRect();
@@ -2016,7 +2171,7 @@ export function guideCueFor(getFrame: () => HTMLIFrameElement | null, text: stri
 	// parent-space 5 while the stage applies an inner-space one puts the check a few pixels off
 	// on every scaled preview, which is exactly the class of error #1403 wrote `POINTER_BOX` down for.
 	const half = POINTER_BOX / 2 / S;
-	const cue = guideCueIn(doc, text, { left: root.left, top: root.top, width: root.width, height: root.height }, half, half + 5 / S);
+	const cue = guideCueIn(doc, text, { left: root.left, top: root.top, width: root.width, height: root.height }, half, half + 5 / S, prev);
 	if (!cue) return null;
 
 	const { el, inkRange, markerOffset, role } = cue;
@@ -2214,7 +2369,7 @@ export type SlidePlan = {
  * slide with nothing salient spends its budget in the order it is spoken — as far as `floor`
  * (the preset's minimum salience after the first gesture) lets it.
  */
-export function planSlide(texts: readonly string[], aim: (text: string) => Element | null, budget: number, floor = 0): SlidePlan {
+export function planSlide(texts: readonly string[], aim: (text: string, prev?: string) => Element | null, budget: number, floor = 0): SlidePlan {
 	// One entry per MOMENT. An authored focus unit is one moment however many elements carry it:
 	// `_focus: series 3` tags every dot of the series, and a narration that reads the series point
 	// by point would otherwise spend seven budget-exempt gestures on one call-out (measured on
@@ -2222,7 +2377,8 @@ export function planSlide(texts: readonly string[], aim: (text: string) => Eleme
 	const first = new Map<Element | string, { el: Element; cue: number }>();
 	const aimed = new Set<number>();
 	texts.forEach((t, i) => {
-		const el = t ? aim(t) : null;
+		// The sentence before this one on the slide, for the continuation tier ("It costs more…").
+		const el = t ? aim(t, texts[i - 1] || undefined) : null;
 		if (!el) return;
 		aimed.add(i);
 		const key = authoredUnit(el) ?? el;
@@ -2565,11 +2721,21 @@ export function guideStillShown(el: Element | null): boolean {
 	const view = el.ownerDocument?.defaultView;
 	if (!view) return sec.style.visibility !== 'hidden';
 	const cs = view.getComputedStyle(sec);
-	return cs.display !== 'none' && cs.visibility !== 'hidden';
+	if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+	// A section can be `display: flex` inside a frame that is `display: none`: the exported player
+	// hides every slide but the shown one on its `.lp-frame` wrapper, so the section's own style
+	// says "shown" for every slide of the deck. `checkVisibility` asks the whole ancestor chain.
+	return typeof (sec as HTMLElement & { checkVisibility?: () => boolean }).checkVisibility === 'function' ? (sec as HTMLElement & { checkVisibility: () => boolean }).checkVisibility() : true;
 }
 
-export function guideAimIn(doc: Document | null, text: string): Element | null {
-	const block = findCueTarget(shownSection(doc), text);
+export function guideAimIn(doc: Document | null, text: string, prev?: string): Element | null {
+	return guideAimInRoot(shownSection(doc), text, prev);
+}
+
+/** `guideAimIn` for a host that already knows which slide is shown — the exported player, whose
+ *  shown slide is its `.lp-frame.lp-active` section rather than the Stage's unhidden one. */
+export function guideAimInRoot(root: Document | Element | null, text: string, prev?: string): Element | null {
+	const block = findCueTarget(root, text, prev);
 	return block ? aimTarget(block, text).el : null;
 }
 
@@ -2588,7 +2754,18 @@ export function guideAimIn(doc: Document | null, text: string): Element | null {
  * already reports post-scale viewport pixels — which is why the live re-measure below can hand
  * its box straight back rather than mapping it.
  */
-export function guideCueInDoc(doc: Document | null, text: string): GuideCue | null {
+export function guideCueInDoc(doc: Document | null, text: string, prev?: string): GuideCue | null {
+	if (!doc) return null;
+	return guideCueInRoot(shownSection(doc) ?? doc, doc.getElementById('latt-fit'), text, prev);
+}
+
+/**
+ * The same decision for a host that knows its shown slide and the box it is painted in: the
+ * exported player passes its active section for both, since the section itself carries the fit
+ * transform there (`.lp-frame.lp-active section`), so its client rect IS the painted slide.
+ */
+export function guideCueInRoot(root: Document | Element, fit: Element | null, text: string, prev?: string): GuideCue | null {
+	const doc = (root as Document).defaultView ? (root as Document) : root.ownerDocument;
 	const view = doc?.defaultView;
 	if (!doc || !view) return null;
 	const half = POINTER_BOX / 2;
@@ -2600,10 +2777,9 @@ export function guideCueInDoc(doc: Document | null, text: string): GuideCue | nu
 	// with the caption band up — the same content classifying differently on the Stage than
 	// on the console. `#latt-fit` is the slide's own painted box; the window is only the
 	// clamp the cursor may come to rest inside.
-	const fit = doc.getElementById('latt-fit');
 	const box = fit ? fit.getBoundingClientRect() : null;
 	const frame = box && box.width > 0 ? { left: box.left, top: box.top, width: box.width, height: box.height } : { left: 0, top: 0, width: view.innerWidth, height: view.innerHeight };
-	const cue = guideCueIn(shownSection(doc) ?? doc, text, frame, half, half + 5);
+	const cue = guideCueIn(root, text, frame, half, half + 5, prev);
 	if (!cue) return null;
 
 	const { el, inkRange, markerOffset, role } = cue;

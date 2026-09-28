@@ -1525,6 +1525,11 @@ export function createStage(opts: StageOptions): Stage {
 	// Every write to the cursor's opacity goes through here, so a host's `setCursorVisible(false)`
 	// cannot be quietly undone by an intro or a gesture that hard-sets opacity to 1.
 	let cursorHidden = false;
+	// Nothing is on screen until the first frame paints the cursor (it is created at opacity 0).
+	// A host that hides it before then (Present and the exported player hide a new stage at once)
+	// must get no fade: fading 1 → 0 from a cursor never shown drew a full arrow at the center of
+	// the slide for 180 ms, and over a second in a video capture (the red team, 2026-09-27).
+	let painted = false;
 	const paintCursorOpacity = (): void => {
 		cursor.style.opacity = cursorHidden ? '0' : '1';
 	};
@@ -1534,7 +1539,7 @@ export function createStage(opts: StageOptions): Stage {
 		// Cross-fade rather than pop: a host that hides on every unresolvable cue would otherwise
 		// flicker the pointer several times a slide. 'still' snaps (content cadence collapses);
 		// 'legible' keeps the fade, which is opacity-only and therefore motion-safe.
-		if (!still) cursor.animate([{ opacity: visible ? 0 : 1 }, { opacity: visible ? 1 : 0 }], { duration: 180, easing: 'ease-out' });
+		if (!still && painted) cursor.animate([{ opacity: visible ? 0 : 1 }, { opacity: visible ? 1 : 0 }], { duration: 180, easing: 'ease-out' });
 		paintCursorOpacity();
 	}
 
@@ -1544,6 +1549,7 @@ export function createStage(opts: StageOptions): Stage {
 		publishChromeInset();
 		dock.style.opacity = '1';
 		paintCursorOpacity();
+		painted = true;
 	});
 
 	// A rAF-driven tween of the cursor toward a destination, racing the signal.

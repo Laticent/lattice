@@ -165,18 +165,83 @@ describe('nothing backtracks', () => {
     assert.ok(ms < 50, `expected well under 50ms, took ${ms.toFixed(1)}ms`);
   });
 
-  test('cost stays linear in input length', () => {
-    const run = (n) => {
-      const src = `[{${' '.repeat(n)}}]`;
-      const t0 = process.hrtime.bigint();
-      for (let i = 0; i < 200; i++) parseBracketList(src);
-      return Number(process.hrtime.bigint() - t0) / 200;
+  // Two shapes: the brace run that bit `label-set.js`, and a mixed list that
+  // walks every branch of the scan (quotes, braces, the cap, a trailing blank).
+  const shapes = {
+    'brace run': (n) => `[{${' '.repeat(n)}}]`,
+    'mixed list': (n) => {
+      const unit = `{a b, 'c, d'}, "e f", g  h, [x], `;
+      return `[${unit.repeat(Math.ceil(n / unit.length))}]`;
+    },
+    // Every part quoted: the quote-partner lookup runs once per part, so a
+    // lookup that rescans its list is quadratic here and nowhere else.
+    'quote run': (n) => `[${"'a', ".repeat(Math.ceil(n / 5))}]`,
+  };
+
+  // COUNTED, NOT TIMED. The parser reads its input only through `charCodeAt`,
+  // so counting those reads is a step count no busy runner can perturb. The
+  // wall-clock ratio this replaced failed on a loaded CI box (#2421) with no
+  // regression behind it.
+  const countReads = (src) => {
+    const real = String.prototype.charCodeAt;
+    let reads = 0;
+    String.prototype.charCodeAt = function (i) {
+      reads++;
+      return real.call(this, i);
     };
-    run(4000); // warm
-    // Quadrupling the input must not square the time. Generous bound: the
-    // point is to catch a super-linear REGRESSION, not to gate on wall clock.
-    assert.ok(run(4000) * 8 > run(16000), 'growth should be ~linear, not quadratic');
-  });
+    try {
+      parseBracketList(src, { maxParts: 2 });
+    } finally {
+      String.prototype.charCodeAt = real;
+    }
+    return reads;
+  };
+
+  for (const [name, make] of Object.entries(shapes)) {
+    test(`character reads stay linear in input length — ${name}`, () => {
+      const small = make(4000);
+      const large = make(16000);
+      const perChar = (src) => countReads(src) / src.length;
+      // A constant number of reads per character at both sizes. A quadratic
+      // scan reads ~n per character, so it is ~4000x over this bound at 4k.
+      assert.ok(perChar(small) < 6, `${perChar(small).toFixed(2)} reads/char at 4k`);
+      assert.ok(perChar(large) < 6, `${perChar(large).toFixed(2)} reads/char at 16k`);
+      assert.ok(
+        Math.abs(perChar(large) - perChar(small)) < 0.5,
+        `reads/char drifted: ${perChar(small).toFixed(2)} at 4k, ${perChar(large).toFixed(2)} at 16k`,
+      );
+    });
+
+    // The count above cannot see work that never reads a character — an
+    // array rescan, a `slice` per step. So the time is checked too, as the
+    // FASTEST of many short samples, the two sizes interleaved. Noise only ever
+    // adds time, so the minimum is the sample a busy runner could not inflate;
+    // interleaving puts both sizes under the same load, and a short sample is
+    // likelier to land in a quiet slice than a long one. One slow sample can no
+    // longer fail the arm, which is the failure #2421 hit.
+    test(`fastest-sample time stays linear in input length — ${name}`, () => {
+      const small = make(4000);
+      const large = make(16000);
+      const sample = (src) => {
+        const t0 = process.hrtime.bigint();
+        for (let i = 0; i < 4; i++) parseBracketList(src, { maxParts: 2 });
+        return Number(process.hrtime.bigint() - t0);
+      };
+      for (let i = 0; i < 5; i++) {
+        sample(small); // warm
+        sample(large);
+      }
+      let bestSmall = Infinity;
+      let bestLarge = Infinity;
+      for (let r = 0; r < 40; r++) {
+        bestSmall = Math.min(bestSmall, sample(small));
+        bestLarge = Math.min(bestLarge, sample(large));
+      }
+      const ratio = bestLarge / bestSmall;
+      // Linear is ~4x; quadratic is ~16x.
+      assert.ok(ratio < 8, `16k took ${ratio.toFixed(1)}x the 4k time — growth should be ~linear`);
+    });
+  }
 });
 
 describe('malformed input is never given invented structure', () => {

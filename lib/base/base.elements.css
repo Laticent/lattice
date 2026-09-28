@@ -65,7 +65,9 @@ section {
   isolation:isolate;
   box-sizing:border-box; overflow:hidden; position:relative;
   display:flex; flex-direction:column;
-  padding: calc(var(--_sec-1cqi,1cqi)*6.875) calc(var(--_sec-1cqi,1cqi)*5);
+  /* `--_wide-gutter`: 0 except on a canvas wider than 16:9, where the engine sets it to half the
+     extra width so the content box stays HD's, centered (lib/engine/css.js orientationCss). */
+  padding: calc(var(--_sec-1cqi,1cqi)*6.875) calc(var(--_sec-1cqi,1cqi)*5 + var(--_wide-gutter, 0px));
   background: var(--bg); color:var(--text-body);
   font-family:var(--font-body); font-size:var(--fs-body); line-height:var(--lh-base);
   -webkit-print-color-adjust:exact; print-color-adjust:exact;

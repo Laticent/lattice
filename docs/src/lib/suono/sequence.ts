@@ -298,7 +298,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 						// its highlight should hold until the latter.
 						const onStart = ({ onsetMs, durationMs }: { onsetMs: number; durationMs: number }) => {
 							clearStarve();
-							onItemStart?.({ index: i, onsetMs, durationMs });
+							onItemStart?.({ index: i, onsetMs, durationMs, clip: clip ?? undefined });
 						};
 						const handle = stage.play(clip, { onStart, signal: sig });
 						activeHandle = handle;

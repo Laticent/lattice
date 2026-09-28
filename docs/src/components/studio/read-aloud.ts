@@ -5,6 +5,7 @@ import { createStage } from '@/lib/suono';
 import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { readyKeys } from '@/playground/narration-store.js';
 import { loadCalibration, recordObservation, voiceKeyOf } from '@/playground/readaloud-calibration';
+import { speechOnsetMs } from '../../../../lib/core/speech-pcm.mjs';
 import { cachedSampleUrl, KOKORO_MODEL_ID, speedSupported } from './tts-voice-catalog';
 
 // slideToSpeech is the shared base narration flattener — one source of truth in
@@ -40,7 +41,7 @@ const OR_KEY_LS = 'lattice-db-or-key';
 
 // How far (ms) to bias the word-highlight AHEAD of the heard voice — a lagging highlight is
 // the more noticeable sync error (asymmetric lip-sync tolerance; see the pace-model doc §5).
-const SYNC_LEAD_MS = 40;
+export const SYNC_LEAD_MS = 40;
 
 /**
  * One captured audio-timing event, for the on-device read-aloud diagnostics
@@ -602,7 +603,9 @@ export function useReadAloud(
 			if (bufferingRef.current && audioBaseRef.current != null) {
 				// hold: elapsedRef keeps its last value
 			} else {
-				elapsedRef.current = audioBaseRef.current == null ? audioHoldMsRef.current : Math.max(0, stage.clockMs() - audioBaseRef.current + SYNC_LEAD_MS);
+				// Never below the hold: the base is the first sentence's SPEECH onset, so the clock runs
+				// short of it through that clip's silent head, where the first word stays lit.
+				elapsedRef.current = audioBaseRef.current == null ? audioHoldMsRef.current : Math.max(audioHoldMsRef.current, stage.clockMs() - audioBaseRef.current + SYNC_LEAD_MS);
 			}
 		} else {
 			elapsedRef.current += now - lastTRef.current;
@@ -744,14 +747,31 @@ export function useReadAloud(
 					// to prevent.
 					return interCueGapMs(lastDisplay, !!cue?.endsParagraph, cue?.weight);
 				},
-				onItemStart: ({ index, onsetMs, durationMs }) => {
+				onItemStart: ({ index, onsetMs, durationMs, clip }) => {
 					const cue = from + index; // sliced item i ↦ cue (from + i) — re-anchoring stays cue-accurate
-					if (audioBaseRef.current == null) audioBaseRef.current = onsetMs - holdMs; // fromCue's onset ↦ holdMs
+					// THE VOICE'S OWN LEADING SILENCE. A clip starts before its voice does: Kokoro puts
+					// ~300 ms of near-silence ahead of every sentence (lib/core/speech-pcm.mjs), and anchoring
+					// the cue on the clip's onset lit each caption that much before the first word. So the
+					// cue starts where the speech does, measured on the decoded clip by the rule the bake
+					// trims with, and runs for the speech that is left. The exported player gets the same
+					// by seeking past `leadMs`; this is the live-playback half (followups.d/2372-p3).
+					const buf = clip?.buffer;
+					const lead = buf ? Math.min(speechOnsetMs(buf.getChannelData(0), buf.sampleRate, 1, 1), Math.max(0, durationMs - 1)) : 0;
+					// fromCue's SPEECH onset ↦ holdMs. The loop holds elapsed at holdMs until then, so the
+					// first word stays lit through the silent head rather than the caption going blank.
+					if (audioBaseRef.current == null) audioBaseRef.current = onsetMs + lead - holdMs;
 					// Per-voice pace calibration: fold this sentence's measured clip duration vs the model's
 					// PREDICTED cue duration, from the ORIGINAL never-mutated `track` (align clones the timeline).
 					const estCue = track.cues[cue];
 					const estDurMs = estCue ? estCue.endMs - estCue.startMs : 0;
-					reader.align(cue, onsetMs - audioBaseRef.current, durationMs);
+					reader.align(cue, onsetMs + lead - audioBaseRef.current, durationMs - lead);
+					// The NEXT sentence's estimate follows this one's end, which is its CLIP's start, not its
+					// speech's: for the frames between this clip ending and the next one reporting its start,
+					// that estimate lit the next caption early and then snapped back (measured live: one
+					// frame, about 300 ms before the voice). Push it on by this clip's own lead, the best guess
+					// at the next one's. The next clip's start re-aligns it exactly, before its voice begins.
+					const next = reader.trackNow().cues[cue + 1];
+					if (next && lead > 0) reader.align(cue + 1, next.startMs + lead, next.endMs - next.startMs);
 					if (estDurMs > 0 && durationMs > 0 && calVoiceKeyRef.current) {
 						try {
 							const next = recordObservation(calVoiceKeyRef.current, estDurMs, durationMs);
