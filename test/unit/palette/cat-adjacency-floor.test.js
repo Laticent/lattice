@@ -131,8 +131,8 @@ const FROZEN = new Map([
   ['brina-dark', { saturated: 'fill', sat: [0.3392, 0.2275, 0.2462, 0.1869, 0.1962], wash: [0.1137, 0.0905, 0.0872, 0.0654, 0.0654] }],
   ['burgundy', { saturated: 'mark', sat: [0.3277, 0.3201, 0.3380, 0.0841, 0.3442], wash: [0.1398, 0.1326, 0.1537, 0.0256, 0.1670] }],
   ['burgundy-dark', { saturated: 'fill', sat: [0.3090, 0.2997, 0.2842, 0.1000, 0.3040], wash: [0.0907, 0.0861, 0.1016, 0.0169, 0.1108] }],
-  ['carbone', { saturated: 'mark', sat: [0.0579, 0.0763, 0.1411, 0.0569, 0.0587], wash: [0.0148, 0.0298, 0.0216, 0.0044, 0.0069] }],
-  ['carbone-dark', { saturated: 'mark', sat: [0.0564, 0.0989, 0.1799, 0.0697, 0.0667], wash: [0.0169, 0.0289, 0.0566, 0.0198, 0.0205] }],
+  ['carbone', { saturated: 'mark', sat: [0.2750, 0.3298, 0.2905, 0.2085, 0.2690], wash: [0.0897, 0.1025, 0.0890, 0.0736, 0.1065] }],
+  ['carbone-dark', { saturated: 'mark', sat: [0.2928, 0.3331, 0.2962, 0.2498, 0.3095], wash: [0.0905, 0.1016, 0.0888, 0.0758, 0.0921] }],
   ['carta', { saturated: 'mark', sat: [0.1902, 0.1873, 0.2880, 0.2306, 0.1549], wash: [0.1055, 0.0977, 0.1006, 0.0871, 0.0774] }],
   ['carta-dark', { saturated: 'fill', sat: [0.2488, 0.2042, 0.2877, 0.1050, 0.2097], wash: [0.0353, 0.0450, 0.0613, 0.0454, 0.0335] }],
   ['concrete', { saturated: 'mark', sat: [0.0706, 0.0390, 0.0528, 0.0501, 0.0669], wash: [0.0053, 0.0034, 0.0036, 0.0034, 0.0053] }],
@@ -309,8 +309,10 @@ describe('categorical adjacency (frozen distances, reference-calibrated floors)'
   test('the catalog is no further from the reference floors than it was', () => {
     const d = deficits();
     const worst = d.slice(0, 5).map((x) => `${x.theme} ${x.pair} (${x.tier}) ${x.d.toFixed(4)}, short by ${x.short.toFixed(4)}`);
-    assert.equal(d.length, 75,
-      `${d.length} adjacent readings sit below their tier's reference floor (was 75).\nWorst:\n  ${worst.join('\n  ')}\n`
+    // 75 -> 59 when carbone's cycle was reordered most-distinct-first: all 16 of its readings
+    // (both faces) cleared both floors.
+    assert.equal(d.length, 59,
+      `${d.length} adjacent readings sit below their tier's reference floor (was 59).\nWorst:\n  ${worst.join('\n  ')}\n`
       + 'If this FELL, a palette improved — re-bless the count and say which. If it ROSE, something got worse.');
   });
 });
