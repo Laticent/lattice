@@ -1026,7 +1026,7 @@ section.divider:not(.light):not(.print) {
 section.title code,
 section.divider code,
 section.closing code,
-section.split-panel:not(.metric) .panel-left code,
+section.split-panel:not(.metric, .steps, .watermark, .cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left code,
 section.split-panel.metric .panel-right code,
 /* split-compare's rail paints the SAME `--surface-inverse` as the two above and was simply
  * missing from this list. That was latent while the chip rode `--accent`, and stopped being
@@ -1045,6 +1045,21 @@ section.split-compare .compare-left code,
  * rgb(0,101,153) on rgb(0,61,102), the brand accent on the inverse panel. */
 section.topic code {
   --code-inline-fg: var(--on-dark-primary);
+}
+/* ── split-panel's panel is not always the inverse field ──
+ * The line above used to read `section.split-panel:not(.metric) .panel-left code`, i.e. every
+ * variant but `metric` — and three of those do not paint `--surface-inverse`. `.steps` paints
+ * the LIGHT `--bg-alt`, and `cat-1…cat-8` paint a categorical tint, so the chip rendered white
+ * on a light field: a formula in `examples/system-design-foundations.md` (pp. 125, 183) was
+ * the visible case (followups.d/2327). `.watermark` paints `--accent`, where white only passed
+ * by luck of the palette. Each field now takes the ink its own text already uses: `.steps`
+ * keeps the canvas default (no rule), `.watermark` the curated `--on-accent`, and a category
+ * tint `--cat-on-fill`, the ink the categorical contract guarantees at AA on every tint. */
+section.split-panel.watermark .panel-left code {
+  --code-inline-fg: var(--on-accent);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left code {
+  --code-inline-fg: var(--cat-on-fill);
 }
 /* ── THE ACCENT COVERS ARE A DARK ISLAND TOO, and their ink is --on-accent, not
  * --on-dark-primary (#2292). A cover floods `var(--accent)`, which is a HUE rather than a

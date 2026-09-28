@@ -848,3 +848,26 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `wheel` listener to the scroller and assert on the `deltaX` it actually saw: that binds
   wherever you point it.
   See `engineering/decisions/2026-09-13-settings-find-and-list-view.md` §12.
+
+## A `finish:` shows on every slide except the split ones, and their header vanishes halfway across
+
+- **Symptom:** on a deck with a `finish:` (strata, atrium, …), every slide carries its texture
+  and corner mark except `split-panel` / `split-compare`, which render a flat dark panel and a
+  flat canvas. On the same slides a long running header or footer fades out partway across,
+  and on `split-compare` it prints over the option cards.
+- **Cause:** two different things that share one surface. (1) The finish is painted on a
+  `.backdrop` child at a NEGATIVE z-index (base.finish.css), so any in-flow box with a
+  background paints over it. A full-slide inverse field (`title`, `divider`, `closing`,
+  `topic`) is handled by re-pointing `--fin-canvas`, which repaints the finish on that color.
+  A HALF field cannot use that trick, because one backdrop has one canvas. (2) `section header`
+  / `section footer` are absolute across the whole slide, and the split frames ink them for
+  the panel they START on, so the part past the seam is panel ink on canvas.
+- **Fix, as shipped:** a finish deck draws the split with a veil and a seam instead of a
+  flood, and re-points the field's ink TOKENS on the panel element. The chrome is budgeted
+  to the field it starts on, one ellipsized line, with a constant band the field keeps clear
+  (split-panel.styles.css, the two blocks at the foot of the file).
+- **Two traps in that fix, both found by review, not by a gate.** `finish-none`,
+  `backdrop-none` and `print` slides KEEP the bare `finish` class while base.finish.css zeroes
+  every layer, so "is there a finish?" is `.finish:not(.finish-none, .backdrop-none, .print)`,
+  not `.finish`. And the overflow probe skipped every `position: absolute` text bearer, so a
+  cut in split chrome was never measured at all until `skipped()` learned the one exception.
