@@ -56,10 +56,21 @@ test('the explanatory lines under TYPE FLOOR are not read as pages', () => {
 
 test('every chart builder names distinct elements, so a keyed kernel cannot merge them', () => {
   const { BUILDERS } = require('../../../tools/lib/calibrate-core.js');
-  for (const c of ['bar', 'bullet', 'funnel', 'piechart', 'scatter', 'waterfall', 'line', 'stacked-bar', 'slope', 'radar', 'heatmap', 'map']) {
-    const heads = Array.from({ length: 16 }, (_, i) => BUILDERS[c](6, i).split('\n')[0].replace(/`[^`]*`/g, '').trim());
+  for (const c of ['bar', 'bullet', 'funnel', 'piechart', 'scatter', 'waterfall', 'line', 'stacked-bar', 'slope', 'radar', 'heatmap', 'map',
+    'gantt', 'journey', 'matrix-grid', 'progress', 'quadrant', 'state-chart', 'word-cloud']) {
+    const heads = Array.from({ length: 16 }, (_, i) => BUILDERS[c](6, i).split('\n')[0].replace(/`[^`]*`/g, '').replace(/^\d+\.\s*/, '').trim());
     assert.equal(new Set(heads).size, 16, `${c}: ${heads.join(' / ')}`);
   }
+});
+
+test('quadrant: the body wrap deals points into four named groups, every point kept once', () => {
+  const { BUILDERS, BODY_WRAP } = require('../../../tools/lib/calibrate-core.js');
+  const pts = Array.from({ length: 6 }, (_, i) => BUILDERS.quadrant(3, i));
+  const out = BODY_WRAP.quadrant(pts.join('\n')).split('\n');
+  assert.deepEqual(out.filter((l) => l.startsWith('- ')), ['- Quick Wins', '- Strategic Bets', '- Defer', '- Time Sinks']);
+  assert.deepEqual(out.filter((l) => l.startsWith('  - ')).map((l) => l.trim()).sort(), pts.slice().sort());
+  // Fewer points than groups: an empty group is not written (a group with no point is a name alone).
+  assert.equal(BODY_WRAP.quadrant(pts.slice(0, 2).join('\n')).split('\n').filter((l) => l.startsWith('- ')).length, 2);
 });
 
 test('a --scale rung is measured at its VENUE, lift included, not at a bare scale-* class', () => {

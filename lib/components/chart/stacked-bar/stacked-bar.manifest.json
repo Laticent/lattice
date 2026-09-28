@@ -208,7 +208,7 @@
         "sweet": 3,
         "hard": 4
       },
-      "note": "Each category is a stacked bar, with its parts in a key. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "Each category is a stacked bar, with its parts in a key. Judgment, not measured: tools/calibrate-capacity.js --pane trips no signal to 24 bars on either side, because a crowded stacked-bar truncates its category names (to \"F…\") rather than dropping or overprinting them, and no export line reports a truncated name (followups.d/2376-p2-probe-labels-over-marks.md)."
     },
     "review": "side 25 measured, 35 reviewed: the key cramps at 25%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },

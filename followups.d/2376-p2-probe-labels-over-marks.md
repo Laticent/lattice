@@ -5,21 +5,22 @@ recorded: 2026-09-28
 source: https://github.com/Laticent/lattice/pull/2376
 ---
 
-# a chart whose labels overprint its marks trips no probe, so its pane ceiling cannot be measured
+# a chart that truncates its names trips no probe, so stacked-bar's pane ceiling cannot be measured
 
-why now   — `tools/calibrate-capacity.js --pane` now measures an SVG chart's ceiling from the
-            export's legibility lines (TYPE FLOOR, CHART LABELS DROPPED) as well as OVERFLOW.
-            Five charts tripped none of them up to 24 elements in a 50% pane: bullet, funnel,
-            waterfall, stacked-bar and slope. At least one is a real miss, not a real fit: a
-            bullet pane of 20 rows (measured 2026-09-28) squeezes each row until its label
-            prints across the neighboring bar, and nothing in the export says so. Their pane
-            budgets stay `basis: editorial` until a signal sees it.
-where     — lib/core/overflow-probe.js (a pass over a figure's `<text>` boxes against each other
-            and against the marks of OTHER rows, the way tools/measure-pane-fit.js `paneJank`
-            does for HTML text); tools/lib/calibrate-core.js `parseProbeLog` reads its line.
-done when — a bullet pane that overprints is reported by the export, and the five charts'
-            budgets are measured with it.
-evidence  — render `node -e` a 20-row bullet pane from calibrate-core `BUILDERS.bullet` and look:
-            the labels cross the bars; the export log is clean.
-verify    — tier 1 checker, because the probe feeds every export's tag (it is the same class of
-            change as the Mermaid foreignObject arm, and needs the owner's export sign-off).
+why now   — the panes-probe-calibration PR added `⚠ CHART LABELS OVERPRINT` (a label across a
+            mark or another label), and with it bullet, funnel, waterfall and slope turned
+            `measured`. stacked-bar did not: at 24 bars in a 50% pane it trips nothing, because it
+            TRUNCATES each category name to "F…" (and each value to "…") instead of dropping or
+            overprinting it — a chart whose every name reads "F…" is as unreadable as one that
+            dropped them, and the export says nothing. Its budget stays `basis: editorial`.
+            Also not seen by the overprint probe, by construction: marks with no `data-anima-role`
+            (slope's dots) or no fill (slope's lines, bullet's target tick). Slope's collisions are
+            caught by the label arm; a label over a slope dot is not.
+where     — the category-label cull in lib/components/chart/_chart-family (where a name is
+            ellipsized), recorded like `data-label-drops` (a `truncate` reason, or its own
+            attribute); lattice-emulator.js reports it; tools/lib/calibrate-core.js parseProbeLog
+            reads it.
+done when — `node tools/calibrate-capacity.js stacked-bar --pane side --max 24` fails a step on
+            the truncation, and stacked-bar's budget turns `measured`.
+evidence  — the 24-bar render (every name "F…") and the calibration table.
+verify    — tier 1 checker: the channel feeds every export's log.

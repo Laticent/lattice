@@ -32,6 +32,16 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               on a slide and in a pane. examples/chart-lead-paragraphs.md. Still dropped without
               a word: any OTHER block between the heading and the figure (a code block, a
               blockquote, a table, raw HTML) — the wrap keeps top-level paragraphs only.
+            - CLOSED (panes-probe-calibration PR): the calibration measures the HTML-drawn and
+              grouped charts too (builders for gantt, journey, matrix-grid, progress, quadrant,
+              state-chart, word-cloud; kanban and roadmap had one), and all nine turned
+              `measured`. Lowered to the ceiling: matrix-grid side 4 -> 3 and progress side
+              6 -> 4 (both CLIP: a three-word row label wraps one word per line in the pane's
+              narrow label column — a reflow weakness, logged below), word-cloud side 20 -> 6
+              (type floor) and stack 20 -> 8 (the packer drops a word at 9).
+              STILL OPEN from that pass: progress and matrix-grid give a pane's row label a column
+              so narrow that a three-word label sets one word per line and triples the row; the
+              bars beside it have room to spare.
             - PART CLOSED (panes-radar PR): `calibrate-capacity --pane` measures SVG charts
               (builders for 12 kernels, and a step fails on TYPE FLOOR or CHART LABELS DROPPED as
               well as OVERFLOW). bar, piechart, scatter, line, heatmap, map and radar turned

@@ -159,6 +159,27 @@ const BUILDERS = {
   heatmap: (w, i = 0) => `| ${label(w, i)} | ${[0, 1, 2, 3].map((k) => value(i + k)).join(' | ')} |`,
   // map counts REGIONS, which must be real places the kernel can draw.
   map: (_w, i = 0) => `- ${MAP_REGIONS[i % MAP_REGIONS.length]} \`${value(i)}\``,
+
+  // THE HTML-DRAWN AND GROUPED CHARTS (2376-p2, the panes-probe-calibration PR). An element is one
+  // item on the manifest's `pane.budget.axis`, shaped like the gallery's first slide. Grouped
+  // charts carry TWO children per group, the gallery's smallest real group.
+  // gantt counts LANES (workstreams), each a done task and a live one after it; the calendar
+  // derives from the spans, so no window pill is needed.
+  gantt: (w, i = 0) => `- ${label(w, i)}\n  - Plan ${i + 1} \`Q${1 + (i % 2)}..Q${2 + (i % 2)}\` \`done\`\n  - Build ${i + 1} \`Q${2 + (i % 2)}..Q4\` \`live\` \`after: Plan ${i + 1}\``,
+  // journey counts STAGES, each two scored steps.
+  journey: (w, i = 0) => `- ${label(w, i)}\n  - Step ${i + 1}a \`@user\` \`:${1 + (i % 5)}\`\n  - Step ${i + 1}b \`@user\` \`:${1 + ((i + 2) % 5)}\``,
+  // matrix-grid counts ROWS of a five-column grid with one named cell; `BODY_WRAP` supplies the
+  // header and the axis pill.
+  'matrix-grid': (w, i = 0) => `| ${label(w, i)} | [ ] | [-] | [x] Level ${i + 1} | [ ] |`,
+  // progress counts TRACKS, each a percent and a status pill.
+  progress: (w, i = 0) => `- ${label(w, i)} \`${value(i)}%\` \`${['on-track', 'at-risk', 'done', 'blocked'][i % 4]}\``,
+  // quadrant counts POINTS, spread over all four quarters; `BODY_WRAP` deals them into four named
+  // groups, since a top-level item is a group name, not a point.
+  quadrant: (w, i = 0) => `- ${label(w, i)} \`${1 + ((i * 3) % 9)}, ${10 + ((i * 37) % 85)}\``,
+  // state-chart counts STATES, a chain: each state after the first steps back to the one before.
+  'state-chart': (w, i = 0) => `${i + 1}. ${label(w, i)}${i ? `\n   - \`back => ${i}\`` : ''}`,
+  // word-cloud counts WORDS, one or two words each, weights 1..5.
+  'word-cloud': (w, i = 0) => `- ${label(Math.min(2, w), i).toLowerCase()} \`${1 + ((i * 3) % 5)}\``,
 };
 
 // An element's label: up to three filler words, a different run for each index.
@@ -180,6 +201,13 @@ const BODY_WRAP = {
   'obligation-matrix': (body) => `| Regulation | Notice | Consent | Retention | Breach | DSAR |\n| --- | :-: | :-: | :-: | :-: | :-: |\n${body}`,
   table: (body) => `| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n${body}`,
   heatmap: (body) => `|  | M0 | M1 | M2 | M3 |\n| --- | --: | --: | --: | --: |\n${body}`,
+  quadrant: (body) => {
+    const pts = body.split('\n');
+    return ['Quick Wins', 'Strategic Bets', 'Defer', 'Time Sinks']
+      .map((g, k) => [`- ${g}`, ...pts.filter((_, i) => i % 4 === k).map((p) => `  ${p}`)])
+      .filter((g) => g.length > 1).map((g) => g.join('\n')).join('\n');
+  },
+  'matrix-grid': (body) => `\`[Wider reach, Deeper cognition]\`\n\n| Verb | Self | Team | Org | Field |\n| --- | :-: | :-: | :-: | :-: |\n${body}`,
   roadmap: (body) => {
     const cols = body.split('\n');
     const row = (label) => `| ${label} | ${cols.slice(1).map((_, i) => ['[x] Shipped item', '[-] In-flight item', '[ ] Planned item'][i % 3]).join(' | ')} |`;

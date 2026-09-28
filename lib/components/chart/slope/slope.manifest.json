@@ -257,16 +257,16 @@
     "stack": 50,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 4,
         "hard": 6
       },
       "stack": {
-        "sweet": 4,
-        "hard": 5
+        "sweet": 3,
+        "hard": 3
       },
-      "note": "Each entity is a line between two columns. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint, or labels printed across a mark or each other): side 50%: 10, end names overprint at 11; stack 50/50: 3, wrapped end names overprint at 4. sweet sits at or below it."
     },
     "review": "side 25 measured, 50 reviewed: end labels overprint below 50%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },
