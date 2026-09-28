@@ -269,12 +269,22 @@ describe('overflow-probe', () => {
 describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
   // A fake <text> whose computed font-size the stubbed getComputedStyle below returns.
   const text = (fontSize, content = 'Label') => ({ textContent: content, __fs: fontSize });
-  // Selector-aware, because the probe now asks two questions of a figure: which `<text>` can it
-  // measure, and does the figure carry `<foreignObject>` labels it CANNOT (mermaid's htmlLabels).
-  const svg = ({ vbW = 300, vbH = 300, boxW = 300, boxH = 300, texts = [], foreign = 0 }) => ({
+  // A fake HTML label leaf inside a `<foreignObject>` (mermaid's htmlLabels): computed
+  // font-size `fs`, laid out `oh` px tall, and `rh` px tall on the page after every transform.
+  const htmlLabel = (fs, oh, rh, content = 'Label', extra = {}) => ({
+    textContent: content, __fs: fs, children: [], childNodes: [{ nodeType: 3, textContent: content }],
+    offsetHeight: oh, getBoundingClientRect: () => ({ width: 0, height: rh }), ...extra,
+  });
+  const foreignObject = (leaves) => ({ querySelectorAll: () => leaves });
+  // Selector-aware, because the probe asks two questions of a figure: which `<text>` it can
+  // measure, and which `<foreignObject>` labels it can size. `foreign: N` is N labels that never
+  // laid out (offsetHeight 0) — the case that still has to say "unmeasured".
+  const svg = ({ vbW = 300, vbH = 300, boxW = 300, boxH = 300, texts = [], foreign = 0, labels = [] }) => ({
     getBoundingClientRect: () => ({ width: boxW, height: boxH }),
     viewBox: { baseVal: { width: vbW, height: vbH } },
-    querySelectorAll: (sel) => (sel === 'foreignObject' ? new Array(foreign).fill({}) : texts),
+    querySelectorAll: (sel) => (sel === 'foreignObject'
+      ? [...new Array(foreign).fill(null).map(() => foreignObject([htmlLabel(16, 0, 0)])), ...(labels.length ? [foreignObject(labels)] : [])]
+      : texts),
   });
   // `clientHeight` is the slide height the ratio floor resolves against — 720px (a `hd` canvas),
   // so a ratio of 1/72 reads as an 10px floor and the arithmetic in these tests stays legible.
@@ -377,12 +387,49 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
     });
   });
 
-  test('a figure whose labels the probe CANNOT read reports "unmeasured", never silence', () => {
+  test('mermaid HTML labels are SIZED: font-size x their real on-page scale, not skipped', () => {
     // Mermaid runs with htmlLabels, so a flowchart emits `<foreignObject>` HTML instead of SVG
-    // `<text>`. Three shipped `diagram` gallery pages carry 39 / 6 / 25 such labels and zero
-    // `<text>`, so the probe returned null — "nothing to judge", which reads downstream as
-    // "legible". A flowchart is the most common diagram there is; its labels shrinking to 4px is
-    // exactly what this rule exists to catch, so the honest answer is "not measured".
+    // `<text>`. Chromium scales that HTML by the viewBox transform, so the glyph on the page is
+    // computed font-size x (post-transform rect height / laid-out offsetHeight).
+    withStubbedStyle(() => {
+      // 16px type laid out 24px tall, drawn 12px tall → scale 0.5 → 8px on the page.
+      const r = probeFigureLegibility(section([svg({ labels: [htmlLabel(16, 24, 12), htmlLabel(16, 24, 18)] })]), floorAt(10));
+      assert.equal(r.count, 2);
+      assert.equal(r.minPx, 8);
+      assert.equal(r.under, true, 'a flowchart shrunk under the floor is now caught');
+      assert.equal(r.unmeasured, 0);
+      // …and the same labels drawn at full size clear it.
+      const ok = probeFigureLegibility(section([svg({ labels: [htmlLabel(16, 24, 24)] })]), floorAt(10));
+      assert.equal(ok.minPx, 16);
+      assert.equal(ok.under, false);
+    });
+  });
+
+  test('mermaid HTML labels: text-bearing elements only, and the filmstrip scale K is taken back out', () => {
+    withStubbedStyle(() => {
+      // A wrapper with no text of its own is skipped: its larger font would mask the label.
+      const wrapper = { ...htmlLabel(40, 50, 50), childNodes: [{ nodeType: 1 }] };
+      const r = probeFigureLegibility(section([svg({ labels: [wrapper, htmlLabel(12, 18, 18)] })]), floorAt(8));
+      assert.equal(r.count, 1);
+      assert.equal(r.minPx, 12);
+      // …but a label with a `<br>` in it — `<p>A<br>B</p>`, element child AND own text — is a
+      // label. A leaf-only walk skipped it, and a diagram of wrapped labels read as "nothing".
+      const wrapped = { ...htmlLabel(16, 40, 10, 'A B'), children: [{}], childNodes: [{ nodeType: 3, textContent: 'A' }, { nodeType: 1 }, { nodeType: 3, textContent: 'B' }] };
+      const w = probeFigureLegibility(section([svg({ labels: [wrapped] })]), floorAt(8));
+      assert.equal(w.count, 1);
+      assert.equal(w.minPx, 4);
+      assert.equal(w.under, true);
+      // A section shown at half size (K = 0.5): the label's rect halves with it, and the probe
+      // must still report its size ON THE SLIDE — 12px, not 6.
+      const half = { ...section([svg({ labels: [htmlLabel(12, 18, 9)] })]), offsetHeight: 720, getBoundingClientRect: () => ({ height: 360 }) };
+      assert.equal(probeFigureLegibility(half, floorAt(8)).minPx, 12);
+    });
+  });
+
+  test('a figure whose labels the probe CANNOT size reports "unmeasured", never silence', () => {
+    // A foreignObject label with no laid-out box (offsetHeight 0) has no on-page size to read.
+    // Before the foreignObject arm, every mermaid flowchart came back this way; the honest
+    // answer for the ones that still do is "not measured", never null ("nothing to judge").
     withStubbedStyle(() => {
       const r = probeFigureLegibility(section([svg({ texts: [], foreign: 39 })]), floorAt(8));
       assert.ok(r, 'must not be null — silence reads as a pass');

@@ -4044,15 +4044,18 @@ async function renderBody(browser, g, closeBrowser) {
       ? 'The export carries the amber ring and its tag.'
       : 'The export stays clean — no ring is printed, so this warning is the only channel.'}`);
   }
-  // …and the figures the floor could not judge AT ALL. Mermaid's `htmlLabels` emit
-  // `<foreignObject>` HTML rather than SVG `<text>`, which the probe cannot size — so a
-  // flowchart whose labels shrank to 4px would otherwise pass in silence. Said out loud rather
+  // …and the figures the floor could not judge AT ALL: a `<foreignObject>` label with no
+  // laid-out box, or MathML (no offsetHeight). Mermaid's ordinary HTML labels ARE sized now
+  // (probeFigureLegibility's foreignObject arm), so this is the residue. Said out loud rather
   // than implied: "not measured" is an honest answer, a quiet pass is not (HARD RULE #23).
+  // It reaches this line only for a slide that also overflows: split-verdict returns null for
+  // a slide that fits and is legible, `unmeasured` with it (a pre-existing hole, logged in
+  // followups.d/2376-p2-size-chart-viewbox-to-the-pane.md).
   const unjudged = overflow.filter((o) => o.unmeasured);
   if (unjudged.length) {
     const n = unjudged.length;
     console.warn(`  ⓘ TYPE FLOOR NOT MEASURED — ${n} slide${n > 1 ? 's' : ''} carr${n > 1 ? 'y' : 'ies'} a viewBox figure whose ` +
-      `labels are HTML (<foreignObject>, e.g. a mermaid flowchart): page${n > 1 ? 's' : ''} ${unjudged.map((o) => o.slide).join(', ')}.`);
+      `labels could not be sized (an HTML label with no laid-out box, or MathML): page${n > 1 ? 's' : ''} ${unjudged.map((o) => o.slide).join(', ')}.`);
     console.warn('    The legibility floor could not judge these. Check them by eye.');
   }
   // A slide can be on BOTH lists — its box clips AND its figure is illegible. Only the ones that

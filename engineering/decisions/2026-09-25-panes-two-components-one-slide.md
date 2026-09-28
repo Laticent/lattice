@@ -643,6 +643,10 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    viewBox chart shrinks instead of clipping. bar, piechart, scatter, line, heatmap, map and radar
    are `measured` (scatter's hard fell 12 -> 8 side, 10 stacked); five charts trip no signal to 24
    elements, one of them visibly overprinting (`2376-p2-probe-labels-over-marks.md`).
+   **Mermaid labels measured (the panes-probe-calibration PR):** `probeFigureLegibility` sizes
+   Mermaid's `<foreignObject>` labels by their real on-page scale instead of counting them as
+   unmeasured. `examples/panes-mermaid.md`'s panes stay quiet (11.6–14.2px against 7.2px); four
+   non-pane example slides are newly tagged, and default exports stay byte-identical.
 3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
    panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
    front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the

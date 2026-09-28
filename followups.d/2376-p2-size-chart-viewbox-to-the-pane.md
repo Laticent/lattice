@@ -40,6 +40,20 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               see 2376-p2-probe-labels-over-marks.md) and every HTML-drawn or grouped chart
               (gantt, journey, kanban, matrix-grid, progress, quadrant, roadmap, state-chart,
               word-cloud), which this pass did not measure.
+            - CLOSED (panes-probe-calibration PR): the type-floor probe sizes `<foreignObject>`
+              labels (font-size x rect height / offsetHeight, over K). Export TYPE FLOOR lines
+              after it: mermaid-sketch-labels pages 4 (6.4px) and 5 (5.5px), diagram-narration
+              page 5 (7px), typed-diagram-narration page 4 (6.9px), newly tagged; panes-mermaid
+              stays quiet. Default (`reader`) exports are byte-identical, since the tab is
+              author-only. The four decks are left as they are for the owner to fix or accept.
+              Two PRE-EXISTING holes the checker found, off this PR's path:
+              (a) `unmeasured` never reaches the export for a slide that fits: split-verdict.js
+                  returns null when a slide is neither over nor illegible, so the `ⓘ TYPE FLOOR
+                  NOT MEASURED` line prints only for overflowing slides (no deck printed it at
+                  HEAD either). A MathML label in a Mermaid diagram (no offsetHeight) is the
+                  live case.
+              (b) the scaled-HTML (`data-fit-k`) arm reads childless leaves only, so a label
+                  like `A<br>B` is skipped there, as the foreignObject arm's was before its fix.
             MEASURED 2026-09-27 (panes-continuation PR, left for its own PR):
             - Mermaid pane labels ALREADY clear the floor: examples/panes-mermaid.md measures a
               smallest label of 13.0 / 14.2 / 11.6px on its three pane slides against a 7.2px floor
