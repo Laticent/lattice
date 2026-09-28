@@ -81,6 +81,8 @@ describe('inline-sparks — what it renders', () => {
 
   test('a small value keeps its significant digits in the label, rather than reading as 0', () => {
     assert.equal(sparks.resolve('~{0.001 0.004}').label, 'Trend, 2 points, from 0.001 to 0.004, low 0.001, high 0.004');
+    // Never exponent notation, which a screen reader reads as "1 e minus 7".
+    assert.match(sparks.resolve('~{0.0000001 1}').label, /from 0\.0000001 to 1/);
   });
 });
 
@@ -108,6 +110,10 @@ describe('inline-sparks — what it refuses', () => {
     ['~{1 2}::bar', 'a doubled colon (an empty modifier)'],
     [`~{${'9'.repeat(400)} 1}`, 'a number too large to draw (it would be NaN in the svg)'],
     [`~{${'9'.repeat(400)}/1}:bullet`, 'a ratio too large to draw'],
+    [`~{${'9'.repeat(308)} -${'9'.repeat(308)}}`, 'a range that overflows though each value is finite'],
+    ['~{-0%}', 'a minus sign on a percentage, even on zero'],
+    ['~{abc}:c3', 'no digit, but a spark modifier makes it an attempt'],
+    ['~{}:bar', 'empty data with a spark modifier'],
     ['~{-3/4}', 'a negative value in a ratio'],
     [`~{${Array.from({ length: sparks.MAX_POINTS + 1 }, () => 1).join(' ')}}`, 'more than the point cap'],
   ];

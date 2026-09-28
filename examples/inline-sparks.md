@@ -107,7 +107,7 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21}:end` over
    - `~{38 39 39 40 41 42}:framed:end` +2pp QoQ `On plan`
 3. $1.1B
    - Cash & equivalents
-   - `~{0.8 0.9 0.85 0.95 1.0 1.1}:bar:framed` +$180M QoQ `On plan`
+   - `~{0.8 0.9 0.85 0.95 1.0 1.1}:bar` +$180M QoQ `On plan`
 
 ---
 

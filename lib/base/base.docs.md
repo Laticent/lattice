@@ -1665,7 +1665,7 @@ the same spark. Each spark carries `role="img"` and a spoken label with its numb
 
 ### What stays literal
 
-A span that opens with `~{` and has a digit in its data is a spark attempt. If it doesn't
+A span that opens with `~{` and has a digit in its data, or a spark modifier after it (`~{abc}:bar`), is a spark attempt. If it doesn't
 parse, it stays code, and nothing is guessed:
 `` `~{1,200 1,450}` `` (a comma), `` `~{72%}:bar` `` (a bar needs a series),
 `` `~{3 5 4}:bar:end` `` (markers only go on the line types), `` `~{3 5 4}:c13` ``.

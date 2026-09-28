@@ -66,7 +66,7 @@ thousands commas, no currency signs**: `1,200` is literal code. The number the r
 is already in the text next to the spark, and the spark only has to carry its shape. This
 also keeps the parser a whitespace split, with no locale rules.
 
-### 3.2 Modifiers — six axes
+### 3.2 Modifiers — seven axes
 
 | Axis | Values | Default | Applies to |
 |---|---|---|---|
@@ -78,8 +78,8 @@ also keeps the parser a whitespace split, with no locale rules.
 | **markers** | `end` (latest value), `minmax` (low and high); both allowed | none | line, area, step |
 | **frame** | `framed` — a pill's capsule behind it (added 2026-09-28, §10 h) | bare | all |
 
-**A spark attempt is a `~{` with a digit in its data**, so LaTeX's `\~{}` and `\~{n}` are
-never read as broken sparks. **An attempt that doesn't parse stays literal code, and nothing is
+**A spark attempt is a `~{` with a digit in its data, or with a spark modifier after it**
+(`~{abc}:bar`), so LaTeX's `\~{}` and `\~{n}` are never read as broken sparks. **An attempt that doesn't parse stays literal code, and nothing is
 guessed.** An unknown modifier,
 a repeated axis, a modifier on a type it doesn't apply to (`:bar:end`), or data of the wrong
 shape (`~{72%}:bar`) all leave the `<code>` as written. This is the pill rule, and for the
@@ -219,7 +219,9 @@ every ruling.
   implementation. A frame per spark would make every table busier than its numbers, so bare
   stays the default. The opt-in frame reuses the pill's own measures (font size, padding, 1px
   edge, radius, fill; a color slot's fill and edge), so a framed spark and a pill stand the
-  same height on one `kpi` line, and a spark can hold contrast on a backdrop. The frame is a
+  same height on one line, and a spark can hold contrast on a backdrop. `kpi` sizes its status
+  pills differently (plain `--pill-fs`, on a baseline-aligned flex row), so `kpi.styles.css`
+  matches them there; measured equal heights on the demo deck's `kpi` slide. The frame is a
   `::before` inside the span's padding, not a border plus margin (HARD RULE #20).
 - **(g) `lint:deck` coaching.** A span that opens with `~{` but doesn't parse gets a warning
   naming the reason (the pill rule has no such warning today). Recommended, since the literal

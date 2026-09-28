@@ -4318,20 +4318,28 @@ section .lat-spark[data-c] { color:var(--spark-c-mark); }
  * `--pill-pad-x`, its 1px edge, `--pill-radius`, and its fill, edge and ink — or, with a
  * color slot, the slot's `--cat-N-fill` / `--cat-N-mark` / `--cat-on-fill`, as `:c3` does on
  * a pill. The drawing is one line of that font tall, so a framed spark and a pill of the same
- * size stand the same height.
+ * size stand the same height. A component whose pills are sized differently (kpi's status
+ * `code` pills) matches them in its own stylesheet.
  *
  * THE FRAME IS A ::before INSIDE THE SPAN, not the span's own border. The span keeps its outer
  * `--spark-pad-out` of padding as the gap to its neighbors (no margin, HARD RULE #20); the
  * frame fills the rest, at 0 in the local depth band with the drawing and dots at 1 above it. */
 section .lat-spark[data-framed] {
+  --spark-frame-base:max(var(--pill-fs), 0.5em);
   --spark-frame-scale:1;
   --spark-pad-out:0.15em;
   --spark-h:1em;
   --spark-pad:calc(var(--spark-pad-out) + var(--pill-pad-x) + 1px);
   --spark-pad-y:calc(var(--pill-pad-y) + 1px);
-  font-size:calc(min(0.85em, max(var(--pill-fs), 0.5em)) * var(--spark-frame-scale));
+  font-size:calc(min(0.85em, var(--spark-frame-base)) * var(--spark-frame-scale));
   padding-block:var(--spark-pad-y);
+  /* The 0/1 layers below stay inside the spark. */
+  isolation:isolate;
   color:var(--pill-fg, var(--text-body));
+}
+/* The pill's quiet-role small step (see `.lat-pill` in a below-note or caption). */
+section :where(.below-note, .chart-caption, figcaption) .lat-spark[data-framed] {
+  --spark-frame-base:calc(var(--pill-fs) * 0.85);
 }
 section .lat-spark[data-framed][data-size='sm'] { --spark-frame-scale:0.85; }
 section .lat-spark[data-framed][data-size='lg'] { --spark-frame-scale:1.2; }

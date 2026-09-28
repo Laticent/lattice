@@ -163,6 +163,14 @@ section.kpi code {
   white-space: nowrap;
   vertical-align: 1px;
 }
+/* A `:framed` spark (lib/core/inline-sparks.js) stands beside these pills as their pair, so it
+ * takes THEIR size — plain `--pill-fs`, not the `.lat-pill` formula base.modifiers.css uses —
+ * and centers in the row. The row aligns on baselines, and a spark has no text, so without
+ * `align-self` its bottom edge would sit on the text baseline, above the pill. */
+section.kpi .lat-spark[data-framed] {
+  font-size: calc(var(--pill-fs) * var(--spark-frame-scale, 1));
+  align-self: center;
+}
 /* Pill leading gap (was a 0.46875cqi left inline margin on the pill — horizontal
  * space between the pill and the content before it). Reproduced WITHOUT a margin
  * so the separation lives inside the flex content box and never collapses:
