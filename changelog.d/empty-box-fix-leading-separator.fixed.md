@@ -1,0 +1,1 @@
+- `lint:deck --fix` rewrites a moved empty box (`[ ]` to `[!]`) on a deck whose body opens with a separator (`---`, `***` or `___`). The fix used to aim two lines off, fail, and stop every later fix in the deck from applying.

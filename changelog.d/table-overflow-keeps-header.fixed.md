@@ -1,0 +1,1 @@
+- A table too long for its slide or pane now keeps its header row and clips at the bottom. It used to be centered past both edges, so a 24-row table lost its header and first five rows, on a `table` slide and in a table pane alike. A table that fits is still centered, and every committed deck renders byte-identical.

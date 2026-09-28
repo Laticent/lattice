@@ -660,9 +660,12 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
      **Closed (PR #2420):** the fluid view held the host's stage to its content height, and a
      `<lat-pane>` is a size container, so both panes were 0px tall and the watcher's culprit fell
      on the first. `base.fluid-view.css` lets a panes host's stage grow; the panes show and the
-     culprit is the pane that overflows (test/integration/export/fluid-panes.test.js). Left: an
-     overflowing table pane clips at both ends, on the PDF too
-     (`2420-p3-overflowing-pane-clips-centered.md`).
+     culprit is the pane that overflows (test/integration/export/fluid-panes.test.js). An
+     overflowing table pane clipped at both ends, on the PDF too, and so did a `table` slide: the
+     table's stage rule centered with plain `center`, which the pane inherits through its twin.
+     **Closed (the panes-continuation PR):** that rule is `safe center`, so an overflowing table
+     keeps its header on a slide and in a pane, and one that fits is still centered
+     (test/integration/export/table-overflow-keeps-header.test.js).
    - **Mermaid** in a pane renders on the CLI and in the Studio and fills the pane box (measured
      544×438 in a 544×438 pane), but lays out for the HOST's orientation; that is filed with the
      chart sizing item below.
@@ -673,7 +676,9 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    the two panes' content, stacked.
    **Mostly closed (PR #2420).** The player's Read · Article view projects each pane as the slide
    it would be alone (`lib/transformers/prose-projection.mjs`), so a chart pane is a styled
-   `chart-frame` figure. The Studio's Present steps through a split panes slide's pages and sizes
+   `chart-frame` figure. The host's Key Insight and below-note follow the panes, and a pane's own
+   coda follows that pane (the panes-continuation PR; before it, the article dropped every coda,
+   panes or not). The Studio's Present steps through a split panes slide's pages and sizes
    its frame to the deck's shape (a fixed 16:9 frame cropped every portrait slide below its
    heading, panes or not). The slide strip names a panes slide "panes". Export-to-Marp drops the
    markers Marp would keep as speaker notes and degrades each panes slide to its panes, stacked

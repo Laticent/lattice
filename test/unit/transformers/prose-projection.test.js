@@ -1766,3 +1766,53 @@ test('a panes slide keeps DOM order: an intro the host keeps above the panes sta
 	assert.ok(at('alpha item') < at('<figure'), 'pane A before pane B');
 	assert.equal(articleHtml.split('This intro paragraph').length - 1, 1, 'said once');
 });
+
+// THE CODA IN THE ARTICLE. lib/core/coda.js lifts a slide's trailing Key Insight and below-note into
+// a `.cell-coda` cell BESIDE `.cell-stage`, and the article read only the stage, so it dropped both —
+// on a plain slide and on a panes slide. It prints them after the body, once; a layout that claims
+// its trailing block keeps it inside the stage (no coda cell) and is not printed twice.
+test('article: a slide\'s Key Insight and below-note follow its body, once', () => {
+	const { articleHtml } = project(sections(`<section data-lattice-slide class="content form">
+	  <div class="cell-masthead"><div class="masthead-lede"><h2>Pipeline</h2></div></div>
+	  <div class="cell-stage"><ul><li>EMEA leads</li></ul></div>
+	  <div class="cell-coda" data-dock="column"><blockquote><p>The insight.</p></blockquote><div class="below-note"><p>Source: CRM, Q3.</p></div></div>
+	</section>`));
+	const at = (t) => articleHtml.indexOf(t);
+	assert.ok(at('EMEA leads') >= 0 && at('The insight.') > at('EMEA leads'), 'the insight follows the body');
+	assert.ok(at('Source: CRM, Q3.') > at('The insight.'), 'the below-note follows the insight');
+	assert.equal(articleHtml.split('The insight.').length - 1, 1, 'the insight is printed once');
+	assert.equal(articleHtml.split('Source: CRM, Q3.').length - 1, 1, 'the below-note is printed once');
+	assert.match(articleHtml, /<blockquote>\s*<p>The insight\.<\/p>\s*<\/blockquote>/, 'the insight lands as the blockquote every host styles');
+});
+
+test('article: a claimed trailing block (inside the stage, no coda cell) is printed once', () => {
+	const { articleHtml } = project(sections(`<section data-lattice-slide class="contact form">
+	  <div class="cell-masthead"><div class="masthead-lede"><h2>Contact</h2></div></div>
+	  <div class="cell-stage"><ul><li>Ada</li></ul><blockquote><p>Reach out any time.</p></blockquote></div>
+	</section>`));
+	assert.equal(articleHtml.split('Reach out any time.').length - 1, 1);
+});
+
+test('article: a panes slide keeps the host\'s Key Insight after both panes, and a pane keeps its own', () => {
+	const { articleHtml } = project(sections(`<section data-lattice-slide class="lat-pane-host form">
+	  <div class="cell-masthead"><div class="masthead-lede"><h2>Two panes</h2></div></div>
+	  <div class="cell-stage"><div class="lat-panes">
+	    <lat-pane class="list form"><div class="cell-stage"><ul><li>Left item</li></ul></div><div class="cell-coda"><p>Left pane note.</p></div></lat-pane>
+	    <lat-pane class="content form"><div class="cell-stage"><p>Right body.</p></div></lat-pane>
+	  </div></div>
+	  <div class="cell-coda"><blockquote><p>The host insight.</p></blockquote></div>
+	</section>`));
+	const at = (t) => articleHtml.indexOf(t);
+	assert.ok(at('Left pane note.') > at('Left item') && at('Left pane note.') < at('Right body.'), 'a pane\'s coda follows that pane');
+	assert.ok(at('The host insight.') > at('Right body.'), 'the host\'s insight follows both panes');
+	assert.equal(articleHtml.split('The host insight.').length - 1, 1, 'printed once');
+});
+
+test('article: a stage-less slide (read whole) prints its coda once', () => {
+	const { articleHtml } = project(sections(`<section data-lattice-slide class="closing">
+	  <div class="cell-masthead"><div class="masthead-lede"><h2>Close</h2></div></div>
+	  <p>One last line.</p>
+	  <div class="cell-coda"><blockquote><p>Reuse the ink the theme already trusts.</p></blockquote></div>
+	</section>`));
+	assert.equal(articleHtml.split('Reuse the ink the theme already trusts.').length - 1, 1);
+});

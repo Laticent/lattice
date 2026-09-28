@@ -44,8 +44,13 @@
  * because the stage is a column flex — the same axis distinction the card
  * reshape below makes. An explicit `align-top` / `align-bottom` / `align-middle`
  * still wins: those are (0,3,1) on `section.form:is(…) > .cell-stage`, this is
- * (0,2,1), so asking for an alignment beats the component's default. */
-section.table > .cell-stage { justify-content: center; }
+ * (0,2,1), so asking for an alignment beats the component's default.
+ * SAFE center: plain `center` spills an overflowing table equally off BOTH ends
+ * of its clipping stage, so a 24-row table lost its header row and first five
+ * rows (230px above the stage), on a slide and in a pane alike (a pane's twin of
+ * this rule, lib/core/pane-css.js). `safe` falls back to the top when the table
+ * overflows and is `center` when it fits, so the header always shows. */
+section.table > .cell-stage { justify-content: safe center; }
 
 /* AN UNWRAPPED SLIDE HAS NO STAGE TO CENTER WITHIN, so it gets the filling geometry
  * instead — and this rule exists because without it that path regressed. It used to say
