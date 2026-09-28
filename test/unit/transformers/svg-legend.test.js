@@ -168,3 +168,43 @@ test('buildSvgLegend: portrait widens the wrap budget — a label wraps to fewer
   assert.ok(lines(port) <= lines(land),
     `portrait's wider column wraps no more than landscape (portrait=${lines(port)}, landscape=${lines(land)})`);
 });
+
+// THE VALUE COLUMN FITS ITS VALUES. It was a fixed 3 × FS, right-anchored, so a text value
+// (map highlight's `Caribbean / Central America`) ran left across its own row's name.
+// Read through a DOM parser, not regexes over the markup.
+const { JSDOM } = require('jsdom');
+const keyOf = (values) => buildSvgLegend({
+  rows: values.map((v, i) => ({ swatchFill: 'red', label: `Global South — Region ${i}`, value: v })),
+  diagramRight: 180, diagramHeight: 200, hasValues: true,
+});
+const valuesOf = (key) => [...new JSDOM(`<svg xmlns="http://www.w3.org/2000/svg">${key.body}</svg>`)
+  .window.document.querySelectorAll('.chart-key-value')].map((el) => {
+  const tspans = [...el.querySelectorAll('tspan')];
+  return {
+    lines: tspans.length ? tspans.map((t) => t.textContent) : [el.textContent],
+    // The anchor rides the <text> for a one-line value and each <tspan> for a wrapped one.
+    x: Number((tspans[0] || el).getAttribute('x')),
+    wrapped: tspans.length > 0,
+  };
+});
+
+test('buildSvgLegend: a key of short values keeps the old column, byte for byte', () => {
+  const short = keyOf(['46%', '100%', '$1.2M']);
+  assert.ok(valuesOf(short).every((v) => !v.wrapped), 'five characters or fewer: one plain <text>');
+  assert.equal(short.viewW, keyOf(['46%']).viewW, 'the rail is as wide as a one-value key');
+});
+
+test('buildSvgLegend: a text value widens its column and never reaches the label', () => {
+  const [short] = valuesOf(keyOf(['46%']));
+  const text = valuesOf(keyOf(['Tier 1', 'Latin America']));
+  assert.ok(text[0].x > short.x, 'the value anchor moves right to make room');
+  // `Tier 1` is 6 characters: the budget is counted in characters, so it never floors to 5.
+  assert.deepEqual(text[0].lines, ['Tier 1'], 'a value that fits the column sets on one line');
+  assert.deepEqual(text[1].lines, ['Latin America']);
+});
+
+test('buildSvgLegend: a value past 13 characters wraps inside its column', () => {
+  const [value] = valuesOf(keyOf(['Caribbean / Central America']));
+  assert.ok(value.lines.length >= 2, `wrapped to ${value.lines.length} lines`);
+  for (const l of value.lines) assert.ok(l.length <= 13, `"${l}" fits 13 characters`);
+});

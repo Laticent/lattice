@@ -673,6 +673,10 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    track and every status pill in a pane take slide units for the same reason (the pill was 9px
    tall around 17px of type). Measured ceilings rose from 4 to 9 (progress side) and 3 to 5
    (matrix-grid side). `examples/panes-row-labels.md`.
+   **A key's value column fits its values (same PR):** `svg-legend.js` sized the value column for
+   a number and right-anchored it, so map highlight's text values printed across their own row
+   names (`examples/global-south.md`, five pages). It grows to its widest value and wraps past 13
+   characters; keys whose values fit the old column are byte-identical.
 3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
    panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
    front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the
