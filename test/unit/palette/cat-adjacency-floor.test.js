@@ -123,28 +123,28 @@ const FROZEN = new Map([
   ['a11y-deuteranopia', { saturated: 'fill', sat: [0.0304, 0.0276, 0.0278, 0.0280, 0.0283], wash: [0.0199, 0.0196, 0.0193, 0.0191, 0.0226] }],
   ['a11y-protanopia', { saturated: 'fill', sat: [0.0304, 0.0276, 0.0278, 0.0280, 0.0283], wash: [0.0199, 0.0196, 0.0193, 0.0191, 0.0226] }],
   ['a11y-tritanopia', { saturated: 'fill', sat: [0.0304, 0.0276, 0.0278, 0.0280, 0.0283], wash: [0.0199, 0.0196, 0.0193, 0.0191, 0.0226] }],
-  ['ardesia', { saturated: 'mark', sat: [0.2730, 0.2739, 0.3694, 0.0379, 0.1996], wash: [0.1325, 0.1326, 0.1687, 0.0301, 0.0881] }],
-  ['ardesia-dark', { saturated: 'fill', sat: [0.2354, 0.1898, 0.2802, 0.0298, 0.1767], wash: [0.0877, 0.0878, 0.1115, 0.0213, 0.0576] }],
+  ['ardesia', { saturated: 'mark', sat: [0.2730, 0.2739, 0.3694, 0.3840, 0.3323], wash: [0.1325, 0.1326, 0.1687, 0.1746, 0.1319] }],
+  ['ardesia-dark', { saturated: 'fill', sat: [0.2354, 0.1898, 0.2802, 0.2646, 0.2734], wash: [0.0877, 0.0878, 0.1115, 0.1153, 0.0876] }],
   ['atelier', { saturated: 'mark', sat: [0.2689, 0.2252, 0.3687, 0.3129, 0.3387], wash: [0.1266, 0.0786, 0.1685, 0.1478, 0.1558] }],
   ['atelier-dark', { saturated: 'fill', sat: [0.2294, 0.2262, 0.2777, 0.2544, 0.2785], wash: [0.0818, 0.0517, 0.1115, 0.0980, 0.1026] }],
   ['brina', { saturated: 'mark', sat: [0.3646, 0.2650, 0.2750, 0.2151, 0.2294], wash: [0.1720, 0.1361, 0.1317, 0.0997, 0.1002] }],
   ['brina-dark', { saturated: 'fill', sat: [0.2577, 0.2148, 0.2324, 0.1869, 0.1962], wash: [0.1137, 0.0905, 0.0872, 0.0654, 0.0654] }],
-  ['burgundy', { saturated: 'mark', sat: [0.3277, 0.3201, 0.3380, 0.0841, 0.3442], wash: [0.1398, 0.1326, 0.1537, 0.0256, 0.1670] }],
-  ['burgundy-dark', { saturated: 'fill', sat: [0.2384, 0.2345, 0.2693, 0.1037, 0.2698], wash: [0.0907, 0.0861, 0.1016, 0.0169, 0.1108] }],
+  ['burgundy', { saturated: 'mark', sat: [0.3277, 0.3201, 0.3380, 0.3100, 0.3442], wash: [0.1398, 0.1326, 0.1537, 0.1538, 0.1670] }],
+  ['burgundy-dark', { saturated: 'fill', sat: [0.2384, 0.2345, 0.2693, 0.2450, 0.2596], wash: [0.0907, 0.0861, 0.1016, 0.1021, 0.1108] }],
   ['carbone', { saturated: 'mark', sat: [0.2750, 0.3298, 0.2905, 0.2085, 0.2690], wash: [0.0897, 0.1025, 0.0890, 0.0736, 0.1065] }],
   ['carbone-dark', { saturated: 'mark', sat: [0.2928, 0.3331, 0.2962, 0.2498, 0.3095], wash: [0.0905, 0.1016, 0.0888, 0.0758, 0.0921] }],
   ['carta', { saturated: 'mark', sat: [0.1902, 0.1873, 0.2880, 0.2306, 0.1549], wash: [0.1055, 0.0977, 0.1006, 0.0871, 0.0774] }],
   ['carta-dark', { saturated: 'fill', sat: [0.2488, 0.2042, 0.2877, 0.1050, 0.2097], wash: [0.0353, 0.0450, 0.0613, 0.0454, 0.0335] }],
   ['concrete', { saturated: 'mark', sat: [0.0706, 0.0390, 0.0528, 0.0501, 0.0669], wash: [0.0053, 0.0034, 0.0036, 0.0034, 0.0053] }],
   ['concrete-dark', { saturated: 'fill', sat: [0.0805, 0.0478, 0.0528, 0.0501, 0.0768], wash: [0.0053, 0.0034, 0.0036, 0.0034, 0.0053] }],
-  ['crepuscolo', { saturated: 'mark', sat: [0.3752, 0.2579, 0.3074, 0.0584, 0.2622], wash: [0.1843, 0.0788, 0.1414, 0.0334, 0.1117] }],
-  ['crepuscolo-dark', { saturated: 'fill', sat: [0.2620, 0.2540, 0.2669, 0.0432, 0.2367], wash: [0.1218, 0.0503, 0.0935, 0.0231, 0.0726] }],
+  ['crepuscolo', { saturated: 'mark', sat: [0.3752, 0.3440, 0.3074, 0.3432, 0.2622], wash: [0.1843, 0.1499, 0.1414, 0.1580, 0.1117] }],
+  ['crepuscolo-dark', { saturated: 'fill', sat: [0.2620, 0.2341, 0.2669, 0.2937, 0.2367], wash: [0.1218, 0.0982, 0.0935, 0.1048, 0.0726] }],
   ['cuoio', { saturated: 'mark', sat: [0.1457, 0.2147, 0.2969, 0.1787, 0.1803], wash: [0.0692, 0.0614, 0.0622, 0.0587, 0.0678] }],
   ['cuoio-dark', { saturated: 'fill', sat: [0.2449, 0.1655, 0.2347, 0.2265, 0.2421], wash: [0.0295, 0.0394, 0.0604, 0.0391, 0.0295] }],
   ['indaco', { saturated: 'mark', sat: [0.1902, 0.1873, 0.2880, 0.2306, 0.1549], wash: [0.1055, 0.0977, 0.1006, 0.0871, 0.0774] }],
   ['indaco-dark', { saturated: 'fill', sat: [0.2488, 0.2042, 0.2877, 0.1050, 0.2097], wash: [0.0353, 0.0450, 0.0613, 0.0454, 0.0335] }],
-  ['laguna', { saturated: 'mark', sat: [0.2939, 0.0965, 0.3710, 0.1028, 0.2862], wash: [0.1365, 0.0642, 0.1788, 0.0528, 0.1250] }],
-  ['laguna-dark', { saturated: 'fill', sat: [0.2443, 0.0655, 0.2495, 0.0996, 0.2454], wash: [0.0904, 0.0427, 0.1179, 0.0343, 0.0830] }],
+  ['laguna', { saturated: 'mark', sat: [0.2939, 0.3302, 0.3710, 0.2797, 0.2862], wash: [0.1365, 0.1447, 0.1788, 0.1350, 0.1250] }],
+  ['laguna-dark', { saturated: 'fill', sat: [0.2443, 0.2318, 0.2495, 0.2380, 0.2454], wash: [0.0904, 0.0956, 0.1179, 0.0896, 0.0830] }],
   ['magnolia', { saturated: 'mark', sat: [0.2744, 0.2962, 0.3670, 0.3398, 0.2232], wash: [0.1315, 0.1367, 0.1712, 0.1554, 0.0723] }],
   ['magnolia-dark', { saturated: 'fill', sat: [0.2383, 0.1988, 0.2687, 0.2576, 0.2214], wash: [0.0871, 0.0907, 0.1132, 0.1000, 0.0470] }],
   ['mustard', { saturated: 'mark', sat: [0.3141, 0.3133, 0.3460, 0.3126, 0.3443], wash: [0.1316, 0.1304, 0.1582, 0.1560, 0.1671] }],
@@ -309,10 +309,13 @@ describe('categorical adjacency (frozen distances, reference-calibrated floors)'
   test('the catalog is no further from the reference floors than it was', () => {
     const d = deficits();
     const worst = d.slice(0, 5).map((x) => `${x.theme} ${x.pair} (${x.tier}) ${x.d.toFixed(4)}, short by ${x.short.toFixed(4)}`);
-    // 75 -> 59 when carbone's cycle was reordered most-distinct-first: all 16 of its readings
-    // (both faces) cleared both floors.
-    assert.equal(d.length, 59,
-      `${d.length} adjacent readings sit below their tier's reference floor (was 59).\nWorst:\n  ${worst.join('\n  ')}\n`
+    // 75 -> 59 when carbone's cycle was reordered most-distinct-first (all 16 of its readings
+    // cleared); 59 -> 45 when one slot swap each in ardesia (5<->7), burgundy (5<->6),
+    // crepuscolo and laguna (3<->4) parted their near-twin neighbors. The 45 left are the
+    // wash tier of the achromatic palettes (a11y x5, onyx, concrete), gray by design; their
+    // categories ride the --cat-N-texture channel instead.
+    assert.equal(d.length, 45,
+      `${d.length} adjacent readings sit below their tier's reference floor (was 45).\nWorst:\n  ${worst.join('\n  ')}\n`
       + 'If this FELL, a palette improved — re-bless the count and say which. If it ROSE, something got worse.');
   });
 });

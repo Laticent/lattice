@@ -63,21 +63,21 @@ flowchart LR
 ## The dark fills were up to 70% more saturated than indaco's.
 
 - Before: dark `--cat-N-fill` chroma reached 0.215–0.256 in eight themes; indaco and cuoio cap at 0.150.
-- After: every fill above 0.16 is held at 0.16, lightness and hue kept, with two exceptions (next slide).
+- After: every fill above 0.16 is held at 0.16, lightness and hue kept, with one exception (next slide).
 - Themes: ardesia, atelier, brina, burgundy, crepuscolo, laguna, magnolia, mustard.
 
 ---
 
 <!-- _class: content -->
-<!-- _footer: "Two slots needed more than a cap · content" -->
+<!-- _footer: "Where a cap was not enough · content" -->
 
 `Two exceptions`
 
-## Two slots had been told apart by glare alone.
+## Near-twin neighbors had been told apart by glare alone.
 
-- Laguna slot 4 sat at hue 270, beside slot 5's blue at 260. Its own light fill and mark sit at 290, so its dark fill moves back to 295.
-- Burgundy slot 5 needed hue 310 at chroma 0.17 to stay as far from slot 4's magenta as before.
-- The adjacency ratchet held both: no pair moved closer than it was.
+- Laguna's indigo sat at hue 270, beside its blue at 260. Its own light fill and mark sit at 290, so its dark fill returns to 295.
+- Ardesia, burgundy, crepuscolo and laguna each had near-twin neighbors in the first six slots. One swap each parts them.
+- The adjacency ratchet now counts no hue theme below its floor.
 
 ---
 

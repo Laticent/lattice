@@ -183,12 +183,12 @@
   --cat-3-mark:  light-dark(#571c92, #d4c3e4);
   --cat-4-fill:  light-dark(#d1eab8, #336006);
   --cat-4-mark:  light-dark(#4a8400, #d4e4c3);
-  --cat-5-fill:  light-dark(#b8eab8, #076507);
-  --cat-5-mark:  light-dark(#07890c, #c3e4c3);
+  --cat-5-fill:  light-dark(#b8b8ea, #1A3898);
+  --cat-5-mark:  light-dark(#1c1c92, #c3c3e4);
   --cat-6-fill:  light-dark(#ead1b8, #864709);
   --cat-6-mark:  light-dark(#92571c, #e4d4c3);
-  --cat-7-fill:  light-dark(#b8b8ea, #1A3898);
-  --cat-7-mark:  light-dark(#1c1c92, #c3c3e4);
+  --cat-7-fill:  light-dark(#b8eab8, #076507);
+  --cat-7-mark:  light-dark(#07890c, #c3e4c3);
   --cat-8-fill:  light-dark(#eab8d1, #A12A5D);
   --cat-8-mark:  light-dark(#921c57, #e4c3d4);
   --cat-9-fill:  light-dark(#eab8ea, #8F378E);
@@ -209,9 +209,9 @@
   --cat-2-ink:   light-dark(#007575, #C3E4E4);
   --cat-3-ink:   light-dark(#571C92, #D4C3E4);
   --cat-4-ink:   light-dark(#417600, #D4E4C3);
-  --cat-5-ink:   light-dark(#007A05, #C3E4C3);
+  --cat-5-ink:   light-dark(#1C1C92, #C3C3E4);
   --cat-6-ink:   light-dark(#92571C, #E4D4C3);
-  --cat-7-ink:   light-dark(#1C1C92, #C3C3E4);
+  --cat-7-ink:   light-dark(#007A05, #C3E4C3);
   --cat-8-ink:   light-dark(#921C57, #E4C3D4);
   --cat-9-ink:   light-dark(#921C92, #E4C3E4);
   --cat-10-ink:  light-dark(#6D6C00, #E4E4C3);

@@ -23,9 +23,13 @@
   dark `--cat-N-fill` arms of ardesia, atelier, brina, burgundy, crepuscolo, laguna,
   magnolia and mustard reached OKLCH chroma 0.215–0.256 (electric blue `#0d0dc9`, hot
   violet `#6b0dc9`), where indaco and cuoio cap at 0.150. Each is now held at 0.16 with
-  its lightness and hue kept. Two slots needed more than the cap to stay as far from their
-  neighbor as before: laguna's slot 4 moves back to its own family's hue (295°), and
-  burgundy's slot 5 sits at 310° / 0.17.
+  its lightness and hue kept. Laguna's indigo slot also moves back to its own family's
+  hue (295°), because at 270° only glare had separated it from the blue beside it.
+- **Four themes no longer put near-twin colors side by side.** Ardesia (slots 5↔7),
+  burgundy (5↔6), crepuscolo and laguna (3↔4) each swap one slot, so the first six
+  categories of a chart or diagram stay distinct in both faces. The adjacency ratchet's
+  below-floor count falls from 59 to 45, and the 45 left are the gray-by-design wash
+  tier of the achromatic palettes (a11y, onyx, concrete), whose categories ride textures.
 - **The palette picker now features three themes: indaco, cuoio and onyx.** The other
   eleven move to "More themes", led by carbone; nothing is removed, and every theme
   stays usable by name. The featured three scored highest in a fourteen-theme

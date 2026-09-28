@@ -180,10 +180,10 @@
   --cat-1-mark:  light-dark(#921c4a, #e4c3d0);
   --cat-2-fill:  light-dark(#b8ead7, #065637);
   --cat-2-mark:  light-dark(#01875a, #c3e4d7);
-  --cat-3-fill:  light-dark(#e5eab8, #454d05);
-  --cat-3-mark:  light-dark(#717c00, #e0e4c3);
-  --cat-4-fill:  light-dark(#beb8ea, #502991);
-  --cat-4-mark:  light-dark(#2a1c92, #c7c3e4);
+  --cat-3-fill:  light-dark(#beb8ea, #502991);
+  --cat-3-mark:  light-dark(#2a1c92, #c7c3e4);
+  --cat-4-fill:  light-dark(#e5eab8, #454d05);
+  --cat-4-mark:  light-dark(#717c00, #e0e4c3);
   --cat-5-fill:  light-dark(#b8ccea, #0C46A2);
   --cat-5-mark:  light-dark(#1c4a92, #c3d0e4);
   --cat-6-fill:  light-dark(#cceab8, #255606);
@@ -208,8 +208,8 @@
    * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
   --cat-1-ink:   light-dark(#921C4A, #E4C3D0);
   --cat-2-ink:   light-dark(#00764E, #C3E4D7);
-  --cat-3-ink:   light-dark(#646D00, #E0E4C3);
-  --cat-4-ink:   light-dark(#2A1C92, #C7C3E4);
+  --cat-3-ink:   light-dark(#2A1C92, #C7C3E4);
+  --cat-4-ink:   light-dark(#646D00, #E0E4C3);
   --cat-5-ink:   light-dark(#1C4A92, #C3D0E4);
   --cat-6-ink:   light-dark(#357500, #D0E4C3);
   --cat-7-ink:   light-dark(#92291C, #E4C7C3);
