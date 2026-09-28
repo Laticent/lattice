@@ -93,6 +93,9 @@ test('NO PHANTOMS: every --option the CLI docs mention is one a parser accepts',
   const real = new Set([...render, ...packages, ...video, ...helperFlags()]);
   // The reference spells the value-syntax rule with a placeholder name.
   real.add('--flag');
+  // Another tool's flag the docs quote verbatim: npm's, in the optional voice install
+  // (`npm i --no-save kokoro-js …`) that `lattice video` and `--narrate` print in their help.
+  real.add('--no-save');
   for (const [name, file] of Object.entries(DOCS)) {
     const doc = read(file);
     const named = new Set([...doc.matchAll(/(?:^|[^\w-])(--[A-Za-z][\w-]*)/g)].map((m) => m[1]));

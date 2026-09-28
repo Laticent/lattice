@@ -18,7 +18,7 @@ npx lattice <deck.md> <output> [palette] [options]
 npx lattice <deck.md> <layouts.css> <output> [palette] [options]
 npx lattice -o <output> [-p palette] [-c layouts.css] <deck.md>
 npx lattice packages <command> [options]
-npx lattice video <narrated-export.html> [out.mp4] [options]
+npx lattice video <deck.md | narrated-export.html> [out.mp4] [options]
 ```
 
 Named flags win over positional arguments when you give both. Flags that take
@@ -52,6 +52,7 @@ error also prints the `.zip` command to use instead.
 | `-p`, `--palette <name>` | The palette, instead of the positional one |
 | `-c`, `--css <path>` | Replace the bundled `lattice.css` layout sheet. For engine development, not for decks |
 | `-q`, `--quiet` | Print errors only |
+| `--size <name>` | Render on another canvas, over the deck's `size:` — for example `square`, `portrait`, `story`, `mobile-landscape`, `4K` |
 | `--print` | Render in print mode: black ink on white, with textures on chart series. Any format. Same as `color-mode: print` |
 | `--allow-remote` | Let the render fetch web images, media and fonts. Off by default, so web images show as placeholders |
 | `--packages <dir>` | Use `<dir>` as the package store for this run |
@@ -82,6 +83,12 @@ stay the same.
 | `--read` | The deck as a web article: headings, paragraphs, lists, and charts as figures. Same as `read: true` |
 | `--fluid` | A viewer where each slide fills the screen and reflows on a phone. Same as `fluid: true` |
 | `--no-player-motion` | Ship still slides in the player even when the deck sets `motion: on`. Same as `player-motion: off` |
+| `--player-mode <m>` | Open the player in `light`, `dark` or `system` mode, over the deck's `color-mode:` |
+| `--narrate` | Voice the player with Kokoro, the Studio's on-device voice. Needs the optional voice install (see [`lattice video`](#lattice-video)) |
+| `--no-guide` | Leave the Guide (the focus and gestures that follow the narration) out of a narrated player |
+
+`--player-mode` and `--narrate` apply to `--player` only; without it, the render
+prints a note and ignores them.
 
 When several apply, `--player` wins. Between `--read` and `--fluid`, a flag
 beats a front-matter key; with both as flags, or both as keys, `--fluid`
@@ -142,12 +149,26 @@ The store is `$LATTICE_HOME/packages`, or `~/.lattice/packages` when
 
 ## `lattice video`
 
-Turns a narrated HTML export from the Studio (**Share → Webpage** with
-**Include narration audio**) into an MP4 (H.264 video, AAC
-audio, a WebVTT caption track) and a `.vtt` beside it.
+Renders a narrated deck to an MP4 (H.264 video, AAC audio, a caption track) and
+a `.vtt` beside it.
+
+- **`deck.md`** — voiced here with Kokoro, the Studio's on-device voice. Needs
+  the optional voice install; the first run downloads its model (about 80 MB)
+  once:
+
+  ```sh
+  npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7
+  ```
+
+- **A narrated `.html` export** — one made in the Studio (**Share → Webpage**
+  with **Include narration audio**). Nothing is voiced again.
 
 | Option | What it does | Default |
 |---|---|---|
+| `--mode <m>` | `light`, `dark` or `system`, for a `deck.md` | the deck's `color-mode:` |
+| `--size <name>` | The canvas a `deck.md` is laid out on. `mobile-landscape` fills a phone held sideways | the deck's `size:` |
+| `--no-guide` | Leave the Guide out of a `deck.md`'s video | Guide on |
+| `--no-captions` | Write no caption track and no `.vtt` | captions on |
 | `--fps <n>` | Frames per second | `30` |
 | `--lead-in <ms>` | Hold on slide 1 before narration starts, when slide 1 is silent | `1000` |
 | `--outro <ms>` | Hold on the last slide after narration ends | `1000` |

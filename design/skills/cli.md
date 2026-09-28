@@ -141,8 +141,16 @@ npx lattice packages remove theme/brand
 npx lattice packages trust component/org-chart
 npx lattice deck.md deck.pdf --packages ./team-packages
 
-# Video from a narrated Studio export (Share → Webpage, with narration audio)
-npx lattice video talk.html talk.mp4 --fps 30
+# Narrated video and voiced player (optional voice install, once:
+#   npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7)
+npx lattice video deck.md talk.mp4                           # voiced on-device, + talk.vtt
+npx lattice video deck.md phone.mp4 --size mobile-landscape --mode dark
+npx lattice video studio-export.html talk.mp4                # a narrated Studio export
+npx lattice deck.md deck.html --player --narrate --strip-notes
+
+# Another canvas, or a fixed player mode
+npx lattice deck.md square.pdf --size square
+npx lattice deck.md deck.html --player --player-mode dark
 
 # Viewer trouble
 npx lattice deck.md deck.pdf --raster               # image pages, maximum compatibility

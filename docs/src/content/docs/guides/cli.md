@@ -57,6 +57,17 @@ first render of a session takes longer while Chromium starts.
 Every format except `.html` also writes an HTML copy beside the output
 (`deck.html` here). You can open it in a browser or delete it.
 
+### Render on another canvas
+
+A deck's `size:` sets its canvas. To render one deck on a different canvas
+without editing it, pass `--size`. Try `square`, `portrait`, `story`,
+`mobile-landscape` or `4K`:
+
+```sh
+npx lattice deck.md square.pdf --size square
+npx lattice deck.md story.png --size story
+```
+
 ### Pick a palette
 
 The deck's front matter usually names its palette (`theme: cuoio`). To render
@@ -163,6 +174,16 @@ npx lattice deck.md deck.html --player --strip-notes
 
 The player shows a deck's motion when the deck turns it on. To ship still
 slides in a file you forward, add `--no-player-motion`.
+
+To open the player in a set mode, whatever the deck says, add
+`--player-mode light`, `dark` or `system`. To give it a spoken voice-over,
+add `--narrate`. It uses the same optional voice install as
+[a narrated video](#render-a-narrated-video):
+
+```sh
+npx lattice deck.md deck.html --player --player-mode dark
+npx lattice deck.md deck.html --player --narrate --strip-notes
+```
 
 ### Publish the deck as an article
 
@@ -375,15 +396,38 @@ that Chromium's OS sandbox is off for that code. To turn the sandbox on, set
 
 ### Render a narrated video
 
-A narrated HTML export from the Studio (**Share → Webpage**, with **Include
-narration audio** turned on) turns into an MP4 with a caption track, plus a `.vtt` file beside it:
+`lattice video` turns a deck into an MP4 with a spoken voice-over and a caption
+track, plus a `.vtt` caption file beside it. It voices the deck with Kokoro, the
+same on-device voice the Studio uses, so you need no account and no key.
+
+The voice is an optional install. The first video also downloads the voice
+model once (about 80 MB):
 
 ```sh
-npx lattice video talk.html talk.mp4
-npx lattice video talk.html talk.mp4 --fps 60 --lead-in 2000 --outro 3000
+npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7
 ```
 
-This needs a Chrome that can encode H.264, such as Chrome for Testing. Point
+Then render:
+
+```sh
+npx lattice video deck.md talk.mp4
+npx lattice video deck.md talk.mp4 --mode dark --fps 60
+npx lattice video deck.md phone.mp4 --size mobile-landscape   # fills a phone held sideways
+npx lattice video deck.md talk.mp4 --no-guide --no-captions
+```
+
+By default the video follows the narration with the Guide, the focus and
+gestures you see in Present mode. `--no-guide` leaves them out.
+
+Already have a narrated export from the Studio (**Share → Webpage**, with
+**Include narration audio** turned on)? Pass the `.html` instead, and nothing
+is voiced again:
+
+```sh
+npx lattice video talk.html talk.mp4 --lead-in 2000 --outro 3000
+```
+
+Video needs a Chrome that can encode H.264, such as Chrome for Testing. Point
 `CHROME_PATH` at it if Lattice picks the wrong browser.
 
 ### Allow web images
