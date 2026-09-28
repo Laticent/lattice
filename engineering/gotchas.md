@@ -115,6 +115,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The same declaration, but it dies at COMPUTED-VALUE time — and does NOT fall back](gotchas/css.md#the-same-declaration-but-it-dies-at-computed-value-time--and-does-not-fall-back)
 - [A `visibility: hidden` measuring element makes its scroll container scroll SIDEWAYS](gotchas/css.md#a-visibility-hidden-measuring-element-makes-its-scroll-container-scroll-sideways)
 - [A `finish:` shows on every slide except the split ones, and their header vanishes halfway across](gotchas/css.md#a-finish-shows-on-every-slide-except-the-split-ones-and-their-header-vanishes-halfway-across)
+- [A render wedges at "load fonts" on one palette only — `max()` in a relative color over `light-dark()`](gotchas/css.md#a-render-wedges-at-load-fonts-on-one-palette-only--max-in-a-relative-color-over-light-dark)
 
 ### [Docs site build and dev server (Astro + GitHub Pages)](gotchas/docs-site.md)
 

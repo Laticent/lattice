@@ -894,3 +894,21 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   layer is band 0 under the panel's text at band 1, so `read-slide.mjs` `stackedBelow` now lets
   a pseudo that is provably below the text through. Without it every panel word on a `clear`
   slide was rasterized.
+
+## A render wedges at "load fonts" on one palette only — `max()` in a relative color over `light-dark()`
+
+- **Symptom:** the CLI prints `render watchdog: "load fonts" exceeded 90000ms — Chrome
+  appears wedged`, retries, and dies with `Target closed`. Every other palette renders.
+  Seen on carbone (and carbone-dark, which imports it) the first time the `topic` shelf
+  floored its lift with `oklch(from color-mix(… var(--text-display)) max(l, 0.34) c h)`.
+- **Cause:** a Chromium 131 bug — the build the export pipeline pins. A math function
+  like `max()` in a relative color's channel, over an origin that still holds
+  `light-dark()`, never finishes computing style. Measured on a two-line page:
+  `oklch(from light-dark(#111, #222) max(l, 0.34) c h)` hangs, while `calc(l + 0.1)` over
+  the same origin and `max()` over a plain `#111` both resolve in under 10ms. carbone was
+  the only palette whose tokens put a `light-dark()` into that origin.
+- **Fix:** compute the origin into a REGISTERED `<color>` custom property first
+  (`@property --x { syntax: "<color>"; … }`). A registered color resolves `light-dark()`
+  to one color at computed time, so `max()` reads a plain color. `topic.styles.css`
+  (THE LIFT'S FLOOR, `--_shelf-lift`) is the shipped instance. Never inline the origin
+  back into the `oklch(from …)`.
