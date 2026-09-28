@@ -229,6 +229,7 @@ export default defineConfig({
 						{ label: 'Authoring decks', slug: 'guides/authoring' },
 						{ label: 'Deck settings', slug: 'guides/deck-settings' },
 						{ label: 'Themes & palettes', slug: 'guides/themes' },
+						{ label: 'Using the command line', slug: 'guides/cli' },
 					],
 				},
 				{
@@ -255,6 +256,7 @@ export default defineConfig({
 					label: 'Reference',
 					items: [
 						{ label: 'Front matter', slug: 'reference/front-matter' },
+						{ label: 'CLI', slug: 'reference/cli' },
 						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
 					],
 				},

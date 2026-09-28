@@ -10,7 +10,7 @@
  *
  *   authoring/    I am writing a deck        canon (what good looks like), rules, primer
  *   components/   which layout, and how      the pick index + one file per component
- *   skills/       I am creating a NEW X      the seven design/skills, verbatim
+ *   skills/       I am creating a NEW X      the eight design/skills, verbatim
  *   reference/    I am building a tool       the machine catalogs + the Studio's prompts
  *
  * WHAT THIS FIXES BEYOND LAYOUT. The kit could tell an agent WHICH component to
@@ -277,7 +277,7 @@ function componentDocs() {
   return out;
 }
 
-/** The seven hand-written skills, copied verbatim from design/skills/. */
+/** The hand-written skills, copied verbatim from design/skills/. */
 function skillDocs() {
   return readdirSync(SKILLS_DIR)
     .filter((f) => f.endsWith('.md'))
@@ -1140,10 +1140,10 @@ function referenceReadme(files) {
 }
 
 /**
- * skills/README.md — GENERATED for the kit, unlike the seven skills beside it.
+ * skills/README.md — GENERATED for the kit, unlike the skills beside it.
  *
  * The repo's own `design/skills/README.md` is written for someone inside the
- * repo and points at paths a kit reader does not have. The seven SKILLS still
+ * repo and points at paths a kit reader does not have. The SKILLS still
  * ship verbatim and byte-pinned; only this index is rewritten for the audience,
  * and it carries the glossary that makes their HARD RULE citations legible.
  */
@@ -1175,14 +1175,16 @@ function skillsReadme(skills) {
     'finish.md': 'A **finish** — a backdrop layer stack',
     'lens.md': 'A **lens** — a reader-side subset of a deck',
     'speaker-notes.md': '**Speaker notes, reviews and captions**',
+    'cli.md': 'A finished deck **rendered, shared or checked** with the `lattice` command',
   };
 
   return [
     '# Creating something new',
     '',
     'Each file here teaches you to build **one** kind of Lattice artifact from a blank file,',
-    'end to end. They are self-contained on purpose: the tokens, slots, budgets and commands',
-    'are inlined so you never have to chase a link mid-task.',
+    'end to end, except `cli.md`, which renders and ships a deck you already have. They are',
+    'self-contained on purpose: the tokens, slots, budgets and commands are inlined so you',
+    'never have to chase a link mid-task.',
     '',
     '## Which one',
     '',
@@ -2869,7 +2871,7 @@ async function buildKit() {
   }
   for (const c of components) files.set(`${COMPONENTS}/${c.name}.md`, c.body);
 
-  // The seven skills ship VERBATIM and are byte-pinned. Their index does not:
+  // The skills ship VERBATIM and are byte-pinned. Their index does not:
   // the repo's own README is written for someone inside the repo, so the kit
   // generates its own, carrying the glossary that makes the skills' HARD RULE
   // citations legible to an outside reader.
