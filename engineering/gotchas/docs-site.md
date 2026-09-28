@@ -129,6 +129,14 @@ owe nothing here. See
   `fence-languages.js`). **Fix:** `import x from …;` then `const { a } = x;`.
   `docs/src/plugins/vite-cjs-lib-dev.test.ts` fails on any named or namespace
   import from a CJS leaf in a non-test `docs/src` file.
+- **Third shape: a default import of a CJS file that requires something.** The shim
+  wraps only a leaf; a file with its own `require(` is served raw, so even a plain
+  default import dies with `does not provide an export named 'default'`. Every Studio
+  preview on `npm run dev` showed that error for `lib/core/bg-image.js`, which
+  `docs/src/lib/image-size-memo.ts` imported for one regex. **Fix:** split what the
+  browser needs into a require-free leaf and import that (`lib/core/bg-directive.js`
+  holds `BG_RE`; `bg-image.js` re-exports it). The same test's second arm fails on any
+  `docs/src` import of a CJS `lib/` file that has a `require(`.
 
 ## Every Fabricate preview is EMPTY in `astro dev` only (StrictMode disposes the renderer, and the sentinel hides it)
 
