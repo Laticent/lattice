@@ -58,6 +58,12 @@ export function ttsCostPerMChars(m) {
 	return (p ?? 0) + (c ?? 0) * AUDIO_TOKENS_PER_CHAR;
 }
 
+/** The QUALITY FLOOR: the switch never picks a voice ranked below Kokoro, however much
+ *  cheaper — it trades up to a better voice, never down to a noisier one to save cents. The
+ *  owner's call (2026-09-28), after listening: Orpheus is noisy against Kokoro, and Kokoro is
+ *  the house default. Unranked models sit below the floor too (nobody has vetted them). */
+export const TTS_QUALITY_FLOOR = 'hexgrad/kokoro-82m';
+
 const rankOf = (id) => {
 	const i = TTS_QUALITY_RANK.indexOf(String(id || '').toLowerCase());
 	return i === -1 ? Number.POSITIVE_INFINITY : i;
@@ -68,6 +74,7 @@ const rankOf = (id) => {
  *
  * - Free models are excluded: every `:free` tier is rate-limited, and a limit hit halfway
  *   through a deck stalls the narration or fails the export.
+ * - Models ranked below TTS_QUALITY_FLOOR (Kokoro), and unranked ones, are excluded.
  * - Among the rest, every model whose estimated cost is within PRICE_TIE_BAND of the
  *   cheapest is a candidate, and the best-ranked candidate wins (TTS_QUALITY_RANK).
  * - Ties past that break on cost, then id, so the answer never depends on catalog order.
@@ -78,6 +85,7 @@ export function pickCheapestTtsModel(models) {
 		if (!m?.id) continue;
 		const cost = ttsCostPerMChars(m);
 		if (cost == null || cost <= 0) continue; // unpriced, or free (rate-limited)
+		if (rankOf(m.id) > rankOf(TTS_QUALITY_FLOOR)) continue; // below Kokoro, or unvetted
 		priced.push({ id: m.id, cost });
 	}
 	if (!priced.length) return null;

@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The Studio's voice defaults, re-decided on measured bills. Hosted Kokoro stays the cloud default because Gemini 3.8 Flash TTS, which lists $0.50/M, bills ~$18.50/M characters once its audio-output tokens are counted (~30× Kokoro's $0.62/M). On desktop the on-device Kokoro voice now comes first on `auto`. A new Workspace switch, "Always use the cheapest voice" (off by default), ranks paid models on full cost, lets the better voice win inside a 10% band, skips free tiers, and never overrides a model the author picked. The whole Gemini TTS family is now requested as PCM.
+summary: The Studio's voice defaults, re-decided on measured bills. Hosted Kokoro stays the cloud default because Gemini 3.8 Flash TTS, which lists $0.50/M, bills ~$18.50/M characters once its audio-output tokens are counted (~30× Kokoro's $0.62/M). On desktop the on-device Kokoro voice now comes first on `auto`. A new Workspace switch, "Always use the cheapest voice" (off by default), ranks paid models on full cost, lets the better voice win inside a 10% band, never drops below Kokoro's quality, skips free tiers, and never overrides a model the author picked. The whole Gemini TTS family is now requested as PCM.
 ---
 
 # Voice defaults and the cheapest-voice switch
@@ -97,12 +97,17 @@ The ranker applies four rules:
   measured above.
 - **No free tiers.** Every `:free` model is rate-limited, and hitting the limit halfway
   through a deck stalls it.
+- **Kokoro is the floor.** A voice ranked below Kokoro in `TTS_QUALITY_RANK` (Orpheus, CSM),
+  or not ranked at all, is never picked, however much cheaper. The switch trades up to a
+  better voice, never down to a noisier one to save cents. The owner decided this on
+  2026-09-28 after listening: Orpheus is noisy next to Kokoro. When nothing clears the floor,
+  the switch keeps the Kokoro default.
 - **The 10% band.** Every model within 10% of the cheapest is a candidate, and the best
   entry in `TTS_QUALITY_RANK` wins.
 - **Deterministic ties.** Anything still tied breaks on cost, then on id.
 
-`TTS_QUALITY_RANK` is an editorial order, not a measurement. It only decides ties inside the
-10% band.
+`TTS_QUALITY_RANK` is an editorial order, not a measurement. It sets the floor and decides
+ties inside the 10% band.
 
 The pick resolves from the catalog at creation and the moment the setting turns on, not at
 the first sentence. `openRouterRung` reads the model once per sentence, so a pick landing
@@ -110,8 +115,8 @@ in the middle of a read would switch voices partway through. When the pick moves
 off the default, `orVoice()` falls back to a voice the picked model publishes. The default
 `af_heart` is a Kokoro voice, and any other model rejects it.
 
-Today the switch picks `hexgrad/kokoro-82m`. The next paid voices are Orpheus and CSM at
-$7/M, well outside the band.
+Today the switch picks `hexgrad/kokoro-82m`. The only paid voices cheaper than it by listing
+are below the floor, and every voice above the floor costs well over 10% more.
 
 **The export quote counts full cost.** The narrated-export quote now prices a model with
 `ttsCostPerMChars`, not its input price, which undercounted Gemini by about 37×.

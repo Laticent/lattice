@@ -43,9 +43,11 @@ test('free and unpriced models are never picked', async () => {
 
 test('within 10% of the cheapest, the better-ranked voice wins', async () => {
   const { pickCheapestTtsModel } = await load('tts-cost.js');
-  // csm and orpheus both cost 7: a tie → the better-ranked (orpheus) wins.
-  const tie = CATALOG.filter((m) => /csm|orpheus/.test(m.id));
-  assert.equal(pickCheapestTtsModel(tie), 'canopylabs/orpheus-3b-0.1-ft');
+  // Two voices above the floor at nearly the same price: the better-ranked one wins.
+  assert.equal(pickCheapestTtsModel([
+    { id: 'google/gemini-3.8-flash-lite-tts', promptPerM: 10, completionPerM: 0 },
+    { id: 'fish-audio/s2.1-pro', promptPerM: 10.5, completionPerM: 0 },
+  ]), 'fish-audio/s2.1-pro');
   // Kokoro at 4, mai-voice-2 at 4.39 (+9.75%) → inside the band, and mai ranks higher.
   assert.equal(pickCheapestTtsModel([
     { id: 'hexgrad/kokoro-82m', promptPerM: 4, completionPerM: 0 },
@@ -58,11 +60,30 @@ test('within 10% of the cheapest, the better-ranked voice wins', async () => {
   ]), 'hexgrad/kokoro-82m');
 });
 
+test('Kokoro is the floor: a cheaper Orpheus, CSM or unvetted voice is never picked over it', async () => {
+  const { pickCheapestTtsModel } = await load('tts-cost.js');
+  // Orpheus and CSM at half Kokoro's price, an unranked voice at a quarter: all excluded.
+  assert.equal(pickCheapestTtsModel([
+    { id: 'canopylabs/orpheus-3b-0.1-ft', promptPerM: 2, completionPerM: 0 },
+    { id: 'sesame/csm-1b', promptPerM: 2, completionPerM: 0 },
+    { id: 'zz/unvetted', promptPerM: 1, completionPerM: 0 },
+    { id: 'hexgrad/kokoro-82m', promptPerM: 4, completionPerM: 0 },
+  ]), 'hexgrad/kokoro-82m');
+  // Nothing at or above the floor → no pick, and the voice model keeps its Kokoro default.
+  assert.equal(pickCheapestTtsModel([{ id: 'canopylabs/orpheus-3b-0.1-ft', promptPerM: 2, completionPerM: 0 }]), null);
+  // It still trades UP: a better voice within 10% of Kokoro wins.
+  assert.equal(pickCheapestTtsModel([
+    { id: 'hexgrad/kokoro-82m', promptPerM: 4, completionPerM: 0 },
+    { id: 'microsoft/mai-voice-2', promptPerM: 4.2, completionPerM: 0 },
+  ]), 'microsoft/mai-voice-2');
+});
+
 test('an unranked model inside the band loses to a ranked one; order never matters', async () => {
   const { pickCheapestTtsModel } = await load('tts-cost.js');
   const a = [
     { id: 'zz/unranked', promptPerM: 3.9, completionPerM: 0 },
     { id: 'hexgrad/kokoro-82m', promptPerM: 4, completionPerM: 0 },
+    { id: 'microsoft/mai-voice-2', promptPerM: 30, completionPerM: 0 },
   ];
   assert.equal(pickCheapestTtsModel(a), 'hexgrad/kokoro-82m');
   assert.equal(pickCheapestTtsModel(a.slice().reverse()), 'hexgrad/kokoro-82m');
@@ -84,7 +105,7 @@ function withEnv(fn) {
     ok: true,
     json: async () => ({
       data: [
-        { id: 'google/gemini-3.8-flash-tts', name: 'Gemini', pricing: { prompt: '0.0000005', completion: '0.000009' } },
+        { id: 'google/gemini-3.8-flash-tts', name: 'Gemini', pricing: { prompt: '0.0000005', completion: '0.000009' }, supported_voices: ['Kore', 'Puck'] },
         { id: 'sesame/csm-1b', name: 'CSM', pricing: { prompt: '0.000007', completion: '0' } },
         { id: 'canopylabs/orpheus-3b-0.1-ft', name: 'Orpheus', pricing: { prompt: '0.000007', completion: '0' }, supported_voices: ['tara', 'leo'] },
       ],
@@ -104,7 +125,7 @@ test('cheapest-voice setting resolves at creation, before any read asks for a mo
   await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
   // No orModel() call before this point: the pick is already there for the first sentence.
-  assert.equal(v.orModel(), 'canopylabs/orpheus-3b-0.1-ft');
+  assert.equal(v.orModel(), 'google/gemini-3.8-flash-tts');
   setCheapestVoiceEnabled(false);
 }));
 
@@ -119,14 +140,15 @@ test('cheapest-voice setting: off → default; on → the ranked pick; an explic
   v.orModel(); // first ask starts the catalog fetch; the default holds until it answers
   await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
-  // This mocked catalog has no Kokoro: csm and orpheus tie at 7, Gemini is ~18.9 → orpheus.
-  assert.equal(v.orModel(), 'canopylabs/orpheus-3b-0.1-ft');
-  // The default voice is a Kokoro id; orpheus would reject it, so a voice it publishes is used.
-  assert.equal(v.orVoice(), 'tara');
-  v.setOrVoice('leo');
-  assert.equal(v.orVoice(), 'leo', 'a stored voice the picked model publishes is kept');
+  // This mocked catalog has no Kokoro. CSM and Orpheus ($7) are cheaper but sit below the
+  // Kokoro floor, so the only candidate is Gemini (~$18.9).
+  assert.equal(v.orModel(), 'google/gemini-3.8-flash-tts');
+  // The default voice is a Kokoro id; Gemini would reject it, so a voice it publishes is used.
+  assert.equal(v.orVoice(), 'Kore');
+  v.setOrVoice('Puck');
+  assert.equal(v.orVoice(), 'Puck', 'a stored voice the picked model publishes is kept');
   v.setOrVoice('af_heart');
-  assert.equal(v.orVoice(), 'tara', 'a stored voice it does not publish falls back');
+  assert.equal(v.orVoice(), 'Kore', 'a stored voice it does not publish falls back');
   v.setOrVoice('');
 
   v.setOrModel('microsoft/mai-voice-2');
