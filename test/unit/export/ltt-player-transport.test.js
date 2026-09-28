@@ -25,8 +25,10 @@ const FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../docs/s
  *  It keeps the browser's NESTED-TIMER RULE, as the video capture's clock does
  *  (lib/export/video.mjs installFrameClock): a timer armed from inside a timer nests one level
  *  deeper, and past five levels a browser holds it to at least 4 ms. The transport is one long
- *  chain of timers, so a zero wait armed as a timer cost 4 ms in every real browser and moved every
- *  later slide off timeline(); a clock without the rule could not see that. */
+ *  chain of timers wherever no clip ends a step (silent cues, holds, the capture's render mode), so a
+ *  zero wait armed as a timer there cost 4 ms and moved every later slide off timeline(); a clock
+ *  without the rule could not see that. (An <audio> `ended` event starts a fresh task, so a zero gap
+ *  straight after a real clip was not held.) */
 function installClock(window) {
 	const clock = { now: 0, seq: 0, queue: new Map(), depth: 0 };
 	const schedule = (fn, ms) => {
