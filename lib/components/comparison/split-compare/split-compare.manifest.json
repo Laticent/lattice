@@ -183,8 +183,8 @@
       "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
     },
     {
-      "mistake": "Expecting a deck's `finish:` to skip the split-compare rail, or to stop at it.",
-      "fix": "It covers the whole slide, as on any other: the options side has no background, so the slide's finish shows through it, and the rail keeps its dark field with its own copy of the finish mixed for that field, in screen and PDF alike. The finish's corner mark is left off, since a split slide has no frame margin for it. `finish-none` on the slide keeps both sides plain. Under `backdrop: clear` the options side is cleared and the rail keeps its finish."
+      "mistake": "Expecting a split-compare slide to drop the deck's `finish:`, or to show it on one side only.",
+      "fix": "One finish covers the whole slide, as on any other slide: the options side has no fill, so the finish shows under the cards and `backdrop: clear` clears behind them; the rail keeps its dark field as a pane at 90%, so the same finish reads faintly through it. The finish's corner mark is left off, since a split slide has no frame margin for it. `finish-none` on the slide keeps both sides solid."
     }
   ],
   "specimenVoice": true,

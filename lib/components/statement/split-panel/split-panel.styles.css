@@ -106,9 +106,8 @@ section.split-panel .panel-left::after {
  * slide does not read as recolored beside its neighbors (measured `#5CB135` vs
  * `#5DB133`). LONGHANDS only (#1528): a `var()` in a multi-layer `background`
  * shorthand invalidates the whole declaration if the token is missing. */
-section.split-panel { --_ribbon: var(--spectrum-bar); }
 section.split-panel .panel-right {
-  background-image: var(--_ribbon, none);
+  background-image: var(--spectrum-bar);
   background-size: calc(var(--_sec-1cqi, 1cqi) * 100) calc(var(--_sec-1cqi, 1cqi) * 0.3125);
   background-position: right top;
   background-repeat: no-repeat;
@@ -119,14 +118,14 @@ section.split-panel.mirror .panel-right { background-position: left top; }
  * registers that clear the section border (base.variants.css). The panel mark is a
  * STRUCTURAL accent and survives `spectrum: off` — the white-label baseline. */
 section.split-panel:is(.spectrum-off, .spectrum-edge-left, .spectrum-edge-right,
-                       .spectrum-edge-bottom, .spectrum-edge-off) {
-  --_ribbon: none;
+                       .spectrum-edge-bottom, .spectrum-edge-off) .panel-right {
+  background-image: none;
 }
 /* `accent` replaces the rainbow with a solid accent line. On a split frame the edge
  * lives on the panels, so it recolors the ribbon segment; shared.styles.css excludes
  * split frames from re-adding a section border. */
-section.split-panel.accent {
-  --_ribbon: linear-gradient(var(--accent), var(--accent));
+section.split-panel.accent .panel-right {
+  background-image: linear-gradient(var(--accent), var(--accent));
 }
 section.split-panel .panel-eyebrow { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-md); }
 section.split-panel .panel-left h2 { font-size:var(--fs-h1); color:var(--on-dark-primary); line-height:var(--lh-tight); padding:0 0 var(--sp-sm); margin:0; font-weight:800; }
@@ -809,67 +808,75 @@ section.split-panel.steps:not(.mirror):not([data-orientation="portrait"]):has(> 
   top: var(--_chrome-band);
 }
 
-/* ── A FINISH PAINTS BOTH SIDES; THE FEATURE PANEL KEEPS ITS FIELD ───────────────────────
+/* ── ONE FINISH ACROSS THE SLIDE; THE FEATURE PANEL IS A TINTED PANE OVER IT ───────────────
  *
  * A `finish:` paints the slide's backdrop on the canvas plane (base.finish.css), which is
  * NEGATIVE z: every in-flow box paints over it. Both panels here painted an opaque fill, so a
  * finish deck's split slide showed none of its finish while every neighboring slide carried it.
  *
- * The owner's call on #2457: the feature panel KEEPS its field (dark stays dark) and carries the
- * finish, and the supporting side has no background, so the slide's own finish shows through it
- * exactly as on an ordinary slide. (A frosted `--bg-alt` veil over the whole slide shipped first
- * and was turned down; a finish on the panel only came next and was extended to both sides.)
+ * The owner's model (#2457): ONE finish, applied to the whole slide with continuity, exactly as on
+ * any other slide. The supporting side holds the cards and has no fill of its own, so it carries
+ * the finish, and `backdrop: clear`, like any other slide. The feature panel keeps its field, but
+ * as a pane just short of opaque, so the same finish reads through it faintly and runs unbroken
+ * across the seam. The slide's `.backdrop` is untouched: mixed for the deck canvas, one layer, one
+ * set of generators. (A frosted veil over the whole slide, a finish on the panel only, and a panel
+ * with its own re-mixed copy all shipped in turn on this PR and were turned down.)
  *
- *   1. The SECTION is an ordinary finish slide: `.backdrop` is mixed for the deck canvas.
- *   2. The supporting side stops painting its `--bg`, so that finish shows through it. Its
- *      spectrum ribbon is an image, not the fill, and stays.
- *   3. The feature panel keeps its field color and names it `--fin-canvas`. base.finish.css
- *      re-declares the finish on the panel (§ FINISH SURFACES), so every layer, the rich screen
- *      face and the opaque export face alike, is mixed for the field it is painted on, and the
- *      panel paints `--fin-surface-image` as its own background layers under its content.
- * `--field-accent` follows the field the same way the covers do: the accent on the inverse and
- * on a light panel, `--on-accent` on `watermark`'s accent field, `--cat-on-fill` on a category
- * tint. The corner mark is slide-level and is drawn once, by the slide.
+ * `--_pane-alpha` is how much of the field the pane keeps. It is a flat fill with one alpha, not
+ * a gradient, so the PDF draws it as one transparency group per slide and every glyph on it stays
+ * vector; poppler's gray-seam failure is an alpha FADE, which this is not. At 90% the finish is a
+ * texture you notice, not a pattern you read through, and the text on the pane keeps AA (it is
+ * sampled over the rendered backdrop, as the player-contrast sweep does). The same 10% lifts the
+ * field toward the canvas under it: carbone's near-black reads charcoal, indaco's navy a step
+ * lighter. That is the price of one continuous finish. Measured on carbone + strata/halo in the
+ * PDF: at 97% the finish vanishes, at 85% the field washes out.
  *
- * "A finish" means a backdrop that is actually PAINTED: `finish-none` / `backdrop-none` slides
- * and a `print` canvas keep the bare `finish` class while base.finish.css zeroes every layer, so
- * they are excluded and keep both opaque panels. Without a finish nothing here matches. The
- * stacked orientations need no exception: the section is an ordinary slide, so whatever the
- * stacked layout leaves uncovered is the slide's own finish. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print) { --_field-fill: var(--surface-inverse); --_field-accent: var(--accent); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark { --_field-fill: var(--accent); --_field-accent: var(--on-accent); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) { --_field-fill: var(--panel-fill); --_field-accent: var(--cat-on-fill); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).steps { --_field-fill: var(--bg-alt); }
+ * The finish's corner MARK (strata's tick, meridian's ghost numeral) is left off: it is placed in
+ * an ordinary slide's frame margin, and a split slide has none, so it landed on the first card.
+ *
+ * "A finish" means a backdrop that is actually PAINTED: `finish-none` / `backdrop-none` slides and
+ * a `print` canvas keep the bare `finish` class while base.finish.css zeroes every layer, so they
+ * are excluded and keep both opaque panels. Without a finish nothing here matches. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print) { --_pane-alpha: 90%; }
 section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric) .panel-right,
 section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-left {
   background-color: transparent;
 }
 section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric) .panel-left {
-  --fin-canvas: var(--_field-fill);
-  --field-accent: var(--_field-accent);
-  background-image: var(--fin-surface-image);
-  background-size: var(--fin-surface-size);
-  background-position: var(--fin-surface-position);
-  background-repeat: var(--fin-surface-repeat);
+  background-color: color-mix(in srgb, var(--surface-inverse) var(--_pane-alpha), transparent);
+}
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark .panel-left {
+  background-color: color-mix(in srgb, var(--accent) var(--_pane-alpha), transparent);
+}
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
+  background-color: color-mix(in srgb, var(--panel-fill) var(--_pane-alpha), transparent);
+}
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).steps .panel-left {
+  background-color: color-mix(in srgb, var(--bg-alt) var(--_pane-alpha), transparent);
 }
 /* `.metric` swaps polarity: its DARK field is `.panel-right` and its hero number sits on a light
- * `.panel-left`. So on `metric` the dark `.panel-right` is the feature panel, and the light number
- * panel is the side with no background. That panel also draws the spectrum ribbon, which stays on
- * top of its finish. `.mirror` only reorders, so the ribbon anchors to the other edge. */
+ * `.panel-left`. So on `metric` the dark `.panel-right` is the pane, and the light number panel is
+ * the side with no fill. Only the color changes, so the spectrum ribbon image stays on top. */
 section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-right {
-  --fin-canvas: var(--_field-fill);
-  --field-accent: var(--_field-accent);
-  background-image: var(--_ribbon, none), var(--fin-surface-image);
-  background-size: calc(var(--_sec-1cqi, 1cqi) * 100) calc(var(--_sec-1cqi, 1cqi) * 0.3125), var(--fin-surface-size);
-  background-position: right top, var(--fin-surface-position);
-  background-repeat: no-repeat, var(--fin-surface-repeat);
+  background-color: color-mix(in srgb, var(--surface-inverse) var(--_pane-alpha), transparent);
 }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric.mirror .panel-right {
-  background-position: left top, var(--fin-surface-position);
-}
-/* The finish's MARK (strata's corner tick, meridian's ghost numeral) is placed in the frame
- * margin of an ordinary slide. A split slide has no frame margin (its padding is 0, which is why
- * `backdrop: clear` empties it), so the mark landed on the supporting zone's content: strata's
- * tick sat on the first card's corner of a split-compare. The panels carry the texture and wash;
- * the mark is left off. */
 section.split-panel.finish > .backdrop::before { content: none; }
+/* CLEAR BEHIND CONTENT, as on any other slide. base.finish.css sizes the clear layer from the
+ * section's padding, which is the frame margin on an ordinary slide. A split slide's is 0, so the
+ * layer would cover the whole slide; here it takes the supporting zone's CONTENT box instead, and
+ * the finish stays in that zone's margins and under the pane. */
+section.split-panel.finish { --_clear-box: var(--sp-xl) var(--sp-xl) var(--sp-xl) calc(var(--_panel-outer) + var(--sp-lg)); }
+section.split-panel.finish.mirror { --_clear-box: var(--sp-xl) calc(var(--_panel-outer) + var(--sp-xl)) var(--sp-xl) var(--sp-lg); }
+section.split-panel.finish:not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {
+  padding: var(--_clear-box);
+}
+/* On `metric` the supporting side is the fixed-width LEFT panel, so the layer is placed by that
+ * panel's own width (`--_panel-w`, its content box) rather than inset from the far edge. */
+section.split-panel.finish.metric:not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {
+  inset: var(--sp-xl) auto var(--sp-xl) var(--sp-lg);
+  width: var(--_panel-w);
+  padding: 0;
+}
+section.split-panel.finish.metric.mirror:not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {
+  inset: var(--sp-xl) var(--sp-lg) var(--sp-xl) auto;
+}

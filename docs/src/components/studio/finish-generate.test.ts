@@ -30,7 +30,7 @@ describe('finish-generate', () => {
 	it('emits a rich screen rule + a @media print + .lattice-exporting opaque override', () => {
 		const css = generateFinishCss('my-finish', DEFAULT_RECIPE);
 		// The RICH (screen default) rule comes first and drives the engine compositor.
-		expect(css.startsWith('section.finish.finish-my-finish,\nsection.finish.finish-my-finish :is(.panel-left, .panel-right, .compare-left) {')).toBe(true);
+		expect(css.startsWith('section.finish.finish-my-finish {')).toBe(true);
 		// All four engine layer slots are declared (self-defining — never inherits).
 		expect(css).toContain('--fin-wash:');
 		expect(css).toContain('--fin-texture:');
@@ -41,7 +41,7 @@ describe('finish-generate', () => {
 		// load-bearing for the html-to-image raster, which clones the section only).
 		expect(css).toContain('@media print {');
 		expect(css).toContain(':where(.lattice-exporting) section.finish.finish-my-finish');
-		expect(css).toContain('section.finish.finish-my-finish.lattice-exporting :is(.panel-left, .panel-right, .compare-left) {');
+		expect(css).toContain('section.finish.finish-my-finish.lattice-exporting {');
 	});
 
 	// Split the generated CSS into the SCREEN block (the leading `section…{…}` rule,
@@ -116,7 +116,7 @@ describe('finish-generate', () => {
 
 	it('re-sanitizes the slug (defense in depth — a crafted name cannot escape the selector)', () => {
 		const css = generateFinishCss('evil } body { color: red ', DEFAULT_RECIPE);
-		expect(css.startsWith('section.finish.finish-evil-body-color-red,\nsection.finish.finish-evil-body-color-red :is(.panel-left, .panel-right, .compare-left) {')).toBe(true);
+		expect(css.startsWith('section.finish.finish-evil-body-color-red {')).toBe(true);
 		expect(css).not.toContain('body {');
 		expect(safeFinishSlug('  ')).toBe('custom');
 		expect(safeFinishSlug('A B/C')).toBe('a-b-c');

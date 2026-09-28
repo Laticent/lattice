@@ -272,7 +272,7 @@ or fabricated, without changing the finish itself. It takes up to two words, one
 |---|---|---|---|
 | Strength | `20` `40` `60` `80` | `backdrop-20` … `backdrop-80` | The whole finish at that opacity |
 | Strength | `full` | `backdrop-full` | Full strength, discarding a finish's own baked dim |
-| Mask | `clear` | `backdrop-clear` | The frame's content box (eyebrow, heading and body) is clean canvas; the finish reads only in the margin, fading in softly on screen and in the PDF, HTML and image exports alike. On a `split-panel` or `split-compare` slide the content box is the whole slide, so `clear` clears the supporting side and the feature panel keeps its finish |
+| Mask | `clear` | `backdrop-clear` | The frame's content box (eyebrow, heading and body) is clean canvas; the finish reads only in the margin, fading in softly on screen and in the PDF, HTML and image exports alike. On a `split-panel` or `split-compare` slide it clears behind the content of the side with the cards |
 | Mask | `spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br` | `backdrop-spot-<pos>` | The finish shows in one window at that anchor, and nowhere else |
 | Mask | `open` | `backdrop-open` | No mask, discarding a finish's own baked clearance or spotlight |
 

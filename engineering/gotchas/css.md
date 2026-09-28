@@ -862,32 +862,20 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   A HALF field cannot use that trick, because one backdrop has one canvas. (2) `section header`
   / `section footer` are absolute across the whole slide, and the split frames ink them for
   the panel they START on, so the part past the seam is panel ink on canvas.
-- **Fix, as shipped:** the finish shows on BOTH sides. The section is an ordinary finish
-  slide and the supporting zone has no background, so the slide's own finish shows through it.
-  The feature panel keeps its field and paints its OWN copy of the finish: the generators
-  re-declare every finish on the split panels too (`finish-generate.js` `FINISH_SURFACES`),
-  so the panel's `--fin-canvas` re-mixes each layer for its field, and the panel paints
-  `--fin-surface-image` (base.finish.css § FINISH SURFACES) as its background. (A frosted veil
-  over the whole slide shipped first, then a finish on the panel only; the owner turned down
-  both.) The chrome is budgeted to the field it starts on, one ellipsized line each, with a
-  constant band the field keeps clear (split-panel.styles.css, the blocks at the foot of the
-  file).
-  `test/integration/invariants/split-chrome-budget.test.js` measures every variant.
+- **Fix, as shipped:** ONE finish across the whole slide, as on any other slide (owner). The
+  supporting side (the cards) has no fill, so the slide's `.backdrop` shows under it, and the
+  feature panel keeps its field as a pane at 90% (`--_pane-alpha`), so the same finish reads
+  faintly through it. `backdrop: clear` needs the supporting zone's CONTENT box restated
+  (`--_clear-box`), because base.finish.css sizes the clear layer from the section's padding and
+  a split section has none. (A frosted veil over the whole slide, a finish on the panel only, and
+  a panel with its own re-mixed copy of the finish all shipped on #2457 first and were turned
+  down; the last needed both finish generators to change.) The chrome is budgeted to the field it
+  starts on, one ellipsized line each, with a constant band the field keeps clear
+  (split-panel.styles.css, the blocks at the foot of the file).
+  `test/integration/invariants/split-chrome-budget.test.js` measures every variant, and
+  `split-finish-pane.test.js` measures the pane and the clear box.
 - **Two traps in that fix, both found by review, not by a gate.** `finish-none`,
   `backdrop-none` and `print` slides KEEP the bare `finish` class while base.finish.css zeroes
   every layer, so "is there a painted finish?" is `.finish:not(.finish-none, .backdrop-none,
   .print)`, not `.finish`. And the overflow probe skipped every `position: absolute` text bearer, so a
   cut in split chrome was never measured at all until `skipped()` learned the one exception.
-- **The trap in the both-sides fix: a panel cannot re-mix an inherited finish.** A custom
-  property's `var()` is substituted on the element that DECLARES it. A finish declared on the
-  section reaches the panel already mixed for the light deck canvas, and setting `--fin-canvas`
-  on the panel changes nothing, because the panel only inherits the finished strings. On screen
-  that goes unnoticed (the rich face mixes toward `transparent`). In the PDF it does not: the
-  opaque face ends on solid canvas, so the dark panel prints light. The fix is to re-declare
-  the finish on the panel. A finish whose CSS predates that (a deck's own `<style>`) emits no
-  `--fin-surface-layers`, so its panel keeps the plain field. Its baked MASK is the sharper half
-  of the same trap: a spotlight or clearance declared on the section is mixed for the light
-  canvas, and a panel that inherited it printed white under its white text. base.finish.css
-  resets the baked mask on the panels at zero-class specificity, which a current generator's
-  surface rule outranks.
-  `test/integration/invariants/split-finish-surface.test.js` reads the panel's print wash.

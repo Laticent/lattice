@@ -185,10 +185,9 @@ layer off.
 **Zero-padding layouts:** `split-panel` and `split-compare` set the section padding to 0, so their
 content box is the whole slide and `clear` removes the finish from them entirely. That is the rule
 applied faithfully: their panels already fill the slide, and there is no margin to frame.
-*Superseded in part by #2457 (owner, 2026-09-28):* a split slide now carries the finish on both
-sides, the feature panel painting its own copy (base.finish.css § FINISH SURFACES). `clear` still
-empties the whole content box, which clears the supporting side; the feature panel keeps its
-finish. A register spotlight leaves the panel on its plain field.
+*Superseded by #2457 (owner, 2026-09-28):* a split slide now carries one finish across the whole
+slide, and `clear` clears behind the supporting zone's content box, as on any other slide
+(split-panel.styles.css `--_clear-box`); the feature panel is a 90% pane over the finish.
 
 **Strength: the veil for the register and for masks; opacity only for a bare baked strength.**
 Poppler mis-draws both ways to dim a finish. Group opacity around a hard-edged mask draws a dark

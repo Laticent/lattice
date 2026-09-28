@@ -71,8 +71,7 @@ function solidCanvasStops(layer) {
 /** Every `section.finish-<name> { … }` preset block, by name. */
 function presets() {
   const out = new Map();
-  // A preset's head names the section and then its finish surfaces (finish-generate.js).
-  for (const m of CSS.matchAll(/section\.finish-([a-z][a-z0-9-]*)(?:,\s*section\.finish-\1 :is\([^)]*\))?\s*\{([^}]*)\}/g)) out.set(m[1], m[2]);
+  for (const m of CSS.matchAll(/section\.finish-([a-z][a-z0-9-]*)\s*\{([^}]*)\}/g)) out.set(m[1], m[2]);
   return out;
 }
 

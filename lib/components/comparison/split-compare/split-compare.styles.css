@@ -176,19 +176,19 @@ section.split-compare:not([data-orientation="portrait"]):not([data-orientation="
   padding-bottom: max(var(--sp-xl), var(--_chrome-band));
 }
 
-/* ── A FINISH PAINTS BOTH SIDES; THE RAIL KEEPS ITS FIELD ─────────────────────────────────
+/* ── ONE FINISH ACROSS THE SLIDE; THE RAIL IS A TINTED PANE OVER IT ────────────────────────
  * Same contract as split-panel's finish block (see the note at the foot of
- * split-panel.styles.css): the section is an ordinary finish slide, the options zone has no
- * background so that finish shows through it, and the rail keeps its `--surface-inverse` field
- * and paints the finish re-mixed for that field (base.finish.css § FINISH SURFACES). Without a
- * painted finish nothing here matches. */
+ * split-panel.styles.css): the options zone has no fill, so the slide's one finish, and
+ * `backdrop: clear`, read there as on any other slide; the rail keeps its `--surface-inverse`
+ * field as a pane just short of opaque, so the finish runs faintly through it. No slide-level
+ * mark: a split slide has no frame margin for it. Without a painted finish nothing here matches. */
 section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-right { background-color: transparent; }
 section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left {
-  --fin-canvas: var(--surface-inverse);
-  background-image: var(--fin-surface-image);
-  background-size: var(--fin-surface-size);
-  background-position: var(--fin-surface-position);
-  background-repeat: var(--fin-surface-repeat);
+  /* The same pane alpha as split-panel (`--_pane-alpha`, 90%): one look across both frames. */
+  background-color: color-mix(in srgb, var(--surface-inverse) 90%, transparent);
 }
-/* No slide-level mark: a split slide has no frame margin for it (split-panel.styles.css). */
 section.split-compare.finish > .backdrop::before { content: none; }
+/* Clear behind the options zone's content box (its padding is sp-lg sp-xl sp-xl sp-lg). */
+section.split-compare.finish:not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {
+  padding: var(--sp-lg) var(--sp-xl) var(--sp-xl) calc(var(--_panel-outer) + var(--sp-lg));
+}
