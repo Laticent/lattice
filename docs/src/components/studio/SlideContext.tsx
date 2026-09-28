@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { autoHeadLabel } from './auto-mark';
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
+import { activeChartFinish, CHART_FINISHES } from './chart-finish-catalog';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
@@ -37,7 +38,7 @@ import { SlideComments } from './SlideComments';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { BACKDROP_MASKS, backdropProvenance, type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { BACKDROP_MASKS, backdropProvenance, type Canvas, canvasProvenance, chartFinishProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setChartFinish, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { getSayLine, setSayLine } from './slide-say';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -46,7 +47,7 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang } from './studio-language';
 
-type CatalogEntry = { name: string; effectiveVariants?: string[]; familyModifiers?: string[] };
+type CatalogEntry = { name: string; bucket?: string; effectiveVariants?: string[]; familyModifiers?: string[] };
 type LintVocab = {
 	universalGroups?: Record<string, string[]>;
 	exclusiveAxes?: Record<string, string[]>;
@@ -457,6 +458,19 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const eyebrowOpt = overrideAxis(eyebrowProv, EYEBROWS, 'plain', activeEyebrow);
 	const onEyebrow = (v: string) => onMutate((c) => setEyebrow(c, v === '__inherit__' ? null : v));
 	const headlineProv = React.useMemo(() => headlineProvenance(chunk, source), [chunk, source]);
+	// Chart finish — its own axis rather than overrideAxis, because its default (`off`, "As
+	// designed") is ALSO a real per-slide choice: inside a finished deck, `chart-finish-off` is
+	// how one slide keeps its shipped paint. So the head follows the deck and "As designed" stays
+	// in the list whenever the deck has a finish to opt out of. Shown on chart slides only.
+	const isChart = entry?.bucket === 'chart';
+	const chartFinishProv = React.useMemo(() => chartFinishProvenance(chunk, source), [chunk, source]);
+	const chartFinishOpt = React.useMemo(() => {
+		const deck = chartFinishProv.inheritable ? chartFinishProv.deckValue : 'off';
+		const head: CatalogOption = { label: autoHead(activeChartFinish(deck).label), value: '__inherit__', swatch: activeChartFinish(deck).swatch };
+		const rest = CHART_FINISHES.filter((e) => e.name !== deck).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }));
+		return { value: chartFinishProv.state === 'on' ? (chartFinishProv.value ?? '__inherit__') : '__inherit__', options: [head, ...rest] };
+	}, [chartFinishProv]);
+	const onChartFinish = (v: string) => onMutate((c) => setChartFinish(c, v === '__inherit__' ? null : v));
 	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline);
 	const onHeadline = (v: string) => onMutate((c) => setHeadline(c, v === '__inherit__' ? null : v));
 	// Card rail STYLE — a full off/auto/solid/duo/mono/rainbow axis, INDEPENDENT of the bar.
@@ -663,6 +677,11 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<Row label="Finish" hint={finish.state === 'inherited' ? 'from deck' : undefined} desc="The backdrop behind this slide." help={<>A soft gradient or grain painted behind the content. It comes from the deck unless you override it here.</>}>
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
 							</Row>
+							{isChart && (
+								<Row label="Chart finish" hint={chartFinishProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etching tone color" help={<><strong>Pigment</strong> puts the color in the body, <strong>Etching</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. <strong>As designed</strong> keeps the chart's own paint, even inside a deck that sets a finish. Written as <code>_class: chart-finish-*</code>.</>}>
+									<Picker ariaLabel="Chart finish" value={chartFinishOpt.value} onChange={onChartFinish} options={chartFinishOpt.options} />
+								</Row>
+							)}
 							{finish.state !== 'off' && (
 								<>
 									<Row label="Backdrop strength" hint={bdStrength.state === 'inherited' ? `${bdStrength.deckValue === 'full' ? '100' : bdStrength.deckValue}% · deck` : undefined} desc="Dims the finish on this slide." find="backdrop dim fade restraint opacity" help={<>Pulls the finish back without changing it. <strong>Auto</strong> follows the deck's <code>backdrop:</code> line, then the finish's own setting. Written as <code>_class: backdrop-40</code>.</>}>

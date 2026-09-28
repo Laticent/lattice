@@ -4,7 +4,7 @@ The contract for anyone — human or agent — changing how a chart *looks*. Cre
 a new chart member is a different job: that is `design/skills/chart-component.md`.
 This is about paint, weight and spacing on the 21 members that exist.
 
-**One sentence: structure belongs to the family, colour belongs to the palette and
+**One sentence: structure belongs to the family, color belongs to the palette and
 the finish, and neither is allowed to do the other's job.**
 
 ---
@@ -91,8 +91,8 @@ Flattening them into `--chart-edge` took quadrant's separator from 2.23px to
 
 **A text halo is not a mark edge.** `paint-order: stroke` on a label uses
 `stroke-width` to fatten a readability outline around glyphs, in the CANVAS
-colour. Those are deliberate and must not be folded into `--chart-edge`. The
-census test tells them apart by that canvas colour, not by the presence of
+color. Those are deliberate and must not be folded into `--chart-edge`. The
+census test tells them apart by that canvas color, not by the presence of
 `paint-order` — the pie's `.wedge` is a declared mark that carries `paint-order`
 precisely so only the outer half of its edge shows, and a `paint-order` exemption
 would have let it take any literal width and ship green.
@@ -104,17 +104,19 @@ too, with one sanctioned entry (`journey-face`, an icon on an `<svg>` wrapper).
 
 ## 3 · The three finishes
 
-A finish moves colour; it never adds or removes it, and it never touches
-structure.
+A finish moves color; it never adds or removes it, and it never touches
+structure. A deck picks one with `chart-finish:` (`lib/base/base.registers.docs.md`),
+and a slide can pin its own with `_class: chart-finish-<name>`.
 
 | | identity lives in | choose it for | body | edge |
 |---|---|---|---|---|
-| **`pigment`** | the body's **hue** | you want colour | 82% | ink, 1× |
-| **`etching`** | the **line and the letter** | a modern look | 30/40% | ink, 1× |
-| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | ink, 1× |
+| **`pigment`** | the body's **hue** | you want color | 82% | ink, 1× |
+| **`etching`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
+| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | ink, 1× (2.5× on a text-bearing mark) |
 
-`pigment` is the default. Two things hold in **all three**, and they are floors,
-not style:
+**No finish is the default.** A deck without `chart-finish:` keeps every chart's own
+paint, so the register changed nothing that already renders. Two things hold in
+**all three**, and they are floors, not style:
 
 1. **Every mark carries an ink edge.** Measured: no body clears the 3:1 graphical
    floor against its own canvas at any depth — 82% bottoms out at 2.45:1, and 30%
@@ -122,9 +124,47 @@ not style:
    clears it everywhere (worst 4.65:1). A body never guarantees the mark can be
    seen. Its edge does.
 2. **Every element that NAMES a mark wears that mark's ink.** No finish removes
-   colour. Under `tone` there is one hue, so a name wears the ink — the same
+   color. Under `tone` there is one hue, so a name wears the ink — the same
    channel the edge uses. Sending names to a neutral is a floor violation, and it
    is an easy one to write by accident because it looks like an accommodation.
+
+### How the engine applies them
+
+`tools/build-chart-finish-css.js` generates the rules from each manifest's
+`kernel.marks`; its header is the long form. Six choices in it were settled by
+measurement, and each undoes a defect the first render showed:
+
+- **Specificity (0,1,1), on purpose.** Every rule is
+  `section.chart-finish-X :where(<mark>)` with `!important`. That beats every
+  member's paint (no member marks paint `!important`) and loses to an a11y
+  theme's texture fill, which is `!important` at (0,3,1) and loads later. So a
+  finish never strips the pattern channel from a colorblind reader.
+- **Etching and tone mix toward the canvas; pigment mixes toward
+  `--chart-cat-base`.** That base is black in dark mode, which is right for
+  pigment's shipped body tier. A whisper mixed toward black lands darker than the
+  slide and reads as a hole.
+- **A ramp scales from its own member's empty end** (`--heatmap-base`,
+  `--map-base`). A ramp that prints its value takes a shorter band: tone tops out
+  at 70% on light and every finish near 50% on dark, where light text stopped
+  clearing carbone's lime top step (3.39:1).
+- **A heatmap value picks its own ink.** The theme solves each step's ink against
+  the shipped fill, and a finish changes the fill, so no fixed ink holds (the
+  strong ink fell to 3.34:1 on the a11y themes). The value's fill is its cell's
+  body taken through relative-color syntax to black above OKLCH L 0.565 and white
+  below it. That clears 4.5:1 on 13 theme faces × 3 finishes (worst 4.62). A
+  canvas-colored halo was tried first and dropped: it reads as outlined stickers,
+  and the PDF export lost it.
+- **A text-bearing mark** (the manifest's `bears`) takes the quieter backdrop
+  level, and an HTML mark's own text moves to `--text-body`, the color the level
+  was measured against.
+- **The key follows the marks.** A legend swatch carries the mark contract, so a
+  tone finish cannot leave a key of five categorical colors beside tonal wedges.
+
+**Where `tone` is weakest, besides the members it cannot reach:** overlapping
+layered series. Three radar polygons in one hue separate by value in the key, the
+dots and the edges, but their composited fills converge, and on a dark canvas the
+steps compress further. Measured, not tuned away: a finish that claims one hue
+cannot also keep three.
 
 Full philosophy: `engineering/decisions/2026-09-07-chart-design-language/` —
 `tone-is-the-third-finish.md` for the trio, `finish-render-defects.md` for what
@@ -143,15 +183,15 @@ node tools/chart-contrast-solve.js <rendered.html> [screen|print]
 **It samples; it does not model.** The solver shoots the slide twice — once as
 rendered, once with only the glyph FILL removed — and the pixels that differ are
 the pixels a glyph covers. Shot B at those pixels is the backdrop, with
-gradients, stacking order, opacity and the family's canvas-coloured halos all
+gradients, stacking order, opacity and the family's canvas-colored halos all
 already resolved by the renderer. The INK still comes from computed style,
 because Chromium antialiases a body-size stem across two or three pixels with
-subpixel fringing and no pixel on it ever holds the pure colour: a `#111`-on-white
+subpixel fringing and no pixel on it ever holds the pure color: a `#111`-on-white
 control measured 4.02:1 from its darkest pixel against a true 18.1:1.
 
 Each row carries a **`share`** — the fraction of the glyph's covered pixels at the
-reported ratio. `share: 1` is a colour choice. `share: 0.001` is a connector
-crossing one corner of the label, and sending a colour change after it fixes
+reported ratio. `share: 1` is a color choice. `share: 0.001` is a connector
+crossing one corner of the label, and sending a color change after it fixes
 nothing.
 
 Floors: **4.5:1** for text, **3:1** for large (≥24px, or ≥18.66px bold) and for
@@ -168,7 +208,7 @@ you write a new instrument, check it against all six.
    `url()` after CSS has overridden it. Read computed style, always.
 2. **SVG text paints with `fill`, HTML text with `color`.** Reading `color` first
    scores an SVG label with an ink it is not drawn in.
-3. **A colour carries its own alpha — the INK's as much as the backdrop's.**
+3. **A color carries its own alpha — the INK's as much as the backdrop's.**
    `color(srgb 0 .4 .6 / 0.1)` is a 10% wash; dropping the fourth channel on a
    backdrop turns it into a saturated fill and invents failures, and dropping it
    on the ink hides them: `color: color(srgb 0 0 0 / 0.18)` on white renders at
@@ -190,8 +230,8 @@ you write a new instrument, check it against all six.
    polygons painted after them.
 
 And one that is not about measurement at all: **contrast and distinctness are
-different questions.** A chart whose five categories all painted one colour passed
-every contrast audit in this repo, because one colour is perfectly legible. If you
+different questions.** A chart whose five categories all painted one color passed
+every contrast audit in this repo, because one color is perfectly legible. If you
 change how marks take paint, run the flattening detector too:
 
 ```

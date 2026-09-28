@@ -56,6 +56,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	backdrop: { group: 'look', default: "the finish's own", studio: 'Look → Backdrop strength · Backdrop mask', slide: '_class: backdrop-<value>', values: 'a strength (20 · 40 · 60 · 80 · full) and/or a mask (clear · open · spot-tl … spot-br), e.g. 40 clear' },
 	'finish-override': { group: 'look', default: 'none', values: 'a nested map of finish layers', scope: 'Studio only (written by Fabricate)' },
 	lift: { group: 'look', default: 'off', studio: 'Look → Card lift', slide: '_class: lifted · flat' },
+	'chart-finish': { group: 'look', default: 'off', studio: 'Look → Chart finish', slide: '_class: chart-finish-<value> · chart-finish-off', values: 'off · pigment · etching · tone', scope: 'every chart\'s marks and key' },
 	venue: { group: 'look', default: 'laptop', studio: 'Look → Venue', slide: '_class: venue-<value>', values: 'laptop · huddle · conference · hall', scope: 'type size, label size and lint budgets' },
 	cards: { group: 'look', default: 'each component decides', studio: 'Look → Frame and fit → Card rows', slide: '_class: cards-<value>' },
 	corners: { group: 'look', default: 'square', studio: 'Look → Frame and fit → Corners', slide: '_class: corners-<value>' },
