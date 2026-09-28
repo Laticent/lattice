@@ -177,6 +177,14 @@
     {
       "mistake": "Leaving the frame label unwrapped in backticks.",
       "fix": "The frame label is reassembled to the top of the dark panel regardless of its source position — placement doesn't matter. It must be backtick-wrapped, though: unwrapped plain text is instead captured as the intro paragraph, not the frame label."
+    },
+    {
+      "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
+      "fix": "The running header and footer stay on the dark rail they start on and hold one line, so a line longer than the rail ends in an ellipsis and the export reports it as a chrome cut. Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
+    },
+    {
+      "mistake": "Expecting the rail to stay a solid dark field on a deck with a `finish:`.",
+      "fix": "On a finish deck the backdrop shows across the whole slide: the rail becomes a light frosted wash with a seam hairline and takes the canvas inks, and both sides keep the same top and bottom band clear so a finish's corner mark never lands on an option card. Without a `finish:` the dark rail renders as before."
     }
   ],
   "specimenVoice": true,

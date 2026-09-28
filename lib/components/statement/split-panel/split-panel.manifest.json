@@ -246,8 +246,12 @@
       "fix": "The point of `cat-1`…`cat-8` is that each slide in the SET reads as its own step — assign them in order, one number per slide, not the same number repeated or shuffled."
     },
     {
-      "mistake": "Setting a long deck-level `header:` on a deck that uses this layout.",
-      "fix": "The running header sits OVER the panel here, so it takes the panel field's ink (`--on-dark-secondary` on the inverse panel, `--on-accent` under `watermark`, `--cat-on-fill` on a `cat-N` tint) rather than the canvas ink. Past roughly 25 characters the header runs beyond the panel's edge and carries that ink onto the canvas, where it loses contrast. Keep it short, or set `<!-- _header: \"\" -->` on these slides. `metric`, `steps` and the `mirror` forms put canvas under the header and are unaffected."
+      "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
+      "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror` — and hold one line, so a line longer than that field ends in an ellipsis and the export reports it as a chrome cut. Measured at 16:9: the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
+    },
+    {
+      "mistake": "Expecting the panel to stay a solid color field on a deck with a `finish:`.",
+      "fix": "On a finish deck the backdrop shows across the whole slide: the panel becomes a light frosted wash (`watermark` and `cat-N` keep a tint of their own color) with a seam hairline, its text takes the canvas inks, and both sides keep the same top and bottom band clear so a finish's corner mark never lands on content. Without a `finish:` the solid field renders as before."
     }
   ],
   "stressDoc": {

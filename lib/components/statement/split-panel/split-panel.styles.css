@@ -46,7 +46,14 @@
  * without `--_wide-gutter`), where it lines up with the panel text; with the gutter the footer crossed
  * the panel seam and was cut on mobile-landscape. Equal to the token on every 16:9 canvas. */
 section.split-panel { padding:0; flex-direction:row; --frame-inset-x: calc(2.34375 * var(--_sec-1cqi, 1cqi)); }
-section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
+/* `--_panel-w` is the ONE statement of the panel's width. Each variant sets it on the section,
+ * and two things read it: the panel's own `width`, and the running header/footer budget below,
+ * which needs the panel's OUTER width. `.panel-left` is content-box, so that outer width is
+ * `--_panel-w + 2 * --sp-lg` — the padding the edge-bar note further down measured as a constant
+ * 128 raster px. Both readers resolve `%` against the same 1280px (the section has no padding and
+ * no side border), so the chrome budget and the seam cannot drift apart. */
+section.split-panel { --_panel-w:38%; --_panel-outer: calc(var(--_panel-w) + 2 * var(--sp-lg)); }
+section.split-panel .panel-left { width:var(--_panel-w); flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
 /* ── THE SLIDE'S TOP EDGE — one rule, two segments (2026-08-18) ─────────────
  * A sovereign split frame owns its own top edge. `base.elements.css` paints the
  * spectrum as a `border-top` on the SECTION, which a sovereign frame cannot
@@ -87,10 +94,11 @@ section.split-panel .panel-left::after {
   z-index: 3; /* local 0-9 band (design/forms.md 5.2): over the panel's own fill, under nothing */
 }
 /* The supporting zone carries the deck ribbon — as a BACKGROUND on the panel box,
- * not an absolutely-positioned pseudo. `<footer>` is a CHILD of `.panel-right`
- * (lib/core/split-panels.js), so `position: relative` here would make the panel its
- * containing block: measured, the running footer jumped out of the panel it used to
- * span and wrapped to two lines. A background needs no containing block, no z-index,
+ * not an absolutely-positioned pseudo. `<footer>` USED to be a child of `.panel-right`, so
+ * `position: relative` here made the panel its containing block: measured, the running
+ * footer jumped out of the panel it used to span and wrapped to two lines. The footer is a
+ * direct section child now (lib/core/split-panels.js `extractFooter`), but the reason to
+ * prefer a background stands on its own: a background needs no containing block, no z-index,
  * and no stacking interaction, and it is sized to the panel's own box for free.
  *
  * `background-size` is ONE SLIDE WIDTH and the image is anchored to the far edge, so
@@ -138,7 +146,8 @@ section.split-panel .panel-right > ul > li > :is(ul,ol) { list-style:none; paddi
 section.split-panel .panel-right > ul > li > :is(ul,ol) > li { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
 /* ── .metric — light-left polarity + hero number (former split-metric) ───── */
-section.split-panel.metric .panel-left { width:44%; background:var(--bg); border-right:1px solid var(--border); justify-content:safe center; align-items:flex-start; }
+section.split-panel.metric { --_panel-w:44%; }
+section.split-panel.metric .panel-left { background:var(--bg); border-right:1px solid var(--border); justify-content:safe center; align-items:flex-start; }
 section.split-panel.metric .panel-eyebrow { color:var(--text-secondary); padding-bottom:var(--sp-xs); }
 section.split-panel.metric .panel-left h2 { font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--text-heading); line-height:1; padding:0 0 var(--sp-sm); margin:0; }
 section.split-panel.metric .panel-left h2 em { font-size:var(--fs-h1); font-weight:700; font-style:normal; color:var(--text-secondary); }
@@ -161,7 +170,7 @@ section.split-panel.metric .panel-right > ul > li > strong { color:var(--on-dark
 section.split-panel.metric .panel-right > ul > li > :is(ul,ol) > li { color:var(--on-dark-secondary); }
 
 /* ── .quote — pull-quote feature (former split-statement) ────────────────── */
-section.split-panel.pullquote .panel-left { width:50%; }
+section.split-panel.pullquote { --_panel-w:50%; }
 section.split-panel.pullquote .panel-left::before { content:'\201C'; top:-2.1875cqi; left:1.09375cqi; right:auto; height:auto; width:auto; font-size:17.1875cqi /* cqi-ok: oversized decorative open-quote glyph */; font-family:var(--font-display); font-weight:700; color:var(--on-dark-watermark); line-height:1; pointer-events:none; background:none; }
 section.split-panel.pullquote .panel-left blockquote,
 section.split-panel.pullquote .panel-left blockquote p { font-size:calc(3.9583cqi * var(--fs-scale)) /* cqi-ok: designed pull-quote display size */; font-family:var(--font-display); font-weight:700; font-style:italic; color:var(--on-dark-primary); line-height:var(--lh-tight); position:relative; z-index:1; }
@@ -170,7 +179,8 @@ section.split-panel.pullquote .panel-left blockquote p { margin:0; }
 section.split-panel.pullquote .panel-left cite { font-size:var(--fs-message); font-family:var(--font-body); font-style:normal; color:var(--on-dark-secondary); position:relative; z-index:1; display:block; }
 
 /* ── .steps — numbered step-timeline right zone (former split-steps) ─────── */
-section.split-panel.steps .panel-left { width:30%; background:var(--bg-alt); border-right:1px solid var(--border); justify-content:safe center; }
+section.split-panel.steps { --_panel-w:30%; }
+section.split-panel.steps .panel-left { background:var(--bg-alt); border-right:1px solid var(--border); justify-content:safe center; }
 section.split-panel.steps .panel-eyebrow { position:absolute; top:var(--sp-lg); left:var(--sp-lg); margin:0; font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--border); line-height:1; letter-spacing:0; text-transform:none; pointer-events:none; z-index:0; }
 section.split-panel.steps .panel-left h2 { font-size:var(--fs-h2); color:var(--text-heading); font-weight:800; position:relative; z-index:1; }
 section.split-panel.steps .panel-left p { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); position:relative; z-index:1; }
@@ -195,7 +205,7 @@ section.split-panel.steps .panel-right > :is(ul,ol) > li > :is(ul,ol) > li { fon
  * carries one list, so the evidence side needs the room. Variant-scoped width is
  * the established split-panel pattern — `.metric` 44%, `.steps` 30%, `.pullquote`
  * 50%. */
-section.split-panel.proof .panel-left { width:31%; }
+section.split-panel.proof { --_panel-w:31%; }
 /* Role-token step-down (HARD RULE #4 — a different token, never a multiplier).
  * The base panel is a one-line thesis at --fs-h1; a `proof` claim is a full
  * sentence sitting above a lede, so it reads at the h2 tier and the lede drops
@@ -297,7 +307,8 @@ section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2)
 }
 
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */
-section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:safe flex-end; }
+section.split-panel.watermark { --_panel-w:34%; }
+section.split-panel.watermark .panel-left { background:var(--accent); justify-content:safe flex-end; }
 /* The panel fill IS `--accent` here, so a `--accent` mark is invisible
  * (measured `#7A5A10` on `#7A5A10`). Take the on-accent rung instead. */
 section.split-panel.watermark .panel-left::after { background: var(--on-accent-watermark); }
@@ -619,6 +630,13 @@ section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .
  * checking why the header is not inverse here should find the answer at the header rule. */
 section.split-panel:is(.metric, .steps) :is(header, footer),
 section.split-panel.mirror :is(header, footer) { color: var(--marp-slide-header-color, var(--text-muted)); }
+/* …EXCEPT `metric mirror`, the XOR the page-number block below spells out: `.metric`'s dark
+ * field is `.panel-right`, and `.mirror` puts exactly that field under the left-anchored
+ * chrome. The rule above caught it as "mirror, so canvas" and inked it `--text-muted` on
+ * the inverse fill — measured 2.2:1 on indaco. Pre-existing; fixed here because the chrome
+ * budget now keeps the WHOLE line on that field, where before its tail crossed onto the
+ * light panel and read (HARD RULE #18, on-path). */
+section.split-panel.metric.mirror :is(header, footer) { color: var(--on-dark-secondary); }
 /* ── THE PAGE NUMBER TAKES THE MIRROR IMAGE OF THE RULE ABOVE ────────────────────
  * The header and footer are LEFT-anchored, so they sit on the panel in the default
  * polarity and on canvas under `.mirror` — which is why `.mirror` is in the canvas-ink
@@ -723,4 +741,151 @@ section.split-panel-points:is(
  * `applyRelationshipSignals` does not emit the pointer on these pages and this file styles
  * nothing for them. See the decision record; the chrome follows in its own PR. */
 
+
+
+/* ── THE RUNNING CHROME HAS A BUDGET: the field it starts on ─────────────────────────────
+ *
+ * `section header` and `section footer` are absolutely positioned across the WHOLE slide
+ * (base.modifiers.css). On a split that means a header longer than the panel crosses the
+ * seam, carrying the panel's ink onto the other field: measured on the welcome deck with a
+ * 60-character header, the tail past the seam rendered `--on-dark-secondary` on `--bg` and
+ * vanished, and on split-compare it printed across the top of the option cards. That was
+ * the KNOWN LIMIT the ink block above names (#1640); it is closed here, not documented.
+ *
+ * WIDTH. The chrome stops at the far side of the field it starts on, minus the same inset
+ * it keeps from the slide edge. Unmirrored that field is `.panel-left`; under `.mirror` the
+ * panels row-reverse and the header sits on the supporting zone, so its budget is the
+ * slide minus the panel. `--_panel-outer` is the panel's rendered width (see the token's
+ * note at the top of this file), so the budget and the seam come from one number.
+ *
+ * HEIGHT. The chrome is ONE line that ellipsizes — the same answer the Form frame's footer
+ * band gives (stage.css), and the one the overflow probe already reads as designed rather
+ * than as spill (`truncatesOwnLine`). A two-line clamp was tried first: it let the budget
+ * wrap instead of cut, but its hidden third line is VERTICAL spill, which the probe
+ * rightly counts, so split-panel's own gallery reported 8 overflowing slides over a
+ * backticked word in a caption. One line is also what lets the field reserve the band:
+ * the band is a constant, not a
+ * measurement, so the panel's padding can hold exactly that much clear and the chrome
+ * never drifts onto the heading however long the author's line is (engineering/jank.md —
+ * a fixed element must hold position as content grows). A cut is not silent: the
+ * overflow probe counts these two elements as the running-chrome band
+ * (lib/core/overflow-probe.js `FOOTER_BAND`), so the author is told on stderr and in the
+ * author tab, and the reader gets no pill — the policy of
+ * engineering/decisions/2026-07-27-footer-band-allocation.md, applied to a second shape.
+ *
+ * Not in portrait: the panels stack there, so each band spans the full width again. */
+section.split-panel:not([data-orientation="portrait"]) {
+  --_chrome-lh: 1.3;
+  --_chrome-band: calc(var(--frame-inset-y) + var(--_chrome-lh) * var(--fs-meta) + var(--sp-xs));
+}
+section.split-panel:not([data-orientation="portrait"]) > :is(header, footer) {
+  right: calc(100% - var(--_panel-outer) + var(--frame-inset-x));
+  line-height: var(--_chrome-lh);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+section.split-panel.mirror:not([data-orientation="portrait"]) > :is(header, footer) {
+  right: calc(var(--_panel-outer) + var(--frame-inset-x));
+}
+/* The field under the chrome keeps its band clear. `max()` so a slide without chrome, or a
+ * variant whose own padding is already deeper, pays nothing. */
+section.split-panel:not(.mirror):not([data-orientation="portrait"]):has(> header) .panel-left {
+  padding-top: max(var(--sp-xl), var(--_chrome-band));
+}
+section.split-panel:not(.mirror):not([data-orientation="portrait"]):has(> footer) .panel-left {
+  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
+}
+section.split-panel.mirror:not([data-orientation="portrait"]):has(> footer) .panel-right {
+  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
+}
+
+/* ── A FINISH OWNS THE GROUND; THE PANEL STOPS PAINTING OVER IT ──────────────────────────
+ *
+ * A `finish:` paints the slide's backdrop on the canvas plane (base.finish.css), which is
+ * NEGATIVE z: every in-flow box paints over it. Both panels here paint an opaque fill, so a
+ * finish deck's split slide showed none of its finish — no texture, no wash, no mark —
+ * while every neighboring slide carried it. The supporting zone's fill was `--bg`, the
+ * same color as the section under it, so it hid the finish and bought nothing.
+ *
+ * On a finish deck the split is drawn with a VEIL and a SEAM instead of a flood: the
+ * feature panel is frosted with the deck's card surface (`--bg-alt`, so it still reads as
+ * the featured side; `watermark` and `cat-N` wash in their own field color instead, so a
+ * category panel still reads as its category), a hairline marks the seam, and the panel's
+ * edge-bar segment stays. A tint of the INVERSE was tried first and rejected on the render:
+ * 10% of carbone's near-black over strata's green wash read as a gray smear, not a panel. The veil is a FLAT translucent fill, which
+ * the PDF path composites cleanly — the muddy-gray failure base.finish.css documents is an
+ * alpha GRADIENT, not a constant alpha.
+ *
+ * The field is light now, so every ink that was tuned for the dark field resolves to the
+ * canvas tier. That is done by re-pointing the field-ink TOKENS on the field, not by
+ * restating each text rule: every rule above (and the inline-code chip in
+ * base.modifiers.css) reads the token, so one block re-inks all of them and a future rule
+ * written against the dark field inherits the right answer for free. Chrome sits OUTSIDE
+ * the panels, so it takes its ink explicitly, below.
+ *
+ * Without a finish nothing here matches, and the dark field renders exactly as before.
+ *
+ * "A finish" means a backdrop that is actually PAINTED. A `finish-none` / `backdrop-none`
+ * slide, and a `print` canvas, keep the bare `finish` class while base.finish.css zeroes
+ * every layer — so every rule here excludes them, or such a slide lost its solid field
+ * to a veil over a bare canvas that matched neither look. Found by the maker-checker pass. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print) { --_field-fill: var(--bg-alt); --_field-veil: 60%; }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark { --_field-fill: var(--accent); --_field-veil: 12%; }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) { --_field-fill: var(--panel-fill); --_field-veil: 22%; }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print) .panel-left,
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-right {
+  background-color: color-mix(in srgb, var(--_field-fill) var(--_field-veil), transparent);
+  background-image: none;
+}
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-left,
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric) .panel-right { background-color: transparent; }
+/* The seam — on the panel's inner edge, which `.mirror` moves to the other side. `.metric`
+ * and `.steps` already draw one on the left panel. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric):not(.steps):not(.mirror) .panel-left { border-right: 1px solid var(--border); }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).mirror:not(.metric):not(.steps) .panel-left { border-left: 1px solid var(--border); }
+/* Field inks → canvas inks. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print) .panel-left,
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-right {
+  --on-dark-primary: var(--text-heading);
+  --on-dark-secondary: var(--text-secondary);
+  --on-dark-ghost: var(--border);
+  --on-dark-watermark: color-mix(in srgb, var(--text-heading) 10%, transparent);
+}
+/* `--cat-on-fill` is a diagram token, so it may only be set on a section class compound
+ * (tools/check-ownership.js, #1326) — the category panel's text runs are re-inked by rule
+ * instead, mirroring the list that inks them above. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left :is(h2, p, .panel-eyebrow),
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-left p em:first-child {
+  color: var(--text-heading);
+}
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark .panel-left {
+  --on-accent: var(--text-heading);
+  --on-accent-watermark: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+/* `.watermark` repaints the edge bar in its (now faint) watermark ink; on the veil the bar
+ * is the panel's one strong mark, so it takes the accent like every other variant. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark .panel-left::after { background: var(--panel-mark, var(--accent)); }
+/* Chrome and the page number sit outside the panels, so they cannot inherit the re-point:
+ * every field is light now, so every polarity takes the deck's ordinary chrome ink. The
+ * doubled class out-ranks the per-variant polarity rules above, which reach (0,4,1). */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark { --marp-slide-header-color: initial; --marp-slide-footer-color: initial; }
+section.split-panel.finish.finish:not(.finish-none, .backdrop-none, .print):is(.split-panel, .mirror, .metric, .watermark, .cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) > :is(header, footer) {
+  color: var(--marp-slide-header-color, var(--text-muted));
+}
+section.split-panel.finish.finish:not(.finish-none, .backdrop-none, .print):is(.split-panel, .mirror, .metric, .watermark, .cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) > .lat-pagination {
+  color: var(--marp-slide-pagination-color, var(--text-muted));
+}
+/* FRAME MARKS LIVE IN THE FRAME MARGIN. A finish's placed mark is drawn for the margin
+ * every Form layout keeps clear: strata's corner tick spans 2.7–5.35cqi from the top and
+ * 3.1–5.75cqi from the right, inside the Form frame's 6.875cqi top inset (stage.css
+ * `--frame-y`). The split fields run their content to 3.75cqi of the top because nothing
+ * used to show there — with the backdrop showing, the tick printed over the top-right
+ * option card (measured on the welcome deck: card top 51px, tick bottom 68px). So on a
+ * finish deck both fields take the Form frame's top inset, and the two sides start their
+ * content on one line. The other preset marks need nothing: atrium's and ledger's margin
+ * rules sit inside the panel's 2.5cqi side padding, and the 30cqi ghost glyphs are
+ * atmosphere that sits behind content on every layout. The bottom keeps the chrome band. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]) :is(.panel-left, .panel-right) {
+  padding-top: max(var(--_chrome-band), calc(6.875 * var(--_sec-1cqi, 1cqi)));
+  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
+}
 

@@ -203,7 +203,12 @@ const VARIANT_DECL_IGNORE = new Map([
 // `section.<name>.form` rules that the variant-declaration gate would otherwise read as
 // nine undeclared variants. It is scaffolding on the same footing as `chart-frame` — an
 // author cannot select it, and cannot refuse it.
-const STRUCTURAL_ROOT_CLASSES = new Set(['chart-frame', 'lat-split-cards', 'lat-split-native', 'print', 'form']);
+// `finish` is the backdrop register's compositor class (lib/core/resolve-finish.js stamps
+// `finish finish-<name>` on every section of a `finish:` deck). A `section.<component>.finish`
+// rule is how a component lets that deck-wide backdrop through its own fills — split-panel and
+// split-compare stop flooding their panels over it — which is the register's chrome, not an
+// author variant of the component, on the same footing as `print`.
+const STRUCTURAL_ROOT_CLASSES = new Set(['chart-frame', 'lat-split-cards', 'lat-split-native', 'print', 'form', 'finish']);
 
 // Search tags that legitimately apply to exactly ONE component — a
 // genuinely-unique idiom or material with no sibling that shares it

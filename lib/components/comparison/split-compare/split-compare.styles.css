@@ -13,7 +13,10 @@
  * without `--_wide-gutter`), where it lines up with the panel text; with the gutter the footer crossed
  * the panel seam and was cut on mobile-landscape. Equal to the token on every 16:9 canvas. */
 section.split-compare { padding:0; flex-direction:row; --frame-inset-x: calc(2.34375 * var(--_sec-1cqi, 1cqi)); }
-section.split-compare .compare-left { width:30%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:center; padding:var(--sp-xl) var(--sp-lg); position:relative; }
+/* The rail's width, stated once: its own `width` and the running-chrome budget at the foot of
+ * this file both read it. Content-box, so the rendered width adds the `--sp-lg` padding twice. */
+section.split-compare { --_panel-w:30%; --_panel-outer: calc(var(--_panel-w) + 2 * var(--sp-lg)); }
+section.split-compare .compare-left { width:var(--_panel-w); flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:center; padding:var(--sp-xl) var(--sp-lg); position:relative; }
 /* ── THE SLIDE'S TOP EDGE — one rule, two segments (2026-08-18) ─────────────
  * Same defect and same fix as `split-panel` (see the long note in
  * lib/components/statement/split-panel/split-panel.styles.css): the section's
@@ -36,8 +39,8 @@ section.split-compare .compare-left::after {
   background: var(--panel-mark, var(--panel-edge-mark));
   z-index: 3; /* local 0-9 band (design/forms.md 5.2) */
 }
-/* Background, not a positioned pseudo: `<footer>` is a CHILD of `.compare-right`, so
- * `position: relative` here would re-parent it (see the long note in split-panel). */
+/* Background, not a positioned pseudo — the same choice, for the same reasons, as split-panel's
+ * supporting zone (see the long note there). */
 section.split-compare .compare-right {
   background-image: var(--spectrum-bar);
   background-size: calc(var(--_sec-1cqi, 1cqi) * 100) calc(var(--_sec-1cqi, 1cqi) * 0.3125);
@@ -150,3 +153,45 @@ section.split-compare > .cell-stage {
  *
  * No variant repoints `.compare-left`'s fill, so one rule covers the family. */
 section.split-compare :is(header, footer) { color: var(--on-dark-secondary); }
+
+/* ── THE RUNNING CHROME HAS A BUDGET: the rail it starts on ──────────────────────────────
+ * Same contract, same reasons, as split-panel (see the long note at the foot of
+ * split-panel.styles.css): the header and footer stop at the rail's far edge instead of
+ * running across the option cards, hold one line with an ellipsis, and the rail keeps that band clear.
+ * Measured before this: a 60-character header printed its last 26 characters over the
+ * first option card. Not in portrait/square, where the rail stacks on top at full width. */
+section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]) {
+  --_chrome-lh: 1.3;
+  --_chrome-band: calc(var(--frame-inset-y) + var(--_chrome-lh) * var(--fs-meta) + var(--sp-xs));
+}
+section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]) > :is(header, footer) {
+  right: calc(100% - var(--_panel-outer) + var(--frame-inset-x));
+  line-height: var(--_chrome-lh);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]):has(> header) .compare-left {
+  padding-top: max(var(--sp-xl), var(--_chrome-band));
+}
+section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]):has(> footer) .compare-left {
+  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
+}
+
+/* ── A FINISH OWNS THE GROUND; THE RAIL STOPS PAINTING OVER IT ───────────────────────────
+ * Same contract as split-panel's finish block: on a `finish:` deck the rail is frosted with
+ * the card surface and gets a seam hairline instead of an opaque flood, the options
+ * zone stops repainting `--bg` over the backdrop, and the rail's dark-field inks re-point
+ * to the canvas tier on the rail itself. Without a finish nothing here matches. */
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left {
+  background-color: color-mix(in srgb, var(--bg-alt) 60%, transparent);
+  border-right: 1px solid var(--border);
+  --on-dark-primary: var(--text-heading);
+  --on-dark-secondary: var(--text-secondary);
+}
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-right { background-color: transparent; }
+/* Frame marks keep their margin — split-panel's finish block has the measurement. */
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]):not([data-orientation="square"]) :is(.compare-left, .compare-right) {
+  padding-top: max(var(--_chrome-band), calc(6.875 * var(--_sec-1cqi, 1cqi)));
+  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
+}
+section.split-compare.finish.finish:not(.finish-none, .backdrop-none, .print) :is(header, footer) { color: var(--marp-slide-header-color, var(--text-muted)); }
+
