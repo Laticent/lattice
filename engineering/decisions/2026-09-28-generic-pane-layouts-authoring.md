@@ -230,32 +230,66 @@ stays hidden on its page.
 
 ## 7. Names
 
-**The layouts are `columns` and `rows`, and the marker is `_pane`.** There is no single industry
-standard, but there is a clear majority word, and it is "columns". Lattice's personas
-(`2026-07-02-website-copy-positioning.md` §2) come from these tools:
+**The layouts are `columns` and `rows`, and the marker is `_pane`.** The test for a name is
+whether the people Lattice is built for already know it. There is no single industry standard,
+but there is one pair every one of them knows: "columns" and "rows".
 
-| Tool | Persona | Two side by side | Related layouts |
-|---|---|---|---|
-| Quarto | plain-text native (P1) | `:::: {.columns}` + `::: {.column width="40%"}` | — |
-| Slidev | plain-text native (P1) | `two-cols`, `two-cols-header` | `image-left`, `image-right`, `full` |
-| Beamer | plain-text native (P1) | `columns` environment | — |
-| Google Slides | deck-burdened expert (P3) | "Title and two columns" | "One column text", "Caption" |
-| PowerPoint | P3, brand gatekeeper (P4) | "Two Content", "Comparison" | "Picture with Caption" |
-| Marp | plain-text native (P1) | "split backgrounds" (`![bg left:40%]`) | — |
+### 7.1 Who the names are for: the audiences
+
+The audiences are the ones the home page names (`docs/src/components/landing/sections.tsx`) and
+the sectors the exemplar library covers (`exemplars/`: corporate, academic, government and
+public, nonprofit, general team). Most of them never write a Markdown deck. What they share is
+the office suite, and each group also meets the word in a tool of its own:
+
+| Audience | Where they already meet "columns" / "rows" |
+|---|---|
+| Lawyers and compliance, government, nonprofit, general teams | Word's **Columns** button (Layout › Columns); the rows and columns of every Excel sheet |
+| Scientists and academics | the journal "two-column format"; poster columns; Beamer's `columns` |
+| Mathematicians, quants and ML | Beamer's `columns`; Quarto's `.columns`; Jupyter |
+| Engineers and architects | CSS grid rows and columns; Slidev's `two-cols`; Notion's columns |
+| Project leads, analysts and consultants | Google Slides' "Title and two columns"; PowerPoint's "Two Content" and "Comparison" |
+
+The slide tools' own names for a two-sided layout, for reference:
+
+| Tool | Two side by side | Related layouts |
+|---|---|---|
+| Quarto | `:::: {.columns}` + `::: {.column width="40%"}` | — |
+| Slidev | `two-cols`, `two-cols-header` | `image-left`, `image-right`, `full` |
+| Beamer | `columns` environment | — |
+| Google Slides | "Title and two columns" | "One column text", "Caption" |
+| PowerPoint | "Two Content", "Comparison" | "Picture with Caption" |
+| Marp | "split backgrounds" (`![bg left:40%]`) | — |
 
 Slidev's and Quarto's names are checked against their current documentation. The PowerPoint
-and Google Slides names are their stock layout names. The positioning note names Marp, Slidev,
-Beamer and Quarto for P1; pairing Google Slides and PowerPoint with P3 and P4 is this note's
-inference (those personas make decks in office suites), not the positioning note's claim.
+and Google Slides names are their stock layout names, and the Word, Excel, Notion and journal
+uses are common knowledge rather than re-checked sources.
 
-- **`columns`** is the word four of the six use (Slidev abbreviates it to `cols`), and it
-  extends to three columns without a rename.
+### 7.2 How each role meets the name
+
+The same lawyer or scientist meets this feature in one of four roles, and each asks something
+different of the name:
+
+| Role | Sees | What the name has to do |
+|---|---|---|
+| **The author typing Markdown** | `_class: columns 60/40` | be the word they would guess |
+| **The Studio user** | a menu of layouts, never the syntax | read as plain English: the insert menu labels them **"Two columns"** and **"Top and bottom"** and writes `columns` / `rows` into the source |
+| **The AI drafting the deck** (the agent-workflow persona in `2026-07-02-website-copy-positioning.md` §2) | whatever it guesses | be the word its training data taught it: `columns` is what Quarto, Beamer and CSS use, so a model guesses it without reading our docs, where a house word like `panes` would have to be looked up |
+| **The reviewer reading the source in a pull request** | the raw Markdown | read as prose: `columns 60/40` over two `###` headings describes the slide without a render |
+
+A fifth person never sees a name at all: **the audience in the room.** What they need is for two
+panes to read as one argument, which is what the shared title row (§3) and the single Key
+Insight (§4) are for.
+
+### 7.3 The choices
+
+- **`columns`** is the word the office suite, the journals and four of the six slide tools use
+  (Slidev abbreviates it to `cols`), and it extends to three columns without a rename.
 - **`rows`** pairs with `columns` as it does in every spreadsheet and CSS grid. It replaces
-  `panes: stack`.
+  `panes: stack`. The Studio labels it "Top and bottom", which says the same thing to someone who
+  does not think in grids.
 - **Not `split`.** The repo already uses it at least four ways: the `split:` front-matter
   setting, auto-splitting a slide into pages, a modifier on `image` / `scene` / `redline` /
-  `citation-card`, and
-  `form: split` in manifests. A fifth meaning would guarantee confusion.
+  `citation-card`, and `form: split` in manifests. A fifth meaning would guarantee confusion.
 - **Not `two-cols` or "two content".** Those bake the count into the name; `columns` does not.
 - **`_pane` keeps the word "pane"** because "column" does not fit a box in `rows`, and "pane" is
   plain English.
@@ -314,8 +348,10 @@ These are for the next note, not for authors:
 
 - The Key Insight and note belong to the slide: panes are portals that bring only stage content.
 - The `_pane` marker is optional.
-- Names should be ones Lattice's personas already know, preferring an industry word over a house
-  one: hence `columns` and `rows`.
+- Names should be ones Lattice's audiences already know, preferring an industry word over a house
+  one: hence `columns` and `rows`. The audiences are the home page's and the exemplars' (lawyers,
+  scientists, project leads, architects, …), not only the early-adopter personas, and the note
+  weighs the name for each role that meets it: author, Studio user, AI, reviewer (§7).
 - Keep it simple: ship `columns` and `rows`; defer `bleed` and `inset`.
 - The pane marker mirrors `_class` (`_pane`, above the `###`) so it reads familiar.
 - The `###` pane title is optional, the documentation always writes one, and `no-title` hides it.
