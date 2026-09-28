@@ -394,6 +394,25 @@ If Lattice runs as root, as it often does in a container, the render warns
 that Chromium's OS sandbox is off for that code. To turn the sandbox on, set
 `CHROME_PATH` to a Chromium that an unprivileged user can run.
 
+### Start a plugin
+
+In a clone of the repository, `packages new plugin` scaffolds a plugin in
+`lib/plugins/<name>/`: a manifest, a render script, styles, docs and test
+fixtures. Then rebuild and run the plugin tests, as the command tells you:
+
+```sh
+npx lattice packages new plugin demo-plot
+npm run build
+npm run test:plugins
+```
+
+To write it somewhere else for review, add `--dir`. The plugin lands in
+`<dir>/<name>/`:
+
+```sh
+npx lattice packages new plugin demo-plot --dir ./review
+```
+
 ### Render a narrated video
 
 `lattice video` turns a deck into an MP4 with a spoken voice-over and a caption

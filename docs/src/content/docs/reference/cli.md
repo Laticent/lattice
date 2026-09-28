@@ -143,6 +143,7 @@ Themes, components, finishes and motion made in the Studio are packages.
 | `packages remove <type>/<name>` | Remove an installed package |
 | `packages trust component/<name> [--yes]` | Approve the code in an installed component. `--yes` skips the prompt |
 | `packages untrust component/<name>` | Withdraw that approval |
+| `packages new plugin <name> [--dir <dir>]` | Scaffold a plugin: a manifest, render script, styles, docs and fixtures. In a Lattice checkout it writes `lib/plugins/<name>/`; `--dir <dir>` writes `<dir>/<name>/` instead |
 
 The store is `$LATTICE_HOME/packages`, or `~/.lattice/packages` when
 `LATTICE_HOME` is not set. `--packages <dir>` overrides it for one run.

@@ -140,6 +140,7 @@ npx lattice packages export theme/brand -o brand.zip
 npx lattice packages remove theme/brand
 npx lattice packages trust component/org-chart
 npx lattice deck.md deck.pdf --packages ./team-packages
+npx lattice packages new plugin demo-plot              # scaffold lib/plugins/demo-plot/ (a checkout)
 
 # Narrated video and voiced player (optional voice install, once:
 #   npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7)
