@@ -125,6 +125,10 @@ describe('split-compare: an author block the layout does not claim', () => {
     'a blockquote inside an option': '<h2>H</h2><p>C.</p><ul><li><strong>A</strong><blockquote><p>Nested.</p></blockquote></li><li><strong>B</strong></li></ul><p>Stray one.</p><blockquote><p>V.</p></blockquote>',
     'a verdict with its own bullets above the options': '<h2>H</h2><p>C.</p><blockquote><p>Pick B, because:</p><ul><li>cost</li><li>latency</li></ul></blockquote><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><p>Stray one.</p>',
     'a second blockquote after the verdict': '<h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote><blockquote><p>Stray one.</p></blockquote>',
+    // The option list is the first TOP-LEVEL list, as the DOM path reads it (`:scope > ul`). A list
+    // inside raw HTML above the options used to become the option cards on the string path.
+    'a list inside a raw div above the options': '<h2>H</h2><p>C.</p><div><p>Stray one.</p><ul><li>x</li><li>y</li></ul></div><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote>',
+    'a list inside a table cell above the options': '<h2>H</h2><p>C.</p><table><tr><td>Stray one.<ul><li>x</li><li>y</li></ul></td></tr></table><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote>',
   };
   for (const [name, body] of Object.entries(cases)) {
     const html = `<section class="split-compare"><header>Head</header>${body}<footer>Run</footer></section>`;
@@ -176,6 +180,35 @@ describe('split-compare: an author block the layout does not claim', () => {
   test('string path: a section with no comment keeps its bytes', () => {
     const html = '<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul></section>';
     assert.equal(kernel.applyToRenderedHtml(html), '<section class="split-compare"><div class="compare-left"><h2>H</h2><p>C.</p></div><div class="compare-right"><div class="options"><div class="option"><strong>A</strong></div><div class="option preferred"><strong>B</strong></div></div></div></section>');
+  });
+
+  // The context paragraph is the first TOP-LEVEL `<p>`. The mask that hides nested blocks from that
+  // search matched non-greedily, so it stopped at an option's inner `</ul>` and left the rest of the
+  // item open to it: a loose option with a nested list and a trailing paragraph lost that paragraph
+  // to the dark panel on the string path when the slide had no context paragraph of its own. The
+  // input is the engine's shape after slotLabelLift (a real render of that markdown).
+  test('a loose option with a nested list and a trailing paragraph: both paths agree', () => {
+    const html = '<section class="split-compare"><h2>H</h2><ul><li><strong>A</strong><ul><li>x</li></ul><p>A tail.</p></li><li><p><strong>B</strong></p></li></ul><blockquote><p>V.</p></blockquote></section>';
+    const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+    const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+    splitPanels.applyToDom(doc);
+    assert.equal(signature(doc.querySelector('section')), signature(str));
+    assert.equal(str.querySelector('.compare-left p'), null, 'no context paragraph was authored');
+    assert.match(str.querySelector('.option').textContent, /A tail\./);
+  });
+
+  // split-panel reads its lede with the speaker notes still in the section. A note that names a
+  // block tag is not markup: it must not hide the lede from the top-level read (the DOM path never
+  // sees inside a comment). Found by the checker on #2478.
+  test('split-panel: a speaker note that names a block tag leaves the lede in the panel, on both paths', () => {
+    for (const note of ['<!-- wrap this in a <div> later -->', '<!-- a </div> and a <ul> -->', '<!-- <p>not the lede</p> -->']) {
+      const html = `<section class="split-panel"><h2>H</h2>${note}<p>Lede.</p><ul><li>one</li><li>two</li></ul></section>`;
+      const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+      assert.equal(str.querySelector('.panel-left p')?.textContent, 'Lede.', note);
+      const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+      splitPanels.applyToDom(doc);
+      assert.equal(signature(doc.querySelector('section')), signature(str), note);
+    }
   });
 
   test('a verdict written above the options keeps its bullets; the options stay the options', () => {

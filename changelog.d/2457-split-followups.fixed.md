@@ -7,3 +7,8 @@
   panels stack and the footer spans the page, and a long caption wrapped onto a second line.
   On a page split into a run it also ran on under the k-of-N rail. It now ends in an ellipsis,
   before the page number and, on a split page, before the rail at its widest.
+- **Fixed: `split-compare` reads its options and context paragraph from the slide's top level in
+  every render path.** A list inside raw HTML above the options (a `<div>`, a table cell) became
+  the option cards on the export path, and an option with a nested list and a trailing paragraph
+  lost that paragraph to the dark panel when the slide had no context paragraph. Both paths now
+  agree. No committed deck renders differently (246 decks checked).
