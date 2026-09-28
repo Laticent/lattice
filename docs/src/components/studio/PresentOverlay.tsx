@@ -318,10 +318,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// before this sees the list, as the bake and the CLI do.) TAGGED with the `set` it was computed for (a stable per-lens reference):
 	// `narrationAt` only reads it when the tag still matches the current set, so a
 	// same-length lens switch can never speak the previous lens's text (no stale read).
-	const [projected, setProjected] = React.useState<{ set: string[]; texts: string[]; emphasis: EmphasisSpans[] }>({
+	const [projected, setProjected] = React.useState<{ set: string[]; texts: string[]; emphasis: EmphasisSpans[]; refs: (readonly SceneRef[] | undefined)[] }>({
 		set: [],
 		texts: [],
 		emphasis: [],
+		refs: [],
 	});
 	// biome-ignore lint/correctness/useExhaustiveDependencies: recompute on presented SET or theme change; extraTheme keyed by name (its content hash).
 	React.useEffect(() => {
@@ -333,7 +334,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			.then(({ projectDeckScript }) => projectDeckScript(options, source, paletteOverride, extraTheme, extraCss, modeOverride))
 			.then((scripts) => {
 				if (canceled || scripts.length !== target.length) return;
-				setProjected({ set: target, texts: scripts.map((x) => x.text), emphasis: scripts.map((x) => x.emphasis) });
+				setProjected({ set: target, texts: scripts.map((x) => x.text), emphasis: scripts.map((x) => x.emphasis), refs: scripts.map((x) => x.refs) });
 			})
 			.catch(() => {});
 		return () => { canceled = true; };
@@ -373,10 +374,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// offsets into the string the projection built; a say override or narrateChart's
 			// substitution replaces it, and reusing those offsets would land a beat mid-phrase. The
 			// same identity test the CLI export applies, so the two producers agree slide for slide.
-			const emphasis = aligned && text === (projected.texts[i] ?? '') ? projected.emphasis[i] : undefined;
-			// THE BINDING, by the same identity test: the chart narrator's refs are character spans
-			// over ITS text, so they hold only while that is the text being read (a caption replaces it).
-			const refs = script?.refs.length && text === script.text ? script.refs : undefined;
+			const isProjected = aligned && text === (projected.texts[i] ?? '');
+			const emphasis = isProjected ? projected.emphasis[i] : undefined;
+			// THE BINDING, by the same identity test: the chart narrator's refs, else the projection's
+			// (headings, paragraphs, items, rows), are character spans over THEIR text, so they hold only
+			// while that is the text being read (a caption replaces it).
+			const refs = script?.refs.length && text === script.text ? script.refs : isProjected && projected.refs[i]?.length ? projected.refs[i] : undefined;
 			return { text, emphasis, refs };
 		},
 		[set, setIndices, fmSayMap, projected],

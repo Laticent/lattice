@@ -160,7 +160,19 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 	// THE SCENE'S STATE, per slide: the group an `enter` opened (a line's own dots stay near while
 	// its other points recede deeper), the key beat's index, and the last parts focused, so a pause
 	// on a held sentence comes back to them.
-	let scene: { slide: number; refs: readonly SceneRef[]; owned: boolean; key: number; group: Element[] | null; parts: FocusParts | null } | null = null;
+	// `hits` is the slide's PLAN: each bound sentence's parts, resolved the first time it is read and
+	// kept, so a replay, a pause or a scrub on the slide swaps classes without querying again (§8).
+	let scene: {
+		slide: number;
+		refs: readonly SceneRef[];
+		owned: boolean;
+		key: number;
+		group: Element[] | null;
+		parts: FocusParts | null;
+		hits: Map<number, ReturnType<typeof resolveUnit>>;
+		/** The section the plan was resolved in: a re-rendered slide (a theme switch, a resize) is a new plan. */
+		section: Element;
+	} | null = null;
 
 	const setAiming = (on: boolean) => {
 		if (aiming === on) return;
@@ -203,7 +215,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		const section = host.section?.() ?? null;
 		const spec = sceneOf(section);
 		if (!section || !spec || !play.refs.length || play.at < 0) return false;
-		if (!scene || scene.slide !== slide || scene.refs !== play.refs) {
+		if (!scene || scene.slide !== slide || scene.refs !== play.refs || scene.section !== section) {
 			// A new slide starts bare: nothing carries across a slide change.
 			if (scene && scene.slide !== slide) unmark();
 			// A binding written for another component is not this slide's. Every component has a
@@ -212,13 +224,17 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 			// narrator that reads a prose slide as a board finds nothing, and the whole slide reads its
 			// words, asides included (checker, 2026-09-28). Resolved once per slide.
 			const owned = play.refs.some((r) => r.unit && resolveUnit(section, spec.units, r));
-			scene = { slide, refs: play.refs, owned, key: keyIndex(play.refs, spec.key), group: null, parts: null };
+			scene = { slide, refs: play.refs, owned, key: keyIndex(play.refs, spec.key), group: null, parts: null, hits: new Map(), section };
 		}
 		if (!scene.owned) return false;
 		const i = refAt(play.refs, play.at);
 		const ref = i >= 0 ? play.refs[i] : null;
 		const act = ref?.act ?? 'aside';
-		const hit = ref?.unit ? resolveUnit(section, spec.units, ref) : null;
+		let hit = scene.hits.get(i) ?? null;
+		if (ref?.unit && !scene.hits.has(i)) {
+			hit = resolveUnit(section, spec.units, ref);
+			scene.hits.set(i, hit);
+		}
 		// A binding that names a unit this render does not draw (a variant the scene does not cover
 		// yet) is not the scene's to play: the caller reads the words, rather than leave the slide dark.
 		if (ref?.unit && !hit) return false;
@@ -228,7 +244,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		// so a pause and resume there still knows the key beat has passed.
 		let at = i;
 		if (at < 0) for (let j = 0; j < play.refs.length; j++) if ((play.refs[j]?.start ?? Infinity) <= play.at) at = j;
-		const expr = play.style(act, { named: !!hit, key: i >= 0 && i === scene.key, afterKey: scene.key >= 0 && at >= scene.key && i !== scene.key, labelled });
+		const expr = play.style(act, { named: !!hit, key: i >= 0 && i === scene.key, afterKey: scene.key >= 0 && at >= scene.key && i !== scene.key, labelled, text: Number.isInteger(ref?.id?.i) });
 		const look = lookOf(delivery);
 		const apply = (parts: FocusParts): void => {
 			unmark();
@@ -243,6 +259,20 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 			shown = false;
 			scene.group = null;
 			scene.parts = null;
+		} else if ((expr.focus === 'unit' || expr.focus === 'group') && hit && Number.isInteger(ref?.id?.i)) {
+			// PROSE, A BULLET, A TABLE ROW, bound by ordinal: what recedes around it is the text path's
+			// own rule (`focusUnit`: a bullet's siblings, a row's other body cells, the text blocks
+			// beside a paragraph, never the headline), so a bound sentence and a matched one look alike.
+			// A row is named by its first cell, which is how the text path names a row.
+			const el = hit.unit[0] as Element;
+			const found = focusUnit(el.matches('tr') ? ((el as HTMLTableRowElement).cells[0] ?? el) : el);
+			if (found && (found.peers.length || found.inner.length)) apply({ unit: found.unit, peers: found.peers, inner: found.inner });
+			// A lone paragraph has nothing beside it: the narration is enough, and the slide stays whole.
+			else if (mark) {
+				unmark();
+				aim = null;
+				scene.parts = null;
+			}
 		} else if ((expr.focus === 'unit' || expr.focus === 'group') && hit) {
 			const unit = [...hit.unit, ...hit.labels];
 			const others = [...hit.peers, ...hit.peerLabels];
@@ -264,7 +294,9 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		const on = expr.ink.on;
 		const els: Element[] =
 			on === 'figure'
-				? [section.querySelector('figure.chart-frame, .chart-body, svg')].filter((e): e is Element => !!e)
+				? // The component's own figure (a chart body, a diagram): a heading read on a prose slide
+					// frames nothing, rather than bracketing whatever icon comes first.
+					(resolveUnit(section, spec.units, { start: 0, end: 0, unit: 'figure' })?.unit.slice(0, 1) ?? [])
 				: on === 'heading'
 					? [section.querySelector('h1, h2, h3')].filter((e): e is Element => !!e)
 					: on === 'labels' && hit?.labels.length

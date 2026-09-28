@@ -396,6 +396,17 @@ describe('bakeNarration — complete, or nothing', () => {
 		expect(over.narrated[0] && 'emphasis' in over.narrated[0]).toBe(false);
 	});
 
+	it('hands over the projection\'s bindings while its text is the text read, so the sent Guide focuses prose', async () => {
+		const refs = [{ start: 0, end: 26, act: 'visit', unit: 'paragraph', id: { i: 1 } }];
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: false, projectedRefs: [refs, undefined] });
+		expect(bake.narrated[0]?.refs).toEqual(refs);
+		expect(bake.narrated[1] && 'refs' in bake.narrated[1]).toBe(false);
+		// A caption replaces the projected text: its spans no longer land, so the binding is dropped.
+		const captioned = DECK.replace('# One', '<!-- caption: The author says something else here. -->\n\n# One');
+		const over = await bakeNarration(captioned, PROJECTED, { voice: VOICE, audio: false, projectedRefs: [refs, undefined] });
+		expect(over.narrated[0] && 'refs' in over.narrated[0]).toBe(false);
+	});
+
 	it('hands over what the deck LTT is built from: the text, its track, and a hash per clip', async () => {
 		// LTT step 2 (lib/core/ltt-deck.mjs): per slide, the exact string Cadenza timed and the track
 		// it built, index-aligned so `slides[i][j]` is `narrated[i].track.cues[j]`; per clip, a

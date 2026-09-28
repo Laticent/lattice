@@ -229,11 +229,21 @@ Every manifest has a `gesture` block. Lean by default: most name their archetype
   them under every component's gesture, so a chart's heading and a closing slide's list resolve too;
   a name the component or its archetype defines keeps that definition (a heatmap's `row` is a
   rect). Cost, jsdom over the 4,118 corpus sections: 8.5 s of 31.7 s of projection, about 2 ms a
-  slide, worst 72 ms; it runs when Present opens and on export, not per keystroke. **The Guide does not
-  play these yet**: a prose slide still takes the text path, which picks somber's moment by
-  `salience()`. Playing prose refs as scenes before step 4 gives prose its storyboards would swap
-  that for a fixed key and expressive's underlines for taps. Step 5 carries the refs to the Studio
-  and the exports.
+  slide, worst 72 ms; it runs when Present opens and on export, not per keystroke. **The Guide plays them**
+  (step 4, built 2026-09-28): Present and the Studio's webpage export carry the projection's refs
+  beside the chart narrator's, by the same identity test (the refs hold only while the projected
+  text is the text read; a caption falls back to the words), and a slide no component claims plays
+  as a `statement`. What recedes around a bound bullet, row or paragraph is the text path's own rule
+  (`focusUnit`), so a bound sentence and a matched one look alike; a lone paragraph shows nothing.
+  Two things moved, on purpose. Somber's one moment on a prose slide is the component's key (a
+  list's first item) instead of `salience()`'s pick: the key is what §6 names and the goldens can
+  pin. Expressive keeps its underline under words (`ctx.text`) and taps only marks, since the
+  underline is what reads as a hand on text. The CLI export still carries no refs
+  (`followups.d/2441-p2-cli-export-carries-bindings.md`). Each slide's resolved parts are cached
+  per section the first time a sentence is read (§8's plan); a re-rendered section is a new plan.
+  **Score goldens per archetype** (`test/fixtures/delivery-scores/archetypes/`): the archetype's
+  first component by name whose gallery binds a slide, through its chart narrator or else the
+  projection, all three deliveries side by side.
 - **Gates** (`test/unit/core/scene-binding.test.js`): every one of the 71 manifests declares a
   gesture, over an archetype the schema's enum and the defaults both name; every slide of every
   component's own gallery draws its archetype's primary unit or one of its own units (a variant may

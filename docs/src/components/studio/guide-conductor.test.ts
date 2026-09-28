@@ -355,3 +355,74 @@ describe('guide-conductor — a binding that is not the slide’s', () => {
 		expect(document.getElementById('b')?.classList.contains('lat-guide-dim')).toBe(true);
 	});
 });
+
+describe('guide-conductor — prose, bullets and rows bound by the narration builder', () => {
+	// The refs `bindingRefsFor` writes: ordinal ids over the slide's structure units. The focus they
+	// play recedes what the text path would (`focusUnit`), so a bound sentence and a matched one match.
+	function rig(html: string, cls = 'content') {
+		document.body.innerHTML = `<div class="lattice"><section class="${cls}">${html}</section></div>`;
+		const stage: GuideStage = { gesture: async () => {}, setCursorVisible: () => {} };
+		const g = createGuideConductor({ stage: () => stage, aim: () => null, cue: () => null, clearance: 19, section: () => document.querySelector('section') });
+		const play = (refs: SceneRef[], at: number, name = 'restrained') => {
+			const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle }>)[name].express;
+			g.beat({ slide: 0, cue: 0, texts: ['x'], track: refs, delivering: true, delivery: delivery({ name }), scene: { refs, at, style } });
+		};
+		const dim = (id: string) => document.getElementById(id)?.classList.contains('lat-guide-dim') ?? false;
+		return { g, play, dim };
+	}
+
+	const listRefs: SceneRef[] = [
+		{ start: 0, end: 9, act: 'frame', unit: 'heading', id: { i: 1 } },
+		{ start: 10, end: 23, act: 'visit', unit: 'item', id: { i: 1 } },
+		{ start: 24, end: 35, act: 'visit', unit: 'item', id: { i: 2 } },
+	];
+	const list = '<h2 id="h">Outlook.</h2><ul><li id="a">Revenue grew.</li><li id="b">Churn fell.</li></ul>';
+
+	it('a heading frames: nothing is focused', () => {
+		const { play, dim } = rig(list);
+		play(listRefs, 0);
+		expect(['h', 'a', 'b'].some(dim)).toBe(false);
+	});
+
+	it('a bullet is focused and its siblings recede; the headline never does', () => {
+		const { play, dim } = rig(list);
+		play(listRefs, 10);
+		expect(dim('a')).toBe(false);
+		expect(dim('b')).toBe(true);
+		expect(dim('h')).toBe(false);
+		play(listRefs, 24);
+		expect(dim('a')).toBe(true);
+		expect(dim('b')).toBe(false);
+	});
+
+	it('a slide no component claims plays as a statement', () => {
+		const { play, dim } = rig(list, '');
+		play(listRefs, 10);
+		expect(dim('b')).toBe(true);
+	});
+
+	it('a table row is focused as the text path focuses a row: its cells up, the other body cells down', () => {
+		const { play, dim } = rig('<table><thead><tr><th>Region</th><th>ARR</th></tr></thead><tbody><tr><td id="r1">EMEA</td><td id="v1">4</td></tr><tr><td id="r2">APAC</td><td id="v2">3</td></tr></tbody></table>');
+		play([{ start: 0, end: 10, act: 'visit', unit: 'row', id: { i: 2 } }], 0);
+		expect(dim('r2') || dim('v2')).toBe(false);
+		expect(dim('v1')).toBe(true);
+	});
+
+	it('a lone paragraph shows nothing: the narration is enough', () => {
+		const { play, dim } = rig('<p id="p">One thought, said once.</p>');
+		play([{ start: 0, end: 22, act: 'visit', unit: 'paragraph', id: { i: 1 } }], 0);
+		expect(dim('p')).toBe(false);
+		expect(document.querySelector('.lat-guide-undim')).toBeNull();
+	});
+
+	it('somber focuses only its key beat (the first bullet) and holds it', () => {
+		const { play, dim } = rig(list);
+		play(listRefs, 0, 'somber');
+		expect(dim('b')).toBe(false);
+		play(listRefs, 10, 'somber');
+		expect(dim('b')).toBe(true);
+		play(listRefs, 24, 'somber');
+		expect(dim('b')).toBe(true);
+		expect(dim('a')).toBe(false);
+	});
+});

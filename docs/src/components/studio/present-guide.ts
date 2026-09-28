@@ -3030,23 +3030,28 @@ export type SceneExpression = {
 	cursor: 'point' | 'rest' | 'keep' | 'hide';
 };
 
-/** The context a style reads: does the sentence name a unit, is it the key beat, is there a label. */
-export type SceneContext = { named: boolean; key: boolean; afterKey: boolean; labelled: boolean };
+/** The context a style reads: does the sentence name a unit, is it the key beat, is there a label,
+ *  and is the unit words (`text`: a heading, a paragraph, a bullet, a row, bound by ordinal). */
+export type SceneContext = { named: boolean; key: boolean; afterKey: boolean; labelled: boolean; text?: boolean };
 
 export type SceneStyle = (act: string, ctx: SceneContext) => SceneExpression;
 
 const mergedScenes = new Map<string, GuideScene | null>();
 
 /** The scene a slide's section plays: the first of its classes that names a component with a
- *  gesture, merged over its archetype once and kept. */
+ *  gesture, merged over its archetype once and kept. A slide no component claims (plain Markdown:
+ *  a heading, a paragraph, some bullets) is a `statement`, whose structure units still bind it. */
 export function sceneOf(section: Element | null): GuideScene | null {
 	if (!section) return null;
+	let name = '';
 	for (const c of section.classList) {
-		if (!Object.hasOwn(GUIDE_GESTURES, c)) continue;
-		if (!mergedScenes.has(c)) mergedScenes.set(c, mergeGesture(GUIDE_GESTURES[c], GUIDE_ARCHETYPES) as GuideScene | null);
-		return mergedScenes.get(c) ?? null;
+		if (Object.hasOwn(GUIDE_GESTURES, c)) {
+			name = c;
+			break;
+		}
 	}
-	return null;
+	if (!mergedScenes.has(name)) mergedScenes.set(name, mergeGesture(name ? GUIDE_GESTURES[name] : { archetype: 'statement' }, GUIDE_ARCHETYPES) as GuideScene | null);
+	return mergedScenes.get(name) ?? null;
 }
 
 /** The ref a cue starting at `at` falls in (the caption track's `charOffset`), or -1. */

@@ -653,6 +653,9 @@ export async function bakeNarration(
 		maxBytes?: number;
 		/** Per-slide emphasis spans, parallel to `projected`. Omit for uniform pacing. */
 		projectedEmphasis?: readonly (EmphasisSpans | undefined)[];
+		/** Per-slide bindings (`bindingRefsFor`), parallel to `projected`. Omit and a prose slide plays
+		 *  the Guide's text path. */
+		projectedRefs?: readonly (readonly unknown[] | undefined)[];
 	},
 ): Promise<NarrationBake> {
 	const { voice, audio, allowPartial, signal, onProgress } = opts;
@@ -669,10 +672,13 @@ export async function bakeNarration(
 	const refsOf = (i: number): { refs?: unknown[] } => {
 		try {
 			const script = narrateChartScript(slideMds[i] ?? '');
-			return script?.refs.length && script.text === texts[i] ? { refs: script.refs } : {};
+			if (script?.refs.length && script.text === texts[i]) return { refs: script.refs };
 		} catch {
-			return {};
+			// an unreadable chart falls to the projection's binding below
 		}
+		// The projection's binding (headings, paragraphs, items, rows), while its text is the text read.
+		const own = opts.projectedRefs?.[i];
+		return own?.length && texts[i] && texts[i] === projected?.[i] ? { refs: [...own] } : {};
 	};
 	const narrated = tracks
 		.slice(0, slideCount)

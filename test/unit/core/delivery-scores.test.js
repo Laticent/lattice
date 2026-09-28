@@ -71,6 +71,66 @@ for (const m of loadAll()) {
 	});
 }
 
+// THE ARCHETYPE SCORES (storyboards step 4, engineering/decisions/2026-09-27-guide-storyboards.md
+// §9): one golden per archetype, all three deliveries side by side, so the storyboard of every
+// structure is pinned, prose included. Each is played by the archetype's first component (by name)
+// whose gallery binds a slide: through its chart narrator when it has one, else through the
+// narration builder's bindings over the rendered slide (`bindingRefsFor`), which is what Present
+// and the export play on a prose, list or table slide.
+const { ARCHETYPE_NAMES } = require('../../../lib/core/gesture.js');
+const engine = require('../../../lib/engine');
+const { JSDOM } = require('jsdom');
+const parser = new new JSDOM('').window.DOMParser();
+
+function galleryOf(m) {
+	const buckets = path.join(ROOT, 'lib', 'components');
+	const file = fs.readdirSync(buckets).map((b) => path.join(buckets, b, m.name, `${m.name}.gallery.md`)).find((f) => fs.existsSync(f));
+	return file ? fs.readFileSync(file, 'utf8') : null;
+}
+
+async function firstProseBoundSlide(m) {
+	const { projectDeckToScript } = await import('../../../lib/transformers/prose-projection.mjs');
+	const src = galleryOf(m);
+	if (!src) return null;
+	const fm = src.match(/^---\n[\s\S]*?\n---\n/)[0];
+	for (const md of src.slice(fm.length).split(/\n---\n/)) {
+		if (!new RegExp(`_class:[^>]*\\b${m.name}\\b`).test(md)) continue;
+		const section = parser.parseFromString(engine.render(fm + md, 'indaco', { preview: true }).html, 'text/html').querySelector('section');
+		if (!section) continue;
+		const [script] = projectDeckToScript([section]);
+		// A slide worth pinning names at least two units beyond its heading.
+		if (script?.refs.filter((r) => r.unit !== 'heading').length >= 2) return script;
+	}
+	return null;
+}
+
+for (const archetype of ARCHETYPE_NAMES) {
+	test(`archetype ${archetype}: each delivery plays its storyboard as scored`, async () => {
+		const members = loadAll()
+			.filter((m) => m.gesture?.archetype === archetype)
+			.sort((a, b) => a.name.localeCompare(b.name));
+		let played = null;
+		for (const m of members) {
+			const script = firstBoundSlide(m) ?? (await firstProseBoundSlide(m));
+			if (script) {
+				played = { m, script };
+				break;
+			}
+		}
+		assert.ok(played, `archetype ${archetype}: no component's gallery binds a slide`);
+		const { m, script } = played;
+		const actual = { component: m.name, ...Object.fromEntries(DELIVERIES.map((d) => [d, score(script, gestureOf(m), d)])) };
+		const file = path.join(GOLDEN_DIR, 'archetypes', `${archetype}.json`);
+		if (bless) {
+			fs.mkdirSync(path.dirname(file), { recursive: true });
+			fs.writeFileSync(file, `${JSON.stringify(actual, null, '\t')}\n`);
+			return;
+		}
+		assert.ok(fs.existsSync(file), `archetype ${archetype}: no golden score — bless with UPDATE_DELIVERY_SCORES=1`);
+		assert.deepEqual(actual, JSON.parse(fs.readFileSync(file, 'utf8')), `archetype ${archetype}: the score changed — re-bless only if the change is intended`);
+	});
+}
+
 test('the deliveries are three characters, not three loudness levels', async () => {
 	// Measured on the line gallery slide: the act that tells them apart is a `visit`. Restrained
 	// focuses it and draws nothing; expressive focuses it and taps it with the cursor on; somber

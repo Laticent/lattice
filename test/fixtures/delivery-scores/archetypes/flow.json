@@ -1,0 +1,108 @@
+{
+	"component": "diagram",
+	"restrained": [
+		{
+			"said": "06 · User Journey.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 1,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Steps and the emotional state at each one.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Themeable — eight fillType0..7 variables for the section coloring.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 2,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "06 · User Journey.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 1,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Steps and the emotional state at each one.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Themeable — eight fillType0..7 variables for the section coloring.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 2,
+			"key": true,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "06 · User Journey.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 1,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Steps and the emotional state at each one.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *)",
+			"nth": 1,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Themeable — eight fillType0..7 variables for the section coloring.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 2,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

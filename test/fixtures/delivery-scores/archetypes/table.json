@@ -1,0 +1,174 @@
+{
+	"component": "glossary",
+	"restrained": [
+		{
+			"said": "Glossary C – S.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Component — Definition: A slide layout with a manifest, styles, and docs.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Variant — Definition: A named modifier that changes one layout decision.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Modifier — Definition: A universal class — dark, compact, accent — any layout accepts.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 3,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Stress test — Definition: The slide that shows a layout's upper limit.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 4,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Glossary C – S.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Component — Definition: A slide layout with a manifest, styles, and docs.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Variant — Definition: A named modifier that changes one layout decision.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Modifier — Definition: A universal class — dark, compact, accent — any layout accepts.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 3,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Stress test — Definition: The slide that shows a layout's upper limit.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 4,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Glossary C – S.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *)",
+			"nth": 1,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Component — Definition: A slide layout with a manifest, styles, and docs.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Variant — Definition: A named modifier that changes one layout decision.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 2,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Modifier — Definition: A universal class — dark, compact, accent — any layout accepts.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 3,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Stress test — Definition: The slide that shows a layout's upper limit.",
+			"act": "visit",
+			"unit": "row",
+			"select": null,
+			"nth": 4,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

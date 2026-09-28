@@ -1,0 +1,174 @@
+{
+	"component": "citation-card",
+	"restrained": [
+		{
+			"said": "The card quotes the law verbatim, cited.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Cal. Civ. Code §1798.140(o) · CCPA/CPRA.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "\"Personal information\" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li)",
+			"nth": 1,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "What we must do: Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The card quotes the law verbatim, cited.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Cal. Civ. Code §1798.140(o) · CCPA/CPRA.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "\"Personal information\" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li)",
+			"nth": 1,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "What we must do: Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "The card quotes the law verbatim, cited.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *)",
+			"nth": 1,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Cal. Civ. Code §1798.140(o) · CCPA/CPRA.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "\"Personal information\" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *)",
+			"nth": 2,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li)",
+			"nth": 1,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "What we must do: Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li)",
+			"nth": 2,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}
