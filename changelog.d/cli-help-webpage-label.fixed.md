@@ -1,0 +1,1 @@
+- `lattice video --help` names the Studio's export menu as **Share → Webpage**, the label the Studio shows, instead of "Share -> HTML".
