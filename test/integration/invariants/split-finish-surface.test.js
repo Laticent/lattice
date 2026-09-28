@@ -51,10 +51,17 @@ const SLIDES = [
 ];
 const LEGACY = SLIDES.length + 1;
 const OPTED_OUT = SLIDES.length + 2;
+const LEGACY_MASKED = SLIDES.length + 3;
+const CLEARED = SLIDES.length + 4;
 
 // A finish written the way one was before surfaces existed: a section-only rule, no
 // `--fin-surface-layers`. Stamped per slide as `finish-legacy`.
 const LEGACY_CSS = 'section.finish-legacy { --fin-texture: radial-gradient(color-mix(in srgb, var(--field-accent) 15%, transparent) 0 1px, transparent 2px); --fin-wash: none; --fin-texture-opaque: radial-gradient(color-mix(in srgb, var(--field-accent) 13%, var(--fin-canvas)) 0 1px, transparent 2px); --fin-wash-opaque: linear-gradient(var(--fin-canvas), var(--fin-canvas)); --fin-size: 20px 20px, auto; }';
+
+// The same, with a BAKED spotlight and clearance, the shape a Fabricate finish had before surfaces.
+// Its masks are declared on the section, mixed for the light canvas; a panel that inherited them
+// painted itself white in the PDF, under its white text (found by the #2457 checker).
+const LEGACY_MASKED_CSS = 'section.finish-legacymask { --fin-texture: none; --fin-wash: none; --fin-texture-opaque: none; --fin-wash-opaque: none; --fin-backdrop-mask: radial-gradient(ellipse 30% 30% at 50% 50%, transparent 42%, var(--fin-canvas, var(--bg)) 96%); --fin-backdrop-mask-opaque: radial-gradient(ellipse 30% 30% at 50% 50%, transparent 70%, var(--fin-canvas, var(--bg)) 70%); --fin-backdrop-clear-scrim: var(--backdrop-clear-fill); --fin-backdrop-veil-weight: 1; }';
 
 const DECK = `---
 marp: true
@@ -62,11 +69,13 @@ theme: indaco
 finish: strata
 ---
 
-<style>${LEGACY_CSS}</style>
+<style>${LEGACY_CSS} ${LEGACY_MASKED_CSS}</style>
 
 ${[...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} -->\n\n${body}`),
   `<!-- _class: split-panel finish-legacy -->\n\n${BODY}`,
-  `<!-- _class: split-panel finish-none -->\n\n${BODY}`].join('\n\n---\n\n')}
+  `<!-- _class: split-panel finish-none -->\n\n${BODY}`,
+  `<!-- _class: split-panel finish-legacymask -->\n\n${BODY}`,
+  `<!-- _class: split-panel backdrop-clear -->\n\n${BODY}`].join('\n\n---\n\n')}
 `;
 
 describe('split finish surface (real render)', () => {
@@ -135,6 +144,31 @@ describe('split finish surface (real render)', () => {
     const m = await read(LEGACY, '.panel-left', '.panel-right');
     assert.ok(m.cls.includes('finish-legacy'), m.cls);
     assert.doesNotMatch(m.featureImage, /radial-gradient/, `the panel painted the legacy finish's layers mixed for the wrong canvas: ${m.featureImage.slice(0, 160)}`);
+  });
+
+  test('an older finish with a baked spotlight and clearance leaves the dark panel dark in print', async () => {
+    await page.emulateMediaType('print');
+    const { PNG } = require('pngjs');
+    const el = await page.$(`section[data-lattice-slide="${LEGACY_MASKED}"] > .panel-left`);
+    const png = PNG.sync.read(Buffer.from(await el.screenshot()));
+    let sum = 0;
+    for (let i = 0; i < png.data.length; i += 4) sum += (0.2126 * png.data[i] + 0.7152 * png.data[i + 1] + 0.0722 * png.data[i + 2]) / 255;
+    const mean = sum / (png.data.length / 4);
+    await page.emulateMediaType('screen');
+    // The panel is `--surface-inverse` with light text on it: mostly dark. A panel painted with
+    // the section's light-canvas mask reads above 0.8.
+    assert.ok(mean < 0.35, `the dark panel prints light (mean luminance ${mean.toFixed(2)}): a section-mixed mask reached it`);
+  });
+
+  test('clear behind content clears the supporting side and leaves the panel its finish', async () => {
+    const m = await read(CLEARED, '.panel-left', '.panel-right');
+    assert.ok(m.cls.includes('backdrop-clear'), m.cls);
+    assert.match(m.featureImage, /radial-gradient/, `the panel lost its finish under clear: ${m.featureImage.slice(0, 160)}`);
+    const clearLayer = await page.evaluate((n) => {
+      const mask = document.querySelector(`section[data-lattice-slide="${n}"] > .backdrop > .backdrop-mask`);
+      return getComputedStyle(mask, '::before').backgroundImage;
+    }, CLEARED);
+    assert.notEqual(clearLayer, 'none', 'the slide-level clear layer is off, so the supporting side is not cleared');
   });
 
   test('finish-none keeps both panels opaque and paints nothing', async () => {

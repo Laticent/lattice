@@ -251,7 +251,7 @@
     },
     {
       "mistake": "Expecting a deck's `finish:` to skip the split-panel's dark panel, or to stop at it.",
-      "fix": "It covers the whole slide, as on any other: the supporting side has no background, so the slide's finish shows through it, and the feature panel keeps its field (dark, accent or category color) with its own copy of the finish mixed for that field, in screen and PDF alike. On `metric` the dark field is the right-hand panel, so that is the one with its own copy. The finish's corner mark is left off split slides, which have no frame margin for it. A finish written before this (a deck's own `<style>`) shows on the supporting side and leaves the panel plain. `finish-none` on the slide keeps both sides plain."
+      "fix": "It covers the whole slide, as on any other: the supporting side has no background, so the slide's finish shows through it, and the feature panel keeps its field (dark, accent or category color) with its own copy of the finish mixed for that field, in screen and PDF alike. On `metric` the dark field is the right-hand panel, so that is the one with its own copy. The finish's corner mark is left off split slides, which have no frame margin for it. A finish written before this (a deck's own `<style>`) shows on the supporting side and leaves the panel plain. `finish-none` on the slide keeps both sides plain. Under `backdrop: clear` the supporting side is cleared and the panel keeps its finish."
     }
   ],
   "stressDoc": {

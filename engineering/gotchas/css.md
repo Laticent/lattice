@@ -885,5 +885,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   that goes unnoticed (the rich face mixes toward `transparent`). In the PDF it does not: the
   opaque face ends on solid canvas, so the dark panel prints light. The fix is to re-declare
   the finish on the panel. A finish whose CSS predates that (a deck's own `<style>`) emits no
-  `--fin-surface-layers`, so its panel keeps the plain field.
+  `--fin-surface-layers`, so its panel keeps the plain field. Its baked MASK is the sharper half
+  of the same trap: a spotlight or clearance declared on the section is mixed for the light
+  canvas, and a panel that inherited it printed white under its white text. base.finish.css
+  resets the baked mask on the panels at zero-class specificity, which a current generator's
+  surface rule outranks.
   `test/integration/invariants/split-finish-surface.test.js` reads the panel's print wash.

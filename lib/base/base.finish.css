@@ -1097,28 +1097,39 @@ section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-l
  *      background cannot take group opacity, and the veil is the same pixel math.
  *   2. The finish's BAKED mask (a Fabricate spotlight), re-mixed for the panel by the generator.
  *      The register's `open` blanks it through `--backdrop-scrim: none`.
- *   3. A BAKED clearance, which fills the whole panel: the frame's content box of a split slide
- *      is the whole slide (2026-09-26-backdrop-register.md §Zero-padding layouts).
- *   4. The texture and wash — `--fin-surface-layers`, which only a current generator emits. A
+ *   3. The texture and wash — `--fin-surface-layers`, which only a current generator emits. A
  *      finish written before surfaces existed leaves it undefined, and the panel keeps its field.
  * The mark and edge are slide-level (the `.backdrop` pseudos) and stay there, once per slide.
- * A register `clear` or spotlight is a slide-level shape, so it leaves the panel on its plain
- * field, the same as it leaves the rest of a split slide. */
+ *
+ * CLEAR BEHIND CONTENT clears the supporting side only (owner, #2457): a split slide's content box
+ * is the whole slide, so the slide's clear layer empties everything the panel does not cover, and
+ * the panel keeps its finish. So no clearance layer is painted here. A register SPOTLIGHT is a
+ * window placed on the slide, so it leaves the panel on its plain field.
+ *
+ * THE BAKED MASK IS RESET ON THE PANEL at zero-class specificity. A finish written before surfaces
+ * existed declares its mask only on the section, already mixed for the light canvas; a panel that
+ * inherited it painted itself white in the PDF with its white text on it (found by the #2457
+ * checker). The generator's own surface rule (0,2,1 or more) outranks this reset, so a current
+ * finish re-declares its mask mixed for the panel. */
+:where(section.finish) :is(.panel-left, .panel-right, .compare-left) {
+  --fin-backdrop-mask: none;
+  --fin-backdrop-mask-opaque: none;
+}
 section.finish :is(.panel-left, .panel-right, .compare-left) {
-  --backdrop-clear-fill: linear-gradient(var(--fin-canvas), var(--fin-canvas));
   --fin-surface-image:
     linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1)) * 100%), transparent) 0 0),
     var(--backdrop-scrim, var(--fin-backdrop-mask, none)),
-    var(--backdrop-clear-scrim, var(--fin-backdrop-clear-scrim, none)),
     var(--fin-surface-layers, none);
-  --fin-surface-size: 100% 100%, 100% 100%, 100% 100%, var(--fin-size, auto);
-  --fin-surface-position: top left, top left, top left, var(--fin-position, top left);
-  --fin-surface-repeat: no-repeat, no-repeat, no-repeat, var(--fin-repeat, repeat);
+  --fin-surface-size: 100% 100%, 100% 100%, var(--fin-size, auto);
+  --fin-surface-position: top left, top left, var(--fin-position, top left);
+  --fin-surface-repeat: no-repeat, no-repeat, var(--fin-repeat, repeat);
 }
-section:is(.backdrop-clear, .backdrop-spot-tl, .backdrop-spot-t, .backdrop-spot-tr, .backdrop-spot-l,
+section:is(.backdrop-spot-tl, .backdrop-spot-t, .backdrop-spot-tr, .backdrop-spot-l,
   .backdrop-spot-c, .backdrop-spot-r, .backdrop-spot-bl, .backdrop-spot-b, .backdrop-spot-br).finish :is(.panel-left, .panel-right, .compare-left) {
   --fin-surface-image: none;
 }
+/* `clear` sets `--backdrop-scrim: none` on the section already; the panel's layer 2 reads that
+ * and draws no shape, so under `clear` the panel keeps its whole finish. */
 
 /* ── PRINT MODE carries no finish ─────────────────────────────────────
  * `color-mode: print` is the black-and-white handout, and a finish on paper is ink with

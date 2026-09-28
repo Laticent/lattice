@@ -40,7 +40,8 @@ const screenBlock = (css: string): string => css.slice(0, css.indexOf('@media pr
 
 // Pull the `section.finish-<name> { … }` declaration block out of base.finish.css.
 function presetBlock(name: string): string {
-	const re = new RegExp(`section\\.finish-${name}\\s*\\{([\\s\\S]*?)\\n\\}`);
+	// The head names the section and then its finish surfaces (finish-generate.js `FINISH_SURFACES`).
+	const re = new RegExp(`section\\.finish-${name}(?:,\\s*section\\.finish-${name} :is\\([^)]*\\))?\\s*\\{([\\s\\S]*?)\\n\\}`);
 	const m = re.exec(baseFinishCss);
 	if (!m) throw new Error(`no section.finish-${name} block in base.finish.css`);
 	return m[1];
