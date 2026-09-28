@@ -1,2 +1,3 @@
 - A highlight.js upgrade that adds a language named like a fence a shipped plugin already claims (`math`, `functionplot`, `anima`) no longer fails the build: the plugin keeps its fence and `npm run build` warns. A new plugin claiming a taken name still fails.
 - A formula KaTeX cannot parse now shows on its error surface (mono, on a `var(--warn)` tint) in the `--player` Read · Article and the Studio's Read pane too, not only on a slide; there it used to show as plain body text.
+- An `--html` or `--fluid` export now draws its function plots on any machine: the CLI inlines the plotting library into the page instead of linking it by a `file://` path on the exporting machine, where a copy opened elsewhere showed each plot's JSON config. PDF, PNG and PPTX output is unchanged.

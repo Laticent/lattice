@@ -63,7 +63,11 @@ describe('engine-script-marker census', () => {
     // Opening tags only: `</script>` closes one, and a `<script` inside a template that the
     // file writes out is what this census is about.
     const opens = [...markup.matchAll(/<script\b([^>]*)>/gi)];
-    assert.ok(opens.length >= 2, `expected the emitter set to be non-trivial, found ${opens.length}`);
+    // Most emitters open through the one `ENGINE_SCRIPT_OPEN` constant (the literal tag is its
+    // definition), so its uses count toward the floor too: the floor only guards against a
+    // census that silently matches nothing.
+    const viaConstant = [...markup.matchAll(/\bENGINE_SCRIPT_OPEN\b(?!\s*=)/g)].length;
+    assert.ok(opens.length + viaConstant >= 2, `expected the emitter set to be non-trivial, found ${opens.length} tags and ${viaConstant} uses of ENGINE_SCRIPT_OPEN`);
     // The source is JavaScript, so a marked tag reads either as the literal attribute or as
     // the `${ENGINE_SCRIPT_ATTR}` placeholder the template interpolates. Both count; a tag
     // with neither is unmarked in the document that ships.

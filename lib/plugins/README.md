@@ -115,7 +115,8 @@ on both surfaces over its own fixtures. A library global must be a function (`ct
 | `ctx.token(el, name)` | a token's computed value on that element |
 
 `host-browser.mjs` does the rest: it loads the library (`payload`, fetched beside the runtime by
-its file name; injected by the CLI), times out a hydrate past `budgetMs` (default 4000), and keeps
+its file name; inlined into the page by the CLI, so an `--html` or `--fluid` export draws on a
+machine that is not the exporter's), times out a hydrate past `budgetMs` (default 4000), and keeps
 the state in markup, where any capture can read it:
 
 | `data-lattice-settle` | Meaning |

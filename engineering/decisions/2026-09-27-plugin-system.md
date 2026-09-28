@@ -802,6 +802,11 @@ code. What changed because of them:
   The math plugin's `.katex-error` rule is no longer scoped to `section`, so the player's Read ·
   Article, which re-hosts slide content outside any section, shows a failed formula on the same
   error surface a slide does.
+  And the CLI page now INLINES a used plugin's library (`payloadScript` in `hydrate-script.js`)
+  instead of linking it by `file://` path: the PDF was always right, but an `--html` or `--fluid`
+  export opened anywhere else showed each plot's config. The PDFs of the phase-B demo deck are
+  byte-identical across the change, light and dark; `moved-export-draws-plots.test.js` loads a
+  copied export with every request outside its directory refused.
 
 - **Phase C (partial): the scaffold, the draft spec, and the harness's two known limits.**
   `lattice packages new plugin <name>` (`lib/packages/new-plugin.js`) writes a package that builds
