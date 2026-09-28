@@ -1918,3 +1918,19 @@ test('coda: a panes slide prints its key insight once, after the panes', () => {
 	assert.equal(articleHtml.split('The pane insight.').length - 1, 1, articleHtml);
 	assert.ok(articleHtml.indexOf('beta item') < articleHtml.indexOf('The pane insight.'), 'the insight follows the panes');
 });
+
+// A chart's later lead paragraphs (`.chart-lead`, followups.d 2376-p2) reach the article ahead of
+// the figure, on a media chart (the prose walk) and on a flow chart (re-hosted body alone).
+for (const [name, md] of [
+	['bar (media)', '<!-- _class: bar -->\n\n## Mix\n\nFirst line.\n\nSecond line.\n\n- Licenses `42`\n- Services `47`\n'],
+	['progress (flow)', '<!-- _class: progress -->\n\n## Readiness\n\nFirst line.\n\nSecond line.\n\n- Intake `92%` `on-track`\n- Scoring `68%` `at-risk`\n'],
+	['word-cloud (spatial)', '<!-- _class: word-cloud -->\n\n## Themes\n\nFirst line.\n\nSecond line.\n\n- Pricing `9`\n- Support `6`\n- Speed `4`\n'],
+	['journey (placeholder)', '<!-- _class: journey -->\n\n## Onboarding\n\nFirst line.\n\nSecond line.\n\n- Evaluate\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n'],
+]) {
+	test(`chart lead: ${name} projects its second paragraph once, before the figure`, async () => {
+		const { articleHtml } = project(await renderedSections(md));
+		assert.equal(articleHtml.split('Second line.').length - 1, 1, articleHtml);
+		const fig = articleHtml.indexOf('<figure');
+		assert.ok(fig < 0 || articleHtml.indexOf('Second line.') < fig, articleHtml);
+	});
+}

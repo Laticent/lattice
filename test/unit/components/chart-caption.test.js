@@ -87,3 +87,61 @@ describe('chart caption — the CSS keeps it one inline formatting context', () 
     assert.doesNotMatch(accent, /\.chart-caption\s*[,{][^}]*display:\s*flex/);
   });
 });
+
+// A chart's wrap lifted the FIRST paragraph between the heading and the figure as its subtitle
+// and dropped every later one, with no warning, on a chart slide and in a chart pane alike
+// (followups.d 2376-p2). Each later paragraph renders now, in order, as a `.chart-lead` above
+// the figure.
+describe('chart lead — every paragraph before the figure renders', () => {
+  const bars = '- Licenses `42`\n- Services `47`\n- Support `18`\n';
+  const docOf = (md) => new JSDOM(render(`---\ntheme: indaco\n---\n\n${md}`).html).window.document;
+
+  test('on a chart slide: the first is the subtitle, the rest are leads, in order', () => {
+    const doc = docOf(`<!-- _class: bar -->\n\n## Mix\n\nFirst line.\n\nSecond, with \`code\` in it.\n\nThird.\n\n${bars}`);
+    assert.equal(doc.querySelector('.chart-subtitle').textContent, 'First line.');
+    const leads = [...doc.querySelectorAll('.chart-lead')];
+    assert.deepEqual(leads.map((p) => p.textContent), ['Second, with code in it.', 'Third.']);
+    assert.equal(leads[0].hasAttribute('data-prose'), true, 'a lead keeps the prose mark');
+    // Above the figure, not after it.
+    const body = doc.querySelector('.chart-body');
+    for (const p of leads) assert.ok(p.compareDocumentPosition(body) & 4, 'lead precedes the chart body');
+  });
+
+  test('in a chart pane: the same, with no heading of its own', () => {
+    const doc = docOf(`## Mix\n\n<!-- pane: bar -->\n\nFirst line.\n\nSecond line.\n\n${bars}\n<!-- pane: list -->\n\n- x\n`);
+    assert.equal(doc.querySelector('lat-pane .chart-subtitle').textContent, 'First line.');
+    assert.deepEqual([...doc.querySelectorAll('lat-pane .chart-lead')].map((p) => p.textContent), ['Second line.']);
+  });
+
+  test('one paragraph is still a subtitle alone, and no leads', () => {
+    const doc = docOf(`<!-- _class: bar -->\n\n## Mix\n\nOnly line.\n\n${bars}`);
+    assert.equal(doc.querySelectorAll('.chart-lead').length, 0);
+    assert.equal(doc.querySelector('.chart-subtitle').textContent, 'Only line.');
+  });
+
+  test('only TOP-LEVEL paragraphs lift: a code block and a blockquote are not torn open', () => {
+    // A bare `<p[^>]*>` also matches `<pre>`; this lifted half a code block into a lead.
+    const pre = docOf(`<!-- _class: bar -->\n\n## Mix\n\nFirst.\n\n\`\`\`js\nx = 1\n\`\`\`\n\nSecond.\n\n${bars}`);
+    assert.deepEqual([...pre.querySelectorAll('.chart-lead')].map((p) => p.textContent), ['Second.']);
+    assert.equal(pre.querySelector('.chart-lead code'), null);
+    // A paragraph inside a blockquote belongs to it; it is not pulled out as a bare lead.
+    const quote = docOf(`<!-- _class: bar -->\n\n## Mix\n\nFirst.\n\n> Quoted one.\n>\n> Quoted two.\n\nSecond.\n\n${bars}`);
+    assert.deepEqual([...quote.querySelectorAll('.chart-lead')].map((p) => p.textContent), ['Second.']);
+  });
+
+  test('a split chart carries its leads on the cover, never on every body page', () => {
+    const { carouselize } = require('../../../lib/core/carousel');
+    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: kanban -->\n\n## Board\n\nFirst line.\n\nSecond LEADX line.\n\n'
+      + '- Backlog\n  - Waiting cards `S`\n- In progress\n  - The active limit `M`\n- Review\n  - Almost done `S`\n';
+    const m = render(md).html.match(/(<section[^>]*>)([\s\S]*?)<\/section>/);
+    const pages = carouselize(m[1], m[2], { strategy: 'kanban-lanes' }, 2, 'kanban');
+    assert.ok(pages && pages.length > 2, 'the board splits');
+    const counts = pages.map((p) => String(p).split('LEADX').length - 1);
+    assert.deepEqual(counts, [1, ...pages.slice(1).map(() => 0)], `per page: ${counts}`);
+  });
+
+  test('a lead is hidden at claim-hero with the subtitle, as the chart fills the slide', () => {
+    assert.match(read('lib/components/chart/_chart-family/chart-family.css'),
+      /:is\(\.claim-hero, \.claim-bleed\) \.chart-subtitle,\s*section\.chart-frame:is\(\.claim-hero, \.claim-bleed\) \.chart-lead \{\s*display: none;/);
+  });
+});

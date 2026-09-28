@@ -43,6 +43,7 @@ Every chart component renders into the same outer DOM shape:
     <h2>Title.</h2>
     <p class="chart-subtitle"><code>…</code></p>
   </div>
+  <p class="chart-lead">…</p>          <!-- every later paragraph before the figure -->
   <div class="chart-body">
     <!-- layout-specific markup goes here -->
   </div>
@@ -56,6 +57,17 @@ The dispatcher does three things:
    `.chart-body` / `.chart-caption`.
 3. Rewrites the inner list (`<ul>` or `<ol>`) into layout-specific
    markup by calling the kernel for that layout.
+
+Every paragraph between the heading and the figure renders. The first is the
+subtitle, which the masthead lifts beside the heading; each later one is a
+`.chart-lead`, in order, above the figure (and in the Read · Article view, ahead
+of it). The wrap used to keep the first alone and drop the rest without a word,
+on a chart slide and in a chart pane alike. At `claim-hero` / `claim-bleed` the
+leads hide with the eyebrow and subtitle, because the chart fills the slide. On a
+split chart (a portrait `kanban`, `roadmap` or `journey` run) the leads ride the
+cover, not every page. Only top-level paragraphs count: a code block, a
+blockquote or raw HTML between the heading and the figure is still not kept.
+Demo: `examples/chart-lead-paragraphs.md`.
 
 The caption is one paragraph. `.chart-caption` is a block, so inline code,
 bold and plain text in it wrap as one sentence; its short hairline is a

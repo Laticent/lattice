@@ -702,6 +702,9 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    elements. Found on the way and left as it was (a visible change, owed its own deck): a chart's
    wrap keeps only the FIRST paragraph before the figure, as its subtitle, and drops any second
    one — on a slide and in a pane alike (`2376-p2-size-chart-viewbox-to-the-pane.md`).
+   **Closed (the panes-radar PR):** every later paragraph renders above the figure as a
+   `.chart-lead`, and the Read · Article view carries it. No committed deck had a second lead
+   paragraph, so all 378 render byte-identical; `examples/chart-lead-paragraphs.md` shows it.
 8. **The Studio's slide index and a split panes slide** — **closed** (the pane-follow-ups PR). The
    Studio still counts source chunks (`docs/src/components/studio/lint.ts` `splitSlides`), and
    those chunks are still never cut: they feed write-back (`deck-ops.ts`, `motion-sheet.ts`), so a

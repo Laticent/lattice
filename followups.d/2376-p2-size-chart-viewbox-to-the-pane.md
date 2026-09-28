@@ -28,10 +28,10 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
             - CLOSED (panes-radar PR): radar lays out for its pane, scored by its rim labels
               (`fitKeyToPane` `labelText` + `ceiling`). examples/panes-radar.md.
             - The HTML-drawn charts reflow in the pane box but were not audited at 25%.
-            - A chart's wrap (chart-family.js `transformChartSection`) keeps only the FIRST
-              paragraph before the figure, lifted as its subtitle, and silently drops a second
-              one, on a chart slide and in a chart pane alike (found by the P9 checker, 368
-              renders; the pane-follow-ups PR kept the behavior to stay render-identical).
+            - CLOSED (panes-radar PR): the chart wrap keeps every lead paragraph (`.chart-lead`),
+              on a slide and in a pane. examples/chart-lead-paragraphs.md. Still dropped without
+              a word: any OTHER block between the heading and the figure (a code block, a
+              blockquote, a table, raw HTML) — the wrap keeps top-level paragraphs only.
             - The chart pane budgets stay `basis: editorial`: `tools/calibrate-capacity.js --pane`
               does not measure a chart's pane ceiling yet.
             MEASURED 2026-09-27 (panes-continuation PR, left for its own PR):
@@ -48,16 +48,13 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               diagram-narration #5 7.1px, typed-diagram-narration #4 6.9px). Each would gain the
               export's "Text too small" tag, so the change alters exported PDFs: an owner sign-off
               (QUALITY BAR export rule), and those decks' committed PDFs rebuild with it.
-            - Lead paragraphs: `liftChartSubtitle` takes the first `<p>` (chart-family.js:192-195)
-              and the splice at :297 keeps only comments, so a second `<p>` is dropped. A visible
-              change: owes a deck (#9).
             - Calibration: `BUILDERS` (tools/lib/calibrate-core.js:61) has no SVG chart, and the
               signal is the OVERFLOW line alone (:227-233); a viewBox chart shrinks instead of
               overflowing, so it needs a legibility signal as well as builders.
 where     — lib/integrations/mermaid/ (the render width, and a way to size foreignObject labels
             for the probe), the radar kernel, the HTML chart kernels, chart-family.js,
             tools/calibrate-capacity.js --pane.
-done when — a Mermaid pane's labels read at least the type floor and the probe can say so; the chart wrap keeps every lead paragraph; and the calibration
+done when — a Mermaid pane's labels read at least the type floor and the probe can say so; and the calibration
             measures each chart's pane ceiling, so its budget turns `measured`.
 evidence  — decision note §2 ("Charts draw for the pane") and §6 gap 2; the label-height table
             in PR #2420.
