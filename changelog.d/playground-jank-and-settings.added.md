@@ -28,3 +28,16 @@
   control now sits under its label at full width, so values like "HD · 1280×720 (16:9,
   default)" no longer cut off. The trigger reads "Deck settings" (it read "Deck
   Setting").
+- **Changed: the Playground preview renders only the slides you can see.** The rest of
+  the deck waits as empty, correctly sized placeholders and fills in as you scroll, and a
+  fast fling skips the slides it passes. On a 522-slide deck the first slide shows in 3.4s
+  instead of 8.5s, and the preview frame holds 722 nodes instead of 25,494. On the
+  58-slide Jargon gallery it shows in 2.1s instead of 3.8s.
+- **Changed: a first visit to the Playground shows a real slide sooner.** The site now
+  builds the preview a first-time visitor opens on, and the page loads it before the rest
+  of the Playground has downloaded. The app then takes it over as it is, with no reload.
+  Over a fast connection the first slide shows in 0.6s instead of 1.4s. The page skips
+  this on a connection your browser marks as slow or data-saving.
+- **Fixed: the Playground preview downloads only the fonts its slides use.** It used to
+  fetch every typeface the engine knows, including the hand-drawn ones, on every visit.
+  Exported decks still load every face, as before.
