@@ -643,6 +643,18 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    viewBox chart shrinks instead of clipping. bar, piechart, scatter, line, heatmap, map and radar
    are `measured` (scatter's hard fell 12 -> 8 side, 10 stacked); five charts trip no signal to 24
    elements, one of them visibly overprinting (`2376-p2-probe-labels-over-marks.md`).
+   **Mermaid labels measured (the panes-probe-calibration PR):** `probeFigureLegibility` sizes
+   Mermaid's `<foreignObject>` labels by their real on-page scale instead of counting them as
+   unmeasured. `examples/panes-mermaid.md`'s panes stay quiet (11.6–14.2px against 7.2px); four
+   non-pane example slides are newly tagged, and default exports stay byte-identical.
+   **Overprint probe, and every chart budget measured (the panes-probe-calibration PR):** the export
+   reports a chart label printed across a data mark or another label (`⚠ CHART LABELS OVERPRINT`,
+   `probeLabelOverprint`), judged on each label's measured ink, and the calibration fails a step on
+   it. With it, and builders for the HTML-drawn and grouped charts, every chart pane budget is
+   measured except stacked-bar, which truncates its names instead (`2376-p2-probe-labels-over-
+   marks.md`). The measured ceilings lowered six budgets; the steepest are a stacked waterfall
+   (8 -> 2) and a word cloud (20 -> 6 side, 8 stacked). The chart wrap also keeps every block
+   before the figure now, not only paragraphs (`div.chart-lead-block`).
 3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
    panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
    front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the

@@ -236,14 +236,14 @@ function measure(comp, family, wordsPer, share) {
           + `<!-- pane: ${comp} -->\n\n${body(n)}\n\n<!-- pane: content -->\n\nOne short line.\n` }
       : { label: `${n} element${n === 1 ? '' : 's'}`, body: body(n) + callout }),
   });
-  const { overflowed, underFloor, labelsDropped } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}`);
+  const { overflowed, underFloor, labelsDropped, overprint } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}`);
   let lastFit = null;
   let firstOver = null;
   let signal = null;
-  // A step fails when it CLIPS, or when it stops being LEGIBLE: text under the type floor, or a
-  // label the chart declined to paint. A viewBox chart only ever fails the second way.
+  // A step fails when it CLIPS, or when it stops being LEGIBLE: text under the type floor, a
+  // label the chart declined to paint, or a label printed across a mark (CHART LABELS OVERPRINT). A viewBox chart only ever fails the second way.
   const why = (page) => [overflowed.has(page) && 'overflow', underFloor.has(page) && 'type floor',
-    labelsDropped.has(page) && 'labels dropped'].filter(Boolean).join(' + ');
+    labelsDropped.has(page) && 'labels dropped', overprint.has(page) && 'labels overprint'].filter(Boolean).join(' + ');
   for (let i = 0; i < counts.length; i++) {
     const over = why(i + 1);   // page N = step i (front matter emits no slide)
     if (over && firstOver == null) { firstOver = counts[i]; signal = over; }

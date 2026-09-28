@@ -22,7 +22,7 @@ test('prose that names the OVERFLOW line is not read as it', () => {
 });
 
 test('a deck that fits reports nothing', () => {
-  assert.deepEqual(parseProbeLog('  ✓ rendered 8 pages'), { clipped: [], underFloor: [], labelsDropped: [] });
+  assert.deepEqual(parseProbeLog('  ✓ rendered 8 pages'), { clipped: [], underFloor: [], labelsDropped: [], overprint: [] });
 });
 
 // A viewBox chart never clips as it fills: it shrinks until its text is under the floor, or its
@@ -34,7 +34,19 @@ test('reads the pages on the TYPE FLOOR and CHART LABELS DROPPED lines', () => {
     '  ⚠ CHART LABELS DROPPED — 3 names are not painted on 1 chart: page 9 (bar).',
     '  ⚠ OVERFLOW — 1 slide exceeds the frame and is CLIPPED in this export: page 11.',
   ].join('\n');
-  assert.deepEqual(parseProbeLog(log), { clipped: [11], underFloor: [3, 6], labelsDropped: [9] });
+  assert.deepEqual(parseProbeLog(log), { clipped: [11], underFloor: [3, 6], labelsDropped: [9], overprint: [] });
+});
+
+// A label printed straight across another row's bar trips none of the three lines above: it is
+// painted, legible and in the box. CHART LABELS OVERPRINT is the fourth (2376-p2-probe-labels-over-marks).
+test('reads the pages on the CHART LABELS OVERPRINT line, not its advice', () => {
+  const log = [
+    '  ⚠ CHART LABELS OVERPRINT — 101 labels print across a mark on 2 slides: page 2 (39), page 3 (62).',
+    '    page 2: first "Revenue page 9".',
+    '    A label crosses the edge of a bar, band or point it does not sit inside — usually a row',
+    '    squeezed until its name prints over its neighbor. See page 7 of the gallery.',
+  ].join('\n');
+  assert.deepEqual(parseProbeLog(log).overprint, [2, 3]);
 });
 
 test('the explanatory lines under TYPE FLOOR are not read as pages', () => {
@@ -44,10 +56,21 @@ test('the explanatory lines under TYPE FLOOR are not read as pages', () => {
 
 test('every chart builder names distinct elements, so a keyed kernel cannot merge them', () => {
   const { BUILDERS } = require('../../../tools/lib/calibrate-core.js');
-  for (const c of ['bar', 'bullet', 'funnel', 'piechart', 'scatter', 'waterfall', 'line', 'stacked-bar', 'slope', 'radar', 'heatmap', 'map']) {
-    const heads = Array.from({ length: 16 }, (_, i) => BUILDERS[c](6, i).split('\n')[0].replace(/`[^`]*`/g, '').trim());
+  for (const c of ['bar', 'bullet', 'funnel', 'piechart', 'scatter', 'waterfall', 'line', 'stacked-bar', 'slope', 'radar', 'heatmap', 'map',
+    'gantt', 'journey', 'matrix-grid', 'progress', 'quadrant', 'state-chart', 'word-cloud']) {
+    const heads = Array.from({ length: 16 }, (_, i) => BUILDERS[c](6, i).split('\n')[0].replace(/`[^`]*`/g, '').replace(/^\d+\.\s*/, '').trim());
     assert.equal(new Set(heads).size, 16, `${c}: ${heads.join(' / ')}`);
   }
+});
+
+test('quadrant: the body wrap deals points into four named groups, every point kept once', () => {
+  const { BUILDERS, BODY_WRAP } = require('../../../tools/lib/calibrate-core.js');
+  const pts = Array.from({ length: 6 }, (_, i) => BUILDERS.quadrant(3, i));
+  const out = BODY_WRAP.quadrant(pts.join('\n')).split('\n');
+  assert.deepEqual(out.filter((l) => l.startsWith('- ')), ['- Quick Wins', '- Strategic Bets', '- Defer', '- Time Sinks']);
+  assert.deepEqual(out.filter((l) => l.startsWith('  - ')).map((l) => l.trim()).sort(), pts.slice().sort());
+  // Fewer points than groups: an empty group is not written (a group with no point is a name alone).
+  assert.equal(BODY_WRAP.quadrant(pts.slice(0, 2).join('\n')).split('\n').filter((l) => l.startsWith('- ')).length, 2);
 });
 
 test('a --scale rung is measured at its VENUE, lift included, not at a bare scale-* class', () => {

@@ -467,6 +467,16 @@ stays small either way; a pane's diagram also still scales into its box, so its 
 smaller than on a full slide (`followups.d/2376-p2-size-chart-viewbox-to-the-pane.md`). Demo:
 `examples/panes-mermaid.md`.
 
+**The type-floor probe reads Mermaid's labels.** Mermaid draws its labels as `<foreignObject>`
+HTML, and Chromium scales that HTML with the viewBox like any SVG child. `probeFigureLegibility`
+(`lib/core/overflow-probe.js`) sizes each label leaf as its computed `font-size` times its real
+on-page scale (`getBoundingClientRect().height / offsetHeight`), so a diagram that shrinks its
+labels under the floor gets the export's `⚠ TYPE FLOOR` line and, at
+`--overflow-marker=author`, the "Text too small" tab, on a slide or in a pane. The panes in
+`examples/panes-mermaid.md` measure 11.6–14.2px against a 7.2px floor and stay quiet; a tall
+ER chain in a wide slot (`mermaid-sketch-labels` slide 5) measures 5.5px and is tagged. Only a
+label with no laid-out box still reads "not measured".
+
 ## 5.2 Node Shapes Reference
 
 | Syntax     | Shape             | Use For             |

@@ -970,7 +970,7 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 // from the engine's OWN boundaries rather than a scan of everything before the fence
 // (#1329).
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
-const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
 // This was open-coded here as `/\bguards-strict\b/.test(cls) && !/\bguards-loose\b/`,
@@ -4044,15 +4044,18 @@ async function renderBody(browser, g, closeBrowser) {
       ? 'The export carries the amber ring and its tag.'
       : 'The export stays clean — no ring is printed, so this warning is the only channel.'}`);
   }
-  // …and the figures the floor could not judge AT ALL. Mermaid's `htmlLabels` emit
-  // `<foreignObject>` HTML rather than SVG `<text>`, which the probe cannot size — so a
-  // flowchart whose labels shrank to 4px would otherwise pass in silence. Said out loud rather
+  // …and the figures the floor could not judge AT ALL: a `<foreignObject>` label with no
+  // laid-out box, or MathML (no offsetHeight). Mermaid's ordinary HTML labels ARE sized now
+  // (probeFigureLegibility's foreignObject arm), so this is the residue. Said out loud rather
   // than implied: "not measured" is an honest answer, a quiet pass is not (HARD RULE #23).
+  // It reaches this line only for a slide that also overflows: split-verdict returns null for
+  // a slide that fits and is legible, `unmeasured` with it (a pre-existing hole, logged in
+  // followups.d/2376-p2-size-chart-viewbox-to-the-pane.md).
   const unjudged = overflow.filter((o) => o.unmeasured);
   if (unjudged.length) {
     const n = unjudged.length;
     console.warn(`  ⓘ TYPE FLOOR NOT MEASURED — ${n} slide${n > 1 ? 's' : ''} carr${n > 1 ? 'y' : 'ies'} a viewBox figure whose ` +
-      `labels are HTML (<foreignObject>, e.g. a mermaid flowchart): page${n > 1 ? 's' : ''} ${unjudged.map((o) => o.slide).join(', ')}.`);
+      `labels could not be sized (an HTML label with no laid-out box, or MathML): page${n > 1 ? 's' : ''} ${unjudged.map((o) => o.slide).join(', ')}.`);
     console.warn('    The legibility floor could not judge these. Check them by eye.');
   }
   // A slide can be on BOTH lists — its box clips AND its figure is illegible. Only the ones that
@@ -4225,6 +4228,34 @@ async function renderBody(browser, g, closeBrowser) {
       console.warn('    A `pack` word is GONE FROM THE ARTIFACT, not just the picture: it reaches no mark detail,');
       console.warn('    no speaker note and no SVG description, so a screen reader loses it too. Fix those first.');
     }
+  }
+  // …and the chart LABELS that print across a mark. A fourth question: the box fits, the type
+  // clears the floor, every name is painted — and one prints straight through the bar of the row
+  // above (a 20-row bullet pane). `probeLabelOverprint` (lib/core/overflow-probe.js) counts a label
+  // whose glyphs cross a data mark's edge (a bar, point or wedge) or another label; one wholly
+  // inside a mark is an in-mark label, and fine.
+  // Stderr only, like the drops line above: it changes no exported byte at any marker level.
+  const overprint = await g(() => page.evaluate(({ slidesSrc, overprintSrc }) => {
+    const deckSlideSections = new Function('return (' + slidesSrc + ')')();
+    const probeLabelOverprint = new Function('return (' + overprintSrc + ')')();
+    const out = [];
+    deckSlideSections(document).forEach((sec, i) => {
+      const r = probeLabelOverprint(sec, 1);
+      if (r && r.count) out.push({ slide: i + 1, ...r });
+    });
+    return out;
+  }, { slidesSrc: DECK_SLIDES_SRC, overprintSrc: OVERPRINT_SRC }), 'measure chart label overprint');
+  if (overprint.length) {
+    const total = overprint.reduce((t, o) => t + o.count, 0);
+    const n = overprint.length;
+    console.warn(`  ⚠ CHART LABELS OVERPRINT — ${total} label${total > 1 ? 's' : ''} print${total > 1 ? '' : 's'} across a mark or another label on ${n} slide${n > 1 ? 's' : ''}: ` +
+      overprint.map((o) => `page ${o.slide} (${o.count})`).join(', ') + '.');
+    // The first label on its own line, so an author's label text ("page 7 revenue") never sits on
+    // the headline line the calibration rig reads pages from.
+    for (const o of overprint) console.warn(`    page ${o.slide}: first "${o.first}".`);
+    console.warn('    A label crosses the edge of a bar, point or wedge it does not sit inside, or prints over another');
+    console.warn('    label — usually rows squeezed until names print over their neighbors. Fewer items, a larger box,');
+    console.warn('    or split the chart.');
   }
   // Strip the authoring-only overflow signal before exporting. The injected
   // watcher (and base.modifiers.css) draw a loud red ring + "OVERFLOWS" tab on

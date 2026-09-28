@@ -269,12 +269,22 @@ describe('overflow-probe', () => {
 describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
   // A fake <text> whose computed font-size the stubbed getComputedStyle below returns.
   const text = (fontSize, content = 'Label') => ({ textContent: content, __fs: fontSize });
-  // Selector-aware, because the probe now asks two questions of a figure: which `<text>` can it
-  // measure, and does the figure carry `<foreignObject>` labels it CANNOT (mermaid's htmlLabels).
-  const svg = ({ vbW = 300, vbH = 300, boxW = 300, boxH = 300, texts = [], foreign = 0 }) => ({
+  // A fake HTML label leaf inside a `<foreignObject>` (mermaid's htmlLabels): computed
+  // font-size `fs`, laid out `oh` px tall, and `rh` px tall on the page after every transform.
+  const htmlLabel = (fs, oh, rh, content = 'Label', extra = {}) => ({
+    textContent: content, __fs: fs, children: [], childNodes: [{ nodeType: 3, textContent: content }],
+    offsetHeight: oh, getBoundingClientRect: () => ({ width: 0, height: rh }), ...extra,
+  });
+  const foreignObject = (leaves) => ({ querySelectorAll: () => leaves });
+  // Selector-aware, because the probe asks two questions of a figure: which `<text>` it can
+  // measure, and which `<foreignObject>` labels it can size. `foreign: N` is N labels that never
+  // laid out (offsetHeight 0) — the case that still has to say "unmeasured".
+  const svg = ({ vbW = 300, vbH = 300, boxW = 300, boxH = 300, texts = [], foreign = 0, labels = [] }) => ({
     getBoundingClientRect: () => ({ width: boxW, height: boxH }),
     viewBox: { baseVal: { width: vbW, height: vbH } },
-    querySelectorAll: (sel) => (sel === 'foreignObject' ? new Array(foreign).fill({}) : texts),
+    querySelectorAll: (sel) => (sel === 'foreignObject'
+      ? [...new Array(foreign).fill(null).map(() => foreignObject([htmlLabel(16, 0, 0)])), ...(labels.length ? [foreignObject(labels)] : [])]
+      : texts),
   });
   // `clientHeight` is the slide height the ratio floor resolves against — 720px (a `hd` canvas),
   // so a ratio of 1/72 reads as an 10px floor and the arithmetic in these tests stays legible.
@@ -377,12 +387,49 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
     });
   });
 
-  test('a figure whose labels the probe CANNOT read reports "unmeasured", never silence', () => {
+  test('mermaid HTML labels are SIZED: font-size x their real on-page scale, not skipped', () => {
     // Mermaid runs with htmlLabels, so a flowchart emits `<foreignObject>` HTML instead of SVG
-    // `<text>`. Three shipped `diagram` gallery pages carry 39 / 6 / 25 such labels and zero
-    // `<text>`, so the probe returned null — "nothing to judge", which reads downstream as
-    // "legible". A flowchart is the most common diagram there is; its labels shrinking to 4px is
-    // exactly what this rule exists to catch, so the honest answer is "not measured".
+    // `<text>`. Chromium scales that HTML by the viewBox transform, so the glyph on the page is
+    // computed font-size x (post-transform rect height / laid-out offsetHeight).
+    withStubbedStyle(() => {
+      // 16px type laid out 24px tall, drawn 12px tall → scale 0.5 → 8px on the page.
+      const r = probeFigureLegibility(section([svg({ labels: [htmlLabel(16, 24, 12), htmlLabel(16, 24, 18)] })]), floorAt(10));
+      assert.equal(r.count, 2);
+      assert.equal(r.minPx, 8);
+      assert.equal(r.under, true, 'a flowchart shrunk under the floor is now caught');
+      assert.equal(r.unmeasured, 0);
+      // …and the same labels drawn at full size clear it.
+      const ok = probeFigureLegibility(section([svg({ labels: [htmlLabel(16, 24, 24)] })]), floorAt(10));
+      assert.equal(ok.minPx, 16);
+      assert.equal(ok.under, false);
+    });
+  });
+
+  test('mermaid HTML labels: text-bearing elements only, and the filmstrip scale K is taken back out', () => {
+    withStubbedStyle(() => {
+      // A wrapper with no text of its own is skipped: its larger font would mask the label.
+      const wrapper = { ...htmlLabel(40, 50, 50), childNodes: [{ nodeType: 1 }] };
+      const r = probeFigureLegibility(section([svg({ labels: [wrapper, htmlLabel(12, 18, 18)] })]), floorAt(8));
+      assert.equal(r.count, 1);
+      assert.equal(r.minPx, 12);
+      // …but a label with a `<br>` in it — `<p>A<br>B</p>`, element child AND own text — is a
+      // label. A leaf-only walk skipped it, and a diagram of wrapped labels read as "nothing".
+      const wrapped = { ...htmlLabel(16, 40, 10, 'A B'), children: [{}], childNodes: [{ nodeType: 3, textContent: 'A' }, { nodeType: 1 }, { nodeType: 3, textContent: 'B' }] };
+      const w = probeFigureLegibility(section([svg({ labels: [wrapped] })]), floorAt(8));
+      assert.equal(w.count, 1);
+      assert.equal(w.minPx, 4);
+      assert.equal(w.under, true);
+      // A section shown at half size (K = 0.5): the label's rect halves with it, and the probe
+      // must still report its size ON THE SLIDE — 12px, not 6.
+      const half = { ...section([svg({ labels: [htmlLabel(12, 18, 9)] })]), offsetHeight: 720, getBoundingClientRect: () => ({ height: 360 }) };
+      assert.equal(probeFigureLegibility(half, floorAt(8)).minPx, 12);
+    });
+  });
+
+  test('a figure whose labels the probe CANNOT size reports "unmeasured", never silence', () => {
+    // A foreignObject label with no laid-out box (offsetHeight 0) has no on-page size to read.
+    // Before the foreignObject arm, every mermaid flowchart came back this way; the honest
+    // answer for the ones that still do is "not measured", never null ("nothing to judge").
     withStubbedStyle(() => {
       const r = probeFigureLegibility(section([svg({ texts: [], foreign: 39 })]), floorAt(8));
       assert.ok(r, 'must not be null — silence reads as a pass');
@@ -1651,5 +1698,141 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
       assert.match(src, /probeContentClipped\(s, IGNORED_CLIP_SELECTOR, TOL, IGNORED_BEARER_SELECTOR\)/,
         `${f} must pass BOTH lists to the content probe — the bearer list excludes the a11y mirror`);
     }
+  });
+});
+
+describe('overflow-probe: probeLabelOverprint — a painted label printed across a mark', () => {
+  const { probeLabelOverprint, OVERPRINT_SRC } = require('../../../lib/core/overflow-probe.js');
+  const box = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });
+  // A fake element: its rect, its text, the computed style the stub returns, and `closest`.
+  const el = (r, { text = '', fill = 'rgb(0, 0, 0)', inDefs = false, fs = 0 } = {}) => ({
+    textContent: text, __fill: fill, __fs: fs,
+    getBoundingClientRect: () => r, getClientRects: () => [r],
+    closest: () => (inDefs ? {} : null),
+  });
+  const fig = (texts, marks) => ({
+    ...el(box(0, 0, 400, 300)),
+    // The probe asks for DATA marks by role; the fake answers that query with `marks`, and pins
+    // that the query names bar, point and sector and never a backdrop `region`.
+    querySelectorAll: (sel) => {
+      if (sel === 'text') return texts;
+      assert.match(sel, /data-anima-role="bar"/);
+      assert.doesNotMatch(sel, /region/);
+      return marks;
+    },
+  });
+  const section = (figs) => ({ querySelectorAll: (sel) => (sel.startsWith('.chart-body svg[viewBox]') ? figs : []) });
+  const withStyle = (fn) => {
+    const had = Object.hasOwn(globalThis, 'getComputedStyle');
+    const prev = globalThis.getComputedStyle;
+    globalThis.getComputedStyle = (e) => ({ fill: e.__fill, fontSize: `${e.__fs}px`, fillOpacity: '1', opacity: '1', visibility: 'visible', display: 'inline' });
+    try { return fn(); } finally {
+      if (had) globalThis.getComputedStyle = prev; else delete globalThis.getComputedStyle;
+    }
+  };
+
+  test('a label crossing a bar edge is an overprint; one wholly inside a bar is an in-mark label', () => {
+    withStyle(() => {
+      const bar = el(box(0, 20, 200, 10));
+      const crossing = el(box(10, 14, 80, 10), { text: 'Ready signal scored' });
+      const inside = el(box(120, 21, 40, 8), { text: '42%' });
+      const clear = el(box(10, 0, 80, 10), { text: 'Clear concise board' });
+      assert.deepEqual(probeLabelOverprint(section([fig([crossing, inside, clear], [bar])]), 1),
+        { count: 1, figures: 1, first: 'Ready signal scored' });
+      assert.deepEqual(probeLabelOverprint(section([fig([inside, clear], [bar])]), 1),
+        { count: 0, figures: 0, first: '' }, 'judged and clean is 0, never null');
+    });
+  });
+
+  test('a small mark wholly under a label IS an overprint (a dot printed under a name)', () => {
+    withStyle(() => {
+      const dot = el(box(40, 16, 4, 4));
+      const name = el(box(10, 10, 80, 16), { text: 'Services' });
+      assert.equal(probeLabelOverprint(section([fig([name], [dot])]), 1).count, 1);
+    });
+  });
+
+  test('a color-mix wash (computed as oklab(… / a)) is a wash, not a mark', () => {
+    withStyle(() => {
+      const label = el(box(10, 14, 80, 10), { text: 'Label' });
+      const wash = el(box(0, 20, 200, 10), { fill: 'oklab(0.628 0.225 0.126 / 0.42)' });
+      const solid = el(box(0, 20, 200, 10), { fill: 'oklab(0.628 0.225 0.126 / 0.9)' });
+      assert.equal(probeLabelOverprint(section([fig([label], [wash])]), 1).count, 0);
+      assert.equal(probeLabelOverprint(section([fig([label], [solid])]), 1).count, 1);
+    });
+  });
+
+  test('touching is not overprinting: overlap must pass the tolerance on BOTH axes', () => {
+    withStyle(() => {
+      const bar = el(box(0, 20, 200, 10));
+      const grazes = el(box(10, 11, 80, 9.5), { text: 'grazes' });
+      assert.equal(probeLabelOverprint(section([fig([grazes], [bar])]), 1).count, 0);
+    });
+  });
+
+  test('only the GLYPH band counts: a mark in the air above the capitals is not an overprint', () => {
+    withStyle(() => {
+      // A 20px label (font box 25px tall): its glyphs run from 6px (cap top, 0.3em) down to 20px
+      // (baseline, 0.25em up from the bottom). Measured: a scatter dot 4px into the top of a
+      // name's box printed nothing; a bullet bar 13–16px down struck through its letters.
+      const label = () => el(box(10, 100, 120, 25), { text: 'Then ranked by', fs: 20 });
+      const dotAbove = el(box(20, 88, 18, 16));
+      const barThrough = el(box(0, 113, 200, 3));
+      const underBaseline = el(box(0, 121, 200, 3));
+      assert.equal(probeLabelOverprint(section([fig([label()], [dotAbove])]), 1).count, 0, 'air above the caps');
+      assert.equal(probeLabelOverprint(section([fig([label()], [underBaseline])]), 1).count, 0, 'the descender zone');
+      assert.equal(probeLabelOverprint(section([fig([label()], [barThrough])]), 1).count, 1, 'through the letters');
+    });
+  });
+
+  test('a word turned a quarter is trimmed sideways, not vertically', () => {
+    withStyle(() => {
+      // A vertical word (font box 25px wide, 20px em) beside an upright one, its air overlapping it.
+      const upright = el(box(0, 100, 60, 25), { text: 'compaction', fs: 20 });
+      const vertical = { ...el(box(56, 60, 25, 100), { text: 'sharding', fs: 20 }), getAttribute: () => 'rotate(90 60 100)' };
+      assert.equal(probeLabelOverprint(section([fig([upright, vertical], [])]), 1).count, 0);
+    });
+  });
+
+  test('unfilled shapes, translucent washes and <defs> content are not marks', () => {
+    withStyle(() => {
+      const label = el(box(10, 14, 80, 10), { text: 'Label' });
+      const unfilled = el(box(0, 20, 200, 10), { fill: 'none' });
+      const clear = el(box(0, 20, 200, 10), { fill: 'rgba(0, 0, 0, 0)' });
+      const wash = el(box(0, 20, 200, 10), { fill: 'rgba(40, 90, 160, 0.18)' });
+      const inDefs = el(box(0, 20, 200, 10), { inDefs: true });
+      assert.equal(probeLabelOverprint(section([fig([label], [unfilled, clear, wash, inDefs])]), 1).count, 0,
+        'none of them is a mark to print across');
+    });
+  });
+
+  test('a slide with no figure, or a figure with no labels, is not judged', () => {
+    withStyle(() => {
+      assert.equal(probeLabelOverprint(section([]), 1), null);
+      assert.equal(probeLabelOverprint(section([fig([], [el(box(0, 0, 10, 10))])]), 1), null);
+    });
+  });
+
+  test('two labels printed over each other are an overprint; a same-place halo copy is not', () => {
+    withStyle(() => {
+      const a = el(box(10, 10, 80, 10), { text: 'Weekly across teams' });
+      const b = el(box(40, 14, 80, 10), { text: 'Then ranked by' });
+      // A small index set hard against its name (0.4em across, at a 10px em) is not.
+      const name = el(box(200, 10, 60, 12.5), { text: 'Closed', fs: 10 });
+      const idx = el(box(256, 10, 12, 12.5), { text: '10', fs: 10 });
+      assert.equal(probeLabelOverprint(section([fig([name, idx], [])]), 1).count, 0, 'an index against its name');
+      const r = probeLabelOverprint(section([fig([a, b], [])]), 1);
+      assert.equal(r.count, 2, 'each label of the pair counts');
+      const halo = el(box(10, 10, 80, 10), { text: 'Weekly across teams' });
+      assert.equal(probeLabelOverprint(section([fig([a, halo], [])]), 1).count, 0);
+    });
+  });
+
+  test('OVERPRINT_SRC re-inflates and behaves identically (it is injected as a string)', () => {
+    withStyle(() => {
+      const fn = new Function(`return (${OVERPRINT_SRC})`)();
+      const s = section([fig([el(box(10, 14, 80, 10), { text: 'x' })], [el(box(0, 20, 200, 10))])]);
+      assert.deepEqual(fn(s, 1), probeLabelOverprint(s, 1));
+    });
   });
 });

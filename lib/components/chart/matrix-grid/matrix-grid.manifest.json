@@ -200,12 +200,12 @@
     "budget": {
       "at": 65,
       "axis": "row",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 3,
-        "hard": 4
+        "hard": 3
       },
-      "note": "A grid of shaped cells. Judgment: the calibration rig has no element builder for this component."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint, or labels printed across a mark or each other): side 65%: 3, clips at 4: a three-word row label wraps a word to a line in the label column. sweet sits at or below it."
     }
   },
   "venueCapacity": {

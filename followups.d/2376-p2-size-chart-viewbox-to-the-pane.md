@@ -29,9 +29,24 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               (`fitKeyToPane` `labelText` + `ceiling`). examples/panes-radar.md.
             - The HTML-drawn charts reflow in the pane box but were not audited at 25%.
             - CLOSED (panes-radar PR): the chart wrap keeps every lead paragraph (`.chart-lead`),
-              on a slide and in a pane. examples/chart-lead-paragraphs.md. Still dropped without
-              a word: any OTHER block between the heading and the figure (a code block, a
-              blockquote, a table, raw HTML) — the wrap keeps top-level paragraphs only.
+              on a slide and in a pane. examples/chart-lead-paragraphs.md.
+            - CLOSED (panes-probe-calibration PR): every OTHER block between the heading and the
+              figure (a code block, a blockquote, a table, raw HTML) renders too, whole, in a
+              `div.chart-lead-block`, and the Read · Article view carries it. A census of 309
+              decks found none, and all 309 render byte-identical HTML.
+              examples/chart-lead-blocks.md. Not closed, and pre-existing: unbalanced raw HTML
+              (an unclosed `<div>`, `<script>` holding a `<`) before the figure still swallows
+              what follows it, and a table before a table-data chart is read as its data.
+            - CLOSED (panes-probe-calibration PR): the calibration measures the HTML-drawn and
+              grouped charts too (builders for gantt, journey, matrix-grid, progress, quadrant,
+              state-chart, word-cloud; kanban and roadmap had one), and all nine turned
+              `measured`. Lowered to the ceiling: matrix-grid side 4 -> 3 and progress side
+              6 -> 4 (both CLIP: a three-word row label wraps one word per line in the pane's
+              narrow label column — a reflow weakness, logged below), word-cloud side 20 -> 6
+              (type floor) and stack 20 -> 8 (the packer drops a word at 9).
+              STILL OPEN from that pass: progress and matrix-grid give a pane's row label a column
+              so narrow that a three-word label sets one word per line and triples the row; the
+              bars beside it have room to spare.
             - PART CLOSED (panes-radar PR): `calibrate-capacity --pane` measures SVG charts
               (builders for 12 kernels, and a step fails on TYPE FLOOR or CHART LABELS DROPPED as
               well as OVERFLOW). bar, piechart, scatter, line, heatmap, map and radar turned
@@ -40,6 +55,20 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               see 2376-p2-probe-labels-over-marks.md) and every HTML-drawn or grouped chart
               (gantt, journey, kanban, matrix-grid, progress, quadrant, roadmap, state-chart,
               word-cloud), which this pass did not measure.
+            - CLOSED (panes-probe-calibration PR): the type-floor probe sizes `<foreignObject>`
+              labels (font-size x rect height / offsetHeight, over K). Export TYPE FLOOR lines
+              after it: mermaid-sketch-labels pages 4 (6.6px) and 5 (5.5px), diagram-narration
+              page 5 (7px), typed-diagram-narration page 4 (6.9px), newly tagged; panes-mermaid
+              stays quiet. Default (`reader`) exports are byte-identical, since the tab is
+              author-only. The four decks are left as they are for the owner to fix or accept.
+              Two PRE-EXISTING holes the checker found, off this PR's path:
+              (a) `unmeasured` never reaches the export for a slide that fits: split-verdict.js
+                  returns null when a slide is neither over nor illegible, so the `ⓘ TYPE FLOOR
+                  NOT MEASURED` line prints only for overflowing slides (no deck printed it at
+                  HEAD either). A MathML label in a Mermaid diagram (no offsetHeight) is the
+                  live case.
+              (b) the scaled-HTML (`data-fit-k`) arm reads childless leaves only, so a label
+                  like `A<br>B` is skipped there, as the foreignObject arm's was before its fix.
             MEASURED 2026-09-27 (panes-continuation PR, left for its own PR):
             - Mermaid pane labels ALREADY clear the floor: examples/panes-mermaid.md measures a
               smallest label of 13.0 / 14.2 / 11.6px on its three pane slides against a 7.2px floor

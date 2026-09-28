@@ -142,6 +142,61 @@ describe('chart lead — every paragraph before the figure renders', () => {
 
   test('a lead is hidden at claim-hero with the subtitle, as the chart fills the slide', () => {
     assert.match(read('lib/components/chart/_chart-family/chart-family.css'),
-      /:is\(\.claim-hero, \.claim-bleed\) \.chart-subtitle,\s*section\.chart-frame:is\(\.claim-hero, \.claim-bleed\) \.chart-lead \{\s*display: none;/);
+      /:is\(\.claim-hero, \.claim-bleed\) \.chart-subtitle,\s*section\.chart-frame:is\(\.claim-hero, \.claim-bleed\) \.chart-lead,\s*section\.chart-frame:is\(\.claim-hero, \.claim-bleed\) \.chart-lead-block \{\s*display: none;/);
+  });
+});
+
+// The wrap kept paragraphs only and dropped every OTHER block between the heading and the figure
+// — a code block, a blockquote, a table, raw HTML — without a word (followups.d 2376-p2). Each
+// renders now, whole and in order, in a `div.chart-lead-block` above the figure.
+describe('chart lead blocks — every block before the figure renders', () => {
+  const bars = '- Licenses `42`\n- Services `47`\n- Support `18`\n';
+  const docOf = (md) => new JSDOM(render(`---\ntheme: indaco\n---\n\n${md}`).html).window.document;
+  const kinds = (doc, scope = '') => [...doc.querySelectorAll(`${scope} .chart-lead, ${scope} .chart-lead-block`)]
+    .map((el) => (el.classList.contains('chart-lead') ? `p:${el.textContent}` : el.firstElementChild.tagName.toLowerCase()));
+
+  test('a code block, a blockquote, a table and raw HTML render in source order, above the figure', () => {
+    const doc = docOf('<!-- _class: bar -->\n\n## Mix\n\nFirst.\n\n```js\nx = 1\n```\n\nSecond.\n\n> Quoted.\n\n'
+      + '| a | b |\n| --- | --- |\n| 1 | 2 |\n\n<div class="note">Raw.</div>\n\n' + bars);
+    assert.equal(doc.querySelector('.chart-subtitle').textContent, 'First.');
+    assert.deepEqual(kinds(doc), ['pre', 'p:Second.', 'blockquote', 'table', 'div']);
+    assert.equal(doc.querySelector('.chart-lead-block pre code').textContent, 'x = 1\n', 'the block is kept whole');
+    assert.equal(doc.querySelector('.chart-lead-block blockquote p').textContent, 'Quoted.');
+    const body = doc.querySelector('.chart-body');
+    for (const el of doc.querySelectorAll('.chart-lead-block')) assert.ok(el.compareDocumentPosition(body) & 4, 'block precedes the chart body');
+  });
+
+  test('a block with no paragraph before it renders, and there is no subtitle', () => {
+    const doc = docOf(`<!-- _class: bar -->\n\n## Mix\n\n\`\`\`js\nx = 1\n\`\`\`\n\n${bars}`);
+    assert.equal(doc.querySelector('.chart-subtitle'), null);
+    assert.deepEqual(kinds(doc), ['pre']);
+  });
+
+  test('in a chart pane: the same', () => {
+    const doc = docOf(`## Mix\n\n<!-- pane: bar -->\n\nFirst.\n\n\`\`\`js\nx = 1\n\`\`\`\n\n${bars}\n<!-- pane: list -->\n\n- x\n`);
+    assert.deepEqual(kinds(doc, 'lat-pane'), ['pre']);
+  });
+
+  test('a self-closed non-void tag (`<div/>`, `<p/>`) is skipped, never a wrapper the chart falls into', () => {
+    // HTML has no self-closing div: emitted inside the wrapper, it left the wrapper open and the
+    // chart body inside it, which `claim-hero` would then hide with the lead block.
+    const div = docOf(`<!-- _class: bar -->\n\n## Mix\n\nSub.\n\n<div/>\n\n${bars}`);
+    assert.equal(div.querySelector('.chart-body').closest('.chart-lead-block'), null);
+    assert.equal(div.querySelectorAll('.chart-lead-block').length, 0);
+    // …and a `<p/>` does not steal the subtitle from the real first paragraph.
+    const p = docOf(`<!-- _class: bar -->\n\n## Mix\n\n<p/>\n\nSub.\n\n${bars}`);
+    assert.equal(p.querySelector('.chart-subtitle').textContent, 'Sub.');
+  });
+
+  test('a split chart keeps a lead block on its first body page only, never on every page', () => {
+    const { carouselize } = require('../../../lib/core/carousel');
+    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: kanban -->\n\n## Board\n\nFirst line.\n\n```js\nBLOCKX = 1\n```\n\n'
+      + '- Backlog\n  - Waiting cards `S`\n- In progress\n  - The active limit `M`\n- Review\n  - Almost done `S`\n';
+    const m = render(md).html.match(/(<section[^>]*>)([\s\S]*?)<\/section>/);
+    const pages = carouselize(m[1], m[2], { strategy: 'kanban-lanes' }, 2, 'kanban');
+    assert.ok(pages && pages.length > 2, 'the board splits');
+    const counts = pages.map((p) => String(p).split('BLOCKX').length - 1);
+    // The cover carries text leads only; the block rides the first body page.
+    assert.deepEqual(counts, [0, 1, ...pages.slice(2).map(() => 0)], `per page: ${counts}`);
   });
 });

@@ -136,7 +136,7 @@
     "stack": 60,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 5,
         "hard": 6
@@ -145,7 +145,7 @@
         "sweet": 4,
         "hard": 5
       },
-      "note": "Each stage is a band with a label in the gutter. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint, or labels printed across a mark or each other): side 50%: 21, labels overprint at 22; stack 50/50: 21, labels overprint at 22. sweet sits at or below it."
     }
   },
   "venueCapacity": {

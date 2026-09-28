@@ -145,16 +145,16 @@
     "stack": 40,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 4,
-        "hard": 6
+        "hard": 4
       },
       "stack": {
         "sweet": 3,
         "hard": 4
       },
-      "note": "One track per item, stacked vertically. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint, or labels printed across a mark or each other): side 50%: 4, clips at 5: a three-word track label wraps a word to a line; stack 50/50: 4, clips at 5. sweet sits at or below it."
     }
   },
   "venueCapacity": {

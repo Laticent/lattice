@@ -174,16 +174,16 @@
     "stack": 50,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
-        "sweet": 12,
-        "hard": 20
+        "sweet": 6,
+        "hard": 6
       },
       "stack": {
-        "sweet": 12,
-        "hard": 20
+        "sweet": 8,
+        "hard": 8
       },
-      "note": "Words shrink with their weight; past twenty the smallest are unreadable. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint, or labels printed across a mark or each other): side 50%: 6, the weight-1 words fall under the type floor at 7; stack 50/50: 8, the packer drops a word at 9. sweet sits at or below it."
     },
     "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },
