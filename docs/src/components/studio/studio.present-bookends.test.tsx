@@ -56,6 +56,22 @@ describe('Present — greeting and closing', () => {
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Play the presentation' })).toBeInTheDocument(), { timeout: 10_000 });
 	}, 40_000);
 
+	it('a spoken slide after a silent one is spoken, not skipped (no greeting to hold the skip)', async () => {
+		// The empty-slide skip used to read the track of the slide just LEFT, which is one commit
+		// behind the index: leaving silent slide 1 read its empty track on slide 2 and skipped that
+		// too. The greeting's gap hid it on a first Play; a deck with no greeting had no cover.
+		const user = userEvent.setup();
+		const slides = [silent, spoken('Two', 'The middle speaks.'), silent];
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={'---\ntheme: indaco\n---\n'} />);
+		const seen: string[] = [];
+		const sample = setInterval(() => seen.push(said()), 25);
+		await user.click(screen.getByRole('button', { name: 'Play the presentation' }));
+		await waitFor(() => expect(screen.getByText('3 / 3')).toBeInTheDocument(), { timeout: 10_000 });
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Play the presentation' })).toBeInTheDocument(), { timeout: 10_000 });
+		clearInterval(sample);
+		expect(seen.some((t) => t.includes('The middle speaks.'))).toBe(true);
+	}, 30_000);
+
 	it('starting on slide 2 uses the greeting up', async () => {
 		const user = userEvent.setup();
 		const slides = [spoken('One', 'One speaks.'), spoken('Two', 'Two speaks.')];
