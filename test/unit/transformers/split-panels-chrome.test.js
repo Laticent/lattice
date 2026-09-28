@@ -108,3 +108,102 @@ describe('the two render paths agree on which <footer> is the running one', () =
   });
 });
 
+
+describe('split-compare: an author block the layout does not claim', () => {
+  // The frame label, heading, lede, option list and verdict each have a slot. Anything else
+  // (a second paragraph, a note under the options) used to vanish on the string path and sit
+  // IN FRONT of the panels on the DOM path. Both now carry it in the options zone, after the
+  // options and before the verdict, in source order, which is where split-panel's own
+  // unclaimed blocks go (its supporting zone).
+  const cases = {
+    'a second paragraph before the options': '<h2>H</h2><p>C.</p><p>Stray one.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote>',
+    'a note after the options': '<h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><p>Stray one.</p><blockquote><p>V.</p></blockquote>',
+    'a table and a second list after the verdict': '<h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote><table><tr><td>Stray one.</td></tr></table><ol><li>Stray two.</li></ol>',
+    'no verdict': '<h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><p>Stray one.</p>',
+    'a heading above the context paragraph': '<h2>H</h2><h6>Stray one.</h6><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote>',
+    'a blockquote inside an option': '<h2>H</h2><p>C.</p><ul><li><strong>A</strong><blockquote><p>Nested.</p></blockquote></li><li><strong>B</strong></li></ul><p>Stray one.</p><blockquote><p>V.</p></blockquote>',
+    'a verdict with its own bullets above the options': '<h2>H</h2><p>C.</p><blockquote><p>Pick B, because:</p><ul><li>cost</li><li>latency</li></ul></blockquote><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><p>Stray one.</p>',
+    'a second blockquote after the verdict': '<h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote><blockquote><p>Stray one.</p></blockquote>',
+  };
+  for (const [name, body] of Object.entries(cases)) {
+    const html = `<section class="split-compare"><header>Head</header>${body}<footer>Run</footer></section>`;
+    test(`${name}: both paths agree`, () => {
+      const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+      const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+      splitPanels.applyToDom(doc);
+      assert.equal(signature(doc.querySelector('section')), signature(str));
+    });
+    test(`${name}: kept, inside the options zone, before the verdict`, () => {
+      const sec = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+      assert.deepEqual(chromeShape(sec), ['header', 'div.compare-left', 'div.compare-right', 'footer']);
+      const right = sec.querySelector('.compare-right');
+      assert.match(right.textContent, /Stray one\./);
+      const kids = [...right.children].map(el => el.className || el.tagName.toLowerCase());
+      assert.equal(kids[0], 'options');
+      if (right.querySelector('.verdict')) assert.equal(kids[kids.length - 1], 'verdict');
+    });
+  }
+
+  test('the verdict is the top-level blockquote, and the context paragraph stays in the panel', () => {
+    const html = `<section class="split-compare">${cases['a blockquote inside an option']}</section>`;
+    const sec = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+    assert.equal(sec.querySelector('.verdict').textContent.trim(), 'V.');
+    assert.match(sec.querySelector('.option').textContent, /Nested\./);
+    const eyebrowed = new JSDOM(kernel.applyToRenderedHtml(`<section class="split-compare">${cases['a heading above the context paragraph']}</section>`)).window.document;
+    assert.equal(eyebrowed.querySelector('.compare-left p')?.textContent, 'C.');
+  });
+
+  test('string path: a speaker-note comment is not carried into the slide (export bytes unchanged)', () => {
+    const html = '<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><!-- note: say this --><blockquote><p>V.</p></blockquote></section>';
+    assert.doesNotMatch(kernel.applyToRenderedHtml(html), /note: say this/);
+  });
+
+  test('a verdict written above the options keeps its bullets; the options stay the options', () => {
+    const html = `<section class="split-compare">${cases['a verdict with its own bullets above the options']}</section>`;
+    const sec = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+    assert.deepEqual([...sec.querySelectorAll('.option > strong')].map(e => e.textContent), ['A', 'B']);
+    assert.equal(sec.querySelectorAll('.verdict li').length, 2);
+  });
+
+  test('string path: an empty comment (`<!-->`, `<!--->`) does not swallow what follows', () => {
+    for (const c of ['<!-->', '<!--->']) {
+      const html = `<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul>${c}<p>KEEP ME</p></section>`;
+      assert.match(kernel.applyToRenderedHtml(html), /KEEP ME/);
+    }
+  });
+
+  test('string path: a speaker note that mentions markup is not read as markup', () => {
+    const html = '<section class="split-compare"><h2>H</h2><!-- say the quote is a <blockquote> and the list a <ul> --><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>Go with B.</p></blockquote></section>';
+    const sec = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+    assert.deepEqual([...sec.querySelectorAll('.option > strong')].map(e => e.textContent), ['A', 'B']);
+    assert.equal(sec.querySelector('.compare-left p')?.textContent, 'C.');
+    assert.equal(sec.querySelector('.verdict').textContent.trim(), 'Go with B.');
+    assert.ok(!sec.textContent.includes('-->'), 'no comment tail leaks into the visible text');
+  });
+
+  test('string path: a comment ahead of the header does not move or drop the header', () => {
+    const html = '<section class="split-compare">\n<!-- n -->\n<header>H</header><h2>T</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote><footer>F</footer></section>';
+    const sec = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+    assert.deepEqual(chromeShape(sec), ['header', 'div.compare-left', 'div.compare-right', 'footer']);
+  });
+
+  test('string path: `--!>` closes a comment, as in HTML', () => {
+    const html = '<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><!-- n --!><p>KEEP ME</p></section>';
+    assert.match(kernel.applyToRenderedHtml(html), /KEEP ME/);
+  });
+
+  test('string path: no comment opener survives, stitched or unterminated', () => {
+    for (const tail of ['<p>A</p><!<!-- x -->-- y -->', '<p>A</p><!-- never closed <p>B</p>']) {
+      const html = `<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul>${tail}</section>`;
+      assert.doesNotMatch(kernel.applyToRenderedHtml(html), /<!--/);
+    }
+  });
+
+  test('DOM path: engine chrome after the footer is not treated as an author block', () => {
+    const doc = new JSDOM('<!DOCTYPE html><body><section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><footer>Run</footer><span class="lat-pagination">3</span><div class="marker-rail" data-lattice-berth></div></section></body>').window.document;
+    splitPanels.applyToDom(doc);
+    const sec = doc.querySelector('section');
+    assert.equal(sec.querySelector('.compare-right .lat-pagination'), null);
+    assert.equal(sec.querySelector('.compare-right [data-lattice-berth]'), null);
+  });
+});

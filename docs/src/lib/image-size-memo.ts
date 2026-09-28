@@ -11,7 +11,7 @@
 // it is written (lib/core/image-aspect.js `stampImageSections`).
 
 import families from '../../../lib/adaptive/families.js';
-import bgImage from '../../../lib/core/bg-image.js';
+import bgDirective from '../../../lib/core/bg-directive.js';
 import imageAspect from '../../../lib/core/image-aspect.js';
 
 type Geom = { width: number; height: number };
@@ -59,7 +59,7 @@ export function prefetch(fr: HTMLIFrameElement | null | undefined, markdown: str
 	if (!W || typeof W.Image !== 'function') return;
 	const allowed = new Set(allow);
 	let started = 0;
-	for (const m of String(markdown).matchAll(new RegExp(bgImage.BG_RE.source, 'gm'))) {
+	for (const m of String(markdown).matchAll(new RegExp(bgDirective.BG_RE.source, 'gm'))) {
 		const url = String(m[2] || '').trim().split(/\s+/)[0];
 		if (!/^https?:\/\//i.test(url) || IMAGE_BUCKETS.has(url) || IMAGE_PENDING.has(url)) continue;
 		const origin = webOrigin(url);

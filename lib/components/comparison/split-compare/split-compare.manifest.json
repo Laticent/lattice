@@ -179,6 +179,10 @@
       "fix": "The frame label is reassembled to the top of the dark panel regardless of its source position — placement doesn't matter. It must be backtick-wrapped, though: unwrapped plain text is instead captured as the intro paragraph, not the frame label."
     },
     {
+      "mistake": "Writing a second context paragraph, or a note under the options, and expecting it in the dark panel.",
+      "fix": "The dark panel takes the frame label, the heading and ONE context paragraph. Any other block (a second paragraph, a note, a table, a second blockquote) renders in the options zone, after the two cards and before the verdict, in source order; when the slide splits into pages, it follows the verdict on the closing page. Fold the extra context into the one paragraph, or keep it as a note under the options on purpose."
+    },
+    {
       "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
       "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
     },

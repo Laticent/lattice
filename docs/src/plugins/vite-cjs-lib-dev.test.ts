@@ -13,6 +13,12 @@ import { describe, expect, it } from 'vitest';
  * webpage export's diagram bake, which then shipped raw Mermaid source, and the whole Compose
  * view (`state-marks.js`, `fence-languages.js`).
  *
+ * Second arm: the shim wraps only a CJS file that requires NOTHING. A default import of a CJS
+ * file with its own `require(` is served raw and fails the same way — every Studio preview
+ * showed "does not provide an export named 'default'" when `image-size-memo.ts` default-imported
+ * `lib/core/bg-image.js` for one regex. Import a require-free leaf instead
+ * (`lib/core/bg-directive.js` is that split).
+ *
  * Tests are exempt: vitest runs under Node, where a named import off CJS works.
  */
 
@@ -56,5 +62,18 @@ describe('docs/src imports CommonJS lib/ files by default import only', () => {
 		// The scan has to be finding something, or the pass means nothing.
 		expect(checked).toBeGreaterThan(10);
 		expect(offenders, 'use `import x from …` then `const { a } = x;`').toEqual([]);
+	});
+
+	it('imports no CJS file the dev-server shim refuses (one with its own require)', () => {
+		const offenders: string[] = [];
+		for (const file of sources(DOCS_SRC)) {
+			const src = fs.readFileSync(file, 'utf8');
+			for (const m of src.matchAll(IMPORT)) {
+				const target = path.resolve(path.dirname(file), m[2]);
+				if (!target.startsWith(LIB) || !target.endsWith('.js') || !fs.existsSync(target) || !isCjs(target)) continue;
+				if (/\brequire\s*\(/.test(fs.readFileSync(target, 'utf8'))) offenders.push(`${path.relative(REPO, file)} -> ${m[2]}`);
+			}
+		}
+		expect(offenders, 'split what the browser needs into a require-free lib/ leaf').toEqual([]);
 	});
 });
