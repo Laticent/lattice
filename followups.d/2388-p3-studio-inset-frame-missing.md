@@ -8,7 +8,11 @@ source: https://github.com/Laticent/lattice/pull/2388
 # A Fabricate finish's Inset frame edge is missing in the Studio
 
 Found by the independent checker while verifying the saved-finish export fix (backdrop-register.md
-§4.9); not caused by it, since that fix does not touch `--fin-frame` or `box-shadow`.
+§4.9); not caused by it, since that fix does not touch `--fin-frame` or `box-shadow`. Probably the
+same family as `2400-p3-gallery-frame-missing-studio-download.md` (gallery's frame, also
+`--fin-frame`, missing from a capture). #2404 stopped the capture from erasing a section's
+`box-shadow`, which should have fixed that one; this one also shows in Fabricate's own specimen,
+so look at both together.
 
 ```text
   P3 · [no ticket] Inset frame edge not drawn in the Studio.

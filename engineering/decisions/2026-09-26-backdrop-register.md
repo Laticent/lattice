@@ -298,7 +298,22 @@ without a re-save.
 slide wearing the saved finish against the same slide with `finish: none`: 0% of pixels differed
 before the fix on every lane; after it, 10.6% (Images), 8.6% (PDF) and 10.6% (PowerPoint) in
 light, and 9.4% (Images) in dark: the wash and the grid. A record saved with no recipe (only its
-CSS text) cannot be regenerated and keeps its old CSS. `docs/e2e/saved-finish-export.spec.ts` pins the Images lane and fails without
+CSS text) cannot be regenerated and keeps its old CSS.
+
+**Cost, measured on the real Studio** (10-slide deck, a Fabricate finish with a glow wash, grid,
+margin bar and margin rule; median of two exports; poppler draws the whole PDF at 110 dpi, best
+of three). Before the fix every slide matched `finish: none` to within 0.02% of pixels. After it,
+the saved finish costs what a built-in finish with a similar look costs:
+
+| Export | `finish: none` | Saved, before | Saved, after | atrium (built-in) |
+|---|---|---|---|---|
+| PDF | 146 KB, 3.1 s | 197 KB, 4.1 s | 351 KB, 4.1 s | 336 KB, 4.1 s |
+| PDF, poppler draw | 1.36 s | 1.28 s | 1.95 s | 1.90 s |
+| PowerPoint | 1.93 MB, 3.1 s | 2.10 MB, 4.3 s | 4.81 MB, 5.5 s | 4.66 MB, 5.4 s |
+| Images | 1.51 MB, 4.6 s | 1.69 MB, 5.7 s | 4.45 MB, 6.9 s | 4.33 MB, 7.1 s |
+
+The CLI output does not change (the independent checker rendered nine finish variants through
+the default writer, `--chrome-pdf` and PNG: 0 pixels differ). `docs/e2e/saved-finish-export.spec.ts` pins the Images lane and fails without
 the fix.
 
 ### 4.5 `finish-override.backdrop`
