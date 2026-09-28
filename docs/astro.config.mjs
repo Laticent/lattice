@@ -260,6 +260,7 @@ export default defineConfig({
 							],
 						},
 						{ label: 'Sparks', slug: 'guides/inline/sparks' },
+						{ label: 'Sparks cheat sheet', slug: 'guides/inline/sparks-cheat-sheet' },
 					],
 				},
 				{
@@ -271,6 +272,7 @@ export default defineConfig({
 						{ label: 'Front matter', slug: 'reference/front-matter' },
 						{ label: 'CLI', slug: 'reference/cli' },
 						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
+						{ label: 'Sparks cheat sheet', slug: 'guides/inline/sparks-cheat-sheet' },
 					],
 				},
 				{
