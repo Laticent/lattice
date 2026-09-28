@@ -15,7 +15,8 @@ section.topic {
   --_rule:   calc(var(--_sec-1cqi, 1cqi) * 0.15625);    /* 2px @ HD */
   --_hair:   calc(var(--_sec-1cqi, 1cqi) * 0.078125);   /* 1px @ HD */
   --_seam:   calc(var(--_sec-1cqi, 1cqi) * 0.25);
-  --_mark:   calc(var(--_sec-1cqi, 1cqi) * 0.75);       /* 3x the seam — the mark */
+  --_tab-pad: calc(var(--_sec-1cqi, 1cqi) * 1.25);     /* 16px @ HD — a column's inset */
+  --_cap:     calc(var(--_sec-1cqi, 1cqi) * 0.5);       /* 2x the seam — the lit tab's top bar */
   /* The shelf is 25% of HEIGHT, expressed in cqi. A percentage padding resolves
    * against the INLINE size, so `25%` would reserve 25% of the WIDTH — 320px on
    * a 720px-tall slide. 0.25 * (9/16) = 14.0625cqi. */
@@ -140,7 +141,17 @@ section.topic > p:has(> code:only-child):not(:where([data-prose])) > code {
 /* `--fs-h2`, one tier below `divider`'s `--fs-h1`: a topic is smaller than the
  * section containing it and the type says so, which is what keeps the two
  * distinguishable even cropped to the upper band. */
+/* `color-scheme: dark` on the two elements that put `--text-display` on the dark
+ * band — this heading and the lit tab below — and on nothing else. The section
+ * itself must NOT pin it (the shelf's `light-dark()` above reads the palette's
+ * own scheme), but the band is `--surface-inverse`, which is dark on every face.
+ * carbone's light face defines `--text-display` as a near-black ink for its light
+ * CANVAS while keeping `--surface-inverse` graphite, so unpinned the heading
+ * rendered #081523 on #0E0E10 — 1.05:1, unreadable. Measured across all 33
+ * shipped palettes, this pin changes one value: carbone's display ink, to its own
+ * dark-face #F5F5F2. `divider` gets the same answer by pinning its whole section. */
 section.topic > h2 {
+  color-scheme: dark;
   font-size: var(--fs-h2);
   color: var(--text-display);
   line-height: var(--lh-tight);
@@ -167,14 +178,28 @@ section.topic > h2 + p {
  * override; it is a liability now that one never is. */
 section.topic > ul.tile-track {
   position: absolute;
-  left: var(--_gutter);
-  right: var(--_gutter);
-  top: 75%;
+  /* The columns carry their own inline padding (`--_tab-pad`) so the lit one has
+   * room to be a filled tab. Bleeding the list out by that same amount keeps the
+   * track's outer edges on the heading's gutter, rather than stepping them in. */
+  left: calc(var(--_gutter) - var(--_tab-pad));
+  right: calc(var(--_gutter) - var(--_tab-pad));
+  /* One seam ABOVE the band edge, so the lit tab paints over the seam and the
+   * upper band reads as reaching down into its column unbroken. */
+  top: calc(75% - var(--_seam));
+  /* A FIXED foot, never content-sized. Sibling slides of one section light
+   * different columns, and the lit label is heavier, so a content-sized tab
+   * would change height as the deck advances — jank the eye catches on every
+   * click. Pinned above the running footer's line (inset + one meta line + a
+   * step of air), the tab is one rectangle for the whole section and never
+   * reaches the footer's ink. Not `--footer-reserve`: that token belongs to
+   * `section.form` and this section is not one, so it resolved to nothing and
+   * the tab fell back to its content height. */
+  bottom: calc(var(--frame-inset-y) + var(--fs-meta) + var(--sp-md));
   list-style: none;
   display: flex;
   flex-direction: row;
-  align-items: start;        /* top-aligned: a wrapping label keeps its baseline */
-  gap: calc(var(--_sec-1cqi, 1cqi) * 2);
+  align-items: stretch;      /* every column is the full tab height */
+  gap: 0;                    /* the columns' own padding is the gutter between labels */
   max-width: none;
   padding: 0;
 }
@@ -184,10 +209,25 @@ section.topic > ul.tile-track > li {
    * below its longest word — the track silently stops being equal-width and
    * overflows its own box. */
   min-width: 0;
-  overflow-wrap: anywhere;
-  border-top: var(--_mark) solid transparent;
-  padding-top: var(--sp-sm);
-  padding-right: var(--sp-xs);
+  /* `break-word`, not `anywhere`: `anywhere` also lowers the column's
+   * min-content, so it split "Postmortems" as "Postmortem / s" on the nine-topic
+   * track rather than letting the word set the floor. `break-word` is only the
+   * last resort for a token wider than any column; the dense-track inset below
+   * is what makes real labels fit. No `hyphens: auto` — headless Chromium ships
+   * without the dictionaries, so the PDF and the browser would break differently. */
+  overflow-wrap: break-word;
+  /* Each label sits in the MIDDLE of its column, both ways, so every column reads
+   * as a cell and the lit one as the selected cell. A COLUMN flexbox, not a row:
+   * a row would make the label an anonymous flex item whose min-content floor is
+   * its longest word, and `break-word` could then never break an over-long one.
+   * In a column the label stretches to the column's width and wraps inside it.
+   * The top padding is the seam the track sits over, so the middle is the middle
+   * of the VISIBLE band. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  padding: var(--_seam) var(--_tab-pad) 0 var(--_tab-pad);
   font-size: var(--fs-body);
   line-height: var(--lh-snug);
   color: var(--text-body);
@@ -197,10 +237,20 @@ section.topic > ul.tile-track > li {
 }
 section.topic > ul.tile-track > li::marker { content: none; }
 
-/* HERE — the seam thickens under this column. Double-coded deliberately: the
- * accent carries it on a color palette, the 3x WEIGHT carries it where
- * `--accent` collapses onto `--border` (onyx, a11y-achromatopsia, a11y-base,
- * concrete), and the label's own ink carries it a third time. Never hue alone. */
+/* HERE — the upper band reaches down into this column as a tab.
+ *
+ * The lit column takes the upper band's own field, so the band and the tab read
+ * as one shape: the topic named above sits over its place in the section below.
+ * That is a TONE cue, and tone is the one channel the two bands are measured to
+ * carry on every shipped palette (the shelf note above: dL >= 0.129 on the
+ * tightest). It needs no hue, so it survives the four palettes where `--accent`
+ * collapses onto `--border` (onyx, a11y-achromatopsia, a11y-base, concrete),
+ * and the top bar, the label's display ink and its weight code it three more
+ * times.
+ *
+ * The thin accent bar that used to mark this column was hue-and-weight on a
+ * two-pixel line that sat ON the spectrum seam, so it read as part of the seam
+ * rather than as a marker — the complaint that prompted this rule. */
 /* `.on` is the ONLY marker selector, and there is nothing else for CSS to read.
  *
  * An earlier revision tried to read an AUTHORED mark here, with
@@ -216,9 +266,18 @@ section.topic > ul.tile-track > li::marker { content: none; }
  * `<!-- _track: … | [Payback] | … -->`, read by lib/core/track-spec.js, and
  * `topic-track.js` writes `class="on"` on the item it names. Every track this
  * rule sees was emitted by that kernel. */
+/* The TOP BAR caps the tab in the display ink — the same ink as the heading,
+ * which every palette guarantees against `--surface-inverse`. NOT `--accent`:
+ * on the light palettes the accent is a dark hue sitting on the dark tab and the
+ * dark band, and a bar in it rendered invisible on indaco itself. Painted as a
+ * background layer rather than a border, so it takes no room from the label. */
 section.topic > ul.tile-track > li.on {
-  border-top-color: var(--accent);
-  color: var(--text-heading);
+  color-scheme: dark;        /* the heading's pin, for the same ink — see `> h2` */
+  background-color: var(--surface-inverse);
+  background-image: linear-gradient(var(--text-display), var(--text-display));
+  background-size: 100% var(--_cap);
+  background-repeat: no-repeat;
+  color: var(--text-display);
   font-weight: 600;
 }
 
@@ -229,6 +288,10 @@ section.topic > ul.tile-track > li.on {
  * is on SANCTIONED_DENSITY_EXEMPT and has no soft/hard to match. */
 section.topic > ul.tile-track:has(> li:nth-child(7)) > li { font-size: var(--fs-body-compact); }
 section.topic > ul.tile-track:has(> li:nth-child(9)) > li { font-size: var(--fs-meta); }
+/* Past eight the inset halves too: nine columns at full inset leave ~90px of
+ * measure at HD, a hair under a word like "Postmortems" in the lit weight. The
+ * bleed follows the inset so the labels stay on the heading's gutter. */
+section.topic > ul.tile-track:has(> li:nth-child(9)) { --_tab-pad: calc(var(--_sec-1cqi, 1cqi) * 0.625); }
 
 /* ── fact ─────────────────────────────────────────────────────────────────────
  * One flat canvas, and the type hierarchy inverts: the NAME becomes a label on

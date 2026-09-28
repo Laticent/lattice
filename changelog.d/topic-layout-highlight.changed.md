@@ -1,0 +1,5 @@
+- `topic`: the current topic's column on the track is now lit as a filled tab in the upper band's own field, capped with a bar in the heading's ink, so the topic named above visibly reaches down into its place in the section. It replaces the thin accent bar, which sat on the spectrum seam and read as part of it. The tab needs no hue, so it also shows on the palettes where `--accent` collapses onto `--border` (onyx, concrete, a11y-achromatopsia, a11y-base).
+- `topic`: the tab has one fixed height for the whole section, so it no longer changes size as the deck moves from one topic slide to the next.
+- `topic`: on a nine-topic track, labels no longer break mid-word (`Postmortems` rendered as "Postmortem / s"). The columns tighten their inset at nine, and a word only breaks when it cannot fit a column at all.
+- `topic`: track labels are centered in their columns, horizontally and vertically, so each topic reads as a cell and the lit one as the selected cell.
+- `topic`: on the carbone light theme the slide heading is readable again. It rendered near-black on the near-black band (1.05:1); it now takes carbone's own light display ink.
