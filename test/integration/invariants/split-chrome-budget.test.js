@@ -141,3 +141,76 @@ describe('split chrome budget (real render)', () => {
     assert.equal(m.anyFooterShown, false);
   });
 });
+
+// PORTRAIT. The panels stack, so the footer spans the frame, but it still holds ONE line, and on a
+// split page it stops before the k-of-N rail. The rail fills its pills through the current page, so
+// it is widest on the run's LAST page; the footer's reserve is that width (`--split-rail-reserve`,
+// base.modifiers.css), which the arm reads off the last page's rail. FALSIFIABLE: before the
+// reserve, a 60-character footer wrapped to two lines on every page here and, on the run's cover,
+// ran on under the rail's lane.
+const LONG_FOOTER = 'Confidential · board pre-read · do not forward outside the org';
+const points = (n) => Array.from({ length: n }, (_, i) => `- Point ${i + 1}\n  - Detail ${i + 1}.`).join('\n');
+const PORTRAIT_DECK = `---
+marp: true
+size: portrait
+theme: indaco
+paginate: true
+---
+
+${[1, 3, 14].map((n) => `<!-- _class: split-panel pullquote -->\n<!-- _footer: "${LONG_FOOTER}" -->\n\n> A quotation.\n\n\`Someone\`\n\n${points(n)}`).join('\n\n---\n\n')}
+`;
+
+describe('portrait split-panel footer budget (real render)', () => {
+  let browser;
+  let page;
+  before(async () => {
+    const html = renderHtml(PORTRAIT_DECK, { key: 'split-chrome-budget-portrait' });
+    browser = await puppeteer.launch({ executablePath: resolveChrome(), headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    page = await browser.newPage();
+    await page.goto(`file://${html}`, { waitUntil: 'load', timeout: 60000 });
+    await page.evaluate(async () => {
+      try { await document.fonts.ready; } catch { /* Font Loading API absent — proceed */ }
+    });
+  }, { timeout: 630000 });
+  after(async () => { if (browser) await browser.close(); });
+
+  const facts = () => page.evaluate(() => [...document.querySelectorAll('section.split-panel')].map((sec) => {
+    const S = sec.getBoundingClientRect();
+    const box = (el) => {
+      if (!el?.getClientRects().length) return null;
+      const r = el.getBoundingClientRect();
+      return { l: r.left - S.left, r: r.right - S.left, h: r.height };
+    };
+    const footer = sec.querySelector(':scope > footer');
+    return {
+      run: sec.getAttribute('data-split-run'),
+      footer: box(footer),
+      lineHeight: footer ? parseFloat(getComputedStyle(footer).lineHeight) : 0,
+      rail: box(sec.querySelector(':scope > .lat-split-rail')),
+      counted: !!sec.querySelector(':scope > .lat-split-rail > .seg-count'),
+      pagination: box(sec.querySelector(':scope > .lat-pagination')),
+    };
+  }));
+
+  test('the footer holds one line and clears the page number and the rail at its widest', async () => {
+    const pages = await facts();
+    const withFooter = pages.filter((p) => p.footer);
+    assert.equal(withFooter.length, 3, 'one footer per authored slide (the unsplit slide and each run cover)');
+    for (const p of withFooter) {
+      assert.ok(p.footer.h < 1.5 * p.lineHeight, `footer wraps: ${p.footer.h.toFixed(1)}px tall at line-height ${p.lineHeight}px`);
+      if (p.pagination) assert.ok(p.footer.r <= p.pagination.l + 0.5, `footer ends at ${p.footer.r.toFixed(1)}, past the page number at ${p.pagination.l.toFixed(1)}`);
+    }
+    const runs = [...new Set(pages.map((p) => p.run).filter(Boolean))];
+    assert.equal(runs.length, 2, 'the 3-point and 14-point slides split');
+    const forms = new Set();
+    for (const run of runs) {
+      const members = pages.filter((p) => p.run === run);
+      const cover = members.find((p) => p.footer);
+      assert.ok(cover, `run ${run} carries its footer on one page`);
+      const widest = Math.min(...members.filter((p) => p.rail).map((p) => p.rail.l));
+      assert.ok(cover.footer.r <= widest - 0.5, `run ${run}: footer ends at ${cover.footer.r.toFixed(1)}, into the rail's lane from ${widest.toFixed(1)}`);
+      forms.add(members.some((p) => p.counted) ? 'count' : 'pills');
+    }
+    assert.deepEqual([...forms].sort(), ['count', 'pills'], 'both rail forms are exercised');
+  });
+});

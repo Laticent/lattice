@@ -73,6 +73,22 @@ In portrait the panels stack. The footer now takes the ink of the field it lands
 
 ---
 
+<!-- _class: split-panel pullquote -->
+<!-- _footer: "Confidential · board pre-read · do not forward outside the org" -->
+
+> A long footer holds one line and stops before the page marks.
+
+`Split-panel · portrait · long footer`
+
+- One line, ending in an ellipsis
+  - A 60-character caption used to wrap onto a second line and climb into the content.
+- Clear of the rail
+  - On a split run the footer stops before the k-of-N pills at their widest, on the run's last page.
+- The same cut on every page
+  - The reserve is the run's widest rail, so the caption does not move as the pills fill.
+
+---
+
 <!-- _class: closing -->
 <!-- _paginate: false -->
 <!-- _header: '' -->
