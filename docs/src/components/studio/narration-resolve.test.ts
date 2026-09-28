@@ -92,3 +92,13 @@ describe('applyChartNarration', () => {
 		expect(applyChartNarration(['x'], ['proj'], () => '   ')).toEqual(['proj']);
 	});
 });
+
+describe('an author caption is read as the words it says', () => {
+	// The same kernel the CLI's mergeNarration applies (lib/core/read-along-build.js plainCaption),
+	// so Present, the bake and the .vtt agree on `**x**` → `x`.
+	it('strips inline Markdown from both caption rungs, not from the projection', () => {
+		expect(resolveNarration({ caption: 'It **costs** more.', projected: 'p' })).toBe('It costs more.');
+		expect(resolveNarration({ fmCaption: '_Front_ matter', projected: 'p' })).toBe('Front matter');
+		expect(resolveNarration({ projected: 'a **kept** projection' })).toBe('a **kept** projection');
+	});
+});
