@@ -32,8 +32,7 @@
 import { recordLatency } from './narration-latency.js';
 import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
-import { pickCheapestTtsModel } from './tts-cost.js';
-import { isGeminiTtsModel } from './tts-models.js';
+import { isGeminiTtsModel, pickCheapestTtsModel } from './tts-cost.js';
 
 const KOKORO_URL = 'https://esm.run/kokoro-js';
 const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
@@ -358,7 +357,7 @@ export const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
 
 // The Set above is pinned to the sample catalog's own audioFormat:"wav" engines (a test
 // holds them equal), so a live Gemini TTS model with no sample-catalog engine yet (3.8
-// flash, 3.8 flash-lite) would 400 on every clip. The family match (tts-models.js) covers it.
+// flash, 3.8 flash-lite) would 400 on every clip. The family match (tts-cost.js) covers it.
 export function isPcmOnlyModel(model) {
   const id = String(model || '');
   return PCM_ONLY_MODELS.has(id) || isGeminiTtsModel(id);

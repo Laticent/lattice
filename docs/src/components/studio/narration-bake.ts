@@ -35,7 +35,7 @@ import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
-import { isGeminiTtsModel } from '@/playground/tts-models.js';
+import { isGeminiTtsModel } from '@/playground/tts-cost.js';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { applyChartNarration, resolveNarration } from './narration-resolve';

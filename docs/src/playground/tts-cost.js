@@ -1,5 +1,8 @@
-// The cheapest-voice ranker — which OpenRouter speech model the "Always use the cheapest
-// voice" workspace setting picks when the author has not chosen one themselves.
+// OpenRouter speech-model facts shared by the voice model and the Studio: the cheapest-voice
+// ranker (which model the "Always use the cheapest voice" workspace setting picks when the
+// author has not chosen one themselves) and the Gemini TTS family test. One module, not two,
+// because every shared lazy chunk adds its file name to the Studio's EAGER bundle (Vite's
+// preload map) — and that bundle sits at its budget.
 //
 // Pure and node-safe (no DOM, no `@/` alias, no TypeScript import): voice-model.js imports
 // it, and voice-model.js must stay loadable under plain `node --test`.
@@ -93,4 +96,14 @@ export function pickCheapestTtsModel(models) {
 	const candidates = priced.filter((x) => x.cost <= floor * (1 + PRICE_TIE_BAND));
 	candidates.sort((a, b) => rankOf(a.id) - rankOf(b.id) || a.cost - b.cost || a.id.localeCompare(b.id));
 	return candidates[0].id;
+}
+
+// The whole Gemini TTS family answers PCM only — measured 2026-09-27 on
+// google/gemini-3.8-flash-tts: `response_format:"mp3"` → 400 "Gemini TTS only supports
+// response_format=\"pcm\"". Matching the family, not a list, covers the next release too.
+const GEMINI_TTS = /^google\/gemini-[\w.-]*-tts(?:-[\w.-]+)?(?::[\w-]+)?$/i;
+
+/** True for a Gemini speech model (PCM-only on OpenRouter), including a `:free` variant. */
+export function isGeminiTtsModel(model) {
+	return GEMINI_TTS.test(String(model || ''));
 }
