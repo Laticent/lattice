@@ -204,7 +204,13 @@ never re-pointed; an earlier cut did, under tone, and washed line's series 5–8
 out to near-white. A finish also never repaints a CONTAINER as a mark (a slotted
 flowchart group, a tinted kanban column): that buried a group's title under an 82%
 body. Under tone a container's own hue property is re-pointed to the one hue
-instead, so it keeps its faint level and its key still matches.
+instead, so it keeps its faint level and its key still matches. A roadmap's phase
+color is one of these: each phase column, workstream lane and horizon card sets
+`--phase-accent`, which its pill, stripe and card rule read. Under tone it joins
+the one hue, and the pill takes black or white from its new ground, because its
+shipped `--cat-on-mark` read 1.54:1 there on the a11y themes' dark faces. Swept
+over all 18 themes in both schemes, every pill and phase label clears 4.5:1
+(worst 4.65).
 
 **Where `tone` is weakest.** On a mark that CARRIES TEXT, tone has only the quiet
 top of its ramp to spend (30% down to 9%), so adjacent categories sit about three

@@ -824,7 +824,7 @@ quieter level.
 cell) can use only the quiet top of the one hue, so about four of its categories separate
 by eye. `etching` puts identity on a thin edge, the hardest place to tell hues apart: for
 colorblind readers on an ordinary theme, prefer `pigment` or an a11y theme. A container,
-such as a slotted flowchart group or a tinted kanban column, is never repainted as a mark:
+such as a slotted flowchart group, a tinted kanban column or a roadmap phase, is never repainted as a mark:
 it keeps its own faint tint, and under `tone` that tint joins the one hue.
 
 **What a finish never costs.** Every mark keeps an ink edge. A heatmap value picks black or

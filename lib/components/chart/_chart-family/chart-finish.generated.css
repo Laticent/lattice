@@ -1001,6 +1001,21 @@ section.chart-finish-tone :where(.fc-group-title[data-slot]),
 figure.chart-finish-tone :where(.fc-group-title[data-slot]) {
   fill: var(--chart-cat-1-ink) !important;
 }
+section.chart-finish-tone :where(:is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card)),
+figure.chart-finish-tone :where(:is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card)) {
+  --phase-accent: var(--chart-cat-1-hue) !important;
+  --phase-ink: var(--chart-cat-1-ink) !important;
+}
+section.chart-finish-tone :where(:is(.roadmap .horizon-meta, .roadmap thead th:not(:first-child) > code)),
+figure.chart-finish-tone :where(:is(.roadmap .horizon-meta, .roadmap thead th:not(:first-child) > code)) {
+  color: var(--text-body) !important;
+}
+@supports (color: oklch(from red l c h)) {
+section.chart-finish-tone :where(:is(.roadmap .horizon-meta, .roadmap thead th:not(:first-child) > code)),
+figure.chart-finish-tone :where(:is(.roadmap .horizon-meta, .roadmap thead th:not(:first-child) > code)) {
+  color: oklch(from var(--chart-cat-1-hue) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
 
 /* HUE — the body a finish is named for, under the mark's ink edge. */
 section.chart-finish-tone :where(:is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="fill"]:not(.line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),

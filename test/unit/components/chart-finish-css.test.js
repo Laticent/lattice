@@ -145,6 +145,21 @@ describe('chart-finish.generated.css', () => {
     assert.doesNotMatch(css, /\.fc-group[^-][^{]*\{[^}]*\bfill:/, 'no rule paints a group as a mark');
   });
 
+  // A roadmap's phase color (column, lane, horizon card) is a container color that its pill,
+  // stripe and card rule all read. Under tone it joins the one hue, scoped to the roadmap so no
+  // other table on the slide moves, and the pill picks its ink from its new ground: its shipped
+  // `--cat-on-mark` read 1.54:1 on the one hue on the a11y themes' dark faces.
+  test('a roadmap phase is re-pointed under tone, and its pill picks its own ink', () => {
+    const head = 'section.chart-finish-tone :where(:is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card))';
+    const at = css.indexOf(head);
+    assert.ok(at >= 0, 'a tone rule for the roadmap phase containers');
+    const body = css.slice(at, css.indexOf('}', at));
+    assert.match(body, /--phase-accent: var\(--chart-cat-1-hue\)/);
+    assert.match(body, /--phase-ink: var\(--chart-cat-1-ink\)/);
+    assert.doesNotMatch(css, /chart-finish-(pigment|etching) :where\([^)]*\.roadmap/, 'only tone reaches a roadmap');
+    assert.match(css, /@supports[^{]*\{\nsection\.chart-finish-tone :where\(:is\(\.roadmap \.horizon-meta[^{]*\{\s*color: oklch\(from var\(--chart-cat-1-hue\)/);
+  });
+
   // The body a finish gives the status mark selected by `sel` (its first paint declaration).
   const statusBody = (finish, sel) => {
     const at = css.indexOf(`section.chart-finish-${finish} :where(${sel})`);

@@ -257,6 +257,20 @@ function build() {
       w(rule(name, '.kanban-column:not([data-done])', [`--col-hue: ${ONE}`]));
       w(rule(name, ':is(.fc-group, .fc-key-swatch[data-kind="group"])[data-slot]', [`--fc-group-hue: ${ONE}`]));
       w(rule(name, '.fc-group-title[data-slot]', [`fill: ${ONE_INK}`]));
+      // A roadmap's phase color is a container color too: one property per phase column,
+      // workstream lane and horizon card, read by its pill, its stripe and its card rule. The
+      // `.roadmap` inside :where() matches the finished section itself, so no other table on
+      // the slide is reached and the head keeps (0,1,1).
+      w(rule(name, ':is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card)', [
+        `--phase-accent: ${ONE}`,
+        `--phase-ink: ${ONE_INK}`,
+      ]));
+      // The phase pill's text is `--cat-on-mark`, solved for the shipped phase colors, not the
+      // one hue: on it the a11y themes' dark faces read 1.54:1 and burgundy dark 4.44:1. So the
+      // pill picks black or white from its own ground, as every other text-bearing mark does.
+      const pill = ':is(.roadmap .horizon-meta, .roadmap thead th:not(:first-child) > code)';
+      w(rule(name, pill, ['color: var(--text-body)']));
+      w(supports(rule(name, pill, [`color: ${inkOn(ONE)}`])));
     }
 
     // ── HUE — the body a finish is named for ────────────────────────────────
