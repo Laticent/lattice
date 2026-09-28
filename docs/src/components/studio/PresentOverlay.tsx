@@ -737,8 +737,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				}
 				if (!autoplayRef.current) return;
 				if (clampedRef.current < countRef.current - 1) {
-					autoAdvanceRef.current = true; // play the next slide once it mounts
-					setIdx((i) => Math.min(i + 1, countRef.current - 1));
+					// THE LEAVE BEAT. The last sentence lands on the slide it belongs to before the next
+					// one appears; flipping on the frame it ended (measured, 2026-09-26) cut a closing
+					// line off mid-breath. Scaled by the pace (`slideBeatMs('leave')`), cancelable like
+					// the arrival beat, and dropped if the viewer navigated away in the meantime.
+					leaveFromRef.current(clampedRef.current);
 				} else if (!startClosingRef.current()) {
 					setAutoplay(false); // walked off the last slide — autoplay is done
 				}
@@ -805,6 +808,58 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	}, [set, clamped, pace, deckPace]);
 	const beatForArrivalRef = React.useRef(beatForArrival);
 	beatForArrivalRef.current = beatForArrival;
+	// THE LEAVE BEAT's timer, apart from the arrival beat's: pausing inside it must not replay the
+	// finished slide, so a pause there leaves `leavePendingRef` set and the next Play advances.
+	const leaveTimerRef = React.useRef(0);
+	const leavePendingRef = React.useRef(false);
+	const advanceFrom = React.useCallback((from: number): boolean => {
+		leavePendingRef.current = false;
+		if (clampedRef.current !== from) return false; // the viewer moved during the beat: they chose
+		autoAdvanceRef.current = true; // play the next slide once it mounts
+		setIdx((i) => Math.min(i + 1, countRef.current - 1));
+		return true;
+	}, []);
+	const leaveFrom = React.useCallback(
+		(from: number) => {
+			const name = resolvePaceName(deckPace, pace.name) as PaceName;
+			// The presenter's live "no beat" override (a 0ms slide beat) means no pause between slides
+			// at all, on either side of the boundary.
+			const beat = pace.slide === 0 ? 0 : slideBeatMs('leave', name);
+			if (beat <= 0) {
+				advanceFrom(from);
+				return;
+			}
+			leavePendingRef.current = true;
+			setHolding(true);
+			leaveTimerRef.current = window.setTimeout(() => {
+				leaveTimerRef.current = 0;
+				// `holding` stays on through the advance: the arrival beat takes it over, so the deck
+				// never reads as "not delivering" for a frame between the two beats.
+				if (!autoplayRef.current || !advanceFrom(from)) {
+					leavePendingRef.current = false;
+					setHolding(false);
+				}
+			}, beat);
+		},
+		[deckPace, pace.name, pace.slide, advanceFrom],
+	);
+	const leaveFromRef = React.useRef(leaveFrom);
+	leaveFromRef.current = leaveFrom;
+	// A navigation or leaving Present drops a pending leave beat: it belonged to the slide it was on.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `clamped` and `open` are the triggers.
+	React.useEffect(
+		() => () => {
+			// A pending beat set `holding`; nothing else would clear it once the timer is gone, and
+			// the transport would read Pause with nothing playing (checker, reproduced).
+			if (leaveTimerRef.current) {
+				window.clearTimeout(leaveTimerRef.current);
+				setHolding(false);
+			}
+			leaveTimerRef.current = 0;
+			leavePendingRef.current = false;
+		},
+		[clamped, open],
+	);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `narration` is the arrival signal (a fresh record per navigation, committed alongside the reader's rebuild); reader/pace are read via ref by design.
 	React.useEffect(() => {
 		if (!autoAdvanceRef.current) return;
@@ -821,6 +876,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// rather than scheduling a pointless timer.
 		const beat = beatForArrivalRef.current();
 		if (beat <= 0) {
+			setHolding(false); // a leave beat may have handed the hold over
 			readerRef.current.play();
 			return;
 		}
@@ -1339,6 +1395,20 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// non-resume play() — a barge-in that cut the sentence and restarted from word one. So a
 	// beat is paused by CANCELING it, not by pausing a reader that isn't running yet.
 	const togglePresentation = React.useCallback(() => {
+		// PAUSED IN THE LEAVE BEAT: the slide was finished, so Play goes on to the next one rather
+		// than reading this one again from the top.
+		if (leaveTimerRef.current) {
+			window.clearTimeout(leaveTimerRef.current);
+			leaveTimerRef.current = 0;
+			setHolding(false);
+			setAutoplay(false);
+			return;
+		}
+		if (leavePendingRef.current && !readerRef.current.playing) {
+			setAutoplay(true);
+			advanceFrom(clampedRef.current);
+			return;
+		}
 		if (beatTimerRef.current) {
 			window.clearTimeout(beatTimerRef.current);
 			beatTimerRef.current = 0;
@@ -1367,7 +1437,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			}
 			readerRef.current.play();
 		}
-	}, []);
+	}, [advanceFrom]);
 	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
 
 
@@ -1466,6 +1536,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	}
 	function toggleRehearse() {
 		reader.stop(); // read-aloud and rehearsal are mutually exclusive transports
+		if (leaveTimerRef.current) window.clearTimeout(leaveTimerRef.current);
+		leaveTimerRef.current = 0;
+		leavePendingRef.current = false;
+		setHolding(false);
 		setAutoplay(false);
 		setRehearse((v) => !v);
 		setElapsed(0);

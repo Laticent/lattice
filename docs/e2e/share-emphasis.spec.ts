@@ -141,7 +141,8 @@ test('the player holds a beat after the closing quote', async ({ page }) => {
 	const none = gapsOf(await download(page, CODA_DECK(''), /Webpage/, /Download webpage/));
 	const coda = gapsOf(await download(page, CODA_DECK('\n> Retention carries the year.\n'), /Webpage/, /Download webpage/));
 	expect(coda.length, 'the coda should add one cue').toBe(none.length + 1);
-	// The final cue is the coda, and its gap carries the emphasis hold rather than the bare
-	// sentence pause. 415 = the sentence gap (165) + EMPHASIS_HOLD_MS (250).
-	expect(coda[coda.length - 1], `gaps=${coda}`).toBe(415);
+	// The final cue is the coda, and its gap carries the emphasis hold on top of the slide's
+	// breath. The deck plays at `natural`, whose leave beat (700) is a floor under the plain
+	// sentence gap (165), so 950 = max(700, 165) + EMPHASIS_HOLD_MS (250).
+	expect(coda[coda.length - 1], `gaps=${coda}`).toBe(950);
 });

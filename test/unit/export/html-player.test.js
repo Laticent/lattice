@@ -1930,6 +1930,17 @@ test('narration: the deck ships ONE packed LTT that validates, and one clip bloc
 	assert.equal(ltt.inputs.engine, require('@laticent/cadenza').ENGINE_HASH, 'inputs.engine is the timing engine hash');
 });
 
+test('narration: a slide holds at least the pace\'s leave beat after its last sentence', async () => {
+	// Before the leave beat the tail was only a sentence's breath, so the next slide appeared as the
+	// last line ended. The deck's `pace:` now sets a floor under it (resolve-pace.mjs PACE_BEATS).
+	const { PACE_BEATS } = await import('../../../lib/core/resolve-pace.mjs');
+	for (const pace of ['brisk', 'natural', 'deliberate']) {
+		const { html } = await buildPlayerHtml({ docHtml: NARRATION_DOC, source: `---\npace: ${pace}\n---\n\n# x`, now: 0, narration: { voice: VOICE, slides: [said('Growth held.', []), said('Spend stayed flat.', [])] } });
+		const { ltt } = carriers(html);
+		for (const seg of ltt.segments) assert.ok(seg.tailMs >= PACE_BEATS[pace].leave, `${pace}: tailMs ${seg.tailMs} < leave ${PACE_BEATS[pace].leave}`);
+	}
+});
+
 test('narration: the pre-LTT array shape fails loudly instead of shipping a mute deck', async () => {
 	await assert.rejects(
 		buildPlayerHtml({ docHtml: NARRATION_DOC, source: '# x', now: 0, narration: [[{ text: 'Old.', estimateMs: 900, gapMs: 100, audio: null, words: [] }]] }),

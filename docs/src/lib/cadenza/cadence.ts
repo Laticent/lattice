@@ -90,17 +90,27 @@ export const PARAGRAPH_PAUSE_MS = 750;
  */
 export const SLIDE_PAUSE_MS = 1400;
 export const SECTION_PAUSE_MS = 2600;
+/**
+ * The beat to hold on the OLD slide after its last sentence, before the next one appears.
+ * Measured in the Studio (2026-09-26): with none, the next slide landed on the same frame the
+ * last caption line ended, so a closing line ("First year with a partner channel.") was cut off
+ * by the flip rather than allowed to land. A speaker finishes the thought, then clicks. Half of
+ * the arrival beat, near a paragraph's breath (750 ms) at `natural`: long enough that the last
+ * line is heard as the end, short enough that the arrival hold stays the slide's real pause.
+ */
+export const LEAVE_PAUSE_MS = 700;
 
 /** A named delivery pace. The preset is the primary control — "how many milliseconds
  *  should a slide pause be" is not a question a presenter should have to answer to get a
  *  good result — with exact overrides available for people who want them. */
 export type PaceName = 'brisk' | 'natural' | 'deliberate';
 
-/** Slide/section beats per pace, in ms. `natural` is the default and is the pair above. */
-export const PACE_PRESETS: Record<PaceName, { slide: number; section: number }> = {
-	brisk: { slide: 800, section: 1600 },
-	natural: { slide: SLIDE_PAUSE_MS, section: SECTION_PAUSE_MS },
-	deliberate: { slide: 2200, section: 4000 },
+/** Slide/section arrival beats and the leave beat per pace, in ms. `natural` is the default
+ *  and is the constants above. */
+export const PACE_PRESETS: Record<PaceName, { slide: number; section: number; leave: number }> = {
+	brisk: { slide: 800, section: 1600, leave: 400 },
+	natural: { slide: SLIDE_PAUSE_MS, section: SECTION_PAUSE_MS, leave: LEAVE_PAUSE_MS },
+	deliberate: { slide: 2200, section: 4000, leave: 1100 },
 };
 
 /**
@@ -111,10 +121,10 @@ export const PACE_PRESETS: Record<PaceName, { slide: number; section: number }> 
  * `0` is a legitimate override meaning "no beat", which is why this checks finiteness
  * rather than truthiness.
  */
-export function slideBeatMs(kind: 'slide' | 'section', pace: PaceName = 'natural', override?: number): number {
+export function slideBeatMs(kind: 'slide' | 'section' | 'leave', pace: PaceName = 'natural', override?: number): number {
 	if (typeof override === 'number' && Number.isFinite(override) && override >= 0) return Math.round(override);
 	const preset = PACE_PRESETS[pace] ?? PACE_PRESETS.natural;
-	return kind === 'section' ? preset.section : preset.slide;
+	return preset[kind];
 }
 
 /** The longest trailing pause implied by a token's punctuation (0 if none). Scans the trailing run
