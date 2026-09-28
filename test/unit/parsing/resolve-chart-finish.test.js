@@ -18,7 +18,10 @@ const { lintText } = require('../../../lib/authoring/lint');
 const lint = (md) => ({ findings: lintText(md) });
 
 const read = (rel) => fs.readFileSync(path.join(__dirname, '../../..', rel), 'utf8');
-const classesOf = (md) => [...String(engine.render(md).html).matchAll(/<section[^>]*\bclass="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
+// A linear scan of each <section> opening tag, since a regex spanning the whole tag is
+// polynomial. `class=` anchored on whitespace, so `data-class=` never matches it.
+const classesOf = (md) => String(engine.render(md).html).split('<section ').slice(1)
+  .map((t) => t.slice(0, t.indexOf('>'))).map((t) => (/(?:^|\s)class="([^"]*)"/.exec(t)?.[1] ?? '').split(/\s+/));
 
 describe('chart-finish: the vocabulary', () => {
   test('three finishes plus off; off is classless', () => {
