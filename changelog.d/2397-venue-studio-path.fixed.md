@@ -1,0 +1,1 @@
+- The Studio's front-matter reference names where `venue:` lives in deck settings (Look → Venue).
