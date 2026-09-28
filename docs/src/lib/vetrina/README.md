@@ -178,6 +178,7 @@ rather than a die roll:
 | a phrase inside a longer block | `wash` | "these words" — a highlighter band per line |
 | a whole card / multi-line block | `bracket` | "this whole block" — a soft outline just outside it |
 | something small and discrete | `tap` | "this one" — a ripple, where a ring would be a dot |
+| a line through points (a chart series) | `trace` | "follow this line" — a stroke drawn through the target's line rects in order, left to right, the hand riding it; fewer than two points draws a `bracket` |
 
 What separates the second family is the property they all share:
 

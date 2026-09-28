@@ -79,7 +79,7 @@ export function asElement(src: RectSource | null | undefined): HTMLElement | nul
  *  (`underline` a line, `wash` a phrase, `bracket` a block, `tap` something small); `circle`
  *  belongs to both families, since "look here" is already the right thing to say about a
  *  compact target. */
-export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake' | 'underline' | 'wash' | 'bracket' | 'tap';
+export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake' | 'underline' | 'wash' | 'bracket' | 'tap' | 'trace';
 
 export interface GestureOptions {
 	/** Emphasis. `'notable'` draws heavier ink and holds it longer — for when the HOST knows
@@ -364,6 +364,13 @@ export function gestureRest(kind: Gesture, box: RectLike, rects: readonly RectLi
 			// The left margin, level with the middle — the flat hand held beside a card. Outside
 			// the bracket's own ink as well as the box, or the cursor sits on the outline.
 			return { x: box.left - INK_OUT - pad, y: box.top + box.height / 2 };
+		case 'trace': {
+			// Past the LAST point of the stroke, the way it was drawn: left to right.
+			const pts = rects ?? [];
+			if (pts.length < 2) return { x: box.left - INK_OUT - pad, y: box.top + box.height / 2 }; // it drew a bracket
+			const last = pts.reduce((a, c) => (c.left + c.width / 2 > a.left + a.width / 2 ? c : a));
+			return { x: r2(last).right + pad, y: last.top + last.height / 2 };
+		}
 		case 'tap':
 			// Just off the corner, so the arrow's tip points back up-left at the thing it tapped.
 			return { x: b.right + pad, y: b.bottom + pad };
@@ -2184,6 +2191,60 @@ export function createStage(opts: StageOptions): Stage {
 		});
 	}
 
+	/** TRACE — "follow this line". A stroke drawn through the target's points in order, left to
+	 *  right, with the hand riding it: a chart line read as the motion it is. The points are the
+	 *  centers of the target's line rects (a series offers its own dots), so the stroke is built from
+	 *  rects like every other gesture and needs no path geometry across a frame. Fewer than two
+	 *  points is not a line, and the gesture draws a bracket around the target instead. */
+	async function traceGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
+		const r0 = liveRect(src);
+		if (!r0) return;
+		const centers = (rects: readonly DOMRect[] | null) => (rects ?? []).map((r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 })).sort((a, b) => a.x - b.x);
+		const p0 = centers(liveRects(src));
+		if (p0.length < 2) return bracketGesture(src, opts, signal);
+		const { weight, alpha, hold } = inkOf(opts);
+		const pad = clearanceOf(opts);
+		const life = hold + 900 + p0.length * 140;
+		const pointsOf = (pts: readonly { x: number; y: number }[]) => pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+		const { el, stop } = inkNode(
+			'trace',
+			src,
+			'z-index:3;left:0;top:0;width:100%;height:100%;overflow:visible;',
+			(node, _r, rects) => {
+				const line = node.querySelector('polyline');
+				if (line) line.setAttribute('points', pointsOf(centers(rects())));
+			},
+			life,
+		);
+		el.innerHTML = `<svg width="100%" height="100%" style="overflow:visible"><polyline pathLength="1" fill="none" stroke="${A}" stroke-width="${weight}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1" stroke-dashoffset="1" style="filter:drop-shadow(0 0 6px var(--vt-accent))" points="${pointsOf(p0)}"/></svg>`;
+		const rest = restOf('trace', opts, r0, liveRects(src) ?? [r0], pad);
+		return withInk(stop, async () => {
+			await approach(p0[0].x, p0[0].y, signal);
+			const line = el.querySelector('polyline');
+			const draw = reduced
+				? [
+						{ strokeDashoffset: 0, opacity: 0 },
+						{ strokeDashoffset: 0, opacity: alpha, offset: 0.18 },
+						{ strokeDashoffset: 0, opacity: alpha, offset: 0.82 },
+						{ strokeDashoffset: 0, opacity: 0 },
+					]
+				: [
+						{ strokeDashoffset: 1, opacity: alpha },
+						{ strokeDashoffset: 0, opacity: alpha, offset: 0.5 },
+						{ strokeDashoffset: 0, opacity: alpha, offset: 0.85 },
+						{ strokeDashoffset: 0, opacity: 0 },
+					];
+			line?.animate?.(draw, { duration: life, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
+			// The hand rides the stroke point to point, over the half of the life the stroke draws in.
+			if (!reduced) {
+				const legs = p0.slice(1);
+				const leg = (life * 0.5) / Math.max(1, legs.length);
+				for (const p of legs) await tweenTo(p.x, p.y, leg, signal);
+			}
+			if (rest && Math.hypot(rest.x - cx, rest.y - cy) > 1) await tweenTo(rest.x, rest.y, Math.max(240, Math.min(760, Math.hypot(rest.x - cx, rest.y - cy) * 1.15)) * pace, signal);
+		});
+	}
+
 	/** WASH — "these words". A highlighter band per line rect of a phrase inside a longer
 	 *  block: the only gesture that can name PART of a paragraph without naming the paragraph. */
 	async function washGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
@@ -2493,6 +2554,9 @@ export function createStage(opts: StageOptions): Stage {
 			case 'tap':
 				if (!el || silenced.has('tap')) return;
 				return tapGesture(el, opts, signal);
+			case 'trace':
+				if (!el || silenced.has('trace')) return;
+				return traceGesture(el, opts, signal);
 			case 'shake':
 				return shake(signal);
 			case 'check': {
