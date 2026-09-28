@@ -856,7 +856,12 @@ describe('html-player export — a slide link opens a new tab, the deck stays', 
 		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
 		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
 		file = require('node:url').pathToFileURL(out.replace(/\.pdf$/, '.html')).href;
-		browser = await require('puppeteer').launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+		// NO HOST RESOLVES. The second tab is its own page, which the first page's request
+		// interception never covers, so it used to load the real YouTube: on a CI runner YouTube
+		// answered with Google's bot check, and the tab's URL became `google.com/sorry/...`,
+		// failing the assertion on a player that had done the right thing. The navigation still
+		// happens and still names its URL; it just cannot reach anything.
+		browser = await require('puppeteer').launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage', '--host-resolver-rules=MAP * ~NOTFOUND'] });
 	}, { timeout: TIMEOUT });
 	test.after(async () => {
 		if (browser) await browser.close();
