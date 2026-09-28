@@ -234,13 +234,18 @@ Every manifest has a `gesture` block. Lean by default: most name their archetype
   beside the chart narrator's, by the same identity test (the refs hold only while the projected
   text is the text read; a caption falls back to the words), and a slide no component claims plays
   as a `statement`. What recedes around a bound bullet, row or paragraph is the text path's own rule
-  (`focusUnit`), so a bound sentence and a matched one look alike; a lone paragraph shows nothing.
+  (`focusUnit`), so a bound sentence and a matched one look alike; a lone paragraph shows nothing. A sentence
+  the builder left unbound on such a slide (a `dt`, an `h3`, a line said twice) reads its words on
+  the text path, as before; on a chart, whose narrator binds every sentence it writes, an unbound
+  one is an aside. The structure units exclude `svg *`: the projection counts ordinals before the
+  runtime draws, and Mermaid's node labels are `<p>`s (checker, 2026-09-28).
   Two things moved, on purpose. Somber's one moment on a prose slide is the component's key (a
   list's first item) instead of `salience()`'s pick: the key is what §6 names and the goldens can
   pin. Expressive keeps its underline under words (`ctx.text`) and taps only marks, since the
   underline is what reads as a hand on text. The CLI export still carries no refs
   (`followups.d/2441-p2-cli-export-carries-bindings.md`). Each slide's resolved parts are cached
-  per section the first time a sentence is read (§8's plan); a re-rendered section is a new plan.
+  per section the first time a sentence resolves (§8's plan; a miss is retried next beat); a
+  re-rendered section is a new plan.
   **Score goldens per archetype** (`test/fixtures/delivery-scores/archetypes/`): the archetype's
   first component by name whose gallery binds a slide, through its chart narrator or else the
   projection, all three deliveries side by side.

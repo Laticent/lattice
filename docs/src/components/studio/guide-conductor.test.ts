@@ -415,6 +415,28 @@ describe('guide-conductor — prose, bullets and rows bound by the narration bui
 		expect(document.querySelector('.lat-guide-undim')).toBeNull();
 	});
 
+	it('a sentence the builder left unbound reads its words, as it did before prose was bound', () => {
+		// Only the heading binds (say the two lines were said twice elsewhere); the text path matches them.
+		document.body.innerHTML = '<div class="lattice"><section class="content"><h2>Terms.</h2><ul><li id="a">Alpha.</li><li id="b">Beta.</li></ul></section></div>';
+		const b = document.getElementById('b') as Element;
+		const stage: GuideStage = { gesture: async () => {}, setCursorVisible: () => {} };
+		const cue = (): GuideCue => ({ el: b, kind: 'underline', strength: 'quiet', target: { getBoundingClientRect: () => b.getBoundingClientRect(), getClientRects: () => [] }, rest: null });
+		const g = createGuideConductor({ stage: () => stage, aim: (t) => (t === 'Beta.' ? b : null), cue, clearance: 19, section: () => document.querySelector('section') });
+		const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle }>).restrained.express;
+		const refs: SceneRef[] = [{ start: 0, end: 6, act: 'frame', unit: 'heading', id: { i: 1 } }];
+		g.beat({ slide: 0, cue: 1, texts: ['Terms.', 'Beta.'], track: refs, delivering: true, delivery: delivery(), scene: { refs, at: 7, style } });
+		expect(document.getElementById('a')?.classList.contains('lat-guide-dim')).toBe(true);
+		expect(b.classList.contains('lat-guide-dim')).toBe(false);
+	});
+
+	it('a diagram\'s runtime labels are not the slide\'s paragraphs', () => {
+		// Mermaid draws `<p>` node labels inside its svg after the narration counted the paragraphs.
+		const { play, dim } = rig('<svg><foreignObject><p id="n">A</p></foreignObject></svg><p id="p1">The caption.</p><p id="p2">The note.</p>');
+		play([{ start: 0, end: 12, act: 'visit', unit: 'paragraph', id: { i: 1 } }], 0);
+		expect(dim('p2')).toBe(true);
+		expect(dim('p1')).toBe(false);
+	});
+
 	it('somber focuses only its key beat (the first bullet) and holds it', () => {
 		const { play, dim } = rig(list);
 		play(listRefs, 0, 'somber');

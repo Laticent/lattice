@@ -169,7 +169,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		key: number;
 		group: Element[] | null;
 		parts: FocusParts | null;
-		hits: Map<number, ReturnType<typeof resolveUnit>>;
+		hits: Map<number, NonNullable<ReturnType<typeof resolveUnit>>>;
 		/** The section the plan was resolved in: a re-rendered slide (a theme switch, a resize) is a new plan. */
 		section: Element;
 	} | null = null;
@@ -228,12 +228,17 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		}
 		if (!scene.owned) return false;
 		const i = refAt(play.refs, play.at);
+		// A sentence the narration builder left unbound (a `dt`, an `h3`, a line said twice) on a slide
+		// bound only by ordinal reads its words, as it did before prose was bound (checker, 2026-09-28).
+		// A chart's own narrator binds every sentence it writes, so an unbound one there is an aside.
+		if (i < 0 && play.refs.every((r) => Number.isInteger(r.id?.i))) return false;
 		const ref = i >= 0 ? play.refs[i] : null;
 		const act = ref?.act ?? 'aside';
+		// A miss is not kept: a part a chart has not drawn yet resolves on the next beat.
 		let hit = scene.hits.get(i) ?? null;
-		if (ref?.unit && !scene.hits.has(i)) {
+		if (ref?.unit && !hit) {
 			hit = resolveUnit(section, spec.units, ref);
-			scene.hits.set(i, hit);
+			if (hit) scene.hits.set(i, hit);
 		}
 		// A binding that names a unit this render does not draw (a variant the scene does not cover
 		// yet) is not the scene's to play: the caller reads the words, rather than leave the slide dark.

@@ -169,7 +169,7 @@
 			"select": null,
 			"key": false,
 			"focus": "reset",
-			"ink": "bracket figure quiet",
+			"ink": null,
 			"cursor": "point"
 		},
 		{
@@ -179,7 +179,7 @@
 			"select": null,
 			"key": false,
 			"focus": "reset",
-			"ink": "bracket figure quiet",
+			"ink": null,
 			"cursor": "point"
 		},
 		{

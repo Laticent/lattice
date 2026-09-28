@@ -3,10 +3,10 @@
   "statement": {
     "units": {
       "heading": {
-        "select": ":is(h1, h2):not(header *):not(footer *)"
+        "select": ":is(h1, h2):not(header *):not(footer *):not(svg *)"
       },
       "paragraph": {
-        "select": "p:not(header *):not(footer *):not(li *)"
+        "select": "p:not(header *):not(footer *):not(li *):not(svg *)"
       }
     },
     "key": "first"
@@ -14,13 +14,13 @@
   "list": {
     "units": {
       "item": {
-        "select": "li:not(li li)"
+        "select": "li:not(li li):not(svg *)"
       },
       "title": {
-        "select": "li:not(li li) > strong:first-child"
+        "select": "li:not(li li):not(svg *) > strong:first-child"
       },
       "heading": {
-        "select": ":is(h1, h2):not(header *):not(footer *)"
+        "select": ":is(h1, h2):not(header *):not(footer *):not(svg *)"
       }
     },
     "key": "first"
@@ -28,13 +28,13 @@
   "grid": {
     "units": {
       "item": {
-        "select": "li:not(li li)"
+        "select": "li:not(li li):not(svg *)"
       },
       "title": {
-        "select": "li:not(li li) > strong:first-child"
+        "select": "li:not(li li):not(svg *) > strong:first-child"
       },
       "heading": {
-        "select": ":is(h1, h2):not(header *):not(footer *)"
+        "select": ":is(h1, h2):not(header *):not(footer *):not(svg *)"
       }
     },
     "key": "first"
@@ -58,7 +58,7 @@
         "select": "tbody > tr:nth-child({tr}) > :is(td, th):first-child"
       },
       "heading": {
-        "select": ":is(h1, h2):not(header *):not(footer *)"
+        "select": ":is(h1, h2):not(header *):not(footer *):not(svg *)"
       }
     },
     "key": "first"
@@ -69,10 +69,10 @@
         "select": ":is(.compare-left, .compare-right, .panel-left, .panel-right, .compare-col)"
       },
       "item": {
-        "select": "li:not(li li)"
+        "select": "li:not(li li):not(svg *)"
       },
       "heading": {
-        "select": ":is(h1, h2):not(header *):not(footer *)"
+        "select": ":is(h1, h2):not(header *):not(footer *):not(svg *)"
       }
     },
     "key": "act:compare"
@@ -137,10 +137,10 @@
         "select": ":is(figure, img, video, pre, svg, .katex-display, .qr-card):not(header *):not(footer *):not(figure *):not(.qr-card *)"
       },
       "paragraph": {
-        "select": "p:not(header *):not(footer *):not(li *)"
+        "select": "p:not(header *):not(footer *):not(li *):not(svg *)"
       },
       "heading": {
-        "select": ":is(h1, h2):not(header *):not(footer *)"
+        "select": ":is(h1, h2):not(header *):not(footer *):not(svg *)"
       }
     },
     "key": "first"

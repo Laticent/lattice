@@ -127,7 +127,7 @@
     "archetype": "statement",
     "units": {
       "number": {
-        "select": "li:not(li li)"
+        "select": "li:not(li li):not(svg *)"
       }
     }
   }
