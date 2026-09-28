@@ -777,6 +777,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   inside the coda, so a Key Insight cannot stand in for the slide's quote.
 - **Pinned by:** the "coda:" arms in `test/unit/transformers/prose-projection.test.js`,
   rendered through the real engine.
+- **A stats slide's line after its stat list** (a `*Source: …*` typed below the list) is
+  not a coda: a below-note must be the slide's last block, so a line followed by a key
+  insight stays in `.cell-stage`. `projectStats` and `speakStats` took only the stage's
+  blocks BEFORE the list, so both dropped it (1 of 86 stats/kpi slides in the committed
+  decks). They now print the blocks after the list too, after the stats. Pinned by the
+  "stats: a paragraph after the stat list" arm.
 
 ## An image slide jumps in the Studio preview when its picture loads
 

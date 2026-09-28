@@ -1,0 +1,1 @@
+- A stats or kpi slide's line typed after its stat list (a `*Source: …*` note followed by a key insight) now reaches Read · Article and the narration, after the stats. Both dropped it before.
