@@ -90,18 +90,18 @@ flowchart LR
 ---
 
 <!-- _class: content -->
-<!-- _footer: "The ground · why neutral failed" -->
+<!-- _footer: "The ground · graphite, after two wrong turns" -->
 
 `The mistake worth recording`
 
-## The first light face was built by inverting the dark ramp, and inverting an achromatic ramp gives gray mush.
+## Neutral paper was never the problem; light gray ink was.
 
-- What "washed out" measures
-  - Light `--text-body` carried chroma **0.0067**. Cuoio's is 0.0283, indaco's **0.0736**.
-- What the references share
-  - Tinted paper, chromatic ink, tinted *neutral* rows — a monochrome **with color in it**.
+- Wrong turn one
+  - Inverting the dark ramp gave mid-gray ink on gray paper. It read washed out.
+- Wrong turn two
+  - Tinting everything cool slate (h=252) cured the wash — and made carbone indaco's hue, with a green accent.
 - What carbone's became
-  - A cool graphite at h=252: paper C 0.0068, body ink C 0.0455.
+  - Graphite: paper C 0.0013, near-black ink at 17.07:1 heading and 12.29:1 body. The lime is the only color.
 
 `A green ground was tried first and rejected — it swallowed the semantic pass state.`
 
@@ -132,4 +132,4 @@ flowchart LR
 
 ## `theme: carbone` is the light one now; `carbone-dark` is the deck you already had.
 
-`Every dark value is byte-identical to what shipped before — only which face is the default moved. A deck that means the graphite canvas asks for it by name.`
+`The dark surfaces and ink are the ones carbone always shipped. A deck that means the graphite canvas asks for it by name.`

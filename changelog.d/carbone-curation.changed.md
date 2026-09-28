@@ -14,3 +14,8 @@
   beside coral. Their worst-case separation across normal vision and the three simulated
   color-vision deficiencies rises from 0.026 to 0.075 (light) and 0.055 to 0.103 (dark).
 - `npm run scorecard` moves carbone from 69.6 (D) to 84.9 (B), level with `indaco`.
+- **Carbone's light face is graphite now, not indaco's blue slate.** Its paper, cards and
+  ink sat at OKLCH hue 248–252 beside indaco's 256–261, so carbone light read as indaco
+  with a green accent. Every lightness is held and the chroma drops to 15% (paper C
+  0.0068 → 0.0013), so text contrast moves by under 0.05 and the lime is the only color
+  on the slide.
