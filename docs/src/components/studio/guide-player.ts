@@ -18,8 +18,9 @@ type Track = { cues: { words: { display?: string }[]; charOffset?: number }[] } 
 
 export type PlayerGuide = {
 	/** A sentence started (`cue` ≥ 0), the slide changed with nothing said yet (`cue` -1), or
-	 *  narration paused or resumed (`playing`). */
-	beat(slide: number, cue: number, track: Track, playing: boolean): void;
+	 *  narration paused or resumed (`playing`). `bookend`: a greeting or closing is being read, not
+	 *  the slide's own narration, so the slide's binding does not apply. */
+	beat(slide: number, cue: number, track: Track, playing: boolean, bookend?: boolean): void;
 	/** Word `k` of cue `cue` is being said, for the read-along inside the focused element. */
 	word(track: Track, cue: number, k: number, captionsOn: boolean): void;
 	/** Take the hand and the focus down (the viewer switched the Guide off, or left Present). */
@@ -58,10 +59,11 @@ function create(delivery: Preset, shown: () => Element | null): PlayerGuide {
 	});
 	const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle } | undefined>)[delivery.name]?.express;
 	return {
-		beat(slide, cue, track, playing) {
+		beat(slide, cue, track, playing, bookend = false) {
 			ensure();
 			const texts = track ? track.cues.map(cueDisplayText) : [];
-			const refs = delivery.refs?.[slide] ?? null;
+			// While a bookend speaks, the text being read is not the slide's, so its binding does not apply.
+			const refs = bookend ? null : (delivery.refs?.[slide] ?? null);
 			const at = track && cue >= 0 ? (track.cues[cue]?.charOffset ?? -1) : -1;
 			const scene = refs && style ? { refs, at, style } : null;
 			conductor.beat({ slide, cue, texts, track, delivering: playing, delivery, scene });

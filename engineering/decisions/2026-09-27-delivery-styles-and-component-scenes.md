@@ -313,8 +313,9 @@ Each step is one commit and stands on its own.
   portrait journey, unmarked roadmap bets), which is why it reads every deck now.
 - **A miss never goes dark.** A binding that resolves to nothing on the slide (a variant a scene
   does not cover yet) returns the cue to the text path, as before binding (`scene()` returns null).
-- **The export carries the binding.** `narration-bake.ts` attaches it and `share-export.ts` passes it
-  on; `share-narrated-player.spec.ts` exports a funnel from the Studio and plays the file offline. The
+- **The export carries the binding** from the Studio: `narration-bake.ts` attaches it and
+  `share-export.ts` passes it on. The CLI export (`lattice-emulator.js`, so `lattice video`) does not
+  yet, and its Guide reads the words instead (`followups.d/2441-p2-cli-export-carries-bindings.md`); `share-narrated-player.spec.ts` exports a funnel from the Studio and plays the file offline. The
   checker found the share path dropping it while a player check that injected its own refs
   passed.
 - **Styles.** `lib/core/delivery-styles/{restrained,expressive,somber}.mjs`, each owning its `look`
