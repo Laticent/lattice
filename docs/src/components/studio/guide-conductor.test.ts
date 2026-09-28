@@ -154,6 +154,7 @@ describe('guide-conductor — a line chart walked point by point', () => {
 		const { play, undimmed } = line(400);
 		play(0);
 		play(1);
+		expect(undimmed()).toEqual(['feb']); // the walk reached Feb before the note
 		play(2);
 		// Lifted: nothing recedes any more (the `-undim` fade-up clears itself after its transition).
 		expect(document.querySelectorAll('.lat-guide-dim, .lat-guide-dim-inner').length).toBe(0);
