@@ -3,12 +3,12 @@
   "name": "burgundy",
   "role": "base",
   "family": "brand",
-  "tier": "curated",
+  "tier": "more",
   "modes": [
     "light",
     "dark"
   ],
   "darkCounterpart": "burgundy-dark",
-  "order": 2,
+  "order": 4,
   "swatch": "#742532"
 }

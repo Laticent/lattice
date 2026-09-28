@@ -26,3 +26,7 @@
   its lightness and hue kept. Two slots needed more than the cap to stay as far from their
   neighbor as before: laguna's slot 4 moves back to its own family's hue (295°), and
   burgundy's slot 5 sits at 310° / 0.17.
+- **The palette picker now features three themes: indaco, cuoio and onyx.** The other
+  eleven move to "More themes", led by carbone; nothing is removed, and every theme
+  stays usable by name. The featured three scored highest in a fourteen-theme
+  evaluation (onyx 89, cuoio 84, indaco 81 of 100) and cover cool, warm and black-and-white.
