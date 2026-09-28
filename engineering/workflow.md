@@ -908,7 +908,8 @@ it alone.
    `tools/queue-precheck.sh` fetches `main` and merges in memory (`git merge-tree`;
    nothing on disk changes). It exits **0** clean, **1** on a textual conflict,
    **2** on a duplicate row in the decision index, and **3** when it cannot check
-   (a shallow clone without the merge base). Exit 2 is the case plain `merge-tree`
+   (the fetch failed, there is no `origin/main`, the clone is shallow and lacks
+   the merge base, or git is older than 2.38). Exit 2 is the case plain `merge-tree`
    misses: `engineering/decisions/README.md` merges with `merge=union`, so when both
    sides reword the same row git keeps both lines, calls the merge clean, and
    `build:check` then ejects the PR in the queue. The Stop hook

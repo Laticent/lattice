@@ -22,6 +22,9 @@ branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
 [ "$branch" = "main" ] && exit 0
 [ "$branch" = "HEAD" ] && exit 0
 [ -x tools/queue-precheck.sh ] || exit 0
+# No known origin/main (a fresh clone that never fetched it) → nothing to compare
+# against, and nothing worth a warning on every turn.
+git rev-parse --verify -q origin/main >/dev/null 2>&1 || exit 0
 
 tools/queue-precheck.sh --no-fetch --json 2>/dev/null
 exit 0

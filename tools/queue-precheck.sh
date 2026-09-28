@@ -23,9 +23,10 @@
 # (engineering/decisions/2026-09-28-rebase-only-on-conflict.md §3b).
 #
 # Exit codes: 0 clean (behind is fine, do not rebase) · 1 conflict · 2 duplicate
-# index row · 3 could not check (shallow clone without the merge base, git older
-# than 2.38, no origin/main). Output is one line per finding, for humans; --json
-# prints one {"systemMessage": …} object instead, for the Stop hook.
+# index row · 3 could not check (the fetch failed, no origin/main ref, a shallow
+# clone without the merge base, or git older than 2.38) · 64 unknown argument.
+# Output is one line for humans; --json prints one {"systemMessage": …} object
+# instead, for the Stop hook, and nothing when the branch is clean.
 #
 # What it does NOT predict: a break that merges cleanly as text and fails a test
 # or a generated-file check other than the decision index. The queue still
@@ -88,8 +89,10 @@ esac
 # `- <status glyph> [<note>.md](…) — …`; the glyph is multi-byte, so match it as
 # "anything up to the space" rather than as one character.
 tree=$(printf '%s\n' "$out" | head -1)
-dups=$(git show "$tree:$INDEX" 2>/dev/null \
-  | grep -oE '^- [^ ]+ \[[^]]+\]' | sed -E 's/^- [^ ]+ //' | sort | uniq -d | tr -d '[]' | clean_names)
+# `|| true`: a merged tree with no index, or an index with no rows, is not a
+# finding — without it, pipefail would exit 1 here and read as "conflict".
+dups=$( { git show "$tree:$INDEX" 2>/dev/null \
+  | grep -oE '^- [^ ]+ \[[^]]+\]' | sed -E 's/^- [^ ]+ //' | sort | uniq -d | tr -d '[]' | clean_names; } || true)
 [ -z "$dups" ] || say 2 "Branch $branch merges cleanly with origin/main but leaves a duplicate row in $INDEX ($dups) — the queue will eject it. Rebase, run npm run decisions:index, and commit."
 
 say 0 "queue-precheck: $branch is $behind commit(s) behind origin/main and merges cleanly — no rebase needed."
