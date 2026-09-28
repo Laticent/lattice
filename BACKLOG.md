@@ -7,15 +7,15 @@
 
 The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
 grouped by board column. Design lives in `engineering/decisions/`; this tracks
-only *status*. **344 open** items.
+only *status*. **346 open** items.
 Pending work that has no issue is not here: it lives in [`followups.d/`](followups.d/README.md)
 (`npm run followups` lists it).
 
-> ⚠️ **29 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2133](https://github.com/Laticent/lattice/issues/2133), [#2137](https://github.com/Laticent/lattice/issues/2137), [#2145](https://github.com/Laticent/lattice/issues/2145), [#2180](https://github.com/Laticent/lattice/issues/2180), [#2181](https://github.com/Laticent/lattice/issues/2181), [#2182](https://github.com/Laticent/lattice/issues/2182), [#2183](https://github.com/Laticent/lattice/issues/2183), [#2187](https://github.com/Laticent/lattice/issues/2187), [#2189](https://github.com/Laticent/lattice/issues/2189), [#2190](https://github.com/Laticent/lattice/issues/2190), [#2191](https://github.com/Laticent/lattice/issues/2191), [#2192](https://github.com/Laticent/lattice/issues/2192), [#2203](https://github.com/Laticent/lattice/issues/2203), [#2228](https://github.com/Laticent/lattice/issues/2228), [#2254](https://github.com/Laticent/lattice/issues/2254), [#2277](https://github.com/Laticent/lattice/issues/2277), [#2278](https://github.com/Laticent/lattice/issues/2278), [#2337](https://github.com/Laticent/lattice/issues/2337).
+> ⚠️ **31 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2133](https://github.com/Laticent/lattice/issues/2133), [#2137](https://github.com/Laticent/lattice/issues/2137), [#2145](https://github.com/Laticent/lattice/issues/2145), [#2180](https://github.com/Laticent/lattice/issues/2180), [#2181](https://github.com/Laticent/lattice/issues/2181), [#2182](https://github.com/Laticent/lattice/issues/2182), [#2183](https://github.com/Laticent/lattice/issues/2183), [#2187](https://github.com/Laticent/lattice/issues/2187), [#2189](https://github.com/Laticent/lattice/issues/2189), [#2190](https://github.com/Laticent/lattice/issues/2190), [#2191](https://github.com/Laticent/lattice/issues/2191), [#2192](https://github.com/Laticent/lattice/issues/2192), [#2203](https://github.com/Laticent/lattice/issues/2203), [#2228](https://github.com/Laticent/lattice/issues/2228), [#2254](https://github.com/Laticent/lattice/issues/2254), [#2277](https://github.com/Laticent/lattice/issues/2277), [#2278](https://github.com/Laticent/lattice/issues/2278), [#2337](https://github.com/Laticent/lattice/issues/2337), [#2438](https://github.com/Laticent/lattice/issues/2438), [#2449](https://github.com/Laticent/lattice/issues/2449).
 
 > 📐 **21 cards need definition** (missing a swimlane or an acceptance check, so nothing can pull them): [#2211](https://github.com/Laticent/lattice/issues/2211), [#2224](https://github.com/Laticent/lattice/issues/2224), [#2225](https://github.com/Laticent/lattice/issues/2225), [#2231](https://github.com/Laticent/lattice/issues/2231), [#2254](https://github.com/Laticent/lattice/issues/2254), [#2256](https://github.com/Laticent/lattice/issues/2256), [#2265](https://github.com/Laticent/lattice/issues/2265), [#2274](https://github.com/Laticent/lattice/issues/2274), [#2275](https://github.com/Laticent/lattice/issues/2275), [#2277](https://github.com/Laticent/lattice/issues/2277), [#2278](https://github.com/Laticent/lattice/issues/2278), [#2280](https://github.com/Laticent/lattice/issues/2280), [#2282](https://github.com/Laticent/lattice/issues/2282), [#2283](https://github.com/Laticent/lattice/issues/2283), [#2284](https://github.com/Laticent/lattice/issues/2284), [#2285](https://github.com/Laticent/lattice/issues/2285), [#2286](https://github.com/Laticent/lattice/issues/2286), [#2287](https://github.com/Laticent/lattice/issues/2287), [#2288](https://github.com/Laticent/lattice/issues/2288), [#2290](https://github.com/Laticent/lattice/issues/2290), [#2295](https://github.com/Laticent/lattice/issues/2295).
 
-## Backlog (327)
+## Backlog (328)
 
 - [#1845](https://github.com/Laticent/lattice/issues/1845) [integration-nightly] render-regression tier failing on main — critical · engine
 - [#2060](https://github.com/Laticent/lattice/issues/2060) [overflow-nightly] corpus overflow ratchet above baseline on main — critical · engine
@@ -80,13 +80,13 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2282](https://github.com/Laticent/lattice/issues/2282) check-chart-fit measures a deck the author did not write — it strips the deck's own `size:` and `autosplit:` — high · infra
 - [#2285](https://github.com/Laticent/lattice/issues/2285) `main` ships red on THREE on-demand gates, none of which runs in CI — one is invisible text on a shipped deck — high · infra
 - [#2405](https://github.com/Laticent/lattice/issues/2405) [webkit-baselines-nightly] webkit-baselines-nightly could not compare the engines — high · engine
+- [#2458](https://github.com/Laticent/lattice/issues/2458) [studio-security-e2e] Studio sandbox specs failing on main — high · infra
 - [#286](https://github.com/Laticent/lattice/issues/286) refactor(css): namespace variant classes that collide with component names — medium · engine
 - [#288](https://github.com/Laticent/lattice/issues/288) feat(engine): implement the front-matter deck-config contract (vars, object background/logo, fonts, metadata, sizes) — medium · engine
 - [#289](https://github.com/Laticent/lattice/issues/289) feat(engine): implement the `$`-sigil inline-code variable interpolation grammar — medium · engine
 - [#290](https://github.com/Laticent/lattice/issues/290) test(infra): add a three-renderer transform-parity unit test — medium · infra
 - [#292](https://github.com/Laticent/lattice/issues/292) infra: adopt a per-feature deck archive policy (`_meta: archived` + examples/MANIFEST.md) — medium · infra
 - [#293](https://github.com/Laticent/lattice/issues/293) infra: automate the graduation-commit trigger on PR merge — medium · infra
-- [#299](https://github.com/Laticent/lattice/issues/299) refactor(diagram): give function-plot its own `lib/integrations/function-plot/` home + honest renderPaths — medium · diagram
 - [#305](https://github.com/Laticent/lattice/issues/305) docs: dedupe the two doc-index tables (CLAUDE.md vs skill.md drift) — medium · docs
 - [#307](https://github.com/Laticent/lattice/issues/307) docs: prune/flip the treatments-rename ADR (shipped; still "implementation-ready") — medium · docs
 - [#308](https://github.com/Laticent/lattice/issues/308) docs: resolve the P4 regression-gate ADR status (pivot shipped; still strikethrough "pre-code") — medium · engine
@@ -215,7 +215,6 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2012](https://github.com/Laticent/lattice/issues/2012) `maskCodeRegions` has three holes, and `--strip-notes` deletes code through them — medium · engine
 - [#2032](https://github.com/Laticent/lattice/issues/2032) read-aloud's arming-window test flakes ~50% under full-suite load — likely a real race in resume() — medium · website
 - [#2033](https://github.com/Laticent/lattice/issues/2033) docs(read-aloud): the voice-arming test races a real dynamic import against the fake clock — medium · docs
-- [#2070](https://github.com/Laticent/lattice/issues/2070) studio-instant-shell: "a rect from another orientation is not replayed in portrait" fails ~75% of runs on main — medium · website
 - [#2082](https://github.com/Laticent/lattice/issues/2082) kit(marp): rework the Marp kit once @laticent/lattice is on npm — medium · infra
 - [#2134](https://github.com/Laticent/lattice/issues/2134) The E2E suite runs against a site `npm run build` would not ship — `build:e2e` skips two head-rewriting post-build steps — medium · website
 - [#2153](https://github.com/Laticent/lattice/issues/2153) check-jank measures a ROTATED anchor as its axis-aligned bounding box, so `stamp-ribbon` reports a confident COLLISION over ~145px of real clearance — medium · infra
@@ -344,8 +343,10 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2277](https://github.com/Laticent/lattice/issues/2277) lint:deck coaches on speaker-note prose that never narrates
 - [#2278](https://github.com/Laticent/lattice/issues/2278) word-cloud's SVG &lt;desc&gt; still reads counts where the caption reads rank
 - [#2337](https://github.com/Laticent/lattice/issues/2337) handoff(axis): lint body boundary from tokens, gantt window narration, over-cap lint (after #2328)
+- [#2438](https://github.com/Laticent/lattice/issues/2438) Handoff: what the shared PDF writer (#2404) leaves pending
+- [#2449](https://github.com/Laticent/lattice/issues/2449) Handoff: portable packages, phase 6 — after #2435 (code-package facts input)
 
-## Ready (14)
+## Ready (15)
 
 - [#1437](https://github.com/Laticent/lattice/issues/1437) Configure Release Pipeline — critical · infra
 - [#287](https://github.com/Laticent/lattice/issues/287) refactor(engine): LPM Phase 1 — manifest `render` block + `transformSection` adapter; migrate the chart kernels — high · engine
@@ -361,6 +362,7 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2299](https://github.com/Laticent/lattice/issues/2299) infra(context): close the gotchas index row-cap gap, and settle the thinking-token default — medium · infra
 - [#2301](https://github.com/Laticent/lattice/issues/2301) Handoff — Context cost: the thinking-cap decision, an n=1 re-measure, and build.js's stale-vs-refused wording — medium · infra
 - [#2349](https://github.com/Laticent/lattice/issues/2349) handoff(chart): one style-delivery spine — engine-owned modes, the Reading view, the lost Read · Article paints (after #2344) — medium · chart
+- [#2426](https://github.com/Laticent/lattice/issues/2426) Handoff — Studio offline: mid-rotation preview rect, Mermaid offline (after #2414) — low · website
 
 ## In progress (0)
 
