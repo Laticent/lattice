@@ -203,7 +203,16 @@ const VARIANT_DECL_IGNORE = new Map([
 // `section.<name>.form` rules that the variant-declaration gate would otherwise read as
 // nine undeclared variants. It is scaffolding on the same footing as `chart-frame` — an
 // author cannot select it, and cannot refuse it.
-const STRUCTURAL_ROOT_CLASSES = new Set(['chart-frame', 'lat-split-cards', 'lat-split-native', 'print', 'form']);
+// `finish` is the backdrop register's compositor class (lib/core/resolve-finish.js stamps
+// `finish finish-<name>` on every section of a `finish:` deck). A `section.<component>.finish`
+// rule is how a component lets that deck-wide backdrop through its own fills — split-panel and
+// split-compare stop flooding their panels over it — which is the register's chrome, not an
+// author variant of the component, on the same footing as `print`.
+// `lattice-exporting` is the Studio raster's export class: drawing-board-export.js stamps it on
+// each section it rasterizes (html-to-image clones only the section), and base.finish.css swaps
+// the clear layer's blur for a mask under it. A split panel's own clear layer follows the same
+// swap, so `section.split-panel.finish.lattice-exporting` is export chrome, not an author variant.
+const STRUCTURAL_ROOT_CLASSES = new Set(['chart-frame', 'lat-split-cards', 'lat-split-native', 'print', 'form', 'finish', 'lattice-exporting']);
 
 // Search tags that legitimately apply to exactly ONE component — a
 // genuinely-unique idiom or material with no sibling that shares it
@@ -1003,7 +1012,9 @@ function checkFinishPackages(errors, { root = ROOT, css = FINISH_CSS } = {}) {
     return;
   }
   const uncomment = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
-  const rulesIn = (t) => [...uncomment(t).matchAll(/^section\.finish-([a-z][a-z0-9-]*)\s*\{/gm)].map((m) => m[1]);
+  // A rule head is `section.finish-<name> {`, or `section.finish-<name>,` when the rule also names
+  // the finish surfaces (finish-generate.js `FINISH_SURFACES`) on the lines after it.
+  const rulesIn = (t) => [...uncomment(t).matchAll(/^section\.finish-([a-z][a-z0-9-]*)\s*(?:\{|,\s*section\.finish-\1\s)/gm)].map((m) => m[1]);
   const inside = rulesIn(raw.slice(from, to));
   const outside = rulesIn(raw.slice(0, from) + raw.slice(to));
   for (const name of pkgs) {

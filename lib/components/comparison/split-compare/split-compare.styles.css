@@ -13,7 +13,10 @@
  * without `--_wide-gutter`), where it lines up with the panel text; with the gutter the footer crossed
  * the panel seam and was cut on mobile-landscape. Equal to the token on every 16:9 canvas. */
 section.split-compare { padding:0; flex-direction:row; --frame-inset-x: calc(2.34375 * var(--_sec-1cqi, 1cqi)); }
-section.split-compare .compare-left { width:30%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:center; padding:var(--sp-xl) var(--sp-lg); position:relative; }
+/* The rail's width, stated once: its own `width` and the running-chrome budget at the foot of
+ * this file both read it. Content-box, so the rendered width adds the `--sp-lg` padding twice. */
+section.split-compare { --_panel-w:30%; --_panel-outer: calc(var(--_panel-w) + 2 * var(--sp-lg)); }
+section.split-compare .compare-left { width:var(--_panel-w); flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:center; padding:var(--sp-xl) var(--sp-lg); position:relative; }
 /* ── THE SLIDE'S TOP EDGE — one rule, two segments (2026-08-18) ─────────────
  * Same defect and same fix as `split-panel` (see the long note in
  * lib/components/statement/split-panel/split-panel.styles.css): the section's
@@ -36,8 +39,8 @@ section.split-compare .compare-left::after {
   background: var(--panel-mark, var(--panel-edge-mark));
   z-index: 3; /* local 0-9 band (design/forms.md 5.2) */
 }
-/* Background, not a positioned pseudo: `<footer>` is a CHILD of `.compare-right`, so
- * `position: relative` here would re-parent it (see the long note in split-panel). */
+/* Background, not a positioned pseudo — the same choice, for the same reasons, as split-panel's
+ * supporting zone (see the long note there). */
 section.split-compare .compare-right {
   background-image: var(--spectrum-bar);
   background-size: calc(var(--_sec-1cqi, 1cqi) * 100) calc(var(--_sec-1cqi, 1cqi) * 0.3125);
@@ -150,3 +153,83 @@ section.split-compare > .cell-stage {
  *
  * No variant repoints `.compare-left`'s fill, so one rule covers the family. */
 section.split-compare :is(header, footer) { color: var(--on-dark-secondary); }
+
+/* ── THE RUNNING CHROME HAS A BUDGET: the rail it starts on ──────────────────────────────
+ * Same contract, same reasons, as split-panel (see the long note at the foot of
+ * split-panel.styles.css): the header and footer stop at the rail's far edge instead of
+ * running across the option cards, hold one ellipsized line each, and the rail keeps that band clear.
+ * Measured before this: a 60-character header printed its last 26 characters over the
+ * first option card. Not in portrait/square, where the rail stacks on top at full width. */
+section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]) {
+  --_chrome-lh: 1.3;
+  --_chrome-band: calc(var(--frame-inset-y) + var(--_chrome-lh) * var(--fs-meta) + var(--sp-xs));
+}
+section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]) > :is(header, footer) {
+  right: calc(100% - var(--_panel-outer) + var(--frame-inset-x));
+  line-height: var(--_chrome-lh);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]):has(> header) .compare-left {
+  padding-top: max(var(--sp-xl), var(--_chrome-band));
+}
+section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]):has(> footer) .compare-left {
+  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
+}
+
+/* ── A FINISH PAINTS BOTH SIDES; THE RAIL KEEPS ITS FIELD ─────────────────────────────────
+ * Same contract as split-panel's finish block (see the note at the foot of
+ * split-panel.styles.css): the section is an ordinary finish slide, the options zone has no
+ * background so that finish shows through it, and the rail keeps its `--surface-inverse` field
+ * and paints the finish re-mixed for that field (base.finish.css § FINISH SURFACES). Without a
+ * painted finish nothing here matches. */
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-right { background-color: transparent; }
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left {
+  --fin-canvas: var(--surface-inverse);
+  background-image: var(--fin-surface-image);
+  background-size: var(--fin-surface-size);
+  background-position: var(--fin-surface-position);
+  background-repeat: var(--fin-surface-repeat);
+}
+/* No slide-level mark: a split slide has no frame margin for it (split-panel.styles.css). */
+section.split-compare.finish > .backdrop::before { content: none; }
+/* CLEAR BEHIND CONTENT on both sides, as split-panel does (split-panel.styles.css): the slide's
+ * clear layer on the options zone's content box (padding sp-lg sp-xl sp-xl sp-lg), and the rail's
+ * own blurred layer on its content box, over its finish and under its text. */
+section.split-compare.finish:not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {
+  padding: var(--sp-lg) var(--sp-xl) var(--sp-xl) calc(var(--_panel-outer) + var(--sp-lg));
+}
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left { isolation: isolate; }
+/* The rail is a flex column: its children take local band 1 without being positioned. */
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left > * { z-index: 1; }
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  padding: inherit;
+  pointer-events: none;
+  background-image: var(--fin-surface-clear, none);
+  background-origin: content-box;
+  background-repeat: no-repeat;
+  background-position: calc(var(--backdrop-clear-bleed) * -1) calc(var(--backdrop-clear-bleed) * -1);
+  background-size: calc(100% + 2 * var(--backdrop-clear-bleed)) calc(100% + 2 * var(--backdrop-clear-bleed));
+  filter: var(--fin-surface-clear-filter, none);
+  /* The blur spreads the fill past the panel's edge, and split-compare's rail does not clip:
+   * the dark field smeared a band into the options zone. Clip the layer to the panel's box. */
+  clip-path: inset(0);
+}
+:where(.lattice-exporting) section.split-compare.finish .compare-left::before,
+section.split-compare.finish.lattice-exporting .compare-left::before {
+  -webkit-mask-image: linear-gradient(to right, var(--backdrop-clear-ramp)), linear-gradient(to bottom, var(--backdrop-clear-ramp));
+  mask-image: linear-gradient(to right, var(--backdrop-clear-ramp)), linear-gradient(to bottom, var(--backdrop-clear-ramp));
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-origin: content-box;
+  mask-origin: content-box;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: calc(var(--backdrop-clear-fade) * -1) calc(var(--backdrop-clear-fade) * -1);
+  mask-position: calc(var(--backdrop-clear-fade) * -1) calc(var(--backdrop-clear-fade) * -1);
+  -webkit-mask-size: calc(100% + 2 * var(--backdrop-clear-fade)) calc(100% + 2 * var(--backdrop-clear-fade));
+  mask-size: calc(100% + 2 * var(--backdrop-clear-fade)) calc(100% + 2 * var(--backdrop-clear-fade));
+}

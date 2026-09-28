@@ -177,6 +177,14 @@
     {
       "mistake": "Leaving the frame label unwrapped in backticks.",
       "fix": "The frame label is reassembled to the top of the dark panel regardless of its source position — placement doesn't matter. It must be backtick-wrapped, though: unwrapped plain text is instead captured as the intro paragraph, not the frame label."
+    },
+    {
+      "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
+      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
+    },
+    {
+      "mistake": "Expecting a split-compare slide to drop the deck's `finish:`, or to show it on one side only.",
+      "fix": "The finish covers both sides. The options side has no fill, so the slide's finish shows under the cards, as on any other slide, and the rail is finished like an anchor slide: its solid dark field with the finish mixed for it, in screen and PDF alike. `backdrop: clear` clears behind the content on both sides and leaves the finish in their margins. The finish's corner mark is left off, since a split slide has no frame margin for it. `finish-none` keeps both sides plain."
     }
   ],
   "specimenVoice": true,

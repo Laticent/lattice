@@ -1026,7 +1026,7 @@ section.divider:not(.light):not(.print) {
 section.title code,
 section.divider code,
 section.closing code,
-section.split-panel:not(.metric) .panel-left code,
+section.split-panel:not(.metric, .steps, .watermark, .cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left code,
 section.split-panel.metric .panel-right code,
 /* split-compare's rail paints the SAME `--surface-inverse` as the two above and was simply
  * missing from this list. That was latent while the chip rode `--accent`, and stopped being
@@ -1046,6 +1046,21 @@ section.split-compare .compare-left code,
 section.topic code {
   --code-inline-fg: var(--on-dark-primary);
 }
+/* ── split-panel's panel is not always the inverse field ──
+ * The line above used to read `section.split-panel:not(.metric) .panel-left code`, i.e. every
+ * variant but `metric` — and three of those do not paint `--surface-inverse`. `.steps` paints
+ * the LIGHT `--bg-alt`, and `cat-1…cat-8` paint a categorical tint, so the chip rendered white
+ * on a light field: a formula in `examples/system-design-foundations.md` (pp. 125, 183) was
+ * the visible case (followups.d/2327). `.watermark` paints `--accent`, where white only passed
+ * by luck of the palette. Each field now takes the ink its own text already uses: `.steps`
+ * keeps the canvas default (no rule), `.watermark` the curated `--on-accent`, and a category
+ * tint `--cat-on-fill`, the ink the categorical contract guarantees at AA on every tint. */
+section.split-panel.watermark .panel-left code {
+  --code-inline-fg: var(--on-accent);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left code {
+  --code-inline-fg: var(--cat-on-fill);
+}
 /* ── THE ACCENT COVERS ARE A DARK ISLAND TOO, and their ink is --on-accent, not
  * --on-dark-primary (#2292). A cover floods `var(--accent)`, which is a HUE rather than a
  * dark neutral, and every theme curates --on-accent for AAA against its own accent in both
@@ -1061,6 +1076,14 @@ section.topic code {
 section:is(.decision-cover, .compare-code-cover, .compare-split-cover,
            .list-tabular-cover, .split-panel-cover, .lat-split-cover) code {
   --code-inline-fg: var(--on-accent);
+}
+/* …except a split-panel cover in a CATEGORY: it floods `--panel-fill`, the category tint, not
+ * the accent (split-panel.styles.css § AUTO-SPLIT), so `--on-accent` put a white chip on a
+ * light pink/peach tint — measured 1.45–1.70:1 on a square `cat-3` run, where the same
+ * formula on the unsplit panel reads. Same ink as that panel: `--cat-on-fill`. Keyed on the
+ * `data-split-mods` stamp, the only way the modifier reaches a split page. */
+section.split-panel-cover:is([data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"], [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) code {
+  --code-inline-fg: var(--cat-on-fill);
 }
 /* divider.light is the bright-canvas variant — keep the brand-accent ink. */
 section.divider.light code {

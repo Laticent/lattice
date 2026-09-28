@@ -246,8 +246,12 @@
       "fix": "The point of `cat-1`…`cat-8` is that each slide in the SET reads as its own step — assign them in order, one number per slide, not the same number repeated or shuffled."
     },
     {
-      "mistake": "Setting a long deck-level `header:` on a deck that uses this layout.",
-      "fix": "The running header sits OVER the panel here, so it takes the panel field's ink (`--on-dark-secondary` on the inverse panel, `--on-accent` under `watermark`, `--cat-on-fill` on a `cat-N` tint) rather than the canvas ink. Past roughly 25 characters the header runs beyond the panel's edge and carries that ink onto the canvas, where it loses contrast. Keep it short, or set `<!-- _header: \"\" -->` on these slides. `metric`, `steps` and the `mirror` forms put canvas under the header and are unaffected."
+      "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
+      "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
+    },
+    {
+      "mistake": "Expecting a split-panel slide to drop the deck's `finish:`, or to show it on one side only.",
+      "fix": "The finish covers both sides. The supporting side has no fill, so the slide's finish shows under its content, as on any other slide. The feature panel is finished like an anchor slide: it keeps its solid field (dark, accent or category color) and the finish is painted on it, mixed for that field, in screen and PDF alike. On `metric` the finished field is the dark right-hand panel. `backdrop: clear` clears behind the content on both sides and leaves the finish in their margins (a `pullquote` panel keeps its finish, since its opening quote holds that layer). The finish's corner mark is left off, since a split slide has no frame margin for it. A finish whose CSS a deck wrote itself before this change shows on the supporting side and leaves the panel plain. `finish-none` keeps both sides plain."
     }
   ],
   "stressDoc": {

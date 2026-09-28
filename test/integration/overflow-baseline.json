@@ -1,13 +1,25 @@
 {
   "$comment": "Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it. `decksSwept` is how many decks the blessing run covered: a deck absent from `decks` is clean ONLY if it was in that sweep.",
-  "totalSlides": 31,
-  "decksSwept": 365,
+  "totalSlides": 61,
+  "decksSwept": 384,
   "decks": {
     "examples/README.md": [
       1
     ],
+    "examples/cards-register-catalog.md": [
+      6
+    ],
+    "examples/insight-labels.md": [
+      6
+    ],
     "examples/marker-corner.md": [
       3,
+      4
+    ],
+    "examples/muted-tier-and-syntax.md": [
+      2
+    ],
+    "examples/one-page-number.md": [
       4
     ],
     "examples/overflow-fix-me.md": [
@@ -21,6 +33,14 @@
     ],
     "examples/retire-automatic-scale-fit.md": [
       3
+    ],
+    "examples/split-panels-jank.md": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
     ],
     "lib/components/chart/bar/bar.gallery.md": [
       3,
@@ -56,11 +76,37 @@
       3,
       4
     ],
+    "lib/components/comparison/split-compare/split-compare.gallery.md": [
+      3,
+      5,
+      6
+    ],
+    "lib/components/diagram/diagram/diagram.gallery.md": [
+      2
+    ],
     "lib/components/inventory/list/list.gallery.md": [
       9
     ],
     "lib/components/inventory/team-profile/team-profile.gallery.md": [
       7
+    ],
+    "lib/components/statement/split-panel/split-panel.gallery.md": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
     ]
   }
 }
