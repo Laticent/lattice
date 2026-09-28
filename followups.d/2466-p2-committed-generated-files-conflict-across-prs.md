@@ -13,8 +13,9 @@ source: https://github.com/Laticent/lattice/pull/2466
                    REAL conflict. In the 1,000 PR CI runs from 2026-09-20 to 09-28,
                    48 new commits were catch-up work after another PR merged:
                    gallery and demo PDFs, showcase WebPs, the speech-projection
-                   bundle, goldens, and decision-index rows duplicated by the
-                   `merge=union` driver when a row changes.
+                   bundle, goldens, and the decision index — which GitHub
+                   treats as a real conflict because it ignores `merge=union`
+                   (8 of the 27 required rebases were the index alone).
        where     — the generators behind examples/*.pdf, the showcase rasters,
                    the speech-projection bundle and the golden corpus; compare
                    engineering/decisions/2026-08-17-bot-owned-bundles.md and

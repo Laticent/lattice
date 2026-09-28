@@ -292,7 +292,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `audit:hygiene` | Audit the open issue QUEUE ITSELF — labels no .github/labels.json entry declares (a retired dimension nobody swept, a typo'd namespace, a non-taxonomy `type:` the intake gate accepts), cards missing a required axis, duplicate LEADS by stemmed title overlap, and cards holding an outsized share of all comments (a standing alarm that has become a dashboard). Sibling of audit:queue: that one asks whether a card can be PULLED, this one whether the board is telling the truth. The dupe arm is a lead generator with measured ~14% precision and a known un-tunable false positive — read every row, rank carries no truth (input: `gh issue list` JSON; see .claude/skills/queue-triage/SKILL.md for the judgment half). |
 | `audit:queue` | Audit open issues against the Definition of Ready and replay the intake gate over them — the numbers behind the intake bar (input: `gh issue list` JSON). |
-| `queue:precheck` | Before the merge ask: fetch main and predict whether the merge queue takes this branch as it is — exit 0 clean (behind is fine, do not rebase), 1 textual conflict, 2 duplicate decision-index row (merge=union hides it from git), 3 could not check. HARD RULE #16. |
+| `queue:precheck` | Before the merge ask: fetch main and predict whether the merge queue takes this branch as it is — merges in memory the way GitHub does (no .gitattributes merge drivers, so the merge=union on the decision index does not hide a conflict) — exit 0 clean (behind is fine, do not rebase), 1 conflict, 3 could not check. HARD RULE #16. |
 | `sync:backlog` | Regenerate BACKLOG.md — the one-way mirror of the open GitHub issue queue (input: `gh issue list` JSON). |
 | `sync:labels` | Apply the .github/labels.json taxonomy to the repo labels via the gh CLI (labels-as-code; needs gh auth). |
 
@@ -346,7 +346,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/check-commit-msg.sh` | Validate commit message format: `area(scope): summary` or `area: summary`. |
 | `tools/check-ownership.js` | Ownership / collision guard for the Lattice build. |
 | `tools/check-svg-scaling.js` | check-svg-scaling — the 4K fidelity gate (#180). |
-| `tools/queue-precheck.sh` | Predict whether the merge queue will take this branch as it is — without a rebase. |
+| `tools/queue-precheck.sh` | Predict whether GitHub will merge this branch as it is — without a rebase. |
 
 ### Lint / audit
 

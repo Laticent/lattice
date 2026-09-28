@@ -361,13 +361,13 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   behind, and never from a background watch.** The merge queue tests every PR on top
   of current `main` plus the PRs ahead of it, and merges only if that is green, so a
   behind-but-clean PR is already safe to queue. Rebasing it anyway re-runs full CI
-  for nothing: 75 such rebases (41 of green PRs, ~1,005 minutes of CI wall-clock time) in the eight
-  days to 2026-09-28 (`engineering/decisions/2026-09-28-rebase-only-on-conflict.md`).
+  for nothing: 67 such rebases (33 of green PRs, ~895 minutes of CI wall-clock time) in
+  the eight days to 2026-09-28 (`engineering/decisions/2026-09-28-rebase-only-on-conflict.md`).
   **Before the merge ask, run `npm run queue:precheck`** — a check, not a rebase. It
-  fetches `main`, merges in memory, and exits 1 on a textual conflict or 2 on a
-  duplicate decision-index row (`merge=union` hides that one from git); on 63
-  replayed rebases it called every queue outcome with no false alarm. **Rebase
-  when:** it exits 1 or 2, GitHub reports `mergeable_state: dirty`, the queue ejected
+  fetches `main` and merges in memory **the way GitHub does**, ignoring
+  `.gitattributes` merge drivers — GitHub does not apply the decision index's
+  `merge=union`, so a local rebase that "just works" can still leave the PR `dirty`
+  and its CI silent. It exits 1 on a conflict. **Rebase when:** it exits 1, GitHub reports `mergeable_state: dirty`, the queue ejected
   the PR, or you need a specific commit from `main` (name it in the commit message).
   **Do not rebase when:** the PR page says "out-of-date", `main` moved, or another PR
   merged. A polling auto-rebase is still banned — it thrashes the merge train
