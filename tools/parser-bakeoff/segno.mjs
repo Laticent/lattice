@@ -6,20 +6,39 @@
  *
  * It is not a parity arm. Segno's notation is a new syntax, so the corpus is TRANSLATED where
  * the syntax changed (a pill's `{X}:a:b` becomes `{X, a, b}`) and read as-is where it did not
- * (axis lists, state marks, every span that is ordinary code). What is compared is the cost of
- * the same job: the inline dispatcher deciding what each span is, and the axis reader.
+ * (bracket lists, state marks, every span that is ordinary code). What is compared is the cost
+ * of the same job.
  *
- * Usage:  npm run parser:bakeoff:segno   (or, after a build: node tools/parser-bakeoff/segno.mjs [--json])
+ * THE BRACKET-LIST ROWS ARE SPLIT, and the split is the fairness rule. The corpus's bracket
+ * lists are every `[…]` span in the decks — quadrant axes, but also label sets, gantt
+ * timelines and flowchart keys, which today's one shared splitter reads too. That splitter
+ * returns strings and never fails. Binding all of them to the AXIS schema fails 40% of them,
+ * and an early version of this arm reported that error-path cost as the axis cost. So:
+ *   - "same job" rows parse every list into its parts — what the kernel does;
+ *   - "axis job" rows bind to the axis schema ONLY the lists that are axes, on both sides.
+ *
+ * It runs from SOURCE (bundled on the fly with esbuild), so the stage rows can time the
+ * generated grammar on its own.
+ *
+ * Usage:  npm run parser:bakeoff:segno   [--json]
  */
 import { createRequire } from 'node:module';
-import { inputsFor, scaling } from './corpus.mjs';
+import path from 'node:path';
+import { inputsFor } from './corpus.mjs';
 import { reference } from './reference.mjs';
 
 const require = createRequire(import.meta.url);
-const S = require('@laticent/segno');
-// Taken once: a CJS bundle's exports are getters, and reading one per span charges the
-// harness's own lookup to Segno — the kernel side calls its functions directly.
-const { isDirective } = S;
+const esbuild = require('esbuild');
+// SEGNO_LIB points the arm at another copy of the library — a checkout of the previous commit —
+// so a before/after pair runs in one session on one machine (HARD RULE #19's same-machine rule).
+const LIB = process.env.SEGNO_LIB || path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../docs/src/lib/segno');
+const built = await esbuild.build({
+  stdin: { contents: "export { parse as parseFlat } from './notation.generated.ts'; export * from './index.ts';", resolveDir: LIB, loader: 'ts' },
+  bundle: true, write: false, format: 'esm', platform: 'node', tsconfigRaw: '{}', logLevel: 'silent',
+});
+const S = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0].text).toString('base64')}`);
+// Taken once: reading a module namespace's export per span charges the lookup to Segno.
+const { isDirective, parse: parseTree, parseFlat } = S;
 
 // ── the slots, as Lattice will declare them ─────────────────────────────────
 const SHAPES = ['pill', 'chip', 'tag', 'tag-bordered', 'circle', 'chevron-right', 'chevron-left', 'diamond'];
@@ -78,25 +97,34 @@ function time(fn, inputs, target = 2e6) {
 }
 
 const rows = [];
+const row = (job, n, kernel, segno) => rows.push({ job, n, kernel, segno });
 {
   const { real } = inputsFor('inline');
   const segnoInputs = real.map(translatePill);
   const accepted = real.map((s, i) => [s, segnoInputs[i]]).filter(([s]) => reference.inline(s) !== null);
-  const kernel = time(reference.inline, real);
-  const segno = time(segnoInline, segnoInputs);
-  const kernelAcc = time(reference.inline, accepted.map(([a]) => a));
-  const segnoAcc = time(segnoInline, accepted.map(([, b]) => b));
   // Sanity: every span the kernel accepts, Segno accepts in its translated form.
   const agree = accepted.filter(([, b]) => { const r = segnoInline(b); return r && (r.ok || r.escaped !== undefined); }).length;
-  rows.push({ job: 'inline dispatch (every span)', n: real.length, kernel, segno });
-  rows.push({ job: `inline dispatch (accepted, ${agree}/${accepted.length} agree)`, n: accepted.length, kernel: kernelAcc, segno: segnoAcc });
+  const ordinary = real.map((s, i) => [s, segnoInputs[i]]).filter(([s]) => reference.inline(s) === null);
+  const marks = accepted.filter(([a]) => SHORTCUTS.has(a));
+  const pills = accepted.filter(([a]) => a.startsWith('{'));
+  row('inline dispatch, every span', real.length, time(reference.inline, real), time(segnoInline, segnoInputs));
+  row('  ordinary code (not a directive)', ordinary.length, time(reference.inline, ordinary.map(([a]) => a)), time(segnoInline, ordinary.map(([, b]) => b)));
+  row(`  directives (${agree}/${accepted.length} agree)`, accepted.length, time(reference.inline, accepted.map(([a]) => a)), time(segnoInline, accepted.map(([, b]) => b)));
+  row('  state marks [x]', marks.length, time(reference.inline, marks.map(([a]) => a)), time(segnoInline, marks.map(([, b]) => b)));
+  row('  pills {BETA, tag, c4}', pills.length, time(reference.inline, pills.map(([a]) => a)), time(segnoInline, pills.map(([, b]) => b)));
+  const p = pills.map(([, b]) => b);
+  row('    stage: grammar (flat tree)', p.length, NaN, time((s) => parseFlat(s), p));
+  row('    stage: + tree to values', p.length, NaN, time((s) => parseTree(s), p));
 }
 {
-  const { real } = inputsFor('axis');
-  const lists = real.filter((s) => s.trim().startsWith('['));
-  const kernel = time(reference.axis, lists);
-  const segno = time((s) => axis.read(s), lists);
-  rows.push({ job: 'axis list (kernel: strings; Segno: typed)', n: lists.length, kernel, segno });
+  const lists = inputsFor('axis').real.filter((s) => s.trim().startsWith('['));
+  const axes = lists.filter((s) => axis.read(s).ok);
+  row('bracket lists, same job: split into parts', lists.length, time(reference.axis, lists), time((s) => parseTree(s), lists));
+  row('quadrant axes, axis job: typed numbers, ranges', axes.length, time(reference.axis, axes), time((s) => axis.read(s), axes));
+  row('    stage: grammar (flat tree)', axes.length, NaN, time((s) => parseFlat(s), axes));
+  row('    stage: + tree to values', axes.length, NaN, time((s) => parseTree(s), axes));
+  const failing = lists.filter((s) => !axis.read(s).ok);
+  row('error path: non-axis lists bound as axes', failing.length, NaN, time((s) => axis.read(s), failing));
 }
 
 const ladder = [];
@@ -127,13 +155,13 @@ for (const [target, shapes] of Object.entries(SHAPE_INPUTS)) {
     ladder.push({ target, shape, ms, ratio: ms[2] / Math.max(ms[1], 0.001) });
   }
 }
-void scaling;
 
 if (process.argv.includes('--json')) {
   console.log(JSON.stringify({ rows, ladder }, null, 2));
 } else {
-  console.log('per span (ns): kernel | segno | segno/kernel');
-  for (const r of rows) console.log(`  ${r.job.padEnd(48)} n=${String(r.n).padStart(5)}  ${r.kernel.toFixed(0).padStart(6)} | ${r.segno.toFixed(0).padStart(6)} | ${(r.segno / r.kernel).toFixed(2)}x`);
+  const ns = (v) => (Number.isNaN(v) ? '' : v >= 1000 ? `${(v / 1000).toFixed(2)} us` : `${v.toFixed(0)} ns`);
+  console.log('per span: kernel | segno | segno/kernel   (best of seven long rounds)');
+  for (const r of rows) console.log(`  ${r.job.padEnd(50)} n=${String(r.n).padStart(5)}  ${ns(r.kernel).padStart(9)} | ${ns(r.segno).padStart(9)} | ${Number.isNaN(r.kernel) ? '' : `${(r.segno / r.kernel).toFixed(2)}x`}`);
   console.log('\nhostile ladder, Segno (ms at 2k / 8k / 32k chars; 32k/8k near 4 is linear)');
   for (const l of ladder) console.log(`  ${l.target.padEnd(7)} ${l.shape.padEnd(20)} ${l.ms.map((m) => m.toFixed(2)).join(' / ')}  x${l.ratio.toFixed(1)}`);
 }
