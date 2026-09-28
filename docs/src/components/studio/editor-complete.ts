@@ -227,6 +227,50 @@ function inFrontMatter(doc: string, pos: number): boolean {
 	return pos <= close;
 }
 
+/** One word that may follow `~{…}:` — lint-core's `sparkCompletions()` shape. */
+export type SparkWord = { label: string; axis: string; info: string };
+
+/** Starter sparks, offered once `` `~ `` is typed. */
+const SPARK_TEMPLATES: Completion[] = [
+	{ label: '~{12 14 13 17 21}', detail: 'line', info: 'A trend: numbers, oldest first' },
+	{ label: '~{12 14 13 17 21}:bar', detail: 'bars', info: 'The size of each period' },
+	{ label: '~{1 1 -1 1 -1 1}:winloss', detail: 'win-loss', info: 'Hits above the line, misses below' },
+	{ label: '~{72%}', detail: 'ring', info: 'One part of a whole' },
+	{ label: '~{72/80}:bullet', detail: 'bullet', info: 'A value against a target' },
+].map((c) => ({ ...c, type: 'snippet' }));
+
+/**
+ * The spark under the cursor, if the cursor is inside one: the text after the last OPEN
+ * backtick (an odd count before the cursor means we are inside a span). `` `~ `` offers the
+ * starter sparks; after `~{…}:` it offers the modifiers, minus every axis the spark already
+ * names (markers may stack, so only the marker already written drops out).
+ */
+export function sparkCompletion(before: string, words: SparkWord[] | null): { typed: string; options: Completion[] } | null {
+	const ticks = (before.match(/`/g) || []).length;
+	if (ticks % 2 === 0) return null;
+	const inside = before.slice(before.lastIndexOf('`') + 1);
+	if (/^~\{?$/.test(inside)) return { typed: inside, options: SPARK_TEMPLATES };
+	const m = /^~\{[^}`]*\}((?::[\w-]*)*)$/.exec(inside);
+	if (!m?.[1] || !words?.length) return null;
+	const segs = m[1].split(':').slice(1);
+	const typed = segs.pop() ?? '';
+	const byLabel = new Map(words.map((w) => [w.label, w]));
+	const used = new Set(segs.map((w) => byLabel.get(w)?.axis).filter((a) => a && a !== 'marker'));
+	// Types first, then size and markers, the frame words, and the twelve color slots last in
+	// numeric order (`boost`), not the alphabet's `c1 c10 c11 c2`.
+	const rank: Record<string, number> = { type: 60, size: 50, marker: 40, frame: 30, surface: 30, corners: 30, width: 20, scale: 20, color: -1 };
+	const options: Completion[] = words
+		.filter((w) => !used.has(w.axis) && !segs.includes(w.label))
+		.map((w) => ({
+			label: w.label,
+			type: 'keyword',
+			detail: w.axis,
+			info: w.info,
+			boost: w.axis === 'color' ? -Number(w.label.slice(1)) : (rank[w.axis] ?? 0),
+		}));
+	return options.length ? { typed, options } : null;
+}
+
 /**
  * Build a CodeMirror CompletionSource from the component catalog. Returns null
  * when nothing applies, so other sources (none, here) can take over.
@@ -244,7 +288,10 @@ export function makeStudioCompletion(
 	//     (`registerValueLists(lintVocab)`), offered on a top-level `key:` line.
 	//   vocab     — the lint vocab's modifier registry; drives the positional
 	//     `_class:` completion (falls back to the flat `modifiers` list).
-	opts: { modifiers?: string[]; palettes?: string[]; registers?: Record<string, string[]>; vocab?: CompletionVocab | null } = {},
+	//   sparkWords — a getter for the spark modifier vocabulary (lint-core's
+	//     `sparkCompletions()`, read from the kernel), offered after `` `~{…}: ``. A getter,
+	//     because the lint core loads lazily; before it arrives the menu stays closed.
+	opts: { modifiers?: string[]; palettes?: string[]; registers?: Record<string, string[]>; vocab?: CompletionVocab | null; sparkWords?: () => SparkWord[] | null } = {},
 ) {
 	// The `finish:` front-matter VALUE vocabulary — built-in presets (bare, e.g.
 	// `atrium`; the engine adds the prefix) PLUS the user's saved finishes, which
@@ -273,6 +320,10 @@ export function makeStudioCompletion(
 	return function studioComplete(context: CompletionContext): CompletionResult | null {
 		const line = context.state.doc.lineAt(context.pos);
 		const before = line.text.slice(0, context.pos - line.from);
+
+		// 0. Inside a spark, `` `~{12 14 17}:bar:lg` `` (lib/core/inline-sparks.js).
+		const spark = sparkCompletion(before, opts.sparkWords?.() || null);
+		if (spark) return { from: context.pos - spark.typed.length, options: spark.options, validFor: /^[\w-]*$/ };
 
 		// 1. A `_class:` directive token, completed by POSITION like a shell command
 		// line: the first word is a component, and every later word is only what THAT

@@ -8,7 +8,7 @@ import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
-import { FRONT_MATTER_KEYS, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
+import { FRONT_MATTER_KEYS, makeStudioCompletion, registerValueLists, sparkCompletion, VOCAB_VALUE_FIELDS } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -456,5 +456,34 @@ describe('front-matter registers — keys and values', () => {
 		expect(written.has('fit'), 'the Fit field\'s write must stay visible to this check').toBe(true);
 		const offered = new Set(FRONT_MATTER_KEYS.map((k) => k.key));
 		expect([...written].filter((k) => !offered.has(k))).toEqual([]);
+	});
+});
+
+describe('sparkCompletion — inside a `~{…}` span', () => {
+	const words = [
+		{ label: 'line', axis: 'type', info: '' },
+		{ label: 'bar', axis: 'type', info: '' },
+		{ label: 'sm', axis: 'size', info: '' },
+		{ label: 'lg', axis: 'size', info: '' },
+		{ label: 'end', axis: 'marker', info: '' },
+		{ label: 'minmax', axis: 'marker', info: '' },
+	];
+	it('offers starter sparks right after the opening backtick and `~`', () => {
+		const r = sparkCompletion('Revenue `~', words);
+		expect(r?.typed).toBe('~');
+		expect(r?.options.map((o) => o.label)).toContain('~{12 14 13 17 21}');
+	});
+	it('offers every axis after `}:`, and drops an axis the spark already names', () => {
+		expect(sparkCompletion('`~{1 2 3}:', words)?.options.map((o) => o.label)).toEqual(['line', 'bar', 'sm', 'lg', 'end', 'minmax']);
+		const r = sparkCompletion('`~{1 2 3}:bar:end:l', words);
+		expect(r?.typed).toBe('l');
+		// no second type; markers stack, so only `end` itself drops out
+		expect(r?.options.map((o) => o.label)).toEqual(['sm', 'lg', 'minmax']);
+	});
+	it('stays closed outside a span, before the data closes, and with no vocabulary yet', () => {
+		expect(sparkCompletion('`~{1 2 3}` and ~{1}:', words)).toBeNull(); // even backticks: not inside
+		expect(sparkCompletion('`~{1 2 3', words)).toBeNull();
+		expect(sparkCompletion('`~{1 2 3}:', null)).toBeNull();
+		expect(sparkCompletion('`{LIVE}:', words)).toBeNull();
 	});
 });

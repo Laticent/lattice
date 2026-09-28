@@ -17,6 +17,7 @@ import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, p
 // scoped to `.nacre-loader*` (no global leak); detaching it from the shared chunk is a separate
 // bundling task (tracked in 2026-07-21-studio-preview-reframe-in-place.md), not an import-site move.
 import '@/styles/nacre-loader.css';
+import type { SparkFitReport } from '@/lib/spark-fit';
 
 /** Read the three deck-level motion front-matter keys into a resolved `DeckMotion`. */
 function deckMotionOf(src: string): DeckMotion {
@@ -162,6 +163,9 @@ export type DeckPreviewProps = {
 	 * one-click fix from it (a venue is a fixed size, so a slide too full for it clips).
 	 */
 	onOverflow?: (clipped: boolean) => void;
+	/** Sparks measured too big for their space (docs/src/lib/spark-fit.ts), re-read on the same
+	 *  mutations as the clip report and fired only when the verdict changes. */
+	onSparkFit?: (reports: SparkFitReport[]) => void;
 	/**
 	 * Show the Nacre "no slide yet" loader behind the live iframe until the first slide
 	 * paints (then it fades + freezes). Opt-in — only the Studio's live preview wants it;
@@ -218,6 +222,7 @@ export function DeckPreview({
 	onFirstRender,
 	onRender,
 	onOverflow,
+	onSparkFit,
 	loader = false,
 	chartDetail = false,
 	specimen = false,
@@ -299,10 +304,13 @@ export function DeckPreview({
 	// full write swaps that document; it reads `section.overflow`, the runtime's own verdict.
 	const onOverflowRef = React.useRef(onOverflow);
 	onOverflowRef.current = onOverflow;
+	const onSparkFitRef = React.useRef(onSparkFit);
+	onSparkFitRef.current = onSparkFit;
+	const sparkFitLast = React.useRef('');
 	const overflowWatch = React.useRef<{ doc: Document | null; mo: MutationObserver | null; last: boolean | null; frame: HTMLIFrameElement | null }>({ doc: null, mo: null, last: null, frame: null });
 	const watchOverflow = React.useCallback(() => {
 		const w = overflowWatch.current;
-		if (!onOverflowRef.current) return;
+		if (!onOverflowRef.current && !onSparkFitRef.current) return;
 		const report = () => {
 			let clipped = false;
 			try {
@@ -313,6 +321,23 @@ export function DeckPreview({
 			if (clipped !== w.last) {
 				w.last = clipped;
 				onOverflowRef.current?.(clipped);
+			}
+			// Sparks: the measuring module loads only once a slide actually holds one, so a deck
+			// without sparks never pays for it (docs/route-budget.json).
+			if (onSparkFitRef.current && w.doc) {
+				const doc = w.doc;
+				const emit = (fit: SparkFitReport[]) => {
+					const key = fit.map((f) => `${f.src}>${f.to}`).join('|');
+					if (key !== sparkFitLast.current) {
+						sparkFitLast.current = key;
+						onSparkFitRef.current?.(fit);
+					}
+				};
+				if (!doc.querySelector('.lat-spark')) emit([]);
+				else
+					import('@/lib/spark-fit')
+						.then((m) => emit(m.measureSparkFit(doc)))
+						.catch(() => emit([]));
 			}
 		};
 		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null;
@@ -345,6 +370,9 @@ export function DeckPreview({
 			w.mo?.disconnect();
 			w.frame?.removeEventListener('load', watchOverflowRef.current);
 			if (w.last) onOverflowRef.current?.(false);
+			// A spark verdict belongs to the frame that measured it: clear it with the frame.
+			if (sparkFitLast.current) onSparkFitRef.current?.([]);
+			sparkFitLast.current = '';
 			overflowWatch.current = { doc: null, mo: null, last: null, frame: null };
 		},
 		[],

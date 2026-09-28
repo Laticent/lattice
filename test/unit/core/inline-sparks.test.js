@@ -52,7 +52,9 @@ describe('inline-sparks — what it renders', () => {
   });
 
   test('modifier order is free — the axes are sorted, not positional', () => {
-    assert.equal(sparks.sparkHtml('~{1 3 2}:area:c4:lg:end'), sparks.sparkHtml('~{1 3 2}:end:lg:c4:area'));
+    // Same drawing and attributes; only `data-src` (the author's own text) differs.
+    const noSrc = (h) => h.replace(/ data-src="[^"]*"/, '');
+    assert.equal(noSrc(sparks.sparkHtml('~{1 3 2}:area:c4:lg:end')), noSrc(sparks.sparkHtml('~{1 3 2}:end:lg:c4:area')));
   });
 
   test('numbers take a sign, decimals and the typographic minus', () => {
@@ -63,7 +65,7 @@ describe('inline-sparks — what it renders', () => {
 
   test('the html path emits one host span, an svg, and dots as round html spans', () => {
     const html = sparks.sparkHtml('~{1 3 2}:end');
-    assert.match(html, /^<span class="lat-spark" data-type="line" data-size="md" role="img" aria-label="[^"]+">/);
+    assert.match(html, /^<span class="lat-spark" data-type="line" data-size="md" role="img" aria-label="[^"]+" data-src="~\{1 3 2\}:end">/);
     assert.match(html, /<svg viewBox="0 0 100 30" aria-hidden="true" preserveAspectRatio="none">/);
     assert.match(html, /<span class="lat-spark-dot s-end" style="--x:97;--y:50"><\/span><\/span>$/);
     assert.doesNotMatch(html, /<circle/, 'a series spark draws no svg circles — dots are html');
@@ -76,6 +78,11 @@ describe('inline-sparks — what it renders', () => {
     const circ = 2 * Math.PI * 9;
     const half = Math.round((circ / 2) * 100) / 100;
     assert.match(html, new RegExp(`stroke-dasharray="${half} ${Math.round(circ * 100) / 100}"`));
+  });
+
+  test('data-src carries the author\'s text, escaped, so a measuring editor can find the span', () => {
+    assert.match(sparks.sparkHtml('~{1 2}:lg:c3'), / data-src="~\{1 2\}:lg:c3"/);
+    assert.match(sparks.sparkHtml('~{1 2}:lg'), /data-src="~\{1 2\}:lg"/);
   });
 
   test('the aria label carries the numbers a screen reader needs', () => {
@@ -240,5 +247,42 @@ describe('inline-sparks — the two render paths agree', () => {
   test('a span that does not parse builds nothing on either path', () => {
     assert.equal(sparks.sparkElement(doc, '~{1,2}'), null);
     assert.equal(sparks.sparkHtml('~{1,2}'), null);
+  });
+});
+
+describe('inline-sparks — measured too big (lint-core sparkFitFindings)', () => {
+  const lintCore = require('../../../lib/authoring/lint-core.js');
+  const deckSrc = '---\nmarp: true\n---\n\n## A\n\n| a | b |\n| - | - |\n| x | `~{1 2 3}:lg:end` |\n| y | `~{1 2 3}:c3` |\n';
+
+  test('a report becomes a warning on that exact span, with a one-click resize', () => {
+    const [f, ...rest] = lintCore.sparkFitFindings(deckSrc, [{ src: '~{1 2 3}:lg:end', why: 'wide', to: 'sm', over: 40.2, stillOver: false }]);
+    assert.equal(rest.length, 0, 'only the measured span is flagged');
+    assert.equal(f.rule, 'spark-too-big');
+    assert.equal(f.span, '`~{1 2 3}:lg:end`');
+    assert.match(f.message, /about 41px wider than the space it sits in — :sm fits/);
+    assert.equal(f.didYouMean, ':sm');
+    assert.match(lintCore.applyFix(deckSrc, f), /\| x \| `~\{1 2 3\}:end:sm` \|/);
+  });
+
+  test('sizing to md drops the size word, and "still too wide" says so', () => {
+    const [md] = lintCore.sparkFitFindings(deckSrc, [{ src: '~{1 2 3}:lg:end', why: 'tall', to: 'md', over: 1.9, stillOver: false }]);
+    assert.equal(md.replace.to, '`~{1 2 3}:end`');
+    assert.equal(md.didYouMean, 'default size', 'the button says what pressing it does');
+    assert.match(md.message, /stands 1\.9 lines tall, which pushes its row apart — :md \(the default\) fits/);
+    const [still] = lintCore.sparkFitFindings(deckSrc, [{ src: '~{1 2 3}:lg:end', why: 'wide', to: 'sm', over: 90, stillOver: true }]);
+    assert.match(still.message, /even at :sm/);
+  });
+
+  test('a running header spark is never flagged — the measure skips chrome, so must the finding', () => {
+    const withHeader = `---\nmarp: true\nheader: "\`~{1 2 3}:lg:end\`"\n---\n\n## A\n\nBody \`~{1 2 3}:lg:end\`\n`;
+    const found = lintCore.sparkFitFindings(withHeader, [{ src: '~{1 2 3}:lg:end', why: 'tall', to: 'md', over: 2, stillOver: false }]);
+    assert.equal(found.length, 1);
+    assert.equal(found[0].slide, 1);
+  });
+
+  test('the autocomplete vocabulary comes from the kernels, one axis per word', () => {
+    const words = lintCore.sparkCompletions();
+    for (const t of sparks.TYPES) assert.ok(words.some((w) => w.label === t && w.axis === 'type'), t);
+    for (const w of ['fill', 'zero', 'bare', 'outline', 'rounded']) assert.ok(words.some((x) => x.label === w), w);
   });
 });

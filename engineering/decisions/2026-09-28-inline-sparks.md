@@ -244,6 +244,31 @@ every ruling.
   naming the reason (the pill rule has no such warning today). Recommended, since the literal
   fallback is silent otherwise.
 
+## 10a. The Studio — autocomplete and a measured size check (added 2026-09-28)
+
+The owner asked for autocomplete in the editor, a Compose popup, and a warning when a spark is
+too big for the container it lands in, with a fix that sizes it down. The Compose popup is
+deferred (`followups.d/2453-p2-compose-spark-popup.md`).
+
+- **Autocomplete** (`docs/src/components/studio/editor-complete.ts` `sparkCompletion`): starter
+  sparks after `` `~ ``, modifiers after `}:`, with an axis already set dropped. The words come
+  from lint-core's `sparkCompletions()`, which reads the kernels (HARD RULE #1).
+- **The size check is MEASURED, not linted.** Lint cannot see a layout, so the Studio reads the
+  same-origin preview frame (`docs/src/lib/spark-fit.ts`, loaded only when a slide holds a
+  spark). A spark is flagged `wide` when it reaches past its container's content box (or the
+  slide's), and `tall` when it stands more than **1.5 lines** of its container's text. The
+  threshold is measured: on the demo deck `md` stands 1.2–1.35 lines in a table cell or a kpi
+  line, `lg` 1.9–2.1, and `lg` under a big number 1.06, so 1.5 flags a large spark in a row and
+  never the default. `wide` almost never fires, because em-sized sparks fit and the engine
+  reshapes a table that is too wide; `tall` is the one an author meets.
+- **Finding the span.** Each spark carries its source text as `data-src` (escaped, set with
+  `setAttribute` on the DOM path), so a report names the span exactly, with no source map.
+  lint-core's `sparkFitFindings` turns reports into `spark-too-big` warnings whose one-click fix
+  swaps in the size that fits. They count toward the issue total but not as bulk-fixable, since
+  "Fix all" cannot see a measurement.
+- **Scope.** Only the slide in the preview is measured, only in the full lens (a reader lens
+  reindexes slides), and running headers and `:fill` sparks are skipped.
+
 ## 11. Implementation plan (after the spec is settled)
 
 1. **Kernel** `lib/core/inline-sparks.js`: `parse` → `resolveMods` → `resolve()` returning

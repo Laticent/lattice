@@ -1695,6 +1695,19 @@ the span. A **backslash** keeps the literal on purpose, and silences the warning
 `` `\~{1,200}` `` renders as `~{1,200}`. A `~{` with no digit in it is not a spark attempt at
 all, so LaTeX's `` `\~{}` `` and `` `\~{n}` `` keep their backslash and get no warning.
 
+### In the Studio — autocomplete and a size check
+
+Type `` `~ `` in the Studio's editor for a menu of starter sparks, and `:` after the closing
+brace for the modifiers, grouped by what they set (a type, a size, a marker, the frame, a
+color slot). A setting the spark already has drops out of the menu.
+
+The Studio also **measures** each spark in the live preview, because whether one fits depends
+on the layout it lands in, which lint cannot see. A spark that reaches past the space it sits
+in, or stands more than **1.5 lines** of the text around it (so it pushes its row or paragraph
+apart), gets a `spark-too-big` warning with a one-click fix that sets the largest size that
+fits. The check covers the slide in the preview, in the full view; on a phone it reflects the
+last time the preview was shown.
+
 Sparks follow the same switch as pills: `inline-code: literal` turns them off for the
 deck. **Chart captions** are the one placement to avoid for now: a caption is a flex
 column, so an inline spark stacks on its own row (#2266).
