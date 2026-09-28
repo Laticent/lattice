@@ -203,3 +203,16 @@ test('lint: a band gets two lines; axis labels and other layouts are not tags', 
   assert.equal(lintText(['---', 'theme: indaco', '---', '', '<!-- _class: decision -->', '', '## A', '',
     `- ${'x'.repeat(60)}`, '- y', ''].join('\n')).filter((f) => f.rule === 'tag-budget').length, 0);
 });
+
+test('lint: tag-budget reads what renders, not the raw source', () => {
+  // A deck `class: decision` is refused by the engine, so a cards-grid slide is not a decision.
+  const refused = ['---', 'theme: indaco', 'class: decision', '---', '', '<!-- _class: cards-grid -->', '', '## A', '',
+    `- ${'x'.repeat(60)}`, '  - body', '- y', '  - body', ''].join('\n');
+  assert.equal(lintText(refused).filter((f) => f.rule === 'tag-budget').length, 0);
+  // A link counts by its text.
+  assert.equal(overBudget('decision', ['[Build](https://example.com/a/very/long/path/that/is/not/the/label)', 'y', 'z']).length, 0);
+  // A lazy continuation line is prose, so the item lifts no tag.
+  const lazy = ['---', 'theme: indaco', '---', '', '<!-- _class: decision -->', '', '## A', '',
+    `- ${'x'.repeat(60)}`, '  continued prose', '- y', '  - body', ''].join('\n');
+  assert.equal(lintText(lazy).filter((f) => f.rule === 'tag-budget').length, 0);
+});

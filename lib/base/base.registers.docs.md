@@ -932,9 +932,11 @@ deck that set another.
 **Every tag on a slide is the same size.** Each boxed tag (a corner tag or a `banner-tag` band)
 takes the widest tag's width and the tallest tag's height, so `BUILD` and `WHY NOT DELAY` read as
 one component rather than two. The text stays at the start of the tag, and a one-line tag beside
-a two-line one is centered in the taller box. A measuring step does this after fonts load, in the
-live preview and in every CLI export (`lib/core/card-tag-equalize.js`). A page with no script
-(the Marp export) sizes each tag to its own text.
+a two-line one is centered in the taller box (a `tag-none` label, which has no box, stays at the
+top so the labels line up). A measuring step does this after fonts load
+(`lib/core/card-tag-equalize.js`): in the live preview, and in the CLI's PDF, PNG and `--fluid`
+outputs. A plain `.html`
+export has no script, so there each tag keeps its own size.
 
 **A label fits one line of its tag.** One long label now widens every tag on the slide, and if it
 wraps, every card body moves down a line. So `lint:deck` warns (`tag-budget`) when a slot label

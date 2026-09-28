@@ -193,9 +193,15 @@ tag's height.** `lib/core/card-tag-equalize.js` measures each tag's content box 
 (the equalized height, which the corner reserve reads) on the section. It works on the tags as
 they are — pseudo-elements and lifted `<strong>`s — so it did not wait for the element (§3.1).
 The runtime runs it on its post-mutation dispatch and after fonts settle; the CLI export, which
-strips the runtime, injects the same function after every navigation and once more before the
-output is taken. Padding never changes a content box, so the pass settles in one step and a
-repeat writes nothing. The rest of this section is the original row-scoped proposal, kept for
+strips the runtime, injects the same function after every navigation and once more after the
+trim, before overflow is measured. A plain `.html` export skips it, because that file is built
+before the page renders and carries no script, so its tags keep their own sizes. Padding never
+changes a content box, so the pass settles in one step and a repeat writes nothing; the checker
+confirmed one writing run over 400 random label sets, with no tag gaining a line or passing its
+card. A `tag-none` label, which has no box, is not centered in an invisible taller one, so the
+labels stay in line. In a stacked layout (portrait, or the fluid view on a tablet) a label that
+wraps at the full card width would make every corner tag card-wide; the budget below stops a
+label long before that. The rest of this section is the original row-scoped proposal, kept for
 the record.
 
 The rule: **in one row of cards, every tag is as tall as the tallest.** Absolute

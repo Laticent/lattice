@@ -10,7 +10,9 @@
  *   2. a `border-box` tag (the band) is measured by its content box, so a shimmed tag does not
  *      read as tall as the tallest — which made the first cut add, then remove, its own shim;
  *   3. a second run writes nothing (the runtime calls it from an observer that watches style);
- *   4. a tag that is not boxed (an `axis` label) or not laid out (a hidden slide) is left alone.
+ *   4. a tag that is not boxed (an `axis` label) or not laid out (a hidden slide) is left alone;
+ *   5. a tag with no visible box (`tag-none`) is not centered in an invisible taller box, so
+ *      its first line stays in line with its neighbors'.
  *
  * The same kernel runs on the real surface in both paths; examples/card-tags.pdf is the artifact.
  */
@@ -42,7 +44,7 @@ function page(markup, metrics) {
 }
 
 const content = (w, h, extra) => ({
-  position: 'absolute', display: 'block', boxSizing: 'content-box',
+  position: 'absolute', display: 'block', boxSizing: 'content-box', backgroundColor: 'rgb(46, 94, 140)', boxShadow: 'none',
   width: `${w}px`, height: `${h}px`,
   paddingTop: '5.39px', paddingBottom: '5.39px', paddingLeft: '12.58px', paddingRight: '11.38px',
   borderTopWidth: '0px', borderBottomWidth: '0px', borderLeftWidth: '0px', borderRightWidth: '0px',
@@ -115,4 +117,19 @@ test('the export injects the same function it exports', () => {
   const fromSrc = new Function(`return (${EQUALIZE_CARD_TAGS_SRC});`)();
   const doc = page(decision('', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15));
   assert.ok(fromSrc(doc) > 0, 'the serialized source closes over nothing');
+});
+
+test('tag-none: bare text stays top-aligned, and the section still reserves the tallest', () => {
+  const lines = { BUILD: 1, 'A LONG LABEL THAT WRAPS': 2 };
+  const doc = page(decision('tag-none', Object.keys(lines)), (el) =>
+    content(120, 14.98 * lines[el.textContent], { backgroundColor: 'rgba(0, 0, 0, 0)' }));
+  equalizeCardTags(doc);
+  const lis = [...doc.querySelectorAll('section > .cell-stage > ul > li')];
+  assert.deepEqual(lis.map((li) => li.style.getPropertyValue('--card-tag-shim-y')), ['0px', '0px']);
+  assert.equal(doc.querySelector('section').style.getPropertyValue('--card-tag-block'), '40.74px');
+  // An edge drawn with box-shadow and no fill still counts as a visible box.
+  const edged = page(decision('', Object.keys(lines)), (el) =>
+    content(120, 14.98 * lines[el.textContent], { backgroundColor: 'transparent', boxShadow: 'rgb(0, 0, 0) 0px 0px 0px 1px inset' }));
+  equalizeCardTags(edged);
+  assert.equal(edged.querySelector('li').style.getPropertyValue('--card-tag-shim-y'), '7.49px');
 });

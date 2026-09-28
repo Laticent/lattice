@@ -3633,13 +3633,17 @@ async function renderBody(browser, g, closeBrowser) {
   };
   // Every boxed card tag on a slide takes one size (lib/core/card-tag-equalize.js — the
   // runtime runs the same kernel, but this export strips the runtime). Run after every
-  // navigation, once fonts and media have settled, so the overflow measurement below sees
-  // the equalized reserve; and again before the output is taken, since the fit passes can
-  // change a tag's text. The kernel writes only on a real change, so a repeat is a no-op.
-  const equalizeCardTagsInPage = (label) => g(
-    () => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document)`),
-    `equalize card tags${label}`,
-  );
+  // navigation, once fonts and media have settled, and once more after the trim, so the
+  // overflow measurement below sees the equalized reserve. The kernel writes only on a real
+  // change, so a repeat is a no-op.
+  // ONLY WHERE IT REACHES THE DELIVERABLE, by the same test as the trim below: a plain `.html`
+  // is a string built in Node before this page rendered, with no script to equalize it, so
+  // equalizing here would make the overflow warning describe a layout the file does not have.
+  // The fluid view and the player carry it (the runtime, or the baked DOM).
+  const TAGS_REACH_DELIVERABLE = !(OUT_FORMAT === 'html' && !(FLUID_VIEW && FLUID_BEATS_READ) && !PLAYER);
+  const equalizeCardTagsInPage = (label) => (TAGS_REACH_DELIVERABLE
+    ? g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document)`), `equalize card tags${label}`)
+    : Promise.resolve(0));
 
   // `load`, not `networkidle0`. The two are not a correctness/speed trade here: `load`
   // already waits for every resource kind this document actually contains, and the
@@ -3957,6 +3961,9 @@ async function renderBody(browser, g, closeBrowser) {
   const trimmed = TRIM_REACHES_DELIVERABLE
     ? await applyGuardsTrim()
     : { slides: 0, pages: [], reverted: [], detail: [] };
+  // A trim clamps body text, not tags, so this is normally a no-op; it keeps the reserve true
+  // for the overflow measurement if a trim ever does reach a tag.
+  await equalizeCardTagsInPage(' (after trim)');
   if (!TRIM_REACHES_DELIVERABLE) {
     // Only worth saying on a deck that asked for it. Counted off the live DOM rather
     // than the front matter, because a per-slide `<!-- _class: guards-strict -->` is
@@ -4444,7 +4451,6 @@ async function renderBody(browser, g, closeBrowser) {
   // opens is not competing with the 2x raster twins for /dev/shm.
   // `cleanDocHtml` is final here: the Fit-Spine split and the rails pass both rewrite it,
   // and both have run by this line.
-  await equalizeCardTagsInPage(' (final)');
   const captionScript = CAPTIONS || (NARRATE && PLAYER) ? await projectDeckSpeechFromHtml(cleanDocHtml, browser, g) : [];
 
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
