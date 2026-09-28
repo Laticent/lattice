@@ -1,14 +1,16 @@
 ---
-status: in-progress
+status: shipped
 summary: A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`. Each takes `true` or custom text with a `{greeting}` placeholder. The viewer's local clock picks "Good morning", "Good afternoon" or "Good evening". Each plays at most once per page load, in the Studio's Present view and in the exported Player. The Player cannot synthesize speech, so the Studio export records four greetings (three periods plus a neutral "Hello") and the Player picks one at playback, with video always taking the neutral one. The timing track carries a new top-level `bookends` section outside its one-segment-per-slide table, and the track stays at version 1.0. Lattice is pre-GA, so no older player needs to keep working.
 ---
 
 # Narration bookends: a spoken greeting and closing (2026-09-27)
 
-**Status: proposed.** The owner set the direction and answered four design questions
-on 2026-09-27. A fact-check the same day confirmed every mechanism the note cites, and
-added the scope for video, packing and a silent last slide in §6–§7. Nothing is built
-yet. This note is the plan the build follows.
+**Status: shipped** (#2423, 2026-09-27). The owner set the direction and answered four
+design questions on 2026-09-27. A fact-check the same day confirmed every mechanism the note
+cites, and added the scope for video, packing and a silent last slide in §6–§7. §11 records
+what the build changed from this plan, and §12 the owner's ruling after testing it. The one
+follow-up the build left open, a keyless author unable to export narration with the on-device
+voice, shipped separately (`2026-08-04-shared-deck-narration-audio.md` §10).
 
 ## 1. What the owner asked for
 

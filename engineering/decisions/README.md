@@ -133,7 +133,6 @@ it is load-bearing.
 
 - ◐ [2026-09-27-card-tag-register.md](2026-09-27-card-tag-register.md) — Lattice draws a label on a card six different ways.
 - ◐ [2026-09-27-guide-in-the-exported-player.md](2026-09-27-guide-in-the-exported-player.md) — The owner ruled on 2026-09-27 (video note §6, fork 8) that the Guide goes into the exported player, so a narrated HTML export and the video…
-- ◐ [2026-09-27-narration-bookends.md](2026-09-27-narration-bookends.md) — A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`.
 - ◐ [2026-09-27-plugin-system.md](2026-09-27-plugin-system.md) — The plugin system, designed whole and hardened by the adversarial trio before any code.
 - ◐ [2026-09-27-studio-export-one-engine.md](2026-09-27-studio-export-one-engine.md) — The owner wants the Studio's Export to PDF to produce "option 1" — a background photo with real, sharp text and shapes on top — through one…
 - ◐ [2026-09-27-trama-graph-chart-library.md](2026-09-27-trama-graph-chart-library.md) — Trama (`@laticent/trama`) is the graph-chart library.
@@ -330,6 +329,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-27-narration-bookends.md](2026-09-27-narration-bookends.md) — A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`.
 - ☑ [2026-09-27-voice-default-and-cheapest-toggle.md](2026-09-27-voice-default-and-cheapest-toggle.md) — The Studio's voice defaults, re-decided on measured bills.
 - ☑ [2026-09-26-deck-presets-and-settings-tiers.md](2026-09-26-deck-presets-and-settings-tiers.md) — The deck settings panel had grown to about 46 controls, ten of them accent dials that each opened on "Auto" or "None", and authors could…
 - ☑ [2026-09-26-render-drift-and-unclosed-comments.md](2026-09-26-render-drift-and-unclosed-comments.md) — The render tier had drifted 25–50% over its blessed baseline on the blessing machine, and an unclosed `<!--` made the render and the linter…

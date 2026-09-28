@@ -1566,7 +1566,12 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
           }, wait);
         }),
       ]);
-      if (!blob?.size) return { ok: false, bytes: null, key, error: timedOut ? `timed out waiting for audio (${Math.round(wait / 1000)}s) — check your connection` : 'no audio returned (empty response)' };
+      // The timeout's CAUSE differs by rung, so its advice does too. The on-device voice makes no
+      // request, and "check your connection" sent a keyless author to debug a network that was
+      // never involved; what runs out is this device's time per sentence. Measured on a software
+      // WebGPU adapter: 204–266 s per sentence, where the WASM path took 4–6 s.
+      const slow = rung === 'kokoro' ? 'the on-device voice is too slow on this device' : 'check your connection';
+      if (!blob?.size) return { ok: false, bytes: null, key, error: timedOut ? `timed out waiting for audio (${Math.round(wait / 1000)}s) — ${slow}` : 'no audio returned (empty response)' };
       return { ok: true, bytes: blob, key };
     } catch (e) { return { ok: false, bytes: null, key, error: (e?.message) || String(e || 'synth failed') }; }
   }

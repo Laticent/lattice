@@ -142,18 +142,29 @@ export function NarrationExportOptions({
 		// into one await it held `cloudReady` at null — which left the audio switch ENABLED with
 		// no key behind it, pointing at a bake that could only fail. Availability is local and
 		// must never wait on the network. Caught by driving the real panel, where it happened.
-		Promise.all([voiceAvailability(), onDeviceBakeVoice()]).then(([a, od]) => {
-			if (!live) return;
-			setCloudReady(a.openRouterReady);
-			// `kokoroReady`, NOT `kokoroReady || kokoroCached`. "Cached" means the model is on disk
-			// but not loaded, and `synthBakeClip` refuses in that state — so offering the narrator
-			// there advertises "Free — no key, no request" and then terminally refuses the export.
-			// That is the same shape as the defect this picker was built to fix: an option the
-			// panel cannot honor. A deck that is FULLY recorded would still bake, but the panel
-			// cannot know that before measuring, and a dead end is worse than a missing option.
-			if (a.kokoroReady) setOnDevice(od);
-			setRehearsesOnDevice(a.rung === 'kokoro');
-		});
+		// RE-READ ON EVERY VOICE CHANGE, not once at mount. The Workspace does not cancel a
+		// Kokoro download when it closes, so an author can start the ~80 MB load and open this
+		// panel while it runs. A mount-time snapshot then said "no on-device voice" for the life
+		// of the panel: the audio switch stayed disabled after the voice finished loading, and the
+		// free, keyless path to a narrated export was unreachable until the author backed out and
+		// came in again. `loadKokoro` and every pref setter emit `db-voice-changed`; a key
+		// connecting or disconnecting emits `db-model-changed`. TtsSettings listens the same way.
+		const read = () =>
+			Promise.all([voiceAvailability(), onDeviceBakeVoice()]).then(([a, od]) => {
+				if (!live) return;
+				setCloudReady(a.openRouterReady);
+				// `kokoroReady`, NOT `kokoroReady || kokoroCached`. "Cached" means the model is on disk
+				// but not loaded, and `synthBakeClip` refuses in that state — so offering the narrator
+				// there advertises "Free — no key, no request" and then terminally refuses the export.
+				// That is the same shape as the defect this picker was built to fix: an option the
+				// panel cannot honor. A deck that is FULLY recorded would still bake, but the panel
+				// cannot know that before measuring, and a dead end is worse than a missing option.
+				setOnDevice(a.kokoroReady ? od : null);
+				setRehearsesOnDevice(a.rung === 'kokoro');
+			});
+		read();
+		window.addEventListener('db-voice-changed', read);
+		window.addEventListener('db-model-changed', read);
 		defaultBakeVoice().then((v) => {
 			if (!live) return;
 			const { value: current, onChange: emit } = seedRef.current;
@@ -166,6 +177,8 @@ export function NarrationExportOptions({
 		});
 		return () => {
 			live = false;
+			window.removeEventListener('db-voice-changed', read);
+			window.removeEventListener('db-model-changed', read);
 		};
 	}, []);
 
@@ -216,6 +229,11 @@ export function NarrationExportOptions({
 	// So the pick WRITES the identity, and everything else reads it back. There is one value.
 	const canPickDevice = !!onDevice;
 	const useOnDevice = canPickDevice && value.voice?.rung === 'kokoro';
+	// `useOnDevice` also keys the BILL's copy: the bake runs this identity, so nothing it
+	// synthesizes is billed and no key is needed. "Publishes no price", "bills the whole deck" and
+	// "Connect OpenRouter" are false for it, and read as a refusal of the one path a keyless
+	// author has. It needs `onDevice` as well as the identity, deliberately: a device identity
+	// with the voice NOT loaded is a bake `synthBakeClip` refuses, so it must not read as free.
 	/** The cloud identity to restore when switching back — the author's model/voice choice must
 	 *  survive a detour through the on-device narrator. */
 	const cloudVoiceRef = React.useRef(value.voice);
@@ -290,6 +308,11 @@ export function NarrationExportOptions({
 	// toggle off and on again. So the switch waits for the answer. It is a local check, never a
 	// network one, so the wait is milliseconds.
 	const audioUnavailable = blocked || cloudReady === null || (cloudReady === false && !canPickDevice);
+	// It gates turning audio ON, never turning it OFF. Availability is re-read while the panel is
+	// open, so it can drop under a switch that is already on: a key disconnecting with a cloud
+	// voice chosen made `audioUnavailable` true and disabled the switch in its checked state,
+	// and the author could no longer opt out of an export that would now refuse.
+	const audioLocked = audioUnavailable && !value.audio;
 
 	const set = (patch: Partial<NarrationChoice>) => onChange({ ...value, ...patch });
 
@@ -360,7 +383,7 @@ export function NarrationExportOptions({
 						</span>
 					</span>
 				</span>
-				<Switch className="mt-0.5" aria-label="Include narration audio" checked={value.audio} disabled={disabled || audioUnavailable} onCheckedChange={setAudio} />
+				<Switch className="mt-0.5" aria-label="Include narration audio" checked={value.audio} disabled={disabled || audioLocked} onCheckedChange={setAudio} />
 			</div>
 
 			<div className="mt-3.5 flex items-start justify-between gap-3 border-t border-border pt-3.5">
@@ -429,13 +452,17 @@ export function NarrationExportOptions({
 											);
 										})}
 									</div>
-									{useOnDevice && (
-										<p className="text-[11px] leading-snug text-muted-foreground">
-											Narrated by the on-device voice you rehearse with —{' '}
-											<span className="font-mono text-[var(--text-heading)]">{onDevice?.voice || 'the workspace default'}</span>. Nothing leaves this machine and nothing is billed, whatever the deck still needs.
-										</p>
-									)}
 								</div>
+							)}
+
+							{/* NAMED WHEREVER IT IS THE NARRATOR, not only beside the picker. With no key the
+							    picker is hidden and this line is the only place the panel says which voice
+							    will speak — without it the bill below read like a cloud quote. */}
+							{useOnDevice && (
+								<p className="text-[11px] leading-snug text-muted-foreground">
+									Narrated by the on-device voice you rehearse with —{' '}
+									<span className="font-mono text-[var(--text-heading)]">{value.voice.voice || 'the workspace default'}</span>. Nothing leaves this machine and nothing is billed, whatever the deck still needs.
+								</p>
 							)}
 
 							{/* The narrator. Two pickers rather than one because a voice belongs to a MODEL —
@@ -523,10 +550,10 @@ export function NarrationExportOptions({
 											// false statement in this panel, sitting directly above a button that spends money.
 											// Say which of the two it is.
 											detail={`${measure.missing} sentence${measure.missing === 1 ? '' : 's'} · ${
-												measure.estCostUsd != null ? `about ${formatUsd(measure.estCostUsd)}` : catalogUnreachable ? 'cost unknown until the catalog is reachable' : 'this model publishes no price'
+												measure.estCostUsd != null ? `about ${formatUsd(measure.estCostUsd)}` : useOnDevice ? 'free, on this device' : catalogUnreachable ? 'cost unknown until the catalog is reachable' : 'this model publishes no price'
 											}`}
 										/>
-										{measure.cached === 0 && (
+										{measure.cached === 0 && !useOnDevice && (
 											<p className="pt-1 leading-snug text-muted-foreground">
 												Nothing on this device matches this voice — either the deck has not been rehearsed, or it was rehearsed in a different one. Clips are stored per voice, so this
 												export bills the whole deck. Rehearse in Present first, or pick the voice you rehearsed in, to pay nothing.
@@ -621,7 +648,7 @@ export function NarrationExportOptions({
 						</div>
 					)}
 
-					{value.audio && cloudReady === false && (
+					{value.audio && cloudReady === false && !useOnDevice && (
 						<p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
 							<PlugZap className="size-3.5" />
 							Connect OpenRouter in the Workspace to synthesize the sentences this device has not prepared.
