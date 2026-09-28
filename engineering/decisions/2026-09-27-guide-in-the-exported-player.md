@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: The owner ruled on 2026-09-27 (video note §6, fork 8) that the Guide goes into the exported player, so a narrated HTML export and the video captured from it gesture where Present does. This note fixes the boundary. The Guide's rules move out of PresentOverlay's React effect into a framework-free conductor (`guide-conductor.ts`) that Present and the player both drive; the resolver, the conductor and Vetrina's hand are bundled from their sources into one generated string (`GUIDE_PLAYER_JS`, 85 KB, 30 KB gzipped) that `player-core.mjs` inlines into a narrated export whose deck declares `delivery:` (the owner's fork 3a of the delivery-presets record, so every other export is byte-identical); the transport feeds it beats at sentence start, slide change, pause and word; the preset is baked in as data; and a Guide switch sits beside Play, on by default.
+summary: The owner ruled on 2026-09-27 (video note §6, fork 8) that the Guide goes into the exported player, so a narrated HTML export and the video captured from it gesture where Present does. This note fixes the boundary. The Guide's rules move out of PresentOverlay's React effect into a framework-free conductor (`guide-conductor.ts`) that Present and the player both drive; the resolver, the conductor and Vetrina's hand are bundled from their sources into one generated string (`GUIDE_PLAYER_JS`, 85 KB, 30 KB gzipped) that `player-core.mjs` inlines into every narrated export as an export option, on by default (the owner, 2026-09-28; `delivery:` picks only its style, and an export without narration or with the Guide switched off is byte-identical); the transport feeds it beats at sentence start, slide change, pause and word; the preset is baked in as data; and a Guide switch sits beside Play, on by default.
 ---
 
 # The Guide in the exported player
@@ -70,7 +70,7 @@ hover hand-off stay in Present, because the player has none of them.
 | `GUIDE_PLAYER_JS` | 84,970 bytes minified, 30,011 gzipped |
 | of which | Vetrina 37.3 KB, `present-guide.ts` 29.8 KB, Cadenza 11.1 KB, the conductor 2.3 KB, `chart-values.js` 1.8 KB, the handles table 1.6 KB |
 | A narrated export | the fixture deck's (17 slides, Kokoro) grows by the bundle and the switch; see §5 |
-| Any export without the Guide | byte-identical: the bundle, the switch, its CSS and every transport hook ship only when the deck is narrated and declares `delivery:` (checked against `main`: the narrated player script without `delivery:` is the same bytes) |
+| Any export without the Guide | byte-identical: the bundle, the switch, its CSS and every transport hook ship only in a narrated export with the Guide option on (checked against `main`: a silent export, or a narrated one made with `guide: false`, is the same bytes) |
 
 **One substitution keeps it small.** `present-guide.ts` imports `spokenValue` from the docs site's
 `read-along-core.generated.js`, which is 120 KB of the whole narration kernel. The build resolves
@@ -89,13 +89,15 @@ reason.
 
 ## 4. Defaults, and why
 
-- **Only when the deck declares `delivery:`.** The owner ruled this on 2026-09-25, before fork 8
-  (`2026-09-25-vetrina-delivery-presets.md` §9, fork 3a: "embed the kernel when a deck sets
-  `delivery:`; today's exports unchanged"). Fork 8 brought the Guide into the player and did not
-  revisit the condition, so both hold: the register is the author's opt-in. The fixture deck
-  (`test/fixtures/q3-board-review.md`) declares `delivery: restrained`, the preset Present already
-  plays it under. **For the owner to confirm:** if fork 8 meant every narrated export, the
-  condition is one line in `assemblePlayer`.
+- **An export option, on by default** (the owner, 2026-09-28: "guide and subtitles should be
+  options the author chooses", on by default). Every narrated export carries the Guide unless the
+  author switches it off: the Studio's webpage export has a **Guide** switch beside Captions and
+  Narration audio, and the CLI takes `--no-guide` (`lattice-emulator.js --player`,
+  `lattice video`). `delivery:` no longer turns it on; it picks only the style, and a deck that
+  names none plays `restrained`, as Present does. This supersedes the first cut, which followed
+  fork 3a of 2026-09-25 (`2026-09-25-vetrina-delivery-presets.md` §9: "embed the kernel when a
+  deck sets `delivery:`") and shipped the Guide only with that line. The captions are the same
+  kind of option: `lattice video --no-captions` writes no caption track and no `.vtt`.
 - **On by default, once shipped.** The owner's expectation is that the export and its video gesture; a switch
   a viewer has to find first would make the default export the one without it. Present's own
   toggle defaults off because Present is where an author rehearses; an export is a delivery.
@@ -169,7 +171,8 @@ RULE #22's `checkRuntimeMarkupSinks` census scans `lib/runtime`, not the generat
 the same position the Anima bundle is in.
 
 **The inversion pass**: the capture defect above (it found it first); the `delivery:` condition put
-to the owner as a fork on the pre-merge card, with `--narrate` now saying whether the Guide is on;
+to the owner as a fork (answered 2026-09-28: an export option, on by default, §4), with `--narrate`
+now saying whether the Guide is on;
 the stale lines in `base.registers.docs.md` and `ltt.md` corrected; one `guideStageTheme()` for
 Present and the player; and the parity measurement in §5.
 

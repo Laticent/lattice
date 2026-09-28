@@ -4,7 +4,7 @@ import { cueDisplayText, guideAimInRoot, guideCueInRoot, POINTER_BOX } from './p
 
 // THE GUIDE, FOR THE EXPORTED PLAYER — the entry `tools/build-guide-player.js` bundles into
 // `lib/export/guide-player-bundle.generated.mjs`, which `player-core.mjs` inlines into a narrated
-// export whose deck declares `delivery:` (engineering/decisions/2026-09-27-guide-in-the-exported-player.md).
+// export, unless the author switched the Guide off (engineering/decisions/2026-09-27-guide-in-the-exported-player.md).
 //
 // It adds no rule of its own. The resolver (`present-guide.ts`), the per-sentence conductor
 // (`guide-conductor.ts`) and the hand and its ink (Vetrina's stage) are the modules Present runs;

@@ -72,6 +72,7 @@ test('lattice video refuses what it cannot do, before any work', () => {
 		[['deck.md', '--mode', 'sepia'], /--mode is light, dark or system/],
 		[['export.html', '--mode', 'dark'], /to a deck/],
 		[['export.html', '--size', 'story'], /apply to a deck/],
+		[['export.html', '--no-guide'], /apply to a deck/],
 		[['notes.txt'], /deck \(\.md\) or a narrated HTML export/],
 		[['deck.md', 'out.html'], /must be a \.mp4/],
 	]) {

@@ -1,7 +1,8 @@
 // The Guide in the exported player (engineering/decisions/2026-09-27-guide-in-the-exported-player.md).
 //
-// What these pin: the Guide ships exactly when the deck is narrated AND declares `delivery:` (the
-// owner's fork 3a, so every other export is unchanged); it runs ahead of the player script so the
+// What these pin: the Guide is an export option, on by default in every narrated export and out of
+// it with `guide: false` (the owner, 2026-09-28), while `delivery:` picks only its style (restrained
+// when the deck names none); no silent export carries a byte of it; it runs ahead of the player script so the
 // transport can take it; and the transport feeds it a beat at each sentence, pause and slide change,
 // with the switch taking it down. What the Guide then POINTS at needs layout, which jsdom has none
 // of, so the pointing itself is verified in a real browser (the decision record's §5), not here.
@@ -15,14 +16,14 @@ const docHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><tit
 <section data-lattice-slide="1" id="1" class="content"><h1>One</h1><ul><li>First point here.</li></ul></section>
 <section data-lattice-slide="2" id="2" class="content"><h1>Two</h1></section></body></html>`;
 
-async function player(source, narrated = true) {
+async function player(source, narrated = true, extra = {}) {
 	const { buildTrack } = await import('@laticent/cadenza');
 	const track = buildTrack('First point here. A second sentence.');
 	const narration = narrated ? { voice: { model: 'm', voice: 'v', speed: 1 }, slides: [{ text: 'x', track, clips: [] }, null] } : undefined;
-	return (await buildPlayerHtml({ docHtml, source, title: 'T', now: 0, ...(narration ? { narration } : {}) })).html;
+	return (await buildPlayerHtml({ docHtml, source, title: 'T', now: 0, ...(narration ? { narration } : {}), ...extra })).html;
 }
 
-test('a narrated deck that declares delivery: ships the Guide, its switch and its preset', async () => {
+test('a narrated export ships the Guide by default, its switch on, in the style delivery: names', async () => {
 	const html = await player('---\ndelivery: expressive\n---\n\n# One\n');
 	assert.match(html, /window\.__lpGuide=/, 'the bundle assigns the API');
 	assert.match(html, /<button id="lp-guide"[^>]*aria-pressed="true"/, 'the switch, on');
@@ -30,13 +31,20 @@ test('a narrated deck that declares delivery: ships the Guide, its switch and it
 	assert.ok(html.indexOf('window.__lpGuide=') < html.indexOf("var root=document.documentElement"), 'the Guide runs before the transport takes it');
 });
 
-test('without delivery:, or without narration, not one byte of the Guide ships', async () => {
-	for (const [source, narrated, why] of [
-		['# One\n', true, 'narrated, no delivery:'],
-		['---\ndelivery: somber\n---\n\n# One\n', false, 'delivery: but silent'],
-		['---\ndelivery: typo\n---\n\n# One\n', true, 'an unknown delivery is no delivery'],
+test('a deck that names no delivery, or an unknown one, gets the Guide in the default style', async () => {
+	for (const source of ['# One\n', '---\ndelivery: typo\n---\n\n# One\n']) {
+		const html = await player(source);
+		assert.match(html, /<button id="lp-guide"/, source);
+		assert.match(html, /var GUIDE_DELIVERY=\{"name":"restrained"/, source);
+	}
+});
+
+test('with guide: false, or without narration, not one byte of the Guide ships', async () => {
+	for (const [source, narrated, extra, why] of [
+		['---\ndelivery: expressive\n---\n\n# One\n', true, { guide: false }, 'the author switched it off'],
+		['---\ndelivery: somber\n---\n\n# One\n', false, {}, 'delivery: but silent'],
 	]) {
-		const html = await player(source, narrated);
+		const html = await player(source, narrated, extra);
 		assert.doesNotMatch(html, /__lpGuide|lp-guide|GUIDE_DELIVERY|guideBeat/, why);
 	}
 });

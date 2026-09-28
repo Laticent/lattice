@@ -24,7 +24,7 @@
 // a board deck may want a different reader than the author's own working voice — so the
 // panel does not block it. It re-measures on every change and shows what it now costs.
 
-import { AudioLines, Captions, Loader2, PlugZap } from 'lucide-react';
+import { AudioLines, Captions, Loader2, MousePointer2, PlugZap } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Announce } from '@/lib/announce';
@@ -42,6 +42,10 @@ export type NarrationChoice = {
 	/** Set ONLY by the author, and only after a refusal has named the sentences it could not
 	 *  prepare. Ships those as captions with no sound. Never a default, never sticky. */
 	allowPartial: boolean;
+	/** The Guide in the exported player: the focus and gestures that follow the narration, as in
+	 *  Present. An export option, on unless the author turns it off (unset reads as on). The deck's
+	 *  `delivery:` picks only its style. */
+	guide?: boolean;
 };
 
 /** What the panel needs to render the deck once and project its narration — the same
@@ -213,7 +217,9 @@ export function NarrationExportOptions({
 		else if (next === 'cloud') set({ voice: cloudVoiceRef.current });
 	};
 	/** What the file is expected to gain: what the device already holds, plus what will be made. */
-	const projectedBytes = (measure?.cachedBytes ?? 0) + (measure?.missingBytes ?? 0);
+	// The Guide adds its own code to the file whenever it rides along, so the bill counts it.
+	const guideBytes = value.guide !== false ? GUIDE_EXPORT_BYTES : 0;
+	const projectedBytes = (measure?.cachedBytes ?? 0) + (measure?.missingBytes ?? 0) + guideBytes;
 
 	// Measure whenever the answer could have changed: a switch, the voice, or the deck.
 	React.useEffect(() => {
@@ -344,6 +350,19 @@ export function NarrationExportOptions({
 				<Switch className="mt-0.5" aria-label="Include narration audio" checked={value.audio} disabled={disabled || audioUnavailable} onCheckedChange={setAudio} />
 			</div>
 
+			<div className="mt-3.5 flex items-start justify-between gap-3 border-t border-border pt-3.5">
+				<span className="flex items-start gap-2">
+					<MousePointer2 className="mt-0.5 size-4 text-[var(--accent)]" />
+					<span>
+						<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Guide</span>
+						<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
+							Points at what is being narrated, as Present does: the part being read stays bright while the rest recedes. The viewer can turn it off. Needs captions or audio.
+						</span>
+					</span>
+				</span>
+				<Switch className="mt-0.5" aria-label="Include the Guide" checked={on && value.guide !== false} disabled={disabled || blocked || !on} onCheckedChange={(v) => set({ guide: v })} />
+			</div>
+
 			{on && !blocked && (
 				<div className="mt-3.5 space-y-3 border-t border-border pt-3.5">
 					{measuring && (
@@ -362,7 +381,7 @@ export function NarrationExportOptions({
 					{!value.audio && !!measure?.total && !measuring && (
 						<dl className="space-y-1 rounded-lg bg-[var(--accent-soft)] px-3 py-2.5 text-[11.5px]">
 							<Line term="Ships" detail={`${measure.total} sentence${measure.total === 1 ? '' : 's'}, word by word`} />
-							<Line term="Adds to the file" detail={`about ${formatBytes(captionBytes(measure))}`} />
+							<Line term="Adds to the file" detail={`about ${formatBytes(captionBytes(measure) + guideBytes)}`} />
 						</dl>
 					)}
 
@@ -616,6 +635,12 @@ function Line({ term, detail }: { term: string; detail: string }) {
  * punctuation and integers — measured at ~2.2x the characters across this repository's own
  * narrated examples. Kilobytes either way; the point of the line is that it is not megabytes.
  */
+/** What the Guide adds to an exported webpage: its bundle (`lib/export/guide-player-bundle.generated.mjs`),
+ *  its switch and its focus rules. MEASURED, not imported, so the Studio does not load 89 KB to say
+ *  so: a captions-only export of a two-bullet deck went 765,425 → 858,158 bytes with it on (+92,733).
+ *  `NarrationExportOptions.test.tsx` holds it to the bundle's real length, so it cannot drift. */
+export const GUIDE_EXPORT_BYTES = 93_000;
+
 function captionBytes(m: NarrationMeasure): number {
 	return Math.round(m.totalChars * 2.2);
 }

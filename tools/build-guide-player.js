@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Bundle the Guide — the resolver, the per-sentence conductor and Vetrina's hand — into ONE
- * self-contained IIFE string, for injection into a narrated `.html` export whose deck declares
- * `delivery:` (the owner's fork 3a).
+ * self-contained IIFE string, for injection into a narrated `.html` export (an export option, on
+ * by default; the deck's `delivery:` picks its style).
  *
  *   docs/src/components/studio/guide-player.ts
  *     (+ present-guide.ts, guide-conductor.ts, Vetrina's stage, Cadenza's spoken text)
@@ -11,8 +11,8 @@
  *
  * WHY a string constant: the player's runtime is a single CSP-hashed inline <script>
  * (`player-core.mjs`), so it cannot `import`. The same shape as `build-anima-player.js`, for
- * the same reason. `player-core` injects it only when the deck is narrated and declares
- * `delivery:`, so every other export stays byte-identical. Decision record:
+ * the same reason. `player-core` injects it only into a narrated export with the Guide option
+ * on, so every other export stays byte-identical. Decision record:
  * engineering/decisions/2026-09-27-guide-in-the-exported-player.md.
  *
  * SOURCES, NOT DISTS. `@/lib/vetrina`, `@/lib/cadenza` and `@laticent/ltt` resolve to their

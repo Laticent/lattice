@@ -458,8 +458,8 @@ timing, and Anima motion, because the capture includes whatever the player draws
 The captions ride as a `tx3g` track in the MP4 (3GPP timed text, the subtitle format
 QuickTime reads; `lib/export/tx3g.mjs`) and a `.vtt` sidecar, both laid out by
 `timeline()` over the measured clip lengths; the caption band is not in the frame.
-The Guide's focus and gestures are in the frame when the deck declares `delivery:`,
-because the export then carries the Guide
+The Guide's focus and gestures are in the frame, because a narrated export carries the
+Guide unless it was made with the Guide switched off (`--no-guide`, or the Studio's switch)
 (`decisions/2026-09-27-guide-in-the-exported-player.md`). **It does not guarantee**
 tour actions (no recorder writes a seekable run yet).
 

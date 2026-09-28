@@ -157,6 +157,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					audio: choice.narration.audio,
 					allowPartial: choice.narration.allowPartial,
 					voice: choice.narration.voice,
+					guide: choice.narration.guide !== false,
 					signal,
 				}, choice.playerMotion);
 				// The export succeeded but shipped something lesser (today: the diagram bake did

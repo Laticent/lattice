@@ -322,6 +322,8 @@ type PlayerCore = {
 			playerMotion?: boolean;
 			glossary?: { term: string; definition: string }[];
 			narration?: unknown;
+			/** `false` leaves the Guide out of a narrated export; otherwise it ships (player-core). */
+			guide?: boolean;
 			readAlong?: unknown;
 			now?: number;
 			build?: string;
@@ -381,7 +383,7 @@ export async function shareHtmlPlayer(
 	// separately useful — see NarrationExportOptions for the four states. `audio` is the one
 	// that synthesizes: the bake reads this device's clip store first and bills only the
 	// sentences it does not have, in `voice`, and REFUSES if any of them cannot be prepared.
-	narration?: { captions: boolean; audio: boolean; voice: BakeVoice; allowPartial?: boolean; signal?: AbortSignal },
+	narration?: { captions: boolean; audio: boolean; voice: BakeVoice; allowPartial?: boolean; signal?: AbortSignal; guide?: boolean },
 	// Whether the exported file carries the deck's CHART MOTION. `false` ships the still even
 	// when the deck sets `motion: on` — the same one-way suppression the CLI's
 	// `--no-player-motion` performs, and the same field `assemblePlayer` reads, so the Studio
@@ -753,6 +755,8 @@ export async function shareHtmlPlayer(
 			// blocks rather than in the manifest envelope (see player-core's `narrationPayload` for
 			// why); the manifest records the voice and points at the timing track.
 			narration: narrationCues,
+			// The Guide rides with the narration unless the author switched it off (player-core).
+			guide: narration?.guide !== false,
 			readAlong: readAlongVoice ? { voice: readAlongVoice } : undefined,
 			now: Date.now(),
 			build: 'studio',

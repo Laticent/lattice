@@ -368,6 +368,8 @@ HTML export:
 ```bash
 node lattice-emulator.js video deck.md                # voiced with Kokoro -> deck.mp4 + deck.vtt
 node lattice-emulator.js video deck.md --mode light   # the export's mode, over the deck's own
+node lattice-emulator.js video deck.md --no-guide     # no Guide (on by default; delivery: picks its style)
+node lattice-emulator.js video deck.md --no-captions  # no caption track and no .vtt (on by default)
 node lattice-emulator.js video deck.html              # a narrated export (the Studio's)
 node lattice-emulator.js video deck.html out.mp4 --fps 30 --lead-in 1000 --outro 1000
 ```
@@ -393,7 +395,7 @@ recorded in `followups.d/2372-p2-cli-studio-narration-text.md`. `--player-mode l
 The video is the export's own player, captured (the owner's rule in
 [`decisions/2026-09-25-video-export.md`](decisions/2026-09-25-video-export.md) §0), so it shows
 what the export shows and nothing `lib/export/video.mjs` decides, the Guide's focus and gestures
-included when the deck declares `delivery:`
+included unless the export was made with `--no-guide`
 ([`decisions/2026-09-27-guide-in-the-exported-player.md`](decisions/2026-09-27-guide-in-the-exported-player.md)):
 
 1. It decodes every clip and writes each length into the export's LTT as `measuredMs`.

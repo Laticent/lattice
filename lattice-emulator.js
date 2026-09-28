@@ -191,6 +191,9 @@ OPTIONS
                           description survives (it is the slide's text
                           alternative, not speaker text), and so do captions,
                           which narrate slide content and have --strip-captions
+      --no-guide          Leave the Guide out of a narrated --player (on by default:
+                          the focus and gestures that follow the narration, as in
+                          Present; the deck's delivery: picks only their style).
       --no-player-motion  Ship the STILL in the exported player, even when the deck
                           sets motion: on. Motion in a file you forward is a
                           separate choice from motion while you present — it costs
@@ -471,6 +474,7 @@ function parseArgs(argv) {
     if (a === '--no-split') { flags['no-split'] = true; continue; }
     if (a === '--strip-notes') { flags['strip-notes'] = true; continue; }
     if (a === '--no-player-motion') { flags['no-player-motion'] = true; continue; }
+    if (a === '--no-guide') { flags['no-guide'] = true; continue; }
     if (a === '--strip-captions') { flags['strip-captions'] = true; continue; }
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
     if (a === '--fluid') { flags.fluid = true; continue; }
@@ -4979,12 +4983,12 @@ async function renderBody(browser, g, closeBrowser) {
       // `captions: false` — the player's caption crawl stays off, as in the Studio's default
       // export; the words still ride as the video's caption track and the .vtt beside it.
       playerNarration = { voice: { model: KOKORO.model, voice: KOKORO.voice, speed: KOKORO.speed }, captions: false, inputs, slides };
-      // Say whether the Guide rides along, because nothing on screen says it is missing: the export
-      // carries it only when the deck declares `delivery:` (player-core.mjs, fork 3a).
+      // Say whether the Guide rides along and in which style: it is an export option, on unless
+      // `--no-guide`, and the deck's `delivery:` picks the style (restrained when it names none).
       if (!QUIET) {
         const { frontMatterDelivery } = await import('./lib/core/resolve-delivery.mjs');
         const named = frontMatterDelivery(rawMd);
-        console.log(named ? `Narrate: the Guide is on (delivery: ${named})` : 'Narrate: the Guide is off: the deck declares no `delivery:` (add `delivery: restrained` to have the export and its video point along)');
+        console.log(flags['no-guide'] ? 'Narrate: the Guide is off (--no-guide)' : `Narrate: the Guide is on (delivery: ${named ?? 'restrained, the default'})`);
       }
     } catch (e) {
       console.error(`error: --narrate: ${e?.message || e}`);
@@ -5050,6 +5054,8 @@ async function renderBody(browser, g, closeBrowser) {
         // (`motion:`, with `player-motion: off` as the author-side opt-out). The flag can
         // only suppress, never force motion on — a deck that says `motion: off` means it.
         playerMotion: flags['no-player-motion'] ? false : undefined,
+        // The Guide rides with the narration unless `--no-guide` (player-core.mjs).
+        guide: !flags['no-guide'],
         title: deckTitle,
         // The deck's REAL canvas. Without it the player hardcoded 1280x720 and any deck
         // declaring a non-default `size:` exported laid out for its own canvas and then
