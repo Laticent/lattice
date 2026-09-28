@@ -113,7 +113,7 @@ taught, is the error.
 - **Internal identifiers** still say caption for the spoken line: `CAPTION_MATCHER`,
   `captionFromHtml`, `extractSlideCaptions`, `stripCaptionsFromSource`, `resolve-captions.mjs`,
   `slide-caption.ts`, `isCaptionBody`, the `CommentKind` value `'caption'`. None of them is typed by
-  an author. Renaming them is a code-only follow-up, logged in `followups.d/2464-p3-internal-caption-names.md`.
+  an author. Renaming them is a code-only follow-up, logged in `followups.d/2477-p3-internal-caption-names.md`.
 - **`--captions`**, the `.vtt` sidecar, the player's caption band and every figure caption keep the
   word, because they are visible text.
 - **Historical records** (`changelog.d/` fragments already written, earlier decision notes) describe
