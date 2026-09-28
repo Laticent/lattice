@@ -101,7 +101,10 @@ shipping an old deck's public lines. So `--strip-say` removes a stale `<!-- capt
 and a stale top-level `captions:` map from the embedded source, and drops both keys from the player
 envelope's `config`. The independent checker measured the leak before this was added: a stale
 `captions:` map rode verbatim into the player envelope and the PDF's embedded source under
-`--strip-say --strip-notes`. Scrubbing more under a privacy flag is the safe direction.
+`--strip-say --strip-notes`. Scrubbing more under a privacy flag is the safe direction. The comment scrub stays case-insensitive, as `--strip-captions` was, so a note that opens with
+`Caption:` is removed too even though the engine now reads it as a note. The re-check flagged that as a
+silent loss of an author's note; the CLI now prints a line whenever `--strip-say` removes a retired
+comment, and the CLI guide says it.
 
 **A capitalized `Caption:` is a warning, not an error.** The engine matched the old key in any case, so
 `Caption:` was spoken too. But it is also how a presenter opens a real private note ("Caption: fix the
@@ -112,7 +115,7 @@ taught, is the error.
 
 - **Internal identifiers** still say caption for the spoken line: `CAPTION_MATCHER`,
   `captionFromHtml`, `extractSlideCaptions`, `stripCaptionsFromSource`, `resolve-captions.mjs`,
-  `slide-caption.ts`, `isCaptionBody`, the `CommentKind` value `'caption'`. None of them is typed by
+  `slide-caption.ts`, `isCaptionBody`. None of them is typed by
   an author. Renaming them is a code-only follow-up, logged in `followups.d/2477-p3-internal-caption-names.md`.
 - **`--captions`**, the `.vtt` sidecar, the player's caption band and every figure caption keep the
   word, because they are visible text.

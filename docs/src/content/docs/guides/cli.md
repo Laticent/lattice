@@ -247,7 +247,9 @@ npx lattice deck.md deck.pdf --captions
 ```
 
 `--strip-say` removes the spoken lines you wrote yourself (`say:`) and keeps
-the generated narration. It does not touch speaker notes, and `--strip-notes`
+the generated narration. It also removes the retired `caption:` comments and
+`captions:` map, including a comment that starts with `Caption:`, and says so
+when it does. It does not touch any other speaker note, and `--strip-notes`
 does not touch `say:` lines.
 
 ## Check a deck before you render it

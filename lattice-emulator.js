@@ -935,6 +935,13 @@ for (const f of retiredCaption.slice(0, RETIRED_FORM_SHOWN)) {
 if (retiredCaption.length > RETIRED_FORM_SHOWN) {
   console.error(`warning: \u2026 and ${retiredCaption.length - RETIRED_FORM_SHOWN} more retired \`caption:\` line(s). Run \`lattice lint\` for the full list.`);
 }
+// `--strip-say` scrubs the retired key in ANY case (as `--strip-captions` did), so a comment
+// opening with `Caption:` — a note to the engine now — leaves the shipped copies too. Say so:
+// a strip that removes an author's text without a word is the silent loss the checker found.
+const retiredComments = retiredCaption.filter((f) => f.classToken === 'caption').length;
+if (flags['strip-say'] && retiredComments) {
+  console.error(`note: --strip-say also removed ${retiredComments} retired \`caption:\` comment(s), including any that start with \`Caption:\`, from the shipped copies.`);
+}
 
 // AN EMPTY BOX WHOSE MEANING MOVED — the six-marker grammar (lib/core/state-marks.js,
 // engineering/decisions/2026-09-24-six-state-marks.md). A verdict-grid or pricing `[ ]`
