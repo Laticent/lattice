@@ -799,6 +799,9 @@ code. What changed because of them:
   **The grandfathering has since landed:** the build reads the fence claims the committed
   `grammar.generated.mjs` records, and the resolver turns a reserved-name collision on one of
   those, for the same plugin, into a warning (`fence-hydrate-resolve.test.js`, red then green).
+  The math plugin's `.katex-error` rule is no longer scoped to `section`, so the player's Read ·
+  Article, which re-hosts slide content outside any section, shows a failed formula on the same
+  error surface a slide does.
 
 - **Phase C (partial): the scaffold, the draft spec, and the harness's two known limits.**
   `lattice packages new plugin <name>` (`lib/packages/new-plugin.js`) writes a package that builds

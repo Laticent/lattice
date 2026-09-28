@@ -9,8 +9,13 @@
  *
  * It replaces `.math-error` in the math component, a rule no code ever emitted: the designed
  * surface existed, and every real error rendered without it. Ligatures off — the surface quotes
- * the author's own TeX back at them, and the quote must be retypeable (see base.elements.css). */
-section .katex-error {
+ * the author's own TeX back at them, and the quote must be retypeable (see base.elements.css).
+ *
+ * Not scoped to `section`: the player's Read · Article and the Studio's Read pane re-host slide
+ * content outside any section, and a failed formula there showed as body text with no error
+ * surface. The class is KaTeX's own and only a formula it could not parse carries it, so an
+ * unscoped rule reaches every surface that shows one and nothing else. */
+.katex-error {
   font-family: var(--font-mono);
   font-variant-ligatures: none;
   font-size: 0.85em;

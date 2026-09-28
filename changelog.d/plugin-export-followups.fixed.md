@@ -1,1 +1,2 @@
 - A highlight.js upgrade that adds a language named like a fence a shipped plugin already claims (`math`, `functionplot`, `anima`) no longer fails the build: the plugin keeps its fence and `npm run build` warns. A new plugin claiming a taken name still fails.
+- A formula KaTeX cannot parse now shows on its error surface (mono, on a `var(--warn)` tint) in the `--player` Read · Article and the Studio's Read pane too, not only on a slide; there it used to show as plain body text.
