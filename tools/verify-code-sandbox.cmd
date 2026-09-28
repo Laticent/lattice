@@ -35,9 +35,9 @@ if not exist "node_modules\puppeteer" (
     exit /b 1
   )
 )
-rem `npm ci` does not build dist\ on Windows, and the full build does not run there either
-rem (followups.d/2459-p2-windows-prepare-skips-the-build.md). The check needs only the layout CSS,
-rem and its one build step works on Windows.
+rem `npm ci` builds dist\ through `prepare` (tools\prepare.js); a checkout where that did not run
+rem (npm ci --ignore-scripts, a copied folder) needs it built once. The check needs only the layout
+rem CSS, so build that one step.
 if not exist "dist\lattice.css" (
   echo Building the layout CSS once ^(dist\lattice.css is missing; under a minute^)...
   node tools\build-css.js

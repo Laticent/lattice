@@ -56,6 +56,9 @@ function inlineWorkspaceLibs() {
     setup(build) {
       build.onResolve({ filter: /^[^./]/ }, (args) => {
         const bare = args.path;
+        // A Windows absolute path (`C:\…`, the entry point itself) starts with neither `.` nor
+        // `/`, so the filter took it for a package and marked the entry external (#2459).
+        if (args.kind === 'entry-point' || path.isAbsolute(bare)) return undefined;
         if (INLINE_PACKAGES.some((p) => bare === p || bare.startsWith(`${p}/`))) return undefined;
         return { path: bare, external: true };
       });
