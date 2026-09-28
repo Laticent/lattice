@@ -185,10 +185,10 @@
         "hard": 7
       },
       "stack": {
-        "sweet": 4,
-        "hard": 5
+        "sweet": 2,
+        "hard": 3
       },
-      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint): side 50%: fits 24+ rows, a floor, not a ceiling; stack 50/50: 7 rows, labels dropped at 8. sweet sits at or below it."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint or paints cut short): side 50%: 8 rows, a row name truncated at 9; stack 50/50: 3 rows, a row name truncated at 4 (it measured 24+ and 7 before a name cut short counted). sweet sits at or below it."
     },
     "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },

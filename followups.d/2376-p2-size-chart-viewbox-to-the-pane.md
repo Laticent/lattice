@@ -52,7 +52,7 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               well as OVERFLOW). bar, piechart, scatter, line, heatmap, map and radar turned
               `measured`; scatter's hard fell 12 -> 8 (side) and 10 (stack). Still `editorial`:
               bullet, funnel, waterfall, stacked-bar and slope (no probe signal to 24 elements —
-              see 2376-p2-probe-labels-over-marks.md) and every HTML-drawn or grouped chart
+              closed since: a truncated name is reported) and every HTML-drawn or grouped chart
               (gantt, journey, kanban, matrix-grid, progress, quadrant, roadmap, state-chart,
               word-cloud), which this pass did not measure.
             - CLOSED (panes-probe-calibration PR): the type-floor probe sizes `<foreignObject>`

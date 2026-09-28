@@ -434,7 +434,8 @@ panes slide naming either re-orients or splits (§1).
 scales rather than clipping, so the export has no ceiling to find: a 30-category bar pane truncates
 its labels to "Region…" and overprints its values, and neither the overflow probe nor the TYPE
 FLOOR probe says a word (measured — see §6). The chart budgets (bar 8, line 12, piechart 6, …) are
-the readable limit by eye. Tables, gantt, kanban and the other wide components have no element
+the readable limit by eye. *(Superseded for charts: every chart pane budget is measured now, and a
+name painted cut short reports as `truncate` on the export's `CHART LABELS DROPPED` line — §6 gap 2.)* Tables, gantt, kanban and the other wide components have no element
 builder yet, so theirs are judgment too. Ten components have nothing to count and say so in
 `noBudget` (one number, one quotation, one picture, one Mermaid diagram).
 
@@ -655,6 +656,16 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    marks.md`). The measured ceilings lowered six budgets; the steepest are a stacked waterfall
    (8 -> 2) and a word cloud (20 -> 6 side, 8 stacked). The chart wrap also keeps every block
    before the figure now, not only paragraphs (`div.chart-lead-block`).
+   **Truncated names reported, and the last chart budget measured (the panes-chart-labels PR):**
+   a name the chart PAINTS cut short — ellipsized (`F…`), split mid-word (`FY2` over `0`), or
+   shortened before layout (waterfall's `Receip…`) — is recorded as `truncate` on the drop channel
+   (`label-drops.js`, noted by the shared cartesian emitters), so the export's `CHART LABELS
+   DROPPED` line names it and the calibration fails a step on it. stacked-bar is `measured` (side
+   9, stack 23). Counting a cut-short name lowered three measured ceilings: bar side 18 -> 8 (its
+   budget of 8 holds), heatmap stack 7 -> 3 and waterfall side 9 -> 2 — so their budgets fall to
+   3 and 2. Across the shipped corpus it names three decks: `heatmap.gallery.md`'s stress slide
+   (by design), and `waterfall.gallery.md` and `examples/mobile-landscape.md`, whose committed
+   PDFs print "Receip…" and "Contract…".
 3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
    panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
    front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the

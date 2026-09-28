@@ -170,14 +170,14 @@
       "axis": "item",
       "basis": "measured",
       "side": {
-        "sweet": 5,
-        "hard": 7
+        "sweet": 2,
+        "hard": 2
       },
       "stack": {
         "sweet": 2,
         "hard": 2
       },
-      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint, or labels printed across a mark or each other): side 50%: 9, labels overprint at 10; stack 50/50: 2, axis ticks and deltas overprint at 3: a 50/50 band is a sliver. sweet sits at or below it."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint or paints cut short, or labels printed across a mark or each other): side 50%: 2, a three-word step name truncated at 3 (it measured 9 before a name cut short counted: each step gets two lines of about 12 characters); stack 50/50: 2, axis ticks and deltas overprint at 3: a 50/50 band is a sliver. sweet sits at or below it."
     },
     "review": "side 25 measured, 50 reviewed: category labels truncate below 50%; stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },
