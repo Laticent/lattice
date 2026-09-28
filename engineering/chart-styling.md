@@ -170,7 +170,15 @@ measurement, and most undo a defect a render or the adversarial review found:
   body to the one hue and left the status on a 1px edge. On the render, a gantt
   key's done, live, at-risk and blocked swatches came out identical. A status is
   a meaning the reader decodes, not one of the categories tone collapses, so it
-  keeps its hue at tone's quiet level.
+  keeps its hue at tone's quiet level. Every member that paints a status reads it
+  from the one table (`STATUS_MARKS`): gantt, progress, the status pill, waterfall
+  and the state chart. A status KEY takes the level of the text-bearing marks it
+  keys (`keysText`), or under tone a gantt key sat a step louder than its bars. A
+  state chart's `deferred` HTML tile and key dot are left out, because their
+  hollowness is a background a finish would fill; its SVG tile keeps `deferred`
+  hollow through `fill-opacity`, which a finish never sets. Measured on indaco,
+  carbone, concrete and a11y-deuteranopia in both schemes, every state label
+  clears 4.5:1 (worst 4.72, concrete light).
 - **The key follows the marks.** A legend swatch carries the mark contract, so a
   tone finish cannot leave a key of five categorical colors beside tonal wedges.
   A key takes the level of the mark it keys (`KEY_FOLLOWS`). A key whose marks the

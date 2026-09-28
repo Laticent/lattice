@@ -144,4 +144,34 @@ describe('chart-finish.generated.css', () => {
     assert.match(css, /chart-finish-tone :where\(:is\(\.fc-group, \.fc-key-swatch\[data-kind="group"\]\)\[data-slot\]\)/);
     assert.doesNotMatch(css, /\.fc-group[^-][^{]*\{[^}]*\bfill:/, 'no rule paints a group as a mark');
   });
+
+  // The body a finish gives the status mark selected by `sel` (its first paint declaration).
+  const statusBody = (finish, sel) => {
+    const at = css.indexOf(`section.chart-finish-${finish} :where(${sel})`);
+    assert.ok(at >= 0, `a ${finish} rule for ${sel}`);
+    return /(?:fill|background): ([^;]*) !important/.exec(css.slice(at, css.indexOf('}', at)))[1];
+  };
+
+  // A status key carries no text, but it keys marks that do, so it takes their level: under
+  // tone the gantt key sat at the middle step beside bars at the text step.
+  test('a status key takes the level of the text-bearing marks it keys', () => {
+    for (const finish of ['pigment', 'etching', 'tone']) {
+      assert.equal(statusBody(finish, '.gantt-legend-swatch[data-s]'), statusBody(finish, '.gantt-bar[data-s]'), `gantt, ${finish}`);
+      assert.equal(
+        statusBody(finish, '.state-dot[data-s]:not([data-s="deferred"])'),
+        statusBody(finish, '.state-node-shape[data-s]'),
+        `state-chart, ${finish}`,
+      );
+    }
+  });
+
+  // The state chart's statuses were outside the table, so a tone deck quieted a gantt's
+  // statuses and left a state chart's loud. A deferred HTML tile keeps its hollow background.
+  test('a state chart status is in the status table, and a deferred tile stays hollow', () => {
+    for (const finish of ['pigment', 'etching', 'tone']) {
+      assert.match(statusBody(finish, '.state-node-shape[data-s]'), /var\(--fill-hue\)/);
+      assert.match(statusBody(finish, ':is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])'), /var\(--fill-hue\)/);
+    }
+    assert.doesNotMatch(css, /:where\((?:\.state-dot|:is\(\.state-node, \.state-node-row\))\[data-s\]\)/, 'no bg rule reaches a deferred tile');
+  });
 });

@@ -85,9 +85,19 @@ const F = {
  * share a status vocabulary (`live` is info on a gantt bar and pass on a status pill), so a
  * finish reads the channel rather than re-deciding the word.
  */
+//
+// `keysText`: a KEY whose marks carry text takes their level, though it carries none itself —
+// under tone a gantt key at the middle step sat beside bars at the text step, and the key
+// stopped matching the chart. A state-chart tile or key dot that is `deferred` is left alone:
+// its hollowness is its background, which a finish would fill (an SVG shape's is
+// `fill-opacity`, which a finish does not touch, so the shape keeps `deferred`).
 const STATUS_MARKS = [
   { sel: '.gantt-bar[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
-  { sel: ':is(.gantt-milestone, .gantt-legend-swatch)[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false },
+  { sel: '.gantt-milestone[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false },
+  { sel: '.gantt-legend-swatch[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false, keysText: true },
+  { sel: ':is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
+  { sel: '.state-node-shape[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
+  { sel: '.state-dot[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
   { sel: '.progress-fill[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
   { sel: '.chart-status[data-s]', hue: 'var(--pill-hue)', ink: 'var(--pill-ink)', paint: 'bg', bears: true },
   { sel: '.waterfall-bar[data-s="up"]', hue: 'var(--state-pass-hue)', ink: 'var(--state-pass-ink)', paint: 'fill', bears: false },
@@ -295,9 +305,10 @@ function build() {
       // A status that carries text takes tone's text level under pigment too: a status hue can
       // be far darker than a category's (concrete's is near-black), and at pigment's 40% the
       // text on it read 3.6:1 where tone's 30% held on every theme.
-      const lvl = s.bears ? (name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop) : f.body;
+      const textLevel = s.bears || s.keysText;
+      const lvl = textLevel ? (name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop) : f.body;
       const body = tone
-        ? (s.bears ? pair(s.hue, [TONE_TEXT[0], TONE_TEXT_D[0]]) : pair(s.hue, [TONE[2], TONE[2]]))
+        ? (textLevel ? pair(s.hue, [TONE_TEXT[0], TONE_TEXT_D[0]]) : pair(s.hue, [TONE[2], TONE[2]]))
         : pair(s.hue, lvl);
       const decls = paintDecls(s.paint, body, s.ink, s.bears ? f.edgeBackdrop : f.edge);
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.
