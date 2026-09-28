@@ -51,7 +51,7 @@ export { tally as default };
 
 async function tallyZip(code: string): Promise<Buffer> {
 	const zip = new JSZip();
-	zip.file('tally/tally.manifest.json', JSON.stringify({ name: 'tally', type: 'component', format: 1 }));
+	zip.file('tally/tally.manifest.json', JSON.stringify({ name: 'tally', type: 'component', format: 1, facts: 1 }));
 	zip.file('tally/tally.styles.css', 'section.tally .tally-marks { display: flex; gap: 0.5em; color: var(--accent); }\n');
 	zip.file('tally/tally.gallery.md', '<!-- _class: tally -->\n\n## Tally\n\n- 3\n');
 	zip.file('tally/tally.transform.js', code);
@@ -209,7 +209,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			await gotoStudio(page);
 			await openLibrary(page);
 			const zip = new JSZip();
-			zip.file('dateline/dateline.manifest.json', JSON.stringify({ name: 'dateline', type: 'component', format: 1 }));
+			zip.file('dateline/dateline.manifest.json', JSON.stringify({ name: 'dateline', type: 'component', format: 1, facts: 1 }));
 			zip.file('dateline/dateline.styles.css', 'section.dateline .dateline-rows { display: grid; gap: 0.25em; }\n');
 			zip.file('dateline/dateline.gallery.md', '<!-- _class: dateline -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n');
 			zip.file('dateline/dateline.transform.js', datelineCode(origin));

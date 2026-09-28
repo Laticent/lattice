@@ -142,7 +142,10 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		if (Date.now() - started > RENDER_BUDGET_MS) why = `the render's ${RENDER_BUDGET_MS / 1000} s budget for code packages ran out`;
 		else {
 			try {
-				const raw = await (await frameFor(p, frames)).run(slideInput(c, await contractTokens()), SLIDE_MS);
+				// The facts in the version the package's manifest declares; an undeclared one (a package saved
+				// before the declaration existed) throws here and the slide keeps its note.
+				const input = slideInput(c, await contractTokens(), p.facts as number);
+				const raw = await (await frameFor(p, frames)).run(input, SLIDE_MS);
 				total += raw.length;
 				if (total > RENDER_OUTPUT_MAX) throw new Error(`the render's code packages returned more than ${RENDER_OUTPUT_MAX.toLocaleString('en-US')} characters in all`);
 				const done = (doorFinish as DoorFinish)(document, doorSanitizer(), raw, c.html, c.pkg);
@@ -159,7 +162,9 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			// A throw or a bad return fails the same way for the same input, so it is remembered; a
 			// failure of TIME (a deadline, the budget, a stopped sandbox, a load that ran long) may be
 			// the machine's, not the package's, and runs again next time (the inversion lens).
-			if (!/budget|was stopped|did not finish|not loaded|in all/.test(why)) remember(key, noted);
+			// A facts-version refusal is the MANIFEST's, and the memo keys on the code alone: re-importing with
+			// the declaration fixed must draw, so it is not remembered either.
+			if (!/budget|was stopped|did not finish|not loaded|in all|slide facts/.test(why)) remember(key, noted);
 		} else {
 			remember(key, out);
 			sections.set(key, out);

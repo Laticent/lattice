@@ -637,8 +637,17 @@ three points this section does not settle:
    written for another. Its only use is the first breaking change to `facts` (a field renamed, or
    `text` meaning something else): with the declaration, a door could keep handing a v1 package v1,
    or refuse it plainly, where without it an old package gets the new shape and throws or, worse,
-   draws the wrong thing. Recommended: add nothing now. Every package today is implicitly v1, so the
-   field can arrive with v2 under the rule "no `facts` field means 1" at no cost to anyone.
+   draws the wrong thing. **Decided (owner, 2026-09-28): declare it now, no deferred version debt.**
+   A code package's manifest must carry `"facts": <version>`. `factsRefusal`
+   (`lib/packages/code-shape.mjs`, beside `FACTS_VERSION` and `FACTS_VERSIONS`, today `[1]`) refuses
+   a missing, malformed or unknown one, and `refuseCode` calls it, so `lattice packages add`, every
+   CLI render (the gate re-runs there) and the Studio's Library import refuse the same packages in
+   the same words. Each door then hands the package facts in the version its manifest declared
+   (`slideInput(claim, tokens, version)`), which throws for an undeclared one: a Studio package saved
+   before this change keeps its slide with a note until it is imported again, and the Studio does
+   not remember that note, since its memo keys on the code and the fix is in the manifest. The day
+   `facts` changes shape, `FACTS_VERSIONS` grows and `slideFacts` learns to write each version it
+   lists; nothing about packages already in the wild has to be guessed.
 3. Additive, when a package needs them: table cells as runs, a pane's box, an eyebrow's role (a
    code-only paragraph and an `h6` are two spellings of one role).
 Documenting code packages publicly is now unblocked, and it is a separate step.

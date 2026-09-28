@@ -23,7 +23,8 @@
 // code package never downloads the kernel, the sanitizer or the runner.
 
 /** A code package the Studio knows: a saved component whose package carries a `transform.js`. */
-export type StudioCodePackage = { name: string; code: string; sha256: string; bytes: number };
+// `facts`: the slide-facts version the package's manifest declares (lib/packages/code-shape.mjs factsRefusal).
+export type StudioCodePackage = { name: string; code: string; sha256: string; bytes: number; facts?: unknown };
 /** What the notice above the preview shows: the packages this deck uses that are not approved. */
 export type CodePackagesStatus = { unapproved: StudioCodePackage[]; failed: { name: string; slide: number; why: string }[] };
 
@@ -84,11 +85,11 @@ export function revokeCodePackage(name: string): void {
  * Replaces the whole set; a package whose code changed gets a fresh sandbox.
  */
 let setSeq = 0;
-export async function setCodePackages(list: { name: string; code: string }[]): Promise<void> {
+export async function setCodePackages(list: { name: string; code: string; facts?: unknown }[]): Promise<void> {
 	// Two calls can overlap (the Library changed twice quickly); only the latest one lands.
 	const mine = ++setSeq;
 	const next = new Map<string, StudioCodePackage>();
-	for (const p of list) next.set(p.name, { name: p.name, code: p.code, sha256: await codeDigest(p.code), bytes: new TextEncoder().encode(p.code).length });
+	for (const p of list) next.set(p.name, { name: p.name, code: p.code, sha256: await codeDigest(p.code), bytes: new TextEncoder().encode(p.code).length, facts: p.facts });
 	if (mine !== setSeq) return;
 	packages.clear();
 	for (const [k, v] of next) packages.set(k, v);

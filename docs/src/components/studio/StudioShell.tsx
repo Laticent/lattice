@@ -1224,7 +1224,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [codeStamp, setCodeStamp] = React.useState('');
 	React.useEffect(() => {
 		let live = true;
-		const withCode = localComponents.filter((c) => typeof c.pkg?.files?.['transform.js'] === 'string').map((c) => ({ name: c.name, code: c.pkg?.files?.['transform.js'] as string }));
+		const withCode = localComponents.filter((c) => typeof c.pkg?.files?.['transform.js'] === 'string').map((c) => ({ name: c.name, code: c.pkg?.files?.['transform.js'] as string, facts: c.pkg?.manifest?.facts }));
 		setCodePackages(withCode).then(
 			() => { if (live) setCodeStamp(codePackagesStamp()); },
 			// The door's chunk did not load (offline before it was ever fetched, or a renamed chunk):

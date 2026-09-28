@@ -99,7 +99,7 @@ export { dateline as default };
 `;
 
 const pkgFiles = (code) => ({
-  'tally.manifest.json': JSON.stringify({ name: 'tally', type: 'component', format: 1 }),
+  'tally.manifest.json': JSON.stringify({ name: 'tally', type: 'component', format: 1, facts: 1 }),
   'tally.styles.css': 'section.tally .tally-marks { display: flex; gap: 0.5em; color: var(--accent); }\n',
   'tally.gallery.md': '<!-- _class: tally -->\n\n## Tally\n\n- 3\n',
   'tally.transform.js': code,
@@ -222,7 +222,7 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     const src = tmp('facts-src');
     fs.mkdirSync(path.join(src, 'dateline'));
     const files = {
-      'dateline.manifest.json': JSON.stringify({ name: 'dateline', type: 'component', format: 1 }),
+      'dateline.manifest.json': JSON.stringify({ name: 'dateline', type: 'component', format: 1, facts: 1 }),
       'dateline.styles.css': 'section.dateline .dateline-rows { display: grid; gap: 0.25em; }\n',
       'dateline.gallery.md': '<!-- _class: dateline -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n',
       'dateline.transform.js': factsTransform(H),

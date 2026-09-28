@@ -194,7 +194,7 @@ export { ${PKG} as default };
 function writePackage(dir, origin) {
   const p = path.join(dir, PKG);
   fs.mkdirSync(p, { recursive: true });
-  fs.writeFileSync(path.join(p, `${PKG}.manifest.json`), JSON.stringify({ name: PKG, type: 'component', format: 1 }));
+  fs.writeFileSync(path.join(p, `${PKG}.manifest.json`), JSON.stringify({ name: PKG, type: 'component', format: 1, facts: 1 }));
   fs.writeFileSync(path.join(p, `${PKG}.styles.css`), `section.${PKG} .${PKG}-rows { display: grid; gap: 0.25em; }\n`);
   fs.writeFileSync(path.join(p, `${PKG}.gallery.md`), `<!-- _class: ${PKG} -->\n\n## Probe\n\n- one\n`);
   fs.writeFileSync(path.join(p, `${PKG}.transform.js`), probeTransform(origin));
