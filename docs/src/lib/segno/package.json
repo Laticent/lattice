@@ -1,0 +1,31 @@
+{
+  "name": "@laticent/segno",
+  "version": "0.1.0",
+  "description": "A grammar engine that only builds grammars it can prove are linear (LL(1) over characters), and the one inline notation Lattice reads with it: values, [lists] and {records}, one separator, name=value, schema-bound types with aliases and shortcuts. Framework-free, zero-dependency, no DOM.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "types": "./index.ts",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "README.md"
+  ]
+}

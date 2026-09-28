@@ -8736,6 +8736,40 @@ function checkLenteBoundary(errors) {
   }
 }
 
+// ── Segno (docs/src/lib/segno) — the grammar engine ─────────────────────────
+// Same self-containment antibody as Lente: Segno is the grammar engine and the inline notation
+// (engineering/decisions/2026-09-28-segno-unified-inline-notation.md), shipped as a
+// zero-dependency, no-DOM library that lib/ consumes through its dist. EVERY import must
+// resolve inside the folder (`./x`). Tests are exempt: they deliberately import the shipped
+// kernels (lib/core/chart-values.js, gantt-time.js) to prove Segno reads numbers and times the
+// way the engine does today.
+const SEGNO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'segno');
+
+function checkSegnoBoundary(errors) {
+  if (!fs.existsSync(SEGNO_DIR)) return;
+  for (const file of listSourceFiles(SEGNO_DIR)) {
+    const rel = path.relative(ROOT, file);
+    const base = path.basename(file);
+    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue;
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const seen = new Set();
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        const spec = m[1];
+        // `./x` stays in the folder; `./../x` starts with `./` and does not, so resolve it.
+        if (spec.startsWith('./') && !path.relative(SEGNO_DIR, path.resolve(path.dirname(file), spec)).startsWith('..')) continue;
+        if (seen.has(spec)) continue;
+        seen.add(spec);
+        errors.push(
+          `${rel} imports '${spec}', which escapes the Segno folder. The grammar engine is ` +
+          'zero-dependency and no-DOM (2026-09-28-segno-unified-inline-notation.md): every import must ' +
+          'resolve inside docs/src/lib/segno/ (`./x`). Move shared code into the folder, or pass it in.',
+        );
+      }
+    }
+  }
+}
+
 // ── Audio playback boundary — Suono is the ONLY WebAudio player ──────────────
 // Suono (docs/src/lib/suono) owns ALL real audio playback. No other module may
 // create a raw AudioContext or drive voice-model's imperative playback
@@ -12876,6 +12910,7 @@ function run() {
   checkSuonoBoundary(errors);
   checkLttBoundary(errors);
   checkLenteBoundary(errors);
+  checkSegnoBoundary(errors);
   checkAudioPlaybackBoundary(errors);
   checkSanctionedGestures(errors);
   checkManifestSchemas(errors);
@@ -13140,6 +13175,7 @@ module.exports = {
   LTT_DIR,
   unreadableModuleCalls,
   checkLenteBoundary,
+  checkSegnoBoundary,
   checkAudioPlaybackBoundary,
   SANCTIONED_LEGACY_AUDIO,
   RAW_AUDIO_PATTERNS,
