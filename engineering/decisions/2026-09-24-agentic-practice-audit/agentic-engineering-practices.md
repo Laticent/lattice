@@ -122,6 +122,69 @@ Agents are built to finish. The moment the tests go green, most of them will tel
 
 ---
 
+<!-- _class: compare-code insight-key -->
+
+`Your role · Declare the outcome`
+
+## Declare what you want, and let the agent work out how.
+
+`Tells it how`
+
+```text
+1. Open orders.csv
+2. Loop over each row
+3. Skip rows where status is empty
+4. Convert the date to ISO format
+5. If the total is over 1000, flag it
+6. Write each row to the database
+```
+
+`Declares what`
+
+```yaml
+order:
+  id: text, unique
+  date: ISO 8601 date
+  status: pending | paid | refunded
+  total: decimal, never negative
+rules:
+  - totals over 1000 need review
+  - never drop a row silently
+done when:
+  - every row loads or is reported
+```
+
+> The schema and the checks outlive the code the agent writes.
+
+<!--
+There are two ways to ask for work. Imperative means you spell out the steps, like a recipe: open the file, loop over the rows, skip the empty ones. Declarative means you describe the result and the rules, and something else works out the steps. You already use declarative tools. A database query says what rows you want, not how to find them. A spreadsheet formula says what the cell should equal. Agents make this style available almost everywhere, because the agent writes the steps. Look at the two versions of the same task. The left one tells the agent how, and it leaves questions open: what happens to the skipped rows? The right one says what an order is, what must never happen, and how we'll know it's done. It's also the part worth keeping. The code the agent writes can be thrown away and written again. The schema and the checks are the asset.
+-->
+
+---
+
+<!-- _class: list takeaway -->
+
+`Your role · Declare the outcome`
+
+## Declarative works when the spec leaves nothing to guess.
+
+- Define the shape
+  - A schema or types: what the data is, and what it can never be.
+- Name the constraints
+  - What must never happen, and which tradeoffs you accept.
+- Say how you'll know
+  - Checks that pass only when the outcome is right.
+- Stay imperative where order matters
+  - Migrations, rollouts and cut-overs: spell out the steps.
+- Read the how anyway
+  - The agent's code is still yours, including its speed and safety.
+
+<!--
+Declarative style has one condition: the spec has to be complete, because the agent fills every gap with a confident guess. Five habits make it work. Define the shape: a schema or types that say what the data is and what it can never be. Can this field be empty? Say so. Name the constraints: what must never happen, like dropping a row silently, and which tradeoffs you accept, like slower but exact. Say how you'll know: tests and checks that pass only when the outcome is right. That's the verification practice again, and it's what turns a description into a contract. Then two cautions. Some work really is about order. A data migration, a rollout, a cut-over from one system to another: there the sequence is the point, so write the steps. And read the how anyway. A good declaration doesn't excuse you from looking at the code the agent chose, especially for speed and security, because you own it once it ships.
+-->
+
+---
+
 <!-- _class: cards-grid three insight-recommendation -->
 
 `Your role · Mentor, don't micromanage`
