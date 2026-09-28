@@ -266,6 +266,15 @@ The owner settled the open questions on 2026-09-27.
     and dropped on the way, measured: a smaller router budget while typing (drafts cost
     crossings and the refine was itself a jump, and it made the flowchart settle 2.5x
     later), and a flowchart-sized state tile (0.7x -> 0.9x, but typing got no faster).
+  - *The pin covers dagre too, and the pause search has its own worker* (owner,
+    2026-09-28: "no jank, no tech debt, no broken windows"). A per-key timeline on the real
+    Studio found the tail: half-typed text (`- -f`) parses as a chart whose search picks
+    dagre, so it had no pin and every key searched again (3-4 rounds of 100-400 ms), and a
+    key typed during the pause search queued behind it. A dagre pick is now pinned
+    (`lines: 0`), byte-identical pinned on every recorded call (11 of 11; grids 28 of 28),
+    and the pause search runs in a second worker. At 600 ms a key: an 11-state chart's key
+    lands in 150 / 214 ms (median / p90; was 178 / 417), a composite chart's in 242 / 423
+    ms (was 366 / 500), and no chart state goes unpainted.
 
 ## 6. The three commits, in two PRs
 

@@ -143,5 +143,8 @@ Once the author pauses (300 ms after the pinned draw lands), the full search run
 takes its choice, so the drawing at rest is the one every export makes; when the content
 now wants other rows, that is the one reflow, at the pause. A pinned grid that can no
 longer hold the shapes falls back to the search. A chart whose search picked dagre's
-layout has no pin. A key typed while that search runs waits for it: the worker cannot
-cancel a job already running.
+layout pins that (`lines: 0` and its direction), and a live redraw lays out dagre in that
+direction with `wrap: false`; half-typed text often parses as such a chart, and a chart
+with groups always is one. The pause search runs in a second worker, so a key typed while
+it runs never queues behind it (a worker cannot cancel a job already running, and a
+search a newer key made stale is dropped by its token).

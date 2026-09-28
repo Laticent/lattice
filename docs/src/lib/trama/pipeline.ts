@@ -174,9 +174,12 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
   // first. Without a Worker, or without dagre's script URL to load into it, every draw
   // stays synchronous.
   const live = Boolean(opts?.live) || Boolean(doc.documentElement?.hasAttribute?.('data-lattice-live-layout'));
-  function liveWorker(): Bag | null {
-    if (D[key('Worker')] !== undefined) return D[key('Worker')];
-    D[key('Worker')] = null;
+  // SLOT: 'Worker' lays out every keystroke. 'Search' runs only the pause search (sticky wrap,
+  // below), so a key typed while that search runs never queues behind it: a worker cannot be
+  // interrupted, and a search that a newer key made stale is dropped by its token anyway.
+  function liveWorker(slot: 'Worker' | 'Search' = 'Worker'): Bag | null {
+    if (D[key(slot)] !== undefined) return D[key(slot)];
+    D[key(slot)] = null;
     try {
       const w = doc.defaultView as (Window & typeof globalThis) | null;
       if (!w || typeof w.Worker !== 'function' || typeof w.Blob !== 'function' || !w.URL?.createObjectURL) return null;
@@ -185,7 +188,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       // No dagre tag YET is not a verdict: a host adds it once a chart appears (the Studio's
       // `ensureDagre`), and a pass can run first. Ask again next time, rather than caching a
       // null that would keep every later layout on the editor's thread for the frame's life.
-      if (!dagreSrc) { D[key('Worker')] = undefined; return null; }
+      if (!dagreSrc) { D[key(slot)] = undefined; return null; }
       const src = `importScripts(${JSON.stringify(dagreSrc)});var K=(${kernelFactory.toString()})();` +
         'onmessage=function(e){var d=e.data,geo=null;try{geo=K.layout(d.model,d.sizes,d.opts,self.__latticeDagre)}catch(_x){}postMessage({id:d.id,geo:geo})};';
       const url = w.URL.createObjectURL(new w.Blob([src], { type: 'text/javascript' }));
@@ -195,9 +198,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       // A worker that cannot start (a host that blocks blob: workers, dagre that will not
       // load) or stops answering falls back to drawing in place, for good.
       const fail = () => {
-        if (D[key('Worker')] !== W) return;
+        if (D[key(slot)] !== W) return;
         try { worker.terminate(); } catch (_e) { /* gone */ }
-        D[key('Worker')] = null;
+        D[key(slot)] = null;
         for (const f of doc.querySelectorAll(A.figure)) { const F = f as unknown as Bag; F[key('PendingSig')] = null; f.removeAttribute(`data-${P}-pending`); F[key('Sig')] = null; }
         drawAll();
       };
@@ -224,9 +227,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         try { job.cb(e.data.geo); } catch (_e) { /* the next edit redraws */ }
       };
       worker.onerror = fail;
-      D[key('Worker')] = W;
-    } catch (_e) { D[key('Worker')] = null; }
-    return D[key('Worker')];
+      D[key(slot)] = W;
+    } catch (_e) { D[key(slot)] = null; }
+    return D[key(slot)];
   }
 
   let VIS = 1;
@@ -564,12 +567,13 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     const lift = (k: number) => (k < 1 ? 1 / k : 1);
     const fitKey = chartKey(fig, sec);
     if (!D[key('Fit')]) D[key('Fit')] = new Map();
-    // STICKY WRAP. The wrap a full search chose for this chart (its line count and direction),
-    // kept per chart position like the fit. Laying out that one grid gives the same drawing
-    // as the search that picked it (every recorded call where the search picks a grid is
-    // byte-identical pinned), without the search: no bounds passes, no dagre ceiling, no
-    // second routing. So a live keystroke lays out the pinned grid, and the chart's rows
-    // hold mid-edit; the full search runs once the pinned drawing has stood REWRAP_AFTER.
+    // STICKY WRAP. What a full search chose for this chart, kept per chart position like the
+    // fit: a grid (its line count and direction) or dagre's layout (its direction). Laying out
+    // that one choice directly gives the same drawing as the search that picked it (every
+    // recorded call is byte-identical pinned: 28 grid picks, 11 dagre picks), without the
+    // search: no bounds passes, no dagre ceiling, no second routing. So a live keystroke lays
+    // out the pinned choice and the chart's rows hold mid-edit; the full search runs once the
+    // pinned drawing has stood REWRAP_AFTER, in its own worker so a key never waits behind it.
     if (!D[key('Wrap')]) D[key('Wrap')] = new Map();
     let kGuess: number = D[key('Fit')].get(fitKey) ?? 1;
     const measure = (): Measured & { geo: Geometry | null } => ({ ...A.measure(model, ctx), geo: null });
@@ -615,7 +619,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       const token = (D[key('Tokens')] = (D[key('Tokens')] || 0) + 1);
       D[key('Latest')].set(fitKey, token);
       const REWRAP_AFTER = 300;
-      const round = (r: number, search: boolean) => {
+      const round = (r: number, search: boolean, via: Bag = W) => {
         readVis(sec);
         unlay();
         floorFor(kGuess);
@@ -626,14 +630,18 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         const held = search || !opts.wrap ? undefined : (D[key('Wrap')].get(fitKey) as { lines: number; dir: 'lr' | 'tb'; asked: unknown } | undefined);
         const pin = held && held.asked === opts.dir ? held : undefined;
         if (pin) m.pinned = true;
-        const args: typeof m.args = pin ? [m.args[0], m.args[1], { ...opts, wrap: false, dir: pin.dir, grid: pin.lines, grow: false }] : m.args;
+        // A pinned grid lays out that grid; a pinned dagre pick (lines 0) lays out dagre's layout
+        // in that direction. Each is byte-identical to the search's pick (every recorded call).
+        const args: typeof m.args = pin
+          ? [m.args[0], m.args[1], pin.lines ? { ...opts, wrap: false, dir: pin.dir, grid: pin.lines, grow: false } : { ...opts, wrap: false, dir: pin.dir }]
+          : m.args;
         // The newest drawing stands in while this round is in flight: the last keystroke's,
         // or this keystroke's own earlier round once it has painted (below).
         showPrev(D[key('Prev')].get(fitKey) || prev);
         // The state the figure holds while this is in flight: a pass the runtime runs
         // meanwhile (it answers every attribute change above) finds it and skips.
         F[key('PendingSig')] = sigNow();
-        W.post(fitKey, args, (geo: Geometry | null) => {
+        via.post(fitKey, args, (geo: Geometry | null) => {
           if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected) return;
           // The pinned grid cannot hold the shapes (a line would drop under two): search.
           if (!geo && pin) { D[key('Wrap')].delete(fitKey); last = null; round(r, true); return; }
@@ -647,7 +655,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
           // chart). A round's drawing is already this keystroke's text, laid out; only its
           // type floor may still move a little, and the next round repaints it. The drawing
           // that remains is the last round's, the same as before.
-          if (r < ROUNDS - 1 && !settled(geo)) { finish(m as Measured & { geo: Geometry }); round(r + 1, search); return; }
+          if (r < ROUNDS - 1 && !settled(geo)) { finish(m as Measured & { geo: Geometry }); round(r + 1, search, via); return; }
           finish(m as Measured & { geo: Geometry });
           if (!pin) return;
           // The author paused: search once, so the drawing at rest is the one every export
@@ -658,7 +666,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
             // chart redrawn synchronously; posting to it would leave the figure pending.
             if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected || D[key('Worker')] !== W) return;
             last = null;
-            round(0, true);
+            round(0, true, liveWorker('Search') || W);
           }, REWRAP_AFTER);
         });
       };
@@ -689,12 +697,10 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       if (fig.getAttribute(`data-${P}-laid`) !== geo.dir) fig.setAttribute(`data-${P}-laid`, geo.dir);
       const kFit = applyFit(port0, box, geo.width * S, geo.height * S);
       if (kFit != null) D[key('Fit')].set(fitKey, kFit);
-      // A full search's choice is the pin: a grid (its lines and direction), or none when
-      // dagre's layout won, so the next keystroke searches too.
-      if (!m.pinned && m.args[2].wrap) {
-        if (geo.lines) D[key('Wrap')].set(fitKey, { lines: geo.lines, dir: geo.dir, asked: m.args[2].dir });
-        else D[key('Wrap')].delete(fitKey);
-      }
+      // A full search's choice is the pin: a grid (its lines and direction), or dagre's layout
+      // (lines 0) in its direction. Half-typed text often parses as a chart whose search picks
+      // dagre, and without a pin every key of it searched again: 3-4 rounds of 100-400 ms.
+      if (!m.pinned && m.args[2].wrap) D[key('Wrap')].set(fitKey, { lines: geo.lines ?? 0, dir: geo.dir, asked: m.args[2].dir });
       // The signature of the state this draw LEFT (its own fit and type floor included), so
       // the resize observer and the next pass see nothing new and skip.
       F[key('Sig')] = sigNow();

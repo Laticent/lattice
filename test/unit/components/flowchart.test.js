@@ -193,9 +193,9 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const RealBlob = w.Blob;
     w.Blob = class extends RealBlob { constructor(parts, o) { super(parts, o); log.sources.push(parts.join('')); } };
     w.Worker = class {
-      constructor() { log.worker = this; }
+      constructor() { log.worker = this; this.n = log.workers = (log.workers || 0) + 1; }
       postMessage(d) {
-        log.posts.push(d);
+        log.posts.push({ ...d, via: this.n });
         if (mode === 'silent') return;
         // 'nolines': a search answers the way a search that picks dagre's layout does (no
         // `lines`); the first draw (synchronous, the real kernel) still pins a grid.
@@ -337,7 +337,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.ok(t.log.posts[1].opts.grid >= 1 && t.log.posts[1].opts.wrap === false, JSON.stringify(t.log.posts[1].opts));
   });
 
-  test('a search that picks dagre drops the pin, so the next key searches', async () => {
+  test('a search that picks dagre pins dagre: the next key lays out dagre, with no search', async () => {
     const t = setup(true, 'nolines');
     t.edit(['Alpha', 'Beta', 'Delta']);
     await settle(t);
@@ -347,8 +347,20 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     t.edit(['Alpha', 'Beta', 'Delt']);
     await settle(t);
     assert.equal(t.log.posts.length, 3);
-    assert.equal(t.log.posts[2].opts.wrap, true, 'no pin left: the key searches');
-    assert.equal(t.log.posts[2].opts.grid, undefined);
+    const o = t.log.posts[2].opts;
+    assert.ok(o.wrap === false && o.grid === undefined && (o.dir === 'lr' || o.dir === 'tb'), JSON.stringify(o));
+  });
+
+  test('the pause search runs in its own worker, so a key never queues behind it', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    await sleep(360);
+    await settle(t);
+    assert.equal(t.log.posts.length, 2);
+    assert.equal(t.log.posts[0].via, 1, 'the key on the live worker');
+    assert.equal(t.log.posts[1].via, 2, 'the pause search on a second one');
+    assert.equal(t.log.posts[1].opts.wrap, true);
   });
 
   test('a new direction searches at once; the pin holds only for the direction it was chosen under', async () => {
