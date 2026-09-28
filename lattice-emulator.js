@@ -994,6 +994,7 @@ const { deckSlideSections, DECK_SLIDES_SRC } = require('./lib/core/deck-slides')
 const { fromBase64: fromBase64Utf8 } = require('./lib/core/base64-utf8');
 const { FIT_FUNCTION_PLOT_SRC } = require('./lib/core/function-plot-viewbox');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
+const { EQUALIZE_CARD_TAGS_SRC } = require('./lib/core/card-tag-equalize');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
 const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
 // HARD RULE #22, STYLESHEET channel. Every `<style>` this file writes carries CALLER CSS
@@ -3628,7 +3629,21 @@ async function renderBody(browser, g, closeBrowser) {
     if (timedOut && !QUIET) {
       console.warn(`  ⚠ ${timedOut} deferred resource(s) did not settle within 10s — exported without them.`);
     }
+    await equalizeCardTagsInPage(label);
   };
+  // Every boxed card tag on a slide takes one size (lib/core/card-tag-equalize.js — the
+  // runtime runs the same kernel, but this export strips the runtime). Run after every
+  // navigation, once fonts and media have settled, and once more after the trim, so the
+  // overflow measurement below sees the equalized reserve. The kernel writes only on a real
+  // change, so a repeat is a no-op.
+  // ONLY WHERE IT REACHES THE DELIVERABLE, by the same test as the trim below: a plain `.html`
+  // is a string built in Node before this page rendered, with no script to equalize it, so
+  // equalizing here would make the overflow warning describe a layout the file does not have.
+  // The fluid view and the player carry it (the runtime, or the baked DOM).
+  const TAGS_REACH_DELIVERABLE = !(OUT_FORMAT === 'html' && !(FLUID_VIEW && FLUID_BEATS_READ) && !PLAYER);
+  const equalizeCardTagsInPage = (label) => (TAGS_REACH_DELIVERABLE
+    ? g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document)`), `equalize card tags${label}`)
+    : Promise.resolve(0));
 
   // `load`, not `networkidle0`. The two are not a correctness/speed trade here: `load`
   // already waits for every resource kind this document actually contains, and the
@@ -3946,6 +3961,9 @@ async function renderBody(browser, g, closeBrowser) {
   const trimmed = TRIM_REACHES_DELIVERABLE
     ? await applyGuardsTrim()
     : { slides: 0, pages: [], reverted: [], detail: [] };
+  // A trim clamps body text, not tags, so this is normally a no-op; it keeps the reserve true
+  // for the overflow measurement if a trim ever does reach a tag.
+  await equalizeCardTagsInPage(' (after trim)');
   if (!TRIM_REACHES_DELIVERABLE) {
     // Only worth saying on a deck that asked for it. Counted off the live DOM rather
     // than the front matter, because a per-slide `<!-- _class: guards-strict -->` is
