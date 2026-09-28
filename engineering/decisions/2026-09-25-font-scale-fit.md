@@ -572,3 +572,31 @@ No finding claims a clip at the designed size on the talk any more (it made 10 p
 off: components with no venue row at all (`roadmap`, `diagram`, `divider`, a mermaid slide), and
 a few `list takeaway` / `glossary` slides whose rows run pessimistic. Both stay in
 `followups.d/2361-p2-venue-lint-accuracy-on-real-decks.md`.
+
+**Compact rows (follow-up, 2026-09-27).** `q-and-a` and `cards-stack` now carry a
+`venueCapacity.variants.compact` row, measured with `calibrate-capacity --variant compact` at the
+designed size and each rung: `q-and-a` 5 / 4 / 4 / 3 at 6 and 12 words; `cards-stack` 5 / 4 / 4 / 3
+at 6 words and 5 / 4 / 2 / 2 at 16. `scaleCapacityFor` already reads a variant row when the slide
+carries the token, so only the rows were missing: a five-pair `q-and-a compact` slide at huddle is
+judged against 4 rather than the bare 3. The docs line caps a compact row at `withCompact.hard`,
+the number lint judges a compact slide by (`cards-stack` has none, so its row stays capped at 4).
+
+**Callout rows (follow-up, 2026-09-27).** Two rows a trailing callout needed. `list takeaway`
+measured with its callout (`variants.takeaway.insight`: 4 / 3 / 3 / 2 at 14 words), because the
+bare `list` pair charges nothing at hall. The `code` pane with a callout (`lines.insight`
+11 / 9 / 8 / 7, `lines.eyebrowInsight` 10 / 8 / 7 / 5), read when the slide ends in a `> …`
+blockquote; its "clipped at any size" claim stays on the row without the callout, the number the
+designed-size code rules enforce. Talk, right / false / missed: conference 26 / 4 / 5, hall
+40 / 1 / 7; huddle unchanged. A fill model (each element at its own length) was tried and reverted,
+with its numbers in the follow-up: the error is in counting words where the box counts lines.
+
+**`--fs-body-compact` stays (owner, 2026-09-27).** The question was whether the smaller size for
+table, glossary and ledger cells (and code) should go, as `compact`'s shrink did. Measured by
+pinning it to `--fs-body` with a deck-local `section { --fs-body-compact: var(--fs-body)
+!important; }` in the calibration rig: gallery clips 2 → 13 pages, and per venue
+(laptop / huddle / conference / hall) table rows 11/10/9/8 → 10/8/8/3, glossary 10/9/4/4 →
+9/4/4/3, list-tabular 7/6/6/5 → 6/6/5/3, obligation-matrix 7/6/6/5 → 6/6/5/4, team-profile
+6/3/3/3 → 3/3/3/3, code lines 15/13/11/10 → 12/11/9/8; pricing unchanged. The rig's baseline runs
+reproduced the committed rows exactly. Retiring it would lift the back-row x-height at hall from
+about 8.2′ to 10′, and cost a hall table five of its eight rows. The owner kept it: the venue sets
+the room size, and an author who wants larger cells writes fewer rows or picks a larger venue.

@@ -254,6 +254,24 @@
         "conference": 3,
         "hall": 3
       }
+    },
+    "variants": {
+      "compact": {
+        "byWords": {
+          "6": {
+            "laptop": 5,
+            "huddle": 4,
+            "conference": 4,
+            "hall": 3
+          },
+          "12": {
+            "laptop": 5,
+            "huddle": 4,
+            "conference": 4,
+            "hall": 3
+          }
+        }
+      }
     }
   }
 }

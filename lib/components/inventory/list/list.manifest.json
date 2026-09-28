@@ -283,6 +283,28 @@
             "conference": 4,
             "hall": 3
           }
+        },
+        "insight": {
+          "byWords": {
+            "6": {
+              "laptop": 8,
+              "huddle": 7,
+              "conference": 6,
+              "hall": 5
+            },
+            "10": {
+              "laptop": 8,
+              "huddle": 7,
+              "conference": 6,
+              "hall": 2
+            },
+            "14": {
+              "laptop": 4,
+              "huddle": 3,
+              "conference": 3,
+              "hall": 2
+            }
+          }
         }
       }
     },

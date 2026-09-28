@@ -14,7 +14,7 @@ Use when the items want vertical reading order — sequential exploration rather
 
 **Density** aim ~16 words per item; past ~26 it reads as a wall of text — a stacked card is a short paragraph at most.
 
-**By venue** (`venue:`, ~16 words each) it holds laptop ~4 · huddle ~4 · conference ~2 · hall ~2 items. At ~6 words each: 4 · 4 · 3 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~16 words each) it holds laptop ~4 · huddle ~4 · conference ~2 · hall ~2 items. At ~6 words each: 4 · 4 · 3 · 3. With `compact` (~16 words): 4 · 4 · 2 · 2. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

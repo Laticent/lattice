@@ -54,7 +54,8 @@ function venueDocsLine(m, noun) {
     const fmt = (r) => VENUES.map((v) => `${v} ~${r[v]}`).join(' · ');
     // Lint reads only `code`'s line budget, so another pane component's line promises no warning.
     const pastLines = m.name === 'code' ? past : 'Past the room\'s number the slide still renders at the venue\'s size and the pane clips its lines; the export\'s `⚠ OVERFLOW` line and the Studio\'s ring name it (`lint:deck` does not count these panes yet).';
-    return `**By venue** the pane holds ${fmt(vc.lines.bare)} lines (${fmt(vc.lines.eyebrow)} under an eyebrow). ${pastLines} ${how}`;
+    const callout = vc.lines.insight ? ` Ending in a \`> …\` callout: ${fmt(vc.lines.insight)}${vc.lines.eyebrowInsight ? ` (${fmt(vc.lines.eyebrowInsight)} under an eyebrow)` : ''}.` : '';
+    return `**By venue** the pane holds ${fmt(vc.lines.bare)} lines (${fmt(vc.lines.eyebrow)} under an eyebrow).${callout} ${pastLines} ${how}`;
   }
   const { words, row, lengths } = authoredRow(vc);
   const cap = hardCap(m);
@@ -76,7 +77,9 @@ function venueDocsLine(m, noun) {
   };
   const variants = Object.entries(vc.variants || {}).map(([tok, v]) => {
     const { len, r } = at(v.byWords);
-    return ` With \`${tok}\` (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
+    // `compact` lifts the cap to `withCompact.hard` (lint-core judges a compact slide by it).
+    const vCap = tok === 'compact' && Number.isInteger(m.capacity?.withCompact?.hard) ? m.capacity.withCompact.hard : cap;
+    return ` With \`${tok}\` (~${len} words): ${VENUES.map((x) => count(vc, r, x, vCap)).join(' · ')}.`;
   }).join('');
   const insight = vc.insight
     ? (() => {

@@ -1124,12 +1124,14 @@
         },
         "lines": {
           "type": "object",
-          "description": "A code pane's line count per venue, under a one-line heading (`bare`) and under an eyebrow.",
+          "description": "A code pane's line count per venue, under a one-line heading (`bare`) and under an eyebrow; `insight` and `eyebrowInsight` are the same two with the slide ending in a `> …` callout (`tools/calibrate-capacity.js code --insight`).",
           "additionalProperties": false,
           "required": ["bare", "eyebrow"],
           "properties": {
             "bare": { "$ref": "#/$defs/venueRow" },
-            "eyebrow": { "$ref": "#/$defs/venueRow" }
+            "eyebrow": { "$ref": "#/$defs/venueRow" },
+            "insight": { "$ref": "#/$defs/venueRow" },
+            "eyebrowInsight": { "$ref": "#/$defs/venueRow" }
           }
         },
         "variants": {

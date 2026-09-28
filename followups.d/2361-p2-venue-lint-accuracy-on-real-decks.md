@@ -24,6 +24,37 @@ progress  — 2026-09-27 (PR #2410, font-scale-fit.md Amendment (4)): interpolat
             mermaid), pessimistic rows for some `list takeaway` / `glossary` slides (false 21, 28,
             58, 66), and "length in characters, not words" (not attempted). The 11-slide test deck
             named in the brief was not found in the tree, so it was not scored.
+progress  — 2026-09-27 (2): two more measured rows. `list takeaway` with a trailing callout
+            (`venueCapacity.variants.takeaway.insight`, 8/7/6/5 at 6 words, 8/7/6/2 at 10, 4/3/3/2 at
+            14; the bare `list` pair had charged it 0 at hall) and the `code` pane with a callout
+            (`lines.insight` 11/9/8/7, `lines.eyebrowInsight` 10/8/7/5). Talk, right/false/missed:
+            huddle 16/3/1 (unchanged), conference 26/4/5 (was 25/4/6), hall 40/1/7 (was 38/1/9).
+            TRIED AND REVERTED: judging a slide by FILL (each element takes 1/N(w) of the box at its
+            own length) instead of by its longest element. False + missed across the three venues:
+            22 with the rows above, 21 with fill interpolated, 23 with fill read at the next measured
+            length. It swaps misses for false warnings instead of removing either: a title-plus-body
+            item takes two lines whatever its word count (slide 31), and interpolating across the
+            one-line → two-line cliff undercounts a 12-word item (slide 22). The next step is a LINE
+            model (characters per line at each rung, a nested title as its own line), not a better
+            word model. Still missed: matrix-2x2 (20, every venue — no count row), cards-grid and
+            cycle with a callout at conference (56, 9), `list takeaway numbered` with a callout (62),
+            compare-code (16, 32 — lint counts no compare-code pane), roadmap (54), table-fill (55),
+            and a code slide whose two-line heading the pane row does not see (41 at conference).
+            Still false: list-steps / cards-grid with a callout (5, 7, 36), long-item `list takeaway`
+            (21, 28, 58), glossary (66).
+            SECOND DECK, 2026-09-27: test/integration/baseline-decks/gallery.md (116 pages, every
+            component) forced to each venue, scored the same way. Clipped 18 / 41 / 71 (laptop 0).
+            Right/false/missed, identical on main and after PR #2425: huddle 7/0/11, conference
+            14/3/27, hall 29/1/42. So the rows above cost nothing there, and lint still misses most
+            clips on a broad deck — the target this item's `done when` sets should be scored on it
+            too, not on the talk alone.
+            THREE MORE REAL DECKS, same day: examples/bloom-engineering-journey (13 pages),
+            seven-steps-problem-to-code (17), kaizen-craftsmanship (16), each forced to huddle /
+            conference / hall. Clipped 1/3/4, 1/3/7, 0/5/12. Lint, identical on main and after #2425:
+            bloom 0/0/1, 0/0/3, 0/0/4; seven-steps 0/0/1, 1/0/2, 1/0/6; kaizen 0/0/0, 3/1/2, 5/0/7.
+            By component, the 17 misses at hall: split-panel 6, compare-prose 3, premise 2, and one
+            each of matrix-grid, list-steps, content, quote, stats, cycle. split-panel has no venue
+            row at all, so it is the next row to measure.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.
