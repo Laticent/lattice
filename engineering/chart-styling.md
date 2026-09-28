@@ -178,6 +178,15 @@ measurement, and most undo a defect a render or the adversarial review found:
   a11y-base textures `figure.chart-frame .chart-key-swatch[data-hue]`, and a
   `data-hue` on radar's key textured it in Read·Article while its polygons stayed
   plain, on a deck that set no finish.
+- **The `--player` export ships only the finish rules the deck's marks match.** A
+  finish repaints through `light-dark()`, and the player lowers every such rule
+  into its `#lattice-dual-mode` block once per scheme scope, a block the CSS prune
+  never touches. Carried whole, the rules outweighed the deck stylesheet (1.37 MB),
+  and the prune, which then chose its target by size, pruned the wrong block.
+  `dropUnusedChartFinishRules` (`lib/export/player-core.mjs`) cuts them against
+  the rendered DOM first, so a deck without the key exports the bytes it did
+  before, and `examples/chart-finish.md` exports at 847 KB. The prune now skips
+  the dual-mode block by id.
 
 **What a finish does not reach, on purpose.** `line`, `slope` and `word-cloud`
 paint with strokes and type (`paint: "none"`), and a finish leaves them whole —

@@ -50,6 +50,9 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 			fontBlock = { full: b[0], css: b[2] };
 			continue;
 		}
+		// The dark block is NOT the deck stylesheet and can outweigh it (player-core.mjs
+		// `darkStyle`), so it is skipped by id, never judged by size.
+		if (/lattice-dual-mode/.test(b[1])) continue;
 		if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
 	}
 	// `legacyPseudoElements`: the Studio's engine bundle ships `lattice.css` minified, which
@@ -135,7 +138,7 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 		let identical = true;
 		if (cssResult.applied) {
 			const styleEl = [...doc.querySelectorAll('style')]
-				.filter((s) => s.id !== 'lattice-embedded-fonts')
+				.filter((s) => s.id !== 'lattice-embedded-fonts' && s.id !== 'lattice-dual-mode')
 				.sort((a, b) => (b.textContent?.length || 0) - (a.textContent?.length || 0))[0];
 			const snap = () => {
 				const rows: string[] = [];
