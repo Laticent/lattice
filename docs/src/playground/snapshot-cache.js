@@ -259,6 +259,10 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		sec.style.removeProperty('transform');
 		sec.style.removeProperty('transform-origin');
 		sec.style.removeProperty('margin-bottom');
+		// A photo still being measured hides its slide's text (`data-img-pending`,
+		// lib/transformers/image-adaptive.js). The replayed shell has no runtime to finish that
+		// measurement, so it must not carry the state.
+		sec.removeAttribute('data-img-pending');
 		wrap.appendChild(sec);
 		const html = sanitizeSlideHtml(wrap.outerHTML);
 		// SCOPE the critical CSS under the shell box: the filmstrip's srcdoc carries

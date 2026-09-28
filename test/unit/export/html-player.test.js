@@ -1577,7 +1577,14 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// own viewBox SVG at full width, with 2% inline padding for a glyph that breathes past the
 	// viewBox. Only the `#lp-article .lp-spatial` rules and their comment moved, plus the
 	// flow-height comment's "unlike lp-spatial".
-	assert.equal(sha, '4546174251c0cbef8a4feb956a52736a1f3fd90a6b09c65898a878c1c92df3b8', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Then the coda (followup 2358-p1, on top of #2442's `withCoda`): the embedded prose
+	// projection tags a slide's key-insight panel and below-note `.lp-insight` / `.lp-note`, and
+	// the article CSS gained those two rules plus the insight's first/last-child reset. The
+	// projection kernel and those three rules are the only things that moved.
+	// Then a slide's web link (followup 2358-p3): the sanitizer drops `target`, so a video poster
+	// took the player's own tab to the clip. The player script gained one delegated click handler
+	// on #lp-stage that opens a slide's http(s) link in a new tab; nothing else moved.
+	assert.equal(sha, '80209b7eada65ee7e01a31f032471b5f8285bc4e75aca97bfd201e9899373338', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

@@ -26,6 +26,7 @@ import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
 import { unclosedSectionAt } from '../../../lib/core/split-sections.mjs';
+import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
 import {
 	alignmentFailure,
@@ -93,6 +94,11 @@ function loadRemoteRef(): Promise<RemoteRef> {
 	remoteRefLoad ??= import('../../../lib/core/remote-ref.js').then((m) => ((m as unknown as { default?: RemoteRef }).default ?? m) as RemoteRef);
 	return remoteRefLoad;
 }
+
+// Adaptive image sizes, known before a slide paints: lazily loaded, off the Studio's eager
+// bundle (docs/route-budget.json). See ./image-size-memo.ts.
+let imageMemoLoad: Promise<typeof import('./image-size-memo')> | null = null;
+const loadImageMemo = () => (imageMemoLoad ??= import('./image-size-memo'));
 
 export type RenderStatus = {
 	ok: boolean;
@@ -1023,6 +1029,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// read by `srcdoc()` for the frame's policy. Part of the frame sig, so a change rewrites the
 	// frame: the policy lives in <head>, which the patch and restyle paths never touch.
 	let webAllow: string[] = [];
+	let webBlocked: Array<{ origin: string }> = [];
 
 	// PREVIEW FONTS ARE THE THEME'S, not a second supply (2026-08-17 loading audit §3, §9.5).
 	// This module used to prepend `previewFontFaceCss()` — 17 @font-face rules pointing at
@@ -1146,7 +1153,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			'><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
-			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow }) +
+			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked }) +
 			// THREE elements in cascade order — frame box, then the engine sheet (shared across
 			// every frame that wants the same bytes), then the author's CSS. Each carries an id so
 			// the RESTYLE fast path below can update it in place without rewriting the srcdoc.
@@ -1253,13 +1260,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	 * the frame the new layout paints in, then fading it back in over the same 180ms reveal
 	 * transition. A fade instead of a jump; nothing is hidden for longer than one ease.
 	 * Armed once per document.
+	 *
+	 * `lattice:layout-late` is the same case for an adaptive IMAGE: the gate holds the reveal for
+	 * the photo's aspect up to PREVIEW_IMAGE_GATE_MS, and a photo slower than that re-lays out the
+	 * card when it lands (lib/transformers/image-adaptive.js).
 	 */
 	function armLateFonts(fr: HTMLIFrameElement) {
 		try {
 			const win = fr.contentWindow as (Window & { __latticeLateArmed?: boolean }) | null;
 			if (!win || win.__latticeLateArmed) return;
 			win.__latticeLateArmed = true;
-			win.addEventListener('lattice:fonts-late', () => {
+			const fadeThrough = () => {
 				if (disposed || fr.style.opacity !== '1') return;
 				const transition = fr.style.transition;
 				fr.style.transition = 'none';
@@ -1270,7 +1281,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						fr.style.opacity = '1';
 					}),
 				);
-			});
+			};
+			win.addEventListener('lattice:fonts-late', fadeThrough);
+			win.addEventListener('lattice:layout-late', fadeThrough);
 		} catch {
 			/* a torn-down or cross-realm frame has nothing to re-fade */
 		}
@@ -1902,10 +1915,22 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const remoteRef = await loadRemoteRef();
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 				const web = remoteRef.blockWebImages(out.html, allow);
-				out = { ...out, html: web.html };
+				// Stamp each image slide from what is already known of its photo, before ANY sink
+				// writes it: the first painted frame is the final layout (./image-size-memo.ts).
+				const imageMemo = await loadImageMemo();
+				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+				out = { ...out, html: await imageMemo.stampKnownSizes(web.html, geom, host.querySelector<HTMLIFrameElement>('iframe.live')) };
+				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+				const prefetchImages = (fr: HTMLIFrameElement | null | undefined) => imageMemo.prefetch(fr, markdown, allow, remoteRef.webOrigin);
 				webAllow = allow;
+				// The theme and author CSS reach the frame beside the markup, so their web references
+				// count too: the restyle path swaps that <style> without touching <head>.
+				webBlocked = [...web.blocked, ...remoteRef.webRefsInCss(extraCss || '', extra?.css || '')];
 				const webImagesBlocked = web.blocked.length;
-				const webSig = allow.join(' ');
+				// The policy's whole web half, not just the origins: an edit that adds a refused
+				// subdomain reference takes that host's wildcard away, and the resident <head> can only
+				// change on a full write (lib/core/subresource-csp.mjs `webPolicySig`).
+				const webSig = webPolicySig(allow, webBlocked);
 				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}`;
 				// IS THIS RENDER THE SAME SLIDE AS THE LAST ONE, EDITED? The one fact the frame
 				// cannot work out for itself, and the one `patchSlideBody` hands the runtime.
@@ -1955,6 +1980,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const tFrame = performance.now();
 					const inPlace = swapKind();
 					if (patchSlideBody(live, safe, inPlace)) {
+						prefetchImages(live);
 						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
 						// through to the restyle path, which asks again — against an identity it had
 						// just overwritten, so the second answer was always `in-place`.
@@ -2036,6 +2062,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					themeStyleEl.textContent = styleElementText(authorStyleContent(extraCss));
 					const inPlace = swapKind();
 					if (patchSlideBody(live, safe, inPlace)) {
+						prefetchImages(live);
 						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
 						// through to the restyle path, which asks again — against an identity it had
 						// just overwritten, so the second answer was always `in-place`.
@@ -2157,6 +2184,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Parent-hosted video playback: tap a video poster in a Studio preview
 					// to play the clip in a centered lightbox (the link guard bridges to it).
 					installVideoBridge(fr.contentWindow);
+					// The frame is live: measure the deck's other photos through it, so the next slide
+					// the reader turns to is stamped final before it paints.
+					prefetchImages(fr);
 					const now = performance.now();
 					const rec = recordRenderSample({
 						engineMs,

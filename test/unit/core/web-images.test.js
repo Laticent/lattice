@@ -92,11 +92,60 @@ test('the policy lets exactly the chosen origins back in, and nothing shaped oth
   const base = subresourceCspPolicy();
   assert.match(base, /img-src 'self' data: blob:;/);
   const p = subresourceCspPolicy({ webOrigins: ['https://a.com', 'http://b.com:8080', 'https://x.com; script-src *', "https://y.com 'unsafe-inline'", 'javascript:alert(1)', 'https://a.com'] });
-  assert.match(p, /img-src 'self' data: blob: https:\/\/a\.com http:\/\/b\.com:8080;/);
-  assert.match(p, /media-src 'self' data: blob: https:\/\/a\.com http:\/\/b\.com:8080;/);
+  assert.match(p, /img-src 'self' data: blob: https:\/\/a\.com https:\/\/\*\.a\.com http:\/\/b\.com:8080 http:\/\/\*\.b\.com:8080;/);
+  assert.match(p, /media-src 'self' data: blob: https:\/\/a\.com https:\/\/\*\.a\.com http:\/\/b\.com:8080 http:\/\/\*\.b\.com:8080;/);
   assert.doesNotMatch(p, /script-src|unsafe-inline|javascript|x\.com|y\.com/);
   assert.match(p, /font-src 'self' data:;/, 'fonts and connections stay closed: the choice is about pictures');
   assert.match(p, /connect-src 'self';/);
+});
+
+// An allowed image host that answers from a CDN SUBDOMAIN (picsum.photos 302s to
+// fastly.picsum.photos) was refused on the redirect hop, since CSP checks every hop: the reader
+// tapped "Load" and got an empty panel. Each allowed origin now brings its own subdomains — and
+// nothing wider, because a registrable-domain rule would need the public-suffix list.
+test('an allowed origin covers its own subdomains, so a CDN redirect is not refused', async () => {
+  const { subresourceCspPolicy } = await import('../../../lib/core/subresource-csp.mjs');
+  const img = (o) => subresourceCspPolicy({ webOrigins: o }).split(';')[0];
+  assert.equal(img(['https://picsum.photos']), "img-src 'self' data: blob: https://picsum.photos https://*.picsum.photos");
+  // no sibling and no parent: source.unsplash.com does not admit images.unsplash.com
+  assert.doesNotMatch(img(['https://source.unsplash.com']), /images\.unsplash|\*\.unsplash\.com/);
+  // an IP literal or a single-label host has no subdomains to add
+  assert.equal(img(['http://127.0.0.1:3000', 'http://localhost:5173', 'https://[::1]']), "img-src 'self' data: blob: http://127.0.0.1:3000 http://localhost:5173 https://[::1]");
+  // the port travels with the wildcard
+  assert.match(img(['http://b.com:8080']), / http:\/\/\*\.b\.com:8080$/);
+  // Only what the allowed server REDIRECTS to widens. A subdomain written into the deck itself
+  // is its own origin, and the markup layer still placeholders it until the reader allows it.
+  const out = blockWebImages('<img src="https://fastly.picsum.photos/a.png"><img src="https://picsum.photos/b.png">', ['https://picsum.photos']);
+  assert.deepEqual(out.blocked.map((b) => b.url), ['https://fastly.picsum.photos/a.png']);
+});
+
+// The markup rewrite cannot reach three spellings (an escaped url(), an image-set() string, a
+// Mermaid img:), which only the policy refuses. A wildcard would let those load from a subdomain
+// of an allowed site while the strip still counted them as blocked, so a host whose subdomain the
+// render refused keeps its exact origin only. Found by the checker on #2412.
+test('a subdomain reference the rewrite cannot reach takes that host\'s wildcard away', async () => {
+  const { subresourceCspPolicy, webPolicySig } = await import('../../../lib/core/subresource-csp.mjs');
+  const allowed = ['https://picsum.photos'];
+  for (const html of [
+    '<div style="background-image:image-set(&quot;https://beacon.picsum.photos/x.png&quot; 1x)"></div>',
+    '<div style="background-image:u\\72l(https://t.picsum.photos/y.png)"></div>',
+  ]) {
+    const { blocked } = blockWebImages(html, allowed);
+    assert.ok(blocked.some((b) => b.origin.endsWith('.picsum.photos')), `precondition: the scan counts it: ${html}`);
+    const img = subresourceCspPolicy({ webOrigins: allowed, blocked }).split(';')[0];
+    assert.equal(img, "img-src 'self' data: blob: https://picsum.photos", html);
+    assert.notEqual(webPolicySig(allowed, blocked), webPolicySig(allowed, []), 'a patch host sees the change');
+  }
+  // CSP lets an http: source match https:, so the guard compares HOSTS, never schemes
+  assert.equal(subresourceCspPolicy({ webOrigins: ['http://a.com'], blocked: [{ origin: 'https://beacon.a.com' }] }).split(';')[0], "img-src 'self' data: blob: http://a.com");
+  // a theme or author stylesheet is scanned too, in every spelling the scanner reads
+  const { webRefsInCss } = require('../../../lib/core/remote-ref.js');
+  const sheetRefs = webRefsInCss('.x{background:image-set("https://beacon.picsum.photos/a.png" 1x)}', '.y{background:u\\72l(https://t.picsum.photos/b.png)}');
+  assert.deepEqual(sheetRefs.map((r) => r.origin), ['https://beacon.picsum.photos', 'https://t.picsum.photos']);
+  assert.equal(subresourceCspPolicy({ webOrigins: allowed, blocked: sheetRefs }).split(';')[0], "img-src 'self' data: blob: https://picsum.photos");
+  // an unrelated refused origin leaves the wildcard alone
+  const other = blockWebImages('<div style="background-image:image-set(&quot;https://evil.example/x.png&quot; 1x)"></div>', allowed);
+  assert.match(subresourceCspPolicy({ webOrigins: allowed, blocked: other.blocked }), /https:\/\/\*\.picsum\.photos/);
 });
 
 test('the spellings the HTML parser reads as a fetch are blocked too', () => {
@@ -130,5 +179,5 @@ test('blockWebCss swaps a stylesheet\'s web url()s for a page with no policy', (
 test('an underscore host name can be allowed', async () => {
   const { subresourceCspPolicy } = await import('../../../lib/core/subresource-csp.mjs');
   assert.equal(webOrigin('https://my_host.example/a.png'), 'https://my_host.example');
-  assert.match(subresourceCspPolicy({ webOrigins: ['https://my_host.example'] }), /img-src 'self' data: blob: https:\/\/my_host\.example;/);
+  assert.match(subresourceCspPolicy({ webOrigins: ['https://my_host.example'] }), /img-src 'self' data: blob: https:\/\/my_host\.example https:\/\/\*\.my_host\.example;/);
 });

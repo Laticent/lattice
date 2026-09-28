@@ -1782,7 +1782,8 @@ test('article: a slide\'s Key Insight and below-note follow its body, once', () 
 	assert.ok(at('Source: CRM, Q3.') > at('The insight.'), 'the below-note follows the insight');
 	assert.equal(articleHtml.split('The insight.').length - 1, 1, 'the insight is printed once');
 	assert.equal(articleHtml.split('Source: CRM, Q3.').length - 1, 1, 'the below-note is printed once');
-	assert.match(articleHtml, /<blockquote>\s*<p>The insight\.<\/p>\s*<\/blockquote>/, 'the insight lands as the blockquote every host styles');
+	assert.match(articleHtml, /<blockquote class="lp-insight">\s*<p>The insight\.<\/p>\s*<\/blockquote>/, 'the insight lands as the callout every host styles');
+	assert.match(articleHtml, /<p class="lp-note">Source: CRM, Q3\.<\/p>/, 'the below-note lands as the closing note');
 });
 
 test('article: a claimed trailing block (inside the stage, no coda cell) is printed once', () => {
@@ -1815,4 +1816,105 @@ test('article: a stage-less slide (read whole) prints its coda once', () => {
 	  <div class="cell-coda"><blockquote><p>Reuse the ink the theme already trusts.</p></blockquote></div>
 	</section>`));
 	assert.equal(articleHtml.split('Reuse the ink the theme already trusts.').length - 1, 1);
+});
+
+// The CODA in Read · Article. `lib/core/coda.js` lifts a trailing key-insight panel and a trailing
+// below-note into `.cell-coda`, a sibling of `.cell-stage`, and every article walker was
+// stage-scoped — so the article dropped the slide's closing "so what" while narration read it
+// (followup 2358-p1; 239 of 242 coda slides in the committed decks). Rendered through the real
+// engine, so the arms follow coda.js's markup rather than a hand-written copy of it.
+// The article walk puts a newline between tags; compare the markup, not the whitespace.
+const flat = (html) => html.replace(/>\s+</g, '><');
+
+test('coda: a key insight projects once, after the body, as a callout', async () => {
+	const secs = await renderedSections('## Retention.\n\n- Churn fell to 4%\n- Expansion grew\n\n> Retention carries the year.\n');
+	assert.ok(secs[0].querySelector('.cell-coda'), 'precondition: the engine lifted the panel into the coda cell');
+	const articleHtml = flat(project(secs).articleHtml);
+	const callout = '<blockquote class="lp-insight"><p>Retention carries the year.</p></blockquote>';
+	assert.equal(articleHtml.split('Retention carries the year.').length - 1, 1, articleHtml);
+	assert.ok(articleHtml.includes(callout), articleHtml);
+	assert.ok(articleHtml.indexOf('Expansion grew') < articleHtml.indexOf(callout), 'the callout follows the body');
+	assert.ok(articleHtml.endsWith(callout), 'the callout closes the slide');
+});
+
+test('coda: a below-note projects once, after the body, as a closing note', async () => {
+	const secs = await renderedSections('## Pipeline.\n\n- Coverage 2.9x\n- Win rate 31%\n\nSource: CRM export, Q3.\n');
+	assert.ok(secs[0].querySelector('.cell-coda .below-note'), 'precondition: the engine lifted the note');
+	const { articleHtml } = project(secs);
+	assert.equal(articleHtml.split('Source: CRM export, Q3.').length - 1, 1, articleHtml);
+	assert.ok(articleHtml.endsWith('<p class="lp-note">Source: CRM export, Q3.</p>'), articleHtml);
+});
+
+test('coda: both beats project in slide order, each its own block', async () => {
+	const secs = await renderedSections('## Plan.\n\n- One\n- Two\n\n> The insight.\n\n*A footnote.*\n');
+	const { articleHtml } = project(secs);
+	const at = articleHtml.indexOf('class="lp-insight"');
+	const note = articleHtml.indexOf('class="lp-note"');
+	assert.ok(at > articleHtml.indexOf('Two') && note > at, articleHtml);
+	assert.equal(articleHtml.split('The insight.').length - 1, 1);
+	assert.equal(articleHtml.split('A footnote.').length - 1, 1);
+});
+
+// A layout with no `.cell-stage` is walked section-wide, so its body walk reaches the coda and
+// prints it where it sits (#2442's `withCoda` then skips it). Once, not twice.
+test('coda: a stage-less layout (premise) projects its coda once', async () => {
+	const secs = await renderedSections('<!-- _class: premise -->\n\n## The premise.\n\nWe sell to operators.\n\n> Operators buy outcomes.\n');
+	const { articleHtml } = project(secs);
+	assert.equal(articleHtml.split('Operators buy outcomes.').length - 1, 1, articleHtml);
+});
+
+// A layout that CLAIMS its trailing block keeps it in its own anatomy; the coda cell never sees it,
+// so the body walk prints it once where the layout put it.
+test('coda: a claimed trailing paragraph (closing) stays in the body, once', async () => {
+	const secs = await renderedSections('<!-- _class: closing -->\n\n# Thank you.\n\n- ada@example.com\n\nQuestions welcome.\n');
+	const { articleHtml } = project(secs);
+	assert.equal(articleHtml.split('Questions welcome.').length - 1, 1, articleHtml);
+	assert.doesNotMatch(articleHtml, /lp-note/);
+});
+
+test('coda: the article and narration carry the same coda', async () => {
+	const secs = await renderedSections('## Plan.\n\n- One\n\n> Decide now.\n');
+	assert.ok(project(secs).articleHtml.includes('Decide now.'));
+	assert.ok(script(secs)[0].text.endsWith('Decide now.'));
+});
+
+// A slide whose only content is its coda is not a "visual layout", so it gets no placeholder card
+// claiming it is one. Two shapes: a heading plus a key insight, and a split run's composed CLOSING
+// page (`closingPageFromMaterial`: a stage holding only the runhead, then the coda cell).
+test('coda: a slide that is only a heading and its coda gets no placeholder card', async () => {
+	const articleHtml = flat(project(await renderedSections('## Heading only.\n\n> Only insight.\n')).articleHtml);
+	assert.doesNotMatch(articleHtml, /lp-figure-note/, articleHtml);
+	assert.ok(articleHtml.endsWith('<blockquote class="lp-insight"><p>Only insight.</p></blockquote>'), articleHtml);
+});
+
+test("coda: a split run's closing page projects its coda, with no placeholder card", () => {
+	const secs = sections(
+		'<section data-lattice-slide class="content lat-split-closing form" data-split-run="r1" data-split-role="closing">' +
+			'<div class="cell-stage"><div class="split-runhead">Plan</div></div>' +
+			'<div class="cell-coda" data-dock="column"><blockquote><p>The insight.</p></blockquote><div class="below-note lat-split-note"><p>The note.</p></div></div>' +
+			'</section>',
+	);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /lp-figure-note/, articleHtml);
+	assert.ok(articleHtml.endsWith('<blockquote class="lp-insight"><p>The insight.</p></blockquote>\n<p class="lp-note">The note.</p>'), articleHtml);
+});
+
+// coda.js looks the cell up as `:scope > .cell-coda`; an author's own span wearing the class inside
+// a list item must not win the article's or narration's lookup and hide the real key insight.
+test("coda: an author's inline .cell-coda span does not hide the real coda", async () => {
+	const secs = await renderedSections('## A.\n\n- One <span class="cell-coda">stray</span>\n- Two\n\n> Real insight.\n');
+	assert.ok(flat(project(secs).articleHtml).includes('<blockquote class="lp-insight"><p>Real insight.</p></blockquote>'));
+	assert.ok(script(secs)[0].text.endsWith('Real insight.'), script(secs)[0].text);
+});
+
+// A PANES slide keeps its coda too: the panes, then the key insight, once. Both #2420 (panes on
+// the article) and the coda fix rewrote this kernel's body branch; this pins where they meet.
+test('coda: a panes slide prints its key insight once, after the panes', () => {
+	const engine = require('../../../lib/engine');
+	const { sectionsOf } = require('../../../lib/diagnostics/slice-equivalence-core.mjs');
+	const src = ['---', 'theme: indaco', '---', '', '## Two views.', '',
+		'<!-- pane: list -->', '', '- alpha item', '', '<!-- pane: list -->', '', '- beta item', '', '> The pane insight.', ''].join('\n');
+	const { articleHtml } = project(sections(sectionsOf(engine.render(src, '').html).join('')));
+	assert.equal(articleHtml.split('The pane insight.').length - 1, 1, articleHtml);
+	assert.ok(articleHtml.indexOf('beta item') < articleHtml.indexOf('The pane insight.'), 'the insight follows the panes');
 });

@@ -1,4 +1,4 @@
-import { expect, test } from './studio-fixture';
+import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // ── The video provider registry, on the REAL Playground ─────────────────────────────
 //
@@ -159,4 +159,37 @@ test('@smoke a provider name in a URL fragment wears no provider badge', async (
 	await expect(preview.locator('.video-provider')).toHaveCount(0);
 	// And nothing anywhere on the slide claims a provider.
 	await expect(preview.locator('section.video')).not.toContainText(/Watch on/);
+});
+
+// THE STUDIO, where the tap never reached the frame. Its live preview sits in a
+// `pointer-events-none` box (the holder owns swipe, wheel and pinch), so the in-frame
+// guard above never ran and a poster tap did nothing, on desktop and on iOS (followup
+// 2358-p2). The holder now hit-tests the tap into the SCALED frame (`tapVideoAt`), so
+// this arm clicks at the poster's SCREEN position, never on the in-frame element — a
+// frame-locator click would dispatch inside the frame and prove nothing about the box.
+// The same screen-position tap, driven against a build without the holder listener, opened
+// no modal at 1440 or 390 (PR evidence), which is the failure this arm pins.
+test('@smoke the Studio preview plays a poster tapped at its screen position', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, deck(WATCH));
+	await expect(livePreview(page).locator('a.video-poster')).toHaveCount(1, { timeout: 30_000 });
+	await expect
+		.poll(async () => page.evaluate(() => typeof (document.querySelector('iframe.live') as HTMLIFrameElement | null)?.contentWindow?.['__videoPlay' as keyof Window]), { timeout: 30_000 })
+		.toBe('function');
+	const at = await page.evaluate(() => {
+		const fr = document.querySelector('iframe.live') as HTMLIFrameElement;
+		const r = (fr.contentDocument?.querySelector('a.video-poster') as HTMLElement).getBoundingClientRect();
+		const box = fr.getBoundingClientRect();
+		const S = box.width / fr.offsetWidth;
+		return { x: box.left + (r.left + r.width / 2) * S, y: box.top + (r.top + r.height / 2) * S };
+	});
+	let popped = false;
+	page.on('popup', () => {
+		popped = true;
+	});
+	await page.mouse.click(at.x, at.y);
+	const modal = page.locator('.pg-video-modal[role="dialog"]');
+	await expect(modal).toBeVisible({ timeout: 15_000 });
+	await expect(modal.locator('iframe')).toHaveAttribute('src', EMBED);
+	expect(popped, 'a tap opened a tab instead of the in-page player').toBe(false);
 });

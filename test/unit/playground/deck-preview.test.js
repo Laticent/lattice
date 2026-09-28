@@ -460,7 +460,11 @@ describe('deck-preview: preview-frame CSP', () => {
 		assert.match(blocked, /img-src 'self' data: blob:;/);
 		const allowed = buildSrcdoc({ ...BASE, html, webOrigins: ['https://img.example.com'] });
 		assert.match(allowed, /\ssrc="https:\/\/img\.example\.com\/a\.png"/);
-		assert.match(allowed, /img-src 'self' data: blob: https:\/\/img\.example\.com;/);
+		assert.match(allowed, /img-src 'self' data: blob: https:\/\/img\.example\.com https:\/\/\*\.img\.example\.com;/);
+		// A subdomain reference the rewrite cannot reach (an image-set string) keeps the policy exact.
+		const sneaky = `${html.replace('</section>', '')}<div style="background-image:image-set(&quot;https://beacon.img.example.com/x.png&quot; 1x)"></div></section>`;
+		const guarded = buildSrcdoc({ ...BASE, html: sneaky, webOrigins: ['https://img.example.com'] });
+		assert.match(guarded, /img-src 'self' data: blob: https:\/\/img\.example\.com;/);
 	});
 
 	test('the font-src origin follows the katexUrl rather than a hard-coded CDN', async () => {

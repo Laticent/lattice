@@ -21,6 +21,12 @@
 // iframe on iOS — it's touch-move gestures that don't). We set that hook per frame;
 // it returns true if it mounted a player (→ the guard suppresses navigation), false
 // for a non-embeddable provider (→ the guard falls back to opening a tab).
+//
+// THAT IS NOT TRUE OF EVERY HOST. The Studio's live preview sits in a `pointer-events-none`
+// box, because its holder owns swipe, wheel and pinch (docs/src/lib/preview-zoom.ts) and an
+// iframe would swallow the touch. So no tap reaches the frame there, on desktop or iOS, and
+// the in-frame guard never runs (followup 2358-p2). A host like that hit-tests the tap itself
+// with `tapVideoAt` below, the parent-side pattern chart-interact already uses.
 
 // The provider table lives in ONE place — `lib/core/video-providers.mjs` — because
 // the static render (poster link, "Watch on {label}" badge, QR target) and this
@@ -41,6 +47,7 @@
 export { embedSrc, isEmbeddable, providerShape } from '../../../lib/core/video-providers.mjs';
 
 import { embedSrc, PROVIDERS, providerFor, providerShape } from '../../../lib/core/video-providers.mjs';
+import { frameGeom } from './frame-geom.js';
 
 /** A row by key — the async TikTok path and the Instagram origin check read theirs. */
 const rowFor = (key) => PROVIDERS.find((p) => p.key === key);
@@ -262,6 +269,41 @@ function play(poster) {
 		return true;
 	} catch (_e) {
 		return false;
+	}
+}
+
+/**
+ * A tap the HOST caught, at viewport point (`clientX`, `clientY`), over a preview frame that
+ * cannot receive it (see the header). If the point lands on a slide's `.video-poster`, play the
+ * clip the way the in-frame guard would: in the parent lightbox, or, for a provider that cannot
+ * embed, in a new tab — opened here, inside the tap, so a popup blocker lets it through.
+ *
+ * The frame may be CSS-scaled (and zoomed), so the point is mapped through `frameGeom` into the
+ * frame's own layout coordinates before `elementFromPoint`. Returns true when the tap was a
+ * poster tap and was handled, so the host can stop treating it as anything else.
+ * @param {HTMLIFrameElement|null|undefined} frame
+ * @param {number} clientX
+ * @param {number} clientY
+ * @returns {boolean}
+ */
+export function tapVideoAt(frame, clientX, clientY) {
+	try {
+		// A frame the host has hidden (the load window, or parked behind a failed-render card) is
+		// not what the reader tapped, whatever slide it still holds.
+		if (!frame || frame.style.opacity === '0' || frame.style.pointerEvents === 'none') return false;
+		const doc = frame.contentDocument;
+		const g = frameGeom(frame);
+		if (!doc || !g || !g.S) return false;
+		const x = (clientX - g.fr.left) / g.S;
+		const y = (clientY - g.fr.top) / g.S;
+		const poster = doc.elementFromPoint(x, y)?.closest?.('a.video-poster[href]');
+		if (!poster) return false;
+		const href = poster.getAttribute('href') || '';
+		if (!/^https?:/i.test(href)) return false;
+		if (!play(poster)) window.open(href, '_blank', 'noopener,noreferrer');
+		return true;
+	} catch (_e) {
+		return false; // a torn-down or cross-origin frame has no poster to tap
 	}
 }
 

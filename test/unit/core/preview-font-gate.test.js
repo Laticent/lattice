@@ -9,14 +9,14 @@
 const assert = require('node:assert/strict');
 const { describe, it } = require('node:test');
 
-const { fontGateAgent, onFontsReady, PREVIEW_FONT_GATE_MS } = require('../../../lib/core/preview-font-gate.mjs');
+const { fontGateAgent, onFontsReady, PREVIEW_FONT_GATE_MS, PREVIEW_IMAGE_GATE_MS } = require('../../../lib/core/preview-font-gate.mjs');
 
 /** Run the agent source against a fake document + fonts set, and report when it
  *  resolved. No jsdom: the agent is deliberately dependency-free source, so a
  *  hand-built host is both sufficient and honest about what is being exercised. */
-function runAgent(src, { fonts, throwOnFonts = false, readyState = 'complete' } = {}) {
+function runAgent(src, { fonts, throwOnFonts = false, readyState = 'complete', probes } = {}) {
 	const timers = [];
-	const win = {};
+	const win = probes ? { __latticeImageProbes: probes } : {};
 	const documentElement = { offsetHeight: 0 };
 	let layoutReads = 0;
 	// `readyState` defaults to 'complete' so the simple arms below run `start()` inline.
@@ -198,6 +198,40 @@ describe('preview font gate — the agent', () => {
 	});
 });
 
+describe('preview font gate — a slow ready promise is not a late face', () => {
+	it('still announces a face that was genuinely loading at the backstop', async () => {
+		let land;
+		const ready = new Promise((r) => {
+			land = r;
+		});
+		const host = runAgent(fontGateAgent(), { fonts: { ready, status: 'loading' } });
+		const events = [];
+		host.win.dispatchEvent = (e) => events.push(e.type);
+		host.advance(PREVIEW_FONT_GATE_MS);
+		land();
+		await resolved(ready);
+		assert.deepEqual(events, ['lattice:fonts-late']);
+	});
+	it('announces nothing when every face was loaded at the backstop', async () => {
+		// WebKit holds `document.fonts.ready` until the document's other loads finish, so a slow
+		// photo kept it pending with all 17 faces loaded (Studio, WebKit 26), and its landing
+		// faded the whole frame for a relayout that never came.
+		let land;
+		const ready = new Promise((r) => {
+			land = r;
+		});
+		const host = runAgent(fontGateAgent(), { fonts: { ready, status: 'loaded' } });
+		const events = [];
+		host.win.dispatchEvent = (e) => events.push(e.type);
+		host.advance(PREVIEW_FONT_GATE_MS);
+		assert.equal(host.win.__latticeFontsSettled, true, 'the backstop revealed');
+		land();
+		await resolved(ready);
+		assert.deepEqual(events, [], 'nothing re-laid out, so nothing to fade');
+		assert.notEqual(host.win.__latticeFontsLate, true);
+	});
+});
+
 describe('preview font gate — the revealer idiom', () => {
 	it('reveals IMMEDIATELY when the agent is absent', () => {
 		// The whole reason the injection ORDER is load-bearing: a document that ships
@@ -251,12 +285,14 @@ describe('preview font gate — the injection order at every call site', () => {
 			revealer: '+ fitAgent(gap, clamp) +',
 			waiter: 'onFontsReady(',
 			what: "the filmstrip preview's FIT agent (Playground + Studio)",
+			imageWait: false,
 		},
 		{
 			file: 'docs/src/components/studio/present/stage-window.js',
 			revealer: 'function lattStageReveal()',
 			waiter: 'onFontsReady(',
 			what: 'the Stage window, which under `standalone` an audience watches',
+			imageWait: false,
 		},
 		{
 			file: 'docs/src/lib/single-slide-render.ts',
@@ -267,13 +303,14 @@ describe('preview font gate — the injection order at every call site', () => {
 			// deletion it exists to prevent.
 			waiter: 'frameHasPainted(fr) && facesReady(fr, host)',
 			what: 'the landing islands / specimens, revealed by the PARENT in scaleFrame',
+			imageWait: true,
 		},
 	];
 
 	for (const site of SITES) {
 		it(`${site.file} emits the gate BEFORE ${site.what}`, () => {
 			const src = fs.readFileSync(path.join(ROOT, site.file), 'utf8');
-			const gate = src.indexOf('fontGateAgent()');
+			const gate = src.indexOf('fontGateAgent(');
 			const reveal = src.indexOf(site.revealer);
 			assert.ok(gate !== -1, `${site.file} no longer injects fontGateAgent() — the reveal is ungated again`);
 			assert.ok(reveal !== -1, `${site.file} no longer contains its revealer (${site.revealer})`);
@@ -281,6 +318,13 @@ describe('preview font gate — the injection order at every call site', () => {
 				src.includes(site.waiter),
 				`${site.file} injects the gate but nothing consumes it (${site.waiter}) — the reveal is ungated`,
 			);
+		});
+
+		// The adaptive-image wait is for the ONE-slide preview, where the photo is the slide on
+		// screen. A whole-deck document passes 0: one slow photo must not hold every slide hidden.
+		it(`${site.file} ${site.imageWait ? 'waits' : 'does not wait'} for adaptive-image probes`, () => {
+			const src = fs.readFileSync(path.join(ROOT, site.file), 'utf8');
+			assert.equal(src.includes('fontGateAgent(undefined, 0)'), !site.imageWait);
 		});
 
 		it(`${site.file} emits the gate into <head>`, () => {
@@ -291,7 +335,7 @@ describe('preview font gate — the injection order at every call site', () => {
 			// would read `undefined`, conclude "no gate", and reveal early. That exact
 			// mistake shipped in this change's first cut and measured as no fix at all.
 			const src = fs.readFileSync(path.join(ROOT, site.file), 'utf8');
-			const gate = src.indexOf('fontGateAgent()');
+			const gate = src.indexOf('fontGateAgent(');
 			const headClose = src.indexOf('</head>');
 			assert.ok(headClose !== -1, `${site.file} no longer closes a <head> — the document shape changed`);
 			assert.ok(
@@ -301,4 +345,67 @@ describe('preview font gate — the injection order at every call site', () => {
 			);
 		});
 	}
+});
+
+// The adaptive `image` probes (lib/transformers/image-adaptive.js): an image slide's card takes
+// the photo's aspect, so a reveal before the photo loads shows a guess and then re-lays out
+// (followup 2358-p2). The gate waits for the probes after the faces, within its own cap.
+describe('preview font gate — adaptive image probes', () => {
+	const later = () => {
+		let settle;
+		const p = new Promise((r) => {
+			settle = r;
+		});
+		return { p, settle };
+	};
+
+	it('holds the reveal until a pending probe settles', async () => {
+		const probe = later();
+		const host = runAgent(fontGateAgent(), { fonts: { ready: Promise.resolve() }, probes: [probe.p] });
+		assert.equal(await resolved(host.win.__latticeFontsReady), false, 'faces in, photo not: still held');
+		probe.settle();
+		assert.equal(await resolved(host.win.__latticeFontsReady), true);
+	});
+
+	it('waits for a probe published while the first batch was in flight', async () => {
+		const a = later();
+		const b = later();
+		const probes = [a.p];
+		const host = runAgent(fontGateAgent(), { fonts: { ready: Promise.resolve() }, probes });
+		probes.push(b.p);
+		a.settle();
+		assert.equal(await resolved(host.win.__latticeFontsReady), false, 'the second probe still holds it');
+		b.settle();
+		assert.equal(await resolved(host.win.__latticeFontsReady), true);
+	});
+
+	it('never holds past its cap: a probe that never settles still reveals', async () => {
+		const host = runAgent(fontGateAgent(), { fonts: { ready: Promise.resolve() }, probes: [new Promise(() => {})] });
+		await resolved(host.win.__latticeFontsReady);
+		assert.deepEqual(
+			host.timers.map((t) => t.ms),
+			[PREVIEW_FONT_GATE_MS, PREVIEW_IMAGE_GATE_MS],
+			'the image cap is armed once a probe is pending',
+		);
+		host.advance(PREVIEW_IMAGE_GATE_MS);
+		assert.equal(await resolved(host.win.__latticeFontsReady), true);
+	});
+
+	it('a document with no probe arms no image timer and waits for nothing more', async () => {
+		const host = runAgent(fontGateAgent(), { fonts: { ready: Promise.resolve() }, probes: [] });
+		assert.equal(await resolved(host.win.__latticeFontsReady), true);
+		assert.deepEqual(
+			host.timers.map((t) => t.ms),
+			[PREVIEW_FONT_GATE_MS],
+		);
+	});
+
+	it('image wait OFF (0) — a whole-deck document reveals on the faces alone', async () => {
+		const host = runAgent(fontGateAgent(undefined, 0), { fonts: { ready: Promise.resolve() }, probes: [new Promise(() => {})] });
+		assert.equal(await resolved(host.win.__latticeFontsReady), true);
+		assert.deepEqual(
+			host.timers.map((t) => t.ms),
+			[PREVIEW_FONT_GATE_MS],
+		);
+	});
 });

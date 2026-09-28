@@ -835,3 +835,53 @@ describe('html-player export — a MULTI-LINE note on a CHART slide (the leak th
 		assert.ok(/one thousand/i.test(vtt), 'the slide falls back to the generated caption');
 	});
 });
+
+// followup 2358-p3 — a slide's web link must not take the player's own tab away. The slide
+// sanitizer drops `target`, so the video poster reached the player as a plain link and a click
+// sent the reader's tab to YouTube (offline: an error page), losing the deck. The player now
+// opens a slide's http(s) link in a new tab. Driven on the real CLI export in Chromium, because
+// the defect is the browser's navigation, which no DOM-level test can see.
+describe('html-player export — a slide link opens a new tab, the deck stays', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const TIMEOUT = 120000;
+	const WATCH = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
+	let file;
+	let browser;
+	test.before(async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-link-'));
+		const deck = path.join(dir, 'deck.md');
+		fs.writeFileSync(deck, `---\nmarp: true\n---\n\n<!-- _class: video -->\n\n## Watch the tour.\n\n- ${WATCH}\n`);
+		const out = path.join(dir, 'deck.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		file = require('node:url').pathToFileURL(out.replace(/\.pdf$/, '.html')).href;
+		// NO HOST RESOLVES. The second tab is its own page, which the first page's request
+		// interception never covers, so it used to load the real YouTube: on a CI runner YouTube
+		// answered with Google's bot check, and the tab's URL became `google.com/sorry/...`,
+		// failing the assertion on a player that had done the right thing. The navigation still
+		// happens and still names its URL; it just cannot reach anything.
+		browser = await require('puppeteer').launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage', '--host-resolver-rules=MAP * ~NOTFOUND'] });
+	}, { timeout: TIMEOUT });
+	test.after(async () => {
+		if (browser) await browser.close();
+	});
+
+	test('clicking the video poster opens the clip in a second tab and leaves the player in place', async () => {
+		const page = await browser.newPage();
+		await page.setViewport({ width: 1280, height: 800 });
+		await page.setRequestInterception(true);
+		// Never reach the network: the assertion is WHERE the navigation happens, not the page.
+		page.on('request', (req) => (req.url().startsWith('file:') ? req.continue() : req.respond({ status: 200, contentType: 'text/html', body: '' })));
+		await page.goto(file, { waitUntil: 'load' });
+		await new Promise((r) => setTimeout(r, 400));
+		const opened = new Promise((resolve) => browser.once('targetcreated', (t) => resolve(t.url())));
+		await page.click('.lp-frame.lp-active a.video-poster');
+		const second = await Promise.race([opened, new Promise((r) => setTimeout(() => r(null), 4000))]);
+		await new Promise((r) => setTimeout(r, 300));
+		assert.equal(second, WATCH, 'the clip opened in a new tab');
+		assert.equal(page.url(), file, 'the player tab still shows the deck');
+		assert.equal(await page.$$eval('.lp-frame.lp-active section', (s) => s.length), 1);
+		await page.close();
+	}, { timeout: TIMEOUT });
+});

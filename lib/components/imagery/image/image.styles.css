@@ -120,6 +120,64 @@ section.image .lattice-bg {
   background-size: cover;
 }
 
+/* A PHOTO THAT DID NOT LOAD. The browser pass (lib/transformers/image-adaptive.js) stamps
+ * `data-img-unloaded` when the panel's photo fails: gone, offline, or refused by the preview's
+ * policy (a redirect to a site the reader did not allow). An empty panel read as a broken
+ * slide on an iPhone (#2412), so it draws the same stand-in a blocked web image gets
+ * (base.modifiers.css): a hatched field in the deck's tokens behind a hairline edge.
+ * `!important` because the failed address sits in the panel's inline style. */
+section.image[data-img-unloaded] .lattice-bg {
+  background-color: var(--bg-alt, var(--bg));
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0 1px, transparent 1px 10px) !important;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* `data-img-pending` while the panel's photo is being measured in a live preview
+ * (lib/transformers/image-adaptive.js). The layout is a guess until the size is known, and
+ * text laid out on a guess moves when it is corrected, so the text waits: the panel is the
+ * loading placeholder, the prose and the coda are hidden, and they fade in once the size
+ * lands, already in their final place. Opacity, not `display`, so nothing reflows on the
+ * reveal. Only a live preview carries the attribute (a document with a reveal gate); the
+ * CLI export stamps every image slide from the file's own header, and the Studio's export
+ * capture has no gate, so neither ever holds text back. */
+section.image[data-img-pending] .lattice-bg {
+  background-color: var(--bg-alt, var(--bg));
+  /* A soft band sweeps the panel so it reads as LOADING, not as an empty card. `!important`
+     because the photo's address sits in the panel's inline style. */
+  background-image: linear-gradient(100deg, transparent 35%, color-mix(in srgb, var(--bg) 70%, transparent) 50%, transparent 65%) !important;
+  background-size: 250% 100% !important;
+  background-repeat: no-repeat !important;
+  animation: lattice-image-pending 1.6s ease-in-out infinite;
+}
+@keyframes lattice-image-pending {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+section.image > .image-text,
+section.image > .cell-coda {
+  transition: opacity 180ms ease-out;
+}
+section.image[data-img-pending] > .image-text,
+section.image[data-img-pending] > .cell-coda {
+  opacity: 0;
+  /* The failsafe, in CSS so it cannot depend on the script that sets the attribute: if
+     nothing ever clears it (a runtime that failed to load, a pass that threw), the text
+     shows anyway, just after the runtime's own 4 s cap. */
+  animation: lattice-image-pending-release 0s linear 4.5s forwards;
+}
+@keyframes lattice-image-pending-release {
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  section.image > .image-text,
+  section.image > .cell-coda {
+    transition: none;
+  }
+  section.image[data-img-pending] .lattice-bg {
+    animation: none;
+  }
+}
+
 /* The prose panel. Base = a centered flex column; each composition places it. */
 section.image .image-text {
   position: relative;

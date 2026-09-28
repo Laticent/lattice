@@ -13,6 +13,8 @@ function makeSection({ className = 'image', orientation, bgStyle } = {}) {
     className,
     getAttribute: (k) => (k in attrs ? attrs[k] : null),
     setAttribute: (k, v) => { attrs[k] = v; },
+    hasAttribute: (k) => k in attrs,
+    removeAttribute: (k) => { delete attrs[k]; },
     querySelector: () => bg,
     _attrs: attrs,
   };
@@ -64,4 +66,297 @@ test('skips an already-resolved section (idempotent)', () => {
   s._attrs['data-img-composition'] = 'spotlight';
   imageAdaptive.applyToDom(rootOf([s]));
   assert.equal(s._attrs['data-img-composition'], 'spotlight'); // untouched
+});
+
+// ── The preview reveal waits for the probe (followup 2358-p2) ────────────────
+// Until the photo loads its aspect is a guess, so each probe is published as a promise the
+// preview's reveal gate (lib/core/preview-font-gate.mjs) waits on; a probe that lands after the
+// reveal and changes the composition announces `lattice:layout-late` so the frame fades through.
+function fakeView(settled) {
+  const events = [];
+  return {
+    __latticeFontsSettled: settled,
+    Event: class { constructor(type) { this.type = type; } },
+    dispatchEvent(e) { events.push(e.type); },
+    events,
+  };
+}
+const rootIn = (sections, view) => ({ querySelectorAll: () => sections, ownerDocument: { defaultView: view } });
+
+test('a probe is published while the first reveal is pending, and settles on load', async () => {
+  const prev = global.Image;
+  let fire;
+  global.Image = class { set src(_v) { fire = () => { this.naturalWidth = 1200; this.naturalHeight = 800; this.onload(); }; } };
+  try {
+    const view = fakeView(false);
+    const s = makeSection({ bgStyle: "url('venue.png')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.equal(view[imageAdaptive.PROBES].length, 1, 'the gate has one probe to wait on');
+    let done = false;
+    view[imageAdaptive.PROBES][0].then(() => { done = true; });
+    await Promise.resolve();
+    assert.equal(done, false, 'pending until the photo loads');
+    fire();
+    await Promise.resolve();
+    assert.equal(done, true);
+    assert.equal(s._attrs['data-img-bucket'], 'wide');
+    assert.deepEqual(view.events, [], 'no late event before the reveal');
+  } finally { global.Image = prev; }
+});
+
+test('a probe that errors still settles, so the gate is never held by a dead image', async () => {
+  const prev = global.Image;
+  global.Image = class { set src(_v) { queueMicrotask(() => this.onerror()); } };
+  try {
+    const view = fakeView(false);
+    imageAdaptive.applyToDom(rootIn([makeSection({ bgStyle: "url('gone.png')" })], view));
+    await view[imageAdaptive.PROBES][0];
+  } finally { global.Image = prev; }
+});
+
+// A live preview's view: a reveal gate (`__latticeFontsSettled`) and timers the test drives by
+// hand. `ticks` counts poll firings, so a test can prove the poll STOPS.
+function timedView(settled) {
+  const view = fakeView(settled);
+  const timers = new Map();
+  let id = 0;
+  view.ticks = 0;
+  view.setTimeout = (fn) => { timers.set(++id, { fn, every: false }); return id; };
+  view.setInterval = (fn) => { timers.set(++id, { fn, every: true }); return id; };
+  view.clearTimeout = view.clearInterval = (n) => { timers.delete(n); };
+  view.tick = (every) => {
+    for (const [n, t] of [...timers]) {
+      if (t.every !== every) continue;
+      if (!every) timers.delete(n); else view.ticks++;
+      t.fn();
+    }
+  };
+  view.live = () => timers.size;
+  return view;
+}
+// A probe whose size the test reveals by hand: `header()` is the header arriving mid-download.
+function heldImage() {
+  const held = {};
+  const Image = class {
+    constructor() { held.probe = this; this.naturalWidth = 0; this.naturalHeight = 0; }
+    set src(_v) {}
+  };
+  held.header = (w, h) => { held.probe.naturalWidth = w; held.probe.naturalHeight = h; };
+  return { Image, held };
+}
+
+// THE TEXT WAITS FOR THE PHOTO (the owner's model, #2412). A section being measured carries
+// `data-img-pending`, which hides its text (image.styles.css), so a size that lands after the
+// reveal moves nothing on screen and needs no fade.
+test('a section is pending while its photo is measured, and a landing after the reveal does not fade', () => {
+  const prev = global.Image;
+  const { Image, held } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(false);
+    const s = makeSection({ bgStyle: "url('venue.png')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.ok(s.hasAttribute(imageAdaptive.PENDING), 'the text is held while the size is unknown');
+    view.__latticeFontsSettled = true; // the gate's cap revealed the slide first
+    held.header(1200, 800);
+    held.probe.onload();
+    assert.equal(s.hasAttribute(imageAdaptive.PENDING), false, 'the text shows once the size is in');
+    assert.equal(s._attrs['data-img-bucket'], 'wide');
+    assert.deepEqual(view.events, [], 'nothing was on screen to move');
+    assert.equal(view.live(), 0, 'the poll and the cap are both cleared');
+  } finally { global.Image = prev; }
+});
+
+// A slide patched in after the reveal whose photo the host had not measured (a navigation to it):
+// the probe is not published to the gate, and the host can learn the size for the next visit.
+test('a probe started after the reveal is not published, and the host learns the size', () => {
+  const prev = global.Image;
+  global.Image = class { set src(_v) { this.naturalWidth = 1200; this.naturalHeight = 800; this.onload(); } };
+  try {
+    const view = timedView(true);
+    const s = makeSection({ bgStyle: "url('venue.png')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.equal(view[imageAdaptive.PROBES], undefined, 'nothing reads the list after the reveal');
+    assert.equal(s._attrs['data-img-bucket'], 'wide', 'it still resolves the composition');
+    assert.equal(s.hasAttribute(imageAdaptive.PENDING), false);
+    assert.equal(view[imageAdaptive.BUCKETS]['venue.png'], 'wide', 'the host can learn the size');
+  } finally { global.Image = prev; }
+});
+
+// The Playground re-creates a section on every keystroke. A cached photo has its size the moment
+// `src` is set, so the section is sized in the same task and never shows the placeholder.
+test('a photo already in the cache is sized in the same task, with no poll and no cap', () => {
+  const prev = global.Image;
+  global.Image = class { set src(_v) { this.naturalWidth = 800; this.naturalHeight = 1200; } };
+  try {
+    const view = timedView(true);
+    const s = makeSection({ bgStyle: "url('cached.jpg')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.equal(s._attrs['data-img-bucket'], 'tall');
+    assert.equal(s.hasAttribute(imageAdaptive.PENDING), false);
+    assert.equal(view.live(), 0, 'no timer was armed');
+  } finally { global.Image = prev; }
+});
+
+test('the size is taken from the image header, before the download finishes, and the poll stops', () => {
+  const prev = global.Image;
+  const { Image, held } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(true);
+    const s = makeSection({ bgStyle: "url('tall.jpg')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    view.tick(true);
+    assert.ok(s.hasAttribute(imageAdaptive.PENDING), 'no header yet');
+    held.header(800, 1200); // the header arrived; no onload yet
+    view.tick(true);
+    assert.equal(s._attrs['data-img-bucket'], 'tall');
+    assert.equal(s.hasAttribute(imageAdaptive.PENDING), false, 'the text shows on the header');
+    const ticks = view.ticks;
+    view.tick(true);
+    assert.equal(view.ticks, ticks, 'the poll is cleared once the size is in');
+    held.probe.onload(); // the full load re-applies nothing
+    assert.deepEqual(view.events, []);
+  } finally { global.Image = prev; }
+});
+
+test('a photo that hangs shows its text at the cap, and a later landing fades through', () => {
+  const prev = global.Image;
+  const { Image, held } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(true);
+    const s = makeSection({ bgStyle: "url('slow.jpg')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    view.tick(false); // PENDING_CAP_MS elapsed
+    assert.equal(s.hasAttribute(imageAdaptive.PENDING), false, 'the text shows on the floor');
+    assert.equal(view.live(), 0, 'the cap also stops the poll');
+    held.header(1200, 800);
+    held.probe.onload();
+    assert.deepEqual(view.events, [imageAdaptive.LATE_EVENT], 'the text was on screen, so the relayout fades');
+  } finally { global.Image = prev; }
+});
+
+test('a probe whose slide was turned away does not fade the slide that replaced it', () => {
+  const prev = global.Image;
+  const { Image, held } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(true);
+    const s = makeSection({ bgStyle: "url('slow.jpg')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    view.tick(false); // the cap showed its text
+    s.isConnected = false; // the reader turned the slide; this section left the document
+    held.header(1200, 800);
+    held.probe.onload();
+    assert.deepEqual(view.events, []);
+    assert.equal(view[imageAdaptive.BUCKETS]['slow.jpg'], 'wide', 'the size is still learned for the next visit');
+  } finally { global.Image = prev; }
+});
+
+test('a photo that fails shows its hatch and its text at once', () => {
+  const prev = global.Image;
+  global.Image = class { set src(_v) { this.onerror(); } };
+  try {
+    const view = timedView(true);
+    const s = makeSection({ bgStyle: "url('gone.jpg')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.ok(s.hasAttribute('data-img-unloaded'));
+    assert.equal(s.hasAttribute(imageAdaptive.PENDING), false);
+  } finally { global.Image = prev; }
+});
+
+// A download cut off after its header errors. The size read from the header must not be
+// remembered, or the next visit is stamped final with an empty panel and no hatch.
+test('an error after a header read forgets the size, so the next visit measures again', () => {
+  const prev = global.Image;
+  const { Image, held } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(true);
+    const s = makeSection({ bgStyle: "url('cut.jpg')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    held.header(1200, 800);
+    view.tick(true);
+    held.probe.onerror();
+    assert.equal(view[imageAdaptive.BUCKETS]['cut.jpg'], null);
+    assert.ok(s.hasAttribute('data-img-unloaded'));
+  } finally { global.Image = prev; }
+});
+
+// Only a live preview holds text back. A document with no reveal gate (the Studio's export
+// capture, a player, the fluid viewer) keeps the Clean floor and its old bytes.
+test('a document with no reveal gate never goes pending', () => {
+  const prev = global.Image;
+  const { Image } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(true);
+    delete view.__latticeFontsSettled;
+    const s = makeSection({ bgStyle: "url('p.jpg')" });
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.equal(s.hasAttribute(imageAdaptive.PENDING), false);
+    assert.equal(view.live(), 0);
+  } finally { global.Image = prev; }
+});
+
+// A host stamps pending on a provisional section (lib/core/image-aspect.js). If this pass finds
+// no url to measure on the section's own panel, nothing would ever clear it, and its text
+// would stay hidden for good.
+test('a host pending stamp is cleared on a section this pass does not measure', () => {
+  const view = timedView(true);
+  const s = makeSection({ bgStyle: 'background-color: red' });
+  s.setAttribute('data-img-composition', 'clean');
+  s.setAttribute('data-img-provisional', '');
+  s.setAttribute(imageAdaptive.PENDING, '');
+  imageAdaptive.applyToDom(rootIn([s], view));
+  assert.equal(s.hasAttribute(imageAdaptive.PENDING), false);
+});
+
+// A host stamps an unmeasured slide PROVISIONAL (the Clean floor, so it never paints
+// composition-less); the browser pass still measures it, and a final stamp is left alone.
+test('a provisional stamp is measured; a final one is not', () => {
+  const prev = global.Image;
+  let probes = 0;
+  global.Image = class { set src(_v) { probes++; this.naturalWidth = 800; this.naturalHeight = 1200; this.onload(); } };
+  try {
+    const provisional = makeSection({ bgStyle: "url('t.png')" });
+    provisional.setAttribute('data-img-composition', 'clean');
+    provisional.setAttribute('data-img-provisional', '');
+    const final = makeSection({ bgStyle: "url('w.png')" });
+    final.setAttribute('data-img-composition', 'clean');
+    final.setAttribute('data-img-bucket', 'wide');
+    imageAdaptive.applyToDom(rootOf([provisional, final]));
+    assert.equal(probes, 1);
+    assert.equal(provisional._attrs['data-img-composition'], 'split');
+    assert.equal('data-img-provisional' in provisional._attrs, false);
+    assert.equal(final._attrs['data-img-bucket'], 'wide');
+  } finally { global.Image = prev; }
+});
+
+test('a probe that changes nothing after the reveal stays quiet', () => {
+  const prev = global.Image;
+  global.Image = class { set src(_v) { this.onload(); } }; // no natural size -> no bucket, still clean
+  try {
+    const view = fakeView(true);
+    imageAdaptive.applyToDom(rootIn([makeSection({ bgStyle: "url('venue.png')" })], view));
+    assert.deepEqual(view.events, []);
+  } finally { global.Image = prev; }
+});
+
+// A photo that will not load (gone, offline, or refused by the preview's policy) marks its section,
+// so the panel draws the hatched stand-in instead of an empty box that reads as broken.
+test('a photo that fails to load marks the section unloaded; a later load clears it', () => {
+  const prev = global.Image;
+  try {
+    global.Image = class { set src(_v) { this.onerror(); } };
+    const s = makeSection({ bgStyle: "url('gone.png')" });
+    imageAdaptive.applyToDom(rootOf([s]));
+    assert.equal('data-img-unloaded' in s._attrs, true);
+    global.Image = class { set src(_v) { this.naturalWidth = 1200; this.naturalHeight = 800; this.onload(); } };
+    s.setAttribute('data-img-provisional', '');
+    imageAdaptive.applyToDom(rootOf([s]));
+    assert.equal('data-img-unloaded' in s._attrs, false);
+    assert.equal(s._attrs['data-img-bucket'], 'wide');
+  } finally { global.Image = prev; }
 });

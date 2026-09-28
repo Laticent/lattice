@@ -191,6 +191,11 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A media slide's prose is missing from the reader view](gotchas/lattice-internals.md#a-media-slides-prose-is-missing-from-the-reader-view)
 - [A video in the reader view is a bare link outside the prose column](gotchas/lattice-internals.md#a-video-in-the-reader-view-is-a-bare-link-outside-the-prose-column)
 - [A slide's subtitle shows as the kicker, or vanishes, in the reader view](gotchas/lattice-internals.md#a-slides-subtitle-shows-as-the-kicker-or-vanishes-in-the-reader-view)
+- [A slide's key insight or below-note is missing from the reader view](gotchas/lattice-internals.md#a-slides-key-insight-or-below-note-is-missing-from-the-reader-view)
+- [An image slide jumps in the Studio preview when its picture loads](gotchas/lattice-internals.md#an-image-slide-jumps-in-the-studio-preview-when-its-picture-loads)
+- [A slide's heading jumps into place just after a slide change in the preview](gotchas/lattice-internals.md#a-slides-heading-jumps-into-place-just-after-a-slide-change-in-the-preview)
+- [Tapping a video poster in the Studio preview does nothing](gotchas/lattice-internals.md#tapping-a-video-poster-in-the-studio-preview-does-nothing)
+- [Tapping a link on a slide in the exported player loses the deck](gotchas/lattice-internals.md#tapping-a-link-on-a-slide-in-the-exported-player-loses-the-deck)
 - [A code block or a prose line after a heading is pulled into the masthead band](gotchas/lattice-internals.md#a-code-block-or-a-prose-line-after-a-heading-is-pulled-into-the-masthead-band)
 - [G-gen merge must use non-G file's G-gen block, not the G-file's block](gotchas/lattice-internals.md#g-gen-merge-must-use-non-g-files-g-gen-block-not-the-g-files-block)
 

@@ -757,6 +757,153 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Pinned by:** the "subtitle:" arms in
   `test/unit/transformers/prose-projection.test.js`, rendered through the real engine.
 
+## A slide's key insight or below-note is missing from the reader view
+
+- **Symptom:** Read · Article shows a slide without its closing `> …` panel or the
+  note under it, though the slide shows both and narration reads both.
+- **Cause:** `lib/core/coda.js` lifts both beats into one `.cell-coda` cell at the
+  tail of the SECTION, a sibling of `.cell-stage`. Every body walker in
+  `lib/transformers/prose-projection.mjs` is stage-scoped, so none saw it: 239 of 242
+  coda slides in the committed decks lost it. The three that kept it had no
+  `.cell-stage`, so the walk ran section-wide and printed the panel as a plain quote.
+- **Fix:** `withCoda` (#2442) prints a host's direct-child coda after its body, and a
+  pane's own coda after that pane. A coda inside the element the body was read from (a
+  claimed block, or a stage-less slide read whole) is skipped, so every block prints
+  once. Each block lands as what it is: the key insight as `<blockquote
+  class="lp-insight">` (a callout), a below-note as `<p class="lp-note">` (a closing
+  note), both styled in all three article hosts. A slide whose only content is its
+  coda (a heading and a key insight, or a split run's composed closing page) gets no
+  "visual layout" placeholder card (`hasOwnCoda`). `projectQuote` skips a blockquote
+  inside the coda, so a Key Insight cannot stand in for the slide's quote.
+- **Pinned by:** the "coda:" arms in `test/unit/transformers/prose-projection.test.js`,
+  rendered through the real engine.
+
+## An image slide jumps in the Studio preview when its picture loads
+
+- **Symptom:** a slide with an adaptive `image` appears, then its picture panel
+  resizes and the heading moves once the photo arrives. Measured with the photo held
+  2.5 s: the panel went 605x504 to 552x345 and the heading moved 18px, after the slide
+  was on screen. On a fast link the photo beats the reveal, so it shows on a phone.
+- **Cause:** in a browser the photo's aspect is only known once it loads.
+  `lib/transformers/image-adaptive.js` stamps the Clean floor at once and re-stamps
+  `data-img-bucket` / `data-img-composition` when its probe loads, and the bucket
+  sizes the card. The preview's reveal gate waited for fonts, never for the probe.
+- **Fix:** each probe started before the first reveal publishes a promise that always
+  settles on `window.__latticeImageProbes`. `fontGateAgent` waits for them after the
+  faces, capped by `PREVIEW_IMAGE_GATE_MS` (4 s), armed only when a probe is pending. A
+  probe that lands past the cap fires `lattice:layout-late`, and `single-slide-render`
+  fades the frame through the relayout. A probe started after the reveal (an edit
+  re-creates the section) is neither published nor announced. The two whole-deck
+  documents (the Playground filmstrip, the Stage window) pass `0` and do not wait, so
+  one slow photo cannot hold every slide hidden.
+- **The same jump on a slide CHANGE** (the patch path, which no reveal gate covers): the
+  swapped-in section painted for ~150ms with no composition at all (the panel filled the
+  whole slide), then as the Clean floor, then final. `single-slide-render` now keeps every
+  size a frame measured (`__latticeImageBuckets`), measures the deck's other allowed
+  photos ahead of time through the frame's own `Image` (so the frame's policy rules on
+  them and their redirects), and stamps each section before writing it
+  (`stampImageSections`, lib/core/image-aspect.js). An unknown photo gets the Clean floor
+  marked `data-img-provisional`, which the browser pass still measures; a late change
+  fades through. A photo that will not load gets `data-img-unloaded`, and its panel draws
+  the hatched stand-in a blocked web image gets instead of an empty box.
+- **The rule since: the text waits for the photo.** A remote photo's size is unknown until
+  it is fetched, and text laid out on a guess moves when the guess is corrected. So a
+  section whose photo is being measured carries `data-img-pending` (set by the runtime's
+  probe, and by `stampImageSections` on a provisional section). `image.styles.css` shows
+  the panel as a shimmering placeholder and hides `> .image-text` and `> .cell-coda`. When
+  the size is in, the layout corrects while the text is still invisible, and the text
+  fades in once, in its final place; only the placeholder changes size. The size comes
+  from the image HEADER: `naturalWidth` is set long before `onload` (a load held open 2 s:
+  Chromium had it at 17 ms, WebKit at 512 ms), so the probe polls it. A failed photo
+  shows its hatch and text at once. A hanging one shows its text on the floor at
+  `PENDING_CAP_MS` (4 s), and only then can a landing fade the frame, and only while its
+  section is still on screen. A photo already in the memory cache has its size the moment
+  `src` is set and is sized in the same task, so an edit never shows the placeholder.
+- **Only a live preview holds text back:** the runtime sets `data-img-pending` only in a
+  document with a reveal gate (`__latticeFontsSettled` is a boolean: the Studio's slide,
+  the Playground filmstrip, the Stage window). The Studio's export capture frame, the
+  player and the fluid viewer have no gate and keep the Clean floor, so their bytes are
+  unchanged; the CLI emulator stamps every image slide from the file header anyway. A
+  section this pass does not measure has any host pending stamp cleared, and the CSS
+  releases the text by itself 4.5 s in (an animation), so a runtime that never ran cannot
+  strand it hidden. The Playground's first-slide snapshot strips the attribute from its
+  clone.
+- **WebKit holds `document.fonts.ready` until the document's other loads finish.** With a
+  slow photo, the font gate's backstop fired with all 17 faces already loaded, and the
+  photo's landing announced `lattice:fonts-late` and faded the whole frame. The backstop
+  now counts as late only when `document.fonts.status` is not `loaded`
+  (`lib/core/preview-font-gate.mjs`).
+- **Pinned by:** the probe arms in `test/unit/transformers/image-adaptive.test.js` and
+  the "adaptive image probes" arms in `test/unit/core/preview-font-gate.test.js`.
+
+## A slide's heading jumps into place just after a slide change in the preview
+
+- **Symptom:** on each slide change in the Studio preview, the text paints in one spot
+  and moves about a tenth of a second later. It shows on any slide the runtime rearranges,
+  and most on an `image` slide. Measured in WebKit at iPhone size: the heading drew at
+  x=102, 563 wide, on the first frame, and at x=205, 294 wide, about 110 ms later.
+- **Cause:** a host that swaps a slide in (`patchSlideBody` in
+  `docs/src/lib/single-slide-render.ts`, and the Playground filmstrip in
+  `docs/src/playground/deck-preview.js`) writes raw engine HTML. The runtime's content
+  transforms are what place its text: the Form stamp, masthead-lift's cells, and the
+  `image` text column. They ran only on the observer's 150 ms debounce, so the raw slide
+  painted first. The photos had nothing to do with it; they only made the move bigger.
+- **Fix:** both hosts stamp `data-lattice-swap` on `.lattice` before they write. When the
+  stamp is there, the runtime's observer in `lib/runtime/index.js` now runs
+  `runAllContentTransforms()` in its own microtask, before the frame paints. Mermaid
+  rendering stays on the debounce, and the transforms are idempotent, so the debounced
+  pass repeats them as a no-op. A write without the stamp keeps the old schedule.
+- **Keep the chart redraw out of that pass.** The swap pass (`swapMicrotaskPass`)
+  skips the whole-document state-chart and flowchart installs; `drawFreshStateCharts` draws
+  the fresh figures and the debounced pass does the rest. With the installs in, a
+  one-slide swap cost 24 to 40 ms more on `examples/state-chart-stress.md` and on the
+  116-slide gallery. Without them it costs about 4 ms more on the stress deck and nothing
+  measurable on the gallery or `examples/data-viz-gallery.md` (Chromium, three runs each).
+- **And the text column the slide jumped TO was wrong.** The engine wraps an `image`
+  slide's prose in `.image-text` (`wrapImageText`), and the runtime's DOM mirror
+  (`wrapImageTextToDom`, lib/core/bg-image.js) wrapped it again, because it checked only its
+  own done-marker. Every `.image-text` rule is a descendant selector, so the nested panel
+  took the card's padding, width cap and accent a second time. The preview drew the heading
+  294px wide where the export draws it 563px wide, and a second accent bar mid-slide. The
+  mirror now skips a section that already has a `:scope > .image-text` panel, as the string
+  pass does. A census over every baseline deck and `examples/adaptive-image.md` (engine
+  render, then the runtime in jsdom, counting each class per slide) finds no other wrapper
+  that multiplies; against the old runtime it flags `image-text`. Pinned by the
+  "engine-wrapped panel" arm in `test/unit/core/bg-image-dom.test.js`.
+- **Pinned by:** `test/unit/runtime/host-swap-layout.test.js`. It loads the built
+  runtime in jsdom, and a control arm checks that an unstamped write still waits for the
+  debounce.
+
+## Tapping a video poster in the Studio preview does nothing
+
+- **Symptom:** in the Studio's live preview, a tap or click on a video slide's poster
+  neither plays the clip nor opens it. The Playground's preview plays it.
+- **Cause:** the Studio's slide box is `pointer-events-none`, because its holder owns
+  swipe, wheel and pinch (`docs/src/lib/preview-zoom.ts`). No tap reaches the frame,
+  so the frame's link guard never calls `window.__videoPlay`.
+- **Fix:** the holder listens for the click the browser synthesizes from a tap (a
+  swipe or a pinch synthesizes none) and calls `tapVideoAt` in
+  `docs/src/playground/video-overlay.js`. That maps the point through `frameGeom` into
+  the scaled frame, finds `a.video-poster`, and plays it in the parent lightbox, or
+  opens a tab for a provider that cannot embed. A hidden frame is ignored. Other links
+  on a slide stay inert in the Studio preview, as before.
+- **Pinned by:** "the Studio preview plays a poster tapped at its screen position" in
+  `docs/e2e/video-overlay-provider.spec.ts`.
+
+## Tapping a link on a slide in the exported player loses the deck
+
+- **Symptom:** in a `--player` export (or the Studio's player download), a click on a
+  video poster, a contact link or a closing URL sends the player's own tab to the
+  site. Offline it lands on an error page. The reader has to go Back to find the deck.
+- **Cause:** the engine writes `target="_blank"` on those links, but the slide
+  sanitizer (DOMPurify, `lib/core/sanitize-slide-html.mjs`) drops `target`, so they
+  reach the player as plain links.
+- **Fix:** the player script opens a slide's http(s) link in a new tab from one
+  delegated click handler on `#lp-stage` (`lib/export/player-core.mjs`). A modified
+  click (new tab, new window) is left to the browser. The sanitizer is unchanged.
+- **Pinned by:** "a slide link opens a new tab, the deck stays" in
+  `test/integration/export/html-player.test.js`, which clicks the poster in Chromium.
+
 ## A code block or a prose line after a heading is pulled into the masthead band
 
 - **Symptom:** in the engine HTML, `.masthead-lede` holds a `<pre>`, or a paragraph
