@@ -2337,7 +2337,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (!wrap || typeof ResizeObserver === 'undefined') return;
 		let t: ReturnType<typeof setTimeout> | null = null;
 		// When this burst of resizing began. A reader who moves the deck after it has chosen a
-		// position in the NEW geometry, and the re-land must not take it back.
+		// position, and the re-land must not take it back. EXACT only when the drive follows the
+		// burst's last tick; a wheel in the middle of a continuous drag keeps the reader near
+		// where they wheeled (the index reads whatever slide the final geometry puts under their
+		// offset), which beats the old behavior of pulling them back. Found by a checker.
 		let resizeAt = 0;
 		const ro = new ResizeObserver(() => {
 			// Claimed SYNCHRONOUSLY, before the debounce: the frame's own rescale lands inside
