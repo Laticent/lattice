@@ -2105,7 +2105,7 @@ function preprocessMermaid(source) {
 // captions / the manifest source like any authored slide; it's idempotent (strips its own trigger),
 // so a `.html` round-trip renders it once and never regenerates. No-op unless `glossary: auto` +
 // ≥1 defined term. Shared with the docs render path (render-engine.ts) — HARD RULE #1.
-const { appendAutoGlossary, glossaryEntries, resolveGlossaryMode } = require('./lib/core/glossary-auto.mjs');
+const { appendAutoGlossary, autoGlossarySections, glossaryEntries, resolveGlossaryMode } = require('./lib/core/glossary-auto.mjs');
 // INSTALLED COMPONENT PACKAGES the deck names ride in as embedded `<style>` blocks — the
 // SAME bridge the Studio's Markdown and Marp exports use (lib/layout/bridge.js), so a deck
 // renders a user component identically whether its CSS came from the store or from an
@@ -6557,23 +6557,26 @@ async function resolveReadAlong(slideCount, captions = [], script = []) {
   // page → authored slide from the contiguous `data-split-run` groups, so a caption
   // written for slide 4 reaches every page slide 4 became — the same treatment notes
   // got, for the same reason (2026-07-29-autosplit-is-not-a-toggle.md).
+  // page → authored slide (1-based), from the contiguous `data-split-run` groups; [] when the
+  // document has no lattice sections. Read by the caption remap and the glossary blank below.
+  const pageOrigin = () => {
+    const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
+    if (at < 0) return [];
+    const pages = splitSections(cleanDocHtml.slice(at)).filter((x) => x.type === 'section');
+    return require('./lib/core/auto-split').authoredIndexPerPage(pages);
+  };
   let fmForMerge = fmCaptions;
   if (fmCaptions?.size) {
-    const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
-    if (at >= 0) {
-      const pages = splitSections(cleanDocHtml.slice(at))
-        .filter((x) => x.type === 'section');
-      const origin = require('./lib/core/auto-split').authoredIndexPerPage(pages);
-      // Only rebuild when the split actually moved something; an unsplit deck keeps the
-      // authored map byte-for-byte, so a deck that never paginates is unaffected.
-      if (origin.length && origin[origin.length - 1] !== origin.length) {
-        const remapped = new Map();
-        origin.forEach((authored, i) => {
-          if (fmCaptions.has(authored)) remapped.set(i + 1, fmCaptions.get(authored));
-        });
-        fmForMerge = remapped;
-        if (!QUIET) console.log(`Captions: front-matter captions remapped across the split — ${remapped.size} page(s) keyed from ${fmCaptions.size} authored slide(s)`);
-      }
+    const origin = pageOrigin();
+    // Only rebuild when the split actually moved something; an unsplit deck keeps the
+    // authored map byte-for-byte, so a deck that never paginates is unaffected.
+    if (origin.length && origin[origin.length - 1] !== origin.length) {
+      const remapped = new Map();
+      origin.forEach((authored, i) => {
+        if (fmCaptions.has(authored)) remapped.set(i + 1, fmCaptions.get(authored));
+      });
+      fmForMerge = remapped;
+      if (!QUIET) console.log(`Captions: front-matter captions remapped across the split — ${remapped.size} page(s) keyed from ${fmCaptions.size} authored slide(s)`);
     }
   }
   // `--strip-say` blanks the author's caption OVERRIDES (inline + front-matter), so those
@@ -6586,12 +6589,26 @@ async function resolveReadAlong(slideCount, captions = [], script = []) {
   if (STRIP_CAPTIONS) fmForMerge = null;
   // Precedence, highest first: inline `<!-- say: -->` → front-matter `say:[n]` → projection.
   const slideTexts = mergeNarration(slideCount, projected, { captions: inlineForMerge, fmCaptions: fmForMerge });
+  // THE AUTO-GLOSSARY PAGE IS SILENT, as it is in the Studio. `glossary: auto` appends one slide
+  // the source does not contain, always last; Present never shows it, so the Studio has no clip for
+  // it and its projection drops that section (`withoutAutoGlossary`, the same kernel). Narrating it
+  // here made `lattice video` read four definitions the Studio export of the same deck never says
+  // (engineering/pipeline.md §6).
+  // Every page the appended slide became is blanked, should it ever paginate; `glossaryFrom` also
+  // bounds the texts the bookends are checked against, so a closing the last AUTHORED slide already
+  // says is dropped here as the Studio drops it, not compared against the silent glossary page.
+  let glossaryFrom = slideCount;
+  if (slideCount > 0 && autoGlossarySections(preGlossaryMd)) {
+    const origin = pageOrigin();
+    glossaryFrom = origin.length === slideCount ? origin.indexOf(origin[slideCount - 1]) : slideCount - 1;
+    for (let i = glossaryFrom; i < slideCount; i++) slideTexts[i] = '';
+  }
   // Emphasis survives only where the resolved narration is still the projected text — the ONE
   // shared rule (read-along-build.js), fed the PRE-substitution snapshot because `projected` was
   // mutated in place above.
   const emphasis = emphasisForResolved(slideTexts, projectedForEmphasis, projectedEmphasis);
   // `greeting:` / `closing:`, minus any line the first or last slide already says.
-  const ends = bookends ? bookends.withoutRedundantBookends(bookends.resolveBookends(rawMd), slideTexts) : null;
+  const ends = bookends ? bookends.withoutRedundantBookends(bookends.resolveBookends(rawMd), slideTexts.slice(0, glossaryFrom)) : null;
   const bookendTexts = ends ? { greeting: ends.greeting ? bookends.greetingText(ends.greeting.template, 'neutral') : null, closing: ends.closing?.text ?? null } : undefined;
   const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.

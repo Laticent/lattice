@@ -18,6 +18,7 @@
 // same way the presenter stage doc does, for consistency.
 
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
+import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { paneSplitCounts } from './pane-pages';
@@ -82,11 +83,17 @@ export async function projectDeckScript(
 	const { splitSections } = (await loadDeckPreview()) as unknown as {
 		splitSections: (h: string) => string[];
 	};
-	const sections = splitSections(html);
+	const slides = splitSlides(stripFrontMatter(source));
+	const counts = paneSplitCounts(slides, source);
+	// `glossary: auto` renders one section the source does not contain, at the end. Drop it HERE, at
+	// the one producer Present and the narration bake both read, so every narrator gets a list indexed
+	// by authored slide and none of them stands its projection down for a slide nobody narrates. The
+	// CLI trims the same section through the same kernel (lattice-emulator.js resolveReadAlong).
+	const authored = counts ? counts.reduce((a, b) => a + b, 0) : slides.length;
+	const sections = withoutAutoGlossary(splitSections(html), authored, source);
 	const scripts = await projectSectionsToScript(sections);
 	// A split panes slide repeats its masthead on every page; the fold says it once, and needs each
 	// page's masthead AS NARRATED to know exactly which words those are.
-	const counts = paneSplitCounts(splitSlides(stripFrontMatter(source)), source);
 	const mastheads = counts?.some((c) => c > 1) ? await projectMastheads(sections) : undefined;
 	return foldPaneSplits(scripts, source, mastheads);
 }

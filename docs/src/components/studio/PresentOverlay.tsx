@@ -314,7 +314,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// still wins over it. Recomputed when the presented SET or theme changes. Dropped
 	// wholesale if the render's section count doesn't match the slide count (an
 	// autosplit would misalign indices) — the same guard the export's `mergeNarration`
-	// applies. TAGGED with the `set` it was computed for (a stable per-lens reference):
+	// applies. (A `glossary: auto` section is not a mismatch: `projectDeckScript` drops it
+	// before this sees the list, as the bake and the CLI do.) TAGGED with the `set` it was computed for (a stable per-lens reference):
 	// `narrationAt` only reads it when the tag still matches the current set, so a
 	// same-length lens switch can never speak the previous lens's text (no stale read).
 	const [projected, setProjected] = React.useState<{ set: string[]; texts: string[]; emphasis: EmphasisSpans[] }>({

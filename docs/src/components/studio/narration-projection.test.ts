@@ -100,3 +100,25 @@ describe('projectDeckSpeech through a split panes slide (the REAL engine render)
 		expect(out[2]).toContain('The slide after it');
 	});
 });
+
+describe('projectDeckSpeech on a `glossary: auto` deck (the REAL engine render)', () => {
+	// The render appends a glossary slide the source does not contain. Every narrator indexes this
+	// list by source slide, and a list one long used to stand the whole projection down, so the
+	// Studio narrated the markdown flatten while the CLI narrated this projection. The producer now
+	// drops the glossary's section through the kernel the CLI shares (`withoutAutoGlossary`).
+	it('returns one script per SOURCE slide, and none for the glossary', async () => {
+		// eslint-disable-next-line @typescript-eslint/no-require-imports
+		const engine = require('../../../../lib/engine/index.js') as { render: (md: string, theme: string) => { html: string } };
+		const { appendAutoGlossary } = await import('../../../../lib/core/glossary-auto.mjs');
+		const source = [
+			'---\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }\n---\n\n# ARR grew',
+			'## Divider slide\n\nThe second slide.',
+		].join('\n\n---\n\n');
+		html.current = engine.render(appendAutoGlossary(source), 'lattice').html;
+		expect((html.current.match(/<section\b/g) || []).length).toBe(3); // the glossary was appended
+		const out = await projectDeckSpeech(opts, source);
+		expect(out).toHaveLength(2);
+		expect(out[1]).toContain('The second slide');
+		expect(out.join(' ')).not.toContain('Revenue that recurs');
+	});
+});

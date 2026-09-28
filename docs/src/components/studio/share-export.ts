@@ -13,7 +13,7 @@ import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
-import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
+import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
@@ -1092,9 +1092,16 @@ export async function shareCaptions(
 	// falls outside the chunk — while the slide COUNT stays right, so parity cannot catch it.
 	// That slide then narrates the DOM projection instead of the author's caption, silently.
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
-	const sections = splitSectionsCore(out.html)
-		.filter((p) => p.type === 'section')
-		.map((p) => `${p.openTag}${p.inner}</section>`);
+	// The auto-glossary's section is dropped (`withoutAutoGlossary`, the kernel Present, the bake and
+	// the CLI share): nobody narrates it, and leaving it in made the list one long, so the chart
+	// substitution below stood down and the glossary's definitions were captioned here alone.
+	const sections = withoutAutoGlossary(
+		splitSectionsCore(out.html)
+			.filter((p) => p.type === 'section')
+			.map((p) => `${p.openTag}${p.inner}</section>`),
+		splitSlides(stripFrontMatter(source)).length,
+		source,
+	);
 
 	// The FULL narration chain, matching the CLI export's writeCaptionsSidecar
 	// (HARD RULE #1): a slide's inline `<!-- say: -->` → its front-matter `say:`
