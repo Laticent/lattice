@@ -15,7 +15,7 @@ const { claimedSlides, spliced, withFailureNote, printableLine, engineClaimsOf, 
 const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = require('../../../lib/packages/code-door.js');
 const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile } = require('../../../lib/packages/trust.js');
 const { refuseCode } = require('../../../lib/packages/gate.js');
-const { unprivilegedUser } = require('../../../lib/core/os-sandbox.js');
+const { unprivilegedUser, apparmorRestrictsUserns, processSeccompFiltered, offReason, offRemedy } = require('../../../lib/core/os-sandbox.js');
 const { cssRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 const engine = require('../../../lib/engine');
 
@@ -234,6 +234,121 @@ describe('the OS layer', () => {
     fs.writeFileSync(path.join(dir, 'passwd'), 'root:x:0:0::/root:/bin/sh\nnobody:x:99:98::/:/sbin/nologin\n');
     assert.deepEqual(unprivilegedUser(path.join(dir, 'passwd')), { name: 'nobody', uid: 99, gid: 98 });
     assert.deepEqual(unprivilegedUser(path.join(dir, 'missing')), { name: 'nobody', uid: 65534, gid: 65534 });
+  });
+
+  // Measured on ubuntu-latest (24.04), PR #2459: AppArmor blocked the sandbox for the ordinary
+  // runner user, and the consent text told them to set CHROME_PATH, which cannot help there.
+  test('AppArmor’s userns restriction is read from its sysctl', () => {
+    const dir = tmp('apparmor');
+    fs.writeFileSync(path.join(dir, 'on'), '1\n');
+    fs.writeFileSync(path.join(dir, 'off'), '0\n');
+    assert.equal(apparmorRestrictsUserns(path.join(dir, 'on')), true);
+    assert.equal(apparmorRestrictsUserns(path.join(dir, 'off')), false);
+    assert.equal(apparmorRestrictsUserns(path.join(dir, 'missing')), false, 'a kernel without the sysctl has no restriction');
+  });
+
+  test('a container is a seccomp filter on this process AND on pid 1', () => {
+    const dir = tmp('seccomp');
+    const at = (n) => path.join(dir, n);
+    fs.writeFileSync(at('filtered'), 'Name:\tnode\nSeccomp:\t2\nSeccomp_filters:\t1\n');
+    fs.writeFileSync(at('plain'), 'Name:\tsystemd\nSeccomp:\t0\nSeccomp_filters:\t0\n');
+    assert.equal(processSeccompFiltered([at('filtered'), at('filtered')]), true, 'Docker: both filtered');
+    // A hardened systemd unit (SystemCallFilter=) filters the service, not systemd: not a container,
+    // and AppArmor may be the obstacle there (the checker).
+    assert.equal(processSeccompFiltered([at('filtered'), at('plain')]), false);
+    assert.equal(processSeccompFiltered([at('plain'), at('plain')]), false);
+    assert.equal(processSeccompFiltered([at('filtered'), at('missing')]), false);
+  });
+
+  test('each OFF reason maps to its own remedy, and AppArmor never gets the CHROME_PATH advice', () => {
+    const failed = ['Failed to launch the browser process!'];
+    const cases = [
+      [{ platform: 'linux', uid: 1001, failures: failed, filtered: false, apparmor: true }, 'apparmor-userns', /AppArmor profile.*sysctl to 0/],
+      // Root: `nobody` ran the browser without the sandbox, so the sandbox was the obstacle.
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, filtered: false, apparmor: true }, 'apparmor-userns', /apparmor_restrict_unprivileged_userns/],
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, filtered: false, apparmor: false }, 'sandbox-did-not-start', /the reason above/],
+      // Root: `nobody` could not run it at all (a browser under /root). AppArmor is beside the
+      // point, even when a container reads its host's sysctl as 1 (the checker).
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, filtered: false, apparmor: true }, 'unprivileged-user-cannot-run', /CHROME_PATH to a Chromium the unprivileged user can run/],
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, filtered: false, apparmor: false }, 'unprivileged-user-cannot-run', /CHROME_PATH to a Chromium the unprivileged user can run/],
+      [{ platform: 'linux', uid: 1001, failures: failed, filtered: false, apparmor: false }, 'sandbox-did-not-start', /the reason above/],
+      [{ platform: 'darwin', uid: 501, failures: failed, filtered: false, apparmor: true }, 'sandbox-did-not-start', /the reason above/],
+      [{ platform: 'darwin', uid: 0, skipped: 'root-outside-linux', failures: [], filtered: false, apparmor: false }, 'root-outside-linux', /ordinary user/],
+      [{ platform: 'linux', uid: 0, skipped: 'no-browser-path', failures: [], filtered: false, apparmor: false }, 'no-browser-path', /CHROME_PATH to a Chromium 131/],
+      // Inside Docker (measured, p7): the container's seccomp filter is the obstacle, whatever the
+      // host's AppArmor sysctl says, and the AppArmor remedy changed nothing there.
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, filtered: true, apparmor: true }, 'container-seccomp', /seccomp profile that allows them/],
+      [{ platform: 'linux', uid: 1001, failures: failed, filtered: true, apparmor: false }, 'container-seccomp', /seccomp=unconfined/],
+      // …but a browser `nobody` cannot run at all is still that, first.
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, filtered: true, apparmor: true }, 'unprivileged-user-cannot-run', /CHROME_PATH/],
+    ];
+    for (const [input, reason, text] of cases) {
+      assert.equal(offReason(input), reason, JSON.stringify(input));
+      assert.match(offRemedy(reason), text, reason);
+    }
+    assert.doesNotMatch(offRemedy('apparmor-userns'), /CHROME_PATH/);
+    assert.doesNotMatch(offRemedy('container-seccomp'), /AppArmor|CHROME_PATH/);
+    assert.equal(offReason({ platform: 'linux', uid: 1001, failures: [], filtered: false, apparmor: true }), null, 'measured OFF with no failed launch names no reason');
+    assert.equal(offRemedy(null), null);
+  });
+
+  test('the consent text carries the remedy for the reason the layer is off', () => {
+    const { consentText } = require('../../../lib/packages/cli.js');
+    const p = pkg('export default () => {}');
+    const off = (reason) => ({ summary: 'OFF: the renderer runs as runner without Chromium’s OS sandbox', layer: { os: 'off', tried: ['with the OS sandbox: Failed to launch the browser process!'], reason } });
+    const line = (probed) => consentText('component', 'tally', p, probed).find((l) => l.includes('the OS sandbox on this machine'));
+    assert.match(line(off('apparmor-userns')), /Failed to launch the browser process!\); to put it on, let this browser create user namespaces/);
+    assert.doesNotMatch(line(off('apparmor-userns')), /CHROME_PATH/);
+    assert.match(line(off('unprivileged-user-cannot-run')), /set CHROME_PATH/);
+    assert.doesNotMatch(line({ summary: 'on: confined', layer: { os: 'on', tried: [], reason: null } }), /to put it on/);
+  });
+
+  test('the render’s notice: OFF warns with the reason’s remedy; the platform default is a plain line', () => {
+    const { sandboxNotice } = require('../../../lib/packages/code-door.js');
+    const off = sandboxNotice(['tally'], { os: 'off', summary: 'OFF: the renderer runs as runner without Chromium’s OS sandbox', tried: ['with the OS sandbox: Failed to launch the browser process!'], reason: 'apparmor-userns' });
+    assert.equal(off.warn, true);
+    assert.match(off.text, /^warning: code packages: tally — OS sandbox OFF: .*\(with the OS sandbox: Failed to launch the browser process!\)\. To put it on, let this browser create user namespaces/);
+    assert.doesNotMatch(off.text, /CHROME_PATH/, 'the render repeated the old remedy after the prompt gave the right one');
+    const root = sandboxNotice(['tally'], { os: 'off', summary: 'OFF', tried: ['as nobody: EACCES'], reason: 'unprivileged-user-cannot-run' });
+    assert.match(root.text, /To put it on, set CHROME_PATH to a Chromium the unprivileged user can run/);
+    const mac = sandboxNotice(['tally'], { os: 'unmeasured', summary: "on by the platform's default, running as ann (not measured here)", tried: [], reason: null });
+    assert.deepEqual(mac, { warn: false, text: "  code packages: tally — OS sandbox on by the platform's default, running as ann (not measured here)" });
+  });
+
+  // launchCodeSandbox, driven with a stub puppeteer whose sandboxed launch fails: the wiring from
+  // the rung that failed to the reason the layer carries, which the table above cannot see.
+  test('launchCodeSandbox gives an OFF layer the reason of the rung that failed', async () => {
+    const { launchCodeSandbox } = require('../../../lib/core/os-sandbox.js');
+    const launches = [];
+    const stub = {
+      executablePath: () => '/stub/chrome',
+      launch: async (opts) => {
+        launches.push(opts.args.includes('--no-sandbox') ? 'no-sandbox' : 'sandbox');
+        if (!opts.args.includes('--no-sandbox')) throw new Error('Failed to launch the browser process!\nNo usable sandbox!');
+        return { version: async () => 'HeadlessChrome/141.0.0.0', process: () => ({ pid: 0 }), close: async () => {} };
+      },
+    };
+    const run = async (opts) => {
+      launches.length = 0;
+      const s = await launchCodeSandbox(stub, { executablePath: '/stub/chrome', ...opts });
+      await s.close();
+      return s.layer;
+    };
+    const userns = await run({ uid: 1001, platform: 'linux', apparmor: true, filtered: false });
+    assert.deepEqual(launches, ['sandbox', 'no-sandbox']);
+    assert.equal(userns.os, 'off');
+    assert.equal(userns.reason, 'apparmor-userns');
+    assert.match(userns.tried[0], /^with the OS sandbox: Failed to launch/);
+    assert.equal((await run({ uid: 1001, platform: 'linux', apparmor: false, filtered: false })).reason, 'sandbox-did-not-start');
+    assert.equal((await run({ uid: 1001, platform: 'linux', apparmor: true, filtered: true })).reason, 'container-seccomp');
+    assert.equal((await run({ uid: 501, platform: 'darwin', apparmor: true, filtered: true })).reason, 'sandbox-did-not-start', 'AppArmor is a Linux cause only');
+    const rootMac = await run({ uid: 0, platform: 'darwin' });
+    assert.deepEqual(launches, ['no-sandbox'], 'root outside Linux tries no sandboxed launch');
+    assert.equal(rootMac.reason, 'root-outside-linux');
+    const fine = { ...stub, launch: async () => ({ version: async () => 'HeadlessChrome/141.0.0.0', process: () => ({ pid: 0 }), close: async () => {} }) };
+    const s = await launchCodeSandbox(fine, { executablePath: '/stub/chrome', uid: 501, platform: 'darwin' });
+    await s.close();
+    assert.deepEqual([s.layer.os, s.layer.reason], ['unmeasured', null], 'a layer that is not OFF carries no reason');
   });
 });
 
