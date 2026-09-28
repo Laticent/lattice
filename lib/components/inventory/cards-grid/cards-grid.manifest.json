@@ -465,5 +465,8 @@
         }
       }
     }
+  },
+  "gesture": {
+    "archetype": "grid"
   }
 }

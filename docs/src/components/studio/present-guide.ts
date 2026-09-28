@@ -1,6 +1,6 @@
-import { GUIDE_HANDLES, GUIDE_SCENES, type GuideScene } from '@/components/studio/guide-handles.generated.js';
+import { GUIDE_ARCHETYPES, GUIDE_GESTURES, GUIDE_HANDLES, type GuideScene } from '@/components/studio/guide-handles.generated.js';
 import { toSpokenText } from '@/lib/cadenza';
-import { keyIndex, resolveUnit } from '@/lib/scene-resolve.js';
+import { keyIndex, mergeGesture, resolveUnit } from '@/lib/scene-resolve.js';
 import { type Gesture, gestureRest, type RectSource } from '@/lib/vetrina';
 import { frameGeom, innerRectToParent } from '@/playground/frame-geom.js';
 import { spokenValue } from '@/playground/read-along-core.generated.js';
@@ -3035,10 +3035,17 @@ export type SceneContext = { named: boolean; key: boolean; afterKey: boolean; la
 
 export type SceneStyle = (act: string, ctx: SceneContext) => SceneExpression;
 
-/** The scene a slide's section plays: the first of its classes that names a component with one. */
+const mergedScenes = new Map<string, GuideScene | null>();
+
+/** The scene a slide's section plays: the first of its classes that names a component with a
+ *  gesture, merged over its archetype once and kept. */
 export function sceneOf(section: Element | null): GuideScene | null {
 	if (!section) return null;
-	for (const c of section.classList) if (Object.hasOwn(GUIDE_SCENES, c)) return GUIDE_SCENES[c] ?? null;
+	for (const c of section.classList) {
+		if (!Object.hasOwn(GUIDE_GESTURES, c)) continue;
+		if (!mergedScenes.has(c)) mergedScenes.set(c, mergeGesture(GUIDE_GESTURES[c], GUIDE_ARCHETYPES) as GuideScene | null);
+		return mergedScenes.get(c) ?? null;
+	}
 	return null;
 }
 

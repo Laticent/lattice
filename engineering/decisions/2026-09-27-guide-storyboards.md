@@ -82,22 +82,45 @@ another during a comparison), **withdraw** (leave the slide to the reader).
 
 ## 5. Archetypes: every component is one of ten structures
 
-The 71 manifests group by structure (`form` and render, audited 2026-09-27). A component inherits
-its archetype's storyboard and overrides only what its structure does differently. That keeps 71
-manifests lean: most declare one line.
+A component inherits its archetype's units and key beat and overrides only what its own render
+does differently. That keeps 71 manifests lean: 40 declare one line.
 
-| Archetype | Components | Units it offers |
+**Assigned from the render, not the name** (audited 2026-09-28: the first slide of every
+component's own gallery, rendered and walked). The audit moved seven components the first draft
+of this table had filed by name: `list-tabular`, `statute-stack`, `actors`, `authority-chain`,
+`regulatory-update`, `kpi` and `stats` all render a list (`li`), not a table; `decision` and
+`premise` render a list of reasons; `roadmap` renders a real `table`.
+
+| Archetype | Components | Units it offers (`lib/core/gesture-archetypes.json`) |
 |---|---|---|
-| **Statement** | title, closing, divider, quote, big-number, premise, topic, citation-card, content, scene | heading, paragraph, sentence, number |
-| **List** | list, agenda, checklist, cards-stack, q-and-a, inventory, stats, kpi, list-steps, cycle | item, bullet, item title, number |
-| **Grid** | cards-grid, team-profile, logo-wall, pricing, verdict-grid, matrix-2x2 | card, card name |
-| **Table** | table, glossary, list-tabular, obligation-matrix, matrix-grid, statute-stack, actors, regulatory-update, roadmap, authority-chain | row, column, cell, both headers |
-| **Compare** | split-compare, compare-prose, compare-code, split-panel, decision | side, item within a side |
-| **Cartesian chart** | bar, stacked-bar, line, waterfall, slope, scatter, heatmap, gantt | mark, series, category, axis, legend, value label |
-| **Part-of-whole chart** | piechart, funnel, progress, bullet, word-cloud | segment, stage, measure, target |
-| **Field chart** | quadrant, radar, map | point, region, cell, polygon |
-| **Flow** | flowchart, state-chart, journey, kanban, timeline-list, diagram | node, edge, lane, stage |
-| **Media** | image, video, code, math, redline, contact, wifi, policy-recommendation, logo | figure, code line, term |
+| **statement** | title, closing, divider, topic, quote, big-number, content, citation-card, redline | heading, paragraph |
+| **list** | list, agenda, checklist, cards-stack, q-and-a, inventory, stats, kpi, list-steps, cycle, actors, authority-chain, list-tabular, statute-stack, regulatory-update, decision, premise, policy-recommendation | item, title |
+| **grid** | cards-grid, team-profile, logo-wall, pricing, verdict-grid, matrix-2x2 | card, name |
+| **table** | table, glossary, obligation-matrix, matrix-grid, roadmap | row, column, cell, colheader, rowheader |
+| **compare** | split-compare, compare-prose, compare-code, split-panel | side, item |
+| **cartesian** | bar, stacked-bar, line, waterfall, slope, scatter, heatmap, gantt | mark, series, figure |
+| **part** | piechart, funnel, progress, bullet, word-cloud | mark, figure |
+| **field** | quadrant, radar, map | mark, figure |
+| **flow** | flowchart, state-chart, journey, kanban, timeline-list, diagram | node, step, figure |
+| **media** | image, video, code, math, contact, wifi, scene | figure, caption |
+
+What the audit found that a name would have hidden:
+
+- **Grids are lists laid out in columns.** Every grid renders `li` cards, so `grid` and `list`
+  share a selector; they differ in how a delivery gestures them (a card is encircled, an item is
+  underlined: §6), which is why they stay two archetypes.
+- **Compare components each draw their sides differently**: `.compare-left`/`.compare-right`,
+  `.panel-left`/`.panel-right`, `compare-code`'s `.code-col`, and `compare-prose`'s two top-level
+  items. The archetype names the first two; the other two override `side`.
+- **Variants change structure.** `statute-stack lane` draws a table where the default draws a list,
+  so statute-stack adds a `row` unit.
+- **Some structures exist only in the browser.** A `diagram` is Mermaid, drawn client-side, so in
+  the build it is a `pre`; its nodes are not addressable until Mermaid output is stamped (task
+  "gaps", §12).
+- **Eight more components override a unit**: big-number (`number`), quote (`quote`), redline
+  (`change`: its insertions and deletions), image (`figure` is the `.lattice-bg`), math (`figure`
+  is the formula), diagram, compare-code and compare-prose (`side`). The 22 charts and flows that
+  #2415 gave a `scene` keep their named units (`stage`, `point`, `lane`...) as overrides.
 
 ## 6. The three deliveries, as storyboards
 
@@ -161,27 +184,46 @@ focus takes the heading's ink, not the brand accent); no hand, no drawn ink, no 
 
 ## 7. The component storyboard, in the manifest
 
-Every manifest gets a `gesture` block. Lean by default: most components name their archetype and
-nothing else.
+Every manifest has a `gesture` block. Lean by default: most name their archetype and nothing else.
 
 ```jsonc
 "gesture": {
-  "archetype": "cartesian",           // inherits units + beats from the archetype
-  "units": { "point": { "select": ["circle.line-dot[data-series=\"{series}\"][data-label=\"{cat}\"]", "path.line-path[data-series=\"{series}\"]"], "labels": "text.cart-cat[data-label=\"{cat}\"]" } },
-  "key": "largest:series",            // the beat somber lands on
-  "beats": { "peak": "point" }        // only where it differs from the archetype
+  "archetype": "part",                // inherits units + key from the archetype
+  "units": {                          // only where this render differs; a same-named unit replaces
+    "stage": { "select": "polygon.funnel-band[data-mark=\"{mark}\"]", "labels": "[data-mark-for=\"{mark}\"]" }
+  },
+  "key": "last"                       // the beat somber lands on, when it differs
 }
 ```
 
-- The archetype files (`lib/core/gesture/archetypes/*.json`, ten of them) hold the default units,
-  beats and key. #2415's `scene` blocks become the chart archetypes' units.
-- **Binding goes past charts.** Prose, lists and tables are bound too, by the projection that
-  already writes their narration: `lib/core/prose-projection.mjs` builds each sentence by walking
-  the rendered DOM, so it can record which `li`, `tr` or `p` each span came from, the way it already
-  records emphasis spans (a new capability, not an existing one). Nothing on any slide is found by
-  matching words once a slide is bound; the word matcher remains only for authored captions.
-- A gate asserts every one of the 71 manifests declares a `gesture`, and every bound sentence in
-  every tracked deck resolves (#2415's corpus gate, widened to all archetypes).
+- **One archetypes file**, `lib/core/gesture-archetypes.json`, not ten: the defaults are ten small
+  objects and read best side by side. `beats` (act → unit) waits for step 4, which is the first
+  thing that reads it.
+- **One merge**, `mergeGesture` in `lib/core/scene-resolve.mjs`. The build and the gates call it
+  through `lib/core/gesture.js`; the Guide calls it on lookup. The generated catalog ships the
+  archetypes once plus each component's own block: shipping 71 merged copies cost the player's
+  Guide 13.6 KB (50.5 KB to 64.1 KB, over §8's budget); shipping the parts costs 4.8 KB (55.3 KB).
+- **Placeholders are the binding's ids.** Tables use matrix-grid's existing `{tr}`/`{td}`, 1-based
+  as `:nth-child` counts; lists use `{n}`. With the ids removed a selector matches every unit of its
+  kind (`anySelector`), which is how peers are found.
+- **A binding plays only on the slide it was written for.** Every component now has a gesture, so
+  "has a gesture" no longer says a binding belongs to a slide. The test is the UNITS: a slide plays
+  its refs as a scene only when some ref names a unit its gesture has. A chart narrator that reads a
+  prose slide as a board (kanban's docs, rendered as `content`) names `column`, which `content`
+  lacks, and the Guide reads that slide's words, as before. The Studio (`scene()`) and the corpus
+  gate apply the same rule.
+- **Binding goes past charts** (step 3). Prose, lists and tables are bound by the projection that
+  already writes their narration: `projectDeckToScript` in `lib/transformers/prose-projection.mjs`
+  builds each sentence by walking the rendered section, so it can record which `li`, `tr` or `p`
+  each span came from. Nothing records that today (a new capability): the one span it returns,
+  `emphasis`, is found after the text is built, by searching it for each bold phrase
+  (`emphasisSpansFor`), and a phrase said twice is skipped. Nothing on any slide is found by matching
+  words once a slide is bound; the word matcher remains only for authored captions.
+- **Gates** (`test/unit/core/scene-binding.test.js`): every one of the 71 manifests declares a
+  gesture; on every slide of every component's own gallery, some unit of its gesture finds a drawn
+  part; every unit a manifest declares for itself finds one on at least one gallery slide; and every
+  bound sentence in every tracked deck resolves. `gesture` is not schema-required, so a component an
+  author writes in the Studio still validates without one.
 
 ## 8. Lean and fast
 

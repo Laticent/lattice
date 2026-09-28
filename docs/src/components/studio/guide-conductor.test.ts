@@ -337,3 +337,20 @@ describe('guide-conductor — a bound sentence in its delivery style', () => {
 		expect(up()).toContain('path:EMEA');
 	});
 });
+
+describe('guide-conductor — a binding that is not the slide’s', () => {
+	it('a slide whose binding names none of its units reads its words instead', () => {
+		// A chart narrator that reads a prose slide as a board names `column`, which `content` lacks.
+		document.body.innerHTML = '<div class="lattice"><section class="content"><ul><li id="a">Hello there.</li><li id="b">Goodbye.</li></ul></section></div>';
+		const a = document.getElementById('a') as Element;
+		const stage: GuideStage = { gesture: async () => {}, setCursorVisible: () => {} };
+		const cue = (): GuideCue => ({ el: a, kind: 'underline', strength: 'quiet', target: { getBoundingClientRect: () => a.getBoundingClientRect(), getClientRects: () => [] }, rest: null });
+		const g = createGuideConductor({ stage: () => stage, aim: () => a, cue, clearance: 19, section: () => document.querySelector('section') });
+		const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle }>).restrained.express;
+		const refs: SceneRef[] = [{ start: 0, end: 12, act: 'enter', unit: 'column', id: { column: 'Hello there' } }];
+		g.beat({ slide: 0, cue: 0, texts: ['Hello there.'], track: 't', delivering: true, delivery: delivery(), scene: { refs, at: 0, style } });
+		// The text path found the item from its words.
+		expect(a.classList.contains('lat-guide-undim')).toBe(true);
+		expect(document.getElementById('b')?.classList.contains('lat-guide-dim')).toBe(true);
+	});
+});

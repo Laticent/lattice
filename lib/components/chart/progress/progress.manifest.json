@@ -160,7 +160,8 @@
   "venueCapacity": {
     "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
   },
-  "scene": {
+  "gesture": {
+    "archetype": "part",
     "units": {
       "row": {
         "select": ".progress-row[data-label=\"{row}\"]"

@@ -22,6 +22,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { narrateChartScript } = require('../../../lib/core/chart-narration.js');
 const { loadAll } = require('../../../lib/components');
+const { gestureOf } = require('../../../lib/core/gesture.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const GOLDEN_DIR = path.join(ROOT, 'test', 'fixtures', 'delivery-scores');
@@ -29,8 +30,10 @@ const DELIVERIES = ['restrained', 'expressive', 'somber'];
 const bless = process.env.UPDATE_DELIVERY_SCORES === '1';
 
 function firstBoundSlide(m) {
-	const file = path.join(ROOT, 'lib', 'components', m.bucket, m.name, `${m.name}.gallery.md`);
-	if (!fs.existsSync(file)) return null;
+	// Found by folder: a third of the manifests declare no `bucket`.
+	const buckets = path.join(ROOT, 'lib', 'components');
+	const file = fs.readdirSync(buckets).map((b) => path.join(buckets, b, m.name, `${m.name}.gallery.md`)).find((f) => fs.existsSync(f));
+	if (!file) return null;
 	const src = fs.readFileSync(file, 'utf8');
 	const fm = src.match(/^---\n[\s\S]*?\n---\n/)[0];
 	for (const md of src.slice(fm.length).split(/\n---\n/)) {
@@ -46,12 +49,18 @@ test.before(async () => {
 	({ score } = await import('../../../lib/core/delivery-score.mjs'));
 });
 
-for (const m of loadAll().filter((c) => c.scene)) {
+// Every component whose own gallery binds a sentence is scored. One that binds nothing yet (a
+// list, a statement: step 3 of the storyboards note binds them) must not carry a golden, so a
+// narrator that stops binding cannot leave a stale score passing.
+for (const m of loadAll()) {
 	test(`${m.name}: each delivery plays its gallery slide as scored`, () => {
 		const script = firstBoundSlide(m);
-		assert.ok(script, `${m.name}: no gallery slide binds a sentence`);
-		const actual = Object.fromEntries(DELIVERIES.map((d) => [d, score(script, m.scene, d)]));
 		const file = path.join(GOLDEN_DIR, `${m.name}.json`);
+		if (!script) {
+			assert.ok(!fs.existsSync(file), `${m.name}: a golden score exists, but no gallery slide binds a sentence`);
+			return;
+		}
+		const actual = Object.fromEntries(DELIVERIES.map((d) => [d, score(script, gestureOf(m), d)]));
 		if (bless) {
 			fs.mkdirSync(GOLDEN_DIR, { recursive: true });
 			fs.writeFileSync(file, `${JSON.stringify(actual, null, '\t')}\n`);
@@ -68,7 +77,7 @@ test('the deliveries are three characters, not three loudness levels', async () 
 	// does nothing unless it is the key beat.
 	const line = loadAll().find((c) => c.name === 'line');
 	const script = firstBoundSlide(line);
-	const rows = Object.fromEntries(DELIVERIES.map((d) => [d, score(script, line.scene, d)]));
+	const rows = Object.fromEntries(DELIVERIES.map((d) => [d, score(script, gestureOf(line), d)]));
 	const visit = rows.restrained.findIndex((r) => r.act === 'visit' && !r.key);
 	assert.deepEqual([rows.restrained[visit].focus, rows.restrained[visit].ink, rows.restrained[visit].cursor], ['unit', null, 'hide']);
 	assert.deepEqual([rows.expressive[visit].focus, rows.expressive[visit].ink, rows.expressive[visit].cursor], ['unit', 'tap unit quiet', 'point']);

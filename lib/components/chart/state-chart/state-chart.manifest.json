@@ -276,7 +276,8 @@
   "venueCapacity": {
     "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
   },
-  "scene": {
+  "gesture": {
+    "archetype": "flow",
     "units": {
       "state": {
         "select": "[data-label=\"{state}\"]:is(li.state-node, .state-node-row, rect.state-node-shape)"

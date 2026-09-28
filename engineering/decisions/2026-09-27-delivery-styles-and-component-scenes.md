@@ -10,6 +10,7 @@ companion:
 # Delivery styles and component scenes: each delivery its own character, each component its own gestures
 
 **Status:** accepted (owner, 2026-09-27) and built in #2415 (§12). The owner's answers to §10 are recorded there.
+**Renamed (2026-09-28):** the manifest `scene` field is now `gesture`, and every component declares one over one of ten archetypes; see [`2026-09-27-guide-storyboards.md`](2026-09-27-guide-storyboards.md) §5 and §7.
 **Supersedes, if accepted:** the preset model of
 [`2026-09-25-vetrina-delivery-presets.md`](2026-09-25-vetrina-delivery-presets.md) §3 (a preset
 sets only budget and loudness) and §6.1's "one lever, focus" ruling. Salience (§4), timing

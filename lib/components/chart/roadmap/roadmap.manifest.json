@@ -272,7 +272,8 @@
       }
     }
   },
-  "scene": {
+  "gesture": {
+    "archetype": "table",
     "units": {
       "horizon": {
         "select": ".horizon-card:has(> .horizon-head[data-label=\"{horizon}\"])"

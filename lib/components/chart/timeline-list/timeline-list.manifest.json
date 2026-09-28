@@ -179,7 +179,8 @@
       }
     }
   },
-  "scene": {
+  "gesture": {
+    "archetype": "flow",
     "units": {
       "event": {
         "select": ".timeline-item:nth-child({nth})"

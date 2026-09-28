@@ -203,6 +203,10 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		const section = host.section?.() ?? null;
 		const spec = sceneOf(section);
 		if (!section || !spec || !play.refs.length || play.at < 0) return false;
+		// A binding written for another component is not this slide's: a chart narrator that reads a
+		// prose slide as a board names units a `content` slide does not have. Every component has a
+		// gesture, so it is the units, not the gesture, that say the binding is the slide's.
+		if (!play.refs.some((r) => r.unit && Object.hasOwn(spec.units, r.unit))) return false;
 		if (!scene || scene.slide !== slide || scene.refs !== play.refs) {
 			// A new slide starts bare: nothing carries across a slide change.
 			if (scene && scene.slide !== slide) unmark();

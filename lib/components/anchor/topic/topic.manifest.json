@@ -168,5 +168,8 @@
   },
   "venueCapacity": {
     "none": "A topic marker: one heading and a short line, with no repeated element to count."
+  },
+  "gesture": {
+    "archetype": "statement"
   }
 }

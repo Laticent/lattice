@@ -211,7 +211,8 @@
   "venueCapacity": {
     "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
   },
-  "scene": {
+  "gesture": {
+    "archetype": "table",
     "units": {
       "row": {
         "select": "tbody > tr:nth-child({tr})"

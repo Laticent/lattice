@@ -236,7 +236,8 @@
       }
     }
   },
-  "scene": {
+  "gesture": {
+    "archetype": "flow",
     "units": {
       "column": {
         "select": ".kanban-column[data-label=\"{column}\"]"
