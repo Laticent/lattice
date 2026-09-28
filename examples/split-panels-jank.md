@@ -102,6 +102,21 @@ Header budget, the finish on the panel, and the footer split-compare used to dro
 
 ---
 
+<!-- _class: split-panel backdrop-clear -->
+
+`backdrop: clear`
+
+## Clear works on both sides.
+
+Each side clears behind its own content, and the finish stays in its margins, as on an anchor slide.
+
+- The points read on clean canvas
+  - The finish frames them instead of running under the text.
+- The panel keeps its field
+  - Its own finish fades out behind the heading.
+
+---
+
 <!-- _class: split-compare dark -->
 
 `Dark slide`
