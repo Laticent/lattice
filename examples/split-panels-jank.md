@@ -13,7 +13,7 @@ footer: "Confidential · Laticent · a footer long enough to cross the panel sea
 
 `Fix · split-panel · split-compare`
 
-The running chrome stays on its field, and the finish reaches both sides of the seam.
+The running chrome stays on its field, and the finish lands on the dark panel.
 
 ---
 
@@ -34,7 +34,7 @@ Both put pixels on a slide. Only one keeps its taste when the content changes.
   - One theme restyles the whole deck, every slide at once
   - The design system holds the line on every slide
 
-> Chrome ends at the rail; the corner tick clears the cards.
+> Chrome ends at the rail; the finish stays on the rail.
 
 ---
 
@@ -57,16 +57,16 @@ The header and footer used to cross the seam in the panel's ink, where they vani
 
 <!-- _class: split-panel watermark -->
 
-## Finish shows through the accent.
+## Finish lands on the accent.
 
-### The panel keeps a tint, not a flood
+### The panel keeps its field; the finish paints on it
 
-- A wash over the backdrop
-  - The accent tints the panel; strata's dots read through.
-- A seam and an edge bar
-  - The split still reads without the solid field.
-- Canvas inks on the veil
-  - Every rung re-inks through one token block.
+- The field stays solid
+  - The accent panel is still the accent panel.
+- The texture reads on top
+  - Strata's dots sit on the field, as on a title slide.
+- The content side stays clean
+  - Only the feature panel carries the finish.
 
 ---
 
@@ -76,7 +76,7 @@ The header and footer used to cross the seam in the panel's ink, where they vani
 
 ## 3<em>fixes</em>
 
-Header budget, finish passthrough, and the footer split-compare used to drop.
+Header budget, the finish on the panel, and the footer split-compare used to drop.
 
 - The mirror budgets the other side
   - The chrome stops where the panel begins.
@@ -89,14 +89,14 @@ Header budget, finish passthrough, and the footer split-compare used to drop.
 
 `Level 3 · Applying`
 
-## Tint survives the veil.
+## The tint stays the tint.
 
-*Does the category still read?* A proof panel keeps a wash of its category color, so the sequence still reads as steps.
+*Does the category still read?* A proof panel keeps its category color, and the finish is composed against that color.
 
 - You know you're here when
   - The panel tint still names the stage on a finish deck.
-- A seam marks the split
-  - One hairline where the solid field used to end.
+- The finish follows the field
+  - Its texture is mixed toward the tint, not the canvas.
 - The edge bar keeps its hue
   - The category mark still runs along the top.
 
@@ -114,10 +114,10 @@ A per-slide `dark` composes with the finish and the chrome budget.
   - Opaque fields hid the finish
   - Chrome crossed the seam
 - After
-  - The finish reaches both fields
+  - The finish lands on the rail
   - Chrome ends at the rail
 
-> Without a `finish:`, the split renders its solid field exactly as before.
+> Without a `finish:`, the split renders exactly as before.
 
 ---
 

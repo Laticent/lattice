@@ -862,12 +862,16 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   A HALF field cannot use that trick, because one backdrop has one canvas. (2) `section header`
   / `section footer` are absolute across the whole slide, and the split frames ink them for
   the panel they START on, so the part past the seam is panel ink on canvas.
-- **Fix, as shipped:** a finish deck draws the split with a veil and a seam instead of a
-  flood, and re-points the field's ink TOKENS on the panel element. The chrome is budgeted
-  to the field it starts on, one ellipsized line each, with a constant band the field keeps clear (split-panel.styles.css, the blocks at the foot of the
-  file). `test/integration/invariants/split-chrome-budget.test.js` measures every variant.
+- **Fix, as shipped:** the feature panel keeps its field and the finish is painted on it —
+  the bookends' `--fin-canvas` mechanism applied to half a slide. The SECTION paints the
+  panel's field color and names it `--fin-canvas`, the panel goes transparent, and the
+  supporting zone keeps its opaque `--bg`, so only the panel carries the finish. (A frosted
+  veil over the whole slide shipped first; the owner turned it down.) The chrome is budgeted
+  to the field it starts on, one ellipsized line each, with a constant band the field keeps
+  clear (split-panel.styles.css, the blocks at the foot of the file).
+  `test/integration/invariants/split-chrome-budget.test.js` measures every variant.
 - **Two traps in that fix, both found by review, not by a gate.** `finish-none`,
   `backdrop-none` and `print` slides KEEP the bare `finish` class while base.finish.css zeroes
-  every layer, so "is there a finish?" is `.finish:not(.finish-none, .backdrop-none, .print)`,
-  not `.finish`. And the overflow probe skipped every `position: absolute` text bearer, so a
+  every layer, so "is there a painted finish?" is `.finish:not(.finish-none, .backdrop-none,
+  .print)`, not `.finish`. And the overflow probe skipped every `position: absolute` text bearer, so a
   cut in split chrome was never measured at all until `skipped()` learned the one exception.

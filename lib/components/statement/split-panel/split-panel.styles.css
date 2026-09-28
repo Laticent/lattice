@@ -808,97 +808,45 @@ section.split-panel.steps:not(.mirror):not([data-orientation="portrait"]):has(> 
   top: var(--_chrome-band);
 }
 
-/* ── A FINISH OWNS THE GROUND; THE PANEL STOPS PAINTING OVER IT ──────────────────────────
+/* ── A FINISH PAINTS THE FEATURE PANEL; THE PANEL KEEPS ITS FIELD ─────────────────────────
  *
  * A `finish:` paints the slide's backdrop on the canvas plane (base.finish.css), which is
  * NEGATIVE z: every in-flow box paints over it. Both panels here paint an opaque fill, so a
- * finish deck's split slide showed none of its finish — no texture, no wash, no mark —
- * while every neighboring slide carried it. The supporting zone's fill was `--bg`, the
- * same color as the section under it, so it hid the finish and bought nothing.
+ * finish deck's split slide showed none of its finish while every neighboring slide carried
+ * it.
  *
- * On a finish deck the split is drawn with a VEIL and a SEAM instead of a flood: the
- * feature panel is frosted with the deck's card surface (`--bg-alt`, so it still reads as
- * the featured side; `watermark` and `cat-N` wash in their own field color instead, so a
- * category panel still reads as its category), a hairline marks the seam, and the panel's
- * edge-bar segment stays. A tint of the INVERSE was tried first and rejected on the render:
- * 10% of carbone's near-black over strata's green wash read as a gray smear, not a panel. The veil is a FLAT translucent fill, which
- * the PDF path composites cleanly — the muddy-gray failure base.finish.css documents is an
- * alpha GRADIENT, not a constant alpha.
+ * The owner's call on #2457: the feature panel KEEPS its field — dark stays dark — and the
+ * finish is painted on that panel only; the supporting zone stays the plain canvas it always
+ * was. (A frosted `--bg-alt` veil over the whole slide shipped first and was turned down.)
  *
- * The field is light now, so every ink that was tuned for the dark field resolves to the
- * canvas tier. That is done by re-pointing the field-ink TOKENS on the field, not by
- * restating each text rule: every rule above (and the inline-code chip in
- * base.modifiers.css) reads the token, so one block re-inks all of them and a future rule
- * written against the dark field inherits the right answer for free. Chrome sits OUTSIDE
- * the panels, so it takes its ink explicitly, below.
+ * That is the bookends' own mechanism (`title` / `divider` paint `--surface-inverse` and
+ * tell the finish via `--fin-canvas`, base.finish.css §#1656), applied to half a slide:
+ *   1. The SECTION paints the panel's field color and names it `--fin-canvas`, so every
+ *      finish layer — the rich screen face AND the opaque export face, which ends on solid
+ *      canvas — is composed against the field it will actually be seen on.
+ *   2. The feature panel stops painting, so it is a window onto that finished field.
+ *   3. The supporting zone keeps its opaque `--bg` (the rule at the top of this file) and
+ *      covers the rest, finish and all — the same slide as before, minus nothing.
+ * No generator changes: a preset or a Studio finish is re-composed by the `--fin-canvas`
+ * it already reads. A corner mark in the supporting zone's corner is covered with the rest,
+ * so it cannot land on content; under `.mirror` the corner is the panel's, which keeps its
+ * content bottom- or center-aligned, clear of it.
  *
- * Without a finish nothing here matches, and the dark field renders exactly as before.
+ * `--field-accent` follows the field the same way the covers do (base.finish.css): the
+ * accent on the inverse and on a light panel, `--on-accent` on `watermark`'s accent field,
+ * `--cat-on-fill` on a category tint.
  *
- * "A finish" means a backdrop that is actually PAINTED. A `finish-none` / `backdrop-none`
- * slide, and a `print` canvas, keep the bare `finish` class while base.finish.css zeroes
- * every layer — so every rule here excludes them, or such a slide lost its solid field
- * to a veil over a bare canvas that matched neither look. Found by the maker-checker pass. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print) { --_field-fill: var(--bg-alt); --_field-veil: 60%; }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark { --_field-fill: var(--accent); --_field-veil: 12%; }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) { --_field-fill: var(--panel-fill); --_field-veil: 22%; }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print) .panel-left,
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-right {
-  background-color: color-mix(in srgb, var(--_field-fill) var(--_field-veil), transparent);
-  background-image: none;
+ * "A finish" means a backdrop that is actually PAINTED: `finish-none` / `backdrop-none`
+ * slides and a `print` canvas keep the bare `finish` class while base.finish.css zeroes every
+ * layer, so they are excluded and keep the solid panel. Without a finish nothing here
+ * matches. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print) { --_field-fill: var(--surface-inverse); }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark { --_field-fill: var(--accent); --field-accent: var(--on-accent); }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) { --_field-fill: var(--panel-fill); --field-accent: var(--cat-on-fill); }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric { --_field-fill: var(--bg); }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).steps { --_field-fill: var(--bg-alt); }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print) {
+  --fin-canvas: var(--_field-fill);
+  background-color: var(--_field-fill);
 }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-left,
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric) .panel-right { background-color: transparent; }
-/* The seam — on the panel's inner edge, which `.mirror` moves to the other side. `.metric`
- * and `.steps` already draw one on the left panel. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric):not(.steps):not(.mirror) .panel-left { border-right: 1px solid var(--border); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).mirror:not(.metric):not(.steps) .panel-left { border-left: 1px solid var(--border); }
-/* Field inks → canvas inks. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print) .panel-left,
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-right {
-  --on-dark-primary: var(--text-heading);
-  --on-dark-secondary: var(--text-secondary);
-  --on-dark-ghost: var(--border);
-  --on-dark-watermark: color-mix(in srgb, var(--text-heading) 10%, transparent);
-}
-/* `--cat-on-fill` is a diagram token, so it may only be set on a section class compound
- * (tools/check-ownership.js, #1326) — the category panel's text runs are re-inked by rule
- * instead, mirroring the list that inks them above. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left :is(h2, p, .panel-eyebrow),
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-left p em:first-child {
-  color: var(--text-heading);
-}
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark .panel-left {
-  --on-accent: var(--text-heading);
-  --on-accent-watermark: color-mix(in srgb, var(--accent) 14%, transparent);
-}
-/* `.watermark` repaints the edge bar in its (now faint) watermark ink; on the veil the bar
- * is the panel's one strong mark, so it takes the accent like every other variant. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark .panel-left::after { background: var(--panel-mark, var(--accent)); }
-/* Chrome and the page number sit outside the panels, so they cannot inherit the re-point:
- * every field is light now, so every polarity takes the deck's ordinary chrome ink. The
- * doubled class out-ranks the per-variant polarity rules above, which reach (0,4,1). */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark { --marp-slide-header-color: initial; --marp-slide-footer-color: initial; }
-section.split-panel.finish.finish:not(.finish-none, .backdrop-none, .print):is(.split-panel, .mirror, .metric, .watermark, .cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) > :is(header, footer) {
-  color: var(--marp-slide-header-color, var(--text-muted));
-}
-section.split-panel.finish.finish:not(.finish-none, .backdrop-none, .print):is(.split-panel, .mirror, .metric, .watermark, .cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) > .lat-pagination {
-  color: var(--marp-slide-pagination-color, var(--text-muted));
-}
-/* FRAME MARKS LIVE IN THE FRAME MARGIN. A finish's placed mark is drawn for the margin
- * every Form layout keeps clear: strata's corner tick spans 2.7–5.35cqi from the top and
- * 3.1–5.75cqi from the right, inside the Form frame's 6.875cqi top inset (stage.css
- * `--frame-y`). The split fields run their content to 3.75cqi of the top because nothing
- * used to show there — with the backdrop showing, the tick printed over the top-right
- * option card (measured on the welcome deck: card top 51px, tick bottom 68px). So on a
- * finish deck the RIGHT-HAND field — the one under that corner, which `.mirror` swaps —
- * takes the Form frame's top inset. Only that one: an earlier cut gave both fields the inset
- * and a bottom band as well, whatever the finish and whether or not a footer existed, and
- * the red team showed it clipping a split-compare recommendation card on halo, which has no
- * corner mark at all. The other preset marks need nothing: atrium's and ledger's margin rules
- * sit inside the panel's 2.5cqi side padding, and the 30cqi ghost glyphs are atmosphere that
- * sits behind content on every layout. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.mirror):not([data-orientation="portrait"]) .panel-right,
-section.split-panel.finish.mirror:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]) .panel-left {
-  padding-top: max(var(--sp-xl), calc(6.875 * var(--_sec-1cqi, 1cqi)));
-}
-
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print) .panel-left { background-color: transparent; }

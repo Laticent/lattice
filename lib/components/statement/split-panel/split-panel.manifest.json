@@ -250,8 +250,8 @@
       "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
     },
     {
-      "mistake": "Expecting the panel to stay a solid color field on a deck with a `finish:`.",
-      "fix": "On a finish deck the backdrop shows across the whole slide: the panel becomes a light frosted wash (`watermark` and `cat-N` keep a tint of their own color) with a seam hairline, its text takes the canvas inks, and the right-hand field keeps the standard top margin clear so a finish's corner mark never lands on content. Without a `finish:` the solid field renders as before."
+      "mistake": "Expecting a deck's `finish:` to cover the whole split-panel slide.",
+      "fix": "Only the feature panel carries it: on a finish deck the panel keeps its field (dark, accent or category color) and the finish is painted on it, composed against that field in screen and PDF alike, the way a title slide carries it. Only the panel gets the finish; the supporting side stays the plain canvas. `finish-none` on the slide keeps it plain."
     }
   ],
   "stressDoc": {

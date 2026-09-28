@@ -183,8 +183,8 @@
       "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
     },
     {
-      "mistake": "Expecting the rail to stay a solid dark field on a deck with a `finish:`.",
-      "fix": "On a finish deck the backdrop shows across the whole slide: the rail becomes a light frosted wash with a seam hairline and takes the canvas inks, and the options side keeps the standard top margin clear so a finish's corner mark never lands on an option card. Without a `finish:` the dark rail renders as before."
+      "mistake": "Expecting a deck's `finish:` to cover the whole split-compare slide.",
+      "fix": "Only the feature panel carries it: on a finish deck the rail keeps its dark field and the finish is painted on it, composed against that field in screen and PDF alike. Only the rail gets the finish; the options side stays the plain canvas. `finish-none` on the slide keeps it plain."
     }
   ],
   "specimenVoice": true,

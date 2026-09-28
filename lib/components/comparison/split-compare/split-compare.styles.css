@@ -176,23 +176,14 @@ section.split-compare:not([data-orientation="portrait"]):not([data-orientation="
   padding-bottom: max(var(--sp-xl), var(--_chrome-band));
 }
 
-/* ── A FINISH OWNS THE GROUND; THE RAIL STOPS PAINTING OVER IT ───────────────────────────
- * Same contract as split-panel's finish block: on a `finish:` deck the rail is frosted with
- * the card surface and gets a seam hairline instead of an opaque flood, the options
- * zone stops repainting `--bg` over the backdrop, and the rail's dark-field inks re-point
- * to the canvas tier on the rail itself. Without a finish nothing here matches. */
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left {
-  background-color: color-mix(in srgb, var(--bg-alt) 60%, transparent);
-  border-right: 1px solid var(--border);
-  --on-dark-primary: var(--text-heading);
-  --on-dark-secondary: var(--text-secondary);
+/* ── A FINISH PAINTS THE RAIL; THE RAIL KEEPS ITS FIELD ───────────────────────────────────
+ * Same contract as split-panel's finish block (see the note at the foot of
+ * split-panel.styles.css): the section paints the rail's `--surface-inverse` and names it
+ * `--fin-canvas`, the rail stops painting so the finish shows on the dark field, and the
+ * options zone keeps its opaque `--bg`, so only the rail carries the finish. Without a
+ * painted finish nothing here matches. */
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) {
+  --fin-canvas: var(--surface-inverse);
+  background-color: var(--surface-inverse);
 }
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-right { background-color: transparent; }
-/* Frame marks keep their margin — the options zone, under the top-right corner, takes the
- * Form frame's top inset. split-panel's finish block has the measurement, and why it is this
- * one field only. */
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]):not([data-orientation="square"]) .compare-right {
-  padding-top: max(var(--sp-lg), calc(6.875 * var(--_sec-1cqi, 1cqi)));
-}
-section.split-compare.finish.finish:not(.finish-none, .backdrop-none, .print) :is(header, footer) { color: var(--marp-slide-header-color, var(--text-muted)); }
-
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left { background-color: transparent; }
