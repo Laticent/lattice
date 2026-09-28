@@ -104,6 +104,29 @@ A director doesn't run the camera. They watch the take and judge what's actually
 
 ---
 
+<!-- _class: list-tabular insight-our-view -->
+
+`Your role · How to word it`
+
+## Clear and specific beats polite, rude or loud.
+
+1. Say what to do
+   - "Use early returns" works better than a list of things to avoid.
+2. Say why it matters
+   - "This runs in checkout, so a wrong total costs money."
+3. Skip the shouting
+   - "CRITICAL" and "MUST" can make newer models overreact.
+4. Keep the tone neutral
+   - Studies on politeness disagree, so don't spend effort on it.
+
+> Tone moves results a little. Missing information moves them a lot.
+
+<!--
+People ask whether they should be polite to the agent, or firm with it. Here's what the evidence actually supports. First, say what to do. Models follow "do this" more reliably than "don't do that," and the vendors' own prompting guides say so: "use early returns" gets you early returns, while a list of things to avoid leaves the model guessing what you want. Second, say why it matters. The guides also say that explaining the reason behind an instruction helps. "This runs in checkout, so a wrong total costs money" gives the agent a real constraint to work with. A 2023 study found that emotional add-ons like "this is very important to my career" nudged some results up on the models of that time; stating the real stakes as a fact gets you that benefit honestly. Third, skip the shouting. Older models sometimes needed "CRITICAL: you MUST," but newer ones follow instructions closely enough that shouting makes them overreact, so plain wording works better. And fourth, tone. The studies on politeness disagree with each other. One found rude prompts did worse; another found them slightly better on one model and one quiz. None of it adds up to a rule worth following. So be neutral and direct, and put your effort where it pays: the information the agent needs.
+-->
+
+---
+
 <!-- _class: compare-prose chosen insight-so-what -->
 
 `Your role · The bar`
