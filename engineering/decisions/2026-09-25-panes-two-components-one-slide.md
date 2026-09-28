@@ -638,6 +638,11 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    16% of the web), 11.0 -> 14.0 (65%, for 3%). Every committed deck renders byte-identical. The
    ceiling holds to gap 1's accuracy: a pane under a long wrapped note is stamped short, and its
    labels print up to ~8% past 14px (measured 15.1px before the demo's note was shortened).
+   **Chart budgets part measured (the panes-radar PR):** `calibrate-capacity --pane` builds twelve
+   SVG charts and fails a step on TYPE FLOOR or CHART LABELS DROPPED as well as OVERFLOW, since a
+   viewBox chart shrinks instead of clipping. bar, piechart, scatter, line, heatmap, map and radar
+   are `measured` (scatter's hard fell 12 -> 8 side, 10 stacked); five charts trip no signal to 24
+   elements, one of them visibly overprinting (`2376-p2-probe-labels-over-marks.md`).
 3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
    panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
    front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the

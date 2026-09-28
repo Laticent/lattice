@@ -32,8 +32,14 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               on a slide and in a pane. examples/chart-lead-paragraphs.md. Still dropped without
               a word: any OTHER block between the heading and the figure (a code block, a
               blockquote, a table, raw HTML) — the wrap keeps top-level paragraphs only.
-            - The chart pane budgets stay `basis: editorial`: `tools/calibrate-capacity.js --pane`
-              does not measure a chart's pane ceiling yet.
+            - PART CLOSED (panes-radar PR): `calibrate-capacity --pane` measures SVG charts
+              (builders for 12 kernels, and a step fails on TYPE FLOOR or CHART LABELS DROPPED as
+              well as OVERFLOW). bar, piechart, scatter, line, heatmap, map and radar turned
+              `measured`; scatter's hard fell 12 -> 8 (side) and 10 (stack). Still `editorial`:
+              bullet, funnel, waterfall, stacked-bar and slope (no probe signal to 24 elements —
+              see 2376-p2-probe-labels-over-marks.md) and every HTML-drawn or grouped chart
+              (gantt, journey, kanban, matrix-grid, progress, quadrant, roadmap, state-chart,
+              word-cloud), which this pass did not measure.
             MEASURED 2026-09-27 (panes-continuation PR, left for its own PR):
             - Mermaid pane labels ALREADY clear the floor: examples/panes-mermaid.md measures a
               smallest label of 13.0 / 14.2 / 11.6px on its three pane slides against a 7.2px floor
@@ -48,14 +54,11 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               diagram-narration #5 7.1px, typed-diagram-narration #4 6.9px). Each would gain the
               export's "Text too small" tag, so the change alters exported PDFs: an owner sign-off
               (QUALITY BAR export rule), and those decks' committed PDFs rebuild with it.
-            - Calibration: `BUILDERS` (tools/lib/calibrate-core.js:61) has no SVG chart, and the
-              signal is the OVERFLOW line alone (:227-233); a viewBox chart shrinks instead of
-              overflowing, so it needs a legibility signal as well as builders.
 where     — lib/integrations/mermaid/ (the render width, and a way to size foreignObject labels
             for the probe), the radar kernel, the HTML chart kernels, chart-family.js,
             tools/calibrate-capacity.js --pane.
 done when — a Mermaid pane's labels read at least the type floor and the probe can say so; and the calibration
-            measures each chart's pane ceiling, so its budget turns `measured`.
+            measures the rest of the charts' pane ceilings, so their budgets turn `measured`.
 evidence  — decision note §2 ("Charts draw for the pane") and §6 gap 2; the label-height table
             in PR #2420.
 verify    — tier 1 checker; render a flowchart in a 35% pane and on a slide and compare a node

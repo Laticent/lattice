@@ -273,12 +273,12 @@
     "stack": false,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 2,
         "hard": 3
       },
-      "note": "Each top-level item is a series; three overlapping polygons is the readable limit. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint): side 50%: 18 series before its text falls under the type floor at 19. That is a legibility bound, not a readable overlay: three overlapping polygons stays the editorial limit. sweet sits at or below it."
     }
   },
   "venueCapacity": {

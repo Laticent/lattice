@@ -236,7 +236,7 @@
     "stack": 50,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 8,
         "hard": 12
@@ -245,7 +245,7 @@
         "sweet": 12,
         "hard": 16
       },
-      "note": "Points along the x axis: a stacked band is full width, a side pane is half. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint): side 50%: fits 24+, so hard is a floor there, not a ceiling; stack 50/50: 21, labels dropped at 22. sweet sits at or below it."
     },
     "review": "side 25 measured, 35 reviewed: series labels cramp at 25%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },

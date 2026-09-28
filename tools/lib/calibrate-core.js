@@ -135,7 +135,42 @@ const BUILDERS = {
   // A roadmap element is a COLUMN, the leading workstream column included (its `capacity.axis`
   // is `col`). The builder names one column; `BODY_WRAP.roadmap` turns the list into the table.
   roadmap: () => `${cap(words(1))} \`Q2 2026\``,
+
+  // THE SVG CHARTS (2376-p2). An element is one item on the chart's `pane.budget.axis`: a bar, a
+  // wedge, a point, a series, a region. `i` is the element's index, so every label is DISTINCT
+  // (line, slope and scatter key points by label, and repeated names would merge them) and the
+  // values vary without chance. Labels hold at most three words, a chart label's real length.
+  // A viewBox chart does not overflow as it fills: it shrinks, so its ceiling is read from the
+  // legibility lines as well as OVERFLOW (`parseProbeLog`).
+  bar: (w, i = 0) => `- ${label(w, i)} \`${value(i)}\``,
+  bullet: (w, i = 0) => `- ${label(w, i)} \`${value(i)}\` \`${value(i + 3)}\``,
+  funnel: (w, i = 0) => `- ${label(w, i)} \`${Math.round(12000 * 0.62 ** i)}\``,
+  piechart: (w, i = 0) => `- ${label(w, i)} \`${value(i)}%\``,
+  scatter: (w, i = 0) => `- ${label(w, i)} \`$${value(i) * 5}k\` \`${value(i + 2)}%\``,
+  // waterfall: a total, then deltas.
+  waterfall: (w, i = 0) => `- ${label(w, i)} \`${i === 0 ? '12.0M' : `${i % 2 ? '+' : '-'}${(value(i) / 40).toFixed(1)}M`}\``,
+  // line and stacked-bar count the CATEGORY axis (x points / bars), each carrying two series.
+  line: (_w, i = 0) => `- W${i + 1}\n  - Plan \`${value(i)}\`\n  - Actual \`${value(i + 5)}\``,
+  'stacked-bar': (_w, i = 0) => `- FY${20 + i}\n  - Licenses \`${value(i)}\`\n  - Services \`${value(i + 4)}\``,
+  // slope and radar count SERIES; radar's five axes are fixed chrome.
+  slope: (w, i = 0) => `- ${label(w, i)}\n  - 2023 \`${value(i)}%\`\n  - 2026 \`${value(i + 7)}%\``,
+  radar: (w, i = 0) => `- ${label(w, i)}\n${['Coverage', 'Integration', 'Cost', 'Support', 'Speed'].map((ax, k) => `  - ${ax} \`${1 + ((i + k) * 7) % 10}\``).join('\n')}`,
+  // heatmap counts ROWS; `BODY_WRAP.heatmap` supplies the column header.
+  heatmap: (w, i = 0) => `| ${label(w, i)} | ${[0, 1, 2, 3].map((k) => value(i + k)).join(' | ')} |`,
+  // map counts REGIONS, which must be real places the kernel can draw.
+  map: (_w, i = 0) => `- ${MAP_REGIONS[i % MAP_REGIONS.length]} \`${value(i)}\``,
 };
+
+// An element's label: up to three filler words, a different run for each index.
+function label(w, i) {
+  const n = Math.max(1, Math.min(3, w));
+  const run = Array.from({ length: n }, (_, k) => FILLER[(i * 3 + k) % FILLER.length]).join(' ');
+  return cap(i * 3 >= FILLER.length ? `${run} ${i + 1}` : run);
+}
+// A value in 20..79, spread so neighbors differ.
+const value = (i) => 20 + ((i * 37) % 60);
+const MAP_REGIONS = ['India', 'Nigeria', 'Kenya', 'Brazil', 'Indonesia', 'Ethiopia', 'Bangladesh', 'Mexico',
+  'Egypt', 'Vietnam', 'Peru', 'Ghana', 'Chile', 'Morocco', 'Tanzania', 'Uganda'];
 
 // A component whose elements only render inside a wrapper: the builder writes one
 // element, this wraps the whole body once.
@@ -144,6 +179,7 @@ const BODY_WRAP = {
   'compare-code': (body) => `\`Before · one\`\n\n\`\`\`js\n${body}\n\`\`\`\n\n\`After · two\`\n\n\`\`\`js\n${body}\n\`\`\``,
   'obligation-matrix': (body) => `| Regulation | Notice | Consent | Retention | Breach | DSAR |\n| --- | :-: | :-: | :-: | :-: | :-: |\n${body}`,
   table: (body) => `| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n${body}`,
+  heatmap: (body) => `|  | M0 | M1 | M2 | M3 |\n| --- | --: | --: | --: | --: |\n${body}`,
   roadmap: (body) => {
     const cols = body.split('\n');
     const row = (label) => `| ${label} | ${cols.slice(1).map((_, i) => ['[x] Shipped item', '[-] In-flight item', '[ ] Planned item'][i % 3]).join(' | ')} |`;
@@ -219,17 +255,25 @@ function gradedDeck({ comp, size, steps, slideFor, scale = null, eyebrow = false
 }
 
 /**
- * The pages an emulator log reports as not fitting: the `⚠ OVERFLOW` line. A deck at a scale
- * renders every slide at that scale and clips what does not fit (the automatic step-down was
- * retired on 2026-09-27), so the OVERFLOW line is the whole answer at every scale. Pure, so the
- * parse is unit-tested (test/unit/tools/calibrate-core-parse.test.js).
+ * The pages an emulator log reports as not fitting. `clipped` is the `⚠ OVERFLOW` line: a deck at
+ * a scale renders every slide at that scale and clips what does not fit (the automatic step-down
+ * was retired on 2026-09-27). The other two are LEGIBILITY: a viewBox chart never overflows as it
+ * fills — it shrinks — so its ceiling is where it stops being readable instead: `underFloor` is
+ * the `⚠ TYPE FLOOR` line (a figure's text below the floor) and `labelsDropped` the `⚠ CHART
+ * LABELS DROPPED` line (a name the kernel declined to paint). Each line is anchored on its glyph,
+ * so prose elsewhere in the log that names one is never read as it. Pure, so the parse is
+ * unit-tested (test/unit/tools/calibrate-core-parse.test.js).
  */
 function parseProbeLog(log) {
   const pageNums = (list) => list.split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean);
-  // The `⚠ OVERFLOW` line itself, anchored on its glyph, so prose elsewhere in the log that
-  // names "the OVERFLOW line" is never read as one.
   const m = log.match(/⚠ OVERFLOW[^\n]*?pages?\s+([\d,\s]+)/);
-  return { clipped: m ? pageNums(m[1]) : [] };
+  const line = (re) => (log.match(re) || [''])[0];
+  const pagesOn = (text) => [...text.matchAll(/page (\d+)/g)].map((x) => Number(x[1]));
+  return {
+    clipped: m ? pageNums(m[1]) : [],
+    underFloor: pagesOn(line(/⚠ TYPE FLOOR —[^\n]*/)),
+    labelsDropped: pagesOn(line(/⚠ CHART LABELS DROPPED —[^\n]*/)),
+  };
 }
 
 /**
@@ -265,9 +309,13 @@ function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false
       const tail = log.trim().split('\n').slice(-8).join('\n');
       throw new Error(`Render failed for '${label}' (exit ${r.status}).\n${tail}`);
     }
-    const { clipped: pages } = parseProbeLog(log);
+    const { clipped: pages, underFloor, labelsDropped } = parseProbeLog(log);
     handedOver = keep;
-    return { overflowed: new Set(pages), clipped: new Set(pages), log, out, cleanup };
+    return {
+      overflowed: new Set(pages), clipped: new Set(pages),
+      underFloor: new Set(underFloor), labelsDropped: new Set(labelsDropped),
+      log, out, cleanup,
+    };
   } finally {
     if (!handedOver) cleanup();
   }
