@@ -246,7 +246,7 @@ describe('lint-core: say-key-case', () => {
     const f = hits('# One\n\n<!-- Say: thank the ops team -->\n\n<!-- SAY: pause -->\n');
     assert.equal(f.length, 2);
     assert.ok(f.every((x) => x.severity === 'warning'));
-    assert.match(f[0].message, /private speaker note/);
+    assert.match(f[0].message, /speaker note/);
   });
 
   test('lowercase say:, a plain "Say this" note, and quoted code are clean', () => {

@@ -12,7 +12,7 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Check, Cloud, Info, RotateCcw, Sparkles, Speech } from 'lucide-react';
+import { Check, Cloud, Info, RotateCcw, Sparkles, Volume2 } from 'lucide-react';
 import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
 import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
@@ -710,7 +710,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							    `caption` stays in the search terms: an author who knew the old key
 							    should still find the field that replaced it. */}
 							<SettingsBlock terms="say read aloud narration spoken vtt read-article caption" separated>
-								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Speech className="size-3.5 text-[var(--accent)]" />Say <span className="font-normal text-muted-foreground">what this slide says aloud</span></span>
+								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Volume2 className="size-3.5 text-[var(--accent)]" />Say <span className="font-normal text-muted-foreground">what this slide says aloud</span></span>
 								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">The exact words this slide speaks — in read-aloud, the HTML player's Read-Article, and the export <code className="font-mono">.vtt</code>. It replaces the narration generated from the slide. Leave empty to use the generated narration.</p>
 								<textarea
 									value={captionDraft}
