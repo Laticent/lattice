@@ -37,7 +37,7 @@ choice:
 |---|---|
 | a branch's meaty work is complete, verified, pushed (a design/decision doc counts — the doc *is* the deliverable) | **open the PR** via the template (rule 6) — **one PR for the session's line of work, one commit per item**, not a PR per slice (`workflow.md` §Batch a session's slices) |
 | a PR is open | **subscribe + drive CI green**; rebase **only on a real conflict** (rule 4) |
-| the PR is green and not conflicted (being *behind* `main` is fine) | **ask to merge, with a fenced 🚦 pre-merge card — posted on the PR *and* in the ask** — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each. **This row is an INDEX, not the spec: open `workflow.md` §Pre-merge card and build the card from the template there** — the four-level scale, the lowest-axis floor rule, the axis attribution and the `raise it by:` line are all in that section and all load-bearing (HARD RULE #28) |
+| the PR is green and not conflicted against a fresh `git fetch` (being *behind* `main` is fine) | **ask to merge, with a fenced 🚦 pre-merge card — posted on the PR *and* in the ask** — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each. **This row is an INDEX, not the spec: open `workflow.md` §Pre-merge card and build the card from the template there** — the four-level scale, the lowest-axis floor rule, the axis attribution and the `raise it by:` line are all in that section and all load-bearing (HARD RULE #28) |
 | merge confirmed + local `main` synced | **post the standup + the continuation brief** — two fenced cards, always fenced, **as one comment on the PR *and* in chat, same wording** (`workflow.md` §Post-merge standup + §Where the cards go) |
 | a session goes idle with work still pending — parked at the merge gate, or out of scope | **post the continuation brief** so a fresh session can pick it up cold — **on the PR as well as in chat** (same §) — and **write every item that has no issue to `followups.d/`** in the PR. A pending item that exists only in chat or a PR comment is lost work (`followups.d/README.md`; `npm run followups` lists them) |
 
@@ -360,10 +360,13 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   behind, and never from a background watch.** The merge queue tests every PR on top
   of current `main` plus the PRs ahead of it, and merges only if that is green, so a
   behind-but-clean PR is already safe to queue. Rebasing it anyway re-runs full CI
-  for nothing: 67 re-runs of an already-green PR in the eight days to 2026-09-28
-  (`engineering/decisions/2026-09-28-rebase-only-on-conflict.md`). **Rebase when:**
+  for nothing: 75 such rebases (41 of green PRs, ~1,005 minutes of CI wall-clock time) in the eight
+  days to 2026-09-28 (`engineering/decisions/2026-09-28-rebase-only-on-conflict.md`).
+  **Before the merge ask**, `git fetch origin main` and run the `merge-tree` test —
+  a check, not a rebase — so a conflict is not left for the queue to find. **Rebase when:**
   GitHub reports a conflict (`mergeable_state: dirty`), `git merge-tree --write-tree
-  HEAD origin/main` exits 1, the queue ejected the PR, or you need code from `main`.
+  HEAD origin/main` exits 1 against a freshly fetched `main`, the queue ejected the
+  PR, or you need a specific commit from `main` (name it in the commit message).
   **Do not rebase when:** the PR page says "out-of-date", `main` moved, or another PR
   merged. A polling auto-rebase is still banned — it thrashes the merge train
   (`2026-06-14-drift-watch-rebase-thrash.md`). Resolve generated-file conflicts

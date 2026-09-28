@@ -4,11 +4,14 @@
 # branch would conflict. It says nothing when the branch is merely BEHIND main:
 # the merge queue re-tests every PR on top of current main before it merges, so
 # a behind-but-clean branch is fine as it is. Rebasing it anyway re-runs full CI
-# for nothing — 67 such re-runs of an already-green PR in the eight days to
+# for nothing — 75 such rebases, ~1,005 minutes of CI wall-clock time, in the eight days to
 # 2026-09-28 (engineering/decisions/2026-09-28-rebase-only-on-conflict.md).
 #
 # Local-only by design: it does NOT run `git fetch`, so it adds no latency to
-# ending a turn. `git merge-tree --write-tree` does the merge in memory (no
+# ending a turn. That makes silence mean "no conflict with the origin/main you
+# last fetched", not "no conflict". Merge attributes (the decision index's
+# merge=union) are read from the working tree, so a dirty tree can change the
+# answer. It is advisory; GitHub's mergeable_state is the authority. `git merge-tree --write-tree` does the merge in memory (no
 # working-tree or index changes) and exits 1 when the merge has a conflict.
 set -euo pipefail
 
@@ -17,6 +20,8 @@ cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
 [ "$branch" = "main" ] && exit 0
 [ "$branch" = "HEAD" ] && exit 0
+# Git allows `"` and `\` in ref names; drop them so the JSON below stays valid.
+branch=$(printf '%s' "$branch" | tr -d '"\\')
 
 # No known origin/main ref → nothing to compare against.
 git rev-parse --verify -q origin/main >/dev/null 2>&1 || exit 0

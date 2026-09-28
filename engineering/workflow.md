@@ -906,18 +906,30 @@ it alone.
    git merge-tree --write-tree HEAD origin/main >/dev/null; echo $?   # 1 = conflict
    ```
    The Stop hook (`.claude/hooks/stop-rebase-check.sh`) runs the same test at the
-   end of every turn and warns only on a real conflict.
+   end of every turn and warns only on a real conflict. It never fetches, so its
+   silence means "no conflict with the `main` you last fetched" — fetch first
+   when it matters.
 2. **The queue ejected the PR.** Fix the cause, push, and re-arm auto-merge
    (§Merging, *An ejection CLEARS auto-merge*).
-3. **You need code that landed on `main`** — a fix your change builds on.
+3. **You need a specific commit from `main`** — a fix your change calls or your
+   tests need. Name it in the commit message; "main has moved a lot" is not one.
 
 **Do NOT rebase because:** the PR page says "This branch is out-of-date", GitHub
-offers "Update branch", `main` moved, another PR merged, or you are about to ask to
-merge. Each of those rebases re-runs the full CI pipeline and changes nothing the
-queue would not have handled. Measured over the 1,000 PR CI runs from 2026-09-20 to
-2026-09-28: 126 pushes kept the head commit's message and author (a rebase or
-amend), 67 of them on a PR that was already green, costing ~1,925 runner-minutes —
-13% of all PR CI time (`decisions/2026-09-28-rebase-only-on-conflict.md`).
+offers "Update branch", `main` moved, or another PR merged. Each of those rebases
+re-runs the full CI pipeline and changes nothing the queue would not have handled.
+Measured over the 1,000 PR CI runs from 2026-09-20 to 2026-09-28, by replaying each
+rebase: 75 were of a PR that would have merged cleanly (41 of them already green),
+costing ~1,005 minutes of CI wall-clock time, 6.7% of all PR CI time. The 19 rebases of PRs that
+really conflicted were required and stay required
+(`decisions/2026-09-28-rebase-only-on-conflict.md` §3).
+
+**Before you ask to merge — check, don't rebase.** Some breaks merge cleanly as
+text and still fail in the queue: a committed PDF or golden built against an older
+`main`. The queue ejects those, the ejection clears auto-merge, and no webhook tells
+you. So right before the 🚦 ask, `git fetch origin main` and run the `merge-tree`
+test above. It costs seconds and no CI. Rebase only if it reports a conflict. While
+parked, confirm on each wake that the PR's `auto_merge` is still set; `null` after
+you armed it means an ejection.
 
 When you do rebase:
 
@@ -986,7 +998,7 @@ The contract, and its limits — be precise about what it does and doesn't cover
   (the golden-diff sticky's `updateComment`) is not, so it would never wake you.
 - **CI-passed only — NOT the drift events.** "`main` moved" and "now conflicted"
   are still silent; nothing here changes that. The merge queue is the answer for
-  drift, and a conflict (§Keeping an open PR mergeable) is the only rebase trigger.
+  drift; §Keeping an open PR mergeable lists the three rebase triggers.
 - **Keep a long fallback check-in as a backstop.** The beacon is a delivered
   comment, not a guaranteed-delivery channel; if one is ever dropped you must not
   hang forever. A single far-out check-in (≈1 h) catches the miss — react fast to
@@ -1169,7 +1181,7 @@ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
   | python3 -c "import json,sys; [print(r['type'], r.get('parameters','')) for r in json.load(sys.stdin)['rules']]"
 ```
 
-| Setting | Value on 2026-09-28 | What it means for you |
+| Setting | Value when read on 2026-09-28 — re-read live | What it means for you |
 |---|---|---|
 | `merge_method` | `SQUASH` | Every queued PR lands as one squash commit, whatever `auto_merge.merge_method` says |
 | `grouping_strategy` | `ALLGREEN` | A group merges only if every PR in it is green; a red one is removed and the rest re-tested |
@@ -1177,7 +1189,7 @@ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
 | `min_entries_to_merge_wait_minutes` | 5 | The queue waits up to 5 minutes to fill a group |
 | `check_response_timeout_minutes` | 60 | A `ci` run that has not reported in 60 minutes fails the entry |
 | Required check | `ci` (the aggregate job in `ci.yml`) | The only check the queue waits on — CodeQL is not in it |
-| `strict_required_status_checks_policy` | `true` — the owner is turning it off | "Require branches to be up to date". It does **not** stop a behind PR entering the queue: 12 of the 15 queue entries before 2026-09-28 were behind `main` (by 1–8 commits) and 11 merged green. It only makes GitHub label behind PRs "out-of-date". **Ignore that label either way** |
+| `strict_required_status_checks_policy` | `true` (the owner planned to turn it off) | "Require branches to be up to date". It does **not** stop a behind PR entering the queue: 12 of the last 15 queue entries up to 2026-09-28 were behind `main` (by 1–8 commits) and 11 merged green. It only makes GitHub label behind PRs "out-of-date". **Ignore that label either way** |
 
 **What the queue does.** It creates a temporary `gh-readonly-queue/main/pr-<N>-*`
 branch holding current `main`, every non-failing PR ahead of yours, and your PR.
@@ -1198,6 +1210,9 @@ it passes, that exact tree becomes `main`.
   rebase. `followups.d/2466-p2-committed-generated-files-conflict-across-prs.md` tracks removing
   those files from the conflict path.
 - **An ejection clears auto-merge.** Re-arm it after the fix (§Merging, above).
+- **`golden-diff` and `studio-smoke` run only on `pull_request`, never in the
+  queue.** On a behind PR their before/after images compare against the base of
+  your last push, so they can be a few merges old. `ci` still gates correctness.
 
 ## Automation vs. the main ruleset
 
@@ -1330,12 +1345,12 @@ Each backlog sync is now a real PR through the real queue. On the PR itself
 `code` nor `docs`, so only `lint` runs), but the **merge-queue run deliberately
 skips nothing** — `changes` forces `code` and `docs` true on `merge_group`,
 because that is the final pre-merge gate. So a backlog sync costs roughly one
-full CI run, and adds one merge-train entry every open PR must rebase past.
+full CI run, and adds one more merge every open PR's queue run is tested on top of.
 
 **That price is why the mirror runs on a nightly cron and nothing else.** Under
 the old direct push a sync was free, so it fired on every issue event — up to
-~14 a day. Through the queue that would be ~14 full CI runs and ~14 rebase
-nudges landing during working hours, which is real money and real thrash for a
+~14 a day. Through the queue that would be ~14 full CI runs and ~14 new `main`
+commits landing during working hours, which is real money and real thrash for a
 generated file. Once a night, off-hours, costs one of each, and the mirror was
 already designed to tolerate a 24h lag (that is how label/assignee drift was
 always reconciled). Need it current before then: dispatch the workflow.
@@ -1372,7 +1387,7 @@ Two things about this workflow are deliberately unlike the other two:
 ungrouped, because a grouped major would either strand the whole group behind a
 review or ride through on the group's coattails. Grouping matters more here than
 in most repos: every merge is a queue entry that re-runs the full `ci` suite and
-that every open PR must rebase past, so sixteen ungrouped bumps is sixteen of
+that every open PR's queue run is tested on top of, so sixteen ungrouped bumps is sixteen of
 those and one grouped PR is one.
 
 ### Mechanics worth knowing before you automate against this

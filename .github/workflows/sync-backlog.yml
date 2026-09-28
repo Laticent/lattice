@@ -16,8 +16,8 @@ name: Sync backlog mirror
 # flight updates that PR instead of opening a second one.
 #
 # NIGHTLY, not per-issue-event. Going through the queue means each sync costs a
-# full merge-queue CI run and one merge-train entry every open PR must rebase
-# past, so the trigger is priced accordingly: once, off-hours, instead of up to
+# full merge-queue CI run and one more merge every open PR's queue run is
+# tested on top of, so the trigger is priced accordingly: once, off-hours, instead of up to
 # ~14 times a day during working hours. The `issues:` triggers were dropped
 # together with the direct push that made them cheap (#1439) — the mirror
 # already tolerated a 24h lag for label/assignee drift, and this extends that
