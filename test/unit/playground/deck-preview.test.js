@@ -305,7 +305,8 @@ describe('buildSrcdoc', () => {
 		const doc = buildSrcdoc({ ...BASE, gap: 22, sync: true });
 		// FIT declares GAP once (marginBottom = SH*sc - SH + GAP).
 		assert.match(doc, /GAP=22;/);
-		assert.match(doc, /marginBottom=\(SH\*sc-SH\+GAP\)/);
+		assert.match(doc, /MB=\(SH\*sc-SH\+GAP\)\+"px"/);
+		assert.match(doc, /marginBottom=MB/);
 		// SYNC: slot pitch = SH*(w/SW) + GAP — must agree with FIT or the scroll drifts.
 		assert.match(doc, /SH\*\(w\/SW\)\+22/);
 	});

@@ -128,11 +128,19 @@ function fitAgent(gap, clamp) {
 		'    var sc=w/SW;',
 		// The engine's slide EDGE needs one number: slide-percent per screen pixel (100 / the
 		// slide's on-screen width). Only when the builder asked for an edge (`slideEdge`).
-		'    if(window.__SLIDE_EDGE) lattice.style.setProperty("--slide-edge-k", String(100/w));',
+		'    if(window.__SLIDE_EDGE){var k=String(100/w);if(lattice.__lfK!==k){lattice.style.setProperty("--slide-edge-k",k);lattice.__lfK=k;}}',
+		// WRITE ONLY WHAT CHANGED. This runs after every section patch — every keystroke —
+		// and writing the same transform and margin onto every slide again invalidated the
+		// style of the whole deck each time: measured, it was the largest single cost of a
+		// keystroke after the runtime pass. A section keeps the value it was given on an
+		// expando; a patched-in section is a new element with none, so it is always written.
+		'    var T="scale("+sc+")", MB=(SH*sc-SH+GAP)+"px";',
 		'    for(var i=0;i<secs.length;i++){var s=secs[i];',
+		'      if(s.__lfT===T&&s.__lfM===MB&&s.style.transform) continue;',
 		'      s.style.transformOrigin="top left";',
-		'      s.style.transform="scale("+sc+")";',
-		'      s.style.marginBottom=(SH*sc-SH+GAP)+"px";',
+		'      s.style.transform=T;',
+		'      s.style.marginBottom=MB;',
+		'      s.__lfT=T; s.__lfM=MB;',
 		'    }',
 		// Clamp the filmstrip to the scaled-content height and CLIP the tail the
 		// last slide leaves: transform scales the paint, not the layout box, so the
@@ -141,7 +149,7 @@ function fitAgent(gap, clamp) {
 		// `.lattice` itself, which its own overflow clip never clips; the clip margin is
 		// kept for any author content that paints past a slide's box.
 		clamp
-			? '    if(secs.length){lattice.style.height=(secs.length*SH*sc+(secs.length-1)*GAP)+"px";lattice.style.overflow="clip";lattice.style.overflowClipMargin="40px";}'
+			? '    if(secs.length){var H=(secs.length*SH*sc+(secs.length-1)*GAP)+"px";if(lattice.__lfH!==H){lattice.style.height=H;lattice.style.overflow="clip";lattice.style.overflowClipMargin="40px";lattice.__lfH=H;}}'
 			: '',
 		// Reveal only once scaled AND once the document's own faces have landed.
 		// The srcdoc hides .lattice so the first paint (and the display:none->block
@@ -157,7 +165,7 @@ function fitAgent(gap, clamp) {
 		// reveal waits, so the geometry is finished before it is visible rather than
 		// computed late. See lib/core/preview-font-gate.mjs for why this waits on
 		// `document.fonts.ready` and not on `settleFonts`.
-		'    if(revealOk) lattice.style.visibility="visible";',
+		'    if(revealOk&&lattice.style.visibility!=="visible") lattice.style.visibility="visible";',
 		'  }',
 		'  var revealOk=false;',
 		// `fit()` and not `gatedFit()`, deliberately: the drag suspension below exists to

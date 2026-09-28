@@ -48,7 +48,7 @@ import {
 	variantSource,
 	walkChipLabel,
 } from '@/lib/playground-controller';
-import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
+import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
 import { applyDebug } from '@/playground/debug-overlay.js';
@@ -486,7 +486,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// replaces the iframe doc). Export untouched (poster still).
 	const animaScenesRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	const editorRef = React.useRef<EditorAdapter | null>(null);
-	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { mermaidUrl, dagreUrl, katexUrl }));
+	// Built once. `useRef(createEngineBridge(...))` evaluated its argument on every render and
+	// threw the result away, so each commit of this surface built a bridge nobody used.
+	const engineRef = React.useRef<EngineBridge>(null as unknown as EngineBridge);
+	if (engineRef.current === null) engineRef.current = createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { mermaidUrl, dagreUrl, katexUrl });
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
 	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -692,11 +695,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				}
 			}
 			const mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
-			setStatusLine('Rendering…');
+			// "Rendering…" only for a render a person can WAIT on. A keystroke's render lands in
+			// a frame or two, and flipping the line to "Rendering…" and back on every one of them
+			// made the toolbar text flicker (and shift, the two strings differ in width) while
+			// the author typed — and cost two extra React commits of this whole surface per key.
+			const slowStatus = setTimeout(() => setStatusLine('Rendering…'), 300);
 			// Explore renders the walk deck; Edit renders the draft. Ref-read so the
 			// render loop sees a mode/walk change the moment it commits.
 			const src = viewRef.current === 'read' && exploreSourceRef.current != null ? exploreSourceRef.current : getSource();
-			const r = await engine.renderInto(frame, src, palette, mode, previewStateRef.current, fresh);
+			const r = await engine.renderInto(frame, src, palette, mode, previewStateRef.current, fresh).finally(() => clearTimeout(slowStatus));
 			if (r.status === 'pending') {
 				// Single pending retry (see the !engine.ready() note above).
 				if (timerRef.current) clearTimeout(timerRef.current);
@@ -1043,9 +1050,24 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	);
 
 	// ── Edit handler: persist, sync pickers, debounced patch render ─────────────
+	// The version bump re-renders this whole surface (the toolbar, both sheets, the split) to
+	// refresh two things that only matter once the author pauses — the Deck settings cue and
+	// the Reset arm. Bumping it on every keystroke was a React commit of all of that per key,
+	// on top of the preview's own render. Trailing, so a burst of typing costs one commit.
+	const versionTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	React.useEffect(
+		() => () => {
+			if (versionTimerRef.current) clearTimeout(versionTimerRef.current);
+		},
+		[],
+	);
 	const onEdit = React.useCallback(() => {
 		saveSource();
-		setSourceVersion((v) => v + 1);
+		if (versionTimerRef.current) clearTimeout(versionTimerRef.current);
+		versionTimerRef.current = setTimeout(() => {
+			versionTimerRef.current = null;
+			setSourceVersion((v) => v + 1);
+		}, 250);
 		syncPickers();
 		scheduleRender();
 	}, [saveSource, syncPickers, scheduleRender]);
