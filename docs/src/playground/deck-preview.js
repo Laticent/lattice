@@ -126,6 +126,16 @@ function fitAgent(gap, clamp) {
 		'    var SW=window.__SLIDE_W||1280, SH=window.__SLIDE_H||720, GAP=' + gap + ';',
 		'    var secs=lattice.querySelectorAll(":scope>section");',
 		'    var sc=w/SW;',
+		// STAGE: a host that shows ONE slide at a time (the Playground's desktop Explore) marks
+		// its iframe `data-stage`. Centering a slide then leaves (pane - slide) / 2 above and
+		// below it, and with the ordinary gap a strip of each neighbor showed there. Widen the
+		// gap to cover that margin. Read off the frame element, so it holds from the first fit,
+		// and every other host (no attribute) keeps its gap exactly.
+		// Only while the frame really IS one slide tall (a margin of 40px or less, the same line
+		// the host's `scrollWalk` centers under). A pane the frame's width clamp leaves taller —
+		// an iPad in portrait above the tab breakpoint — is a filmstrip, where the host pins the
+		// slide to the top; widening there gave a 300px empty band. Found by a checker.
+		'    try{if(window.frameElement&&window.frameElement.hasAttribute("data-stage")){var sp=(window.innerHeight-SH*sc)/2;if(sp>0&&sp<=40){var sg=Math.ceil(sp)+8;if(sg>GAP)GAP=sg;}}}catch(e){}',
 		// The engine's slide EDGE needs one number: slide-percent per screen pixel (100 / the
 		// slide's on-screen width). Only when the builder asked for an edge (`slideEdge`).
 		'    if(window.__SLIDE_EDGE){var k=String(100/w);if(lattice.__lfK!==k){lattice.style.setProperty("--slide-edge-k",k);lattice.__lfK=k;}}',

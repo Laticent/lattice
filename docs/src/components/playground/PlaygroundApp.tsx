@@ -953,6 +953,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		mql.addEventListener('change', sync);
 		return () => mql.removeEventListener('change', sync);
 	}, []);
+	// Explore above the tab breakpoint shows one slide at a time (playground.css sizes the frame
+	// to one slide), so the frame's fit agent widens the gap between slides until a centered one
+	// shows none of its neighbors. Below it, Explore is a scrolling filmstrip and keeps its gap.
+	const stage = view === 'read' && splitActive;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `stage` is the explicit re-fit trigger; the fit agent reads the attribute off the frame.
+	React.useEffect(() => {
+		// The attribute is already on the frame by the time this runs; re-fit so the gap follows.
+		frameRef.current?.contentWindow?.__latticeFit?.();
+	}, [stage]);
 	// px collapsed-pane rail width (the always-visible restore edge). Declared in pg-split.ts
 	// because the pre-paint seed needs it too: the library snaps a restored pane to THIS rather
 	// than to `minSize` below the midpoint of the two, and a seed that models only the clamp
@@ -1435,6 +1444,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// slide showing above it, so pin it one gap below the top instead.
 		const band = frameBands(frame, w.kind === 'plan')[w.index];
 		const spare = band ? Math.max(0, (win.innerHeight - band.height) / 2) : 16;
+		// 40 is shared with the fit agent's STAGE gap (deck-preview.js): it widens the gap only
+		// where this centers, so the two agree on which regime a pane is in.
 		const inset = spare <= 40 ? spare : 16;
 		win.scrollTo({ top: Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset), behavior: animated ? 'smooth' : 'auto' });
 	}, []);
@@ -2750,7 +2761,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								suppressHydrationWarning
 								{...(shellHtml != null ? { dangerouslySetInnerHTML: { __html: shellHtml } } : {})}
 							/>
-							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} />
+							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
 						</div>
 					</section>
 					<button
