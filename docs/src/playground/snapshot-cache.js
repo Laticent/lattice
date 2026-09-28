@@ -67,8 +67,21 @@ const STRIP_PSEUDO =
 // class `lat-pane-host` is a slide's own class, not a pane arm.
 const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel);
 
+// A CHART-FINISH arm (`section.chart-finish-tone :where(…)`, tools/build-chart-finish-css.js)
+// can only match under an element carrying that finish's class. Its mark part nests `:is()`
+// inside `:where()`, which STRIP_PSEUDO cannot strip cleanly, so the probe is left invalid and
+// the rule was kept "conservatively": all ~280 finish rules rode into every snapshot, it
+// outgrew MAX_UNITS, and nothing was stored. The class is decidable without the probe, so an
+// arm whose finish class is absent from the captured document is dropped exactly.
+const FINISH_ARM = /\bchart-finish-(pigment|etching|tone)(?![\w-])/;
+const finishArmAbsent = (doc, sel) => {
+	const m = FINISH_ARM.exec(sel);
+	return !!m && !doc.querySelector(`.chart-finish-${m[1]}`);
+};
+
 function selectorMatches(doc, selectorText, hasPane) {
 	if (isPaneArm(selectorText) && !hasPane) return false;
+	if (finishArmAbsent(doc, selectorText)) return false;
 	const probe = selectorText.replace(STRIP_PSEUDO, '').replace(/\s+/g, ' ').trim();
 	if (!probe || probe === '*') return true;
 	try {
