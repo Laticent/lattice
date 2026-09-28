@@ -470,7 +470,8 @@ describe('when the chosen voice does not speak the deck’s language', () => {
 });
 
 // THE KEYLESS AUTHOR WITH ONLY THE ON-DEVICE VOICE — the free path to a narrated export, and the
-// one followups.d/2423-p2-export-panel-hides-on-device-narrator.md recorded as unreachable. Two
+// one #2423's follow-up recorded as unreachable (record: engineering/decisions/
+// 2026-08-04-shared-deck-narration-audio.md §10). Two
 // defects, both found by driving the real panel with a real Kokoro load:
 //
 //  1. Availability was read ONCE, at mount. The Workspace does not cancel a Kokoro download when
@@ -536,7 +537,7 @@ describe('the on-device narrator with no cloud key', () => {
 // A switch that is ON must stay operable when availability drops under it. The panel re-reads
 // availability while open (#2446), so a key disconnecting with a cloud voice chosen used to
 // disable the audio switch in its CHECKED state: the author could not opt out of an export
-// that would now refuse. followups.d/2446-p3-audio-switch-stuck-on-after-key-drops.md.
+// that would now refuse. Record: engineering/decisions/2026-08-04-shared-deck-narration-audio.md §10.
 describe('availability dropping under a switch that is on', () => {
 	it('leaves the audio switch operable, so the author can turn it off', async () => {
 		listTtsCatalog.mockResolvedValue({ models: [], reachable: true });

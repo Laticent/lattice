@@ -1,6 +1,6 @@
 // The FREE, KEYLESS path to a narrated webpage export: no OpenRouter key, only the on-device
-// (Kokoro) voice. followups.d/2423-p2-export-panel-hides-on-device-narrator.md recorded it as
-// unreachable; driving the real panel with a real Kokoro load found why. The panel read voice
+// (Kokoro) voice. #2423's follow-up recorded it as unreachable (record: engineering/decisions/
+// 2026-08-04-shared-deck-narration-audio.md §10); driving the real panel with a real Kokoro load found why. The panel read voice
 // availability ONCE, at mount, and the Workspace does not cancel a Kokoro download when it
 // closes — so an author who opened Share while the ~80 MB load ran got an audio switch that
 // stayed disabled after the voice was ready, and an export with no sound in it.
