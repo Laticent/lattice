@@ -238,6 +238,11 @@ const TAIL_SOURCES = [
   // and engineering/decisions/2026-07-15-accent-finish-consolidation.md.
   'lib/base/base.accent-finish.css',
   'lib/integrations/mermaid/mermaid.css',
+  // THE PLUGIN SLOT — every lib/plugins/<name>/<name>.styles.css, in the resolver's dependency
+  // order (lib/plugins/styles.generated.js), where lib/integrations' CSS already sits
+  // (engineering/decisions/2026-09-27-plugin-system.md §4.9). Before the print textures, so a
+  // plugin figure takes the print-mode pattern fills like every other chart.
+  ...require('../lib/plugins/styles.generated.js').PLUGIN_STYLE_SOURCES,
   // Print-mode categorical TEXTURE fills — after mermaid + chart CSS so the
   // `fill: url(#latt-a11y-tex-N) !important` overrides win (incl. Mermaid's baked
   // node fills). Scoped to section.print; inert on every non-print deck.

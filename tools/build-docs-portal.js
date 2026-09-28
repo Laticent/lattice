@@ -1028,6 +1028,10 @@ function renderPortalJson(manifests) {
     ...(m.venueCapacity ? { venueCapacity: m.venueCapacity } : {}),
     // How it behaves in a PANE (lib/core/panes.js): fit, pane form, stack flag and budget.
     ...(m.pane ? { pane: m.pane } : {}),
+    // The plugins this layout is designed around (lib/plugins/): `requires` — the slide
+    // renders without them only as a fallback, and render() reports it; `optional` — used when
+    // present. Present only when the manifest declares one, so every other entry keeps its shape.
+    ...pluginsEntry(m),
     slots: m.slots || {},
     // The OPTIONAL editorial blocks this layout actually renders, in document
     // order (#1651). `slots` describe a component's own anatomy; these are the two
@@ -1088,7 +1092,7 @@ function renderPortalJson(manifests) {
 // ── LFM grammar projection ───────────────────────────────────────────────
 // The shared cross-component grammars. These mirror the canonical handlers in
 // lib/integrations/markdown-it/plugins.js (stateClassesFor + the verdict-grid /
-// obligation-matrix / checklist / roadmap state plugins, and functionPlotFences)
+// obligation-matrix / checklist / roadmap state plugins) and the plugin packages' fences
 // and the chart-family Mermaid registration. They are declared here — as
 // lib/authoring/lint.js declares its own modifier lists — because the plugin
 // module exports the behavior, not these vocabularies. Keep in sync if the
@@ -1118,18 +1122,35 @@ const STATE_MARKER_COMPONENTS = ['checklist', 'verdict-grid', 'obligation-matrix
 
 // Fenced sub-languages LFM recognizes (info string → degraded form). The fence
 // body is NOT Markdown — it is the config language of the library that renders
-// it, owned by that library and the component that uses it, not by LFM. Each
-// degrades to a plain code block in an LFM-unaware renderer. The fence is named
-// after its renderer (like `mermaid`), not branded — `latticeplot` is retained
-// as a DEPRECATED alias of `functionplot` for one release. `anima` is the one
-// whose renderer is ours: `animaSceneFences` (lib/integrations/markdown-it/plugins.js)
-// packs the JSON scene spec, the `scene` component carries it, and the Anima
-// host plays it — in the docs site and in the HTML export (lib/export/player-core.mjs). The entry describes that shipped behavior; it adds none.
-const FENCES = {
-  anima: { sublanguage: 'anima', body: 'json', usedBy: ['scene'], degradesTo: 'code-block' },
-  functionplot: { sublanguage: 'function-plot', body: 'json', usedBy: ['math'], deprecatedAliases: ['latticeplot'], degradesTo: 'code-block' },
-  mermaid: { sublanguage: 'mermaid', body: 'mermaid', usedBy: ['diagram'], degradesTo: 'code-block' },
-};
+// it, owned by that library, not by LFM. Each degrades to a plain code block in
+// an LFM-unaware renderer. DERIVED from the plugin packages (lib/plugins/) that
+// render them — `sublanguage` is the plugin, `usedBy` the components whose
+// manifests declare it — so a new fence plugin reaches grammar.json without an
+// edit here. Mermaid is the one fence that is not a plugin yet (plugin-system
+// phase D), so its row is still written by hand.
+function renderFences(manifests) {
+  const { PLUGIN_GRAMMAR } = require('../lib/plugins/grammar.generated.mjs');
+  const fences = {
+    mermaid: { sublanguage: 'mermaid', body: 'mermaid', usedBy: ['diagram'], degradesTo: 'code-block' },
+  };
+  for (const plugin of PLUGIN_GRAMMAR) {
+    const usedBy = manifests
+      .filter((m) => [...(m.plugins?.requires || []), ...(m.plugins?.optional || [])].includes(plugin.name))
+      .map((m) => m.name)
+      .sort();
+    for (const [name, decl] of Object.entries(plugin.fences)) {
+      const deprecated = decl.aliases.filter((a) => a.deprecated).map((a) => a.name);
+      fences[name] = {
+        sublanguage: plugin.name,
+        body: decl.body,
+        usedBy,
+        ...(deprecated.length ? { deprecatedAliases: deprecated } : {}),
+        degradesTo: 'code-block',
+      };
+    }
+  }
+  return Object.fromEntries(Object.keys(fences).sort().map((k) => [k, fences[k]]));
+}
 
 /**
  * Project the component manifests into dist/docs/grammar.json — the
@@ -1169,7 +1190,7 @@ function renderGrammarJson(manifests) {
     stateMarkers: STATE_MARKERS,
     stateMarkersNote: STATE_MARKERS_NOTE,
     stateMarkerComponents: [...STATE_MARKER_COMPONENTS].sort(),
-    fences: FENCES,
+    fences: renderFences(manifests),
     // No `count` here either — same reason as renderPortalJson above (#1594).
     components,
   };
@@ -1217,6 +1238,26 @@ function capacityCell(m) {
     return `${fam.axis ? `${fam.axis}:` : ''}${f.sweet}/${f.soft}/${f.hard}${mark}`;
   }
   return '—';
+}
+
+/**
+ * A component's `plugins` block, as published: `{ plugins: { requires, optional } }` with only
+ * the non-empty lists, or nothing at all when the manifest declares none
+ * (engineering/decisions/2026-09-27-plugin-system.md §4.1 — a component names the plugins it is
+ * designed around; a plugin never names a component).
+ */
+function pluginsEntry(m) {
+  const requires = Array.isArray(m.plugins?.requires) ? m.plugins.requires : [];
+  const optional = Array.isArray(m.plugins?.optional) ? m.plugins.optional : [];
+  if (!requires.length && !optional.length) return {};
+  return { plugins: { ...(requires.length ? { requires: [...requires] } : {}), ...(optional.length ? { optional: [...optional] } : {}) } };
+}
+
+/** The pick list's `plugins` cell: `math; optional function-plot`, or empty. */
+function pluginsCell(m) {
+  const p = pluginsEntry(m).plugins;
+  if (!p) return '';
+  return [...(p.requires || []), ...(p.optional || []).map((n) => `optional ${n}`)].join('; ');
 }
 
 /**
@@ -1292,6 +1333,7 @@ function renderPickMd(manifests) {
       cell(escalate.join(', ')),
       cell((Array.isArray(m.tags) ? m.tags : []).join(' ')),
       cell(related.join(' ')),
+      cell(pluginsCell(m)),
       summarize(cell(m.purpose || m.description)),
     ];
   });
@@ -1301,7 +1343,7 @@ function renderPickMd(manifests) {
   const bucketRank = new Map(BUCKETS.map((b, i) => [b, i]));
   rows.sort((a, b) => (bucketRank.get(a[1]) ?? 99) - (bucketRank.get(b[1]) ?? 99) || a[0].localeCompare(b[0], 'en'));
 
-  const head = ['component', 'bucket', 'form/function/substance', 'capacity', 'by venue', 'escalates to', 'tags', 'see also', 'purpose'];
+  const head = ['component', 'bucket', 'form/function/substance', 'capacity', 'by venue', 'escalates to', 'tags', 'see also', 'plugins', 'purpose'];
   const table = [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...rows.map((r) => `| ${r.join(' | ')} |`)];
 
   return `# Component pick list
@@ -1326,6 +1368,10 @@ half telling you when NOT to use a component is deliberately not on this surface
 is in the component’s \`.docs.md\`, which HARD RULE #6 requires you to open before
 writing the slide anyway. Check the \`see also\` column before committing. A \`…\` marks
 a first sentence long enough to be cut as well.
+
+**The \`plugins\` column names the plugins a layout is designed around** (\`lib/plugins/\`):
+a bare name is one it needs — with that plugin switched off the slide renders a fallback and
+the render reports it — and \`optional x\` is one it uses when present. Empty for most rows.
 
 **\`capacity\`** is \`axis:sweet/soft/hard\` — the ideal count, the count past which it
 crowds, and the count past which it overflows. **Count your content before committing
@@ -1420,6 +1466,7 @@ module.exports = {
   renderGrammarJson,
   renderPickMd,
   capacityEntry,
+  pluginsEntry,
   resolvePalettes,
   listBasePalettes,
   paletteCss,

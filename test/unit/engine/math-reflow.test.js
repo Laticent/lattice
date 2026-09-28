@@ -73,13 +73,13 @@ describe('engine: the display-equation reflow seam', () => {
 
   test('BOTH of KaTeX\'s failure renderings are caught — only one of them carries a class', () => {
     // A ParseError becomes `<span class="katex-error">`; an UNDEFINED CONTROL SEQUENCE becomes
-    // `<span class="mord text" style="color:#cc0000">` with no error class anywhere. The seam
+    // `<span class="mord text" style="color:var(--warn)">` with no error class anywhere. The seam
     // tested `katex-error` alone and so adopted a render carrying a red literal `\Bigra` mid-
     // equation with the group's closing bracket gone.
     //
     // THE ARM THAT USED TO BE HERE COULD NOT FAIL, which is the same defect in a different place.
     // It asserted `bad(reflowed) === bad(original)` over three equations that all render CLEAN —
-    // `false === false` whatever the seam does. Deleting the `#cc0000` half of the guard survived
+    // `false === false` whatever the seam does. Deleting the error-color half of the guard survived
     // it, and so did `if (true)`: adopt every reflow, error or not. (HARD RULE #25 checker, final
     // pass, by mutation.)
     //
@@ -90,13 +90,13 @@ describe('engine: the display-equation reflow seam', () => {
     // REFUSAL TO CLAIM ONE: no `data-math-reflow`, so `math.styles.css` never applies the
     // multi-line scale to an equation that was not successfully broken.
     const sum = (p) => Array.from({ length: 20 }, (_, i) => `${p}_{${i}}`).join(' + ');
-    const bad = (html) => /katex-error/.test(html) || /color:#cc0000/.test(html);
+    const bad = (html) => /katex-error/.test(html) || /color:var\(--warn\)/.test(html);
 
     // 1. The undefined-command signal, which carries NO class. This is the arm that kills both
-    //    mutations: without the `#cc0000` half, or with the guard removed, the marker is written.
+    //    mutations: without the error-color half, or with the guard removed, the marker is written.
     const undef = `S = ${sum('a')} + \\Bigra{x} + ${sum('b')}`;
     const undefOn = render(undef, { reflow: true });
-    assert.match(undefOn, /color:#cc0000/, 'the fixture must actually render the red-literal form');
+    assert.match(undefOn, /color:var\(--warn\)/, 'the fixture must actually render the red-literal form');
     assert.doesNotMatch(undefOn, /katex-error/, 'and it must NOT carry the class, or it pins nothing');
     assert.doesNotMatch(undefOn, /data-math-reflow/,
       'a reflow that renders an undefined control sequence was marked as a successful break');

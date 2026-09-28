@@ -1,0 +1,19 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "anima",
+  "api": 1,
+  "title": "Anima scenes",
+  "description": "Carry an Anima scene spec (JSON) from an ```anima fence to the scene slide, which the docs site's Anima host animates on the HTML and present surfaces. The PDF keeps the authored poster.",
+  "contributes": {
+    "fences": {
+      "anima": { "body": "json" }
+    }
+  },
+  "render": {
+    "surfaces": { "engine": "placeholder", "preview": "figure", "pdf": "none", "player": "figure", "marp": "source" },
+    "parity": "progressive",
+    "degradesTo": "hidden"
+  }
+}

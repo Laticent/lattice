@@ -2131,7 +2131,7 @@ function ComposeStyles() {
 			.cs-code-chip:disabled{cursor:default;opacity:.75}
 			/* An engine sub-language is RENDERED, not colored — the chip says which register
 			   the fence is in before the author reads a token of it. */
-			.cs-host pre.cs-code[data-lang=mermaid] > .cs-code-chip,.cs-host pre.cs-code[data-lang=anima] > .cs-code-chip,.cs-host pre.cs-code[data-lang=functionplot] > .cs-code-chip,.cs-host pre.cs-code[data-lang=latticeplot] > .cs-code-chip{border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
+			.cs-host pre.cs-code[data-lang=mermaid] > .cs-code-chip,.cs-host pre.cs-code[data-lang=anima] > .cs-code-chip,.cs-host pre.cs-code[data-lang=functionplot] > .cs-code-chip,.cs-host pre.cs-code[data-lang=latticeplot] > .cs-code-chip,.cs-host pre.cs-code[data-lang=math] > .cs-code-chip{border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
 			/* HIGHLIGHTING — hljs token classes, painted by the decoration plugin from the
 			   ENGINE's own highlighter, so these are the slide's tokens and not a second
 			   opinion about what a keyword is.

@@ -10,7 +10,7 @@ const { fenceLanguages, looksLikeShellScript, normalizeInfo, SCRIPT_TAGS, SESSIO
 // WHAT A FENCE TAG IS HERE. Three different things wear the same syntax, and the
 // picker has to tell them apart because the author's intent differs completely:
 //
-//   1. An ENGINE SUB-LANGUAGE — `mermaid`, `anima`, `functionplot`. The fence body
+//   1. An ENGINE SUB-LANGUAGE — `mermaid`, `anima`, `functionplot`, `math`. The fence body
 //      is not code to be colored, it is a spec the engine RENDERS into a diagram, a
 //      scene or a plot. Two thirds of the fences we ship are one of these
 //      (142 `mermaid` of 214, censused at 651aa2b), which is why they lead the list.
@@ -43,8 +43,8 @@ export type FenceOption = {
 	 * Only an engine sub-language needs it, and each has a real answer: `mermaid` is
 	 * colored by Lattice's OWN highlight.js grammar
 	 * (`lib/integrations/mermaid/mermaid.hljs.js`, registered by `registerMermaidHljs`),
-	 * and `anima` / `functionplot` are JSON specs — `dist/docs/grammar.json` records
-	 * exactly that as each fence's `body`.
+	 * `anima` / `functionplot` are JSON specs and `math` is TeX — `dist/docs/grammar.json`
+	 * records exactly that as each fence's `body`.
 	 */
 	highlight?: string;
 };
@@ -61,11 +61,10 @@ export type HljsManifest = {
 /**
  * The engine's own fenced sub-languages.
  *
- * All three are registered as LFM fences in `dist/docs/grammar.json`
- * (`tools/build-docs-portal.js` § FENCES), each with the BODY grammar that colors it.
- * `anima` joined that registry after this catalog shipped: the engine recognized it
- * (`animaSceneFences` in lib/integrations/markdown-it/plugins.js) and `scene` read it,
- * but the registry did not list it, so the pin below had nothing to check for it.
+ * Every one is registered as an LFM fence in `dist/docs/grammar.json`, which
+ * `tools/build-docs-portal.js` derives from the plugin packages that render them
+ * (lib/plugins/; Mermaid is still a hand row there), each with the BODY grammar that
+ * colors it. The labels and notes are this picker's own words, so they stay here.
  *
  * `latticeFencesCovered` (below) pins that every tag the registry lists appears here,
  * and the body pin asserts the two sets are equal, so a fourth engine fence cannot
@@ -75,6 +74,7 @@ export const LATTICE_FENCES: readonly FenceOption[] = Object.freeze([
 	{ tag: 'mermaid', label: 'Diagram', highlight: 'mermaid', note: 'Mermaid — flowcharts, sequences, state charts. Pairs with `_class: diagram`.' },
 	{ tag: 'anima', label: 'Motion', highlight: 'json', note: 'An Anima scene spec (JSON). Pairs with `_class: scene`.' },
 	{ tag: 'functionplot', label: 'Plot', highlight: 'json', aliases: ['latticeplot'], note: 'A function-plot config (JSON). Pairs with `_class: math`.' },
+	{ tag: 'math', label: 'Equation', highlight: 'tex', note: 'Display math in TeX, typeset by KaTeX — the same as a `$$` block.' },
 ]);
 
 /** Deliberately uncolored. Offered, not implied — twelve shipped fences ask for it. */

@@ -24,7 +24,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { LEDGER, unmirroredEntries, fidelityNotes } = require('../../../lib/core/marp-fidelity');
+const { LEDGER, allEntries, pluginPackageRows, unmirroredEntries, fidelityNotes } = require('../../../lib/core/marp-fidelity');
 const { readme } = require('../../../lib/core/marp-bundle');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -67,7 +67,7 @@ describe('marp fidelity ledger — the classification is complete', () => {
   test('the plugin enumeration finds the real plugins (guard against a vacuous pass)', () => {
     const found = definedPlugins();
     assert.ok(found.length >= 12, `expected the plugin set; found ${found.length}`);
-    for (const known of ['headingSplit', 'matrixGridCells', 'glossaryRange', 'animaSceneFences']) {
+    for (const known of ['headingSplit', 'matrixGridCells', 'glossaryRange', 'orderedListStart']) {
       assert.ok(found.includes(known), `${known} should be recognized as a plugin`);
     }
   });
@@ -86,10 +86,30 @@ describe('marp fidelity ledger — the classification is complete', () => {
     assert.deepEqual(stale, [], 'these ledger entries outlived their plugin');
   });
 
+  // The plugin host's packages (lib/plugins/<name>/): a fence is a construct marp-core does not
+  // know, so every plugin that contributes one says what a Marp render does with it.
+  test('every plugin package that contributes a fence is classified, and no row outlives its package', () => {
+    const dir = path.join(ROOT, 'lib', 'plugins');
+    const manifests = fs.readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
+      .map((d) => JSON.parse(read(`lib/plugins/${d.name}/${d.name}.manifest.json`)));
+    assert.ok(manifests.some((m) => m.contributes.fences), 'expected at least one fence plugin (guard against a vacuous pass)');
+    const rows = new Set(allEntries().map((e) => e.package).filter(Boolean));
+    const missing = manifests.filter((m) => m.contributes.fences && !rows.has(m.name)).map((m) => m.name);
+    assert.deepEqual(missing, [], 'a fence plugin needs a lib/core/marp-fidelity.js `package` row, hand-written or derived');
+    // The shipped fence plugins carry hand rows (their notes were observed or reasoned); a derived
+    // row is for a plugin an author just scaffolded, so it must not stand in for one of these.
+    for (const shipped of ['function-plot', 'anima', 'math']) {
+      assert.ok(!pluginPackageRows().some((r) => r.package === shipped), `${shipped} fell back to a derived row — keep its hand row`);
+    }
+    const names = new Set(manifests.map((m) => m.name));
+    assert.deepEqual([...rows].filter((r) => !names.has(r)), [], 'these ledger rows outlived their plugin package');
+  });
+
   test('every entry is well formed', () => {
     for (const e of LEDGER) {
-      const id = e.plugin || e.topic;
-      assert.ok(id, `an entry needs a plugin or a topic: ${JSON.stringify(e)}`);
+      const id = e.plugin || e.topic || e.package;
+      assert.ok(id, `an entry needs a plugin, a package or a topic: ${JSON.stringify(e)}`);
       assert.ok(e.what, `${id} needs a "what" — the thing an author wrote`);
       assert.ok(COVERAGE.has(e.coverage), `${id} has an unknown coverage: ${e.coverage}`);
       if (e.coverage === 'unmirrored') assert.ok(e.note, `${id} is a gap and must say what happens instead`);
@@ -168,8 +188,8 @@ describe('marp fidelity ledger — the recipient is told', () => {
     const r = readme({ name: 'demo', palette: 'indaco', themes: ['lattice.css'], agent: false });
     assert.match(r, /### What Marp renders differently/);
     for (const e of unmirroredEntries()) {
-      assert.ok(r.includes(e.what), `the README omits the ${e.plugin || e.topic} gap`);
-      assert.ok(r.includes(e.note), `the README omits what happens instead for ${e.plugin || e.topic}`);
+      assert.ok(r.includes(e.what), `the README omits the ${e.plugin || e.topic || e.package} gap`);
+      assert.ok(r.includes(e.note), `the README omits what happens instead for ${e.plugin || e.topic || e.package}`);
     }
     // The table is generated, not transcribed — one row per gap, plus the header.
     assert.equal(fidelityNotes().length, unmirroredEntries().length + 2);

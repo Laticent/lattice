@@ -93,3 +93,33 @@ describe('the generated registries on a multi-plugin tree', () => {
     assert.deepEqual(PLUGIN_GRAMMAR.map((p) => p.name), ['a', 'b', 'c', 'e']);
   });
 });
+
+// The resolver's reserved-name arm is tested with a synthetic set; this proves the BUILD hands it
+// the real one (highlight.js's names), so a plugin that claims ```json fails `npm run build`.
+describe('the build refuses a fence a code language owns', () => {
+  test('a plugin claiming ```json fails the registry build, naming it', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-plugin-reserved-'));
+    try {
+      fs.cpSync(path.join(ROOT, 'lib/packages'), path.join(root, 'lib/packages'), { recursive: true });
+      fs.cpSync(path.join(ROOT, 'lib/theme'), path.join(root, 'lib/theme'), { recursive: true });
+      fs.mkdirSync(path.join(root, 'lib/components'), { recursive: true });
+      fs.copyFileSync(path.join(ROOT, 'lib/components/manifest.schema.json'), path.join(root, 'lib/components/manifest.schema.json'));
+      const dir = path.join(root, 'lib/plugins/jsonish');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'jsonish.manifest.json'), JSON.stringify({
+        type: 'plugin', format: 1, name: 'jsonish', api: 1, title: 'x', description: 'x',
+        contributes: { fences: { json: { body: 'json' } } },
+      }));
+      fs.writeFileSync(path.join(dir, 'jsonish.render.js'), "module.exports = { fences: { json: () => '' } };\n");
+      let stderr = '';
+      try {
+        execFileSync(process.execPath, [path.join(ROOT, 'tools/build-plugin-registry.js'), '--root', root, '--silent'], { stdio: 'pipe' });
+      } catch (e) {
+        stderr = String(e.stderr);
+      }
+      assert.match(stderr, /claims fence "json", which a code language already owns/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

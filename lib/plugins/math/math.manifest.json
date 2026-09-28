@@ -5,13 +5,18 @@
   "name": "math",
   "api": 1,
   "title": "Math",
-  "description": "Typeset TeX on any slide: $…$ inline and $$…$$ display, drawn by KaTeX at parse time. The math slide class is designed around it and declares it.",
+  "description": "Typeset TeX on any slide: $…$ inline, and $$…$$ or a ```math fence for display, drawn by KaTeX at parse time. The math slide class is designed around it and declares it.",
   "contributes": {
     "syntax": {
       "math_inline": { "kind": "inline", "anchor": { "after": "escape" }, "triggers": ["$"] },
       "math_block": { "kind": "block", "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true }
-    }
+    },
+    "fences": {
+      "math": { "body": "tex" }
+    },
+    "styles": true
   },
+  "tokens": ["--font-mono", "--radius-sm", "--warn"],
   "render": {
     "parity": "equivalent",
     "degradesTo": "source"

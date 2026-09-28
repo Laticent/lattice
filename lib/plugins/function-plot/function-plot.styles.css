@@ -1,0 +1,69 @@
+/* lib/plugins/function-plot/function-plot.styles.css — function-plot's own theming.
+ *
+ * Moved here from the math component (engineering/decisions/2026-09-27-plugin-system.md §6):
+ * a plot renders on any slide, so its paint belongs to the plugin, and the math component no
+ * longer names it. How BIG a plot is stays with whatever layout holds it — the math `canvas`
+ * stage sizes any hydrated figure through the host's `[data-lattice-hydrate]` marker.
+ *
+ * function-plot stamps inline `stroke="..."` attributes on its trace paths (`.line-0`,
+ * `.line-1`, …) and axis chrome (`stroke="black"` on `.domain`, `fill="currentColor"` on tick
+ * text). An inline presentation attribute loses to any stylesheet rule, but the library also
+ * writes some as inline STYLE, so the overrides carry !important. The first three traces ride
+ * the editorial accents (accent → cool → warm); further traces fall back to muted so they read
+ * as supporting context. */
+section .functionplot .function-plot {
+  font-family: var(--font-mono);
+  color: var(--text-body);
+  background: transparent;
+}
+section .functionplot .function-plot .domain {
+  stroke: var(--muted-mark) !important;
+  opacity: 0.6 !important;
+}
+section .functionplot .function-plot .tick line {
+  stroke: var(--border) !important;
+}
+section .functionplot .function-plot .tick text {
+  fill: var(--text-muted) !important;
+  font-size: var(--fs-meta);
+}
+section .functionplot .function-plot .axis-label,
+section .functionplot .function-plot .x.axis-label,
+section .functionplot .function-plot .y.axis-label {
+  fill: var(--text-heading) !important;
+  font-family: var(--font-body);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+}
+section .functionplot .function-plot .line-0 {
+  stroke: var(--accent) !important;
+  stroke-width: 2.5 !important;
+}
+section .functionplot .function-plot .line-1 {
+  stroke: var(--cat-4-mark, var(--text-heading)) !important;
+  stroke-width: 2.5 !important;
+}
+section .functionplot .function-plot .line-2 {
+  stroke: var(--cat-7-mark, var(--muted-mark)) !important;
+  stroke-width: 2.5 !important;
+}
+section .functionplot .function-plot :is(.line-3, .line-4, .line-5) {
+  stroke: var(--muted-mark) !important;
+  stroke-width: 2 !important;
+}
+section .functionplot .function-plot .annotations .annotation,
+section .functionplot .function-plot .annotations text {
+  fill: var(--text-muted) !important;
+  stroke: var(--text-muted) !important;
+}
+/* A config the library rejected. The message quotes the author's source, so ligatures are off:
+ * `->` or `!=` in a formula must read as typed. */
+section .functionplot-error {
+  color: var(--warn);
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-size: var(--fs-meta);
+  padding: var(--sp-sm);
+  border: 1px dashed var(--warn);
+  border-radius: var(--radius-sm);
+}

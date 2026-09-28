@@ -1,0 +1,20 @@
+/* lib/plugins/math/math.styles.css — the math plugin's one designed surface: a formula KaTeX
+ * could not parse.
+ *
+ * KaTeX renders a ParseError as `<span class="katex-error" title="ParseError: …">` holding the
+ * author's source, with its color INLINE — `color:var(--warn)`, because math.render.js passes that
+ * as KaTeX's `errorColor` (an inline style beats any rule here, so the color is set there, not
+ * here). This rule gives it the shape of an error surface on every slide, not only on a `math`
+ * slide: math is a plugin, and `$…$` typesets anywhere.
+ *
+ * It replaces `.math-error` in the math component, a rule no code ever emitted: the designed
+ * surface existed, and every real error rendered without it. Ligatures off — the surface quotes
+ * the author's own TeX back at them, and the quote must be retypeable (see base.elements.css). */
+section .katex-error {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-size: 0.85em;
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  padding: 0.1em 0.4em;
+  border-radius: var(--radius-sm);
+}

@@ -14,7 +14,7 @@ const MANIFEST: HljsManifest = {
 
 describe('the Lattice group', () => {
 	it('carries every engine sub-language, and each one is named for what it draws', () => {
-		expect(LATTICE_FENCES.map((f) => f.tag)).toEqual(['mermaid', 'anima', 'functionplot']);
+		expect(LATTICE_FENCES.map((f) => f.tag)).toEqual(['mermaid', 'anima', 'functionplot', 'math']);
 		for (const f of LATTICE_FENCES) {
 			expect(f.label).toBeTruthy();
 			expect(f.highlight, `${f.tag} must declare the grammar that colors it`).toBeTruthy();
@@ -140,7 +140,7 @@ describe('the picker model', () => {
 
 	it('survives a manifest that has not loaded', () => {
 		const groups = fenceGroups({ source: DECK, manifest: null });
-		expect(groups.find((g) => g.key === 'lattice')?.options.length).toBe(3);
+		expect(groups.find((g) => g.key === 'lattice')?.options.length).toBe(LATTICE_FENCES.length);
 		expect(groups.find((g) => g.key === 'all')?.options).toEqual([PLAIN_FENCE]);
 	});
 });

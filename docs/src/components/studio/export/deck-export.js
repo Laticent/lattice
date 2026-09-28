@@ -36,6 +36,7 @@ import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capa
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
+import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
@@ -524,10 +525,11 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } = {}) {
 	const UNTAGGED = ':is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"]:not(.language-mermaid-source)';
 	const TAGGED = ':is(pre, marp-pre)[data-mermaid-state]';
-	// A ```functionplot placeholder the runtime has neither drawn (`data-fp-inflated`) nor
-	// released (`data-fp-state`). The runtime loads function-plot.js on demand in this frame
-	// (lib/runtime/index.js `ensureFunctionPlot`), so the curve streams in async like a diagram.
-	const PLOT = 'div.functionplot[data-fp-config]:not([data-fp-inflated]):not([data-fp-state])';
+	// A plugin figure (```functionplot, …) the runtime has not settled yet — the plugin host's
+	// one marker for every plugin, written `pending` by the engine, so no plugin is named here
+	// (lib/plugins/host-browser.mjs). The runtime loads a plot's library on demand in this frame,
+	// so the figure streams in async like a diagram.
+	const PLOT = PENDING_FIGURES;
 	if (!doc.querySelector(`${UNTAGGED}, ${TAGGED}, .mermaid, ${PLOT}`)) return 0;
 
 	/**
@@ -571,19 +573,11 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
 	// in the frame would cap the bake at the frame's 4000 and strand a diagram that was still
 	// going to draw. Waiting is idempotent; releasing is not.
 	if (!release) return stranded.length + strandedPlots.length;
-	// A plot still waiting on its library ships the author's config, not an empty stage, and the
-	// same `unavailable` the runtime writes when the load fails.
-	for (const div of strandedPlots) {
-		div.setAttribute('data-fp-state', 'unavailable');
-		// FINAL, for the reason `data-mermaid-final` is below: a late library load would
-		// otherwise clear this text and draw, after the capture decided what it was baking.
-		div.setAttribute('data-fp-final', '');
-		try {
-			div.textContent = base64Utf8.fromBase64(div.getAttribute('data-fp-config') || '');
-		} catch {
-			/* keep it empty */
-		}
-	}
+	// A figure still waiting on its library ships the author's source, not an empty stage, and
+	// the same `unavailable` the runtime writes when the load fails — and FINAL, for the reason
+	// `data-mermaid-final` is below: a late library load would otherwise clear this text and draw,
+	// after the capture decided what it was baking. The plugin host's own release (one source).
+	for (const div of strandedPlots) releaseFigure(div, base64Utf8.fromBase64, true);
 	for (const pre of stranded) {
 		// `unavailable` rather than `error`: nothing about this fence is known to be wrong. It
 		// ran out of time, which is what the state means everywhere else it is set.

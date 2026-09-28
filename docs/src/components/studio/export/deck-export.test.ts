@@ -143,31 +143,33 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 
 	// ```functionplot placeholders stream in the same way now: the runtime loads function-plot.js
 	// on demand in the capture frame, so a plot the capture does not wait for bakes as an empty
-	// stage. Config is `{"data":[{"fn":"x"}],"yAxis":{"label":"x²"}}`, UTF-8 base64.
+	// stage. Config is `{"data":[{"fn":"x"}],"yAxis":{"label":"x²"}}`, UTF-8 base64. The markup is
+	// what the engine emits (lib/plugins/host.js `hydrateAttrs`).
 	const FP = 'eyJkYXRhIjpbeyJmbiI6IngifV0sInlBeGlzIjp7ImxhYmVsIjoieMKyIn19';
+	const plot = (settle = 'pending', extra = '') =>
+		`<div class="functionplot" data-lattice-hydrate="function-plot" data-lattice-config="${FP}" data-lattice-settle="${settle}" ${extra}></div>`;
 	it('waits for an un-drawn function plot, and releases it to its config at the budget', async () => {
-		const doc = frag(`<div class="functionplot" data-fp-config="${FP}"></div>`);
-		expect(await returned(doc)).toBe('at-budget');
-		const doc2 = frag(`<div class="functionplot" data-fp-config="${FP}"></div>`);
+		expect(await returned(frag(plot()))).toBe('at-budget');
+		const doc2 = frag(plot());
 		expect(await waitForDiagrams(doc2, BUDGET)).toBe(1);
 		const div = doc2.querySelector('.functionplot');
-		expect(div?.getAttribute('data-fp-state')).toBe('unavailable');
+		expect(div?.getAttribute('data-lattice-settle')).toBe('unavailable');
 		// Final, so a late library load cannot draw over what the capture decided to bake.
-		expect(div?.hasAttribute('data-fp-final')).toBe(true);
+		expect(div?.hasAttribute('data-lattice-final')).toBe(true);
 		// The author's config, decoded as UTF-8 rather than one char per byte.
 		expect(div?.textContent).toContain('"label":"x²"');
 	});
 
-	it('does not wait for a function plot the runtime drew, errored or released', async () => {
-		for (const attr of ['data-fp-inflated="1"', 'data-fp-inflated="error"', 'data-fp-state="unavailable"']) {
-			expect(await returned(frag(`<div class="functionplot" data-fp-config="${FP}" ${attr}></div>`))).toBe('early');
+	it('does not wait for a function plot the runtime drew, errored, released or closed', async () => {
+		for (const html of [plot('rendered'), plot('error'), plot('unavailable'), plot('pending', 'data-lattice-final')]) {
+			expect(await returned(frag(html))).toBe('early');
 		}
 	});
 
 	it('leaves a stranded function plot alone when the caller will wait again', async () => {
-		const doc = frag(`<div class="functionplot" data-fp-config="${FP}"></div>`);
+		const doc = frag(plot());
 		expect(await waitForDiagrams(doc, BUDGET, { release: false })).toBe(1);
-		expect(doc.querySelector('.functionplot')?.hasAttribute('data-fp-state')).toBe(false);
+		expect(doc.querySelector('.functionplot')?.getAttribute('data-lattice-settle')).toBe('pending');
 	});
 
 	it('RELEASES a fence still un-settled at the budget, so it bakes as source not as a blank', async () => {

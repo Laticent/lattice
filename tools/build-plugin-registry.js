@@ -16,6 +16,11 @@
  *                                        a few named imports and a straight-line installer
  *                                        rather than the generic host and every plugin's data.
  *                                        test/unit/plugins/resolve.test.js holds it to the host.
+ *   lib/plugins/hydrate.generated.js    CommonJS. Each plugin's browser half (`<name>.hydrate.js`)
+ *                                        and the library it waits for — what the runtime bundles
+ *                                        and lib/plugins/hydrate-script.js serializes for the CLI.
+ *   lib/plugins/styles.generated.js     CommonJS. The plugins' stylesheets, in dependency order,
+ *                                        for tools/build-css.js's plugin slot.
  *
  * GENERATED, NOT SCANNED AT RUN TIME, for the reason the chart registry is: a bundler cannot
  * follow `require(templateLiteral)`, and the runtime should pay nothing to find its plugins. Both
@@ -47,6 +52,8 @@ const PLUGINS_DIR = path.join(ROOT, 'lib', 'plugins');
 const GRAMMAR_FILE = path.join(PLUGINS_DIR, 'grammar.generated.mjs');
 const REGISTRY_FILE = path.join(PLUGINS_DIR, 'registry.generated.js');
 const BLOCKS_FILE = path.join(PLUGINS_DIR, 'blocks.generated.mjs');
+const HYDRATE_FILE = path.join(PLUGINS_DIR, 'hydrate.generated.js');
+const STYLES_FILE = path.join(PLUGINS_DIR, 'styles.generated.js');
 
 /** Every `lib/plugins/<folder>/` holding a `*.manifest.json`, `_`-prefixed folders skipped. */
 function listPlugins() {
@@ -87,8 +94,50 @@ async function readExports(folder, name, manifest) {
     const mod = require(renderPath);
     out.hasRender = true;
     out.renderers = Object.keys(mod.renderers || {});
+    out.fences = Object.keys(mod.fences || {});
+  }
+  const hydratePath = path.join(dir, `${name}.hydrate.js`);
+  if (fs.existsSync(hydratePath)) {
+    const { hydrate } = require(hydratePath);
+    out.hasHydrate = typeof hydrate === 'function';
+    out.hydrateSource = fs.readFileSync(hydratePath, 'utf8');
+    // What the module holds OUTSIDE the hydrate function: its own source text (which is exactly
+    // what the CLI page receives, serialized) cut out, then comments and the one export statement.
+    // Anything left — a module-level const, a helper — is a free identifier on the CLI page, where
+    // it throws "is not defined" and the PDF prints the error instead of the figure while the
+    // runtime draws fine (the HARD RULE #25 inversion lens reproduced exactly that).
+    if (out.hasHydrate) {
+      out.hydrateModuleScope = out.hydrateSource
+        .replace(hydrate.toString(), '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '')
+        .replace(/module\.exports\s*=\s*\{\s*hydrate\s*\};?/, '')
+        .replace(/(['"])use strict\1;?/, '')
+        .trim();
+    }
+  }
+  const stylesPath = path.join(dir, `${name}.styles.css`);
+  if (fs.existsSync(stylesPath)) {
+    out.hasStyles = true;
+    out.stylesSource = fs.readFileSync(stylesPath, 'utf8');
   }
   return out;
+}
+
+/**
+ * The fence names a plugin may NOT claim, because a code language already owns them: every
+ * highlight.js language name and alias (claiming `json`, `tex` or `graph` would hijack every code
+ * block in that language), plus the names the engine itself renders before any plugin exists.
+ * Read from the installed highlight.js, so an upgrade that adds a language reserves it.
+ */
+function reservedFenceNames() {
+  const hljs = require('highlight.js');
+  const names = new Set(['mermaid']);
+  for (const lang of hljs.listLanguages()) {
+    names.add(lang);
+    for (const alias of hljs.getLanguage(lang)?.aliases || []) names.add(alias);
+  }
+  return names;
 }
 
 /**
@@ -119,6 +168,15 @@ function componentsWithPlugins(listed, exportsByName) {
       }
       return { name: p.manifest.name, md, tokens: new Set(Object.keys(syntax)) };
     });
+  // A plugin's FENCES count as use too: a fence token whose name (or alias) the plugin declares.
+  const fenceOwners = new Map();
+  for (const p of listed) {
+    for (const [fence, decl] of Object.entries(p.manifest.contributes?.fences || {})) {
+      fenceOwners.set(fence, p.manifest.name);
+      for (const a of decl.aliases || []) fenceOwners.set(a.name, p.manifest.name);
+    }
+  }
+  const plain = new MarkdownIt('commonmark', { html: true });
   const uses = (src) => {
     const found = [];
     for (const { name, md, tokens } of parsers) {
@@ -131,6 +189,10 @@ function componentsWithPlugins(listed, exportsByName) {
       };
       walk(md.parse(src, {}));
       if (hit) found.push(name);
+    }
+    for (const t of plain.parse(src, {})) {
+      const owner = t.type === 'fence' && fenceOwners.get((t.info || '').trim().split(/\s+/, 1)[0]);
+      if (owner && !found.includes(owner)) found.push(owner);
     }
     return found;
   };
@@ -182,6 +244,10 @@ function renderGrammar(ordered, exportsByName) {
       ];
       return `      ${token}: Object.freeze({ ${fields.join(', ')} }),`;
     });
+    const fences = Object.entries(m.contributes.fences || {}).map(([fence, decl]) => {
+      const aliases = (decl.aliases || []).map((a) => `Object.freeze({ name: ${JSON.stringify(a.name)}, deprecated: ${a.deprecated === true} })`);
+      return `      ${JSON.stringify(fence)}: Object.freeze({ body: ${JSON.stringify(decl.body)}, aliases: Object.freeze([${aliases.join(', ')}]) }),`;
+    });
     return [
       '  Object.freeze({',
       `    name: ${JSON.stringify(m.name)},`,
@@ -190,6 +256,8 @@ function renderGrammar(ordered, exportsByName) {
       `    degradesTo: ${JSON.stringify(m.render?.degradesTo || 'source')},`,
       `    diagnostics: Object.freeze(${JSON.stringify(m.contributes.diagnostics || {})}),`,
       `    syntax: Object.freeze({${syntax.length ? `\n${syntax.join('\n')}\n    ` : ''}}),`,
+      `    fences: Object.freeze({${fences.length ? `\n${fences.join('\n')}\n    ` : ''}}),`,
+      `    hydrate: ${m.contributes.hydrate ? 'true' : 'false'},`,
       `    detect: ${mod && exportsByName.get(p.manifest.name).detect ? `${mod}__detect` : 'null'},`,
       '  }),',
     ].join('\n');
@@ -234,19 +302,58 @@ export const OPAQUE_BLOCK_TOKENS = Object.freeze(${JSON.stringify(opaque)});
 `;
 }
 
+/**
+ * The browser halves, in dependency order: what the runtime bundle requires and what
+ * lib/plugins/hydrate-script.js serializes for the CLI export page. Requires only the hydrate
+ * modules — never a renderer, whose library (KaTeX) the runtime must not carry.
+ */
+function renderHydrate(ordered) {
+  const lines = ordered.filter((p) => p.manifest.contributes.hydrate).map((p) => {
+    const m = p.manifest;
+    const [payload] = Object.values(m.payload || {});
+    const fields = [
+      `name: ${JSON.stringify(m.name)}`,
+      `hydrate: require('./${p.folder}/${m.name}.hydrate.js').hydrate`,
+      `budgetMs: ${m.contributes.hydrate.budgetMs || 4000}`,
+      `payload: ${payload ? `Object.freeze({ from: ${JSON.stringify(payload.from)}, file: ${JSON.stringify(payload.from.split('/').pop())}, global: ${JSON.stringify(payload.global)} })` : 'null'}`,
+    ];
+    return `  Object.freeze({ ${fields.join(', ')} }),`;
+  });
+  return `${HEADER('The plugins\' BROWSER halves, in dependency order: each hydrate function and the library it waits for.')}
+const HYDRATORS = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
+
+module.exports = { HYDRATORS };
+`;
+}
+
+/**
+ * The plugins' stylesheets, in dependency order: what tools/build-css.js bundles into the plugin
+ * slot of dist/lattice.css. Paths from the repo root, as build-css lists every other source.
+ */
+function renderStyles(ordered) {
+  const files = ordered.filter((p) => p.manifest.contributes.styles).map((p) => `lib/plugins/${p.folder}/${p.manifest.name}.styles.css`);
+  return `${HEADER('The plugins\' stylesheets, in dependency order, for tools/build-css.js.')}
+module.exports = { PLUGIN_STYLE_SOURCES: Object.freeze(${JSON.stringify(files)}) };
+`;
+}
+
 function renderRegistry(ordered, exportsByName, components) {
   const lines = ordered.map((p) => {
     const hasRender = exportsByName.get(p.manifest.name).hasRender;
-    return `  ${JSON.stringify(p.manifest.name)}: ${hasRender ? `require('./${p.folder}/${p.manifest.name}.render.js').renderers` : 'Object.freeze({})'},`;
+    return `  ${JSON.stringify(p.manifest.name)}: ${hasRender ? `require('./${p.folder}/${p.manifest.name}.render.js')` : 'Object.freeze({})'},`;
   });
   return `${HEADER('The plugins the engine installs, in dependency order: the grammar plus each plugin\'s renderers.')}
 const { PLUGIN_GRAMMAR } = require('./grammar.generated.mjs');
 
-const RENDERERS = {
+const RENDER_MODULES = {
 ${lines.join('\n')}
 };
 
-const PLUGINS = Object.freeze(PLUGIN_GRAMMAR.map((g) => Object.freeze({ ...g, renderers: RENDERERS[g.name] })));
+const PLUGINS = Object.freeze(PLUGIN_GRAMMAR.map((g) => Object.freeze({
+  ...g,
+  renderers: RENDER_MODULES[g.name].renderers || Object.freeze({}),
+  fenceRenderers: RENDER_MODULES[g.name].fences || Object.freeze({}),
+})));
 
 // In-tree components that REQUIRE a plugin, keyed by component name — which is the slide class an
 // author writes (\`_class: math\`). The engine reads it to report a slide whose required plugin is
@@ -264,7 +371,7 @@ async function build() {
   const components = componentsWithPlugins(listed, exportsByName);
   const { errors, order } = resolvePlugins(
     listed.map((p) => ({ manifest: p.manifest, folder: p.folder, exports: exportsByName.get(p.manifest.name) })),
-    { components },
+    { components, reservedFences: reservedFenceNames() },
   );
   if (errors.length) return { errors };
   const byName = new Map(listed.map((p) => [p.manifest.name, p]));
@@ -276,6 +383,8 @@ async function build() {
       [GRAMMAR_FILE, renderGrammar(ordered, exportsByName)],
       [REGISTRY_FILE, renderRegistry(ordered, exportsByName, components)],
       [BLOCKS_FILE, renderBlocks(ordered)],
+      [HYDRATE_FILE, renderHydrate(ordered)],
+      [STYLES_FILE, renderStyles(ordered)],
     ],
   };
 }
@@ -295,7 +404,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,styles}.generated.*\n`);
 }
 
 if (require.main === module) {
@@ -305,4 +414,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { build };
+module.exports = { build, reservedFenceNames };

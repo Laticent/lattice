@@ -109,18 +109,11 @@ const pkgVersion = () => {
 let katexCssAbsPath = '';
 try { katexCssAbsPath = require.resolve('katex/dist/katex.min.css'); } catch (_e) { /* no css link emitted */ }
 
-// ── function-plot (math function plotting in math.canvas) ─────────────────
-// ```functionplot fences (alias: the deprecated ```latticeplot) carry a JSON
-// function-plot config; the build emits a `<div class="functionplot"
-// data-fp-config="…">` placeholder that the vendored function-plot UMD bundle
-// inflates to an SVG on page load — same
-// pre-render-then-PDF flow puppeteer uses for the rest of the deck. The
-// library is purpose-built for y=f(x), parametric, polar, implicit, and
-// vector-field plots; it parses math.js expressions and skips asymptotes
-// cleanly. The export bundle's Marp render and the browser runtime
-// (lattice-runtime.js) load the same bundle for path parity.
-let functionPlotJsAbsPath = '';
-try { functionPlotJsAbsPath = require.resolve('function-plot/dist/function-plot.js'); } catch (_e) { /* no script emitted */ }
+// ── Plugins with a browser half (function-plot, …) ───────────────────────
+// A plugin that draws in the browser (lib/plugins/<name>/<name>.hydrate.js) reaches this page as
+// ONE inline script serialized from the same functions the runtime bundles
+// (lib/plugins/hydrate-script.js), plus its library as a `<script src>` resolved from the npm
+// dependency its manifest names. Emitted only for the plugins a deck uses.
 
 // ── Help / version (handled before positional parsing) ─────────────────────
 function listAvailablePalettes() {
@@ -991,8 +984,7 @@ const { GUARDS_ENABLED_SRC } = require('./lib/core/resolve-guards');
 // 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
 const { SPLIT_VERDICT_SRC } = require('./lib/core/split-verdict');
 const { deckSlideSections, DECK_SLIDES_SRC } = require('./lib/core/deck-slides');
-const { fromBase64: fromBase64Utf8 } = require('./lib/core/base64-utf8');
-const { FIT_FUNCTION_PLOT_SRC } = require('./lib/core/function-plot-viewbox');
+const { usedHydrators, hydrateScript, settleBarrierScript, settleBudget, payloadPath } = require('./lib/plugins/hydrate-script');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { EQUALIZE_CARD_TAGS_SRC } = require('./lib/core/card-tag-equalize');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
@@ -2974,50 +2966,28 @@ const katexCssLink = katexCssAbsPath
   ? `<link rel="stylesheet" href="file://${katexCssAbsPath}">`
   : '';
 
-// ── function-plot script + bootstrap ──────────────────────────────────────
-// Only emitted if at least one slide actually contains a functionplot block,
-// so decks that don't use it pay nothing. The bootstrap runs synchronously
-// on DOMContentLoaded, which any navigation wait already covers: the <script src>
-// above is parser-blocking, so `window.functionPlot` exists by DOMContentLoaded, and
-// `inflate()` is synchronous d3 with no fetch of its own. The render navigates with
-// `waitUntil: 'load'`, which fires strictly after DOMContentLoaded. (This comment used
-// to credit `networkidle0`; that was true but stronger than the facts — DOMContentLoaded
-// already precedes `load`, so the extra idle wait was never what covered this.)
-const hasFunctionPlot = highlightedSlides.some(s => s.includes('class="functionplot"'));
-const functionPlotScript = (hasFunctionPlot && functionPlotJsAbsPath)
-  ? `<script ${ENGINE_SCRIPT_ATTR} src="file://${functionPlotJsAbsPath}"></script>
-${ENGINE_SCRIPT_OPEN}
-(function(){
-  // UTF-8, not a bare atob: the runtime's decoder, injected verbatim (lib/core/base64-utf8.js).
-  var fromBase64 = ${fromBase64Utf8.toString()};
-  // A viewBox on the drawn SVG, so a reading article can scale it (lib/core/function-plot-viewbox.js).
-  var fitFunctionPlotSvg = ${FIT_FUNCTION_PLOT_SRC};
-  function inflate() {
-    if (typeof window.functionPlot !== 'function') return;
-    document.querySelectorAll('div.functionplot[data-fp-config]').forEach(function(div){
-      if (div.dataset.fpInflated === '1') return;
-      try {
-        var cfg = JSON.parse(fromBase64(div.getAttribute('data-fp-config')));
-        var rect = div.getBoundingClientRect();
-        cfg.target = div;
-        cfg.width  = cfg.width  || Math.round(rect.width)  || 480;
-        cfg.height = cfg.height || Math.round(rect.height) || 320;
-        // Disable hover tip in static PDF — it only adds DOM mass.
-        if (!cfg.tip) cfg.tip = { renderer: function(){} };
-        window.functionPlot(cfg);
-        fitFunctionPlotSvg(div);
-        div.dataset.fpInflated = '1';
-      } catch (e) {
-        div.textContent = 'functionplot error: ' + e.message;
-        div.classList.add('functionplot-error');
-      }
-    });
+// ── plugin hydrate: library + host ────────────────────────────────────────
+// Only for the plugins a slide actually uses (the engine's `data-lattice-hydrate` marker), so a
+// deck without a plot pays nothing. Each library tag is parser-blocking, so its global exists by
+// DOMContentLoaded, when the host runs. A hydrate need not be synchronous any more: every capture
+// below waits on the settle barrier (`awaitPluginFigures`) — no `[data-lattice-settle="pending"]`
+// left — rather than trusting that the draw finished before `load`.
+const pagePlugins = usedHydrators(highlightedSlides);
+const hasHydratedPlugins = pagePlugins.length > 0;
+// A used plugin whose library is not installed draws NOTHING: the host settles every placeholder
+// `unavailable` with its config shown, and nothing is left pending for the barrier to warn about.
+// So say it here, once per plugin, rather than ship a page of JSON silently (HARD RULE #25
+// inversion lens: phase F moves these libraries to optionalDependencies, where this is common).
+for (const h of pagePlugins) {
+  if (h.payload && !payloadPath(h) && !QUIET) {
+    console.warn(`  ⚠ ${h.name}: its library (${h.payload.from.replace(/^npm:/, '')}) is not installed — its figures export showing their source. npm install restores it.`);
   }
-  if (document.readyState === 'loading')
-    document.addEventListener('DOMContentLoaded', inflate);
-  else inflate();
-})();
-</script>`
+}
+const pluginHydrateScript = hasHydratedPlugins
+  ? [
+      ...pagePlugins.map(payloadPath).filter(Boolean).map((abs) => `<script ${ENGINE_SCRIPT_ATTR} src="file://${abs}"></script>`),
+      `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins)}\n</script>`,
+    ].join('\n')
   : '';
 
 // ── state-chart browser-measured layout bootstrap ─────────────────────────
@@ -3223,7 +3193,7 @@ ${a11yTextureDefs}
 <main id="deck" tabindex="-1">
 ${slidesWithMeta2}
 </main>
-${functionPlotScript}
+${pluginHydrateScript}
 ${stateChartScript}
 ${flowchartScript}
 ${ENGINE_SCRIPT_OPEN}
@@ -3645,6 +3615,19 @@ async function renderBody(browser, g, closeBrowser) {
     ? g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document)`), `equalize card tags${label}`)
     : Promise.resolve(0));
 
+  // THE SETTLE BARRIER (lib/plugins/hydrate-script.js). A plugin figure drawn in the browser is
+  // captured only once no placeholder reads `data-lattice-settle="pending"`. This used to hold by
+  // TIMING: function-plot's inflater was synchronous and ran before `load`, so the navigation wait
+  // covered it — true of that one library, and of nothing the plugin contract promises. A plugin
+  // that stays pending past the budget is closed with its source shown, and said so.
+  const awaitPluginFigures = async (label) => {
+    if (!hasHydratedPlugins) return;
+    const closed = await g(() => page.evaluate(settleBarrierScript(settleBudget(pagePlugins))), `settle plugin figures${label}`);
+    if (closed && !QUIET) {
+      console.warn(`  ⚠ ${closed} plugin figure(s) did not draw within ${settleBudget(pagePlugins)}ms — exported showing their source.`);
+    }
+  };
+
   // `load`, not `networkidle0`. The two are not a correctness/speed trade here: `load`
   // already waits for every resource kind this document actually contains, and the
   // document issues nothing after it. Both halves are measured, not inferred — the
@@ -3722,6 +3705,7 @@ async function renderBody(browser, g, closeBrowser) {
     } catch (_e) { /* fonts API unavailable — proceed with whatever loaded */ }
   }), 'load fonts');
   await settleDeferredMedia('');
+  await awaitPluginFigures('');
   // The self-contained player's DOM is captured further down, immediately after the
   // overflow-marker level is applied — see "Bake the player's DOM" below. Declared
   // here only because the autosplit loop between here and there may re-render the
@@ -3881,6 +3865,7 @@ async function renderBody(browser, g, closeBrowser) {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
       }), 'load fonts (autosplit)');
       await settleDeferredMedia(' (autosplit)');
+      await awaitPluginFigures(' (autosplit)');
       if (!QUIET) console.log(`  auto-split (structural): ${r.changed} slide(s) split to one element per page`);
     }
     // The two RUN-LEVEL adornments — the k-of-N progress rail, and the carousel signal every
@@ -3906,6 +3891,7 @@ async function renderBody(browser, g, closeBrowser) {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
       }), 'load fonts (rails)');
       await settleDeferredMedia(' (rails)');
+      await awaitPluginFigures(' (rails)');
     }
   }
   // MEASURE FIT — after the split, and for the RING only. Nothing downstream of here changes
@@ -4340,7 +4326,7 @@ async function renderBody(browser, g, closeBrowser) {
   // gated on `PLAYER` alone.
   if (PLAYER || READ_VIEW) {
     try {
-      if (hasStateChart || hasFunctionPlot || hasFlowchart) {
+      if (hasStateChart || hasHydratedPlugins || hasFlowchart) {
         // Through the render guard like every other page call in this file: a CDP
         // response that never arrives would otherwise hang to the outer CI timeout
         // instead of failing fast into the hardened retry (lib/engine/render-guard.js).
@@ -4348,6 +4334,7 @@ async function renderBody(browser, g, closeBrowser) {
         // decks; this one runs for EVERY --player render, on the largest DOMs the
         // tool serializes, so the unguarded window is no longer narrow.
         await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 200))), 'player capture: settle inflaters');
+        await awaitPluginFigures(' (player capture)');
       }
       // Bake every Mermaid diagram into a SELF-STYLED svg with native <text> labels
       // before the clone. The player sanitizes its slide DOM, and that sanitizer bars
@@ -5142,7 +5129,7 @@ async function renderBody(browser, g, closeBrowser) {
           console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
         }
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
-        if (inflatedDocHtml && (hasStateChart || hasFunctionPlot || hasFlowchart)) console.log('  baked dynamic components (state-chart / flowchart / function-plot) to static SVG');
+        if (inflatedDocHtml && (hasStateChart || hasHydratedPlugins || hasFlowchart)) console.log('  baked dynamic components (state-chart / flowchart / plugin figures) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
         for (const n of pruneNotes) console.log(n);
       }
