@@ -850,6 +850,31 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Pinned by:** the probe arms in `test/unit/transformers/image-adaptive.test.js` and
   the "adaptive image probes" arms in `test/unit/core/preview-font-gate.test.js`.
 
+## A light video poster flashes in on a dark slide in the preview
+
+- **Symptom:** on a dark `video` slide, a light poster steps from the dark tile to light
+  when it lands, a beat after the slide appears. Measured in the Studio (WebKit, iPhone
+  profile, poster held 2 s): tile luminance 26 to 234 between two frames.
+- **Cause:** the poster is the anchor's own inline `background-image`, painted over the
+  tile's surface (`--bg-alt`, #2412). On a dark slide that surface is dark, so no tile
+  color avoids the step.
+- **Fix:** in a live preview only (`__latticeFontsSettled` is a boolean, the same key
+  `image-adaptive.js` uses), `lib/transformers/video.js` probes each poster. One the
+  browser already holds paints at once. Otherwise the anchor gets `data-poster-pending`:
+  `video.styles.css` takes the image off the anchor and draws it on the anchor's
+  `::before` (`--video-poster`, set by the runtime), transparent, under the play badge
+  and label. Once it has decoded, `"in"` fades the layer up over 280ms, and after the fade
+  the anchor paints the same image again. A poster that fails or hangs (8 s) is handed
+  back to the anchor. After: 26, 89, 167, 212, 234 across ~220ms; a cached poster reads
+  234 from the first frame. The CLI, the export captures and the players have no gate and
+  are unchanged.
+- **Also on this path:** a WEB poster could not be loaded in the Studio at all. The
+  pre-check that decides whether to scan a deck for web images (`web-image-hint.ts`) did
+  not recognize the `` `poster` `` bullet, so the strip that offers "Load" never appeared
+  and the poster stayed a hatched tile. It now matches `- <web url> `` `poster` ``.
+- **Pinned by:** the "video poster fade (runtime)" arms in
+  `test/unit/transformers/video.test.js`, and `web-image-hint.test.ts`.
+
 ## A slide's heading jumps into place just after a slide change in the preview
 
 - **Symptom:** on each slide change in the Studio preview, the text paints in one spot

@@ -1,2 +1,4 @@
 - A stats or kpi slide's line typed after its stat list (a `*Source: …*` note followed by a key insight) now reaches Read · Article and the narration, after the stats. Both dropped it before.
 - The Studio's first load no longer holds an image slide blank while its photo loads. The preview appears as soon as its fonts are in, showing the photo's placeholder with the slide's text held back until the photo's size is known; before, the whole slide stayed hidden for up to 4 s.
+- In the Studio and the other live previews, a video poster still loading now fades in once it has decoded, so a light poster on a dark slide no longer steps from dark to light. A poster already cached shows at once. Exports are unchanged.
+- The Studio now offers to load a `video` slide's web `poster`. Before, the poster stayed a hatched placeholder with no way to load it.

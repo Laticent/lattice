@@ -216,3 +216,77 @@ test('video: a subtitle label under the title stays its next sibling, in the car
     assert.match(out, /<p>lead<\/p>/, `${cls}: the lead survives`);
   }
 });
+
+// ── The poster fades in, in a live preview (followup 2412-p3) ──────────────────────────────
+// A light poster on a dark slide stepped from the dark tile to light when it landed. In a
+// document with a reveal gate, a poster the browser does not already hold moves to its own layer
+// (`data-poster-pending`) that fades up once decoded; a cached poster, and every document with
+// no gate (an export capture, a player), are left exactly as they were.
+describe('video poster fade (runtime)', () => {
+  const { JSDOM } = require('jsdom');
+  const registry = require('../../../lib/transformers/video');
+  const POSTER = 'https://example.com/poster.jpg';
+
+  function frame({ gate = true, cached = false } = {}) {
+    const dom = new JSDOM(`<section class="video"><figure class="video-embed"><a class="video-poster" href="https://youtu.be/x" style="background-image:url('${POSTER}')"><span class="video-play"></span></a></figure></section>`);
+    const win = dom.window;
+    if (gate) win.__latticeFontsSettled = false;
+    const timers = [];
+    win.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+    win.clearTimeout = (n) => { if (timers[n - 1]) timers[n - 1].fn = () => {}; };
+    const decodes = [];
+    win.Image = class {
+      set src(v) { this._src = v; if (cached) { this.complete = true; this.naturalWidth = 1280; } }
+      decode() { return new Promise((res, rej) => decodes.push({ res, rej })); }
+    };
+    const a = win.document.querySelector('a.video-poster');
+    return { win, a, timers, decodes };
+  }
+  const flush = () => new Promise((r) => setImmediate(r));
+
+  test('a loading poster waits on its own layer, fades in once decoded, then returns to the anchor', async () => {
+    const { win, a, timers, decodes } = frame();
+    registry.applyToDom(win.document);
+    assert.equal(a.getAttribute('data-poster-pending'), '', 'held off the anchor while loading');
+    assert.match(a.style.getPropertyValue('--video-poster'), /poster\.jpg/);
+    decodes[0].res();
+    await flush();
+    assert.equal(a.getAttribute('data-poster-pending'), 'in', 'the layer fades up');
+    timers.at(-1).fn();
+    assert.equal(a.hasAttribute('data-poster-pending'), false, 'after the fade the anchor paints it again');
+    assert.equal(a.style.getPropertyValue('--video-poster'), '');
+  });
+
+  test('a cached poster is left alone: no layer, no fade', () => {
+    const { win, a } = frame({ cached: true });
+    registry.applyToDom(win.document);
+    assert.equal(a.hasAttribute('data-poster-pending'), false);
+  });
+
+  test('a document with no reveal gate (an export capture, a player) is untouched', () => {
+    const { win, a, decodes } = frame({ gate: false });
+    registry.applyToDom(win.document);
+    assert.equal(a.hasAttribute('data-poster-pending'), false);
+    assert.equal(decodes.length, 0, 'not even probed');
+  });
+
+  test('a poster that fails, or never lands, stops being managed', async () => {
+    const failed = frame();
+    registry.applyToDom(failed.win.document);
+    failed.decodes[0].rej(new Error('gone'));
+    await flush();
+    assert.equal(failed.a.hasAttribute('data-poster-pending'), false, 'a failure shows the tile at once');
+
+    const hung = frame();
+    registry.applyToDom(hung.win.document);
+    hung.timers[0].fn(); // the cap
+    assert.equal(hung.a.hasAttribute('data-poster-pending'), false, 'the cap hands the poster back to the anchor');
+  });
+
+  test('a second pass over the same document does not re-probe a managed poster', () => {
+    const { win, decodes } = frame();
+    registry.applyToDom(win.document);
+    registry.applyToDom(win.document);
+    assert.equal(decodes.length, 1);
+  });
+});
