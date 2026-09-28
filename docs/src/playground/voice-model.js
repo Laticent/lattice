@@ -30,9 +30,10 @@
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
 import { recordLatency } from './narration-latency.js';
-import { cheapestVoiceEnabled, narrationCacheEnabled } from './narration-prefs.js';
+import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
 import { pickCheapestTtsModel } from './tts-cost.js';
+import { isGeminiTtsModel } from './tts-models.js';
 
 const KOKORO_URL = 'https://esm.run/kokoro-js';
 const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
@@ -324,16 +325,12 @@ export function wavBlob(samples, sampleRate) {
 // else catches a mismatch except that test.
 export const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
 
-// The whole Gemini TTS family answers PCM only — measured 2026-09-27 on
-// google/gemini-3.8-flash-tts: `response_format:"mp3"` → 400 "Gemini TTS only supports
-// response_format=\"pcm\"". The Set above is pinned to the sample catalog's own
-// audioFormat:"wav" engines (a test holds them equal), so a live Gemini TTS model that has
-// no sample-catalog engine yet (3.8 flash, 3.8 flash-lite) would otherwise 400 on every
-// clip the moment an author picks it. Matching the family covers the next release too.
-const GEMINI_TTS = /^google\/gemini-[\w.-]*-tts(?:-[\w.-]+)?$/i;
+// The Set above is pinned to the sample catalog's own audioFormat:"wav" engines (a test
+// holds them equal), so a live Gemini TTS model with no sample-catalog engine yet (3.8
+// flash, 3.8 flash-lite) would 400 on every clip. The family match (tts-models.js) covers it.
 export function isPcmOnlyModel(model) {
   const id = String(model || '');
-  return PCM_ONLY_MODELS.has(id) || GEMINI_TTS.test(id);
+  return PCM_ONLY_MODELS.has(id) || isGeminiTtsModel(id);
 }
 
 // Wraps raw 16-bit PCM bytes in a standard 44-byte WAV header, reading the real
@@ -609,10 +606,14 @@ function kokoroRung({ getVoice }) {
   return {
     name: 'kokoro',
     ready() { return isReady; },
-    async load(onProgress, signal) {
+    // `opts.mainThread === false` forbids the main-thread fallback: a BACKGROUND load (the
+    // desktop default, started by a read) must never run onnxruntime on the main thread in
+    // the middle of that read. Only a load the author asked for may take that path.
+    async load(onProgress, signal, opts) {
+      const noMain = opts?.mainThread === false;
       const { dtype, device } = dtypeAndDevice();
       try { makeWorker(); } catch (e) {
-        if (coarsePointer()) throw e; // never OOM the main thread on a phone
+        if (coarsePointer() || noMain) throw e; // never OOM the main thread on a phone
         await loadMain(onProgress); return true;
       }
       onProg = onProgress;
@@ -629,7 +630,7 @@ function kokoroRung({ getVoice }) {
         worker = null;
         // On mobile the main-thread fallback is the exact OOM-reload we're avoiding
         // — surface the failure (the UI offers cloud / retry) instead.
-        if (coarsePointer()) throw e;
+        if (coarsePointer() || noMain) throw e;
         await loadMain(onProgress);
         return true;
       }
@@ -696,7 +697,17 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   const K = voiceKeys(keyPrefix || 'db');
 
   const rungPref = () => readLS(K.RUNG) || 'auto';
-  const orVoice = () => readLS(K.OR_VOICE) || DEFAULT_OR_VOICE;
+  // The cloud voice. When the cheapest-voice setting has moved the model off the default,
+  // the stored voice may belong to another model (the default `af_heart` is a Kokoro id, and
+  // any other model rejects it), so it falls back to a voice the picked model publishes.
+  const orVoice = () => {
+    const stored = readLS(K.OR_VOICE);
+    const m = orModel();
+    if (!explicitOrModel() && m === cheapestModelId && m !== DEFAULT_OR_TTS_MODEL && cheapestVoices.length) {
+      return stored && cheapestVoices.includes(stored) ? stored : cheapestVoices[0];
+    }
+    return stored || DEFAULT_OR_VOICE;
+  };
   // A model the author PICKED is stored; the default never is. That difference is the whole
   // precedence rule: a stored pick always wins, over the cheapest-voice setting and over the
   // desktop on-device default alike.
@@ -706,17 +717,28 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // stays on DEFAULT_OR_TTS_MODEL — which is also the cheapest voice at the time of writing,
   // so the fallback and the answer agree in the common case.
   let cheapestModelId = null;
+  let cheapestVoices = [];
   let cheapestRequested = false;
   function cheapestModel() {
     if (!cheapestRequested) {
       cheapestRequested = true;
       fetchTtsCatalog().then(({ models }) => {
         const id = pickCheapestTtsModel(models);
-        if (id && id !== cheapestModelId) { cheapestModelId = id; emitChange(); }
+        if (id && id !== cheapestModelId) {
+          cheapestModelId = id;
+          cheapestVoices = (models.find((m) => m.id === id)?.voices || []).slice();
+          emitChange();
+        }
       }, () => {});
     }
     return cheapestModelId;
   }
+  // Resolve it EAGERLY — at creation and the moment the setting turns on — not on the first
+  // orModel() call. openRouterRung reads the model per sentence, so a pick that landed
+  // mid-read would switch voices between one sentence and the next. Resolving up front
+  // leaves that window only for a read started within the catalog fetch of page load.
+  if (cheapestVoiceEnabled()) cheapestModel();
+  onNarrationPrefsChange(() => { if (cheapestVoiceEnabled()) cheapestModel(); });
   const orModel = () => explicitOrModel() || (cheapestVoiceEnabled() && cheapestModel()) || DEFAULT_OR_TTS_MODEL;
   const kokoroVoice = () => readLS(K.KOKORO_VOICE) || DEFAULT_KOKORO_VOICE;
   // A speed multiplier both rungs forward natively (OpenRouter's API param; Kokoro's
@@ -888,16 +910,33 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
 
   // One Kokoro load at a time. The rung's load() is not re-entrant — a second call rewires
   // its onLoaded/onLoadErr callbacks and strands the first caller's promise — and there are
-  // now two callers that can overlap: the background desktop default and the Settings
-  // "download" button. A second caller joins the load in flight (its progress callback is
-  // not wired in; the first caller's keeps reporting).
+  // two callers that can overlap: the background desktop default and the Settings
+  // "download" button. So every caller shares one load:
+  //   - progress fans out to every caller that passed a callback, joiners included;
+  //   - any caller's abort cancels the shared load (the author's Cancel means cancel);
+  //   - a failed or canceled load switches the BACKGROUND default off for this session, so a
+  //     browser that cannot load the model does not retry on every read, and a read never
+  //     overrides the author's Cancel. An explicit download from Settings still works.
   let kokoroLoading = null;
-  function loadKokoroOnce(onProgress, signal) {
+  let kokoroCtl = null;
+  const kokoroProgress = new Set();
+  let backgroundLoadOff = false;
+  function loadKokoroOnce(onProgress, signal, { background = false } = {}) {
     if (kokoro.ready()) return Promise.resolve(true);
+    if (onProgress) kokoroProgress.add(onProgress);
     if (!kokoroLoading) {
-      kokoroLoading = kokoro.load(onProgress, signal)
+      kokoroCtl = new AbortController();
+      const fanOut = (p) => { for (const fn of kokoroProgress) { try { fn(p); } catch {} } };
+      kokoroLoading = kokoro.load(fanOut, kokoroCtl.signal, background ? { mainThread: false } : undefined)
         .then(() => { kokoroCachedFlag = true; emitChange(); return true; })
-        .finally(() => { kokoroLoading = null; });
+        .catch((e) => { backgroundLoadOff = true; throw e; })
+        .finally(() => { kokoroLoading = null; kokoroCtl = null; kokoroProgress.clear(); });
+    }
+    const ctl = kokoroCtl;
+    if (signal) {
+      const cancel = () => { backgroundLoadOff = true; ctl?.abort(); };
+      if (signal.aborted) cancel();
+      else signal.addEventListener('abort', cancel, { once: true });
     }
     return kokoroLoading;
   }
@@ -1549,8 +1588,8 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // captions-only floor with no key); the next read after it lands uses the local voice.
     // Never throws; resolves true when the local voice is (now) ready.
     summonDefaultVoice() {
-      if (!preferOnDevice() || kokoro.ready()) return Promise.resolve(kokoro.ready());
-      return loadKokoroOnce().catch(() => false);
+      if (injected || backgroundLoadOff || !preferOnDevice() || kokoro.ready()) return Promise.resolve(kokoro.ready());
+      return loadKokoroOnce(undefined, undefined, { background: true }).catch(() => false);
     },
     preferOnDevice,
     explicitOrModel,

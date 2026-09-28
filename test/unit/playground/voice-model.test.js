@@ -688,3 +688,22 @@ test('the whole Gemini TTS family is requested as PCM (measured: mp3 → 400)', 
   assert.equal(isPcmOnlyModel('hexgrad/kokoro-82m'), false);
   assert.equal(isPcmOnlyModel(''), false);
 });
+
+test('desktop default: the background load never falls back to the main thread, and stops after a failure', async () => withLocalStorage(async () => {
+  // Plain node has no Worker, so the worker path fails at once. An author-started load would
+  // fall back to loading onnxruntime on the main thread (a network import here); the
+  // background load a READ starts must not, so this resolves false without touching the network.
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+  assert.equal(v.preferOnDevice(), true);
+  assert.equal(await v.summonDefaultVoice(), false);
+  assert.equal(await v.summonDefaultVoice(), false, 'and a failed load is not retried on every read');
+  assert.equal(v.rung(), 'openrouter-tts', 'the cloud voice keeps reading');
+}));
+
+test('desktop default: an injected test rung is never joined by a real download', async () => withLocalStorage(async () => {
+  const { createVoiceModel, MockRung } = await load();
+  const v = createVoiceModel({});
+  v.__setRung(MockRung());
+  assert.equal(await v.summonDefaultVoice(), false);
+}));

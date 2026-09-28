@@ -54,8 +54,22 @@ in progress keeps its voice: the cloud voice when a key is connected, captions o
 none is. The next read moves to the local voice. A passive status read never starts the
 download, so opening a panel costs nothing. The owner chose every desktop browser, not only
 the desktop app, knowing that a new visitor with no key hears nothing until the download
-lands. The rung's `load()` is not re-entrant, so both callers (this one and the Settings
-download button) now share one in-flight load.
+lands. Four guards contain the background download:
+
+- **One shared load.** The rung's `load()` is not re-entrant, so the background default and
+  the Settings download button share one in-flight load. Progress reaches every caller, and
+  any caller's Cancel cancels it.
+- **No main-thread fallback.** A background load never falls back to running onnxruntime on
+  the main thread, which would cause jank in the middle of a live read.
+- **One try per session.** A failed or canceled load turns the background default off for
+  the rest of the session, so a browser that can't load the model doesn't retry on every
+  read, and a read never overrides the author's Cancel.
+- **Test voices are left alone.** An injected test voice never triggers a download.
+
+**The export follows the rehearsal.** When the author's active voice is on-device, turning
+on narrated export defaults to the on-device narrator, even with a cloud key connected.
+Those clips are already on disk, and defaulting to the cloud voice would quote and bill
+the whole deck again.
 
 **The cheapest-voice switch.** The switch sits under Workspace → General → Narration in
 Present, and `lattice-cheapest-voice` stores it (`narration-prefs.js`). When it is on,
@@ -78,8 +92,19 @@ The ranker applies four rules:
 `TTS_QUALITY_RANK` is an editorial order, not a measurement. It only decides ties inside the
 10% band.
 
+The pick resolves from the catalog at creation and the moment the setting turns on, not at
+the first sentence. `openRouterRung` reads the model once per sentence, so a pick landing
+in the middle of a read would switch voices partway through. When the pick moves the model
+off the default, `orVoice()` falls back to a voice the picked model publishes. The default
+`af_heart` is a Kokoro voice, and any other model rejects it.
+
 Today the switch picks `hexgrad/kokoro-82m`. The next paid voices are Orpheus and CSM at
 $7/M, well outside the band.
+
+**The export quote counts full cost.** The narrated-export quote now prices a model with
+`ttsCostPerMChars`, not its input price, which undercounted Gemini by about 37×.
+`returnsUncompressed()` also matches the Gemini TTS family, so Gemini 3.8's size and time
+estimates account for the audio encoding step.
 
 ## Not done
 

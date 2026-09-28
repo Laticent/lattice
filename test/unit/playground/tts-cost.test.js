@@ -86,7 +86,7 @@ function withEnv(fn) {
       data: [
         { id: 'google/gemini-3.8-flash-tts', name: 'Gemini', pricing: { prompt: '0.0000005', completion: '0.000009' } },
         { id: 'sesame/csm-1b', name: 'CSM', pricing: { prompt: '0.000007', completion: '0' } },
-        { id: 'canopylabs/orpheus-3b-0.1-ft', name: 'Orpheus', pricing: { prompt: '0.000007', completion: '0' } },
+        { id: 'canopylabs/orpheus-3b-0.1-ft', name: 'Orpheus', pricing: { prompt: '0.000007', completion: '0' }, supported_voices: ['tara', 'leo'] },
       ],
     }),
   });
@@ -95,6 +95,18 @@ function withEnv(fn) {
     globalThis.fetch = realFetch;
   });
 }
+
+test('cheapest-voice setting resolves at creation, before any read asks for a model', async () => withEnv(async () => {
+  const { createVoiceModel } = await load('voice-model.js');
+  const { setCheapestVoiceEnabled } = await load('narration-prefs.js');
+  setCheapestVoiceEnabled(true);
+  const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test', keyPrefix: 'eager' });
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  // No orModel() call before this point: the pick is already there for the first sentence.
+  assert.equal(v.orModel(), 'canopylabs/orpheus-3b-0.1-ft');
+  setCheapestVoiceEnabled(false);
+}));
 
 test('cheapest-voice setting: off → default; on → the ranked pick; an explicit pick always wins', async () => withEnv(async () => {
   const { createVoiceModel } = await load('voice-model.js');
@@ -109,9 +121,17 @@ test('cheapest-voice setting: off → default; on → the ranked pick; an explic
   await new Promise((r) => setTimeout(r, 0));
   // This mocked catalog has no Kokoro: csm and orpheus tie at 7, Gemini is ~18.9 → orpheus.
   assert.equal(v.orModel(), 'canopylabs/orpheus-3b-0.1-ft');
+  // The default voice is a Kokoro id; orpheus would reject it, so a voice it publishes is used.
+  assert.equal(v.orVoice(), 'tara');
+  v.setOrVoice('leo');
+  assert.equal(v.orVoice(), 'leo', 'a stored voice the picked model publishes is kept');
+  v.setOrVoice('af_heart');
+  assert.equal(v.orVoice(), 'tara', 'a stored voice it does not publish falls back');
+  v.setOrVoice('');
 
   v.setOrModel('microsoft/mai-voice-2');
   assert.equal(v.orModel(), 'microsoft/mai-voice-2', 'the author\'s own pick beats the setting');
+  assert.equal(v.orVoice(), 'af_heart', 'an explicit model keeps the stored/default voice (the picker owns it)');
 
   v.setOrModel('');
   setCheapestVoiceEnabled(false);

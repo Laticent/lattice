@@ -500,6 +500,11 @@ export async function gotoStudio(page: Page): Promise<void> {
 			/* storage unavailable — the app falls back to its default */
 		}
 	});
+	// On a desktop (fine-pointer) project, pressing Play starts the on-device voice's ~80 MB
+	// download in the background (the desktop default — voice-model.js › summonDefaultVoice).
+	// Fail its module request so a spec never pulls kokoro-js and the model weights over the
+	// network; the load fails fast, and the voice model stops trying for the session.
+	await page.context().route(/^https:\/\/esm\.run\/kokoro-js/, (route) => route.abort());
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
 }
