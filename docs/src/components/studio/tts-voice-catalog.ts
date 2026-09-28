@@ -1,4 +1,3 @@
-import { isGeminiTtsModel } from '@/playground/tts-models.js';
 import catalog from '@/playground/tts-voice-catalog.json';
 
 // The TTS voice-catalog LOGIC layer. The DATA is split across two places on
@@ -85,9 +84,7 @@ export function speedSupported(modelId: string): boolean {
  */
 export function returnsUncompressed(modelId: string): boolean {
 	const engine = engineForModel(modelId || '');
-	// The Gemini TTS family is PCM on the wire whether or not it has a sample-catalog engine
-	// yet (3.8 has none) — the same family match the live rung uses (voice-model.js).
-	return (!!engine && ENGINES[engine]?.audioFormat === 'wav') || isGeminiTtsModel(modelId);
+	return !!engine && ENGINES[engine]?.audioFormat === 'wav';
 }
 
 const KOKORO_LANG: Record<string, string> = { a: 'US', b: 'UK', e: 'ES', f: 'FR', h: 'HI', i: 'IT', j: 'JP', p: 'BR', z: 'CN' };

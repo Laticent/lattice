@@ -760,7 +760,7 @@ test('on-device load: a Cancel that lands during the adapter probe is honored', 
 })));
 
 test('probeWebGPU: a probe that never answers, or a software fallback adapter, is "no GPU"', async () => {
-  const spend = await import(require('node:url').pathToFileURL(require('node:path').join(__dirname, '../../../docs/src/components/studio/ai/spend.js')).href);
+  const spend = await load();
   await withFakeGpuAndWorker({ adapter: 'hang' }, async () => {
     assert.equal(await spend.probeWebGPU({ timeoutMs: 30 }), false);
   });

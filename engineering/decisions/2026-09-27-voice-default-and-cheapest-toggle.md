@@ -72,8 +72,9 @@ test picked the fp32 WebGPU build there, downloaded ~330 MB, and then failed to 
 desktop default never came up (measured 2026-09-28). Real desktops land there too: Linux
 without GPU acceleration, VMs, blocklisted GPUs. The rung now asks for an adapter and
 otherwise loads the q8 WASM build (~80 MB of weights; 97 MB transferred with the voices,
-measured). The probe is `probeWebGPU()` in `spend.js`: it had no callers, so it is reused
-here. It gives up after 2 s and treats a software fallback adapter as no GPU. A Cancel that
+measured). The probe is `probeWebGPU()`. It was an uncalled copy in `spend.js`, an eager Studio chunk,
+and moved into the lazily loaded `voice-model.js` so the Studio's eager-JS budget does
+not pay for it. It gives up after 2 s and treats a software fallback adapter as no GPU. A Cancel that
 lands during the probe is honored. If the WebGPU load fails inside the worker, the rung
 retries once on WASM before giving up.
 

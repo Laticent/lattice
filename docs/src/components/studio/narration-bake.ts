@@ -35,6 +35,7 @@ import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
+import { isGeminiTtsModel } from '@/playground/tts-models.js';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { applyChartNarration, resolveNarration } from './narration-resolve';
@@ -582,7 +583,10 @@ export async function measureNarration(source: string, projected: readonly strin
 	const totalChars = perSlide.reduce((n, row) => n + row.reduce((m, t) => m + t.length, 0), 0);
 	// Does this codebase encode this engine's audio? Then every clip costs encode time at export
 	// and its size follows the bitrate, rather than the engine's own measured rate. Resolved once.
-	const transcoded = voice.rung === 'kokoro' || returnsUncompressed(voice.model);
+	// The Gemini TTS family is PCM on the wire even without a sample-catalog engine (3.8 has
+	// none). Checked HERE rather than inside `returnsUncompressed`, because tts-voice-catalog is
+	// an EAGER Studio chunk and this module is not — the check costs the eager budget nothing.
+	const transcoded = voice.rung === 'kokoro' || returnsUncompressed(voice.model) || isGeminiTtsModel(voice.model);
 	const base: NarrationMeasure = { total, cached: 0, cachedBytes: 0, missing: 0, missingChars: 0, totalChars, missingBytes: 0, estCostUsd: null, estSeconds: 0, voice, complete, transcoded };
 	if (!total) return base;
 

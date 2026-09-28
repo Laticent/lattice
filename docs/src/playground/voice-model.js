@@ -24,9 +24,6 @@
 // module under plain `node --test` (no Vite alias, no TS resolution), so this file
 // must not use the `@/…` alias or import a TypeScript module.
 
-// The adapter probe the on-device rung picks its build with (plain JS, no imports of its own).
-import { probeWebGPU } from '../components/studio/ai/spend.js';
-
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
 // The two on-device tiers this module writes through to. Both are plain, node-safe JS
@@ -180,6 +177,33 @@ function writeLS(k, v) { try { v == null ? localStorage.removeItem(k) : localSto
 export function detectWebGPU() {
   return typeof navigator !== 'undefined' && 'gpu' in navigator;
 }
+
+// Real WebGPU support is more than `'gpu' in navigator` — headless Chromium
+// exposes the object but has no adapter. Probe for an adapter (async).
+//
+// Two more ways a present-looking GPU is not a usable one, both of which cost a ~330 MB
+// fp32 download before anything notices (the on-device rung below is the caller):
+// - a SOFTWARE fallback adapter, which onnxruntime-web's WebGPU backend is not worth
+//   betting a download on — answered as false;
+// - a probe that never answers. The spec says requestAdapter() resolves (null at worst),
+//   but a GPU process that stalls at startup would hold the caller forever, so the probe
+//   gives up after `timeoutMs` and answers false.
+export async function probeWebGPU({ timeoutMs = 2000 } = {}) {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.gpu) return false;
+    let timer;
+    const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); });
+    const adapter = await Promise.race([navigator.gpu.requestAdapter(), timeout]);
+    clearTimeout(timer);
+    if (!adapter) return false;
+    return !(adapter.isFallbackAdapter || adapter.info?.isFallbackAdapter);
+  } catch {
+    return false;
+  }
+}
+
+// (It lived, uncalled, in studio/ai/spend.js — an EAGER chunk; it moved here, to the lazily
+// loaded voice model, so the Studio's eager JS budget does not pay for it.)
 
 // Coarse pointer ≈ phone/tablet. A MAIN-THREAD Kokoro load (onnxruntime + ~80 MB)
 // spikes memory enough to OOM-reload a mobile tab — the very bug the same-origin
