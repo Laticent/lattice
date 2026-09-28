@@ -407,7 +407,20 @@ arm), and Lattice reported "on by the platform's default (not measured here)"; t
 system's own verdict: Activity Monitor's Sandbox column on macOS, and Process Explorer's integrity
 level on Windows. Those two need a person, and the tool asks for them when one runs it. On Ubuntu
 24.04 as the ordinary runner user, AppArmor stops Chrome's sandbox from starting, and Lattice
-reports OFF, truthfully.
+reports OFF, truthfully. Its remedy was wrong there: "set CHROME_PATH to a Chromium the unprivileged
+user can run" cannot help when AppArmor blocks user namespaces for every unprivileged program
+without a profile. So the layer now carries a `reason` (`os-sandbox.js` `offReason`), and the
+consent text maps each reason to its own remedy (`offRemedy`). The AppArmor case is read from the
+`kernel.apparmor_restrict_unprivileged_userns` sysctl, not from Chromium's message, whose "No
+usable sandbox!" text points at AppArmor as a general hint; its remedy names an AppArmor profile
+for the browser or that sysctl. `CHROME_PATH` stays the remedy only where it helps: root on Linux
+whose unprivileged user cannot run the browser even without the sandbox (checked FIRST, since a
+root container on an Ubuntu 24.04 host reads the host's sysctl as 1), and no browser path at all.
+Every render's warning carries the same remedy (`code-door.js` `sandboxNotice`); it used to repeat
+the CHROME_PATH sentence after the prompt had given the right fix, and it printed that sentence as
+a warning on macOS and Windows too, where the layer is the platform's default and not OFF (the
+checker). `test/unit/cli/code-door.test.js` drives `launchCodeSandbox` with a stub browser to pin
+which rung's failure becomes which reason.
 
 **Measured on the real CLI** (`test/integration/export/code-package-door.test.js`): a hostile
 package that tries `fetch`, an image, a WebSocket and a beacon at load and on every slide, and

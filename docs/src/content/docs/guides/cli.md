@@ -390,9 +390,14 @@ If the code changes, Lattice asks again. Run without a terminal, `packages add`
 cannot ask, so it installs the package unapproved; approve it afterward with
 `trust`.
 
-If Lattice runs as root, as it often does in a container, the render warns
-that Chromium's OS sandbox is off for that code. To turn the sandbox on, set
-`CHROME_PATH` to a Chromium that an unprivileged user can run.
+When Chromium's OS sandbox is off for that code, the approval prompt says so,
+with the reason and the fix, and every render repeats that it is off. If
+Lattice runs as root, as it often does in a container, the fix is to set
+`CHROME_PATH` to a Chromium that an unprivileged user can run. On Ubuntu 23.10
+and later, AppArmor stops the sandbox of a browser it has no profile for, such
+as the Chrome that puppeteer downloads, even for an ordinary user. There the
+fix is an AppArmor profile that lets the browser create user namespaces, or
+setting the `kernel.apparmor_restrict_unprivileged_userns` sysctl to 0.
 
 ### Start a plugin
 
