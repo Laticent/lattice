@@ -219,7 +219,7 @@ without a `scene` fails `build:check`.
 
 **Everything in §4 except one move exists today** (`docs/src/lib/vetrina/stage.ts`): `circle`,
 `underline`, `wash`, `bracket`, `tap`, the cursor's `point`, and `gestureRest`. Each takes an SVG
-element or a text range. `focusContent` in `guide-kernel.ts` does the fade.
+element or a text range. `focusContent` in `present-guide.ts` does the fade.
 
 **Missing: `trace`,** a stroke drawn along a path. Every Vetrina stroke is built from rectangles,
 and nothing reads path geometry. Expressive's `enter` for a line or a slope needs it. It would be
@@ -315,17 +315,19 @@ Each step is one commit and stands on its own.
   does not cover yet) returns the cue to the text path, as before binding (`scene()` returns null).
 - **The export carries the binding.** `narration-bake.ts` attaches it and `share-export.ts` passes it
   on; `share-narrated-player.spec.ts` exports a funnel from the Studio and plays the file offline. The
-  checker found the share path dropping it while `verify-guide-player.mjs`, which injects its own
-  refs, passed.
+  checker found the share path dropping it while a player check that injected its own refs
+  passed.
 - **Styles.** `lib/core/delivery-styles/{restrained,expressive,somber}.mjs`, each owning its `look`
   and its `express(act, ctx)`. `resolve-delivery.mjs` only gathers them. Budgets: 999 (no cap,
   finite for JSON) for restrained and expressive, 1 for somber.
 - **Scores.** `lib/core/delivery-score.mjs` and one golden per chart in
   `test/fixtures/delivery-scores/`, all three deliveries side by side.
-- **Runtime.** The director's `scene()` (`guide-kernel.ts`) plays a bound cue, found by its
-  `charOffset`; the Studio (`PresentOverlay.tsx`) adds expressive's ink through `sceneCue`
-  (`present-guide.ts`); the player (`guide-player.ts`) applies the focus only. A slide the narrator
-  does not bind falls through to the old text path.
+- **Runtime.** The conductor (`guide-conductor.ts`, #2436's one per-sentence module for Present
+  and the exported player) plays a bound cue, found by its `charOffset`: the focus, and expressive's
+  ink through the host's `sceneCue` (`present-guide.ts`). Present and the player both drive it, so
+  an exported expressive deck inks as Present does. A slide the narrator does not bind falls
+  through to the text path. (Built first in #2415 on a second kernel, `guide-kernel.ts`; ported
+  onto the conductor on 2026-09-28 when #2436 landed the same export Guide on `main`.)
 - **Vetrina `trace`** (`stage.ts`), sanctioned in `SANCTIONED_GESTURES`. Vetrina ships from its
   `dist/`, so `npm run vetrina-lib:build` is part of any stage change: a first filmstrip showed no
   trace at all because the Studio was still running the old `dist/`.
