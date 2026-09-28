@@ -365,7 +365,13 @@ npx lattice packages trust component/org-chart --yes
 npx lattice packages untrust component/org-chart
 ```
 
-If the code changes, Lattice asks again.
+If the code changes, Lattice asks again. Run without a terminal, `packages add`
+cannot ask, so it installs the package unapproved; approve it afterward with
+`trust`.
+
+If Lattice runs as root, as it often does in a container, the render warns
+that Chromium's OS sandbox is off for that code. To turn the sandbox on, set
+`CHROME_PATH` to a Chromium that an unprivileged user can run.
 
 ### Render a narrated video
 
