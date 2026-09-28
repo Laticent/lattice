@@ -45,8 +45,8 @@ Three results decide it:
 
 1. **Every library can express every grammar.** All 33 implemented cells (five libraries on
    six targets, Lezer on three) read identically to the shipped kernel on every real input —
-   the 10,129 inline-code spans in the decks and docs, 4,476 once deduplicated with the
-   kernels' test literals, plus 221 flowchart rows. On a seeded fuzz of 20,000 inputs per
+   the 10,129 inline-code spans in the decks and docs, 4,472 once deduplicated with the
+   kernels' test literals, plus 269 flowchart rows. On a seeded fuzz of 20,000 inputs per
    target, 29 cells stay at 100%; the four that do not (Ohm on flow and value, Lezer on
    value) miss only on emoji, because those two count a character as a code point where our
    kernels count UTF-16 units (§ "What the harness found", 3). So the problem was never that
@@ -113,9 +113,9 @@ few seeds the real corpus lacks are added to the fuzz only: braced members of th
 parts, where the cap bites, and arrow labels at the 61-unit limit, some in emoji.
 
 The correctness table prints how many inputs the incumbent ACCEPTS, because parity on rejects
-alone would be cheap. Across the fuzz sets it accepts 13,806 axis inputs, 3,275 arrow-bearing
-rows, 1,048 gantt spans, 4,631 value pills and 1,406 inline directives; on the real corpus,
-60, 48, 60, 361 and 38.
+alone would be cheap. Across the fuzz sets it accepts 13,768 axis inputs, 3,735 arrow-bearing
+rows, 1,048 gantt spans, 4,630 value pills and 1,409 inline directives; on the real corpus,
+60, 74, 60, 361 and 38.
 
 **One process per timing cell, under a deadline.** A super-linear candidate cannot stall
 the table or warm the JIT for the next one (`speed-cell.mjs`).
@@ -127,7 +127,7 @@ the table or warm the JIT for the next one (`speed-cell.mjs`).
 | incumbent | 100% | 100% | 100% | 100% | 100% | 100% |
 | Peggy | 100% | 100% | 100% | 100% | 100% | 100% |
 | Chevrotain | 100% | 100% | 100% | 100% | 100% | 100% |
-| Ohm | 100% | 100% | 100% · **99.83%** | 100% | 100% · **99.88%** | 100% |
+| Ohm | 100% | 100% | 100% · **99.87%** | 100% | 100% · **99.88%** | 100% |
 | Nearley | 100% | 100% | 100% | 100% | 100% | 100% |
 | Parsimmon | 100% | 100% | 100% | 100% | 100% | 100% |
 | Lezer | — | — | — | 100% | 100% · **99.88%** | 100% |

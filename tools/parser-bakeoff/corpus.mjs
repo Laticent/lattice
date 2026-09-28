@@ -54,13 +54,37 @@ const TEST_FILES = [
   'test/unit/core/lift-bracket-span.test.js',
 ].concat(walk(join(ROOT, 'test/unit'), (p) => /(chart-values|gantt|state-marks|inline-code)[^/]*\.test\.js$/.test(p)).map((p) => p.slice(ROOT.length)));
 
+const SIMPLE_ESCAPES = { n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', v: '\v', 0: '\0' };
+
+/** Decode a JS string literal's body in one left-to-right pass: every backslash is read
+ *  exactly once, so an escaped backslash can never be re-read as the start of another
+ *  escape (the replace-chain this replaced could, and CodeQL flagged it). */
+function unescapeJs(raw) {
+  let out = '';
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c !== '\\' || i + 1 >= raw.length) { out += c; continue; }
+    const n = raw[++i];
+    if (n in SIMPLE_ESCAPES) { out += SIMPLE_ESCAPES[n]; continue; }
+    if (n === 'x' && /^[0-9a-f]{2}$/i.test(raw.slice(i + 1, i + 3))) { out += String.fromCharCode(Number.parseInt(raw.slice(i + 1, i + 3), 16)); i += 2; continue; }
+    if (n === 'u' && raw[i + 1] === '{') {
+      const end = raw.indexOf('}', i);
+      const cp = Number.parseInt(raw.slice(i + 2, end), 16);
+      if (end > 0 && Number.isFinite(cp) && cp <= 0x10ffff) { out += String.fromCodePoint(cp); i = end; continue; }
+    }
+    if (n === 'u' && /^[0-9a-f]{4}$/i.test(raw.slice(i + 1, i + 5))) { out += String.fromCharCode(Number.parseInt(raw.slice(i + 1, i + 5), 16)); i += 4; continue; }
+    out += n; // `\\` `\'` `\"` `\``, and any other escaped character, stand for themselves
+  }
+  return out;
+}
+
 /** String literals in a JS test file — single, double and simple template quotes. */
 function literals(src) {
   const out = [];
   const re = /'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\$]|\\.)*)`/g;
   for (const m of src.matchAll(re)) {
     const raw = m[1] ?? m[2] ?? m[3];
-    try { out.push(JSON.parse(`"${raw.replace(/\\'/g, "'").replace(/\\`/g, '`').replace(/"/g, '\\"')}"`)); } catch { out.push(raw); }
+    out.push(unescapeJs(raw));
   }
   return out;
 }
