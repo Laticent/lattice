@@ -34,5 +34,12 @@ tester who has one; Windows comes later.
   reports OFF. That report is true, but the consent text's remedy ("set CHROME_PATH to a
   Chromium the unprivileged user can run") is the wrong advice there: the fix is an AppArmor
   profile for the browser or that sysctl. Fix the remedy text for this case.
-- Windows (`windows-latest`): blocked by `followups.d/2459-p2-windows-prepare-skips-the-build.md`
-  until the launchers built dist/ themselves; see the PR for the rerun.
+- Windows (`windows-latest`): after the launchers build only `tools/build-css.js` (the full build
+  fails on Windows, `followups.d/2459-p2-windows-prepare-skips-the-build.md`), all eight steps
+  pass (run 36443137686). Lattice reports "on by the platform's default, not measured"; 3
+  renderers, none with `--no-sandbox`. Process Explorer's integrity level needs a person.
+- macOS, rerun (runs 36438111974 and 36443137686): all eight steps pass, door test 6 of 6.
+
+What remains for this card is the human half only: a person on a Mac reads Activity Monitor's
+Sandbox column, and a person on Windows reads Process Explorer's integrity level, both through
+the tool's step 7.

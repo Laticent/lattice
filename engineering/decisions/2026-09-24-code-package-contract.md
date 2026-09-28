@@ -396,9 +396,18 @@ were measured on.
 Chromium 141): Lattice reports "on", and every renderer reads `Seccomp: 2` under that uid; the
 approved package drew with 0 requests to the log server, whose control reached it. As root with a
 Chromium `nobody` can run, the same tool measured "on" as uid 65534; with puppeteer's browser under
-`/root`, "OFF" and `Seccomp: 0`, which is what Lattice said. macOS and Windows are not measured yet:
-the same tool reads the renderer command lines there and asks the tester to read the system's own
-sandbox column (Activity Monitor; Process Explorer's integrity level).
+`/root`, "OFF" and `Seccomp: 0`, which is what Lattice said.
+
+**On GitHub's macOS, Windows and Ubuntu runners** (2026-09-28, the same tool with
+`--non-interactive`, run 36443137686): all eight steps pass on each. On macOS and Windows the
+approved package drew from the facts with 0 requests to the log server (whose control reached it),
+the unapproved render was refused, the door test passed 6 of 6 with 1 skip (the root-only Linux
+arm), and Lattice reported "on by the platform's default (not measured here)"; the tool found no
+`--no-sandbox` on the browser or any of its renderers (3 on Windows). What no runner can read is the
+system's own verdict: Activity Monitor's Sandbox column on macOS, and Process Explorer's integrity
+level on Windows. Those two need a person, and the tool asks for them when one runs it. On Ubuntu
+24.04 as the ordinary runner user, AppArmor stops Chrome's sandbox from starting, and Lattice
+reports OFF, truthfully.
 
 **Measured on the real CLI** (`test/integration/export/code-package-door.test.js`): a hostile
 package that tries `fetch`, an image, a WebSocket and a beacon at load and on every slide, and
