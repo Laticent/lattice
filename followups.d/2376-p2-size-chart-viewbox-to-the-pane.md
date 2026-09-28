@@ -44,15 +44,16 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               6 -> 4 (both CLIP: a three-word row label wraps one word per line in the pane's
               narrow label column — a reflow weakness, logged below), word-cloud side 20 -> 6
               (type floor) and stack 20 -> 8 (the packer drops a word at 9).
-              STILL OPEN from that pass: progress and matrix-grid give a pane's row label a column
-              so narrow that a three-word label sets one word per line and triples the row; the
-              bars beside it have room to spare.
+              CLOSED (panes-chart-labels PR): progress and matrix-grid gave a pane's row label a
+              column so narrow that a three-word label set one word per line. In a pane the column
+              takes its slide width, capped by the pane (pane.css); side ceilings 4 -> 9 and
+              3 -> 5. examples/panes-row-labels.md.
             - PART CLOSED (panes-radar PR): `calibrate-capacity --pane` measures SVG charts
               (builders for 12 kernels, and a step fails on TYPE FLOOR or CHART LABELS DROPPED as
               well as OVERFLOW). bar, piechart, scatter, line, heatmap, map and radar turned
               `measured`; scatter's hard fell 12 -> 8 (side) and 10 (stack). Still `editorial`:
               bullet, funnel, waterfall, stacked-bar and slope (no probe signal to 24 elements —
-              see 2376-p2-probe-labels-over-marks.md) and every HTML-drawn or grouped chart
+              closed since: a truncated name is reported) and every HTML-drawn or grouped chart
               (gantt, journey, kanban, matrix-grid, progress, quadrant, roadmap, state-chart,
               word-cloud), which this pass did not measure.
             - CLOSED (panes-probe-calibration PR): the type-floor probe sizes `<foreignObject>`

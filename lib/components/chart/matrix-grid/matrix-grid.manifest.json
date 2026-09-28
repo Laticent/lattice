@@ -203,9 +203,9 @@
       "basis": "measured",
       "side": {
         "sweet": 3,
-        "hard": 3
+        "hard": 4
       },
-      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint, or labels printed across a mark or each other): side 65%: 3, clips at 4: a three-word row label wraps a word to a line in the label column. sweet sits at or below it."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint or paints cut short, or labels printed across a mark or each other): side 65%: 5, clips at 6 (it measured 3 while the row-name column was one equal share of the pane, and a three-word label wrapped a word to a line). sweet sits at or below it."
     }
   },
   "venueCapacity": {

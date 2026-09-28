@@ -82,8 +82,12 @@ describe('the render reports the labels it declined to paint', () => {
   test('a twenty-row bar names what the pitch cull dropped', () => {
     const { drops, component } = dropsOn(HOSTILE_BAR, 'bar');
     assert.equal(component, 'bar');
-    assert.equal(drops.length, 10, 'the census docblock measures this shape at ten lost names');
-    assert.ok(drops.every((d) => d.reason === 'pitch'));
+    const culled = drops.filter((d) => d.reason === 'pitch');
+    assert.equal(culled.length, 10, 'the census docblock measures this shape at ten lost names');
+    // The ten that survive the cull get one line at this pitch, so each paints as
+    // "Business unit…" — reported too, as `truncate`, since no reader can tell them apart.
+    assert.equal(drops.length - culled.length, 10);
+    assert.ok(drops.every((d) => d.reason === 'pitch' || d.reason === 'truncate'));
     assert.ok(drops.every((d) => /^Business unit number \d+$/.test(d.label)));
   });
 
@@ -96,6 +100,50 @@ describe('the render reports the labels it declined to paint', () => {
     assert.equal(drops.length, 0);
     assert.doesNotMatch(html, /data-label-drops/,
       'an empty attribute on every healthy chart is a golden-file diff on the whole corpus for nothing');
+  });
+});
+
+// A NAME CUT SHORT IS REPORTED, and it is the case that stayed silent longest: nothing is
+// dropped, so nothing tripped. 24 bars leave each column about three characters, so `FY20`
+// paints `F…` and every name on the axis is gone in all but count.
+describe('a name painted cut short is reported as `truncate`', () => {
+  const stackedOf = (n) => '## Stacked.\n\n' + Array.from({ length: n }, (_, i) =>
+    `- FY${20 + i}\n  - Licenses \`${20 + ((i * 37) % 60)}\`\n  - Services \`${20 + (((i + 4) * 37) % 60)}\``).join('\n');
+
+  test('a 60-bar stacked-bar reports every ellipsized category name, by its full name', () => {
+    const { drops, component } = dropsOn(stackedOf(60), 'stacked-bar');
+    assert.equal(component, 'stacked-bar');
+    const names = drops.filter((d) => d.reason === 'truncate').map((d) => d.label);
+    assert.ok(names.includes('FY20') && names.includes('FY79'),
+      `the full names ride the report, not the painted "F…" (got ${names.slice(0, 4).join(', ')})`);
+  });
+
+  test('a stacked-bar whose names fit reports nothing', () => {
+    const { drops } = dropsOn(stackedOf(4), 'stacked-bar');
+    assert.deepEqual(drops, []);
+  });
+
+  test('a waterfall reports the words it shortened before the substrate saw them', () => {
+    const body = '## Walk.\n\n' + ['Opening balance `12.0M`', 'Receipts `+3.1M`', 'Payroll `-2.0M`',
+      'Tax settlement `-1.2M`', 'Facility draw `+2.5M`', 'Vendor payments `-1.8M`', 'Capex `-0.9M`',
+      'Interest `-0.3M`', 'Closing balance `11.4M`'].map((r) => `- ${r}`).join('\n');
+    const { drops } = dropsOn(body, 'waterfall');
+    const cut = drops.filter((d) => d.reason === 'truncate').map((d) => d.label);
+    assert.ok(cut.length > 0, 'nine long steps in a landscape walk shorten at least one word');
+    for (const name of cut) assert.doesNotMatch(name, /\u2026/, 'the report carries the AUTHORED name, not the painted "Receip…"');
+  });
+
+  test('whitespace alone is not a cut: a wrapped or spaced waterfall name reports nothing', () => {
+    for (const first of ['Open\u00a0Q1', 'Open  Q1', 'Open\n  Q1']) {
+      const { drops } = dropsOn(`## Walk.\n\n- ${first} \`10\`\n- Sales \`+2\`\n- Close \`12\``, 'waterfall');
+      assert.deepEqual(drops, [], JSON.stringify(first));
+    }
+  });
+
+  test('a CJK name that wraps between characters is not a split word', () => {
+    const { measureLabel } = require('../../../lib/components/chart/_chart-family/svg-label.js');
+    assert.equal(measureLabel('売上高合計', { width: 20, fontSize: 10 }).split, false);
+    assert.equal(measureLabel('FY20', { width: 20, fontSize: 10 }).split, true);
   });
 });
 

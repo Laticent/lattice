@@ -31,14 +31,14 @@ test('reads the pages on the TYPE FLOOR and CHART LABELS DROPPED lines', () => {
   const log = [
     '  ⚠ TYPE FLOOR — 2 scaled figures render text below the legibility floor (5.4pt = 1.00% of slide height, 7.2px here): page 3 at 3.8pt (5.1px, 0.71%), page 6 at 4.4pt (5.8px, 0.82%).',
     '    A container-responsive figure never overflows — it scales its own labels instead, so the',
-    '  ⚠ CHART LABELS DROPPED — 3 names are not painted on 1 chart: page 9 (bar).',
+    '  ⚠ CHART LABELS DROPPED — 3 names are not painted in full on 1 chart: page 9 (bar).',
     '  ⚠ OVERFLOW — 1 slide exceeds the frame and is CLIPPED in this export: page 11.',
   ].join('\n');
   assert.deepEqual(parseProbeLog(log), { clipped: [11], underFloor: [3, 6], labelsDropped: [9], overprint: [] });
 });
 
 // A label printed straight across another row's bar trips none of the three lines above: it is
-// painted, legible and in the box. CHART LABELS OVERPRINT is the fourth (2376-p2-probe-labels-over-marks).
+// painted, legible and in the box. CHART LABELS OVERPRINT is the fourth (PR #2464).
 test('reads the pages on the CHART LABELS OVERPRINT line, not its advice', () => {
   const log = [
     '  ⚠ CHART LABELS OVERPRINT — 101 labels print across a mark on 2 slides: page 2 (39), page 3 (62).',

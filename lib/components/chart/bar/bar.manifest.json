@@ -221,7 +221,7 @@
         "sweet": 5,
         "hard": 6
       },
-      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint): side 50%: 18, labels dropped at 19; stack 50/50: 7, labels dropped at 8. sweet sits at or below it."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint or paints cut short): side 50%: 8, a three-word name truncated at 9 (it measured 18 before a name cut short counted); stack 50/50: 7, labels dropped at 8. sweet sits at or below it."
     },
     "review": "stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },

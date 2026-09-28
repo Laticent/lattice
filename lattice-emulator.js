@@ -4197,7 +4197,7 @@ async function renderBody(browser, g, closeBrowser) {
     const decoded = labelDrops.map((d) => ({ ...d, drops: decodeLabelDrops(d.raw) }));
     const total = decoded.reduce((t, d) => t + d.drops.length, 0);
     const n = decoded.length;
-    console.warn(`  ⚠ CHART LABELS DROPPED — ${total} name${total > 1 ? 's' : ''} ${total > 1 ? 'are' : 'is'} not painted on ${n} chart${n > 1 ? 's' : ''}: ` +
+    console.warn(`  ⚠ CHART LABELS DROPPED — ${total} name${total > 1 ? 's' : ''} ${total > 1 ? 'are' : 'is'} not painted in full on ${n} chart${n > 1 ? 's' : ''}: ` +
       decoded.map((d) => `page ${d.slide} (${d.component})`).join(', ') + '.');
     // NAME THEM. "3 labels dropped on page 7" sends the author back to count; the
     // names are the whole point of the channel, and they are what the reader of the
@@ -4211,7 +4211,8 @@ async function renderBody(browser, g, closeBrowser) {
     console.warn('    `overlap` — no position clears the neighbors, so the name was dropped rather than printed');
     console.warn('    through one; `pitch` — the rows sit closer together than one line of type; `density` — the');
     console.warn('    chart carries more items than it labels at all, so EVERY name is off; `pack` — the word');
-    console.warn('    cloud could not seat the word anywhere on its spiral.');
+    console.warn('    cloud could not seat the word anywhere on its spiral; `truncate` — the name is painted cut');
+    console.warn('    short (`F…`, or a word split across two lines), so the reader cannot match it to its mark.');
     console.warn('    Fewer items, shorter names, or split the chart across two slides.');
     // The recoverability line is PER REASON, because it is not true of all of them.
     // A `pack` word is gone from the artifact outright — `packCloud` returns only the

@@ -98,12 +98,19 @@
   transition: none;
   /* The % readout rides the bar's leading edge: right-aligned ON the colored
    * fill, like a gantt bar's in-bar label. --text-heading clears the wash on
-   * both canvases. */
+   * both canvases.
+   *
+   * SAFE, and not clipped: a readout wider than its bar (12% of a pane's track is ~30px, the
+   * readout ~44px) used to overflow to the LEFT of an `overflow: hidden` fill, so the number lost
+   * its first digit ("2%" for 12%). `safe` sends the overflow the other way — the readout starts
+   * at the bar's origin and runs on over the empty track on its own plate — and the fill no longer
+   * clips it. The track (`overflow: hidden`, above) still rounds the fill's corners. A readout that
+   * fits is placed exactly as before. */
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: safe flex-end;
   padding-right: 0.625cqi;
-  overflow: hidden;
+  overflow: visible;
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
  * Canvas-aware via light-dark(), so one rule each. */
@@ -138,6 +145,11 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   line-height: 1;
+}
+/* A row with no percent still emits the span. The fill used to clip its empty plate out of
+ * sight; now that the fill no longer clips (the `safe` readout above), hide it outright. */
+:is(section.progress, figure.progress) .progress-pct:empty {
+  display: none;
 }
 /* Pills right-align in their column so all pill right edges line up. */
 :is(section.progress, figure.progress) .progress-row > .chart-status,

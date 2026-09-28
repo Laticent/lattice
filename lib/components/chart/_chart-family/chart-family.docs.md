@@ -529,7 +529,7 @@ gap-cull below, `pitch`), and both report through one channel,
   Outside the bracket a note is a no-op, so no other render path changes. The
   bracket is **synchronous**, and its `finally` pops on return — an async
   transform would pop at its first `await` and lose every note after it.
-- `word-cloud`'s packer reports as `pack`, and it is the **worst** of the four:
+- `word-cloud`'s packer reports as `pack`, and it is the **worst** of the reasons that drop a name:
   every other mechanism leaves the name somewhere a reader can still reach it
   (`data-label` on the mark, the speaker note, the SVG `<desc>`), but `packCloud`
   returns only the placed words and the `<desc>` is built from that return, so an
@@ -544,6 +544,17 @@ gap-cull below, `pitch`), and both report through one channel,
   a suppressed name never becomes one. Measured at the boundary on one deck
   shape: 16 items paints 13 and names the 3 it lost; 17 painted 0 and said
   nothing. The author losing every name was the only one getting no warning.
+- `truncate` is the fifth reason, and the one where nothing is dropped: a name
+  that PAINTS but paints less than itself. `measureLabel` flags a label it
+  ellipsized past its line budget (`truncated`) or whose word it had to split
+  mid-token (`split` — `FY20` in a three-character column paints `FY2` over
+  `0`), and the shared cartesian emitters (`buildCategoryLabels`,
+  `buildValueLabel`) note either, under the full authored name. A caller that
+  shortens a name before the substrate sees it (waterfall's
+  `fitCategoryLabels`) passes the authored names as `names`, and a painted text
+  that differs from its name is noted too. It was silent longest: a 24-bar
+  stacked-bar read `F…` under every column and `…` over every total, and no line
+  in the export said so, because every name was technically painted.
 - The names ride out on `data-label-drops` on that chart's `.chart-body`, with
   `data-label-drops-component` naming the member. It is **absent**, not empty,
   on a chart that dropped nothing — an empty attribute on every healthy chart

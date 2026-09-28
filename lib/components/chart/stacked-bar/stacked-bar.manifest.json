@@ -199,7 +199,7 @@
     "stack": 50,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 4,
         "hard": 6
@@ -208,7 +208,7 @@
         "sweet": 3,
         "hard": 4
       },
-      "note": "Each category is a stacked bar, with its parts in a key. Judgment, not measured: tools/calibrate-capacity.js --pane trips no signal to 24 bars on either side, because a crowded stacked-bar truncates its category names (to \"F…\") rather than dropping or overprinting them, and no export line reports a truncated name (followups.d/2376-p2-probe-labels-over-marks.md)."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint or paints cut short, or labels printed across a mark or each other): side 50%: 9, a category name cut short at 10 (by 12 bars FY20 sets as FY2 over 0, and by 24 every name reads F\u2026); stack 50/50: 23, names truncated at 24. Each category is a stacked bar, with its parts in a key. sweet sits at or below it."
     },
     "review": "side 25 measured, 35 reviewed: the key cramps at 25%; stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },
