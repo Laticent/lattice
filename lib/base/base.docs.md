@@ -1587,6 +1587,88 @@ measured:
   not about pills: two plain `` `code` `` values do the same, because the row is a grid
   and a grid item paints over rather than pushing. Put one value in the trailing slot.
 
+## Inline sparks — `~{12 14 17}`
+
+A `~{…}` inside **single-backtick** inline code renders as a **spark**: a chart the size
+of a word, with no axes, labels or legend. It goes wherever inline code can go, and it
+belongs beside a current number that has a history: a `kpi` line, a trend column in a
+`table`, a `big-number` caption, a sentence. Spec and rationale:
+`engineering/decisions/2026-09-28-inline-sparks.md`. Demo: `examples/inline-sparks.md`.
+
+```markdown
+| Region | Q3 revenue | Last 8 quarters | Plan |
+| --- | ---: | --- | --- |
+| Asia Pacific | $1.9M | `~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9}:end` | `~{1.9/1.6}:bullet` |
+```
+
+### Data
+
+- **A series** is two to 48 numbers, space-separated, oldest first: `~{12 14 13 17 21}`.
+- **A ratio** is one value against a whole or a target: `~{72/80}`, or `~{72%}` for 72 of 100.
+
+Numbers only: a sign and decimals are fine, but no units, thousands commas or currency
+signs. The reader's number is already in the text beside the spark.
+
+### Type
+
+| Type | Data | Shows |
+|---|---|---|
+| `line` (default for a series) | series | the shape of change |
+| `area` | series | the same, with weight — for a hero trend |
+| `bar` | series | the size of each period |
+| `step` | series | levels that hold, then jump (headcount, a price tier) |
+| `winloss` | series | the sign only: a hit above the line, a miss below |
+| `ring` (default for a ratio) | ratio | one part of a whole |
+| `bullet` | ratio | a value against a target tick |
+
+### Size — `:sm` `:md` `:lg` and `:fill`
+
+Sizes are in em, so a spark scales with the text around it. `:sm` (0.8em × 3em) keeps a
+line of prose even; `:md`, the default (1em × 4.5em), suits table cells and list items;
+`:lg` (1.7em × 7.5em) suits a caption under a big number. Widths are fixed per size, so
+every row's spark in a table can be compared. `:fill` puts the spark on a line of its
+own and stretches it to the width of the text block it sits in. In a `kpi` hero tile that
+is the width of the tile's widest line, which is what lets a trend underline the metric.
+Keep `:fill` out of a sentence, because it breaks the paragraph. It works on every type
+except `ring`.
+
+### Scale — `:zero`
+
+A `line`, `area` or `step` runs from its own low to its own high, which shows the shape
+of change. It also makes a series that barely moved look dramatic. `:zero` starts the
+axis at 0 instead, so churn between 4% and 5% reads as flat. Use it when the claim is
+that something held. A `bar` always starts at zero, because a bar's length is its value.
+
+### Markers — `:end` `:minmax`
+
+`:end` dots the latest value in `--accent`, so "now" looks the same in every spark on a
+slide. `:minmax` dots the low and the high. Both apply to `line`, `area` and `step`.
+
+### Color — `:c1` … `:c12`
+
+A spark takes the color of the text it sits in. `:c1`–`:c12` point it at the same
+categorical slots pills use. A `winloss` loss is `--accent`, but its position below the
+line carries the meaning.
+
+Modifier order is free: `` `~{1 3 2}:area:c4:lg` `` and `` `~{1 3 2}:lg:c4:area` `` are
+the same spark. Each spark carries `role="img"` and a spoken label with its numbers
+("Trend, 8 points, from 0.8 to 1.9, low 0.8, high 1.9").
+
+### What stays literal
+
+A span that opens with `~{` and has a digit in its data is a spark attempt. If it doesn't
+parse, it stays code, and nothing is guessed:
+`` `~{1,200 1,450}` `` (a comma), `` `~{72%}:bar` `` (a bar needs a series),
+`` `~{3 5 4}:bar:end` `` (markers only go on the line types), `` `~{3 5 4}:c13` ``.
+`lint:deck` **warns** (`spark-literal`) and names the reason, and the editor underlines
+the span. A **backslash** keeps the literal on purpose, and silences the warning:
+`` `\~{1,200}` `` renders as `~{1,200}`. A `~{` with no digit in it is not a spark attempt at
+all, so LaTeX's `` `\~{}` `` and `` `\~{n}` `` keep their backslash and get no warning.
+
+Sparks follow the same switch as pills: `inline-code: literal` turns them off for the
+deck. **Chart captions** are the one placement to avoid for now: a caption is a flex
+column, so an inline spark stacks on its own row (#2266).
+
 ## Inline state marks — `` `[x]` ``
 
 The same six markers an author writes bare at the start of a bullet — `[x]` `[-]`

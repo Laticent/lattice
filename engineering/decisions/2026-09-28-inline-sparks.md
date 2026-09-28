@@ -1,11 +1,12 @@
 ---
-status: proposed
-summary: A spark is a word-sized chart an author writes in inline code, the way they write a pill — `~{12 14 13 17 21}:bar:c3:lg`. This note is the authoring spec (grammar, seven types, three sizes, scaling, markers, color, where sparks belong) and a working prototype rendered through the real engine, written before any engine code so the syntax can be settled first. Seven questions for the owner close it (§10).
+status: in-progress
+summary: A spark is a word-sized chart an author writes in inline code, the way they write a pill — `~{12 14 13 17 21}:bar:c3:lg`. This note is the authoring spec (grammar, seven types, three sizes, scaling, markers, color, where sparks belong) and a working prototype rendered through the real engine, written before any engine code so the syntax can be settled first. The owner settled all seven questions on 2026-09-28 (§10).
 ---
 
 # Sparks — word-sized charts, written like pills
 
-**Status:** proposed. The authoring spec and a prototype exist; no engine code does. The
+**Status:** in progress. The owner settled the spec on 2026-09-28 (§10): every question went
+the recommended way. The engine implementation follows the plan in §11. The
 prototype renders through the real engine by loading ahead of the inline-code dispatcher
 (`prototype/patch.js`), so the renders below are genuine engine PDFs, not mockups.
 
@@ -72,11 +73,13 @@ also keeps the parser a whitespace split, with no locale rules.
 | **type** | `line` `area` `bar` `step` `winloss` `ring` `bullet` | `line` for a series, `ring` for a ratio | — |
 | **size** | `sm` `md` `lg` | `md` | all |
 | **color** | `c1`–`c12`, the pills' categorical slots | the surrounding text color | all |
-| **width** | `fill` — stretch to the line's full width | the size's fixed width | all but ring |
+| **width** | `fill` — its own line, as wide as the text block | the size's fixed width | all but ring |
 | **scale** | `zero` — start the value axis at 0 | low-to-high | line, area, step |
 | **markers** | `end` (latest value), `minmax` (low and high); both allowed | none | line, area, step |
 
-**A span that doesn't parse stays literal code, and nothing is guessed.** An unknown modifier,
+**A spark attempt is a `~{` with a digit in its data**, so LaTeX's `\~{}` and `\~{n}` are
+never read as broken sparks. **An attempt that doesn't parse stays literal code, and nothing is
+guessed.** An unknown modifier,
 a repeated axis, a modifier on a type it doesn't apply to (`:bar:end`), or data of the wrong
 shape (`~{72%}:bar`) all leave the `<code>` as written. This is the pill rule, and for the
 pill's reason: a wrong chart that looks plausible survives review, while a literal
@@ -116,7 +119,7 @@ in a table cell and larger in a `kpi` line without any per-component CSS.
 | `sm` | 0.8em × 3em | running prose — keeps the line box, so paragraph spacing doesn't jump |
 | `md` | 1em × 4.5em | table cells, `kpi` supporting lines, list items |
 | `lg` | 1.7em × 7.5em | a caption under a `big-number`, a comparison table where the trend is the point |
-| `fill` | the size's height × 100% | a hero trend spanning a `kpi` tile |
+| `fill` | the size's height × the text block's width | a hero trend under a `kpi` value — as wide as the tile's widest line, since the hero shrink-wraps its lines |
 
 A ring is square: its height is its width. Stroke width grows a little with size
 (`max(1.25px, 0.07em)` at `md`) so a large spark doesn't look like a hairline.
@@ -158,7 +161,7 @@ A zero line (dashed, `--muted-mark`) appears only when a series crosses zero.
 
 **Dots are HTML, not SVG.** The chart stretches to its box (`preserveAspectRatio="none"`), so an
 SVG circle turns into an ellipse, and a `fill` spark is often 20× wider than it is tall. The
-first prototype had exactly that defect. Each dot is a small `<i>` placed by percentage over the
+first prototype had exactly that defect. Each dot is a small `<span>` placed by percentage over the
 SVG, so it stays round at any width. Lines keep an even stroke under the stretch through
 `vector-effect: non-scaling-stroke`.
 
@@ -192,9 +195,11 @@ It doesn't affect any placement above.
 (`base.modifiers.css`, the `code:last-child` rule). A spark renders as a `<span>`, not a
 `<code>`, so it never matches that rule. Slide 8 shows a spark and a pill on the same line.
 
-## 10. Questions for the owner
+## 10. Questions for the owner — settled 2026-09-28
 
-Each one has a recommendation. The prototype already implements the recommended answer.
+The owner ruled on (b)–(e) directly, and each went the recommended way. (a), (f) and (g) were
+announced as defaults in the same round and not contested. The prototype already implements
+every ruling.
 
 - **(a) The name.** "Spark", with `lat-spark` as the class. *Alternative:* "sparkline" is the
   known term, but it is wrong for `ring` and `bullet`.
@@ -222,12 +227,14 @@ Each one has a recommendation. The prototype already implements the recommended 
    mirror. The runtime builder uses `createElementNS`, because assigning markup inside the frame
    is the post-sanitize injection HARD RULE #22 bars.
 3. **Dispatcher:** add sparks to `renderHtml`, `renderElement` and `dispatches()` in
-   `inline-code-directives.js`. The escape rule then covers `\~{` for free.
+   `inline-code-directives.js`. The escape rule then covers a working `\~{` for free; the
+   implementation widened it to any spark attempt, so `\~{1,200}` silences `spark-literal`
+   without leaving a visible backslash.
 4. **CSS** in `lib/base/base.modifiers.css` next to `.lat-pill`: no hex (#3), no margin (#20,
    which is why spacing is `padding-inline`), no `@layer` (#26).
 5. **Sanitizer:** the docs site's `sanitizeSlideHtml` already keeps inline chart SVG (`path`,
    `rect`, `vector-effect`, custom properties in `style`), per its own tests. Add a test pinning
-   `circle`, `stroke-dasharray` and the `<i style="--x…">` dots.
+   `circle`, `stroke-dasharray` and the `<span style="--x…">` dots.
 6. **Tests:** parser table (every literal case in §3.2), geometry (zero line, clamping, bar
    baseline), aria labels, and engine/runtime parity.
 7. **Lint:** the §10(g) near-miss warning in `lib/authoring/lint-core.js` (#7).
