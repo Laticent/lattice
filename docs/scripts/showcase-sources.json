@@ -152,12 +152,12 @@
 	"topic.light": {
 		"src": "lib/components/anchor/topic/topic.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "dab47a1602073cd9459614d903a1b79929e58ef17a86557edfda17c2124fc2fc"
+		"srcSha256": "55f1d1e4af15e5cf8c3cdda11f0c35ce20dbcb9a494aa23f94c511647757ba45"
 	},
 	"topic.dark": {
 		"src": "lib/components/anchor/topic/topic.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "477399506d36276044f5be6cb83c7d75ab34940e758b435ae7f839c452fa35af"
+		"srcSha256": "7ce7c5b3866779bad7b15852d3ce99d7db420713728026e8822047aa051a496b"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
