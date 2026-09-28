@@ -103,7 +103,11 @@
  * rows (.db-config-field) already do. The threshold is in `rem` ON PURPOSE: text
  * scaling is the axis that breaks this layout, so the breakpoint has to move with
  * the text rather than stay pinned to a pixel width the reader can invalidate. */
-@container deckcfg (max-width: 20rem) {
+/* 30rem, not the old 20rem: the Playground's sheet is ~22rem wide, and at 20rem it drew the
+ * rows side by side — the select capped at 55% truncated its own value ("Automatic — follow
+ * the si", "HD · 1280×720 (16:9, defa") and the hint wrapped into a five-line column beside it.
+ * Stacked, every value reads whole and every hint takes one or two lines. */
+@container deckcfg (max-width: 30rem) {
 	.deck-config .db-pref-row {
 		flex-direction: column;
 		align-items: stretch;

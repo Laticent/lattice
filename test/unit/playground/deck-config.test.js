@@ -603,3 +603,52 @@ describe('a deck preset (preset:) sets the baseline for finish and lift', () => 
     assert.doesNotMatch(writeFrontMatter(PLAIN, 'lift', false), /lift:/);
   });
 });
+
+describe('the look registers (preset:, headline:, rule:, eyebrow:, corners:, venue:)', () => {
+  const PLAIN = '---\nmarp: true\ntheme: indaco\n---\n\n# Hi\n';
+  const ED = '---\nmarp: true\ntheme: indaco\npreset: editorial\n---\n\n# Hi\n';
+
+  test('each row reads what the deck resolves to — its own value, else its preset’s', async () => {
+    const { readFrontMatter } = await import(MOD);
+    const p = readFrontMatter(PLAIN);
+    assert.deepEqual([p.preset, p.headline, p.rule, p.eyebrow, p.corners, p.venue], ['', 'auto', 'auto', 'plain', 'square', 'laptop']);
+    const e = readFrontMatter(ED);
+    assert.deepEqual([e.preset, e.headline, e.rule, e.eyebrow, e.corners], ['editorial', 'left', 'short', 'bar', 'square']);
+  });
+
+  test('a value is written only when it differs from the preset; the default clears it', async () => {
+    const { writeFrontMatter } = await import(MOD);
+    assert.match(writeFrontMatter(PLAIN, 'headline', 'center'), /\nheadline: center\n/);
+    assert.doesNotMatch(writeFrontMatter(PLAIN, 'headline', 'auto'), /headline:/);
+    // Under editorial, `left` IS the preset's value — no key; `auto` is the override.
+    assert.doesNotMatch(writeFrontMatter(ED, 'headline', 'left'), /headline:/);
+    assert.match(writeFrontMatter(ED, 'headline', 'auto'), /\nheadline: auto\n/);
+    assert.match(writeFrontMatter(PLAIN, 'corners', 'rounded'), /\ncorners: rounded\n/);
+    assert.match(writeFrontMatter(PLAIN, 'venue', 'hall'), /\nvenue: hall\n/);
+    assert.doesNotMatch(writeFrontMatter(PLAIN, 'venue', 'laptop'), /venue:/);
+    assert.doesNotMatch(writeFrontMatter(ED, 'preset', 'classic'), /preset:/);
+  });
+
+  test('the keys land in a stable order after theme', async () => {
+    const { writeFrontMatter } = await import(MOD);
+    let src = writeFrontMatter(PLAIN, 'venue', 'hall');
+    src = writeFrontMatter(src, 'rule', 'none');
+    src = writeFrontMatter(src, 'eyebrow', 'dot');
+    assert.match(src, /theme: indaco\nrule: none\neyebrow: dot\nvenue: hall\n/);
+    // Minimal's own rule is `none`, so under it the line is redundant and goes; the rest stay.
+    src = writeFrontMatter(src, 'preset', 'minimal');
+    assert.match(src, /theme: indaco\npreset: minimal\neyebrow: dot\nvenue: hall\n/);
+    assert.equal((await import(MOD)).readFrontMatter(src).rule, 'none');
+  });
+});
+
+describe('switching preset keeps the author’s own look values', () => {
+  test('an explicit headline that matched the OLD preset survives a switch to one that differs', async () => {
+    const { writeFrontMatter, readFrontMatter } = await import(MOD);
+    const src = '---\nmarp: true\npreset: editorial\nheadline: left\n---\n\n# Hi\n';
+    const out = writeFrontMatter(src, 'preset', 'brand');
+    assert.match(out, /\npreset: brand\n/);
+    assert.match(out, /\nheadline: left\n/);
+    assert.equal(readFrontMatter(out).headline, 'left');
+  });
+});

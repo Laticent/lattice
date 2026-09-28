@@ -118,9 +118,9 @@ export function DeckSetupSheet({
 	return (
 		<Sheet open={open} onOpenChange={setOpen} modal={false}>
 			<SheetTrigger asChild>
-				<Button id="pg-setup-trigger" variant="outline" size="sm" aria-label="Deck Setting" title="Deck Setting — front matter for this deck">
+				<Button id="pg-setup-trigger" variant="outline" size="sm" aria-label="Deck settings" title="Deck settings — look, format and front matter for this deck">
 					<Settings className={configured ? 'text-primary' : undefined} />
-					<span className="hidden sm:inline">Deck Setting</span>
+					<span className="hidden sm:inline">Deck settings</span>
 				</Button>
 			</SheetTrigger>
 			<SheetContent

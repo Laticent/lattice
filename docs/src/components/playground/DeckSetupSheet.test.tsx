@@ -45,7 +45,7 @@ describe('DeckSetupSheet — what it hands the vanilla config panel', () => {
 				configured={false}
 			/>,
 		);
-		await user.click(screen.getByRole('button', { name: 'Deck Setting' }));
+		await user.click(screen.getByRole('button', { name: 'Deck settings' }));
 		await waitFor(() => expect(createConfigPanel).toHaveBeenCalled());
 		const opts = createConfigPanel.mock.calls.at(-1)?.[0] as PanelOpts;
 		expect(opts.modes, 'the host must hand the panel its mode vocabulary').toBeTruthy();
@@ -76,7 +76,7 @@ describe('DeckSetupSheet — what it hands the vanilla config panel', () => {
 				configured={false}
 			/>,
 		);
-		await user.click(screen.getByRole('button', { name: 'Deck Setting' }));
+		await user.click(screen.getByRole('button', { name: 'Deck settings' }));
 		await waitFor(() => expect(createConfigPanel).toHaveBeenCalled());
 		const opts = createConfigPanel.mock.calls.at(-1)?.[0] as PanelOpts;
 		expect(opts.fields === null || (opts.fields ?? []).includes('theme'), 'the deck-theme row must be reachable here').toBe(true);
@@ -102,7 +102,7 @@ describe('DeckSetupSheet — what it hands the vanilla config panel', () => {
 				configured={false}
 			/>,
 		);
-		await user.click(screen.getByRole('button', { name: 'Deck Setting' }));
+		await user.click(screen.getByRole('button', { name: 'Deck settings' }));
 		await waitFor(() => expect(createConfigPanel).toHaveBeenCalled());
 		const active = document.activeElement;
 		expect(['SELECT', 'INPUT', 'TEXTAREA']).not.toContain(active?.tagName);
