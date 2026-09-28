@@ -52,7 +52,7 @@ that teach the whole feature:
 > heading. Name a component in `_pane` when the pane is not plain text.
 
 This note records the authoring design only. The internal structure (how a `_class` layout
-becomes a Frame whose Cells hold the panes) is the next note; §9 lists what it has to answer.
+becomes a Frame whose Cells hold the panes) is the next note; §10 lists what it has to answer.
 
 ---
 
@@ -244,7 +244,7 @@ the office suite, and each group also meets the word in a tool of its own:
 | Audience | Where they already meet "columns" / "rows" |
 |---|---|
 | Lawyers and compliance, government, nonprofit, general teams | Word's **Columns** button (Layout › Columns); the rows and columns of every Excel sheet |
-| Scientists and academics | the journal "two-column format"; poster columns; Beamer's `columns` |
+| Scientists and academics (the `academic` exemplars) | the journal "two-column format"; poster columns; Beamer's `columns` |
 | Mathematicians, quants and ML | Beamer's `columns`; Quarto's `.columns`; Jupyter |
 | Engineers and architects | CSS grid rows and columns; Slidev's `two-cols`; Notion's columns |
 | Project leads, analysts and consultants | Google Slides' "Title and two columns"; PowerPoint's "Two Content" and "Comparison" |
@@ -260,9 +260,13 @@ The slide tools' own names for a two-sided layout, for reference:
 | PowerPoint | "Two Content", "Comparison" | "Picture with Caption" |
 | Marp | "split backgrounds" (`![bg left:40%]`) | — |
 
-Slidev's and Quarto's names are checked against their current documentation. The PowerPoint
-and Google Slides names are their stock layout names, and the Word, Excel, Notion and journal
-uses are common knowledge rather than re-checked sources.
+Sources, checked 2026-09-28: Slidev's and Quarto's names against their current documentation
+(sli.dev/builtin/layouts, quarto.org/docs/presentations/revealjs). Word's Layout › Columns and
+PowerPoint's "Comparison" and "Picture with Caption" against Microsoft Support ("Create multiple
+columns in Word", "Apply a slide layout"). PowerPoint's "Two Content" and Google Slides' "Title
+and two columns" / "One column text" against third-party guides (Indezine, SlideModel), since
+neither vendor's help page lists its layout names. The Excel, Notion, Jupyter, journal and
+poster uses are common knowledge, not checked against a source.
 
 ### 7.2 How each role meets the name
 
@@ -277,8 +281,8 @@ different of the name:
 | **The reviewer reading the source in a pull request** | the raw Markdown | read as prose: `columns 60/40` over two `###` headings describes the slide without a render |
 
 A fifth person never sees a name at all: **the audience in the room.** What they need is for two
-panes to read as one argument, which is what the shared title row (§3) and the single Key
-Insight (§4) are for.
+panes to read as one argument, which is what the shared title row (§3) and the rule that the Key
+Insight is the slide's, with a lint warning when there are two (§4), are for.
 
 ### 7.3 The choices
 
@@ -289,7 +293,8 @@ Insight (§4) are for.
   does not think in grids.
 - **Not `split`.** The repo already uses it at least four ways: the `split:` front-matter
   setting, auto-splitting a slide into pages, a modifier on `image` / `scene` / `redline` /
-  `citation-card`, and `form: split` in manifests. A fifth meaning would guarantee confusion.
+  `citation-card`, and `form: split` in five manifests, before counting the component names
+`split-panel` and `split-compare`. Another meaning would guarantee confusion.
 - **Not `two-cols` or "two content".** Those bake the count into the name; `columns` does not.
 - **`_pane` keeps the word "pane"** because "column" does not fit a box in `rows`, and "pane" is
   plain English.
