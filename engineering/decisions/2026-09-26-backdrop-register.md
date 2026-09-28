@@ -273,6 +273,33 @@ rule itself and flipped `--fin-backdrop-mask` to the hard mirror there too; it n
 print only. **A Fabricate spotlight finish saved before this change keeps the old generated rule,
 and so its hard-edged Studio download, until it is re-saved.**
 
+### 4.9 Saved finishes in the Studio exports (2026-09-28)
+
+**Symptom (followup `2388-p1`):** a finish saved in Fabricate showed in the live preview, but the
+Studio's Share → Images, PDF and PowerPoint exports came out identical to `finish: none`.
+
+**Cause, found in the real capture document:** the saved finish's class and CSS both reached the
+capture. Its layers still computed to `none` under `.lattice-exporting`. The Studio scopes the
+engine stylesheet under `article.lattice >`, so the engine's export flip
+(`--fin-texture: var(--fin-texture-opaque, none)`, and the wash, mark and edge siblings) is
+`article.lattice > section.finish.lattice-exporting`, specificity (0,3,2). The saved finish's own
+export rule is `section.finish.finish-<slug>.lattice-exporting`, (0,3,1), so the flip won. A
+built-in preset survives it because it declares `--fin-*-opaque` mirrors; a generated finish
+declared none, so every layer fell to `none`. The CLI was not affected, because its stylesheet is
+not scoped.
+
+**Fix:** `generateFinishCss` writes the four mirrors (`--fin-wash-opaque`, `--fin-texture-opaque`,
+`--fin-mark-opaque`, `--fin-edge-opaque`) in the finish's rich rule, the same shape a preset has.
+The flip then lands on the finish's own opaque face at any specificity. The Studio regenerates a
+saved finish's CSS from its recipe on every read, so finishes already in a library are fixed
+without a re-save.
+
+**Verified on the real Studio** (Fabricate save → `finish:` → Share), comparing each export of a
+slide wearing the saved finish against the same slide with `finish: none`: 0% of pixels differed
+before the fix on every lane; after it, 10.6% (Images), 8.6% (PDF) and 10.6% (PowerPoint), the
+wash and the grid. `docs/e2e/saved-finish-export.spec.ts` pins the Images lane and fails without
+the fix.
+
 ### 4.5 `finish-override.backdrop`
 
 Keep it working. It still tunes the baked tier of a fabricated finish, and removing it would

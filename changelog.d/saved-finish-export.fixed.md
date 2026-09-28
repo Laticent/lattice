@@ -1,0 +1,1 @@
+- **Fixed: a finish saved in Fabricate now appears in the Studio's image, PDF and PowerPoint exports.** The live preview showed it, but every export came out as if the deck had no finish. Finishes already in your library are fixed without saving them again.
