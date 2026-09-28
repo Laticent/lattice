@@ -39,7 +39,9 @@ import { expect, test } from './studio-fixture';
  * exists on the touch projects). The rest are functional oracles and run on `desktop`.
  */
 
-/** A component with a long, stable plan — 15 slides, so a walk has somewhere to go. */
+/** A component with a long plan, so a walk has somewhere to go. Its length is read off the walk
+ *  bar, never written here: the plan grew from 13 to 15 slides with the catalog and five specs
+ *  broke on the literal while the behavior they guard was fine. */
 const DECK = 'kpi';
 
 /** Open Explore on `DECK` and wait for the deck to be on screen and settled. */
@@ -222,7 +224,9 @@ const prevSlide = (page: Page) => page.locator('.pg-walk-step').first();
 
 test('a wheel scroll moves the walk position with it', async ({ page }) => {
 	await gotoExplore(page);
-	expect(await claimed(page)).toEqual({ index: 1, count: 15 });
+	const start = await claimed(page);
+	expect(start.index).toBe(1);
+	expect(start.count).toBeGreaterThan(5);
 	await wheelOverPreview(page, 3600);
 	const on = await dominantSlide(page);
 	expect(on).toBeGreaterThan(3); // the wheel really did travel
@@ -324,14 +328,15 @@ test('@parity the arrow keys still turn the deck after the reader clicks the sli
 test('@parity PageDown / PageUp / Home / End come from the shared keymap', async ({ page }) => {
 	await gotoExplore(page);
 	// A presentation clicker emits PageDown/PageUp; the hand-written two-key map had neither.
+	const { count } = await claimed(page);
 	await page.keyboard.press('PageDown');
 	await settle(page);
 	expect((await claimed(page)).index).toBe(2);
 	await page.keyboard.press('End');
 	await settle(page);
-	expect((await claimed(page)).index).toBe(15);
-	// NOT `dominantSlide === 15`. At 390 and 820 this deck lays out three slides to a pane
-	// and the filmstrip clamps before the last one reaches the top, so slides 13, 14 and 15
+	expect((await claimed(page)).index).toBe(count);
+	// NOT `dominantSlide === count`. At 390 and 820 this deck lays out three slides to a pane
+	// and the filmstrip clamps before the last one reaches the top, so the last three slides
 	// are all fully on screen and the "dominant" one is the lowest of them. End put the
 	// reader at the end of the deck; the invariant is that the deck's end is what they see.
 	await expectPositionIsTruthful(page, 'End');
@@ -376,7 +381,8 @@ test('clicking the tab you are already on does not destroy the deck', async ({ p
 	await page.keyboard.press('ArrowRight');
 	await settle(page);
 	const before = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0);
-	expect(before).toBe(15);
+	expect(before).toBe((await claimed(page)).count);
+	expect(before).toBeGreaterThan(5);
 	await page.getByRole('tab', { name: 'Explore' }).click();
 	await settle(page);
 	expect(
@@ -543,8 +549,9 @@ test('@mobile the picker panel stays above the soft keyboard', async ({ page }) 
 	await page.locator('#pg-template-trigger').click();
 	await expect(page.locator('[cmdk-list]')).toBeVisible();
 	await raiseSoftKeyboard(page);
+	const all = await page.locator('[cmdk-item]').count();
 	await page.locator('[cmdk-input]').fill('chart');
-	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69); // the search has re-ranked
+	await expect(page.locator('[cmdk-item]')).not.toHaveCount(all); // the search has re-ranked
 	const bottom = await page.locator('[cmdk-list]').evaluate((el) => Math.round(el.getBoundingClientRect().bottom));
 	const visible = await visibleBottomOf(page);
 	// Before: the list was a fixed 300px and ran 182px under the keyboard, with iOS's own
@@ -560,8 +567,9 @@ test('@mobile Return reveals the list instead of replacing the deck', async ({ p
 	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
 	await page.locator('#pg-template-trigger').click();
 	await raiseSoftKeyboard(page);
+	const all = await page.locator('[cmdk-item]').count();
 	await page.locator('[cmdk-input]').fill('chart');
-	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69);
+	await expect(page.locator('[cmdk-item]')).not.toHaveCount(all);
 	await page.locator('[cmdk-input]').press('Enter');
 	// An absence assertion needs a settled surface, and `settle` is a bounded poll: if
 	// Return HAD committed, the popover would be gone and the trigger renamed by now.
@@ -579,12 +587,15 @@ test('a search shows its top hit, not wherever the previous list was scrolled to
 	await gotoExplore(page, '?c=word-cloud&view=read');
 	await page.locator('#pg-template-trigger').click();
 	await expect(page.locator('[cmdk-list]')).toBeVisible();
+	// The unfiltered count, read rather than written: the catalog grows (it was 69 when this
+	// was written), and a literal made the wait below pass before the filter had run.
+	const all = await page.locator('[cmdk-item]').count();
 	await page.locator('[cmdk-input]').fill('chart');
-	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69);
-	// The TOP hit, whichever component ranks first for the query (a new chart component
-	// changes which one that is), rather than a named one.
-	await expect(page.locator('[cmdk-item]').first()).toHaveAttribute('data-selected', 'true');
-	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(/chart/);
+	await expect(page.locator('[cmdk-item]')).not.toHaveCount(all);
+	// The TOP hit is highlighted — whichever component ranks first for "chart" today. Naming it
+	// (`piechart`) broke the day a new component outranked it; the defect was the scroll.
+	const top = ((await page.locator('[cmdk-item]').first().textContent()) ?? '').trim();
+	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(top);
 	const seen = await page.evaluate(() => {
 		const list = document.querySelector('[cmdk-list]');
 		const sel = document.querySelector('[cmdk-item][data-selected="true"]');
