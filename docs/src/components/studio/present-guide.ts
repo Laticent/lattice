@@ -2081,15 +2081,37 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 	// timeline stage is mostly the gap above its label. Checking against boxes rejected the margin
 	// beside a bullet — the one place a presenter's hand actually goes — and pushed almost every
 	// small handle onto the fallback search. Line rects put the check on the ink.
+	// EVERY PAINTED WORD, not only the text blocks. A chart's labels are SVG `<text>` and small
+	// `<div>`s that no block selector names, and the hand came to rest on "$1.8M" and "12,000":
+	// measured at a phone's 393px, 17 of 64 resting hands on the Guide test deck covered a chart
+	// label. One range per text node, so a label split across inline markup is still all its lines.
 	const obstacles: Box[] = [];
-	for (const node of root.querySelectorAll(BLOCK_SELECTOR)) {
-		if (!(node.textContent ?? '').trim() || node.closest('.chart-sr-only')) continue;
-		const lines = rectsOf(contentRange(node));
-		if (lines) for (const r of lines) obstacles.push(boxOf(r));
-		else {
-			const r = node.getBoundingClientRect();
+	const doc = root.ownerDocument ?? (root as Document);
+	const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+	// A host that reports no line boxes (a layout-free DOM) falls back to the element's own box,
+	// once per element, as the block scan did.
+	const boxed = new Set<Element>();
+	for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+		const host = n.parentElement;
+		if (!n.data.trim() || !host || host.closest(UNPAINTED)) continue;
+		const range = doc.createRange();
+		range.selectNodeContents(n);
+		const lines = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
+		if (lines.length) for (const r of lines) obstacles.push(boxOf(r));
+		else if (!boxed.has(host)) {
+			boxed.add(host);
+			const r = host.getBoundingClientRect();
 			if (r.width > 0 && r.height > 0) obstacles.push(boxOf(r));
 		}
+	}
+	// A picture with no words is painted too: an image, or an SVG that carries no text (a logo
+	// mark, an icon). The block scan used to cover them through its element boxes; the word walk
+	// alone would let the hand rest on a logo (checker). A chart's SVG has text, so its words, not
+	// its whole frame, stay the obstacles.
+	for (const pic of root.querySelectorAll('img, svg')) {
+		if (pic.closest(UNPAINTED) || (pic.tagName.toLowerCase() === 'svg' && (pic.querySelector('text') || pic.parentElement?.closest('svg')))) continue;
+		const r = pic.getBoundingClientRect();
+		if (r.width > 0 && r.height > 0) obstacles.push(boxOf(r));
 	}
 	// The full rect list, and the library picks the line its own stroke will use — it reads the
 	// FIRST for `underline` and the LAST for `wash`. This used to be sliced here to compensate for

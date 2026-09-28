@@ -1277,6 +1277,36 @@ describe('the geometry the classifier is handed, and the units it is handed in',
 		expect(guideCueFor(() => frame, 'Growth held.')).toBeNull();
 	});
 
+	it('checks the resting place against a chart’s labels too, not only text blocks', () => {
+		// A chart's value labels are SVG `<text>` that no block selector names, and the hand came to
+		// rest on "$1.8M" (measured at a phone's 393px: 17 of 66 resting hands covered a label).
+		const d = doc('<p>Growth held.</p><svg><text>$1.8M</text></svg>');
+		const a = d.querySelector('p') as HTMLElement;
+		const label = d.querySelector('text') as unknown as HTMLElement;
+		a.getBoundingClientRect = () => ({ x: 0, y: 0, left: 10, top: 20, width: 100, height: 24, right: 110, bottom: 44, toJSON: () => ({}) }) as DOMRect;
+		label.getBoundingClientRect = () => ({ x: 0, y: 0, left: 110, top: 20, width: 200, height: 60, right: 310, bottom: 80, toJSON: () => ({}) }) as DOMRect;
+		const frame = {
+			contentDocument: d,
+			offsetWidth: 400,
+			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400, toJSON: () => ({}) }) as DOMRect,
+		} as unknown as HTMLIFrameElement;
+		expect(guideCueFor(() => frame, 'Growth held.')?.rest, 'the hand rests past the line, straight onto the label').not.toBeNull();
+	});
+
+	it('checks the resting place against a picture with no words too (a logo mark)', () => {
+		const d = doc('<p>Growth held.</p><span class="logo-mark"><svg><path d="M0 0h10v10z"/></svg></span>');
+		const a = d.querySelector('p') as HTMLElement;
+		const mark = d.querySelector('svg') as unknown as HTMLElement;
+		a.getBoundingClientRect = () => ({ x: 0, y: 0, left: 10, top: 20, width: 100, height: 24, right: 110, bottom: 44, toJSON: () => ({}) }) as DOMRect;
+		mark.getBoundingClientRect = () => ({ x: 0, y: 0, left: 110, top: 20, width: 200, height: 60, right: 310, bottom: 80, toJSON: () => ({}) }) as DOMRect;
+		const frame = {
+			contentDocument: d,
+			offsetWidth: 400,
+			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400, toJSON: () => ({}) }) as DOMRect,
+		} as unknown as HTMLIFrameElement;
+		expect(guideCueFor(() => frame, 'Growth held.')?.rest, 'the hand rests past the line, straight onto the logo').not.toBeNull();
+	});
+
 	it('checks the resting place against the slide’s OWN blocks', () => {
 		// §"position is a consequence" leans on exactly one mechanical check: the geometric rest,
 		// tested against every block on the slide. With the obstacle list empty nothing ever falls
