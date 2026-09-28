@@ -25,16 +25,21 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               unmeasured — on a slide as in a pane. The direction follows the box's shape, not the
               diagram's: few panes are tall (a 35% pane under an eyebrow is already square), so a
               long chain in a near-square pane stays small either way.
-            - Radar scales into its pane: its axis labels live in the diagram, so the key-fitting
-              pie/map/quadrant use would shrink them. It needs its labels counted as text
-              before it can lay out for the pane.
+            - CLOSED (panes-radar PR): radar lays out for its pane, scored by its rim labels
+              (`fitKeyToPane` `labelText` + `ceiling`). examples/panes-radar.md.
             - The HTML-drawn charts reflow in the pane box but were not audited at 25%.
-            - A chart's wrap (chart-family.js `transformChartSection`) keeps only the FIRST
-              paragraph before the figure, lifted as its subtitle, and silently drops a second
-              one, on a chart slide and in a chart pane alike (found by the P9 checker, 368
-              renders; the pane-follow-ups PR kept the behavior to stay render-identical).
-            - The chart pane budgets stay `basis: editorial`: `tools/calibrate-capacity.js --pane`
-              does not measure a chart's pane ceiling yet.
+            - CLOSED (panes-radar PR): the chart wrap keeps every lead paragraph (`.chart-lead`),
+              on a slide and in a pane. examples/chart-lead-paragraphs.md. Still dropped without
+              a word: any OTHER block between the heading and the figure (a code block, a
+              blockquote, a table, raw HTML) — the wrap keeps top-level paragraphs only.
+            - PART CLOSED (panes-radar PR): `calibrate-capacity --pane` measures SVG charts
+              (builders for 12 kernels, and a step fails on TYPE FLOOR or CHART LABELS DROPPED as
+              well as OVERFLOW). bar, piechart, scatter, line, heatmap, map and radar turned
+              `measured`; scatter's hard fell 12 -> 8 (side) and 10 (stack). Still `editorial`:
+              bullet, funnel, waterfall, stacked-bar and slope (no probe signal to 24 elements —
+              see 2376-p2-probe-labels-over-marks.md) and every HTML-drawn or grouped chart
+              (gantt, journey, kanban, matrix-grid, progress, quadrant, roadmap, state-chart,
+              word-cloud), which this pass did not measure.
             MEASURED 2026-09-27 (panes-continuation PR, left for its own PR):
             - Mermaid pane labels ALREADY clear the floor: examples/panes-mermaid.md measures a
               smallest label of 13.0 / 14.2 / 11.6px on its three pane slides against a 7.2px floor
@@ -49,21 +54,11 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               diagram-narration #5 7.1px, typed-diagram-narration #4 6.9px). Each would gain the
               export's "Text too small" tag, so the change alters exported PDFs: an owner sign-off
               (QUALITY BAR export rule), and those decks' committed PDFs rebuild with it.
-            - Radar: fixed 300x300 diagram and `FS_AXIS = 11` (radar.transform.js:79,96,141);
-              `transformSection` never passes `ctx.paneView` (:940-951). `fitKeyToPane` scores key
-              text and diagram share only, so radar needs its axis-label size added to that score.
-            - Lead paragraphs: `liftChartSubtitle` takes the first `<p>` (chart-family.js:192-195)
-              and the splice at :297 keeps only comments, so a second `<p>` is dropped. A visible
-              change: owes a deck (#9).
-            - Calibration: `BUILDERS` (tools/lib/calibrate-core.js:61) has no SVG chart, and the
-              signal is the OVERFLOW line alone (:227-233); a viewBox chart shrinks instead of
-              overflowing, so it needs a legibility signal as well as builders.
 where     — lib/integrations/mermaid/ (the render width, and a way to size foreignObject labels
             for the probe), the radar kernel, the HTML chart kernels, chart-family.js,
             tools/calibrate-capacity.js --pane.
-done when — a Mermaid pane's labels read at least the type floor and the probe can say so; radar
-            lays out for its pane; the chart wrap keeps every lead paragraph; and the calibration
-            measures each chart's pane ceiling, so its budget turns `measured`.
+done when — a Mermaid pane's labels read at least the type floor and the probe can say so; and the calibration
+            measures the rest of the charts' pane ceilings, so their budgets turn `measured`.
 evidence  — decision note §2 ("Charts draw for the pane") and §6 gap 2; the label-height table
             in PR #2420.
 verify    — tier 1 checker; render a flowchart in a 35% pane and on a slide and compare a node

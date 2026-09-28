@@ -49,6 +49,11 @@
  * is held at HALF the component's `density.soft` (a pane's content is written tighter). The
  * number it bounds is the manifest's `pane.budget.<side|stack>.hard`.
  *
+ * THE SIGNAL. A step fails when it clips (the OVERFLOW line) OR stops being legible: a figure's
+ * text under the type floor (TYPE FLOOR) or a chart label the kernel declined to paint (CHART
+ * LABELS DROPPED). A viewBox chart never clips as it fills — it shrinks — so the legibility lines
+ * are the only way its ceiling shows; the report names which signal tripped.
+ *
  * Exit 0 when every declared capacity is within its measured ceiling; exit 1
  * when one exceeds it (so it can gate), unless --advisory.
  */
@@ -216,7 +221,7 @@ function declaredPane(manifest) {
 function measure(comp, family, wordsPer, share) {
   const build = BUILDERS[comp];
   const counts = Array.from({ length: MAX }, (_, i) => i + 1);
-  const body = (n) => (BODY_WRAP[comp] || ((b) => b))(Array.from({ length: n }, () => build(wordsPer)).join('\n'));
+  const body = (n) => (BODY_WRAP[comp] || ((b) => b))(Array.from({ length: n }, (_, i) => build(wordsPer, i)).join('\n'));
   const cls = [comp, VARIANT, INSIGHT ? 'insight-so-what' : null].filter(Boolean).join(' ');
   const callout = INSIGHT ? '\n\n> The one line the room should remember.\n' : '';
   const deck = gradedDeck({
@@ -231,15 +236,20 @@ function measure(comp, family, wordsPer, share) {
           + `<!-- pane: ${comp} -->\n\n${body(n)}\n\n<!-- pane: content -->\n\nOne short line.\n` }
       : { label: `${n} element${n === 1 ? '' : 's'}`, body: body(n) + callout }),
   });
-  const { overflowed } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}`);
+  const { overflowed, underFloor, labelsDropped } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}`);
   let lastFit = null;
   let firstOver = null;
+  let signal = null;
+  // A step fails when it CLIPS, or when it stops being LEGIBLE: text under the type floor, or a
+  // label the chart declined to paint. A viewBox chart only ever fails the second way.
+  const why = (page) => [overflowed.has(page) && 'overflow', underFloor.has(page) && 'type floor',
+    labelsDropped.has(page) && 'labels dropped'].filter(Boolean).join(' + ');
   for (let i = 0; i < counts.length; i++) {
-    const over = overflowed.has(i + 1);   // page N = step i (front matter emits no slide)
-    if (over && firstOver == null) firstOver = counts[i];
+    const over = why(i + 1);   // page N = step i (front matter emits no slide)
+    if (over && firstOver == null) { firstOver = counts[i]; signal = over; }
     if (!over && firstOver == null) lastFit = counts[i];
   }
-  return { firstOver, ceiling: lastFit, counts };
+  return { firstOver, ceiling: lastFit, counts, signal };
 }
 
 const results = [];
@@ -271,7 +281,7 @@ for (const comp of components) {
     continue;
   }
   for (const family of PANE ? ['wide'] : TARGET_FAMILIES) {
-    const { firstOver, ceiling } = measure(comp, family, wordsPer, share);
+    const { firstOver, ceiling, signal } = measure(comp, family, wordsPer, share);
     // At a projection scale the manifest's `hard` is the wrong yardstick — it is a
     // designed-size budget. The number lint enforces there is the manifest's measured
     // `venueCapacity` row, so that is what this run checks, at the exact length it was
@@ -280,14 +290,14 @@ for (const comp of components) {
     const declared = PANE ? declaredPane(manifest) : SCALE ? scaleDeclared(manifest, wordsPer) : declaredFor(manifest, family);
     const over = declared && ceiling != null && declared.hard != null && declared.hard > ceiling;
     if (over) violations++;
-    results.push({ component: comp, family, pane: PANE, share, wordsPer, ceiling, firstOver, declared, exceedsCeiling: !!over });
+    results.push({ component: comp, family, pane: PANE, share, wordsPer, ceiling, firstOver, signal, declared, exceedsCeiling: !!over });
 
     if (!JSON_OUT) {
       const where = PANE ? `pane ${PANE} ${share}%` : `${family} (@size ${SIZE_ALIAS[family]})`;
       const head = `${comp} · ${where} · ${wordsPer} words/element`;
       const measured = firstOver == null
         ? `fits to ${MAX}+ (raise --max)`
-        : `ceiling ${ceiling} · overflows at ${firstOver}`;
+        : `ceiling ${ceiling} · fails at ${firstOver} (${signal})`;
       const decl = declared
         ? `declared sweet ${declared.sweet ?? '–'} / soft ${declared.soft ?? '–'} / hard ${declared.hard ?? '–'}  [${declared.source}]`
         : 'no capacity declared';

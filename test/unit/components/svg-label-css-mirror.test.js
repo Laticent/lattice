@@ -39,7 +39,10 @@ function declaredFontSize(css, selector) {
   if (!m) return null;
   const fs2 = m[1].match(/font-size:\s*([^;]+);/);
   if (!fs2) return null;
-  const raw = fs2[1].trim();
+  return fontSizeValue(css, fs2[1].trim());
+}
+
+function fontSizeValue(css, raw) {
   const px = raw.match(/^([\d.]+)px$/);
   if (px) return Number(px[1]);
   const varRef = raw.match(/^var\((--[\w-]+)\)$/);
@@ -47,6 +50,10 @@ function declaredFontSize(css, selector) {
     const def = css.match(new RegExp(`${varRef[1]}:\\s*([\\d.]+)px`));
     return def ? Number(def[1]) : null;
   }
+  // A kernel-owned multiplier that is 1 unless the kernel stamps it (radar's pane type scale,
+  // `calc(var(--radar-axis-label-size) * var(--radar-type-scale, 1))`) mirrors its base size.
+  const scaled = raw.match(/^calc\((.+?)\s*\*\s*var\(--[\w-]+,\s*1\)\)$/);
+  if (scaled) return fontSizeValue(css, scaled[1].trim());
   return null;
 }
 

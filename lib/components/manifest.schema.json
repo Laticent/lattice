@@ -968,7 +968,7 @@
                 "measured",
                 "editorial"
               ],
-              "description": "`measured`: `hard` is bounded by `tools/calibrate-capacity.js --pane` (the export's overflow probe, at the component's editorial density). `editorial`: judgment, stated in `note` \u2014 a chart scales instead of clipping, so it has no geometric ceiling to measure."
+              "description": "`measured`: `hard` is bounded by `tools/calibrate-capacity.js --pane`, at the component's editorial density: a step fails when it clips (the export's overflow probe) or stops being legible (a figure's text under the type floor, or a chart label its kernel declined to paint, which is how a viewBox chart that shrinks instead of clipping shows its ceiling). `editorial`: judgment, stated in `note` \u2014 no probe signal bounds it (a chart that fails in a way the probes do not see, such as labels overprinting marks)."
             },
             "side": {
               "type": "object",

@@ -160,7 +160,7 @@
     "stack": 50,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 4,
         "hard": 6
@@ -169,7 +169,7 @@
         "sweet": 4,
         "hard": 6
       },
-      "note": "Past six slices the labels crowd the wedges at any pane size. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint): side 50%: 21, text under the type floor at 22; stack 50/50: 9, under the floor at 10. sweet sits at or below it."
     },
     "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },

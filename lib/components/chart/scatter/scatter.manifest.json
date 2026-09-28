@@ -218,16 +218,16 @@
     "stack": 50,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 8,
-        "hard": 12
+        "hard": 8
       },
       "stack": {
         "sweet": 8,
-        "hard": 12
+        "hard": 10
       },
-      "note": "Labeled points: labels collide past twelve. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint): side 50%: 8, point labels dropped at 9; stack 50/50: 10, dropped at 11. sweet sits at or below it."
     },
     "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },

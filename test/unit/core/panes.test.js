@@ -375,15 +375,37 @@ test('a keyed chart grows its key only when the printed text really grows', () =
   assert.equal(fitKeyToPane(build, opts(null)).fontScale, 1);
 });
 
-test('a radar in a pane draws as a radar slide does: its axis labels belong to the diagram', () => {
+test('a radar in a pane lays out for the pane: its rim labels count in the fit', () => {
   const e = engine();
   const series = (name, v) => `- ${name}\n${['Coverage', 'Integration', 'Cost', 'Support', 'Speed'].map((ax, i) => `  - ${ax} \`${v[i]}\``).join('\n')}`;
   const radar = `${series('Build', [6, 7, 9, 4, 5])}\n${series('Buy', [8, 5, 3, 7, 6])}`;
-  const vb = (html) => (html.match(/class="radar-svg[^"]*"[^>]*viewBox="([^"]+)"/) || [])[1];
-  const slide = vb(e.render(`<!-- _class: radar -->\n\n## T\n\n${radar}\n`).html);
-  const pane = vb(e.render(`## T\n\n<!-- pane: radar -->\n\n${radar}\n\n<!-- pane: list -->\n\n- x\n`).html);
-  assert.ok(slide, 'no radar svg on the slide');
-  assert.equal(pane, slide);
+  const svgOf = (html) => (html.match(/<svg class="radar-svg[^"]*"[^>]*>/) || [])[0];
+  const slide = svgOf(e.render(`<!-- _class: radar -->\n\n## T\n\n${radar}\n`).html);
+  const pane = svgOf(e.render(`## T\n\n<!-- pane: radar -->\n\n${radar}\n\n<!-- pane: list -->\n\n- x\n`).html);
+  assert.ok(slide && pane, 'no radar svg');
+  // The slide keeps its own drawing; the pane gets one sized for its box, with the type scale
+  // the stylesheet multiplies into the rim labels (radar.transform.js composeFigure).
+  assert.doesNotMatch(slide, /--radar-type-scale/);
+  assert.match(pane, /--radar-type-scale:[\d.]+/);
+  assert.notEqual(pane.match(/viewBox="[^"]+"/)[0], slide.match(/viewBox="[^"]+"/)[0]);
+});
+
+test('a keyed chart with labels in its diagram is scored by the smaller text, capped at the slide', () => {
+  const { fitKeyToPane, FS_OF_HEIGHT } = require('../../../lib/components/chart/_chart-family/svg-legend');
+  // A 300-unit diagram whose own labels are 11 units at scale 1, growing with the key's type.
+  const build = (_o, m) => ({ viewW: 300 + 200 * m, viewH: 300 + 30 * m });
+  const pv = { w: 400, h: 60 };
+  const opts = { orientation: undefined, paneView: pv, diagramHeight: 300, orientations: [undefined] };
+  const s = (m) => Math.min(pv.w / (300 + 200 * m), pv.h / (300 + 30 * m));
+  // Key alone: the key's own text (13.5 units) is scored, and a wide short pane grows it.
+  const keyOnly = fitKeyToPane(build, opts);
+  // With the diagram's labels counted and a ceiling, the labels land at the ceiling and stop.
+  const ceiling = 11 * s(1) * 1.2;
+  const both = fitKeyToPane(build, { ...opts, labelText: 11, ceiling });
+  const printedLabel = 11 * both.fontScale * s(both.fontScale);
+  assert.ok(printedLabel >= ceiling * 0.95 && printedLabel <= ceiling * 1.06, `label ${printedLabel} vs ${ceiling}`);
+  assert.ok(both.fontScale < keyOnly.fontScale, `${both.fontScale} vs ${keyOnly.fontScale}`);
+  assert.ok(FS_OF_HEIGHT * 300 > 11, 'the key is the larger text, so the labels decide');
 });
 
 test('`cards:` reaches a pane — deck-wide and per slide — as it reaches a slide', () => {

@@ -294,6 +294,115 @@ test('buildRadar: small-multiples emits one mini figure per series', () => {
   assert.equal((out.match(/radar-svg--mini/g) || []).length, 2);
 });
 
+// ── a radar in a PANE lays out for the pane ───────────────────────────────
+// `paneView` is the pane in the canvas units a landscape chart slide is drawn in (180 tall). A
+// radar slide prints its rim labels at 11 radar units × 180 / 332 (its 300 diagram plus two
+// 16-unit label bands, height-bound) ≈ 5.96 canvas units — 14.0px on a 1280px slide.
+const SLIDE_AXIS = 11 * 180 / 332;
+const printed = (html, pv) => {
+  // The root's open tag, cut out by index rather than one pattern spanning `[^>]*` (CodeQL:
+  // polynomial on a string of repeated `class="radar-svg"`).
+  const at = html.indexOf('class="radar-svg"');
+  const tag = html.slice(at, html.indexOf('>', at));
+  const [, , W, H] = tag.match(/\bviewBox="([^"]+)"/)[1].split(' ').map(Number);
+  const m = Number((html.match(/--radar-type-scale:([\d.]+)/) || [0, 1])[1]);
+  const s = Math.min(pv.w / W, pv.h / H);
+  return { axis: 11 * m * s, diagram: 300 * s, m };
+};
+
+test('buildRadar on a slide stamps no type scale: an ordinary slide is unchanged', () => {
+  for (const v of ['default', 'target', 'delta', 'benchmark']) {
+    const out = buildRadar(modelTwo(), v, SCALE, false);
+    assert.doesNotMatch(out, /--radar-type-scale/, v);
+    assert.match(out, /viewBox="0 0 \d+ \d+"/, v);
+  }
+});
+
+// Pane canvases the engine stamps at 16:9 (`data-pane-view`): 35%, 50% and 65% side panes under a
+// heading, a 35% pane under an eyebrow and a note, and a short stacked band.
+const PANES = [{ w: 156, h: 164 }, { w: 223, h: 164 }, { w: 290, h: 164 }, { w: 156, h: 122 }, { w: 300, h: 80 }];
+
+test('buildRadar in a pane: rim labels print toward a radar slide\'s size, never past it', () => {
+  for (const pv of PANES) {
+    for (const v of ['default', 'target', 'delta', 'benchmark']) {
+      const before = printed(buildRadar(modelTwo(), v, SCALE, false), pv);
+      const got = printed(buildRadar(modelTwo(), v, SCALE, false, undefined, false, pv), pv);
+      const at = `${v} in ${pv.w}x${pv.h}`;
+      assert.ok(got.axis >= before.axis, `${at}: labels ${before.axis} -> ${got.axis}`);
+      assert.ok(got.axis <= SLIDE_AXIS * 1.001, `${at}: labels ${got.axis} past the slide's ${SLIDE_AXIS}`);
+      assert.ok(got.diagram >= before.diagram * 0.75, `${at}: plot ${before.diagram} -> ${got.diagram}`);
+    }
+  }
+  // Where the pane has the room, the labels reach the slide's size (within the pick's 5%).
+  const pv = { w: 156, h: 164 };
+  const roomy = printed(buildRadar(modelTwo(), 'default', SCALE, false, undefined, false, pv), pv);
+  assert.ok(roomy.axis >= SLIDE_AXIS * 0.95 && roomy.m > 1, JSON.stringify(roomy));
+});
+
+// A long rim name, to see the wrap follow the type scale.
+const LONG = parseRadar([
+  '<li>A<ul><li>Operational resilience and continuity <code>5</code></li><li>Cost <code>6</code></li>',
+  '<li>Speed <code>7</code></li><li>Support <code>4</code></li><li>Customer onboarding flow <code>6</code></li></ul></li>',
+  '<li>B<ul><li>Operational resilience and continuity <code>4</code></li><li>Cost <code>5</code></li>',
+  '<li>Speed <code>6</code></li><li>Support <code>7</code></li><li>Customer onboarding flow <code>5</code></li></ul></li>',
+].join(''), false);
+const lineCount = (html, name) => {
+  const m = html.match(new RegExp(`<text class="radar-axis-label"[^>]*>((?:(?!</text>)[\\s\\S])*)</text>`, 'g'))
+    .find((t) => t.includes(name.split(' ')[0]));
+  return (m.match(/<tspan/g) || []).length;
+};
+
+test('buildRadar in a pane: the rim labels are WRAPPED at the scaled size the CSS paints', () => {
+  const pv = { w: 156, h: 164 };
+  const out = buildRadar(LONG, 'default', SCALE, false, undefined, false, pv);
+  const m = printed(out, pv).m;
+  assert.ok(m > 1.3, `m ${m}`);
+  // At m, a glyph is m times wider, and the room beside the web only grows by the pad's share of
+  // it, so a long name breaks into MORE lines than on a slide. Measured at the unscaled size it
+  // would keep the slide's lines and paint past the room it was given.
+  const slide = buildRadar(LONG, 'default', SCALE, false);
+  assert.ok(lineCount(out, 'Customer') > lineCount(slide, 'Customer'),
+    `Customer onboarding: ${lineCount(slide, 'Customer')} line(s) on a slide, ${lineCount(out, 'Customer')} in the pane`);
+  assert.match(out, new RegExp(`--radar-type-scale:${m}`));
+});
+
+test('radar.styles.css multiplies the rim, sector and tick sizes by the kernel\'s scales', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/components/chart/radar/radar.styles.css'), 'utf8');
+  const sizeOf = (sel) => (css.match(new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{[^}]*font-size:\\s*([^;]+);`)) || [])[1];
+  assert.equal(sizeOf(':is(section.radar, figure.chart-frame) .radar-axis-label'), 'calc(var(--radar-axis-label-size) * var(--radar-type-scale, 1))');
+  assert.equal(sizeOf(':is(section.radar, figure.chart-frame) .radar-sector-label'), 'calc(9px * var(--radar-type-scale, 1))');
+  assert.equal(sizeOf(':is(section.radar, figure.chart-frame) .radar-tick'), 'calc(var(--radar-tick-size) * var(--radar-tick-scale, 1))');
+});
+
+test('buildRadar in a pane: the key\'s rail moves out with the rim labels, keeping a slide\'s clearance', () => {
+  // A landscape unit (the key to the right). The rightmost rim anchor sits at most at
+  // cx + R + labelGap in diagram units, and on a slide the key's spine stands 71 units past it.
+  const pv = { w: 290, h: 164 };
+  const out = buildRadar(modelTwo(), 'default', SCALE, false, undefined, false, pv);
+  const m = printed(out, pv).m;
+  const dx = Number(out.match(/<g transform="translate\(([\d.]+) [\d.]+\)"><g class="radar-grid/)?.[1]
+    ?? out.match(/<g transform="translate\(0 [\d.]+\)"><g transform="translate\(([\d.]+) /)[1]);
+  // Each `<rect …>` tag on its own, then its attributes (one pattern over the whole string with a
+  // `[^>]*` gap is polynomial on repeated `<rect x="…"`, CodeQL).
+  const spineTag = out.split('<rect ').slice(1).map((r) => r.slice(0, r.indexOf('>')))
+    .find((r) => r.includes('fill="url(#chart-spine'));
+  assert.ok(spineTag, 'a landscape key with a spine');
+  const spineX = Number(spineTag.match(/^x="([\d.]+)"/)[1]);
+  const anchor = GEOM.cx + GEOM.R + GEOM.labelGap + dx;
+  assert.ok(m > 1, `m ${m}`);
+  assert.ok(spineX - anchor >= 71 * m * 0.98, `clearance ${spineX - anchor} at m ${m}, want ~${71 * m}`);
+});
+
+test('buildRadar in a pane: the ticks stop growing before they crowd one ring apart', () => {
+  const pv = { w: 156, h: 122 };
+  const out = buildRadar(modelTwo(), 'default', SCALE, false, undefined, false, pv);
+  const m = printed(out, pv).m;
+  const t = Number(out.match(/--radar-tick-scale:([\d.]+)/)[1]);
+  assert.ok(m > t, `m ${m}, tick ${t}`);
+  // A tick line (9 units × 1.6) never exceeds the ring spacing it sits on.
+  assert.ok(9 * t * 1.6 <= GEOM.R / GEOM.rings + 0.01, `tick ${9 * t} in a ${GEOM.R / GEOM.rings} ring`);
+});
+
 // ── matchEyebrowText ────────────────────────────────────────────────────
 
 test('matchEyebrowText: pulls the first <p><code> text', () => {

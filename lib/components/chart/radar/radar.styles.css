@@ -115,10 +115,14 @@
   --radar-axis-label-size: 11px;  /* raised from 9px (≈6.4pt at desk) */
   --radar-tick-size:        9px;  /* raised from 6.5px (≈4.6pt at desk) */
 }
+/* `--radar-type-scale` and `--radar-tick-scale` are the kernel's, never a theme's: a radar in a
+ * PANE grows its rim and sector type by the first and its ticks by the second, which is capped
+ * (radar.transform.js composeFigure wrapped the labels to those sizes and stamps both on the
+ * `.radar-svg` root). Unset — every ordinary slide — they are 1. */
 :is(section.radar, figure.chart-frame) .radar-axis-label {
   fill: var(--text-heading);
   font-family: var(--font-body);
-  font-size: var(--radar-axis-label-size);
+  font-size: calc(var(--radar-axis-label-size) * var(--radar-type-scale, 1));
   font-weight: 600;
 }
 /* A TICK IS GUTTER FURNITURE AND MUST READ AS SUCH. `--text-muted` is an ink
@@ -137,7 +141,7 @@
 :is(section.radar, figure.chart-frame) .radar-tick {
   fill: var(--text-muted);
   font-family: var(--font-label, var(--font-body));
-  font-size: var(--radar-tick-size);
+  font-size: calc(var(--radar-tick-size) * var(--radar-tick-scale, 1));
   /* font-weight raised to 600 (matching the cover-variant lift) so faint
    * sub-token-size ticks have enough stroke weight to be legible. */
   font-weight: 600;
@@ -234,7 +238,7 @@
 :is(section.radar, figure.chart-frame) .radar-sector-label {
   fill: var(--series-color);
   font-family: var(--font-body);
-  font-size: 9px;
+  font-size: calc(9px * var(--radar-type-scale, 1));
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;

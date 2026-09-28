@@ -227,7 +227,7 @@
     "stack": 50,
     "budget": {
       "axis": "item",
-      "basis": "editorial",
+      "basis": "measured",
       "side": {
         "sweet": 6,
         "hard": 8
@@ -236,7 +236,7 @@
         "sweet": 6,
         "hard": 8
       },
-      "note": "The basemap draws every region; the count is the labeled regions. A chart scales rather than clipping, so the export has no ceiling to measure; these are judgment."
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint): side 50%: fits 24+ regions, a floor, not a ceiling; stack 50/50: 14, text under the type floor at 15. sweet sits at or below it."
     },
     "review": "stack 30 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
   },
