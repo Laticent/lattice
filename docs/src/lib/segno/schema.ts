@@ -29,7 +29,7 @@
  * parameter (`@Customer` → `who=Customer`). Both are checked when the schema is built.
  */
 
-import { type Diagnostic, type Item, parse, type Value } from './notation.js';
+import { type Diagnostic, type Item, parse, type Scalar, type Value } from './notation.js';
 import { CLASS_ORDER, type Cls, type Type } from './types.js';
 
 // ── declaring ──────────────────────────────────────────────────────────────
@@ -100,6 +100,14 @@ export type RecordOf<S extends RecordSpec> =
 // ── building a record slot ─────────────────────────────────────────────────
 
 const NO_SPELLINGS: readonly Spelling[] = Object.freeze([]);
+
+function deepFreeze<T>(x: T): T {
+  if (x && typeof x === 'object' && !Object.isFrozen(x)) {
+    for (const v of Object.values(x)) deepFreeze(v);
+    Object.freeze(x);
+  }
+  return x;
+}
 const isSlot = (x: unknown): x is Slot<unknown> => typeof (x as Slot<unknown>)?.bind === 'function';
 const clsOf = (x: Type<unknown> | Slot<unknown>): Cls | null => (isSlot(x) ? null : x.cls);
 
@@ -212,6 +220,14 @@ class Binding {
     if (v.kind !== 'scalar') { this.problem(err('wrong-shape', `expected ${t.describe}, found a ${v.kind}`, v.from, v.to)); return; }
     const got = t.read(v.text, v.quoted);
     if (got === undefined) { this.problem(err('wrong-type', `"${v.text}" is not ${t.describe}`, v.from, v.to)); return; }
+    this.putRead(name, t, got, v, it);
+  }
+
+  /** `put` for a value the caller has already read with `t` — the bare-word search reads each
+   *  candidate to find its owner, and reading it a second time here doubled the cost of every
+   *  number and range. */
+  putRead(name: string, t: Type<unknown>, got: unknown, v: Scalar, it: Item) {
+    if (Object.hasOwn(this.out, name)) { this.problem(err('given-twice', `${name} is given twice`, it.from, it.to)); return; }
     this.out[name] = got;
     if (t.cls === 'vocab') this.spelled(name, t.canonical?.(v.text) ?? v.text, v.text.toLowerCase(), v);
   }
@@ -244,9 +260,17 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
     if (isSlot(t) || t.namedOnly || t.cls !== 'vocab') continue;
     for (const w of t.words ?? []) vocab.set(w, { name, value: t.read(w, false), canonical: t.canonical?.(w) ?? w });
   }
-  const others = byCls.filter(([cls]) => cls !== 'vocab').map(([, list]) => list).filter((l) => l.length);
+  // The non-vocab classes in precedence order, each already filtered to plain types: a bare
+  // word is tried against these in turn, and a sub-slot never takes a bare word.
+  const others = byCls
+    .filter(([cls]) => cls !== 'vocab')
+    .map(([, list]) => list.filter((e): e is [string, Type<unknown>] => !isSlot(e[1])))
+    .filter((l) => l.length);
   const hasSigils = Object.keys(sigils).length > 0;
-  const takes = () => [...byName].map(([n, tt]) => describeParam(n, tt)).join(', ');
+  // The "it takes …" half of an error message is the same for every error in this slot, so it
+  // is built once, the first time an error needs it.
+  let takesText: string | null = null;
+  const takes = () => (takesText ??= [...byName].map(([n, tt]) => describeParam(n, tt)).join(', '));
 
   const bindItems = (
     items: readonly Item[],
@@ -282,13 +306,15 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
           const hit = vocab.get(lower);
           if (hit) { b.putVocab(hit, lower, v, it); continue; }
         }
-        let target: [string, Type<unknown> | Slot<unknown>] | undefined;
-        for (let c = 0; !target && c < others.length; c++) {
-          for (const entry of others[c]) {
-            if (!isSlot(entry[1]) && entry[1].read(v.text, v.quoted) !== undefined) { target = entry; break; }
+        let found = false;
+        for (let c = 0; !found && c < others.length; c++) {
+          const cls = others[c];
+          for (let e = 0; e < cls.length; e++) {
+            const got = cls[e][1].read(v.text, v.quoted);
+            if (got !== undefined) { b.putRead(cls[e][0], cls[e][1], got, v, it); found = true; break; }
           }
         }
-        if (target) { b.put(target[0], target[1], v, it); continue; }
+        if (found) continue;
       } else {
         // The schema check allows at most one bare record and one bare list parameter.
         const slots = Object.entries(params).filter(([, t]) => isSlot(t) && t.kind === v.kind);
@@ -320,6 +346,11 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
     },
     bindItems: (items) => bindItems(items),
     read(text: string) {
+      // A shortcut is a fixed string, so its bind is too: computed once below, returned here.
+      if (shortcutBound.size) {
+        const hit = shortcutBound.get(text);
+        if (hit) return hit;
+      }
       const token = shortcuts.size ? text.trim() : '';
       const expanded = shortcuts.size ? shortcuts.get(token) : undefined;
       if (expanded && expanded.kind === 'record') {
@@ -346,6 +377,11 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
     if (!r.ok) throw new SchemaError([`shortcut "${token}" expands to "${expansion}", which ${label} rejects: ${r.diagnostics[0].message}`]);
     shortcuts.set(token, p.item.value);
   }
+  // Each shortcut written exactly (no surrounding space, the only form in a real span) binds
+  // once, here, and every later read of it is a lookup. The result is shared between reads, so
+  // it is frozen: a caller that mutated it would change every later `[x]`.
+  const shortcutBound = new Map<string, Bound<RecordOf<S>>>();
+  for (const token of shortcuts.keys()) shortcutBound.set(token, deepFreeze(slot.read(token)));
   return slot;
 }
 

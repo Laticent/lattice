@@ -1,7 +1,7 @@
 // @vitest-environment node
 // The inline notation: three shapes, one separator, one escape, quotes that must close.
 import { describe, expect, it } from 'vitest';
-import { isDirective, parse, type Value } from './notation';
+import { isDirective, MAX_NESTING, parse, type Value } from './notation';
 
 const shape = (v: Value | null): unknown => {
   if (v === null) return null;
@@ -126,6 +126,12 @@ describe('a fix, applied, makes progress (the checker found fixes that did not)'
   });
   it('every space and tab after "{" goes in one fix', () => {
     expect(apply('{  \tok}')).toBe('{ok}');
+  });
+  it('the nesting limit the message states is the real one', () => {
+    const at = (d: number) => parse(`${'['.repeat(d)}x${']'.repeat(d)}`);
+    expect(at(MAX_NESTING).ok).toBe(true);
+    const p = at(MAX_NESTING + 1);
+    expect(!p.ok && [p.diagnostic.code, p.diagnostic.message]).toEqual(['too-deep', `a span nests at most ${MAX_NESTING} levels of brackets`]);
   });
   it('too deep is its own error', () => {
     const p = parse(`${'['.repeat(80)}${']'.repeat(80)}`);

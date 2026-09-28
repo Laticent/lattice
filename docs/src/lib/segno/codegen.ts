@@ -18,9 +18,18 @@
 import { ANY, type CharSet, describe, equal } from './charset.js';
 import { analyze, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH } from './grammar.js';
 
-/** A JS boolean expression testing the code unit in `v` against `cs`. `v` may be NaN (end of input). */
+/**
+ * The next code unit, or -1 at the end of input. NOT `s.charCodeAt(i)` alone: past the end that
+ * is NaN, and one NaN in a character variable makes V8 re-type every such variable as a double —
+ * each comparison and table lookup then takes the slow path. Measured on the notation: pills
+ * parsed at 134 ns fresh and at 371 ns once the parser had seen a few bracket lists, whose
+ * loops read past the end. With -1 the variables stay small integers.
+ */
+const AT = '(i < n ? s.charCodeAt(i) : -1)';
+
+/** A JS boolean expression testing the code unit in `v` against `cs`. `v` is -1 at the end of input. */
 function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
-  if (equal(cs, ANY)) return `(${v} >= 0)`; // NaN at the end fails
+  if (equal(cs, ANY)) return `(${v} >= 0)`; // -1 at the end fails
   const parts: string[] = [];
   const ascii: number[] = [];
   const high: string[] = [];
@@ -40,7 +49,7 @@ function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
     const bits = Array.from({ length: 128 }, (_, c) => (ascii.includes(c) ? 1 : 0)).join('');
     let name = tables.get(bits);
     if (!name) { name = `T${tables.size}`; tables.set(bits, name); }
-    parts.push(`(${v} < 128 && ${name}[${v}] === 1)`);
+    parts.push(`(${v} >= 0 && ${v} < 128 && ${name}[${v}] === 1)`);
   }
   parts.push(...high);
   return parts.length ? `(${parts.join(' || ')})` : 'false';
@@ -53,6 +62,7 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
   const badNames = Object.keys(spec.rules).filter((r) => !/^[A-Za-z_$][\w$]*$/.test(r));
   if (badNames.length) throw new GrammarError(badNames.map((r) => `rule "${r}" cannot be generated: a rule name must be an identifier`));
   const tables = new Map<string, string>();
+  const recursive = an.recursiveRules();
   const kinds: string[] = [];
   let tmp = 0;
   const fresh = () => `c${tmp++}`;
@@ -66,16 +76,16 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
   const gen = (e: Expr, ind: string): string => {
     switch (e.t) {
       case 'lit':
-        if (e.s.length === 1) return `${ind}if (s.charCodeAt(i) !== ${e.s.charCodeAt(0)}) return fail(${q(expected(e))});\n${ind}i++;\n`;
+        if (e.s.length === 1) return `${ind}if (${AT} !== ${e.s.charCodeAt(0)}) return fail(${q(expected(e))});\n${ind}i++;\n`;
         return `${ind}if (!s.startsWith(${q(e.s)}, i)) return fail(${q(expected(e))});\n${ind}i += ${e.s.length};\n`;
       case 'set': {
         const c = fresh();
-        return `${ind}{ const ${c} = s.charCodeAt(i); if (!${testExpr(e.cs, c, tables)}) return fail(${q(expected(e))}); i++; }\n`;
+        return `${ind}{ const ${c} = ${AT}; if (!${testExpr(e.cs, c, tables)}) return fail(${q(expected(e))}); i++; }\n`;
       }
       case 'seq': return e.xs.map((x) => gen(x, ind)).join('');
       case 'alt': {
         const c = fresh();
-        let out = `${ind}{\n${ind}  const ${c} = s.charCodeAt(i);\n`;
+        let out = `${ind}{\n${ind}  const ${c} = ${AT};\n`;
         const empty = e.xs.findIndex((x) => an.nullable(x));
         let first = true;
         e.xs.forEach((x, k) => {
@@ -93,17 +103,19 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
         if (e.x.t === 'set') {
           const c = fresh();
           const start = fresh();
-          return `${ind}{ ${e.min ? `const ${start} = i; ` : ''}let ${c} = s.charCodeAt(i); while (${testExpr(e.x.cs, c, tables)}) { i++; ${c} = s.charCodeAt(i); }${e.min ? ` if (i === ${start}) return fail(${q(expected(e.x))});` : ''} }\n`;
+          return `${ind}{ ${e.min ? `const ${start} = i; ` : ''}let ${c} = ${AT}; while (${testExpr(e.x.cs, c, tables)}) { i++; ${c} = ${AT}; }${e.min ? ` if (i === ${start}) return fail(${q(expected(e.x))});` : ''} }\n`;
         }
         const c = fresh();
         const body = gen(e.x, `${ind}  `);
-        return `${e.min ? gen(e.x, ind) : ''}${ind}for (let ${c} = s.charCodeAt(i); ${testExpr(an.first(e.x), c, tables)}; ${c} = s.charCodeAt(i)) {\n${body}${ind}}\n`;
+        return `${e.min ? gen(e.x, ind) : ''}${ind}for (let ${c} = ${AT}; ${testExpr(an.first(e.x), c, tables)}; ${c} = ${AT}) {\n${body}${ind}}\n`;
       }
       case 'opt': {
         const c = fresh();
-        return `${ind}{ const ${c} = s.charCodeAt(i); if (${testExpr(an.first(e.x), c, tables)}) {\n${gen(e.x, `${ind}  `)}${ind}} }\n`;
+        return `${ind}{ const ${c} = ${AT}; if (${testExpr(an.first(e.x), c, tables)}) {\n${gen(e.x, `${ind}  `)}${ind}} }\n`;
       }
       case 'ref':
+        // Only a rule that can reach itself spends the nesting cap, exactly as compile() does.
+        if (!recursive.has(e.name)) return `${ind}if (!r_${e.name}()) return false;\n`;
         return `${ind}if (depth >= ${MAX_DEPTH}) return fail(${q(`at most ${MAX_DEPTH} levels of nesting`)});\n${ind}depth++;\n${ind}if (!r_${e.name}()) return false;\n${ind}depth--;\n`;
       case 'node': {
         const b = fresh();

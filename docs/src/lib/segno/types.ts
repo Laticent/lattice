@@ -155,8 +155,86 @@ function normalizeSeparators(s: string): string {
   return s;
 }
 
+/**
+ * The fast path: one pass over the characters for the shapes real decks write — `5`, `12.5`,
+ * `$1.2M`, `-$0.8M`, `62%`, `($1.2M)`, `140kg` — and `null` for anything else (a comma, two
+ * dots, a space inside, a longer symbol prefix), which `readNumber` hands to the full reader
+ * below. It reproduces that reader's answer exactly on the shapes it accepts; `types.test.ts`
+ * fuzzes the two against each other. The full reader was eight regular-expression passes per
+ * token, and a number is read for every value in every chart.
+ *
+ * The rules it mirrors, each from `chart-values.js`: `(…)` is negative; a leading `-` or
+ * U+2212 flips the sign; a `-` directly before the digits that the lead did not take is the
+ * number's own sign; a magnitude letter (`k` `M` `B` `bn` `T`) must end the word; the sign is
+ * "written" when the part before the digits holds `+`, `-` or U+2212, or the whole is `(…)`.
+ */
+function readNumberFast(t: string): NumberValue | null | undefined {
+  const n = t.length;
+  let i = 0;
+  // Prefix: at most three symbol characters from the everyday set, no spaces.
+  while (i < n && i < 4) {
+    const c = t.charCodeAt(i);
+    if (c === 40 || c === 43 || c === 45 || c === 0x2212 || c === 36 || c === 0x20ac || c === 0xa3 || c === 0xa5) i++;
+    else break;
+  }
+  if (i > 3) return null;
+  const digitsFrom = i;
+  while (i < n && t.charCodeAt(i) >= 48 && t.charCodeAt(i) <= 57) i++;
+  if (i === digitsFrom) return null;
+  if (i < n && t.charCodeAt(i) === 46) {
+    i++;
+    const fracFrom = i;
+    while (i < n && t.charCodeAt(i) >= 48 && t.charCodeAt(i) <= 57) i++;
+    if (i === fracFrom) return null;
+  }
+  const digitsTo = i;
+  if (i < n && (t.charCodeAt(i) === 44 || t.charCodeAt(i) === 46)) return null;
+  // Tail: an optional unit (`%`, U+2030, or one to six ASCII letters), then an optional `)`.
+  const unitFrom = i;
+  const u = i < n ? t.charCodeAt(i) : -1;
+  if (u === 37 || u === 0x2030) i++;
+  else while (i < n && ((t.charCodeAt(i) | 32) >= 97 && (t.charCodeAt(i) | 32) <= 122)) i++;
+  if (i - unitFrom > 6) return null;
+  const unitTo = i;
+  const closes = i < n && t.charCodeAt(i) === 41;
+  if (closes) i++;
+  if (i !== n) return null;
+
+  const opens = t.charCodeAt(0) === 40;
+  const paren = opens && closes;
+  // With the parenthesis pair gone, a leading sign flips; the digits' own `-` is what is left.
+  let p = paren ? 1 : 0;
+  let neg = paren;
+  const lead = t.charCodeAt(p);
+  if (p < digitsFrom && (lead === 45 || lead === 0x2212)) { neg = !neg; p++; }
+  let x = Number.parseFloat(t.slice(digitsFrom, digitsTo));
+  if (digitsFrom > p && t.charCodeAt(digitsFrom - 1) === 45) x = -x;
+  if (!Number.isFinite(x)) return undefined;
+  const unit = t.slice(unitFrom, unitTo);
+  const mag = unit === 'bn' || (unit.length === 1 && 'kKmMBbT'.includes(unit)) ? unit : '';
+  const value = mag ? x * MAGNITUDE[mag] : x;
+  let signed = paren;
+  for (let k = opens ? 1 : 0; k < digitsFrom && !signed; k++) {
+    const c = t.charCodeAt(k);
+    if (c === 43 || c === 45 || c === 0x2212) signed = true;
+  }
+  // The full reader strips one trailing `)` from a plain unit, but keeps it after a magnitude
+  // letter when the whole is not a (…) pair: `5M)` has the unit `)`.
+  const rest = mag ? (closes && !paren ? ')' : '') : unit;
+  return { value: neg ? -Math.abs(value) : value, signed, unit: rest };
+}
+
 export function readNumber(raw: string): NumberValue | undefined {
   const t = raw.trim();
+  if (t) {
+    const fast = readNumberFast(t);
+    if (fast !== null) return fast;
+  }
+  return readNumberFull(t);
+}
+
+/** The full reader: every shape `chart-values.js` accepts. Exported for the parity test only. */
+export function readNumberFull(t: string): NumberValue | undefined {
   // `..` is the range delimiter and never part of a number. Without this, the separator rule
   // (two or more dots group) read `0..10` as 10 — a range silently became its upper end.
   if (!t || t.includes('..') || !NUMERIC.test(t)) return undefined;

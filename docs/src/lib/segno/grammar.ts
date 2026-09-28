@@ -261,6 +261,36 @@ class Analysis {
   }
 
   /** The rules an expression can enter before consuming anything. */
+  /**
+   * The rules that can reach themselves through references — the only ones whose nesting can
+   * grow with the input. A reference to any other rule needs no depth count: `quoted` cannot
+   * call itself, so the cap is spent only where recursion is possible.
+   */
+  recursiveRules(): Set<string> {
+    const refs = new Map<string, string[]>();
+    const collect = (e: Expr, out: string[]) => {
+      switch (e.t) {
+        case 'seq': case 'alt': for (const x of e.xs) collect(x, out); break;
+        case 'many': case 'opt': case 'node': collect(e.x, out); break;
+        case 'ref': out.push(e.name); break;
+      }
+    };
+    for (const [name, body] of Object.entries(this.spec.rules)) { const out: string[] = []; collect(body, out); refs.set(name, out); }
+    const onCycle = new Set<string>();
+    for (const start of refs.keys()) {
+      const seen = new Set<string>();
+      const stack = [...(refs.get(start) ?? [])];
+      while (stack.length) {
+        const r = stack.pop() as string;
+        if (r === start) { onCycle.add(start); break; }
+        if (seen.has(r)) continue;
+        seen.add(r);
+        stack.push(...(refs.get(r) ?? []));
+      }
+    }
+    return onCycle;
+  }
+
   private leadingRefs(e: Expr): string[] {
     switch (e.t) {
       case 'ref': return [e.name];
@@ -360,6 +390,7 @@ export function compile(spec: GrammarSpec): Grammar {
 
   const matchers = new Map<Expr, Matcher>();
   const ruleMatchers = new Map<string, Matcher>();
+  const recursive = an.recursiveRules();
   const code = (st: State) => (st.i < st.s.length ? st.s.charCodeAt(st.i) : -1);
   const fail = (st: State, expected: string): false => {
     if (!st.err) st.err = { at: st.i, expected, found: st.i < st.s.length ? st.s[st.i] : null };
@@ -463,6 +494,10 @@ export function compile(spec: GrammarSpec): Grammar {
       }
       case 'ref': {
         const name = e.name;
+        if (!recursive.has(name)) {
+          m = (st) => (ruleMatchers.get(name) as Matcher)(st);
+          break;
+        }
         m = (st) => {
           if (st.depth >= MAX_DEPTH) return fail(st, `at most ${MAX_DEPTH} levels of nesting`);
           st.depth++;

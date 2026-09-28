@@ -4,7 +4,7 @@
 // that changes what `1,25M` means would be the bug this library exists to remove.
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
-import { readNumber, readTime } from './types';
+import { readNumber, readNumberFull, readTime } from './types';
 
 const require = createRequire(import.meta.url);
 const chartValues = require('../../../../lib/core/chart-values.js');
@@ -48,5 +48,30 @@ describe('readNumber on hostile input', () => {
     const t = performance.now();
     expect(readNumber(s)).toBeUndefined();
     expect(performance.now() - t).toBeLessThan(50); // the old pattern took ~2.8 s here
+  });
+});
+
+describe('readNumber fast path = the full reader', () => {
+  it('agrees on 300,000 fuzzed tokens, and takes the fast path on most of them', () => {
+    const A = ['(', ')', '+', '-', '−', '$', '€', '£', '¥', '1', '2', '0', '9', '.', ',', '%', '‰', 'k', 'M', 'B', 'b', 'n', 'T', 'g', 'x', ' ', '#'];
+    let seed = 11;
+    const rnd = (m: number) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % m; };
+    let differ = 0;
+    for (let k = 0; k < 300_000; k++) {
+      let s = '';
+      const len = 1 + rnd(8);
+      for (let j = 0; j < len; j++) s += A[rnd(A.length)];
+      const a = readNumber(s);
+      const b = readNumberFull(s.trim());
+      if (JSON.stringify(a) !== JSON.stringify(b)) {
+        differ++;
+        if (differ < 5) expect({ s, a }).toEqual({ s, a: b });
+      }
+    }
+    expect(differ).toBe(0);
+  });
+  it('the shapes decks write read the same both ways', () => {
+    for (const s of ['5', '12.5', '$1.2M', '-$0.8M', '$-0.8M', '(12M)', '($1.2M)', '(-5)', '--5', '62%', '140kg', '5M)', '(5M', '+12.0M', '−12M', '3bn', '1e5', '007'])
+      expect(readNumber(s), s).toEqual(readNumberFull(s));
   });
 });

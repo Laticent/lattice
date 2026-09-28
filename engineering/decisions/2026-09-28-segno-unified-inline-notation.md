@@ -238,23 +238,50 @@ consumes, the way `lib/components/chart/flowchart/` consumes Trama.
 correctly; per-span time must stay within 1.5x of today's kernels on the real corpus; and every shape
 on the scaling ladder must grow linearly (32k/8k ratio near 4).
 
-**Measured in phase 1** (`npm run parser:bakeoff:segno`; best of seven long rounds, same machine,
-Segno reading the translated corpus):
+**Measured in phase 1** (`npm run parser:bakeoff:segno`; best of seven long rounds; before and
+after run alternately in one session on one machine, the before from the previous commit via
+`SEGNO_LIB`):
 
-| job | kernel | Segno | ratio | target |
+| job | kernel | Segno first cut | Segno now | now vs kernel |
 |---|---|---|---|---|
-| inline dispatch, all 4,472 inline spans | 31 ns | 49 ns | 1.57x | 1.5x — just over |
-| inline dispatch, the 38 that are directives | 271 ns | 450 ns | 1.66x | over |
-| axis list, 64 real lists | 0.93 µs | 2.47 µs | 2.65x | over, doing more work |
+| inline dispatch, every span | 30 ns | 48 ns | 45 ns | 1.5x |
+| ordinary code (99% of spans) | 27 ns | 43 ns | 39 ns | 1.5x |
+| state marks `[x]` | 41 ns | 205 ns | 34 ns | **0.8x** |
+| pills | 350 ns | 782 ns | 701 ns | 2.0x |
+| bracket lists, split into parts | 767 ns | 1.02 µs | 828 ns | 1.1x |
+| quadrant axes, typed | 721 ns | 1.73 µs | 1.02 µs | 1.4x |
+| error path (non-axis lists bound as axes) | — | 2.86 µs | 1.68 µs | — |
 
-The target is missed, and not by rounding: on the spans that matter most (directives) Segno is
-1.6–1.9x across runs, and on axis lists 2.6–3.2x. The axis gap is partly a different job — the kernel
-returns strings that the chart then re-reads, while Segno returns typed numbers and ranges — so the
-fair comparison is against kernel + re-read, which phase 2 measures when the re-read is deleted. In
-absolute terms the worst case is a few microseconds per span. All 38 accepted directives agree, and
-every hostile shape is linear (worst 32k/8k ratio 4.4, noise; a runaway nest stops at the 64-level cap
-in 10 µs). **Check-in:** phase 2 either closes the directive gap to 1.5x or the owner accepts the
-measured figure — the README must quote the measured number, not the target.
+The **1.5x target is met everywhere except pills (2.0x).** What changed between the two columns:
+
+- **Shortcuts bind once.** `[x]` expands to a fixed record, so its bind is computed when the schema
+  is built and a read is a lookup (and frozen, so no caller can change the shared result).
+- **Numbers take a single pass.** `readNumber` was eight regular-expression passes per token. A
+  hand-written pass now reads the shapes decks write (`5`, `$1.2M`, `-$0.8M`, `(12M)`, `62%`)
+  and hands the rest (commas, several dots, inner spaces) to the full reader; a 300,000-token fuzz
+  holds the two identical.
+- **A bare word is read once.** The search for the parameter that accepts a word read the
+  winning candidate, then `put` read it again, so every number and range was parsed twice.
+- **Each shape is its own grammar rule.** `record`, `list` and `quoted` were expressions embedded in
+  both `value` and `item`, so the generator wrote each twice into two functions too large to
+  inline. References to rules that cannot recurse no longer spend the nesting cap, which is now 31
+  levels of brackets (two references per level); `MAX_NESTING` states it and a test pins it.
+- **The error path is cheap.** The reader's internal throw is no longer an `Error` (constructing one
+  captured a stack trace), and a slot's "it takes …" text is built once.
+
+**The harness was wrong first, and it mattered.** The first cut bound every bracket list in the
+corpus to the axis schema. A quarter of those lists are label sets, gantt timelines, flowchart keys
+and CSS selectors that today's shared splitter also reads, so 40% failed and the error path was
+reported as the axis cost: "2.7x" there was partly measurement. The arm now compares the same
+job — every list split into parts — and the axis job only on lists that are axes, on both sides.
+
+**What is left.** Pills are the one miss. About 280 ns is the grammar and about 300 ns binding, and
+the grammar's figure depends on what V8 has seen: 110 ns in a fresh process, about 280 ns once the
+same process has parsed lists and failed spans. The trigger reproduces with the real corpus but not
+with a handful of inputs, and V8 names no single deoptimization; chasing it further is tuning for
+one JIT, so it stops here. In absolute terms a pill costs 0.7 µs, and the shipped decks hold 24
+of them. **Check-in:** phase 2 either accepts 2.0x on pills or binds straight off the flat tree,
+which removes the tree-to-values step (about 80 ns) and most of the binding allocations.
 
 ## Demo page and branding
 

@@ -131,19 +131,26 @@ with a fix.
 
 ## Speed
 
-Measured against the kernels it replaces, on the inline-code spans in the shipped decks
-(`npm run parser:bakeoff:segno`; best of seven long rounds, one machine):
+Measured against the kernels it replaces, on the inline-code spans and bracket lists in the
+shipped decks (`npm run parser:bakeoff:segno`; best of seven long rounds, one machine):
 
 | job | kernel | Segno | ratio |
 |---|---|---|---|
-| inline dispatch, every span (mostly ordinary code) | 31 ns | 49 ns | 1.6x |
-| inline dispatch, the spans that are directives | 271 ns | 450 ns | 1.7x |
-| axis list (the kernel returns strings; Segno returns typed numbers and ranges) | 0.93 µs | 2.47 µs | 2.7x |
+| inline dispatch, every span | 30 ns | 45 ns | 1.5x |
+| &nbsp;&nbsp;ordinary code (99% of spans) | 27 ns | 39 ns | 1.5x |
+| &nbsp;&nbsp;state marks `[x]` | 41 ns | 34 ns | **0.8x** |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 350 ns | 701 ns | 2.0x |
+| bracket lists, split into parts (the kernel's job) | 767 ns | 828 ns | 1.1x |
+| quadrant axes, typed numbers and ranges | 721 ns | 1.02 µs | 1.4x |
 
-The design target was 1.5x, and these miss it; the decision note keeps the honest figure and the
-plan for it. Every shape on the hostile-input ladder grows linearly, and the ones that took the
-parser libraries in the bake-off from one second to over sixteen stay under 3 ms at 32,000
-characters. The `/segno` page runs the same ladder in your browser.
+Two things to know when reading it. The kernel's axis figure returns strings, which each chart
+then re-reads; Segno's returns typed numbers and ranges, so the axis row undercounts today's cost.
+And the grammar's own time depends on what V8 has already seen: a pill parses in about 110 ns in a
+fresh process and about 280 ns in one that has also parsed lists and failed spans. The table is
+the mixed, realistic figure.
+
+Every shape on the hostile-input ladder grows linearly and stays under 3 ms at 32,000 characters.
+The `/segno` page runs the same ladder in your browser.
 
 ## Build
 

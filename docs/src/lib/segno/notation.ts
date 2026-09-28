@@ -76,6 +76,13 @@ export type Parsed = { ok: true; item: Item } | { ok: false; diagnostic: Diagnos
 
 const NAME = /^[A-Za-z][A-Za-z0-9-]*$/;
 
+/**
+ * How many levels of brackets a span may nest. Each level spends two of the engine's
+ * MAX_DEPTH references (an item, then the record or list inside it), so 64 allows 31 — far
+ * past any real span, which nests three at most. A test pins it, so the message cannot drift.
+ */
+export const MAX_NESTING = Math.floor((MAX_DEPTH - 1) / 2);
+
 
 function unquote(s: string, from: number, to: number): string {
   let out = '';
@@ -87,8 +94,13 @@ function unquote(s: string, from: number, to: number): string {
   return out;
 }
 
-class ReadError extends Error {
-  constructor(readonly diagnostic: Diagnostic) { super(diagnostic.message); }
+/**
+ * Thrown by the tree reader and caught in `parseRaw`, never seen outside this file. Not an
+ * `Error`: constructing one captures a stack trace, which the profile showed as 6% of reading a
+ * corpus with realistic mistakes in it — for a trace nobody reads.
+ */
+class ReadError {
+  constructor(readonly diagnostic: Diagnostic) {}
 }
 
 // The reader walks the generated parser's flat tree (flat.ts): four integers per node — kind,
@@ -217,7 +229,7 @@ function syntaxDiagnostic(s: string, e: ParseError): Diagnostic {
     return { code: 'space-after-brace', severity: 'error', message: 'a record starts with "{" directly followed by its first value', from: at - 1, to: end, fix: { from: at, to: end, insert: '' } };
   }
   if (e.expected.startsWith('at most ')) {
-    return { code: 'too-deep', severity: 'error', message: `a span nests at most ${MAX_DEPTH} levels of brackets`, from: at, to: Math.min(at + 1, s.length) };
+    return { code: 'too-deep', severity: 'error', message: `a span nests at most ${MAX_NESTING} levels of brackets`, from: at, to: Math.min(at + 1, s.length) };
   }
   if (e.found === null) {
     const closers = unclosed(s);
