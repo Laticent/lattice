@@ -629,8 +629,16 @@ three points this section does not settle:
 1. `tokens` is the theme contract (`REQUIRED_TOKENS`), not a list chosen for package authors: it
    holds `scheme-dark-*` and `hljs-*`, two categorical families (`chart-cat1..8`, `cat-N-*`), and it
    moves whenever the theme contract does. A curated, frozen subset is the alternative.
+   **Decided (owner, 2026-09-28): packages keep the whole theme contract**, all of
+   `requiredTokenList()`. It is easier to manage than a second list, at the cost the point names: a
+   token leaving the theme contract leaves `facts.tokens` too, so removing one is a change to what
+   packages are promised, and the test that every theme defines every name handed over stays.
 2. A manifest could declare the facts version it reads (`"facts": 1`), and a door refuse a package
-   written for another.
+   written for another. Its only use is the first breaking change to `facts` (a field renamed, or
+   `text` meaning something else): with the declaration, a door could keep handing a v1 package v1,
+   or refuse it plainly, where without it an old package gets the new shape and throws or, worse,
+   draws the wrong thing. Recommended: add nothing now. Every package today is implicitly v1, so the
+   field can arrive with v2 under the rule "no `facts` field means 1" at no cost to anyone.
 3. Additive, when a package needs them: table cells as runs, a pane's box, an eyebrow's role (a
    code-only paragraph and an `h6` are two spellings of one role).
 Documenting code packages publicly is now unblocked, and it is a separate step.
