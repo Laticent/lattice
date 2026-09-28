@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import JSZip from 'jszip';
 import { expect, gotoStudio, setEditorContent, shareExport, test } from './studio-fixture';
 
-// A finish saved in Fabricate must survive the Studio's own exports (followups.d 2388-p1).
+// A finish saved in Fabricate must survive the Studio's own exports (backdrop-register.md §4.9).
 // It did not: the Studio scopes the engine stylesheet under `article.lattice >`, which lifts
 // the engine's export flip (`--fin-texture: var(--fin-texture-opaque, none)`) above the saved
 // finish's own export rule, and a saved finish declared no `-opaque` mirror for the flip to land

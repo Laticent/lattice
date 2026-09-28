@@ -209,7 +209,7 @@ seam. Measured on the final rule against the build before the content-box change
 - `accent-finishes`, `finish-split-covers`, `finish-backdrops`, `finish-override`,
   `finish-per-slide`, a baked-strength deck and a `backdrop: 40` deck export at the same byte count.
 - A register step over a legacy baked-mask finish no longer wedges. A legacy finish that bakes
-  both a strength and a mask still does, as on main (followup `2388-p2-legacy-saved-finish-wedge`).
+  both a strength and a mask still does, as on main (followup `2388-p3-legacy-saved-finish-wedge`).
 - The seams are followup `2388-p3-veil-tile-seams`.
 
 **Fabricate:** a newly saved clearance emits `--fin-backdrop-clear-scrim: var(--backdrop-clear-fill)`
@@ -275,7 +275,7 @@ and so its hard-edged Studio download, until it is re-saved.**
 
 ### 4.9 Saved finishes in the Studio exports (2026-09-28)
 
-**Symptom (followup `2388-p1`):** a finish saved in Fabricate showed in the live preview, but the
+**Symptom (followup `2388-p1`, closed by this fix):** a finish saved in Fabricate showed in the live preview, but the
 Studio's Share → Images, PDF and PowerPoint exports came out identical to `finish: none`.
 
 **Cause, found in the real capture document:** the saved finish's class and CSS both reached the
@@ -296,8 +296,9 @@ without a re-save.
 
 **Verified on the real Studio** (Fabricate save → `finish:` → Share), comparing each export of a
 slide wearing the saved finish against the same slide with `finish: none`: 0% of pixels differed
-before the fix on every lane; after it, 10.6% (Images), 8.6% (PDF) and 10.6% (PowerPoint), the
-wash and the grid. `docs/e2e/saved-finish-export.spec.ts` pins the Images lane and fails without
+before the fix on every lane; after it, 10.6% (Images), 8.6% (PDF) and 10.6% (PowerPoint) in
+light, and 9.4% (Images) in dark: the wash and the grid. A record saved with no recipe (only its
+CSS text) cannot be regenerated and keeps its old CSS. `docs/e2e/saved-finish-export.spec.ts` pins the Images lane and fails without
 the fix.
 
 ### 4.5 `finish-override.backdrop`

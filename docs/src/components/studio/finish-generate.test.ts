@@ -441,7 +441,7 @@ describe('finish-generate — the packaged preset recipes', () => {
 	});
 });
 
-describe('finish-generate — the -opaque mirrors the engine export flip lands on (2388-p1)', () => {
+describe('finish-generate — the -opaque mirrors the engine export flip lands on (backdrop-register.md §4.9)', () => {
 	// The Studio scopes the engine stylesheet under `article.lattice >`, so the engine's export
 	// flip (`--fin-texture: var(--fin-texture-opaque, none)`, and its wash/mark/edge siblings)
 	// out-specifies a saved finish's own export rule. The finish must therefore declare its opaque
