@@ -214,6 +214,9 @@ section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-
   background-position: calc(var(--backdrop-clear-bleed) * -1) calc(var(--backdrop-clear-bleed) * -1);
   background-size: calc(100% + 2 * var(--backdrop-clear-bleed)) calc(100% + 2 * var(--backdrop-clear-bleed));
   filter: var(--fin-surface-clear-filter, none);
+  /* The blur spreads the fill past the panel's edge, and split-compare's rail does not clip:
+   * the dark field smeared a band into the options zone. Clip the layer to the panel's box. */
+  clip-path: inset(0);
 }
 :where(.lattice-exporting) section.split-compare.finish .compare-left::before,
 section.split-compare.finish.lattice-exporting .compare-left::before {

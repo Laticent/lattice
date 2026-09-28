@@ -926,6 +926,9 @@ section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .pan
   background-position: calc(var(--backdrop-clear-bleed) * -1) calc(var(--backdrop-clear-bleed) * -1);
   background-size: calc(100% + 2 * var(--backdrop-clear-bleed)) calc(100% + 2 * var(--backdrop-clear-bleed));
   filter: var(--fin-surface-clear-filter, none);
+  /* The blur spreads the fill past the panel's edge, and split-compare's rail does not clip:
+   * the dark field smeared a band into the options zone. Clip the layer to the panel's box. */
+  clip-path: inset(0);
 }
 /* THE STUDIO RASTER takes the slide layer's soft edge as a MASK, not a blur (base.finish.css:
  * html-to-image draws the blur over a dot texture as stripes). The panel's layer does the same. */

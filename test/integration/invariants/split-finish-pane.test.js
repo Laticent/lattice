@@ -130,6 +130,26 @@ describe('split finish pane (real render)', () => {
       assert.equal(m.mark, 'none', `${cls}: the finish's corner mark is drawn on a split slide, which has no frame margin for it`);
     });
 
+    test(`${cls} backdrop-clear: the panel's blurred clear layer stays inside the panel`, async () => {
+      // The blur spreads the panel's fill past its edge; an unclipped layer smeared the dark field
+      // into the supporting zone as a gray band (split-compare's rail does not clip; 0.72 mean
+      // luminance next to the rail before the fix, 1.00 after).
+      const n = SLIDES.length + i + 1;
+      const strip = await page.evaluate(({ n, paneSel, zoneSel }) => {
+        const sec = document.querySelector(`section[data-lattice-slide="${n}"]`);
+        const p = sec.querySelector(`:scope > ${paneSel}`).getBoundingClientRect();
+        const z = sec.querySelector(`:scope > ${zoneSel}`).getBoundingClientRect();
+        const x = z.left >= p.right - 1 ? p.right + 2 : p.left - 14;
+        return { x, y: p.top + p.height * 0.3, width: 12, height: p.height * 0.4 };
+      }, { n, paneSel, zoneSel });
+      const { PNG } = require('pngjs');
+      const png = PNG.sync.read(Buffer.from(await page.screenshot({ clip: strip })));
+      let sum = 0;
+      for (let k = 0; k < png.data.length; k += 4) sum += (0.2126 * png.data[k] + 0.7152 * png.data[k + 1] + 0.0722 * png.data[k + 2]) / 255;
+      const mean = sum / (png.data.length / 4);
+      assert.ok(mean > 0.85, `${cls}: the panel's field bleeds past its edge into the supporting zone (mean luminance ${mean.toFixed(2)})`);
+    });
+
     test(`${cls} backdrop-clear: clears behind the cards' content, not the whole slide`, async () => {
       const m = await read(SLIDES.length + i + 1, paneSel, zoneSel);
       if (cls.includes('pullquote')) return;
