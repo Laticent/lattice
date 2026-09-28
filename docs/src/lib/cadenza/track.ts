@@ -7,7 +7,7 @@
 
 import type { CaptionTrack, Cue, Word } from '@laticent/ltt';
 import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, type Pace, pauseAfter } from './cadence.js';
-import { type AcronymRegistry, dedupeDirection, toSpoken } from './normalize.js';
+import { type AcronymRegistry, spokenAt } from './normalize.js';
 import { splitParagraphs, splitWords } from './segment.js';
 import type { LexiconMap } from './symbols.js';
 
@@ -137,9 +137,9 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       if (found >= 0) scan = found + display.length;
       if (cueCharOffset < 0) cueCharOffset = charOffset;
 
-      // `dedupeDirection` needs the word BEFORE this one, which only this loop can see —
-      // `toSpoken` is per-token and cannot look left. See its docblock for the doubling.
-      const spoken = dedupeDirection(displays[i - 1], toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon }));
+      // `spokenAt` needs the words either side (the direction dedupe, a short month beside a
+      // date), which only this loop can see — `toSpoken` is per-token and cannot look around.
+      const spoken = spokenAt(displays, i, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon });
       const pause = pauseAfter(display);
       // Phrase-final lengthening: a word before a boundary (it carries trailing punctuation)
       // stretches, so its highlight holds a beat longer instead of the cursor running ahead.
