@@ -184,7 +184,7 @@
     },
     {
       "mistake": "Expecting a deck's `finish:` to cover the whole split-compare slide.",
-      "fix": "Only the feature panel carries it: on a finish deck the rail keeps its dark field and the finish is painted on it, composed against that field in screen and PDF alike. Only the rail gets the finish; the options side stays the plain canvas. `finish-none` on the slide keeps it plain."
+      "fix": "Only the feature panel carries it: on a finish deck the rail keeps its dark field and the finish is painted on it, composed against that field in screen and PDF alike. Only the rail gets the finish; the options side stays the plain canvas. Stacked (portrait / square) slides keep the solid rail. `finish-none` on the slide keeps it plain."
     }
   ],
   "specimenVoice": true,

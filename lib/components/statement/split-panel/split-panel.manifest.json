@@ -251,7 +251,7 @@
     },
     {
       "mistake": "Expecting a deck's `finish:` to cover the whole split-panel slide.",
-      "fix": "Only the feature panel carries it: on a finish deck the panel keeps its field (dark, accent or category color) and the finish is painted on it, composed against that field in screen and PDF alike, the way a title slide carries it. Only the panel gets the finish; the supporting side stays the plain canvas. `finish-none` on the slide keeps it plain."
+      "fix": "Only the feature panel carries it: on a finish deck the panel keeps its field (dark, accent or category color) and the finish is painted on it, composed against that field in screen and PDF alike, the way a title slide carries it. Only the panel gets the finish; the supporting side stays the plain canvas. On `metric` it is the DARK side that carries it — its right-hand panel — and the light number panel stays plain. Stacked (portrait / square) slides keep the solid panel. `finish-none` on the slide keeps it plain."
     }
   ],
   "stressDoc": {

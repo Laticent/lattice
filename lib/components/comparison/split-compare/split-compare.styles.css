@@ -182,8 +182,11 @@ section.split-compare:not([data-orientation="portrait"]):not([data-orientation="
  * `--fin-canvas`, the rail stops painting so the finish shows on the dark field, and the
  * options zone keeps its opaque `--bg`, so only the rail carries the finish. Without a
  * painted finish nothing here matches. */
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print) {
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]):not([data-orientation="square"]) {
   --fin-canvas: var(--surface-inverse);
   background-color: var(--surface-inverse);
 }
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left { background-color: transparent; }
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]):not([data-orientation="square"]) .compare-left { background-color: transparent; }
+/* Not in portrait / square: the stacked layout insets both panels inside the section's frame
+ * padding, so the options zone no longer covers the rest of the section and the dark field (with
+ * its finish) showed all around it. Stacked slides keep the opaque rail, as before. */

@@ -843,10 +843,18 @@ section.split-panel.steps:not(.mirror):not([data-orientation="portrait"]):has(> 
 section.split-panel.finish:not(.finish-none, .backdrop-none, .print) { --_field-fill: var(--surface-inverse); }
 section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark { --_field-fill: var(--accent); --field-accent: var(--on-accent); }
 section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) { --_field-fill: var(--panel-fill); --field-accent: var(--cat-on-fill); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric { --_field-fill: var(--bg); }
 section.split-panel.finish:not(.finish-none, .backdrop-none, .print).steps { --_field-fill: var(--bg-alt); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print) {
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]):not([data-orientation="square"]) {
   --fin-canvas: var(--_field-fill);
   background-color: var(--_field-fill);
 }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print) .panel-left { background-color: transparent; }
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]):not([data-orientation="square"]):not(.metric) .panel-left { background-color: transparent; }
+/* `.metric` swaps polarity: its DARK field is `.panel-right` and its hero number sits on a light
+ * `.panel-left`. The dark field is the one that carries the finish, so on `metric` the section
+ * paints the inverse (the default fill above), the dark `.panel-right` goes transparent, and the
+ * light number panel keeps its opaque `--bg` — the plain side. `.mirror` only reorders. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric:not([data-orientation="portrait"]):not([data-orientation="square"]) .panel-right { background-color: transparent; }
+/* NOT in portrait or square: there the panels stack, and a stacked slide is not guaranteed to be
+ * covered edge to edge by the plain side, so the section's field color and its finish would leak
+ * around it (found by the checker on split-compare, whose stacked layout insets both panels).
+ * Stacked layouts keep the opaque panels and hide the finish, exactly as before this change. */
