@@ -31,11 +31,16 @@
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
 import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
 import { recordLatency } from './narration-latency.js';
-import { narrationCacheEnabled } from './narration-prefs.js';
+import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
+import { isGeminiTtsModel, pickCheapestTtsModel } from './tts-cost.js';
 
 const KOKORO_URL = 'https://esm.run/kokoro-js';
 const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+// The two builds the on-device rung can load: full-precision on a usable GPU (~330 MB),
+// else 8-bit on wasm (~80 MB of weights; ~97 MB transferred with the voices, measured).
+const WEBGPU_FP32 = { dtype: 'fp32', device: 'webgpu' };
+const WASM_Q8 = { dtype: 'q8', device: 'wasm' };
 // Cloud voice = OpenRouter's dedicated TTS endpoint (/api/v1/audio/speech), the
 // OpenAI-compatible speech route. It takes { model, input, voice, response_format }
 // and returns a RAW audio byte stream (mp3) — NOT a chat message with base64 deltas.
@@ -48,8 +53,11 @@ const OR_SPEECH_URL = 'https://openrouter.ai/api/v1/audio/speech';
 
 // Voices are MODEL-specific (OpenAI-style alloy/nova only work with an OpenAI TTS
 // model; Kokoro uses its own af_*/am_* ids). The default is hosted Kokoro — by far
-// the cheapest OpenRouter speech model (~$0.62/M chars vs mai-voice-2's $22/M) and,
-// unlike the on-device Kokoro rung, it needs no 80 MB download so it works on mobile.
+// the cheapest OpenRouter speech model (billed ~$0.62/M chars, measured 2026-09-27;
+// gemini-3.8-flash-tts lists $0.50/M but bills ~$18.50/M once its audio-output tokens
+// are counted — see tts-cost.js) and, unlike the on-device Kokoro rung, it needs no
+// 80 MB download so it works on mobile. On desktop the on-device rung is preferred
+// over it (see pickRung).
 // `af_heart` is the same Kokoro voice the on-device rung defaults to. Both overridable
 // via the localStorage prefs below.
 const DEFAULT_OR_TTS_MODEL = 'hexgrad/kokoro-82m';
@@ -169,6 +177,33 @@ function writeLS(k, v) { try { v == null ? localStorage.removeItem(k) : localSto
 export function detectWebGPU() {
   return typeof navigator !== 'undefined' && 'gpu' in navigator;
 }
+
+// Real WebGPU support is more than `'gpu' in navigator` — headless Chromium
+// exposes the object but has no adapter. Probe for an adapter (async).
+//
+// Two more ways a present-looking GPU is not a usable one, both of which cost a ~330 MB
+// fp32 download before anything notices (the on-device rung below is the caller):
+// - a SOFTWARE fallback adapter, which onnxruntime-web's WebGPU backend is not worth
+//   betting a download on — answered as false;
+// - a probe that never answers. The spec says requestAdapter() resolves (null at worst),
+//   but a GPU process that stalls at startup would hold the caller forever, so the probe
+//   gives up after `timeoutMs` and answers false.
+export async function probeWebGPU({ timeoutMs = 2000 } = {}) {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.gpu) return false;
+    let timer;
+    const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); });
+    const adapter = await Promise.race([navigator.gpu.requestAdapter(), timeout]);
+    clearTimeout(timer);
+    if (!adapter) return false;
+    return !(adapter.isFallbackAdapter || adapter.info?.isFallbackAdapter);
+  } catch {
+    return false;
+  }
+}
+
+// (It lived, uncalled, in studio/ai/spend.js — an EAGER chunk; it moved here, to the lazily
+// loaded voice model, so the Studio's eager JS budget does not pay for it.)
 
 // Coarse pointer ≈ phone/tablet. A MAIN-THREAD Kokoro load (onnxruntime + ~80 MB)
 // spikes memory enough to OOM-reload a mobile tab — the very bug the same-origin
@@ -306,6 +341,14 @@ export { wavBlob };
 // else catches a mismatch except that test.
 export const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
 
+// The Set above is pinned to the sample catalog's own audioFormat:"wav" engines (a test
+// holds them equal), so a live Gemini TTS model with no sample-catalog engine yet (3.8
+// flash, 3.8 flash-lite) would 400 on every clip. The family match (tts-cost.js) covers it.
+export function isPcmOnlyModel(model) {
+  const id = String(model || '');
+  return PCM_ONLY_MODELS.has(id) || isGeminiTtsModel(id);
+}
+
 // Wraps raw 16-bit PCM bytes in a standard 44-byte WAV header, reading the real
 // sample rate/channels off the response's own Content-Type header (e.g.
 // "audio/pcm;rate=24000;channels=1") rather than assuming one — a per-model
@@ -380,7 +423,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
       const key = getKey();
       if (!key) throw new Error('OpenRouter not connected');
       const model = modelOverride || getModel();
-      const wantsPcm = PCM_ONLY_MODELS.has(model);
+      const wantsPcm = isPcmOnlyModel(model);
       // OpenAI-compatible speech route: POST the text, get a raw audio byte stream
       // back (mp3 for almost every model; PCM for the rare exception above, wrapped
       // into a WAV Blob below so the consumer's decodeAudioData (Suono) can play it).
@@ -523,10 +566,15 @@ function kokoroRung({ getVoice }) {
   let onLoadErr = null;
   let onProg = null;
 
-  function dtypeAndDevice() {
-    // On-device Kokoro is desktop-only (see kokoroSupported); desktop with a GPU
-    // gets full-quality fp32/WebGPU, otherwise q8 on wasm.
-    return detectWebGPU() ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' };
+  // WebGPU only when the browser can hand us an ADAPTER, not merely when `navigator.gpu`
+  // exists. Measured 2026-09-28 on the deployed preview in headless Chromium: `navigator.gpu`
+  // present, `requestAdapter()` → null ("Failed to create WebGPU Context Provider"). The old
+  // `'gpu' in navigator` test picked fp32/WebGPU there, downloaded ~330 MB, and then the
+  // worker's load failed — so the on-device voice never came up at all. Real desktops land in
+  // the same place (Linux without GPU acceleration, VMs, a blocklisted GPU), and with on-device
+  // as the desktop default that is the main path, not an edge. No adapter → q8 on wasm (~80 MB).
+  async function dtypeAndDevice() {
+    return (await probeWebGPU()) ? WEBGPU_FP32 : WASM_Q8;
   }
 
   function makeWorker() {
@@ -546,10 +594,10 @@ function kokoroRung({ getVoice }) {
     return worker;
   }
 
-  async function loadMain(onProgress) {
+  async function loadMain(onProgress, choice) {
     mainLib = await import(/* @vite-ignore */ KOKORO_URL);
     const KokoroTTS = mainLib.KokoroTTS || mainLib.default?.KokoroTTS;
-    const { dtype, device } = dtypeAndDevice();
+    const { dtype, device } = choice || await dtypeAndDevice();
     mainTts = await KokoroTTS.from_pretrained(KOKORO_MODEL, {
       dtype, device,
       progress_callback: (p) => onProgress?.({ progress: (p?.progress || 0) / 100, text: p?.file || p?.status, status: p?.status }),
@@ -579,30 +627,49 @@ function kokoroRung({ getVoice }) {
   return {
     name: 'kokoro',
     ready() { return isReady; },
-    async load(onProgress, signal) {
-      const { dtype, device } = dtypeAndDevice();
+    // `opts.mainThread === false` forbids the main-thread fallback: a BACKGROUND load (the
+    // desktop default, started by a read) must never run onnxruntime on the main thread in
+    // the middle of that read. Only a load the author asked for may take that path.
+    async load(onProgress, signal, opts) {
+      const noMain = opts?.mainThread === false;
+      const abortedError = () => new Error('aborted');
+      const probed = await dtypeAndDevice();
+      // The probe is an await, and the abort listener below is attached after it — so a
+      // Cancel that landed DURING the probe would never fire it. Honor it here instead.
+      if (signal?.aborted) throw abortedError();
       try { makeWorker(); } catch (e) {
-        if (coarsePointer()) throw e; // never OOM the main thread on a phone
-        await loadMain(onProgress); return true;
+        if (coarsePointer() || noMain) throw e; // never OOM the main thread on a phone
+        await loadMain(onProgress, probed); return true;
       }
       onProg = onProgress;
-      try {
-        await new Promise((resolve, reject) => {
-          onLoaded = resolve; onLoadErr = reject;
-          worker.postMessage({ type: 'load', url: KOKORO_URL, model: KOKORO_MODEL, dtype, device });
-          if (signal) signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
-        });
-        return true;
-      } catch (e) {
-        if (String(e?.message) === 'aborted') throw e;
-        try { worker.terminate(); } catch {}
-        worker = null;
-        // On mobile the main-thread fallback is the exact OOM-reload we're avoiding
-        // — surface the failure (the UI offers cloud / retry) instead.
-        if (coarsePointer()) throw e;
-        await loadMain(onProgress);
-        return true;
+      const viaWorker = ({ dtype, device }) => new Promise((resolve, reject) => {
+        makeWorker();
+        onLoaded = resolve; onLoadErr = reject;
+        worker.postMessage({ type: 'load', url: KOKORO_URL, model: KOKORO_MODEL, dtype, device });
+        if (signal) signal.addEventListener('abort', () => reject(abortedError()), { once: true });
+      });
+      // An adapter on the main thread is not proof WebGPU works for onnxruntime in the
+      // worker. When the WebGPU load fails, try the wasm build once in a fresh worker before
+      // giving up — otherwise the background default switches itself off for the session,
+      // and an explicit load retries fp32 WebGPU on the main thread, which fails the same way.
+      let lastErr = null;
+      for (const choice of probed.device === 'webgpu' ? [probed, WASM_Q8] : [probed]) {
+        if (signal?.aborted) throw abortedError();
+        try {
+          await viaWorker(choice);
+          return true;
+        } catch (e) {
+          if (String(e?.message) === 'aborted') throw e;
+          try { worker?.terminate(); } catch {}
+          worker = null;
+          lastErr = e;
+        }
       }
+      // On mobile the main-thread fallback is the exact OOM-reload we're avoiding
+      // — surface the failure (the UI offers cloud / retry) instead.
+      if (coarsePointer() || noMain) throw lastErr;
+      await loadMain(onProgress, WASM_Q8);
+      return true;
     },
     // `speed` is a native kokoro-js generate() option (like the cloud rung's OpenRouter
     // `speed` param) — real phoneme-duration pacing, not a client-side playback-rate hack.
@@ -666,8 +733,49 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   const K = voiceKeys(keyPrefix || 'db');
 
   const rungPref = () => readLS(K.RUNG) || 'auto';
-  const orVoice = () => readLS(K.OR_VOICE) || DEFAULT_OR_VOICE;
-  const orModel = () => readLS(K.OR_TTS_MODEL) || DEFAULT_OR_TTS_MODEL;
+  // The cloud voice. When the cheapest-voice setting has moved the model off the default,
+  // the stored voice may belong to another model (the default `af_heart` is a Kokoro id, and
+  // any other model rejects it), so it falls back to a voice the picked model publishes.
+  const orVoice = () => {
+    const stored = readLS(K.OR_VOICE);
+    const m = orModel();
+    if (!explicitOrModel() && m === cheapestModelId && m !== DEFAULT_OR_TTS_MODEL && cheapestVoices.length) {
+      return stored && cheapestVoices.includes(stored) ? stored : cheapestVoices[0];
+    }
+    return stored || DEFAULT_OR_VOICE;
+  };
+  // A model the author PICKED is stored; the default never is. That difference is the whole
+  // precedence rule: a stored pick always wins, over the cheapest-voice setting and over the
+  // desktop on-device default alike.
+  const explicitOrModel = () => readLS(K.OR_TTS_MODEL) || '';
+  // The cheapest-voice default, resolved from the live catalog the first time it is asked
+  // for with the setting on. Until the catalog answers (or when it never does), orModel()
+  // stays on DEFAULT_OR_TTS_MODEL — which is also the cheapest voice at the time of writing,
+  // so the fallback and the answer agree in the common case.
+  let cheapestModelId = null;
+  let cheapestVoices = [];
+  let cheapestRequested = false;
+  function cheapestModel() {
+    if (!cheapestRequested) {
+      cheapestRequested = true;
+      fetchTtsCatalog().then(({ models }) => {
+        const id = pickCheapestTtsModel(models);
+        if (id && id !== cheapestModelId) {
+          cheapestModelId = id;
+          cheapestVoices = (models.find((m) => m.id === id)?.voices || []).slice();
+          emitChange();
+        }
+      }, () => {});
+    }
+    return cheapestModelId;
+  }
+  // Resolve it EAGERLY — at creation and the moment the setting turns on — not on the first
+  // orModel() call. openRouterRung reads the model per sentence, so a pick that landed
+  // mid-read would switch voices between one sentence and the next. Resolving up front
+  // leaves that window only for a read started within the catalog fetch of page load.
+  if (cheapestVoiceEnabled()) cheapestModel();
+  onNarrationPrefsChange(() => { if (cheapestVoiceEnabled()) cheapestModel(); });
+  const orModel = () => explicitOrModel() || (cheapestVoiceEnabled() && cheapestModel()) || DEFAULT_OR_TTS_MODEL;
   const kokoroVoice = () => readLS(K.KOKORO_VOICE) || DEFAULT_KOKORO_VOICE;
   // A speed multiplier both rungs forward natively (OpenRouter's API param; Kokoro's
   // own generate() option) — not a client-side playbackRate hack. 1 = default pace,
@@ -836,12 +944,53 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // is the proxy for phone/tablet; the cloud voice works on every device.
   const kokoroSupported = () => !coarsePointer();
 
+  // One Kokoro load at a time. The rung's load() is not re-entrant — a second call rewires
+  // its onLoaded/onLoadErr callbacks and strands the first caller's promise — and there are
+  // two callers that can overlap: the background desktop default and the Settings
+  // "download" button. So every caller shares one load:
+  //   - progress fans out to every caller that passed a callback, joiners included;
+  //   - any caller's abort cancels the shared load (the author's Cancel means cancel);
+  //   - a failed or canceled load switches the BACKGROUND default off for this session, so a
+  //     browser that cannot load the model does not retry on every read, and a read never
+  //     overrides the author's Cancel. An explicit download from Settings still works.
+  let kokoroLoading = null;
+  let kokoroCtl = null;
+  const kokoroProgress = new Set();
+  let backgroundLoadOff = false;
+  function loadKokoroOnce(onProgress, signal, { background = false } = {}) {
+    if (kokoro.ready()) return Promise.resolve(true);
+    if (onProgress) kokoroProgress.add(onProgress);
+    if (!kokoroLoading) {
+      kokoroCtl = new AbortController();
+      const fanOut = (p) => { for (const fn of kokoroProgress) { try { fn(p); } catch {} } };
+      kokoroLoading = kokoro.load(fanOut, kokoroCtl.signal, background ? { mainThread: false } : undefined)
+        .then(() => { kokoroCachedFlag = true; emitChange(); return true; })
+        .catch((e) => { backgroundLoadOff = true; throw e; })
+        .finally(() => { kokoroLoading = null; kokoroCtl = null; kokoroProgress.clear(); });
+    }
+    const ctl = kokoroCtl;
+    if (signal) {
+      const cancel = () => { backgroundLoadOff = true; ctl?.abort(); };
+      if (signal.aborted) cancel();
+      else signal.addEventListener('abort', cancel, { once: true });
+    }
+    return kokoroLoading;
+  }
+
+  // The DESKTOP DEFAULT: on a desktop (fine-pointer) device with the rung left on `auto`,
+  // the on-device Kokoro voice comes first — it is free per clip and works offline. It
+  // yields to a cloud model the author picked by hand (a stored OR model pref): choosing a
+  // model is choosing the cloud voice, and an explicit pick always wins.
+  const preferOnDevice = () => rungPref() === 'auto' && kokoroSupported() && !explicitOrModel();
+
   function pickRung() {
     if (rungPref() === 'off') return silentRung;
     if (injected) return injected;
     if (rungPref() === 'openrouter' && openrouter.ready()) return openrouter;
     if (rungPref() === 'kokoro' && kokoroSupported() && kokoro.ready()) return kokoro;
-    // auto ladder: connected cloud → summoned local (desktop only) → (dev) speech → silent.
+    // auto ladder: (desktop default) local → connected cloud → summoned local (desktop
+    // only) → (dev) speech → silent.
+    if (preferOnDevice() && kokoro.ready()) return kokoro;
     if (openrouter.ready()) return openrouter;
     if (kokoroSupported() && kokoro.ready()) return kokoro;
     if (speechReady()) return { name: 'speechSynthesis' };
@@ -1468,7 +1617,18 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // Summon the in-browser Kokoro model (the deliberate ~80 MB download). Mirrors
     // architect-model's summon()/loadUniversal(). Surfaces progress; never throws
     // into the caller's flow beyond an explicit reject the UI can show.
-    async loadKokoro(onProgress, signal) { await kokoro.load(onProgress, signal); kokoroCachedFlag = true; emitChange(); return true; },
+    async loadKokoro(onProgress, signal) { return loadKokoroOnce(onProgress, signal); },
+    // Start the desktop default's download in the background, if it applies and has not
+    // started. Called when a read BEGINS, never from a passive status read, so opening a
+    // panel downloads nothing. Until it lands, pickRung keeps using the cloud voice (or the
+    // captions-only floor with no key); the next read after it lands uses the local voice.
+    // Never throws; resolves true when the local voice is (now) ready.
+    summonDefaultVoice() {
+      if (injected || backgroundLoadOff || !preferOnDevice() || kokoro.ready()) return Promise.resolve(kokoro.ready());
+      return loadKokoroOnce(undefined, undefined, { background: true }).catch(() => false);
+    },
+    preferOnDevice,
+    explicitOrModel,
     // Re-probe the on-disk cache (after Settings "Remove models", say).
     probeKokoroCache,
     // Prefs.

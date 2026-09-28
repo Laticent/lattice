@@ -251,7 +251,9 @@ describe('generation ladder — universal Transformers.js tier', () => {
 
 describe('model settings (Slice 8)', () => {
   test('probeWebGPU is Node-safe and returns false without an adapter', async () => {
-    const s = await import('../../../docs/src/components/studio/ai/spend.js');
+    // It moved from studio/ai/spend.js (an eager Studio chunk, where it had no caller) to the
+    // lazily loaded voice model, whose on-device rung is its one caller.
+    const s = await import('../../../docs/src/playground/voice-model.js');
     assert.equal(await s.probeWebGPU(), false);
   });
 });

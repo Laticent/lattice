@@ -126,18 +126,6 @@ export function budgetStatus({ sessionSpend = 0, cap = 0, mode = 'alert', accoun
 
 
 
-// Real WebGPU support is more than `'gpu' in navigator` — headless Chromium
-// exposes the object but has no adapter. Probe for an adapter (async).
-export async function probeWebGPU() {
-  try {
-    if (typeof navigator === 'undefined' || !navigator.gpu) return false;
-    const adapter = await navigator.gpu.requestAdapter();
-    return !!adapter;
-  } catch {
-    return false;
-  }
-}
-
 // Human label for the active generation tier.
 export function tierLabel(a) {
   if (!a.modelOn) return 'Deterministic (AI off)';

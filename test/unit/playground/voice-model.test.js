@@ -641,3 +641,133 @@ test('latency: a JOINER records the request\'s age, not its own short wait', asy
   const stats = latencyStats(v.latencyKey());
   assert.ok(stats.p95 >= 100, `the reservoir reflects the REQUEST's age, not the join (p95=${stats.p95})`);
 }));
+
+// ── The desktop default: on-device Kokoro first ──────────────────────────────
+// Plain node has no matchMedia, so it reads as a desktop (fine pointer) — the case the
+// default is for. A phone is simulated by installing a coarse-pointer matchMedia.
+
+test('desktop default: a ready on-device voice beats a connected cloud voice on `auto`', async () => withLocalStorage(async () => {
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+  assert.equal(v.rung(), 'openrouter-tts', 'on-device not loaded yet: the cloud voice reads');
+  v.__setKokoroInference(async () => ({ size: 1, type: 'audio/wav' }));
+  assert.equal(v.rung(), 'kokoro', 'on-device loaded: it is the desktop default');
+}));
+
+test('desktop default: a cloud model the author picked wins over on-device', async () => withLocalStorage(async () => {
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+  v.__setKokoroInference(async () => ({ size: 1, type: 'audio/wav' }));
+  v.setOrModel('microsoft/mai-voice-2');
+  assert.equal(v.rung(), 'openrouter-tts');
+  assert.equal(v.preferOnDevice(), false);
+  // A fresh model with the same pin and nothing loaded: starting a read downloads nothing
+  // (a real load would construct a Worker, which plain node does not have, and throw).
+  const w = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+  assert.equal(await w.summonDefaultVoice(), false, 'no download for a pinned cloud model');
+}));
+
+test('desktop default: never on a phone (coarse pointer) — the cloud voice stays first', async () => withLocalStorage(async () => {
+  globalThis.matchMedia = (q) => ({ matches: q === '(pointer: coarse)' });
+  try {
+    const { createVoiceModel } = await load();
+    const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+    assert.equal(v.preferOnDevice(), false);
+    assert.equal(v.rung(), 'openrouter-tts');
+  } finally {
+    delete globalThis.matchMedia;
+  }
+}));
+
+test('the whole Gemini TTS family is requested as PCM (measured: mp3 → 400)', async () => {
+  const { isPcmOnlyModel } = await load();
+  assert.equal(isPcmOnlyModel('google/gemini-3.1-flash-tts-preview'), true);
+  assert.equal(isPcmOnlyModel('google/gemini-3.8-flash-tts'), true);
+  assert.equal(isPcmOnlyModel('google/gemini-3.8-flash-lite-tts'), true);
+  assert.equal(isPcmOnlyModel('google/gemini-3.8-flash'), false, 'a chat model is not a TTS model');
+  assert.equal(isPcmOnlyModel('hexgrad/kokoro-82m'), false);
+  assert.equal(isPcmOnlyModel(''), false);
+});
+
+test('desktop default: the background load never falls back to the main thread, and stops after a failure', async () => withLocalStorage(async () => {
+  // Plain node has no Worker, so the worker path fails at once. An author-started load would
+  // fall back to loading onnxruntime on the main thread (a network import here); the
+  // background load a READ starts must not, so this resolves false without touching the network.
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+  assert.equal(v.preferOnDevice(), true);
+  assert.equal(await v.summonDefaultVoice(), false);
+  assert.equal(await v.summonDefaultVoice(), false, 'and a failed load is not retried on every read');
+  assert.equal(v.rung(), 'openrouter-tts', 'the cloud voice keeps reading');
+}));
+
+test('desktop default: an injected test rung is never joined by a real download', async () => withLocalStorage(async () => {
+  const { createVoiceModel, MockRung } = await load();
+  const v = createVoiceModel({});
+  v.__setRung(MockRung());
+  assert.equal(await v.summonDefaultVoice(), false);
+}));
+
+// ── The on-device load: adapter probe, Cancel, and the wasm retry ─────────────
+// A scripted Worker answers the rung's `load` message the way kokoro-worker.js does, and a
+// scripted navigator.gpu stands in for the adapter probe. Plain node has neither.
+
+function withFakeGpuAndWorker({ adapter, adapterDelayMs = 0, failDevices = [] }, fn) {
+  const posted = [];
+  const realWorker = globalThis.Worker;
+  const hadGpu = Object.getOwnPropertyDescriptor(globalThis.navigator, 'gpu');
+  globalThis.Worker = class {
+    postMessage(msg) {
+      if (msg.type !== 'load') return;
+      posted.push(`load:${msg.device}`);
+      const type = failDevices.includes(msg.device) ? 'load-error' : 'loaded';
+      setTimeout(() => this.onmessage?.({ data: { type, error: 'no backend' } }), 5);
+    }
+    terminate() {}
+  };
+  Object.defineProperty(globalThis.navigator, 'gpu', {
+    configurable: true,
+    value: { requestAdapter: () => (adapter === 'hang' ? new Promise(() => {}) : new Promise((r) => setTimeout(() => r(adapter), adapterDelayMs))) },
+  });
+  return Promise.resolve().then(() => fn(posted)).finally(() => {
+    globalThis.Worker = realWorker;
+    if (hadGpu) Object.defineProperty(globalThis.navigator, 'gpu', hadGpu);
+    else delete globalThis.navigator.gpu;
+  });
+}
+
+test('on-device load: a WebGPU load that fails in the worker retries once on wasm', async () => withLocalStorage(() => withFakeGpuAndWorker({ adapter: {}, failDevices: ['webgpu'] }, async (posted) => {
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({});
+  assert.equal(await v.loadKokoro(), true);
+  assert.deepEqual(posted, ['load:webgpu', 'load:wasm']);
+  assert.equal(v.availability().kokoroReady, true);
+})));
+
+test('on-device load: no adapter → the wasm build, never the ~330 MB WebGPU one', async () => withLocalStorage(() => withFakeGpuAndWorker({ adapter: null }, async (posted) => {
+  const { createVoiceModel } = await load();
+  assert.equal(await createVoiceModel({}).loadKokoro(), true);
+  assert.deepEqual(posted, ['load:wasm']);
+})));
+
+test('on-device load: a Cancel that lands during the adapter probe is honored', async () => withLocalStorage(() => withFakeGpuAndWorker({ adapter: {}, adapterDelayMs: 50 }, async (posted) => {
+  const { createVoiceModel } = await load();
+  const ctl = new AbortController();
+  const p = createVoiceModel({}).loadKokoro(undefined, ctl.signal);
+  setTimeout(() => ctl.abort(), 10);
+  await assert.rejects(p, /aborted/);
+  assert.deepEqual(posted, [], 'nothing is sent to the worker after the Cancel');
+})));
+
+test('probeWebGPU: a probe that never answers, or a software fallback adapter, is "no GPU"', async () => {
+  const spend = await load();
+  await withFakeGpuAndWorker({ adapter: 'hang' }, async () => {
+    assert.equal(await spend.probeWebGPU({ timeoutMs: 30 }), false);
+  });
+  await withFakeGpuAndWorker({ adapter: { isFallbackAdapter: true } }, async () => {
+    assert.equal(await spend.probeWebGPU(), false);
+  });
+  await withFakeGpuAndWorker({ adapter: { info: { isFallbackAdapter: false } } }, async () => {
+    assert.equal(await spend.probeWebGPU(), true);
+  });
+});

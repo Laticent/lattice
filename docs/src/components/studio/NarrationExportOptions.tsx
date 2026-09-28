@@ -28,6 +28,7 @@ import { AudioLines, Captions, Loader2, MousePointer2, PlugZap } from 'lucide-re
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Announce } from '@/lib/announce';
+import { ttsCostPerMChars } from '@/playground/tts-cost.js';
 import { getFrontMatter } from './front-matter';
 import { formatBytes, formatDuration, formatUsd, type NarrationMeasure, PAYLOAD_MAX_BYTES, PAYLOAD_WARN_BYTES } from './narration-bake';
 import { type BakeVoice, defaultBakeVoice, listTtsCatalog, type OrVoiceModel, onDeviceBakeVoice, previewTtsVoice, voiceAvailability } from './read-aloud';
@@ -85,6 +86,9 @@ export function NarrationExportOptions({
 	// The on-device narrator identity, resolved once. Offered whenever the rung is usable —
 	// see `pickNarrator`; it is a first-class choice now, not a no-key fallback.
 	const [onDevice, setOnDevice] = React.useState<BakeVoice | null>(null);
+	/** The author rehearses on the on-device voice (the desktop default on `auto`), so their
+	 *  clips are cached under ITS identity — the export defaults to it rather than re-billing. */
+	const [rehearsesOnDevice, setRehearsesOnDevice] = React.useState(false);
 	/** The model id currently auditioning, so its row shows a spinner rather than nothing. */
 	const [auditioning, setAuditioning] = React.useState<string | null>(null);
 	const [measure, setMeasure] = React.useState<NarrationMeasure | null>(null);
@@ -148,6 +152,7 @@ export function NarrationExportOptions({
 			// panel cannot honor. A deck that is FULLY recorded would still bake, but the panel
 			// cannot know that before measuring, and a dead end is worse than a missing option.
 			if (a.kokoroReady) setOnDevice(od);
+			setRehearsesOnDevice(a.rung === 'kokoro');
 		});
 		defaultBakeVoice().then((v) => {
 			if (!live) return;
@@ -172,7 +177,13 @@ export function NarrationExportOptions({
 	// CLOUD price and the bill printed "about $0.12" two lines under "nothing is billed".
 	// Nothing on-device is billed, so the honest price is no price at all.
 	const pricePerM = React.useMemo(
-		() => (value.voice?.rung === 'kokoro' ? null : (models?.find((m) => m.id === value.voice.model)?.promptPerM ?? null)),
+		// FULL cost, not the input price: the Gemini TTS family also bills the audio it produces,
+		// which is nearly its whole bill (tts-cost.js — $0.50/M listed, ~$18.50/M billed).
+		() => {
+			if (value.voice?.rung === 'kokoro') return null;
+			const m = models?.find((x) => x.id === value.voice.model);
+			return m ? ttsCostPerMChars(m) : null;
+		},
 		[models, value.voice.model, value.voice?.rung],
 	);
 	/** We never heard back — offline, firewalled, blackholed, or OpenRouter down. Taken from
@@ -209,9 +220,11 @@ export function NarrationExportOptions({
 	 *  survive a detour through the on-device narrator. */
 	const cloudVoiceRef = React.useRef(value.voice);
 	if (value.voice?.rung !== 'kokoro') cloudVoiceRef.current = value.voice;
-	/** With no cloud key, the on-device narrator is the only one that can produce anything, so
-	 *  it is what turning audio on selects. */
-	const defaultsToDevice = canPickDevice && cloudReady === false;
+	/** Turning audio on selects the on-device narrator in two cases: with no cloud key it is the
+	 *  only one that can produce anything, and when the author rehearses on it (the desktop
+	 *  default) the deck's clips already sit on disk under its identity — defaulting to cloud
+	 *  would quote and bill the whole deck again. */
+	const defaultsToDevice = canPickDevice && (cloudReady === false || rehearsesOnDevice);
 	const pickNarrator = (next: 'cloud' | 'device') => {
 		if (next === 'device' && onDevice) set({ voice: onDevice });
 		else if (next === 'cloud') set({ voice: cloudVoiceRef.current });

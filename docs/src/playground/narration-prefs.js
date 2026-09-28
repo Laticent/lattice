@@ -161,6 +161,22 @@ export function setNarrationCacheEnabled(on) {
 	emit();
 }
 
+// ── Cheapest voice ───────────────────────────────────────────────────────────
+// When ON, the cloud voice defaults to the cheapest paid OpenRouter speech model
+// (tts-cost.js's pickCheapestTtsModel) instead of the fixed default. A model the author
+// picked themselves ALWAYS wins over it — this only replaces the default. Default OFF.
+
+const CHEAPEST_VOICE_KEY = 'lattice-cheapest-voice';
+
+export function cheapestVoiceEnabled() {
+	return readLS(CHEAPEST_VOICE_KEY) === '1';
+}
+
+export function setCheapestVoiceEnabled(on) {
+	writeLS(CHEAPEST_VOICE_KEY, on ? '1' : null);
+	emit();
+}
+
 // ── Narration audio quality ──────────────────────────────────────────────────
 // The bitrate the two UNCOMPRESSED engines (on-device Kokoro, Gemini) are encoded to before
 // their audio is stored or shipped. It does not reach the seven engines that already return
