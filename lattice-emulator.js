@@ -1275,6 +1275,17 @@ if (explicitSize && !isRegisteredSize(explicitSize)) {
   process.exit(1);
 }
 
+// Create the output's folder once the config checks above have passed (a deck that fails
+// one should not leave an empty folder behind), as a batch loop writing `out/<name>.pdf` expects. Without
+// this, the first write (the HTML sidecar, long after the render) died on ENOENT with a
+// raw Node stack trace, and the render it had just paid for was thrown away.
+try {
+  fs.mkdirSync(path.dirname(path.resolve(outFile)), { recursive: true });
+} catch (e) {
+  console.error(`error: cannot create the output folder for ${outFile}: ${e.message}`);
+  process.exit(1);
+}
+
 // ── Mermaid renderer ─────────────────────────────────────────────────────────
 // Two surfaces wire the rendered SVG to the active palette:
 //
