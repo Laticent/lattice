@@ -280,9 +280,19 @@ describe('inline-sparks — measured too big (lint-core sparkFitFindings)', () =
     assert.equal(found[0].slide, 1);
   });
 
-  test('the autocomplete vocabulary comes from the kernels, one axis per word', () => {
-    const words = lintCore.sparkCompletions();
-    for (const t of sparks.TYPES) assert.ok(words.some((w) => w.label === t && w.axis === 'type'), t);
-    for (const w of ['fill', 'zero', 'bare', 'outline', 'rounded']) assert.ok(words.some((x) => x.label === w), w);
+  test('the autocomplete asks the kernels what comes next, one axis at a time', () => {
+    assert.deepEqual(sparks.nextWords('~{1 2 3}').next, 'type');
+    assert.deepEqual(sparks.nextWords('~{1 2 3}:bar').next, 'size');
+    const onBar = sparks.nextWords('~{1 2 3}:bar').words.map((w) => w.label);
+    assert.ok(!onBar.includes('end') && !onBar.includes('zero'), 'a bar takes no markers or :zero');
+    assert.deepEqual(sparks.nextWords('~{72%}').words.filter((w) => w.axis === 'type').map((w) => w.label), ['ring', 'bullet']);
+    assert.equal(sparks.nextWords('~{1,2}'), null, 'a broken spark offers nothing');
+    const pills = require('../../../lib/core/inline-pills.js');
+    assert.equal(pills.nextWords('{LIVE}').next, 'shape');
+    assert.equal(pills.nextWords('{LIVE}:tag').next, 'color');
+    assert.equal(pills.nextWords('{LIVE}:tag:c3:lg'), null, 'a complete pill offers nothing');
+    const hit = lintCore.inlineCodeCompletions('{LIVE}:tag:c3');
+    assert.equal(hit.next, 'size');
+    assert.ok(hit.words.every((w) => typeof w.info === 'string' && w.info));
   });
 });

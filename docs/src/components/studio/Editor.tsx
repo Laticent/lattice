@@ -9,7 +9,7 @@ import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, 
 import * as React from 'react';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
-import { type CompletionComponent, type CompletionVocab, makeStudioCompletion, registerValueLists, type SparkWord } from './editor-complete';
+import { type CompletionComponent, type CompletionVocab, type InlineNext, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { slideEditableOffset, slideIndexAt } from './lint';
 import { tourChromeMargin } from './tour-chrome';
@@ -414,18 +414,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// freshly-saved finish stops being flagged / starts completing immediately.
 	const acComp = React.useRef(new Compartment());
 	const lintComp = React.useRef(new Compartment());
-	// The spark vocabulary for autocomplete, from the lint core once it has loaded (a getter,
-	// so the completion menu picks it up the moment it arrives without a reconfigure).
-	const sparkWordsRef = React.useRef<SparkWord[] | null>(null);
-	const sparkWords = () => {
-		if (!sparkWordsRef.current && lintCoreMod?.sparkCompletions) sparkWordsRef.current = lintCoreMod.sparkCompletions();
-		return sparkWordsRef.current;
-	};
+	// What may come next in a spark or pill, from the lint core once it has loaded (read at
+	// completion time, so the menu works the moment the core arrives, without a reconfigure).
+	const inlineNext = (span: string): InlineNext | null => lintCoreMod?.inlineCodeCompletions?.(span) ?? null;
 	// The latest measured sparks, read by the lint pass; a new measurement re-runs it.
 	const measuredRef = React.useRef(measuredSparks);
 	measuredRef.current = measuredSparks;
 	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, sparkWords })], activateOnTyping: true, icons: false, maxRenderedOptions: 300 });
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext })], activateOnTyping: true, icons: false, maxRenderedOptions: 300 });
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {
@@ -834,7 +830,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// without waiting for the next keystroke. Keyed on the content, not the object identity.
 	const measuredKey = measuredSparks ? `${measuredSparks.slideIndex}|${measuredSparks.reports.map((r) => `${r.src}>${r.to}`).join(',')}` : '';
 	// biome-ignore lint/correctness/useExhaustiveDependencies: measuredKey is the content proxy for `measuredSparks` (read through measuredRef); a new object with the same verdict must not re-lint.
+	const lastMeasuredKey = React.useRef('');
 	React.useEffect(() => {
+		// Nothing measured before and nothing now: no pass to re-run (and forcing one on mount
+		// would run the linter before the real lint core is configured).
+		if (measuredKey === lastMeasuredKey.current) return;
+		lastMeasuredKey.current = measuredKey;
 		if (viewRef.current) forceLinting(viewRef.current);
 	}, [measuredKey]);
 

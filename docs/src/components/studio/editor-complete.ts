@@ -227,48 +227,61 @@ function inFrontMatter(doc: string, pos: number): boolean {
 	return pos <= close;
 }
 
-/** One word that may follow `~{…}:` — lint-core's `sparkCompletions()` shape. */
-export type SparkWord = { label: string; axis: string; info: string };
+/** What may come next in a spark or pill — lint-core's `inlineCodeCompletions()` shape. */
+export type InlineNext = { next: string; words: { label: string; axis: string; info: string }[] };
 
 /** Starter sparks, offered once `` `~ `` is typed. */
 const SPARK_TEMPLATES: Completion[] = [
-	{ label: '~{12 14 13 17 21}', detail: 'line', info: 'A trend: numbers, oldest first' },
-	{ label: '~{12 14 13 17 21}:bar', detail: 'bars', info: 'The size of each period' },
-	{ label: '~{1 1 -1 1 -1 1}:winloss', detail: 'win-loss', info: 'Hits above the line, misses below' },
-	{ label: '~{72%}', detail: 'ring', info: 'One part of a whole' },
-	{ label: '~{72/80}:bullet', detail: 'bullet', info: 'A value against a target' },
-].map((c) => ({ ...c, type: 'snippet' }));
+	['~{12 14 13 17 21}', 'line'],
+	['~{12 14 13 17 21}:bar', 'bars'],
+	['~{1 1 -1 1 -1 1}:winloss', 'win-loss'],
+	['~{72%}', 'ring'],
+	['~{72/80}:bullet', 'bullet'],
+].map(([label, detail]) => ({ label, detail, type: 'snippet' }));
+
+const WORD = /^[\w-]*$/;
 
 /**
- * The spark under the cursor, if the cursor is inside one: the text after the last OPEN
- * backtick (an odd count before the cursor means we are inside a span). `` `~ `` offers the
- * starter sparks; after `~{…}:` it offers the modifiers, minus every axis the spark already
- * names (markers may stack, so only the marker already written drops out).
+ * Completion inside a spark (`` `~{…}:` ``) or a pill (`` `{LABEL}:` ``), by POSITION like the
+ * `_class:` line (slide-context.js classTokenResult): the menu holds only the NEXT open axis —
+ * a type, then a size, then a color … — and only the words the kernel accepts there. When what
+ * the author types matches none of those (`c3` while types are showing), it widens to every
+ * valid word, grouped by axis; `validFor` switches on that keystroke, the same way.
+ *
+ * The cursor is inside a span when an odd number of backticks precede it. `next` is lint-core's
+ * `inlineCodeCompletions` (null before the lazy core arrives, or for a span that is not one).
  */
-export function sparkCompletion(before: string, words: SparkWord[] | null): { typed: string; options: Completion[] } | null {
-	const ticks = (before.match(/`/g) || []).length;
-	if (ticks % 2 === 0) return null;
+export function inlineCodeCompletion(
+	before: string,
+	next: ((span: string) => InlineNext | null) | null,
+): { typed: string; options: Completion[]; validFor: (text: string) => boolean } | null {
+	if (((before.match(/`/g) || []).length & 1) === 0) return null;
 	const inside = before.slice(before.lastIndexOf('`') + 1);
-	if (/^~\{?$/.test(inside)) return { typed: inside, options: SPARK_TEMPLATES };
-	const m = /^~\{[^}`]*\}((?::[\w-]*)*)$/.exec(inside);
-	if (!m?.[1] || !words?.length) return null;
-	const segs = m[1].split(':').slice(1);
-	const typed = segs.pop() ?? '';
-	const byLabel = new Map(words.map((w) => [w.label, w]));
-	const used = new Set(segs.map((w) => byLabel.get(w)?.axis).filter((a) => a && a !== 'marker'));
-	// Types first, then size and markers, the frame words, and the twelve color slots last in
-	// numeric order (`boost`), not the alphabet's `c1 c10 c11 c2`.
-	const rank: Record<string, number> = { type: 60, size: 50, marker: 40, frame: 30, surface: 30, corners: 30, width: 20, scale: 20, color: -1 };
-	const options: Completion[] = words
-		.filter((w) => !used.has(w.axis) && !segs.includes(w.label))
-		.map((w) => ({
-			label: w.label,
-			type: 'keyword',
-			detail: w.axis,
-			info: w.info,
-			boost: w.axis === 'color' ? -Number(w.label.slice(1)) : (rank[w.axis] ?? 0),
-		}));
-	return options.length ? { typed, options } : null;
+	if (/^~\{?$/.test(inside)) return { typed: inside, options: SPARK_TEMPLATES, validFor: (t) => /^~\{?[^`]*$/.test(t) };
+	const m = /^(~?\{[^}`]*\}(?::[\w-]+)*):([\w-]*)$/.exec(inside);
+	const got = m && next ? next(m[1]) : null;
+	if (!m || !got) return null;
+	const typed = m[2];
+	// `boost` keeps the kernel's order inside a step (sm md lg, c1 … c12), not the alphabet's.
+	const option = (w: InlineNext['words'][number], rank: number, i: number): Completion => ({
+		label: w.label,
+		type: 'keyword',
+		detail: w.axis,
+		info: w.info,
+		section: { name: w.axis, rank },
+		boost: 99 - i,
+	});
+	const axes = [...new Set(got.words.map((w) => w.axis))];
+	const primary = got.words.filter((w) => w.axis === got.next);
+	const inPrimary = (t: string) => primary.some((w) => w.label.startsWith(t));
+	if (inPrimary(typed)) {
+		return { typed, options: primary.map((w, i) => option(w, 0, i)), validFor: (t) => WORD.test(t) && inPrimary(t) };
+	}
+	return {
+		typed,
+		options: got.words.map((w, i) => option(w, axes.indexOf(w.axis), i)),
+		validFor: (t) => WORD.test(t) && !inPrimary(t),
+	};
 }
 
 /**
@@ -288,10 +301,10 @@ export function makeStudioCompletion(
 	//     (`registerValueLists(lintVocab)`), offered on a top-level `key:` line.
 	//   vocab     — the lint vocab's modifier registry; drives the positional
 	//     `_class:` completion (falls back to the flat `modifiers` list).
-	//   sparkWords — a getter for the spark modifier vocabulary (lint-core's
-	//     `sparkCompletions()`, read from the kernel), offered after `` `~{…}: ``. A getter,
-	//     because the lint core loads lazily; before it arrives the menu stays closed.
-	opts: { modifiers?: string[]; palettes?: string[]; registers?: Record<string, string[]>; vocab?: CompletionVocab | null; sparkWords?: () => SparkWord[] | null } = {},
+	//   inlineNext — what may come next in a spark or pill (lint-core's
+	//     `inlineCodeCompletions`, read from the kernels), offered after `` `~{…}: `` or
+	//     `` `{LABEL}: ``. Null until the lazy lint core arrives; the menu stays closed till then.
+	opts: { modifiers?: string[]; palettes?: string[]; registers?: Record<string, string[]>; vocab?: CompletionVocab | null; inlineNext?: ((span: string) => InlineNext | null) | null } = {},
 ) {
 	// The `finish:` front-matter VALUE vocabulary — built-in presets (bare, e.g.
 	// `atrium`; the engine adds the prefix) PLUS the user's saved finishes, which
@@ -321,9 +334,9 @@ export function makeStudioCompletion(
 		const line = context.state.doc.lineAt(context.pos);
 		const before = line.text.slice(0, context.pos - line.from);
 
-		// 0. Inside a spark, `` `~{12 14 17}:bar:lg` `` (lib/core/inline-sparks.js).
-		const spark = sparkCompletion(before, opts.sparkWords?.() || null);
-		if (spark) return { from: context.pos - spark.typed.length, options: spark.options, validFor: /^[\w-]*$/ };
+		// 0. Inside a spark (`` `~{12 14 17}:bar:lg` ``) or a pill (`` `{LIVE}:tag:c4` ``).
+		const inline = inlineCodeCompletion(before, opts.inlineNext ?? null);
+		if (inline) return { from: context.pos - inline.typed.length, options: inline.options, validFor: inline.validFor };
 
 		// 1. A `_class:` directive token, completed by POSITION like a shell command
 		// line: the first word is a component, and every later word is only what THAT

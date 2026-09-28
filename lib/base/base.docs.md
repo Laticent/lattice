@@ -1697,9 +1697,11 @@ all, so LaTeX's `` `\~{}` `` and `` `\~{n}` `` keep their backslash and get no w
 
 ### In the Studio — autocomplete and a size check
 
-Type `` `~ `` in the Studio's editor for a menu of starter sparks, and `:` after the closing
-brace for the modifiers, grouped by what they set (a type, a size, a marker, the frame, a
-color slot). A setting the spark already has drops out of the menu.
+Type `` `~ `` in the Studio's editor for a menu of starter sparks. After the closing brace,
+`:` offers the next step only — a type, then a size, a color, the markers and the frame — and
+only words the kernel accepts there, so one value is offered a ring or a bullet and a bar is
+never offered markers. Typing a word from a later step widens the menu to everything still
+valid. Pills complete the same way: a shape, then a color, then a size.
 
 The Studio also **measures** each spark in the live preview, because whether one fits depends
 on the layout it lands in, which lint cannot see. A spark that reaches past the space it sits

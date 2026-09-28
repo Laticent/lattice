@@ -250,9 +250,14 @@ The owner asked for autocomplete in the editor, a Compose popup, and a warning w
 too big for the container it lands in, with a fix that sizes it down. The Compose popup is
 deferred (`followups.d/2453-p2-compose-spark-popup.md`).
 
-- **Autocomplete** (`docs/src/components/studio/editor-complete.ts` `sparkCompletion`): starter
-  sparks after `` `~ ``, modifiers after `}:`, with an axis already set dropped. The words come
-  from lint-core's `sparkCompletions()`, which reads the kernels (HARD RULE #1).
+- **Autocomplete** (`docs/src/components/studio/editor-complete.ts` `inlineCodeCompletion`),
+  revised at the owner's request to show **only what comes next**, the way the `_class:` line
+  already does (`slide-context.js` `classTokenResult`): starter sparks after `` `~ ``; after `}:`
+  the first open axis in the order an author settles them (type, size, color, marker, then the
+  frame words), and only the words the KERNEL accepts appended (`nextWords` in
+  `inline-sparks.js` and `inline-pills.js`), so validity never drifts from the renderer. Typing a
+  word outside that step widens the menu to every valid word, grouped by axis. Pills got the same
+  completion — a shape, then a color, then a size — through lint-core's `inlineCodeCompletions`.
 - **The size check is MEASURED, not linted.** Lint cannot see a layout, so the Studio reads the
   same-origin preview frame (`docs/src/lib/spark-fit.ts`, loaded only when a slide holds a
   spark). A spark is flagged `wide` when it reaches past its container's content box (or the
