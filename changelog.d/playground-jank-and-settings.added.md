@@ -10,6 +10,8 @@
 - **Fixed: a collapsed preview no longer leaves Explore blank.** Collapsing the preview in
   Edit and then picking a component, loading a gallery or switching to Explore showed an
   empty stage. Entering Explore now opens the preview.
+- **Fixed: a scroll right after resizing the window in Explore is kept.** The deck used to
+  jump back to the slide it was on about a tenth of a second later.
 - **Fixed: in Edit, the preview follows what you type.** Typing or moving the caret into
   another slide scrolls the preview to it, so an edit no longer lands off screen. Scroll
   the preview yourself and it stays put until you type again.
