@@ -113,3 +113,48 @@ describe('guide-conductor — the per-sentence rules', () => {
 		expect(released.focused()).toEqual(['a', 'b', 'c']);
 	});
 });
+
+describe('guide-conductor — a line chart walked point by point', () => {
+	// A line category's detail note resolves to the category's hit band (`.line-hit`), which the focus
+	// cannot isolate. When the band holds the point just read, the note is about that point.
+	function line(bandX: number) {
+		document.body.innerHTML = `<div class="lattice"><section><div class="chart-body"><svg>
+			<path class="line-path" data-series="0" data-label="EMEA"></path>
+			<circle id="jan" data-series="0" data-label="Jan 2026" data-value="4.1" cx="100" cy="50"></circle>
+			<circle id="feb" data-series="0" data-label="Feb 2026" data-value="3.2" cx="300" cy="60"></circle>
+			<rect id="band" class="line-hit" x="${bandX}" y="0" width="200" height="400"></rect></svg></div></section></div>`;
+		const el = (id: string) => document.getElementById(id) as Element;
+		const walked = ['Jan 2026, four point one.', 'Feb 2026, three point two.', 'The processor outage cost two weeks.'];
+		const table: Record<string, Element> = { [walked[0]]: el('jan'), [walked[1]]: el('feb'), [walked[2]]: el('band') };
+		const stage: GuideStage = { gesture: async () => {}, setCursorVisible: () => {} };
+		const cue = (t: string): GuideCue | null => {
+			const e = table[t];
+			if (!e) return null;
+			return { el: e, kind: 'underline', strength: 'quiet', target: { getBoundingClientRect: () => e.getBoundingClientRect(), getClientRects: () => [] }, rest: null };
+		};
+		const g = createGuideConductor({ stage: () => stage, aim: (t) => table[t] ?? null, cue, clearance: 19 });
+		const one = delivery({ budget: 1 });
+		const play = (k: number) => g.beat({ slide: 0, cue: k, texts: walked, track: walked, delivering: true, delivery: one });
+		// The point in focus carries `-undim`; the line's other points recede as `-dim-inner`.
+		const undimmed = () => [...document.querySelectorAll('circle.lat-guide-undim')].map((c) => c.id);
+		return { play, undimmed, g };
+	}
+
+	it('keeps the walked point focused through a note that names only its category band', () => {
+		const { play, undimmed } = line(200);
+		play(0);
+		play(1);
+		expect(undimmed()).toEqual(['feb']);
+		play(2);
+		expect(undimmed()).toEqual(['feb']);
+	});
+
+	it('lifts the focus for a band of a different category', () => {
+		const { play, undimmed } = line(400);
+		play(0);
+		play(1);
+		play(2);
+		// Lifted: nothing recedes any more (the `-undim` fade-up clears itself after its transition).
+		expect(document.querySelectorAll('.lat-guide-dim, .lat-guide-dim-inner').length).toBe(0);
+	});
+});

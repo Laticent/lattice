@@ -1,3 +1,12 @@
+---
+status: in-progress
+summary: Each delivery becomes its own character instead of a row of numbers (restrained focuses every part the narration names, expressive leads with the cursor and inks every act, somber gestures once on the scene's key beat), each chart component declares its units and key beat in its manifest `scene`, and the chart narrator binds every sentence to the part it names, retiring the moment budget and the text matchers for bound slides. Built in #2415 with a corpus gate (every binding resolves on every gallery slide) and one score golden per chart for all three deliveries.
+companion:
+  - ./2026-09-25-vetrina-delivery-presets.md
+  - ./2026-07-05-vetrina-walkthrough-library.md
+  - ./2026-09-21-manifest-handles.md
+---
+
 # Delivery styles and component scenes: each delivery its own character, each component its own gestures
 
 **Status:** accepted (owner, 2026-09-27). The owner's answers to §10 are recorded there.

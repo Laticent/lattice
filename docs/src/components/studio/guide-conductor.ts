@@ -87,6 +87,16 @@ export type GuideConductor = {
 	aimed(): Element | null;
 };
 
+/** Is `point` (a line dot) inside `band` (that category's `.line-hit` rect)? Read off the SVG's own
+ *  attributes, so it needs no layout: the dot's center lies within the band's x-range. */
+function inBand(point: Element | null, band: Element): boolean {
+	if (!point || !band.matches('rect.line-hit') || point.tagName.toLowerCase() !== 'circle') return false;
+	const cx = Number(point.getAttribute('cx'));
+	const x = Number(band.getAttribute('x'));
+	const w = Number(band.getAttribute('width'));
+	return Number.isFinite(cx) && Number.isFinite(x) && Number.isFinite(w) && cx >= x && cx <= x + w;
+}
+
 export function createGuideConductor(host: GuideHost): GuideConductor {
 	/** The gesture in flight, aborted on every retarget. */
 	let point: AbortController | null = null;
@@ -180,16 +190,24 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 			// first sentence. Once a planned moment on this slide was a chart mark, every later
 			// sentence that lands inside the same chart focuses in turn, as that one moment.
 			const chartOf = (e: Element | null) => e?.closest('.chart-body, figure.chart-frame') ?? null;
-			if (!planned.plan.gesture.has(activeCue) && walk && walk.slide === slide && chartOf(now) === walk.chart && focusUnit(now)) {
-				point?.abort();
-				stage.setCursorVisible(false);
-				hand = false;
-				setAiming(false);
-				unmark();
-				mark = focusContent(now, { dim: delivery.dim, dimInner: delivery.dimInner, fade: delivery.fade });
-				aim = now;
-				shown = true;
-				return;
+			if (!planned.plan.gesture.has(activeCue) && walk && walk.slide === slide && chartOf(now) === walk.chart) {
+				if (focusUnit(now)) {
+					point?.abort();
+					stage.setCursorVisible(false);
+					hand = false;
+					setAiming(false);
+					unmark();
+					mark = focusContent(now, { dim: delivery.dim, dimInner: delivery.dimInner, fade: delivery.fade });
+					aim = now;
+					shown = true;
+					return;
+				}
+				// A line category's detail note names that category's hit band, which the focus cannot
+				// isolate. When the point up is IN that category, the note is about it, so the focus
+				// stays (it used to lift mid-walk). Only then: every other unfocusable aim inside a chart
+				// — the chart body a sentence about the whole chart falls back to, a quadrant tint, a
+				// radar sector — still lifts the focus (a broader rule held stale foci there).
+				if (mark && inBand(aim, now)) return;
 			}
 			if (!planned.plan.gesture.has(activeCue)) {
 				// The narration moved to a block the plan did not choose. A focus must not stay on the
