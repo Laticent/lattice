@@ -88,7 +88,16 @@ function venueDocsLine(m, noun) {
       return ` Ending in a \`> …\` callout (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
     })()
     : '';
-  return `**By venue** (\`venue:\`, ~${words} words each) it holds ${main} ${noun}.${short}${variants}${insight}${capped}${floor} ${past} ${how}`;
+  // A claim panel's lede budget (`venueCapacity.panel`), under a 6-word heading, which lint-core
+  // `panelOver` judges by heading and lede words.
+  const panel = vc.panel
+    ? (() => {
+      const lede = (r) => VENUES.map((x) => `${x} ~${r['6'][x]}${r['6'][x] >= (vc.panel.tried || Infinity) ? '+' : ''}`).join(' · ');
+      const regs = Object.entries(vc.panel.variants || {}).map(([tok, r]) => ` With \`${tok}\`: ${lede(r)}.`).join('');
+      return ` The claim panel holds a lede of ${lede(vc.panel.byHeading)} words under a 6-word heading (a longer heading leaves less).${regs}${vc.panel.tried ? ` A \`+\` means the panel held the longest lede the rig tried (${vc.panel.tried} words).` : ''}`;
+    })()
+    : '';
+  return `**By venue** (\`venue:\`, ~${words} words each) it holds ${main} ${noun}.${short}${variants}${insight}${panel}${capped}${floor} ${past} ${how}`;
 }
 
 /** The pick-list cell: laptop/huddle/conference/hall at the authored length, capped by the

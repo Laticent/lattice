@@ -161,14 +161,14 @@
       "6": {
         "laptop": 7,
         "huddle": 7,
-        "conference": 7,
-        "hall": 6
+        "conference": 6,
+        "hall": 5
       },
       "8": {
         "laptop": 7,
         "huddle": 7,
-        "conference": 7,
-        "hall": 6
+        "conference": 6,
+        "hall": 3
       }
     }
   }

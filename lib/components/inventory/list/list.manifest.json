@@ -289,19 +289,19 @@
             "6": {
               "laptop": 8,
               "huddle": 7,
-              "conference": 6,
-              "hall": 5
+              "conference": 5,
+              "hall": 4
             },
             "10": {
               "laptop": 8,
               "huddle": 7,
-              "conference": 6,
+              "conference": 5,
               "hall": 2
             },
             "14": {
               "laptop": 4,
               "huddle": 3,
-              "conference": 3,
+              "conference": 2,
               "hall": 2
             }
           }

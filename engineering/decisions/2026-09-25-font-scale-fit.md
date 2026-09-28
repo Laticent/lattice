@@ -600,3 +600,64 @@ pinning it to `--fs-body` with a deck-local `section { --fs-body-compact: var(--
 reproduced the committed rows exactly. Retiring it would lift the back-row x-height at hall from
 about 8.2′ to 10′, and cost a hall table five of its eight rows. The owner kept it: the venue sets
 the room size, and an author who wants larger cells writes fewer rows or picks a larger venue.
+
+## Amendment 2026-09-28 (5) — the rig measures the venue, and a claim panel has its own budget
+
+**The rig measured a slide no venue renders.** `tools/calibrate-capacity.js --scale l|xl|2xl`
+wrote `class: scale-*` into the probe deck. That class sets the same `--fs-scale` as the venue and
+not the venue's meta lift (eyebrows, labels and captions ×1.15 at conference, ×1.3 at hall;
+`lib/base/base.modifiers.css`), so every conference and hall row was measured on a smaller slide
+than the room gets. Found on a real slide: seven-steps' first `split-panel proof` slide clipped at
+`venue: hall` and fit at `class: scale-2xl`. `gradedDeck` (tools/lib/calibrate-core.js) now writes
+`venue: huddle|conference|hall` for the three rungs, pinned by a unit test. Huddle has no lift, so
+its rows cannot move.
+
+**Every stored row re-measured at conference and hall.** 88 rows, 62 unchanged. Of the 26 that
+moved, three are artifacts of the sweep's own flags (`kanban`'s rows are keyed by LANE length and
+`timeline-list`'s 6-word row by a longer card, so `--words` does not reproduce them); they stay as
+stored. A control run on the old rig showed `compare-prose` at 6 words and both `decision` rows had
+also drifted with the engine since they were measured, lift or no lift. Each of the other 23 lowers
+its conference or hall number, and 21 are applied (the largest drops: `timeline-list` at 16 words,
+hall 4 → 0, confirmed by render — one 16-word item clips at hall; and `roadmap`, hall 9 → 6). Two
+are NOT applied, because each produced a false warning on a real deck that renders clean:
+`compare-prose vertical` at 20 words (conference 2 → 1; the talk's slide 44 holds 2) and `actors`
+at 12 words (conference 6 → 3; gallery slide 68 holds 4). The rig's filler words run long, so a
+row measured near a line break reads pessimistic; both stay as stored until a line model (below)
+can judge them. A row of 0 now reads "holds not one item", and its fix says to shorten each one.
+
+**A claim panel is a box of its own.** On `split-panel proof` the slide clips in its 31% claim
+panel, not its list: rendered at hall, a shorter heading or a shorter lede un-clips the real slide,
+and shorter points do not. So `split-panel` carries `venueCapacity.panel`: the most lede words the
+panel holds under a heading of 3, 6, 9 and 12 words, per venue, for the bare component and for
+`proof` and `capstone` (measured separately; the two rows come out identical, as the shared panel
+predicts). `calibrate-capacity split-panel --panel [--variant proof] [--scale …]` measures it with an
+eyebrow and the component's usual points beside it. The panel rows use plain English prose rather
+than the count rows' filler: that filler averages 7.2 characters a word with its space, and the
+shipped decks' ledes 5.1. Measured with the filler, the rows read 20–30% low and warned on four
+real slides that fit. `panel.tried` (80) is the most lede words the rig wrote, so a row at it is a
+floor and prints with a `+`.
+
+`lint-core` `panelOver` reads the slide's first heading outside a code fence and the paragraph under
+it (image lines skipped). Past the longest measured heading the row keeps falling along its last
+measured slope instead of holding flat. A slide past the row gets a `capacity-scale` finding that
+names the panel, reported beside a count finding rather than hidden by it; when even the laptop row
+is short, the fix does not offer a smaller room. The variants whose panel features something else
+(`metric`, `pullquote`, `steps`, `watermark`, `qr`) are not judged by the bare row. The Studio
+bundles this rule (its live lint is lint-core, HARD RULE #7): measured as a pair, +668 bytes gz, and
+`docs/route-budget.json` moves by the owner's rule.
+
+Scored against the export's `⚠ OVERFLOW` line on five decks (the talk, `gallery.md`, and
+bloom / seven-steps / kaizen), each forced to each venue:
+
+| venue | before: right / false / missed | after |
+|---|---|---|
+| huddle | 25 / 3 / 16 | 25 / 3 / 16 |
+| conference | 46 / 8 / 43 | 47 / 8 / 42 |
+| hall | 78 / 2 / 68 | 82 / 2 / 64 |
+
+No new false warning. The gain is small, and the next case shows why. **Word and character counts
+cannot separate the rest.** At hall, seven-steps' slide 8 (a 47-character heading, a 154-character
+lede) clips while slide 10 (50, 160) fits. Rendered LINE counts separate every one: a 3-line heading
+leaves room for 7 lede lines and a 2-line heading for 8. Predicting lines from text needs per-glyph
+widths in a bundle that already grew 668 bytes here, so that line model is its own piece of work
+(`followups.d/2361-p2-venue-lint-accuracy-on-real-decks.md`).

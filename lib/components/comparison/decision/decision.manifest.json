@@ -167,13 +167,13 @@
       "6": {
         "laptop": 10,
         "huddle": 9,
-        "conference": 9,
-        "hall": 8
+        "conference": 7,
+        "hall": 5
       },
       "20": {
         "laptop": 5,
         "huddle": 5,
-        "conference": 4,
+        "conference": 3,
         "hall": 3
       }
     }

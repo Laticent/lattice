@@ -1180,6 +1180,22 @@
             }
           }
         },
+        "panel": {
+          "type": "object",
+          "description": "For a component whose binding box is a fixed-width CLAIM PANEL (`split-panel`): the most lede words the panel holds under a heading of each length, per venue, measured with `tools/calibrate-capacity.js split-panel --panel [--variant <token>] [--scale l|xl|2xl]` (an eyebrow, the heading, the lede, the usual points beside it). `variants` holds a register's own rows (`proof`, `capstone`); `not` lists the variants the bare row does not describe (their panel features something other than a heading and a lede). Lint judges a slide's heading and lede words against it.",
+          "additionalProperties": false,
+          "required": ["byHeading"],
+          "properties": {
+            "byHeading": { "$ref": "#/$defs/venuePanelRows" },
+            "variants": {
+              "type": "object",
+              "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+              "additionalProperties": { "$ref": "#/$defs/venuePanelRows" }
+            },
+            "not": { "type": "array", "items": { "type": "string" } },
+            "tried": { "type": "integer", "minimum": 1, "description": "The most lede words the rig tried (`--max`). A row at it is a floor: the panel held every lede the rig wrote." }
+          }
+        },
         "atLeast": {
           "type": "array",
           "description": "Venues where the rig never saw the component overflow: the number there is the most it tried, a floor.",
@@ -1359,6 +1375,13 @@
         "conference": { "type": "integer", "minimum": 0 },
         "hall": { "type": "integer", "minimum": 0 }
       }
+    },
+    "venuePanelRows": {
+      "type": "object",
+      "description": "Lede words per venue, keyed by the heading's word count.",
+      "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/venueRow" }
     }
   }
 }

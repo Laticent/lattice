@@ -55,6 +55,30 @@ progress  — 2026-09-27 (2): two more measured rows. `list takeaway` with a tra
             By component, the 17 misses at hall: split-panel 6, compare-prose 3, premise 2, and one
             each of matrix-grid, list-steps, content, quote, stats, cycle. split-panel has no venue
             row at all, so it is the next row to measure.
+progress  — 2026-09-28 (font-scale-fit.md Amendment (5)): two fixes. (1) The rig measured at
+            `class: scale-*`, which lacks the venue's meta lift, so every conference/hall row was
+            measured on a smaller slide than the room gets. It now writes `venue:`; 88 stored rows
+            re-measured, 21 lowered. (2) `split-panel` got a claim-panel row
+            (`venueCapacity.panel`, lede words per heading length; `proof`/`capstone` rows), and
+            lint judges heading + lede against it. Five decks (talk, gallery, bloom, seven-steps,
+            kaizen) summed, right/false/missed: huddle 25/3/16 (unchanged), conference 46/8/43 →
+            47/8/42, hall 78/2/68 → 82/2/64. No new false warning.
+            HELD BACK, with their measured values: `compare-prose vertical` @20 conference 2 → 1
+            and `actors` @12 conference 6 → 3 each warned on a real slide that fits (talk 44,
+            gallery 68), so both stay as stored.
+            THE LINE MODEL IS NOW MEASURED TO BE THE NEXT STEP, not guessed. At hall seven-steps
+            slide 8 (heading 47 chars, lede 154) clips and slide 10 (50, 160) fits; rendered line
+            counts separate all 13 proof/capstone slides across the three decks (a 3-line heading
+            leaves 7 lede lines, a 2-line one 8). A line model needs per-glyph widths in lint-core,
+            which the Studio bundles eagerly (this change alone cost +668 bytes gz and a
+            route-budget raise): price that first.
+            Still missed at hall: seven-steps 5, 7, 8 (panel, at the line margin), premise (both
+            decks), compare-prose / cycle / list-steps / matrix-grid / quote / stats / content.
+            Not judged: a split-panel slide with no points (the count loop stops before the panel
+            check), and a `![bg …]` split background, which moves the slide off the `wide` family.
+            The scorer lives nowhere in the tree: it renders each deck with `venue:` forced into
+            its front matter (`renderProbe`) and compares the OVERFLOW pages with lint's
+            `capacity-scale` slides.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.

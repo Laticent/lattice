@@ -12,7 +12,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one finding per row, a sentence.
 
-**By venue** (`venue:`, ~16 words each) it holds laptop ~5 · huddle ~5 · conference ~4 · hall ~3 items. At ~6 words each: 8 · 7 · 6 · 6. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~16 words each) it holds laptop ~5 · huddle ~5 · conference ~4 · hall ~3 items. At ~6 words each: 8 · 7 · 6 · 6. The claim panel holds a lede of laptop ~56 · huddle ~40 · conference ~32 · hall ~24 words under a 6-word heading (a longer heading leaves less). With `proof`: laptop ~80+ · huddle ~68 · conference ~56 · hall ~32. With `capstone`: laptop ~80+ · huddle ~68 · conference ~56 · hall ~32. A `+` means the panel held the longest lede the rig tried (80 words). Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

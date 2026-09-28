@@ -199,6 +199,9 @@ function findManifest(name) {
  * heading and holds the component's documented chrome fixed), which the first cannot
  * express because it owns the heading itself.
  */
+/** The venue each `--scale` rung measures (lib/core/resolve-venue.js). */
+const VENUE_FOR_SCALE = Object.freeze({ l: 'huddle', xl: 'conference', '2xl': 'hall' });
+
 function gradedDeck({ comp, size, steps, slideFor, scale = null, eyebrow = false }) {
   const slides = steps.map((step, i) => {
     const made = slideFor(step);
@@ -211,10 +214,14 @@ function gradedDeck({ comp, size, steps, slideFor, scale = null, eyebrow = false
     const lead = eyebrow ? '`Calibration · eyebrow`\n\n' : '';
     return `<!-- _class: ${comp} -->\n\n${lead}${heading}\n\n${made.body}`;
   });
-  // `scale` puts the deck-wide projection multiplier (`class: scale-xl`, typography.md §7)
-  // in the front matter, so a ceiling can be measured at the size a projected deck
-  // actually renders at — see engineering/decisions/2026-09-25-font-scale-fit.md.
-  const cls = scale ? `class: scale-${scale}\n` : '';
+  // `scale` puts the VENUE for that rung in the front matter (l → huddle, xl → conference,
+  // 2xl → hall), so a ceiling is measured at what a deck at that venue renders. It used to write
+  // `class: scale-xl`, which sets the same `--fs-scale` and NOT the venue's meta lift (eyebrows,
+  // labels and captions ×1.15 at conference, ×1.3 at hall; lib/base/base.modifiers.css), so every
+  // conference and hall row was measured on a slide the venue never renders: a real
+  // `split-panel proof` slide clipped at `venue: hall` and fit at `class: scale-2xl`
+  // (2026-09-25-font-scale-fit.md, Amendment (5)).
+  const cls = scale ? `venue: ${VENUE_FOR_SCALE[scale]}\n` : '';
   return `---\nsize: ${size}\n${cls}---\n\n${slides.join('\n\n---\n\n')}\n`;
 }
 

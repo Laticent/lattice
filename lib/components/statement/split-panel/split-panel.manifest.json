@@ -313,6 +313,96 @@
         "conference": 4,
         "hall": 3
       }
+    },
+    "panel": {
+      "byHeading": {
+        "3": {
+          "laptop": 64,
+          "huddle": 44,
+          "conference": 36,
+          "hall": 28
+        },
+        "6": {
+          "laptop": 56,
+          "huddle": 40,
+          "conference": 32,
+          "hall": 24
+        },
+        "9": {
+          "laptop": 40,
+          "huddle": 28,
+          "conference": 20,
+          "hall": 16
+        },
+        "12": {
+          "laptop": 28,
+          "huddle": 16,
+          "conference": 16,
+          "hall": 8
+        }
+      },
+      "variants": {
+        "proof": {
+          "3": {
+            "laptop": 80,
+            "huddle": 80,
+            "conference": 68,
+            "hall": 44
+          },
+          "6": {
+            "laptop": 80,
+            "huddle": 68,
+            "conference": 56,
+            "hall": 32
+          },
+          "9": {
+            "laptop": 80,
+            "huddle": 68,
+            "conference": 56,
+            "hall": 32
+          },
+          "12": {
+            "laptop": 80,
+            "huddle": 64,
+            "conference": 52,
+            "hall": 28
+          }
+        },
+        "capstone": {
+          "3": {
+            "laptop": 80,
+            "huddle": 80,
+            "conference": 68,
+            "hall": 44
+          },
+          "6": {
+            "laptop": 80,
+            "huddle": 68,
+            "conference": 56,
+            "hall": 32
+          },
+          "9": {
+            "laptop": 80,
+            "huddle": 68,
+            "conference": 56,
+            "hall": 32
+          },
+          "12": {
+            "laptop": 80,
+            "huddle": 64,
+            "conference": 52,
+            "hall": 28
+          }
+        }
+      },
+      "not": [
+        "metric",
+        "pullquote",
+        "steps",
+        "watermark",
+        "qr"
+      ],
+      "tried": 80
     }
   }
 }
