@@ -659,6 +659,31 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		},
 		[onVirtualChange],
 	);
+	// BACK INTO THE PAGE FROM THE BACK-FORWARD CACHE. iOS Safari restores the page with its
+	// preview frame intact, and the frame then takes no touch scroll until it is laid out again
+	// (reported on an iPhone: leave the Playground, come back, and the preview will not scroll;
+	// switching apps, which does not unload the page, is fine). So on a restore, lay the frame out
+	// afresh — take it out of layout for one forced reflow and put it back — re-fit it, and bring
+	// the virtual window to wherever it is scrolled. Invisible in one task, and a no-op anywhere
+	// the frame never lost its scroll.
+	React.useEffect(() => {
+		const onShow = (e: PageTransitionEvent) => {
+			if (!e.persisted) return;
+			// A gesture in flight when the page was left never got its touchend.
+			touchRef.current = null;
+			const frame = frameRef.current;
+			if (!frame) return;
+			const display = frame.style.display;
+			frame.style.display = 'none';
+			void frame.offsetHeight;
+			frame.style.display = display;
+			frame.contentWindow?.__latticeFit?.();
+			if (window.LatticeDeckPreview?.syncVirtual?.(frame, previewStateRef.current)) onVirtualChange();
+			bindDeckInputRef.current();
+		};
+		window.addEventListener('pageshow', onShow);
+		return () => window.removeEventListener('pageshow', onShow);
+	}, [onVirtualChange]);
 	const onFrameLoad = React.useCallback(() => {
 		// A full srcdoc write replaced the frame's document: rebind the deck's keyboard,
 		// touch and scroll listeners to the new one.

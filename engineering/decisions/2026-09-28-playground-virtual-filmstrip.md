@@ -193,6 +193,11 @@ slow-4G trace, font requests fell from 20 to 10 and the app went interactive 2.2
 - **Safari and Firefox have no `navigator.connection`**, so the constrained-link gate cannot see a
   slow iPhone link and the bake runs there. The measured cost of that case is ~1s later on slow 4G
   at 1x CPU; a better signal would need a server hint (`Save-Data`/`ECT` client hints).
+- **iOS Safari's back-forward cache** restored the page with a preview that took no touch scroll
+  (reported on an iPhone: leave the Playground, come back, and the preview would not scroll;
+  switching apps was fine). On `pageshow` with `persisted`, the app now lays the frame out afresh,
+  re-fits it and re-syncs the window. UNVERIFIED on iOS from here — Chromium never lost the scroll,
+  and no WebKit build is available in this sandbox.
 - **Before the app hydrates, nothing mounts.** The bake carries the first five slides; a newcomer
   who scrolls past them in the first second or two sees placeholders until the app's window takes
   over.
