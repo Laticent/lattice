@@ -94,15 +94,15 @@ of this table had filed by name: `list-tabular`, `statute-stack`, `actors`, `aut
 | Archetype | Components | Units it offers (`lib/core/gesture-archetypes.json`) |
 |---|---|---|
 | **statement** | title, closing, divider, topic, quote, big-number, content, citation-card, redline | heading, paragraph |
-| **list** | list, agenda, checklist, cards-stack, q-and-a, inventory, stats, kpi, list-steps, cycle, actors, authority-chain, list-tabular, statute-stack, regulatory-update, decision, premise, policy-recommendation | item, title |
-| **grid** | cards-grid, team-profile, logo-wall, pricing, verdict-grid, matrix-2x2 | card, name |
-| **table** | table, glossary, obligation-matrix, matrix-grid, roadmap | row, column, cell, colheader, rowheader |
-| **compare** | split-compare, compare-prose, compare-code, split-panel | side, item |
+| **list** | list, agenda, checklist, cards-stack, q-and-a, inventory, stats, kpi, list-steps, cycle, actors, authority-chain, list-tabular, statute-stack, regulatory-update, decision, premise, policy-recommendation | item, title, heading |
+| **grid** | cards-grid, team-profile, logo-wall, pricing, verdict-grid, matrix-2x2 | item, title, heading |
+| **table** | table, glossary, obligation-matrix, matrix-grid, roadmap | row, column, cell, colheader, rowheader, heading |
+| **compare** | split-compare, compare-prose, compare-code, split-panel | side, item, heading |
 | **cartesian** | bar, stacked-bar, line, waterfall, slope, scatter, heatmap, gantt | mark, series, figure |
 | **part** | piechart, funnel, progress, bullet, word-cloud | mark, figure |
 | **field** | quadrant, radar, map | mark, figure |
 | **flow** | flowchart, state-chart, journey, kanban, timeline-list, diagram | node, step, figure |
-| **media** | image, video, code, math, contact, wifi, scene | figure, caption |
+| **media** | image, video, code, math, contact, wifi, scene | figure, paragraph, heading |
 
 What the audit found that a name would have hidden:
 
@@ -215,19 +215,29 @@ Every manifest has a `gesture` block. Lean by default: most name their archetype
   prose slide as a board (kanban's docs, rendered as `content`) resolves nothing, and the whole slide
   reads its words, as before. The corpus gate skips such a slide only when its component names no
   units of its own; a chart whose narrator's units have all drifted from its manifest is reported.
-- **Binding goes past charts** (step 3). Prose, lists and tables are bound by the projection that
-  already writes their narration: `projectDeckToScript` in `lib/transformers/prose-projection.mjs`
-  builds each sentence by walking the rendered section, so it can record which `li`, `tr` or `p`
-  each span came from. Nothing records that today (a new capability): the one span it returns,
-  `emphasis`, is found after the text is built, by searching it for each bold phrase
-  (`emphasisSpansFor`), and a phrase said twice is skipped. Nothing on any slide is found by matching
-  words once a slide is bound; the word matcher remains only for authored captions.
+- **Binding goes past charts** (step 3, built 2026-09-28). `bindingRefsFor` in
+  `lib/transformers/prose-projection.mjs` records which heading, paragraph, list item or table row
+  each span of a slide's narration came from, as ordinal refs (`{ i }`, the i-th unit of its kind
+  across the slide). It searches the FINISHED text, the way `emphasisSpansFor` does: each element's
+  spoken form is rebuilt with the walker's own helper (`renderListItems`, `tableRowSentences`) and
+  located where a sentence can begin, longest first; a form said twice, or overlapping a longer one,
+  stays unbound. So the text is byte-identical and no walker changed, and a walker that reorders (a
+  KPI speaks its value first) binds nothing rather than something wrong. Measured over every tracked
+  deck: 16,274 links (3,975 headings, 4,694 paragraphs, 6,631 items, 974 rows) covering 95.7% of the
+  narration text. The units share names across archetypes (`heading`, `paragraph`, `item`, `row`;
+  `STRUCTURE_UNITS` in `scene-resolve.mjs`, pinned equal to the archetypes). **The Guide does not
+  play these yet**: a prose slide still takes the text path, which picks somber's moment by
+  `salience()`. Playing prose refs as scenes before step 4 gives prose its storyboards would swap
+  that for a fixed key and expressive's underlines for taps. Step 5 carries the refs to the Studio
+  and the exports.
 - **Gates** (`test/unit/core/scene-binding.test.js`): every one of the 71 manifests declares a
   gesture, over an archetype the schema's enum and the defaults both name; every slide of every
   component's own gallery draws its archetype's primary unit or one of its own units (a variant may
   draw only its own: roadmap's horizons, statute-stack lane's rows); every unit a manifest declares
   for itself draws on at least one gallery slide; and every bound sentence in every tracked deck
-  resolves. Filing `list` under `table` fails it. The one blind spot is `statement`, whose primary
+  resolves. The prose gate resolves every one of the 16,274 prose links back to an element that
+  holds its words (first word, and at least half of them, as the narration reads them); shifting
+  every ordinal by one makes it report 16,075 failures. Filing `list` under `table` fails it. The one blind spot is `statement`, whose primary
   is a heading, which every slide has: a component misfiled AS a statement passes. `gesture` is not schema-required, so a component an
   author writes in the Studio still validates without one.
 

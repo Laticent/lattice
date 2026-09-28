@@ -166,3 +166,62 @@ test('the manifest schema names exactly the archetypes the defaults define', () 
 	const { ARCHETYPE_NAMES } = require('../../../lib/core/gesture.js');
 	assert.deepEqual([...schema.properties.gesture.properties.archetype.enum].sort(), [...ARCHETYPE_NAMES].sort());
 });
+
+/**
+ * THE PROSE BINDING GATE (storyboards step 3, engineering/decisions/2026-09-27-guide-storyboards.md
+ * §7). The narration builder records which heading, paragraph, list item or table row each span of
+ * a slide's narration came from (`bindingRefsFor`). Over every slide of every tracked deck, each
+ * ref must be well formed, and must resolve, by the resolver the Guide uses, to an element whose
+ * text is the text it says it came from. A ref that points at the wrong item is worse than none: the
+ * builder leaves an ambiguous sentence unbound, and this is what holds it to that.
+ */
+test('every prose binding in every deck points back at the element it was spoken from', async () => {
+	const { projectDeckToScript, speechText } = await import('../../../lib/transformers/prose-projection.mjs');
+	const { STRUCTURE_UNITS } = await import('../../../lib/core/scene-resolve.mjs');
+	const problems = [];
+	let bound = 0;
+	for (const { file, md, fm } of corpusSlides()) {
+		let doc;
+		try {
+			doc = new JSDOM(engine.render(fm + md, 'indaco', { preview: true }).html).window.document;
+		} catch {
+			continue; // a deck that does not render is another gate's to report
+		}
+		for (const section of doc.querySelectorAll('section')) {
+			const [{ text, refs }] = projectDeckToScript([section]);
+			let last = 0;
+			for (const ref of refs) {
+				bound++;
+				const where = `${file} · ${ref.unit}#${ref.id.i} "${text.slice(ref.start, ref.end).slice(0, 50)}"`;
+				if (!(ref.start >= last && ref.end > ref.start && ref.end <= text.length)) problems.push(`malformed span: ${where}`);
+				last = ref.end;
+				const hit = resolveUnit(section, STRUCTURE_UNITS, ref);
+				if (!hit) {
+					problems.push(`resolves to nothing: ${where}`);
+					continue;
+				}
+				// The span is the element in its own words. The builder adds words ("key — header:
+				// value", a state word, "and") and drops some (a table value that ends in a colon), so
+				// the test is the element's FIRST word plus at least half of its words: an item bound to
+				// its neighbor shares few of either.
+				// Its words as the narration reads them (`speechText` skips KaTeX source and aria-hidden initials).
+				const words = speechText(hit.unit[0]).toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+				const span = loose(text.slice(ref.start, ref.end));
+				const share = words.filter((w) => span.includes(w)).length / (words.length || 1);
+				if (words.length && !(span.includes(words[0]) && share >= 0.5)) problems.push(`points at the wrong element: ${where} → "${hit.unit[0].textContent.trim().slice(0, 50)}"`);
+			}
+		}
+	}
+	assert.deepEqual(problems, [], `${problems.length} prose binding(s) do not land`);
+	assert.ok(bound > 2000, `only ${bound} prose bindings found: the corpus scan is not reading the decks`);
+});
+
+test('the structure units the narration builder binds by are the archetypes\' own', async () => {
+	const { STRUCTURE_UNITS } = await import('../../../lib/core/scene-resolve.mjs');
+	for (const [archetype, { units }] of Object.entries(ARCHETYPES)) {
+		if (archetype.startsWith('$')) continue;
+		for (const [name, spec] of Object.entries(STRUCTURE_UNITS)) {
+			if (units[name]) assert.deepEqual(units[name].select, spec.select, `${archetype}.${name} and STRUCTURE_UNITS.${name} disagree`);
+		}
+	}
+});
