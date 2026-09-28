@@ -456,6 +456,12 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// last one and a fence still un-settled here would bake as a blank. `bakeDeckSections`
 		// opts out — it waits again, longer, and owns the give-up itself.
 		await waitForDiagrams(doc, 4000, { release: releaseDiagrams });
+		// A graph chart waits for its fonts before its first draw (Trama's pipeline). A face
+		// requested after `fonts.ready` settled can hold that wait past this point, so draw
+		// every chart now, as the CLI export does, rather than capture its measuring tiles.
+		for (const draw of Object.values(doc.__latticeGraphFlush || {})) {
+			try { draw(); } catch (_e) { /* the harness tiles stay up */ }
+		}
 		if (win?.__latticeFit) win.__latticeFit();
 	} catch (e) {
 		dispose();

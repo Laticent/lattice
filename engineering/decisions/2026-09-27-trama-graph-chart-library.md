@@ -221,3 +221,39 @@ the first merges, so the codemod over 69 slides gets its own review.
   authoring; Trama starts at measured boxes.
 - It does not change what a flowchart looks like.
 - It does not draw gantt dependencies. It exposes the router they will need.
+
+## 9. Amendment: the pipeline draws once, after the fonts load
+
+Added after #2403 merged (`followups.d/2403-p2-trama-cold-load-passes.md`, now closed).
+
+**What changed.** The pipeline lays nothing out while `document.fonts.status` is
+`loading`. One waiter per document draws when the faces land, or at a 2 s deadline
+if one never does, and again when it finally lands. A capturing host calls
+`document.__latticeGraphFlush` (one entry per chart kind) to draw at once; the CLI
+export does so after each font settle, so no PDF depends on promise order. The fit
+and type-floor fixed point runs up to 4 rounds, and from the third round its guess
+is the secant step through the last two.
+
+**Why.** On a cold load every chart was drawn at install, again at
+`DOMContentLoaded`, and again at `fonts.ready`, and the first two were measured in
+fallback fonts and thrown away. Measured in Chromium, 8 cold loads each, 7 charts
+per deck, medians:
+
+| | layouts | paints | layout ms | last chart drawn |
+|---|---|---|---|---|
+| typing deck, before → after | 32 → 13 | 21 → 7 | 804 → 405 | 1,288 → 744 ms |
+| demo deck, before → after | 28 → 10 | 21 → 7 | 585 → 273 | 1,013 → 571 ms |
+
+**The secant step is what keeps the type floor.** The typing deck's 17-shape chart
+asks for a floor lift of 1, 1.63, 1.90, 2.05, 2.13 and on towards 2.25, each step
+about 0.57 of the one before. The old cold load got there by accident: its
+fallback-font draws left a remembered scale behind for the real one. Drawn once
+from 1 and stopped at 3 rounds, it painted its smallest text at 10.2 px against the
+11 px floor. With the secant step it settles in 4 rounds at 11.0 px.
+
+**What it changes on the page.** Every chart that settles in two rounds draws the
+same bytes as the old pipeline did when it drew in the page's own fonts (13 of 14
+figures across the two decks, hashed per figure). Against the old COLD load,
+three demo-deck charts move by under 1% of their fit (a scale of 0.9829 becomes
+0.9834, for example), because the old result depended on which fallback draws had
+run first; the typing deck's big chart moves from a fit of 0.4461 to 0.4440.

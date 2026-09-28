@@ -34,6 +34,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+// A scratch repo must not reach the REAL one. A git hook exports GIT_DIR and GIT_INDEX_FILE,
+// and in a linked worktree both are absolute, so the `git init`/`config`/`add` below, run
+// from a temp dir, acted on this checkout's own repo (it wrote `user.email = t@t` into the
+// shared .git/config and emptied the commit's index). Scrub them for every child process.
+for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_PREFIX', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES']) delete process.env[k];
 const YAML = require('yaml');
 
 // A git hook exports GIT_DIR (and GIT_INDEX_FILE, GIT_WORK_TREE) to everything it runs, and this

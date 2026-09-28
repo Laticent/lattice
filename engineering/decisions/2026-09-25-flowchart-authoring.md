@@ -511,6 +511,8 @@ A dotted overlay moving along a line, a separate path above the real edge.
     after (the pass stack took 0.73 s), with 25 full layouts routed instead of
     70, 8 dagre-only bounds, and 16 calls answered from the cache. The bench's
     flowchart tier (`engineering/workflow.md` §Performance) pins those counts.
+    (Since re-captured: the pass now waits for the page's fonts, and a cold load
+    makes 10 calls, not 35. See `2026-09-27-trama-graph-chart-library.md` §9.)
   - In Chromium, the flowchart's main-thread time on load falls from 1,453 ms to
     789 ms, `layout()` from 1,144 to 537, the solver from 706 to 285, and the
     last chart is drawn 1,064 ms after navigation instead of 1,781 (medians of

@@ -14,6 +14,8 @@ It has **no dependencies**. dagre is passed in, never imported, and nothing in T
 knows about Markdown, a grammar or a stylesheet: an adapter reads its own model and paints
 its own markup. The design contract is
 [`engineering/decisions/2026-09-27-trama-graph-chart-library.md`](../../../../engineering/decisions/2026-09-27-trama-graph-chart-library.md).
+**See it run:** the [`/trama` demo](https://lattice.style/trama) drives this kernel live: type
+rows, flip the direction, wrap a chain, drag a box and watch `route()` weave the lines again.
 **Not yet on npm:** no workflow publishes the workspace libraries today
 (`followups.d/2360-p3-publish-workspace-libraries.md`).
 
@@ -81,6 +83,27 @@ shipped as `fn.toString()` source (in a page's bootstrap script, or to build the
 so each one closes over nothing: they reach one another only as arguments. The
 flowchart's adapter, `lib/components/chart/flowchart/flowchart.layout.js`, is the worked
 example.
+
+## When it draws
+
+A chart is measured in its own fonts, so the pipeline lays nothing out while
+`document.fonts.status` is `loading`. The adapter's harness shows meanwhile, and one
+waiter per document draws every chart when the page's faces have loaded. A face that
+never loads cannot strand a chart: the waiter also draws at a 2 s deadline (the bound
+`settleFonts` gives the runtime's boot sweep), and draws again when the faces do land.
+On a cold load of a 7-chart deck this took the flowchart from 32 layouts and 21 paints
+to 13 and 7.
+
+A host that captures the page calls `document.__latticeGraphFlush`: one function per
+chart kind (keyed by `attr`), each drawing its charts at once, fonts or not, and doing
+nothing for a chart already drawn with the same inputs. The CLI export calls every entry
+after it has loaded the page's fonts, so no PDF can capture a chart still waiting.
+
+A chart's first draw has no remembered scale to start its fit from, so it starts at 1 and
+solves the fit and the type floor as one fixed point (up to 4 rounds, each a layout).
+From the third round the next guess is the secant step through the last two rounds, which
+lands a chart the fit shrinks hard in 4 layouts instead of 7 or more. A chart that
+settles in two rounds draws exactly as before.
 
 ## Live layout
 

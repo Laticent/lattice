@@ -183,7 +183,19 @@ if (toRun.length === 0) {
 
 console.log(`affected-tests: running ${toRun.join(', ')}`);
 
+// WITHOUT git's repo-locating variables. `git commit` exports GIT_DIR and GIT_INDEX_FILE
+// to the pre-commit hook, and in a linked worktree (`.claude/worktrees/*`) both are ABSOLUTE
+// paths into this checkout's repo. A unit test that builds a scratch repo in a temp dir
+// (`git init`, `git config`, `git add -A`: test/unit/tools/staged-pdf-glob.test.js,
+// test/unit/cli/check-lint-coverage.test.js) inherited them and acted on the real repo: it
+// emptied the commit's own index (12 entries left of 5,933), so the commit staged the
+// deletion of every tracked file, and it wrote `user.email = t@t` into the shared
+// .git/config. In the main checkout both paths are relative (`.git`), resolve inside the
+// temp dir, and hurt nothing, which is why only a worktree ever broke. Those two tests now
+// scrub the variables themselves; this is the backstop for the next one.
+const testEnv = { ...process.env };
+for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_PREFIX', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES']) delete testEnv[k];
 for (const script of toRun) {
-  const r = spawnSync('npm', ['run', '--silent', script], { stdio: 'inherit' });
+  const r = spawnSync('npm', ['run', '--silent', script], { stdio: 'inherit', env: testEnv });
   if (r.status !== 0) process.exit(r.status);
 }
