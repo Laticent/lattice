@@ -141,7 +141,17 @@ section.topic > p:has(> code:only-child):not(:where([data-prose])) > code {
 /* `--fs-h2`, one tier below `divider`'s `--fs-h1`: a topic is smaller than the
  * section containing it and the type says so, which is what keeps the two
  * distinguishable even cropped to the upper band. */
+/* `color-scheme: dark` on the two elements that put `--text-display` on the dark
+ * band — this heading and the lit tab below — and on nothing else. The section
+ * itself must NOT pin it (the shelf's `light-dark()` above reads the palette's
+ * own scheme), but the band is `--surface-inverse`, which is dark on every face.
+ * carbone's light face defines `--text-display` as a near-black ink for its light
+ * CANVAS while keeping `--surface-inverse` graphite, so unpinned the heading
+ * rendered #081523 on #0E0E10 — 1.05:1, unreadable. Measured across all 33
+ * shipped palettes, this pin changes one value: carbone's display ink, to its own
+ * dark-face #F5F5F2. `divider` gets the same answer by pinning its whole section. */
 section.topic > h2 {
+  color-scheme: dark;
   font-size: var(--fs-h2);
   color: var(--text-display);
   line-height: var(--lh-tight);
@@ -262,6 +272,7 @@ section.topic > ul.tile-track > li::marker { content: none; }
  * dark band, and a bar in it rendered invisible on indaco itself. Painted as a
  * background layer rather than a border, so it takes no room from the label. */
 section.topic > ul.tile-track > li.on {
+  color-scheme: dark;        /* the heading's pin, for the same ink — see `> h2` */
   background-color: var(--surface-inverse);
   background-image: linear-gradient(var(--text-display), var(--text-display));
   background-size: 100% var(--_cap);

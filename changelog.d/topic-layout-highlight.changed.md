@@ -2,3 +2,4 @@
 - `topic`: the tab has one fixed height for the whole section, so it no longer changes size as the deck moves from one topic slide to the next.
 - `topic`: on a nine-topic track, labels no longer break mid-word (`Postmortems` rendered as "Postmortem / s"). The columns tighten their inset at nine, and a word only breaks when it cannot fit a column at all.
 - `topic`: track labels are centered in their columns, horizontally and vertically, so each topic reads as a cell and the lit one as the selected cell.
+- `topic`: on the carbone light theme the slide heading is readable again. It rendered near-black on the near-black band (1.05:1); it now takes carbone's own light display ink.
