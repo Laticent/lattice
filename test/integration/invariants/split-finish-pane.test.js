@@ -152,6 +152,34 @@ describe('split finish pane (real render)', () => {
     assert.deepEqual(covered, [], `words were pushed into the photo as covered:\n${covered.join('\n')}`);
   }, { timeout: 300000 });
 
+  // `stackedBelow` lets a fill pseudo through only when the text's branch really paints above
+  // it. A `display: contents` child makes no box, so its z-index does nothing: text under it is
+  // hidden on screen and must stay out of the vector layer (found by the #2457 checker).
+  test('the PDF writer still counts text under a display:contents child as covered', async () => {
+    const esbuild = require('esbuild');
+    const bundle = esbuild.buildSync({
+      entryPoints: [path.join(__dirname, '../../../lib/core/pdf-compose/read-slide.mjs')],
+      bundle: true, format: 'iife', globalName: 'RS', write: false, logLevel: 'error',
+    }).outputFiles[0].text;
+    const probe = await browser.newPage();
+    const read = async (childDisplay) => {
+      await probe.setContent(`<!doctype html><style>
+        section{width:800px;height:450px;position:relative}
+        .host{position:relative;isolation:isolate;display:flex;flex-direction:column;width:400px;height:300px}
+        .host::before{content:"";position:absolute;inset:0;z-index:0;background:red}
+        .kid{display:${childDisplay};z-index:1}
+      </style><section><div class="host"><div class="kid"><p>Hidden words here</p></div></div></section>`);
+      await probe.addScriptTag({ content: bundle });
+      return probe.evaluate(() => RS.readSlide(document.querySelector('section')).words.map((w) => w.t));
+    };
+    try {
+      assert.deepEqual(await read('contents'), [], 'text hidden under the layer was drawn as vector text');
+      assert.deepEqual(await read('block'), ['Hidden', 'words', 'here'], 'text above the layer was pushed into the photo');
+    } finally {
+      await probe.close();
+    }
+  });
+
   test('finish-none keeps both panels opaque', async () => {
     const m = await read(OPTED_OUT, '.panel-left', '.panel-right');
     assert.notEqual(m.zoneBg, 'rgba(0, 0, 0, 0)');
