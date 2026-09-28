@@ -157,29 +157,23 @@ section.split-compare :is(header, footer) { color: var(--on-dark-secondary); }
 /* ── THE RUNNING CHROME HAS A BUDGET: the rail it starts on ──────────────────────────────
  * Same contract, same reasons, as split-panel (see the long note at the foot of
  * split-panel.styles.css): the header and footer stop at the rail's far edge instead of
- * running across the option cards — the header held to one ellipsized line, the footer to two
- * clamped lines — and the rail keeps both bands clear.
+ * running across the option cards, hold one ellipsized line each, and the rail keeps that band clear.
  * Measured before this: a 60-character header printed its last 26 characters over the
  * first option card. Not in portrait/square, where the rail stacks on top at full width. */
 section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]) {
   --_chrome-lh: 1.3;
   --_chrome-band: calc(var(--frame-inset-y) + var(--_chrome-lh) * var(--fs-meta) + var(--sp-xs));
-  --_footer-band: calc(var(--frame-inset-y) + 2 * var(--_chrome-lh) * var(--fs-meta) + var(--sp-xs));
 }
 section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]) > :is(header, footer) {
   right: calc(100% - var(--_panel-outer) + var(--frame-inset-x));
   line-height: var(--_chrome-lh);
-  overflow: hidden;
-}
-section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]) > header { white-space: nowrap; text-overflow: ellipsis; }
-section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]):not(.silent):not(.no-footer) > footer {
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]):has(> header) .compare-left {
   padding-top: max(var(--sp-xl), var(--_chrome-band));
 }
 section.split-compare:not([data-orientation="portrait"]):not([data-orientation="square"]):has(> footer) .compare-left {
-  padding-bottom: max(var(--sp-xl), var(--_footer-band));
+  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
 }
 
 /* ── A FINISH OWNS THE GROUND; THE RAIL STOPS PAINTING OVER IT ───────────────────────────

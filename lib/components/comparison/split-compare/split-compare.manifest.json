@@ -180,7 +180,7 @@
     },
     {
       "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
-      "fix": "The running header and footer stay on the dark rail they start on. The header holds one line and the footer two; past that the line ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 one line of the rail is about 37 characters of header or 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
+      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
     },
     {
       "mistake": "Expecting the rail to stay a solid dark field on a deck with a `finish:`.",

@@ -247,7 +247,7 @@
     },
     {
       "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
-      "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. The header holds one line and the footer two; past that the line ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, one line of the default panel is about 46 characters of header or 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67 — so a footer gets about twice that. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
+      "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
     },
     {
       "mistake": "Expecting the panel to stay a solid color field on a deck with a `finish:`.",

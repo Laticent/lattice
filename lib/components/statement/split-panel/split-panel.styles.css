@@ -758,43 +758,33 @@ section.split-panel-points:is(
  * slide minus the panel. `--_panel-outer` is the panel's rendered width (see the token's
  * note at the top of this file), so the budget and the seam come from one number.
  *
- * HEIGHT. A fixed band is what lets the field reserve it: the band is a constant, not a
- * measurement, so the panel's padding holds exactly that much clear and the chrome never
- * drifts onto the heading however long the author's line is (engineering/jank.md — a fixed
- * element must hold position as content grows). The two elements get different bands:
+ * HEIGHT. Each is ONE line that ellipsizes — the Form frame's own answer for its footer band
+ * (stage.css), the one the owner signed off in engineering/decisions/2026-07-27-footer-band-
+ * allocation.md, and the one the overflow probe already reads as designed (`truncatesOwnLine`).
+ * A fixed band is what lets the field reserve it: the band is a constant, not a measurement,
+ * so the panel's padding holds exactly that much clear and the chrome never drifts onto the
+ * heading however long the author's line is (engineering/jank.md).
  *
- *   header — ONE line that ellipsizes, the Form frame's own answer (stage.css). It is a
- *            running LABEL, and every reserved line is taken from the panel on every slide.
- *   footer — TWO lines, clamped. A footer is where the confidentiality line lives, and one
- *            line of a 30% field is ~40 characters: "Laticent · Board of Directors ·
- *            Confidential — Q3 FY26 planning session" lost its legal word to a one-line
- *            ellipsis, where main showed it whole on the light `steps` panel (red team,
- *            HARD RULE #25). Two lines hold ~80–100 characters across the variants.
+ * TWO LINES FOR THE FOOTER WAS TRIED, AND IT IS A TRADE, NOT A FIX. One line of a 30% field is
+ * ~40 characters, so a confidentiality line loses its tail. A two-line clamp keeps ~80–100,
+ * but its band costs every split slide with a footer ~20px of panel, and a panel filled to the
+ * brim then overflows: examples/one-page-number.md p4 fit at exactly 720/720 and went to a
+ * real OVERFLOW. A cut footer loses chrome; an overflow loses content, so the default is the
+ * cut. The two-line option is recorded on #2457 for the owner.
  *
- * A cut is not silent: the overflow probe measures these two elements as the running-
- * chrome band (lib/core/overflow-probe.js `FOOTER_BAND`, and its clamp exemption for the
- * footer's hidden lines), so the author is told on stderr and in the author tab and the
- * reader gets no pill — the policy of engineering/decisions/2026-07-27-footer-band-
- * allocation.md, applied to a second shape.
+ * A cut is not silent: the overflow probe measures these two elements as the running-chrome
+ * band (lib/core/overflow-probe.js `FOOTER_BAND`), so the author is told on stderr and in the
+ * author tab and the reader gets no pill — the same policy, applied to a second shape.
  *
  * Not in portrait: the panels stack there, so each band spans the full width again. */
 section.split-panel:not([data-orientation="portrait"]) {
   --_chrome-lh: 1.3;
   --_chrome-band: calc(var(--frame-inset-y) + var(--_chrome-lh) * var(--fs-meta) + var(--sp-xs));
-  --_footer-band: calc(var(--frame-inset-y) + 2 * var(--_chrome-lh) * var(--fs-meta) + var(--sp-xs));
 }
 section.split-panel:not([data-orientation="portrait"]) > :is(header, footer) {
   right: calc(100% - var(--_panel-outer) + var(--frame-inset-x));
   line-height: var(--_chrome-lh);
-  overflow: hidden;
-}
-section.split-panel:not([data-orientation="portrait"]) > header {
-  white-space: nowrap; text-overflow: ellipsis;
-}
-/* The clamp needs `display: -webkit-box`, so it is guarded by the same classes that hide the
- * footer: without the guard it would out-rank their `display: none` (base.variants.css). */
-section.split-panel:not([data-orientation="portrait"]):not(.silent):not(.no-footer) > footer {
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 section.split-panel.mirror:not([data-orientation="portrait"]) > :is(header, footer) {
   right: calc(var(--_panel-outer) + var(--frame-inset-x));
@@ -805,10 +795,10 @@ section.split-panel:not(.mirror):not([data-orientation="portrait"]):has(> header
   padding-top: max(var(--sp-xl), var(--_chrome-band));
 }
 section.split-panel:not(.mirror):not([data-orientation="portrait"]):has(> footer) .panel-left {
-  padding-bottom: max(var(--sp-xl), var(--_footer-band));
+  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
 }
 section.split-panel.mirror:not([data-orientation="portrait"]):has(> footer) .panel-right {
-  padding-bottom: max(var(--sp-xl), var(--_footer-band));
+  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
 }
 /* `.steps` pins its phase numeral (the eyebrow, at `--fs-hero`) to the panel's top-left corner
  * with `position: absolute`, so padding cannot move it — and that corner is the header band.
