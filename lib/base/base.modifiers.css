@@ -1077,6 +1077,14 @@ section:is(.decision-cover, .compare-code-cover, .compare-split-cover,
            .list-tabular-cover, .split-panel-cover, .lat-split-cover) code {
   --code-inline-fg: var(--on-accent);
 }
+/* …except a split-panel cover in a CATEGORY: it floods `--panel-fill`, the category tint, not
+ * the accent (split-panel.styles.css § AUTO-SPLIT), so `--on-accent` put a white chip on a
+ * light pink/peach tint — measured 1.45–1.70:1 on a square `cat-3` run, where the same
+ * formula on the unsplit panel reads. Same ink as that panel: `--cat-on-fill`. Keyed on the
+ * `data-split-mods` stamp, the only way the modifier reaches a split page. */
+section.split-panel-cover:is([data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"], [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) code {
+  --code-inline-fg: var(--cat-on-fill);
+}
 /* divider.light is the bright-canvas variant — keep the brand-accent ink. */
 section.divider.light code {
   --code-inline-fg: var(--accent);

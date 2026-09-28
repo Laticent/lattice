@@ -758,30 +758,43 @@ section.split-panel-points:is(
  * slide minus the panel. `--_panel-outer` is the panel's rendered width (see the token's
  * note at the top of this file), so the budget and the seam come from one number.
  *
- * HEIGHT. The chrome is ONE line that ellipsizes — the same answer the Form frame's footer
- * band gives (stage.css), and the one the overflow probe already reads as designed rather
- * than as spill (`truncatesOwnLine`). A two-line clamp was tried first: it let the budget
- * wrap instead of cut, but its hidden third line is VERTICAL spill, which the probe
- * rightly counts, so split-panel's own gallery reported 8 overflowing slides over a
- * backticked word in a caption. One line is also what lets the field reserve the band:
- * the band is a constant, not a
- * measurement, so the panel's padding can hold exactly that much clear and the chrome
- * never drifts onto the heading however long the author's line is (engineering/jank.md —
- * a fixed element must hold position as content grows). A cut is not silent: the
- * overflow probe counts these two elements as the running-chrome band
- * (lib/core/overflow-probe.js `FOOTER_BAND`), so the author is told on stderr and in the
- * author tab, and the reader gets no pill — the policy of
- * engineering/decisions/2026-07-27-footer-band-allocation.md, applied to a second shape.
+ * HEIGHT. A fixed band is what lets the field reserve it: the band is a constant, not a
+ * measurement, so the panel's padding holds exactly that much clear and the chrome never
+ * drifts onto the heading however long the author's line is (engineering/jank.md — a fixed
+ * element must hold position as content grows). The two elements get different bands:
+ *
+ *   header — ONE line that ellipsizes, the Form frame's own answer (stage.css). It is a
+ *            running LABEL, and every reserved line is taken from the panel on every slide.
+ *   footer — TWO lines, clamped. A footer is where the confidentiality line lives, and one
+ *            line of a 30% field is ~40 characters: "Laticent · Board of Directors ·
+ *            Confidential — Q3 FY26 planning session" lost its legal word to a one-line
+ *            ellipsis, where main showed it whole on the light `steps` panel (red team,
+ *            HARD RULE #25). Two lines hold ~80–100 characters across the variants.
+ *
+ * A cut is not silent: the overflow probe measures these two elements as the running-
+ * chrome band (lib/core/overflow-probe.js `FOOTER_BAND`, and its clamp exemption for the
+ * footer's hidden lines), so the author is told on stderr and in the author tab and the
+ * reader gets no pill — the policy of engineering/decisions/2026-07-27-footer-band-
+ * allocation.md, applied to a second shape.
  *
  * Not in portrait: the panels stack there, so each band spans the full width again. */
 section.split-panel:not([data-orientation="portrait"]) {
   --_chrome-lh: 1.3;
   --_chrome-band: calc(var(--frame-inset-y) + var(--_chrome-lh) * var(--fs-meta) + var(--sp-xs));
+  --_footer-band: calc(var(--frame-inset-y) + 2 * var(--_chrome-lh) * var(--fs-meta) + var(--sp-xs));
 }
 section.split-panel:not([data-orientation="portrait"]) > :is(header, footer) {
   right: calc(100% - var(--_panel-outer) + var(--frame-inset-x));
   line-height: var(--_chrome-lh);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  overflow: hidden;
+}
+section.split-panel:not([data-orientation="portrait"]) > header {
+  white-space: nowrap; text-overflow: ellipsis;
+}
+/* The clamp needs `display: -webkit-box`, so it is guarded by the same classes that hide the
+ * footer: without the guard it would out-rank their `display: none` (base.variants.css). */
+section.split-panel:not([data-orientation="portrait"]):not(.silent):not(.no-footer) > footer {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
 }
 section.split-panel.mirror:not([data-orientation="portrait"]) > :is(header, footer) {
   right: calc(var(--_panel-outer) + var(--frame-inset-x));
@@ -792,10 +805,17 @@ section.split-panel:not(.mirror):not([data-orientation="portrait"]):has(> header
   padding-top: max(var(--sp-xl), var(--_chrome-band));
 }
 section.split-panel:not(.mirror):not([data-orientation="portrait"]):has(> footer) .panel-left {
-  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
+  padding-bottom: max(var(--sp-xl), var(--_footer-band));
 }
 section.split-panel.mirror:not([data-orientation="portrait"]):has(> footer) .panel-right {
-  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
+  padding-bottom: max(var(--sp-xl), var(--_footer-band));
+}
+/* `.steps` pins its phase numeral (the eyebrow, at `--fs-hero`) to the panel's top-left corner
+ * with `position: absolute`, so padding cannot move it — and that corner is the header band.
+ * The numeral's box sat under the running header on every steps slide that had one; found by
+ * split-chrome-budget.test.js the first time it measured. It drops below the band instead. */
+section.split-panel.steps:not(.mirror):not([data-orientation="portrait"]):has(> header) .panel-eyebrow {
+  top: var(--_chrome-band);
 }
 
 /* ── A FINISH OWNS THE GROUND; THE PANEL STOPS PAINTING OVER IT ──────────────────────────
@@ -880,12 +900,15 @@ section.split-panel.finish.finish:not(.finish-none, .backdrop-none, .print):is(.
  * `--frame-y`). The split fields run their content to 3.75cqi of the top because nothing
  * used to show there — with the backdrop showing, the tick printed over the top-right
  * option card (measured on the welcome deck: card top 51px, tick bottom 68px). So on a
- * finish deck both fields take the Form frame's top inset, and the two sides start their
- * content on one line. The other preset marks need nothing: atrium's and ledger's margin
- * rules sit inside the panel's 2.5cqi side padding, and the 30cqi ghost glyphs are
- * atmosphere that sits behind content on every layout. The bottom keeps the chrome band. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]) :is(.panel-left, .panel-right) {
-  padding-top: max(var(--_chrome-band), calc(6.875 * var(--_sec-1cqi, 1cqi)));
-  padding-bottom: max(var(--sp-xl), var(--_chrome-band));
+ * finish deck the RIGHT-HAND field — the one under that corner, which `.mirror` swaps —
+ * takes the Form frame's top inset. Only that one: an earlier cut gave both fields the inset
+ * and a bottom band as well, whatever the finish and whether or not a footer existed, and
+ * the red team showed it clipping a split-compare recommendation card on halo, which has no
+ * corner mark at all. The other preset marks need nothing: atrium's and ledger's margin rules
+ * sit inside the panel's 2.5cqi side padding, and the 30cqi ghost glyphs are atmosphere that
+ * sits behind content on every layout. */
+section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.mirror):not([data-orientation="portrait"]) .panel-right,
+section.split-panel.finish.mirror:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]) .panel-left {
+  padding-top: max(var(--sp-xl), calc(6.875 * var(--_sec-1cqi, 1cqi)));
 }
 

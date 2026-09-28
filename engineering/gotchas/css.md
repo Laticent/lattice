@@ -864,10 +864,13 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   the panel they START on, so the part past the seam is panel ink on canvas.
 - **Fix, as shipped:** a finish deck draws the split with a veil and a seam instead of a
   flood, and re-points the field's ink TOKENS on the panel element. The chrome is budgeted
-  to the field it starts on, one ellipsized line, with a constant band the field keeps clear
-  (split-panel.styles.css, the two blocks at the foot of the file).
+  to the field it starts on — header one ellipsized line, footer two clamped lines — with a
+  constant band the field keeps clear (split-panel.styles.css, the blocks at the foot of the
+  file). `test/integration/invariants/split-chrome-budget.test.js` measures every variant.
 - **Two traps in that fix, both found by review, not by a gate.** `finish-none`,
   `backdrop-none` and `print` slides KEEP the bare `finish` class while base.finish.css zeroes
   every layer, so "is there a finish?" is `.finish:not(.finish-none, .backdrop-none, .print)`,
   not `.finish`. And the overflow probe skipped every `position: absolute` text bearer, so a
   cut in split chrome was never measured at all until `skipped()` learned the one exception.
+  A third: Chromium 131 reports a working `-webkit-line-clamp` box's computed `display` as
+  `flow-root`, not `-webkit-box`, so a probe that tests for the box display never matches it.

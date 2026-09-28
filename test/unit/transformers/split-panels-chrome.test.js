@@ -73,3 +73,38 @@ describe('an author <footer> inside a quote is content, not chrome', () => {
   });
 });
 
+// String kernel and DOM path must agree (HARD RULE #1). Structural signature: tag + classes +
+// text, depth-first, so attribute order and whitespace do not count.
+function signature(node) {
+  if (node.nodeType === 3) { const t = node.textContent.trim(); return t ? `#${t}` : ''; }
+  if (node.nodeType !== 1) return '';
+  const cls = node.className ? `.${[...node.classList].sort().join('.')}` : '';
+  return `${node.tagName}${cls}(${[...node.childNodes].map(signature).filter(Boolean).join(',')})`;
+}
+
+describe('the two render paths agree on which <footer> is the running one', () => {
+  const cases = {
+    'author footer mid-body + running footer': ['split-panel', '<h2>H</h2><ul><li><strong>P</strong></li></ul><footer>Source: Gartner 2026</footer><footer>Run</footer>'],
+    'author footer as a quote attribution': ['split-panel', '<h2>H</h2><blockquote><p>q</p><footer>— Ada</footer></blockquote><ul><li><strong>P</strong></li></ul><footer>Run</footer>'],
+    'split-compare with a running footer': ['split-compare', '<h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote><footer>Run</footer>'],
+    'no running footer': ['split-panel', '<h2>H</h2><ul><li><strong>P</strong></li></ul>'],
+  };
+  for (const [name, [cls, body]] of Object.entries(cases)) {
+    test(name, () => {
+      const html = `<section class="${cls}"><header>Head</header>${body}</section>`;
+      const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+      const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+      splitPanels.applyToDom(doc);
+      assert.equal(signature(doc.querySelector('section')), signature(str));
+    });
+  }
+
+  test('DOM path: engine chrome after the footer does not stop it being the running one', () => {
+    const doc = new JSDOM('<!DOCTYPE html><body><section class="split-panel"><h2>H</h2><ul><li>P</li></ul><footer>Run</footer><span class="lat-pagination">3</span><div class="marker-rail" data-lattice-berth></div></section></body>').window.document;
+    splitPanels.applyToDom(doc);
+    const sec = doc.querySelector('section');
+    assert.equal(sec.querySelector(':scope > footer')?.textContent, 'Run');
+    assert.equal(sec.querySelector('.panel-right footer'), null);
+  });
+});
+
