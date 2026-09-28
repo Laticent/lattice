@@ -184,7 +184,9 @@
 
 /* Status — each re-points --fill-ink at a semantic --state-* ink. The FILL
  * gradient is selected by the kernel (`GANTT_STATUS_FILL`) from the same
- * status, so the two can never disagree. Canvas-aware via the token, so one
+ * status, so the two can never disagree. `--fill-hue` names the same status's
+ * hue for a chart finish to mix from (tools/build-chart-finish-css.js); the
+ * shipped paint reads the gradient and never this. Canvas-aware via the token, so one
  * rule per status, both modes.
  *
  * THE SWATCH IS IN THE SAME SELECTOR AS THE BARS, and that is not tidiness.
@@ -194,17 +196,17 @@
  * blue, so the key showed a two-color chip for a one-color status. One table
  * cannot disagree with itself. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="on-track"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="done"]     { --fill-ink: var(--state-pass-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="done"]     { --fill-ink: var(--state-pass-ink); --fill-hue: var(--state-pass-hue); }
 /* `live` is RUNNING work, not finished work. It shared --state-pass-ink with
  * `done` here and shared the 'pass' fill gradient in the kernel, so the legend
  * named three statuses and painted two of them identically. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="live"]     { --fill-ink: var(--state-info-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="live"]     { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); }
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="at-risk"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); --fill-hue: var(--state-warn-hue); }
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="blocked"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); --fill-hue: var(--state-fail-hue); }
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="pilot"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="decision"] { --fill-ink: var(--state-info-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="decision"] { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); }
 
 /* DEFERRED IS HOLLOW, and that is the one status whose paint is not just an
  * ink. It takes the same mute ramp a status-LESS bar takes, so on color alone
@@ -221,6 +223,7 @@
    * it needs the tier with headroom against the lane band, not just the
    * canvas. */
   --fill-ink: var(--text-secondary);
+  --fill-hue: var(--state-mute-hue);
 }
 /* The HOLLOWING is the bar's, not the accent's. The accent is a 4px leading cue; at
  * 18% it disappears, and then a deferred bar has nothing marking where it starts. Its

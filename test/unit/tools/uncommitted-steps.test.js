@@ -99,6 +99,7 @@ const EXPECTED_PR_OWNED = new Set([
   // imports it as an ordinary module, so a missing file is a docs build error.
   'build-guide-handles.js', // docs/src/components/studio
   'build-chart-registry.js', // lib/components/chart/_chart-family/chart-registry.generated.js
+  'build-chart-finish-css.js', // lib/components/chart/_chart-family/chart-finish.generated.css
   // Measured 2026-09-27: writes exactly lib/plugins/grammar.generated.mjs and
   // lib/plugins/registry.generated.js, both tracked.
   'build-plugin-registry.js',

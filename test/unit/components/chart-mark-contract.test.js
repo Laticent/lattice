@@ -67,6 +67,19 @@ describe('the chart gallery through the real engine', () => {
     ['heatmap', /<rect[^>]*class="heatmap-cell"[^>]*>/, 'ramp'],
     ['radar', /<polygon[^>]*class="radar-poly"[^>]*>/, 'layered'],
   ];
+  // A KEY carries the contract of the marks it keys, so a finish repaints the two together:
+  // a tone finish whose wedges went tonal while its key kept five categorical colors was the
+  // defect. A categorical swatch names its hue; the map's ramp swatch carries its own --mix.
+  test('key swatches carry the contract of the marks they key', () => {
+    const sw = html.match(/<rect class="chart-key-swatch"[^>]*>/g) || [];
+    const hue = sw.filter((t) => /data-hue="\d"/.test(t));
+    assert.ok(hue.length >= 8, 'the pie and radar keys');
+    for (const t of hue) assert.match(t, /data-encodes="hue" data-paint="fill"/, t);
+    const ramp = sw.filter((t) => /data-encodes="ramp"/.test(t));
+    assert.ok(ramp.length, 'the map key');
+    for (const t of ramp) assert.match(t, /data-paint="fill" style="--mix:[\d.]+%"/, t);
+  });
+
   for (const [name, re, encodes] of rows) {
     test(`${name} marks carry the contract`, () => {
       const tags = html.match(new RegExp(re.source, 'g')) || [];

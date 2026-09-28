@@ -163,6 +163,7 @@ export const VOCAB_VALUE_FIELDS: Record<string, string> = {
 	tag: 'tagNames',
 	spark: 'sparkNames',
 	venue: 'venueNames',
+	'chart-finish': 'chartFinishNames',
 	preset: 'presetNames',
 	delivery: 'deliveryNames',
 	'inline-code': 'inlineCodeNames',
