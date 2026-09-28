@@ -427,6 +427,12 @@ section.split-panel :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * 2026-06-16-social-mobile-portrait-sizes.md (phase 3). */
 section.split-panel[data-orientation="portrait"] { flex-direction: column; }
 section.split-panel[data-orientation="portrait"] .panel-left { width: auto; }
+/* `.mirror` stacks too, supporting field on top. base.modifiers.css's `section.split-panel.mirror
+ * { flex-direction: row-reverse }` has the specificity of the rule above and lands later in the
+ * bundle, so without this a portrait mirror slide stayed side by side at the landscape panel
+ * width and clipped its quote. `column-reverse` keeps what mirror means (the feature panel docks
+ * on the far edge) in the axis portrait actually has. */
+section.split-panel.mirror[data-orientation="portrait"] { flex-direction: column-reverse; }
 
 /* ── Feature-cover carousel — split-panel's owned SPLIT forms ──────────────────
    When an overflowing split-panel can't fit its heavy feature panel beside its
@@ -638,6 +644,32 @@ section.split-panel.mirror :is(header, footer) { color: var(--marp-slide-header-
  * budget now keeps the WHOLE line on that field, where before its tail crossed onto the
  * light panel and read (HARD RULE #18, on-path). */
 section.split-panel.metric.mirror :is(header, footer) { color: var(--on-dark-secondary); }
+/* PORTRAIT: THE FOOTER TAKES THE OTHER FIELD. The rules above ink the chrome for the field
+ * the left-anchored chrome sits on in landscape, and in portrait that is still the field the
+ * HEADER sits on: `column` puts `.panel-left` on top the way `row` puts it on the left, and
+ * `column-reverse` does the same for `.panel-right` under `.mirror`. The footer is at the
+ * bottom, on the OTHER panel, which is the page number's field in landscape (the XOR block
+ * below). Left to the rules above, a one-page portrait `pullquote` painted `--on-dark-secondary`
+ * on its white supporting field: 1.00:1, a confidentiality line present in the PDF and invisible.
+ *
+ * The canvas ink is `--text-secondary`, not the `--text-muted` the landscape canvas arm uses,
+ * because it is what the SAME slide's footer already reads when it overflows into split pages
+ * (base.modifiers.css, `section.form.lat-split-native > footer`). A portrait pullquote's footer
+ * would otherwise change ink between a short quote and a long one. It also reads >= 4.5:1,
+ * where `--text-muted` sits at 3.75-4.10:1. Not `--marp-slide-footer-color`: `.watermark`
+ * sets that to `--on-accent` for its landscape field, which is exactly the wrong ink here. */
+section.split-panel[data-orientation="portrait"]:not(.mirror) > footer,
+section.split-panel.metric.mirror[data-orientation="portrait"] > footer,
+section.split-panel.steps.mirror[data-orientation="portrait"] > footer { color: var(--text-secondary); }
+/* The split rail (the k-of-N dots a split page carries beside the footer) paints `currentColor`
+ * from the section, which is canvas ink, so it shares the footer's field and takes its ink in
+ * the arms where that field is dark. */
+section.split-panel.metric[data-orientation="portrait"]:not(.mirror) > :is(footer, .lat-split-rail),
+section.split-panel.mirror[data-orientation="portrait"]:not(.metric, .steps) > :is(footer, .lat-split-rail) { color: var(--on-dark-secondary); }
+section.split-panel.watermark.mirror[data-orientation="portrait"] > :is(footer, .lat-split-rail) { color: var(--on-accent); }
+section.split-panel.mirror[data-orientation="portrait"]:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) > :is(footer, .lat-split-rail) {
+  color: var(--cat-on-fill);
+}
 /* ── THE PAGE NUMBER TAKES THE MIRROR IMAGE OF THE RULE ABOVE ────────────────────
  * The header and footer are LEFT-anchored, so they sit on the panel in the default
  * polarity and on canvas under `.mirror` — which is why `.mirror` is in the canvas-ink
