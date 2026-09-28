@@ -13,7 +13,7 @@ footer: "Confidential · Laticent · a footer long enough to cross the panel sea
 
 `Fix · split-panel · split-compare`
 
-The running chrome stays on its field, and the finish lands on the dark panel.
+The running chrome stays on its field, and the finish covers both sides.
 
 ---
 
@@ -34,7 +34,7 @@ Both put pixels on a slide. Only one keeps its taste when the content changes.
   - One theme restyles the whole deck, every slide at once
   - The design system holds the line on every slide
 
-> Chrome ends at the rail; the finish stays on the rail.
+> Chrome ends at the rail; the finish runs across both sides.
 
 ---
 
@@ -59,14 +59,14 @@ The header and footer used to cross the seam in the panel's ink, where they vani
 
 ## Finish lands on the accent.
 
-### The panel keeps its field; the finish paints on it
+### The panel keeps its field and its own copy of the finish
 
 - The field stays solid
   - The accent panel is still the accent panel.
 - The texture reads on top
   - Strata's dots sit on the field, as on a title slide.
-- The content side stays clean
-  - Only the feature panel carries the finish.
+- The content side has no background
+  - The slide's finish shows through it.
 
 ---
 
@@ -114,7 +114,7 @@ A per-slide `dark` composes with the finish and the chrome budget.
   - Opaque fields hid the finish
   - Chrome crossed the seam
 - After
-  - The finish lands on the rail
+  - The finish covers both sides
   - Chrome ends at the rail
 
 > Without a `finish:`, the split renders exactly as before.

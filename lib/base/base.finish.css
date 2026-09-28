@@ -699,7 +699,8 @@ section.print[data-split-role="cover"] {
  * ── */
 
 /* ── 1 · ATRIUM — Corner glow + a fine grid + a left margin rule. (lib/finishes/atrium/) */
-section.finish-atrium {
+section.finish-atrium,
+section.finish-atrium :is(.panel-left, .panel-right, .compare-left) {
   --fin-texture:
     repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 38px),
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 38px);
@@ -718,10 +719,12 @@ section.finish-atrium {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
 /* ── 2 · MERIDIAN — Diagonal duotone wash + contour lines + a ghost numeral. (lib/finishes/meridian/) */
-section.finish-meridian {
+section.finish-meridian,
+section.finish-meridian :is(.panel-left, .panel-right, .compare-left) {
   --fin-texture: repeating-linear-gradient(-4deg, transparent 0 46px, color-mix(in srgb, var(--field-accent) 8%, transparent) 46px 47px);
   --fin-texture-opaque: repeating-linear-gradient(-4deg, transparent 0 46px, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 46px 47px);
   --fin-wash: linear-gradient(118deg, color-mix(in srgb, var(--field-accent) 10%, transparent) 0%, transparent 42%, color-mix(in srgb, var(--field-accent) 7%, transparent) 100%);
@@ -739,10 +742,12 @@ section.finish-meridian {
   --fin-mark-justify: flex-end;
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
 /* ── 3 · STRATA — Soft horizontal bands + a dot-matrix + a corner tick. (lib/finishes/strata/) */
-section.finish-strata {
+section.finish-strata,
+section.finish-strata :is(.panel-left, .panel-right, .compare-left) {
   --fin-texture: radial-gradient(color-mix(in srgb, var(--field-accent) 15%, transparent) 0 1.3px, transparent 1.7px);
   --fin-texture-opaque: radial-gradient(color-mix(in srgb, var(--field-accent) 13%, var(--fin-canvas)) 0 1.3px, transparent 1.7px);
   --fin-wash:
@@ -766,10 +771,12 @@ section.finish-strata {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
 /* ── 4 · HALO — Centered spotlight + concentric rings + an inset vignette. (lib/finishes/halo/) */
-section.finish-halo {
+section.finish-halo,
+section.finish-halo :is(.panel-left, .panel-right, .compare-left) {
   --fin-texture: repeating-radial-gradient(circle at 50% 42%, transparent 0 56px, color-mix(in srgb, var(--field-accent) 8%, transparent) 56px 57px);
   --fin-texture-opaque: repeating-radial-gradient(circle at 50% 42%, transparent 0 56px, color-mix(in srgb, var(--field-accent) 6%, var(--fin-canvas)) 56px 57px);
   --fin-wash: radial-gradient(80% 70% at 50% 42%, color-mix(in srgb, var(--field-accent) 9%, transparent) 0%, transparent 60%);
@@ -784,10 +791,12 @@ section.finish-halo {
   --fin-edge-opaque: radial-gradient(78% 78% at 50% 50%, rgb(from var(--fin-canvas) r g b / 0) 62%, color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 100%);
   --fin-edge-position: center;
   --fin-edge-size: cover;
+  --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
 /* ── 5 · LEDGER — Fine ruled lines + a bold left margin bar + a corner fold. (lib/finishes/ledger/) */
-section.finish-ledger {
+section.finish-ledger,
+section.finish-ledger :is(.panel-left, .panel-right, .compare-left) {
   --fin-texture: repeating-linear-gradient(180deg, transparent 0 39px, color-mix(in srgb, var(--field-accent) 10%, transparent) 39px 40px);
   --fin-texture-opaque: repeating-linear-gradient(180deg, transparent 0 39px, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 39px 40px);
   --fin-wash: none;
@@ -804,10 +813,12 @@ section.finish-ledger {
   --fin-edge-opaque: linear-gradient(225deg, color-mix(in srgb, var(--field-accent) 16%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%);
   --fin-edge-position: top right;
   --fin-edge-size: 9.4cqi 9.4cqi;
+  --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
 /* ── 6 · NIMBUS — A gradient mesh of soft accent blooms + a seating vignette. (lib/finishes/nimbus/) */
-section.finish-nimbus {
+section.finish-nimbus,
+section.finish-nimbus :is(.panel-left, .panel-right, .compare-left) {
   --fin-texture: none;
   --fin-texture-opaque: none;
   --fin-wash:
@@ -830,10 +841,12 @@ section.finish-nimbus {
   --fin-edge-opaque: radial-gradient(78% 78% at 50% 50%, rgb(from var(--fin-canvas) r g b / 0) 62%, color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 100%);
   --fin-edge-position: center;
   --fin-edge-size: cover;
+  --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
 /* ── 7 · LOOM — A woven lattice cross-hatch + a movable corner glow. (lib/finishes/loom/) */
-section.finish-loom {
+section.finish-loom,
+section.finish-loom :is(.panel-left, .panel-right, .compare-left) {
   --fin-texture:
     repeating-linear-gradient(45deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 34px),
     repeating-linear-gradient(-45deg, color-mix(in srgb, var(--field-accent) 9%, transparent) 0 1px, transparent 1px 34px);
@@ -850,10 +863,12 @@ section.finish-loom {
   --fin-mark-text: "";
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
 /* ── 8 · SAVILE — A tailored vertical pinstripe + a movable monogram. (lib/finishes/savile/) */
-section.finish-savile {
+section.finish-savile,
+section.finish-savile :is(.panel-left, .panel-right, .compare-left) {
   --fin-texture: repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 10%, transparent) 0 1px, transparent 1px 18px);
   --fin-texture-opaque: repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent) 8%, var(--fin-canvas)) 0 1px, transparent 1px 18px);
   --fin-wash: none;
@@ -871,10 +886,12 @@ section.finish-savile {
   --fin-mark-justify: flex-end;
   --fin-edge: none;
   --fin-edge-opaque: none;
+  --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
 /* ── 9 · GALLERY — A museum inset keyline frame + a spotlight + a movable numeral. (lib/finishes/gallery/) */
-section.finish-gallery {
+section.finish-gallery,
+section.finish-gallery :is(.panel-left, .panel-right, .compare-left) {
   --fin-texture: none;
   --fin-texture-opaque: none;
   --fin-wash: radial-gradient(80% 70% at 50% 42%, color-mix(in srgb, var(--field-accent) 10%, transparent) 0%, transparent 60%);
@@ -893,6 +910,7 @@ section.finish-gallery {
   --fin-edge: none;
   --fin-edge-opaque: none;
   --fin-frame: inset 0 0 0 calc(2.6 * var(--_sec-1cqi, 1cqi)) var(--fin-canvas), inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--field-accent) 40%, var(--fin-canvas));
+  --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
 /* ── END GENERATED FINISH PRESETS ── */
@@ -912,7 +930,10 @@ section.finish-gallery {
  * wins; the export class is added high in the tree so it covers every section.)
  * ════════════════════════════════════════════════════════════════════════════ */
 @media print {
-  section.finish {
+  /* A finish SURFACE (a split slide's panel, finish-generate.js `FINISH_SURFACES`) re-declares the
+   * rich face on itself, so the flip has to reach it too, or its print face stays rich. */
+  section.finish,
+  section.finish :is(.panel-left, .panel-right, .compare-left) {
     --fin-wash: var(--fin-wash-opaque, none);
     --fin-texture: var(--fin-texture-opaque, none);
     --fin-mark: var(--fin-mark-opaque, none);
@@ -931,7 +952,9 @@ section.finish-gallery {
  * (no color-mix), which html-to-image draws cleanly, and its hard-edged mirror exists only
  * for the vector PDF. The hard mirror printed a solid arc in every Studio download. */
 :where(.lattice-exporting) section.finish,
-section.finish.lattice-exporting {
+:where(.lattice-exporting) section.finish :is(.panel-left, .panel-right, .compare-left),
+section.finish.lattice-exporting,
+section.finish.lattice-exporting :is(.panel-left, .panel-right, .compare-left) {
   --fin-wash: var(--fin-wash-opaque, none);
   --fin-texture: var(--fin-texture-opaque, none);
   --fin-mark: var(--fin-mark-opaque, none);
@@ -1057,6 +1080,44 @@ section.finish.lattice-exporting > .backdrop > .backdrop-mask::before {
  * the ring to pink. Where the ring is drawn, the mask layer steps in by the ring's 4px. */
 section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-overflow-marker="off"]) > .backdrop > .backdrop-mask {
   inset: 4px;
+}
+
+/* ── FINISH SURFACES — a panel that paints its own copy of the finish ───────────────────
+ * A split slide keeps a feature panel on its own field (dark, accent, a category tint), and the
+ * finish is painted there as well as on the slide around it. The panel cannot be a window onto
+ * `.backdrop`: that layer is mixed for the section's canvas, and a finish mixed for a light canvas
+ * reads wrong on a dark panel (the opaque export face ends on solid light canvas and would paint
+ * the panel light). So the finish is re-declared ON the panel (finish-generate.js
+ * `FINISH_SURFACES`), where the panel's own `--fin-canvas` is in scope, and the panel paints it as
+ * its own background layers.
+ *
+ * `--fin-surface-image` is what a surface paints, top to bottom, and each layer is declared HERE,
+ * on the panel, so every `var(--fin-canvas)` in it resolves to the panel's field:
+ *   1. STRENGTH, as the flat veil (the register's step, else the finish's baked strength). A
+ *      background cannot take group opacity, and the veil is the same pixel math.
+ *   2. The finish's BAKED mask (a Fabricate spotlight), re-mixed for the panel by the generator.
+ *      The register's `open` blanks it through `--backdrop-scrim: none`.
+ *   3. A BAKED clearance, which fills the whole panel: the frame's content box of a split slide
+ *      is the whole slide (2026-09-26-backdrop-register.md §Zero-padding layouts).
+ *   4. The texture and wash — `--fin-surface-layers`, which only a current generator emits. A
+ *      finish written before surfaces existed leaves it undefined, and the panel keeps its field.
+ * The mark and edge are slide-level (the `.backdrop` pseudos) and stay there, once per slide.
+ * A register `clear` or spotlight is a slide-level shape, so it leaves the panel on its plain
+ * field, the same as it leaves the rest of a split slide. */
+section.finish :is(.panel-left, .panel-right, .compare-left) {
+  --backdrop-clear-fill: linear-gradient(var(--fin-canvas), var(--fin-canvas));
+  --fin-surface-image:
+    linear-gradient(color-mix(in srgb, var(--fin-canvas) calc(100% - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1)) * 100%), transparent) 0 0),
+    var(--backdrop-scrim, var(--fin-backdrop-mask, none)),
+    var(--backdrop-clear-scrim, var(--fin-backdrop-clear-scrim, none)),
+    var(--fin-surface-layers, none);
+  --fin-surface-size: 100% 100%, 100% 100%, 100% 100%, var(--fin-size, auto);
+  --fin-surface-position: top left, top left, top left, var(--fin-position, top left);
+  --fin-surface-repeat: no-repeat, no-repeat, no-repeat, var(--fin-repeat, repeat);
+}
+section:is(.backdrop-clear, .backdrop-spot-tl, .backdrop-spot-t, .backdrop-spot-tr, .backdrop-spot-l,
+  .backdrop-spot-c, .backdrop-spot-r, .backdrop-spot-bl, .backdrop-spot-b, .backdrop-spot-br).finish :is(.panel-left, .panel-right, .compare-left) {
+  --fin-surface-image: none;
 }
 
 /* ── PRINT MODE carries no finish ─────────────────────────────────────

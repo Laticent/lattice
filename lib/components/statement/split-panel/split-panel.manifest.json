@@ -250,8 +250,8 @@
       "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
     },
     {
-      "mistake": "Expecting a deck's `finish:` to cover the whole split-panel slide.",
-      "fix": "Only the feature panel carries it: on a finish deck the panel keeps its field (dark, accent or category color) and the finish is painted on it, composed against that field in screen and PDF alike, the way a title slide carries it. Only the panel gets the finish; the supporting side stays the plain canvas. On `metric` it is the DARK side that carries it — its right-hand panel — and the light number panel stays plain. Stacked (portrait / square) slides keep the solid panel. `finish-none` on the slide keeps it plain."
+      "mistake": "Expecting a deck's `finish:` to skip the split-panel's dark panel, or to stop at it.",
+      "fix": "It covers the whole slide, as on any other: the supporting side has no background, so the slide's finish shows through it, and the feature panel keeps its field (dark, accent or category color) with its own copy of the finish mixed for that field, in screen and PDF alike. On `metric` the dark field is the right-hand panel, so that is the one with its own copy. The finish's corner mark is left off split slides, which have no frame margin for it. A finish written before this (a deck's own `<style>`) shows on the supporting side and leaves the panel plain. `finish-none` on the slide keeps both sides plain."
     }
   ],
   "stressDoc": {

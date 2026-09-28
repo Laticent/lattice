@@ -176,17 +176,19 @@ section.split-compare:not([data-orientation="portrait"]):not([data-orientation="
   padding-bottom: max(var(--sp-xl), var(--_chrome-band));
 }
 
-/* ── A FINISH PAINTS THE RAIL; THE RAIL KEEPS ITS FIELD ───────────────────────────────────
+/* ── A FINISH PAINTS BOTH SIDES; THE RAIL KEEPS ITS FIELD ─────────────────────────────────
  * Same contract as split-panel's finish block (see the note at the foot of
- * split-panel.styles.css): the section paints the rail's `--surface-inverse` and names it
- * `--fin-canvas`, the rail stops painting so the finish shows on the dark field, and the
- * options zone keeps its opaque `--bg`, so only the rail carries the finish. Without a
+ * split-panel.styles.css): the section is an ordinary finish slide, the options zone has no
+ * background so that finish shows through it, and the rail keeps its `--surface-inverse` field
+ * and paints the finish re-mixed for that field (base.finish.css § FINISH SURFACES). Without a
  * painted finish nothing here matches. */
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]):not([data-orientation="square"]) {
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-right { background-color: transparent; }
+section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left {
   --fin-canvas: var(--surface-inverse);
-  background-color: var(--surface-inverse);
+  background-image: var(--fin-surface-image);
+  background-size: var(--fin-surface-size);
+  background-position: var(--fin-surface-position);
+  background-repeat: var(--fin-surface-repeat);
 }
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print):not([data-orientation="portrait"]):not([data-orientation="square"]) .compare-left { background-color: transparent; }
-/* Not in portrait / square: the stacked layout insets both panels inside the section's frame
- * padding, so the options zone no longer covers the rest of the section and the dark field (with
- * its finish) showed all around it. Stacked slides keep the opaque rail, as before. */
+/* No slide-level mark: a split slide has no frame margin for it (split-panel.styles.css). */
+section.split-compare.finish > .backdrop::before { content: none; }

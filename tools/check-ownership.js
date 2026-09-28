@@ -1008,7 +1008,9 @@ function checkFinishPackages(errors, { root = ROOT, css = FINISH_CSS } = {}) {
     return;
   }
   const uncomment = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
-  const rulesIn = (t) => [...uncomment(t).matchAll(/^section\.finish-([a-z][a-z0-9-]*)\s*\{/gm)].map((m) => m[1]);
+  // A rule head is `section.finish-<name> {`, or `section.finish-<name>,` when the rule also names
+  // the finish surfaces (finish-generate.js `FINISH_SURFACES`) on the lines after it.
+  const rulesIn = (t) => [...uncomment(t).matchAll(/^section\.finish-([a-z][a-z0-9-]*)\s*(?:\{|,\s*section\.finish-\1\s)/gm)].map((m) => m[1]);
   const inside = rulesIn(raw.slice(from, to));
   const outside = rulesIn(raw.slice(0, from) + raw.slice(to));
   for (const name of pkgs) {
