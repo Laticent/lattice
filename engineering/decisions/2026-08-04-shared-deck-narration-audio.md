@@ -570,3 +570,32 @@ was not the whole picture. The evidence that settled it came from use, not from 
 the player re-anchors each cue to the clip's real decoded duration on `loadedmetadata`, so it
 does not accumulate — but it is still 56 ms of leading silence per sentence in a shared deck.
 Tracked in #1503 alongside the missing gapless header.
+
+### 10. The keyless on-device path, reachable again (2026-09-28)
+
+An author with no OpenRouter key and only the on-device voice could not reliably ship a deck
+that speaks. The follow-up from #2423 recorded it; driving the real Studio with a real Kokoro
+load (WASM path, ~80 MB fetched) found two causes on `main`:
+
+- **`NarrationExportOptions` read voice availability once, at mount.** The Workspace does not
+  cancel a Kokoro download when it closes, so an author could start the load and open
+  Share → Webpage while it ran. The panel's snapshot said "no voice", and 90 s after the load
+  finished the audio switch was still disabled; the export shipped captions only. The panel now
+  re-reads on `db-voice-changed` (which `loadKokoro` and every voice pref setter emit) and
+  `db-model-changed` (a key connecting or disconnecting), the same events `TtsSettings` listens
+  to.
+- **With the device voice chosen, the bill spoke cloud.** When the author opened the panel after
+  the load, the export did succeed with the device voice, but the panel said "this model
+  publishes no price", "this export bills the whole deck" and "Connect OpenRouter in the
+  Workspace to synthesize the sentences this device has not prepared". That last line reads as
+  a refusal of the one path that works. The panel now keys that copy on `useOnDevice`: the
+  identity the bake runs is on-device (`value.voice.rung === 'kokoro'`) AND the voice is loaded,
+  because a device identity with no loaded voice is a bake `synthBakeClip` refuses. It prices the synthesis as "free, on this device" and
+  names the on-device narrator even when the Narrator picker is hidden (the picker is hidden
+  with no key, because there is nothing to pick between).
+
+Pinned by `NarrationExportOptions.test.tsx` (the mid-mount load, the copy, the listener cleanup)
+and `docs/e2e/share-ondevice-narration.spec.ts`. The spec replaces only the model module
+(`esm.run/kokoro-js`) with a stub that returns a tone and holds `from_pretrained` until the test
+releases it, so the panel is provably open before the voice is ready. The worker, the rung, the
+panel, the bake and the exported file are all real.

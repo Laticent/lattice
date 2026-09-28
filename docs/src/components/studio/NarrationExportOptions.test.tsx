@@ -468,3 +468,67 @@ describe('when the chosen voice does not speak the deck’s language', () => {
 		expect(warningNodes().visible, 'READABLE, not just announced').toHaveLength(1);
 	});
 });
+
+// THE KEYLESS AUTHOR WITH ONLY THE ON-DEVICE VOICE — the free path to a narrated export, and the
+// one followups.d/2423-p2-export-panel-hides-on-device-narrator.md recorded as unreachable. Two
+// defects, both found by driving the real panel with a real Kokoro load:
+//
+//  1. Availability was read ONCE, at mount. The Workspace does not cancel a Kokoro download when
+//     it closes, so an author who opened Share while the ~80 MB load ran saw the audio switch
+//     stay disabled after the voice was ready — for as long as the panel stayed open.
+//  2. With the device voice chosen, the bill still spoke cloud: "this model publishes no price",
+//     "this export bills the whole deck", "Connect OpenRouter … to synthesize". The export
+//     succeeded; the panel told the author it would not.
+describe('the on-device narrator with no cloud key', () => {
+	const DEVICE = { rung: 'kokoro' as const, model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+	const KEYLESS = { rung: 'silent', openRouterReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false };
+	const OFF = { captions: false, audio: false, voice: VOICE, allowPartial: false };
+
+	beforeEach(() => {
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+	});
+
+	it('offers audio once the voice finishes loading WHILE the panel is open, and selects it', async () => {
+		voiceAvailability.mockResolvedValue({ ...KEYLESS, kokoroReady: false });
+		const emitted = statefulPanel(OFF);
+		const audio = await screen.findByLabelText('Include narration audio');
+		// Settled on "nothing can speak": no key and no loaded voice.
+		await waitFor(() => expect(voiceAvailability).toHaveBeenCalled());
+		await waitFor(() => expect((audio as HTMLButtonElement).disabled).toBe(true));
+		// The load completes elsewhere; voice-model's loadKokoro emits this event.
+		voiceAvailability.mockResolvedValue({ ...KEYLESS, rung: 'kokoro', kokoroReady: true, kokoroCached: true });
+		await act(async () => { window.dispatchEvent(new Event('db-voice-changed')); });
+		await waitFor(() => expect((screen.getByLabelText('Include narration audio') as HTMLButtonElement).disabled).toBe(false));
+		await act(async () => { (screen.getByLabelText('Include narration audio') as HTMLButtonElement).click(); });
+		const last = emitted[emitted.length - 1];
+		expect(last.audio).toBe(true);
+		expect(last.voice.rung, 'turning audio on writes the only narrator that can speak').toBe('kokoro');
+		expect(last.voice.voice).toBe('af_sky');
+	});
+
+	it('quotes the device voice as free, and never asks for OpenRouter', async () => {
+		voiceAvailability.mockResolvedValue({ ...KEYLESS, rung: 'kokoro', kokoroReady: true, kokoroCached: true });
+		statefulPanel(OFF);
+		const audio = await screen.findByLabelText('Include narration audio');
+		await waitFor(() => expect((audio as HTMLButtonElement).disabled).toBe(false));
+		await act(async () => { (audio as HTMLButtonElement).click(); });
+		await screen.findByText(/To synthesize/i);
+		const copy = (document.body.textContent ?? '').replace(/\s+/g, ' ');
+		expect(copy, 'the narrator is named even with the picker hidden').toMatch(/Narrated by the on-device voice you rehearse with — af_sky/);
+		expect(copy).toMatch(/4 sentences · free, on this device/);
+		expect(copy, 'a cloud price line under a free voice').not.toMatch(/publishes no price|cost unknown/i);
+		expect(copy, 'a cloud bill under a free voice').not.toMatch(/bills the whole deck/i);
+		expect(copy, 'reads as a refusal of the path that works').not.toMatch(/Connect OpenRouter/i);
+	});
+
+	it('stops listening when it unmounts', async () => {
+		voiceAvailability.mockResolvedValue({ ...KEYLESS, kokoroReady: false });
+		const { unmount } = render(<NarrationExportOptions source={'# One\n\nA sentence.\n'} project={async () => ['A sentence.']} value={OFF} onChange={() => {}} />);
+		await waitFor(() => expect(voiceAvailability).toHaveBeenCalledTimes(1));
+		unmount();
+		window.dispatchEvent(new Event('db-voice-changed'));
+		window.dispatchEvent(new Event('db-model-changed'));
+		expect(voiceAvailability).toHaveBeenCalledTimes(1);
+	});
+});
