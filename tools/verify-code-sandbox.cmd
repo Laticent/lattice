@@ -35,6 +35,17 @@ if not exist "node_modules\puppeteer" (
     exit /b 1
   )
 )
+rem `npm ci` does not build dist\ on Windows: package.json `prepare` chains with `;`, which cmd.exe
+rem does not read as a separator (followups.d/2459-p2-windows-prepare-skips-the-build.md).
+if not exist "dist\lattice.css" (
+  echo Building the repository once ^(dist\ is missing; about a minute^)...
+  node tools\build.js --only-uncommitted
+  if errorlevel 1 (
+    echo The build failed; see the messages above.
+    pause
+    exit /b 1
+  )
+)
 node tools\verify-code-sandbox.mjs %*
 set "rc=!ERRORLEVEL!"
 rem Keep the window open for a tester who double-clicked; a CI run pipes nul in, so it returns at once.

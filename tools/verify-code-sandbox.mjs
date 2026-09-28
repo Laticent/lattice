@@ -346,22 +346,29 @@ async function main() {
     let browserPath = '';
     let browserVersion = '';
     let depsOk = true;
+    let browserError = '';
+    const built = fs.existsSync(path.join(ROOT, 'dist', 'lattice.css'));
+    if (!built) console.log(red('  The repository is not built (dist/lattice.css is missing). Fix: node tools/build.js --only-uncommitted'));
     try {
       const puppeteer = require('puppeteer');
       const { detectChromeExecutable } = require(path.join(ROOT, 'lib/core/chrome-exec.js'));
       browserPath = detectChromeExecutable() || puppeteer.executablePath();
-      const b = await puppeteer.launch({ executablePath: browserPath, headless: true, args: process.getuid?.() === 0 ? ['--no-sandbox'] : [] });
+      // `--no-sandbox` here on purpose: this step asks only whether a browser starts and which one.
+      // Whether its OS sandbox starts is step 7's question, and on Ubuntu 24.04 (AppArmor) it does not
+      // for an ordinary user, which made this step fail for the wrong reason (the CI probe run).
+      const b = await puppeteer.launch({ executablePath: browserPath, headless: true, args: ['--no-sandbox'] });
       browserVersion = await b.version();
       await b.close();
     } catch (e) {
       depsOk = false;
-      console.log(red(`  Could not start a browser: ${e.message.split('\n')[0]}`));
+      browserError = e.message.split('\n')[0];
+      console.log(red(`  Could not start a browser: ${browserError}`));
       console.log(yellow('  Fix: in the repository folder run "npm ci", or set CHROME_PATH to a Chrome or Chromium 131+.'));
     }
     const major = Number(/\/(\d+)\./.exec(browserVersion)?.[1]);
     if (browserVersion) console.log(`  Browser ${browserVersion} at ${browserPath} ${major >= 131 ? green('ok') : red('(need 131 or newer)')}`);
-    const machineOk = nodeOk && depsOk && major >= 131;
-    const r1 = await conclude({ pass: machineOk, why: machineOk ? `Node ${process.version}, ${browserVersion}` : 'see the message above' }, null);
+    const machineOk = nodeOk && depsOk && built && major >= 131;
+    const r1 = await conclude({ pass: machineOk, why: machineOk ? `Node ${process.version}, ${browserVersion}` : [!nodeOk && `Node ${process.version} is too old`, !built && 'the repository is not built', browserError && `the browser did not start: ${browserError}`, browserVersion && !(major >= 131) && `${browserVersion} is older than 131`].filter(Boolean).join('; ') }, null);
     record(1, 'Check this machine', { ...r1, browser: browserVersion ? `${browserVersion} (${browserPath})` : 'none' });
     if (!machineOk) {
       console.log(red('\n  The other steps need this one. Fix it and start again.'));

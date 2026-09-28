@@ -25,4 +25,9 @@ if [ ! -d node_modules/puppeteer ]; then
     *) echo "Run \"npm ci\" in $(pwd), then run this again."; exit 1 ;;
   esac
 fi
+# `npm ci` builds dist/ through `prepare`; a checkout where that did not run needs it built once.
+if [ ! -f dist/lattice.css ]; then
+  echo "Building the repository once (dist/ is missing; about a minute)..."
+  node tools/build.js --only-uncommitted || { echo "The build failed; see the messages above."; exit 1; }
+fi
 exec node tools/verify-code-sandbox.mjs "$@"

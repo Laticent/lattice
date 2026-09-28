@@ -278,7 +278,9 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     const r = await render(home, deck, ['--allow-remote']);
     await settle();
     assert.notEqual(r.status, 0);
-    assert.match(r.stderr, /you approved the code package tally with the OS sandbox on, and this render's browser gives it off/);
+    // The layer this machine gives: `off` on Linux without the sandbox, `unmeasured` (the platform's
+    // default) on macOS and Windows; either is weaker than the `on` approved, and must refuse.
+    assert.match(r.stderr, new RegExp(`you approved the code package tally with the OS sandbox on, and this render's browser gives it ${probe.layer.os}`));
     assert.equal(r.pdf, null);
     assert.deepEqual(hits, [], 'refused before any of its code ran');
     grantTrust('component', 'tally', codeDigest(inst.pkg), { file: path.join(home, 'trust.json'), layer: probe.layer.os });
