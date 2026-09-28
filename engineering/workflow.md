@@ -369,7 +369,9 @@ strictly worse.
 2. `npm run test:integration` — rebuilds both galleries through both renderers; asserts page-count parity. This is the merge gate in CI.
 3. `npm run lint` — Biome over every JS file. CI runs this on Node 22/24.
 4. If you touched CSS or themes, confirm the visual result in a rebuilt PDF. If you cannot rebuild, say so explicitly — do not claim success.
-5. Rebase onto current `main` if the branch has drifted:
+5. Rebase onto current `main` **only if the branch conflicts with it** (or you
+   need code from `main`). Being behind is fine; the merge queue re-tests on
+   current `main` (§Keeping an open PR mergeable):
    ```bash
    git fetch origin
    git rebase origin/main
@@ -889,51 +891,50 @@ unreachable until the chasing stopped
 poll events, timer pings, and force-push churn made the chat unusable. The watch
 is **retired** (`decisions/2026-06-15-retire-drift-watch.md`).
 
-**The goal is to keep the PR *mergeable*, not "zero commits behind" at every
-instant.** Under squash-merge a branch that is merely *behind* — no file overlap,
-`mergeable_state: clean` — is harmless until merge; its history is squashed away
-regardless of how far it drifted. So a green PR can sit behind `main` while it
-waits; you don't touch it until you have a reason to push or to merge.
+**The goal is to keep the PR *mergeable*, not "zero commits behind".** The merge
+queue tests every PR on top of current `main` plus the PRs ahead of it, and merges
+only if that combined state is green (§Merge queue — the facts, below). So a PR
+that is merely **behind** `main`, with no conflict, is already safe to queue. Leave
+it alone.
 
-Fold the mergeability check into the two moments you act on the PR anyway:
+**Rebase only when one of these is true:**
 
-1. **Right before every push** — `git fetch origin main` and rebase if the branch
-   is behind or conflicted, then push. This is the primary mechanism: you were
-   already touching the remote, so the check is free, and it guarantees you never
-   push from a stale branch. The Stop hook (`.claude/hooks/stop-rebase-check.sh`)
-   is the local, non-blocking backstop — it warns when local `HEAD` is behind the
-   locally-known `origin/main`.
-2. **Right before an authorized merge executes** — re-fetch and confirm the PR is
-   still mergeable; authorization given against a `main` from an hour ago does not
-   survive a conflict that has since landed. Rebase if behind or conflicted, let
-   CI re-confirm, then merge.
+1. **The branch conflicts with `main`.** GitHub reports `mergeable_state: dirty`,
+   or the local test says so:
+   ```bash
+   git fetch origin main
+   git merge-tree --write-tree HEAD origin/main >/dev/null; echo $?   # 1 = conflict
+   ```
+   The Stop hook (`.claude/hooks/stop-rebase-check.sh`) runs the same test at the
+   end of every turn and warns only on a real conflict.
+2. **The queue ejected the PR.** Fix the cause, push, and re-arm auto-merge
+   (§Merging, *An ejection CLEARS auto-merge*).
+3. **You need code that landed on `main`** — a fix your change builds on.
+
+**Do NOT rebase because:** the PR page says "This branch is out-of-date", GitHub
+offers "Update branch", `main` moved, another PR merged, or you are about to ask to
+merge. Each of those rebases re-runs the full CI pipeline and changes nothing the
+queue would not have handled. Measured over the 1,000 PR CI runs from 2026-09-20 to
+2026-09-28: 126 pushes kept the head commit's message and author (a rebase or
+amend), 67 of them on a PR that was already green, costing ~1,925 runner-minutes —
+13% of all PR CI time (`decisions/2026-09-28-rebase-only-on-conflict.md`).
+
+When you do rebase:
 
 ```bash
 git fetch origin main
 git rebase origin/main          # resolve the recurring dist / examples-*.pdf
-                                # conflicts mechanically — see
-                                # the rebase step above, never hand-merge them
+                                # conflicts mechanically — see §Before opening
+                                # a PR step 5, never hand-merge them
 git push --force-with-lease
 ```
 
-A pure *behind-but-not-conflicted* branch can alternatively be advanced at merge
-time with GitHub's "Update branch" (`update_pull_request_branch`) — harmless
-under squash-merge — but a real conflict always needs the local rebase above.
-After any rebase, re-run the gates (the content under you changed) and re-confirm
-CI before you ask to merge.
+After a rebase, re-run the gates (the content under you changed).
 
-The honest limit of *manual* rebase-before-push: if `main` moves while your PR
-sits green and you take no action, you won't *notice* until your next push or the
-pre-merge check — and a conflict that lands in that window sits silently until
-then. Under squash-merge a clean-behind PR is fine, and a real conflict is caught
-at the pre-merge checkpoint before anything merges — but the checkpoint is manual.
-
-**The structural fix — a GitHub merge queue — is adopted** (see §Merging →
-*Merge queue*). When it's enabled in branch protection, the queue rebases + tests
-each PR once at the front of the line, so the manual pre-merge re-rebase (step 2
-above) becomes the queue's job and the silent-parked-conflict window closes:
-nothing merges except on a freshly-rebased, freshly-green state. Rebase-*before-
-push* (step 1) still holds — it keeps the PR current and the queue fast.
+**What this still does not cover.** A conflict that lands while your PR sits green
+is silent until you next look, or until the queue ejects the PR. That is the
+queue's job now: nothing merges except on a freshly re-tested state, and an
+ejection is the signal to act.
 
 ### "CI passed" is no longer silent — the CI-green beacon
 
@@ -984,8 +985,8 @@ The contract, and its limits — be precise about what it does and doesn't cover
   only a newly *created* comment is forwarded as a wake event; an in-place edit
   (the golden-diff sticky's `updateComment`) is not, so it would never wake you.
 - **CI-passed only — NOT the drift events.** "`main` moved" and "now conflicted"
-  are still silent; nothing here changes that. Rebase-before-push (step 1) and the
-  merge queue remain the answer for drift.
+  are still silent; nothing here changes that. The merge queue is the answer for
+  drift, and a conflict (§Keeping an open PR mergeable) is the only rebase trigger.
 - **Keep a long fallback check-in as a backstop.** The beacon is a delivered
   comment, not a guaranteed-delivery channel; if one is ever dropped you must not
   hang forever. A single far-out check-in (≈1 h) catches the miss — react fast to
@@ -1015,24 +1016,21 @@ The contract, and its limits — be precise about what it does and doesn't cover
   parallel AI sessions a single PR can carry 20+ noisy commits, and squashing
   keeps `main` one reviewable, revertable commit per PR. Use rebase-and-merge
   only for a deliberately curated, atomic commit series (each commit
-  independently meaningful). Never a merge commit. (This is the *merge* method;
-  it's independent of keeping the branch rebased on `main` before merge — see
-  the rebase step above.)
+  independently meaningful). Never a merge commit. (This is the *merge* method.
+  It has nothing to do with rebasing: a PR need not be rebased on `main` to merge
+  — see §Keeping an open PR mergeable.)
 - **Land a large migration as *one* squash, not N separately-merged commits.**
   Every separate merge to `main` is a drift event for *every* open PR in the repo
-  — N merges in quick succession is a merge train each open PR must rebase past
-  before its own merge. One squash (or a tight curated series behind a single
+  — N merges in quick succession is N chances for a committed generated file to
+  conflict with every open PR. One squash (or a tight curated series behind a single
   merge) is one drift event. See
   `decisions/2026-06-14-drift-watch-rebase-thrash.md`.
 - **Merge queue (live since 2026-06-30).** Authorization stays human (above); the
-  queue automates only what happens *after* you approve. The flow is: you review →
-  approve → **enable auto-merge (squash)** → the queue rebases the PR onto current
-  `main` (plus any PRs ahead), re-runs the required `ci` check on that combined
-  state, and merges only if green. This is the structural fix for the
-  parked-conflict window (§Keeping an open PR mergeable) and it **retires the manual
-  pre-merge re-rebase dance — the queue now owns it** (so step 2 of §Keeping
-  mergeable no longer applies before an authorized merge). Background:
-  `decisions/2026-06-17-workflow-efficiency-review.md` §F.
+  queue automates only what happens *after* you approve: you review → approve →
+  **enable auto-merge** → the queue builds your PR on top of current `main` (plus
+  any PRs ahead), re-runs the required `ci` check on that combined state, and
+  merges only if green. A PR does **not** need to be up to date to enter it. The
+  settings and the behavior in one place: §Merge queue — the facts, below.
 - **`auto_merge.merge_method` is NOT the method that will land, and on this repo it
   reads `merge` on essentially every PR.** That field is what was *requested*; when a
   merge queue governs the branch, the **queue's own merge method decides**, and
@@ -1143,8 +1141,8 @@ The contract, and its limits — be precise about what it does and doesn't cover
   There is no background drift watch to stop first — it's retired (see §"Keeping
   an open PR mergeable"), which is what made the old teardown a strict,
   one-at-a-time sequence (a background poller racing a foreground `reset` for a
-  ref lock). Distinguish drift cases: "`main` moved under an OPEN PR" is handled by
-  rebase-before-push; "my PR just merged, `main` moved" is expected — just sync, it
+  ref lock). Distinguish drift cases: "`main` moved under an OPEN PR" needs nothing
+  unless it conflicts (the queue handles it); "my PR just merged, `main` moved" is expected — just sync, it
   is not a rebase trigger (it's the local-`main` divergence below).
 - After a squash-merge, your **local `main` has diverged** from the squashed
   `origin/main` (it still carries the pre-squash commits). Don't rebase onto it
@@ -1156,6 +1154,50 @@ The contract, and its limits — be precise about what it does and doesn't cover
   is the verification source of truth — squash merges are committed by GitHub
   (`noreply@github.com`) and show **Verified** there regardless of the local
   `%G?` check.
+
+### Merge queue — the facts
+
+Read this instead of working the queue out again. Every claim here was checked
+against the live ruleset and GitHub's docs on 2026-09-28.
+
+**The ruleset** is `Main Merge Queue` (id `18317422`, `refs/heads/main`, no bypass
+for anyone). Read it live — the values below can drift from the repo settings:
+
+```bash
+curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
+  https://api.github.com/repos/Laticent/lattice/rulesets/18317422 \
+  | python3 -c "import json,sys; [print(r['type'], r.get('parameters','')) for r in json.load(sys.stdin)['rules']]"
+```
+
+| Setting | Value on 2026-09-28 | What it means for you |
+|---|---|---|
+| `merge_method` | `SQUASH` | Every queued PR lands as one squash commit, whatever `auto_merge.merge_method` says |
+| `grouping_strategy` | `ALLGREEN` | A group merges only if every PR in it is green; a red one is removed and the rest re-tested |
+| `max_entries_to_build` / `max_entries_to_merge` | 5 / 5 | Up to five PRs are tested together, each on top of the ones ahead |
+| `min_entries_to_merge_wait_minutes` | 5 | The queue waits up to 5 minutes to fill a group |
+| `check_response_timeout_minutes` | 60 | A `ci` run that has not reported in 60 minutes fails the entry |
+| Required check | `ci` (the aggregate job in `ci.yml`) | The only check the queue waits on — CodeQL is not in it |
+| `strict_required_status_checks_policy` | `true` — the owner is turning it off | "Require branches to be up to date". It does **not** stop a behind PR entering the queue: 12 of the 15 queue entries before 2026-09-28 were behind `main` (by 1–8 commits) and 11 merged green. It only makes GitHub label behind PRs "out-of-date". **Ignore that label either way** |
+
+**What the queue does.** It creates a temporary `gh-readonly-queue/main/pr-<N>-*`
+branch holding current `main`, every non-failing PR ahead of yours, and your PR.
+`ci.yml` runs on it through the `merge_group` event with every tier forced on. If
+it passes, that exact tree becomes `main`.
+
+**What that means for an open PR:**
+
+- **A PR does not need to be up to date to enter the queue** ([GitHub docs: Managing
+  a merge queue](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)).
+  Do not rebase to make it current (HARD RULE #16).
+- **Another PR merging does not turn yours red.** Your PR's own `ci` result stays
+  what it was. If the PR page shows red after a merge, it is either a real conflict
+  (`mergeable_state: dirty` — rebase) or a check that is not `ci`.
+- **The queue cannot fix a real conflict.** A textual conflict, most often a
+  committed generated file (a gallery PDF, a showcase WebP, a bundle, a golden),
+  keeps the PR out of the queue or ejects it. That is the one case that needs a
+  rebase. `followups.d/queue-committed-generated-artifacts.md` tracks removing
+  those files from the conflict path.
+- **An ejection clears auto-merge.** Re-arm it after the fix (§Merging, above).
 
 ## Automation vs. the main ruleset
 
@@ -1532,16 +1574,16 @@ WORKING AGREEMENT
     highest-blast item, at the tier named there. Need more? Cut the lowest
     priority to the next handoff and say so; never idle for authorization.
   • Run the gates yourself (`npm run lint`, unit suite, `npm run build:check`,
-    integration where it applies) before each push; `git fetch origin main` and
-    rebase right before pushing (#16).
+    integration where it applies) before each push. Rebase only on a real
+    conflict with `main`, never because it moved (#16).
   • If an item proves wrong or blocked, finish every other item, then say in the
     PR body exactly what you left and why. Never ship a window you created (#18).
-  • STOP at the merge gate: open the PR, drive CI green, leave it rebased and
-    review-ready — then post your own standup + continuation brief and wait. Do
+  • STOP at the merge gate: open the PR, drive CI green, leave it
+    conflict-free and review-ready — then post your own standup + continuation brief and wait. Do
     not merge. Merge authorization is mine and never carries forward (#7).
 
 DELIVERABLE
-  One green, rebased PR waiting for my review — its body carrying, per item, the
+  One green, conflict-free PR waiting for my review — its body carrying, per item, the
   evidence and the verification call that was made.
 ```
 
