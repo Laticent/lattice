@@ -211,7 +211,9 @@ section[data-guide] .lat-guide-dim-inner {
   opacity: var(--guide-dim-inner, 0.3);
   transition: opacity var(--guide-fade, 200ms) ease;
 }
-section[data-guide] .lat-guide-undim { transition: opacity var(--guide-fade, 200ms) ease, color var(--guide-fade, 200ms) ease, background-color var(--guide-fade, 200ms) ease; }
+/* The named part ARRIVES fast (ease-out: most of the change in the first third), so on a phone it
+   reads as landing with the word; what recedes keeps the gentler ease. */
+section[data-guide] .lat-guide-undim { transition: opacity var(--guide-fade, 200ms) ease-out, color var(--guide-fade, 200ms) ease-out, background-color var(--guide-fade, 200ms) ease-out; }
 /* focus */
 section[data-guide] .lat-guide-focus,
 section[data-guide] tr.lat-guide-focus > :is(td, th) { color: var(--guide-ink); }

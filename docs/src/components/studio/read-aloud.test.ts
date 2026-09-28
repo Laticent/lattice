@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import { loadCalibration, recordObservation, resetCalibration } from '@/playground/readaloud-calibration';
-import { bakeClipKeys, previewTtsVoice, SYNC_LEAD_MS, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
+import { bakeClipKeys, GUIDE_LEAD_MS, previewTtsVoice, SYNC_LEAD_MS, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
 
 // The audio backend is now a Suono stage + sequence (not voice.speak). Two stubs:
 //   • the voice model — SYNTHESIZES bytes (synthOne, fed to the sequence's produce, never invoked
@@ -238,6 +238,29 @@ describe('useReadAloud — onFinish (autoplay chain signal)', () => {
 		});
 		const later = result.current.active;
 		expect(later && (later.cueIndex > 0 || later.wordIndex > 0)).toBe(true);
+	});
+
+	it('the Guide reaches each sentence GUIDE_LEAD_MS before the reader does, and never falls behind it', async () => {
+		// On a phone the focus trailed the voice (owner, 2026-09-28): the Guide leads by a fixed step.
+		const { result } = renderHook(() => useReadAloud('Alpha bravo charlie. Delta echo. Foxtrot golf.'));
+		act(() => result.current.play());
+		const first: { reader: number[]; guide: number[] } = { reader: [], guide: [] };
+		for (let t = 0; t < 8000; t += 10) {
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(10);
+			});
+			const r = result.current.active?.cueIndex ?? -1;
+			const g = result.current.guideCue;
+			if (r >= 0) expect(g).toBeGreaterThanOrEqual(r);
+			if (first.reader[r] === undefined && r >= 0) first.reader[r] = t;
+			if (first.guide[g] === undefined && g >= 0) first.guide[g] = t;
+		}
+		for (const k of [1, 2]) {
+			const early = (first.reader[k] as number) - (first.guide[k] as number);
+			// Absolute bounds: a lead that silently drops to zero must fail here.
+			expect(early).toBeGreaterThanOrEqual(80);
+			expect(early).toBeLessThanOrEqual(GUIDE_LEAD_MS + 20);
+		}
 	});
 });
 

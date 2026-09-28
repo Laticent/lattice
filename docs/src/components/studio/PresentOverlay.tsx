@@ -1301,7 +1301,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	//
 	// Abort any gesture still in flight first: a block change while the cursor is mid-stroke
 	// must retarget, not queue up behind it and arrive two sentences late.
-	const activeCue = reader.active?.cueIndex ?? -1;
+	// The Guide runs GUIDE_LEAD_MS ahead of the reader (read-aloud.ts), so its focus lands as the
+	// sentence's first word is heard rather than after it.
+	const activeCue = reader.guideCue;
 	// THE SLIDE IS PART OF THE TRIGGER, and leaving it out is a silent stop.
 	//
 	// A cue index is per-SLIDE, so it resets to 0 on every navigation. On a deck whose slides
@@ -1345,9 +1347,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const saidWord = reader.active?.wordIndex ?? -1;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the active word IS the trigger; the refs are read at fire time on purpose.
 	React.useEffect(() => {
-		const words = guideLive && saidCue >= 0 ? (reader.track.cues[saidCue]?.words.map((w) => w.display) ?? []) : null;
+		// Only while the Guide is on the sentence being said: in its lead it is already on the next
+		// one, and this sentence's words must not light inside that one's element.
+		const words = guideLive && saidCue >= 0 && saidCue === reader.guideCue ? (reader.track.cues[saidCue]?.words.map((w) => w.display) ?? []) : null;
 		guide.readAlong(words, saidWord, delivery, captionsOn);
-	}, [saidCue, saidWord, guideLive, delivery.wordFocus, captionsOn]);
+	}, [saidCue, saidWord, reader.guideCue, guideLive, delivery.wordFocus, captionsOn]);
 
 	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over
 	// the slide and its backdrop (never the dock — Pause must always be findable and clickable),

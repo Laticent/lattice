@@ -44,6 +44,16 @@ const OR_KEY_LS = 'lattice-db-or-key';
 export const SYNC_LEAD_MS = 40;
 
 /**
+ * How far (ms) the GUIDE's sentence runs ahead of the reader's. The focus is a crossfade, and on a
+ * phone the render between the clock and the class swap costs frames, so a focus that starts on the
+ * sentence's first word finishes after it: heard as "slightly behind" on an iPhone (owner,
+ * 2026-09-28). Starting the next sentence's focus this much early lands it as the word is heard; a
+ * visual that leads its audio reads as in sync, one that trails reads as late (the same asymmetry
+ * as SYNC_LEAD_MS). Only the Guide leads: the caption and the read-along keep the reader's clock.
+ */
+export const GUIDE_LEAD_MS = 120;
+
+/**
  * One captured audio-timing event, for the on-device read-aloud diagnostics
  * (gated behind `?readaloud-debug=1` in Present). Purely observational — the
  * regression this exists to pin ("skips words / races") can only be verified on
@@ -112,6 +122,8 @@ export type ReadAloudState = {
 	track: CaptionTrack;
 	/** The word being spoken NOW ({cueIndex, wordIndex}), or null when idle / in a gap. */
 	active: Active | null;
+	/** The cue the Guide is on: `active`'s, or the next once it is GUIDE_LEAD_MS away; -1 with nothing active. */
+	guideCue: number;
 	/** Read progress 0..1 (elapsed / duration), for the transport bar. */
 	progress: number;
 	/** The active voice rung — 'silent' (captions only) | 'openrouter-tts' | 'kokoro' | … */
@@ -360,6 +372,9 @@ export function useReadAloud(
 	const track = React.useMemo(() => buildTrack(text, { acronyms, emphasis, lang, lexicon }), [text, acronyms, emphasis, lang, lexicon]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
+	// The sentence the Guide is on: the reader's, or the next one once it is GUIDE_LEAD_MS away.
+	const [guideCue, setGuideCue] = React.useState(-1);
+	const guideCueRef = React.useRef(-1);
 	const [progress, setProgress] = React.useState(0);
 	// Last progress value pushed into React state — the quantizer's reference (see tick).
 	const lastProgressRef = React.useRef(0);
@@ -491,6 +506,8 @@ export function useReadAloud(
 		clearBuffering();
 		readerRef.current?.reset();
 		setActive(null);
+		guideCueRef.current = -1;
+		setGuideCue(-1);
 		setProgress(0);
 		setPlaying(false);
 		if (debugRef.current) setDebugLive(null);
@@ -544,6 +561,8 @@ export function useReadAloud(
 				clearBuffering();
 				setPlaying(false);
 				setActive(null);
+				guideCueRef.current = -1;
+				setGuideCue(-1);
 				onFinishRef.current?.();
 			},
 		});
@@ -572,6 +591,8 @@ export function useReadAloud(
 			clearBuffering();
 			setPlaying(false);
 			setActive(null);
+			guideCueRef.current = -1;
+			setGuideCue(-1);
 			lastProgressRef.current = 0; // the quantizer's reference follows the state it mirrors
 			setProgress(0);
 		};
@@ -615,6 +636,17 @@ export function useReadAloud(
 		}
 		lastTRef.current = now;
 		const activeNow = reader.sync(elapsedRef.current);
+		// THE GUIDE'S LEAD. Never ahead of a sentence that has not begun on the reader's clock by more
+		// than GUIDE_LEAD_MS, never behind the reader, and nothing while the reader shows nothing.
+		let lead = activeNow?.cueIndex ?? -1;
+		if (lead >= 0) {
+			const cues = reader.trackNow().cues;
+			while (lead + 1 < cues.length && (cues[lead + 1]?.startMs ?? Infinity) <= elapsedRef.current + GUIDE_LEAD_MS) lead++;
+		}
+		if (lead !== guideCueRef.current) {
+			guideCueRef.current = lead;
+			setGuideCue(lead);
+		}
 		const dur = reader.durationMs();
 		// QUANTIZED. This ran `setProgress` on every animation frame, so a ~60 Hz React render
 		// of the whole Present tree rode on the audio clock. That was survivable when the only
@@ -1110,7 +1142,7 @@ export function useReadAloud(
 		if (playingRef.current) resumeClockedFromCurrentRef.current();
 	}, [mutedProp, clearBuffering]);
 
-	return { playing, track, active, progress, rung, buffering, debugEvents, debugLive, play, pause, toggle, stop };
+	return { playing, track, active, guideCue, progress, rung, buffering, debugEvents, debugLive, play, pause, toggle, stop };
 }
 
 // ── TTS settings bridge (the Workspace AI-tab TTS section) ──────────────────
