@@ -433,6 +433,14 @@ It refuses to write a file, rather than write a wrong one, when the stage moves 
 a slide or a cue lands off the layout, narration has not finished, no clip decodes, or a clip
 would lose speech off the front of the video.
 
+The capture's clock keeps the browser's nested-timer rule (a timer armed more than five timers deep
+waits at least 4 ms), because a viewer's browser does. The player's transport is one long chain of
+timers, so it runs a wait of 0 at once instead of arming a timer for it: a sentence whose clip ran
+past its estimate leaves the next one a gap of 0, and as a timer that gap cost 4 ms and moved every
+later slide off `timeline()`. That is why the spike's tone-voiced Q3 export used to be refused
+(the last two slides 35 ms late, against a bound of one frame plus 0.5 ms);
+`test/unit/export/ltt-player-transport.test.js` runs the player on a clock with the same rule.
+
 **Needs a Chromium that encodes H.264 through WebCodecs** (Chrome or Chrome for Testing; a
 distribution `chromium` may lack it). A probe runs before any capture and stops with an error
 that says so. Chrome for Testing on Linux cannot encode AAC, so `@mediabunny/aac-encoder`

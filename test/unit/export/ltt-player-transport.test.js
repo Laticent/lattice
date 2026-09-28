@@ -20,12 +20,18 @@ const { JSDOM } = require('jsdom');
 
 const FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../docs/src/lib/ltt/conformance/deck-captions-only.json'), 'utf8'));
 
-/** A clock the test owns: setTimeout, rAF, Date.now and performance.now all read it. */
+/** A clock the test owns: setTimeout, rAF, Date.now and performance.now all read it.
+ *
+ *  It keeps the browser's NESTED-TIMER RULE, as the video capture's clock does
+ *  (lib/export/video.mjs installFrameClock): a timer armed from inside a timer nests one level
+ *  deeper, and past five levels a browser holds it to at least 4 ms. The transport is one long
+ *  chain of timers, so a zero wait armed as a timer cost 4 ms in every real browser and moved every
+ *  later slide off timeline(); a clock without the rule could not see that. */
 function installClock(window) {
-	const clock = { now: 0, seq: 0, queue: new Map() };
+	const clock = { now: 0, seq: 0, queue: new Map(), depth: 0 };
 	const schedule = (fn, ms) => {
 		const id = ++clock.seq;
-		clock.queue.set(id, { at: clock.now + Math.max(0, Number(ms) || 0), fn, id });
+		clock.queue.set(id, { at: clock.now + Math.max(clock.depth >= 5 ? 4 : 0, Number(ms) || 0), fn, id, depth: clock.depth + 1 });
 		return id;
 	};
 	window.setTimeout = (fn, ms) => schedule(fn, ms);
@@ -42,7 +48,9 @@ function installClock(window) {
 			if (!next) break;
 			clock.queue.delete(next.id);
 			clock.now = next.at;
+			clock.depth = next.depth;
 			next.fn();
+			clock.depth = 0;
 			onTick?.();
 		}
 		clock.now = until;
@@ -100,6 +108,46 @@ test('the exported player arrives on every slide when timeline() says, and stops
 	// zero-length one held 900 ms. Restating either rule differently in the transport moves slide 3's
 	// end, and so `stoppedAt`.
 	assert.ok(ltt.segments[2].track.cues.some((c) => c.endMs - c.startMs < 300), 'the fixture exercises the floor');
+	dom.window.close();
+});
+
+// A ZERO WAIT IS NOT A TIMER. positionAt lays a sentence straight after the one before it whenever
+// that one's clip ran past its estimate (gap = max(0, next start - end) = 0), and a track may end
+// with no tail. The transport used to arm those as setTimeout(fn, 0), and the chain of timers is
+// long, so every one past the fifth was held to 4 ms: each later slide arrived 4 ms late per zero
+// wait. `lattice video` refused the spike's tone-voiced Q3 export for exactly that — the last two
+// slides 35 ms late against a 33.8 ms bound, cue drift 0 until one zero gap and 4 ms after it.
+test('a zero breath does not cost a timer: slides stay on timeline() through contiguous cues', async () => {
+	const { timeline, unpack } = await import('@laticent/ltt');
+	const docHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>T</title></head><body>
+<section data-lattice-slide="1" id="1" class="content"><h1>One</h1></section>
+<section data-lattice-slide="2" id="2" class="content"><h2>Two</h2></section>
+<section data-lattice-slide="3" id="3" class="content"><h2>Three</h2></section>
+</body></html>`;
+	// Eight contiguous sentences: seven zero gaps, most of them deeper than five timers.
+	const contiguous = {
+		durationMs: 4000,
+		cues: Array.from({ length: 8 }, (_, i) => ({ display: `Sentence ${i}.`, startMs: i * 500, endMs: i * 500 + 500, charOffset: i * 12, words: [{ display: `Sentence ${i}.`, spoken: `sentence ${i}`, startMs: i * 500, endMs: i * 500 + 500, charOffset: i * 12 }] })),
+	};
+	const slides = [contiguous, FIXTURE.ltt.segments[0].track, FIXTURE.ltt.segments[2].track].map((track) => ({ text: track.cues.map((c) => c.display).join(' '), track, clips: [] }));
+	const { html } = await buildPlayerHtml({ docHtml, source: '---\npace: natural\n---\n\n# One\n', title: 'T', now: 0, narration: { slides } });
+	let clock;
+	const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(window) { clock = installClock(window); } });
+	const { document } = dom.window;
+	const ltt = unpack(JSON.parse(document.querySelector('script[data-lp-ltt]').textContent));
+	const plan = timeline(ltt);
+	assert.ok(ltt.segments[0].track.cues.length === 8, 'the contiguous slide survived the export');
+	const count = () => document.querySelector('body > #lp-bar > #lp-count').textContent.trim();
+	const arrivals = [];
+	let last = count();
+	document.getElementById('lp-play').click();
+	clock.runUntil(plan.durationMs + 5000, () => {
+		if (count() !== last) {
+			last = count();
+			arrivals.push(clock.now);
+		}
+	});
+	assert.deepEqual(arrivals, plan.segments.slice(1).map((g) => g.startMs), 'each slide arrives where its segment starts');
 	dom.window.close();
 });
 
