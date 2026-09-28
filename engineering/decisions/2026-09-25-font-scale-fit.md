@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance. Amended 2026-09-27: every component manifest carries `venueCapacity` (a measured count per venue, or a stated reason for none), which lint, the docs and the pick list all read; the calibration rig's SCALE-line parse, broken by LEVEL, is fixed. Amended 2026-09-27 (3): STEP, LEVEL and the Studio's hidden measuring frame are RETIRED by owner ruling — a venue (and any `scale-*`) is a fixed setting, like desktop zoom, so every slide renders at it; a slide too full for it clips and is named by `lint:deck`, the Studio's ring and clip notice (one-click Split or a smaller venue) and the export's OVERFLOW line. The Studio gains a Venue menu and a Present venue switch.
+summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance. Amended 2026-09-27: every component manifest carries `venueCapacity` (a measured count per venue, or a stated reason for none), which lint, the docs and the pick list all read; the calibration rig's SCALE-line parse, broken by LEVEL, is fixed. Amended 2026-09-27 (3): STEP, LEVEL and the Studio's hidden measuring frame are RETIRED by owner ruling — a venue (and any `scale-*`) is a fixed setting, like desktop zoom, so every slide renders at it; a slide too full for it clips and is named by `lint:deck`, the Studio's ring and clip notice (one-click Split or a smaller venue) and the export's OVERFLOW line. The Studio gains a Venue menu and a Present venue switch. Amended 2026-09-28 (6): a claim panel (split-panel) is judged by the LINES its eyebrow, heading, opening question and lede wrap to at each venue, from rig-measured line geometry, instead of by words.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-07-28-capacity-basis.md, 2026-07-29-autosplit-is-not-a-toggle.md, 2026-09-07-overflow-guards-trim.md
 ---
 
@@ -661,3 +661,69 @@ lede) clips while slide 10 (50, 160) fits. Rendered LINE counts separate every o
 leaves room for 7 lede lines and a 2-line heading for 8. Predicting lines from text needs per-glyph
 widths in a bundle that already grew 668 bytes here, so that line model is its own piece of work
 (`followups.d/2361-p2-venue-lint-accuracy-on-real-decks.md`).
+
+## Amendment 2026-09-28 (6) — a claim panel is judged by lines
+
+**The rows now store line geometry, not words.** Amendment (5) left the claim panel on a word
+row and named the reason it could not do better: at hall, seven-steps' slide 8 clips and slide 10
+fits with near-identical word and character counts. Rendered at each venue and measured line by
+line, the 15 claim panels lint judges across four decks (`gallery.md`, bloom, seven-steps, kaizen;
+60 renders, one per venue) show three things a word count cannot see:
+
+- **The eyebrow wraps.** It is uppercase mono with letter spacing, about 0.74 em a character, so
+  at hall an eyebrow of 19 or more characters takes two lines (`Step 3 · Generalize`), and that
+  line is 140 px of a 2160-high slide.
+- **A `proof` lede's opening `*question*` is its own block**, set in the display face
+  (`split-panel.styles.css`: `p em:first-child { display: block }`), at the venue's size in `proof`
+  and at the heading's fixed size in `capstone`.
+- **Once those lines are counted, the overhead is constant.** For every clipped panel, the
+  column's scroll height minus its lines × their line heights is 408 px, bare and `proof` alike.
+  The column holds 1764 px of text lines in the bare register and 1740 px in `proof` / `capstone`
+  (the question's gap is folded into the budget), FRAME_TOLERANCE included.
+
+**Characters per line come from the font, not from the decks.** The rig measures each role's
+average advance on a fixed English sample in its own computed font. The measured values
+(heading 0.46 em, question 0.434 em, lede 0.431 em) sit inside the plateau of values that
+predict the shipped panels' line counts best. A flat greedy wrap at those widths gets the
+heading's line count right in 56 of those 60 renders, the question's in 51 of 52, and the lede's in 56 of 60.
+Every heading miss is one line short, on one borderline heading. Per-glyph widths
+were not needed. All 33 themes share one font set (`lib/base/base.tokens.css`); only the sketch
+finish swaps it, and a sketch deck is judged on the shipped geometry.
+
+**What changed.** `venueCapacity.panel` is now `{ lines: { bare, proof, capstone }, not }`. Each
+register gives, per venue, [characters a line holds, px a line takes] for `eyebrow`, `heading`,
+`question` (`proof` and `capstone` only) and `lede`, plus a `budget`.
+`tools/calibrate-capacity.js split-panel --panel [--json]` measures all three registers at all
+four venues in one run of about 10 s. It reads the probe's computed styles and counts the probe's
+lines, instead of sweeping lede words. `lint-core` `panelOver` wraps the slide's eyebrow, heading,
+question and lede at those widths (`wrapLines`) and sums them against the budget. It reads the
+last register the slide carries, so `proof capstone` reads capstone. The finding now names the
+line counts it found ("heading 3 lines, question 2 lines, lede 5 lines") and how far past the
+column they run. The old `byHeading` / `variants` / `tried` rows are gone.
+
+Scored the same way as Amendment (5), five decks each forced to each venue:
+
+| venue | before: right / false / missed | after |
+|---|---|---|
+| huddle | 26 / 3 / 16 | 26 / 3 / 16 |
+| conference | 48 / 8 / 42 | 48 / 8 / 42 |
+| hall | 83 / 2 / 64 | 86 / 2 / 61 |
+
+(The "before" column is re-measured on this branch's base, one right slide above Amendment (5)'s
+table at each venue.) Lint now catches seven-steps 5, 7 and 8 and `gallery.md` 93, and raises no new
+false warning. Seven-steps 11 is still missed: its heading ("Let the machine answer, on cases you
+chose to be convincing.") fills its first line to within half a character, and the browser breaks
+it one line earlier than the average width predicts.
+
+**Bundle.** Measured as a pair (root `npm run build`, then the docs build, on each side): the
+Studio's eager JS goes from 633,752 to 634,028 bytes gz (+276 B, including a one-token Present
+guard, on main 7138b99), which leaves 7 B under that base's 634,035 budget, so
+`docs/route-budget.json` moves to 634,310 by the owner's rule (measurement plus about 280 B).
+
+**Still not judged:** an emphasis that opens the lede's CSS block but not its text (`Plain
+lede *aside* more`: `p em:first-child` ignores text nodes, so the browser sets `*aside*` as a block
+too) and a question containing `*` or `_` — both read as plain lede and under-count by a line or
+two, toward silence; a split-panel slide with no points (the count loop stops before the panel
+check), a `![bg …]` split background (it moves the slide off the `wide` family), and a
+720-high deck's frame tolerance, which is 36 px of a 2160 slide rather than the 12 this budget
+carries (it warns up to 24 px early there).

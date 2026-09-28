@@ -319,94 +319,29 @@
       }
     },
     "panel": {
-      "byHeading": {
-        "3": {
-          "laptop": 64,
-          "huddle": 44,
-          "conference": 36,
-          "hall": 28
+      "lines": {
+        "bare": {
+          "eyebrow": {"laptop": [43.9,71.9], "huddle": [38.2,82.7], "conference": [29.4,107.5], "hall": [22.5,140.2]},
+          "heading": {"laptop": [16.8,230.4], "huddle": [16.8,230.4], "conference": [16.8,230.4], "hall": [16.8,230.4]},
+          "lede": {"laptop": [40.2,126], "huddle": [35,144.9], "conference": [30.9,163.8], "hall": [26.8,189]},
+          "budget": {"laptop": 1764, "huddle": 1764, "conference": 1765, "hall": 1764}
         },
-        "6": {
-          "laptop": 56,
-          "huddle": 40,
-          "conference": 32,
-          "hall": 24
-        },
-        "9": {
-          "laptop": 40,
-          "huddle": 28,
-          "conference": 20,
-          "hall": 16
-        },
-        "12": {
-          "laptop": 28,
-          "huddle": 16,
-          "conference": 16,
-          "hall": 8
-        }
-      },
-      "variants": {
         "proof": {
-          "3": {
-            "laptop": 80,
-            "huddle": 80,
-            "conference": 68,
-            "hall": 44
-          },
-          "6": {
-            "laptop": 80,
-            "huddle": 68,
-            "conference": 56,
-            "hall": 32
-          },
-          "9": {
-            "laptop": 80,
-            "huddle": 68,
-            "conference": 56,
-            "hall": 32
-          },
-          "12": {
-            "laptop": 80,
-            "huddle": 64,
-            "conference": 52,
-            "hall": 28
-          }
+          "eyebrow": {"laptop": [35.8,71.9], "huddle": [31.1,82.7], "conference": [23.9,107.5], "hall": [18.4,140.2]},
+          "heading": {"laptop": [23.4,134.4], "huddle": [23.4,134.4], "conference": [23.4,134.4], "hall": [23.4,134.4]},
+          "question": {"laptop": [33.8,126], "huddle": [29.4,144.9], "conference": [26,163.8], "hall": [22.5,189]},
+          "lede": {"laptop": [43,96.2], "huddle": [37.4,110.6], "conference": [33,125.1], "hall": [28.6,144.3]},
+          "budget": {"laptop": 1741, "huddle": 1740, "conference": 1742, "hall": 1740}
         },
         "capstone": {
-          "3": {
-            "laptop": 80,
-            "huddle": 80,
-            "conference": 68,
-            "hall": 44
-          },
-          "6": {
-            "laptop": 80,
-            "huddle": 68,
-            "conference": 56,
-            "hall": 32
-          },
-          "9": {
-            "laptop": 80,
-            "huddle": 68,
-            "conference": 56,
-            "hall": 32
-          },
-          "12": {
-            "laptop": 80,
-            "huddle": 64,
-            "conference": 52,
-            "hall": 28
-          }
+          "eyebrow": {"laptop": [35.8,71.9], "huddle": [31.1,82.7], "conference": [23.9,107.5], "hall": [18.4,140.2]},
+          "heading": {"laptop": [23.4,134.4], "huddle": [23.4,134.4], "conference": [23.4,134.4], "hall": [23.4,134.4]},
+          "question": {"laptop": [25.3,134.4], "huddle": [25.3,134.4], "conference": [25.3,134.4], "hall": [25.3,134.4]},
+          "lede": {"laptop": [43,96.2], "huddle": [37.4,110.6], "conference": [33,125.1], "hall": [28.6,144.3]},
+          "budget": {"laptop": 1740, "huddle": 1740, "conference": 1742, "hall": 1741}
         }
       },
-      "not": [
-        "metric",
-        "pullquote",
-        "steps",
-        "watermark",
-        "qr"
-      ],
-      "tried": 80
+      "not": ["metric", "pullquote", "steps", "watermark", "qr"]
     }
   }
 }

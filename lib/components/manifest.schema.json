@@ -1182,18 +1182,21 @@
         },
         "panel": {
           "type": "object",
-          "description": "For a component whose binding box is a fixed-width CLAIM PANEL (`split-panel`): the most lede words the panel holds under a heading of each length, per venue, measured with `tools/calibrate-capacity.js split-panel --panel [--variant <token>] [--scale l|xl|2xl]` (an eyebrow, the heading, the lede, the usual points beside it). `variants` holds a register's own rows (`proof`, `capstone`); `not` lists the variants the bare row does not describe (their panel features something other than a heading and a lede). Lint judges a slide's heading and lede words against it.",
+          "description": "For a component whose binding box is a fixed-width CLAIM PANEL (`split-panel`): the panel's LINE GEOMETRY per register (`bare`, `proof`, `capstone`), measured with `tools/calibrate-capacity.js split-panel --panel --json`. Each text role (`eyebrow`, `heading`, the `proof` `question`, the `lede`) carries, per venue, [the characters a line holds, the px a line takes on a 2160-high slide]; `budget` is the px the column's text holds (its padding and gaps already taken out, FRAME_TOLERANCE added back). Lint wraps a slide's own heading and lede into those lines and adds the heights (2026-09-25-font-scale-fit.md, Amendment (6)). `not` lists the variants the geometry does not describe (their panel features something other than a heading and a lede).",
           "additionalProperties": false,
-          "required": ["byHeading"],
+          "required": ["lines"],
           "properties": {
-            "byHeading": { "$ref": "#/$defs/venuePanelRows" },
-            "variants": {
+            "lines": {
               "type": "object",
-              "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
-              "additionalProperties": { "$ref": "#/$defs/venuePanelRows" }
+              "required": ["bare"],
+              "additionalProperties": false,
+              "properties": {
+                "bare": { "$ref": "#/$defs/venuePanelLines" },
+                "proof": { "$ref": "#/$defs/venuePanelLines" },
+                "capstone": { "$ref": "#/$defs/venuePanelLines" }
+              }
             },
-            "not": { "type": "array", "items": { "type": "string" } },
-            "tried": { "type": "integer", "minimum": 1, "description": "The most lede words the rig tried (`--max`). A row at it is a floor: the panel held every lede the rig wrote." }
+            "not": { "type": "array", "items": { "type": "string" } }
           }
         },
         "atLeast": {
@@ -1376,12 +1379,45 @@
         "hall": { "type": "integer", "minimum": 0 }
       }
     },
-    "venuePanelRows": {
+    "venuePanelLines": {
       "type": "object",
-      "description": "Lede words per venue, keyed by the heading's word count.",
-      "propertyNames": { "pattern": "^[1-9][0-9]*$" },
-      "minProperties": 1,
-      "additionalProperties": { "$ref": "#/$defs/venueRow" }
+      "description": "One register's claim-panel line geometry: per text role, per venue, [characters a line holds, px a line takes of a 2160-high slide]; `budget`, per venue, the px the text column holds.",
+      "required": ["heading", "lede", "budget"],
+      "additionalProperties": false,
+      "properties": {
+        "eyebrow": { "$ref": "#/$defs/venueLineRow" },
+        "heading": { "$ref": "#/$defs/venueLineRow" },
+        "question": { "$ref": "#/$defs/venueLineRow" },
+        "lede": { "$ref": "#/$defs/venueLineRow" },
+        "budget": {
+          "type": "object",
+          "required": ["laptop", "huddle", "conference", "hall"],
+          "additionalProperties": false,
+          "properties": {
+            "laptop": { "type": "number", "exclusiveMinimum": 0 },
+            "huddle": { "type": "number", "exclusiveMinimum": 0 },
+            "conference": { "type": "number", "exclusiveMinimum": 0 },
+            "hall": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "venueLineRow": {
+      "type": "object",
+      "required": ["laptop", "huddle", "conference", "hall"],
+      "additionalProperties": false,
+      "properties": {
+        "laptop": { "$ref": "#/$defs/linePair" },
+        "huddle": { "$ref": "#/$defs/linePair" },
+        "conference": { "$ref": "#/$defs/linePair" },
+        "hall": { "$ref": "#/$defs/linePair" }
+      }
+    },
+    "linePair": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number", "exclusiveMinimum": 0 }
     }
   }
 }

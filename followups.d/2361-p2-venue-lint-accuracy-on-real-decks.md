@@ -79,6 +79,21 @@ progress  — 2026-09-28 (font-scale-fit.md Amendment (5)): two fixes. (1) The r
             The scorer lives nowhere in the tree: it renders each deck with `venue:` forced into
             its front matter (`renderProbe`) and compares the OVERFLOW pages with lint's
             `capacity-scale` slides.
+progress  — 2026-09-28 (font-scale-fit.md Amendment (6)): the LINE model, for the claim panel. The
+            rig (`calibrate-capacity split-panel --panel`) now measures line geometry per register
+            and venue: characters a line holds and px a line takes for the eyebrow, heading, the
+            `proof` opening question (its own block) and the lede, plus the column's budget.
+            `panelOver` wraps the slide's text into it. Five decks, right/false/missed: huddle 26/3/16
+            and conference 48/8/42 (unchanged), hall 83/2/64 → 86/2/61; no new false warning. The
+            Studio bundle costs +276 B gz (633,752 → 634,028 on main 7138b99), and
+            route-budget.json moved to 634,310 by the owner's rule (measurement + ~280 B). Per-glyph widths were NOT needed: a flat
+            character count at each font's measured average advance wraps 56/60 headings,
+            51/52 questions and 56/60 ledes right.
+            LEFT: seven-steps 11 at hall (a heading that fills its line to half a character); every
+            other miss is a component with no line model. By count at hall, the misses are in
+            `gallery.md` (39) and the talk (9). A line model for the COUNT rows (cards, lists) is the
+            next step if the owner wants the hall numbers to move further, and it would need its own
+            bundle budget.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.
