@@ -421,6 +421,9 @@ Docker container, Docker's default seccomp profile is what blocks the sandbox,
 whatever the host's AppArmor says: start the container with a seccomp profile
 that allows user namespaces.
 
+To write a component that carries code, see
+[Writing a code package](/guides/code-packages/).
+
 ### Start a plugin
 
 In a clone of the repository, `packages new plugin` scaffolds a plugin in
