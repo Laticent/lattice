@@ -605,3 +605,21 @@ that is already on: a key disconnecting with a cloud voice chosen made `audioUna
 and disabled the audio switch in its checked state, so the author could not opt out of an export
 that would now refuse. The switch now disables only turning audio ON (`audioLocked`). The
 checker on #2446 found it; the same PR fixes it, pinned by a unit case that fails on the old line.
+
+**The WebGPU path (2026-09-28).** The sandbox has no GPU, but Chromium exposes WebGPU through its
+software adapter, SwiftShader (`--enable-unsafe-webgpu --enable-unsafe-swiftshader
+--use-webgpu-adapter=swiftshader`). One real-Studio run on the tree BEFORE #2443 took the fp32 /
+`webgpu` path: it fetched `onnx/model.onnx` and ONNX Runtime's `jsep` build, loaded the voice, and
+the panel read "10 sentences · free, on this device". The export then refused: every sentence hit
+the 45 s bake timeout. Kokoro timed alone on that adapter took 204–266 s for its first two
+sentences, against 4–6 s on WASM. That run exposed a wrong message: `synthFor` said "check your
+connection" for a voice that makes no request. It now says the on-device voice is too slow on this
+device.
+
+**This path is no longer reachable on SwiftShader.** #2443 added `probeWebGPU()`, which asks
+`requestAdapter()` and routes a missing or fallback adapter (SwiftShader reports
+`isFallbackAdapter: true`) to q8 / WASM. The later runs with the same flags, on the rebased tree,
+therefore ran on WASM and completed. A hardware GPU remains UNVERIFIED here, and the new timeout
+message is pinned by a unit case rather than seen on the real panel: no reachable run timed out once
+the fallback adapter stopped taking the WebGPU path, and CPU throttling does not slow the worker that
+runs inference.

@@ -7,3 +7,6 @@
 - **Fixed: the "Narration audio" switch can always be turned off.** If the cloud voice became
   unavailable while the webpage export panel was open with audio on, the switch stayed on and
   could not be changed. It now only blocks turning audio on.
+- **Fixed: an on-device narration that times out no longer says "check your connection".** The
+  on-device voice makes no network request, so the export's refusal now names the real cause:
+  the voice is too slow on this device.

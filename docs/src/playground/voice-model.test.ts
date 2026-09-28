@@ -488,8 +488,13 @@ describe('synthFor / clipKeyFor — an identity the CALLER names (what the webpa
       );
       const p = model.synthFor({ rung: 'kokoro', text: 'A slow sentence.', timeoutMs: 45000 });
       await vi.advanceTimersByTimeAsync(45000);
-      await p;
+      const res = await p;
       expect(aborted, 'the slot is freed the moment we stop waiting').toBe(true);
+      // The refusal names the real cause. This voice makes no request, so "check your connection"
+      // sent a keyless author after a network that was never involved.
+      expect(res.error).toContain('45s');
+      expect(res.error).toContain('too slow on this device');
+      expect(res.error).not.toMatch(/connection/);
     } finally {
       vi.useRealTimers();
     }
