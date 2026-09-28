@@ -144,6 +144,30 @@
 			.bar-row text { fill: var(--ink); font-family: var(--mono); font-size: 11px; }
 			.note { margin-top: 12px; font-size: 12.5px; color: var(--muted); }
 
+			.gram { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; }
+			@media (max-width: 900px) { .gram { grid-template-columns: minmax(0, 1fr); } }
+			.gram-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+			.label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+			.gram-code { min-height: 360px; font-size: 12.5px; line-height: 1.55; tab-size: 2; white-space: pre; overflow: auto; }
+			@media (max-width: 720px) { .gram-code { min-height: 300px; font-size: 12px; } }
+			.gram-input { width: 100%; font-family: var(--mono); font-size: 15px; padding: 11px 13px; border-radius: 12px; border: 1px solid var(--line);
+				background: var(--panel); color: var(--ink); outline: none; }
+			.gram-input:focus, .gram-code:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); outline: none; }
+			.gram .verdict { margin-top: 0; }
+			.caret { color: var(--accent); font-weight: 700; }
+			.gram-tree { min-height: 90px; }
+			.tree { list-style: none; margin: 0; padding: 0 0 0 16px; font-family: var(--mono); font-size: 12.5px; border-left: 1px solid var(--line); }
+			#gramTree > .tree { padding-left: 0; border-left: 0; }
+			.tree li { padding: 2px 0; }
+			.tree .k { color: var(--tok-name); font-weight: 600; }
+			.tree .t { color: var(--tok-quote); }
+			.tree .at { color: var(--muted); font-size: 11px; }
+			.samples { display: flex; gap: 6px; flex-wrap: wrap; }
+			.samples[hidden] { display: none; }
+			.samples .try { font-family: var(--mono); }
+			.gen { margin-top: 14px; }
+			.gen summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+			.gen .code { max-height: 360px; overflow: auto; white-space: pre; word-break: normal; }
 			.foot { margin-top: 26px; color: var(--muted); font-size: 12.5px; line-height: 1.7; }
 			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -162,15 +186,39 @@
 				</div>
 			</header>
 			<p class="sub">
-				One inline notation for every chart and directive: <b>a value, a [list] or a &#123;record&#125;</b>, commas between
-				items, <b>name=value</b> when you want to be explicit, and double quotes that must close. Segno reads it
-				in <b>one left-to-right pass</b> — its compiler refuses any grammar it cannot prove linear — and a schema per slot
-				says what each word means. Everything below runs the <b>real library</b>, in this page.
+				<b>Write a grammar as data, and Segno compiles it into a parser</b> that reads any input in one left-to-right
+				pass — or refuses the grammar, naming the rule that would make it guess. Its first grammar is
+				Lattice's <b>one inline notation</b>: a value, a [list] or a &#123;record&#125;, commas between items, <b>name=value</b> when you
+				want to be explicit, and double quotes that must close, with a schema per slot saying what each word means.
+				Everything below runs the <b>real library</b>, in this page.
 			</p>
 
+			<section class="stage" aria-labelledby="gram-h">
+				<h2 id="gram-h">Write a grammar, parse with it</h2>
+				<p class="lede">A grammar is a few rules built from <code>seq</code>, <code>alt</code>, <code>many</code>, <code>opt</code>, <code>ref</code> and character sets; <code>node</code> marks the pieces you want back. Edit the grammar or the text: it compiles and parses as you type. Pick a refused grammar to see the compiler say no.</p>
+				<div class="presets" id="gramPresets" role="group" aria-label="Example grammar"></div>
+				<div class="gram">
+					<div class="gram-col">
+						<label class="label" for="gramCode">Grammar</label>
+						<textarea class="deck gram-code" id="gramCode" spellcheck="false" autocomplete="off" wrap="off"></textarea>
+					</div>
+					<div class="gram-col">
+						<label class="label" for="gramInput">Text to parse</label>
+						<input class="gram-input" id="gramInput" spellcheck="false" autocomplete="off" />
+						<div class="verdict" id="gramVerdict" aria-live="polite"></div>
+						<div class="card gram-tree"><div class="label">Parse tree</div><div id="gramTree"></div></div>
+					</div>
+				</div>
+				<details class="gen">
+					<summary>The same grammar as generated code</summary>
+					<p class="note">What <code>generate(grammar)</code> writes: straight-line TypeScript, no library at runtime. The notation ships this way.</p>
+					<pre class="code" id="gramGen"></pre>
+				</details>
+			</section>
+
 			<section class="stage" aria-labelledby="try-h">
-				<h2 id="try-h">Type a span</h2>
-				<p class="lede">Pick where the span sits, then type. The same notation means different things in different slots; the slot's schema decides, and an error names what the slot takes.</p>
+				<h2 id="try-h">Its first grammar: Lattice's inline notation</h2>
+				<p class="lede">Past the parse tree, the notation has a second layer: a schema per slot binds each word to a meaning. Pick where the span sits, then type. The same notation means different things in different slots; the slot's schema decides, and an error names what the slot takes.</p>
 				<div class="slots" id="slots" role="group" aria-label="Slot"></div>
 				<div class="editor"><input id="src" spellcheck="false" autocomplete="off" aria-label="Span text" /></div>
 				<div class="tokens" id="tokens" aria-live="polite"></div>
@@ -198,14 +246,6 @@
 				<div class="findings" id="findings" aria-live="polite"></div>
 			</section>
 
-			<section class="stage" aria-labelledby="compile-h">
-				<h2 id="compile-h">The compiler says no</h2>
-				<p class="lede">A grammar builds only if every decision can be made from the next character, with no going back. That is what makes a Segno parser linear on any input. Three grammars, compiled live:</p>
-				<div class="presets" id="presets" role="group" aria-label="Grammar"></div>
-				<pre class="code" id="grammarCode"></pre>
-				<div class="verdict" id="verdict"></div>
-			</section>
-
 			<section class="stage" aria-labelledby="speed-h">
 				<h2 id="speed-h">Hostile input, timed in your browser</h2>
 				<p class="lede">The inputs that took parser libraries from one second to over sixteen in the bake-off, at 2k, 8k and 32k characters. Linear growth is about 4x per step; quadratic would be 16x.</p>
@@ -223,7 +263,8 @@
 
 		<script>
 			import {
-				alt, any, chars, color, compile, consistency, flag, lint, list, many, named, number, oneOf, opt, parse, range, record, ref, seq, text, time,
+				alt, any, charRange, chars, color, compile, consistency, flag, generate, GrammarError, lit, list, many, many1, named, node, noneOf, number,
+				oneOf, opt, parse, range, record, ref, seq, text, time,
 			} from '@/lib/segno';
 
 			const $ = (s) => document.querySelector(s);
@@ -412,47 +453,188 @@
 			});
 			renderDeck();
 
-			// ── The compiler ──
-			const digit = chars('0123456789', 'a digit');
-			const PRESETS = [
+			// ── Write a grammar, parse with it ──
+			// The grammar box holds the same code a user writes against the library: helper consts,
+			// then `return { start, rules }`. It runs in this tab only, on what the visitor typed — it is
+			// never read from the URL or stored — with nothing in scope but the grammar vocabulary.
+			const DSL = { alt, any, charRange, chars, lit, many, many1, node, noneOf, opt, ref, seq };
+			const G = [
 				{
-					name: 'A list of numbers',
-					code: "list: seq('[', opt(seq(num, many(seq(',', num)))), ']')\nnum:  many1(digit)",
-					spec: () => ({ start: 'list', rules: { list: seq('[', opt(seq(ref('num'), many(seq(',', ref('num'))))), ']'), num: seq(digit, many(digit)) } }),
+					name: 'Settings line',
+					inputs: ['width=12; color=red', 'width=12; =red', 'width=12;color=red; size=lg'],
+					code: `const letter = charRange('a', 'z', 'a letter');
+const space = many(chars(' '));
+
+return {
+  start: 'line',
+  rules: {
+    line: seq(
+      ref('setting'),
+      many(seq(';', space, ref('setting'))),
+    ),
+    setting: node('setting', seq(
+      node('key', many1(letter)),
+      '=',
+      node('value', many1(noneOf('; '))),
+    )),
+  },
+};`,
 				},
 				{
-					name: 'Greedy text, then a quote',
-					code: "// the shape behind 'a quote opens only if a partner exists later'\ns: seq('\"', many(any()), '\"')",
-					spec: () => ({ start: 's', rules: { s: seq('"', many(any()), '"') } }),
+					name: 'Flowchart row',
+					inputs: ['Storefront -> Payments -> Ledger', 'Storefront -> -> Ledger', 'API'],
+					code: `// Boxes joined by arrows. A name may hold spaces,
+// so the space BEFORE an arrow belongs to the name
+// (the reader trims it): that keeps it one-pass.
+const nameChar = noneOf('-> ', 'a name');
+
+return {
+  start: 'row',
+  rules: {
+    row: seq(
+      ref('box'),
+      many(seq('->', many(chars(' ')), ref('box'))),
+    ),
+    box: node('box', seq(
+      nameChar,
+      many(noneOf('->', 'a name')),
+    )),
+  },
+};`,
 				},
 				{
-					name: 'Two ways to start',
-					code: "s: alt(seq('a', 'b'), seq('a', 'c'))",
-					spec: () => ({ start: 's', rules: { s: alt(seq('a', 'b'), seq('a', 'c')) } }),
+					name: 'Date range',
+					inputs: ['2026-01-15..2026-03-31', '2026-1-15..2026-03-31', '2026-01-15..'],
+					code: `const d = chars('0123456789', 'a digit');
+const d2 = seq(d, d);
+
+return {
+  start: 'range',
+  rules: {
+    range: seq(ref('date'), '..', ref('date')),
+    date: node('date', seq(
+      node('year', seq(d2, d2)), '-',
+      node('month', d2), '-',
+      node('day', d2),
+    )),
+  },
+};`,
+				},
+				{
+					name: 'Refused: two ways to start',
+					inputs: ['ab'],
+					code: `// Both branches start with "a": at the first
+// character the parser would have to guess, and a
+// wrong guess means going back. Segno refuses it.
+return {
+  start: 's',
+  rules: {
+    s: alt(seq('a', 'b'), seq('a', 'c')),
+  },
+};`,
+				},
+				{
+					name: 'Refused: greedy, then a quote',
+					inputs: ['"hello"'],
+					code: `// The loop takes any character, the closing quote
+// included, so at a quote it could stop or go on.
+// That ambiguity is what makes "look ahead for the
+// partner quote" scanners quadratic on bad input.
+return {
+  start: 's',
+  rules: {
+    s: seq('"', many(any()), '"'),
+  },
+};`,
 				},
 			];
-			const presetsEl = $('#presets');
-			function showPreset(k) {
-				for (const b of presetsEl.children) b.setAttribute('aria-pressed', String(Number(b.dataset.k) === k));
-				const p = PRESETS[k];
-				$('#grammarCode').textContent = p.code;
-				const problems = lint(p.spec());
-				const v = $('#verdict');
-				v.dataset.ok = String(!problems.length);
-				if (problems.length) v.textContent = `Refused. ${problems.join('\n')}`;
-				else {
-					const g = compile(p.spec());
-					const a = g.parse('[12,3,40]'), b = g.parse('[12;3]');
-					v.textContent = `Compiles. It reads in one pass.\n  "[12,3,40]" reads: ${a.ok ? 'ok' : 'error'}\n  "[12;3]" stops at offset ${b.ok ? '-' : b.error.at}: expected ${b.ok ? '-' : b.error.expected}, found ${b.ok ? '-' : JSON.stringify(b.error.found)}`;
+			const gramCode = $('#gramCode'), gramInput = $('#gramInput'), gramVerdict = $('#gramVerdict'), gramTree = $('#gramTree'), gramGen = $('#gramGen');
+			const gramPresets = $('#gramPresets');
+			let gramCurrent = 0;
+			let parser = null, spec = null;
+
+			function el(tag, cls, textIn) { const e = document.createElement(tag); if (cls) e.className = cls; if (textIn != null) e.textContent = textIn; return e; }
+			function renderTree(n, textIn) {
+				const ul = el('ul', 'tree');
+				for (const k of n.kids) {
+					const li = el('li');
+					li.append(el('span', 'k', k.kind));
+					if (!k.kids.length) { li.append(' '); li.append(el('span', 't', JSON.stringify(textIn.slice(k.from, k.to)))); }
+					li.append(' '); li.append(el('span', 'at', `${k.from}..${k.to}`));
+					if (k.kids.length) li.append(renderTree(k, textIn));
+					ul.append(li);
+				}
+				return ul;
+			}
+			function verdict(ok, lines) { gramVerdict.dataset.ok = String(ok); gramVerdict.replaceChildren(...lines); }
+
+			function compileGrammar() {
+				parser = null; spec = null;
+				try {
+					spec = new Function(...Object.keys(DSL), `"use strict";\n${gramCode.value}`)(...Object.values(DSL));
+					if (!spec || typeof spec !== 'object' || !spec.rules) throw new Error('the grammar code must end with return { start, rules }');
+				} catch (e) {
+					verdict(false, [`Your grammar code does not run: ${e.message}`]);
+					gramTree.replaceChildren(); gramGen.textContent = '';
+					return;
+				}
+				try {
+					parser = compile(spec);
+				} catch (e) {
+					if (!(e instanceof GrammarError)) { verdict(false, [`Your grammar code does not run: ${e.message}`]); gramTree.replaceChildren(); gramGen.textContent = ''; return; }
+					verdict(false, ['Refused — this grammar would have to guess:', ...e.problems.map((p) => `\n  ${p}`)]);
+					gramTree.replaceChildren(el('p', 'note', 'No parser was built, so there is nothing to parse with. Every parser Segno does build reads in one pass.'));
+					gramGen.textContent = '// Nothing is generated for a grammar the compiler refuses.';
+					return;
+				}
+				try { gramGen.textContent = generate(spec); } catch { gramGen.textContent = ''; }
+				parseInput();
+			}
+			function parseInput() {
+				if (!parser) return;
+				const t = gramInput.value;
+				const r = parser.parse(t);
+				if (r.ok) {
+					verdict(true, ['Compiles, and this text parses.']);
+					gramTree.replaceChildren(renderTree(r.node, t));
+				} else {
+					const e = r.error;
+					const found = e.found === null ? 'the end' : JSON.stringify(e.found);
+					const pointer = el('span', 'caret', `${' '.repeat(e.at)}^`);
+					verdict(false, [`Compiles, but this text stops at character ${e.at}: expected ${e.expected}, found ${found}.\n  ${t}\n  `, pointer]);
+					gramTree.replaceChildren(el('p', 'note', 'Nothing is returned for text that does not parse — never a partial tree.'));
 				}
 			}
-			PRESETS.forEach((p, k) => {
-				const b = document.createElement('button');
-				b.type = 'button'; b.className = 'chip'; b.textContent = p.name; b.dataset.k = String(k);
-				b.addEventListener('click', () => showPreset(k));
-				presetsEl.append(b);
+			function showGrammar(k) {
+				gramCurrent = k;
+				for (const b of gramPresets.children) b.setAttribute('aria-pressed', String(Number(b.dataset.k) === k));
+				gramCode.value = G[k].code;
+				gramInput.value = G[k].inputs[0];
+				compileGrammar();
+				renderSamples();
+			}
+			function renderSamples() {
+				const box = $('#gramSamples');
+				box.hidden = !parser;
+				box.replaceChildren(...G[gramCurrent].inputs.map((t) => {
+					const b = el('button', 'try', t);
+					b.type = 'button';
+					b.addEventListener('click', () => { gramInput.value = t; parseInput(); });
+					return b;
+				}));
+			}
+			G.forEach((g, k) => {
+				const b = el('button', 'chip', g.name);
+				b.type = 'button'; b.dataset.k = String(k);
+				b.addEventListener('click', () => showGrammar(k));
+				gramPresets.append(b);
 			});
-			showPreset(0);
+			const samples = el('div', 'samples'); samples.id = 'gramSamples';
+			gramInput.after(samples);
+			let codeTimer = 0;
+			gramCode.addEventListener('input', () => { clearTimeout(codeTimer); codeTimer = setTimeout(compileGrammar, 150); });
+			gramInput.addEventListener('input', parseInput);
+			showGrammar(0);
 
 			// ── The ladder ──
 			const SHAPES = [

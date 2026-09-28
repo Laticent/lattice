@@ -150,7 +150,7 @@ fresh process and about 280 ns in one that has also parsed lists and failed span
 the mixed, realistic figure.
 
 Every shape on the hostile-input ladder grows linearly and stays under 3 ms at 32,000 characters.
-The `/segno` page runs the same ladder in your browser.
+The `/segno` page runs the same ladder in your browser, and lets you write a grammar and parse with it.
 
 ## Build
 

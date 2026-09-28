@@ -299,7 +299,12 @@ its own mark and palette.
   - an alias and shortcut playground, including the per-deck consistency check;
   - a speed proof that runs the bake-off's hostile shapes in the visitor's browser and plots the
     growth;
-  - the compiler refusing a non-linear grammar, live.
+  - **the engine on its own, first**: write a grammar in the page, see it compiled and the parse
+    tree for any text, a precise error with a caret for bad text, and the compiler's refusal for a
+    grammar that would have to guess (preset: a settings line, a flowchart row, a date range, and
+    two refused grammars), plus the straight-line code `generate()` writes for it. The first cut
+    showed only the notation and three fixed refusals, which left "Segno parses any grammar you
+    define" for the reader to infer — the owner's review caught it.
 - **Verified at 390, 820 and 1440 px, light and dark** (QUALITY BAR), and driven in Chromium: an
   error typed and its fix applied, the deck fix applied, a grammar refused, the ladder run. The mark is
   inlined in the page so it follows the page's theme toggle; `public/segno-mark.svg` (the favicon)
