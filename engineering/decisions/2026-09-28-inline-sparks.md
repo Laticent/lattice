@@ -76,6 +76,7 @@ also keeps the parser a whitespace split, with no locale rules.
 | **width** | `fill` — its own line, as wide as the text block | the size's fixed width | all but ring |
 | **scale** | `zero` — start the value axis at 0 | low-to-high | line, area, step |
 | **markers** | `end` (latest value), `minmax` (low and high); both allowed | none | line, area, step |
+| **frame** | `framed` — a pill's capsule behind it (added 2026-09-28, §10 h) | bare | all |
 
 **A spark attempt is a `~{` with a digit in its data**, so LaTeX's `\~{}` and `\~{n}` are
 never read as broken sparks. **An attempt that doesn't parse stays literal code, and nothing is
@@ -214,6 +215,12 @@ every ruling.
 - **(e) Loss color in `winloss`: `--accent`.** It stays palette-blind. *Alternative:* a status
   token (the red/green register), which reads faster but ties sparks to the status palette.
 - **(f) 48 points maximum.** Past that, bars merge at `md` and the data is a chart, not a spark.
+- **(h) Framing — settled 2026-09-28: opt-in `:framed`, bare by default.** Asked after the
+  implementation. A frame per spark would make every table busier than its numbers, so bare
+  stays the default. The opt-in frame reuses the pill's own measures (font size, padding, 1px
+  edge, radius, fill; a color slot's fill and edge), so a framed spark and a pill stand the
+  same height on one `kpi` line, and a spark can hold contrast on a backdrop. The frame is a
+  `::before` inside the span's padding, not a border plus margin (HARD RULE #20).
 - **(g) `lint:deck` coaching.** A span that opens with `~{` but doesn't parse gets a warning
   naming the reason (the pill rule has no such warning today). Recommended, since the literal
   fallback is silent otherwise.

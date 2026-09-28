@@ -4280,12 +4280,13 @@ section .lat-spark[data-type='ring'] > svg > * { vector-effect:none; fill:none; 
 section .lat-spark[data-type='ring'] .s-track { stroke:color-mix(in srgb, currentColor 18%, transparent); }
 section .lat-spark[data-type='ring'] .s-arc { stroke:currentColor; }
 
-/* Dots: `--x` / `--y` are unitless percents of the drawing, which sits inside the padding. */
+/* Dots: `--x` / `--y` are unitless percents of the drawing, which sits inside the padding
+ * (inline padding always; block padding only when framed). */
 section .lat-spark-dot {
   --spark-dot:calc(var(--spark-stroke) * 3.4);
   position:absolute;
   left:calc(var(--spark-pad) + (100% - 2 * var(--spark-pad)) * var(--x) / 100);
-  top:calc(var(--y) * 1%);
+  top:calc(var(--spark-pad-y, 0px) + (100% - 2 * var(--spark-pad-y, 0px)) * var(--y) / 100);
   width:var(--spark-dot);
   height:var(--spark-dot);
   translate:-50% -50%;
@@ -4295,18 +4296,59 @@ section .lat-spark-dot {
 /* "Now" is the accent in every spark on a slide, whatever the line's color. */
 section .lat-spark-dot.s-end { --spark-dot:calc(var(--spark-stroke) * 3.8); background:var(--accent); }
 
-section .lat-spark[data-c='c1']  { color:var(--cat-1-mark); }
-section .lat-spark[data-c='c2']  { color:var(--cat-2-mark); }
-section .lat-spark[data-c='c3']  { color:var(--cat-3-mark); }
-section .lat-spark[data-c='c4']  { color:var(--cat-4-mark); }
-section .lat-spark[data-c='c5']  { color:var(--cat-5-mark); }
-section .lat-spark[data-c='c6']  { color:var(--cat-6-mark); }
-section .lat-spark[data-c='c7']  { color:var(--cat-7-mark); }
-section .lat-spark[data-c='c8']  { color:var(--cat-8-mark); }
-section .lat-spark[data-c='c9']  { color:var(--cat-9-mark); }
-section .lat-spark[data-c='c10'] { color:var(--cat-10-mark); }
-section .lat-spark[data-c='c11'] { color:var(--cat-11-mark); }
-section .lat-spark[data-c='c12'] { color:var(--cat-12-mark); }
+section .lat-spark[data-c='c1']  { --spark-c-mark:var(--cat-1-mark); --spark-c-fill:var(--cat-1-fill); }
+section .lat-spark[data-c='c2']  { --spark-c-mark:var(--cat-2-mark); --spark-c-fill:var(--cat-2-fill); }
+section .lat-spark[data-c='c3']  { --spark-c-mark:var(--cat-3-mark); --spark-c-fill:var(--cat-3-fill); }
+section .lat-spark[data-c='c4']  { --spark-c-mark:var(--cat-4-mark); --spark-c-fill:var(--cat-4-fill); }
+section .lat-spark[data-c='c5']  { --spark-c-mark:var(--cat-5-mark); --spark-c-fill:var(--cat-5-fill); }
+section .lat-spark[data-c='c6']  { --spark-c-mark:var(--cat-6-mark); --spark-c-fill:var(--cat-6-fill); }
+section .lat-spark[data-c='c7']  { --spark-c-mark:var(--cat-7-mark); --spark-c-fill:var(--cat-7-fill); }
+section .lat-spark[data-c='c8']  { --spark-c-mark:var(--cat-8-mark); --spark-c-fill:var(--cat-8-fill); }
+section .lat-spark[data-c='c9']  { --spark-c-mark:var(--cat-9-mark); --spark-c-fill:var(--cat-9-fill); }
+section .lat-spark[data-c='c10'] { --spark-c-mark:var(--cat-10-mark); --spark-c-fill:var(--cat-10-fill); }
+section .lat-spark[data-c='c11'] { --spark-c-mark:var(--cat-11-mark); --spark-c-fill:var(--cat-11-fill); }
+section .lat-spark[data-c='c12'] { --spark-c-mark:var(--cat-12-mark); --spark-c-fill:var(--cat-12-fill); }
+section .lat-spark[data-c] { color:var(--spark-c-mark); }
+
+/* `:framed` — the pill's capsule behind the spark, so a spark beside a pill on a kpi line
+ * reads as its pair (spec: engineering/decisions/2026-09-28-inline-sparks.md).
+ *
+ * IT TAKES THE PILL'S OWN MEASURES, not look-alikes: the pill's font size (the smaller of
+ * 0.85em and `--pill-fs`, scaled 0.85 / 1.2 for :sm / :lg), its `--pill-pad-y` /
+ * `--pill-pad-x`, its 1px edge, `--pill-radius`, and its fill, edge and ink — or, with a
+ * color slot, the slot's `--cat-N-fill` / `--cat-N-mark` / `--cat-on-fill`, as `:c3` does on
+ * a pill. The drawing is one line of that font tall, so a framed spark and a pill of the same
+ * size stand the same height.
+ *
+ * THE FRAME IS A ::before INSIDE THE SPAN, not the span's own border. The span keeps its outer
+ * `--spark-pad-out` of padding as the gap to its neighbors (no margin, HARD RULE #20); the
+ * frame fills the rest, at 0 in the local depth band with the drawing and dots at 1 above it. */
+section .lat-spark[data-framed] {
+  --spark-frame-scale:1;
+  --spark-pad-out:0.15em;
+  --spark-h:1em;
+  --spark-pad:calc(var(--spark-pad-out) + var(--pill-pad-x) + 1px);
+  --spark-pad-y:calc(var(--pill-pad-y) + 1px);
+  font-size:calc(min(0.85em, max(var(--pill-fs), 0.5em)) * var(--spark-frame-scale));
+  padding-block:var(--spark-pad-y);
+  color:var(--pill-fg, var(--text-body));
+}
+section .lat-spark[data-framed][data-size='sm'] { --spark-frame-scale:0.85; }
+section .lat-spark[data-framed][data-size='lg'] { --spark-frame-scale:1.2; }
+section .lat-spark[data-framed][data-type='ring'] { --spark-h:1em; }
+section .lat-spark[data-framed][data-c] { color:var(--cat-on-fill); }
+section .lat-spark[data-framed] > svg { position:relative; z-index:1; }
+section .lat-spark[data-framed] > .lat-spark-dot { z-index:1; }
+section .lat-spark[data-framed]::before {
+  content:'';
+  position:absolute;
+  inset:0 var(--spark-pad-out);
+  z-index:0;
+  box-sizing:border-box;
+  border:1px solid var(--spark-c-mark, var(--pill-border, var(--muted-mark)));
+  border-radius:var(--pill-radius);
+  background:var(--spark-c-fill, var(--pill-bg, var(--bg)));
+}
 
 /* ── Inline state marks — `` `[x]` `` anywhere inline code can go ──────────────
  * The six state markers inside SINGLE-backtick inline code decode to the same disc

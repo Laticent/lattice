@@ -33,6 +33,17 @@ describe('inline-sparks — what it renders', () => {
     assert.equal(sparks.COLORS.length, 12);
   });
 
+  test(':framed applies to every type and marks the host, and nothing else changes', () => {
+    for (const text of ['~{1 2 3}', '~{1 -1}:winloss', '~{72%}', '~{3/4}:bullet']) {
+      const bare = sparks.resolve(text);
+      const framed = sparks.resolve(`${text}:framed`);
+      assert.equal(framed.framed, true, text);
+      assert.deepEqual(framed.marks, bare.marks, `${text}: the frame is CSS, the drawing is unchanged`);
+    }
+    assert.match(sparks.sparkHtml('~{1 2}:framed:c3'), /data-c="c3" data-framed=""/);
+    assert.equal(sparks.resolve('~{1 2}:framed:framed'), null);
+  });
+
   test('modifier order is free — the axes are sorted, not positional', () => {
     assert.equal(sparks.sparkHtml('~{1 3 2}:area:c4:lg:end'), sparks.sparkHtml('~{1 3 2}:end:lg:c4:area'));
   });

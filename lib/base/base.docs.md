@@ -1650,6 +1650,15 @@ A spark takes the color of the text it sits in. `:c1`–`:c12` point it at the s
 categorical slots pills use. A `winloss` loss is `--accent`, but its position below the
 line carries the meaning.
 
+### Frame — `:framed`
+
+A spark is bare ink by default, which is what keeps a table of them quiet. `:framed` puts
+a pill's capsule behind it: the pill's own height, padding, edge, radius and fill, so a
+spark next to a pill on a `kpi` line reads as its pair (`` `~{38 39 40 42}:framed:end` ``
+beside `` `On plan` ``). With a color slot it takes the slot's fill and edge, as
+`` `{X}:c3` `` does. It also helps a spark hold contrast on a tinted panel or a backdrop. It
+works on every type.
+
 Modifier order is free: `` `~{1 3 2}:area:c4:lg` `` and `` `~{1 3 2}:lg:c4:area` `` are
 the same spark. Each spark carries `role="img"` and a spoken label with its numbers
 ("Trend, 8 points, from 0.8 to 1.9, low 0.8, high 1.9").
