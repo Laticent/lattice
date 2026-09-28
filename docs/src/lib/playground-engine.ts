@@ -160,7 +160,7 @@ export function createEngineBridge(
 				// being rewritten — no blank frame, and the reader keeps their scroll position.
 				restyleKey: `${geom.w}x${geom.h}`,
 				// A VIRTUAL filmstrip: only the slides in view are real in the frame; the rest are
-				// same-size placeholders (preview-virtual.js). The host moves the window with
+				// same-size placeholders (virtual-window.js). The host moves the window with
 				// `attachVirtual` / `syncVirtual` / `mountAround`.
 				virtual: true,
 				// The runtime waits for the faces these slides use, not all 17 the engine declares

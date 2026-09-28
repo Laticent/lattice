@@ -400,3 +400,24 @@ describe('roughInkFingerprint — the repaint guard', () => {
     assert.notEqual(roughInkFingerprint([plan(), plan({ key: 'table:0:1' })]), roughInkFingerprint([plan()]));
   });
 });
+
+// THE SEED FOLLOWS THE SLIDE, not its place in the DOM. The Playground's virtual filmstrip keeps
+// unmounted slides as placeholder divs and stamps each mounted slide with its deck index
+// (`data-lv-i`). A seed taken from the slide's position among the mounted SECTIONS would change as
+// the window moved, and every slide's hand-drawn wobble would be redrawn with it.
+describe('measureRoughInk — seed', () => {
+  const structures = [{ id: 'table', kind: 'grid', sel: 'section.sketch.table table' }];
+  const table = `<table style="${INK}" data-geom="0,0,800,400"><tr data-geom="0,0,800,100"><td>a</td></tr></table>`;
+
+  test('a slide stamped with its deck index seeds from that index', () => {
+    mount(`<div data-lv-ph=""></div><section data-lv-i="7" ${SECTION}>${table}</section>`);
+    const [plan] = measureRoughInk(structures);
+    assert.match(plan.key, /^table:7:/);
+  });
+
+  test('an unstamped slide (every other host) still seeds from its position', () => {
+    mount(`<section ${SECTION}>${table}</section>`);
+    const [plan] = measureRoughInk(structures);
+    assert.match(plan.key, /^table:0:/);
+  });
+});

@@ -48,11 +48,12 @@ sketch-ink seeds, debug labels) reads the same answer mounted or not.
 
 The controller lives in `docs/src/playground/deck-render.js` (Playground only), which also keeps it
 out of the Studio's eager bundle; the pure window arithmetic and placeholder builder live in
-`preview-virtual.js`. Kernel follow-through: `section-index` keeps the engine's
+`virtual-window.js` — its own module, so the Studio's builder, which imports the patch kernel in
+`preview-virtual.js`, does not carry them. Kernel follow-through: `section-index` keeps the engine's
 `data-lat-section` stamp, rough ink seeds from `data-lv-i`, and the runtime installs sketch ink when
 a sketch placeholder exists.
 
-### Measured — `deck-cost.mjs`, same machine, 1440×900, Edit view
+### Measured — `docs/scripts/playground-bench.mjs deck`, same machine, 1440×900, Edit view
 
 "Fling" is 150 wheel steps of 500px, 16ms apart; "read" is 150 steps of 60px. `main` is 9237268.
 
@@ -67,9 +68,9 @@ a sketch placeholder exists.
 | Jargon ×9 (522) | 4x | main | 38382ms | 17441ms | 25,494 | 117 / 153 | 67 / 41 |
 | | | virtual | **17090ms** | **328ms** | **722** | 50 / 14 | 83 / 34 |
 
-The one row that got worse is reading-speed scroll on the 58-slide deck at 4x: the fully mounted
-deck paid for every slide up front (a 15s load task) and scrolled for free, and the virtual one pays
-as slides arrive. Its worst frame is the first render of a Mermaid diagram scrolling into view: the
+The rows that got worse are reading-speed scroll at 4x — the 58-slide deck (p95 33 → 67ms) and,
+less, the 522-slide one (67 → 83ms): the fully mounted deck paid for every slide up front (a 15s
+load task on the 58-slide deck) and scrolled for free, and the virtual one pays as slides arrive. Its worst frame is the first render of a Mermaid diagram scrolling into view: the
 runtime's theme reader forces one style recalculation per token, 166 of them, per diagram group
 (`openSectionReader` in `lib/runtime/index.js`). A remount replays from the SVG cache, so each
 diagram pays once. That reader is shared with the Studio and is logged as a follow-up rather than
@@ -91,22 +92,30 @@ visitor — the first component's walk, default palette, one file per mode — b
 modules: the engine bundle the browser loads (in jsdom), and the bridge, plan reader and
 `renderDeck` (through Vite's SSR loader). It embeds the render state `renderDeck` keeps after writing
 (`#pg-bake`: signature, restyle key, section list). The page's head decides, from the same boot
-resolution it already makes, whether the boot will show exactly that deck; if so the body loads the
-bake into the preview iframe during parse. The app's first render then **adopts** it
+resolution it already makes, whether the boot will show exactly that deck; if so it fetches the bake
+at once, and the body writes it into the preview iframe as `srcdoc` the moment the iframe exists. The app's first render then **adopts** it
 (`newcomer-bake.ts`): it takes the embedded state and renders as an ordinary patch. A current bake
-changes nothing; a stale one is patched or restyled in place; only a changed slide size forces a new
-document, and the app hides the frame before writing it.
+changes nothing; a stale one is patched or restyled in place. What forces a new document is what
+forces one on any render — a changed slide size, a theme change on a deck with a Mermaid diagram, a
+change in which heavy assets the deck needs — and then the app hides the frame before writing it.
 
 Details that each came from a measurement:
 
 - **Served beside its runtime**, in the content-hashed `v/<hash>/` directory, so a bake cached past
   a deploy still finds the runtime it names.
-- **A directory index** (`newcomer/light/`), not `newcomer-light.html`: the runtime reads a document
-  ending in `.html` as an export and fetches the `.md` beside it.
-- **Nothing is warmed from the head.** A browser does not share an in-flight request between
-  documents, so a head `fetch` of the bake or the runtime is a second download. Measured on slow 4G:
-  the bake twice and the runtime three times on the wire. For the same reason the page's runtime
-  prefetch (`RuntimeWarm` elsewhere) runs only when no bake is in play.
+- **Written as `srcdoc`, never as the frame's `src`.** A `src` navigation left the bake in the
+  frame's history: the app's next full write (to `about:srcdoc`, a different URL) pushed an entry,
+  and Back navigated the FRAME to the old newcomer deck under an app that had moved on (found by
+  the red team; the e2e spec now asserts a write over the bake adds no history entry). srcdoc to
+  srcdoc replaces the entry. The same move lets the head start the fetch, before the parser has
+  reached the island's 400KB of props.
+- **A directory index** (`newcomer/light/`), not `newcomer-light.html`: the runtime reads a
+  document whose URL ends in `.html` as an export and fetches the `.md` beside it. (Written as
+  srcdoc, the bake's URL is `about:srcdoc` anyway; the index keeps a direct visit quiet too.)
+- **Nothing else is warmed from the head.** A browser does not share an in-flight request between
+  documents, so a head fetch of the runtime is a second download racing the frame's own. Measured on
+  slow 4G with an earlier draft: the bake twice and the runtime three times on the wire. The page's
+  runtime prefetch (`RuntimeWarm` elsewhere) runs only when no bake is in play.
 - **It lands where the app will.** On a phone the app pinned slide 1 16px below the top, 20px from
   where a document opens, so the filmstrip jumped when the app went live. Slide 1 in the pinned
   regime now lands at the document top. On the desktop stage the loader marks the frame
@@ -115,7 +124,7 @@ Details that each came from a measurement:
 - **Not on a constrained link.** Under Save-Data, or an effective connection of 3G or worse, the
   page skips the bake (below).
 
-### Measured — `first-paint.mjs` over HTTP/2 (GitHub Pages serves h2), fresh profile, 1440×900
+### Measured — `playground-bench.mjs first-paint` over HTTP/2 (GitHub Pages serves h2), fresh profile, 1440×900
 
 First slide visible, in ms; `main` is 9237268.
 
@@ -134,7 +143,7 @@ later too. That is the case the Save-Data / effective-connection gate exists for
 
 The hand-off is verified pixel-identical: the preview pane captured the moment the baked slide
 shows and again once the app is live differs by 0 pixels, in both modes, at 1440, 820 and 390
-(`handoff-shots.mjs`). The e2e spec asserts both halves on the real page: the bake shows before the
+(`playground-bench.mjs handoff`). The e2e spec asserts both halves on the real page: the bake shows before the
 app goes live, and the frame still holds the baked document afterwards
 (`playground-first-paint.spec.ts`, "the newcomer bake").
 
@@ -143,7 +152,7 @@ app goes live, and the frame still holds the baked document afterwards
 `<PlaygroundWarm>` on the home page (`src/lib/prefetch-engine.ts` `warmPlayground`) prefetches the
 bake for the reader's mode and the theme sheets, under the same connection policy as the engine
 warm beside it (nothing under Save-Data or on 2G, on intent over 3G). A speculation rule prefetches
-the Playground document on hover. Measured — `journey.mjs`: land on home, dwell 5s, hover the
+the Playground document on hover. Measured — `playground-bench.mjs journey`: land on home, dwell 5s, hover the
 Playground link, click; click → first slide visible, over HTTP/2:
 
 | Network | CPU | main | this change |
@@ -181,11 +190,26 @@ slow-4G trace, font requests fell from 20 to 10 and the app went interactive 2.2
   the frame can start before ~4.2s. Moving the catalog out of the HTML is a separate change.
 - **Only the newcomer's deck is baked** — the first component, default palette. A returning visitor
   keeps the snapshot replay (`snapshot-cache.js`).
+- **Safari and Firefox have no `navigator.connection`**, so the constrained-link gate cannot see a
+  slow iPhone link and the bake runs there. The measured cost of that case is ~1s later on slow 4G
+  at 1x CPU; a better signal would need a server hint (`Save-Data`/`ECT` client hints).
+- **Before the app hydrates, nothing mounts.** The bake carries the first five slides; a newcomer
+  who scrolls past them in the first second or two sees placeholders until the app's window takes
+  over.
+- **Only mounted slides are in the frame's DOM**, so the browser's find-in-page and a screen reader
+  walking the preview see the window, and an anchor to a heading inside an unmounted slide goes
+  nowhere (a slide's own `id` survives on its placeholder). The editor beside it holds the whole
+  source.
+- **The bake must stay byte-identical to the browser's render.** It is built with jsdom's
+  DOMPurify, not Chromium's; the first-paint smoke test fails if the app patches any baked slide
+  (proved by seeding a drifted slide into a bake), in light and dark, and `build:e2e` builds the
+  bake so that test runs on every PR.
 
 ## Files
 
-`docs/src/playground/deck-render.js`, `preview-virtual.js`, `newcomer-bake.ts`, `deck-preview.js`
+`docs/src/playground/deck-render.js`, `virtual-window.js`, `newcomer-bake.ts`, `deck-preview.js`
 (placeholders in the fit agent, `deck` and `previewFonts` options), `docs/scripts/bake-newcomer-frame.mjs`,
 `docs/src/pages/playground.astro`, `docs/src/components/playground/PlaygroundApp.tsx`,
 `lib/core/font-settle.js`, `lib/runtime/index.js`, `lib/core/section-index.js`,
-`lib/core/rough-ink-dom.js`.
+`lib/core/rough-ink-dom.js`, `docs/src/components/site/PlaygroundWarm.astro`; the bench is
+`docs/scripts/playground-bench.mjs`.

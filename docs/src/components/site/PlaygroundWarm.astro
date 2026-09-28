@@ -10,17 +10,34 @@
 //    memory pressure. NOT prerendered: a prerender runs the whole app — the engine included —
 //    for every hover that does not become a click, and Chromium refuses to prerender under
 //    DevTools, so it could not be verified from an automated browser.
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { assetBase } from '../../playground/asset-version.mjs';
 import { joinBase } from '../../lib/base-url.mjs';
+import { COMPONENT_KEY, SOURCE_KEY, VIEW_KEY } from '../../lib/playground-controller';
 
 const base = import.meta.env.BASE_URL;
 const pg = assetBase();
+// The palettes that ship a `-dark` sheet, read off the staged tree the build is about to publish —
+// the app only asks for one that exists (playground-engine.ts `hasTheme`), and neither should this.
+let darkPalettes: string[] = [];
+try {
+	darkPalettes = readdirSync(join(process.cwd(), 'public', pg, 'themes'))
+		.filter((f) => f.endsWith('-dark.css'))
+		.map((f) => f.slice(0, -'-dark.css'.length));
+} catch {
+	/* no staged tree (a dev server before sync): warm no dark sheet */
+}
 const cfg = {
 	urls: {
 		bakeBase: joinBase(base, pg + 'newcomer/'),
-		themes: [joinBase(base, pg + 'themes/lattice.css'), joinBase(base, pg + 'themes/cuoio.css')],
+		themeBase: joinBase(base, pg + 'themes/'),
 	},
 	bakePalette: 'cuoio',
+	darkPalettes,
+	// What a returning visitor leaves behind; any of them means the Playground will not open on the
+	// newcomer's deck, so the bake is not worth its bytes (playground.astro makes the same call).
+	keys: { source: SOURCE_KEY, component: COMPONENT_KEY, view: VIEW_KEY },
 };
 const playground = joinBase(base, 'playground/');
 const rules = {
@@ -31,12 +48,21 @@ const rules = {
 <script type="application/json" data-playground-warm set:html={JSON.stringify(cfg).replace(/</g, '\\u003c')}></script>
 <script type="speculationrules" set:html={JSON.stringify(rules).replace(/</g, '\\u003c')}></script>
 <script>
-	import { warmPlayground } from '../../lib/prefetch-engine.ts';
+	import { warmPlayground } from '../../lib/prefetch-playground.ts';
 	const el = document.querySelector('script[data-playground-warm]');
 	if (el?.textContent) {
-		const { urls, bakePalette } = JSON.parse(el.textContent);
+		const { urls, bakePalette, darkPalettes, keys } = JSON.parse(el.textContent);
 		const root = document.documentElement;
 		const mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
-		warmPlayground({ bake: `${urls.bakeBase}${mode}/`, themes: urls.themes }, { allowEager: true, palette: root.getAttribute('data-palette') || 'cuoio', bakePalette });
+		const palette = root.getAttribute('data-palette') || 'cuoio';
+		let newcomer = true;
+		try {
+			newcomer = !localStorage.getItem(keys.source) && !localStorage.getItem(keys.component) && localStorage.getItem(keys.view) !== 'edit';
+		} catch {
+			/* storage blocked: treat as a newcomer, which is what the Playground will do */
+		}
+		// The sheets the app registers for this palette and mode (theme-fetch.ts `ensure`).
+		const themes = [`${urls.themeBase}lattice.css`, `${urls.themeBase}${palette}.css`, ...(mode === 'dark' && darkPalettes.includes(palette) ? [`${urls.themeBase}${palette}-dark.css`] : [])];
+		warmPlayground({ bake: newcomer ? `${urls.bakeBase}${mode}/` : '', themes }, { allowEager: true, palette, bakePalette });
 	}
 </script>

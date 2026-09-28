@@ -36,7 +36,8 @@
 - **Changed: a first visit to the Playground shows a real slide sooner.** The site now
   builds the preview a first-time visitor opens on, and the page loads it before the rest
   of the Playground has downloaded. The app then takes it over as it is, with no reload.
-  Over a fast connection the first slide shows in 0.6s instead of 1.4s. The page skips
+  With no network throttling the first slide shows in 0.6s instead of 1.4s, and over fast
+  4G in 1.8s instead of 2.5s. The page skips
   this on a connection your browser marks as slow or data-saving. The home page fetches
   that first slide and the theme ahead of time, so following its Playground link over
   fast 4G shows the first slide in 0.8s instead of 2.0s.

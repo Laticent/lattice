@@ -33,7 +33,7 @@
     "check:studio-shell": "node scripts/check-studio-shell.mjs",
     "check:preview": "node scripts/check-preview-render.mjs",
     "check:modulepreload-coverage": "node scripts/check-modulepreload-coverage.mjs",
-    "build:e2e": "npm run sync:portal && npm run sync:playground && astro build",
+    "build:e2e": "npm run sync:portal && npm run sync:playground && astro build && node scripts/bake-newcomer-frame.mjs",
     "preview:e2e": "node scripts/preview-e2e.mjs",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test --project=desktop --grep @smoke",

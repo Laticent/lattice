@@ -19,7 +19,8 @@ import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { buildSrcdoc, docStyleText } from './deck-preview.js';
-import { LV_ATTR, placeholderOf, SLIDE_SELECTOR, splitSections, virtualHtml, visibleRange, windowRange, withIndex } from './preview-virtual.js';
+import { splitSections } from './preview-virtual.js';
+import { LV_ATTR, placeholderOf, SLIDE_SELECTOR, virtualHtml, visibleRange, windowRange, withIndex } from './virtual-window.js';
 
 // Patch only the <section> nodes whose HTML changed. Returns true on success
 // (a live .lattice was found), false to signal the caller to fall back to a full
@@ -42,7 +43,7 @@ export function patchSections(frame, next, prev) {
 	// the stamp exists to stop. `sectionSwapKind` asks what an edit actually is: exactly
 	// one section's HTML changed. See lib/core/swap-kind.mjs.
 	const kind = next.length !== cur.length ? SWAP_REFLOW : sectionSwapKind(prev || [], next);
-	// A VIRTUAL filmstrip (preview-virtual.js) keeps most slides as placeholders. A changed
+	// A VIRTUAL filmstrip (virtual-window.js) keeps most slides as placeholders. A changed
 	// slide stays what it was — a placeholder is replaced by the new slide's placeholder, a
 	// mounted slide by the new slide — so an edit never mounts slides nobody is looking at.
 	const range = mountedRange(cur, lattice);
@@ -101,7 +102,7 @@ export function restyleDocument(frame, sections, styleText) {
 
 // ── The virtual filmstrip controller ─────────────────────────────────────────────
 // The frame holds every slide as a <section>, but only the ones in view (plus an overscan)
-// are REAL; the rest are placeholders — the slide's own open tag, empty (preview-virtual.js).
+// are REAL; the rest are placeholders — the slide's own open tag, empty (virtual-window.js).
 // These functions move that window as the reader scrolls. They run in the PARENT, on the
 // sanitized per-slide strings `renderDeck` keeps in its state, so every byte that reaches the
 // frame has been through the sanitizer (HARD RULE #22) exactly as the patch path's have.
@@ -110,12 +111,21 @@ export function restyleDocument(frame, sections, styleText) {
 // strings that rarely change between renders — so keep them. Bounded, and dropped whole: a
 // cache miss costs one walk of one slide's HTML.
 const placeholderCache = new Map();
+// Bounded by the KEYS' size, not their count: a key is a whole section's HTML, and a deck of
+// data-URI images flipped through a few palettes (every flip changes every section string) held
+// hundreds of MB under a 4000-entry cap (found by the red team). 8M characters is ~16MB.
+let placeholderCacheChars = 0;
+const PLACEHOLDER_CACHE_CHARS = 8_000_000;
 function placeholderCached(sec) {
 	let ph = placeholderCache.get(sec);
 	if (ph === undefined) {
-		if (placeholderCache.size > 4000) placeholderCache.clear();
+		if (placeholderCacheChars + sec.length > PLACEHOLDER_CACHE_CHARS) {
+			placeholderCache.clear();
+			placeholderCacheChars = 0;
+		}
 		ph = placeholderOf(sec);
 		placeholderCache.set(sec, ph);
+		placeholderCacheChars += sec.length;
 	}
 	return ph;
 }
@@ -150,6 +160,9 @@ const KEEP_OVERSCAN = 5;
 const SEEK_VIEWPORT_MS = 150;
 // …and a fling that stops (no frame for this long) mounts where it landed.
 const SEEK_REST_MS = 90;
+// How long a `mountAround` landing stays pinned: the longest smooth step (scrollWalk's 1200ms
+// guard window) and a margin.
+const PIN_MS = 1500;
 
 /**
  * Mount `[lo, hi]` and unmount everything outside `[keepLo, keepHi]`, in ONE task, so a paint
@@ -166,14 +179,16 @@ function applyWindow(frame, sections, lo, hi, keepLo, keepHi) {
 	let changed = false;
 	let unfitted = false;
 	const swap = (i, html) => {
-		if (!changed) {
-			lattice.setAttribute('data-lattice-swap', SWAP_REFLOW);
-			changed = true;
-		}
 		const holder = doc.createElement('div');
 		holder.innerHTML = html;
 		const fresh = holder.firstElementChild;
 		if (!fresh) return;
+		// Stamped only once a node really is about to be swapped: a stamp with no write behind it
+		// would latch onto the runtime's next unrelated pass.
+		if (!changed) {
+			lattice.setAttribute('data-lattice-swap', SWAP_REFLOW);
+			changed = true;
+		}
 		// Hand the fit the element it replaces already had (a placeholder is fitted exactly like
 		// its slide), so a mount costs no whole-filmstrip fit pass: that loop visits every slide.
 		const old = cur[i];
@@ -192,7 +207,7 @@ function applyWindow(frame, sections, lo, hi, keepLo, keepHi) {
 		else if (!ph && (i < keepLo || i > keepHi)) swap(i, placeholderCached(sections[i]));
 	}
 	// Whatever was cached about this window is stale now — the next scroll re-reads it.
-	if (frame.contentWindow) frame.contentWindow.__lvGeom = null;
+	if (changed && frame.contentWindow) frame.contentWindow.__lvGeom = null;
 	if (unfitted) frame.contentWindow?.__latticeFit?.();
 	return changed;
 }
@@ -213,7 +228,11 @@ export function syncVirtual(frame, state) {
 	const win = frame?.contentWindow;
 	if (!win || !sections?.length) return false;
 	const g = win.__lvGeom;
-	if (g && g.sections === sections && g.w === win.innerWidth && g.h === win.innerHeight) {
+	// …and on the fit's scale, read off slide 0's own transform (a style read, no layout): a refit
+	// can rescale with no resize event — the splitter drag suspends the fit and resumes it on
+	// release — and a cache that missed it answered scrolls from the old pitch, leaving a blank
+	// placeholder in view (found by the red team).
+	if (g && g.sections === sections && g.w === win.innerWidth && g.h === win.innerHeight && g.first?.isConnected && g.first.style.transform === g.scale) {
 		const vis = visibleRange(win.scrollY, win.innerHeight, g.top, g.pitch, sections.length);
 		if (!vis) return false;
 		const need = windowRange(vis.first, vis.last, sections.length, NEED_OVERSCAN);
@@ -236,6 +255,12 @@ export function syncVirtual(frame, state) {
 	if (!vis) return false;
 	const mount = windowRange(vis.first, vis.last, cur.length, MOUNT_OVERSCAN);
 	const keep = windowRange(vis.first, vis.last, cur.length, KEEP_OVERSCAN);
+	// A pinned landing (mountAround) stays mounted until its scroll has had time to arrive.
+	const pin = win.__lvPin;
+	if (pin && pin.until > Date.now()) {
+		keep.lo = Math.min(keep.lo, pin.lo);
+		keep.hi = Math.max(keep.hi, pin.hi);
+	}
 	const changed = applyWindow(frame, sections, mount.lo, mount.hi, keep.lo, keep.hi);
 	// Re-read the run after a move (the old NodeList holds the replaced nodes). This runs only
 	// when something mounted, never on the settled frames the cache answers.
@@ -244,7 +269,8 @@ export function syncVirtual(frame, state) {
 	const contiguous = !!run && run.hi >= run.lo && isContiguous(after, run);
 	const runLo = run?.lo ?? 0;
 	const runHi = run?.hi ?? -1;
-	win.__lvGeom = { sections, w: win.innerWidth, h: win.innerHeight, top, pitch, lo: runLo, hi: runHi, contiguous };
+	const first = after[0];
+	win.__lvGeom = { sections, w: win.innerWidth, h: win.innerHeight, top, pitch, lo: runLo, hi: runHi, contiguous, first, scale: first?.style.transform };
 	return changed;
 }
 
@@ -266,6 +292,11 @@ export function mountAround(frame, state, index) {
 	const now = cur ? mountedRange(cur, lat) : null;
 	const keepLo = now && now.hi >= now.lo ? Math.min(now.lo, mount.lo) : mount.lo;
 	const keepHi = now && now.hi >= now.lo ? Math.max(now.hi, mount.hi) : mount.hi;
+	// PIN the target while the scroll to it travels. A smooth scroll's first frames are still
+	// near where it started, and a window move there would unmount the slides just mounted for
+	// the landing — the reader would arrive on placeholders.
+	const win = frame?.contentWindow;
+	if (win) win.__lvPin = { lo: mount.lo, hi: mount.hi, until: Date.now() + PIN_MS };
 	return applyWindow(frame, state.lastSections, mount.lo, mount.hi, keepLo, keepHi);
 }
 
@@ -454,9 +485,9 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 		st.writeId = (st.writeId || 0) + 1;
 		// VIRTUAL: write only the slides around where the reader will be (the anchor, or the top)
 		// as real sections, every other slide as its placeholder. The first paint then costs a
-		// window, not a deck — a 522-slide deck took 14s to show slide 1 fully mounted. The
-		// builder is told what the WHOLE deck needs, so no asset or policy decision is made from
-		// the window alone. `attachVirtual` takes over the window once the document loads.
+		// window, not a deck — fully mounted, a 522-slide deck took 8.5s (38s on a 4x-slowed CPU)
+		// to show slide 1. The builder is told what the WHOLE deck needs, so no asset or policy
+		// decision is made from the window alone. `attachVirtual` takes over the window once the document loads.
 		let docHtml = html;
 		let deck = null;
 		if (virtual && sections.length > 0) {

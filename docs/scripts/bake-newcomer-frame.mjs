@@ -175,10 +175,16 @@ async function main() {
 			// element it rides in (HARD RULE #22 — the sections are sanitized slide HTML, but a
 			// `</script>` inside one would still end this element early).
 			const seed = JSON.stringify({ v: 1, component, srcHash: fingerprint(source), palette: PALETTE, mode, count: r.count, state }).replace(/</g, '\\u003c');
+			// Replacer FUNCTIONS, never replacement strings: in a string, `$\``, `$&` and `$'` are
+			// patterns, and a slide carrying one (the math plan does) would paste the document around
+			// the match into the seed — raw `</script>` included (found by the red team).
 			const baked = srcdoc
-				.replace('<html ', '<html data-pg-bake="" ')
-				.replace(/<\/body>(?![\s\S]*<\/body>)/, `<script type="application/json" id="pg-bake">${seed}</script></body>`);
+				.replace('<html ', () => '<html data-pg-bake="" ')
+				.replace(/<\/body>(?![\s\S]*<\/body>)/, () => `<script type="application/json" id="pg-bake">${seed}</script></body>`);
 			if (baked === srcdoc || !baked.includes('id="pg-bake"')) throw new Error('bake: could not embed the seed');
+			// The bridge resolves a deck's relative images against `location`, which is this build's
+			// stand-in origin: a plan with a sample image would ship an address no visitor can reach.
+			if (baked.includes(origin)) throw new Error(`bake: the document names the build's stand-in origin (${origin}) — a relative asset was resolved against it`);
 			// Beside the runtime it loads, in the content-hashed asset directory: a bake cached
 			// past a deploy then still finds its runtime, where a fixed URL would outlive it.
 			// A DIRECTORY INDEX (`newcomer/<mode>/`), not `newcomer-<mode>.html`: the runtime reads

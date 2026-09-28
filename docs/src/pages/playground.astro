@@ -140,14 +140,18 @@ const gallerySources = Object.fromEntries(galleries.map((g) => [g.id, g.source])
 // the faces) and races the app's own JS for the same pipe — measured over HTTP/2, 8655 → 9601ms to
 // the first slide on slow 4G at 1x — so Save-Data or an effective connection of 3G or worse skips it.
 //
-// NOTHING IS WARMED FROM THE HEAD. A browser does not share an in-flight request between documents,
-// so a head `fetch` of the bake or the runtime is a SECOND download racing the frame's own (slow 4G:
-// the bake twice and the runtime three times on the wire). For the same reason the runtime prefetch
-// that <RuntimeWarm> issues on other pages runs here only when no bake is in play: a bake frame asks
-// for the runtime at once, and without one the frame asks seconds later and finds it warm.
+// THE HEAD FETCHES THE BAKE, and the body writes it into the frame as `srcdoc` — never as the
+// frame's `src`. A `src` navigation left the bake in the frame's history: the app's next full write
+// (to `about:srcdoc`, a different URL) pushed an entry, and Back navigated the FRAME to the old
+// newcomer deck under an app that had moved on (found by the red team). srcdoc to srcdoc replaces
+// the entry. Fetching from the head also starts the request before the island's props have parsed.
+// NOTHING ELSE is warmed from the head: a browser does not share an in-flight request between
+// documents, so a head fetch of the runtime is a SECOND download racing the frame's own (slow 4G:
+// the runtime three times on the wire). For that reason the runtime prefetch <RuntimeWarm> issues
+// on other pages runs here only when no bake is in play.
 //
-// THE BODY LOADER runs right after the island's markup, so the frame loads before any of the app's
-// code. It marks the frame `data-stage` above the tab breakpoint (PlaygroundApp `stage`, the same
+// THE BODY LOADER runs right after the island's markup (the frame exists from there), so the frame
+// loads before any of the app's code. It writes the bake only if the app has not written first. It marks the frame `data-stage` above the tab breakpoint (PlaygroundApp `stage`, the same
 // '(max-width: 820px)' split) before the frame loads, so the first fit widens the gap the way the
 // app's will; and once the frame's own fit reveals the slides, it lands slide 1 where the app's walk
 // will (PlaygroundApp `scrollWalk`, mirrored for slide 1 only: centered when it nearly fills the pane,
@@ -374,6 +378,9 @@ const pgData = {
 						var bslow = bconn.saveData === true || /^(slow-2g|2g|3g)$/.test(bconn.effectiveType || '');
 						if (!bslow && view === 'read' && !hasHandoff && !bq.get('s') && bcomp === bake.component && (r.getAttribute('data-palette') || 'cuoio') === bake.palette) {
 							window.__pgBoot.bake = bake.base + (r.getAttribute('data-mode') === 'dark' ? 'dark' : 'light') + '/';
+							window.__pgBoot.bakeDoc = fetch(window.__pgBoot.bake, { credentials: 'same-origin', priority: 'high' })
+								.then(function (res) { return res.ok ? res.text() : null; })
+								.catch(function () { return null; });
 						}
 					} catch (e5) {}
 					if (!(window.__pgBoot && window.__pgBoot.bake)) {
@@ -402,19 +409,17 @@ const pgData = {
 			(function () {
 				var root = document.documentElement;
 				var frame = document.getElementById('preview');
-				var url = window.__pgBoot && window.__pgBoot.bake;
-				if (!frame || !url) return;
+				var pending = window.__pgBoot && window.__pgBoot.bakeDoc;
+				if (!frame || !pending) return;
 				root.setAttribute('data-pg-bake', 'loading');
 				if (!(window.matchMedia && matchMedia('(max-width: 820px)').matches)) frame.setAttribute('data-stage', '');
-				frame.src = url;
-				var start = Date.now();
 				var check = function () {
 					if (root.getAttribute('data-pg-bake') !== 'loading') return;
 					var shown = false;
 					try {
 						var win = frame.contentWindow;
 						var lat = frame.contentDocument && frame.contentDocument.querySelector('.lattice');
-						shown = !!(lat && win.getComputedStyle(lat).visibility === 'visible');
+						shown = !!(lat && frame.contentDocument.documentElement.hasAttribute('data-pg-bake') && win.getComputedStyle(lat).visibility === 'visible');
 						var first = shown && lat.querySelector(':scope > section');
 						if (first) {
 							var fr = first.getBoundingClientRect();
@@ -425,7 +430,13 @@ const pgData = {
 					if (shown) root.setAttribute('data-pg-bake', 'shown');
 					else if (Date.now() - start < 15000) requestAnimationFrame(check);
 				};
-				requestAnimationFrame(check);
+				var start = Date.now();
+				pending.then(function (html) {
+					if (html && root.getAttribute('data-pg-bake') === 'loading' && !frame.hasAttribute('srcdoc')) {
+						frame.srcdoc = html;
+						requestAnimationFrame(check);
+					} else if (root.getAttribute('data-pg-bake') === 'loading') root.removeAttribute('data-pg-bake');
+				});
 			})();
 		</script>
 

@@ -235,7 +235,7 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		if (!lattice) return null;
 		const first = lattice.querySelector(':scope > section, :scope > div[data-lv-ph]');
 		// A PLACEHOLDER is not a slide: the Playground's virtual filmstrip keeps unmounted
-		// slides as empty sections (`data-lv-ph`, preview-virtual.js), and slide 1 is one once
+		// slides as empty placeholder divs (`div[data-lv-ph]`, virtual-window.js), and slide 1 is one once
 		// the reader has scrolled away. Replaying it would paint an empty slide at first paint;
 		// no snapshot is honest, and the previous one stays.
 		if (!first || first.hasAttribute('data-lv-ph')) return null;

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { __resetWarmState, decide, injectPrefetch, type WarmSignals, warmEngine, warmPlayground } from './prefetch-engine';
+import { __resetWarmState, decide, injectPrefetch, type WarmSignals, warmEngine } from './prefetch-engine';
+import { warmPlayground } from './prefetch-playground';
 
 const ENGINE_URL = '/lattice/playground/v/177833f49f4e/lattice-playground.js';
 

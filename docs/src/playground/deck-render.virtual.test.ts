@@ -11,7 +11,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { attachVirtual, mountAround, syncVirtual } from './deck-render.js';
-import { LV_ATTR, placeholderOf, virtualHtml, visibleRange, windowRange, withIndex } from './preview-virtual.js';
+import { LV_ATTR, placeholderOf, virtualHtml, visibleRange, windowRange, withIndex } from './virtual-window.js';
 
 const N = 40;
 const PITCH = 400;
@@ -126,6 +126,18 @@ describe('syncVirtual moves the window with the scroll', () => {
 		restore();
 	});
 
+	it('a refit with no resize (the splitter drag) drops the cache', () => {
+		const { frame, win, doc, lattice, restore } = virtualFrame((i) => i < 3);
+		win.scrollY = TOP + 20 * PITCH;
+		syncVirtual(frame, { lastSections: sections });
+		(lattice.children[0] as HTMLElement).style.transform = 'scale(0.7)';
+		const query = vi.spyOn(doc, 'querySelector');
+		win.scrollY = TOP + 21 * PITCH;
+		syncVirtual(frame, { lastSections: sections });
+		expect(query).toHaveBeenCalled();
+		restore();
+	});
+
 	it('unmounts lazily behind the view, and a new section list drops the cache', () => {
 		const { frame, win, lattice, restore } = virtualFrame((i) => i < 3);
 		win.scrollY = TOP + 20 * PITCH;
@@ -147,6 +159,18 @@ describe('syncVirtual moves the window with the scroll', () => {
 		const real = realIndices(lattice);
 		expect(real).toContain(30);
 		expect(real).toContain(0);
+		restore();
+	});
+});
+
+describe('a landing stays mounted while the scroll to it travels', () => {
+	it('a sync near the start of a smooth scroll does not unmount the slides mountAround just mounted', () => {
+		const { frame, win, lattice, restore } = virtualFrame((i) => i < 3);
+		mountAround(frame, { lastSections: sections }, 30);
+		// The smooth scroll's first frame: the view is still at the top.
+		win.scrollY = TOP + PITCH / 2;
+		syncVirtual(frame, { lastSections: sections });
+		expect(realIndices(lattice)).toContain(30);
 		restore();
 	});
 });

@@ -385,7 +385,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     while (timers.length) clearTimeout(timers.pop());
     watchFrame();
     const d = doc();
-    setChart(d ? d.querySelectorAll('.lattice > section')[curIdx] : null);
+    setChart(d ? d.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]')[curIdx] : null);
     if (interactive()) {
       // The iframe re-fits at [60, 300, 1200]ms after a pv message; re-pin just after.
       [80, 360, 1240].forEach((t) => { timers.push(setTimeout(reflow, t)); });

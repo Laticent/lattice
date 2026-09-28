@@ -833,22 +833,66 @@ test.describe('the newcomer bake', () => {
 		});
 	}
 
-	test('@smoke a first visit shows the baked slide before the app is live, and the app keeps that very document', async ({ page }) => {
-		await recordBakeFlag(page);
+	for (const colorScheme of ['light', 'dark'] as const) {
+		test(`@smoke a first visit (${colorScheme}) shows the baked slide before the app is live, and the app keeps it untouched`, async ({ page }) => {
+			await page.emulateMedia({ colorScheme });
+			await recordBakeFlag(page);
+			// Once the bake shows, count every SLIDE the app takes out of the filmstrip. A mount
+			// replaces a placeholder div; only a patch or a rewrite removes a section — so zero is
+			// what tells an adoption from a patch that happened to keep the same document.
+			await page.addInitScript(() => {
+				if (window.top !== window) return;
+				const w = window as unknown as { __bakeReplaced: number };
+				w.__bakeReplaced = 0;
+				// Armed on the BAKED document's filmstrip as soon as it exists — not on the `shown`
+				// flag, which the app can clear within a frame of it being set, leaving nothing armed.
+				const arm = () => {
+					const doc = (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument;
+					const lat = doc?.documentElement.hasAttribute('data-pg-bake') ? doc.querySelector('.lattice') : null;
+					if (!lat) return void requestAnimationFrame(arm);
+					new MutationObserver((rs) => {
+						for (const r of rs) for (const n of Array.from(r.removedNodes)) if ((n as Element).tagName === 'SECTION') w.__bakeReplaced++;
+					}).observe(lat, { childList: true });
+				};
+				requestAnimationFrame(arm);
+			});
+			await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
+			await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+			await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/^1 \/ \d+$/, { timeout: 30_000 });
+			// No wait before counting: the adoption IS the app's first render, and `is-live` is only
+			// set once that render has returned — any slide it patched is already counted.
+			const flags = await page.evaluate(() => (window as unknown as { __bakeFlags: { flag: string | null; live: boolean }[] }).__bakeFlags);
+			expect(flags.map((f) => f.flag), 'the page never loaded the bake').toEqual(['loading', 'shown', null]);
+			expect(flags[1].live, 'the bake was only revealed after the app went live — it bought nothing').toBe(false);
+			const doc = await page.evaluate(() => {
+				const d = (document.getElementById('preview') as HTMLIFrameElement).contentDocument;
+				return {
+					baked: !!d?.documentElement.hasAttribute('data-pg-bake'),
+					write: d?.documentElement.getAttribute('data-lattice-write'),
+					replaced: (window as unknown as { __bakeReplaced: number }).__bakeReplaced,
+				};
+			});
+			expect(doc.baked, 'the app wrote its own document over the bake').toBe(true);
+			expect(doc.write).toBe('1');
+			expect(doc.replaced, 'the app patched slides of the bake — it has drifted from the live render, and newcomers see them re-mount').toBe(0);
+		});
+	}
+
+	test('the app writing over the bake adds no history entry — Back still leaves the page', async ({ page }) => {
+		// The bake used to be the frame's `src`: the app's next full write (to about:srcdoc, a
+		// different URL) pushed a FRAME history entry, and Back navigated the frame to the old
+		// newcomer deck under an app that had moved on.
 		await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
 		await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
-		await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/^1 \/ \d+$/, { timeout: 30_000 });
-		const flags = await page.evaluate(() => (window as unknown as { __bakeFlags: { flag: string | null; live: boolean }[] }).__bakeFlags);
-		expect(flags.map((f) => f.flag), 'the page never loaded the bake').toEqual(['loading', 'shown', null]);
-		expect(flags[1].live, 'the bake was only revealed after the app went live — it bought nothing').toBe(false);
-		// ADOPTED, not replaced: the frame still holds the baked document, at its first write.
-		const doc = await page.evaluate(() => {
-			const d = (document.getElementById('preview') as HTMLIFrameElement).contentDocument;
-			return { baked: !!d?.documentElement.hasAttribute('data-pg-bake'), write: d?.documentElement.getAttribute('data-lattice-write'), slides: d?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0 };
-		});
-		expect(doc.baked, 'the app wrote its own document over the bake').toBe(true);
-		expect(doc.write).toBe('1');
-		expect(doc.slides).toBeGreaterThan(1);
+		const before = await page.evaluate(() => history.length);
+		// Another component is a new deck: a full write over the adopted bake.
+		await page.locator('#pg-template-trigger').click();
+		await page.keyboard.type('agenda');
+		await page.keyboard.press('Enter');
+		await expect
+			.poll(() => page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentDocument?.documentElement.hasAttribute('data-pg-bake')), { timeout: 30_000 })
+			.toBe(false);
+		expect(await page.evaluate(() => history.length), 'the write over the bake pushed a history entry').toBe(before);
 	});
 
 	test('a visit that boots another deck, or another step, never loads it', async ({ page }) => {
