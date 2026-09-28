@@ -8834,6 +8834,10 @@ const SANCTIONED_GESTURES = {
   // 2026-09-27-delivery-styles-and-component-scenes.md §7): no rect-built stroke can say "this line
   // moved like this" about a chart series, and bracketing a line names its box, not its shape.
   trace: '"follow this line" — a stroke drawn through a series\' points in order, the hand riding it (deictic)',
+  // Added 2026-09-27 with the Guide storyboards (engineering/decisions/2026-09-27-guide-storyboards.md §4):
+  // the owner asked for circles and ellipses on anything, and for a comparison said as a relation.
+  encircle: '"this one, among many" — a hand-drawn loop fitted to the target, a circle or an ellipse (deictic)',
+  connect: '"from this to that" — a curved arrow from one part to another, the hand traveling it (deictic)',
 };
 
 function checkSanctionedGestures(errors) {

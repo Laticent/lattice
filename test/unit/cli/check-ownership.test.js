@@ -2044,8 +2044,8 @@ describe('check-ownership', () => {
     // 2026-09-27 (expressive's "follow this line", 2026-09-27-delivery-styles-and-component-scenes.md §7).
     test('the alphabet is a closed set, each member carrying a meaning', () => {
       const keys = Object.keys(SANCTIONED_GESTURES);
-      assert.equal(keys.length, 10, 'exactly ten gestures');
-      assert.deepEqual(keys.sort(), ['bracket', 'check', 'circle', 'cross', 'shake', 'tap', 'trace', 'underline', 'wash', 'wave']);
+      assert.equal(keys.length, 12, 'exactly twelve gestures');
+      assert.deepEqual(keys.sort(), ['bracket', 'check', 'circle', 'connect', 'cross', 'encircle', 'shake', 'tap', 'trace', 'underline', 'wash', 'wave']);
       for (const [g, meaning] of Object.entries(SANCTIONED_GESTURES)) {
         assert.ok(typeof meaning === 'string' && meaning.length > 0, `${g} declares a meaning`);
       }
@@ -2056,14 +2056,14 @@ describe('check-ownership', () => {
     });
 
     test('the gate bites: a new unsanctioned member (spin) in the union is flagged', () => {
-      const declared = declaredGestures("export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake' | 'underline' | 'wash' | 'bracket' | 'tap' | 'trace' | 'spin';");
+      const declared = declaredGestures("export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake' | 'underline' | 'wash' | 'bracket' | 'tap' | 'trace' | 'encircle' | 'connect' | 'spin';");
       const sanctioned = new Set(Object.keys(SANCTIONED_GESTURES));
       const orphans = [...declared].filter((g) => !sanctioned.has(g));
       assert.deepEqual(orphans, ['spin'], 'spin has no sanctioned meaning → gate flags it');
     });
 
     test('the gate bites: a stale registry entry the union dropped is flagged', () => {
-      const declared = declaredGestures("export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'underline' | 'wash' | 'bracket' | 'tap' | 'trace';"); // shake removed
+      const declared = declaredGestures("export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'underline' | 'wash' | 'bracket' | 'tap' | 'trace' | 'encircle' | 'connect';"); // shake removed
       const stale = Object.keys(SANCTIONED_GESTURES).filter((g) => !declared.has(g));
       assert.deepEqual(stale, ['shake'], 'the registry keeps shake the type no longer declares → gate flags it');
     });

@@ -2620,7 +2620,16 @@ const fadeOwner = new WeakMap<Element, object>();
 
 /** How deep the rest recedes, how gently a walked line's other points recede, and how long the
  *  crossfade runs — the preset's whole look (`lib/core/resolve-delivery.mjs`). */
-export type FocusLook = { dim?: number; dimInner?: number; fade?: number };
+/** How a part is expressed (engineering/decisions/2026-09-27-guide-storyboards.md §4): `focus` gives it
+ *  the emphasis ink and recedes the rest, `highlight` gives it a soft band, `ring` outlines it, and
+ *  `recede` only dims the rest. The looks live in `lib/base/base.focus.css` (`.lat-guide-*`). */
+export type GuideExpression = 'focus' | 'highlight' | 'ring' | 'recede';
+
+/** The look a focus plays in. `dim` recedes TEXT (held at 3:1 on every theme,
+ *  `test/unit/palette/guide-contrast.test.js`); `dimMark` recedes chart SHAPES. */
+export type FocusLook = { dim?: number; dimMark?: number; dimInner?: number; fade?: number; expression?: GuideExpression; delivery?: string };
+
+const EXPRESSION_CLASSES = ['lat-guide-focus', 'lat-guide-highlight', 'lat-guide-ring'];
 
 /**
  * Focus the content `el` names, and return the undo — or null when nothing on the slide can be
@@ -2644,21 +2653,26 @@ export type FocusParts = { unit: readonly Element[]; peers: readonly Element[]; 
  * the element's axis. The look, the classes and the crossfade are the same ones.
  */
 export function focusParts(section: HTMLElement, found: FocusParts, look: FocusLook = {}): () => void {
-	const { dim = 0.45, dimInner = 0.3, fade = 200 } = look;
-	section.setAttribute('data-guide', '');
+	const { dim = 0.7, dimMark = 0.45, dimInner = 0.3, fade = 200, expression = 'focus', delivery = '' } = look;
+	section.setAttribute('data-guide', delivery);
 	section.style?.setProperty('--guide-dim', String(dim));
+	section.style?.setProperty('--guide-dim-mark', String(dimMark));
 	section.style?.setProperty('--guide-dim-inner', String(dimInner));
 	section.style?.setProperty('--guide-fade', `${fade}ms`);
-	// The named thing comes up if it was down (a peer a moment ago), never down.
+	// The named thing comes up if it was down (a peer a moment ago), never down, and takes its look.
+	const cls = expression === 'recede' ? null : `lat-guide-${expression}`;
 	for (const e of found.unit) {
-		e.classList.remove('lat-guide-dim', 'lat-guide-dim-inner');
+		e.classList.remove('lat-guide-dim', 'lat-guide-dim-inner', ...EXPRESSION_CLASSES);
 		e.classList.add('lat-guide-undim');
+		if (cls) e.classList.add(cls);
 	}
-	for (const e of found.peers) {
+	// A highlight or a ring names the part by marking it; the rest stays as it is.
+	const recedes = expression === 'focus' || expression === 'recede';
+	for (const e of recedes ? found.peers : []) {
 		e.classList.remove('lat-guide-undim', 'lat-guide-dim-inner');
 		e.classList.add('lat-guide-dim');
 	}
-	for (const e of found.inner) {
+	for (const e of recedes ? found.inner : []) {
 		e.classList.remove('lat-guide-undim', 'lat-guide-dim');
 		e.classList.add('lat-guide-dim-inner');
 	}
@@ -2672,6 +2686,7 @@ export function focusParts(section: HTMLElement, found: FocusParts, look: FocusL
 	return () => {
 		if (done) return;
 		done = true;
+		if (cls) for (const e of found.unit) if (fadeOwner.get(e) === token) e.classList.remove(cls);
 		for (const e of [...found.peers, ...found.inner]) {
 			if (!e.classList.contains('lat-guide-dim') && !e.classList.contains('lat-guide-dim-inner')) continue;
 			e.classList.remove('lat-guide-dim', 'lat-guide-dim-inner');

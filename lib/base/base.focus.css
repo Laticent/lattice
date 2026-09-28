@@ -172,38 +172,75 @@ section[data-focus-axis="mark"][data-focus-style="ring"] .lat-focus {
   paint-order: stroke;
 }
 
-/* ── the Guide's focus — one lever: the rest recedes ───────────────────────── */
-/* While narration names a bullet, a table row, cell or column, a chart mark, a
- * line or one of its points, the Guide leaves that element exactly as it is and
- * tags everything else in its group `.lat-guide-dim`: the rest recedes to
- * `--guide-dim`. It is the chart hover's emphasis (`chart-interact.js`: every
- * other mark to 0.45 over 200 ms), so a deck speaks one language whether a
- * viewer hovers or the narration names. On a walked line the other POINTS take
- * `.lat-guide-dim-inner`, deeper: the line's own stroke stays whole and carries
- * the shape, so the point being read stands out.
+/* ── the Guide's expressions — focus, highlight, ring ───────────────────────── */
+/* While narration names a part of the slide (a bullet, a table row, column, cell
+ * or header, a chart mark, series, point or axis), the Guide expresses it the way
+ * its delivery's storyboard asks (engineering/decisions/2026-09-27-guide-storyboards.md):
  *
- * Opacity is the whole lever: it changes no box (nothing moves), it animates on
- * the compositor, and it interpolates as a number — no theme color is ever
- * animated, the path where Chromium painted `oklab(1 200 229)` (pure yellow).
+ *   .lat-guide-focus      the part takes the emphasis ink (the accent; somber's is the
+ *                         heading ink) and the rest recedes
+ *   .lat-guide-highlight  the part takes a soft accent band behind it
+ *   .lat-guide-ring       an outline around the part; nothing else changes
+ *   .lat-guide-dim        the rest of the part's group, receded
+ *   .lat-guide-dim-inner  a walked group's other units (a line's other points), deeper
  *
- * THE HANDOFF IS A STRICT SWAP. A peer released by the last focus takes
- * `.lat-guide-undim` and fades up over the same `--guide-fade` while the next
- * focus's peers fade down, in the same frame: never two foci. The section
- * carries the preset (`--guide-dim`, `--guide-dim-inner`, `--guide-fade`). No
- * render path writes any of it, so a PDF, a PPTX and an export render exactly as
- * before: these rules ship in the bundle and match nothing there. */
+ * MEASURED FOR AA (2026-09-27, `tools/composed-contrast.js` over all 33 themes, both
+ * modes): the accent as text is 4.5:1 or better on all 66; on-accent-soft on its band
+ * too; the heading ink too. Receded TEXT holds 3:1 only at 0.69 opacity or more (worst:
+ * cuoio light), so text recedes to 0.7: color carries the emphasis now, and the rest only
+ * steps back. A receded MARK is shape, not text, and keeps the chart hover's 0.45.
+ * `test/unit/palette/guide-contrast.test.js` holds both.
+ *
+ * NOTHING CHANGES SIZE: color, background, outline, opacity and stroke only, never a
+ * weight or a padding. Text color animates; SVG paint switches in one step (an animated
+ * token paint once interpolated to pure yellow, 2026-09-25 note §6.1), and the opacity
+ * carries the motion. No render path writes any of it, so a PDF, a PPTX and an export
+ * render exactly as before. */
 section[data-guide] {
   --guide-said: color-mix(in srgb, var(--accent) 30%, transparent);
+  --guide-ink: var(--accent);
 }
+/* Somber refuses brand color: its one focus takes the heading ink. */
+section[data-guide="somber"] { --guide-ink: var(--text-heading); }
 section[data-guide] .lat-guide-dim {
-  opacity: var(--guide-dim, 0.45);
+  opacity: var(--guide-dim, 0.7);
   transition: opacity var(--guide-fade, 200ms) ease;
 }
+section[data-guide] svg :is(rect, path, circle, polygon, polyline, line, ellipse).lat-guide-dim { opacity: var(--guide-dim-mark, 0.45); }
 section[data-guide] .lat-guide-dim-inner {
   opacity: var(--guide-dim-inner, 0.3);
   transition: opacity var(--guide-fade, 200ms) ease;
 }
-section[data-guide] .lat-guide-undim { transition: opacity var(--guide-fade, 200ms) ease; }
+section[data-guide] .lat-guide-undim { transition: opacity var(--guide-fade, 200ms) ease, color var(--guide-fade, 200ms) ease, background-color var(--guide-fade, 200ms) ease; }
+/* focus */
+section[data-guide] .lat-guide-focus,
+section[data-guide] tr.lat-guide-focus > :is(td, th) { color: var(--guide-ink); }
+section[data-guide] svg text.lat-guide-focus { fill: var(--guide-ink); }
+section[data-guide] svg :is(rect, path, circle, polygon, polyline, line, ellipse).lat-guide-focus {
+  stroke: var(--text-heading);
+  stroke-width: 3;
+  paint-order: stroke;
+}
+/* highlight */
+section[data-guide] .lat-guide-highlight:not(svg *),
+section[data-guide] tr.lat-guide-highlight > :is(td, th) {
+  background-color: var(--accent-soft);
+  color: var(--on-accent-soft);
+  box-shadow: 0 0 0 0.25em var(--accent-soft);
+}
+section[data-guide] svg text.lat-guide-highlight { fill: var(--guide-ink); }
+section[data-guide] svg :is(rect, path, circle, polygon, polyline, line, ellipse).lat-guide-highlight {
+  stroke: var(--accent-soft);
+  stroke-width: 10;
+  paint-order: stroke;
+}
+/* ring */
+section[data-guide] .lat-guide-ring:not(svg *) { outline: 2px solid var(--guide-ink); outline-offset: 2px; }
+section[data-guide] svg :is(rect, path, circle, polygon, polyline, line, ellipse).lat-guide-ring {
+  stroke: var(--guide-ink);
+  stroke-width: 4;
+  paint-order: stroke;
+}
 @media (prefers-reduced-motion: reduce) {
   section[data-guide] :is(.lat-guide-dim, .lat-guide-dim-inner, .lat-guide-undim) { transition: none; }
 }

@@ -1,5 +1,6 @@
 import { type Gesture, type RectSource, resolveTheme } from '@/lib/vetrina/index.js';
 import {
+	type FocusLook,
 	type FocusParts,
 	focusContent,
 	focusParts,
@@ -54,7 +55,10 @@ export type GuideDelivery = {
 	floor: number;
 	/** `all`: every moment the Guide focuses is inked too (expressive). `none`: focus only. */
 	ink: 'none' | 'all';
+	/** How deep receded TEXT goes (held at 3:1, `guide-contrast.test.js`). */
 	dim: number;
+	/** How deep receded chart SHAPES go. */
+	dimMark?: number;
 	dimInner: number;
 	fade: number;
 	hold: 'none' | 'aside';
@@ -115,6 +119,10 @@ export type GuideConductor = {
 	/** The element the last gesture named. */
 	aimed(): Element | null;
 };
+
+/** The focus look a delivery plays in: its depths, its crossfade and its name, which the focus CSS
+ *  reads (`section[data-guide="somber"]` takes the heading ink). */
+const lookOf = (d: GuideDelivery): FocusLook => ({ dim: d.dim, dimMark: d.dimMark, dimInner: d.dimInner, fade: d.fade, delivery: d.name });
 
 /** The chart an element belongs to, if any. */
 const chartOfEl = (e: Element | null): Element | null => e?.closest('.chart-body, figure.chart-frame') ?? null;
@@ -214,7 +222,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		let at = i;
 		if (at < 0) for (let j = 0; j < play.refs.length; j++) if ((play.refs[j]?.start ?? Infinity) <= play.at) at = j;
 		const expr = play.style(act, { named: !!hit, key: i >= 0 && i === scene.key, afterKey: scene.key >= 0 && at >= scene.key && i !== scene.key, labelled });
-		const look = { dim: delivery.dim, dimInner: delivery.dimInner, fade: delivery.fade };
+		const look = lookOf(delivery);
 		const apply = (parts: FocusParts): void => {
 			unmark();
 			mark = focusParts(section as HTMLElement, parts, look);
@@ -315,7 +323,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		resume = null;
 		if (back && back.slide === slide && back.aim.isConnected && (now === back.aim || (!now && text && isAside(text) && delivery.hold === 'aside'))) {
 			unmark();
-			mark = focusContent(back.aim, { dim: delivery.dim, dimInner: delivery.dimInner, fade: delivery.fade });
+			mark = focusContent(back.aim, lookOf(delivery));
 			aim = back.aim;
 			shown = true;
 			return;
@@ -353,7 +361,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 					hand = false;
 					setAiming(false);
 					unmark();
-					mark = focusContent(now, { dim: delivery.dim, dimInner: delivery.dimInner, fade: delivery.fade });
+					mark = focusContent(now, lookOf(delivery));
 					aim = now;
 					shown = true;
 					return;
@@ -397,7 +405,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		aim = cue.el;
 		// THE FOCUS. The previous focus's undo runs in this same task, so the two land as one swap.
 		unmark();
-		mark = focusContent(cue.el, { dim: delivery.dim, dimInner: delivery.dimInner, fade: delivery.fade });
+		mark = focusContent(cue.el, lookOf(delivery));
 		const chart = cue.el.closest('.chart-body, figure.chart-frame');
 		walk = chart && cue.el.closest('[data-mark], [data-series]') ? { slide, chart } : null;
 		if (!inks) {

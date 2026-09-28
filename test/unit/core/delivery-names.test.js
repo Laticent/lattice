@@ -43,10 +43,12 @@ test('each delivery is its own style file, and the table only gathers them', () 
 
 test('the looks: depth, tempo, hold and caption (§6)', () => {
 	const { restrained, expressive, somber } = DELIVERY_PRESETS;
-	assert.equal(restrained.dim, 0.45, "restrained recedes to the chart hover's own 0.45");
-	assert.ok(expressive.dim < restrained.dim, 'expressive recedes deepest');
-	assert.equal(somber.dim, restrained.dim, 'somber recedes as deeply as restrained: it is quiet by gesturing once and slowly (owner, 2026-09-27)');
-	for (const p of [restrained, expressive, somber]) assert.ok(p.dimInner < p.dim, "a walked line's other points recede further than the rest: the stroke keeps the shape");
+	// Text recedes to 0.7 everywhere (AA, guide-contrast.test.js); color carries the emphasis.
+	for (const p of [restrained, expressive, somber]) assert.equal(p.dim, 0.7, 'receded text holds 3:1 on every theme');
+	assert.equal(restrained.dimMark, 0.45, "restrained recedes chart shapes to the chart hover's own 0.45");
+	assert.ok(expressive.dimMark < restrained.dimMark, 'expressive recedes shapes deepest');
+	assert.equal(somber.dimMark, restrained.dimMark, 'somber recedes as deeply as restrained: it is quiet by gesturing once and slowly (owner, 2026-09-27)');
+	for (const p of [restrained, expressive, somber]) assert.ok(p.dimInner < p.dimMark, "a walked line's other points recede further than the rest: the stroke keeps the shape");
 	assert.ok(somber.fade >= 2 * restrained.fade, 'tempo: somber hands off at least twice as slowly');
 	assert.equal(somber.hold, 'aside', 'tempo: somber holds its focus through an aside');
 	assert.equal(restrained.hold, 'none');

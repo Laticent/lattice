@@ -113,7 +113,7 @@ test('somber focuses the figure: the rest recedes gently, with no cursor and no 
 	await expect(focused).toHaveCount(1);
 	await expect(focused).toContainText('$48.6M');
 	// Somber recedes as deeply as restrained (owner, 2026-09-27), once and slowly; the target keeps its own opacity.
-	await expect.poll(() => slide.locator('li.lat-guide-dim').first().evaluate((e) => Number(getComputedStyle(e).opacity)), { timeout: 5_000 }).toBeCloseTo(0.45, 1);
+	await expect.poll(() => slide.locator('li.lat-guide-dim').first().evaluate((e) => Number(getComputedStyle(e).opacity)), { timeout: 5_000 }).toBeCloseTo(0.7, 1);
 	expect(await focused.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
 	// Never the deck's own focus classes.
 	await expect(slide.locator('.lat-focus, .lat-recede')).toHaveCount(0);
