@@ -86,5 +86,5 @@ The 48 catch-up commits come from committed generated files that really do
 conflict when another PR lands: gallery PDFs, showcase WebPs, the
 speech-projection bundle, goldens, and duplicate decision-index rows that the
 `merge=union` driver leaves when a row changes. The queue cannot fix a real
-conflict. That work is tracked in `followups.d/` (see the PR that ships this
-note) rather than here.
+conflict. That work is tracked in
+`followups.d/2466-p2-committed-generated-files-conflict-across-prs.md`.

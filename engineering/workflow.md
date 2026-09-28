@@ -1195,7 +1195,7 @@ it passes, that exact tree becomes `main`.
 - **The queue cannot fix a real conflict.** A textual conflict, most often a
   committed generated file (a gallery PDF, a showcase WebP, a bundle, a golden),
   keeps the PR out of the queue or ejects it. That is the one case that needs a
-  rebase. `followups.d/queue-committed-generated-artifacts.md` tracks removing
+  rebase. `followups.d/2466-p2-committed-generated-files-conflict-across-prs.md` tracks removing
   those files from the conflict path.
 - **An ejection clears auto-merge.** Re-arm it after the fix (§Merging, above).
 
