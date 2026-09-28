@@ -87,3 +87,37 @@ describe('settleFonts', () => {
     assert.ok(elapsed >= 140 && elapsed < 500, `expected ~150ms timeout, got ${elapsed}ms`);
   });
 });
+
+// settleLaidOutFonts — the PREVIEW's settle. It must NOT force-load the declared faces (that is
+// the ten unused downloads it exists to stop), it must flush layout BEFORE reading `ready` (a
+// face is only requested once text using it is laid out), and it must never hold past its bound.
+describe('settleLaidOutFonts (preview)', () => {
+  const { settleLaidOutFonts } = require('../../../lib/core/font-settle');
+  const docWith = (onFlush) => ({ documentElement: { get offsetHeight() { onFlush(); return 100; } } });
+
+  test('loads no declared face — it waits on ready, it never calls .load()', async () => {
+    const faces = [fakeFont(5), fakeFont(5), fakeFont(5)];
+    const set = { ...fakeFontFaceSet(faces), ready: Promise.resolve() };
+    await settleLaidOutFonts(docWith(() => {}), set, 1000);
+    assert.equal(faces.filter((f) => f.loaded).length, 0);
+  });
+
+  test('flushes layout before it reads ready', async () => {
+    const order = [];
+    const set = { forEach() {}, get ready() { order.push('ready'); return Promise.resolve(); } };
+    await settleLaidOutFonts(docWith(() => order.push('flush')), set, 1000);
+    assert.deepEqual(order, ['flush', 'ready']);
+  });
+
+  test('resolves at its bound when ready never settles', async () => {
+    const set = { forEach() {}, ready: new Promise(() => {}) };
+    const t = Date.now();
+    await settleLaidOutFonts(docWith(() => {}), set, 30);
+    assert.ok(Date.now() - t < 1000);
+  });
+
+  test('a document with no layout still settles on ready', async () => {
+    const set = { forEach() {}, ready: Promise.resolve() };
+    await settleLaidOutFonts({ documentElement: null }, set, 1000);
+  });
+});

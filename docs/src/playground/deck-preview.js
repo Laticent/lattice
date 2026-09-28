@@ -438,6 +438,11 @@ export function buildSrcdoc({
 	a11yDefs = A11Y_DEFS, // categorical texture <pattern> <defs> — injected into <body>
 	// on every render so `fill: url(#latt-a11y-tex-N)` resolves in this browsing
 	// context under an a11y theme (inert otherwise). Owned here, not per-caller.
+	// A LIVE PREVIEW's font settle (lib/core/font-settle.js `settleLaidOutFonts`): the runtime
+	// waits for the faces the laid-out slides use instead of force-loading every declared face.
+	// Opt-in, because this builder also assembles export capture frames (the vector Print PDF),
+	// which rasterize slides no one has laid out and keep `settleFonts`.
+	previewFonts = false,
 	lang = 'en', // <html lang> for the frame — real-text surfaces (vector Print PDF, the
 	// preview a screen reader can walk) announce the deck's language (WCAG 3.1.1).
 	// Emit the remote-subresource CSP (#1753). ON for every frame, previews AND the Studio's
@@ -510,7 +515,7 @@ export function buildSrcdoc({
 	// same on the sanitized sections renderDeck signs below.
 	const needsDagre = deck ? deck.dagre : html.indexOf('data-sc-transitions') !== -1;
 	return (
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(diagrams && needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + (previewFonts ? ' data-lattice-preview=""' : '') + previewDiagramsAttr(diagrams && needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
 		(csp ? previewCspMeta({ katexUrl, webOrigins, blocked: [...(deck ? deck.blocked : web.blocked), ...remoteRef.webRefsInCss(css)] }) : '') +

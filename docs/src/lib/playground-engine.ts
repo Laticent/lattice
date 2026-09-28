@@ -163,6 +163,9 @@ export function createEngineBridge(
 				// same-size placeholders (preview-virtual.js). The host moves the window with
 				// `attachVirtual` / `syncVirtual` / `mountAround`.
 				virtual: true,
+				// The runtime waits for the faces these slides use, not all 17 the engine declares
+				// (lib/core/font-settle.js `settleLaidOutFonts`).
+				previewFonts: true,
 				state: fresh ? { ...state, frameSig: '' } : state,
 				fresh,
 				runtimeUrl,
