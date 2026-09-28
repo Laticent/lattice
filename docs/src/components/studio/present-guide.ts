@@ -1,7 +1,7 @@
 import { GUIDE_ARCHETYPES, GUIDE_GESTURES, GUIDE_HANDLES, type GuideScene } from '@/components/studio/guide-handles.generated.js';
 import { toSpokenText } from '@/lib/cadenza';
 import { keyIndex, mergeGesture, resolveUnit } from '@/lib/scene-resolve.js';
-import { type Gesture, gestureRest, type RectSource } from '@/lib/vetrina';
+import { type Gesture, gestureRest, type RectSource } from '@/lib/vetrina/index.js';
 import { frameGeom, innerRectToParent } from '@/playground/frame-geom.js';
 import { spokenValue } from '@/playground/read-along-core.generated.js';
 

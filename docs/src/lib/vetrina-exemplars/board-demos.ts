@@ -5,7 +5,7 @@
 // folder), so it also honors the import-boundary gate. Dispatched by `?demo=` from
 // docs/src/pages/vetrina-exemplars.astro; asserted by docs/e2e/vetrina-exemplars.spec.ts.
 
-import { loop, type RunHandle, run, type StopReason, scene, storyboard, type Walkthrough, wait } from '../vetrina';
+import { loop, type RunHandle, run, type StopReason, scene, storyboard, type Walkthrough, wait } from '../vetrina/index.js';
 
 /** The board's own state setters each demo drives (all real DOM mutations). */
 export interface BoardHost {

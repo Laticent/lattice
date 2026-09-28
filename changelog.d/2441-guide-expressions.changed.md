@@ -2,3 +2,4 @@
 - The Guide can also highlight a part (a soft accent band behind it) or ring it (an outline, nothing else changes). Neither changes any box's size.
 - Vetrina has two new gestures: `encircle`, a hand-drawn loop fitted to its target (a circle for a compact one, an ellipse for a wide one), and `connect`, a curved arrow from one part to another with the hand traveling it.
 - Every component manifest now declares a `gesture`: which of ten structures it renders (statement, list, grid, table, compare, three chart shapes, flow, media) and any unit its render names differently. Chart narration binds to these units today; lists, tables and prose follow. A gate checks that each component's gallery draws its archetype's primary unit.
+- The Studio loads about 11 KB less JavaScript on first load: it shipped the Vetrina walkthrough engine twice (its tours read the prebuilt copy, the demo read the source), and now every docs import reads the source.

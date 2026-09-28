@@ -16,7 +16,7 @@
 import { type BuildOptions, buildTrack, type CaptionTrack, type EmphasisSpan, makeReader, type Pace } from '@/lib/cadenza';
 import type { Stage as AudioStage, Bytes } from '@/lib/suono';
 import { createStage as createAudioStage } from '@/lib/suono';
-import type { NarratedWord, NarrateOptions, NarrationHandle, Narrator } from '@/lib/vetrina';
+import type { NarratedWord, NarrateOptions, NarrationHandle, Narrator } from '@/lib/vetrina/index.js';
 
 export interface CadenzaNarratorOptions {
 	/** Cadenza's pace preset. Leave it to match the tour's own `speed` — a caption that is read
