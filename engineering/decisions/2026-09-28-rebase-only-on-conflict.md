@@ -112,8 +112,16 @@ The 30 conflicts do not erase the saving. Under the old rule those PRs were reba
 on every move of `main` *and* again for the real conflict. Under the new rule they
 are rebased once, when the check says so.
 
-**Not covered by this replay:** the unit, integration and docs-build tiers on the
-30 clean trees. A sample is recorded below once it completes.
+**The unit tier, sampled.** One clean tree from each of 10 distinct PRs (chosen by
+a seeded shuffle: #2247, #2250, #2264, #2303, #2331, #2344, #2367, #2387, #2399,
+#2416) was built with `node tools/build.js` and put through the whole unit suite.
+All 10 passed. `test/unit/tools/wait-for.test.js` was left out: it fails the same
+way on the queue's `main` alone in the replay sandbox (it takes a real lock, and
+the sandbox already held one), so it could not tell the two trees apart.
+
+**Still not replayed:** the unit tier on the other 20 clean trees, and the
+integration and docs-build tiers on all 30. The queue runs those, so a break there
+costs an ejection, not a broken `main`.
 
 ## 4. The decision
 
