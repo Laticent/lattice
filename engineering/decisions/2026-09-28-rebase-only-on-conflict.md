@@ -82,6 +82,39 @@ queue's 3-in-142 red rate shows that the queue, not the pre-emptive rebase, is w
 keeps `main` green. Most of those runs predate this rule, so it says little about
 how often a behind PR will now be ejected; §4a covers that.
 
+## 3b. What would have happened without those rebases — replayed
+
+The table in §3 counts rebases that merged cleanly *with the `main` the session
+rebased onto*. The question that decides this note is different: had the session
+skipped the rebase, would the merge queue have taken the PR anyway?
+
+**Method.** 63 of the 75 clean rebases belong to a PR that later went through the
+queue (42 distinct PRs). The queue's branch name,
+`gh-readonly-queue/main/pr-<N>-<base-sha>`, records the `main` it tested on. For each
+case, the pre-rebase head was merged with that base in a scratch worktree, and the
+merged tree was put through `node tools/build.js --check --exclude-uncommitted` (the
+queue's generated-file gate). Every failure was re-run on the base alone as a
+control, and every control passed.
+
+| Outcome without the rebase | Cases | Would `npm run queue:precheck` have flagged it? |
+|---|---|---|
+| Textual conflict with the queue's `main` | 30 | Yes: exit 1 |
+| Merges cleanly, but the decision index gets a duplicate row and `build:check` fails | 3 (PRs #2404, #2446) | Yes: exit 2 |
+| Merges cleanly and passes `build:check` | 30 | No flag, correctly |
+
+So the pre-ask check called every one of the 63 queue outcomes on this gate, with
+no false alarm. The 3 duplicate-row cases are why the check exists as a script: a
+plain `git merge-tree` reports them clean, because the index merges with
+`merge=union`, and on a first attempt a hand-typed one-liner missed all three (its
+regex matched the multi-byte status glyph as one byte).
+
+The 30 conflicts do not erase the saving. Under the old rule those PRs were rebased
+on every move of `main` *and* again for the real conflict. Under the new rule they
+are rebased once, when the check says so.
+
+**Not covered by this replay:** the unit, integration and docs-build tiers on the
+30 clean trees. A sample is recorded below once it completes.
+
 ## 4. The decision
 
 Rebase an open PR only when:
@@ -115,9 +148,9 @@ when it is not.
   committed demo PDF or golden built against an older `main`. The old rule caught
   these with a local `build:check` after the rebase. Now the queue ejects the PR,
   the ejection clears auto-merge, and no webhook tells the session. So the step
-  before the merge ask now runs a fresh `git fetch` plus `merge-tree`, which is a
-  check, not a rebase. A parked session also confirms `auto_merge` is still set
-  whenever it wakes.
+  before the merge ask now runs `npm run queue:precheck`, which is a check, not a
+  rebase; §3b measures what it catches. A parked session also confirms
+  `auto_merge` is still set whenever it wakes.
 - **The hook reads `.gitattributes` from the working tree, not from `HEAD`.** A
   dirty tree can flip its answer for the `merge=union` decision index. This is
   advisory only, so it is left as it is.

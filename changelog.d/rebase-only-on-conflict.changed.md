@@ -6,3 +6,8 @@
   §Merge queue — the facts block with the live ruleset values. In the eight days to
   2026-09-28, 75 rebases of PRs that would have merged cleanly cost ~1,005
   minutes of CI wall-clock time.
+- **Added: `npm run queue:precheck`** (`tools/queue-precheck.sh`) — run it before the
+  merge ask. It fetches `main`, merges in memory, and exits 1 on a textual conflict,
+  2 on a duplicate decision-index row that `merge=union` hides from git, 0 when the
+  branch only needs to wait for the queue. The Stop hook now calls it with
+  `--no-fetch`.

@@ -899,16 +899,22 @@ it alone.
 
 **Rebase only when one of these is true:**
 
-1. **The branch conflicts with `main`.** GitHub reports `mergeable_state: dirty`,
-   or the local test says so:
-   ```bash
-   git fetch origin main
-   git merge-tree --write-tree HEAD origin/main >/dev/null; echo $?   # 1 = conflict
+1. **The branch will not merge cleanly with `main`.** GitHub reports
+   `mergeable_state: dirty`, or the local check says so:
+   ```console
+   $ npm run queue:precheck
+   queue-precheck: <branch> is 5 commit(s) behind origin/main and merges cleanly — no rebase needed.
    ```
-   The Stop hook (`.claude/hooks/stop-rebase-check.sh`) runs the same test at the
-   end of every turn and warns only on a real conflict. It never fetches, so its
-   silence means "no conflict with the `main` you last fetched" — fetch first
-   when it matters.
+   `tools/queue-precheck.sh` fetches `main` and merges in memory (`git merge-tree`;
+   nothing on disk changes). It exits **0** clean, **1** on a textual conflict,
+   **2** on a duplicate row in the decision index, and **3** when it cannot check
+   (a shallow clone without the merge base). Exit 2 is the case plain `merge-tree`
+   misses: `engineering/decisions/README.md` merges with `merge=union`, so when both
+   sides reword the same row git keeps both lines, calls the merge clean, and
+   `build:check` then ejects the PR in the queue. The Stop hook
+   (`.claude/hooks/stop-rebase-check.sh`) runs the same script with `--no-fetch` at
+   the end of every turn, so its silence means "clean against the `main` you last
+   fetched".
 2. **The queue ejected the PR.** Fix the cause, push, and re-arm auto-merge
    (§Merging, *An ejection CLEARS auto-merge*).
 3. **You need a specific commit from `main`** — a fix your change calls or your
@@ -923,13 +929,16 @@ costing ~1,005 minutes of CI wall-clock time, 6.7% of all PR CI time. The 19 reb
 really conflicted were required and stay required
 (`decisions/2026-09-28-rebase-only-on-conflict.md` §3).
 
-**Before you ask to merge — check, don't rebase.** Some breaks merge cleanly as
-text and still fail in the queue: a committed PDF or golden built against an older
-`main`. The queue ejects those, the ejection clears auto-merge, and no webhook tells
-you. So right before the 🚦 ask, `git fetch origin main` and run the `merge-tree`
-test above. It costs seconds and no CI. Rebase only if it reports a conflict. While
-parked, confirm on each wake that the PR's `auto_merge` is still set; `null` after
-you armed it means an ejection.
+**Before you ask to merge — check, don't rebase.** Right before the 🚦 ask, run
+`npm run queue:precheck`. It takes seconds and runs no CI. Rebase only if it exits 1
+or 2. **How well it predicts the queue, measured:** replaying 63 real rebases from
+2026-09-20..28 against the `main` the queue later used, it called every one — 30
+conflicts, 3 duplicate index rows, and 30 clean trees that also passed `build:check`
+there — with no false alarm (`decisions/2026-09-28-rebase-only-on-conflict.md`
+§3b). What it cannot see is a break that merges cleanly and fails a test; the queue
+still catches that, as an ejection. An ejection clears auto-merge and no webhook
+tells you, so while parked, confirm on each wake that the PR's `auto_merge` is
+still set; `null` after you armed it means an ejection.
 
 When you do rebase:
 

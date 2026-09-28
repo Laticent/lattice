@@ -171,6 +171,7 @@
     "marp-kit:build": "node tools/build-marp-kit.js",
     "capabilities:build": "node tools/build-capabilities.js",
     "capabilities:check": "node tools/build-capabilities.js --check",
+    "queue:precheck": "tools/queue-precheck.sh",
     "release": "node tools/release.js",
     "release:dry": "node tools/release.js --dry-run",
     "release:prepare": "node tools/release.js --prepare",
