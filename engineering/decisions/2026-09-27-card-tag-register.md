@@ -5,8 +5,9 @@ summary: Lattice draws a label on a card six different ways. Four are copies of 
 
 # One card tag — an audit, a design and a plan
 
-**Status:** in progress. Phase 1 (the CSS kernel) and phase 2 (the `tag:` register's color and size axes) are built; phases 3–5 are not. The owner settled all six questions on
-2026-09-27 (§7).
+**Status:** in progress. Phase 1 (the CSS kernel) and phase 2 (the `tag:` register's color and
+size axes, plus equal-size tags and the label budget) are built; phases 3–5 are not. The owner
+settled the first six questions on 2026-09-27 and three more on 2026-09-28 (§7).
 
 ## 1. The problem in one example
 
@@ -182,7 +183,20 @@ and earns a lint hint pointing at the new words, so no shipped deck breaks.
 Lint: `unknown-tag` for an unknown word or a second word on one axis, in
 `lib/authoring/lint-core.js` (HARD RULE #7). The per-slide words join `MODIFIER_GROUPS`.
 
-### 3.4 Equal height — the one part CSS cannot do alone
+### 3.4 Equal size — the one part CSS cannot do alone
+
+**Built in phase 2, per slide, width as well as height (§7 Q7–Q9).** The owner widened the rule
+below after seeing a decision row where `BUILD`, a two-line label and `WHY NOT DELAY` were three
+different widths: **every boxed tag on a slide takes the widest tag's width and the tallest
+tag's height.** `lib/core/card-tag-equalize.js` measures each tag's content box and writes
+`--card-tag-shim-x` / `--card-tag-shim-y` (extra padding) on each card and `--card-tag-block`
+(the equalized height, which the corner reserve reads) on the section. It works on the tags as
+they are — pseudo-elements and lifted `<strong>`s — so it did not wait for the element (§3.1).
+The runtime runs it on its post-mutation dispatch and after fonts settle; the CLI export, which
+strips the runtime, injects the same function after every navigation and once more before the
+output is taken. Padding never changes a content box, so the pass settles in one step and a
+repeat writes nothing. The rest of this section is the original row-scoped proposal, kept for
+the record.
 
 The rule: **in one row of cards, every tag is as tall as the tallest.** Absolute
 placements (`corner`, `foot`, `notch`) and in-flow ones (`band`, `inline`) both need it,
@@ -262,8 +276,8 @@ and renders every shipped deck unchanged unless the phase says otherwise.
 | Phase | What lands | Visible change | Proof |
 |---|---|---|---|
 | **1. Kernel (CSS only)** | `base.card-tag.css` and the `--card-tag-*` tokens; the seven recipes move onto it at their current look, each component keeping only its counter or label and which fill/ink pair it wears; `sketch` reaches every tag through two token re-points; a light-and-dark pin for the `--on-accent` pair. **No markup changes** (owner decision, §7 Q6) | The drift fixes: one padding (in em, so it follows venue and orientation), one tracking, one reserve formula, `sketch` everywhere. A two- and three-line corner label now clears the body | Pixel diff of the affected galleries before and after, with every changed slide listed and explained |
-| **2. Register: color and size** | `resolve-card-tag.js`; `tag:` and `tag-*` on the engine and the runtime, per-axis eviction, split pages, lint (`unknown-tag`), the modifier vocabulary, the Studio's value completion, docs. The color axis (`color` · `plain` · `none`) and the size axis (`small` · `regular` · `large`). Placement and alignment wait for phase 3 so every word works on every layout; until then the linter names them as not yet available | None unless a deck opts in | Unit: resolver, slide-over-deck per axis on the engine AND the runtime bundle, lint, CSS contract; `plain`/`none` pairs AA-pinned light and dark. Demo deck extended, light and dark |
-| **3. The element, placements and equal height** | The real `card-tag` element on every render path (§3.1, with a CSS fallback for script-less pages), then `foot`, `notch`, `band` on every qualifying layout, `inline`, text alignment, size, and the measure pass | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
+| **2. Register: color and size; equal size** | `resolve-card-tag.js`; `tag:` and `tag-*` on the engine and the runtime, per-axis eviction, split pages, lint (`unknown-tag`), the modifier vocabulary, the Studio's value completion, docs. The color axis (`color` · `plain` · `none`) and the size axis (`small` · `regular` · `large`). Placement and alignment wait for phase 3 so every word works on every layout; until then the linter names them as not yet available. **Added on the owner's call (§7 Q9):** the equal-size pass (§3.4) and the `tag-budget` lint | Every boxed tag on a slide matches the widest and tallest; otherwise none unless a deck opts in | Unit: resolver, slide-over-deck per axis on the engine AND the runtime bundle, lint, CSS contract; `plain`/`none` pairs AA-pinned light and dark. Demo deck extended, light and dark |
+| **3. The element and placements** | The real `card-tag` element on every render path (§3.1, with a CSS fallback for script-less pages), then `foot`, `notch`, `band` on every qualifying layout, `inline`, and text alignment. The measure pass already runs (phase 2) and extends to each new placement | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
 | **4. Aliases** | `banner-tag` and `capsule` as aliases with lint hints. The legal inline-eyebrow layouts stay out (§7 Q5) | capsule moves to the saturated tier (§3.5) | Gallery pixel diff |
 | **5. Studio** | The Tag row in deck settings and the slide drawer | Studio only | `docs/e2e` spec with screenshots at 1440, 820 and 390px |
 
@@ -288,6 +302,20 @@ Settled 2026-09-27. The owner took the recommendation on each:
    `citation-card`'s label heads a callout, not one of several sibling cards. No `side`
    placement is added.
 6. **Phase 1 is CSS only.** The element moves to phase 3 with the measure pass (§3.1).
+
+Settled 2026-09-28, after the owner saw three decision tags at three widths, one wrapped:
+
+7. **Only a band wraps.** A corner tag holds one line; a `banner-tag` band may run to two, and
+   every band on the slide matches the tallest. A corner chip that wraps stops reading as a
+   chip, and under equal size one long label pushes every card body down.
+8. **The budget is set by card count, not one flat number.** The owner first took a flat 20
+   characters (the tightest measured case: 4 cards at `tag-large`). Measured against the tree,
+   20 failed 63 labels in 30 committed decks that fit on one line today; the strict deck lint
+   blocks on it. Re-asked with that figure, the owner took the per-count budget (49, 33, 24
+   characters for 2, 3, 4 cards; ÷1.2 at `tag-large`; twice that for a band), which fails the
+   2 labels that really wrap.
+9. **Equal size ships in phase 2's PR**, not as phase 3's first commit, so the demo that showed
+   the mismatch does not merge without the fix.
 
 ## 8. How this note was checked
 

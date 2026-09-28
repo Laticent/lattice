@@ -12,9 +12,8 @@
  * Bundled right after the component CSS (tools/build-css.js), so these rules win a
  * specificity tie by source order, and `sketch` (later) still restyles them.
  *
- * Phase 1 is CSS only: every tag is still the pseudo-element or `<strong>` it was.
- * The `tag:` register (phase 2) and the measured equal-height pass (phase 3) build
- * on the tokens below.
+ * Every tag is still the pseudo-element or `<strong>` it was. The `tag:` register and
+ * the equal-size measure (lib/core/card-tag-equalize.js) build on the tokens below.
  *
  * ── TOKENS ──
  * Declared on `:root, section` so each resolves against the SECTION's own
@@ -33,11 +32,10 @@
  *                      (a header strip) takes 1.2 through --card-tag-band-lh.
  *   --card-tag-track   letter-spacing. The trailing track after the last glyph is
  *                      taken back out of the right padding, so the text centers.
- *   --card-tag-h       the height of a ONE-line tag. A host reserves this plus
- *                      --card-tag-gap above its body. The gap defaults to --sp-md,
- *                      which also lets a label that wraps to TWO lines clear the body;
- *                      a third line still reaches it until the measured pass (phase 3)
- *                      sizes the reserve to the real tag.
+ *   --card-tag-h       the height of a ONE-line tag. A host reserves the larger of this
+ *                      and the measured --card-tag-block, plus --card-tag-gap, above its
+ *                      body. Without the measure (a static page) a wrapped label still
+ *                      clears the body at two lines, because the gap is --sp-md.
  *   --card-tag-radius  the flush-corner shape. `sketch` re-points it.
  *   --card-tag-num-font the face a NUMBER tag uses. `sketch` re-points it to the
  *                      hand display face; labels keep --font-label.
@@ -48,6 +46,13 @@
  *   --card-tag-band-pad-y / --card-tag-band-lh
  *                      the band placement's vertical padding (× font size) and line
  *                      height — a header strip wants more air than a chip.
+ *   --card-tag-shim-x / --card-tag-shim-y / --card-tag-block
+ *                      EQUAL SIZE: every boxed tag on a slide takes the widest tag's width
+ *                      and the tallest tag's height. lib/core/card-tag-equalize.js measures
+ *                      the tags (runtime and export alike) and writes the shims on each card
+ *                      (extra right padding; extra top and bottom padding) and the block on
+ *                      the section (the equalized height, which the body reserve reads).
+ *                      All 0 with no script, so a static page sizes each tag to its text.
  *   --card-tag-fill / --card-tag-ink
  *                      the pair a tag wears. Unset → accent + on-accent. A
  *                      component that wears another pair sets BOTH on the card
@@ -70,6 +75,9 @@
   --card-tag-band-lh: 1.2;
   --card-tag-edge: none;
   --card-tag-inline-ink: var(--text-label);
+  --card-tag-shim-x: 0px;
+  --card-tag-shim-y: 0px;
+  --card-tag-block: 0px;
 }
 
 /* ── The shared voice — every tag, whatever its placement ── */
@@ -114,9 +122,9 @@ section.split-compare .verdict::before {
   left: 0;
   margin: 0;
   padding:
-    calc(var(--card-tag-pad-y) * 1em)
-    calc(var(--card-tag-pad-x) - var(--card-tag-track))
-    calc(var(--card-tag-pad-y) * 1em)
+    calc(var(--card-tag-pad-y) * 1em + var(--card-tag-shim-y))
+    calc(var(--card-tag-pad-x) - var(--card-tag-track) + var(--card-tag-shim-x))
+    calc(var(--card-tag-pad-y) * 1em + var(--card-tag-shim-y))
     var(--card-tag-pad-x);
   line-height: var(--card-tag-lh);
   border-radius: var(--card-tag-radius);
@@ -124,7 +132,7 @@ section.split-compare .verdict::before {
   color: var(--card-tag-ink, var(--on-accent, var(--on-dark-primary)));
   box-shadow: var(--card-tag-edge);
 }
-/* The card clears the tag: one line of tag, then the card's own top padding. */
+/* The card clears the tag: the equalized tag height (at least one line of tag), then the gap. */
 section.cards-grid > .cell-stage > ol > li,
 section.cards-grid .cards-grid-inner--ordered > .card,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
@@ -135,7 +143,7 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol
 section.compare-prose .compare-prose-inner .card:has(> strong:first-child),
 section.split-compare .verdict {
   position: relative;
-  padding-top: calc(var(--card-tag-h) + var(--card-tag-gap));
+  padding-top: calc(max(var(--card-tag-h), var(--card-tag-block)) + var(--card-tag-gap));
 }
 
 /* ── Placement: band — a full-width strip across the card top (`banner-tag`) ──
@@ -165,9 +173,9 @@ section.banner-tag.compare-prose:not(.axis) .compare-prose-inner .card:has(> str
   box-sizing: border-box;
   margin: 0;
   padding:
-    calc(var(--card-tag-band-pad-y) * 1em)
+    calc(var(--card-tag-band-pad-y) * 1em + var(--card-tag-shim-y))
     calc(var(--sp-md) - var(--card-tag-track))
-    calc(var(--card-tag-band-pad-y) * 1em)
+    calc(var(--card-tag-band-pad-y) * 1em + var(--card-tag-shim-y))
     var(--sp-md);
   line-height: var(--card-tag-band-lh);
   border-radius: 0;

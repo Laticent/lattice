@@ -171,3 +171,35 @@ test('runtime: stamps the tokens from a baked block, and evicts per axis', async
   const offCls = [...off.querySelectorAll('section')].map((s) => s.className).join(' | ');
   assert.ok(!/tag-(plain|large)/.test(offCls), `control: ${offCls}`);
 });
+
+/* ── tag-budget: a label fits one line of its tag, for the cards in its row ─────────── */
+
+const budgetDeck = (cls, labels, fm = []) => ['---', 'theme: indaco', ...fm, '---', '', `<!-- _class: ${cls} -->`, '', '## A',
+  '', ...labels.flatMap((l) => [`- ${l}`, '  - body']), ''].join('\n');
+const overBudget = (...args) => lintText(budgetDeck(...args)).filter((f) => f.rule === 'tag-budget');
+
+test('lint: the one-line budget follows the card count and the tag size', () => {
+  const { tagLineBudget } = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
+  assert.deepEqual([2, 3, 4].map((n) => tagLineBudget(n, 1)), [49, 33, 24]);
+  assert.deepEqual([2, 3, 4].map((n) => tagLineBudget(n, 1.2)), [40, 27, 20]);
+  assert.equal(tagLineBudget(6, 1), 16, 'a wider row scales the 4-card figure down');
+  const long = 'Why not buy from either shortlisted vendor';   // 42 characters, the owner's screenshot
+  assert.equal(overBudget('decision', ['Build', long, 'Why not delay']).length, 1, '3 cards: 33 fit, 42 wraps');
+  assert.match(overBudget('decision', ['Build', long, 'Why not delay'])[0].message, /one line holds 33 with 3 cards/);
+  assert.equal(overBudget('decision', ['Build', long]).length, 0, '2 cards: 49 fit');
+  assert.equal(overBudget('decision tag-large', ['Build', 'x'.repeat(28), 'y']).length, 1, 'tag-large: 27 fit');
+  assert.equal(overBudget('decision', ['Build', 'x'.repeat(28), 'y'], ['tag: large']).length, 1, 'the deck tag: size counts');
+  assert.equal(overBudget('decision tag-regular', ['Build', 'x'.repeat(28), 'y'], ['tag: large']).length, 0,
+    'a slide size word evicts the deck\'s');
+});
+
+test('lint: a band gets two lines; axis labels and other layouts are not tags', () => {
+  const long = 'Why not buy from either shortlisted vendor';
+  assert.equal(overBudget('decision banner-tag', ['Build', long, 'Why not delay']).length, 0, '42 fits two lines of 33');
+  assert.equal(overBudget('decision banner-tag', ['Build', 'x'.repeat(67), 'y']).length, 1);
+  assert.equal(overBudget('compare-prose axis', ['x'.repeat(60), 'y']).length, 0);
+  assert.equal(overBudget('cards-grid', ['x'.repeat(60), 'y']).length, 0);
+  // A list item with no body is not a tag.
+  assert.equal(lintText(['---', 'theme: indaco', '---', '', '<!-- _class: decision -->', '', '## A', '',
+    `- ${'x'.repeat(60)}`, '- y', ''].join('\n')).filter((f) => f.rule === 'tag-budget').length, 0);
+});

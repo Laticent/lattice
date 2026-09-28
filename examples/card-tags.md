@@ -41,12 +41,12 @@ Numbers, slot labels, the verdict and the step label share one kernel, styled de
 
 <!-- _class: decision -->
 
-## A slot label that wraps still clears the card body.
+## Every tag on a slide takes the widest tag's size.
 
 - Build
   - Owns the scoring policy, the calibration loop and the pager.
-- Why not buy from either shortlisted vendor
-  - Neither exposes the calibration weights to the customer.
+- Why not buy
+  - Neither vendor exposes the calibration weights to the customer.
 - Why not delay
   - The competitive window closes in 18 months.
 
@@ -54,12 +54,12 @@ Numbers, slot labels, the verdict and the step label share one kernel, styled de
 
 <!-- _class: decision banner-tag -->
 
-## The band placement spans the card.
+## A band may run to two lines, and every band matches it.
 
 - Build
   - Owns the scoring policy, the calibration loop and the pager.
-- Why not buy
-  - Neither vendor exposes the calibration weights.
+- Why not buy from either shortlisted vendor
+  - Neither exposes the calibration weights to the customer.
 - Why not delay
   - The competitive window closes in 18 months.
 

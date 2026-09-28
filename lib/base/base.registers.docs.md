@@ -929,6 +929,28 @@ word on that axis and leaves the other alone.
 `tag-color` and `tag-regular` exist so a slide can return to the component's own look inside a
 deck that set another.
 
+**Every tag on a slide is the same size.** Each boxed tag (a corner tag or a `banner-tag` band)
+takes the widest tag's width and the tallest tag's height, so `BUILD` and `WHY NOT DELAY` read as
+one component rather than two. The text stays at the start of the tag, and a one-line tag beside
+a two-line one is centered in the taller box. A measuring step does this after fonts load, in the
+live preview and in every CLI export (`lib/core/card-tag-equalize.js`). A page with no script
+(the Marp export) sizes each tag to its own text.
+
+**A label fits one line of its tag.** One long label now widens every tag on the slide, and if it
+wraps, every card body moves down a line. So `lint:deck` warns (`tag-budget`) when a slot label
+on `decision` or `compare-prose` is longer than one line of its tag, measured for the cards in
+the row:
+
+| Cards in the row | 2 | 3 | 4 |
+|---|---|---|---|
+| Characters, regular size | 49 | 33 | 24 |
+| Characters, `tag-large` | 40 | 27 | 20 |
+
+A `banner-tag` band is a header strip across the card, so it gets two lines, twice the figure.
+That is the one placement where a label should wrap. Anywhere else, shorten the label and move
+the detail into the card body. The figures are measured at the `laptop` venue; a larger venue
+fits fewer characters, and the tags still match each other if a label wraps there.
+
 **Placement and alignment come next.** Where a tag sits on its card (corner, bottom corner,
 notch, full-width band, inline) and how its text aligns inside it are designed but not yet
 built; they land together so every word works on every tagged layout. Until then `lint:deck`

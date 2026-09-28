@@ -994,6 +994,7 @@ const { deckSlideSections, DECK_SLIDES_SRC } = require('./lib/core/deck-slides')
 const { fromBase64: fromBase64Utf8 } = require('./lib/core/base64-utf8');
 const { FIT_FUNCTION_PLOT_SRC } = require('./lib/core/function-plot-viewbox');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
+const { EQUALIZE_CARD_TAGS_SRC } = require('./lib/core/card-tag-equalize');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
 const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
 // HARD RULE #22, STYLESHEET channel. Every `<style>` this file writes carries CALLER CSS
@@ -3628,7 +3629,17 @@ async function renderBody(browser, g, closeBrowser) {
     if (timedOut && !QUIET) {
       console.warn(`  ⚠ ${timedOut} deferred resource(s) did not settle within 10s — exported without them.`);
     }
+    await equalizeCardTagsInPage(label);
   };
+  // Every boxed card tag on a slide takes one size (lib/core/card-tag-equalize.js — the
+  // runtime runs the same kernel, but this export strips the runtime). Run after every
+  // navigation, once fonts and media have settled, so the overflow measurement below sees
+  // the equalized reserve; and again before the output is taken, since the fit passes can
+  // change a tag's text. The kernel writes only on a real change, so a repeat is a no-op.
+  const equalizeCardTagsInPage = (label) => g(
+    () => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document)`),
+    `equalize card tags${label}`,
+  );
 
   // `load`, not `networkidle0`. The two are not a correctness/speed trade here: `load`
   // already waits for every resource kind this document actually contains, and the
@@ -4433,6 +4444,7 @@ async function renderBody(browser, g, closeBrowser) {
   // opens is not competing with the 2x raster twins for /dev/shm.
   // `cleanDocHtml` is final here: the Fit-Spine split and the rails pass both rewrite it,
   // and both have run by this line.
+  await equalizeCardTagsInPage(' (final)');
   const captionScript = CAPTIONS || (NARRATE && PLAYER) ? await projectDeckSpeechFromHtml(cleanDocHtml, browser, g) : [];
 
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the

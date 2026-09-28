@@ -820,12 +820,12 @@ Custom silicon, a purpose-built storage engine, a scheduler that knows your phys
 
 ## Climb one rung at a time, and only on evidence.
 
-- Move up when the current rung fails on a measurement
-  - A number, a profile, a named risk. Not a feeling that things are getting big.
+- Move up on a measured failure
+  - The current rung fails on a number, a profile, a named risk. Not a feeling that things are getting big.
 - Move up exactly one rung
   - Jumping from MVP to optimal buys rigor for assumptions nobody has tested yet.
-- Move back down when the evidence changes
-  - A rewrite that simplifies is a legitimate move.
+- Move back down on new evidence
+  - When the evidence changes, a rewrite that simplifies is a legitimate move.
 
 ---
 
