@@ -265,9 +265,13 @@ test('css: the frame keyline is drawn on top of the finish, clear of the header 
   // buried it (backdrop-register.md §4.10). The keyline is drawn again as the mask's outline.
   const top = css.match(/section\.finish > \.backdrop > \.backdrop-mask::after \{[^}]*\}/);
   assert.ok(top, 'the on-top keyline rule is missing');
-  assert.match(top[0], /outline: calc\(0\.22 \* var\(--_sec-1cqi, 1cqi\)\) solid var\(--fin-frame-mark, transparent\);/);
-  assert.match(top[0], /outline-offset: calc\(-1\.32 \* var\(--_sec-1cqi, 1cqi\)\);/);
-  assert.match(css, /tone-skip\)\.finish > \.backdrop > \.backdrop-mask::after \{\s*left: -8px;/);
+  // A spread SHADOW, not an outline: Chrome snaps outline widths to whole pixels.
+  assert.match(top[0], /inset: calc\(1\.32 \* var\(--_sec-1cqi, 1cqi\)\);/);
+  assert.match(top[0], /box-shadow: 0 0 0 calc\(0\.22 \* var\(--_sec-1cqi, 1cqi\)\) var\(--fin-frame-mark, transparent\);/);
+  assert.doesNotMatch(top[0], /^\s*outline(-offset)?:/m);
+  // It steps back by the mask's own inset on a tone slide (8px) and under the overflow ring (4px).
+  assert.match(css, /tone-skip\)\.finish > \.backdrop > \.backdrop-mask::after \{\s*left: calc\(1\.32 \* var\(--_sec-1cqi, 1cqi\) - 8px\);/);
+  assert.match(css, /\[data-lattice-overflow-marker="off"\]\) > \.backdrop > \.backdrop-mask::after \{\s*inset: calc\(1\.32 \* var\(--_sec-1cqi, 1cqi\) - 4px\);/);
   // Every opt-out that clears the shadow frame clears the keyline too.
   const clears = css.match(/--fin-frame: 0 0 transparent;[^\n]*\n\s*--fin-frame-mark: transparent;/g) || [];
   assert.equal(clears.length, 2, 'finish-none and print mode both clear --fin-frame-mark');

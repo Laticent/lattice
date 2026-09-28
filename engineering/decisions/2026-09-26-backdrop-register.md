@@ -329,12 +329,31 @@ finish layer paints over the section's own shadow. On screen those layers are mo
 and the line shows through; an export face's wash ends on solid canvas and covers it. Fabricate
 labels the frame "EDGE z4", the top of the stack, but it was drawn at the bottom.
 
-**Fix:** the keyline is drawn a second time, on top, as an `outline` on the mask layer's `::after`
-(`--fin-frame-mark`, the keyline color, written by the generator for a `frame` edge). An outline
-paints after the mask's own layers, so it sits above the veil and the clear layer in every face.
-The canvas-colored mat stays the section's shadow, underneath, so a texture still shows through
-it. Measured on screen, the outline lands on the old line: 0 pixels differ by more than 8 levels
-with the new outline switched off versus on (gallery, atrium, halo, a tone slide).
+**Fix:** the keyline is drawn a second time, on top, on the mask layer's `::after`, colored by
+`--fin-frame-mark` (the keyline color, written by the generator for a `frame` edge). The pseudo sits
+at the keyline's outer edge and paints the line as a spread `box-shadow`, which lands above the veil
+and the clear layer in every face. It is not an `outline`: Chrome snaps outline widths to whole
+pixels, so the ring drew 2px against the shadow's 2.8px and did not cover the line beneath it. The
+canvas-colored mat stays the section's shadow, underneath, so a texture still shows through it.
+Measured on screen, the ring lands on the old line: switching it off versus on changes only edge
+anti-aliasing (at most 17 levels, gallery), and the exported line is as wide as the screen's (6-7px
+at 2x). Two slide states move the section's own ring, and the pseudo follows them: a tone slide
+(`left` 8px further out, for the tone rail) and an overflowing slide with the overflow ring (4px
+further out on every side). Without those offsets the keyline jumped 4-8px on those slides.
+
+**The `backdrop:` register does not restrain the frame.** The register dims and masks the layers
+behind the content; the keyline sits at the slide edge and never competes with a word, so it stays
+crisp at every strength. Say so in review if a dimmed frame is wanted; it would be one more
+`opacity` read on the pseudo.
+
+**A hand-written finish must set `--fin-frame-mark`** to get the top keyline. A frame declared only
+through `--fin-frame` keeps the old behavior: visible on screen, gone in exports. The generator,
+the gallery preset, `design/skills/finish.md` and the Finishes docs all carry the mark. `finish-none`
+and print mode clear it with the rest of the finish.
+
+**Known caveat:** on an overflowing slide in an export, the "Content clipped" tag sits on the
+bottom keyline. It is cosmetic, appears only on a slide that is already flagged broken, and is not
+fixed here.
 
 **The inset moved from 2.6-2.82 to 1.1-1.32 section-cqi** (14-17px at 1280). At the old inset the
 keyline struck through the header (28-52px) on screen, which exports never showed only because

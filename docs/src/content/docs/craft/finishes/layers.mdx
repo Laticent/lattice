@@ -143,6 +143,12 @@ A full frame is drawn with stacked inset shadows through `--fin-frame`, not
 with a border and not with the section's own `::after` — that one is
 reserved for the page number, and a frame drawn there erases it.
 
+Give the keyline's color to `--fin-frame-mark` too. The shadow sits under the
+finish's other layers, and an exported PDF or image covers it; the engine draws
+the keyline again on top from `--fin-frame-mark`, so the frame survives export.
+Put the keyline 1.1–1.32 section-cqi in from the edge, the same inset the
+shipped frames use, so it runs outside the header and page number.
+
 ## Composing them
 
 Some pairs work and some fight. **Wash plus texture** is the safe
