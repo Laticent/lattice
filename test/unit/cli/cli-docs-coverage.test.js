@@ -64,7 +64,7 @@ function helperFlags() {
 
 /** True when `doc` mentions `flag` as a whole token (so `--notes` does not match `--notes-icon`). */
 function mentions(doc, flag) {
-  const esc = flag.replace(/[-]/g, '\\-');
+  const esc = flag.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
   return new RegExp(`(^|[^\\w-])${esc}(?![\\w-])`).test(doc);
 }
 
