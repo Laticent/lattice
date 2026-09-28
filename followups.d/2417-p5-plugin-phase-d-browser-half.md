@@ -24,12 +24,22 @@ why now   — phase D put Mermaid on the plugin host for the ENGINE (the fence, 
               `remote-ref.js` — each a `language-mermaid` roster;
             - the highlight grammar (`registerMermaidHljs`, `lib/integrations/markdown-it/plugins.js`)
               and `lib/integrations/mermaid/mermaid.css` are still installed by the engine, not
-              contributed by the plugin.
+              contributed by the plugin;
+            - `render.exec.hydrate: "runtime"` is in-tree and transitional (LPM §3.4): moving the
+              runtime's diagram pass into the plugin as a runtime-bundled `hydrate.js` retires it,
+              and the resolver's "runtime-drawn plugins declare no hydrate" rule changes with it;
+            - the bake `ctx`'s Mermaid-shaped members (`diagramTheme`, the re-bake closures on
+              `state`, read by name in the emulator's image-set path) want a generic "re-bake in
+              another band" hook — phase F's chart bakes are its second user;
+            - the CLI never passes `disabled` to `bakeDeck`, so a bake cannot be switched off from
+              the CLI while the engine's `plugins.disabled` can switch the plugin off.
 where     — `engineering/decisions/2026-09-27-plugin-system.md` §4.7, §4.8 and §11 (phase D);
             `lib/plugins/mermaid/`, `lib/plugins/host-browser.mjs`, `lib/runtime/index.js`,
             `docs/src/components/studio/export/deck-export.js`, the `mermaidUrl` sites.
-done when — `drawnFenceClasses` reaches 0 and its budget with it; the Studio export waits on the
-            host's settle barrier alone; the library loads through `payload`.
+done when — no browser code names Mermaid by any of its three hand idioms: `drawnFenceClasses`
+            reaches 0 (widen the ratchet first to also count `mermaidUrl` — 18 files — and
+            `data-mermaid-state` — 8 — which it does not count today); the Studio export waits
+            on the host's settle barrier alone; the library loads through `payload`.
 evidence  — the ratchet's count falling in each PR; engine byte identity (or an export sign-off
             where engine bytes change); the Studio export of a diagram deck, light and dark.
 verify    — tier 2 adversarial trio: it moves the preview and Studio-export path every diagram

@@ -1635,7 +1635,7 @@ const bakeServices = {
   scopeKey: diagramScopeKey,
   diagramTheme: themeVarsForBand,
 };
-const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices);
+const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true });
 // Mermaid's record of this bake — what the image-set cross-scheme look re-bakes from. Empty when
 // the deck drew no diagram (no bake ran), and then no `.mermaid-svg[data-mmd-idx]` exists either.
 const MERMAID_BAKE = BAKE_CONTEXTS.get('mermaid')?.state || { defs: [], modes: [], looks: [], hand: [] };

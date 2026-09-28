@@ -481,8 +481,12 @@ Unchanged from `2026-09-13` §Axis 2, applied per contribution:
 | Channel | May carry | When |
 |---|---|---|
 | **In-tree** (`lib/plugins/`) | every contribution | phase A |
-| **Zip / Studio / AI-generated** (the data layer) | `styles`, `diagnostics` (a component without a transform is already its own data package, and may declare the plugins it needs) | phase E. **Refused:** `payload`, any `exec`, `syntax`, `hydrate` — and every script file by extension, which `lib/packages/read.js:35` already does. `fences` code through the code-package door (consent + sandbox) once it ships, §9 decision 3 |
+| **Zip / Studio / AI-generated** (the data layer) | `styles`, `diagnostics` (a component without a transform is already its own data package, and may declare the plugins it needs) | phase E. **Refused:** `payload`, any `exec`, `syntax`, `hydrate`, `bake` — and every script file by extension, which `lib/packages/read.js:35` already does. `fences` code through the code-package door (consent + sandbox) once it ships, §9 decision 3 |
 | **npm** (`lattice-plugin-*`, resolved at build time) | every code contribution | phase G, after the `LICENSE-EXCEPTIONS` plugin grant (contribution model, finding 6). Discovery by an explicit list, not by name prefix, so a transitive dependency named `lattice-plugin-*` gets no code into a deck |
+
+**A `bake` (phase D) runs with full Node privileges** — it is required into the CLI's own
+process and may start others — so no sandbox the code-package door has can hold one. Only an
+in-tree plugin, or an npm plugin after the grant, may carry `bake.js`.
 
 **Names.** Shipped plugin names are reserved, per the spine's `<name>-custom` rule. A data-layer
 plugin that collides with a shipped one, or with another installed plugin, is **disabled with a
@@ -818,6 +822,39 @@ code. What changed because of them:
   default margin reset). Re-proven: a scaffolded plugin, one `npm run build`, then the full
   `npm test`, with its CSS in `dist/lattice.css`. Left: `createEngine()._tokens` is reachable from
   any page that loads the engine — a test seam, undocumented, read-only.
+
+- **Phase D, Mermaid on the host — engine and CLI: done, on its branch; the browser half is
+  recorded.** `lib/plugins/mermaid/` declares the ` ```mermaid ` fence `as: "code"` (the plugin owns
+  the name; the engine renders the same highlighted block, so no engine byte moved), a `bake`
+  (`render.exec.bake: "subprocess"`) and `render.exec.hydrate: "runtime"` (§4.7 as built).
+  `mermaid.bake.js` is the CLI's diagram bake MOVED out of `lattice-emulator.js` — the fence walk,
+  the worker plumbing and the image-set re-bake record — closed over one export's `ctx`, so two
+  exports in a process share no SVG id counter. `lib/plugins/host-bake.js` runs every active,
+  used plugin's bake before the engine; the emulator supplies the services and keeps the one
+  palette-assembly site. The resolver gained the new arms; `mermaid` stopped being a
+  host-reserved name; the `diagram` component declares `requires: ["mermaid"]` (the resolver
+  demanded it); grammar.json's row and the Read pane's bake gate derive from the registry
+  (`drawn.generated.mjs`). The ratchet gained `drawnFenceClasses` (18): the `language-mermaid`
+  rosters the browser half still owes.
+  **Evidence.** Engine HTML over 478 tracked Markdown files × 4 configurations: identical to
+  `main`. CLI `.html` of all 43 tracked diagram decks: identical to `main` but for gitGraph's
+  random merge-commit ids, which differ between two runs of `main` itself. The
+  `examples/mermaid-diagram-surface` PDFs byte-identical to `main`, light and dark. The checker
+  diffed the move line by line (only the named rebindings differ) and matched an image-set `.zip`
+  with a cross-scheme re-bake file for file.
+  **Adversarial trio (HARD RULE #25).** Folded: the host's "uses mermaid" probe allowed only space
+  and tab before the name while the bake's matcher trims all whitespace, so a deck whose fences
+  carried a no-break space exported source while the preview drew it — a regression this phase
+  made, fixed and pinned by a superset test over ten whitespace kinds (red then green); a bake that
+  throws fails the CLI export again (`strict`), as it did before, rather than exiting green with
+  source where the diagrams go; LPM marks `"runtime"` in-tree and transitional, splits the bake
+  `ctx` into stable and in-tree members, and refuses `bake` in the zip channel (§4.10); the docs'
+  blockquote claim corrected (the CLI does not draw a blockquoted fence — a known gap).
+  **Left, with their reason** (`followups.d/2417-p5-plugin-phase-d-browser-half.md`): the
+  browser half — the library still loads by `mermaidUrl`, the runtime's `data-mermaid-state` is
+  invisible to the host's settle barrier, and 18 rosters name `language-mermaid`. By surface, the
+  engine and the CLI run through the host; the preview, the Playground, `--fluid`, the Studio
+  export and the player's browser-side paths do not yet.
 
 ## References
 

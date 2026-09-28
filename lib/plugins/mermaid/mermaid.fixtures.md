@@ -32,7 +32,7 @@ sequenceDiagram
 - renders `language-mermaid`
 - detect true
 
-## a fence inside a blockquote is found
+## a fence inside a blockquote is detected (the preview draws it; the CLI bake does not yet)
 
 ````markdown
 > ```mermaid

@@ -89,7 +89,8 @@ aliases. The plugin draws it later, in two places:
   in dependency order, over the deck's Markdown before the engine renders — only for a deck that
   uses the plugin. `ctx` is frozen: the export's services (the palette reader, the Chromium to
   use, the deck's orientation, …; `mermaid.bake.js` lists them) plus `name` and a fresh `state` the
-  caller reads back. A bake that throws or returns no text leaves the source, and the CLI warns.
+  caller reads back. On the CLI a bake that throws or returns no text fails the export, naming the
+plugin (`strict`); a single diagram Mermaid rejects is degraded inside the bake, as before.
 
 The resolver requires the bake of any plugin the runtime draws: the CLI export page carries no
 runtime, so nothing else would draw it there.

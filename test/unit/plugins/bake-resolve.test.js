@@ -71,6 +71,24 @@ describe('the host fence table leaves a code fence to the code renderer', () => 
   });
 });
 
+describe('the host\'s "uses mermaid" probe is a superset of the fence matcher the bake runs', () => {
+  // A probe that misses a fence the matcher finds skips the deck's bake, and the export prints the
+  // source the preview draws. Found by the HARD RULE #25 red team: a no-break space before the name.
+  test('every whitespace isMermaidInfo trims, and every opener shape, is found by both', async () => {
+    const { usesPlugin } = await import('../../../lib/plugins/host-grammar.mjs');
+    const { matchMermaidFences } = require('../../../lib/core/mermaid-fences');
+    const mermaid = PLUGINS.find((p) => p.name === 'mermaid');
+    const gaps = [' ', '\t', '\u00a0', '\f', '\v', '\u3000', '\ufeff', '\u2002', '\u2009', '  '];
+    const shapes = gaps.flatMap((ws) => [`\`\`\`${ws}mermaid\nflowchart LR\n  A --> B\n\`\`\`\n`, `~~~${ws}mermaid\nflowchart LR\n~~~\n`]);
+    shapes.push('```mermaid{x}\nflowchart LR\n```\n', '   ```mermaid\r\nflowchart LR\r\n```\r\n', '- item\n\n  ```mermaid\n  flowchart LR\n  ```\n');
+    for (const src of shapes) {
+      const found = matchMermaidFences(src).length > 0;
+      if (found) assert.equal(usesPlugin(mermaid, src), true, `the probe misses a fence the bake draws: ${JSON.stringify(src)}`);
+    }
+    assert.ok(shapes.filter((src) => matchMermaidFences(src).length).length >= 20, 'the matcher found the shapes, so the arm checked something');
+  });
+});
+
 describe('bakeDeck — the Node host', () => {
   const grammar = [
     { name: 'first', requires: [], optional: [], fences: { one: { aliases: [] } }, detect: null },
@@ -115,6 +133,11 @@ describe('bakeDeck — the Node host', () => {
     r = bakeDeck(src, {}, { bakers: [baker('first', () => undefined)], grammar, warn });
     assert.equal(r.source, src);
     assert.match(warnings[1], /plugin "first": its bake returned no text/);
+  });
+  test('strict (the CLI): a bake that throws or returns no text fails the export, naming the plugin', () => {
+    const src = '```one\n```\n';
+    assert.throws(() => bakeDeck(src, {}, { bakers: [baker('first', () => { throw new Error('boom'); })], grammar, strict: true }), /plugin "first": its bake failed: boom/);
+    assert.throws(() => bakeDeck(src, {}, { bakers: [baker('first', () => 7)], grammar, strict: true }), /plugin "first": its bake returned no text/);
   });
   test('the real registry bakes Mermaid, lazily, and skips a deck with no diagram without loading it', () => {
     assert.deepEqual(BAKERS.map((b) => [b.name, b.exec]), [['mermaid', 'subprocess']]);

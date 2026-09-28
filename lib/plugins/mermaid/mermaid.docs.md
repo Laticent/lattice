@@ -25,8 +25,9 @@ flowchart LR
 ```
 ````
 
-`~~~mermaid` works too, as does a fence inside a blockquote or list item. A fence inside an HTML
-comment — a speaker note, a commented-out draft — is not a diagram and is never drawn.
+`~~~mermaid` works too, as does a fence inside a list item. A fence inside a blockquote draws in a
+browser but exports as its source on the CLI (a known gap, `lib/core/mermaid-fences.js`). A fence
+inside an HTML comment — a speaker note, a commented-out draft — is not a diagram and is never drawn.
 
 ## Where it draws
 
@@ -34,7 +35,7 @@ comment — a speaker note, a commented-out draft — is not a diagram and is ne
 |---|---|---|
 | engine (`render()`) | `<pre><code class="language-mermaid">`, highlighted | the engine's code renderer — the fence is declared `as: "code"` |
 | Studio, Playground, `--fluid` | the diagram | the runtime's diagram pass (`lib/runtime`), with `mermaid-v11.min.js` |
-| PDF, PNG, PPTX, `--html`, `--player` | a static `<div class="mermaid-svg">` | the plugin's bake, `mermaid.bake.js`, in a headless render worker |
+| PDF, PNG, PPTX, an `.html` export, `--player` | a static `<div class="mermaid-svg">` | the plugin's bake, `mermaid.bake.js`, in a headless render worker |
 | Export to Marp | the diagram | Mermaid in the recipient's browser (the bundle ships the library) |
 
 Each diagram is drawn for the band of **its own slide** — light, dark or print — and in the
@@ -47,8 +48,8 @@ A definition Mermaid rejects never aborts a deck. In a browser the runtime shows
 with the parser's message and keeps the source. On the CLI the bake degrades that one diagram to
 an escaped `<pre class="mermaid-fallback">` of its source; the rest of the deck's diagrams still
 draw. If the render worker cannot run at all (no Chromium), each diagram is retried one at a time,
-then falls back the same way. A bake that throws is caught by the plugin host: the deck exports
-with the fences as highlighted source, and the CLI names the plugin in a warning.
+then falls back the same way. A bake that throws — a bug, not a bad diagram — fails the export,
+and the CLI names the plugin.
 
 ## What the plugin contributes
 

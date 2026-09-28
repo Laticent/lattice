@@ -96,7 +96,7 @@ installation, CSS order and hydrate order, and nothing else.
 | `tokens` | every design token `styles.css` reads — exactly the set of its `var(--…)` reads |
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
-| `render.exec` | where code runs: `hydrate: "browser"` (a `hydrate.js`, run by the plugin host) or `"runtime"` (the runtime's own pass draws it — no `hydrate.js`, and the plugin MUST `bake`, because the CLI export page carries no runtime); `bake: "subprocess"` (the bake blocks on another process, such as a headless browser) |
+| `render.exec` | where code runs: `hydrate: "browser"` (a `hydrate.js`, run by the plugin host) or `"runtime"` (the runtime's own pass draws it — no `hydrate.js`, and the plugin MUST `bake`, because the CLI export page carries no runtime). **`"runtime"` is IN-TREE ONLY and TRANSITIONAL**: it names code that still lives in `lib/runtime` (Mermaid's diagram pass), which a zip or npm plugin cannot put there. It goes when that pass moves into the plugin as a runtime-bundled `hydrate.js`, and the rule that a runtime-drawn plugin may not also declare `hydrate` changes with it; `bake: "subprocess"` (the bake blocks on another process, such as a headless browser) |
 | `render.surfaces` | what each surface emits — `engine`, `preview`, `pdf`, `player`, `marp` → `placeholder \| figure \| figure-baked \| source \| none` |
 
 ## 4. The role modules
@@ -156,12 +156,17 @@ CommonJS, Node-side, exporting `bake(source, ctx) → string`: the deck's Markdo
 Markdown with this plugin's figures drawn into static markup out. The CLI's plugin host
 (`lib/plugins/host-bake.js`) runs every active plugin's bake, in dependency order, before the
 engine renders, and only for a deck that uses the plugin (its `detect`, or one of its fence names).
-It may require anything; no browser bundle ever loads it. `ctx` is frozen and carries the export's
-services — `pkgRoot`, `quiet`, `print`, `paletteUsesTexture`, `orientation`,
-`browser: { path, args }`, `readToken(scope, name)`, `scopeKey(scope)`, `diagramTheme(band, hand)` —
-plus the plugin's `name` and a fresh `state` object the bake may fill for the caller to read back.
-A bake that throws or returns a non-string leaves the source as it was, and the host warns naming
-the plugin (§8).
+It may require anything; no browser bundle ever loads it. `ctx` is frozen and carries:
+
+- **stable** — `name`, `pkgRoot`, `quiet`, `print`, `paletteUsesTexture`, `orientation`,
+  `browser: { path, args }`, `readToken(scope, name)` (a palette token as a `{ band, hand }` scope
+  resolves it), `scopeKey(scope)`, and a fresh `state` object the bake may fill;
+- **in-tree, unstable** — `diagramTheme(band, hand)` (Mermaid's theme variables), and what
+  Mermaid's bake leaves on `state` for the image-set re-bake (`renderOne`, `renderInBand`, the
+  per-diagram records). The chart family (phase F) is expected to replace these with a generic
+  "re-bake in another band" hook; nothing outside `lib/plugins` may rely on them.
+
+On the CLI a bake that throws or returns a non-string FAILS THE EXPORT, naming the plugin (§8).
 
 ## 5. The host API (`api: 1`)
 
@@ -248,8 +253,10 @@ the deck renders. For a FENCE renderer, `source` means a code block of the body 
 flatten a multi-line config into one line. A tokenizer rule is not wrapped — a throw mid-scan leaves markdown-it's position
 undefined — so the conformance harness feeds each rule its malformed fixtures instead. A `hydrate`
 that throws settles `error`; one that overruns its budget is closed (§6). A `bake` that throws or
-returns a non-string leaves the deck's source as it was — the fence then exports as its code
-block — and the CLI warns, naming the plugin.
+returns a non-string fails a CLI export, naming the plugin: an export that exits green with source
+where the figures should be is the worst failure an export engine has. (The host's default, for
+other callers, is to keep the source and warn.) A single figure the plugin cannot draw is the
+plugin's to degrade, inside its bake — Mermaid shows that diagram's escaped source.
 
 ## 9. Conformance
 
@@ -266,7 +273,7 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics`; fence code only through the code-package door (consent pinned to the code's hash, then a sandbox). Never `syntax`, `hydrate` or `payload` |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics`; fence code only through the code-package door (consent pinned to the code's hash, then a sandbox). Never `syntax`, `hydrate`, `bake` or `payload` — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
 A shipped plugin's name is reserved.
