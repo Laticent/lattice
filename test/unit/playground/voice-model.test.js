@@ -707,3 +707,67 @@ test('desktop default: an injected test rung is never joined by a real download'
   v.__setRung(MockRung());
   assert.equal(await v.summonDefaultVoice(), false);
 }));
+
+// ── The on-device load: adapter probe, Cancel, and the wasm retry ─────────────
+// A scripted Worker answers the rung's `load` message the way kokoro-worker.js does, and a
+// scripted navigator.gpu stands in for the adapter probe. Plain node has neither.
+
+function withFakeGpuAndWorker({ adapter, adapterDelayMs = 0, failDevices = [] }, fn) {
+  const posted = [];
+  const realWorker = globalThis.Worker;
+  const hadGpu = Object.getOwnPropertyDescriptor(globalThis.navigator, 'gpu');
+  globalThis.Worker = class {
+    postMessage(msg) {
+      if (msg.type !== 'load') return;
+      posted.push(`load:${msg.device}`);
+      const type = failDevices.includes(msg.device) ? 'load-error' : 'loaded';
+      setTimeout(() => this.onmessage?.({ data: { type, error: 'no backend' } }), 5);
+    }
+    terminate() {}
+  };
+  Object.defineProperty(globalThis.navigator, 'gpu', {
+    configurable: true,
+    value: { requestAdapter: () => (adapter === 'hang' ? new Promise(() => {}) : new Promise((r) => setTimeout(() => r(adapter), adapterDelayMs))) },
+  });
+  return Promise.resolve().then(() => fn(posted)).finally(() => {
+    globalThis.Worker = realWorker;
+    if (hadGpu) Object.defineProperty(globalThis.navigator, 'gpu', hadGpu);
+    else delete globalThis.navigator.gpu;
+  });
+}
+
+test('on-device load: a WebGPU load that fails in the worker retries once on wasm', async () => withLocalStorage(() => withFakeGpuAndWorker({ adapter: {}, failDevices: ['webgpu'] }, async (posted) => {
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({});
+  assert.equal(await v.loadKokoro(), true);
+  assert.deepEqual(posted, ['load:webgpu', 'load:wasm']);
+  assert.equal(v.availability().kokoroReady, true);
+})));
+
+test('on-device load: no adapter → the wasm build, never the ~330 MB WebGPU one', async () => withLocalStorage(() => withFakeGpuAndWorker({ adapter: null }, async (posted) => {
+  const { createVoiceModel } = await load();
+  assert.equal(await createVoiceModel({}).loadKokoro(), true);
+  assert.deepEqual(posted, ['load:wasm']);
+})));
+
+test('on-device load: a Cancel that lands during the adapter probe is honored', async () => withLocalStorage(() => withFakeGpuAndWorker({ adapter: {}, adapterDelayMs: 50 }, async (posted) => {
+  const { createVoiceModel } = await load();
+  const ctl = new AbortController();
+  const p = createVoiceModel({}).loadKokoro(undefined, ctl.signal);
+  setTimeout(() => ctl.abort(), 10);
+  await assert.rejects(p, /aborted/);
+  assert.deepEqual(posted, [], 'nothing is sent to the worker after the Cancel');
+})));
+
+test('probeWebGPU: a probe that never answers, or a software fallback adapter, is "no GPU"', async () => {
+  const spend = await import(require('node:url').pathToFileURL(require('node:path').join(__dirname, '../../../docs/src/components/studio/ai/spend.js')).href);
+  await withFakeGpuAndWorker({ adapter: 'hang' }, async () => {
+    assert.equal(await spend.probeWebGPU({ timeoutMs: 30 }), false);
+  });
+  await withFakeGpuAndWorker({ adapter: { isFallbackAdapter: true } }, async () => {
+    assert.equal(await spend.probeWebGPU(), false);
+  });
+  await withFakeGpuAndWorker({ adapter: { info: { isFallbackAdapter: false } } }, async () => {
+    assert.equal(await spend.probeWebGPU(), true);
+  });
+});

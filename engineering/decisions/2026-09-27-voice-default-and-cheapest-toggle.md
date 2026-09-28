@@ -71,7 +71,11 @@ exposes `navigator.gpu`, but `requestAdapter()` returns null. The old `'gpu' in 
 test picked the fp32 WebGPU build there, downloaded ~330 MB, and then failed to load, so the
 desktop default never came up (measured 2026-09-28). Real desktops land there too: Linux
 without GPU acceleration, VMs, blocklisted GPUs. The rung now asks for an adapter and
-otherwise loads the ~80 MB q8 WASM build.
+otherwise loads the q8 WASM build (~80 MB of weights; 97 MB transferred with the voices,
+measured). The probe is `probeWebGPU()` in `spend.js`: it had no callers, so it is reused
+here. It gives up after 2 s and treats a software fallback adapter as no GPU. A Cancel that
+lands during the probe is honored. If the WebGPU load fails inside the worker, the rung
+retries once on WASM before giving up.
 
 **The export follows the rehearsal.** When the author's active voice is on-device, turning
 on narrated export defaults to the on-device narrator, even with a cloud key connected.

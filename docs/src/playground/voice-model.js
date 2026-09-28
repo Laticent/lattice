@@ -24,6 +24,9 @@
 // module under plain `node --test` (no Vite alias, no TS resolution), so this file
 // must not use the `@/…` alias or import a TypeScript module.
 
+// The adapter probe the on-device rung picks its build with (plain JS, no imports of its own).
+import { probeWebGPU } from '../components/studio/ai/spend.js';
+
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
 // The two on-device tiers this module writes through to. Both are plain, node-safe JS
@@ -37,6 +40,10 @@ import { isGeminiTtsModel } from './tts-models.js';
 
 const KOKORO_URL = 'https://esm.run/kokoro-js';
 const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+// The two builds the on-device rung can load: full-precision on a usable GPU (~330 MB),
+// else 8-bit on wasm (~80 MB of weights; ~97 MB transferred with the voices, measured).
+const WEBGPU_FP32 = { dtype: 'fp32', device: 'webgpu' };
+const WASM_Q8 = { dtype: 'q8', device: 'wasm' };
 // Cloud voice = OpenRouter's dedicated TTS endpoint (/api/v1/audio/speech), the
 // OpenAI-compatible speech route. It takes { model, input, voice, response_format }
 // and returns a RAW audio byte stream (mp3) — NOT a chat message with base64 deltas.
@@ -558,9 +565,7 @@ function kokoroRung({ getVoice }) {
   // the same place (Linux without GPU acceleration, VMs, a blocklisted GPU), and with on-device
   // as the desktop default that is the main path, not an edge. No adapter → q8 on wasm (~80 MB).
   async function dtypeAndDevice() {
-    let adapter = null;
-    try { adapter = detectWebGPU() ? await navigator.gpu.requestAdapter() : null; } catch { adapter = null; }
-    return adapter ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' };
+    return (await probeWebGPU()) ? WEBGPU_FP32 : WASM_Q8;
   }
 
   function makeWorker() {
@@ -580,10 +585,10 @@ function kokoroRung({ getVoice }) {
     return worker;
   }
 
-  async function loadMain(onProgress) {
+  async function loadMain(onProgress, choice) {
     mainLib = await import(/* @vite-ignore */ KOKORO_URL);
     const KokoroTTS = mainLib.KokoroTTS || mainLib.default?.KokoroTTS;
-    const { dtype, device } = await dtypeAndDevice();
+    const { dtype, device } = choice || await dtypeAndDevice();
     mainTts = await KokoroTTS.from_pretrained(KOKORO_MODEL, {
       dtype, device,
       progress_callback: (p) => onProgress?.({ progress: (p?.progress || 0) / 100, text: p?.file || p?.status, status: p?.status }),
@@ -618,29 +623,44 @@ function kokoroRung({ getVoice }) {
     // the middle of that read. Only a load the author asked for may take that path.
     async load(onProgress, signal, opts) {
       const noMain = opts?.mainThread === false;
-      const { dtype, device } = await dtypeAndDevice();
+      const abortedError = () => new Error('aborted');
+      const probed = await dtypeAndDevice();
+      // The probe is an await, and the abort listener below is attached after it — so a
+      // Cancel that landed DURING the probe would never fire it. Honor it here instead.
+      if (signal?.aborted) throw abortedError();
       try { makeWorker(); } catch (e) {
         if (coarsePointer() || noMain) throw e; // never OOM the main thread on a phone
-        await loadMain(onProgress); return true;
+        await loadMain(onProgress, probed); return true;
       }
       onProg = onProgress;
-      try {
-        await new Promise((resolve, reject) => {
-          onLoaded = resolve; onLoadErr = reject;
-          worker.postMessage({ type: 'load', url: KOKORO_URL, model: KOKORO_MODEL, dtype, device });
-          if (signal) signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
-        });
-        return true;
-      } catch (e) {
-        if (String(e?.message) === 'aborted') throw e;
-        try { worker.terminate(); } catch {}
-        worker = null;
-        // On mobile the main-thread fallback is the exact OOM-reload we're avoiding
-        // — surface the failure (the UI offers cloud / retry) instead.
-        if (coarsePointer() || noMain) throw e;
-        await loadMain(onProgress);
-        return true;
+      const viaWorker = ({ dtype, device }) => new Promise((resolve, reject) => {
+        makeWorker();
+        onLoaded = resolve; onLoadErr = reject;
+        worker.postMessage({ type: 'load', url: KOKORO_URL, model: KOKORO_MODEL, dtype, device });
+        if (signal) signal.addEventListener('abort', () => reject(abortedError()), { once: true });
+      });
+      // An adapter on the main thread is not proof WebGPU works for onnxruntime in the
+      // worker. When the WebGPU load fails, try the wasm build once in a fresh worker before
+      // giving up — otherwise the background default switches itself off for the session,
+      // and an explicit load retries fp32 WebGPU on the main thread, which fails the same way.
+      let lastErr = null;
+      for (const choice of probed.device === 'webgpu' ? [probed, WASM_Q8] : [probed]) {
+        if (signal?.aborted) throw abortedError();
+        try {
+          await viaWorker(choice);
+          return true;
+        } catch (e) {
+          if (String(e?.message) === 'aborted') throw e;
+          try { worker?.terminate(); } catch {}
+          worker = null;
+          lastErr = e;
+        }
       }
+      // On mobile the main-thread fallback is the exact OOM-reload we're avoiding
+      // — surface the failure (the UI offers cloud / retry) instead.
+      if (coarsePointer() || noMain) throw lastErr;
+      await loadMain(onProgress, WASM_Q8);
+      return true;
     },
     // `speed` is a native kokoro-js generate() option (like the cloud rung's OpenRouter
     // `speed` param) — real phoneme-duration pacing, not a client-side playback-rate hack.

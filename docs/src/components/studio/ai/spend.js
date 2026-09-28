@@ -128,11 +128,23 @@ export function budgetStatus({ sessionSpend = 0, cap = 0, mode = 'alert', accoun
 
 // Real WebGPU support is more than `'gpu' in navigator` — headless Chromium
 // exposes the object but has no adapter. Probe for an adapter (async).
-export async function probeWebGPU() {
+//
+// Two more ways a present-looking GPU is not a usable one, both of which cost a ~330 MB
+// fp32 download before anything notices (the on-device voice's rung is the caller):
+// - a SOFTWARE fallback adapter, which onnxruntime-web's WebGPU backend is not worth
+//   betting a download on — answered as false;
+// - a probe that never answers. The spec says requestAdapter() resolves (null at worst),
+//   but a GPU process that stalls at startup would hold the caller forever, so the probe
+//   gives up after `timeoutMs` and answers false.
+export async function probeWebGPU({ timeoutMs = 2000 } = {}) {
   try {
     if (typeof navigator === 'undefined' || !navigator.gpu) return false;
-    const adapter = await navigator.gpu.requestAdapter();
-    return !!adapter;
+    let timer;
+    const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); });
+    const adapter = await Promise.race([navigator.gpu.requestAdapter(), timeout]);
+    clearTimeout(timer);
+    if (!adapter) return false;
+    return !(adapter.isFallbackAdapter || adapter.info?.isFallbackAdapter);
   } catch {
     return false;
   }
