@@ -550,10 +550,17 @@ function kokoroRung({ getVoice }) {
   let onLoadErr = null;
   let onProg = null;
 
-  function dtypeAndDevice() {
-    // On-device Kokoro is desktop-only (see kokoroSupported); desktop with a GPU
-    // gets full-quality fp32/WebGPU, otherwise q8 on wasm.
-    return detectWebGPU() ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' };
+  // WebGPU only when the browser can hand us an ADAPTER, not merely when `navigator.gpu`
+  // exists. Measured 2026-09-28 on the deployed preview in headless Chromium: `navigator.gpu`
+  // present, `requestAdapter()` → null ("Failed to create WebGPU Context Provider"). The old
+  // `'gpu' in navigator` test picked fp32/WebGPU there, downloaded ~330 MB, and then the
+  // worker's load failed — so the on-device voice never came up at all. Real desktops land in
+  // the same place (Linux without GPU acceleration, VMs, a blocklisted GPU), and with on-device
+  // as the desktop default that is the main path, not an edge. No adapter → q8 on wasm (~80 MB).
+  async function dtypeAndDevice() {
+    let adapter = null;
+    try { adapter = detectWebGPU() ? await navigator.gpu.requestAdapter() : null; } catch { adapter = null; }
+    return adapter ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' };
   }
 
   function makeWorker() {
@@ -576,7 +583,7 @@ function kokoroRung({ getVoice }) {
   async function loadMain(onProgress) {
     mainLib = await import(/* @vite-ignore */ KOKORO_URL);
     const KokoroTTS = mainLib.KokoroTTS || mainLib.default?.KokoroTTS;
-    const { dtype, device } = dtypeAndDevice();
+    const { dtype, device } = await dtypeAndDevice();
     mainTts = await KokoroTTS.from_pretrained(KOKORO_MODEL, {
       dtype, device,
       progress_callback: (p) => onProgress?.({ progress: (p?.progress || 0) / 100, text: p?.file || p?.status, status: p?.status }),
@@ -611,7 +618,7 @@ function kokoroRung({ getVoice }) {
     // the middle of that read. Only a load the author asked for may take that path.
     async load(onProgress, signal, opts) {
       const noMain = opts?.mainThread === false;
-      const { dtype, device } = dtypeAndDevice();
+      const { dtype, device } = await dtypeAndDevice();
       try { makeWorker(); } catch (e) {
         if (coarsePointer() || noMain) throw e; // never OOM the main thread on a phone
         await loadMain(onProgress); return true;

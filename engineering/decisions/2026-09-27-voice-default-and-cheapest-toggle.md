@@ -66,6 +66,13 @@ lands. Four guards contain the background download:
   read, and a read never overrides the author's Cancel.
 - **Test voices are left alone.** An injected test voice never triggers a download.
 
+**WebGPU needs an adapter, not just the API.** The deployed preview in headless Chromium
+exposes `navigator.gpu`, but `requestAdapter()` returns null. The old `'gpu' in navigator`
+test picked the fp32 WebGPU build there, downloaded ~330 MB, and then failed to load, so the
+desktop default never came up (measured 2026-09-28). Real desktops land there too: Linux
+without GPU acceleration, VMs, blocklisted GPUs. The rung now asks for an adapter and
+otherwise loads the ~80 MB q8 WASM build.
+
 **The export follows the rehearsal.** When the author's active voice is on-device, turning
 on narrated export defaults to the on-device narrator, even with a cloud key connected.
 Those clips are already on disk, and defaulting to the cloud voice would quote and bill
