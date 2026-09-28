@@ -131,8 +131,8 @@ paint, so the register changed nothing that already renders. Two things hold in
 ### How the engine applies them
 
 `tools/build-chart-finish-css.js` generates the rules from each manifest's
-`kernel.marks`; its header is the long form. Seven choices in it were settled by
-measurement, and each undoes a defect the first render showed:
+`kernel.marks`; its header is the long form. Each choice below was settled by
+measurement, and most undo a defect a render or the adversarial review found:
 
 - **Specificity (0,1,1), on purpose.** Every rule is
   `section.chart-finish-X :where(<mark>)` with `!important`. That beats every
@@ -157,8 +157,15 @@ measurement, and each undoes a defect the first render showed:
   canvas-colored halo was tried first and dropped: it reads as outlined stickers,
   and the PDF export lost it.
 - **A text-bearing mark** (the manifest's `bears`) takes the quieter backdrop
-  level, and an HTML mark's own text moves to `--text-body`, the color the level
-  was measured against.
+  level, and an HTML mark's own text takes the same black-or-white ink its body
+  clears (behind `@supports`, `--text-body` otherwise). A fixed `--text-body`
+  failed on some themes: 2.62:1 on a 40% cuoio matrix-grid cell. A text-bearing
+  STATUS takes tone's text level under pigment too, because a status hue can be
+  near-black (concrete's read 3.6:1 at 40%). Measured after the fix on 33 themes ×
+  3 finishes: no text-bearing mark below 4.5:1 where the shipped paint was above
+  it (worst 4.72).
+- **Layered bodies are a light alpha** (0.35 under pigment): at 0.55 three radar
+  polygons stacked to a near-opaque mass that buried the grid.
 - **A status keeps its own hue, under `tone` too.** The prototype sent a status
   body to the one hue and left the status on a 1px edge. On the render, a gantt
   key's done, live, at-risk and blocked swatches came out identical. A status is
@@ -166,12 +173,34 @@ measurement, and each undoes a defect the first render showed:
   keeps its hue at tone's quiet level.
 - **The key follows the marks.** A legend swatch carries the mark contract, so a
   tone finish cannot leave a key of five categorical colors beside tonal wedges.
+  A key takes the level of the mark it keys (`KEY_FOLLOWS`). A key whose marks the
+  a11y themes do not texture names its hue as `data-key-hue`, never `data-hue`:
+  a11y-base textures `figure.chart-frame .chart-key-swatch[data-hue]`, and a
+  `data-hue` on radar's key textured it in Read·Article while its polygons stayed
+  plain, on a deck that set no finish.
 
-**Where `tone` is weakest, besides the members it cannot reach:** overlapping
-layered series. Three radar polygons in one hue separate by value in the key, the
+**What a finish does not reach, on purpose.** `line`, `slope` and `word-cloud`
+paint with strokes and type (`paint: "none"`), and a finish leaves them whole —
+under tone, their dots and bands too, since a tonal dot on a line that kept its
+hue no longer matches its series (`STROKE_MEMBERS`). The family slot table is
+never re-pointed; an earlier cut did, under tone, and washed line's series 5–8
+out to near-white. A finish also never repaints a CONTAINER as a mark (a slotted
+flowchart group, a tinted kanban column): that buried a group's title under an 82%
+body. Under tone a container's own hue property is re-pointed to the one hue
+instead, so it keeps its faint level and its key still matches.
+
+**Where `tone` is weakest.** On a mark that CARRIES TEXT, tone has only the quiet
+top of its ramp to spend (30% down to 9%), so adjacent categories sit about three
+points apart and roughly four separate by eye, not eight. Their key takes the same
+level, so it still matches. And on overlapping layered series, three radar polygons in one hue separate by value in the key, the
 dots and the edges, but their composited fills converge, and on a dark canvas the
 steps compress further. Measured, not tuned away: a finish that claims one hue
 cannot also keep three.
+
+**`etching` and color vision.** Etching carries identity on a thin ink edge over
+a whisper of a body, and thin strokes are where hues are hardest to tell apart.
+The a11y themes and print keep their patterns under it; on an ordinary theme, a
+deck read by colorblind viewers is better served by `pigment` or an a11y theme.
 
 Full philosophy: `engineering/decisions/2026-09-07-chart-design-language/` —
 `tone-is-the-third-finish.md` for the trio, `finish-render-defects.md` for what

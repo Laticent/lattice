@@ -30,7 +30,7 @@
       {
         "class": "journey-task",
         "paint": "bg",
-        "encodes": "hue",
+        "encodes": "none",
         "bears": true
       },
       {
@@ -42,7 +42,7 @@
       {
         "class": "journey-vtask",
         "paint": "bg",
-        "encodes": "hue",
+        "encodes": "none",
         "bears": true
       },
       {
@@ -60,7 +60,7 @@
       {
         "class": "journey-lane-dot",
         "paint": "bg",
-        "encodes": "hue",
+        "encodes": "none",
         "bears": false
       },
       {

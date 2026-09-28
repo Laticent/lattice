@@ -66,15 +66,32 @@ describe('the chart gallery through the real engine', () => {
     ['matrix-grid', /<span class="cell cell-filled"[^>]*>/, 'hue'],
     ['heatmap', /<rect[^>]*class="heatmap-cell"[^>]*>/, 'ramp'],
     ['radar', /<polygon[^>]*class="radar-poly"[^>]*>/, 'layered'],
+    ['radar dot', /<[a-z]+[^>]*class="radar-dot"[^>]*>/, 'hue'],
+    ['map ramp region', /<path[^>]*class="map-region map-region--on"[^>]*>/, 'ramp'],
+    ['journey actor dot', /<span[^>]*class="journey-actor-dot"[^>]*>/, 'hue'],
+    ['stacked-bar segment', /<rect[^>]*class="sbar-seg"[^>]*>/, 'hue'],
+    ['bar mark', /<rect[^>]*class="bar-mark"[^>]*>/, 'hue'],
+    ['scatter dot', /<circle[^>]*class="scatter-dot"[^>]*>/, 'hue'],
+    ['line dot', /<circle[^>]*class="line-dot"[^>]*>/, 'hue'],
   ];
   // A KEY carries the contract of the marks it keys, so a finish repaints the two together:
   // a tone finish whose wedges went tonal while its key kept five categorical colors was the
   // defect. A categorical swatch names its hue; the map's ramp swatch carries its own --mix.
   test('key swatches carry the contract of the marks they key', () => {
     const sw = html.match(/<rect class="chart-key-swatch"[^>]*>/g) || [];
+    // A key whose marks the a11y themes texture names its hue as `data-hue` (pie).
     const hue = sw.filter((t) => /data-hue="\d"/.test(t));
-    assert.ok(hue.length >= 8, 'the pie and radar keys');
+    assert.ok(hue.length >= 5, 'the pie key');
     for (const t of hue) assert.match(t, /data-encodes="hue" data-paint="fill"/, t);
+    // A key whose marks they do NOT texture names it as `data-key-hue` (radar), and never as
+    // `data-hue`: a11y-base's `figure.chart-frame .chart-key-swatch[data-hue]` would otherwise
+    // texture radar's key in Read·Article while its polygons stay plain (red-team finding).
+    const keyOnly = sw.filter((t) => /data-key-hue="\d"/.test(t));
+    assert.ok(keyOnly.length >= 3, 'the radar key');
+    for (const t of keyOnly) {
+      assert.doesNotMatch(t, / data-hue=/, t);
+      assert.match(t, /data-encodes="hue" data-paint="fill"/, t);
+    }
     const ramp = sw.filter((t) => /data-encodes="ramp"/.test(t));
     assert.ok(ramp.length, 'the map key');
     for (const t of ramp) assert.match(t, /data-paint="fill" style="--mix:[\d.]+%"/, t);
@@ -87,4 +104,32 @@ describe('the chart gallery through the real engine', () => {
       for (const tag of tags) assert.match(tag, new RegExp(`data-encodes="${encodes}"`), tag);
     });
   }
+});
+
+describe('marks the gallery does not render', () => {
+  const render = (md) => String(engine.render(md).html);
+
+  // Checker finding: stamping a slotted GROUP made a finish paint it as a saturated 82% body
+  // with its title unreadable on it. A group is a container; a finish leaves it alone.
+  test('a slotted flowchart group carries no contract; its shapes and tile key do', () => {
+    const md = '<!-- _class: flowchart -->\n\n## F\n\n- Ingest `:c2`\n  - Pull `:c3` -> Parse `:c3`\n\n`[{:c2, Ingest}, {:c3, Step}]`\n';
+    const html = render(md);
+    const { browserJs } = require('../../../lib/components/chart/flowchart/flowchart.layout');
+    // The group is drawn by the browser pass; its template must not stamp the contract.
+    assert.doesNotMatch(browserJs(), /fc-group"[^\n]*data-hue/);
+    const tile = /<span class="fc-key-swatch" data-kind="tile"[^>]*>/.exec(html);
+    assert.ok(tile, 'a tile key swatch');
+    assert.match(tile[0], /data-hue="3" data-encodes="hue" data-paint="bg"/);
+    const group = /<span class="fc-key-swatch" data-kind="group"[^>]*>/.exec(html);
+    assert.ok(group, 'a group key swatch');
+    assert.doesNotMatch(group[0], /data-hue/);
+  });
+
+  // Checker finding: the band key kept the shipped ramp while its cells moved.
+  test('a heatmap band key carries the ramp contract of the cells it keys', () => {
+    const html = render('<!-- _class: heatmap scale -->\n\n## H\n\n|  | A | B |\n| --- | --: | --: |\n| X | 1 | 5 |\n| Y | 9 | 3 |\n');
+    const keys = html.match(/<rect class="chart-key-swatch heatmap-cell"[^>]*>/g) || [];
+    assert.ok(keys.length >= 2);
+    for (const k of keys) assert.match(k, /data-encodes="ramp" data-paint="fill"/);
+  });
 });

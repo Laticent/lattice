@@ -462,13 +462,17 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// designed") is ALSO a real per-slide choice: inside a finished deck, `chart-finish-off` is
 	// how one slide keeps its shipped paint. So the head follows the deck and "As designed" stays
 	// in the list whenever the deck has a finish to opt out of. Shown on chart slides only.
-	const isChart = entry?.bucket === 'chart';
+	// Any token, not only the first: `_class: chart-finish-tone bar` is a chart slide too.
+	const isChart = tokens.some((t) => catalog.find((c) => c.name === t)?.bucket === 'chart');
 	const chartFinishProv = React.useMemo(() => chartFinishProvenance(chunk, source), [chunk, source]);
 	const chartFinishOpt = React.useMemo(() => {
 		const deck = chartFinishProv.inheritable ? chartFinishProv.deckValue : 'off';
 		const head: CatalogOption = { label: autoHead(activeChartFinish(deck).label), value: '__inherit__', swatch: activeChartFinish(deck).swatch };
 		const rest = CHART_FINISHES.filter((e) => e.name !== deck).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }));
-		return { value: chartFinishProv.state === 'on' ? (chartFinishProv.value ?? '__inherit__') : '__inherit__', options: [head, ...rest] };
+		// A slide token that restates the deck (`chart-finish-off` in a deck with no finish, or
+		// the deck's own value) is what the head already says, so it selects the head.
+		const own = chartFinishProv.state === 'on' ? chartFinishProv.value : undefined;
+		return { value: own && own !== deck ? own : '__inherit__', options: [head, ...rest] };
 	}, [chartFinishProv]);
 	const onChartFinish = (v: string) => onMutate((c) => setChartFinish(c, v === '__inherit__' ? null : v));
 	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline);

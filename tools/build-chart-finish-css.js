@@ -57,13 +57,14 @@ const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8];
 // tone: one hue, eight value steps (the ramp the tone key publishes).
 const TONE = [92, 76, 61, 47, 34, 22, 14, 9];
 // tone for a mark that CARRIES TEXT — same order, quiet enough to keep its text above
-// 4.5:1. Measured by tools/measure-finish-contrast.mjs; the two modes differ.
+// 4.5:1. The levels and their measurement are finish-coherence.md §Levels (in
+// engineering/decisions/2026-09-07-chart-design-language/); the two modes differ.
 const TONE_TEXT = [30, 27, 24, 21, 18, 15, 12, 9];
 const TONE_TEXT_D = [35, 31, 28, 24, 21, 17, 14, 10];
 
 /** The levels, per finish (finish-coherence.md §Levels). `[light, dark]` pairs. */
 const F = {
-  pigment: { body: [82, 82], backdrop: [40, 46], ramp: [16, 0.54], rampText: [[16, 0.54], [16, 0.37]], layered: 0.55, edge: 1, edgeBackdrop: 1 },
+  pigment: { body: [82, 82], backdrop: [40, 46], ramp: [16, 0.54], rampText: [[16, 0.54], [16, 0.37]], layered: 0.35, edge: 1, edgeBackdrop: 1 },
   // Etching's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
@@ -107,6 +108,16 @@ const inkOf = (n) => `var(--chart-cat-${n}-ink)`;
 const mix = (hue, pct) => `color-mix(in oklab, ${hue} ${pct}, ${BASE})`;
 const ld = (a, b) => (a === b ? a : `light-dark(${a}, ${b})`);
 const pair = (hue, [l, d]) => ld(mix(hue, `${l}%`), mix(hue, `${d}%`));
+/**
+ * The ink that clears a body, picked by the browser from the body's own color: black above
+ * OKLCH L 0.565, white below it. At that lightness the two meet (relative luminance ~0.18), so
+ * either side clears ~4.5:1 on ANY body — the only guarantee that holds across 33 themes, where
+ * a fixed ink failed on some (--text-body on a 40% cuoio body read 2.62:1).
+ */
+const inkOn = (cell) => `oklch(from ${cell} clamp(0, (0.565 - l) * 999, 1) 0 0)`;
+/** A rule that needs relative color, behind the @supports that proves the engine has it. */
+const supports = (css) => `@supports (color: oklch(from red l c h)) {\n${css}\n}`;
+
 const edge = (k) => (k === 1 ? 'var(--chart-edge)' : `calc(var(--chart-edge) * ${k})`);
 
 /**
@@ -128,10 +139,36 @@ function rampMembers() {
     const dir = path.join(ROOT, 'lib', 'components', m.bucket, m.name);
     const css = fs.readdirSync(dir).filter((f) => f.endsWith('.css')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
     const base = css.includes(`--${m.name}-base:`) ? `var(--${m.name}-base)` : 'var(--bg)';
-    out.push({ name: m.name, base, plain: rows.filter((r) => !r.bears).map((r) => r.class), text: rows.filter((r) => r.bears).map((r) => r.class) });
+    // A class every member shares (`chart-key-swatch`) is scoped to this member's figure, so
+    // one member's ramp rule cannot reach another member's key: the map's rule mixes toward
+    // --map-base, which a heatmap slide does not define.
+    const scoped = (c) => (SHARED_CLASSES.has(c) ? `${m.kernel.figureClass} .${c}` : c);
+    out.push({
+      name: m.name, base,
+      plain: rows.filter((r) => !r.bears).map((r) => scoped(r.class)),
+      text: rows.filter((r) => r.bears).map((r) => scoped(r.class)),
+    });
   }
   return out;
 }
+
+/**
+ * A KEY takes the level of the mark it keys, so a key never shows a different step from its
+ * marks. Most keys key a mark that carries no text and need no entry; a key that stands for a
+ * TEXT-BEARING mark is listed here against that mark's class.
+ */
+const KEY_FOLLOWS = { 'fc-key-swatch': 'fc-shape' };
+
+/**
+ * Members whose identity is a STROKE (`paint: "none"` series path), which no finish reaches.
+ * Tone leaves every mark of theirs alone, dots and bands included: a tonal dot on a line that
+ * kept its category hue is a mark that no longer matches its own series. Pigment and etching
+ * keep a dot's hue, so they may repaint it.
+ */
+const STROKE_MEMBERS = ['line', 'slope'];
+
+/** Mark classes more than one member writes; a ramp rule scopes them to its own figure. */
+const SHARED_CLASSES = new Set(['chart-key-swatch']);
 
 /** The text-bearing mark classes, from every chart manifest's `kernel.marks`. */
 function bearingClasses() {
@@ -142,7 +179,17 @@ function bearingClasses() {
       if (r.bears && r.encodes === 'hue' && (r.paint === 'fill' || r.paint === 'bg')) out[r.paint].add(r.class);
     }
   }
+  for (const [key, mark] of Object.entries(KEY_FOLLOWS)) {
+    if (out.fill.has(mark) || out.bg.has(mark)) out[swatchPaint(key)].add(key);
+  }
   return { fill: [...out.fill].sort(), bg: [...out.bg].sort() };
+}
+
+/** How a key swatch takes paint, from the manifests (an HTML swatch is `bg`, an SVG one `fill`). */
+function swatchPaint(cls) {
+  const { loadAll } = require('../lib/components');
+  for (const m of loadAll()) for (const r of m.kernel?.marks || []) if (r.class === cls) return r.paint;
+  throw new Error(`KEY_FOLLOWS names ${cls}, which no manifest declares`);
 }
 
 function rule(finish, mark, decls) {
@@ -156,8 +203,18 @@ function paintDecls(paint, body, ink, k) {
   return [`background: ${body}`, `box-shadow: inset 0 0 0 ${edge(k)} ${ink}`];
 }
 
+/** Every mark class a stroke member declares, for tone to leave alone. */
+function strokeMemberClasses() {
+  const { loadAll } = require('../lib/components');
+  return loadAll().filter((m) => STROKE_MEMBERS.includes(m.name))
+    .flatMap((m) => (m.kernel?.marks || []).map((r) => r.class))
+    .filter((c) => !SHARED_CLASSES.has(c)).sort();
+}
+
 function build() {
   const bears = bearingClasses();
+  const leave = strokeMemberClasses();
+  const notLeft = `:not(${leave.map((c) => `.${c}`).join(', ')})`;
   const ramps = rampMembers();
   const out = [];
   const w = (s) => out.push(s);
@@ -171,21 +228,25 @@ function build() {
     BASE = BODY_BASE[name];
     w(`\n/* ══ ${name.toUpperCase()} ${'═'.repeat(70 - name.length)} */`);
 
-    // ── the slot table, re-pointed under tone ───────────────────────────────
-    // Anything that reads --mark-hue / --mark-ink (a name, a leader, a member's own rule)
-    // follows the one hue without a rule of its own. Custom properties take !important too.
+    // ── quadrant's own cell table, under tone ───────────────────────────────
+    // The quadrant keeps a per-cell slot table of its own (`--cell-ink`), which its zone names
+    // read. Its tints move with a finish (below), so under tone every cell names in the one ink.
+    // The FAMILY slot table (`--mark-hue` / `--mark-ink`) is deliberately NOT re-pointed: its
+    // only readers a finish does not already paint are stroke- and type-painted (line's series
+    // path, slope), and reaching them that way walks around `paint: "none"` — measured, it
+    // washed line's series 5–8 out to near-white on a light canvas.
+    if (tone) w(rule(name, '[data-cell]', [`--cell-ink: ${ONE_INK}`]));
+
+    // ── containers, under tone ───────────────────────────────────────────────
+    // A container (a tinted kanban column, a slotted flowchart group) is never repainted as a
+    // mark: that buried a group's title under an 82% body. But its faint tint is still a
+    // category hue, so under tone its OWN hue property is re-pointed to the one hue. It keeps
+    // its level and its structure, the key keeps matching it, and its title wears the one ink.
     if (tone) {
-      w('\n/* The slot table, re-pointed: one hue, eight value steps, one ink. */');
-      for (const n of SLOTS) {
-        w(rule(name, `[data-hue="${n}"]`, [
-          `--mark-hue: ${mix(ONE, `${TONE[n - 1]}%`)}`,
-          `--mark-body: ${mix(ONE, `${TONE[n - 1]}%`)}`,
-          `--mark-ink: ${ONE_INK}`,
-        ]));
-      }
-      // The quadrant keeps a per-cell slot table of its own (`--cell-ink`, which its zone
-      // names read); under tone every cell names in the one ink.
-      w(rule(name, '[data-cell]', [`--cell-ink: ${ONE_INK}`]));
+      // The done lane is keyed to the pass STATUS, and a status keeps its hue.
+      w(rule(name, '.kanban-column:not([data-done])', [`--col-hue: ${ONE}`]));
+      w(rule(name, ':is(.fc-group, .fc-key-swatch[data-kind="group"])[data-slot]', [`--fc-group-hue: ${ONE}`]));
+      w(rule(name, '.fc-group-title[data-slot]', [`fill: ${ONE_INK}`]));
     }
 
     // ── HUE — the body a finish is named for ────────────────────────────────
@@ -194,7 +255,7 @@ function build() {
       const body = tone ? mix(ONE, `${TONE[n - 1]}%`) : pair(hueOf(n), f.body);
       const ink = tone ? ONE_INK : inkOf(n);
       for (const paint of ['fill', 'bg']) {
-        w(rule(name, `[data-hue="${n}"][data-encodes="hue"][data-paint="${paint}"]`, paintDecls(paint, body, ink, f.edge)));
+        w(rule(name, `:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="${paint}"]${tone ? notLeft : ''}`, paintDecls(paint, body, ink, f.edge)));
       }
     }
 
@@ -203,17 +264,21 @@ function build() {
     // the plain rule at the same specificity, so source order hands it the mark.
     w('\n/* HUE on a mark that CARRIES TEXT — the quieter level its text was measured against. */');
     for (const n of SLOTS) {
-      const body = tone
-        ? ld(mix(ONE, `${TONE_TEXT[n - 1]}%`), mix(ONE, `${TONE_TEXT_D[n - 1]}%`))
-        : pair(hueOf(n), f.backdrop);
+      const [bodyL, bodyD] = tone
+        ? [mix(ONE, `${TONE_TEXT[n - 1]}%`), mix(ONE, `${TONE_TEXT_D[n - 1]}%`)]
+        : [mix(hueOf(n), `${f.backdrop[0]}%`), mix(hueOf(n), `${f.backdrop[1]}%`)];
+      const body = ld(bodyL, bodyD);
       const ink = tone ? ONE_INK : inkOf(n);
       for (const paint of ['fill', 'bg']) {
         if (!bears[paint].length) continue;
         const cls = `:is(${bears[paint].map((c) => `.${c}`).join(', ')})`;
         // An HTML mark's own text was colored for the full-strength body (the journey actor
-        // initial is white); at this level it takes the ink the level was measured against.
+        // initial is white). At this level it takes --text-body, and where the engine has
+        // relative color, the ink its own body clears.
+        const sel = `${cls}[data-hue="${n}"][data-encodes="hue"][data-paint="${paint}"]`;
         const text = paint === 'bg' ? ['color: var(--text-body)'] : [];
-        w(rule(name, `${cls}[data-hue="${n}"][data-encodes="hue"][data-paint="${paint}"]`, [...paintDecls(paint, body, ink, f.edgeBackdrop), ...text]));
+        w(rule(name, sel, [...paintDecls(paint, body, ink, f.edgeBackdrop), ...text]));
+        if (paint === 'bg') w(supports(rule(name, sel, [`color: ${ld(inkOn(bodyL), inkOn(bodyD))}`])));
       }
     }
 
@@ -227,20 +292,28 @@ function build() {
     // the middle step for one that does not), and the finish still quiets it.
     w('\n/* STATUS — the member\'s own status channel; the hue is the meaning, so it stays. */');
     for (const s of STATUS_MARKS) {
-      const lvl = s.bears ? 'backdrop' : 'body';
+      // A status that carries text takes tone's text level under pigment too: a status hue can
+      // be far darker than a category's (concrete's is near-black), and at pigment's 40% the
+      // text on it read 3.6:1 where tone's 30% held on every theme.
+      const lvl = s.bears ? (name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop) : f.body;
       const body = tone
         ? (s.bears ? pair(s.hue, [TONE_TEXT[0], TONE_TEXT_D[0]]) : pair(s.hue, [TONE[2], TONE[2]]))
-        : pair(s.hue, f[lvl]);
+        : pair(s.hue, lvl);
       const decls = paintDecls(s.paint, body, s.ink, s.bears ? f.edgeBackdrop : f.edge);
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.
       w(rule(name, s.sel, decls));
+      if (s.bears && s.paint === 'bg') {
+        const [l, d] = tone || name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
+        w(rule(name, s.sel, ['color: var(--text-body)']));
+        w(supports(rule(name, s.sel, [`color: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`])));
+      }
     }
 
     // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
     // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
     // (the cell gap) is the member's, except under etching, where the line is the identity.
     w('\n/* RAMP — scaled into the finish\'s band; --mix stays the datum. */');
-    const rampAt = ([lo, k], base) => `color-mix(in oklab, ${ONE} calc(${lo}% + var(--mix, 50%) * ${k}), ${base})`;
+    const rampAt = ([lo, k], base) => `color-mix(in oklab, ${ONE} calc(${lo}% + var(--mix) * ${k}), ${base})`;
     const rampStroke = name === 'etching'
       ? [`stroke: color-mix(in oklab, ${ONE_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke']
       : [];
@@ -264,17 +337,19 @@ function build() {
     // the cell's own color: the value's fill is the step's body, taken through relative-color
     // syntax to black above OKLCH L 0.565 and white below it. That lightness is where the two
     // meet (relative luminance ~0.18), so either side clears ~4.5:1 on every theme. The step's
-    // --mix is the heatmap's own (--heatmap-stepN, else the member's default). The first
-    // declaration is the fallback for a renderer without relative color; the second replaces it.
+    // --mix is the heatmap's own (--heatmap-stepN, else the member's default, which
+    // chart-finish-css.test.js pins to heatmap.styles.css). The relative-color rule sits behind
+    // @supports: a declaration carrying var() always parses, so as a plain second declaration
+    // it would replace the fallback and then fail at computed-value time on an engine without
+    // relative color, leaving the value on the default black fill.
     const STEP_MIX = [18, 36.5, 55, 73.5, 92];
-    const inkOn = (cell) => `oklch(from ${cell} clamp(0, (0.565 - l) * 999, 1) 0 0)`;
     const textBand = f.rampText;
     STEP_MIX.forEach((pct, i) => {
       const at = ([lo, k]) => `color-mix(in oklab, ${ONE} calc(${lo}% + var(--heatmap-step${i + 1}, ${pct}%) * ${k}), var(--heatmap-base))`;
-      w(rule(name, `.heatmap-value[data-step="${i + 1}"]`, [
-        'fill: var(--text-heading)',
+      w(rule(name, `.heatmap-value[data-step="${i + 1}"]`, ['fill: var(--text-heading)']));
+      w(supports(rule(name, `.heatmap-value[data-step="${i + 1}"]`, [
         `fill: ${ld(inkOn(at(textBand[0])), inkOn(at(textBand[1])))}`,
-      ]));
+      ])));
     });
 
     // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
@@ -283,7 +358,7 @@ function build() {
     for (const n of SLOTS) {
       const body = tone ? mix(ONE, `${TONE[n - 1]}%`) : pair(hueOf(n), f.body);
       const alpha = tone ? String(Math.round((0.2 + 0.4 * (TONE[n - 1] / 92)) * 1000) / 1000) : String(f.layered);
-      w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]`, [
+      w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${tone ? notLeft : ''}`, [
         `fill: ${body}`, `fill-opacity: ${alpha}`, `stroke: ${tone ? ONE_INK : inkOf(n)}`,
       ]));
     }
@@ -317,4 +392,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { build, F, TONE, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS };
+module.exports = { build, F, TONE, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };

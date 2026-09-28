@@ -820,6 +820,13 @@ and `word-cloud`. A status color (a gantt bar's `done` or `blocked`) is a meanin
 category, so it keeps its own hue under every finish, `tone` included, at the finish's
 quieter level.
 
+**Limits.** Under `tone`, a mark that carries text (a flowchart shape, a matrix-grid
+cell) can use only the quiet top of the one hue, so about four of its categories separate
+by eye. `etching` puts identity on a thin edge, the hardest place to tell hues apart: for
+colorblind readers on an ordinary theme, prefer `pigment` or an a11y theme. A container,
+such as a slotted flowchart group or a tinted kanban column, is never repainted as a mark:
+it keeps its own faint tint, and under `tone` that tint joins the one hue.
+
 **What a finish never costs.** Every mark keeps an ink edge. A heatmap value picks black or
 white from its own cell's color and clears 4.5:1 on every step of every theme. On the a11y
 themes and in print, the categorical **pattern fills win over any finish**, so a colorblind
