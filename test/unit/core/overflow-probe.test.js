@@ -1700,3 +1700,139 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     }
   });
 });
+
+describe('overflow-probe: probeLabelOverprint — a painted label printed across a mark', () => {
+  const { probeLabelOverprint, OVERPRINT_SRC } = require('../../../lib/core/overflow-probe.js');
+  const box = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });
+  // A fake element: its rect, its text, the computed style the stub returns, and `closest`.
+  const el = (r, { text = '', fill = 'rgb(0, 0, 0)', inDefs = false, fs = 0 } = {}) => ({
+    textContent: text, __fill: fill, __fs: fs,
+    getBoundingClientRect: () => r, getClientRects: () => [r],
+    closest: () => (inDefs ? {} : null),
+  });
+  const fig = (texts, marks) => ({
+    ...el(box(0, 0, 400, 300)),
+    // The probe asks for DATA marks by role; the fake answers that query with `marks`, and pins
+    // that the query names bar, point and sector and never a backdrop `region`.
+    querySelectorAll: (sel) => {
+      if (sel === 'text') return texts;
+      assert.match(sel, /data-anima-role="bar"/);
+      assert.doesNotMatch(sel, /region/);
+      return marks;
+    },
+  });
+  const section = (figs) => ({ querySelectorAll: (sel) => (sel.startsWith('.chart-body svg[viewBox]') ? figs : []) });
+  const withStyle = (fn) => {
+    const had = Object.hasOwn(globalThis, 'getComputedStyle');
+    const prev = globalThis.getComputedStyle;
+    globalThis.getComputedStyle = (e) => ({ fill: e.__fill, fontSize: `${e.__fs}px`, fillOpacity: '1', opacity: '1', visibility: 'visible', display: 'inline' });
+    try { return fn(); } finally {
+      if (had) globalThis.getComputedStyle = prev; else delete globalThis.getComputedStyle;
+    }
+  };
+
+  test('a label crossing a bar edge is an overprint; one wholly inside a bar is an in-mark label', () => {
+    withStyle(() => {
+      const bar = el(box(0, 20, 200, 10));
+      const crossing = el(box(10, 14, 80, 10), { text: 'Ready signal scored' });
+      const inside = el(box(120, 21, 40, 8), { text: '42%' });
+      const clear = el(box(10, 0, 80, 10), { text: 'Clear concise board' });
+      assert.deepEqual(probeLabelOverprint(section([fig([crossing, inside, clear], [bar])]), 1),
+        { count: 1, figures: 1, first: 'Ready signal scored' });
+      assert.deepEqual(probeLabelOverprint(section([fig([inside, clear], [bar])]), 1),
+        { count: 0, figures: 0, first: '' }, 'judged and clean is 0, never null');
+    });
+  });
+
+  test('a small mark wholly under a label IS an overprint (a dot printed under a name)', () => {
+    withStyle(() => {
+      const dot = el(box(40, 16, 4, 4));
+      const name = el(box(10, 10, 80, 16), { text: 'Services' });
+      assert.equal(probeLabelOverprint(section([fig([name], [dot])]), 1).count, 1);
+    });
+  });
+
+  test('a color-mix wash (computed as oklab(… / a)) is a wash, not a mark', () => {
+    withStyle(() => {
+      const label = el(box(10, 14, 80, 10), { text: 'Label' });
+      const wash = el(box(0, 20, 200, 10), { fill: 'oklab(0.628 0.225 0.126 / 0.42)' });
+      const solid = el(box(0, 20, 200, 10), { fill: 'oklab(0.628 0.225 0.126 / 0.9)' });
+      assert.equal(probeLabelOverprint(section([fig([label], [wash])]), 1).count, 0);
+      assert.equal(probeLabelOverprint(section([fig([label], [solid])]), 1).count, 1);
+    });
+  });
+
+  test('touching is not overprinting: overlap must pass the tolerance on BOTH axes', () => {
+    withStyle(() => {
+      const bar = el(box(0, 20, 200, 10));
+      const grazes = el(box(10, 11, 80, 9.5), { text: 'grazes' });
+      assert.equal(probeLabelOverprint(section([fig([grazes], [bar])]), 1).count, 0);
+    });
+  });
+
+  test('only the GLYPH band counts: a mark in the air above the capitals is not an overprint', () => {
+    withStyle(() => {
+      // A 20px label (font box 25px tall): its glyphs run from 6px (cap top, 0.3em) down to 20px
+      // (baseline, 0.25em up from the bottom). Measured: a scatter dot 4px into the top of a
+      // name's box printed nothing; a bullet bar 13–16px down struck through its letters.
+      const label = () => el(box(10, 100, 120, 25), { text: 'Then ranked by', fs: 20 });
+      const dotAbove = el(box(20, 88, 18, 16));
+      const barThrough = el(box(0, 113, 200, 3));
+      const underBaseline = el(box(0, 121, 200, 3));
+      assert.equal(probeLabelOverprint(section([fig([label()], [dotAbove])]), 1).count, 0, 'air above the caps');
+      assert.equal(probeLabelOverprint(section([fig([label()], [underBaseline])]), 1).count, 0, 'the descender zone');
+      assert.equal(probeLabelOverprint(section([fig([label()], [barThrough])]), 1).count, 1, 'through the letters');
+    });
+  });
+
+  test('a word turned a quarter is trimmed sideways, not vertically', () => {
+    withStyle(() => {
+      // A vertical word (font box 25px wide, 20px em) beside an upright one, its air overlapping it.
+      const upright = el(box(0, 100, 60, 25), { text: 'compaction', fs: 20 });
+      const vertical = { ...el(box(56, 60, 25, 100), { text: 'sharding', fs: 20 }), getAttribute: () => 'rotate(90 60 100)' };
+      assert.equal(probeLabelOverprint(section([fig([upright, vertical], [])]), 1).count, 0);
+    });
+  });
+
+  test('unfilled shapes, translucent washes and <defs> content are not marks', () => {
+    withStyle(() => {
+      const label = el(box(10, 14, 80, 10), { text: 'Label' });
+      const unfilled = el(box(0, 20, 200, 10), { fill: 'none' });
+      const clear = el(box(0, 20, 200, 10), { fill: 'rgba(0, 0, 0, 0)' });
+      const wash = el(box(0, 20, 200, 10), { fill: 'rgba(40, 90, 160, 0.18)' });
+      const inDefs = el(box(0, 20, 200, 10), { inDefs: true });
+      assert.equal(probeLabelOverprint(section([fig([label], [unfilled, clear, wash, inDefs])]), 1).count, 0,
+        'none of them is a mark to print across');
+    });
+  });
+
+  test('a slide with no figure, or a figure with no labels, is not judged', () => {
+    withStyle(() => {
+      assert.equal(probeLabelOverprint(section([]), 1), null);
+      assert.equal(probeLabelOverprint(section([fig([], [el(box(0, 0, 10, 10))])]), 1), null);
+    });
+  });
+
+  test('two labels printed over each other are an overprint; a same-place halo copy is not', () => {
+    withStyle(() => {
+      const a = el(box(10, 10, 80, 10), { text: 'Weekly across teams' });
+      const b = el(box(40, 14, 80, 10), { text: 'Then ranked by' });
+      // A small index set hard against its name (0.4em across, at a 10px em) is not.
+      const name = el(box(200, 10, 60, 12.5), { text: 'Closed', fs: 10 });
+      const idx = el(box(256, 10, 12, 12.5), { text: '10', fs: 10 });
+      assert.equal(probeLabelOverprint(section([fig([name, idx], [])]), 1).count, 0, 'an index against its name');
+      const r = probeLabelOverprint(section([fig([a, b], [])]), 1);
+      assert.equal(r.count, 2, 'each label of the pair counts');
+      const halo = el(box(10, 10, 80, 10), { text: 'Weekly across teams' });
+      assert.equal(probeLabelOverprint(section([fig([a, halo], [])]), 1).count, 0);
+    });
+  });
+
+  test('OVERPRINT_SRC re-inflates and behaves identically (it is injected as a string)', () => {
+    withStyle(() => {
+      const fn = new Function(`return (${OVERPRINT_SRC})`)();
+      const s = section([fig([el(box(10, 14, 80, 10), { text: 'x' })], [el(box(0, 20, 200, 10))])]);
+      assert.deepEqual(fn(s, 1), probeLabelOverprint(s, 1));
+    });
+  });
+});

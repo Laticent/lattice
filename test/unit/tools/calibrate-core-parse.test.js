@@ -22,7 +22,7 @@ test('prose that names the OVERFLOW line is not read as it', () => {
 });
 
 test('a deck that fits reports nothing', () => {
-  assert.deepEqual(parseProbeLog('  ✓ rendered 8 pages'), { clipped: [], underFloor: [], labelsDropped: [] });
+  assert.deepEqual(parseProbeLog('  ✓ rendered 8 pages'), { clipped: [], underFloor: [], labelsDropped: [], overprint: [] });
 });
 
 // A viewBox chart never clips as it fills: it shrinks until its text is under the floor, or its
@@ -34,7 +34,19 @@ test('reads the pages on the TYPE FLOOR and CHART LABELS DROPPED lines', () => {
     '  ⚠ CHART LABELS DROPPED — 3 names are not painted on 1 chart: page 9 (bar).',
     '  ⚠ OVERFLOW — 1 slide exceeds the frame and is CLIPPED in this export: page 11.',
   ].join('\n');
-  assert.deepEqual(parseProbeLog(log), { clipped: [11], underFloor: [3, 6], labelsDropped: [9] });
+  assert.deepEqual(parseProbeLog(log), { clipped: [11], underFloor: [3, 6], labelsDropped: [9], overprint: [] });
+});
+
+// A label printed straight across another row's bar trips none of the three lines above: it is
+// painted, legible and in the box. CHART LABELS OVERPRINT is the fourth (2376-p2-probe-labels-over-marks).
+test('reads the pages on the CHART LABELS OVERPRINT line, not its advice', () => {
+  const log = [
+    '  ⚠ CHART LABELS OVERPRINT — 101 labels print across a mark on 2 slides: page 2 (39), page 3 (62).',
+    '    page 2: first "Revenue page 9".',
+    '    A label crosses the edge of a bar, band or point it does not sit inside — usually a row',
+    '    squeezed until its name prints over its neighbor. See page 7 of the gallery.',
+  ].join('\n');
+  assert.deepEqual(parseProbeLog(log).overprint, [2, 3]);
 });
 
 test('the explanatory lines under TYPE FLOOR are not read as pages', () => {

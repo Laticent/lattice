@@ -267,7 +267,9 @@ function gradedDeck({ comp, size, steps, slideFor, scale = null, eyebrow = false
  * was retired on 2026-09-27). The other two are LEGIBILITY: a viewBox chart never overflows as it
  * fills — it shrinks — so its ceiling is where it stops being readable instead: `underFloor` is
  * the `⚠ TYPE FLOOR` line (a figure's text below the floor) and `labelsDropped` the `⚠ CHART
- * LABELS DROPPED` line (a name the kernel declined to paint). Each line is anchored on its glyph,
+ * LABELS DROPPED` line (a name the kernel declined to paint), and `overprint` the `⚠ CHART LABELS
+ * OVERPRINT` line (a painted label crossing a mark it does not sit inside — a bullet row squeezed
+ * until its name prints through the bar above). Each line is anchored on its glyph,
  * so prose elsewhere in the log that names one is never read as it. Pure, so the parse is
  * unit-tested (test/unit/tools/calibrate-core-parse.test.js).
  */
@@ -280,6 +282,7 @@ function parseProbeLog(log) {
     clipped: m ? pageNums(m[1]) : [],
     underFloor: pagesOn(line(/⚠ TYPE FLOOR —[^\n]*/)),
     labelsDropped: pagesOn(line(/⚠ CHART LABELS DROPPED —[^\n]*/)),
+    overprint: pagesOn(line(/⚠ CHART LABELS OVERPRINT —[^\n]*/)),
   };
 }
 
@@ -316,11 +319,11 @@ function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false
       const tail = log.trim().split('\n').slice(-8).join('\n');
       throw new Error(`Render failed for '${label}' (exit ${r.status}).\n${tail}`);
     }
-    const { clipped: pages, underFloor, labelsDropped } = parseProbeLog(log);
+    const { clipped: pages, underFloor, labelsDropped, overprint } = parseProbeLog(log);
     handedOver = keep;
     return {
       overflowed: new Set(pages), clipped: new Set(pages),
-      underFloor: new Set(underFloor), labelsDropped: new Set(labelsDropped),
+      underFloor: new Set(underFloor), labelsDropped: new Set(labelsDropped), overprint: new Set(overprint),
       log, out, cleanup,
     };
   } finally {

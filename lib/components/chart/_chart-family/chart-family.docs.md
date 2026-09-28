@@ -564,6 +564,31 @@ claim is now scoped to the two mechanisms that census can actually see. Every
 other deck is silent. The shapes that warn on purpose are pinned in
 `test/fixtures/chart-label-drops.md`.
 
+**A painted label printed across a mark, or across another label, is reported
+too.** A name can be painted, legible and inside the box and still print
+straight through a neighbor: a bullet chart of 14 or 20 rows in a 50% pane
+squeezes each row until its name crosses the bars around it, a slope of 12
+series prints its lowest end names over one another, and a 24-step waterfall in
+a stacked band prints each delta over the next. None of the channels above can
+see that. `probeLabelOverprint` (`lib/core/overflow-probe.js`) takes each
+`<text>` in a `.chart-body` figure as its GLYPH band — the font box trimmed to
+the string's own ink, measured in its own face (sideways for a word turned a
+quarter) — and counts a label that crosses the edge of a DATA mark (an element
+the family tags `data-anima-role` bar, point or sector, at least half opaque, so
+a `color-mix` wash is not one) or another label's band by half an em across and
+a fifth of one down. A mark wholly under a label counts (a dot printed under a
+name). A label wholly inside a mark is an in-mark label (a funnel stage's name, a
+stacked segment's share) and passes; so does a small index set against its name
+(`Closed¹⁰`). Untagged or unfilled marks are not seen: a slope's dots and lines,
+a bullet's target tick; slope's collisions are caught by the label arm. Backdrops are
+not marks (a bullet's qualitative band, a heatmap cell, a map region, a
+quadrant's tinted quarter), nor are strokes, translucent washes, or Mermaid
+diagrams, which place their own labels. The CLI prints
+`⚠ CHART LABELS OVERPRINT` with the pages and each page's first overprinting
+label, on stderr only, and `tools/calibrate-capacity.js --pane` fails a step on
+it. One shipped deck prints it, and rightly: `examples/global-south.md`, whose
+map sets its region names across the key's own entries.
+
 Two more properties come out of the same pass, and both are about what a reader
 takes off the finished picture rather than about fitting boxes.
 
