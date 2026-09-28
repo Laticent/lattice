@@ -145,6 +145,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ◐ [2026-09-27-narration-bookends.md](2026-09-27-narration-bookends.md) — A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`.
 - ◐ [2026-09-27-delivery-styles-and-component-scenes.md](2026-09-27-delivery-styles-and-component-scenes.md) — Each delivery becomes its own character instead of a row of numbers (restrained focuses every part the narration names, expressive leads…
 - ◐ [2026-09-27-guide-storyboards.md](2026-09-27-guide-storyboards.md) — A fresh design for how a narrated deck presents itself with no author in the room.
+- ◐ [2026-09-27-narration-bookends.md](2026-09-27-narration-bookends.md) — A narrated deck can open with a spoken greeting and end with a spoken closing, set by two front-matter keys, `greeting:` and `closing:`.
 - ◐ [2026-09-27-plugin-system.md](2026-09-27-plugin-system.md) — The plugin system, designed whole and hardened by the adversarial trio before any code.
 - ◐ [2026-09-27-studio-export-one-engine.md](2026-09-27-studio-export-one-engine.md) — The owner wants the Studio's Export to PDF to produce "option 1" — a background photo with real, sharp text and shapes on top — through one…
 - ◐ [2026-09-27-trama-graph-chart-library.md](2026-09-27-trama-graph-chart-library.md) — Trama (`@laticent/trama`) is the graph-chart library.

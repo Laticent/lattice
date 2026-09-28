@@ -1328,7 +1328,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// narrator does not bind (prose, an authored caption) takes the text path.
 		const cueAt = activeCue >= 0 ? (reader.track.cues[activeCue]?.charOffset ?? -1) : -1;
 		const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle } | undefined>)[delivery.name]?.express;
-		const scene = narration.refs && style ? { refs: narration.refs, at: cueAt, style } : null;
+		// While a bookend (greeting, closing) speaks, the text being read is not the slide's, so the
+		// slide's binding does not apply.
+		const scene = !bookend && narration.refs && style ? { refs: narration.refs, at: cueAt, style } : null;
 		guide.beat({ slide: narration.idx, cue: activeCue, texts: reader.track.cues.map(cueDisplayText), track: reader.track, delivering: guideDelivering, delivery, scene });
 	}, [guideBeat, guideLive, guideRoot]);
 
