@@ -113,3 +113,39 @@ test('with only the on-device voice, loaded while the panel is open, the export 
 	// One clip per sentence the deck speaks (3 sentences across the two slides).
 	expect((html.match(/data:audio\/mpeg;base64,/g) ?? []).length).toBeGreaterThanOrEqual(3);
 });
+
+// The other direction: availability DROPPING under a switch that is on. With a (mock) cloud key the
+// author turns audio on; the key then disconnects. The panel re-reads availability on
+// `db-model-changed` (what `disconnectOpenRouter` emits), finds nothing that can speak, and must
+// still let the author turn audio OFF — it used to disable the switch in its checked state.
+// The Workspace's Disconnect button cannot be pressed while the Share sheet is open, so the test
+// does what that button does: clear the key and emit the event. Every OpenRouter request is
+// refused, so nothing can spend (HARD RULE #24); the key is the repo's standard mock string.
+test('a switch that is on can still be turned off after the cloud key disconnects', async ({ page, context }) => {
+	await context.route(/openrouter\.ai/, (route) => route.abort());
+	await context.addInitScript(() => {
+		try {
+			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+		} catch {
+			/* storage unavailable — the test then fails on the enabled check below */
+		}
+	});
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await page.getByRole('button', { name: /Webpage/ }).click();
+	const audio = page.getByRole('switch', { name: 'Include narration audio' });
+	await expect(audio).toBeEnabled();
+	await audio.click();
+	await expect(audio).toBeChecked();
+
+	await page.evaluate(() => {
+		localStorage.removeItem('lattice-db-or-key');
+		window.dispatchEvent(new Event('db-model-changed'));
+	});
+	await expect(page.getByText(/Connect a cloud voice in the Workspace, or summon the on-device voice/)).toBeVisible();
+	await expect(audio, 'on, and still operable').toBeEnabled();
+	await audio.click();
+	await expect(audio).not.toBeChecked();
+	await expect(audio, 'off, and now nothing can turn it back on').toBeDisabled();
+});

@@ -4,3 +4,6 @@
   notices when the voice becomes ready. With the on-device voice chosen, the panel also stops
   quoting cloud billing ("publishes no price", "bills the whole deck", "Connect OpenRouter"). It
   prices the synthesis as free, and it names the voice that will narrate.
+- **Fixed: the "Narration audio" switch can always be turned off.** If the cloud voice became
+  unavailable while the webpage export panel was open with audio on, the switch stayed on and
+  could not be changed. It now only blocks turning audio on.

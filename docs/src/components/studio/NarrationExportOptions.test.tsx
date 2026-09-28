@@ -532,3 +532,26 @@ describe('the on-device narrator with no cloud key', () => {
 		expect(voiceAvailability).toHaveBeenCalledTimes(1);
 	});
 });
+
+// A switch that is ON must stay operable when availability drops under it. The panel re-reads
+// availability while open (#2446), so a key disconnecting with a cloud voice chosen used to
+// disable the audio switch in its CHECKED state: the author could not opt out of an export
+// that would now refuse. followups.d/2446-p3-audio-switch-stuck-on-after-key-drops.md.
+describe('availability dropping under a switch that is on', () => {
+	it('leaves the audio switch operable, so the author can turn it off', async () => {
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: true });
+		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		const emitted = statefulPanel({ captions: true, audio: true, voice: VOICE, allowPartial: false });
+		await waitFor(() => expect(voiceAvailability).toHaveBeenCalled());
+		// The key disconnects elsewhere; architect-model emits this.
+		voiceAvailability.mockResolvedValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		await act(async () => { window.dispatchEvent(new Event('db-model-changed')); });
+		await waitFor(() => expect(document.body.textContent ?? '').toMatch(/Connect a cloud voice in the Workspace/));
+		const audio = screen.getByLabelText('Include narration audio') as HTMLButtonElement;
+		expect(audio.disabled, 'a checked switch the author cannot turn off').toBe(false);
+		await act(async () => { audio.click(); });
+		expect(emitted[emitted.length - 1].audio).toBe(false);
+		// And once off, it cannot be turned back on — nothing can speak.
+		await waitFor(() => expect((screen.getByLabelText('Include narration audio') as HTMLButtonElement).disabled).toBe(true));
+	});
+});

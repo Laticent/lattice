@@ -308,6 +308,11 @@ export function NarrationExportOptions({
 	// toggle off and on again. So the switch waits for the answer. It is a local check, never a
 	// network one, so the wait is milliseconds.
 	const audioUnavailable = blocked || cloudReady === null || (cloudReady === false && !canPickDevice);
+	// It gates turning audio ON, never turning it OFF. Availability is re-read while the panel is
+	// open, so it can drop under a switch that is already on: a key disconnecting with a cloud
+	// voice chosen made `audioUnavailable` true and disabled the switch in its checked state,
+	// and the author could no longer opt out of an export that would now refuse.
+	const audioLocked = audioUnavailable && !value.audio;
 
 	const set = (patch: Partial<NarrationChoice>) => onChange({ ...value, ...patch });
 
@@ -378,7 +383,7 @@ export function NarrationExportOptions({
 						</span>
 					</span>
 				</span>
-				<Switch className="mt-0.5" aria-label="Include narration audio" checked={value.audio} disabled={disabled || audioUnavailable} onCheckedChange={setAudio} />
+				<Switch className="mt-0.5" aria-label="Include narration audio" checked={value.audio} disabled={disabled || audioLocked} onCheckedChange={setAudio} />
 			</div>
 
 			<div className="mt-3.5 flex items-start justify-between gap-3 border-t border-border pt-3.5">

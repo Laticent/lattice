@@ -599,3 +599,9 @@ and `docs/e2e/share-ondevice-narration.spec.ts`. The spec replaces only the mode
 (`esm.run/kokoro-js`) with a stub that returns a tone and holds `from_pretrained` until the test
 releases it, so the panel is provably open before the voice is ready. The worker, the rung, the
 panel, the bake and the exported file are all real.
+
+**A switch that is on stays operable.** Re-reading availability means it can drop under a switch
+that is already on: a key disconnecting with a cloud voice chosen made `audioUnavailable` true
+and disabled the audio switch in its checked state, so the author could not opt out of an export
+that would now refuse. The switch now disables only turning audio ON (`audioLocked`). The
+checker on #2446 found it; the same PR fixes it, pinned by a unit case that fails on the old line.
