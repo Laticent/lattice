@@ -1698,6 +1698,11 @@ Every look keeps the edge: no fill clears the 3:1 graphical floor on its own, an
 The CSS is `lib/base/base.modifiers.css` § Inline sparks; the four parts are `--spark-tile`,
 `--spark-edge`, `color` and `--spark-body`, all derived from `--spark-hue`.
 
+**In `mode: sketch`** a spark is drawn by hand like the tables around it: the rough ink
+(`lib/core/rough-ink.js`, `kind: 'spark'`) redraws the tile's edge, the line, each bar's outline,
+a bullet's tick and a ring's arc, in each part's own color. Fills keep their look, and the zero
+baseline stays clean. Nothing to write — the finish does it.
+
 Modifier order is free: `` `~{1 3 2}:area:c4:lg` `` and `` `~{1 3 2}:lg:c4:area` `` are
 the same spark. Each spark carries `role="img"` and a spoken label with its numbers
 ("Trend, 8 points, from 0.8 to 1.9, low 0.8, high 1.9").

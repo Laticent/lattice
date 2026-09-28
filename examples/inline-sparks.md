@@ -113,12 +113,15 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21}:end` over
 
 ---
 
-<!-- _class: big-number -->
+<!-- _class: table table-fill sketch -->
 
-`Monthly active readers`
+## In a sketch deck, sparks are drawn by hand too.
 
-- 1.2M
-  - up from 640K a year ago `~{64 70 71 78 84 90 95 101 104 110 116 120}:lg:end`
+| Look | Line | Bars | Ring | Bullet |
+| --- | --- | --- | --- | --- |
+| `:pigment` | `~{12 14 13 17 16 21 24}:c2:lg:end` | `~{3 5 4 6 7 5 8}:bar:c2:lg` | `~{72%}:c2:lg` | `~{72/80}:bullet:c2:lg` |
+| `:etching` | `~{12 14 13 17 16 21 24}:c2:lg:etching:end` | `~{3 5 4 6 7 5 8}:bar:c2:lg:etching` | `~{72%}:c2:lg:etching` | `~{72/80}:bullet:c2:lg:etching` |
+| `:tone` | `~{12 14 13 17 16 21 24}:c2:lg:tone:end` | `~{3 5 4 6 7 5 8}:bar:c2:lg:tone` | `~{72%}:c2:lg:tone` | `~{72/80}:bullet:c2:lg:tone` |
 
 ---
 

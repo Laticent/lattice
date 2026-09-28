@@ -220,6 +220,80 @@ describe('measureRoughInk — the preview scale transform', () => {
   });
 });
 
+describe('measureRoughInk — the section border', () => {
+  test('positions are measured from the padding edge, where the overlay is anchored', () => {
+    // A slide carries a real `border-top` (the accent strip), and the overlay is `inset: 0`,
+    // which anchors to the PADDING box. Measured from the border edge, every stroke landed one
+    // border-width low — plain on a spark, whose tile edge sat 4px under its fill.
+    const win = mount(`<section ${SECTION}><table style="${INK}" data-geom="100,54,800,400">` +
+      '<tr data-geom="100,54,800,100"><td>a</td></tr></table></section>');
+    Object.defineProperty(win.HTMLElement.prototype, 'clientTop', { configurable: true, get() { return this.tagName === 'SECTION' ? 4 : 0; } });
+    const [plan] = measureRoughInk([{ id: 'table', kind: 'grid', sel: 'section.sketch.table table' }]);
+    assert.deepEqual([plan.x, plan.y], [100, 50]);
+  });
+});
+
+describe('measureRoughInk — sparks', () => {
+  const SPARK = [{ id: 'spark', kind: 'spark', sel: 'section.sketch .lat-spark' }];
+  // A 100x30 viewBox drawn into a 50x15 box at (110,60): every unit is half a pixel.
+  const spark = (marks, extra = '') => mount(`<section ${SECTION}>` +
+    `<span class="lat-spark" style="${INK}" data-geom="100,55,70,25"${extra}>` +
+    `<svg viewBox="0 0 100 30" preserveAspectRatio="none" data-geom="110,60,50,15">${marks}</svg></span></section>`);
+
+  test('reads each line, bar and arc into slide pixels, in its own color', () => {
+    spark('<path class="s-line" d="M0 30L50 0H100" style="stroke: rgb(1, 1, 1); stroke-width: 2px"/>' +
+      '<rect class="s-up" x="10" y="10" width="20" height="20" style="fill: rgb(2, 2, 2)"/>' +
+      '<path class="s-zero" d="M0 15H100" style="stroke: rgb(3, 3, 3)"/>');
+    const [plan] = measureRoughInk(SPARK);
+    assert.equal(plan.kind, 'spark');
+    const [line, bar] = plan.marks;
+    // Structure-relative: the svg sits 10px right and 5px down inside the host.
+    assert.deepEqual(line.pts, [[10, 20], [35, 5], [60, 5]]);
+    assert.equal(line.stroke, 'rgb(1, 1, 1)');
+    assert.deepEqual([bar.x, bar.y, bar.w, bar.h, bar.stroke], [15, 10, 10, 10, 'rgb(2, 2, 2)']);
+    // The zero baseline is left to the CSS: its dashes are part of what it says.
+    assert.equal(plan.marks.length, 2);
+  });
+
+  test('a mark whose paint is not a color loses its ink, not the spark', () => {
+    spark('<path class="s-line" d="M0 0L100 30" style="stroke: url(https://evil.test/x.svg#p)"/>' +
+      '<rect class="s-up" x="0" y="0" width="10" height="10" style="fill: rgb(2, 2, 2)"/>');
+    const [plan] = measureRoughInk(SPARK);
+    assert.equal(plan.marks.length, 1);
+    assert.equal(plan.marks[0].t, 'rect');
+  });
+
+  test('a spark in the running header or footer is not inked', () => {
+    mount(`<section ${SECTION}><header><span class="lat-spark" style="${INK}" data-geom="10,10,70,25">` +
+      '<svg viewBox="0 0 100 30" preserveAspectRatio="none" data-geom="20,15,50,15"></svg></span></header></section>');
+    assert.deepEqual(measureRoughInk(SPARK), []);
+  });
+
+  test('a bullet track is a wash, not a line, so it is not outlined', () => {
+    spark('<rect class="s-track" x="0" y="10" width="100" height="10" style="fill: rgb(5, 5, 5)"/>' +
+      '<rect class="s-value" x="0" y="12" width="70" height="6" style="fill: rgb(6, 6, 6)"/>');
+    const [plan] = measureRoughInk(SPARK);
+    assert.deepEqual(plan.marks.map((m) => m.stroke), ['rgb(6, 6, 6)']);
+  });
+
+  test('a ring reads as an arc of its dashed fraction', () => {
+    mount(`<section ${SECTION}><span class="lat-spark" style="${INK}" data-geom="100,55,30,30">` +
+      '<svg viewBox="0 0 24 24" data-geom="103,58,24,24"><circle class="s-track" cx="12" cy="12" r="9"/>' +
+      `<circle class="s-arc" cx="12" cy="12" r="9" stroke-dasharray="${(0.72 * 2 * Math.PI * 9).toFixed(2)} 56.55" style="stroke: rgb(4, 4, 4); stroke-width: 4"/></svg></span></section>`);
+    const [plan] = measureRoughInk(SPARK);
+    assert.equal(plan.marks.length, 1, 'the track stays clean; only the arc is drawn');
+    const [arc] = plan.marks;
+    assert.deepEqual([arc.t, arc.cx, arc.cy, arc.r, arc.frac], ['arc', 15, 15, 9, 0.72]);
+  });
+
+  test('a new mark position reads as a change to the repaint guard', () => {
+    spark('<rect class="s-up" x="10" y="10" width="20" height="20" style="fill: rgb(2, 2, 2)"/>');
+    const a = roughInkFingerprint(measureRoughInk(SPARK));
+    spark('<rect class="s-up" x="10" y="0" width="20" height="30" style="fill: rgb(2, 2, 2)"/>');
+    assert.notEqual(roughInkFingerprint(measureRoughInk(SPARK)), a);
+  });
+});
+
 describe('paintRoughInk — markup', () => {
   const paint = (window, paths) => {
     paintRoughInk([{ sectionIndex: 0, paths }]);
