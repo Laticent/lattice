@@ -232,6 +232,8 @@
     "bench": "node test/benchmark/engine-bench.mjs",
     "dom:bakeoff": "node tools/dom-bakeoff/correctness.mjs",
     "dom:bakeoff:speed": "node tools/dom-bakeoff/speed.mjs",
+    "parser:bakeoff": "node tools/parser-bakeoff/correctness.mjs",
+    "parser:bakeoff:speed": "node tools/parser-bakeoff/speed.mjs",
     "dom:bakeoff:chromium": "node tools/dom-bakeoff/chromium.mjs",
     "bench:bless": "node test/benchmark/engine-bench.mjs --bless",
     "bench:check": "node test/benchmark/engine-bench.mjs --check",

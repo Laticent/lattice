@@ -10723,6 +10723,8 @@ const NUL_TEXT_EXTENSIONS = [
   '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.css', '.scss', '.md', '.mdx',
   '.json', '.jsonc', '.yml', '.yaml', '.html', '.svg', '.sh', '.txt', '.toml', '.py',
   '.vtt', '.webmanifest', '.patch', '.gitignore', '.gitattributes', '.nvmrc', '.cmd',
+  // Peggy grammar source (tools/parser-bakeoff/grammars/peggy/) — plain text.
+  '.peggy',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list
