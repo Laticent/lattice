@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { patchSections } from './deck-preview.js';
+import { patchSections } from './deck-render.js';
 
 const section = (id: number, title: string) => `<section class="form" id="${id}"><div class="cell-stage"><h1>${title}</h1></div></section>`;
 

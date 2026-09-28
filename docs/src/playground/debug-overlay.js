@@ -206,9 +206,12 @@ export function applyDebug(frame, opts = {}) {
 	// holds no stale per-node state (survives patchSections' node swaps for free).
 	teardown(doc, win, frame);
 
-	const sections = Array.from(doc.querySelectorAll('.lattice > section'));
+	// A slide's NUMBER is its position among every slide, real or a virtual-filmstrip
+	// placeholder (deck-render.js) — a placeholder has nothing to outline, but it still counts,
+	// or the labels would renumber as the reader scrolls.
+	const sections = Array.from(doc.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]'));
 	const enabled = sections
-		.map((sec, i) => ({ sec, i, cfg: resolveConfig(sec.getAttribute('data-debug'), force) }))
+		.map((sec, i) => ({ sec, i, cfg: sec.tagName === 'SECTION' ? resolveConfig(sec.getAttribute('data-debug'), force) : null }))
 		.filter((s) => s.cfg);
 	if (!enabled.length) return;
 

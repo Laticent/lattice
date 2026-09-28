@@ -178,7 +178,9 @@ function bandSig(bands: SlideBand[]): string {
 function walkUnits(frame: HTMLIFrameElement, byAuthored: boolean): HTMLElement[][] {
 	let secs: NodeListOf<HTMLElement> | undefined;
 	try {
-		secs = frame.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
+		// Every slide, real or a virtual-filmstrip placeholder (deck-render.js), in deck order:
+		// the walk, the bands and the reading index count slides, not mounted ones.
+		secs = frame.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section, .lattice > div[data-lv-ph]');
 	} catch {
 		return []; // a frame mid-navigation; the next poll gets it
 	}
@@ -636,10 +638,30 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// The render-success path also rebinds these, but on a FRESH srcdoc write that
 	// runs before the new document has loaded (setting the hook on the old window),
 	// so re-install the parent-hosted bridges here against the now-live document.
+	// THE VIRTUAL FILMSTRIP moved its window: sections were mounted or returned to placeholders
+	// (deck-preview.js `attachVirtual`). The overlays bound to sections rebind to the new ones —
+	// the same set the render loop rebinds after a patch.
+	const onVirtualChange = React.useCallback(() => {
+		applyDebug(frameRef.current, { force: forceRef.current });
+		chartDetailRef.current?.rebind();
+		videoOverlayRef.current?.rebind();
+		animaScenesRef.current?.rebind();
+	}, []);
+	/** Mount the slides around section `index` before scrolling to it, so the reader lands on a
+	 *  real slide rather than a placeholder that fills in a frame later. */
+	const mountAroundIndex = React.useCallback(
+		(index: number) => {
+			const frame = frameRef.current;
+			if (frame && window.LatticeDeckPreview?.mountAround?.(frame, previewStateRef.current, index)) onVirtualChange();
+		},
+		[onVirtualChange],
+	);
 	const onFrameLoad = React.useCallback(() => {
 		// A full srcdoc write replaced the frame's document: rebind the deck's keyboard,
 		// touch and scroll listeners to the new one.
 		bindDeckInputRef.current();
+		// …and hand the new document's window to the virtual filmstrip, which follows its scroll.
+		if (frameRef.current) window.LatticeDeckPreview?.attachVirtual?.(frameRef.current, () => previewStateRef.current, onVirtualChange);
 		applyDebug(frameRef.current, { force: forceRef.current });
 		videoOverlayRef.current?.rebind();
 		animaScenesRef.current?.rebind();
@@ -660,12 +682,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				const secs = walkUnits(frame, false).map((u) => u[0]);
 				const byKey = anchor.slide ? secs.findIndex((el) => (el.getAttribute('data-lattice-slide') || '').split('.')[0] === anchor.slide) : -1;
 				const i = byKey >= 0 ? byKey : anchor.index;
+				mountAroundIndex(i);
 				const band = frameBands(frame)[i];
 				// The fraction only means something in the same slide at the same shape.
 				if (band) frame.contentWindow.scrollTo({ top: band.top + (byKey === anchor.index ? anchor.frac * band.height : 0), behavior: 'auto' });
 			}
 		}
-	}, []);
+	}, [onVirtualChange, mountAroundIndex]);
 
 	// While the preview pane is collapsed, rendering into its 0-width iframe is
 	// both wasted work and the iOS FIT-blank precondition — defer instead, and
@@ -696,11 +719,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (!win || frame.clientHeight === 0) return;
 		const units = walkUnits(frame, false);
 		if (!units.length) return;
-		const i = caretSlideIndex(getSource(), line, units.map((u) => u[0].textContent || ''));
+		// Texts from the RENDER, not the frame: in the virtual filmstrip most sections are empty
+		// placeholders, and the caret's slide is usually one of them.
+		const rendered = previewStateRef.current?.lastSections;
+		const texts = Array.isArray(rendered) && rendered.length === units.length ? (rendered as string[]) : units.map((u) => u[0].textContent || '');
+		const i = caretSlideIndex(getSource(), line, texts);
 		// Not found YET is not "not found": a heading being typed has not rendered. Stay
 		// pending, and the render that lands it asks again.
 		if (i < 0) return;
 		followPendingRef.current = false;
+		mountAroundIndex(i);
 		const band = frameBands(frame)[i];
 		if (!band) return;
 		const top = win.scrollY;
@@ -711,7 +739,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const inset = Math.max(0, (win.innerHeight - band.height) / 2);
 		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 		win.scrollTo({ top: Math.max(0, band.top - Math.min(inset, 24)), behavior: instant || reduce ? 'auto' : 'smooth' });
-	}, [getSource]);
+	}, [getSource, mountAroundIndex]);
 	const followCaretRef = React.useRef(followCaret);
 	followCaretRef.current = followCaret;
 	const onCaret = React.useCallback((line: number) => {
@@ -791,6 +819,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				previewStateRef.current = r.state;
 				lastGeomRef.current = r.geom;
 				if (!r.patched) anchorRef.current = r.anchor ?? null;
+				// A patch can change the slide count or restyle every slide; re-fit the virtual
+				// window to the scroll position (a full write does this on load, in onFrameLoad).
+				else if (window.LatticeDeckPreview?.syncVirtual?.(frame, r.state)) onVirtualChange();
 				// Record the source THIS frame renders, so a capture stamps the snapshot's
 				// identity from the bytes actually on screen (see lastRenderedEditSrcRef).
 				if (viewRef.current === 'edit') lastRenderedEditSrcRef.current = src;
@@ -839,7 +870,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				return { heavy: !r.patched };
 			}
 		},
-		[getSource, setStatusLine, palettes, markLiveWhenSlidesVisible],
+		[getSource, setStatusLine, palettes, markLiveWhenSlidesVisible, onVirtualChange],
 	);
 
 	// Latest render closure — the frame scheduler reaches it via this ref so it always
@@ -1071,9 +1102,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// animates under a deck-wide setting on THIS surface too — without it the Playground's own
 		// Deck Settings → Motion control would write front-matter this host never reads (every
 		// deck-level value, Off included, would be a silent no-op). Mirrors DeckPreview.
+		// Memoized on the source: a rebind follows every virtual-filmstrip move, and parsing a big
+		// deck's front matter three times per move was a measured scroll cost.
+		let motionSrc: string | null = null;
+		let motion: ReturnType<typeof parseDeckMotion> | null = null;
 		const as = createAnimaScenes({
 			getFrame: () => frameRef.current ?? frame,
-			getDeckMotion: () => parseDeckMotion(getFrontMatter(getSource(), 'motion'), getFrontMatter(getSource(), 'motion-style'), getFrontMatter(getSource(), 'motion-speed')),
+			getDeckMotion: () => {
+				const src = getSource();
+				if (src !== motionSrc || !motion) {
+					motion = parseDeckMotion(getFrontMatter(src, 'motion'), getFrontMatter(src, 'motion-style'), getFrontMatter(src, 'motion-speed'));
+					motionSrc = src;
+				}
+				return motion;
+			},
 		});
 		animaScenesRef.current = as;
 		return () => {
@@ -1417,6 +1459,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const win = frame.contentWindow;
 		const target = walkUnits(frame, w.kind === 'plan')[w.index]?.[0];
 		if (!win || !target) return;
+		// Mount the target's slides before the scroll (the virtual filmstrip), so the step lands on
+		// a real slide. Geometry is unchanged by a mount — a placeholder is sized like its slide.
+		const di = Array.prototype.indexOf.call(frame.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]') ?? [], target);
+		if (di >= 0) mountAroundIndex(di);
 		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 		const animated = smooth && !reduce;
 		const now = Date.now();
@@ -1455,7 +1501,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// where this centers, so the two agree on which regime a pane is in.
 		const inset = spare <= 40 ? spare : 16;
 		win.scrollTo({ top: Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset), behavior: animated ? 'smooth' : 'auto' });
-	}, []);
+	}, [mountAroundIndex]);
 	scrollWalkRef.current = scrollWalk;
 
 	/**

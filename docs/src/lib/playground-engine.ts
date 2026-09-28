@@ -159,6 +159,10 @@ export function createEngineBridge(
 				// live document restyles in place (deck-preview.js `restyleDocument`) instead of
 				// being rewritten — no blank frame, and the reader keeps their scroll position.
 				restyleKey: `${geom.w}x${geom.h}`,
+				// A VIRTUAL filmstrip: only the slides in view are real in the frame; the rest are
+				// same-size placeholders (preview-virtual.js). The host moves the window with
+				// `attachVirtual` / `syncVirtual` / `mountAround`.
+				virtual: true,
 				state: fresh ? { ...state, frameSig: '' } : state,
 				fresh,
 				runtimeUrl,

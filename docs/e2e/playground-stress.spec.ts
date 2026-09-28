@@ -114,12 +114,16 @@ async function settle(page: Page, timeout = 10_000) {
  * reads 720 on a phone where the slide is 179px tall — an oracle built on it overstates
  * every slide by 4x and reports nonsense at exactly the narrow widths that matter. This is
  * a deliberate SECOND implementation of what `readingSlideIndex` ships, not a re-run of it.
+ *
+ * A SLIDE IS A SECTION OR A PLACEHOLDER. The filmstrip is virtual: only the slides near the
+ * view are real sections, every other is an empty `div[data-lv-ph]` fitted to the same box
+ * (deck-render.js). Counting sections alone indexes the mounted run, not the deck.
  */
 async function visibleFractions(page: Page): Promise<{ ofItself: number; ofPane: number }[]> {
 	return page.evaluate(() => {
 		const f = document.getElementById('preview') as HTMLIFrameElement | null;
 		const win = f?.contentWindow;
-		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
+		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section, .lattice > div[data-lv-ph]');
 		if (!win || !secs?.length) return [];
 		const top = win.scrollY;
 		const pane = win.innerHeight;
@@ -380,13 +384,13 @@ test('clicking the tab you are already on does not destroy the deck', async ({ p
 	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('ArrowRight');
 	await settle(page);
-	const before = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0);
+	const before = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0);
 	expect(before).toBe((await claimed(page)).count);
 	expect(before).toBeGreaterThan(5);
 	await page.getByRole('tab', { name: 'Explore' }).click();
 	await settle(page);
 	expect(
-		await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0),
+		await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0),
 		'the deck was replaced by re-entering the mode it was already in',
 	).toBe(before);
 	expect((await claimed(page)).index).toBe(3);
@@ -435,7 +439,7 @@ test('editing the deck in Edit re-points the walk instead of counting slides tha
 	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');
 	await settle(page);
 	const slides = await page.evaluate(
-		() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0,
+		() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0,
 	);
 	expect(slides).toBeGreaterThan(0);
 	expect((await claimed(page)).count, 'the bar counted the old plan, not the deck on screen').toBe(slides);
@@ -664,7 +668,7 @@ test('a single jumping scroll inside the step guard is not stranded', async ({ p
 	await expect.poll(async () => (await claimed(page)).index).toBe(2);
 	await page.evaluate(() => {
 		const f = document.getElementById('preview') as HTMLIFrameElement | null;
-		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
+		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section, .lattice > div[data-lv-ph]');
 		if (f?.contentWindow && secs?.[9]) f.contentWindow.scrollTo({ top: secs[9].offsetTop - 16, behavior: 'auto' });
 	});
 	await settle(page);
@@ -736,7 +740,7 @@ test('a wheel right after a COLD step does not take the step back', async ({ pag
 	await expect(page.locator('#pg-walk .pg-walk-pos')).toContainText('1 / ');
 	const sectionsAtStep = await page.evaluate(() => {
 		const frame = document.getElementById('preview') as HTMLIFrameElement | null;
-		const n = frame?.contentDocument?.querySelectorAll('.lattice > section').length ?? -1;
+		const n = frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? -1;
 		(document.querySelector('.pg-walk-step.next') as HTMLButtonElement | null)?.click();
 		document.querySelector('.pg-preview-wrap')?.dispatchEvent(new WheelEvent('wheel', { deltaY: 40, bubbles: true }));
 		return n;
@@ -810,7 +814,7 @@ test('@mobile replacing the deck in Edit does not leave the walk counting the pl
 
 	const slides = await page.evaluate(() => {
 		const frame = document.getElementById('preview') as HTMLIFrameElement | null;
-		return frame?.contentDocument?.querySelectorAll('.lattice > section').length ?? -1;
+		return frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? -1;
 	});
 	const after = await claimed(page);
 	// The invariant is the one this whole file is about: the chrome never claims a count the
@@ -839,7 +843,7 @@ test('@mobile picking a component gives the same deck in Edit as in Explore', as
 	const deckSlides = () =>
 		page.evaluate(() => {
 			const frame = document.getElementById('preview') as HTMLIFrameElement | null;
-			return frame?.contentDocument?.querySelectorAll('.lattice > section').length ?? -1;
+			return frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? -1;
 		});
 	const pick = async (name: string) => {
 		await page.locator('#pg-template-trigger').click();

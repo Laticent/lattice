@@ -145,9 +145,10 @@ describe('buildSrcdoc', () => {
 		};
 		// And every caller of the gated builder, with what it hands the knob.
 		const KNOB = {
-			// renderDeck's full write — the deck preview frame. Forwards `...opts`; every host
-			// that reaches it today is a live preview.
-			'playground/deck-preview.js': ['default'],
+			// renderDeck's full write — the deck preview frame (moved out of deck-preview.js into
+			// the Playground-only deck-render.js). Forwards `...opts`; every host that reaches it
+			// today is a live preview.
+			'playground/deck-render.js': ['default'],
 			// The print PREVIEW cells (watched), then the DESKTOP PRINT document (offscreen at
 			// -10000px, handed straight to print() — the author's PDF).
 			'components/studio/PrintOptionsPanel.tsx': ['default', 'false'],

@@ -57,8 +57,6 @@ import {
 import remoteRef from '../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideFrameFilter } from '../../../lib/core/slide-frame.mjs';
-import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
-import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { texturePatternDefs } from './a11y-textures.generated.js';
 import { slideBox } from './frame-css.js';
@@ -124,7 +122,10 @@ function fitAgent(gap, clamp) {
 		// Pinned to the deck's `@size` box (GEOM globals), so scale by the constant
 		// w/SW — no offsetWidth measurement to drift as KaTeX/Mermaid stream in.
 		'    var SW=window.__SLIDE_W||1280, SH=window.__SLIDE_H||720, GAP=' + gap + ';',
-		'    var secs=lattice.querySelectorAll(":scope>section");',
+		// Sections AND the virtual filmstrip's placeholders (deck-render.js), in deck order: a
+		// placeholder is scaled and spaced exactly like the slide it stands for, so the
+		// filmstrip's geometry is the same mounted or not.
+		'    var secs=lattice.querySelectorAll(":scope>section,:scope>div[data-lv-ph]");',
 		'    var sc=w/SW;',
 		// STAGE: a host that shows ONE slide at a time (the Playground's desktop Explore) marks
 		// its iframe `data-stage`. Centering a slide then leaves (pane - slide) / 2 above and
@@ -205,7 +206,7 @@ function fitAgent(gap, clamp) {
 		'    var ro=new ResizeObserver(function(){gatedFit();});',
 		'    var m=document.querySelector(".lattice");',
 		'    if(m){ro.observe(document.documentElement);',
-		'      var ss=m.querySelectorAll(":scope>section");',
+		'      var ss=m.querySelectorAll(":scope>section,:scope>div[data-lv-ph]");',
 		'      for(var i=0;i<ss.length;i++) ro.observe(ss[i]);}',
 		'  }',
 		'  fit();',
@@ -333,7 +334,12 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		// own, so a square deck previewed rounded — and a `corners-rounded` section's
 		// `clip-path` clips its own box-shadow away. A drop-shadow on `.lattice` traces each
 		// slide's painted outline instead, square or rounded.
-		'.lattice{filter:' + slideFrameFilter('card') + ';}';
+		'.lattice{filter:' + slideFrameFilter('card') + ';}' +
+		// A VIRTUAL filmstrip's placeholder (deck-render.js): the slide's own box, empty, until the
+		// slide mounts. A faint wash of the frame's text color reads as "a slide is here" in light
+		// and dark alike, without guessing the slide's own palette. Inert everywhere else — no
+		// other host writes one.
+		'.lattice>div[data-lv-ph]{display:block;width:' + gw + 'px;height:' + gh + 'px;transform-origin:top left;background:color-mix(in srgb,currentColor 6%,transparent);}';
 	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';
@@ -465,6 +471,13 @@ export function buildSrcdoc({
 	// `deck-preview.test.js` censuses every `previewDiagramsAttr` site and every caller of
 	// this builder, and fails on one nobody has classified.
 	diagrams = true,
+	// WHAT THE WHOLE DECK NEEDS, when `html` holds only part of it. The Playground's virtual
+	// filmstrip writes most slides as empty placeholders, and the three asset flags and the
+	// security policy below are read out of `html` — so a KaTeX slide, a Mermaid fence or a
+	// refused web image sitting in a placeholder would be missed, and mounting it later would
+	// find no stylesheet, no renderer, or a policy that kept a wildcard it should have
+	// withheld. `{ katex, mermaid, dagre, blocked }`, from the full render; null → read `html`.
+	deck = /** @type {{katex:boolean,mermaid:boolean,dagre:boolean,blocked:Array<{origin:string}>}|null} */ (null),
 }) {
 	// Strip script-bearing content before it reaches this same-origin srcdoc
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
@@ -488,19 +501,19 @@ export function buildSrcdoc({
 	// (or the vendored copy) it won't use. renderDeck folds the same two flags into
 	// its signature, so an edit that ADDS math/mermaid forces a full rewrite that
 	// injects the asset rather than a section-only patch that would leave it out.
-	const needsKatex = html.indexOf('katex') !== -1;
-	const needsMermaid = html.indexOf('language-mermaid') !== -1;
+	const needsKatex = deck ? deck.katex : html.indexOf('katex') !== -1;
+	const needsMermaid = deck ? deck.mermaid : html.indexOf('language-mermaid') !== -1;
 	// `data-sc-transitions` and not the `.state-chart-figure` class: only the DEFAULT
 	// variant emits the attribute, and it is the only variant the browser pass draws.
 	// The `inline` variant renders chips and needs no layout engine at all. The
 	// attribute survives DOMPurify (data-* attributes are allowed), so it reads the
 	// same on the sanitized sections renderDeck signs below.
-	const needsDagre = html.indexOf('data-sc-transitions') !== -1;
+	const needsDagre = deck ? deck.dagre : html.indexOf('data-sc-transitions') !== -1;
 	return (
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(diagrams && needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
-		(csp ? previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)] }) : '') +
+		(csp ? previewCspMeta({ katexUrl, webOrigins, blocked: [...(deck ? deck.blocked : web.blocked), ...remoteRef.webRefsInCss(css)] }) : '') +
 		// BOTH conditions, and the URL half is the one that was missing. The content gate
 		// alone emitted `<link href="">` when a math deck met a caller that passed no URL —
 		// harmless in Chromium (measured: no request), but it made the note's stated safety
@@ -588,204 +601,4 @@ export function previewDiagramsAttr(mermaidUrl) {
 	return mermaidUrl ? ' data-lattice-diagrams' : '';
 }
 
-// Patch only the <section> nodes whose HTML changed. Returns true on success
-// (a live .lattice was found), false to signal the caller to fall back to a full
-// write. `prev`/`next` are arrays of per-slide HTML strings (splitSections).
-export function patchSections(frame, next, prev) {
-	const doc = frame.contentDocument;
-	const lattice = doc?.querySelector('.lattice');
-	if (!lattice) return false;
-	const cur = lattice.querySelectorAll(':scope>section');
-	// SAY WHICH KIND OF SWAP THIS IS, BEFORE THE WRITE — the same contract
-	// `patchSlideBody` carries in single-slide-render.ts, and for the same reason: the
-	// runtime holds a rendered diagram while an edited fence re-renders, and only the
-	// caller knows whether a replaced section is the SAME slide edited or a different one
-	// arriving. Stamped before the write, because the runtime reads it from the observer
-	// callback that write triggers. See adoptOutgoingDiagrams in lib/runtime/index.js.
-	//
-	// This used to answer "did the slide COUNT change?", which is not the question. Equal
-	// counts are what a reorder and a same-length deck paste both have, and both were
-	// stamped `in-place` — one slide's diagram into another slide's box, the exact defect
-	// the stamp exists to stop. `sectionSwapKind` asks what an edit actually is: exactly
-	// one section's HTML changed. See lib/core/swap-kind.mjs.
-	const kind = next.length !== cur.length ? SWAP_REFLOW : sectionSwapKind(prev || [], next);
-	if (next.length !== cur.length) {
-		lattice.setAttribute('data-lattice-swap', kind);
-		// Slide added/removed: rebuild the filmstrip body only — no script re-eval;
-		// the runtime/Mermaid/FIT/SYNC agents persist and re-process.
-		lattice.innerHTML = next.join('\n');
-	} else {
-		const p = prev || [];
-		// STAMP ONLY WHEN A WRITE WILL FOLLOW. The runtime reads this once and clears it, so
-		// a stamp with no mutation behind it is never consumed — it just stands there for
-		// whatever burst comes next to read. Set it on the first section that will actually
-		// be replaced rather than before the loop, where a section whose HTML parses to no
-		// element child would leave `in-place` latched having written nothing.
-		let stamped = false;
-		for (let i = 0; i < next.length; i++) {
-			if (p[i] === next[i]) continue;
-			const holder = doc.createElement('div');
-			holder.innerHTML = next[i];
-			const fresh = holder.firstElementChild;
-			if (fresh && cur[i] && !stamped) {
-				lattice.setAttribute('data-lattice-swap', kind);
-				stamped = true;
-			}
-			if (fresh && cur[i]) lattice.replaceChild(fresh, cur[i]);
-		}
-	}
-	const w = frame.contentWindow;
-	if (w?.__latticeTag) w.__latticeTag();
-	if (w?.__latticeFit) w.__latticeFit();
-	return true;
-}
-
-// Restyle a live document in place: the `#lattice-doc` stylesheet AND every section, in one
-// synchronous task (so no frame paints the new theme over the old sections, or the reverse).
-// The sections are all replaced, not diffed — a theme can change engine output anywhere,
-// and a full replacement is what tells the runtime every slide is new (`SWAP_REFLOW`).
-// Returns false when there is no live document to restyle; the caller then writes one.
-export function restyleDocument(frame, sections, styleText) {
-	const doc = frame.contentDocument;
-	const lattice = doc?.querySelector('.lattice');
-	const styleEl = doc?.getElementById('lattice-doc');
-	if (!lattice || !styleEl) return false;
-	// textContent, never markup: a `</style>` in the text cannot end the element here, and
-	// `docStyleText` already ran the engine sheet through sanitizeStyleText (HARD RULE #22).
-	styleEl.textContent = styleText;
-	lattice.setAttribute('data-lattice-swap', SWAP_REFLOW);
-	lattice.innerHTML = sections.join('\n');
-	const w = frame.contentWindow;
-	if (w?.__latticeTag) w.__latticeTag();
-	if (w?.__latticeFit) w.__latticeFit();
-	return true;
-}
-
-// The reader's place in a live filmstrip: the first section whose foot is still on screen,
-// and the fraction of it scrolled past. Null at the top (nothing to restore) or with no
-// live document.
-function readAnchor(frame) {
-	try {
-		const win = frame.contentWindow;
-		const secs = frame.contentDocument?.querySelectorAll('.lattice>section');
-		if (!win || !secs?.length || !(win.scrollY > 0)) return null;
-		for (let i = 0; i < secs.length; i++) {
-			const r = secs[i].getBoundingClientRect();
-			// The AUTHORED slide too (`data-lattice-slide`, `3` or `3.2` on a split page): a size
-			// change can split a slide into pages, and then index N names a different slide.
-			if (r.bottom > 0) return { index: i, frac: r.height ? Math.max(0, -r.top) / r.height : 0, slide: (secs[i].getAttribute('data-lattice-slide') || '').split('.')[0] };
-		}
-	} catch {
-		/* a frame mid-navigation */
-	}
-	return null;
-}
-
-// Render a deck into a persistent iframe: patch when the live document already
-// matches this render's signature, else a full srcdoc write. `state` is opaque
-// host-held bookkeeping ({ frameSig, lastSections }) — pass it back each call.
-// `sig` must capture everything baked into the document outside the <section>s
-// (theme/mode/size, and for the studios the live token/component CSS). `fresh`
-// forces a full write (deck swap → reset runtime/Mermaid state).
-export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), ...opts }) {
-	const st = state || { frameSig: '', lastSections: null };
-	// INCREMENTAL SANITIZE (the typing hot path). #616 T-CONTENT still requires every
-	// section reach the frame sanitized — but DOMPurify over the WHOLE deck is ~half
-	// the per-keystroke render cost on a big deck and grows with slide count (a
-	// 50-slide edit spends ~28ms here), enough to push the render past the frame
-	// scheduler's 50ms heavy backstop into the 120ms-coalesce regime. So split the
-	// RAW engine HTML per-section and sanitize only the sections whose raw HTML
-	// changed, reusing the prior render's sanitized output for the rest (cache in
-	// `state`). Per-section sanitize is byte-identical to whole-deck sanitize —
-	// sections are independent and the allowlisted <section> boundaries are preserved
-	// — locked by deck-preview.sanitize-cache.test.ts.
-	// Web images the reader has not allowed become placeholders on BOTH paths (buildSrcdoc does
-	// it for the write path; the patch path below would otherwise swap in the raw address).
-	const web = remoteRef.blockWebImages(html, opts.webOrigins || []);
-	html = web.html;
-	const rawSections = splitSections(html);
-	const prevCache = st.sanitizeCache instanceof Map ? st.sanitizeCache : null;
-	const nextCache = new Map();
-	const sections = rawSections.map((raw) => {
-		let clean = prevCache ? prevCache.get(raw) : undefined;
-		if (clean === undefined) clean = sanitizeSlideHtml(raw);
-		nextCache.set(raw, clean);
-		return clean;
-	});
-	st.sanitizeCache = nextCache;
-	// Fold the asset-need flags into the signature: buildSrcdoc injects the KaTeX
-	// stylesheet / Mermaid runtime only when the deck has math / a mermaid fence, so
-	// a transition (a deck GAINS or LOSES either) must force a full srcdoc rewrite —
-	// a section-only patch would leave the newly-needed asset uninjected. Both markers
-	// are class names DOMPurify keeps and live INSIDE sections, so the sanitized
-	// per-section array carries them identically to the old whole-sanitize check.
-	const hasMermaid = sections.some((s) => s.indexOf('language-mermaid') !== -1);
-	const contentSig =
-		sig +
-		(sections.some((s) => s.indexOf('katex') !== -1) ? 'K' : '') +
-		(hasMermaid ? 'M' : '') +
-		// Third flag, same reason as the other two: buildSrcdoc injects the dagre engine
-		// only for a deck that has a drawn state chart, so a deck that GAINS or LOSES one
-		// must force a full srcdoc rewrite. A section-only patch would leave a
-		// newly-typed branching machine without its engine — laid out as a column, with
-		// nothing to say why.
-		(sections.some((s) => s.indexOf('data-sc-transitions') !== -1) ? 'D' : '') +
-		// The web half of the policy lives in <head>, which a patch never rewrites: the allowed
-		// origins AND whether each keeps its subdomain wildcard, which an edit that adds a refused
-		// subdomain reference takes away (lib/core/subresource-csp.mjs `webPolicySig`).
-		`|W:${webPolicySig([...(opts.webOrigins || [])].sort(), web.blocked)}`;
-	const canPatch =
-		!fresh &&
-		contentSig === st.frameSig &&
-		frame.contentDocument?.querySelector('.lattice');
-	let patched = false;
-	let restyled = false;
-	if (canPatch) patched = patchSections(frame, sections, st.lastSections);
-	// RESTYLE path (a palette or light/dark flip). The caller's `restyleKey` names what the
-	// document's SHAPE depends on — the slide box — and the flags above name its injected
-	// assets; when only the rest of the signature moved (the theme, the mode), the live
-	// document can take the new look in place: swap the `#lattice-doc` stylesheet and every
-	// section in one task, so one paint shows the new theme on the new sections. A full
-	// srcdoc write here used to hide the whole deck until the new document fit and its fonts
-	// settled, and threw an Edit-view reader who was reading slide 6 back to slide 1.
-	//
-	// NOT with a Mermaid fence: the runtime caches each diagram's SVG with its theme colors
-	// baked in (lib/runtime/index.js, "Theme-change caveat"), so a restyled document would
-	// keep the old palette in its diagrams. A fresh document is the only honest reset there.
-	// …and the web references in the engine CSS. The document's security policy, in <head>,
-	// is built from them (`buildSrcdoc`'s `webRefsInCss(css)`), and a restyle swaps the CSS
-	// but never the policy — so a theme whose sheet reaches a different web host is a write.
-	const cssWeb = remoteRef.webRefsInCss(css).map((b) => String(b?.origin ?? b)).sort().join(' ');
-	const restyleSig = restyleKey == null ? null : `${restyleKey}${contentSig.slice(sig.length)}|C:${cssWeb}`;
-	// ONLY the document the last write produced. Right after a write, `contentDocument` is
-	// still the OUTGOING document until the new one loads; restyling that one left the
-	// incoming document on the old theme, and every later keystroke patched on top of it,
-	// so the stale theme stuck until the next theme or size change. Found by an independent
-	// checker, reproduced in Chromium. A write in flight falls through to a new write.
-	const current = frame.contentDocument?.documentElement?.getAttribute('data-lattice-write') === String(st.writeId ?? '');
-	if (!patched && !fresh && current && restyleSig != null && restyleSig === st.restyleSig && !hasMermaid) {
-		restyled = restyleDocument(frame, sections, docStyleText({ css, mode, geom, ...opts }));
-		if (restyled) patched = true;
-	}
-	let anchor = null;
-	if (!patched) {
-		// Where the reader is in the document about to be replaced — the first slide still on
-		// screen, and how far into it — so the host can open the new one at the same place
-		// instead of at slide 1. Read only here, on the rare full write, never per keystroke —
-		// and never on a `fresh` write, which is a DIFFERENT deck and opens at its start.
-		anchor = fresh ? null : readAnchor(frame);
-		// WRITE path (first render / theme·mode·size change / deck swap) — NOT the hot
-		// path. Sanitize the whole document so buildSrcdoc sees any inter/trailing
-		// content splitSections drops, keeping the written srcdoc byte-identical.
-		// Stamp the document with this write's id, so the restyle path can tell it from the
-		// one it replaces while it loads.
-		st.writeId = (st.writeId || 0) + 1;
-		frame.srcdoc = buildSrcdoc({ html: sanitizeSlideHtml(html), css, mode, geom, ...opts }).replace('<html ', `<html data-lattice-write="${st.writeId}" `);
-	}
-	st.frameSig = contentSig;
-	st.restyleSig = restyleSig;
-	st.lastSections = sections;
-	return { state: st, count: sections.length, patched, restyled, anchor };
-}
-
-export default { renderDeck, buildSrcdoc, patchSections, restyleDocument, splitSections };
+export default { buildSrcdoc, splitSections };

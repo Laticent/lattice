@@ -11,7 +11,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { docStyleText, renderDeck, restyleDocument } from './deck-preview.js';
+import { docStyleText } from './deck-preview.js';
+import { renderDeck, restyleDocument } from './deck-render.js';
 
 const deck = (title: string) => `<section class="form"><h1>${title}</h1></section><section class="form"><p>two</p></section>`;
 
