@@ -19,7 +19,7 @@
   "form": "scatter",
   "substance": "series",
   "render": "svg",
-  "renderNote": "The web, spokes, area polygons, axis labels, the key and \u2014 since the 2026-07-27 conversion \u2014 the small-multiples captions are all one `<svg>`. Each mini carries its series name in a fixed caption band inside its own viewBox, so a standalone SVG export of a small-multiples radar names its four shapes instead of shipping them blank, and chart-motion moves a mini's caption with the mini rather than leaving it behind.",
+  "renderNote": "The web, spokes, area polygons, axis labels, the key and \u2014 since the 2026-07-27 conversion \u2014 the small-multiples captions are all one `<svg>`. Each mini carries its series name in a fixed caption band inside its own viewBox, so a standalone SVG export of a small-multiples radar names its four shapes instead of shipping them blank, and chart-motion moves a mini's caption with the mini rather than leaving it behind. In a PANE the radar lays out for the pane's box: the kernel picks the key's side and a type scale for the rim labels, ticks and sector names, scored by the size the rim labels print, which grows toward a title-only radar slide's (14px on a 1280px page) and stops there, while the web gives up to a quarter of its size. The ticks stop growing before they crowd a ring. The scales ride the root as `--radar-type-scale` and `--radar-tick-scale`, which the stylesheet multiplies into the theme's own sizes. The 14px holds to the accuracy of the engine's pane-height estimate, which runs short under a long wrapped note. An ordinary radar slide is unchanged. Demo: `examples/panes-radar.md`.",
   "kernel": {
     "figureClass": "radar-figure",
     "marks": [

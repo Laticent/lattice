@@ -628,6 +628,16 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    render paths (`engine.paneOrientations` for the CLI, the pane's own stamp in the runtime), and
    the type-floor probe was measured reading a pane's SVG chart already. What is left is in the
    follow-up file.
+   **Radar closed (the panes-radar PR):** a radar reads `ctx.paneView` and lays out for the pane.
+   `fitKeyToPane` takes the diagram's own text (`labelText`) and a `ceiling`, so the pick is scored
+   by the rim labels and stops at the size a title-only radar slide prints them; the rim labels,
+   ticks and sector names scale by it (`--radar-type-scale`), the key only as far as it must to stay
+   the larger text, and the key's rail moves out so a right label keeps a slide's clearance from the
+   spine; the ticks stop growing before they crowd a ring. Measured in `examples/panes-radar.md`:
+   rim labels 6.3 -> 13.9px (35% pane, was under the floor, and the web grew), 9.0 -> 11.3 (50%, for
+   16% of the web), 11.0 -> 14.0 (65%, for 3%). Every committed deck renders byte-identical. The
+   ceiling holds to gap 1's accuracy: a pane under a long wrapped note is stamped short, and its
+   labels print up to ~8% past 14px (measured 15.1px before the demo's note was shortened).
 3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
    panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
    front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the
