@@ -87,6 +87,9 @@ export type GuideConductor = {
 	aimed(): Element | null;
 };
 
+/** The chart an element belongs to, if any. */
+const chartOfEl = (e: Element | null): Element | null => e?.closest('.chart-body, figure.chart-frame') ?? null;
+
 /** Is `point` (a line dot) inside `band` (that category's `.line-hit` rect)? Read off the SVG's own
  *  attributes, so it needs no layout: the dot's center lies within the band's x-range. */
 function inBand(point: Element | null, band: Element): boolean {
@@ -111,7 +114,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 	/** What was focused at the pause, so playing again restores it. */
 	let resume: { slide: number; aim: Element } | null = null;
 	/** The slide's salience plan, keyed on the slide, its track and the preset. */
-	let planned: { slide: number; track: unknown; delivery: string; plan: SlidePlan } | null = null;
+	let planned: { slide: number; track: unknown; delivery: string; plan: SlidePlan; charts: Set<Element> } | null = null;
 	/** The undo of the focus in force. */
 	let mark: (() => void) | null = null;
 	/** The document the read-along last lit a word in. */
@@ -183,14 +186,26 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		let top = false;
 		if (now) {
 			if (!planned || planned.slide !== slide || planned.track !== track || planned.delivery !== delivery.name || !planned.plan.aimed.has(activeCue)) {
-				planned = { slide, track, delivery: delivery.name, plan: planSlide(texts, (t, p) => host.aim(t, p), delivery.budget, delivery.floor) };
+				const plan = planSlide(texts, (t, p) => host.aim(t, p), delivery.budget, delivery.floor);
+				// THE CHARTS THIS SLIDE SPENDS A MOMENT ON. A chart that earns a planned moment is walked
+				// as ONE moment from its first named mark, not from the planned one: starting at the plan
+				// left every earlier sentence about the chart dark (a line's series summary and first
+				// point, a dumbbell's first row), which on a phone read as the chart doing nothing (owner,
+				// 2026-09-27).
+				const charts = new Set<Element>();
+				for (const k of plan.gesture) {
+					const a = host.aim(texts[k] ?? '', k > 0 ? texts[k - 1] : undefined);
+					const c = chartOfEl(a);
+					if (c && a?.closest('[data-mark], [data-series]')) charts.add(c);
+				}
+				planned = { slide, track, delivery: delivery.name, plan, charts };
 			}
 			top = planned.plan.top === activeCue;
 			// THE WALK. A chart is read point by point, and the budget cut that walk off after its
 			// first sentence. Once a planned moment on this slide was a chart mark, every later
 			// sentence that lands inside the same chart focuses in turn, as that one moment.
-			const chartOf = (e: Element | null) => e?.closest('.chart-body, figure.chart-frame') ?? null;
-			if (!planned.plan.gesture.has(activeCue) && walk && walk.slide === slide && chartOf(now) === walk.chart) {
+			const inChart = chartOfEl(now);
+			if (!planned.plan.gesture.has(activeCue) && inChart && ((walk && walk.slide === slide && inChart === walk.chart) || planned.charts.has(inChart))) {
 				if (focusUnit(now)) {
 					point?.abort();
 					stage.setCursorVisible(false);

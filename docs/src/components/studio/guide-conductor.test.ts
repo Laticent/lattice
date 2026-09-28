@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createGuideConductor, type GuideDelivery, type GuideStage } from './guide-conductor';
-import type { GuideCue } from './present-guide';
+import { findCueTarget, findTableRowTarget, focusContent, type GuideCue, planSlide } from './present-guide';
 
 // The per-sentence rules Present and the exported player share (guide-conductor.ts). The host's
 // `aim` / `cue` are stubbed from a text → element table, so these pin the RULES — rest, pause and
@@ -156,5 +156,54 @@ describe('guide-conductor — a line chart walked point by point', () => {
 		play(2);
 		// Lifted: nothing recedes any more (the `-undim` fade-up clears itself after its transition).
 		expect(document.querySelectorAll('.lat-guide-dim, .lat-guide-dim-inner').length).toBe(0);
+	});
+});
+
+describe('restrained audit fixes (owner, 2026-09-27)', () => {
+	it('walks a planned chart from its FIRST named mark, not from the planned one', () => {
+		// A dumbbell's first row came before the plan's moment and stayed dark.
+		document.body.innerHTML = `<div class="lattice"><section><div class="chart-body"><svg>
+			<line data-mark="0" data-series="0" data-label="Platform" data-value=""></line>
+			<line data-mark="1" data-series="1" data-label="Payments" data-value=""></line>
+			<line data-mark="2" data-series="2" data-label="Growth" data-value="$19M"></line></svg></div></section></div>`;
+		const marks = [...document.querySelectorAll('line')];
+		const walked = ['Platform rose seven.', 'Payments fell four.', 'Growth rose to $19M.'];
+		const aim = (t: string) => marks[walked.indexOf(t)] ?? null;
+		// Budget 1, spent on Growth (the only measured mark, the last sentence): the chart is still
+		// walked from Platform, its first named mark.
+		expect([...planSlide(walked, aim, 1, 1).gesture]).toEqual([2]);
+		const cue = (t: string): GuideCue | null => {
+			const e = aim(t);
+			return e ? { el: e, kind: 'underline', strength: 'quiet', target: { getBoundingClientRect: () => e.getBoundingClientRect(), getClientRects: () => [] }, rest: null } : null;
+		};
+		const stage: GuideStage = { gesture: async () => {}, setCursorVisible: () => {} };
+		const g = createGuideConductor({ stage: () => stage, aim, cue, clearance: 19 });
+		const on = walked.map((_, k) => {
+			g.beat({ slide: 1, cue: k, texts: walked, track: walked, delivering: true, delivery: delivery({ budget: 1, floor: 1 }) });
+			return document.querySelector('.lat-guide-undim')?.getAttribute('data-label') ?? null;
+		});
+		expect(on).toEqual(['Platform', 'Payments', 'Growth']);
+	});
+
+	it('resolves a table row read as "Row — Col: value; …" to the row', () => {
+		document.body.innerHTML = `<div class="lattice"><section><table><thead><tr><th>Segment</th><th>Q3</th><th>Q4</th><th>EMEA</th></tr></thead>
+			<tbody><tr><td>Enterprise</td><td>1.2%</td><td>1.1%</td><td>0.9%</td></tr><tr><td>SMB</td><td>7.8%</td><td>9.4%</td><td>6.1%</td></tr></tbody></table></section></div>`;
+		const section = document.querySelector('section') as Element;
+		expect(findCueTarget(section, 'SMB — Q3: 7.8%; Q4: 9.4%; EMEA: 6.1%.')?.textContent).toBe('SMB');
+		// A row that is not in the table is not found by this tier.
+		expect(findTableRowTarget(section, 'Mid-market — Q3: 3.1%.')).toBeNull();
+	});
+
+	it('keeps a line point’s category label full and recedes the other categories', () => {
+		document.body.innerHTML = `<div class="lattice"><section><div class="chart-body"><svg>
+			<path class="line-path" data-series="0" data-label="EMEA"></path>
+			<circle data-series="0" data-label="Jan 2026" data-value="4.1" cx="100"></circle>
+			<circle data-series="0" data-label="Feb 2026" data-value="3.2" cx="300"></circle>
+			<text class="cart-cat" data-label="Jan 2026">Jan 2026</text><text class="cart-cat" data-label="Feb 2026">Feb 2026</text></svg></div></section></div>`;
+		const undo = focusContent(document.querySelectorAll('circle')[1], { dim: 0.45, dimInner: 0.3, fade: 0 });
+		const [jan, feb] = [...document.querySelectorAll('text.cart-cat')];
+		expect(feb.classList.contains('lat-guide-undim')).toBe(true);
+		expect(jan.classList.contains('lat-guide-dim')).toBe(true);
+		undo?.();
 	});
 });

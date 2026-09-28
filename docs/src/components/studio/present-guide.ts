@@ -130,6 +130,7 @@ const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, t
 export function findCueTarget(frameDoc: Document | Element | null, text: string, prev?: string): Element | null {
 	const found =
 		findCueTargetIn(frameDoc, text) ??
+		findTableRowTarget(frameDoc, text) ??
 		findSpanningTarget(frameDoc, text) ??
 		findMarkTarget(frameDoc, text) ??
 		findNamedTarget(frameDoc, text) ??
@@ -141,6 +142,38 @@ export function findCueTarget(frameDoc: Document | Element | null, text: string,
 		findContinuedTarget(frameDoc, text, prev) ??
 		findFigureTarget(frameDoc, text);
 	return found ? drawnTwin(found) : null;
+}
+
+/**
+ * A TABLE ROW read as "<row> — <column>: <value>; <column>: <value>." — the shape table narration
+ * speaks. No single block holds it, and the piecewise tier split it on its colons, so its one
+ * searchable part was a column name and a table slide focused nothing at all (measured on the
+ * Guide test deck, 2026-09-27). The row is the table row whose first cell IS the lead and that holds
+ * at least one of the spoken values; its first cell is the answer, because a table's first cell
+ * names its row (`focusUnit`).
+ */
+const ROW_LEAD = /^(.+?)\s+[—–]\s+(.+)$/;
+export function findTableRowTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const m = norm(text).match(ROW_LEAD);
+	if (!m) return null;
+	const label = loose(m[1]);
+	if (!label) return null;
+	const values = m[2]
+		.split(/;\s+/)
+		.map((pair) => loose(pair.split(/:\s+/).pop() ?? ''))
+		.filter(Boolean);
+	if (!values.length) return null;
+	for (const table of root.querySelectorAll('table')) {
+		for (const row of (table as HTMLTableElement).rows) {
+			const first = row.cells[0];
+			if (!first || loose(first.textContent ?? '') !== label) continue;
+			// Value against CELL, not against the row's joined text: cells need not be spaced apart.
+			const cells = [...row.cells].slice(1).map((c) => loose(c.textContent ?? ''));
+			if (values.some((v) => cells.includes(v))) return first;
+		}
+	}
+	return null;
 }
 
 /**
@@ -2480,9 +2513,14 @@ function focusUnitIn(section: Element, el: Element): { unit: Element[]; peers: E
 	if (el.matches('circle[data-series][data-label]') && chart.querySelector('path.line-path[data-series]')) {
 		const v = el.getAttribute('data-series');
 		const shapes = [...chart.querySelectorAll(seriesSel)].filter(painted);
+		// THE POINT'S CATEGORY ON THE AXIS holds and the other categories recede. A point is a dot a
+		// few pixels wide, and at a phone's scale the focus on it read as nothing at all (owner,
+		// 2026-09-27); the axis label is text the size of the slide's other labels.
+		const cat = el.getAttribute('data-label');
+		const cats = [...chart.querySelectorAll('text.cart-cat[data-label]')].filter(painted);
 		return {
-			unit: [el],
-			peers: [...shapes.filter((m) => m.getAttribute('data-series') !== v), ...seriesLabels(chart, v, false)],
+			unit: [el, ...cats.filter((t) => t.getAttribute('data-label') === cat)],
+			peers: [...shapes.filter((m) => m.getAttribute('data-series') !== v), ...seriesLabels(chart, v, false), ...cats.filter((t) => t.getAttribute('data-label') !== cat)],
 			inner: shapes.filter((m) => m !== el && m.getAttribute('data-series') === v && m.matches('circle')),
 			axis: 'point',
 		};
