@@ -980,28 +980,48 @@ One tactic for each sign. For late feedback, build a cheap probe: try the risky 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: cards-grid insight-key -->
 
 `Hard problems · Scientists and experts`
 
-## Before you guess, ask what scientists and experts already know.
+## Scientists and experts know different things. Ask both.
 
-- Perception
-  - How far people sit decides how big the type must be.
-- Color vision
-  - About one man in twelve can't tell red from green, so add a second cue.
-- Memory
-  - People hold about four things in mind at once, so group the rest.
-- Language
-  - Short lines and plain words are read faster and remembered longer.
-- Behavior
-  - Defaults and order change what people choose, so pick them on purpose.
+- Scientists
+  - They know what has been tested and holds in general, and why. Ask them: what does the evidence say?
+  - Weak spot: a general finding may not fit your case.
+- Experts
+  - They know what works here, learned from years of doing it. Ask them: what goes wrong in practice?
+  - Weak spot: one person's experience can be an anecdote, or out of date.
+
+> Science tells you what is usually true. Experience tells you where it breaks.
 
 <!--
-Most problems you'll hand an agent aren't new. Somebody has already studied them, often for decades. How big text has to be depends on how far away people sit, and that's measurable. About one man in twelve can't tell red from green, so a chart that relies on color alone fails a real share of the room. People can hold about four things in mind at once, which is why long menus and dense slides lose them. Short lines and plain words read faster. And the default you set, or the order you list things in, changes what people pick. When a problem feels fuzzy, the first question is: who already knows about this? A science, like perception, psychology, linguistics, ergonomics or statistics, and the experts who practice it: a typographer, an accessibility specialist, a statistician, a security engineer. If you can reach a real expert, ask them. Then ask the agent, in two ways. Ask what the research says, because agents have read a lot of it and summarize it well. And ask it to review your work as that expert: "review this chart as a color-vision scientist would," or "read this page as a linguist." Naming the field changes what it notices. One warning: agents will also invent a study that sounds right. Ask for the source, and check that it exists and says what the agent claims. Used that way, the science turns a matter of taste into a decision you can defend.
+When a problem feels fuzzy, the first question is: who already knows about this? There are two kinds of answer, and they aren't the same. A scientist knows what has been tested. The findings come from careful studies, they hold in general, and they explain why. An expert knows what works in practice. That knowledge comes from years of doing the job: the patterns, the edge cases, the judgment calls, the things nobody wrote down. You can be a real expert without ever running a study, and a scientist can know the research on a topic without ever having done the job. Each has a weak spot. A general finding may not hold in your situation, and one person's experience can be an anecdote or out of date. That's why you ask both. Now the agent. It can summarize the research well, but it will also invent a study that sounds right, so ask for the source and check it. It can take on an expert's point of view, and that's useful: "review this as a senior on-call engineer would." What it can't do is remember your system. That knowledge lives in people. Ask them, and write down what they tell you, so the agent can read it next time.
 -->
 
 ---
+
+<!-- _class: list takeaway -->
+
+`Hard problems · Ask both`
+
+## The study and the veteran each see something the other misses.
+
+- Estimates
+  - Studies: people underestimate their own tasks. The veteran: this vendor always adds two weeks.
+- Alerts
+  - Studies: too many alarms and people stop hearing them. The on-call lead: which page is real.
+- Code review
+  - Studies: reviewers miss more past a few hundred lines. The senior: which module always breaks.
+- Defaults
+  - Studies: most people keep what's preselected. The support lead: which question customers misread.
+
+<!--
+Here's what that looks like on problems you already have. Estimates: research on planning shows people consistently underestimate their own tasks, so pad the plan. The veteran adds something the studies can't: this particular vendor always adds two weeks. Alerts: studies of hospitals and cockpits show that when alarms fire too often, people stop hearing them. Your on-call lead knows which page at three in the morning is real and which one fires every Tuesday. Code review: research finds reviewers catch less once a change grows past a few hundred lines, so keep changes small. The senior engineer knows which module breaks every time someone touches it. And defaults: most people keep whatever is preselected, which is why the default matters so much. Your support lead knows which question on the form customers misread every week. In each case, the science gives you the rule and the expert gives you the exception. When you hand a hard problem to an agent, give it both: the finding, with its source, and the expert's warning, written down.
+-->
+
+---
+
 
 <!-- _class: list takeaway -->
 
