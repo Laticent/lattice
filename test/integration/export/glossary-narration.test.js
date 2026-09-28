@@ -52,7 +52,7 @@ test('the glossary page is silent and the closing is not said twice', { timeout:
     assert.equal((html.match(/<section\b[^>]*data-lattice-slide/g) || []).length, 3, 'the glossary slide was rendered');
     const parts = fs.readdirSync(dir).filter((f) => /^deck\.\d+\.vtt$/.test(f)).sort();
     assert.deepEqual(parts, ['deck.01.vtt', 'deck.02.vtt'], 'the two authored slides are captioned, the glossary is not');
-    const vtt = fs.readFileSync(path.join(dir, 'deck.vtt'), 'utf8').replace(/<[^>]*>/g, '');
+    const vtt = fs.readFileSync(path.join(dir, 'deck.vtt'), 'utf8').replace(/<\d{2}:\d{2}:\d{2}\.\d{3}>/g, ''); // WebVTT word timestamps
     assert.doesNotMatch(vtt, /recur\./, 'no glossary definition is narrated');
     // The last authored slide thanks the room, so `closing: true` ("Thank you.") is dropped.
     assert.equal((vtt.match(/Thank you/g) || []).length, 1, `the thanks is said once:\n${vtt}`);
