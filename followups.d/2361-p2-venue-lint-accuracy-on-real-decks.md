@@ -94,6 +94,11 @@ progress  — 2026-09-28 (font-scale-fit.md Amendment (6)): the LINE model, for 
             `gallery.md` (39) and the talk (9). A line model for the COUNT rows (cards, lists) is the
             next step if the owner wants the hall numbers to move further, and it would need its own
             bundle budget.
+            NEW FALSE WARNINGS to score against, from the talk trimmed to `venue: huddle` on
+            #2361's branch (a348745): its OVERFLOW line is empty, yet `lint:deck --strict` warns
+            `capacity-scale` on slides 24 (`list takeaway`, 5 items), 39 and 58 (`list-steps` with a
+            callout, 4 and 5 items) and 64 (`list takeaway numbered` with a callout, 4 items). The
+            count rows read these as full at huddle; the render fits them.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.
