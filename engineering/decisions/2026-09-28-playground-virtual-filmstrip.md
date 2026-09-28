@@ -138,6 +138,25 @@ shows and again once the app is live differs by 0 pixels, in both modes, at 1440
 app goes live, and the frame still holds the baked document afterwards
 (`playground-first-paint.spec.ts`, "the newcomer bake").
 
+### Warmed from the home page
+
+`<PlaygroundWarm>` on the home page (`src/lib/prefetch-engine.ts` `warmPlayground`) prefetches the
+bake for the reader's mode and the theme sheets, under the same connection policy as the engine
+warm beside it (nothing under Save-Data or on 2G, on intent over 3G). A speculation rule prefetches
+the Playground document on hover. Measured — `journey.mjs`: land on home, dwell 5s, hover the
+Playground link, click; click → first slide visible, over HTTP/2:
+
+| Network | CPU | main | this change |
+|---|---|---|---|
+| none | 1x | 1200 | **853** |
+| none | 4x | 3753 | **2321** |
+| fast 4G | 1x | 2003 | **801** |
+| fast 4G | 4x | 4039 | **2371** |
+
+The rule does not PRERENDER the Playground. A prerender would land the click on a page that has
+already painted, but it runs the whole app for every hover that does not become a click, and
+Chromium refuses to prerender under DevTools, so it could not be verified from here.
+
 ## 3. A preview waits only for the fonts it uses
 
 The runtime's boot overflow sweep and card-tag equalizer called `settleFonts`, which force-loads

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { __resetWarmState, decide, injectPrefetch, type WarmSignals, warmEngine } from './prefetch-engine';
+import { __resetWarmState, decide, injectPrefetch, type WarmSignals, warmEngine, warmPlayground } from './prefetch-engine';
 
 const ENGINE_URL = '/lattice/playground/v/177833f49f4e/lattice-playground.js';
 
@@ -157,5 +157,48 @@ describe('warmEngine — intent path (jsdom default signals)', () => {
 		warmEngine(ENGINE_URL);
 		a.dispatchEvent(new Event('pointerenter'));
 		expect(prefetchLinks()).toHaveLength(0);
+	});
+});
+
+describe('warmPlayground — the first Playground visit, from the home page', () => {
+	const urls = { bake: '/v/h/newcomer/light/', themes: ['/v/h/themes/lattice.css', '/v/h/themes/cuoio.css'] };
+	const wide = () => {
+		window.matchMedia = ((query: string) => ({ matches: query.includes('min-width'), media: query }) as MediaQueryList) as typeof window.matchMedia;
+	};
+	afterEach(() => {
+		// @ts-expect-error — test-only stub removal
+		delete window.matchMedia;
+		document.body.innerHTML = '';
+	});
+
+	it('on a fast link, prefetches the bake and the theme sheets at once', () => {
+		wide();
+		warmPlayground(urls, { allowEager: true, palette: 'cuoio', bakePalette: 'cuoio' });
+		expect([...prefetchLinks()].map((l) => l.getAttribute('href'))).toEqual([urls.bake, ...urls.themes]);
+	});
+
+	it('leaves the bake out in a palette it was not baked in', () => {
+		wide();
+		warmPlayground(urls, { allowEager: true, palette: 'indaco', bakePalette: 'cuoio' });
+		expect([...prefetchLinks()].map((l) => l.getAttribute('href'))).toEqual(urls.themes);
+	});
+
+	it('under Save-Data, fetches nothing', () => {
+		wide();
+		Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
+		warmPlayground(urls, { allowEager: true, palette: 'cuoio', bakePalette: 'cuoio' });
+		expect(prefetchLinks()).toHaveLength(0);
+		// @ts-expect-error — test-only stub removal
+		delete navigator.connection;
+	});
+
+	it('on an unknown narrow link, waits for intent toward an app link', () => {
+		const a = document.createElement('a');
+		a.href = '/lattice/playground/';
+		document.body.appendChild(a);
+		warmPlayground(urls, { allowEager: true, palette: 'cuoio', bakePalette: 'cuoio' });
+		expect(prefetchLinks()).toHaveLength(0);
+		a.dispatchEvent(new Event('pointerenter'));
+		expect(prefetchLinks()).toHaveLength(3);
 	});
 });

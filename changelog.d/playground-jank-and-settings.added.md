@@ -37,7 +37,9 @@
   builds the preview a first-time visitor opens on, and the page loads it before the rest
   of the Playground has downloaded. The app then takes it over as it is, with no reload.
   Over a fast connection the first slide shows in 0.6s instead of 1.4s. The page skips
-  this on a connection your browser marks as slow or data-saving.
+  this on a connection your browser marks as slow or data-saving. The home page fetches
+  that first slide and the theme ahead of time, so following its Playground link over
+  fast 4G shows the first slide in 0.8s instead of 2.0s.
 - **Fixed: the Playground preview downloads only the fonts its slides use.** It used to
   fetch every typeface the engine knows, including the hand-drawn ones, on every visit.
   Exported decks still load every face, as before.
