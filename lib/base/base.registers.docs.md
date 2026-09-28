@@ -935,8 +935,9 @@ one component rather than two. The text stays at the start of the tag, and a one
 a two-line one is centered in the taller box (a `tag-none` label, which has no box, stays at the
 top so the labels line up). A measuring step does this after fonts load
 (`lib/core/card-tag-equalize.js`): in the live preview, and in the CLI's PDF, PNG and `--fluid`
-outputs. A plain `.html`
-export has no script, so there each tag keeps its own size.
+outputs. A plain `.html` export has no script, so there each tag keeps its own size and the
+card reserves one line of tag: a corner label that wraps covers the top of the body. The
+budget below is what keeps a lint-clean deck clear of that.
 
 **A label fits one line of its tag.** One long label now widens every tag on the slide, and if it
 wraps, every card body moves down a line. So `lint:deck` warns (`tag-budget`) when a slot label
@@ -947,6 +948,7 @@ the row:
 |---|---|---|---|
 | Characters, regular size | 49 | 33 | 24 |
 | Characters, `tag-large` | 40 | 27 | 20 |
+| Characters, `tag-small` | 57 | 38 | 28 |
 
 A `banner-tag` band is a header strip across the card, so it gets two lines, twice the figure.
 That is the one placement where a label should wrap. Anywhere else, shorten the label and move

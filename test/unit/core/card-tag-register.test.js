@@ -216,3 +216,18 @@ test('lint: tag-budget reads what renders, not the raw source', () => {
     `- ${'x'.repeat(60)}`, '  continued prose', '- y', '  - body', ''].join('\n');
   assert.equal(lintText(lazy).filter((f) => f.rule === 'tag-budget').length, 0);
 });
+
+test('lint: tag-budget follows the label lift — continuation lines, tab indents, tag-small', () => {
+  const { tagLineBudget } = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
+  const deckOf = (body) => ['---', 'theme: indaco', '---', '', '<!-- _class: decision -->', '', '## A', '', ...body, ''].join('\n');
+  const found = (body) => lintText(deckOf(body)).filter((f) => f.rule === 'tag-budget');
+  // A lazy continuation line joins the label the engine lifts, so it counts.
+  assert.equal(found(['- Short label', '  and a lazy continuation that runs long', '  - body', '- y', '  - body', '- z', '  - body']).length, 1);
+  // A nested list indented by a tab still makes a tag.
+  assert.equal(found([`- ${'x'.repeat(40)}`, '\t- body', '- y', '\t- body', '- z', '\t- body']).length, 1);
+  // A small tag holds more: 33 / 0.85 = 38 characters with 3 cards.
+  assert.equal(tagLineBudget(3, 0.85), 38);
+  const small = ['---', 'theme: indaco', '---', '', '<!-- _class: decision tag-small -->', '', '## A', '',
+    `- ${'x'.repeat(36)}`, '  - body', '- y', '  - body', '- z', '  - body', ''].join('\n');
+  assert.equal(lintText(small).filter((f) => f.rule === 'tag-budget').length, 0);
+});
