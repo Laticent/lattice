@@ -155,3 +155,44 @@ section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] >
   object-fit: cover;
   border-radius: var(--radius-sm);
 }
+/* A ROW LABEL is a slide-sized word in a column sized by the pane. progress's label column is
+ * `18.75cqi` and matrix-grid's stub is one equal share of a `table-layout: fixed` grid; both
+ * are fractions of the CONTAINER, which in a pane is the pane, while the label's type is pinned
+ * to slide px (`--_sec-1cqi`). In a 50% side pane that left progress a 105px column for 24px
+ * type and matrix-grid a stub a fifth of the pane: every three-word label set one word per line,
+ * tripled its row, and both panes clipped at five rows (measured). The bars and cells beside
+ * had room to spare. So in a pane the label column takes its SLIDE width — never more than 40%
+ * of the pane for progress and 24% for matrix-grid, whose four data columns must still set a `Level 1` cell on one line — and a stacked pane, whose
+ * width is the slide's, comes out where it was. A pane squarer than 1.05 already gives progress's
+ * label its own row (the STACK arm in progress.styles.css), so this three-column template stays
+ * out of it: over that arm's two-column areas it squeezed each bar into the label's column.
+ * Scoped to panes, so no slide's row moves. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="progress"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-row {
+  grid-template-columns: min(calc(18.75 * var(--_sec-1cqi, 1cqi)), 40cqi) 1fr min(calc(7.5 * var(--_sec-1cqi, 1cqi)), 16cqi);
+}
+/* The track and the status pill's column are the same kind of length: `2.5cqi` of a pane is half
+ * a slide's bar, and the in-bar percent — slide-sized type — overran it. Both take slide units. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="progress"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-track {
+  height: calc(2.5 * var(--_sec-1cqi, 1cqi));
+}
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="matrix-grid"] .matrix-grid-figure thead th:first-child {
+  width: min(calc(18.75 * var(--_sec-1cqi, 1cqi)), 24cqi);
+}
+/* The cells' inline padding steps down as the tall family's does (matrix-grid.styles.css), and
+ * the 8px each column gives back goes to the stub above. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="matrix-grid"] .matrix-grid-figure td {
+  padding-inline: var(--sp-2xs);
+}
+/* The chart family's STATUS PILL is sized the same way: `height: 1.71875cqi` in a 50% pane is 9px
+ * around 17px of slide-sized type, so every pill a chart draws in a pane (progress, gantt,
+ * state-chart, timeline-list) painted its word past its own box. In a pane the pill takes the slide's size — and
+ * kanban's compact card pill keeps its own, smaller slide size rather than this one. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane .chart-status {
+  height: calc(1.71875 * var(--_sec-1cqi, 1cqi));
+  padding: 0 calc(0.78125 * var(--_sec-1cqi, 1cqi));
+  border-radius: calc(0.859375 * var(--_sec-1cqi, 1cqi));
+}
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane .kanban-card-meta .chart-status {
+  height: calc(1.5625 * var(--_sec-1cqi, 1cqi));
+  padding: 0 calc(0.546875 * var(--_sec-1cqi, 1cqi));
+}

@@ -666,6 +666,13 @@ it through the carve's own spec: `pane-layout` (a ratio off the grid, a third ma
    3 and 2. Across the shipped corpus it names three decks: `heatmap.gallery.md`'s stress slide
    (by design), and `waterfall.gallery.md` and `examples/mobile-landscape.md`, whose committed
    PDFs print "Receip…" and "Contract…".
+   **Row labels in a side pane (same PR):** progress's label column (`18.75cqi`) and matrix-grid's
+   stub (one equal share of a fixed table) were fractions of the PANE while their type is pinned to
+   the slide, so a three-word name set one word per line. In a pane the column takes its slide
+   width, capped at 40% (progress) or 24% (matrix-grid) of the pane (`pane.css`); the progress
+   track and every status pill in a pane take slide units for the same reason (the pill was 9px
+   tall around 17px of type). Measured ceilings rose from 4 to 9 (progress side) and 3 to 5
+   (matrix-grid side). `examples/panes-row-labels.md`.
 3. **Author and package CSS in a pane** — **closed** (the pane-follow-ups PR). Every sheet a
    panes deck composes is widened now: the shipped sheet and the theme (`composeCss`), the CLI's
    front-matter `style:`, the `<style>` blocks in the rendered document (an installed package the
