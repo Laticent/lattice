@@ -146,15 +146,11 @@ const REVEAL_CAP_MS = LAND_SETTLE_MS * (1 + LAND_ATTEMPTS) + 500;
  *  to the pane, so `offsetHeight` reports 720 on a phone where the slide is really 179px
  *  tall.
  *
- *  `offsetTop`, by contrast, IS right — but not for the reason it looks like. A transform
- *  never affects `offsetTop`; what makes the positions carry the scale is a second thing
- *  the same agent does, `s.style.marginBottom = (SH*sc - SH + GAP)` in
- *  `docs/src/playground/deck-preview.js`, a negative margin that pulls each following
- *  section's LAYOUT box up by exactly the scale difference. So this reads position from
- *  `offsetTop` and size from the rect, and **that pairing is only valid while that margin
- *  line exists** — change it and the band maths here goes with it. (An earlier draft of
- *  this comment credited the transform's origin, which would have read as reassurance that
- *  the margin was safe to touch. Found by an independent checker.) */
+ *  The top comes from the rect too, plus the frame's scroll: the transform's origin is the
+ *  section's top-left, so its rect top is its layout top, in the frame's viewport. (It used
+ *  to come from `offsetTop`, which is measured from the section's `offsetParent` — the
+ *  `.lattice` container, whose `filter` makes it one — so it left out the frame's html and
+ *  body padding, and every band sat 36px high.) */
 /** Line endings folded, for COMPARING two spellings of the same document — never for
  *  making one canonical. `\r\n?` and not `\r\n`: the second cannot match a classic-Mac
  *  lone CR at all, and the two cost the same (2026-08-04-line-endings-lf-boundaries.md). */
@@ -200,11 +196,16 @@ function walkUnits(frame: HTMLIFrameElement, byAuthored: boolean): HTMLElement[]
 }
 
 function frameBands(frame: HTMLIFrameElement, byAuthored = false): SlideBand[] {
+	const sy = frame.contentWindow?.scrollY ?? 0;
 	return walkUnits(frame, byAuthored).map((u) => {
-		const first = u[0];
-		const last = u[u.length - 1];
-		const height = u.length === 1 ? first.getBoundingClientRect().height : last.getBoundingClientRect().bottom - first.getBoundingClientRect().top;
-		return { top: first.offsetTop, height };
+		const first = u[0].getBoundingClientRect();
+		const last = u[u.length - 1].getBoundingClientRect();
+		// Position from the RECT plus the scroll, not `offsetTop`: `offsetTop` is measured from
+		// the `.lattice` container (its `filter` makes it the offsetParent), so it left out the
+		// frame's html and body padding and every band sat 36px above where the slide really is. A step aimed with it landed the slide 16px low —
+		// the previous slide's foot showing above it and the bottom of the target clipped, on
+		// every Next and every Prev at every width.
+		return { top: first.top + sy, height: last.bottom - first.top };
 	});
 }
 
@@ -1324,7 +1325,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (landPendingRef.current) return;
 			reconcileRef.current();
 		}, window_ms + 40);
-		win.scrollTo({ top: Math.max(0, target.offsetTop - 16), behavior: animated ? 'smooth' : 'auto' });
+		// Where the slide lands. When it nearly fills the pane (Explore's one-slide stage),
+		// CENTER it: one whole slide with an even margin above and below. When the pane is much
+		// taller than a slide (a tablet or phone filmstrip), centering would leave the previous
+		// slide showing above it, so pin it one gap below the top instead.
+		const band = frameBands(frame, w.kind === 'plan')[w.index];
+		const spare = band ? Math.max(0, (win.innerHeight - band.height) / 2) : 16;
+		const inset = spare <= 40 ? spare : 16;
+		win.scrollTo({ top: Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset), behavior: animated ? 'smooth' : 'auto' });
 	}, []);
 	scrollWalkRef.current = scrollWalk;
 
