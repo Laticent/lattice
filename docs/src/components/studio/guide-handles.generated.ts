@@ -94,3 +94,248 @@ export const GUIDE_HANDLES: readonly GuideHandle[] = [
 		"names": ".person-name"
 	}
 ];
+
+/** A component's gesture contract (its manifest `scene`): the units a bound sentence names, and
+ *  the scene's key beat. engineering/decisions/2026-09-27-delivery-styles-and-component-scenes.md. */
+export type GuideScene = {
+	units: Record<string, { select: string | readonly string[]; fallback?: string; labels?: string }>;
+	key: string;
+};
+
+export const GUIDE_SCENES: Readonly<Record<string, GuideScene>> = {
+	"bar": {
+		"units": {
+			"mark": {
+				"select": "rect.bar-mark[data-mark=\"{mark}\"]",
+				"labels": "[data-mark-for=\"{mark}\"]"
+			},
+			"category": {
+				"select": "rect.bar-mark[data-label=\"{cat}\"]",
+				"labels": "text.cart-cat[data-label=\"{cat}\"]"
+			}
+		},
+		"key": "largest"
+	},
+	"bullet": {
+		"units": {
+			"measure": {
+				"select": "rect.bullet-measure[data-mark=\"{mark}\"]",
+				"labels": "[data-mark-for=\"{mark}\"]"
+			}
+		},
+		"key": "first"
+	},
+	"funnel": {
+		"units": {
+			"stage": {
+				"select": "polygon.funnel-band[data-mark=\"{mark}\"]",
+				"labels": "[data-mark-for=\"{mark}\"]"
+			}
+		},
+		"key": "last"
+	},
+	"gantt": {
+		"units": {
+			"lane": {
+				"select": "text.gantt-lane-label[data-label=\"{lane}\"]"
+			},
+			"task": {
+				"select": "[data-mark=\"{mark}\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+				"labels": "[data-mark-for=\"{mark}\"]"
+			}
+		},
+		"key": "first"
+	},
+	"heatmap": {
+		"units": {
+			"cell": {
+				"select": "rect.heatmap-cell[data-label=\"{row} · {col}\"]"
+			},
+			"row": {
+				"select": "rect.heatmap-cell[data-label^=\"{row} · \"]"
+			},
+			"column": {
+				"select": "rect.heatmap-cell[data-label$=\" · {col}\"]"
+			}
+		},
+		"key": "act:peak"
+	},
+	"journey": {
+		"units": {
+			"section": {
+				"select": "li.journey-stage[data-label=\"{section}\"]"
+			},
+			"task": {
+				"select": "[data-label=\"{task}\"]:is(li.journey-task, .journey-vtask)"
+			}
+		},
+		"key": "act:peak"
+	},
+	"kanban": {
+		"units": {
+			"column": {
+				"select": ".kanban-column[data-label=\"{column}\"]"
+			},
+			"card": {
+				"select": ".kanban-card[data-label=\"{card}\"]"
+			}
+		},
+		"key": "largest"
+	},
+	"line": {
+		"units": {
+			"series": {
+				"select": "path.line-path[data-series=\"{series}\"], circle.line-dot[data-series=\"{series}\"]",
+				"labels": "[data-series-for=\"{series}\"]"
+			},
+			"point": {
+				"select": [
+					"circle.line-dot[data-series=\"{series}\"][data-label=\"{cat}\"]",
+					"path.line-path[data-series=\"{series}\"]"
+				],
+				"labels": "text.cart-cat[data-label=\"{cat}\"]"
+			},
+			"category": {
+				"select": "circle.line-dot[data-label=\"{cat}\"]",
+				"labels": "text.cart-cat[data-label=\"{cat}\"]"
+			}
+		},
+		"key": "largest:series"
+	},
+	"map": {
+		"units": {
+			"mark": {
+				"select": "path[data-mark=\"{mark}\"]",
+				"labels": "[data-mark-for=\"{mark}\"]"
+			}
+		},
+		"key": "largest"
+	},
+	"matrix-grid": {
+		"units": {
+			"row": {
+				"select": "tbody > tr:nth-child({tr})"
+			},
+			"cell": {
+				"select": "tbody > tr:nth-child({tr}) > td:nth-child({td})"
+			}
+		},
+		"key": "act:visit"
+	},
+	"piechart": {
+		"units": {
+			"mark": {
+				"select": "path.wedge[data-mark=\"{mark}\"]",
+				"labels": "[data-mark-for=\"{mark}\"]"
+			}
+		},
+		"key": "largest"
+	},
+	"progress": {
+		"units": {
+			"row": {
+				"select": ".progress-row[data-label=\"{row}\"]"
+			}
+		},
+		"key": "first"
+	},
+	"quadrant": {
+		"units": {
+			"cell": {
+				"select": "rect.quadrant-tint[data-cell=\"{cell}\"], [data-cell=\"{cell}\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+				"labels": "text.quadrant-label[data-cell=\"{cell}\"]"
+			},
+			"point": {
+				"select": "[data-label=\"{label}\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)"
+			}
+		},
+		"key": "largest"
+	},
+	"radar": {
+		"units": {
+			"series": {
+				"select": "polygon.radar-poly[data-label=\"{name}\"]",
+				"fallback": "path.radar-band"
+			},
+			"sector": {
+				"select": "path.radar-sector[data-label=\"{group}\"]"
+			}
+		},
+		"key": "first"
+	},
+	"roadmap": {
+		"units": {
+			"horizon": {
+				"select": ".horizon-card:has(> .horizon-head[data-label=\"{horizon}\"])"
+			},
+			"bet": {
+				"select": "li.cell-state[data-label=\"{bet}\"]"
+			}
+		},
+		"key": "first"
+	},
+	"scatter": {
+		"units": {
+			"mark": {
+				"select": "circle[data-mark=\"{mark}\"]",
+				"labels": "[data-mark-for=\"{mark}\"]"
+			}
+		},
+		"key": "first"
+	},
+	"slope": {
+		"units": {
+			"entity": {
+				"select": "[data-mark=\"{mark}\"]:is(polyline, line), circle[data-series=\"{mark}\"]",
+				"labels": "text[data-mark-for=\"{mark}\"]"
+			}
+		},
+		"key": "largest"
+	},
+	"stacked-bar": {
+		"units": {
+			"category": {
+				"select": "rect.sbar-seg[data-label^=\"{cat} · \"]",
+				"labels": "text.cart-cat[data-label=\"{cat}\"]"
+			},
+			"mark": {
+				"select": "rect.sbar-seg[data-mark=\"{mark}\"]",
+				"labels": "[data-mark-for=\"{mark}\"]"
+			}
+		},
+		"key": "largest"
+	},
+	"state-chart": {
+		"units": {
+			"state": {
+				"select": "[data-label=\"{state}\"]:is(li.state-node, .state-node-row, rect.state-node-shape)"
+			}
+		},
+		"key": "first"
+	},
+	"timeline-list": {
+		"units": {
+			"event": {
+				"select": ".timeline-item:nth-child({nth})"
+			}
+		},
+		"key": "last"
+	},
+	"waterfall": {
+		"units": {
+			"mark": {
+				"select": ".waterfall-bar[data-mark=\"{mark}\"]",
+				"labels": "[data-mark-for=\"{mark}\"]"
+			}
+		},
+		"key": "largest"
+	},
+	"word-cloud": {
+		"units": {
+			"word": {
+				"select": "text.wc-word[data-label=\"{word}\"]"
+			}
+		},
+		"key": "act:peak"
+	}
+};

@@ -194,5 +194,19 @@
   },
   "venueCapacity": {
     "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "scene": {
+    "units": {
+      "cell": {
+        "select": "rect.heatmap-cell[data-label=\"{row} · {col}\"]"
+      },
+      "row": {
+        "select": "rect.heatmap-cell[data-label^=\"{row} · \"]"
+      },
+      "column": {
+        "select": "rect.heatmap-cell[data-label$=\" · {col}\"]"
+      }
+    },
+    "key": "act:peak"
   }
 }

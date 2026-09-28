@@ -178,5 +178,13 @@
         "hall": 0
       }
     }
+  },
+  "scene": {
+    "units": {
+      "event": {
+        "select": ".timeline-item:nth-child({nth})"
+      }
+    },
+    "key": "last"
   }
 }

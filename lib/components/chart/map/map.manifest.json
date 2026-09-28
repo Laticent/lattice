@@ -242,5 +242,14 @@
   },
   "venueCapacity": {
     "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "scene": {
+    "units": {
+      "mark": {
+        "select": "path[data-mark=\"{mark}\"]",
+        "labels": "[data-mark-for=\"{mark}\"]"
+      }
+    },
+    "key": "largest"
   }
 }
