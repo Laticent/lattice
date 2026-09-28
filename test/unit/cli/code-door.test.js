@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { claimedSlides, spliced, withFailureNote, printableLine, engineClaimsOf } = require('../../../lib/packages/code-door-core.mjs');
+const { claimedSlides, spliced, withFailureNote, printableLine, engineClaimsOf, slideInput } = require('../../../lib/packages/code-door-core.mjs');
 const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = require('../../../lib/packages/code-door.js');
 const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile } = require('../../../lib/packages/trust.js');
 const { refuseCode } = require('../../../lib/packages/gate.js');
@@ -20,9 +20,10 @@ const { cssRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/d
 const engine = require('../../../lib/engine');
 
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `lattice-door-${p}-`));
-const pkg = (code, name = 'tally', extra = {}) => ({
+const pkg = (code, name = 'tally', extra = {}, manifest = { facts: 1 }) => ({
   type: 'component',
   name,
+  manifest: { name, type: 'component', ...manifest },
   roles: { 'transform.js': `${name}.transform.js` },
   files: { [`${name}.transform.js`]: code, ...extra },
   code: true,
@@ -181,6 +182,18 @@ describe('the gate: the one shape a door runs', () => {
     assert.match(refuseCode(pkg('function t(){}export{t as default};', 'tally', { 'x.mjs': '' })), /a script other than tally\.transform\.js \(x\.mjs\)/);
     assert.match(refuseCode({ ...pkg('function t(){}export{t as default};'), type: 'theme' }), /only a component may/);
     assert.match(refuseCode(pkg(`${'x'.repeat(1_000_001)}function t(){}export{t as default};`)), /past the 1,000,000 a code package may carry/);
+  });
+
+  test('a code package declares the slide-facts version it reads, and only a known one runs', () => {
+    const ok = 'function t(s){return s.html}export{t as default};';
+    assert.match(refuseCode(pkg(ok, 'tally', {}, {})), /does not say which slide facts it reads: add "facts": 1 to tally\.manifest\.json/);
+    assert.match(refuseCode(pkg(ok, 'tally', {}, { facts: 2 })), /reads slide facts version 2, and this Lattice hands packages version 1: it was made for a newer Lattice/);
+    assert.match(refuseCode(pkg(ok, 'tally', {}, { facts: '1' })), /must be a whole number/);
+    assert.match(refuseCode(pkg(ok, 'tally', {}, { facts: 0 })), /must be a whole number/);
+    // The door refuses the same way at run time, so a package saved before the declaration existed
+    // gets a note on its slide rather than facts it did not ask for.
+    assert.throws(() => slideInput({ html: '<section></section>', index: 0 }, [], undefined), /does not say which slide facts it reads/);
+    assert.equal(slideInput({ html: '<section></section>', index: 0 }, [], 1).facts.version, 1);
   });
 });
 

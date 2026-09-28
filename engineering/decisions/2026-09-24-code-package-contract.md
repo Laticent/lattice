@@ -392,6 +392,23 @@ the render say so with that reason and the remedy (a Chromium the unprivileged u
 `--quiet` does not hide it. Code packages refuse a Chromium older than 131, the version the walls
 were measured on.
 
+**Measured as a non-root Linux user** (2026-09-28, `tools/verify-code-sandbox.mjs`, uid 1001,
+Chromium 141): Lattice reports "on", and every renderer reads `Seccomp: 2` under that uid; the
+approved package drew with 0 requests to the log server, whose control reached it. As root with a
+Chromium `nobody` can run, the same tool measured "on" as uid 65534; with puppeteer's browser under
+`/root`, "OFF" and `Seccomp: 0`, which is what Lattice said.
+
+**On GitHub's macOS, Windows and Ubuntu runners** (2026-09-28, the same tool with
+`--non-interactive`, run 36443137686): all eight steps pass on each. On macOS and Windows the
+approved package drew from the facts with 0 requests to the log server (whose control reached it),
+the unapproved render was refused, the door test passed 6 of 6 with 1 skip (the root-only Linux
+arm), and Lattice reported "on by the platform's default (not measured here)"; the tool found no
+`--no-sandbox` on the browser or any of its renderers (3 on Windows). What no runner can read is the
+system's own verdict: Activity Monitor's Sandbox column on macOS, and Process Explorer's integrity
+level on Windows. Those two need a person, and the tool asks for them when one runs it. On Ubuntu
+24.04 as the ordinary runner user, AppArmor stops Chrome's sandbox from starting, and Lattice
+reports OFF, truthfully.
+
 **Measured on the real CLI** (`test/integration/export/code-package-door.test.js`): a hostile
 package that tries `fetch`, an image, a WebSocket and a beacon at load and on every slide, and
 returns a section padded with newlines that holds an image, a `srcset`, a video poster, an SVG
@@ -621,8 +638,32 @@ three points this section does not settle:
 1. `tokens` is the theme contract (`REQUIRED_TOKENS`), not a list chosen for package authors: it
    holds `scheme-dark-*` and `hljs-*`, two categorical families (`chart-cat1..8`, `cat-N-*`), and it
    moves whenever the theme contract does. A curated, frozen subset is the alternative.
+   **Decided (owner, 2026-09-28): packages keep the whole theme contract**, all of
+   `requiredTokenList()`. It is easier to manage than a second list, at the cost the point names: a
+   token leaving the theme contract leaves `facts.tokens` too, so removing one is a change to what
+   packages are promised, and the test that every theme defines every name handed over stays.
 2. A manifest could declare the facts version it reads (`"facts": 1`), and a door refuse a package
-   written for another.
+   written for another. Its only use is the first breaking change to `facts` (a field renamed, or
+   `text` meaning something else): with the declaration, a door could keep handing a v1 package v1,
+   or refuse it plainly, where without it an old package gets the new shape and throws or, worse,
+   draws the wrong thing. **Decided (owner, 2026-09-28): declare it now, no deferred version debt.**
+   A code package's manifest must carry `"facts": <version>`. `factsRefusal`
+   (`lib/packages/code-shape.mjs`, beside `FACTS_VERSION` and `FACTS_VERSIONS`, today `[1]`) refuses
+   a missing, malformed or unknown one, and `refuseCode` calls it, so `lattice packages add`, every
+   CLI render (the gate re-runs there) and the Studio's Library import refuse the same packages in
+   the same words. Each door then hands the package facts in the version its manifest declared
+   (`slideInput(claim, tokens, version)`), which throws for an undeclared one: a Studio package saved
+   before this change keeps its slide with a note until a copy that declares `"facts"` is imported
+   over it. Its own export does not declare it, so its author adds the line. The Library treats a
+   changed declaration as a changed package (the keep-mine import and the Library's change check both
+   compare it), and the door does not remember that note: `slideInput` marks the refusal, and the
+   memo keys on the code while the fix is in the manifest. Editing a code package in a faculty keeps
+   its manifest with its transform, so an edit never drops the declaration (the checker found the
+   first cut did: the edited component was refused on its next render, and its export on
+   re-import). A missing declaration is checked LAST in `refuseCode`, so a package with a real
+   problem hears about that first. The day
+   `facts` changes shape, `FACTS_VERSIONS` grows and `slideFacts` learns to write each version it
+   lists; nothing about packages already in the wild has to be guessed.
 3. Additive, when a package needs them: table cells as runs, a pane's box, an eyebrow's role (a
    code-only paragraph and an `h6` are two spellings of one role).
 Documenting code packages publicly is now unblocked, and it is a separate step.

@@ -99,7 +99,7 @@ export { dateline as default };
 `;
 
 const pkgFiles = (code) => ({
-  'tally.manifest.json': JSON.stringify({ name: 'tally', type: 'component', format: 1 }),
+  'tally.manifest.json': JSON.stringify({ name: 'tally', type: 'component', format: 1, facts: 1 }),
   'tally.styles.css': 'section.tally .tally-marks { display: flex; gap: 0.5em; color: var(--accent); }\n',
   'tally.gallery.md': '<!-- _class: tally -->\n\n## Tally\n\n- 3\n',
   'tally.transform.js': code,
@@ -222,7 +222,7 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     const src = tmp('facts-src');
     fs.mkdirSync(path.join(src, 'dateline'));
     const files = {
-      'dateline.manifest.json': JSON.stringify({ name: 'dateline', type: 'component', format: 1 }),
+      'dateline.manifest.json': JSON.stringify({ name: 'dateline', type: 'component', format: 1, facts: 1 }),
       'dateline.styles.css': 'section.dateline .dateline-rows { display: grid; gap: 0.25em; }\n',
       'dateline.gallery.md': '<!-- _class: dateline -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n',
       'dateline.transform.js': factsTransform(H),
@@ -278,7 +278,9 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     const r = await render(home, deck, ['--allow-remote']);
     await settle();
     assert.notEqual(r.status, 0);
-    assert.match(r.stderr, /you approved the code package tally with the OS sandbox on, and this render's browser gives it off/);
+    // The layer this machine gives: `off` on Linux without the sandbox, `unmeasured` (the platform's
+    // default) on macOS and Windows; either is weaker than the `on` approved, and must refuse.
+    assert.match(r.stderr, new RegExp(`you approved the code package tally with the OS sandbox on, and this render's browser gives it ${probe.layer.os}`));
     assert.equal(r.pdf, null);
     assert.deepEqual(hits, [], 'refused before any of its code ran');
     grantTrust('component', 'tally', codeDigest(inst.pkg), { file: path.join(home, 'trust.json'), layer: probe.layer.os });

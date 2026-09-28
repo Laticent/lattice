@@ -303,9 +303,9 @@ describe('asset-bundle — a lattice-asset/1 zip gets no looser a door', () => {
 describe('asset-bundle — package zips from elsewhere', () => {
 	it('imports a code package in the export shape with its transform; refuses any other shape by name', async () => {
 		const { default: JSZip } = await import('jszip');
-		const pkg = (transform: string) => {
+		const pkg = (transform: string, manifest: Record<string, unknown> = { facts: 1 }) => {
 			const zip = new JSZip();
-			zip.file('bar/bar.manifest.json', JSON.stringify({ name: 'bars', type: 'component', format: 1 }));
+			zip.file('bar/bar.manifest.json', JSON.stringify({ name: 'bars', type: 'component', format: 1, ...manifest }));
 			zip.file('bar/bar.styles.css', 'section.bars{}');
 			zip.file('bar/bar.gallery.md', '<!-- _class: bars -->');
 			zip.file('bar/bar.transform.js', transform);
@@ -318,6 +318,10 @@ describe('asset-bundle — package zips from elsewhere', () => {
 		const bad = await unpackBundle(await pkg('export default () => "<svg/>"'));
 		expect(bad.components).toHaveLength(0);
 		expect(bad.refused).toEqual([{ name: 'bars', why: expect.stringMatching(/does not end in `export \{ name as default \}`/) }]);
+		// A code package declares the slide-facts version it reads, as `lattice packages add` requires.
+		const undeclared = await unpackBundle(await pkg('function t(s){return s.html}export{t as default};', {}));
+		expect(undeclared.components).toHaveLength(0);
+		expect(undeclared.refused).toEqual([{ name: 'bars', why: expect.stringMatching(/does not say which slide facts it reads: add "facts": 1/) }]);
 	});
 
 	it('trusts the manifest, not the file names: a renamed folder imports under its manifest name', async () => {

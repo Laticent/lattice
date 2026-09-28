@@ -80,8 +80,8 @@ describe('lattice packages', () => {
 
   describe('code packages (contract note §9)', () => {
     const transform = 'function t(s){return s.html}export{t as default};';
-    const comp = (name, extra = {}) => ({
-      [`${name}.manifest.json`]: JSON.stringify({ name, type: 'component', format: 1 }),
+    const comp = (name, extra = {}, manifest = { facts: 1 }) => ({
+      [`${name}.manifest.json`]: JSON.stringify({ name, type: 'component', format: 1, ...manifest }),
       [`${name}.styles.css`]: `section.${name} {}`,
       [`${name}.gallery.md`]: `<!-- _class: ${name} -->`,
       [`${name}.transform.js`]: transform,
@@ -134,6 +134,8 @@ describe('lattice packages', () => {
           ['commonjs', comp('commonjs', { 'commonjs.transform.js': 'module.exports = () => ""' }), /does not end in `export \{ name as default \}`/],
           ['twoscripts', comp('twoscripts', { 'helper.mjs': 'export const x = 1;' }), /a script other than twoscripts\.transform\.js \(helper\.mjs\)/],
           ['kpi', comp('kpi'), /"kpi" is a name Lattice uses, and a code package can't be renamed/],
+          ['undeclared', comp('undeclared', {}, {}), /does not say which slide facts it reads: add "facts": 1 to undeclared\.manifest\.json/],
+          ['future', comp('future', {}, { facts: 2 }), /reads slide facts version 2, and this Lattice hands packages version 1/],
         ];
         for (const [name, files, why] of cases) {
           const r = await run(['add', await zipOf(name, files)]);

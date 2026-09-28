@@ -109,14 +109,17 @@ export async function saveStudioComponent(input: { id?: string; name: string; cs
 	if (Array.isArray(meta.tags) && meta.tags.length) manifest.tags = meta.tags;
 	if (meta.description?.trim()) manifest.description = meta.description.trim();
 	const asset = (await loadLayoutCore()).componentAsset({ name, css, skeleton, manifest });
-	// A CODE package edited in a faculty keeps its transform. The faculties pass no carry, and the
-	// first edit used to drop it, so the component silently stopped running its code (the inversion
-	// lens). Kept only under the same name: a transform finds its slides by its own name.
+	// A CODE package edited in a faculty keeps its transform AND its imported manifest. The faculties
+	// pass no carry, and the first edit used to drop the transform, so the component silently stopped
+	// running its code (the inversion lens); keeping the transform alone later dropped the manifest's
+	// `"facts"` declaration, so the edited component was refused on its next render and its export was
+	// refused on re-import (the checker, #2459). Kept only under the same name: a transform finds its
+	// slides by its own name.
 	let pkg = input.pkg;
 	if (!pkg && input.id) {
 		const before = (await getAsset(input.id).catch(() => null)) as ComponentAssetRecord | null;
 		const transform = before?.pkg?.files?.['transform.js'];
-		if (typeof transform === 'string' && before?.name === name) pkg = { files: { 'transform.js': transform } };
+		if (typeof transform === 'string' && before?.name === name) pkg = { ...(before.pkg?.manifest ? { manifest: before.pkg.manifest } : {}), files: { 'transform.js': transform } };
 	}
 	const withPkg = pkg ? { ...asset, pkg } : asset;
 	const stored = (await putAsset(input.id ? { ...withPkg, id: input.id } : withPkg, opts)) as ComponentAssetRecord;

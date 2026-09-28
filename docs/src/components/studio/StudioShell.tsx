@@ -1211,7 +1211,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// async to a fresh array each call (often an empty one when IndexedDB is
 		// absent); blindly setting it would flip `localComponents` identity, churn
 		// `knownWithLocal`, and needlessly re-init the editor (wiping its doc state).
-		const same = (a: StudioComponent[], b: StudioComponent[]) => a.length === b.length && a.every((c, i) => c.id === b[i].id && c.css === b[i].css && c.skeleton === b[i].skeleton && c.name === b[i].name && c.pkg?.files?.['transform.js'] === b[i].pkg?.files?.['transform.js']);
+		const same = (a: StudioComponent[], b: StudioComponent[]) => a.length === b.length && a.every((c, i) => c.id === b[i].id && c.css === b[i].css && c.skeleton === b[i].skeleton && c.name === b[i].name && c.pkg?.files?.['transform.js'] === b[i].pkg?.files?.['transform.js'] && c.pkg?.manifest?.facts === b[i].pkg?.manifest?.facts);
 		listStudioComponents()
 			.then((list) => setLocalComponents((prev) => (same(prev, list) ? prev : list)))
 			.catch(() => setLocalComponents((prev) => (prev.length ? [] : prev)));
@@ -1224,7 +1224,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [codeStamp, setCodeStamp] = React.useState('');
 	React.useEffect(() => {
 		let live = true;
-		const withCode = localComponents.filter((c) => typeof c.pkg?.files?.['transform.js'] === 'string').map((c) => ({ name: c.name, code: c.pkg?.files?.['transform.js'] as string }));
+		const withCode = localComponents.filter((c) => typeof c.pkg?.files?.['transform.js'] === 'string').map((c) => ({ name: c.name, code: c.pkg?.files?.['transform.js'] as string, facts: c.pkg?.manifest?.facts }));
 		setCodePackages(withCode).then(
 			() => { if (live) setCodeStamp(codePackagesStamp()); },
 			// The door's chunk did not load (offline before it was ever fetched, or a renamed chunk):

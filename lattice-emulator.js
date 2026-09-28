@@ -2140,7 +2140,7 @@ function withInstalledComponents(source) {
     console.error(`warning: the installed code package ${p.name} has a name Lattice reserves, so it is not used`);
     return false;
   });
-  DECK_CODE_PACKAGES = installedCode.map((p) => ({ name: p.name, sha256: codeDigest(p.pkg), layer: approvals[`component/${p.name}`]?.layer ?? null, code: String(p.pkg.files[p.pkg.roles['transform.js']]) }));
+  DECK_CODE_PACKAGES = installedCode.map((p) => ({ name: p.name, sha256: codeDigest(p.pkg), layer: approvals[`component/${p.name}`]?.layer ?? null, code: String(p.pkg.files[p.pkg.roles['transform.js']]), facts: p.pkg.manifest?.facts }));
   refuseUnapprovedCode(DECK_CODE_PACKAGES.filter((p) => named.has(p.name)));
   // A class the deck names that is not shipped, embedded or installed renders its slides
   // UNSTYLED — silently, unlike a missing theme. Say so, with the command that fixes it

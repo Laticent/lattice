@@ -201,7 +201,7 @@ describe('what the facts promise', () => {
 
   test('slideInput hands the section, its facts and the render’s three facts', () => {
     const claim = { html: '<section class="tally"><h2>T</h2></section>', index: 3, idPrefix: 'p-', baseUrl: '/b/' };
-    const input = slideInput(claim, ['accent']);
+    const input = slideInput(claim, ['accent'], 1);
     assert.deepEqual(Object.keys(input), ['html', 'facts', 'index', 'idPrefix', 'baseUrl']);
     assert.equal(input.facts.title, 'T');
     assert.deepEqual(input.facts.tokens, ['--accent']);

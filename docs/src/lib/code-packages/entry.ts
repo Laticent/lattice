@@ -34,7 +34,7 @@ const load = () => {
  * the LATEST list win. Returning early there let an earlier, non-empty list land after it, so a
  * package the Library had just removed stayed live with no notice (the checker, PR #2411).
  */
-export async function setCodePackages(list: { name: string; code: string }[]): Promise<void> {
+export async function setCodePackages(list: { name: string; code: string; facts?: unknown }[]): Promise<void> {
 	if (!list.length && !door && !loading) return;
 	await (await load()).setCodePackages(list);
 }
