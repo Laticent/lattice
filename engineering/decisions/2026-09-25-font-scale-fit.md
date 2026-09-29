@@ -801,6 +801,16 @@ and `light` ride along, the deck-wide `class:` included, so `spectrum-card` and 
 deck keep their count rows), a heading at any level but `##`, a paragraph, table or fence under the
 heading, a third list level, or a row of six steps or more.
 
+**The front matter is part of the choice too.** The rows are measured on a plain deck. A second
+checker round found that `meta:`, `logo:` and `preset:` (which narrow the heading track, or switch
+on `spectrum-card`) never reached the modifier check, so a deck using them lost three clips the
+count rows caught. Only front-matter keys known to leave a slide's geometry alone now let the lines
+judge a slide: `marp`, `theme`, `paginate`, `header`, `footer`, `size`, `venue`, `class` (read as
+tokens, above), `color-mode`, the narration and Guide keys, and `fit`. Any other key keeps the whole
+deck on its count rows. `logo:`, `inline-code:` and `corners:` decks lose the line model that way.
+Those decks keep `main`'s verdicts, where the lines had caught 11 more slides; the next step is to
+measure those registers rather than guess them inert.
+
 **A `proof` panel with no opening question gets the question's gap back.** Its budget (1,740 px)
 folds in the question block's 24 px gap; the bare register's (1,764) does not. A slide with no
 question now reads the bare budget. Exact line counts showed why: `system-design-foundations` slides
@@ -851,15 +861,31 @@ clip in the points column, which lint judges by the count row, and it misses the
 `main` warned on them only through a claim-panel finding that named the wrong column: it told the
 author to shorten a lede that fits. The first cut of this change had five such losses and four new
 false warnings out of sample. The checker's round removed them: the modifier fallback, the mono code
-spans, the dashes, the display table and the kerning share above all came from it. (Amendment (6)'s hall figure, 86 / 2 / 61, is the one reproduced here; the
+spans, the dashes, the display table and the kerning share above all came from it. A second,
+independent round on those fixes reproduced every number here and linted the other 291 galleries
+and examples on `main` and this branch at all three venues. It found no warning added and 23 removed,
+and it rendered all 23: every one fits. Its two should-fixes (the front-matter gap above, and seven
+of the new behaviors surviving a mutation with the tests green) are fixed. Each of those behaviors
+now has a test on a real slide that fails without it.
+
+With the front-matter allowlist, the 27-deck figures are:
+
+| venue | before | after |
+|---|---|---|
+| huddle | 38 / 9 / 59 | 45 / 4 / 52 |
+| conference | 104 / 34 / 119 | 123 / 19 / 100 |
+| hall | 210 / 26 / 168 | 222 / 13 / 156 |
+
+That is 40 newly caught, 33 false warnings gone, and the same two points-column losses. The five-deck
+table does not move. (Amendment (6)'s hall figure, 86 / 2 / 61, is the one reproduced here; the
 brief quoted 62 missed.)
 
 **Bundle.** Measured as a pair (root `npm run build`, then the docs build, this branch's changes
-stashed for the base): the Studio's eager JS goes from 634,056 to 636,043 bytes gz (+1,987, 99
+stashed for the base): the Studio's eager JS goes from 634,056 to 636,213 bytes gz (+2,157, 99
 chunks both). About 700 bytes of that is the generated geometry and the rest is the code, the two
 glyph tables about 220 of it. Given back before measuring: the shared frame baked once, a px value
 equal at every venue baked as one number, `ordered` carrying only what differs, and line heights to
-the whole px. `docs/route-budget.json` moves to 636,320 by the owner's rule (the measurement plus
+the whole px. `docs/route-budget.json` moves to 636,490 by the owner's rule (the measurement plus
 about 280 bytes).
 
 **Still missed, by component**, on the four decks whose slide classes read reliably (at hall: talk

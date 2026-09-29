@@ -109,8 +109,8 @@ progress  — 2026-09-29 (font-scale-fit.md Amendment (7)): the LINE model for t
             (d7be56f): 4 false warnings → 0. 22 more decks (the checker's): no new false warning;
             two slides no longer warned, system-design-foundations 45 and 209 at conference, whose
             POINTS column clips (149 px) while main warned on their claim panel, which fits: the
-            split-panel points count row misses them on main too. Studio eager JS +1,987 B gz
-            (paired), budget 636,320.
+            split-panel points count row misses them on main too. Studio eager JS +2,157 B gz
+            (paired), budget 636,490.
             LEFT, by misses at hall on the four smaller decks: compare-prose (4), compare-code (3),
             premise (2), matrix-2x2 / matrix-grid (no row), cycle, roadmap, table-fill, content,
             quote, stats, split-panel pullquote, list-steps capsule; `gallery.md` 37 across the

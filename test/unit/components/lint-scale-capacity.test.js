@@ -648,6 +648,62 @@ describe('a list or card slide is judged by the LINES its text wraps to (Amendme
     assert.equal(pct(`## Five signs. <!-- note -->\n\n${nested(4)}\n`), pct(lf), 'a comment on the heading line is not heading text');
   });
 
+  // Real slides the second checker round named, each pinned against the render: every test below
+  // fails when the behavior it names is taken out (system-design-foundations.md, size 4K).
+  const SD95 = '`Data kit · the invariants`\n\n## Four sentences hold, or the data design is not one you can defend.\n\n1. One source of truth per fact\n   - Every other copy is derived and says so.\n2. Every derived copy rebuilds — and deletes\n   - Unattended from the source, and gone from all of them on request.\n3. Every queue consumer is idempotent\n   - At-least-once is the only delivery you get.\n4. Every write path states its consistency\n   - "Whatever the database does" is not a level.\n';
+  const SD192 = "`Instagram · the likely bug`\n\n## Your own post must appear instantly, or people think the upload failed.\n\nThe feed is eventually consistent, which is correct for everyone else's posts and completely wrong for your own. A person who posts and does not see it reads that as data loss, not as staleness, and posts again.\n\n- Where it comes from\n  - Read-your-writes, the consistency level from Part four, applied to one reader's own posts.\n- Write your own feed synchronously\n  - Inside the POST request, before it returns. One extra write, on one key.\n- And let the client help\n  - It inserts the post it just created optimistically, and reconciles on the next fetch.\n";
+  const SD224 = '`The removal test, run`\n\n## Take one box out on paper, and follow what happens to the rest.\n\nPart three set the test. Saying where each piece landed proves nothing about whether it is needed. Deleting pieces on paper is what tells you the design is finished.\n\n- The celebrity list cache\n  - Remove it and every reader of every celebrity post reads the store directly. It stays.\n';
+
+  test('a heading is weighed in its own face, with the kerning share taken out (slide 95 renders whole at huddle)', () => {
+    // The render sets this heading on ONE line. Outfit's widths, or Playfair's without the kerning
+    // share, read it as two and warn on a slide that fits.
+    assert.equal(core.rowsAt('list', ['list', 'takeaway', 'numbered'], SD95)(1).over, false);
+    const h = 'Four sentences hold, or the data design is not one you can defend.';
+    const c = require('../../../lib/authoring/venue-capacity.generated.js').rowFrame.heading[1][0];
+    assert.equal(core.wrapLines(h, c, core.GLYPH_DISPLAY), 1);
+    assert.equal(core.wrapLines(h, c, true), 2, 'in Outfit it would be two');
+  });
+
+  test('a claim panel heading in Playfair: slide 224 at hall has three heading lines, as rendered', () => {
+    const p = core.panelOver('split-panel', ['split-panel', 'capstone'], SD224, 3);
+    assert.equal(p.n.heading, 3);
+    assert.equal(p.over, false);
+  });
+
+  test('a proof panel with no opening question has the question gap back (slide 192 fits, 1 px over the proof budget)', () => {
+    const p = core.panelOver('split-panel', ['split-panel', 'proof'], SD192, 2);
+    assert.deepEqual(p.n, { eyebrow: 2, heading: 4, lede: 8 }, 'the rendered line counts');
+    assert.equal(p.over, false);
+    assert.ok(p.pct <= 0, 'the percentage reads against the same budget as the verdict');
+  });
+
+  test('the kerning share widens a line by 188.5/187 in Outfit', () => {
+    const word = 'e'.repeat(40); // 40 × 1.25 = 50 units
+    assert.equal(core.wrapLines(word, 49.8, true), 1, 'fits once the line is widened by the share');
+    assert.equal(core.wrapLines(word, 49.5, true), 2);
+  });
+
+  test('a code span is a mono pill: one unbreakable word, a `u` a glyph and a `t` of padding', () => {
+    assert.equal(core.lineText('Put `class: scale-xl` here', true), 'Put uuuuuuuuuuuuuuut here');
+    assert.equal(core.lineText('Put `class: scale-xl` here'), 'Put class: scale-xl here', 'a flat wrap keeps the text');
+    // examples/font-scale.md slide 10's card body: three lines in a 42.9-character card, as rendered.
+    assert.equal(core.wrapLines(core.lineText('`<!-- _class: cards-grid scale-xl -->` — the spot directive scales just this section.', true), 42.9, true), 3);
+  });
+
+  test('an em dash and an ellipsis are as wide as an `m`, curly quotes as straight ones', () => {
+    assert.equal(core.lineText('a — b … “c” ‘d’ e–f', true), 'a m b m "c" \'d\' enf');
+  });
+
+  test('the deck-wide class and front matter reach the choice: a `class: sketch` or `meta:` deck keeps its count row', () => {
+    const slide = `<!-- _class: list takeaway -->\n\n## H.\n\n${nested(6)}\n`;
+    const find = (fm) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: hall\n${fm}---\n\n${slide}`, v).filter((f) => f.rule === 'capacity-scale');
+    assert.match(find('')[0].message, /counted in wrapped lines/);
+    for (const fm of ['class: sketch\n', 'meta: "Q3 review"\n', 'logo: logo.svg\n', 'preset: brand\n']) {
+      assert.ok(find(fm).every((f) => !/counted in wrapped lines/.test(f.message)), `${fm.trim()} keeps the count row`);
+    }
+    assert.match(find('theme: indaco\npaginate: true\nheader: "H"\n')[0].message, /counted in wrapped lines/, 'inert keys ride along');
+  });
+
   test('the generated table: rows per component, one shared frame, `ordered` carrying only what differs', () => {
     const V = require('../../../lib/authoring/venue-capacity.generated.js');
     assert.deepEqual(Object.keys(V.rows).sort(), ['cards-grid', 'list', 'list-steps']);
