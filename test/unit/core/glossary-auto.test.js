@@ -2,9 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 // ESM module under test — dynamic import from this CJS test (mirrors resolve-narration.test.js).
-let appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary, autoGlossarySections, withoutAutoGlossary;
+let GLOSSARY_VENUE_ROWS, appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary, autoGlossarySections, withoutAutoGlossary;
 test.before(async () => {
-  ({ appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary, autoGlossarySections, withoutAutoGlossary } = await import(
+  ({ GLOSSARY_VENUE_ROWS, appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary, autoGlossarySections, withoutAutoGlossary } = await import(
     '../../../lib/core/glossary-auto.mjs'
   ));
 });
@@ -148,4 +148,11 @@ test('withoutAutoGlossary: drops every glossary page when the glossary paginates
   assert.ok(n > 1);
   const list = ['a', ...Array.from({ length: n }, () => 'glossary')];
   assert.deepEqual(withoutAutoGlossary(list, 1, md), ['a']);
+});
+
+test('GLOSSARY_VENUE_ROWS mirrors the generated glossary rows exactly', () => {
+  // The kernel keeps its own copy so the docs bundle does not ship the whole table
+  // (docs/route-budget.json). A re-measured glossary budget must update both.
+  const VC = require('../../../lib/authoring/venue-capacity.generated.js');
+  assert.deepEqual(JSON.parse(JSON.stringify(GLOSSARY_VENUE_ROWS)), VC.items.glossary);
 });
