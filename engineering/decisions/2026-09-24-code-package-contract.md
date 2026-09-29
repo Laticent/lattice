@@ -422,6 +422,22 @@ a warning on macOS and Windows too, where the layer is the platform's default an
 checker). `test/unit/cli/code-door.test.js` drives `launchCodeSandbox` with a stub browser to pin
 which rung's failure becomes which reason.
 
+**Root in a Docker container on an Ubuntu 24.04 host** (2026-09-29, ubuntu-latest, `node:22-bookworm`,
+runs 36554214907 and 36554842708). The container reads the host's AppArmor sysctl as 1, and every
+process in it reads `Seccomp: 2` (Docker's default profile). With puppeteer's browser under `/root`,
+`nobody` cannot run it at all and the remedy is `CHROME_PATH`, as it should be. With the browser
+where `nobody` can run it, the sandboxed launch fails and the remedy first said AppArmor, which was
+wrong: `nobody` could not `unshare -U` under Docker's default seccomp profile with the AppArmor sysctl
+at 0, and could, with Chrome's sandbox measured on, under `--security-opt seccomp=unconfined` with the
+sysctl still at 1. So `offReason` checks a seccomp filter on Lattice's own process
+(`processSeccompFiltered`, `/proc/self/status`) before AppArmor, and names the container's seccomp
+profile (`container-seccomp`). The same runs showed `tools/verify-code-sandbox` step 7 reading the
+container's Seccomp 2 on renderers started with `--no-sandbox` as a mismatch; it now takes the browser
+process's own mode as a baseline and, where that is already 2, judges by the flag. Lattice's own "on"
+measurement (`rendererSandboxed`) has the same blind spot in a filtered container, but a Chromium that
+started without `--no-sandbox` has its sandbox (it aborts with "No usable sandbox!" otherwise), so the
+"on" it reports there is still true.
+
 **Measured on the real CLI** (`test/integration/export/code-package-door.test.js`): a hostile
 package that tries `fetch`, an image, a WebSocket and a beacon at load and on every slide, and
 returns a section padded with newlines that holds an image, a `srcset`, a video poster, an SVG

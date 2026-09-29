@@ -397,7 +397,10 @@ Lattice runs as root, as it often does in a container, the fix is to set
 and later, AppArmor stops the sandbox of a browser it has no profile for, such
 as the Chrome that puppeteer downloads, even for an ordinary user. There the
 fix is an AppArmor profile that lets the browser create user namespaces, or
-setting the `kernel.apparmor_restrict_unprivileged_userns` sysctl to 0.
+setting the `kernel.apparmor_restrict_unprivileged_userns` sysctl to 0. Inside a
+Docker container the container's seccomp profile is what blocks the sandbox,
+whatever the host's AppArmor says: start the container with a seccomp profile
+that allows user namespaces.
 
 To write a component that carries code, see
 [Writing a code package](/guides/code-packages/).
