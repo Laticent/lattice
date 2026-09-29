@@ -120,8 +120,8 @@ footer: "Laticent · the Guide plays every structure its own way"
 flowchart LR
   A[Usage data] --> B[Health score]
   B --> C{At risk?}
-  C -- Yes --> D[Success call]
-  C -- No --> E[Expansion offer]
+  C -->|Yes| D[Success call]
+  C -->|No| E[Expansion offer]
 ```
 
 ---

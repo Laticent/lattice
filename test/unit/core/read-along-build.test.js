@@ -281,5 +281,11 @@ test('refsForResolved keeps a binding only while its text is the text read', () 
 	assert.deepEqual(out[1], prose, 'a prose slide takes the projection\'s');
 	assert.equal(out[2], undefined, 'an author\'s say: replaced the text, so its binding is dropped');
 	assert.equal(out[3], undefined, 'a silent slide carries none');
+	// A chart slide whose narration an author's say: replaced drops its narrator's binding too, and
+	// does not fall back to the projection's (checker, 2026-09-29).
+	const said = refsForResolved(['The author says this.'], ['Chart.'], [chart], ['The author says this.'], [prose]);
+	assert.deepEqual(said[0], prose, 'the projection\'s binding holds only while its own text is read');
+	const over = refsForResolved(['The author says this.'], ['Chart.'], [chart], ['Heading only.'], [prose]);
+	assert.equal(over[0], undefined, 'a chart binding never rides over text its narrator did not write');
 });
 
