@@ -90,6 +90,7 @@ export function oneOf<const V extends string>(values: readonly V[], options: Enu
 /** A declared word that switches something on: `milestone`, `total`, `dashed`. */
 export function flag(word: string, options: { aliases?: readonly string[] } = {}): Type<true> {
   const words = [word, ...(options.aliases ?? [])].map((w) => w.toLowerCase());
+  for (const w of words) if (!TYPEABLE.test(w)) throw new Error(`segno: "${w}" cannot be written as a bare word — it holds a separator, quote, bracket or edge space`);
   return {
     cls: 'vocab',
     describe: `"${word}"`,
@@ -105,9 +106,14 @@ export function flag(word: string, options: { aliases?: readonly string[] } = {}
  * the limit. Case-insensitive; no leading zero (`c04` is not `c4`). Lattice's color slots are
  * `indexed('c', { max: 12, label: 'a color' })`.
  */
+/** The largest `max` an indexed slot takes. */
+export const MAX_INDEXED = 1000;
+
 export function indexed(prefix: string, options: { max: number; label?: string }): Type<number> {
   if (!/^[a-z]+$/i.test(prefix)) throw new Error(`segno: an indexed prefix is letters only, not "${prefix}"`);
-  if (!Number.isInteger(options.max) || options.max < 1) throw new Error(`segno: an indexed max is a whole number of at least 1, not ${options.max}`);
+  // The ceiling is a vocabulary: every word is precomputed for the lookup table and the
+  // ambiguity check, so it is capped where that stays cheap (a billion would allocate a billion).
+  if (!Number.isInteger(options.max) || options.max < 1 || options.max > MAX_INDEXED) throw new Error(`segno: an indexed max is a whole number from 1 to ${MAX_INDEXED}, not ${options.max}`);
   const p = prefix.toLowerCase();
   const { max } = options;
   const words = Array.from({ length: max }, (_, i) => `${p}${i + 1}`);

@@ -125,6 +125,11 @@ async function loadCandidate(name, reference) {
       params: { state: S.oneOf(['done', 'partial', 'fail', 'unknown', 'todo', 'skip']) },
       shortcuts: { '[x]': '{done}', '[-]': '{partial}', '[!]': '{fail}', '[?]': '{unknown}', '[ ]': '{todo}', '[/]': '{skip}' },
     });
+    // Two known asymmetries, both small (the trio's checker, #2462). A three-character `[x]` goes
+    // straight to the state slot's cached shortcut, where every library parses it; that is how a
+    // Segno host would dispatch. And an escaped span returns once isDirective sees `\` + `{` + a
+    // non-space, without parsing the rest, where the kernel (reference.mjs inlineOf) parses the
+    // rest to decide; escaped spans are a handful in the corpus, so the effect is small.
     const SHORTCUTS = new Set(['[x]', '[-]', '[!]', '[?]', '[ ]', '[/]']);
     return {
       axis: (s) => parse(s),

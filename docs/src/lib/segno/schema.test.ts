@@ -258,3 +258,49 @@ describe('one spelling per document, at its edges', () => {
     expect(consistency([use('yes', 'a'), use('done', 'b')])).toEqual([]);
   });
 });
+
+describe('the adversarial review, pinned', () => {
+  it('a word is not swapped for a shortcut that expands to more than that word', () => {
+    const r = record({ params: { state: oneOf(['done', 'todo']), size: oneOf(['sm', 'lg']) }, shortcuts: { '[x]': '{done, sm}' } });
+    const uses: Use[] = [];
+    ['[x]', '[x]', '{done}'].forEach((s, k) => {
+      const b = r.read(s);
+      if (b.ok) for (const sp of b.spellings) uses.push({ ...sp, slot: 's', where: String(k) });
+    });
+    const bad = consistency(uses).filter((b) => b.use.where === '2');
+    expect(bad.length).toBe(1);
+    expect(bad[0].diagnostic.fix).toBeUndefined(); // `[x]` would add size=sm
+  });
+  it('a shortcut rewritten to a word keeps the name when its expansion was named', () => {
+    const r = record({ params: { state: named(oneOf(['done', 'todo'])), finished: flag('done') }, shortcuts: { '[x]': '{state=done}' } });
+    const uses: Use[] = [];
+    ['{state=done}', '{state=done}', '[x]'].forEach((s, k) => {
+      const b = r.read(s);
+      if (b.ok) for (const sp of b.spellings) uses.push({ ...sp, slot: 's', where: String(k) });
+    });
+    const fix = consistency(uses).find((b) => b.use.where === '2')?.diagnostic.fix;
+    expect(fix?.insert).toBe('{state=done}');
+    // and the fixed span means what the shortcut meant
+    expect(ok(r.read(fix?.insert ?? ''))).toEqual(ok(r.read('[x]')));
+  });
+  it('a sigil that starts a declared word, or a number, does not build', () => {
+    expect(() => record({ params: { who: text(), place: oneOf(['@home', 'office']) }, sigils: { '@': 'who' } })).toThrow(/starts the word "@home"/);
+    expect(() => record({ params: { who: text(), cost: number() }, sigils: { $: 'who' } })).toThrow(/can start a number/);
+    expect(() => record({ params: { who: text(), cost: named(number()) }, sigils: { $: 'who' } })).not.toThrow();
+  });
+  it('a flag word must be typeable bare', () => {
+    expect(() => flag('a, b')).toThrow(/cannot be written as a bare word/);
+  });
+  it('an indexed ceiling is capped', () => {
+    expect(() => indexed('c', { max: 1e9 })).toThrow(/from 1 to 1000/);
+    expect(() => indexed('c', { max: 1000 })).not.toThrow();
+  });
+  it('building a schema never freezes an object a custom type returned', () => {
+    const shared = { v: 1 };
+    const t = { cls: 'vocab' as const, describe: 'a thing', words: ['thing'], read: (s: string) => (s.toLowerCase() === 'thing' ? shared : undefined) };
+    const r = record({ params: { t }, shortcuts: { '[t]': '{thing}' } });
+    expect(Object.isFrozen(shared)).toBe(false);
+    const b = r.read('[t]');
+    expect(b.ok && Object.isFrozen(b.value)).toBe(true); // the shared cache is frozen, the caller's object is not
+  });
+});

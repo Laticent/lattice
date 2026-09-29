@@ -59,7 +59,9 @@ function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
 export function generate(spec: GrammarSpec, options: { banner?: string } = {}): string {
   const an = analyze(spec); // throws GrammarError exactly as compile() does
   // Rule names become identifiers (`r_<name>`), so they must be identifiers.
-  const badNames = Object.keys(spec.rules).filter((r) => !/^[A-Za-z_$][\w$]*$/.test(r));
+  // `__proto__` is an identifier but not a key: in the generated `RULES` object literal it would
+  // set the prototype, and every parse starting there would throw "no rule".
+  const badNames = Object.keys(spec.rules).filter((r) => !/^[A-Za-z_$][\w$]*$/.test(r) || r === '__proto__');
   if (badNames.length) throw new GrammarError(badNames.map((r) => `rule "${r}" cannot be generated: a rule name must be an identifier`));
   const tables = new Map<string, string>();
   const recursive = an.recursiveRules();
@@ -106,8 +108,11 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
           return `${ind}{ ${e.min ? `const ${start} = i; ` : ''}let ${c} = ${AT}; while (${testExpr(e.x.cs, c, tables)}) { i++; ${c} = ${AT}; }${e.min ? ` if (i === ${start}) return fail(${q(expected(e.x))});` : ''} }\n`;
         }
         const c = fresh();
-        const body = gen(e.x, `${ind}  `);
-        return `${e.min ? gen(e.x, ind) : ''}${ind}for (let ${c} = ${AT}; ${testExpr(an.first(e.x), c, tables)}; ${c} = ${AT}) {\n${body}${ind}}\n`;
+        // many1 is a do-while, so its body is written ONCE. Writing it before the loop as well
+        // doubled the output per level of nesting: 20 nested many1 were 531 MB of source.
+        if (e.min) return `${ind}{\n${ind}  let ${c}: number;\n${ind}  do {\n${gen(e.x, `${ind}    `)}${ind}    ${c} = ${AT};\n${ind}  } while (${testExpr(an.first(e.x), c, tables)});\n${ind}}\n`;
+        const body = gen(e.x, `${ind}  `); // before testExpr, so the table numbering stays as shipped
+        return `${ind}for (let ${c} = ${AT}; ${testExpr(an.first(e.x), c, tables)}; ${c} = ${AT}) {\n${body}${ind}}\n`;
       }
       case 'opt': {
         const c = fresh();

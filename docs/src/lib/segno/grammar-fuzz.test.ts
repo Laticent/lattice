@@ -7,7 +7,7 @@
 //      compile()'s closures, on every one of those strings.
 // Grammars are random, seeded (a failure reproduces from its seed), and include recursion, so
 // the refusals are exercised too. Floors on how many compile (and have a language of more than
-// one string) keep it from going vacuous; SEGNO_FUZZ_STATS=1 prints the counts (at seed 2462:
+// one string) keep it from going vacuous; SEGNO_FUZZ_STATS=1 with --disableConsoleIntercept prints the counts (at seed 2462:
 // 756 compile, 340 of them non-trivial, 5,244 refused, 413,657 generated-parser comparisons).
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';

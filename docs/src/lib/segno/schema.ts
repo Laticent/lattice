@@ -68,6 +68,12 @@ export interface Spelling {
    * shortcut for a word, rewrites this range, and without it would lose the record's other items.
    */
   readonly alone?: { readonly from: number; readonly to: number };
+  /**
+   * The word was written (or, for a shortcut, expands to) `name=value`, not bare. A fix that
+   * rewrites a shortcut back to a word must keep the name: a bare word can bind to a different
+   * parameter, because named-only parameters take no part in bare-word binding.
+   */
+  readonly named?: boolean;
 }
 
 export type Bound<T> =
@@ -106,6 +112,20 @@ function deepFreeze<T>(x: T): T {
     Object.freeze(x);
   }
   return x;
+}
+/** A deep copy of plain data (arrays, plain objects, primitives), or null for anything else. */
+function plainCopy(x: unknown): unknown {
+  if (x === null || typeof x !== 'object') return typeof x === 'function' ? null : x;
+  if (Array.isArray(x)) {
+    const out: unknown[] = [];
+    for (const v of x) { const c = plainCopy(v); if (c === null && v !== null) return null; out.push(c); }
+    return out;
+  }
+  const proto = Object.getPrototypeOf(x);
+  if (proto !== Object.prototype && proto !== null) return null;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(x)) { const c = plainCopy(v); if (c === null && v !== null) return null; out[k] = c; }
+  return out;
 }
 const isSlot = (x: unknown): x is Slot<unknown> => typeof (x as Slot<unknown>)?.bind === 'function';
 const clsOf = (x: Type<unknown> | Slot<unknown>): Cls | null => (isSlot(x) ? null : x.cls);
@@ -155,6 +175,16 @@ export function schemaProblems(spec: RecordSpec): string[] {
     if (sigil.length !== 1) problems.push(`sigil "${sigil}" must be one character`);
     if (!names.has(param)) problems.push(`sigil "${sigil}" names "${param}", which is not a parameter`);
     if (sigil === '#' && params.some(([, t]) => clsOf(t) === 'id')) problems.push('sigil "#" collides with the id type');
+    // A sigil is read before any bare-word rule, so a declared word it starts could never bind
+    // bare: `@home` in a place enum would silently become who=home.
+    for (const [name, t] of params) {
+      if (isSlot(t) || t.namedOnly) continue;
+      for (const w of t.words ?? []) if (w.startsWith(sigil.toLowerCase())) problems.push(`sigil "${sigil}" starts the word "${w}" of "${name}", which could then never bind bare`);
+    }
+    // The same for a number: `$5`, `-3`, `(12M)`, `+2` would read as the sigil's parameter.
+    if ('+-\u2212($\u20ac\u00a3\u00a50123456789.'.includes(sigil) && params.some(([, t]) => !isSlot(t) && !t.namedOnly && (t.cls === 'number' || t.cls === 'range'))) {
+      problems.push(`sigil "${sigil}" can start a number, so a bare number could never bind`);
+    }
   }
   return problems;
 }
@@ -191,19 +221,20 @@ class Binding {
     (this.diags ??= []).push(d);
   }
 
-  private spelled(param: string, canonical: string, written: string, v: Value) {
+  private spelled(param: string, canonical: string, written: string, v: Value, it: Item) {
     const sc = this.shortcut;
     const alone = this.alone;
+    const named = it.name !== null ? { named: true } : {};
     (this.spellings ??= []).push(sc
-      ? { param, canonical, written: sc.token, from: sc.from, to: sc.to, shortcut: true, ...(alone ? { alone } : {}) }
-      : { param, canonical, written, from: v.from, to: v.to, shortcut: false, ...(alone ? { alone } : {}) });
+      ? { param, canonical, written: sc.token, from: sc.from, to: sc.to, shortcut: true, ...(alone ? { alone } : {}), ...named }
+      : { param, canonical, written, from: v.from, to: v.to, shortcut: false, ...(alone ? { alone } : {}), ...named });
   }
 
   /** A bare vocab word, already resolved by the slot's lookup table. */
   putVocab(hit: VocabHit, lower: string, v: Value, it: Item) {
     if (Object.hasOwn(this.out, hit.name)) { this.problem(err('given-twice', `${hit.name} is given twice`, it.from, it.to)); return; }
     this.out[hit.name] = hit.value;
-    this.spelled(hit.name, hit.canonical, lower, v);
+    this.spelled(hit.name, hit.canonical, lower, v, it);
   }
 
   put(name: string, t: Type<unknown> | Slot<unknown>, v: Value, it: Item) {
@@ -228,7 +259,7 @@ class Binding {
   putRead(name: string, t: Type<unknown>, got: unknown, v: Scalar, it: Item) {
     if (Object.hasOwn(this.out, name)) { this.problem(err('given-twice', `${name} is given twice`, it.from, it.to)); return; }
     this.out[name] = got;
-    if (t.cls === 'vocab') this.spelled(name, t.canonical?.(v.text) ?? v.text, v.text.toLowerCase(), v);
+    if (t.cls === 'vocab') this.spelled(name, t.canonical?.(v.text) ?? v.text, v.text.toLowerCase(), v, it);
   }
 }
 
@@ -380,7 +411,13 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
   // once, here, and every later read of it is a lookup. The result is shared between reads, so
   // it is frozen: a caller that mutated it would change every later `[x]`.
   const shortcutBound = new Map<string, Bound<RecordOf<S>>>();
-  for (const token of shortcuts.keys()) shortcutBound.set(token, deepFreeze(slot.read(token)));
+  // The result is COPIED before it is frozen: a custom type's read() may return an object the
+  // caller owns, and freezing that would reach outside this library.
+  for (const token of shortcuts.keys()) {
+    const r = slot.read(token);
+    const copy = plainCopy(r); // null for a value that is not plain data: it is not cached
+    if (copy) shortcutBound.set(token, deepFreeze(copy as Bound<RecordOf<S>>));
+  }
   return slot;
 }
 

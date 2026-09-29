@@ -17,9 +17,11 @@
  * SEGNO_MUTATE=1 is set for the test run. It skips ONE test: the check that the committed
  * notation.generated.ts equals what codegen.ts writes today. Under a codegen mutation that check
  * would kill every mutant for a reason that proves nothing about behavior; the kills have to come
- * from the tests that run generated code (the random-grammar fuzz, the 20k-span parity fuzz).
+ * from the tests that run freshly generated code: grammar-fuzz.test.ts and codegen.test.ts's
+ * loaded grammars. (The 20k-span parity fuzz reads the COMMITTED notation.generated.ts, so a
+ * codegen.ts mutation cannot reach it.)
  *
- * Usage:  npm run mutate:segno            (about six minutes: one Segno vitest run per mutation)
+ * Usage:  npm run mutate:segno            (about fifteen minutes: one Segno vitest run per mutation)
  *         npm run mutate:segno -- --only=schema,types
  * On-demand; not a CI gate.
  */
@@ -65,10 +67,14 @@ const MUTS = [
   ['codegen', R`high.push(a === hi ? ${'`'}${'$'}{v} === ${'$'}{a}${'`'} : ${'`'}(${'$'}{v} >= ${'$'}{a} && ${'$'}{v} <= ${'$'}{hi})${'`'});`, R`high.push(${'`'}${'$'}{v} === ${'$'}{a}${'`'});`, 'a non-ASCII range tests only its first character'],
   ['codegen', R`: ${'`'}${'$'}{ind}  else return fail(${'$'}{q(expected(e))});\n${'`'};`, ": '';", 'a choice with no matching branch falls through'],
   ['codegen', R`${'$'}{e.min ? ${'`'} if (i === ${'$'}{start}) return fail(${'$'}{q(expected(e.x))});${'`'} : ''}`, '', 'generated many1 of a set accepts nothing'],
-  ['codegen', R`return ${'`'}${'$'}{e.min ? gen(e.x, ind) : ''}${'$'}{ind}for`, R`return ${'`'}${'$'}{ind}for`, 'generated many1 of a sequence accepts nothing'],
+  ['codegen', R`} while (${'$'}{testExpr(an.first(e.x), c, tables)});`, R`} while (false);`, 'generated many1 of a sequence stops after one pass'],
+  ['codegen', "if (e.min) return `", "if (false) return `", 'generated many1 of a sequence accepts nothing'],
+  ['codegen', "|| r === '__proto__');", ');', 'a rule named __proto__ is generated'],
   ['codegen', R`${'$'}{ind}depth--;\n`, '', 'generated depth never unwinds'],
   ['codegen', R`buf[${'$'}{b} + 1] = i;`, R`buf[${'$'}{b} + 1] = 0;`, 'a generated node starts at 0'],
   ['codegen', "if (ok && i < n) fail('end of input');", '', 'generated parser accepts trailing input'],
+
+  ['grammar', 'const lo = Math.max(0, Math.ceil(cs[i]));', 'const lo = Math.ceil(cs[i]);', 'a hand-built set may hold the end-of-input code'],
 
   // ── charset.ts
   ['charset', 'if (lo <= hi) out.push([lo, hi]);', 'if (lo < hi) out.push([lo, hi]);', 'a one-character overlap is missed'],
@@ -95,15 +101,21 @@ const MUTS = [
   ['schema', '&& !Object.hasOwn(b.out, p.name) && !b.diags) {', '&& false) {', 'a missing required value is not reported'],
   ['schema', 'clsOf(t) === cls && !(t as Type<unknown>).namedOnly)] as const)', 'clsOf(t) === cls)] as const)', 'a named-only parameter takes a bare word'],
   ['schema', 'v.items.length > options.max) {', 'v.items.length > options.max + 1) {', 'a list takes one more than its max'],
-  ['schema', 'shortcutBound.set(token, deepFreeze(slot.read(token)));', 'shortcutBound.set(token, slot.read(token));', 'the shared shortcut result is not frozen'],
+  ['schema', 'if (copy) shortcutBound.set(token, deepFreeze(copy as Bound<RecordOf<S>>));', 'if (copy) shortcutBound.set(token, copy as Bound<RecordOf<S>>);', 'the shared shortcut result is not frozen'],
   ['schema', 'if (!r.ok) throw new SchemaError([`shortcut', 'if (false) throw new SchemaError([`shortcut', 'a shortcut the slot rejects is accepted'],
   ['schema', 'param: sp.param ? `${name}.${sp.param}` : name', 'param: sp.param', "a sub-slot's words share a group with the parent's"],
   ['schema', 'if (expanded && expanded.kind === ', 'if (false && expanded.kind === ', 'a shortcut with surrounding space is not expanded'],
+  ['schema', 'for (const w of t.words ?? []) if (w.startsWith(sigil.toLowerCase())) problems.push(', 'for (const w of t.words ?? []) if (false) problems.push(', 'a sigil may start a declared word'],
+  ['schema', "if ('+-\\u2212(", "if (false && '+-\\u2212(", 'a sigil may start a number'],
+  ['schema', "const named = it.name !== null ? { named: true } : {};", 'const named = {};', 'a named spelling is not marked named'],
+  ['schema', 'const copy = plainCopy(r);', 'const copy = r;', "the shortcut cache freezes the caller's objects"],
 
   // ── types.ts: the value readers
   ['types', 'read: (s, quoted) => (quoted ? undefined : map.get(s.toLowerCase())),', 'read: (s) => map.get(s.toLowerCase()),', 'a quoted word reads as a vocab word'],
   ['types', '(i === p.length && c === 48)', 'false', 'an indexed slot takes a leading zero'],
   ['types', 'if (n > max) return undefined;', '', 'an indexed slot has no ceiling'],
+  ['types', ' || options.max > MAX_INDEXED)', ')', 'an indexed max has no cap'],
+  ['types', "  for (const w of words) if (!TYPEABLE.test(w)) throw", '  for (const w of words) if (false) throw', 'a flag word need not be typeable'],
   ['types', 'if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo || dt.getUTCDate() !== dd) return undefined;', '', '2026-13-01 is a date'],
   ['types', 'return from !== undefined && to !== undefined ? { from, to } : undefined;', 'return { from, to };', 'half a range is a range'],
   ['types', "if (!t || t.includes('..') || !NUMERIC.test(t)) return undefined;", 'if (!t || !NUMERIC.test(t)) return undefined;', 'a range reads as a number'],
@@ -116,6 +128,8 @@ const MUTS = [
   // ── consistency.ts: one spelling per document
   ['consistency', 'for (const [w, n] of counts) if (n > (counts.get(preferred) ?? 0)) preferred = w;', '', 'the first spelling wins, not the most common'],
   ['consistency', 'if (!u.alone) return {};', '', 'a shortcut fix rewrites a span that holds more'],
+  ['consistency', 'return shortcutIsOneItem ? {', 'return true ? {', 'a word is swapped for a shortcut that expands to more'],
+  ['consistency', 'insert: u.named ? `{${u.param}=${preferred}}` : `{${preferred}}`', 'insert: `{${preferred}}`', 'a shortcut rewritten to a word drops the name'],
   ['consistency', 'const key = `${u.slot}\\u0000${u.param}\\u0000${u.canonical}`;', 'const key = `${u.param}\\u0000${u.canonical}`;', 'spellings are grouped across slots'],
   // NOT `counts.size < 2` → `< 1`: a group with one spelling then yields no inconsistency anyway
   // (every use IS the preferred one), so the mutation is EQUIVALENT.
@@ -123,6 +137,8 @@ const MUTS = [
 /* biome-ignore-end lint/suspicious/noTemplateCurlyInString: end */
 
 const FILE = { grammar: 'grammar.ts', codegen: 'codegen.ts', charset: 'charset.ts', notation: 'notation.ts', schema: 'schema.ts', types: 'types.ts', consistency: 'consistency.ts' };
+// One Segno run takes about 10 s; a run past this is a hang, not a slow machine.
+const DEADLINE_MS = 120_000;
 const only = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1].split(',');
 
 const survivors = [];
@@ -141,10 +157,14 @@ for (const [which, from, to, name] of MUTS) {
   }
   fs.writeFileSync(abs, orig.replace(from, () => to));
   let failed = 0;
+  let hung = false;
   try {
-    const out = execFileSync('npx', ['vitest', 'run', LIB, '--reporter=json'], { cwd: DOCS, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64e6, env: { ...process.env, SEGNO_MUTATE: '1' } });
+    const out = execFileSync('npx', ['vitest', 'run', LIB, '--reporter=json'], { cwd: DOCS, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64e6, timeout: DEADLINE_MS, killSignal: 'SIGKILL', env: { ...process.env, SEGNO_MUTATE: '1' } });
     failed = JSON.parse(out.slice(out.indexOf('{'))).numFailedTests;
   } catch (e) {
+    // A mutant that makes the suite HANG was caught: CI would time out on it. Vitest cannot stop
+    // a synchronous infinite loop (the `set()` clamp mutant makes one), so the deadline is ours.
+    if (e.code === 'ETIMEDOUT' || e.signal) hung = true;
     const t = String(e.stdout ?? '');
     const i = t.indexOf('{');
     try { failed = i >= 0 ? (JSON.parse(t.slice(i)).numFailedTests || 1) : 1; } catch { failed = 1; }
@@ -153,7 +173,7 @@ for (const [which, from, to, name] of MUTS) {
   }
   if (failed > 0) killed++;
   else survivors.push(`${which}: ${name}`);
-  process.stderr.write(`${failed > 0 ? 'KILLED  ' : 'SURVIVED'}  ${which}: ${name}\n`);
+  process.stderr.write(`${failed > 0 ? (hung ? 'KILLED (the suite hung)' : 'KILLED  ') : 'SURVIVED'}  ${which}: ${name}\n`);
 }
 const applied = ran - notApplied.length;
 console.log(`\n${ran} mutations · ${killed} killed · ${survivors.length} survived · ${notApplied.length} did not apply · score ${applied ? Math.round((100 * killed) / applied) : 0}%`);

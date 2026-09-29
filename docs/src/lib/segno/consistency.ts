@@ -43,10 +43,14 @@ export function consistency(uses: readonly Use[]): Inconsistency[] {
     let preferred = g[0].written;
     for (const [w, n] of counts) if (n > (counts.get(preferred) ?? 0)) preferred = w;
     const preferShortcut = g.some((u) => u.written === preferred && u.shortcut);
+    // A shortcut can replace a word only when it expands to that word alone: `[x]` for `{done, sm}`
+    // would add a size the author never wrote. A shortcut use has `alone` only when its expansion
+    // is one item (schema.ts), so that is the test.
+    const shortcutIsOneItem = g.some((u) => u.written === preferred && u.shortcut && u.alone);
     for (const u of g) {
       if (u.written === preferred) continue;
       const message = `"${u.canonical}" is written "${preferred}" ${counts.get(preferred)} time(s) elsewhere and "${u.written}" here — pick one`;
-      out.push({ use: u, preferred, diagnostic: { code: 'mixed-spelling', severity: 'warning', message, from: u.from, to: u.to, ...fixFor(u, preferred, preferShortcut) } });
+      out.push({ use: u, preferred, diagnostic: { code: 'mixed-spelling', severity: 'warning', message, from: u.from, to: u.to, ...fixFor(u, preferred, preferShortcut, shortcutIsOneItem) } });
     }
   }
   return out;
@@ -58,8 +62,11 @@ export function consistency(uses: readonly Use[]): Inconsistency[] {
  * when the spelling is alone in it, since `{done, "Shipped"}` has no shortcut form. No fix is
  * better than one that drops what the author wrote.
  */
-function fixFor(u: Use, preferred: string, preferShortcut: boolean): { fix?: Diagnostic['fix'] } {
+function fixFor(u: Use, preferred: string, preferShortcut: boolean, shortcutIsOneItem: boolean): { fix?: Diagnostic['fix'] } {
   if (!u.shortcut && !preferShortcut) return { fix: { from: u.from, to: u.to, insert: preferred } };
   if (!u.alone) return {};
-  return { fix: { from: u.alone.from, to: u.alone.to, insert: preferShortcut ? preferred : `{${preferred}}` } };
+  if (preferShortcut) return shortcutIsOneItem ? { fix: { from: u.alone.from, to: u.alone.to, insert: preferred } } : {};
+  // A shortcut back to a word: keep `name=` when the shortcut's own expansion was named, or the
+  // bare word may bind to another parameter. `param` is top-level here: only a whole span is alone.
+  return { fix: { from: u.alone.from, to: u.alone.to, insert: u.named ? `{${u.param}=${preferred}}` : `{${preferred}}` } };
 }

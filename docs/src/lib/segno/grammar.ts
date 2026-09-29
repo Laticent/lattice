@@ -23,8 +23,8 @@
  */
 
 import {
-  ANY, type CharSet, compileTest, complement, describe, EMPTY, intersect, isEmpty, ofChars,
-  ofRange, union,
+  ANY, type CharSet, compileTest, complement, describe, EMPTY, fromRanges, intersect, isEmpty,
+  MAX_UNIT, ofChars, ofRange, union,
 } from './charset.js';
 
 // ── the vocabulary ──────────────────────────────────────────────────────────
@@ -48,7 +48,22 @@ export const lit = (s: string): Expr => {
   return { t: 'lit', s };
 };
 /** One character from a set. `label` names it in error messages ("a digit"). */
-export const set = (cs: CharSet, label?: string): Expr => ({ t: 'set', cs, label });
+export const set = (cs: CharSet, label?: string): Expr => ({ t: 'set', cs: normalize(cs), label });
+
+/**
+ * A set as the engine needs it: sorted, merged pairs inside 0..0xFFFF. `set()` is public, so a
+ * hand-built set may hold anything, and a code below 0 is the parser's END OF INPUT: a set
+ * holding -1 made the generated loop `while (c === -1) i++` spin forever at the end.
+ */
+function normalize(cs: CharSet): CharSet {
+  const pairs: Array<[number, number]> = [];
+  for (let i = 0; i + 1 < cs.length; i += 2) {
+    const lo = Math.max(0, Math.ceil(cs[i]));
+    const hi = Math.min(MAX_UNIT, Math.floor(cs[i + 1]));
+    if (lo <= hi) pairs.push([lo, hi]);
+  }
+  return fromRanges(pairs);
+}
 /** One of these characters. */
 export const oneOf = (chars: string, label?: string): Expr => set(ofChars(chars), label);
 /** Any character NOT in `chars` (and not in the extra sets). */

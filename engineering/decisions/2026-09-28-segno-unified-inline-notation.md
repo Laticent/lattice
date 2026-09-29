@@ -303,6 +303,8 @@ third checks the first two.
     of them accepted) and `gantt-time.js` (50,000 tokens, about 2,400 accepted). The single-pass
     number reader is fuzzed against the full one on 300,000 tokens.
   - Floors on each count keep a fuzz from passing on inputs that exercise nothing.
+    `SEGNO_FUZZ_STATS=1 npx vitest run src/lib/segno/grammar-fuzz.test.ts --disableConsoleIntercept`
+    prints the grammar counts (the docs Vitest setup swallows console output without the flag).
 - **Metamorphic tests** (`metamorphic.test.ts`). No oracle says what a span should bind to, but
   the notation promises how related spans relate. These tests check those promises on 2,000
   generated records:
@@ -314,7 +316,7 @@ third checks the first two.
   - text appended to a valid span never moves an error into the valid part. This is the LL(1)
     prefix property, checked at the grammar level and at the notation level.
 - **Mutation testing** (`npm run mutate:segno`, `tools/mutate-segno.mjs`, the house battery pattern).
-  - The battery injects 61 realistic defects, one at a time, across the LL(1) proof, the code
+  - The battery injects realistic defects (62 in its first run, 72 today), one at a time, across the LL(1) proof, the code
     generator, character sets, the reader, binding, the value readers and the spelling check.
     After each one it runs Segno's whole suite.
   - **The first run killed 42 of 62 (68%).** The 20 survivors were real holes:
@@ -325,10 +327,52 @@ third checks the first two.
     - generated code for non-ASCII ranges, and a nesting count that never unwound, both unreachable
       from the notation's own grammar;
     - reader, binding and spelling edges no test named.
-  - One survivor was equivalent (no input can tell it apart) and is left out with a note. Tests
-    were added for the other 19. **The battery now kills 61 of 61.**
-  - It is on-demand, not a CI gate. It takes about six minutes and fails on any survivor and on any
+  - One survivor was equivalent (no input can tell it apart) and is left out with a note, as are
+    two candidates judged equivalent before the first run (the checker below confirmed all three
+    exhaustively). Tests were added for the other 19, and the battery then killed 61 of 61.
+    **After the trio's fixes it has 72 mutations and kills all of them** (§ The
+    adversarial trio).
+  - It is on-demand, not a CI gate. It takes about fifteen minutes and fails on any survivor and on any
     mutation that did not apply.
+
+### The adversarial trio
+
+Before merge, the owner asked for the full trio (HARD RULE #25) on what ships.
+
+- **The red team** broke six promises, each with a reproducer. All six are fixed, with a test and
+  a mutation each:
+  - a spelling fix could swap `{done}` for a shortcut that expands to `{done, sm}`, adding a size
+    the author never wrote. A word is now swapped only for a one-item shortcut;
+  - a shortcut rewritten to a word wrote the word bare, and a bare word can bind to another
+    parameter (`[x]` = `{state=done}` became `{done}`, a flag). The fix now keeps `name=`;
+  - `generate()` accepted a rule named `__proto__`, which the generated `RULES` object literal
+    reads as its prototype, so every parse threw. The name is refused;
+  - `set()` took any character set, and one holding -1 (the end-of-input code) made the
+    generated loop spin forever. Sets are normalized to 0..0xFFFF;
+  - `generate()` wrote a `many1` body twice, and called the generator twice for it, so 20 nested
+    levels took 33.7 s and 531 MB. It is a do-while now: 14 kB, instantly;
+  - a sigil could start a declared word (`@home`) or a number (`$5`), which could then never
+    bind bare. The schema refuses both; `flag()` now also refuses an untypeable word.
+  - The red team also showed that the bracket-list fix changed how two TYPOS read (an extra
+    inner `]`). Both readings were wrong before and after, and no well-formed input changed, so
+    the fix stands and a lint warning is a follow-up.
+- **The checker** (on the commits after the first review) found no correctness bug. It confirmed
+  `readNumberFast` equal to the full reader on every string up to 5 characters over 31 symbols
+  plus 2 million random ones. Fixed from its findings:
+  - the shortcut cache froze objects a custom type returned. It now freezes a copy;
+  - three fuzzes had no floor on how many inputs were accepted. Each has one now, and values are
+    compared with `Object.is`;
+  - `indexed()` took any ceiling, so a billion allocated a billion words. It is capped at 1,000
+    (`MAX_INDEXED`);
+  - the counts and the stats command above were corrected.
+- **The inversion** found nothing that blocks phase 1 and named the phase-2 risks. Each is a
+  gate in `followups.d/`:
+  - prove Segno can read flowchart rows before phase 2 starts (P1);
+  - lint the old spellings, so the clean break is not also a silent one;
+  - bind every migrated corpus span against the old kernels;
+  - decide the pill speed bar.
+  Its strongest objection is to the direction itself: the bake-off recommended keeping the
+  kernels, and the notation, not the engine, is where the user value is.
 
 ## General-purpose, not Lattice's
 
@@ -399,8 +443,11 @@ full adversarial trio before merge (HARD RULE #25).
 ## Open questions
 
 The three this note first carried — coordinates, journey sigils, color slots — are decisions 10 to 12.
-One is open, found by phase 1's checker, and it only matters from phase 2 on:
+Two are open, and both only matter from phase 2 on:
 
+- **Editor tooling.** Segno stops at the first error and has no incremental parsing or
+  highlighting. If the Studio editor needs highlighting of Segno spans, is the path a display-only
+  Lezer grammar, with Segno as the authority? (Raised by the trio's inversion.)
 - **No-break spaces and newlines.** The notation trims and separates on space and tab only, so a
   pasted `{a,`U+00A0`b}` reads a value with a leading no-break space. Treating U+00A0 as a space is
   kinder to pasted text; keeping the rule to two ASCII characters is simpler to state. A code span

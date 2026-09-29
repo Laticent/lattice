@@ -57,18 +57,22 @@ describe('readNumber fast path = the full reader', () => {
     let seed = 11;
     const rnd = (m: number) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % m; };
     let differ = 0;
+    let fast = 0;
     for (let k = 0; k < 300_000; k++) {
       let s = '';
       const len = 1 + rnd(8);
       for (let j = 0; j < len; j++) s += A[rnd(A.length)];
       const a = readNumber(s);
       const b = readNumberFull(s.trim());
-      if (JSON.stringify(a) !== JSON.stringify(b)) {
+      if (s.trim() && readNumberFast(s.trim()) !== null) fast++;
+      // Object.is on the value: JSON cannot tell -0 from 0.
+      if (JSON.stringify(a) !== JSON.stringify(b) || (a && b && !Object.is(a.value, b.value))) {
         differ++;
         if (differ < 5) expect({ s, a }).toEqual({ s, a: b });
       }
     }
     expect(differ).toBe(0);
+    expect(fast).toBeGreaterThan(30_000); // not vacuous: 44,109 at this seed
   });
   it('the shapes decks write read the same both ways', () => {
     for (const s of ['5', '12.5', '$1.2M', '-$0.8M', '$-0.8M', '(12M)', '($1.2M)', '(-5)', '--5', '62%', '140kg', '5M)', '(5M', '+12.0M', '−12M', '3bn', '1e5', '007'])
@@ -94,30 +98,36 @@ describe('readNumber and readTime agree with the kernels on fuzzed input', () =>
     const A = ['(', ')', '+', '-', '\u2212', '$', '\u20ac', '1', '2', '0', '9', '.', ',', '%', '\u2030', 'k', 'M', 'B', 'b', 'n', 'T', 'g', 'x', ' ', '#'];
     const r = rng(101);
     const bad: string[] = [];
+    let accepted = 0;
     for (let k = 0; k < 100_000 && bad.length < 5; k++) {
       let s = '';
       const len = 1 + Math.floor(r() * 8);
       for (let j = 0; j < len; j++) s += A[Math.floor(r() * A.length)];
       if (s.includes('..')) continue; // `..` is a range in Segno and never a number
       const want = chartValues.isValuePill(s) ? chartValues.signedValue(s) : null;
+      if (want) accepted++;
       const got = readNumber(s);
       const same = want === null || !Number.isFinite(want.value) ? got === undefined : got !== undefined && Object.is(got.value, want.value) && got.signed === want.signed;
       if (!same) bad.push(`${JSON.stringify(s)}: kernel ${JSON.stringify(want)}, segno ${JSON.stringify(got)}`);
     }
     expect(bad).toEqual([]);
+    expect(accepted).toBeGreaterThan(8_000); // not vacuous: 9,777 at this seed
   });
   it('readTime = gantt-time.js on 50,000 fuzzed tokens', () => {
     const PARTS = ['2026', '2025', '-', '01', '02', '13', '30', '31', '15', ' ', 'Q', 'q', '1', '4', '5', 'Jan', 'jan', 'Sept', 'September', 'Dec', 'x'];
     const r = rng(202);
     const bad: string[] = [];
+    let accepted = 0;
     for (let k = 0; k < 50_000 && bad.length < 5; k++) {
       let s = '';
       const len = 1 + Math.floor(r() * 5);
       for (let j = 0; j < len; j++) s += PARTS[Math.floor(r() * PARTS.length)];
       const want = ganttTime.parseTimePoint(s);
       const got = readTime(s) ?? null;
+      if (want) accepted++;
       if (JSON.stringify(want) !== JSON.stringify(got)) bad.push(`${JSON.stringify(s)}: kernel ${JSON.stringify(want)}, segno ${JSON.stringify(got)}`);
     }
     expect(bad).toEqual([]);
+    expect(accepted).toBeGreaterThan(2_000); // not vacuous: 2,399 at this seed
   });
 });

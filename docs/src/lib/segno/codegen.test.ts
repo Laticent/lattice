@@ -2,12 +2,13 @@
 // The generated notation parser is the one that ships; the closure-compiled one is the
 // reference. They must agree on EVERY input — the same tree, or the same error at the same
 // offset — and the checked-in generated file must be what the generator writes today.
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { generate } from './codegen';
 import { toNodes } from './flat';
-import { alt, compile, type GrammarSpec, many, many1, noneOf, oneOf, range, ref, seq } from './grammar';
+import { alt, compile, type GrammarSpec, many, many1, noneOf, oneOf, range, ref, seq, set } from './grammar';
 import { parse as generatedFlat } from './notation.generated';
 import { notationSpec } from './notation-grammar';
 
@@ -111,5 +112,30 @@ describe('generated = compiled, on shapes the notation does not use', () => {
     const flat = `[${'[a]'.repeat(100)}]`;
     expect(gen(flat).ok).toBe(true);
     expect(gen(flat)).toEqual(compile(spec).parse(flat));
+  });
+});
+
+describe('generate(), from the adversarial review', () => {
+  it('refuses a rule named __proto__, which an object literal would read as the prototype', () => {
+    expect(() => generate({ start: '__proto__', rules: { ['__proto__']: seq('a') } })).toThrow(/must be an identifier/);
+  });
+  it('a hand-built set holding the end-of-input code cannot make the generated loop spin', () => {
+    // Run in a child process with a deadline: a loop that spins would hang THIS process, and
+    // Vitest cannot interrupt a synchronous loop, so the test would never report.
+    const spec: GrammarSpec = { start: 's', rules: { s: seq('a', many(set([-1, -1]))) } };
+    const js = esbuild.transformSync(generate(spec), { loader: 'ts', format: 'esm' }).code;
+    const run = spawnSync(process.execPath, ['--input-type=module', '-e', `${js}\nconsole.log(JSON.stringify(parse('a').ok))`], { encoding: 'utf8', timeout: 5000 });
+    expect(run.signal, 'the generated parser spun').toBeNull();
+    expect(run.stdout.trim()).toBe(JSON.stringify(compile(spec).parse('a').ok));
+  });
+  it('nested many1 grows the generated code linearly, not exponentially', () => {
+    let e = oneOf('a');
+    for (let k = 0; k < 20; k++) e = seq(String.fromCharCode(66 + k), many1(e), String.fromCharCode(98 + k));
+    const t = performance.now();
+    const src = generate({ start: 's', rules: { s: e } });
+    expect(src.length).toBeLessThan(200_000); // 531 MB before
+    expect(performance.now() - t).toBeLessThan(500); // 33.7 s before
+    const spec: GrammarSpec = { start: 's', rules: { s: seq('X', many1(seq('Y', many1(oneOf('a')), 'y')), 'x') } };
+    for (const s of ['XYayx', 'XYaayYayx', 'Xx', 'XYyx', 'XYax']) expect(load(spec)(s), s).toEqual(compile(spec).parse(s));
   });
 });
