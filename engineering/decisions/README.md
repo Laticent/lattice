@@ -330,6 +330,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-29-playground-virtual-filmstrip-v2.md](2026-09-29-playground-virtual-filmstrip-v2.md) — PROBE for #2480, do not merge.
 - ☑ [2026-09-28-playground-virtual-filmstrip.md](2026-09-28-playground-virtual-filmstrip.md) — The Playground mounts only the slides in view, a newcomer's first preview document is baked at build time and adopted by the app, and a…
 - ☑ [2026-09-28-rebase-only-on-conflict.md](2026-09-28-rebase-only-on-conflict.md) — Sessions rebased every open PR whenever `main` moved, even though the merge queue already re-tests each PR on current `main` before merging.
 - ☑ [2026-09-28-say-not-caption.md](2026-09-28-say-not-caption.md) — The author's spoken line for a slide is `say:`, not `caption:` — "caption" now means only visible text, and the old keys are retired with a…
