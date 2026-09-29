@@ -852,6 +852,19 @@ test('a math-less deck drops the KaTeX file:// link entirely', async () => {
 	assert.equal(report.math, false);
 });
 
+test('a math deck whose KaTeX sheet is ALREADY inline keeps it, and gets the article overflow guard', async () => {
+	// The CLI document carries KaTeX inline since the moved-export fix (followups.d/2439): rules in
+	// `#lattice-katex`, faces as data: URIs in the font block — no link for the assembler to swap.
+	const mathDoc = docHtml
+		.replace(/<link rel="stylesheet" href="file:\/\/\/nonexistent\/katex\.min\.css">\n/, '<style id="lattice-katex">.katex{font:normal 1.21em KaTeX_Main}</style>\n')
+		.replace('<p>Intro paragraph.</p>', '<p>Intro <span class="katex">x</span></p>');
+	const { html, report } = await buildPlayerHtml({ docHtml: mathDoc, source, now: 0 });
+	assert.equal(report.math, true);
+	assert.match(html, /\.katex\{font:normal 1\.21em KaTeX_Main\}/, 'the inline KaTeX rules ship');
+	assert.match(html, /#lp-article \.lp-figure \.katex-display\{overflow-x:auto/, 'the Read·Article overflow guard ships with it');
+	assert.deepEqual(report.missing, [], 'nothing is reported missing — the sheet was already here');
+});
+
 test('inlines a real file:// image to a data: URI and reports the count', async () => {
 	const { html, report } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /data:image\/svg\+xml/, 'the file:// image is inlined as a data: URI');

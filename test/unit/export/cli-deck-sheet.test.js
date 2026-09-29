@@ -7,7 +7,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { cliThemeStore, cliDeckSheet, packAuthorCss, packInlineStyles } = require('../../../lib/export/cli-deck-sheet.js');
+const { cliThemeStore, cliDeckSheet, packAuthorCss, packInlineStyles, katexInlineSheet } = require('../../../lib/export/cli-deck-sheet.js');
+const os = require('node:os');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const BASE = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
@@ -80,4 +81,41 @@ test('in-body styles: top-level ones get the copy, one inside an <svg> is left a
 	assert.match(out, /<style>:root\{--a:1\}\n:where\(section:not\(section \*\)\):not\(\[\\20 root\]\), :root\{--a:1\}<\/style>/);
 	assert.match(out, /<svg id="m"><style>:root\{--m:1\}<\/style>/, "Mermaid's own sheet is untouched");
 	assert.match(out, /<svg\/><style>:root\{--b:2\}\n:where\(section:not\(section \*\)\):not\(\[\\20 root\]\), :root\{--b:2\}<\/style>/, 'a self-closing <svg/> does not open a scope');
+});
+
+// ── KaTeX's stylesheet, self-contained (followups.d/2439) ─────────────────────────────────
+// A moved --html / --fluid / --read export used to lose every KaTeX face, because the page linked
+// the sheet by its file:// path on the exporting machine. The real-browser arm is
+// test/integration/export/moved-export-draws-plots.test.js; this pins the builder.
+test('katexInlineSheet: every KaTeX face becomes a woff2 data: URI, and nothing points at a file', () => {
+	const cssPath = require.resolve('katex/dist/katex.min.css');
+	const sheet = katexInlineSheet(cssPath);
+	const faces = sheet.match(/@font-face\s*\{[^}]*\}/g) || [];
+	assert.ok(faces.length >= 20, `faces: ${faces.length}`);
+	for (const f of faces) assert.match(f, /src:url\(data:font\/woff2;base64,[A-Za-z0-9+/=]+\) format\('woff2'\)/, f.slice(0, 80));
+	assert.doesNotMatch(sheet, /url\(\s*['"]?fonts\//, 'no relative font url survives');
+	assert.match(sheet, /\.katex\{/, 'the layout rules ride along');
+	assert.equal(katexInlineSheet(cssPath), sheet, 'memoized: the same text on a second call');
+});
+
+test('katexInlineSheet: no path, or an unreadable one, yields "" rather than throwing', () => {
+	assert.equal(katexInlineSheet(''), '');
+	assert.equal(katexInlineSheet(undefined), '');
+	assert.equal(katexInlineSheet(path.join(os.tmpdir(), 'no-such-dir-lattice', 'katex.min.css')), '');
+});
+
+test('katexInlineSheet: a font name that climbs out of fonts/ is left as written, never read', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-katex-'));
+	try {
+		fs.mkdirSync(path.join(dir, 'fonts'));
+		fs.writeFileSync(path.join(dir, 'fonts', 'Ok.woff2'), 'OK');
+		fs.writeFileSync(path.join(dir, 'katex.min.css'),
+			"@font-face{font-family:A;src:url(fonts/Ok.woff2) format(\"woff2\"),url(fonts/Ok.woff) format(\"woff\")}" +
+			"@font-face{font-family:B;src:url(fonts/../../secret.woff2) format(\"woff2\")}");
+		const sheet = katexInlineSheet(path.join(dir, 'katex.min.css'));
+		assert.match(sheet, /font-family:A;src:url\(data:font\/woff2;base64,T0s=\) format\('woff2'\)/);
+		assert.match(sheet, /url\(fonts\/\.\.\/\.\.\/secret\.woff2\)/, 'the climbing name is untouched');
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
 });
