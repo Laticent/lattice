@@ -396,6 +396,15 @@ break saved decks. The register sits above it: when both are set, the register w
 it is the more specific statement of intent. The `retired-backdrop-key` lint narrows to the
 old *map* form (an indented child under `backdrop:`) and its fix text points to the scalar.
 
+**The overflow tag (followup `2445-p3`, closed 2026-09-29).** On an overflowing slide the marker
+rail's tag fills the strip below the footer, and the keyline runs through that strip, so the line
+ran into both sides of the tag in every export. The tag cannot move (the strip is the one berth
+that never covers the footer; `content-clipped-pill.test.js`), so `section.finish.clip-marked >
+.marker-rail` draws two 0-blur spread shadows in the canvas color, 0.8 cqi to each side, and the
+keyline stops short of the tag. Verified on the CLI PDF (the reader pill) and on a Studio Images
+export (the author tag); the five finish decks above render byte-identical, since none of their
+slides is tagged.
+
 ### 4.11 One export face for every finish (2026-09-29)
 
 **Problem (followup `2400-p2`, closed by this change):** two writers each restated which finish
