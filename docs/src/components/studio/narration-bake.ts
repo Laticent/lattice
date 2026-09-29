@@ -30,7 +30,7 @@
 
 import { buildTrack, type CaptionTrack, interCueGapMs } from '@/lib/cadenza';
 import { GREETING_VARIANTS, greetingText, resolveBookends, withoutRedundantBookends } from '@/lib/resolve-bookends';
-import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
+import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
 import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
@@ -41,7 +41,7 @@ import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { applyChartNarration, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, slideToSpeech, synthBakeClip } from './read-aloud';
-import { getCaption } from './slide-caption';
+import { getSayLine } from './slide-say';
 import { engineForModel, returnsUncompressed } from './tts-voice-catalog';
 
 /** One spoken sentence, as it ships. */
@@ -392,7 +392,7 @@ type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
 
 function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphasis?: readonly (EmphasisSpans | undefined)[]) {
 	const slides = splitSlides(stripFrontMatter(source));
-	const fmCaptions = frontMatterCaptions(source);
+	const fmSayMap = frontMatterSayMap(source);
 	const acronyms = acronymSpokenMap(source);
 	const lexicon = lexiconMap(source);
 	const lang = frontMatterLang(source) ?? undefined;
@@ -410,8 +410,8 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 	const aligned = projected && projected.length === slides.length ? applyChartNarration(slides, projected) : null;
 	const texts = slides.map((md, i) =>
 		resolveNarration({
-			caption: getInlineCaption(md),
-			fmCaption: fmCaptions.get(i + 1),
+			say: getInlineSay(md),
+			fmSay: fmSayMap.get(i + 1),
 			// NO NOTE RUNG — see narration-resolve.ts. What gets BAKED is what the deck says,
 			// not what its author planned to say over it.
 			chart: aligned ? null : narrateChartSafe(md), // already substituted into `aligned`
@@ -429,7 +429,7 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 	// the spoken form differs and every key misses.
 	// Emphasis applies ONLY where the resolved text is still the text the spans were measured
 	// against. `aligned` above may already have swapped in narrateChart's full-slide narration, and a
-	// caption rung can win over either — both replace the string, and stale offsets would land a beat
+	// say rung can win over either — both replace the string, and stale offsets would land a beat
 	// mid-phrase. The same identity test Present and the CLI export apply, so all three producers
 	// bake, play and export the identical beats.
 	const emphases: (EmphasisSpans | undefined)[] = texts.map((t, i) => (t && t === projected?.[i] ? projectedEmphasis?.[i] : undefined));
@@ -480,9 +480,9 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 
 // The three per-slide readers Present resolves through, each wrapped so one malformed slide
 // can never take the whole bake down.
-function getInlineCaption(md: string): string | null {
+function getInlineSay(md: string): string | null {
 	try {
-		return getCaption(md);
+		return getSayLine(md);
 	} catch {
 		return null;
 	}
@@ -563,7 +563,7 @@ const ENCODE_SECONDS_PER_CLIP = 0.1;
  * projection to keep the panel cheap to open, on the reasoning that it would "move a
  * sentence or two either way on a chart-heavy deck." That was wrong by an order of
  * magnitude. The projection is not a chart detail — it is the rung that carries every slide
- * with no inline caption, no front-matter caption, no note and no recognized chart, which is
+ * with no inline say line, no front-matter say: entry, no note and no recognized chart, which is
  * most slides in most decks. Without it those slides contribute ZERO sentences, and the
  * author would be quoted a fraction of the bill they were about to be charged.
  *

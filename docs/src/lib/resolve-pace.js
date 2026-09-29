@@ -1,7 +1,7 @@
 // The docs-site binding of the shared `pace:` front-matter register. The names and the parse
 // live once in the engine at `lib/core/resolve-pace.mjs` (HARD RULE #1), so the CLI, the export
 // and the live Studio Present agree on what a deck's declared rhythm is. This thin re-export
-// gives the docs a clean `@/lib/resolve-pace` import (the `@/lib/resolve-captions` precedent)
+// gives the docs a clean `@/lib/resolve-pace` import (the `@/lib/resolve-narration` precedent)
 // without a deep relative path into the engine tree.
 //
 // The engine module is ESM (`.mjs`) for this reason: the docs production build is Rollup, and

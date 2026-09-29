@@ -11,8 +11,8 @@ import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
-import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
+import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { CHROME_CHANGE_EVENT } from '@/lib/site-chrome';
@@ -52,8 +52,8 @@ type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
 import { notify } from '@/lib/notify';
 import { mergeReadiness, readinessWindow } from './readiness-window';
 import { SlideOverview } from './SlideOverview';
-import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
+import { getSayLine } from './slide-say';
 import { hasMermaid } from './slide-thumb';
 import { buildStageDocument } from './studio-stage';
 
@@ -276,11 +276,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
 	// A front-matter `say:` map is keyed by author slide NUMBER, so under a filtered reader lens
 	// (which drops slides) we resolve it through the original index, not the
-	// position in the filtered set — else a caption would bind to the wrong slide.
+	// position in the filtered set — else a say line would bind to the wrong slide.
 	const setIndices = React.useMemo(() => (projection.status === 'ok' ? projection.pairs.map((p) => p.index) : []), [projection]);
 	// Front-matter `say:` (Layer 1, §16) — slide NUMBER (1-based) → read-as text. Memoized on
 	// the front matter, symmetric with the acronym registry memo below.
-	const fmCaptions = React.useMemo(() => frontMatterCaptions(frontMatter), [frontMatter]);
+	const fmSayMap = React.useMemo(() => frontMatterSayMap(frontMatter), [frontMatter]);
 	const count = set.length;
 	const clamped = Math.min(idx, Math.max(0, count - 1));
 	const cur = set[clamped] ?? '';
@@ -340,7 +340,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	}, [open, set, frontMatter, paletteOverride, extraTheme?.name, modeOverride, extraCss, options]);
 
 	// Resolve a slide's narration by its index in the presented set, through the ONE shared
-	// precedence ladder (`narration-resolve.ts`): inline caption → front-matter caption →
+	// precedence ladder (`narration-resolve.ts`): inline say line → front-matter say: map →
 	// chart facts → DOM projection. NO note rung. Index-based (not text-based) because the
 	// projection is index-aligned to `set`.
 	//
@@ -360,8 +360,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			const md = set[i] ?? '';
 			const aligned = projected.set === set;
 			const text = resolveNarration({
-				caption: getCaption(md),
-				fmCaption: fmCaptions.get((setIndices[i] ?? i) + 1), // front-matter captions[author slide number]
+				say: getSayLine(md),
+				fmSay: fmSayMap.get((setIndices[i] ?? i) + 1), // front-matter say[author slide number]
 				// NO NOTE RUNG. A note is the presenter's, and it reaches the presenter's own
 				// panel below — never this, which is what the room hears and reads.
 				chart: narrateChart(md),
@@ -369,13 +369,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				fallback: aligned ? null : slideToSpeech(md),
 			});
 			// EMPHASIS ONLY WHERE THE RESOLVED TEXT IS STILL THE PROJECTED TEXT. The spans are char
-			// offsets into the string the projection built; a caption override or narrateChart's
+			// offsets into the string the projection built; a say override or narrateChart's
 			// substitution replaces it, and reusing those offsets would land a beat mid-phrase. The
 			// same identity test the CLI export applies, so the two producers agree slide for slide.
 			const emphasis = aligned && text === (projected.texts[i] ?? '') ? projected.emphasis[i] : undefined;
 			return { text, emphasis };
 		},
-		[set, setIndices, fmCaptions, projected],
+		[set, setIndices, fmSayMap, projected],
 	);
 	const narrationAtRef = React.useRef(narrationAt);
 	narrationAtRef.current = narrationAt;
@@ -396,7 +396,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// The auto-advance effect below needs a signal meaning "the reader is now ready for the
 	// slide we just moved to". A bare string cannot say that: React bails out of the whole
 	// re-render when a `useState` setter is handed an equal string, so two consecutive slides
-	// whose narration resolves IDENTICALLY (the same caption override, or two slides carrying
+	// whose narration resolves IDENTICALLY (the same say override, or two slides carrying
 	// the same words)
 	// produced no commit, no new track, and therefore no effect — `autoAdvanceRef` stayed
 	// armed, the new slide never spoke, and the chain was dead until the presenter stepped in.
@@ -676,7 +676,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// Real read-aloud: a synchronized teleprompter over the current slide's prose,
 	// with spoken audio when a voice is connected. Owns its own transport (the dock
 	// play button drives it in read-aloud mode; the rehearsal clock in Rehearse).
-	// Narration priority: an author's caption override when the slide carries one —
+	// Narration priority: an author's say override when the slide carries one —
 	// else a recognized chart's computed facts (narrateChart; a funnel's
 	// stage-to-stage conversion % exists only in the render, never the source
 	// slideToSpeech reads) — else the generic on-slide prose. A speaker note is NOT

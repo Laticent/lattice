@@ -169,7 +169,7 @@ describe('the AI provider layer stays off the Studio’s eager path (#1773)', ()
 	const staticSpecifiers = (src: string) => [...stripComments(src).matchAll(STATIC_IMPORT)].map((m) => m[1]);
 
 	// The extension is OPTIONAL, because Vite/Astro resolve an extension-less specifier
-	// and this tree already relies on that (`@/lib/resolve-captions` and
+	// and this tree already relies on that (`@/lib/resolve-narration` and
 	// `@/lib/resolve-pace`, both from StudioShell, both landing on a `.js` file). A
 	// suffix test against the written text alone therefore reads
 	// `'…/ai/architect-model'` as innocent — and that spelling gives the whole win back:

@@ -225,7 +225,7 @@ ${p.slides}
 type NotesCore = {
 	extractSlideNotes: (sections: string[]) => (string | null)[];
 	extractSlideDescriptions: (sections: string[]) => (string | null)[];
-	extractSlideCaptions: (sections: string[]) => (string | null)[];
+	extractSlideSayLines: (sections: string[]) => (string | null)[];
 	stripCommentNodes: (html: string) => string;
 	/** Same deck? Same slide count, same markup per slide, whitespace ignored. Declared here
 	 *  because this object is handed to `stripNotesCut`, whose own kernel type requires it —
@@ -245,7 +245,7 @@ type SlideNoteRecord = {
 	note: string | null;
 	noteBodies: string[];
 	description: string | null;
-	caption: string | null;
+	say: string | null;
 };
 
 /** The depth-aware `<section>` walker (lib/core/split-sections.js), via the authoring bundle. */
@@ -1033,7 +1033,7 @@ type ReadAlongCore = {
 		projectedBefore: readonly string[],
 		spans: readonly (readonly { start: number; end: number; weight: number }[] | undefined)[],
 	) => (readonly { start: number; end: number; weight: number }[] | undefined)[];
-	// The SAME merge the CLI export uses (HARD RULE #1): caption → front-matter caption →
+	// The SAME merge the CLI export uses (HARD RULE #1): say line → front-matter say: map →
 	// projection, with the alignment guard that drops the projection wholesale on a
 	// section/slide count mismatch. Re-exported from the read-along-core bundle.
 	// The first argument is a slide COUNT, not the notes it used to be — a speaker note is
@@ -1041,7 +1041,7 @@ type ReadAlongCore = {
 	mergeNarration: (
 		slideCount: number,
 		projected: readonly string[],
-		opts?: { captions?: readonly (string | null | undefined)[]; fmCaptions?: ReadonlyMap<number, string> | null },
+		opts?: { sayLines?: readonly (string | null | undefined)[]; fmSayMap?: ReadonlyMap<number, string> | null },
 	) => string[];
 	readAlongToVtt: (ra: unknown) => string;
 	readAlongToVttParts: (ra: unknown) => { index: number; vtt: string }[];
@@ -1052,8 +1052,8 @@ type ReadAlongCore = {
  * (lib/core/read-along-build.js + read-along-vtt.js), bundled for the browser
  * (tools/build-read-along-core.js → read-along-core.generated.js — same packaging
  * idiom as the Webpage player's player-core.generated.js). Resolves each slide's
- * narration through the SAME chain the CLI uses (caption → front-matter caption →
- * note → component-aware DOM projection), builds a Cadenza ESTIMATE track per
+ * narration through the SAME chain the CLI uses (say line → front-matter say: map →
+ * component-aware DOM projection), builds a Cadenza ESTIMATE track per
  * narrated slide, and downloads a zip: one deck-level `<name>.vtt` (continuous,
  * deck-absolute timeline) plus per-slide `<name>.NN.vtt` — identical in shape to
  * the CLI's sidecars (one source of truth, HARD RULE #1). No audio, no TTS key —
@@ -1075,11 +1075,11 @@ export async function shareCaptions(
 	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Reading notes + projecting slides…');
-	const [authoringMod, readAlongCore, projectionMod, resolveCaptionsMod, narrationResolve, lintMod, bookendsMod] = await Promise.all([
+	const [authoringMod, readAlongCore, projectionMod, resolveNarrationMod, narrationResolve, lintMod, bookendsMod] = await Promise.all([
 		import('@/playground/authoring-core.generated.js'),
 		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
 		import('./narration-projection'),
-		import('@/lib/resolve-captions'),
+		import('@/lib/resolve-narration'),
 		import('./narration-resolve'),
 		import('./lint'),
 		import('@/lib/resolve-bookends'),
@@ -1090,7 +1090,7 @@ export async function shareCaptions(
 	// `<section>` with the NEXT `</section>`, so a slide containing a hand-authored
 	// `<section>` is truncated at the nested close tag and its `<!-- say: -->` / note
 	// falls outside the chunk — while the slide COUNT stays right, so parity cannot catch it.
-	// That slide then narrates the DOM projection instead of the author's caption, silently.
+	// That slide then narrates the DOM projection instead of the author's say line, silently.
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
 	// The auto-glossary's section is dropped (`withoutAutoGlossary`, the kernel Present, the bake and
 	// the CLI share): nobody narrates it, and leaving it in made the list one long, so the chart
@@ -1109,21 +1109,21 @@ export async function shareCaptions(
 	// exported from the docs site now produces the SAME projected captions the CLI does —
 	// closing the gap where the client `.vtt` was silently empty (the CLI already projected).
 	const notes = notesCore.extractSlideNotes(sections);
-	const captions = notesCore.extractSlideCaptions(sections);
+	const sayLines = notesCore.extractSlideSayLines(sections);
 	// Front-matter `say:` is keyed by 1-based AUTHORED slide number. The docs render
 	// (`renderMarkdown`) never runs the emulator's Fit-Spine autosplit, so `sections` is 1:1
-	// with the authored slides and `fmCaptions.get(i+1)` binds correctly — we deliberately do
+	// with the authored slides and `fmSayMap.get(i+1)` binds correctly — we deliberately do
 	// NOT port the CLI's `AUTOSPLIT_APPLIES` guard (which nulls the map): here it would be a
 	// dead no-op at best. A deck whose slides SPLIT exports a `.vtt` that differs from the
 	// CLI's by design (the CLI paginates; splitting is intrinsic since 2026-07-29).
-	const fmCaptions = resolveCaptionsMod.frontMatterCaptions(source);
-	const acronyms = resolveCaptionsMod.acronymSpokenMap(source);
-	const lexicon = resolveCaptionsMod.lexiconMap(source); // author lexicon beats the built-in commons
-	const lang = resolveCaptionsMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
+	const fmSayMap = resolveNarrationMod.frontMatterSayMap(source);
+	const acronyms = resolveNarrationMod.acronymSpokenMap(source);
+	const lexicon = resolveNarrationMod.lexiconMap(source); // author lexicon beats the built-in commons
+	const lang = resolveNarrationMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
 	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
 	// by construction). Failure leaves the projection empty, exactly as the CLI's does
 	// (lattice-emulator.js projectDeckSpeechFromHtml) — there is no notes fallback behind it,
-	// so a deck whose projection fails exports only its authored caption overrides.
+	// so a deck whose projection fails exports only its authored say overrides.
 	let projected: string[] = [];
 	// Parallel to `projected`, and the guard below compares against THIS array rather than the
 	// post-substitution one: `applyChartNarration` returns a copy, so `projected` is rebound below
@@ -1134,7 +1134,7 @@ export async function shareCaptions(
 		projected = scripts.map((x) => x.text);
 		projectedEmphasis = scripts.map((x) => x.emphasis);
 	} catch {
-		projected = []; // projection unavailable → note/caption text still narrates
+		projected = []; // projection unavailable → say text still narrates
 		projectedEmphasis = [];
 	}
 	const projectedForEmphasis = projected.slice();
@@ -1145,7 +1145,7 @@ export async function shareCaptions(
 	// export never did, so the same deck's captions disagreed with what Present spoke. Same
 	// substitution, shared rather than copied (narration-resolve.ts).
 	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected);
-	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { captions, fmCaptions });
+	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { sayLines, fmSayMap });
 	// Emphasis only where the resolved text is still the text the spans were measured against —
 	// the ONE shared rule, so all four producers spend the same beats. This sibling was missed on
 	// the first pass: `shareHtmlPlayer` was wired and this was not, so the Studio's

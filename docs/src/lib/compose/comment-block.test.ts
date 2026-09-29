@@ -182,7 +182,7 @@ describe('the comment CHANNEL drives the pill label, never the bytes', () => {
 
 	it('is space-tolerant, and case-tolerant where the kernel is', () => {
 		expect(commentKind('<!--say : x-->')).toBe('say');
-		// `say:` is LOWERCASE ONLY (notes-core CAPTION_MATCHER): "Say: …" opens a private note.
+		// `say:` is LOWERCASE ONLY (notes-core SAY_MATCHER): "Say: …" opens a private note.
 		expect(commentKind('<!--Say : x-->')).toBe('note');
 		expect(commentKind('<!--  DESCRIBE: x -->')).toBe('describe');
 	});
@@ -238,7 +238,7 @@ describe('the comment CHANNEL drives the pill label, never the bytes', () => {
 		const samples = ['caption: x', 'describe: x', 'Caption : x', 'DESCRIBE:x', 'a plain note', 'captions are nice', 'described below', 'tier: short', 'markdownlint-disable'];
 		for (const body of samples) {
 			const text = `<!-- ${body} -->`;
-			expect([body, commentKind(text) === 'say']).toEqual([body, kernel.isCaptionComment(body)]);
+			expect([body, commentKind(text) === 'say']).toEqual([body, kernel.isSayComment(body)]);
 			expect([body, commentKind(text) === 'describe']).toEqual([body, kernel.isDescriptionComment(body)]);
 		}
 	});

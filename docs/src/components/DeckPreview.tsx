@@ -11,7 +11,7 @@ import { type SlideFrameLift, slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
 import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, watchDiagramDrawn } from '@/playground/anima-host-sel';
 // The Nacre loader's CSS. Imported here beside the loader markup it styles (below). NOTE: this
-// does NOT gate payload by consumer — Vite co-locates it into a shared chunk (resolve-captions,
+// does NOT gate payload by consumer — Vite co-locates it into a shared chunk (resolve-narration,
 // in single-slide-render's graph) that every DeckPreview host pulls, so Astro inlines the ~1.5KB
 // into every page regardless of which component declares the import. It's screen-only and fully
 // scoped to `.nacre-loader*` (no global leak); detaching it from the shared chunk is a separate

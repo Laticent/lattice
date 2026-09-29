@@ -93,37 +93,47 @@ test('mergeNarration: no projection yields silence, never a note', () => {
 	assert.deepEqual(mergeNarration(2, []), ['', '']);
 });
 
-// ── Layer-1 captions precedence: caption → fmCaption → projection (§16) ───────
+// ── Layer-1 say precedence: say line → fmSayMap → projection (§16) ─────────────
 
-test('mergeNarration: an inline caption REPLACES the whole slide narration', () => {
-	const merged = mergeNarration(2, ['PROJ 0', 'PROJ 1'], { captions: ['Inline caption zero.', '  '] });
-	// slide 1: the override, and ONLY the override — an author caption replaces, never merges.
-	// slide 2: blank caption → falls through to the generated projection.
-	assert.deepEqual(merged, ['Inline caption zero.', 'PROJ 1']);
+test('mergeNarration: an inline say line REPLACES the whole slide narration', () => {
+	const merged = mergeNarration(2, ['PROJ 0', 'PROJ 1'], { sayLines: ['Inline say zero.', '  '] });
+	// slide 1: the override, and ONLY the override — an author say line replaces, never merges.
+	// slide 2: blank say line → falls through to the generated projection.
+	assert.deepEqual(merged, ['Inline say zero.', 'PROJ 1']);
 });
 
-test('mergeNarration: a front-matter caption (1-based slide number) outranks projection, below inline', () => {
-	const fmCaptions = new Map([[1, 'FM caption for slide 1.'], [3, 'FM caption for slide 3.']]);
-	const merged = mergeNarration(3, ['P0', 'P1', 'P2'], { captions: ['Inline wins.', null, null], fmCaptions });
-	// slide 1: inline beats its own fmCaption; slide 2: no override → projection; slide 3: fmCaption.
+test('mergeNarration: a front-matter say: entry (1-based slide number) outranks projection, below inline', () => {
+	const fmSayMap = new Map([[1, 'FM caption for slide 1.'], [3, 'FM caption for slide 3.']]);
+	const merged = mergeNarration(3, ['P0', 'P1', 'P2'], { sayLines: ['Inline wins.', null, null], fmSayMap });
+	// slide 1: inline beats its own fmSay; slide 2: no override → projection; slide 3: fmSay.
 	assert.deepEqual(merged, ['Inline wins.', 'P1', 'FM caption for slide 3.']);
 });
 
-test('mergeNarration: fmCaptions keys are 1-based (get(i+1)), never off-by-one', () => {
-	const fmCaptions = new Map([[2, 'Second slide reads this.']]);
-	assert.deepEqual(mergeNarration(3, [], { fmCaptions }), ['', 'Second slide reads this.', '']); // index 1 ← key 2
+test('mergeNarration: fmSayMap keys are 1-based (get(i+1)), never off-by-one', () => {
+	const fmSayMap = new Map([[2, 'Second slide reads this.']]);
+	assert.deepEqual(mergeNarration(3, [], { fmSayMap }), ['', 'Second slide reads this.', '']); // index 1 ← key 2
 });
 
-test('mergeNarration: a non-Map fmCaptions is ignored', () => {
+test('mergeNarration: a non-Map fmSayMap is ignored', () => {
 	assert.deepEqual(mergeNarration(2, ['P0', 'P1']), ['P0', 'P1']);
-	assert.deepEqual(mergeNarration(2, ['P0', 'P1'], { fmCaptions: {} }), ['P0', 'P1']);
+	assert.deepEqual(mergeNarration(2, ['P0', 'P1'], { fmSayMap: {} }), ['P0', 'P1']);
 });
 
-test('mergeNarration: a whitespace-only fm caption falls through to the projection (trim guard; live parity)', () => {
-	// A quoted "   " survives parseCaptions (space is protectable), but an all-whitespace caption
+test('mergeNarration: the pre-rename option names throw instead of being ignored', () => {
+	// `captions` / `fmCaptions` became `sayLines` / `fmSayMap`. `lib/*` is a package export, so an
+	// outside caller can still pass the old keys; ignoring them would drop every author override
+	// and narrate the projection with no error.
+	assert.throws(() => mergeNarration(1, ['P0'], { captions: ['old'] }), /renamed to `sayLines`/);
+	assert.throws(() => mergeNarration(1, ['P0'], { fmCaptions: new Map([[1, 'old']]) }), /renamed to `sayLines`/);
+	assert.throws(() => mergeNarration(1, ['P0'], { captions: undefined }), TypeError, 'a present-but-undefined old key still throws');
+	assert.deepEqual(mergeNarration(1, ['P0'], null), ['P0'], 'null options read as none');
+});
+
+test('mergeNarration: a whitespace-only fm say entry falls through to the projection (trim guard; live parity)', () => {
+	// A quoted "   " survives parseSayMap (space is protectable), but an all-whitespace caption
 	// is silence — the export trims-to-decide and falls through; PresentOverlay uses the same
 	// String(fm ?? "").trim() guard so the two producers agree (§16 F3 fix).
-	const merged = mergeNarration(2, ['P0', 'P1'], { fmCaptions: new Map([[1, '   '], [2, 'Real caption.']]) });
+	const merged = mergeNarration(2, ['P0', 'P1'], { fmSayMap: new Map([[1, '   '], [2, 'Real caption.']]) });
 	assert.deepEqual(merged, ['P0', 'Real caption.']); // slide 1: blank fm → projection; slide 2: fm
 });
 
@@ -143,8 +153,8 @@ test('buildReadAlong: the deck acronym registry expands the SPOKEN form (author 
 	assert.ok(displays.includes('CRO'), 'the DISPLAY stays the glyph (captions show CRO)');
 });
 
-test('buildReadAlong: end-to-end from front-matter — resolve-captions → registry → spoken', async () => {
-	const { acronymSpokenMap } = await import('../../../lib/core/resolve-captions.mjs');
+test('buildReadAlong: end-to-end from front-matter — resolve-narration → registry → spoken', async () => {
+	const { acronymSpokenMap } = await import('../../../lib/core/resolve-narration.mjs');
 	const md = '---\nacronyms:\n  CRO: chief revenue officer\n---\n\n# Deck\n';
 	const [{ track }] = buildReadAlong(['CRO update.'], { acronyms: acronymSpokenMap(md) }).slides;
 	const spoken = track.cues.flatMap((c) => c.words.map((w) => w.spoken)).join(' ');
@@ -250,8 +260,8 @@ test('plainSay: a marker that is not emphasis passes through', () => {
 
 test('mergeNarration: both say rungs are read through plainSay, the projection is not', () => {
   const out = mergeNarration(3, ['proj **kept**', 'proj', 'proj'], {
-    captions: ['**Inline** caption', '', ''],
-    fmCaptions: new Map([[2, 'Front-matter _caption_']]),
+    sayLines: ['**Inline** say', '', ''],
+    fmSayMap: new Map([[2, 'Front-matter _say_']]),
   });
-  assert.deepEqual(out, ['Inline caption', 'Front-matter caption', 'proj']);
+  assert.deepEqual(out, ['Inline say', 'Front-matter say', 'proj']);
 });

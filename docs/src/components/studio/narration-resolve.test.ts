@@ -13,11 +13,11 @@ import { applyChartNarration, resolveNarration } from './narration-resolve';
 
 describe('resolveNarration', () => {
 	it('takes the highest non-blank rung', () => {
-		const full = { caption: 'cap', fmCaption: 'fm', chart: 'chart', projected: 'proj', fallback: 'flat' };
+		const full = { say: 'cap', fmSay: 'fm', chart: 'chart', projected: 'proj', fallback: 'flat' };
 		expect(resolveNarration(full)).toBe('cap');
-		expect(resolveNarration({ ...full, caption: null })).toBe('fm');
-		expect(resolveNarration({ ...full, caption: null, fmCaption: null })).toBe('chart');
-		expect(resolveNarration({ ...full, caption: null, fmCaption: null, chart: null })).toBe('proj');
+		expect(resolveNarration({ ...full, say: null })).toBe('fm');
+		expect(resolveNarration({ ...full, say: null, fmSay: null })).toBe('chart');
+		expect(resolveNarration({ ...full, say: null, fmSay: null, chart: null })).toBe('proj');
 		expect(resolveNarration({ fallback: 'flat' })).toBe('flat');
 	});
 
@@ -26,7 +26,7 @@ describe('resolveNarration', () => {
 		// chart facts and the projection, so any slide with a note narrated the note — live,
 		// into the `.vtt` sidecars, and into the audio baked into a shared deck.
 		// `design/skills/speaker-notes.md` requires the two channels never bleed into one
-		// another ("a caption must never carry a private remark"); the ladder did not enforce
+		// another (a spoken line "must never carry a private remark"); the ladder did not enforce
 		// it. A note is not part of the chain at all now, so there is no rung to fall to and
 		// no ordering to get wrong — a slide with only a note reads as SILENCE.
 		const chain = { note: 'PRIVATE — legal has not cleared this number.' } as Parameters<typeof resolveNarration>[0];
@@ -37,23 +37,23 @@ describe('resolveNarration', () => {
 
 	it('reads a contentless slide as silence rather than inventing text', () => {
 		expect(resolveNarration({})).toBe('');
-		expect(resolveNarration({ caption: '', projected: '' })).toBe('');
+		expect(resolveNarration({ say: '', projected: '' })).toBe('');
 	});
 
 	it('treats a whitespace-only rung as absent, on EVERY rung', () => {
 		// The trim guard has to be uniform. It was not: Present accepted a whitespace-only
-		// inline caption (a bare truthiness check) while the export's merge trimmed and fell
+		// inline say line (a bare truthiness check) while the export's merge trimmed and fell
 		// through — so the two surfaces narrated that slide differently, which is exactly the
 		// shape that makes a clip lookup miss forever.
-		expect(resolveNarration({ caption: '   ', chart: 'chart' })).toBe('chart');
-		expect(resolveNarration({ fmCaption: ' ', chart: 'chart' })).toBe('chart');
+		expect(resolveNarration({ say: '   ', chart: 'chart' })).toBe('chart');
+		expect(resolveNarration({ fmSay: ' ', chart: 'chart' })).toBe('chart');
 		expect(resolveNarration({ chart: '\n\t ', projected: 'proj' })).toBe('proj');
 	});
 
 	it('keeps a rung’s own surrounding whitespace once it wins', () => {
 		// Trim decides IF a rung wins, never what it says — the author's spacing is theirs,
 		// and normalization for speech belongs to buildTrack.
-		expect(resolveNarration({ caption: '  Revenue grew.  ' })).toBe('  Revenue grew.  ');
+		expect(resolveNarration({ say: '  Revenue grew.  ' })).toBe('  Revenue grew.  ');
 	});
 });
 
@@ -93,12 +93,12 @@ describe('applyChartNarration', () => {
 	});
 });
 
-describe('an author caption is read as the words it says', () => {
+describe('an author say line is read as the words it says', () => {
 	// The same kernel the CLI's mergeNarration applies (lib/core/read-along-build.js plainSay),
 	// so Present, the bake and the .vtt agree on `**x**` → `x`.
-	it('strips inline Markdown from both caption rungs, not from the projection', () => {
-		expect(resolveNarration({ caption: 'It **costs** more.', projected: 'p' })).toBe('It costs more.');
-		expect(resolveNarration({ fmCaption: '_Front_ matter', projected: 'p' })).toBe('Front matter');
+	it('strips inline Markdown from both say rungs, not from the projection', () => {
+		expect(resolveNarration({ say: 'It **costs** more.', projected: 'p' })).toBe('It costs more.');
+		expect(resolveNarration({ fmSay: '_Front_ matter', projected: 'p' })).toBe('Front matter');
 		expect(resolveNarration({ projected: 'a **kept** projection' })).toBe('a **kept** projection');
 	});
 });

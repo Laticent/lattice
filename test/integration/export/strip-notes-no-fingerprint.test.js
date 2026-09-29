@@ -44,7 +44,7 @@
  * catch.
  *
  * THE CAPTION ARMS ARE THE SAME CLAIM ONE CHANNEL OVER (#2003). The #1985 fix was note-only:
- * `stripCaptionsFromSource` stayed a span-only replace and nothing re-rendered from it, so a
+ * `stripSayFromSource` (then `stripCaptionsFromSource`) stayed a span-only replace and nothing re-rendered from it, so a
  * captioned slide carried the byte a noted slide had just stopped carrying. That the two flags
  * now share one cut is pinned in `test/unit/authoring/notes-core.test.js`; what CANNOT be pinned
  * there is the wiring — whether the export renders the composed source it ships — which is
@@ -69,14 +69,14 @@ describe('strip-notes: no whitespace fingerprint', () => {
   const TWIN = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-no-notes.md');
   // A deck whose notes sit where a comment line is load-bearing — no blank line on either side.
   const BOUNDARY = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-boundary.md');
-  // The caption channel's three (#2003). CAPTIONED carries an inline caption on slide 1, a
-  // front-matter `captions:` entry for slide 3 and a speaker note on slide 2 — so the two flags
-  // can be measured apart. NO_CAPTIONS is the same deck with the caption material never typed
+  // The say channel's three (#2003). WITH_SAY carries an inline say line on slide 1, a
+  // front-matter `say:` entry for slide 3 and a speaker note on slide 2 — so the two flags
+  // can be measured apart. NO_SAY is the same deck with the say material never typed
   // and the note kept; BARE has neither channel.
-  const CAPTIONED = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck.md');
-  const NO_CAPTIONS = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck-no-captions.md');
-  const BARE = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck-bare.md');
-  const CAPTION_BOUNDARY = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck-boundary.md');
+  const WITH_SAY = path.join(ROOT, 'test', 'fixtures', 'strip-say-deck.md');
+  const NO_SAY = path.join(ROOT, 'test', 'fixtures', 'strip-say-deck-no-say.md');
+  const BARE = path.join(ROOT, 'test', 'fixtures', 'strip-say-deck-bare.md');
+  const SAY_BOUNDARY = path.join(ROOT, 'test', 'fixtures', 'strip-say-deck-boundary.md');
   // A deck whose ATTACHED document is not the one the export renders: a Mermaid fence makes the
   // two differ, and a note indented inside a list item makes the cut choice change the bytes.
   const PREPROCESSED = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-preprocessed.md');
@@ -172,9 +172,9 @@ describe('strip-notes: no whitespace fingerprint', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-fingerprint-'));
     // `--strip-say` ALONE, with the note channel left on: the configuration the issue
     // measured, and the one that had no second pass at all before this fix.
-    const stripped = sections(exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-say']));
-    const twin = sections(exportHtml(dir, NO_CAPTIONS, 'twin.html', ['--player']));
-    const asAuthored = sections(exportHtml(dir, CAPTIONED, 'authored.html', ['--player']));
+    const stripped = sections(exportHtml(dir, WITH_SAY, 'stripped.html', ['--player', '--strip-say']));
+    const twin = sections(exportHtml(dir, NO_SAY, 'twin.html', ['--player']));
+    const asAuthored = sections(exportHtml(dir, WITH_SAY, 'authored.html', ['--player']));
 
     assert.equal(stripped.length, 3, `expected the fixture's three slides, got ${stripped.length}`);
     assert.equal(stripped.length, twin.length, 'the two fixtures must be the same deck minus its captions');
@@ -203,9 +203,9 @@ describe('strip-notes: no whitespace fingerprint', () => {
     const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
     const sourceOf = (file) => parseEnvelope(fs.readFileSync(file, 'utf8')).source;
 
-    const stripped = sourceOf(exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-say']));
-    const twin = sourceOf(exportHtml(dir, NO_CAPTIONS, 'twin.html', ['--player']));
-    const asAuthored = sourceOf(exportHtml(dir, CAPTIONED, 'authored.html', ['--player']));
+    const stripped = sourceOf(exportHtml(dir, WITH_SAY, 'stripped.html', ['--player', '--strip-say']));
+    const twin = sourceOf(exportHtml(dir, NO_SAY, 'twin.html', ['--player']));
+    const asAuthored = sourceOf(exportHtml(dir, WITH_SAY, 'authored.html', ['--player']));
 
     // The probe can see something, and the control shows it can see the caption material when
     // it is there — otherwise "identical" would just mean "read nothing".
@@ -327,7 +327,7 @@ describe('strip-notes: no whitespace fingerprint', () => {
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const log = `${r.stdout}${r.stderr}`;
     assert.doesNotMatch(
-      log, /could not have a note or caption comment removed/,
+      log, /could not have a note or say comment removed/,
       'the deck has neither channel, so there is nothing the cut could have failed to remove'
     );
     // Control: the probe can see that log at all, and the export really did attach the source.
@@ -338,7 +338,7 @@ describe('strip-notes: no whitespace fingerprint', () => {
     // The two flags scrub ONE document, so the export measures ONE cut for the composed source.
     // Running them separately and hoping they agree is the shape this arm exists to refuse.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-compose-'));
-    const strippedPath = exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-notes', '--strip-say']);
+    const strippedPath = exportHtml(dir, WITH_SAY, 'stripped.html', ['--player', '--strip-notes', '--strip-say']);
     const stripped = sections(strippedPath);
     const bare = sections(exportHtml(dir, BARE, 'bare.html', ['--player']));
 
@@ -361,8 +361,8 @@ describe('strip-notes: no whitespace fingerprint', () => {
     // re-cut the deck the same way — `Some text\n---` is a setext H2, not a slide break. The
     // fixture puts a caption in both load-bearing positions the note fixture uses.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-boundary-'));
-    const authored = sections(exportHtml(dir, CAPTION_BOUNDARY, 'authored.html', ['--player']));
-    const strippedPath = exportHtml(dir, CAPTION_BOUNDARY, 'stripped.html', ['--player', '--strip-say']);
+    const authored = sections(exportHtml(dir, SAY_BOUNDARY, 'authored.html', ['--player']));
+    const strippedPath = exportHtml(dir, SAY_BOUNDARY, 'stripped.html', ['--player', '--strip-say']);
     const stripped = sections(strippedPath);
     assert.equal(authored.length, 2, 'guard: the fixture is a two-slide deck');
     assert.doesNotMatch(

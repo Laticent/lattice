@@ -145,7 +145,7 @@ describe('findCueTarget', () => {
 	});
 });
 
-describe('findParaphraseTarget — an authored caption in other words', () => {
+describe('findParaphraseTarget — an authored say line in other words', () => {
 	// The Q3 board fixture's list-steps slide, verbatim: the caption and the items share the words
 	// that carry the meaning and not one whole sentence (followups.d/2363-p3).
 	const steps = () =>

@@ -787,7 +787,7 @@ export function findFigureTarget(root: Document | Element | null, text: string):
 	return bodies[0];
 }
 
-// ── THE PARAPHRASE TIER — an authored caption that SAYS the slide in other words ──────────────
+// ── THE PARAPHRASE TIER — an authored say line that SAYS the slide in other words ─────────────
 //
 // A `<!-- say: -->` is written to be heard, and the slide is written to be read, so the two
 // rarely share a sentence. "First, we announce to customers in November with twelve months'
@@ -829,7 +829,7 @@ const NUMBER_WORDS: Record<string, string> = Object.fromEntries(
 for (const [w, n] of [['thirty', 30], ['forty', 40], ['fifty', 50], ['sixty', 60], ['seventy', 70], ['eighty', 80], ['ninety', 90]] as const) NUMBER_WORDS[w] = String(n);
 
 /**
- * Fold a SPELLED amount into the key its digits make. An authored caption is written to be heard,
+ * Fold a SPELLED amount into the key its digits make. An authored say line is written to be heard,
  * so it says "forty-eight point six million" where the slide says `$48.6M`, and "eight hundred
  * seventy" where it says `870`. `loose` reduces `$48.6M` to `486m` and `12,400` to `12400`, so a
  * spoken run is reduced the same way: "forty eight point six million" → `486m`, "twelve thousand

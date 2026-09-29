@@ -425,7 +425,7 @@ export function withPrintCanvas(source: string): string {
  * unlike the flat writer, it DOES re-emit the whole block, so it still normalizes what
  * `parseFm` does not model (#1256 scoped the two nested writers out; the gap is tracked as a
  * follow-up rather than left unrecorded). The reader is
- * `lexiconMap` / `parseNarrationFrontMatter` (resolve-captions). Entries emit in order; the
+ * `lexiconMap` / `parseNarrationFrontMatter` (resolve-narration). Entries emit in order; the
  * child KEY is always quoted (a token can be `:` or whitespace-adjacent), the VALUE quoted only
  * when needed — an empty value emits `""`, the explicit "silence this token" form. Drops any prior
  * form of the key (a nested block OR a flat/inline-flow scalar of the same name) before writing.
@@ -469,7 +469,7 @@ const ACRONYM_TERM_RE = /^[A-Za-z0-9][\w.&/-]*$/;
  *       expansion: ee bit dah
  *       definition: "Earnings before interest, taxes, depreciation, and amortization."
  *
- * The reader is `parseNarrationFrontMatter(...).acronyms` (resolve-captions). Preserves flat
+ * The reader is `parseNarrationFrontMatter(...).acronyms` (resolve-narration). Preserves flat
  * directives, any OTHER nested block (incl. `lexicon:`), and the body. An entry with an invalid term
  * or an empty expansion is dropped (the parser would skip it too). Later duplicate terms win.
  */

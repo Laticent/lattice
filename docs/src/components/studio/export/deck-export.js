@@ -611,7 +611,7 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
  * the loss passes a parity check unnoticed.
  *
  * @param {string} html the engine's rendered deck HTML
- * @returns {Promise<{note: string|null, description: string|null, caption: string|null}[]>}
+ * @returns {Promise<{note: string|null, description: string|null, say: string|null}[]>}
  */
 async function slideChannelRecord(html) {
 	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-core.generated.js');
