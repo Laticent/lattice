@@ -34,14 +34,15 @@ const fm = (pace?: string) => `---\ntheme: cuoio${pace ? `\npace: ${pace}` : ''}
  *  slide's progress until the reader rebuilds. Both were tried; both measure the wrong window. */
 const holding = () => screen.getByRole('dialog', { name: 'Present' }).getAttribute('data-beat') === 'hold';
 
-/** How long the deck holds on slide 2 before narration starts — the between-slide beat. */
+/** How long the deck holds on slide 2 before narration starts — the between-slide ARRIVAL beat.
+ *  The clock starts when slide 2 is shown: the leave beat on slide 1 is also a hold, and timing
+ *  from the first hold measured leave + arrival, so a pace that reached only one could pass. */
 async function measureBeat(): Promise<number> {
 	const user = userEvent.setup();
 	await user.click(screen.getByRole('button', { name: 'Play the presentation' }));
-	// Catch the hold as it OPENS, so the measurement covers the whole window.
 	const armed = Date.now() + 12_000;
-	while (Date.now() < armed && !holding()) await new Promise((r) => setTimeout(r, 10));
-	expect(holding(), 'the deck never entered a hold — the chain stalled, so no beat was measured').toBe(true);
+	while (Date.now() < armed && !screen.queryByText('2 / 2')) await new Promise((r) => setTimeout(r, 5));
+	expect(holding(), 'the deck arrived on slide 2 without holding — the chain stalled, so no beat was measured').toBe(true);
 	const start = performance.now();
 	while (performance.now() - start < 6000) {
 		if (!holding()) return performance.now() - start;
@@ -73,6 +74,21 @@ describe('Present — the deck carries its pace (#1399)', () => {
 		const beat = await measureBeat();
 		// The preset is a DEFAULT for an undeclared deck, not a dead setting.
 		expect(beat).toBeLessThan(1300);
+	}, 30_000);
+
+	it('drops the leave beat cleanly when the presenter moves on during it', async () => {
+		// Moving to the next slide by hand inside the leave beat must end the hold: it used to stay
+		// on, so the transport read Pause with nothing playing (checker, reproduced).
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fm('deliberate')} />);
+		await user.click(screen.getByRole('button', { name: 'Play the presentation' }));
+		const armed = Date.now() + 12_000;
+		while (Date.now() < armed && !(holding() && screen.queryByText('1 / 2'))) await new Promise((r) => setTimeout(r, 5));
+		expect(holding(), 'the finished slide never held its leave beat').toBe(true);
+		await user.click(screen.getAllByRole('button', { name: 'Next slide' })[0]);
+		await new Promise((r) => setTimeout(r, 1500));
+		expect(screen.queryByText('2 / 2')).not.toBeNull();
+		expect(holding(), 'a hold outlived the leave beat it belonged to').toBe(false);
 	}, 30_000);
 
 	it('still lets the presenter override a declared deck live', async () => {

@@ -157,5 +157,8 @@
         "hall": 9
       }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

@@ -333,5 +333,8 @@
         }
       }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

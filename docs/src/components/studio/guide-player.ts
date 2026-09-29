@@ -1,6 +1,7 @@
-import { createStage, type Stage } from '@/lib/vetrina';
+import { DELIVERY_STYLES } from '@/lib/resolve-delivery';
+import { createStage, type Stage } from '@/lib/vetrina/index.js';
 import { createGuideConductor, type GuideDelivery, guideStageTheme } from './guide-conductor';
-import { cueDisplayText, guideAimInRoot, guideCueInRoot, POINTER_BOX } from './present-guide';
+import { cueDisplayText, guideAimInRoot, guideCueInRoot, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue } from './present-guide';
 
 // THE GUIDE, FOR THE EXPORTED PLAYER — the entry `tools/build-guide-player.js` bundles into
 // `lib/export/guide-player-bundle.generated.mjs`, which `player-core.mjs` inlines into a narrated
@@ -13,19 +14,22 @@ import { cueDisplayText, guideAimInRoot, guideCueInRoot, POINTER_BOX } from './p
 // pauses, and when the slide changes; the conductor answers.
 
 /** The slide's caption track as the player's LTT cursor hands it over. */
-type Track = { cues: { words: { display?: string }[] }[] } | null;
+type Track = { cues: { words: { display?: string }[]; charOffset?: number }[] } | null;
 
 export type PlayerGuide = {
 	/** A sentence started (`cue` ≥ 0), the slide changed with nothing said yet (`cue` -1), or
-	 *  narration paused or resumed (`playing`). */
-	beat(slide: number, cue: number, track: Track, playing: boolean): void;
+	 *  narration paused or resumed (`playing`). `bookend`: a greeting or closing is being read, not
+	 *  the slide's own narration, so the slide's binding does not apply. */
+	beat(slide: number, cue: number, track: Track, playing: boolean, bookend?: boolean): void;
 	/** Word `k` of cue `cue` is being said, for the read-along inside the focused element. */
 	word(track: Track, cue: number, k: number, captionsOn: boolean): void;
 	/** Take the hand and the focus down (the viewer switched the Guide off, or left Present). */
 	reset(): void;
 };
 
-type Preset = GuideDelivery & { motion: 'full' | 'legible' };
+/** The delivery, its motion, and each slide's binding (`guideLook` in lib/export/player-core.mjs),
+ *  absent when no slide is bound. */
+type Preset = GuideDelivery & { motion: 'full' | 'legible'; refs?: (readonly SceneRef[] | null)[] };
 
 function create(delivery: Preset, shown: () => Element | null): PlayerGuide {
 	let stage: Stage | null = null;
@@ -48,12 +52,21 @@ function create(delivery: Preset, shown: () => Element | null): PlayerGuide {
 			return sec ? guideCueInRoot(sec, sec, t, p) : null;
 		},
 		clearance: POINTER_BOX / 2 + 5,
+		// A BOUND SENTENCE plays its scene, as in Present: the shown section is its root, and it is the
+		// document here, so no frame to cross.
+		section: () => shown(),
+		sceneCue: (section, els, kind, strength) => sceneCue(null, section, els, kind, strength),
 	});
+	const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle } | undefined>)[delivery.name]?.express;
 	return {
-		beat(slide, cue, track, playing) {
+		beat(slide, cue, track, playing, bookend = false) {
 			ensure();
 			const texts = track ? track.cues.map(cueDisplayText) : [];
-			conductor.beat({ slide, cue, texts, track, delivering: playing, delivery });
+			// While a bookend speaks, the text being read is not the slide's, so its binding does not apply.
+			const refs = bookend ? null : (delivery.refs?.[slide] ?? null);
+			const at = track && cue >= 0 ? (track.cues[cue]?.charOffset ?? -1) : -1;
+			const scene = refs && style ? { refs, at, style } : null;
+			conductor.beat({ slide, cue, texts, track, delivering: playing, delivery, scene });
 		},
 		word(track, cue, k, captionsOn) {
 			const words = track && cue >= 0 ? (track.cues[cue]?.words.map((w) => w.display ?? '') ?? []) : null;

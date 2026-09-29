@@ -39,13 +39,13 @@ describe('marp-bundle spec', () => {
   test('STATIC_ASSETS ships the minified stylesheet/runtime/mermaid; NO engine', () => {
     const byTo = Object.fromEntries(STATIC_ASSETS.map((a) => [a.to, a.from]));
     // lattice.css at the bundle root (minified) — it is the Marp themeSet base.
-    assert.equal(byTo['lattice.css'], 'dist/lattice.min.css');
-    assert.equal(byTo['lattice-runtime.min.js'], 'dist/lattice-runtime.min.js');
+    assert.equal(byTo['lattice.css'], 'dist/lattice-min.css');
+    assert.equal(byTo['lattice-runtime-min.js'], 'dist/lattice-runtime-min.js');
     // The dagre layout engine, split OUT of the runtime bundle. It has to travel with
     // the runtime: an exported deck opens from `file://`, so the only place the browser
     // can find the engine is beside the script that reads it.
-    assert.equal(byTo['lattice-dagre.min.js'], 'dist/lattice-dagre.min.js');
-    assert.equal(byTo['mermaid-v11.min.js'], 'mermaid-v11.min.js');
+    assert.equal(byTo['lattice-dagre-min.js'], 'dist/lattice-dagre-min.js');
+    assert.equal(byTo['mermaid-v11-min.js'], 'mermaid-v11-min.js');
     // The bundle is Marp-native: no emulator is shipped.
     assert.ok(!STATIC_ASSETS.some((a) => /emulator/.test(a.from) || /emulator/.test(a.to)));
     assert.equal(byTo['dist/lattice.css'], undefined);
@@ -102,14 +102,14 @@ describe('marp-bundle spec', () => {
     // `$`-anchored — true only while a marker-less export emitted no settings block,
     // which is the block-less state the runtime reads as "authoring surface" and the
     // choke point now refuses to produce.)
-    assert.match(out, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-dagre\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\n/);
-    assert.ok(RUNTIME_SCRIPTS.includes('lattice-runtime.min.js'));
+    assert.match(out, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11-min\.js"><\/script>\n<script src="lattice-dagre-min\.js"><\/script>\n<script src="lattice-runtime-min\.js"><\/script>\n/);
+    assert.ok(RUNTIME_SCRIPTS.includes('lattice-runtime-min.js'));
     // ORDER, not just presence: dagre installs `globalThis.__latticeDagre`, and the
     // runtime's state-chart pass reads it synchronously on its first draw. Classic
     // scripts run in document order, so a dagre tag after the runtime tag arrives too
     // late and every branching machine silently paints as the numbered column.
     assert.ok(
-      RUNTIME_SCRIPTS.indexOf('lattice-dagre.min.js') < RUNTIME_SCRIPTS.indexOf('lattice-runtime.min.js'),
+      RUNTIME_SCRIPTS.indexOf('lattice-dagre-min.js') < RUNTIME_SCRIPTS.indexOf('lattice-runtime-min.js'),
       'the layout engine must be tagged BEFORE the runtime that reads it');
     // Nothing but generated data blocks may follow — no stray deck content. Asserted as
     // EXACT EQUALITY rather than "strip the script tags and check for leftovers": the
@@ -122,9 +122,9 @@ describe('marp-bundle spec', () => {
     assert.equal(
       trailer,
       '<!-- markdownlint-disable MD033 -->\n'
-      + '<script src="mermaid-v11.min.js"></script>\n'
-      + '<script src="lattice-dagre.min.js"></script>\n'
-      + '<script src="lattice-runtime.min.js"></script>\n'
+      + '<script src="mermaid-v11-min.js"></script>\n'
+      + '<script src="lattice-dagre-min.js"></script>\n'
+      + '<script src="lattice-runtime-min.js"></script>\n'
       + `<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>\n`,
     );
   });
@@ -278,7 +278,7 @@ describe('marp-bundle spec', () => {
       const fs = require('node:fs');
       const path = require('node:path');
       const css = fs.readFileSync(
-        path.join(__dirname, '..', '..', '..', 'dist', 'lattice.min.css'), 'utf8',
+        path.join(__dirname, '..', '..', '..', 'dist', 'lattice-min.css'), 'utf8',
       );
       const once = marpScopableCss(css);
       const count = (s, ch) => s.split(ch).length - 1;
@@ -466,16 +466,30 @@ describe('marp bundle — the overflow-marker export setting', () => {
   // tag in the re-exported deck, and two Mermaid loads in the recipient's browser.
   test('a deck baked by an OLDER version re-exports with one block, not two', () => {
     const legacy = '---\nmarp: true\n---\n\n# A\n\n<!-- markdownlint-disable MD033 -->\n'
-      + '<script src="mermaid-v11.min.js"></script>\n'
-      + '<script src="lattice-runtime.min.js"></script>\n';
+      + '<script src="mermaid-v11-min.js"></script>\n'
+      + '<script src="lattice-runtime-min.js"></script>\n';
     const out = withRuntimeScripts(legacy);
-    for (const [file, want] of [['mermaid-v11.min.js', 1], ['lattice-dagre.min.js', 1], ['lattice-runtime.min.js', 1]]) {
+    for (const [file, want] of [['mermaid-v11-min.js', 1], ['lattice-dagre-min.js', 1], ['lattice-runtime-min.js', 1]]) {
       const esc = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const n = (out.match(new RegExp(`<script src="${esc}"></script>`, 'g')) || []).length;
       assert.equal(n, want, `${file} appears ${n} times — the older block was not stripped`);
     }
     assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 1, 'one trailer, not two');
     assert.match(out, /# A/, 'and the deck itself survives');
+  });
+
+  // Before 2026-09-29 the bundle's minified files were named `.min.js`. A deck baked then
+  // names files the new bundle no longer ships, so its block must go, not survive beside
+  // the new one as three dead tags.
+  test('a deck baked with the old `.min.js` names re-exports with one `-min` block', () => {
+    const legacy = '---\nmarp: true\n---\n\n# A\n\n<!-- markdownlint-disable MD033 -->\n'
+      + '<script src="mermaid-v11.min.js"></script>\n'
+      + '<script src="lattice-dagre.min.js"></script>\n'
+      + '<script src="lattice-runtime.min.js"></script>\n';
+    const out = withRuntimeScripts(legacy);
+    assert.doesNotMatch(out, /\.min\.js/, 'the old-name tags were not stripped');
+    assert.equal((out.match(/<script src="[^"]+-min\.js"><\/script>/g) || []).length, 3, 'exactly one new block');
+    assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 1, 'one trailer, not two');
   });
 
   // The strip must recognize OUR tags, not any tag: a deck may legitimately carry the
@@ -496,11 +510,11 @@ describe('marp bundle — the overflow-marker export setting', () => {
     const deck = ['---', 'marp: true', '---', '', '# Wiring', '',
       'Add these to the end of your deck:', '', '```html',
       '<!-- markdownlint-disable MD033 -->',
-      '<script src="lattice-dagre.min.js"></script>',
-      '<script src="lattice-runtime.min.js"></script>',
+      '<script src="lattice-dagre-min.js"></script>',
+      '<script src="lattice-runtime-min.js"></script>',
       '```', '', 'Then open it in a browser.', ''].join('\n');
     const out = withRuntimeScripts(deck);
-    assert.match(out, /```html\n<!-- markdownlint-disable MD033 -->\n<script src="lattice-dagre\.min\.js"><\/script>/,
+    assert.match(out, /```html\n<!-- markdownlint-disable MD033 -->\n<script src="lattice-dagre-min\.js"><\/script>/,
       'the quoted block was eaten — an author\'s own code fence is not ours to strip');
     assert.match(out, /Then open it in a browser\./, 'and the prose after it survives');
     // …and the real block is still appended exactly once, so the fix did not trade

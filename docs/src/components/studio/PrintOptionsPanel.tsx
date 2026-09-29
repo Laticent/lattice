@@ -36,8 +36,11 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
-import { withPrintCanvas } from './front-matter';
+import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
+import { splitSlides } from './lint';
+import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
+import { hasMermaid } from './slide-thumb';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 
 type Paper = 'auto' | 'letter' | 'legal' | 'a4';
@@ -120,29 +123,53 @@ export function whenPrintReady(
 	timer(armed, 3000);
 }
 
-function printHtmlDoc(doc: string, onDialog?: () => void): void {
-	const frame = document.createElement('iframe');
-	frame.setAttribute('aria-hidden', 'true');
-	// Off-screen at a real size (not 0×0/hidden) so fonts + layout actually render before
-	// print; the @media print rules (not the on-screen size) drive the printed output.
-	frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:720px;border:0;';
-	frame.srcdoc = doc;
+/** The preview stage's padding, summed per axis: 20px sides; 20px top + 28px bottom (see STYLE). */
+const STAGE_PAD_X = 40;
+const STAGE_PAD_Y = 48;
+
+/** The panel's one print frame and the document it holds (see `printHtmlDoc`). */
+type PrintFrame = { frame: HTMLIFrameElement; doc: string; loaded: boolean };
+
+// ONE PRINT FRAME PER PANEL, REUSED. Each print used to mount a fresh frame and remove it after
+// the dialog. WebKit never frees a destroyed preview document (preview-pool.tsx has the
+// measurements), so every print stranded a whole deck's document. Now the panel keeps one frame:
+// printing the SAME document again prints the frame it already has (no new document), and a
+// changed deck is written into that frame (one document, as before). The panel removes the frame
+// when it unmounts.
+function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialog?: () => void): void {
 	let signaled = false;
 	const signal = () => { if (!signaled) { signaled = true; try { onDialog?.(); } catch { /* noop */ } } };
-	const reclaim = () => setTimeout(() => { try { frame.remove(); } catch { /* noop */ } }, 1000);
-	frame.onload = () => {
+	// Clear the caller's loading state right as we open the dialog (print() then blocks).
+	const printWhenReady = (frame: HTMLIFrameElement) => {
 		try {
 			frame.contentWindow?.focus();
-			frame.contentWindow?.addEventListener('afterprint', reclaim);
-			// Clear the caller's loading state right as we open the dialog (print() then blocks).
 			const go = () => { signal(); try { frame.contentWindow?.print(); } catch { /* noop */ } };
 			const w = frame.contentWindow as (Window & { __latticeFontsReady?: Promise<void> }) | null;
 			whenPrintReady(w?.__latticeFontsReady, go);
 		} catch { signal(); }
 	};
-	document.body.appendChild(frame);
-	// Safety: if load never fires, release both the caller's loading state and the frame.
-	setTimeout(() => { signal(); reclaim(); }, 60_000);
+	const kept = slot.current?.frame.isConnected ? slot.current : null;
+	if (kept && kept.doc === doc) {
+		// Still loading (a load that stalled past the safety timer): take over its `onload`, so the
+		// document prints once, when it lands, and this call's caller is the one released.
+		if (kept.loaded) printWhenReady(kept.frame);
+		else kept.frame.onload = () => { kept.loaded = true; printWhenReady(kept.frame); };
+		return;
+	}
+	const frame = kept?.frame ?? document.createElement('iframe');
+	if (!kept) {
+		frame.setAttribute('aria-hidden', 'true');
+		// Off-screen at a real size (not 0×0/hidden) so fonts + layout actually render before
+		// print; the @media print rules (not the on-screen size) drive the printed output.
+		frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:720px;border:0;';
+	}
+	const entry: PrintFrame = { frame, doc, loaded: false };
+	frame.onload = () => { entry.loaded = true; printWhenReady(frame); };
+	frame.srcdoc = doc;
+	slot.current = entry;
+	if (!kept) document.body.appendChild(frame);
+	// Safety: if load never fires, release the caller's loading state.
+	setTimeout(signal, 60_000);
 }
 
 export function PrintOptionsPanel({
@@ -190,12 +217,15 @@ export function PrintOptionsPanel({
 
 	const mountedRef = React.useRef(true);
 	const builtUrlRef = React.useRef<string | null>(null);
+	const printFrameRef = React.useRef<PrintFrame | null>(null);
 	React.useEffect(() => { builtUrlRef.current = builtPdf?.url ?? null; }, [builtPdf]);
 	React.useEffect(() => {
 		mountedRef.current = true;
 		return () => {
 			mountedRef.current = false;
 			if (builtUrlRef.current) { try { URL.revokeObjectURL(builtUrlRef.current); } catch { /* noop */ } }
+			try { printFrameRef.current?.frame.remove(); } catch { /* noop */ }
+			printFrameRef.current = null;
 		};
 	}, []);
 
@@ -213,6 +243,12 @@ export function PrintOptionsPanel({
 		return () => ro.disconnect();
 	}, []);
 
+	// The deck as it prints: B&W remaps class tokens through the print canvas.
+	const printSrc = React.useMemo(() => (opts.color === 'bw' ? withPrintCanvas(source) : source), [source, opts.color]);
+	// The same deck split into its markdown slides, for the pooled preview cells below.
+	const fm = React.useMemo(() => frontMatterBlock(printSrc), [printSrc]);
+	const mdSlides = React.useMemo(() => splitSlides(stripFrontMatter(printSrc)), [printSrc]);
+
 	// ── Render the deck whenever the color changes (B&W remaps class tokens). This is the
 	// only re-render; paper/orientation just re-fit the SAME render via the CSS math below. ──
 	React.useEffect(() => {
@@ -222,8 +258,7 @@ export function PrintOptionsPanel({
 		// A re-render invalidates any cached slide images (new pixels): drop them so the
 		// next build rasterizes the fresh render rather than re-placing stale images.
 		setImgCache(null);
-		const src = opts.color === 'bw' ? withPrintCanvas(source) : source;
-		buildDeckRender(options, src, palette, mode, extraTheme, extraCss)
+		buildDeckRender(options, printSrc, palette, mode, extraTheme, extraCss)
 			.then((r) => {
 				if (!alive) return;
 				setRender(r);
@@ -232,7 +267,7 @@ export function PrintOptionsPanel({
 			})
 			.catch((e) => { if (alive) { setStatus(messageForFailure(e, 'Could not render the deck.')); setRendering(false); } });
 		return () => { alive = false; };
-	}, [options, source, palette, mode, extraTheme, extraCss, opts.color]);
+	}, [options, printSrc, palette, mode, extraTheme, extraCss]);
 
 	// Layout → the two derived knobs: slides-per-sheet (grid) OR the notes handout.
 	const handout = opts.layout === 'handout';
@@ -264,24 +299,51 @@ export function PrintOptionsPanel({
 	const dims = `${SHEET_LABEL[sheet.paper as Exclude<Paper, 'auto'>]} · ${sheet.orientation} · ${Math.round((sheet.pageW / 96) * 72)} × ${Math.round((sheet.pageH / 96) * 72)} pt${layoutLabel}`;
 	// Sheet pixel size: the largest sheet-aspect rect that fits the measured stage box.
 	const aspect = sheet.pageW / sheet.pageH;
-	const availW = box.w ? Math.max(60, box.w - 20) : 300;
-	const availH = box.h ? Math.max(60, box.h - 20) : 170;
+	// `box` is the stage's client box, which includes its padding: 20px on the top and sides and
+	// 28px at the bottom (STAGE_PAD_X, STAGE_PAD_Y below). The extra 8px is for the sheet's drop
+	// shadow, which falls 14px downward: with even padding the bottom gap measured the same as the
+	// top (16px) and still read as tighter, because the shadow filled it.
+	const availW = box.w ? Math.max(60, box.w - STAGE_PAD_X) : 300;
+	const availH = box.h ? Math.max(60, box.h - STAGE_PAD_Y) : 170;
 	const sheetH = Math.min(availH, availW / aspect);
 	const sheetPx = { width: `${Math.round(sheetH * aspect)}px`, height: `${Math.round(sheetH)}px` };
+	// THE STAGE TAKES ITS HEIGHT FROM THE PAPER. It was a fixed 180px, so the sheet was 264x160 at
+	// every width: 66% of the desktop drawer's stage, with dark bands either side, and a portrait
+	// sheet shrank to ~100px wide. Now the sheet fills the stage's width and the stage wraps it.
+	// `.pod-stage`'s max-height caps a portrait sheet on a phone; the ResizeObserver above reads
+	// the capped box, so the sheet then fits the height instead.
+	const stageStyle = box.w ? { height: `${Math.round(availW / aspect + STAGE_PAD_Y)}px` } : undefined;
 
-	// One self-contained preview document per cell on the CURRENT sheet (screen, not print
-	// rules) — for N-up this is up to `nup` slides; a trailing partial sheet leaves empty
-	// cells (''). Each is a bare section re-wrapped in `.lattice` (the theme's `.lattice >
-	// section` rules need that parent).
+	// THE PREVIEW CELLS COME FROM THE STUDIO'S PREVIEW POOL (preview-pool.tsx). Each cell used to
+	// be its own `<iframe srcDoc>` keyed by slide, so every sheet flip and every N-up change built
+	// fresh documents: one per flip at 1-up, four at 4-up. WebKit never frees a destroyed preview
+	// document, so paging through a deck on an iPad stranded one document per page viewed. A
+	// pooled cell is a stable tile keyed by its POSITION on the sheet: a flip changes which slide
+	// it shows, and the pool patches that slide into the frame it already has.
+	//
+	// The pool addresses MARKDOWN slides, while the sheet pages by RENDERED sections. They match
+	// for almost every deck; where the engine renders a different number of pages than the
+	// markdown has slides, the cells keep one self-contained document each (below) so the
+	// preview never shows a different page from the one that prints.
+	const pooled = mdSlides.length === sections.length;
+	// ONE Mermaid flag for the whole deck, not per slide. The flag is part of a pooled frame's shape
+	// (preview-pool.tsx `shapeKey`), and a cell keeps its frame across flips, so a per-slide flag
+	// made every flip between a diagram slide and a plain one a full document rewrite (the checker
+	// measured 5 documents in 5 flips on an alternating deck). The cost is the Mermaid runtime in at
+	// most four frames, and only for a deck that has a diagram at all.
+	const deckMermaid = React.useMemo(() => mdSlides.some((s) => hasMermaid(s)), [mdSlides]);
+	// The fallback: one self-contained preview document per cell on the CURRENT sheet (screen,
+	// not print rules). For N-up this is up to `nup` slides; a trailing partial sheet leaves
+	// empty cells (''). Each is a bare section re-wrapped in `.lattice` (the theme's
+	// `.lattice > section` rules need that parent).
 	const previewDocs = React.useMemo(() => {
-		if (!render || !sections.length) return [];
+		if (!render || !sections.length || pooled) return [];
 		return Array.from({ length: nup }, (_, k) => {
 			const i = pageIdx * nup + k;
 			if (i >= sections.length) return '';
 			return buildSrcdoc({
 				html: `<article class="lattice">${sections[i]}</article>`, css: render.css, mode: render.mode, geom: render.geom,
 				runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
-				...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
 				...(render.dagreUrl ? { dagreUrl: render.dagreUrl } : {}),
 				// The deck's allowed web origins (trio follow-up 11); every other web image prints
 				// as the placeholder, as it shows in the preview.
@@ -293,7 +355,7 @@ export function PrintOptionsPanel({
 				contentVisibility: false, cursor: false, sync: false, printRules: false,
 			});
 		});
-	}, [render, sections, pageIdx, nup]);
+	}, [render, sections, pageIdx, nup, pooled]);
 
 	const { paper, orientation, layout } = opts;
 	// Does the built PDF match the CURRENT settings? Drives the iOS button (build vs open).
@@ -357,7 +419,6 @@ export function PrintOptionsPanel({
 		return buildSrcdoc({
 			html: render.html, css: render.css, mode: render.mode, geom: render.geom,
 			runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
-			...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
 			...(render.dagreUrl ? { dagreUrl: render.dagreUrl } : {}),
 			webOrigins: render.webOrigins ?? [],
 			// `diagrams: false` — the same opt-out `deck-export.js`'s capture frame takes, for
@@ -375,11 +436,11 @@ export function PrintOptionsPanel({
 			//
 			//                          stamped        diagrams:false   …and after #2092
 			//   data-lattice-diagrams   true           false            false
-			//   data-mermaid-state      "pending"      "pending"        "unavailable"
+			//   data-lattice-settle     "pending"      "pending"        "unavailable"
 			//   computed display, <pre> none           none             block  ← the source
 			//
 			// The middle column is why this line matters and the right one is why it is no longer
-			// redundant. Until #2092 the older `data-mermaid-state` rule hid the fence either way
+			// redundant. Until #2092 the older settle-state rule hid the fence either way
 			// — the runtime tagged it `pending` at boot and nothing un-tagged it when Mermaid
 			// never arrived — so this document printed a blank where the author's source belonged.
 			// The runtime hands those fences back now, and THAT is what would have made a stamp
@@ -387,7 +448,9 @@ export function PrintOptionsPanel({
 			//
 			// This path is also why the give-up has a synchronous arm at all. There is no diagram
 			// wait here — `load` plus a 450ms beat, then `print()` — so a release on the runtime's
-			// ten-second deadline would miss the capture entirely.
+			// ten-second deadline would miss the capture entirely. (The library now arrives through
+			// the runtime's plugin host, a script the runtime inserts before `load`, so a 404 fails
+			// it — and releases the fences — before `load` fires, as the old parser-inserted tag did.)
 			// (Read the fence AFTER the FIT reveal or the measurement is worthless — `buildSrcdoc`
 			// hides `.lattice` until then, so every element in the document computes to hidden.)
 			diagrams: false,
@@ -447,7 +510,7 @@ export function PrintOptionsPanel({
 			if (nup === 1 && !handout) {
 				setBuilding('print');
 				setStatus('Preparing print…');
-				printHtmlDoc(printDoc(), () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
+				printHtmlDoc(printDoc(), printFrameRef, () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
 				return;
 			}
 			// Desktop, N-up / handout: the one-slide-per-page vector path can't grid or add a
@@ -491,12 +554,31 @@ export function PrintOptionsPanel({
 				<p className="text-[12px] text-muted-foreground">Every slide is scaled to fit its page, centered — never cropped. The PDF is built when you print or download.</p>
 			</section>
 
-			{/* Preview — the beloved navy stage + white sheet + dashed safe margin, compact.
+			{/* Preview — the theme's inverse-surface stage + white sheet + dashed safe margin, compact.
 			    N-up frames one slide per grid cell; the handout adds a notes panel below. */}
-			<div className="pod-stage" ref={stageRef}>
+			<div className="pod-stage" ref={stageRef} style={stageStyle}>
 				{render && sections.length ? (
 					<div className="pod-sheet" style={sheetPx}>
-						{cellRects.map((cr, k) => {
+						{pooled ? (
+							<PreviewPool className="absolute inset-0">
+								{cellRects.map((cr, k) => {
+									const slideIdx = pageIdx * nup + k;
+									if (slideIdx >= sections.length) return null;
+									return (
+										<div
+											// biome-ignore lint/suspicious/noArrayIndexKey: a cell's POSITION is its identity, so a sheet flip re-points its pooled frame instead of building a new one.
+											key={k}
+											role="img"
+											aria-label={`Print preview slide ${slideIdx + 1}`}
+											className="pod-cell"
+											style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }}
+										>
+											<PooledThumbFace options={options} sample={printSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} mermaid={deckMermaid} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
+										</div>
+									);
+								})}
+							</PreviewPool>
+						) : cellRects.map((cr, k) => {
 							const doc = previewDocs[k];
 							if (!doc) return null;
 							const slideIdx = pageIdx * nup + k;
@@ -579,11 +661,12 @@ function Seg({ opts, value, onPick }: { opts: [string, string][]; value: string;
 	);
 }
 
-// Scoped to the drawer. The preview stage + segmented controls carry the Print page's
-// brass-on-navy identity; `var(--accent)` resolves to the Studio's brass, so the drawer
-// matches both the tab it replaces AND the rest of the Share sheet. Colors that are a
-// presentation SURFACE (the navy stage, the white paper) are literal, exactly as the
-// tab page's scoped CSS was — docs/src component styles are outside the layout hex gate.
+// Scoped to the drawer. `var(--accent)` resolves to the Studio's accent, so the drawer matches
+// the rest of the Share sheet. The preview STAGE is the theme's own dark surface,
+// `--surface-inverse` (indaco navy, cuoio leather), the same one the landing page's hero sets its
+// slide on. It used to be a literal navy, which only matched indaco: on any other theme the
+// drawer showed a navy panel the deck never uses. The PAPER stays literal white, because the
+// sheet is paper, not chrome. docs/src component styles are outside the layout hex gate.
 //
 // The THEMED colors here are palette tokens (`--text-muted`, `--bg-alt`, `--border`,
 // `--accent`), NOT the shadcn bridge names. This block read `var(--muted-foreground)`
@@ -595,8 +678,9 @@ function Seg({ opts, value, onPick }: { opts: [string, string][]; value: string;
 // (`text-muted-foreground`); raw `var()` needs the palette token the bridge points at.
 // Found and fixed with #1688; `checkDanglingTokenReads` now blocks the reintroduction.
 const STYLE = `
-.pod-stage{position:relative;height:180px;border-radius:12px;padding:16px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),#0b1c33;box-shadow:inset 0 0 0 1px color-mix(in srgb,#ffffff 6%,transparent);}
-.pod-sheet{background:#fff;box-shadow:0 14px 38px -12px rgba(0,0,0,.6);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.06);transition:width .3s ease,height .3s ease;}
+.pod-stage{position:relative;height:180px;max-height:min(420px,55vh);border-radius:12px;padding:20px 20px 28px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),var(--surface-inverse);box-shadow:inset 0 0 0 1px color-mix(in srgb,#ffffff 6%,transparent);}
+.pod-sheet{/* no size transition: pooled frames are re-measured on a throttled pass and lagged it, spilling past their cells */background:#fff;box-shadow:0 14px 38px -12px rgba(0,0,0,.6);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.06);}
+.pod-cell{position:absolute;}
 .pod-frame{position:absolute;border:0;background:#fff;border-radius:2px;overflow:hidden;box-shadow:0 5px 14px -8px rgba(20,35,56,.35);transition:left .3s,top .3s,width .3s,height .3s;}
 .pod-safe{position:absolute;border:1px dashed color-mix(in srgb,#142338 24%,transparent);border-radius:2px;pointer-events:none;}
 .pod-notes{position:absolute;overflow:hidden;border-top:1px solid color-mix(in srgb,#142338 16%,transparent);padding-top:3px;color:#28323c;font-size:6px;line-height:1.4;text-align:left;white-space:pre-wrap;word-break:break-word;transition:left .3s,top .3s,width .3s,height .3s;}

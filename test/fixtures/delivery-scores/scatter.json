@@ -1,0 +1,278 @@
+{
+	"restrained": [
+		{
+			"said": "The tools we pay most for are the ones nobody adopts.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each dot is one entity, placed at its two measures.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Atlas: Annual cost, four hundred twenty thousand dollars; Teams adopting, eighteen percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Renewal lands in March. Two teams asked to drop it.",
+			"act": "note",
+			"unit": "mark",
+			"select": "circle[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Borealis: Annual cost, three hundred ten thousand dollars; Teams adopting, twenty-four percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Cardinal: Annual cost, one hundred eighty thousand dollars; Teams adopting, fifty-two percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Dovetail: Annual cost, ninety-five thousand dollars; Teams adopting, sixty-one percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Everline: Annual cost, two hundred forty thousand dollars; Teams adopting, thirty-one percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Fathom: Annual cost, sixty thousand dollars; Teams adopting, seventy-four percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"5\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The tools we pay most for are the ones nobody adopts.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each dot is one entity, placed at its two measures.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Atlas: Annual cost, four hundred twenty thousand dollars; Teams adopting, eighteen percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Renewal lands in March. Two teams asked to drop it.",
+			"act": "note",
+			"unit": "mark",
+			"select": "circle[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": "wash labels quiet",
+			"cursor": "keep"
+		},
+		{
+			"said": "Borealis: Annual cost, three hundred ten thousand dollars; Teams adopting, twenty-four percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Cardinal: Annual cost, one hundred eighty thousand dollars; Teams adopting, fifty-two percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Dovetail: Annual cost, ninety-five thousand dollars; Teams adopting, sixty-one percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Everline: Annual cost, two hundred forty thousand dollars; Teams adopting, thirty-one percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Fathom: Annual cost, sixty thousand dollars; Teams adopting, seventy-four percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"5\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "The tools we pay most for are the ones nobody adopts.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each dot is one entity, placed at its two measures.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Atlas: Annual cost, four hundred twenty thousand dollars; Teams adopting, eighteen percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Renewal lands in March. Two teams asked to drop it.",
+			"act": "note",
+			"unit": "mark",
+			"select": "circle[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Borealis: Annual cost, three hundred ten thousand dollars; Teams adopting, twenty-four percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Cardinal: Annual cost, one hundred eighty thousand dollars; Teams adopting, fifty-two percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Dovetail: Annual cost, ninety-five thousand dollars; Teams adopting, sixty-one percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Everline: Annual cost, two hundred forty thousand dollars; Teams adopting, thirty-one percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"4\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Fathom: Annual cost, sixty thousand dollars; Teams adopting, seventy-four percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "circle[data-mark=\"5\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

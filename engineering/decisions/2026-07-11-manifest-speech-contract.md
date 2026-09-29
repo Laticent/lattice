@@ -651,6 +651,20 @@ Audio naturalness is UNVERIFIED (no TTS in CI); only the display→spoken string
 claimed. Both the live Present read-aloud and the CLI/export captions share the one
 `@laticent/cadenza` normalizer, so the change lands on both surfaces.
 
+**Addendum (2026-09-27): regions, short months, cohort columns.** A board deck had to spell
+five terms out in `acronyms:` to be read well, so they joined the built-in tier:
+- **Regions** (`BASE_CASED`): `EMEA` and `APAC` spelled, `LATAM`/`LatAm` "la tam", `AMER`
+  "the Americas", `ANZ` spelled. These break the EXPAND default on purpose: a region is one
+  word in a list, and "Europe, the Middle East and Africa" is not how a sales team says it.
+  `NA` stays out (it is also "n/a" in the same tables); `DACH`/`MENA` have no settled form.
+- **Short months** (`BASE_CASED`): `Feb Apr Jul Aug Sep Sept Oct Nov Dec`. `Jan`, `Mar` and
+  `Jun` are also a name or a verb, so `contextualMonth` (normalize.ts) expands them only
+  beside a year, a day or another month, which only a caller that sees the neighbors can
+  test. `toSpokenText` and `buildTrack` both go through `spokenAt` for that reason.
+  Residual: a monthly chart's bare category "Jan, 4.1" still reads "Jan".
+- **Cohort columns** `M0`–`M36` read "month N", exact case. Residual: Apple's M-series chips
+  and the M2 money supply; such a deck declares `acronyms: M2: M 2`.
+
 ---
 
 ## §15 Author acronym registry + conservative defaults (2026-07-11, SHIPPED) — post-trio

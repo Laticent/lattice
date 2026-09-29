@@ -144,5 +144,8 @@
   },
   "venueCapacity": {
     "none": "A section marker: one heading and an optional line, with no repeated element to count."
+  },
+  "gesture": {
+    "archetype": "statement"
   }
 }

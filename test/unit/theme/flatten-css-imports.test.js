@@ -275,8 +275,8 @@ describe('differential: identical to the old strip wherever the old strip was ri
     const GENERATED_SHEETS = [
       'dist/lattice.css',
       'dist/lattice-default.css',
-      'dist/lattice.min.css',
-      'dist/lattice-default.min.css',
+      'dist/lattice-min.css',
+      'dist/lattice-default-min.css',
       ...(fs.existsSync(path.join(ROOT, 'dist/themes'))
         ? fs.readdirSync(path.join(ROOT, 'dist/themes'))
             .filter((f) => f.endsWith('.css'))

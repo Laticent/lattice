@@ -370,8 +370,8 @@ section.sketch.pricing > .cell-stage > ul > li:nth-child(3n) {
  * (lib/base/base.card-tag.css) reads --card-tag-radius and --card-tag-num-font, so
  * every card tag — numbered, labeled, the split-compare verdict — takes the wobble,
  * and no selector contest (the old `:has()` specificity fight that needed an
- * !important here) can put a crisp corner back. A `banner-tag` band sets its own
- * radius to 0 and is clipped by the card's hand corners, so it stays straight. */
+ * !important here) can put a crisp corner back. A band (`tag-band`, or its alias
+ * `banner-tag`) sets its own radius — the card's top corners — so it stays a straight strip. */
 section.sketch {
   --card-tag-num-font: var(--sketch-font-display);
   --card-tag-radius: 15px 2px 12px 3px / 3px 12px 2px 15px;

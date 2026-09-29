@@ -57,6 +57,8 @@ import {
 import remoteRef from '../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideFrameFilter } from '../../../lib/core/slide-frame.mjs';
+import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
+import { markupHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { texturePatternDefs } from './a11y-textures.generated.js';
 import { slideBox } from './frame-css.js';
@@ -70,7 +72,7 @@ export { previewCspMeta, splitSections };
 // NO KATEX_URL / MERMAID_URL CONSTANTS HERE — deliberately, and do not add them back.
 //
 // These used to hold jsdelivr URLs, as a "back-compat" default behind every caller's
-// optional `katexUrl` / `mermaidUrl`. That default was the whole problem: a host that
+// optional `katexUrl` / Mermaid URL. That default was the whole problem: a host that
 // forgot to pass a URL silently executed third-party JavaScript. It was `mermaid@11` —
 // a FLOATING major, so jsdelivr served whatever 11.x was current — with no `integrity`
 // attribute, inside the preview frame, on the surface that holds the user's OpenRouter
@@ -78,10 +80,12 @@ export { previewCspMeta, splitSections };
 // index.astro gates its `diagram` field card on ```mermaid (via CARD_COMPONENTS) and passed no URL.
 //
 // Every host now passes the locally-vendored copy staged by sync-playground-assets
-// (`<assetBase>export/mermaid-v11.min.js`, `<assetBase>katex/katex.min.css`). The
-// injection sites already treat a falsy URL as "omit the tag", so a forgetful caller
-// now renders no diagram instead of reaching a CDN — a visible local failure rather
-// than an invisible remote dependency.
+// (`<assetBase>katex/katex.min.css`). The injection sites treat a falsy URL as "omit the
+// tag", so a forgetful caller renders unstyled math instead of reaching a CDN — a visible
+// local failure rather than an invisible remote dependency. Mermaid is no longer threaded at
+// all: it is the Mermaid plugin's declared payload, which the runtime's plugin host loads
+// from beside `lattice-runtime.js` (lib/plugins/host-browser.mjs `ensureLibrary`) — a local
+// file, by construction.
 //
 // Pinned by test/unit/docs/no-cdn-runtime.test.js, which fails on any CDN URL under
 // docs/src. See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md.
@@ -386,8 +390,7 @@ export function buildSrcdoc({
 	// No default: a missing URL means "do not inject that tag" (the sites below are
 	// already `url ? tag : ''`), never "fetch it from a CDN". See the note at the top.
 	katexUrl = '',
-	mermaidUrl = '',
-	// The dagre layout engine (`dist/lattice-dagre.min.js`). Same contract as the two
+	// The dagre layout engine (`dist/lattice-dagre-min.js`). Same contract as the one
 	// above: no default, and no URL means "omit the tag". It used to be inlined into
 	// lattice-runtime.js, which put 25.9 KiB gzipped on every reader of every deck for
 	// an engine only a BRANCHING state chart uses — see lib/runtime/index.js.
@@ -476,8 +479,8 @@ export function buildSrcdoc({
 	// security policy below are read out of `html` — so a KaTeX slide, a Mermaid fence or a
 	// refused web image sitting in a placeholder would be missed, and mounting it later would
 	// find no stylesheet, no renderer, or a policy that kept a wildcard it should have
-	// withheld. `{ katex, mermaid, dagre, blocked }`, from the full render; null → read `html`.
-	deck = /** @type {{katex:boolean,mermaid:boolean,dagre:boolean,blocked:Array<{origin:string}>}|null} */ (null),
+	// withheld. `{ katex, drawn, dagre, blocked }`, from the full render; null → read `html`.
+	deck = /** @type {{katex:boolean,drawn:boolean,dagre:boolean,blocked:Array<{origin:string}>}|null} */ (null),
 }) {
 	// Strip script-bearing content before it reaches this same-origin srcdoc
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
@@ -495,14 +498,17 @@ export function buildSrcdoc({
 	// Mermaid/charts added after the first edit never render. A fresh srcdoc resets
 	// the guard. See engineering/gotchas.md "Playground: Mermaid stops rendering".
 	// Inject the heavy third-party assets ONLY when the deck needs them: the KaTeX
-	// stylesheet solely styles `.katex` spans, and the Mermaid runtime renders only
-	// `code.language-mermaid` fences (charts use a separate DOM path). A plain text
-	// deck — the common case — then pulls NEITHER, so a preview never waits on a CDN
-	// (or the vendored copy) it won't use. renderDeck folds the same two flags into
-	// its signature, so an edit that ADDS math/mermaid forces a full rewrite that
-	// injects the asset rather than a section-only patch that would leave it out.
+	// stylesheet solely styles `.katex` spans. A plain text deck — the common case — then
+	// pulls none, so a preview never waits on a file it won't use. renderDeck folds the
+	// flag into its signature, so an edit that ADDS math forces a full rewrite that injects
+	// the asset rather than a section-only patch that would leave it out.
+	//
+	// A fence a runtime draws (Mermaid's) needs no tag here: the runtime's plugin host loads
+	// the plugin's library itself, beside `runtimeUrl`, when a fence is present — including
+	// one a later section patch brings in. What this document still owes is the promise
+	// below (`previewDiagramsAttr`), and the fence probe comes from the plugin registry.
 	const needsKatex = deck ? deck.katex : html.indexOf('katex') !== -1;
-	const needsMermaid = deck ? deck.mermaid : html.indexOf('language-mermaid') !== -1;
+	const needsDrawn = deck ? deck.drawn : markupHasDrawnFence(html);
 	// `data-sc-transitions` and not the `.state-chart-figure` class: only the DEFAULT
 	// variant emits the attribute, and it is the only variant the browser pass draws.
 	// The `inline` variant renders chips and needs no layout engine at all. The
@@ -510,7 +516,7 @@ export function buildSrcdoc({
 	// same on the sanitized sections renderDeck signs below.
 	const needsDagre = deck ? deck.dagre : html.indexOf('data-sc-transitions') !== -1;
 	return (
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + (previewFonts ? ' data-lattice-preview=""' : '') + previewDiagramsAttr(diagrams && needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + (previewFonts ? ' data-lattice-preview=""' : '') + previewDiagramsAttr(diagrams && needsDrawn && !!runtimeUrl) + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
 		(csp ? previewCspMeta({ katexUrl, webOrigins, blocked: [...(deck ? deck.blocked : web.blocked), ...remoteRef.webRefsInCss(css)] }) : '') +
@@ -537,15 +543,12 @@ export function buildSrcdoc({
 		// revealer that finds no gate reveals immediately by design — so a late gate
 		// is a silent no-op, not a visible failure. `preview-font-gate.test.js` pins
 		// the order at every call site for exactly that reason.
-		// `0`: no adaptive-image wait — this document holds the WHOLE deck, and one slide's slow
-		// photo must not keep every other slide hidden (lib/core/preview-font-gate.mjs).
-		'<scr' + 'ipt>' + fontGateAgent(undefined, 0) + '</scr' + 'ipt>' +
+		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+		// The diagram library's fetch starts with the document, not after the runtime boots.
+		(needsDrawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl) : '') +
 		'</head><body>' +
 		a11yDefs +
 		html +
-		// Same pairing as the KaTeX link above — content AND url, so a missing URL emits
-		// nothing rather than `<script src="">`.
-		(needsMermaid && mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
 		// BEFORE the runtime tag, and that order is the mechanism rather than a tidy
 		// preference: both are classic scripts, so they execute in document order, and
 		// the runtime's state-chart pass reads `globalThis.__latticeDagre` synchronously
@@ -562,14 +565,14 @@ export function buildSrcdoc({
 }
 
 /**
- * The attribute a preview document wears to say "a Mermaid renderer is being injected
- * into me, so something WILL replace a diagram fence". ONE place writes it, because it
+ * The attribute a preview document wears to say "a runtime that draws diagram fences is
+ * loaded into me from a URL, so something WILL replace a diagram fence". ONE place writes it, because it
  * is a promise about the document rather than a style hook: `mermaid.css` withholds an
  * un-tagged Mermaid fence's ink only under `[data-lattice-diagrams]`, on the reasoning
  * that hiding a diagram's source is right only where something is going to draw it.
  *
- * KEYED ON THE MERMAID SCRIPT, not on the runtime, and the distinction is the whole
- * point. The first version of this gate used `data-lattice-runtime` — a name the RUNTIME
+ * KEYED ON THE BUILDER'S COMMITMENT, not on the runtime's boot mark, and the distinction
+ * is the whole point. The first version of this gate used `data-lattice-runtime` — a name the RUNTIME
  * ITSELF has always written on `document.documentElement` at boot
  * (lib/runtime/index.js), which made "only a builder writes it" false in four documents
  * and, worse, turned the rule on in exactly the hosts it was meant to spare. On a page
@@ -582,13 +585,18 @@ export function buildSrcdoc({
  * MERMAID; a document with the runtime and no Mermaid renders no diagram, so its author
  * needs the source they can read.
  *
- * Returns nothing when the caller is not injecting Mermaid, so a document that will not
+ * The commitment used to be the Mermaid `<script src>` the builder injected. Mermaid is now
+ * the plugin's payload, which the runtime's plugin host fetches from beside the runtime, so
+ * the builder commits by loading the runtime FROM A URL into a document that holds a drawn
+ * fence (`willDraw`). A library that then fails to load is the case the old URL had too (a
+ * 404 on it): the runtime gives up and hands every tagged fence back to its source.
+ *
+ * Returns nothing when the caller does not commit, so a document that will not
  * draw the diagram never claims it will: the fence stays readable, which is the old
  * behavior and the safe direction. The CLI export, the .html player builder and any page
  * we did not assemble fall in that half by simply not calling this.
  *
- * The Studio's offscreen EXPORT capture frame is handed a real Mermaid URL and would
- * otherwise stamp through this same builder — it does not, because `buildSrcdoc`'s
+ * The Studio's offscreen EXPORT capture frame loads the runtime and would otherwise stamp through this same builder — it does not, because `buildSrcdoc`'s
  * `diagrams` knob is `false` there. It is not watched by anyone, so the anti-flash rule
  * buys nothing, and it IS rasterized: `html-to-image` copies the computed style onto its
  * clone, so a `visibility:hidden` this rule applied would be baked into the .pdf / .png /
@@ -597,8 +605,8 @@ export function buildSrcdoc({
  * without stamping, the raster paths because the capture frame does not stamp at all.
  * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
  */
-export function previewDiagramsAttr(mermaidUrl) {
-	return mermaidUrl ? ' data-lattice-diagrams' : '';
+export function previewDiagramsAttr(willDraw) {
+	return willDraw ? ' data-lattice-diagrams' : '';
 }
 
 export default { buildSrcdoc, splitSections };

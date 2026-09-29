@@ -210,5 +210,8 @@
         }
       }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

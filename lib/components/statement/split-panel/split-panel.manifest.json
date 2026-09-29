@@ -343,5 +343,8 @@
       },
       "not": ["metric", "pullquote", "steps", "watermark", "qr"]
     }
+  },
+  "gesture": {
+    "archetype": "compare"
   }
 }

@@ -81,6 +81,14 @@ describe('intent search — the exact passes still win', () => {
 		expect(missed.length / total).toBeLessThan(0.05);
 	});
 
+	it('a name one letter short ranks first, and the description hits still follow it', () => {
+		expect(namesFor('rws')[0]).toBe('rows');
+		expect(namesFor('cde')[0]).toBe('code');
+		const tile = namesFor('tile');
+		expect(tile[0]).toBe('title');
+		expect(tile).toContain('stats'); // "a row of stat tiles" is still found
+	});
+
 	// The form the FIRST fix missed: people type hyphenated names with spaces, and generating
 	// typos from `c.name` verbatim (hyphens intact) cannot see it. `compare tabel` returned
 	// `compare-code` and this suite was green.

@@ -5,9 +5,13 @@ summary: Lattice draws a label on a card six different ways. Four are copies of 
 
 # One card tag — an audit, a design and a plan
 
-**Status:** in progress. Phase 1 (the CSS kernel) and phase 2 (the `tag:` register's color and
-size axes, plus equal-size tags and the label budget) are built; phases 3–5 are not. The owner
-settled the first six questions on 2026-09-27 and three more on 2026-09-28 (§7).
+**Status:** in progress. Phase 1 (the CSS kernel), phase 2 (the `tag:` register's color and
+size axes, plus equal-size tags and the label budget) and phase 3's placement and alignment axes
+are built. Phase 3 shipped **without** the new element (§3.1.1, an agent's call in the owner's
+absence, open for the owner to reverse). Phase 4 is built: `banner-tag` draws through the band
+rules and capsule's pill is the inline tag on the `--cat-N-mark` tier, both with an advisory
+`tag-alias` lint. Phase 5 is built: a Card tags group in deck settings and four Tag rows in slide settings. The owner settled the first
+six questions on 2026-09-27 and three more on 2026-09-28 (§7).
 
 ## 1. The problem in one example
 
@@ -121,6 +125,36 @@ reader the order. A text tag (a slot label or the verdict word) stays readable.
 One CSS file, `lib/base/base.card-tag.css`, owns the geometry. Components stop styling
 the tag. They declare only their **native defaults** (§3.3) as custom properties.
 
+#### 3.1.1 Phase 3 as built: placements on the existing tags, no new element (2026-09-29)
+
+Phase 3 was briefed as "the element, then the placements", with the element's shape to go to
+the owner first. The owner was away and had asked for a safe, reversible choice over a wait, so
+the agent building phase 3 built the placements on the tags as they already are (the
+`::before` counter or verdict word, and the lifted `<strong>`) and left the markup alone. The
+reasons, each checked while building:
+
+- **Each thing the element was to buy is available without it.** The measure already works on
+  pseudo-elements and lifted `<strong>`s (phase 2). Every placement is a re-point of the corner
+  rule: `foot`, `notch` and `band` stay absolute and move a side or stretch; `inline` goes
+  static. The one awkward case, a chip on its own line inside a flex-row card (cards-grid,
+  cards-stack), is solved by the card's own `::after` as a zero-content line break, and an
+  empty `<span>` in that flex row would face the same problem. One selector list per placement
+  covers all six layouts.
+- **The span still needs the pseudo-element as its fallback.** The export-to-Marp bundle renders
+  the markdown with Marp's own parser, which never runs our plugins, so every number tag there
+  is still a `::before`. Adding a span means keeping both, and every rule written twice.
+- **The span moves structural selectors.** In `lib/base` and the three number-tag components,
+  14 rules key on a list item's first or last child
+  (`grep -rnE "li\s*>\s*(p|strong|code|\*)?:(first|last)-child|li:(first|last)-child"`). An
+  element emitted first in every `<li>` changes what those match, on every deck.
+- **The span changes every exported deck's bytes**, which triggers export sign-off (CLAUDE.md
+  Quality Bar) for no visible gain. The placements are opt-in CSS, so a deck that sets no
+  placement renders unchanged (pixel diff in the PR).
+
+What the element would still buy: an `aria-hidden` number (the CSS counter is exposed to some
+screen readers today, as it was before this work) and one selector in place of the host lists.
+Both can land later without changing a register word. **This is the owner's call to reverse.**
+
 ### 3.2 The tokens
 
 All are engine-owned names under a new `--card-tag-*` namespace. `--tag-bg` already
@@ -195,7 +229,9 @@ they are — pseudo-elements and lifted `<strong>`s — so it did not wait for t
 The runtime runs it on its post-mutation dispatch and after fonts settle; the CLI export, which
 strips the runtime, injects the same function after every navigation and once more after the
 trim, before overflow is measured. A plain `.html` export skips it, because that file is built
-before the page renders and carries no script, so its tags keep their own sizes. Padding never
+before the page renders and carries no script, so its tags keep their own sizes; the export
+runs the same kernel in a write-nothing report mode and warns on each slide where a tag would
+cover its card body (2026-09-29). Padding never
 changes a content box, so the pass settles in one step and a repeat writes nothing; the checker
 confirmed one writing run over 400 random label sets, with no tag gaining a line or passing its
 card. A `tag-none` label, which has no box, is not centered in an invisible taller one, so the
@@ -283,9 +319,9 @@ and renders every shipped deck unchanged unless the phase says otherwise.
 |---|---|---|---|
 | **1. Kernel (CSS only)** | `base.card-tag.css` and the `--card-tag-*` tokens; the seven recipes move onto it at their current look, each component keeping only its counter or label and which fill/ink pair it wears; `sketch` reaches every tag through two token re-points; a light-and-dark pin for the `--on-accent` pair. **No markup changes** (owner decision, §7 Q6) | The drift fixes: one padding (in em, so it follows venue and orientation), one tracking, one reserve formula, `sketch` everywhere. A two- and three-line corner label now clears the body | Pixel diff of the affected galleries before and after, with every changed slide listed and explained |
 | **2. Register: color and size; equal size** | `resolve-card-tag.js`; `tag:` and `tag-*` on the engine and the runtime, per-axis eviction, split pages, lint (`unknown-tag`), the modifier vocabulary, the Studio's value completion, docs. The color axis (`color` · `plain` · `none`) and the size axis (`small` · `regular` · `large`). Placement and alignment wait for phase 3 so every word works on every layout; until then the linter names them as not yet available. **Added on the owner's call (§7 Q9):** the equal-size pass (§3.4) and the `tag-budget` lint | Every boxed tag on a slide matches the widest and tallest; otherwise none unless a deck opts in | Unit: resolver, slide-over-deck per axis on the engine AND the runtime bundle, lint, CSS contract; `plain`/`none` pairs AA-pinned light and dark. Demo deck extended, light and dark |
-| **3. The element and placements** | The real `card-tag` element on every render path (§3.1, with a CSS fallback for script-less pages), then `foot`, `notch`, `band` on every qualifying layout, `inline`, and text alignment. The measure pass already runs (phase 2) and extends to each new placement | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
-| **4. Aliases** | `banner-tag` and `capsule` as aliases with lint hints. The legal inline-eyebrow layouts stay out (§7 Q5) | capsule moves to the saturated tier (§3.5) | Gallery pixel diff |
-| **5. Studio** | The Tag row in deck settings and the slide drawer | Studio only | `docs/e2e` spec with screenshots at 1440, 820 and 390px |
+| **3. The element and placements** *(placements and alignment built 2026-09-29; the element deferred, §3.1.1)* | The real `card-tag` element on every render path (§3.1, with a CSS fallback for script-less pages), then `foot`, `notch`, `band` on every qualifying layout, `inline`, and text alignment. The measure pass already runs (phase 2) and extends to each new placement | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
+| **4. Aliases** *(built 2026-09-29)* | `banner-tag` and `capsule` as aliases with lint hints. The legal inline-eyebrow layouts stay out (§7 Q5) | capsule moves to the saturated tier (§3.5) | Gallery pixel diff |
+| **5. Studio** *(built 2026-09-29)* | The Tag row in deck settings and the slide drawer | Studio only | `docs/e2e` spec with screenshots at 1440, 820 and 390px |
 
 Export sign-off applies from phase 1: moving a tag from a pseudo-element to a real
 element changes the bytes of every exported deck that has one, so phase 1's demo PDFs go

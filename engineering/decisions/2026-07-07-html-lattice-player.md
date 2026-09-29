@@ -234,7 +234,8 @@ load (and re-stamps on an OS change while it's still following), so the dark tok
 attribute selector — the same reason #889 abandoned `@media` in the first place (the user's in-app WebKit
 *applied* `matchMedia` but *not* `@media (prefers-color-scheme:dark)`, so a media-gated system-dark would
 paint the light base under a dark icon). The `@media (prefers-color-scheme:dark){:root[data-lp-scheme=system]}`
-rule `themeDualMode` emits is therefore only the **no-JS fallback**. The in-player toggle stays a
+rule `themeDualMode` emits is therefore only the **no-JS fallback**. (With no script, the moon is a
+checkbox `<label>` whose flip rules are additive; see `2026-09-29-player-no-js-controls.md`.) The in-player toggle stays a
 **per-viewer override** — it stops live-following and flips the attribute to a concrete light/dark for that
 viewer without changing how the deck was exported. The CLI reads the authored
 mode from the deck's effective `color-scheme` (comment-stripped: a `*-dark` theme → dark, `color-scheme:

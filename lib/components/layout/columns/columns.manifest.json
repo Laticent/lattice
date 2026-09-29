@@ -1,0 +1,121 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "columns",
+  "label": "Two columns",
+  "hosts": "panes",
+  "function": "layout",
+  "form": "split",
+  "substance": "mixed",
+  "bucket": "layout",
+  "stage": "flow",
+  "description": "Two components side by side on one slide, at a ratio you choose.",
+  "purpose": "Use when two components make one point together: a chart and what it means, before and after, a list beside a table.",
+  "tags": [
+    "contrast",
+    "transformation",
+    "overview",
+    "summary"
+  ],
+  "skeleton": "<!-- _class: columns -->\n\n## The slide's point, in one line.\n\n### First pane\n\n- A point\n- Another point\n\n### Second pane\n\n- A point\n- Another point\n",
+  "sample": "<!-- _class: columns ratio-60-40 -->\n\n`Q3 review`\n\n## Services outgrew licenses for the first time.\n\n<!-- _pane: bar -->\n### Revenue by line\n`$M, trailing four quarters`\n\n- Licenses `42`\n- Services `47`\n- Training `9`\n\n<!-- _pane: list -->\n### What changed\n\n- Services passed licenses in March\n- Two renewals slipped to Q4\n\n> The mix shift is structural, not seasonal.\n",
+  "variants": [
+    "no-rule"
+  ],
+  "variantDocs": {
+    "no-rule": {
+      "label": "no rule",
+      "summary": "Drops the spine between the panes.",
+      "sample": "<!-- _class: columns ratio-45-55 no-rule -->\n\n`Support · after the migration`\n\n## The migration halved support tickets.\n\n### Before\n\n- 1,240 tickets a month\n- 31 hours to first reply\n\n### After\n\n- 610 tickets a month\n- 6 hours to first reply\n"
+    }
+  },
+  "slots": {
+    "heading": {
+      "selector": "h2",
+      "required": true,
+      "description": "The slide's title, above both panes. It makes the point; the panes support it."
+    },
+    "pane": {
+      "selector": "lat-pane",
+      "required": true,
+      "description": "Two panes. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds."
+    }
+  },
+  "whenToUse": [
+    {
+      "title": "A chart and what it means",
+      "body": "Put the evidence in one pane and the reading of it in the other: a `bar` beside a `list`, a `table` beside a `content` pane. The slide's `##` states the conclusion both panes support."
+    },
+    {
+      "title": "Before and after",
+      "body": "Two `###` titles with no markers make two text panes: the quickest way to set two states side by side."
+    },
+    {
+      "title": "An unequal pair",
+      "body": "Give the pane that needs room the larger share: `columns ratio-60-40`, `columns ratio-35-65`. Shares run 25 to 75 in 5% steps."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Two unrelated points",
+      "body": "Two panes are one argument. If the halves say different things, make two slides."
+    },
+    {
+      "title": "A binary decision with a verdict",
+      "body": "Weighing two options and landing a recommendation is `split-compare`, whose verdict card this layout does not have."
+    },
+    {
+      "title": "Three or more things",
+      "body": "A pane layout holds two panes. Three parallel items are `cards-grid` or `compare-prose`."
+    }
+  ],
+  "related": [
+    {
+      "name": "rows",
+      "when": "the two components are wide and read better stacked"
+    },
+    {
+      "name": "split-panel",
+      "when": "one featured element beside supporting points, not two components"
+    },
+    {
+      "name": "split-compare",
+      "when": "two options and a recommendation"
+    },
+    {
+      "name": "compare-prose",
+      "when": "two or three co-equal options in prose"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "A `##` inside a pane.",
+      "fix": "A `##` starts a new slide. Use `###` for a pane's title and `####` for a heading inside a pane."
+    },
+    {
+      "mistake": "Naming a component in the layout's `_class` (`_class: columns bar`).",
+      "fix": "Each pane names its own component: `<!-- _pane: bar -->` above the pane's `###`."
+    }
+  ],
+  "stressDoc": {
+    "summary": "A list beside a four-column table at 40/60, with the slide's Key Insight.",
+    "sample": "<!-- _class: columns ratio-40-60 -->\n\n`columns · stress`\n\n## Two vendors cleared the security review.\n\n<!-- _pane: list -->\n### Cleared\n\n- Northwind\n- Contoso\n\n<!-- _pane: table -->\n### Findings by vendor\n\n| Vendor | Critical | High | Status |\n|---|---|---|---|\n| Northwind | 0 | 1 | Cleared |\n| Contoso | 0 | 2 | Cleared |\n| Fabrikam | 2 | 4 | Rejected |\n\n> Fabrikam can re-apply after its Q1 fixes.\n"
+  },
+  "pane": {
+    "side": false,
+    "stack": false
+  },
+  "gesture": {
+    "archetype": "statement"
+  },
+  "specimenVoice": true,
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "heading",
+      "pane"
+    ]
+  },
+  "venueCapacity": {
+    "none": "A host holds two components, each with its own venue budget, so it has nothing of its own to count."
+  }
+}

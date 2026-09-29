@@ -90,7 +90,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
   isn't tracked, so the worktree has no installed deps. The script
   tag `<script src="../node_modules/mermaid/...">` 404s.
 - **Mitigation:** Mermaid is now vendored at the repo root as
-  `mermaid-v11.min.js` and committed. Worktrees and fresh clones see
+  `mermaid-v11-min.js` and committed. Worktrees and fresh clones see
   it at the right relative path without `npm install`. See
   [engineering/decisions/2026-04-30-mermaid-theming.md](decisions/2026-04-30-mermaid-theming.md)
   for the full rationale.
@@ -110,8 +110,8 @@ means "no gap logged for the runtime route", never "the preview is complete.
 > Code **desktop** tarball is a different route and it runs fine under `xvfb-run`.
 
 **The answer.** The webview carries `script-src 'nonce-…'`. The extension's own
-scripts carry that nonce; **the deck's do not** — `mermaid-v11.min.js` and
-`lattice-runtime.min.js` both read back with `nonce: null`. So at the default
+scripts carry that nonce; **the deck's do not** — `mermaid-v11-min.js` and
+`lattice-runtime-min.js` both read back with `nonce: null`. So at the default
 security level the deck's scripts sit in the DOM and never execute. Set the level
 to **Disable** and they all run.
 
@@ -154,7 +154,7 @@ this protocol has to record the level, or it is measuring a coin flip.
   explain. It is explained now: that reporter's preview was at Disable, or their
   workspace was trusted into it. It was not wrong, and neither was the register.
 - **AND THE DIAGRAM MARKER IS A DEFECT, not a data point.** At Disable the fence
-  reaches `data-mermaid-state="rendered"` with an EMPTY `.mermaid` container:
+  reaches `data-lattice-settle="rendered"` with an EMPTY `.mermaid` container:
   source hidden, box 0×0, zero SVGs. The author gets a blank where the diagram
   belongs. The frame is capable — calling `window.mermaid.render()` in it by hand
   returns an 11.6KB SVG — so this is our runtime marking a fence rendered and
@@ -192,8 +192,8 @@ CI-contract decision, not one to take on the way past.
 ## `enableHtml` / `html: true` is required or the runtime `<script>` tags print as TEXT
 
 - **Symptom:** The last slide of a deck (or an Export-to-Marp bundle) shows a
-  literal `<script src="mermaid-v11.min.js"></script> <script
-  src="lattice-runtime.min.js"></script>` across the page, and no
+  literal `<script src="mermaid-v11-min.js"></script> <script
+  src="lattice-runtime-min.js"></script>` across the page, and no
   runtime-built component renders anywhere in the deck.
 - **Cause:** marp-core defaults to `html: false`, which ESCAPES raw HTML
   rather than dropping it — so the tags survive as visible text and the
@@ -227,7 +227,7 @@ CI-contract decision, not one to take on the way past.
 - **Mitigation:** the distribution runs at BUILD time —
   `tools/build-css.js` `bundle()` pipes the assembled sheet through
   `distributeLeadingIs` (`lib/core/leading-is.js`), so **every stylesheet dist/
-  ships is already scopable**: `lattice.css`, `lattice.min.css`, the
+  ships is already scopable**: `lattice.css`, `lattice-min.css`, the
   `lattice-default` pair, and `dist/themes/*`. `lib/engine/css.js` distributes
   again at pack time (harmless — the pass is idempotent), and the
   Export-to-Marp bundle's `marpScopableCss` is now a belt-and-braces no-op for

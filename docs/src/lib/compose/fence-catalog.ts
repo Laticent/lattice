@@ -96,7 +96,7 @@ export function isEngineFence(tag: string): boolean {
  * AN ENGINE FENCE IS STILL COLORED, and an earlier cut of this feature got that
  * backwards. It read `highlight-js.css`'s mermaid suppression as "mermaid is never
  * colored" and skipped tokenizing all three. That rule is scoped to
- * `section.diagram … :not([data-mermaid-state="rendered"])` — the transient SOURCE
+ * `section.diagram … :not([data-lattice-settle="rendered"])` — the transient SOURCE
  * `<pre>` on a slide whose fence is about to become a picture, where syntax colors on
  * a placeholder are noise. Compose is an EDITOR: the fence is source the author is
  * typing into, and `mermaid.hljs.js` exists for exactly this case, in its own words

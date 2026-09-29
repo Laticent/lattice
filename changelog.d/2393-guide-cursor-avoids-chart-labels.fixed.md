@@ -1,0 +1,1 @@
+- The Guide's resting cursor no longer lands on a chart's labels. It used to avoid only text blocks, so on a phone, where the cursor is large against a scaled slide, it came to rest on values like "$1.8M" or "12,000" (17 of 66 resting places on the Guide test deck at 393 px wide, in WebKit and Chromium). It now avoids every painted word on the slide.

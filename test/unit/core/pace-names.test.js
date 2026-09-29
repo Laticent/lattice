@@ -84,10 +84,10 @@ test('the millisecond beats agree between the engine register and the cadence ke
 	};
 	const block = src.match(/PACE_PRESETS[^=]*=\s*\{([\s\S]*?)\n\};/)[1];
 	const preset = (name) => {
-		const m = block.match(new RegExp(`\\b${name}\\s*:\\s*\\{\\s*slide:\\s*([A-Z_0-9]+)\\s*,\\s*section:\\s*([A-Z_0-9]+)\\s*\\}`));
+		const m = block.match(new RegExp(`\\b${name}\\s*:\\s*\\{\\s*slide:\\s*([A-Z_0-9]+)\\s*,\\s*section:\\s*([A-Z_0-9]+)\\s*,\\s*leave:\\s*([A-Z_0-9]+)\\s*\\}`));
 		assert.ok(m, `could not read the \`${name}\` preset out of PACE_PRESETS`);
 		const num = (tok) => (/^\d+$/.test(tok) ? Number(tok) : constant(tok));
-		return { slide: num(m[1]), section: num(m[2]) };
+		return { slide: num(m[1]), section: num(m[2]), leave: num(m[3]) };
 	};
 	for (const name of PACE_NAMES) {
 		assert.deepEqual(PACE_BEATS[name], preset(name), `\`${name}\`: resolve-pace.mjs PACE_BEATS vs cadence.ts PACE_PRESETS`);

@@ -164,7 +164,7 @@ describe('image text panel — what later passes inject stays out', () => {
   // steals the `> :last-child { padding-bottom: 0 }` collapse from the real content —
   // measured as a 24px-taller panel than the engine's.
   test('script / style / template stay out, so :last-child stays the real content', () => {
-    const doc = dom(`${BG}${PROSE}<script src="lattice-runtime.min.js"></script><style>a{}</style>`);
+    const doc = dom(`${BG}${PROSE}<script src="lattice-runtime-min.js"></script><style>a{}</style>`);
     bgImage.wrapImageTextToDom(doc);
     const panel = doc.querySelector('.image-text');
     assert.equal(panel.querySelector('script'), null);

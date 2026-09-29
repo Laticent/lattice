@@ -426,19 +426,19 @@ describe('lattice-engine: css emission (P1.1)', () => {
   });
 
   // Regression (marp purge, #363): the playground / Drawing Board fetch the
-  // MINIFIED dist palettes (dist/themes/<name>.min.css), whose base import has no
+  // MINIFIED dist palettes (dist/themes/<name>-min.css), whose base import has no
   // space (`@import"lattice"`). When THEME_IMPORT_RE required `\s+`, every palette
   // collapsed to scaffold-only CSS (~7 KB) and slides rendered unstyled in every
   // browser surface. Sweep the real minified bytes so this can't regress.
   test('every minified dist palette inlines the base (the playground fetch path)', () => {
     const eng = createEngine();
     const distThemeDir = path.join(ROOT, 'dist', 'themes');
-    const mins = fs.readdirSync(distThemeDir).filter((f) => f.endsWith('.min.css'));
+    const mins = fs.readdirSync(distThemeDir).filter((f) => f.endsWith('-min.css'));
     assert.ok(mins.length >= 20, `expected the full minified palette set, got ${mins.length}`);
-    eng.addThemes([fs.readFileSync(path.join(ROOT, 'dist', 'lattice.min.css'), 'utf8')]);
+    eng.addThemes([fs.readFileSync(path.join(ROOT, 'dist', 'lattice-min.css'), 'utf8')]);
     for (const f of mins) eng.addThemes([fs.readFileSync(path.join(distThemeDir, f), 'utf8')]);
     for (const f of mins) {
-      const name = f.replace(/\.min\.css$/, '');
+      const name = f.replace(/-min\.css$/, '');
       const css = eng.render('# A\n', name).css;
       // The load-bearing proof: a real component rule from the base is present.
       assert.match(css, /verdict-grid/, `${name}: base not inlined — collapsed to scaffold-only`);

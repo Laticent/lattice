@@ -65,7 +65,8 @@ function catalogRows() {
 	// `[]`, and anchoring on the name found that one and parsed an empty array as the catalog.
 	const at = src.indexOf('GUIDE_HANDLES');
 	const open = src.indexOf('= [', at) + 2;
-	const close = src.lastIndexOf(']');
+	// The array ends at its own `];`: the gesture catalog (`GUIDE_ARCHETYPES`, `GUIDE_GESTURES`) follows it in the same file.
+	const close = src.indexOf('\n];', open) + 1;
 	assert.ok(at !== -1 && open > 1 && close > open, `${path.relative(ROOT, CATALOG)} is not the shape this test parses`);
 	return JSON.parse(src.slice(open, close + 1));
 }

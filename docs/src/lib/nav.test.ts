@@ -55,9 +55,10 @@ describe('nav model', () => {
 		expect(isCurrent(docs, '/lattice/studio/')).toBe(false);
 	});
 
-	it('lists every workspace library that ships a demo page, Trama included', () => {
-		expect(labels(librariesNav(url))).toEqual(['Suono', 'Lente', 'Cadenza', 'Vetrina', 'Trama']);
+	it('lists every workspace library that ships a demo page, Trama and Segno included', () => {
+		expect(labels(librariesNav(url))).toEqual(['Suono', 'Lente', 'Cadenza', 'Vetrina', 'Trama', 'Segno']);
 		expect(librariesActive('/lattice/trama/', url)).toBe(true);
+		expect(librariesActive('/lattice/segno/', url)).toBe(true);
 	});
 
 	it('lights the Libraries disclosure only from a library route', () => {

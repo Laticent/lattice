@@ -1,7 +1,7 @@
 // strip-notes-guard.ts — pick the note scrub that reproduces the author's deck.
 //
 // LOADED ON DEMAND, from `share-export.ts`'s `--strip-notes` path only. It lives in its own
-// module for the reason `architect-model.js` does (docs/route-budget.json's own note): this
+// module for the reason `architect-model.js` does (docs/route-budget.history.md's studio notes): this
 // runs when someone exports, never on the way to first paint, so it has no business in the
 // studio route's eager bundle. It takes POSITIONAL arguments for the same reason — an object
 // literal's keys survive minification, and at this call site they cost more than the code they

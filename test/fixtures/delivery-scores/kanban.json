@@ -1,0 +1,308 @@
+{
+	"restrained": [
+		{
+			"said": "The board tracks cards across lanes.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each column is a stage, and each card sits in the stage it has reached.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Backlog, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"Backlog\"]",
+			"key": true,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Waiting cards, size small.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"Waiting cards\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "In progress, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"In progress\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The active limit, size medium.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"The active limit\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Review, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"Review\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Almost done, size small.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"Almost done\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Done, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"Done\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Shipped work, size large.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"Shipped work\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The board tracks cards across lanes.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each column is a stage, and each card sits in the stage it has reached.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Backlog, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"Backlog\"]",
+			"key": true,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Waiting cards, size small.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"Waiting cards\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "In progress, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"In progress\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "The active limit, size medium.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"The active limit\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Review, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"Review\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Almost done, size small.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"Almost done\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Done, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"Done\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Shipped work, size large.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"Shipped work\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "The board tracks cards across lanes.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each column is a stage, and each card sits in the stage it has reached.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Backlog, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"Backlog\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Waiting cards, size small.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"Waiting cards\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "In progress, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"In progress\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The active limit, size medium.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"The active limit\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Review, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"Review\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Almost done, size small.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"Almost done\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Done, one card.",
+			"act": "enter",
+			"unit": "column",
+			"select": ".kanban-column[data-label=\"Done\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Shipped work, size large.",
+			"act": "visit",
+			"unit": "card",
+			"select": ".kanban-card[data-label=\"Shipped work\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

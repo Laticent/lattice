@@ -32,7 +32,7 @@ const DIST = path.join(__dirname, '..', '..', '..', 'dist');
 const LEADING_IS_SECTION = /(^|[{};])\s*:is\([^)]*\b(?:section|figure)\b[^)]*\)/g;
 
 function shippedStylesheets() {
-  const files = ['lattice.css', 'lattice.min.css', 'lattice-default.css', 'lattice-default.min.css']
+  const files = ['lattice.css', 'lattice-min.css', 'lattice-default.css', 'lattice-default-min.css']
     .map((f) => path.join(DIST, f))
     .filter((p) => fs.existsSync(p));
   const themes = path.join(DIST, 'themes');

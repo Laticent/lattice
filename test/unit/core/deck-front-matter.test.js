@@ -137,7 +137,7 @@ describe('deck front matter — the snapshot cannot go stale in duplicate', () =
     assert.equal(once, twice, 'the second bake is byte-identical');
     assert.equal((twice.match(new RegExp(FRONT_MATTER_TYPE, 'g')) || []).length, 1);
     // …and the runtime tags too, which were also duplicating.
-    assert.equal((twice.match(/lattice-runtime\.min\.js/g) || []).length, 1);
+    assert.equal((twice.match(/lattice-runtime-min\.js/g) || []).length, 1);
   });
 
   test('a deck whose front matter CHANGED re-bakes to the new value', () => {
@@ -192,7 +192,7 @@ describe('deck front matter — a producer that cannot carry local files', () =>
 describe('deck front matter — the export bundle carries it', () => {
   test('withRuntimeScripts appends the block after the runtime tags', () => {
     const out = withRuntimeScripts(DECK);
-    assert.match(out, /<script src="lattice-runtime\.min\.js"><\/script>/);
+    assert.match(out, /<script src="lattice-runtime-min\.js"><\/script>/);
     assert.match(out, new RegExp(`<script type="${FRONT_MATTER_TYPE}">.*</script>\\n$`, 's'));
     // The deck's own body and front matter are untouched — the block is additive.
     assert.ok(out.startsWith(DECK.replace(/\s*$/, '')), 'the deck source leads, unmodified');
@@ -200,7 +200,7 @@ describe('deck front matter — the export bundle carries it', () => {
 
   test('a front-matter-less deck gets the scripts and no block', () => {
     const out = withRuntimeScripts('# A\n');
-    assert.match(out, /lattice-runtime\.min\.js/);
+    assert.match(out, /lattice-runtime-min\.js/);
     assert.ok(!out.includes(FRONT_MATTER_TYPE));
   });
 });

@@ -78,6 +78,7 @@ section.cards-grid .card > ul > li, section.cards-grid .card > ol > li { font-si
 section.cards-grid > .cell-stage > ol { counter-reset:card var(--lat-split-offset, 0); }
 section.cards-grid > .cell-stage > ol > li {
   counter-increment:card;   /* the tag reserve: lib/base/base.card-tag.css */
+  --card-tag-rest: var(--sp-sm);   /* the card's own top padding, for a tag off the top */
 }
 section.cards-grid > .cell-stage > ol > li::before {
   content:counter(card);   /* geometry + color: lib/base/base.card-tag.css */
@@ -85,6 +86,7 @@ section.cards-grid > .cell-stage > ol > li::before {
 section.cards-grid .cards-grid-inner--ordered { counter-reset:card var(--lat-split-offset, 0); }
 section.cards-grid .cards-grid-inner--ordered > .card {
   counter-increment:card;   /* the tag reserve: lib/base/base.card-tag.css */
+  --card-tag-rest: var(--sp-sm);
 }
 section.cards-grid .cards-grid-inner--ordered > .card::before {
   content:counter(card);   /* geometry + color: lib/base/base.card-tag.css */

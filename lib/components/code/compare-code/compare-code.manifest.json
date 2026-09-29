@@ -146,5 +146,13 @@
         "hall": 8
       }
     }
+  },
+  "gesture": {
+    "archetype": "compare",
+    "units": {
+      "side": {
+        "select": ".code-col"
+      }
+    }
   }
 }

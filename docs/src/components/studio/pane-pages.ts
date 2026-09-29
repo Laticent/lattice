@@ -21,20 +21,24 @@
 
 import { caretProbe } from '@/lib/caret-probe';
 import { lintCore } from '@/playground/authoring-core.generated.js';
+import { PANE_PROBE } from './pane-probe';
 
-const core = lintCore as unknown as { paneSplitLine: (slide: string, source: string) => number };
+const core = lintCore as unknown as {
+	paneSplitLine: (slide: string, source: string) => number;
+	paneStarts: (slide: string) => number[];
+};
 
-/** The probe the shared position guard refuses on (`positionIsTrustworthy`): any pane marker. */
-const PANE_PROBE = /<!--\s*pane\s*:/;
 
-/** A pane marker alone on its line (lib/core/pane-spec.js `PANE_RE`). */
-const PANE_MARKER = /^<!--\s*pane:\s*([a-z][\w-]*)\s*-->$/;
+/** A pane marker alone on its line, either spelling (lib/core/pane-spec.js `parseMarker`): `[1]`
+ *  is a `_pane:` marker's first word (the component, unless it is a modifier), `[2]` the alias's
+ *  component. */
+const PANE_MARKER = /^<!--\s*(?:_pane:\s*([a-z][\w-]*)?[^<>]*|pane:\s*([a-z][\w-]*)(?:\s+no-title)*\s*)-->$/;
 
 /** The 0-based line of `chunk` that starts its second rendered slide, or -1 when it renders as
  *  one. `deck` is the whole document the engine renders (front matter included), for its size. */
 export function paneSplitLineOf(chunk: string, deck: string): number {
 	const text = String(chunk ?? '');
-	if (!text.includes('pane:')) return -1; // the cheap reject every non-panes slide takes
+	if (!PANE_PROBE.test(text)) return -1; // the cheap reject every non-panes slide takes
 	try {
 		return core.paneSplitLine(text, String(deck ?? ''));
 	} catch {
@@ -79,7 +83,8 @@ export function panePageOfCaret(chunk: string, deck: string, caretText: string):
 	const probe = caretProbe(raw);
 	if (!raw) return undefined;
 	const lines = String(chunk).split('\n');
-	const first = lines.findIndex((l) => PANE_MARKER.test(l.trim()));
+	// Where the first pane starts: its marker, or its `###` on a slide with none.
+	const first = core.paneStarts(String(chunk))[0] ?? -1;
 	const pages = new Set<number>();
 	lines.forEach((line, i) => {
 		if (first < 0 || i < first) return; // masthead: on every page
@@ -95,7 +100,8 @@ export function paneMarkerComponents(src: string): string[] {
 	const out = new Set<string>();
 	for (const line of String(src ?? '').split('\n')) {
 		const m = PANE_MARKER.exec(line.trim());
-		if (m) out.add(m[1]);
+		const cls = m?.[1] ?? m?.[2];
+		if (cls && cls !== 'no-title') out.add(cls);
 	}
 	return [...out];
 }

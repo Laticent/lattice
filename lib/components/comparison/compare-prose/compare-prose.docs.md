@@ -31,7 +31,7 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 - **`chosen`.** One option is the winner and the other keeps its full, undiminished case — crowns the second option without dimming the first.
 - **`decision`.** The decision is made and the slide is the record — composes `chosen` with a de-emphasized first card and a stronger connector.
 - **`vertical`.** Either case needs more room than the two-column width can hold — stacks the panes top/bottom instead of side by side.
-- **`banner-tag`.** The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag.
+- **`banner-tag`.** The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag. `banner-tag` is the `tag-band` placement under its older name; `tag-band` (or `tag: band` deck-wide) works on every tagged layout.
 - **`rejected`.** One option was considered and explicitly declined — dims and strikes the second card as the record of what didn't make it.
 
 ### Common mistakes

@@ -347,7 +347,7 @@ describe('createAnimaScenes — Mermaid diagrams (deck `motion: on`)', () => {
     const section = doc.createElement('section');
     const label = live ? '<g class="label"><foreignObject><div>Input</div></foreignObject></g>' : '<text>Input</text>';
     section.innerHTML =
-      `<pre data-mermaid-state="${state}"></pre>` +
+      `<pre data-lattice-hydrate="mermaid" data-lattice-settle="${state}"></pre>` +
       '<div class="mermaid"><svg aria-roledescription="flowchart-v2" viewBox="0 0 200 100">' +
       (live ? '<style>#m{fill:red}</style>' : '') +
       '<g class="edgePaths"><path data-anima-role="bar" data-anima-order="2" d="M0 0L10 10"/></g>' +
@@ -390,7 +390,7 @@ describe('createAnimaScenes — Mermaid diagrams (deck `motion: on`)', () => {
     expect(doc.querySelector('.scene-live')).toBeNull();
     // The runtime writes the svg, flips the fence, then announces — synchronously.
     svgHost.innerHTML = drawn;
-    doc.querySelector('pre')?.setAttribute('data-mermaid-state', 'rendered');
+    doc.querySelector('pre')?.setAttribute('data-lattice-settle', 'rendered');
     frame.dispatchEvent(new Event(DIAGRAM_DRAWN_EVENT));
     // Mounted INSIDE the dispatch: the still frame never gets a paint.
     expect(doc.querySelector('.mermaid .scene-live')).not.toBeNull();

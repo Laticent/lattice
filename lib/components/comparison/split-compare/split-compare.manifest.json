@@ -213,5 +213,8 @@
         "hall": 2
       }
     }
+  },
+  "gesture": {
+    "archetype": "compare"
   }
 }

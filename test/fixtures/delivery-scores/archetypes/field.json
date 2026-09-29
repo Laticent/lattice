@@ -1,0 +1,339 @@
+{
+	"component": "map",
+	"restrained": [
+		{
+			"said": "The map fills regions by value.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each region is filled by the value beside it.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "India, forty-eight point two.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Largest by volume, thinnest by margin. Two new state hubs this year.",
+			"act": "note",
+			"unit": "mark",
+			"select": "path[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Nigeria, thirty-six point four.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Kenya, thirty-one.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Brazil, twenty-seven point five.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Indonesia, nineteen point three.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Ethiopia, fourteen point one.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"5\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Bangladesh, eleven point eight.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"6\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Peru, nine point six.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"7\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The map fills regions by value.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each region is filled by the value beside it.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "India, forty-eight point two.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Largest by volume, thinnest by margin. Two new state hubs this year.",
+			"act": "note",
+			"unit": "mark",
+			"select": "path[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": "wash labels quiet",
+			"cursor": "keep"
+		},
+		{
+			"said": "Nigeria, thirty-six point four.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Kenya, thirty-one.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Brazil, twenty-seven point five.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Indonesia, nineteen point three.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Ethiopia, fourteen point one.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"5\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Bangladesh, eleven point eight.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"6\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Peru, nine point six.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"7\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "The map fills regions by value.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each region is filled by the value beside it.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "India, forty-eight point two.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Largest by volume, thinnest by margin. Two new state hubs this year.",
+			"act": "note",
+			"unit": "mark",
+			"select": "path[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Nigeria, thirty-six point four.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Kenya, thirty-one.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Brazil, twenty-seven point five.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Indonesia, nineteen point three.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"4\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Ethiopia, fourteen point one.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"5\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Bangladesh, eleven point eight.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"6\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Peru, nine point six.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path[data-mark=\"7\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

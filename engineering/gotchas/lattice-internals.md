@@ -503,7 +503,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Symptom:** Mermaid diagrams on 4K slides look small in VS Code
   preview — they appear to be sized for 1280px rather than 3840px.
 - **Cause:** The non-slide-host fallback rule
-  `:is(pre, marp-pre)[data-mermaid-state="rendered"] + .mermaid { width:1152px; height:480px }`
+  `:is(pre, marp-pre)[data-lattice-settle="rendered"] + .mermaid { width:1152px; height:480px }`
   and the slide-context rule `section.diagram > .mermaid { width:calc(100cqi - 2*sp-2xl) }`
   had **identical specificity** (0,2,1). Because the non-slide rule
   appeared later in the file, it won the cascade and clamped the
@@ -777,6 +777,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   inside the coda, so a Key Insight cannot stand in for the slide's quote.
 - **Pinned by:** the "coda:" arms in `test/unit/transformers/prose-projection.test.js`,
   rendered through the real engine.
+- **A stats slide's line after its stat list** (a `*Source: …*` typed below the list) is
+  not a coda: a below-note must be the slide's last block, so a line followed by a key
+  insight stays in `.cell-stage`. `projectStats` and `speakStats` took only the stage's
+  blocks BEFORE the list, so both dropped it (1 of 86 stats/kpi slides in the committed
+  decks). They now print the blocks after the list too, after the stats. Pinned by the
+  "stats: a paragraph after the stat list" arm.
 
 ## An image slide jumps in the Studio preview when its picture loads
 
@@ -788,14 +794,22 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `lib/transformers/image-adaptive.js` stamps the Clean floor at once and re-stamps
   `data-img-bucket` / `data-img-composition` when its probe loads, and the bucket
   sizes the card. The preview's reveal gate waited for fonts, never for the probe.
-- **Fix:** each probe started before the first reveal publishes a promise that always
-  settles on `window.__latticeImageProbes`. `fontGateAgent` waits for them after the
-  faces, capped by `PREVIEW_IMAGE_GATE_MS` (4 s), armed only when a probe is pending. A
-  probe that lands past the cap fires `lattice:layout-late`, and `single-slide-render`
-  fades the frame through the relayout. A probe started after the reveal (an edit
-  re-creates the section) is neither published nor announced. The two whole-deck
-  documents (the Playground filmstrip, the Stage window) pass `0` and do not wait, so
-  one slow photo cannot hold every slide hidden.
+- **First fix, since removed:** the reveal gate (`fontGateAgent`) waited for every photo
+  probe after the faces, up to 4 s. The rule below ("the text waits for the photo") made
+  that wait redundant, and it cost a blank slide: with the photo held 2 s, the Studio's
+  frame stayed at opacity 0 until the photo landed (WebKit, iPhone profile) instead of
+  showing the placeholder. The gate now waits for the faces only, and nothing publishes
+  probes for it (followup 2412-p2). A size that lands after the text was released (the
+  4 s cap below) and changes the composition fires `lattice:layout-late`, and
+  `single-slide-render` fades the frame through the relayout.
+- **WebKit's `document.fonts.ready` waits for the photo too.** It resolves only once the
+  document's other loads finish, although `document.fonts.status` reads `"loaded"` as
+  soon as the faces are in (a face served in 600ms and a photo held 2 s: status at
+  ~700ms, `ready` at 2016ms, no `loadingdone` event). So with the image wait gone the
+  reveal still fell to the gate's 1.5 s backstop on the iPhone. The gate now also polls
+  `status` every 50ms from one tick after its layout flush, never inline: both engines
+  read `"loading"` right after the flush, and one that did not would reveal the fallback
+  solve.
 - **The same jump on a slide CHANGE** (the patch path, which no reveal gate covers): the
   swapped-in section painted for ~150ms with no composition at all (the panel filled the
   whole slide), then as the Clean floor, then final. `single-slide-render` now keeps every
@@ -809,25 +823,73 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **The rule since: the text waits for the photo.** A remote photo's size is unknown until
   it is fetched, and text laid out on a guess moves when the guess is corrected. So a
   section whose photo is being measured carries `data-img-pending` (set by the runtime's
-  probe, and by `stampImageSections` on a provisional section). `image.styles.css` shows
-  the panel as a shimmering placeholder and hides `> .image-text` and `> .cell-coda`. When
-  the size is in, the layout corrects while the text is still invisible, and the text
-  fades in once, in its final place; only the placeholder changes size. The size comes
+  probe, and by `stampImageSections` on a provisional section). `image.styles.css` hides
+  `> .image-text` and `> .cell-coda`. When the size is in, the layout corrects while the
+  text is still invisible, and the text fades in once, in its final place. The size comes
   from the image HEADER: `naturalWidth` is set long before `onload` (a load held open 2 s:
   Chromium had it at 17 ms, WebKit at 512 ms), so the probe polls it. A failed photo
   shows its hatch and text at once. A hanging one shows its text on the floor at
-  `PENDING_CAP_MS` (4 s), and only then can a landing fade the frame, and only while its
-  section is still on screen. A photo already in the memory cache has its size the moment
-  `src` is set and is sized in the same task, so an edit never shows the placeholder.
-- **Only a live preview holds text back:** the runtime sets `data-img-pending` only in a
-  document with a reveal gate (`__latticeFontsSettled` is a boolean: the Studio's slide,
-  the Playground filmstrip, the Stage window). The Studio's export capture frame, the
-  player and the fluid viewer have no gate and keep the Clean floor, so their bytes are
-  unchanged; the CLI emulator stamps every image slide from the file header anyway. A
+  `PENDING_CAP_MS` (4 s); a size landing after that hides only that slide's text for the
+  frame the corrected layout paints in (`data-img-relayout`), and only while its section
+  is still on screen. (It used to fade the whole frame through, which blanked the slide and
+  its painting for a beat on the owner's iPhone.) A photo already in the memory cache has
+  its size the moment `src` is set and is sized in the same task, so an edit never waits.
+- **The panel paints until the photo does (the Underpainting, #2471).** Knowing the size is
+  not holding the picture: on the owner's iPhone the text was final at once and the panel
+  sat EMPTY for ~3 s beside it while the file downloaded, which read as broken. So, in a
+  live preview, any picture carried as an element's own background (a photo panel's
+  `.lattice-bg`, a video poster) carries `data-lattice-painting` until it has DECODED
+  (`lib/core/image-painting.js`), and `base.modifiers.css` draws the house Nacre loader's
+  image variant over it: a canvas laid down in one brush sweep, soft brushwork drifting
+  across it, in the deck's own tokens. On decode it turns `"done"` and the painting fades
+  away over the photo. A picture already held never paints; one still hanging at 12 s goes
+  still (never an empty card) and fades in if it lands later. **One placeholder, two moods** (the owner's call): a picture that is NOT coming — a
+  web photo the reader has not loaded (remote-ref's hatch in the panel's style) or one that
+  failed — shows the same painting muted and STILL (`"still"`, `paintStill`) instead of the
+  hatch, in the same wide card, so tapping "Load" moves nothing (measured: the card holds
+  552×345 through still → painting → photo). Exports keep the hatch. **Keep the brush layer inside the element's
+  box:** a wider band raised the panel's `scrollWidth` by 1161px even with `overflow:
+  hidden`, `clip` or `contain: paint` (all three measured in Chromium and WebKit), and the
+  slide's overflow probe flagged the slide. So the strokes move by background and mask
+  position over a `64cqi` tile, not by transform.
+- **The painted card must not snap to the photo's shape.** With no size yet, the card used
+  the floor shape (4:3, height-bound: 565×504 on a 1280 slide), and the moment the size
+  arrived it snapped to the photo's (552×345 for a landscape) in one frame, beside text
+  appearing in that same frame. The owner caught it on an iPhone; my own records showed the
+  resize and I had filed it as intended. Two fixes: while a live preview's photo is pending
+  with no bucket, `image.styles.css` gives the card the WIDE shape (`wide` spans 1.3–2.0:
+  4:3, 3:2, 16:10, 16:9), so the common photo lands in exactly the painted box (measured:
+  zero box changes). The wide guess is keyed on the live SECTION (`data-img-live`, stamped by the
+  runtime in an opted-in document, with no bucket), not on a loading state, so a size that never
+  arrives (the 12 s cap) or an SVG with no size keeps the wide card instead of dropping to the
+  floor (the checker's finding). **Not `:root[…]`:** the engine packs every selector under
+  `article.lattice > section`, so `:root[x]` becomes the slide and never matched the document's
+  attribute — measured in the Studio frame, the rule was present and dead. Any other shape
+  MORPHS there (`morphFrom` in image-adaptive.js: pinned at its painted box, then glided to
+  the new one over 360ms). What is irreducible is that a portrait's shape is unknown until its
+  first bytes arrive; what is not is how it gets there. **The glide is FRAME-DRIVEN, not
+  clock-driven:** a PAUSED animation pins the card in the same task, and each frame sets its
+  clock forward by the frame's real gap, capped at 25ms, so a stall pauses the glide. WebKit's
+  first paint of the photo stalls the main thread (measured in headless WebKit: up to 1.6 s,
+  right AFTER the glide starts), and a clock-driven glide runs out inside the stall: a running
+  animation back-dates its start to when it was requested (start 2419 ms, first frame 4036 ms,
+  finished on that frame), and a CSS transition does the same, so the whole 402px change
+  landed in one frame. Setting the clock writes no attribute; an inline transform per frame
+  would wake the runtime's document-wide MutationObserver every frame (the checker). Reduced
+  motion gets the new box at once. The panel carries `data-img-morph` while it moves.
+- **Only a live preview holds text back, or paints:** the runtime sets `data-img-pending`,
+  `data-lattice-painting` and `data-img-relayout` only in a document with a reveal gate
+  (`__latticeFontsSettled` is a boolean) that ALSO opted in with `<html
+  data-lattice-live-media>`: the Studio's slide (single-slide-render), the Playground
+  filmstrip (deck-render) and the Stage window. The gate alone was the rule until #2471, and
+  it was wrong: the Studio's export capture frame and Print document are built by the same
+  `buildSrcdoc` and carry the gate, so a painting still fading at capture would have been
+  baked into a PDF, a PPTX or a shared player (the checker's reproduction). They never opt in.
+  The player and the fluid viewer have no gate; the CLI emulator stamps every image slide from
+  the file header anyway. A
   section this pass does not measure has any host pending stamp cleared, and the CSS
   releases the text by itself 4.5 s in (an animation), so a runtime that never ran cannot
-  strand it hidden. The Playground's first-slide snapshot strips the attribute from its
-  clone.
+  strand it hidden. The Playground's first-slide snapshot strips all three from its clone.
 - **WebKit holds `document.fonts.ready` until the document's other loads finish.** With a
   slow photo, the font gate's backstop fired with all 17 faces already loaded, and the
   photo's landing announced `lattice:fonts-late` and faded the whole frame. The backstop
@@ -835,6 +897,28 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   (`lib/core/preview-font-gate.mjs`).
 - **Pinned by:** the probe arms in `test/unit/transformers/image-adaptive.test.js` and
   the "adaptive image probes" arms in `test/unit/core/preview-font-gate.test.js`.
+
+## A light video poster flashes in on a dark slide in the preview
+
+- **Symptom:** on a dark `video` slide, a light poster steps from the dark tile to light
+  when it lands, a beat after the slide appears. Measured in the Studio (WebKit, iPhone
+  profile, poster held 2 s): tile luminance 26 to 234 between two frames.
+- **Cause:** the poster is the anchor's own inline `background-image`, painted over the
+  tile's surface (`--bg-alt`, #2412). On a dark slide that surface is dark, so no tile
+  color avoids the step.
+- **Fix:** in a live preview only, `lib/transformers/video.js` probes each poster. One the
+  browser already holds paints at once. Otherwise the anchor carries `data-lattice-painting`
+  and shows the Underpainting (the image loading painting above, shared with photo panels)
+  under the play badge and label until the poster has decoded; then the painting fades away
+  over it. Before: tile luminance 26 to 234 between two frames; after, a ramp over ~450ms.
+  The CLI, the export captures, Print and the players never opt in and are unchanged.
+- **Also on this path:** a WEB poster could not be loaded in the Studio at all. The
+  pre-check that decides whether to scan a deck for web images (`web-image-hint.ts`) did
+  not recognize the `` `poster` `` bullet, so the strip that offers "Load" never appeared
+  and the poster stayed a hatched tile. It now matches `- <web url> `` `poster` ``.
+- **Pinned by:** the "video poster painting (runtime)" arms in
+  `test/unit/transformers/video.test.js`, `test/unit/core/image-painting.test.js`, and
+  `web-image-hint.test.ts`.
 
 ## A slide's heading jumps into place just after a slide change in the preview
 

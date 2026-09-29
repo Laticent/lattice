@@ -1,14 +1,14 @@
 // Stage the runtime assets the playground fetches/loads at runtime into a
 // CONTENT-HASHED directory, so a redeploy can never serve them stale:
-//   - dist/lattice-runtime.min.js → public/playground/v/<hash>/lattice-runtime.js
+//   - dist/lattice-runtime-min.js → public/playground/v/<hash>/lattice-runtime.js
 //       (the DOM-transform + Mermaid bundle, loaded inside the preview iframe;
 //        renders charts/split-panels and orchestrates Mermaid — the same
 //        bundle marp-vscode preview uses. We stage the MINIFIED build: the
 //        preview fetches it over the wire, where size matters; the readable
 //        dist/lattice-runtime.js stays the devtools/debug artifact. ~1.5MB→300KB.)
-//   - dist/lattice.min.css      → public/playground/v/<hash>/themes/lattice.css
+//   - dist/lattice-min.css      → public/playground/v/<hash>/themes/lattice.css
 //       (the @theme lattice engine; minified for the same reason. ~727KB→362KB.)
-//   - dist/themes/<name>.min.css → public/playground/v/<hash>/themes/<name>.css
+//   - dist/themes/<name>-min.css → public/playground/v/<hash>/themes/<name>.css
 //       (the per-palette token files, fetched + registered by the playground
 //        engine to render in the chosen palette. We stage the MINIFIED build —
 //        the same one the Export-to-Marp bundle ships — under the unversioned
@@ -24,7 +24,7 @@
 // themes/lattice.css): the fetch sites (runtimeUrl / themeBase) are unchanged, so
 // swapping the SOURCE to the minified build is invisible to every consumer — only
 // the bytes (and thus the content hash) change. The minified variants are built by
-// the same `npm run build` (build-runtime.js emits both; lattice.min.css via the
+// the same `npm run build` (build-runtime.js emits both; lattice-min.css via the
 // css pipeline) and already back the Export-to-Marp path, so they're guaranteed
 // present and behaviorally identical to the readable builds.
 //
@@ -46,7 +46,7 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { collectGalleryAssets } from '../src/playground/galleries.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -56,15 +56,15 @@ const repoRoot = join(here, '..', '..');
 const distThemesDir = join(repoRoot, 'dist', 'themes');
 // Preview-fetched engine CSS + runtime: stage the MINIFIED builds (the readable
 // dist/lattice.css + dist/lattice-runtime.js remain the debug artifacts).
-const latticeCss = join(repoRoot, 'dist', 'lattice.min.css');
-const runtimeJs = join(repoRoot, 'dist', 'lattice-runtime.min.js');
+const latticeCss = join(repoRoot, 'dist', 'lattice-min.css');
+const runtimeJs = join(repoRoot, 'dist', 'lattice-runtime-min.js');
 // The dagre layout engine, split OUT of the runtime bundle. It is fetched only by
 // a preview document that carries a drawn state chart, via a `<script src>` the
 // host emits before the runtime tag — the same conditional shape mermaid uses.
 // Inlined into lattice-runtime.js until then, which put it on the eager path:
 // 25.9 KiB gzipped for every reader of every deck, for an engine only a BRANCHING
 // machine uses. See tools/build-dagre-bundle.js.
-const dagreJs = join(repoRoot, 'dist', 'lattice-dagre.min.js');
+const dagreJs = join(repoRoot, 'dist', 'lattice-dagre-min.js');
 const pgDir = join(here, '..', 'public', 'playground');
 const engineJs = join(pgDir, 'lattice-playground.js'); // committed engine bundle
 // KaTeX, split out of the engine bundle (tools/build-playground.js's `katex`
@@ -89,13 +89,19 @@ const assets = [
   ...createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'hydrate.generated.js')).HYDRATORS
     .filter((h) => h.payload)
     .map((h) => [h.payload.file, createRequire(import.meta.url).resolve(h.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
+  // …and each RUNTIME-drawn plugin's library (Mermaid), from the same registry
+  // (lib/plugins/drawn.generated.mjs), beside the runtime for the same reason: the runtime's
+  // diagram pass asks the plugin host for it (`ensureLibrary`), so no page threads its URL.
+  ...Object.values((await import(pathToFileURL(join(repoRoot, 'lib', 'plugins', 'drawn.generated.mjs')).href)).RUNTIME_DRAWN)
+    .filter((d) => d.payload)
+    .map((d) => [d.payload.file, createRequire(import.meta.url).resolve(d.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
   ['lattice-playground.js', engineJs],
   ['lattice-katex.js', katexProviderJs],
   ['themes/lattice.css', latticeCss],
 ];
 for (const file of readdirSync(distThemesDir)) {
-  if (file.endsWith('.min.css')) {
-    const dest = file.replace(/\.min\.css$/, '.css');
+  if (file.endsWith('-min.css')) {
+    const dest = file.replace(/-min\.css$/, '.css');
     assets.push([`themes/${dest}`, join(distThemesDir, file)]);
   }
 }
@@ -176,7 +182,7 @@ for (const { from } of [...STATIC_ASSETS, ...AGENT_ASSETS]) {
   assets.push([`export/${basename(from)}`, join(repoRoot, from)]);
 }
 // …and the font supply the bundle carries beside that stylesheet. Derived from
-// the SAME `url(fonts/…)` refs inside dist/lattice.min.css that the CLI reads,
+// the SAME `url(fonts/…)` refs inside dist/lattice-min.css that the CLI reads,
 // so the browser export ships byte-identical faces (text + KaTeX glyphs) rather
 // than a hand-kept subset. Staged under export/fonts/ — one base, mirroring the
 // CLI's dist/fonts/ read (drawing-board-export.js fetches them by basename).

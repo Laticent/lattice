@@ -16,6 +16,7 @@
     "typecheck": "astro sync && tsc --noEmit",
     "check:vetrina": "tsc -p tsconfig.vetrina.json",
     "check:lente": "tsc -p tsconfig.lente.json",
+    "check:segno": "tsc -p tsconfig.segno.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "perf": "node scripts/perf-collect.mjs --out .perf/local && node scripts/perf-regression.mjs --report .perf/local",
@@ -40,7 +41,8 @@
     "test:e2e:bless": "playwright test --update-snapshots --grep @visual",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
-    "check:route-budget": "node scripts/check-route-budget.mjs"
+    "check:route-budget": "node scripts/check-route-budget.mjs",
+    "route-budget:rebaseline": "node scripts/check-route-budget.mjs --rebaseline"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.3.0",

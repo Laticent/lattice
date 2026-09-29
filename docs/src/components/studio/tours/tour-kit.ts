@@ -13,7 +13,7 @@
 // but only an `aria-label` in the mobile pane bar, so those use a UNION selector that matches
 // either. The New-Deck item is portalled to <body>, so it needs a whole-document thunk.
 
-import { type Step, storyboard, type Walkthrough } from '../../../lib/vetrina';
+import { type Step, storyboard, type Walkthrough } from '../../../lib/vetrina/index.js';
 import type { StudioActions } from '../studio-actions';
 
 export type TourStep = Step<StudioActions>;

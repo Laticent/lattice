@@ -26,16 +26,17 @@ plus
 Two files are yours. The build writes the rest from your manifest, so
 hand-editing any of them loses the edit on the next build.
 
-## The thirteen buckets
+## The fourteen buckets
 
 Every component lives in one:
 
 `anchor` · `statement` · `inventory` · `comparison` · `progression` ·
 `evidence` · `imagery` · `chart` · `diagram` · `math` · `code` · `legal` ·
-`connect`
+`connect` · `layout`
 
-Seven mirror the Function axis; the rest are defined by what the author
-writes or by the domain.
+Seven mirror the Function axis; `layout` holds the host components
+(`columns`, `rows`), whose body is two other components; the rest are
+defined by what the author writes or by the domain.
 
 ## The checklist
 

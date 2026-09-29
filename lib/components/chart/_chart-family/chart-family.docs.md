@@ -751,6 +751,18 @@ The rules that cost a measured miss when broken:
   slope entity by its move ("fell seven points, from … to …"). Check the result with
   `node tools/measure-cue-profile.mjs <deck>.[0-9][0-9].vtt`: a chart cue past about six seconds
   is the smell.
+- **A detail is read with its item, as its own sentence.** A `detail` sublist (the nested bullet
+  `mark-detail.js` turns into the reveal popover) is said right after the reading of the item it
+  sits under — "FY24: Licenses, nineteen point one; Services, nine point eight. Services priced
+  per seat. FY25: …" — never in a list after the whole chart, where nothing says which item each
+  belongs to. Where the reading is not item-ordered, the detail follows the sentence that names
+  its item: a radar axis's after the profile sentence naming that axis, a line category's after
+  the first spoken point in that category. A line category no series speaks a point for (a gap, or
+  a long line's summary) is read after the chart with its name first ("M5. Pricing change."). It
+  stays a sentence of its own because the Guide finds its mark by matching the whole sentence
+  against the mark's detail template (`findDetailTarget`). `itemDetail` / `speakItemDetail` in
+  `lib/core/chart-narration.js` find and read a list item's detail; `radar quadrant` reads its
+  axis tree through `treeTexts`.
 - **Screen-reader-only text lives in `.chart-sr-only`.** The Guide never points into it, and the
   overflow probe (`IGNORED_CLIP_SELECTOR`) never reports its clip as lost content. Put the class on
   a block wrapper, never on a `<table>`, which ignores the 1px box and lays out at full size.

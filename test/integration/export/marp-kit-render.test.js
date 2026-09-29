@@ -326,7 +326,7 @@ for (const fixture of FIXTURES) {
 			await page.evaluate(() => document.fonts.ready);
 			// Mermaid draws asynchronously and the tooltip pin runs on its completion.
 			await page.waitForFunction(
-				() => document.querySelector('[data-mermaid-state="rendered"]') !== null,
+				() => document.querySelector('[data-lattice-hydrate="mermaid"][data-lattice-settle="rendered"]') !== null,
 				{ timeout: 30000 },
 			);
 		}, { timeout: TIMEOUT });
@@ -390,7 +390,7 @@ for (const fixture of FIXTURES) {
 		 * `position:fixed` is the one answer that satisfies both, so the test pins
 		 * both: the node is still there, AND it is out of the overflow.
 		 *
-		 * Mermaid is vendored at a committed version (`mermaid-v11.min.js`), so "no
+		 * Mermaid is vendored at a committed version (`mermaid-v11-min.js`), so "no
 		 * tooltip was created" is not something that can drift underneath this — it
 		 * would take a deliberate vendor bump, which is exactly when someone should
 		 * look here.
@@ -539,7 +539,7 @@ for (const fixture of FIXTURES) {
 		 * sheets registered." It does not: the engine bundle and the palette each
 		 * declare `--accent` independently, so it resolves from the palette ALONE.
 		 * Both a red team and an independent checker broke it the same way — drop
-		 * `lattice.min.css` from `themeSet` (exactly the failure this test names) and
+		 * `lattice-min.css` from `themeSet` (exactly the failure this test names) and
 		 * the deck renders in Times New Roman on a transparent background while
 		 * `--accent` still answers. The assertion the change marketed as load-bearing
 		 * was the one a mutation walked straight through.

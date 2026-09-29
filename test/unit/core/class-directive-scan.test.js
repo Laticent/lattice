@@ -26,6 +26,13 @@ const { slideClassDirectives, classDirectiveAt } = scan;
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const payloads = (src) => slideClassDirectives(src).map((d) => d.payload);
+// A pane layout's words (`columns ratio-60-40`, `rows`) are the slide's LAYOUT, which the engine consumes
+// before it resolves a class (lib/core/panes.js, lib/core/pane-spec.js `classLayout`); the scan
+// returns the author's raw `_class`, and the linter reads the layout off it itself. So on a slide
+// that lays out in panes the engine's class is the payload without them — one known, deliberate
+// difference, compared through this rather than tolerated wholesale.
+const { classLayout } = require('../../../lib/core/pane-spec');
+const sameClass = (scanned, engine) => scanned === engine || (classLayout(scanned || '') !== null && classLayout(scanned).rest === engine);
 /**
  * The class an author literally WROTE in a chunk, read without the scanner — the
  * alignment tests below have to compare the scan against something independent of
@@ -199,7 +206,7 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
       compared++;
       slides += spans.length;
       for (let i = 0; i < spans.length; i++) {
-        if (scanned[i] !== spans[i]) {
+        if (!sameClass(scanned[i], spans[i])) {
           wrong.push(`${rel} slide ${i + 1}: scan "${scanned[i]}" vs engine "${spans[i]}"`);
         }
       }
@@ -264,7 +271,7 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
       const chunks = splitTopLevel(src);
       if (chunks.length - 2 !== spans.length) continue;
       for (let i = 2; i < chunks.length; i++) {
-        if ((oldReaderClass(chunks[i]) ?? '') !== spans[i - 2]) wrong.push({ rel, slide: i - 1 });
+        if (!sameClass(oldReaderClass(chunks[i]) ?? '', spans[i - 2])) wrong.push({ rel, slide: i - 1 });
       }
     }
     assert.ok(wrong.length >= 4, `the corpus must exercise the defect, got ${wrong.length}`);

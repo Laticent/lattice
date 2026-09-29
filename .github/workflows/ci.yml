@@ -57,6 +57,12 @@ concurrency:
 #   studio-smoke           89   342s   364s   829s    15m     1.1x  <-- thin
 #   ci                     99     5s     7s    11s     5m    27.3x
 #
+#   player-webkit (added 2026-09-29, PR #2494): not in the sample above. Cap 12m is
+#     ~3.4x an estimate of ~3.5 min, built from measured parts rather than a run:
+#     webkit-baselines-nightly's install steps on this runner (npm ci 22s, docs
+#     npm ci 16s, Playwright browsers + libraries 50s) and the test in a sandbox
+#     (87s in WebKit). First run on PR #2494: 3m24s. Re-derive it from real runs.
+#
 # THREE METHOD NOTES, without which the table does not reproduce:
 #   · SKIPPED jobs are dropped (the API returns them with started_at ==
 #     completed_at). That is what the `n` column is showing. Keep them and
@@ -115,8 +121,27 @@ jobs:
       # and paths-filter has no PR base to diff against there.
       code: ${{ steps.filter.outputs.code == 'true' || github.event_name == 'merge_group' }}
       docs: ${{ steps.filter.outputs.docs == 'true' || github.event_name == 'merge_group' }}
+      # The exception to "the queue runs everything": `player-webkit` costs ~3.5 runner
+      # minutes and guards one surface, so the queue runs it only when the group touches
+      # that surface, read from the group's own diff (the `mq` step).
+      player: ${{ steps.filter.outputs.player == 'true' || steps.mq.outputs.player == 'true' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The merge group's diff needs its base commit; a PR run needs one commit.
+          fetch-depth: ${{ github.event_name == 'merge_group' && '0' || '1' }}
+      - name: Player files in the merge group
+        id: mq
+        if: github.event_name == 'merge_group'
+        env:
+          BASE: ${{ github.event.merge_group.base_sha }}
+          HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          if git diff --name-only "$BASE" "$HEAD" | grep -qE '^(lib/export/|test/integration/export/player-no-js\.test\.js$|\.github/workflows/ci\.yml$)'; then
+            echo "player=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "player=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: dorny/paths-filter@v3
         id: filter
         if: github.event_name != 'merge_group'
@@ -146,7 +171,7 @@ jobs:
               # only after the render tier had been skipped.
               - 'kit/**'
               - 'lattice-emulator.js'
-              - 'mermaid-v11.min.js'
+              - 'mermaid-v11-min.js'
               - 'package.json'
               - 'package-lock.json'
               - '.github/workflows/ci.yml'
@@ -158,6 +183,12 @@ jobs:
               # The exemplar decks are staged into the docs build; keep an
               # exemplars-only change re-running the docs job.
               - 'exemplars/**'
+              - '.github/workflows/ci.yml'
+            # The exported player's no-JS controls, re-run in WebKit (`player-webkit`).
+            # Keep this list in step with the `mq` step's pattern above.
+            player:
+              - 'lib/export/**'
+              - 'test/integration/export/player-no-js.test.js'
               - '.github/workflows/ci.yml'
 
   # ── Lint — ALWAYS runs (incl. docs-only) ───────────────────────────────
@@ -630,9 +661,24 @@ jobs:
       - name: Test docs React islands (Vitest + RTL)
         run: npm test
         working-directory: docs
+      # The per-PR route allowance (docs/scripts/check-route-budget.mjs): build the base in a
+      # worktree and measure it, so the gate can see how much THIS PR adds. The base is the
+      # test-merge commit's first parent, not the event's base.sha, which can be an older
+      # main and would charge the PR for other PRs' growth. About 67s on a runner. Pull
+      # requests only. A base that fails to build leaves no file and the gate reports the
+      # allowance as NOT checked. The owner approved this step
+      # (engineering/decisions/2026-09-29-route-budget-soft-hard.md §5).
+      - name: Measure the base for the per-PR route allowance
+        if: github.event_name == 'pull_request'
+        run: |
+          base="$(git cat-file -p HEAD | awk '/^parent/{print $2; exit}')"
+          echo "ROUTE_BUDGET_BASE_SHA=$base" >> "$GITHUB_ENV"
+          bash docs/scripts/measure-route-base.sh "$base" "$RUNNER_TEMP/route-base.json"
       - name: Build docs site
         run: npm run build
         working-directory: docs
+        env:
+          ROUTE_BUDGET_BASE_JSON: ${{ runner.temp }}/route-base.json
       # Responsive guard (advisory): no page may exceed its viewport width at
       # 390/700/820/1440 — a pannable page breaks on touch — and no row named in a
       # case's `noSelfOverflow` may exceed ITSELF, which is how a toolbar loses the
@@ -717,6 +763,52 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  # ── The exported player with scripts off, in WebKit ─────────────────────
+  # iOS Quick Look opens an exported player with JavaScript off, and Quick Look is
+  # WebKit. `integration` already runs player-no-js.test.js in Chromium on every code
+  # change; this re-runs the same file in Playwright's WebKit, only when the player or
+  # the test changes (the `player` filter). Blocking, on the owner's call (PR #2494),
+  # with the cost measured there: WebKit + its system libraries install in ~50 s on
+  # this runner (webkit-baselines-nightly), the test runs ~90 s, ~3.5 min in all. It
+  # runs beside `integration`, so it adds no wall-clock time. The Playwright is the
+  # docs workspace's pinned @playwright/test, so there is no second version to drift.
+  # See engineering/decisions/2026-09-29-player-no-js-controls.md.
+  player-webkit:
+    needs: changes
+    if: needs.changes.outputs.player == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    name: player no-JS (WebKit)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - name: Build the generated bundles
+        run: npm run build
+      - name: Install docs deps
+        run: npm ci
+        working-directory: docs
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+      - name: Install Playwright WebKit (pinned to @playwright/test)
+        run: npx playwright install --with-deps webkit
+        working-directory: docs
+      - name: No-JS player tests in WebKit
+        env:
+          LATTICE_PLAYWRIGHT: ${{ github.workspace }}/docs/node_modules/playwright
+        run: node --test test/integration/export/player-no-js.test.js
+
   # ── Single required check ──────────────────────────────────────────────
   # Set THIS as the only required status check in branch protection. It
   # passes when lint succeeds and the test tiers either passed or were
@@ -729,7 +821,7 @@ jobs:
   # green streak (#800). Adding a job here makes it merge-BLOCKING — do it deliberately.
   ci:
     if: always()
-    needs: [lint, unit, integration, docs-build]
+    needs: [lint, unit, integration, docs-build, player-webkit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -737,7 +829,7 @@ jobs:
     steps:
       - name: Verify gate
         run: |
-          echo "lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }}"
+          echo "lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} player-webkit=${{ needs.player-webkit.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
           # tier that didn't apply — e.g. docs-only skips unit/integration); or
           # cancelled. NOTE THE SPELLING: 'cancelled' is GitHub's own enum value
@@ -751,7 +843,8 @@ jobs:
           # train (see engineering/decisions/2026-06-14-drift-watch-rebase-thrash.md).
           # Only a real failure/timeout stops the gate.
           for tier in "lint=${{ needs.lint.result }}" "unit=${{ needs.unit.result }}" \
-                      "integration=${{ needs.integration.result }}" "docs-build=${{ needs.docs-build.result }}"; do
+                      "integration=${{ needs.integration.result }}" "docs-build=${{ needs.docs-build.result }}" \
+                      "player-webkit=${{ needs.player-webkit.result }}"; do
             case "${tier#*=}" in
               success|skipped|cancelled) ;;
               *) echo "::error::tier ${tier%%=*} did not pass (${tier#*=})"; exit 1 ;;

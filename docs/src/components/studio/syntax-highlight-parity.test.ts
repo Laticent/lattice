@@ -219,7 +219,7 @@ describe('Compose fenced code agrees with the other two surfaces', () => {
 	it('colors an engine sub-language through its BODY grammar, not by skipping it', () => {
 		// REVERSED, and the reversal is the point. An earlier cut skipped mermaid, anima and
 		// functionplot entirely, reading `highlight-js.css`'s suppression as "mermaid is
-		// never colored". That rule is scoped to `section.diagram … :not([data-mermaid-state=
+		// never colored". That rule is scoped to `section.diagram … :not([data-lattice-settle=
 		// "rendered"])` — the transient source `<pre>` on a SLIDE whose fence is about to
 		// become a picture. Compose is an editor, `mermaid.hljs.js` exists to color mermaid
 		// source, and the Studio's markdown editor already does. Reported from a real iPhone:

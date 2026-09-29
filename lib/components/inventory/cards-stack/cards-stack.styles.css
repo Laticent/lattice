@@ -95,6 +95,7 @@ section.cards-stack > .cell-stage > ol { counter-reset:stack var(--lat-split-off
 section.cards-stack > .cell-stage > ol > li {
   counter-increment:stack;
   --card-tag-gap: var(--sp-xs);   /* a stack row's own top padding; reserve in base.card-tag.css */
+  --card-tag-rest: var(--sp-sm);   /* the row's own top padding, for a tag off the top */
 }
 section.cards-stack > .cell-stage > ol > li::before {
   content:counter(stack);   /* geometry + color: lib/base/base.card-tag.css */
@@ -103,6 +104,7 @@ section.cards-stack .cards-stack-inner--ordered { counter-reset:stack var(--lat-
 section.cards-stack .cards-stack-inner--ordered > .card {
   counter-increment:stack;
   --card-tag-gap: var(--sp-xs);   /* a stack row's own top padding; reserve in base.card-tag.css */
+  --card-tag-rest: var(--sp-sm);
 }
 section.cards-stack .cards-stack-inner--ordered > .card::before {
   content:counter(stack);   /* geometry + color: lib/base/base.card-tag.css */

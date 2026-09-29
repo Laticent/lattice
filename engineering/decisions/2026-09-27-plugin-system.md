@@ -613,10 +613,12 @@ recording exactly what is left.
   settle barrier changes when the PDF is captured, so this phase carries **export sign-off**: the
   math gallery rendered in dark and light, sent before merge (QUALITY BAR).
 - **C. `lattice packages new plugin`**, the draft `spec/LPM.md`, and the author docs.
-- **D. Mermaid** — adds `bake` and `exec.bake`. **Done for the engine and the CLI** (§11); the
-  browser half — the payload loader, the settle state, the `language-mermaid` rosters — is
-  counted by the ratchet's `drawnFenceClasses` and recorded in
-  `followups.d/2417-p5-plugin-phase-d-browser-half.md`.
+- **D. Mermaid** — adds `bake` and `exec.bake`. **Done for the engine and the CLI** (§11), and
+  **the browser half since** (§11): the library loads through the host's `payload`, the settle
+  state is the host's, and no browser code names Mermaid by any of the three hand idioms the
+  ratchet counts (`drawnFenceClasses`, `drawnLibraryUrls`, `drawnSettleStates`, all 0). What is left of phase D —
+  the runtime pass moving into the plugin, the highlight grammar and `mermaid.css` contributed by
+  it — is `followups.d/2417-p5-plugin-phase-d-browser-half.md`.
 - **E. The data layer** — zip import/export of plugins in the CLI and the Studio (§4.10).
 - **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels; renderer
   libraries move to `optionalDependencies` (export sign-off: it changes what installs).
@@ -868,6 +870,91 @@ code. What changed because of them:
   invisible to the host's settle barrier, and 18 rosters name `language-mermaid`. By surface, the
   engine and the CLI run through the host; the preview, the Playground, `--fluid`, the Studio
   export and the player's browser-side paths do not yet.
+
+- **Phase D, the browser half: done, on its branch.** No browser code names Mermaid by any of
+  the three hand idioms the ratchet counts — a narrower claim than "no browser code names
+  Mermaid", and deliberately so: the plugin's own output classes (`.mermaid`, `.mermaid-svg`),
+  the runtime pass itself (`MERMAID_PLUGIN`, until it moves into the plugin) and the `mermaid`
+  boolean prop the preview components still pass are recorded in the followup, not counted.
+  `checkPluginMigration` first widened to count a runtime-drawn plugin's hand-threaded library
+  URL (`drawnLibraryUrls`: 82 `mermaidUrl`s in 23 files) and its private settle state in code and CSS (`drawnSettleStates`:
+  67, `data-mermaid-state` / `dataset.mermaidState` / `data-mermaid-final`), beside the
+  `language-mermaid` rosters (`drawnFenceClasses`: 18) — then all three fell to 0 in the same PR.
+  - **The library is the plugin's `payload`** (`npm:mermaid/dist/mermaid.min.js`) — the same npm
+    package the CLI bake already resolved (`mermaid/dist/mermaid.js`, render-worker.js), so the
+    preview and the PDF now draw with one version. It is byte-identical to the committed
+    `mermaid-v11.min.js` the Export-to-Marp kit and the integration tier's browser harness load,
+    and `mermaid-library-parity.test.js` holds the two equal, so a Dependabot bump cannot move
+    one without the other.
+    `sync-playground-assets.mjs` stages it beside `lattice-runtime.js` from the registry, and the
+    runtime's diagram pass asks the host for it (`ensureLibrary`, the loader a hydrator's library
+    uses) when a document holds a fence and no host wrote a Mermaid tag. No page threads a URL; a
+    frame builder PRELOADS the library for a document with a drawn fence (`drawnLibraryPreload`),
+    so the cold first diagram does not pay for the runtime's fetch and the library's in series; a
+    fence patched into a live document loads the library then (the docs-site builders still
+    rebuild the frame when a deck gains its first diagram, so that path serves hosts that patch);
+    a 404 fails before `load`, so the desktop print still gets the source, and so does a fence
+    that arrived after the boot deadline. A host that writes its own tag (the Marp kit) keeps the
+    old fast arm and is never sent a second copy. In the script's own `onload` the runtime turns
+    Mermaid's `startOnLoad` off and draws at once, because Mermaid's own on-load pass would
+    otherwise paint its error graphic into our empty targets. The Studio's diagram checker (now
+    lazy, `mermaid-parse.ts`) and idle warm-up derive the same address (`drawn-library.mjs`).
+  - **The settle state is the host's.** The runtime tags each fence's `<pre>` with
+    `data-lattice-hydrate="mermaid"` and `data-lattice-settle` (`hydrating` for the old
+    `rendering`, `data-lattice-final` for `data-mermaid-final`), so the Studio export waits on
+    `PENDING_FIGURES` alone — its untagged-fence probe and its private state whitelist are gone —
+    and counts every runtime-drawn figure the same way. The runtime's host knows runtime-drawn
+    plugins (`runtimeDrawn`), so `run` leaves their fence `<pre>` to the pass — and releases any
+    other element carrying the name, which an author wrote and nothing will settle; the CLI page,
+    which runs no such pass, releases them all. `releaseFigure` keeps a code-block figure's own
+    content (it has no packed config). The engine CSS moved to the host's attribute with the
+    plugin name in `:where()`, so every rule weighs what it weighed.
+  - **The figure geometry is settled, not incidental.** A code-block figure is its SOURCE `<pre>`,
+    tagged, with the drawing in a sibling the plugin owns (`.mermaid`); a placeholder figure is the
+    tagged element itself. When the runtime pass moves into the plugin as a `hydrate.js` (the
+    followup), that hydrate draws into the sibling and the host's markup stays on the `<pre>`, so
+    this DOM contract does not break a second time; the host gains the one difference (draw beside,
+    not into) then.
+  - **The rosters read the registry**: `drawn-probe.mjs` answers "does this owe a drawing?" as a
+    DOM selector, over rendered markup and over Markdown source; the two HARD RULE #22 scanners
+    (`remote-ref.js`, `door-attr.mjs`) carry a copy pinned to the registry by a test.
+  - **The engine did not move**; lattice.css did (the selectors). The engine is unchanged by
+    construction — the fence stays `as: "code"` and the runtime, not the engine, writes the markup.
+  **Evidence.** Engine HTML over 482 tracked Markdown files × 4 configurations (1,928 renders)
+  identical to `main` but for the two docs this PR edits. The diagram gallery's CLI PDFs are
+  byte-identical to a same-machine `main` run, light and dark (the new selectors never match on
+  the CLI page). A Studio PDF export of the diagram gallery from a local `build:e2e` of this
+  branch and of `main`: all 62 pages (31 light, 31 dark) pixel-identical, and every Mermaid
+  request went to `mermaid.min.js` beside the runtime. Real Chromium
+  (`mermaid-unavailable.test.js`): the payload draws with no host tag, a payload 404 hands the
+  fence back in under 2 s and before `load`, a deck with no fence never asks. The startup JavaScript cost, measured as a pair against `main` (the diagram checker's library half went lazy, the probe and the builders' preload came in):
+  the Studio's rose 37 bytes gz (634,157 → 634,194) and the Playground's 195 (601,551 →
+  601,746), both inside the owner's budget (docs/route-budget.json, unchanged). Cold cache, real
+  Chromium, median of three (first diagram drawn; the old host tag / the host's load / plus the
+  preload): 957 / 1,073 / 837 ms for one diagram and 1,053 / 1,065 / 954 for four on a fast link;
+  4,287 / 4,782 / 4,334 and 4,607 / 4,874 / 4,444 at 150 ms latency and 2 MB/s — and
+  `DOMContentLoaded` falls from ~1.0 s to ~0.3 s (fast) and ~4.3 s to ~3.4 s (slow), because the
+  parser no longer blocks on the library.
+  **Adversarial trio (HARD RULE #25).** No blocker stood. Folded: Mermaid's own on-load pass
+  painted its "Syntax error in text" graphic into our empty targets for ~130 ms in up to 4 of 4
+  runs (red team; `startOnLoad` off in the script's onload, pinned by a five-run cell that fails
+  on its first run without the fix); a fence patched in after the boot deadline, whose library
+  then 404ed, stayed hidden for good because the give-up is one-shot (checker; the failure now
+  releases itself, cell red then green); a debounced pass asked for the payload in a document
+  whose host wrote an async Mermaid tag, 404ed and flashed the source (checker; gated, cell red
+  then green); a forged `<div data-lattice-hydrate="mermaid">` held the Studio export for its
+  whole budget (red team; released as an unknown placeholder); the two library copies could drift
+  on a Dependabot bump (inversion; parity test); the CLI host's `runtimeDrawn` guarded a pass
+  `--fluid` never runs (red team; dropped); two `.astro` source probes narrower than the registry's
+  (inversion; replaced); `ensureLibrary` and `runtimeDrawn` had no per-PR test (checker, red team;
+  unit tests, mutation-proved); the cold-cache delay (inversion; preload); stale comments and
+  overclaims (all three).
+  **Left, with their reason** (the rewritten `followups.d/2417-p5-plugin-phase-d-browser-half.md`):
+  the runtime pass moving into the plugin; the plugin's own CSS and highlight grammar; the bake
+  `ctx`'s Mermaid-named members; the `mermaid` boolean prop and the `.mermaid` output-class
+  selectors in a few consumers, which a second runtime-drawn plugin would need generalized; a
+  deck's author-written `data-lattice-*` attributes surviving the sanitizer (pre-existing: a forged
+  `hydrating` stalled captures before this change too).
 
 ## References
 

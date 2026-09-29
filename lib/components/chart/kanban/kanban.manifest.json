@@ -234,5 +234,17 @@
         "hall": 2
       }
     }
+  },
+  "gesture": {
+    "archetype": "flow",
+    "units": {
+      "column": {
+        "select": ".kanban-column[data-label=\"{column}\"]"
+      },
+      "card": {
+        "select": ".kanban-card[data-label=\"{card}\"]"
+      }
+    },
+    "key": "largest"
   }
 }

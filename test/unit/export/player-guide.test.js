@@ -109,3 +109,50 @@ test('a deck element named __lpGuide cannot stand in for the Guide', async () =>
 	assert.deepEqual(errors, []);
 	dom.window.close();
 });
+
+// THE PRUNE KEEPS EVERY GUIDE RULE, valued attributes included. The allowlist matched each simple
+// selector exactly, so `section[data-guide="somber"]` (somber's heading ink, lib/base/base.focus.css)
+// was stripped from every export while `[data-guide]` rules survived: somber's focus took the accent.
+test('a guided export keeps the delivery-specific focus rules, and an unguided one keeps none', () => {
+	const fs = require('node:fs');
+	const path = require('node:path');
+	const { prunePlayerCss } = require('../../../lib/export/player-prune.js');
+	const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.focus.css'), 'utf8');
+	const isUsed = (base) => /^(section|p|li|svg|text|tr|td|th)$/.test(base);
+	const guided = prunePlayerCss(css, isUsed, { keepGuide: true }).css;
+	assert.match(guided, /section\[data-guide="somber"\]/, "somber's heading-ink rule survives the prune");
+	assert.match(guided, /\.lat-guide-focus/);
+	const plain = prunePlayerCss(css, isUsed, { keepGuide: false }).css;
+	assert.doesNotMatch(plain, /data-guide/, 'a player without the Guide keeps exactly the sheet it had');
+});
+
+// A GREETING IS NOT THE SLIDE. While a bookend speaks, the transport tells the Guide, so the slide's
+// chart binding does not play over "Good afternoon" (refs are spans over the SLIDE's text).
+test('the transport tells the Guide when a bookend, not the slide, is speaking', async () => {
+	const { buildTrack } = await import('@laticent/cadenza');
+	const { greetingVariants } = await import('../../../lib/core/resolve-bookends.mjs');
+	const greeting = Object.fromEntries(Object.entries(greetingVariants('{greeting}, and welcome.')).map(([v, text]) => [v, { text, track: buildTrack(text), clips: [] }]));
+	const slides = [{ text: 'First point here.', track: buildTrack('First point here.'), clips: [] }, null];
+	const { html } = await buildPlayerHtml({ docHtml, source: '---\ndelivery: restrained\n---\n\n# One\n', title: 'T', now: 0, narration: { slides, bookends: { greeting } } });
+	const beats = [];
+	const dom = new JSDOM(html, {
+		runScripts: 'dangerously',
+		pretendToBeVisual: true,
+		beforeParse(window) {
+			let api = null;
+			Object.defineProperty(window, '__lpGuide', {
+				configurable: true,
+				get: () => api,
+				set(v) {
+					api = { create: () => ({ beat: (_slide, cue, _track, playing, bookend) => beats.push({ cue, playing, bookend: !!bookend }), word() {}, reset() {} }) };
+					void v;
+				},
+			});
+		},
+	});
+	dom.window.document.querySelector('#lp-play').click();
+	const spoken = beats.filter((b) => b.playing && b.cue >= 0);
+	assert.ok(spoken.length, 'the greeting reached the Guide');
+	assert.equal(spoken[0].bookend, true, 'the greeting is flagged as a bookend');
+	dom.window.close();
+});

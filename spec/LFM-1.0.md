@@ -76,7 +76,8 @@ These two keys are the complete LFM-added front-matter surface in 1.0; every
 other recognized key belongs to Marpit.
 
 A **delivery** register is a third category, and 1.0 does not define one: `pace:`
-(2026-08-04) tells a self-presenting player how long to hold on a new slide before speaking. It
+(2026-08-04) tells a self-presenting player how long to hold on a new slide before speaking, and
+how long to let a slide's last sentence land before the next appears. It
 changes no rendered pixel, so a conforming renderer ignores it exactly as it ignores application
 metadata — but unlike application metadata it belongs to the DECK and must survive an export.
 See `lib/core/resolve-pace.mjs`.

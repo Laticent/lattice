@@ -53,6 +53,7 @@ import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
+import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { activeChartFinish, CHART_FINISHES } from './chart-finish-catalog';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SLIDE_COUNTER_SLOT } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
@@ -86,11 +87,12 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { MotionTargets } from './MotionTargets';
-import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
+import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PresetPicker } from './PresetPicker';
+import { mayHavePaneSlides } from './pane-probe';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
@@ -103,7 +105,7 @@ import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, deckBackdrop } from './slide-provenance';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasMermaid } from './slide-thumb';
 import { applyVariant } from './slide-variants';
@@ -1281,7 +1283,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// eager bundle is budgeted (docs/route-budget.json), and every other deck needs none of it.
 	// Until it lands, a panes deck previews as it did before the map existed (the slide alone,
 	// fail-closed) — one render at most.
-	const hasPaneMarker = source.includes('pane:');
+	const hasPaneMarker = mayHavePaneSlides(source);
 	const [paneMod, setPaneMod] = React.useState<typeof import('./pane-pages') | null>(null);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `deck.id` is a retry trigger, not a value the body reads.
 	React.useEffect(() => {
@@ -1349,8 +1351,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				} catch {}
 				const katexUrl = sourceHasMath(sourceRef.current) ? deriveKatexProviderUrl() : null;
 				// Fabricate's gallery carries a Diagram specimen, so opening Fabricate counts too.
-				const mermaidUrl = (diagramsUsed || fabricateUsed) && options?.mermaidUrl ? options.mermaidUrl : null;
-				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, mermaidUrl, fabricateUsed });
+				const diagramRuntimeUrl = (diagramsUsed || fabricateUsed) && options?.runtimeUrl ? options.runtimeUrl : null;
+				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed });
 			})
 			.catch(() => {});
 		return () => {
@@ -1359,7 +1361,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		};
 		// `options` comes from the page and never changes, so this runs once; the warmables are
 		// memoized, so a re-run would fetch nothing twice.
-	}, [options?.mermaidUrl]);
+	}, [options?.runtimeUrl]);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	// Indirection so the demo can drive the slide scope's commit funnel —
@@ -2236,6 +2238,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const next = { ...deckBd, [axis]: v === '__auto__' ? undefined : v };
 		settingsWrite('Backdrop', (s) => writeFrontMatterLine(s, 'backdrop', backdropDeckValue(next.strength, next.mask)));
 	};
+	// Card tags — the deck `tag:` register (lib/core/resolve-card-tag.js): ONE line holding up to
+	// four words (color, size, placement, alignment). Auto on an axis leaves its word out.
+	const deckTag = deckCardTag(source);
+	const setDeckTag = (axis: CardTagAxis, v: string) => {
+		const next = { ...deckTag, [axis]: v === '__auto__' ? undefined : v };
+		settingsWrite('Card tags', (s) => writeFrontMatterLine(s, 'tag', cardTagDeckValue(next)));
+	};
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeRegister(s, 'lift', lift ? 'off' : 'on'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
 	// band turns off — no separate toggle, the presence of text IS the switch.
@@ -2968,15 +2977,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Read the deck through the ref, so the DIAGRAM TEXT is the only trigger — depending
 		// on `source` would re-parse on every prose keystroke for no change in the answer.
 		const id = setTimeout(() => {
-			checkDiagrams(sourceRef.current, options?.mermaidUrl ?? '').then((errs) => {
-				if (live) setDiagramErrors(errs);
-			});
+			// On demand: the parse half (and its library loader) is not startup JavaScript.
+			import('./mermaid-parse')
+				.then((m) => m.checkDiagrams(extractDiagrams(sourceRef.current), options?.runtimeUrl ?? ''))
+				.then((errs) => {
+					if (live) setDiagramErrors(errs);
+				})
+				.catch(() => {
+					if (live) setDiagramErrors(null);
+				});
 		}, 900);
 		return () => {
 			live = false;
 			clearTimeout(id);
 		};
-	}, [diagramSignature, options?.mermaidUrl]);
+	}, [diagramSignature, options?.runtimeUrl]);
 	// Disambiguated, STABLE per-finding keys (finding object → key). Content-based so a
 	// fix survives a re-lint; an occurrence ordinal keeps two IDENTICAL findings (e.g. a
 	// repeated `_class` token → two same unknown-class findings) from colliding onto one
@@ -3772,7 +3787,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const r = addSlideAfter(source, activeFullIndex, c.skeleton);
 		const at = r.active;
 		applyDeckOp(r);
-		notify(`Inserted “${c.name}”.`);
+		notify(`Inserted “${c.label ?? c.name}”.`);
 		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
 		// GO TO THE SLIDE YOU JUST ADDED. The rail moved to it and the preview painted it,
 		// but the editor's caret stayed where it was — so the next thing an author typed
@@ -4413,6 +4428,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Chart finish" desc="How every chart spends its color." find="chart finish pigment etching tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> puts it in the body: full-strength, flat color. <strong>Etching</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. <strong>As designed</strong> (the default) keeps each chart's own paint. Every mark keeps an ink edge, and the a11y themes keep their patterns, under all three. A slide overrides it with <code>_class: chart-finish-*</code>.</>}>
 					<CatalogSelect ariaLabel="Choose chart finish" value={activeChartFinish(chartFinish).name} onValueChange={setChartFinish} className="w-full" groups={[{ options: catalogOptions(CHART_FINISHES) }]} />
 				</Field>
+				{/* The deck `tag:` register — ONE line, four axes, so four rows of one select each
+				    (the Backdrop pattern). Auto on every axis removes the key. */}
+				<SubGroup label="Card tags">
+					{CARD_TAG_ROWS.map((row) => (
+						<Field key={row.axis} label={row.label} desc={row.desc} find={row.find} help={row.help}>
+							<CatalogSelect
+								ariaLabel={row.label}
+								value={deckTag[row.axis] ?? '__auto__'}
+								onValueChange={(v) => setDeckTag(row.axis, v)}
+								className="w-full"
+								groups={[{ options: [{ value: '__auto__', label: "Component's own" }, ...CARD_TAG_AXES[row.axis].filter((w) => w !== row.native).map((w) => ({ value: w, label: cardTagOptionLabel(w) }))] }]}
+							/>
+						</Field>
+					))}
+				</SubGroup>
 				<SubGroup label="Frame and fit">
 					<Field label="Corners" desc="Square or rounded slide corners." help={<>Rounds the <strong>slide surface itself</strong> — a lighter, more screen-native frame. Square is the default. A slide opts back out with <code>_class: corners-square</code>.</>}>
 						<CatalogSelect ariaLabel="Choose corners" value={activeCorners(corners).name} onValueChange={setCorners} className="w-full" groups={[{ options: catalogOptions(CORNERS) }]} />

@@ -236,3 +236,100 @@ describe('the host, against markup it did not write', () => {
     assert.equal(calls.length, 0);
   });
 });
+
+/**
+ * RUNTIME-DRAWN figures (Mermaid, `render.exec.hydrate: "runtime"`): the runtime's own pass tags a
+ * fence's <pre> with the host's markup, so a capture waits on it — but the host must neither draw
+ * nor release one (its pass owns it), a release keeps its highlighted content (it has no packed
+ * config), and the host's one loader fetches its library for that pass (`ensureLibrary`).
+ * (Mutation-proved gaps the HARD RULE #25 checker found: dropping `runtimeDrawn` failed only the
+ * integration tier.)
+ */
+describe('the host and a runtime-drawn figure', () => {
+  const DRAWN = [{ name: 'mermaid', payload: { file: 'mermaid.min.js', global: 'mermaid' } }];
+  const fence = (settle = 'pending') => new JSDOM(
+    `<!doctype html><body><pre data-lattice-hydrate="mermaid" data-lattice-settle="${settle}"><code class="language-mermaid-source"><span class="hljs-keyword">flowchart</span> LR</code></pre><div class="mermaid"></div></body>`,
+    { runScripts: 'outside-only', pretendToBeVisual: true },
+  ).window;
+  const pre = (win) => win.document.querySelector('pre');
+  // A jsdom document built this way still reports `loading` synchronously after construction; the
+  // loader declines mid-parse by design (its own test below), so these tests see a parsed page.
+  const parsed = (win) => {
+    Object.defineProperty(win.document, 'readyState', { configurable: true, get: () => 'complete' });
+    return win;
+  };
+
+  test('run() leaves a pending runtime-drawn fence to the runtime\'s pass', () => {
+    const a = fence();
+    installHydrateHost(a, HYDRATORS, { fromBase64, releaseFigure, runtimeDrawn: DRAWN }).run();
+    assert.equal(state(pre(a)), 'pending');
+  });
+
+  test('the CLI page has no runtime pass, so there a tagged fence is released — its source kept', () => {
+    const b = fence();
+    b.eval(hydrateScript(HYDRATORS).replace('var host = ', 'var host = window.__host = '));
+    b.__host.run();
+    assert.equal(state(pre(b)), 'unavailable');
+    assert.ok(pre(b).querySelector('.hljs-keyword'));
+  });
+
+  test('an AUTHOR element carrying a runtime-drawn plugin\'s name is not its figure: released, never waited on', () => {
+    // Only the fence's own <pre> is the runtime's; a forged <div> survives the sanitizer and, left
+    // pending, held every capture for its whole budget (HARD RULE #25 red team).
+    const win = new JSDOM('<!doctype html><body><div data-lattice-hydrate="mermaid" data-lattice-settle="pending">x</div></body>', { runScripts: 'outside-only' }).window;
+    installHydrateHost(win, HYDRATORS, { fromBase64, releaseFigure, runtimeDrawn: DRAWN }).run();
+    const div = win.document.querySelector('div');
+    assert.equal(state(div), 'unavailable');
+    assert.equal(div.matches(PENDING_FIGURES), false, 'no capture waits on it');
+  });
+
+  test('without runtimeDrawn it would be an unknown plugin — released, but its highlighted content kept', () => {
+    const win = fence();
+    installHydrateHost(win, HYDRATORS, { fromBase64, releaseFigure }).run();
+    assert.equal(state(pre(win)), 'unavailable');
+    assert.ok(pre(win).querySelector('.hljs-keyword'), 'a figure with no packed config keeps its own source markup');
+  });
+
+  test('ensureLibrary: one tag, every waiter called once, then answered from memory', () => {
+    const win = parsed(fence());
+    const host = installHydrateHost(win, [], { fromBase64, releaseFigure, runtimeDrawn: DRAWN, baseUrl: 'https://x.test/v/1/lattice-runtime.js' });
+    const got = [];
+    const ready = () => typeof win.mermaid?.render === 'function';
+    assert.equal(host.ensureLibrary('mermaid', ready, (ok) => got.push(['a', ok])), 'loading');
+    assert.equal(host.ensureLibrary('mermaid', ready, (ok) => got.push(['b', ok])), 'loading');
+    const tags = [...win.document.querySelectorAll('script[src]')];
+    assert.deepEqual(tags.map((t) => t.src), ['https://x.test/v/1/mermaid.min.js'], 'one tag, beside the runtime, by the payload\'s file name');
+    win.mermaid = { render() {}, initialize() {} };
+    tags[0].onload();
+    assert.deepEqual(got, [['a', true], ['b', true]]);
+    assert.equal(host.ensureLibrary('mermaid', ready, () => got.push(['late'])), 'ready');
+    assert.equal(got.length, 2, 'a call once the library is here takes no waiter');
+  });
+
+  test('ensureLibrary: a failed load answers false once per waiter, and "failed" afterwards; no URL is "unavailable"', () => {
+    const win = parsed(fence());
+    const host = installHydrateHost(win, [], { fromBase64, releaseFigure, runtimeDrawn: DRAWN, baseUrl: 'https://x.test/lattice-runtime.js' });
+    const got = [];
+    assert.equal(host.ensureLibrary('mermaid', () => false, (ok) => got.push(ok)), 'loading');
+    win.document.querySelector('script[src]').onerror();
+    assert.deepEqual(got, [false]);
+    assert.equal(host.ensureLibrary('mermaid', () => false, (ok) => got.push(ok)), 'failed');
+    assert.deepEqual(got, [false], 'never retried');
+    const bare = installHydrateHost(parsed(fence()), [], { fromBase64, releaseFigure, runtimeDrawn: DRAWN });
+    assert.equal(bare.ensureLibrary('mermaid', () => false, () => {}), 'unavailable', 'no baseUrl: nothing to load beside');
+    assert.equal(host.ensureLibrary('no-such-plugin', () => false, () => {}), 'unavailable');
+  });
+
+  test('ensureLibrary: mid-parse it declines and takes no waiter, so the next pass asks again', () => {
+    const win = fence();
+    Object.defineProperty(win.document, 'readyState', { configurable: true, get: () => 'loading' });
+    const host = installHydrateHost(win, [], { fromBase64, releaseFigure, runtimeDrawn: DRAWN, baseUrl: 'https://x.test/lattice-runtime.js' });
+    let called = 0;
+    assert.equal(host.ensureLibrary('mermaid', () => false, () => { called++; }), 'unavailable');
+    assert.equal(win.document.querySelectorAll('script[src]').length, 0);
+    Object.defineProperty(win.document, 'readyState', { configurable: true, get: () => 'complete' });
+    assert.equal(host.ensureLibrary('mermaid', () => false, () => { called++; }), 'loading');
+    win.document.querySelector('script[src]').onerror();
+    assert.equal(called, 1, 'only the waiter that was taken is answered');
+  });
+});

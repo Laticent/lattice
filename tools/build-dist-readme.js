@@ -74,7 +74,7 @@ const DESCRIPTIONS = {
     purpose: 'Engine bundle — the palette-blind layout system (layouts + modifiers, no color tokens).',
     consume: '`@laticent/lattice/css`',
   },
-  'lattice.min.css': {
+  'lattice-min.css': {
     purpose: 'Minified `lattice.css` — same engine, comments/whitespace stripped (Marp `@theme`/`@size` directives preserved). Production / CDN drop-in.',
     consume: '`@laticent/lattice/css/min`',
   },
@@ -82,7 +82,7 @@ const DESCRIPTIONS = {
     purpose: 'Zero-config drop-in: the engine flattened together with the default palette (cuoio), `@import` resolved at build time. Browser-droppable.',
     consume: '`@laticent/lattice/default`',
   },
-  'lattice-default.min.css': {
+  'lattice-default-min.css': {
     purpose: 'Minified `lattice-default.css` — the zero-config themed drop-in, compressed. The leanest single-file `<link>` for browser use.',
     consume: '`@laticent/lattice/default/min`',
   },
@@ -94,19 +94,19 @@ const DESCRIPTIONS = {
     purpose: 'Browser runtime transforms (chart-family, structure post-processing) — powers the web export, the marp-vscode preview, and (bundled) the Export-to-Marp zip\'s full-fidelity HTML route. esbuild IIFE.',
     consume: '`@laticent/lattice/runtime`',
   },
-  'lattice-runtime.min.js': {
+  'lattice-runtime-min.js': {
     purpose: 'Minified `lattice-runtime.js` — no inline source map. Production / CDN runtime drop-in.',
     consume: '`@laticent/lattice/runtime/min`',
   },
-  'lattice-dagre.min.js': {
-    purpose: 'The dagre graph-layout engine (`dagre-d3-es`, MIT), tree-shaken to `layout` + `Graph`, as a standalone IIFE that installs `globalThis.__latticeDagre`. Load it with a `<script src>` BEFORE `lattice-runtime.min.js` on any page whose deck has a state chart — the runtime\'s layout pass reads that global synchronously on its first draw. Absent, a state chart that BRANCHES falls back to the reading-order grid a chain uses, drawing each branch as a skip (a different layout, not a blank one; the runtime says so on the console). Split out of the runtime bundle so a reader with no state chart does not fetch 25.9 KiB gzipped of layout engine.',
-    consume: '`<script src="lattice-dagre.min.js">`, beside the runtime',
+  'lattice-dagre-min.js': {
+    purpose: 'The dagre graph-layout engine (`dagre-d3-es`, MIT), tree-shaken to `layout` + `Graph`, as a standalone IIFE that installs `globalThis.__latticeDagre`. Load it with a `<script src>` BEFORE `lattice-runtime-min.js` on any page whose deck has a state chart — the runtime\'s layout pass reads that global synchronously on its first draw. Absent, a state chart that BRANCHES falls back to the reading-order grid a chain uses, drawing each branch as a skip (a different layout, not a blank one; the runtime says so on the console). Split out of the runtime bundle so a reader with no state chart does not fetch 25.9 KiB gzipped of layout engine.',
+    consume: '`<script src="lattice-dagre-min.js">`, beside the runtime',
   },
   'lattice-emulator.js': {
     purpose: 'Lattice\'s own engine, bundled as a CLI — renders PDF, PPTX, and PNG directly (no Marp involved); the local engine graph inlined, node_modules deps left external. This is the package `bin` and `main`.',
     consume: '`lattice` bin / `@laticent/lattice`',
   },
-  'lattice-emulator.min.js': {
+  'lattice-emulator-min.js': {
     purpose: 'Minified `lattice-emulator.js` — the same CLI bundle compressed, shebang + executable bit preserved. Leaner install footprint; the bin/main stays the unminified file.',
     consume: '`@laticent/lattice/min`',
   },

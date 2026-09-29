@@ -187,7 +187,7 @@ pre-push:
         base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
         run_it=1
         if [ -n "$base" ] && files="$(git diff --name-only "$base"...HEAD 2>/dev/null)"; then
-          printf '%s\n' "$files" | grep -qE '^lib/|^tools/|^test/|^themes/|^dist/|^examples/|^exemplars/|^marp\.config\.js$|^lattice-emulator\.js$|^mermaid-v11\.min\.js$|^package\.json$|^package-lock\.json$|^\.github/workflows/ci\.yml$' || run_it=0
+          printf '%s\n' "$files" | grep -qE '^lib/|^tools/|^test/|^themes/|^dist/|^examples/|^exemplars/|^marp\.config\.js$|^lattice-emulator\.js$|^mermaid-v11-min\.js$|^package\.json$|^package-lock\.json$|^\.github/workflows/ci\.yml$' || run_it=0
         fi
         if [ "$run_it" = 1 ]; then
           export CHROME_PATH="${CHROME_PATH:-$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1)}"

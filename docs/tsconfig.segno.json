@@ -1,0 +1,17 @@
+{
+  "//": "Isolated STANDALONE typecheck for the Segno grammar engine (engineering/decisions/2026-09-28-segno-unified-inline-notation.md). It compiles ONLY the framework-free, no-DOM core with `types: []` — no repo tsconfig, no @types/node, no DOM. If the core ever grows a dependency on the host or on an ambient type, this fails: the mechanical proof that Segno is publishable as-is. Run: `npm run check:segno`. The import-boundary gate (tools/check-ownership.js) guards runtime imports; this guards the type surface.",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "types": [],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/lib/segno/**/*.ts"],
+  "exclude": ["src/lib/segno/**/*.test.ts"]
+}

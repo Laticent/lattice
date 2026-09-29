@@ -1,7 +1,7 @@
 // Diagram flash bench — how many PAINTED FRAMES show raw Mermaid source?
 //
 // The instrument behind the "the fence flashes before the diagram" report. It exists
-// because every other number available for this bug is a proxy: `data-mermaid-state`
+// because every other number available for this bug is a proxy: `data-lattice-settle`
 // tells you when the runtime TAGGED a fence, not whether the browser had already
 // painted it; a screenshot tells you what one moment looked like, not for how long.
 //
@@ -359,7 +359,7 @@ function sampler() {
 		const code = document.querySelector(SRC);
 		if (code) mark('fence');
 		const pre = code?.parentElement;
-		if (pre?.dataset?.mermaidState) mark('tagged');
+		if (pre?.dataset?.latticeSettle) mark('tagged');
 		if (document.querySelector('.mermaid > svg, .mermaid-svg svg')) mark('svg');
 		if (window.mermaid) mark('mermaidLib');
 		try {

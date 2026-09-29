@@ -178,5 +178,8 @@
   },
   "venueCapacity": {
     "none": "Atomic: one citation per slide, so there is no count axis."
+  },
+  "gesture": {
+    "archetype": "statement"
   }
 }

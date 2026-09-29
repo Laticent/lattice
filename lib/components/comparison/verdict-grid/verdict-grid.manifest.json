@@ -188,5 +188,8 @@
         "hall": 3
       }
     }
+  },
+  "gesture": {
+    "archetype": "grid"
   }
 }

@@ -171,5 +171,8 @@
         "hall": 3
       }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

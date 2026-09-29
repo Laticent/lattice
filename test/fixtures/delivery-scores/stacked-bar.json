@@ -1,0 +1,158 @@
+{
+	"restrained": [
+		{
+			"said": "Each bar is a total; the bands inside it are the mix.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar is a category total, split into the parts that make it up.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FY23: Licenses, eighteen point four; Services, six point two; Support, four point one.",
+			"act": "visit",
+			"unit": "category",
+			"select": "rect.sbar-seg[data-label^=\"FY23 · \"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FY24: Licenses, nineteen point one; Services, nine point eight; Support, four point six.",
+			"act": "visit",
+			"unit": "category",
+			"select": "rect.sbar-seg[data-label^=\"FY24 · \"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FY25: Licenses, nineteen point six; Services, fifteen point four; Support, five point two.",
+			"act": "visit",
+			"unit": "category",
+			"select": "rect.sbar-seg[data-label^=\"FY25 · \"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Each bar is a total; the bands inside it are the mix.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each bar is a category total, split into the parts that make it up.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "FY23: Licenses, eighteen point four; Services, six point two; Support, four point one.",
+			"act": "visit",
+			"unit": "category",
+			"select": "rect.sbar-seg[data-label^=\"FY23 · \"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "FY24: Licenses, nineteen point one; Services, nine point eight; Support, four point six.",
+			"act": "visit",
+			"unit": "category",
+			"select": "rect.sbar-seg[data-label^=\"FY24 · \"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "FY25: Licenses, nineteen point six; Services, fifteen point four; Support, five point two.",
+			"act": "visit",
+			"unit": "category",
+			"select": "rect.sbar-seg[data-label^=\"FY25 · \"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Each bar is a total; the bands inside it are the mix.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar is a category total, split into the parts that make it up.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FY23: Licenses, eighteen point four; Services, six point two; Support, four point one.",
+			"act": "visit",
+			"unit": "category",
+			"select": "rect.sbar-seg[data-label^=\"FY23 · \"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FY24: Licenses, nineteen point one; Services, nine point eight; Support, four point six.",
+			"act": "visit",
+			"unit": "category",
+			"select": "rect.sbar-seg[data-label^=\"FY24 · \"]",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FY25: Licenses, nineteen point six; Services, fifteen point four; Support, five point two.",
+			"act": "visit",
+			"unit": "category",
+			"select": "rect.sbar-seg[data-label^=\"FY25 · \"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

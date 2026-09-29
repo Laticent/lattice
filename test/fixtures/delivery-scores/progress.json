@@ -1,0 +1,218 @@
+{
+	"restrained": [
+		{
+			"said": "Progress bars race toward their targets.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar fills to how complete its item is.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Signal Intake, ninety-two percent, on track.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Signal Intake\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Scoring policy, sixty-eight percent, at risk.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Scoring policy\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Decision Log, eighty-one percent, on track.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Decision Log\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Calibration cadence, thirty-four percent, deferred.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Calibration cadence\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Adoption, twelve percent, blocked.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Adoption\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Progress bars race toward their targets.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each bar fills to how complete its item is.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Signal Intake, ninety-two percent, on track.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Signal Intake\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Scoring policy, sixty-eight percent, at risk.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Scoring policy\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Decision Log, eighty-one percent, on track.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Decision Log\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Calibration cadence, thirty-four percent, deferred.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Calibration cadence\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Adoption, twelve percent, blocked.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Adoption\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Progress bars race toward their targets.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar fills to how complete its item is.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Signal Intake, ninety-two percent, on track.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Signal Intake\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Scoring policy, sixty-eight percent, at risk.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Scoring policy\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Decision Log, eighty-one percent, on track.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Decision Log\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Calibration cadence, thirty-four percent, deferred.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Calibration cadence\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Adoption, twelve percent, blocked.",
+			"act": "visit",
+			"unit": "row",
+			"select": ".progress-row[data-label=\"Adoption\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

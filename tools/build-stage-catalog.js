@@ -319,6 +319,13 @@ function buildAxisSets() {
   return { source, count: sortedNames.length };
 }
 
+/** Whether a component's own anatomy uses `###`: a slot whose selector names an `h3`. A pane of
+ *  it keeps every `###` it holds, instead of taking one as the pane's title or a new pane's start
+ *  (lib/core/pane-spec.js `ownsHeadings`). Only `team-profile` (its `sides` roster labels) today. */
+function ownsH3(m) {
+  return Object.values(m.slots || {}).some((s) => /(?:^|[\s>+~,(])h3\b/.test(String(s?.selector || '')));
+}
+
 // The PANE catalog: for every layout, whether it can go in a pane (`fit`) and what it
 // renders AS there (`form`). Baked for the same reason as the catalogs above: the carve
 // (lib/core/panes.js) runs inside the browser bundle, which cannot fs-load the manifests.
@@ -331,7 +338,7 @@ function buildPane() {
     if (!m.pane) continue;
     // Every built-in row: the least share each direction reads at is measured per component, so
     // no default covers them. A MISSING row is an installed package, which fits any share.
-    catalog[m.name] = { side: m.pane.side, stack: m.pane.stack, ...(m.pane.form ? { form: m.pane.form } : {}) };
+    catalog[m.name] = { side: m.pane.side, stack: m.pane.stack, ...(m.pane.form ? { form: m.pane.form } : {}), ...(ownsH3(m) ? { h3: true } : {}), ...(m.hosts ? { host: true } : {}) };
   }
   const sorted = {};
   for (const n of Object.keys(catalog).sort()) sorted[n] = catalog[n];
@@ -341,6 +348,9 @@ function buildPane() {
     '   side  — the least share side by side a pane of it reads at, or false (never).\n' +
     '   stack — the least share of the height a stacked pane of it reads at, or false.\n' +
     '   form  — the component a pane renders this one AS, when it differs.\n' +
+    "   h3    — its own anatomy uses `###` (a slot selector names h3), so a pane of it keeps them.\n" +
+    "   host  — a HOST component (manifest `hosts`, columns / rows): its body is two panes, and it\n" +
+    "           names nothing to render with where none were carved (lib/core/resolve-component.js).\n" +
     '   Measured by tools/measure-pane-fit.js, then reviewed. No row: fits any share.\n' +
     '   Rebuild: node tools/build-stage-catalog.js */\n' +
     'module.exports = ' + JSON.stringify(sorted) + ';\n';
@@ -383,6 +393,8 @@ function buildVenueLint() {
   const insightVariants = {};
   const panel = {};
   const panelNot = {};
+  const rows = {};
+  let rowFrame = null;
   // The count axis of a row whose component has no `capacity` block (lint's venue-only path).
   const axis = {};
   let code = null;
@@ -418,15 +430,55 @@ function buildVenueLint() {
       }
       if (vc.panel.not) panelNot[m.name] = vc.panel.not;
     }
+    // `rows`: component → the line geometry of its list or cards (Amendment (7)). `frame` per role as
+    // rung arrays; each register keyed by its variant tokens ('' for bare), with `cols`, `span` and
+    // per shape the item roles, `row` and `budget` as rung arrays. `of` is the component's variant
+    // list, so lint can tell a slide in a measured register from one in an unmeasured one.
+    if (vc.rows) {
+      // Compact, since it rides the Studio's eager bundle: a px value the same at all four rungs
+      // (a budget, a row's cost, within 2 px) is one number, and an `ordered` shape keeps only the
+      // fields that differ from the unordered one. lint-core reads both forms.
+      // Collapsed toward a warning: the least of a budget, the most of a cost.
+      const rungs = (g) => Object.fromEntries(Object.entries(g).map(([k, r]) => {
+        const a = row(r);
+        return [k, typeof a[0] === 'number' && Math.max(...a) - Math.min(...a) <= 2 ? (k === 'budget' ? Math.min(...a) : Math.max(...a)) : a];
+      }));
+      const regs = {};
+      for (const [reg, g] of Object.entries(vc.rows)) {
+        if (reg === 'frame') continue;
+        // lint finds a register by joining the slide's variant tokens in the manifest's `variants`
+        // order, so a key in any other order would never be read.
+        const want = (m.variants || []).filter((v) => reg.split(' ').includes(v)).join(' ');
+        if (reg !== 'bare' && reg !== want) throw new Error(`${m.name}: venueCapacity.rows key '${reg}' must name its variants in the manifest's order ('${want}').`);
+        const out = {};
+        for (const [k, v] of Object.entries(g)) {
+          if (k === 'ordered') continue;
+          out[k] = typeof v === 'object' ? rungs(v) : v;
+        }
+        for (const [shape, o] of Object.entries(g.ordered || {})) {
+          // The same 2 px as across the rungs: a budget measured 1542 bare and 1543 numbered is one
+          // stage, not a numbered register's own.
+          const same = (a, b) => (typeof a === 'number' && typeof b === 'number' ? Math.abs(a - b) <= 2 : JSON.stringify(a) === JSON.stringify(b));
+          const own = Object.entries(rungs(o)).filter(([k, v]) => !same(v, out[shape]?.[k]));
+          (out.ordered ||= {})[shape] = Object.fromEntries(own);
+        }
+        regs[reg === 'bare' ? '' : reg] = out;
+      }
+      // The frame is the standard frame's, the same measurement on every component that has one:
+      // baked once as `rowFrame`, and per component only where it differs.
+      const frame = rungs(vc.rows.frame);
+      rowFrame ||= frame;
+      rows[m.name] = { of: m.variants || [], regs, ...(JSON.stringify(frame) === JSON.stringify(rowFrame) ? {} : { frame }) };
+    }
   }
   const source =
     '/* Auto-generated by tools/build-stage-catalog.js — DO NOT EDIT.\n' +
     "   Source: every component manifest's `venueCapacity` (lib/components/). items: element count\n" +
     '   per words-per-element, as [laptop, huddle, conference, hall]; code: pane lines, bare and\n' +
     '   under an eyebrow; variants: "<component> <token>" rows; insight: rows with a trailing\n' +
-    '   insight callout; panel: claim-panel line geometry. Rebuild:\n' +
+    '   insight callout; panel: claim-panel line geometry; rows: list and card line geometry. Rebuild:\n' +
     '   node tools/build-stage-catalog.js */\n' +
-    'module.exports = ' + JSON.stringify({ items, code, variants, insight, insightVariants, axis, panel, panelNot }) + ';\n';
+    'module.exports = ' + JSON.stringify({ items, code, variants, insight, insightVariants, axis, panel, panelNot, rows, rowFrame }) + ';\n';
   return { source, count: Object.keys(items).length + (code ? 1 : 0) };
 }
 

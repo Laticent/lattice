@@ -216,3 +216,90 @@ test('video: a subtitle label under the title stays its next sibling, in the car
     assert.match(out, /<p>lead<\/p>/, `${cls}: the lead survives`);
   }
 });
+
+// ── The poster paints until it decodes, in a live preview (followup 2412-p3) ──────────────
+// A light poster on a dark slide stepped from the dark tile to light when it landed. In a
+// document with a reveal gate, a poster the browser does not already hold shows the Underpainting
+// (`data-lattice-painting`, lib/core/image-painting.js) until it has decoded, then the painting
+// fades away over it; a cached poster, and every document with no gate (an export capture, a
+// player), are left exactly as they were.
+describe('video poster painting (runtime)', () => {
+  const { JSDOM } = require('jsdom');
+  const registry = require('../../../lib/transformers/video');
+  const POSTER = 'https://example.com/poster.jpg';
+
+  function frame({ gate = true, optIn = true, cached = false } = {}) {
+    const dom = new JSDOM(`<section class="video"><figure class="video-embed"><a class="video-poster" href="https://youtu.be/x" style="background-image:url('${POSTER}')"><span class="video-play"></span></a></figure></section>`);
+    const win = dom.window;
+    if (gate) win.__latticeFontsSettled = false;
+    if (optIn) win.document.documentElement.setAttribute('data-lattice-live-media', '');
+    const timers = [];
+    win.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+    win.clearTimeout = (n) => { if (timers[n - 1]) timers[n - 1].fn = () => {}; };
+    const decodes = [];
+    win.Image = class {
+      set src(v) { this._src = v; this.complete = cached; if (cached) this.naturalWidth = 1280; }
+      get src() { return this._src; }
+      decode() { return new Promise((res, rej) => decodes.push({ res, rej })); }
+    };
+    const a = win.document.querySelector('a.video-poster');
+    return { win, a, timers, decodes };
+  }
+  const flush = () => new Promise((r) => setImmediate(r));
+
+  test('a loading poster paints until decoded, fades, then the anchor shows it alone', async () => {
+    const { win, a, timers, decodes } = frame();
+    registry.applyToDom(win.document);
+    assert.equal(a.getAttribute('data-lattice-painting'), '', 'painting while the poster loads');
+    assert.match(a.style.backgroundImage, /poster\.jpg/, 'the poster stays the anchor\'s own background');
+    decodes[0].res();
+    await flush();
+    assert.equal(a.getAttribute('data-lattice-painting'), 'done', 'the painting fades away');
+    timers.at(-1).fn();
+    assert.equal(a.hasAttribute('data-lattice-painting'), false);
+  });
+
+  test('a cached poster is left alone: no painting', () => {
+    const { win, a } = frame({ cached: true });
+    registry.applyToDom(win.document);
+    assert.equal(a.hasAttribute('data-lattice-painting'), false);
+  });
+
+  test('a document that did not opt in as a live preview is untouched: the export capture, Print, a player', () => {
+    for (const opts of [{ optIn: false }, { gate: false, optIn: false }]) {
+      const { win, a, decodes } = frame(opts);
+      registry.applyToDom(win.document);
+      assert.equal(a.hasAttribute('data-lattice-painting'), false, JSON.stringify(opts));
+      assert.equal(decodes.length, 0, 'not even probed');
+    }
+  });
+
+  test('a poster that fails paints still, and so does one still hanging at the cap', async () => {
+    const failed = frame();
+    registry.applyToDom(failed.win.document);
+    failed.decodes[0].rej(new Error('gone'));
+    await flush();
+    assert.equal(failed.a.getAttribute('data-lattice-painting'), 'still', 'a failure keeps the painting, muted and still');
+
+    const hung = frame();
+    registry.applyToDom(hung.win.document);
+    hung.timers[0].fn(); // the cap
+    assert.equal(hung.a.getAttribute('data-lattice-painting'), 'still', 'the cap goes still, never an empty tile');
+  });
+
+  test('a web poster the reader has not loaded (the hatch) paints still', () => {
+    const dom = new JSDOM(`<section class="video"><figure class="video-embed"><a class="video-poster" href="https://youtu.be/x" style="background-image:repeating-linear-gradient(135deg, red 0 1px, transparent 1px 10px)"></a></figure></section>`);
+    const win = dom.window;
+    win.__latticeFontsSettled = false;
+    win.document.documentElement.setAttribute('data-lattice-live-media', '');
+    registry.applyToDom(win.document);
+    assert.equal(win.document.querySelector('a.video-poster').getAttribute('data-lattice-painting'), 'still');
+  });
+
+  test('a second pass over the same document does not re-probe a managed poster', () => {
+    const { win, decodes } = frame();
+    registry.applyToDom(win.document);
+    registry.applyToDom(win.document);
+    assert.equal(decodes.length, 1);
+  });
+});

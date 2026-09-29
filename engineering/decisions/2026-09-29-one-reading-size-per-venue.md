@@ -411,6 +411,18 @@ change had logged was done here, and each fix found more.
    byte (the demo deck's HTML export is identical): an attribute escaper for `lang`, a
    fixed-point runtime-script strip, and static regexes where two were built from input.
 
+9. **Merged with #2482** (lint judges list, cards-grid and list-steps by the lines they wrap
+   to). Its line geometry was measured with list rows at 21pt and a title that did not scale, so
+   `calibrate-capacity <c> --rows` re-measured all three here. The flat list probe grew from 40
+   to 60 words, because four 40-word takeaway items no longer overflow at 16pt and a probe that
+   fits measures nothing; length does not move the geometry. The stage-catalog builder now
+   treats a numbered register's budget within 2 px of the bare one as the same stage, as it
+   already did across venues. #2482's tests that pinned talk slides "as rendered" are re-pinned
+   to this branch's renders: slide 95 fits at huddle (its heading now wraps to two lines), and
+   slides 192 and 224 have five heading lines at conference and hall and clip there. The
+   export clips them and lint says so. That is the cost the owner accepted when titles began to
+   scale (§8).
+
 Verified on the real Studio (the docs dev server, driven with Playwright): Present's venue
 switch sets title / body at 28 / 16, 32.2 / 18.4, 36.4 / 20.8 and 42.0 / 24.0pt.
 `check-jank` over the moved components at laptop and hall: no drift, no collision.

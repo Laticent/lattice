@@ -1,0 +1,218 @@
+{
+	"restrained": [
+		{
+			"said": "Growth is concentrated in two regions.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar's length is its value, measured from zero.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "North America, four point two million dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Two enterprise renewals landed in Q4.",
+			"act": "note",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "EMEA, three point one million dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "APAC, one point eight million dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "LATAM, six hundred thousand dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Growth is concentrated in two regions.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each bar's length is its value, measured from zero.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "North America, four point two million dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Two enterprise renewals landed in Q4.",
+			"act": "note",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": "wash labels quiet",
+			"cursor": "keep"
+		},
+		{
+			"said": "EMEA, three point one million dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "APAC, one point eight million dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "LATAM, six hundred thousand dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Growth is concentrated in two regions.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar's length is its value, measured from zero.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "North America, four point two million dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Two enterprise renewals landed in Q4.",
+			"act": "note",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "EMEA, three point one million dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "APAC, one point eight million dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "LATAM, six hundred thousand dollars.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "rect.bar-mark[data-mark=\"3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

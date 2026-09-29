@@ -185,6 +185,17 @@
       "perPage": 12,
       "relationship": null
     },
+    "columns": {
+      "treatment": "host",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
     "compare-code": {
       "treatment": "read-across",
       "axis": null,
@@ -622,6 +633,17 @@
       "strategy": "roadmap-horizons",
       "reshape": "paginator",
       "coverClass": "roadmap-cover",
+      "perPage": null,
+      "relationship": null
+    },
+    "rows": {
+      "treatment": "host",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
       "perPage": null,
       "relationship": null
     },

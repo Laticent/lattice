@@ -370,6 +370,15 @@ integration tests, not unit tests.
   **cached** via `actions/cache` on `~/.cache/puppeteer` (keyed on the
   lockfile). Installs `poppler-utils` (for `pdfinfo`), runs
   `npm run test:integration`. ~2–3 min cold.
+- **`player-webkit`** — re-runs `test/integration/export/player-no-js.test.js` (the
+  exported player with JavaScript off) in Playwright's WebKit, because iOS Quick Look
+  opens exports with scripts off and Quick Look is WebKit. Runs only when `lib/export/**`
+  or that test changes (the `player` filter; the merge queue reads its own diff), beside
+  `integration`, and blocks. ~3.5 min: WebKit and its libraries install in ~50 s. Uses
+  the docs workspace's pinned `@playwright/test`, so there is no second Playwright. Run
+  it locally with `LATTICE_PLAYWRIGHT=$PWD/docs/node_modules/playwright node --test
+  test/integration/export/player-no-js.test.js` after `npx playwright install --with-deps
+  webkit` in `docs/`.
 - **`ci`** — the single gate job (`if: always()`). **Set this as the only
   required status check** in branch protection: it passes when lint
   succeeds and the test tiers passed or were skipped, so the conditional
@@ -387,7 +396,7 @@ run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
 *cancelled* rather than finishing, against 16–19s for node 22 in those same runs. Six
 hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
 Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 · `golden-diff` 25 ·
-`docs-build` 20 · `studio-smoke` 15 · `ci` 5.
+`docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5.
 
 **A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on
 `unit` catches three of those four; the 11m04s one finishes underneath it and still
@@ -419,7 +428,7 @@ inputs).
 - `lattice-emulator.js`
 - `lattice.css` + every `themes/*.css`
 - every `lib/*.js`
-- `mermaid-v11.min.js`
+- `mermaid-v11-min.js`
 - `package-lock.json` (catches dependency upgrades)
 - palette argument
 - Node version
@@ -908,6 +917,14 @@ locally from `docs/`:
   (`decisions/2026-09-02-alarm-channel-saturation.md`). Read the split as: the nightly
   watches what only a browser can see (LCP, CLS, TBT, score), the ledger watches bytes.
   Do not add a bytes metric back to `perf-regression.mjs`; add a route to the ledger.
+  **Each route has a soft target and a ceiling.** Past the ceiling the build fails.
+  A PR may add up to 2KB of eager JS per route over `main` while the route stays at or
+  under soft; every byte above soft is declared in the PR's own
+  `docs/route-budget.d/<slug>.md` (`studio: +N` plus why). CI measures the growth by
+  building the base (`docs/scripts/measure-route-base.sh`, about a minute); a local
+  `check:route-budget` reports it as not checked. Numbers move only through
+  `npm run route-budget:rebaseline` in its own PR, and raising one needs the owner's OK
+  (`decisions/2026-09-29-route-budget-soft-hard.md`).
 
 These live in `docs/package.json` (a separate package), so they are **not** in
 the root capability index that `tools/build-capabilities.js` generates.

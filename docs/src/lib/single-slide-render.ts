@@ -22,6 +22,7 @@
 // pulls bundled .woff2 that Node can't load, so a static import would break this
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
+import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
@@ -40,6 +41,8 @@ import {
 	sectionsOf,
 	supplyablePosition,
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
+import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
+import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
@@ -55,7 +58,7 @@ import { sanitizeSlideHtml } from './sanitize-slide-html.js';
 import { createThemeFetcher } from './theme-fetch';
 
 // NO CDN CONSTANT HERE — deliberately. A hardcoded third-party bundle URL used to sit
-// behind `opts.mermaidUrl` as its default; see deck-preview.js's note for why it was
+// behind the Mermaid URL option as its default; see deck-preview.js's note for why it was
 // removed, and test/unit/docs/no-cdn-runtime.test.js for the pin that keeps it out
 // (that test bars the host names outright, so do not spell one out even in a comment).
 
@@ -141,18 +144,10 @@ export type SingleSlideOptions = {
 	 * (tests, or a legacy eager tag already on the page).
 	 */
 	engineUrl?: string;
-	/**
-	 * URL of the UMD Mermaid bundle injected into a `mermaid` slide's iframe. Pass the
-	 * locally-vendored copy (`<assetBase>export/mermaid-v11.min.js`, staged by
-	 * sync-playground-assets).
-	 *
-	 * **Absent → no Mermaid at all, and the diagram does not render.** It used to mean
-	 * "fall back to the jsdelivr CDN"; that default silently executed a floating,
-	 * un-`integrity`-checked third-party bundle in the preview frame, and the landing
-	 * page was live on it. Optional only so the test fixtures need not all set it —
-	 * every real host passes it, and a missing URL is a visible local failure now.
-	 */
-	mermaidUrl?: string;
+	// NO MERMAID URL. The diagram library is the Mermaid plugin's declared payload, and the
+	// runtime's plugin host loads it from beside `runtimeUrl` when a slide holds a fence
+	// (lib/plugins/host-browser.mjs `ensureLibrary`) — so no host threads its address, and a
+	// frame that gains its first diagram by a patch still draws it.
 	/**
 	 * URL of the KaTeX stylesheet for surfaces that render the full deck through the
 	 * Stage path (studio-stage) or inline it into an export (share-export). Pass the
@@ -160,7 +155,7 @@ export type SingleSlideOptions = {
 	 * sync-playground-assets).
 	 *
 	 * **Absent → no stylesheet is fetched or linked, and math ships unstyled.** Same
-	 * removed-CDN-fallback reasoning as `mermaidUrl`; for exports that fallback also
+	 * removed-CDN-fallback reasoning as deck-preview.js's CDN note; for exports that fallback also
 	 * meant reaching a third party at export time.
 	 */
 	katexUrl?: string;
@@ -170,7 +165,7 @@ export type SingleSlideOptions = {
 	 *
 	 * **Absent → a state chart that BRANCHES falls back to the numbered column.** Not a
 	 * blank diagram and not an error — a different layout, which is why the runtime says
-	 * so on the console. Same removed-CDN-fallback reasoning as `mermaidUrl`. dagre used
+	 * so on the console. Same removed-CDN-fallback reasoning as `katexUrl`. dagre used
 	 * to be inlined into the runtime bundle; that cost every reader of every deck 25.9 KiB
 	 * gzipped for an engine only a branching machine uses.
 	 */
@@ -1004,8 +999,6 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		counted = true;
 		liveRenderers += 1;
 	};
-	// The locally-vendored Mermaid, or nothing. No CDN fallback (see the note above).
-	const mermaidUrl = opts.mermaidUrl || '';
 	const dagreUrl = opts.dagreUrl || '';
 	const themes = createThemeFetcher(themeBase);
 
@@ -1161,8 +1154,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// the body or the section: the runtime reads it once at boot, before it has a
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
-			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(mermaid && mermaidUrl ? mermaidUrl : '') +
-			'><head><meta charset="utf-8">' +
+			// `data-lattice-live-media`: this frame is ON SCREEN, so a picture still loading shows the
+			// Underpainting (lib/core/image-painting.js). An export capture never sets it.
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(mermaid && !!runtimeUrl) +
+			' data-lattice-live-media><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
 			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked }) +
@@ -1179,11 +1174,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// and revealed at 117ms against a settle at ~520ms. Correctly wired, and a
 			// no-op. See lib/core/preview-font-gate.mjs.
 			'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+			// The diagram library's fetch starts with the document, not after the runtime boots.
+			(mermaid && runtimeUrl ? drawnLibraryPreload(runtimeUrl) : '') +
 			'</head><body>' +
 			html;
-		// Content AND url — the URL half was missing, so a diagram slide met by a caller
-		// passing no URL emitted `<script src="">` rather than nothing. See deck-preview.js.
-		if (mermaid && mermaidUrl) s += '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>';
 		// Read off the SANITIZED html above rather than taken as a caller flag the way
 		// `mermaid` is: the marker is on the element the pass draws, so a host cannot
 		// forget to set it. `data-sc-transitions` is emitted only by the DEFAULT state-chart
@@ -1273,9 +1267,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	 * transition. A fade instead of a jump; nothing is hidden for longer than one ease.
 	 * Armed once per document.
 	 *
-	 * `lattice:layout-late` is the same case for an adaptive IMAGE: the gate holds the reveal for
-	 * the photo's aspect up to PREVIEW_IMAGE_GATE_MS, and a photo slower than that re-lays out the
-	 * card when it lands (lib/transformers/image-adaptive.js).
+	 * An adaptive IMAGE whose size lands late does NOT use this: the runtime re-fades only that
+	 * slide's text (`data-img-relayout`, lib/transformers/image-adaptive.js), because blanking the
+	 * whole frame also blanked the photo's loading painting for a beat.
 	 */
 	function armLateFonts(fr: HTMLIFrameElement) {
 		try {
@@ -1295,7 +1289,6 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				);
 			};
 			win.addEventListener('lattice:fonts-late', fadeThrough);
-			win.addEventListener('lattice:layout-late', fadeThrough);
 		} catch {
 			/* a torn-down or cross-realm frame has nothing to re-fade */
 		}
@@ -1613,7 +1606,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// Overflow is read from the live frame after it settles (below) — 0 here
 						// as a placeholder.
 						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
-						s.mermaid = (out.html.match(/language-mermaid/g) || []).length;
+						// Diagram fences a runtime draws (Mermaid's), by the plugin registry's fence names.
+						s.mermaid = drawnFenceCount(out.html);
 						// Match the engine's OWN KaTeX gate exactly — renderMarkdown
 						// (render-engine.ts) loads KaTeX when `sourceHasMath(source)` is true on
 						// the UN-stripped source, and that cold-load cost lands in `other`. Using
@@ -1943,7 +1937,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// subdomain reference takes that host's wildcard away, and the resident <head> can only
 				// change on a full write (lib/core/subresource-csp.mjs `webPolicySig`).
 				const webSig = webPolicySig(allow, webBlocked);
-				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}`;
+				// The classes on the slide's panes: the engine's sheet carries pane rules for exactly
+				// those (playground/pane-sheet-sig.js), so a change in them misses the patch path and
+				// takes the restyle one, which swaps the sheet. Not in `restyleSig`: nothing about the
+				// frame box changes.
+				const paneSig = paneComponentsSig([out.html]);
+				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}|P:${paneSig}`;
 				// IS THIS RENDER THE SAME SLIDE AS THE LAST ONE, EDITED? The one fact the frame
 				// cannot work out for itself, and the one `patchSlideBody` hands the runtime.
 				// The answer is derived in the kernel, shared with the Playground's filmstrip

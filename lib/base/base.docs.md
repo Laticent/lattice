@@ -49,22 +49,27 @@ On the live surfaces (Studio, Playground, Present), **`chart-anima`** brings a r
 
 See `engineering/decisions/2026-09-02-frame-model-for-motion.md` (the current state of record; it carries forward §0.75 of the superseded `2026-07-19-anima-svg-first-cut-zdog.md`).
 
-## Two components on one slide — panes
+## Two components on one slide — pane layouts
 
-**Experimental — the syntax may change.** Put two components' body content on one slide, side by side or stacked.
-The slide keeps its one eyebrow, title, subtitle, Key Insight, below-note, header, footer and page
-number; only the body splits. Mark where each component's body begins:
+**Experimental — the syntax may change.** Name the slide's layout in `_class`, then write each pane
+the way you write a slide, one heading level down. The slide keeps its one eyebrow, title,
+subtitle, Key Insight, below-note, header, footer and page number; only the body splits.
 
 ```markdown
+<!-- _class: columns ratio-60-40 -->
+
+`Q3 review`
 ## Services outgrew licenses for the first time.
 
-<!-- panes: 55/45 -->
-<!-- pane: bar -->
+<!-- _pane: bar -->
+### Revenue by line
+`$M, trailing four quarters`
 
 - Licenses `42`
 - Services `47`
 
-<!-- pane: list -->
+<!-- _pane: list -->
+### What changed
 
 - Services crossed licenses in March
 - Fold training into services
@@ -72,15 +77,67 @@ number; only the body splits. Mark where each component's body begins:
 > The mix shift is structural, not seasonal.
 ```
 
-- `<!-- pane: <component> -->` starts a pane; two per slide. Write each pane's body exactly as that
-  component's own slide body, minus the heading.
-- `<!-- panes: 40/60 -->` sets the split, 25–75 in 5% steps (default 50/50);
-  `<!-- panes: stack 35/65 -->` stacks the panes top to bottom.
+| A slide | A pane |
+|---|---|
+| `<!-- _class: bar -->` names its component | `<!-- _pane: bar -->` names its component |
+| `##` is its title | `###` is its title, set as a label (small tracked capitals) |
+| an eyebrow pill above the `##`, a subtitle pill below it | a subtitle pill below the `###`; no eyebrow (the title is already the label) |
+| names nothing → `content` | names nothing → `content` |
+
+- **The layout goes in `_class`:** `columns` (side by side) or `rows` (stacked), with an optional
+  ratio, 25–75 in 5% steps (default 50/50): `columns ratio-40-60`, `rows ratio-35-65`. The ratio
+  is a class word like any other, so it takes a dash, never a slash: `60/40` is not a valid CSS
+  class name, sets no ratio, and `lint:deck` gives the rewrite. They are components
+  like any other (`lib/components/layout/`), of a special kind: a HOST, whose body is two other
+  components (manifest `hosts: panes`). The ratio and `no-rule` are its modifiers; other words
+  in the same `_class` (`dark`) apply to the slide as they always do. A second component named
+  in the host's `_class` is ignored — each pane names its own. As with any
+  class, the slide's LAST `_class` is the one that counts: `_class: columns` followed by
+  `_class: dark` is a plain dark slide.
+- **Write the slide's heading first.** Everything before the first pane is the slide's eyebrow,
+  title and subtitle. (A `##` inside a pane would start a new slide.)
+- **Where a pane starts.** On a slide with no `_pane` marker, each top-level `###` starts a
+  `content` pane — the quick outline form:
+
+  ```markdown
+  <!-- _class: columns -->
+
+  ## The migration halved support tickets.
+
+  ### Before
+  - 1,240 tickets a month
+
+  ### After
+  - 610 tickets a month
+  ```
+
+  **Every top-level `###` on the slide is a pane's title.** Right under a marker, it is that
+  pane's title; anywhere else it starts a new `content` pane.
+  So you can add a marker above one `###` of an outline and the other stays a pane. For a
+  heading inside a pane, use `####`. The exception is a component whose own anatomy uses `###`
+  (`team-profile sides`, its roster labels): a pane of it keeps every `###` it holds.
+- **A marker names the component, then its modifiers, then `no-title`:**
+  `<!-- _pane: team-profile sides -->`, `<!-- _pane: list numbered no-title -->`. The modifiers
+  reach the pane as a slide's `_class` would carry them.
+- **The pane title is optional**, but write one: it says what the pane is for. It is set in the
+  eyebrow's voice, as a label: the slide's `##` makes the point, and each pane names what it holds
+  ("Revenue by line", "Findings by vendor"). Keep it to five words or fewer; `lint:deck` suggests a
+  shorter one past that (`pane-title`). A pane shows one label, so an eyebrow pill written above
+  its `###` joins it: `` `Shortlist` `` over `### Cleared` renders "Shortlist · Cleared", and
+  `lint:deck` suggests writing it that way. Side by side, the two titles share a row, so both
+  bodies start on one line even when one title wraps.
+  `no-title` hides it from the eye and keeps it in the document, for screen readers, the Read
+  view and the outline: `<!-- _pane: image no-title -->`.
+- **A pane brings only its component's content.** A `>` Key Insight or a `— ` note that closes
+  a pane — the trailing run, where you write a conclusion — is the slide's, set below both panes.
+  A `>` in the middle of a pane is a quotation, part of that pane's argument, and stays. Two Key
+  Insights on one slide crowd it, and `lint:deck` says so (`pane-insight`). A component that uses
+  the element itself (a `quote`'s attribution, a chart's caption) keeps it, and so does a pane
+  that is nothing but a quote and its `— ` attribution.
 - A **spine** marks the seam between the panes: the same accent rule, fading at both ends,
   that separates a chart from its key. It turns horizontal when the panes stack. Add
-  `no-rule` to drop it (`<!-- panes: 50/50 no-rule -->`) — a photo pane's own edge
+  `no-rule` to drop it (`<!-- _class: columns no-rule -->`) — a photo pane's own edge
   usually separates it already.
-- The trailing `> quote` and `— note` belong to the slide, never to the second pane.
 - **Which component can go in a pane, and at what share, is measured.** Each manifest's `pane`
   field records the least share it reads at side by side and stacked (`dist/docs/components.json`
   carries it). A table needs 35% side by side, a KPI row 65%, code only stacks, and a whole-slide
@@ -91,34 +148,45 @@ number; only the body splits. Mark where each component's body begins:
   Key Insight and note closing the last. `lint:deck` tells you which (`pane-arrange`).
 - **Each pane has a budget.** Write a pane's content tighter than a whole slide's — about half the
   words per item. At that density a `list` pane holds 6 items side by side and 4 in a stacked band,
-  a `table` 7 rows at 65%, a `bar` chart 8 bars. A narrower pane holds proportionally fewer.
+  a `table` 7 rows at 65%, a `bar` chart 8 bars. A narrower pane holds proportionally fewer, and so
+  does a pane with a visible title, by the share of the pane its title takes (about 9% side by
+  side, a fifth of a stacked 50/50 band).
 - `lint:deck` names each problem before you render: `pane-arrange` (the slide will re-orient or
-  split), `pane-overflow` (past the budget) and `pane-crowd` (past the comfortable count). It warns and never blocks; the Studio's editor
-  shows the same warnings as you type. At export, a pane that really clips is marked like any
-  clipped slide.
+  split), `pane-overflow` (past the budget), `pane-crowd` (past the comfortable count),
+  `pane-layout` (a ratio off the grid, a third pane, fewer than two, a modifier the component does
+  not know, a deck-wide `class: columns`), `pane-title` (a pill above a pane title, a title past
+  five words) and `pane-insight`. It warns and never blocks; the Studio's editor shows the same
+  warnings as you type. At export, a pane that really clips is marked like any clipped slide.
 - **On a square, portrait, story or mobile deck the panes split** into one slide per pane.
   Those sizes set type about twice as large, so two components do not share one frame there.
   Each page repeats the slide's eyebrow, title and subtitle and renders its pane's component as
-  an ordinary slide (auto-splitting as that slide would); the Key Insight and note close the last
-  page. The slide's spot directives (`_class`, `_footer`, …) reach every page wherever you wrote
-  them, and a component named in its `_class` does not: each page is its pane's. The same
-  markdown reads side by side at 16:9 and one-per-slide on a phone.
+  an ordinary slide (auto-splitting as that slide would), the pane's own title and subtitle at
+  the top of the page; the Key Insight and note close the last page. The slide's spot
+  directives (`_class`, `_footer`, …) reach every page wherever you wrote them, and a component
+  named in its `_class` does not: each page is its pane's. The same markdown reads side by side
+  at 16:9 and one-per-slide on a phone.
 - **`cards:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
   centers or stretches as the deck's `cards:` or the slide's `_class: cards-*` says, for every
   component that goes in a pane and takes `cards:` on a slide (tables do not; `split-panel` and
   `split-compare` opt out of panes; `inventory`'s cards need its `.cards` modifier, which a pane
   marker cannot carry). One setting per slide: both panes take it.
 - **A chart in a pane draws for the pane.** Its labels, ticks and key print at the size a chart
-  slide prints them, and the plot gets shorter or narrower instead. A pie, map or quadrant prints
-  its key larger, beside or below the diagram, where the pane has room; a radar scales into its
-  pane as it would on a slide.
+  slide prints them, and the plot gets shorter or narrower instead — shorter still under a pane
+  title. A pie, map or quadrant prints its key larger, beside or below the diagram, where the
+  pane has room; a radar scales into its pane as it would on a slide.
+- **The experimental syntax still renders**, as an alias, with the rules it always had:
+  `<!-- panes: 40/60 -->` for the layout (`stack` for rows) and `<!-- pane: list -->` for a marker.
+  In the alias a pane's `###` stays its component's (there are no pane titles), and only a Key
+  Insight or note written after the last pane goes to the slide. `lint:deck` suggests the rewrite
+  (`pane-syntax`).
 
 Known limits while it is experimental: a Mermaid diagram scales into its pane, so it draws small
 in a narrow one and nothing warns; the pane's size is modelled from measurements of the slide's
 chrome (a theme with a taller masthead can leave a chart pane a little tall). CSS written for a component reaches
 a pane of it wherever it comes from: the theme, a front-matter `style:`, an installed package, a `<style>` block in
-the deck, and the Studio's saved components and finishes. Demo: `examples/panes.md`.
-Design, audit, the measured budgets and every open gap:
+the deck, and the Studio's saved components and finishes. Demo: `examples/pane-layouts.md`.
+The authoring design: `engineering/decisions/2026-09-28-generic-pane-layouts-authoring.md`.
+The engine, the audit, the measured budgets and every open gap:
 `engineering/decisions/2026-09-25-panes-two-components-one-slide.md`.
 
 ## Auto-detected authoring patterns

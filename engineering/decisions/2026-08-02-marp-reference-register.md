@@ -387,6 +387,12 @@ The `.min` naming is kept **in the kit**, not renamed away (the export bundle
 renames `lattice.min.css` → `lattice.css`; the kit should not). A recipient
 grabbing files by hand should be able to see what they took.
 
+> **Update 2026-09-29 (owner):** the minified suffix is now `-min`, not `.min` — `lattice-min.css`,
+> `cuoio-min.css`, `lattice-runtime-min.js`, `mermaid-v11-min.js` — across `dist/`, the kit and
+> `dist-kits`, because the dotted form trips tooling that reads everything after the first dot as
+> the extension. The point above still holds: the kit keeps the suffix, so a file taken by hand still
+> says it is minified. File names in the table below are as of 2026-08-02.
+
 | File in the kit | Source | Why it must be there |
 |---|---|---|
 | `lattice.min.css` | `dist/lattice.min.css` | the engine bundle; every palette `@import`s it **by name**, so it must be registered even though the deck names only a palette |

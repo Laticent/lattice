@@ -10,7 +10,7 @@
     "node_modules/**",
     ".scratch/**",
     "tools/**",
-    "mermaid-v11.min.js"
+    "mermaid-v11-min.js"
   ],
   "reporter": ["text-summary", "html"],
   "report-dir": ".scratch/coverage",

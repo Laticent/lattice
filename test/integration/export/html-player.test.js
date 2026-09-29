@@ -76,7 +76,7 @@ describe('html-player export (--player)', () => {
 			if (/lattice-dual-mode/.test(b[1])) continue;
 			if (b[2].length > css.length) css = b[2];
 		}
-		const fullMin = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.min.css'), 'utf8');
+		const fullMin = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-min.css'), 'utf8');
 		assert.ok(css.length > 3000, 'the deck still ships a real stylesheet');
 		assert.ok(
 			css.length < fullMin.length * 0.7,

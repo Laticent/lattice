@@ -220,3 +220,55 @@ test.describe('Present — a deck carries its own pace', () => {
 		expect(held, `the hold was ${held}ms — the deck asked for deliberate (~2200ms) and the machine holds brisk (~800ms)`).toBeGreaterThan(1500);
 	});
 });
+
+// THE LEAVE BEAT (2026-09-27). Measured before it on the built Studio: at every handoff the next
+// slide appeared on the SAME frame the previous slide's last sentence ended, so a closing line was
+// cut off by the flip. The deck now holds the finished slide for the pace's leave beat (natural:
+// 700 ms) before it advances, and publishes that hold as `data-beat="hold"`, like the arrival beat.
+test.describe('Present — the beat before the next slide', () => {
+	test('every handoff holds the finished slide before the next one appears', async ({ page }) => {
+		await gotoStudio(page);
+		await setEditorContent(
+			page,
+			['---', 'marp: true', 'theme: indaco', 'pace: brisk', '---', '', '# One', '', 'Growth held.', '', '---', '', '# Two', '', 'Spend stayed disciplined.', '', '---', '', '# Three', '', 'The plan holds.', ''].join('\n'),
+		);
+		await page.getByRole('button', { name: 'Present', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Present' });
+		await expect(dialog).toBeVisible();
+		const counter = dialog.locator('span.font-mono').first();
+		const position = async () => (await counter.textContent())?.trim() ?? '';
+		await dialog.getByRole('group', { name: /Deck progress/ }).getByRole('button').first().click();
+		await expect.poll(position).toBe('1 / 3');
+
+		// Record every slide change on the page's own frame clock: whether the deck was holding on
+		// the frame BEFORE the flip, and for how long it had been holding.
+		await dialog.evaluate((el) => {
+			const w = window as unknown as { __flips: { hold: boolean; heldMs: number }[] };
+			w.__flips = [];
+			const read = () => el.querySelector('span.font-mono')?.textContent ?? '';
+			let last = read();
+			let holdFrom = -1;
+			const tick = (t: number) => {
+				const hold = el.getAttribute('data-beat') === 'hold';
+				const now = read();
+				if (now !== last) {
+					w.__flips.push({ hold: holdFrom >= 0, heldMs: holdFrom >= 0 ? Math.round(t - holdFrom) : 0 });
+					last = now;
+				}
+				if (hold && holdFrom < 0) holdFrom = t;
+				if (!hold) holdFrom = -1;
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		});
+		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+		await expect.poll(position, { timeout: 60_000 }).toBe('3 / 3');
+		const flips = await page.evaluate(() => (window as unknown as { __flips: { hold: boolean; heldMs: number }[] }).__flips);
+		expect(flips.length).toBe(2);
+		for (const f of flips) {
+			// brisk's leave beat is 400 ms; a frame of slack for the rAF sampling.
+			expect(f.hold, 'the deck was holding the finished slide when it advanced').toBe(true);
+			expect(f.heldMs, `the finished slide held ${f.heldMs} ms before the next appeared`).toBeGreaterThanOrEqual(380);
+		}
+	});
+});

@@ -191,6 +191,25 @@
     ],
     "description": "Single fenced code block as the slide's centerpiece."
   },
+  "lattice: columns": {
+    "prefix": "lattice-columns",
+    "body": [
+      "<!-- _class: columns -->",
+      "",
+      "## The slide's point, in one line.",
+      "",
+      "### First pane",
+      "",
+      "- A point",
+      "- Another point",
+      "",
+      "### Second pane",
+      "",
+      "- A point",
+      "- Another point"
+    ],
+    "description": "Two components side by side on one slide, at a ratio you choose."
+  },
   "lattice: compare-code": {
     "prefix": "lattice-compare-code",
     "body": [
@@ -889,6 +908,25 @@
       "The key under the grid names each marker the cells carry."
     ],
     "description": "Phased multi-workstream grid — phases across the top, workstreams down the side."
+  },
+  "lattice: rows": {
+    "prefix": "lattice-rows",
+    "body": [
+      "<!-- _class: rows -->",
+      "",
+      "## The slide's point, in one line.",
+      "",
+      "### Top pane",
+      "",
+      "- A point",
+      "- Another point",
+      "",
+      "### Bottom pane",
+      "",
+      "- A point",
+      "- Another point"
+    ],
+    "description": "Two components stacked on one slide, one above the other."
   },
   "lattice: scatter": {
     "prefix": "lattice-scatter",

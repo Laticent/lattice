@@ -5,22 +5,27 @@ recorded: 2026-09-26
 source: https://github.com/Laticent/lattice/pull/2388
 ---
 
-# Poppler draws gray tile seams on any dimmed textured finish, at some zoom
+# `--chrome-pdf` draws gray tile seams on a dimmed textured finish, at some zoom
+
+Narrowed on 2026-09-28. The default PDF no longer shows them: #2404's shared writer draws the
+backdrop as a photo. Measured with pdftoppm on three decks, counting the seam gray (153,153,153):
+
+| Deck | Writer 40 / 60 / 100 dpi | `--chrome-pdf` 40 / 60 / 100 dpi |
+|---|---|---|
+| atrium, baked strength 0.40 | 0 / 0 / 0 | 78,001 / 62,577 / 0 |
+| atrium, `backdrop: 40` | 0 / 0 / 0 | 39,316 / 0 / 49,350 |
+| examples/backdrop-register.md | 0 / 0 / 0 | 3,086 / 0 / 1,867 |
 
 ```text
-  P3 · [no ticket] Poppler tile seams under a dimmed finish.
-       why now   — any strength below 100% over a tiled finish texture seams in poppler
-                   (Evince, Okular, pdftoppm): 1px gray lines at the tile boundaries. Group
-                   opacity (a finish's own baked strength, as on main) seams at thumbnail zoom
-                   (≈40–72 dpi) and is clean at 100; the flat veil (register steps, masks)
-                   seams at 100 dpi and at 40, clean at 50–60. PDFium and Ghostscript draw
-                   neither. Measured on #2388; not introduced by it (main's baked strengths
-                   already seam at low zoom).
+  P3 · [no ticket] Poppler tile seams under a dimmed finish, on --chrome-pdf only.
+       why now   — only reachable through --chrome-pdf, the fallback and comparison printer.
+                   Poppler draws 1px gray lines at the texture's tile boundaries under any
+                   strength below 100%, as group opacity or as the veil. PDFium and Ghostscript
+                   draw neither.
        where     — lib/base/base.finish.css § BACKDROP REGISTER; poppler's handling of a
                    transparency group or soft mask over a tiled pattern.
-       done when — a dimmed slide rasterizes seam-free in pdftoppm at 40, 60 and 100 dpi and
-                   unchanged in PDFium, e.g. by pre-mixing the dim into the finish's colors
-                   instead of drawing it as a layer.
-       evidence  — gray-pixel count of pdftoppm at 40/60/100 dpi before/after.
+       done when — --chrome-pdf rasterizes a dimmed slide seam-free at 40, 60 and 100 dpi, or
+                   the fallback printer is retired.
+       evidence  — the table above, re-measured before/after.
        verify    — tier: export sign-off.
 ```

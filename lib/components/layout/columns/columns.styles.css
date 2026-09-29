@@ -1,0 +1,9 @@
+/* columns — layout · split · mixed
+ *
+ * A HOST component (manifest `hosts: panes`): its body is two panes, each a whole component.
+ * It carries no rules of its own. The engine carves the panes before the slide renders
+ * (lib/core/panes.js), the section takes the host class `lat-pane-host` in place of `columns`,
+ * and the pane frame — the grid, the shared title row, the spine, the pane-title label — is
+ * one stylesheet shared with the other layout: lib/forms/cell/pane/pane.css. Style a pane
+ * through the component it holds, never here.
+ */

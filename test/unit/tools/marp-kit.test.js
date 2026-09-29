@@ -30,11 +30,11 @@ const text = (k) => {
 test('ships every file a recipient needs, and nothing they must fetch', () => {
   for (const f of [
     DECK,
-    'lattice.min.css',
-    'cuoio.min.css',
-    'cuoio-dark.min.css',
-    'lattice-runtime.min.js',
-    'mermaid-v11.min.js',
+    'lattice-min.css',
+    'cuoio-min.css',
+    'cuoio-dark-min.css',
+    'lattice-runtime-min.js',
+    'mermaid-v11-min.js',
     'lattice.css',
     'cuoio.css',
     'cuoio-dark.css',
@@ -65,7 +65,7 @@ test('carries every font its own CSS references — the silent #1256 failure', (
   // running it over human-authored source would also false-positive on any
   // `url(fonts/…)` example sitting in a doc comment (e.g. base.tokens.css's own
   // explanatory one).
-  const css = [...KIT.keys()].filter((k) => k.endsWith('.min.css')).map(text);
+  const css = [...KIT.keys()].filter((k) => k.endsWith('-min.css')).map(text);
   const declared = new Set();
   for (const sheet of css) {
     for (const m of sheet.matchAll(/@font-face[^{]*\{[^}]*\}/g)) {
@@ -100,9 +100,9 @@ test('minified CSS still declares its @theme — the directive lives in a commen
   // A stock minifier strips comments, which would leave Marp unable to register
   // the stylesheet at all: unstyled slides, no error. tools/minify-css.js exists
   // to preserve these tokens; this asserts the guard still holds in the artifact.
-  assert.match(text('lattice.min.css'), /@theme\s+lattice\b/);
-  assert.match(text('cuoio.min.css'), /@theme\s+cuoio\b/);
-  assert.match(text('lattice.min.css'), /@size\s+hd\b/);
+  assert.match(text('lattice-min.css'), /@theme\s+lattice\b/);
+  assert.match(text('cuoio-min.css'), /@theme\s+cuoio\b/);
+  assert.match(text('lattice-min.css'), /@size\s+hd\b/);
 });
 
 test('both configs set html:true — without it the runtime never loads', () => {
@@ -118,24 +118,24 @@ test('both configs register the ENGINE css, not just the palette', () => {
   // Every palette does `@import 'lattice'` BY NAME, and only Marp's theme set
   // resolves a by-name import. Registering cuoio alone silently yields a deck
   // with no layout rules at all.
-  assert.match(text('marp.config.cjs'), /lattice\.min\.css/);
+  assert.match(text('marp.config.cjs'), /lattice-min\.css/);
   const themes = JSON.parse(text('.vscode/settings.json'))['markdown.marp.themes'];
   assert.ok(
-    themes.some((t) => t.includes('lattice.min.css')),
-    'VS Code settings must register lattice.min.css, not only the palette',
+    themes.some((t) => t.includes('lattice-min.css')),
+    'VS Code settings must register lattice-min.css, not only the palette',
   );
 });
 
 test('the sample deck loads its scripts LAST, after every slide', () => {
   const deck = text(DECK);
-  const runtime = deck.indexOf('<script src="lattice-runtime.min.js">');
+  const runtime = deck.indexOf('<script src="lattice-runtime-min.js">');
   assert.ok(runtime > 0, 'sample deck must load the runtime');
   // Marp emits raw HTML inline in document order, so a <script> at the top
   // lands inside slide 1 and runs before the rest of the deck exists. Nothing
   // may follow the script block except whitespace.
   assert.equal(deck.slice(runtime).split('\n').slice(1).join('').trim(), '');
   assert.ok(
-    deck.indexOf('<script src="mermaid-v11.min.js">') < runtime,
+    deck.indexOf('<script src="mermaid-v11-min.js">') < runtime,
     'mermaid must load before the runtime that drives it',
   );
 });
@@ -169,7 +169,7 @@ test('inline `<!-- … -->` literals survive — ligatures are off on mono', () 
   // disables ligatures wherever mono carries a literal (lib/base/base.elements.css),
   // so the deck is expected to USE the literal — and this asserts both halves.
   assert.match(text(DECK), /`<!-- _class: [a-z-]+ -->`/, 'deck should show the real syntax inline');
-  const css = text('lattice.min.css');
+  const css = text('lattice-min.css');
   assert.match(css, /font-variant-ligatures:\s*none/, 'engine CSS must disable mono ligatures');
   // The STANDARD property alone, deliberately. `font-variant-ligatures: none`
   // already implies `no-contextual`, so a `font-feature-settings: 'calt' 0`

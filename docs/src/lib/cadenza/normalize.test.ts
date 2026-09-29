@@ -742,3 +742,52 @@ describe('the direction dedup stops at a sentence boundary', () => {
     expect(toSpokenText('We are up +18%.')).not.toContain('up up');
   });
 });
+
+// #2393's board-update deck spelled five terms out in `acronyms:` so the voice would read them.
+// Regions, short months and cohort columns are words every board deck uses, so they are built in.
+describe('regions, short months and cohort columns read without an acronyms: block', () => {
+	it('says each sales region the way a sales team says it', () => {
+		expect(toSpokenText('EMEA, APAC, LATAM, LatAm, AMER and ANZ.')).toBe('E M E A, A P A C, la tam, la tam, the Americas and A N Z.');
+	});
+	it('leaves NA alone — it is also "n/a" in the same tables — and lower-case runs', () => {
+		expect(toSpokenText('NA n/a emea apac')).toBe('NA n/a emea apac');
+	});
+	it('expands a short month that is not also a word, in exact case only', () => {
+		expect(toSpokenText('Feb Apr Jul Aug Sep Sept Oct Nov Dec')).toBe('February April July August September September October November December');
+		expect(toSpokenText('FEB SEP DEC oct')).toBe('FEB SEP DEC oct');
+	});
+	it('reads Jan, Mar and Jun as months beside a date or another month', () => {
+		expect(toSpokenText('Jan 2026 at M1, 62.')).toBe('January two thousand twenty-six at month one, sixty-two.');
+		expect(toSpokenText("Jan '26")).toBe('January twenty-six');
+		expect(toSpokenText('Closed on 3 Mar.')).toBe('Closed on three March.');
+		expect(toSpokenText('Mar 2026 and Jun 2026')).toBe('March two thousand twenty-six and June two thousand twenty-six');
+		expect(toSpokenText('Jan, Feb, Mar')).toBe('January, February, March');
+	});
+	it('never reads Jan, Mar or Jun as a month without a date beside it', () => {
+		expect(toSpokenText('Jan leads EMEA.')).toBe('Jan leads E M E A.');
+		expect(toSpokenText('Mar the result')).toBe('Mar the result');
+		expect(toSpokenText('mar the result, it may slip')).toBe('mar the result, it may slip');
+		// A chart's category and its value are not "January 4".
+		expect(toSpokenText('Jan, 4.1.')).toBe('Jan, four point one.');
+	});
+	it('reads a cohort column M0–M36 as "month N", exact case and whole token', () => {
+		expect(toSpokenText('M0 M1 M12 M36')).toBe('month zero month one month twelve month thirty-six');
+		expect(toSpokenText('M37 m1 M1A')).toBe('M37 m1 M1A');
+	});
+	it('lets the author win over every new entry', () => {
+		const acronyms = new Map([['EMEA', 'Europe, the Middle East and Africa'], ['M2', 'M 2'], ['Jan', 'Jan']]);
+		expect(toSpokenText('EMEA M2 Jan 2026', { acronyms })).toBe('Europe, the Middle East and Africa M 2 Jan two thousand twenty-six');
+	});
+	it('stays out of a non-English deck', () => {
+		expect(toSpokenText('Jan 2026 Feb M1', { lang: 'fr' })).toBe('Jan 2026 Feb M1');
+	});
+});
+
+describe('the short-month context check stays linear on hostile punctuation', () => {
+	it('reads a 50,000-character run of "!" beside a month in well under a second', () => {
+		const t0 = performance.now();
+		expect(toSpokenText(`Jan${'!'.repeat(50000)} 2026`)).toContain('Jan');
+		expect(toSpokenText(`Jan 2026 Feb${'!'.repeat(50000)}`)).toContain('January');
+		expect(performance.now() - t0).toBeLessThan(1000);
+	});
+});

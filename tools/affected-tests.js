@@ -57,7 +57,7 @@ const SCRIPT_FOR_LIB = {
 const FULL_SUITE_TRIGGER = new Set([
   'lattice-emulator.js',
   'dist/lattice.css',
-  'mermaid-v11.min.js',
+  'mermaid-v11-min.js',
   'package.json',
   'package-lock.json',
   'biome.jsonc',

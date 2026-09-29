@@ -32,7 +32,9 @@ export const FAMILY_DEFS = [
 	{ key: 'compare', label: 'Compare', members: ['compare-prose', 'table', 'decision', 'matrix-2x2', 'redline', 'verdict-grid', 'pricing'] },
 	{ key: 'timelines', label: 'Timelines & roadmaps', members: ['timeline-list', 'roadmap'] },
 	{ key: 'charts', label: 'Charts & diagrams', members: ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'journey', 'gantt', 'kanban', 'piechart', 'progress', 'quadrant', 'radar', 'state-chart', 'flowchart', 'word-cloud', 'diagram', 'funnel', 'heatmap', 'map'] },
-	{ key: 'splits', label: 'Split layouts', members: ['split-panel', 'split-compare'] },
+	// `columns` and `rows` are the pane HOSTS (bucket `layout`); they file here, beside the other
+	// split slides, where a side-by-side slide is looked for (owner ruling, 2026-09-29).
+	{ key: 'splits', label: 'Split layouts', members: ['split-panel', 'split-compare', 'columns', 'rows'] },
 	{ key: 'code', label: 'Code', members: ['code', 'compare-code'] },
 	// Math is its OWN family, not a lodger in "Code & math". It is a distinct
 	// substance — `substance: prose` with a typeset equation as the argument, against
@@ -79,9 +81,11 @@ export function familyOf(name, bucket) {
 	return NAME_TO_FAMILY.get(name) || (bucket ? BUCKET_FALLBACK.get(bucket) : undefined) || 'other';
 }
 
-// Function lens (the 7 audience-functions) + Substance lens orders, mirrored
-// to the client. Labels are Title Case.
-const FUNCTION_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery'];
+// Function lens (the 7 audience-functions, then `layout`) + Substance lens orders,
+// mirrored to the client. Labels are Title Case. `layout` is the pane hosts'
+// function (`columns`, `rows`): they do nothing by themselves — their panes do the
+// work — so they get a group of their own (owner ruling, 2026-09-29).
+const FUNCTION_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery', 'layout'];
 const SUBSTANCE_ORDER = ['prose', 'structure', 'series', 'graph', 'mixed'];
 const tc = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 

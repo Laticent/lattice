@@ -76,9 +76,10 @@ A component is self-contained in `lib/components/<bucket>/<name>/`:
 <name>.gallery.dark.pdf   ← rendered
 ```
 
-The 13 buckets: `anchor, statement, inventory, comparison, progression, evidence,
-imagery, chart, diagram, math, code, legal, connect`. Seven match the function
-families; the rest are substance- or domain-defined.
+The 14 buckets: `anchor, statement, inventory, comparison, progression, evidence,
+imagery, chart, diagram, math, code, legal, connect, layout`. Seven match the function
+families; `layout` holds the host components (`columns`, `rows`, function `layout`);
+the rest are substance- or domain-defined.
 
 - **Commands**: `npm run new:component -- <name> --bucket <b> --function <f>
   --form <f> --substance <s>` (scaffolds the manifest + CSS stub — the `--`

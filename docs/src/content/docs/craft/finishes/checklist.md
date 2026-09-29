@@ -41,6 +41,8 @@ from it. The CSS block is the real work.
 - [ ] Both mark slots declared: `--fin-mark: none` and
       `--fin-mark-text: ""`.
 - [ ] A full frame uses `--fin-frame`, not the section's `::after`.
+- [ ] A frame also sets `--fin-frame-mark` to its keyline color, or it is lost in
+      every export.
 
 **Palette-blind**
 

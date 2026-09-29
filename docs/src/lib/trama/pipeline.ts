@@ -147,7 +147,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       const w = doc.defaultView as (Window & typeof globalThis) | null;
       if (!w || typeof w.Worker !== 'function' || typeof w.Blob !== 'function' || !w.URL?.createObjectURL) return null;
       let dagreSrc = '';
-      for (const el of doc.querySelectorAll<HTMLScriptElement>('script[src]')) if (/lattice-dagre(\.min)?\.js(\?|#|$)/.test(el.src)) { dagreSrc = el.src; break; }
+      for (const el of doc.querySelectorAll<HTMLScriptElement>('script[src]')) if (/lattice-dagre(-min)?\.js(\?|#|$)/.test(el.src)) { dagreSrc = el.src; break; }
       if (!dagreSrc) return null;
       const src = `importScripts(${JSON.stringify(dagreSrc)});var K=(${kernelFactory.toString()})();` +
         'onmessage=function(e){var d=e.data,geo=null;try{geo=K.layout(d.model,d.sizes,d.opts,self.__latticeDagre)}catch(_x){}postMessage({id:d.id,geo:geo})};';

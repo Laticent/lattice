@@ -78,7 +78,8 @@ section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"]:not([data-r
     color-mix(in oklab, var(--accent) 32%, transparent) 86%,
     transparent 100%);
 }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane,
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane {
   display: flex;
   flex-direction: column;
   flex-basis: 0;
@@ -92,14 +93,125 @@ section.lat-pane-host > .cell-stage > .lat-panes > lat-pane {
  * slide's own backdrop. The pane cell's own rules are rooted on the host section, so they
  * outrank every pane twin of a component root rule (`section lat-pane.chart-frame.form`,
  * at most (0,3,2)); `[class]` lifts this one to (0,4,2). */
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[class] {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[class],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[class] {
   background: none;
 }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:first-child {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:first-child,
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell:first-child {
   flex-grow: var(--pane-a, 50);
 }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:last-child {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:last-child,
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell:last-child {
   flex-grow: var(--pane-b, 50);
+}
+/* A PANE'S HEAD — its eyebrow, `###` title and subtitle (lib/core/panes.js `paneHeadOf`) — sits
+ * in a CELL beside the `<lat-pane>`, never inside it, so a component's own `h3` rule cannot
+ * reach a pane title. Only a slide whose panes carry a head is built this way; every other
+ * panes slide keeps its `.lat-panes > lat-pane` markup. The base eyebrow and subtitle rules
+ * (lib/base/base.modifiers.css, keyed on a pill beside an `h3`) style the pills here as they do
+ * on a slide. The cell is the flex item the ratio sizes; the pane fills what the head leaves. */
+section.lat-pane-host {
+  --pane-head-gap: var(--sp-sm);
+}
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 0;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--pane-head-gap);
+}
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane {
+  flex: 1 1 auto;
+}
+/* The head reads the same wherever it lands: above a pane, or at the top of the page a narrow
+ * deck splits the pane onto (lib/core/panes.js `headBlock`). */
+section .lat-pane-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3xs);
+  min-width: 0;
+}
+/* A title with no break in it (a URL, a long code path) still wraps inside its pane: `anywhere`
+ * lowers the min-content width, which the shared grid track sizes from, where `break-word` does
+ * not — measured, a 50-letter word ran a 25% pane 390px across the spine into the other title. */
+section .lat-pane-head > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* A PANE'S TITLE IS A LABEL, set in the slide eyebrow's voice (the `p:has(> code:only-child)`
+ * eyebrow rule in base.elements.css): the slide's `##` is the one headline, and each pane names
+ * what it holds, the way a column or a card is labeled. It reads as the layout's own furniture
+ * rather than a second, smaller slide title competing with the first (owner ruling, design note
+ * §2.5). Tracked capitals are for a short label, so lint nudges a long one (`pane-title`).
+ * `line-height` is the eyebrow's; the engine's pane box reads the measured height of it
+ * (lib/core/pane-spec.js `PANE_HEAD`). */
+section .lat-pane-head > h3 {
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: var(--lh-base);
+  color: var(--text-secondary);
+}
+/* The subtitle sits UNDER the label, not over it: a small muted line, one tier below the body. */
+section .lat-pane-head > h3 + p:has(> code:only-child):not(:where([data-prose])) {
+  font-size: var(--fs-body-compact);
+}
+section .lat-pane-head > h3 + p:has(> code:only-child):not(:where([data-prose])) > code {
+  color: var(--text-muted);
+}
+/* SIDE BY SIDE, THE TITLES SHARE A LINE (the design note §3). The title and the subtitle each get
+ * a row both cells subgrid into, so the two titles sit on one line whatever else either head
+ * carries (a subtitle on one only), and both bodies start together when one title wraps. The third
+ * row is the gap under the head; the pane takes the fourth. (An eyebrow pill is folded into the
+ * title by the carve, so it has no row of its own: lib/core/panes.js `paneHeadHtml`.) The
+ * columns keep the authored ratio (`--pane-cols`, written by `embed`). A cell with no visible head
+ * does not take part: its pane runs from the top. */
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) {
+  display: grid;
+  grid-template-columns: var(--pane-cols);
+  grid-template-rows: auto auto var(--pane-head-gap) minmax(0, 1fr);
+  column-gap: var(--pane-gap);
+  row-gap: 0;
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell {
+  grid-row: 1 / -1;
+  display: grid;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > .lat-pane-head:not([data-hidden]) {
+  display: contents;
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > .lat-pane-head > h3 {
+  grid-row: 1;
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > .lat-pane-head > h3 + p {
+  grid-row: 2;
+  padding-block-start: var(--sp-3xs);
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > lat-pane {
+  grid-row: 4;
+}
+section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell:not([data-head]) > lat-pane {
+  grid-row: 1 / -1;
+}
+/* `no-title` hides a pane's title from the eye and keeps it in the document: screen readers,
+ * the Read view and the outline still say what the pane is for. The same holds on the page a
+ * narrow deck splits the pane onto (lib/core/panes.js `installPaneSplit`). */
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > .lat-pane-head[data-hidden],
+section .lat-pane-head[data-hidden] {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 /* The pane's own stage — the same flex column the slide's stage is
  * (lib/forms/cell/stage/stage.css), so a component's `> .cell-stage` rules
@@ -116,14 +228,22 @@ lat-pane > .cell-stage {
  * on `section[data-cards]`; a pane is not a section, so its own resolved value (stamped by
  * lib/core/panes.js embed) sets them here. The component rules reach the pane through their
  * twins and read `--cards-align` / `--cards-grow` from it as they would from a slide. */
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="center"]  { --cards-align: center;       --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="top"]     { --cards-align: flex-start;   --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="spread"]  { --cards-align: space-evenly; --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center;       --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start;   --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="center"],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="center"] { --cards-align: center;       --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="stretch"],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="top"],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="top"] { --cards-align: flex-start;   --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="spread"],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="spread"] { --cards-align: space-evenly; --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="center"]:has(> .cell-coda),
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="center"]:has(> .cell-coda) { --cards-align: center;       --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda),
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="top"]:has(> .cell-coda),
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="top"]:has(> .cell-coda) { --cards-align: flex-start;   --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="spread"]:has(> .cell-coda),
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="spread"]:has(> .cell-coda) { --cards-align: space-evenly; --cards-grow: 0; }
 /* A padded card that is `width: 100%` in content-box (a quote's blockquote) is as wide as its
  * box PLUS its padding. On a slide its max-width binds first and hides that; in a pane narrower
  * than the max-width it ran the card past the pane (98px over at 45%). In a pane the card's
@@ -131,24 +251,28 @@ section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="spr
  * it): in a pane the container is the pane, so the same cap left a 45% pane's quote at 64% of
  * the pane, wrapped to twice the lines and clipped its attribution. The pane is the measure.
  * Scoped to panes, so no slide's card moves. */
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane > .cell-stage > blockquote {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane > .cell-stage > blockquote,
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane > .cell-stage > blockquote {
   box-sizing: border-box;
   max-width: 100%;
 }
 /* The same measure, on big-number's caption: `43.75cqi` is a reading width for a SLIDE, and in
  * a pane (the container) it left a 50% pane's caption at under half the pane, six lines deep,
  * clipped 37px (measured). In a pane the pane is the measure. */
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="big-number"] > .cell-stage > ul > li > ul > li {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="big-number"] > .cell-stage > ul > li > ul > li,
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-pane="big-number"] > .cell-stage > ul > li > ul > li {
   max-width: 100%;
 }
 /* An image pane: the picture fills its Cell, cropped to cover. `image` is a
  * whole-slide frame, so its pane form is this rule, not the image component. */
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] > .cell-stage > p {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] > .cell-stage > p,
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-pane="image"] > .cell-stage > p {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
 }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] > .cell-stage > p > img {
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="image"] > .cell-stage > p > img,
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-pane="image"] > .cell-stage > p > img {
   flex: 1 1 auto;
   width: 100%;
   min-height: 0;

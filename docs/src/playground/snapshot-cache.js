@@ -280,6 +280,18 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		// lib/transformers/image-adaptive.js). The replayed shell has no runtime to finish that
 		// measurement, so it must not carry the state.
 		sec.removeAttribute('data-img-pending');
+		// Nor the loading painting over a photo, or a text re-fade (lib/core/image-painting.js): the
+		// replay would hold the painting over a photo that is likely in the cache by then.
+		sec.removeAttribute('data-img-relayout');
+		for (const el of sec.querySelectorAll('[data-lattice-painting]')) el.removeAttribute('data-lattice-painting');
+		// Nor a card mid-morph: where the host has no Web Animations API, image-adaptive pins it at its
+		// old box with an inline transform, and a replay would paint it there for good.
+		for (const el of sec.querySelectorAll('[data-img-morph]')) {
+			el.style.removeProperty('transform');
+			el.style.removeProperty('transform-origin');
+			el.style.removeProperty('transition');
+			el.removeAttribute('data-img-morph');
+		}
 		wrap.appendChild(sec);
 		const html = sanitizeSlideHtml(wrap.outerHTML);
 		// SCOPE the critical CSS under the shell box: the filmstrip's srcdoc carries

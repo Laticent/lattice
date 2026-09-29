@@ -63,9 +63,11 @@ export function splitSlides(src: string): string[] {
 // regex here can carry without becoming a fifth copy of a parser that already exists.
 
 /** The COMPONENT of a `_class` payload — its first token, tolerating trailing modifiers
- *  (`kpi dark scale-xl` → `kpi`). */
+ *  (`kpi dark scale-xl` → `kpi`). A pane layout (`columns ratio-60-40`, `rows`) names no component:
+ *  its panes do (lib/core/pane-spec.js `classLayout`). */
 function componentOf(payload: string): string {
-	return String(payload ?? '').trim().split(/\s+/)[0] ?? '';
+	const first = String(payload ?? '').trim().split(/\s+/)[0] ?? '';
+	return first === 'columns' || first === 'rows' ? '' : first;
 }
 
 /**
@@ -106,9 +108,15 @@ export function unknownComponents(src: string, known: Iterable<string>): string[
 export function slideClass(slideSrc: string): string {
 	const src = String(slideSrc ?? '');
 	const found = slideClassDirectives(src).filter((d) => d?.payload);
-	if (found.length) return componentOf(found[found.length - 1].payload) || 'text';
-	// A panes slide (lib/core/pane-spec.js PANE_RE) is two components, neither of them the slide's.
-	return (src.match(/^<!--\s*pane:\s*[a-z][\w-]*\s*-->$/gm) || []).length >= 2 ? 'panes' : 'text';
+	// A panes slide (lib/core/pane-spec.js) is two components, neither of them the slide's: its
+	// `_class` names a `columns` / `rows` layout, or it carries two pane markers.
+	const panes = (src.match(/^<!--\s*_?pane:[^<>\n]*-->$/gm) || []).length >= 2;
+	if (found.length) {
+		const payload = found[found.length - 1].payload;
+		if (/(?:^|\s)(?:columns|rows)(?:\s|$)/.test(payload)) return 'panes';
+		return componentOf(payload) || (panes ? 'panes' : 'text');
+	}
+	return panes ? 'panes' : 'text';
 }
 
 const HEADING_RE = /^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/m;

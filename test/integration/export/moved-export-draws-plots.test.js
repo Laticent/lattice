@@ -11,7 +11,12 @@
  * still resolves after a move on the same machine: the page is copied to a fresh directory and
  * loaded with every request OUTSIDE that directory refused.
  *
- * Slow tier: two CLI exports and a Chromium launch.
+ * The same holds for MATH (followups.d/2439): the page linked KaTeX's stylesheet by its
+ * `file://` path in node_modules, so a moved `--html`, `--fluid` or `--read` export lost all 20
+ * KaTeX faces and set its math in Times. The sheet is now inlined with its fonts as `data:` URIs,
+ * and the second describe below holds every face loading with the link's path refused.
+ *
+ * Slow tier: CLI exports and a Chromium launch.
  */
 
 const { test, describe } = require('node:test');
@@ -86,4 +91,77 @@ describe('a moved --html / --fluid export still draws its plots', () => {
       }
     });
   }
+});
+
+const MATH_DECK = '---\ntheme: indaco\n---\n\n# Math\n\n---\n\n## Display math\n\n$$\n' +
+  '\\int_0^1 \\frac{x^2}{\\sqrt{1+x^3}}\\,dx = \\frac{2}{3}\\left(\\sqrt{2}-1\\right)\n$$\n\n' +
+  'Inline: $e^{i\\pi} + 1 = 0$ and $\\sum_{k=1}^{n} k$.\n';
+
+describe('a moved --html / --fluid / --read export still sets its math in KaTeX', () => {
+  let browser;
+  let dir;
+  test.before(async () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-moved-math-'));
+    fs.writeFileSync(path.join(dir, 'math.md'), MATH_DECK);
+    const puppeteer = require('puppeteer');
+    browser = await puppeteer.launch({ headless: 'new', executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  });
+  test.after(async () => {
+    if (browser) await browser.close();
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  for (const flags of [[], ['--fluid'], ['--read']]) {
+    const label = flags.length ? flags.join(' ') : 'plain --html';
+    test(`${label}: every KaTeX face loads with nothing outside the page's own directory reachable`, { timeout: TIMEOUT }, async () => {
+      const out = path.join(dir, `math${flags.join('')}.html`);
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), path.join(dir, 'math.md'), out, ...flags, '--quiet'], {
+        cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT,
+      });
+      assert.equal(r.status, 0, `export failed:\n${r.stderr}`);
+      const html = fs.readFileSync(out, 'utf8');
+      assert.doesNotMatch(html, /<link[^>]*\shref="file:[^"]*katex/, 'the page links no KaTeX stylesheet by a file:// path');
+
+      const moved = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-moved-math-to-'));
+      try {
+        const target = path.join(moved, 'shared.html');
+        fs.copyFileSync(out, target);
+        const allowed = pathToFileURL(moved).href;
+        const refused = [];
+        const page = await browser.newPage();
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+          const url = req.url();
+          if (url.startsWith(allowed) || url.startsWith('data:') || url.startsWith('blob:') || url === 'about:blank') req.continue();
+          else {
+            refused.push(url);
+            req.abort();
+          }
+        });
+        await page.goto(pathToFileURL(target).href, { waitUntil: 'load', timeout: 60000 });
+        const faces = await page.evaluate(async () => {
+          const katex = [...document.fonts].filter((f) => /KaTeX/.test(f.family));
+          await Promise.all(katex.map((f) => f.load().catch(() => {})));
+          return { total: katex.length, loaded: katex.filter((f) => f.status === 'loaded').length, math: document.querySelectorAll('.katex').length };
+        });
+        await page.close();
+        assert.ok(faces.math >= 3, 'the math is on the page');
+        assert.ok(faces.total >= 20, `KaTeX's faces are declared in the page itself (got ${faces.total})`);
+        assert.equal(faces.loaded, faces.total, `every KaTeX face loads; refused requests: ${refused.join(', ') || '(none)'}`);
+        assert.deepEqual(refused, [], 'the page asked for nothing outside its own directory');
+      } finally {
+        fs.rmSync(moved, { recursive: true, force: true });
+      }
+    });
+  }
+
+  test('a deck without math carries no KaTeX stylesheet at all', { timeout: TIMEOUT }, () => {
+    fs.writeFileSync(path.join(dir, 'plain.md'), '---\ntheme: indaco\n---\n\n# No math here\n');
+    const out = path.join(dir, 'plain.html');
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), path.join(dir, 'plain.md'), out, '--quiet'], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
+    assert.equal(r.status, 0, r.stderr);
+    const html = fs.readFileSync(out, 'utf8');
+    // (The engine sheet's KaTeX LAYOUT rules name the families, so the test is for a FACE.)
+    assert.doesNotMatch(html, /katex\.min\.css|id="lattice-katex"|@font-face\s*\{[^}]*KaTeX_/);
+  });
 });

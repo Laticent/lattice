@@ -16,6 +16,7 @@ section.compare-prose .compare-prose-inner { display:flex; align-items:stretch; 
 section.compare-prose .compare-prose-inner .card {
   flex:1; background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  --card-tag-rest:var(--sp-sm);   /* the card's own top padding, for a tag off the top (base.card-tag.css) */
   font-weight:700; color:var(--text-heading);
 }
 section.compare-prose .compare-prose-inner .card > strong { display:block; }
@@ -83,6 +84,7 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
   flex:1; background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  --card-tag-rest:var(--sp-sm);
   display:grid; align-content:start; justify-items:start;
   font-weight:700; color:var(--text-heading);
 }
@@ -221,38 +223,11 @@ section.compare-prose :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
 
 /* ── corner tag, banner variant (.banner-tag modifier) ────────────────────
- * Opt-in modifier on decision / compare-prose (incl. transition). Converts the
- * flush-corner labeled tag into a full-width header strip — the card becomes
- * a vertical column-flex: tag is `flex: 0 0 auto` (fits content height,
- * spans full width), body is `flex: 1 1 0` and stretches to fill the
- * remaining card box on both axes (justify-content centers the body).
- *
- * Use when the slot label is the architectural signal of the card (the
- * categorical case, e.g. `BUILD` / `WHY NOT BUY` / `WHY NOT DELAY`) rather
- * than a quiet marker. The flush-corner default stays for the editorial
- * register where the body owns the card.
- *
- * Composes with the same lift infrastructure — author writes plain
- * `- Label`, lift produces the `<strong>`, this block restyles the card. */
-/* The card's column layout and the band itself: lib/base/base.card-tag.css. What
- * stays here is the body, which fills the rest of the card. */
-section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
-section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
-section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-child) > :is(ul, ol) {
-  /* `auto`, not `0`: the basis is the body's contribution when the CARD sizes to its content
-   * (`cards: center` / `top` / `spread`), and a zero basis contributed nothing, so the body
-   * spilled out of the card below the banner. When the card is stretched the body is its one
-   * growing item, so the basis changes nothing there. */
-  flex: 1 1 auto;
-  min-height: 0;
-  width: auto;
-  margin: 0;
-  padding: var(--sp-md);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-sizing: border-box;
-}
+ * Turns the flush-corner label into a full-width header strip. Use it when the slot label
+ * is the card's architectural signal (`BUILD` / `WHY NOT BUY` / `WHY NOT DELAY`) rather
+ * than a quiet marker. `banner-tag` is now an alias of the `tag-band` placement, drawn in
+ * lib/base/base.card-tag.css on every tagged layout: the band stretches across the card top,
+ * and the card keeps its own padding and reserves the band's height above the body. */
 
 
 /* ── transition variant — former `before-after` component (comparison.compare-prose.transition) ──

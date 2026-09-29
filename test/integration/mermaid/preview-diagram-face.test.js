@@ -133,9 +133,9 @@ async function previewFaces(deckSource, theme) {
         byBucket,
         // A fence the runtime could not render leaves its <pre> in the error state and
         // grows a themed sibling. Either alone is a degraded diagram.
-        errors: document.querySelectorAll('[data-mermaid-state="error"], .mermaid-error').length,
+        errors: document.querySelectorAll('[data-lattice-hydrate="mermaid"][data-lattice-settle="error"], .mermaid-error').length,
         // Fences the runtime never got to at all — still queued, or never claimed.
-        unrendered: document.querySelectorAll('pre[data-mermaid-state="pending"], marp-pre[data-mermaid-state="pending"]').length,
+        unrendered: document.querySelectorAll('pre[data-lattice-hydrate="mermaid"][data-lattice-settle="pending"], marp-pre[data-lattice-hydrate="mermaid"][data-lattice-settle="pending"]').length,
       };
     });
   } finally {

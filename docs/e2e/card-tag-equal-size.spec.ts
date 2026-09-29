@@ -7,12 +7,12 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 // three shipped widths, with a screenshot of each for a human to look at.
 // engineering/decisions/2026-09-27-card-tag-register.md §3.4.
 
-const DECK = [
+const deckFor = (placement: string): string => [
 	'---',
 	'title: Card tags',
 	'---',
 	'',
-	'<!-- _class: decision -->',
+	`<!-- _class: decision ${placement} -->`,
 	'',
 	'## Every tag takes the widest tag’s size.',
 	'',
@@ -24,13 +24,21 @@ const DECK = [
 	'  - The window closes.',
 	'',
 ].join('\n');
+const DECK = deckFor('');
 
-async function expectOneTagSize(page: Page, info: TestInfo, label: string, width: number, height: number): Promise<void> {
+async function expectOneTagSize(
+	page: Page,
+	info: TestInfo,
+	label: string,
+	width: number,
+	height: number,
+	deck: string = DECK,
+): Promise<void> {
 	// Type at desktop width, where the editor is on screen, then resize: the pass must also
 	// re-run when the viewport changes the preview's layout.
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
-	await setEditorContent(page, DECK);
+	await setEditorContent(page, deck);
 	await page.setViewportSize({ width, height });
 	const slide = livePreview(page).locator('section.decision').first();
 	await expect(slide).toBeVisible();
@@ -70,3 +78,34 @@ for (const [label, width, height] of [
 test('every card tag on a slide is one size in the live preview @webkit-tablet', async ({ page }, info) => {
 	await expectOneTagSize(page, info, 'webkit-tablet', 1180, 703);
 });
+
+// Each placement keeps the rule (engineering/decisions/2026-09-27-card-tag-register.md §6 phase 3):
+// the same row with the wrapped label, one placement at a time. A band spans its card, and the
+// decision cards share the row equally, so bands match in width as well.
+// Each case first proves the placement took effect, so a stale build cannot pass it vacuously.
+const PLACED: Record<string, (cs: { position: string; bottom: string; right: string; transform: string }) => boolean> = {
+	'tag-foot': (cs) => cs.position === 'absolute' && cs.bottom === '0px',
+	'tag-notch': (cs) => cs.position === 'absolute' && cs.transform !== 'none',
+	'tag-band': (cs) => cs.position === 'absolute' && cs.right === '0px',
+	'tag-inline': (cs) => cs.position === 'static',
+};
+// Each runs twice: untagged for Chromium desktop, and as an @webkit-tablet twin at that project's
+// iPad-landscape box, because the measure reads computed styles WebKit resolves on its own.
+for (const [engine, width, height] of [
+	['', 1440, 900],
+	[' @webkit-tablet', 1180, 703],
+] as const) {
+	for (const placement of ['tag-foot', 'tag-notch', 'tag-band', 'tag-inline'] as const) {
+	test(`every card tag on a slide is one size at ${placement} in the live preview${engine}`, async ({ page }, info) => {
+		await expectOneTagSize(page, info, `${placement}${engine ? '-webkit' : ''}`, width, height, deckFor(placement));
+		const cs = await livePreview(page)
+			.locator('section.decision > .cell-stage > ul > li > strong:first-child')
+			.first()
+			.evaluate((el) => {
+				const c = getComputedStyle(el);
+				return { position: c.position, bottom: c.bottom, right: c.right, transform: c.transform };
+			});
+		expect(PLACED[placement](cs), JSON.stringify(cs)).toBe(true);
+	});
+}
+}

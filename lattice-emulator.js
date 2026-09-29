@@ -99,9 +99,10 @@ const pkgVersion = () => {
 
 // ── KaTeX CSS ────────────────────────────────────────────────────────────────
 // The engine (lib/engine, created with `mathOutput:'htmlAndMathml'`) renders `$…$` /
-// `$$…$$` to KaTeX markup itself; the emulator only links KaTeX's stylesheet so
-// the glyph fonts resolve in the PDF. Resolved lazily — absent the optional dep,
-// no link is emitted and math degrades to plain text.
+// `$$…$$` to KaTeX markup itself; the emulator only carries KaTeX's stylesheet so
+// the glyph fonts resolve — inlined, faces as data: URIs, on a deck that renders math
+// (`katexInlineSheet`, below). Resolved lazily — absent the optional dep, no sheet is
+// emitted and math degrades to plain text.
 // This stylesheet is also what makes the MathML free: it clips `.katex-mathml` out
 // of the flow, so the accessible alternative costs no layout and no pixels.
 let katexCssAbsPath = '';
@@ -867,7 +868,7 @@ const {
 } = require('./lib/core/resolve-color-mode');
 const { frontMatterValue } = require('./lib/core/front-matter-key');
 const { sheetStartMark, SHEET_END_MARK } = require('./lib/core/export-shell-marks');
-const { cliThemeStore, cliDeckSheet, katexFamilies, packAuthorCss, packInlineStyles } = require('./lib/export/cli-deck-sheet');
+const { cliThemeStore, cliDeckSheet, katexFamilies, katexInlineSheet, packAuthorCss, packInlineStyles } = require('./lib/export/cli-deck-sheet');
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
 // `--size NAME` renders the deck on another registered canvas without editing it: the same
 // front-matter rewrite as the print path, so the engine, the split gate and every reader below see
@@ -1160,8 +1161,8 @@ const layoutCSSLinked = flattenCssImports(cssFile, {
 //
 // It never SHOWED because each doomed face has a working twin in the same document: the
 // 17 engine text faces are base64-inlined in `embeddedFonts` below, the 20 KaTeX faces
-// arrive through the `<link>` to `katex.min.css` (linked, so its own relative urls DO
-// resolve). The doomed copies are declared LAST and would win the match, but they fail,
+// arrived through a `<link>` to `katex.min.css` (linked, so its own relative urls DID
+// resolve — on the exporting machine; they are `data:` URIs inlined with the sheet now). The doomed copies are declared LAST and would win the match, but they fail,
 // and Chromium falls back within the family group to the twin. Confirmed on the real
 // page rather than assumed — CDP `CSS.getPlatformFontsForNode` reports Playfair Display
 // / Outfit / JetBrains Mono / KaTeX_Math / KaTeX_Main on the text nodes that use them,
@@ -1198,7 +1199,9 @@ const KATEX_FAMILIES = katexFamilies(katexCssAbsPath);
 const embeddedFaceCss = fontFaceCss(PKG_ROOT);
 const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT);
 // A family is COVERED when this document supplies it another way: the engine's own
-// faces via the base64 block, KaTeX's via the `<link>`.
+// faces via the base64 block, KaTeX's via its inlined sheet on a math deck. On a deck
+// without math nothing supplies KaTeX's faces — and nothing asks for one, since no
+// element carries a KaTeX family without KaTeX markup.
 const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES];
 const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   covered: COVERED_FAMILIES,
@@ -1929,7 +1932,7 @@ function engineSlides(deckSource = rawMd) {
   // This used to be `mathOutput:'html'`, on the reasoning that the MathML "can't be
   // read in a PDF and its unclipped layout trips the slide overflow watcher (a stale
   // ring)". BOTH halves were re-tested on a real render and neither reproduces:
-  // katex.min.css (linked into this very shell) clips `.katex-mathml` out of the flow,
+  // katex.min.css (inlined into this very shell on a math deck, and vendored into lattice.css) clips `.katex-mathml` out of the flow,
   // so a dense four-formula slide flags ZERO overflow either way and the rasterized PDF
   // pages are pixel-identical. The PDF half is true but harmless — MathML costs nothing
   // there.
@@ -2480,14 +2483,32 @@ const slidesWithMeta2 = packInlineStyles(highlightedSlides.join('\n'));
 // (lib/core/color-mode.js `slidePinEvictsDeckToken`). That eviction was the seam the
 // marker actually stood on; closing it is what let the marker go.
 
-// ── KaTeX CSS link ────────────────────────────────────────────────────────
-// KaTeX's CSS references font files via relative `url(fonts/…woff2)` paths,
-// so we link to the actual file in node_modules; the browser resolves the
-// font URLs against that origin. file:// works under puppeteer because
-// allowLocalFiles is the default for `page.goto('file://...')`.
-const katexCssLink = katexCssAbsPath
-  ? `<link rel="stylesheet" href="file://${katexCssAbsPath}">`
-  : '';
+// ── KaTeX's stylesheet, inlined ───────────────────────────────────────────
+// KaTeX's CSS references its fonts by relative `url(fonts/…woff2)` paths. This used to be a
+// `<link>` to the sheet by its absolute `file://` path in node_modules, so those urls resolved
+// against the package — on the exporting machine. The PDF is captured there and was right, but
+// `--html`, `--fluid` and `--read` hand this page to a reader, and a copy opened anywhere else
+// refused the link: all 20 KaTeX faces gone, the math in Times (measured). So a deck that
+// renders math carries the sheet inline with its fonts as `data:` URIs (`katexInlineSheet`),
+// and a deck without math carries no KaTeX at all. Through `sanitizeStyleText` like every
+// `<style>` this document writes (HARD RULE #22).
+//
+// SPLIT IN TWO, and the split is for the `--player`: its faces join the page's one font block
+// (`#lattice-embedded-fonts`), which the player's font prune and glyph subsetter already work on
+// (lib/export/html-player.js), and its rules ride in `#lattice-katex`, small enough that the
+// player's selector prune — which targets the LARGEST non-font block — still picks the deck sheet.
+// Left as one 368 KB block it became that target (measured).
+const usesMath = highlightedSlides.some((s) => s.includes('class="katex'));
+const katexInline = usesMath ? katexInlineSheet(katexCssAbsPath) : '';
+const katexFaces = (katexInline.match(/@font-face\s*\{[^}]*\}/g) || []).join('');
+const katexRules = katexInline.replace(/@font-face\s*\{[^}]*\}/g, '');
+const katexCssTag = katexRules.trim() ? `<style id="lattice-katex">${sanitizeStyleText(katexRules)}</style>` : '';
+const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
+const docFonts = !katexFacesCss
+  ? embeddedFonts
+  : embeddedFonts
+    ? embeddedFonts.replace(/<\/style>$/, () => `${katexFacesCss}</style>`)
+    : `<style id="lattice-embedded-fonts">${katexFacesCss}</style>`;
 
 // ── plugin hydrate: library + host ────────────────────────────────────────
 // Only for the plugins a slide actually uses (the engine's `data-lattice-hydrate` marker), so a
@@ -2546,7 +2567,7 @@ if (hasStateChart) {
     // Prepended HERE rather than inside the transform because the runtime bundle
     // imports that module too, and a top-level require there shipped the 62KB
     // string to every reader of every deck — measured at +51KB gzipped on
-    // lattice-runtime.min.js (dagre carried twice: inlined AND as this string)
+    // lattice-runtime-min.js (dagre carried twice: inlined AND as this string)
     // against +28KB for the live library alone. Missing bundle (a clone that
     // never ran `npm install`) → '' → the pass falls back to the numbered column.
     //
@@ -2706,8 +2727,8 @@ const a11yTextureDefs = texturePatternDefs(
 const htmlDoc = `<!DOCTYPE html>
 <html lang="${escapeAttr(deckLang)}"><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
-${embeddedFonts}
-${katexCssLink}
+${docFonts}
+${katexCssTag}
 <style>
 ${deckStyle}
 </style></head><body>
@@ -2900,24 +2921,27 @@ const outHtml = OUT_FORMAT === 'html'
 // request interception adds latency to every page load (it slows the 53-component
 // invariants suite enough to time out in CI). The class-strip below still clears
 // the emulator's own inline-watcher ring.
-const RUNTIME_SCRIPT = /[ \t]*<script\b[^>]*\blattice-runtime(?:\.min)?\.js[^>]*><\/script>\s*/gi;
+const RUNTIME_SCRIPT = /[ \t]*<script\b[^>]*\blattice-runtime(?:[.-]min)?\.js[^>]*><\/script>\s*/gi;
 // The CLEAN export HTML: drop any deck-embedded <script src=…runtime…> tag (the
 // relative/file:// path won't resolve in a shared HTML, and the runtime is a
 // no-op on already-rendered export DOM). This is what the PDF/PPTX/PNG raster
 // loads below — so those outputs are byte-identical whether or not --fluid is
 // set. The fluid VIEWER is derived from this clean HTML and written over outHtml
 // ONLY after rasterization (see toFluidViewer / the post-raster rewrite).
-// To a fixed point: a tag the author wrote around another (`<scr<script …></script>ipt …>`)
-// is whole again after one pass.
+// Repeat until nothing changes: one pass can splice a new `<script` together from
+// the text around a removed tag (CodeQL js/incomplete-multi-character-sanitization).
 let cleanDocHtml = htmlDoc;
-for (let prev = null; prev !== cleanDocHtml;) { prev = cleanDocHtml; cleanDocHtml = cleanDocHtml.replace(RUNTIME_SCRIPT, ''); }
+for (let prev; prev !== cleanDocHtml;) {
+  prev = cleanDocHtml;
+  cleanDocHtml = cleanDocHtml.replace(RUNTIME_SCRIPT, '');
+}
 
 // Build the opt-in fluid viewer from the clean export HTML: flag the page
 // fluid-capable and inline the runtime (the controller re-derives orientation
 // and wires the toggle). Self-contained so the .html stays a single emailable
 // file. Returns the clean HTML unchanged if the runtime bundle is missing.
 function toFluidViewer(cleanHtml) {
-  const runtimePath = path.join(PKG_ROOT, 'dist', 'lattice-runtime.min.js');
+  const runtimePath = path.join(PKG_ROOT, 'dist', 'lattice-runtime-min.js');
   if (!fs.existsSync(runtimePath)) {
     if (!QUIET) console.warn(`warning: --fluid set but ${path.relative(PKG_ROOT, runtimePath)} is missing — run \`npm run runtime:build\`; the viewer will not reflow.`);
     return cleanHtml;
@@ -3163,7 +3187,7 @@ async function renderBody(browser, g, closeBrowser) {
   //     <img>, CSS `background-image: url()`, <link rel=stylesheet> and the webfont
   //     fetch. Those are exactly what the deck emits: author images are absolute
   //     file:// URLs rather than inlined (`liftBgImages`, deckBaseUrl above), plus the
-  //     KaTeX <link> and the function-plot <script src>.
+  //     KaTeX <link> and the function-plot <script src> (both inlined since).
   //   • Instrumenting five real sidecars (state-chart, function-plot, images, the
   //     58-slide jargon gallery, portrait-roadmap): ZERO requests start after the load
   //     event, watched a further 2s past networkidle0. Mermaid is pre-rendered in Node
@@ -3218,7 +3242,8 @@ async function renderBody(browser, g, closeBrowser) {
   //
   // It now holds by RESOLUTION. The doomed duplicates are gone; the document declares 37
   // faces and all 37 load, every one of them local — 17 base64 `data:` in `embeddedFonts`,
-  // 20 from the `<link>` to katex.min.css in node_modules. Measured on the same sidecar.
+  // 20 KaTeX faces (then from the `<link>` to katex.min.css in node_modules; inlined as `data:`
+  // URIs in the same font block since, for a deck that renders math). Measured on the same sidecar.
   // That is a stronger footing than prompt failure was, but it is the SAME invariant and it
   // has the SAME hole: a theme or `--css` override adding a genuinely remote face — one that
   // resolves SLOWLY rather than failing or resolving locally — still leaves a face `unloaded`
@@ -3486,6 +3511,16 @@ async function renderBody(browser, g, closeBrowser) {
   // A trim clamps body text, not tags, so this is normally a no-op; it keeps the reserve true
   // for the overflow measurement if a trim ever does reach a tag.
   await equalizeCardTagsInPage(' (after trim)');
+  // Where the equalize pass does NOT reach the file (a plain `.html`: no script), a card tag that
+  // wraps keeps its own height against a one-line reserve and covers the top of its card body.
+  // Measure it here, write nothing, and name the slides — a PDF of the same deck is fine, so the
+  // author needs to hear it from this export (followups.d/2433-p3-plain-html-export-reserves-one-tag-line.md).
+  if (!TAGS_REACH_DELIVERABLE && !QUIET) {
+    const covered = await g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document, 'report')`), 'measure card tags') || [];
+    for (const { slide, over } of covered) {
+      console.warn(`  ⚠ slide ${slide}: a card tag is ${over}px taller than the room its card keeps, so in this .html (no script to equalize it) it covers the top of the card body. Shorten the label (lint:deck names it as tag-budget), or export --fluid or PDF.`);
+    }
+  }
   if (!TRIM_REACHES_DELIVERABLE) {
     // Only worth saying on a deck that asked for it. Counted off the live DOM rather
     // than the front matter, because a per-slide `<!-- _class: guards-strict -->` is
@@ -4536,13 +4571,14 @@ async function renderBody(browser, g, closeBrowser) {
   if (PLAYER && NARRATE) {
     try {
       const pages = notesPerRenderedPage(cleanDocHtml, materializedNotes).length;
-      const { readAlong, slideTexts, emphasis, inputs } = await resolveReadAlong(pages, slideSayLines, captionScript);
+      const { readAlong, slideTexts, emphasis, refs, inputs } = await resolveReadAlong(pages, slideSayLines, captionScript);
       if (!readAlong.slides.length) throw new Error('the deck has nothing to narrate (no say lines and no slide prose to project)');
       const { KOKORO, loadKokoro, voiceDeck } = await import('./lib/export/narrate-kokoro.mjs');
       const tts = await loadKokoro(QUIET ? null : (m) => console.log(`Narrate: ${m}`));
       let shown = -1;
       const slides = await voiceDeck(readAlong, slideTexts, {
         emphasis,
+        refs,
         tts,
         onClip: (done, total) => {
           const pct = Math.floor((100 * done) / total);
@@ -4800,7 +4836,7 @@ async function renderBody(browser, g, closeBrowser) {
     const live = fs.readFileSync(outHtml, 'utf8');
     // Immediately after `<head>`, because a CSP meta governs only what the parser has not
     // already reached — a stylesheet link above it is already in flight. Measured on a real
-    // export: the meta lands at byte 56, the charset at 253, the KaTeX <link> at ~865k.
+    // export: the meta lands at byte 56, the charset at 253, the (since inlined) KaTeX <link> at ~865k.
     const withCsp = live.replace(/<head(\s[^>]*)?>/i, (tag) => `${tag}${subresourceCspMeta()}`);
     if (withCsp !== live) fs.writeFileSync(outHtml, withCsp);
     else if (!QUIET) console.warn(`  warning: ${outHtml} has no <head>, so it carries no remote-subresource policy.`);
@@ -5027,9 +5063,9 @@ const pdfAssets = require('./lib/export/pdf-asset-reader.js').createAssetReader(
 
 async function composePdfInPage(g, page) {
   composePdfInPage.pages ||= new WeakSet();
-  const bundle = path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose.min.js');
+  const bundle = path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js');
   if (!fs.existsSync(bundle)) {
-    if (!QUIET) console.log('  PDF writer: dist/lattice-pdf-compose.min.js is missing (run `npm run build`); printing with Chrome instead.');
+    if (!QUIET) console.log('  PDF writer: dist/lattice-pdf-compose-min.js is missing (run `npm run build`); printing with Chrome instead.');
     return null;
   }
   try {
@@ -5924,7 +5960,7 @@ async function projectDeckSpeechFromHtml(docHtml, browser, g) {
 // slide's own content projected to speech, with chart narration and emphasis — so the sentences a
 // voice speaks are the sentences the captions show. Returns the per-slide texts beside the tracks.
 async function resolveReadAlong(slideCount, sayLines = [], script = []) {
-  const { buildReadAlong, emphasisForResolved, mergeNarration } = require('./lib/core/read-along-build.js');
+  const { buildReadAlong, emphasisForResolved, mergeNarration, refsForResolved } = require('./lib/core/read-along-build.js');
   // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
   // front-matter `say:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
   // the shared resolver so both producers can't drift (#904).
@@ -5966,6 +6002,11 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // slides in 15 committed decks. The bake and Present are unaffected because `applyChartNarration`
   // returns a COPY; this producer is the one that mutates.
   const projectedForEmphasis = projected.slice();
+  // THE BINDING rides the same way: a chart slide's refs from its narrator (spans over the chart
+  // narration substituted below), any other slide's from the projection (`bindingRefsFor`), each kept
+  // only while its text is the text read — the identity test the Studio's bake applies
+  // (narration-bake.ts `refsOf`), so the two exports bind the same slides.
+  const chartRefs = [];
   // A length mismatch (an autosplit deck renders more sections than authored slides)
   // makes the index mapping unsafe, so mergeNarration drops the projection wholesale
   // rather than misalign a caption — surface that here so it isn't silent.
@@ -5995,7 +6036,7 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // note) rather than misalign — the same guard mergeNarration applies to the projection.
   if (projected.length === slideCount && projected.length > 0) {
     try {
-      const { narrateChart } = require('./lib/core/chart-narration.js');
+      const { narrateChartScript } = require('./lib/core/chart-narration.js');
       const { splitSourceToSections } = require('./lib/core/section-source-split.js');
       // Narrate from a FENCE-INTACT source, not `rawMd`. `rawMd` bakes every ```mermaid
       // fence to `<svg>` BEFORE this split, so a `diagram` slide's Mermaid source is gone —
@@ -6014,8 +6055,11 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
           // Per-slide guard: one pathological chart slide can't disable narration for
           // the rest of the deck (a deck-wide try/catch would).
           try {
-            const chart = narrateChart(blocks[i]);
-            if (chart) projected[i] = chart;
+            const chart = narrateChartScript(blocks[i]);
+            if (chart) {
+              projected[i] = chart.text;
+              if (chart.refs.length) chartRefs[i] = chart.refs;
+            }
           } catch (e) {
             if (!QUIET) console.warn(`  note: chart narration skipped on slide ${i + 1} (${e?.message})`);
           }
@@ -6104,6 +6148,7 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // shared rule (read-along-build.js), fed the PRE-substitution snapshot because `projected` was
   // mutated in place above.
   const emphasis = emphasisForResolved(slideTexts, projectedForEmphasis, projectedEmphasis);
+  const refs = refsForResolved(slideTexts, projected, chartRefs, projectedForEmphasis, script.map((x) => x.refs));
   // `greeting:` / `closing:`, minus any line the first or last slide already says.
   const ends = bookends ? bookends.withoutRedundantBookends(bookends.resolveBookends(rawMd), slideTexts.slice(0, glossaryFrom)) : null;
   const bookendTexts = ends ? { greeting: ends.greeting ? bookends.greetingText(ends.greeting.template, 'neutral') : null, closing: ends.closing?.text ?? null } : undefined;
@@ -6125,7 +6170,7 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
     ...(lexicon?.size ? { lexicon: Object.fromEntries(lexicon) } : {}),
     ...(acronyms?.size ? { acronyms: Object.fromEntries(acronyms) } : {}),
   };
-  return { readAlong, slideTexts, emphasis, inputs };
+  return { readAlong, slideTexts, emphasis, refs, inputs };
 }
 
 // Read-along WebVTT sidecars from per-slide narration (--captions). Builds Cadenza

@@ -19,8 +19,8 @@
  *     lattice.css          — the palette-blind engine stylesheet (minified)
  *     fonts/*.woff2        — every face lattice.css's @font-face srcs point at
  *     themes/<palette>.css — the deck's palette (+ -dark), minified (from dist/themes/)
- *     lattice-runtime.min.js,
- *     mermaid-v11.min.js   — render diagrams + components when opened as HTML
+ *     lattice-runtime-min.js,
+ *     mermaid-v11-min.js   — render diagrams + components when opened as HTML
  *     .vscode/settings.json — registers the themes for the Marp VS Code preview
  *     marp.config.cjs      — registers the themeSet for `marp-cli`
  *     package.json         — pins @marp-team/marp-cli (the only dep)
@@ -355,10 +355,10 @@ function main(argv) {
   const themeFiles = [`${palette}.css`, `${palette}-dark.css`];
   const bundledThemes = [];
   for (const f of themeFiles) {
-    const min = path.join(ROOT, 'dist', 'themes', f.replace(/\.css$/, '.min.css'));
+    const min = path.join(ROOT, 'dist', 'themes', f.replace(/\.css$/, '-min.css'));
     if (fs.existsSync(min)) { copyCssInto(min, path.join(dest, 'themes', f)); bundledThemes.push(`themes/${f}`); }
   }
-  if (!bundledThemes.length) die(`unknown palette '${palette}' — no dist/themes/${palette}.min.css (run \`npm run build\`)`);
+  if (!bundledThemes.length) die(`unknown palette '${palette}' — no dist/themes/${palette}-min.css (run \`npm run build\`)`);
   const themesList = ['lattice.css', ...bundledThemes];
 
   // 4) the shared static assets — minified stylesheet (→ lattice.css), runtime,

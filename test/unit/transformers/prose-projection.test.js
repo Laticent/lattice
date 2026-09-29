@@ -1714,6 +1714,17 @@ test('video card: a non-http poster or link is dropped, and a quote cannot leave
 	assert.match(card('https://ok.example/v?a=&quot;onmouseover=x', ''), /href="https:\/\/ok\.example\/v\?a=&quot;onmouseover=x"/);
 });
 
+// A self-contained player embeds the poster before the article is built (lib/export/
+// inline-url-media.mjs), so the card must take the `data:image/…` it now carries: `safeHref`
+// alone dropped it and the article lost the picture the slide showed (followup 2358-p2).
+test('video card: an embedded data:image poster keeps its thumbnail; other data: types do not', () => {
+	const card = (style) => project(sections(
+		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed"><a class="video-poster" href="https://ok.example/v" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
+	)).articleHtml;
+	assert.match(card("background-image:url('data:image/jpeg;base64,/9j/AA==')"), /<span class="lp-video-thumb" style="background-image:url\('data:image\/jpeg;base64,\/9j\/AA=='\)"/);
+	assert.doesNotMatch(card("background-image:url('data:text/html;base64,PHA+')"), /lp-video-thumb/, 'a non-image data: URI projects no thumbnail');
+});
+
 // `journey` and `state-chart` take the placeholder branch — their visual cannot be re-hosted — so
 // the media walk never ran for them and the `.chart-caption` under the chart was dropped while
 // narration read it. The placeholder now carries it as prose. Rendered through the real engine.
@@ -1955,3 +1966,20 @@ for (const [name, cls, data] of [
 		assert.match(articleHtml, /<pre[^>]*tabindex="0"/, 'the code block stays a focusable <pre>');
 	});
 }
+
+// A stats slide's paragraph AFTER the stat list (followups.d 2412-p3). It stays in `.cell-stage`,
+// because a below-note must be the slide's last block, and `projectStats` / `speakStats` took only
+// the blocks BEFORE the list — so the article and the voice dropped a source line the slide shows.
+test('stats: a paragraph after the stat list reaches the article and narration once, after the stats', async () => {
+	const md = '<!-- _class: stats -->\n\n## Quarter\n\nThe lead line.\n\n1. **$2.4B**\n   - Total revenue\n2. **4.2×**\n   - Signal recall\n\n*Source: CRM export, 30 September.*\n\n> Revenue up.\n';
+	const secs = await renderedSections(md);
+	const { articleHtml } = project(secs);
+	assert.equal(articleHtml.split('Source: CRM export').length - 1, 1, articleHtml);
+	assert.ok(articleHtml.indexOf('</dl>') < articleHtml.indexOf('Source: CRM export'), 'the source follows the stats');
+	assert.ok(articleHtml.indexOf('The lead line.') < articleHtml.indexOf('<dl'), 'the lead still precedes them');
+	assert.ok(articleHtml.indexOf('Source: CRM export') < articleHtml.indexOf('Revenue up.'), 'the key insight still closes the slide');
+	const [{ text }] = script(secs);
+	assert.equal(text.split('Source: CRM export').length - 1, 1, text);
+	assert.ok(text.indexOf('Signal recall') < text.indexOf('Source: CRM export'), text);
+	assert.ok(text.indexOf('Source: CRM export') < text.indexOf('Revenue up.'), text);
+});

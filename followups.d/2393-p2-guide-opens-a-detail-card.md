@@ -7,6 +7,12 @@ source: https://github.com/Laticent/lattice/pull/2393
 
 # Should the Guide open a focused mark's detail card? (behind a setting)
 
+**Owner ruling (2026-09-27, on #2415): a deck front-matter key, off by default.** It is the
+author's call and travels with the deck, like `delivery:`. Build it in its own PR: name the key
+(proposed `guide-cards: on`), register it with its lint rule (`lib/authoring/lint-core.js`) and the
+front-matter reference, and show the card only for a detail the narration does not read aloud, one
+card per moment, never over narrated text; the exported player follows the same key.
+
 why now   — owner (2026-09-26), after #2393 turned the chart hover off while the Guide plays:
             "guide should still highlight and recess but shouldn't open the popup. i'm okay with it
             opening it but this needs a settings. let's talk about it." Today the Guide never opens

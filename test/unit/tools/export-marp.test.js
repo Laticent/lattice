@@ -58,7 +58,7 @@ describe('export-marp bundle (end-to-end)', () => {
       'split-headings.md', 'README.md', 'marp.config.cjs', 'package.json',
       '.vscode/settings.json',
       'lattice.css', 'themes/indaco.css', 'themes/indaco-dark.css',
-      'mermaid-v11.min.js', 'lattice-runtime.min.js',
+      'mermaid-v11-min.js', 'lattice-runtime-min.js',
     ]) {
       assert.ok(fs.existsSync(path.join(dest, f)), `bundle is missing ${f}`);
     }
@@ -83,7 +83,7 @@ describe('export-marp bundle (end-to-end)', () => {
     // state-chart pass reads synchronously on its first draw. Classic scripts run in
     // document order, so tagging it after the runtime would leave every branching
     // machine painted as the numbered column — a plausible layout, silently wrong.
-    assert.match(baked, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-dagre\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\n/,
+    assert.match(baked, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11-min\.js"><\/script>\n<script src="lattice-dagre-min\.js"><\/script>\n<script src="lattice-runtime-min\.js"><\/script>\n/,
       'markdown carries the lint-ignore + mermaid + dagre + runtime script tags');
   });
 

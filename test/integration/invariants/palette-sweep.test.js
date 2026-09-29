@@ -313,7 +313,7 @@ describe('palette sweep — every shipped palette, on every swept deck', () => {
   /**
    * THE ORACLE CHECK, and the reason this file can be trusted at all.
    *
-   * Injecting `dist/themes/<name>.min.css` LOOKED like it worked and was fiction for 18 of
+   * Injecting `dist/themes/<name>-min.css` LOOKED like it worked and was fiction for 18 of
    * the 32: those files are override layers that reach their base through `@import`, which
    * does not load inside an injected `<style>`, so each one landed on top of whichever
    * palette went before it. The sweep reported confident per-palette numbers for hybrids

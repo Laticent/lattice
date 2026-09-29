@@ -69,3 +69,5 @@
 - `build:check` fails when a component stylesheet sets text in `--fs-message` or
   `--fs-body-compact` without a `SANCTIONED_READING_ROLE` entry naming the exception.
 - The Studio's welcome deck fits every venue; three of its slides clipped at hall.
+- The line geometry `lint:deck` judges `list`, `cards-grid` and `list-steps` by is
+  re-measured at one reading size and scaled titles.

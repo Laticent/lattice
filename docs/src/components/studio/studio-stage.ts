@@ -51,15 +51,15 @@ export async function buildStageDocument(options: SingleSlideOptions, source: st
 		// are styled on the Stage too.
 		css: render.fontCss + render.css + (extraCss ? `\n${extraCss}` : ''),
 		runtimeUrl: render.runtimeUrl,
-		// Inject KaTeX / Mermaid only when the deck actually has math / a diagram, from
-		// the Studio's locally-vendored copies (studio.astro passes both) so the
-		// projected window renders from our own origin. buildStageDoc omits each when its
-		// URL is '' — so a plain deck's Stage pulls neither. There is deliberately NO
+		// Inject KaTeX only when the deck actually has math, from the Studio's
+		// locally-vendored copy (studio.astro passes it) so the projected window renders
+		// from our own origin. buildStageDoc omits it when its URL is '' — so a plain
+		// deck's Stage pulls nothing. (Mermaid needs no URL: the runtime's plugin host loads
+		// the plugin's library from beside `runtimeUrl` when the stage holds a fence.) There is deliberately NO
 		// jsdelivr fallback here any more: if a host stops passing these the math or the
 		// diagram goes unstyled/unrendered, which is visible, rather than quietly
 		// executing a floating third-party bundle. See deck-preview.js's note.
 		katexUrl: render.html.includes('katex') ? options.katexUrl || '' : '',
-		mermaidUrl: render.html.includes('language-mermaid') ? options.mermaidUrl || '' : '',
 		// Same shape for the dagre layout engine. buildStageDoc re-checks the marker on its
 		// own sanitized html, so this narrowing is the cheap early-out, not the guarantee.
 		dagreUrl: render.html.includes('data-sc-transitions') ? options.dagreUrl || '' : '',

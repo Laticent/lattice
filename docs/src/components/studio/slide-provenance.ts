@@ -500,3 +500,56 @@ export function setBackdrop(chunk: string, axis: BackdropAxis, name: string | nu
 	if (name && values.includes(name)) kept.push(`backdrop-${name}`);
 	return setClassTokens(chunk, kept);
 }
+
+// ── card tag (the `tag:` register) ──────────────────────────────────────────────────────────
+// Mirrors lib/core/resolve-card-tag.js, which the docs build cannot import (CJS); a unit test pins
+// the lists to it. Four axes on ONE deck line (`tag: plain band center`), each overridden per
+// slide by its own `tag-*` token; a slide token evicts the deck's on that axis only. `banner-tag`
+// is the band placement's older name and is left alone here (the drawer writes `tag-band`).
+export const CARD_TAG_AXES = {
+	color: ['color', 'plain', 'none'],
+	size: ['small', 'regular', 'large'],
+	placement: ['corner', 'foot', 'notch', 'band', 'inline'],
+	align: ['start', 'center', 'end'],
+} as const;
+export type CardTagAxis = keyof typeof CARD_TAG_AXES;
+export const CARD_TAG_AXIS_ORDER: readonly CardTagAxis[] = ['color', 'size', 'placement', 'align'];
+/** The layouts that draw a card tag — the drawer shows the Tag rows only on these. */
+export const CARD_TAG_LAYOUTS = ['cards-grid', 'cards-stack', 'decision', 'compare-prose', 'split-compare', 'list-steps'] as const;
+const cardTagValues = (axis: CardTagAxis): readonly string[] => CARD_TAG_AXES[axis];
+
+/** The deck's `tag:` value split onto its four axes (first recognized word per axis). */
+export function deckCardTag(source: string): Partial<Record<CardTagAxis, string>> {
+	const raw = (getFrontMatter(source, 'tag') || '').replace(/\s#.*$/, '').trim().toLowerCase();
+	const out: Partial<Record<CardTagAxis, string>> = {};
+	for (const word of raw.split(/[\s,]+/).filter(Boolean)) {
+		const axis = CARD_TAG_AXIS_ORDER.find((a) => cardTagValues(a).includes(word));
+		if (axis && !out[axis]) out[axis] = word;
+	}
+	return out;
+}
+
+/** Write the deck line from its axes, in axis order; all empty removes the key. */
+export function cardTagDeckValue(parts: Partial<Record<CardTagAxis, string | null | undefined>>): string | null {
+	const v = CARD_TAG_AXIS_ORDER.map((a) => parts[a]).filter(Boolean).join(' ');
+	return v || null;
+}
+
+export function cardTagProvenance(chunk: string, source: string, axis: CardTagAxis): Provenance {
+	const values = cardTagValues(axis);
+	const own = getClassTokens(chunk).find((t) => t.startsWith('tag-') && values.includes(t.slice(4)));
+	const deckValue = deckCardTag(source)[axis];
+	const inheritable = deckValue !== undefined;
+	if (own) return { state: 'on', value: own.slice(4), deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', inheritable: false };
+}
+
+/** Set one axis on the slide; `null` clears it so the slide follows the deck. */
+export function setCardTag(chunk: string, axis: CardTagAxis, name: string | null): string {
+	const values = cardTagValues(axis);
+	const kept = getClassTokens(chunk).filter((t) => !(t.startsWith('tag-') && values.includes(t.slice(4))));
+	if (name && values.includes(name)) kept.push(`tag-${name}`);
+	return setClassTokens(chunk, kept);
+}
+

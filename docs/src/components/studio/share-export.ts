@@ -35,13 +35,9 @@ export type DeckRender = {
 	geom: { w: number; h: number };
 	runtimeUrl: string;
 	fontCss: string;
-	/** Local Mermaid URL (studio), so an exported deck's diagrams render from our own
-	 *  origin. Absent → NO Mermaid tag is injected and diagrams do not render; there is
-	 *  no CDN default behind this any more. That matters most here of all: this type
-	 *  feeds the export/rasterize path, and the old fallback made an EXPORT fetch from a
-	 *  third party at export time, baking those bytes into a file handed to someone else.
-	 *  See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md. */
-	mermaidUrl?: string;
+	// No Mermaid URL: the capture frame's runtime loads the diagram library (the Mermaid
+	// plugin's payload) from beside `runtimeUrl` — our own origin, never a third party at
+	// export time (engineering/decisions/2026-09-03-self-hosted-runtime-deps.md).
 	/** Local dagre URL (`<assetBase>lattice-dagre.js`), so a state chart that BRANCHES
 	 *  is laid out rather than falling back to the numbered column. Absent → no tag is
 	 *  injected and the machine renders as a column — a different layout, not a missing
@@ -133,7 +129,6 @@ export async function buildDeckRender(
 		geom: { w: out.width || 1280, h: out.height || 720 },
 		runtimeUrl: options.runtimeUrl,
 		fontCss: previewFontFaceCss(),
-		mermaidUrl: options.mermaidUrl,
 		dagreUrl: options.dagreUrl,
 		webOrigins: options.webOrigins ?? [],
 		...(out.flatCss !== undefined
@@ -390,6 +385,11 @@ export async function shareHtmlPlayer(
 	// and the CLI cannot drift on what the flag means. Undefined inherits the deck's own
 	// registers (`motion:`, with `player-motion: off` as the author-side opt-out).
 	playerMotion?: boolean,
+	// Fetch pictures from OTHER sites too, and embed them — the author's opt-in from the export
+	// panel. Off, only this site's pictures are fetched and every other one ships as the
+	// placeholder. The file is self-contained either way; this decides only whether the author's
+	// browser contacts those sites now.
+	embedWebPictures = false,
 	// Resolves to a DEGRADATION reason when the export completed but shipped something
 	// lesser than intended (today: the diagram bake did not run), else undefined. The
 	// caller surfaces it in the completion toast — see the return at the end.
@@ -440,8 +440,26 @@ export async function shareHtmlPlayer(
 	// So its web images are placeholders on EVERY path, the bake's fallback (the static render)
 	// included, which used to ship the raw address and show a broken-image mark.
 	const { default: remoteRef } = (await import('../../../../lib/core/remote-ref.js')) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
+	// PICTURES BY URL (followup 2358-p2). The same policy that blocks web images blocks EVERY
+	// picture that is not already a `data:` URI, a same-origin `/images/x.jpg` included, so a
+	// `![bg](…)` panel and a video poster the preview showed came out blank in the player. Fetch
+	// each one from THIS origin now and embed it; a picture from another site is left to the
+	// placeholder pass below and counted — unless the author turned on "Embed pictures from other
+	// sites", which fetches those too. The recipient's file loads nothing on open either way.
+	onStatus?.('Embedding images…');
+	const { inlineUrlMedia, browserFetchDataUri, describeMissingMedia, sourceHasWebPictures } = await import('../../../../lib/export/inline-url-media.mjs');
+	const mediaCache = new Map();
+	const fetchDataUri = browserFetchDataUri(fetch.bind(globalThis), { ownOrigin: location.origin, followRedirects: embedWebPictures });
+	const withMedia = (html: string) => inlineUrlMedia(html, { baseUrl: document.baseURI, origins: [location.origin], anyWebOrigin: embedWebPictures, fetchDataUri, cache: mediaCache });
+	const media = await withMedia(out.html);
+	const placed = remoteRef.blockWebImages(media.html, []);
 	// `let`: the strip-notes cut below swaps in the scrubbed render, and the bake must bake THAT.
-	let playerHtml = remoteRef.blockWebImages(out.html, []).html;
+	let playerHtml = placed.html;
+	// Reported with the other degradations at the end: a picture the file cannot show is a
+	// silent gap otherwise, because the player's placeholder looks deliberate.
+	// Our own origin is left out of the placeholder list: a picture of ours reaching that pass is one
+	// that failed to embed, and `missing` already names it with its reason.
+	const mediaWarning = describeMissingMedia(media.missing, remoteRef.webOrigins(placed.blocked.filter((b) => b.kind !== 'diagram')), location.origin, embedWebPictures, sourceHasWebPictures(source, location.origin));
 	let recordSections = sectionsOf(playerHtml);
 	let noteRecord = notesCore.slideNoteRecord(recordSections);
 	// `let`, because the guard below picks WHICH cut ships once it knows which one reproduces
@@ -479,7 +497,10 @@ export async function shareHtmlPlayer(
 			recordSections,
 			sectionsOf,
 			// Placeholders on the candidate too, so it compares like-for-like with `recordSections`.
-			(src) => renderMarkdown(PG, src, theme, { styles: 'flat' }).then((r) => ({ ...r, html: remoteRef.blockWebImages(r.html, []).html })),
+			// The same embed + placeholder passes, so the candidate compares like-for-like with
+			// `recordSections`. The cache means it fetches nothing the first pass already did, and
+			// the notes cut changes no picture, so the first pass's report stands for it.
+			(src) => renderMarkdown(PG, src, theme, { styles: 'flat' }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -522,7 +543,6 @@ export async function shareHtmlPlayer(
 			geom: { w: out.width || 1280, h: out.height || 720 },
 			runtimeUrl: options.runtimeUrl,
 			fontCss,
-			...(options.mermaidUrl ? { mermaidUrl: options.mermaidUrl } : {}),
 			...(options.dagreUrl ? { dagreUrl: options.dagreUrl } : {}),
 		});
 		// Slide-count parity is the correctness gate: notes, narration cues and the
@@ -537,12 +557,12 @@ export async function shareHtmlPlayer(
 			// render ships as its source `<pre>`, and the author should hear that once
 			// rather than discover it in the file.
 			if (result.failed) {
-				console.warn(`lattice: ${result.failed} diagram(s) failed to render — they ship as their source, not as a drawing.`);
+				console.warn(`lattice: ${result.failed} figure(s) (diagrams or plots) failed to render — they ship as their source, not as a drawing.`);
 				// This is the LIKELIER degradation (some diagrams rendered, some did not) and it
 				// reached only the console, so an export shipping N diagrams as raw source still
 				// said "Webpage ready." The rare total failure surfaced and the common partial one
 				// did not.
-				bakeWarning = `${result.failed} diagram(s) ship as source, not as drawings`;
+				bakeWarning = `${result.failed} figure(s) ship as source, not as drawings`;
 			}
 		} else if (result) {
 			// Count mismatch. It used to fall through with no `else`, silently shipping the
@@ -596,6 +616,9 @@ export async function shareHtmlPlayer(
 	if (fidelityWarning) {
 		bakeWarning = bakeWarning ? `${bakeWarning}; ${fidelityWarning}` : fidelityWarning;
 	}
+	if (mediaWarning) {
+		bakeWarning = bakeWarning ? `${bakeWarning}; ${mediaWarning}` : mediaWarning;
+	}
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
 	// `katexCss` cap is SYNCHRONOUS, so pre-fetch the vendored sheet here (only when
@@ -632,13 +655,17 @@ export async function shareHtmlPlayer(
 		// Parallel to `projected` — carried so the BAKED deck holds the same beats Present plays and
 		// the CLI export writes. Empty when the projection failed, which stands emphasis down with it.
 		let projectedEmphasis: readonly { start: number; end: number; weight: number }[][] = [];
+		// And the bindings, so the sent deck's Guide focuses what each sentence was read from.
+		let projectedRefs: readonly (readonly unknown[] | undefined)[] = [];
 		try {
 			const scripts = await projectSectionsToScript(tagged);
 			projected = scripts.map((x) => x.text);
 			projectedEmphasis = scripts.map((x) => x.emphasis as { start: number; end: number; weight: number }[]);
+			projectedRefs = scripts.map((x) => x.refs);
 		} catch {
 			projected = []; // the chain still resolves captions, notes and chart facts
 			projectedEmphasis = [];
+			projectedRefs = [];
 		}
 		// THE SCRUBBED SOURCE, not the raw one. The narration chain's third rung reads the
 		// slide's speaker note out of the source comments (`narration-bake.ts` →
@@ -651,6 +678,7 @@ export async function shareHtmlPlayer(
 			voice: narration.voice,
 			audio: narration.audio,
 			projectedEmphasis,
+			projectedRefs,
 			// The author's explicit override, only ever set after a refusal named the sentences.
 			allowPartial: narration.allowPartial,
 			signal: narration.signal,
@@ -673,6 +701,9 @@ export async function shareHtmlPlayer(
 							track: n.track,
 							clips: (result.slides[i] ?? []).map((c) => (c.audio && c.clip ? { audio: c.audio, clip: c.clip, leadMs: c.leadMs } : null)),
 							...(n.emphasis ? { emphasis: n.emphasis } : {}),
+							// The chart narrator's binding (narration-bake.ts `refsOf`): the player's Guide plays a
+							// bound sentence's scene from it (2026-09-27-delivery-styles-and-component-scenes.md).
+							...(n.refs ? { refs: n.refs } : {}),
 						}
 					: null,
 			),
@@ -724,9 +755,10 @@ export async function shareHtmlPlayer(
 		parseHtml: (html: string) => new DOMParser().parseFromString(html, 'text/html'),
 		sanitize: sanitizeMod.sanitizeSlideHtml,
 		sha256: sha256Base64,
-		// The browser render carries no `file://` refs (a CLI-only concern) — assets are
-		// already data-URIs or same-origin URLs, so there is nothing to inline here.
-		inlineAssets: (html: string) => ({ html, count: 0, missing: [] }),
+		// The core's cap is SYNCHRONOUS, and the browser's fetch is not, so the pictures were
+		// embedded up front (`withMedia`, above) and this hands the core that pass's tally. The
+		// browser render carries no `file://` refs (a CLI-only concern).
+		inlineAssets: (html: string) => ({ html, count: media.count, missing: media.missing.map((m) => m.url) }),
 		katexCss: () => katexText,
 	};
 

@@ -1,0 +1,308 @@
+{
+	"restrained": [
+		{
+			"said": "The timeline pins events to their dates.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each milestone sits on the spine in date order.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1: The first milestone.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(1)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "One clause says what changed here.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(1)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2: The second, marked, a decision point.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(2)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "A tag names the milestone's kind.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(2)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q3: The third milestone.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(3)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Sixteen words is each entry's budget.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(3)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q4: The fourth milestone.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(4)",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Four to six entries reads best.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(4)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The timeline pins events to their dates.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each milestone sits on the spine in date order.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Q1: The first milestone.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(1)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "One clause says what changed here.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(1)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Q2: The second, marked, a decision point.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(2)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "A tag names the milestone's kind.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(2)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Q3: The third milestone.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(3)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Sixteen words is each entry's budget.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(3)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Q4: The fourth milestone.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(4)",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Four to six entries reads best.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(4)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		}
+	],
+	"somber": [
+		{
+			"said": "The timeline pins events to their dates.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each milestone sits on the spine in date order.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q1: The first milestone.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(1)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "One clause says what changed here.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(1)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q2: The second, marked, a decision point.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(2)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "A tag names the milestone's kind.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(2)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q3: The third milestone.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(3)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Sixteen words is each entry's budget.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(3)",
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Q4: The fourth milestone.",
+			"act": "visit",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(4)",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Four to six entries reads best.",
+			"act": "note",
+			"unit": "event",
+			"select": ".timeline-item:nth-child(4)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

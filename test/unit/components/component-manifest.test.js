@@ -853,9 +853,10 @@ describe('component-manifest', () => {
     });
 
     test('BUCKETS is FUNCTIONS plus chart, diagram, math, code, legal, and connect', () => {
+      // `layout` is both a function and its bucket: the pane hosts (columns, rows).
       assert.deepEqual([...BUCKETS].sort(), [
         'anchor', 'chart', 'code', 'comparison', 'connect', 'diagram', 'evidence',
-        'imagery', 'inventory', 'legal', 'math', 'progression', 'statement',
+        'imagery', 'inventory', 'layout', 'legal', 'math', 'progression', 'statement',
       ]);
       for (const fn of FUNCTIONS) assert.ok(BUCKETS.includes(fn));
     });
@@ -1042,10 +1043,15 @@ describe('component-manifest', () => {
       }
     });
 
-    test('FUNCTIONS has exactly the 7 families documented in design-system.md §3', () => {
+    test('FUNCTIONS has the 7 audience families documented in design-system.md §3, plus layout', () => {
       assert.deepEqual([...FUNCTIONS].sort(), [
-        'anchor', 'comparison', 'evidence', 'imagery', 'inventory', 'progression', 'statement',
+        'anchor', 'comparison', 'evidence', 'imagery', 'inventory', 'layout', 'progression', 'statement',
       ]);
+    });
+
+    test('substance "mixed" is allowed on a panel form or a pane host, and nowhere else', () => {
+      assert.match(validate({ ...GOOD, form: 'split', substance: 'mixed' }).join('\n'), /only allowed when form is "panel" or the component hosts panes/);
+      assert.deepEqual(validate({ ...GOOD, function: 'layout', form: 'split', substance: 'mixed', hosts: 'panes' }).filter((e) => /mixed/.test(e)), []);
     });
 
     test('SUBSTANCES has exactly the 4 plugin contracts documented in design-system.md §5', () => {

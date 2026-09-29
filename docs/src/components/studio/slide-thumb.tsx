@@ -1,3 +1,5 @@
+import { sourceHasDrawnFence } from '../../../../lib/plugins/drawn-probe.mjs';
+
 // One shared predicate for the slide-thumbnail surfaces. What ELSE used to live here — the
 // IntersectionObserver windowing (`useInView`), the live-preview budget registry and the
 // `SlideThumbFace` that unmounted a preview when its tile scrolled away — is gone, replaced by
@@ -12,10 +14,12 @@
 // lifetime and re-points them instead, so nothing is torn down and no budget is needed.
 
 /**
- * Does this slide's markdown contain a Mermaid fence? A diagram-bucket component's
- * thumbnail must render as a DIAGRAM, not raw code — `DeckPreview`'s `mermaid` flag
- * gates the runtime injection per render, so a thumbnail grid can't hardcode it.
+ * Does this slide's markdown open a fence a runtime draws (a Mermaid diagram)? A diagram-bucket
+ * component's thumbnail must render as a DIAGRAM, not raw code — `DeckPreview`'s `mermaid` flag
+ * tells the frame builder the document will draw one, per render, so a thumbnail grid can't
+ * hardcode it. The fence names come from the plugin registry (lib/plugins/drawn-probe.mjs),
+ * and the probe reads an opener as the CLI's bake does, so it is never narrower.
  */
 export function hasMermaid(md: string): boolean {
-	return /```mermaid|~~~mermaid|language-mermaid/.test(md);
+	return sourceHasDrawnFence(md);
 }

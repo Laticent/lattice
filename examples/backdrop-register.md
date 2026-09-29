@@ -16,6 +16,10 @@ section.finish.finish-graph {
   --fin-mark: none;
   --fin-mark-text: "";
   --fin-edge: none;
+  --fin-wash-opaque: none;
+  --fin-texture-opaque: repeating-linear-gradient(0deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--field-accent, var(--accent)) 22%, var(--fin-canvas)) 0 1px, transparent 1px 30px);
+  --fin-mark-opaque: none;
+  --fin-edge-opaque: none;
   --fin-backdrop-strength: 0.60;
   --fin-backdrop-clear-scrim: var(--backdrop-clear-fill);
   --fin-backdrop-veil-weight: 1;

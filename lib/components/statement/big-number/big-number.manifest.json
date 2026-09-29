@@ -122,5 +122,13 @@
   },
   "venueCapacity": {
     "none": "One number and its claim per slide, so there is no repeated element to count."
+  },
+  "gesture": {
+    "archetype": "statement",
+    "units": {
+      "number": {
+        "select": "li:not(li li):not(svg *)"
+      }
+    }
   }
 }
