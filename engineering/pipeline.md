@@ -249,6 +249,18 @@ back to Chrome, and says so (on stderr, even with `--quiet`), when the bundle is
 writer fails. The reasons and the
 measurements are in `engineering/decisions/2026-09-27-studio-export-one-engine.md`.
 
+**Every committed PDF comes from the shared writer.** The goldens and demo PDFs (`examples/`,
+`exemplars/`, `design/`, `themes/`, the component and bucket galleries) were re-rendered through
+it in one pass on 2026-09-29, so a deck PR's golden-diff shows that deck's own change rather than
+a writer switch. Two exceptions remain. The PDFs under `engineering/decisions/` stay as printed, on purpose:
+each is the evidence a dated decision was made on, and re-rendering it would rewrite that record.
+`themes/palette-audit.pdf` (151 pages) stays Chrome-printed until the writer can finish it: the
+writer composes the whole deck in one `Runtime.callFunctionOn`, which passes Puppeteer's 180 s
+per-call `protocolTimeout`, so the CLI falls back to Chrome
+(`followups.d/2404-p2-pdf-writer-long-deck-timeout.md`). To
+check which writer produced a file, search it for Chrome's producer string: `strings f.pdf |
+grep -a Skia/PDF` finds it in a Chrome-printed file and nothing in a shared-writer one.
+
 ## 4a. CLI PDF output is byte-reproducible
 
 Rendering the same deck twice **on the same machine** writes the same bytes — so
