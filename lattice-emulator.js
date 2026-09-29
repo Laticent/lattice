@@ -2073,6 +2073,10 @@ const widenDeckCss = (css) => (DECK_HAS_PANES ? widenForPanes(css, DECK_PANE_CLA
 const notesCore = require('./lib/authoring/notes-core');
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// For a double-quoted ATTRIBUTE value, where a `"` would end the attribute. escapeHtml is
+// for text, and adding `"` to it would change the bytes of every exported <title> that
+// quotes something.
+const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
 // The set of INDIVIDUAL note bodies straight from the render — the directive-safe
 // key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
 // attachment). NOT the `\n\n`-joined note split apart, which shatters a single
@@ -2700,7 +2704,7 @@ const a11yTextureDefs = texturePatternDefs(
   texturePrefixesReferencedIn(`${deckStyle}\n${slidesWithMeta2}`),
 );
 const htmlDoc = `<!DOCTYPE html>
-<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
+<html lang="${escapeAttr(deckLang)}"><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
 ${embeddedFonts}
 ${katexCssLink}
@@ -2903,7 +2907,10 @@ const RUNTIME_SCRIPT = /[ \t]*<script\b[^>]*\blattice-runtime(?:\.min)?\.js[^>]*
 // loads below — so those outputs are byte-identical whether or not --fluid is
 // set. The fluid VIEWER is derived from this clean HTML and written over outHtml
 // ONLY after rasterization (see toFluidViewer / the post-raster rewrite).
-let cleanDocHtml = htmlDoc.replace(RUNTIME_SCRIPT, '');
+// To a fixed point: a tag the author wrote around another (`<scr<script …></script>ipt …>`)
+// is whole again after one pass.
+let cleanDocHtml = htmlDoc;
+for (let prev = null; prev !== cleanDocHtml;) { prev = cleanDocHtml; cleanDocHtml = cleanDocHtml.replace(RUNTIME_SCRIPT, ''); }
 
 // Build the opt-in fluid viewer from the clean export HTML: flag the page
 // fluid-capable and inline the runtime (the controller re-derives orientation
