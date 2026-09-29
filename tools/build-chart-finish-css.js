@@ -261,16 +261,18 @@ function build() {
       // workstream lane and horizon card, read by its pill, its stripe and its card rule. The
       // `.roadmap` inside :where() matches the finished section itself, so no other table on
       // the slide is reached and the head keeps (0,1,1).
-      w(rule(name, ':is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card)', [
-        `--phase-accent: ${ONE}`,
-        `--phase-ink: ${ONE_INK}`,
-      ]));
       // The phase pill's text is `--cat-on-mark`, solved for the shipped phase colors, not the
       // one hue: on it the a11y themes' dark faces read 1.54:1 and burgundy dark 4.44:1. So the
-      // pill picks black or white from its own ground, as every other text-bearing mark does.
+      // pill picks black or white from its own ground, as every other text-bearing mark does,
+      // and the whole re-point waits on the engine that can pick it (TEXT WAITS, below).
       const pill = ':is(.roadmap .horizon-meta, .roadmap thead th:not(:first-child) > code)';
-      w(rule(name, pill, ['color: var(--text-body)']));
-      w(supports(rule(name, pill, [`color: ${inkOn(ONE)}`])));
+      w(supports([
+        rule(name, ':is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card)', [
+          `--phase-accent: ${ONE}`,
+          `--phase-ink: ${ONE_INK}`,
+        ]),
+        rule(name, pill, [`color: ${inkOn(ONE)}`]),
+      ].join('\n')));
     }
 
     // ── HUE — the body a finish is named for ────────────────────────────────
@@ -279,7 +281,10 @@ function build() {
       const body = tone ? mix(ONE, `${TONE[n - 1]}%`) : pair(hueOf(n), f.body);
       const ink = tone ? ONE_INK : inkOf(n);
       for (const paint of ['fill', 'bg']) {
-        w(rule(name, `:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="${paint}"]${tone ? notLeft : ''}`, paintDecls(paint, body, ink, f.edge)));
+        // A text-bearing mark is left to its own rule below, which waits on relative color.
+        // Without this it would take the full body here, under ink solved for the shipped one.
+        const notText = bears[paint].length ? `:not(${bears[paint].map((c) => `.${c}`).join(', ')})` : '';
+        w(rule(name, `:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="${paint}"]${notText}${tone ? notLeft : ''}`, paintDecls(paint, body, ink, f.edge)));
       }
     }
 
@@ -297,12 +302,14 @@ function build() {
         if (!bears[paint].length) continue;
         const cls = `:is(${bears[paint].map((c) => `.${c}`).join(', ')})`;
         // An HTML mark's own text was colored for the full-strength body (the journey actor
-        // initial is white). At this level it takes --text-body, and where the engine has
-        // relative color, the ink its own body clears.
+        // initial is white), so it takes the ink its own body clears. TEXT WAITS: no fixed ink
+        // clears every theme (--text-body read 3.54:1 on concrete's status pill, --text-heading
+        // 3.34:1 on an a11y heatmap step, measured in WebKit with relative color removed), so
+        // on an engine that cannot pick the ink, a mark that carries text keeps its shipped
+        // paint and ink, which each theme's gates already hold. Every other mark still moves.
         const sel = `${cls}[data-hue="${n}"][data-encodes="hue"][data-paint="${paint}"]`;
-        const text = paint === 'bg' ? ['color: var(--text-body)'] : [];
-        w(rule(name, sel, [...paintDecls(paint, body, ink, f.edgeBackdrop), ...text]));
-        if (paint === 'bg') w(supports(rule(name, sel, [`color: ${ld(inkOn(bodyL), inkOn(bodyD))}`])));
+        const text = paint === 'bg' ? [`color: ${ld(inkOn(bodyL), inkOn(bodyD))}`] : [];
+        w(supports(rule(name, sel, [...paintDecls(paint, body, ink, f.edgeBackdrop), ...text])));
       }
     }
 
@@ -326,12 +333,13 @@ function build() {
         : pair(s.hue, lvl);
       const decls = paintDecls(s.paint, body, s.ink, s.bears ? f.edgeBackdrop : f.edge);
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.
-      w(rule(name, s.sel, decls));
       if (s.bears && s.paint === 'bg') {
         const [l, d] = tone || name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
-        w(rule(name, s.sel, ['color: var(--text-body)']));
-        w(supports(rule(name, s.sel, [`color: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`])));
+        decls.push(`color: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`);
       }
+      // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
+      // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
+      w(textLevel ? supports(rule(name, s.sel, decls)) : rule(name, s.sel, decls));
     }
 
     // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
@@ -351,8 +359,10 @@ function build() {
       ]) {
         if (!classes.length) continue;
         const cls = `:is(${classes.map((c) => `.${c}`).join(', ')})`;
-        w(rule(name, `${cls}[data-encodes="ramp"][data-paint="fill"]`, [`fill: ${body}`, ...rampStroke]));
-        w(rule(name, `${cls}[data-encodes="ramp"][data-paint="bg"]`, [`background: ${body}`]));
+        // A ramp that prints its value waits with its text (TEXT WAITS, above).
+        const wrap = classes === m.text ? supports : (css) => css;
+        w(wrap(rule(name, `${cls}[data-encodes="ramp"][data-paint="fill"]`, [`fill: ${body}`, ...rampStroke])));
+        w(wrap(rule(name, `${cls}[data-encodes="ramp"][data-paint="bg"]`, [`background: ${body}`])));
       }
     }
     // A HEATMAP VALUE is printed on its cell, and the theme solves its ink per step against
@@ -363,15 +373,15 @@ function build() {
     // syntax to black above OKLCH L 0.565 and white below it. That lightness is where the two
     // meet (relative luminance ~0.18), so either side clears ~4.5:1 on every theme. The step's
     // --mix is the heatmap's own (--heatmap-stepN, else the member's default, which
-    // chart-finish-css.test.js pins to heatmap.styles.css). The relative-color rule sits behind
-    // @supports: a declaration carrying var() always parses, so as a plain second declaration
-    // it would replace the fallback and then fail at computed-value time on an engine without
-    // relative color, leaving the value on the default black fill.
+    // chart-finish-css.test.js pins to heatmap.styles.css). It sits behind @supports with its
+    // cell's text band (TEXT WAITS, above): a declaration carrying var() always parses, so a
+    // plain one would fail at computed-value time on an engine without relative color and
+    // leave the value on the default black fill. There, the cell and its value keep the
+    // shipped fill and the ink the theme solved for it.
     const STEP_MIX = [18, 36.5, 55, 73.5, 92];
     const textBand = f.rampText;
     STEP_MIX.forEach((pct, i) => {
       const at = ([lo, k]) => `color-mix(in oklab, ${ONE} calc(${lo}% + var(--heatmap-step${i + 1}, ${pct}%) * ${k}), var(--heatmap-base))`;
-      w(rule(name, `.heatmap-value[data-step="${i + 1}"]`, ['fill: var(--text-heading)']));
       w(supports(rule(name, `.heatmap-value[data-step="${i + 1}"]`, [
         `fill: ${ld(inkOn(at(textBand[0])), inkOn(at(textBand[1])))}`,
       ])));

@@ -92,14 +92,25 @@ describe('chart-finish.generated.css', () => {
     for (const [step, pct] of own) assert.ok(css.includes(`var(--heatmap-step${step}, ${pct})`), `step ${step} is ${pct} in heatmap.styles.css`);
   });
 
-  test('the relative-color value ink sits behind @supports, with its fallback outside it', () => {
+  // TEXT WAITS. No fixed ink clears every theme once a finish moves the ground under the text:
+  // measured in WebKit with relative color removed, --text-body read 3.54:1 on concrete's status
+  // pill and --text-heading 3.34:1 on an a11y heatmap step. So a mark that carries text (and a
+  // key that follows one) moves only where the engine can pick its ink, and keeps the shipped
+  // paint and ink elsewhere; a mark with no text moves everywhere.
+  test('a mark that carries text moves only behind @supports; every other mark moves everywhere', () => {
     const blocks = css.match(/@supports \(color: oklch\(from red l c h\)\) \{[\s\S]*?\n\}\n\}/g) || [];
     assert.equal(blocks.filter((b) => b.includes('.heatmap-value')).length, 15, 'one per step per finish');
-    // Every relative color anywhere is behind the guard, the text-bearing marks' ink included.
-    for (const b of blocks) assert.match(b, /oklch\(from /);
     const outside = css.replace(/@supports[\s\S]*?\n\}\n\}/g, '');
-    assert.doesNotMatch(outside, /oklch\(from/);
-    assert.match(outside, /\.heatmap-value\[data-step="1"\]\)[^{]*\{\s*fill: var\(--text-heading\)/);
+    assert.doesNotMatch(outside, /oklch\(from/, 'every relative color is behind the guard');
+    for (const cls of ['.heatmap-value', '.gantt-bar[data-s]', '.chart-status[data-s]', '.state-node-shape[data-s]', '.gantt-legend-swatch[data-s]', '.roadmap']) {
+      assert.ok(!outside.includes(cls), `${cls} is reached only behind @supports`);
+    }
+    assert.doesNotMatch(outside, /var\(--text-(body|heading)\)/, 'no fixed-ink fallback is left');
+    // The plain categorical rule skips the text-bearing marks, or they would take its full body.
+    assert.match(outside, /chart-finish-pigment :where\(:is\(\[data-hue="1"\], \[data-key-hue="1"\]\)\[data-encodes="hue"\]\[data-paint="bg"\]:not\([^)]*\.cell-filled/);
+    // A mark with no text still moves on every engine.
+    assert.match(outside, /\.gantt-milestone\[data-s\]/);
+    assert.match(outside, /\.waterfall-bar\[data-s="up"\]/);
   });
 
   test('every status mark\'s member declares the hue and ink the status table reads', () => {
@@ -136,7 +147,9 @@ describe('chart-finish.generated.css', () => {
     const toneHue = css.match(/section\.chart-finish-tone :where\(:is\(\[data-hue="1"\][^{]*/)[0];
     for (const c of ['line-dot', 'line-band', 'line-area', 'slope-dot']) assert.ok(toneHue.includes(`.${c}`), `${c} is excluded under tone`);
     const pigmentHue = css.match(/section\.chart-finish-pigment :where\(:is\(\[data-hue="1"\][^{]*/)[0];
-    assert.ok(!pigmentHue.includes(':not('), 'pigment keeps a dot in its own hue, so it may repaint it');
+    for (const c of ['line-dot', 'line-band', 'line-area', 'slope-dot']) {
+      assert.ok(!pigmentHue.includes(`.${c}`), `pigment keeps ${c} in its own hue, so it may repaint it`);
+    }
   });
 
   test('a container is re-pointed under tone, never repainted, and a status lane keeps its hue', () => {
@@ -157,7 +170,11 @@ describe('chart-finish.generated.css', () => {
     assert.match(body, /--phase-accent: var\(--chart-cat-1-hue\)/);
     assert.match(body, /--phase-ink: var\(--chart-cat-1-ink\)/);
     assert.doesNotMatch(css, /chart-finish-(pigment|etching) :where\([^)]*\.roadmap/, 'only tone reaches a roadmap');
-    assert.match(css, /@supports[^{]*\{\nsection\.chart-finish-tone :where\(:is\(\.roadmap \.horizon-meta[^{]*\{\s*color: oklch\(from var\(--chart-cat-1-hue\)/);
+    // The re-point and the pill's ink share one @supports block: without relative color the
+    // pill could not pick its ink, so the roadmap keeps its shipped phases there.
+    const block = css.slice(css.lastIndexOf('@supports', at), css.indexOf('\n}\n}', at));
+    assert.ok(block.startsWith('@supports'), 'the re-point sits inside @supports');
+    assert.match(block, /:where\(:is\(\.roadmap \.horizon-meta[^{]*\{\s*color: oklch\(from var\(--chart-cat-1-hue\)/);
   });
 
   // The body a finish gives the status mark selected by `sel` (its first paint declaration).

@@ -158,12 +158,25 @@ measurement, and most undo a defect a render or the adversarial review found:
   and the PDF export lost it.
 - **A text-bearing mark** (the manifest's `bears`) takes the quieter backdrop
   level, and an HTML mark's own text takes the same black-or-white ink its body
-  clears (behind `@supports`, `--text-body` otherwise). A fixed `--text-body`
-  failed on some themes: 2.62:1 on a 40% cuoio matrix-grid cell. A text-bearing
+  clears. A fixed `--text-body` failed on some themes: 2.62:1 on a 40% cuoio
+  matrix-grid cell. A text-bearing
   STATUS takes tone's text level under pigment too, because a status hue can be
   near-black (concrete's read 3.6:1 at 40%). Measured after the fix on 33 themes ×
   3 finishes: no text-bearing mark below 4.5:1 where the shipped paint was above
   it (worst 4.72).
+- **Text waits for the engine that can pick its ink.** Choosing black or white
+  from a mark's own color needs relative-color CSS (Chrome 119, Safari 18,
+  Firefox 128). An older engine cannot choose, and no fixed ink clears every
+  theme: measured in WebKit with relative color removed, `--text-body` read
+  3.54:1 on concrete's status pill and `--text-heading` 3.34:1 on an a11y heatmap
+  step. So every rule that moves a text-bearing mark, a key that follows one, a
+  heatmap's text band and its values, and a roadmap's phase color sits behind
+  `@supports (color: oklch(from red l c h))`. On an older engine those marks keep
+  their shipped paint and the ink each theme's gates already hold, and every mark
+  without text still takes the finish. Measured in WebKit 26 on indaco, carbone,
+  concrete and a11y-deuteranopia, light and dark, all three finishes: nothing
+  below 4.5:1 on either path (worst 4.62). The PDF export, which runs Chrome,
+  renders the demo deck pixel-identical to before.
 - **Layered bodies are a light alpha** (0.35 under pigment): at 0.55 three radar
   polygons stacked to a near-opaque mass that buried the grid.
 - **A status keeps its own hue, under `tone` too.** The prototype sent a status
