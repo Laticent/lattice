@@ -193,21 +193,22 @@ section.state-chart .state-chart-figure[data-sc-drawn="1"] .sc-harness {
 }
 
 /* ── The status table: one table for every mark that shows a status ────────
- * The harness tile, the inline row, the painted tile and its accent all read
+ * The harness tile, the inline row, the painted tile, its accent and the key's status
+ * swatch (which a chart finish repaints to match the tiles) all read
  * `--fill-hue` / `--fill-ink` from here. The word -> tone mapping is gantt's: `live` is
  * RUNNING work and takes `info`, apart from finished `done`. The browser pass picks the
  * painted gradient from the same mapping (state-chart.layout.js `STATUS_TONE`), and the
  * key groups words by it (graph-key.js). */
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent):is([data-s="on-track"], [data-s="done"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .fc-key-swatch):is([data-s="on-track"], [data-s="done"])
   { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent):is([data-s="at-risk"], [data-s="warn"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"])
   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent):is([data-s="blocked"], [data-s="fail"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"])
   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent):is([data-s="live"], [data-s="pilot"], [data-s="decision"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"])
   { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
 /* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed. */
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent)[data-s="deferred"]
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .fc-key-swatch)[data-s="deferred"]
   { --fill-hue: var(--muted-mark); --fill-ink: var(--text-secondary); }
 /* A status tile's stops: the pill's. The pass emits the same four literals into its
  * per-tone gradient (state-chart.layout.js `nodeDefs`). */
