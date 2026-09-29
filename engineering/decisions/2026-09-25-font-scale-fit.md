@@ -881,11 +881,11 @@ table does not move. (Amendment (6)'s hall figure, 86 / 2 / 61, is the one repro
 brief quoted 62 missed.)
 
 **Bundle.** Measured as a pair (root `npm run build`, then the docs build, this branch's changes
-stashed for the base): the Studio's eager JS goes from 634,056 to 636,213 bytes gz (+2,157, 99
-chunks both). About 700 bytes of that is the generated geometry and the rest is the code, the two
+stashed for the base, rebased on `main` d2d9a58): the Studio's eager JS goes from 635,051 to
+637,211 bytes gz (+2,160, 99 chunks both). About 700 bytes of that is the generated geometry and the rest is the code, the two
 glyph tables about 220 of it. Given back before measuring: the shared frame baked once, a px value
 equal at every venue baked as one number, `ordered` carrying only what differs, and line heights to
-the whole px. `docs/route-budget.json` moves to 636,490 by the owner's rule (the measurement plus
+the whole px. `docs/route-budget.json` moves to 637,490 by the owner's rule (the measurement plus
 about 280 bytes).
 
 **Still missed, by component**, on the four decks whose slide classes read reliably (at hall: talk
