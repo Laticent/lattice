@@ -316,6 +316,26 @@ The CLI output does not change (the independent checker rendered nine finish var
 the default writer, `--chrome-pdf` and PNG: 0 pixels differ). `docs/e2e/saved-finish-export.spec.ts` pins the Images lane and fails without
 the fix.
 
+**The three paths the fix argued but did not run (followup `2445-p2`, closed 2026-09-29).** Studio
+Print, `finish-override:` and a baked spotlight all reach the same mirrors. The same spec now
+drives each one on the real Studio and compares slide 2 against `finish: none`:
+
+| Path | How the spec drives it | Mirrors off | Mirrors on |
+|---|---|---|---|
+| Share → Images, saved finish | the original case | 0% | 10.6% |
+| `finish-override:` (`texture: intensity: 18`) | Share → Images | 0% | 15.0% (and 5.1% vs the same finish without the override) |
+| Spotlight, 70% radius | Share → Images | 0% | 12.1% |
+| Print deck → Print (desktop, 1-up) | see below | 0% | 12.5% |
+
+"Mirrors off" means `opaqueMirrorDecls` returned nothing, with the docs rebuilt, which is the
+pre-#2445 generator. Every case read exactly 0 there, so the Print path had the same defect as the
+export flip and #2445 fixed it too. Print is driven up to `print()`, which Playwright cannot
+dismiss, so the spec stubs it and takes the offscreen frame's exact document. It then prints that
+document through Chromium's own print pipeline (`page.pdf()` with print media) and draws page 2
+with poppler. That exercises the print engine the dialog uses, but not the dialog itself. The
+spotlight case opens the window to its 70% maximum because at the default 38% it paints correctly
+but covers only 2.5% of the slide, under the 3% bar.
+
 ### 4.10 The frame keyline in exports (2026-09-28)
 
 **Symptom:** the `frame` edge (the gallery preset, Fabricate's "Inset frame") showed on screen and
