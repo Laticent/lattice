@@ -801,7 +801,9 @@ code. What changed because of them:
   those, for the same plugin, into a warning (`fence-hydrate-resolve.test.js`, red then green).
   The math plugin's `.katex-error` rule is no longer scoped to `section`, so the player's Read ·
   Article, which re-hosts slide content outside any section, shows a failed formula on the same
-  error surface a slide does.
+  error surface a slide does. The Studio's Read pane applies the deck sheet only inside figures,
+  so it carries the same declarations in its own article sheet (`ReadArticle.tsx`), held equal to
+  the plugin's by `ReadArticle.test.ts`.
   And the CLI page now INLINES a used plugin's library (`payloadScript` in `hydrate-script.js`)
   instead of linking it by `file://` path: the PDF was always right, but an `--html` or `--fluid`
   export opened anywhere else showed each plot's config. The PDFs of the phase-B demo deck are
