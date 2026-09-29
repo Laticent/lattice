@@ -1831,3 +1831,19 @@ directly is the span, and the span moves 2.4–3.1× on navigation.
   the sink census — which are what a gate can hold.
 - **The sanitize span is reported by the perf spec now, and capped by nothing.** Adding a ceiling
   would be adding a gate to a nightly that can file an issue, which is not this change's to make.
+
+## Amendment 9 (2026-09-29): the auto-glossary's section is not a misalignment
+
+`glossary: auto` routes a deck to the whole-deck render (its fact row), and that render appends
+the glossary as one section AFTER the authored ones. `narrowToSlide` compared the render's N+1
+sections with the editor's N slides, `alignmentFailure` refused, and every slide fell back to
+rendering alone, where it numbers itself 1. The Studio preview of `examples/mobile-landscape.md`
+painted "1" on slides 2 to 8 while the PDF printed 2 to 8
+(followups.d/2436-p3-preview-page-number-glossary-auto.md, now deleted).
+
+Section k is still slide k, because the glossary sits at the end. So `narrowToSlide` judges
+alignment on the authored sections, trimmed by `withoutAutoGlossary` (lib/core/glossary-auto.mjs,
+the kernel the narrators and the CLI already use for the same off-by-one), and still walks every
+section so the frame keeps only the shown one. The shared total stays N+1, which is what the PDF
+prints. Pinned by `single-slide-render.deck-context.test.ts` and, on the built Studio,
+`docs/e2e/glossary-auto-page-number.spec.ts`, which steps the committed deck both ways.

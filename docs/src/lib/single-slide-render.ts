@@ -22,6 +22,7 @@
 // pulls bundled .woff2 that Node can't load, so a static import would break this
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
+import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
@@ -377,11 +378,22 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // `index`", and the caller falls back rather than guessing. Never return the whole deck — stacking
 // every section into a frame whose CSS and scale transform assume exactly one is both visibly
 // broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
-function narrowToSlide(html: string, index: number, slideCount?: number): string | null {
+//
+// THE AUTO-GLOSSARY IS NOT A MISALIGNMENT. `glossary: auto` appends one section AFTER the
+// authored ones (lib/core/glossary-auto.mjs), so section k is still slide k for every slide the
+// caller counts. Compared raw, N+1 sections against N slides failed the guard, every slide fell
+// back to rendering alone, and a lone slide numbers itself 1: the Studio preview numbered a
+// glossary deck's slides wrong while the PDF, which renders the whole deck, numbered them right.
+// So the alignment is judged on the authored sections (`withoutAutoGlossary`, the kernel the
+// narrators and the CLI share), while every section, the glossary's included, is still walked
+// below so the frame keeps exactly the shown one.
+function narrowToSlide(html: string, index: number, slideCount?: number, deck = ''): string | null {
 	const spans: [number, number][] = sectionSpansOf(html);
-	const sections: string[] = spans.map(([s, e]) => html.slice(s, e));
+	const authored: [number, number][] = typeof slideCount === 'number' ? withoutAutoGlossary(spans, slideCount, deck) : spans;
+	const sections: string[] = authored.map(([s, e]) => html.slice(s, e));
 	if (alignmentFailure(html, sections, slideCount, index)) return null;
-	if (sections.length < 2) return html;
+	// `spans`, not `sections`: a one-slide deck with a glossary still has a second section to drop.
+	if (spans.length < 2) return html;
 	let out = '';
 	let pos = 0;
 	// Walk by OFFSET, not by searching for the section string: `indexOf` found a byte-identical
@@ -1637,7 +1649,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// promise a second page the frame does not have.
 				let paneShown = false;
 				if (wantsContext && typeof opts?.slideIndex === 'number') {
-					const narrowed = narrowToSlide(out.html, renderedBase + panePage, renderedTotal);
+					const narrowed = narrowToSlide(out.html, renderedBase + panePage, renderedTotal, markdown);
 					if (narrowed !== null) {
 						out.html = narrowed;
 						paneShown = paneRun > 1;
