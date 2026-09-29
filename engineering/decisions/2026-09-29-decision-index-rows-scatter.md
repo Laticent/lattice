@@ -7,7 +7,8 @@ summary: >
   sort A–Z by topic slug. Replayed on GitHub's terms over the 192 note-changing commits in the
   last 300 on `main`: the date order conflicts on 13 of 191 adjacent pairs, the slug order on
   0; over 354 pairs up to five commits apart that both rewrite the index, 88 against 5,
-  and only 1 of those 5 did not also conflict under the date order.
+  and only 1 of those 5 did not also conflict under the date order. On GitHub itself, four
+  real-topic probe pairs went `dirty` under the date order and `clean` under the slug order.
 ---
 
 # The decision index's rows scatter, so two note PRs stop conflicting
@@ -103,6 +104,31 @@ The second pair was the first one tried, and it conflicted: both slugs sort betw
 `qr-authoring-grammar` and `read-across-carousel`, with nothing between them. It is kept
 here because it shows what the residual looks like: two notes whose slugs share a prefix no
 existing note has.
+
+**GitHub's own verdict.** Everything above merges locally with merge drivers off,
+standing in for GitHub. To check the stand-in against GitHub itself, eight throwaway draft
+PRs were opened on 2026-09-29 (#2483–#2490, closed unmerged). For each pair, branches `a`
+and `b` each add one note dated 2026-09-29 to the same base and regenerate the index, and
+the PR asks GitHub to merge `b` into `a`: two concurrent note PRs, judged by GitHub's merge
+machinery. The topics are four real same-day pairs from the window, filed as follow-up
+notes (`<slug>-v2`). The base is this change's head for the slug arm, and `main` at
+`d0c6dfa` for the date arm.
+
+| Pair (topics) | Group | Date order: GitHub | Slug order: GitHub |
+|---|---|---|---|
+| `playground-virtual-filmstrip` · `say-not-caption` | shipped | #2487 `dirty` | #2483 **`clean`** |
+| `card-tag-register` · `trama-graph-chart-library` | active | #2488 `dirty` | #2484 **`clean`** |
+| `backdrop-register` · `studio-panel-lazy-loading` | active | #2489 `dirty` | #2485 **`clean`** |
+| `fit-policy` · `one-slide-frame` | shipped | #2490 `dirty` | #2486 **`clean`** |
+
+`git --attr-source=<empty tree> merge-tree` predicted all eight before the PRs were
+opened: exit 1 for each date-order pair, exit 0 for each slug-order pair. So the local
+stand-in the replay rests on agrees with GitHub 8 of 8.
+
+A first version of this probe held real notes out of a shared base instead of adding new
+ones. Every pair merged clean under BOTH orders, because the held-out notes' same-day
+siblings stayed in the base and sorted between them. A real PR adds a note dated today to a
+base with no note from today, which is the shape above.
 
 **Pinned in the unit suite.** `test/unit/cli/decisions-index.test.js` §"two concurrent note
 PRs, merged on GitHub's terms" renders two same-day notes with an existing slug between
