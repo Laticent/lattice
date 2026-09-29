@@ -2,7 +2,7 @@
 
 Every reset of a soft target in `docs/route-budget.json`, newest first. `npm run route-budget:rebaseline -- --reason "…"` writes an entry here and the new number there in one step. It lowers stale targets on its own. **Raising a soft target needs the owner's OK first**, then `--raise`. The rules are in `engineering/decisions/2026-09-29-route-budget-soft-hard.md`.
 
-Growth that stays under the hard limit is not recorded here: say it in the PR body's `## Performance` section (HARD RULE #19), where a reviewer sees it.
+A PR that adds more than 2KB of eager JS to a route explains it in its own file under `docs/route-budget.d/`; each reset folds those files into its entry here. Smaller growth is listed in CI's docs-build log, per route, against `main`.
 
 <!-- resets: newest first, below this line -->
 

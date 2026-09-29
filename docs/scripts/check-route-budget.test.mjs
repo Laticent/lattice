@@ -14,7 +14,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { evaluateRoute, HARD_HEADROOM_PCT, hardLimit, rebaseline } from './check-route-budget.mjs';
+import { evaluateAllowance, evaluateRoute, HARD_HEADROOM_PCT, hardLimit, PR_ALLOWANCE_BYTES, rebaseline } from './check-route-budget.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -134,6 +134,40 @@ describe('rebaseline', () => {
 	it('changes nothing when every route is inside its range', () => {
 		const quiet = { studio: { eagerJsGz: 650_000, htmlRaw: 192_000 }, home: { eagerJsGz: 80_000, htmlRaw: 99_000 } };
 		expect(rebaseline(routes, quiet, { slackPct: SLACK_PCT, raise: true })).toEqual({ changes: [], refused: [] });
+	});
+});
+
+describe('evaluateAllowance (per-PR growth vs main)', () => {
+	const base = { eagerJsGz: 600_000 };
+
+	it('is 2KB, the number the owner set', () => {
+		expect(PR_ALLOWANCE_BYTES).toBe(2048);
+	});
+
+	it('passes growth up to the allowance, inclusive, and reports the delta', () => {
+		const r = evaluateAllowance('studio', { eagerJsGz: 602_048 }, base, false);
+		expect(r.problems).toEqual([]);
+		expect(r.lines[0]).toMatch(/\+2048 bytes vs main/);
+	});
+
+	it('FAILS one byte past the allowance when the PR adds no explanation file', () => {
+		const [p] = evaluateAllowance('studio', { eagerJsGz: 602_049 }, base, false).problems;
+		expect(p).toMatch(/over the per-PR allowance of 2048/);
+		expect(p).toMatch(/route-budget\.d\/<slug>\.md/);
+	});
+
+	it('passes the same growth when the PR adds an explanation file', () => {
+		expect(evaluateAllowance('studio', { eagerJsGz: 610_000 }, base, true).problems).toEqual([]);
+	});
+
+	it('never fails a PR that shrinks the route', () => {
+		const r = evaluateAllowance('studio', { eagerJsGz: 590_000 }, base, false);
+		expect(r.problems).toEqual([]);
+		expect(r.lines[0]).toMatch(/-10000 bytes/);
+	});
+
+	it('checks nothing when main has no number for the route (a route this PR adds)', () => {
+		expect(evaluateAllowance('new-route', { eagerJsGz: 50_000 }, undefined, false)).toEqual({ problems: [], lines: [] });
 	});
 });
 

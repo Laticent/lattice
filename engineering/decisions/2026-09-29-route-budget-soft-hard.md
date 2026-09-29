@@ -7,7 +7,9 @@ summary: >
   36 hours. Each number is now a SOFT target; the HARD limit is soft × 1.03, computed in the
   gate and never stored. Between the two the build passes and warns. A PR edits the ledger
   only to cross the hard limit (owner's OK first) or to bank a stale win, and history moved
-  to `docs/route-budget.history.md`.
+  to `docs/route-budget.history.md`. Each PR also gets its own allowance: 2KB of eager JS
+  over `main`, measured in CI, past which it adds an explanation file in
+  `docs/route-budget.d/`.
 ---
 
 # The route budget gets a soft target and a hard limit
@@ -56,18 +58,18 @@ growth visible in the PR that caused it, but it put every Studio PR on one share
   resets in flight at once would still collide. A unit test pins the ledger to `html`, `eagerJsGz`
   and `htmlRaw` so no note string grows back.
 
-## 3. What this gives up
+## 3. What soft/hard alone gives up
 
-Growth under the hard limit no longer shows up as a line in the PR's diff. It shows up in
-the build's warning, and PRs should state it in their `## Performance` section (HARD RULE
-#19). Review happens once per used-up band instead of once per ~280 bytes. The band is a
-fixed number of bytes, not a tolerance that follows the route up, so slow growth still
-stops at the hard limit. The nightly percentage check that missed the Studio's
-615KB → 976KB climb had no such fixed limit.
+Growth under the hard limit no longer shows up as a line in the PR's diff. On its own
+that turns the band into a commons: the first PRs to arrive spend it without accounting
+for it, and whichever PR finally crosses the hard limit pays for the reset, even if it
+added 200 bytes. It happened within an hour of the switch: #2493 and #2494 grew the Studio
+by 1.4KB with no line in either diff. §5 closes this with a per-PR allowance.
 
 Two PRs that together use more than the remaining band still collide in the merge queue.
-With 19KB of room and PRs that grew the Studio by 0.25–2.2KB each (one outlier at 5.2KB) over those three days, that is the exception, and it
-lands at the moment a reset was due anyway.
+With 19KB of room and PRs that grew the Studio by 245 bytes to 2.2KB each (one outlier at
+5.2KB) in the 36 hours before, that is the exception, and it lands at the moment a reset was
+due anyway.
 
 ## 4. Numbers at the switch
 
@@ -81,3 +83,33 @@ change on `main` shrank the eager path; this note does not track down which one.
 The four content routes' numbers already carried about 3% headroom above their
 measurements, so under this rule their hard limits sit about 6% above measured until a
 reset lowers them.
+
+## 5. The per-PR allowance
+
+The owner asked for a budget per session on top of soft/hard. The gate cannot see a
+session, but it can see a PR, and one PR per line of work makes the two the same thing.
+
+- **Each PR may add up to 2KB (gzipped) of eager JS to any route, measured against
+  `main`** (`PR_ALLOWANCE_BYTES`). The owner set 2KB: 8 of the Studio's last 10 raises
+  before the switch were under it; the two over were +2,220 and +5,202 bytes.
+- **Past the allowance, the build fails unless the PR adds its own file under
+  `docs/route-budget.d/`** saying what grew and why. One file per PR, so two PRs never edit
+  the same line, the same way `changelog.d/` works. The next reset folds those files into
+  `route-budget.history.md` and deletes them.
+- **The growth is measured, not declared.** On `pull_request`, CI's docs-build job runs
+  `docs/scripts/measure-route-base.sh`: it builds the PR's base in a git worktree, with
+  `node_modules` hard-linked from the checkout when the lockfiles match, and passes the
+  numbers to the gate. Measured locally: 61–64s. The owner approved adding this CI step
+  over publishing `main`'s numbers from the deploy workflow, which costs no build time but
+  adds moving parts and can lag behind a PR's real base.
+- **Only eager JS has an allowance.** Two builds of the same `main` gave identical eager JS
+  and HTML sizes 1–3 bytes apart, and HTML has soft/hard.
+- **Not in the merge queue.** There the base already carries the PRs ahead, so the
+  difference would not be this PR's own. The queue still enforces soft/hard.
+- **A base that fails to build does not fail the PR.** The step writes no numbers and the
+  gate logs the allowance as NOT checked, because a PR cannot fix `main`.
+- **Locally**, `npm run check:route-budget` says the allowance was not checked; the header
+  of `measure-route-base.sh` shows how to run it against `origin/main`.
+
+Together the three layers give each PR a limit (2KB unless explained), the total a limit
+(soft + 3%), and the owner a checkpoint (every raise of soft).

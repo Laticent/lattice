@@ -922,7 +922,10 @@ locally from `docs/`:
   does not edit the ledger. Past hard it fails: give the bytes back, or get the owner's
   OK and run `npm run route-budget:rebaseline -- --raise --reason "…"` in `docs/`, which
   rewrites the number and adds an entry to `docs/route-budget.history.md`; without `--raise`
-  it only lowers stale targets
+  it only lowers stale targets. **Each PR may also add at most 2KB of eager JS per route
+  over `main`**; past that it adds `docs/route-budget.d/<slug>.md` saying why. CI measures
+  the growth by building the base (`docs/scripts/measure-route-base.sh`, about a minute);
+  a local `check:route-budget` reports it as not checked
   (`decisions/2026-09-29-route-budget-soft-hard.md`).
 
 These live in `docs/package.json` (a separate package), so they are **not** in

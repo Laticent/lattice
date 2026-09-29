@@ -104,12 +104,12 @@ const STALE_SLACK_PCT = 0.05;
  * the route is interactive. It does NOT follow dynamic `import()`, which is the whole
  * point of a lazy boundary.
  */
-function measure(routeHtml) {
-	const html = fs.readFileSync(path.join(DIST, routeHtml), 'utf8');
+function measure(routeHtml, dist = DIST) {
+	const html = fs.readFileSync(path.join(dist, routeHtml), 'utf8');
 	const refs = [...new Set(html.match(/\/_astro\/[A-Za-z0-9._-]+\.js/g) || [])];
 	let eagerJsGz = 0;
 	for (const ref of refs) {
-		const file = path.join(DIST, ref.replace(/^\//, ''));
+		const file = path.join(dist, ref.replace(/^\//, ''));
 		// A referenced chunk that is not on disk is a BROKEN BUILD, and skipping it would
 		// under-count — which this gate would then report as "STALE, ratchet it down",
 		// laundering the breakage into a smaller committed budget that the next correct
@@ -202,6 +202,61 @@ export function rebaseline(ledgerRoutes, measured, { slackPct = STALE_SLACK_PCT,
 	return { changes, refused };
 }
 
+// PER-PR ALLOWANCE (2026-09-29). Soft/hard stopped the ledger conflicts, but on its own it
+// makes the band a commons: the first PRs to arrive spend it unaccounted, and whichever PR
+// finally crosses hard pays for everyone. So each PR may add at most this many bytes of
+// eager JS to any one route, measured against `main`, before it must explain itself in its
+// OWN file under docs/route-budget.d/ — one file per PR, so explanations cannot conflict.
+// The owner set 2KB: 8 of the Studio's last 10 raises before the switch were under it
+// (the two over were +2,220 and +5,202 bytes).
+export const PR_ALLOWANCE_BYTES = 2048;
+
+const FRAGMENT_DIR = path.join(HERE, '..', 'route-budget.d');
+
+/**
+ * Compare this build against `main`'s. PURE. `explained` is true when the PR adds a
+ * fragment under docs/route-budget.d/. Returns { problems, lines }.
+ */
+export function evaluateAllowance(route, actual, base, explained, allowance = PR_ALLOWANCE_BYTES) {
+	const problems = [];
+	const lines = [];
+	if (typeof actual?.eagerJsGz !== 'number' || typeof base?.eagerJsGz !== 'number') return { problems, lines };
+	const delta = actual.eagerJsGz - base.eagerJsGz;
+	const sign = delta >= 0 ? '+' : '-';
+	lines.push(`${route} eagerJsGz ${sign}${Math.abs(delta)} bytes vs main (allowance ${allowance})`);
+	if (delta > allowance && !explained) {
+		problems.push(
+			`${route} eagerJsGz: this PR adds ${delta} bytes (${kb(delta)}) of eager JS vs main, over the per-PR allowance of ${allowance}.\n` +
+				`    Give bytes back, or add docs/route-budget.d/<slug>.md in this PR saying what grew and why\n` +
+				`    (one file per PR, so it cannot conflict; the next reset folds it into route-budget.history.md).`,
+		);
+	}
+	return { problems, lines };
+}
+
+/** Fragments this PR ADDS under docs/route-budget.d/, relative to `baseSha`. */
+function addedFragments(baseSha) {
+	const repo = path.join(HERE, '..', '..');
+	const out = execFileSync('git', ['diff', '--name-only', '--diff-filter=A', baseSha, 'HEAD', '--', 'docs/route-budget.d/'], {
+		cwd: repo,
+		encoding: 'utf8',
+	});
+	return out
+		.split('\n')
+		.filter((f) => f.endsWith('.md') && !f.endsWith('/README.md'))
+		.filter((f) => fs.existsSync(path.join(repo, f)) && fs.readFileSync(path.join(repo, f), 'utf8').trim());
+}
+
+/** Fragments waiting to be folded into the history by the next reset. */
+function pendingFragments() {
+	if (!fs.existsSync(FRAGMENT_DIR)) return [];
+	return fs
+		.readdirSync(FRAGMENT_DIR)
+		.filter((f) => f.endsWith('.md') && f !== 'README.md')
+		.sort()
+		.map((f) => ({ file: path.join(FRAGMENT_DIR, f), name: f, text: fs.readFileSync(path.join(FRAGMENT_DIR, f), 'utf8').trim() }));
+}
+
 const HISTORY_PATH = path.join(HERE, '..', 'route-budget.history.md');
 const HISTORY_ANCHOR = '<!-- resets: newest first, below this line -->';
 
@@ -226,19 +281,38 @@ function writeReset(ledger, changes, reason) {
 		`| Route | Metric | Soft before | Soft after | Change | Hard after |\n|---|---|---|---|---|---|\n` +
 		rows.join('\n') +
 		'\n\n';
+	const fragments = pendingFragments();
+	const folded = fragments.length
+		? `Growth explained since the last reset (from docs/route-budget.d/):\n\n${fragments.map((f) => `- **${f.name}** — ${f.text.replace(/\s*\n\s*/g, ' ')}`).join('\n')}\n\n`
+		: '';
 	const history = fs.readFileSync(HISTORY_PATH, 'utf8');
 	const at = history.indexOf(HISTORY_ANCHOR);
 	if (at === -1) throw new Error(`check-route-budget: ${HISTORY_PATH} has lost its "${HISTORY_ANCHOR}" line.`);
 	const cut = at + HISTORY_ANCHOR.length + 1;
-	fs.writeFileSync(HISTORY_PATH, history.slice(0, cut) + '\n' + entry + history.slice(cut).replace(/^\n+/, ''));
+	fs.writeFileSync(HISTORY_PATH, history.slice(0, cut) + '\n' + entry + folded + history.slice(cut).replace(/^\n+/, ''));
+	for (const f of fragments) fs.unlinkSync(f.file);
 }
 
 function main() {
+	const args = process.argv.slice(2);
+
+	// `--measure <dist>`: print one build's numbers as JSON. measure-route-base.sh runs this
+	// against a build of `main`, and the gate below reads it back as the per-PR baseline.
+	if (args[0] === '--measure') {
+		const dist = path.resolve(args[1] || DIST);
+		const ledger = JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8'));
+		const out = {};
+		for (const [route, budget] of Object.entries(ledger.routes)) {
+			if (fs.existsSync(path.join(dist, budget.html))) out[route] = measure(budget.html, dist);
+		}
+		process.stdout.write(JSON.stringify(out, null, 2) + '\n');
+		return;
+	}
+
 	if (!fs.existsSync(DIST)) {
 		process.stderr.write('check-route-budget: no dist/ — run `npm run build` first.\n');
 		process.exit(1);
 	}
-	const args = process.argv.slice(2);
 	const ledger = JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8'));
 	const measured = {};
 	for (const [route, budget] of Object.entries(ledger.routes)) measured[route] = measure(budget.html);
@@ -280,6 +354,23 @@ function main() {
 			);
 		}
 		lines.push(`  ${route.padEnd(16)} ${'chunks'.padEnd(10)} ${String(actual.chunks).padStart(9)}`);
+	}
+
+	// The per-PR allowance needs `main`'s numbers, which only exist when something built
+	// `main` first: CI does on pull_request (measure-route-base.sh). Without them, say so.
+	const basePath = process.env.ROUTE_BUDGET_BASE_JSON;
+	if (basePath && fs.existsSync(basePath)) {
+		const base = JSON.parse(fs.readFileSync(basePath, 'utf8'));
+		const explained = addedFragments(process.env.ROUTE_BUDGET_BASE_SHA || 'origin/main').length > 0;
+		lines.push('', '  per-PR allowance:');
+		for (const route of Object.keys(ledger.routes)) {
+			const r = evaluateAllowance(route, measured[route], base[route], explained);
+			problems.push(...r.problems);
+			for (const l of r.lines) lines.push(`    ${l}`);
+		}
+		if (explained) lines.push('    growth explained by a docs/route-budget.d/ fragment in this PR');
+	} else {
+		lines.push('', '  per-PR allowance: NOT checked (no main build to compare against; CI checks it on pull requests).');
 	}
 
 	for (const w of warnings) process.stdout.write(`⚠ check:route-budget — ${w}\n`);
