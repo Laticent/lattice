@@ -10,7 +10,7 @@ Use for a small register of related items where each carries similar weight. Aut
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-tabular / split across slides. The ledger/editorial looks take a couple more rows than the cards or timeline looks; past six entries, escalate.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-tabular / split across slides. The ledger/editorial looks take a couple more rows than the cards or timeline looks; 16:9 holds five full rows, portrait six; past that, escalate.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause of body per part.
 
@@ -39,14 +39,14 @@ Use for a small register of related items where each carries similar weight. Aut
 
 ## When to use
 
-- **A parallel register.** Two to six related items of similar weight — a framework's parts, a set of principles, the moving pieces of a system.
+- **A parallel register.** Two to five related items of similar weight — a framework's parts, a set of principles, the moving pieces of a system.
 - **One content, your choice of look.** Write the items once; switch the variant to re-render the same content as a ledger, cards, timeline, or editorial split — no re-authoring.
 - **A bold lead per item.** Each entry reads as a short bold name followed by a one-sentence detail. Equal density across entries keeps every look balanced.
 - **An optional closing insight.** A trailing blockquote becomes the look's accent — a band, a pull-quote, a kicker, or a sidebar.
 
 ## When NOT to use
 
-- **More than six items.** The looks lose scannability past six entries (the cards/timeline looks past four). Escalate to list-tabular or split across slides.
+- **More than five items.** Past five rows at 16:9 the looks lose scannability (cards and timeline past four). Escalate to list-tabular or split across slides.
 - **Ordered steps.** If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight.
 - **Nested-bullet authoring.** inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
 - **Lopsided density.** Equalize the prose when one entry has three sentences and the rest have one — uneven density unbalances every look.
@@ -102,7 +102,7 @@ The register as tiles with a pull-quote.
 ## cards deals the parts into tiles.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** cards, timeline, editorial change form, not content.
 ```
@@ -119,7 +119,7 @@ A numbered run along a line.
 ## timeline strings the parts along a line.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** cards, timeline, editorial change form, not content.
 ```
@@ -136,7 +136,7 @@ A magazine split with a sidebar takeaway.
 ## editorial sets the parts as a column.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** Same content, magazine form.
 

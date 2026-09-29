@@ -23,7 +23,7 @@ A parallel set of related items of similar weight — one content shape, four in
 ## The inventory lists a system's parts.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
@@ -38,7 +38,7 @@ A parallel set of related items of similar weight — one content shape, four in
 ## cards deals the parts into tiles.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
@@ -53,7 +53,7 @@ A parallel set of related items of similar weight — one content shape, four in
 ## timeline strings the parts along a line.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
@@ -68,7 +68,7 @@ A parallel set of related items of similar weight — one content shape, four in
 ## editorial sets the parts as a column.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** Same content, magazine form.
 
@@ -79,7 +79,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 <!-- _class: inventory compact -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · inventory — Five full rows seat; the declared six-row ceiling clips." -->
+<!-- _footer: "Stress test · inventory — Five full rows are the 16:9 ceiling; a sixth clips." -->
 
 ## The ledger clips past five full rows.
 
@@ -87,7 +87,7 @@ A parallel set of related items of similar weight — one content shape, four in
 - **Part two.** Matched shapes keep five rows scannable.
 - **Part three.** The middle rows forgive the least.
 - **Part four.** The sweet spot ended here.
-- **Part five.** The last row that seats whole — the declared ceiling of six clips its body.
+- **Part five.** The last row that seats whole — a sixth would clip its body.
 
 
 ---
@@ -100,7 +100,7 @@ A parallel set of related items of similar weight — one content shape, four in
 ## The inventory lists a system's parts.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
@@ -115,7 +115,7 @@ A parallel set of related items of similar weight — one content shape, four in
 ## The inventory lists a system's parts.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
@@ -130,7 +130,7 @@ A parallel set of related items of similar weight — one content shape, four in
 ## The inventory lists a system's parts.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
@@ -142,8 +142,8 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ## When NOT to reach for inventory.
 
-- More than six items
-  - The looks lose scannability past six entries (the cards/timeline looks past four). Escalate to list-tabular or split across slides.
+- More than five items
+  - Past five rows at 16:9 the looks lose scannability (cards and timeline past four). Escalate to list-tabular or split across slides.
 - Ordered steps
   - If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight.
 - Nested-bullet authoring

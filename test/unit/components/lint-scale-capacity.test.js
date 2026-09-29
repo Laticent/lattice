@@ -4,8 +4,9 @@
  * (engineering/decisions/2026-09-25-font-scale-fit.md).
  *
  * What is pinned, and why:
- *   · the rules are SILENT at the designed size, so nothing in the 250-deck corpus
- *     changes unless it asks for a scale;
+ *   · the rules are SILENT at the designed size for a component with a `capacity` block
+ *     (its crowd / overflow rules own that size); a component with none (list-tabular,
+ *     glossary) is judged at its measured laptop row, or nothing would count its rows;
  *   · the deck-wide front-matter `class:` counts, not only a slide's own `_class:`
  *     (the engine appends it to every section — the case the repro deck uses);
  *   · the budget read is the one measured for the slide's element LENGTH, so four
@@ -540,10 +541,78 @@ describe('a claim panel is judged by the LINES its text wraps to (split-panel, A
   });
 });
 
-test('a row of 0 says the venue holds not one element, and never "keep 0"', () => {
+test('a row of 0 says the venue holds not one element, and never "keep 0"', (t) => {
+  // No shipped row is 0 today (timeline-list's 16-word hall row was, until its fixed-width
+  // measure became an em measure and a lone milestone fit), so the row is set for this test.
+  const row = core.SCALE_CAPACITY['timeline-list'];
+  const was = row['16'];
+  row['16'] = [7, 6, 3, 0];
+  t.after(() => { row['16'] = was; });
   const v = { names: new Set(['timeline-list']), modifiers: new Set(), capacity: {} };
   const items = Array.from({ length: 2 }, (_, i) => `1. \`2025 Q${i + 1}\` Phase ${i}\n   - ${Array.from({ length: 16 }, (_, j) => `word${j}`).join(' ')}.`).join('\n');
   const [f] = core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: timeline-list -->\n\n## H.\n\n${items}\n`, v).filter((x) => x.rule === 'capacity-scale');
   assert.match(f.message, /holds not one item/);
   assert.doesNotMatch(f.fix, /Keep 0/);
+});
+
+describe('capacity-scale — the designed size, for a component with no `capacity` block', () => {
+  const v = { names: new Set(['list-tabular', 'glossary']), modifiers: new Set(), capacity: {} };
+  const run = (body, fm = '') => core.lintTextWith(`---\nmarp: true\n${fm}---\n\n${body}`, v).filter((x) => x.rule === 'capacity-scale');
+  const rows = (n) => Array.from({ length: n }, (_, i) => `${i + 1}. Row ${i} name\n   - A short detail line for row number ${i} here.`).join('\n');
+  const terms = (n) => Array.from({ length: n }, (_, i) => `- Term ${i}\n  - A definition of about twelve words that explains the term ${i} plainly.`).join('\n');
+  const lt = core.SCALE_CAPACITY['list-tabular'];
+  const ceil = lt[Math.min(...Object.keys(lt).map(Number).filter((k) => k >= 10))][0];
+
+  test('one row past the laptop budget warns, with no venue set (rendered: 7 rows clip)', () => {
+    const [f] = run(`<!-- _class: list-tabular -->\n\n## H.\n\n${rows(ceil + 1)}\n`);
+    assert.equal(f.severity, 'warning');
+    assert.match(f.message, new RegExp(`holds about ${ceil} items.*this slide has ${ceil + 1}, so it is clipped`));
+    assert.doesNotMatch(f.fix, /venue|huddle|laptop/);
+  });
+
+  test('at the budget it is silent', () => {
+    assert.equal(run(`<!-- _class: list-tabular -->\n\n## H.\n\n${rows(ceil)}\n`).length, 0);
+  });
+
+  test('a glossary past its laptop budget warns too (rendered: 10 terms clip)', () => {
+    assert.equal(run(`<!-- _class: glossary -->\n\n## H.\n\n${terms(10)}\n`).length, 1);
+  });
+
+  test('a `venue:` deck gets the venue finding, not this one as well', () => {
+    const found = run(`<!-- _class: list-tabular -->\n\n## H.\n\n${rows(ceil + 1)}\n`, 'venue: huddle\n');
+    assert.ok(found.every((f) => !/at the designed size; this slide/.test(f.message)));
+  });
+
+  test('a specimen slide says nothing', () => {
+    assert.equal(run(`<!-- _class: list-tabular -->\n<!-- stress-slide -->\n\n## H.\n\n${rows(ceil + 3)}\n`).length, 0);
+  });
+
+  test('only on the 16:9 stage the rows were measured on: a 4:3 (`standard`) deck is silent', () => {
+    assert.equal(run(`<!-- _class: list-tabular -->\n\n## H.\n\n${rows(ceil + 1)}\n`, 'size: standard\n').length, 0);
+    assert.equal(run(`<!-- _class: list-tabular -->\n\n## H.\n\n${rows(ceil + 1)}\n`, 'size: 16:9\n').length, 1);
+  });
+});
+
+describe('capacity-scale — the designed size, for a component whose `hard` sits above its row', () => {
+  const v = { names: new Set(['premise', 'timeline-list']), modifiers: new Set(), capacity: { premise: { axis: 'item', min: 3, sweet: 4, soft: 6, hard: 8 } } };
+  const run = (body) => core.lintTextWith(`---\nmarp: true\n---\n\n${body}`, v).filter((x) => x.rule === 'capacity-scale');
+  const premiseRows = (n) => Array.from({ length: n }, (_, i) => `1. Term ${i}\n   - A clause of about nine words that frames row ${i}.\n   - Why it matters?`).join('\n');
+
+  test('premise: 14-word rows past the laptop row warn below `hard` (rendered: 7 clip, 6 fit)', () => {
+    const cap = core.SCALE_CAPACITY.premise['14'][0];
+    assert.equal(run(`<!-- _class: premise -->\n\n## H.\n\n${premiseRows(cap)}\n`).length, 0);
+    const [f] = run(`<!-- _class: premise -->\n\n## H.\n\n${premiseRows(cap + 1)}\n`);
+    assert.match(f.message, new RegExp(`'premise' holds about ${cap} items`));
+  });
+
+  test('past `hard` the capacity-overflow rule speaks, not this one', () => {
+    assert.equal(run(`<!-- _class: premise -->\n\n## H.\n\n${premiseRows(9)}\n`).length, 0);
+  });
+
+  test('timeline-list: one milestone past the laptop row warns (rendered: 10 clip, 9 fit)', () => {
+    const cap = core.SCALE_CAPACITY['timeline-list']['6'][0];
+    const ms = (n) => Array.from({ length: n }, (_, i) => `1. \`2025 Q${i + 1}\` Phase ${i}\n   - Ship it.`).join('\n');
+    assert.equal(run(`<!-- _class: timeline-list -->\n\n## H.\n\n${ms(cap)}\n`).length, 0);
+    assert.equal(run(`<!-- _class: timeline-list -->\n\n## H.\n\n${ms(cap + 1)}\n`).length, 1);
+  });
 });

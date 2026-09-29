@@ -163,19 +163,18 @@
   "venueCapacity": {
     "axis": "item",
     "at": "wide",
-    "atLeast": ["laptop"],
     "byWords": {
       "6": {
-        "laptop": 18,
+        "laptop": 9,
         "huddle": 8,
         "conference": 7,
-        "hall": 7
+        "hall": 6
       },
       "16": {
-        "laptop": 18,
-        "huddle": 7,
-        "conference": 4,
-        "hall": 0
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 3,
+        "hall": 3
       }
     }
   }
