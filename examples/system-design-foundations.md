@@ -1288,12 +1288,12 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 | Store | Access | Consistency | Scales by | Weak at |
 | --- | --- | --- | --- | --- |
-| Relational | Key, range, join | Strong on the leader | Replicas, then partitioning | Cross-shard writes |
-| Distributed SQL | Key, range, join | Strong across partitions | Horizontal | Cross-partition transactions |
+| Relational | Key, range, join | Strong on the leader | Replicas, then shards | Cross-shard writes |
+| Distributed SQL | Key, range, join | Strong, global | Horizontal | Cross-partition writes |
 | Key-value | Exact key | Engine-specific | Horizontal | Rich queries |
-| Document | Key, secondary index | Engine-specific | Horizontal | Facts split across documents |
-| Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
-| Object store | Exact key | Read-after-write, overwrites included | Effectively unbounded | Listing, and changing part of an object |
+| Document | Key, secondary index | Engine-specific | Horizontal | Cross-document facts |
+| Wide-column | Partition + range | Tunable | Horizontal | New query patterns |
+| Object store | Exact key | Read-after-write | Unbounded | Listing, partial updates |
 
 ---
 
@@ -1737,11 +1737,11 @@ Name what each should run on, and the invariant it fails first if you get it wro
 ## Idle decides the last one. Neither of the first two is a cost argument.
 
 1. The nightly report
-   - A machine or a container on a schedule; what it is not is a function. Forty minutes outlives most function runtime caps, and one long run is not spiky. The invariant it fails first: capacity is a number somebody owns.
+   - A machine or container on a schedule: forty minutes outlives most function caps. It fails first on "capacity is a number somebody owns".
 2. Three thousand a second, six deploys a day
-   - Containers behind a balancer — many teams, frequent deploys, one packaging story. It fails "any instance can be killed" the moment somebody keeps a session in memory.
+   - Containers behind a balancer: many teams, frequent deploys, one packaging story. It fails "any instance can be killed" once a session lives in memory.
 3. A few hundred thumbnails
-   - A function on the upload event. Idle is most of the day and costs nothing, and the cold start it charges for is one nobody is waiting on. The invariant it fails first: startup does not depend on startup order — the event fires whenever it fires, so a function that assumes its index is already up breaks at 3am.
+   - A function on the upload event: idle and free most of the day, with a cold start nobody waits on. It fails first on startup order.
 
 ---
 
@@ -3588,12 +3588,12 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 | Kit entry | Where it landed | What it charges you |
 | --- | --- | --- |
-| Wide-column | The two edge tables | The primary key is the schema. A new question means rewriting the data |
-| Object store | Photo bytes and variants | Listing is slow, so the index of what you stored lives somewhere else |
-| Key-value | The feed cache | No second way in. Every new question is a new key you maintain |
-| Durable log | Post events into fan-out | At-least-once. Every consumer here has to be idempotent |
-| Stateless services | Feed and post service | Nothing may be remembered in the process, so state moves and costs a hop |
-| Bounded queue | Fan-out and transcode | A bound means shedding. When it fills, something waits or is dropped |
+| Wide-column | The two edge tables | The key is the schema; a new question rewrites the data |
+| Object store | Photo bytes and variants | Slow listing, so the index lives elsewhere |
+| Key-value | The feed cache | No second way in; each new question is a new key |
+| Durable log | Post events into fan-out | At-least-once, so every consumer is idempotent |
+| Stateless services | Feed and post service | State lives elsewhere and costs a hop |
+| Bounded queue | Fan-out and transcode | When it fills, something waits or is dropped |
 
 ---
 
@@ -3605,12 +3605,12 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 | Kit entry | Where it landed | What it charges you |
 | --- | --- | --- |
-| Reduce | One cached list per celebrity | A second copy whose wrongness is measured in seconds |
+| Reduce | One cached list per celebrity | A second copy that is seconds stale |
 | Spread | Posts by author, edges by bucket | Any question that crosses a bucket, forever |
-| Defer | Fan-out on write, below the threshold | The follower who is not in the page yet |
-| CDN with versioned URLs | Every photo variant | Purging is eventual, so a signed link outlives the decision behind it |
-| Bulkhead | Fan-out workers kept off the read path | Reserved capacity that sits idle on a normal day |
-| Object-level authorization | Every hydration | A check on the read path, on every item of every page |
+| Defer | Fan-out on write, small accounts | The follower who is not in the page yet |
+| CDN with versioned URLs | Every photo variant | Purges lag; signed links outlive decisions |
+| Bulkhead | Fan-out kept off the read path | Reserved capacity that sits idle on a normal day |
+| Object-level authorization | Every hydration | A read-path check on every item of every page |
 
 ---
 
@@ -3734,11 +3734,11 @@ So take one design you made in these pages and build the smallest version of it 
 ## 482 was not blocked by the build. It was blocked by a queue.
 
 1. The queue had one server
-   - Five pull requests, one reviewer, one waking hour: a bounded pool of one. Throughput is capped, so the queue in front grows, and nothing Maya did after lunch could move any of the three.
+   - Five pull requests, one reviewer, one waking hour: a pool of one. Throughput was capped, so the queue grew, and nothing Maya did after lunch could move it.
 2. Nothing inherited a deadline
-   - The window shut at four, and nothing downstream of it carried a shorter one. The network kit's first invariant says a call inherits its deadline from the caller, and inherits a shorter one. The review never got one, so nothing said it was late until it was.
+   - The window shut at four, and nothing downstream carried a shorter deadline, as the network kit's first invariant asks. So nothing said the review was late until it was.
 3. The one move she had, she made late
-   - At 15:50 she stopped answering and batched the replies — admission control, from the scale kit. The spiral had run since 15:30, and those twenty minutes came out of the one hour that decided the day.
+   - At 15:50 she batched the replies: admission control, from the scale kit. The spiral had run since 15:30, and those twenty minutes came out of the hour that decided the day.
 
 ---
 

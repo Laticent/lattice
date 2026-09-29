@@ -254,8 +254,23 @@ today would wrap. The recommendation is to keep code one step down, at
   to two lines). `lint:deck` does not warn on them, because its budget assumes one-line
   names. That accuracy gap is already tracked in
   `followups.d/2361-p2-venue-lint-accuracy-on-real-decks.md`.
-- All 71 component galleries render with no clipped page (checked page by page against
-  `main` with the emulator's overflow report).
+- Every committed deck was rendered on this branch and on `main` with the emulator's
+  overflow report: 71 component galleries and 302 decks (examples, exemplars, baseline
+  decks). Six came out clipping where `main` did not, and each was fixed here:
+  - the `pricing` and `list-tabular` ceiling specimens now show what fits (5 features,
+    6 rows);
+  - `system-design-foundations` had five slides with long table cells and glosses, now
+    tightened;
+  - its generated glossary now pages itself, which was an engine fix: `glossary: auto`
+    never paginated;
+  - the baseline gallery's two glossary slides and one gloss were trimmed, keeping its
+    116 pages;
+  - `inline-pills` merges its seventh row into its first;
+  - `debug` has a shorter lead, with the dropped option moved to the footer.
+  The pages still clipping (`list` gallery page 9, `overflow-fix-me`,
+  `retire-automatic-scale-fit`, `marker-corner`) clip identically on `main`. A first pass
+  of this check missed single-page clips, because its pattern matched only "pages"; the
+  review caught it, and the numbers above come from the corrected pass.
 
 ### 6.2 · Found along the way, not caused by this change
 

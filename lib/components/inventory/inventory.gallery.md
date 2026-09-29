@@ -139,7 +139,7 @@ Inventory — parallel sets of related items.
    - _def · spec · register_
 3. Escalation
    - Long content leaves for a table.
-   - _split past seven rows_
+   - _split past six rows_
 
 ---
 

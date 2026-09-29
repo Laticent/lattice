@@ -111,7 +111,7 @@ In a heading it is large. In body text it is the metadata size, the same as `{ST
 ## A mark goes wherever inline code goes.
 
 1. Settlement engine
-   - Signed by both parties `[x]`
+   - `[x]` signed `{STABLE}:c2` — and `[data-mark]` stays literal
 2. Ledger migration
    - Cutover paused for review `[-]`
 3. Vendor audit
@@ -122,8 +122,6 @@ In a heading it is large. In body text it is the metadata size, the same as `{ST
    - Not started `[ ]`
 6. Legacy batch
    - Out of scope this quarter `[/]`
-7. Alongside a pill
-   - `[x]` shipped `{STABLE}:c2` — and `[data-mark]` stays literal
 
 ---
 
