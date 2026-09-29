@@ -115,6 +115,35 @@ const code = venueScale * FS_BODY_COMPACT;    // 13.5pt at laptop
 
 ---
 
+<!-- _class: list-steps timeline -->
+
+`list-steps timeline · was 11.2pt`
+
+## A timeline step reads at the body size too.
+
+1. Before
+   - Chrome size, in a fixed narrow column.
+2. After
+   - Body size, in an equal share of the row.
+3. At hall
+   - Lines no longer wrap a word at a time.
+
+---
+
+<!-- _class: authority-chain branching -->
+
+`authority-chain branching · was 11.2pt`
+
+## Each branch now reads at the body size.
+
+1. Statute
+   - `15 U.S.C. §6501` COPPA, 1998
+   - `16 C.F.R. Part 312` FTC implementing rule
+   - `FTC Six-Step Plan` staff guidance
+   - `In re Epic Games · 2022` $245M consent order
+
+---
+
 <!-- _class: closing -->
 
 # One reading size, in every room.

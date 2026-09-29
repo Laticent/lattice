@@ -511,18 +511,38 @@ sizes at every venue. So **every component's reading text is `--fs-body`** (owne
 | `hall` | 24.0 pt | 23.0 pt |
 
 The named exceptions, each reading at its own role on purpose: display components (title,
-divider, quote, big-number, closing, topic, stats); display registers (`list principles`,
+divider, quote, big-number, closing, topic, stats, kpi); display registers (`list principles`,
 `list-steps ghost`, `q-and-a solo`, `image statement`, `citation-card margin` and
 `pull-quote`); one lead sentence per slide (split-panel claim, premise lead, scene and video
-captions, policy-recommendation's impact line and quote, inventory's callout band and pull
+lead lines, policy-recommendation's impact line and quote, inventory's callout band and pull
 line); text a chart draws (SVG labels, HTML chart keys and legends); label boards (kanban,
 logo-wall, obligation-matrix); fixed cards (contact, wifi); code; and **support lines**, which
 read one step below the row they support (a list item's detail line, `content`'s sub-bullets,
-split-panel `proof` / `capstone` supporting lines — owner ruling 2026-09-29). A generated `glossary:
-auto` appendix pages itself by the glossary's measured budget for the venue, so a long one
-no longer clips. `npm run
-audit:reading-size` prints component × venue → pt and lists these apart, so each venue's
-reading line holds one value. The record, with the measured capacity cost of each option:
+split-panel `proof` / `capstone` supporting lines, a timeline-list milestone's description —
+owner ruling 2026-09-29). The rule holds in every family and finish, not only the wide
+default: portrait `decision`, `compare-prose` and `roadmap horizons` read at `--fs-body`, and
+so does the `sketch` finish's split-panel. A generated `glossary: auto` appendix pages itself
+by the glossary's measured budget for the venue, so a long one no longer clips.
+
+Three things keep it that way:
+
+- **`build:check` counts the smaller roles.** Every `var(--fs-message)` and
+  `var(--fs-body-compact)` in engine CSS is counted per file against
+  `SANCTIONED_READING_ROLE` in `tools/check-ownership.js`, which names the exception each
+  use falls under. That list is the one place the exceptions are enumerated. A new use
+  fails the build until it is sanctioned with its reason, and a sanction nothing uses fails
+  as stale.
+- **`npm run audit:reading-size`** renders every component at the four venues, prints
+  component × venue → pt, lists the exceptions apart so each venue's reading line holds one
+  value, and lists slides with most of their text at `--fs-meta` (MOSTLY AT THE CHROME
+  SIZE). That last list is where reading text set at the chrome size shows up, which the
+  count above cannot see.
+- **`lint:deck` counts rows at laptop** for `list-tabular`, `glossary`, `premise` and
+  `timeline-list` on a 16:9 deck, by each one's measured laptop row (`LAPTOP_JUDGED` in
+  lint-core); the first two have no `capacity` block, and the other two hold fewer long rows
+  than their `hard`.
+
+The record, with the measured capacity cost of each option:
 `engineering/decisions/2026-09-29-one-reading-size-per-venue.md`.
 
 ### When NOT to use it

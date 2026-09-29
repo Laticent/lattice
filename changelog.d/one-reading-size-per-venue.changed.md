@@ -42,3 +42,30 @@
   conference, 1.14x at hall), so labels never read bigger than the data beside them. The
   code pane at conference / hall holds 9 / 8 lines (was 11 / 10), and fewer columns.
 - `h6` takes the label lift, like the label role it matches.
+- Reading text set at the chrome size (`--fs-meta`) moves to the reading size too:
+  `list-steps timeline` step text and `authority-chain branching` branch lines read at
+  `--fs-body`, and a `timeline-list` milestone's description reads one step below its title
+  (`--fs-body-compact`). `list-steps timeline` stages now share the row equally instead of
+  sitting in fixed 14cqi columns, and `timeline-list`'s line length is set in `em`, so neither
+  wraps a word a line at a larger venue. A lone 16-word milestone fits at hall (it clipped).
+- The rule holds in every family and finish: portrait `decision`, `compare-prose` and
+  `roadmap horizons` read at `--fs-body` (they read at `--fs-message` or `--fs-meta`), as do
+  `video` captions and the `sketch` finish's `split-panel`.
+- `premise` rows wrap instead of cutting text. At a larger venue the term was ellipsized and
+  the framing question ran past its card. A row that fit its track renders as before; a long
+  row now wraps to a second line, so a premise slide holds 6 fourteen-word rows at laptop
+  (it read 9 while their text was cut), and `lint:deck` warns at 7.
+- `pricing` lays four tiers four across without `four`; a bare four-tier slide wrapped its
+  fourth tier to a second row and clipped it.
+- `inventory` holds five rows at 16:9, not six (`adapt.capacity.wide.hard`); its own gallery
+  showed the sixth clipping. Portrait and square keep six.
+- `lint:deck` counts `list-tabular`, `glossary`, `premise` and `timeline-list` rows at laptop
+  on a 16:9 deck, and warns one past the measured budget (6 rows, 9 terms, 6 fourteen-word
+  premise rows, 9 short milestones). Before, it said nothing without a `venue:`, or only past
+  `capacity.hard`.
+- New venue budgets, re-measured: `kanban` 5 / 4 / 4 / 3 lanes (15 words) where laptop read
+  "12+"; `timeline-list` 9 / 8 / 7 / 6 (6 words) and 7 / 6 / 3 / 3 (16 words); `premise`
+  6 / 5 / 4 / 2 at 14 words, the true number now that no row is cut.
+- `build:check` fails when a component stylesheet sets text in `--fs-message` or
+  `--fs-body-compact` without a `SANCTIONED_READING_ROLE` entry naming the exception.
+- The Studio's welcome deck fits every venue; three of its slides clipped at hall.

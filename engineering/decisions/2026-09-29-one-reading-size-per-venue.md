@@ -100,12 +100,14 @@ Rows are component-and-variant pairs; hero components (§4) are left out.
 
 The rule covers **reading text**: text an audience reads line by line, several items to
 a slide. Display text is bigger on purpose: the slide *is* the sentence or the number,
-there is one per slide, and it is not read as a list. Every exception is named here and in
-`EXCEPTIONS` / `HERO` in `tools/audit-reading-size.js`, which lists them apart so each
-venue's reading line holds one value:
+there is one per slide, and it is not read as a list. Every exception is named here. In the
+code, `SANCTIONED_READING_ROLE` in `tools/check-ownership.js` is the list of record: it
+names, per stylesheet, each use of a smaller role and the exception it falls under, and
+`build:check` fails on an unnamed use (§9). `EXCEPTIONS` / `HERO` in
+`tools/audit-reading-size.js` sort the audit's report by the same classes:
 
-- **E1 · Display components.** big-number, closing, divider, quote, stats, title, topic.
-  Their sentence or number is the slide. (`stats` reads as its `--fs-h1` numbers, with
+- **E1 · Display components.** big-number, closing, divider, kpi, quote, stats, title, topic.
+  Their sentence or number is the slide. (`stats` and `kpi` read as their big numbers, with
   chrome-sized labels.)
 - **E2 · Display registers of reading components.** `list principles`,
   `list-steps ghost` (documented as "hero body"), `q-and-a solo`, `quote bare`,
@@ -128,7 +130,8 @@ venue's reading line holds one value:
   line of code cannot wrap without changing what it says (§5.2).
 - **E7 · Support lines** (owner ruling, 2026-09-29). A line that supports the row above it
   reads one step below the row, at `--fs-body-compact`: a `list` item's detail line,
-  `content`'s nested sub-bullets, and split-panel `proof` / `capstone` supporting lines. The
+  `content`'s nested sub-bullets, split-panel `proof` / `capstone` supporting lines, and a
+  `timeline-list` milestone's description under its title (§9). The
   step keeps a visible main-versus-support hierarchy. A second column of a row (a
   list-tabular gloss, a table cell) is not a support line and reads at `--fs-body`.
 
@@ -276,10 +279,9 @@ today would wrap. The recommendation is to keep code one step down, at
 
 - `kanban`'s and `timeline-list`'s committed `venueCapacity` do not reproduce with
   `calibrate-capacity --max 20`, on `main` as on this branch (kanban at huddle: committed 4,
-  measured 20). They were left untouched.
+  measured 20). Resolved in §9.
 - `team-profile`, `pricing` and `inventory` declare a `capacity.hard` above their measured
-  laptop ceiling, on `main` as on this branch. The per-venue numbers are correct; the
-  editorial `capacity` blocks are stale.
+  laptop ceiling, on `main` as on this branch. Resolved in §9.
 
 ## 7 · Owner decision
 
@@ -294,8 +296,8 @@ Asked on 2026-09-29. All three answered.
 
 Resolved by this change: the P1 item, the hall defect (§3.3.1, cells now read above their
 labels at every venue) and compare-code (§3.3.2). Their follow-up files are deleted.
-Still open: `followups.d/2361-p3-citation-card-margin-ignores-venue.md` (§3.3.3) and
-`followups.d/2361-p3-stale-venue-and-capacity-budgets.md` and `2378-p3-capacity-hard-above-measured.md` (§6.2), `2361-p2-guard-the-reading-role.md`, `2361-p2-laptop-lint-for-list-tabular-and-glossary.md` and `2361-p3-authority-chain-branching-at-chrome-size.md` (from the review).
+The items this left open (§3.3.3, §6.2 and three from the review) are resolved in §9, and
+their follow-up files are deleted.
 
 ## 8 · Amendment 2026-09-29 — the whole ladder, per venue
 
@@ -347,3 +349,68 @@ timeline-list were left as before (§6.2).
 **Decks.** Only five committed decks set a venue or a scale step. One new clip,
 `retire-automatic-scale-fit` page 4, was fixed by trimming its step text. Its page 3 clips
 on purpose, as on `main`.
+
+## 9 · Amendment 2026-09-29 — nothing left open
+
+The owner asked for no jank, no broken windows and no tech debt, so every follow-up this
+change had logged was done here, and each fix found more.
+
+1. **A static guard.** `checkReadingRole` in `tools/check-ownership.js` (run by
+   `build:check`) counts each stylesheet's uses of `--fs-message` and `--fs-body-compact`
+   against `SANCTIONED_READING_ROLE`, which names the exception each use falls under (§4). It
+   fails both ways, on an unsanctioned use and on a stale sanction. Writing its allowlist found
+   reading text the audit had missed, because the audit sweeps only the wide family and the
+   default finish: portrait `decision` and `compare-prose` (`--fs-message`), portrait `roadmap
+   horizons` (`--fs-meta`), `video` captions, and the `sketch` finish's split-panel
+   (`--fs-body-compact`). All read at `--fs-body` now. Each was rendered at its family or
+   finish, and clips no more than it does on `main`. The sketch finish's own `list` rule
+   stepped rows from `--fs-message` down to `--fs-body`. Plain rows are at body now anyway, but
+   the rule also beat `list principles`, a display register (E2), and set its declarations at
+   body beside display-size numerals. It is gone: under sketch, principles reads at its display
+   size and the list gallery clips the same pages as on `main` (rendered).
+2. **Reading text at the chrome size.** The audit takes the reading size to be the biggest
+   share of text at any role but `--fs-meta`, so text SET at meta never showed. It now lists
+   slides with most of their text at meta (MOSTLY AT THE CHROME SIZE). That list found
+   `list-steps timeline` (step text at meta in fixed 14cqi columns, wrapping a word a line at
+   hall) and `timeline-list` (descriptions at meta under a fixed 220px measure, so one 16-word
+   milestone clipped at conference and hall). The first reads at `--fs-body` in equal
+   columns; the second's description is a support line at `--fs-body-compact` (E7), with its
+   measure in `em`. `authority-chain branching`'s branch lines, the follow-up this started
+   from, read at `--fs-body` too, and its branch boxes no longer run past the row's border.
+   The rest of the list is chrome by design: chart keys, label boards, fixed cards, `kpi`
+   (now named with `stats` as a display component), `state-chart` (chart text),
+   `statute-stack`'s citation columns and `team-profile bench`'s role labels.
+3. **Laptop lint** (`LAPTOP_JUDGED` in lint-core) for `list-tabular` and `glossary`, which
+   have no `capacity` block, and for `premise` and `timeline-list`, whose laptop rows sit
+   below `hard`. Each row was checked against a render (it fits, and one more clips). Only on
+   a 16:9 deck, the stage the rows were measured on. `compare-prose` is left out: its measured
+   rows are the rig's shape, and a two-side slide they count as over renders whole. Every
+   committed deck lints the same before and after.
+4. **The rig read only one of the engine's two clip lines.** A kanban lane clips inside its
+   own box, which the engine reports as CONTENT CLIPPED, so kanban's laptop row was stored as
+   "at least 12" and its hall row one too high. `parseProbeLog` now returns box clips apart,
+   and `countClipped` counts them once they start with the element count. A box clip already
+   on page 1 is an ellipsis, the same at any count, and is left out. Only `calibrate-capacity`
+   reads box clips this way (`renderProbe`'s `countBox`): `calibrate-density` grows words and
+   `check-jank` reads its own axis, and both behave as before. Re-measuring every stored
+   row with it moved only kanban, timeline-list (whose CSS changed) and premise.
+5. **A regression this change had caused.** At hall, the scaled title widened premise's claim
+   rail, and the ledger's `nowrap` rows cut their term to "Clear con…" and ran the framing
+   question past the card. Rows wrap now. A row that fit its track places as before (the
+   premise gallery, whose rows are short, renders pixel-identical at laptop); a long row wraps
+   to a second line. Premise's 14-word laptop row fell from 9 to 6, because the old number
+   counted rows whose text was being cut, so premise joined the laptop lint (item 3).
+6. **`capacity.hard` above the measured ceiling** (`2378-p3`). Settled per component in
+   `2026-07-28-capacity-basis.md`'s amendment: six stay, with the shape that reaches them
+   recorded; `pricing` was fixed in the component (four tiers go four across without `four`);
+   `inventory` holds five at 16:9 and its wide `hard` is now 5.
+7. **The Studio's welcome deck** clipped three slides at hall, on `main` too. Picking Hall in
+   Present is one click, so its copy is tightened and the deck fits every venue; the
+   list-steps timeline fix above freed the third.
+8. **CodeQL.** The four alerts on untouched lines are cleared without changing an exported
+   byte (the demo deck's HTML export is identical): an attribute escaper for `lang`, a
+   fixed-point runtime-script strip, and static regexes where two were built from input.
+
+Verified on the real Studio (the docs dev server, driven with Playwright): Present's venue
+switch sets title / body at 28 / 16, 32.2 / 18.4, 36.4 / 20.8 and 42.0 / 24.0pt.
+`check-jank` over the moved components at laptop and hall: no drift, no collision.
