@@ -203,5 +203,18 @@
   },
   "venueCapacity": {
     "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "gesture": {
+    "archetype": "cartesian",
+    "units": {
+      "lane": {
+        "select": "text.gantt-lane-label[data-label=\"{lane}\"]"
+      },
+      "task": {
+        "select": "[data-mark=\"{mark}\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+        "labels": "[data-mark-for=\"{mark}\"]"
+      }
+    },
+    "key": "first"
   }
 }

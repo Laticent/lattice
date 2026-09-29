@@ -12,7 +12,7 @@
 // and the cursor's lead is still asked of the live stage. Re-record it when page-scenes.test.ts
 // reports a stale stretch.
 
-import { scene } from '../vetrina';
+import { scene } from '../vetrina/index.js';
 
 /** The four deictic strokes, chosen by the shape of the thing named, each landing on the word that
  *  names it (`at`): the hand arrives as the narration says "rule", "boundary", "swept", "tapped". */

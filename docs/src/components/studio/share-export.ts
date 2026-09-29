@@ -632,13 +632,17 @@ export async function shareHtmlPlayer(
 		// Parallel to `projected` — carried so the BAKED deck holds the same beats Present plays and
 		// the CLI export writes. Empty when the projection failed, which stands emphasis down with it.
 		let projectedEmphasis: readonly { start: number; end: number; weight: number }[][] = [];
+		// And the bindings, so the sent deck's Guide focuses what each sentence was read from.
+		let projectedRefs: readonly (readonly unknown[] | undefined)[] = [];
 		try {
 			const scripts = await projectSectionsToScript(tagged);
 			projected = scripts.map((x) => x.text);
 			projectedEmphasis = scripts.map((x) => x.emphasis as { start: number; end: number; weight: number }[]);
+			projectedRefs = scripts.map((x) => x.refs);
 		} catch {
 			projected = []; // the chain still resolves captions, notes and chart facts
 			projectedEmphasis = [];
+			projectedRefs = [];
 		}
 		// THE SCRUBBED SOURCE, not the raw one. The narration chain's third rung reads the
 		// slide's speaker note out of the source comments (`narration-bake.ts` →
@@ -651,6 +655,7 @@ export async function shareHtmlPlayer(
 			voice: narration.voice,
 			audio: narration.audio,
 			projectedEmphasis,
+			projectedRefs,
 			// The author's explicit override, only ever set after a refusal named the sentences.
 			allowPartial: narration.allowPartial,
 			signal: narration.signal,
@@ -673,6 +678,9 @@ export async function shareHtmlPlayer(
 							track: n.track,
 							clips: (result.slides[i] ?? []).map((c) => (c.audio && c.clip ? { audio: c.audio, clip: c.clip, leadMs: c.leadMs } : null)),
 							...(n.emphasis ? { emphasis: n.emphasis } : {}),
+							// The chart narrator's binding (narration-bake.ts `refsOf`): the player's Guide plays a
+							// bound sentence's scene from it (2026-09-27-delivery-styles-and-component-scenes.md).
+							...(n.refs ? { refs: n.refs } : {}),
 						}
 					: null,
 			),

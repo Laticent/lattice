@@ -1,0 +1,174 @@
+{
+	"component": "cards-grid",
+	"restrained": [
+		{
+			"said": "A cards grid gives equal weight to peers.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *):not(svg *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Parallel titles: Noun phrases of similar weight, never mixed.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Short bodies: One clause each; a long card collapses the grid.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Rank order: Left to right reads strongest first.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 3,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Four cards: The hard ceiling; five means a new slide.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 4,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "A cards grid gives equal weight to peers.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *):not(svg *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "point"
+		},
+		{
+			"said": "Parallel titles: Noun phrases of similar weight, never mixed.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Short bodies: One clause each; a long card collapses the grid.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Rank order: Left to right reads strongest first.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 3,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Four cards: The hard ceiling; five means a new slide.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 4,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "A cards grid gives equal weight to peers.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *):not(svg *)",
+			"nth": 1,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Parallel titles: Noun phrases of similar weight, never mixed.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Short bodies: One clause each; a long card collapses the grid.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 2,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Rank order: Left to right reads strongest first.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 3,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Four cards: The hard ceiling; five means a new slide.",
+			"act": "visit",
+			"unit": "item",
+			"select": "li:not(li li):not(svg *)",
+			"nth": 4,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

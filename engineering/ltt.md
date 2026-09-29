@@ -133,7 +133,10 @@ Each segment has a unique `id`, a `kind` and an `at`.
   or a slide hold according to the arriving slide.
 - **`tailMs`** is the breath the player holds after a slide's last cue, before
   it advances. The track ends at the end of its last cue, so this is the one part
-  of a slide's length the track cannot carry.
+  of a slide's length the track cannot carry. The deck producer writes the larger
+  of the last sentence's own breath and the deck pace's leave beat (`paceBeatMs('leave')`:
+  400, 700 or 1,100 ms), so a closing line lands before the next slide appears; a weighted
+  closing line (a coda) keeps its emphasis hold on top of that.
 - **A stretch has no tail.** Whatever passes between a stretch's last cue and
   the next stretch's first belongs to that next stretch's wait.
 - **`waitedMs`** is how long a recorded run spent between the end of the

@@ -362,5 +362,8 @@
         "cols": 0
       }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

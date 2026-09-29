@@ -1,0 +1,219 @@
+{
+	"component": "bullet",
+	"restrained": [
+		{
+			"said": "Two of five KPIs cleared the plan line.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each row shows where we landed against where we planned.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "New ARR, four point two million against a five million target — eighty-four percent of plan, closing on plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Expansion ARR, three point six million against a three million target — one hundred twenty percent of plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Gross renewal, two point eight million against a two point six million target — one hundred eight percent of plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Services revenue, one point one million against a one point eight million target — sixty-one percent of plan, closing on plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Partner-sourced ARR, nine hundred thousand against a one point four million target — sixty-four percent of plan, closing on plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Two of five KPIs cleared the plan line.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each row shows where we landed against where we planned.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "New ARR, four point two million against a five million target — eighty-four percent of plan, closing on plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Expansion ARR, three point six million against a three million target — one hundred twenty percent of plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Gross renewal, two point eight million against a two point six million target — one hundred eight percent of plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Services revenue, one point one million against a one point eight million target — sixty-one percent of plan, closing on plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Partner-sourced ARR, nine hundred thousand against a one point four million target — sixty-four percent of plan, closing on plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "bracket unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Two of five KPIs cleared the plan line.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each row shows where we landed against where we planned.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "New ARR, four point two million against a five million target — eighty-four percent of plan, closing on plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Expansion ARR, three point six million against a three million target — one hundred twenty percent of plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Gross renewal, two point eight million against a two point six million target — one hundred eight percent of plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Services revenue, one point one million against a one point eight million target — sixty-one percent of plan, closing on plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Partner-sourced ARR, nine hundred thousand against a one point four million target — sixty-four percent of plan, closing on plan.",
+			"act": "compare",
+			"unit": "measure",
+			"select": "rect.bullet-measure[data-mark=\"4\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

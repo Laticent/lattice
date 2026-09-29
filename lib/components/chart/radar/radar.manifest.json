@@ -283,5 +283,18 @@
   },
   "venueCapacity": {
     "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "gesture": {
+    "archetype": "field",
+    "units": {
+      "series": {
+        "select": "polygon.radar-poly[data-label=\"{name}\"]",
+        "fallback": "path.radar-band"
+      },
+      "sector": {
+        "select": "path.radar-sector[data-label=\"{group}\"]"
+      }
+    },
+    "key": "first"
   }
 }

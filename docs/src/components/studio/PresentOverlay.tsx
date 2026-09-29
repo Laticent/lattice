@@ -11,21 +11,21 @@ import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
-import { frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
+import { DELIVERY_STYLES, frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { CHROME_CHANGE_EVENT } from '@/lib/site-chrome';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
-import { createStage, type Stage as VetrinaStage } from '@/lib/vetrina';
+import { createStage, type Stage as VetrinaStage } from '@/lib/vetrina/index.js';
 import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, resolveLookahead } from '@/playground/narration-prefs.js';
 // The chart narrators live once in lib/core/chart-narration.js (HARD RULE #1),
 // bundled to the browser via read-along-core — the SAME kernel the CLI/export
 // narrates chart slides from, so a given chart slide narrates identically on both
 // surfaces (they agree on which Markdown is a chart slide under the house `---`-per-
 // section convention; the export aligns to rendered sections, this to the `---` set). #902
-import { narrateChart } from '@/playground/read-along-core.generated.js';
+import { narrateChartScript } from '@/playground/read-along-core.generated.js';
 import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
@@ -39,7 +39,7 @@ import { type PresentLens, presentationPairs } from './lint';
 import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX } from './present-guide';
+import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection as shownSlideSection } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
@@ -318,10 +318,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// before this sees the list, as the bake and the CLI do.) TAGGED with the `set` it was computed for (a stable per-lens reference):
 	// `narrationAt` only reads it when the tag still matches the current set, so a
 	// same-length lens switch can never speak the previous lens's text (no stale read).
-	const [projected, setProjected] = React.useState<{ set: string[]; texts: string[]; emphasis: EmphasisSpans[] }>({
+	const [projected, setProjected] = React.useState<{ set: string[]; texts: string[]; emphasis: EmphasisSpans[]; refs: (readonly SceneRef[] | undefined)[] }>({
 		set: [],
 		texts: [],
 		emphasis: [],
+		refs: [],
 	});
 	// biome-ignore lint/correctness/useExhaustiveDependencies: recompute on presented SET or theme change; extraTheme keyed by name (its content hash).
 	React.useEffect(() => {
@@ -333,7 +334,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			.then(({ projectDeckScript }) => projectDeckScript(options, source, paletteOverride, extraTheme, extraCss, modeOverride))
 			.then((scripts) => {
 				if (canceled || scripts.length !== target.length) return;
-				setProjected({ set: target, texts: scripts.map((x) => x.text), emphasis: scripts.map((x) => x.emphasis) });
+				setProjected({ set: target, texts: scripts.map((x) => x.text), emphasis: scripts.map((x) => x.emphasis), refs: scripts.map((x) => x.refs) });
 			})
 			.catch(() => {});
 		return () => { canceled = true; };
@@ -356,15 +357,16 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// switch invalidates the tag) the markdown flatten keeps Present off dead air and off a
 	// stale lens's narration.
 	const narrationAt = React.useCallback(
-		(i: number): { text: string; emphasis?: EmphasisSpans } => {
+		(i: number): { text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] } => {
 			const md = set[i] ?? '';
 			const aligned = projected.set === set;
+			const script = narrateChartScript(md);
 			const text = resolveNarration({
 				say: getSayLine(md),
 				fmSay: fmSayMap.get((setIndices[i] ?? i) + 1), // front-matter say[author slide number]
 				// NO NOTE RUNG. A note is the presenter's, and it reaches the presenter's own
 				// panel below — never this, which is what the room hears and reads.
-				chart: narrateChart(md),
+				chart: script?.text ?? null,
 				projected: aligned ? (projected.texts[i] ?? '') : null,
 				fallback: aligned ? null : slideToSpeech(md),
 			});
@@ -372,8 +374,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// offsets into the string the projection built; a say override or narrateChart's
 			// substitution replaces it, and reusing those offsets would land a beat mid-phrase. The
 			// same identity test the CLI export applies, so the two producers agree slide for slide.
-			const emphasis = aligned && text === (projected.texts[i] ?? '') ? projected.emphasis[i] : undefined;
-			return { text, emphasis };
+			const isProjected = aligned && text === (projected.texts[i] ?? '');
+			const emphasis = isProjected ? projected.emphasis[i] : undefined;
+			// THE BINDING, by the same identity test: the chart narrator's refs, else the projection's
+			// (headings, paragraphs, items, rows), are character spans over THEIR text, so they hold only
+			// while that is the text being read (a caption replaces it).
+			const refs = script?.refs.length && text === script.text ? script.refs : isProjected && projected.refs[i]?.length ? projected.refs[i] : undefined;
+			return { text, emphasis, refs };
 		},
 		[set, setIndices, fmSayMap, projected],
 	);
@@ -403,7 +410,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// A fresh record commits on every navigation regardless of what the text says, while the
 	// `track` memo still keys on the STRING, so identical text keeps the same track object and
 	// the reader is not needlessly torn down.
-	const [narration, setNarration] = React.useState<{ idx: number; text: string; emphasis?: EmphasisSpans }>({ idx: -1, text: '' });
+	const [narration, setNarration] = React.useState<{ idx: number; text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] }>({ idx: -1, text: '' });
 	// THE BOOKENDS (2026-09-27-narration-bookends.md): the deck's `greeting:` before slide 1 and
 	// `closing:` after the last slide. While one speaks, the reader reads IT instead of the slide —
 	// the same reader, caption band and voice, so a bookend sounds and looks like the deck. Each
@@ -737,8 +744,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				}
 				if (!autoplayRef.current) return;
 				if (clampedRef.current < countRef.current - 1) {
-					autoAdvanceRef.current = true; // play the next slide once it mounts
-					setIdx((i) => Math.min(i + 1, countRef.current - 1));
+					// THE LEAVE BEAT. The last sentence lands on the slide it belongs to before the next
+					// one appears; flipping on the frame it ended (measured, 2026-09-26) cut a closing
+					// line off mid-breath. Scaled by the pace (`slideBeatMs('leave')`), cancelable like
+					// the arrival beat, and dropped if the viewer navigated away in the meantime.
+					leaveFromRef.current(clampedRef.current);
 				} else if (!startClosingRef.current()) {
 					setAutoplay(false); // walked off the last slide — autoplay is done
 				}
@@ -805,6 +815,58 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	}, [set, clamped, pace, deckPace]);
 	const beatForArrivalRef = React.useRef(beatForArrival);
 	beatForArrivalRef.current = beatForArrival;
+	// THE LEAVE BEAT's timer, apart from the arrival beat's: pausing inside it must not replay the
+	// finished slide, so a pause there leaves `leavePendingRef` set and the next Play advances.
+	const leaveTimerRef = React.useRef(0);
+	const leavePendingRef = React.useRef(false);
+	const advanceFrom = React.useCallback((from: number): boolean => {
+		leavePendingRef.current = false;
+		if (clampedRef.current !== from) return false; // the viewer moved during the beat: they chose
+		autoAdvanceRef.current = true; // play the next slide once it mounts
+		setIdx((i) => Math.min(i + 1, countRef.current - 1));
+		return true;
+	}, [setIdx]);
+	const leaveFrom = React.useCallback(
+		(from: number) => {
+			const name = resolvePaceName(deckPace, pace.name) as PaceName;
+			// The presenter's live "no beat" override (a 0ms slide beat) means no pause between slides
+			// at all, on either side of the boundary.
+			const beat = pace.slide === 0 ? 0 : slideBeatMs('leave', name);
+			if (beat <= 0) {
+				advanceFrom(from);
+				return;
+			}
+			leavePendingRef.current = true;
+			setHolding(true);
+			leaveTimerRef.current = window.setTimeout(() => {
+				leaveTimerRef.current = 0;
+				// `holding` stays on through the advance: the arrival beat takes it over, so the deck
+				// never reads as "not delivering" for a frame between the two beats.
+				if (!autoplayRef.current || !advanceFrom(from)) {
+					leavePendingRef.current = false;
+					setHolding(false);
+				}
+			}, beat);
+		},
+		[deckPace, pace.name, pace.slide, advanceFrom],
+	);
+	const leaveFromRef = React.useRef(leaveFrom);
+	leaveFromRef.current = leaveFrom;
+	// A navigation or leaving Present drops a pending leave beat: it belonged to the slide it was on.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `clamped` and `open` are the triggers.
+	React.useEffect(
+		() => () => {
+			// A pending beat set `holding`; nothing else would clear it once the timer is gone, and
+			// the transport would read Pause with nothing playing (checker, reproduced).
+			if (leaveTimerRef.current) {
+				window.clearTimeout(leaveTimerRef.current);
+				setHolding(false);
+			}
+			leaveTimerRef.current = 0;
+			leavePendingRef.current = false;
+		},
+		[clamped, open],
+	);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `narration` is the arrival signal (a fresh record per navigation, committed alongside the reader's rebuild); reader/pace are read via ref by design.
 	React.useEffect(() => {
 		if (!autoAdvanceRef.current) return;
@@ -821,6 +883,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// rather than scheduling a pointless timer.
 		const beat = beatForArrivalRef.current();
 		if (beat <= 0) {
+			setHolding(false); // a leave beat may have handed the hold over
 			readerRef.current.play();
 			return;
 		}
@@ -1123,6 +1186,21 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// THE CURSOR'S KEEP-OUT is its own 28px footprint plus a hair, in PARENT pixels — the
 				// space Vetrina's stage works in (`guideCueFor` converts on the frame's side).
 				clearance: POINTER_BOX / 2 + 5,
+				// A BOUND SENTENCE's scene reads the shown slide's section and draws on known parts.
+				section: () => {
+					const w = guideWhereRef.current;
+					if (!w) return null;
+					try {
+						const found = w.onStage ? shownSlideSection(w.doc()) : (w.frame()?.contentDocument?.querySelector('section') ?? null);
+						return found && 'classList' in found ? found : null;
+					} catch {
+						return null;
+					}
+				},
+				sceneCue: (section, els, kind, strength) => {
+					const w = guideWhereRef.current;
+					return !w ? null : sceneCue(w.onStage ? null : w.frame, section, els, kind, strength);
+				},
 			}),
 		[],
 	);
@@ -1223,7 +1301,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	//
 	// Abort any gesture still in flight first: a block change while the cursor is mid-stroke
 	// must retarget, not queue up behind it and arrive two sentences late.
-	const activeCue = reader.active?.cueIndex ?? -1;
+	// The Guide runs GUIDE_LEAD_MS ahead of the reader (read-aloud.ts), so its focus lands as the
+	// sentence's first word is heard rather than after it.
+	const activeCue = reader.guideCue;
 	// THE SLIDE IS PART OF THE TRIGGER, and leaving it out is a silent stop.
 	//
 	// A cue index is per-SLIDE, so it resets to 0 on every navigation. On a deck whose slides
@@ -1247,7 +1327,27 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			doc: () => stageHost?.win.document ?? null,
 			frame: () => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null,
 		};
-		guide.beat({ slide: narration.idx, cue: activeCue, texts: reader.track.cues.map(cueDisplayText), track: reader.track, delivering: guideDelivering, delivery });
+		// A BOUND SENTENCE plays its scene in the delivery's own style (engineering/decisions/
+		// 2026-09-27-delivery-styles-and-component-scenes.md): the narrator named the part, the
+		// component's scene finds it, the delivery's style file says what the act does. A slide the
+		// narrator does not bind (prose, an authored caption) takes the text path.
+		const cueAt = activeCue >= 0 ? (reader.track.cues[activeCue]?.charOffset ?? -1) : -1;
+		const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle } | undefined>)[delivery.name]?.express;
+		// While a bookend (greeting, closing) speaks, the text being read is not the slide's, so the
+		// slide's binding does not apply.
+		const scene = !bookend && narration.refs && style ? { refs: narration.refs, at: cueAt, style } : null;
+		const before = guide.aimed();
+		guide.beat({ slide: narration.idx, cue: activeCue, texts: reader.track.cues.map(cueDisplayText), track: reader.track, delivering: guideDelivering, delivery, scene });
+		// THE LEAD'S CALIBRATION: when this beat's focus reached the screen, reported back to the reader,
+		// which sizes the lead from how long this device takes to get there (read-aloud.ts `guideLeadFor`).
+		// Only a beat that MOVED the focus is a sample: a rest changes nothing on screen and would pull
+		// the median toward React's commit alone. Two frames: the first frame's callback runs before its
+		// paint, the second's after it, so the style, layout and paint of the swap are inside the sample.
+		if (!guideDelivering || activeCue < 0 || guide.aimed() === before) return;
+		let raf = requestAnimationFrame(() => {
+			raf = requestAnimationFrame((paintedAt) => reader.reportGuidePaint(activeCue, paintedAt));
+		});
+		return () => cancelAnimationFrame(raf);
 	}, [guideBeat, guideLive, guideRoot]);
 
 	// THE READ-ALONG (owner, 2026-09-26). Inside the focused TEXT element, the word being spoken
@@ -1258,9 +1358,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const saidWord = reader.active?.wordIndex ?? -1;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the active word IS the trigger; the refs are read at fire time on purpose.
 	React.useEffect(() => {
-		const words = guideLive && saidCue >= 0 ? (reader.track.cues[saidCue]?.words.map((w) => w.display) ?? []) : null;
+		// Only while the Guide is on the sentence being said: in its lead it is already on the next
+		// one, and this sentence's words must not light inside that one's element.
+		const words = guideLive && saidCue >= 0 && saidCue === reader.guideCue ? (reader.track.cues[saidCue]?.words.map((w) => w.display) ?? []) : null;
 		guide.readAlong(words, saidWord, delivery, captionsOn);
-	}, [saidCue, saidWord, guideLive, delivery.wordFocus, captionsOn]);
+	}, [saidCue, saidWord, reader.guideCue, guideLive, delivery.wordFocus, captionsOn]);
 
 	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over
 	// the slide and its backdrop (never the dock — Pause must always be findable and clickable),
@@ -1339,6 +1441,20 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// non-resume play() — a barge-in that cut the sentence and restarted from word one. So a
 	// beat is paused by CANCELING it, not by pausing a reader that isn't running yet.
 	const togglePresentation = React.useCallback(() => {
+		// PAUSED IN THE LEAVE BEAT: the slide was finished, so Play goes on to the next one rather
+		// than reading this one again from the top.
+		if (leaveTimerRef.current) {
+			window.clearTimeout(leaveTimerRef.current);
+			leaveTimerRef.current = 0;
+			setHolding(false);
+			setAutoplay(false);
+			return;
+		}
+		if (leavePendingRef.current && !readerRef.current.playing) {
+			setAutoplay(true);
+			advanceFrom(clampedRef.current);
+			return;
+		}
 		if (beatTimerRef.current) {
 			window.clearTimeout(beatTimerRef.current);
 			beatTimerRef.current = 0;
@@ -1367,7 +1483,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			}
 			readerRef.current.play();
 		}
-	}, []);
+	}, [advanceFrom]);
 	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
 
 
@@ -1466,6 +1582,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	}
 	function toggleRehearse() {
 		reader.stop(); // read-aloud and rehearsal are mutually exclusive transports
+		if (leaveTimerRef.current) window.clearTimeout(leaveTimerRef.current);
+		leaveTimerRef.current = 0;
+		leavePendingRef.current = false;
+		setHolding(false);
 		setAutoplay(false);
 		setRehearse((v) => !v);
 		setElapsed(0);

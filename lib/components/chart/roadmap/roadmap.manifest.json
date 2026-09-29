@@ -271,5 +271,17 @@
         "hall": 6
       }
     }
+  },
+  "gesture": {
+    "archetype": "table",
+    "units": {
+      "horizon": {
+        "select": ".horizon-card:has(> .horizon-head[data-label=\"{horizon}\"])"
+      },
+      "bet": {
+        "select": ".horizon-card li[data-label=\"{bet}\"]"
+      }
+    },
+    "key": "first"
   }
 }

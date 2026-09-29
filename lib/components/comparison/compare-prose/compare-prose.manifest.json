@@ -306,5 +306,13 @@
         }
       }
     }
+  },
+  "gesture": {
+    "archetype": "compare",
+    "units": {
+      "side": {
+        "select": "li:not(li li):not(svg *)"
+      }
+    }
   }
 }

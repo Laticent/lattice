@@ -1,0 +1,518 @@
+{
+	"restrained": [
+		{
+			"said": "The quadrant scatters items on two axes.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each item sits at its two scores, so which quadrant it lands in is the read.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The horizontal axis, Effort, runs zero to ten.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The vertical axis, Reach, runs zero to one hundred.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Quick Wins, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"0\"], [data-cell=\"0\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": true,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Weekly signal digest is low on Effort and high on Reach: Effort two, Reach eighty-two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Weekly signal digest\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Slack intake bot is low on Effort and high on Reach: Effort three, Reach seventy-two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Slack intake bot\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Strategic Bets, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"1\"], [data-cell=\"1\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Scoring model v2 is high on both Effort and Reach: Effort eight, Reach eighty-eight.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Scoring model v2\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Owner: Platform team. A 3-week spike de-risks the roadmap.",
+			"act": "note",
+			"unit": "point",
+			"select": "[data-label=\"Scoring model v2\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Decision-log API is high on both Effort and Reach: Effort seven, Reach seventy-four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Decision\\-log API\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Defer, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"2\"], [data-cell=\"2\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Per-team weighting UI is low on both Effort and Reach: Effort two, Reach twenty-eight.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Per\\-team weighting UI\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Maturity self-assessment is low on both Effort and Reach: Effort one, Reach twenty.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Maturity self\\-assessment\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Time Sinks, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"3\"], [data-cell=\"3\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Bespoke board exports is high on Effort and low on Reach: Effort eight, Reach eighteen.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Bespoke board exports\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Custom calibration tooling is high on Effort and low on Reach: Effort nine, Reach twenty-six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Custom calibration tooling\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The quadrant scatters items on two axes.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each item sits at its two scores, so which quadrant it lands in is the read.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "The horizontal axis, Effort, runs zero to ten.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "The vertical axis, Reach, runs zero to one hundred.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Quick Wins, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"0\"], [data-cell=\"0\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": true,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Weekly signal digest is low on Effort and high on Reach: Effort two, Reach eighty-two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Weekly signal digest\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Slack intake bot is low on Effort and high on Reach: Effort three, Reach seventy-two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Slack intake bot\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Strategic Bets, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"1\"], [data-cell=\"1\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Scoring model v2 is high on both Effort and Reach: Effort eight, Reach eighty-eight.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Scoring model v2\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Owner: Platform team. A 3-week spike de-risks the roadmap.",
+			"act": "note",
+			"unit": "point",
+			"select": "[data-label=\"Scoring model v2\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Decision-log API is high on both Effort and Reach: Effort seven, Reach seventy-four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Decision\\-log API\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Defer, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"2\"], [data-cell=\"2\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Per-team weighting UI is low on both Effort and Reach: Effort two, Reach twenty-eight.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Per\\-team weighting UI\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Maturity self-assessment is low on both Effort and Reach: Effort one, Reach twenty.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Maturity self\\-assessment\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Time Sinks, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"3\"], [data-cell=\"3\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Bespoke board exports is high on Effort and low on Reach: Effort eight, Reach eighteen.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Bespoke board exports\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Custom calibration tooling is high on Effort and low on Reach: Effort nine, Reach twenty-six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Custom calibration tooling\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "The quadrant scatters items on two axes.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each item sits at its two scores, so which quadrant it lands in is the read.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The horizontal axis, Effort, runs zero to ten.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The vertical axis, Reach, runs zero to one hundred.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Quick Wins, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"0\"], [data-cell=\"0\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Weekly signal digest is low on Effort and high on Reach: Effort two, Reach eighty-two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Weekly signal digest\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Slack intake bot is low on Effort and high on Reach: Effort three, Reach seventy-two.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Slack intake bot\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Strategic Bets, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"1\"], [data-cell=\"1\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Scoring model v2 is high on both Effort and Reach: Effort eight, Reach eighty-eight.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Scoring model v2\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Owner: Platform team. A 3-week spike de-risks the roadmap.",
+			"act": "note",
+			"unit": "point",
+			"select": "[data-label=\"Scoring model v2\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Decision-log API is high on both Effort and Reach: Effort seven, Reach seventy-four.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Decision\\-log API\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Defer, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"2\"], [data-cell=\"2\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Per-team weighting UI is low on both Effort and Reach: Effort two, Reach twenty-eight.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Per\\-team weighting UI\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Maturity self-assessment is low on both Effort and Reach: Effort one, Reach twenty.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Maturity self\\-assessment\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Time Sinks, two items.",
+			"act": "enter",
+			"unit": "cell",
+			"select": "rect.quadrant-tint[data-cell=\"3\"], [data-cell=\"3\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Bespoke board exports is high on Effort and low on Reach: Effort eight, Reach eighteen.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Bespoke board exports\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Custom calibration tooling is high on Effort and low on Reach: Effort nine, Reach twenty-six.",
+			"act": "visit",
+			"unit": "point",
+			"select": "[data-label=\"Custom calibration tooling\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

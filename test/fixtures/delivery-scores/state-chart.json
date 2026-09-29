@@ -1,0 +1,188 @@
+{
+	"restrained": [
+		{
+			"said": "States connect; the arrows carry the rules.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "A five-state machine from Draft to Published. In Review is where it decides, with two ways out. One transition steps back and In Review loops on itself.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "From Draft, submit goes to Submitted.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"Draft\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "From Submitted, review goes to In Review.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"Submitted\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "From In Review, approve goes to Approved, reject goes to Draft, and revise stays here.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"In Review\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "From Approved, publish goes to Published.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"Approved\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "States connect; the arrows carry the rules.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "A five-state machine from Draft to Published. In Review is where it decides, with two ways out. One transition steps back and In Review loops on itself.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "From Draft, submit goes to Submitted.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"Draft\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "From Submitted, review goes to In Review.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"Submitted\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "From In Review, approve goes to Approved, reject goes to Draft, and revise stays here.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"In Review\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "From Approved, publish goes to Published.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"Approved\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "States connect; the arrows carry the rules.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "A five-state machine from Draft to Published. In Review is where it decides, with two ways out. One transition steps back and In Review loops on itself.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "From Draft, submit goes to Submitted.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"Draft\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "From Submitted, review goes to In Review.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"Submitted\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "From In Review, approve goes to Approved, reject goes to Draft, and revise stays here.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"In Review\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "From Approved, publish goes to Published.",
+			"act": "visit",
+			"unit": "state",
+			"select": "[data-label=\"Approved\"]:is(li.state-node, .state-node-row, rect.state-node-shape)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

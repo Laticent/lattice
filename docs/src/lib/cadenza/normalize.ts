@@ -11,7 +11,7 @@
 // dependency-free English expansion covering the boardroom cases (money, percent,
 // plain numbers, a small abbreviation set).
 
-import { type LexDomain, lookupLexicon } from './lexicon.js';
+import { CONTEXT_MONTHS, type LexDomain, lookupLexicon } from './lexicon.js';
 import { splitWords } from './segment.js';
 import { type LexiconMap, resolveSymbols, SEPARATOR_GLYPHS } from './symbols.js';
 
@@ -416,6 +416,11 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
   if (nH) return `${ORDINALS[Number(nH[1])]} half${nH[2] ? ` fiscal ${yearWords(nH[2])}` : ''}`;
   const hN = core.match(/^H([12])$/);
   if (hN) return `${ORDINALS[Number(hN[1])]} half`;
+  // A cohort column: `M0` / `M1` … `M36` → "month zero", "month one" (a retention heatmap's
+  // columns). Exact case and anchored, so `m1` and `M1A` never fire. Residual: Apple's M-series
+  // chips and the M2 money supply read "month two"; such a deck declares `acronyms: M2: M 2`.
+  const cohort = core.match(/^M([0-9]|[12][0-9]|3[0-6])$/);
+  if (cohort) return `month ${integerToWords(Number(cohort[1]))}`;
 
   // 2. Signed prefix. Before a DELTA-BEARING value (%, pp, bps, ×, day, currency,
   //    magnitude) a '+'/'−'(U+2212)/'-' reads as "up"/"down"; before a BARE number
@@ -653,10 +658,60 @@ export function dedupeDirection(prevDisplay: string | undefined, spoken: string)
   return m[2];
 }
 
+// A token that places a short month on the calendar: a year (`2026`, `'26`), a day (`3`, `3rd`,
+// `3,`). A month next to another month ("Jan, Feb, Mar") counts too.
+const DATE_NEIGHBOR = /^(?:\d{4}|['’]\d{2}|(?:[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?)[.,;:!?]*$/;
+const MONTH_WORD = new Set([
+  ...MONTHS,
+  'Jan', 'Feb', 'Mar', 'Apr', 'Jun', 'Jul', 'Aug', 'Sep', 'Sept', 'Oct', 'Nov', 'Dec',
+]);
+// The trailing punctuation run of a token, by a linear reverse scan — NOT a `/[…]+$/` regex, whose
+// `+` retries at every start position (polynomial on a long run of "!" in untrusted deck text; the
+// same class `pauseAfter` in cadence.ts avoids).
+const TRAILING_PUNCT = new Set(['.', ',', '!', '?', ';', ':', '…']);
+function trailingPunct(s: string): string {
+  let i = s.length;
+  while (i > 0 && TRAILING_PUNCT.has(s[i - 1])) i--;
+  return s.slice(i);
+}
+const isMonthWord = (t: string | undefined): boolean => {
+  const s = String(t ?? '');
+  return MONTH_WORD.has(s.slice(0, s.length - trailingPunct(s).length));
+};
+
+/**
+ * The spoken form of `Jan` / `Mar` / `Jun` when a neighbor makes it a date ("Jan 2026", "3 Mar",
+ * "Jan '26", "Feb, Mar"), else null. Each is also a name or a verb ("Jan leads EMEA", "Mar the
+ * result"), so the always-on lexicon cannot hold them; only a caller that sees the neighbors can.
+ * Every producer of a spoken sequence (`toSpokenText`, `buildTrack`) calls it before `toSpoken`,
+ * and the author's `acronyms:` / `lexicon:` still win because the caller checks them first.
+ */
+export function contextualMonth(display: string, prev: string | undefined, next: string | undefined, opts: SpokenOpts = {}): string | null {
+  if (!isEnglishLang(opts.lang)) return null;
+  const tok = String(display ?? '').trim();
+  const punct = trailingPunct(tok);
+  const core = punct ? tok.slice(0, -punct.length) : tok;
+  if (!Object.hasOwn(CONTEXT_MONTHS, core)) return null;
+  if (opts.acronyms?.has(tok) || opts.acronyms?.has(core) || opts.lexicon?.has(tok) || opts.lexicon?.has(core)) return null;
+  const prevIsDay = prev !== undefined && /^(?:[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?$/.test(prev);
+  // The next neighbor only counts when nothing ends the phrase between them: "Jan, 4.1" is a
+  // chart's category and a value, not "January 4".
+  const nextDates = !punct && next !== undefined && DATE_NEIGHBOR.test(next);
+  const monthBeside = isMonthWord(next) || isMonthWord(prev);
+  if (!prevIsDay && !nextDates && !monthBeside) return null;
+  return CONTEXT_MONTHS[core] + punct.replace(/[:;]/g, ',');
+}
+
+/** One word of a spoken sequence, with the neighbors the per-token rules cannot see. */
+export function spokenAt(words: readonly string[], i: number, opts: SpokenOpts = {}): string {
+  const spoken = contextualMonth(words[i], words[i - 1], words[i + 1], opts) ?? toSpoken(words[i], opts);
+  return dedupeDirection(words[i - 1], spoken);
+}
+
 export function toSpokenText(text: string, opts: SpokenOpts = {}): string {
   const words = splitWords(text);
   return words
-    .map((w, i) => dedupeDirection(words[i - 1], toSpoken(w, opts)))
+    .map((_, i) => spokenAt(words, i, opts))
     .filter(Boolean) // a DROPPED symbol (decorative emoji) contributes nothing — no double space
     .join(' ');
 }

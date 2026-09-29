@@ -231,5 +231,13 @@
         "hall": 2
       }
     }
+  },
+  "gesture": {
+    "archetype": "list",
+    "units": {
+      "row": {
+        "select": "tbody > tr:nth-child({tr})"
+      }
+    }
   }
 }

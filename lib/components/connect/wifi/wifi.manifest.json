@@ -93,5 +93,8 @@
   },
   "venueCapacity": {
     "none": "A fixed card (network, password and a QR code), with no repeated element to count."
+  },
+  "gesture": {
+    "archetype": "media"
   }
 }

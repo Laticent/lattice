@@ -1293,6 +1293,38 @@
         }
       }
     },
+    "gesture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archetype"],
+      "description": "The component's GESTURE contract (engineering/decisions/2026-09-27-guide-storyboards.md §5, §7): which of the ten structures it is, and the rendered UNITS a narrated sentence can name there. The archetype supplies default units and a KEY beat (`lib/core/gesture-archetypes.json`); the component overrides only what its own render does differently, and `lib/core/gesture.js` merges the two. A binding names a unit by ids (`narrateChartScript`); `lib/core/scene-resolve.mjs` fills these templates to find the elements, the same way in the Studio, the exported player and the corpus gate.",
+      "properties": {
+        "archetype": {
+          "enum": ["statement", "list", "grid", "table", "compare", "cartesian", "part", "field", "flow", "media"],
+          "description": "The structure the component renders, judged from its render and not its name: `list-tabular` draws a list, so it is `list`."
+        },
+        "units": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Unit name -> how to find it, added to or replacing the archetype's unit of the same name. The names are the ones a binding names (`bar`, `point`, `series`, `stage`, `cell`...).",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["select"],
+            "properties": {
+              "select": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }], "description": "CSS selector (or a list of them, united) for the unit's drawn parts, scoped within the slide, with `{id}` placeholders the binding fills (`[data-mark=\"{mark}\"]`). With every placeholder removed it selects ALL units of the kind, which are the unit's peers." },
+              "fallback": { "type": "string", "minLength": 1, "description": "CSS selector used only when `select` matches nothing: a variant that draws the unit as part of a shared shape (radar `benchmark` folds every competitor into one envelope band)." },
+              "labels": { "type": "string", "minLength": 1, "description": "CSS selector, with the same placeholders, for the text that names the unit (a category tick, a value label). It stays with the unit when the rest recedes." }
+            }
+          }
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^((largest|first|last)(:[a-z-]+)?|act:(enter|visit|compare|peak|note|frame|verdict))$",
+          "description": "Which bound sentence is the slide's key beat, the one somber gestures, when it differs from the archetype's: `largest` (the largest value), `first`, `last`, each optionally limited to one unit (`largest:series`), or `act:<act>` (the first sentence with that act)."
+        }
+      }
+    },
     "handles": {
       "type": "array",
       "minItems": 1,

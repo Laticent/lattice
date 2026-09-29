@@ -1,0 +1,248 @@
+{
+	"restrained": [
+		{
+			"said": "The pie gives each share one wedge.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each wedge is that item's share of the whole.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Deck production, forty-six percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "92 decks, averaging 18 slides each. Most of it review-cycle churn.",
+			"act": "note",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meetings about meetings, twenty-two percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Realigning on priorities, eighteen percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Stakeholder management, nine percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Actually deciding, five percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The pie gives each share one wedge.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each wedge is that item's share of the whole.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Deck production, forty-six percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "92 decks, averaging 18 slides each. Most of it review-cycle churn.",
+			"act": "note",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": "wash labels quiet",
+			"cursor": "keep"
+		},
+		{
+			"said": "Meetings about meetings, twenty-two percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Realigning on priorities, eighteen percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Stakeholder management, nine percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Actually deciding, five percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "The pie gives each share one wedge.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each wedge is that item's share of the whole.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Deck production, forty-six percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "92 decks, averaging 18 slides each. Most of it review-cycle churn.",
+			"act": "note",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"0\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meetings about meetings, twenty-two percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Realigning on priorities, eighteen percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Stakeholder management, nine percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Actually deciding, five percent.",
+			"act": "visit",
+			"unit": "mark",
+			"select": "path.wedge[data-mark=\"4\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

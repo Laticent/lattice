@@ -4529,13 +4529,14 @@ async function renderBody(browser, g, closeBrowser) {
   if (PLAYER && NARRATE) {
     try {
       const pages = notesPerRenderedPage(cleanDocHtml, materializedNotes).length;
-      const { readAlong, slideTexts, emphasis, inputs } = await resolveReadAlong(pages, slideSayLines, captionScript);
+      const { readAlong, slideTexts, emphasis, refs, inputs } = await resolveReadAlong(pages, slideSayLines, captionScript);
       if (!readAlong.slides.length) throw new Error('the deck has nothing to narrate (no say lines and no slide prose to project)');
       const { KOKORO, loadKokoro, voiceDeck } = await import('./lib/export/narrate-kokoro.mjs');
       const tts = await loadKokoro(QUIET ? null : (m) => console.log(`Narrate: ${m}`));
       let shown = -1;
       const slides = await voiceDeck(readAlong, slideTexts, {
         emphasis,
+        refs,
         tts,
         onClip: (done, total) => {
           const pct = Math.floor((100 * done) / total);
@@ -5917,7 +5918,7 @@ async function projectDeckSpeechFromHtml(docHtml, browser, g) {
 // slide's own content projected to speech, with chart narration and emphasis — so the sentences a
 // voice speaks are the sentences the captions show. Returns the per-slide texts beside the tracks.
 async function resolveReadAlong(slideCount, sayLines = [], script = []) {
-  const { buildReadAlong, emphasisForResolved, mergeNarration } = require('./lib/core/read-along-build.js');
+  const { buildReadAlong, emphasisForResolved, mergeNarration, refsForResolved } = require('./lib/core/read-along-build.js');
   // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
   // front-matter `say:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
   // the shared resolver so both producers can't drift (#904).
@@ -5959,6 +5960,11 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // slides in 15 committed decks. The bake and Present are unaffected because `applyChartNarration`
   // returns a COPY; this producer is the one that mutates.
   const projectedForEmphasis = projected.slice();
+  // THE BINDING rides the same way: a chart slide's refs from its narrator (spans over the chart
+  // narration substituted below), any other slide's from the projection (`bindingRefsFor`), each kept
+  // only while its text is the text read — the identity test the Studio's bake applies
+  // (narration-bake.ts `refsOf`), so the two exports bind the same slides.
+  const chartRefs = [];
   // A length mismatch (an autosplit deck renders more sections than authored slides)
   // makes the index mapping unsafe, so mergeNarration drops the projection wholesale
   // rather than misalign a caption — surface that here so it isn't silent.
@@ -5988,7 +5994,7 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // note) rather than misalign — the same guard mergeNarration applies to the projection.
   if (projected.length === slideCount && projected.length > 0) {
     try {
-      const { narrateChart } = require('./lib/core/chart-narration.js');
+      const { narrateChartScript } = require('./lib/core/chart-narration.js');
       const { splitSourceToSections } = require('./lib/core/section-source-split.js');
       // Narrate from a FENCE-INTACT source, not `rawMd`. `rawMd` bakes every ```mermaid
       // fence to `<svg>` BEFORE this split, so a `diagram` slide's Mermaid source is gone —
@@ -6007,8 +6013,11 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
           // Per-slide guard: one pathological chart slide can't disable narration for
           // the rest of the deck (a deck-wide try/catch would).
           try {
-            const chart = narrateChart(blocks[i]);
-            if (chart) projected[i] = chart;
+            const chart = narrateChartScript(blocks[i]);
+            if (chart) {
+              projected[i] = chart.text;
+              if (chart.refs.length) chartRefs[i] = chart.refs;
+            }
           } catch (e) {
             if (!QUIET) console.warn(`  note: chart narration skipped on slide ${i + 1} (${e?.message})`);
           }
@@ -6089,6 +6098,7 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // shared rule (read-along-build.js), fed the PRE-substitution snapshot because `projected` was
   // mutated in place above.
   const emphasis = emphasisForResolved(slideTexts, projectedForEmphasis, projectedEmphasis);
+  const refs = refsForResolved(slideTexts, projected, chartRefs, projectedForEmphasis, script.map((x) => x.refs));
   // `greeting:` / `closing:`, minus any line the first or last slide already says.
   const ends = bookends ? bookends.withoutRedundantBookends(bookends.resolveBookends(rawMd), slideTexts.slice(0, glossaryFrom)) : null;
   const bookendTexts = ends ? { greeting: ends.greeting ? bookends.greetingText(ends.greeting.template, 'neutral') : null, closing: ends.closing?.text ?? null } : undefined;
@@ -6110,7 +6120,7 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
     ...(lexicon?.size ? { lexicon: Object.fromEntries(lexicon) } : {}),
     ...(acronyms?.size ? { acronyms: Object.fromEntries(acronyms) } : {}),
   };
-  return { readAlong, slideTexts, emphasis, inputs };
+  return { readAlong, slideTexts, emphasis, refs, inputs };
 }
 
 // Read-along WebVTT sidecars from per-slide narration (--captions). Builds Cadenza

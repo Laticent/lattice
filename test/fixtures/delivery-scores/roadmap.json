@@ -1,0 +1,308 @@
+{
+	"restrained": [
+		{
+			"said": "horizons spreads the bets across three horizons.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Horizon 1: Now.",
+			"act": "enter",
+			"unit": "horizon",
+			"select": ".horizon-card:has(> .horizon-head[data-label=\"Horizon 1\"])",
+			"key": true,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Connector v1 has shipped, in Signal Intake.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Connector v1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Equal weights has shipped, in Scoring.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Equal weights\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Horizon 2: Next.",
+			"act": "enter",
+			"unit": "horizon",
+			"select": ".horizon-card:has(> .horizon-head[data-label=\"Horizon 2\"])",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Dedupe pass is in flight, in Signal Intake.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Dedupe pass\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Per-team weights is in flight, in Scoring.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Per\\-team weights\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Horizon 3: Later.",
+			"act": "enter",
+			"unit": "horizon",
+			"select": ".horizon-card:has(> .horizon-head[data-label=\"Horizon 3\"])",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Auto-routing is planned, in Signal Intake.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Auto\\-routing\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Decision profiles is out of scope, in Scoring.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Decision profiles\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "horizons spreads the bets across three horizons.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Horizon 1: Now.",
+			"act": "enter",
+			"unit": "horizon",
+			"select": ".horizon-card:has(> .horizon-head[data-label=\"Horizon 1\"])",
+			"key": true,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Connector v1 has shipped, in Signal Intake.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Connector v1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Equal weights has shipped, in Scoring.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Equal weights\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Horizon 2: Next.",
+			"act": "enter",
+			"unit": "horizon",
+			"select": ".horizon-card:has(> .horizon-head[data-label=\"Horizon 2\"])",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Dedupe pass is in flight, in Signal Intake.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Dedupe pass\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Per-team weights is in flight, in Scoring.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Per\\-team weights\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Horizon 3: Later.",
+			"act": "enter",
+			"unit": "horizon",
+			"select": ".horizon-card:has(> .horizon-head[data-label=\"Horizon 3\"])",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Auto-routing is planned, in Signal Intake.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Auto\\-routing\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Decision profiles is out of scope, in Scoring.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Decision profiles\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "horizons spreads the bets across three horizons.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Horizon 1: Now.",
+			"act": "enter",
+			"unit": "horizon",
+			"select": ".horizon-card:has(> .horizon-head[data-label=\"Horizon 1\"])",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Connector v1 has shipped, in Signal Intake.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Connector v1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Equal weights has shipped, in Scoring.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Equal weights\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Horizon 2: Next.",
+			"act": "enter",
+			"unit": "horizon",
+			"select": ".horizon-card:has(> .horizon-head[data-label=\"Horizon 2\"])",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Dedupe pass is in flight, in Signal Intake.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Dedupe pass\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Per-team weights is in flight, in Scoring.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Per\\-team weights\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Horizon 3: Later.",
+			"act": "enter",
+			"unit": "horizon",
+			"select": ".horizon-card:has(> .horizon-head[data-label=\"Horizon 3\"])",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Auto-routing is planned, in Signal Intake.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Auto\\-routing\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Decision profiles is out of scope, in Scoring.",
+			"act": "visit",
+			"unit": "bet",
+			"select": ".horizon-card li[data-label=\"Decision profiles\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

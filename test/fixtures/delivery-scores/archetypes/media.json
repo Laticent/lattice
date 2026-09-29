@@ -1,0 +1,75 @@
+{
+	"component": "contact",
+	"restrained": [
+		{
+			"said": "AdaSlide.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The QR encodes this card as a vCard.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "AdaSlide.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "The QR encodes this card as a vCard.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "AdaSlide.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "The QR encodes this card as a vCard.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 2,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

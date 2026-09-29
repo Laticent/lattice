@@ -1,0 +1,1 @@
+- A table slide narrated as "SMB — Q3: 7.8%; Q4: 9.4%" now focuses the SMB row. The Guide could not match that shape to the row, so table slides focused nothing. A chart's hidden screen-reader table is never matched.

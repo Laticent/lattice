@@ -247,5 +247,8 @@
         "hall": 2
       }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

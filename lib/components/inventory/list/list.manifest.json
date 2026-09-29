@@ -495,5 +495,8 @@
         }
       }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

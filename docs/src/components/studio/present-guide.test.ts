@@ -42,7 +42,9 @@ import {
 // the punctuation the projection rewrites; and honest silence when nothing matches.
 
 /** The pointer's real ink footprint: a POINTER_BOX square centered on where it is placed. */
-const atPoint = (x: number, y: number) => ({ left: x - POINTER_BOX / 2, top: y - POINTER_BOX / 2, width: POINTER_BOX, height: POINTER_BOX }) as DOMRect;
+// The arrow's body where Vetrina draws it: the TIP at the point, the body hanging down and right
+// (`paintCursorAt`). A box centered on the point missed its lower half (2026-09-27).
+const atPoint = (x: number, y: number) => ({ left: x, top: y, width: POINTER_BOX, height: POINTER_BOX }) as DOMRect;
 /** Do two boxes overlap at all? Touching edges do not count as covering. */
 const pointerCovers = (p: { left: number; top: number; width: number; height: number }, t: { left: number; top: number; width: number; height: number }): boolean =>
 	p.left < t.left + t.width && p.left + p.width > t.left && p.top < t.top + t.height && p.top + p.height > t.top;
@@ -649,6 +651,14 @@ describe('read-along and chart addressing', () => {
 		expect(wordRangeIn(li, ['forty-eight'], 0)).toBeNull();
 	});
 
+	it('lights a word SPLIT across inline markup as one word', () => {
+		// The read-along followup's last clause (#2371): `<strong>$48</strong>.6M` is one spoken word.
+		const d = doc('<ul><li>ARR closed at <strong>$48</strong>.6M today.</li><li>Re<em>venue</em> grew.</li></ul>');
+		const [a, b] = [...d.querySelectorAll('li')];
+		expect(wordRangeIn(a, ['ARR', 'closed', 'at', '$48.6M', 'today.'], 3)?.toString()).toBe('$48.6M');
+		expect(wordRangeIn(b, ['Revenue', 'grew.'], 0)?.toString()).toBe('Revenue');
+	});
+
 	it('matches whole words only, and anchors on the sentence being read', () => {
 		const d = doc('<p>Northeast grew. North fell hard. North then recovered.</p>');
 		const p = d.querySelector('p') as Element;
@@ -959,10 +969,10 @@ describe('pointerAnchor — the fallback placement', () => {
 		const frame = { left: 0, top: 0, width: 960, height: 540 };
 		const { x, y } = pointerAnchor(box, frame, [box]);
 		expect(pointerCovers(atPoint(x, y), box), `the pointer box overlaps the text at (${x},${y})`).toBe(false);
-		expect(x - POINTER_BOX / 2).toBeGreaterThanOrEqual(frame.left);
-		expect(x + POINTER_BOX / 2).toBeLessThanOrEqual(frame.left + frame.width);
-		expect(y - POINTER_BOX / 2).toBeGreaterThanOrEqual(frame.top);
-		expect(y + POINTER_BOX / 2).toBeLessThanOrEqual(frame.top + frame.height);
+		expect(x).toBeGreaterThanOrEqual(frame.left);
+		expect(x + POINTER_BOX).toBeLessThanOrEqual(frame.left + frame.width);
+		expect(y).toBeGreaterThanOrEqual(frame.top);
+		expect(y + POINTER_BOX).toBeLessThanOrEqual(frame.top + frame.height);
 	});
 
 	it('clears the NEIGHBORING block too, not just its own target', () => {
@@ -990,7 +1000,7 @@ describe('pointerAnchor — the fallback placement', () => {
 		const box = { left: 100, top: 300, width: 900, height: 40 };
 		const atFull = pointerAnchor(box, frame, [box], POINTER_BOX / 2);
 		const atHalf = pointerAnchor(box, frame, [box], POINTER_BOX / 2 / 0.5);
-		expect(pointerCovers({ left: atHalf.x - POINTER_BOX, top: atHalf.y - POINTER_BOX, width: POINTER_BOX * 2, height: POINTER_BOX * 2 }, box)).toBe(false);
+		expect(pointerCovers({ left: atHalf.x, top: atHalf.y, width: POINTER_BOX * 2, height: POINTER_BOX * 2 }, box)).toBe(false);
 		expect(Math.abs(atHalf.x - box.left)).toBeGreaterThan(Math.abs(atFull.x - box.left));
 	});
 
@@ -1138,7 +1148,9 @@ describe('guideCueFor, with line boxes', () => {
 			d.documentElement.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 1280, height: 720, right: 1280, bottom: 720, toJSON: () => ({}) }) as DOMRect;
 			const [a, b] = [...d.querySelectorAll('p')] as HTMLElement[];
 			a.getBoundingClientRect = () => ({ x: 0, y: 0, left: 100, top: 100, width: 300, height: 24, right: 400, bottom: 124, toJSON: () => ({}) }) as DOMRect;
-			b.getBoundingClientRect = () => ({ x: 0, y: 0, left: 440, top: 165, width: 260, height: 35, right: 700, bottom: 200, toJSON: () => ({}) }) as DOMRect;
+			// The neighbor sits just clear of the arrow's body at 1:1 (tip at the stroke's end, body
+			// hanging down-right to x 447) and inside it at 1:2.
+			b.getBoundingClientRect = () => ({ x: 0, y: 0, left: 460, top: 165, width: 260, height: 35, right: 720, bottom: 200, toJSON: () => ({}) }) as DOMRect;
 			return {
 				contentDocument: d,
 				offsetWidth: 1280,
@@ -1275,6 +1287,36 @@ describe('the geometry the classifier is handed, and the units it is handed in',
 			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, toJSON: () => ({}) }) as DOMRect,
 		} as unknown as HTMLIFrameElement;
 		expect(guideCueFor(() => frame, 'Growth held.')).toBeNull();
+	});
+
+	it('checks the resting place against a chart’s labels too, not only text blocks', () => {
+		// A chart's value labels are SVG `<text>` that no block selector names, and the hand came to
+		// rest on "$1.8M" (measured at a phone's 393px: 17 of 66 resting hands covered a label).
+		const d = doc('<p>Growth held.</p><svg><text>$1.8M</text></svg>');
+		const a = d.querySelector('p') as HTMLElement;
+		const label = d.querySelector('text') as unknown as HTMLElement;
+		a.getBoundingClientRect = () => ({ x: 0, y: 0, left: 10, top: 20, width: 100, height: 24, right: 110, bottom: 44, toJSON: () => ({}) }) as DOMRect;
+		label.getBoundingClientRect = () => ({ x: 0, y: 0, left: 110, top: 20, width: 200, height: 60, right: 310, bottom: 80, toJSON: () => ({}) }) as DOMRect;
+		const frame = {
+			contentDocument: d,
+			offsetWidth: 400,
+			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400, toJSON: () => ({}) }) as DOMRect,
+		} as unknown as HTMLIFrameElement;
+		expect(guideCueFor(() => frame, 'Growth held.')?.rest, 'the hand rests past the line, straight onto the label').not.toBeNull();
+	});
+
+	it('checks the resting place against a picture with no words too (a logo mark)', () => {
+		const d = doc('<p>Growth held.</p><span class="logo-mark"><svg><path d="M0 0h10v10z"/></svg></span>');
+		const a = d.querySelector('p') as HTMLElement;
+		const mark = d.querySelector('svg') as unknown as HTMLElement;
+		a.getBoundingClientRect = () => ({ x: 0, y: 0, left: 10, top: 20, width: 100, height: 24, right: 110, bottom: 44, toJSON: () => ({}) }) as DOMRect;
+		mark.getBoundingClientRect = () => ({ x: 0, y: 0, left: 110, top: 20, width: 200, height: 60, right: 310, bottom: 80, toJSON: () => ({}) }) as DOMRect;
+		const frame = {
+			contentDocument: d,
+			offsetWidth: 400,
+			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400, toJSON: () => ({}) }) as DOMRect,
+		} as unknown as HTMLIFrameElement;
+		expect(guideCueFor(() => frame, 'Growth held.')?.rest, 'the hand rests past the line, straight onto the logo').not.toBeNull();
 	});
 
 	it('checks the resting place against the slide’s OWN blocks', () => {

@@ -136,6 +136,13 @@ describe('foldPaneSplits — narration keeps projecting through a split', () => 
 		expect(bare[1].text).toBe('Revenue rose. Revenue fell.');
 	});
 
+	it('keeps an unsplit slide\'s bindings, and drops a folded slide\'s (its ordinals count per page)', () => {
+		const refs = [{ start: 0, end: 7, act: 'visit', unit: 'paragraph', id: { i: 1 } }];
+		const out = foldPaneSplits([{ ...s('Opening'), refs }, { ...s('Page one.'), refs }, { ...s('Page two.'), refs }, s('After'), s('Closing')], doc);
+		expect(out[0].refs).toEqual(refs);
+		expect(out[1].refs).toBeUndefined();
+	});
+
 	it('leaves a projection the map does not account for untouched (the callers guard it)', () => {
 		const scripts = [s('a'), s('b'), s('c')];
 		expect(foldPaneSplits(scripts, doc)).toBe(scripts);
