@@ -30,8 +30,8 @@ For live reload, start the docs dev server (`npm --prefix docs run dev`), then r
 ## Build for Windows (cross-compiled from Linux)
 
 Tauri's cross-build path: an NSIS installer built on Linux, linked against Microsoft's
-SDK that `cargo-xwin` downloads on first use. You need `clang`, `lld` and `nsis` from the
-distro, plus:
+SDK that `cargo-xwin` downloads on first use. You need `clang`, `llvm` (for `llvm-rc`), `lld` and
+`nsis` from the distro, plus:
 
 ```sh
 rustup target add x86_64-pc-windows-msvc
