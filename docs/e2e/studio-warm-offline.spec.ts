@@ -16,7 +16,7 @@ test.use({ serviceWorkers: 'allow' });
 
 const chunk = (name: string) => new RegExp(`^/_astro/${name}\\.[\\w-]+\\.js$`);
 const KATEX = /^\/playground\/v\/[0-9a-f]+\/lattice-katex\.js$/;
-const MERMAID = /^\/playground\/v\/[0-9a-f]+\/export\/mermaid-v11\.min\.js$/;
+const MERMAID = /^\/playground\/v\/[0-9a-f]+\/mermaid\.min\.js$/;
 
 async function cachedPaths(page: Page): Promise<string[]> {
 	return page.evaluate(async () => {
@@ -141,7 +141,7 @@ test('a diagram never rendered online draws offline, for a browser that has show
 		await page.keyboard.press('ControlOrMeta+a');
 		await page.keyboard.insertText('# Flow\n\n```mermaid\nflowchart LR\n  A[Draft] --> B[Review]\n```\n');
 		const preview = page.locator('[aria-label="Live deck preview"] iframe.live').contentFrame();
-		await expect(preview.locator('pre[data-mermaid-state]').first(), 'the diagram did not render offline').toHaveAttribute('data-mermaid-state', 'rendered', {
+		await expect(preview.locator('pre[data-lattice-hydrate="mermaid"][data-lattice-settle]').first(), 'the diagram did not render offline').toHaveAttribute('data-lattice-settle', 'rendered', {
 			timeout: 30_000,
 		});
 		await expect(preview.locator('svg').filter({ hasText: 'Review' }).first()).toBeAttached();

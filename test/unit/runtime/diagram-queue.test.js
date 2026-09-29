@@ -8,7 +8,7 @@
  * written naively:
  *
  *   1. A `mermaid.render` that NEVER SETTLES wedged the chain permanently. Every later
- *      band and every later pass queued behind it, with those fences stamped `rendering`
+ *      band and every later pass queued behind it, with those fences stamped `hydrating`
  *      — which the pending-fence selector does not re-select — and no diagnostic, because
  *      a `.catch` never fires for a promise that merely hangs. Before the chain existed
  *      each fence had its own promise, so a hung render hung only itself. Live trigger: a
@@ -62,7 +62,7 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
       // isolate it REJECTS — and `Promise.all` then settles the run early, letting the
       // NEXT band's `initialize` land while this band's other renders are still in flight.
       if (attachErrorThrows) throw new Error('attachError blew up (Trusted Types / torn-down document)');
-      preEl.dataset.mermaidState = 'error';
+      preEl.dataset.latticeSettle = 'error';
     },
     mermaidSvgCache: new Map(),
     diagramCacheKey: (a, b) => `${a}|${b}`,
@@ -73,7 +73,7 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
     // function's `reclaimed` branch is never the answer; this stands in with the plain
     // half, which is what these cells are about.
     resetFenceAfterFailure: (preEl) => {
-      if (preEl.dataset.mermaidState === 'rendering') preEl.dataset.mermaidState = 'pending';
+      if (preEl.dataset.latticeSettle === 'hydrating') preEl.dataset.latticeSettle = 'pending';
     },
     markFenceDrawn: () => {},
     // Writes the chart motion roles on a drawn diagram (lib/integrations/mermaid/motion-roles.js).
@@ -113,7 +113,7 @@ ${block}
 
 /** A fence, with a fake `<pre>` whose dataset the queue writes. */
 function fence(name) {
-  return { preEl: { dataset: { mermaidState: 'rendering' }, name }, target: { innerHTML: '' }, source: name };
+  return { preEl: { dataset: { latticeSettle: 'hydrating' }, name }, target: { innerHTML: '' }, source: name };
 }
 
 /** Two bands, so a run boundary exists. */
@@ -145,8 +145,8 @@ describe('the diagram queue always advances', () => {
     assert.ok(log.includes('render:band-b'),
       "band B never rendered — one hung diagram wedged the whole chain, which is the "
       + 'failure this cap exists to prevent (before the chain existed, a hung render hung only itself)');
-    assert.equal(later.preEl.dataset.mermaidState, 'rendered');
-    assert.equal(hung.preEl.dataset.mermaidState, 'error',
+    assert.equal(later.preEl.dataset.latticeSettle, 'rendered');
+    assert.equal(hung.preEl.dataset.latticeSettle, 'error',
       'the hung fence must be reported, not left silently blank');
     assert.ok(log.some((l) => l.startsWith('error:Mermaid render did not settle')));
   });
@@ -185,7 +185,7 @@ describe('the diagram queue always advances', () => {
 
   test('a run that throws while configuring hands its fences back to `pending`', async () => {
     // A bare `.catch(() => {})` used to swallow this, leaving those diagrams blank for the
-    // session: they are stamped `rendering`, and the pending-fence selector only re-selects
+    // session: they are stamped `hydrating`, and the pending-fence selector only re-selects
     // `pending`.
     const log = [];
     let calls = 0;
@@ -219,9 +219,9 @@ describe('the diagram queue always advances', () => {
     // the old single-line match covered.
     assert.match(RUNTIME_SRC, /for \(const preEl of fences\) resetFenceAfterFailure\(preEl\);/,
       'the run-failure path must still hand its in-flight fences back');
-    assert.match(RUNTIME_SRC, /function resetFenceAfterFailure\(preEl\) \{\s*\n\s*if \(preEl\.dataset\.mermaidState !== 'rendering'\) return;/,
+    assert.match(RUNTIME_SRC, /function resetFenceAfterFailure\(preEl\) \{\s*\n\s*if \(preEl\.dataset\.latticeSettle !== 'hydrating'\) return;/,
       'and the reset must still act only on a fence that was actually in flight');
-    assert.equal(good.preEl.dataset.mermaidState, 'rendered');
+    assert.equal(good.preEl.dataset.latticeSettle, 'rendered');
   });
 
   test('bands are configured in document order, one configure per band', async () => {

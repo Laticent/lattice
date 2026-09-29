@@ -83,13 +83,12 @@ export function initSpecimen() {
     editor: null,
   };
 
-  // mermaidUrl/katexUrl come from Specimen.astro's `specimen-data` JSON — the
-  // locally-vendored copies. There is no CDN fallback behind them any more.
+  // katexUrl comes from Specimen.astro's `specimen-data` JSON — the locally-vendored
+  // copy; the diagram library loads beside runtimeUrl. No CDN fallback behind either.
   const lr = createSingleSlideRenderer({
     themeBase: data.themeBase,
     runtimeUrl: data.runtimeUrl,
     engineUrl: data.engineUrl,
-    mermaidUrl: data.mermaidUrl,
     dagreUrl: data.dagreUrl,
     katexUrl: data.katexUrl,
   });

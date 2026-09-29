@@ -104,7 +104,7 @@ describe('hasAnimatableChart', () => {
 });
 
 const DIAGRAM =
-  '<pre data-mermaid-state="rendered"></pre><div class="mermaid"><svg>' +
+  '<pre data-lattice-hydrate="mermaid" data-lattice-settle="rendered"></pre><div class="mermaid"><svg>' +
   '<g data-anima-role="bar" data-anima-order="1"><rect/></g><g data-anima-role="bar" data-anima-order="1"><rect/></g>' +
   '<path data-anima-role="bar" data-anima-order="2"/><g data-anima-role="label"><text>yes</text></g></svg></div>';
 

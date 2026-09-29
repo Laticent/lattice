@@ -1821,7 +1821,7 @@ const SANCTIONED_MONO_FONTS = [
   },
   {
     file: 'lib/integrations/mermaid/mermaid.css',
-    selector: 'data-mermaid-state',
+    selector: 'data-lattice-settle',
     count: 1,
     why: 'mermaid source that has not rendered yet — still source, briefly visible.',
   },
@@ -5972,14 +5972,14 @@ const SANCTIONED_E2E_SLEEPS = [
   // the assertion is that a payload did NOT execute and did NOT reach the network, and an
   // absence has no signal to poll — a poll would go green on its first tick, before the
   // payload it is meant to catch had any chance to fire. Everything POLLABLE in these
-  // specs already is: the diagram's own `data-mermaid-state` settle stamp and the rendered
+  // specs already is: the diagram's own `data-lattice-settle` settle stamp and the rendered
   // label are awaited with `expect`, so the wait covers only the gap between "the payload
   // is in the live DOM" and "we conclude it did nothing".
   {
     file: 'docs/e2e/mermaid-post-sanitize.spec.ts', ms: 1500, count: 1,
     why: 'ABSENCE ASSERTION. The script-vector table injects a payload into a rendered node label '
        + 'and then asserts `top.__pwned` is still undefined and no request left the frame. The '
-       + 'render itself is polled (data-mermaid-state + the label element); this is the settle '
+       + 'render itself is polled (data-lattice-settle + the label element); this is the settle '
        + 'window for an execution that must never come. COUNT SEMANTICS, stated because this gate '
        + 'counts TEXT matches and its docblock says counts are of WAITS: this single occurrence '
        + 'sits inside a `for (const v of SCRIPT_VECTORS)` loop and therefore executes once per '
@@ -7621,15 +7621,21 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
  *                       browser runtime draws from its code block (`drawn.generated.mjs` —
  *                       Mermaid's). Each is a roster that finds the plugin's figures by naming
  *                       it — a wait selector, a "needs the library" probe, a bake gate — where
- *                       the registry should answer. Phase D moved Mermaid onto the host and
- *                       left these; the budget is what its browser half still owes
- *                       (followups.d/2417-p5-plugin-phase-d-browser-half.md).
+ *                       the registry should answer (lib/plugins/drawn-probe.mjs). Phase D moved
+ *                       Mermaid onto the host and left 18; its browser half took them to 0.
+ *   drawnLibraryUrls    `<plugin>Url` (`mermaidUrl`) written outside lib/plugins, for a plugin a
+ *                       browser runtime draws: a library address threaded by hand through pages
+ *                       and frame builders, where the host's `payload` loads it.
+ *   drawnSettleStates   `data-<plugin>-state` / `data-<plugin>-final` (and their `dataset`
+ *                       spellings) outside lib/plugins, in code AND CSS: a private settle state
+ *                       beside the host's one `data-lattice-settle`, which no capture that reads
+ *                       the host's barrier can see.
  *
  * Over budget fails: something re-grew the old way. UNDER budget fails too, naming the new
  * count, so the budget ratchets down in the PR that earned it and can never silently rot upward
  * again.
  */
-const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0, drawnFenceClasses: 18 });
+const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0, drawnFenceClasses: 0, drawnLibraryUrls: 0, drawnSettleStates: 0 });
 
 function pluginMigrationCounts(root = ROOT) {
   // EVERY override of markdown-it's fence renderer outside the host's one table, anywhere a render
@@ -7693,7 +7699,41 @@ function pluginMigrationCounts(root = ROOT) {
       for (const m of code.matchAll(re)) drawnHits.push(`${rel}: ${m[0]}`);
     }
   }
-  return { fenceWrappers, pluginTokenNames: hits.length, hits, drawnFenceClasses: drawnHits.length, drawnHits };
+  // The two OTHER hand idioms a runtime-drawn plugin's browser half grew before the host could
+  // answer for it (phase D's browser half): a hand-threaded library URL (`mermaidUrl`, where the
+  // host's `payload` should load the library) and a private settle state (`data-mermaid-state`,
+  // `dataset.mermaidState`, `data-mermaid-final`, where the host's `data-lattice-settle` is the
+  // one state every capture reads). Named per runtime-drawn PLUGIN, from the same registry data,
+  // and counted in CSS too: a stylesheet keyed on the private state is a reader of it.
+  const drawnPlugins = fs.existsSync(drawnFile) ? Object.keys(require(drawnFile).RUNTIME_DRAWN || {}) : [];
+  const urlHits = [];
+  const stateHits = [];
+  if (drawnPlugins.length) {
+    const camel = (n) => n.replace(/-([a-z])/g, (_m, c) => c.toUpperCase());
+    const urlRe = new RegExp(`\\b(?:${drawnPlugins.map(camel).join('|')})Url\\b`, 'g');
+    const stateRe = new RegExp(`data-(?:${drawnPlugins.join('|')})-(?:state|final)\\b|\\b(?:${drawnPlugins.map(camel).join('|')})(?:State|Final)\\b`, 'g');
+    const files = [];
+    for (const dir of ['lib', 'tools', 'docs/src', 'docs/scripts']) listFilesByExt(path.join(root, dir), ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.astro', '.css'], files);
+    files.push(path.join(root, 'lattice-emulator.js'));
+    for (const file of files) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
+      if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /(^|\/)dist\//.test(rel)) continue;
+      if (!fs.existsSync(file)) continue;
+      // Full-line `//` comments FIRST, then block comments: a line comment that quotes a glob
+      // (`// themes/*.css`) would otherwise open a "block" that swallows code up to the next
+      // `*/` (measured: it hid index.astro's URL from this count).
+      const code = fs.readFileSync(file, 'utf8').split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
+      for (const m of code.matchAll(urlRe)) urlHits.push(`${rel}: ${m[0]}`);
+      for (const m of code.matchAll(stateRe)) stateHits.push(`${rel}: ${m[0]}`);
+    }
+  }
+  return {
+    fenceWrappers, pluginTokenNames: hits.length, hits,
+    drawnFenceClasses: drawnHits.length, drawnHits,
+    drawnLibraryUrls: urlHits.length, urlHits,
+    drawnSettleStates: stateHits.length, stateHits,
+  };
 }
 
 function listPluginManifests(root) {

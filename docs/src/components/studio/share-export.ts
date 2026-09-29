@@ -35,13 +35,9 @@ export type DeckRender = {
 	geom: { w: number; h: number };
 	runtimeUrl: string;
 	fontCss: string;
-	/** Local Mermaid URL (studio), so an exported deck's diagrams render from our own
-	 *  origin. Absent → NO Mermaid tag is injected and diagrams do not render; there is
-	 *  no CDN default behind this any more. That matters most here of all: this type
-	 *  feeds the export/rasterize path, and the old fallback made an EXPORT fetch from a
-	 *  third party at export time, baking those bytes into a file handed to someone else.
-	 *  See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md. */
-	mermaidUrl?: string;
+	// No Mermaid URL: the capture frame's runtime loads the diagram library (the Mermaid
+	// plugin's payload) from beside `runtimeUrl` — our own origin, never a third party at
+	// export time (engineering/decisions/2026-09-03-self-hosted-runtime-deps.md).
 	/** Local dagre URL (`<assetBase>lattice-dagre.js`), so a state chart that BRANCHES
 	 *  is laid out rather than falling back to the numbered column. Absent → no tag is
 	 *  injected and the machine renders as a column — a different layout, not a missing
@@ -133,7 +129,6 @@ export async function buildDeckRender(
 		geom: { w: out.width || 1280, h: out.height || 720 },
 		runtimeUrl: options.runtimeUrl,
 		fontCss: previewFontFaceCss(),
-		mermaidUrl: options.mermaidUrl,
 		dagreUrl: options.dagreUrl,
 		webOrigins: options.webOrigins ?? [],
 		...(out.flatCss !== undefined
@@ -548,7 +543,6 @@ export async function shareHtmlPlayer(
 			geom: { w: out.width || 1280, h: out.height || 720 },
 			runtimeUrl: options.runtimeUrl,
 			fontCss,
-			...(options.mermaidUrl ? { mermaidUrl: options.mermaidUrl } : {}),
 			...(options.dagreUrl ? { dagreUrl: options.dagreUrl } : {}),
 		});
 		// Slide-count parity is the correctness gate: notes, narration cues and the
@@ -563,12 +557,12 @@ export async function shareHtmlPlayer(
 			// render ships as its source `<pre>`, and the author should hear that once
 			// rather than discover it in the file.
 			if (result.failed) {
-				console.warn(`lattice: ${result.failed} diagram(s) failed to render — they ship as their source, not as a drawing.`);
+				console.warn(`lattice: ${result.failed} figure(s) (diagrams or plots) failed to render — they ship as their source, not as a drawing.`);
 				// This is the LIKELIER degradation (some diagrams rendered, some did not) and it
 				// reached only the console, so an export shipping N diagrams as raw source still
 				// said "Webpage ready." The rare total failure surfaced and the common partial one
 				// did not.
-				bakeWarning = `${result.failed} diagram(s) ship as source, not as drawings`;
+				bakeWarning = `${result.failed} figure(s) ship as source, not as drawings`;
 			}
 		} else if (result) {
 			// Count mismatch. It used to fall through with no `else`, silently shipping the

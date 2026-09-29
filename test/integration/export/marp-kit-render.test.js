@@ -326,7 +326,7 @@ for (const fixture of FIXTURES) {
 			await page.evaluate(() => document.fonts.ready);
 			// Mermaid draws asynchronously and the tooltip pin runs on its completion.
 			await page.waitForFunction(
-				() => document.querySelector('[data-mermaid-state="rendered"]') !== null,
+				() => document.querySelector('[data-lattice-hydrate="mermaid"][data-lattice-settle="rendered"]') !== null,
 				{ timeout: 30000 },
 			);
 		}, { timeout: TIMEOUT });

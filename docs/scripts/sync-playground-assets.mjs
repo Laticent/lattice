@@ -46,7 +46,7 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { collectGalleryAssets } from '../src/playground/galleries.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -89,6 +89,12 @@ const assets = [
   ...createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'hydrate.generated.js')).HYDRATORS
     .filter((h) => h.payload)
     .map((h) => [h.payload.file, createRequire(import.meta.url).resolve(h.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
+  // …and each RUNTIME-drawn plugin's library (Mermaid), from the same registry
+  // (lib/plugins/drawn.generated.mjs), beside the runtime for the same reason: the runtime's
+  // diagram pass asks the plugin host for it (`ensureLibrary`), so no page threads its URL.
+  ...Object.values((await import(pathToFileURL(join(repoRoot, 'lib', 'plugins', 'drawn.generated.mjs')).href)).RUNTIME_DRAWN)
+    .filter((d) => d.payload)
+    .map((d) => [d.payload.file, createRequire(import.meta.url).resolve(d.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
   ['lattice-playground.js', engineJs],
   ['lattice-katex.js', katexProviderJs],
   ['themes/lattice.css', latticeCss],

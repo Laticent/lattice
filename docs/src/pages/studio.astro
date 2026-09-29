@@ -44,14 +44,12 @@ const options = {
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
 	engineUrl: url(pg + 'lattice-playground.js'),
-	// Locally-vendored Mermaid — the SAME committed `mermaid-v11.min.js` the
-	// Export-to-Marp bundle ships (staged under export/), which sets the
-	// `globalThis.mermaid` the runtime orchestrates. The Studio renders diagrams
-	// from our own origin, never the jsdelivr CDN (offline / strict-CSP safe).
-	mermaidUrl: url(pg + 'export/mermaid-v11.min.js'),
+	// No Mermaid URL: the diagram library is the Mermaid plugin's payload, staged beside
+	// the runtime, and the runtime's plugin host loads it from there — our own origin,
+	// never a CDN (offline / strict-CSP safe).
 	dagreUrl: url(pg + 'lattice-dagre.js'),
 	// Locally-vendored KaTeX (staged under katex/) for the presenter/stage math path —
-	// same reason as Mermaid: render math from our own origin, never jsdelivr.
+	// render math from our own origin, never jsdelivr.
 	katexUrl: url(pg + 'katex/katex.min.css'),
 };
 

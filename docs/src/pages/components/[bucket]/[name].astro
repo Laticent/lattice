@@ -12,6 +12,7 @@ import Specimen from '../../../components/Specimen.astro';
 import ComponentDocsView from '../../../components/components-ref/ComponentDocsView.tsx';
 import { ComponentPageHeader, ComponentPager } from '../../../components/components-ref/ComponentPageChrome.tsx';
 import { buildCatalog, buildLenses, groupCatalog } from '../../../lib/families.mjs';
+import { sourceHasDrawnFence } from '../../../../../lib/plugins/drawn-probe.mjs';
 
 const base = import.meta.env.BASE_URL;
 
@@ -63,7 +64,8 @@ const variants = [
 	{ key: 'default', label: 'default', caption: '', sample },
 	...variantKeys.map((v) => ({ key: v, label: v, caption: variantDocs[v].summary || '', sample: variantDocs[v].sample })),
 ];
-const mermaid = variants.some((v) => /```mermaid/.test(v.sample));
+// A fence a runtime draws (Mermaid's), by the plugin registry's fence names (lib/plugins/drawn-probe.mjs).
+const mermaid = variants.some((v) => sourceHasDrawnFence(v.sample));
 
 // Optional: group the variant chips by axis (manifest.variantAxes) so the
 // switcher reads as e.g. "Basemap: world · us" + "Modifier: highlight · …"

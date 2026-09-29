@@ -1,6 +1,6 @@
 # LPM — the Lattice Plugin Model
 
-**Version:** 0.2-draft · **Status:** Draft · **Date:** 2026-09-28 · **Host API:** `api: 1`
+**Version:** 0.3-draft · **Status:** Draft · **Date:** 2026-09-29 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block
 (` ```functionplot `), the browser code that draws it and the CSS that paints it — as one folder
@@ -92,7 +92,7 @@ installation, CSS order and hydrate order, and nothing else.
 
 | Field | Value |
 |---|---|
-| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", global, when: "used" } }` — at most one file in api 1: the library `hydrate` waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` |
+| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate`, or `render.exec.hydrate: "runtime"` (the runtime's pass asks the host for it — `ensureLibrary`, §6) |
 | `tokens` | every design token `styles.css` reads — exactly the set of its `var(--…)` reads |
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
@@ -219,6 +219,19 @@ bake, the Studio's export — waits until no element matches
 bounded. A placeholder naming a plugin the page has no browser half for is settled `unavailable`
 at once.
 
+**A figure drawn from its own code block** (a fence `as: "code"`, drawn by the runtime — Mermaid)
+carries the same markup on its `<pre>`, written by the RUNTIME's pass when it reaches the fence
+(at boot, before `load`) rather than by the engine: `data-lattice-hydrate="<plugin>"` and the settle
+state, `hydrating` while a draw is in flight. So every capture above waits on it with no selector
+of its own. It has no `data-lattice-config`: its content already is the author's highlighted
+source, so a release (`unavailable`, from the host or a capture) leaves that content in place,
+and the plugin's CSS shows it. On a page whose runtime draws that plugin, the host's `run` never
+draws or releases its `<pre>` — the runtime's pass owns it — while any OTHER element carrying the
+plugin's name is an author's and is settled `unavailable` at once; a page with no such pass (the CLI
+export page) releases them all. The host loads the plugin's `payload` for that pass through the same
+loader a `hydrate`'s uses (`ensureLibrary(name, isReady, onSettled)`: from beside the runtime, once
+per page, never retried), and a frame builder may preload it.
+
 ## 7. Resolution rules
 
 The build (`tools/build-plugin-registry.js`, through `lib/plugins/resolve.js`) fails, naming the
@@ -229,7 +242,7 @@ plugin, when:
   not installed, or sits on a dependency cycle;
 - a syntax anchor is not a host rule, an inline trigger is a character markdown-it's `text` rule
   does not stop at, or an inline rule is marked `opaque`;
-- `payload` is declared without `hydrate`, or names more than one file;
+- `payload` is declared without `hydrate` (or `render.exec.hydrate: "runtime"`), or names more than one file;
 
 - a declared contribution has no module export, or a module exports one the manifest does not
   declare (syntax renderers, fence renderers, `hydrate`, `styles.css`, `tokens`);
@@ -295,6 +308,10 @@ highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
 
+- **0.3-draft (2026-09-29).** Phase D's browser half: a runtime-drawn plugin may declare a
+  `payload` (Mermaid's library, `npm:mermaid/dist/mermaid.min.js`), which the host loads for the
+  runtime's pass (`ensureLibrary`); a figure drawn from its own code block carries the settle
+  protocol's markup on its `<pre>` (§6), and a release keeps its content.
 - **0.2-draft (2026-09-28).** Phase D: `bake` and `render.exec.bake: "subprocess"`, a fence
   `as: "code"`, and `render.exec.hydrate: "runtime"`. `mermaid` stops being a host-reserved fence
   name and becomes the mermaid plugin's. Shipped plugins: `math`, `function-plot`, `anima`,

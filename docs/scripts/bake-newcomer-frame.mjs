@@ -162,7 +162,7 @@ async function main() {
 		if (!plan) throw new Error(`bake: unreadable plan for ${component}`);
 		const source = plan.slides.map((s) => s.md).join('\n\n---\n\n');
 
-		const bridge = createEngineBridge(pg.themeBase, pg.runtimeUrl, pg.engineUrl, pg.palettes, { mermaidUrl: pg.mermaidUrl, dagreUrl: pg.dagreUrl, katexUrl: pg.katexUrl });
+		const bridge = createEngineBridge(pg.themeBase, pg.runtimeUrl, pg.engineUrl, pg.palettes, { dagreUrl: pg.dagreUrl, katexUrl: pg.katexUrl });
 		for (const mode of MODES) {
 			win.document.documentElement.setAttribute('data-mode', mode);
 			win.document.documentElement.style.setProperty('--bg-alt', paneBackground(PALETTE, mode));

@@ -19,7 +19,6 @@ export type RestyleData = {
 	themeBase: string;
 	runtimeUrl: string;
 	engineUrl: string;
-	mermaidUrl: string;
 	dagreUrl: string;
 	katexUrl: string;
 };
@@ -33,7 +32,6 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 			themeBase: data.themeBase,
 			runtimeUrl: data.runtimeUrl,
 			engineUrl: data.engineUrl,
-			mermaidUrl: data.mermaidUrl,
 			dagreUrl: data.dagreUrl,
 			katexUrl: data.katexUrl,
 		}),

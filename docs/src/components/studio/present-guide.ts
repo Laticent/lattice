@@ -4,6 +4,7 @@ import { keyIndex, mergeGesture, resolveUnit } from '@/lib/scene-resolve.js';
 import { type Gesture, gestureRest, type RectSource } from '@/lib/vetrina/index.js';
 import { frameGeom, innerRectToParent } from '@/playground/frame-geom.js';
 import { spokenValue } from '@/playground/read-along-core.generated.js';
+import { DRAWN_FENCE_CODE } from '../../../../lib/plugins/drawn-probe.mjs';
 
 // THE GUIDE RUNG — pointing at the part of the slide currently being narrated (#1397),
 // with the deictic gesture vocabulary that stopped it being a karaoke follower (#1404).
@@ -998,8 +999,12 @@ function contentKeys(s: string): Map<string, number> {
 /** Shared weight a block needs: two words, or one number of two digits or more. */
 const PARAPHRASE_MIN_SHARED = 2;
 
-/** A picture a sentence can be about without naming a block: a chart, a diagram, an image. */
-const FIGURE_SELECTOR = '.chart-body, .mermaid, pre.language-mermaid, figure, img:not(.deck-logo)';
+/**
+ * A picture a sentence can be about without naming a block: a chart, a diagram, an image, a
+ * plugin figure (the host's `data-lattice-hydrate` marker), and a fence a runtime draws, found by
+ * its code block before it is drawn (the registry's fence names — lib/plugins/drawn-probe.mjs).
+ */
+const FIGURE_SELECTOR = `.chart-body, .mermaid, [data-lattice-hydrate], figure, img:not(.deck-logo), ${DRAWN_FENCE_CODE}`;
 const PARAPHRASE_MIN_COVERAGE = 1 / 3;
 
 /** The one slide a paraphrase may match inside, or null when that is not knowable. */

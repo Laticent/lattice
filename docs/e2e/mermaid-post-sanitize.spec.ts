@@ -98,8 +98,8 @@ async function openDeck(page: import('@playwright/test').Page, mermaidSrc: strin
 	const preview = page.frameLocator('#preview');
 	await expect(preview.locator('.lattice')).toBeVisible({ timeout: 40_000 });
 	// Wait on the runtime's own settle stamp rather than a fixed delay: the fence carries
-	// `data-mermaid-state` once the render resolves either way.
-	await expect(preview.locator('pre[data-mermaid-state]').first()).toHaveAttribute('data-mermaid-state', /rendered|error/, {
+	// `data-lattice-settle` once the render resolves either way.
+	await expect(preview.locator('pre[data-lattice-hydrate="mermaid"][data-lattice-settle]').first()).toHaveAttribute('data-lattice-settle', /rendered|error/, {
 		timeout: 40_000,
 	});
 	return probe;
@@ -117,7 +117,7 @@ async function openDeck(page: import('@playwright/test').Page, mermaidSrc: strin
 // style: a mermaid node label is delimited by `"`, so an inner `"` makes Mermaid throw —
 // the diagram never renders, nothing can run, and the arm passes while testing NOTHING.
 // The first cut of this table had exactly that bug in 6 of its then-7 rows, and only the
-// `data-mermaid-state: rendered` assertion below exposed it.
+// `data-lattice-settle: rendered` assertion below exposed it.
 //
 // The oracle is `top.__pwned`, not a network beacon: it detects script EXECUTION directly,
 // and reaching `top` from the preview frame is the actual harm (that is the origin holding
@@ -142,7 +142,7 @@ for (const v of SCRIPT_VECTORS) {
 		// no DOM at all, so "nothing exfiltrated" would be green while testing nothing. Assert
 		// the diagram actually rendered AND that the label's benign half is on screen, so the
 		// payload provably reached the DOM and it is the sanitizer being measured, not the parser.
-		await expect(preview.locator('pre[data-mermaid-state]').first()).toHaveAttribute('data-mermaid-state', 'rendered');
+		await expect(preview.locator('pre[data-lattice-hydrate="mermaid"][data-lattice-settle]').first()).toHaveAttribute('data-lattice-settle', 'rendered');
 		await expect(preview.locator('svg foreignObject').filter({ hasText: 'one' }).first()).toBeAttached();
 
 		// Some shapes only fire on interaction; drive that too rather than calling an

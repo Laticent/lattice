@@ -54,12 +54,12 @@ describe('extractDiagrams — finding the diagrams to check', () => {
 describe('parseErrorMessage — keeping the diagnosis, not just the location', () => {
 	it('keeps both the location and the expectation', async () => {
 		const raw = "Parse error on line 3:\n...ass Order {    +id\n---------------------^\nExpecting 'STRUCT_STOP', 'MEMBER', got 'EOF_IN_STRUCT'";
-		const { parseErrorMessage } = await import('./mermaid-check');
+		const { parseErrorMessage } = await import('./mermaid-parse');
 		expect(parseErrorMessage(new Error(raw))).toBe("Parse error on line 3: Expecting 'STRUCT_STOP', 'MEMBER', got 'EOF_IN_STRUCT'");
 	});
 
 	it('passes a single-line error through unchanged', async () => {
-		const { parseErrorMessage } = await import('./mermaid-check');
+		const { parseErrorMessage } = await import('./mermaid-parse');
 		expect(parseErrorMessage(new Error('No diagram type detected matching given configuration for text: flowcharrt TD'))).toBe('No diagram type detected matching given configuration for text: flowcharrt TD');
 	});
 });

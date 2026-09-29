@@ -69,13 +69,16 @@ const BROKEN_DECK = deckWith([`flowchart LR ${SENTINEL}`, '  A -->']);
  * fast arm reasons about a script that has already had its turn, and `addScriptTag`
  * appends after load, which is the one shape the arm deliberately does not claim.
  */
-async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAttrs = '', mermaidDelayMs = 0, basePath = '/', extraScript = '', dynamicInsert = null, waitFor = null, settleMs = 8000, runtimeFirst = false }) {
+async function readFence({ mermaid, payload = '404', laterDeck = null, laterMs = 0, stampDiagrams = false, deck = DECK, scriptAttrs = '', mermaidDelayMs = 0, basePath = '/', extraScript = '', dynamicInsert = null, waitFor = null, settleMs = 8000, runtimeFirst = false }) {
   const puppeteer = require('puppeteer');
   const engine = require('../../../lib/engine');
   const { composeCss } = require('../../../lib/engine/css.js');
   const { fontFaceCss } = require('../../../lib/fonts/face-css.js');
 
   const out = engine.render(deck, 'indaco', { preview: true });
+  // A deck whose slides arrive LATER, appended by a script after `laterMs` — the shape of a host
+  // that patches a first diagram into a live document.
+  const later = laterDeck ? engine.render(laterDeck, 'indaco', { preview: true }).html : '';
   const css = composeCss({
     themeCss: fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8'),
     baseLatticeCss: fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'),
@@ -86,6 +89,12 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAt
   const doc = '<!doctype html><html' + (stampDiagrams ? ' data-lattice-diagrams' : '') + '><head><style>'
     + fontFaceCss(ROOT) + css + '\n.lattice>section{width:1280px;height:720px}'
     + '</style>'
+    // What the fence's state was AT `load` — the moment the Studio's desktop print starts its
+    // 450ms beat toward `print()`, with no diagram wait of its own.
+    + '<scr' + 'ipt>addEventListener("load",function(){var p=document.querySelector("pre[data-lattice-settle]");window.__stateAtLoad=p?p.getAttribute("data-lattice-settle"):null;});</scr' + 'ipt>'
+    // Did Mermaid's OWN startOnLoad pass ever paint its error graphic into one of our (empty)
+    // render targets? Watched from the first byte of <body>, for the life of the page.
+    + '<scr' + 'ipt>window.__bomb=0;new MutationObserver(function(){if(document.querySelector(".mermaid [aria-roledescription=\\"error\\"], .mermaid .error-icon"))window.__bomb++;}).observe(document.documentElement,{subtree:true,childList:true});</scr' + 'ipt>'
     + (dynamicInsert
       // Inserted by script, `async = false`, into <head> — so it precedes the runtime tag
       // at the end of <body> in document order while not having run. No platform signal
@@ -95,6 +104,10 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAt
       : '')
     + '</head><body>'
     + `<article class="lattice">${out.html}</article>`
+    + (later
+      ? `<template id="later">${later}</template><scr` + `ipt>setTimeout(function(){var a=document.querySelector('.lattice');`
+        + `a.appendChild(document.getElementById('later').content.cloneNode(true));}, ${laterMs});</scr` + `ipt>`
+      : '')
     // `scriptAttrs` goes on the MERMAID tag only. Putting it on both made the defer cell
     // vacuous — two `defer` scripts execute in order, so Mermaid was already real when the
     // runtime booted and `mermaidPromiseBroken()` was never consulted at all.
@@ -106,10 +119,21 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAt
 
   const runtimeJs = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'));
   const mermaidJs = mermaid && mermaid !== 'no-tag' ? fs.readFileSync(path.join(ROOT, 'node_modules', 'mermaid', 'dist', 'mermaid.js')) : null;
+  const payloadRequests = [];
   const server = http.createServer(async (req, res) => {
     if (req.url.endsWith('/lattice-runtime.js')) {
       res.writeHead(200, { 'content-type': 'application/javascript' });
       res.end(runtimeJs);
+      return;
+    }
+    // The Mermaid plugin's PAYLOAD, which the runtime's plugin host asks for beside itself when no
+    // host wrote a Mermaid tag (lib/plugins/host-browser.mjs `ensureLibrary`). A 404 by default, so
+    // a cell that means to exercise a host tag is not rescued by it.
+    if (req.url.endsWith('/mermaid.min.js')) {
+      payloadRequests.push(req.url);
+      if (payload !== 'serve') { res.writeHead(404); res.end('no payload here'); return; }
+      res.writeHead(200, { 'content-type': 'application/javascript' });
+      res.end(fs.readFileSync(path.join(ROOT, 'node_modules', 'mermaid', 'dist', 'mermaid.min.js')));
       return;
     }
     if (req.url.endsWith('/mermaid.js')) {
@@ -147,7 +171,7 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAt
     // release that only happened on the deadline times out here rather than passing late.
     const settleStates = waitFor ? [waitFor] : ['rendered', 'unavailable', 'error'];
     const settleSelector = settleStates
-      .flatMap((st) => [`pre[data-mermaid-state="${st}"]`, `marp-pre[data-mermaid-state="${st}"]`])
+      .flatMap((st) => [`pre[data-lattice-settle="${st}"]`, `marp-pre[data-lattice-settle="${st}"]`])
       .join(',');
     const settled = await page.waitForFunction(
       (sel) => !!document.querySelector(sel),
@@ -156,11 +180,12 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAt
     const settledMs = Date.now() - startedAt;
     await page.evaluate(() => document.fonts.ready);
     const read = await page.evaluate(() => {
-      const pre = document.querySelector('pre[data-mermaid-state],marp-pre[data-mermaid-state]');
+      const pre = document.querySelector('pre[data-lattice-settle],marp-pre[data-lattice-settle]');
       const sibling = pre?.nextElementSibling?.classList.contains('mermaid') ? pre.nextElementSibling : null;
       const box = pre?.getBoundingClientRect();
       return {
-        state: pre?.getAttribute('data-mermaid-state') ?? null,
+        state: pre?.getAttribute('data-lattice-settle') ?? null,
+        plugin: pre?.getAttribute('data-lattice-hydrate') ?? null,
         display: pre ? getComputedStyle(pre).display : null,
         visibility: pre ? getComputedStyle(pre).visibility : null,
         // The CODE's visibility, not the <pre>'s: the anti-flash rule withholds ink on
@@ -173,9 +198,11 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAt
         siblingDisplay: sibling ? getComputedStyle(sibling).display : null,
         svgs: document.querySelectorAll('section svg').length,
         stamped: document.documentElement.hasAttribute('data-lattice-diagrams'),
+        stateAtLoad: window.__stateAtLoad ?? null,
+        bomb: window.__bomb || 0,
       };
     });
-    return { ...read, settled, settledMs, gaveUp: gaveUpLines.length > 0, gaveUpLines };
+    return { ...read, settled, settledMs, gaveUp: gaveUpLines.length > 0, gaveUpLines, payloadRequests };
   } finally {
     await browser.close();
     await new Promise((r) => server.close(r));
@@ -237,7 +264,7 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // measuring it is how this change found that it had not worked on a Form-wrapped
     // diagram slide since the masthead kernel started wrapping the body in `.cell-stage`:
     // `section.diagram > .cell-stage > .mermaid { display:flex; flex:1 }` out-specifies
-    // `[data-mermaid-state="error"] + .mermaid { display:none }` (0,3,1 against 0,2,1), so
+    // `[data-lattice-settle="error"] + .mermaid { display:none }` (0,3,1 against 0,2,1), so
     // an EMPTY box claimed half the stage and the source the author needs to read got the
     // other half. Both states carry the wrapped arm now. Driven, not derived from that
     // arithmetic — the arithmetic is what a reviewer would have got wrong.
@@ -305,14 +332,96 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // and the fix it names had no isolating coverage. An unrelated third-party script in
     // the same mermaid-named folder is excluded by neither guard, so it isolates the one
     // under test.
+    //
+    // With no Mermaid tag, the runtime now asks the plugin host for the library instead (the
+    // plugin's payload, 404 here), and THAT failure gives up too — so the discriminator is WHICH
+    // arm gave up: the fast arm's line names a `<script src>` that had its turn, and must not
+    // appear. Revert the file-name fix and `analytics.js` becomes that script: the fast arm fires
+    // on the first tick, before the payload is ever requested.
     const r = await readFence({
       mermaid: 'no-tag',
       basePath: '/mermaid-demo/',
       extraScript: '<scr' + 'ipt src="analytics.js"></scr' + 'ipt>',
     });
-    assert.equal(r.gaveUp, false,
+    assert.ok(!r.gaveUpLines.some((l) => /naming mermaid has had its turn/.test(l)),
       `a folder name is not a promise of Mermaid: ${r.gaveUpLines.join(' | ')}`);
-    assert.equal(r.state, 'pending', 'so the fence is still waiting when we look');
+    assert.equal(r.payloadRequests.length, 1, 'with no Mermaid tag, the plugin host asked for the payload');
+  });
+
+  test('draws through the plugin host when no host wrote a Mermaid tag — the payload beside the runtime', async () => {
+    // Phase D's browser half: the library is the Mermaid plugin's declared payload
+    // (lib/plugins/mermaid/mermaid.manifest.json), staged beside `lattice-runtime.js` by its file
+    // name, and loaded by the plugin host's one loader. No page threads a URL.
+    const r = await readFence({ mermaid: 'no-tag', payload: 'serve', waitFor: 'rendered', settleMs: 20000 });
+    assert.equal(r.state, 'rendered', 'the diagram draws with no host tag at all');
+    assert.equal(r.plugin, 'mermaid', 'the fence carries the plugin host\'s markup');
+    assert.ok(r.svgs > 0, 'and the SVG is on the slide');
+    assert.deepEqual(r.payloadRequests, ['/mermaid.min.js'], 'fetched once, from beside the runtime, by the payload\'s file name');
+  });
+
+  test('Mermaid\'s own startOnLoad pass never paints its error graphic into our empty targets', async () => {
+    // The payload lands just before the window's `load`, and Mermaid's evaluation registers a
+    // `load` listener that runs over every `.mermaid` element — our empty targets — unless
+    // `startOnLoad` is off by then. The runtime switches it off in the script's own onload
+    // (HARD RULE #25 red team: the error graphic showed for ~130ms in up to 4 of 4 runs). Four
+    // diagrams and five documents, because the race is a race.
+    const four = deckWith(['flowchart LR', `  A["${SENTINEL}"] --> B`, '```', '', '---', '', '<!-- _class: diagram -->', '', '## Two', '', '```mermaid', 'flowchart LR', '  C --> D', '```', '', '---', '', '<!-- _class: diagram -->', '', '## Three', '', '```mermaid', 'sequenceDiagram', '  A->>B: hi', '```', '', '---', '', '<!-- _class: diagram -->', '', '## Four', '', '```mermaid', 'flowchart TB', '  E --> F']);
+    for (let i = 0; i < 5; i++) {
+      const r = await readFence({ mermaid: 'no-tag', payload: 'serve', deck: four, waitFor: 'rendered', settleMs: 20000 });
+      assert.equal(r.bomb, 0, `run ${i}: Mermaid drew its own error graphic into a render target`);
+      assert.equal(r.state, 'rendered');
+    }
+  });
+
+  test('a payload that 404s hands the fence back fast, not on the deadline', async () => {
+    // The plugin host reports the failed load and the runtime gives up at once — the same
+    // release the fast arm makes for a host tag, and for the same reason (the Studio's desktop
+    // print waits `load` + 450ms and never waits on diagrams).
+    const r = await readFence({ mermaid: 'no-tag', payload: '404' });
+    assert.equal(r.settled, true);
+    assert.equal(r.state, 'unavailable');
+    assert.notEqual(r.display, 'none', 'the source is shown');
+    assert.match(r.text, new RegExp(SENTINEL));
+    assert.ok(r.gaveUpLines.some((l) => /plugin host could not load its library/.test(l)), r.gaveUpLines.join(' | '));
+    assert.ok(r.settledMs < 2000, `settled in ${r.settledMs}ms, want < 2000ms`);
+    // …and BEFORE `load`: the runtime inserts the payload's script while the document is still
+    // loading, so its failure lands before `load` fires — as the old parser-inserted tag's did.
+    // This is what the print path (PrintOptionsPanel.tsx) relies on.
+    assert.equal(r.stateAtLoad, 'unavailable', 'the fence was already handed back when `load` fired');
+  });
+
+  test('a fence that arrives AFTER the deadline, whose payload then 404s, is handed back — not left hidden', async () => {
+    // The bootstrap give-up is one-shot, and in a document that booted with no fence it has
+    // already fired (releasing nothing) by the time a fence is patched in. The payload request
+    // tags that fence `pending` — hidden — so its failure has to release it itself (HARD RULE
+    // #25 checker: before the fix it stayed `pending` and invisible for good).
+    const r = await readFence({
+      mermaid: 'no-tag', payload: '404',
+      deck: ['---', 'theme: indaco', '---', '', '## No diagram yet'].join('\n'),
+      laterDeck: DECK, laterMs: 11000, waitFor: 'unavailable', settleMs: 25000,
+    });
+    assert.equal(r.state, 'unavailable', 'the late fence was handed back to its source');
+    assert.notEqual(r.display, 'none', 'and it is visible');
+    assert.match(r.text, new RegExp(SENTINEL));
+  });
+
+  test('never asks for the payload when the host wrote its own Mermaid tag — even on a later pass', async () => {
+    // An async host tag still loading, and a DOM mutation meanwhile: the debounced pass must not
+    // ask the plugin host for a second copy. Before the fix it did, the payload 404ed, and the
+    // fence flashed its source until the host's script landed (HARD RULE #25 checker).
+    const r = await readFence({
+      mermaid: true, scriptAttrs: 'async', mermaidDelayMs: 2500,
+      extraScript: '<scr' + 'ipt>setTimeout(function(){document.body.appendChild(document.createElement("div"));}, 300);</scr' + 'ipt>',
+      waitFor: 'rendered', settleMs: 20000,
+    });
+    assert.deepEqual(r.payloadRequests, [], 'the host tag is the library; the payload is never fetched');
+    assert.equal(r.gaveUp, false, `nothing gave up: ${r.gaveUpLines.join(' | ')}`);
+    assert.equal(r.state, 'rendered');
+  });
+
+  test('a document with no fence never asks for the payload', async () => {
+    const r = await readFence({ mermaid: 'no-tag', payload: 'serve', deck: ['---', 'theme: indaco', '---', '', '## No diagram here'].join('\n'), settleMs: 1500 });
+    assert.deepEqual(r.payloadRequests, [], 'a deck without a diagram never fetches the library');
   });
 
   test('takes the fence back when a slow Mermaid finally loads, with no edit to trigger it', async () => {
