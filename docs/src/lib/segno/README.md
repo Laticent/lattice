@@ -151,6 +151,26 @@ The design: [`2026-09-28-segno-unified-inline-notation.md`](../../../../engineer
 
 ## Speed
 
+**Against parser libraries.** Segno beside six popular JavaScript parser libraries and the
+hand-written parsers it replaces, each in its own process on identical inputs (the 64 bracket
+lists and 4,645 inline spans in Lattice's decks); run 2026-09-29, Node 22:
+
+| parser | style | bracket list | inline span | worst hostile input, 32k chars |
+|---|---|---|---|---|
+| **Segno** | LL(1), proven at compile time | 734 ns | 45 ns | 7 ms |
+| hand-written (Lattice) | recursive descent | 942 ns | 33 ns | 7 ms |
+| Peggy | PEG | 6,577 ns | 882 ns | 7.3 s |
+| Chevrotain | LL(k), tokens | 4,723 ns | 24,605 ns | 776 ms |
+| Parsimmon | PEG combinators | 54,267 ns | 1,073 ns | did not finish |
+| Nearley | Earley | 66,000 ns | 12,644 ns | did not finish |
+| Ohm | PEG, memoized | 107,161 ns | 24,597 ns | did not finish |
+
+Reproduce with `npm run parser:bakeoff:versus`; the method and caveats are in
+[`2026-09-28-parser-library-bakeoff.md` § Head to head with Segno](../../../../engineering/decisions/2026-09-28-parser-library-bakeoff.md).
+Absolute times move with the machine; the ratios carry.
+
+**Against the parsers it replaces, in detail:**
+
 Measured against the hand-written parsers it replaces in Lattice, on the inline-code spans and
 bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best of seven long rounds, one machine):
 

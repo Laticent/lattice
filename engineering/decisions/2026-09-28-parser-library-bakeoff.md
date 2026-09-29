@@ -19,7 +19,7 @@ summary: >
 # Parser libraries against our hand-written grammars: every one can say it, none should ship it
 
 **Date:** 2026-09-28 · **Status:** proposed — the recommendation needs an owner call (§ "The decision")
-**Harness:** `npm run parser:bakeoff` · `npm run parser:bakeoff:speed` · `tools/parser-bakeoff/`
+**Harness:** `npm run parser:bakeoff` · `npm run parser:bakeoff:speed` · `npm run parser:bakeoff:versus` (Segno head to head) · `tools/parser-bakeoff/`
 **Related:** `2026-09-22-chart-axis-grammar.md` (why `bracket-list.js` is a single-pass scan),
 `2026-09-25-flowchart-authoring.md` (the flowchart grammar), `2026-09-20-dom-library-bakeoff.md`
 (the harness shape this one copies)
@@ -361,12 +361,76 @@ it needs five uninstalled packages and takes about twenty minutes, which is why 
 `dom:bakeoff` as an on-demand tool. (The stray-`]` quirk was the other; the owner chose to
 fix it, and it is fixed here.)
 
+## Head to head with Segno
+
+The owner's answer to this note was an owned engine, Segno (`2026-09-28-segno-unified-inline-notation.md`).
+This section holds it to the same field, and it is meant to be re-run and quoted:
+`npm run parser:bakeoff:versus` (`tools/parser-bakeoff/versus.mjs`) prints the tables below.
+
+**How it is kept fair.** Every candidate runs in its own process, so no parser's JIT state
+touches another's (measured during this work: one parser slowed 2.5x after sharing a process with
+other inputs). Every candidate reads the identical inputs: all 64 bracket lists in the decks,
+parsed into parts, and all 4,645 inline-code spans, dispatched. The libraries read today's
+syntax; Segno reads the same spans with pills translated to its spelling (`{X}:a:b` becomes
+`{X, a, b}`), the only inline syntax that changed. Repetitions are sized per candidate so a
+40 ns parser and a 100 µs one both get five stable rounds. The hostile ladder is one parse per
+rung, stopped when a rung passes half a second.
+
+**Run of 2026-09-29, Node 22.22, cloud sandbox:**
+
+Per input, best of five rounds (node v22.22.2). Bracket lists: 64; inline spans: 4645.
+
+| parser | bracket lists (split into parts) | inline spans (dispatch) |
+|---|---|---|
+| Lattice kernels (hand-written) | 942 ns | 33 ns |
+| **Segno** | 734 ns | 45 ns |
+| Peggy | 6,577 ns | 882 ns |
+| Chevrotain | 4,723 ns | 24,605 ns |
+| Ohm | 107,161 ns | 24,597 ns |
+| Nearley | 66,000 ns | 12,644 ns |
+| Parsimmon | 54,267 ns | 1,073 ns |
+| Lezer | — | 8,670 ns |
+
+Hostile input: ms for one parse at 2k / 8k / 32k characters; DNF = the rung before took over 500 ms.
+
+| shape | Lattice kernels (hand-written) | **Segno** | Peggy | Chevrotain | Ohm | Nearley | Parsimmon |
+|---|---|---|---|---|---|---|---|
+| spaces in a member | 1.2 / 1.9 / 3.9 | 0.25 / 0.72 / 1.5 | 2.2 / 3.3 / 14 | 2.2 / 0.70 / 2.3 | 11 / 24 / 104 | 126 / 2,953 / DNF | 7.8 / 10 / 29 |
+| unclosed quotes | 0.77 / 2.9 / 7.2 | 0.72 / 1.9 / 7.0 | 64 / 353 / 7,266 | 15 / 88 / 776 | 468 / 6,577 / DNF | 921 / DNF / DNF | 894 / DNF / DNF |
+| nested braces | 0.34 / 1.1 / 4.7 | 1.7 / 0.03 / 0.02 | 1.1 / 3.9 / 14 | 2.7 / 4.2 / 22 | 5.4 / 25 / 123 | 172 / 2,494 / DNF | 2.2 / 4.0 / 16 |
+| unclosed double quote | 0.49 / 1.7 / 5.7 | 1.3 / 3.9 / 3.2 | 1.4 / 4.3 / 20 | 1.2 / 5.5 / 21 | 17 / 63 / 312 | 1,224 / DNF / DNF | 8.3 / 32 / 116 |
+
+A second run on the same machine agreed with this one to within 25% on every cell, with the same
+DNF cells.
+
+**What it says:**
+
+- **Per input, Segno is in the hand-written kernels' class and the libraries are not.** On bracket
+  lists Segno was faster than the kernels in both runs (734 and 637 ns against 942 and 827). On
+  inline spans it is 1.3-1.4x the kernels. The fastest library is 6.4x Segno on lists (Chevrotain)
+  and 20x on inline spans (Peggy); the slowest is 146x on lists (Ohm) and about 550x on inline
+  spans (Chevrotain and Ohm, tied).
+- **On hostile input, Segno is the only parser besides the kernels that stays linear on every
+  shape.** Its worst case is 7-8 ms at 32,000 characters. Peggy took 7.3 s on the unclosed-quote
+  shape, Chevrotain 776 ms, and Ohm, Nearley and Parsimmon did not finish it.
+- **Read the unclosed-quote row with care.** It is the bake-off's shape, an unclosed apostrophe:
+  a quote in today's syntax, ordinary text in Segno's. The row is kept for every candidate as-is,
+  and the "unclosed double quote" row is Segno's real equivalent, where it also stays under 4 ms.
+- **Segno's flat nested-braces row is a refusal, not a parse.** It stops at its 31-level cap with
+  an error, by design.
+
+**Caveats.** Absolute times move by up to 2x between machines and runs on this sandbox; the ratios
+and the growth along the ladder are what carry. Lezer's grammar set does not cover bracket lists.
+The libraries' grammars are the bake-off's own, written to parity with the kernels, and none was
+tuned for speed beyond that.
+
 ## Reproduce
 
 ```bash
 npm i --no-save peggy@5 nearley@2 moo ohm-js@17 parsimmon @lezer/generator @lezer/lr
 npm run parser:bakeoff                 # parity table (about three minutes)
 npm run parser:bakeoff:speed           # throughput, scaling, cold, size (about 20 minutes)
+npm run parser:bakeoff:versus          # Segno head to head with the kernels and the libraries (about 20 minutes)
 node tools/parser-bakeoff/loc.mjs      # code lines per candidate
 node tools/parser-bakeoff/errors.mjs   # each library's own error message
 ```
