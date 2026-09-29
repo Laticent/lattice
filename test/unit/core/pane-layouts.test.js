@@ -161,6 +161,27 @@ test('a narrow deck splits each pane onto its own page, its head held together',
   assert.doesNotMatch(mast, /trailing four quarters/);
 });
 
+test('a pane split onto its own page keeps its one paragraph under its title, not as a footnote', () => {
+  // A kpi at 50% reads neither side by side nor stacked, so the slide splits; the content
+  // page's only paragraph follows the head <div>, which is a heading, not a structural block.
+  const md = ['<!-- _class: columns -->', '', '## Q3 beat plan.', '', '<!-- _pane: kpi -->', '### Q3 results', '',
+    '1. $2.4B', '   - Total revenue', '2. 42%', '   - Gross margin', '',
+    '<!-- _pane: content -->', '### Context', '', 'Both beat the plan set in January.', ''].join('\n');
+  const html = render(md);
+  assert.equal(sectionTags(html).length, 2);
+  const flat = html.replace(/>\s+</g, '><');
+  assert.match(flat, /<div class="lat-pane-head"><h3>Context<\/h3><\/div><p>Both beat the plan set in January\.<\/p>/);
+  assert.doesNotMatch(flat, /below-note"><p>Both beat/);
+  // The live-DOM arm answers the same.
+  const { applyToDom } = require('../../../lib/core/coda.js');
+  const dom = new JSDOM('<section class="content"><div class="lat-pane-head"><h3>Context</h3></div><p>Both beat.</p></section>'
+    + '<section class="content"><ul><li>a</li></ul><p>Both beat.</p></section>');
+  applyToDom(dom.window.document);
+  const [head, list] = dom.window.document.querySelectorAll('section');
+  assert.equal(head.querySelector('.below-note'), null);
+  assert.ok(list.querySelector('.below-note'), 'control: a list, then a sentence, is still a footnote');
+});
+
 test('lint reads the syntax: a correct slide is clean, and the words are not unknown classes', () => {
   assert.deepEqual(lintText(NEW).filter((f) => f.rule === 'unknown-class' || f.rule.startsWith('pane-')), []);
 });
