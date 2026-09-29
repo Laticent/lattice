@@ -276,7 +276,7 @@ test('css: the frame keyline is drawn on top of the finish, clear of the header 
   const clears = css.match(/--fin-frame: 0 0 transparent;[^\n]*\n\s*--fin-frame-mark: transparent;/g) || [];
   assert.equal(clears.length, 2, 'finish-none and print mode both clear --fin-frame-mark');
   // The shipped gallery preset carries the keyline color, at the inset outside the header.
-  const gallery = css.match(/section\.finish-gallery \{[^}]*\}/)[0];
+  const gallery = css.match(/section\.finish-gallery,\s*section\.finish-gallery :is\([^)]*\) \{[^}]*\}/)[0];
   assert.match(gallery, /--fin-frame: inset 0 0 0 calc\(1\.1 \* var\(--_sec-1cqi, 1cqi\)\)/);
   assert.match(gallery, /--fin-frame-mark: color-mix\(/);
 });
