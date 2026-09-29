@@ -540,7 +540,7 @@ export function PrintOptionsPanel({
 				<p className="text-[12px] text-muted-foreground">Every slide is scaled to fit its page, centered — never cropped. The PDF is built when you print or download.</p>
 			</section>
 
-			{/* Preview — the beloved navy stage + white sheet + dashed safe margin, compact.
+			{/* Preview — the theme's inverse-surface stage + white sheet + dashed safe margin, compact.
 			    N-up frames one slide per grid cell; the handout adds a notes panel below. */}
 			<div className="pod-stage" ref={stageRef}>
 				{render && sections.length ? (
@@ -647,11 +647,12 @@ function Seg({ opts, value, onPick }: { opts: [string, string][]; value: string;
 	);
 }
 
-// Scoped to the drawer. The preview stage + segmented controls carry the Print page's
-// brass-on-navy identity; `var(--accent)` resolves to the Studio's brass, so the drawer
-// matches both the tab it replaces AND the rest of the Share sheet. Colors that are a
-// presentation SURFACE (the navy stage, the white paper) are literal, exactly as the
-// tab page's scoped CSS was — docs/src component styles are outside the layout hex gate.
+// Scoped to the drawer. `var(--accent)` resolves to the Studio's accent, so the drawer matches
+// the rest of the Share sheet. The preview STAGE is the theme's own dark surface,
+// `--surface-inverse` (indaco navy, cuoio leather), the same one the landing page's hero sets its
+// slide on. It used to be a literal navy, which only matched indaco: on any other theme the
+// drawer showed a navy panel the deck never uses. The PAPER stays literal white, because the
+// sheet is paper, not chrome. docs/src component styles are outside the layout hex gate.
 //
 // The THEMED colors here are palette tokens (`--text-muted`, `--bg-alt`, `--border`,
 // `--accent`), NOT the shadcn bridge names. This block read `var(--muted-foreground)`
@@ -663,7 +664,7 @@ function Seg({ opts, value, onPick }: { opts: [string, string][]; value: string;
 // (`text-muted-foreground`); raw `var()` needs the palette token the bridge points at.
 // Found and fixed with #1688; `checkDanglingTokenReads` now blocks the reintroduction.
 const STYLE = `
-.pod-stage{position:relative;height:180px;border-radius:12px;padding:16px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),#0b1c33;box-shadow:inset 0 0 0 1px color-mix(in srgb,#ffffff 6%,transparent);}
+.pod-stage{position:relative;height:180px;border-radius:12px;padding:16px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),var(--surface-inverse);box-shadow:inset 0 0 0 1px color-mix(in srgb,#ffffff 6%,transparent);}
 .pod-sheet{/* no size transition: pooled frames are re-measured on a throttled pass and lagged it, spilling past their cells */background:#fff;box-shadow:0 14px 38px -12px rgba(0,0,0,.6);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.06);}
 .pod-cell{position:absolute;}
 .pod-frame{position:absolute;border:0;background:#fff;border-radius:2px;overflow:hidden;box-shadow:0 5px 14px -8px rgba(20,35,56,.35);transition:left .3s,top .3s,width .3s,height .3s;}
