@@ -93,6 +93,7 @@
     "sweep:guide": "node tools/sweep-guide-gestures.mjs",
     "mutate:guide": "node tools/mutate-guide-gestures.mjs",
     "mutate:stage-window": "node tools/mutate-stage-window.mjs",
+    "mutate:segno": "node tools/mutate-segno.mjs",
     "score:variance": "node tools/score-variance.js",
     "quality": "node tools/quality-assessment.js",
     "quality:bless": "node tools/quality-assessment.js --bless",

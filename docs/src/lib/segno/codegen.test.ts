@@ -3,10 +3,11 @@
 // reference. They must agree on EVERY input — the same tree, or the same error at the same
 // offset — and the checked-in generated file must be what the generator writes today.
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { generate } from './codegen';
 import { toNodes } from './flat';
-import { compile, many, noneOf, oneOf, seq } from './grammar';
+import { alt, compile, type GrammarSpec, many, many1, noneOf, oneOf, range, ref, seq } from './grammar';
 import { parse as generatedFlat } from './notation.generated';
 import { notationSpec } from './notation-grammar';
 
@@ -61,7 +62,8 @@ describe('generated parser = reference parser', () => {
 });
 
 describe('the checked-in generated file is fresh', () => {
-  it('matches what the generator writes from notation-grammar.ts', () => {
+  // Skipped under tools/mutate-segno.mjs only: there a codegen mutant must be caught by behavior.
+  it.skipIf(!!process.env.SEGNO_MUTATE)('matches what the generator writes from notation-grammar.ts', () => {
     const file = readFileSync(new URL('./notation.generated.ts', import.meta.url), 'utf8');
     const banner = file.slice(0, file.indexOf('\n\n') + 2);
     expect(file).toBe(generate(notationSpec, { banner }));
@@ -81,5 +83,33 @@ describe('generated rule names', () => {
   });
   it('an Object member name is not a rule', () => {
     expect(() => generatedFlat('', 'constructor')).toThrow(/no rule/);
+  });
+});
+
+// Generated code for a grammar other than the notation: transpiled and loaded in-process.
+const esbuild = createRequire(import.meta.url)('esbuild') as typeof import('esbuild');
+function load(spec: GrammarSpec) {
+  const mod = { exports: {} as { parse?: typeof generatedFlat } };
+  new Function('module', 'exports', esbuild.transformSync(generate(spec), { loader: 'ts', format: 'cjs' }).code)(mod, mod.exports);
+  const parse = mod.exports.parse as typeof generatedFlat;
+  return (s: string) => {
+    const r = parse(s);
+    return r.ok ? { ok: true, node: toNodes(r.tree, spec.start, 0, s.length) } : r;
+  };
+}
+
+describe('generated = compiled, on shapes the notation does not use', () => {
+  it('a choice by a range above ASCII', () => {
+    const spec: GrammarSpec = { start: 's', rules: { s: many1(alt(range('\u00e0', '\u00ff'), oneOf('a'))) } };
+    const gen = load(spec);
+    const ref_ = compile(spec);
+    for (const s of ['\u00e0', '\u00e9a', '\u00ff', 'a\u00f0', '\u0100', '\u00df']) expect(gen(s), JSON.stringify(s)).toEqual(ref_.parse(s));
+  });
+  it('the nesting count unwinds between siblings: 100 flat records are not 100 deep', () => {
+    const spec: GrammarSpec = { start: 'list', rules: { list: seq('[', many(ref('item')), ']'), item: alt(ref('list'), 'a') } };
+    const gen = load(spec);
+    const flat = `[${'[a]'.repeat(100)}]`;
+    expect(gen(flat).ok).toBe(true);
+    expect(gen(flat)).toEqual(compile(spec).parse(flat));
   });
 });

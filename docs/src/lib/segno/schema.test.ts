@@ -220,3 +220,41 @@ describe('indexed slots', () => {
     expect(() => indexed('c', { max: 0 })).toThrow();
   });
 });
+
+describe('binding, at its edges', () => {
+  it('a quoted value is never a sigil', () => {
+    const r = record({ params: { who: text() }, sigils: { '@': 'who' } });
+    expect(ok(r.read('{@Customer}'))).toEqual({ who: 'Customer' });
+    expect(ok(r.read('{"@Customer"}'))).toEqual({ who: '@Customer' });
+  });
+  it('a required positional left empty is an error', () => {
+    const r = record({ positional: [{ name: 'x', type: number() }, { name: 'y', type: number(), required: true }] });
+    expect(codes(r.read('{1}'))).toEqual(['missing']);
+    expect(ok(r.read('{1, 2}'))).toEqual({ x: { value: 1, signed: false, unit: '' }, y: { value: 2, signed: false, unit: '' } });
+  });
+  it('the shared result of a shortcut is frozen, so no caller can change the next [x]', () => {
+    const state = record({ params: { state: oneOf(['done', 'todo']) }, shortcuts: { '[x]': '{done}' } });
+    const r = state.read('[x]');
+    expect(r.ok && Object.isFrozen(r.value)).toBe(true);
+    expect(() => { (r as { value: { state: string } }).value.state = 'todo'; }).toThrow(TypeError);
+    expect(ok(state.read('[x]'))).toEqual({ state: 'done' });
+  });
+  it('a quoted word is text, never a declared word', () => {
+    const r = record({ positional: [{ name: 'name', type: text() }], params: { stage: oneOf(['beta']), urgent: flag('urgent'), window: range(time()) } });
+    expect(codes(r.read('{x, stage="beta"}'))).toEqual(['wrong-type']);
+    expect(codes(r.read('{x, urgent="urgent"}'))).toEqual(['wrong-type']);
+    expect(codes(r.read('{x, window=Jan..soon}'))).toEqual(['wrong-type']);
+    expect(ok(r.read('{x, window=Jan..Mar}')).window).toEqual({ from: { kind: 'm', year: null, idx: 0 }, to: { kind: 'm', year: null, idx: 2 } });
+  });
+});
+
+describe('one spelling per document, at its edges', () => {
+  const use = (written: string, slot = 'state', where = written): Use => ({ param: 'state', canonical: 'done', written, from: 0, to: written.length, shortcut: false, slot, where });
+  it('the most common spelling wins, wherever it first appears', () => {
+    const bad = consistency([use('yes', 'state', '1'), use('done', 'state', '2'), use('done', 'state', '3')]);
+    expect(bad.map((b) => [b.use.where, b.preferred])).toEqual([['1', 'done']]);
+  });
+  it('two slots are two vocabularies: their spellings never mix', () => {
+    expect(consistency([use('yes', 'a'), use('done', 'b')])).toEqual([]);
+  });
+});

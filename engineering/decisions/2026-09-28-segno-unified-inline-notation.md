@@ -287,6 +287,49 @@ one JIT, so it stops here. In absolute terms a pill costs 0.7 µs, and the shipp
 of them. **Check-in:** phase 2 either accepts 2.0x on pills or binds straight off the flat tree,
 which removes the tree-to-values step (about 80 ns) and most of the binding allocations.
 
+## How it is tested
+
+Passing tests say little until something shows they can fail. Segno is tested three ways, and the
+third checks the first two.
+
+- **Fuzzing, against an independent answer.**
+  - `grammar-fuzz.test.ts` builds 6,000 seeded random grammars. At seed 2462, 756 compile, 340 of
+    them with a language of more than one string, and 5,244 are refused.
+  - For every grammar that compiles, the parser must accept exactly its language: the test lists
+    every string up to 5 characters and computes the answer by brute force, never with Segno.
+  - On half of those grammars, `generate()`'s code must give the same tree or error as
+    `compile()`'s closure parser: 413,657 comparisons in all.
+  - The number and time readers are fuzzed against `chart-values.js` (100,000 tokens, about 9,800
+    of them accepted) and `gantt-time.js` (50,000 tokens, about 2,400 accepted). The single-pass
+    number reader is fuzzed against the full one on 300,000 tokens.
+  - Floors on each count keep a fuzz from passing on inputs that exercise nothing.
+- **Metamorphic tests** (`metamorphic.test.ts`). No oracle says what a span should bind to, but
+  the notation promises how related spans relate. These tests check those promises on 2,000
+  generated records:
+  - item order, spacing, `name=value` versus bare, aliases, letter case and quoting do not change
+    the bound value;
+  - any string, once quoted, reads back exactly;
+  - a shortcut equals its expansion;
+  - a leading `\` turns a directive off, and nothing else on;
+  - text appended to a valid span never moves an error into the valid part. This is the LL(1)
+    prefix property, checked at the grammar level and at the notation level.
+- **Mutation testing** (`npm run mutate:segno`, `tools/mutate-segno.mjs`, the house battery pattern).
+  - The battery injects 61 realistic defects, one at a time, across the LL(1) proof, the code
+    generator, character sets, the reader, binding, the value readers and the spelling check.
+    After each one it runs Segno's whole suite.
+  - **The first run killed 42 of 62 (68%).** The 20 survivors were real holes:
+    - refusals no test isolated (two empty branches; an empty branch clashing with what follows;
+      FOLLOW through an empty sibling; a loop body followed by its own start);
+    - a left-recursion test whose pattern also matched another check's message, so it passed with
+      the check deleted;
+    - generated code for non-ASCII ranges, and a nesting count that never unwound, both unreachable
+      from the notation's own grammar;
+    - reader, binding and spelling edges no test named.
+  - One survivor was equivalent (no input can tell it apart) and is left out with a note. Tests
+    were added for the other 19. **The battery now kills 61 of 61.**
+  - It is on-demand, not a CI gate. It takes about six minutes and fails on any survivor and on any
+    mutation that did not apply.
+
 ## General-purpose, not Lattice's
 
 Decision 13 makes Segno a library other projects can adopt. Phase 1 audited it for Lattice leaking in:

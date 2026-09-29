@@ -3,7 +3,7 @@
 // that compiles parses in linear time. Every refusal below is a shape the parser bake-off
 // measured going quadratic or worse in a library (engineering/decisions/2026-09-28-parser-library-bakeoff.md).
 import { describe, expect, it } from 'vitest';
-import { alt, any, compile, GrammarError, lint, many, many1, node, noneOf, oneOf, opt, ref, seq } from './grammar';
+import { alt, any, compile, GrammarError, lint, many, many1, node, noneOf, oneOf, opt, range, ref, seq } from './grammar';
 
 const digit = oneOf('0123456789', 'a digit');
 
@@ -33,7 +33,31 @@ describe('compile refuses what is not LL(1)', () => {
 
   it('left recursion', () => {
     const problems = lint({ start: 'e', rules: { e: alt(seq(ref('e'), '+', digit), digit) } });
-    expect(problems.join()).toMatch(/left recursion|can both start/);
+    expect(problems.join()).toMatch(/left recursion/);
+    // With no base case there is no branch conflict to catch it: only the left-recursion check does.
+    expect(lint({ start: 's', rules: { s: seq(ref('s'), 'a') } }).join()).toMatch(/"s" can reach itself/);
+    expect(lint({ start: 's', rules: { s: seq(opt('x'), ref('s'), 'a') } }).join()).toMatch(/"s" can reach itself/);
+  });
+
+  it('two branches that can both match nothing (one input, two trees)', () => {
+    // The language is the same either way, so only this check can see it: the parser would pick
+    // a tree the grammar does not determine.
+    expect(lint({ start: 's', rules: { s: alt(node('x', opt('a')), node('y', opt('b'))) } }).join()).toMatch(/branches 0 and 1 can all match nothing/);
+  });
+
+  it('an empty branch, when another branch starts with what follows the choice', () => {
+    // After `a`, the parser cannot tell "the a branch" from "the empty branch, then the a after".
+    expect(lint({ start: 's', rules: { s: seq(alt('a', opt('c')), 'a') } }).join()).toMatch(/branch 1 matches nothing, and "a" could either start another branch or follow/);
+  });
+
+  it('FOLLOW looks through an empty sibling', () => {
+    // `many(c)` is followed by `opt(b)` OR, when that is empty, by `c`: the loop clashes with `c`.
+    expect(lint({ start: 's', rules: { s: seq(many('c'), opt('b'), 'c') } }).join()).toMatch(/after many, "c" could either repeat/);
+  });
+
+  it('a loop body is followed by its own start', () => {
+    // In `many(b many(b))`, "bb" is one pass or two: the inner loop clashes with the next pass.
+    expect(lint({ start: 's', rules: { s: many(seq('b', many('b'))) } }).join()).toMatch(/after many, "b" could either repeat/);
   });
 
   it('an unknown rule, and a missing start', () => {
@@ -107,6 +131,12 @@ describe('a grammar that compiles', () => {
     const h = compile({ start: 's', rules: { s: many1(noneOf(',')) } });
     expect(h.parse('Ω😀é').ok).toBe(true);
     expect(h.parse('a,b').ok).toBe(false);
+  });
+
+  it('a range above ASCII includes both its ends and nothing past them', () => {
+    const h = compile({ start: 's', rules: { s: many1(range('\u00e0', '\u00ff')) } });
+    expect(['\u00e0', '\u00ff', '\u00e9'].map((c) => h.parse(c).ok)).toEqual([true, true, true]);
+    expect(['\u00df', '\u0100'].map((c) => h.parse(c).ok)).toEqual([false, false]);
   });
 });
 

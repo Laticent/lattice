@@ -157,3 +157,17 @@ describe('a fix, applied, makes progress (the checker found fixes that did not)'
     expect(fixes).toBeGreaterThan(100);
   });
 });
+
+describe('the reader, at its edges', () => {
+  it('a tab before a separator is trimmed like a space', () => {
+    expect(read('[a\t, b\t]')).toEqual(['a', 'b']);
+  });
+  it('a parameter name is read in any case', () => {
+    const p = parse('{x, STAGE=beta}');
+    expect(p.ok && p.item.value.kind === 'record' && p.item.value.items[1].name).toBe('stage');
+  });
+  it('an escaped quote inside a quote does not close it', () => {
+    const p = parse('{a, "x\\"');
+    expect(!p.ok && [p.diagnostic.code, p.diagnostic.from]).toEqual(['unclosed-quote', 4]);
+  });
+});
