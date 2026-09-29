@@ -401,8 +401,8 @@ describe('bakeNarration — complete, or nothing', () => {
 		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: false, projectedRefs: [refs, undefined] });
 		expect(bake.narrated[0]?.refs).toEqual(refs);
 		expect(bake.narrated[1] && 'refs' in bake.narrated[1]).toBe(false);
-		// A caption replaces the projected text: its spans no longer land, so the binding is dropped.
-		const captioned = DECK.replace('# One', '<!-- caption: The author says something else here. -->\n\n# One');
+		// An author's say: replaces the projected text: its spans no longer land, so the binding is dropped.
+		const captioned = DECK.replace('# One', '<!-- say: The author says something else here. -->\n\n# One');
 		const over = await bakeNarration(captioned, PROJECTED, { voice: VOICE, audio: false, projectedRefs: [refs, undefined] });
 		expect(over.narrated[0] && 'refs' in over.narrated[0]).toBe(false);
 	});
