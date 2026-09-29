@@ -238,7 +238,15 @@ that keeps text or a raster image in it. That covers:
   struck tag read as live; `test/integration/export/pdf-text-decoration.test.js`).
 
 Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
-deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size.
+deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. The 2x
+photo stops at 2560 px on the long edge, and no photo goes below 1x: a 4K slide is photographed
+at its own 3840 px, because downsampling it smeared every 1 px rule.
+
+**The photo is PNG or JPEG, whichever is smaller.** The camera takes both and `smallestPhoto`
+(`compose.mjs`) keeps the smaller file. On a flat slide background that is the PNG, which keeps
+a 1 px colored rule exact; JPEG stores color at half resolution at every quality, and wrote the
+top keyline of a dark slide as rgb(42,132,176) for rgb(0,146,216). On a photograph the JPEG is
+smaller and is kept (`LATTICE_PDF_PHOTO_QUALITY`, default 92, sets its quality).
 
 **The CLI's file reader is a trust boundary.** The page calls back into Node for local images and
 fonts, and a deck's own scripts can call it too. So `lib/export/pdf-asset-reader.js` reads local

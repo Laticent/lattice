@@ -349,8 +349,14 @@ Order of work, all in one PR (#2404):
   - An `<svg>` no longer counts as covering text: KaTeX's root sign pushed the formula under it
     out of the text layer.
 - **Known limits:**
-  - The photo is JPEG, which stores color at half resolution. A 1px colored hairline left in
-    the photo (the top keyline of a dark slide) bleeds a little color into the row below.
+  - ~~The photo is JPEG, which stores color at half resolution. A 1px colored hairline left in
+    the photo (the top keyline of a dark slide) bleeds a little color into the row below.~~
+    **Fixed 2026-09-29.** The golden re-render's parity sweep measured it on 59 of 330 decks
+    (the keyline written as rgb(42,132,176) for rgb(0,146,216)). Each camera now offers PNG and
+    JPEG and the writer keeps the smaller (`smallestPhoto`), so a flat slide is written
+    lossless. A 4K slide was also photographed at 2560 px, and that downsample smeared the same
+    line even as PNG; the photo no longer drops below 1x. Pinned by
+    `test/integration/export/pdf-photo-hairline.test.js`.
   - A later sibling's outer `box-shadow` over a border is not hit-testable, so a border can
     draw over it.
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`
