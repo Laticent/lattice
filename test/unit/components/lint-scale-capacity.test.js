@@ -614,6 +614,7 @@ describe('a list or card slide is judged by the LINES its text wraps to (Amendme
   test('a comment, the eyebrow and the callout are read, not taken for content', () => {
     const f = core.rowsAt('list', ['list', 'takeaway'], '<!-- a note\nover two lines -->\n`Eyebrow · one`\n\n## H.\n\n- a\n- b\n\n> The line to remember.\n');
     assert.equal(typeof f, 'function');
+    assert.equal(typeof core.rowsAt('list', ['list', 'takeaway'], '<!-- a note\nends here --!>\n## H.\n\n- a\n'), 'function', 'a `--!>` ends a comment too');
     const bare = core.rowsAt('list', ['list', 'takeaway'], '## H.\n\n- a\n- b\n')(3).pct;
     assert.ok(f(3).pct > bare, 'the eyebrow and callout cost the slide height');
   });
