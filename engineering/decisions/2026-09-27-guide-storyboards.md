@@ -242,8 +242,12 @@ Every manifest has a `gesture` block. Lean by default: most name their archetype
   Two things moved, on purpose. Somber's one moment on a prose slide is the component's key (a
   list's first item) instead of `salience()`'s pick: the key is what §6 names and the goldens can
   pin. Expressive keeps its underline under words (`ctx.text`) and taps only marks, since the
-  underline is what reads as a hand on text. The CLI export still carries no refs
-  (`followups.d/2441-p2-cli-export-carries-bindings.md`). Each slide's resolved parts are cached
+  underline is what reads as a hand on text. The CLI export carries them too (step 5,
+  2026-09-29): `lattice-emulator.js` takes the chart narrator's refs from `narrateChartScript` and
+  the projection's from its browser pass, keeps each by the same identity rule
+  (`refsForResolved` in `lib/core/read-along-build.js`), and `voiceDeck` ships them beside each
+  slide's emphasis. The exported player does not yet run Present's lead
+  (`followups.d/2441-p2-exported-player-guide-lead.md`). Each slide's resolved parts are cached
   per section the first time a sentence resolves (§8's plan; a miss is retried next beat); a
   re-rendered section is a new plan.
   **Score goldens per archetype** (`test/fixtures/delivery-scores/archetypes/`): the archetype's
