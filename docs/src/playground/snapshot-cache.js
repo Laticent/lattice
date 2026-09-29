@@ -267,6 +267,10 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		// lib/transformers/image-adaptive.js). The replayed shell has no runtime to finish that
 		// measurement, so it must not carry the state.
 		sec.removeAttribute('data-img-pending');
+		// Nor the loading painting over a photo, or a text re-fade (lib/core/image-painting.js): the
+		// replay would hold the painting over a photo that is likely in the cache by then.
+		sec.removeAttribute('data-img-relayout');
+		for (const el of sec.querySelectorAll('[data-lattice-painting]')) el.removeAttribute('data-lattice-painting');
 		wrap.appendChild(sec);
 		const html = sanitizeSlideHtml(wrap.outerHTML);
 		// SCOPE the critical CSS under the shell box: the filmstrip's srcdoc carries

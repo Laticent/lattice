@@ -217,26 +217,29 @@ test('video: a subtitle label under the title stays its next sibling, in the car
   }
 });
 
-// ── The poster fades in, in a live preview (followup 2412-p3) ──────────────────────────────
+// ── The poster paints until it decodes, in a live preview (followup 2412-p3) ──────────────
 // A light poster on a dark slide stepped from the dark tile to light when it landed. In a
-// document with a reveal gate, a poster the browser does not already hold moves to its own layer
-// (`data-poster-pending`) that fades up once decoded; a cached poster, and every document with
-// no gate (an export capture, a player), are left exactly as they were.
-describe('video poster fade (runtime)', () => {
+// document with a reveal gate, a poster the browser does not already hold shows the Underpainting
+// (`data-lattice-painting`, lib/core/image-painting.js) until it has decoded, then the painting
+// fades away over it; a cached poster, and every document with no gate (an export capture, a
+// player), are left exactly as they were.
+describe('video poster painting (runtime)', () => {
   const { JSDOM } = require('jsdom');
   const registry = require('../../../lib/transformers/video');
   const POSTER = 'https://example.com/poster.jpg';
 
-  function frame({ gate = true, cached = false } = {}) {
+  function frame({ gate = true, optIn = true, cached = false } = {}) {
     const dom = new JSDOM(`<section class="video"><figure class="video-embed"><a class="video-poster" href="https://youtu.be/x" style="background-image:url('${POSTER}')"><span class="video-play"></span></a></figure></section>`);
     const win = dom.window;
     if (gate) win.__latticeFontsSettled = false;
+    if (optIn) win.document.documentElement.setAttribute('data-lattice-live-media', '');
     const timers = [];
     win.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
     win.clearTimeout = (n) => { if (timers[n - 1]) timers[n - 1].fn = () => {}; };
     const decodes = [];
     win.Image = class {
-      set src(v) { this._src = v; if (cached) { this.complete = true; this.naturalWidth = 1280; } }
+      set src(v) { this._src = v; this.complete = cached; if (cached) this.naturalWidth = 1280; }
+      get src() { return this._src; }
       decode() { return new Promise((res, rej) => decodes.push({ res, rej })); }
     };
     const a = win.document.querySelector('a.video-poster');
@@ -244,43 +247,44 @@ describe('video poster fade (runtime)', () => {
   }
   const flush = () => new Promise((r) => setImmediate(r));
 
-  test('a loading poster waits on its own layer, fades in once decoded, then returns to the anchor', async () => {
+  test('a loading poster paints until decoded, fades, then the anchor shows it alone', async () => {
     const { win, a, timers, decodes } = frame();
     registry.applyToDom(win.document);
-    assert.equal(a.getAttribute('data-poster-pending'), '', 'held off the anchor while loading');
-    assert.match(a.style.getPropertyValue('--video-poster'), /poster\.jpg/);
+    assert.equal(a.getAttribute('data-lattice-painting'), '', 'painting while the poster loads');
+    assert.match(a.style.backgroundImage, /poster\.jpg/, 'the poster stays the anchor\'s own background');
     decodes[0].res();
     await flush();
-    assert.equal(a.getAttribute('data-poster-pending'), 'in', 'the layer fades up');
+    assert.equal(a.getAttribute('data-lattice-painting'), 'done', 'the painting fades away');
     timers.at(-1).fn();
-    assert.equal(a.hasAttribute('data-poster-pending'), false, 'after the fade the anchor paints it again');
-    assert.equal(a.style.getPropertyValue('--video-poster'), '');
+    assert.equal(a.hasAttribute('data-lattice-painting'), false);
   });
 
-  test('a cached poster is left alone: no layer, no fade', () => {
+  test('a cached poster is left alone: no painting', () => {
     const { win, a } = frame({ cached: true });
     registry.applyToDom(win.document);
-    assert.equal(a.hasAttribute('data-poster-pending'), false);
+    assert.equal(a.hasAttribute('data-lattice-painting'), false);
   });
 
-  test('a document with no reveal gate (an export capture, a player) is untouched', () => {
-    const { win, a, decodes } = frame({ gate: false });
-    registry.applyToDom(win.document);
-    assert.equal(a.hasAttribute('data-poster-pending'), false);
-    assert.equal(decodes.length, 0, 'not even probed');
+  test('a document that did not opt in as a live preview is untouched: the export capture, Print, a player', () => {
+    for (const opts of [{ optIn: false }, { gate: false, optIn: false }]) {
+      const { win, a, decodes } = frame(opts);
+      registry.applyToDom(win.document);
+      assert.equal(a.hasAttribute('data-lattice-painting'), false, JSON.stringify(opts));
+      assert.equal(decodes.length, 0, 'not even probed');
+    }
   });
 
-  test('a poster that fails, or never lands, stops being managed', async () => {
+  test('a poster that fails, or never lands, stops painting', async () => {
     const failed = frame();
     registry.applyToDom(failed.win.document);
     failed.decodes[0].rej(new Error('gone'));
     await flush();
-    assert.equal(failed.a.hasAttribute('data-poster-pending'), false, 'a failure shows the tile at once');
+    assert.equal(failed.a.hasAttribute('data-lattice-painting'), false, 'a failure shows the tile at once');
 
     const hung = frame();
     registry.applyToDom(hung.win.document);
     hung.timers[0].fn(); // the cap
-    assert.equal(hung.a.hasAttribute('data-poster-pending'), false, 'the cap hands the poster back to the anchor');
+    assert.equal(hung.a.hasAttribute('data-lattice-painting'), false, 'the cap hands the poster back to the anchor');
   });
 
   test('a second pass over the same document does not re-probe a managed poster', () => {

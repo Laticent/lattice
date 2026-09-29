@@ -497,7 +497,10 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 			docHtml = virtualHtml(html, (i) => i >= w.lo && i <= w.hi).replace(/(<[a-z]+)((?:\s[^>]*)?\sclass="(?:[^"]*\s)?lattice(?:\s[^"]*)?")/i, '$1 data-lv=""$2');
 			deck = { katex: hasKatex, mermaid: hasMermaid, dagre: hasDagre, blocked: web.blocked };
 		}
-		frame.srcdoc = buildSrcdoc({ html: sanitizeSlideHtml(docHtml), css, mode, geom, ...opts, ...(deck ? { deck } : {}) }).replace('<html ', `<html data-lattice-write="${st.writeId}" `);
+		// `data-lattice-live-media`: the filmstrip is ON SCREEN, so a picture still loading shows the
+		// Underpainting (lib/core/image-painting.js). The export capture and Print build with
+		// `buildSrcdoc` directly and never set it.
+		frame.srcdoc = buildSrcdoc({ html: sanitizeSlideHtml(docHtml), css, mode, geom, ...opts, ...(deck ? { deck } : {}) }).replace('<html ', `<html data-lattice-write="${st.writeId}" data-lattice-live-media `);
 	}
 	st.frameSig = contentSig;
 	st.restyleSig = restyleSig;

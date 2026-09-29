@@ -115,6 +115,26 @@ topbar is **theme-tinted** — `background: color-mix(var(--bg) 92%)`, `border: 
 `var(--text-heading)` — instead of hardcoded grey. Theme respect was already in place (the seed reads the
 persisted palette + mode before first paint); this extends it to the topbar, which had been hardcoded.
 
+## Update (2026-09-29) — the Underpainting, Nacre's variant for images
+
+The owner asked for Nacre's house style wherever a slide's PICTURE is still loading, but
+"distinctive for images … think painting being painted" (PR #2471, after an iPhone recording
+showed an empty photo panel for ~3 s beside finished text). The **Underpainting** is that variant:
+where Nacre is an iridescent cloud for "no slide yet", this is a canvas laid down in one broad brush
+sweep (a sky wash, a horizon glow, a heavier ground, a faint linen weave) with dry-brush strokes in
+Nacre's three tones (the accent, +34°, −28° via relative `oklch`, falling back to token mixes)
+drifting across it. When the picture has decoded, the painting fades away over it.
+
+It is ENGINE CSS, not docs CSS (`lib/base/base.modifiers.css`, `[data-lattice-painting]`), because
+it paints inside the slide document; it reads the deck's own tokens rather than the docs-root ones.
+The runtime sets the attribute only in a document that opted in as on-screen
+(`<html data-lattice-live-media>`, set by the Studio slide, the Playground filmstrip and the Stage
+window; `lib/core/image-painting.js`). The reveal gate alone was not enough: the Studio's export
+capture frame and Print document carry it too, and a painting caught at capture would be exported. One honest difference from
+Nacre's performance story: the brush layer must stay inside its element's box (a wider band trips
+the slide's overflow probe through `scrollWidth`, whatever the clipping), so it moves by background
+and mask position — a repaint of one small layer while a picture loads — not by transform.
+
 ## Files
 
 `docs/src/styles/nacre-loader.css`, `docs/src/components/DeckPreview.tsx`,

@@ -823,25 +823,44 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **The rule since: the text waits for the photo.** A remote photo's size is unknown until
   it is fetched, and text laid out on a guess moves when the guess is corrected. So a
   section whose photo is being measured carries `data-img-pending` (set by the runtime's
-  probe, and by `stampImageSections` on a provisional section). `image.styles.css` shows
-  the panel as a shimmering placeholder and hides `> .image-text` and `> .cell-coda`. When
-  the size is in, the layout corrects while the text is still invisible, and the text
-  fades in once, in its final place; only the placeholder changes size. The size comes
+  probe, and by `stampImageSections` on a provisional section). `image.styles.css` hides
+  `> .image-text` and `> .cell-coda`. When the size is in, the layout corrects while the
+  text is still invisible, and the text fades in once, in its final place. The size comes
   from the image HEADER: `naturalWidth` is set long before `onload` (a load held open 2 s:
   Chromium had it at 17 ms, WebKit at 512 ms), so the probe polls it. A failed photo
   shows its hatch and text at once. A hanging one shows its text on the floor at
-  `PENDING_CAP_MS` (4 s), and only then can a landing fade the frame, and only while its
-  section is still on screen. A photo already in the memory cache has its size the moment
-  `src` is set and is sized in the same task, so an edit never shows the placeholder.
-- **Only a live preview holds text back:** the runtime sets `data-img-pending` only in a
-  document with a reveal gate (`__latticeFontsSettled` is a boolean: the Studio's slide,
-  the Playground filmstrip, the Stage window). The Studio's export capture frame, the
-  player and the fluid viewer have no gate and keep the Clean floor, so their bytes are
-  unchanged; the CLI emulator stamps every image slide from the file header anyway. A
+  `PENDING_CAP_MS` (4 s); a size landing after that hides only that slide's text for the
+  frame the corrected layout paints in (`data-img-relayout`), and only while its section
+  is still on screen. (It used to fade the whole frame through, which blanked the slide and
+  its painting for a beat on the owner's iPhone.) A photo already in the memory cache has
+  its size the moment `src` is set and is sized in the same task, so an edit never waits.
+- **The panel paints until the photo does (the Underpainting, #2471).** Knowing the size is
+  not holding the picture: on the owner's iPhone the text was final at once and the panel
+  sat EMPTY for ~3 s beside it while the file downloaded, which read as broken. So, in a
+  live preview, any picture carried as an element's own background (a photo panel's
+  `.lattice-bg`, a video poster) carries `data-lattice-painting` until it has DECODED
+  (`lib/core/image-painting.js`), and `base.modifiers.css` draws the house Nacre loader's
+  image variant over it: a canvas laid down in one brush sweep, soft brushwork drifting
+  across it, in the deck's own tokens. On decode it turns `"done"` and the painting fades
+  away over the photo. A picture already held never paints; a failed one hands back at once
+  (its hatch shows); a hung one after 12 s. **Keep the brush layer inside the element's
+  box:** a wider band raised the panel's `scrollWidth` by 1161px even with `overflow:
+  hidden`, `clip` or `contain: paint` (all three measured in Chromium and WebKit), and the
+  slide's overflow probe flagged the slide. So the strokes move by background and mask
+  position over a `64cqi` tile, not by transform.
+- **Only a live preview holds text back, or paints:** the runtime sets `data-img-pending`,
+  `data-lattice-painting` and `data-img-relayout` only in a document with a reveal gate
+  (`__latticeFontsSettled` is a boolean) that ALSO opted in with `<html
+  data-lattice-live-media>`: the Studio's slide (single-slide-render), the Playground
+  filmstrip (deck-render) and the Stage window. The gate alone was the rule until #2471, and
+  it was wrong: the Studio's export capture frame and Print document are built by the same
+  `buildSrcdoc` and carry the gate, so a painting still fading at capture would have been
+  baked into a PDF, a PPTX or a shared player (the checker's reproduction). They never opt in.
+  The player and the fluid viewer have no gate; the CLI emulator stamps every image slide from
+  the file header anyway. A
   section this pass does not measure has any host pending stamp cleared, and the CSS
   releases the text by itself 4.5 s in (an animation), so a runtime that never ran cannot
-  strand it hidden. The Playground's first-slide snapshot strips the attribute from its
-  clone.
+  strand it hidden. The Playground's first-slide snapshot strips all three from its clone.
 - **WebKit holds `document.fonts.ready` until the document's other loads finish.** With a
   slow photo, the font gate's backstop fired with all 17 faces already loaded, and the
   photo's landing announced `lattice:fonts-late` and faded the whole frame. The backstop
@@ -858,22 +877,19 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Cause:** the poster is the anchor's own inline `background-image`, painted over the
   tile's surface (`--bg-alt`, #2412). On a dark slide that surface is dark, so no tile
   color avoids the step.
-- **Fix:** in a live preview only (`__latticeFontsSettled` is a boolean, the same key
-  `image-adaptive.js` uses), `lib/transformers/video.js` probes each poster. One the
-  browser already holds paints at once. Otherwise the anchor gets `data-poster-pending`:
-  `video.styles.css` takes the image off the anchor and draws it on the anchor's
-  `::before` (`--video-poster`, set by the runtime), transparent, under the play badge
-  and label. Once it has decoded, `"in"` fades the layer up over 280ms, and after the fade
-  the anchor paints the same image again. A poster that fails or hangs (8 s) is handed
-  back to the anchor. After: 26, 89, 167, 212, 234 across ~220ms; a cached poster reads
-  234 from the first frame. The CLI, the export captures and the players have no gate and
-  are unchanged.
+- **Fix:** in a live preview only, `lib/transformers/video.js` probes each poster. One the
+  browser already holds paints at once. Otherwise the anchor carries `data-lattice-painting`
+  and shows the Underpainting (the image loading painting above, shared with photo panels)
+  under the play badge and label until the poster has decoded; then the painting fades away
+  over it. Before: tile luminance 26 to 234 between two frames; after, a ramp over ~450ms.
+  The CLI, the export captures, Print and the players never opt in and are unchanged.
 - **Also on this path:** a WEB poster could not be loaded in the Studio at all. The
   pre-check that decides whether to scan a deck for web images (`web-image-hint.ts`) did
   not recognize the `` `poster` `` bullet, so the strip that offers "Load" never appeared
   and the poster stayed a hatched tile. It now matches `- <web url> `` `poster` ``.
-- **Pinned by:** the "video poster fade (runtime)" arms in
-  `test/unit/transformers/video.test.js`, and `web-image-hint.test.ts`.
+- **Pinned by:** the "video poster painting (runtime)" arms in
+  `test/unit/transformers/video.test.js`, `test/unit/core/image-painting.test.js`, and
+  `web-image-hint.test.ts`.
 
 ## A slide's heading jumps into place just after a slide change in the preview
 

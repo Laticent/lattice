@@ -49,34 +49,6 @@ section.video .video-poster {
   overflow: hidden;
   text-decoration: none;
 }
-/* A poster still loading in a live preview (lib/transformers/video.js): the image moves to
- * its own layer under the play badge and label, transparent until it has decoded, then fades
- * up — so a light poster on a dark slide eases in instead of stepping from the dark tile. The
- * layer inherits the anchor's sizing, so the `gallery` variant's `contain` holds too. */
-section.video .video-poster[data-poster-pending] {
-  background-image: none !important;
-}
-section.video .video-poster[data-poster-pending]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background-image: var(--video-poster, none);
-  background-position: inherit;
-  background-size: inherit;
-  background-repeat: inherit;
-  opacity: 0;
-  transition: opacity 280ms ease-out;
-}
-section.video .video-poster[data-poster-pending="in"]::before {
-  opacity: 1;
-}
-@media (prefers-reduced-motion: reduce) {
-  section.video .video-poster[data-poster-pending]::before {
-    transition: none;
-  }
-}
-
 /* No still available → a dark, video-like placeholder (fixed --qr-ink blend, so
  * it reads as a poster on ANY theme, light or dark) rather than a blank box. */
 section.video .video-poster.is-placeholder {
@@ -89,6 +61,7 @@ section.video .video-poster.is-placeholder {
 /* Play badge — a fixed-contrast disc + a CSS triangle, centered on the poster. */
 section.video .video-play {
   position: absolute;
+  z-index: 2; /* above a loading poster's painting (base.modifiers.css), in the anchor's own band */
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -115,6 +88,7 @@ section.video .video-play::before {
 /* Provider label — a chip on the poster's lower-left. */
 section.video .video-provider {
   position: absolute;
+  z-index: 2;
   left: var(--sp-sm, 0.75rem);
   bottom: var(--sp-sm, 0.75rem);
   padding: 0.25em 0.7em;

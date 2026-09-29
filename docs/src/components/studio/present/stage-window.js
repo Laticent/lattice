@@ -328,7 +328,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// a browser picks a default voice by it. Sanitized to `[A-Za-z0-9-]` exactly as
 		// deck-preview does, because the deck's front matter is untrusted (HARD RULE #22) and
 		// this value lands in an attribute.
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(mermaidUrl) + '><head><meta charset="utf-8">' +
+		// `data-lattice-live-media`: the audience watches this live, so a picture still loading shows
+		// the Underpainting (lib/core/image-painting.js) rather than an empty panel.
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(mermaidUrl) + ' data-lattice-live-media><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
 		previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)] }) +

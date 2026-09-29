@@ -71,10 +71,14 @@ test('skips an already-resolved section (idempotent)', () => {
 // ── A late size fades; nothing waits on the probe (followup 2412-p2) ─────────
 // The preview reveals on its faces alone. A section being measured holds its own text back, so
 // nothing is published for a reveal to wait on; a probe that lands after the reveal and changes
-// the composition announces `lattice:layout-late` so the frame fades through.
-function fakeView(settled) {
+// the composition re-fades that slide's text (`data-img-relayout`), never the whole frame.
+// A LIVE PREVIEW is a gated document that opted in as on-screen (`<html data-lattice-live-media>`,
+// lib/core/image-painting.js); `optIn: false` is the Studio's export capture frame, which carries the
+// gate but must never hold text, paint or re-fade (the checker's reproduction on PR #2471).
+function fakeView(settled, { optIn = true } = {}) {
   const events = [];
   return {
+    document: { documentElement: { hasAttribute: (k) => optIn && k === 'data-lattice-live-media' } },
     __latticeFontsSettled: settled,
     Event: class { constructor(type) { this.type = type; } },
     dispatchEvent(e) { events.push(e.type); },
@@ -114,8 +118,8 @@ test('a probe that errors marks the panel unloaded', () => {
 
 // A live preview's view: a reveal gate (`__latticeFontsSettled`) and timers the test drives by
 // hand. `ticks` counts poll firings, so a test can prove the poll STOPS.
-function timedView(settled) {
-  const view = fakeView(settled);
+function timedView(settled, opts) {
+  const view = fakeView(settled, opts);
   const timers = new Map();
   let id = 0;
   view.ticks = 0;
@@ -217,7 +221,7 @@ test('the size is taken from the image header, before the download finishes, and
   } finally { global.Image = prev; }
 });
 
-test('a photo that hangs shows its text at the cap, and a later landing fades through', () => {
+test('a photo that hangs shows its text at the cap, and a later landing re-fades only the text', () => {
   const prev = global.Image;
   const { Image, held } = heldImage();
   global.Image = Image;
@@ -230,7 +234,10 @@ test('a photo that hangs shows its text at the cap, and a later landing fades th
     assert.equal(view.live(), 0, 'the cap also stops the poll');
     held.header(1200, 800);
     held.probe.onload();
-    assert.deepEqual(view.events, [imageAdaptive.LATE_EVENT], 'the text was on screen, so the relayout fades');
+    assert.ok(s.hasAttribute(imageAdaptive.RELAYOUT), 'the text was on screen, so it hides for the relayout');
+    assert.deepEqual(view.events, [], 'and only the text: the frame is not faded through');
+    view.tick(false);
+    assert.equal(s.hasAttribute(imageAdaptive.RELAYOUT), false, 'then fades back in, in place');
   } finally { global.Image = prev; }
 });
 
@@ -247,6 +254,7 @@ test('a probe whose slide was turned away does not fade the slide that replaced 
     held.header(1200, 800);
     held.probe.onload();
     assert.deepEqual(view.events, []);
+    assert.equal(s.hasAttribute(imageAdaptive.RELAYOUT), false, 'nothing is re-faded on a slide that left');
     assert.equal(view[imageAdaptive.BUCKETS]['slow.jpg'], 'wide', 'the size is still learned for the next visit');
   } finally { global.Image = prev; }
 });
@@ -355,5 +363,89 @@ test('a photo that fails to load marks the section unloaded; a later load clears
     imageAdaptive.applyToDom(rootOf([s]));
     assert.equal('data-img-unloaded' in s._attrs, false);
     assert.equal(s._attrs['data-img-bucket'], 'wide');
+  } finally { global.Image = prev; }
+});
+
+// THE PANEL PAINTS UNTIL THE PICTURE DOES (the owner's iPhone, PR #2471): the size frees the text
+// long before the photo paints, and the panel showed as an empty card for ~3 s in between. The
+// panel carries `data-lattice-painting` (the Underpainting) until the photo has DECODED.
+test('the panel paints until the photo decodes, not just until its size is known', async () => {
+  const prev = global.Image;
+  let decoded;
+  const panel = { style: { backgroundImage: "url('venue.png')" }, attrs: new Map() };
+  panel.setAttribute = (k, v) => panel.attrs.set(k, v);
+  panel.removeAttribute = (k) => panel.attrs.delete(k);
+  panel.hasAttribute = (k) => panel.attrs.has(k);
+  panel.getAttribute = (k) => (panel.attrs.has(k) ? panel.attrs.get(k) : null);
+  global.Image = class {
+    constructor() { this.naturalWidth = 0; this.naturalHeight = 0; this.complete = false; }
+    set src(_v) {}
+    decode() { return new Promise((r) => { decoded = r; }); }
+  };
+  try {
+    const view = timedView(false);
+    const s = makeSection({ bgStyle: "url('venue.png')" });
+    s.querySelector = () => panel;
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.equal(panel.getAttribute('data-lattice-painting'), '', 'the panel paints while the photo loads');
+    decoded();
+    await new Promise((r) => setImmediate(r));
+    assert.equal(panel.getAttribute('data-lattice-painting'), 'done', 'it fades once the photo has decoded');
+  } finally { global.Image = prev; }
+});
+
+// A host that already knew the size stamped the section FINAL, so nothing is measured — but the
+// panel still paints until the picture decodes, unless it is known not to load.
+function paintablePanel(url) {
+  const panel = { style: { backgroundImage: `url('${url}')` }, attrs: new Map() };
+  panel.setAttribute = (k, v) => panel.attrs.set(k, v);
+  panel.removeAttribute = (k) => panel.attrs.delete(k);
+  panel.hasAttribute = (k) => panel.attrs.has(k);
+  panel.getAttribute = (k) => (panel.attrs.has(k) ? panel.attrs.get(k) : null);
+  return panel;
+}
+const loadingImage = () => class {
+  constructor() { this.complete = false; this.naturalWidth = 0; this.naturalHeight = 0; }
+  set src(v) { this._src = v; }
+  get src() { return this._src; }
+  decode() { return new Promise(() => {}); }
+};
+
+test('a section a host stamped final still paints until its picture decodes, unless it will not load', () => {
+  const prev = global.Image;
+  global.Image = loadingImage();
+  try {
+    const view = timedView(false);
+    const s = makeSection({ bgStyle: "url('known.png')" });
+    s._attrs['data-img-composition'] = 'clean';
+    s._attrs['data-img-bucket'] = 'wide';
+    const panel = paintablePanel('known.png');
+    s.querySelector = () => panel;
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.equal(panel.getAttribute('data-lattice-painting'), '', 'the panel paints');
+    assert.equal(s.hasAttribute(imageAdaptive.PENDING), false, 'the size is known, so the text is not held');
+
+    const gone = makeSection({ bgStyle: "url('gone.png')" });
+    gone._attrs['data-img-composition'] = 'clean';
+    gone._attrs['data-img-unloaded'] = '';
+    const gonePanel = paintablePanel('gone.png');
+    gone.querySelector = () => gonePanel;
+    imageAdaptive.applyToDom(rootIn([gone], view));
+    assert.equal(gonePanel.hasAttribute('data-lattice-painting'), false, 'its hatch shows instead');
+  } finally { global.Image = prev; }
+});
+
+test('the export capture frame (gated, not opted in) never holds text, paints or re-fades', () => {
+  const prev = global.Image;
+  global.Image = loadingImage();
+  try {
+    const view = timedView(false, { optIn: false });
+    const s = makeSection({ bgStyle: "url('venue.png')" });
+    const panel = paintablePanel('venue.png');
+    s.querySelector = () => panel;
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.equal(s.hasAttribute(imageAdaptive.PENDING), false, 'no held text in an export');
+    assert.equal(panel.hasAttribute('data-lattice-painting'), false, 'no painting in an export');
+    assert.equal(view.live(), 0, 'and no poll or cap running');
   } finally { global.Image = prev; }
 });
