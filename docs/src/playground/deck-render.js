@@ -79,6 +79,19 @@ export function patchSections(frame, next, prev) {
 	return true;
 }
 
+/** The sorted component names on every `<lat-pane>` in `sections`, as one string, or ''. */
+export function paneComponentsSig(sections) {
+	const names = new Set();
+	for (const sec of sections) {
+		if (sec.indexOf('<lat-pane') === -1) continue;
+		for (const m of sec.matchAll(/<lat-pane\b[^>]*\sclass="([^"]*)"/g)) {
+			const first = m[1].trim().split(/\s+/)[0];
+			if (first) names.add(first);
+		}
+	}
+	return [...names].sort().join(',');
+}
+
 // Restyle a live document in place: the `#lattice-doc` stylesheet AND every section, in one
 // synchronous task (so no frame paints the new theme over the old sections, or the reverse).
 // The sections are all replaced, not diffed — a theme can change engine output anywhere,
@@ -427,6 +440,12 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	const hasDrawn = sections.some((s) => markupHasDrawnFence(s));
 	const hasKatex = sections.some((s) => s.indexOf('katex') !== -1);
 	const hasDagre = sections.some((s) => s.indexOf('data-sc-transitions') !== -1);
+	// The components shown IN A PANE. The engine composes a pane twin of each such component's
+	// rules into the sheet it returns (lib/core/pane-css.js), and only for the components that
+	// are in a pane, so a deck that gains a pane, or changes what a pane holds, has a different
+	// sheet. A section-only patch keeps the old one: a list typed into a pane rendered as bare
+	// lines and a chart at the wrong scale until a reload.
+	const paneSig = paneComponentsSig(sections);
 	const contentSig =
 		sig +
 		(hasKatex ? 'K' : '') +
@@ -437,6 +456,7 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 		// newly-typed branching machine without its engine — laid out as a column, with
 		// nothing to say why.
 		(hasDagre ? 'D' : '') +
+		(paneSig ? `|P:${paneSig}` : '') +
 		// The web half of the policy lives in <head>, which a patch never rewrites: the allowed
 		// origins AND whether each keeps its subdomain wildcard, which an edit that adds a refused
 		// subdomain reference takes away (lib/core/subresource-csp.mjs `webPolicySig`).
