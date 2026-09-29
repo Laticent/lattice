@@ -116,7 +116,7 @@ fix is to make one positional, or to wrap it in `named(...)` so it must be writt
 | `text()` | anything; the only type quoted text can be |
 | `oneOf(values, { aliases })` | declared words, case-insensitive, with extra spellings |
 | `flag(word)` | a word that switches something on: `milestone` |
-| `indexed(prefix, { max })` | `c1`…`c12`, `step1`…`step5`: a prefix and a number, the ceiling set per slot |
+| `indexed(prefix, { max })` | `c1`…`c12`, `step1`…`step5`: a prefix and a number, the ceiling set per slot (`max` at most 1,000) |
 | `id()` | `#api` |
 | `number()` | numbers as people write them: `42` `-$0.8M` `12%` `($1.2M)` `1,25M` `1.234.567` |
 | `time()` | dates as people write them: `2026-03-15` `2026 Q1` `Q3` `Jan` |
@@ -135,7 +135,10 @@ state.read('{yes}'); // { state: 'done' }
 
 A **shortcut** is an exact whole-span token that stands for a record; a **sigil** is a leading
 character that names a parameter (`sigils: { '@': 'who' }` makes `@Customer` mean `who=Customer`).
-Both are checked when the schema is built. Every successful bind returns the `spellings` it used, and
+Both are checked when the schema is built, and a sigil that starts one of the schema's declared
+words or could start a number (`$`, `-`, a digit) is refused, because that word or number could
+then never bind bare. A shortcut is bound once, at build time, and every read of it returns the
+same **frozen** result: treat bound values as read-only. Every successful bind returns the `spellings` it used, and
 `consistency(uses)` reports each occurrence written differently from the most common spelling in
 the same document (whatever you group by: a file, a config, a slide deck), with a fix.
 
@@ -197,4 +200,7 @@ The `/segno` page runs the same ladder in your browser, and lets you write a gra
 `npm run segno-lib:build` regenerates `notation.generated.ts` and writes `dist/` (ESM + CJS +
 `.d.ts`); `npm run segno-lib:check` fails if either is stale. `npm run check:segno` (in `docs/`)
 typechecks the library alone with no DOM and no Node types, which is the mechanical proof it stands
-alone. Tests: `cd docs && npx vitest run src/lib/segno`.
+alone. Tests: `cd docs && npx vitest run src/lib/segno` (fuzzing against a brute-force recognizer and
+against Lattice's number and time readers, and metamorphic tests of the notation's promises).
+`npm run mutate:segno` injects 72 defects one at a time and fails if the suite misses any; it takes
+about fifteen minutes and is not a CI gate.
