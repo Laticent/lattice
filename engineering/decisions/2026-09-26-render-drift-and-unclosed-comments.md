@@ -302,6 +302,33 @@ hundreds of MB, so a 6-cycle read of it says nothing about a leak. The number to
 document count. These are Linux WPE figures: iOS Safari runs the same engine under a different
 memory manager, and the device check in `followups.d/2398-p1` is still the only read of that.
 
+### The Print drawer pages through the pool too (2026-09-29, #2498)
+
+The same WebKit cost, on a surface this note had not reached: Share → Print deck. Each preview
+cell was its own `<iframe srcDoc>` keyed by slide, and desktop Print mounted a fresh offscreen
+frame per print. Measured on the real Studio with `docs/e2e/preview-documents.ts` (documents
+created, a 12-slide deck):
+
+| | before | after |
+|---|---|---|
+| each sheet flip, 1-up | 1 | **0** |
+| each sheet flip, 4-up | 4 | **0** |
+| reprint of an unchanged deck | 1 | **0** |
+| switch to 4-up (the pool grows to four frames, once) | 4 | 3 |
+| each open of the drawer | 1 | 1 |
+
+The cells are `PooledThumbFace` tiles keyed by their POSITION on the sheet, inside one
+`PreviewPool`, so a flip re-points a frame the pool already has. Where the engine renders a
+different number of pages than the markdown has slides, the pool would address the wrong slide,
+so those decks keep one document per cell. Desktop Print keeps one frame per open drawer: an
+unchanged deck prints the frame it has, a changed one is written into it, and the drawer removes
+it when it closes. `docs/e2e/print-preview-documents.spec.ts` pins the zeros.
+
+**Left, recorded (`followups.d/2498-p3-print-drawer-stays-mounted.md`):** one document per open,
+because the drawer unmounts with the Share sheet. Add slide paid 12–14 per open, which is what
+justified `PersistentSurface` there. **Not measured:** WebKit memory itself, because this sandbox
+has no WebKit; the counts above are engine-independent.
+
 ### Tried first, and why they failed
 
 - **A frame dock** (built, reviewed by the adversarial trio, then removed). One set of frames

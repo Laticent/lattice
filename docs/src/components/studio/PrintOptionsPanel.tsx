@@ -36,8 +36,11 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
-import { withPrintCanvas } from './front-matter';
+import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
+import { splitSlides } from './lint';
+import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
+import { hasMermaid } from './slide-thumb';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 
 type Paper = 'auto' | 'letter' | 'legal' | 'a4';
@@ -120,29 +123,45 @@ export function whenPrintReady(
 	timer(armed, 3000);
 }
 
-function printHtmlDoc(doc: string, onDialog?: () => void): void {
-	const frame = document.createElement('iframe');
-	frame.setAttribute('aria-hidden', 'true');
-	// Off-screen at a real size (not 0×0/hidden) so fonts + layout actually render before
-	// print; the @media print rules (not the on-screen size) drive the printed output.
-	frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:720px;border:0;';
-	frame.srcdoc = doc;
+/** The panel's one print frame and the document it holds (see `printHtmlDoc`). */
+type PrintFrame = { frame: HTMLIFrameElement; doc: string };
+
+// ONE PRINT FRAME PER PANEL, REUSED. Each print used to mount a fresh frame and remove it after
+// the dialog. WebKit never frees a destroyed preview document (preview-pool.tsx has the
+// measurements), so every print stranded a whole deck's document. Now the panel keeps one frame:
+// printing the SAME document again prints the frame it already has (no new document), and a
+// changed deck is written into that frame (one document, as before). The panel removes the frame
+// when it unmounts.
+function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialog?: () => void): void {
 	let signaled = false;
 	const signal = () => { if (!signaled) { signaled = true; try { onDialog?.(); } catch { /* noop */ } } };
-	const reclaim = () => setTimeout(() => { try { frame.remove(); } catch { /* noop */ } }, 1000);
-	frame.onload = () => {
+	// Clear the caller's loading state right as we open the dialog (print() then blocks).
+	const printWhenReady = (frame: HTMLIFrameElement) => {
 		try {
 			frame.contentWindow?.focus();
-			frame.contentWindow?.addEventListener('afterprint', reclaim);
-			// Clear the caller's loading state right as we open the dialog (print() then blocks).
 			const go = () => { signal(); try { frame.contentWindow?.print(); } catch { /* noop */ } };
 			const w = frame.contentWindow as (Window & { __latticeFontsReady?: Promise<void> }) | null;
 			whenPrintReady(w?.__latticeFontsReady, go);
 		} catch { signal(); }
 	};
-	document.body.appendChild(frame);
-	// Safety: if load never fires, release both the caller's loading state and the frame.
-	setTimeout(() => { signal(); reclaim(); }, 60_000);
+	const kept = slot.current?.frame.isConnected ? slot.current : null;
+	if (kept && kept.doc === doc) {
+		printWhenReady(kept.frame);
+		return;
+	}
+	const frame = kept?.frame ?? document.createElement('iframe');
+	if (!kept) {
+		frame.setAttribute('aria-hidden', 'true');
+		// Off-screen at a real size (not 0×0/hidden) so fonts + layout actually render before
+		// print; the @media print rules (not the on-screen size) drive the printed output.
+		frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:720px;border:0;';
+	}
+	frame.onload = () => printWhenReady(frame);
+	frame.srcdoc = doc;
+	slot.current = { frame, doc };
+	if (!kept) document.body.appendChild(frame);
+	// Safety: if load never fires, release the caller's loading state.
+	setTimeout(signal, 60_000);
 }
 
 export function PrintOptionsPanel({
@@ -190,12 +209,15 @@ export function PrintOptionsPanel({
 
 	const mountedRef = React.useRef(true);
 	const builtUrlRef = React.useRef<string | null>(null);
+	const printFrameRef = React.useRef<PrintFrame | null>(null);
 	React.useEffect(() => { builtUrlRef.current = builtPdf?.url ?? null; }, [builtPdf]);
 	React.useEffect(() => {
 		mountedRef.current = true;
 		return () => {
 			mountedRef.current = false;
 			if (builtUrlRef.current) { try { URL.revokeObjectURL(builtUrlRef.current); } catch { /* noop */ } }
+			try { printFrameRef.current?.frame.remove(); } catch { /* noop */ }
+			printFrameRef.current = null;
 		};
 	}, []);
 
@@ -213,6 +235,12 @@ export function PrintOptionsPanel({
 		return () => ro.disconnect();
 	}, []);
 
+	// The deck as it prints: B&W remaps class tokens through the print canvas.
+	const printSrc = React.useMemo(() => (opts.color === 'bw' ? withPrintCanvas(source) : source), [source, opts.color]);
+	// The same deck split into its markdown slides, for the pooled preview cells below.
+	const fm = React.useMemo(() => frontMatterBlock(printSrc), [printSrc]);
+	const mdSlides = React.useMemo(() => splitSlides(stripFrontMatter(printSrc)), [printSrc]);
+
 	// ── Render the deck whenever the color changes (B&W remaps class tokens). This is the
 	// only re-render; paper/orientation just re-fit the SAME render via the CSS math below. ──
 	React.useEffect(() => {
@@ -222,8 +250,7 @@ export function PrintOptionsPanel({
 		// A re-render invalidates any cached slide images (new pixels): drop them so the
 		// next build rasterizes the fresh render rather than re-placing stale images.
 		setImgCache(null);
-		const src = opts.color === 'bw' ? withPrintCanvas(source) : source;
-		buildDeckRender(options, src, palette, mode, extraTheme, extraCss)
+		buildDeckRender(options, printSrc, palette, mode, extraTheme, extraCss)
 			.then((r) => {
 				if (!alive) return;
 				setRender(r);
@@ -232,7 +259,7 @@ export function PrintOptionsPanel({
 			})
 			.catch((e) => { if (alive) { setStatus(messageForFailure(e, 'Could not render the deck.')); setRendering(false); } });
 		return () => { alive = false; };
-	}, [options, source, palette, mode, extraTheme, extraCss, opts.color]);
+	}, [options, printSrc, palette, mode, extraTheme, extraCss]);
 
 	// Layout → the two derived knobs: slides-per-sheet (grid) OR the notes handout.
 	const handout = opts.layout === 'handout';
@@ -269,12 +296,24 @@ export function PrintOptionsPanel({
 	const sheetH = Math.min(availH, availW / aspect);
 	const sheetPx = { width: `${Math.round(sheetH * aspect)}px`, height: `${Math.round(sheetH)}px` };
 
-	// One self-contained preview document per cell on the CURRENT sheet (screen, not print
-	// rules) — for N-up this is up to `nup` slides; a trailing partial sheet leaves empty
-	// cells (''). Each is a bare section re-wrapped in `.lattice` (the theme's `.lattice >
-	// section` rules need that parent).
+	// THE PREVIEW CELLS COME FROM THE STUDIO'S PREVIEW POOL (preview-pool.tsx). Each cell used to
+	// be its own `<iframe srcDoc>` keyed by slide, so every sheet flip and every N-up change built
+	// fresh documents: one per flip at 1-up, four at 4-up. WebKit never frees a destroyed preview
+	// document, so paging through a deck on an iPad stranded one document per page viewed. A
+	// pooled cell is a stable tile keyed by its POSITION on the sheet: a flip changes which slide
+	// it shows, and the pool patches that slide into the frame it already has.
+	//
+	// The pool addresses MARKDOWN slides, while the sheet pages by RENDERED sections. They match
+	// for almost every deck; where the engine renders a different number of pages than the
+	// markdown has slides, the cells keep one self-contained document each (below) so the
+	// preview never shows a different page from the one that prints.
+	const pooled = mdSlides.length === sections.length;
+	// The fallback: one self-contained preview document per cell on the CURRENT sheet (screen,
+	// not print rules). For N-up this is up to `nup` slides; a trailing partial sheet leaves
+	// empty cells (''). Each is a bare section re-wrapped in `.lattice` (the theme's
+	// `.lattice > section` rules need that parent).
 	const previewDocs = React.useMemo(() => {
-		if (!render || !sections.length) return [];
+		if (!render || !sections.length || pooled) return [];
 		return Array.from({ length: nup }, (_, k) => {
 			const i = pageIdx * nup + k;
 			if (i >= sections.length) return '';
@@ -293,7 +332,7 @@ export function PrintOptionsPanel({
 				contentVisibility: false, cursor: false, sync: false, printRules: false,
 			});
 		});
-	}, [render, sections, pageIdx, nup]);
+	}, [render, sections, pageIdx, nup, pooled]);
 
 	const { paper, orientation, layout } = opts;
 	// Does the built PDF match the CURRENT settings? Drives the iOS button (build vs open).
@@ -447,7 +486,7 @@ export function PrintOptionsPanel({
 			if (nup === 1 && !handout) {
 				setBuilding('print');
 				setStatus('Preparing print…');
-				printHtmlDoc(printDoc(), () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
+				printHtmlDoc(printDoc(), printFrameRef, () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
 				return;
 			}
 			// Desktop, N-up / handout: the one-slide-per-page vector path can't grid or add a
@@ -496,7 +535,26 @@ export function PrintOptionsPanel({
 			<div className="pod-stage" ref={stageRef}>
 				{render && sections.length ? (
 					<div className="pod-sheet" style={sheetPx}>
-						{cellRects.map((cr, k) => {
+						{pooled ? (
+							<PreviewPool className="absolute inset-0">
+								{cellRects.map((cr, k) => {
+									const slideIdx = pageIdx * nup + k;
+									if (slideIdx >= sections.length) return null;
+									return (
+										<div
+											// biome-ignore lint/suspicious/noArrayIndexKey: a cell's POSITION is its identity, so a sheet flip re-points its pooled frame instead of building a new one.
+											key={k}
+											role="img"
+											aria-label={`Print preview slide ${slideIdx + 1}`}
+											className="pod-cell"
+											style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }}
+										>
+											<PooledThumbFace options={options} sample={printSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} mermaid={hasMermaid(mdSlides[slideIdx])} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
+										</div>
+									);
+								})}
+							</PreviewPool>
+						) : cellRects.map((cr, k) => {
 							const doc = previewDocs[k];
 							if (!doc) return null;
 							const slideIdx = pageIdx * nup + k;
@@ -597,6 +655,7 @@ function Seg({ opts, value, onPick }: { opts: [string, string][]; value: string;
 const STYLE = `
 .pod-stage{position:relative;height:180px;border-radius:12px;padding:16px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),#0b1c33;box-shadow:inset 0 0 0 1px color-mix(in srgb,#ffffff 6%,transparent);}
 .pod-sheet{background:#fff;box-shadow:0 14px 38px -12px rgba(0,0,0,.6);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.06);transition:width .3s ease,height .3s ease;}
+.pod-cell{position:absolute;}
 .pod-frame{position:absolute;border:0;background:#fff;border-radius:2px;overflow:hidden;box-shadow:0 5px 14px -8px rgba(20,35,56,.35);transition:left .3s,top .3s,width .3s,height .3s;}
 .pod-safe{position:absolute;border:1px dashed color-mix(in srgb,#142338 24%,transparent);border-radius:2px;pointer-events:none;}
 .pod-notes{position:absolute;overflow:hidden;border-top:1px solid color-mix(in srgb,#142338 16%,transparent);padding-top:3px;color:#28323c;font-size:6px;line-height:1.4;text-align:left;white-space:pre-wrap;word-break:break-word;transition:left .3s,top .3s,width .3s,height .3s;}
