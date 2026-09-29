@@ -231,6 +231,11 @@ that keeps text or a raster image in it. That covers:
 - a masked or filtered shape;
 - a character the deck's fonts lack (an emoji, a system-font fallback);
 - pseudo-element text (page numbers, bullets).
+- a text decoration (an underline, a strikethrough). The word itself is drawn as text; the line
+  stays in the photo, where the browser placed it. `hideDrawn` pins each declaring element's
+  `text-decoration-color` first, because Blink paints a `currentcolor` decoration with the text
+  fill, and hiding the text by fill color used to erase the line with it (a rejected option's
+  struck tag read as live; `test/integration/export/pdf-text-decoration.test.js`).
 
 Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
 deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size.

@@ -35,3 +35,11 @@ re-rendered through the shared writer at all is still the owner's call
 (followups.d/2404-p1-rerender-goldens-through-shared-writer.md). So: fix the writer or take that
 decision first, then rebuild both PDFs.
 
+
+**Update 2026-09-29 (the video-export continuation PR).** p.51's strikethrough is fixed in the writer
+(`hideDrawn` pins the decoration color). p.86 was never a writer defect: a fresh writer render and
+a PNG render of the same deck match (flat, `fill-opacity: 0.6` washes); only the COMMITTED
+Chrome-printed gallery.pdf is saturated, because Chrome's printer drops `fill-opacity` on a
+gradient-filled SVG shape (the note at the top of tools/pdf-writer-parity.mjs). So p.86 is one
+more page that changes, correctly, on the rebuild. Neither blocker remains; the rebuild waits only
+on the owner's re-render decision (followups.d/2404-p1-rerender-goldens-through-shared-writer.md).
