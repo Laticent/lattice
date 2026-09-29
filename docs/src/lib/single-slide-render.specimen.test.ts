@@ -173,7 +173,9 @@ describe('the specimen flag on the rendered frame (#1463)', () => {
 		// own preview, the landing islands and the specimens all take this path, and
 		// e2e/reader-alarms.spec.ts' positive control depends on their watcher still running.
 		const doc = await srcdocFor(undefined);
-		expect(doc).toMatch(/^<!doctype html><html>/);
+		// Bare of the specimen flag. (`data-lattice-live-media` is on every on-screen frame: a loading
+		// picture paints there, lib/core/image-painting.js.)
+		expect(doc).toMatch(/^<!doctype html><html data-lattice-live-media>/);
 		expect(doc).not.toContain('data-lattice-specimen');
 	});
 

@@ -537,9 +537,7 @@ export function buildSrcdoc({
 		// revealer that finds no gate reveals immediately by design — so a late gate
 		// is a silent no-op, not a visible failure. `preview-font-gate.test.js` pins
 		// the order at every call site for exactly that reason.
-		// `0`: no adaptive-image wait — this document holds the WHOLE deck, and one slide's slow
-		// photo must not keep every other slide hidden (lib/core/preview-font-gate.mjs).
-		'<scr' + 'ipt>' + fontGateAgent(undefined, 0) + '</scr' + 'ipt>' +
+		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
 		'</head><body>' +
 		a11yDefs +
 		html +

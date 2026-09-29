@@ -1955,3 +1955,20 @@ for (const [name, cls, data] of [
 		assert.match(articleHtml, /<pre[^>]*tabindex="0"/, 'the code block stays a focusable <pre>');
 	});
 }
+
+// A stats slide's paragraph AFTER the stat list (followups.d 2412-p3). It stays in `.cell-stage`,
+// because a below-note must be the slide's last block, and `projectStats` / `speakStats` took only
+// the blocks BEFORE the list — so the article and the voice dropped a source line the slide shows.
+test('stats: a paragraph after the stat list reaches the article and narration once, after the stats', async () => {
+	const md = '<!-- _class: stats -->\n\n## Quarter\n\nThe lead line.\n\n1. **$2.4B**\n   - Total revenue\n2. **4.2×**\n   - Signal recall\n\n*Source: CRM export, 30 September.*\n\n> Revenue up.\n';
+	const secs = await renderedSections(md);
+	const { articleHtml } = project(secs);
+	assert.equal(articleHtml.split('Source: CRM export').length - 1, 1, articleHtml);
+	assert.ok(articleHtml.indexOf('</dl>') < articleHtml.indexOf('Source: CRM export'), 'the source follows the stats');
+	assert.ok(articleHtml.indexOf('The lead line.') < articleHtml.indexOf('<dl'), 'the lead still precedes them');
+	assert.ok(articleHtml.indexOf('Source: CRM export') < articleHtml.indexOf('Revenue up.'), 'the key insight still closes the slide');
+	const [{ text }] = script(secs);
+	assert.equal(text.split('Source: CRM export').length - 1, 1, text);
+	assert.ok(text.indexOf('Signal recall') < text.indexOf('Source: CRM export'), text);
+	assert.ok(text.indexOf('Source: CRM export') < text.indexOf('Revenue up.'), text);
+});

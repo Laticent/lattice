@@ -1161,8 +1161,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// the body or the section: the runtime reads it once at boot, before it has a
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
+			// `data-lattice-live-media`: this frame is ON SCREEN, so a picture still loading shows the
+			// Underpainting (lib/core/image-painting.js). An export capture never sets it.
 			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(mermaid && mermaidUrl ? mermaidUrl : '') +
-			'><head><meta charset="utf-8">' +
+			' data-lattice-live-media><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
 			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked }) +
@@ -1273,9 +1275,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	 * transition. A fade instead of a jump; nothing is hidden for longer than one ease.
 	 * Armed once per document.
 	 *
-	 * `lattice:layout-late` is the same case for an adaptive IMAGE: the gate holds the reveal for
-	 * the photo's aspect up to PREVIEW_IMAGE_GATE_MS, and a photo slower than that re-lays out the
-	 * card when it lands (lib/transformers/image-adaptive.js).
+	 * An adaptive IMAGE whose size lands late does NOT use this: the runtime re-fades only that
+	 * slide's text (`data-img-relayout`, lib/transformers/image-adaptive.js), because blanking the
+	 * whole frame also blanked the photo's loading painting for a beat.
 	 */
 	function armLateFonts(fr: HTMLIFrameElement) {
 		try {
@@ -1295,7 +1297,6 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				);
 			};
 			win.addEventListener('lattice:fonts-late', fadeThrough);
-			win.addEventListener('lattice:layout-late', fadeThrough);
 		} catch {
 			/* a torn-down or cross-realm frame has nothing to re-fade */
 		}

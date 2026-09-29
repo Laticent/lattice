@@ -61,6 +61,7 @@ section.video .video-poster.is-placeholder {
 /* Play badge — a fixed-contrast disc + a CSS triangle, centered on the poster. */
 section.video .video-play {
   position: absolute;
+  z-index: 2; /* above a loading poster's painting (base.modifiers.css), in the anchor's own band */
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -87,6 +88,7 @@ section.video .video-play::before {
 /* Provider label — a chip on the poster's lower-left. */
 section.video .video-provider {
   position: absolute;
+  z-index: 2;
   left: var(--sp-sm, 0.75rem);
   bottom: var(--sp-sm, 0.75rem);
   padding: 0.25em 0.7em;
