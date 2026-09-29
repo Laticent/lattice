@@ -150,3 +150,39 @@ describe('WebpageOptionsPanel — chart motion in the exported file', () => {
 		expect(onExport.mock.calls[0][0].playerMotion).toBe(false);
 	});
 });
+
+// Pictures from other sites are embedded only when the author asks (the owner's call, PR #2495):
+// the switch decides whether THEIR browser contacts those sites at export time. The file is
+// self-contained either way. Offered only when the deck shows such a picture.
+describe('Embed pictures from other sites', () => {
+	const WEB_DECK = '## Web\n\n![Chart](https://images.example/chart.png)\n';
+	const LOCAL_DECK = '## Local\n\n![Chart](/showcase/kpi.light.webp)\n';
+	const panel = (source: string, onExport: (c: unknown) => void = noop) =>
+		render(
+			<WebpageOptionsPanel defaultScheme="light" source={source} project={vi.fn(async () => ({ slides: [] })) as never} onBack={noop} onExport={onExport} onCancel={noop} />,
+		);
+
+	it('is offered, and OFF by default, when the deck shows a picture from another site', async () => {
+		const user = userEvent.setup();
+		const onExport = vi.fn();
+		panel(WEB_DECK, onExport);
+		const sw = screen.getByRole('switch', { name: 'Embed pictures from other sites' });
+		expect(sw.getAttribute('aria-checked')).toBe('false');
+		await user.click(screen.getByRole('button', { name: 'Download webpage' }));
+		expect(onExport.mock.calls[0][0].embedWebPictures).toBe(false);
+	});
+
+	it('reports the opt-in to the exporter', async () => {
+		const user = userEvent.setup();
+		const onExport = vi.fn();
+		panel(WEB_DECK, onExport);
+		await user.click(screen.getByRole('switch', { name: 'Embed pictures from other sites' }));
+		await user.click(screen.getByRole('button', { name: 'Download webpage' }));
+		expect(onExport.mock.calls[0][0].embedWebPictures).toBe(true);
+	});
+
+	it('is not offered when every picture is on this site', () => {
+		panel(LOCAL_DECK);
+		expect(screen.queryByRole('switch', { name: 'Embed pictures from other sites' })).toBeNull();
+	});
+});

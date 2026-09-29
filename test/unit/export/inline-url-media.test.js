@@ -192,7 +192,49 @@ test('describeMissingMedia names the first failure, counts the rest, and leaves 
 	assert.equal(describeMissingMedia([], [], 'https://studio.test'), undefined);
 	assert.equal(
 		describeMissingMedia([{ url: 'https://studio.test/a.png', reason: 'the server answered 404' }, { url: 'https://studio.test/b.png', reason: 'x' }], ['https://studio.test', 'https://cdn.example'], 'https://studio.test'),
-		'2 images could not be embedded (/a.png: the server answered 404, and 1 more); images from cdn.example ship as placeholders, since the export fetches only from this site',
+		'2 images could not be embedded (/a.png: the server answered 404, and 1 more); images from cdn.example ship as placeholders (turn on “Embed pictures from other sites” to include them)',
 	);
 	assert.equal(describeMissingMedia([{ url: 'https://studio.test/a.png', reason: 'r' }], ['https://studio.test'], 'https://studio.test'), '1 image could not be embedded (/a.png: r)');
+});
+
+test('anyWebOrigin (the author opted in): another site IS fetched and embedded', async () => {
+	const { inlineUrlMedia } = await load();
+	const fetchDataUri = fakeFetch({ 'https://cdn.example/x.jpg': { dataUri: PNG } });
+	const r = await inlineUrlMedia('<img src="https://cdn.example/x.jpg"><img src="file:///etc/passwd">', { baseUrl: BASE, origins: ORIGINS, anyWebOrigin: true, fetchDataUri });
+	assert.equal(r.html, `<img src="${PNG}"><img src="file:///etc/passwd">`, 'web only: file: is never fetched');
+	assert.deepEqual(fetchDataUri.calls, ['https://cdn.example/x.jpg']);
+});
+
+test('browserFetchDataUri names a refusal from another site, not a bare network error', async () => {
+	const { browserFetchDataUri } = await load();
+	const f = browserFetchDataUri(async () => { throw new TypeError('Failed to fetch'); }, { ownOrigin: 'https://studio.test' });
+	assert.match((await f('https://cdn.example/x.jpg')).reason, /does not allow its pictures to be downloaded/);
+	assert.match((await f('https://studio.test/x.jpg')).reason, /could not be fetched \(Failed to fetch\)/);
+});
+
+test('sourceHasWebPictures: a web picture in each place one is written; links, video URLs and this site do not count', async () => {
+	const { sourceHasWebPictures } = await load();
+	const own = 'https://studio.test';
+	for (const md of ['![x](https://a.example/x.jpg)', '![bg left](//a.example/x.jpg)', '- https://a.example/p.jpg `poster`', '<img src="https://a.example/y.png">', '<div style="background:url(https://a.example/z.png)"></div>']) {
+		assert.equal(sourceHasWebPictures(md, own), true, md);
+	}
+	for (const md of ['![x](/local.png)', '![x](https://studio.test/x.png)', '- https://www.youtube.com/watch?v=1', '[a link](https://a.example)']) {
+		assert.equal(sourceHasWebPictures(md, own), false, md);
+	}
+});
+
+test('browserFetchDataUri refuses bytes labelled image/* that do not open as a picture', async () => {
+	const { browserFetchDataUri } = await load();
+	const res = { ok: true, status: 200, headers: { get: (h) => (h === 'content-type' ? 'image/jpeg' : null) }, arrayBuffer: async () => new Uint8Array([120]).buffer };
+	const bad = browserFetchDataUri(async () => res, { decode: async () => false });
+	assert.match((await bad('https://cdn.example/x.jpg')).reason, /not a picture the browser can open/);
+	const good = browserFetchDataUri(async () => res, { decode: async () => true });
+	assert.ok((await good('https://cdn.example/x.jpg')).dataUri);
+});
+
+test('describeMissingMedia: a site whose picture failed is not listed twice, and the switch is not suggested once on', async () => {
+	const { describeMissingMedia } = await load();
+	const missing = [{ url: 'https://cdn.example/x.jpg', reason: 'not a picture the browser can open' }];
+	assert.equal(describeMissingMedia(missing, ['https://cdn.example'], 'https://studio.test', true), '1 image could not be embedded (/x.jpg: not a picture the browser can open)');
+	assert.equal(describeMissingMedia([], ['https://other.example'], 'https://studio.test', true), 'images from other.example ship as placeholders');
 });

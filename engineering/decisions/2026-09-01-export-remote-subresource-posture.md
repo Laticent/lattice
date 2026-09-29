@@ -318,9 +318,15 @@ author's browser, from the site it is already on, at export time.
 
 The limits are deliberate:
 
-- **Other sites are not fetched.** That is a request on the author's behalf to a third party at
-  export time, so it is an owner decision, not a default. Those pictures still ship as the
-  placeholder, and the toast now names each site.
+- **Other sites are fetched only when the author asks.** The export panel's "Embed pictures from
+  other sites" switch is off by default and appears only when the deck shows such a picture
+  (`sourceHasWebPictures`). Off, those pictures ship as the placeholder and the toast names each
+  site and the switch. On, the author's browser fetches them at export time — a host must send a
+  CORS header for a page to read its bytes, and one that does not is named in the toast. The
+  owner settled this on PR #2495: **the recipient's file is self-contained and safe either way**,
+  because it carries the bytes and its policy loads nothing on open. The switch decides only
+  whether the AUTHOR's browser contacts those sites, which is the author's call to make, not a
+  default to make for them.
 - **Video and audio files are not embedded**; a clip can be hundreds of megabytes.
 - **A response must be a bare `image/*` type, 8 MB or less, within 20 seconds**, and the pictures
   together stay under 48 MB. A static host answers a missing file with its HTML 404 page;

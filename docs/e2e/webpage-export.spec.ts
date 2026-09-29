@@ -444,3 +444,40 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 	expect(got.placeholders, 'the missing picture and the web one ship as the placeholder').toEqual([expect.stringMatching(/\/no-such-picture\.png$/), 'https://example.com/web.jpg']);
 	expect(refused.filter((t) => /showcase|icon-192/.test(t)), 'no embedded picture is refused by the policy').toEqual([]);
 });
+
+// THE OPT-IN (PR #2495, the owner's call): with "Embed pictures from other sites" on, the author's
+// browser fetches the other site's picture at export time and the FILE carries it — the recipient
+// still loads nothing on open. The other site is stubbed with a CORS header, which a real host
+// must send for a page to read its bytes; one that does not is reported in the toast instead.
+test('the Studio webpage export embeds another site’s picture when the author opts in', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	const png = await readFile(new URL('../public/icons/icon-192.png', import.meta.url));
+	await page.route('https://pictures.example/**', (route) =>
+		route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: png }),
+	);
+	const DECK = ['---', 'theme: indaco', '---', '', '## Another site’s picture', '', '![Web](https://pictures.example/icon.png)', ''].join('\n');
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
+	const sw = page.getByRole('switch', { name: 'Embed pictures from other sites' });
+	await expect(sw, 'off by default').toHaveAttribute('aria-checked', 'false');
+	await sw.click();
+	const downloadPromise = page.waitForEvent('download', { timeout: 150_000 });
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.confirm }).click();
+	const file = path.join(testInfo.outputDir, 'web-opt-in.html');
+	await (await downloadPromise).saveAs(file);
+
+	const viewer = await page.context().newPage();
+	const requests: string[] = [];
+	viewer.on('request', (r) => { if (!r.url().startsWith('file:') && !r.url().startsWith('data:')) requests.push(r.url()); });
+	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
+	const img = await viewer.evaluate(() => {
+		const i = document.querySelector('section[data-lattice-slide] img[alt="Web"]') as HTMLImageElement | null;
+		return i ? { src: i.src.slice(0, 22), loaded: i.complete && i.naturalWidth > 0 } : null;
+	});
+	await viewer.close();
+	expect(img, 'the other site’s picture is inside the file and decodes').toEqual({ src: 'data:image/png;base64,', loaded: true });
+	expect(requests, 'opening the file contacts no site').toEqual([]);
+});

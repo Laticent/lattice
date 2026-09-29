@@ -390,6 +390,11 @@ export async function shareHtmlPlayer(
 	// and the CLI cannot drift on what the flag means. Undefined inherits the deck's own
 	// registers (`motion:`, with `player-motion: off` as the author-side opt-out).
 	playerMotion?: boolean,
+	// Fetch pictures from OTHER sites too, and embed them — the author's opt-in from the export
+	// panel. Off, only this site's pictures are fetched and every other one ships as the
+	// placeholder. The file is self-contained either way; this decides only whether the author's
+	// browser contacts those sites now.
+	embedWebPictures = false,
 	// Resolves to a DEGRADATION reason when the export completed but shipped something
 	// lesser than intended (today: the diagram bake did not run), else undefined. The
 	// caller surfaces it in the completion toast — see the return at the end.
@@ -444,13 +449,13 @@ export async function shareHtmlPlayer(
 	// picture that is not already a `data:` URI, a same-origin `/images/x.jpg` included, so a
 	// `![bg](…)` panel and a video poster the preview showed came out blank in the player. Fetch
 	// each one from THIS origin now and embed it; a picture from another site is left to the
-	// placeholder pass below and counted. Fetching other sites at export time is an owner
-	// decision, so the list is our own origin only.
+	// placeholder pass below and counted — unless the author turned on "Embed pictures from other
+	// sites", which fetches those too. The recipient's file loads nothing on open either way.
 	onStatus?.('Embedding images…');
 	const { inlineUrlMedia, browserFetchDataUri, describeMissingMedia } = await import('../../../../lib/export/inline-url-media.mjs');
 	const mediaCache = new Map();
-	const fetchDataUri = browserFetchDataUri(fetch.bind(globalThis));
-	const withMedia = (html: string) => inlineUrlMedia(html, { baseUrl: document.baseURI, origins: [location.origin], fetchDataUri, cache: mediaCache });
+	const fetchDataUri = browserFetchDataUri(fetch.bind(globalThis), { ownOrigin: location.origin });
+	const withMedia = (html: string) => inlineUrlMedia(html, { baseUrl: document.baseURI, origins: [location.origin], anyWebOrigin: embedWebPictures, fetchDataUri, cache: mediaCache });
 	const media = await withMedia(out.html);
 	const placed = remoteRef.blockWebImages(media.html, []);
 	// `let`: the strip-notes cut below swaps in the scrubbed render, and the bake must bake THAT.
@@ -459,7 +464,7 @@ export async function shareHtmlPlayer(
 	// silent gap otherwise, because the player's placeholder looks deliberate.
 	// Our own origin is left out of the placeholder list: a picture of ours reaching that pass is one
 	// that failed to embed, and `missing` already names it with its reason.
-	const mediaWarning = describeMissingMedia(media.missing, remoteRef.webOrigins(placed.blocked.filter((b) => b.kind !== 'diagram')), location.origin);
+	const mediaWarning = describeMissingMedia(media.missing, remoteRef.webOrigins(placed.blocked.filter((b) => b.kind !== 'diagram')), location.origin, embedWebPictures);
 	let recordSections = sectionsOf(playerHtml);
 	let noteRecord = notesCore.slideNoteRecord(recordSections);
 	// `let`, because the guard below picks WHICH cut ships once it knows which one reproduces

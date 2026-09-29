@@ -7,11 +7,12 @@
 // the CLI `--strip-notes`. Accessible slide descriptions are kept (they're the slide's
 // text alternative, not private speaker copy). See share-export.ts › shareHtmlPlayer.
 
-import { ArrowLeft, Globe, Layers, Loader2, MicOff, Monitor, Moon, Play, Sun, X } from 'lucide-react';
+import { ArrowLeft, Globe, ImageDown, Layers, Loader2, MicOff, Monitor, Moon, Play, Sun, X } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { sourceAnimatesCharts } from '../../../../lib/core/resolve-motion.mjs';
+import { sourceHasWebPictures } from '../../../../lib/export/inline-url-media.mjs';
 import { type NarrationChoice, NarrationExportOptions, type ProjectDeck } from './NarrationExportOptions';
 
 type Scheme = 'light' | 'dark' | 'system' | 'inherited';
@@ -23,6 +24,10 @@ export type WebpageExportChoice = {
 	/** Whether the exported file carries the deck's chart motion. Suppression only — a deck
 	 *  that never asked for motion cannot be made to move from here. */
 	playerMotion: boolean;
+	/** Fetch pictures from OTHER sites now and bake them into the file. Off by default: the
+	 *  author's browser contacts those sites only when asked. Either way the file itself stays
+	 *  self-contained and loads nothing when the recipient opens it. */
+	embedWebPictures: boolean;
 	scheme: Scheme;
 	narration: NarrationChoice;
 };
@@ -69,6 +74,12 @@ export function WebpageOptionsPanel({
 	// own — case-sensitive, and treating the style tokens as opt-ins — so the same deck got
 	// three different answers from the panel, the exporter and the live cascade.
 	const deckHasMotion = React.useMemo(() => sourceAnimatesCharts(source), [source]);
+	// OTHER SITES' PICTURES — opt-in, and shown only when the deck has one (same reasoning as
+	// motion: a switch that does nothing teaches distrust). Off by default because turning it on
+	// makes the author's browser contact those sites at export time; the FILE is self-contained
+	// either way — the recipient's copy carries the bytes and its policy loads nothing on open.
+	const [embedWebPictures, setEmbedWebPictures] = React.useState(false);
+	const deckHasWebPictures = React.useMemo(() => sourceHasWebPictures(source, typeof location === 'undefined' ? undefined : location.origin), [source]);
 	// Narration is opt-in too, and for a different reason: it is the only option here that
 	// can spend money and add megabytes. See NarrationExportOptions for the bill.
 	const [narration, setNarration] = React.useState<NarrationChoice>({ captions: false, audio: false, allowPartial: false, voice: { model: '', voice: '', speed: 1 } });
@@ -97,7 +108,7 @@ export function WebpageOptionsPanel({
 	// ref went with it: closing the sheet mid-bake left three workers synthesizing and billing
 	// with nothing left to stop them, and reopening it re-mounted a Cancel button whose ref was
 	// null — the only stop control in the feature, dead. It belongs to the owner of the run.
-	const launch = (choice: NarrationChoice) => onExport({ stripNotes, scheme, narration: choice, playerMotion });
+	const launch = (choice: NarrationChoice) => onExport({ stripNotes, scheme, narration: choice, playerMotion, embedWebPictures: deckHasWebPictures && embedWebPictures });
 	// The exported player's default color mode. The panel remounts each time the export step
 	// is opened (ShareSheet renders it conditionally), so this mount-time default already
 	// re-syncs — no effect needed, so an explicit user pick is never silently clobbered.
@@ -185,6 +196,26 @@ export function WebpageOptionsPanel({
 								</span>
 							</span>
 							<Switch className="mt-0.5" aria-label="Animate charts" checked={playerMotion} disabled={busy} onCheckedChange={setPlayerMotion} />
+						</div>
+					</div>
+				) : null}
+
+				{/* Pictures from other sites — only when the deck shows one. */}
+				{deckHasWebPictures ? (
+					<div className="rounded-xl border border-border bg-background p-3.5">
+						<div className="flex items-start justify-between gap-3">
+							<span className="flex items-start gap-2">
+								<ImageDown className="mt-0.5 size-4 text-[var(--accent)]" />
+								<span>
+									<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Embed pictures from other sites</span>
+									<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
+										{embedWebPictures
+											? 'Your browser downloads them now and puts them inside the file. Whoever opens it still loads nothing from the web. A site that refuses the download is listed when the export finishes.'
+											: 'They ship as a placeholder, and the export contacts no other site. Pictures from this site are always included.'}
+									</span>
+								</span>
+							</span>
+							<Switch className="mt-0.5" aria-label="Embed pictures from other sites" checked={embedWebPictures} disabled={busy} onCheckedChange={setEmbedWebPictures} />
 						</div>
 					</div>
 				) : null}
