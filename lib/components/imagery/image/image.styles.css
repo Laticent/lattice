@@ -139,11 +139,11 @@ section.image[data-img-unloaded] .lattice-bg {
  * moment its size arrived (the owner's iPhone, PR #2471). Any other shape MORPHS there instead of
  * snapping (lib/transformers/image-adaptive.js). Scoped to the landscape rules the real `wide`
  * bucket uses; a portrait deck's card takes the aspect alone, exactly as a wide photo would. */
-section.image[data-img-pending]:not([data-img-bucket]) {
+section.image:is([data-img-pending], :has(> .lattice-bg[data-lattice-painting])):not([data-img-bucket]) {
   --img-aspect: 16 / 10;
   --img-aspect-n: 1.6;
 }
-section.image[data-img-composition="clean"][data-img-pending]:not([data-img-bucket]):not([data-orientation="portrait"]):not([data-orientation="square"]) .lattice-bg {
+section.image[data-img-composition="clean"]:is([data-img-pending], :has(> .lattice-bg[data-lattice-painting])):not([data-img-bucket]):not([data-orientation="portrait"]):not([data-orientation="square"]) .lattice-bg {
   height: auto;
   width: 88%;
   max-height: 76cqh;

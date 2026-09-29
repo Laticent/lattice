@@ -72,13 +72,28 @@ describe('the Underpainting', () => {
     assert.equal(e.hasAttribute(PAINTING), false);
   });
 
-  it('a picture that fails hands back at once, so its own stand-in shows', async () => {
+  it('a picture that fails keeps the painting, muted and still: one placeholder, never the hatch', async () => {
     const e = el();
     const p = probe();
     paintUntilDecoded(e, p, view());
     p.fail();
     await flush();
-    assert.equal(e.hasAttribute(PAINTING), false);
+    assert.equal(e.getAttribute(PAINTING), 'still');
+  });
+
+  it('a still painting gives way when the picture is loaded after all', () => {
+    const e = el();
+    e.setAttribute(PAINTING, 'still');
+    assert.equal(paintUntilDecoded(e, probe(), view()), true);
+    assert.equal(e.getAttribute(PAINTING), '', 'painting again, animated, while it loads');
+  });
+
+  it('recognizes the blocked-web-image hatch, and nothing else, as a picture not coming', () => {
+    const { isBlockedHatch } = require('../../../lib/core/image-painting');
+    const withBg = (v) => ({ style: { backgroundImage: v } });
+    assert.equal(isBlockedHatch(withBg('repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0px, 0px 1px, transparent 1px, transparent 10px)')), true);
+    assert.equal(isBlockedHatch(withBg('url("a.jpg")')), false);
+    assert.equal(isBlockedHatch(withBg('')), false);
   });
 
   it('a picture that hangs is handed back at the cap', () => {

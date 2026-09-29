@@ -274,17 +274,26 @@ describe('video poster painting (runtime)', () => {
     }
   });
 
-  test('a poster that fails, or never lands, stops painting', async () => {
+  test('a poster that fails paints still, and one that never lands is handed back', async () => {
     const failed = frame();
     registry.applyToDom(failed.win.document);
     failed.decodes[0].rej(new Error('gone'));
     await flush();
-    assert.equal(failed.a.hasAttribute('data-lattice-painting'), false, 'a failure shows the tile at once');
+    assert.equal(failed.a.getAttribute('data-lattice-painting'), 'still', 'a failure keeps the painting, muted and still');
 
     const hung = frame();
     registry.applyToDom(hung.win.document);
     hung.timers[0].fn(); // the cap
     assert.equal(hung.a.hasAttribute('data-lattice-painting'), false, 'the cap hands the poster back to the anchor');
+  });
+
+  test('a web poster the reader has not loaded (the hatch) paints still', () => {
+    const dom = new JSDOM(`<section class="video"><figure class="video-embed"><a class="video-poster" href="https://youtu.be/x" style="background-image:repeating-linear-gradient(135deg, red 0 1px, transparent 1px 10px)"></a></figure></section>`);
+    const win = dom.window;
+    win.__latticeFontsSettled = false;
+    win.document.documentElement.setAttribute('data-lattice-live-media', '');
+    registry.applyToDom(win.document);
+    assert.equal(win.document.querySelector('a.video-poster').getAttribute('data-lattice-painting'), 'still');
   });
 
   test('a second pass over the same document does not re-probe a managed poster', () => {

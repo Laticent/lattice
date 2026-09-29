@@ -842,8 +842,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   (`lib/core/image-painting.js`), and `base.modifiers.css` draws the house Nacre loader's
   image variant over it: a canvas laid down in one brush sweep, soft brushwork drifting
   across it, in the deck's own tokens. On decode it turns `"done"` and the painting fades
-  away over the photo. A picture already held never paints; a failed one hands back at once
-  (its hatch shows); a hung one after 12 s. **Keep the brush layer inside the element's
+  away over the photo. A picture already held never paints; a hung one is handed back after
+  12 s. **One placeholder, two moods** (the owner's call): a picture that is NOT coming — a
+  web photo the reader has not loaded (remote-ref's hatch in the panel's style) or one that
+  failed — shows the same painting muted and STILL (`"still"`, `paintStill`) instead of the
+  hatch, in the same wide card, so tapping "Load" moves nothing (measured: the card holds
+  552×345 through still → painting → photo). Exports keep the hatch. **Keep the brush layer inside the element's
   box:** a wider band raised the panel's `scrollWidth` by 1161px even with `overflow:
   hidden`, `clip` or `contain: paint` (all three measured in Chromium and WebKit), and the
   slide's overflow probe flagged the slide. So the strokes move by background and mask

@@ -411,7 +411,7 @@ const loadingImage = () => class {
   decode() { return new Promise(() => {}); }
 };
 
-test('a section a host stamped final still paints until its picture decodes, unless it will not load', () => {
+test('a section a host stamped final paints until its picture decodes, and paints still if it will not load', () => {
   const prev = global.Image;
   global.Image = loadingImage();
   try {
@@ -431,7 +431,7 @@ test('a section a host stamped final still paints until its picture decodes, unl
     const gonePanel = paintablePanel('gone.png');
     gone.querySelector = () => gonePanel;
     imageAdaptive.applyToDom(rootIn([gone], view));
-    assert.equal(gonePanel.hasAttribute('data-lattice-painting'), false, 'its hatch shows instead');
+    assert.equal(gonePanel.getAttribute('data-lattice-painting'), 'still', 'the painting, muted and still');
   } finally { global.Image = prev; }
 });
 
@@ -519,4 +519,21 @@ test('the morph uses the Web Animations API where the host has it, starting at o
     assert.equal(calls[0].opts.duration, imageAdaptive.MORPH_MS);
     assert.equal(panel.style.transform, '', 'no inline style left behind');
   } finally { global.Image = prev; }
+});
+
+test('a web photo the reader has not loaded (the hatch) shows the painting, muted and still', () => {
+  const view = timedView(false);
+  const s = makeSection({});
+  const panel = paintablePanel('x');
+  panel.style = { backgroundImage: 'repeating-linear-gradient(135deg, red 0 1px, transparent 1px 10px)' };
+  s.querySelector = () => panel;
+  imageAdaptive.applyToDom(rootIn([s], view));
+  assert.equal(panel.getAttribute('data-lattice-painting'), 'still');
+  const exportView = timedView(false, { optIn: false });
+  const s2 = makeSection({});
+  const panel2 = paintablePanel('x');
+  panel2.style = { backgroundImage: 'repeating-linear-gradient(135deg, red 0 1px, transparent 1px 10px)' };
+  s2.querySelector = () => panel2;
+  imageAdaptive.applyToDom(rootIn([s2], exportView));
+  assert.equal(panel2.hasAttribute('data-lattice-painting'), false, 'an export keeps its hatch');
 });

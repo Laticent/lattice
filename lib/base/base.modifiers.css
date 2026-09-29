@@ -439,6 +439,18 @@ section [data-lattice-painting]::after {
   opacity: 0.9;
   animation: lattice-paint-brush 12s linear infinite;
 }
+/* STILL: a picture that is not coming (a web image the reader has not loaded, or one that failed).
+ * The same painting, muted and motionless, so it never claims to be loading; it stays until the
+ * picture is loaded (the reader taps "Load" and the slide re-renders) or the slide changes. */
+section [data-lattice-painting="still"]::before {
+  animation: none;
+  filter: saturate(0.4);
+}
+section [data-lattice-painting="still"]::after {
+  animation: none;
+  opacity: 0.4;
+  filter: saturate(0.4);
+}
 /* The same picture resuming in a re-created section: no second sweep. */
 section [data-lattice-painting="again"]::before {
   animation: none;
