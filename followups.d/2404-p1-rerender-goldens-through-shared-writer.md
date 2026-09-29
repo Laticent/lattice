@@ -25,3 +25,10 @@ unless this is done as one deliberate pass.
        verify    — tier 0 gates, because the writer itself is already reviewed; the decision is
                    the owner's (it changes committed artifacts).
 ```
+
+**Update 2026-09-29.** `test/integration/baseline-decks/gallery.pdf` and
+`examples/token-contrast/indaco.pdf` are now rendered through the shared writer. They had to be
+rebuilt under either choice: their decks' layout changed on main (#2428/#2433 card tags, #2457
+split chrome), so this is (b) "as decks change" and does not pre-empt (a). Every changed page was
+checked against a PNG render of the same deck: gallery 17 pages, indaco p.9, all intended. The rest
+of `examples/*.pdf` is still Chrome-printed until the owner picks (a) or (b).
