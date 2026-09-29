@@ -10,6 +10,8 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const splitPanels = require('../../../lib/transformers/split-panels');
 const kernel = require('../../../lib/core/split-panels');
+const { extractSlideNotes } = require('../../../lib/authoring/notes-core');
+const { replaceClosedComments } = require('../../../lib/core/closed-comments');
 
 const BODY = {
   'split-panel': '<p><code>Eyebrow</code></p><h2>Headline</h2><p>Lede.</p><ul><li><strong>Point</strong><ul><li>body</li></ul></li></ul>',
@@ -124,6 +126,10 @@ describe('split-compare: an author block the layout does not claim', () => {
     'a blockquote inside an option': '<h2>H</h2><p>C.</p><ul><li><strong>A</strong><blockquote><p>Nested.</p></blockquote></li><li><strong>B</strong></li></ul><p>Stray one.</p><blockquote><p>V.</p></blockquote>',
     'a verdict with its own bullets above the options': '<h2>H</h2><p>C.</p><blockquote><p>Pick B, because:</p><ul><li>cost</li><li>latency</li></ul></blockquote><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><p>Stray one.</p>',
     'a second blockquote after the verdict': '<h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote><blockquote><p>Stray one.</p></blockquote>',
+    // The option list is the first TOP-LEVEL list, as the DOM path reads it (`:scope > ul`). A list
+    // inside raw HTML above the options used to become the option cards on the string path.
+    'a list inside a raw div above the options': '<h2>H</h2><p>C.</p><div><p>Stray one.</p><ul><li>x</li><li>y</li></ul></div><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote>',
+    'a list inside a table cell above the options': '<h2>H</h2><p>C.</p><table><tr><td>Stray one.<ul><li>x</li><li>y</li></ul></td></tr></table><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote>',
   };
   for (const [name, body] of Object.entries(cases)) {
     const html = `<section class="split-compare"><header>Head</header>${body}<footer>Run</footer></section>`;
@@ -153,9 +159,57 @@ describe('split-compare: an author block the layout does not claim', () => {
     assert.equal(eyebrowed.querySelector('.compare-left p')?.textContent, 'C.');
   });
 
-  test('string path: a speaker-note comment is not carried into the slide (export bytes unchanged)', () => {
-    const html = '<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><!-- note: say this --><blockquote><p>V.</p></blockquote></section>';
-    assert.doesNotMatch(kernel.applyToRenderedHtml(html), /note: say this/);
+  // A speaker note is still a raw comment when the split kernel runs. The kernel rebuilds the section
+  // from its slots, and it used to drop every comment on the way: notes on this one layout never
+  // reached an export (found by the checker on #2457).
+  test('string path: a speaker note survives the rebuild and notes-core reads it', () => {
+    const html = '<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><!-- say this --><blockquote><p>V.</p></blockquote></section>';
+    const out = kernel.applyToRenderedHtml(html);
+    assert.deepEqual(extractSlideNotes([out]), ['say this']);
+    // Lifted ahead of both panels, where the DOM path leaves the comment node; the slots are unchanged.
+    const sec = new JSDOM(out).window.document.querySelector('section');
+    assert.equal(sec.firstChild.nodeType, 8);
+    assert.deepEqual(chromeShape(sec), ['div.compare-left', 'div.compare-right']);
+    assert.equal(sec.querySelector('.verdict').textContent.trim(), 'V.');
+  });
+
+  test('string path: the `<!-- stress-slide -->` specimen marker survives the rebuild', () => {
+    const html = '<section class="split-compare"><!-- stress-slide --><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul></section>';
+    assert.match(kernel.applyToRenderedHtml(html), /<!-- stress-slide -->/);
+  });
+
+  test('string path: a section with no comment keeps its bytes', () => {
+    const html = '<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul></section>';
+    assert.equal(kernel.applyToRenderedHtml(html), '<section class="split-compare"><div class="compare-left"><h2>H</h2><p>C.</p></div><div class="compare-right"><div class="options"><div class="option"><strong>A</strong></div><div class="option preferred"><strong>B</strong></div></div></div></section>');
+  });
+
+  // The context paragraph is the first TOP-LEVEL `<p>`. The mask that hides nested blocks from that
+  // search matched non-greedily, so it stopped at an option's inner `</ul>` and left the rest of the
+  // item open to it: a loose option with a nested list and a trailing paragraph lost that paragraph
+  // to the dark panel on the string path when the slide had no context paragraph of its own. The
+  // input is the engine's shape after slotLabelLift (a real render of that markdown).
+  test('a loose option with a nested list and a trailing paragraph: both paths agree', () => {
+    const html = '<section class="split-compare"><h2>H</h2><ul><li><strong>A</strong><ul><li>x</li></ul><p>A tail.</p></li><li><p><strong>B</strong></p></li></ul><blockquote><p>V.</p></blockquote></section>';
+    const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+    const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+    splitPanels.applyToDom(doc);
+    assert.equal(signature(doc.querySelector('section')), signature(str));
+    assert.equal(str.querySelector('.compare-left p'), null, 'no context paragraph was authored');
+    assert.match(str.querySelector('.option').textContent, /A tail\./);
+  });
+
+  // split-panel reads its lede with the speaker notes still in the section. A note that names a
+  // block tag is not markup: it must not hide the lede from the top-level read (the DOM path never
+  // sees inside a comment). Found by the checker on #2478.
+  test('split-panel: a speaker note that names a block tag leaves the lede in the panel, on both paths', () => {
+    for (const note of ['<!-- wrap this in a <div> later -->', '<!-- a </div> and a <ul> -->', '<!-- <p>not the lede</p> -->']) {
+      const html = `<section class="split-panel"><h2>H</h2>${note}<p>Lede.</p><ul><li>one</li><li>two</li></ul></section>`;
+      const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+      assert.equal(str.querySelector('.panel-left p')?.textContent, 'Lede.', note);
+      const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+      splitPanels.applyToDom(doc);
+      assert.equal(signature(doc.querySelector('section')), signature(str), note);
+    }
   });
 
   test('a verdict written above the options keeps its bullets; the options stay the options', () => {
@@ -192,10 +246,16 @@ describe('split-compare: an author block the layout does not claim', () => {
     assert.match(kernel.applyToRenderedHtml(html), /KEEP ME/);
   });
 
-  test('string path: no comment opener survives, stitched or unterminated', () => {
+  // Only CLOSED comments are carried. An unclosed opener re-emitted ahead of the panels would comment
+  // out the whole slide, and a stitched one (`<!<!-- x -->--`) must not come back as a new opener.
+  test('string path: no unclosed comment opener survives, stitched or unterminated', () => {
     for (const tail of ['<p>A</p><!<!-- x -->-- y -->', '<p>A</p><!-- never closed <p>B</p>']) {
       const html = `<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul>${tail}</section>`;
-      assert.doesNotMatch(kernel.applyToRenderedHtml(html), /<!--/);
+      const out = kernel.applyToRenderedHtml(html);
+      assert.doesNotMatch(replaceClosedComments(out, () => ''), /<!--/);
+      const sec = new JSDOM(out).window.document.querySelector('section');
+      assert.equal(sec.querySelector('.compare-right > p')?.textContent, 'A');
+      assert.ok(!sec.textContent.includes('--'), 'no comment fragment leaks into the visible text');
     }
   });
 

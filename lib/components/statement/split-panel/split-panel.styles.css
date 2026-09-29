@@ -822,6 +822,21 @@ section.split-panel:not([data-orientation="portrait"]) > :is(header, footer) {
 section.split-panel.mirror:not([data-orientation="portrait"]) > :is(header, footer) {
   right: calc(var(--_panel-outer) + var(--frame-inset-x));
 }
+/* PORTRAIT: the panels stack, so the footer spans the frame again, but it keeps the same answer —
+ * ONE line that ellipsizes. Left to wrap, a long caption took a second line that climbed into the
+ * content above it, and on a split page it ran on under the k-of-N rail's pills. On a split page
+ * the footer also stops short of the rail: `--split-rail-reserve` (base.modifiers.css, beside the
+ * rail) is the rail's widest extent plus a gap, a constant, so every page of every run cuts the
+ * caption at the same place. An unsplit page has no rail and keeps the page-number reserve. The
+ * overflow probe reads the cut as the running-chrome band's (`truncatesOwnLine`), as it does in
+ * landscape. */
+section.split-panel[data-orientation="portrait"] > footer {
+  line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+section.split-panel[data-orientation="portrait"]:has(> .lat-split-rail) > footer {
+  right: var(--split-rail-reserve);
+}
 /* The field under the chrome keeps its band clear. `max()` so a slide without chrome, or a
  * variant whose own padding is already deeper, pays nothing. */
 section.split-panel:not(.mirror):not([data-orientation="portrait"]):has(> header) .panel-left {
