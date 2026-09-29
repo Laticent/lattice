@@ -66,8 +66,14 @@ author's original TeX.
 
 KaTeX ships its own ~720-selector layout sheet. `tools/build-css.js` vendors
 `node_modules/katex/dist/katex.min.css` into `dist/lattice.css`, before the components, so
-Lattice's rules win on source order; the CLI's export page also links the local copy, and the
-HTML player inlines the sheet when a page contains KaTeX output. Math takes its color from the
+Lattice's rules win on source order. The CLI's export page carries the sheet INLINE when the deck
+renders math — its rules in `#lattice-katex` and its 20 faces as woff2 `data:` URIs in the page's
+font block (`katexInlineSheet`, `lib/export/cli-deck-sheet.js`) — so an `--html`, `--fluid`, `--read`
+or `--player` export opened on another machine still sets its math in KaTeX; a deck without math
+carries none of it. (It used to link the sheet by its `file://` path in node_modules, which a copy
+opened elsewhere could not reach: the math fell back to Times.) The HTML player keeps that inline
+sheet, prunes the faces the deck never paints and subsets the rest, and inlines the sheet itself
+only for a page that still links it (the Studio's). Math takes its color from the
 slide: `section.math` sets `var(--text-heading)`, and outside math slides
 `lib/base/base.modifiers.css` sets `color: inherit` and scales inline math to the prose around it.
 

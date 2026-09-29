@@ -99,9 +99,10 @@ const pkgVersion = () => {
 
 // ── KaTeX CSS ────────────────────────────────────────────────────────────────
 // The engine (lib/engine, created with `mathOutput:'htmlAndMathml'`) renders `$…$` /
-// `$$…$$` to KaTeX markup itself; the emulator only links KaTeX's stylesheet so
-// the glyph fonts resolve in the PDF. Resolved lazily — absent the optional dep,
-// no link is emitted and math degrades to plain text.
+// `$$…$$` to KaTeX markup itself; the emulator only carries KaTeX's stylesheet so
+// the glyph fonts resolve — inlined, faces as data: URIs, on a deck that renders math
+// (`katexInlineSheet`, below). Resolved lazily — absent the optional dep, no sheet is
+// emitted and math degrades to plain text.
 // This stylesheet is also what makes the MathML free: it clips `.katex-mathml` out
 // of the flow, so the accessible alternative costs no layout and no pixels.
 let katexCssAbsPath = '';
@@ -867,7 +868,7 @@ const {
 } = require('./lib/core/resolve-color-mode');
 const { frontMatterValue } = require('./lib/core/front-matter-key');
 const { sheetStartMark, SHEET_END_MARK } = require('./lib/core/export-shell-marks');
-const { cliThemeStore, cliDeckSheet, katexFamilies, packAuthorCss, packInlineStyles } = require('./lib/export/cli-deck-sheet');
+const { cliThemeStore, cliDeckSheet, katexFamilies, katexInlineSheet, packAuthorCss, packInlineStyles } = require('./lib/export/cli-deck-sheet');
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
 // `--size NAME` renders the deck on another registered canvas without editing it: the same
 // front-matter rewrite as the print path, so the engine, the split gate and every reader below see
@@ -1160,8 +1161,8 @@ const layoutCSSLinked = flattenCssImports(cssFile, {
 //
 // It never SHOWED because each doomed face has a working twin in the same document: the
 // 17 engine text faces are base64-inlined in `embeddedFonts` below, the 20 KaTeX faces
-// arrive through the `<link>` to `katex.min.css` (linked, so its own relative urls DO
-// resolve). The doomed copies are declared LAST and would win the match, but they fail,
+// arrived through a `<link>` to `katex.min.css` (linked, so its own relative urls DID
+// resolve — on the exporting machine; they are `data:` URIs inlined with the sheet now). The doomed copies are declared LAST and would win the match, but they fail,
 // and Chromium falls back within the family group to the twin. Confirmed on the real
 // page rather than assumed — CDP `CSS.getPlatformFontsForNode` reports Playfair Display
 // / Outfit / JetBrains Mono / KaTeX_Math / KaTeX_Main on the text nodes that use them,
@@ -1198,7 +1199,9 @@ const KATEX_FAMILIES = katexFamilies(katexCssAbsPath);
 const embeddedFaceCss = fontFaceCss(PKG_ROOT);
 const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT);
 // A family is COVERED when this document supplies it another way: the engine's own
-// faces via the base64 block, KaTeX's via the `<link>`.
+// faces via the base64 block, KaTeX's via its inlined sheet on a math deck. On a deck
+// without math nothing supplies KaTeX's faces — and nothing asks for one, since no
+// element carries a KaTeX family without KaTeX markup.
 const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES];
 const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   covered: COVERED_FAMILIES,
@@ -1929,7 +1932,7 @@ function engineSlides(deckSource = rawMd) {
   // This used to be `mathOutput:'html'`, on the reasoning that the MathML "can't be
   // read in a PDF and its unclipped layout trips the slide overflow watcher (a stale
   // ring)". BOTH halves were re-tested on a real render and neither reproduces:
-  // katex.min.css (linked into this very shell) clips `.katex-mathml` out of the flow,
+  // katex.min.css (inlined into this very shell on a math deck, and vendored into lattice.css) clips `.katex-mathml` out of the flow,
   // so a dense four-formula slide flags ZERO overflow either way and the rasterized PDF
   // pages are pixel-identical. The PDF half is true but harmless — MathML costs nothing
   // there.
@@ -2476,14 +2479,32 @@ const slidesWithMeta2 = packInlineStyles(highlightedSlides.join('\n'));
 // (lib/core/color-mode.js `slidePinEvictsDeckToken`). That eviction was the seam the
 // marker actually stood on; closing it is what let the marker go.
 
-// ── KaTeX CSS link ────────────────────────────────────────────────────────
-// KaTeX's CSS references font files via relative `url(fonts/…woff2)` paths,
-// so we link to the actual file in node_modules; the browser resolves the
-// font URLs against that origin. file:// works under puppeteer because
-// allowLocalFiles is the default for `page.goto('file://...')`.
-const katexCssLink = katexCssAbsPath
-  ? `<link rel="stylesheet" href="file://${katexCssAbsPath}">`
-  : '';
+// ── KaTeX's stylesheet, inlined ───────────────────────────────────────────
+// KaTeX's CSS references its fonts by relative `url(fonts/…woff2)` paths. This used to be a
+// `<link>` to the sheet by its absolute `file://` path in node_modules, so those urls resolved
+// against the package — on the exporting machine. The PDF is captured there and was right, but
+// `--html`, `--fluid` and `--read` hand this page to a reader, and a copy opened anywhere else
+// refused the link: all 20 KaTeX faces gone, the math in Times (measured). So a deck that
+// renders math carries the sheet inline with its fonts as `data:` URIs (`katexInlineSheet`),
+// and a deck without math carries no KaTeX at all. Through `sanitizeStyleText` like every
+// `<style>` this document writes (HARD RULE #22).
+//
+// SPLIT IN TWO, and the split is for the `--player`: its faces join the page's one font block
+// (`#lattice-embedded-fonts`), which the player's font prune and glyph subsetter already work on
+// (lib/export/html-player.js), and its rules ride in `#lattice-katex`, small enough that the
+// player's selector prune — which targets the LARGEST non-font block — still picks the deck sheet.
+// Left as one 368 KB block it became that target (measured).
+const usesMath = highlightedSlides.some((s) => s.includes('class="katex'));
+const katexInline = usesMath ? katexInlineSheet(katexCssAbsPath) : '';
+const katexFaces = (katexInline.match(/@font-face\s*\{[^}]*\}/g) || []).join('');
+const katexRules = katexInline.replace(/@font-face\s*\{[^}]*\}/g, '');
+const katexCssTag = katexRules.trim() ? `<style id="lattice-katex">${sanitizeStyleText(katexRules)}</style>` : '';
+const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
+const docFonts = !katexFacesCss
+  ? embeddedFonts
+  : embeddedFonts
+    ? embeddedFonts.replace(/<\/style>$/, () => `${katexFacesCss}</style>`)
+    : `<style id="lattice-embedded-fonts">${katexFacesCss}</style>`;
 
 // ── plugin hydrate: library + host ────────────────────────────────────────
 // Only for the plugins a slide actually uses (the engine's `data-lattice-hydrate` marker), so a
@@ -2702,8 +2723,8 @@ const a11yTextureDefs = texturePatternDefs(
 const htmlDoc = `<!DOCTYPE html>
 <html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
-${embeddedFonts}
-${katexCssLink}
+${docFonts}
+${katexCssTag}
 <style>
 ${deckStyle}
 </style></head><body>
@@ -3156,7 +3177,7 @@ async function renderBody(browser, g, closeBrowser) {
   //     <img>, CSS `background-image: url()`, <link rel=stylesheet> and the webfont
   //     fetch. Those are exactly what the deck emits: author images are absolute
   //     file:// URLs rather than inlined (`liftBgImages`, deckBaseUrl above), plus the
-  //     KaTeX <link> and the function-plot <script src>.
+  //     KaTeX <link> and the function-plot <script src> (both inlined since).
   //   • Instrumenting five real sidecars (state-chart, function-plot, images, the
   //     58-slide jargon gallery, portrait-roadmap): ZERO requests start after the load
   //     event, watched a further 2s past networkidle0. Mermaid is pre-rendered in Node
@@ -3211,7 +3232,8 @@ async function renderBody(browser, g, closeBrowser) {
   //
   // It now holds by RESOLUTION. The doomed duplicates are gone; the document declares 37
   // faces and all 37 load, every one of them local — 17 base64 `data:` in `embeddedFonts`,
-  // 20 from the `<link>` to katex.min.css in node_modules. Measured on the same sidecar.
+  // 20 KaTeX faces (then from the `<link>` to katex.min.css in node_modules; inlined as `data:`
+  // URIs in the same font block since, for a deck that renders math). Measured on the same sidecar.
   // That is a stronger footing than prompt failure was, but it is the SAME invariant and it
   // has the SAME hole: a theme or `--css` override adding a genuinely remote face — one that
   // resolves SLOWLY rather than failing or resolving locally — still leaves a face `unloaded`
@@ -4793,7 +4815,7 @@ async function renderBody(browser, g, closeBrowser) {
     const live = fs.readFileSync(outHtml, 'utf8');
     // Immediately after `<head>`, because a CSP meta governs only what the parser has not
     // already reached — a stylesheet link above it is already in flight. Measured on a real
-    // export: the meta lands at byte 56, the charset at 253, the KaTeX <link> at ~865k.
+    // export: the meta lands at byte 56, the charset at 253, the (since inlined) KaTeX <link> at ~865k.
     const withCsp = live.replace(/<head(\s[^>]*)?>/i, (tag) => `${tag}${subresourceCspMeta()}`);
     if (withCsp !== live) fs.writeFileSync(outHtml, withCsp);
     else if (!QUIET) console.warn(`  warning: ${outHtml} has no <head>, so it carries no remote-subresource policy.`);
