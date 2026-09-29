@@ -364,11 +364,21 @@ module.exports = { HYDRATORS };
  * import it without the grammar behind it.
  */
 function renderDrawn(ordered) {
-  const fences = ordered
-    .filter((p) => p.manifest.render?.exec?.hydrate === 'runtime')
-    .flatMap((p) => Object.entries(p.manifest.contributes.fences || {}).filter(([, d]) => d.as === 'code').map(([f]) => f));
-  return `${HEADER('The code fences a browser runtime draws (render.exec.hydrate "runtime"). Plain data.')}
+  const drawn = ordered.filter((p) => p.manifest.render?.exec?.hydrate === 'runtime');
+  const codeFences = (p) => Object.entries(p.manifest.contributes.fences || {}).filter(([, d]) => d.as === 'code').map(([f]) => f);
+  const fences = drawn.flatMap(codeFences);
+  // Per plugin: its code fences and the library the runtime's host loads for it (`payload`), so
+  // the runtime's pass for one plugin reads ITS fence names and library, and a browser surface
+  // that needs the library's address derives it instead of threading a hand-named URL.
+  const byPlugin = drawn.map((p) => {
+    const [payload] = Object.values(p.manifest.payload || {});
+    const lib = payload ? `Object.freeze({ from: ${JSON.stringify(payload.from)}, file: ${JSON.stringify(payload.from.split('/').pop())}, global: ${JSON.stringify(payload.global)} })` : 'null';
+    return `  ${JSON.stringify(p.manifest.name)}: Object.freeze({ fences: Object.freeze(${JSON.stringify(codeFences(p))}), payload: ${lib} }),`;
+  });
+  return `${HEADER('The code fences a browser runtime draws (render.exec.hydrate "runtime"), and each such plugin\'s library. Plain data.')}
 export const RUNTIME_DRAWN_FENCES = Object.freeze(${JSON.stringify(fences)});
+
+export const RUNTIME_DRAWN = Object.freeze({${byPlugin.length ? `\n${byPlugin.join('\n')}\n` : ''}});
 `;
 }
 

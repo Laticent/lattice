@@ -12,6 +12,9 @@
     },
     "bake": true
   },
+  "payload": {
+    "mermaid": { "from": "npm:mermaid/dist/mermaid.min.js", "global": "mermaid", "when": "used" }
+  },
   "render": {
     "exec": { "hydrate": "runtime", "bake": "subprocess" },
     "surfaces": { "engine": "source", "preview": "figure", "pdf": "figure-baked", "player": "figure-baked", "marp": "figure" },

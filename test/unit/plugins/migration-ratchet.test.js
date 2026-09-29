@@ -34,10 +34,10 @@ describe('checkPluginMigration', () => {
   });
 
   test('the copy counts what the live tree counts', () => {
-    // The two counts the copy holds everything for; `drawnFenceClasses` reads consumers the copy
-    // leaves out (lib/runtime, docs/src), so it has its own arm below.
+    // The two counts the copy holds everything for; the three `drawn*` counts read consumers the
+    // copy leaves out (lib/runtime, docs/src), so they have their own arms below.
     const { fenceWrappers, pluginTokenNames } = pluginMigrationCounts(tmp);
-    const { drawnFenceClasses: _live, ...expected } = PLUGIN_MIGRATION_BUDGET;
+    const { drawnFenceClasses: _live, drawnLibraryUrls: _urls, drawnSettleStates: _states, ...expected } = PLUGIN_MIGRATION_BUDGET;
     assert.deepEqual({ fenceWrappers, pluginTokenNames }, expected);
   });
 
@@ -96,6 +96,30 @@ describe('checkPluginMigration', () => {
       assert.ok(errors.some((e) => /drawnFenceClasses is 1, over its budget of 0/.test(e)), errors.join('\n'));
     } finally {
       fs.rmSync(planted);
+    }
+  });
+
+  test('a runtime-drawn plugin\'s hand-threaded library URL and private settle state count, in code and CSS; comments and tests do not', () => {
+    assert.equal(pluginMigrationCounts(tmp).drawnLibraryUrls, 0);
+    assert.equal(pluginMigrationCounts(tmp).drawnSettleStates, 0);
+    const js = path.join(tmp, 'lib/core/planted.js');
+    const css = path.join(tmp, 'lib/core/planted.css');
+    const test_ = path.join(tmp, 'lib/core/planted.test.js');
+    fs.writeFileSync(js, "const mermaidUrl = 'x';\npre.dataset.mermaidState = 'pending';\n// mermaidUrl in prose\n/* data-mermaid-state */\nconst mermaidUrlish = 1;\n");
+    fs.writeFileSync(css, 'pre[data-mermaid-state="rendered"] + .mermaid { display: block; }\npre[data-mermaid-final] { color: red; }\n');
+    fs.writeFileSync(test_, "const mermaidUrl = 'a test may name it';\n");
+    try {
+      const { drawnLibraryUrls, urlHits, drawnSettleStates, stateHits } = pluginMigrationCounts(tmp);
+      assert.equal(drawnLibraryUrls, 1);
+      assert.deepEqual(urlHits, ['lib/core/planted.js: mermaidUrl']);
+      assert.equal(drawnSettleStates, 3);
+      assert.deepEqual(stateHits.sort(), ['lib/core/planted.css: data-mermaid-final', 'lib/core/planted.css: data-mermaid-state', 'lib/core/planted.js: mermaidState']);
+      const errors = [];
+      checkPluginMigration(errors, { ...PLUGIN_MIGRATION_BUDGET, drawnLibraryUrls: 0, drawnSettleStates: 0 }, tmp);
+      assert.ok(errors.some((e) => /drawnLibraryUrls is 1, over its budget of 0/.test(e)), errors.join('\n'));
+      assert.ok(errors.some((e) => /drawnSettleStates is 3, over its budget of 0/.test(e)), errors.join('\n'));
+    } finally {
+      for (const f of [js, css, test_]) fs.rmSync(f);
     }
   });
 
