@@ -196,6 +196,47 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		expect(doc).toContain('data-lattice-pagination-total="1"');
 	});
 
+	it('a `glossary: auto` deck narrows by the AUTHORED count — its appended section is not a mismatch', async () => {
+		// The engine renders the authored slides plus the glossary appendix (lib/core/glossary-auto.mjs),
+		// so it reports N+1 sections where the Studio counts N. Compared raw, that failed the alignment
+		// guard, every slide fell back to rendering alone and numbered itself 1, while the PDF numbered
+		// it right (followups.d/2436-p3-preview-page-number-glossary-auto.md). The glossary sits AFTER
+		// the authored slides, so section k is still slide k.
+		const GLOSSARY_DECK = '---\npaginate: true\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }\n---\n\n<!-- header: Q3 -->\n\nOne\n\n---\n\nTwo\n\n---\n\nThree\n';
+		const WITH_GLOSSARY = `<article class="lattice">\n${section(1, 4, 'One')}\n${section(2, 4, 'Two')}\n${section(3, 4, 'Three')}\n${section(4, 4, 'Glossary')}\n</article>`;
+		const calls: string[] = [];
+		(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (_pg: unknown, md: string) => {
+			calls.push(md);
+			return md === 'FALLBACK' ? { html: `<article class="lattice">${section(1, 1, 'Two')}</article>`, css: '' } : { html: WITH_GLOSSARY, css: '' };
+		});
+		const r = createSingleSlideRenderer(opts);
+		for (const [i, body] of [[0, 'One'], [1, 'Two'], [2, 'Three']] as const) {
+			const host = mountHost();
+			const status = await r.renderInto(host, GLOSSARY_DECK, false, undefined, undefined, undefined, undefined, { slideIndex: i, slideCount: 3, slideMarkdown: 'FALLBACK' });
+			expect(status.ok).toBe(true);
+			const doc = srcdocOf(host);
+			expect(doc.match(/<section\b/g)?.length, 'one section in the frame, never the glossary beside it').toBe(1);
+			expect(doc).toContain(body);
+			expect(doc).toContain(`data-lattice-pagination="${i + 1}"`);
+			expect(doc).toContain('data-lattice-pagination-total="4"'); // the PDF's total: the glossary is a page
+			expect(doc).not.toContain('Glossary');
+		}
+		expect(calls).not.toContain('FALLBACK');
+	});
+
+	it('a one-slide `glossary: auto` deck still keeps only its slide, not the glossary after it', async () => {
+		const ONE = '---\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }\n---\n\n<!-- header: Q3 -->\n\nOne\n';
+		mockRender(`<article class="lattice">\n${section(1, 2, 'One')}\n${section(2, 2, 'Glossary')}\n</article>`);
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const status = await r.renderInto(host, ONE, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 1, slideMarkdown: 'FALLBACK' });
+		expect(status.ok).toBe(true);
+		const doc = srcdocOf(host);
+		expect(doc.match(/<section\b/g)?.length).toBe(1);
+		expect(doc).toContain('One');
+		expect(doc).not.toContain('Glossary');
+	});
+
 	it('narrows normally when the caller\'s count MATCHES the engine', async () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
