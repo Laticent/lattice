@@ -145,8 +145,30 @@ was then booted from `/usr/bin/lattice-studio` to confirm the package itself run
 - A real desktop session with a window manager (GNOME on Wayland, KDE).
 - HiDPI scaling.
 - Screen-reader access through AT-SPI.
-- The AppImage target (only the `.deb` was built).
-- macOS and Windows, which are out of scope for this slice.
+- The AppImage. It now builds (a plain `npm --prefix desktop run build` makes it next to
+  the `.deb`), but nobody has launched it.
+- macOS, which is out of scope for this slice, and Windows (see below).
+
+## Windows: a cross-built installer (2026-09-29)
+
+The owner asked for a Windows package "if we can". We can, from this Linux sandbox:
+`npm --prefix desktop run build:windows` runs `tauri build --runner cargo-xwin --target
+x86_64-pc-windows-msvc --bundles nsis`. `cargo-xwin` downloads Microsoft's CRT and SDK
+and links with `lld-link`, and `makensis` wraps the result as an installer.
+
+- **Output:** a 20.7 MB NSIS installer, `Lattice Studio_0.1.0_x64-setup.exe`. The app
+  inside is a PE32+ GUI binary. Its imports are system DLLs that ship with Windows 10 and
+  later, with no VC++ redistributable, and the WebView2 loader is linked in statically.
+- **Config:** `bundle.targets` gains `nsis`, which a Linux build ignores. `bundle.icon`
+  gains `icons/icon.ico` for the exe's own icon. The NSIS install mode is `currentUser`,
+  so the installer needs no admin prompt.
+- **Not signed.** Tauri signs only on a Windows host by default, so SmartScreen warns on
+  first run. Signing is part of the release-pipeline slice (followup P5).
+- **UNVERIFIED on Windows.** Nothing here ran the installer or the app on Windows. No
+  Windows machine or VM is reachable from the sandbox, and Wine does not run WebView2
+  reliably enough to count as evidence. The save dialog on Windows is `rfd`'s Win32 file
+  dialog, which has not been exercised either.
+- **Not in CI.** Adding a Windows job is a CI-contract change for the owner to decide.
 
 ## Corrections to the May note
 
