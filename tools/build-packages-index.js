@@ -137,6 +137,12 @@ module.exports = {
 const FINISH_CSS_OUT = path.join(ROOT, 'lib', 'base', 'base.finish.css');
 const REGION_BEGIN = '/* ── BEGIN GENERATED FINISH PRESETS';
 const REGION_END = '/* ── END GENERATED FINISH PRESETS ── */';
+// The ENGINE's export flip, from the same table a saved finish's flip reads
+// (lib/finishes/finish-generate.js `EXPORT_FACES`), so the two cannot drift. It must follow the presets in source
+// order: at equal specificity, the later rule wins in print.
+const FLIP_BEGIN_TAIL = 'DO NOT EDIT: change the table and rebuild. ── */';
+const FLIP_BEGIN = '/* ── BEGIN GENERATED EXPORT FLIP';
+const FLIP_END = '/* ── END GENERATED EXPORT FLIP ── */';
 
 // A manifest's label and blurb go into a CSS comment, so a `*/` in either would end the
 // comment and let the rest parse as rules. Break every `*/` apart.
@@ -162,7 +168,22 @@ function renderFinishCss(found = discover(), current = fs.readFileSync(FINISH_CS
 ${rules.join('\n\n')}
 
 `;
-  return current.slice(0, from) + region + current.slice(to);
+  const withPresets = current.slice(0, from) + region + current.slice(to);
+  return writeExportFlip(withPresets);
+}
+
+/** base.finish.css with its generated EXPORT FLIP region rewritten from finish-generate.js `EXPORT_FACES`. */
+function writeExportFlip(current) {
+  const { engineFlipCss, FINISH_SURFACES } = require('../lib/finishes/finish-generate.js');
+  const begin = current.indexOf(FLIP_BEGIN);
+  const head = begin < 0 ? -1 : current.indexOf(FLIP_BEGIN_TAIL, begin);
+  const end = current.indexOf(FLIP_END);
+  const presetsEnd = current.indexOf(REGION_END);
+  if (begin < 0 || head < 0 || end < head || begin < presetsEnd) {
+    throw new Error(`packages-index: ${path.relative(ROOT, FINISH_CSS_OUT)} has lost its export-flip markers ("${FLIP_BEGIN}" … "${FLIP_END}"), or they sit before the presets they must follow`);
+  }
+  const bodyStart = head + FLIP_BEGIN_TAIL.length;
+  return `${current.slice(0, bodyStart)}\n${engineFlipCss(FINISH_SURFACES)}\n${current.slice(end)}`;
 }
 
 const OUTPUTS = [

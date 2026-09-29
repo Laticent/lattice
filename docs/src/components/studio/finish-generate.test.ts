@@ -46,9 +46,17 @@ describe('finish-generate', () => {
 
 	// Split the generated CSS into the SCREEN block (the leading `section…{…}` rule,
 	// before the first `@media`) and the EXPORT blocks (`@media print` + the
-	// `.lattice-exporting` rule). The export face is what bakes into a PDF/PPTX.
+	// `.lattice-exporting` rule). The export blocks are the FLIP only: each re-points a slot to
+	// the `-opaque` mirror the screen rule declares (the EXPORT_FACES table, followup 2400-p2).
+	// So the export FACE, what bakes into a PDF/PPTX, is those mirrors, read back here under the
+	// slot names they replace.
 	const screenBlock = (css: string): string => css.slice(0, css.indexOf('@media print'));
 	const exportBlocks = (css: string): string => css.slice(css.indexOf('@media print'));
+	const exportFace = (css: string): string =>
+		[...screenBlock(css).matchAll(/(--fin-[a-z-]+)-opaque:([^;]*);/g)].map((m) => `${m[1]}:${m[2]};`).join('\n');
+	// A CSS mask PROPERTY (`mask:`, `mask-image:`, `-webkit-mask-*:`), which PDFKit drops. The
+	// `--fin-backdrop-mask` custom property is a background layer, not a mask, so it is allowed.
+	const MASK_PROPERTY = /(^|[\s;{])(-webkit-)?mask(-[a-z]+)?\s*:/i;
 	// Pull one slot's value out of a rule (e.g. `--fin-wash`). The slot value runs to
 	// the terminating `;` (color-mix has no `;` inside it).
 	const slotValue = (css: string, slot: string): string => new RegExp(`--${slot}:([^;]*)`).exec(css)?.[1] ?? '';
@@ -56,7 +64,11 @@ describe('finish-generate', () => {
 	it('the EXPORT face is export-safe for EVERY layer type: no full-bleed transparent fade, no mask/url/hex/margin', () => {
 		for (const r of everyRecipe()) {
 			const css = generateFinishCss('x', r);
-			const exp = exportBlocks(css);
+			const exp = exportFace(css);
+			// The export blocks restate no value: every declaration is a flip onto a mirror.
+			for (const d of exportBlocks(css).matchAll(/(--fin-[a-z-]+):\s*([^;]*);/g)) {
+				expect(d[2], `${d[1]} in an export block must flip to its mirror`).toBe(`var(${d[1]}-opaque, none)`);
+			}
 			// OPAQUE-TO-OPAQUE — the load-bearing PDF rule (base.finish.css header). In the
 			// EXPORT blocks the FULL-BLEED slots (wash z1, edge z4) must fade opaque→opaque:
 			// NO `transparent` (a 0-alpha area fade grays into a muddy cloud in PDF export).
@@ -70,7 +82,7 @@ describe('finish-generate', () => {
 			expect(expTex, `EXPORT texture must mix the pattern into var(--fin-canvas, var(--bg)), not transparent: ${expTex}`).not.toMatch(/transparent\)/);
 			expect(expTex, `EXPORT texture must not area-fade to transparent: ${expTex}`).not.toMatch(/transparent\s+\d+%/);
 			// No mask/url/hex/margin in EITHER face (whole CSS).
-			expect(css, 'mask drops in PDFKit').not.toMatch(/\bmask/i);
+			expect(css, 'mask drops in PDFKit').not.toMatch(MASK_PROPERTY);
 			expect(css, 'url() adds exfil surface').not.toMatch(/url\(/i);
 			expect(css, 'hex literal violates HARD RULE #3').not.toMatch(/#[0-9a-f]{3,8}\b/i);
 			expect(css, 'margin violates HARD RULE #20').not.toMatch(/(^|[\s;{])margin\b/i);
@@ -89,9 +101,11 @@ describe('finish-generate', () => {
 			mark: { type: 'none', placement: 'center' },
 			edge: { type: 'none', intensity: 6 },
 		});
-		const exp = exportBlocks(css);
-		// The export block re-declares the texture, and its color mixes into var(--fin-canvas, var(--bg)).
+		const exp = exportFace(css);
+		// The export face (the texture's mirror) mixes its color into var(--fin-canvas, var(--bg)),
+		// and both export blocks flip the texture onto it.
 		expect(exp).toContain('--fin-texture:');
+		expect(exportBlocks(css).match(/--fin-texture: var\(--fin-texture-opaque, none\)/g)).toHaveLength(2);
 		expect(slotValue(exp, 'fin-texture')).toContain('var(--fin-canvas, var(--bg))');
 		expect(slotValue(exp, 'fin-texture'), 'export texture line color must be opaque, not alpha').not.toMatch(/transparent\)/);
 		// The screen (rich) texture, by contrast, DOES mix into transparent.
@@ -106,7 +120,7 @@ describe('finish-generate', () => {
 			// it's composited by the browser, never baked into a PDF. No assertion against
 			// `transparent` here (that's the whole point of the rich variant).
 			// But the screen face is still exfil/palette safe.
-			expect(screen, 'mask drops in PDFKit').not.toMatch(/\bmask/i);
+			expect(screen, 'mask drops in PDFKit').not.toMatch(MASK_PROPERTY);
 			expect(screen, 'url() adds exfil surface').not.toMatch(/url\(/i);
 			expect(screen, 'hex literal violates HARD RULE #3').not.toMatch(/#[0-9a-f]{3,8}\b/i);
 			expect(screen, 'margin violates HARD RULE #20').not.toMatch(/(^|[\s;{])margin\b/i);
@@ -125,7 +139,7 @@ describe('finish-generate', () => {
 	it('intensity + scale flow into the output as numbers', () => {
 		const css = generateFinishCss('a', { wash: { type: 'corner-glow', intensity: 14 }, texture: { type: 'grid', intensity: 9, scale: 32 }, mark: { type: 'none', placement: 'center' }, edge: { type: 'none', intensity: 6 } });
 		// The EXPORT (opaque) wash carries the literal intensity (no rich lift).
-		expect(exportBlocks(css)).toContain('var(--field-accent, var(--accent)) 14%');
+		expect(exportFace(css)).toContain('var(--field-accent, var(--accent)) 14%');
 		// The SCREEN (rich) wash lifts the accent a touch (alpha falloff): 14 → 17.
 		expect(screenBlock(css)).toContain('var(--field-accent, var(--accent)) 17%');
 		// Scale flows through (face-invariant) on the screen texture.
@@ -183,24 +197,28 @@ describe('finish-generate', () => {
 		// only the baked axes appear
 		const strengthOnly = generateFinishCss('x', coerceRecipe({ backdrop: { strength: 0.5 } }));
 		expect(strengthOnly).toMatch(/--fin-backdrop-strength/);
-		expect(strengthOnly).not.toMatch(/--fin-backdrop-mask/);
+		expect(screenBlock(strengthOnly)).not.toMatch(/--fin-backdrop-mask/);
 		// a baked mask switches strength to the veil (poppler wedge); strength alone stays opacity
 		expect(css).toMatch(/--fin-backdrop-veil-weight:\s*1/);
 		expect(css).toMatch(/--fin-backdrop-dim-scrim:\s*var\(--backdrop-veil-fill\)/);
 		expect(strengthOnly).not.toMatch(/--fin-backdrop-veil-weight/);
 		const spotOnly = generateFinishCss('x', coerceRecipe({ backdrop: { spotlight: { x: 50, y: 50, radius: 30 } } }));
 		expect(spotOnly).toMatch(/--fin-backdrop-veil-weight:\s*1/);
-		// a plain finish (no baked backdrop) emits none
-		expect(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } }))).not.toMatch(/--fin-backdrop/);
+		// a plain finish (no baked backdrop) bakes none (its print flip still names the mask slot;
+		// with no mirror declared it resolves to `none`)
+		expect(screenBlock(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } })))).not.toMatch(/--fin-backdrop/);
 		// full strength (=1) is the default → not baked
-		expect(generateFinishCss('x', coerceRecipe({ backdrop: { strength: 1 } }))).not.toMatch(/--fin-backdrop/);
+		expect(screenBlock(generateFinishCss('x', coerceRecipe({ backdrop: { strength: 1 } })))).not.toMatch(/--fin-backdrop/);
 	});
 
 	it('re-points a baked SPOTLIGHT mask to its opaque mirror for print only; the Studio raster keeps the feather', () => {
 		// PDF-safety: the finish's own `section.finish.finish-<slug>` (0,2,1) rich setter would
 		// beat base.finish.css's (0,1,1) `section.finish` flip, so the feathered mask would gray
-		// in the vector PDF. generateFinishCss must emit the flip at its OWN specificity. A baked
-		// CLEARANCE needs no flip: its content-box layer's export face lives in base.finish.css.
+		// in the vector PDF. generateFinishCss emits the flip at its OWN specificity, from the
+		// EXPORT_FACES table the engine's flip is written from, so it names the mask slot for every
+		// finish. A finish with no spotlight declares no mirror, so the flip resolves to `none`,
+		// as the engine flip did for it before. A baked CLEARANCE is a separate layer
+		// (`--fin-backdrop-clear-scrim`) whose export face lives in base.finish.css.
 		const css = generateFinishCss('x', coerceRecipe({ backdrop: { spotlight: { x: 50, y: 50, radius: 30 } } }));
 		const print = css.slice(css.indexOf('@media print'), css.indexOf(':where('));
 		expect(print).toMatch(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque,\s*none\)/); // @media print
@@ -208,9 +226,9 @@ describe('finish-generate', () => {
 		// printed a solid-edged window in every Studio download (backdrop-register.md §4.8).
 		const exporting = css.slice(css.indexOf(':where('));
 		expect(exporting).not.toMatch(/--fin-backdrop-mask/); // .lattice-exporting
-		expect(generateFinishCss('x', coerceRecipe({ backdrop: { clearance: true } }))).not.toMatch(/--fin-backdrop-mask/);
-		// no baked clearance → no backdrop-mask flip in the export rules
-		expect(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } }))).not.toMatch(/--fin-backdrop-mask:/);
+		// a clearance or a plain finish bakes no mask and no mirror
+		expect(screenBlock(generateFinishCss('x', coerceRecipe({ backdrop: { clearance: true } })))).not.toMatch(/--fin-backdrop-mask/);
+		expect(screenBlock(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } })))).not.toMatch(/--fin-backdrop-mask/);
 	});
 
 	it('BAKES a spotlight window mask (rich feather + opaque hard mirror), taking precedence over clearance', () => {
@@ -247,7 +265,7 @@ describe('finish-generate', () => {
 		// an empty override is a no-op
 		expect(mergeFinishOverride(base, {})).toEqual(base);
 		// regenerating with the merged recipe reflects the override in the baked tokens
-		expect(generateFinishCss('x', mergeFinishOverride(base, { backdrop: { clearance: 'off' } }))).not.toMatch(/--fin-backdrop-(mask|clear-scrim)/);
+		expect(screenBlock(generateFinishCss('x', mergeFinishOverride(base, { backdrop: { clearance: 'off' } })))).not.toMatch(/--fin-backdrop-(mask|clear-scrim)/);
 	});
 
 	it('generateSwatch returns a usable background string for every preset', () => {

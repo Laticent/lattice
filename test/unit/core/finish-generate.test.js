@@ -141,3 +141,45 @@ test('coercion keeps the new details when set, clamps them, and adds nothing whe
   assert.equal('inset' in bare.mark, false);
   assert.equal('rich' in bare.edge, false);
 });
+
+// ONE export face (followup 2400-p2): the engine's flip in base.finish.css and a saved finish's
+// own flip both come from `EXPORT_FACES`. Each flip block, read back out of the CSS each writer
+// actually emits, must be exactly the table's list for its target, so a hand edit to either
+// writer (or to the region) fails here.
+test('the engine flip and a saved finish’s flip are both the EXPORT_FACES table', () => {
+  const declsIn = (block) => [...block.matchAll(/(--fin-[a-z-]+): (var\([^;]*\));/g)].map((m) => `${m[1]}: ${m[2]}`);
+  const region = CSS.slice(CSS.indexOf('/* ── BEGIN GENERATED EXPORT FLIP'), CSS.indexOf('/* ── END GENERATED EXPORT FLIP ── */'));
+  const regionPrint = region.slice(region.indexOf('@media print'), region.indexOf(':where(.lattice-exporting)'));
+  const regionRaster = region.slice(region.indexOf(':where(.lattice-exporting)'));
+  assert.deepEqual(declsIn(regionPrint), gen.exportFlipDecls('print'));
+  assert.deepEqual(declsIn(regionRaster), gen.exportFlipDecls('raster'));
+
+  for (const r of [recipe('strata'), { ...recipe('atrium'), backdrop: { spotlight: { x: 70, y: 36, radius: 38 } } }]) {
+    const css = gen.generateFinishCss('mine', r);
+    const print = css.slice(css.indexOf('@media print'), css.indexOf(':where(.lattice-exporting)'));
+    const raster = css.slice(css.indexOf(':where(.lattice-exporting)'));
+    assert.deepEqual(declsIn(print), gen.exportFlipDecls('print'));
+    assert.deepEqual(declsIn(raster), gen.exportFlipDecls('raster'));
+    // Every flipped layer slot finds a mirror in the finish's own rich rule, so the flip never
+    // falls through to `none` (backdrop-register.md §4.9).
+    const rich = css.slice(0, css.indexOf('@media print'));
+    for (const s of gen.LAYER_SLOTS) assert.notEqual(slot(rich, `${s}-opaque`), null, `${s}-opaque mirror`);
+  }
+  // The targets differ in one slot, on purpose: the raster keeps a spotlight's feathered mask.
+  assert.ok(gen.exportFlipDecls('print').some((d) => d.startsWith('--fin-backdrop-mask:')));
+  assert.ok(!gen.exportFlipDecls('raster').some((d) => d.startsWith('--fin-backdrop-mask:')));
+  assert.throws(() => gen.exportFlipDecls('screen'), /unknown export target/);
+
+  // The SELECTORS matter as much as the list. Both flips reach the finish surfaces (split panels
+  // re-declare the rich face), and the raster flip matches the section ITSELF, because the
+  // html-to-image capture clones the section without its ancestors.
+  const S = gen.FINISH_SURFACES;
+  for (const [css, base] of [[region, 'section.finish'], [gen.generateFinishCss('mine', recipe('strata')), 'section.finish.finish-mine']]) {
+    const print = css.slice(css.indexOf('@media print'), css.indexOf(':where(.lattice-exporting)'));
+    const raster = css.slice(css.indexOf(':where(.lattice-exporting)'));
+    assert.match(print, new RegExp(`${base.replace(/\./g, '\\.')},\\s*${base.replace(/\./g, '\\.')} :is\\(`), `${base}: print reaches the surfaces`);
+    for (const sel of [`:where(.lattice-exporting) ${base},`, `:where(.lattice-exporting) ${base} ${S},`, `${base}.lattice-exporting,`, `${base}.lattice-exporting ${S} {`]) {
+      assert.ok(raster.includes(sel), `${base}: raster selector ${sel}`);
+    }
+  }
+});

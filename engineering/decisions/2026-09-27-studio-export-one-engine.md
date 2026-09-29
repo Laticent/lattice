@@ -8,7 +8,7 @@ summary: The owner wants the Studio's Export to PDF to produce "option 1" — a 
 **Status:** in progress 2026-09-27. The owner chose C; §7 records what is built so far.
 **Related:** [`2026-09-26-backdrop-register.md`](2026-09-26-backdrop-register.md) §4.7–4.8
 (the edge fixes, made twice), PR #2404 (the CLI's option 1),
-`followups.d/2400-p2-shared-export-face.md`.
+followup `2400-p2` (one export face), done in `2026-09-26-backdrop-register.md` §4.11.
 
 ## 1. What the owner asked for
 

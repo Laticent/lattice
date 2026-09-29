@@ -396,6 +396,49 @@ break saved decks. The register sits above it: when both are set, the register w
 it is the more specific statement of intent. The `retired-backdrop-key` lint narrows to the
 old *map* form (an indented child under `backdrop:`) and its fix text points to the scalar.
 
+### 4.11 One export face for every finish (2026-09-29)
+
+**Problem (followup `2400-p2`, closed by this change):** two writers each restated which finish
+slots flip to their `-opaque` mirror in an export, and for which target. The engine's flip in
+`base.finish.css` covers the built-in presets; a saved finish's `generateFinishCss` wrote its own,
+because its selector `section.finish.finish-<slug>` (0,2,1) out-specifies the engine's
+`section.finish` (0,1,1). The hard clear edge and the hard spotlight arc were each fixed twice
+(#2400, #2404).
+
+**Change:** one table, `EXPORT_FACES` in `lib/finishes/finish-generate.js`, names each slot's
+face per target: `print` (`@media print`: the CLI's vector PDF and the Studio's desktop Print)
+and `raster` (`.lattice-exporting`: the Studio's html-to-image capture). The four layers flip on
+both targets. The backdrop mask flips on `print` only, because the raster keeps a spotlight's
+feathered mask (§4.8). Both writers emit from the table:
+
+- `tools/build-packages-index.js` writes the engine flip into a second generated region of
+  `base.finish.css` (`BEGIN/END GENERATED EXPORT FLIP`), after the presets it must out-order.
+  `--check` and `finish-generate.test.js` fail on a hand edit.
+- `generateFinishCss` writes the same list at the saved finish's specificity. It now points at
+  the mirrors its rich rule already declares (#2445), so it restates no value.
+
+A unit test reads each flip back out of both writers' output and requires the table's list.
+
+**The table lives in `finish-generate.js`, not in its own module.** The docs dev server serves
+that file through `vite-cjs-lib-dev.mjs`, which refuses any file with a `require(` of its own, so
+a separate kernel would have broken the Studio in dev.
+
+**Refused alternatives.** An `!important` engine flip would let the engine's flip win at any
+specificity and delete the saved finish's rules, but it would also flip an author's own per-slide
+`--fin-*` override, which the `:where()` guard deliberately lets win today. Renaming every slot to
+`--fin-*-rich` / `--fin-*-opaque` and letting only the engine choose would remove the specificity
+race, but it breaks every finish written as CSS (a deck `<style>`, a saved record with no
+recipe). Both are export-face changes for a problem that is only duplication.
+
+**Verified: no PDF or image export changes a byte.** Five finish decks through the CLI
+(`backdrop-register`, `finish-override`, `finish-split-covers`, `finish-canvas-print-face`,
+`finish-backdrops`) produce byte-identical PDFs before and after. The ten PNGs
+`saved-finish-export.spec.ts` exports on the real Studio (a saved finish, a `finish-override:`,
+a spotlight, Print and their `finish: none` controls) are byte-identical too. The Webpage export
+embeds the CSS text, so its bytes change: the flip's comments moved, and a saved finish's export
+rules now read `var(--fin-*-opaque, none)` instead of the literal opaque values. The computed
+values are the same.
+
 ## 5. Surfaces
 
 - **Engine:** `lib/core/resolve-backdrop.js` (the name the retired resolver used, reborn as a
