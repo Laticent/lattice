@@ -83,6 +83,15 @@ All in `lib/export/player-core.mjs`, all inert once the script runs (`:not(.lp-j
 - **The fit.** Present with no script puts a 1280×720 slide at 348×196 on a 390×844 phone,
   533×300 on 844×390 landscape and 1372×772 on 1440×900. The whole slide is on screen in all
   three.
+- **Print and focus.** The strip is `@media screen` only, so a no-JS print still gives the
+  whole deck (9 pages for `chart-legends` on A4, the same as the column). The hidden inputs
+  are `position:fixed`: a label tap focuses its input, and an input at the document's top
+  scrolled a reader in the column back to slide 1.
+- **What it costs.** Measured on three exports: the view controls and the Present strip add
+  6.7 KB. The scheme flip adds 137 KB on `chart-legends` (13.8% of a 991 KB file), 160 KB on
+  `data-viz-gallery` (12.1%) and 137 KB on `slide-class-forms` (10.7%). The flip is the cost
+  because every dark token body ships in four more scopes. Attachments in mail are not
+  compressed, so this is the size a recipient downloads.
 - **UNVERIFIED on the real surface.** Quick Look cannot be driven from the sandbox. Whether
   it lets a tap check a radio and scroll a snapping strip is still open until the owner opens
   an export in that preview.

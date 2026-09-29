@@ -1610,8 +1610,9 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// shared icon SVGs moved into constants (same bytes). playerCss gained the gated no-JS
 	// rules (labels, the swipe-per-slide Present view and its two-axis fit ladder, the flip's
 	// icon and color-scheme), and themeDualMode's dark block gained the flip's own rules. The
-	// script did not change, so the CSP hash did not either.
-	assert.equal(sha, 'c71834690802aa1d6687bc45ac9b21a36c4dc9db5c8159e0358444bdc8d62c69', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// script did not change, so the CSP hash did not either. The Present strip is screen-only
+	// (print keeps the column), and the hidden inputs are position:fixed.
+	assert.equal(sha, 'b520ae15f982fd61d2b48688a6a9bfddd04b8ae5f489b0b784caa4ac9880f7af', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
