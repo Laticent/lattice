@@ -9,6 +9,7 @@
     "dev": "tauri dev",
     "build": "tauri build",
     "build:deb": "tauri build --bundles deb",
+    "build:windows": "tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis",
     "build:run": "tauri build --no-bundle",
     "icons": "tauri icon ../docs/public/icons/icon-512.png",
     "tauri": "tauri"
