@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ◐ [2026-09-29-card-tag-register-v2.md](2026-09-29-card-tag-register-v2.md) — PROBE for #2480, do not merge.
 - ◐ [2026-09-28-inline-sparks.md](2026-09-28-inline-sparks.md) — A spark is a word-sized chart an author writes in inline code, the way they write a pill — `~{12 14 13 17 21}:bar:c3:lg`.
 - ◐ [2026-09-27-card-tag-register.md](2026-09-27-card-tag-register.md) — Lattice draws a label on a card six different ways.
 - ◐ [2026-09-27-guide-in-the-exported-player.md](2026-09-27-guide-in-the-exported-player.md) — The owner ruled on 2026-09-27 (video note §6, fork 8) that the Guide goes into the exported player, so a narrated HTML export and the video…
