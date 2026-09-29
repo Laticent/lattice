@@ -376,3 +376,71 @@ test('the Studio webpage export styles a <section> nested in a slide as a panel,
 	expect(got.nested?.w, 'the nested section is not given the slide’s 1280px box').toBeLessThan(got.slide.w);
 	expect(got.nested?.nestedBg, 'the nested section inherits the dark slide’s tokens').toBe(got.slide.bg);
 });
+
+// PICTURES BY URL (followup 2358-p2). The player's policy is `img-src data:`, so a picture it
+// shows has to be IN the file. The Studio used to embed nothing, and a `![bg]` panel, an `<img>`
+// and a video poster from the site's own origin all came out blank while the preview showed
+// them. Now each is fetched from this origin and embedded; a picture it could not fetch, and one
+// from another site (never fetched at export time), are named in the completion toast.
+test('the Studio webpage export embeds same-origin pictures and reports the rest', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	const DECK = [
+		'---',
+		'theme: indaco',
+		'---',
+		'',
+		'![bg left](/showcase/roadmap.light.webp)',
+		'',
+		'# A same-origin background',
+		'',
+		'---',
+		'',
+		'## A same-origin image, a missing one and a web one',
+		'',
+		'![Icon](/icons/icon-192.png) ![Gone](/no-such-picture.png) ![Web](https://example.com/web.jpg)',
+		'',
+		'---',
+		'',
+		'<!-- _class: video -->',
+		'',
+		'## Watch the tour.',
+		'',
+		'- https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+		'- /showcase/kpi.light.webp `poster`',
+		'',
+	].join('\n');
+	const file = await exportWebpage(page, testInfo, DECK, { as: 'url-media.html' });
+	await expect(page.getByText(/Webpage ready — but/)).toContainText(/1 image could not be embedded \(\/no-such-picture\.png: the server answered 404\)/);
+	await expect(page.getByText(/Webpage ready — but/)).toContainText(/images from example\.com ship as placeholders/);
+
+	const viewer = await page.context().newPage();
+	const refused: string[] = [];
+	viewer.on('console', (m) => { if (/Content Security Policy/i.test(m.text())) refused.push(m.text()); });
+	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
+	const got = await viewer.evaluate(() => {
+		const slides = [...document.querySelectorAll('section[data-lattice-slide]')] as HTMLElement[];
+		// The Studio's engine draws `![bg left]` on the slide itself (web mode); the CLI's split
+		// panel is `.lattice-bg`. Read whichever carries the picture.
+		const bg = (slides[0]?.querySelector('.lattice-bg') as HTMLElement | null) ?? slides[0] ?? null;
+		const imgs = [...(slides[1]?.querySelectorAll('img') ?? [])] as HTMLImageElement[];
+		const poster = slides[2]?.querySelector('a.video-poster') as HTMLElement | null;
+		const thumb = document.querySelector('#lp-article .lp-video-thumb') as HTMLElement | null;
+		return {
+			bg: bg ? getComputedStyle(bg).backgroundImage.slice(0, 30) : null,
+			icon: imgs[0] ? { src: imgs[0].src.slice(0, 22), loaded: imgs[0].complete && imgs[0].naturalWidth > 0 } : null,
+			poster: poster ? getComputedStyle(poster).backgroundImage.slice(0, 30) : null,
+			thumb: thumb ? thumb.style.backgroundImage.slice(0, 30) : null,
+			articleImg: (document.querySelector('#lp-article img[alt="Icon"]') as HTMLImageElement | null)?.src.slice(0, 22) ?? null,
+			// The failed picture and the web one both draw the placeholder, never a broken-image mark.
+			placeholders: imgs.filter((i) => i.hasAttribute('data-lattice-web-src')).map((i) => i.getAttribute('data-lattice-web-src')),
+		};
+	});
+	await viewer.close();
+	expect(got.bg, 'the ![bg] panel carries its picture').toMatch(/^url\("data:image\/webp;base64,/);
+	expect(got.icon, 'the <img> is embedded and decodes').toEqual({ src: 'data:image/png;base64,', loaded: true });
+	expect(got.poster, 'the video poster is embedded').toMatch(/^url\("data:image\/webp;base64,/);
+	expect(got.thumb, 'Read · Article keeps the embedded poster').toMatch(/^url\("?data:image\/webp;base64,/);
+	expect(got.articleImg, 'Read · Article keeps the embedded image').toBe('data:image/png;base64,');
+	expect(got.placeholders, 'the missing picture and the web one ship as the placeholder').toEqual([expect.stringMatching(/\/no-such-picture\.png$/), 'https://example.com/web.jpg']);
+	expect(refused.filter((t) => /showcase|icon-192/.test(t)), 'no embedded picture is refused by the policy').toEqual([]);
+});
