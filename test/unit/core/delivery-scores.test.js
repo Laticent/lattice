@@ -106,8 +106,10 @@ async function firstProseBoundSlide(m) {
 
 for (const archetype of ARCHETYPE_NAMES) {
 	test(`archetype ${archetype}: each delivery plays its storyboard as scored`, async () => {
+		// A HOST (`columns`, `rows`) never stands for an archetype: its slide is its panes', so it
+		// would play whatever its gallery's panes happen to hold rather than the archetype's own shape.
 		const members = loadAll()
-			.filter((m) => m.gesture?.archetype === archetype)
+			.filter((m) => m.gesture?.archetype === archetype && !m.hosts)
 			.sort((a, b) => a.name.localeCompare(b.name));
 		let played = null;
 		for (const m of members) {
