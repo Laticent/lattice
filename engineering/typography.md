@@ -435,7 +435,11 @@ deck, and it shipped two live bugs. The record, with the numbers, is
 - **`lint:deck` flags it first.** `capacity-scale` names a counted component past that
   budget at the deck's scale, and a `code` block past the pane's scaled line or column
   budget. It reads the same numbers, baked into
-  `lib/authoring/venue-capacity.generated.js`.
+  `lib/authoring/venue-capacity.generated.js`. A `split-panel` claim panel, and `list`,
+  `cards-grid` and `list-steps` in the registers their manifest measures (`venueCapacity.panel`
+  and `venueCapacity.rows`), are judged by the LINES their text wraps to rather than by a count,
+  because an item's line breaks decide whether it fits (the decision record's Amendments (6) and
+  (7)).
 
 Code keeps scaling, and its line cap scales with it: at a wide @size the pane holds 15 /
 13 / 11 / 10 lines at 1 / l / xl / 2xl (13 / 11 / 10 / 8 under an eyebrow), and

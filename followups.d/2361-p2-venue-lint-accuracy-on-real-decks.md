@@ -99,6 +99,27 @@ progress  — 2026-09-28 (font-scale-fit.md Amendment (6)): the LINE model, for 
             `capacity-scale` on slides 24 (`list takeaway`, 5 items), 39 and 58 (`list-steps` with a
             callout, 4 and 5 items) and 64 (`list takeaway numbered` with a callout, 4 items). The
             count rows read these as full at huddle; the render fits them.
+progress  — 2026-09-29 (font-scale-fit.md Amendment (7)): the LINE model for the count rows. `list`
+            (bare, `takeaway`, `takeaway numbered`), `cards-grid` (bare, `three`, `four`) and
+            `list-steps` (`1.`, two to five steps, one row) are judged by the lines their eyebrow,
+            heading, items and callout wrap to (`venueCapacity.rows`, measured by
+            `calibrate-capacity <component> --rows`), each glyph weighed by its width. Five decks,
+            right/false/missed: huddle 26/3/16 → 28/0/14, conference 48/8/42 → 55/5/35, hall
+            86/2/61 → 91/1/56; no slide lost, no new false warning. The talk at `venue: huddle`
+            (d7be56f): 4 false warnings → 0. 22 more decks (the checker's): no new false warning;
+            two slides no longer warned, system-design-foundations 45 and 209 at conference, whose
+            POINTS column clips (149 px) while main warned on their claim panel, which fits: the
+            split-panel points count row misses them on main too. Studio eager JS +1,987 B gz
+            (paired), budget 636,320.
+            LEFT, by misses at hall on the four smaller decks: compare-prose (4), compare-code (3),
+            premise (2), matrix-2x2 / matrix-grid (no row), cycle, roadmap, table-fill, content,
+            quote, stats, split-panel pullquote, list-steps capsule; `gallery.md` 37 across the
+            catalog. `cards-stack` has no line model (its probe is not linear at seven items, cause
+            not found). Still false, as before this change: talk 5 at conference (a 65-character
+            heading on the edge of one line) and talk 72 (`glossary`). Next: the same rows for
+            `compare-prose` and `cycle`, both a title over a body, and the split-panel POINTS
+            column (the two slides above); each component adds geometry to the Studio bundle, so
+            price it the same way.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.

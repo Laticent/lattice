@@ -727,3 +727,148 @@ two, toward silence; a split-panel slide with no points (the count loop stops be
 check), a `![bg …]` split background (it moves the slide off the `wide` family), and a
 720-high deck's frame tolerance, which is 36 px of a 2160 slide rather than the 12 this budget
 carries (it warns up to 24 px early there).
+
+## Amendment 2026-09-29 (7) — a list or a card grid is judged by lines
+
+**The count rows could not see a line break, so the lists and cards now store line geometry too.**
+A count row says "4 items of 14 words fit at hall". Two things on the five scored decks showed it
+could not do better. A `list takeaway` item written as a title over a body takes two lines whatever
+its word count: the talk's slides 52 and 53 clip at conference, and their count row passed them. The
+row also read a slide of short items as full: the talk trimmed to `venue: huddle` exports with no
+clipped slide, yet lint warned on four of them (slides 24, 39, 58 and 64 in the brief's numbering,
+25, 40, 59 and 65 on #2361's branch today). That is Amendment (6)'s finding again, for a different
+component: line counts separate what word counts cannot.
+
+**The model.** A standard-frame slide is its masthead (eyebrow, heading), its stage (the clipping
+`.cell-stage`, one or more columns of items) and its coda (a trailing `> …` callout). The stage
+takes whatever height the masthead and coda leave. So a slide overflows when its text lines plus an
+overhead exceed the slide, and that overhead is linear: a constant, a cost per row of items (gaps,
+card padding), and a cost when an eyebrow or a callout is present. Each item is a `title` (its own
+text) over zero or more `body` lines (its nested items). A row is as tall as its tallest item.
+
+**The rig.** `tools/calibrate-capacity.js <component> --rows` (tools/lib/calibrate-rows.js)
+renders overflowing probes at each venue and counts every role's lines. It then solves the overhead
+from four probes: eyebrow and callout with `a` rows, the same with `b` rows, no eyebrow, and no
+callout. Characters a line holds are the role's line width divided by its font's average advance on
+a fixed sample, which is Amendment (6)'s method. Measured, the model is linear: `list takeaway`'s
+budget is 1,471 px of a 2160-high slide at every venue, `cards-grid`'s is 1,543, an eyebrow block
+adds 10 to 11 px past its lines, and a callout block adds 211 px at laptop and 280 at hall. The
+masthead and coda geometry is the same on every component measured, so the generated table stores
+it once (`rowFrame`).
+
+**What the probes found on the way.**
+
+- **An ordered list is a different geometry on some registers.** A bare `list` written `1.` draws
+  an ordinal pill that narrows every line (60.7 → 55.4 characters at hall). A `cards-grid` written
+  `1.` sets its number on its own line, which adds 100 to 176 px a row. Both are stored under
+  `ordered`, and the rig keeps an ordered shape only where it differs.
+- **An eyebrow line is as tall as its paragraph's strut**, not its code span's own line height (155
+  px at hall, not 141). The first measurement missed this, and it made the eyebrow's cost nonlinear.
+- **`list-steps` is one row.** Written `1.`, every step shares the stage's width, 1,056 px at three
+  steps and 576 at five. The row stores each role's characters for two to five steps. At six steps
+  the columns reach their minimum width and the budget drops by a line, so a six-step row keeps its
+  count row. Written `-`, `list-steps` is a plain vertical list and keeps its count row too.
+- **A narrow card column wraps by glyph width, not by an average.** At hall, `cards-grid three`
+  holds 23.1 average characters a line. The browser breaks "When the agent knows the ground better,
+  let it propose a plan." before `knows`, and sets "better, let it propose a" whole on the next
+  line: `W` and `w` are twice the average advance, `l`, `t` and `i` half of it. A flat count says
+  three lines and the render has four, the difference between talk slide 9's clip and silence.
+  Lint now weighs each glyph: `GLYPH_WIDTH` (Outfit, the body face) and `GLYPH_DISPLAY` (Playfair
+  Display, every heading and a `proof` panel's opening question), each glyph's advance measured one
+  at a time, 95 characters each. The claim panel's wrap uses them too, which also catches
+  seven-steps 11 at hall, the heading Amendment (6) left within half a character of its line. A
+  table measured glyph by glyph carries no kerning, so it reads the rig's kerned sample long (188.5
+  units for 187 characters in Outfit, 188.1 in Playfair). `wrapLines` widens the line by that share.
+  The mono eyebrow is not weighed.
+- **A code span is a mono pill, and it does not break at its spaces.** Measured in a card, a mono
+  glyph (a space too) is 1.18 of Outfit's average advance and the pill's padding 0.78. Priced as
+  Outfit, a card body with a long `<!-- _class: … -->` span read 6% under the column it overflowed
+  (`examples/font-scale.md` slide 10). A span now counts as one word of `u` (1.2) per glyph plus a
+  `t` (0.85) for the padding. A word longer than a line takes as many lines as it fills, because
+  the browser breaks a span that long.
+- **The common glyphs past ASCII have widths.** An em dash is as wide as an `m` in both faces, an
+  en dash an `n`, a curly quote its straight one. Counted as one average character, an em dash
+  left a `list` item one line short (`gallery-jargon` slide 19 at huddle).
+
+**Lint.** `rowsAt` in lint-core parses the slide's eyebrow, heading, items and callout, wraps each
+role and adds the heights and costs against the budget. A register with rows is judged by them
+instead of by its count row. The finding shares the claim panel's push: "at 1.5x the 'list takeaway'
+slide's text runs about 12% past what the slide holds, counted in wrapped lines", and the fix offers
+the largest room whose lines fit. A slide the geometry does not describe keeps its count row: another
+register (`principles`, `lettered`, `cards-grid numbered`), any modifier not known to leave the
+geometry alone (only the callout's `insight-*` label, a `venue-*` or `scale-*` rung, `fit-*`, `dark`
+and `light` ride along, the deck-wide `class:` included, so `spectrum-card` and a `class: sketch`
+deck keep their count rows), a heading at any level but `##`, a paragraph, table or fence under the
+heading, a third list level, or a row of six steps or more.
+
+**A `proof` panel with no opening question gets the question's gap back.** Its budget (1,740 px)
+folds in the question block's 24 px gap; the bare register's (1,764) does not. A slide with no
+question now reads the bare budget. Exact line counts showed why: `system-design-foundations` slides
+192 and 209 have the same eyebrow, heading and lede lines, the model and the render agree on all of
+them, and both claim panels measure 1 px over, inside the 12 px tolerance. The export flags 209
+because its POINTS column clips by 149 px, which the count row for the points does not see.
+
+**A 720-high deck gets the export's own tolerance.** The budgets are measured at `size: 4k` with
+the overflow probe's FRAME_TOLERANCE of 12 px included, but the probe forgives 12 layout px at
+every size, which on the default 720-high deck is 36 px of a 2160 slide. The full unit suite caught
+the result: `examples/retire-automatic-scale-fit.md` slide 4 (`list-steps` at hall) read 1% over its
+budget and exports whole. `lineSlack` widens both line budgets, the claim panel's and the rows', by
+`12 × (2160 / height − 1)` px, which closes the 720-high caveat Amendment (6) left open. The five
+scored decks' results do not move.
+
+**Tried and not kept.** A margin on the characters a line holds (0.97, 0.95, 0.93, 0.9) caught more
+clips, but each one cost a false warning at conference, so the measured width stands. Four coarse
+width classes (narrow, lowercase, capital, wide) under-counted the talk's card bodies. They caught a
+different set of slides, not more of them, so lint uses the per-glyph tables. Weighing the Playfair
+heading with Outfit's table set a capstone heading on four lines where the render has three, which
+is why the display face has its own table.
+
+Scored as Amendment (5), five decks (the talk, `gallery.md`, bloom, seven-steps, kaizen) each forced
+to each venue. The right, false and missed counts:
+
+| venue | before | after |
+|---|---|---|
+| huddle | 26 / 3 / 16 | 28 / 0 / 14 |
+| conference | 48 / 8 / 42 | 55 / 5 / 35 |
+| hall | 86 / 2 / 61 | 91 / 1 / 56 |
+
+No slide lint caught before is missed now, and no new false warning appears. The talk trimmed to
+`venue: huddle` (#2361's branch, d7be56f) goes from four false warnings to none, and its export
+still clips no slide.
+
+**Out of sample**, the independent checker rendered 22 more decks (examples and galleries), and
+those are scored the same way beside the five, 27 decks in all:
+
+| venue | before | after |
+|---|---|---|
+| huddle | 38 / 9 / 59 | 48 / 2 / 49 |
+| conference | 104 / 34 / 119 | 129 / 17 / 94 |
+| hall | 210 / 26 / 168 | 224 / 10 / 154 |
+
+Slide by slide against `main`: 51 clipped slides newly caught, 40 false warnings gone, no new false
+warning, and two slides no longer warned, `system-design-foundations` 45 and 209 at conference. Both
+clip in the points column, which lint judges by the count row, and it misses them on `main` too.
+`main` warned on them only through a claim-panel finding that named the wrong column: it told the
+author to shorten a lede that fits. The first cut of this change had five such losses and four new
+false warnings out of sample. The checker's round removed them: the modifier fallback, the mono code
+spans, the dashes, the display table and the kerning share above all came from it. (Amendment (6)'s hall figure, 86 / 2 / 61, is the one reproduced here; the
+brief quoted 62 missed.)
+
+**Bundle.** Measured as a pair (root `npm run build`, then the docs build, this branch's changes
+stashed for the base): the Studio's eager JS goes from 634,056 to 636,043 bytes gz (+1,987, 99
+chunks both). About 700 bytes of that is the generated geometry and the rest is the code, the two
+glyph tables about 220 of it. Given back before measuring: the shared frame baked once, a px value
+equal at every venue baked as one number, `ordered` carrying only what differs, and line heights to
+the whole px. `docs/route-budget.json` moves to 636,320 by the owner's rule (the measurement plus
+about 280 bytes).
+
+**Still missed, by component**, on the four decks whose slide classes read reliably (at hall: talk
+6, bloom 4, seven-steps 3, kaizen 6): `compare-code` (3), `compare-prose` (4, bare and `axis` and
+`chosen`), `matrix-2x2` and `matrix-grid` (no count row), `premise` (2), `cycle`, `roadmap`,
+`table-fill`, `content`, `quote`, `stats`, `split-panel pullquote` and one `split-panel proof`, and
+`list-steps capsule`. `gallery.md` still misses 37 at hall across the catalog. `cards-stack` has no
+line model yet: its rig probe is not linear at seven items, and the cause was not found. Still false:
+`list-steps` with a callout at conference (talk 5, a 65-character heading the model sets on two
+lines and the browser on one) and a `glossary` slide (talk 72). Both were false before this change
+too. The line model for `compare-prose` and `cycle` (the most misses left, both a title over a body)
+is the next step.

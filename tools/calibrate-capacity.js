@@ -37,6 +37,11 @@
  *              `proof` and `capstone` registers at all four venues in one run (tools/lib/
  *              calibrate-panel.js). It is the manifest's `venueCapacity.panel.lines`; only `--json`
  *              applies (`--variant`, `--scale` and `--max` are refused).
+ *   --rows     measures the LINE GEOMETRY of a list or card component (list, cards-grid,
+ *              list-steps) instead of its element count: each register's item roles (title, body)
+ *              in characters a line and px a line, the cost of a row, and the slide's budget, at
+ *              all four venues in one run (tools/lib/calibrate-rows.js). It is the manifest's
+ *              `venueCapacity.rows`; only `--json` applies.
  *   node tools/calibrate-capacity.js --all [--family square]
  *
  *   node tools/calibrate-capacity.js <component>|--all --pane side|stack [--share N]
@@ -131,6 +136,16 @@ if (has('panel')) {
   if (named !== 'split-panel') die('--panel measures split-panel only (its claim panel is the fixed box).');
   if (VARIANT || SCALE || has('max')) die('--panel measures every register at every venue in one run; drop --variant / --scale / --max.');
   const r = require('node:child_process').spawnSync(process.execPath, [require('node:path').join(__dirname, 'lib', 'calibrate-panel.js'), ...(JSON_OUT ? ['--json'] : [])], { stdio: 'inherit' });
+  process.exit(r.status ?? 1);
+}
+
+// ── ROWS MODE ────────────────────────────────────────────────────────────────────
+// A word row cannot see where a line breaks: a title over a body takes two lines whatever its
+// length (Amendment (7)). `--rows` measures a list or card component's line geometry —
+// tools/lib/calibrate-rows.js, its own process for the same reason as `--panel`.
+if (has('rows')) {
+  if (VARIANT || SCALE || has('max')) die('--rows measures every register at every venue in one run; drop --variant / --scale / --max.');
+  const r = require('node:child_process').spawnSync(process.execPath, [require('node:path').join(__dirname, 'lib', 'calibrate-rows.js'), named, ...(JSON_OUT ? ['--json'] : [])], { stdio: 'inherit' });
   process.exit(r.status ?? 1);
 }
 
