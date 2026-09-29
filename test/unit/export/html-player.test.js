@@ -364,7 +364,7 @@ test('themeDualMode flattens a real-property dark arm through the same :root map
 	// `--edge` is scheme-blind, so both arms flatten to the same value: the pair costs no token,
 	// and its declaration is left in the base exactly as the plain light collapse left it.
 	assert.match(base, /box-shadow:0 1px var\(--edge\)/, 'a pair whose arms resolve alike emits no token');
-	assert.equal((darkBlock.match(/--lp-ld-/g) || []).length, 9, 'one token per scheme scope: dark, three light pins, the dark-slide pin, and the first four again under the system media query');
+	assert.equal((darkBlock.match(/--lp-ld-/g) || []).length, 15, 'one token per scheme scope: dark, three light pins, the dark-slide pin, the first four again under the system media query, and the six no-JS flip scopes (dark + three pins, light, system light)');
 });
 
 test('themeDualMode is a no-op (empty dark block) when the CSS has no light-dark()', () => {
@@ -594,8 +594,27 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	//
 	// `:where()` and `:is()` shipped in the same browser generation, so there is no version of
 	// this policy where one is safe and the other is not.
+	//
+	// THE ONE EXCEPTION IS THE NO-JS FLIP, and it is safe for the reason the ban exists. Those
+	// rules key on `:has()` (a checkbox's state, read from the root), which has no pre-:has
+	// spelling, and they sit inside `:where()` so they keep the specificity of the rules they
+	// mirror. An engine that cannot parse them drops them, and only them: every one is its own
+	// rule with every arm on the flip, so no legacy arm shares a rule with it. The assertion is
+	// that property, not the absence of the form.
+	const selectors = darkBlock
+		.split('}')
+		.map((chunk) => chunk.split('{'))
+		.filter((parts) => parts.length >= 2)
+		.map((parts) => parts[parts.length - 2]);
+	const flipRules = selectors.filter((sel) => sel.includes('lp-nj-flip'));
+	assert.ok(flipRules.length > 0, 'the no-JS flip ships in the dark block');
+	for (const sel of flipRules) {
+		for (const arm of sel.split(/,(?![^(]*\))/)) {
+			assert.ok(arm.includes('lp-nj-flip'), `a flip rule carries no legacy arm an old engine would lose with it: ${arm}`);
+		}
+	}
 	for (const form of [':is(', ':where(']) {
-		assert.ok(!darkBlock.includes(form), `no ${form}) — the target engines might not parse it`);
+		assert.ok(!selectors.filter((sel) => !sel.includes('lp-nj-flip')).some((sel) => sel.includes(form)), `no ${form}) — the target engines might not parse it`);
 	}
 	assert.doesNotMatch(darkBlock, /:not\([^)]*,/, 'no selector-list :not(a, b)');
 });
@@ -652,9 +671,10 @@ test('themeDualMode takes the LAST declaration of a derived token, as the cascad
 	for (const b of blocks) {
 		assert.equal((b.match(/--ink:/g) || []).length, 1, `a scope emits --ink once: ${b}`);
 	}
-	assert.equal(blocks.length, 6,
-		'six scopes carry it: the .dark pin, the bookends, dark-root, dark-root restore, '
-		+ 'and the two inside the system media query');
+	assert.equal(blocks.length, 10,
+		'ten scopes carry it: the .dark pin, the bookends, dark-root, dark-root restore, '
+		+ 'the two inside the system media query, and the four no-JS flip rules '
+		+ '(flip-to-dark, its restore, flip-to-light, and flip-to-light inside the system query)');
 });
 
 // The self-contained .html PLAYER assembler (lib/export/html-player.js) — P2 slice 3
@@ -1584,7 +1604,14 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Then a slide's web link (followup 2358-p3): the sanitizer drops `target`, so a video poster
 	// took the player's own tab to the clip. The player script gained one delegated click handler
 	// on #lp-stage that opens a slide's http(s) link in a new tab; nothing else moved.
-	assert.equal(sha, '80209b7eada65ee7e01a31f032471b5f8285bc4e75aca97bfd201e9899373338', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Then the no-JS controls: iOS Quick Look previews this file with scripting off, so every
+	// toolbar button was dead there. The markup gained two hidden radios and a checkbox at the
+	// top of <body>, a <label> twin for the Present / Read·Slides tabs and the moon, and the
+	// shared icon SVGs moved into constants (same bytes). playerCss gained the gated no-JS
+	// rules (labels, the swipe-per-slide Present view and its two-axis fit ladder, the flip's
+	// icon and color-scheme), and themeDualMode's dark block gained the flip's own rules. The
+	// script did not change, so the CSP hash did not either.
+	assert.equal(sha, 'c71834690802aa1d6687bc45ac9b21a36c4dc9db5c8159e0358444bdc8d62c69', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
