@@ -970,9 +970,12 @@ place, so it changes nothing there. Five variants draw no card tag, so the place
 them alone: `compare-prose axis`, whose label is the card's title, and list-steps `timeline`,
 `chevron`, `converge` and `ghost`, whose markers belong to a rail or a watermark.
 
-`banner-tag` counts as a placement. A placement class on the same slide wins over it
-(`decision banner-tag tag-foot` draws foot tags), and a slide's own `banner-tag` wins over the
-deck's placement word (`tag: corner` leaves a `banner-tag` slide as a band).
+`banner-tag` is the `band` placement under its older name, and it now works on every tagged
+layout. A placement class on the same slide wins over it (`decision banner-tag tag-foot` draws
+foot tags), and a slide's own `banner-tag` wins over the deck's placement word (`tag: corner`
+leaves a `banner-tag` slide as a band). The list-steps `capsule` pill is the `inline` tag,
+centered, with a pill radius, in the categorical `--cat-N-mark` tier, so the `tag:` words
+restyle it too. `lint:deck` names the register words for both (`tag-alias`, advisory).
 
 `large` costs room: every tagged card reserves the bigger tag's height above its body, and the
 capacity figures in each component's docs assume the regular size. On a dense slide at a large

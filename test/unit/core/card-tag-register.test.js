@@ -165,7 +165,8 @@ test('css: every placement and alignment word has a rule on every tagged layout'
   const layouts = ['cards-grid', 'cards-stack', 'decision', 'compare-prose', 'split-compare', 'list-steps'];
   for (const word of ['foot', 'notch', 'band']) {
     for (const l of layouts) {
-      assert.match(css, new RegExp(`section\\.tag-${word}\\.${l}[^{]*(::before|strong:first-child)`), `${word} on ${l}`);
+      // band also answers to its alias, so its rules open `section:is(.tag-band, .banner-tag…)`
+      assert.match(css, new RegExp(`section(?:\\.tag-${word}|:is\\(\\.tag-${word}, [^{]*?\\)\\))\\.${l}[^{]*(::before|strong:first-child)`), `${word} on ${l}`);
     }
   }
   // inline is list-steps' native place, so its rule covers the other five
@@ -173,11 +174,11 @@ test('css: every placement and alignment word has a rule on every tagged layout'
     assert.match(css, new RegExp(`section\\.tag-inline\\.${l}[^{]*(::before|strong:first-child)`), `inline on ${l}`);
   }
   // corner is native everywhere but list-steps, which needs the box recipe
-  assert.match(css, /section:is\(\.tag-corner, \.tag-foot, \.tag-notch, \.tag-band\)\.list-steps/);
+  assert.match(css, /section:is\(\.tag-corner, \.tag-foot, \.tag-notch, \.tag-band, \.banner-tag:not\(\.tag-inline\)\)\.list-steps/);
   assert.match(css, /section\.tag-center\s*\{\s*--card-tag-lead:\s*0\.5;\s*--card-tag-align:\s*center;\s*\}/);
   assert.match(css, /section\.tag-end\s*\{\s*--card-tag-lead:\s*1;\s*--card-tag-align:\s*end;\s*\}/);
-  // a placement word wins over banner-tag
-  assert.match(css, /section\.banner-tag:not\(\.tag-corner, \.tag-foot, \.tag-notch, \.tag-band, \.tag-inline\)/);
+  // a placement word wins over banner-tag (its alias of band steps aside)
+  assert.match(css, /\.banner-tag:not\(\.tag-corner, \.tag-foot, \.tag-notch, \.tag-inline\)/);
 });
 
 test('css: list-steps capsule reads the card-tag pair and size, so the register reaches it', () => {
@@ -190,7 +191,11 @@ test('css: list-steps capsule reads the card-tag pair and size, so the register 
   // The categorical cycle sets the pair on the CARD (so a register word on the pill wins),
   // never on the pill itself.
   assert.doesNotMatch(css, /capsule ol > li:nth-child\([^)]*\)::before\s*\{[^}]*background/);
-  assert.match(css, /capsule ol > li:nth-child\(8n\+1\)\s*\{\s*--card-tag-fill:\s*var\(--cat-1-fill\)/);
+  assert.match(css, /capsule ol > li:nth-child\(8n\+1\)\s*\{\s*--card-tag-fill:\s*var\(--cat-1-mark\);\s*--card-tag-ink:\s*var\(--cat-on-mark\)/);
+  assert.doesNotMatch(css, /capsule[^{]*\{[^}]*--cat-\d-fill/, 'capsule is on the saturated tier (owner Q4)');
+  // The pill is the kernel's inline chip: em padding with the equal-size shims, centered.
+  assert.match(pill[1], /--card-tag-shim-x/);
+  assert.match(css, /section\.capsule:where\(\.list-steps\)\s*\{\s*--card-tag-lead:\s*0\.5;/);
 });
 
 /* ── The runtime's own mirror, from a baked block (the export path) ──────────────────── */
@@ -292,4 +297,25 @@ test('lint: tag-budget follows the label lift — continuation lines, tab indent
   const small = ['---', 'theme: indaco', '---', '', '<!-- _class: decision tag-small -->', '', '## A', '',
     `- ${'x'.repeat(36)}`, '  - body', '- y', '  - body', '- z', '  - body', ''].join('\n');
   assert.equal(lintText(small).filter((f) => f.rule === 'tag-budget').length, 0);
+});
+
+test('lint: banner-tag and capsule get an advisory tag-alias hint; a placement word silences it', () => {
+  const hints = (cls, body = '- A\n  - b\n- B\n  - c') =>
+    lintText(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`).filter((f) => f.rule === 'tag-alias');
+  const banner = hints('decision banner-tag');
+  assert.equal(banner.length, 1);
+  assert.equal(banner[0].severity, 'info', 'advice only — --strict never blocks on it');
+  assert.match(banner[0].fix, /tag-band/);
+  assert.equal(hints('decision banner-tag tag-foot').length, 0);
+  assert.equal(hints('decision tag-band').length, 0);
+  const capsule = hints('list-steps capsule', '1. A\n   - b\n2. B\n   - c');
+  assert.equal(capsule.length, 1);
+  assert.match(capsule[0].message, /inline/);
+});
+
+test('engine: banner-tag draws through the band placement rules', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.card-tag.css'), 'utf8');
+  assert.match(css, /section:is\(\.tag-band, \.banner-tag:not\(\.tag-corner, \.tag-foot, \.tag-notch, \.tag-inline\)\)\.decision/);
+  // The old in-flow recipe is gone: no rule turns a banner card into a padding-0 column.
+  assert.doesNotMatch(css, /section\.banner-tag[^{]*\{[^}]*flex-direction:\s*column/);
 });

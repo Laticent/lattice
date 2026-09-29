@@ -141,14 +141,24 @@ section.list-steps.capsule ol > li {
   align-items: center;
   text-align: center;
 }
+/* The pill IS the card tag at the `inline` placement, centered, with a pill radius —
+ * `capsule` means `tag-inline tag-center tag-color` plus that radius
+ * (engineering/decisions/2026-09-27-card-tag-register.md §3.3, §6 phase 4). So it takes the
+ * kernel's padding (in em, so it follows venue and size), the equal-size shims
+ * (lib/core/card-tag-equalize.js) and the register: the cards below set the categorical pair
+ * as tokens, and `tag-plain` / `tag-none` / `tag-small|large` / `tag-start|end` re-point them.
+ * A placement word (`tag-foot`, …) moves it like any other step tag (base.card-tag.css). */
+section.capsule:where(.list-steps) { --card-tag-lead: 0.5; }
 section.list-steps.capsule ol > li::before {
   display: inline-block;
   align-self: center;
-  padding: var(--sp-3xs) var(--sp-sm);
+  padding:
+    calc(var(--card-tag-pad-y) * 1em + var(--card-tag-shim-y))
+    calc(var(--card-tag-pad-x) - var(--card-tag-track) + var(--card-tag-shim-x) * (1 - var(--card-tag-lead)))
+    calc(var(--card-tag-pad-y) * 1em + var(--card-tag-shim-y))
+    calc(var(--card-tag-pad-x) + var(--card-tag-shim-x) * var(--card-tag-lead));
+  line-height: var(--card-tag-lh);
   border-radius: 999px;
-  /* The pill reads the card-tag pair and size (lib/base/base.card-tag.css), so the
-   * `tag:` register reaches it: the cards below set the categorical pair as tokens,
-   * and `tag-plain` / `tag-none` / `tag-small|large` re-point them on the pill itself. */
   background: var(--card-tag-fill);   /* set on every capsule card by the cycle below */
   color: var(--card-tag-ink);
   box-shadow: var(--card-tag-edge);
@@ -181,18 +191,19 @@ section.list-steps.capsule ol > li > ul > li {
  * nth-child(8n+N) mechanism and its --cat-N-fill/--cat-N-mark pairing. */
 /* The pair is set on the CARD as the card-tag tokens (the pill reads them), the way
  * decision sets its own; a register word on the pill itself then wins.
- * Badge ink is `--cat-on-fill`, the one token the categorical contract
- * guarantees >=4.5:1 against any `--cat-N-fill`. It was `--cat-N-mark`, which
- * the contract only guarantees against the BACKGROUND (it is a stroke token) —
- * on the fill it measured 4.25:1, below AA. */
-section.list-steps.capsule ol > li:nth-child(8n+1) { --card-tag-fill: var(--cat-1-fill); --card-tag-ink: var(--cat-on-fill); }
-section.list-steps.capsule ol > li:nth-child(8n+2) { --card-tag-fill: var(--cat-2-fill); --card-tag-ink: var(--cat-on-fill); }
-section.list-steps.capsule ol > li:nth-child(8n+3) { --card-tag-fill: var(--cat-3-fill); --card-tag-ink: var(--cat-on-fill); }
-section.list-steps.capsule ol > li:nth-child(8n+4) { --card-tag-fill: var(--cat-4-fill); --card-tag-ink: var(--cat-on-fill); }
-section.list-steps.capsule ol > li:nth-child(8n+5) { --card-tag-fill: var(--cat-5-fill); --card-tag-ink: var(--cat-on-fill); }
-section.list-steps.capsule ol > li:nth-child(8n+6) { --card-tag-fill: var(--cat-6-fill); --card-tag-ink: var(--cat-on-fill); }
-section.list-steps.capsule ol > li:nth-child(8n+7) { --card-tag-fill: var(--cat-7-fill); --card-tag-ink: var(--cat-on-fill); }
-section.list-steps.capsule ol > li:nth-child(8n) { --card-tag-fill: var(--cat-8-fill); --card-tag-ink: var(--cat-on-fill); }
+ * The SATURATED tier, like every other categorical card tag (owner decision Q4): a
+ * `--cat-N-mark` fill with `--cat-on-mark` ink, the pair the categorical contract pins at
+ * >=4.5:1 (test/unit/palette/contrast.test.js). It was the pale `--cat-N-fill` with
+ * `--cat-on-fill`, the one categorical tag on the soft tier. (Mark INK on the pale fill was
+ * the pair that failed AA, at 4.25:1 — mark as a FILL under on-mark ink is the pinned pair.) */
+section.list-steps.capsule ol > li:nth-child(8n+1) { --card-tag-fill: var(--cat-1-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol > li:nth-child(8n+2) { --card-tag-fill: var(--cat-2-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol > li:nth-child(8n+3) { --card-tag-fill: var(--cat-3-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol > li:nth-child(8n+4) { --card-tag-fill: var(--cat-4-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol > li:nth-child(8n+5) { --card-tag-fill: var(--cat-5-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol > li:nth-child(8n+6) { --card-tag-fill: var(--cat-6-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol > li:nth-child(8n+7) { --card-tag-fill: var(--cat-7-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol > li:nth-child(8n) { --card-tag-fill: var(--cat-8-mark); --card-tag-ink: var(--cat-on-mark); }
 
 /* ── timeline variant — former `timeline` component (progression.list-steps.timeline) ──
  * Dots-on-a-spine: ordered stages as labeled nodes along one horizontal axis.

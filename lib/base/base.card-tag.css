@@ -157,45 +157,11 @@ section.split-compare .verdict {
   padding-top: calc(max(var(--card-tag-h), var(--card-tag-block)) + var(--card-tag-gap));
 }
 
-/* ── Placement: band — a full-width strip across the card top (`banner-tag`) ──
- * The card turns into a column; the band keeps its content height and the body
- * takes the rest. Its sides line up with the body text (--sp-md), so the band is
- * a header, not a chip. `axis` opts its label out of the tag entirely (it is the
- * card's title there), so the band stands aside on an `axis` slide: the two rules
- * tie on specificity and this file comes after compare-prose.styles.css.
- * A placement word on the slide (`tag-foot`, `tag-band`, …) wins over `banner-tag`:
- * the register's `band` draws the same strip on every tagged layout (§ PLACEMENT). */
-section.banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-band, .tag-inline).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-band, .tag-inline).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-band, .tag-inline).compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) {
-  position: static;
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  padding: 0;
-  overflow: hidden;
-  gap: 0;
-}
-section.banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-band, .tag-inline).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-band, .tag-inline).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-band, .tag-inline).compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child {
-  position: static;
-  flex: 0 0 auto;
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  margin: 0;
-  padding:
-    calc(var(--card-tag-band-pad-y) * 1em + var(--card-tag-shim-y))
-    calc(var(--sp-md) - var(--card-tag-track))
-    calc(var(--card-tag-band-pad-y) * 1em + var(--card-tag-shim-y))
-    var(--sp-md);
-  line-height: var(--card-tag-band-lh);
-  border-radius: 0;
-  background: var(--card-tag-fill, var(--accent));
-  color: var(--card-tag-ink, var(--on-accent, var(--on-dark-primary)));
-  box-shadow: var(--card-tag-edge);
-}
+/* ── Placement: band — `banner-tag` is an alias of the register's `band` (§ PLACEMENT) ──
+ * It used to be its own in-flow recipe on decision and compare-prose; it now draws through
+ * the band rules below on every tagged layout, and lint suggests `tag-band`. A placement word
+ * on the same slide still wins over it. engineering/decisions/2026-09-27-card-tag-register.md
+ * §6 phase 4. */
 
 /* ── Placement: inline — in the text flow above the title, no box (list-steps) ──
  * The voice is the kernel's; the ink is --card-tag-inline-ink, which the component's rule
@@ -257,6 +223,7 @@ section.tag-none .card > strong:first-child {
  *           page fill behind bare text, so the card's edge does not strike through it.
  *   band    a full-width strip across the card top — the corner tag stretched to both
  *           sides, with a header strip's padding and line height (the tokens below).
+ *           `banner-tag` is the same placement under its old name.
  *   inline  in the text flow above the card's first line, as a chip; the card's top
  *           padding returns to --card-tag-rest. On a flex-row card (cards-grid,
  *           cards-stack) the card's own ::after breaks the line after the chip.
@@ -268,14 +235,14 @@ section.tag-none .card > strong:first-child {
 section.tag-foot { --card-tag-radius: 0 var(--radius-sm) 0 var(--radius-md); }
 section.tag-notch,
 section.tag-inline { --card-tag-radius: var(--radius-sm); }
-section.tag-band {
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)) {
   --card-tag-lh: var(--card-tag-band-lh);
   --card-tag-pad-y: var(--card-tag-band-pad-y);
   --card-tag-pad-x: var(--sp-md);   /* a header strip lines up with the body text */
 }
 
 /* list-steps leaves its inline label for a box: the corner recipe, on its step cards. */
-section:is(.tag-corner, .tag-foot, .tag-notch, .tag-band).list-steps:not(.timeline, .chevron, .converge, .ghost) ol > li::before {
+section:is(.tag-corner, .tag-foot, .tag-notch, .tag-band, .banner-tag:not(.tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol > li::before {
   position: absolute;
   top: 0;
   left: 0;
@@ -291,7 +258,7 @@ section:is(.tag-corner, .tag-foot, .tag-notch, .tag-band).list-steps:not(.timeli
   color: var(--card-tag-ink, var(--on-accent, var(--on-dark-primary)));
   box-shadow: var(--card-tag-edge);
 }
-section:is(.tag-corner, .tag-band).list-steps:not(.timeline, .chevron, .converge, .ghost) ol > li {
+section:is(.tag-corner, .tag-band, .banner-tag:not(.tag-foot, .tag-notch, .tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol > li {
   padding-top: calc(max(var(--card-tag-h), var(--card-tag-block)) + var(--card-tag-gap));
 }
 
@@ -370,16 +337,16 @@ section.tag-notch.tag-none .card > strong:first-child {
 }
 
 /* band */
-section.tag-band.cards-grid > .cell-stage > ol > li::before,
-section.tag-band.cards-grid .cards-grid-inner--ordered > .card::before,
-section.tag-band.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.tag-band.cards-stack > .cell-stage > ol > li::before,
-section.tag-band.cards-stack .cards-stack-inner--ordered > .card::before,
-section.tag-band.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-band.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-band.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
-section.tag-band.split-compare .verdict::before,
-section.tag-band.list-steps:not(.timeline, .chevron, .converge, .ghost) ol > li::before {
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid > .cell-stage > ol > li::before,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid .cards-grid-inner--ordered > .card::before,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-stack > .cell-stage > ol > li::before,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-stack .cards-stack-inner--ordered > .card::before,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).split-compare .verdict::before,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol > li::before {
   right: 0;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
@@ -429,6 +396,7 @@ section.tag-inline.split-compare .verdict {
 /* ── TEXT ALIGNMENT — the register's fourth axis ──
  * Where the text sits inside a tag wider than it: a band, a tag the measure widened to
  * match its neighbors, a wrapped label, or list-steps' inline label across its card. */
+section.tag-start { --card-tag-lead: 0; --card-tag-align: start; }   /* beats a native center (capsule) */
 section.tag-center { --card-tag-lead: 0.5; --card-tag-align: center; }
 section.tag-end { --card-tag-lead: 1; --card-tag-align: end; }
 section:is(.tag-start, .tag-center, .tag-end).cards-grid > .cell-stage > ol > li::before,
