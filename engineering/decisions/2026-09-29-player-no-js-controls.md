@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >-
   The exported HTML player's toolbar did nothing in the iPhone file preview. iOS Quick Look
   (Mail, Files, Messages, most apps' attachment viewers) renders an HTML file with scripting
@@ -8,7 +8,7 @@ summary: >-
   moon when no script runs: Present becomes a swipe-per-slide strip fitted on both axes
   (closes #1602 for that view), and the moon flips the scheme through additive rules that
   match the scripted toggle element for element. Read·Article, Notes, Fullscreen and narration
-  have no no-JS form and hide. Quick Look itself is UNVERIFIED until the owner taps it.
+  have no no-JS form and hide. The owner confirmed it on an iPhone and kept the flip's ~140 KB cost.
 ---
 
 # The player's controls work with scripting off
@@ -92,6 +92,9 @@ All in `lib/export/player-core.mjs`, all inert once the script runs (`:not(.lp-j
   `data-viz-gallery` (12.1%) and 137 KB on `slide-class-forms` (10.7%). The flip is the cost
   because every dark token body ships in four more scopes. Attachments in mail are not
   compressed, so this is the size a recipient downloads.
-- **UNVERIFIED on the real surface.** Quick Look cannot be driven from the sandbox. Whether
-  it lets a tap check a radio and scroll a snapping strip is still open until the owner opens
-  an export in that preview.
+- **The real surface, by the owner.** Quick Look cannot be driven from the sandbox. On
+  2026-09-29 the owner opened a light and a dark `chart-legends` export in the same iPhone
+  preview as the original report and reported that the swipe, the view switch and the flip
+  all work. That report is the evidence; no recording was taken.
+- **The size decision.** Put to the owner with the numbers above, and the owner kept the
+  flip: a working moon is worth about 140 KB on a file of about 1 MB.
