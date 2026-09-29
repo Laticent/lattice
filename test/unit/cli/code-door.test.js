@@ -247,13 +247,17 @@ describe('the OS layer', () => {
     assert.equal(apparmorRestrictsUserns(path.join(dir, 'missing')), false, 'a kernel without the sysctl has no restriction');
   });
 
-  test('a seccomp filter on this process is read from its status', () => {
+  test('a container is a seccomp filter on this process AND on pid 1', () => {
     const dir = tmp('seccomp');
-    fs.writeFileSync(path.join(dir, 'docker'), 'Name:\tnode\nSeccomp:\t2\nSeccomp_filters:\t1\n');
-    fs.writeFileSync(path.join(dir, 'host'), 'Name:\tnode\nSeccomp:\t0\nSeccomp_filters:\t0\n');
-    assert.equal(processSeccompFiltered(path.join(dir, 'docker')), true);
-    assert.equal(processSeccompFiltered(path.join(dir, 'host')), false);
-    assert.equal(processSeccompFiltered(path.join(dir, 'missing')), false);
+    const at = (n) => path.join(dir, n);
+    fs.writeFileSync(at('filtered'), 'Name:\tnode\nSeccomp:\t2\nSeccomp_filters:\t1\n');
+    fs.writeFileSync(at('plain'), 'Name:\tsystemd\nSeccomp:\t0\nSeccomp_filters:\t0\n');
+    assert.equal(processSeccompFiltered([at('filtered'), at('filtered')]), true, 'Docker: both filtered');
+    // A hardened systemd unit (SystemCallFilter=) filters the service, not systemd: not a container,
+    // and AppArmor may be the obstacle there (the checker).
+    assert.equal(processSeccompFiltered([at('filtered'), at('plain')]), false);
+    assert.equal(processSeccompFiltered([at('plain'), at('plain')]), false);
+    assert.equal(processSeccompFiltered([at('filtered'), at('missing')]), false);
   });
 
   test('each OFF reason maps to its own remedy, and AppArmor never gets the CHROME_PATH advice', () => {

@@ -429,14 +429,20 @@ process in it reads `Seccomp: 2` (Docker's default profile). With puppeteer's br
 where `nobody` can run it, the sandboxed launch fails and the remedy first said AppArmor, which was
 wrong: `nobody` could not `unshare -U` under Docker's default seccomp profile with the AppArmor sysctl
 at 0, and could, with Chrome's sandbox measured on, under `--security-opt seccomp=unconfined` with the
-sysctl still at 1. So `offReason` checks a seccomp filter on Lattice's own process
-(`processSeccompFiltered`, `/proc/self/status`) before AppArmor, and names the container's seccomp
-profile (`container-seccomp`). The same runs showed `tools/verify-code-sandbox` step 7 reading the
-container's Seccomp 2 on renderers started with `--no-sandbox` as a mismatch; it now takes the browser
-process's own mode as a baseline and, where that is already 2, judges by the flag. Lattice's own "on"
-measurement (`rendererSandboxed`) has the same blind spot in a filtered container, but a Chromium that
-started without `--no-sandbox` has its sandbox (it aborts with "No usable sandbox!" otherwise), so the
-"on" it reports there is still true.
+sysctl still at 1. So `offReason` checks for a container's seccomp filter before AppArmor, and names
+the container's seccomp profile (`container-seccomp`). A container is a filter on Lattice's own process
+AND on pid 1 (`processSeccompFiltered`): in Docker pid 1 read Seccomp 2 too, while a hardened systemd
+unit filters the service but not systemd, and there AppArmor may still be the obstacle (the checker).
+The same runs showed `tools/verify-code-sandbox` step 7 reading the container's Seccomp 2 on renderers
+started with `--no-sandbox` as a mismatch. Where the browser process itself is already filtered, step
+7 now counts `Seccomp_filters` instead: Chromium's sandbox stacks its own filter on each renderer, so a
+sandboxed renderer carries more than its browser process. After the fix both container variants
+passed all eight steps with the right remedy (run 36555830605). Lattice's own "on" measurement
+(`rendererSandboxed`) still reads the mode alone, so in a filtered container it would read "on" from
+the container's filter. The OFF cases measured here never reach it (they launched with
+`--no-sandbox`), and a Chromium that starts without `--no-sandbox` has refused to run without a
+sandbox in every run here ("No usable sandbox!"); a filtered container whose profile allows user
+namespaces has not been measured.
 
 **Measured on the real CLI** (`test/integration/export/code-package-door.test.js`): a hostile
 package that tries `fetch`, an image, a WebSocket and a beacon at load and on every slide, and

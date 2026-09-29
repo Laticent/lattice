@@ -286,7 +286,7 @@ function descendantsOf(all, root) {
 function linuxStatus(pid) {
   try {
     const s = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
-    return { seccomp: /^Seccomp:\s*(\d)/m.exec(s)?.[1] ?? '?', uid: /^Uid:\s*(\d+)/m.exec(s)?.[1] ?? '?' };
+    return { seccomp: /^Seccomp:\s*(\d)/m.exec(s)?.[1] ?? '?', filters: Number(/^Seccomp_filters:\s*(\d+)/m.exec(s)?.[1] ?? Number.NaN), uid: /^Uid:\s*(\d+)/m.exec(s)?.[1] ?? '?' };
   } catch {
     return { seccomp: '?', uid: '?' };
   }
@@ -547,18 +547,23 @@ async function measureLayer() {
       const st = renderers.map((r) => ({ pid: r.pid, ...linuxStatus(r.pid) }));
       // The baseline: Chromium never filters its own browser process, so a browser process that
       // already reads Seccomp 2 is under the RUNTIME's filter (a container's, Docker's default), which
-      // every process inherits. There the renderers' 2 proves nothing about Chromium's sandbox, and
-      // the check falls back to the flag, as on macOS and Windows (a root container on ubuntu-latest
-      // read 2 on renderers started with --no-sandbox; p7, run 36554214907).
-      const baseline = s.pid ? linuxStatus(s.pid).seccomp : null;
-      detail = `${st.map((x) => `pid ${x.pid}: Seccomp ${x.seccomp}, uid ${x.uid}`).join('; ') || 'no renderer found'}; browser process Seccomp ${baseline ?? '?'}`;
+      // every process inherits. There a renderer's "2" proves nothing (a root container on
+      // ubuntu-latest read 2 on renderers started with --no-sandbox; p7, run 36554214907), so the
+      // check counts filters instead: Chromium's sandbox STACKS its own filter on each renderer, so a
+      // sandboxed renderer carries more than the browser process it came from.
+      const base = s.pid ? linuxStatus(s.pid) : { seccomp: null, filters: Number.NaN };
+      const baseline = base.seccomp;
+      detail = `${st.map((x) => `pid ${x.pid}: Seccomp ${x.seccomp} (${x.filters} filters), uid ${x.uid}`).join('; ') || 'no renderer found'}; browser process Seccomp ${baseline ?? '?'} (${base.filters} filters)`;
       console.log(`  Measured: ${detail}`);
       const expected = s.layer.os === 'on';
       if (baseline === '2') {
+        const counted = Number.isFinite(base.filters) && st.every((x) => Number.isFinite(x.filters));
+        const stacked = counted && st.length > 0 && st.every((x) => x.filters > base.filters);
         auto =
           !st.length ? { pass: false, why: 'no renderer process was found to measure' }
-          : (s.layer.os !== 'off') === !noSandboxFlag ? { pass: true, why: `every process here is already under a seccomp filter (a container's), so Seccomp cannot tell; Lattice reports "${s.layer.os}", and the browser ${noSandboxFlag ? 'was' : 'was not'} started with --no-sandbox` }
-          : { pass: false, why: `MISMATCH: Lattice reports "${s.layer.os}" but --no-sandbox is ${noSandboxFlag ? 'present' : 'absent'} (Seccomp cannot tell here: the browser process itself is filtered)` };
+          : !counted ? { pass: false, why: 'every process here is under a seccomp filter (a container\'s) and this kernel does not report Seccomp_filters, so the sandbox cannot be measured' }
+          : stacked === expected ? { pass: true, why: `every process here is under a container's seccomp filter; Lattice reports "${s.layer.os}", and the renderers carry ${stacked ? 'more' : 'no more'} filters than the browser process (${st.map((x) => x.filters).join(',')} vs ${base.filters}; Chromium's sandbox adds its own)` }
+          : { pass: false, why: `MISMATCH: Lattice reports "${s.layer.os}" but the renderers carry ${st.map((x) => x.filters).join(',')} seccomp filters against the browser process's ${base.filters}` };
       } else {
         const on = st.length > 0 && st.every((x) => x.seccomp === '2');
         auto =

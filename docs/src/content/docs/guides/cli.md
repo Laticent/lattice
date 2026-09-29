@@ -398,7 +398,7 @@ and later, AppArmor stops the sandbox of a browser it has no profile for, such
 as the Chrome that puppeteer downloads, even for an ordinary user. There the
 fix is an AppArmor profile that lets the browser create user namespaces, or
 setting the `kernel.apparmor_restrict_unprivileged_userns` sysctl to 0. Inside a
-Docker container the container's seccomp profile is what blocks the sandbox,
+Docker container, Docker's default seccomp profile is what blocks the sandbox,
 whatever the host's AppArmor says: start the container with a seccomp profile
 that allows user namespaces.
 
