@@ -27,7 +27,7 @@ Use when two wide components make one point together: progress over the table be
 ## When to use
 
 - **Two wide components.** A table, a timeline or a progress list reads across the slide. Stack two of them rather than squeezing each into half the width.
-- **Context over evidence.** A short `content` pane on top says what happened; the chart or table below shows it. Give the evidence the larger share: `rows 35/65`.
+- **Context over evidence.** A short `content` pane on top says what happened; the chart or table below shows it. Give the evidence the larger share: `rows ratio-35-65`.
 
 ## When NOT to use
 
@@ -60,7 +60,7 @@ Use when two wide components make one point together: progress over the table be
 Drops the rule between the panes.
 
 ```markdown
-<!-- _class: rows 35/65 no-rule -->
+<!-- _class: rows ratio-35-65 no-rule -->
 
 ## Three regions carried the quarter.
 

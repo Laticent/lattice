@@ -273,7 +273,7 @@ marker was also a separator: dropped outright, a list pane beside a list pane cl
 list. Marpit skips markdownlint's magic comments when it collects notes, and `capture` does
 nothing unless a `restore` reads it. The pane-layout syntax (2026-09-28) goes the same way: a
 `<!-- _pane: … -->` marker is dropped like a `pane:` one, and a `_class` naming `columns` / `rows`
-keeps only its other classes (`<!-- _class: columns 60/40 dark -->` reaches Marp as
+keeps only its other classes (`<!-- _class: columns ratio-60-40 dark -->` reaches Marp as
 `<!-- _class: dark -->`), since Marp would apply `columns` and `60/40` as classes no sheet styles.
 
 Measured with marp-cli 4 on `examples/panes.md`, light and dark: all 8 slides pixel-identical to

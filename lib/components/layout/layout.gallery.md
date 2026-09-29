@@ -9,7 +9,7 @@ layout
 
 ---
 
-<!-- _class: columns 60/40 -->
+<!-- _class: columns ratio-60-40 -->
 <!-- _footer: "columns · layout survey" -->
 
 `Q3 review`

@@ -338,7 +338,7 @@ function buildPane() {
     if (!m.pane) continue;
     // Every built-in row: the least share each direction reads at is measured per component, so
     // no default covers them. A MISSING row is an installed package, which fits any share.
-    catalog[m.name] = { side: m.pane.side, stack: m.pane.stack, ...(m.pane.form ? { form: m.pane.form } : {}), ...(ownsH3(m) ? { h3: true } : {}) };
+    catalog[m.name] = { side: m.pane.side, stack: m.pane.stack, ...(m.pane.form ? { form: m.pane.form } : {}), ...(ownsH3(m) ? { h3: true } : {}), ...(m.hosts ? { host: true } : {}) };
   }
   const sorted = {};
   for (const n of Object.keys(catalog).sort()) sorted[n] = catalog[n];
@@ -349,6 +349,8 @@ function buildPane() {
     '   stack — the least share of the height a stacked pane of it reads at, or false.\n' +
     '   form  — the component a pane renders this one AS, when it differs.\n' +
     "   h3    — its own anatomy uses `###` (a slot selector names h3), so a pane of it keeps them.\n" +
+    "   host  — a HOST component (manifest `hosts`, columns / rows): its body is two panes, and it\n" +
+    "           names nothing to render with where none were carved (lib/core/resolve-component.js).\n" +
     '   Measured by tools/measure-pane-fit.js, then reviewed. No row: fits any share.\n' +
     '   Rebuild: node tools/build-stage-catalog.js */\n' +
     'module.exports = ' + JSON.stringify(sorted) + ';\n';

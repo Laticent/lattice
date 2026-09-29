@@ -17,7 +17,7 @@
     "summary"
   ],
   "skeleton": "<!-- _class: columns -->\n\n## The slide's point, in one line.\n\n### First pane\n\n- A point\n- Another point\n\n### Second pane\n\n- A point\n- Another point\n",
-  "sample": "<!-- _class: columns 60/40 -->\n\n`Q3 review`\n\n## Services outgrew licenses for the first time.\n\n<!-- _pane: bar -->\n### Revenue by line\n`$M, trailing four quarters`\n\n- Licenses `42`\n- Services `47`\n- Training `9`\n\n<!-- _pane: list -->\n### What changed\n\n- Services passed licenses in March\n- Two renewals slipped to Q4\n\n> The mix shift is structural, not seasonal.\n",
+  "sample": "<!-- _class: columns ratio-60-40 -->\n\n`Q3 review`\n\n## Services outgrew licenses for the first time.\n\n<!-- _pane: bar -->\n### Revenue by line\n`$M, trailing four quarters`\n\n- Licenses `42`\n- Services `47`\n- Training `9`\n\n<!-- _pane: list -->\n### What changed\n\n- Services passed licenses in March\n- Two renewals slipped to Q4\n\n> The mix shift is structural, not seasonal.\n",
   "variants": [
     "no-rule"
   ],
@@ -25,7 +25,7 @@
     "no-rule": {
       "label": "no rule",
       "summary": "Drops the spine between the panes.",
-      "sample": "<!-- _class: columns 45/55 no-rule -->\n\n`Support · after the migration`\n\n## The migration halved support tickets.\n\n### Before\n\n- 1,240 tickets a month\n- 31 hours to first reply\n\n### After\n\n- 610 tickets a month\n- 6 hours to first reply\n"
+      "sample": "<!-- _class: columns ratio-45-55 no-rule -->\n\n`Support · after the migration`\n\n## The migration halved support tickets.\n\n### Before\n\n- 1,240 tickets a month\n- 31 hours to first reply\n\n### After\n\n- 610 tickets a month\n- 6 hours to first reply\n"
     }
   },
   "slots": {
@@ -51,7 +51,7 @@
     },
     {
       "title": "An unequal pair",
-      "body": "Give the pane that needs room the larger share: `columns 60/40`, `columns 35/65`. Shares run 25 to 75 in 5% steps."
+      "body": "Give the pane that needs room the larger share: `columns ratio-60-40`, `columns ratio-35-65`. Shares run 25 to 75 in 5% steps."
     }
   ],
   "antiPatterns": [
@@ -98,7 +98,7 @@
   ],
   "stressDoc": {
     "summary": "A list beside a four-column table at 40/60, with the slide's Key Insight.",
-    "sample": "<!-- _class: columns 40/60 -->\n\n`columns · stress`\n\n## Two vendors cleared the security review.\n\n<!-- _pane: list -->\n### Cleared\n\n- Northwind\n- Contoso\n\n<!-- _pane: table -->\n### Findings by vendor\n\n| Vendor | Critical | High | Status |\n|---|---|---|---|\n| Northwind | 0 | 1 | Cleared |\n| Contoso | 0 | 2 | Cleared |\n| Fabrikam | 2 | 4 | Rejected |\n\n> Fabrikam can re-apply after its Q1 fixes.\n"
+    "sample": "<!-- _class: columns ratio-40-60 -->\n\n`columns · stress`\n\n## Two vendors cleared the security review.\n\n<!-- _pane: list -->\n### Cleared\n\n- Northwind\n- Contoso\n\n<!-- _pane: table -->\n### Findings by vendor\n\n| Vendor | Critical | High | Status |\n|---|---|---|---|\n| Northwind | 0 | 1 | Cleared |\n| Contoso | 0 | 2 | Cleared |\n| Fabrikam | 2 | 4 | Rejected |\n\n> Fabrikam can re-apply after its Q1 fixes.\n"
   },
   "pane": {
     "side": false,

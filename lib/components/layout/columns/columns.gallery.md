@@ -15,7 +15,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns 60/40 -->
+<!-- _class: columns ratio-60-40 -->
 <!-- _footer: "Default · columns" -->
 
 `Q3 review`
@@ -41,7 +41,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns 45/55 no-rule -->
+<!-- _class: columns ratio-45-55 no-rule -->
 <!-- _footer: "no rule · columns no-rule — Drops the spine between the panes." -->
 
 `Support · after the migration`
@@ -61,7 +61,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns 40/60 -->
+<!-- _class: columns ratio-40-60 -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · columns — A list beside a four-column table at 40/60, with the slide's Key Insight." -->
 
@@ -89,7 +89,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns 60/40 dark -->
+<!-- _class: columns ratio-60-40 dark -->
 <!-- _footer: "Composition: dark · columns dark" -->
 
 `Q3 review`
@@ -115,7 +115,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns 60/40 compact -->
+<!-- _class: columns ratio-60-40 compact -->
 <!-- _footer: "Composition: compact · columns compact" -->
 
 `Q3 review`
@@ -141,7 +141,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns 60/40 accent -->
+<!-- _class: columns ratio-60-40 accent -->
 <!-- _footer: "Composition: accent · columns accent" -->
 
 `Q3 review`

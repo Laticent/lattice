@@ -61,8 +61,10 @@ export function buildStudioCatalog(root = join(process.cwd(), '..')) {
 				tags: Array.isArray(c.tags) ? c.tags : [],
 				purpose: c.purpose || '',
 				description: c.description || '',
-				// The add-slide gallery's tile name, where the class reads worse ("Two columns").
+				// The add-slide gallery's tile name, where the class reads worse ("Two columns"), and a
+				// host's `hosts` (its body is two panes), as components.json carries them.
 				...(c.label ? { label: c.label } : {}),
+				...(c.hosts ? { hosts: c.hosts } : {}),
 				// The Lattice primer (architect-knowledge.js `layoutBlock`) reads `summary`,
 				// `slots`, `capacity` and `variantSkeletons`. `slots` needs reshaping:
 				// components.json keys it by slot name, the primer walks an array.

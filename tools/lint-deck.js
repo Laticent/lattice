@@ -102,7 +102,7 @@ function narrationText(source) {
     .replace(/~~~[\s\S]*?~~~/g, ' ') // fenced code (tilde)
     .replace(/`[^`]*`/g, ' ') // inline code
     // A pane marker (`<!-- _pane: list -->`, the `pane:` / `panes:` alias) and a `_class` that
-    // names a pane layout (`columns 60/40`) are layout, not speech; other comments stay, because
+    // names a pane layout (`columns ratio-60-40`) are layout, not speech; other comments stay, because
     // speaker notes are narration.
     .replace(/<!--\s*_?panes?:[^<>]*-->/g, ' ')
     .replace(/<!--\s*_class\s*:[^<>]*\b(?:columns|rows)\b[^<>]*-->/g, ' ');

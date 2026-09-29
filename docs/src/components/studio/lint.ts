@@ -63,7 +63,7 @@ export function splitSlides(src: string): string[] {
 // regex here can carry without becoming a fifth copy of a parser that already exists.
 
 /** The COMPONENT of a `_class` payload — its first token, tolerating trailing modifiers
- *  (`kpi dark scale-xl` → `kpi`). A pane layout (`columns 60/40`, `rows`) names no component:
+ *  (`kpi dark scale-xl` → `kpi`). A pane layout (`columns ratio-60-40`, `rows`) names no component:
  *  its panes do (lib/core/pane-spec.js `classLayout`). */
 function componentOf(payload: string): string {
 	const first = String(payload ?? '').trim().split(/\s+/)[0] ?? '';

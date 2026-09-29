@@ -26,7 +26,7 @@ const { slideClassDirectives, classDirectiveAt } = scan;
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const payloads = (src) => slideClassDirectives(src).map((d) => d.payload);
-// A pane layout's words (`columns 60/40`, `rows`) are the slide's LAYOUT, which the engine consumes
+// A pane layout's words (`columns ratio-60-40`, `rows`) are the slide's LAYOUT, which the engine consumes
 // before it resolves a class (lib/core/panes.js, lib/core/pane-spec.js `classLayout`); the scan
 // returns the author's raw `_class`, and the linter reads the layout off it itself. So on a slide
 // that lays out in panes the engine's class is the payload without them — one known, deliberate

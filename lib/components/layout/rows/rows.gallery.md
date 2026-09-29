@@ -37,7 +37,7 @@ Two components stacked on one slide, one above the other.
 
 ---
 
-<!-- _class: rows 35/65 no-rule -->
+<!-- _class: rows ratio-35-65 no-rule -->
 <!-- _footer: "no rule · rows no-rule — Drops the rule between the panes." -->
 
 ## Three regions carried the quarter.

@@ -1359,7 +1359,7 @@ anti-patterns — HARD RULE #6 requires that before you write the slide. Tools t
 the full machine record read \`components.json\`; this file is not a substitute for it.
 
 **Two components on one slide: \`columns\` or \`rows\`.** They are HOST components (bucket
-\`layout\`): their body is two other components. Write \`<!-- _class: columns 60/40 -->\` (side
+\`layout\`): their body is two other components. Write \`<!-- _class: columns ratio-60-40 -->\` (side
 by side) or \`<!-- _class: rows -->\` (stacked) and start each pane with \`<!-- _pane: <component> -->\` and a \`### title\` (a short label), as a slide one
 heading level down; a pane with no marker is \`content\`. Pick each pane's component from
 this table; \`lib/base/base.docs.md\` § "Two components on one slide — pane layouts" is the

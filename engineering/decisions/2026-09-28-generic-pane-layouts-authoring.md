@@ -18,7 +18,7 @@ summary: >-
 component today. Each pane is written the way a slide is written, one heading level down:
 
 ```markdown
-<!-- _class: columns 60/40 -->
+<!-- _class: columns ratio-60-40 -->
 
 `Q3 review`
 ## Services outgrew licenses for the first time.
@@ -91,13 +91,19 @@ is the authoring surface around it:
 | Write | Renders |
 |---|---|
 | `<!-- _class: columns -->` | two panes side by side, 50/50 |
-| `<!-- _class: columns 40/60 -->` | side by side, 40% and 60% |
+| `<!-- _class: columns ratio-40-60 -->` | side by side, 40% and 60% |
 | `<!-- _class: rows -->` | two panes stacked, 50/50 |
-| `<!-- _class: rows 35/65 -->` | stacked, 35% on top |
+| `<!-- _class: rows ratio-35-65 -->` | stacked, 35% on top |
 
+- The ratio is spelled `ratio-60-40`, a class word (ruling, 2026-09-29): every word in `_class`
+  lands in the section's `class` attribute, so each must be a valid CSS identifier, and `60/40`
+  is not (a `/` cannot sit in a class name, nor can a leading digit). It follows the house
+  `<axis>-<value>` pattern (`cat-4`, `progress-3`); `split-60-40` was rejected because "split"
+  already names `split-panel`, the `split:` register and pagination. The engine's internal layout
+  comment keeps `60/40`, which is never a class, and so does the experimental `panes:` comment.
 - The ratio keeps today's range: 25–75 in 5% steps, default 50/50. An out-of-range ratio falls
   back to 50/50 and `lint:deck` reports it (`pane-layout`, as today).
-- Slide modifiers go beside the layout as they do beside a component: `columns 40/60 dark`.
+- Slide modifiers go beside the layout as they do beside a component: `columns ratio-40-60 dark`.
 - `no-rule` drops the spine between the panes, as today.
 - A component named in the slide's `_class` on a `columns` / `rows` slide is ignored, and
   `lint:deck` says so: components are named per pane.
@@ -218,7 +224,7 @@ The engine did not change: the carve still reads the words from `_class`, and th
 ## 3. The layouts
 
 ```
-columns 60/40                          rows 35/65
+columns ratio-60-40                          rows ratio-35-65
 ┌──────────────────────────────┐       ┌──────────────────────────────┐
 │ eyebrow                      │       │ eyebrow                      │
 │ ## Slide title               │       │ ## Slide title               │
@@ -349,10 +355,10 @@ different of the name:
 
 | Role | Sees | What the name has to do |
 |---|---|---|
-| **The author typing Markdown** | `_class: columns 60/40` | be the word they would guess |
+| **The author typing Markdown** | `_class: columns ratio-60-40` | be the word they would guess |
 | **The Studio user** | a menu of layouts, never the syntax | read as plain English: the insert menu labels them **"Two columns"** and **"Top and bottom"** and writes `columns` / `rows` into the source |
 | **The AI drafting the deck** (the agent-workflow persona in `2026-07-02-website-copy-positioning.md` §2) | whatever it guesses | be the word its training data taught it: `columns` is what Quarto, Beamer and CSS use, so a model guesses it without reading our docs, where a house word like `panes` would have to be looked up |
-| **The reviewer reading the source in a pull request** | the raw Markdown | read as prose: `columns 60/40` over two `###` headings describes the slide without a render |
+| **The reviewer reading the source in a pull request** | the raw Markdown | read as prose: `columns ratio-60-40` over two `###` headings describes the slide without a render |
 
 A fifth person never sees a name at all: **the audience in the room.** What they need is for two
 panes to read as one argument, which is what the shared title row (§3) and the rule that the Key
@@ -396,8 +402,8 @@ working as aliases, and `lint:deck` offers the rewrite:
 
 | Old | New |
 |---|---|
-| `<!-- panes: 55/45 -->` | `<!-- _class: columns 55/45 -->` |
-| `<!-- panes: stack 35/65 -->` | `<!-- _class: rows 35/65 -->` |
+| `<!-- panes: 55/45 -->` | `<!-- _class: columns ratio-55-45 -->` |
+| `<!-- panes: stack 35/65 -->` | `<!-- _class: rows ratio-35-65 -->` |
 | `<!-- panes: 50/50 no-rule -->` | `<!-- _class: columns no-rule -->` |
 | `<!-- pane: bar -->` | `<!-- _pane: bar -->` |
 

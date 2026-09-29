@@ -25,7 +25,7 @@
     "no-rule": {
       "label": "no rule",
       "summary": "Drops the rule between the panes.",
-      "sample": "<!-- _class: rows 35/65 no-rule -->\n\n## Three regions carried the quarter.\n\n### What happened\n\nTwo renewals and a price rise lifted EMEA and APAC; North America held.\n\n<!-- _pane: bar -->\n### Revenue by region\n`$M, Q3`\n\n- North America `4.2`\n- EMEA `3.1`\n- APAC `1.8`\n"
+      "sample": "<!-- _class: rows ratio-35-65 no-rule -->\n\n## Three regions carried the quarter.\n\n### What happened\n\nTwo renewals and a price rise lifted EMEA and APAC; North America held.\n\n<!-- _pane: bar -->\n### Revenue by region\n`$M, Q3`\n\n- North America `4.2`\n- EMEA `3.1`\n- APAC `1.8`\n"
     }
   },
   "slots": {
@@ -47,7 +47,7 @@
     },
     {
       "title": "Context over evidence",
-      "body": "A short `content` pane on top says what happened; the chart or table below shows it. Give the evidence the larger share: `rows 35/65`."
+      "body": "A short `content` pane on top says what happened; the chart or table below shows it. Give the evidence the larger share: `rows ratio-35-65`."
     }
   ],
   "antiPatterns": [

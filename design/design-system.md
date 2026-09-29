@@ -181,6 +181,11 @@ independently — so the surfaces can't drift apart.
 | **Evidence**   | data that supports the argument                    | `stats`, `kpi`, `chart-family` (progress, piechart, timeline-list), `radar`, `quadrant`, `word-cloud`, `diagram`, `code` |
 | **Imagery**    | a visual that carries its own meaning              | `image` |
 
+A manifest's `function` can also be **`layout`**, which is not an eighth
+audience function: it marks a HOST component (`hosts: "panes"` —
+`columns`, `rows`) whose body is two other components, each with its own
+function. The host does nothing by itself; its panes do the work.
+
 Test: an author opens a blank slide. The question "what is this slide
 *for*?" must have an answer that is one of these seven. If a real
 slide is hard to place, the families are wrong. The current ~35
@@ -190,7 +195,8 @@ The audience-function taxonomy organizes the catalog and the docs. On
 **disk**, components are grouped slightly differently: seven function
 buckets plus six substance- or domain-defined buckets (`chart`,
 `diagram`, `math`, `code`, `legal`, `connect`) that colocate components
-sharing a renderer kernel or domain vocabulary. The `function` field on
+sharing a renderer kernel or domain vocabulary, and `layout`, the host
+components' bucket and function. The `function` field on
 every manifest is unchanged; the disk grouping is reflected in an optional
 `bucket` field. For 35 of the 61 components `bucket === function`; for
 the other 26 the bucket diverges to keep maintenance localized. See §9.
@@ -808,9 +814,10 @@ lib/components/inventory/cards-grid/
 
 ### Buckets — the disk grouping
 
-Components live under one of thirteen buckets. Seven match the audience-
+Components live under one of fourteen buckets. Seven match the audience-
 function families from §3; six are substance- or domain-defined
-exceptions introduced for maintenance colocation:
+exceptions introduced for maintenance colocation; and `layout` holds the
+host components, whose `function` is `layout` too:
 
 | Bucket       | Count | Origin |
 |--------------|-------|--------|
@@ -827,8 +834,9 @@ exceptions introduced for maintenance colocation:
 | `code`       | 2     | substance = syntax-highlighted source (function stays evidence for code, comparison for compare-code) |
 | `legal`      | 6     | domain = legal (function spans 5 families) |
 | `connect`    | 2     | substance = scannable handoff details, `contact` and `wifi` (function stays statement) |
+| `layout`     | 2     | function = layout: the host components `columns` and `rows` (§3) |
 
-For 35 of the 61 components `bucket === function`. The 26 divergent
+For 38 of the 73 components `bucket === function`. The 35 divergent
 components declare their `bucket` explicitly in the manifest; their
 `function` field is unchanged in every case. Three reasons for
 divergence:
@@ -1160,8 +1168,9 @@ discovery story that markdown alone can't provide.
   this only when `form === 'panel'`, or on a component that hosts panes
   (`columns`, `rows`). `mixed` is not a fifth plugin;
   it's a declaration that the component composes two existing
-  contracts. No component declares `mixed` today — the hatch stays
-  dormant. See §5.
+  contracts. The two hosts, `columns` and `rows`, are the only
+  components that declare it; the panel form's hatch stays dormant.
+  See §5.
 
 **Deferred (open questions):**
 

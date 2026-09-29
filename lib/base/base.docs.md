@@ -56,7 +56,7 @@ the way you write a slide, one heading level down. The slide keeps its one eyebr
 subtitle, Key Insight, below-note, header, footer and page number; only the body splits.
 
 ```markdown
-<!-- _class: columns 60/40 -->
+<!-- _class: columns ratio-60-40 -->
 
 `Q3 review`
 ## Services outgrew licenses for the first time.
@@ -85,7 +85,9 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
 | names nothing → `content` | names nothing → `content` |
 
 - **The layout goes in `_class`:** `columns` (side by side) or `rows` (stacked), with an optional
-  ratio, 25–75 in 5% steps (default 50/50): `columns 40/60`, `rows 35/65`. They are components
+  ratio, 25–75 in 5% steps (default 50/50): `columns ratio-40-60`, `rows ratio-35-65`. The ratio
+  is a class word like any other, so it takes a dash, never a slash: `60/40` is not a valid CSS
+  class name, sets no ratio, and `lint:deck` gives the rewrite. They are components
   like any other (`lib/components/layout/`), of a special kind: a HOST, whose body is two other
   components (manifest `hosts: panes`). The ratio and `no-rule` are its modifiers; other words
   in the same `_class` (`dark`) apply to the slide as they always do. A second component named

@@ -13,7 +13,7 @@ footer: "Pane layouts — columns and rows"
 
 ---
 
-<!-- _class: columns 60/40 -->
+<!-- _class: columns ratio-60-40 -->
 
 `Q3 review`
 
@@ -77,7 +77,7 @@ footer: "Pane layouts — columns and rows"
 
 ---
 
-<!-- _class: columns 45/55 no-rule -->
+<!-- _class: columns ratio-45-55 no-rule -->
 
 `Field report · Lisbon`
 
@@ -100,7 +100,7 @@ Forty desks, two studios and a roof terrace.
 
 ---
 
-<!-- _class: columns 40/60 dark -->
+<!-- _class: columns ratio-40-60 dark -->
 
 ## Two vendors cleared the security review.
 

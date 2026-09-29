@@ -28,7 +28,7 @@ Use when two components make one point together: a chart and what it means, befo
 
 - **A chart and what it means.** Put the evidence in one pane and the reading of it in the other: a `bar` beside a `list`, a `table` beside a `content` pane. The slide's `##` states the conclusion both panes support.
 - **Before and after.** Two `###` titles with no markers make two text panes: the quickest way to set two states side by side.
-- **An unequal pair.** Give the pane that needs room the larger share: `columns 60/40`, `columns 35/65`. Shares run 25 to 75 in 5% steps.
+- **An unequal pair.** Give the pane that needs room the larger share: `columns ratio-60-40`, `columns ratio-35-65`. Shares run 25 to 75 in 5% steps.
 
 ## When NOT to use
 
@@ -61,7 +61,7 @@ Use when two components make one point together: a chart and what it means, befo
 Drops the spine between the panes.
 
 ```markdown
-<!-- _class: columns 45/55 no-rule -->
+<!-- _class: columns ratio-45-55 no-rule -->
 
 `Support · after the migration`
 
