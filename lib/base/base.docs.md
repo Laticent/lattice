@@ -80,8 +80,8 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
 | A slide | A pane |
 |---|---|
 | `<!-- _class: bar -->` names its component | `<!-- _pane: bar -->` names its component |
-| `##` is its title | `###` is its title |
-| an eyebrow pill above the `##`, a subtitle pill below it | the same, around the `###` |
+| `##` is its title | `###` is its title, set as a label (small tracked capitals) |
+| an eyebrow pill above the `##`, a subtitle pill below it | a subtitle pill below the `###`; no eyebrow (the title is already the label) |
 | names nothing → `content` | names nothing → `content` |
 
 - **The layout goes in `_class`:** `columns` (side by side) or `rows` (stacked), with an optional
@@ -107,16 +107,21 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   - 610 tickets a month
   ```
 
-  **Every top-level `###` on the slide is a pane's title.** Right under a marker (an eyebrow pill
-  may sit between them), it is that pane's title; anywhere else it starts a new `content` pane.
+  **Every top-level `###` on the slide is a pane's title.** Right under a marker, it is that
+  pane's title; anywhere else it starts a new `content` pane.
   So you can add a marker above one `###` of an outline and the other stays a pane. For a
   heading inside a pane, use `####`. The exception is a component whose own anatomy uses `###`
   (`team-profile sides`, its roster labels): a pane of it keeps every `###` it holds.
 - **A marker names the component, then its modifiers, then `no-title`:**
   `<!-- _pane: team-profile sides -->`, `<!-- _pane: list numbered no-title -->`. The modifiers
   reach the pane as a slide's `_class` would carry them.
-- **The pane title is optional**, but write one: it says what the pane is for. Side by side, the
-  two titles share a row, so both bodies start on one line even when one title wraps.
+- **The pane title is optional**, but write one: it says what the pane is for. It is set in the
+  eyebrow's voice, as a label: the slide's `##` makes the point, and each pane names what it holds
+  ("Revenue by line", "Findings by vendor"). Keep it to five words or fewer; `lint:deck` suggests a
+  shorter one past that (`pane-title`). A pane shows one label, so an eyebrow pill written above
+  its `###` joins it: `` `Shortlist` `` over `### Cleared` renders "Shortlist · Cleared", and
+  `lint:deck` suggests writing it that way. Side by side, the two titles share a row, so both
+  bodies start on one line even when one title wraps.
   `no-title` hides it from the eye and keeps it in the document, for screen readers, the Read
   view and the outline: `<!-- _pane: image no-title -->`.
 - **A pane brings only its component's content.** A `>` Key Insight or a `— ` note that closes
@@ -140,12 +145,13 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
 - **Each pane has a budget.** Write a pane's content tighter than a whole slide's — about half the
   words per item. At that density a `list` pane holds 6 items side by side and 4 in a stacked band,
   a `table` 7 rows at 65%, a `bar` chart 8 bars. A narrower pane holds proportionally fewer, and so
-  does a pane with a visible title, by the share of the pane its title takes (about 12% side by
-  side, a quarter of a stacked 50/50 band).
+  does a pane with a visible title, by the share of the pane its title takes (about 9% side by
+  side, a fifth of a stacked 50/50 band).
 - `lint:deck` names each problem before you render: `pane-arrange` (the slide will re-orient or
   split), `pane-overflow` (past the budget), `pane-crowd` (past the comfortable count),
   `pane-layout` (a ratio off the grid, a third pane, fewer than two, a modifier the component does
-  not know, a deck-wide `class: columns`) and `pane-insight`. It warns and never blocks; the Studio's editor shows the same
+  not know, a deck-wide `class: columns`), `pane-title` (a pill above a pane title, a title past
+  five words) and `pane-insight`. It warns and never blocks; the Studio's editor shows the same
   warnings as you type. At export, a pane that really clips is marked like any clipped slide.
 - **On a square, portrait, story or mobile deck the panes split** into one slide per pane.
   Those sizes set type about twice as large, so two components do not share one frame there.

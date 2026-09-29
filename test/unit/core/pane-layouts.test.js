@@ -182,6 +182,27 @@ test('a pane split onto its own page keeps its one paragraph under its title, no
   assert.ok(list.querySelector('.below-note'), 'control: a list, then a sentence, is still a footnote');
 });
 
+test('an eyebrow pill above a pane title joins it as one label, above a pane and on a split page', () => {
+  const md = '<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n`Shortlist`\n### Cleared\n\n- a\n\n<!-- _pane: content -->\n### B\n\ny\n';
+  const flat = (h) => h.replace(/>\s+</g, '><');
+  assert.match(flat(render(md)), /<div class="lat-pane-head"><h3>Shortlist · Cleared<\/h3><\/div>/);
+  assert.doesNotMatch(flat(render(md)), /<p><code>Shortlist<\/code><\/p>/);
+  const narrow = flat(render(`---\nsize: portrait\n---\n\n${md}`));
+  assert.match(narrow, /<div class="lat-pane-head"><h3>Shortlist · Cleared<\/h3><\/div>/);
+  assert.doesNotMatch(narrow, /<code>Shortlist<\/code>/);
+});
+
+test('lint: a pill above a pane title, and a pane title past five words, are suggestions', () => {
+  const f = lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n`Shortlist`\n### Cleared\n\n- a\n\n<!-- _pane: content -->\n### What we learned from the pilot\n\ny\n')
+    .filter((x) => x.rule === 'pane-title');
+  assert.equal(f.length, 2);
+  assert.ok(f.every((x) => x.severity === 'suggestion'));
+  assert.match(f[0].fix, /### Shortlist · Cleared/);
+  assert.match(f[1].message, /6 words/);
+  // A hidden title is not read as a label, and five words is fine.
+  assert.equal(lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content no-title -->\n### The Lisbon office in its opening week\n\nx\n\n<!-- _pane: content -->\n### Eleven weeks, lease to open\n\ny\n').filter((x) => x.rule === 'pane-title').length, 0);
+});
+
 test('lint reads the syntax: a correct slide is clean, and the words are not unknown classes', () => {
   assert.deepEqual(lintText(NEW).filter((f) => f.rule === 'unknown-class' || f.rule.startsWith('pane-')), []);
 });
@@ -323,7 +344,11 @@ test('a pane pill renders through the host\'s inline rules, as a slide pill does
   const pane = render('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content -->\n`\\{Q3}`\n### A\n\nx\n\n### B\n\ny\n');
   const slide = render('`\\{Q3}`\n\n## T\n\nx\n');
   const pillOf = (h, re) => (h.match(re) || [])[1];
-  assert.equal(pillOf(pane, /<div class="lat-pane-head">(<p>[\s\S]*?<\/p>)<h3>/), pillOf(slide, /(<p[^>]*>(?:(?!<p).)*?Q3[\s\S]*?<\/p>)/).replace(/<p[^>]*>/, '<p>'));
+  // The pill joins the title as one label, rendered by the same inline rules and unwrapped from
+  // its <code>: the text inside is the slide pill's text, whatever escaping it took.
+  const inner = (h) => h.replace(/^<p[^>]*>\s*<code[^>]*>([\s\S]*?)<\/code>\s*<\/p>$/, '$1');
+  const slidePill = inner(pillOf(slide, /(<p[^>]*>(?:(?!<p).)*?Q3[\s\S]*?<\/p>)/));
+  assert.equal(pillOf(pane, /<div class="lat-pane-head"><h3>([\s\S]*?) · A<\/h3>/), slidePill);
 });
 
 test('lint: a folded marker, columns with rows, a ### above the title, a bare ###', () => {

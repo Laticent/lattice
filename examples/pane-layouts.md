@@ -105,7 +105,6 @@ Forty desks, two studios and a roof terrace.
 ## Two vendors cleared the security review.
 
 <!-- _pane: list -->
-`Shortlist`
 ### Cleared
 
 - Northwind

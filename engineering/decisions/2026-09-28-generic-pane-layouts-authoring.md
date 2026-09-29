@@ -168,6 +168,31 @@ height the title would have used goes back to the pane's body. `no-title` on a p
 It follows the house naming for hiding a slide element: `no-note`, `no-header`, `no-footer`,
 `no-paginate`, `no-rule`.
 
+### 2.5 The pane title is a label (ruling, 2026-09-29)
+
+A pane title renders in the **eyebrow's voice**: the label face, `--fs-meta`, weight 600, 0.18em
+tracking, uppercase, `--text-secondary` — the same setting as the pill above a slide's `##`
+(lib/forms/cell/pane/pane.css). It first shipped as a smaller serif heading (`--fs-h3`), which read
+as a second slide title competing with the first. As a label it is the layout's own furniture: the
+slide's `##` makes the point, and each pane names what it holds, as a column or a card is labeled.
+The owner chose it after comparing both renders of `examples/pane-layouts.md`.
+
+Two consequences, both chosen from options:
+
+- **One label per pane.** An eyebrow pill above a `###` would stack a second label on the first
+  (the render showed SHORTLIST over CLEARED). The engine joins them instead: `` `Shortlist` `` over
+  `### Cleared` renders "Shortlist · Cleared", the pill run through the host's inline rules and
+  unwrapped from its `<code>` (`paneHeadHtml`, and `headBlock` on a split page). `lint:deck`
+  suggests writing the one line (`pane-title`). The alternative, keeping both labels, was rejected
+  as reading like a glitch.
+- **The subtitle steps under the label.** At `--fs-body` it now outranked the title, so it drops
+  to `--fs-body-compact` in `--text-muted`.
+
+Tracked capitals are for a short label (the runhead note in base.modifiers.css measured a long
+title set that way turning into a wall of letter-spaced capitals), so `lint:deck` suggests a pane
+title of five words or fewer. The smaller head gives each pane back height: the title row is
+23.9px at 1280 against 36.8px before, and `PANE_HEAD` carries the re-measured figures.
+
 ## 3. The layouts
 
 ```
@@ -389,6 +414,8 @@ These are for the next note, not for authors:
 - Keep it simple: ship `columns` and `rows`; defer `bleed` and `inset`.
 - The pane marker mirrors `_class` (`_pane`, above the `###`) so it reads familiar.
 - The `###` pane title is optional, the documentation always writes one, and `no-title` hides it.
+- (2026-09-29) The pane title is set as a label, in the eyebrow's voice; an eyebrow pill above it
+  joins it as one label; the subtitle steps under it (§2.5).
 
 ## 12. How it was built
 

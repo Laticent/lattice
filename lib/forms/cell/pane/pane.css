@@ -140,21 +140,41 @@ section .lat-pane-head > * {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* A pane's subtitle steps one tier under its `--fs-h3` title, as a slide's sits under its
- * `--fs-h2` one: at the slide subtitle's `--fs-message` it read as loud as the title above it. */
-section .lat-pane-head > h3 + p:has(> code:only-child):not(:where([data-prose])) {
-  font-size: var(--fs-body);
+/* A PANE'S TITLE IS A LABEL, set in the slide eyebrow's voice (the `p:has(> code:only-child)`
+ * eyebrow rule in base.elements.css): the slide's `##` is the one headline, and each pane names
+ * what it holds, the way a column or a card is labeled. It reads as the layout's own furniture
+ * rather than a second, smaller slide title competing with the first (owner ruling, design note
+ * §2.5). Tracked capitals are for a short label, so lint nudges a long one (`pane-title`).
+ * `line-height` is the eyebrow's; the engine's pane box reads the measured height of it
+ * (lib/core/pane-spec.js `PANE_HEAD`). */
+section .lat-pane-head > h3 {
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: var(--lh-base);
+  color: var(--text-secondary);
 }
-/* SIDE BY SIDE, THE TITLES SHARE A LINE (the design note §3). The eyebrow, the title and the
- * subtitle each get a row both cells subgrid into, so the two titles sit on one line whatever else
- * either head carries (an eyebrow on one, a subtitle on the other), and both bodies start together
- * when one title wraps. The fourth row is the gap under the head; the pane takes the fifth. The
+/* The subtitle sits UNDER the label, not over it: a small muted line, one tier below the body. */
+section .lat-pane-head > h3 + p:has(> code:only-child):not(:where([data-prose])) {
+  font-size: var(--fs-body-compact);
+}
+section .lat-pane-head > h3 + p:has(> code:only-child):not(:where([data-prose])) > code {
+  color: var(--text-muted);
+}
+/* SIDE BY SIDE, THE TITLES SHARE A LINE (the design note §3). The title and the subtitle each get
+ * a row both cells subgrid into, so the two titles sit on one line whatever else either head
+ * carries (a subtitle on one only), and both bodies start together when one title wraps. The third
+ * row is the gap under the head; the pane takes the fourth. (An eyebrow pill is folded into the
+ * title by the carve, so it has no row of its own: lib/core/pane-spec.js `foldLabel`.) The
  * columns keep the authored ratio (`--pane-cols`, written by `embed`). A cell with no visible head
  * does not take part: its pane runs from the top. */
 section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) {
   display: grid;
   grid-template-columns: var(--pane-cols);
-  grid-template-rows: auto auto auto var(--pane-head-gap) minmax(0, 1fr);
+  grid-template-rows: auto auto var(--pane-head-gap) minmax(0, 1fr);
   column-gap: var(--pane-gap);
   row-gap: 0;
 }
@@ -167,20 +187,15 @@ section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-p
 section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > .lat-pane-head:not([data-hidden]) {
   display: contents;
 }
-section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > .lat-pane-head > p:has(+ h3) {
-  grid-row: 1;
-  align-self: end;
-  padding-block-end: var(--sp-3xs);
-}
 section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > .lat-pane-head > h3 {
-  grid-row: 2;
+  grid-row: 1;
 }
 section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > .lat-pane-head > h3 + p {
-  grid-row: 3;
+  grid-row: 2;
   padding-block-start: var(--sp-3xs);
 }
 section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > lat-pane {
-  grid-row: 5;
+  grid-row: 4;
 }
 section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell:not([data-head]) > lat-pane {
   grid-row: 1 / -1;

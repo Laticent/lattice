@@ -1356,7 +1356,7 @@ the full machine record read \`components.json\`; this file is not a substitute 
 
 **Two components on one slide is a LAYOUT, not a component.** Write
 \`<!-- _class: columns 60/40 -->\` (side by side) or \`<!-- _class: rows -->\` (stacked) and
-start each pane with \`<!-- _pane: <component> -->\` and a \`### title\`, as a slide one
+start each pane with \`<!-- _pane: <component> -->\` and a \`### title\` (a short label), as a slide one
 heading level down; a pane with no marker is \`content\`. Pick each pane's component from
 this table; \`lib/base/base.docs.md\` § "Two components on one slide — pane layouts" is the
 contract, and \`components.json\` says which components go in a pane and at what share.
