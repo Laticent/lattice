@@ -8,3 +8,8 @@
   now point at the new files. **Update any `<link>`, `<script src>`, CDN URL, or
   `markdown.marp.themes` entry that names a `.min` file.** Third-party files read from
   `node_modules` (KaTeX's `katex.min.css`, Mermaid's `mermaid.min.js`) keep their upstream names.
+- Decks and package galleries written before the rename keep working where Lattice reads them
+  back: re-exporting a deck baked with the old `.min.js` runtime tags to Marp swaps them for the
+  new `-min.js` block instead of stacking a second one, the CLI still strips an old-name runtime
+  tag from its export HTML, and a gallery that loads `mermaid-v11.min.js` still passes the
+  vendored-script gate.

@@ -4056,7 +4056,7 @@ function listEngineGlyphSurfaces() {
       if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
       const p = path.join(dir, e.name);
       if (e.isDirectory()) { walk(p); continue; }
-      if (e.name.endsWith('.css') && !/(?:[.-]min|\.generated)\./.test(e.name)) out.push(p);
+      if (e.name.endsWith('.css') && !/(?:[.-]min|\.generated)\.[a-z]+$/.test(e.name)) out.push(p);
     }
   };
   walk(LIB_DIR);

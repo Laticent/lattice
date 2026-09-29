@@ -478,6 +478,20 @@ describe('marp bundle — the overflow-marker export setting', () => {
     assert.match(out, /# A/, 'and the deck itself survives');
   });
 
+  // Before 2026-09-29 the bundle's minified files were named `.min.js`. A deck baked then
+  // names files the new bundle no longer ships, so its block must go, not survive beside
+  // the new one as three dead tags.
+  test('a deck baked with the old `.min.js` names re-exports with one `-min` block', () => {
+    const legacy = '---\nmarp: true\n---\n\n# A\n\n<!-- markdownlint-disable MD033 -->\n'
+      + '<script src="mermaid-v11.min.js"></script>\n'
+      + '<script src="lattice-dagre.min.js"></script>\n'
+      + '<script src="lattice-runtime.min.js"></script>\n';
+    const out = withRuntimeScripts(legacy);
+    assert.doesNotMatch(out, /\.min\.js/, 'the old-name tags were not stripped');
+    assert.equal((out.match(/<script src="[^"]+-min\.js"><\/script>/g) || []).length, 3, 'exactly one new block');
+    assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 1, 'one trailer, not two');
+  });
+
   // The strip must recognize OUR tags, not any tag: a deck may legitimately carry the
   // author's own script, and eating it would silently delete their content.
   test('an author\'s own script tag survives a re-export', () => {

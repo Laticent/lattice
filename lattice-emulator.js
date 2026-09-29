@@ -2917,7 +2917,7 @@ const outHtml = OUT_FORMAT === 'html'
 // request interception adds latency to every page load (it slows the 53-component
 // invariants suite enough to time out in CI). The class-strip below still clears
 // the emulator's own inline-watcher ring.
-const RUNTIME_SCRIPT = /[ \t]*<script\b[^>]*\blattice-runtime(?:-min)?\.js[^>]*><\/script>\s*/gi;
+const RUNTIME_SCRIPT = /[ \t]*<script\b[^>]*\blattice-runtime(?:[.-]min)?\.js[^>]*><\/script>\s*/gi;
 // The CLEAN export HTML: drop any deck-embedded <script src=…runtime…> tag (the
 // relative/file:// path won't resolve in a shared HTML, and the runtime is a
 // no-op on already-rendered export DOM). This is what the PDF/PPTX/PNG raster
