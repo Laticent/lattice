@@ -34,7 +34,7 @@ inside an HTML comment — a speaker note, a commented-out draft — is not a di
 | Surface | What it shows | Who draws it |
 |---|---|---|
 | engine (`render()`) | `<pre><code class="language-mermaid">`, highlighted | the engine's code renderer — the fence is declared `as: "code"` |
-| Studio, Playground, `--fluid` | the diagram | the runtime's diagram pass (`lib/runtime`), with `mermaid-v11.min.js` |
+| Studio, Playground, `--fluid` | the diagram | the runtime's diagram pass (`lib/runtime`), with `mermaid-v11-min.js` |
 | PDF, PNG, PPTX, an `.html` export, `--player` | a static `<div class="mermaid-svg">` | the plugin's bake, `mermaid.bake.js`, in a headless render worker |
 | Export to Marp | the diagram | Mermaid in the recipient's browser (the bundle ships the library) |
 

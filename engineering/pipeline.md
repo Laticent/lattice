@@ -209,7 +209,7 @@ and why the fallback does not get it:
 
 The CLI does not print its PDF with Chrome any more. It lays the deck out in its Chrome page as
 before, then runs **the same code as the Studio's Export to PDF** inside that page
-(`lib/core/pdf-compose`, bundled to `dist/lattice-pdf-compose.min.js` by
+(`lib/core/pdf-compose`, bundled to `dist/lattice-pdf-compose-min.js` by
 `tools/build-pdf-compose.js`):
 
 1. **Read** each slide (`read-slide.mjs`): every word's box, font, size, color and spacing; every

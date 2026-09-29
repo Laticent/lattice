@@ -78,7 +78,7 @@ const SOURCE_FILES = [
 ];
 
 const SKIP_DIRS = new Set(['node_modules', '.git', '.scratch', 'dist']);
-const SKIP_SUFFIXES = ['.gallery.html', '.gallery.pdf', '.min.css', '.min.js'];
+const SKIP_SUFFIXES = ['.gallery.html', '.gallery.pdf', '-min.css', '-min.js'];
 
 function walk(dir, out = []) {
   if (!fs.existsSync(dir)) return out;

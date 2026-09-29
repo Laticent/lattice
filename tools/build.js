@@ -150,7 +150,7 @@ const STEPS = [
   // The shared PDF writer the CLI injects into its own Chrome (the Studio imports the same
   // modules through Vite). dist/ only: ~1.8 MB is too large to commit. See
   // engineering/decisions/2026-09-27-studio-export-one-engine.md.
-  { label: 'PDF writer bundle (dist/lattice-pdf-compose.min.js)', script: 'build-pdf-compose.js', uncommitted: true },
+  { label: 'PDF writer bundle (dist/lattice-pdf-compose-min.js)', script: 'build-pdf-compose.js', uncommitted: true },
   { label: 'VS Code snippets', script: 'build-snippets.js' },
   { label: 'per-component docs', script: 'build-component-docs.js' },
   { label: 'doc portal (components.md/.json)', script: 'build-docs-portal.js', uncommitted: true },
@@ -215,8 +215,8 @@ const STEPS = [
   { label: 'gotchas index (engineering/gotchas.md)', script: 'build-gotchas-index.js' },
   // Last — it indexes the finished dist/ folder, so every other artifact
   // must already be (re)written before it runs.
-  // The copy-and-go Marp kit. Runs LATE: it copies dist/lattice.min.css,
-  // dist/themes/, dist/lattice-runtime.min.js and dist/fonts/, so every one of
+  // The copy-and-go Marp kit. Runs LATE: it copies dist/lattice-min.css,
+  // dist/themes/, dist/lattice-runtime-min.js and dist/fonts/, so every one of
   // those must already be fresh. Before dist README, which indexes dist/.
   { label: 'marp kit (dist/marp-kit)', script: 'build-marp-kit.js', uncommitted: true },
   // Reads the docs-portal / forms / concepts output, so it must follow them.

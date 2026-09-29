@@ -171,7 +171,7 @@ jobs:
               # only after the render tier had been skipped.
               - 'kit/**'
               - 'lattice-emulator.js'
-              - 'mermaid-v11.min.js'
+              - 'mermaid-v11-min.js'
               - 'package.json'
               - 'package-lock.json'
               - '.github/workflows/ci.yml'

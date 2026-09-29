@@ -543,7 +543,7 @@ escape from, so `` `\[x]` `` renders as `\[x]` rather than being quietly rewritt
 register never edits your text.
 
 **Turning it off in a MARP-KIT deck** — any deck marp-core renders, with the kit's
-`lattice-runtime.min.js` drawing the pills — uses Marp's own global `class:` directive.
+`lattice-runtime-min.js` drawing the pills — uses Marp's own global `class:` directive.
 **This is the route for `marp --pdf` and `marp --html` too, not only the VS Code preview.**
 On a marp-core render the register cannot reach the runtime at all: over `file://` — which
 is how marp-cli loads a deck, and how a recipient opens an exported `.html` — `fetch` is

@@ -39,7 +39,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 
 // Source CSS that fills with accent: every component, the base layer, and the
 // two hand-authored docs-site stylesheets (the generated token file carries no
-// rules). dist/* and *.min.css are build outputs — scan source only.
+// rules). dist/* and *-min.css are build outputs — scan source only.
 const SCAN_DIRS = [path.join(ROOT, 'lib')];
 const SCAN_FILES = [
   path.join(ROOT, 'docs', 'src', 'styles', 'landing.css'),
@@ -53,7 +53,7 @@ function walkCss(dir, out = []) {
     if (SKIP_DIRS.has(ent.name)) continue;
     const p = path.join(dir, ent.name);
     if (ent.isDirectory()) walkCss(p, out);
-    else if (ent.isFile() && p.endsWith('.css') && !p.endsWith('.min.css')) out.push(p);
+    else if (ent.isFile() && p.endsWith('.css') && !p.endsWith('-min.css')) out.push(p);
   }
   return out;
 }

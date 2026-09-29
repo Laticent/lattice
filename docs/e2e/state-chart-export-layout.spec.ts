@@ -5,7 +5,7 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
  * A BRANCHING state chart must still branch in an EXPORTED artifact.
  *
  * WHAT THIS GUARDS. The dagre layout engine used to be inlined into
- * `lattice-runtime.min.js`, so any frame that loaded the runtime had
+ * `lattice-runtime-min.js`, so any frame that loaded the runtime had
  * `globalThis.__latticeDagre` whether or not the host had thought about it —
  * every path was correct by default. Splitting it out (so a reader with no
  * state chart stops fetching 25.9 KiB of it) makes each path responsible for

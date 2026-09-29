@@ -12,7 +12,7 @@ import { __resetThemeFetcherCache, createThemeFetcher } from './theme-fetch';
 // @import was dropped — the a11y machinery vanished in the Drawing Board.)
 
 // Minimal theme graph mirroring the real chain — in the MINIFIED form the client
-// actually fetches (dist/themes/*.min.css), where the minifier drops the space
+// actually fetches (dist/themes/*-min.css), where the minifier drops the space
 // after @import (`@import"a11y-base"`). The closure recursion must match that, or
 // it silently registers nothing past the picked theme → stripped render.
 const GRAPH: Record<string, string> = {

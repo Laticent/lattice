@@ -1148,7 +1148,7 @@ describe('lint-core: author-script-defers (#1792)', () => {
     // examples/gallery-jargon.md, diagram.gallery.md and the baseline gallery each embed
     // mermaid + lattice-runtime for the LIVE preview. Flagging src would fire on every one
     // of them, which is how a rule gets ignored.
-    const src = deckWith('<script src="../mermaid-v11.min.js"></script>');
+    const src = deckWith('<script src="../mermaid-v11-min.js"></script>');
     assert.equal(ruleFor(src, 'author-script-defers'), undefined);
   });
 

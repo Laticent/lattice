@@ -328,7 +328,7 @@ Pending work that has no issue is not here: it lives in [`followups.d/`](followu
 - [#2053](https://github.com/Laticent/lattice/issues/2053) lens: CSS that selects a slide by position is unchecked by the cross-slide guard
 - [#2054](https://github.com/Laticent/lattice/issues/2054) A split run's last body page shifts its content down, because the pointer's berth is not reserved
 - [#2096](https://github.com/Laticent/lattice/issues/2096) lint: unused `CHROME` import in docs/e2e/studio-shell-parity.spec.ts
-- [#2099](https://github.com/Laticent/lattice/issues/2099) A 3.1 MB `mermaid-v11.min.js` is committed at the repository root
+- [#2099](https://github.com/Laticent/lattice/issues/2099) A 3.1 MB `mermaid-v11-min.js` is committed at the repository root
 - [#2137](https://github.com/Laticent/lattice/issues/2137) positionIsTrustworthy refuses any deck whose display math has a lone `=` or `-` continuation line
 - [#2181](https://github.com/Laticent/lattice/issues/2181) e2e(studio-fixture): no mobile route into the Inspector — every settings spec dies in beforeEach at phone width
 - [#2182](https://github.com/Laticent/lattice/issues/2182) studio(settings): the slide panel's first control sits 83px lower than the deck panel's

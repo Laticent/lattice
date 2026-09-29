@@ -2563,7 +2563,7 @@ if (hasStateChart) {
     // Prepended HERE rather than inside the transform because the runtime bundle
     // imports that module too, and a top-level require there shipped the 62KB
     // string to every reader of every deck — measured at +51KB gzipped on
-    // lattice-runtime.min.js (dagre carried twice: inlined AND as this string)
+    // lattice-runtime-min.js (dagre carried twice: inlined AND as this string)
     // against +28KB for the live library alone. Missing bundle (a clone that
     // never ran `npm install`) → '' → the pass falls back to the numbered column.
     //
@@ -2917,7 +2917,7 @@ const outHtml = OUT_FORMAT === 'html'
 // request interception adds latency to every page load (it slows the 53-component
 // invariants suite enough to time out in CI). The class-strip below still clears
 // the emulator's own inline-watcher ring.
-const RUNTIME_SCRIPT = /[ \t]*<script\b[^>]*\blattice-runtime(?:\.min)?\.js[^>]*><\/script>\s*/gi;
+const RUNTIME_SCRIPT = /[ \t]*<script\b[^>]*\blattice-runtime(?:-min)?\.js[^>]*><\/script>\s*/gi;
 // The CLEAN export HTML: drop any deck-embedded <script src=…runtime…> tag (the
 // relative/file:// path won't resolve in a shared HTML, and the runtime is a
 // no-op on already-rendered export DOM). This is what the PDF/PPTX/PNG raster
@@ -2931,7 +2931,7 @@ let cleanDocHtml = htmlDoc.replace(RUNTIME_SCRIPT, '');
 // and wires the toggle). Self-contained so the .html stays a single emailable
 // file. Returns the clean HTML unchanged if the runtime bundle is missing.
 function toFluidViewer(cleanHtml) {
-  const runtimePath = path.join(PKG_ROOT, 'dist', 'lattice-runtime.min.js');
+  const runtimePath = path.join(PKG_ROOT, 'dist', 'lattice-runtime-min.js');
   if (!fs.existsSync(runtimePath)) {
     if (!QUIET) console.warn(`warning: --fluid set but ${path.relative(PKG_ROOT, runtimePath)} is missing — run \`npm run runtime:build\`; the viewer will not reflow.`);
     return cleanHtml;
@@ -5053,9 +5053,9 @@ const pdfAssets = require('./lib/export/pdf-asset-reader.js').createAssetReader(
 
 async function composePdfInPage(g, page) {
   composePdfInPage.pages ||= new WeakSet();
-  const bundle = path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose.min.js');
+  const bundle = path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js');
   if (!fs.existsSync(bundle)) {
-    if (!QUIET) console.log('  PDF writer: dist/lattice-pdf-compose.min.js is missing (run `npm run build`); printing with Chrome instead.');
+    if (!QUIET) console.log('  PDF writer: dist/lattice-pdf-compose-min.js is missing (run `npm run build`); printing with Chrome instead.');
     return null;
   }
   try {

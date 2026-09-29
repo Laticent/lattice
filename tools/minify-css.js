@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Shared CSS minifier for the dist `.min.css` variants.
+ * Shared CSS minifier for the dist `-min.css` variants.
  *
  * esbuild's CSS minifier strips ALL comments — but Marp reads its theme
  * registration from CSS *comments* (`/* @theme name *​/`, `@size …`). A
@@ -9,8 +9,8 @@
  * name. So we lift every directive-bearing comment block out of the
  * source, minify the body, and re-prepend the directives verbatim.
  *
- * Used by tools/build-css.js (lattice.min.css) and
- * tools/build-default-bundle.js (lattice-default.min.css). Kept in one
+ * Used by tools/build-css.js (lattice-min.css) and
+ * tools/build-default-bundle.js (lattice-default-min.css). Kept in one
  * place because the @theme-preservation rule is correctness-critical and
  * subtle — duplicating it invites fixing one copy and missing the other.
  */

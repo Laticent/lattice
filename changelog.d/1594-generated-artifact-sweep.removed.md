@@ -10,6 +10,6 @@
   the §0c split-treatment footer, and the font counts in the Marp kit's `README.md` /
   `NOTICE.md`. Everything else is safe for reasons worth distinguishing — `dist/lattice.css`
   is a concatenation that merges clean *and* correct, while the esbuild bundles and
-  `lattice.min.css` conflict loudly. A new gate replays the merge over the real catalog rather
+  `lattice-min.css` conflict loudly. A new gate replays the merge over the real catalog rather
   than banning a field name, so a future aggregate of any shape fails without anyone having to
   predict it. (`engineering/decisions/2026-08-11-generated-artifact-sweep.md`)

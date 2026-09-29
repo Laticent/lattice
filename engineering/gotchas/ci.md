@@ -107,8 +107,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   that has nothing to do with your change.
 - **The fix is a FULL `npm run build`. Not `npm run css:build`.** This is the
   part that costs a second round: `css:build` refreshes `dist/lattice.css` and
-  `dist/lattice.min.css` and stops there, while `dist/marp-kit/` is built by a
-  later step from `dist/lattice.min.css`. Run it alone and you trade one stale
+  `dist/lattice-min.css` and stops there, while `dist/marp-kit/` is built by a
+  later step from `dist/lattice-min.css`. Run it alone and you trade one stale
   artifact for an internally *inconsistent* `dist/`, and
   `test/unit/tools/marp-kit.test.js` goes red instead — same shape, one artifact
   over. An independent reviewer of #1783 hit exactly this, following an earlier

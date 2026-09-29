@@ -119,7 +119,7 @@ describe('build-css', () => {
   // There is no second producer to reconcile: `main()` writes `bundle()` VERBATIM
   // to dist/lattice.css, in both a full build and `--only-uncommitted`, so those
   // two modes are byte-identical from the same sources. (It writes other things
-  // too — the min file, the emoji sheet, dist/fonts/, 32 dist/themes/*.min.css —
+  // too — the min file, the emoji sheet, dist/fonts/, 32 dist/themes/*-min.css —
   // and the loose phrasing matters, because dist/themes/ genuinely IS a two-pass
   // fixpoint with derive-cat-ink. dist/lattice.css is not.) `bundle()` is
   // authoritative.

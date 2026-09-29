@@ -1726,9 +1726,9 @@ test('minifyCss strips comments + whitespace but preserves strings, url(), calc,
 test('minifyCss on the REAL lattice.css matches the build minifier (no rules dropped)', () => {
 	// The blocker the checker caught: minifyCss must not silently delete rules from the
 	// actual ~955 KB lattice.css the player inlines. Pin token/brace parity vs the build's
-	// own dist/lattice.min.css so a protect-before-strip regression can never ship again.
+	// own dist/lattice-min.css so a protect-before-strip regression can never ship again.
 	const cssPath = path.join(__dirname, '..', '..', '..', 'dist', 'lattice.css');
-	const refPath = path.join(__dirname, '..', '..', '..', 'dist', 'lattice.min.css');
+	const refPath = path.join(__dirname, '..', '..', '..', 'dist', 'lattice-min.css');
 	if (!fs.existsSync(cssPath) || !fs.existsSync(refPath)) return; // dist not built in this env
 	const min = minifyCss(fs.readFileSync(cssPath, 'utf8'));
 	const ref = fs.readFileSync(refPath, 'utf8');
