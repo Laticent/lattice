@@ -1,11 +1,14 @@
 name: desktop
 
-# Builds Lattice Studio's Linux package whenever the desktop app changes.
+# Builds Lattice Studio's Linux package and its Windows installer whenever the desktop
+# app changes.
 #
 # The owner chose this shape on 2026-09-24 (PR #2354): a full .deb build, but only
 # when `desktop/**` changes, so the ~every PR that does not touch the desktop app pays
-# nothing. It proves that the Rust compiles, its tests pass and the package bundles. It
-# does NOT prove the app boots, which still needs a person or a display (see
+# nothing. On 2026-09-29 the owner added the Windows installer, cross-built in this same
+# Linux job rather than on a Windows runner. It proves that the Rust compiles for both
+# targets, its tests pass and both packages bundle. It does NOT prove either app boots,
+# which still needs a person or a display (see
 # engineering/decisions/2026-09-24-lattice-studio-desktop.md, "CI").
 #
 # Not a required check on purpose: a path-filtered workflow never reports on a PR that
@@ -51,7 +54,7 @@ jobs:
       - name: Install the WebKitGTK build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev nsis
       # The runner image already carries rustup; installing through it keeps a
       # third-party action out of the pipeline for one command.
       - name: Install Rust (stable)
@@ -88,5 +91,23 @@ jobs:
         with:
           name: lattice-studio-deb
           path: desktop/src-tauri/target/release/bundle/deb/*.deb
+          retention-days: 14
+          if-no-files-found: error
+      # The Windows installer, cross-built (Tauri's cargo-xwin route). cargo-xwin comes
+      # prebuilt from PyPI, so no cargo compile. It downloads Microsoft's CRT and SDK on
+      # every run: that is 1.1GB unpacked, too big for the shared cache quota (see the
+      # cargo cache note above). NSIS came with the apt step.
+      - name: Install the Windows cross toolchain
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          pipx install cargo-xwin==0.23.1
+      - name: Build the Windows installer
+        run: npm run build:windows
+        working-directory: desktop
+      - name: Keep the Windows installer for a manual install test
+        uses: actions/upload-artifact@v4
+        with:
+          name: lattice-studio-windows
+          path: desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
           retention-days: 14
           if-no-files-found: error
