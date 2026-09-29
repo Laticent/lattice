@@ -1223,7 +1223,9 @@ it passes, that exact tree becomes `main`.
   committed generated file (a gallery PDF, a showcase WebP, a bundle, a golden),
   keeps the PR out of the queue or ejects it. That is the one case that needs a
   rebase. `followups.d/2466-p2-committed-generated-files-conflict-across-prs.md` tracks removing
-  those files from the conflict path.
+  those files from the conflict path. The decision index is no longer one of them: its rows
+  sort by topic slug, so two PRs adding a note merge cleanly on GitHub
+  (`decisions/2026-09-29-decision-index-rows-scatter.md`).
 - **An ejection clears auto-merge.** Re-arm it after the fix (§Merging, above).
 - **`golden-diff` and `studio-smoke` run only on `pull_request`, never in the
   queue.** On a behind PR their before/after images compare against the base of

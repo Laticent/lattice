@@ -108,6 +108,12 @@ incomplete safety proof is worse than a stated limit.
 
 ## 5. What is not verified
 
+> **Settled 2026-09-28: GitHub does not honor it.** #2466 found its own PR `dirty` on this
+> file while a local merge was clean (`2026-09-28-rebase-only-on-conflict.md` §4b). The fix
+> did not need §3's first option: `2026-09-29-decision-index-rows-scatter.md` sorts rows by
+> topic slug instead of date, so two new rows rarely share an insertion point. The driver
+> stays for local rebases.
+
 **Whether GitHub's merge queue honors the driver server-side.** `merge=union` is a built-in
 low-level git driver and needs no `merge.*.driver` config, but every measurement in this note
 was taken with local `git merge`, and nothing in this sandbox can exercise GitHub's own merge

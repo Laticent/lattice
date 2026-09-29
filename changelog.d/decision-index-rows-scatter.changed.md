@@ -1,0 +1,1 @@
+- `engineering/decisions/README.md` lists notes A–Z by topic slug inside each status group, not newest-first. Two PRs that each add a decision note now rarely conflict on GitHub (5 of 354 replayed pairs against 88 before), which ignores the file's `merge=union` driver and left such PRs `dirty` with no CI run. For the newest notes, run `ls engineering/decisions/20*.md | tail`.

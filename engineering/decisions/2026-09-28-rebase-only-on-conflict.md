@@ -209,3 +209,7 @@ a real conflict. On the table in §3 the conflict side costs less than the waste
 this note removes (~456 minutes of required rebases, plus the catch-up commits,
 against ~895), so the follow-up stays P2. It is tracked in
 `followups.d/2466-p2-committed-generated-files-conflict-across-prs.md`.
+
+**Update 2026-09-29.** The decision index is off that list: its rows now sort by topic
+slug instead of date, so two PRs that each add a note no longer share an insertion point
+(`2026-09-29-decision-index-rows-scatter.md`). The other files remain in the follow-up.

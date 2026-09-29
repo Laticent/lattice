@@ -65,7 +65,8 @@
  * What decides which shape the race takes is WHERE THE TWO ROWS INSERT, and nothing
  * else. Measured with `git merge-file`: two insertions at the SAME position conflict,
  * and two at ANY different positions merge cleanly — even immediately adjacent ones.
- * Rows sort by date descending then filename, so:
+ * Rows USED TO sort by date descending then filename (they sort by topic slug now —
+ * see `bySlug` for why), and under that order:
  *
  *   - the two new notes sort as IMMEDIATE NEIGHBORS, nothing already between them →
  *     one insertion point → a textual git CONFLICT. Visible on the PR and resolved
@@ -83,12 +84,16 @@
  *     today CONFLICTS, and only a third note already sorting BETWEEN them merges cleanly.
  *     It is now handled by a `merge=union` driver in `.gitattributes` (see the long note
  *     there, and `engineering/decisions/2026-09-14-the-decision-index-merges-as-a-union.md`)
- *     rather than by hand.
- *   - the two notes are in DIFFERENT STATUS GROUPS → the footer counts each group
- *     separately, so the two sides rewrite that line to DIFFERENT text and git raises an
- *     ordinary conflict. Also visible.
+ *     rather than by hand — but ONLY LOCALLY. GitHub ignores merge drivers, so the PR
+ *     still showed `dirty` and got no CI run (#2466 §4b). The slug order is the fix on
+ *     GitHub's terms: it makes "nothing already between them" the rare case it was
+ *     once wrongly assumed to be. Measured, not assumed:
+ *     `engineering/decisions/2026-09-29-decision-index-rows-scatter.md`.
+ *   - the two notes are in DIFFERENT STATUS GROUPS → the footer USED TO count each
+ *     group separately, so the two sides rewrote that line to DIFFERENT text and git
+ *     raised an ordinary conflict. With the tally gone (#1547) they merge cleanly.
  *   - ANY other placement → git merges the two rows CLEANLY, both present and both
- *     correct, and the ONLY thing wrong in the merged file is the footer's
+ *     correct, and (before #1547 deleted it) the ONLY thing wrong in the merged file was the footer's
  *     `_N notes — …_` tally: both sides rewrote that one line to the same `+1` text,
  *     so git took it without a conflict and the count came out one short. This is the
  *     common case, and the SILENT one. It is what ejected #1535 — whose two notes
@@ -386,12 +391,34 @@ function rowCostProblems(notes) {
   return problems;
 }
 
+// Row order inside a group: by TOPIC SLUG (the filename after its `YYYY-MM-DD-`), A–Z,
+// with the date as a tie-break for two notes sharing a slug. Not by date.
+//
+// Date order put every new note at the TOP of its group, so two PRs that each added a
+// note always inserted at the same point, and GitHub reported the PR `dirty`: it ignores
+// the `merge=union` attribute that resolves this locally. That was the largest single
+// source of required rebases in the #2466 window (8 of 27). A slug is not correlated
+// with when a note was written, so two new rows land in different gaps among the
+// group's existing rows almost every time, and git merges different gaps cleanly — even
+// adjacent ones. Replayed over the note-carrying commits on `main`:
+// `engineering/decisions/2026-09-29-decision-index-rows-scatter.md`.
+//
+// Code-unit comparison (`<`) rather than `localeCompare`, so the order does not depend on
+// the ICU build of whichever Node renders it — a CI runner and a laptop must agree.
+function bySlug(a, b) {
+  const sa = a.file.slice(11);
+  const sb = b.file.slice(11);
+  if (sa !== sb) return sa < sb ? -1 : 1;
+  if (a.created !== b.created) return a.created < b.created ? 1 : -1;
+  return 0;
+}
+
 function render(notes) {
   const lines = [BEGIN, ''];
   for (const [group, heading] of GROUPS) {
     const inGroup = notes
       .filter((n) => STATUS[n.status].group === group)
-      .sort((a, b) => b.created.localeCompare(a.created) || a.file.localeCompare(b.file));
+      .sort(bySlug);
     if (!inGroup.length) continue;
     lines.push(heading, '');
     for (const n of inGroup) lines.push(rowFor(n));
