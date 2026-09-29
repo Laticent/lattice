@@ -49,6 +49,29 @@ Let's start with what agents can do today. You give one a ticket. It plans the c
 
 ---
 
+<!-- _class: cycle insight-takeaway -->
+
+`How an agent works`
+
+## A coding agent loops until it thinks it is done.
+
+- Read
+  - It takes in what's in front of it.
+- Plan
+  - It decides the next step.
+- Act
+  - It changes code or runs a tool.
+- Check
+  - Done? It reports back. If not, it loops.
+
+> Every practice today makes "thinks it is done" match "is done."
+
+<!--
+Here's what's happening inside. The agent reads what's in front of it, makes a plan, changes some code or runs a tool, and checks the result. If it decides it isn't finished, it goes around again. When it decides it's finished, it reports back. Listen for the word "thinks." The loop stops when the agent believes the work is done. Whether the work is actually done depends on what it could see, what it was allowed to do, and how good its checks were. Those are the practices we'll cover.
+-->
+
+---
+
 <!-- _class: divider -->
 <!-- _paginate: false -->
 <!-- _header: '' -->
@@ -250,32 +273,10 @@ The set gives us a map for the rest of the hour. The script and shot list are yo
 -->
 
 ---
-<!-- _class: cycle insight-takeaway -->
-
-`How an agent works`
-
-## A coding agent loops until it thinks it is done.
-
-- Read
-  - It takes in what's in front of it.
-- Plan
-  - It decides the next step.
-- Act
-  - It changes code or runs a tool.
-- Check
-  - Done? It reports back. If not, it loops.
-
-> Every practice today makes "thinks it is done" match "is done."
-
-<!--
-Here's what's happening inside. The agent reads what's in front of it, makes a plan, changes some code or runs a tool, and checks the result. If it decides it isn't finished, it goes around again. When it decides it's finished, it reports back. Listen for the word "thinks." The loop stops when the agent believes the work is done. Whether the work is actually done depends on what it could see, what it was allowed to do, and how good its checks were. Those are the practices we'll cover.
--->
-
----
 
 <!-- _class: agenda -->
 
-## Five practices, one for each question you will face.
+## Five practices, then a slower loop for hard problems.
 
 1. Context: control what the agent sees
 2. Autonomy: decide what it may do alone
@@ -284,7 +285,7 @@ Here's what's happening inside. The agent reads what's in front of it, makes a p
 5. Orchestration: use many agents without losing control
 
 <!--
-Each practice answers a question you'll hit in your first week with an agent. What does it know? What may it do on its own? How do I know it worked? How do we stop repeating mistakes? And how do I use several agents without the cost getting away from me?
+Each practice answers a question you'll hit in your first week with an agent. What does it know? What may it do on its own? How do I know it worked? How do we stop repeating mistakes? And how do I use several agents without the cost getting away from me? After those five, we'll look at the problems where the usual loop doesn't work, and what to do instead.
 -->
 
 ---
@@ -1040,6 +1041,112 @@ For a big, open design question, like an architecture or a data model, several i
 
 ---
 
+<!-- _class: compare-prose chosen insight-takeaway -->
+
+`Orchestration · Cast the model`
+
+## Five takes can cost more than two good ones.
+
+- Price per take
+  - What the pricing page shows: the cost of one request. On simple work, it's the right number to watch.
+- Cost of the finished scene
+  - The first try, plus every fix, plus your time giving notes. On hard work, this is the number to watch.
+
+> On hard work, count every take before you compare prices.
+
+<!--
+Before we look at the numbers, here's the idea in film terms. Say you're casting a scene. One actor charges half as much per day. The other costs more, but nails it in two takes. If the cheaper actor needs five takes, the cheaper actor just cost you more, and a longer day. Models work the same way. The pricing page shows you the price of one take, one request. That's the right number when the work is simple, because both models get it right the first time. But on hard work, the number that matters is what the finished scene cost: the first try, every fix after it, and the time you spent giving notes. Let me show you how that plays out.
+-->
+
+---
+
+<!-- _class: line -->
+
+`Orchestration · Cast the model`
+
+## By the fourth fix, the cheaper model costs more.
+
+- First try
+  - Cheaper model `$20`
+  - Stronger model `$40`
+- Fix 1
+  - Cheaper model `$40`
+  - Stronger model `$80`
+- Fix 2
+  - Cheaper model `$60`
+  - Stronger model `$80`
+- Fix 3
+  - Cheaper model `$80`
+  - Stronger model `$80`
+- Fix 4
+  - Cheaper model `$100`
+  - Stronger model `$80`
+
+*Illustrative: 100 hard tasks at $20 a round on the cheaper model, $40 on the stronger.*
+
+<!--
+Here's what that looks like on a hundred hard tasks, about what a busy team runs in a month. On this chart, each step to the right is one more round of back and forth, and the height is what you've spent so far. The stronger model costs more on the first try, but it's done after one fix, so its line goes flat. The cheaper model gets the basics right, then drifts somewhere in the middle. You explain, it tries again, and every round reruns the work. By the fourth fix, it has passed the stronger model. The numbers are illustrative, but the shape matches what I see every day: by the time the cheaper model gets a complex task right, it has cost more than the stronger model did, and that's before you count your own time spent writing the corrections. Anthropic's own guidance says it plainly: judge the cost per completed task, not per request. For me, that means I run the stronger model even though it costs more per token, because it gets it right with less rework. Your answer may differ. Measure a few of your real tasks, first try plus every fix, and decide from that.
+-->
+
+---
+
+<!-- _class: list takeaway -->
+
+`Orchestration · Budget`
+
+## Treat agent count like money: estimate it, cap it, and stop early.
+
+- Estimate how many agents and roughly what it will cost before you start.
+- Count across the whole session; small runs add up.
+- Past about ten agents, a person approves.
+- Stop when a round changes nothing, usually by round three.
+- Record what it cost, so you learn what it was worth.
+
+<!--
+Each extra agent costs money, and it doesn't always make the result better. So budget agents like money. Estimate before you start. Count across the whole session, because a lot of small runs add up. Past about ten agents, a person signs off. Stop refining once a round changes nothing, which usually happens by the third round. And write down what it cost. That last one is the easiest to skip. If a big run doesn't record its cost, you can't tell later whether it was worth it.
+-->
+
+---
+
+<!-- _class: list-steps insight-bottom-line -->
+
+
+## One task, all five practices, start to finish.
+
+1. Brief
+   - It reads the index, then only the docs it needs.
+2. Plan
+   - It shows the plan and asks before shared changes.
+3. Build
+   - The stop hook holds "done" until the tests pass.
+4. Record
+   - It writes the evidence card and any decision note.
+5. Review
+   - A reviewer agent checks it, then you decide.
+
+> If it stumbles, the evidence card will say so.
+
+<!--
+Now let's watch all five practices work on one task. Before the talk, pick a small, real ticket from your own backlog, the kind you'd give a new teammate, and run it live. Narrate each step against this slide. First, it reads the index and opens only the documents that task needs. Then it shows its plan, and if the change touches anything shared, it asks. It builds, and the stop hook refuses "done" until the tests pass. It writes the evidence card. And a reviewer agent checks the work before you decide. Budget about five minutes. If it goes wrong in front of the room, don't hide it. Show how the evidence card reports what failed. That's the practice working.
+-->
+
+---
+
+<!-- _class: divider -->
+<!-- _paginate: false -->
+<!-- _header: '' -->
+<!-- _footer: '' -->
+
+`Beyond the five · When the easy loop breaks`
+
+## Hard problems
+
+<!--
+The five practices keep everyday work honest. Some problems break the loop itself: you can't see the result quickly, the cause hides somewhere else, or there's no way back. This section is about spotting those problems and slowing down on purpose.
+-->
+
+---
+
 <!-- _class: list-tabular -->
 
 `Hard problems · The signs`
@@ -1081,7 +1188,7 @@ Most of what we do with agents is the easy loop: try it, see the result, fix it.
    - Keep the old path working, and have a person approve the last step.
 
 <!--
-One tactic for each sign. For late feedback, build a cheap probe: try the risky part on a small, real sample before you build everything around it, and measure the real thing, never a stand-in. For a distant cause, shrink the problem until it fails every single time, then change one thing at a time. And never accept a label as a cause. "Flaky," "slow" and "weird" are descriptions; the cause is still out there. When every option costs, write down what must never happen, then pick the option that gives up the least, and say out loud what you gave up. For an unclear question, widen before you narrow: ask the agent for several framings or drafts, ask "how would this fail?", and agree on what done means before anyone builds. And when there's no way back, rehearse on a copy, stage the change, keep the old path working until the new one is proven, and have a person approve the last step. Four habits help with all five. Write down what you tried and rejected, so the next attempt doesn't repeat it. Use the stronger model and a second reviewer, which we'll come to in a moment. Time-box it, and when the box runs out, bring in a person instead of letting the agent keep guessing. And when you accept a cost, record it, so nobody mistakes it for an oversight later.
+One tactic for each sign. For late feedback, build a cheap probe: try the risky part on a small, real sample before you build everything around it, and measure the real thing, never a stand-in. For a distant cause, shrink the problem until it fails every single time, then change one thing at a time. And never accept a label as a cause. "Flaky," "slow" and "weird" are descriptions; the cause is still out there. When every option costs, write down what must never happen, then pick the option that gives up the least, and say out loud what you gave up. For an unclear question, widen before you narrow: ask the agent for several framings or drafts, ask "how would this fail?", and agree on what done means before anyone builds. And when there's no way back, rehearse on a copy, stage the change, keep the old path working until the new one is proven, and have a person approve the last step. Four habits help with all five. Write down what you tried and rejected, so the next attempt doesn't repeat it. Use the stronger model and a second reviewer, as we saw in orchestration. Time-box it, and when the box runs out, bring in a person instead of letting the agent keep guessing. And when you accept a cost, record it, so nobody mistakes it for an oversight later.
 -->
 
 ---
@@ -1151,97 +1258,6 @@ The science on the last slide tells you what's already known. This slide is abou
 -->
 
 ---
-
-<!-- _class: compare-prose chosen insight-takeaway -->
-
-`Orchestration · Cast the model`
-
-## Five takes can cost more than two good ones.
-
-- Price per take
-  - What the pricing page shows: the cost of one request. On simple work, it's the right number to watch.
-- Cost of the finished scene
-  - The first try, plus every fix, plus your time giving notes. On hard work, this is the number to watch.
-
-> On hard work, count every take before you compare prices.
-
-<!--
-Before we look at the numbers, here's the idea in film terms. Say you're casting a scene. One actor charges half as much per day. The other costs more, but nails it in two takes. If the cheaper actor needs five takes, the cheaper actor just cost you more, and a longer day. Models work the same way. The pricing page shows you the price of one take, one request. That's the right number when the work is simple, because both models get it right the first time. But on hard work, the number that matters is what the finished scene cost: the first try, every fix after it, and the time you spent giving notes. Let me show you how that plays out.
--->
-
----
-
-<!-- _class: line -->
-
-`Orchestration · Cast the model`
-
-## By the fourth fix, the cheaper model costs more.
-
-- First try
-  - Cheaper model `$20`
-  - Stronger model `$40`
-- Fix 1
-  - Cheaper model `$40`
-  - Stronger model `$80`
-- Fix 2
-  - Cheaper model `$60`
-  - Stronger model `$80`
-- Fix 3
-  - Cheaper model `$80`
-  - Stronger model `$80`
-- Fix 4
-  - Cheaper model `$100`
-  - Stronger model `$80`
-
-*Money spent on 100 hard tasks. Illustrative: each round costs $20 on the cheaper model and $40 on the stronger one.*
-
-<!--
-Here's what that looks like on a hundred hard tasks, about what a busy team runs in a month. On this chart, each step to the right is one more round of back and forth, and the height is what you've spent so far. The stronger model costs more on the first try, but it's done after one fix, so its line goes flat. The cheaper model gets the basics right, then drifts somewhere in the middle. You explain, it tries again, and every round reruns the work. By the fourth fix, it has passed the stronger model. The numbers are illustrative, but the shape matches what I see every day: by the time the cheaper model gets a complex task right, it has cost more than the stronger model did, and that's before you count your own time spent writing the corrections. Anthropic's own guidance says it plainly: judge the cost per completed task, not per request. For me, that means I run the stronger model even though it costs more per token, because it gets it right with less rework. Your answer may differ. Measure a few of your real tasks, first try plus every fix, and decide from that.
--->
-
----
-
-<!-- _class: list takeaway numbered -->
-
-`Orchestration · Budget`
-
-## Treat agent count like money: estimate it, cap it, and stop early.
-
-- Estimate how many agents and roughly what it will cost before you start.
-- Count across the whole session; small runs add up.
-- Past about ten agents, a person approves.
-- Stop when a round changes nothing, usually by round three.
-- Record what it cost, so you learn what it was worth.
-
-<!--
-Each extra agent costs money, and it doesn't always make the result better. So budget agents like money. Estimate before you start. Count across the whole session, because a lot of small runs add up. Past about ten agents, a person signs off. Stop refining once a round changes nothing, which usually happens by the third round. And write down what it cost. That last one is the easiest to skip. If a big run doesn't record its cost, you can't tell later whether it was worth it.
--->
-
----
-
-<!-- _class: list-steps insight-bottom-line -->
-
-
-## One task, all five practices, start to finish.
-
-1. Brief
-   - It reads the index, then only the docs it needs.
-2. Plan
-   - It shows the plan and asks before shared changes.
-3. Build
-   - The stop hook holds "done" until the tests pass.
-4. Record
-   - It writes the evidence card and any decision note.
-5. Review
-   - A reviewer agent checks it, then you decide.
-
-> If it stumbles, the evidence card will say so.
-
-<!--
-Now let's watch all five practices work on one task. Before the talk, pick a small, real ticket from your own backlog, the kind you'd give a new teammate, and run it live. Narrate each step against this slide. First, it reads the index and opens only the documents that task needs. Then it shows its plan, and if the change touches anything shared, it asks. It builds, and the stop hook refuses "done" until the tests pass. It writes the evidence card. And a reviewer agent checks the work before you decide. Budget about five minutes. If it goes wrong in front of the room, don't hide it. Show how the evidence card reports what failed. That's the practice working.
--->
-
----
 <!-- _class: divider -->
 <!-- _paginate: false -->
 <!-- _header: '' -->
@@ -1252,7 +1268,7 @@ Now let's watch all five practices work on one task. Before the talk, pick a sma
 ## Make it stick
 
 <!--
-That's the five practices. The rest of the talk is about making them stick: where to start, how they carry to your kind of work, what to share across teams, and why it matters more with agents than it did without them.
+That's the five practices, and what to do when a problem is hard. The rest of the talk is about making them stick: where to start, how they carry to your kind of work, what to share across teams, and why it matters more with agents than it did without them.
 -->
 
 ---
@@ -1260,7 +1276,7 @@ That's the five practices. The rest of the talk is about making them stick: wher
 
 <!-- _class: roadmap -->
 
-`Getting started · A quarter`
+`Make it stick · A quarter`
 
 ## Start with one habit per practice, then add a layer each month.
 
@@ -1280,7 +1296,7 @@ You don't need all of this at once. In week one: a short index file, basic allow
 
 <!-- _class: table table-fill -->
 
-`Getting started · Your kind of work`
+`Make it stick · Your kind of work`
 
 ## The practices carry over; "the real thing" changes by field.
 
@@ -1339,7 +1355,7 @@ Habits hold when they live in the build. Five kinds of guardrail. Constraints: a
 
 ---
 
-<!-- _class: list takeaway numbered insight-our-view -->
+<!-- _class: list takeaway insight-our-view -->
 
 `Make it stick · Shared code`
 
@@ -1347,7 +1363,7 @@ Habits hold when they live in the build. Five kinds of guardrail. Constraints: a
 
 - A small public API, and a gate that stops anyone reaching past it.
 - Deprecate, don't delete: alias the old name, and fail any build still using it.
-- A written contract with conformance tests, so every consumer knows what holds.
+- A written contract, and conformance tests that prove it holds.
 - A version and a changelog entry for every change.
 
 > Change a shared library on purpose, as a feature, never as a side effect.
@@ -1361,7 +1377,7 @@ When code is shared, treat it like a library someone outside your team depends o
 
 <!-- _class: compare-prose chosen insight-our-view -->
 
-`Across teams · What to share`
+`Make it stick · Across teams`
 
 ## Share the rule and the loop, and let each team write its own rules.
 
@@ -1379,7 +1395,7 @@ Some of you are asking whether we should write one standard for the whole organi
 ---
 <!-- _class: diagram insight-why -->
 
-`The one rule · Why it compounds`
+`Make it stick · Why it compounds`
 
 ## Agents copy what they find, so quality and jank compound.
 
@@ -1400,7 +1416,7 @@ Every film crew knows the phrase "we'll fix it in post." It's how shortcuts get 
 
 <!-- _class: diagram -->
 
-`The big picture · One rule, five practices`
+`Make it stick · The big picture`
 
 ## You stop typing code and start directing a system.
 
@@ -1427,17 +1443,20 @@ mindmap
     Orchestration
       {{One job per agent}}
       {{Budget it like money}}
+    Hard problems
+      {{Slow the loop}}
+      {{Ask the study and the veteran}}
 ```
 
 <!--
-Here's the whole talk on one page. In the middle is the one rule: what you ship matches what you said you shipped. Around it sit the five practices, and your role as the director: raise the ceiling, set the bar, and mentor instead of micromanaging. Give the agent the right script. Decide what it can do alone. Check the work where it actually runs. Turn every mistake into a rule, and retire the rule when it stops earning its place. Cast a small crew, and give each member one job. Here's the shift I'd like you to leave with. For most of our careers, the job was writing the code. Now the agent writes most of it, and your job is the system around it: the context, the limits, the checks, the memory. The code is the output. The system around it is what you build now. Get that system right, and every agent you point at it does better work.
+Here's the whole talk on one page. In the middle is the one rule: what you ship matches what you said you shipped. Around it sit the five practices, and your role as the director: raise the ceiling, set the bar, and mentor instead of micromanaging. Give the agent the right script. Decide what it can do alone. Check the work where it actually runs. Turn every mistake into a rule, and retire the rule when it stops earning its place. Cast a small crew, and give each member one job. And when a problem is hard, slow the loop down and ask both the research and the people who've done it. Here's the shift I'd like you to leave with. For most of our careers, the job was writing the code. Now the agent writes most of it, and your job is the system around it: the context, the limits, the checks, the memory. The code is the output. The system around it is what you build now. Get that system right, and every agent you point at it does better work.
 -->
 
 ---
 
-<!-- _class: list takeaway numbered insight-the-ask -->
+<!-- _class: list takeaway insight-the-ask -->
 
-`Your next step`
+`Make it stick · Your next step`
 
 ## Three moves you can make this week.
 
@@ -1461,19 +1480,21 @@ If you try three things this week, try these. Rewrite your agent's instruction f
 
 `Script drafted with Claude Opus 5.5, by Anthropic`
 
-1. 65%
+1. 70%
    - ideas from Sharmarke
-2. 1,514
+2. 2,831
    - words typed
-3. 8,779
+3. 11,386
    - words drafted
 4. 3
    - drafts sent back
-5. $79
+5. $395
    - model usage
 
 <!--
-One last thing before questions: the credits. This deck was made the way it describes, and I counted, because the one rule applies to us too. About two thirds of the ideas came from me: thirty-five of the fifty-four slides, either raised while we built it or pulled from the system I'd already built. I typed about fifteen hundred words to direct it. Claude drafted nearly nine thousand, every slide and every speaker note. I sent back three whole drafts before this one, and the whole thing cost about eighty dollars of model time. So who made it? I did the thinking, set the bar, and made every call. Claude did the takes. That's the job now. The numbers come from the session record as of September twenty-fifth.
+One last thing before questions: the credits. This deck was made the way it describes, and I counted, because the one rule applies to us too. About seventy percent of the ideas came from me: forty-seven of the sixty-seven slides, either raised while we built it or pulled from the system I'd already built. That one is a judgment call, slide by slide. The rest are counts. I typed about twenty-eight hundred words to direct it. Claude drafted about eleven thousand four hundred, every slide and every speaker note. I sent back three whole drafts before this one. And the model time came to about four hundred dollars at list price. That figure covers the whole working session, including a written audit that sits behind this talk, so the deck alone cost less. So who made it? I did the thinking, set the bar, and made every call. Claude did the takes. That's the job now.
+
+How each number was counted, as of September twenty-ninth. Words typed: every message I sent in the session, split on spaces. Words drafted: every word on the slides and in the speaker notes, from the title to the closing slide, leaving out code blocks. Model usage: every model call in the session, including helper agents, priced at five dollars per million input tokens and twenty-five per million output, with cache writes and reads at their listed rates.
 -->
 
 ---
@@ -1508,29 +1529,78 @@ So here's the one thing to take with you. You're the director. Use agents howeve
 
 <!-- _class: glossary -->
 
-`Starter kit · Seven terms`
+`Starter kit · Glossary, 1 of 3`
 
-## Seven terms from this talk, in plain words.
+## Terms from this talk, in plain words.
 
+- Baseline
+  - The last approved result that a new one is compared against.
 - CI, the build
   - Automated checks that run on every proposed change.
+- Commit
+  - One saved change in the project's history.
+- Conformance test
+  - A test that proves a component keeps its written promises.
 - Context window
   - Everything the model can see at one moment.
+- Deprecate
+  - Mark something as on its way out, while it still works.
+- Dot folder
+  - A folder whose name starts with a dot, like .claude, hidden by default.
+
+<!--
+For anyone reading this later, here are the terms we leaned on, in plain words.
+-->
+
+---
+
+<!-- _class: glossary -->
+
+`Starter kit · Glossary, 2 of 3`
+
+## More terms, in plain words.
+
+- Flaky test
+  - A test that passes or fails without the code changing.
 - Hook
   - A script the agent tool runs at a fixed moment.
+- Jank
+  - Sloppy work that still passes, and spreads when copied.
+- Linter
+  - A tool that flags style slips and simple mistakes without running the code.
+- Merge
+  - Fold an approved change into the main line of the code.
 - Pull request
   - A proposed change, waiting for review before it merges.
+
+<!--
+More of the terms, in plain words.
+-->
+
+---
+
+<!-- _class: glossary -->
+
+`Starter kit · Glossary, 3 of 3`
+
+## The last few terms, in plain words.
+
+- Repository
+  - The project's files and their full history, in one place.
+- Revert
+  - Undo a change by adding a new change that reverses it.
 - Session
   - One conversation with an agent, from start to finish.
+- Subagent
+  - A helper agent with its own context window, sent to do one job.
 - Tautological test
   - A test that can only agree with the code it checks.
 - Token
   - A chunk of text, about three quarters of a word.
 
 <!--
-For anyone reading this later, here are the seven terms we leaned on most, in plain words.
+The last of the terms, in plain words.
 -->
-
 ---
 
 <!-- _class: table table-fill -->
