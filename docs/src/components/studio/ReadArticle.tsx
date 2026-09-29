@@ -41,7 +41,7 @@ type Props = {
  * one thing across the player and this view; the VALUES are the Studio's, because this is
  * a pane inside an app and the player is a standalone reading window.
  */
-const READ_ARTICLE_CSS = `
+export const READ_ARTICLE_CSS = `
 /* BREAKOUT GRID, the same shape the player's Read view uses and for the same reason:
    prose holds one readable measure in a centered track while a figure (chart, diagram,
    table) spans OUT to a wider band, so a chart uses the screen instead of being trapped
@@ -156,6 +156,12 @@ const READ_ARTICLE_CSS = `
    reader who opened this view to get the full text. display:revert, not display:block —
    block demotes an <li> out of display:list-item and the bullet vanishes. */
 .st-read-article [data-lattice-trimmed]{display:revert!important;-webkit-line-clamp:none!important;overflow:visible!important}
+/* A formula KaTeX could not parse, on the math plugin's error surface. The plugin's rule
+   (lib/plugins/math/math.styles.css) reaches the slide and the player's article through
+   lattice.css, but this pane applies the deck sheet only INSIDE figures (scopedArticleCss), so
+   prose math never saw it and a broken formula read as body text. The declarations are the
+   plugin's own, held equal by ReadArticle.test.ts; the ink stays inline (KaTeX's errorColor). */
+.st-read-article .katex-error{font-family:var(--font-mono);font-variant-ligatures:none;font-size:0.85em;background:color-mix(in srgb, var(--warn) 10%, transparent);padding:0.1em 0.4em;border-radius:var(--radius-sm)}
 `.trim();
 
 export function ReadArticle({ options, source, palette, mode, extraTheme, extraCss, onClose }: Props) {

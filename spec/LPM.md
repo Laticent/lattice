@@ -235,7 +235,10 @@ plugin, when:
   declare (syntax renderers, fence renderers, `hydrate`, `styles.css`, `tokens`);
 - two plugins emit one token type, claim one trigger character in one ruler, or claim one fence
   name or alias;
-- a fence name is a code language — any highlight.js language or alias;
+- a fence name is a code language — any highlight.js language or alias — unless the committed
+  registry already ships that claim for the same plugin: a highlight.js upgrade that later takes a
+  shipped fence name leaves the plugin its fence and the build warns, so the upgrade cannot break
+  decks already written;
 - a fence `as: "code"` has a renderer or an alias; `bake` is declared without `bake.js` or without
   `render.exec.bake`, or the reverse; a plugin drawn by the runtime (`render.exec.hydrate:
   "runtime"`) declares no `bake`, or also declares `hydrate`;

@@ -56,7 +56,9 @@ reads the MathML annotation to label a split page's pointer, so `html` degrades 
 
 A malformed formula never aborts a deck. KaTeX runs with `throwOnError: false`, so a parse error
 renders KaTeX's own error markup — the source in `var(--warn)`, the theme's error ink, rather
-than KaTeX's built-in `#cc0000` — and a missing KaTeX module, a thrown error or a non-string
+than KaTeX's built-in `#cc0000`, set in mono on a tinted surface wherever it appears, including
+the player's Read · Article and the Studio's Read pane, which show slide content outside a slide —
+and a missing KaTeX module, a thrown error or a non-string
 result renders the escaped source text. A display reflow that KaTeX cannot parse falls back to the
 author's original TeX.
 

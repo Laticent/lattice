@@ -796,6 +796,19 @@ code. What changed because of them:
   **Left, with their reason:** the serialization limit for Mermaid (§4.7, phase D's call); a
   highlight.js upgrade that reserves a plugin fence name fails the build rather than grandfathering
   it; `--fluid` and plain `--html` link the library by a `file://` path (predates the plugin).
+  **The grandfathering has since landed:** the build reads the fence claims the committed
+  `grammar.generated.mjs` records, and the resolver turns a reserved-name collision on one of
+  those, for the same plugin, into a warning (`fence-hydrate-resolve.test.js`, red then green).
+  The math plugin's `.katex-error` rule is no longer scoped to `section`, so the player's Read ·
+  Article, which re-hosts slide content outside any section, shows a failed formula on the same
+  error surface a slide does. The Studio's Read pane applies the deck sheet only inside figures,
+  so it carries the same declarations in its own article sheet (`ReadArticle.tsx`), held equal to
+  the plugin's by `ReadArticle.test.ts`.
+  And the CLI page now INLINES a used plugin's library (`payloadScript` in `hydrate-script.js`)
+  instead of linking it by `file://` path: the PDF was always right, but an `--html` or `--fluid`
+  export opened anywhere else showed each plot's config. The PDFs of the phase-B demo deck are
+  byte-identical across the change, light and dark; `moved-export-draws-plots.test.js` loads a
+  copied export with every request outside its directory refused.
 
 - **Phase C (partial): the scaffold, the draft spec, and the harness's two known limits.**
   `lattice packages new plugin <name>` (`lib/packages/new-plugin.js`) writes a package that builds

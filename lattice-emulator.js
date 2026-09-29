@@ -994,7 +994,7 @@ const { GUARDS_ENABLED_SRC } = require('./lib/core/resolve-guards');
 // 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
 const { SPLIT_VERDICT_SRC } = require('./lib/core/split-verdict');
 const { deckSlideSections, DECK_SLIDES_SRC } = require('./lib/core/deck-slides');
-const { usedHydrators, hydrateScript, settleBarrierScript, settleBudget, payloadPath } = require('./lib/plugins/hydrate-script');
+const { usedHydrators, hydrateScript, settleBarrierScript, settleBudget, payloadPath, payloadScript } = require('./lib/plugins/hydrate-script');
 const { bakeDeck } = require('./lib/plugins/host-bake');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { EQUALIZE_CARD_TAGS_SRC } = require('./lib/core/card-tag-equalize');
@@ -2504,7 +2504,7 @@ for (const h of pagePlugins) {
 }
 const pluginHydrateScript = hasHydratedPlugins
   ? [
-      ...pagePlugins.map(payloadPath).filter(Boolean).map((abs) => `<script ${ENGINE_SCRIPT_ATTR} src="file://${abs}"></script>`),
+      ...pagePlugins.map((h) => payloadScript(h, ENGINE_SCRIPT_OPEN)).filter(Boolean),
       `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins)}\n</script>`,
     ].join('\n')
   : '';
@@ -3869,8 +3869,7 @@ async function renderBody(browser, g, closeBrowser) {
   //     `--player` was silently equal to `off` at every level, a second export path
   //     that ignored the setting. That is precisely the failure the settings block
   //     exists to prevent (lib/core/export-settings.js).
-  //   · DYNAMIC COMPONENTS. `state-chart` (inline script) and `function-plot`
-  //     (file:// script) draw their SVGs in the BROWSER at load, so the player ships
+  //   · DYNAMIC COMPONENTS. `state-chart` and `function-plot` (inline scripts) draw their SVGs in the BROWSER at load, so the player ships
   //     baked static SVG (§A2b) rather than a dead script it would strip, leaving the
   //     diagram blank. This used to be its own earlier capture; taking it here instead
   //     also makes it survive an autosplit re-render.

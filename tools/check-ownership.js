@@ -3545,7 +3545,7 @@ const SANCTIONED_KATEX_ONLY = [
   },
   {
     file: 'lib/plugins/math/math.styles.css',
-    selector: 'section .katex-error',
+    selector: '.katex-error',
     why:
       'KaTeX-only by design: it styles the span KaTeX writes for a formula it could not parse, '
       + 'whose color the math plugin sets through KaTeX\'s `errorColor` option. marp-core\'s '

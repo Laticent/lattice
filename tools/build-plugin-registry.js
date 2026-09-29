@@ -147,6 +147,29 @@ function reservedFenceNames() {
 }
 
 /**
+ * The fence claims the COMMITTED registry already ships: fence name or alias → plugin. The
+ * resolver grandfathers these against `reservedFenceNames()`, so a highlight.js upgrade that
+ * adds a language named like a shipped fence warns instead of failing every build. Read from
+ * the grammar this tool last wrote — the one record of what shipped — and empty when that file
+ * is missing or will not load, so a broken registry still regenerates (strictly).
+ */
+async function shippedFenceClaims() {
+  const claims = new Map();
+  if (!fs.existsSync(GRAMMAR_FILE)) return claims;
+  try {
+    const { PLUGIN_GRAMMAR } = await import(pathToFileURL(GRAMMAR_FILE).href);
+    for (const g of PLUGIN_GRAMMAR || []) {
+      for (const [fence, decl] of Object.entries(g.fences || {})) {
+        for (const claim of [fence, ...(decl.aliases || []).map((a) => a.name)]) claims.set(claim, g.name);
+      }
+    }
+  } catch {
+    return new Map();
+  }
+  return claims;
+}
+
+/**
  * Every component's `plugins` block, and the plugins its OWN gallery (`<name>.gallery.md`) USES —
  * found by parsing that gallery with each plugin's own rules, on a fresh markdown-it per plugin. That is what lets the
  * resolver fail a component that uses a plugin without declaring it, so the declaration is a
@@ -404,20 +427,22 @@ module.exports = { PLUGINS, COMPONENT_PLUGINS };
 `;
 }
 
-async function build() {
+/** @param {{ reservedFences?: Set<string> }} [opts] — `reservedFences` overrides the installed highlight.js set (tests). */
+async function build(opts = {}) {
   const listed = listPlugins();
   const exportsByName = new Map();
   for (const p of listed) exportsByName.set(p.manifest.name, await readExports(p.folder, p.manifest.name, p.manifest));
   const components = componentsWithPlugins(listed, exportsByName);
-  const { errors, order } = resolvePlugins(
+  const { errors, warnings, order } = resolvePlugins(
     listed.map((p) => ({ manifest: p.manifest, folder: p.folder, exports: exportsByName.get(p.manifest.name) })),
-    { components, reservedFences: reservedFenceNames() },
+    { components, reservedFences: opts.reservedFences || reservedFenceNames(), shippedFences: await shippedFenceClaims() },
   );
-  if (errors.length) return { errors };
+  if (errors.length) return { errors, warnings };
   const byName = new Map(listed.map((p) => [p.manifest.name, p]));
   const ordered = order.map((n) => byName.get(n));
   return {
     errors: [],
+    warnings,
     count: ordered.length,
     files: [
       [GRAMMAR_FILE, renderGrammar(ordered, exportsByName)],
@@ -433,6 +458,7 @@ async function build() {
 
 async function main() {
   const result = await build();
+  for (const w of result.warnings || []) process.stderr.write(`plugin registry: warning: ${w}\n`);
   if (result.errors.length) {
     process.stderr.write(`plugin registry: ${result.errors.length} problem(s)\n${result.errors.map((e) => `  - ${e}`).join('\n')}\n`);
     process.exit(1);
@@ -456,4 +482,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { build, reservedFenceNames };
+module.exports = { build, reservedFenceNames, shippedFenceClaims };

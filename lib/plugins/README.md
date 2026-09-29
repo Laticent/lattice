@@ -71,7 +71,9 @@ plugin's renderer, and everything else to the renderer that was there before. It
 wrapper chain, where each fence plugin wrapped the previous rule and registration order decided who
 won. A fence renderer is `(token, ctx, env) → string`, `token.content` the body; a fence with a
 browser half returns `<div class="…" ${ctx.hydrateAttrs(token.content)}></div>`. A name two plugins
-claim, or one a code language owns (every highlight.js name and alias), fails the build. A deprecated alias still renders and reports `<name>/deprecated-alias`, which the manifest
+claim, or one a code language owns (every highlight.js name and alias), fails the build — with one
+exception: when a highlight.js upgrade later adds a language named like a fence the committed
+registry already ships, that plugin keeps the fence and the build warns. A deprecated alias still renders and reports `<name>/deprecated-alias`, which the manifest
 must declare. A fence counts as use: the host derives a plugin's `detect` probe from its fence names.
 
 ## A fence rendered as code, and the bake
@@ -113,7 +115,8 @@ on both surfaces over its own fixtures. A library global must be a function (`ct
 | `ctx.token(el, name)` | a token's computed value on that element |
 
 `host-browser.mjs` does the rest: it loads the library (`payload`, fetched beside the runtime by
-its file name; injected by the CLI), times out a hydrate past `budgetMs` (default 4000), and keeps
+its file name; inlined into the page by the CLI, so an `--html` or `--fluid` export draws on a
+machine that is not the exporter's), times out a hydrate past `budgetMs` (default 4000), and keeps
 the state in markup, where any capture can read it:
 
 | `data-lattice-settle` | Meaning |
