@@ -349,6 +349,20 @@ section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-l
 section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-overflow-marker="off"]):is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) > .backdrop > .backdrop-mask::after {
   left: calc(1.32 * var(--_sec-1cqi, 1cqi) - 12px);
 }
+/* THE OVERFLOW TAG STANDS CLEAR OF THE KEYLINE. The marker rail (base.modifiers.css) fills the
+ * strip between the footer and the slide's bottom edge exactly, and the keyline runs through
+ * that strip at 1.1 to 1.32 cqi, so the line ran into both sides of the "Content clipped" tag.
+ * The tag cannot move: the strip is the one berth that never covers the footer, and
+ * `content-clipped-pill.test.js` holds it there. So the keyline stops short of it instead. Two
+ * copies of the rail's own shape, in the canvas color and shifted sideways, cover the line for
+ * 0.8 cqi on each side. They are 0-blur spread shadows, drawn as vector shapes like the keyline's
+ * own ring (a blurred shadow would rasterize in the PDF), and they paint only on a tagged slide.
+ * On a finish with no frame they cover a sliver of texture beside a tag that already covers it. */
+section.finish.clip-marked > .marker-rail {
+  box-shadow:
+    calc(-0.8 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--fin-canvas),
+    calc(0.8 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--fin-canvas);
+}
 
 /* LEGACY CLEARANCE ELLIPSE — kept ONLY for fabricated finishes saved before 2026-09-26, whose
  * generated CSS names `var(--backdrop-clear-mask)`; they keep it until re-saved. New saves and
@@ -955,38 +969,40 @@ section.finish-gallery :is(.panel-left, .panel-right, .compare-left) {
  * THE OPAQUE FLIP — the export fallback (the load-bearing PDF-safety swap).
  * Re-points every full-bleed slot to its preset's `--fin-*-opaque` mirror, so a
  * preset's rich alpha-fade screen value is replaced by its opaque export value.
- * Fires for BOTH export paths; the two guards share ONE declaration list (no
- * drift). The opaque VALUES live only in the preset rules above — this block
- * carries no colors, only the var() indirection.
+ * The opaque VALUES live only in the preset rules above — this block carries no
+ * colors, only the var() indirection. WHICH slots flip, per target, is one table,
+ * lib/finishes/finish-generate.js `EXPORT_FACES`, shared with a saved finish's own flip
+ * (finish-generate.js), so the two cannot drift (followup 2400-p2).
  *
- *   @media print               — CLI vector PDF (lattice-emulator.js page.pdf).
- *   :where(.lattice-exporting) — Studio raster export (drawing-board-export.js
- *                                tags the capture root before html-to-image).
- * (:where() keeps the guard at zero specificity so a per-slide override still
- * wins; the export class is added high in the tree so it covers every section.)
+ *   @media print               — CLI vector PDF (lattice-emulator.js page.pdf) and the
+ *                                Studio's desktop Print. A baked spotlight mask flips to
+ *                                its hard-edged mirror too.
+ *   :where(.lattice-exporting) — Studio raster export (deck-export.js tags the capture
+ *                                root before html-to-image).
+ *
+ * A finish SURFACE (a split slide's panel, finish-generate.js `FINISH_SURFACES`) re-declares
+ * the rich face on itself, so both flips reach it too, or its export face stays rich.
+ * The export class matches BOTH an ANCESTOR (the Studio capture root carries it) AND the
+ * section ITSELF. The latter is load-bearing for the html-to-image raster: `toPng(section)`
+ * clones only the section + its descendants, NOT its ancestors, so a root-only class would be
+ * lost in the clone; the capture therefore also stamps the class on each section it
+ * rasterizes. :where() keeps it at zero specificity so a per-slide finish override still wins.
+ * The Studio raster keeps a baked MASK's screen face: it is a transparent-to-canvas radial
+ * (no color-mix), which html-to-image draws cleanly, and its hard-edged mirror exists only
+ * for the vector PDF. The hard mirror printed a solid arc in every Studio download.
  * ════════════════════════════════════════════════════════════════════════════ */
+/* ── BEGIN GENERATED EXPORT FLIP — tools/build-packages-index.js writes this from
+ * finish-generate.js `EXPORT_FACES`. DO NOT EDIT: change the table and rebuild. ── */
 @media print {
-  /* A finish SURFACE (a split slide's panel, finish-generate.js `FINISH_SURFACES`) re-declares the
-   * rich face on itself, so the flip has to reach it too, or its print face stays rich. */
   section.finish,
   section.finish :is(.panel-left, .panel-right, .compare-left) {
     --fin-wash: var(--fin-wash-opaque, none);
     --fin-texture: var(--fin-texture-opaque, none);
     --fin-mark: var(--fin-mark-opaque, none);
     --fin-edge: var(--fin-edge-opaque, none);
-    /* a finish's BAKED clearance mask flips to its hard-edged mirror too */
     --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
   }
 }
-/* The export class matches BOTH an ANCESTOR (the Studio capture root carries it)
- * AND the section ITSELF. The latter is load-bearing for the html-to-image raster:
- * `toPng(section)` clones only the section + its descendants — NOT its ancestors —
- * so a root-only class would be lost in the clone; drawing-board-export.js therefore
- * also stamps the class on each section it rasterizes. :where() keeps it at zero
- * specificity so a per-slide finish override still wins.
- * The Studio raster keeps a baked MASK's screen face: it is a transparent-to-canvas radial
- * (no color-mix), which html-to-image draws cleanly, and its hard-edged mirror exists only
- * for the vector PDF. The hard mirror printed a solid arc in every Studio download. */
 :where(.lattice-exporting) section.finish,
 :where(.lattice-exporting) section.finish :is(.panel-left, .panel-right, .compare-left),
 section.finish.lattice-exporting,
@@ -996,6 +1012,7 @@ section.finish.lattice-exporting :is(.panel-left, .panel-right, .compare-left) {
   --fin-mark: var(--fin-mark-opaque, none);
   --fin-edge: var(--fin-edge-opaque, none);
 }
+/* ── END GENERATED EXPORT FLIP ── */
 
 /* ── BACKDROP REGISTER — restraint over ANY finish ─────────────────────
  * `backdrop: 40 clear` (deck) or `_class: backdrop-40 backdrop-clear` (slide) — stamped by
