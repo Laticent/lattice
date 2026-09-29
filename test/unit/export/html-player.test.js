@@ -32,8 +32,9 @@ let playerJs;
 let resolveCanvas;
 let hoistInlineLightDark;
 let hoistRuleLightDark;
+let dropUnusedChartFinishRules;
 test.before(async () => {
-	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas, hoistInlineLightDark, hoistRuleLightDark } =
+	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas, hoistInlineLightDark, hoistRuleLightDark, dropUnusedChartFinishRules } =
 		await import('../../../lib/export/player-core.mjs'));
 });
 
@@ -236,6 +237,43 @@ test('hoistInlineLightDark dedupes identical pairs onto one class', () => {
 // The third sink. `themeDualMode` rebuilds dark from CUSTOM-PROPERTY declarations only and
 // the base is everything collapsed to the light arm, so a pair in `box-shadow` / `fill` /
 // `background-image` kept light and lost dark with nothing to restore it.
+
+// The `chart-finish:` rules repaint through light-dark(), so every one the deck cannot use would
+// be copied into #lattice-dual-mode once per scheme scope. They go first, and nothing else moves.
+test('dropUnusedChartFinishRules cuts the finish rules the deck cannot use, byte for byte', () => {
+	const css = [
+		'/* c */ .a{x:1}',
+		'section.chart-finish-tone :where(.m), figure.chart-finish-tone :where(.m) { fill: light-dark(red, blue) }',
+		'@supports (color: oklch(from red l c h)) { section.chart-finish-tone .z { color: red } }',
+		'@media screen { }',
+		'section.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }',
+		'.b{z:2}',
+	].join('\n');
+	// Only the pigment rule matches; the tone rule, and the @supports group it emptied, go.
+	assert.equal(
+		dropUnusedChartFinishRules(css, (sel) => sel.includes('.k')),
+		'/* c */ .a{x:1}\n@media screen { }\nsection.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }\n.b{z:2}',
+	);
+	// A selector the host cannot test is kept, and a sheet with no finish rule is returned as is.
+	assert.equal(dropUnusedChartFinishRules(css, () => { throw new Error('unsupported'); }), css);
+	const plain = '.chart-finish-tonal{a:1}';
+	assert.equal(dropUnusedChartFinishRules(plain, () => false), plain);
+});
+
+// Checker findings: the prelude runs from the last `}`, so a comment in front of a rule rode
+// in its selector. A comment naming a finish class made a plain rule a candidate (and cut it),
+// and a comma in one split off a selector that threw and kept a finish rule on doubt. And
+// `\b` matched after a hyphen, so a class merely ending in a finish name was a candidate.
+test('dropUnusedChartFinishRules reads a selector without its comment, and a finish class whole', () => {
+	const noMatch = (sel) => {
+		if (/[^\w\s.:()[\]="*>-]/.test(sel)) throw new Error(`unparseable: ${sel}`);
+		return false;
+	};
+	assert.equal(dropUnusedChartFinishRules('/* like .chart-finish-tone */ .lp-state{color:red}', noMatch), '/* like .chart-finish-tone */ .lp-state{color:red}');
+	assert.equal(dropUnusedChartFinishRules('/* a, b */ section.chart-finish-tone .m{fill:red}', noMatch), '');
+	const custom = '.my-chart-finish-tone{a:1}';
+	assert.equal(dropUnusedChartFinishRules(custom, () => false), custom);
+});
 
 test('hoistRuleLightDark routes a real-property pair through a private token, in place', () => {
 	const { css, darkBlock } = hoistRuleLightDark('.card{color:red;box-shadow:0 1px light-dark(#eee,#111)}');

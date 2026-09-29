@@ -243,6 +243,11 @@ const TAIL_SOURCES = [
   // (engineering/decisions/2026-09-27-plugin-system.md §4.9). Before the print textures, so a
   // plugin figure takes the print-mode pattern fills like every other chart.
   ...require('../lib/plugins/styles.generated.js').PLUGIN_STYLE_SOURCES,
+  // The `chart-finish:` register's rules, GENERATED from every chart manifest's kernel.marks
+  // (tools/build-chart-finish-css.js). After every chart member's CSS, so a finish is read
+  // last among the chart rules; BEFORE the print textures, so a print deck keeps its
+  // pattern fills whatever finish it names. See lib/core/resolve-chart-finish.js.
+  'lib/components/chart/_chart-family/chart-finish.generated.css',
   // Print-mode categorical TEXTURE fills — after mermaid + chart CSS so the
   // `fill: url(#latt-a11y-tex-N) !important` overrides win (incl. Mermaid's baked
   // node fills). Scoped to section.print; inert on every non-print deck.

@@ -91,6 +91,9 @@ const STEPS = [
   // its grammar, so esbuild inlines both into every engine bundle.
   // engineering/decisions/2026-09-27-plugin-system.md.
   { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
+  // The chart-finish rules, generated from the chart manifests. BEFORE lattice.css bundles
+  // them, for the same one-build-late reason as the finish presets above.
+  { label: 'chart finish rules (lib/components/chart/_chart-family)', script: 'build-chart-finish-css.js' },
   { label: 'lattice.css', script: 'build-css.js', uncommitted: true },
   { label: 'lattice-default.css', script: 'build-default-bundle.js', uncommitted: true },
   // Must run BEFORE lattice-runtime.js / lattice-emulator.js — those bundles

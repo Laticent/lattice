@@ -38,6 +38,7 @@ model, see `design/concepts.md`.
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
+| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etching or tone | `off` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color and its size | *(the component's)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
@@ -787,6 +788,55 @@ per-slide `_class: venue-*` overrides the deck's venue, but that slide then diff
 neighbors, so `lint:deck` warns (`spot-scale`) — set the room once, in the front matter. The derivation — the viewing
 angle, the reading thresholds and the room bands — is `engineering/typography.md` §7
 "Venue". Resolver: `lib/core/resolve-venue.js`.
+
+## The `chart-finish:` front-matter register (how charts spend color)
+
+`chart-finish:` picks how every chart on the deck spends its color. A finish moves color;
+it never adds any, never removes any, and never changes a chart's structure.
+
+| `chart-finish:` value | Token | Identity lives in | Choose it for |
+|---|---|---|---|
+| `off` | *(none)* | each chart's own design. **The default** (omit the key). | charts exactly as they ship |
+| `pigment` | `chart-finish-pigment` | the body's hue: flat, full-strength color | a colorful deck |
+| `etching` | `chart-finish-etching` | the line: a whisper of color under a doubled edge | a modern look |
+| `tone` | `chart-finish-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
+
+```markdown
+---
+theme: indaco
+chart-finish: tone
+---
+```
+
+**Per slide.** `<!-- _class: bar chart-finish-etching -->` gives one chart its own finish.
+`<!-- _class: bar chart-finish-off -->` keeps one chart's shipped paint inside a finished
+deck. The slide token replaces the deck's; it never stacks with it.
+
+**What a finish reaches.** A finish repaints a mark only through the mark contract
+(`data-hue` · `data-encodes` · `data-paint`), so it reaches every mark that encodes a
+category, a magnitude (a heatmap or map ramp) or a layered series, and the chart's key
+with it. It does not reach a mark painted by a stroke or by type, which is `line`, `slope`
+and `word-cloud`. A status color (a gantt bar's `done` or `blocked`) is a meaning, not a
+category, so it keeps its own hue under every finish, `tone` included, at the finish's
+quieter level.
+
+**Limits.** Under `tone`, a mark that carries text (a flowchart shape, a matrix-grid
+cell) can use only the quiet top of the one hue, so about four of its categories separate
+by eye. `etching` puts identity on a thin edge, the hardest place to tell hues apart: for
+colorblind readers on an ordinary theme, prefer `pigment` or an a11y theme. A container,
+such as a slotted flowchart group, a tinted kanban column or a roadmap phase, is never repainted as a mark:
+it keeps its own faint tint, and under `tone` that tint joins the one hue.
+
+**What a finish never costs.** Every mark keeps an ink edge. A heatmap value picks black or
+white from its own cell's color and clears 4.5:1 on every step of every theme. On the a11y
+themes and in print, the categorical **pattern fills win over any finish**, so a colorblind
+reader keeps the texture channel.
+
+In the Studio, pick it in deck settings (**Look → Chart finish**). A chart slide's own
+settings carry a **Chart finish** row (**Look**) that follows the deck unless you pin one.
+`unknown-chart-finish` catches a typo. The design is `engineering/chart-styling.md` §3. The
+rules are generated from each chart manifest's `kernel.marks` by
+`tools/build-chart-finish-css.js`. Resolver: `lib/core/resolve-chart-finish.js`.
 
 ## The `cards:` front-matter register (where a card row puts its spare height)
 

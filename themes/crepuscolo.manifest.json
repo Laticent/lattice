@@ -3,12 +3,12 @@
   "name": "crepuscolo",
   "role": "base",
   "family": "brand",
-  "tier": "curated",
+  "tier": "more",
   "modes": [
     "light",
     "dark"
   ],
   "darkCounterpart": "crepuscolo-dark",
-  "order": 4,
+  "order": 2,
   "swatch": "#5B3D8C"
 }

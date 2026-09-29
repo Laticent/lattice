@@ -106,7 +106,12 @@ describe('checkChartMarks — what it fires on', () => {
   test('a class mentioned only in a comment does not count as written', () => {
     // `.map-legend` appears in map.styles.css's closing comment block and as a
     // rule nowhere; no transform writes it either.
-    assert.equal(gate('map', [MARK('map-legend')]).length, 1);
+    // Map's real rows ride along so its own stamps (hue and ramp) are declared, and the
+    // one error left is the stale row this test is about.
+    const real = loadAll().find((m) => m.name === 'map').kernel.marks;
+    const errors = gate('map', [...real, MARK('map-legend')]);
+    assert.equal(errors.length, 1, errors.join('\n'));
+    assert.match(errors[0], /"map-legend"/);
   });
 
   // A STAMP IS NOT ALWAYS A LITERAL. scatter writes

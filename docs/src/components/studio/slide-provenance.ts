@@ -257,6 +257,16 @@ export function setRule(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'rule-', RULE_VALUES, name);
 }
 
+// The chart finish (resolve-chart-finish.js). `off` is a real per-slide token here — it takes
+// one slide back to the shipped paint inside a finished deck — and also the deck default.
+const CHART_FINISH_VALUES = ['pigment', 'etching', 'tone', 'off'];
+export function chartFinishProvenance(chunk: string, source: string): Provenance {
+	return overrideProvenance(chunk, source, 'chart-finish', 'chart-finish-', CHART_FINISH_VALUES, 'off');
+}
+export function setChartFinish(chunk: string, name: string | null): string {
+	return setOverride(chunk, 'chart-finish-', CHART_FINISH_VALUES, name);
+}
+
 const EYEBROW_VALUES = ['dot', 'bar', 'arrow', 'underline'];
 export function eyebrowProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'eyebrow', 'eyebrow-', EYEBROW_VALUES, 'plain');

@@ -1,0 +1,36 @@
+- **Carbone's charts and diagrams now read as distinct colors, on both faces.** Its
+  categorical cycles used to step around the hue wheel in order (green, emerald, cyan,
+  blue…), so the first three series of any chart read as three greens and a flowchart as
+  mint on mint. The same hues now run most-distinct-first — green, blue, orange, violet,
+  cyan, magenta… — the way `indaco` and `cuoio` alternate. The closest adjacent pair rises
+  from 0.056 to 0.196 OKLab on the diagram marks and from 0.094 to 0.198 on the chart
+  cycle. This moves the dark face too: the slot order changed, not the pigments, so the
+  earlier note that carbone-dark's values are byte-identical to the pre-split palette
+  holds for its surfaces and ink only.
+- Carbone's light-face diagram fills moved from near-white (OKLCH L 0.97, invisible on the
+  canvas) to a visible wash of each hue (L 0.89), and its light chart colors deepened from
+  the 3:1 floor to 4.6:1 so they read as the pigment rather than a pastel.
+- Carbone's chart `warn` and `fail` are now amber and signal red, where they were orange
+  beside coral. Their worst-case separation across normal vision and the three simulated
+  color-vision deficiencies rises from 0.026 to 0.075 (light) and 0.055 to 0.103 (dark).
+- `npm run scorecard` moves carbone from 69.6 (D) to 84.8 (B), level with `indaco` (85.2).
+- **Carbone's light face is graphite now, not indaco's blue slate.** Its paper, cards and
+  ink sat at OKLCH hue 248–252 beside indaco's 256–261, so carbone light read as indaco
+  with a green accent. Every lightness is held and the chroma drops to 15% (paper C
+  0.0068 → 0.0013), so text contrast moves by under 0.05 and the lime is the only color
+  on the slide.
+- **Eight themes' dark-mode diagram boxes are jewel tones now, not raw primaries.** The
+  dark `--cat-N-fill` arms of ardesia, atelier, brina, burgundy, crepuscolo, laguna,
+  magnolia and mustard reached OKLCH chroma 0.215–0.256 (electric blue `#0d0dc9`, hot
+  violet `#6b0dc9`), where indaco and cuoio cap at 0.150. Each is now held at 0.16 with
+  its lightness and hue kept. Laguna's indigo slot also moves back to its own family's
+  hue (295°), because at 270° only glare had separated it from the blue beside it.
+- **Four themes no longer put near-twin colors side by side.** Ardesia (slots 5↔7),
+  burgundy (5↔6), crepuscolo and laguna (3↔4) each swap one slot, so the first six
+  categories of a chart or diagram stay distinct in both faces. The adjacency ratchet's
+  below-floor count falls from 59 to 45, and the 45 left are the gray-by-design wash
+  tier of the achromatic palettes (a11y, onyx, concrete), whose categories ride textures.
+- **The palette picker now features three themes: indaco, cuoio and onyx.** The other
+  eleven move to "More themes", led by carbone; nothing is removed, and every theme
+  stays usable by name. The featured three scored highest in a fourteen-theme
+  evaluation (onyx 89, cuoio 84, indaco 81 of 100) and cover cool, warm and black-and-white.

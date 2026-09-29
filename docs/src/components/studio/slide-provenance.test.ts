@@ -3,7 +3,7 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 import { getClassTokens } from './slide-directives';
-import { canvasProvenance, finishProvenance, modeProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, setCanvas, setFinish, setMode, setMotionPlay, setMotionSpeed, setMotionStyle, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { canvasProvenance, chartFinishProvenance, finishProvenance, modeProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, setCanvas, setChartFinish, setFinish, setMode, setMotionPlay, setMotionSpeed, setMotionStyle, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 
 const TONE_STYLES = ['tone-rail', 'tone-edge', 'tone-glow'];
 
@@ -207,5 +207,26 @@ describe('backdrop provenance (the register over any finish)', () => {
 	it("never reads finish-override's nested `backdrop:` header as the register", async () => {
 		const { deckBackdrop } = await import('./slide-provenance');
 		expect(deckBackdrop(deck('finish: atrium\nfinish-override:\n  backdrop:\n    strength: 0.4', '## A'))).toEqual({});
+	});
+});
+
+describe('chart-finish provenance + override', () => {
+	const slide = '<!-- _class: bar -->\n\n## Revenue';
+	it('off (not inheritable) when the deck sets no finish or sets off', () => {
+		expect(chartFinishProvenance(slide, deck('theme: indaco', slide))).toMatchObject({ state: 'off', inheritable: false });
+		expect(chartFinishProvenance(slide, deck('chart-finish: off', slide))).toMatchObject({ state: 'off', inheritable: false });
+	});
+	it('inherited from the deck finish', () => {
+		expect(chartFinishProvenance(slide, deck('chart-finish: tone', slide))).toMatchObject({ state: 'inherited', value: 'tone', deckValue: 'tone' });
+	});
+	it('a slide opts out of a finished deck with chart-finish-off — its own token, not the default', () => {
+		const own = '<!-- _class: bar chart-finish-off -->\n\n## Revenue';
+		expect(chartFinishProvenance(own, deck('chart-finish: tone', own))).toMatchObject({ state: 'on', value: 'off', deckValue: 'tone' });
+	});
+	it('setChartFinish swaps the one token and keeps the component; null clears it', () => {
+		const on = setChartFinish(slide, 'etching');
+		expect(getClassTokens(on)).toEqual(['bar', 'chart-finish-etching']);
+		expect(getClassTokens(setChartFinish(on, 'tone'))).toEqual(['bar', 'chart-finish-tone']);
+		expect(getClassTokens(setChartFinish(on, null))).toEqual(['bar']);
 	});
 });

@@ -5,11 +5,13 @@ Layouts (in `lattice.css`) are palette-blind: they only ever reference
 `var(--token)`. A palette supplies the tokens. Swap palettes, every
 color changes; nothing about layout, spacing, or typography moves.
 
-This directory ships ten palette pairs (`indaco`, `cuoio`, `atelier`,
-`brina`, `burgundy`, `crepuscolo`, `laguna`, `magnolia`, `mustard`,
-`onyx`) plus three structural extras (`ardesia`, `carbone`, `concrete`).
-Each ships a `-dark` variant — a three-line wrapper that flips the
-deck onto a dark canvas without touching color values.
+This directory ships fourteen brand palettes. Three are **featured** — the
+`curated` tier the palette picker leads with: `indaco` (cool), `cuoio` (warm)
+and `onyx` (black and white with one red). The other eleven sit in the `more`
+tier: `carbone`, `concrete`, `crepuscolo`, `laguna`, `burgundy`, `carta`,
+`mustard`, `brina`, `atelier`, `ardesia` and `magnolia`. Each ships a `-dark`
+variant — a three-line wrapper that flips the deck onto a dark canvas without
+touching color values.
 
 If you're here to author a new palette: skip to **The five-minute
 path** below. The diagrams above it explain the model the engine has

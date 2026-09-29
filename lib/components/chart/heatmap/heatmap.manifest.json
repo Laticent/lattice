@@ -33,7 +33,7 @@
 				"class": "heatmap-cell--empty",
 				"paint": "fill",
 				"encodes": "none",
-				"bears": false
+				"bears": true
 			}
 		]
 	},

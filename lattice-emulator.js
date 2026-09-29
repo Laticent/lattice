@@ -4843,6 +4843,9 @@ async function prunePlayerCssInPage(playerHtml) {
       fontBlock = { full: b[0], css: b[2] };
       continue;
     }
+    // The dark block is NOT the deck stylesheet and can outweigh it (player-core.mjs
+    // `darkStyle`), so it is skipped by id, never judged by size.
+    if (/lattice-dual-mode/.test(b[1])) continue;
     if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
   }
   // `legacyPseudoElements`: KaTeX's sheet writes `:before`/`:after` with one colon, which
@@ -4925,7 +4928,7 @@ async function prunePlayerCssInPage(playerHtml) {
         // The pruned block is the biggest non-font <style> — same target the Node
         // side chose, re-found here by size so we swap the right one.
         const styleEl = [...document.querySelectorAll('style')]
-          .filter((s) => s.id !== 'lattice-embedded-fonts')
+          .filter((s) => s.id !== 'lattice-embedded-fonts' && s.id !== 'lattice-dual-mode')
           .sort((a, b) => b.textContent.length - a.textContent.length)[0];
         const app = document.getElementById('lp-app');
         const views = ['present', 'read-slides', 'read-article'];

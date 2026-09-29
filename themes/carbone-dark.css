@@ -7,8 +7,9 @@
  * `theme: carbone` meant "the graphite deck". It is now a two-face palette on the
  * house contract, which moves that meaning — `theme: carbone` resolves LIGHT, and
  * this wrapper is what a deck that wants the original graphite canvas asks for.
- * Every dark value it resolves to is byte-identical to what carbone shipped before
- * the split. */
+ * Its surfaces and ink are the ones carbone shipped before the split; the order of
+ * its categorical and chart cycles changed later (carbone.css, "THE CYCLES
+ * ALTERNATE"). */
 
 @import 'carbone';
 

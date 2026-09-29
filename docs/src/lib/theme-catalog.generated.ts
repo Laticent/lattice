@@ -6,10 +6,10 @@
 // is. See engineering/decisions/2026-08-09-theme-token-contract.md.
 
 /** Brand palettes the picker surfaces first (manifest `tier: "curated"`). */
-export const CURATED = ['indaco', 'cuoio', 'burgundy', 'laguna', 'crepuscolo', 'atelier', 'carbone', 'onyx'];
+export const CURATED = ['indaco', 'cuoio', 'onyx'];
 
 /** The remaining brand palettes (manifest `tier: "more"`). */
-export const MORE_THEMES = ['ardesia', 'brina', 'carta', 'concrete', 'magnolia', 'mustard'];
+export const MORE_THEMES = ['carbone', 'concrete', 'crepuscolo', 'laguna', 'burgundy', 'carta', 'mustard', 'brina', 'atelier', 'ardesia', 'magnolia'];
 
 /** The curated color-vision palettes (manifest `cvd`). */
 export const A11Y_THEMES = ['a11y-achromatopsia', 'a11y-deuteranopia', 'a11y-protanopia', 'a11y-tritanopia'];
@@ -29,18 +29,18 @@ export const SHIPPED_THEME_NAMES: readonly string[] = ['lattice', 'a11y-achromat
 export const PALETTE_DOTS: Record<string, string> = {
 	indaco: '#006FA8',
 	cuoio: '#7A5A10',
-	burgundy: '#742532',
-	laguna: '#006D77',
-	crepuscolo: '#5B3D8C',
-	atelier: '#1A1A18',
-	carbone: '#7DE38A',
 	onyx: '#000000',
-	ardesia: '#1F1F1F',
-	brina: '#3D6A82',
-	carta: '#38598C',
+	carbone: '#7DE38A',
 	concrete: '#6B6B68',
-	magnolia: '#A04A55',
+	crepuscolo: '#5B3D8C',
+	laguna: '#006D77',
+	burgundy: '#742532',
+	carta: '#38598C',
 	mustard: '#8C6A18',
+	brina: '#3D6A82',
+	atelier: '#1A1A18',
+	ardesia: '#1F1F1F',
+	magnolia: '#A04A55',
 	'a11y-achromatopsia': '#4D4D4D',
 	'a11y-deuteranopia': '#004982',
 	'a11y-protanopia': '#9C6900',
@@ -58,18 +58,18 @@ export const PALETTE_DOTS: Record<string, string> = {
 export const THEME_FAMILY: Record<string, 'brand' | 'a11y'> = {
 	indaco: 'brand',
 	cuoio: 'brand',
-	burgundy: 'brand',
-	laguna: 'brand',
-	crepuscolo: 'brand',
-	atelier: 'brand',
-	carbone: 'brand',
 	onyx: 'brand',
-	ardesia: 'brand',
-	brina: 'brand',
-	carta: 'brand',
+	carbone: 'brand',
 	concrete: 'brand',
-	magnolia: 'brand',
+	crepuscolo: 'brand',
+	laguna: 'brand',
+	burgundy: 'brand',
+	carta: 'brand',
 	mustard: 'brand',
+	brina: 'brand',
+	atelier: 'brand',
+	ardesia: 'brand',
+	magnolia: 'brand',
 	'a11y-achromatopsia': 'a11y',
 	'a11y-deuteranopia': 'a11y',
 	'a11y-protanopia': 'a11y',

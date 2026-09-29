@@ -3,12 +3,12 @@
   "name": "atelier",
   "role": "base",
   "family": "brand",
-  "tier": "curated",
+  "tier": "more",
   "modes": [
     "light",
     "dark"
   ],
   "darkCounterpart": "atelier-dark",
-  "order": 5,
+  "order": 8,
   "swatch": "#1A1A18"
 }

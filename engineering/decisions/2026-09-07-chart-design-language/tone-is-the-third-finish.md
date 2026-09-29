@@ -100,6 +100,9 @@ contract, and a separate decision.
 
 ## What is still NOT built
 
+*Update 2026-09-28 (PR #2451): the three finishes now ship as the `chart-finish:` register;
+see `engineering/chart-styling.md` §3. The two items below are still open.*
+
 - **`etching`'s LETTER half — and it must NOT be built as written.** The design
   re-points `.cart-value`, `.cart-cat`, `.cart-tick` and the mark's own lane rule
   to the category ink. The generator emits **zero** rules for any of them, which

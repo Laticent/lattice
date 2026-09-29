@@ -3,6 +3,31 @@
 **Read `finish-coherence.md` and `style-catalog.md` in this folder first.** This
 file is the queue, not the record.
 
+## Where PR #2451 leaves it (2026-09-28)
+
+**The finishes are in the engine.** `chart-finish: pigment | etching | tone | off` is a
+deck register with a per-slide token (`chart-finish-<name>`, `chart-finish-off` to opt
+out), a lint rule, and Studio controls in deck settings (**Look → Chart finish**) and in
+a chart slide's own **Look** tab. The default is `off`: a deck without the key renders
+pixel-identically. The rules are generated from the manifests by
+`tools/build-chart-finish-css.js`. `engineering/chart-styling.md` §3 records the seven
+measured choices, including the ones that correct this folder's levels: tone's text-ramp
+band, the dark ramp band, the canvas base for etching and tone, and a status keeping its
+own hue under tone (`finish-coherence.md` sent it to the one hue, which made a gantt key of
+identical swatches).
+
+The mark contract now covers every member a finish can reach: the ten that lacked it,
+plus every legend swatch. The census agrees on 58 mark classes across 23 members.
+
+**§5 below is decided: the register offers one axis, the finish.** `frame:` and `rule:`
+are not chart controls. Nothing in the render asked for them, and a control nobody can
+name a use for gets set wrong.
+
+**Still open:** the members a finish cannot reach (`line`, `slope`, `word-cloud`, which
+need `paint: "stroke"`), `etching`'s letter half (the table in
+`tone-is-the-third-finish.md`), and tone's weakness on overlapping layered series
+(chart-styling.md §3).
+
 ## Where PR #2148 leaves it
 
 **In the engine:** the mark contract on 5 of 21 members (`data-hue`,

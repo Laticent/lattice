@@ -30,6 +30,12 @@
         "bears": true
       },
       {
+        "class": "state-node-row",
+        "paint": "bg",
+        "encodes": "hue",
+        "bears": true
+      },
+      {
         "class": "state-node-shape",
         "paint": "fill",
         "encodes": "hue",
