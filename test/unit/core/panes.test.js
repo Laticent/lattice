@@ -492,7 +492,7 @@ test('on a square, portrait, story or mobile deck a panes slide splits into one 
 test('lint does not budget panes on a deck that splits them', () => {
   const { lintText } = require('../../../lib/authoring/lint');
   const md = (size) => `---\nsize: ${size}\n---\n\n## T\n\n<!-- panes: stack -->\n<!-- pane: kpi -->\n\n1. 42%\n   - Margin\n\n<!-- pane: list -->\n\n${Array.from({ length: 20 }, (_, i) => `- Point ${i}`).join('\n')}\n`;
-  const panesRules = (size) => lintText(md(size)).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule);
+  const panesRules = (size) => lintText(md(size)).filter((f) => f.rule.startsWith('pane-') && f.rule !== 'pane-syntax').map((f) => f.rule);
   assert.deepEqual(panesRules('portrait'), []);
   // At 16:9 the same slide splits too (a kpi row does not stack, nor fits 50% side by side), and
   // its 20-item list, now a slide of its own, is past a list slide's capacity.

@@ -1354,6 +1354,13 @@ by hand. One line per component: enough to CHOOSE one, and nothing more.
 anti-patterns — HARD RULE #6 requires that before you write the slide. Tools that need
 the full machine record read \`components.json\`; this file is not a substitute for it.
 
+**Two components on one slide is a LAYOUT, not a component.** Write
+\`<!-- _class: columns 60/40 -->\` (side by side) or \`<!-- _class: rows -->\` (stacked) and
+start each pane with \`<!-- _pane: <component> -->\` and a \`### title\`, as a slide one
+heading level down; a pane with no marker is \`content\`. Pick each pane's component from
+this table; \`lib/base/base.docs.md\` § "Two components on one slide — pane layouts" is the
+contract, and \`components.json\` says which components go in a pane and at what share.
+
 **A zero-hit \`grep\` means read the 61 rows, not that no component fits.** Rows carry
 names, tags and a one-line purpose — not the full \`whenToUse\` prose — so a search for
 \`swot\`, \`screenshot\` or \`bullet\` can miss a component that handles it. The whole table

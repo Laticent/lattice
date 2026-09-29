@@ -241,7 +241,7 @@ export function measure() {
 		measured += 1;
 		// The same map the Studio hands over (pane-pages.ts `paneSplitCounts`): only for a deck that
 		// carries a pane marker, all ones when nothing in it splits.
-		const paneCounts = /<!--\s*pane\s*:/.test(src) ? chunks.map((c) => (lintCore.paneSplitLine(c, src) >= 0 ? 2 : 1)) : undefined;
+		const paneCounts = /<!--\s*_?pane\s*:|<!--\s*_class\s*:[^>]*\b(?:columns|rows)\b/.test(src) ? chunks.map((c) => (lintCore.paneSplitLine(c, src) >= 0 ? 2 : 1)) : undefined;
 		chunks.forEach((chunk, k) => {
 			const prelude = synthesizePrelude(chunks, k, VOCAB);
 			if (prelude) preludes += 1;

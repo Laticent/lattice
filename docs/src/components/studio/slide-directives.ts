@@ -55,14 +55,17 @@ export function isSayBody(body: string): boolean {
 	return /^say\s*:/.test(String(body).trim()); // lowercase only — see notes-core SAY_MATCHER
 }
 
-/** True when the comment body is a PANES marker — `pane: list` or the `panes: 35/65` layout line
- *  (lib/core/pane-spec.js `PANE_RE` / `PANES_RE`). Structure, not a speaker note: read as one, the
+/** True when the comment body is a PANES marker — `_pane: list` (or its `pane:` alias) or the
+ *  `panes: 35/65` layout line
+ *  (lib/core/pane-spec.js `parseMarker` / `PANES_RE`). Structure, not a speaker note: read as one, the
  *  presenter's notes showed "panes: 35/65", and setting a note on the slide stripped every marker
  *  and turned the panes slide back into one component. Not in DIRECTIVE_KEYS, which is the
  *  engine's directive list; the carve reads these before directives are applied. */
 export function isPaneMarkerBody(body: string): boolean {
 	const t = String(body).trim();
-	return /^pane:\s*[a-z][\w-]*$/.test(t) || /^panes:[^<>\n]*$/.test(t);
+	// The alias is one component (plus `no-title`), as lib/core/pane-spec.js `parseMarker` reads it:
+	// `pane: check the numbers` is a speaker note.
+	return /^_pane:[^<>\n]*$/.test(t) || /^pane:\s*[a-z][\w-]*(?:\s+no-title)*$/.test(t) || /^panes:[^<>\n]*$/.test(t);
 }
 
 // ── Fence awareness ──────────────────────────────────────────────────────────

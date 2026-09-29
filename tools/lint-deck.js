@@ -101,9 +101,11 @@ function narrationText(source) {
     .replace(/```[\s\S]*?```/g, ' ') // fenced code (backtick)
     .replace(/~~~[\s\S]*?~~~/g, ' ') // fenced code (tilde)
     .replace(/`[^`]*`/g, ' ') // inline code
-    // A pane marker (`<!-- pane: list -->`, `<!-- panes: 40/60 -->`) is layout, not speech;
-    // other comments stay, because speaker notes are narration.
-    .replace(/<!--\s*panes?:[^<>]*-->/g, ' ');
+    // A pane marker (`<!-- _pane: list -->`, the `pane:` / `panes:` alias) and a `_class` that
+    // names a pane layout (`columns 60/40`) are layout, not speech; other comments stay, because
+    // speaker notes are narration.
+    .replace(/<!--\s*_?panes?:[^<>]*-->/g, ' ')
+    .replace(/<!--\s*_class\s*:[^<>]*\b(?:columns|rows)\b[^<>]*-->/g, ' ');
 }
 
 function expandArgs(patterns) {

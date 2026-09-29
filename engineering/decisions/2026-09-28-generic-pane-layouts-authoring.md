@@ -1,13 +1,15 @@
 ---
-status: proposed
+status: shipped
 summary: >-
   The authoring design for generic pane layouts. A slide names its layout in `_class`
   (`columns` or `rows`, with an optional ratio), and each pane reads like a small slide one
   heading level down: an optional `<!-- _pane: <component> -->` above an optional `### title`,
   hidden with `no-title`. Panes are portals: they bring their component's stage content onto the
   slide and nothing else, so the Key Insight, note and all running chrome stay the slide's. It
-  replaces the experimental `<!-- panes: -->` / `<!-- pane: -->` comments, and defers `bleed`,
-  `inset` and a third column until a real deck needs them.
+  replaces the experimental `<!-- panes: -->` / `<!-- pane: -->` comments (kept as an alias), and
+  defers `bleed`, `inset` and a third column until a real deck needs them. Built in the same PR:
+  the engine rewrites the syntax into the carve's internal form in one token pass, sets each
+  pane's head in a cell beside its `<lat-pane>`, and lines the heads up on a shared subgrid (§12).
 ---
 
 # Generic pane layouts: the authoring design
@@ -51,8 +53,8 @@ that teach the whole feature:
 > Put `columns` or `rows` in `_class`, and start each pane with `<!-- _pane: … -->` or a `###`
 > heading. Name a component in `_pane` when the pane is not plain text.
 
-This note records the authoring design only. The internal structure (how a `_class` layout
-becomes a Frame whose Cells hold the panes) is the next note; §10 lists what it has to answer.
+This note records the authoring design, and §12 how it was built. §10 lists the internal-structure
+questions the design raised; §12 answers each.
 
 ---
 
@@ -120,9 +122,17 @@ Both the marker and the title are optional, so the rule for where a pane starts 
   - 610 tickets a month
   ```
 
-- **A slide with markers:** only markers start panes. The first `###` after a marker (an eyebrow
-  pill may sit between them) is that pane's title. Any later `###` belongs to the component. This
-  keeps `team-profile sides`, which labels its two rosters with `###`, working inside a pane.
+- **A slide with markers:** every top-level `###` is still a pane's title. Right under a marker
+  (an eyebrow pill may sit between them) it titles that marker's pane; anywhere else it starts a
+  new `content` pane. So adding a marker above one `###` of an outline keeps the other a pane.
+  A heading inside a pane is `####`.
+- **A component whose own anatomy uses `###`** keeps every `###` it holds: `team-profile sides`
+  labels its two rosters with `###`. The pane catalog records it (`h3`, derived from the
+  manifest's slot selectors), so the engine and the linter read the same list.
+- *Revised after the adversarial review:* the first cut said "with markers, only markers start
+  panes". The Munger inversion found the natural edit that breaks it — convert one pane of an
+  outline into a chart by adding its marker, and the other `###` silently joined the chart, so
+  the slide collapsed to one pane.
 - Everything before the first pane is the slide's heading block: directives, eyebrow, `##`,
   subtitle.
 - A third pane folds into the second, as today, and `lint:deck` reports it. Two panes is the v1
@@ -138,7 +148,9 @@ Both the marker and the title are optional, so the rule for where a pane starts 
 
 - The first word, when it is a component id, names the pane's component. Without one the pane
   is `content`, as a slide without a `_class` is.
-- The words after it are pane modifiers. v1 has one: `no-title`.
+- The words after it are the component's modifiers (`<!-- _pane: team-profile sides -->`),
+  which reach the pane's render as a slide's `_class` would carry them, and the pane's own
+  modifier, `no-title`. `lint:deck` checks the component's modifiers as it checks a `_class`.
 - The leading underscore mirrors `_class`. It reads as "this pane only", the way `_class` reads
   as "this slide only". The engine leaves an unknown `<!-- _pane: … -->` comment untouched
   (checked on a render), so the carve can claim it without colliding with a directive.
@@ -196,12 +208,22 @@ sits.
 | Pane eyebrow, `###` title, subtitle | the pane's frame, not its component |
 | The component's body | the pane |
 
-**One case passes through.** When a component uses a `>` or `— ` paragraph as part of its own
-anatomy (a `quote`'s attribution, a chart's caption), that paragraph is the component's stage
-content and stays in the pane. Manifests already declare these in `coda.claims`; authors never
-need to know the mechanism. Every other `>` or `— ` goes to the slide, including one written in
-the middle of pane A. If both panes carry one, the slide has two Key Insights and `lint:deck`
-warns.
+**Which `>` and `— ` go to the slide.** The trailing run of either pane, where an author closes a
+thought, goes to the slide. Three cases stay in the pane:
+
+- a `>` in the MIDDLE of a pane, which is a quotation and part of that pane's argument (a lawyer
+  quoting a statute, then reading it);
+- an element the component uses as part of its own anatomy (a `quote`'s attribution, a chart's
+  caption), declared in its manifest's `coda.claims`;
+- a pane that is nothing but a quote and its `— ` attribution, which would otherwise be left
+  empty under its title.
+
+If both panes close with a `>`, the slide has two Key Insights and `lint:deck` warns.
+*Revised after the adversarial review:* the first cut moved every `>` "wherever it was
+written". The inversion and the checker found the two cases it broke: a mid-pane quotation
+lifted out of its argument, and a quote pane emptied. The owner's ruling (the Key Insight is the
+slide's; a pane brings its stage content) holds for both: a closing `>` is the Key Insight, and a
+quotation is stage content.
 
 Per-slide overrides keep working as they do on any slide: `_header`, `_footer`, `_paginate`.
 
@@ -215,8 +237,13 @@ A pane's budget is its box minus its own chrome, measured the same way as a slid
   nothing.
 - `lint:deck` counts `pane-overflow` and `pane-crowd` against what is left, as it does today.
 - Side by side, a titled pane pays for the shared title row (§3).
-- Stacked, a title is paid in height, which a 16:9 slide has least of. A titled stacked pane
-  holds about one item fewer than an untitled one.
+- Stacked, a title is paid in height, which a 16:9 slide has least of.
+- The linter scales a titled pane's counts by the share of its height the head leaves
+  (`headedBudget`, lib/core/pane-spec.js): about 12% side by side, 27% stacked at 50/50. The
+  measured heights live once, in `PANE_HEAD` (lib/core/pane-spec.js), and the engine's pane box
+  reads the same copy. A flat
+  "one item fewer" was tried first and was wrong both ways on the demo deck: it called three short
+  items crowded in a titled 50% pane, which read with room to spare.
 - The component budgets in each manifest's `pane` field stay what they are. They were measured
   with no pane title, so they are the untitled figures; the title's cost is subtracted from
   them, never measured into them.
@@ -327,8 +354,10 @@ working as aliases, and `lint:deck` offers the rewrite:
 | `<!-- panes: 50/50 no-rule -->` | `<!-- _class: columns no-rule -->` |
 | `<!-- pane: bar -->` | `<!-- _pane: bar -->` |
 
-`examples/panes.md`, `lib/base/base.docs.md` § "Two components on one slide — panes" and the
-Studio's editor move to the new syntax in the same change that ships it.
+`lib/base/base.docs.md` § "Two components on one slide — pane layouts" and the new demo,
+`examples/pane-layouts.md`, teach the syntax. The six example decks written in the alias stay in
+it for now; they prove the alias renders, and their rewrite, with the Studio's insert-menu
+entries, is recorded in `followups.d/` (2473-p2, 2473-p3).
 
 ## 10. Questions for the internal-structure note
 
@@ -360,6 +389,85 @@ These are for the next note, not for authors:
 - Keep it simple: ship `columns` and `rows`; defer `bleed` and `inset`.
 - The pane marker mirrors `_class` (`_pane`, above the `###`) so it reads familiar.
 - The `###` pane title is optional, the documentation always writes one, and `no-title` hides it.
+
+## 12. How it was built
+
+The §10 questions, answered.
+
+1. **`columns` / `rows` stay the `standard` Frame.** The stage is carved into two pane Cells, as
+   panes were. A layout named in `_class` is read by the pane rules and never reaches the class
+   list, so `design/forms.md` §0 ("the component picks the Frame") still holds.
+2. **The ratio never reaches the class list.** `normalizePaneSyntax` (lib/core/panes.js) runs on
+   the block tokens after the heading split and before any pane rule. It compiles every authored
+   marker, `_pane:` or the `pane:` alias, into an internal `<!-- lat-pane: {…} -->` comment
+   (component, pane modifiers, component modifiers), and the layout into
+   `<!-- lat-panes: … -->`; keeps the `_class`'s other words; and applies the start rule of §2.2
+   to the tokens (`startPanesAtHeadings`), inserting a `content` marker before each `###` that
+   starts a pane. No rule after it reads an author's text, so retiring the alias is a change to
+   `parseMarker` alone. The layout
+   is the slide's LAST `_class`, the one the engine applies, and every `_class` loses its layout
+   words. The internal layout comment carries a `heads` flag for a slide written in the syntax,
+   and only such a slide takes pane heads and the slide-wide coda (§4): a slide in the alias
+   keeps the rules it rendered with. Every later rule (the split, the carve, the slide map) reads
+   only the internal form. Decks without the syntax render byte-identical markup (all 243 example
+   and baseline decks, checked by the independent checker against `HEAD`), and the six alias
+   decks are pixel-clean through `tools/pixel-check.js`. The checker's first pass found that
+   without the flag an alias pane opening with a `###` (a `team-profile sides` pane) changed
+   markup, which is why the flag exists.
+3. **The head sits beside the pane, not in it.** The carve cuts the eyebrow, `###` and subtitle
+   out of the pane's source (`paneHeadOf`), and `embed` writes a `.lat-pane-cell` holding a
+   `.lat-pane-head` and the `<lat-pane>`. Inside the pane, a component's `h3` rules would reach
+   the title through its twin. Only a slide with a head gets the cell, so every other panes slide
+   keeps its markup. Side by side, the cells subgrid into five shared rows (eyebrow, title,
+   subtitle, gap, pane), so both titles sit on one line whatever else each head carries.
+   Aligning whole heads was tried first: with an eyebrow on one pane and a subtitle on the other,
+   the titles landed a line apart. On a narrow deck's split page, the head is wrapped in the same
+   `.lat-pane-head` block (`headBlock`), because a chart's wrap otherwise lifted the pane's
+   subtitle into the page masthead. `no-title` hides the head with the screen-reader clip, and
+   the overflow probe ignores that clip (`IGNORED_CLIP_SELECTOR`), as it does a chart's hidden
+   data table.
+4. **The budget model one level down.** `paneGeometry` (lib/engine/index.js) takes each pane's
+   head out of its box, from measured heights (`HEAD`), counting wrapped title lines. A
+   1280px slide with an eyebrow on one pane and a subtitle on the other measures a 313.0px pane
+   and models 312.8. A long title that wraps to two lines models as three, the same short
+   error the slide's own model makes on purpose.
+5. **The linter and the Studio** read the syntax from text (`splitPaneMarkdown`), with new
+   findings for a layout with fewer than two panes, a component in the layout's `_class`, an
+   unknown marker word, a `no-title` with no title (`pane-layout`), two Key Insights
+   (`pane-insight`) and the alias (`pane-syntax`, a suggestion). The Studio's slide index, caret
+   placement and deck-kind label read the same, and the Read view projects each pane's head
+   before its body.
+
+Test: `test/unit/core/pane-layouts.test.js`.
+
+### 12.1 What the adversarial review changed
+
+The build went through the full trio (HARD RULE #25): an independent checker, a red team and a
+Munger inversion, each run against the working tree. What each found, and what changed:
+
+- **The start rule** (§2.2) and **the coda rule** (§4) were revised, as recorded there: the first
+  cut collapsed a slide when an author added one marker to an outline, and moved a mid-pane
+  quotation out of its argument.
+- **The alias stays exactly as it was.** Pane heads and the slide-wide coda apply only to a slide
+  in the syntax (the `heads` flag); an alias pane opening with a `###` was changing markup.
+- **One source for each rule.** The narration linter, the Studio's component count and slide map,
+  the sweep tool and the parser-memo test each carried their own `pane:` probe and missed the
+  syntax; each now reads the pane spec. The head's measured heights live once (`PANE_HEAD`).
+- **Author inputs that misbehaved:** a multi-line `_class` crashed the linter; two `_class`
+  comments disagreed between engine and linter (the last one now names the layout, as the last
+  `_class` is the one applied); a spaced ratio and a fenced example drew false warnings; a lowercase
+  speaker note starting `pane:` became a marker; a long unbroken title ran across the spine; a
+  bare `###` drew an empty row; an author-written internal marker could carry quotes into an
+  attribute; pane pills skipped the host's inline rules.
+- **`columns` and `rows` were already a Marp idiom** for an author's own class. A slide with fewer
+  than two panes keeps the word as its class, in the engine and in Export-to-Marp; a slide with two
+  or more `###` now lays out in panes, which the changelog marks **Breaking**.
+- **The linter says more:** which marker a third pane folds away, `####` for a heading inside a
+  pane, both `columns` and `rows` named, a `###` above the slide's title, and a deck-wide
+  `class: columns`.
+
+Measured after the fixes: every example, gallery and baseline deck that does not use the syntax
+(256) renders byte-identical HTML to `HEAD`, and the six alias decks are pixel-clean.
 
 ## See also
 
