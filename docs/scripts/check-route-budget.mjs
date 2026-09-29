@@ -34,36 +34,39 @@
 // So this follows the `tools/check-ownership.js` idiom the repo already uses for HARD
 // RULES #20/#22/#26 — a committed budget that fails BOTH ways:
 //
-//   • OVER  → the route grew past its HARD limit. Either give the bytes back, or get the
-//             owner's OK and reset the budget (`npm run route-budget:rebaseline`), which
-//             writes the new number AND a history entry in the same PR.
+//   • OVER  → the route grew past its CEILING. Give the bytes back; raising a ceiling is
+//             the owner's decision, made rarely, in its own PR.
 //   • UNDER → the route is now well below its SOFT target, so the target is STALE-LOOSE
 //             and must be ratcheted down. Without this the ledger rots into a number nobody
 //             has to respect, and a hard-won reduction is silently re-spendable.
 //
-// SOFT TARGET, HARD LIMIT (2026-09-29). Each ledger number is a SOFT target; the HARD limit
-// is derived from it, soft × (1 + HARD_HEADROOM_PCT), and is never written down, so no PR
-// can raise it on its own. Between the two, the gate PASSES and prints a warning with the
-// room left. The first cut had one number set to "the measurement plus about 280 bytes",
-// so nearly every PR that touched the Studio edited the same line and prepended to the same
-// 48KB note string in route-budget.json: 14 of 49 commits on main in about 36 hours. Any two such
-// PRs conflicted in git, and two that each fit alone could fail together in the merge
-// queue. Now a PR edits the ledger only when it crosses the hard limit or trips the stale
-// floor, and a reset is one owner-approved PR at a time.
-// See engineering/decisions/2026-09-29-route-budget-soft-hard.md.
+// THREE LAYERS (2026-09-29). The first cut had one number per metric, set to "the measurement
+// plus about 280 bytes", so nearly every PR that touched the Studio edited the same line of
+// route-budget.json: 14 of 49 commits on main in about 36 hours, and any two conflicted.
+// Now each metric has a SOFT target and a CEILING (`hard`), both in route-budget.json:
+//   1. A PR that keeps a route at or under soft may add up to PR_ALLOWANCE_BYTES of eager JS
+//      without a word. Every byte that lands ABOVE soft must be declared, per route, in the
+//      PR's own file under docs/route-budget.d/ (`studio: +5123` plus why). One file per PR,
+//      so explanations never conflict.
+//   2. Between soft and the ceiling the build passes; past the ceiling it fails.
+//   3. Moving either number is a reset with a history entry (`route-budget:rebaseline`); a
+//      test holds route-budget.json to the newest entry, so a hand edit fails.
+// The adversarial review that shaped this: engineering/decisions/2026-09-29-route-budget-soft-hard.md.
 //
 // This gate does NOT try to be a performance model. It counts bytes on five routes: the two
 // heavy app shells and the three content routes that joined in 2026-09.
 //
-// AND IT DOES NOT COUNT ALL OF THEM — read this before claiming a route is "covered". measure()
-// counts only `/_astro/*.js` REFERENCED IN THE HTML. It deliberately does not follow dynamic
-// `import()` (that is the whole point of a lazy boundary), and it cannot see a script served
-// from outside `/_astro/` at all — `docs/public/playground/lattice-playground.js` is 971KB and
-// invisible here. So this is a deterministic watch on the EAGER path, not a payload total. The
-// retired `script-size` metric summed everything a visit actually fetched, which is a strictly
-// larger quantity (~2x on studio: ~1335KB measured vs this gate's 639KB budget) — it was deleted
-// for being unmeasurable, not for being redundant, and nothing watches the deferred bytes today. Bytes are a proxy for parse+hydrate, which — because the service worker serves
-// /_astro/ cache-first — is the cost that actually RECURS per launch.
+// WHAT IT COUNTS: every `/_astro/*.js` the route's HTML references, PLUS everything those
+// chunks import statically, transitively. Until 2026-09-29 it counted only the HTML's direct
+// references, which on the content routes missed React and the shared UI chunks their islands
+// import (183KB gz of 260KB on home). It deliberately does not follow dynamic `import()`
+// (that is the whole point of a lazy boundary), so code a page loads with `import()` at
+// startup is only counted when inject-modulepreload.mjs lists it. It cannot see a script
+// served from outside `/_astro/` (`docs/public/playground/lattice-playground.js` is 971KB and
+// invisible here), inline scripts except as HTML bytes, or CSS. So this is a deterministic
+// watch on the EAGER JS path, not a payload total. Bytes are a proxy for parse+hydrate,
+// which — because the service worker serves /_astro/ cache-first — is the cost that
+// actually RECURS per launch.
 //
 // Runs post-`astro build` in the docs `build` script, which `docs-build` runs in CI, and
 // `docs-build` is in ci.needs — so this blocks the merge. Standalone:
@@ -76,8 +79,12 @@ import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.join(HERE, '..', '..');
 const DIST = path.join(HERE, '..', 'dist');
 const LEDGER_PATH = path.join(HERE, '..', 'route-budget.json');
+const HISTORY_PATH = path.join(HERE, '..', 'route-budget.history.md');
+const HISTORY_ANCHOR = '<!-- resets: newest first, below this line -->';
+const FRAGMENT_DIR = path.join(HERE, '..', 'route-budget.d');
 
 // How far BELOW its budget a route may drift before the budget counts as stale-loose.
 //
@@ -94,78 +101,80 @@ const LEDGER_PATH = path.join(HERE, '..', 'route-budget.json');
 //     gate people learn to silence.
 const STALE_SLACK_PCT = 0.05;
 
+// A route's ceiling starts this far above its soft target, and a reset that moves the
+// ceiling (`--ceiling`) puts it back there. The owner set 10% on 2026-09-29: room for weeks
+// of growth, so the ceiling is a decision made rarely rather than a ritual every two days.
+export const CEILING_PCT = 0.1;
+
+// How much eager JS a PR may add to a route without a word, as long as the route stays at or
+// under its soft target. The owner set 2KB: 8 of the Studio's last 10 raises before the switch
+// were under it (the two over were +2,220 and +5,202 bytes).
+export const PR_ALLOWANCE_BYTES = 2048;
+
+export const METRICS = ['eagerJsGz', 'htmlRaw'];
+
+const kb = (n) => `${(n / 1024).toFixed(1)}KB`;
+export const ceilingFor = (soft) => soft + Math.round(soft * CEILING_PCT);
+
+// Static imports in a minified chunk: `import{a}from"./x.js"`, `import"./x.js"`,
+// `export{b}from"./x.js"`. Not `import("./x.js")`: the `(` never matches.
+const STATIC_IMPORT = /(?:import|export)\s*(?:[^'"()]*?\bfrom\s*)?["']\.\/([A-Za-z0-9._-]+\.js)["']/g;
+
 /**
- * A route's EAGER JS: every `/_astro/*.js` referenced in its HTML, gzipped.
- *
- * This is deliberately the same rule `2026-07-19-defer-editor-hydration.md` measured
- * itself against, so today's number and that one are the same quantity. It counts the
- * `modulepreload` hints `inject-modulepreload.mjs` writes AND the astro-island
- * `renderer-url` / `component-url` references — all of which the browser fetches before
- * the route is interactive. It does NOT follow dynamic `import()`, which is the whole
- * point of a lazy boundary.
+ * A route's EAGER JS: every `/_astro/*.js` referenced in its HTML and, transitively, every
+ * chunk those import statically — all of which the browser fetches before the route is
+ * interactive. It does NOT follow dynamic `import()`, which is the whole point of a lazy
+ * boundary.
  */
 function measure(routeHtml, dist = DIST) {
 	const html = fs.readFileSync(path.join(dist, routeHtml), 'utf8');
-	const refs = [...new Set(html.match(/\/_astro\/[A-Za-z0-9._-]+\.js/g) || [])];
+	const direct = [...new Set((html.match(/\/_astro\/[A-Za-z0-9._-]+\.js/g) || []).map((r) => r.slice('/_astro/'.length)))];
+	const seen = new Set(direct);
+	const queue = [...direct];
 	let eagerJsGz = 0;
-	for (const ref of refs) {
-		const file = path.join(dist, ref.replace(/^\//, ''));
+	while (queue.length) {
+		const name = queue.pop();
+		const file = path.join(dist, '_astro', name);
 		// A referenced chunk that is not on disk is a BROKEN BUILD, and skipping it would
 		// under-count — which this gate would then report as "STALE, ratchet it down",
-		// laundering the breakage into a smaller committed budget that the next correct
-		// build exceeds. Fail loudly instead.
+		// laundering the breakage into a smaller committed budget. Fail loudly instead.
 		if (!fs.existsSync(file)) {
-			throw new Error(`check-route-budget: ${routeHtml} references ${ref}, which is not in dist/ — the build is broken, not smaller.`);
+			throw new Error(`check-route-budget: ${routeHtml} needs /_astro/${name}, which is not in dist/ — the build is broken, not smaller.`);
 		}
-		eagerJsGz += zlib.gzipSync(fs.readFileSync(file), { level: 6 }).length;
+		const src = fs.readFileSync(file);
+		eagerJsGz += zlib.gzipSync(src, { level: 6 }).length;
+		for (const m of src.toString('utf8').matchAll(STATIC_IMPORT)) {
+			if (!seen.has(m[1])) {
+				seen.add(m[1]);
+				queue.push(m[1]);
+			}
+		}
 	}
-	return { eagerJsGz, htmlRaw: Buffer.byteLength(html), chunks: refs.length };
+	return { eagerJsGz, htmlRaw: Buffer.byteLength(html), chunks: seen.size };
 }
 
-const kb = (n) => `${(n / 1024).toFixed(1)}KB`;
-
-// How far ABOVE its soft target a route may sit before the build fails: the HARD limit is
-// soft × (1 + this). The owner set 3% on 2026-09-29: the margin the other four routes
-// already carried, about 19KB on the Studio, or roughly two days at the ~9KB/day the
-// Studio grew over the 36 hours before (+14,030 bytes from 2026-09-27 23:28 to 09-29 11:07). It lives here and not in route-budget.json so
-// that a PR cannot widen its own room by editing the ledger.
-export const HARD_HEADROOM_PCT = 0.03;
-
-const METRICS = ['eagerJsGz', 'htmlRaw'];
-
-/** The hard limit for a soft target. Exact bytes, so a message can quote it. */
-export const hardLimit = (soft, hardPct = HARD_HEADROOM_PCT) => soft + Math.round(soft * hardPct);
-
 /**
- * Compare one route's measurement against its budget. PURE — no fs, no dist — so the
- * properties that matter (it fails in BOTH directions, and it only WARNS between soft and
- * hard) are unit-testable without a built site. The docs test tier runs before
- * `npm run build`, so a dist-dependent test would silently skip in CI and gate nothing.
+ * Compare one route's measurement against its soft target and ceiling. PURE — no fs, no
+ * dist — so it is unit-testable without a built site (the docs test tier runs before
+ * `npm run build`, so a dist-dependent test would silently skip in CI).
  *
  * Returns { problems, warnings }: problems fail the build, warnings print and pass.
  */
-export function evaluateRoute(route, actual, budget, slackPct = STALE_SLACK_PCT, hardPct = HARD_HEADROOM_PCT) {
+export function evaluateRoute(route, actual, budget, slackPct = STALE_SLACK_PCT) {
 	const problems = [];
 	const warnings = [];
 	for (const metric of METRICS) {
-		const soft = budget[metric];
+		const { soft, hard } = budget[metric] ?? {};
 		const got = actual[metric];
-		if (typeof soft !== 'number' || typeof got !== 'number') continue;
-		const hard = hardLimit(soft, hardPct);
+		if (typeof soft !== 'number' || typeof hard !== 'number' || typeof got !== 'number') continue;
 		if (got > hard) {
 			problems.push(
-				`${route} ${metric}: ${kb(got)} EXCEEDS its hard limit ${kb(hard)} (soft ${kb(soft)}, +${kb(got - hard)} past hard).\n` +
-					`    Give the bytes back, or ask the owner to approve a reset. With that OK, run\n` +
-					`    \`npm run route-budget:rebaseline -- --reason "<what grew and why>"\` in this PR;\n` +
-					`    it rewrites docs/route-budget.json and adds an entry to docs/route-budget.history.md.`,
+				`${route} ${metric}: ${kb(got)} EXCEEDS its ceiling ${kb(hard)} (soft ${kb(soft)}, +${kb(got - hard)} past the ceiling).\n` +
+					`    Give the bytes back. Raising a ceiling is the owner's decision, made rarely and in its own PR\n` +
+					`    (\`npm run route-budget:rebaseline -- --raise --ceiling --reason "..."\` after the owner's OK).`,
 			);
 		} else if (got > soft) {
-			const band = hard - soft;
-			const left = hard - got;
-			warnings.push(
-				`${route} ${metric}: ${kb(got)} is ${kb(got - soft)} over its soft target ${kb(soft)}; ` +
-					`${kb(left)} of the ${kb(band)} band (${Math.round((left / band) * 100)}%) is left before the hard limit ${kb(hard)}.`,
-			);
+			warnings.push(`${route} ${metric}: ${kb(got)} is ${kb(got - soft)} over its soft target ${kb(soft)}; ${kb(hard - got)} left before the ceiling ${kb(hard)}.`);
 		} else if (got < soft - Math.round(soft * slackPct)) {
 			problems.push(
 				`${route} ${metric}: ${kb(got)} is ${kb(soft - got)} under its soft target ${kb(soft)} — the budget is STALE.\n` +
@@ -178,78 +187,70 @@ export function evaluateRoute(route, actual, budget, slackPct = STALE_SLACK_PCT,
 }
 
 /**
- * The new soft targets for a reset. PURE. A metric moves only when it sits OUTSIDE the
- * range where the gate is silent — over soft, or past the stale floor — so a reset on the
- * Studio does not also rewrite routes sitting quietly under their targets.
- *
- * LOWERING a stale target is routine. RAISING one needs the owner's OK, so a raise is
- * applied only with `raise: true` (the `--raise` flag) and is otherwise returned in
- * `refused`. Without this split, a routine stale-lowering run would also raise every
- * metric that happened to sit in a warning band, owner or no owner.
+ * The bytes of growth a PR may add to a route without declaring them: up to
+ * PR_ALLOWANCE_BYTES, and only the part that stays at or under soft. PURE.
  */
-export function rebaseline(ledgerRoutes, measured, { slackPct = STALE_SLACK_PCT, raise = false } = {}) {
-	const changes = [];
-	const refused = [];
-	for (const [route, budget] of Object.entries(ledgerRoutes)) {
-		for (const metric of METRICS) {
-			const soft = budget[metric];
-			const got = measured[route]?.[metric];
-			if (typeof soft !== 'number' || typeof got !== 'number') continue;
-			if (got > soft) (raise ? changes : refused).push({ route, metric, from: soft, to: got });
-			else if (got < soft - Math.round(soft * slackPct)) changes.push({ route, metric, from: soft, to: got });
-		}
-	}
-	return { changes, refused };
-}
-
-// PER-PR ALLOWANCE (2026-09-29). Soft/hard stopped the ledger conflicts, but on its own it
-// makes the band a commons: the first PRs to arrive spend it unaccounted, and whichever PR
-// finally crosses hard pays for everyone. So each PR may add at most this many bytes of
-// eager JS to any one route, measured against `main`, before it must explain itself in its
-// OWN file under docs/route-budget.d/ — one file per PR, so explanations cannot conflict.
-// The owner set 2KB: 8 of the Studio's last 10 raises before the switch were under it
-// (the two over were +2,220 and +5,202 bytes).
-export const PR_ALLOWANCE_BYTES = 2048;
-
-const FRAGMENT_DIR = path.join(HERE, '..', 'route-budget.d');
+export const freeBytes = (base, soft, allowance = PR_ALLOWANCE_BYTES) => Math.max(0, Math.min(allowance, soft - base));
 
 /**
- * Compare this build against `main`'s. PURE. `explained` is true when the PR adds a
- * fragment under docs/route-budget.d/. Returns { problems, lines }.
+ * Hold one route's growth against `main` to the allowance. PURE. `declared` is the bytes
+ * this PR's explanation files declare for the route (`studio: +5123`). Returns
+ * { problems, line }.
  */
-export function evaluateAllowance(route, actual, base, explained, allowance = PR_ALLOWANCE_BYTES) {
-	const problems = [];
-	const lines = [];
-	if (typeof actual?.eagerJsGz !== 'number' || typeof base?.eagerJsGz !== 'number') return { problems, lines };
-	const delta = actual.eagerJsGz - base.eagerJsGz;
-	const sign = delta >= 0 ? '+' : '-';
-	lines.push(`${route} eagerJsGz ${sign}${Math.abs(delta)} bytes vs main (allowance ${allowance})`);
-	if (delta > allowance && !explained) {
-		problems.push(
-			`${route} eagerJsGz: this PR adds ${delta} bytes (${kb(delta)}) of eager JS vs main, over the per-PR allowance of ${allowance}.\n` +
-				`    Give bytes back, or add docs/route-budget.d/<slug>.md in this PR saying what grew and why\n` +
-				`    (one file per PR, so it cannot conflict; the next reset folds it into route-budget.history.md).`,
-		);
+export function evaluateAllowance(route, actual, base, soft, declared = 0, allowance = PR_ALLOWANCE_BYTES) {
+	if (typeof actual?.eagerJsGz !== 'number' || typeof base?.eagerJsGz !== 'number' || typeof soft !== 'number') {
+		return { problems: [], line: `${route} eagerJsGz: no main number to compare against` };
 	}
-	return { problems, lines };
+	const delta = actual.eagerJsGz - base.eagerJsGz;
+	const owed = delta - freeBytes(base.eagerJsGz, soft, allowance);
+	const line = `${route} eagerJsGz ${delta >= 0 ? '+' : '-'}${Math.abs(delta)} bytes vs main${owed > 0 ? `, ${owed} to declare (declared ${declared})` : ''}`;
+	if (owed > 0 && declared < owed) {
+		return {
+			line,
+			problems: [
+				`${route} eagerJsGz: this PR adds ${delta} bytes of eager JS vs main, and ${owed} of them are not free\n` +
+					`    (a PR gets up to ${allowance} bytes, and only while the route stays at or under soft ${soft}).\n` +
+					`    Give bytes back, or add docs/route-budget.d/<slug>.md to this PR with the line \`${route}: +${owed}\`\n` +
+					`    and a sentence on what grew and why. One file per PR; the next reset folds it into the history.`,
+			],
+		};
+	}
+	return { problems: [], line };
 }
 
-/** Fragments this PR ADDS under docs/route-budget.d/, relative to `baseSha`. */
-function addedFragments(baseSha) {
-	const repo = path.join(HERE, '..', '..');
+/**
+ * Per-route byte declarations in explanation files: lines like `studio: +5123`. A file
+ * counts only if it also says something besides declarations. PURE.
+ */
+export function parseDeclarations(text) {
+	const out = {};
+	let prose = false;
+	for (const raw of text.split('\n')) {
+		const line = raw.trim();
+		const m = line.match(/^[-*]?\s*`?([a-z][a-z0-9-]*):\s*\+(\d+)`?\s*$/);
+		if (m) out[m[1]] = (out[m[1]] || 0) + Number(m[2]);
+		else if (line) prose = true;
+	}
+	return prose ? out : {};
+}
+
+/** Declarations from the explanation files this PR ADDS, relative to `baseSha`. */
+function addedDeclarations(baseSha) {
 	const out = execFileSync('git', ['diff', '--name-only', '--diff-filter=A', baseSha, 'HEAD', '--', 'docs/route-budget.d/'], {
-		cwd: repo,
+		cwd: REPO,
 		encoding: 'utf8',
 	});
-	return out
-		.split('\n')
-		// Top-level files only: that is all a reset folds (pendingFragments), so a file in a
-		// subdirectory would explain growth once and then never reach the history.
-		.filter((f) => /^docs\/route-budget\.d\/[^/]+\.md$/.test(f) && !f.endsWith('/README.md'))
-		.filter((f) => fs.existsSync(path.join(repo, f)) && fs.readFileSync(path.join(repo, f), 'utf8').trim());
+	const totals = {};
+	for (const f of out.split('\n')) {
+		if (!/^docs\/route-budget\.d\/[^/]+\.md$/.test(f) || f.endsWith('/README.md')) continue;
+		for (const [route, n] of Object.entries(parseDeclarations(fs.readFileSync(path.join(REPO, f), 'utf8')))) {
+			totals[route] = (totals[route] || 0) + n;
+		}
+	}
+	return totals;
 }
 
-/** Fragments waiting to be folded into the history by the next reset. */
+/** Explanation files waiting to be folded into the history by the next reset. */
 function pendingFragments() {
 	if (!fs.existsSync(FRAGMENT_DIR)) return [];
 	return fs
@@ -259,11 +260,47 @@ function pendingFragments() {
 		.map((f) => ({ file: path.join(FRAGMENT_DIR, f), name: f, text: fs.readFileSync(path.join(FRAGMENT_DIR, f), 'utf8').trim() }));
 }
 
-const HISTORY_PATH = path.join(HERE, '..', 'route-budget.history.md');
-const HISTORY_ANCHOR = '<!-- resets: newest first, below this line -->';
+/**
+ * The resets to make. PURE. Lowering a stale soft target is routine. Raising soft needs
+ * `raise` (the owner's OK), and never past the ceiling unless `ceiling` (also the owner's
+ * OK) moves the ceiling to CEILING_PCT above the new soft target.
+ */
+export function rebaseline(ledgerRoutes, measured, { slackPct = STALE_SLACK_PCT, raise = false, ceiling = false } = {}) {
+	const changes = [];
+	const refused = [];
+	for (const [route, budget] of Object.entries(ledgerRoutes)) {
+		for (const metric of METRICS) {
+			const { soft, hard } = budget[metric] ?? {};
+			const got = measured[route]?.[metric];
+			if (typeof soft !== 'number' || typeof got !== 'number') continue;
+			const change = { route, metric, from: soft, to: got, hardFrom: hard, hardTo: hard };
+			if (got > soft) {
+				if (!raise) refused.push({ ...change, why: 'a raise needs the owner\'s OK, then --raise' });
+				else if (got > hard && !ceiling) refused.push({ ...change, why: 'it is past the ceiling; moving a ceiling needs the owner\'s OK, then --ceiling' });
+				else changes.push(ceiling ? { ...change, hardTo: ceilingFor(got) } : change);
+			} else if (got < soft - Math.round(soft * slackPct)) {
+				changes.push(change);
+			}
+		}
+	}
+	return { changes, refused };
+}
+
+/** The newest history row per route/metric: { soft, hard }. PURE. */
+export function newestHistory(history) {
+	const at = history.indexOf(HISTORY_ANCHOR);
+	const end = history.indexOf('\n## ', at);
+	const section = history.slice(at, end === -1 ? undefined : end);
+	const out = {};
+	for (const m of section.matchAll(/^\| ([a-z][a-z0-9-]*) \| (eagerJsGz|htmlRaw) \| \d+ \| (\d+) \| [^|]+ \| (\d+) \|$/gm)) {
+		const key = `${m[1]}.${m[2]}`;
+		if (!(key in out)) out[key] = { soft: Number(m[3]), hard: Number(m[4]) };
+	}
+	return out;
+}
 
 function writeReset(ledger, changes, reason) {
-	for (const c of changes) ledger.routes[c.route][c.metric] = c.to;
+	for (const c of changes) ledger.routes[c.route][c.metric] = { soft: c.to, hard: c.hardTo };
 	fs.writeFileSync(LEDGER_PATH, JSON.stringify(ledger, null, 2) + '\n');
 
 	let base = 'unknown';
@@ -273,36 +310,55 @@ function writeReset(ledger, changes, reason) {
 		// Not a git checkout (a tarball build): the entry says "unknown" rather than failing.
 	}
 	const date = new Date().toISOString().slice(0, 10);
-	const rows = changes.map((c) => {
-		const delta = c.to - c.from;
-		const sign = delta >= 0 ? '+' : '-';
-		return `| ${c.route} | ${c.metric} | ${c.from} | ${c.to} | ${sign}${Math.abs(delta)} | ${hardLimit(c.to)} |`;
-	});
-	const entry =
-		`### ${date} — measured on the built tree at ${base} plus any uncommitted changes\n\n${reason}\n\n` +
-		`| Route | Metric | Soft before | Soft after | Change | Hard after |\n|---|---|---|---|---|---|\n` +
-		rows.join('\n') +
-		'\n\n';
+	const signed = (n) => `${n >= 0 ? '+' : '-'}${Math.abs(n)}`;
+	const rows = changes.map((c) => `| ${c.route} | ${c.metric} | ${c.from} | ${c.to} | ${signed(c.to - c.from)} | ${c.hardTo} |`);
 	const fragments = pendingFragments();
-	const folded = fragments.length
-		? `Growth explained since the last reset (from docs/route-budget.d/):\n\n${fragments.map((f) => `- **${f.name}** — ${f.text.replace(/\s*\n\s*/g, ' ')}`).join('\n')}\n\n`
+	const declared = {};
+	for (const f of fragments) for (const [r, n] of Object.entries(parseDeclarations(f.text))) declared[r] = (declared[r] || 0) + n;
+	const raised = changes.filter((c) => c.metric === 'eagerJsGz' && c.to > c.from);
+	const accounting = raised.length
+		? `Of the eager-JS raises, declared in explanation files: ${raised.map((c) => `${c.route} ${declared[c.route] || 0} of ${c.to - c.from} bytes`).join('; ')}.\n\n`
 		: '';
+	const folded = fragments.length
+		? `Explanation files folded in:\n\n${fragments.map((f) => `- **${f.name}** — ${f.text.replace(/\s*\n\s*/g, ' ')}`).join('\n')}\n\n`
+		: '';
+	const entry =
+		`### ${date} — measured on the built tree at ${base}\n\n${reason}\n\n` +
+		`| Route | Metric | Soft before | Soft after | Change | Ceiling after |\n|---|---|---|---|---|---|\n` +
+		rows.join('\n') +
+		'\n\n' +
+		accounting +
+		folded;
 	const history = fs.readFileSync(HISTORY_PATH, 'utf8');
 	const at = history.indexOf(HISTORY_ANCHOR);
 	if (at === -1) throw new Error(`check-route-budget: ${HISTORY_PATH} has lost its "${HISTORY_ANCHOR}" line.`);
 	const cut = at + HISTORY_ANCHOR.length + 1;
-	fs.writeFileSync(HISTORY_PATH, history.slice(0, cut) + '\n' + entry + folded + history.slice(cut).replace(/^\n+/, ''));
+	fs.writeFileSync(HISTORY_PATH, history.slice(0, cut) + '\n' + entry + history.slice(cut).replace(/^\n+/, ''));
 	for (const f of fragments) fs.unlinkSync(f.file);
+}
+
+/** A reset measured on a branch behind main would bake in a stale number. */
+function behindMain() {
+	try {
+		execFileSync('git', ['merge-base', '--is-ancestor', 'origin/main', 'HEAD'], { cwd: REPO, stdio: 'ignore' });
+		return false;
+	} catch (e) {
+		return e.status === 1; // 1 = not an ancestor; anything else (no origin/main) is not a refusal
+	}
+}
+
+function summary(markdown) {
+	if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown + '\n');
 }
 
 function main() {
 	const args = process.argv.slice(2);
+	const ledger = JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8'));
 
 	// `--measure <dist>`: print one build's numbers as JSON. measure-route-base.sh runs this
 	// against a build of `main`, and the gate below reads it back as the per-PR baseline.
 	if (args[0] === '--measure') {
 		const dist = path.resolve(args[1] || DIST);
-		const ledger = JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8'));
 		const out = {};
 		for (const [route, budget] of Object.entries(ledger.routes)) {
 			if (fs.existsSync(path.join(dist, budget.html))) out[route] = measure(budget.html, dist);
@@ -315,7 +371,6 @@ function main() {
 		process.stderr.write('check-route-budget: no dist/ — run `npm run build` first.\n');
 		process.exit(1);
 	}
-	const ledger = JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8'));
 	const measured = {};
 	for (const [route, budget] of Object.entries(ledger.routes)) measured[route] = measure(budget.html);
 
@@ -326,55 +381,59 @@ function main() {
 			process.stderr.write('route-budget:rebaseline needs --reason "<what grew or shrank, and why>".\n');
 			process.exit(1);
 		}
-		const { changes, refused } = rebaseline(ledger.routes, measured, { raise: args.includes('--raise') });
-		for (const c of refused) {
-			process.stdout.write(`  NOT raised: ${c.route} ${c.metric} ${c.from} -> ${c.to}. A raise needs the owner's OK; with it, re-run with --raise.\n`);
+		if (behindMain()) {
+			process.stderr.write('route-budget:rebaseline: this branch is behind origin/main, so its numbers are stale. Rebase first.\n');
+			process.exit(1);
 		}
+		const { changes, refused } = rebaseline(ledger.routes, measured, { raise: args.includes('--raise'), ceiling: args.includes('--ceiling') });
+		for (const c of refused) process.stdout.write(`  NOT changed: ${c.route} ${c.metric} ${c.from} -> ${c.to}: ${c.why}.\n`);
 		if (!changes.length) {
 			const waiting = pendingFragments().length;
-			process.stdout.write(`route-budget:rebaseline — nothing to reset${waiting ? `; ${waiting} explanation file(s) in docs/route-budget.d/ wait for the next reset` : ''}.\n`);
+			process.stdout.write(`route-budget:rebaseline — nothing to reset${waiting ? `; ${waiting} explanation file(s) wait for the next reset` : ''}.\n`);
 			return;
 		}
 		writeReset(ledger, changes, reason);
-		for (const c of changes) process.stdout.write(`  ${c.route} ${c.metric}: ${c.from} -> ${c.to} (hard ${hardLimit(c.to)})\n`);
-		process.stdout.write('Wrote docs/route-budget.json and docs/route-budget.history.md. Commit both.\n');
+		for (const c of changes) process.stdout.write(`  ${c.route} ${c.metric}: soft ${c.from} -> ${c.to}, ceiling ${c.hardTo}\n`);
+		process.stdout.write('Wrote docs/route-budget.json and docs/route-budget.history.md. Commit both, in a PR of their own.\n');
 		return;
 	}
 
 	const problems = [];
 	const warnings = [];
-	const lines = [`  ${'route'.padEnd(16)} ${'metric'.padEnd(10)} ${'measured'.padStart(9)} ${'soft'.padStart(9)} ${'hard'.padStart(9)}`];
-
+	const lines = [`  ${'route'.padEnd(16)} ${'metric'.padEnd(10)} ${'measured'.padStart(9)} ${'soft'.padStart(9)} ${'ceiling'.padStart(9)}`];
 	for (const [route, budget] of Object.entries(ledger.routes)) {
 		const actual = measured[route];
 		const r = evaluateRoute(route, actual, budget);
 		problems.push(...r.problems);
 		warnings.push(...r.warnings);
 		for (const metric of METRICS) {
-			if (typeof budget[metric] !== 'number') continue;
-			lines.push(
-				`  ${route.padEnd(16)} ${metric.padEnd(10)} ${kb(actual[metric]).padStart(9)} ${kb(budget[metric]).padStart(9)} ${kb(hardLimit(budget[metric])).padStart(9)}`,
-			);
+			const { soft, hard } = budget[metric] ?? {};
+			if (typeof soft !== 'number') continue;
+			lines.push(`  ${route.padEnd(16)} ${metric.padEnd(10)} ${kb(actual[metric]).padStart(9)} ${kb(soft).padStart(9)} ${kb(hard).padStart(9)}`);
 		}
 		lines.push(`  ${route.padEnd(16)} ${'chunks'.padEnd(10)} ${String(actual.chunks).padStart(9)}`);
 	}
 
-	// The per-PR allowance needs `main`'s numbers, which only exist when something built
-	// `main` first: CI does on pull_request (measure-route-base.sh). Without them, say so.
+	// The per-PR allowance needs main's numbers, which exist only when something built main
+	// first: CI does on pull_request (measure-route-base.sh). Without them, say so.
 	const basePath = process.env.ROUTE_BUDGET_BASE_JSON;
+	let allowance = 'per-PR allowance: NOT checked (no main build to compare against; CI checks it on pull requests).';
 	if (basePath && fs.existsSync(basePath)) {
 		const base = JSON.parse(fs.readFileSync(basePath, 'utf8'));
-		const explained = addedFragments(process.env.ROUTE_BUDGET_BASE_SHA || 'origin/main').length > 0;
-		lines.push('', '  per-PR allowance:');
-		for (const route of Object.keys(ledger.routes)) {
-			const r = evaluateAllowance(route, measured[route], base[route], explained);
+		const declared = addedDeclarations(process.env.ROUTE_BUDGET_BASE_SHA || 'origin/main');
+		const rows = [];
+		for (const [route, budget] of Object.entries(ledger.routes)) {
+			const r = evaluateAllowance(route, measured[route], base[route], budget.eagerJsGz?.soft, declared[route] || 0);
 			problems.push(...r.problems);
-			for (const l of r.lines) lines.push(`    ${l}`);
+			rows.push(r.line);
 		}
-		if (explained) lines.push('    growth explained by a docs/route-budget.d/ fragment in this PR');
-	} else {
-		lines.push('', '  per-PR allowance: NOT checked (no main build to compare against; CI checks it on pull requests).');
+		allowance = `per-PR allowance:\n${rows.map((l) => `    ${l}`).join('\n')}`;
 	}
+	lines.push('', `  ${allowance}`);
+	summary(
+		`### Route budget\n\n${problems.length ? `❌ ${problems.length} problem(s)` : '✅ within budget'}\n\n` +
+			`${warnings.map((w) => `- ⚠ ${w}`).join('\n')}\n\n\`\`\`\n${lines.join('\n')}\n\`\`\``,
+	);
 
 	for (const w of warnings) process.stdout.write(`⚠ check:route-budget — ${w}\n`);
 	if (problems.length) {
@@ -383,7 +442,7 @@ function main() {
 		process.stderr.write('\nMeasured:\n' + lines.join('\n') + '\n');
 		process.exit(1);
 	}
-	process.stdout.write(`✓ check:route-budget — ${Object.keys(ledger.routes).length} route(s) under their hard limits.\n`);
+	process.stdout.write(`✓ check:route-budget — ${Object.keys(ledger.routes).length} route(s) under their ceilings.\n`);
 	process.stdout.write(lines.join('\n') + '\n');
 }
 

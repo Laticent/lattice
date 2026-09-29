@@ -1,10 +1,28 @@
 # Route budget history
 
-Every reset of a soft target in `docs/route-budget.json`, newest first. `npm run route-budget:rebaseline -- --reason "…"` writes an entry here and the new number there in one step. It lowers stale targets on its own. **Raising a soft target needs the owner's OK first**, then `--raise`. The rules are in `engineering/decisions/2026-09-29-route-budget-soft-hard.md`.
+Every change to a soft target or a ceiling in `docs/route-budget.json`, newest first. A test holds that file to the newest row here for each route and metric, so a hand edit fails. `npm run route-budget:rebaseline -- --reason "…"` writes the entry and the numbers in one step, in a PR of its own. It lowers stale soft targets on its own. **Raising a soft target (`--raise`) or a ceiling (`--ceiling`) needs the owner's OK first.**
 
-A PR that adds more than 2KB of eager JS to a route explains it in its own file under `docs/route-budget.d/`; each reset folds those files into its entry here. Smaller growth is listed in CI's docs-build log, per route, against `main`.
+A PR may add up to 2KB of eager JS per route over `main` while the route stays at or under its soft target. Every byte above soft is declared in the PR's own file under `docs/route-budget.d/`; each reset folds those files into its entry here, with how much of the raise they declared. The rules are in `engineering/decisions/2026-09-29-route-budget-soft-hard.md`.
 
 <!-- resets: newest first, below this line -->
+
+### 2026-09-29 — the switch to soft targets and ceilings, measured on c924ae4
+
+Owner-approved, after an adversarial review. The measurement now follows static imports, so each route's eager JS includes the React and shared UI chunks its islands import: 183KB gz on home was invisible before. Every eager-JS soft target is reset to that fuller measurement. Every ceiling starts 10% above its soft target (`CEILING_PCT`). HTML soft targets are unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 626300 | 631314 | +5014 | 694445 |
+| studio | htmlRaw | 206840 | 206840 | +0 | 227524 |
+| playground | eagerJsGz | 601850 | 629154 | +27304 | 692069 |
+| playground | htmlRaw | 540430 | 540430 | +0 | 594473 |
+| home | eagerJsGz | 80300 | 261947 | +181647 | 288142 |
+| home | htmlRaw | 101200 | 101200 | +0 | 111320 |
+| components | eagerJsGz | 81400 | 167302 | +85902 | 184032 |
+| components | htmlRaw | 538600 | 538600 | +0 | 592460 |
+| getting-started | eagerJsGz | 76600 | 149548 | +72948 | 164503 |
+| getting-started | htmlRaw | 81000 | 81000 | +0 | 89100 |
+
 
 ### 2026-09-29 — measured on CI's docs-build for 60279f5
 

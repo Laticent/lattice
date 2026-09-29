@@ -1,31 +1,61 @@
 {
-  "_comment": "Per-route payload ledger. Each number is a SOFT target; the HARD limit is soft × 1.03, computed by scripts/check-route-budget.mjs (HARD_HEADROOM_PCT) and not stored here, so a PR cannot widen its own room. Between soft and hard the docs build passes and warns. Past hard it fails (blocking in CI via docs-build). More than 5% under soft it fails as STALE. Each PR may also add at most 2KB of eager JS per route over main (PR_ALLOWANCE_BYTES, measured in CI against a build of the base); past that it adds docs/route-budget.d/<slug>.md. Change a number only with `npm run route-budget:rebaseline -- --reason \"...\"`, which also writes docs/route-budget.history.md; it lowers stale numbers on its own, and raises one only with --raise, after the owner's OK. Why: engineering/decisions/2026-09-29-route-budget-soft-hard.md. Origin of the ledger: engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md §9.7.",
-  "_units": "bytes. eagerJsGz = gzip(level 6) of every /_astro/*.js referenced in the route's HTML. htmlRaw = the HTML document itself.",
+  "_comment": "Per-route payload ledger, enforced by scripts/check-route-budget.mjs at the end of the docs build (blocking in CI via docs-build). Each metric has a SOFT target and a CEILING (hard). Over the ceiling fails; more than 5% under soft fails as STALE. A PR may add up to 2KB of eager JS per route over main while the route stays at or under soft; every byte above soft is declared in the PR's own docs/route-budget.d/<slug>.md (`studio: +N` plus why). Change these numbers only with `npm run route-budget:rebaseline`, which writes docs/route-budget.history.md too; a test holds this file to the newest history row. Raising soft (--raise) or a ceiling (--ceiling) needs the owner's OK. Why: engineering/decisions/2026-09-29-route-budget-soft-hard.md.",
+  "_units": "bytes. eagerJsGz = gzip(level 6) of every /_astro/*.js the route's HTML references plus everything those import statically. htmlRaw = the HTML document itself.",
   "routes": {
     "studio": {
       "html": "studio/index.html",
-      "eagerJsGz": 626300,
-      "htmlRaw": 206840
+      "eagerJsGz": {
+        "soft": 631314,
+        "hard": 694445
+      },
+      "htmlRaw": {
+        "soft": 206840,
+        "hard": 227524
+      }
     },
     "playground": {
       "html": "playground/index.html",
-      "eagerJsGz": 601850,
-      "htmlRaw": 540430
+      "eagerJsGz": {
+        "soft": 629154,
+        "hard": 692069
+      },
+      "htmlRaw": {
+        "soft": 540430,
+        "hard": 594473
+      }
     },
     "home": {
       "html": "index.html",
-      "eagerJsGz": 80300,
-      "htmlRaw": 101200
+      "eagerJsGz": {
+        "soft": 261947,
+        "hard": 288142
+      },
+      "htmlRaw": {
+        "soft": 101200,
+        "hard": 111320
+      }
     },
     "components": {
       "html": "components/index.html",
-      "eagerJsGz": 81400,
-      "htmlRaw": 538600
+      "eagerJsGz": {
+        "soft": 167302,
+        "hard": 184032
+      },
+      "htmlRaw": {
+        "soft": 538600,
+        "hard": 592460
+      }
     },
     "getting-started": {
       "html": "getting-started/index.html",
-      "eagerJsGz": 76600,
-      "htmlRaw": 81000
+      "eagerJsGz": {
+        "soft": 149548,
+        "hard": 164503
+      },
+      "htmlRaw": {
+        "soft": 81000,
+        "hard": 89100
+      }
     }
   }
 }

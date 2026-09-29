@@ -14,177 +14,156 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { evaluateAllowance, evaluateRoute, HARD_HEADROOM_PCT, hardLimit, PR_ALLOWANCE_BYTES, rebaseline } from './check-route-budget.mjs';
+import {
+	CEILING_PCT,
+	ceilingFor,
+	evaluateAllowance,
+	evaluateRoute,
+	freeBytes,
+	newestHistory,
+	PR_ALLOWANCE_BYTES,
+	parseDeclarations,
+	rebaseline,
+} from './check-route-budget.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 const SLACK_PCT = 0.05;
-const HARD_PCT = 0.03;
-const budget = { eagerJsGz: 660_000, htmlRaw: 192_000 };
-const hardJs = hardLimit(budget.eagerJsGz, HARD_PCT); // 679,800
-const ev = (actual) => evaluateRoute('studio', actual, budget, SLACK_PCT, HARD_PCT);
+const budget = { eagerJsGz: { soft: 660_000, hard: 700_000 }, htmlRaw: { soft: 192_000, hard: 200_000 } };
+const ev = (actual) => evaluateRoute('studio', actual, budget, SLACK_PCT);
 
 describe('evaluateRoute', () => {
 	it('passes silently at or under the soft target', () => {
-		expect(ev({ eagerJsGz: 659_000, htmlRaw: 191_000 })).toEqual({ problems: [], warnings: [] });
-		expect(ev({ eagerJsGz: 660_000, htmlRaw: 192_000 })).toEqual({ problems: [], warnings: [] });
+		expect(ev({ eagerJsGz: 660_000, htmlRaw: 191_000 })).toEqual({ problems: [], warnings: [] });
 	});
 
-	it('PASSES with a warning between soft and hard, so a routine PR needs no ledger edit', () => {
-		// This is the contention fix: before 2026-09-29 this measurement failed the build and
-		// forced an edit to the one line every Studio PR shared.
-		const r = ev({ eagerJsGz: 670_000, htmlRaw: 191_000 });
+	it('PASSES with a warning between soft and the ceiling', () => {
+		const r = ev({ eagerJsGz: 680_000, htmlRaw: 191_000 });
 		expect(r.problems).toEqual([]);
-		expect(r.warnings).toHaveLength(1);
 		expect(r.warnings[0]).toMatch(/over its soft target/);
-		expect(r.warnings[0]).toMatch(/left before the hard limit/);
 	});
 
-	it('passes exactly AT the hard limit and fails one byte past it', () => {
-		expect(ev({ eagerJsGz: hardJs, htmlRaw: 191_000 }).problems).toEqual([]);
-		const problems = ev({ eagerJsGz: hardJs + 1, htmlRaw: 191_000 }).problems;
-		expect(problems).toHaveLength(1);
-		expect(problems[0]).toMatch(/EXCEEDS its hard limit/);
-	});
-
-	it('names the owner gate and the reset command when the hard limit is crossed', () => {
-		const [p] = ev({ eagerJsGz: 700_000, htmlRaw: 191_000 }).problems;
+	it('passes exactly AT the ceiling and fails one byte past it, naming the owner', () => {
+		expect(ev({ eagerJsGz: 700_000, htmlRaw: 191_000 }).problems).toEqual([]);
+		const [p] = ev({ eagerJsGz: 700_001, htmlRaw: 191_000 }).problems;
+		expect(p).toMatch(/EXCEEDS its ceiling/);
 		expect(p).toMatch(/owner/);
-		expect(p).toMatch(/route-budget:rebaseline/);
-		expect(p).toMatch(/route-budget\.json/);
 	});
 
-	it('FAILS when the HTML document exceeds its hard limit', () => {
-		const { problems } = ev({ eagerJsGz: 659_000, htmlRaw: 250_000 });
-		expect(problems).toHaveLength(1);
-		expect(problems[0]).toMatch(/htmlRaw/);
-		expect(problems[0]).toMatch(/EXCEEDS/);
+	it('FAILS a stale soft target and names the exact byte value to ratchet to', () => {
+		const [p] = ev({ eagerJsGz: 400_000, htmlRaw: 191_000 }).problems;
+		expect(p).toMatch(/STALE/);
+		expect(p).toMatch(/Ratchet it down to 400000 /);
 	});
 
-	it('derives the hard limit from the soft target, 3% by default', () => {
-		expect(HARD_HEADROOM_PCT).toBe(0.03);
-		expect(hardLimit(637_490)).toBe(637_490 + 19_125);
-		for (const soft of [80_000, 660_000, 5_000_000]) {
-			expect(hardLimit(soft) - soft).toBe(Math.round(soft * 0.03));
-		}
+	it('tolerates churn just inside the stale slack', () => {
+		const got = 660_000 - Math.round(660_000 * SLACK_PCT) + 1;
+		expect(ev({ eagerJsGz: got, htmlRaw: 192_000 })).toEqual({ problems: [], warnings: [] });
 	});
 
-	it('FAILS when a soft target has gone stale-loose, and says to ratchet it down', () => {
-		const { problems } = ev({ eagerJsGz: 400_000, htmlRaw: 191_000 });
-		expect(problems).toHaveLength(1);
-		expect(problems[0]).toMatch(/STALE/);
-		expect(problems[0]).toMatch(/Ratchet it down/);
+	it('reports BOTH metrics when both are past their ceilings', () => {
+		expect(ev({ eagerJsGz: 800_000, htmlRaw: 250_000 }).problems).toHaveLength(2);
+	});
+});
+
+describe('the numbers the owner set', () => {
+	it('starts a ceiling 10% above soft and gives a PR 2KB of free growth', () => {
+		expect(CEILING_PCT).toBe(0.1);
+		expect(ceilingFor(631_314)).toBe(631_314 + 63_131);
+		expect(PR_ALLOWANCE_BYTES).toBe(2048);
+	});
+});
+
+describe('per-PR allowance', () => {
+	it('is free only while the route stays at or under soft', () => {
+		expect(freeBytes(600_000, 700_000)).toBe(2048); // far under soft
+		expect(freeBytes(699_000, 700_000)).toBe(1000); // only the part up to soft
+		expect(freeBytes(710_000, 700_000)).toBe(0); // already over soft: nothing is free
 	});
 
-	it('tolerates ordinary churn just inside the slack below soft', () => {
-		const actual = {
-			eagerJsGz: budget.eagerJsGz - Math.round(budget.eagerJsGz * SLACK_PCT) + 1,
-			htmlRaw: budget.htmlRaw - Math.round(budget.htmlRaw * SLACK_PCT) + 1,
-		};
-		expect(ev(actual)).toEqual({ problems: [], warnings: [] });
+	it('passes growth inside the free bytes without a declaration', () => {
+		expect(evaluateAllowance('studio', { eagerJsGz: 602_048 }, { eagerJsGz: 600_000 }, 700_000).problems).toEqual([]);
 	});
 
-	it("scales the stale band with the budget, so a big route is not held to a small one's tolerance", () => {
-		// 4% under is inside the band at any size; 6% under is outside it at any size.
-		for (const cap of [100_000, 660_000, 5_000_000]) {
-			const b = { eagerJsGz: cap, htmlRaw: cap };
-			expect(evaluateRoute('r', { eagerJsGz: Math.round(cap * 0.96), htmlRaw: cap }, b, SLACK_PCT).problems).toEqual([]);
-			expect(evaluateRoute('r', { eagerJsGz: Math.round(cap * 0.94), htmlRaw: cap }, b, SLACK_PCT).problems[0]).toMatch(/STALE/);
-		}
+	it('FAILS one byte past the free bytes, and names the exact line to declare', () => {
+		const [p] = evaluateAllowance('studio', { eagerJsGz: 602_049 }, { eagerJsGz: 600_000 }, 700_000).problems;
+		expect(p).toMatch(/`studio: \+1`/);
 	});
 
-	it('the ratchet instruction names an EXACT byte value, not a rounded one', () => {
-		// `600.0KB` written back into the ledger would fail on the very next run.
-		expect(ev({ eagerJsGz: 400_000, htmlRaw: 191_000 }).problems[0]).toMatch(/Ratchet it down to 400000 /);
+	it('charges EVERY byte once the route is over soft (the red team\'s 2KB-at-a-time fill)', () => {
+		const [p] = evaluateAllowance('studio', { eagerJsGz: 710_500 }, { eagerJsGz: 710_000 }, 700_000).problems;
+		expect(p).toMatch(/`studio: \+500`/);
 	});
 
-	it('reports BOTH metrics when both drift', () => {
-		expect(ev({ eagerJsGz: 700_000, htmlRaw: 250_000 }).problems).toHaveLength(2);
+	it('passes when the declaration covers what is owed, and not when it falls short', () => {
+		const args = ['studio', { eagerJsGz: 610_000 }, { eagerJsGz: 600_000 }, 700_000];
+		expect(evaluateAllowance(...args, 7_952).problems).toEqual([]);
+		expect(evaluateAllowance(...args, 7_951).problems).toHaveLength(1);
+	});
+
+	it('never fails a PR that shrinks the route', () => {
+		expect(evaluateAllowance('studio', { eagerJsGz: 590_000 }, { eagerJsGz: 600_000 }, 700_000).problems).toEqual([]);
+	});
+});
+
+describe('parseDeclarations', () => {
+	it('reads per-route byte lines and needs a reason besides them', () => {
+		expect(parseDeclarations('studio: +5123\nhome: +40\nThe card-tag rows ship eager.')).toEqual({ studio: 5123, home: 40 });
+		expect(parseDeclarations('- `studio: +10`\n- `studio: +5`\nTwo features.')).toEqual({ studio: 15 });
+	});
+
+	it('gives a bare rubber stamp nothing: no reason, or no numbers', () => {
+		expect(parseDeclarations('studio: +99999')).toEqual({});
+		expect(parseDeclarations('x')).toEqual({});
 	});
 });
 
 describe('rebaseline', () => {
-	const routes = { studio: { html: 's', eagerJsGz: 660_000, htmlRaw: 192_000 }, home: { html: 'h', eagerJsGz: 80_000, htmlRaw: 100_000 } };
-
-	const measured = {
-		studio: { eagerJsGz: 670_000, htmlRaw: 190_000 }, // over soft; inside the stale band
-		home: { eagerJsGz: 70_000, htmlRaw: 100_000 }, // stale; exactly soft
+	const routes = {
+		studio: { html: 's', eagerJsGz: { soft: 660_000, hard: 700_000 }, htmlRaw: { soft: 192_000, hard: 200_000 } },
+		home: { html: 'h', eagerJsGz: { soft: 80_000, hard: 88_000 }, htmlRaw: { soft: 100_000, hard: 110_000 } },
 	};
 
-	it('lowers a stale target without --raise, and REFUSES the raise it would otherwise make', () => {
-		// A routine stale-lowering run must not also raise a metric that happens to sit in
-		// its warning band: raising needs the owner's OK.
-		expect(rebaseline(routes, measured, { slackPct: SLACK_PCT })).toEqual({
-			changes: [{ route: 'home', metric: 'eagerJsGz', from: 80_000, to: 70_000 }],
-			refused: [{ route: 'studio', metric: 'eagerJsGz', from: 660_000, to: 670_000 }],
-		});
+	it('lowers a stale target on its own and refuses a raise without --raise', () => {
+		const measured = { studio: { eagerJsGz: 670_000, htmlRaw: 190_000 }, home: { eagerJsGz: 70_000, htmlRaw: 100_000 } };
+		const { changes, refused } = rebaseline(routes, measured, { slackPct: SLACK_PCT });
+		expect(changes).toEqual([{ route: 'home', metric: 'eagerJsGz', from: 80_000, to: 70_000, hardFrom: 88_000, hardTo: 88_000 }]);
+		expect(refused.map((c) => `${c.route}.${c.metric}`)).toEqual(['studio.eagerJsGz']);
 	});
 
-	it('applies the raise with --raise, and still leaves quiet metrics alone', () => {
-		expect(rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true })).toEqual({
-			changes: [
-				{ route: 'studio', metric: 'eagerJsGz', from: 660_000, to: 670_000 },
-				{ route: 'home', metric: 'eagerJsGz', from: 80_000, to: 70_000 },
-			],
-			refused: [],
-		});
-	});
-
-	it('changes nothing when every route is inside its range', () => {
-		const quiet = { studio: { eagerJsGz: 650_000, htmlRaw: 192_000 }, home: { eagerJsGz: 80_000, htmlRaw: 99_000 } };
-		expect(rebaseline(routes, quiet, { slackPct: SLACK_PCT, raise: true })).toEqual({ changes: [], refused: [] });
-	});
-});
-
-describe('evaluateAllowance (per-PR growth vs main)', () => {
-	const base = { eagerJsGz: 600_000 };
-
-	it('is 2KB, the number the owner set', () => {
-		expect(PR_ALLOWANCE_BYTES).toBe(2048);
-	});
-
-	it('passes growth up to the allowance, inclusive, and reports the delta', () => {
-		const r = evaluateAllowance('studio', { eagerJsGz: 602_048 }, base, false);
-		expect(r.problems).toEqual([]);
-		expect(r.lines[0]).toMatch(/\+2048 bytes vs main/);
-	});
-
-	it('FAILS one byte past the allowance when the PR adds no explanation file', () => {
-		const [p] = evaluateAllowance('studio', { eagerJsGz: 602_049 }, base, false).problems;
-		expect(p).toMatch(/over the per-PR allowance of 2048/);
-		expect(p).toMatch(/route-budget\.d\/<slug>\.md/);
-	});
-
-	it('passes the same growth when the PR adds an explanation file', () => {
-		expect(evaluateAllowance('studio', { eagerJsGz: 610_000 }, base, true).problems).toEqual([]);
-	});
-
-	it('never fails a PR that shrinks the route', () => {
-		const r = evaluateAllowance('studio', { eagerJsGz: 590_000 }, base, false);
-		expect(r.problems).toEqual([]);
-		expect(r.lines[0]).toMatch(/-10000 bytes/);
-	});
-
-	it('checks nothing when main has no number for the route (a route this PR adds)', () => {
-		expect(evaluateAllowance('new-route', { eagerJsGz: 50_000 }, undefined, false)).toEqual({ problems: [], lines: [] });
+	it('raises soft with --raise but never past the ceiling without --ceiling', () => {
+		const measured = { studio: { eagerJsGz: 710_000, htmlRaw: 192_000 }, home: { eagerJsGz: 80_000, htmlRaw: 100_000 } };
+		expect(rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true }).changes).toEqual([]);
+		const { changes } = rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true, ceiling: true });
+		expect(changes).toEqual([{ route: 'studio', metric: 'eagerJsGz', from: 660_000, to: 710_000, hardFrom: 700_000, hardTo: ceilingFor(710_000) }]);
 	});
 });
 
 describe('route-budget.json', () => {
 	const ledger = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'route-budget.json'), 'utf8'));
+	const history = fs.readFileSync(path.join(HERE, '..', 'route-budget.history.md'), 'utf8');
 
-	it('stores soft targets only — no hard limit a PR could raise by hand, and no per-route notes', () => {
-		// Notes lived here as strings every raise prepended to; two PRs in flight always
-		// conflicted on them. History lives in route-budget.history.md now.
+	it('holds a soft target and a ceiling per metric, and nothing else', () => {
 		for (const [name, r] of Object.entries(ledger.routes)) {
 			expect(Object.keys(r).sort(), name).toEqual(['eagerJsGz', 'html', 'htmlRaw']);
+			for (const metric of ['eagerJsGz', 'htmlRaw']) {
+				expect(Object.keys(r[metric]).sort(), `${name}.${metric}`).toEqual(['hard', 'soft']);
+				expect(r[metric].hard, `${name}.${metric} ceiling`).toBeGreaterThanOrEqual(r[metric].soft);
+			}
 		}
 	});
 
-	it('keeps the reset anchor in the history file', () => {
-		const history = fs.readFileSync(path.join(HERE, '..', 'route-budget.history.md'), 'utf8');
-		expect(history).toContain('<!-- resets: newest first, below this line -->');
+	it('matches the newest history row for every route and metric, so a hand edit fails', () => {
+		// The red team raised a soft target by hand and the gate passed: hard followed soft,
+		// and nothing tied the number to a recorded reset. Now every number must be the
+		// newest row that `route-budget:rebaseline` wrote.
+		const newest = newestHistory(history);
+		for (const [name, r] of Object.entries(ledger.routes)) {
+			for (const metric of ['eagerJsGz', 'htmlRaw']) {
+				expect(r[metric], `${name}.${metric} vs route-budget.history.md`).toEqual(newest[`${name}.${metric}`]);
+			}
+		}
 	});
 });
 
@@ -251,7 +230,7 @@ describe('ledger coverage of the perf-nightly url list', () => {
 		// A route entry carrying neither metric passes vacuously — evaluateRoute skips a
 		// metric with no numeric budget — so it would read as covered while gating nothing.
 		for (const [name, r] of Object.entries(ledger.routes)) {
-			expect(typeof r.eagerJsGz === 'number' || typeof r.htmlRaw === 'number', `${name} has no budget`).toBe(true);
+			expect(typeof r.eagerJsGz?.soft === 'number' || typeof r.htmlRaw?.soft === 'number', `${name} has no budget`).toBe(true);
 		}
 	});
 });

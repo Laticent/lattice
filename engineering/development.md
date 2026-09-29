@@ -917,15 +917,13 @@ locally from `docs/`:
   (`decisions/2026-09-02-alarm-channel-saturation.md`). Read the split as: the nightly
   watches what only a browser can see (LCP, CLS, TBT, score), the ledger watches bytes.
   Do not add a bytes metric back to `perf-regression.mjs`; add a route to the ledger.
-  **Each ledger number is a SOFT target; the HARD limit is soft + 3%**, computed in the
-  script. Between the two the build passes and prints the room left, so a routine PR
-  does not edit the ledger. Past hard it fails: give the bytes back, or get the owner's
-  OK and run `npm run route-budget:rebaseline -- --raise --reason "…"` in `docs/`, which
-  rewrites the number and adds an entry to `docs/route-budget.history.md`; without `--raise`
-  it only lowers stale targets. **Each PR may also add at most 2KB of eager JS per route
-  over `main`**; past that it adds `docs/route-budget.d/<slug>.md` saying why. CI measures
-  the growth by building the base (`docs/scripts/measure-route-base.sh`, about a minute);
-  a local `check:route-budget` reports it as not checked
+  **Each route has a soft target and a ceiling.** Past the ceiling the build fails.
+  A PR may add up to 2KB of eager JS per route over `main` while the route stays at or
+  under soft; every byte above soft is declared in the PR's own
+  `docs/route-budget.d/<slug>.md` (`studio: +N` plus why). CI measures the growth by
+  building the base (`docs/scripts/measure-route-base.sh`, about a minute); a local
+  `check:route-budget` reports it as not checked. Numbers move only through
+  `npm run route-budget:rebaseline` in its own PR, and raising one needs the owner's OK
   (`decisions/2026-09-29-route-budget-soft-hard.md`).
 
 These live in `docs/package.json` (a separate package), so they are **not** in
