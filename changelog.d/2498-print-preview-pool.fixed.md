@@ -7,3 +7,8 @@
   stage now uses the theme's `--surface-inverse`, the surface the landing page's hero preview
   already uses, so it matches the Studio chrome instead of showing a navy panel no theme but
   indaco uses.
+- **Fixed: the Print deck preview stage is sized to the paper.** It was a fixed 180px tall, so the
+  sheet showed at 264×160 at every width, with dark bands either side, and a portrait sheet shrank
+  to about 100px wide. The stage now takes its height from the paper's proportions, so a landscape
+  sheet fills the drawer's width (367×223 on desktop), and a portrait sheet is capped at 420px or
+  55% of the screen's height.
