@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import { loadCalibration, recordObservation, resetCalibration } from '@/playground/readaloud-calibration';
-import { bakeClipKeys, GUIDE_LEAD_MAX_MS, GUIDE_LEAD_MS, GUIDE_SETTLE_MS, guideLeadFor, previewTtsVoice, SYNC_LEAD_MS, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
+import { bakeClipKeys, GUIDE_LEAD_MAX_MS, GUIDE_LEAD_MS, GUIDE_SETTLE_MS, guideCueFor, guideLeadFor, previewTtsVoice, SYNC_LEAD_MS, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
 
 // The audio backend is now a Suono stage + sequence (not voice.speak). Two stubs:
 //   • the voice model — SYNTHESIZES bytes (synthOne, fed to the sequence's produce, never invoked
@@ -683,8 +683,12 @@ describe('the bake seam hands the voice model exactly the identity it was given'
 });
 
 describe('guideLeadFor — the lead from measured paint delays', () => {
-	it('starts at the default before anything is measured', () => {
+	it('starts at the default, and keeps it until three sentences are measured', () => {
 		expect(guideLeadFor([])).toBe(GUIDE_LEAD_MS);
+		// One cold first frame must not set the lead outright.
+		expect(guideLeadFor([250])).toBe(GUIDE_LEAD_MS);
+		expect(guideLeadFor([250, 250])).toBe(GUIDE_LEAD_MS);
+		expect(guideLeadFor([250, 250, 250])).toBe(GUIDE_LEAD_MAX_MS);
 	});
 	it('is the median delay plus the fade\'s settle, so one slow frame does not swing it', () => {
 		expect(guideLeadFor([20, 20, 20, 400])).toBe(20 + GUIDE_SETTLE_MS);
@@ -693,5 +697,22 @@ describe('guideLeadFor — the lead from measured paint delays', () => {
 	it('never drops under the settle, and is capped above', () => {
 		expect(guideLeadFor([0, 0, 0])).toBe(GUIDE_SETTLE_MS);
 		expect(guideLeadFor([900, 900, 900])).toBe(GUIDE_LEAD_MAX_MS);
+	});
+});
+
+describe('guideCueFor — the sentence the Guide is on', () => {
+	const cues = [{ startMs: 0 }, { startMs: 1000 }, { startMs: 2000 }];
+	it('is the reader\'s cue, or the next once its start is within the lead', () => {
+		expect(guideCueFor(0, -1, cues, 500, 120)).toBe(0);
+		expect(guideCueFor(0, 0, cues, 890, 120)).toBe(1);
+		expect(guideCueFor(-1, 1, cues, 890, 120)).toBe(-1);
+	});
+	it('does not step back when a late onset moves the next cue\'s start later', () => {
+		// The Guide went to cue 1 on its estimate; the real onset landed later, and cue 1 now starts at 1200.
+		const late = [{ startMs: 0 }, { startMs: 1200 }, { startMs: 2200 }];
+		expect(guideCueFor(0, 1, late, 900, 120)).toBe(1);
+	});
+	it('follows the reader back on a real seek', () => {
+		expect(guideCueFor(0, 2, cues, 100, 120)).toBe(0);
 	});
 });

@@ -68,10 +68,31 @@ export const GUIDE_SETTLE_MS = 70;
 export const GUIDE_LEAD_MAX_MS = 300;
 /** How many recent sentences the median is taken over. */
 export const GUIDE_LAG_WINDOW = 8;
+/** How many samples before the measured lead replaces GUIDE_LEAD_MS. */
+export const GUIDE_MIN_SAMPLES = 3;
+
+/**
+ * The cue the Guide is on: the reader's `active` cue, or a later one whose start is within `leadMs`
+ * of the reader's clock; -1 while the reader shows nothing. `held` is the Guide's cue a frame ago.
+ *
+ * NEVER BACK A SENTENCE IN PLAY. The lead is taken against the next cue's ESTIMATED start; when its
+ * clip's real onset lands later (`reader.align`), the estimate moves back and the Guide would step
+ * k+1 → k → k+1, retargeting the focus twice (checker, 2026-09-29). So the Guide holds its cue while
+ * the reader is on it or the one before it; a real jump back (a seek) leaves the reader two or more
+ * cues behind, and the Guide follows it.
+ */
+export function guideCueFor(active: number, held: number, cues: readonly { startMs: number }[], elapsedMs: number, leadMs: number): number {
+	if (active < 0) return -1;
+	let lead = active;
+	while (lead + 1 < cues.length && (cues[lead + 1]?.startMs ?? Infinity) <= elapsedMs + leadMs) lead++;
+	return held > lead && active >= held - 1 && held < cues.length ? held : lead;
+}
 
 /** The Guide's lead for these measured delays (ms from the Guide's tick to its painted frame). */
 export function guideLeadFor(lags: readonly number[]): number {
-	if (!lags.length) return GUIDE_LEAD_MS;
+	// Three samples before the default gives way: a session's first beat is its coldest (the JIT, the
+	// fonts, the first plan), and one slow frame must not set the lead outright (checker, 2026-09-29).
+	if (lags.length < GUIDE_MIN_SAMPLES) return GUIDE_LEAD_MS;
 	const sorted = [...lags].sort((a, b) => a - b);
 	const mid = sorted.length >> 1;
 	const median = sorted.length % 2 ? (sorted[mid] as number) : ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
@@ -408,8 +429,13 @@ export function useReadAloud(
 	const guideCueAtRef = React.useRef(0);
 	const guideLagsRef = React.useRef<number[]>([]);
 	const guideLeadRef = React.useRef(GUIDE_LEAD_MS);
+	// The cue last sampled: one sample per cue, the one its arrival produced. A later beat on the same
+	// cue (a pause and resume, the Guide turned on mid-sentence) measures wall time, not rendering.
+	const guideSampledRef = React.useRef(-1);
 	const reportGuidePaint = React.useCallback((cue: number, paintedAt: number) => {
 		if (cue < 0 || cue !== guideCueRef.current) return; // a later cue already moved on
+		if (guideSampledRef.current === cue) return;
+		guideSampledRef.current = cue;
 		const lag = paintedAt - guideCueAtRef.current;
 		if (!(lag >= 0 && lag < 1000)) return; // a backgrounded tab, a clock mixup: not a render delay
 		const lags = guideLagsRef.current;
@@ -549,6 +575,7 @@ export function useReadAloud(
 		readerRef.current?.reset();
 		setActive(null);
 		guideCueRef.current = -1;
+		guideSampledRef.current = -1;
 		setGuideCue(-1);
 		setProgress(0);
 		setPlaying(false);
@@ -604,6 +631,7 @@ export function useReadAloud(
 				setPlaying(false);
 				setActive(null);
 				guideCueRef.current = -1;
+				guideSampledRef.current = -1;
 				setGuideCue(-1);
 				onFinishRef.current?.();
 			},
@@ -634,6 +662,7 @@ export function useReadAloud(
 			setPlaying(false);
 			setActive(null);
 			guideCueRef.current = -1;
+			guideSampledRef.current = -1;
 			setGuideCue(-1);
 			lastProgressRef.current = 0; // the quantizer's reference follows the state it mirrors
 			setProgress(0);
@@ -680,11 +709,7 @@ export function useReadAloud(
 		const activeNow = reader.sync(elapsedRef.current);
 		// THE GUIDE'S LEAD. Never further ahead of the reader's clock than the Guide's lead (calibrated,
 		// `guideLeadFor`), never behind the reader, and nothing while the reader shows nothing.
-		let lead = activeNow?.cueIndex ?? -1;
-		if (lead >= 0) {
-			const cues = reader.trackNow().cues;
-			while (lead + 1 < cues.length && (cues[lead + 1]?.startMs ?? Infinity) <= elapsedRef.current + guideLeadRef.current) lead++;
-		}
+		const lead = guideCueFor(activeNow?.cueIndex ?? -1, guideCueRef.current, reader.trackNow().cues, elapsedRef.current, guideLeadRef.current);
 		if (lead !== guideCueRef.current) {
 			guideCueRef.current = lead;
 			guideCueAtRef.current = now;

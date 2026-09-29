@@ -1336,11 +1336,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// While a bookend (greeting, closing) speaks, the text being read is not the slide's, so the
 		// slide's binding does not apply.
 		const scene = !bookend && narration.refs && style ? { refs: narration.refs, at: cueAt, style } : null;
+		const before = guide.aimed();
 		guide.beat({ slide: narration.idx, cue: activeCue, texts: reader.track.cues.map(cueDisplayText), track: reader.track, delivering: guideDelivering, delivery, scene });
-		// THE LEAD'S CALIBRATION: the frame this beat's focus paints in, reported back to the reader, which
-		// sizes the lead from how long this device takes to get there (read-aloud.ts `guideLeadFor`).
-		if (!guideDelivering || activeCue < 0) return;
-		const raf = requestAnimationFrame((paintedAt) => reader.reportGuidePaint(activeCue, paintedAt));
+		// THE LEAD'S CALIBRATION: when this beat's focus reached the screen, reported back to the reader,
+		// which sizes the lead from how long this device takes to get there (read-aloud.ts `guideLeadFor`).
+		// Only a beat that MOVED the focus is a sample: a rest changes nothing on screen and would pull
+		// the median toward React's commit alone. Two frames: the first frame's callback runs before its
+		// paint, the second's after it, so the style, layout and paint of the swap are inside the sample.
+		if (!guideDelivering || activeCue < 0 || guide.aimed() === before) return;
+		let raf = requestAnimationFrame(() => {
+			raf = requestAnimationFrame((paintedAt) => reader.reportGuidePaint(activeCue, paintedAt));
+		});
 		return () => cancelAnimationFrame(raf);
 	}, [guideBeat, guideLive, guideRoot]);
 

@@ -114,3 +114,57 @@ test('a delivery: chart deck exports its binding, and the player focuses the sta
 	);
 	expect(errors).toEqual([]);
 });
+
+const GUIDED_PROSE = `---
+marp: true
+theme: indaco
+pace: brisk
+delivery: restrained
+---
+
+## What we are asking for.
+
+- Approve the Q4 hiring plan.
+- Fund the data platform migration.
+- Close the SMB pilot.
+`;
+
+// PROSE BINDS TOO (storyboards step 4). The narration builder records which bullet each sentence was
+// read from, the Studio's export carries it, and the player focuses THAT bullet as its sentence is
+// read, from the binding rather than by matching words. Checked per sentence against the caption.
+test('a prose deck exports its bullet bindings, and the player focuses each bullet as it is read', async ({ page, context }, testInfo) => {
+	await gotoStudio(page);
+	await setEditorContent(page, GUIDED_PROSE);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await page.getByRole('button', { name: /Webpage/ }).click();
+	const captions = page.getByRole('switch', { name: 'Include captions' });
+	await expect(captions).toBeVisible();
+	if ((await captions.getAttribute('aria-checked')) !== 'true') await captions.click();
+	const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 180000 }), page.getByRole('button', { name: /Download webpage/ }).click()]);
+	const file = testInfo.outputPath('guided-prose.html');
+	await dl.saveAs(file);
+	const html = fs.readFileSync(file, 'utf8');
+	expect(html, 'the export carries the prose binding').toMatch(/"refs":\[\[/);
+	expect(html).toContain('"unit":"item"');
+
+	await context.setOffline(true);
+	const p = await context.newPage();
+	const errors: string[] = [];
+	p.on('pageerror', (e) => errors.push(e.message));
+	await p.goto(`file://${file}`);
+	await p.waitForSelector('#lp-play');
+	await p.click('#lp-play');
+	// Each bullet in turn: focused while its own sentence is the caption, its siblings receded.
+	for (const item of ['Approve the Q4 hiring plan', 'Fund the data platform migration', 'Close the SMB pilot']) {
+		await p.waitForFunction(
+			(want) => {
+				const on = [...document.querySelectorAll('.lp-frame.lp-active li.lat-guide-undim')].filter((li) => !li.classList.contains('lat-guide-dim'));
+				const dim = document.querySelectorAll('.lp-frame.lp-active li.lat-guide-dim').length;
+				return on.length === 1 && (on[0]?.textContent ?? '').includes(want) && dim === 2;
+			},
+			item,
+			{ timeout: 20000 },
+		);
+	}
+	expect(errors).toEqual([]);
+});
