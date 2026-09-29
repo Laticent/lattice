@@ -49,7 +49,7 @@ describe('the plugin scaffold', () => {
       manifest: JSON.parse(fs.readFileSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.manifest.json`), 'utf8')),
       exports: {
         rules: Object.keys(p.syntax), renderers: Object.keys(p.renderers), fences: Object.keys(p.fenceRenderers),
-        detect: Boolean(p.detect), hasHydrate: p.hydrate, hasStyles: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`)),
+        detect: Boolean(p.detect), hasHydrate: p.hydrate, hasBake: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.bake.js`)), hasStyles: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`)),
         stylesSource: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`)) ? fs.readFileSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`), 'utf8') : '',
       },
     }));
@@ -91,7 +91,8 @@ describe('packages new plugin — the command', () => {
     assert.match(nameRefusal('math', taken), /already exists/);
     assert.match(nameRefusal('latticeplot', taken), /already a fence/);
     assert.match(nameRefusal('json', taken), /code language/);
-    assert.match(nameRefusal('mermaid', { ...taken, hostReserved: new Set(['mermaid']) }), /the engine itself renders/);
+    // `mermaid` is the mermaid plugin's own fence since phase D, so the real command refuses it as one.
+    assert.match(nameRefusal('mermaid', { ...taken, plugins: [...taken.plugins, 'mermaid'], fences: [...taken.fences, 'mermaid'] }), /already exists/);
     assert.match(nameRefusal(`a${'b'.repeat(64)}`, taken), /at most 64 characters/);
     assert.equal(nameRefusal('zz-scaffold-probe', taken), null);
   });

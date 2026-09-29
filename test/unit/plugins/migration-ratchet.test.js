@@ -34,8 +34,11 @@ describe('checkPluginMigration', () => {
   });
 
   test('the copy counts what the live tree counts', () => {
+    // The two counts the copy holds everything for; `drawnFenceClasses` reads consumers the copy
+    // leaves out (lib/runtime, docs/src), so it has its own arm below.
     const { fenceWrappers, pluginTokenNames } = pluginMigrationCounts(tmp);
-    assert.deepEqual({ fenceWrappers, pluginTokenNames }, { ...PLUGIN_MIGRATION_BUDGET });
+    const { drawnFenceClasses: _live, ...expected } = PLUGIN_MIGRATION_BUDGET;
+    assert.deepEqual({ fenceWrappers, pluginTokenNames }, expected);
   });
 
   test('OVER budget: code outside lib/plugins that hand-names a plugin token fails, naming the file', () => {
@@ -74,6 +77,23 @@ describe('checkPluginMigration', () => {
     fs.writeFileSync(planted, '// the math_block token\n/* and math_inline */\nconst x = 1;\n');
     try {
       assert.equal(pluginMigrationCounts(tmp).pluginTokenNames, 0);
+    } finally {
+      fs.rmSync(planted);
+    }
+  });
+
+  test('a runtime-drawn fence named by its code class outside lib/plugins counts; a comment or a longer class does not', () => {
+    // The copy holds no consumer, so its baseline is 0 whatever the live tree's budget is.
+    assert.equal(pluginMigrationCounts(tmp).drawnFenceClasses, 0);
+    const planted = path.join(tmp, 'lib/core/planted.js');
+    fs.writeFileSync(planted, "const sel = 'code.language-mermaid';\n// language-mermaid in prose\nconst other = 'language-mermaid-source';\n");
+    try {
+      const { drawnFenceClasses, drawnHits } = pluginMigrationCounts(tmp);
+      assert.equal(drawnFenceClasses, 1);
+      assert.deepEqual(drawnHits, ['lib/core/planted.js: language-mermaid']);
+      const errors = [];
+      checkPluginMigration(errors, { ...PLUGIN_MIGRATION_BUDGET, drawnFenceClasses: 0 }, tmp);
+      assert.ok(errors.some((e) => /drawnFenceClasses is 1, over its budget of 0/.test(e)), errors.join('\n'));
     } finally {
       fs.rmSync(planted);
     }

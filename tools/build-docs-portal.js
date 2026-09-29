@@ -1126,13 +1126,10 @@ const STATE_MARKER_COMPONENTS = ['checklist', 'verdict-grid', 'obligation-matrix
 // an LFM-unaware renderer. DERIVED from the plugin packages (lib/plugins/) that
 // render them — `sublanguage` is the plugin, `usedBy` the components whose
 // manifests declare it — so a new fence plugin reaches grammar.json without an
-// edit here. Mermaid is the one fence that is not a plugin yet (plugin-system
-// phase D), so its row is still written by hand.
+// edit here. Mermaid's row is derived like the rest since plugin-system phase D.
 function renderFences(manifests) {
   const { PLUGIN_GRAMMAR } = require('../lib/plugins/grammar.generated.mjs');
-  const fences = {
-    mermaid: { sublanguage: 'mermaid', body: 'mermaid', usedBy: ['diagram'], degradesTo: 'code-block' },
-  };
+  const fences = {};
   for (const plugin of PLUGIN_GRAMMAR) {
     const usedBy = manifests
       .filter((m) => [...(m.plugins?.requires || []), ...(m.plugins?.optional || [])].includes(plugin.name))

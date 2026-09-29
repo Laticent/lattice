@@ -8,9 +8,10 @@ are `engineering/decisions/2026-09-27-plugin-system.md`; the contract a plugin i
 `lattice packages new plugin <name>`, which writes a folder that builds and passes the harness.
 
 **Shipped plugins:** `math` (`$…$`, `$$…$$`, ` ```math `; the `math` slide class requires it),
-`function-plot` (` ```functionplot `, drawn in the browser; `math` lists it as optional) and `anima`
-(` ```anima `; the `scene` slide class requires it). Mermaid and the chart family move here next,
-one phase at a time.
+`function-plot` (` ```functionplot `, drawn in the browser; `math` lists it as optional), `anima`
+(` ```anima `; the `scene` slide class requires it) and `mermaid` (` ```mermaid `, drawn by the
+runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it). The chart
+family moves here next.
 
 ## A plugin is a folder
 
@@ -22,6 +23,7 @@ lib/plugins/<name>/
   <name>.syntax.mjs       the GRAMMAR: markdown-it rules + detect(source). Pure; no library imports
   <name>.render.js        the RENDERERS: what each token and fence becomes. May load a library (math loads KaTeX)
   <name>.hydrate.js       the BROWSER half: hydrate(el, ctx) draws one placeholder. Self-contained
+  <name>.bake.js          the CLI half: bake(source, ctx) draws the figures into the Markdown. Node-side
   <name>.styles.css       token-only CSS, bundled into the plugin slot of dist/lattice.css
 ```
 
@@ -69,9 +71,29 @@ plugin's renderer, and everything else to the renderer that was there before. It
 wrapper chain, where each fence plugin wrapped the previous rule and registration order decided who
 won. A fence renderer is `(token, ctx, env) → string`, `token.content` the body; a fence with a
 browser half returns `<div class="…" ${ctx.hydrateAttrs(token.content)}></div>`. A name two plugins
-claim, or one a code language owns (every highlight.js name and alias, and `mermaid`), fails the
-build. A deprecated alias still renders and reports `<name>/deprecated-alias`, which the manifest
+claim, or one a code language owns (every highlight.js name and alias), fails the build. A deprecated alias still renders and reports `<name>/deprecated-alias`, which the manifest
 must declare. A fence counts as use: the host derives a plugin's `detect` probe from its fence names.
+
+## A fence rendered as code, and the bake
+
+Mermaid's fence is declared `as: "code"`: the plugin owns the name (no other plugin may claim it,
+and it counts as use), but the engine renders it as the highlighted code block it always was —
+the host leaves it to the fence renderer installed before the table, so it has no renderer and no
+aliases. The plugin draws it later, in two places:
+
+- **In a browser, the runtime draws it** (`render.exec.hydrate: "runtime"`): the runtime's own
+  diagram pass, not a `<name>.hydrate.js`. `drawn.generated.mjs` lists these fences, so a surface
+  that must tell "this render still owes a drawing" reads the registry instead of naming Mermaid.
+- **On the CLI, its bake draws it** (`contributes.bake`, `render.exec.bake: "subprocess"`):
+  `<name>.bake.js` exports `bake(source, ctx)`, and `host-bake.js` runs every active plugin's bake,
+  in dependency order, over the deck's Markdown before the engine renders — only for a deck that
+  uses the plugin. `ctx` is frozen: the export's services (the palette reader, the Chromium to
+  use, the deck's orientation, …; `mermaid.bake.js` lists them) plus `name` and a fresh `state` the
+  caller reads back. On the CLI a bake that throws or returns no text fails the export, naming the
+plugin (`strict`); a single diagram Mermaid rejects is degraded inside the bake, as before.
+
+The resolver requires the bake of any plugin the runtime draws: the CLI export page carries no
+runtime, so nothing else would draw it there.
 
 ## The browser half: hydrate and the settle state
 
@@ -158,7 +180,7 @@ is exercised by some case. `npm run test:plugins` runs the harness and the resol
 
 ## The build
 
-`tools/build-plugin-registry.js` (a `npm run build` step) resolves every plugin and writes two
+`tools/build-plugin-registry.js` (a `npm run build` step) resolves every plugin and writes its
 committed files — never edit them:
 
 - `grammar.generated.mjs` — manifests + grammar, in dependency order (ESM; no renderer library)
@@ -167,6 +189,8 @@ committed files — never edit them:
   (it ships in the Studio's startup JavaScript, so it skips the generic host)
 - `hydrate.generated.js` — each browser half and the library it waits for (the runtime bundles it)
 - `styles.generated.js` — the stylesheets, in dependency order, for `tools/build-css.js`
+- `bake.generated.js` — each Node-side bake, required lazily (`host-bake.js` runs them)
+- `drawn.generated.mjs` — the code fences a browser runtime draws (plain data)
 
 The resolver also holds the manifest to the files for the phase-B contributions: a declared fence
 has a renderer and no renderer is undeclared, `hydrate` ⇔ a self-contained `<name>.hydrate.js`,
@@ -174,4 +198,6 @@ has a renderer and no renderer is undeclared, `hydrate` ⇔ a self-contained `<n
 
 `npm run build:check` fails when they are stale, and `checkPluginMigration` in
 `tools/check-ownership.js` fails when code outside `lib/plugins` hand-names a plugin's token, or a
-fence wrapper re-grows in `lib/integrations/markdown-it/plugins.js` (budget 0 since phase B).
+fence wrapper re-grows in `lib/integrations/markdown-it/plugins.js` (budget 0 since phase B), and
+counts the `language-<fence>` rosters that still name a runtime-drawn fence (`drawnFenceClasses`,
+18 after phase D; the budget only falls).

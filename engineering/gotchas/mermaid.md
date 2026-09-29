@@ -385,7 +385,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   inside CSS selectors, which makes the `<style>` block invalid and
   Chromium's PDF renderer treats the content as text. Unit tests pass;
   page counts unchanged.
-- **Cause:** The build pipeline runs `preprocessMermaid(md)` BEFORE
+- **Cause:** The build pipeline runs the Mermaid bake BEFORE
   `extractMath(raw)` — Mermaid SVG is inlined into the markdown as
   `<div class="mermaid-svg"><svg>…<style>…</style></svg></div>`. Then
   `extractMath` walks the source looking for `$…$` math delimiters

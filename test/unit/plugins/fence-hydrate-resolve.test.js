@@ -90,11 +90,12 @@ describe('resolvePlugins — hydrate, payload, styles, tokens', () => {
 });
 
 describe('the reserved fence names the build really uses', () => {
-  test('are read from the installed highlight.js — json, tex and mermaid are taken; the plugin fences are free', () => {
+  test('are read from the installed highlight.js — json and tex are taken; the plugin fences, mermaid among them, are free', () => {
     const { reservedFenceNames } = require('../../../tools/build-plugin-registry.js');
     const names = reservedFenceNames();
-    for (const taken of ['json', 'tex', 'latex', 'js', 'mermaid']) assert.ok(names.has(taken), `${taken} should be reserved`);
-    for (const free of ['functionplot', 'latticeplot', 'anima', 'math']) assert.ok(!names.has(free), `${free} is a plugin fence and must stay free`);
+    for (const taken of ['json', 'tex', 'latex', 'js']) assert.ok(names.has(taken), `${taken} should be reserved`);
+    // `mermaid` was a host-reserved name until phase D made it the mermaid plugin's fence.
+    for (const free of ['functionplot', 'latticeplot', 'anima', 'math', 'mermaid']) assert.ok(!names.has(free), `${free} is a plugin fence and must stay free`);
   });
 });
 

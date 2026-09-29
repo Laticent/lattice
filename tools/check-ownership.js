@@ -7617,12 +7617,19 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
  *                       lib/plugins — a consumer hand-naming a plugin's output instead of reading
  *                       the registry. Derived from the generated grammar, so a new plugin's
  *                       tokens are covered the day it lands.
+ *   drawnFenceClasses   `language-<fence>` written in CODE outside lib/plugins, for a fence a
+ *                       browser runtime draws from its code block (`drawn.generated.mjs` —
+ *                       Mermaid's). Each is a roster that finds the plugin's figures by naming
+ *                       it — a wait selector, a "needs the library" probe, a bake gate — where
+ *                       the registry should answer. Phase D moved Mermaid onto the host and
+ *                       left these; the budget is what its browser half still owes
+ *                       (followups.d/2417-p5-plugin-phase-d-browser-half.md).
  *
  * Over budget fails: something re-grew the old way. UNDER budget fails too, naming the new
  * count, so the budget ratchets down in the PR that earned it and can never silently rot upward
  * again.
  */
-const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0 });
+const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0, drawnFenceClasses: 18 });
 
 function pluginMigrationCounts(root = ROOT) {
   // EVERY override of markdown-it's fence renderer outside the host's one table, anywhere a render
@@ -7668,7 +7675,25 @@ function pluginMigrationCounts(root = ROOT) {
       for (const m of code.matchAll(re)) hits.push(`${rel}: ${m[0]}`);
     }
   }
-  return { fenceWrappers, pluginTokenNames: hits.length, hits };
+  // The runtime-drawn code fences, from the registry's data for the same reason as the tokens.
+  const drawnFile = path.join(root, 'lib/plugins/drawn.generated.mjs');
+  const drawn = fs.existsSync(drawnFile) ? require(drawnFile).RUNTIME_DRAWN_FENCES : [];
+  const drawnHits = [];
+  if (drawn.length) {
+    const re = new RegExp(`\\blanguage-(?:${drawn.join('|')})(?![\\w-])`, 'g');
+    const files = [];
+    for (const dir of ['lib', 'tools', 'docs/src']) listSourceFiles(path.join(root, dir), files);
+    files.push(path.join(root, 'lattice-emulator.js'));
+    for (const file of files) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
+      if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]sx?$/.test(rel)) continue;
+      if (!/\.(?:[cm]?js|ts|tsx)$/.test(rel) || !fs.existsSync(file)) continue;
+      const code = stripCodeComments(fs.readFileSync(file, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const m of code.matchAll(re)) drawnHits.push(`${rel}: ${m[0]}`);
+    }
+  }
+  return { fenceWrappers, pluginTokenNames: hits.length, hits, drawnFenceClasses: drawnHits.length, drawnHits };
 }
 
 function listPluginManifests(root) {

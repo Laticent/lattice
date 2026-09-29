@@ -29,6 +29,7 @@
 
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
 import { scanTags } from '../../../../lib/core/top-level-h2.mjs';
+import { RUNTIME_DRAWN_FENCES } from '../../../../lib/plugins/drawn.generated.mjs';
 import { buildDeckRender, type DeckRender, type ExtraTheme, loadDeckRenderFonts } from './share-export';
 
 // Every module the projection loads on demand, named once so the idle warm-up fetches the same
@@ -102,10 +103,14 @@ export const ARTICLE_ROOT = '.st-read-article';
 const CLASS_ATTR = /(?:^|\s)class="([^"]*)"/;
 const readClassAttr = (tag: string): string => tag.match(CLASS_ATTR)?.[1] ?? '';
 
+/** `language-<fence>` for every code fence a runtime draws (Mermaid's), from the plugin registry. */
+const DRAWN_CODE_CLASSES = RUNTIME_DRAWN_FENCES.map((f) => `language-${f}`);
+
 /**
  * Does the render carry runtime-drawn content? A plugin figure is found by the plugin host's own
- * marker (`data-lattice-hydrate`, lib/plugins/host.js), never by naming a plugin; a Mermaid fence
- * by a `<code>` tag whose resolved class list names `language-mermaid`.
+ * marker (`data-lattice-hydrate`, lib/plugins/host.js); a fence the runtime draws from its code
+ * block (Mermaid's) by a `<code>` tag whose resolved class list names `language-<fence>` — the
+ * fence names read from the registry (`drawn.generated.mjs`), so no plugin is named here.
  *
  * WALKED, NOT MATCHED. This was one regex, `/<code[^>]*\sclass="[^"]*language-mermaid|…/`, and
  * `[^>]*\s` is ambiguous: every `<code` with no `>` after it rescanned to the end, so the time grew
@@ -115,10 +120,11 @@ const readClassAttr = (tag: string): string => tag.match(CLASS_ATTR)?.[1] ?? '';
  */
 export function hasRuntimeDrawn(html: string): boolean {
 	if (html.includes('data-lattice-hydrate=')) return true;
-	if (!html.includes('language-mermaid')) return false;
+	if (!DRAWN_CODE_CLASSES.some((c) => html.includes(c))) return false;
 	for (const t of scanTags(html)) {
 		if (t.kind !== 'tag' || t.isClose || t.name !== 'code') continue;
-		if (readClassAttr(html.slice(t.start, t.end)).split(/\s+/).includes('language-mermaid')) return true;
+		const classes = readClassAttr(html.slice(t.start, t.end)).split(/\s+/);
+		if (DRAWN_CODE_CLASSES.some((c) => classes.includes(c))) return true;
 	}
 	return false;
 }

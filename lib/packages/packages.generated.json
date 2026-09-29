@@ -6,7 +6,7 @@
     "component": 71,
     "finish": 9,
     "motion": 0,
-    "plugin": 3
+    "plugin": 4
   },
   "packages": [
     {
@@ -1263,6 +1263,18 @@
         "render.js",
         "styles.css",
         "syntax.mjs"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "mermaid",
+      "path": "lib/plugins/mermaid",
+      "roles": [
+        "bake.js",
+        "docs.md",
+        "fixtures.md",
+        "manifest.json"
       ],
       "code": true
     }

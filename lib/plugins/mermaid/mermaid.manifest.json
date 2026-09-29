@@ -1,0 +1,21 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "mermaid",
+  "api": 1,
+  "title": "Mermaid diagrams",
+  "description": "Flowcharts, sequence, state, class, Gantt and the rest of Mermaid's diagram types from a fence. The engine emits the highlighted source; the runtime draws it in a browser, and the CLI bakes it to a static SVG before the engine renders.",
+  "contributes": {
+    "fences": {
+      "mermaid": { "body": "mermaid", "as": "code" }
+    },
+    "bake": true
+  },
+  "render": {
+    "exec": { "hydrate": "runtime", "bake": "subprocess" },
+    "surfaces": { "engine": "source", "preview": "figure", "pdf": "figure-baked", "player": "figure-baked", "marp": "figure" },
+    "parity": "progressive",
+    "degradesTo": "code-block"
+  }
+}

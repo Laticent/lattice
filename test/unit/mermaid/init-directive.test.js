@@ -251,10 +251,12 @@ describe('mermaid init-directive: the retired directive transport', () => {
 describe('mermaid init-directive: render-path wiring', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
   const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  // The PDF path: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D).
+  const pdfPath = () => read('lattice-emulator.js') + read('lib/plugins/mermaid/mermaid.bake.js');
 
   test('the PDF path hands its config to the worker, and leaves the source alone', () => {
-    const src = read('lattice-emulator.js');
-    assert.match(src, /require\('\.\/lib\/integrations\/mermaid\/init-directive'\)/);
+    const src = pdfPath();
+    assert.match(src, /require\('\.\.\/\.\.\/integrations\/mermaid\/init-directive'\)/);
     // #1674: the config is DATA in the worker job, not text prepended to the diagram.
     assert.match(src, /config: engineInitConfig\(r\.themeVars, \{/,
       'the worker job carries the engine config per diagram');

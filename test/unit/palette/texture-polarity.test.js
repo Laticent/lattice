@@ -466,7 +466,8 @@ describe('texture-polarity', () => {
     assert.equal(/__llMermaidConfigured\s*(=[^=]|\))/.test(runtime), false,
       'the preview must not latch one palette for the whole document');
 
-    const emulator = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
+    // The PDF path's diagram walk is the mermaid plugin's bake since plugin-system phase D.
+    const emulator = fs.readFileSync(path.join(ROOT, 'lib', 'plugins', 'mermaid', 'mermaid.bake.js'), 'utf8');
     assert.match(emulator, /renderDiagrams\(deck, \{/,
       'the PDF path must walk the deck through the shared kernel, not render inside a '
       + 'String.replace over source offsets');
