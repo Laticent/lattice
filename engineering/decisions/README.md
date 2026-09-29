@@ -228,6 +228,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ◐ [2026-07-30-landing-studio-promotion.md](2026-07-30-landing-studio-promotion.md) — The landing page promotes the Studio by selling TWO doors into one engine rather than three products.
 - ◐ [2026-07-14-language-settings.md](2026-07-14-language-settings.md) — Lattice had TWO disconnected "language" ideas — a Studio AI "Output language" (BCP-47, 16 Latin-script languages) buried in the Workspace…
 - ☐ [2026-06-16-lattice-export-format.md](2026-06-16-lattice-export-format.md) — The Lattice export format — a portable self-contained .html player plus a lossless .lattice project zip sharing one manifest envelope
+- ◐ [2026-09-24-lattice-studio-desktop.md](2026-09-24-lattice-studio-desktop.md) — The desktop app is the Studio in a Tauri window, not a second app.
 - ◐ [2026-09-24-lattice-timing-track.md](2026-09-24-lattice-timing-track.md) — One timing format for every Lattice surface that speaks, captions or moves — the Lattice Timing Track (LTT).
 - ⏸ [2026-06-18-layer-activation-scope.md](2026-06-18-layer-activation-scope.md) — Stage 1 SHIPPED (#435) — the 12 cascade-workaround !important in base.variants.css removed via a path-agnostic doubled-class (0,2,2).
 - ◐ [2026-06-23-layout-organization-review.md](2026-06-23-layout-organization-review.md) — A "rethink the layout organization" review that started from a wrong premise ("we over-built some buckets") and corrected it against the…

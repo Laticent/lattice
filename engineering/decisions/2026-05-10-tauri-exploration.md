@@ -5,6 +5,13 @@ summary: v1 architectural shape for the Laticent desktop app on Tauri, with pers
 
 # Tauri exploration — desktop authoring app for Lattice
 
+> **Architecture superseded 2026-09-24** by
+> [`2026-09-24-lattice-studio-desktop.md`](2026-09-24-lattice-studio-desktop.md): the
+> desktop app WRAPS the Studio (`desktop/` in this repo) instead of building the separate
+> app described below. The personas, the gaps list and the release thinking still inform
+> it. The "Tauri's WebView is Chromium" premise is wrong on Linux and macOS; the new note
+> corrects it.
+
 **Status:** in progress. Strategy discussion 2026-05-11 narrowed the
 architecture from "should we use Tauri?" to "what's the v1 shape, and
 what runway do we leave for the long-term vision?" This note captures

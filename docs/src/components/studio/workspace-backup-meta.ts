@@ -44,19 +44,6 @@ export function isEvictionProneBrowser(): boolean {
 	}
 }
 
-/** Trigger a client-side download of the backup zip. */
-export function downloadBlob(filename: string, blob: Blob): void {
-	if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return;
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	URL.revokeObjectURL(url);
-}
-
 /**
  * What a restore could not bring back, carried across the reload that follows it. The restore
  * reloads (the one honest way to re-derive every view), and a notice raised before the reload
