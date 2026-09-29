@@ -96,12 +96,16 @@ describe('the Underpainting', () => {
     assert.equal(isBlockedHatch(withBg('')), false);
   });
 
-  it('a picture that hangs is handed back at the cap', () => {
+  it('a picture that hangs goes still at the cap, and still gives way if it lands after all', async () => {
     const e = el();
     const v = view();
-    paintUntilDecoded(e, probe(), v);
+    const p = probe();
+    paintUntilDecoded(e, p, v);
     v.run(PAINTING_CAP_MS);
-    assert.equal(e.hasAttribute(PAINTING), false);
+    assert.equal(e.getAttribute(PAINTING), 'still', 'never an empty card');
+    p.land();
+    await flush();
+    assert.equal(e.getAttribute(PAINTING), 'done', 'the late picture still fades in');
   });
 
   it('a second pass leaves a painting in flight alone, even mid-fade', async () => {

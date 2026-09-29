@@ -274,7 +274,7 @@ describe('video poster painting (runtime)', () => {
     }
   });
 
-  test('a poster that fails paints still, and one that never lands is handed back', async () => {
+  test('a poster that fails paints still, and so does one still hanging at the cap', async () => {
     const failed = frame();
     registry.applyToDom(failed.win.document);
     failed.decodes[0].rej(new Error('gone'));
@@ -284,7 +284,7 @@ describe('video poster painting (runtime)', () => {
     const hung = frame();
     registry.applyToDom(hung.win.document);
     hung.timers[0].fn(); // the cap
-    assert.equal(hung.a.hasAttribute('data-lattice-painting'), false, 'the cap hands the poster back to the anchor');
+    assert.equal(hung.a.getAttribute('data-lattice-painting'), 'still', 'the cap goes still, never an empty tile');
   });
 
   test('a web poster the reader has not loaded (the hatch) paints still', () => {

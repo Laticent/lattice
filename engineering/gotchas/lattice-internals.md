@@ -842,8 +842,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   (`lib/core/image-painting.js`), and `base.modifiers.css` draws the house Nacre loader's
   image variant over it: a canvas laid down in one brush sweep, soft brushwork drifting
   across it, in the deck's own tokens. On decode it turns `"done"` and the painting fades
-  away over the photo. A picture already held never paints; a hung one is handed back after
-  12 s. **One placeholder, two moods** (the owner's call): a picture that is NOT coming — a
+  away over the photo. A picture already held never paints; one still hanging at 12 s goes
+  still (never an empty card) and fades in if it lands later. **One placeholder, two moods** (the owner's call): a picture that is NOT coming — a
   web photo the reader has not loaded (remote-ref's hatch in the panel's style) or one that
   failed — shows the same painting muted and STILL (`"still"`, `paintStill`) instead of the
   hatch, in the same wide card, so tapping "Load" moves nothing (measured: the card holds
@@ -859,7 +859,13 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   resize and I had filed it as intended. Two fixes: while a live preview's photo is pending
   with no bucket, `image.styles.css` gives the card the WIDE shape (`wide` spans 1.3–2.0:
   4:3, 3:2, 16:10, 16:9), so the common photo lands in exactly the painted box (measured:
-  zero box changes); any other shape MORPHS there (`morphFrom` in image-adaptive.js, a FLIP
+  zero box changes). The wide guess is keyed on the live SECTION (`data-img-live`, stamped by the
+  runtime in an opted-in document, with no bucket), not on a loading state, so a size that never
+  arrives (the 12 s cap) or an SVG with no size keeps the wide card instead of dropping to the
+  floor (the checker's finding). **Not `:root[…]`:** the engine packs every selector under
+  `article.lattice > section`, so `:root[x]` becomes the slide and never matched the document's
+  attribute — measured in the Studio frame, the rule was present and dead. Any other shape
+  MORPHS there (`morphFrom` in image-adaptive.js, a FLIP
   via the Web Animations API, 360ms). What is irreducible is that a portrait's shape is
   unknown until its first bytes arrive; what is not is how it gets there. WebKit caveat:
   when the size and the decoded photo land together (a server that sends the whole file at

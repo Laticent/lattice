@@ -537,3 +537,73 @@ test('a web photo the reader has not loaded (the hatch) shows the painting, mute
   imageAdaptive.applyToDom(rootIn([s2], exportView));
   assert.equal(panel2.hasAttribute('data-lattice-painting'), false, 'an export keeps its hatch');
 });
+
+// The Studio's own path for a blocked web photo: its host stamps the panel FINAL (no url, no
+// provisional mark), so the still painting comes from the stamped-final branch (the checker's
+// mutation left the measuring-path test green with this arm deleted).
+test('a host-stamped section whose web photo is blocked (the Studio path) paints still', () => {
+  const view = timedView(false);
+  const s = makeSection({});
+  s._attrs['data-img-composition'] = 'clean';
+  const panel = paintablePanel('x');
+  panel.style = { backgroundImage: 'repeating-linear-gradient(135deg, red 0 1px, transparent 1px 10px)' };
+  s.querySelector = () => panel;
+  imageAdaptive.applyToDom(rootIn([s], view));
+  assert.equal(panel.getAttribute('data-lattice-painting'), 'still');
+});
+
+// A filmstrip scales its sections, so the rects are visual px and the translate is in the panel's
+// own px: the offset is divided by the scale (the checker: `k = 1` passed every arm before this).
+test('the morph divides its offset by the section scale', () => {
+  const prev = global.Image;
+  const { Image, held } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(false);
+    const s = makeSection({ bgStyle: "url('portrait.jpg')" });
+    const panel = morphPanel([{ left: 100, top: 50, width: 600, height: 375 }, { left: 200, top: 20, width: 300, height: 400 }]);
+    panel.offsetWidth = 600; // drawn at half scale: 300 visual px for 600 layout px
+    const calls = [];
+    panel.animate = (frames) => calls.push(frames);
+    s.querySelector = () => panel;
+    imageAdaptive.applyToDom(rootIn([s], view));
+    held.header(800, 1200);
+    held.probe.onload();
+    assert.equal(calls[0][0].transform, 'translate(-200px, 60px) scale(2, 0.9375)');
+  } finally { global.Image = prev; }
+});
+
+// A photo that errors when its probe was already complete (a cached failure) never started a
+// painting, so the error handler itself must paint still.
+test('a cached failure paints still from the error handler', () => {
+  const prev = global.Image;
+  let probeRef;
+  global.Image = class { constructor() { probeRef = this; this.complete = true; this.naturalWidth = 0; this.naturalHeight = 0; } set src(_v) {} };
+  try {
+    const view = timedView(false);
+    const s = makeSection({ bgStyle: "url('gone.png')" });
+    const panel = paintablePanel('gone.png');
+    s.querySelector = () => panel;
+    imageAdaptive.applyToDom(rootIn([s], view));
+    assert.equal(panel.hasAttribute('data-lattice-painting'), false, 'no painting was started');
+    probeRef.onerror();
+    assert.equal(panel.getAttribute('data-lattice-painting'), 'still');
+  } finally { global.Image = prev; }
+});
+
+// The stylesheet's wide guess keys on a SECTION stamp, since engine CSS cannot see the document's
+// opt-in (every selector is packed under the slide). Stamped only in a live document.
+test('a live document stamps its image sections for the wide guess; an export does not', () => {
+  const live = makeSection({});
+  imageAdaptive.applyToDom(rootIn([live], timedView(false)));
+  assert.ok(live.hasAttribute(imageAdaptive.LIVE));
+  const exp = makeSection({});
+  imageAdaptive.applyToDom(rootIn([exp], timedView(false, { optIn: false })));
+  assert.equal(exp.hasAttribute(imageAdaptive.LIVE), false);
+});
+
+test('the wide guess is written against the section stamp, never the document root', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/components/imagery/image/image.styles.css'), 'utf8');
+  assert.match(css, /section\.image\[data-img-live\]:not\(\[data-img-bucket\]\) \{/);
+  assert.doesNotMatch(css, /^:root\[data-lattice-live-media\]/m, 'a :root rule is packed onto the slide and never matches');
+});
