@@ -545,14 +545,27 @@ async function measureLayer() {
   try {
     if (process.platform === 'linux') {
       const st = renderers.map((r) => ({ pid: r.pid, ...linuxStatus(r.pid) }));
-      detail = st.map((x) => `pid ${x.pid}: Seccomp ${x.seccomp}, uid ${x.uid}`).join('; ') || 'no renderer found';
+      // The baseline: Chromium never filters its own browser process, so a browser process that
+      // already reads Seccomp 2 is under the RUNTIME's filter (a container's, Docker's default), which
+      // every process inherits. There the renderers' 2 proves nothing about Chromium's sandbox, and
+      // the check falls back to the flag, as on macOS and Windows (a root container on ubuntu-latest
+      // read 2 on renderers started with --no-sandbox; p7, run 36554214907).
+      const baseline = s.pid ? linuxStatus(s.pid).seccomp : null;
+      detail = `${st.map((x) => `pid ${x.pid}: Seccomp ${x.seccomp}, uid ${x.uid}`).join('; ') || 'no renderer found'}; browser process Seccomp ${baseline ?? '?'}`;
       console.log(`  Measured: ${detail}`);
-      const on = st.length > 0 && st.every((x) => x.seccomp === '2');
       const expected = s.layer.os === 'on';
-      auto =
-        !st.length ? { pass: false, why: 'no renderer process was found to measure' }
-        : on === expected ? { pass: true, why: `Lattice reports "${s.layer.os}" and the renderers read Seccomp ${st.map((x) => x.seccomp).join(',')} (2 = filtered)` }
-        : { pass: false, why: `MISMATCH: Lattice reports "${s.layer.os}" but the renderers read Seccomp ${st.map((x) => x.seccomp).join(',')}` };
+      if (baseline === '2') {
+        auto =
+          !st.length ? { pass: false, why: 'no renderer process was found to measure' }
+          : (s.layer.os !== 'off') === !noSandboxFlag ? { pass: true, why: `every process here is already under a seccomp filter (a container's), so Seccomp cannot tell; Lattice reports "${s.layer.os}", and the browser ${noSandboxFlag ? 'was' : 'was not'} started with --no-sandbox` }
+          : { pass: false, why: `MISMATCH: Lattice reports "${s.layer.os}" but --no-sandbox is ${noSandboxFlag ? 'present' : 'absent'} (Seccomp cannot tell here: the browser process itself is filtered)` };
+      } else {
+        const on = st.length > 0 && st.every((x) => x.seccomp === '2');
+        auto =
+          !st.length ? { pass: false, why: 'no renderer process was found to measure' }
+          : on === expected ? { pass: true, why: `Lattice reports "${s.layer.os}" and the renderers read Seccomp ${st.map((x) => x.seccomp).join(',')} (2 = filtered)` }
+          : { pass: false, why: `MISMATCH: Lattice reports "${s.layer.os}" but the renderers read Seccomp ${st.map((x) => x.seccomp).join(',')}` };
+      }
     } else {
       detail = `${renderers.length} renderer(s); --no-sandbox on the browser or a renderer: ${noSandboxFlag ? 'YES' : 'no'}`;
       console.log(`  Measured: ${detail}`);

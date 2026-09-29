@@ -15,7 +15,7 @@ const { claimedSlides, spliced, withFailureNote, printableLine, engineClaimsOf, 
 const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = require('../../../lib/packages/code-door.js');
 const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile } = require('../../../lib/packages/trust.js');
 const { refuseCode } = require('../../../lib/packages/gate.js');
-const { unprivilegedUser, apparmorRestrictsUserns, offReason, offRemedy } = require('../../../lib/core/os-sandbox.js');
+const { unprivilegedUser, apparmorRestrictsUserns, processSeccompFiltered, offReason, offRemedy } = require('../../../lib/core/os-sandbox.js');
 const { cssRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 const engine = require('../../../lib/engine');
 
@@ -247,28 +247,44 @@ describe('the OS layer', () => {
     assert.equal(apparmorRestrictsUserns(path.join(dir, 'missing')), false, 'a kernel without the sysctl has no restriction');
   });
 
+  test('a seccomp filter on this process is read from its status', () => {
+    const dir = tmp('seccomp');
+    fs.writeFileSync(path.join(dir, 'docker'), 'Name:\tnode\nSeccomp:\t2\nSeccomp_filters:\t1\n');
+    fs.writeFileSync(path.join(dir, 'host'), 'Name:\tnode\nSeccomp:\t0\nSeccomp_filters:\t0\n');
+    assert.equal(processSeccompFiltered(path.join(dir, 'docker')), true);
+    assert.equal(processSeccompFiltered(path.join(dir, 'host')), false);
+    assert.equal(processSeccompFiltered(path.join(dir, 'missing')), false);
+  });
+
   test('each OFF reason maps to its own remedy, and AppArmor never gets the CHROME_PATH advice', () => {
     const failed = ['Failed to launch the browser process!'];
     const cases = [
-      [{ platform: 'linux', uid: 1001, failures: failed, apparmor: true }, 'apparmor-userns', /AppArmor profile.*sysctl to 0/],
+      [{ platform: 'linux', uid: 1001, failures: failed, filtered: false, apparmor: true }, 'apparmor-userns', /AppArmor profile.*sysctl to 0/],
       // Root: `nobody` ran the browser without the sandbox, so the sandbox was the obstacle.
-      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, apparmor: true }, 'apparmor-userns', /apparmor_restrict_unprivileged_userns/],
-      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, apparmor: false }, 'sandbox-did-not-start', /the reason above/],
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, filtered: false, apparmor: true }, 'apparmor-userns', /apparmor_restrict_unprivileged_userns/],
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, filtered: false, apparmor: false }, 'sandbox-did-not-start', /the reason above/],
       // Root: `nobody` could not run it at all (a browser under /root). AppArmor is beside the
       // point, even when a container reads its host's sysctl as 1 (the checker).
-      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, apparmor: true }, 'unprivileged-user-cannot-run', /CHROME_PATH to a Chromium the unprivileged user can run/],
-      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, apparmor: false }, 'unprivileged-user-cannot-run', /CHROME_PATH to a Chromium the unprivileged user can run/],
-      [{ platform: 'linux', uid: 1001, failures: failed, apparmor: false }, 'sandbox-did-not-start', /the reason above/],
-      [{ platform: 'darwin', uid: 501, failures: failed, apparmor: true }, 'sandbox-did-not-start', /the reason above/],
-      [{ platform: 'darwin', uid: 0, skipped: 'root-outside-linux', failures: [], apparmor: false }, 'root-outside-linux', /ordinary user/],
-      [{ platform: 'linux', uid: 0, skipped: 'no-browser-path', failures: [], apparmor: false }, 'no-browser-path', /CHROME_PATH to a Chromium 131/],
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, filtered: false, apparmor: true }, 'unprivileged-user-cannot-run', /CHROME_PATH to a Chromium the unprivileged user can run/],
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, filtered: false, apparmor: false }, 'unprivileged-user-cannot-run', /CHROME_PATH to a Chromium the unprivileged user can run/],
+      [{ platform: 'linux', uid: 1001, failures: failed, filtered: false, apparmor: false }, 'sandbox-did-not-start', /the reason above/],
+      [{ platform: 'darwin', uid: 501, failures: failed, filtered: false, apparmor: true }, 'sandbox-did-not-start', /the reason above/],
+      [{ platform: 'darwin', uid: 0, skipped: 'root-outside-linux', failures: [], filtered: false, apparmor: false }, 'root-outside-linux', /ordinary user/],
+      [{ platform: 'linux', uid: 0, skipped: 'no-browser-path', failures: [], filtered: false, apparmor: false }, 'no-browser-path', /CHROME_PATH to a Chromium 131/],
+      // Inside Docker (measured, p7): the container's seccomp filter is the obstacle, whatever the
+      // host's AppArmor sysctl says, and the AppArmor remedy changed nothing there.
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: true, filtered: true, apparmor: true }, 'container-seccomp', /seccomp profile that allows them/],
+      [{ platform: 'linux', uid: 1001, failures: failed, filtered: true, apparmor: false }, 'container-seccomp', /seccomp=unconfined/],
+      // …but a browser `nobody` cannot run at all is still that, first.
+      [{ platform: 'linux', uid: 0, failures: failed, userRan: false, filtered: true, apparmor: true }, 'unprivileged-user-cannot-run', /CHROME_PATH/],
     ];
     for (const [input, reason, text] of cases) {
       assert.equal(offReason(input), reason, JSON.stringify(input));
       assert.match(offRemedy(reason), text, reason);
     }
     assert.doesNotMatch(offRemedy('apparmor-userns'), /CHROME_PATH/);
-    assert.equal(offReason({ platform: 'linux', uid: 1001, failures: [], apparmor: true }), null, 'measured OFF with no failed launch names no reason');
+    assert.doesNotMatch(offRemedy('container-seccomp'), /AppArmor|CHROME_PATH/);
+    assert.equal(offReason({ platform: 'linux', uid: 1001, failures: [], filtered: false, apparmor: true }), null, 'measured OFF with no failed launch names no reason');
     assert.equal(offRemedy(null), null);
   });
 
@@ -314,13 +330,14 @@ describe('the OS layer', () => {
       await s.close();
       return s.layer;
     };
-    const userns = await run({ uid: 1001, platform: 'linux', apparmor: true });
+    const userns = await run({ uid: 1001, platform: 'linux', apparmor: true, filtered: false });
     assert.deepEqual(launches, ['sandbox', 'no-sandbox']);
     assert.equal(userns.os, 'off');
     assert.equal(userns.reason, 'apparmor-userns');
     assert.match(userns.tried[0], /^with the OS sandbox: Failed to launch/);
-    assert.equal((await run({ uid: 1001, platform: 'linux', apparmor: false })).reason, 'sandbox-did-not-start');
-    assert.equal((await run({ uid: 501, platform: 'darwin', apparmor: true })).reason, 'sandbox-did-not-start', 'AppArmor is a Linux cause only');
+    assert.equal((await run({ uid: 1001, platform: 'linux', apparmor: false, filtered: false })).reason, 'sandbox-did-not-start');
+    assert.equal((await run({ uid: 1001, platform: 'linux', apparmor: true, filtered: true })).reason, 'container-seccomp');
+    assert.equal((await run({ uid: 501, platform: 'darwin', apparmor: true, filtered: true })).reason, 'sandbox-did-not-start', 'AppArmor is a Linux cause only');
     const rootMac = await run({ uid: 0, platform: 'darwin' });
     assert.deepEqual(launches, ['no-sandbox'], 'root outside Linux tries no sandboxed launch');
     assert.equal(rootMac.reason, 'root-outside-linux');
