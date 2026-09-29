@@ -3,7 +3,7 @@ marp: true
 size: 4k
 theme: indaco
 paginate: true
-venue: huddle
+venue: laptop
 header: "Agentic engineering · Practices that hold up"
 ---
 
