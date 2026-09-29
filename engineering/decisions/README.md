@@ -320,6 +320,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ◐ [2026-09-20-table-component.md](2026-09-20-table-component.md) — `compare-table` becomes `table` — a hard rename with no alias, matching every prior rename in this repo.
 - ☐ [2026-05-10-tauri-exploration.md](2026-05-10-tauri-exploration.md) — v1 architectural shape for the Laticent desktop app on Tauri, with personas, six-release plan, and engine-ownership decisions
 - ◐ [2026-06-22-the-fit-spine.md](2026-06-22-the-fit-spine.md) — The foundational spine for responsive/dense-slide work — Frames are the single owner of box-response; a solver fits content by COLLAPSE →…
+- ◐ [2026-09-29-trama-graph-chart-library-v2.md](2026-09-29-trama-graph-chart-library-v2.md) — PROBE for #2480, do not merge.
 - ◐ [2026-09-27-trama-graph-chart-library.md](2026-09-27-trama-graph-chart-library.md) — Trama (`@laticent/trama`) is the graph-chart library.
 - ◐ [2026-08-26-transform-twin-divergences.md](2026-08-26-transform-twin-divergences.md) — RETRACTION AND CORRECTION. The first version of this note claimed the parity harness had found six live defects — an extra line break in…
 - ☐ [2026-05-17-treatments-rename.md](2026-05-17-treatments-rename.md) — Proposal to rename the bg-* treatment family to tint-* / mark-* split across orthogonal category, treatment, and placement axes
