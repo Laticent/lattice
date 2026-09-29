@@ -88,13 +88,14 @@ function venueDocsLine(m, noun) {
       return ` Ending in a \`> …\` callout (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
     })()
     : '';
-  // A claim panel's lede budget (`venueCapacity.panel`), under a 6-word heading, which lint-core
-  // `panelOver` judges by heading and lede words.
+  // A claim panel's line geometry (`venueCapacity.panel.lines`), which lint-core `panelOver` wraps
+  // the slide's own heading and lede into. Said as what an author can count: the lede lines the
+  // column holds under a one-line eyebrow and a two-line heading, and the characters a lede line takes.
   const panel = vc.panel
     ? (() => {
-      const lede = (r) => VENUES.map((x) => `${x} ~${r['6'][x]}${r['6'][x] >= (vc.panel.tried || Infinity) ? '+' : ''}`).join(' · ');
-      const regs = Object.entries(vc.panel.variants || {}).map(([tok, r]) => ` With \`${tok}\`: ${lede(r)}.`).join('');
-      return ` The claim panel holds a lede of ${lede(vc.panel.byHeading)} words under a 6-word heading (a longer heading leaves less).${regs}${vc.panel.tried ? ` A \`+\` means the panel held the longest lede the rig tried (${vc.panel.tried} words).` : ''}`;
+      const lede = (g) => VENUES.map((x) => `${x} ~${Math.floor((g.budget[x] - (g.eyebrow ? g.eyebrow[x][1] : 0) - 2 * g.heading[x][1]) / g.lede[x][1])} lines of ~${Math.floor(g.lede[x][0])} characters`).join(' · ');
+      const regs = Object.entries(vc.panel.lines).filter(([r]) => r !== 'bare').map(([r, g]) => ` With \`${r}\`: ${lede(g)}${g.question ? ', less the lines an opening `*question*` takes' : ''}.`).join('');
+      return ` The claim panel is judged by LINES, not words: under a one-line eyebrow and a two-line heading its lede holds ${lede(vc.panel.lines.bare)}.${regs}`;
     })()
     : '';
   return `**By venue** (\`venue:\`, ~${words} words each) it holds ${main} ${noun}.${short}${variants}${insight}${panel}${capped}${floor} ${past} ${how}`;

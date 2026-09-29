@@ -888,15 +888,22 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// the next (or, on the last, say the closing or end the run). This is the SECOND way a
 	// delivery reaches the end of the deck: a silent "Thank you" slide ends here, never in
 	// onFinish, and is exactly where a closing belongs.
+	//
+	// Only on the CURRENT slide's track. Narration is state, so the index moves one commit
+	// before the reader is rebuilt (the #904 note above): on that commit `reader.track` is still
+	// the slide just left. Leaving a silent slide for a spoken one read the OLD, empty track and
+	// skipped the spoken slide too — Play from a silent title slide went straight past slide 2
+	// (present-bookends.spec.ts, whose first pass hid it only because the greeting's gap held
+	// this effect). `narration.idx` names the slide the track was built for.
 	React.useEffect(() => {
-		if (!autoplay || bookend || bookendGap || reader.track.cues.length > 0) return;
+		if (!autoplay || bookend || bookendGap || narration.idx !== clamped || reader.track.cues.length > 0) return;
 		if (clamped < count - 1) {
 			autoAdvanceRef.current = true;
 			setIdx((i) => Math.min(i + 1, count - 1));
 		} else if (!startClosingRef.current()) {
 			setAutoplay(false);
 		}
-	}, [autoplay, bookend, bookendGap, reader.track.cues.length, clamped, count, setIdx]);
+	}, [autoplay, bookend, bookendGap, narration.idx, reader.track.cues.length, clamped, count, setIdx]);
 	// Warm-ahead: keep a WINDOW of upcoming slides synthesized in the background, so a
 	// slide transition never pays a cold first-sentence round trip. The within-slide
 	// scheduler only ever runs ahead of a slide's OWN remaining sentences, never across a

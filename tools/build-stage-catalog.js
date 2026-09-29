@@ -383,7 +383,6 @@ function buildVenueLint() {
   const insightVariants = {};
   const panel = {};
   const panelNot = {};
-  const panelTried = {};
   // The count axis of a row whose component has no `capacity` block (lint's venue-only path).
   const axis = {};
   let code = null;
@@ -410,13 +409,14 @@ function buildVenueLint() {
       if (v.insight) insightVariants[`${m.name} ${tok}`] = words(v.insight.byWords);
     }
     if (vc.insight) insight[m.name] = words(vc.insight.byWords);
-    // `panel`: "<component>" / "<component> <token>" → lede words per heading length, and the
-    // variants the bare row does not describe (Amendment (5)).
+    // `panel`: "<component>" / "<component> <register>" → the claim panel's line geometry, each role
+    // as [chars a line holds, px a line takes] per rung and `budget` per rung, and the variants the
+    // geometry does not describe (Amendment (6)).
     if (vc.panel) {
-      panel[m.name] = words(vc.panel.byHeading);
-      for (const [tok, v] of Object.entries(vc.panel.variants || {})) panel[`${m.name} ${tok}`] = words(v);
+      for (const [reg, g] of Object.entries(vc.panel.lines)) {
+        panel[reg === 'bare' ? m.name : `${m.name} ${reg}`] = Object.fromEntries(Object.entries(g).map(([k, r]) => [k, row(r)]));
+      }
       if (vc.panel.not) panelNot[m.name] = vc.panel.not;
-      if (vc.panel.tried) panelTried[m.name] = vc.panel.tried;
     }
   }
   const source =
@@ -424,9 +424,9 @@ function buildVenueLint() {
     "   Source: every component manifest's `venueCapacity` (lib/components/). items: element count\n" +
     '   per words-per-element, as [laptop, huddle, conference, hall]; code: pane lines, bare and\n' +
     '   under an eyebrow; variants: "<component> <token>" rows; insight: rows with a trailing\n' +
-    '   insight callout; panel: lede words per heading length in a claim panel. Rebuild:\n' +
+    '   insight callout; panel: claim-panel line geometry. Rebuild:\n' +
     '   node tools/build-stage-catalog.js */\n' +
-    'module.exports = ' + JSON.stringify({ items, code, variants, insight, insightVariants, axis, panel, panelNot, panelTried }) + ';\n';
+    'module.exports = ' + JSON.stringify({ items, code, variants, insight, insightVariants, axis, panel, panelNot }) + ';\n';
   return { source, count: Object.keys(items).length + (code ? 1 : 0) };
 }
 

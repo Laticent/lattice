@@ -315,3 +315,22 @@ both.
 - The slide's own words win because they are on screen, and the captions must match them.
 - No lint rule was added. A warning would cost about 0.25 KB of the Studio's eager JavaScript
   (the lint core loads eagerly), against about 0.35 KB of budget headroom.
+
+## 13. The Present e2e was red on desktop, for two reasons (2026-09-28)
+
+`docs/e2e/present-bookends.spec.ts` never passed on desktop. It fails the same way at b8efc4e
+(#2423) as on main. Bisecting was not needed. A trace of Present's bookend path named both causes:
+
+- **The spec's "silent" slides were not silent.** They carried `# Quarterly review` and
+  `## Thank you` under an empty `<!-- caption: -->` (now `<!-- say: -->`, #2477), and an empty one falls through to the
+  slide's own words (`mergeNarration`, `lib/core/read-along-build.js`). So the last slide said
+  "Thank you.", and §12's rule dropped the closing, correctly, as a repeat. The deck's first and
+  last slides now carry no text, which is what the unit test's silent slides always were.
+- **The empty-slide skip read the slide it had just left.** Narration is state, so the index moves
+  one commit before the reader is rebuilt. On that commit `reader.track` is still the previous
+  slide's. Leaving a silent slide for a spoken one read the old, empty track and skipped the
+  spoken slide too, so Play from a silent title slide went straight past slide 2. On the first
+  Play the greeting's gap held the skip and hid this. The spec's second Play, with no greeting,
+  exposed it. `PresentOverlay.tsx` now skips only when `narration.idx` is the current slide.
+  `studio.present-bookends.test.tsx` pins this with a deck that has no greeting; the test fails
+  without the fix.

@@ -1,0 +1,1 @@
+- Studio Present: autoplay no longer skips a spoken slide that follows a silent one. The empty-slide skip read the track of the slide it had just left, so Play from a silent title slide went straight past slide 2 when the deck had no `greeting:` to hold it.

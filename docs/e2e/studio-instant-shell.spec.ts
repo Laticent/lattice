@@ -127,6 +127,17 @@ const CASES: Case[] = [
 	{ w: 390, h: 844, stop: 'write', rotateTo: { w: 844, h: 390 }, why: 'rotated while the engine was still loading' },
 ];
 
+// A viewport change mid-load is TWO steps in Chromium: `innerWidth` and every media query
+// change at once, and the `resize` event the shell re-seeds on is dispatched at the NEXT rendering
+// update. Read the shell between the two and it still holds the old orientation's geometry. A user
+// never sees that state (the resize steps run before that frame paints), but a loaded test runner
+// reads it: `rotation into cinema` failed with `innerWidth` 844, the cinema query matching and zero
+// `resize` events delivered. One animation frame is the signal, because its callbacks run after
+// that update's resize steps; waiting on it, not on a clock, is what makes the read deterministic.
+async function afterResize(page: Page) {
+	await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+}
+
 function near(actual: Rect | null, expected: Rect | null, label: string, tol = TOLERANCE) {
 	expect(actual, `${label}: shell band missing`).not.toBeNull();
 	expect(expected, `${label}: app band missing`).not.toBeNull();
@@ -263,6 +274,7 @@ for (const c of CASES) {
 			// engine fetch used to keep the portrait layout until hydration corrected it in one
 			// jump; the seed now re-runs on resize, and this is the only thing that can prove it.
 			await page.setViewportSize({ width: c.rotateTo.w, height: c.rotateTo.h });
+			await afterResize(page);
 		}
 		// WEBFONTS NO LONGER SWAP IN, so this gate means something different than it used to.
 		// `fonts.css` ships `font-display: optional`: the browser applies a face only if it
@@ -467,6 +479,7 @@ test.describe('rotation into cinema', () => {
 		expect(portrait.panehdr?.[3], 'the portrait shell drew no preview sub-bar to begin with').toBeGreaterThan(0);
 
 		await page.setViewportSize({ width: 844, height: 390 });
+		await afterResize(page);
 		await page.evaluate(() => document.fonts.ready);
 
 		const landscape = await page.evaluate(READ_SHELL);
