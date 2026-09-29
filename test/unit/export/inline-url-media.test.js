@@ -208,7 +208,7 @@ test('anyWebOrigin (the author opted in): another site IS fetched and embedded',
 test('browserFetchDataUri names a refusal from another site, not a bare network error', async () => {
 	const { browserFetchDataUri } = await load();
 	const f = browserFetchDataUri(async () => { throw new TypeError('Failed to fetch'); }, { ownOrigin: 'https://studio.test' });
-	assert.match((await f('https://cdn.example/x.jpg')).reason, /does not allow its pictures to be downloaded/);
+	assert.match((await f('https://cdn.example/x.jpg')).reason, /refused the download or could not be reached/);
 	assert.match((await f('https://studio.test/x.jpg')).reason, /could not be fetched \(Failed to fetch\)/);
 });
 
