@@ -14,7 +14,7 @@ const ROWS = {
 	typeScale: 'Type scale M L XL 2XL Sizes all the text on this slide together.',
 	slideFinish: 'Finish None The backdrop behind this slide.',
 	speakerNote: 'Speaker note for this slide Yours alone: shown beside the slide while you present. Never read aloud, and never in the caption track.',
-	caption: 'Caption what this slide reads aloud Override the exact words this slide narrates.',
+	caption: 'Say what this slide says aloud The exact words this slide speaks. caption',
 	claim: 'Claim Framed How much frame content sits inside.',
 	stampShape: 'Stamp shape Default — tab The shape a state badge renders in.',
 	play: 'Play Animate charts in this deck.',

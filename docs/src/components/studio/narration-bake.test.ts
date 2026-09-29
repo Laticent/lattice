@@ -390,7 +390,7 @@ describe('bakeNarration — complete, or nothing', () => {
 		expect(bake.narrated[1] && 'emphasis' in bake.narrated[1]).toBe(false);
 		// A caption override replaces the projected text, so the spans measured against the projection
 		// no longer apply: buildTrack drops them, and so must the hash.
-		const captioned = DECK.replace('# One', '<!-- caption: The author says something else here. -->\n\n# One');
+		const captioned = DECK.replace('# One', '<!-- say: The author says something else here. -->\n\n# One');
 		const over = await bakeNarration(captioned, PROJECTED, { voice: VOICE, audio: false, projectedEmphasis: [spans, undefined] });
 		expect(over.narrated[0]?.text).toBe('The author says something else here.');
 		expect(over.narrated[0] && 'emphasis' in over.narrated[0]).toBe(false);

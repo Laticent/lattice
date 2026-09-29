@@ -1,11 +1,11 @@
-// Captions — read/write a slide's `<!-- caption: … -->` in its source.
+// Captions — read/write a slide's `<!-- say: … -->` in its source.
 //
 // A slide's CAPTION is its read-as TEXT — the exact words a slide narrates
 // (read-aloud, the HTML player's Read-Article, the export `.vtt`, a11y, future
 // translation). It is the HIGHEST-precedence narration source (caption →
 // front-matter caption → projection) and a SEPARATE channel from both the
 // speaker note (what you SAY off-slide) and the `describe:` accessibility text
-// (an objective equivalent of what's THERE). The engine consumes `<!-- caption: … -->`
+// (an objective equivalent of what's THERE). The engine consumes `<!-- say: … -->`
 // via notes-core (`isCaptionComment` / `captionFromHtml`) and routes it to narration
 // only — never to the presenter-note field.
 //
@@ -17,14 +17,14 @@
 
 import { comments, isCaptionBody, tidyOutsideFences } from './slide-directives';
 
-/** The slide's read-as caption (the LAST `caption:` comment, prefix stripped), or ''.
+/** The slide's read-as caption (the LAST `say:` comment, prefix stripped), or ''.
  *  Last-wins: a caption is an override of the whole slide's narration, so a later one
  *  supersedes an earlier one (matching notes-core.captionFromHtml). */
 export function getCaption(chunk: string): string {
 	let caption = '';
 	for (const c of comments(chunk)) {
 		if (!isCaptionBody(c.body)) continue;
-		const text = c.body.trim().replace(/^caption\s*:\s*/i, '').trim();
+		const text = c.body.trim().replace(/^say\s*:\s*/, '').trim();
 		if (text) caption = text; // last-NON-EMPTY-wins — parity with notes-core.captionFromHtml
 	}
 	return caption;
@@ -32,7 +32,7 @@ export function getCaption(chunk: string): string {
 
 /**
  * Set (or clear, with an empty string) the slide's caption: strip any existing
- * `caption:` comment(s), then append the new one. Speaker notes, `describe:`
+ * `say:` comment(s), then append the new one. Speaker notes, `describe:`
  * descriptions, and engine directives are left untouched, and comments inside fenced
  * code blocks are never touched (they're content).
  */
@@ -48,5 +48,5 @@ export function setCaption(chunk: string, caption: string): string {
 	// Never let the body close the comment early — neutralize BOTH the normal `-->` and the
 	// spec-valid abrupt close `--!>` (a real HTML parser treats `--!>` as a comment end).
 	const t = caption.trim().replace(/--+!?>/g, '->');
-	return t ? `${out}\n\n<!-- caption: ${t} -->` : out;
+	return t ? `${out}\n\n<!-- say: ${t} -->` : out;
 }

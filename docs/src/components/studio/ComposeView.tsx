@@ -1050,7 +1050,7 @@ class CodeBlockView {
 // line of very small type and removes both.
 //
 // A RUN OF COMMENTS IS ONE CONTROL, not N stacked ones. Adjacent comments are extremely common —
-// a `caption:`, a `describe:` and a note all belong to the same slide — and rendering each as its
+// a `say:`, a `describe:` and a note all belong to the same slide — and rendering each as its
 // own block with its own panel and its own Remove button produced three identical "NOTE" boxes
 // down the page (the shipped screenshot). So the run reads as a TAB BAR: the pills sit on one row,
 // exactly one is open at a time, and the open one's text appears in a single panel BELOW the row.
@@ -1094,10 +1094,10 @@ function commentRuns(doc: PMNode) {
 	return runs.map(({ from, to, nodes, positions }) => ({ from, to, nodes, positions }));
 }
 
-/** The label a pill carries, by channel. `caption:` and `describe:` are not notes — they are the
+/** The label a pill carries, by channel. `say:` and `describe:` are not notes — they are the
  *  slide's narration text and its WCAG text alternative, with their own sinks — so calling them
  *  "note" mislabels what the author is looking at. */
-const KIND_LABEL: Record<CommentKind, string> = { caption: 'caption', describe: 'describe', note: 'note' };
+const KIND_LABEL: Record<CommentKind, string> = { say: 'say', describe: 'describe', note: 'note' };
 
 /** The open panel's id, PER EDITOR INSTANCE.
  *
@@ -1326,7 +1326,7 @@ export class CommentView {
 		// The pill NAMES a channel; it does not read the note out. Putting the whole body in the
 		// accessible name made a screen reader announce the entire note as the button's label and
 		// then again when the panel opened.
-		this.dom.setAttribute('aria-label', `show the ${KIND_LABEL[kind]}`);
+		this.dom.setAttribute('aria-label', `show the ${KIND_LABEL[kind]} comment`);
 		// `aria-expanded` and `aria-controls` are NOT set here. They are decoration attributes (see
 		// commentRunPlugin), because decorations are recomputed from state on every transaction while
 		// this view is only updated when its node or decorations change — which is how the old
@@ -2074,7 +2074,7 @@ function ComposeStyles() {
 			.cs-host .cs-comment-open svg{opacity:1}
 			/* CHANNEL, not decoration: caption and describe are different registers from a note — the
 			   slide's narration text and its WCAG alternative — so they read differently at rest. */
-			.cs-host .cs-comment-caption:not(.cs-comment-open),.cs-host .cs-comment-describe:not(.cs-comment-open){border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
+			.cs-host .cs-comment-say:not(.cs-comment-open),.cs-host .cs-comment-describe:not(.cs-comment-open){border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
 			/* the shared panel — one per run, below the row, never one per pill */
 			.cs-host .cs-comment-panel{margin:.1em 0 .7em;padding:9px 12px;max-width:62ch;border:1px solid var(--border,#e4eaf2);border-left:2px solid var(--accent,#006fa8);border-radius:0 8px 8px 0;background:var(--bg-alt,#f2f5fa)}
 			.cs-host .cs-comment-body{color:var(--text-body,#2b3a4f);font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}

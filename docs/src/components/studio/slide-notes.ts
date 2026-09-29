@@ -25,7 +25,7 @@ const isTooling = (body: string) => (notesCore as { isToolingComment: (b: string
 const notANote = (body: string) => isDirectiveBody(body) || isDescriptionBody(body) || isCaptionBody(body) || isPaneMarkerBody(body) || isTooling(body);
 
 /** The slide's speaker note (the first non-directive, non-description, non-caption comment),
- *  or ''. A `describe:` comment is the accessibility description and a `caption:` comment is
+ *  or ''. A `describe:` comment is the accessibility description and a `say:` comment is
  *  the read-as narration text (both separate channels) — never the speaker note, and neither is a
  *  panes marker (`isPaneMarkerBody`). */
 export function getNote(chunk: string): string {
@@ -46,7 +46,7 @@ export function setNote(chunk: string, note: string): string {
 	const text = String(chunk || '');
 	// Ranges of existing note comments (non-directive, non-description, non-caption,
 	// outside fences), right-to-left. A `describe:` comment is the accessibility channel
-	// and a `caption:` comment is the read-as narration — leave both untouched so setting
+	// and a `say:` comment is the read-as narration — leave both untouched so setting
 	// the note never clobbers them.
 	const ranges = comments(text)
 		.filter((c) => !notANote(c.body))

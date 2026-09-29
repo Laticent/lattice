@@ -346,14 +346,14 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 	});
 });
 
-// The caption channel strips SEPARATELY from notes (`--strip-captions`), and the two flags
+// The caption channel strips SEPARATELY from notes (`--strip-say`), and the two flags
 // are orthogonal. This pins the HARD RULE #23 "verified on the real .vtt" claim with a
 // committed artifact: caption text gone from the .vtt AND the envelope source, and the
 // stripped slides falling back to the GENERATED caption rather than to the speaker note.
 // (The old text here said "notes retained (the fallback)" and "both flags together → a
 // silent track" — both describe the retired ladder and were contradicted by the four cells
 // directly beneath them.)
-describe('html-player export — captions + --strip-captions (orthogonal to --strip-notes)', () => {
+describe('html-player export — captions + --strip-say (orthogonal to --strip-notes)', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
 	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 	const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
@@ -361,9 +361,9 @@ describe('html-player export — captions + --strip-captions (orthogonal to --st
 	// Single distinctive tokens survive the .vtt's word-by-word cue split.
 	// Slide 3 carries a note and NO caption — the shape the leak lived in.
 	const DECK = [
-		'---', 'theme: indaco', 'captions:', '  1: FRONTCAP the front-matter caption', '---', '',
+		'---', 'theme: indaco', 'say:', '  1: FRONTCAP the front-matter caption', '---', '',
 		'# One', '', '<!-- NOTEONE the first note -->', '', 'BODYONE the first body.', '',
-		'---', '', '# Two', '', '<!-- caption: INLINECAP the inline caption -->', '<!-- NOTETWO the second note -->', '', 'BODYTWO the second body.', '',
+		'---', '', '# Two', '', '<!-- say: INLINECAP the inline caption -->', '<!-- NOTETWO the second note -->', '', 'BODYTWO the second body.', '',
 		'---', '', '# Three', '', '<!-- NOTETHREE the third note -->', '', 'BODYTHREE the third body.', '',
 	].join('\n');
 
@@ -404,8 +404,8 @@ describe('html-player export — captions + --strip-captions (orthogonal to --st
 		assert.ok(source.includes('NOTEONE') && source.includes('NOTETHREE'), 'notes ride in the envelope source as comments');
 	});
 
-	test('--strip-captions scrubs the OVERRIDES; slides fall back to their generated content', { timeout: TIMEOUT }, () => {
-		const { vtt, source } = render(['--strip-captions']);
+	test('--strip-say scrubs the OVERRIDES; slides fall back to their generated content', { timeout: TIMEOUT }, () => {
+		const { vtt, source } = render(['--strip-say']);
 		// caption text gone from both surfaces
 		assert.equal(vtt.includes('FRONTCAP'), false, 'front-matter caption gone from the .vtt');
 		assert.equal(vtt.includes('INLINECAP'), false, 'inline caption gone from the .vtt');
@@ -422,12 +422,12 @@ describe('html-player export — captions + --strip-captions (orthogonal to --st
 		assert.ok(source.includes('NOTEONE') && source.includes('NOTETWO'), 'the notes still ride in the source (only captions were stripped)');
 	});
 
-	test('--strip-captions --strip-notes → both channels scrubbed, and the deck still narrates itself', { timeout: TIMEOUT }, () => {
+	test('--strip-say --strip-notes → both channels scrubbed, and the deck still narrates itself', { timeout: TIMEOUT }, () => {
 		// This used to produce a SILENT track, because suppressing the projection was the only
 		// way to stop `--strip-notes` leaking the notes it had just scrubbed. With captions
 		// generated from slide content there is nothing private left in them to protect, so a
 		// stripped deck keeps its caption track — which is what a recipient needs for a11y.
-		const { vtt, source } = render(['--strip-captions', '--strip-notes']);
+		const { vtt, source } = render(['--strip-say', '--strip-notes']);
 		for (const tok of ['FRONTCAP', 'INLINECAP', 'NOTEONE', 'NOTETWO', 'NOTETHREE']) {
 			assert.equal(vtt.includes(tok), false, `no ${tok} in the fully-stripped .vtt`);
 			assert.equal(source.includes(tok), false, `no ${tok} in the fully-stripped source`);
@@ -772,7 +772,7 @@ describe('html-player export — a baked label halo follows, or its ink freezes 
 //   • `--strip-notes` — the PRIVACY flag — → the note in the .vtt, while the player
 //     HTML beside it was correctly scrubbed. A regression this branch created: before
 //     it, that flag combination wrote no .vtt at all.
-//   • `--strip-captions` → a multi-line caption override survived its own strip.
+//   • `--strip-say` → a multi-line caption override survived its own strip.
 //
 // So these cells drive the SHAPES, on real bytes. A gate that cannot see the channel
 // it is named for is worse than no gate: it certifies.
@@ -791,7 +791,7 @@ describe('html-player export — a MULTI-LINE note on a CHART slide (the leak th
 		'- Visitors `1000`', '- Signups `500`', '- Paid `100`', '',
 	].join('\n');
 
-	const CAPDECK = DECK.replace('<!-- note:', '<!-- caption:').replace('PRIVATELEAK churn is forty percent and legal has not cleared it', 'CAPLEAK the second line of a two line caption override');
+	const CAPDECK = DECK.replace('<!-- note:', '<!-- say:').replace('PRIVATELEAK churn is forty percent and legal has not cleared it', 'CAPLEAK the second line of a two line caption override');
 
 	function render(deck, flags) {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-chartnote-'));
@@ -829,8 +829,8 @@ describe('html-player export — a MULTI-LINE note on a CHART slide (the leak th
 		assert.ok(/one thousand/i.test(vtt), 'and the caption track still ships, generated from content');
 	});
 
-	test('--strip-captions: a MULTI-LINE caption override is stripped whole, not half', { timeout: TIMEOUT }, () => {
-		const vtt = render(CAPDECK, ['--strip-captions']);
+	test('--strip-say: a MULTI-LINE caption override is stripped whole, not half', { timeout: TIMEOUT }, () => {
+		const vtt = render(CAPDECK, ['--strip-say']);
 		assert.equal(vtt.includes('CAPLEAK'), false, 'the override must not survive its own strip');
 		assert.ok(/one thousand/i.test(vtt), 'the slide falls back to the generated caption');
 	});

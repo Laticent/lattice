@@ -91,6 +91,16 @@ describe('cli', { concurrency: true }, () => {
     assert.doesNotMatch(r.stderr, /at .+\.js:\d+/, 'stderr should not contain a stack trace');
   });
 
+  // Retired 2026-09-28 with `caption:` (engineering/decisions/2026-09-28-say-not-caption.md). A
+  // script still passing it asked for a PRIVACY strip, so it must fail loudly and name the flag
+  // that does the job now — never render the deck unstripped, never a bare "unknown option".
+  test('emulator: retired --strip-captions exits 1 and names --strip-say', async () => {
+    const r = await run(EMULATOR, ['deck.md', 'out.html', '--strip-captions']);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /--strip-captions is retired — use --strip-say/);
+    assert.doesNotMatch(r.stderr, /at .+\.js:\d+/, 'stderr should not contain a stack trace');
+  });
+
   test('emulator: --palette without value exits 1', async () => {
     const r = await run(EMULATOR, ['deck.md', 'out.pdf', '--palette']);
     assert.equal(r.status, 1);

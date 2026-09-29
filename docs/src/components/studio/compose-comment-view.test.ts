@@ -24,7 +24,7 @@ const DECK = [
 	'',
 	'First paragraph.',
 	'',
-	'<!-- caption: the slide reads as this. -->',
+	'<!-- say: the slide reads as this. -->',
 	'',
 	'<!-- describe: a bar chart with four bars. -->',
 	'',
@@ -64,13 +64,13 @@ const commentCount = (v: EditorView) => {
 describe('the pills carry the channel, not a generic label', () => {
 	it('labels caption, describe and note distinctly', () => {
 		mount();
-		expect(labels()).toEqual(['caption', 'describe', 'note']);
+		expect(labels()).toEqual(['say', 'describe', 'note']);
 	});
 
 	it('marks each pill with its channel class, so the three read differently', () => {
 		mount();
 		const classes = pills().map((p) => [...p.classList].filter((c) => c.startsWith('cs-comment-')).filter((c) => !c.endsWith('first') && !c.endsWith('last')));
-		expect(classes).toEqual([['cs-comment-caption'], ['cs-comment-describe'], ['cs-comment-note']]);
+		expect(classes).toEqual([['cs-comment-say'], ['cs-comment-describe'], ['cs-comment-note']]);
 	});
 
 	it('shows the words without the channel prefix', () => {
@@ -184,7 +184,7 @@ describe('removal is a deliberate second act', () => {
 		pills()[1].click(); // describe
 		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
 		expect(commentCount(v)).toBe(2);
-		expect(labels()).toEqual(['caption', 'note']);
+		expect(labels()).toEqual(['say', 'note']);
 		const text = v.state.doc.textContent;
 		expect(text).toContain('First paragraph.');
 		expect(text).toContain('Second paragraph.');
@@ -392,7 +392,7 @@ describe('the row announces itself as the tab bar it is', () => {
 	it('names the CHANNEL on the pill, not the whole note', () => {
 		mount();
 		const label = pills()[0].getAttribute('aria-label') || '';
-		expect(label).toContain('caption');
+		expect(label).toContain('say');
 		expect(label).not.toContain('the slide reads as this');
 	});
 
@@ -451,7 +451,7 @@ describe('the row announces itself as the tab bar it is', () => {
 		mount();
 		expect(pills()[0].getAttribute('aria-label')).not.toMatch(/note/);
 		pills()[0].click();
-		expect(panels()[0].getAttribute('aria-label')).toBe('caption');
+		expect(panels()[0].getAttribute('aria-label')).toBe('say');
 	});
 
 	it('gives each editor instance its OWN panel id, so two on a page cannot collide', () => {

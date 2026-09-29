@@ -416,7 +416,7 @@ export async function shareHtmlPlayer(
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
 	const a11yDefs = deck.A11Y_DEFS;
 	// THE COMMENT CHANNEL, LIFTED ONCE, BEFORE ANYTHING TOUCHES THE MARKUP. Notes,
-	// `describe:` and `caption:` ride as HTML comments, and every pipeline below this
+	// `describe:` and `say:` ride as HTML comments, and every pipeline below this
 	// point destroys them — the capture frame sanitizes, and `sanitizeSlideHtml` deletes
 	// comment nodes. Reading them here, from the engine's own output, is what keeps the
 	// notes sheet, the a11y descriptions and the `--strip-notes` scrub independent of
@@ -576,7 +576,7 @@ export async function shareHtmlPlayer(
 	// FAIL-CLOSED, mirroring the CLI. The scrub matches bodies lifted from the RENDER against
 	// comments in the SOURCE, and every leak this has had was a new way for those two sides to
 	// disagree. So check the OUTPUT rather than trusting the matcher: a comment still standing
-	// that is not a directive, pragma, `describe:` or `caption:` is suspected speaker text. It
+	// that is not a directive, pragma, `describe:` or `say:` is suspected speaker text. It
 	// reaches the completion toast, because a strip-notes export that quietly keeps a note is
 	// the one failure the author cannot take back once the file has been sent.
 	if (stripNotes) {
@@ -1088,7 +1088,7 @@ export async function shareCaptions(
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	// DEPTH-AWARE, for the same reason the webpage export is: the flat splitter pairs each
 	// `<section>` with the NEXT `</section>`, so a slide containing a hand-authored
-	// `<section>` is truncated at the nested close tag and its `<!-- caption: -->` / note
+	// `<section>` is truncated at the nested close tag and its `<!-- say: -->` / note
 	// falls outside the chunk — while the slide COUNT stays right, so parity cannot catch it.
 	// That slide then narrates the DOM projection instead of the author's caption, silently.
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
@@ -1097,13 +1097,13 @@ export async function shareCaptions(
 		.map((p) => `${p.openTag}${p.inner}</section>`);
 
 	// The FULL narration chain, matching the CLI export's writeCaptionsSidecar
-	// (HARD RULE #1): a slide's inline `<!-- caption: -->` → its front-matter `captions:`
+	// (HARD RULE #1): a slide's inline `<!-- say: -->` → its front-matter `say:`
 	// entry → the component-aware DOM projection, and the emphasis spans that ride with it. A speaker note is not a rung. So a deck
 	// exported from the docs site now produces the SAME projected captions the CLI does —
 	// closing the gap where the client `.vtt` was silently empty (the CLI already projected).
 	const notes = notesCore.extractSlideNotes(sections);
 	const captions = notesCore.extractSlideCaptions(sections);
-	// Front-matter `captions:` is keyed by 1-based AUTHORED slide number. The docs render
+	// Front-matter `say:` is keyed by 1-based AUTHORED slide number. The docs render
 	// (`renderMarkdown`) never runs the emulator's Fit-Spine autosplit, so `sections` is 1:1
 	// with the authored slides and `fmCaptions.get(i+1)` binds correctly — we deliberately do
 	// NOT port the CLI's `AUTOSPLIT_APPLIES` guard (which nulls the map): here it would be a

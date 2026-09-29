@@ -191,6 +191,69 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
   });
 });
 
+// `caption:` / `captions:` retired for `say:` (2026-09-28). An ERROR: the engine ignores the
+// old key, so the slide silently speaks its generated narration and the old line lands in the
+// presenter's notes. engineering/decisions/2026-09-28-say-not-caption.md.
+describe('lint-core: caption-key-retired', () => {
+  const vocab = { names: new Set(), modifiers: new Set(), capacity: {} };
+  const retired = (src) => core.lintTextWith(src, vocab).filter((x) => x.rule === 'caption-key-retired');
+
+  test('an inline <!-- caption: --> is an error that names say:, on the right slide', () => {
+    const f = retired('---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n<!-- caption: The old line. -->\n');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].severity, 'error');
+    assert.equal(f[0].slide, 2);
+    assert.match(f[0].fix, /<!-- say: … -->/);
+  });
+
+  test('a front-matter captions: map is an error that names say:', () => {
+    const f = retired('---\ntheme: indaco\ncaptions:\n  1: The old map.\n---\n\n# One\n');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].severity, 'error');
+    assert.match(f[0].fix, /`say:`/);
+  });
+
+  test('the engine\u2019s comment shapes are found, and the finding names the key line', () => {
+    for (const c of ['<!--- caption: a --->', '<!-- caption: a --!>', '<!--\ncaption: a -->']) {
+      const f = retired(`# One\n\n${c}\n`);
+      assert.equal(f.length, 1, c);
+      assert.match(f[0].line, /caption: a/, c);
+    }
+  });
+
+  test('a capitalized Caption: is only a WARNING — it may be a real private note', () => {
+    const f = retired('# One\n\n<!-- Caption: fix the chart typo -->\n');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].severity, 'warning');
+  });
+
+  test('say:, a nested captions key, and the old syntax quoted in code are all clean', () => {
+    const src = [
+      '---', 'theme: indaco', 'speaker:', '  captions: nested, a different key', 'say:', '  1: The new map.', '---', '',
+      '# One', '', '<!-- say: The new line. -->', '', 'Write `<!-- caption: … -->` no more.', '',
+      '```markdown', '<!-- caption: a fenced sample -->', '```', '',
+    ].join('\n');
+    assert.deepEqual(retired(src), []);
+  });
+});
+
+// `say:` is lowercase only — a capitalized one stays a private note, and this says so.
+describe('lint-core: say-key-case', () => {
+  const vocab = { names: new Set(), modifiers: new Set(), capacity: {} };
+  const hits = (src) => core.lintTextWith(src, vocab).filter((x) => x.rule === 'say-key-case');
+
+  test('a capitalized Say: is a WARNING that it stays a note', () => {
+    const f = hits('# One\n\n<!-- Say: thank the ops team -->\n\n<!-- SAY: pause -->\n');
+    assert.equal(f.length, 2);
+    assert.ok(f.every((x) => x.severity === 'warning'));
+    assert.match(f[0].message, /speaker note/);
+  });
+
+  test('lowercase say:, a plain "Say this" note, and quoted code are clean', () => {
+    assert.deepEqual(hits('# One\n\n<!-- say: spoken -->\n\n<!-- Say this warmly. -->\n\n`<!-- Say: quoted -->`\n'), []);
+  });
+});
+
 describe('lint-core: lintTextWith rules', () => {
   test('returns an array and skips front matter (slide 0)', () => {
     const out = core.lintTextWith(`${FM}<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - b\n`, vocab);

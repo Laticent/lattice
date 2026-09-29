@@ -47,12 +47,12 @@ export function isDescriptionBody(body: string): boolean {
 	return /^describe\s*:/i.test(String(body).trim());
 }
 
-/** True when the comment body is the slide's `caption:` read-as text — the highest-
+/** True when the comment body is the slide's `say:` read-as text — the highest-
  *  precedence narration source, a separate channel from the speaker note (mirrors
  *  notes-core.isCaptionComment). Kept distinct so the note reader/writer never treats
  *  a caption as a note. */
 export function isCaptionBody(body: string): boolean {
-	return /^caption\s*:/i.test(String(body).trim());
+	return /^say\s*:/.test(String(body).trim()); // lowercase only — see notes-core CAPTION_MATCHER
 }
 
 /** True when the comment body is a PANES marker — `pane: list` or the `panes: 35/65` layout line

@@ -12,7 +12,7 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Captions, Check, Cloud, Info, RotateCcw, Sparkles } from 'lucide-react';
+import { Check, Cloud, Info, RotateCcw, Sparkles, Volume2 } from 'lucide-react';
 import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
 import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
@@ -291,7 +291,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// note, and the note is not in the chain at all: the note is what you SAY off-slide; the
 	// caption is the exact words the slide READS (read-aloud, the HTML player's Read-Article,
 	// the export `.vtt`, a11y).
-	// Same draft-then-commit shape; writes a `<!-- caption: … -->` the engine routes to
+	// Same draft-then-commit shape; writes a `<!-- say: … -->` the engine routes to
 	// narration only, never to the presenter-note field.
 	const curCaption = React.useMemo(() => getCaption(chunk), [chunk]);
 	const [captionDraft, setCaptionDraft] = React.useState(curCaption);
@@ -702,19 +702,21 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							    query matches none of them. */}
 							{noteBlock}
 
-							{/* CAPTION — the read-as OVERRIDE, and it REPLACES the generated narration
+							{/* SAY — the read-as OVERRIDE, and it REPLACES the generated narration
 							    rather than merging with it. A separate channel from the note, which is
-							    not a narration source at all: caption → front-matter → projection, for a
+							    not a narration source at all: say → front-matter say → projection, for a
 							    clean caption track / Read-Article / export `.vtt`.
-							    Writes `<!-- caption: … -->`; never lands in the presenter-note field. */}
-							<SettingsBlock terms="caption read aloud narration vtt read-article spoken" separated>
-								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Captions className="size-3.5 text-[var(--accent)]" />Caption <span className="font-normal text-muted-foreground">what this slide reads aloud</span></span>
-								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">Override the exact words this slide narrates — the read-along caption track, the HTML player's Read-Article, and the export <code className="font-mono">.vtt</code>. Highest precedence: it wins over the note and the auto text. Leave empty to fall back to the note.</p>
+							    Writes `<!-- say: … -->`; never lands in the presenter-note field.
+							    `caption` stays in the search terms: an author who knew the old key
+							    should still find the field that replaced it. */}
+							<SettingsBlock terms="say read aloud narration spoken vtt read-article caption" separated>
+								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Volume2 className="size-3.5 text-[var(--accent)]" />Say <span className="font-normal text-muted-foreground">what this slide says aloud</span></span>
+								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">The exact words this slide speaks — in read-aloud, the HTML player's Read-Article, and the export <code className="font-mono">.vtt</code>. It replaces the narration generated from the slide. Leave empty to use the generated narration.</p>
 								<textarea
 									value={captionDraft}
 									onChange={(e) => setCaptionDraft(e.target.value)}
 									onBlur={commitCaption}
-									aria-label="Read-as caption for this slide"
+									aria-label="What this slide says aloud"
 									placeholder="The exact words this slide should read aloud — e.g. “Revenue grew forty percent across three quarters.”"
 									className="min-h-[84px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
 								/>

@@ -1,13 +1,13 @@
-# Skill — Create speaker notes, reviews, and captions
+# Skill — Create speaker notes, reviews, and `say:` lines
 
 > Write the three channels that travel *alongside* a slide — what the presenter
 > says (speaker note), what a reviewer flags (review comment), and what the slide
-> narrates aloud (caption) — each in its own register, none bleeding into the
+> says aloud (`say:`) — each in its own register, none bleeding into the
 > others.
 
 **Read this when** you are asked to add presenter notes, narration/read-along text,
 or review feedback to a deck — or to *review* a deck. **You'll produce** HTML-comment
-notes/captions in the `.md` source (and, for reviews, Studio-authored comments that
+notes and `say:` lines in the `.md` source (and, for reviews, Studio-authored comments that
 travel in the `.lattice` file). §4 covers the flip side: the evaluative rubric for
 reviewing a deck and producing that feedback.
 
@@ -16,17 +16,17 @@ reviewing a deck and producing that feedback.
 ## The 10/10 bar
 
 Three registers, kept strictly distinct — a reviewer's "reorder this" must **never**
-surface in the presenter teleprompter, and a caption must never carry a private
+surface in the presenter teleprompter, and a `say:` line must never carry a private
 remark:
 
 | Channel | Audience | What it is | Where it lives |
 |---|---|---|---|
 | **Speaker note** | the presenter | what you *say* — the off-slide subtext | a plain HTML comment in the slide's markdown |
-| **Caption** | listeners / read-along / TTS / `.vtt` | the exact words the slide *narrates* | `<!-- caption: … -->` or a front-matter `captions:` map |
+| **Say** | listeners / read-along / TTS / `.vtt` | the exact words the slide *speaks* | `<!-- say: … -->` or a front-matter `say:` map |
 | **Review comment** | the author / reviewer / collaborator | feedback *about* the slide, not delivery content | the `.lattice` manifest (Studio state) — never the markdown |
 
 The governing principle: **"The slide is for them. The note is for you."** A 10/10
-note adds the spoken subtext the slide can't show; a 10/10 caption reads naturally
+note adds the spoken subtext the slide can't show; a 10/10 `say:` line reads naturally
 aloud; a 10/10 review comment is specific and actionable and stays out of the
 deliverable.
 
@@ -72,9 +72,9 @@ removed everywhere, but that export no longer hides which slides carried one, an
 source re-imports with that one block boundary changed. (The slides are what is kept as written;
 the source cannot also be, because on that deck any removal at all restructures it.)
 
-**`--strip-captions` carries the same guarantee**, and for one release it did not: its scrub took
-the caption comment's span and left the line, so a captioned slide shipped one byte more than the
-same slide written without a caption — the tell the note flag had just lost, one channel over. Both
+**`--strip-say` carries the same guarantee** (it was `--strip-captions` then), and for one release it did not: its scrub took
+the say comment's span and left the line, so a slide with a `say:` line shipped one byte more than the
+same slide written without one — the tell the note flag had just lost, one channel over. Both
 strips now take the same cut, and when the two flags run together the export renders one composed
 source under one measured cut, because they scrub one document. The fallback above reads the same
 way for either channel; the warning names the flags you actually ran.
@@ -85,8 +85,8 @@ reader says the slide SHOWS, not what you say over it — so it survives `--stri
 still rides into the PPTX image `altText` and the HTML `aria-describedby`. That is deliberate:
 stripping it would take accessibility away from the recipient to protect the sender, and the
 two comments are opposite registers. But it IS an author-written comment channel outliving a
-privacy flag, so write a description as something the audience may read. `caption:` is the same:
-it is public-facing narration and has its own flag, `--strip-captions`.
+privacy flag, so write a description as something the audience may read. `say:` is the same:
+it is public-facing narration and has its own flag, `--strip-say`.
 
 **What makes a great note:**
 
@@ -128,43 +128,56 @@ when the same words are a real note elsewhere in the deck.
 
 ---
 
-## 2. Captions
+## 2. `say:` — what a slide says aloud
 
-**Definition.** A caption is a slide's **read-as text** — the exact words it
-narrates for read-aloud, the HTML player's read-along, the exported `.vtt`, and TTS.
+**Definition.** A `say:` line is a slide's **read-as text** — the exact words it
+speaks in read-aloud, the HTML player's read-along, the exported `.vtt`, and TTS.
 It is the **highest-precedence narration source** and it *replaces* the whole
 slide's narration — entirely, never in part.
 
+**Why `say:` and not `caption:`.** The key was `caption:` (and the map `captions:`)
+until 2026-09-28. "Caption" meant four things across the product — the line you write,
+the line the engine generates, the text band shown while it speaks, and the label under
+a figure — so it now means only **visible** text: the on-screen band, the `.vtt` sidecar
+(`--captions`), and a chart or image caption. The old keys are retired, not aliased:
+the engine ignores them and `lint:deck` reports `caption-key-retired` as an error.
+Record: `engineering/decisions/2026-09-28-say-not-caption.md`.
+
+**Lowercase only.** `<!-- say: … -->` is spoken; `<!-- Say: … -->` is a private speaker
+note. "Say:" is a natural way to open a note to yourself, and this channel is public — it
+reaches the `.vtt` and the audio of a shared deck — so only the directive-style lowercase key
+counts. `lint:deck` warns (`say-key-case`) on a capitalized one, in case you meant it.
+
 **The narration precedence chain:**
-`caption → front-matter captions map → projection/chart narrator`.
+`say: comment → front-matter say: map → projection/chart narrator`.
 
 **A speaker note is NOT in that chain**, and it used to be — sitting above the
 projection, so any slide carrying a note narrated the note rather than its own
 content, in the live crawl, in the exported `.vtt`, and in the audio baked into a
 shared deck. That is the bleed the 10/10 bar above forbids in its first sentence,
-and the CLI had to carry the consequence in its own `--strip-captions` help: you
+and the CLI had to carry the consequence in its own strip help: you
 stripped the *public* channel for privacy and were handed the *private* one, so it
 told you to strip twice. A note reaches the presenter's own surface and nothing
 else; it travels in the deck as an HTML comment, for the author.
 
-**Two ways to author a caption, and a default:**
+**Two ways to author a `say:` line, and a default:**
 
 1. **Inline comment** — replaces this slide's generated narration entirely:
    ```markdown
-   <!-- caption: The spoken line for this slide, in full. -->
+   <!-- say: The spoken line for this slide, in full. -->
    ```
 2. **Front-matter map, keyed by slide number:**
    ```yaml
-   captions:
+   say:
      6: Your registry taught it ARR and NDR, so this slide speaks them in full.
    ```
 3. **Generated (the default)** — with no override, a component-aware projection /
-   chart narrator writes the caption from what the slide actually says (a chart
+   chart narrator writes the narration from what the slide actually says (a chart
    narrates a computed insight — e.g. funnel conversion % — prose can't). A slide
    with nothing to project reads as silence; a note is not a substitute for it.
 
 **Display form vs spoken form.** A word carries both `$4.2M` (displayed) and "four
-point two million dollars" (spoken); the caption shows the glyphs while the timed
+point two million dollars" (spoken); the on-screen caption shows the glyphs while the timed
 track speaks the words. Expand your own acronyms with a front-matter `acronyms:`
 block so the spoken form is right without cluttering the caption:
 
@@ -179,9 +192,9 @@ a prosody-grounded estimate (≈150 wpm, ~200 ms/syllable, pauses graded by boun
 depth, phrase-final lengthening) drives the highlight; when TTS plays, each
 sentence's measured onset re-anchors its words. The highlight is biased ~40 ms ahead
 of the voice (a lagging highlight is the error to avoid). `.vtt` is a sidecar
-(`--captions`), never baked into the deck bytes; `--strip-captions` removes both the
-inline comments and the map, leaving the generated captions. `--strip-notes` is a
-separate channel and does not touch captions at all.
+(`--captions`), never baked into the deck bytes; `--strip-say` removes both the
+inline comments and the map, leaving the generated narration. `--strip-notes` is a
+separate channel and does not touch `say:` lines at all.
 
 **Opening and closing lines.** Narration can open with a greeting and end with a
 closing that belong to no slide, set once in front matter:
@@ -196,9 +209,9 @@ text. A line your first or last slide already says ("Welcome…", "Thank you") i
 and the `.vtt` like any other line. The full rules are in
 `lib/base/base.registers.docs.md` § `greeting:` / `closing:`.
 
-**Great caption:** written to be spoken and understood — acronyms expanded, numbers
-allowed to read as words. Use an inline `caption:` override only when the spoken line
-should differ from the on-slide prose. A live caption is a
+**Great `say:` line:** written to be spoken and understood — acronyms expanded, numbers
+allowed to read as words. Use an inline `say:` override only when the spoken line
+should differ from the on-slide prose. The live caption band is a
 rehearsal mirror, not a teleprompter crutch — it fades as the talk is mastered.
 
 ---
@@ -208,7 +221,7 @@ rehearsal mirror, not a teleprompter crutch — it fades as the talk is mastered
 **Definition.** A review comment is feedback left *on* a slide — "CFO will push back
 on this number, double-check it", "reorder vs. slide 4", "is this stat current?" —
 that is **not** delivery content. It is a distinct third register from notes and
-captions.
+`say:` lines.
 
 **How it works (know these boundaries):**
 
@@ -289,12 +302,12 @@ does the cadence vary? What you flag becomes a review comment (§3) or a direct 
 - Paid `620`
 
 <!-- Open on the drop from activation to paid — that's the whole story. -->
-<!-- caption: The pipeline holds until activation, then loses seventy percent before paid. -->
+<!-- say: The pipeline holds until activation, then loses seventy percent before paid. -->
 ```
 
 ```yaml
 # front matter, for note-free slides and acronym expansion
-captions:
+say:
   1: Meridian Freight — the quarter beat plan, and we need a capacity call today.
 acronyms:
   ARR: annual recurring revenue
@@ -312,8 +325,8 @@ Render with narration sidecars: `node lattice-emulator.js deck.md deck.pdf
 
 - [ ] Notes add spoken subtext, never restate the slide.
 - [ ] Any private/reviewer remark is a **review comment** (Studio), not a note.
-- [ ] Captions read naturally aloud; acronyms expanded via `acronyms:`.
-- [ ] Caption precedence understood (a `caption:` replaces the generated line entirely; a note is never narrated at all).
+- [ ] `say:` lines read naturally aloud; acronyms expanded via `acronyms:`.
+- [ ] Narration precedence understood (a `say:` replaces the generated line entirely; a note is never narrated at all).
 - [ ] Review comments are specific, actionable, and left off the default export.
 - [ ] `--notes` / `--captions` sidecars generated and spot-checked if narration
       ships.
@@ -325,9 +338,11 @@ Render with narration sidecars: `node lattice-emulator.js deck.md deck.pdf
 1. **A note that mirrors the slide** — it's the overflow home for what you'd *say*.
 2. **A private remark in a note** — it will surface in the teleprompter; use a
    review comment.
-3. **Two captions on one slide** — a caption replaces; last non-empty wins, so two
+3. **Two `say:` lines on one slide** — a `say:` replaces; last non-empty wins, so two
    contradict.
-4. **Expecting a caption to auto-expand acronyms** without an `acronyms:` entry.
+4. **Expecting a `say:` line to auto-expand acronyms** without an `acronyms:` entry.
+   *(Also: still writing `<!-- caption: … -->` or `captions:` — both are retired; the engine
+   reads the comment as a speaker note. `lint:deck` flags it.)*
 5. **Assuming review comments are private** or that they ship by default (they're
    off by default).
 6. **Anchoring a review to a slide number** in your head — the system anchors to a
@@ -337,10 +352,10 @@ Render with narration sidecars: `node lattice-emulator.js deck.md deck.pdf
 
 ## Canonical sources
 
-- `lib/authoring/notes-core.js` — THE note/caption/describe boundary (single source
+- `lib/authoring/notes-core.js` — THE note/say/describe boundary (single source
   of truth).
 - `examples/speaker-notes.md` — the canonical speaker-notes deck.
-- `examples/read-along-captions.md` — captions via all three authoring paths.
+- `examples/read-along-captions.md` — `say:` lines via all three authoring paths.
 - `examples/chart-narration.md`, `examples/pie-detail-notes.md` — notes/captions in
   charts.
 - `engineering/decisions/2026-07-07-cadenza-caption-timeline.md` — the caption

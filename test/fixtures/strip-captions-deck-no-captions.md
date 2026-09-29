@@ -4,7 +4,7 @@ theme: indaco
 
 # Caption Disclosure Fixture
 
-This deck exists to prove `--strip-captions` leaves no trace of which slides carried one.
+This deck exists to prove `--strip-say` leaves no trace of which slides carried one.
 
 ---
 

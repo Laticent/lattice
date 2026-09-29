@@ -11,7 +11,7 @@ header: "Lattice · the timing track, step 2"
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-<!-- caption: A shared deck now carries its own timing track. Every word, every breath and every hold is written down once, in one file. -->
+<!-- say: A shared deck now carries its own timing track. Every word, every breath and every hold is written down once, in one file. -->
 
 # One timing track for every player.
 
@@ -23,7 +23,7 @@ The exported deck plays from the same timing file that video export will read.
 
 <!-- _class: big-number -->
 
-<!-- caption: Slide one speaks at once. Every later slide waits one hold when it arrives. The deck carries that hold now, so the player no longer reads it off the page. -->
+<!-- say: Slide one speaks at once. Every later slide waits one hold when it arrives. The deck carries that hold now, so the player no longer reads it off the page. -->
 
 `Holds read off the page`
 
@@ -34,7 +34,7 @@ The exported deck plays from the same timing file that video export will read.
 
 <!-- _class: list-steps -->
 
-<!-- caption: Here is the whole sequence. Hold. Speak each sentence. Breathe. Then advance. Yes. -->
+<!-- say: Here is the whole sequence. Hold. Speak each sentence. Breathe. Then advance. Yes. -->
 
 ## How a narrated slide plays.
 
@@ -50,7 +50,7 @@ The exported deck plays from the same timing file that video export will read.
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-<!-- caption: A section break earns the deeper hold. The timing file says so, and the player obeys it. -->
+<!-- say: A section break earns the deeper hold. The timing file says so, and the player obeys it. -->
 
 `Section 02`
 
@@ -60,7 +60,7 @@ The exported deck plays from the same timing file that video export will read.
 
 <!-- _class: big-number -->
 
-<!-- caption: A clip that will not decode no longer stops the deck. It shows its caption, holds for its estimate and moves on, exactly like a sentence with no clip. -->
+<!-- say: A clip that will not decode no longer stops the deck. It shows its caption, holds for its estimate and moves on, exactly like a sentence with no clip. -->
 
 `Clips that stop narration`
 
@@ -71,7 +71,7 @@ The exported deck plays from the same timing file that video export will read.
 
 <!-- _class: list-steps -->
 
-<!-- caption: Three copies of the timing code check each other. The source, the copy the player carries, and that copy after a production minifier. They agree on every probe. -->
+<!-- say: Three copies of the timing code check each other. The source, the copy the player carries, and that copy after a production minifier. They agree on every probe. -->
 
 ## Where the timing is checked.
 
@@ -86,7 +86,7 @@ The exported deck plays from the same timing file that video export will read.
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-<!-- caption: We recommend signing off this export, so video export can build on the same file. -->
+<!-- say: We recommend signing off this export, so video export can build on the same file. -->
 
 ## Sign off the export; video builds on it next.
 

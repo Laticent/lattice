@@ -1,5 +1,5 @@
 /**
- * Integration: a `--strip-notes` / `--strip-captions` export is byte-identical to the same
+ * Integration: a `--strip-notes` / `--strip-say` export is byte-identical to the same
  * deck written WITHOUT the channel it strips.
  *
  * `strip-notes-every-format.test.js` asks "is the note text gone?". This file asks the
@@ -168,11 +168,11 @@ describe('strip-notes: no whitespace fingerprint', () => {
   });
 
   // ── The caption channel (#2003) ────────────────────────────────────────────────────────────
-  test('a --strip-captions export and the caption-free twin render identical bytes', { timeout: TIMEOUT }, () => {
+  test('a --strip-say export and the caption-free twin render identical bytes', { timeout: TIMEOUT }, () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-fingerprint-'));
-    // `--strip-captions` ALONE, with the note channel left on: the configuration the issue
+    // `--strip-say` ALONE, with the note channel left on: the configuration the issue
     // measured, and the one that had no second pass at all before this fix.
-    const stripped = sections(exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-captions']));
+    const stripped = sections(exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-say']));
     const twin = sections(exportHtml(dir, NO_CAPTIONS, 'twin.html', ['--player']));
     const asAuthored = sections(exportHtml(dir, CAPTIONED, 'authored.html', ['--player']));
 
@@ -186,7 +186,7 @@ describe('strip-notes: no whitespace fingerprint', () => {
     for (let i = 0; i < stripped.length; i++) {
       assert.equal(
         stripped[i], twin[i],
-        `slide ${i + 1}: a --strip-captions export differs from the caption-free deck by `
+        `slide ${i + 1}: a --strip-say export differs from the caption-free deck by `
         + `${stripped[i].length - twin[i].length} byte(s), which names this slide as one that carried a caption`
       );
     }
@@ -203,7 +203,7 @@ describe('strip-notes: no whitespace fingerprint', () => {
     const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
     const sourceOf = (file) => parseEnvelope(fs.readFileSync(file, 'utf8')).source;
 
-    const stripped = sourceOf(exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-captions']));
+    const stripped = sourceOf(exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-say']));
     const twin = sourceOf(exportHtml(dir, NO_CAPTIONS, 'twin.html', ['--player']));
     const asAuthored = sourceOf(exportHtml(dir, CAPTIONED, 'authored.html', ['--player']));
 
@@ -321,7 +321,7 @@ describe('strip-notes: no whitespace fingerprint', () => {
       process.execPath,
       // NOT `--quiet`: the control below needs the run's own log to be observable, and `--quiet`
       // suppresses the very line that proves the probe is reading the right channel.
-      [EMULATOR, BARE, path.join(dir, 'bare.pdf'), '--embed-source', '--strip-notes', '--strip-captions'],
+      [EMULATOR, BARE, path.join(dir, 'bare.pdf'), '--embed-source', '--strip-notes', '--strip-say'],
       { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT }
     );
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -334,11 +334,11 @@ describe('strip-notes: no whitespace fingerprint', () => {
     assert.match(log, /source embedded/, 'control: this run did attach the source');
   });
 
-  test('--strip-notes and --strip-captions compose to the deck with neither channel', { timeout: TIMEOUT }, () => {
+  test('--strip-notes and --strip-say compose to the deck with neither channel', { timeout: TIMEOUT }, () => {
     // The two flags scrub ONE document, so the export measures ONE cut for the composed source.
     // Running them separately and hoping they agree is the shape this arm exists to refuse.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-compose-'));
-    const strippedPath = exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-notes', '--strip-captions']);
+    const strippedPath = exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-notes', '--strip-say']);
     const stripped = sections(strippedPath);
     const bare = sections(exportHtml(dir, BARE, 'bare.html', ['--player']));
 
@@ -350,19 +350,19 @@ describe('strip-notes: no whitespace fingerprint', () => {
     for (let i = 0; i < stripped.length; i++) {
       assert.equal(
         stripped[i], bare[i],
-        `slide ${i + 1}: a --strip-notes --strip-captions export differs from the deck written with `
+        `slide ${i + 1}: a --strip-notes --strip-say export differs from the deck written with `
         + `neither channel by ${stripped[i].length - bare[i].length} byte(s)`
       );
     }
   });
 
-  test('a --strip-captions export does not gain or lose a slide', { timeout: TIMEOUT }, () => {
+  test('a --strip-say export does not gain or lose a slide', { timeout: TIMEOUT }, () => {
     // A caption comment is an HTML BLOCK exactly as a note comment is, so removing one can
     // re-cut the deck the same way — `Some text\n---` is a setext H2, not a slide break. The
     // fixture puts a caption in both load-bearing positions the note fixture uses.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-boundary-'));
     const authored = sections(exportHtml(dir, CAPTION_BOUNDARY, 'authored.html', ['--player']));
-    const strippedPath = exportHtml(dir, CAPTION_BOUNDARY, 'stripped.html', ['--player', '--strip-captions']);
+    const strippedPath = exportHtml(dir, CAPTION_BOUNDARY, 'stripped.html', ['--player', '--strip-say']);
     const stripped = sections(strippedPath);
     assert.equal(authored.length, 2, 'guard: the fixture is a two-slide deck');
     assert.doesNotMatch(
@@ -371,7 +371,7 @@ describe('strip-notes: no whitespace fingerprint', () => {
     );
     assert.equal(
       stripped.length, authored.length,
-      `--strip-captions exported ${stripped.length} slides for a ${authored.length}-slide deck: `
+      `--strip-say exported ${stripped.length} slides for a ${authored.length}-slide deck: `
       + 'a caption comment was acting as a block boundary and removing it re-cut the deck'
     );
     assert.equal(

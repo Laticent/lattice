@@ -51,7 +51,7 @@ export interface LensRegistry {
 }
 
 /** A shown slide PAIRED with its original author position — the contract that keeps the number-keyed
- *  front-matter `captions:` map resolving under any filtering lens (mirrors lint.ts presentationPairs). */
+ *  front-matter `say:` map resolving under any filtering lens (mirrors lint.ts presentationPairs). */
 export interface LensSlide {
 	slide: string;
 	/** ORIGINAL author 0-based deck index (survives the lens filter). */

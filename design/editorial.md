@@ -164,7 +164,8 @@ demonstrate real-deck usage, a different job. These rules bind `manifest.json`
   caption). Never inflate element copy to teach — if the lesson doesn't fit
   the summary sentence, it belongs in `<name>.docs.md`. (The field was named
   `caption` before the read-as caption channel took that word — renamed to
-  `summary` 2026-07-11, #918; the rendered *footer* is still a caption.)
+  `summary` 2026-07-11, #918; the rendered *footer* is still a caption. That channel
+  became `say:` on 2026-09-28, so "caption" now means only visible text, as here.)
 - **The default sample's H2 states the component's job** as a complete
   declarative sentence. A variant sample's copy names what the variant
   changes. A stress sample's `summary` names the limit shown.

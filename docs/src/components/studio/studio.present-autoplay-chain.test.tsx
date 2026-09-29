@@ -23,7 +23,7 @@ vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc:
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
-/** A slide whose spoken text is exactly `spoken`, pinned with a `<!-- caption: -->` override.
+/** A slide whose spoken text is exactly `spoken`, pinned with a `<!-- say: -->` override.
  *
  *  This used to author a `<!-- note: -->`, back when a speaker note outranked the slide's own
  *  content in the narration ladder. That rung was removed on 2026-08-24 — a note is never
@@ -34,7 +34,7 @@ const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
  *
  *  A caption override is the channel that sets a slide's spoken line now, so it restores the
  *  fixture's meaning rather than just its green. */
-const slide = (heading: string, spoken: string) => `<!-- _class: title -->\n\n# ${heading}\n\n<!-- caption: ${spoken} -->`;
+const slide = (heading: string, spoken: string) => `<!-- _class: title -->\n\n# ${heading}\n\n<!-- say: ${spoken} -->`;
 
 beforeEach(() => {
 	// Brisk with an explicit 0 beat: the chain plays straight through, so a 3-slide run

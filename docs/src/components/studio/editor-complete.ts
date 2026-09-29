@@ -102,7 +102,7 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'delivery', info: 'How much the narrated Guide gestures — restrained (default, boardroom) / expressive (sales, talks, teaching) / somber (bad news; no cursor).' },
 	{ key: 'lexicon', info: 'Read-aloud pronunciations — a nested map of token → spoken text.' },
 	{ key: 'acronyms', info: 'Acronym registry — term → spoken expansion (and an optional glossary definition).' },
-	{ key: 'captions', info: 'Read-aloud text per slide — a nested map of slide number → what to say. A slide\u2019s own <!-- caption: --> wins over it.' },
+	{ key: 'say', info: 'Read-aloud text per slide — a nested map of slide number → what that slide says. A slide\u2019s own <!-- say: --> wins over it.' },
 	// Marp-inherited + tooling
 	{ key: 'style', info: 'Raw CSS for this deck (a YAML block scalar).' },
 	{ key: 'color', info: 'Text color on every slide — any CSS color. Quote a hex value: "#1a1a1a".' },

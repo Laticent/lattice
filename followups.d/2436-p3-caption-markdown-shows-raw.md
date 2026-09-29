@@ -8,7 +8,7 @@ source: https://github.com/Laticent/lattice/pull/2436
 # Present's caption shows an author's `**bold**` as literal asterisks
 
 why now   — found while checking the Guide in live Present on `test/fixtures/q3-board-review.md`:
-            the decision slide's `<!-- caption: … **It costs more than the segment earns.** -->`
+            the decision slide's `<!-- say: … **It costs more than the segment earns.** -->`
             reads `**It costs more than the segment earns.**` in the caption band, asterisks and all.
             The fixture has carried that markup since #2372; this PR does not touch caption text.
             Either captions strip (or render) inline emphasis, or the lint tells the author a caption

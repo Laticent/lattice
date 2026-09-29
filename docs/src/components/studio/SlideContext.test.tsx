@@ -368,14 +368,14 @@ describe('SlideContextBody controls', () => {
 		expect(out).not.toMatch(/<!-- note:.*bar chart/);
 	});
 
-	it('authors a read-as caption as a caption: comment under the Notes tab', async () => {
+	it('authors a read-as line as a say: comment under the Notes tab', async () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
 		await goTab('Notes');
-		const box = screen.getByRole('textbox', { name: 'Read-as caption for this slide' });
+		const box = screen.getByRole('textbox', { name: 'What this slide says aloud' });
 		fireEvent.change(box, { target: { value: 'Revenue grew forty percent across three quarters.' } });
 		fireEvent.blur(box);
 		const out = sourceOut();
-		expect(out).toContain('<!-- caption: Revenue grew forty percent across three quarters. -->');
+		expect(out).toContain('<!-- say: Revenue grew forty percent across three quarters. -->');
 	});
 
 	it('the note field says the note is PRIVATE — never read aloud, never in the caption track', async () => {
@@ -396,20 +396,20 @@ describe('SlideContextBody controls', () => {
 	it('says the same thing WITH a caption set — the two channels are independent', async () => {
 		// The copy no longer varies on the caption, because the relationship it described is
 		// gone: a caption replaces the GENERATED narration, and the note was never part of it.
-		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- caption: The board-facing line. -->');
+		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- say: The board-facing line. -->');
 		await goTab('Notes');
 		expect(screen.getByText(/Yours alone/i)).toBeTruthy();
 		expect(screen.queryByText(/overrides the note/i)).toBeNull();
 	});
 
-	it('the caption field is separate from the speaker note (both channels coexist)', async () => {
+	it('the say field is separate from the speaker note (both channels coexist)', async () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- Say this warmly. -->');
 		await goTab('Notes');
-		const cap = screen.getByRole('textbox', { name: 'Read-as caption for this slide' });
+		const cap = screen.getByRole('textbox', { name: 'What this slide says aloud' });
 		fireEvent.change(cap, { target: { value: 'The board-facing line.' } });
 		fireEvent.blur(cap);
 		const out = sourceOut();
-		expect(out).toContain('<!-- caption: The board-facing line. -->');
+		expect(out).toContain('<!-- say: The board-facing line. -->');
 		expect(out).toContain('<!-- Say this warmly. -->'); // the note survives untouched
 	});
 
@@ -510,7 +510,7 @@ describe('SlideContextBody controls', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'presenter');
 		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
 		// Its two neighbors in the same section stay out: a block filters like a row.
-		expect(screen.queryByRole('textbox', { name: 'Read-as caption for this slide' })).toBeNull();
+		expect(screen.queryByRole('textbox', { name: 'What this slide says aloud' })).toBeNull();
 		expect(screen.queryByRole('textbox', { name: 'Accessibility description for this slide' })).toBeNull();
 	});
 

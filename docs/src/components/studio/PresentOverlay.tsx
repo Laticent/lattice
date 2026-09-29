@@ -75,8 +75,8 @@ function sameFractions(a: number[], b: number[]): boolean {
 	return true;
 }
 
-// The narration-source priority read-aloud speaks: an author's inline `<!-- caption: … -->`
-// — else the front-matter `captions:` entry for the slide — else a recognized chart's
+// The narration-source priority read-aloud speaks: an author's inline `<!-- say: … -->`
+// — else the front-matter `say:` entry for the slide — else a recognized chart's
 // computed facts — else the component-aware DOM projection (`projectDeckSpeech`, the SAME
 // shared kernel the CLI export narrates, run in-browser) — else, until that projection is
 // ready, the generic markdown flatten. The projection is the unification: it makes live
@@ -274,11 +274,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// Deck sections (from `divider` slides) — the grouping the single progress rail uses.
 	const sections = React.useMemo(() => sectionsFromSlides(set), [set]);
 	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
-	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered reader lens
+	// A front-matter `say:` map is keyed by author slide NUMBER, so under a filtered reader lens
 	// (which drops slides) we resolve it through the original index, not the
 	// position in the filtered set — else a caption would bind to the wrong slide.
 	const setIndices = React.useMemo(() => (projection.status === 'ok' ? projection.pairs.map((p) => p.index) : []), [projection]);
-	// Front-matter `captions:` (Layer 1, §16) — slide NUMBER (1-based) → read-as text. Memoized on
+	// Front-matter `say:` (Layer 1, §16) — slide NUMBER (1-based) → read-as text. Memoized on
 	// the front matter, symmetric with the acronym registry memo below.
 	const fmCaptions = React.useMemo(() => frontMatterCaptions(frontMatter), [frontMatter]);
 	const count = set.length;
