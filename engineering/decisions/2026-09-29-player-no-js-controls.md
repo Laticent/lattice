@@ -83,11 +83,17 @@ All in `lib/export/player-core.mjs`, all inert once the script runs (`:not(.lp-j
   the Chromium arm in `integration` and, on the owner's call, the WebKit arm in the blocking
   `player-webkit` job whenever `lib/export/**` or the test changes. Its first run took 3 min
   24 s, beside `integration`.
-- **The test's first shape cost the integration tier 7 minutes.** It exported four decks,
-  and each export launches Chromium while the tier's other files are running. The tier's test
-  step went from 15 min 20 s (`f9dd027`) to 22 min 31 s (`62ae1e7`), and the next run passed
-  its 25-minute cap and was cancelled. One export instead of four, plus the deck-mode check
-  moved to a unit test, took the file alone from 66 s to 25 s.
+- **What the test costs the integration tier: about 48 s.** Measured per suite from the
+  tier's own log on `87e42c4`: this file took 47.8 s. The file used to export its deck
+  three times plus a deck-mode deck; it now exports once and rewrites `data-lp-scheme` for
+  the dark and system files, and the deck-mode check is a unit test. Alone, that took the
+  file from 66 s to 25 s. A first reading blamed this test for the tier's test step going
+  from 15 min 20 s (`f9dd027`) to 22–23 min, and for one run cancelled at the 25-minute
+  cap. That was wrong. Per suite, every other file ran 50–70% slower in the long runs
+  (palette sweep 255 → 440 s, export-formats 233 → 366 s), which one 48 s suite cannot
+  cause. Unrelated PR #2482's integration job took 23 min 45 s the same morning. The tier
+  runs near its cap on its own; `followups.d/2494-p1-ci-gate-passes-a-timed-out-tier.md`
+  records that and the gate hole it exposed.
 - **The test can fail.** Three planted regressions each failed their test: the flip-to-light
   token rule removed, the Present strip applied to print media, and the hidden inputs put
   back to `position:absolute`.
