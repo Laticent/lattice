@@ -20,8 +20,11 @@ import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { markupHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { buildSrcdoc, docStyleText } from './deck-preview.js';
+import { paneComponentsSig } from './pane-sheet-sig.js';
 import { splitSections } from './preview-virtual.js';
 import { LV_ATTR, placeholderOf, SLIDE_SELECTOR, virtualHtml, visibleRange, windowRange, withIndex } from './virtual-window.js';
+
+export { paneComponentsSig };
 
 // Patch only the <section> nodes whose HTML changed. Returns true on success
 // (a live .lattice was found), false to signal the caller to fall back to a full
@@ -77,19 +80,6 @@ export function patchSections(frame, next, prev) {
 	if (w?.__latticeTag) w.__latticeTag();
 	if (w?.__latticeFit) w.__latticeFit();
 	return true;
-}
-
-/** The sorted component names on every `<lat-pane>` in `sections`, as one string, or ''. */
-export function paneComponentsSig(sections) {
-	const names = new Set();
-	for (const sec of sections) {
-		if (sec.indexOf('<lat-pane') === -1) continue;
-		for (const m of sec.matchAll(/<lat-pane\b[^>]*\sclass="([^"]*)"/g)) {
-			const first = m[1].trim().split(/\s+/)[0];
-			if (first) names.add(first);
-		}
-	}
-	return [...names].sort().join(',');
 }
 
 // Restyle a live document in place: the `#lattice-doc` stylesheet AND every section, in one
@@ -440,10 +430,10 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	const hasDrawn = sections.some((s) => markupHasDrawnFence(s));
 	const hasKatex = sections.some((s) => s.indexOf('katex') !== -1);
 	const hasDagre = sections.some((s) => s.indexOf('data-sc-transitions') !== -1);
-	// The components shown IN A PANE. The engine composes a pane twin of each such component's
-	// rules into the sheet it returns (lib/core/pane-css.js), and only for the components that
-	// are in a pane, so a deck that gains a pane, or changes what a pane holds, has a different
-	// sheet. A section-only patch keeps the old one: a list typed into a pane rendered as bare
+	// What is shown IN A PANE: every class on every pane. The engine composes a pane twin of each
+	// rule those classes reach into the sheet it returns (lib/core/pane-css.js), and only for
+	// them, so a deck that gains a pane, or changes what a pane holds or how (a modifier), has a
+	// different sheet. A section-only patch keeps the old one: a list typed into a pane rendered as bare
 	// lines and a chart at the wrong scale until a reload.
 	const paneSig = paneComponentsSig(sections);
 	const contentSig =

@@ -264,6 +264,11 @@ test('lint reads the whole _class: a slash in a multi-line _class, two ratio wor
   assert.doesNotMatch(both.message, /50\/50/);
   const pair = lintText(two('columns ratio-60-40 ratio-70-30')).find((x) => /names 2 ratios/.test(x.message));
   assert.match(pair.fix, /`ratio-70-30`/);
+  // An off-grid ratio is not applied, so it is not "the last one used" either.
+  const off = lintText(two('columns ratio-60-40 ratio-80-20')).filter((x) => x.rule === 'pane-layout');
+  assert.equal(off.length, 1);
+  assert.match(off[0].message, /ratio-80-20/);
+  assert.ok(lintText(two('columns\nrows')).some((x) => /both `columns` and `rows`/.test(x.message)));
   // A `<!-- class: rows -->` quoted in code is not a run.
   const quoted = lintText('## Docs\n\n```md\n<!-- class: rows -->\n```\n\nWrite `<!-- class: columns -->` never.\n').filter((x) => x.rule === 'pane-layout');
   assert.deepEqual(quoted, []);

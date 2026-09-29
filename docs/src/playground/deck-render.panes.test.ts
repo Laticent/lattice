@@ -10,7 +10,13 @@ describe('paneComponentsSig', () => {
 	});
 	it('names each component shown in a pane, once, sorted', () => {
 		const sec = '<section class="lat-pane-host"><lat-pane class="list form" data-pane="list"></lat-pane><lat-pane class="bar form chart-frame" data-pane="bar"></lat-pane></section>';
-		expect(paneComponentsSig([sec, sec])).toBe('bar,list');
+		expect(paneComponentsSig([sec, sec])).toBe('bar,chart-frame,form,list');
+	});
+	it('changes when a pane gains a modifier, which reaches its own rules', () => {
+		expect(paneComponentsSig(['<lat-pane class="list form"></lat-pane>'])).not.toBe(paneComponentsSig(['<lat-pane class="list takeaway form"></lat-pane>']));
+	});
+	it('never reads a data-class', () => {
+		expect(paneComponentsSig(['<lat-pane data-class="evil" class="list"></lat-pane>'])).toBe('list');
 	});
 	it('changes when a pane changes what it holds', () => {
 		const a = '<lat-pane class="list form"></lat-pane><lat-pane class="bar form"></lat-pane>';
