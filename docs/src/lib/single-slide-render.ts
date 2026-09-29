@@ -379,9 +379,9 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // every section into a frame whose CSS and scale transform assume exactly one is both visibly
 // broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
 //
-// THE AUTO-GLOSSARY IS NOT A MISALIGNMENT. `glossary: auto` appends one section AFTER the
-// authored ones (lib/core/glossary-auto.mjs), so section k is still slide k for every slide the
-// caller counts. Compared raw, N+1 sections against N slides failed the guard, every slide fell
+// THE AUTO-GLOSSARY IS NOT A MISALIGNMENT. `glossary: auto` appends its section(s) AFTER the
+// authored ones (lib/core/glossary-auto.mjs; one per glossary page), so section k is still slide k
+// for every slide the caller counts. Compared raw, N+g sections against N slides failed the guard, every slide fell
 // back to rendering alone, and a lone slide numbers itself 1: the Studio preview numbered a
 // glossary deck's slides wrong while the PDF, which renders the whole deck, numbered them right.
 // So the alignment is judged on the authored sections (`withoutAutoGlossary`, the kernel the

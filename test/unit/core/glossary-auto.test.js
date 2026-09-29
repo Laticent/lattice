@@ -156,3 +156,33 @@ test('GLOSSARY_VENUE_ROWS mirrors the generated glossary rows exactly', () => {
   const VC = require('../../../lib/authoring/venue-capacity.generated.js');
   assert.deepEqual(JSON.parse(JSON.stringify(GLOSSARY_VENUE_ROWS)), VC.items.glossary);
 });
+
+test('NON_WIDE_SIZES mirrors every size preset that is not in the wide family', async () => {
+  const { NON_WIDE_SIZES } = await import('../../../lib/core/glossary-auto.mjs');
+  const { familyFor } = require('../../../lib/adaptive/families.js');
+  const { SIZES } = require('../../../lib/engine/sizes.js');
+  const nonWide = Object.entries(SIZES)
+    .filter(([, v]) => familyFor(Number.parseFloat(v.width) / Number.parseFloat(v.height)) !== 'wide')
+    .map(([k]) => k);
+  assert.deepEqual([...NON_WIDE_SIZES].sort(), nonWide.sort());
+});
+
+test('appendAutoGlossary: pages split evenly, not full-then-remainder', () => {
+  const out = appendAutoGlossary(fm(`venue: hall\n${manyTerms(10)}`));
+  const pages = out.split('<!-- _class: glossary -->').slice(1).map((p) => (p.match(/^- /gm) || []).length);
+  assert.ok(Math.max(...pages) - Math.min(...pages) <= 1, `uneven pages ${pages}`);
+});
+
+test('appendAutoGlossary: a non-wide deck keeps one glossary slide (auto-split pages it)', () => {
+  for (const size of ['portrait', '4:5', '1080x1920']) {
+    assert.equal(glossarySlides(appendAutoGlossary(fm(`size: ${size}\nvenue: hall\n${manyTerms(12)}`))), 1, size);
+  }
+  assert.ok(glossarySlides(appendAutoGlossary(fm(`size: 16:9\nvenue: hall\n${manyTerms(12)}`))) > 1);
+});
+
+test('appendAutoGlossary: definitions past the longest measured length page more, not clip', () => {
+  const long = (n) => `acronyms:\n${Array.from({ length: n }, (_, i) => `  L${String(i).padStart(2, '0')}: { expansion: long ${i}, definition: "${Array.from({ length: 32 }, () => 'word').join(' ')}." }`).join('\n')}\nglossary: auto`;
+  const at16 = glossarySlides(appendAutoGlossary(fm(`venue: hall\n${manyTerms(9)}`)));
+  const at32 = glossarySlides(appendAutoGlossary(fm(`venue: hall\n${long(9)}`)));
+  assert.ok(at32 > at16, `32-word definitions: ${at32} pages vs ${at16}`);
+});

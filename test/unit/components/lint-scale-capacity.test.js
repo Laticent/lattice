@@ -122,8 +122,8 @@ describe('capacity-scale — a code block', () => {
     assert.equal(out[0].severity, 'info');
     assert.match(out[0].message, /the block is clipped/);
     assert.match(out[0].message, new RegExp(`${bareXl + 1} lines \\(the pane holds about ${bareXl}\\)`));
-    // 102 columns ÷ (1.3 × the code lift of 1.15) = 68 (2026-09-29; it was ÷ 1.3 = 78).
-    assert.match(out[0].fix, new RegExp(`${bareXl} lines of 68 columns`));
+    // A spot `scale-xl` carries no code lift (only a venue sets one): 102 ÷ 1.3 = 78.
+    assert.match(out[0].fix, new RegExp(`${bareXl} lines of 78 columns`));
     assert.deepEqual(lint(deck('scale-xl', code(bareXl))), []);
   });
 
@@ -169,7 +169,27 @@ describe('capacity-scale — a code block', () => {
     const wide = '```js\n' + 'x'.repeat(90) + '\n```\n';
     const out = lint(deck('scale-xl', `<!-- _class: code -->\n\n## H.\n\n${wide}`));
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /a 90-column line \(the pane holds about 68\)/);
+    assert.match(out[0].message, /a 90-column line \(the pane holds about 78\)/);
+  });
+
+  test('in a venue the code lift narrows the pane: 68 columns at conference, 59 at hall', () => {
+    // 102 ÷ (1.3 × 1.15) = 68 and 102 ÷ (1.5 × 1.14) = 59 (`--venue-compact-lift`, 2026-09-29).
+    const cols73 = '```js\n' + 'x'.repeat(73) + '\n```\n';
+    const at = (venue) => core.lintTextWith(`---\nmarp: true\nvenue: ${venue}\n---\n\n<!-- _class: code -->\n\n## H.\n\n${cols73}`, vocab).filter((f) => f.rule === 'capacity-scale');
+    const conf = at('conference');
+    assert.equal(conf.length, 1);
+    assert.match(conf[0].message, /a 73-column line \(the pane holds about 68\)/);
+    const hall = at('hall');
+    assert.equal(hall.length, 1);
+    assert.match(hall[0].message, /a 73-column line \(the pane holds about 59\)/);
+    // A 73-column line clips at conference too, so the hall fix must not offer it.
+    assert.doesNotMatch(hall[0].fix, /venue: conference/);
+  });
+
+  test('a spot `scale-xl` on a laptop deck gets no code lift, so a 73-column line fits', () => {
+    const cols73 = '```js\n' + 'x'.repeat(73) + '\n```\n';
+    const out = lint(deck('scale-xl', `<!-- _class: code -->\n\n## H.\n\n${cols73}`));
+    assert.deepEqual(out, []);
   });
 
   test('tallestCodeBlock counts the longest fence, unclosed included', () => {

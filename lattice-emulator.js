@@ -6071,8 +6071,8 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   if (STRIP_SAY) fmForMerge = null;
   // Precedence, highest first: inline `<!-- say: -->` → front-matter `say:[n]` → projection.
   const slideTexts = mergeNarration(slideCount, projected, { sayLines: inlineForMerge, fmSayMap: fmForMerge });
-  // THE AUTO-GLOSSARY PAGE IS SILENT, as it is in the Studio. `glossary: auto` appends one slide
-  // the source does not contain, always last; Present never shows it, so the Studio has no clip for
+  // THE AUTO-GLOSSARY PAGES ARE SILENT, as they are in the Studio. `glossary: auto` appends one
+  // slide per glossary page, which the source does not contain, always last; Present never shows it, so the Studio has no clip for
   // it and its projection drops that section (`withoutAutoGlossary`, the same kernel). Narrating it
   // here made `lattice video` read four definitions the Studio export of the same deck never says
   // (engineering/pipeline.md §6).
