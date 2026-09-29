@@ -187,7 +187,7 @@ $$ \sigma(z)_i = \frac{e^{z_i}}{\sum_{j=1}^{K} e^{z_j}} $$
 6. Type `fonts/`
    - Thirty-seven files. Drop them and type falls back.
 
-The config files and `NOTICE.md` are listed in the README.
+<!-- The config files and NOTICE.md are listed in the README. -->
 
 ---
 

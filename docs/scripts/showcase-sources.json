@@ -52,12 +52,12 @@
 	"diagram.light": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.light.pdf",
 		"page": 4,
-		"srcSha256": "ddf18ef8c1c17116080d62aeb9f5f8ba80f68a5211edeca6764784658e0ddda4"
+		"srcSha256": "f3cd4f005ad8b695c65ed912a0cfca213ca09a74e6d28d820a3cba0e89459713"
 	},
 	"diagram.dark": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.dark.pdf",
 		"page": 4,
-		"srcSha256": "dc5e5ce9d4a8eff607400f8d9f9fcf578fe67d64383c02ccd1264f9f6755935d"
+		"srcSha256": "4998e05ffbf815c92c3d50496449801002924e50328e03ad458cf40d54bf60c3"
 	},
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",
@@ -92,12 +92,12 @@
 	"inventory.light": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "94736084d20f0b54831984f6f52a79c348c662e8c882378876d39b69890483ca"
+		"srcSha256": "0d50763891e5ceedb0f031e16968978aeaf9fb6db34abfbf80893cbc1efa5463"
 	},
 	"inventory.dark": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "2b889914c856584979b156d7b1b67b29755552e3473b5f9ec53af96a8f7f49d3"
+		"srcSha256": "3e805c836e195e6268d458ef51735f3bfd85a27879c543f428208b88ea183d8f"
 	},
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",
