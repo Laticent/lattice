@@ -4,7 +4,7 @@
   "routes": {
     "studio": {
       "html": "studio/index.html",
-      "eagerJsGz": 637490,
+      "eagerJsGz": 626300,
       "htmlRaw": 206840
     },
     "playground": {

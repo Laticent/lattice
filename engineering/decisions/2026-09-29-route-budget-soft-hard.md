@@ -71,10 +71,12 @@ lands at the moment a reset was due anyway.
 
 ## 4. Numbers at the switch
 
-No number changed in the switch. Measured locally on `4c9f813`, the Studio's eager JS was
-625,997 bytes gz in 101 chunks, against its 637,490 soft target, so it starts about 11KB
-under soft. The last recorded CI-side measurement was 637,211 in 99 chunks, so the gap is
-at least partly a different build, not only compression; it is not explained yet.
+One number changed in the switch, with the owner's OK: the Studio's `eagerJsGz` soft target
+went 637,490 → 626,300. CI's docs-build on `60279f5` measured 611.4KB (626,022–626,124
+bytes gz, 101 chunks), and a local build read 625,997, so the old target held about 11KB of
+room that no PR had claimed. Under soft/hard that room would have stacked on top of the 3%
+band. The last recorded measurement before this change was 637,211 in 99 chunks, so a
+change on `main` shrank the eager path; this note does not track down which one.
 
 The four content routes' numbers already carried about 3% headroom above their
 measurements, so under this rule their hard limits sit about 6% above measured until a

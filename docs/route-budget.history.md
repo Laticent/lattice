@@ -6,6 +6,15 @@ Growth that stays under the hard limit is not recorded here: say it in the PR bo
 
 <!-- resets: newest first, below this line -->
 
+### 2026-09-29 — measured on CI's docs-build for 60279f5
+
+Owner-approved lowering at the switch to soft/hard, so the 3% band is the Studio's real room. CI measured 611.4KB (626,022–626,124 bytes gz, 101 chunks) against the old 637,490 target, about 11KB of room no PR had claimed; the local build read 625,997. The new target sits about 200 bytes above CI's reading. Set by hand because `route-budget:rebaseline` only lowers a target past the 5% stale floor.
+
+| Route | Metric | Soft before | Soft after | Change | Hard after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 637490 | 626300 | -11190 | 645089 |
+
+
 ## Before 2026-09-29: the single-number ledger
 
 Until 2026-09-29 each route carried one budget, set to the measurement plus about 280 bytes, and each raise prepended its reason to a note string inside `route-budget.json`. Those notes are kept below, verbatim, newest first within each note.
