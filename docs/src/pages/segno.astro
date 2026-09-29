@@ -104,7 +104,7 @@
 			table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 			th { text-align: left; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
 			td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-			td:last-child { width: 1%; white-space: nowrap; }
+			#gallery td:last-child { width: 1%; white-space: nowrap; }
 			.try { border: 1px solid var(--line); background: var(--panel); color: var(--accent); border-radius: 8px; font-size: 12px; font-weight: 600;
 				padding: 5px 10px; cursor: pointer; font-family: var(--sans); }
 			.try:hover { border-color: var(--accent); }
@@ -117,7 +117,7 @@
 				#gallery td:first-child { font-weight: 600; }
 				#gallery td[data-k]::before { content: attr(data-k); display: inline-block; min-width: 58px; font-size: 11px; letter-spacing: .08em;
 					text-transform: uppercase; color: var(--muted); font-weight: 700; }
-				#gallery td:last-child { padding-top: 6px; }
+				#gallery td:last-child { padding-top: 6px; width: auto; }
 			}
 
 			.deck { width: 100%; min-height: 150px; font-family: var(--mono); font-size: 13.5px; padding: 12px 14px; border-radius: 12px;
@@ -171,6 +171,28 @@
 			.gen { margin-top: 14px; }
 			.gen summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
 			.gen .code { max-height: 360px; overflow: auto; white-space: pre; word-break: normal; }
+			.vs { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+			.vs th, .vs td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+			.vs th { white-space: normal; vertical-align: bottom; }
+			@media (max-width: 900px) { .vs th:nth-child(2), .vs td:nth-child(2) { display: none; } }
+			/* A phone gets one card per parser: the name, then the three measurements, labeled. */
+			@media (max-width: 640px) {
+				.vs thead { display: none; }
+				.vs, .vs tbody { display: block; }
+				.vs tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 10px; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+				.vs td { border: 0; padding: 0; white-space: normal; text-align: left; }
+				.vs td:first-child { grid-column: 1 / -1; font-weight: 600; }
+				.vs td:nth-child(2) { display: none; }
+				.vs td.num { text-align: left; white-space: nowrap; }
+				.vs td.bad { white-space: normal; }
+				.vs tr.me { background: var(--accent-bg); border-radius: 10px; }
+				.vs tr.me td { background: none; }
+				.vs td[data-k]::before { content: attr(data-k); display: block; font-family: var(--sans); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+			}
+			.vs .num { text-align: right; font-family: var(--mono); font-size: 12.5px; }
+			.vs tr.me td { background: var(--accent-bg); font-weight: 600; }
+			.vs tr.me td:first-child { color: var(--accent); }
+			.vs .bad { color: var(--accent); }
 			.foot { margin-top: 26px; color: var(--muted); font-size: 12.5px; line-height: 1.7; }
 			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -249,6 +271,27 @@
 				<p class="lede"><code>[x]</code>, <code>&#123;done&#125;</code> and <code>&#123;yes&#125;</code> all mean the same state. That is kind per span and messy per document, so Segno reports every span written differently from the document's most common spelling — with a fix. One state mark per line:</p>
 				<textarea class="deck" id="deck" spellcheck="false" aria-label="State marks, one per line"></textarea>
 				<div class="findings" id="findings" aria-live="polite"></div>
+			</section>
+
+			<section class="stage" aria-labelledby="vs-h">
+				<h2 id="vs-h">How it compares</h2>
+				<p class="lede">Segno beside the six parser libraries its first user evaluated, and beside the hand-written parsers it replaces — every candidate in its own process, on identical inputs, on one machine. Time per input on real spans, then the worst case on hostile input.</p>
+				<div class="scroll">
+					<table class="vs">
+						<thead><tr><th>Parser</th><th>Style</th><th class="num">Bracket list</th><th class="num">Inline span</th><th class="num">Worst hostile case, 32k chars</th></tr></thead>
+						<tbody>
+							<tr class="me"><td>Segno</td><td>LL(1), proven at compile time</td><td data-k="Bracket list" class="num">734 ns</td><td data-k="Inline span" class="num">45 ns</td><td data-k="Hostile, 32k" class="num">7 ms</td></tr>
+							<tr><td>Hand-written (Lattice)</td><td>recursive descent, by hand</td><td data-k="Bracket list" class="num">942 ns</td><td data-k="Inline span" class="num">33 ns</td><td data-k="Hostile, 32k" class="num">7 ms</td></tr>
+							<tr><td>Peggy</td><td>PEG</td><td data-k="Bracket list" class="num">6,577 ns</td><td data-k="Inline span" class="num">882 ns</td><td data-k="Hostile, 32k" class="num bad">7.3 s</td></tr>
+							<tr><td>Chevrotain</td><td>LL(k), tokens</td><td data-k="Bracket list" class="num">4,723 ns</td><td data-k="Inline span" class="num">24,605 ns</td><td data-k="Hostile, 32k" class="num bad">776 ms</td></tr>
+							<tr><td>Parsimmon</td><td>PEG combinators</td><td data-k="Bracket list" class="num">54,267 ns</td><td data-k="Inline span" class="num">1,073 ns</td><td data-k="Hostile, 32k" class="num bad">did not finish</td></tr>
+							<tr><td>Nearley</td><td>Earley</td><td data-k="Bracket list" class="num">66,000 ns</td><td data-k="Inline span" class="num">12,644 ns</td><td data-k="Hostile, 32k" class="num bad">did not finish</td></tr>
+							<tr><td>Ohm</td><td>PEG, memoized</td><td data-k="Bracket list" class="num">107,161 ns</td><td data-k="Inline span" class="num">24,597 ns</td><td data-k="Hostile, 32k" class="num bad">did not finish</td></tr>
+							<tr><td>Lezer</td><td>LR</td><td data-k="Bracket list" class="num">—</td><td data-k="Inline span" class="num">8,670 ns</td><td data-k="Hostile, 32k" class="num">—</td></tr>
+						</tbody>
+					</table>
+				</div>
+				<p class="note">Measured 2026-09-29, Node 22, on a shared cloud machine: absolute times move with the machine, the ratios carry. Bracket lists: the 64 in Lattice's decks, parsed into parts. Inline spans: all 4,645, 99% of them ordinary code. "Did not finish": a smaller input already took over half a second, so the next was stopped. Lezer's grammar set does not cover bracket lists. Segno's flat best case on nested brackets is its 31-level cap refusing the input, not a parse. Reproduce: <code>npm run parser:bakeoff:versus</code>.</p>
 			</section>
 
 			<section class="stage" aria-labelledby="speed-h">
