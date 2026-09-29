@@ -4,7 +4,7 @@
 // that changes what `1,25M` means would be the bug this library exists to remove.
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
-import { readNumber, readNumberFull, readTime } from './types';
+import { readNumber, readNumberFast, readNumberFull, readTime } from './types';
 
 const require = createRequire(import.meta.url);
 const chartValues = require('../../../../lib/core/chart-values.js');
@@ -52,7 +52,7 @@ describe('readNumber on hostile input', () => {
 });
 
 describe('readNumber fast path = the full reader', () => {
-  it('agrees on 300,000 fuzzed tokens, and takes the fast path on most of them', () => {
+  it('agrees on 300,000 fuzzed tokens', () => {
     const A = ['(', ')', '+', '-', '−', '$', '€', '£', '¥', '1', '2', '0', '9', '.', ',', '%', '‰', 'k', 'M', 'B', 'b', 'n', 'T', 'g', 'x', ' ', '#'];
     let seed = 11;
     const rnd = (m: number) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % m; };
@@ -73,5 +73,51 @@ describe('readNumber fast path = the full reader', () => {
   it('the shapes decks write read the same both ways', () => {
     for (const s of ['5', '12.5', '$1.2M', '-$0.8M', '$-0.8M', '(12M)', '($1.2M)', '(-5)', '--5', '62%', '140kg', '5M)', '(5M', '+12.0M', '−12M', '3bn', '1e5', '007'])
       expect(readNumber(s), s).toEqual(readNumberFull(s));
+  });
+});
+
+// A seeded generator, so a failure reproduces from its seed.
+const rng = (seed: number) => () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000; };
+
+describe('readNumber fast path is really taken', () => {
+  it('every shape decks write takes the single-pass reader, not the fallback', () => {
+    for (const s of ['5', '12.5', '$1.2M', '-$0.8M', '$-0.8M', '62%', '(12M)', '($1.2M)', '140kg', '+12M', '\u221212M', '3bn', '0.5k'])
+      expect(readNumberFast(s), s).not.toBeNull();
+  });
+  it('and hands the shapes it does not handle to the full reader', () => {
+    for (const s of ['1,25M', '1.234.567', '4 beds', '$ 5']) expect(readNumberFast(s), s).toBeNull();
+  });
+});
+
+describe('readNumber and readTime agree with the kernels on fuzzed input', () => {
+  it('readNumber = chart-values.js on 100,000 fuzzed tokens', () => {
+    const A = ['(', ')', '+', '-', '\u2212', '$', '\u20ac', '1', '2', '0', '9', '.', ',', '%', '\u2030', 'k', 'M', 'B', 'b', 'n', 'T', 'g', 'x', ' ', '#'];
+    const r = rng(101);
+    const bad: string[] = [];
+    for (let k = 0; k < 100_000 && bad.length < 5; k++) {
+      let s = '';
+      const len = 1 + Math.floor(r() * 8);
+      for (let j = 0; j < len; j++) s += A[Math.floor(r() * A.length)];
+      if (s.includes('..')) continue; // `..` is a range in Segno and never a number
+      const want = chartValues.isValuePill(s) ? chartValues.signedValue(s) : null;
+      const got = readNumber(s);
+      const same = want === null || !Number.isFinite(want.value) ? got === undefined : got !== undefined && Object.is(got.value, want.value) && got.signed === want.signed;
+      if (!same) bad.push(`${JSON.stringify(s)}: kernel ${JSON.stringify(want)}, segno ${JSON.stringify(got)}`);
+    }
+    expect(bad).toEqual([]);
+  });
+  it('readTime = gantt-time.js on 50,000 fuzzed tokens', () => {
+    const PARTS = ['2026', '2025', '-', '01', '02', '13', '30', '31', '15', ' ', 'Q', 'q', '1', '4', '5', 'Jan', 'jan', 'Sept', 'September', 'Dec', 'x'];
+    const r = rng(202);
+    const bad: string[] = [];
+    for (let k = 0; k < 50_000 && bad.length < 5; k++) {
+      let s = '';
+      const len = 1 + Math.floor(r() * 5);
+      for (let j = 0; j < len; j++) s += PARTS[Math.floor(r() * PARTS.length)];
+      const want = ganttTime.parseTimePoint(s);
+      const got = readTime(s) ?? null;
+      if (JSON.stringify(want) !== JSON.stringify(got)) bad.push(`${JSON.stringify(s)}: kernel ${JSON.stringify(want)}, segno ${JSON.stringify(got)}`);
+    }
+    expect(bad).toEqual([]);
   });
 });

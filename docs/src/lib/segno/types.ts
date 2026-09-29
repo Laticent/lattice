@@ -183,7 +183,7 @@ function normalizeSeparators(s: string): string {
  * number's own sign; a magnitude letter (`k` `M` `B` `bn` `T`) must end the word; the sign is
  * "written" when the part before the digits holds `+`, `-` or U+2212, or the whole is `(…)`.
  */
-function readNumberFast(t: string): NumberValue | null | undefined {
+export function readNumberFast(t: string): NumberValue | null | undefined {
   const n = t.length;
   let i = 0;
   // Prefix: at most three symbol characters from the everyday set, no spaces.
