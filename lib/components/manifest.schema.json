@@ -23,6 +23,17 @@
       "pattern": "^[a-z][a-z0-9-]*$",
       "description": "The `_class` directive value (kebab-case)."
     },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A plain-English name for a picker tile, where it reads better than the class it writes: `columns` shows as \"Two columns\" in the Studio's add-slide gallery (engineering/decisions/2026-09-28-generic-pane-layouts-authoring.md §7.2). Absent: the tile shows `name`."
+    },
+    "hosts": {
+      "enum": [
+        "panes"
+      ],
+      "description": "This component's body is OTHER COMPONENTS. `panes`: two panes, each a component the author names with `<!-- _pane: … -->` or opens with a `### title` (lib/core/panes.js). A host has no stage of its own, so the content contracts (capacity, slots) belong to its panes; pair it with `function: layout` and `pane: { side: false, stack: false }`, since a host never goes inside a pane."
+    },
     "type": {
       "const": "component",
       "description": "The package type (engineering/decisions/2026-09-23-portable-packages.md §3.2). Optional in the repo, where the folder implies it; the package spine writes it into every exported package, so a loose zip says what it is."
@@ -39,9 +50,10 @@
         "comparison",
         "progression",
         "evidence",
-        "imagery"
+        "imagery",
+        "layout"
       ],
-      "description": "Audience-function family the component belongs to (what the viewer leaves knowing). One of the seven taxonomies in design/design-system.md §3."
+      "description": "Audience-function family the component belongs to (what the viewer leaves knowing). One of the seven taxonomies in design/design-system.md §3, or `layout` for a component that HOSTS other components (`hosts`) and does nothing by itself: its panes do the work (`columns`, `rows`)."
     },
     "bucket": {
       "enum": [
@@ -57,9 +69,10 @@
         "math",
         "code",
         "legal",
-        "connect"
+        "connect",
+        "layout"
       ],
-      "description": "Disk-layout bucket the component lives in under lib/components/<bucket>/<name>/. Defaults to the value of `function` when absent. Four substance-defined buckets (`chart` for data visualizations, `diagram` for topological visuals, `math` for typeset equations, `code` for syntax-highlighted source) and one domain-defined bucket (`legal` for legal-family components) override the function value when colocation aids maintenance — each substance bucket describes a category of rendered content, not the library that happens to render it today. See design/design-system.md §9."
+      "description": "Disk-layout bucket the component lives in under lib/components/<bucket>/<name>/. Defaults to the value of `function` when absent. Four substance-defined buckets (`chart` for data visualizations, `diagram` for topological visuals, `math` for typeset equations, `code` for syntax-highlighted source) and one domain-defined bucket (`legal` for legal-family components) override the function value when colocation aids maintenance — each substance bucket describes a category of rendered content, not the library that happens to render it today. `layout` holds the components that host other components (`hosts`), and matches their function. See design/design-system.md §9."
     },
     "galleryAuthored": {
       "type": "boolean",

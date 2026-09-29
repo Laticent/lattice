@@ -116,14 +116,36 @@ export type SearchOptions = {
  * Whichever runs second is a genuine fallback — it only sees queries the first pass could
  * not answer at all.
  */
+/** Whether `q` is `name` with exactly one character left out (`rws` of `rows`). */
+function isOneDeletion(name: string, q: string): boolean {
+	if (name.length !== q.length + 1) return false;
+	let i = 0;
+	while (i < q.length && name[i] === q[i]) i++;
+	return name.slice(i + 1) === q.slice(i);
+}
+
 export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, opts: SearchOptions = {}): RankedHit[] {
-	const sub = items.filter((it) => hay(it).includes(q));
+	// A NAME ONE LETTER SHORT ranks FIRST, but only when no name contains the query outright, and
+	// the description hits still follow it: `tile` puts `title` first and keeps `stats` ("a row of
+	// stat tiles") second. A short name is where fuzzy matching is weakest: `rws`, `cde`, `lst` and
+	// `mth` found nothing at all. Hyphens read as spaces, since people type `list steps`.
+	const spaced = q.replace(/-/g, ' ');
+	const short =
+		q.length >= 3 && !items.some((it) => it.name.replace(/-/g, ' ').includes(spaced))
+			? items.filter((it) => isOneDeletion(it.name.replace(/-/g, ' '), spaced))
+			: [];
+	const shortHits = short.map((item) => ({ item, via: 'fuzzy' as const, match: null }));
+	const sub = items.filter((it) => hay(it).includes(q) && !short.includes(it));
 	if (sub.length) {
-		return sub
-			.map((it) => ({ it, s: subScore(it, q) }))
-			.sort((a, b) => a.s - b.s || a.it.name.localeCompare(b.it.name))
-			.map((x) => ({ item: x.it, via: 'substring' as const, match: null }));
+		return [
+			...shortHits,
+			...sub
+				.map((it) => ({ it, s: subScore(it, q) }))
+				.sort((a, b) => a.s - b.s || a.it.name.localeCompare(b.it.name))
+				.map((x) => ({ item: x.it, via: 'substring' as const, match: null })),
+		];
 	}
+	if (shortHits.length) return shortHits;
 
 	// A CONFIDENT fuzzy match wins outright, whatever the query's shape — this is what
 	// catches a misspelled name, and word-count routing alone could not. `cards-gid` is one

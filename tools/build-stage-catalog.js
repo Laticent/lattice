@@ -319,6 +319,13 @@ function buildAxisSets() {
   return { source, count: sortedNames.length };
 }
 
+/** Whether a component's own anatomy uses `###`: a slot whose selector names an `h3`. A pane of
+ *  it keeps every `###` it holds, instead of taking one as the pane's title or a new pane's start
+ *  (lib/core/pane-spec.js `ownsHeadings`). Only `team-profile` (its `sides` roster labels) today. */
+function ownsH3(m) {
+  return Object.values(m.slots || {}).some((s) => /(?:^|[\s>+~,(])h3\b/.test(String(s?.selector || '')));
+}
+
 // The PANE catalog: for every layout, whether it can go in a pane (`fit`) and what it
 // renders AS there (`form`). Baked for the same reason as the catalogs above: the carve
 // (lib/core/panes.js) runs inside the browser bundle, which cannot fs-load the manifests.
@@ -331,7 +338,7 @@ function buildPane() {
     if (!m.pane) continue;
     // Every built-in row: the least share each direction reads at is measured per component, so
     // no default covers them. A MISSING row is an installed package, which fits any share.
-    catalog[m.name] = { side: m.pane.side, stack: m.pane.stack, ...(m.pane.form ? { form: m.pane.form } : {}) };
+    catalog[m.name] = { side: m.pane.side, stack: m.pane.stack, ...(m.pane.form ? { form: m.pane.form } : {}), ...(ownsH3(m) ? { h3: true } : {}), ...(m.hosts ? { host: true } : {}) };
   }
   const sorted = {};
   for (const n of Object.keys(catalog).sort()) sorted[n] = catalog[n];
@@ -341,6 +348,9 @@ function buildPane() {
     '   side  — the least share side by side a pane of it reads at, or false (never).\n' +
     '   stack — the least share of the height a stacked pane of it reads at, or false.\n' +
     '   form  — the component a pane renders this one AS, when it differs.\n' +
+    "   h3    — its own anatomy uses `###` (a slot selector names h3), so a pane of it keeps them.\n" +
+    "   host  — a HOST component (manifest `hosts`, columns / rows): its body is two panes, and it\n" +
+    "           names nothing to render with where none were carved (lib/core/resolve-component.js).\n" +
     '   Measured by tools/measure-pane-fit.js, then reviewed. No row: fits any share.\n' +
     '   Rebuild: node tools/build-stage-catalog.js */\n' +
     'module.exports = ' + JSON.stringify(sorted) + ';\n';

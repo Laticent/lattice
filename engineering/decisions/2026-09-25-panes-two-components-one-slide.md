@@ -17,6 +17,12 @@ summary: >-
 
 # Panes — two components, one slide
 
+> **The authoring syntax moved on (2026-09-28).** A panes slide now names its layout in `_class`
+> (`columns` / `rows`), starts each pane with an optional `<!-- _pane: X -->` and an optional
+> `### title`, and sends every unclaimed Key Insight to the slide:
+> `2026-09-28-generic-pane-layouts-authoring.md`. The `panes:` / `pane:` comments below still
+> render, as an alias. The engine this note describes is unchanged underneath.
+
 **Answer first.** Yes, Lattice can put content from two components on one slide without
 writing a new component for each pairing, and it can do it without touching a single
 component. The author writes a normal slide and marks where each component's body begins:

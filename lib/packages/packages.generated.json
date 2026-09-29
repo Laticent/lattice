@@ -3,7 +3,7 @@
   "format": 1,
   "counts": {
     "theme": 33,
-    "component": 71,
+    "component": 73,
     "finish": 9,
     "motion": 0,
     "plugin": 4
@@ -435,6 +435,17 @@
       "type": "component",
       "name": "code",
       "path": "lib/components/code/code",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "columns",
+      "path": "lib/components/layout/columns",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -913,6 +924,17 @@
         "transform.js"
       ],
       "code": true
+    },
+    {
+      "type": "component",
+      "name": "rows",
+      "path": "lib/components/layout/rows",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css"
+      ]
     },
     {
       "type": "component",

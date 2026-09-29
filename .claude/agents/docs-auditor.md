@@ -30,7 +30,7 @@ Derive these dynamically every run; never trust a number you remember.
   (one per component) and the generated catalog `dist/docs/components.json`
   (`.components[]`, `.vocabularies` — there is deliberately NO `.count`; an
   aggregate over every manifest is the line two concurrent PRs cannot both be
-  right about, #1594). The 13 buckets live under
+  right about, #1594). The 14 buckets live under
   `lib/components/`.
 - **Themes / palettes** — `themes/*.css` (each base palette + its `-dark`
   pair; note standalone palettes like `carbone`). Registration in

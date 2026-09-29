@@ -129,11 +129,11 @@ test('split recipes are validated: a typo or prototype-name strategy is rejected
 
 test('FIXTURE PIN: the core vocabularies and name pattern', () => {
   assert.deepEqual(schema.properties.function.enum,
-    ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery'],
+    ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery', 'layout'],
     'function enum changed — validator + Studio gate + docs grouping all follow');
   assert.deepEqual(schema.properties.bucket.enum,
     ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery',
-      'chart', 'diagram', 'math', 'code', 'legal', 'connect'],
+      'chart', 'diagram', 'math', 'code', 'legal', 'connect', 'layout'],
     'bucket enum changed — loadAll() only walks listed buckets: a deleted entry SILENTLY drops that whole component family from the catalog');
   assert.deepEqual(schema.properties.form.enum,
     ['bookend', 'divider', 'canvas', 'grid', 'stack', 'ledger', 'panel', 'matrix', 'scatter', 'spatial', 'timeline', 'split'],

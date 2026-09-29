@@ -22,6 +22,7 @@
 // pulls bundled .woff2 that Node can't load, so a static import would break this
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
+import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
@@ -1936,7 +1937,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// subdomain reference takes that host's wildcard away, and the resident <head> can only
 				// change on a full write (lib/core/subresource-csp.mjs `webPolicySig`).
 				const webSig = webPolicySig(allow, webBlocked);
-				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}`;
+				// The classes on the slide's panes: the engine's sheet carries pane rules for exactly
+				// those (playground/pane-sheet-sig.js), so a change in them misses the patch path and
+				// takes the restyle one, which swaps the sheet. Not in `restyleSig`: nothing about the
+				// frame box changes.
+				const paneSig = paneComponentsSig([out.html]);
+				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}|P:${paneSig}`;
 				// IS THIS RENDER THE SAME SLIDE AS THE LAST ONE, EDITED? The one fact the frame
 				// cannot work out for itself, and the one `patchSlideBody` hands the runtime.
 				// The answer is derived in the kernel, shared with the Playground's filmstrip

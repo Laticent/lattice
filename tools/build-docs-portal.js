@@ -996,6 +996,10 @@ function renderPortalJson(manifests) {
     orientation: Array.isArray(m.orientation) ? m.orientation : ['landscape', 'portrait'],
     families: familiesFor(m),
     ...(m.adapt ? { adapt: m.adapt } : {}),
+    // A HOST component's body is other components (`hosts: panes` — columns, rows), and a
+    // `label` is the plain-English name a picker tile shows (manifest.schema.json).
+    ...(m.hosts ? { hosts: m.hosts } : {}),
+    ...(m.label ? { label: m.label } : {}),
     tags: Array.isArray(m.tags) ? m.tags : [],
     description: m.description,
     purpose: m.purpose || null,
@@ -1354,7 +1358,14 @@ by hand. One line per component: enough to CHOOSE one, and nothing more.
 anti-patterns — HARD RULE #6 requires that before you write the slide. Tools that need
 the full machine record read \`components.json\`; this file is not a substitute for it.
 
-**A zero-hit \`grep\` means read the 61 rows, not that no component fits.** Rows carry
+**Two components on one slide: \`columns\` or \`rows\`.** They are HOST components (bucket
+\`layout\`): their body is two other components. Write \`<!-- _class: columns ratio-60-40 -->\` (side
+by side) or \`<!-- _class: rows -->\` (stacked) and start each pane with \`<!-- _pane: <component> -->\` and a \`### title\` (a short label), as a slide one
+heading level down; a pane with no marker is \`content\`. Pick each pane's component from
+this table; \`lib/base/base.docs.md\` § "Two components on one slide — pane layouts" is the
+contract, and \`components.json\` says which components go in a pane and at what share.
+
+**A zero-hit \`grep\` means read the ${rows.length} rows, not that no component fits.** Rows carry
 names, tags and a one-line purpose — not the full \`whenToUse\` prose — so a search for
 \`swot\`, \`screenshot\` or \`bullet\` can miss a component that handles it. The whole table
 is ~60 lines; skimming it is the fallback.

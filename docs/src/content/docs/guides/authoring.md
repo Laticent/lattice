@@ -51,10 +51,11 @@ Three things to notice:
 ## Picking a component
 
 Each component has a contract: which headings, lists, and slots it expects,
-and what it's for. The components are organized into twelve buckets by the
+and what it's for. The components are organized into fourteen buckets by the
 job they do — anchor, statement, inventory, comparison, progression,
 evidence, imagery, plus the substance buckets (chart, diagram, math,
-code) and the legal domain set.
+code, connect), the legal domain set, and `layout`, the hosts that put two
+components on one slide (`columns`, `rows`).
 
 The fastest way to choose is the **[component reference](/components/)**:
 an interactive catalog of every component with its slots, variants, when to

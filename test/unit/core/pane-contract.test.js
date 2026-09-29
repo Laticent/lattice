@@ -19,7 +19,7 @@ const MANIFESTS = components.loadAll();
 const BY_NAME = Object.fromEntries(MANIFESTS.map((m) => [m.name, m]));
 const CATALOG = require('../../../lib/forms/cell/pane/pane-catalog.generated.js');
 
-const paneRules = (md) => lintText(md).filter((f) => f.rule.startsWith('pane-'));
+const paneRules = (md) => lintText(md).filter((f) => f.rule.startsWith('pane-') && f.rule !== 'pane-syntax');
 const slide = (a, b, layout = '') => `## T\n\n${layout ? `<!-- panes: ${layout} -->\n\n` : ''}<!-- pane: ${a.cls} -->\n\n${a.body}\n\n<!-- pane: ${b.cls} -->\n\n${b.body}\n`;
 const items = (n) => Array.from({ length: n }, (_, i) => `- Point ${i + 1}`).join('\n');
 
@@ -255,7 +255,7 @@ test('lint: pane-layout names a ratio off the grid and a third marker', () => {
   assert.equal(bad.length, 1);
   assert.match(bad[0].message, /25\/75/);
   const three = lintText(`${slide({ cls: 'list', body: items(2) }, { cls: 'content', body: 'x' })}\n<!-- pane: quote -->\n\n> y\n`).filter((f) => f.rule === 'pane-layout');
-  assert.match(three[0].message, /3 pane markers/);
+  assert.match(three[0].message, /3 panes/);
 });
 
 test('lint: a correct pane of a fixed-size component is never warned (a 2x2 is always four)', () => {
@@ -276,7 +276,7 @@ test('the Studio\'s lint runs the pane rules too: a vocab without pane data fall
   // Shaped like the Studio's vocab (docs/src/pages/studio.astro → buildVocabSets): names,
   // modifiers and capacity, no pane data.
   const studio = { names: new Set(MANIFESTS.map((m) => m.name)), modifiers: new Set() };
-  const rules = (md, vocab) => core.lintTextWith(md, vocab).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule);
+  const rules = (md, vocab) => core.lintTextWith(md, vocab).filter((f) => f.rule.startsWith('pane-') && f.rule !== 'pane-syntax').map((f) => f.rule);
   const split = slide({ cls: 'kpi', body: '1. 42%\n   - Margin' }, { cls: 'list', body: items(2) }, 'stack');
   const crowded = slide({ cls: 'list', body: items(20) }, { cls: 'content', body: 'x' });
   assert.deepEqual(rules(split, studio), ['pane-arrange']);

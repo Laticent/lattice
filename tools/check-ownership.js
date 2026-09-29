@@ -5052,7 +5052,13 @@ function checkAdaptDeclarations(manifests, errors) {
     // tier as well: all five variants render at `size: mobile` with zero overflow, so
     // the native table degrades gracefully when the reshape does not run.
     const splitReflow = RESHAPE_STRATEGIES.has(m.split?.strategy);
-    if (mode === 'reflow' && !cssReflow && !transformReflow && !mermaidReflow && !splitReflow) {
+    // A pane HOST is the fifth mechanism: on a square, portrait, story or mobile size the pane
+    // carve (lib/core/panes.js `installPaneSplit`) turns its two panes into one slide each, and at
+    // landscape a pairing that does not fit re-orients or splits the same way. The restructure is
+    // engine-side, keyed on the manifest's `hosts: panes`, so the host ships no CSS or transform
+    // of its own for it.
+    const paneReflow = m.hosts === 'panes';
+    if (mode === 'reflow' && !cssReflow && !transformReflow && !mermaidReflow && !splitReflow && !paneReflow) {
       errors.push(
         `${m.name}: declares adapt.mode "reflow" but ships NONE of the four mechanisms — ` +
         `no \`[data-family=…]\`/\`[data-orientation=…]\` CSS, no orientation-branching ` +
@@ -8961,6 +8967,11 @@ function checkSanctionedGestures(errors) {
 // figures, anchors, [x]-cell grids, verbatim citations, single-block prose),
 // it's exempt. See engineering/decisions/2026-06-30-prose-density-budget.md.
 const SANCTIONED_DENSITY_EXEMPT = {
+  // hosts — the body is two panes, each a whole component that carries its OWN density budget
+  // (lint's pane budget scales it to the pane's share); the host itself holds no prose but the
+  // slide title, which the universal budget covers.
+  columns: 'host — its panes are components with their own budgets; no prose of its own',
+  rows: 'host — its panes are components with their own budgets; no prose of its own',
   // anchors — bookends; covered by the universal title/eyebrow/subtitle budgets.
   title: 'bookend — universal title/eyebrow budgets cover it',
   divider: 'bookend — section break, minimal text',
