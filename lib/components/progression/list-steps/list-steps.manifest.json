@@ -214,7 +214,7 @@
   "variantDecisionRule": [
     {
       "variant": "capsule",
-      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit). One class carries the whole look: centered masthead and cards, a pill badge per step in its own categorical hue, a serif title, no connector arrows, and no masthead hairline. Add `rule-full` if you want the hairline back."
+      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit). One class carries the whole look: centered masthead and cards, a pill badge per step in its own categorical hue, a serif title, no connector arrows, and no masthead hairline. Add `rule-full` if you want the hairline back. Its pill is the card tag at the `inline` placement, centered, in the categorical `--cat-N-mark` tier, so the `tag:` words (`tag-plain`, `tag-none`, `tag-large`, `tag-foot`) restyle it."
     },
     {
       "variant": "vertical",
@@ -296,6 +296,74 @@
           "hall": 2
         }
       }
+    },
+    "rows": {
+      "frame": {
+        "eyebrow": {
+          "laptop": [95.9, 103],
+          "huddle": [83.4, 119],
+          "conference": [64.1, 134],
+          "hall": [49.2, 155]
+        },
+        "heading": {
+          "laptop": [66.1, 135],
+          "huddle": [66.1, 135],
+          "conference": [66.1, 135],
+          "hall": [66.1, 135]
+        },
+        "callout": {
+          "laptop": [119.5, 97],
+          "huddle": [103.9, 111],
+          "conference": [91.9, 126],
+          "hall": [79.7, 145]
+        },
+        "eyebrowAt": {
+          "laptop": 11,
+          "huddle": 11,
+          "conference": 11,
+          "hall": 10
+        },
+        "calloutAt": {
+          "laptop": 211,
+          "huddle": 222,
+          "conference": 247,
+          "hall": 280
+        }
+      },
+      "bare": {
+        "ordered": {
+          "nested": {
+            "title": {
+              "laptop": [[51.8, 31.4, 20.6, 14.9], 97],
+              "huddle": [[44.3, 27.5, 18.5, 12.9], 111],
+              "conference": [[40.3, 24.2, 16.2, 11.5], 126],
+              "hall": [[33.3, 20.6, 13.6, 10.4], 145]
+            },
+            "body": {
+              "laptop": [[54.5, 32.9, 22, 15.5], 103],
+              "huddle": [[47.4, 28.6, 19.1, 13.5], 119],
+              "conference": [[41.9, 25.3, 16.9, 11.9], 134],
+              "hall": [[36.3, 21.9, 14.7, 10.6], 155]
+            },
+            "budget": {
+              "laptop": 1281,
+              "huddle": 1271,
+              "conference": 1248,
+              "hall": 1217
+            },
+            "row": {
+              "laptop": 0,
+              "huddle": 0,
+              "conference": 0,
+              "hall": 0
+            }
+          }
+        },
+        "cols": 0
+      }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

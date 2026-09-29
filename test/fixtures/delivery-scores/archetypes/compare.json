@@ -1,0 +1,141 @@
+{
+	"component": "compare-code",
+	"restrained": [
+		{
+			"said": "Before and after, the diff you can read aloud.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *):not(svg *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Query path · report generation.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Before · one query per row.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "After · one batched join.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 3,
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Before and after, the diff you can read aloud.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *):not(svg *)",
+			"nth": 1,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "point"
+		},
+		{
+			"said": "Query path · report generation.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Before · one query per row.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 2,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "After · one batched join.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 3,
+			"key": false,
+			"focus": "unit",
+			"ink": "underline unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Before and after, the diff you can read aloud.",
+			"act": "frame",
+			"unit": "heading",
+			"select": ":is(h1, h2):not(header *):not(footer *):not(svg *)",
+			"nth": 1,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Query path · report generation.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 1,
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Before · one query per row.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 2,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "After · one batched join.",
+			"act": "visit",
+			"unit": "paragraph",
+			"select": "p:not(header *):not(footer *):not(li *):not(svg *)",
+			"nth": 3,
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

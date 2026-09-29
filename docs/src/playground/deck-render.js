@@ -17,6 +17,7 @@
 import remoteRef from '../../../lib/core/remote-ref.js';
 import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
+import { markupHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { buildSrcdoc, docStyleText } from './deck-preview.js';
 import { splitSections } from './preview-virtual.js';
@@ -415,18 +416,21 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	});
 	st.sanitizeCache = nextCache;
 	// Fold the asset-need flags into the signature: buildSrcdoc injects the KaTeX
-	// stylesheet / Mermaid runtime only when the deck has math / a mermaid fence, so
-	// a transition (a deck GAINS or LOSES either) must force a full srcdoc rewrite —
-	// a section-only patch would leave the newly-needed asset uninjected. Both markers
-	// are class names DOMPurify keeps and live INSIDE sections, so the sanitized
-	// per-section array carries them identically to the old whole-sanitize check.
-	const hasMermaid = sections.some((s) => s.indexOf('language-mermaid') !== -1);
+	// stylesheet only when the deck has math, and stamps `data-lattice-diagrams` on <html>
+	// only when it holds a fence a runtime draws (Mermaid's — the fence names come from the
+	// plugin registry, lib/plugins/drawn-probe.mjs). Neither lives where a section patch
+	// reaches, so a transition (a deck GAINS or LOSES either) must force a full srcdoc
+	// rewrite. (The diagram LIBRARY needs no rewrite any more: the runtime's plugin host loads
+	// it when a fence appears.) Both markers are class names DOMPurify keeps and live INSIDE
+	// sections, so the sanitized per-section array carries them identically to the old
+	// whole-sanitize check.
+	const hasDrawn = sections.some((s) => markupHasDrawnFence(s));
 	const hasKatex = sections.some((s) => s.indexOf('katex') !== -1);
 	const hasDagre = sections.some((s) => s.indexOf('data-sc-transitions') !== -1);
 	const contentSig =
 		sig +
 		(hasKatex ? 'K' : '') +
-		(hasMermaid ? 'M' : '') +
+		(hasDrawn ? 'M' : '') +
 		// Third flag, same reason as the other two: buildSrcdoc injects the dagre engine
 		// only for a deck that has a drawn state chart, so a deck that GAINS or LOSES one
 		// must force a full srcdoc rewrite. A section-only patch would leave a
@@ -452,7 +456,7 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	// srcdoc write here used to hide the whole deck until the new document fit and its fonts
 	// settled, and threw an Edit-view reader who was reading slide 6 back to slide 1.
 	//
-	// NOT with a Mermaid fence: the runtime caches each diagram's SVG with its theme colors
+	// NOT with a drawn fence (Mermaid's): the runtime caches each diagram's SVG with its theme colors
 	// baked in (lib/runtime/index.js, "Theme-change caveat"), so a restyled document would
 	// keep the old palette in its diagrams. A fresh document is the only honest reset there.
 	// …and the web references in the engine CSS. The document's security policy, in <head>,
@@ -466,7 +470,7 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	// so the stale theme stuck until the next theme or size change. Found by an independent
 	// checker, reproduced in Chromium. A write in flight falls through to a new write.
 	const current = frame.contentDocument?.documentElement?.getAttribute('data-lattice-write') === String(st.writeId ?? '');
-	if (!patched && !fresh && current && restyleSig != null && restyleSig === st.restyleSig && !hasMermaid) {
+	if (!patched && !fresh && current && restyleSig != null && restyleSig === st.restyleSig && !hasDrawn) {
 		restyled = restyleDocument(frame, sections, docStyleText({ css, mode, geom, ...opts }));
 		if (restyled) patched = true;
 	}
@@ -495,7 +499,7 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 			const w = windowRange(at, at + 1, sections.length, MOUNT_OVERSCAN);
 			// `data-lv` on the filmstrip marks the document virtual for its whole life.
 			docHtml = virtualHtml(html, (i) => i >= w.lo && i <= w.hi).replace(/(<[a-z]+)((?:\s[^>]*)?\sclass="(?:[^"]*\s)?lattice(?:\s[^"]*)?")/i, '$1 data-lv=""$2');
-			deck = { katex: hasKatex, mermaid: hasMermaid, dagre: hasDagre, blocked: web.blocked };
+			deck = { katex: hasKatex, drawn: hasDrawn, dagre: hasDagre, blocked: web.blocked };
 		}
 		// `data-lattice-live-media`: the filmstrip is ON SCREEN, so a picture still loading shows the
 		// Underpainting (lib/core/image-painting.js). The export capture and Print build with

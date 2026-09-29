@@ -52,24 +52,27 @@ function liftFenceState(document) {
   // docblock; a re-implementation would assert the test's own copy of the logic.
   // `markRendered` stands in for the two shipped success sites, which live outside this
   // block and both do exactly `reclaimed?.delete(preEl)` after stamping `rendered`.
-  return new Function('document', `${block}
+  // `MERMAID_CODE` and `MERMAID_PLUGIN` are the module-level names the block reads: Mermaid's
+  // fence selector and plugin name, which the runtime derives from the plugin registry
+  // (lib/plugins/drawn.generated.mjs).
+  return new Function('document', 'MERMAID_CODE', 'MERMAID_PLUGIN', `${block}
     return {
       releaseUnrenderableFences, reclaimReleasedFences, resetFenceAfterFailure,
       markRendered: (el) => reclaimed?.delete(el),
       PENDING_FENCE_SELECTOR, RELEASED_FENCE_SELECTOR,
-    };`)(document);
+    };`)(document, 'code[class*="language-mermaid"]', 'mermaid');
 }
 
 /** A slide carrying one `<pre>` per state, each with the sibling `.mermaid` box wrapFences adds. */
 function deck(states) {
   const body = states.map((s, i) =>
-    `<pre${s ? ` data-mermaid-state="${s}"` : ''} id="p${i}"><code class="language-mermaid-source">flowchart LR</code></pre>`
+    `<pre${s ? ` data-lattice-hydrate="mermaid" data-lattice-settle="${s}"` : ''} id="p${i}"><code class="language-mermaid-source">flowchart LR</code></pre>`
     + '<div class="mermaid" aria-hidden="true"></div>').join('');
   const { window } = new JSDOM(`<!doctype html><html><body><section>${body}</section></body></html>`);
   return window.document;
 }
 
-const stateOf = (doc) => [...doc.querySelectorAll('pre')].map((p) => p.getAttribute('data-mermaid-state'));
+const stateOf = (doc) => [...doc.querySelectorAll('pre')].map((p) => p.getAttribute('data-lattice-settle'));
 
 describe('giving up on Mermaid hands the fence back to its author', () => {
   test('releases every pending fence, and reports how many', () => {
@@ -82,12 +85,12 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
   test('touches NOTHING else — not a drawn diagram, not an in-flight render, not an untagged fence', () => {
     // The states that must survive are the whole safety argument. `rendered` is a diagram
     // already on the slide; `error` is a diagram Mermaid rejected and is ALREADY showing its
-    // source; `rendering` means a render is in flight, so Mermaid is real and this code path
+    // source; `hydrating` means a render is in flight, so Mermaid is real and this code path
     // cannot even be reached; an untagged fence is one the runtime has not claimed.
-    const doc = deck(['rendered', 'error', 'rendering', null, 'pending']);
+    const doc = deck(['rendered', 'error', 'hydrating', null, 'pending']);
     const { releaseUnrenderableFences } = liftFenceState(doc);
     assert.equal(releaseUnrenderableFences(), 1);
-    assert.deepEqual(stateOf(doc), ['rendered', 'error', 'rendering', null, 'unavailable']);
+    assert.deepEqual(stateOf(doc), ['rendered', 'error', 'hydrating', null, 'unavailable']);
   });
 
   test('is idempotent — a second give-up releases nothing', () => {
@@ -120,7 +123,7 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
     // intermittently.
     const doc = deck(['unavailable', 'unavailable']);
     const pres = [...doc.querySelectorAll('pre')];
-    pres[0].setAttribute('data-mermaid-final', '');
+    pres[0].setAttribute('data-lattice-final', '');
     const { reclaimReleasedFences } = liftFenceState(doc);
     reclaimReleasedFences(() => true);
     assert.deepEqual(stateOf(doc), ['unavailable', 'pending'],
@@ -177,9 +180,9 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
     const { reclaimReleasedFences, resetFenceAfterFailure } = liftFenceState(doc);
     const [reclaimedPre, alreadyPending] = [...doc.querySelectorAll('pre')];
     reclaimReleasedFences(() => true);
-    // The walk stamps everything it dispatches `rendering`, then throws.
-    reclaimedPre.dataset.mermaidState = 'rendering';
-    alreadyPending.dataset.mermaidState = 'rendering';
+    // The walk stamps everything it dispatches `hydrating`, then throws.
+    reclaimedPre.dataset.latticeSettle = 'hydrating';
+    alreadyPending.dataset.latticeSettle = 'hydrating';
     resetFenceAfterFailure(reclaimedPre);
     resetFenceAfterFailure(alreadyPending);
     assert.deepEqual(stateOf(doc), ['unavailable', 'pending'],
@@ -195,7 +198,7 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
     const pre = doc.querySelector('pre');
     reclaimReleasedFences(() => true);
     markRendered(pre);
-    pre.dataset.mermaidState = 'rendering';
+    pre.dataset.latticeSettle = 'hydrating';
     resetFenceAfterFailure(pre);
     assert.deepEqual(stateOf(doc), ['pending'], 'a drawn fence retries rather than reverting');
   });
@@ -229,11 +232,11 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
 
   test('both selectors cover marp-pre, which is what the VS Code preview emits', () => {
     const { window } = new JSDOM('<!doctype html><html><body>'
-      + '<marp-pre data-mermaid-state="pending"><code class="language-mermaid-source">x</code></marp-pre><div class="mermaid"></div>'
+      + '<marp-pre data-lattice-hydrate="mermaid" data-lattice-settle="pending"><code class="language-mermaid-source">x</code></marp-pre><div class="mermaid"></div>'
       + '</body></html>');
     const doc = window.document;
     const { releaseUnrenderableFences } = liftFenceState(doc);
     assert.equal(releaseUnrenderableFences(), 1, 'a marp-pre fence is a fence');
-    assert.equal(doc.querySelector('marp-pre').getAttribute('data-mermaid-state'), 'unavailable');
+    assert.equal(doc.querySelector('marp-pre').getAttribute('data-lattice-settle'), 'unavailable');
   });
 });

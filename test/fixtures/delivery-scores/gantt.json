@@ -1,0 +1,368 @@
+{
+	"restrained": [
+		{
+			"said": "A gantt lays overlapping work against a shared calendar.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar spans a task's dates, and a diamond marks a single moment.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Framework, three tasks.",
+			"act": "enter",
+			"unit": "lane",
+			"select": "text.gantt-lane-label[data-label=\"Framework\"]",
+			"key": true,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Signal taxonomy, Q1 to Q2, done.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"0\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Scoring model v2, Q2 to Q3, live, after Signal taxonomy.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"1\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Two teams contest the weighting; the Q3 review decides it.",
+			"act": "note",
+			"unit": "task",
+			"select": "[data-mark=\"1\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Per-team weighting, Q3 to Q4, at risk, after Scoring model v2.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"2\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Adoption, three tasks.",
+			"act": "enter",
+			"unit": "lane",
+			"select": "text.gantt-lane-label[data-label=\"Adoption\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Pilot onboarding, Q1 to Q2, done.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"3\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Org-wide rollout, Q3 to Q4, after Per-team weighting.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"4\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "GA, a milestone at Q4, after Org-wide rollout.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"5\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.",
+			"act": "note",
+			"unit": "task",
+			"select": "[data-mark=\"5\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "A gantt lays overlapping work against a shared calendar.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each bar spans a task's dates, and a diamond marks a single moment.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Framework, three tasks.",
+			"act": "enter",
+			"unit": "lane",
+			"select": "text.gantt-lane-label[data-label=\"Framework\"]",
+			"key": true,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Signal taxonomy, Q1 to Q2, done.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"0\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Scoring model v2, Q2 to Q3, live, after Signal taxonomy.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"1\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Two teams contest the weighting; the Q3 review decides it.",
+			"act": "note",
+			"unit": "task",
+			"select": "[data-mark=\"1\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": "wash labels quiet",
+			"cursor": "keep"
+		},
+		{
+			"said": "Per-team weighting, Q3 to Q4, at risk, after Scoring model v2.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"2\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Adoption, three tasks.",
+			"act": "enter",
+			"unit": "lane",
+			"select": "text.gantt-lane-label[data-label=\"Adoption\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Pilot onboarding, Q1 to Q2, done.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"3\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Org-wide rollout, Q3 to Q4, after Per-team weighting.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"4\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "GA, a milestone at Q4, after Org-wide rollout.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"5\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.",
+			"act": "note",
+			"unit": "task",
+			"select": "[data-mark=\"5\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": "wash labels quiet",
+			"cursor": "keep"
+		}
+	],
+	"somber": [
+		{
+			"said": "A gantt lays overlapping work against a shared calendar.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar spans a task's dates, and a diamond marks a single moment.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Framework, three tasks.",
+			"act": "enter",
+			"unit": "lane",
+			"select": "text.gantt-lane-label[data-label=\"Framework\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Signal taxonomy, Q1 to Q2, done.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"0\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Scoring model v2, Q2 to Q3, live, after Signal taxonomy.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"1\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Two teams contest the weighting; the Q3 review decides it.",
+			"act": "note",
+			"unit": "task",
+			"select": "[data-mark=\"1\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Per-team weighting, Q3 to Q4, at risk, after Scoring model v2.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"2\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Adoption, three tasks.",
+			"act": "enter",
+			"unit": "lane",
+			"select": "text.gantt-lane-label[data-label=\"Adoption\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Pilot onboarding, Q1 to Q2, done.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"3\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Org-wide rollout, Q3 to Q4, after Per-team weighting.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"4\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "GA, a milestone at Q4, after Org-wide rollout.",
+			"act": "visit",
+			"unit": "task",
+			"select": "[data-mark=\"5\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.",
+			"act": "note",
+			"unit": "task",
+			"select": "[data-mark=\"5\"]:is(rect.gantt-bar, polygon.gantt-milestone)",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

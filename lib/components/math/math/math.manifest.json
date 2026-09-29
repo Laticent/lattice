@@ -229,5 +229,13 @@
   },
   "venueCapacity": {
     "none": "The equation is fixed content that dominates the box, so a count of legend lines measures the wrong thing."
+  },
+  "gesture": {
+    "archetype": "media",
+    "units": {
+      "figure": {
+        "select": ":is(.katex-display, .katex:not(.katex-display *))"
+      }
+    }
   }
 }

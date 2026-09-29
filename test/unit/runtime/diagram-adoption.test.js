@@ -40,11 +40,19 @@ const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'
 const BEGIN = '  // ── BEGIN ADOPTION PORT';
 const END = '  // ── END ADOPTION PORT';
 
-/** The SHIPPED selector, read out of the source so the test cannot drift from it. */
+/**
+ * The SHIPPED selector, read out of the source so the test cannot drift from it. The runtime
+ * builds it from Mermaid's fence names in the plugin registry (`MERMAID_CODE`), so the template is
+ * evaluated here against the same generated data.
+ */
 function shippedFenceSelector() {
-  const m = RUNTIME_SRC.match(/const FENCE_CODE_SELECTOR\s*=\s*\n?\s*('[^']+'|"[^"]+");/);
-  assert.ok(m, 'lib/runtime/index.js must declare FENCE_CODE_SELECTOR as a single string literal');
-  return m[1].slice(1, -1);
+  const m = RUNTIME_SRC.match(/const FENCE_CODE_SELECTOR\s*=\s*\n?\s*(`[^`]+`);/);
+  assert.ok(m, 'lib/runtime/index.js must declare FENCE_CODE_SELECTOR as a single template literal');
+  const code = RUNTIME_SRC.match(/const MERMAID_CODE = (.+);\n/);
+  assert.ok(code, 'lib/runtime/index.js must derive MERMAID_CODE from the registry');
+  const { RUNTIME_DRAWN } = require('../../../lib/plugins/drawn.generated.mjs');
+  const MERMAID_CODE = new Function('MERMAID_FENCES', `return ${code[1]};`)(RUNTIME_DRAWN.mermaid.fences);
+  return new Function('MERMAID_CODE', `return ${m[1]};`)(MERMAID_CODE);
 }
 
 /** Lift the real `adoptOutgoingDiagrams` and bind it to one jsdom document. */
@@ -89,10 +97,10 @@ function observerCallbackSrc() {
  * that has just arrived and been tagged `pending` beside an empty target.
  */
 const rendered = (source, svgId) =>
-  `<pre data-mermaid-state="rendered"><code class="language-mermaid-source">${source}</code></pre>` +
+  `<pre data-lattice-hydrate="mermaid" data-lattice-settle="rendered"><code class="language-mermaid-source">${source}</code></pre>` +
   `<div class="mermaid" aria-hidden="true"><svg id="${svgId}"></svg></div>`;
 const pending = (source) =>
-  `<pre data-mermaid-state="pending"><code class="language-mermaid-source">${source}</code></pre>` +
+  `<pre data-lattice-hydrate="mermaid" data-lattice-settle="pending"><code class="language-mermaid-source">${source}</code></pre>` +
   `<div class="mermaid" aria-hidden="true"></div>`;
 
 /** A `replaceChild` MutationRecord, shaped the way the observer receives one. */
@@ -122,7 +130,7 @@ describe('adoptOutgoingDiagrams', () => {
     const doc = dom.window.document;
     assert.equal(doc.querySelector('.mermaid > svg')?.id, 'old-svg', 'the previous diagram must still be on screen');
     assert.equal(
-      doc.querySelector('pre').dataset.mermaidState,
+      doc.querySelector('pre').dataset.latticeSettle,
       'pending',
       'the fence must stay pending — the held SVG is a placeholder, not an answer',
     );
@@ -152,7 +160,7 @@ describe('adoptOutgoingDiagrams', () => {
     const outgoing = `<section class="diagram">${rendered('flowchart LR\n A-->B', 'old-svg')}</section>`;
     const incoming =
       `<section class="diagram">` +
-      `<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR\n A-->Bx</code></pre>` +
+      `<pre data-lattice-hydrate="mermaid" data-lattice-settle="pending"><code class="language-mermaid-source">flowchart LR\n A-->Bx</code></pre>` +
       `<div class="mermaid" aria-hidden="true"><svg id="standing"></svg></div></section>`;
     const dom = new JSDOM(deck(outgoing));
     liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
@@ -161,12 +169,12 @@ describe('adoptOutgoingDiagrams', () => {
   });
 
   test('does not adopt into a fence that is not pending, even when its slot is empty', () => {
-    // `rendering` means the fence is already on the queue. The target-holds-an-SVG guard
+    // `hydrating` means the fence is already on the queue. The target-holds-an-SVG guard
     // cannot see this one — the slot is empty — so it is the `pending` check or nothing.
     const outgoing = `<section class="diagram">${rendered('flowchart LR\n A-->B', 'old-svg')}</section>`;
     const incoming =
       `<section class="diagram">` +
-      `<pre data-mermaid-state="rendering"><code class="language-mermaid-source">flowchart LR\n A-->Bx</code></pre>` +
+      `<pre data-lattice-hydrate="mermaid" data-lattice-settle="hydrating"><code class="language-mermaid-source">flowchart LR\n A-->Bx</code></pre>` +
       `<div class="mermaid" aria-hidden="true"></div></section>`;
     const dom = new JSDOM(deck(outgoing));
     liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
@@ -222,7 +230,7 @@ describe('adoptOutgoingDiagrams', () => {
     // now can, so what chains here is this fence's own last ink, on this slide.
     const outgoing =
       `<section class="diagram">` +
-      `<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR\n  A --> B</code></pre>` +
+      `<pre data-lattice-hydrate="mermaid" data-lattice-settle="pending"><code class="language-mermaid-source">flowchart LR\n  A --> B</code></pre>` +
       `<div class="mermaid" aria-hidden="true"><svg id="held-earlier"></svg></div></section>`;
     const incoming = `<section class="diagram">${pending('flowchart LR\n  A --> Bx')}</section>`;
     const dom = new JSDOM(deck(outgoing));
@@ -264,7 +272,7 @@ describe('adoptOutgoingDiagrams', () => {
     const outgoing = `<section class="diagram">${rendered('flowchart LR\n  A --> B', 'old-svg')}</section>`;
     const incoming =
       `<section class="diagram">` +
-      `<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR\n  A --> Bx</code></pre>` +
+      `<pre data-lattice-hydrate="mermaid" data-lattice-settle="pending"><code class="language-mermaid-source">flowchart LR\n  A --> Bx</code></pre>` +
       `<div class="mermaid-error" role="status"></div></section>`;
     const dom = new JSDOM(deck(outgoing));
     liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
@@ -371,7 +379,7 @@ function liftReset(reclaimedHas = false) {
 describe('resetFenceAfterFailure', () => {
   const inFlight = (svgId) =>
     `<section class="diagram">` +
-    `<pre data-mermaid-state="rendering"><code class="language-mermaid-source">flowchart LR\n  A --> B</code></pre>` +
+    `<pre data-lattice-hydrate="mermaid" data-lattice-settle="hydrating"><code class="language-mermaid-source">flowchart LR\n  A --> B</code></pre>` +
     `<div class="mermaid" aria-hidden="true">${svgId ? `<svg id="${svgId}"></svg>` : ''}</div></section>`;
 
   test('drops HELD ink on the way back to pending', () => {
@@ -383,7 +391,7 @@ describe('resetFenceAfterFailure', () => {
     const dom = new JSDOM(`<div class="lattice">${inFlight('held')}</div>`);
     const preEl = dom.window.document.querySelector('pre');
     liftReset()(preEl);
-    assert.equal(preEl.dataset.mermaidState, 'pending');
+    assert.equal(preEl.dataset.latticeSettle, 'pending');
     assert.equal(dom.window.document.querySelector('.mermaid > svg'), null, 'the held SVG must not survive the reset');
   });
 
@@ -391,7 +399,7 @@ describe('resetFenceAfterFailure', () => {
     const dom = new JSDOM(`<div class="lattice">${inFlight(null)}</div>`);
     const preEl = dom.window.document.querySelector('pre');
     liftReset()(preEl);
-    assert.equal(preEl.dataset.mermaidState, 'pending');
+    assert.equal(preEl.dataset.latticeSettle, 'pending');
     assert.equal(dom.window.document.querySelector('.mermaid').innerHTML, '');
   });
 
@@ -401,14 +409,14 @@ describe('resetFenceAfterFailure', () => {
     const dom = new JSDOM(`<div class="lattice">${inFlight('held')}</div>`);
     const preEl = dom.window.document.querySelector('pre');
     liftReset(true)(preEl);
-    assert.equal(preEl.dataset.mermaidState, 'unavailable');
+    assert.equal(preEl.dataset.latticeSettle, 'unavailable');
   });
 
-  test('leaves a fence that is not `rendering` alone', () => {
+  test('leaves a fence that is not `hydrating` alone', () => {
     const dom = new JSDOM(`<div class="lattice">${rendered('flowchart LR\n  A --> B', 'done')}</div>`);
     const preEl = dom.window.document.querySelector('pre');
     liftReset()(preEl);
-    assert.equal(preEl.dataset.mermaidState, 'rendered');
+    assert.equal(preEl.dataset.latticeSettle, 'rendered');
     assert.equal(dom.window.document.querySelector('.mermaid > svg')?.id, 'done', 'a rendered diagram is never cleared');
   });
 });

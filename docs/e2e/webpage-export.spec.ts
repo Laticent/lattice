@@ -376,3 +376,108 @@ test('the Studio webpage export styles a <section> nested in a slide as a panel,
 	expect(got.nested?.w, 'the nested section is not given the slide’s 1280px box').toBeLessThan(got.slide.w);
 	expect(got.nested?.nestedBg, 'the nested section inherits the dark slide’s tokens').toBe(got.slide.bg);
 });
+
+// PICTURES BY URL (followup 2358-p2). The player's policy is `img-src data:`, so a picture it
+// shows has to be IN the file. The Studio used to embed nothing, and a `![bg]` panel, an `<img>`
+// and a video poster from the site's own origin all came out blank while the preview showed
+// them. Now each is fetched from this origin and embedded; a picture it could not fetch, and one
+// from another site (never fetched at export time), are named in the completion toast.
+test('the Studio webpage export embeds same-origin pictures and reports the rest', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	const DECK = [
+		'---',
+		'theme: indaco',
+		'---',
+		'',
+		'![bg left](/showcase/roadmap.light.webp)',
+		'',
+		'# A same-origin background',
+		'',
+		'---',
+		'',
+		'## A same-origin image, a missing one and a web one',
+		'',
+		'![Icon](/icons/icon-192.png) ![Gone](/no-such-picture.png) ![Web](https://example.com/web.jpg)',
+		'',
+		'---',
+		'',
+		'<!-- _class: video -->',
+		'',
+		'## Watch the tour.',
+		'',
+		'- https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+		'- /showcase/kpi.light.webp `poster`',
+		'',
+	].join('\n');
+	const file = await exportWebpage(page, testInfo, DECK, { as: 'url-media.html' });
+	await expect(page.getByText(/Webpage ready — but/)).toContainText(/1 image could not be embedded \(\/no-such-picture\.png: the server answered 404\)/);
+	await expect(page.getByText(/Webpage ready — but/)).toContainText(/images from example\.com ship as placeholders/);
+
+	const viewer = await page.context().newPage();
+	const refused: string[] = [];
+	viewer.on('console', (m) => { if (/Content Security Policy/i.test(m.text())) refused.push(m.text()); });
+	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
+	const got = await viewer.evaluate(() => {
+		const slides = [...document.querySelectorAll('section[data-lattice-slide]')] as HTMLElement[];
+		// The Studio's engine draws `![bg left]` on the slide itself (web mode); the CLI's split
+		// panel is `.lattice-bg`. Read whichever carries the picture.
+		const bg = (slides[0]?.querySelector('.lattice-bg') as HTMLElement | null) ?? slides[0] ?? null;
+		const imgs = [...(slides[1]?.querySelectorAll('img') ?? [])] as HTMLImageElement[];
+		const poster = slides[2]?.querySelector('a.video-poster') as HTMLElement | null;
+		const thumb = document.querySelector('#lp-article .lp-video-thumb') as HTMLElement | null;
+		return {
+			bg: bg ? getComputedStyle(bg).backgroundImage.slice(0, 30) : null,
+			icon: imgs[0] ? { src: imgs[0].src.slice(0, 22), loaded: imgs[0].complete && imgs[0].naturalWidth > 0 } : null,
+			poster: poster ? getComputedStyle(poster).backgroundImage.slice(0, 30) : null,
+			thumb: thumb ? thumb.style.backgroundImage.slice(0, 30) : null,
+			articleImg: (document.querySelector('#lp-article img[alt="Icon"]') as HTMLImageElement | null)?.src.slice(0, 22) ?? null,
+			// The failed picture and the web one both draw the placeholder, never a broken-image mark.
+			placeholders: imgs.filter((i) => i.hasAttribute('data-lattice-web-src')).map((i) => i.getAttribute('data-lattice-web-src')),
+		};
+	});
+	await viewer.close();
+	expect(got.bg, 'the ![bg] panel carries its picture').toMatch(/^url\("data:image\/webp;base64,/);
+	expect(got.icon, 'the <img> is embedded and decodes').toEqual({ src: 'data:image/png;base64,', loaded: true });
+	expect(got.poster, 'the video poster is embedded').toMatch(/^url\("data:image\/webp;base64,/);
+	expect(got.thumb, 'Read · Article keeps the embedded poster').toMatch(/^url\("?data:image\/webp;base64,/);
+	expect(got.articleImg, 'Read · Article keeps the embedded image').toBe('data:image/png;base64,');
+	expect(got.placeholders, 'the missing picture and the web one ship as the placeholder').toEqual([expect.stringMatching(/\/no-such-picture\.png$/), 'https://example.com/web.jpg']);
+	expect(refused.filter((t) => /showcase|icon-192/.test(t)), 'no embedded picture is refused by the policy').toEqual([]);
+});
+
+// THE OPT-IN (PR #2495, the owner's call): with "Embed pictures from other sites" on, the author's
+// browser fetches the other site's picture at export time and the FILE carries it — the recipient
+// still loads nothing on open. The other site is stubbed with a CORS header, which a real host
+// must send for a page to read its bytes; one that does not is reported in the toast instead.
+test('the Studio webpage export embeds another site’s picture when the author opts in', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	const png = await readFile(new URL('../public/icons/icon-192.png', import.meta.url));
+	await page.route('https://pictures.example/**', (route) =>
+		route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: png }),
+	);
+	const DECK = ['---', 'theme: indaco', '---', '', '## Another site’s picture', '', '![Web](https://pictures.example/icon.png)', ''].join('\n');
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
+	const sw = page.getByRole('switch', { name: 'Embed pictures from other sites' });
+	await expect(sw, 'off by default').toHaveAttribute('aria-checked', 'false');
+	await sw.click();
+	const downloadPromise = page.waitForEvent('download', { timeout: 150_000 });
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.confirm }).click();
+	const file = path.join(testInfo.outputDir, 'web-opt-in.html');
+	await (await downloadPromise).saveAs(file);
+
+	const viewer = await page.context().newPage();
+	const requests: string[] = [];
+	viewer.on('request', (r) => { if (!r.url().startsWith('file:') && !r.url().startsWith('data:')) requests.push(r.url()); });
+	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
+	const img = await viewer.evaluate(() => {
+		const i = document.querySelector('section[data-lattice-slide] img[alt="Web"]') as HTMLImageElement | null;
+		return i ? { src: i.src.slice(0, 22), loaded: i.complete && i.naturalWidth > 0 } : null;
+	});
+	await viewer.close();
+	expect(img, 'the other site’s picture is inside the file and decodes').toEqual({ src: 'data:image/png;base64,', loaded: true });
+	expect(requests, 'opening the file contacts no site').toEqual([]);
+});

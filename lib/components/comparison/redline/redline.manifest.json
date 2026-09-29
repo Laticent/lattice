@@ -170,5 +170,13 @@
   },
   "venueCapacity": {
     "none": "One clause with its inline edits per slide; its length is prose, not a count of elements."
+  },
+  "gesture": {
+    "archetype": "statement",
+    "units": {
+      "change": {
+        "select": ":is(ins, del)"
+      }
+    }
   }
 }

@@ -370,6 +370,15 @@ integration tests, not unit tests.
   **cached** via `actions/cache` on `~/.cache/puppeteer` (keyed on the
   lockfile). Installs `poppler-utils` (for `pdfinfo`), runs
   `npm run test:integration`. ~2–3 min cold.
+- **`player-webkit`** — re-runs `test/integration/export/player-no-js.test.js` (the
+  exported player with JavaScript off) in Playwright's WebKit, because iOS Quick Look
+  opens exports with scripts off and Quick Look is WebKit. Runs only when `lib/export/**`
+  or that test changes (the `player` filter; the merge queue reads its own diff), beside
+  `integration`, and blocks. ~3.5 min: WebKit and its libraries install in ~50 s. Uses
+  the docs workspace's pinned `@playwright/test`, so there is no second Playwright. Run
+  it locally with `LATTICE_PLAYWRIGHT=$PWD/docs/node_modules/playwright node --test
+  test/integration/export/player-no-js.test.js` after `npx playwright install --with-deps
+  webkit` in `docs/`.
 - **`ci`** — the single gate job (`if: always()`). **Set this as the only
   required status check** in branch protection: it passes when lint
   succeeds and the test tiers passed or were skipped, so the conditional
@@ -387,7 +396,7 @@ run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
 *cancelled* rather than finishing, against 16–19s for node 22 in those same runs. Six
 hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
 Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 · `golden-diff` 25 ·
-`docs-build` 20 · `studio-smoke` 15 · `ci` 5.
+`docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5.
 
 **A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on
 `unit` catches three of those four; the 11m04s one finishes underneath it and still

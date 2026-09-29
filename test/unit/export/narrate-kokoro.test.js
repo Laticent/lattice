@@ -37,7 +37,8 @@ test('voiceDeck speaks each distinct sentence once and ships clips the way the S
 	const readAlong = { slides: [{ index: 0, track: one }, { index: 2, track: two }] };
 	const tts = fakeTts();
 	const emphasis = [[{ start: 0, end: 7, weight: 2 }], undefined, undefined];
-	const slides = await voiceDeck(readAlong, ['Revenue grew. Churn fell.', '', 'Revenue grew.'], { tts, emphasis });
+	const refs = [[{ start: 0, end: 13, act: 'visit', unit: 'item', id: { i: 1 } }], undefined, undefined];
+	const slides = await voiceDeck(readAlong, ['Revenue grew. Churn fell.', '', 'Revenue grew.'], { tts, emphasis, refs });
 	// Sparse, like the Studio's: the silent slide stays null.
 	assert.equal(slides[1], null);
 	// "Revenue grew." is said on two slides and synthesized once; both carry the same clip.
@@ -52,6 +53,9 @@ test('voiceDeck speaks each distinct sentence once and ships clips the way the S
 	}
 	assert.deepEqual(slides[0].emphasis, emphasis[0], 'the emphasis the track was built with rides to the LTT');
 	assert.equal('emphasis' in slides[2], false);
+	// The binding rides to the player the same way (storyboards step 5): the Guide plays it.
+	assert.deepEqual(slides[0].refs, refs[0]);
+	assert.equal('refs' in slides[2], false);
 });
 
 test('without kokoro-js, loading the voice says how to install it', async (t) => {

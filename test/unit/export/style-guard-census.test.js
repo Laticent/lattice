@@ -48,7 +48,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  */
 const CENSUS = {
 	'lattice-emulator.js': {
-		guards: 5,
+		guards: 7,
 		why:
 			'page scaffold, look-diagram scratch page, both --player prune re-wraps, and the --read ' +
 			"reading-article sheet are guarded. That fifth one is belt and braces rather than a live " +
@@ -57,13 +57,19 @@ const CENSUS = {
 			'of the two a future change is likely to make dynamic (a palette or measure threaded into ' +
 			'it), and a guard already at the call site is cheaper than noticing that it is now needed. ' +
 			'The sheet that stays UNGUARDED is embeddedFontsStyle() — a fixed face manifest from ' +
-			'lib/fonts/text-faces.js plus base64, neither of which can contain `<`.',
+			'lib/fonts/text-faces.js plus base64, neither of which can contain `<`. The sixth and ' +
+			'seventh are KaTeX\'s stylesheet, inlined on a math deck (followups.d/2439): its rules ' +
+			'(`#lattice-katex`) and its faces (appended to the font block as data: URIs). Package ' +
+			'bytes read off disk rather than author text, but a file the page did not write, so each ' +
+			'half is guarded where it is embedded.',
 	},
 	'lib/export/player-core.mjs': {
 		guards: 3,
 		why:
 			'the KaTeX block, the deck block rebuilt after themeDualMode+minifyCss, and the dual-mode ' +
-			'block. The fourth is playerCss(), this file\'s own chrome, interpolating only canvas numbers.',
+			'block. The fourth is playerCss(), this file\'s own chrome, interpolating only canvas numbers. ' +
+			'The fifth, the Read·Article math overflow guard added beside an already-inline KaTeX sheet, ' +
+			'is a fixed constant (`mathArticleCss`) with no interpolation — keep it one.',
 	},
 	'docs/src/components/studio/player-prune-browser.ts': {
 		guards: 2,

@@ -1,0 +1,1 @@
+- A plain `.html` export now warns, naming the slide, when a card tag wraps far enough to cover the top of its card body. That file has no script to equalize tag sizes, so the PDF of the same deck can be fine while the `.html` is not.

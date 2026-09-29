@@ -22,6 +22,7 @@ import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { paneSplitCounts } from './pane-pages';
+import type { SceneRef } from './present-guide';
 import { buildDeckRender, type ExtraTheme, loadDeckRenderFonts } from './share-export';
 
 // The modules the projection loads on demand, named once so the idle warm-up fetches the same set
@@ -66,7 +67,13 @@ export async function projectDeckSpeech(
  *  the shared kernel, carried through the Studio so the LIVE reader spends the same beats the CLI
  *  export bakes. Without this the two producers disagree: an exported .vtt would hold after a bolded
  *  claim and Present would not, which is exactly the drift HARD RULE #1 exists to stop. */
-export type SlideScript = { text: string; emphasis: readonly { start: number; end: number; weight: number }[] };
+export type SlideScript = {
+	text: string;
+	emphasis: readonly { start: number; end: number; weight: number }[];
+	/** Where each sentence came from: the heading, paragraph, list item or table row the Guide focuses
+	 *  as it is read (`bindingRefsFor`). Spans over `text`, so they hold only while it is the text read. */
+	refs?: readonly SceneRef[];
+};
 
 /** `projectDeckSpeech`'s richer form — renders the deck, then projects each section to a script. */
 export async function projectDeckScript(
@@ -138,6 +145,12 @@ export function foldPaneSplits(scripts: SlideScript[], source: string, mastheads
 	for (const n of counts) {
 		const run = scripts.slice(at, at + n);
 		at += n;
+		// A slide that did not split keeps its script whole, bindings included. A folded one drops
+		// them: its refs count units per PAGE, and the pages are one slide now.
+		if (n === 1 && run[0]) {
+			out.push(run[0]);
+			continue;
+		}
 		let text = '';
 		const emphasis: { start: number; end: number; weight: number }[] = [];
 		for (let k = 0; k < run.length; k++) {

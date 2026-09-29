@@ -273,5 +273,18 @@
   },
   "venueCapacity": {
     "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "gesture": {
+    "archetype": "field",
+    "units": {
+      "cell": {
+        "select": "rect.quadrant-tint[data-cell=\"{cell}\"], [data-cell=\"{cell}\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)",
+        "labels": "text.quadrant-label[data-cell=\"{cell}\"]"
+      },
+      "point": {
+        "select": "[data-label=\"{label}\"]:is(circle.quadrant-dot, circle.quadrant-bubble, circle.quadrant-trail-after)"
+      }
+    },
+    "key": "largest"
   }
 }

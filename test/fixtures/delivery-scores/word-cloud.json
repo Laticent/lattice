@@ -1,0 +1,98 @@
+{
+	"restrained": [
+		{
+			"said": "Weight is meaning in a word cloud.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Sized by how often each came up.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Time-to-value is the biggest at five, one clear of security and onboarding at four each.",
+			"act": "peak",
+			"unit": "word",
+			"select": "text.wc-word[data-label=\"time\\-to\\-value\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Weight is meaning in a word cloud.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Sized by how often each came up.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Time-to-value is the biggest at five, one clear of security and onboarding at four each.",
+			"act": "peak",
+			"unit": "word",
+			"select": "text.wc-word[data-label=\"time\\-to\\-value\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "circle unit notable",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Weight is meaning in a word cloud.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Sized by how often each came up.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Time-to-value is the biggest at five, one clear of security and onboarding at four each.",
+			"act": "peak",
+			"unit": "word",
+			"select": "text.wc-word[data-label=\"time\\-to\\-value\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

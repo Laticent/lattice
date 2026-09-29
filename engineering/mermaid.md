@@ -72,7 +72,8 @@ The Studio's webpage export has one extra beat the CLI does not need. `mmdc` has
 already substituted an SVG for the fence by the time the CLI serializes, but the
 browser render is still a raw `<pre><code class="language-mermaid">` — the runtime
 inflates it, and the player ships no runtime. So the Studio mounts the deck in the
-shared capture frame, waits for the runtime's own `data-mermaid-state` to settle, and
+shared capture frame, waits for the plugin host's settle state (`data-lattice-settle`, which the
+runtime writes on each fence) to settle, and
 reads the settled sections back out. Skip that and the exported file freezes the
 un-rendered form: raw Mermaid source on the slide, and a wall of it where Read·Article
 should show the diagram.
@@ -206,30 +207,33 @@ Nothing — in a document that has promised to draw it. The fence is a conduit, 
 thing to read on a slide, so from the moment it enters such a document it paints no ink:
 
 ```css
-[data-lattice-diagrams] :is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"] { visibility:hidden; }
+[data-lattice-diagrams] :is(pre, marp-pre):not([data-lattice-settle]) > code[class*="language-mermaid"] { visibility:hidden; }
 ```
 
 `visibility` on the CODE rather than `display` on the `<pre>`, because the `<pre>` is
 already sized to the rendered diagram's slot — withholding only the ink leaves the slot
 reserved, so nothing on the slide moves when the SVG lands (measured layout shift: 0).
-The three `data-mermaid-state` rules beside it take over the moment the runtime tags the
+The three settle-state rules beside it take over the moment the runtime tags the
 fence; this one covers the window before that, which nothing did.
 
-**`[data-lattice-diagrams]` is the load-bearing half, and it names the MERMAID SCRIPT,
-not the runtime.** Hiding a diagram's source is right only where something is going to
-draw it, so the attribute is written by the BUILDER that injects Mermaid —
+**`[data-lattice-diagrams]` is the load-bearing half, and it names the builder's commitment
+to a drawer, not the runtime's boot mark.** Hiding a diagram's source is right only where
+something is going to draw it, so the attribute is written by the BUILDER that loads the
+runtime from a URL into a document holding a drawn fence (the runtime's plugin host then loads
+Mermaid — the plugin's payload — beside it; until phase D's browser half the commitment was the
+Mermaid `<script src>` the builder injected) —
 `previewDiagramsAttr()` in `docs/src/playground/deck-preview.js`, called by the two
 preview frames and the Stage window, and by nothing else. A document we did not assemble
 (a hand-rolled Marp page, marp-vscode's own preview) never gets it — measured: no
 `data-lattice-diagrams` on `<html>` in a real marp-vscode preview, at either security
 level. **"And therefore keeps showing the source" is a step too far, and driving it is what
 showed that**: this rule is not the only one that can hide a fence, and on that host at
-security = Disable the older `data-mermaid-state` rule hides it anyway (§ 8 of the
+security = Disable the older settle-state rule hides it anyway (§ 8 of the
 fence-flash note). What the absent stamp buys is that the ANTI-FLASH rule cannot fire
 there; so do the CLI export and the `.html` player builder, which is what keeps a
 fence the CLI could not substitute readable rather than blank. **No document whose bytes
-the author keeps stamps** — two build through this same `buildSrcdoc` with a real Mermaid
-URL and would otherwise, so both pass `diagrams: false`: the offscreen RASTER capture
+the author keeps stamps** — two build through this same `buildSrcdoc` with the runtime and
+would otherwise, so both pass `diagrams: false`: the offscreen RASTER capture
 frame (rasterized through `html-to-image`, which copies the COMPUTED style onto its clone,
 so a `visibility:hidden` this rule applied is baked into the .pdf / .png / .pptx) and the
 desktop VECTOR PRINT document (mounted off-screen and handed straight to `print()`). The
@@ -242,7 +246,7 @@ set by script at boot: the window this covers starts at the first paint of a ful
 write.
 
 **What that opt-out does NOT buy, and it was only found by driving it.** The same export
-still showed an empty slot when Mermaid failed, through the OLDER `data-mermaid-state`
+still showed an empty slot when Mermaid failed, through the OLDER settle-state
 rule (which hid a tagged `<pre>` in every state but `error`): `bootstrap()` tags every
 fence `pending` before it can know whether Mermaid will arrive — deliberately, since that
 covers the load window — and nothing un-tagged them when the answer turned out to be
@@ -250,13 +254,19 @@ never. **Fixed in #2092, and the fix is the state below.**
 
 ### When Mermaid never arrives: `unavailable`
 
-A fifth state, and the reason it exists rather than simply removing the attribute:
+A fifth state, and the reason it exists rather than simply removing the attribute. **The
+states are the plugin host's** (`data-lattice-settle`, lib/plugins/host-browser.mjs, since phase
+D's browser half): the runtime writes them on the fence's `<pre>` beside
+`data-lattice-hydrate="mermaid"`, so every capture — the Studio export, the CLI's barrier — waits
+on a diagram through the one selector it waits on a plot with (`PENDING_FIGURES`). Until then
+they were Mermaid's own `data-mermaid-state`, with `rendering` for today's `hydrating` and
+`data-mermaid-final` for `data-lattice-final`.
 
 | state | what it means | what the slide shows |
 |---|---|---|
 | *(untagged)* | the runtime has not reached this fence | nothing, under `[data-lattice-diagrams]` |
 | `pending` | tagged, waiting for Mermaid or for its turn in the queue | nothing |
-| `rendering` | handed to `mermaid.render` | nothing |
+| `hydrating` | handed to `mermaid.render` | nothing |
 | `rendered` | the SVG is in the sibling `.mermaid` box | the diagram |
 | `error` | Mermaid parsed the diagram and rejected it | the source, plus a themed error block |
 | `unavailable` | **Mermaid itself never became real** — a 404, a CSP block, a stub host | the source |
@@ -274,8 +284,16 @@ anyway.
 The Studio's desktop print path waits `load` + 450ms and never waits on diagrams, so a
 release on the ten-second deadline would be far too late for it:
 
-1. **The document already told us.** Every builder writes a plain `<script src>` for
-   Mermaid *before* the runtime's own tag, so a markup-authored classic script that
+0. **The plugin host told us.** No Lattice builder writes a Mermaid tag any more: when a
+   document holds a fence and no host wrote one, the runtime asks the plugin host for the
+   library — the Mermaid plugin's `payload`, `mermaid.min.js`, fetched beside
+   `lattice-runtime.js` (`ensureLibrary`). The runtime inserts that script at `DOMContentLoaded`,
+   before the window's `load` — which waits for it — so a 404 fails it, and gives up, before `load` fires, which is what the
+   print path needs (`test/integration/mermaid/mermaid-unavailable.test.js` reads the state AT
+   `load`). A runtime with no `<script src>` (inlined) has nothing to load beside and keeps the
+   deadline.
+1. **The document already told us.** A host that writes its own plain `<script src>` for
+   Mermaid *before* the runtime's tag (the Export-to-Marp kit does), so a markup-authored classic script that
    precedes ours has had its turn by the time we run — it ran, or it failed. One sitting
    there with nothing real on `window.mermaid` is a broken promise, decided synchronously
    on the first tick. The question is asked as **document position against our own

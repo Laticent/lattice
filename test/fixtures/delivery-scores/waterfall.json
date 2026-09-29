@@ -1,0 +1,308 @@
+{
+	"restrained": [
+		{
+			"said": "Price paid for the volume we lost.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar starts where the last one ended, bridging one total to another.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Plan, twelve million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Price, one point four million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Two list-price rises, both held.",
+			"act": "note",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Volume, down eight hundred thousand.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mix, down six hundred thousand.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FX, down three hundred thousand.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Cost base, down one point nine million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"5\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Actual, nine point eight million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"6\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "Price paid for the volume we lost.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each bar starts where the last one ended, bridging one total to another.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Plan, twelve million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Price, one point four million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"1\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Two list-price rises, both held.",
+			"act": "note",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": "wash labels quiet",
+			"cursor": "keep"
+		},
+		{
+			"said": "Volume, down eight hundred thousand.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"2\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Mix, down six hundred thousand.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"3\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "FX, down three hundred thousand.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"4\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Cost base, down one point nine million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"5\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Actual, nine point eight million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"6\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "Price paid for the volume we lost.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each bar starts where the last one ended, bridging one total to another.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Plan, twelve million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"0\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Price, one point four million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Two list-price rises, both held.",
+			"act": "note",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"1\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Volume, down eight hundred thousand.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"2\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Mix, down six hundred thousand.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"3\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "FX, down three hundred thousand.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"4\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Cost base, down one point nine million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"5\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Actual, nine point eight million.",
+			"act": "visit",
+			"unit": "mark",
+			"select": ".waterfall-bar[data-mark=\"6\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

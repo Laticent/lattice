@@ -9,7 +9,7 @@
 // No React, no slide engine, no bundler assumption — just the DOM + vetrina. The
 // same module powers the awaitUser e2e (docs/e2e/vetrina-tour.spec.ts).
 
-import { type RunHandle, run, type StopReason, type TypeOps, type Walkthrough, wait } from '../vetrina';
+import { type RunHandle, run, type StopReason, type TypeOps, type Walkthrough, wait } from '../vetrina/index.js';
 
 /** The dashboard's own state setters the tour drives (each a real DOM mutation). */
 export interface TourHost {

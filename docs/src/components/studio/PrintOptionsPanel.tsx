@@ -320,7 +320,6 @@ export function PrintOptionsPanel({
 			return buildSrcdoc({
 				html: `<article class="lattice">${sections[i]}</article>`, css: render.css, mode: render.mode, geom: render.geom,
 				runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
-				...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
 				...(render.dagreUrl ? { dagreUrl: render.dagreUrl } : {}),
 				// The deck's allowed web origins (trio follow-up 11); every other web image prints
 				// as the placeholder, as it shows in the preview.
@@ -396,7 +395,6 @@ export function PrintOptionsPanel({
 		return buildSrcdoc({
 			html: render.html, css: render.css, mode: render.mode, geom: render.geom,
 			runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
-			...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
 			...(render.dagreUrl ? { dagreUrl: render.dagreUrl } : {}),
 			webOrigins: render.webOrigins ?? [],
 			// `diagrams: false` — the same opt-out `deck-export.js`'s capture frame takes, for
@@ -414,11 +412,11 @@ export function PrintOptionsPanel({
 			//
 			//                          stamped        diagrams:false   …and after #2092
 			//   data-lattice-diagrams   true           false            false
-			//   data-mermaid-state      "pending"      "pending"        "unavailable"
+			//   data-lattice-settle     "pending"      "pending"        "unavailable"
 			//   computed display, <pre> none           none             block  ← the source
 			//
 			// The middle column is why this line matters and the right one is why it is no longer
-			// redundant. Until #2092 the older `data-mermaid-state` rule hid the fence either way
+			// redundant. Until #2092 the older settle-state rule hid the fence either way
 			// — the runtime tagged it `pending` at boot and nothing un-tagged it when Mermaid
 			// never arrived — so this document printed a blank where the author's source belonged.
 			// The runtime hands those fences back now, and THAT is what would have made a stamp
@@ -426,7 +424,9 @@ export function PrintOptionsPanel({
 			//
 			// This path is also why the give-up has a synchronous arm at all. There is no diagram
 			// wait here — `load` plus a 450ms beat, then `print()` — so a release on the runtime's
-			// ten-second deadline would miss the capture entirely.
+			// ten-second deadline would miss the capture entirely. (The library now arrives through
+			// the runtime's plugin host, a script the runtime inserts before `load`, so a 404 fails
+			// it — and releases the fences — before `load` fires, as the old parser-inserted tag did.)
 			// (Read the fence AFTER the FIT reveal or the measurement is worthless — `buildSrcdoc`
 			// hides `.lattice` until then, so every element in the document computes to hidden.)
 			diagrams: false,

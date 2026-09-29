@@ -19,6 +19,7 @@ import { rendererFor } from '@/lib/anima/backends/registry';
 import { hydrateScene } from '@/lib/anima/hydrate';
 import { hydrateChart } from '@/lib/chart-anima-hydrate';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
+import { DRAWN_FENCE_CODE } from '../../../lib/plugins/drawn-probe.mjs';
 import { type DeckMotion, hasAnimatableChart, isMermaidSvg, MOTION_OPT_IN_SEL, motionMarkCount, PREHIDE_CLASS, prehideEligibleCharts, resolveMotion, SCENE_SEL, speedToDurationMs, watchDiagramDrawn } from './anima-host-sel';
 
 // The eligibility selectors + the deck-default/slide-override cascade live in a zero-dependency leaf
@@ -251,11 +252,13 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     // synchronously), so a late load shows the still diagram first. Two early signals: the deck plays
     // motion and holds a diagram (known at the very first rebind — measured in the Playground, that is
     // the only rebind before the first diagram draws), or an undrawn fence sits on a slide that will
-    // animate. A fence the runtime has not reached yet has no state and still carries
-    // `language-mermaid`. A deck with no diagram never loads it.
+    // animate. A fence the runtime has tagged carries the plugin host's markup on its <pre>
+    // (`data-lattice-hydrate`, with the settle state); one it has not reached yet is found by its
+    // code block, the fence names read from the plugin registry (lib/plugins/drawn-probe.mjs). A
+    // deck with no diagram never loads it.
     if (!flatten && flattenState === 'idle') {
-      const undrawn = 'pre[data-mermaid-state]:not([data-mermaid-state="rendered"]), marp-pre[data-mermaid-state]:not([data-mermaid-state="rendered"]), code.language-mermaid';
-      const hasDiagram = doc.querySelector('.mermaid, .mermaid-svg, code.language-mermaid, pre[data-mermaid-state], marp-pre[data-mermaid-state]') != null;
+      const undrawn = `:is(pre, marp-pre)[data-lattice-hydrate]:not([data-lattice-settle="rendered"]), ${DRAWN_FENCE_CODE}`;
+      const hasDiagram = doc.querySelector(`.mermaid, .mermaid-svg, :is(pre, marp-pre)[data-lattice-hydrate], ${DRAWN_FENCE_CODE}`) != null;
       const early =
         (deck.play === 'on' && hasDiagram) ||
         Array.from(doc.querySelectorAll(undrawn)).some((fence) => {

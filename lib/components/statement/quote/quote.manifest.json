@@ -115,5 +115,13 @@
   },
   "venueCapacity": {
     "none": "One quotation and its attribution per slide, so there is no repeated element to count."
+  },
+  "gesture": {
+    "archetype": "statement",
+    "units": {
+      "quote": {
+        "select": "blockquote"
+      }
+    }
   }
 }

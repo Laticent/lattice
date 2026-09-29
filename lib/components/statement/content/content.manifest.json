@@ -131,5 +131,8 @@
   },
   "venueCapacity": {
     "none": "The lead paragraph is the slide and the bullets are optional, so a bullet count measures the wrong thing."
+  },
+  "gesture": {
+    "archetype": "statement"
   }
 }

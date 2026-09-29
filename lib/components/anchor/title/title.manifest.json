@@ -118,5 +118,8 @@
   },
   "venueCapacity": {
     "none": "A bookend: one heading and a line or two, with no repeated element to count."
+  },
+  "gesture": {
+    "archetype": "statement"
   }
 }

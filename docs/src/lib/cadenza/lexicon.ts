@@ -101,6 +101,19 @@ const BASE_CASED: Record<string, string> = {
   // code-only region ("G A"), so this entry never sees it there. Prose elsewhere that means
   // Georgia declares `acronyms: GA: Georgia`, which the registry lets beat this entry.
   GA: 'general availability',
+  // Sales regions, as a board deck writes them (#2393's test deck had to spell all five out by
+  // hand). Said the way a sales team says them rather than expanded: "Europe, the Middle East
+  // and Africa" is a mouthful where a region is one word in a list. Exact case, so the
+  // lower-case run never fires. `NA` is deliberately absent: it is also "n/a", not applicable,
+  // in the same tables. `DACH` / `MENA` have no settled spoken form; a deck declares them.
+  EMEA: 'E M E A', APAC: 'A P A C', LATAM: 'la tam', LatAm: 'la tam',
+  AMER: 'the Americas', ANZ: 'A N Z',
+  // Short months that are not also a word or a common name: always on, exact case, so an
+  // all-caps "DEC" (a decimal, a label) never fires. `May` needs no entry. `Jan`, `Mar` and
+  // `Jun` are also a name or a verb ("Jan leads EMEA", "Mar the result"), so they expand only
+  // beside a date — `contextualMonth` in normalize.ts owns them.
+  Feb: 'February', Apr: 'April', Jul: 'July', Aug: 'August', Sep: 'September',
+  Sept: 'September', Oct: 'October', Nov: 'November', Dec: 'December',
   // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
   // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
   // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom
@@ -153,6 +166,10 @@ export function lookupLexicon(token: string, domains: readonly LexDomain[] = [])
   }
   return null;
 }
+
+/** The short months that are also a name or a word ("Jan", "Mar", "Jun"). They expand only
+ *  beside a date or another month — see `contextualMonth` in normalize.ts. */
+export const CONTEXT_MONTHS: Readonly<Record<string, string>> = { Jan: 'January', Mar: 'March', Jun: 'June' };
 
 /** The set of domain pack names, for validation / docs. */
 export const LEX_DOMAINS: readonly LexDomain[] = ['legal', 'finance'];

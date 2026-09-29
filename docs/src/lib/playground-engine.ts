@@ -46,7 +46,7 @@ export function createEngineBridge(
 	// present. Omitted → no tag is injected and the diagram or math does not render;
 	// deck-preview.js has no jsdelivr defaults any more.
 	// See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md.
-	assets: { mermaidUrl?: string; dagreUrl?: string; katexUrl?: string } = {},
+	assets: { dagreUrl?: string; katexUrl?: string } = {},
 ) {
 	const isKnownTheme = (name: string) => validPalettes.includes(name);
 	// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — see
@@ -169,7 +169,6 @@ export function createEngineBridge(
 				state: fresh ? { ...state, frameSig: '' } : state,
 				fresh,
 				runtimeUrl,
-				...(assets.mermaidUrl ? { mermaidUrl: assets.mermaidUrl } : {}),
 				...(assets.dagreUrl ? { dagreUrl: assets.dagreUrl } : {}),
 				...(assets.katexUrl ? { katexUrl: assets.katexUrl } : {}),
 				...(paneBg ? { background: () => paneBg } : {}),

@@ -1,0 +1,368 @@
+{
+	"restrained": [
+		{
+			"said": "The radar maps strengths around the compass.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each spoke is one axis, and a rating further from the center is higher.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meridian is strongest on Performance and Security, at nine.",
+			"act": "enter",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": true,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Measured as p95 latency; lower is better. Our strongest axis against the field.",
+			"act": "note",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meridian scores eight on Support and seven on Pricing.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meridian is weakest on Ecosystem, at six.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Vantage is strongest on Ecosystem, at nine.",
+			"act": "enter",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Vantage\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Vantage scores eight on Pricing and seven on Performance and Security.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Vantage\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Vantage is weakest on Support, at six.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Vantage\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Helios is strongest on Pricing, at nine.",
+			"act": "enter",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Helios\"]",
+			"key": false,
+			"focus": "group",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Helios scores eight on Ecosystem and Security and seven on Support.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Helios\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Helios is weakest on Performance, at six.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Helios\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		}
+	],
+	"expressive": [
+		{
+			"said": "The radar maps strengths around the compass.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "underline heading notable",
+			"cursor": "point"
+		},
+		{
+			"said": "Each spoke is one axis, and a rating further from the center is higher.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Meridian is strongest on Performance and Security, at nine.",
+			"act": "enter",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": true,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Measured as p95 latency; lower is better. Our strongest axis against the field.",
+			"act": "note",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "keep"
+		},
+		{
+			"said": "Meridian scores eight on Support and seven on Pricing.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Meridian is weakest on Ecosystem, at six.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Vantage is strongest on Ecosystem, at nine.",
+			"act": "enter",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Vantage\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Vantage scores eight on Pricing and seven on Performance and Security.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Vantage\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Vantage is weakest on Support, at six.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Vantage\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Helios is strongest on Pricing, at nine.",
+			"act": "enter",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Helios\"]",
+			"key": false,
+			"focus": "group",
+			"ink": "trace unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Helios scores eight on Ecosystem and Security and seven on Support.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Helios\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		},
+		{
+			"said": "Helios is weakest on Performance, at six.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Helios\"]",
+			"key": false,
+			"focus": "unit",
+			"ink": "tap unit quiet",
+			"cursor": "point"
+		}
+	],
+	"somber": [
+		{
+			"said": "The radar maps strengths around the compass.",
+			"act": "verdict",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Each spoke is one axis, and a rating further from the center is higher.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meridian is strongest on Performance and Security, at nine.",
+			"act": "enter",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": true,
+			"focus": "unit",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Measured as p95 latency; lower is better. Our strongest axis against the field.",
+			"act": "note",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meridian scores eight on Support and seven on Pricing.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Meridian is weakest on Ecosystem, at six.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Meridian\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Vantage is strongest on Ecosystem, at nine.",
+			"act": "enter",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Vantage\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Vantage scores eight on Pricing and seven on Performance and Security.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Vantage\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Vantage is weakest on Support, at six.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Vantage\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Helios is strongest on Pricing, at nine.",
+			"act": "enter",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Helios\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Helios scores eight on Ecosystem and Security and seven on Support.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Helios\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "Helios is weakest on Performance, at six.",
+			"act": "visit",
+			"unit": "series",
+			"select": "polygon.radar-poly[data-label=\"Helios\"]",
+			"key": false,
+			"focus": "hold",
+			"ink": null,
+			"cursor": "hide"
+		}
+	]
+}

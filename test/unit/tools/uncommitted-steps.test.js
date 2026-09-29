@@ -72,6 +72,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-trama-lib.js',
   'build-vetrina-lib.js',
   'build-lente-lib.js',
+  // Measured 2026-09-28: its whole write set is docs/src/lib/segno/dist/ (docs/.gitignore's
+  // `dist/`); the committed notation.generated.ts is written by build-segno-grammar.js.
+  'build-segno-lib.js',
   'build-suono-lib.js',
   'build-read-along-core.js',
   'build-marp-kit.js',
@@ -104,6 +107,9 @@ const EXPECTED_PR_OWNED = new Set([
   // lib/plugins/registry.generated.js, both tracked.
   'build-plugin-registry.js',
   'build-projection-catalog.js', // lib/core/projection-catalog.generated.mjs
+  // Measured 2026-09-28: writes exactly docs/src/lib/segno/notation.generated.ts, which git
+  // tracks — the docs site and Vitest import it.
+  'build-segno-grammar.js', // docs/src/lib/segno
   'build-snippets.js', // .vscode
   'build-component-docs.js', // lib/components/**/*.docs.md
   'build-landing-tokens.js', // docs/src/styles

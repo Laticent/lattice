@@ -34,7 +34,7 @@ import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from
 import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
-import { narrateChart } from '@/playground/read-along-core.generated.js';
+import { narrateChart, narrateChartScript } from '@/playground/read-along-core.generated.js';
 import { isGeminiTtsModel } from '@/playground/tts-cost.js';
 import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { stripFrontMatter } from './front-matter';
@@ -78,7 +78,7 @@ export type NarrationBake = {
 	/** What the deck's LTT is built from (lib/core/ltt-deck.mjs), index-aligned to the deck's
 	 *  slides: the exact text handed to `buildTrack`, and the track it built. Null for a slide
 	 *  with no narration. `slides[i]` is index-aligned to `narrated[i].track.cues`. */
-	narrated: ({ text: string; track: CaptionTrack; emphasis?: EmphasisSpans } | null)[];
+	narrated: ({ text: string; track: CaptionTrack; emphasis?: EmphasisSpans; refs?: unknown[] } | null)[];
 	/** The deck-wide inputs that change timing, for the LTT's `inputs` (the maps are hashed there). */
 	inputs: { lang?: string; lexicon?: Record<string, string>; acronyms?: Record<string, string> };
 	/** What the deck was narrated with — recorded so the artifact can say so. */
@@ -653,17 +653,36 @@ export async function bakeNarration(
 		maxBytes?: number;
 		/** Per-slide emphasis spans, parallel to `projected`. Omit for uniform pacing. */
 		projectedEmphasis?: readonly (EmphasisSpans | undefined)[];
+		/** Per-slide bindings (`bindingRefsFor`), parallel to `projected`. Omit and a prose slide plays
+		 *  the Guide's text path. */
+		projectedRefs?: readonly (readonly unknown[] | undefined)[];
 	},
 ): Promise<NarrationBake> {
 	const { voice, audio, allowPartial, signal, onProgress } = opts;
 	// Injectable so a test can drive the ceiling without allocating and base64-encoding 150 MB
 	// to reach it. Production never passes it.
 	const maxBytes = opts.maxBytes && opts.maxBytes > 0 ? opts.maxBytes : PAYLOAD_MAX_BYTES;
-	const { tracks, texts, emphases, perSlide, inputs, slideCount, bookendKeys } = resolveDeck(source, projected, opts.projectedEmphasis);
+	const { slides: slideMds, tracks, texts, emphases, perSlide, inputs, slideCount, bookendKeys } = resolveDeck(source, projected, opts.projectedEmphasis);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
 	// The spans ride with each slide so the LTT hashes them with its text (ltt-deck.mjs). Only the
-	// SLIDE rows: the bookend rows after them are split out below.
-	const narrated = tracks.slice(0, slideCount).map((track, i) => (track ? { text: texts[i], track, ...(emphases[i]?.length ? { emphasis: [...(emphases[i] as EmphasisSpans)] } : {}) } : null));
+	// SLIDE rows: the bookend rows after them are split out below. The chart narrator's BINDING
+	// rides beside them, by the same identity test Present applies: its refs are spans over its own
+	// text, so they hold only while that is the text being baked. The player's Guide plays a bound
+	// sentence's scene from them (engineering/decisions/2026-09-27-guide-storyboards.md).
+	const refsOf = (i: number): { refs?: unknown[] } => {
+		try {
+			const script = narrateChartScript(slideMds[i] ?? '');
+			if (script?.refs.length && script.text === texts[i]) return { refs: script.refs };
+		} catch {
+			// an unreadable chart falls to the projection's binding below
+		}
+		// The projection's binding (headings, paragraphs, items, rows), while its text is the text read.
+		const own = opts.projectedRefs?.[i];
+		return own?.length && texts[i] && texts[i] === projected?.[i] ? { refs: [...own] } : {};
+	};
+	const narrated = tracks
+		.slice(0, slideCount)
+		.map((track, i) => (track ? { text: texts[i], track, ...(emphases[i]?.length ? { emphasis: [...(emphases[i] as EmphasisSpans)] } : {}), ...refsOf(i) } : null));
 	/** The rows past the slides, as the bookends the export ships. */
 	const splitBookends = (rows: BakedCue[][]): Record<string, BakedBookend> => {
 		const out: Record<string, BakedBookend> = {};

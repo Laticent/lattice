@@ -24,7 +24,7 @@ Use after a comparison slide to land the decision. The justifications render as 
 ### Variant decision rule
 
 - **default (no modifier).** The reasoning carries the weight — a quiet corner tag labels each justification without competing with the verdict heading.
-- **`banner-tag`.** The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card.
+- **`banner-tag`.** The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `banner-tag` is the `tag-band` placement under its older name; `tag-band` (or `tag: band` deck-wide) works on every tagged layout.
 
 ### Common mistakes
 

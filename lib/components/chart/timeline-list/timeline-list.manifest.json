@@ -178,5 +178,14 @@
         "hall": 0
       }
     }
+  },
+  "gesture": {
+    "archetype": "flow",
+    "units": {
+      "event": {
+        "select": ".timeline-item:nth-child({nth})"
+      }
+    },
+    "key": "last"
   }
 }

@@ -1,15 +1,16 @@
 /**
  * The `tag:` register — the look of every card tag (lib/core/resolve-card-tag.js).
  *
- *   1. the kernel sorts words onto the color and size axes and drops what it does not know;
+ *   1. the kernel sorts words onto the color, size, placement and alignment axes and drops what
+ *      it does not know;
  *   2. BOTH render paths stamp the tokens (the engine here, the real runtime bundle below)
  *      and a slide's word evicts the deck's on its own axis only;
- *   3. the linter warns on an unknown word, a doubled axis, and a placement word that has not
- *      shipped yet, and the per-slide classes are a closed vocabulary;
+ *   3. the linter warns on an unknown word and a doubled axis, and the per-slide classes are a
+ *      closed vocabulary;
  *   4. the CSS sets the register's pair on the TAG ITSELF, so it beats a component's native
  *      pair (decision's categorical cycle, set on its cards) without a selector contest.
  *
- * engineering/decisions/2026-09-27-card-tag-register.md §3.3, §6 phase 2.
+ * engineering/decisions/2026-09-27-card-tag-register.md §3.3, §6 phases 2 and 3.
  */
 
 const test = require('node:test');
@@ -22,7 +23,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
 const {
   CARD_TAG_TOKENS, parseCardTag, cardTagClasses, readCardTag,
-  isCardTagColorToken, isCardTagSizeToken,
+  isCardTagColorToken, isCardTagSizeToken, isCardTagPlacementToken, isCardTagAlignToken, cardTagTokenAxis,
 } = require(path.join(ROOT, 'lib/core/resolve-card-tag.js'));
 const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 
@@ -34,27 +35,36 @@ const classesOf = (fm, body) => {
   return [...doc.querySelectorAll('section')].map((s) => s.className.split(/\s+/).filter(Boolean));
 };
 
-test('kernel: words sort onto two axes; order and case do not matter', () => {
+test('kernel: words sort onto four axes; order and case do not matter', () => {
   assert.deepEqual(cardTagClasses('plain large'), ['tag-plain', 'tag-large']);
+  assert.deepEqual(cardTagClasses('center band plain'), ['tag-plain', 'tag-band', 'tag-center']);
+  assert.deepEqual(cardTagClasses('Foot, END small none'), ['tag-none', 'tag-small', 'tag-foot', 'tag-end']);
+  assert.deepEqual(cardTagClasses('notch'), ['tag-notch']);
+  assert.deepEqual(cardTagClasses('inline start'), ['tag-inline', 'tag-start']);
   assert.deepEqual(cardTagClasses('Large, PLAIN'), ['tag-plain', 'tag-large']);
   assert.deepEqual(cardTagClasses('small'), ['tag-small']);
   assert.deepEqual(cardTagClasses('none'), ['tag-none']);
 });
 
 test('kernel: unknown words stamp nothing; a second word on a filled axis is dropped', () => {
-  const p = parseCardTag('plain none band huge');
+  const p = parseCardTag('plain none band foot huge');
   assert.equal(p.color, 'plain');
-  assert.deepEqual(p.duplicate, ['none']);
-  assert.deepEqual(p.unknown, ['band', 'huge']);
-  assert.deepEqual(cardTagClasses('band'), [], 'placement words are not shipped yet, so they stamp nothing');
+  assert.equal(p.placement, 'band');
+  assert.deepEqual(p.duplicate, ['none', 'foot']);
+  assert.deepEqual(p.unknown, ['huge']);
+  assert.deepEqual(cardTagClasses('side'), [], 'no side placement (owner decision Q5)');
   assert.deepEqual(cardTagClasses(''), []);
   assert.equal(readCardTag('theme: indaco'), null);
 });
 
 test('kernel: every token sits on exactly one axis', () => {
   for (const t of CARD_TAG_TOKENS) {
-    assert.ok(isCardTagColorToken(t) !== isCardTagSizeToken(t), t);
+    const hits = [isCardTagColorToken, isCardTagSizeToken, isCardTagPlacementToken, isCardTagAlignToken].filter((f) => f(t));
+    assert.equal(hits.length, 1, t);
+    assert.notEqual(cardTagTokenAxis(t), '', t);
   }
+  assert.equal(CARD_TAG_TOKENS.length, 14);
+  assert.equal(cardTagTokenAxis('banner-tag'), '', 'banner-tag is a modifier, not a register word');
   assert.equal(isCardTagColorToken('tag-bordered'), false, 'the inline-pill shape word is not a register token');
 });
 
@@ -76,15 +86,34 @@ test('engine: a slide\'s word evicts the deck\'s on its own axis only', () => {
   assert.ok(three.includes('tag-small') && !three.includes('tag-large') && three.includes('tag-plain'), three.join(' '));
 });
 
-test('lint: an unknown word, a doubled axis and a not-yet placement word warn; a clean value is silent', () => {
+test('engine: placement and alignment evict on their own axes too', () => {
+  const body = `${DECISION}\n\n---\n\n<!-- _class: decision tag-foot -->\n\n## Two\n\n- A\n  - b\n\n---\n\n<!-- _class: decision tag-end -->\n\n## Three\n\n- A\n  - b`;
+  const [one, two, three] = classesOf(['tag: band center plain'], body);
+  assert.ok(['tag-band', 'tag-center', 'tag-plain'].every((c) => one.includes(c)), one.join(' '));
+  assert.ok(two.includes('tag-foot') && !two.includes('tag-band') && two.includes('tag-center'), two.join(' '));
+  assert.ok(three.includes('tag-end') && !three.includes('tag-center') && three.includes('tag-band'), three.join(' '));
+});
+
+test('engine: a slide\'s own banner-tag is its placement, so a deck placement word cannot undo it', () => {
+  const body = `<!-- _class: decision banner-tag -->\n\n## One\n\n- A\n  - b\n\n---\n\n<!-- _class: decision -->\n\n## Two\n\n- A\n  - b`;
+  const [one, two] = classesOf(['tag: corner plain'], body);
+  assert.ok(!one.includes('tag-corner') && one.includes('banner-tag') && one.includes('tag-plain'), one.join(' '));
+  assert.ok(two.includes('tag-corner'), two.join(' '));
+  const { slideCardTagAxes } = require(path.join(ROOT, 'lib/core/resolve-card-tag.js'));
+  assert.deepEqual([...slideCardTagAxes(['decision', 'banner-tag', 'tag-large'])].sort(), ['placement', 'size']);
+});
+
+test('lint: an unknown word and a doubled axis warn; a clean value is silent', () => {
   const found = (fm) => lintText(deck(fm)).filter((f) => f.rule === 'unknown-tag');
   assert.equal(found(['tag: plain large']).length, 0);
   assert.equal(found(['tag: "none small" # quiet']).length, 0);
+  assert.equal(found(['tag: band center plain large']).length, 0, 'placement and alignment are shipped words');
   assert.equal(found(['tag: huge']).length, 1);
   assert.equal(found(['tag: plain none']).length, 1);
-  const later = found(['tag: band']);
-  assert.equal(later.length, 1);
-  assert.match(later[0].message, /not available yet/);
+  const twoPlaces = found(['tag: foot notch']);
+  assert.equal(twoPlaces.length, 1);
+  assert.match(twoPlaces[0].message, /second placement/);
+  assert.match(found(['tag: start end'])[0].message, /second text alignment/);
 });
 
 test('lint: `tag-*` classes are a closed vocabulary', () => {
@@ -92,6 +121,8 @@ test('lint: `tag-*` classes are a closed vocabulary', () => {
     .filter((f) => f.rule === 'unknown-class').map((f) => f.classToken);
   assert.deepEqual(unknown('tag-plain tag-large'), []);
   assert.deepEqual(unknown('tag-color tag-regular'), []);
+  assert.deepEqual(unknown('tag-foot tag-center'), []);
+  assert.deepEqual(unknown('tag-side'), ['tag-side']);
   assert.deepEqual(unknown('tag-huge'), ['tag-huge']);
 });
 
@@ -124,6 +155,30 @@ test('lint: two words on one axis on a slide conflict; one word per axis is clea
   assert.deepEqual(conflicts('tag-plain tag-none'), ['tag-none']);
   assert.deepEqual(conflicts('tag-small tag-large'), ['tag-large']);
   assert.deepEqual(conflicts('tag-plain tag-large'), []);
+  assert.deepEqual(conflicts('tag-foot tag-notch'), ['tag-notch']);
+  assert.deepEqual(conflicts('tag-start tag-end'), ['tag-end']);
+  assert.deepEqual(conflicts('tag-band tag-center tag-plain tag-small'), []);
+});
+
+test('css: every placement and alignment word has a rule on every tagged layout', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.card-tag.css'), 'utf8');
+  const layouts = ['cards-grid', 'cards-stack', 'decision', 'compare-prose', 'split-compare', 'list-steps'];
+  for (const word of ['foot', 'notch', 'band']) {
+    for (const l of layouts) {
+      // band also answers to its alias, so its rules open `section:is(.tag-band, .banner-tag…)`
+      assert.match(css, new RegExp(`section(?:\\.tag-${word}|:is\\(\\.tag-${word}, [^{]*?\\)\\))\\.${l}[^{]*(::before|strong:first-child)`), `${word} on ${l}`);
+    }
+  }
+  // inline is list-steps' native place, so its rule covers the other five
+  for (const l of layouts.filter((x) => x !== 'list-steps')) {
+    assert.match(css, new RegExp(`section\\.tag-inline\\.${l}[^{]*(::before|strong:first-child)`), `inline on ${l}`);
+  }
+  // corner is native everywhere but list-steps, which needs the box recipe
+  assert.match(css, /section:is\(\.tag-corner, \.tag-foot, \.tag-notch, \.tag-band, \.banner-tag:not\(\.tag-inline\)\)\.list-steps/);
+  assert.match(css, /section\.tag-center\s*\{\s*--card-tag-lead:\s*0\.5;\s*--card-tag-align:\s*center;\s*\}/);
+  assert.match(css, /section\.tag-end\s*\{\s*--card-tag-lead:\s*1;\s*--card-tag-align:\s*end;\s*\}/);
+  // a placement word wins over banner-tag (its alias of band steps aside)
+  assert.match(css, /\.banner-tag:not\(\.tag-corner, \.tag-foot, \.tag-notch, \.tag-inline\)/);
 });
 
 test('css: list-steps capsule reads the card-tag pair and size, so the register reaches it', () => {
@@ -136,7 +191,11 @@ test('css: list-steps capsule reads the card-tag pair and size, so the register 
   // The categorical cycle sets the pair on the CARD (so a register word on the pill wins),
   // never on the pill itself.
   assert.doesNotMatch(css, /capsule ol > li:nth-child\([^)]*\)::before\s*\{[^}]*background/);
-  assert.match(css, /capsule ol > li:nth-child\(8n\+1\)\s*\{\s*--card-tag-fill:\s*var\(--cat-1-fill\)/);
+  assert.match(css, /capsule ol > li:nth-child\(8n\+1\)\s*\{\s*--card-tag-fill:\s*var\(--cat-1-mark\);\s*--card-tag-ink:\s*var\(--cat-on-mark\)/);
+  assert.doesNotMatch(css, /capsule[^{]*\{[^}]*--cat-\d-fill/, 'capsule is on the saturated tier (owner Q4)');
+  // The pill is the kernel's inline chip: em padding with the equal-size shims, centered.
+  assert.match(pill[1], /--card-tag-shim-x/);
+  assert.match(css, /section\.capsule:where\(\.list-steps\)\s*\{\s*--card-tag-lead:\s*0\.5;/);
 });
 
 /* ── The runtime's own mirror, from a baked block (the export path) ──────────────────── */
@@ -162,12 +221,14 @@ function renderRuntimeBaked(deckSource, markup) {
 
 test('runtime: stamps the tokens from a baked block, and evicts per axis', async () => {
   const markup = '<section class="content"><h2>One</h2></section>'
-    + '<section class="content tag-none"><h2>Two</h2></section>';
-  const on = await renderRuntimeBaked(deck(['tag: plain large']), markup);
+    + '<section class="content tag-none tag-foot"><h2>Two</h2></section>';
+  const on = await renderRuntimeBaked(deck(['tag: plain large band center']), markup);
   const off = await renderRuntimeBaked(deck([]), markup);
   const [a, b] = [...on.querySelectorAll('section')].map((s) => s.className.split(/\s+/));
   assert.ok(a.includes('tag-plain') && a.includes('tag-large'), a.join(' '));
   assert.ok(b.includes('tag-none') && !b.includes('tag-plain') && b.includes('tag-large'), b.join(' '));
+  assert.ok(a.includes('tag-band') && a.includes('tag-center'), a.join(' '));
+  assert.ok(b.includes('tag-foot') && !b.includes('tag-band') && b.includes('tag-center'), b.join(' '));
   const offCls = [...off.querySelectorAll('section')].map((s) => s.className).join(' | ');
   assert.ok(!/tag-(plain|large)/.test(offCls), `control: ${offCls}`);
 });
@@ -197,6 +258,12 @@ test('lint: a band gets two lines; axis labels and other layouts are not tags', 
   const long = 'Why not buy from either shortlisted vendor';
   assert.equal(overBudget('decision banner-tag', ['Build', long, 'Why not delay']).length, 0, '42 fits two lines of 33');
   assert.equal(overBudget('decision banner-tag', ['Build', 'x'.repeat(67), 'y']).length, 1);
+  assert.equal(overBudget('decision tag-band', ['Build', long, 'Why not delay']).length, 0, 'tag-band is a band');
+  assert.equal(overBudget('decision', ['Build', long, 'Why not delay'], ['tag: band']).length, 0, 'so is the deck word');
+  assert.equal(overBudget('decision banner-tag tag-foot', ['Build', long, 'Why not delay']).length, 1,
+    'a placement word wins over banner-tag, so the label gets one line');
+  assert.equal(overBudget('decision banner-tag', ['Build', long, 'Why not delay'], ['tag: corner']).length, 0,
+    'a deck placement word does not undo the slide\'s own banner-tag');
   assert.equal(overBudget('compare-prose axis', ['x'.repeat(60), 'y']).length, 0);
   assert.equal(overBudget('cards-grid', ['x'.repeat(60), 'y']).length, 0);
   // A list item with no body is not a tag.
@@ -230,4 +297,25 @@ test('lint: tag-budget follows the label lift — continuation lines, tab indent
   const small = ['---', 'theme: indaco', '---', '', '<!-- _class: decision tag-small -->', '', '## A', '',
     `- ${'x'.repeat(36)}`, '  - body', '- y', '  - body', '- z', '  - body', ''].join('\n');
   assert.equal(lintText(small).filter((f) => f.rule === 'tag-budget').length, 0);
+});
+
+test('lint: banner-tag and capsule get an advisory tag-alias hint; a placement word silences it', () => {
+  const hints = (cls, body = '- A\n  - b\n- B\n  - c') =>
+    lintText(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`).filter((f) => f.rule === 'tag-alias');
+  const banner = hints('decision banner-tag');
+  assert.equal(banner.length, 1);
+  assert.equal(banner[0].severity, 'info', 'advice only — --strict never blocks on it');
+  assert.match(banner[0].fix, /tag-band/);
+  assert.equal(hints('decision banner-tag tag-foot').length, 0);
+  assert.equal(hints('decision tag-band').length, 0);
+  const capsule = hints('list-steps capsule', '1. A\n   - b\n2. B\n   - c');
+  assert.equal(capsule.length, 1);
+  assert.match(capsule[0].message, /inline/);
+});
+
+test('engine: banner-tag draws through the band placement rules', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.card-tag.css'), 'utf8');
+  assert.match(css, /section:is\(\.tag-band, \.banner-tag:not\(\.tag-corner, \.tag-foot, \.tag-notch, \.tag-inline\)\)\.decision/);
+  // The old in-flow recipe is gone: no rule turns a banner card into a padding-0 column.
+  assert.doesNotMatch(css, /section\.banner-tag[^{]*\{[^}]*flex-direction:\s*column/);
 });

@@ -39,7 +39,7 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
  *
  * The other three stay nightly because they do not exercise what #2147 changed: the 404
  * arms reach `unavailable` through the OLDER `releaseUnrenderableFences` path (no
- * `data-mermaid-final`, which is the discriminator), and the fourth is the Mermaid-loads
+ * `data-lattice-final`, which is the discriminator), and the fourth is the Mermaid-loads
  * control.
  *
  * MEASURED COST, not estimated — 4-core sandbox, 2 workers, whole `@smoke` tier:
@@ -109,7 +109,7 @@ const DECK = [
 async function showDiagramSlide(viewer: import('@playwright/test').Page): Promise<void> {
 	await viewer.keyboard.press('ArrowRight');
 	await viewer.waitForFunction(() => {
-		const pre = document.querySelector('pre[data-mermaid-state], marp-pre[data-mermaid-state]');
+		const pre = document.querySelector('pre[data-lattice-hydrate="mermaid"][data-lattice-settle], marp-pre[data-lattice-hydrate="mermaid"][data-lattice-settle]');
 		const frame = pre ? pre.closest('.lp-frame') : null;
 		// No frames at all (a flat document) is not a failure — nothing is paging anything.
 		return frame ? frame.classList.contains('lp-active') : !!pre;
@@ -119,13 +119,14 @@ async function showDiagramSlide(viewer: import('@playwright/test').Page): Promis
 /**
  * Cut Mermaid off at the network, for every frame this page opens.
  *
- * The LIBRARY only — the vendored `export/mermaid-v11.min.js` (studio.astro). A bare
+ * The LIBRARY only — the Mermaid plugin's payload, `mermaid.min.js`, which the runtime's plugin
+ * host loads from beside `lattice-runtime.js` (lib/plugins/host-browser.mjs). A bare
  * `*mermaid*` also aborted the Studio's own `mermaid-check.ts`, which the dev server serves
  * as its own request, so on `npm run dev` the Studio never booted and the arm failed before
  * it tested anything.
  */
 async function breakMermaid(page: import('@playwright/test').Page): Promise<void> {
-	await page.route(/\/mermaid-v\d+\.min\.js(?:[?#]|$)/, (route) => route.abort());
+	await page.route(/\/mermaid\.min\.js(?:[?#]|$)/, (route) => route.abort());
 }
 
 
@@ -171,12 +172,12 @@ async function stallMermaidRender(page: import('@playwright/test').Page, holdMs?
 
 /** What the fence looks like to someone opening the artifact. Read from a REAL layout. */
 function fenceReadback() {
-	const pre = document.querySelector('pre[data-mermaid-state], marp-pre[data-mermaid-state]');
+	const pre = document.querySelector('pre[data-lattice-hydrate="mermaid"][data-lattice-settle], marp-pre[data-lattice-hydrate="mermaid"][data-lattice-settle]');
 	const code = pre ? pre.querySelector('code') : null;
 	const box = pre ? pre.getBoundingClientRect() : null;
 	const sib = pre?.nextElementSibling?.classList.contains('mermaid') ? pre.nextElementSibling : null;
 	return {
-		state: pre ? pre.getAttribute('data-mermaid-state') : null,
+		state: pre ? pre.getAttribute('data-lattice-settle') : null,
 		display: pre ? getComputedStyle(pre).display : null,
 		// The CODE's visibility, because the anti-flash rule withholds ink on the <code>
 		// rather than collapsing the <pre>. A box measurement alone would pass on a fence
@@ -288,11 +289,11 @@ test('@smoke a diagram that draws INSIDE the bake window still exports as a draw
 	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
 	await showDiagramSlide(viewer);
 	const drawn = await viewer.evaluate(() => {
-		const pre = document.querySelector('pre[data-mermaid-state], marp-pre[data-mermaid-state]');
+		const pre = document.querySelector('pre[data-lattice-hydrate="mermaid"][data-lattice-settle], marp-pre[data-lattice-hydrate="mermaid"][data-lattice-settle]');
 		const box = pre?.nextElementSibling;
 		return {
-			state: pre?.getAttribute('data-mermaid-state') ?? null,
-			final: pre?.hasAttribute('data-mermaid-final') ?? null,
+			state: pre?.getAttribute('data-lattice-settle') ?? null,
+			final: pre?.hasAttribute('data-lattice-final') ?? null,
 			svg: !!box?.querySelector('svg'),
 			preDisplay: pre ? getComputedStyle(pre).display : null,
 		};

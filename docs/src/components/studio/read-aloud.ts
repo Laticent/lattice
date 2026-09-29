@@ -44,6 +44,63 @@ const OR_KEY_LS = 'lattice-db-or-key';
 export const SYNC_LEAD_MS = 40;
 
 /**
+ * How far (ms) the GUIDE's sentence runs ahead of the reader's. The focus is a crossfade, and on a
+ * phone the render between the clock and the class swap costs frames, so a focus that starts on the
+ * sentence's first word finishes after it: heard as "slightly behind" on an iPhone (owner,
+ * 2026-09-28). Starting the next sentence's focus this much early lands it as the word is heard; a
+ * visual that leads its audio reads as in sync, one that trails reads as late (the same asymmetry
+ * as SYNC_LEAD_MS). Only the Guide leads: the caption and the read-along keep the reader's clock.
+ */
+export const GUIDE_LEAD_MS = 120;
+
+/**
+ * THE LEAD CALIBRATES ITSELF to the device it plays on (owner, 2026-09-28). A fixed lead is right for
+ * one machine: what delays the focus is not the chip's speed but how long THIS page takes, at THIS
+ * moment, to get from the clock's tick to a painted frame (the React render, the class swap, the
+ * frame), which a CPU benchmark cannot see. So Present reports, per sentence, when its focus reached
+ * a frame (`reportGuidePaint`), and the lead becomes the recent median of that delay plus
+ * GUIDE_SETTLE_MS, the part of the ease-out fade-in before the focus reads as on. A fast desktop
+ * lands near GUIDE_LEAD_MS; a busy phone gets more. A median and a cap, so one bad frame cannot
+ * run the focus a whole word ahead. Audio latency the browser does not report (Bluetooth) stays
+ * outside it: nothing in the page can measure it.
+ */
+export const GUIDE_SETTLE_MS = 70;
+export const GUIDE_LEAD_MAX_MS = 300;
+/** How many recent sentences the median is taken over. */
+export const GUIDE_LAG_WINDOW = 8;
+/** How many samples before the measured lead replaces GUIDE_LEAD_MS. */
+export const GUIDE_MIN_SAMPLES = 3;
+
+/**
+ * The cue the Guide is on: the reader's `active` cue, or a later one whose start is within `leadMs`
+ * of the reader's clock; -1 while the reader shows nothing. `held` is the Guide's cue a frame ago.
+ *
+ * NEVER BACK A SENTENCE IN PLAY. The lead is taken against the next cue's ESTIMATED start; when its
+ * clip's real onset lands later (`reader.align`), the estimate moves back and the Guide would step
+ * k+1 → k → k+1, retargeting the focus twice (checker, 2026-09-29). So the Guide holds its cue while
+ * the reader is on it or the one before it; a real jump back (a seek) leaves the reader two or more
+ * cues behind, and the Guide follows it.
+ */
+export function guideCueFor(active: number, held: number, cues: readonly { startMs: number }[], elapsedMs: number, leadMs: number): number {
+	if (active < 0) return -1;
+	let lead = active;
+	while (lead + 1 < cues.length && (cues[lead + 1]?.startMs ?? Infinity) <= elapsedMs + leadMs) lead++;
+	return held > lead && active >= held - 1 && held < cues.length ? held : lead;
+}
+
+/** The Guide's lead for these measured delays (ms from the Guide's tick to its painted frame). */
+export function guideLeadFor(lags: readonly number[]): number {
+	// Three samples before the default gives way: a session's first beat is its coldest (the JIT, the
+	// fonts, the first plan), and one slow frame must not set the lead outright (checker, 2026-09-29).
+	if (lags.length < GUIDE_MIN_SAMPLES) return GUIDE_LEAD_MS;
+	const sorted = [...lags].sort((a, b) => a - b);
+	const mid = sorted.length >> 1;
+	const median = sorted.length % 2 ? (sorted[mid] as number) : ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
+	// Never under GUIDE_SETTLE_MS (a delay is never negative); capped above.
+	return Math.min(GUIDE_LEAD_MAX_MS, Math.round(median + GUIDE_SETTLE_MS));
+}
+
+/**
  * One captured audio-timing event, for the on-device read-aloud diagnostics
  * (gated behind `?readaloud-debug=1` in Present). Purely observational — the
  * regression this exists to pin ("skips words / races") can only be verified on
@@ -112,6 +169,11 @@ export type ReadAloudState = {
 	track: CaptionTrack;
 	/** The word being spoken NOW ({cueIndex, wordIndex}), or null when idle / in a gap. */
 	active: Active | null;
+	/** The cue the Guide is on: `active`'s, or the next once it is the Guide's lead away; -1 with nothing active. */
+	guideCue: number;
+	/** The Guide's focus for `cue` reached a frame at `paintedAt` (performance.now): one sample of this
+	 *  device's delay, which the lead calibrates on (`guideLeadFor`). */
+	reportGuidePaint: (cue: number, paintedAt: number) => void;
 	/** Read progress 0..1 (elapsed / duration), for the transport bar. */
 	progress: number;
 	/** The active voice rung — 'silent' (captions only) | 'openrouter-tts' | 'kokoro' | … */
@@ -360,6 +422,27 @@ export function useReadAloud(
 	const track = React.useMemo(() => buildTrack(text, { acronyms, emphasis, lang, lexicon }), [text, acronyms, emphasis, lang, lexicon]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
+	// The sentence the Guide is on: the reader's, or the next one once it is GUIDE_LEAD_MS away.
+	const [guideCue, setGuideCue] = React.useState(-1);
+	const guideCueRef = React.useRef(-1);
+	// When the Guide's cue last moved (performance.now), the recent measured delays, and the lead they give.
+	const guideCueAtRef = React.useRef(0);
+	const guideLagsRef = React.useRef<number[]>([]);
+	const guideLeadRef = React.useRef(GUIDE_LEAD_MS);
+	// The cue last sampled: one sample per cue, the one its arrival produced. A later beat on the same
+	// cue (a pause and resume, the Guide turned on mid-sentence) measures wall time, not rendering.
+	const guideSampledRef = React.useRef(-1);
+	const reportGuidePaint = React.useCallback((cue: number, paintedAt: number) => {
+		if (cue < 0 || cue !== guideCueRef.current) return; // a later cue already moved on
+		if (guideSampledRef.current === cue) return;
+		guideSampledRef.current = cue;
+		const lag = paintedAt - guideCueAtRef.current;
+		if (!(lag >= 0 && lag < 1000)) return; // a backgrounded tab, a clock mixup: not a render delay
+		const lags = guideLagsRef.current;
+		lags.push(lag);
+		if (lags.length > GUIDE_LAG_WINDOW) lags.shift();
+		guideLeadRef.current = guideLeadFor(lags);
+	}, []);
 	const [progress, setProgress] = React.useState(0);
 	// Last progress value pushed into React state — the quantizer's reference (see tick).
 	const lastProgressRef = React.useRef(0);
@@ -491,6 +574,9 @@ export function useReadAloud(
 		clearBuffering();
 		readerRef.current?.reset();
 		setActive(null);
+		guideCueRef.current = -1;
+		guideSampledRef.current = -1;
+		setGuideCue(-1);
 		setProgress(0);
 		setPlaying(false);
 		if (debugRef.current) setDebugLive(null);
@@ -544,6 +630,9 @@ export function useReadAloud(
 				clearBuffering();
 				setPlaying(false);
 				setActive(null);
+				guideCueRef.current = -1;
+				guideSampledRef.current = -1;
+				setGuideCue(-1);
 				onFinishRef.current?.();
 			},
 		});
@@ -572,6 +661,9 @@ export function useReadAloud(
 			clearBuffering();
 			setPlaying(false);
 			setActive(null);
+			guideCueRef.current = -1;
+			guideSampledRef.current = -1;
+			setGuideCue(-1);
 			lastProgressRef.current = 0; // the quantizer's reference follows the state it mirrors
 			setProgress(0);
 		};
@@ -615,6 +707,14 @@ export function useReadAloud(
 		}
 		lastTRef.current = now;
 		const activeNow = reader.sync(elapsedRef.current);
+		// THE GUIDE'S LEAD. Never further ahead of the reader's clock than the Guide's lead (calibrated,
+		// `guideLeadFor`), never behind the reader, and nothing while the reader shows nothing.
+		const lead = guideCueFor(activeNow?.cueIndex ?? -1, guideCueRef.current, reader.trackNow().cues, elapsedRef.current, guideLeadRef.current);
+		if (lead !== guideCueRef.current) {
+			guideCueRef.current = lead;
+			guideCueAtRef.current = now;
+			setGuideCue(lead);
+		}
 		const dur = reader.durationMs();
 		// QUANTIZED. This ran `setProgress` on every animation frame, so a ~60 Hz React render
 		// of the whole Present tree rode on the audio clock. That was survivable when the only
@@ -1110,7 +1210,7 @@ export function useReadAloud(
 		if (playingRef.current) resumeClockedFromCurrentRef.current();
 	}, [mutedProp, clearBuffering]);
 
-	return { playing, track, active, progress, rung, buffering, debugEvents, debugLive, play, pause, toggle, stop };
+	return { playing, track, active, guideCue, reportGuidePaint, progress, rung, buffering, debugEvents, debugLive, play, pause, toggle, stop };
 }
 
 // ── TTS settings bridge (the Workspace AI-tab TTS section) ──────────────────

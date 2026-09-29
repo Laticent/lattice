@@ -138,7 +138,7 @@
     },
     {
       "variant": "banner-tag",
-      "useWhen": "The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card."
+      "useWhen": "The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `banner-tag` is the `tag-band` placement under its older name; `tag-band` (or `tag: band` deck-wide) works on every tagged layout."
     }
   ],
   "specimenVoice": true,
@@ -177,5 +177,8 @@
         "hall": 3
       }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

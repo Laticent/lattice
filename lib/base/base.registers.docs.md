@@ -40,7 +40,7 @@ model, see `design/concepts.md`.
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
 | [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etching or tone | `off` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
-| [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color and its size | *(the component's)* |
+| [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
 
@@ -949,7 +949,7 @@ A **card tag** is the small label that names a card: the number on a `cards-grid
 `cards-stack` card written as `1. … 2. …`, the slot label on a `compare-prose` or `decision`
 card (and its `banner-tag` band), the split-compare verdict, and the list-steps `STEP 01`
 label and `capsule` pill. All of them are drawn by one recipe, `lib/base/base.card-tag.css`, and `tag:` sets
-how they look. It takes up to two words, one per axis, in any order:
+how they look. It takes up to four words, one per axis, in any order:
 
 | Axis | Deck value | Per-slide class | Effect |
 |---|---|---|---|
@@ -957,6 +957,25 @@ how they look. It takes up to two words, one per axis, in any order:
 | Color | `plain` | `tag-plain` | A neutral pill: page fill, body ink, a hairline edge. For a deck where color is already busy |
 | Color | `none` | `tag-none` | No box. The label stays, as bare text in the secondary ink. It never hides the words |
 | Size | `small` `regular` `large` | `tag-small` … | The tag at 0.85×, 1× or 1.2×. Its padding and the space above the card body follow |
+| Placement | `corner` | `tag-corner` | Flush into the card's top-left corner. **The default** on every tagged layout except list-steps |
+| Placement | `foot` | `tag-foot` | Flush into the bottom-left corner. The card keeps the tag's room at its bottom instead |
+| Placement | `notch` | `tag-notch` | A tab inset from the corner that straddles the card's top edge, half outside it. With `none` it reads as a legend: bare text on the page color, so the edge does not strike through it |
+| Placement | `band` | `tag-band` | A full-width strip across the card top, the way `banner-tag` draws one on decision and compare-prose, now on every tagged layout |
+| Placement | `inline` | `tag-inline` | In the text flow above the card's first line, as a chip. **The default** on list-steps, whose `STEP 01` label is bare text |
+| Text alignment | `start` `center` `end` | `tag-start` … | Where the text sits inside a tag wider than it: a band, a tag widened to match its neighbors, a wrapped label, or list-steps' label across its card. **Default `start`** |
+
+A placement word moves the tag on every tagged layout. On list-steps, `corner`, `foot`, `notch`
+and `band` turn the bare `STEP 01` label into a boxed tag in the accent; `inline` is its own
+place, so it changes nothing there. Five variants draw no card tag, so the placement words leave
+them alone: `compare-prose axis`, whose label is the card's title, and list-steps `timeline`,
+`chevron`, `converge` and `ghost`, whose markers belong to a rail or a watermark.
+
+`banner-tag` is the `band` placement under its older name, and it now works on every tagged
+layout. A placement class on the same slide wins over it (`decision banner-tag tag-foot` draws
+foot tags), and a slide's own `banner-tag` wins over the deck's placement word (`tag: corner`
+leaves a `banner-tag` slide as a band). The list-steps `capsule` pill is the `inline` tag,
+centered, with a pill radius, in the categorical `--cat-N-mark` tier, so the `tag:` words
+restyle it too. `lint:deck` names the register words for both (`tag-alias`, advisory).
 
 `large` costs room: every tagged card reserves the bigger tag's height above its body, and the
 capacity figures in each component's docs assume the regular size. On a dense slide at a large
@@ -965,29 +984,37 @@ does.
 
 ```markdown
 ---
-tag: plain large
+tag: plain large band
 ---
 
-<!-- _class: decision tag-color -->
+<!-- _class: decision tag-color tag-foot -->
 ```
 
-The deck line stamps `tag-plain tag-large` on every slide. The decision slide above returns to
-its categorical colors and keeps the large size: a slide's word on one axis replaces the deck's
-word on that axis and leaves the other alone.
+The deck line stamps `tag-plain tag-large tag-band` on every slide. The decision slide above
+returns to its categorical colors, moves its tags to the bottom corner and keeps the large size:
+a slide's word on one axis replaces the deck's word on that axis and leaves the others alone.
 
 **Most specific wins:** a slide class, then the deck's `tag:`, then the component's own tag.
-`tag-color` and `tag-regular` exist so a slide can return to the component's own look inside a
-deck that set another.
+`tag-color`, `tag-regular`, `tag-corner` and `tag-start` exist so a slide can return to the
+component's own look inside a deck that set another.
 
-**Every tag on a slide is the same size.** Each boxed tag (a corner tag or a `banner-tag` band)
-takes the widest tag's width and the tallest tag's height, so `BUILD` and `WHY NOT DELAY` read as
-one component rather than two. The text stays at the start of the tag, and a one-line tag beside
-a two-line one is centered in the taller box (a `tag-none` label, which has no box, stays at the
-top so the labels line up). A measuring step does this after fonts load
-(`lib/core/card-tag-equalize.js`): in the live preview, and in the CLI's PDF, PNG and `--fluid`
-outputs. A plain `.html` export has no script, so there each tag keeps its own size and the
-card reserves one line of tag: a corner label that wraps covers the top of the body. The
-budget below is what keeps a lint-clean deck clear of that.
+**Every tag on a slide is the same size.** Each boxed tag (any placement with a box, and a
+`banner-tag` band) takes the widest tag's width and the tallest tag's height, so `BUILD` and
+`WHY NOT DELAY` read as one component rather than two. A band spans its card, so only its height
+matches. The text sits at the start of the tag unless an alignment word moves it, and a one-line
+tag beside a two-line one is centered in the taller box (a `tag-none` label, which has no box,
+stays at the top so the labels line up). A measuring step does this after fonts load
+(`lib/core/card-tag-equalize.js`): in the live preview, and in the CLI's PDF, PNG, PPTX, Marp,
+`--fluid` and `--player` outputs. A plain `.html` export has no script, so there each tag keeps
+its own size and the card reserves one line of tag plus its gap: a label that wraps to two lines
+still clears the body, and one that wraps further covers the top of it. The export measures that
+as it writes the file and names each such slide in a warning. The budget below is what keeps a
+lint-clean deck clear of it.
+
+**In the Studio**, deck settings carry a **Card tags** group with one select per axis (Tag
+color, Tag size, Tag placement, Tag text), which writes the `tag:` line; *Component's own* on
+every axis removes it. Slide settings show the same four rows on a tagged layout, each defaulting
+to the deck's word, and write `tag-*` classes on that slide.
 
 **A label fits one line of its tag.** One long label now widens every tag on the slide, and if it
 wraps, every card body moves down a line. So `lint:deck` warns (`tag-budget`) when a slot label
@@ -1000,18 +1027,16 @@ the row:
 | Characters, `tag-large` | 40 | 27 | 20 |
 | Characters, `tag-small` | 57 | 38 | 28 |
 
-A `banner-tag` band is a header strip across the card, so it gets two lines, twice the figure.
-That is the one placement where a label should wrap. Anywhere else, shorten the label and move
-the detail into the card body. The figures are measured at the `laptop` venue; a larger venue
-fits fewer characters, and the tags still match each other if a label wraps there.
+A band (`tag-band`, or the `banner-tag` class) is a header strip across the card, so it gets
+two lines, twice the figure. That is the one placement where a label should wrap. Anywhere else,
+shorten the label and move the detail into the card body. The figures are measured at the
+`laptop` venue; a larger venue fits fewer characters, and the tags still match each other if a
+label wraps there.
 
-**Placement and alignment come next.** Where a tag sits on its card (corner, bottom corner,
-notch, full-width band, inline) and how its text aligns inside it are designed but not yet
-built; they land together so every word works on every tagged layout. Until then `lint:deck`
-flags those words (`unknown-tag`), and a full-width band on `decision` or `compare-prose` is
-still the `banner-tag` class. An unknown word, or a second word on one axis, is also
-`unknown-tag`. Kernel: `lib/core/resolve-card-tag.js`; CSS: `lib/base/base.card-tag.css`
-§ REGISTER; record: `engineering/decisions/2026-09-27-card-tag-register.md`.
+An unknown word, or a second word on one axis, is `unknown-tag`. Kernel:
+`lib/core/resolve-card-tag.js`; CSS: `lib/base/base.card-tag.css` § REGISTER, § PLACEMENT and
+§ TEXT ALIGNMENT; measure: `lib/core/card-tag-equalize.js`; record:
+`engineering/decisions/2026-09-27-card-tag-register.md`.
 
 ## The `spark:` front-matter register (inline sparks)
 
@@ -1194,26 +1219,15 @@ card text, but cannot reach inside a chart's SVG geometry — wedges, bars,
 and lines keep their own marks. Hand-drawn chart *marks* are a deferred
 follow-up.
 
-## The `delivery:` front-matter register (how much the narrated Guide gestures)
+## The `delivery:` front-matter register (how the narrated Guide gestures)
 
-`delivery:` sets how the Studio's Present **Guide** behaves while narration plays: how many
-moments on a slide get a gesture, and how each one looks. It changes nothing in a rendered
-slide, a PDF or a PPTX. **It also sets the Guide's style in a narrated HTML export**, and so in
-a `lattice video` of it. Whether the export carries the Guide at all is an export option, on by
+`delivery:` sets how the **Guide** behaves while narration plays: in the Studio's Present, in a
+narrated HTML export, and so in a `lattice video` of it. Each delivery is its own character: it
+decides how each narrated sentence is expressed on the slide. It changes nothing in a rendered
+slide, a PDF or a PPTX. Whether an export carries the Guide at all is an export option, on by
 default: the Studio's webpage export has a Guide switch, and the CLI takes `--no-guide`. A deck
-that leaves the line out exports with the Guide in `restrained`, the preset Present uses
+that leaves the line out plays `restrained`, as Present does
 (`engineering/decisions/2026-09-27-guide-in-the-exported-player.md`).
-
-**The gesture is focus.** When the narration names a bullet, a table row, cell or column, a chart
-bar, wedge or line, that element stays exactly as it is and everything else in its group recedes:
-the same emphasis a viewer gets by hovering a chart mark (every other mark to 0.45). Nothing moves,
-nothing changes color, and nothing is drawn over the slide. A table's first cell names its row, a
-header cell names its column, and any other cell names itself. When the narration walks a chart
-point by point, the focus follows as one moment of the budget: on a line, the other series recede
-and, within the line, the other points recede, so the point being read stands out while the line
-keeps its shape. When the narration names something with nothing around it to recede (an image, a
-figure), the Guide draws ink there instead. Moments hand off in a single crossfade, so two things
-are never in focus at once.
 
 ```yaml
 delivery: restrained   # the default: a boardroom, or a board member reading the file alone
@@ -1221,27 +1235,46 @@ delivery: expressive   # a sales room, a prospect, a lightning talk, a lunch-and
 delivery: somber       # bad news, a loss: nothing moves that does not have to
 ```
 
+**What a sentence names is never the delivery's call.** A chart's narration is written from the
+chart's own data, so each sentence already knows the bar, point, stage or cell it is about, and
+the component says how that part is drawn. The delivery only decides what to DO with it:
+
+| The sentence… | `restrained` | `expressive` | `somber` |
+|---|---|---|---|
+| says how to read the figure | the whole figure comes back to full | a bracket around the figure | nothing moves |
+| introduces a series, lane or group | the group stays, the rest recedes | the line is traced by the cursor | nothing moves |
+| names one part (a bar, a point, a stage) | that part and its label stay, the rest recedes | the cursor goes to it and taps it | nothing moves |
+| adds a detail about that part | holds | washes its label | nothing moves |
+| compares two values | the part stays | a bracket around it | nothing moves |
+| names the highest or lowest | the part stays | a circle around it | nothing moves |
+| is the slide's key beat (the component decides which) | as above | as above | the one gesture: that part stays, the rest recedes slowly, held to the slide's end |
+
 | | `restrained` | `expressive` | `somber` |
 |---|---|---|---|
-| Gestures per slide, at most | 2 | 4 | 1 |
-| After the first, a moment needs a signal | yes | no | yes |
-| The rest recedes to | 0.45 (the chart hover's own value) | 0.30 | 0.62 |
+| How often | every sentence that names a part | every sentence that names a part | once a slide |
+| The rest recedes to | 0.45 (the chart hover's own value) | 0.30 | 0.45, once, slowly |
 | A walked line's other points recede to | 0.30 | 0.20 | 0.50 |
-| Handoff crossfade | 200 ms | 160 ms | 600 ms, and it holds through a short aside that names nothing ("Thank you.") |
-| Read-along on the slide (the word being said, only with captions off) | yes | yes | no |
-| Cursor and overlay ink | none | on the top moment only | none |
+| Handoff crossfade | 200 ms | 160 ms | 600 ms, and it holds through a short aside ("Thank you.") |
+| Cursor and overlay ink | none | on every act, in the Studio | none |
+| Read-along on the slide (captions off) | yes | yes | no |
 | Caption | the word being said lights up | the word being said lights up | the line reads in one muted ink |
 
-**What decides which moments.** At each slide the Guide ranks everything the narration names.
-From strongest to weakest: an authored `_focus:` target (never cut, even past the budget), a
-measured figure (`$4.2M`, `18%`, `3,100`, `19 mo`, but not `Section 01` or a year), a chart
-mark, the extreme mark of a chart, author emphasis (`**strong**`), then the headline. The
-preset spends its budget from the top, and the hand stays still through everything else. A
-preset never changes the ranking: a somber deck and an expressive deck point at the same
-important numbers, and the somber one points at fewer of them.
+**Prose, bullets and tables** are matched by their words. Under `restrained` and `expressive`
+every sentence that names a block focuses it; under `somber` only the slide's top-ranked moment
+does (an authored `_focus:` target first, then a measured figure, a chart mark, author emphasis,
+then the headline).
 
-The names and presets live in `lib/core/resolve-delivery.mjs`. The linter flags an unknown value
-(`unknown-delivery`). Design: `engineering/decisions/2026-09-25-vetrina-delivery-presets.md`.
+**In a sent webpage.** A narrated webpage export of a deck that sets `delivery:` carries the Guide
+(about 49 KB), so the recipient sees the same focus the Studio shows while the deck plays itself.
+Pausing lifts the focus; playing again brings it back. With the captions off, the word being said
+lights on the slide. The export does not draw the cursor or overlay ink yet, so an `expressive`
+deck sent as a file shows its focus but not its ink. A deck with no `delivery:` line exports
+without the Guide, exactly as before.
+
+Each delivery lives in its own file, `lib/core/delivery-styles/<name>.mjs`; the names are gathered
+in `lib/core/resolve-delivery.mjs`. The linter flags an unknown value (`unknown-delivery`). Design:
+`engineering/decisions/2026-09-27-delivery-styles-and-component-scenes.md` (superseding the budget
+model of `2026-09-25-vetrina-delivery-presets.md`).
 
 ## The `greeting:` / `closing:` front-matter registers (what a narrated deck says first and last)
 

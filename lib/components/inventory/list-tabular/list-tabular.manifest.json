@@ -315,5 +315,8 @@
         "hall": 5
       }
     }
+  },
+  "gesture": {
+    "archetype": "list"
   }
 }

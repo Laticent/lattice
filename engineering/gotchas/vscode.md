@@ -154,7 +154,7 @@ this protocol has to record the level, or it is measuring a coin flip.
   explain. It is explained now: that reporter's preview was at Disable, or their
   workspace was trusted into it. It was not wrong, and neither was the register.
 - **AND THE DIAGRAM MARKER IS A DEFECT, not a data point.** At Disable the fence
-  reaches `data-mermaid-state="rendered"` with an EMPTY `.mermaid` container:
+  reaches `data-lattice-settle="rendered"` with an EMPTY `.mermaid` container:
   source hidden, box 0×0, zero SVGs. The author gets a blank where the diagram
   belongs. The frame is capable — calling `window.mermaid.render()` in it by hand
   returns an 11.6KB SVG — so this is our runtime marking a fence rendered and

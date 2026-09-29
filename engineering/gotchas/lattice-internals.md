@@ -503,7 +503,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Symptom:** Mermaid diagrams on 4K slides look small in VS Code
   preview — they appear to be sized for 1280px rather than 3840px.
 - **Cause:** The non-slide-host fallback rule
-  `:is(pre, marp-pre)[data-mermaid-state="rendered"] + .mermaid { width:1152px; height:480px }`
+  `:is(pre, marp-pre)[data-lattice-settle="rendered"] + .mermaid { width:1152px; height:480px }`
   and the slide-context rule `section.diagram > .mermaid { width:calc(100cqi - 2*sp-2xl) }`
   had **identical specificity** (0,2,1). Because the non-slide rule
   appeared later in the file, it won the cascade and clamped the

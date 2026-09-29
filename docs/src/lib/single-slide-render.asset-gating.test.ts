@@ -72,33 +72,25 @@ async function srcdocFor(opts: Record<string, unknown>, html?: string): Promise<
 	return fr.srcdoc;
 }
 
-describe('single-slide Mermaid gating — content AND url', () => {
-	it('a diagram slide WITH a vendored URL injects that exact script', async () => {
-		const doc = await srcdocFor({ mermaidUrl: '/playground/v/abc/export/mermaid-v11.min.js' });
-		expect(doc).toContain('/playground/v/abc/export/mermaid-v11.min.js');
-		// the runtime always ships, and is a different URL
-		expect(doc).toContain('https://x/rt.js');
-	});
-
-	it('a diagram slide with NO mermaidUrl injects no script tag — never an empty src', async () => {
+describe('single-slide Mermaid — no URL is threaded; the runtime loads the library', () => {
+	// The Mermaid library is the Mermaid plugin's declared payload, and the runtime's plugin host
+	// fetches it from beside the runtime when a slide holds a fence (lib/plugins/host-browser.mjs
+	// `ensureLibrary`). So this builder writes NO Mermaid tag — the empty-`src` defect this file
+	// was written for cannot recur because there is no URL left to be empty — and it still
+	// promises the draw (`data-lattice-diagrams`) for a diagram slide it loads a runtime into.
+	it('a diagram slide writes no Mermaid script tag, and never an empty src', async () => {
 		const doc = await srcdocFor({});
 		expect(doc).not.toContain('src=""');
-		expect(doc).not.toContain('mermaid-v11');
-		// …and the frame is otherwise intact: the runtime still loads, so this is a missing
-		// diagram rather than a broken preview.
+		expect(doc).not.toMatch(/<script[^>]+mermaid/i);
+		// …and the frame is otherwise intact: the runtime still loads, and it draws the diagram.
 		expect(doc).toContain('https://x/rt.js');
-	});
-
-	it('an explicitly empty mermaidUrl behaves the same as omitting it', async () => {
-		const doc = await srcdocFor({ mermaidUrl: '' });
-		expect(doc).not.toContain('src=""');
-		expect(doc).toContain('https://x/rt.js');
+		expect(doc).toMatch(/<html[^>]* data-lattice-diagrams[ >]/);
 	});
 
 	it('no CDN host can reach the frame through this path', async () => {
 		// The property the whole change exists for, asserted where the tag is actually
 		// written rather than only at the constant that used to hold the URL.
-		const doc = await srcdocFor({ mermaidUrl: '/playground/v/abc/export/mermaid-v11.min.js' });
+		const doc = await srcdocFor({});
 		expect(doc).not.toContain('jsdelivr');
 		expect(doc).not.toContain('unpkg');
 		expect(doc).not.toContain('cdnjs');

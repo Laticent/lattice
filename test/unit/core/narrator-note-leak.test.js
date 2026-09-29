@@ -77,7 +77,9 @@ const FIXTURES = {
 	narrateRoadmapHorizons: ['roadmap horizons', '| Workstream | Horizon 1 `Now` | Horizon 2 `Next` |\n| --- | --- | --- |\n| Intake | [x] Connector | [-] Dedupe |'],
 };
 
-const NARRATORS = Object.keys(CN).filter((k) => k.startsWith('narrate') && k !== 'narrateChart');
+// `narrateChart` and `narrateChartScript` are the dispatcher and its bound twin, not narrators:
+// every narrator is reached through them below.
+const NARRATORS = Object.keys(CN).filter((k) => k.startsWith('narrate') && k !== 'narrateChart' && k !== 'narrateChartScript');
 
 const slideFor = ([cls, body]) => `<!-- _class: ${cls} -->\n\n# Title\n\n${NOTE}\n\n${body}\n\nTail copy here.`;
 

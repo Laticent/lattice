@@ -79,7 +79,7 @@ export function asElement(src: RectSource | null | undefined): HTMLElement | nul
  *  (`underline` a line, `wash` a phrase, `bracket` a block, `tap` something small); `circle`
  *  belongs to both families, since "look here" is already the right thing to say about a
  *  compact target. */
-export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake' | 'underline' | 'wash' | 'bracket' | 'tap';
+export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake' | 'underline' | 'wash' | 'bracket' | 'tap' | 'trace' | 'encircle' | 'connect';
 
 export interface GestureOptions {
 	/** Emphasis. `'notable'` draws heavier ink and holds it longer — for when the HOST knows
@@ -290,6 +290,8 @@ const BAR_SHADOW = '0 0 8px var(--vt-accent), 0 0 0 1px var(--vt-tick-halo)';
 // are viewport px, so they hold at any host scale.
 const INK_GAP = 3; // underline / wash: below the text's bottom edge
 const INK_OUT = 6; // bracket / ring: outside the target's box
+/** How far a hand-drawn loop stands off the box it encircles, before its proportional bow. */
+const ENCIRCLE_PAD = 6;
 
 /** Right/bottom of a `RectLike`, without requiring a real `DOMRect`. */
 const r2 = (r: RectLike) => ({ right: r.left + r.width, bottom: r.top + r.height });
@@ -364,6 +366,24 @@ export function gestureRest(kind: Gesture, box: RectLike, rects: readonly RectLi
 			// The left margin, level with the middle — the flat hand held beside a card. Outside
 			// the bracket's own ink as well as the box, or the cursor sits on the outline.
 			return { x: box.left - INK_OUT - pad, y: box.top + box.height / 2 };
+		case 'encircle': {
+			// Off the ellipse's right side, level with its center: where a pen lifts after closing it.
+			const rx = box.width / 2 + ENCIRCLE_PAD + Math.min(box.width * 0.12, 18);
+			return { x: box.left + box.width / 2 + rx + pad, y: box.top + box.height / 2 };
+		}
+		case 'connect': {
+			// Beside the arrow's head: the end of the second rect, just past it.
+			const pts = rects ?? [];
+			const to = pts[pts.length - 1] ?? box;
+			return { x: r2(to).right + pad, y: to.top + to.height / 2 };
+		}
+		case 'trace': {
+			// Past the LAST point of the stroke, the way it was drawn: left to right.
+			const pts = rects ?? [];
+			if (pts.length < 2) return { x: box.left - INK_OUT - pad, y: box.top + box.height / 2 }; // it drew a bracket
+			const last = pts.reduce((a, c) => (c.left + c.width / 2 > a.left + a.width / 2 ? c : a));
+			return { x: r2(last).right + pad, y: last.top + last.height / 2 };
+		}
 		case 'tap':
 			// Just off the corner, so the arrow's tip points back up-left at the thing it tapped.
 			return { x: b.right + pad, y: b.bottom + pad };
@@ -2184,6 +2204,191 @@ export function createStage(opts: StageOptions): Stage {
 		});
 	}
 
+	/** TRACE — "follow this line". A stroke drawn through the target's points in order, left to
+	 *  right, with the hand riding it: a chart line read as the motion it is. The points are the
+	 *  centers of the target's line rects (a series offers its own dots), so the stroke is built from
+	 *  rects like every other gesture and needs no path geometry across a frame. Fewer than two
+	 *  points is not a line, and the gesture draws a bracket around the target instead. */
+	async function traceGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
+		const r0 = liveRect(src);
+		if (!r0) return;
+		const centers = (rects: readonly DOMRect[] | null) => (rects ?? []).map((r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 })).sort((a, b) => a.x - b.x);
+		const p0 = centers(liveRects(src));
+		if (p0.length < 2) return bracketGesture(src, opts, signal);
+		const { weight, alpha, hold } = inkOf(opts);
+		const pad = clearanceOf(opts);
+		const life = hold + 900 + p0.length * 140;
+		const pointsOf = (pts: readonly { x: number; y: number }[]) => pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+		const { el, stop } = inkNode(
+			'trace',
+			src,
+			'z-index:3;left:0;top:0;width:100%;height:100%;overflow:visible;',
+			(node, _r, rects) => {
+				const line = node.querySelector('polyline');
+				if (line) line.setAttribute('points', pointsOf(centers(rects())));
+			},
+			life,
+		);
+		el.innerHTML = `<svg width="100%" height="100%" style="overflow:visible"><polyline pathLength="1" fill="none" stroke="${A}" stroke-width="${weight}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1" stroke-dashoffset="1" style="filter:drop-shadow(0 0 6px var(--vt-accent))" points="${pointsOf(p0)}"/></svg>`;
+		const rest = restOf('trace', opts, r0, liveRects(src) ?? [r0], pad);
+		return withInk(stop, async () => {
+			await approach(p0[0].x, p0[0].y, signal);
+			const line = el.querySelector('polyline');
+			const draw = reduced
+				? [
+						{ strokeDashoffset: 0, opacity: 0 },
+						{ strokeDashoffset: 0, opacity: alpha, offset: 0.18 },
+						{ strokeDashoffset: 0, opacity: alpha, offset: 0.82 },
+						{ strokeDashoffset: 0, opacity: 0 },
+					]
+				: [
+						{ strokeDashoffset: 1, opacity: alpha },
+						{ strokeDashoffset: 0, opacity: alpha, offset: 0.5 },
+						{ strokeDashoffset: 0, opacity: alpha, offset: 0.85 },
+						{ strokeDashoffset: 0, opacity: 0 },
+					];
+			line?.animate?.(draw, { duration: life, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
+			// The hand rides the stroke point to point, over the half of the life the stroke draws in.
+			if (!reduced) {
+				const legs = p0.slice(1);
+				const leg = (life * 0.5) / Math.max(1, legs.length);
+				for (const p of legs) await tweenTo(p.x, p.y, leg, signal);
+			}
+			if (rest && Math.hypot(rest.x - cx, rest.y - cy) > 1) await tweenTo(rest.x, rest.y, Math.max(240, Math.min(760, Math.hypot(rest.x - cx, rest.y - cy) * 1.15)) * pace, signal);
+		});
+	}
+
+	/** ENCIRCLE — "this one, among many". A pen stroke drawn around the target: a circle for a
+	 *  compact box, an ellipse fitted to a wide or tall one, overshooting its start a little the way
+	 *  a hand closes a loop. The hand rides the stroke. Unlike `circle` (a glow on the box and an
+	 *  orbit), this is ink a viewer reads as "the presenter circled it". */
+	async function encircleGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
+		const r0 = liveRect(src);
+		if (!r0) return;
+		const { weight, alpha, hold } = inkOf(opts);
+		const pad = clearanceOf(opts);
+		const life = hold + 1100;
+		// The loop: 1.12 turns, starting upper-left, so the end crosses over the start.
+		const loop = (r: DOMRect, steps = 48): { x: number; y: number }[] => {
+			const cx0 = r.left + r.width / 2;
+			const cy0 = r.top + r.height / 2;
+			// The bow past the box is capped, so a wide row is circled snugly, not lassoed.
+			const rx = r.width / 2 + ENCIRCLE_PAD + Math.min(r.width * 0.12, 18);
+			const ry = Math.max(r.height / 2 + ENCIRCLE_PAD + r.height * 0.18, 16);
+			const out: { x: number; y: number }[] = [];
+			for (let i = 0; i <= steps; i++) {
+				const t = -Math.PI * 0.75 + (i / steps) * Math.PI * 2 * 1.12;
+				out.push({ x: cx0 + rx * Math.cos(t), y: cy0 + ry * Math.sin(t) });
+			}
+			return out;
+		};
+		const pointsOf = (pts: readonly { x: number; y: number }[]) => pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+		const { el, stop } = inkNode(
+			'encircle',
+			src,
+			'z-index:3;left:0;top:0;width:100%;height:100%;overflow:visible;',
+			(node, r) => {
+				const line = node.querySelector('polyline');
+				if (line) line.setAttribute('points', pointsOf(loop(r)));
+			},
+			life,
+		);
+		const p0 = loop(r0);
+		el.innerHTML = `<svg width="100%" height="100%" style="overflow:visible"><polyline pathLength="1" fill="none" stroke="${A}" stroke-width="${weight}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1" stroke-dashoffset="1" style="filter:drop-shadow(0 0 5px var(--vt-accent))" points="${pointsOf(p0)}"/></svg>`;
+		const rest = restOf('encircle', opts, r0, [r0], pad);
+		return withInk(stop, async () => {
+			await approach(p0[0].x, p0[0].y, signal);
+			const line = el.querySelector('polyline');
+			const draw = reduced
+				? [{ strokeDashoffset: 0, opacity: 0 }, { strokeDashoffset: 0, opacity: alpha, offset: 0.18 }, { strokeDashoffset: 0, opacity: alpha, offset: 0.82 }, { strokeDashoffset: 0, opacity: 0 }]
+				: [{ strokeDashoffset: 1, opacity: alpha }, { strokeDashoffset: 0, opacity: alpha, offset: 0.45 }, { strokeDashoffset: 0, opacity: alpha, offset: 0.85 }, { strokeDashoffset: 0, opacity: 0 }];
+			line?.animate?.(draw, { duration: life, easing: 'cubic-bezier(.3,.1,.3,1)', fill: 'forwards' });
+			if (!reduced) {
+				const legs = p0.filter((_, i) => i % 6 === 0).slice(1);
+				const leg = (life * 0.45) / Math.max(1, legs.length);
+				for (const p of legs) await tweenTo(p.x, p.y, leg, signal);
+			}
+			if (rest && Math.hypot(rest.x - cx, rest.y - cy) > 1) await tweenTo(rest.x, rest.y, Math.max(240, Math.min(760, Math.hypot(rest.x - cx, rest.y - cy) * 1.15)) * pace, signal);
+		});
+	}
+
+	/** CONNECT — "from this to that". A curved arrow from the target's FIRST line rect to its LAST,
+	 *  the hand traveling along it: a comparison read as the relation it is. The host hands the two
+	 *  parts over as the target's rects, as `trace` takes its points. Fewer than two rects draws a
+	 *  bracket around the target instead. */
+	async function connectGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
+		const r0 = liveRect(src);
+		if (!r0) return;
+		const ends = (rects: readonly DOMRect[] | null) => {
+			if (!rects || rects.length < 2) return null;
+			const a = rects[0];
+			const b = rects[rects.length - 1];
+			const c = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+			const [p, q] = [c(a), c(b)];
+			// Start and end at each box's edge along the line between their centers, not inside it.
+			const edge = (r: DOMRect, from: { x: number; y: number }, to: { x: number; y: number }) => {
+				const dx = to.x - from.x;
+				const dy = to.y - from.y;
+				const t = Math.min(dx ? r.width / 2 / Math.abs(dx) : Infinity, dy ? r.height / 2 / Math.abs(dy) : Infinity, 1);
+				return { x: from.x + dx * t, y: from.y + dy * t };
+			};
+			const s0 = edge(a, p, q);
+			const e0 = edge(b, q, p);
+			// The bow: a quadratic curve lifted off the straight line by a fifth of its length, on the
+			// perpendicular (dy, -dx), which bows a left-to-right arrow upward.
+			const k = { x: (s0.x + e0.x) / 2 + (e0.y - s0.y) * 0.2, y: (s0.y + e0.y) / 2 - (e0.x - s0.x) * 0.2 };
+			return { s0, e0, k };
+		};
+		const e = ends(liveRects(src));
+		if (!e) return bracketGesture(src, opts, signal);
+		const { weight, alpha, hold } = inkOf(opts);
+		const pad = clearanceOf(opts);
+		const life = hold + 1100;
+		const pathOf = (g: { s0: { x: number; y: number }; e0: { x: number; y: number }; k: { x: number; y: number } }) => {
+			const ang = Math.atan2(g.e0.y - g.k.y, g.e0.x - g.k.x);
+			const h = 9 + weight * 2;
+			const l = { x: g.e0.x - h * Math.cos(ang - 0.45), y: g.e0.y - h * Math.sin(ang - 0.45) };
+			const r = { x: g.e0.x - h * Math.cos(ang + 0.45), y: g.e0.y - h * Math.sin(ang + 0.45) };
+			const f = (p: { x: number; y: number }) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+			return { body: `M${f(g.s0)} Q${f(g.k)} ${f(g.e0)}`, head: `M${f(l)} L${f(g.e0)} L${f(r)}` };
+		};
+		const { el, stop } = inkNode(
+			'connect',
+			src,
+			'z-index:3;left:0;top:0;width:100%;height:100%;overflow:visible;',
+			(node, _r, rects) => {
+				const g = ends(rects());
+				if (!g) return;
+				const d = pathOf(g);
+				node.querySelector('.vt-connect-body')?.setAttribute('d', d.body);
+				node.querySelector('.vt-connect-head')?.setAttribute('d', d.head);
+			},
+			life,
+		);
+		const d0 = pathOf(e);
+		el.innerHTML = `<svg width="100%" height="100%" style="overflow:visible"><g fill="none" stroke="${A}" stroke-width="${weight}" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px var(--vt-accent))"><path class="vt-connect-body" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" d="${d0.body}"/><path class="vt-connect-head" opacity="0" d="${d0.head}"/></g></svg>`;
+		const rest = restOf('connect', opts, r0, liveRects(src) ?? [r0], pad);
+		return withInk(stop, async () => {
+			await approach(e.s0.x, e.s0.y, signal);
+			const body = el.querySelector('.vt-connect-body');
+			const head = el.querySelector('.vt-connect-head');
+			const fade = [{ opacity: alpha }, { opacity: alpha, offset: 0.85 }, { opacity: 0 }];
+			body?.animate?.(reduced ? [{ strokeDashoffset: 0, opacity: alpha }, { strokeDashoffset: 0, opacity: 0 }] : [{ strokeDashoffset: 1 }, { strokeDashoffset: 0, offset: 0.4 }, { strokeDashoffset: 0 }], { duration: life, easing: 'cubic-bezier(.3,.1,.3,1)', fill: 'forwards' });
+			body?.parentElement?.animate?.(fade, { duration: life, fill: 'forwards' });
+			head?.animate?.([{ opacity: 0 }, { opacity: 0, offset: reduced ? 0 : 0.38 }, { opacity: 1, offset: reduced ? 0.05 : 0.42 }, { opacity: 1 }], { duration: life, fill: 'forwards' });
+			if (!reduced) {
+				const n = 8;
+				for (let i = 1; i <= n; i++) {
+					const t = i / n;
+					const x = (1 - t) * (1 - t) * e.s0.x + 2 * (1 - t) * t * e.k.x + t * t * e.e0.x;
+					const y = (1 - t) * (1 - t) * e.s0.y + 2 * (1 - t) * t * e.k.y + t * t * e.e0.y;
+					await tweenTo(x, y, (life * 0.4) / n, signal);
+				}
+			}
+			if (rest && Math.hypot(rest.x - cx, rest.y - cy) > 1) await tweenTo(rest.x, rest.y, Math.max(240, Math.min(760, Math.hypot(rest.x - cx, rest.y - cy) * 1.15)) * pace, signal);
+		});
+	}
+
 	/** WASH — "these words". A highlighter band per line rect of a phrase inside a longer
 	 *  block: the only gesture that can name PART of a paragraph without naming the paragraph. */
 	async function washGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
@@ -2493,6 +2698,15 @@ export function createStage(opts: StageOptions): Stage {
 			case 'tap':
 				if (!el || silenced.has('tap')) return;
 				return tapGesture(el, opts, signal);
+			case 'trace':
+				if (!el || silenced.has('trace')) return;
+				return traceGesture(el, opts, signal);
+			case 'encircle':
+				if (!el || silenced.has('encircle')) return;
+				return encircleGesture(el, opts, signal);
+			case 'connect':
+				if (!el || silenced.has('connect')) return;
+				return connectGesture(el, opts, signal);
 			case 'shake':
 				return shake(signal);
 			case 'check': {

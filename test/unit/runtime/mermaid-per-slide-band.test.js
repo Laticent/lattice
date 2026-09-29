@@ -333,7 +333,7 @@ describe('which slide does a diagram belong to', () => {
 
 describe('a failed walk is retried, not stuck', () => {
   test('a throw hands every in-flight fence back to `pending`', () => {
-    // Fences are stamped `rendering` BEFORE the kernel walk, and the pending-fence
+    // Fences are stamped `hydrating` BEFORE the kernel walk, and the pending-fence
     // selector only picks up `pending` — so a throw mid-walk would be PERMANENT: those
     // slides sit blank for the session with nothing to retry them. Asserted on the
     // shipped source because the surrounding function needs a whole live preview to
@@ -349,7 +349,7 @@ describe('a failed walk is retried, not stuck', () => {
       + 'retry them (or the author can read their source)');
     assert.match(RUNTIME_SRC, /for \(const preEl of fences\) resetFenceAfterFailure\(preEl\);/,
       'a failed RUN must hand its fences back too');
-    assert.match(RUNTIME_SRC, /preEl\.dataset\.mermaidState = reclaimed\?\.has\(preEl\) \? 'unavailable' : 'pending';/,
+    assert.match(RUNTIME_SRC, /preEl\.dataset\.latticeSettle = reclaimed\?\.has\(preEl\) \? 'unavailable' : 'pending';/,
       'and the reset must send a reclaimed fence to its SOURCE, not to a hidden retry');
     assert.equal(/\.catch\(\(\) => \{\}\)\n\s*\.then\(pinMermaidTooltip\)/.test(RUNTIME_SRC), false,
       'a bare swallow on the run link strands every fence in that run');

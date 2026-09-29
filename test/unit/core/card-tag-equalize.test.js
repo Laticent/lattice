@@ -92,8 +92,9 @@ test('a second run on a settled slide writes nothing', () => {
 });
 
 test('unboxed and unlaid-out tags are left alone', () => {
-  // An in-flow label (compare-prose `axis`, or any static tag outside a band) is not a tag box.
-  const staticDoc = page(decision('', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15, { position: 'static' }));
+  // An in-flow label with no fill and no edge (list-steps' bare STEP 01) is text, not a tag box.
+  const bare = { position: 'static', backgroundColor: 'rgba(0, 0, 0, 0)' };
+  const staticDoc = page(decision('', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15, bare));
   assert.equal(equalizeCardTags(staticDoc), 0);
   // A hidden slide reports no size; writing zeros there would shrink it when it shows.
   const hidden = page(decision('', ['A', 'BBBB']), () => content(0, 0));
@@ -132,4 +133,47 @@ test('tag-none: bare text stays top-aligned, and the section still reserves the 
     content(120, 14.98 * lines[el.textContent], { backgroundColor: 'transparent', boxShadow: 'rgb(0, 0, 0) 0px 0px 0px 1px inset' }));
   equalizeCardTags(edged);
   assert.equal(edged.querySelector('li').style.getPropertyValue('--card-tag-shim-y'), '7.49px');
+});
+
+test('inline: an in-flow chip with a fill is a tag box, so the row takes one size', () => {
+  const doc = page(decision('tag-inline', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15, { position: 'static' }));
+  assert.ok(equalizeCardTags(doc) > 0);
+  const xs = [...doc.querySelectorAll('section > .cell-stage > ul > li')].map((li) => li.style.getPropertyValue('--card-tag-shim-x'));
+  assert.deepEqual(xs, ['30px', '0px']);
+});
+
+test('tag-band: an absolute strip spans its card, so it takes no width shim', () => {
+  const doc = page(decision('tag-band', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15));
+  equalizeCardTags(doc);
+  for (const li of doc.querySelectorAll('section > .cell-stage > ul > li')) {
+    assert.equal(li.style.getPropertyValue('--card-tag-shim-x'), '0px');
+  }
+});
+
+test('a placement word wins over banner-tag: the tag is widened like any chip', () => {
+  const doc = page(decision('banner-tag tag-foot', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15));
+  equalizeCardTags(doc);
+  const xs = [...doc.querySelectorAll('section > .cell-stage > ul > li')].map((li) => li.style.getPropertyValue('--card-tag-shim-x'));
+  assert.deepEqual(xs, ['30px', '0px']);
+});
+
+test('list-steps: a boxed step tag is measured; the rail variants are not tags', () => {
+  const steps = (cls) => `<section class="list-steps ${cls}"><div class="cell-stage"><ol><li>a</li><li>bb</li></ol></div></section>`;
+  const sized = (el) => content(el.textContent.length * 10, 15);
+  assert.ok(equalizeCardTags(page(steps('tag-corner'), sized)) > 0);
+  assert.equal(equalizeCardTags(page(steps('timeline tag-corner'), sized)), 0);
+});
+
+test('report mode names the slides where a tag covers its card body, and writes nothing', () => {
+  // Two slides: the second has a label that wrapped to three lines, taller than the 30px its card
+  // keeps above the body (a one-line tag plus the gap), so it would cover the body.
+  const markup = decision('', ['BUILD', 'BUY']) + decision('', ['BUILD', 'A LABEL THAT WRAPPED THREE TIMES']);
+  const doc = page(markup, (el, pseudo) => {
+    if (el.tagName === 'LI' && !pseudo) return { paddingTop: '30px', paddingBottom: '10px' };
+    const lines = el.textContent.length > 20 ? 3 : 1;
+    return content(60, 15 * lines, { paddingTop: '5px', paddingBottom: '5px' });
+  });
+  const covered = equalizeCardTags(doc, 'report');
+  assert.deepEqual(covered, [{ slide: 2, over: 25 }]);
+  for (const el of doc.querySelectorAll('li, section')) assert.equal(el.getAttribute('style'), null, 'report mode writes nothing');
 });

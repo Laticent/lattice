@@ -185,6 +185,12 @@ boardroom, where a moving highlight across the text competes with the speaker.
 
 ## 6. Presets (axis B)
 
+> **Superseded (owner, 2026-09-27):** a preset is no longer a budget and a loudness. Each delivery is
+> its own style file, and a chart's narration binds each sentence to the part it names, so no
+> budget decides which of a chart's sentences show. See
+> [`2026-09-27-delivery-styles-and-component-scenes.md`](2026-09-27-delivery-styles-and-component-scenes.md).
+> This section and §6.1 stay as the record.
+
 `tone:` is already a front-matter register (marker shape). So the proposal is a
 new deck register, **`delivery:`**, overridable per slide with `_delivery:`, and
 readable by the Studio and the exported player.
@@ -282,7 +288,10 @@ ink over a gray wash, 22–33 from restrained on all four.
 - **The walk.** Measured on the test deck: a line chart is narrated as 17 sentences (each series'
   summary, then all four points), and restrained's budget of 2 left the Guide dark for 45 seconds
   of it. Once a planned moment on a slide is a chart mark, every later sentence that lands inside
-  the same chart sparks in turn: the walk counts as that one moment.
+  the same chart sparks in turn: the walk counts as that one moment. (2026-09-27) Now that a chart reads each item's
+  detail right after the item, a line category's note lands inside the walk too; it resolves to the
+  category's hit band, which the focus cannot isolate, so the director keeps the point just read
+  in focus through it rather than lifting the walk.
 - **Points and cells.** A point sentence ("Q1 2026, four point one") resolved to the right dot but
   sparked the whole line; it now sparks the dot, with its line as context. A heatmap sentence
   ("Jan 2026 is lowest at M3, forty-four") landed on the row label `Jan 2026`, because the cell's
@@ -378,6 +387,19 @@ The attribute paints nothing: the dark and light PDFs of the board-update test d
 byte-identical before and after, and so are all 20 rasterized pages. Measured in the built Studio on the bar slide, light and dark: under
 the Guide the focused bar's name and value hold at 1 while the other six labels drop to 0.45, and
 the chart hover in the Playground does the same for the hovered bar.
+
+**Restrained audit (owner, 2026-09-27).** The owner saw nothing on a line chart and a funnel under
+`restrained` on an iPhone. Measured on the Guide test deck in the built Studio, WebKit at iPhone
+15 Pro, against `main`: line and funnel focused the same things on both builds, but a chart only
+began focusing at its first PLANNED moment, so every earlier sentence about it stayed dark (a
+line's series summary and first point; a dumbbell's first row, which this branch's detail
+reordering had newly pushed ahead of the plan; a heatmap's first cell). A point's focus was a dot a
+few pixels wide, and a table narrated as "SMB — Q3: 7.8%; …" focused nothing, because the piecewise
+tier split it on its colons. Fixed in the director and the resolver: a chart that earns a planned
+moment is walked from its first named mark (still one moment of the budget); a line point keeps
+its axis category label full while the other categories recede; and `findTableRowTarget` resolves
+the row narration to the row's first cell. After, on the same deck: every chart slide focuses from
+its first mark sentence, and the table focuses the SMB row.
 
 ## 7. Timing and surface (axes D, E)
 
