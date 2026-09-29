@@ -47,8 +47,6 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { PANE_LAYOUT_ENTRIES } from '../src/lib/pane-layout-entries.mjs';
-import { PANE_LAYOUT_SAMPLES } from '../src/lib/pane-layout-samples.mjs';
 import { collectGalleryAssets } from '../src/playground/galleries.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -248,9 +246,6 @@ const generated = loadAll().map((m) => [
   `plans/${m.name}.json`,
   JSON.stringify({ name: m.name, slides: galleryPlan(m) }),
 ]);
-// The pane LAYOUTS (`columns`, `rows`) are listed in the picker beside the components
-// (src/lib/pane-layout-entries.mjs) and walk their own examples, in the same plan shape.
-for (const l of PANE_LAYOUT_ENTRIES) generated.push([`plans/${l.name}.json`, JSON.stringify({ name: l.name, slides: PANE_LAYOUT_SAMPLES[l.name].plan })]);
 
 // `samples/` is a FLAT namespace and the copy below is last-wins, so two files
 // with the same basename would silently leave one image standing in for another —

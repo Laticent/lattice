@@ -168,7 +168,7 @@ section .lat-pane-head > h3 + p:has(> code:only-child):not(:where([data-prose]))
  * a row both cells subgrid into, so the two titles sit on one line whatever else either head
  * carries (a subtitle on one only), and both bodies start together when one title wraps. The third
  * row is the gap under the head; the pane takes the fourth. (An eyebrow pill is folded into the
- * title by the carve, so it has no row of its own: lib/core/pane-spec.js `foldLabel`.) The
+ * title by the carve, so it has no row of its own: lib/core/panes.js `paneHeadHtml`.) The
  * columns keep the authored ratio (`--pane-cols`, written by `embed`). A cell with no visible head
  * does not take part: its pane runs from the top. */
 section.lat-pane-host > .cell-stage > .lat-panes[data-panes="side"]:has(> .lat-pane-cell[data-head]) {

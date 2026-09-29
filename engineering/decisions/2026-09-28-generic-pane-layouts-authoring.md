@@ -193,6 +193,28 @@ title set that way turning into a wall of letter-spaced capitals), so `lint:deck
 title of five words or fewer. The smaller head gives each pane back height: the title row is
 23.9px at 1280 against 36.8px before, and `PANE_HEAD` carries the re-measured figures.
 
+### 2.6 `columns` and `rows` are host components (ruling, 2026-09-29)
+
+They live in `lib/components/layout/` with a manifest, a docs page and a gallery like every other
+component, so every list built from the manifests — the docs site, `components.json`, the agent's
+pick list, the AI primer, the pickers, lint's vocabulary — has them without a special case. What
+makes them special is one manifest field, `hosts: "panes"`: the body is two other components.
+
+| Field | Value | Why |
+|---|---|---|
+| `bucket`, `function` | `layout` | a new bucket and function: a host does nothing by itself |
+| `form` | `split` | two regions, like `split-panel` and `split-compare` |
+| `substance` | `mixed` | composes its panes' substances; the loader allows `mixed` on a host as on a panel |
+| `stage` | `flow` | a standard masthead over a stage that holds the panes |
+| `adapt.mode` | `reflow` | the pane carve restructures it: one slide per pane where two do not share a frame |
+| `pane` | never | a host never goes inside a pane |
+| split treatment | `host` | the pane carve splits it before the split registry runs, which never sees it |
+| `density`, `venueCapacity` | exempt / `none` | the budgets are its panes' |
+| `label` | "Two columns" / "Top and bottom" | the Studio's tile name (§7.2) |
+
+The engine did not change: the carve still reads the words from `_class`, and the ratio and
+`no-rule` are the host's modifiers. `design/design-system.md` records the `mixed` extension.
+
 ## 3. The layouts
 
 ```
@@ -416,14 +438,16 @@ These are for the next note, not for authors:
 - The `###` pane title is optional, the documentation always writes one, and `no-title` hides it.
 - (2026-09-29) The pane title is set as a label, in the eyebrow's voice; an eyebrow pill above it
   joins it as one label; the subtitle steps under it (§2.5).
-- (2026-09-29) The pickers list the layouts beside the components: in the Playground as `columns`
-  and `rows`, in the Studio's add-slide gallery as "Two columns" and "Top and bottom" (§7.2). They
-  file under Family **Split layouts** (beside `split-panel` and `split-compare`, where a
-  side-by-side slide is looked for) and under a new **Layout** group for Function and Substance,
-  because a layout does nothing by itself; its panes do the work. Reusing Comparison / Structure
-  was the rejected option: it would mislabel a slide that stacks progress over a table. The entries
-  live in `docs/src/lib/pane-layout-entries.mjs`, manifest-shaped so the pickers need no special
-  case, and are not manifests: a layout has no component page.
+- (2026-09-29) `columns` and `rows` are COMPONENTS, of a special kind: hosts (§2.6). They first
+  shipped as layout words the engine knew and the catalog did not, and the pickers had to list
+  them by hand; the owner's objection was that this made them "a magical thing that isn't really a
+  component", when `split-panel` already shows a component can have two regions.
+- (2026-09-29) Where they file: Family **Split layouts** (beside `split-panel` and `split-compare`,
+  where a side-by-side slide is looked for), Function **Layout** (a group of their own, because a
+  layout does nothing by itself; its panes do the work), Substance **mixed** (they compose the
+  substances their panes hold). The Studio's add-slide gallery shows them as "Two columns" and
+  "Top and bottom" (§7.2). Reusing Comparison / Structure was the rejected option: it would
+  mislabel a slide that stacks progress over a table.
 
 ## 12. How it was built
 

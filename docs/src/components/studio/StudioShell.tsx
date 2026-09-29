@@ -32,7 +32,6 @@ import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
-import { LAYOUT_BUCKET, PANE_LAYOUT_ENTRIES } from '@/lib/pane-layout-entries.mjs';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
@@ -1270,11 +1269,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// which also folds in universal config (dark, no-header, insight-*, tone-*) that belongs
 			// in slide settings, not "variants of the component".
 			...components,
-			// The pane LAYOUTS: listed as "Two columns" and "Top and bottom", inserting a
-			// `columns` / `rows` slide with two titled panes (pane-layout-entries.mjs). They join
-			// the catalog once it has loaded (it is fetched after hydration), so the gallery never
-			// opens on two layouts and nothing else.
-			...(components.length === 0 ? [] : PANE_LAYOUT_ENTRIES).map((l) => ({ name: l.name, label: l.label, bucket: LAYOUT_BUCKET, description: l.description, skeleton: l.skeleton, function: l.function, form: l.form, substance: l.substance, tags: l.tags, purpose: l.purpose })),
 		],
 		[localComponents, components],
 	);

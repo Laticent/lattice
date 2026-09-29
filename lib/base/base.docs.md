@@ -85,9 +85,11 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
 | names nothing → `content` | names nothing → `content` |
 
 - **The layout goes in `_class`:** `columns` (side by side) or `rows` (stacked), with an optional
-  ratio, 25–75 in 5% steps (default 50/50): `columns 40/60`, `rows 35/65`. The layout words are
-  the slide's layout, not classes; other words in the same `_class` (`dark`) stay the slide's.
-  A component named in the layout's `_class` is ignored — each pane names its own. As with any
+  ratio, 25–75 in 5% steps (default 50/50): `columns 40/60`, `rows 35/65`. They are components
+  like any other (`lib/components/layout/`), of a special kind: a HOST, whose body is two other
+  components (manifest `hosts: panes`). The ratio and `no-rule` are its modifiers; other words
+  in the same `_class` (`dark`) apply to the slide as they always do. A second component named
+  in the host's `_class` is ignored — each pane names its own. As with any
   class, the slide's LAST `_class` is the one that counts: `_class: columns` followed by
   `_class: dark` is a plain dark slide.
 - **Write the slide's heading first.** Everything before the first pane is the slide's eyebrow,

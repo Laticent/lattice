@@ -33,6 +33,8 @@ const EXPECTED_FLOW = [
   'decision', 'glossary', 'inventory', 'kpi', 'list', 'list-steps',
   'list-tabular', 'logo-wall', 'matrix-2x2', 'obligation-matrix', 'policy-recommendation', 'pricing', 'q-and-a',
   'quote', 'redline', 'regulatory-update', 'stats', 'statute-stack', 'team-profile', 'verdict-grid',
+  // The pane hosts: a standard masthead over a flow stage that holds the two panes.
+  'columns', 'rows',
 ].sort();
 const EXPECTED_CANVAS = [
   // `math` joined this list in 2026-09, moving from EXPECTED_SOVEREIGN below — the only

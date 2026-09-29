@@ -32,8 +32,8 @@ export const FAMILY_DEFS = [
 	{ key: 'compare', label: 'Compare', members: ['compare-prose', 'table', 'decision', 'matrix-2x2', 'redline', 'verdict-grid', 'pricing'] },
 	{ key: 'timelines', label: 'Timelines & roadmaps', members: ['timeline-list', 'roadmap'] },
 	{ key: 'charts', label: 'Charts & diagrams', members: ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'journey', 'gantt', 'kanban', 'piechart', 'progress', 'quadrant', 'radar', 'state-chart', 'flowchart', 'word-cloud', 'diagram', 'funnel', 'heatmap', 'map'] },
-	// `columns` and `rows` are pane LAYOUTS, not components (docs/src/lib/pane-layout-entries.mjs):
-	// the pickers add them, and they file here, where a side-by-side slide is looked for.
+	// `columns` and `rows` are the pane HOSTS (bucket `layout`); they file here, beside the other
+	// split slides, where a side-by-side slide is looked for (owner ruling, 2026-09-29).
 	{ key: 'splits', label: 'Split layouts', members: ['split-panel', 'split-compare', 'columns', 'rows'] },
 	{ key: 'code', label: 'Code', members: ['code', 'compare-code'] },
 	// Math is its OWN family, not a lodger in "Code & math". It is a distinct
@@ -81,13 +81,12 @@ export function familyOf(name, bucket) {
 	return NAME_TO_FAMILY.get(name) || (bucket ? BUCKET_FALLBACK.get(bucket) : undefined) || 'other';
 }
 
-// Function lens (the 7 audience-functions) + Substance lens orders, mirrored
-// to the client. Labels are Title Case. `layout` closes both: the pane layouts
-// (`columns`, `rows`) do nothing by themselves — their panes do the work — so they
-// get a group of their own rather than borrowing a component's (owner ruling,
-// 2026-09-29). No manifest carries it; a lens drops an empty group.
+// Function lens (the 7 audience-functions, then `layout`) + Substance lens orders,
+// mirrored to the client. Labels are Title Case. `layout` is the pane hosts'
+// function (`columns`, `rows`): they do nothing by themselves — their panes do the
+// work — so they get a group of their own (owner ruling, 2026-09-29).
 const FUNCTION_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery', 'layout'];
-const SUBSTANCE_ORDER = ['prose', 'structure', 'series', 'graph', 'mixed', 'layout'];
+const SUBSTANCE_ORDER = ['prose', 'structure', 'series', 'graph', 'mixed'];
 const tc = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 /**

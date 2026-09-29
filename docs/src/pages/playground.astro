@@ -24,8 +24,6 @@ import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
-import { LAYOUT_BUCKET, PANE_LAYOUT_ENTRIES } from '../lib/pane-layout-entries.mjs';
-import { PANE_LAYOUT_SAMPLES } from '../lib/pane-layout-samples.mjs';
 import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_SNAP_MIDPOINT } from '../components/playground/pg-split';
 // The storage keys the pre-paint seed reads, from the module that DECLARES them rather
 // than restated as literals in the inline script. `playground-controller.ts` has no
@@ -78,11 +76,7 @@ for (const m of manifests) {
 		variants: variantKeys.map((v) => ({ key: v, label: v, caption: variantDocs[v].summary || '', sample: variantDocs[v].sample })),
 	};
 }
-// The pane LAYOUTS (`columns`, `rows`) join the picker beside the components: an author looks
-// for a two-pane slide where every other slide shape is listed (pane-layout-entries.mjs). They
-// have no variants, and their Explore walk is their own `plan` (sync-playground-assets.mjs).
-for (const l of PANE_LAYOUT_ENTRIES) catalog[l.name] = { skeleton: l.skeleton, sample: PANE_LAYOUT_SAMPLES[l.name].sample, variants: [] };
-const components = buildCatalog([...manifests, ...PANE_LAYOUT_ENTRIES], (m) => (m.layout ? LAYOUT_BUCKET : manifestBucket(m)));
+const components = buildCatalog(manifests, manifestBucket);
 const lenses = buildLenses();
 
 // Inline-validation vocabulary — the SAME deck-grammar vocab the Drawing Board's

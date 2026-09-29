@@ -70,6 +70,9 @@ const VOICE_EXEMPT = {
   quote: { rules: ['density'], reason: 'a single quotation — no countable axis' },
   // Imagery: the asset is the content; prose is a caption at most.
   image: { rules: ['stressDoc', 'density'], reason: 'photo compositions; no prose axis, no scalable collection' },
+  // Pane hosts: the body is two panes, each a component with its own density budget.
+  columns: { rules: ['density'], reason: 'host — its panes are components with their own budgets' },
+  rows: { rules: ['density'], reason: 'host — its panes are components with their own budgets' },
   video: { rules: ['stressDoc', 'density'], reason: 'a single embed; no scalable collection' },
   scene: { rules: ['stressDoc', 'density'], reason: 'a single Anima poster still; no prose axis, no scalable collection' },
   // Density awaits calibration where the axis is unusual (tracked follow-ups).

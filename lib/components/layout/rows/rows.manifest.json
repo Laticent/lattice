@@ -1,0 +1,110 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "rows",
+  "label": "Top and bottom",
+  "hosts": "panes",
+  "function": "layout",
+  "form": "split",
+  "substance": "mixed",
+  "bucket": "layout",
+  "stage": "flow",
+  "description": "Two components stacked on one slide, one above the other.",
+  "purpose": "Use when two wide components make one point together: progress over the table behind it, a line of context over a chart.",
+  "tags": [
+    "overview",
+    "summary",
+    "dashboard",
+    "status"
+  ],
+  "skeleton": "<!-- _class: rows -->\n\n## The slide's point, in one line.\n\n### Top pane\n\n- A point\n- Another point\n\n### Bottom pane\n\n- A point\n- Another point\n",
+  "sample": "<!-- _class: rows -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- _pane: progress -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- _pane: table -->\n### By function\n\n| Function | Plan | Hired |\n|---|---|---|\n| Engineering | 120 | 118 |\n| Sales | 60 | 55 |\n",
+  "variants": [
+    "no-rule"
+  ],
+  "variantDocs": {
+    "no-rule": {
+      "label": "no rule",
+      "summary": "Drops the rule between the panes.",
+      "sample": "<!-- _class: rows 35/65 no-rule -->\n\n## Three regions carried the quarter.\n\n### What happened\n\nTwo renewals and a price rise lifted EMEA and APAC; North America held.\n\n<!-- _pane: bar -->\n### Revenue by region\n`$M, Q3`\n\n- North America `4.2`\n- EMEA `3.1`\n- APAC `1.8`\n"
+    }
+  },
+  "slots": {
+    "heading": {
+      "selector": "h2",
+      "required": true,
+      "description": "The slide's title, above both panes. It makes the point; the panes support it."
+    },
+    "pane": {
+      "selector": "lat-pane",
+      "required": true,
+      "description": "Two panes, top then bottom. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds."
+    }
+  },
+  "whenToUse": [
+    {
+      "title": "Two wide components",
+      "body": "A table, a timeline or a progress list reads across the slide. Stack two of them rather than squeezing each into half the width."
+    },
+    {
+      "title": "Context over evidence",
+      "body": "A short `content` pane on top says what happened; the chart or table below shows it. Give the evidence the larger share: `rows 35/65`."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Two unrelated points",
+      "body": "Two panes are one argument. If the halves say different things, make two slides."
+    },
+    {
+      "title": "A tall component",
+      "body": "A component that needs height (a `quote`, a `kpi` row, `radar`) does not read in a band; the engine re-orients or splits the slide, and `lint:deck` says so (`pane-arrange`)."
+    },
+    {
+      "title": "Three or more things",
+      "body": "A pane layout holds two panes. Three parallel items are `cards-stack` or `list`."
+    }
+  ],
+  "related": [
+    {
+      "name": "columns",
+      "when": "the two components read better side by side"
+    },
+    {
+      "name": "cards-stack",
+      "when": "three or more parallel items, stacked"
+    },
+    {
+      "name": "split-panel",
+      "when": "one featured element beside supporting points"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "A `##` inside a pane.",
+      "fix": "A `##` starts a new slide. Use `###` for a pane's title and `####` for a heading inside a pane."
+    },
+    {
+      "mistake": "Naming a component in the layout's `_class` (`_class: columns bar`).",
+      "fix": "Each pane names its own component: `<!-- _pane: bar -->` above the pane's `###`."
+    }
+  ],
+  "stressDoc": {
+    "summary": "Progress over a four-column table, with the slide's Key Insight below both.",
+    "sample": "<!-- _class: rows -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- _pane: progress -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- _pane: table -->\n### By function\n\n| Function | Plan | Hired | Open |\n|---|---|---|---|\n| Engineering | 120 | 118 | 2 |\n| Sales | 60 | 55 | 5 |\n\n> Sales is the one function still hiring into Q4.\n"
+  },
+  "pane": {
+    "side": false,
+    "stack": false
+  },
+  "specimenVoice": true,
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "heading",
+      "pane"
+    ]
+  },
+  "venueCapacity": {
+    "none": "A host holds two components, each with its own venue budget, so it has nothing of its own to count."
+  }
+}

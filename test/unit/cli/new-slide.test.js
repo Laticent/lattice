@@ -75,7 +75,7 @@ describe('new-slide CLI', () => {
       const out = listAll();
       // Header
       // Count is dynamic — grows as new components are authored. Just assert the shape.
-      assert.match(out, /\d+ layouts across 7 function families/);
+      assert.match(out, /\d+ layouts across 8 function families/);
       // Every function family that has components shows up
       for (const fn of ['ANCHOR', 'STATEMENT', 'INVENTORY', 'COMPARISON', 'PROGRESSION', 'EVIDENCE', 'IMAGERY']) {
         assert.match(out, new RegExp(`^${fn}$`, 'm'), `family ${fn} missing from listing`);

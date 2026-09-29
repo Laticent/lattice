@@ -116,7 +116,25 @@ export type SearchOptions = {
  * Whichever runs second is a genuine fallback — it only sees queries the first pass could
  * not answer at all.
  */
+/** Whether `q` is `name` with exactly one character left out (`rws` of `rows`). */
+function isOneDeletion(name: string, q: string): boolean {
+	if (name.length !== q.length + 1) return false;
+	let i = 0;
+	while (i < q.length && name[i] === q[i]) i++;
+	return name.slice(i + 1) === q.slice(i);
+}
+
 export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, opts: SearchOptions = {}): RankedHit[] {
+	// A NAME ONE LETTER SHORT wins before the description substring pass, but only when no name
+	// contains the query outright. A short name is where fuzzy matching is weakest and where the
+	// descriptions are most likely to contain the typo by accident: `ros` found `compare-prose`
+	// through "across", and `rws`, `cde`, `lst`, `mth` found nothing at all. Hyphens read as spaces,
+	// since people type `list steps` for `list-steps`.
+	const spaced = q.replace(/-/g, ' ');
+	if (q.length >= 3 && !items.some((it) => it.name.replace(/-/g, ' ').includes(spaced))) {
+		const short = items.filter((it) => isOneDeletion(it.name.replace(/-/g, ' '), spaced));
+		if (short.length) return short.map((item) => ({ item, via: 'fuzzy' as const, match: null }));
+	}
 	const sub = items.filter((it) => hay(it).includes(q));
 	if (sub.length) {
 		return sub

@@ -263,8 +263,14 @@ this **only when `form === 'panel'`**: the panel form is what makes
 combining substances coherent (one prominent item beside supporting
 structure). `mixed` is not a fifth plugin contract; it's a declaration
 that the component composes two existing contracts. The four-substance
-plugin point is unchanged. (No component declares `mixed` today — the
-hatch stays dormant but remains a general capability.)
+plugin point is unchanged.
+
+The loader also allows it on a component that **hosts panes**
+(`hosts: "panes"`): `columns` and `rows`, whose body is two panes, each
+a whole component with its own substance. That is composition in the
+same sense, one level up, so they declare `mixed` rather than borrowing
+one of their panes' substances (ruling, 2026-09-29;
+engineering/decisions/2026-09-28-generic-pane-layouts-authoring.md).
 
 ### 5.5 "Chart" means four different things — here they are, separated
 
@@ -1151,7 +1157,8 @@ discovery story that markdown alone can't provide.
   forms.** The four-substance plugin contract stays at four. A panel-
   form component that legitimately combines prose + structure may
   declare `substance: "mixed"` in its manifest. The loader allows
-  this only when `form === 'panel'`. `mixed` is not a fifth plugin;
+  this only when `form === 'panel'`, or on a component that hosts panes
+  (`columns`, `rows`). `mixed` is not a fifth plugin;
   it's a declaration that the component composes two existing
   contracts. No component declares `mixed` today — the hatch stays
   dormant. See §5.

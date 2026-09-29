@@ -8,7 +8,7 @@ source: https://github.com/Laticent/lattice/pull/2473
 # The Studio's Compose editor edits a panes slide's two titles as fields
 
 why now   — PR 2473 put "Two columns" and "Top and bottom" in the Studio's insert menu and
-            `columns` / `rows` in the Playground's picker (docs/src/lib/pane-layout-entries.mjs),
+            `columns` / `rows` in the Playground's picker (both are components, lib/components/layout/),
             so a Studio user can insert a panes slide. The Compose editor still shows it as one
             block of text: a user who never types Markdown cannot rename a pane or change its
             component.

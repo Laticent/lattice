@@ -681,8 +681,8 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | The Studio's succession of the Drawing Board + Workbench (both **REMOVED**; their routes redirect) | `engineering/decisions/2026-07-03-studio-succession.md` |
 | Durable investigation notes | `engineering/decisions/README.md` — one line per note; grep it for the topic, then open the 2–3 notes it names. A row is a GIST, so a term that isn't in one still won't be found there: **`grep -rln <term> engineering/decisions/`** searches the notes themselves |
 
-The 13 component buckets: anchor, statement, inventory, comparison, progression,
-evidence, imagery, chart, diagram, math, code, legal, connect.
+The 14 component buckets: anchor, statement, inventory, comparison, progression,
+evidence, imagery, chart, diagram, math, code, legal, connect, layout.
 
 ---
 

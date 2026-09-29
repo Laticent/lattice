@@ -42,7 +42,7 @@ export type PickerItem = {
 	name: string;
 	/** A plain-English name for the tile, where it differs from the class it writes: the pane
 	 *  layouts show "Two columns" / "Top and bottom" and insert `columns` / `rows`
-	 *  (docs/src/lib/pane-layout-entries.mjs; design note 2026-09-28 §7.2). */
+	 *  (manifest `label`; design note 2026-09-28 §7.2). */
 	label?: string;
 	bucket: string;
 	description: string;
