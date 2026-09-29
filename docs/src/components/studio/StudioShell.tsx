@@ -32,6 +32,7 @@ import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
+import { LAYOUT_BUCKET, PANE_LAYOUT_ENTRIES } from '@/lib/pane-layout-entries.mjs';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
@@ -92,6 +93,7 @@ import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PresetPicker } from './PresetPicker';
+import { mayHavePaneSlides } from './pane-probe';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
@@ -1268,6 +1270,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// which also folds in universal config (dark, no-header, insight-*, tone-*) that belongs
 			// in slide settings, not "variants of the component".
 			...components,
+			// The pane LAYOUTS: listed as "Two columns" and "Top and bottom", inserting a
+			// `columns` / `rows` slide with two titled panes (pane-layout-entries.mjs). They join
+			// the catalog once it has loaded (it is fetched after hydration), so the gallery never
+			// opens on two layouts and nothing else.
+			...(components.length === 0 ? [] : PANE_LAYOUT_ENTRIES).map((l) => ({ name: l.name, label: l.label, bucket: LAYOUT_BUCKET, description: l.description, skeleton: l.skeleton, function: l.function, form: l.form, substance: l.substance, tags: l.tags, purpose: l.purpose })),
 		],
 		[localComponents, components],
 	);
@@ -1282,7 +1289,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// eager bundle is budgeted (docs/route-budget.json), and every other deck needs none of it.
 	// Until it lands, a panes deck previews as it did before the map existed (the slide alone,
 	// fail-closed) — one render at most.
-	const hasPaneMarker = source.includes('pane:');
+	const hasPaneMarker = mayHavePaneSlides(source);
 	const [paneMod, setPaneMod] = React.useState<typeof import('./pane-pages') | null>(null);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `deck.id` is a retry trigger, not a value the body reads.
 	React.useEffect(() => {
@@ -3786,7 +3793,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const r = addSlideAfter(source, activeFullIndex, c.skeleton);
 		const at = r.active;
 		applyDeckOp(r);
-		notify(`Inserted “${c.name}”.`);
+		notify(`Inserted “${c.label ?? c.name}”.`);
 		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
 		// GO TO THE SLIDE YOU JUST ADDED. The rail moved to it and the preview painted it,
 		// but the editor's caret stayed where it was — so the next thing an author typed

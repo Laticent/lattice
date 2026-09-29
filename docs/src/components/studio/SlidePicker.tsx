@@ -40,6 +40,10 @@ import { loadPickerView, loadSettings, type PickerView, SETTINGS_EVENT, savePick
  *  feeds `Editor.completionComponents`. */
 export type PickerItem = {
 	name: string;
+	/** A plain-English name for the tile, where it differs from the class it writes: the pane
+	 *  layouts show "Two columns" / "Top and bottom" and insert `columns` / `rows`
+	 *  (docs/src/lib/pane-layout-entries.mjs; design note 2026-09-28 §7.2). */
+	label?: string;
 	bucket: string;
 	description: string;
 	skeleton: string;
@@ -64,7 +68,8 @@ export type PickerItem = {
 // used this name when the type lived in InsertComponent.tsx.
 export type ComponentEntry = PickerItem;
 
-const FUNCTION_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery'];
+// `layout` is the pane layouts' own group (docs/src/lib/families.mjs FUNCTION_ORDER says why).
+const FUNCTION_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery', 'layout'];
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 // A tile's React key. Function-band tiles keep a BARE-NAME key so the same tile
@@ -541,7 +546,7 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 	const sample = frontMatter ? frontMatter + item.skeleton : item.skeleton;
 	const isBlank = item.name === 'Blank';
 	const isList = view === 'list';
-	const label = `Insert ${item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`;
+	const label = `Insert ${item.label ?? item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`;
 
 	// The preview face — identical in both views; only its box differs. The box carries no
 	// radius or border: the pool draws the slide frame, so the tile shows the deck's corner.
@@ -588,7 +593,7 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 						</span>
 					</span>
 					<span className="min-w-0 flex-1">
-						<span className="block truncate font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{item.name}</span>
+						<span className="block truncate font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{item.label ?? item.name}</span>
 						<span className="mt-0.5 block truncate text-[12px] text-muted-foreground">{item.purpose || item.description}</span>
 					</span>
 				</button>
@@ -613,7 +618,7 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 				</span>
 				{/* Name owns a FULL line — always legible, never a hover afterthought, and no
 				    longer sharing the row with a control. */}
-				<span className="block truncate px-2 pt-1.5 font-mono text-[11.5px] font-semibold text-[var(--text-heading)]">{item.name}</span>
+				<span className="block truncate px-2 pt-1.5 font-mono text-[11.5px] font-semibold text-[var(--text-heading)]">{item.label ?? item.name}</span>
 			</button>
 			{meta ? meta : <span className="pb-1.5" />}
 		</div>

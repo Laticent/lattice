@@ -416,6 +416,14 @@ These are for the next note, not for authors:
 - The `###` pane title is optional, the documentation always writes one, and `no-title` hides it.
 - (2026-09-29) The pane title is set as a label, in the eyebrow's voice; an eyebrow pill above it
   joins it as one label; the subtitle steps under it (§2.5).
+- (2026-09-29) The pickers list the layouts beside the components: in the Playground as `columns`
+  and `rows`, in the Studio's add-slide gallery as "Two columns" and "Top and bottom" (§7.2). They
+  file under Family **Split layouts** (beside `split-panel` and `split-compare`, where a
+  side-by-side slide is looked for) and under a new **Layout** group for Function and Substance,
+  because a layout does nothing by itself; its panes do the work. Reusing Comparison / Structure
+  was the rejected option: it would mislabel a slide that stacks progress over a table. The entries
+  live in `docs/src/lib/pane-layout-entries.mjs`, manifest-shaped so the pickers need no special
+  case, and are not manifests: a layout has no component page.
 
 ## 12. How it was built
 

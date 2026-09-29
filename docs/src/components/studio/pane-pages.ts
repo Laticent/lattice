@@ -21,15 +21,13 @@
 
 import { caretProbe } from '@/lib/caret-probe';
 import { lintCore } from '@/playground/authoring-core.generated.js';
+import { PANE_PROBE } from './pane-probe';
 
 const core = lintCore as unknown as {
 	paneSplitLine: (slide: string, source: string) => number;
 	paneStarts: (slide: string) => number[];
 };
 
-/** The probe the shared position guard refuses on (`positionIsTrustworthy`): any pane marker, or
- *  a `columns` / `rows` layout (lib/core/pane-spec.js `mayHavePanes`). */
-const PANE_PROBE = /<!--\s*_?pane\s*:|<!--\s*_class\s*:[^>]*\b(?:columns|rows)\b/;
 
 /** A pane marker alone on its line, either spelling (lib/core/pane-spec.js `parseMarker`): `[1]`
  *  is a `_pane:` marker's first word (the component, unless it is a modifier), `[2]` the alias's
