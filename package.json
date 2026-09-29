@@ -203,6 +203,7 @@
     "check:render-nature": "node tools/check-render-nature.js",
     "check:family-tiers": "node tools/check-family-tiers.js",
     "check:family-conformance": "node tools/check-family-tiers.js --conformance",
+    "audit:reading-size": "node tools/audit-reading-size.js",
     "check:modifier-effects": "node tools/check-modifier-effects.js",
     "check:modifier-effects:bless": "node tools/check-modifier-effects.js --bless",
     "check:family-conformance:bless": "node tools/check-family-tiers.js --conformance --bless",
