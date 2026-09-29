@@ -1,6 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import type { NodeSpec } from 'prosemirror-model';
-import { isCaptionBody, isDescriptionBody } from '../../components/studio/slide-directives';
+import { isDescriptionBody, isSayBody } from '../../components/studio/slide-directives';
 import { CLIP_ORIGIN } from './clip-origin';
 
 // An authoring COMMENT, modeled as a real schema node instead of falling through as prose.
@@ -109,7 +109,7 @@ export function readCommentText(raw: string | null, origin?: string | null): { t
 // alternative — different channels with different sinks, neither a note.
 //
 // The two predicates are REUSED from `slide-directives.ts`, which is the Studio's existing mirror
-// of `notes-core.isCaptionComment` / `isDescriptionComment` (HARD RULE #15 — this module had its
+// of `notes-core.isSayComment` / `isDescriptionComment` (HARD RULE #15 — this module had its
 // own third copy until a review pointed at the two that already existed).
 //
 // THERE IS DELIBERATELY NO "pragma" CHANNEL. A first version added one with a hand-written prefix
@@ -149,7 +149,7 @@ export function commentBody(text: string): string {
 /** Which channel this comment belongs to. Drives the pill's LABEL only — the bytes are untouched. */
 export function commentKind(text: string): CommentKind {
 	const body = commentBody(text);
-	if (isCaptionBody(body)) return 'say';
+	if (isSayBody(body)) return 'say';
 	if (isDescriptionBody(body)) return 'describe';
 	return 'note';
 }

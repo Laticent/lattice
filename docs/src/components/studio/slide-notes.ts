@@ -14,7 +14,7 @@
 // by routing through `comments()` + `isDirectiveBody()`.
 
 import { notesCore } from '@/playground/authoring-core.generated.js';
-import { comments, isCaptionBody, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, tidyOutsideFences } from './slide-directives';
+import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody, tidyOutsideFences } from './slide-directives';
 
 // A tooling comment (`markdownlint-capture`, `prettier-ignore`, …) is never a note: the engine's
 // note reader skips it (lib/authoring/notes-core.js `isToolingComment`), and so does this one, from
@@ -22,9 +22,9 @@ import { comments, isCaptionBody, isDescriptionBody, isDirectiveBody, isPaneMark
 // (lib/core/bake-splits.js `stripPaneMarkers`), so a bundle opened in the Studio again would
 // otherwise show it as the slide's speaker note.
 const isTooling = (body: string) => (notesCore as { isToolingComment: (b: string) => boolean }).isToolingComment(body);
-const notANote = (body: string) => isDirectiveBody(body) || isDescriptionBody(body) || isCaptionBody(body) || isPaneMarkerBody(body) || isTooling(body);
+const notANote = (body: string) => isDirectiveBody(body) || isDescriptionBody(body) || isSayBody(body) || isPaneMarkerBody(body) || isTooling(body);
 
-/** The slide's speaker note (the first non-directive, non-description, non-caption comment),
+/** The slide's speaker note (the first non-directive, non-description, non-say comment),
  *  or ''. A `describe:` comment is the accessibility description and a `say:` comment is
  *  the read-as narration text (both separate channels) — never the speaker note, and neither is a
  *  panes marker (`isPaneMarkerBody`). */
@@ -44,7 +44,7 @@ export function getNote(chunk: string): string {
  */
 export function setNote(chunk: string, note: string): string {
 	const text = String(chunk || '');
-	// Ranges of existing note comments (non-directive, non-description, non-caption,
+	// Ranges of existing note comments (non-directive, non-description, non-say,
 	// outside fences), right-to-left. A `describe:` comment is the accessibility channel
 	// and a `say:` comment is the read-as narration — leave both untouched so setting
 	// the note never clobbers them.

@@ -399,7 +399,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   every gate in the tree green, the strip-notes e2e included, because that spec asserts only that
   the note text is gone and that is true on all three.
 - **`--strip-say` (then `--strip-captions`) carried the same tell for one release, and closing it merged the two
-  passes (#2003).** The #1985 fix was note-only: `stripCaptionsFromSource` stayed a span-only
+  passes (#2003).** The #1985 fix was note-only: `stripSayFromSource` (then `stripCaptionsFromSource`) stayed a span-only
   replace and nothing re-rendered from it, so the caption comment's line was left behind as an
   empty one AND the authored render still went through `stripCommentNodes`. Measured on a
   three-slide deck — one caption, one note, one neither — exported with both flags and diffed
@@ -498,10 +498,10 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   where the alternation form takes 5.9 s). It is merely QUADRATIC — 78 ms at 5k CRLF pairs, 36 s
   at 100k — which is still reason enough not to ship it, but the reason is the polynomial arm,
   not the exponential one. `trimTrailingBlankLines` uses a backward index scan instead (3.6 ms at
-  100k, 15 ms at a million), which is the same answer as `stripCaptionsFrontMatter`'s line array.
+  100k, 15 ms at a million), which is the same answer as `stripSayFrontMatter`'s line array.
   A regression test written against the SPACES shape passes at any realistic size while the
   exponential bug is live, which is why the arm in `notes-core.test.js` uses `\r\n`. The fix is
-  not a cleverer regex: `stripCaptionsFrontMatter` trims the line ARRAY it already has, which is
+  not a cleverer regex: `stripSayFrontMatter` trims the line ARRAY it already has, which is
   linear on both (100k `\r\n` pairs in 99 ms). Same hazard class as the comment matcher's own
   quadratic note at the top of that file — this file has now produced it twice.
 - **A scrub that rewrites front matter must scope the rewrite to the block it removed.** The

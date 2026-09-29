@@ -164,7 +164,7 @@ async function main(argv) {
   let unmatchedAcronyms = null;
   let unspokenTokens = null;
   if (doDiscover) {
-    ({ acronymSpokenMap, lexiconMap } = await import('../lib/core/resolve-captions.mjs'));
+    ({ acronymSpokenMap, lexiconMap } = await import('../lib/core/resolve-narration.mjs'));
     ({ unmatchedAcronyms, unspokenTokens } = require('@laticent/cadenza'));
   }
 

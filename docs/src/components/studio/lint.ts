@@ -283,8 +283,8 @@ export function presentationSet(slides: string[], lens: PresentLens, registry?: 
 
 /** The ORIGINAL 0-based deck index of each slide in `presentationSet(slides, lens)`,
  *  positionally aligned: `presentationIndices(...)[i]` is the author slide index of the
- *  i-th presented slide. So a number-keyed front-matter caption resolves under ANY lens —
- *  `fmCaptions.get(presentationIndices(slides, lens)[i] + 1)` — not just `full`. */
+ *  i-th presented slide. So a number-keyed front-matter say: entry resolves under ANY lens —
+ *  `fmSayMap.get(presentationIndices(slides, lens)[i] + 1)` — not just `full`. */
 export function presentationIndices(slides: string[], lens: PresentLens, registry?: LensRegistry): number[] {
 	return presentationPairs(slides, lens, registry).map((p) => p.index);
 }

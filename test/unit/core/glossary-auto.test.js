@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-// ESM module under test — dynamic import from this CJS test (mirrors resolve-captions.test.js).
+// ESM module under test — dynamic import from this CJS test (mirrors resolve-narration.test.js).
 let appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary, autoGlossarySections, withoutAutoGlossary;
 test.before(async () => {
   ({ appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary, autoGlossarySections, withoutAutoGlossary } = await import(

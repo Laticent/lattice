@@ -32,7 +32,7 @@ const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
  *  in its title, two consecutive slides that narrate IDENTICALLY, stopped being constructed.
  *  Both cells still passed, which is the only reason it was not noticed.
  *
- *  A caption override is the channel that sets a slide's spoken line now, so it restores the
+ *  A say override is the channel that sets a slide's spoken line now, so it restores the
  *  fixture's meaning rather than just its green. */
 const slide = (heading: string, spoken: string) => `<!-- _class: title -->\n\n# ${heading}\n\n<!-- say: ${spoken} -->`;
 

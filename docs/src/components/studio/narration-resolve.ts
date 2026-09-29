@@ -28,12 +28,12 @@
 // every surface: the live crawl, the `.vtt` sidecars, and the audio baked into a shared deck.
 // That collapsed two channels the rest of the system is explicit about keeping apart.
 // `design/skills/speaker-notes.md` opens by demanding "each in its own register, none bleeding
-// into the others" and that "a caption must never carry a private remark" — and then, two
-// sections on, documented the note BECOMING the caption. The CLI carried the consequence in
+// into the others" and that a spoken line "must never carry a private remark" — and then, two
+// sections on, documented the note BECOMING that line. The CLI carried the consequence in
 // its own `--strip-say` help: strip the PUBLIC channel for privacy and you were handed
 // the PRIVATE one, so it had to tell you to strip twice.
 //
-// The model is two things now. A caption is GENERATED from the slide's own content; an author
+// The model is two things now. Narration is GENERATED from the slide's own content; an author
 // may OVERRIDE it, and an override replaces the whole slide's narration rather than merging
 // into it. A note is the author's alone — it rides in the deck as an HTML comment and reaches
 // the presenter's own surface, and nothing else reads it.
@@ -44,9 +44,9 @@ import { narrateChart as narrateChartDefault, plainSay } from '@/playground/read
  *  supplies the rungs it actually has, and a blank/whitespace value never wins. */
 export type NarrationChain = {
 	/** 1. the slide's inline `<!-- say: … -->` — the author's exact read-as text. */
-	caption?: string | null;
+	say?: string | null;
 	/** 2. the front-matter `say:` entry for this slide (keyed by AUTHORED number). */
-	fmCaption?: string | null;
+	fmSay?: string | null;
 	/** 3. a recognized chart's COMPUTED facts (`narrateChart`) — a funnel's conversion rate,
 	 *     the auto-fit scale an unlabeled axis is plotted against — which exist only in the
 	 *     render and never in the figure projection's heading-only caption. */
@@ -63,9 +63,9 @@ export type NarrationChain = {
 export function resolveNarration(chain: NarrationChain): string {
 	// An author's `say:` line is read as the words it says: `**x**` → `x`, through the ONE kernel the CLI
 	// and the Captions download apply in `mergeNarration` (lib/core/read-along-build.js `plainSay`).
-	const rungs = [plainSay(chain.caption), plainSay(chain.fmCaption), chain.chart, chain.projected, chain.fallback];
+	const rungs = [plainSay(chain.say), plainSay(chain.fmSay), chain.chart, chain.projected, chain.fallback];
 	for (const rung of rungs) {
-		// Trim only to TEST the rung — a caption's own leading/trailing space is the author's,
+		// Trim only to TEST the rung — a say line's own leading/trailing space is the author's,
 		// and `buildTrack` is what normalizes for speech.
 		if (String(rung ?? '').trim()) return rung as string;
 	}
@@ -74,7 +74,7 @@ export function resolveNarration(chain: NarrationChain): string {
 
 /**
  * Substitute each recognized chart slide's computed narration into the DOM projection, at
- * the PROJECTION precedence level — so an inline caption or a front-matter caption still
+ * the PROJECTION precedence level — so an inline say line or a front-matter say: entry still
  * wins, exactly as `resolveNarration` and the CLI both order it.
  *
  * Returns a NEW array; `projected` is not mutated. When the two inputs disagree on length

@@ -34,11 +34,11 @@ import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYL
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
-import { getCaption, setCaption } from './slide-caption';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
 import { BACKDROP_MASKS, backdropProvenance, type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { getSayLine, setSayLine } from './slide-say';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum } from './spectrum-catalog';
@@ -286,18 +286,18 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	React.useEffect(() => setNoteDraft(curNote), [curNote, slideNumber]);
 	const commitNote = () => { if (noteDraft !== curNote) onMutate((c) => setNote(c, noteDraft)); };
 
-	// Caption — the slide's read-as OVERRIDE, the highest-precedence narration source
-	// (caption → front-matter caption → projection). A SEPARATE channel from the speaker
+	// Say line — the slide's read-as OVERRIDE, the highest-precedence narration source
+	// (say line → front-matter say: map → projection). A SEPARATE channel from the speaker
 	// note, and the note is not in the chain at all: the note is what you SAY off-slide; the
-	// caption is the exact words the slide READS (read-aloud, the HTML player's Read-Article,
+	// say line is the exact words the slide READS (read-aloud, the HTML player's Read-Article,
 	// the export `.vtt`, a11y).
 	// Same draft-then-commit shape; writes a `<!-- say: … -->` the engine routes to
 	// narration only, never to the presenter-note field.
-	const curCaption = React.useMemo(() => getCaption(chunk), [chunk]);
-	const [captionDraft, setCaptionDraft] = React.useState(curCaption);
+	const curSay = React.useMemo(() => getSayLine(chunk), [chunk]);
+	const [sayDraft, setSayDraft] = React.useState(curSay);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
-	React.useEffect(() => setCaptionDraft(curCaption), [curCaption, slideNumber]);
-	const commitCaption = () => { if (captionDraft !== curCaption) onMutate((c) => setCaption(c, captionDraft)); };
+	React.useEffect(() => setSayDraft(curSay), [curSay, slideNumber]);
+	const commitSay = () => { if (sayDraft !== curSay) onMutate((c) => setSayLine(c, sayDraft)); };
 
 	// Accessibility description — a SEPARATE channel from the note (objective
 	// equivalent of the slide, for screen readers). Same draft-then-commit shape;
@@ -366,7 +366,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		originalRef.current = chunk;
 	}, [slideNumber, open]);
 	const dirty = chunk !== originalRef.current;
-	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); setCaptionDraft(getCaption(originalRef.current)); setDescDraft(getDescription(originalRef.current)); onMutate(() => originalRef.current); } };
+	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); setSayDraft(getSayLine(originalRef.current)); setDescDraft(getDescription(originalRef.current)); onMutate(() => originalRef.current); } };
 
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
 	const editable = React.useMemo(() => canEditClass(chunk), [chunk]);
@@ -713,9 +713,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Volume2 className="size-3.5 text-[var(--accent)]" />Say <span className="font-normal text-muted-foreground">what this slide says aloud</span></span>
 								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">The exact words this slide speaks — in read-aloud, the HTML player's Read-Article, and the export <code className="font-mono">.vtt</code>. It replaces the narration generated from the slide. Leave empty to use the generated narration.</p>
 								<textarea
-									value={captionDraft}
-									onChange={(e) => setCaptionDraft(e.target.value)}
-									onBlur={commitCaption}
+									value={sayDraft}
+									onChange={(e) => setSayDraft(e.target.value)}
+									onBlur={commitSay}
 									aria-label="What this slide says aloud"
 									placeholder="The exact words this slide should read aloud — e.g. “Revenue grew forty percent across three quarters.”"
 									className="min-h-[84px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"

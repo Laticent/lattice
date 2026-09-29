@@ -117,7 +117,7 @@ export function NarrationExportOptions({
 	// picker at all (an unreachable catalog, and the on-device tier, which hides the picker
 	// while still naming a voice).
 	// `getFrontMatter` rather than `frontMatterLang`, and the reason is bytes. Both read the same
-	// key; `@/lib/resolve-captions` is reached from this route only through a dynamic import
+	// key; `@/lib/resolve-narration` is reached from this route only through a dynamic import
 	// (narration-bake's), so importing it statically here pulls the whole captions kernel into the
 	// Studio's EAGER bundle — measured against docs/route-budget.json. `./front-matter` is already
 	// eager on this route (ShareSheet, this panel's own parent, imports it). `voiceLanguageMismatch`

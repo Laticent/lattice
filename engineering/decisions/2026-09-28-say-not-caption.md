@@ -73,8 +73,8 @@ channel is PUBLIC: it reaches the `.vtt`, the read-along and the audio baked int
 `caption:` never carried that risk, because nobody writes "Caption:" to themselves. Matching the
 key case-insensitively, as `caption:` was, would have published those notes.
 
-So the key is **lowercase only** (`CAPTION_MATCHER = /^say\s*:/` in `lib/authoring/notes-core.js`,
-mirrored by `isCaptionBody` in the Studio). `Say:` and `SAY:` stay speaker notes, the safe side of
+So the key is **lowercase only** (`SAY_MATCHER = /^say\s*:/` in `lib/authoring/notes-core.js`,
+mirrored by `isSayBody` in the Studio). `Say:` and `SAY:` stay speaker notes, the safe side of
 the mistake, and `lint:deck` reports `say-key-case` as a **warning** — never an error, because a note
 that starts "Say:" is a perfectly good note. A lowercase `say:` note-to-self is still possible; the
 lowercase form reads as a directive, like `describe:` and `_class:`, which is the convention the docs
@@ -111,12 +111,19 @@ comment, and the CLI guide says it.
 chart typo"), and an error would leave no way out but rewording. Lowercase `caption:`, the form the docs
 taught, is the error.
 
+## Internal names (2026-09-29)
+
+The internal identifiers followed on 2026-09-29, in a code-only rename: `CAPTION_MATCHER` →
+`SAY_MATCHER`, `captionFromHtml` → `sayLineFromHtml`, `extractSlideCaptions` →
+`extractSlideSayLines`, `stripCaptionsFromSource` → `stripSayFromSource`,
+`resolve-captions.mjs` → `resolve-narration.mjs` (its `.captions` field is `.say`),
+`slide-caption.ts` → `slide-say.ts`, `isCaptionBody` → `isSayBody`, and `mergeNarration`'s
+`{ captions, fmCaptions }` options → `{ sayLines, fmSayMap }`, and `stripChannelsFromSource`'s
+`captions` option → `say`. Both throw on the old option names, because `lib/*` is a package export and an ignored key would fail silently:
+every override dropped from the narration, or the say text left in a privacy strip's output. "Caption" left in `lib/` names the retired key or visible text.
+
 ## What did not change
 
-- **Internal identifiers** still say caption for the spoken line: `CAPTION_MATCHER`,
-  `captionFromHtml`, `extractSlideCaptions`, `stripCaptionsFromSource`, `resolve-captions.mjs`,
-  `slide-caption.ts`, `isCaptionBody`. None of them is typed by
-  an author. Renaming them is a code-only follow-up, logged in `followups.d/2477-p3-internal-caption-names.md`.
 - **`--captions`**, the `.vtt` sidecar, the player's caption band and every figure caption keep the
   word, because they are visible text.
 - **Historical records** (`changelog.d/` fragments already written, earlier decision notes) describe

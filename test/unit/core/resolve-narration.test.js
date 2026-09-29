@@ -2,9 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 // ESM module under test — dynamic import from this CJS test.
-let parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang, lexiconMap;
+let parseNarrationFrontMatter, frontMatterSayMap, frontMatterLang, lexiconMap;
 test.before(async () => {
-  ({ parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang, lexiconMap } = await import('../../../lib/core/resolve-captions.mjs'));
+  ({ parseNarrationFrontMatter, frontMatterSayMap, frontMatterLang, lexiconMap } = await import('../../../lib/core/resolve-narration.mjs'));
 });
 
 const fm = (body) => `---\n${body}\n---\n\n# Deck\n`;
@@ -41,9 +41,9 @@ test('lexicon: a double-quoted value decodes escaped quotes/backslashes (writer�
   assert.equal(lexicon.get('y'), 'a\\b');
 });
 
-test('captions: a double-quoted value decodes escaped quotes too', () => {
-  const { captions } = parseNarrationFrontMatter(fm('say:\n  2: "she said \\"go\\"."'));
-  assert.equal(captions.get(2), 'she said "go".');
+test('say: a double-quoted value decodes escaped quotes too', () => {
+  const { say } = parseNarrationFrontMatter(fm('say:\n  2: "she said \\"go\\"."'));
+  assert.equal(say.get(2), 'she said "go".');
 });
 
 test('lexicon: absent key → empty map; lexiconMap is the thin accessor', () => {
@@ -109,14 +109,14 @@ test('blockLines is indent-aware: a nested key under lexicon is NOT double-parse
 });
 
 test('all three parsers still round-trip together at the front-matter root', () => {
-  // acronyms (Layer 2), lexicon (say-as), and captions (Layer 1) coexist and each parse cleanly.
-  const { acronyms, lexicon, captions } = parseNarrationFrontMatter(
+  // acronyms (Layer 2), lexicon (say-as), and the say: map (Layer 1) coexist and each parse cleanly.
+  const { acronyms, lexicon, say } = parseNarrationFrontMatter(
     fm('acronyms:\n  CRO: chief revenue officer\nlexicon:\n  "→": to\n  Kubernetes: koober-net-eez\nsay:\n  2: FY26 revenue grew.'),
   );
   assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer');
   assert.equal(lexicon.get('→'), 'to');
   assert.equal(lexicon.get('Kubernetes'), 'koober-net-eez');
-  assert.equal(captions.get(2), 'FY26 revenue grew.');
+  assert.equal(say.get(2), 'FY26 revenue grew.');
 });
 
 test('acronyms: the block is scoped (a dedented sibling key ends it)', () => {
@@ -140,61 +140,61 @@ test('absent key → empty map; non-string input is safe (never throws)', () => 
   }
 });
 
-// ── captions: (Layer 1 — slide-number-keyed read-as text) ───────────────────────────
+// ── say: (Layer 1 — slide-number-keyed read-as text) ───────────────────────────
 
-test('captions: slide-number keys → text, kept as authored 1-based numbers', () => {
-  const { captions } = parseNarrationFrontMatter(fm('say:\n  3: FY26 revenue grew forty percent.\n  5: Net dollar retention held.'));
-  assert.equal(captions.get(3), 'FY26 revenue grew forty percent.');
-  assert.equal(captions.get(5), 'Net dollar retention held.');
-  assert.equal(captions.size, 2);
+test('say: slide-number keys → text, kept as authored 1-based numbers', () => {
+  const { say } = parseNarrationFrontMatter(fm('say:\n  3: FY26 revenue grew forty percent.\n  5: Net dollar retention held.'));
+  assert.equal(say.get(3), 'FY26 revenue grew forty percent.');
+  assert.equal(say.get(5), 'Net dollar retention held.');
+  assert.equal(say.size, 2);
 });
 
-test('captions: a quoted value keeps its leading/trailing space (quotes stripped)', () => {
-  const { captions } = parseNarrationFrontMatter(fm('say:\n  2: "  spaced read.  "'));
-  assert.equal(captions.get(2), '  spaced read.  ');
+test('say: a quoted value keeps its leading/trailing space (quotes stripped)', () => {
+  const { say } = parseNarrationFrontMatter(fm('say:\n  2: "  spaced read.  "'));
+  assert.equal(say.get(2), '  spaced read.  ');
 });
 
-test('captions: a non-integer key is skipped; an empty value is skipped', () => {
-  const { captions } = parseNarrationFrontMatter(fm('say:\n  intro: not a number\n  4:\n  6: kept'));
-  assert.equal(captions.has(4), false); // empty value
-  assert.equal(captions.size, 1);
-  assert.equal(captions.get(6), 'kept');
+test('say: a non-integer key is skipped; an empty value is skipped', () => {
+  const { say } = parseNarrationFrontMatter(fm('say:\n  intro: not a number\n  4:\n  6: kept'));
+  assert.equal(say.has(4), false); // empty value
+  assert.equal(say.size, 1);
+  assert.equal(say.get(6), 'kept');
 });
 
-test('captions: last duplicate key wins', () => {
-  const { captions } = parseNarrationFrontMatter(fm('say:\n  1: first\n  1: second'));
-  assert.equal(captions.get(1), 'second');
+test('say: last duplicate key wins', () => {
+  const { say } = parseNarrationFrontMatter(fm('say:\n  1: first\n  1: second'));
+  assert.equal(say.get(1), 'second');
 });
 
-test('captions: a lone YAML block/folded scalar indicator is skipped (never narrates the glyph)', () => {
+test('say: a lone YAML block/folded scalar indicator is skipped (never narrates the glyph)', () => {
   // `3: >` / `4: |` / `5: >-` are multi-line YAML forms the flat parser can't read; the body is
-  // on deeper lines it skips — so it must NOT store the bare `>`/`|` as the caption.
-  const { captions } = parseNarrationFrontMatter(
+  // on deeper lines it skips — so it must NOT store the bare `>`/`|` as the say line.
+  const { say } = parseNarrationFrontMatter(
     fm('say:\n  3: >\n    folded body it cannot read\n  4: |\n  5: >-\n  6: kept line.'),
   );
-  assert.equal(captions.has(3), false);
-  assert.equal(captions.has(4), false);
-  assert.equal(captions.has(5), false);
-  assert.equal(captions.get(6), 'kept line.'); // a normal value on the same block still works
+  assert.equal(say.has(3), false);
+  assert.equal(say.has(4), false);
+  assert.equal(say.has(5), false);
+  assert.equal(say.get(6), 'kept line.'); // a normal value on the same block still works
 });
 
-test('captions: the block is scoped (a dedented sibling key ends it) and coexists with acronyms', () => {
-  const { captions, acronyms } = parseNarrationFrontMatter(
+test('say: the block is scoped (a dedented sibling key ends it) and coexists with acronyms', () => {
+  const { say, acronyms } = parseNarrationFrontMatter(
     fm('acronyms:\n  CRO: chief revenue officer\nsay:\n  1: opener line.\ntheme: indaco'),
   );
   assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer');
-  assert.equal(captions.get(1), 'opener line.');
-  assert.equal(captions.size, 1);
+  assert.equal(say.get(1), 'opener line.');
+  assert.equal(say.size, 1);
 });
 
-test('frontMatterCaptions is the captions map directly; absent key + bad input → empty, never throws', () => {
-  assert.equal(frontMatterCaptions(fm('say:\n  7: line.')).get(7), 'line.');
-  assert.equal(frontMatterCaptions(fm('theme: indaco')).size, 0);
-  for (const v of [null, undefined, 42, {}]) assert.equal(frontMatterCaptions(v).size, 0);
+test('frontMatterSayMap is the say: map directly; absent key + bad input → empty, never throws', () => {
+  assert.equal(frontMatterSayMap(fm('say:\n  7: line.')).get(7), 'line.');
+  assert.equal(frontMatterSayMap(fm('theme: indaco')).size, 0);
+  for (const v of [null, undefined, 42, {}]) assert.equal(frontMatterSayMap(v).size, 0);
 });
 
 // The locale-guard signal (#919): the Marp `lang:` directive marks a deck's narration
-// language. Both caption producers read it via this one helper so they can't drift.
+// language. Both narration producers read it via this one helper so they can't drift.
 test('frontMatterLang reads the Marp lang: directive, lowercased; absent → null', () => {
   assert.equal(frontMatterLang(fm('lang: fr')), 'fr');
   assert.equal(frontMatterLang(fm('lang: en-US')), 'en-us'); // lowercased for the isEnglishLang test

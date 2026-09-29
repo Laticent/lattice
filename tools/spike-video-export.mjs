@@ -104,7 +104,7 @@ const texts = Array.from({ length: slideCount }, (_, i) => {
 });
 // The deck's own timing inputs, exactly as the emulator parses them. Emphasis spans are not
 // carried (the sidecar holds text only), so a bolded phrase times as ordinary here.
-const { acronymSpokenMap, frontMatterLang, lexiconMap } = await import('../lib/core/resolve-captions.mjs');
+const { acronymSpokenMap, frontMatterLang, lexiconMap } = await import('../lib/core/resolve-narration.mjs');
 const trackOpts = { pace: 'moderate', acronyms: acronymSpokenMap(source), lexicon: lexiconMap(source), lang: frontMatterLang(source) };
 // THE VOICE. `--voice=espeak` speaks every cue with espeak-ng (a real, if robotic, voice: real
 // pauses inside a sentence, real leading and trailing silence). The default `tone` is a 330 Hz tone

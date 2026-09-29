@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
-import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
+import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
