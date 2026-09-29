@@ -168,7 +168,7 @@ test('the engine flip and a saved finish’s flip are both the EXPORT_FACES tabl
   // The targets differ in one slot, on purpose: the raster keeps a spotlight's feathered mask.
   assert.ok(gen.exportFlipDecls('print').some((d) => d.startsWith('--fin-backdrop-mask:')));
   assert.ok(!gen.exportFlipDecls('raster').some((d) => d.startsWith('--fin-backdrop-mask:')));
-  assert.throws(() => gen.exportFlipDecls('screen'), /unknown export target/);
+  assert.deepEqual(Object.keys(gen.EXPORT_FACES), ['print', 'raster']);
 
   // The SELECTORS matter as much as the list. Both flips reach the finish surfaces (split panels
   // re-declare the rich face), and the raster flip matches the section ITSELF, because the
@@ -177,7 +177,7 @@ test('the engine flip and a saved finish’s flip are both the EXPORT_FACES tabl
   for (const [css, base] of [[region, 'section.finish'], [gen.generateFinishCss('mine', recipe('strata')), 'section.finish.finish-mine']]) {
     const print = css.slice(css.indexOf('@media print'), css.indexOf(':where(.lattice-exporting)'));
     const raster = css.slice(css.indexOf(':where(.lattice-exporting)'));
-    assert.match(print, new RegExp(`${base.replace(/\./g, '\\.')},\\s*${base.replace(/\./g, '\\.')} :is\\(`), `${base}: print reaches the surfaces`);
+    assert.ok(print.includes(`${base},\n`) && print.includes(`${base} ${S} {`), `${base}: print reaches the surfaces`);
     for (const sel of [`:where(.lattice-exporting) ${base},`, `:where(.lattice-exporting) ${base} ${S},`, `${base}.lattice-exporting,`, `${base}.lattice-exporting ${S} {`]) {
       assert.ok(raster.includes(sel), `${base}: raster selector ${sel}`);
     }

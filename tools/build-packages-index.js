@@ -174,7 +174,8 @@ ${rules.join('\n\n')}
 
 /** base.finish.css with its generated EXPORT FLIP region rewritten from finish-generate.js `EXPORT_FACES`. */
 function writeExportFlip(current) {
-  const { engineFlipCss, FINISH_SURFACES } = require('../lib/finishes/finish-generate.js');
+  const { engineFlipCss } = require('../lib/finishes/preset-css.js');
+  const { FINISH_SURFACES } = require('../lib/finishes/finish-generate.js');
   const begin = current.indexOf(FLIP_BEGIN);
   const head = begin < 0 ? -1 : current.indexOf(FLIP_BEGIN_TAIL, begin);
   const end = current.indexOf(FLIP_END);
