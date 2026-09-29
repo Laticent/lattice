@@ -40,12 +40,16 @@ const S = await import(`data:text/javascript;base64,${Buffer.from(built.outputFi
 // Taken once: reading a module namespace's export per span charges the lookup to Segno.
 const { isDirective, parse: parseTree, parseFlat } = S;
 
+// A before/after pair may run an older copy of the library (SEGNO_LIB) that predates
+// indexed(); it had color({ max }) for the same slot.
+const colorSlot = () => (S.indexed ? S.indexed('c', { max: 12, label: 'a color' }) : S.color({ max: 12 }));
+
 // ── the slots, as Lattice will declare them ─────────────────────────────────
 const SHAPES = ['pill', 'chip', 'tag', 'tag-bordered', 'circle', 'chevron-right', 'chevron-left', 'diamond'];
 const pill = S.record({
   label: 'a pill',
   positional: [{ name: 'value', type: S.text() }],
-  params: { shape: S.oneOf(SHAPES), color: S.color({ max: 12 }), size: S.oneOf(['sm', 'md', 'lg']) },
+  params: { shape: S.oneOf(SHAPES), color: colorSlot(), size: S.oneOf(['sm', 'md', 'lg']) },
 });
 const state = S.record({
   label: 'a state mark',

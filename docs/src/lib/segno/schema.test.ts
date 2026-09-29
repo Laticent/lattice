@@ -4,14 +4,14 @@
 import { describe, expect, it } from 'vitest';
 import { consistency, type Use } from './consistency';
 import { list, record, SchemaError, value } from './schema';
-import { color, flag, id, named, number, oneOf, range, text, time } from './types';
+import { flag, id, indexed, named, number, oneOf, range, text, time } from './types';
 
 const pill = record({
   label: 'a pill',
   positional: [{ name: 'value', type: text() }],
   params: {
     shape: oneOf(['pill', 'chip', 'tag', 'tag-bordered', 'circle', 'chevron-right', 'chevron-left', 'diamond']),
-    color: color({ max: 12 }),
+    color: indexed('c', { max: 12, label: 'a color' }),
     size: oneOf(['sm', 'md', 'lg']),
   },
 });
@@ -40,7 +40,7 @@ describe('a pill', () => {
     expect(codes(pill.read('{BETA, weight=bold}'))).toEqual(['unknown-param']);
   });
   it('the color ceiling is the slot\'s', () => {
-    const node = record({ positional: [{ name: 'name', type: text() }], params: { color: color({ max: 8 }) } });
+    const node = record({ positional: [{ name: 'name', type: text() }], params: { color: indexed('c', { max: 8, label: 'a color' }) } });
     expect(ok(node.read('{Api, c8}'))).toEqual({ name: 'Api', color: 8 });
     expect(codes(node.read('{Api, c9}'))).toEqual(['unknown-word']);
   });
@@ -204,5 +204,19 @@ describe('spellings name their parameter plainly', () => {
     const rule = record({ positional: [{ name: 'flag', type: text() }], params: { regions: list(oneOf(['eu', 'us'])) } });
     const r = rule.read('{x, [eu, us]}');
     expect(r.ok && r.spellings.map((sp) => sp.param)).toEqual(['regions', 'regions']);
+  });
+});
+
+describe('indexed slots', () => {
+  const c = indexed('c', { max: 12, label: 'a color' });
+  it('reads c1 to the ceiling, case-insensitively, and nothing else', () => {
+    expect([c.read('c1', false), c.read('C12', false), c.read('c13', false), c.read('c0', false), c.read('c04', false), c.read('c', false), c.read('x4', false), c.read('c4', true)])
+      .toEqual([1, 12, undefined, undefined, undefined, undefined, undefined, undefined]);
+    expect(c.describe).toBe('a color c1–c12');
+  });
+  it('any prefix, and a prefix an author could not type is refused', () => {
+    expect(indexed('step', { max: 5 }).read('step3', false)).toBe(3);
+    expect(() => indexed('c-', { max: 3 })).toThrow();
+    expect(() => indexed('c', { max: 0 })).toThrow();
   });
 });

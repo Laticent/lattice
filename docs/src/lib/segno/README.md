@@ -116,7 +116,7 @@ fix is to make one positional, or to wrap it in `named(...)` so it must be writt
 | `text()` | anything; the only type quoted text can be |
 | `oneOf(values, { aliases })` | declared words, case-insensitive, with extra spellings |
 | `flag(word)` | a word that switches something on: `milestone` |
-| `color({ max })` | `c1`…`cN`, as a palette names its colors; the ceiling is set per slot |
+| `indexed(prefix, { max })` | `c1`…`c12`, `step1`…`step5`: a prefix and a number, the ceiling set per slot |
 | `id()` | `#api` |
 | `number()` | numbers as people write them: `42` `-$0.8M` `12%` `($1.2M)` `1,25M` `1.234.567` |
 | `time()` | dates as people write them: `2026-03-15` `2026 Q1` `Q3` `Jan` |

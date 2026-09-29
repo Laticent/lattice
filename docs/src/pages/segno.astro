@@ -268,7 +268,7 @@
 
 		<script>
 			import {
-				alt, any, charRange, chars, color, compile, consistency, flag, generate, GrammarError, lit, list, many, many1, named, node, noneOf, number,
+				alt, any, charRange, chars, compile, consistency, flag, generate, GrammarError, indexed, lit, list, many, many1, named, node, noneOf, number,
 				oneOf, opt, parse, range, record, ref, seq, text, time,
 			} from '@/lib/segno';
 
@@ -312,7 +312,7 @@
 					label: 'Pill', sample: '{BETA, tag, c4}',
 					slot: record({ label: 'a pill', positional: [{ name: 'value', type: text() }], params: {
 						shape: oneOf(['pill', 'chip', 'tag', 'tag-bordered', 'circle', 'chevron-right', 'chevron-left', 'diamond']),
-						color: color({ max: 12 }), size: oneOf(['sm', 'md', 'lg']) } }),
+						color: indexed('c', { max: 12, label: 'a color' }), size: oneOf(['sm', 'md', 'lg']) } }),
 				},
 				state: {
 					lattice: true,

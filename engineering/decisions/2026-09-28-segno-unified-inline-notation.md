@@ -62,6 +62,9 @@ them, and the rest are ordinary code that must stay literal.
 | 11 | **Journey is a record** `{who=Customer, mood=4, volume=120}`, with `@Customer` kept as a declared shortcut for `who=`; `:4` and `+120` are dropped | owner |
 | 12 | **One `color` type**, `c1`–`c12`, and each slot declares its ceiling (the flowchart's is 8), so `c9` on a flowchart is an error that names the limit | owner |
 | 13 | **Segno is a general-purpose library; Lattice is its first user.** It will be published for non-Lattice uses, so nothing in its API, messages or docs may assume Lattice: "per deck" is "per document", examples lead with general cases (a rollout rule, a retry policy), and Lattice is the documented first user. The phase-1 audit and what it left open: § Published, not Lattice's | owner |
+| 14 | **The license stays `AGPL-3.0-only`**, as its sibling libraries are, with the adoption cost stated (§ Published, not Lattice's) | owner, over Apache-2.0 and MIT |
+| 15 | **`color()` becomes a general `indexed(prefix, { max })`**; Lattice's color slots are `indexed('c', { max: 12, label: 'a color' })`, so decision 12 stands with a general type under it | owner |
+| 16 | **Publish to npm after phase 2**, once Lattice runs on it in production, so the first public version has a real user and an API proven against the 27 schemas | owner, over publishing at phase 1 |
 
 ## The notation
 
@@ -298,18 +301,18 @@ Decision 13 makes Segno a library other projects will adopt. Phase 1 audited it 
     the parameter.
   - The README, package description and `/segno` page lead with the general engine, with Lattice
     as its first user.
-- **Open, for the owner, before the first publish:**
-  - **License.** The package carries `AGPL-3.0-only`, copied from its sibling libraries. AGPL
-    requires anyone who serves software built on it over a network to publish their source, which
-    many companies will not accept in a dependency. A permissive license (MIT, Apache-2.0) is the
-    usual choice for a library meant for broad adoption; the choice is the owner's.
-  - **`color({ max })`** spells indexed colors `c1…cN`, a Lattice convention. It is harmless as a
-    convenience, but a general `indexed(prefix, { max })` would serve other palettes.
-  - **`number()`'s rules** (accounting parentheses, `k`/`M`/`B`, European separators) are
-    documented as "numbers as people write them". They are opinionated; the parity test that holds
-    them to `lib/core/chart-values.js` is Lattice's contract, and belongs on Lattice's side if the
-    library moves to its own repository.
-  - **Publishing** to npm is external and cannot be taken back; it waits for its own go-ahead.
+- **Decided with the owner:**
+  - **License: `AGPL-3.0-only`** (decision 14). AGPL requires anyone who serves software built on
+    it over a network to publish their source, which many companies will not accept in a
+    dependency; the owner kept it with that cost stated.
+  - **`indexed(prefix, { max })`** replaced `color({ max })`, whose `c1…cN` spelling was a Lattice
+    convention (decision 15). It takes any letter prefix, reads without a regular expression, and
+    refuses a prefix an author could not type.
+  - **Publish after phase 2** (decision 16). Publishing is external and cannot be taken back.
+- **Still to settle before that publish:** `number()`'s rules (accounting parentheses, `k`/`M`/`B`,
+  European separators) are documented as "numbers as people write them" and are opinionated; the
+  parity test that holds them to `lib/core/chart-values.js` is Lattice's contract, and belongs on
+  Lattice's side if the library moves to its own repository.
 
 ## Demo page and branding
 

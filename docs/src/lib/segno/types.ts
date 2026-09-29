@@ -99,19 +99,33 @@ export function flag(word: string, options: { aliases?: readonly string[] } = {}
   };
 }
 
-/** An indexed color slot `c1`…`cN`, as a palette names its colors. The ceiling is the SLOT's, so `c9` where 8 are allowed names the limit. */
-export function color(options: { max: number }): Type<number> {
-  const words = Array.from({ length: options.max }, (_, i) => `c${i + 1}`);
+/**
+ * An indexed slot: a prefix and a number, `c1`…`c12` or `s1`…`s5`, as a palette names its colors or
+ * a scale its steps. The ceiling is the SLOT's, so `c9` where 8 are allowed is an error that names
+ * the limit. Case-insensitive; no leading zero (`c04` is not `c4`). Lattice's color slots are
+ * `indexed('c', { max: 12, label: 'a color' })`.
+ */
+export function indexed(prefix: string, options: { max: number; label?: string }): Type<number> {
+  if (!/^[a-z]+$/i.test(prefix)) throw new Error(`segno: an indexed prefix is letters only, not "${prefix}"`);
+  if (!Number.isInteger(options.max) || options.max < 1) throw new Error(`segno: an indexed max is a whole number of at least 1, not ${options.max}`);
+  const p = prefix.toLowerCase();
+  const { max } = options;
+  const words = Array.from({ length: max }, (_, i) => `${p}${i + 1}`);
+  const range = `${p}1–${p}${max}`;
   return {
     cls: 'vocab',
-    describe: `a color c1–c${options.max}`,
+    describe: options.label ? `${options.label} ${range}` : range,
     words,
     read: (s, quoted) => {
-      if (quoted) return undefined;
-      const m = /^c([1-9]\d?)$/i.exec(s);
-      if (!m) return undefined;
-      const n = Number(m[1]);
-      return n >= 1 && n <= options.max ? n : undefined;
+      if (quoted || s.length <= p.length || s.slice(0, p.length).toLowerCase() !== p) return undefined;
+      let n = 0;
+      for (let i = p.length; i < s.length; i++) {
+        const c = s.charCodeAt(i);
+        if (c < 48 || c > 57 || (i === p.length && c === 48)) return undefined;
+        n = n * 10 + (c - 48);
+        if (n > max) return undefined;
+      }
+      return n;
     },
     canonical: (s) => s.toLowerCase(),
   };
