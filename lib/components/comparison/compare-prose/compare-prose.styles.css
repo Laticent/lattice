@@ -16,6 +16,7 @@ section.compare-prose .compare-prose-inner { display:flex; align-items:stretch; 
 section.compare-prose .compare-prose-inner .card {
   flex:1; background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  --card-tag-rest:var(--sp-sm);   /* the card's own top padding, for a tag off the top (base.card-tag.css) */
   font-weight:700; color:var(--text-heading);
 }
 section.compare-prose .compare-prose-inner .card > strong { display:block; }
@@ -83,6 +84,7 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
   flex:1; background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  --card-tag-rest:var(--sp-sm);
   display:grid; align-content:start; justify-items:start;
   font-weight:700; color:var(--text-heading);
 }
@@ -236,9 +238,9 @@ section.compare-prose :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * `- Label`, lift produces the `<strong>`, this block restyles the card. */
 /* The card's column layout and the band itself: lib/base/base.card-tag.css. What
  * stays here is the body, which fills the rest of the card. */
-section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
-section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
-section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-child) > :is(ul, ol) {
+section.banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-band, .tag-inline).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
+section.banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-band, .tag-inline).compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
+section.banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-band, .tag-inline).compare-prose .compare-prose-inner .card:has(> strong:first-child) > :is(ul, ol) {
   /* `auto`, not `0`: the basis is the body's contribution when the CARD sizes to its content
    * (`cards: center` / `top` / `spread`), and a zero basis contributed nothing, so the body
    * spilled out of the card below the banner. When the card is stretched the body is its one

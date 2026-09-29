@@ -1,0 +1,5 @@
+- The `tag:` register gains two axes, so it now takes up to four words:
+  - placement: `corner` (the default), `foot` (the bottom-left corner), `notch` (a tab straddling the card's top edge), `band` (a full-width strip across the card top) or `inline` (a chip above the card's first line; list-steps' own place);
+  - text alignment inside the tag: `start` (the default), `center` or `end`.
+- Every placement works on every tagged layout: `cards-grid`, `cards-stack`, `decision`, `compare-prose`, `split-compare` and `list-steps`. On list-steps, `corner`, `foot`, `notch` and `band` turn the bare `STEP 01` label into a boxed tag. A slide sets one axis with `tag-foot`, `tag-center` and so on and keeps the deck's other words; a placement word on a slide wins over `banner-tag`.
+- Tags in each placement keep one size per slide, as corner tags already did, and `tag-budget` gives a `tag-band` label two lines, as it does a `banner-tag` band. Decks that set no placement render unchanged.
