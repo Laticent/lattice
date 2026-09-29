@@ -41,7 +41,8 @@
     "test:e2e:bless": "playwright test --update-snapshots --grep @visual",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
-    "check:route-budget": "node scripts/check-route-budget.mjs"
+    "check:route-budget": "node scripts/check-route-budget.mjs",
+    "route-budget:rebaseline": "node scripts/check-route-budget.mjs --rebaseline"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.3.0",
