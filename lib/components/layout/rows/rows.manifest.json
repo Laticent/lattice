@@ -97,12 +97,7 @@
     "stack": false
   },
   "gesture": {
-    "archetype": "compare",
-    "units": {
-      "side": {
-        "select": ":is(.lat-panes > .lat-pane-cell, .lat-panes > lat-pane)"
-      }
-    }
+    "archetype": "statement"
   },
   "specimenVoice": true,
   "adapt": {

@@ -254,6 +254,27 @@ test('a bare ### under a pill leaves no head on a split page, as on the wide sli
   assert.doesNotMatch(flat, /Q3/);
 });
 
+test('lint reads the whole _class: a slash in a multi-line _class, two ratio words, a class: run in code', () => {
+  const two = (cls) => `<!-- _class: ${cls} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n`;
+  const multi = lintText(two('columns\n60/40')).filter((x) => x.rule === 'pane-layout');
+  assert.equal(multi.length, 1);
+  assert.match(multi[0].fix, /ratio-60-40/);
+  // A ratio word that sets the ratio: the slash warning does not claim 50/50.
+  const both = lintText(two('columns ratio-60-40 60/40')).find((x) => /not a class name/.test(x.message));
+  assert.doesNotMatch(both.message, /50\/50/);
+  const pair = lintText(two('columns ratio-60-40 ratio-70-30')).find((x) => /names 2 ratios/.test(x.message));
+  assert.match(pair.fix, /`ratio-70-30`/);
+  // A `<!-- class: rows -->` quoted in code is not a run.
+  const quoted = lintText('## Docs\n\n```md\n<!-- class: rows -->\n```\n\nWrite `<!-- class: columns -->` never.\n').filter((x) => x.rule === 'pane-layout');
+  assert.deepEqual(quoted, []);
+});
+
+test('on a split page a bare ### takes its pills with it, and no subtitle reaches the masthead', () => {
+  const flat = render('---\nsize: portrait\n---\n\n<!-- _class: columns -->\n\n## T\n\n<!-- _pane: bar -->\n`Q3`\n###\n`$M sub`\n\n- A `1`\n- B `2`\n\n<!-- _pane: content -->\n### B\n\ny\n').replace(/>\s+</g, '><');
+  assert.doesNotMatch(flat, /\$M sub/);
+  assert.doesNotMatch(flat, /<h3><\/h3>/);
+});
+
 test('lint: the alias gets pane-syntax with the rewrite', () => {
   const f = lintText('## T\n\n<!-- panes: stack 40/60 -->\n<!-- pane: list -->\n\n- a\n\n<!-- pane: content -->\n\nx\n').find((x) => x.rule === 'pane-syntax');
   assert.ok(f);
