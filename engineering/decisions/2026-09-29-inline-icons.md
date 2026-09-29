@@ -7,7 +7,7 @@ summary: >
   a curated ~250 of Tabler (MIT), picked over Carbon and Lucide because it shares our own marks' 24-unit grid
   and line style; we draw its four architecture gaps ourselves. Cloud providers stay neutral: no vendor logos
   or service icons, only a role icon paired with the service name and a color, because the official AWS,
-  Azure and GCP icons are not open source and cannot be recolored. Icons take the sparks' frame, look and
+  Azure and GCP icons ship under vendor usage terms, not an open-source license, and are multicolored. Icons take the sparks' frame, look and
   corner axes and an `icon:` register. Build waits for Segno phase 2.
 ---
 
@@ -86,10 +86,14 @@ would put solid shapes among line ones.
 
 ## 4. Cloud providers: neutral, by license and by choice
 
-The official provider icons cannot meet the brief. AWS publishes its Architecture Icons under
-CC-BY-ND 2.0, and "no derivatives" rules out recoloring them into a deck's palette. They are
-multicolored besides, so they would break a palette-blind layout even if the license allowed it.
-Azure and GCP publish theirs under their own vendor terms, not an open-source license.
+The official provider icons cannot meet the brief. AWS's own icon page
+(`aws.amazon.com/architecture/icons`, read 2026-09-29) grants customers and partners permission to
+use the toolkits "to create architecture diagrams" and in presentations. That is a usage grant under
+AWS's terms, not an open-source license, and it says nothing that permits redrawing or recoloring.
+Third-party sites describe the set as CC-BY-ND 2.0 (no derivatives), but AWS's page does not say so,
+and this note does not rely on it. Azure and GCP publish theirs under their own vendor terms, also
+not an open-source license. The icons are multicolored besides, so they would break a palette-blind
+layout whatever the license said.
 
 So a cloud service is **a role icon, the service's name, and a color**:
 
