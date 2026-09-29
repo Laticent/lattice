@@ -73,10 +73,10 @@ function sampleBuild(page: import('@playwright/test').Page, maxFrames: number): 
 				let settledFor = 0;
 				const tick = () => {
 					const d = (document.querySelector('#preview') as HTMLIFrameElement | null)?.contentDocument;
-					const pre = d?.querySelector('pre[data-mermaid-state]');
+					const pre = d?.querySelector('pre[data-lattice-hydrate="mermaid"][data-lattice-settle]');
 					const fig = d?.querySelector('.mermaid');
 					const live = fig?.querySelector('.scene-live');
-					const drawn = pre?.getAttribute('data-mermaid-state') === 'rendered';
+					const drawn = pre?.getAttribute('data-lattice-settle') === 'rendered';
 					const hidden = !!fig && (fig.classList.contains('anima-prehide') || getComputedStyle(fig).visibility === 'hidden');
 					const parts = live
 						? Array.from(live.querySelectorAll('[data-anima-role]:not([data-anima-role="label"])')).map((el) => ({

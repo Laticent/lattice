@@ -3,41 +3,46 @@ import { buildStageDoc, createStageController } from './stage-window.js';
 
 describe('stage-window — buildStageDoc', () => {
 	it('wraps the deck HTML into a self-contained, postMessage-driven stage', () => {
-		const doc = buildStageDoc({ html: '<article class="lattice"><section>A</section></article>', width: 1280, height: 720, bg: '#111', css: '.k{color:red}', runtimeUrl: '/runtime.js', katexUrl: '/katex.css', mermaidUrl: '/mermaid.js', a11yDefs: '<svg id="a11y"></svg>' });
+		const doc = buildStageDoc({ html: '<article class="lattice"><section>A</section></article>', width: 1280, height: 720, bg: '#111', css: '.k{color:red}', runtimeUrl: '/runtime.js', katexUrl: '/katex.css', a11yDefs: '<svg id="a11y"></svg>' });
 		expect(doc).toContain('<section>A</section>');
 		expect(doc).toContain('.k{color:red}');
 		expect(doc).toContain('/runtime.js');
 		expect(doc).toContain('/katex.css');
-		expect(doc).toContain('/mermaid.js');
+		// No diagram library tag, ever: the runtime's plugin host loads Mermaid beside the runtime.
+		expect(doc).not.toMatch(/<script[^>]+mermaid/i);
 		expect(doc).toContain('<svg id="a11y"></svg>');
 		// The pv-driven show() contract the console postMessages to.
 		expect(doc).toContain('e.data.pv');
 		expect(doc).toContain('background:#111');
 	});
-	it('omits the katex/mermaid tags when not supplied', () => {
-		// BOTH halves. This asserted only `not.toContain('stylesheet')` — the KaTeX link — so
-		// the mermaid half of its own name was unchecked, and a deck with no diagram could
-		// have gone on pulling a multi-hundred-KB script into the room's window unnoticed.
+	it('omits the katex tag when not supplied, and never writes a Mermaid tag', () => {
+		// A deck with no diagram must not pull a multi-hundred-KB script into the room's window —
+		// and now no deck does from here: the Mermaid plugin's library is loaded by the runtime's
+		// plugin host, beside the runtime, only when the stage holds a fence.
 		const doc = buildStageDoc({ html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js' });
 		expect(doc).not.toContain('stylesheet');
 		expect(doc).not.toContain('mermaid');
 		expect(doc).toContain('/r.js');
 		// …and the positive control, so the cell cannot pass by emitting nothing at all.
-		const both = buildStageDoc({ html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js', katexUrl: '/k.css', mermaidUrl: '/m.js' });
-		expect(both).toContain('/k.css');
-		expect(both).toContain('/m.js');
+		const withMath = buildStageDoc({ html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js', katexUrl: '/k.css' });
+		expect(withMath).toContain('/k.css');
+		const withDiagram = buildStageDoc({ html: '<pre><code class="language-mermaid">flowchart LR</code></pre>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js' });
+		expect(withDiagram).not.toMatch(/<script[^>]+mermaid/i);
 	});
 	// The Stage is the third builder that can stamp `data-lattice-diagrams`, and it was the
 	// one with nothing pinning it. `mermaid.css` withholds an un-tagged Mermaid fence's ink
-	// only under that attribute, so the promise has to follow the Mermaid script: a Stage
-	// document that injects no renderer must not claim it will draw a diagram, or a fence it
-	// cannot render goes invisible in front of an audience.
-	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
-	it('claims diagrams only when it injects Mermaid', () => {
-		const base = { html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js' } as const;
-		expect(buildStageDoc({ ...base, mermaidUrl: '/m.js' })).toMatch(/<html[^>]* data-lattice-diagrams[ >]/);
-		// The runtime alone is not the precondition — a fence is replaced by Mermaid.
-		expect(buildStageDoc({ ...base })).not.toContain('data-lattice-diagrams');
+	// only under that attribute, so the promise has to follow something that will draw it: a
+	// runtime loaded from a URL (whose plugin host fetches the library beside it) into a stage
+	// that holds a fence. Without either, a fence it cannot render would go invisible in front
+	// of an audience. See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
+	it('claims diagrams only for a fence it has a runtime URL to draw', () => {
+		const fence = '<pre><code class="language-mermaid">flowchart LR</code></pre>';
+		const base = { width: 100, height: 100, bg: '#000', css: '' } as const;
+		expect(buildStageDoc({ ...base, html: fence, runtimeUrl: '/r.js' })).toMatch(/<html[^>]* data-lattice-diagrams[ >]/);
+		// The runtime alone is not the precondition — a deck with no fence has nothing to draw…
+		expect(buildStageDoc({ ...base, html: '<i>x</i>', runtimeUrl: '/r.js' })).not.toContain('data-lattice-diagrams');
+		// …and a fence with no runtime URL has nothing to draw it.
+		expect(buildStageDoc({ ...base, html: fence, runtimeUrl: '' })).not.toContain('data-lattice-diagrams');
 	});
 
 	it('binds the inlined fit kernel to the names its call sites use (the stage-crop guard)', () => {

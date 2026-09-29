@@ -84,8 +84,15 @@ the host leaves it to the fence renderer installed before the table, so it has n
 aliases. The plugin draws it later, in two places:
 
 - **In a browser, the runtime draws it** (`render.exec.hydrate: "runtime"`): the runtime's own
-  diagram pass, not a `<name>.hydrate.js`. `drawn.generated.mjs` lists these fences, so a surface
-  that must tell "this render still owes a drawing" reads the registry instead of naming Mermaid.
+  diagram pass, not a `<name>.hydrate.js`. It reads the plugin's fence names and library from the
+  registry (`drawn.generated.mjs` `RUNTIME_DRAWN`), tags each fence's `<pre>` with the host's markup
+  at boot (`data-lattice-hydrate="mermaid"` and the settle state below — `hydrating` while a draw is
+  in flight), and asks the host for the library (`ensureLibrary`), which loads the plugin's
+  `payload` from beside the runtime exactly as it loads a hydrator's. So no page threads a URL, and
+  every capture waits on a diagram through the one barrier. A surface that must tell "this render
+  still owes a drawing" before the runtime ran reads `drawn-probe.mjs` (the fence as a DOM
+  selector, in rendered markup, in Markdown source, and the library's address beside a runtime
+  URL) instead of naming Mermaid.
 - **On the CLI, its bake draws it** (`contributes.bake`, `render.exec.bake: "subprocess"`):
   `<name>.bake.js` exports `bake(source, ctx)`, and `host-bake.js` runs every active plugin's bake,
   in dependency order, over the deck's Markdown before the engine renders — only for a deck that
@@ -126,6 +133,14 @@ the state in markup, where any capture can read it:
 | `rendered` · `error` | drawn · failed, with the failure shown on the slide |
 | `unavailable` | the library never came; the author's source is shown. Recoverable |
 | + `data-lattice-final` | closed by a capture (or a budget); nothing touches it again |
+
+A runtime-drawn fence carries the same markup on its `<pre>` (written by the runtime, not the
+engine) and no `data-lattice-config`: its content already is the author's highlighted source, so a
+release leaves it in place and the plugin's CSS shows it for `unavailable`. The runtime's host
+leaves that `<pre>` to the runtime's pass; any other element carrying the plugin's name is an
+author's, and is released at once. `drawn-library.mjs` gives a page the library's address beside a
+runtime URL (the Studio's diagram checker, its warm-up) and the `<link rel="preload">` a frame
+builder writes for a document with a drawn fence.
 
 Every capture waits until no placeholder is `pending` or `hydrating` — the CLI's PDF/PNG/PPTX and
 `--player` bake (`settleBarrierScript`), and the Studio export (`deck-export.js`,
@@ -193,7 +208,8 @@ committed files — never edit them:
 - `hydrate.generated.js` — each browser half and the library it waits for (the runtime bundles it)
 - `styles.generated.js` — the stylesheets, in dependency order, for `tools/build-css.js`
 - `bake.generated.js` — each Node-side bake, required lazily (`host-bake.js` runs them)
-- `drawn.generated.mjs` — the code fences a browser runtime draws (plain data)
+- `drawn.generated.mjs` — the code fences a browser runtime draws, and each such plugin's
+  `payload` (plain data; `drawn-probe.mjs` is the hand-written reader browser surfaces import)
 
 The resolver also holds the manifest to the files for the phase-B contributions: a declared fence
 has a renderer and no renderer is undeclared, `hydrate` ⇔ a self-contained `<name>.hydrate.js`,
@@ -202,5 +218,8 @@ has a renderer and no renderer is undeclared, `hydrate` ⇔ a self-contained `<n
 `npm run build:check` fails when they are stale, and `checkPluginMigration` in
 `tools/check-ownership.js` fails when code outside `lib/plugins` hand-names a plugin's token, or a
 fence wrapper re-grows in `lib/integrations/markdown-it/plugins.js` (budget 0 since phase B), and
-counts the `language-<fence>` rosters that still name a runtime-drawn fence (`drawnFenceClasses`,
-18 after phase D; the budget only falls).
+counts the three hand idioms a runtime-drawn plugin's browser half grew before the host could
+answer for it: `language-<fence>` rosters (`drawnFenceClasses`), a hand-threaded library URL
+(`drawnLibraryUrls`, `mermaidUrl`) and a private settle state in code or CSS
+(`drawnSettleStates`, `data-mermaid-state`). All three are 0 since phase D's browser half, and
+the budget only falls.

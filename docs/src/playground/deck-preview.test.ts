@@ -3,15 +3,16 @@ import { slideFrameFilter } from '../../../lib/core/slide-frame.mjs';
 import { buildSrcdoc, fitSlideOnSheet, nUpCells, nUpGrid, resolvePrintSheet } from './deck-preview.js';
 
 // The filmstrip srcdoc must inject the heavy third-party assets ONLY when the deck
-// actually uses them — KaTeX styles `.katex`, Mermaid renders `code.language-mermaid`
-// fences — so a plain deck (the common case) pulls neither and never waits on a CDN.
+// actually uses them — KaTeX styles `.katex` — so a plain deck (the common case) pulls
+// nothing and never waits on a CDN. Mermaid is never injected here: it is the Mermaid
+// plugin's payload, which the runtime's plugin host loads beside the runtime for a deck
+// that holds a fence (lib/plugins/host-browser.mjs `ensureLibrary`).
 const base = {
 	css: 'section{}',
 	mode: 'light' as const,
 	geom: { w: 1280, h: 720 },
 	runtimeUrl: '/rt.js',
 	katexUrl: 'https://cdn.example/katex.css',
-	mermaidUrl: 'https://cdn.example/mermaid.js',
 };
 
 describe('buildSrcdoc — the slide edge', () => {
@@ -65,10 +66,18 @@ describe('buildSrcdoc — asset gating', () => {
 		expect(doc).not.toContain('mermaid.js');
 	});
 
-	it('a deck with a mermaid fence injects the Mermaid runtime only', () => {
+	it('a deck with a mermaid fence injects no library tag, and promises the draw', () => {
 		const doc = buildSrcdoc({ ...base, html: '<section id="1"><pre><code class="language-mermaid">graph TD</code></pre></section>' });
-		expect(doc).toContain('mermaid.js');
+		expect(doc).not.toMatch(/<script[^>]+mermaid/i);
 		expect(doc).not.toContain('katex.css');
+		// The runtime draws it (and loads its library), so the document may withhold the
+		// fence's ink until it does.
+		expect(doc).toMatch(/<html[^>]* data-lattice-diagrams[ >]/);
+		// …only when the builder loads a runtime at all, and only for a deck with a fence.
+		expect(buildSrcdoc({ ...base, runtimeUrl: '', html: '<section id="1"><pre><code class="language-mermaid">graph TD</code></pre></section>' })).not.toContain('data-lattice-diagrams');
+		expect(buildSrcdoc({ ...base, html: '<section id="1"><h1>x</h1></section>' })).not.toContain('data-lattice-diagrams');
+		// `diagrams: false` (the export capture frame) never stamps.
+		expect(buildSrcdoc({ ...base, diagrams: false, html: '<section id="1"><pre><code class="language-mermaid">graph TD</code></pre></section>' })).not.toContain('data-lattice-diagrams');
 	});
 
 	// THE URL HALF OF THE GATE, which was missing until 2026-09-03. These sites used to
@@ -90,10 +99,9 @@ describe('buildSrcdoc — asset gating', () => {
 		expect(doc).not.toContain('rel="stylesheet"');
 	});
 
-	it('a diagram deck with NO mermaidUrl injects no script at all — never an empty src', () => {
+	it('a diagram deck injects no script with an empty src', () => {
 		const doc = buildSrcdoc({
 			...base,
-			mermaidUrl: '',
 			html: '<section id="1"><pre><code class="language-mermaid">graph TD</code></pre></section>',
 		});
 		expect(doc).not.toContain('src=""');

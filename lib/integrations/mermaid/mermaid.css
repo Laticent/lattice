@@ -148,16 +148,16 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * engineering/decisions/2026-09-22-webkit-tspan-baseline.md §8. */
 :is(section, figure) svg[aria-roledescription] :is(g, a, text, tspan, textPath):not([dominant-baseline]) { dominant-baseline: inherit; }
 
-/* Visibility states keyed off `data-mermaid-state` on the <pre>.
+/* Visibility states keyed off `data-lattice-settle` on the <pre>.
  *
  * The source <pre> is hidden for every tagged state except "error".
- * Keeping it visible while pending/rendering caused raw Mermaid source to
+ * Keeping it visible while pending/hydrating caused raw Mermaid source to
  * flash on every preview keystroke (the marp-vscode preview replaces
- * section DOM on each edit, briefly removing data-mermaid-state before our
+ * section DOM on each edit, briefly removing data-lattice-settle before our
  * runtime re-tags the fresh <pre>). The "error" state still shows the
  * source so the author can see what failed.
  *
- * While pending/rendering the .mermaid sibling fills the layout slot as an
+ * While pending/hydrating the .mermaid sibling fills the layout slot as an
  * empty flex container; when rendered it holds the SVG; for "error" and
  * "unavailable" it is collapsed so the source <pre> has full room.
  *
@@ -175,15 +175,19 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * exported artifact and rendered by whatever opens that file years from now,
  * so the Selectors-3 spelling is worth the eight characters.
  *
- * Rules are intentionally UNSCOPED — `data-mermaid-state` is only ever set
- * by our runtime, so this cannot affect unrelated <pre> blocks. */
-:is(pre, marp-pre)[data-mermaid-state]:not([data-mermaid-state="error"]):not([data-mermaid-state="unavailable"]) { display:none; }
-:is(pre, marp-pre)[data-mermaid-state="error"]         + .mermaid        { display:none; }
-:is(pre, marp-pre)[data-mermaid-state="unavailable"]   + .mermaid        { display:none; }
-:is(pre, marp-pre)[data-mermaid-state="rendered"]      + .mermaid        { display:flex; }
+ * Keyed on the plugin host's ONE settle state (`data-lattice-settle`, the attribute every
+ * export capture waits on — lib/plugins/host-browser.mjs), which the runtime writes on the
+ * fence's <pre> beside `data-lattice-hydrate="mermaid"`. The plugin name rides in `:where()`,
+ * which adds no specificity, so every rule here weighs exactly what the old private
+ * `data-mermaid-state` rule weighed — the collapse below is decided by that arithmetic. Only
+ * the runtime tags a <pre>, so these cannot affect unrelated <pre> blocks. */
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle]:not([data-lattice-settle="error"]):not([data-lattice-settle="unavailable"]) { display:none; }
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle="error"]         + .mermaid        { display:none; }
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle="unavailable"]   + .mermaid        { display:none; }
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle="rendered"]      + .mermaid        { display:flex; }
 /* …AND THE SAME COLLAPSE ON A FORM-WRAPPED DIAGRAM SLIDE, which the two rules above
  * could not reach. `section.diagram > .cell-stage > .mermaid { display:flex; flex:1 }`
- * (line 39) is (0,3,1); `[data-mermaid-state="error"] + .mermaid` is (0,2,1). So on every
+ * (line 39) is (0,3,1); `[data-lattice-settle="error"] + .mermaid` is (0,2,1). So on every
  * diagram slide since the masthead kernel began wrapping the body in `.cell-stage`, an
  * EMPTY `.mermaid` box kept `flex:1` and claimed half the stage — while the source <pre>,
  * also `flex:1`, got the other half. The comment above has promised "full room" for the
@@ -192,13 +196,13 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * Found by measuring the error state while adding `unavailable` beside it, not by reading
  * the specificity off the page — the arithmetic is exactly what a review gets wrong.
  * Driven in test/integration/mermaid/mermaid-unavailable.test.js. */
-section.diagram > :is(pre, marp-pre):is([data-mermaid-state="error"], [data-mermaid-state="unavailable"]) + .mermaid,
-section.diagram > .cell-stage > :is(pre, marp-pre):is([data-mermaid-state="error"], [data-mermaid-state="unavailable"]) + .mermaid { display:none; }
+section.diagram > :is(pre, marp-pre):where([data-lattice-hydrate="mermaid"]):is([data-lattice-settle="error"], [data-lattice-settle="unavailable"]) + .mermaid,
+section.diagram > .cell-stage > :is(pre, marp-pre):where([data-lattice-hydrate="mermaid"]):is([data-lattice-settle="error"], [data-lattice-settle="unavailable"]) + .mermaid { display:none; }
 
 /* …and BEFORE it is tagged, the fence paints nothing either — in a document that is
  * injecting a Mermaid renderer, and so has promised something will draw it.
  *
- * The three rules above key on `data-mermaid-state`, which exists only once the
+ * The three rules above key on `data-lattice-settle`, which exists only once the
  * runtime has run. Nothing covered the window before that, so a diagram slide painted
  * its raw Mermaid source and then swapped: measured on the Studio at 10 painted frames
  * per keystroke on an idle machine, 4 more on every navigation onto the slide, with
@@ -219,11 +223,13 @@ section.diagram > .cell-stage > :is(pre, marp-pre):is([data-mermaid-state="error
  * drew their diagram. Unscoped, this rule turned it into an empty slot — verified on
  * a real export, and an export-bytes regression on an authoring-error surface.
  *
- * So the attribute is stamped by the BUILDER, and it names the MERMAID SCRIPT rather
- * than the runtime: a host earns this rule by already having committed to injecting a
- * Mermaid renderer into the document it is assembling (`previewDiagramsAttr()` in
+ * So the attribute is stamped by the BUILDER, and it names the builder's commitment to a
+ * drawer rather than the runtime's boot mark: a host earns this rule by loading the runtime
+ * FROM A URL into a document that holds a drawn fence — the runtime's plugin host then loads
+ * Mermaid (the plugin's payload) from beside it. (It used to name the Mermaid `<script src>`
+ * the builder injected; no builder injects one now.) `previewDiagramsAttr()` in
  * docs/src/playground/deck-preview.js is the one place that writes it; the two preview
- * frames and the Stage window are the callers). A document we did not assemble — a
+ * frames and the Stage window are the callers. A document we did not assemble — a
  * hand-rolled Marp page, marp-vscode's own preview — never gets it and keeps the old
  * behavior. It must be in the MARKUP the host writes, not set by script at boot: the
  * window this covers STARTS at the first paint of a full document write, which is before
@@ -238,18 +244,18 @@ section.diagram > .cell-stage > :is(pre, marp-pre):is([data-mermaid-state="error
  * before this shipped. The runtime was never the right precondition anyway: a fence is
  * replaced by MERMAID, so that is what the document has to promise.
  *
- * ONE PATH STAMPS AND STILL WRITES A FILE: the Studio's offscreen EXPORT capture frame
- * goes through `buildSrcdoc` with a real Mermaid URL, so it carries the attribute. That
- * is correct — Mermaid renders there — and the artifact it produces is re-assembled by
- * the player builder, which does not stamp. So the DOWNLOADED file still shows the source
- * of anything Mermaid failed to draw.
+ * NO EXPORT PATH STAMPS: the Studio's offscreen EXPORT capture frame goes through
+ * `buildSrcdoc` with the runtime but passes `diagrams: false` (deck-export.js), because it is
+ * rasterized and a withheld ink would be baked into the file; the desktop print document does
+ * the same; and the player builder re-assembles its document without stamping. So a
+ * DOWNLOADED file still shows the source of anything Mermaid failed to draw.
  *
  * Scoped by the LANGUAGE CLASS rather than by `section.diagram`, because an author may
  * put an ordinary ```js block on a diagram slide and it must still read, and a fence
  * outside a slide host has the same window. `[class*=…]` covers both the authored
  * `language-mermaid` and the `language-mermaid-source` the runtime renames it to.
  * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A. */
-[data-lattice-diagrams] :is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"] { visibility:hidden; }
+[data-lattice-diagrams] :is(pre, marp-pre):not([data-lattice-settle]) > code[class*="language-mermaid"] { visibility:hidden; }
 
 /* Base (theme-agnostic) styling for the source <pre> in pending/error states.
  * Structural only: layout, sizing, font, whitespace. No background, no
@@ -257,10 +263,10 @@ section.diagram > .cell-stage > :is(pre, marp-pre):is([data-mermaid-state="error
  * (see `section.diagram > pre` in themes/indaco.css etc.). The selector
  * pair covers two paths: (1) any pre inside section.diagram (slide host,
  * styling applies even before the runtime tags it), and (2) any pre
- * tagged by the runtime in a non-slide host. `:not([data-mermaid-state=
+ * tagged by the runtime in a non-slide host. `:not([data-lattice-settle=
  * "rendered"])` steps aside once the SVG sibling takes over. */
-section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
-:is(pre, marp-pre)[data-mermaid-state]:not([data-mermaid-state="rendered"]) {
+section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]),
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle]:not([data-lattice-settle="rendered"]) {
   margin:0 !important;
   /* ZERO, not `var(--sp-sm) var(--sp-md)` (#1598). This box paints nothing — the
    * two lines below take the background and the border away deliberately — so
@@ -274,7 +280,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
    * now shares one left edge with the dek, the title and the Key Insight.
    *
    * BOTH ARMS of this selector are zeroed, including the unscoped
-   * `[data-mermaid-state]` one that reaches a non-slide host (a plain markdown
+   * `[data-lattice-settle]` one that reaches a non-slide host (a plain markdown
    * preview, the Studio's preview frame). That is deliberate and rests on the same
    * ground, not on the slide context: the two lines below strip the background and
    * the border on both arms, so the box paints nothing on any host and owes no
@@ -292,8 +298,8 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
   width:1152px; height:480px;
   max-width:100%;
 }
-section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
-:is(pre, marp-pre)[data-mermaid-state]:not([data-mermaid-state="rendered"]) > code {
+section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle]:not([data-lattice-settle="rendered"]) > code {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);
   line-height:var(--lh-base);

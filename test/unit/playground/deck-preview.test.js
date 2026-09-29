@@ -60,21 +60,22 @@ describe('buildSrcdoc', () => {
 	// A PROMISE ABOUT THE DOCUMENT, not a style hook. `mermaid.css` withholds an un-tagged
 	// Mermaid fence's ink only under `[data-lattice-diagrams]`, because hiding a diagram's
 	// source is right only where something is going to DRAW it. So the claim follows the
-	// MERMAID script, not the runtime — a document with the runtime and no Mermaid renders
-	// no diagram and its author needs the source they can read. (The first version of this
-	// gate keyed on `data-lattice-runtime`, which the runtime itself stamps at boot; it
-	// turned the rule on in exactly the hosts it was meant to spare.)
-	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
-	test('claims diagrams on the <html> tag only when it injects Mermaid', async () => {
+	// builder's commitment to a drawer — a runtime loaded FROM A URL (its plugin host fetches the
+	// Mermaid plugin's library beside it) into a document holding a drawn fence — and never the
+	// runtime's own boot mark. (The first version of this gate keyed on `data-lattice-runtime`,
+	// which the runtime itself stamps at boot; it turned the rule on in exactly the hosts it was
+	// meant to spare. The second keyed on the Mermaid `<script src>` the builder injected, which
+	// no builder writes now.) See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
+	test('claims diagrams on the <html> tag only for a drawn fence it loads a runtime to draw', async () => {
 		const { buildSrcdoc, previewDiagramsAttr } = await load();
-		const withFence = { ...BASE, html: '<pre><code class="language-mermaid">graph LR</code></pre>', mermaidUrl: '/m.js' };
+		const withFence = { ...BASE, html: '<pre><code class="language-mermaid">graph LR</code></pre>' };
 		assert.match(buildSrcdoc(withFence), /<html[^>]* data-lattice-diagrams[ >]/);
-		// No Mermaid injected → no claim, on either half of the condition.
+		// Nothing to draw, or nothing to draw it with → no claim, on either half of the condition.
 		assert.doesNotMatch(buildSrcdoc({ ...BASE }), /data-lattice-diagrams/);
-		assert.doesNotMatch(buildSrcdoc({ ...withFence, mermaidUrl: '' }), /data-lattice-diagrams/);
-		assert.equal(previewDiagramsAttr(''), '');
+		assert.doesNotMatch(buildSrcdoc({ ...withFence, runtimeUrl: '' }), /data-lattice-diagrams/);
+		assert.equal(previewDiagramsAttr(false), '');
 		assert.equal(previewDiagramsAttr(undefined), '');
-		assert.equal(previewDiagramsAttr('/m.js'), ' data-lattice-diagrams');
+		assert.equal(previewDiagramsAttr(true), ' data-lattice-diagrams');
 	});
 
 	// THE SEAM, and the only thing on this branch that has been wrong twice. The gate lives
@@ -94,7 +95,7 @@ describe('buildSrcdoc', () => {
 		assert.ok(rule, 'mermaid.css no longer carries the un-tagged-fence rule');
 		const gate = /^\[([a-z-]+)\]/.exec(rule.trim());
 		assert.ok(gate, 'the rule is no longer gated on a root attribute — it would hide fences everywhere');
-		assert.equal(' ' + gate[1], previewDiagramsAttr('/m.js'));
+		assert.equal(' ' + gate[1], previewDiagramsAttr(true));
 	});
 
 	// The offscreen EXPORT capture frame opts OUT: it is rasterized through `html-to-image`,
@@ -104,11 +105,12 @@ describe('buildSrcdoc', () => {
 	// used to be. Driven through the real rasterizer by the third independent checker.
 	test('does not claim diagrams when the caller opts out (the export capture frame)', async () => {
 		const { buildSrcdoc } = await load();
-		const withFence = { ...BASE, html: '<pre><code class="language-mermaid">graph LR</code></pre>', mermaidUrl: '/m.js' };
+		const withFence = { ...BASE, html: '<pre><code class="language-mermaid">graph LR</code></pre>' };
 		assert.match(buildSrcdoc(withFence), /<html[^>]* data-lattice-diagrams[ >]/);
 		assert.doesNotMatch(buildSrcdoc({ ...withFence, diagrams: false }), /data-lattice-diagrams/);
-		// Opting out must not also drop the Mermaid script — the frame still renders diagrams.
-		assert.match(buildSrcdoc({ ...withFence, diagrams: false }), /src="\/m\.js"/);
+		// Opting out must not also drop the runtime — the frame still draws diagrams (its plugin
+		// host loads the library beside it).
+		assert.match(buildSrcdoc({ ...withFence, diagrams: false }), /src="\/rt\.js"/);
 	});
 
 	// A CENSUS OF THE STAMPERS, because the per-caller knob is the shape that keeps being got

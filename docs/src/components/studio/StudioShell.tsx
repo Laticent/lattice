@@ -86,7 +86,7 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { MotionTargets } from './MotionTargets';
-import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
+import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
@@ -1349,8 +1349,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				} catch {}
 				const katexUrl = sourceHasMath(sourceRef.current) ? deriveKatexProviderUrl() : null;
 				// Fabricate's gallery carries a Diagram specimen, so opening Fabricate counts too.
-				const mermaidUrl = (diagramsUsed || fabricateUsed) && options?.mermaidUrl ? options.mermaidUrl : null;
-				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, mermaidUrl, fabricateUsed });
+				const diagramRuntimeUrl = (diagramsUsed || fabricateUsed) && options?.runtimeUrl ? options.runtimeUrl : null;
+				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed });
 			})
 			.catch(() => {});
 		return () => {
@@ -1359,7 +1359,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		};
 		// `options` comes from the page and never changes, so this runs once; the warmables are
 		// memoized, so a re-run would fetch nothing twice.
-	}, [options?.mermaidUrl]);
+	}, [options?.runtimeUrl]);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	// Indirection so the demo can drive the slide scope's commit funnel —
@@ -2968,15 +2968,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Read the deck through the ref, so the DIAGRAM TEXT is the only trigger — depending
 		// on `source` would re-parse on every prose keystroke for no change in the answer.
 		const id = setTimeout(() => {
-			checkDiagrams(sourceRef.current, options?.mermaidUrl ?? '').then((errs) => {
-				if (live) setDiagramErrors(errs);
-			});
+			// On demand: the parse half (and its library loader) is not startup JavaScript.
+			import('./mermaid-parse')
+				.then((m) => m.checkDiagrams(extractDiagrams(sourceRef.current), options?.runtimeUrl ?? ''))
+				.then((errs) => {
+					if (live) setDiagramErrors(errs);
+				})
+				.catch(() => {
+					if (live) setDiagramErrors(null);
+				});
 		}, 900);
 		return () => {
 			live = false;
 			clearTimeout(id);
 		};
-	}, [diagramSignature, options?.mermaidUrl]);
+	}, [diagramSignature, options?.runtimeUrl]);
 	// Disambiguated, STABLE per-finding keys (finding object → key). Content-based so a
 	// fix survives a re-lint; an occurrence ordinal keeps two IDENTICAL findings (e.g. a
 	// repeated `_class` token → two same unknown-class findings) from colliding onto one

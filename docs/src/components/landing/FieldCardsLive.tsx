@@ -17,7 +17,6 @@ export type FieldCardsData = {
 	themeBase: string;
 	runtimeUrl: string;
 	engineUrl: string;
-	mermaidUrl: string;
 	dagreUrl: string;
 	katexUrl: string;
 };
@@ -28,7 +27,6 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 			themeBase: data.themeBase,
 			runtimeUrl: data.runtimeUrl,
 			engineUrl: data.engineUrl,
-			mermaidUrl: data.mermaidUrl,
 			dagreUrl: data.dagreUrl,
 			katexUrl: data.katexUrl,
 		}),

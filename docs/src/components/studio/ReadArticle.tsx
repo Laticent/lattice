@@ -150,7 +150,7 @@ export const READ_ARTICLE_CSS = `
    the figure. The reader got a wall of mermaid source immediately followed by the drawing —
    the bug this view set out to remove, now shipped beside its own fix. Kept in step with
    lib/components/diagram/mermaid/... by intent, not by a gate. */
-.st-read-article pre[data-mermaid-state]:not([data-mermaid-state="error"]):not([data-mermaid-state="unavailable"]){display:none}
+.st-read-article pre:where([data-lattice-hydrate])[data-lattice-settle]:not([data-lattice-settle="error"]):not([data-lattice-settle="unavailable"]){display:none}
 /* Un-trim, exactly as the player's Read view does: a slide's guards:strict clamp rides
    in on the cloned DOM, and this column scrolls, so the clamp is pure content loss for a
    reader who opened this view to get the full text. display:revert, not display:block —

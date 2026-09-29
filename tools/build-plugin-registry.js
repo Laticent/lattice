@@ -56,6 +56,7 @@ const HYDRATE_FILE = path.join(PLUGINS_DIR, 'hydrate.generated.js');
 const STYLES_FILE = path.join(PLUGINS_DIR, 'styles.generated.js');
 const BAKE_FILE = path.join(PLUGINS_DIR, 'bake.generated.js');
 const DRAWN_FILE = path.join(PLUGINS_DIR, 'drawn.generated.mjs');
+const DRAWN_LIBRARY_FILE = path.join(PLUGINS_DIR, 'drawn-library.generated.mjs');
 
 /** Every `lib/plugins/<folder>/` holding a `*.manifest.json`, `_`-prefixed folders skipped. */
 function listPlugins() {
@@ -372,13 +373,32 @@ function renderDrawn(ordered) {
   // that needs the library's address derives it instead of threading a hand-named URL.
   const byPlugin = drawn.map((p) => {
     const [payload] = Object.values(p.manifest.payload || {});
-    const lib = payload ? `Object.freeze({ from: ${JSON.stringify(payload.from)}, file: ${JSON.stringify(payload.from.split('/').pop())}, global: ${JSON.stringify(payload.global)} })` : 'null';
-    return `  ${JSON.stringify(p.manifest.name)}: Object.freeze({ fences: Object.freeze(${JSON.stringify(codeFences(p))}), payload: ${lib} }),`;
+    const lib = payload ? `/* @__PURE__ */ Object.freeze({ from: ${JSON.stringify(payload.from)}, file: ${JSON.stringify(payload.from.split('/').pop())}, global: ${JSON.stringify(payload.global)} })` : 'null';
+    return `  ${JSON.stringify(p.manifest.name)}: /* @__PURE__ */ Object.freeze({ fences: /* @__PURE__ */ Object.freeze(${JSON.stringify(codeFences(p))}), payload: ${lib} }),`;
   });
   return `${HEADER('The code fences a browser runtime draws (render.exec.hydrate "runtime"), and each such plugin\'s library. Plain data.')}
 export const RUNTIME_DRAWN_FENCES = Object.freeze(${JSON.stringify(fences)});
 
-export const RUNTIME_DRAWN = Object.freeze({${byPlugin.length ? `\n${byPlugin.join('\n')}\n` : ''}});
+// Pure-annotated: \`Object.freeze\` reads as a side effect, so without it a bundle that imports only
+// the fence names (the Studio's startup JavaScript) would keep this unused record.
+export const RUNTIME_DRAWN = /* @__PURE__ */ Object.freeze({${byPlugin.length ? `\n${byPlugin.join('\n')}\n` : ''}});
+`;
+}
+
+/**
+ * Each runtime-drawn plugin's library FILE NAME, and nothing else — for lib/plugins/drawn-library.mjs,
+ * which a page reads only from lazily loaded code. Its own module, apart from drawn.generated.mjs,
+ * because a bundler keeps a module whole in one chunk: the Studio's startup chunk carries the fence
+ * names, and sharing a module with them would carry this record too (measured: ~100 bytes gz).
+ */
+function renderDrawnLibrary(ordered) {
+  const files = {};
+  for (const p of ordered.filter((q) => q.manifest.render?.exec?.hydrate === 'runtime')) {
+    const [payload] = Object.values(p.manifest.payload || {});
+    if (payload) files[p.manifest.name] = payload.from.split('/').pop();
+  }
+  return `${HEADER('Each runtime-drawn plugin\'s library file name, staged beside the runtime. Plain data, for lazily loaded readers.')}
+export const DRAWN_LIBRARY_FILES = Object.freeze(${JSON.stringify(files)});
 `;
 }
 
@@ -462,6 +482,7 @@ async function build(opts = {}) {
       [STYLES_FILE, renderStyles(ordered)],
       [BAKE_FILE, renderBake(ordered)],
       [DRAWN_FILE, renderDrawn(ordered)],
+      [DRAWN_LIBRARY_FILE, renderDrawnLibrary(ordered)],
     ],
   };
 }
@@ -482,7 +503,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,styles,bake,drawn}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,styles,bake,drawn,drawn-library}.generated.*\n`);
 }
 
 if (require.main === module) {

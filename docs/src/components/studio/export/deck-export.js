@@ -387,7 +387,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl, dagreUrl, webOrigins }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	const host = document.createElement('div');
@@ -410,8 +410,9 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// "Load them" switch). This frame used to pass `csp: false` and fetch every one at export,
 		// on the author's machine, for content they may not have written; the CLI's render has
 		// been offline since 2026-09-24. A blocked image exports as the drawn placeholder.
+		// No diagram library URL: the runtime in this frame loads Mermaid (the plugin's payload)
+		// from beside `runtimeUrl` when the deck holds a fence, through the plugin host.
 		const srcdoc = buildSrcdoc({ html, css, mode, geom: { w: gw, h: gh }, runtimeUrl, fontCss,
-			...(mermaidUrl ? { mermaidUrl } : {}),
 			// The dagre layout engine. `buildSrcdoc` still gates the tag on the slide
 			// actually carrying a drawn state chart, so a chart-less export fetches nothing.
 			...(dagreUrl ? { dagreUrl } : {}),
@@ -470,26 +471,24 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 	return { frame, dispose };
 }
 
-// Bounded wait for runtime-rendered diagrams (Mermaid) to finish in the capture
-// host, so a diagram deck doesn't rasterize mid-render. Charts are server-rendered
-// SVG (already in the html); only Mermaid streams in async. No-op when absent.
+// Bounded wait for runtime-drawn figures (a Mermaid diagram, a function plot) to finish in
+// the capture host, so a figure deck doesn't rasterize mid-draw. Charts are server-rendered
+// SVG (already in the html); only the plugin figures stream in async. No-op when absent.
 //
-// Waits on the RUNTIME's own state machine (lib/runtime/index.js), which is the only
-// thing that knows a fence is done: it retags each ```mermaid fence's <pre> with
-// `data-mermaid-state` (pending → rendered | error), rewrites the fence's class to
-// `language-mermaid-source`, and inserts the sibling `.mermaid` div the SVG lands in.
-// So there are TWO ways to be un-settled and the old loop saw neither: a fence the
-// runtime has not reached yet has NO `.mermaid` sibling at all, and the loop counted
-// only existing `.mermaid` boxes — finding none, it declared 0 pending and returned
-// immediately, on the very deck it exists to wait for. (It escaped notice because the
-// ~700ms of font + rAF settling ahead of it usually covered the gap; a cold mermaid
-// script fetch, or a big multi-diagram deck, is where it loses the race.)
+// WAITS ON THE PLUGIN HOST'S ONE BARRIER, and names no plugin. Every figure a browser draws
+// carries the host's markup (lib/plugins/host-browser.mjs): a plot's placeholder gets
+// `data-lattice-settle="pending"` from the ENGINE, and a Mermaid fence's <pre> gets
+// `data-lattice-hydrate="mermaid"` + `data-lattice-settle` from the runtime's diagram pass,
+// which tags every fence at boot (`wrapFences`) — before this frame's `load`, which the wait
+// below follows. So `PENDING_FIGURES` (pending or hydrating, not closed) is the whole question.
+// This used to read Mermaid's private `data-mermaid-state` plus an UNTAGGED-fence probe keyed
+// on `language-mermaid`, beside the host's selector for plots: two idioms for one barrier.
 /**
- * WAIT FOR THE DIAGRAMS, THEN GIVE UP HONESTLY — the give-up is the fix, not the waiting.
+ * WAIT FOR THE FIGURES, THEN GIVE UP HONESTLY — the give-up is the fix, not the waiting.
  *
  * WHAT GOES WRONG WITHOUT THIS. `mermaid.css` hides the source `<pre>` for every state but
  * `error` and `unavailable`, because a fence on its way to being drawn must not flash its
- * markdown. So when this budget expires with a fence still un-settled, the capture proceeds
+ * markdown. So when this budget expires with a figure still un-settled, the capture proceeds
  * and bakes a BLANK REGION into the file — permanently, in something the author has already
  * downloaded and may already have sent. That is the #2092 shape.
  *
@@ -520,84 +519,41 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
  *     the capture baked the same blank, five times later.
  *
  * SO THE ANSWER IS NOT A BETTER CONSTANT. At the moment this function gives up it knows
- * exactly which fences are un-settled, and it used to throw that away. Tagging them
- * `unavailable` hands the author their own source text where a blank would have gone — the
- * same mechanism `releaseUnrenderableFences` already uses when Mermaid never arrives, and the
- * same one `test/integration/mermaid/mermaid-unavailable.test.js` pins. It removes the blank
- * on every path, on any machine, with no number to get wrong.
+ * exactly which figures are un-settled, and it used to throw that away. Releasing them
+ * `unavailable` hands the author their own source where a blank would have gone — the same
+ * state the runtime writes when a library never arrives, and the same one
+ * `test/integration/mermaid/mermaid-unavailable.test.js` pins. It removes the blank on every
+ * path, on any machine, with no number to get wrong.
  *
- * @returns the number of fences released as source rather than drawn — 0 when everything drew.
+ * @returns the number of figures released as source rather than drawn — 0 when everything drew.
  */
 export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } = {}) {
-	const UNTAGGED = ':is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"]:not(.language-mermaid-source)';
-	const TAGGED = ':is(pre, marp-pre)[data-mermaid-state]';
-	// A plugin figure (```functionplot, …) the runtime has not settled yet — the plugin host's
-	// one marker for every plugin, written `pending` by the engine, so no plugin is named here
-	// (lib/plugins/host-browser.mjs). The runtime loads a plot's library on demand in this frame,
-	// so the figure streams in async like a diagram.
-	const PLOT = PENDING_FIGURES;
-	if (!doc.querySelector(`${UNTAGGED}, ${TAGGED}, .mermaid, ${PLOT}`)) return 0;
-
-	/**
-	 * The fences that would bake as a blank if the capture happened right now.
-	 *
-	 * An UNTAGGED fence is not one of them and that distinction is load-bearing: the hide is
-	 * keyed on `data-mermaid-state`, so a fence the runtime has not reached yet still paints
-	 * its source. Tagging it here would take that away.
-	 */
-	const blanking = () => {
-		const out = [];
-		for (const pre of doc.querySelectorAll(TAGGED)) {
-			const state = pre.getAttribute('data-mermaid-state');
-			// `error` and `unavailable` ARE settled — the runtime has given up and the source
-			// <pre> is the honest artifact. (`error` is a diagram Mermaid rejected;
-			// `unavailable` is Mermaid itself never arriving — a 404, a CSP block, a stub.
-			// Reading only the first is what made a 404'd script burn this whole budget and
-			// then bake the empty slot anyway; see lib/runtime/index.js releaseUnrenderableFences.)
-			// Only `rendered` owes an SVG in the sibling box.
-			if (state !== 'rendered' && state !== 'error' && state !== 'unavailable') out.push(pre);
-			else if (state === 'rendered' && !pre.nextElementSibling?.querySelector?.('svg')) out.push(pre);
-		}
-		return out;
-	};
-
+	if (!doc.querySelector(PENDING_FIGURES)) return 0;
 	const start = Date.now();
 	while (Date.now() - start < budgetMs) {
-		if (!blanking().length && !doc.querySelectorAll(UNTAGGED).length && !doc.querySelector(PLOT)) return 0;
+		if (!doc.querySelector(PENDING_FIGURES)) return 0;
 		await new Promise((r) => setTimeout(r, 120));
 	}
-
-	// THE BUDGET EXPIRED. Re-read rather than reusing the last poll's list, which is up to one
-	// poll interval stale and may name a fence that has since drawn.
-	const stranded = blanking();
-	const strandedPlots = [...doc.querySelectorAll(PLOT)];
+	// THE BUDGET EXPIRED. Re-read rather than reusing the last poll, which is up to one poll
+	// interval stale and may name a figure that has since drawn.
+	const stranded = [...doc.querySelectorAll(PENDING_FIGURES)];
 	// A CALLER THAT WAITS AGAIN MUST NOT RELEASE HERE. The release is terminal — `unavailable`
-	// plus `data-mermaid-final` closes every route the runtime has back to this fence (see the
-	// mark below) — so releasing at anything but the LAST wait before the capture silently
-	// shortens the budget to that wait's. `bakeDeckSections` is exactly that case: it builds a
-	// capture frame (which waits) and then waits 12000 more on the same document, so a release
-	// in the frame would cap the bake at the frame's 4000 and strand a diagram that was still
-	// going to draw. Waiting is idempotent; releasing is not.
-	if (!release) return stranded.length + strandedPlots.length;
-	// A figure still waiting on its library ships the author's source, not an empty stage, and
-	// the same `unavailable` the runtime writes when the load fails — and FINAL, for the reason
-	// `data-mermaid-final` is below: a late library load would otherwise clear this text and draw,
-	// after the capture decided what it was baking. The plugin host's own release (one source).
-	for (const div of strandedPlots) releaseFigure(div, base64Utf8.fromBase64, true);
-	for (const pre of stranded) {
-		// `unavailable` rather than `error`: nothing about this fence is known to be wrong. It
-		// ran out of time, which is what the state means everywhere else it is set.
-		pre.setAttribute('data-mermaid-state', 'unavailable');
-		// AND FINAL, or the runtime takes it straight back. `reclaimReleasedFences` returns any
-		// `unavailable` fence to `pending` — re-hiding it — as soon as a content pass runs with
-		// Mermaid present, which is exactly the situation here. The gap is not theoretical:
-		// `bakeDeckSections` releases, then awaits a dynamic import before reading `outerHTML`,
-		// and the capture frame shares this thread, so a pass scheduled during the wait lands in
-		// that await. The capture would then take the blank this release exists to prevent, and
-		// it would do it intermittently.
-		pre.setAttribute('data-mermaid-final', '');
-	}
-	return stranded.length + strandedPlots.length;
+	// plus `data-lattice-final` closes every route the runtime has back to this figure — so
+	// releasing at anything but the LAST wait before the capture silently shortens the budget to
+	// that wait's. `bakeDeckSections` is exactly that case: it builds a capture frame (which
+	// waits) and then waits 12000 more on the same document, so a release in the frame would cap
+	// the bake at the frame's 4000 and strand a diagram that was still going to draw. Waiting is
+	// idempotent; releasing is not.
+	if (!release) return stranded.length;
+	// The plugin host's own release (one source): `unavailable`, and FINAL — or a late library
+	// load, or the runtime's `reclaimReleasedFences`, takes the figure straight back and re-hides
+	// it after the capture decided what it was baking. The gap is not theoretical:
+	// `bakeDeckSections` releases, then awaits a dynamic import before reading `outerHTML`, and
+	// the capture frame shares this thread, so a pass scheduled during the wait lands in that
+	// await. A placeholder shows its packed source; a fence drawn from its own code block (a
+	// Mermaid <pre>) keeps its highlighted source, which its CSS shows for `unavailable`.
+	for (const el of stranded) releaseFigure(el, base64Utf8.fromBase64, true);
+	return stranded.length;
 }
 
 /**
@@ -661,7 +617,7 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  * player's toggle must not lose. Same collection, same reason and same shape as
  * `flattenChartSvgs` above.
  *
- * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl }`
+ * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl }`
  * @param {{ freezeTokens?: boolean }} [opts]
  * @returns {Promise<{ sections: string[], diagrams: number, failed: number } | null>}
  */
@@ -680,7 +636,7 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		// un-settled is released to `unavailable`, so the slide carries the author's source
 		// instead of a blank — see `waitForDiagrams`. Its return value is deliberately dropped
 		// here: the `failed` tally below already counts every fence that is not `rendered`, and
-		// `share-export.ts` already turns that into "N diagram(s) ship as source, not as
+		// `share-export.ts` already turns that into "N figure(s) ship as source, not as
 		// drawings" for the author. A second channel would report the same fences twice.
 		await waitForDiagrams(doc, 12000);
 		const sections = [...doc.querySelectorAll('.lattice > section')];
@@ -723,12 +679,15 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 			// The spent source <pre> RIDES ALONG rather than being dropped, even though the
 			// CLI's player carries none (mmdc replaces the fence outright). It is already
 			// `display:none`, and both the visibility and the SVG sizing rules are written as
-			// ADJACENT-SIBLING selectors on it (`pre[data-mermaid-state="rendered"] + .mermaid`
+			// ADJACENT-SIBLING selectors on it (`pre[data-lattice-settle="rendered"] + .mermaid`
 			// in mermaid.css / highlight-js.css) — removing the <pre> would unstyle the very
 			// diagram this step exists to ship. Read·Article is unaffected: the prose
 			// projection re-hosts the first `svg` under the stage, which is the rendered one.
-			for (const pre of sec.querySelectorAll('pre[data-mermaid-state], marp-pre[data-mermaid-state]')) {
-				if (pre.getAttribute('data-mermaid-state') === 'rendered') diagrams++;
+			//
+			// Counted by the host's markup, like the wait: every runtime-drawn figure, whichever
+			// plugin drew it, is `rendered` or it ships as source.
+			for (const fig of sec.querySelectorAll('[data-lattice-hydrate][data-lattice-settle]')) {
+				if (fig.getAttribute('data-lattice-settle') === 'rendered') diagrams++;
 				else failed++;
 			}
 		}

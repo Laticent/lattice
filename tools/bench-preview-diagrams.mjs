@@ -132,7 +132,7 @@ await page.evaluate((md) => {
 await new Promise((r) => setTimeout(r, 1500));
 await page.mouse.click(35, 87); // eye → preview
 
-/** Wait until every fence has left pending/rendering inside the deck frame. */
+/** Wait until every fence has left pending/hydrating inside the deck frame. */
 async function settle(expected) {
   const deadline = Date.now() + 120000;
   while (Date.now() < deadline) {
@@ -140,7 +140,7 @@ async function settle(expected) {
       const st = await f
         .evaluate(() => ({
           svgs: document.querySelectorAll('.mermaid svg').length,
-          busy: document.querySelectorAll('[data-mermaid-state="pending"],[data-mermaid-state="rendering"]').length,
+          busy: document.querySelectorAll('[data-lattice-hydrate][data-lattice-settle="pending"],[data-lattice-hydrate][data-lattice-settle="hydrating"]').length,
         }))
         .catch(() => null);
       if (st && st.svgs >= expected && st.busy === 0) return f;

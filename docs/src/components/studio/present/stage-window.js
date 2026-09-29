@@ -43,6 +43,8 @@ import {
 import { fontGateAgent, onFontsReady } from '../../../../../lib/core/preview-font-gate.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
+import { drawnLibraryPreload } from '../../../../../lib/plugins/drawn-library.mjs';
+import { markupHasDrawnFence } from '../../../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { previewDiagramsAttr } from '../../../playground/deck-preview.js';
 import { slideBox } from '../../../playground/frame-css.js';
@@ -77,7 +79,7 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
  * strings and could never have seen the difference — so the comment is the only place the
  * distinction can live, and it may as well be accurate.
  */
-export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', dagreUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '', lang = 'en', webOrigins = /** @type {string[]} */ ([]) }) {
+export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', dagreUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '', lang = 'en', webOrigins = /** @type {string[]} */ ([]) }) {
 	// Web images the reader has not allowed become the drawn placeholder (trio follow-up 11),
 	// BEFORE the sanitizer, so it sees the final markup; the policy below refuses the rest.
 	const web = remoteRef.blockWebImages(html, webOrigins);
@@ -330,7 +332,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// this value lands in an attribute.
 		// `data-lattice-live-media`: the audience watches this live, so a picture still loading shows
 		// the Underpainting (lib/core/image-painting.js) rather than an empty panel.
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(mermaidUrl) + ' data-lattice-live-media><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + ' data-lattice-live-media><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
 		previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)] }) +
@@ -422,9 +424,12 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// The font gate, in <head> — same placement rule as the other two preview
 		// builders. See lib/core/preview-font-gate.mjs.
 		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+		// The diagram library's fetch starts with the document, not after the runtime boots.
+		(runtimeUrl && markupHasDrawnFence(html) ? drawnLibraryPreload(runtimeUrl) : '') +
 		'</head><body>' +
 		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div>' + controls + '</div>' + chrome + '</div>' +
-		(mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
+		// No diagram library tag: the runtime's plugin host loads Mermaid's (the plugin's
+		// payload) from beside `runtimeUrl` when the stage holds a fence.
 		// The dagre layout engine, for a stage carrying a drawn state chart. Gated on the
 		// SANITIZED html above, not on a caller flag — `data-sc-transitions` is emitted only
 		// by the DEFAULT variant, which is the only one the runtime's pass draws.

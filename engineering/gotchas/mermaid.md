@@ -100,7 +100,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 - **Symptom:** `[pageerror] Unsupported color format:
   "light-dark(#FAF7F2, #15110D)"`. Mermaid bootstrap halts; mermaid
-  blocks stay in `data-mermaid-state="pending"` showing source code.
+  blocks stay in `data-lattice-settle="pending"` showing source code.
 - **Cause:** When `lattice-runtime.js` reads palette tokens via
   `getComputedStyle().getPropertyValue('--bg')`, it gets the *raw
   token stream*, not the resolved color. After the light-dark() refactor,

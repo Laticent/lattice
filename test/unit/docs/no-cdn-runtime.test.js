@@ -257,15 +257,16 @@ test('the relative paths the hosts request are the ones sync-playground-assets s
 		"sync-playground-assets.mjs must stage 'katex/katex.min.css' — the hosts request exactly that path and no CDN backs it up",
 	);
 
-	// Mermaid is staged as `export/${basename(from)}` from the shared marp-bundle
-	// manifest, so the guarantee that `export/mermaid-v11.min.js` exists is that a
-	// STATIC_ASSETS entry has that basename.
-	const { STATIC_ASSETS } = require(path.join(REPO, 'lib', 'core', 'marp-bundle.js'));
-	const basenames = STATIC_ASSETS.map((a) => path.basename(a.from));
-	assert.ok(
-		basenames.includes('mermaid-v11.min.js'),
-		`lib/core/marp-bundle.js STATIC_ASSETS must carry mermaid-v11.min.js (staged as export/<basename>) — the hosts request /export/mermaid-v11.min.js. Saw: ${basenames.join(', ')}`,
-	);
+	// Mermaid is the Mermaid plugin's PAYLOAD, staged beside the runtime by its file name from
+	// the plugin registry (lib/plugins/drawn.generated.mjs) — the runtime's plugin host fetches
+	// exactly that path, and no page threads a URL (so there is no host arm for it below). The
+	// guarantee that the file exists is that the staging reads the registry's runtime-drawn
+	// payloads, and that the registry declares one.
+	assert.match(staging, /RUNTIME_DRAWN\)[\s\S]{0,80}\.filter\(\(d\) => d\.payload\)/,
+		'sync-playground-assets.mjs must stage every runtime-drawn plugin\'s payload (RUNTIME_DRAWN) beside the runtime');
+	const { RUNTIME_DRAWN } = require(path.join(REPO, 'lib', 'plugins', 'drawn.generated.mjs'));
+	assert.equal(RUNTIME_DRAWN.mermaid?.payload?.from, 'npm:mermaid/dist/mermaid.min.js',
+		'the Mermaid plugin must declare its library as a payload — the runtime\'s plugin host loads nothing else');
 
 	// dagre is staged by literal destination path, like KaTeX — it is NOT under
 	// `export/`, because it is fetched by the preview frame rather than copied into an
@@ -303,7 +304,7 @@ test('the relative paths the hosts request are the ones sync-playground-assets s
 	const captureSrc = fs.readFileSync(path.join(REPO, CAPTURE), 'utf8');
 	const params = (captureSrc.match(/async function createCaptureFrame\(\{([^}]*)\}/) || [])[1];
 	assert.ok(params, `${CAPTURE} no longer declares createCaptureFrame({ … }) — this arm cannot see what it forwards`);
-	for (const url of ['runtimeUrl', 'mermaidUrl', 'dagreUrl']) {
+	for (const url of ['runtimeUrl', 'dagreUrl']) {
 		assert.ok(
 			new RegExp(`\\b${url}\\b`).test(params),
 			`createCaptureFrame must destructure ${url} — it takes the whole DeckRender and names its fields, so one left out is dropped SILENTLY: buildSrcdoc defaults the URL to '' and emits no tag, and every Studio export (.pdf, .pptx, .png, the shared player) ships a render missing that asset. Saw: { ${params.trim()} }`,
@@ -311,9 +312,12 @@ test('the relative paths the hosts request are the ones sync-playground-assets s
 	}
 	for (const rel of hosts) {
 		const text = fs.readFileSync(path.join(REPO, rel), 'utf8');
+		// And NO host threads a Mermaid URL any more: the runtime's plugin host loads the
+		// plugin's payload beside itself. A page minting one again is the idiom the plugin
+		// migration ratchet (`drawnLibraryUrls`, tools/check-ownership.js) counts.
 		assert.ok(
-			text.includes('export/mermaid-v11.min.js'),
-			`${rel} must pass the vendored mermaid URL — with no CDN fallback, omitting it silently stops diagrams rendering`,
+			!text.includes('mermaid-v11.min.js'),
+			`${rel} must not pass a Mermaid URL — the runtime's plugin host loads the Mermaid plugin's payload from beside the runtime`,
 		);
 		assert.ok(
 			text.includes('katex/katex.min.css'),

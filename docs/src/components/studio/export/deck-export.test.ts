@@ -172,16 +172,33 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		expect(doc.querySelector('.functionplot')?.getAttribute('data-lattice-settle')).toBe('pending');
 	});
 
+	// A Mermaid fence carries the plugin host's markup on its <pre> once the runtime's diagram pass
+	// has tagged it (lib/runtime/index.js `wrapFences`): the plugin's name and the ONE settle state
+	// every capture reads. So these cells are the plot cells above with a different figure.
+	const fenceAt = (settle: string, id = '', code = 'flowchart LR') =>
+		`<pre${id ? ` id="${id}"` : ''} data-lattice-hydrate="mermaid" data-lattice-settle="${settle}"><code class="language-mermaid-source">${code}</code></pre><div class="mermaid"></div>`;
+
 	it('RELEASES a fence still un-settled at the budget, so it bakes as source not as a blank', async () => {
 		// THE WHOLE FIX. `mermaid.css` hides the source <pre> for every state but `error` and
 		// `unavailable`, so when this budget expires with a fence un-settled the capture bakes a
 		// BLANK REGION into a downloaded file. Releasing it to `unavailable` hands the author
-		// their own source instead — the same mechanism `releaseUnrenderableFences` uses when
+		// their own source instead — the same state `releaseUnrenderableFences` writes when
 		// Mermaid never arrives, applied at the export's own give-up point.
-		const doc = frag('<pre data-mermaid-state="pending"><code>flowchart LR</code></pre><div class="mermaid"></div>');
+		const doc = frag(fenceAt('pending'));
 		const released = await waitForDiagrams(doc, BUDGET);
 		expect(released).toBe(1);
-		expect(doc.querySelector('pre')?.getAttribute('data-mermaid-state')).toBe('unavailable');
+		expect(doc.querySelector('pre')?.getAttribute('data-lattice-settle')).toBe('unavailable');
+	});
+
+	it('keeps a released fence\'s OWN source — a code-block figure carries no packed config to decode', async () => {
+		// The plugin host's release rewrites a PLACEHOLDER's text from its packed body. A Mermaid
+		// <pre> has none: its content already is the author's highlighted source, and replacing
+		// it would blank the very thing the release exists to show.
+		const doc = frag(fenceAt('pending', '', '<span class="hljs-keyword">flowchart</span> LR'));
+		await waitForDiagrams(doc, BUDGET);
+		const code = doc.querySelector('pre > code');
+		expect(code?.textContent).toBe('flowchart LR');
+		expect(code?.querySelector('.hljs-keyword')).not.toBeNull();
 	});
 
 	it('marks the release FINAL, so the runtime cannot take it back before the capture', async () => {
@@ -191,52 +208,44 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		// thread, so a pass scheduled during the wait lands in that await. Without the mark the
 		// capture takes the blank this release exists to prevent, and it does it intermittently
 		// — which is the worst shape for a defect in a downloaded file.
-		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const doc = frag(fenceAt('pending'));
 		await waitForDiagrams(doc, BUDGET);
 		const pre = doc.querySelector('pre');
-		expect(pre?.getAttribute('data-mermaid-state')).toBe('unavailable');
-		expect(pre?.hasAttribute('data-mermaid-final')).toBe(true);
-	});
-
-	it('releases a `rendered` fence whose box never received an SVG', async () => {
-		// The subtler blank: the runtime says `rendered`, so the <pre> is hidden, but nothing
-		// landed in the box. Both halves of the un-settled test have to reach the release.
-		const doc = frag('<pre data-mermaid-state="rendered"><code>x</code></pre><div class="mermaid"></div>');
-		expect(await waitForDiagrams(doc, BUDGET)).toBe(1);
-		expect(doc.querySelector('pre')?.getAttribute('data-mermaid-state')).toBe('unavailable');
+		expect(pre?.getAttribute('data-lattice-settle')).toBe('unavailable');
+		expect(pre?.hasAttribute('data-lattice-final')).toBe(true);
 	});
 
 	it('does NOT release when the caller will wait AGAIN — the release belongs to the LAST wait', async () => {
 		// THE DOUBLE-WAIT REGRESSION. `bakeDeckSections` builds a capture frame (which waits
 		// 4000) and then waits 12000 more on the same document. The release is TERMINAL —
-		// `unavailable` + `data-mermaid-final` closes every route the runtime has back to the
+		// `unavailable` + `data-lattice-final` closes every route the runtime has back to the
 		// fence — so releasing at the first wait silently caps the bake at the frame's budget
 		// and strands a diagram that was still going to draw. Waiting is idempotent; releasing
 		// is not, so only the last wait before the capture may release.
-		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const doc = frag(fenceAt('pending'));
 		const stranded = await waitForDiagrams(doc, BUDGET, { release: false });
 		const pre = doc.querySelector('pre');
 		// It still REPORTS what is blanking — the caller needs the count — but it has changed
 		// nothing, so a later wait can still catch the fence.
 		expect(stranded).toBe(1);
-		expect(pre?.getAttribute('data-mermaid-state')).toBe('pending');
-		expect(pre?.hasAttribute('data-mermaid-final')).toBe(false);
+		expect(pre?.getAttribute('data-lattice-settle')).toBe('pending');
+		expect(pre?.hasAttribute('data-lattice-final')).toBe(false);
 	});
 
 	it('a fence that draws AFTER a non-releasing wait still bakes as a drawing', async () => {
 		// The user-visible half of the same regression: the diagram lands between the two
 		// budgets. With the frame releasing, this fence shipped as source text; it must ship
 		// as the drawing it became.
-		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const doc = frag(fenceAt('pending'));
 		const pre = doc.querySelector('pre');
 		await waitForDiagrams(doc, BUDGET, { release: false });
-		pre?.setAttribute('data-mermaid-state', 'rendered');
+		pre?.setAttribute('data-lattice-settle', 'rendered');
 		const box = pre?.nextElementSibling as HTMLElement | null;
 		if (box) box.innerHTML = '<svg></svg>';
 		// The second, longer wait sees a settled fence and releases nothing.
 		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
-		expect(pre?.getAttribute('data-mermaid-state')).toBe('rendered');
-		expect(pre?.hasAttribute('data-mermaid-final')).toBe(false);
+		expect(pre?.getAttribute('data-lattice-settle')).toBe('rendered');
+		expect(pre?.hasAttribute('data-lattice-final')).toBe(false);
 	});
 
 	it('re-reads at the give-up point — a fence that drew mid-poll is not released', async () => {
@@ -245,56 +254,66 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		// `mermaid.css` then hides the box — so the export ships source over a diagram that is
 		// sitting right there in the DOM. The draw lands in the final poll gap (after the last
 		// poll at 480 of a 600 budget), which is the only window where the two lists differ.
-		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const doc = frag(fenceAt('pending'));
 		const pre = doc.querySelector('pre');
 		setTimeout(() => {
-			pre?.setAttribute('data-mermaid-state', 'rendered');
+			pre?.setAttribute('data-lattice-settle', 'rendered');
 			const box = pre?.nextElementSibling as HTMLElement | null;
 			if (box) box.innerHTML = '<svg></svg>';
 		}, BUDGET - 50);
 		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
-		expect(pre?.getAttribute('data-mermaid-state')).toBe('rendered');
-		expect(pre?.hasAttribute('data-mermaid-final')).toBe(false);
+		expect(pre?.getAttribute('data-lattice-settle')).toBe('rendered');
+		expect(pre?.hasAttribute('data-lattice-final')).toBe(false);
 	});
 
-	it('does NOT release a fence the runtime has not tagged — it already shows its source', async () => {
-		// The hide is keyed on `data-mermaid-state`, so an untagged fence paints its own source
-		// already. Tagging it here would take nothing away from the blank and would misreport a
-		// fence that was never the runtime's to lose.
+	it('neither waits on nor releases a fence the runtime has not tagged — it already shows its source', async () => {
+		// The hide is keyed on the settle state, so an untagged fence paints its own source.
+		// Waiting on one is no longer needed: the runtime tags EVERY fence at boot, before the
+		// capture frame's `load` (which this wait follows), whether or not its library arrives —
+		// the UNTAGGED probe this function used to carry, keyed on `language-mermaid`, was the
+		// second idiom the plugin host's one barrier replaced. And tagging it here would take
+		// nothing away from the blank and would misreport a fence that was never the runtime's
+		// to lose.
 		const doc = frag('<pre><code class="language-mermaid">flowchart LR\n A --> B</code></pre>');
+		expect(await returned(doc)).toBe('early');
 		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
-		expect(doc.querySelector('pre')?.hasAttribute('data-mermaid-state')).toBe(false);
+		expect(doc.querySelector('pre')?.hasAttribute('data-lattice-settle')).toBe(false);
 	});
 
 	it('releases NOTHING when every fence drew in time', async () => {
-		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const doc = frag(fenceAt('pending'));
 		const pre = doc.querySelector('pre');
 		setTimeout(() => {
-			pre?.setAttribute('data-mermaid-state', 'rendered');
+			pre?.setAttribute('data-lattice-settle', 'rendered');
 			const box = pre?.nextElementSibling as HTMLElement | null;
 			if (box) box.innerHTML = '<svg></svg>';
 		}, 150);
 		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
-		expect(pre?.getAttribute('data-mermaid-state')).toBe('rendered');
+		expect(pre?.getAttribute('data-lattice-settle')).toBe('rendered');
 	});
 
-	it('releases only the fences still blanking, not the ones that drew', async () => {
+	it('releases only the figures still blanking, not the ones that drew or settled', async () => {
 		const doc = frag(
-			'<pre id="a" data-mermaid-state="rendered"><code>x</code></pre><div class="mermaid"><svg></svg></div>' +
-				'<pre id="b" data-mermaid-state="pending"><code>y</code></pre><div class="mermaid"></div>' +
-				'<pre id="c" data-mermaid-state="error"><code>z</code></pre><div class="mermaid"></div>',
+			'<pre id="a" data-lattice-hydrate="mermaid" data-lattice-settle="rendered"><code>x</code></pre><div class="mermaid"><svg></svg></div>' +
+				fenceAt('pending', 'b', 'y') +
+				fenceAt('error', 'c', 'z') +
+				fenceAt('hydrating', 'd', 'w') +
+				plot('pending', 'id="e"'),
 		);
-		expect(await waitForDiagrams(doc, BUDGET)).toBe(1);
-		expect(doc.querySelector('#a')?.getAttribute('data-mermaid-state')).toBe('rendered');
-		expect(doc.querySelector('#b')?.getAttribute('data-mermaid-state')).toBe('unavailable');
-		expect(doc.querySelector('#c')?.getAttribute('data-mermaid-state')).toBe('error');
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(3);
+		expect(doc.querySelector('#a')?.getAttribute('data-lattice-settle')).toBe('rendered');
+		expect(doc.querySelector('#b')?.getAttribute('data-lattice-settle')).toBe('unavailable');
+		expect(doc.querySelector('#c')?.getAttribute('data-lattice-settle')).toBe('error');
+		// `hydrating` is a render in flight: un-settled, so released too.
+		expect(doc.querySelector('#d')?.getAttribute('data-lattice-settle')).toBe('unavailable');
+		expect(doc.querySelector('#e')?.getAttribute('data-lattice-settle')).toBe('unavailable');
 	});
 
 	it('gives up AT the budget, not at some multiple of it', async () => {
 		// The number this function is about. An earlier design let the give-up threshold be
 		// tripled — 4000 to 12000 in the capture frame — with every cell in this file green,
 		// because the only timing assertion had 3.3x of slack. This one has 0.5x.
-		const doc = frag('<pre data-mermaid-state="pending"></pre>');
+		const doc = frag(fenceAt('pending'));
 		const started = Date.now();
 		await waitForDiagrams(doc, BUDGET);
 		const waited = Date.now() - started;
@@ -302,40 +321,19 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		expect(waited).toBeLessThan(BUDGET * 1.5);
 	});
 
-	it('treats an UNRECOGNIZED state as un-settled, not as done', async () => {
-		// The settled set is a whitelist — `rendered` with its SVG in place, plus `error` and
-		// `unavailable`, where the runtime has given up and the source <pre> is the honest
-		// artifact. Anything else is a diagram still on its way, INCLUDING a state this file has
-		// never heard of: a runtime is free to add one, and the failure mode of guessing wrong
-		// here is a blank region in a downloaded file rather than a slow export.
-		//
-		// `deferred` is the concrete instance. It does not exist in the shipped runtime — it
-		// came from an abandoned render-latency branch (PR #2128) that held a fence whose source
-		// was mid-word — and the arm is kept for the general property, not that branch.
-		const doc = frag('<pre data-mermaid-state="deferred"></pre>');
-		expect(await returned(doc)).toBe('at-budget');
+	it('waits on exactly the plugin host\'s barrier — the selector the CLI capture waits on too', async () => {
+		// ONE barrier. The states that mean "still drawing" are the host's to define
+		// (`PENDING_FIGURES`, lib/plugins/host-browser.mjs); this function used to carry its own
+		// whitelist of Mermaid states beside it, so a state could be "waiting" to one capture and
+		// "done" to another. A new in-flight state is added THERE, once, for every capture.
+		for (const s of ['pending', 'hydrating']) expect(await returned(frag(fenceAt(s)))).toBe('at-budget');
+		for (const s of ['rendered', 'error', 'unavailable']) expect(await returned(frag(fenceAt(s)))).toBe('early');
+		const closed = frag(fenceAt('pending').replace('<pre ', '<pre data-lattice-final '));
+		expect(await returned(closed)).toBe('early');
 	});
 
 	it('returns immediately when the deck has no diagram at all', async () => {
 		expect(await returned(frag('<p>no diagrams here</p>'))).toBe('early');
-	});
-
-	it('keeps waiting on a fence the runtime has NOT tagged yet', async () => {
-		// The original loop's blind spot: no `.mermaid` box exists yet, so it counted
-		// zero pending and returned at once — on exactly the deck it must wait for.
-		expect(await returned(frag('<pre><code class="language-mermaid">flowchart LR\n A --> B</code></pre>'))).toBe('at-budget');
-	});
-
-	it('keeps waiting while a tagged fence is still pending', async () => {
-		expect(await returned(frag('<pre data-mermaid-state="pending"><code class="language-mermaid-source">x</code></pre><div class="mermaid"></div>'))).toBe('at-budget');
-	});
-
-	it('returns once every fence is rendered with its SVG in place', async () => {
-		expect(await returned(frag('<pre data-mermaid-state="rendered"><code class="language-mermaid-source">x</code></pre><div class="mermaid"><svg></svg></div>'))).toBe('early');
-	});
-
-	it('treats an ERROR fence as settled — the source <pre> is the honest artifact', async () => {
-		expect(await returned(frag('<pre data-mermaid-state="error"><code class="language-mermaid-source">x</code></pre><div class="mermaid"></div>'))).toBe('early');
 	});
 });
 
@@ -356,11 +354,11 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 	// capture bakes a BLANK, which is the whole reason either argument exists.
 	const DECK =
 		'<div class="lattice"><section><h1>probe</h1>' +
-		'<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR</code></pre>' +
+		'<pre data-lattice-hydrate="mermaid" data-lattice-settle="pending"><code class="language-mermaid-source">flowchart LR</code></pre>' +
 		'<div class="mermaid"></div></section></div>';
 
 	/** The `DeckRender` shape `createCaptureFrame` destructures. Every field is inert here. */
-	const render = () => ({ html: '', css: '', mode: 'light', geom: { w: 1280, h: 720 }, runtimeUrl: '', fontCss: '', mermaidUrl: 'about:blank' });
+	const render = () => ({ html: '', css: '', mode: 'light', geom: { w: 1280, h: 720 }, runtimeUrl: '', fontCss: '' });
 
 	/**
 	 * jsdom does not parse `srcdoc` — an iframe fires `load` and leaves an EMPTY
@@ -393,7 +391,7 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 
 	const fence = (d: Document) => d.querySelector('pre') as HTMLElement;
 	const draw = (pre: HTMLElement) => {
-		pre.setAttribute('data-mermaid-state', 'rendered');
+		pre.setAttribute('data-lattice-settle', 'rendered');
 		(pre.nextElementSibling as HTMLElement).innerHTML = '<svg></svg>';
 	};
 
@@ -420,8 +418,8 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 			const done = bakeDeckSections(render());
 			await vi.advanceTimersByTimeAsync(8000);
 			const out = await done;
-			expect(pre.getAttribute('data-mermaid-state')).toBe('rendered');
-			expect(pre.hasAttribute('data-mermaid-final')).toBe(false);
+			expect(pre.getAttribute('data-lattice-settle')).toBe('rendered');
+			expect(pre.hasAttribute('data-lattice-final')).toBe(false);
 			expect(out?.diagrams).toBe(1);
 			expect(out?.failed).toBe(0);
 		} finally {
@@ -461,8 +459,8 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 			const pre = fence(inner);
 			const done = rasterizeDeckImages(render()).catch(() => null);
 			await vi.advanceTimersByTimeAsync(5000);
-			expect(pre.getAttribute('data-mermaid-state')).toBe('unavailable');
-			expect(pre.hasAttribute('data-mermaid-final')).toBe(true);
+			expect(pre.getAttribute('data-lattice-settle')).toBe('unavailable');
+			expect(pre.hasAttribute('data-lattice-final')).toBe(true);
 			await done;
 		} finally {
 			restore();
@@ -488,13 +486,13 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 			const pre = fence(inner);
 			const done = bakeDeckSections(render());
 			await vi.advanceTimersByTimeAsync(15_000);
-			expect(pre.getAttribute('data-mermaid-state')).toBe('pending');
-			expect(pre.hasAttribute('data-mermaid-final')).toBe(false);
+			expect(pre.getAttribute('data-lattice-settle')).toBe('pending');
+			expect(pre.hasAttribute('data-lattice-final')).toBe(false);
 			await vi.advanceTimersByTimeAsync(2_000);
 			// Released as SOURCE, and marked final so the runtime cannot reclaim it before
 			// the capture reads `outerHTML`.
-			expect(pre.getAttribute('data-mermaid-state')).toBe('unavailable');
-			expect(pre.hasAttribute('data-mermaid-final')).toBe(true);
+			expect(pre.getAttribute('data-lattice-settle')).toBe('unavailable');
+			expect(pre.hasAttribute('data-lattice-final')).toBe(true);
 			const out = await done;
 			expect(out?.diagrams).toBe(0);
 			expect(out?.failed).toBe(1);

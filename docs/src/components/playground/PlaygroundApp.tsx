@@ -74,12 +74,12 @@ export type PlaygroundData = {
 	themeBase: string;
 	runtimeUrl: string;
 	engineUrl: string;
-	/** Self-hosted Mermaid / KaTeX URLs (staged assets); the filmstrip injects them
-	 *  only when a deck has a diagram / math AND the URL is present. Optional so the
+	/** Self-hosted dagre / KaTeX URLs (staged assets); the filmstrip injects them
+	 *  only when a deck has a branching chart / math AND the URL is present. (Mermaid
+	 *  needs none: the runtime's plugin host loads it from beside `runtimeUrl`.) Optional so the
 	 *  test harness may omit them — but there is NO CDN fallback behind them any more:
 	 *  omitted means the tag is not injected and the diagram or math simply does not
 	 *  render. See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md. */
-	mermaidUrl?: string;
 	dagreUrl?: string;
 	katexUrl?: string;
 	palettes: string[];
@@ -285,7 +285,7 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, mermaidUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase } = data;
+	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase } = data;
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
@@ -493,7 +493,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Built once. `useRef(createEngineBridge(...))` evaluated its argument on every render and
 	// threw the result away, so each commit of this surface built a bridge nobody used.
 	const engineRef = React.useRef<EngineBridge>(null as unknown as EngineBridge);
-	if (engineRef.current === null) engineRef.current = createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { mermaidUrl, dagreUrl, katexUrl });
+	if (engineRef.current === null) engineRef.current = createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { dagreUrl, katexUrl });
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
 	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 

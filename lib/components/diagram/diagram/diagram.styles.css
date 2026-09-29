@@ -109,8 +109,8 @@ section.diagram > .cell-stage > .mermaid { flex:1; width:100%; height:auto; max-
 
 /* Source <pre> in pending/error states occupies the same slot as the rendered
  * diagram so the slide layout does not reflow when the diagram swaps in. */
-section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
-section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
+section.diagram > :is(pre, marp-pre):not([data-lattice-settle="rendered"]),
+section.diagram > .cell-stage > :is(pre, marp-pre):not([data-lattice-settle="rendered"]) {
   flex:1; width:100%; max-width:100%; height:auto; min-height:0;
 }
 /* The trailing CODA band on diagram slides must stretch full-width to match the
