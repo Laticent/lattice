@@ -165,18 +165,31 @@ measurement, and most undo a defect a render or the adversarial review found:
   3 finishes: no text-bearing mark below 4.5:1 where the shipped paint was above
   it (worst 4.72).
 - **Text waits for the engine that can pick its ink.** Choosing black or white
-  from a mark's own color needs relative-color CSS (Chrome 119, Safari 18,
-  Firefox 128). An older engine cannot choose, and no fixed ink clears every
-  theme: measured in WebKit with relative color removed, `--text-body` read
+  from a mark's own color needs relative-color CSS with math on a channel, and
+  the guard tests exactly that expression:
+  `@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0))`. A bare
+  `oklch(from red l c h)` guard would let an engine that parses relative color
+  but not the clamp apply the body and drop the ink. No fixed ink clears every
+  theme: measured in WebKit with the guarded blocks removed, `--text-body` read
   3.54:1 on concrete's status pill and `--text-heading` 3.34:1 on an a11y heatmap
-  step. So every rule that moves a text-bearing mark, a key that follows one, a
-  heatmap's text band and its values, and a roadmap's phase color sits behind
-  `@supports (color: oklch(from red l c h))`. On an older engine those marks keep
-  their shipped paint and the ink each theme's gates already hold, and every mark
-  without text still takes the finish. Measured in WebKit 26 on indaco, carbone,
-  concrete and a11y-deuteranopia, light and dark, all three finishes: nothing
-  below 4.5:1 on either path (worst 4.62). The PDF export, which runs Chrome,
-  renders the demo deck pixel-identical to before.
+  step. So every rule that moves text, or the ground under it, waits behind the
+  guard: the text-level categorical rules, text-bearing statuses and the keys
+  that follow them, a heatmap's text band and its values, the quadrant's zone
+  tints and zone-name ink, kanban columns and flowchart groups under tone, and a
+  roadmap's phase color. An engine that fails the guard keeps those as designed,
+  with the ink each theme's gates already hold, while marks without text still
+  take the finish.
+  Measured on HTML player exports of heatmap, matrix-grid, progress, flowchart,
+  quadrant and kanban slides, on indaco, carbone, concrete and a11y-deuteranopia
+  in both schemes and all three finishes. In WebKit 26, on both paths, and in a
+  real old engine, Chrome 118, which fails the guard, nothing reads below 4.5:1
+  (worst 4.62, the same as the decks with no finish). In Chrome 118, all 744
+  text-bearing marks and tints paint exactly as in the no-finish decks, and all
+  192 marks without text take the finish. Chrome renders the demo deck
+  pixel-identical to before. Separately, the finish's own light and dark values
+  are written with `light-dark()` (Chrome 123, Safari 17.5, Firefox 120), as the
+  engine's are; the HTML player export rewrites those for older browsers, and
+  the plain HTML render does not.
 - **Layered bodies are a light alpha** (0.35 under pigment): at 0.55 three radar
   polygons stacked to a near-opaque mass that buried the grid.
 - **A status keeps its own hue, under `tone` too.** The prototype sent a status

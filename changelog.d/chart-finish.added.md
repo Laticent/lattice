@@ -7,8 +7,8 @@
   (`unknown-chart-finish`).
 - A finish never costs a reader contrast or the texture channel. Text on a mark (a heatmap
   value, a matrix-grid cell, a status pill) picks black or white from its own mark's color and
-  clears 4.5:1 on every theme tested, the a11y and print themes included. On an older browser
-  that cannot pick that ink (before Chrome 119, Safari 18 or Firefox 128), a mark that carries
-  text keeps its as-designed colors, and every other mark still takes the finish. The a11y themes'
+  clears 4.5:1 on every theme tested, the a11y and print themes included. On a browser too old to
+  pick that ink, a mark that carries text keeps its as-designed colors, and every other mark
+  still takes the finish. The a11y themes'
   pattern fills still win over any finish. `line` and `slope` are left exactly as designed, and
   a status (a gantt bar's `blocked`) keeps its own color under every finish.

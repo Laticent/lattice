@@ -98,12 +98,23 @@ describe('chart-finish.generated.css', () => {
   // key that follows one) moves only where the engine can pick its ink, and keeps the shipped
   // paint and ink elsewhere; a mark with no text moves everywhere.
   test('a mark that carries text moves only behind @supports; every other mark moves everywhere', () => {
-    const blocks = css.match(/@supports \(color: oklch\(from red l c h\)\) \{[\s\S]*?\n\}\n\}/g) || [];
+    const blocks = css.match(/@supports[^{]*\{[\s\S]*?\n\}\n\}/g) || [];
+    // The guard tests the ink's own expression, channel math included, so an engine that parsed
+    // relative color but not a clamp on a channel cannot pass it and then drop the ink.
+    for (const b of blocks) assert.ok(b.startsWith('@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0))'), b.slice(0, 80));
     assert.equal(blocks.filter((b) => b.includes('.heatmap-value')).length, 15, 'one per step per finish');
     const outside = css.replace(/@supports[\s\S]*?\n\}\n\}/g, '');
     assert.doesNotMatch(outside, /oklch\(from/, 'every relative color is behind the guard');
-    for (const cls of ['.heatmap-value', '.gantt-bar[data-s]', '.chart-status[data-s]', '.state-node-shape[data-s]', '.gantt-legend-swatch[data-s]', '.roadmap']) {
-      assert.ok(!outside.includes(cls), `${cls} is reached only behind @supports`);
+    // Read each selector with its `:not(...)` exclusions removed: the plain rule NAMES the
+    // text-bearing classes there precisely to skip them. Checker finding: a list that left out
+    // the heatmap cells and the SVG-fill text marks could not catch either one moving.
+    const reached = outside.replace(/:not\((?:[^()]|\([^()]*\))*\)/g, '');
+    for (const cls of [
+      '.heatmap-value', '.heatmap-cell', '.fc-shape', '.fc-node', '.radar-sector', '.quadrant-bubble', '.cell-filled',
+      '.gantt-bar[data-s]', '.chart-status[data-s]', '.state-node-shape[data-s]', '.gantt-legend-swatch[data-s]',
+      '.roadmap', '.quadrant-tint', '.kanban-column', '.fc-group', '--cell-ink',
+    ]) {
+      assert.ok(!reached.includes(cls), `${cls} is reached only behind @supports`);
     }
     assert.doesNotMatch(outside, /var\(--text-(body|heading)\)/, 'no fixed-ink fallback is left');
     // The plain categorical rule skips the text-bearing marks, or they would take its full body.
@@ -172,8 +183,11 @@ describe('chart-finish.generated.css', () => {
     assert.doesNotMatch(css, /chart-finish-(pigment|etching) :where\([^)]*\.roadmap/, 'only tone reaches a roadmap');
     // The re-point and the pill's ink share one @supports block: without relative color the
     // pill could not pick its ink, so the roadmap keeps its shipped phases there.
-    const block = css.slice(css.lastIndexOf('@supports', at), css.indexOf('\n}\n}', at));
-    assert.ok(block.startsWith('@supports'), 'the re-point sits inside @supports');
+    // Checker finding: `lastIndexOf('@supports')` alone always finds SOME earlier block, so the
+    // re-point must sit between that block's opening and its closing, with no close in between.
+    const open = css.lastIndexOf('@supports', at);
+    assert.ok(open >= 0 && !css.slice(open, at).includes('\n}\n}'), 'the re-point sits inside @supports');
+    const block = css.slice(open, css.indexOf('\n}\n}', at));
     assert.match(block, /:where\(:is\(\.roadmap \.horizon-meta[^{]*\{\s*color: oklch\(from var\(--chart-cat-1-hue\)/);
   });
 

@@ -125,8 +125,15 @@ const pair = (hue, [l, d]) => ld(mix(hue, `${l}%`), mix(hue, `${d}%`));
  * a fixed ink failed on some (--text-body on a 40% cuoio body read 2.62:1).
  */
 const inkOn = (cell) => `oklch(from ${cell} clamp(0, (0.565 - l) * 999, 1) 0 0)`;
-/** A rule that needs relative color, behind the @supports that proves the engine has it. */
-const supports = (css) => `@supports (color: oklch(from red l c h)) {\n${css}\n}`;
+/**
+ * A rule that needs relative color, behind the @supports that proves the engine has it. The
+ * condition is the ink's own expression, channel math included, not a bare `oklch(from red l c
+ * h)`: an engine that parsed relative color but not the clamp on a channel would pass a bare
+ * guard, apply the body and drop the ink (checker finding). Chrome 131 and WebKit 26 pass it;
+ * Chrome 118 fails it.
+ */
+const SUPPORTS = `@supports (color: ${inkOn('red')})`;
+const supports = (css) => `${SUPPORTS} {\n${css}\n}`;
 
 const edge = (k) => (k === 1 ? 'var(--chart-edge)' : `calc(var(--chart-edge) * ${k})`);
 
@@ -245,7 +252,8 @@ function build() {
     // only readers a finish does not already paint are stroke- and type-painted (line's series
     // path, slope), and reaching them that way walks around `paint: "none"` — measured, it
     // washed line's series 5–8 out to near-white on a light canvas.
-    if (tone) w(rule(name, '[data-cell]', [`--cell-ink: ${ONE_INK}`]));
+    // The quadrant's zone names take this ink on its zone tints; both wait (TEXT WAITS, below).
+    if (tone) w(supports(rule(name, '[data-cell]', [`--cell-ink: ${ONE_INK}`])));
 
     // ── containers, under tone ───────────────────────────────────────────────
     // A container (a tinted kanban column, a slotted flowchart group) is never repainted as a
@@ -253,10 +261,14 @@ function build() {
     // category hue, so under tone its OWN hue property is re-pointed to the one hue. It keeps
     // its level and its structure, the key keeps matching it, and its title wears the one ink.
     if (tone) {
+      // A container carries its own title (a kanban column's header, a flowchart group's name),
+      // so its re-point waits with every other text-bearing mark (TEXT WAITS, below).
       // The done lane is keyed to the pass STATUS, and a status keeps its hue.
-      w(rule(name, '.kanban-column:not([data-done])', [`--col-hue: ${ONE}`]));
-      w(rule(name, ':is(.fc-group, .fc-key-swatch[data-kind="group"])[data-slot]', [`--fc-group-hue: ${ONE}`]));
-      w(rule(name, '.fc-group-title[data-slot]', [`fill: ${ONE_INK}`]));
+      w(supports([
+        rule(name, '.kanban-column:not([data-done])', [`--col-hue: ${ONE}`]),
+        rule(name, ':is(.fc-group, .fc-key-swatch[data-kind="group"])[data-slot]', [`--fc-group-hue: ${ONE}`]),
+        rule(name, '.fc-group-title[data-slot]', [`fill: ${ONE_INK}`]),
+      ].join('\n')));
       // A roadmap's phase color is a container color too: one property per phase column,
       // workstream lane and horizon card, read by its pill, its stripe and its card rule. The
       // `.roadmap` inside :where() matches the finished section itself, so no other table on
@@ -404,7 +416,8 @@ function build() {
     w('\n/* The quadrant ZONE tints — colored furniture, so they move with the finish. */');
     for (let c = 0; c < 4; c++) {
       const body = tone ? mix(ONE, `${TONE[c]}%`) : pair(hueOf(c + 1), f.backdrop);
-      w(rule(name, `.quadrant-tint[data-cell="${c}"]`, [`fill: ${body}`, `fill-opacity: ${tone ? '0.38' : '0.5'}`]));
+      // The zone names are printed on these tints, so they wait with the text (TEXT WAITS).
+      w(supports(rule(name, `.quadrant-tint[data-cell="${c}"]`, [`fill: ${body}`, `fill-opacity: ${tone ? '0.38' : '0.5'}`])));
     }
   }
   return out.join('\n') + '\n';
