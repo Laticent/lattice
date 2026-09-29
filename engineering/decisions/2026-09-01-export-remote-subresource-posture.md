@@ -299,3 +299,57 @@ Every artifact opened from `file://` in Chromium with request interception:
 The payload is present in the DOM in every contained case, so the fetch is refused rather than
 the markup rewritten — and the control, which strips the meta back out of a shipped artifact and
 sees the requests fire, proves the probe can see a beacon when one exists.
+
+## Update 2026-09-29 — the Studio player embeds its own origin's pictures
+
+The player's `img-src data: blob:` has a second edge this note did not measure: it refuses a
+picture on the author's OWN site as firmly as a beacon. The CLI never met it, because it bakes
+every local `file://` image into the file (`inlineFileUrls`, lib/export/html-player.js). The
+Studio passed a no-op in that seam, so a `![bg](/images/x.jpg)` panel, an `<img>` and a video
+`poster` all came out blank in the player while the Studio preview showed them (followup
+2358-p2).
+
+`lib/export/inline-url-media.mjs` is the Studio's half of that step. Before the placeholder pass,
+`shareHtmlPlayer` fetches every picture the render names — `<img src>`, SVG `<image href>`,
+`<video poster>`, and `url()` in inline styles and `<style>` blocks, fonts excluded — **from the
+Studio's own origin only**, and embeds each as a base64 `data:` URI. The policy does not move:
+the file still loads nothing on open. What changed is who fetches, and when: the exporting
+author's browser, from the site it is already on, at export time.
+
+The limits are deliberate:
+
+- **Other sites are fetched only when the author asks.** The export panel's "Embed pictures from
+  other sites" switch is off by default and appears only when the deck shows such a picture
+  (`sourceHasWebPictures`). Off, those pictures ship as the placeholder and the toast names each
+  site and the switch. On, the author's browser fetches them at export time — a host must send a
+  CORS header for a page to read its bytes, and one that does not is named in the toast. The
+  owner settled this on PR #2495: **the recipient's file is self-contained and safe either way**,
+  because it carries the bytes and its policy loads nothing on open. The switch decides only
+  whether the AUTHOR's browser contacts those sites, which is the author's call to make, not a
+  default to make for them.
+- **A redirect is refused while the switch is off.** The allow-list is checked on the address the
+  deck names, so a followed redirect could let a same-site URL pull a picture from a site the author
+  never agreed to contact; the switch-off promise is "the export contacts no other site". On, a
+  redirect is followed. Cross-site requests carry no cookies either way.
+- **At most 200 distinct pictures, read as a stream.** With the switch on, any site a deck names is
+  fetched, so the count is capped and a body is cancelled the moment it passes 8 MB rather than
+  buffered whole first.
+- **A host that refuses and a host that is down look the same to the page**, so the toast names
+  both causes. Measured against real hosts from the Studio: Wikimedia (sends a CORS header) embeds
+  and decodes; a picsum.photos CDN redirect that failed on the network had been reported as the site
+  refusing.
+- **Video and audio files are not embedded**; a clip can be hundreds of megabytes.
+- **A response must be a bare `image/*` type, 8 MB or less, within 20 seconds**, and the pictures
+  together stay under 48 MB. A static host answers a missing file with its HTML 404 page;
+  embedding that would ship a broken picture with no report. The type is checked as a bare token
+  because it is written into the `data:` URI verbatim.
+- **Custom properties are not read.** The engine writes each background twice, the second time as
+  `--background-image:"url(\"…\")"`, a string. Reading it as a `url()` fetched a mangled address
+  and reported a missing picture on every `![bg]` slide; the unit tier now runs real engine output
+  through the kernel to hold that.
+
+A picture it cannot embed is written back as its ABSOLUTE URL, so `blockWebImages` draws the
+placeholder over it; left relative, it shipped as-is and the reader got a broken-image mark. It
+also reaches the completion toast with its reason: the toast persists, the status line does not. Read · Article's video card now accepts a `data:image/…` poster
+(`safePosterUrl`, lib/transformers/prose-projection.mjs); `safeHref` alone dropped every embedded
+poster, including a raster one the CLI embeds from `file://`.

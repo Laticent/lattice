@@ -390,6 +390,11 @@ export async function shareHtmlPlayer(
 	// and the CLI cannot drift on what the flag means. Undefined inherits the deck's own
 	// registers (`motion:`, with `player-motion: off` as the author-side opt-out).
 	playerMotion?: boolean,
+	// Fetch pictures from OTHER sites too, and embed them — the author's opt-in from the export
+	// panel. Off, only this site's pictures are fetched and every other one ships as the
+	// placeholder. The file is self-contained either way; this decides only whether the author's
+	// browser contacts those sites now.
+	embedWebPictures = false,
 	// Resolves to a DEGRADATION reason when the export completed but shipped something
 	// lesser than intended (today: the diagram bake did not run), else undefined. The
 	// caller surfaces it in the completion toast — see the return at the end.
@@ -440,8 +445,26 @@ export async function shareHtmlPlayer(
 	// So its web images are placeholders on EVERY path, the bake's fallback (the static render)
 	// included, which used to ship the raw address and show a broken-image mark.
 	const { default: remoteRef } = (await import('../../../../lib/core/remote-ref.js')) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
+	// PICTURES BY URL (followup 2358-p2). The same policy that blocks web images blocks EVERY
+	// picture that is not already a `data:` URI, a same-origin `/images/x.jpg` included, so a
+	// `![bg](…)` panel and a video poster the preview showed came out blank in the player. Fetch
+	// each one from THIS origin now and embed it; a picture from another site is left to the
+	// placeholder pass below and counted — unless the author turned on "Embed pictures from other
+	// sites", which fetches those too. The recipient's file loads nothing on open either way.
+	onStatus?.('Embedding images…');
+	const { inlineUrlMedia, browserFetchDataUri, describeMissingMedia, sourceHasWebPictures } = await import('../../../../lib/export/inline-url-media.mjs');
+	const mediaCache = new Map();
+	const fetchDataUri = browserFetchDataUri(fetch.bind(globalThis), { ownOrigin: location.origin, followRedirects: embedWebPictures });
+	const withMedia = (html: string) => inlineUrlMedia(html, { baseUrl: document.baseURI, origins: [location.origin], anyWebOrigin: embedWebPictures, fetchDataUri, cache: mediaCache });
+	const media = await withMedia(out.html);
+	const placed = remoteRef.blockWebImages(media.html, []);
 	// `let`: the strip-notes cut below swaps in the scrubbed render, and the bake must bake THAT.
-	let playerHtml = remoteRef.blockWebImages(out.html, []).html;
+	let playerHtml = placed.html;
+	// Reported with the other degradations at the end: a picture the file cannot show is a
+	// silent gap otherwise, because the player's placeholder looks deliberate.
+	// Our own origin is left out of the placeholder list: a picture of ours reaching that pass is one
+	// that failed to embed, and `missing` already names it with its reason.
+	const mediaWarning = describeMissingMedia(media.missing, remoteRef.webOrigins(placed.blocked.filter((b) => b.kind !== 'diagram')), location.origin, embedWebPictures, sourceHasWebPictures(source, location.origin));
 	let recordSections = sectionsOf(playerHtml);
 	let noteRecord = notesCore.slideNoteRecord(recordSections);
 	// `let`, because the guard below picks WHICH cut ships once it knows which one reproduces
@@ -479,7 +502,10 @@ export async function shareHtmlPlayer(
 			recordSections,
 			sectionsOf,
 			// Placeholders on the candidate too, so it compares like-for-like with `recordSections`.
-			(src) => renderMarkdown(PG, src, theme, { styles: 'flat' }).then((r) => ({ ...r, html: remoteRef.blockWebImages(r.html, []).html })),
+			// The same embed + placeholder passes, so the candidate compares like-for-like with
+			// `recordSections`. The cache means it fetches nothing the first pass already did, and
+			// the notes cut changes no picture, so the first pass's report stands for it.
+			(src) => renderMarkdown(PG, src, theme, { styles: 'flat' }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -595,6 +621,9 @@ export async function shareHtmlPlayer(
 	// The fidelity guard's degradation, folded in the same append-never-assign way.
 	if (fidelityWarning) {
 		bakeWarning = bakeWarning ? `${bakeWarning}; ${fidelityWarning}` : fidelityWarning;
+	}
+	if (mediaWarning) {
+		bakeWarning = bakeWarning ? `${bakeWarning}; ${mediaWarning}` : mediaWarning;
 	}
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
@@ -732,9 +761,10 @@ export async function shareHtmlPlayer(
 		parseHtml: (html: string) => new DOMParser().parseFromString(html, 'text/html'),
 		sanitize: sanitizeMod.sanitizeSlideHtml,
 		sha256: sha256Base64,
-		// The browser render carries no `file://` refs (a CLI-only concern) — assets are
-		// already data-URIs or same-origin URLs, so there is nothing to inline here.
-		inlineAssets: (html: string) => ({ html, count: 0, missing: [] }),
+		// The core's cap is SYNCHRONOUS, and the browser's fetch is not, so the pictures were
+		// embedded up front (`withMedia`, above) and this hands the core that pass's tally. The
+		// browser render carries no `file://` refs (a CLI-only concern).
+		inlineAssets: (html: string) => ({ html, count: media.count, missing: media.missing.map((m) => m.url) }),
 		katexCss: () => katexText,
 	};
 
