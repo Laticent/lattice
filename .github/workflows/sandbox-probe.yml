@@ -1,0 +1,40 @@
+# THROWAWAY: runs tools/verify-code-sandbox as ROOT inside a Docker container on an Ubuntu 24.04
+# host (AppArmor userns sysctl = 1), from the claude/sandbox-probe-run branch only. Never merges.
+name: sandbox probe, root container (throwaway)
+on:
+  push:
+    branches: [claude/sandbox-probe-run]
+permissions:
+  contents: read
+jobs:
+  root-container:
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [under-root, outside-root, outside-root-unconfined]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host facts
+        run: |
+          cat /etc/os-release | head -2
+          echo "apparmor_restrict_unprivileged_userns=$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)"
+      - name: The check as root in a container
+        run: |
+          OPTS=""; case "${{ matrix.browser }}" in *unconfined) OPTS="--security-opt seccomp=unconfined" ;; esac
+          docker run --rm $OPTS -v "$PWD:/w" -w /w -e BROWSER_MODE=${{ matrix.browser }} node:22-bookworm bash -c '
+            set -e
+            echo "in container: uid=$(id -u) sysctl=$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>&1)"
+            git config --global --add safe.directory /w
+            apt-get update -qq > /dev/null
+            npm ci --no-audit --no-fund > /tmp/npmci.log 2>&1 || { tail -40 /tmp/npmci.log; exit 1; }
+            npx --yes @puppeteer/browsers install chrome@131.0.6778.204 --install-deps --path /root/.cache/puppeteer > /tmp/deps.log 2>&1 || { tail -40 /tmp/deps.log; exit 1; }
+            if [ "$BROWSER_MODE" != under-root ]; then
+              mkdir -p /opt/pptr && cp -r /root/.cache/puppeteer/chrome /opt/pptr/ && chmod -R a+rX /opt/pptr
+              export CHROME_PATH=$(ls -d /opt/pptr/chrome/linux-*/chrome-linux64)/chrome
+              echo "CHROME_PATH=$CHROME_PATH"
+            fi
+            ./tools/verify-code-sandbox.sh --non-interactive < /dev/null || true
+            cat code-sandbox-report-*.md
+          '
