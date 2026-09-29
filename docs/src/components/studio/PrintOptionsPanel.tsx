@@ -123,6 +123,10 @@ export function whenPrintReady(
 	timer(armed, 3000);
 }
 
+/** The preview stage's padding, summed per axis: 20px sides; 20px top + 28px bottom (see STYLE). */
+const STAGE_PAD_X = 40;
+const STAGE_PAD_Y = 48;
+
 /** The panel's one print frame and the document it holds (see `printHtmlDoc`). */
 type PrintFrame = { frame: HTMLIFrameElement; doc: string; loaded: boolean };
 
@@ -295,9 +299,12 @@ export function PrintOptionsPanel({
 	const dims = `${SHEET_LABEL[sheet.paper as Exclude<Paper, 'auto'>]} · ${sheet.orientation} · ${Math.round((sheet.pageW / 96) * 72)} × ${Math.round((sheet.pageH / 96) * 72)} pt${layoutLabel}`;
 	// Sheet pixel size: the largest sheet-aspect rect that fits the measured stage box.
 	const aspect = sheet.pageW / sheet.pageH;
-	// `box` is the stage's client box, which includes its 16px padding on each side.
-	const availW = box.w ? Math.max(60, box.w - 32) : 300;
-	const availH = box.h ? Math.max(60, box.h - 32) : 170;
+	// `box` is the stage's client box, which includes its padding: 20px on the top and sides and
+	// 28px at the bottom (STAGE_PAD_X, STAGE_PAD_Y below). The extra 8px is for the sheet's drop
+	// shadow, which falls 14px downward: with even padding the bottom gap measured the same as the
+	// top (16px) and still read as tighter, because the shadow filled it.
+	const availW = box.w ? Math.max(60, box.w - STAGE_PAD_X) : 300;
+	const availH = box.h ? Math.max(60, box.h - STAGE_PAD_Y) : 170;
 	const sheetH = Math.min(availH, availW / aspect);
 	const sheetPx = { width: `${Math.round(sheetH * aspect)}px`, height: `${Math.round(sheetH)}px` };
 	// THE STAGE TAKES ITS HEIGHT FROM THE PAPER. It was a fixed 180px, so the sheet was 264x160 at
@@ -305,7 +312,7 @@ export function PrintOptionsPanel({
 	// sheet shrank to ~100px wide. Now the sheet fills the stage's width and the stage wraps it.
 	// `.pod-stage`'s max-height caps a portrait sheet on a phone; the ResizeObserver above reads
 	// the capped box, so the sheet then fits the height instead.
-	const stageStyle = box.w ? { height: `${Math.round(availW / aspect + 32)}px` } : undefined;
+	const stageStyle = box.w ? { height: `${Math.round(availW / aspect + STAGE_PAD_Y)}px` } : undefined;
 
 	// THE PREVIEW CELLS COME FROM THE STUDIO'S PREVIEW POOL (preview-pool.tsx). Each cell used to
 	// be its own `<iframe srcDoc>` keyed by slide, so every sheet flip and every N-up change built
@@ -671,7 +678,7 @@ function Seg({ opts, value, onPick }: { opts: [string, string][]; value: string;
 // (`text-muted-foreground`); raw `var()` needs the palette token the bridge points at.
 // Found and fixed with #1688; `checkDanglingTokenReads` now blocks the reintroduction.
 const STYLE = `
-.pod-stage{position:relative;height:180px;max-height:min(420px,55vh);border-radius:12px;padding:16px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),var(--surface-inverse);box-shadow:inset 0 0 0 1px color-mix(in srgb,#ffffff 6%,transparent);}
+.pod-stage{position:relative;height:180px;max-height:min(420px,55vh);border-radius:12px;padding:20px 20px 28px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),var(--surface-inverse);box-shadow:inset 0 0 0 1px color-mix(in srgb,#ffffff 6%,transparent);}
 .pod-sheet{/* no size transition: pooled frames are re-measured on a throttled pass and lagged it, spilling past their cells */background:#fff;box-shadow:0 14px 38px -12px rgba(0,0,0,.6);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.06);}
 .pod-cell{position:absolute;}
 .pod-frame{position:absolute;border:0;background:#fff;border-radius:2px;overflow:hidden;box-shadow:0 5px 14px -8px rgba(20,35,56,.35);transition:left .3s,top .3s,width .3s,height .3s;}
