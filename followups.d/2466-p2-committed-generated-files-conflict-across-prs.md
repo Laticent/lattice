@@ -30,3 +30,12 @@ source: https://github.com/Laticent/lattice/pull/2466
        verify    — tier 1: replay two concurrent PRs through a merge on a scratch
                    branch and show no conflict.
 ```
+
+**Progress 2026-09-29.** The decision index is done: rows sort by topic slug, so two PRs
+that each add a note merge cleanly on GitHub
+(`engineering/decisions/2026-09-29-decision-index-rows-scatter.md`). Measured in the same
+pass, over the last 300 commits on `main`: `docs/route-budget.json` changed in 50 and
+`engineering/gotchas.md` in 40. The route budget is a hand-set number every Studio-bundle PR
+bumps, so it is a real conflict source this item should cost. The gotchas index follows its
+topic files' heading order, and a new gotcha is appended to the topic file too, so that file
+conflicts first; changing the index order alone would not help.
