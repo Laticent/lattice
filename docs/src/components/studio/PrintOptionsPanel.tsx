@@ -124,7 +124,7 @@ export function whenPrintReady(
 }
 
 /** The panel's one print frame and the document it holds (see `printHtmlDoc`). */
-type PrintFrame = { frame: HTMLIFrameElement; doc: string };
+type PrintFrame = { frame: HTMLIFrameElement; doc: string; loaded: boolean };
 
 // ONE PRINT FRAME PER PANEL, REUSED. Each print used to mount a fresh frame and remove it after
 // the dialog. WebKit never frees a destroyed preview document (preview-pool.tsx has the
@@ -146,7 +146,10 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 	};
 	const kept = slot.current?.frame.isConnected ? slot.current : null;
 	if (kept && kept.doc === doc) {
-		printWhenReady(kept.frame);
+		// Still loading (a load that stalled past the safety timer): take over its `onload`, so the
+		// document prints once, when it lands, and this call's caller is the one released.
+		if (kept.loaded) printWhenReady(kept.frame);
+		else kept.frame.onload = () => { kept.loaded = true; printWhenReady(kept.frame); };
 		return;
 	}
 	const frame = kept?.frame ?? document.createElement('iframe');
@@ -156,9 +159,10 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 		// print; the @media print rules (not the on-screen size) drive the printed output.
 		frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:720px;border:0;';
 	}
-	frame.onload = () => printWhenReady(frame);
+	const entry: PrintFrame = { frame, doc, loaded: false };
+	frame.onload = () => { entry.loaded = true; printWhenReady(frame); };
 	frame.srcdoc = doc;
-	slot.current = { frame, doc };
+	slot.current = entry;
 	if (!kept) document.body.appendChild(frame);
 	// Safety: if load never fires, release the caller's loading state.
 	setTimeout(signal, 60_000);
@@ -308,6 +312,12 @@ export function PrintOptionsPanel({
 	// markdown has slides, the cells keep one self-contained document each (below) so the
 	// preview never shows a different page from the one that prints.
 	const pooled = mdSlides.length === sections.length;
+	// ONE Mermaid flag for the whole deck, not per slide. The flag is part of a pooled frame's shape
+	// (preview-pool.tsx `shapeKey`), and a cell keeps its frame across flips, so a per-slide flag
+	// made every flip between a diagram slide and a plain one a full document rewrite (the checker
+	// measured 5 documents in 5 flips on an alternating deck). The cost is the Mermaid runtime in at
+	// most four frames, and only for a deck that has a diagram at all.
+	const deckMermaid = React.useMemo(() => mdSlides.some((s) => hasMermaid(s)), [mdSlides]);
 	// The fallback: one self-contained preview document per cell on the CURRENT sheet (screen,
 	// not print rules). For N-up this is up to `nup` slides; a trailing partial sheet leaves
 	// empty cells (''). Each is a bare section re-wrapped in `.lattice` (the theme's
@@ -549,7 +559,7 @@ export function PrintOptionsPanel({
 											className="pod-cell"
 											style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }}
 										>
-											<PooledThumbFace options={options} sample={printSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} mermaid={hasMermaid(mdSlides[slideIdx])} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
+											<PooledThumbFace options={options} sample={printSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} mermaid={deckMermaid} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
 										</div>
 									);
 								})}
@@ -654,7 +664,7 @@ function Seg({ opts, value, onPick }: { opts: [string, string][]; value: string;
 // Found and fixed with #1688; `checkDanglingTokenReads` now blocks the reintroduction.
 const STYLE = `
 .pod-stage{position:relative;height:180px;border-radius:12px;padding:16px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),#0b1c33;box-shadow:inset 0 0 0 1px color-mix(in srgb,#ffffff 6%,transparent);}
-.pod-sheet{background:#fff;box-shadow:0 14px 38px -12px rgba(0,0,0,.6);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.06);transition:width .3s ease,height .3s ease;}
+.pod-sheet{/* no size transition: pooled frames are re-measured on a throttled pass and lagged it, spilling past their cells */background:#fff;box-shadow:0 14px 38px -12px rgba(0,0,0,.6);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.06);}
 .pod-cell{position:absolute;}
 .pod-frame{position:absolute;border:0;background:#fff;border-radius:2px;overflow:hidden;box-shadow:0 5px 14px -8px rgba(20,35,56,.35);transition:left .3s,top .3s,width .3s,height .3s;}
 .pod-safe{position:absolute;border:1px dashed color-mix(in srgb,#142338 24%,transparent);border-radius:2px;pointer-events:none;}

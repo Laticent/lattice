@@ -11,12 +11,15 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
 //   first open        +2    5 sheet flips at 1-up  +10    switch to 4-up  +8
 //   2 flips at 4-up  +16    reopen                 +2     print, then reprint unchanged  +2, +2
 //
-// After: flips +0, reprint +0. Opening still builds the pool's first frame (+2), and 4-up grows
+// After: flips +0, reprint +0, including on a deck that alternates Mermaid and plain slides. Opening still builds the pool's first frame (+2), and 4-up grows
 // the pool to four frames once (+6); both are one-time, not per page.
 
 test.describe.configure({ timeout: 240_000 });
 
-const DECK = `---\ntitle: Probe\n---\n\n${Array.from({ length: 12 }, (_, i) => `## Slide ${i + 1}\n\nBody ${i + 1}.`).join('\n\n---\n\n')}\n`;
+// Every other slide is a Mermaid diagram: whether a slide has one is part of a pooled frame's
+// shape, so a per-slide flag made each flip between the two kinds a full document rewrite.
+const slide = (i: number) => (i % 2 ? `## Slide ${i}\n\nBody ${i}.` : `## Slide ${i}\n\n\`\`\`mermaid\ngraph LR\n  A${i} --> B${i}\n\`\`\``);
+const DECK = `---\ntitle: Probe\n---\n\n${Array.from({ length: 12 }, (_, i) => slide(i + 1)).join('\n\n---\n\n')}\n`;
 
 test('paging the Print drawer and reprinting build no new preview documents', async ({ page }) => {
 	// `print()` opens a modal Playwright cannot dismiss; everything up to it is the real path.

@@ -315,17 +315,26 @@ created, a 12-slide deck):
 | each sheet flip, 4-up | 4 | **0** |
 | reprint of an unchanged deck | 1 | **0** |
 | switch to 4-up (the pool grows to four frames, once) | 4 | 3 |
-| each open of the drawer | 1 | 1 |
+| each open of the drawer (plus 1 more if it prints) | 1 (+1) | 1 (+1) |
 
 The cells are `PooledThumbFace` tiles keyed by their POSITION on the sheet, inside one
-`PreviewPool`, so a flip re-points a frame the pool already has. Where the engine renders a
+`PreviewPool`, so a flip re-points a frame the pool already has. The Mermaid flag is set once for
+the whole deck, not per slide: it is part of a frame's shape, and the independent checker found
+that a per-slide flag rewrote the whole document on every flip between a diagram slide and a
+plain one (5 documents in 5 flips). The spec's deck alternates the two, and it fails with the
+per-slide flag (5 flips, 5 documents). The sheet lost its 0.3 s size transition, because the pool
+re-measures on a throttled pass and its frames lagged the animation, spilling past their cells for
+about 180 ms. Where the engine renders a
 different number of pages than the markdown has slides, the pool would address the wrong slide,
 so those decks keep one document per cell. Desktop Print keeps one frame per open drawer: an
 unchanged deck prints the frame it has, a changed one is written into it, and the drawer removes
 it when it closes. `docs/e2e/print-preview-documents.spec.ts` pins the zeros.
 
 **Left, recorded (`followups.d/2498-p3-print-drawer-stays-mounted.md`):** one document per open,
-because the drawer unmounts with the Share sheet. Add slide paid 12–14 per open, which is what
+two if the open printed on desktop, because the drawer and its print frame unmount with the Share
+sheet. After a flip, a cell can show the previous slide for up to the pool's 220 ms apply pass.
+The print frame is removed when the drawer closes, which assumes `print()` blocks, as it does in
+Chromium; Safari and Firefox were not reachable here. Add slide paid 12–14 per open, which is what
 justified `PersistentSurface` there. **Not measured:** WebKit memory itself, because this sandbox
 has no WebKit; the counts above are engine-independent.
 
