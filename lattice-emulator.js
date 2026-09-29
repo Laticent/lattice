@@ -2924,7 +2924,13 @@ const RUNTIME_SCRIPT = /[ \t]*<script\b[^>]*\blattice-runtime(?:-min)?\.js[^>]*>
 // loads below — so those outputs are byte-identical whether or not --fluid is
 // set. The fluid VIEWER is derived from this clean HTML and written over outHtml
 // ONLY after rasterization (see toFluidViewer / the post-raster rewrite).
-let cleanDocHtml = htmlDoc.replace(RUNTIME_SCRIPT, '');
+// Repeat until nothing changes: one pass can splice a new `<script` together from
+// the text around a removed tag (CodeQL js/incomplete-multi-character-sanitization).
+let cleanDocHtml = htmlDoc;
+for (let prev; prev !== cleanDocHtml;) {
+  prev = cleanDocHtml;
+  cleanDocHtml = cleanDocHtml.replace(RUNTIME_SCRIPT, '');
+}
 
 // Build the opt-in fluid viewer from the clean export HTML: flag the page
 // fluid-capable and inline the runtime (the controller re-derives orientation
