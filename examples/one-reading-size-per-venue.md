@@ -54,11 +54,11 @@ header: "Lattice · one reading size per venue"
 1. Laptop
    - 16pt, for a PDF read on your own screen.
 2. Huddle
-   - 18.5pt, for four to six people around a TV.
+   - 18.4pt, for four to six people around a TV.
 3. Conference
-   - 20.9pt, for a room of ten to thirty.
+   - 20.8pt, for a room of ten to thirty.
 4. Hall
-   - 24.1pt, for a stage screen.
+   - 24.0pt, for a stage screen.
 
 > The venue multiplies one size instead of three.
 
@@ -73,9 +73,9 @@ header: "Lattice · one reading size per venue"
 | Venue | Reading text | Code | Table rows at 12 words |
 | --- | --- | --- | --- |
 | Laptop | 16pt | 13.5pt | 10 |
-| Huddle | 18.5pt | 15.5pt | 8 |
-| Conference | 20.9pt | 17.5pt | 7 |
-| Hall | 24.1pt | 20.2pt | 3 |
+| Huddle | 18.4pt | 15.5pt | 8 |
+| Conference | 20.8pt | 20.1pt | 7 |
+| Hall | 24.0pt | 23.0pt | 3 |
 
 > Bigger cells cost rows: split a long table instead of shrinking it.
 

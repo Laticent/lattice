@@ -161,7 +161,7 @@ function measureInPage(roles) {
       const rect = el.getBoundingClientRect();
       // Screen-reader-only text is clipped to a 1px box: it is read aloud, never seen.
       if (rect.width <= 1 || rect.height <= 1 || /inset\(50%/.test(cs.clipPath) || /rect\(0/.test(cs.clip)) continue;
-      const px = Math.round(Number.parseFloat(cs.fontSize) * 10) / 10;
+      const px = Math.round(Number.parseFloat(cs.fontSize) * 100) / 100;
       bySize[px] = (bySize[px] || 0) + text.length;
       if (!samples[px]) samples[px] = `${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? `.${el.className.trim().split(/\s+/)[0]}` : ''}: ${text.slice(0, 32)}`;
     }

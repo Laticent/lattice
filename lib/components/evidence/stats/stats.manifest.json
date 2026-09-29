@@ -160,14 +160,14 @@
     "byWords": {
       "6": {
         "laptop": 7,
-        "huddle": 7,
+        "huddle": 6,
         "conference": 6,
-        "hall": 5
+        "hall": 3
       },
       "8": {
         "laptop": 7,
-        "huddle": 7,
-        "conference": 6,
+        "huddle": 6,
+        "conference": 4,
         "hall": 3
       }
     }

@@ -122,7 +122,8 @@ describe('capacity-scale — a code block', () => {
     assert.equal(out[0].severity, 'info');
     assert.match(out[0].message, /the block is clipped/);
     assert.match(out[0].message, new RegExp(`${bareXl + 1} lines \\(the pane holds about ${bareXl}\\)`));
-    assert.match(out[0].fix, new RegExp(`${bareXl} lines of 78 columns`));
+    // 102 columns ÷ (1.3 × the code lift of 1.15) = 68 (2026-09-29; it was ÷ 1.3 = 78).
+    assert.match(out[0].fix, new RegExp(`${bareXl} lines of 68 columns`));
     assert.deepEqual(lint(deck('scale-xl', code(bareXl))), []);
   });
 
@@ -168,7 +169,7 @@ describe('capacity-scale — a code block', () => {
     const wide = '```js\n' + 'x'.repeat(90) + '\n```\n';
     const out = lint(deck('scale-xl', `<!-- _class: code -->\n\n## H.\n\n${wide}`));
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /a 90-column line \(the pane holds about 78\)/);
+    assert.match(out[0].message, /a 90-column line \(the pane holds about 68\)/);
   });
 
   test('tallestCodeBlock counts the longest fence, unclosed included', () => {
@@ -343,7 +344,7 @@ describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () =
     assert.deepEqual(run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(4, 14)}\n`)), []);
     const out = run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(4, 14)}\n\n> The line to remember.\n`));
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /'list takeaway with its callout' holds about 3/);
+    assert.match(out[0].message, /'list takeaway with its callout' holds about 2/);
   });
 
   test('a variant finding names the variant row it quotes', () => {
@@ -416,26 +417,26 @@ describe('withCompact at a venue', () => {
   });
 
   test('a compact slide is judged by the measured compact row, not the bare one', () => {
-    // At hall q-and-a bare holds 3 and compact 4 (calibrate-capacity --variant compact,
-    // re-measured 2026-09-29 with questions at --fs-body; huddle's rows now meet the
-    // component's `hard` of 4, which caps both, so hall is where they still differ).
-    const hall = (n) => core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: q-and-a compact -->\n\n## H.\n\n${pairs(n)}\n`, v).filter((f) => f.rule === 'capacity-scale');
-    const out = hall(5);
-    assert.equal(out.length, 1, 'five pairs are one past the compact hall row');
+    // At conference q-and-a bare holds 3 and compact 4 (calibrate-capacity --variant compact,
+    // re-measured 2026-09-29 with questions at --fs-body and titles scaling; huddle's rows meet
+    // the component's `hard` of 4, which caps both, so conference is where they differ).
+    const conf = (n) => core.lintTextWith(`---\nmarp: true\nvenue: conference\n---\n\n<!-- _class: q-and-a compact -->\n\n## H.\n\n${pairs(n)}\n`, v).filter((f) => f.rule === 'capacity-scale');
+    const out = conf(5);
+    assert.equal(out.length, 1, 'five pairs are one past the compact conference row');
     assert.match(out[0].message, /'q-and-a compact' holds about 4/);
-    assert.deepEqual(hall(4), [], 'four compact pairs fit at hall, where the bare row said 3');
+    assert.deepEqual(conf(4), [], 'four compact pairs fit at conference, where the bare row said 3');
   });
 });
 
 describe('venue-only rows count on their own axis', () => {
-  test('obligation-matrix counts table rows: 7 fit at laptop, 5 at hall', () => {
+  test('obligation-matrix counts table rows: 7 fit at laptop, 4 at hall', () => {
     const v = { names: new Set(['obligation-matrix']), modifiers: new Set(), capacity: {} };
     const rows = (n) => Array.from({ length: n }, (_, i) => `| Regime ${i + 1} | [x] | [-] | [x] | [x] | [/] |`).join('\n');
     const deck = (venue, n) => `---\nmarp: true\n${venue ? `venue: ${venue}\n` : ''}---\n\n<!-- _class: obligation-matrix -->\n\n## H.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR |\n| --- | :-: | :-: | :-: | :-: | :-: |\n${rows(n)}\n`;
     const run = (venue, n) => core.lintTextWith(deck(venue, n), v).filter((f) => f.rule === 'capacity-scale');
-    assert.deepEqual(run('hall', 5), []);
-    assert.equal(run('hall', 6).length, 1);
-    assert.match(run('hall', 6)[0].message, /holds about 5 rows/);
+    assert.deepEqual(run('hall', 4), []);
+    assert.equal(run('hall', 5).length, 1);
+    assert.match(run('hall', 5)[0].message, /holds about 4 rows/);
   });
 });
 
@@ -446,20 +447,21 @@ test('endsWithCallout tracks comments by state, including a second comment left 
 
 describe('a claim panel is judged by the LINES its text wraps to (split-panel, Amendments (5)-(6))', () => {
   const v = { names: new Set(['split-panel']), modifiers: new Set(['proof', 'capstone', 'metric']), capacity: {} };
-  // Four-letter words, so a line's word count is exact: at hall a `proof` heading line holds 4
-  // (23.4 characters), a question or lede line 5 (22.5 / 28.6), and at conference a lede line 6 (33).
+  // Four-letter words, so a line's word count is exact. Since titles scale with the venue
+  // (2026-09-29), a `proof` heading line at hall holds 3 words (15.6 characters) at 201.6px, a
+  // question line 4 (22.5), a lede line 5 (28.6), and a capstone question line 3 (16.9).
   const w = (n, word = 'abcd') => Array.from({ length: n }, () => word).join(' ');
   const points = '- You know you are here when\n  - The team ships.\n- Proof one\n  - It holds.\n- Proof two\n  - It lasts.\n';
-  const deck = (venue, cls, l, q = '*Why?* ') => `---\nmarp: true\nvenue: ${venue}\n---\n\n<!-- _class: ${cls} -->\n\n\`Step 1\`\n\n## ${w(8)}\n\n${q}${w(l)}\n\n${points}`;
+  const deck = (venue, cls, l, q = '*Why?* ') => `---\nmarp: true\nvenue: ${venue}\n---\n\n<!-- _class: ${cls} -->\n\n\`Step 1\`\n\n## ${w(6)}\n\n${q}${w(l)}\n\n${points}`;
   const run = (...a) => core.lintTextWith(deck(...a), v).filter((f) => f.rule === 'capacity-scale');
   const raw = (venue, cls, body) => core.lintTextWith(`---\nmarp: true\nvenue: ${venue}\n---\n\n<!-- _class: ${cls} -->\n\n${body}`, v).filter((f) => f.rule === 'capacity-scale');
 
   test('a proof panel past its column at hall warns, and names the lines it counted', () => {
-    // hall, proof: eyebrow 140.2 + heading 2 × 134.4 + question 189 + lede lines × 144.3 against 1740.
-    assert.deepEqual(run('hall', 'split-panel proof', 35), []); // 7 lede lines: 1608
-    const over = run('hall', 'split-panel proof', 40); // 8 lede lines: 1752.4
+    // hall, proof: eyebrow 140.2 + heading 2 × 201.6 + question 189 + lede lines × 144.3 against 1741.
+    assert.deepEqual(run('hall', 'split-panel proof', 30), []); // 6 lede lines: 1598.2
+    const over = run('hall', 'split-panel proof', 31); // 7 lede lines: 1742.5
     assert.equal(over.length, 1);
-    assert.match(over[0].message, /'split-panel proof' claim panel's text runs about 1% past its column \(eyebrow 1 line, heading 2 lines, question 1 line, lede 8 lines\)/);
+    assert.match(over[0].message, /'split-panel proof' claim panel's text runs about 1% past its column \(eyebrow 1 line, heading 2 lines, question 1 line, lede 7 lines\)/);
     assert.match(over[0].fix, /Shorten the heading or the lede/);
   });
 
@@ -468,21 +470,24 @@ describe('a claim panel is judged by the LINES its text wraps to (split-panel, A
   });
 
   test('the opening question is its own block: the same words fit without it', () => {
-    assert.deepEqual(run('hall', 'split-panel proof', 38, ''), []);
-    assert.equal(run('hall', 'split-panel proof', 37).length, 1);
+    assert.deepEqual(run('hall', 'split-panel proof', 31, ''), []);
+    assert.equal(run('hall', 'split-panel proof', 31).length, 1);
   });
 
   test('characters decide, not words: the same word count in longer words overflows', () => {
-    const body = (word) => `\`Step 1\`\n\n## ${w(8)}\n\n*Why?* ${w(35, word)}\n\n${points}`;
+    const body = (word) => `\`Step 1\`\n\n## ${w(6)}\n\n*Why?* ${w(30, word)}\n\n${points}`;
     assert.deepEqual(raw('hall', 'split-panel proof', body('abcd')), []);
     assert.equal(raw('hall', 'split-panel proof', body('abcdefgh')).length, 1);
   });
 
-  test('capstone reads its own row (a smaller question), also beside `proof`, and the bare row is stricter', () => {
-    assert.equal(run('hall', 'split-panel proof', 37).length, 1);
-    assert.deepEqual(run('hall', 'split-panel proof capstone', 37), []);
-    assert.deepEqual(run('hall', 'split-panel capstone', 35), []);
-    assert.equal(run('hall', 'split-panel', 35).length, 1);
+  test('capstone reads its own row (a larger question), also beside `proof`, and the bare row is stricter', () => {
+    // A question that wraps to 2 lines in capstone's row (16.9 characters) but 1 in proof's (22.5).
+    const q = '*Why does this hold?* ';
+    assert.deepEqual(run('hall', 'split-panel proof', 28, q), []);
+    assert.equal(run('hall', 'split-panel capstone', 28, q).length, 1);
+    assert.equal(run('hall', 'split-panel proof capstone', 28, q).length, 1);
+    assert.deepEqual(run('hall', 'split-panel proof', 20), []);
+    assert.equal(run('hall', 'split-panel', 20).length, 1);
   });
 
   test('a variant the geometry does not describe is not judged by it', () => {

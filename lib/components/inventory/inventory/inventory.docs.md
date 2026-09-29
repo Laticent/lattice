@@ -14,7 +14,7 @@ Use for a small register of related items where each carries similar weight. Aut
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause of body per part.
 
-**By venue** (`venue:`, ~14 words each) it holds laptop ~5 · huddle ~5 · conference ~4 · hall ~2 items. At ~6 words each: 5 · 5 · 4 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~14 words each) it holds laptop ~5 · huddle ~4 · conference ~4 · hall ~2 items. At ~6 words each: 5 · 4 · 4 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

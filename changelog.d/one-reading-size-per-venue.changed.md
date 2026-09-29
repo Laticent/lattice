@@ -1,7 +1,7 @@
 - **Breaking:** reading text now has one size per venue. List rows, agenda rows, q-and-a
   questions, table cells (every plain markdown table included), glossary definitions,
   list-tabular rows, actors, verdict-grid, pricing features, team-profile notes, roadmap rows
-  and the premise ladder all read at `--fs-body`: 16 / 18.5 / 20.9 / 24.1pt at laptop /
+  and the premise ladder all read at `--fs-body`: 16 / 18.4 / 20.8 / 24.0pt at laptop /
   huddle / conference / hall. Before, one deck set them at 13.5, 16 and 21pt at laptop.
   Lists shrink and hold more items: a 14-word list about twice as many at laptop (3 → 7);
   agendas gain one row at laptop and huddle and more than double at conference and hall. Tables and tabular lists grow
@@ -33,3 +33,12 @@
   size.
 - New: `npm run audit:reading-size` prints each component's reading size at every venue,
   in pt with the role it lands on, and lists the named exceptions apart.
+- **Breaking:** every type role now scales with the venue, slide titles included. `h1` and
+  `h2` used to hold 48 / 28pt at every venue while the rest grew, so at hall display text
+  outranked the title. At hall a title is now 42pt, and a long one wraps: on one 83-slide
+  talk, two-line titles went from 5 to 58. Budgets above laptop fall by about one element
+  where a title wraps. Laptop is unchanged.
+- Code, support lines and chart keys (`--fs-body-compact`) get a venue lift (1.15x at
+  conference, 1.14x at hall), so labels never read bigger than the data beside them. The
+  code pane at conference / hall holds 9 / 8 lines (was 11 / 10), and fewer columns.
+- `h6` takes the label lift, like the label role it matches.

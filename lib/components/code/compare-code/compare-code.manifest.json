@@ -136,14 +136,14 @@
       "bare": {
         "laptop": 17,
         "huddle": 14,
-        "conference": 13,
-        "hall": 11
+        "conference": 11,
+        "hall": 9
       },
       "eyebrow": {
         "laptop": 16,
         "huddle": 13,
-        "conference": 11,
-        "hall": 9
+        "conference": 9,
+        "hall": 8
       }
     }
   }

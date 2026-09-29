@@ -12,7 +12,7 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 
 **Density** aim ~20 words per item; past ~32 it reads as a wall of text — each side's case in a sentence or two.
 
-**By venue** (`venue:`, ~20 words each) it holds laptop ~5 · huddle ~4 · conference ~3 · hall ~3 items. At ~6 words each: 9 · 8 · 6 · 5. With `vertical` (~20 words): 2 · 2 · 2 · 1. Ending in a `> …` callout (~20 words): 4 · 3 · 2 · 2. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~20 words each) it holds laptop ~5 · huddle ~4 · conference ~3 · hall ~2 items. At ~6 words each: 9 · 8 · 6 · 5. With `vertical` (~20 words): 2 · 2 · 1 · 1. Ending in a `> …` callout (~20 words): 4 · 3 · 2 · 1. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

@@ -2907,7 +2907,7 @@ function subjectClasses(selector) {
   return [...compound.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
 }
 
-const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift)$/;
+const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift|venue-compact-lift)$/;
 const RUNG_RULE = /^section\.(venue|scale)-[a-z0-9]+$/;
 const isPseudoElement = (sel) => /::?(before|after|marker|placeholder)\b/.test(sel);
 

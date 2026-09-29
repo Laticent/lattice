@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: At every venue a deck sets its reading text (list rows, card bodies, table cells, glossary, code) at four different sizes, because each component picks its own role (`--fs-body-compact`, `--fs-body`, `--fs-message`, or `--fs-meta`), and a venue scales every role by the same factor. `npm run audit:reading-size` measures it. At laptop, 13 components read at 13.5pt, 30 at 16pt, 7 at 21pt and 3 at the 11.25pt chrome size (bare samples). At hall, a table cell (20.2pt) is smaller than its own label (21.9pt). Four options are costed by re-measured venue budgets. The recommendation is one reading size, `--fs-body` (16 / 18.5 / 20.9 / 24.1pt), with display text and charts as named exceptions. It costs 4% of the summed laptop budget and 15% of the summed huddle budget across the 16 components that move. The owner picked A on 2026-09-29, with code kept at `--fs-body-compact` and lead sentences kept display-sized (§7).
+summary: At every venue a deck sets its reading text (list rows, card bodies, table cells, glossary, code) at four different sizes, because each component picks its own role (`--fs-body-compact`, `--fs-body`, `--fs-message`, or `--fs-meta`), and a venue scales every role by the same factor. `npm run audit:reading-size` measures it. At laptop, 13 components read at 13.5pt, 30 at 16pt, 7 at 21pt and 3 at the 11.25pt chrome size (bare samples). At hall, a table cell (20.2pt) is smaller than its own label (21.9pt). Four options are costed by re-measured venue budgets. The recommendation is one reading size, `--fs-body` (16 / 18.4 / 20.8 / 24.0pt), with display text and charts as named exceptions. It costs 4% of the summed laptop budget and 15% of the summed huddle budget across the 16 components that move. The owner picked A on 2026-09-29, with code kept at `--fs-body-compact` and lead sentences kept display-sized (§7).
 builds-on: 2026-09-25-font-scale-fit.md
 ---
 
@@ -20,7 +20,7 @@ one venue therefore shows reading text at three sizes. The talk from #2361, rend
 `list-tabular` rows and tables at 13.5pt.
 
 **Recommendation: option A.** All reading text uses one role, `--fs-body`. That is
-16pt at laptop, 18.5 at huddle, 20.9 at conference and 24.1 at hall. Text that is bigger
+16pt at laptop, 18.4 at huddle, 20.8 at conference and 24.0 at hall. Text that is bigger
 on purpose (display text, §4) and text inside a chart's SVG keep their own sizes as named
 exceptions. Lists and agendas get smaller and hold more items. Tables, glossaries and
 tabular lists get bigger and hold fewer. Across the 16 components that change, the summed
@@ -59,7 +59,7 @@ Rows are component-and-variant pairs; hero components (§4) are left out.
 |---|---|---|---|---|---|
 | `--fs-meta` (chrome, flagged `META-ONLY`) | 11.3pt | 12.9 | 16.8 | 21.9 | 8 |
 | `--fs-body-compact` | 13.4 | 15.5 | 17.5 | 20.2 | 47 |
-| `--fs-body` | 16.0 | 18.5 | 20.9 | 24.1 | 124 |
+| `--fs-body` | 16.0 | 18.4 | 20.8 | 24.0 | 124 |
 | `--fs-message` | 21.0 | 24.2 | 27.3 | 31.5 | 39 |
 | `--fs-h3` · `--fs-h2` · `--fs-emphasis` | 23 · 28 · 30 | … | … | … | 5 |
 
@@ -89,7 +89,7 @@ Rows are component-and-variant pairs; hero components (§4) are left out.
 1. **At `hall`, a table cell is smaller than its own label.** The label lift raises meta
    1.3x on top of the 1.5x step, so meta lands at 21.9pt and a table cell at 20.2pt. A
    column header and a pill read bigger than the data they label. Option A removes it,
-   because cells move to body (24.1pt). Options B and "keep today" leave it as is.
+   because cells move to body (24.0pt). Options B and "keep today" leave it as is.
 2. **`compare-code` sets its code at the chrome size** (`--fs-meta`, 11.25pt), one step
    below `code` (13.5pt). Two code panes side by side read smaller than one.
 3. **`citation-card margin` sets its quotation in `--fs-h2`.** `--fs-h2` is deliberately
@@ -240,7 +240,7 @@ today would wrap. The recommendation is to keep code one step down, at
   to `--sp-xs`. Spacing may change under the one-size rule, and a type role may not. The
   re-measured laptop budget is back to `main`'s.
 - **The check.** `npm run audit:reading-size` prints one value per venue for all 185
-  reading rows (221 rows minus 36 SVG-only charts): 16 / 18.5 / 20.9 / 24.1pt. Its SECOND
+  reading rows (221 rows minus 36 SVG-only charts): 16 / 18.4 / 20.8 / 24.0pt. Its SECOND
   SIZES section lists any other non-chrome size carrying more than 10% of a reading slide's
   text, so a size the dominant one hides still shows: today card and ledger titles at
   heading roles, the E3 lead lines, chart legends, and split-panel `proof` / `capstone`
@@ -290,9 +290,60 @@ Asked on 2026-09-29. All three answered.
 - **One-per-slide lead sentences (E3):** stay display-sized.
 - **Support lines (E7):** stay one step below their row (asked after the review surfaced
   them; the list detail line, which this change had moved to body, went back).
-- **The shared reading size (§5):** option A, `--fs-body` (16 / 18.5 / 20.9 / 24.1pt).
+- **The shared reading size (§5):** option A, `--fs-body` (16 / 18.4 / 20.8 / 24.0pt).
 
 Resolved by this change: the P1 item, the hall defect (§3.3.1, cells now read above their
 labels at every venue) and compare-code (§3.3.2). Their follow-up files are deleted.
 Still open: `followups.d/2361-p3-citation-card-margin-ignores-venue.md` (§3.3.3) and
 `followups.d/2361-p3-stale-venue-and-capacity-budgets.md` and `2378-p3-capacity-hard-above-measured.md` (§6.2), `2361-p2-guard-the-reading-role.md`, `2361-p2-laptop-lint-for-list-tabular-and-glossary.md` and `2361-p3-authority-chain-branching-at-chrome-size.md` (from the review).
+
+## 8 · Amendment 2026-09-29 — the whole ladder, per venue
+
+With one reading size in place, the owner asked what the full type ladder looks like per
+venue. Measured from a render, it had four problems. The owner ruled on each: "fix them all
+here".
+
+1. **The reading sizes above laptop were double-rounded.** The audit rounded to 0.1px, then
+   to 0.1pt. The true values are **16.0 / 18.4 / 20.8 / 24.0pt**, not 18.5 / 20.9 / 24.1. The
+   audit now rounds once, and every doc carries the true values.
+2. **Display text outranked the slide title at conference and hall.** `h1` and `h2` held
+   48 / 28pt while every other role scaled, so at hall a 34.5pt `h3`, 31.5pt lead lines and
+   a 45pt Key Insight sat over a 28pt title. Three options were put to the owner:
+   - cap display text under the title (no extra wraps);
+   - let titles scale;
+   - leave it.
+
+   **Ruling: titles scale.** `NO_FS_SCALE` is empty, and every role multiplies by the
+   venue step. Measured cost on the #2361 talk at hall: titles wrapping to two lines went
+   from 5 to 58 of 83, and clipped pages from 49 to 54.
+3. **At hall, labels read bigger than code and support lines.** The label lift put labels at
+   21.9pt, above code and support lines at 20.2pt. **Ruling: lift code and support too.**
+   `--venue-compact-lift` scales the body-compact role: 1.15 at conference, the label lift.
+   At hall it is 1.14, not the label's 1.3, because 1.3 would put code at 26.2pt, above
+   24.0pt body text. 1.14 is the most that stays below body.
+4. **`h6` did not take the label lift** it is tied to. It does now.
+
+The ladder that shipped, measured (pt at the 1280×720 slide):
+
+| Role | laptop | huddle | conference | hall |
+|---|---|---|---|---|
+| hero | 86.0 | 98.9 | 111.8 | 129.0 |
+| h1 | 48.0 | 55.2 | 62.4 | 72.0 |
+| emphasis | 30.0 | 34.5 | 39.0 | 45.0 |
+| h2 (title) | 28.0 | 32.2 | 36.4 | 42.0 |
+| h3 | 23.0 | 26.4 | 29.9 | 34.5 |
+| message / h4 | 21.0 | 24.2 | 27.3 | 31.5 |
+| **body / h5** | **16.0** | **18.4** | **20.8** | **24.0** |
+| body-compact | 13.4 | 15.5 | 20.1 | 23.0 |
+| meta / h6 | 11.2 | 12.9 | 16.8 | 21.9 |
+
+**What it cost, re-measured.** Laptop is unchanged. Every budget above laptop was
+re-measured with `calibrate-capacity` at the venue: 37 of 82 rows changed, almost all down
+by one, because bigger titles take stage height. The code pane (bare) holds 15 / 12 / 9 / 8
+lines (was 15 / 13 / 11 / 10), and its columns shrink by the code lift too (`CODE_LIFT` in
+lint-core). The split-panel line geometry now scales its heading row. kanban and
+timeline-list were left as before (§6.2).
+
+**Decks.** Only five committed decks set a venue or a scale step. One new clip,
+`retire-automatic-scale-fit` page 4, was fixed by trimming its step text. Its page 3 clips
+on purpose, as on `main`.

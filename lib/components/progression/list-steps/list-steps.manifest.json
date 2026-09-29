@@ -278,7 +278,7 @@
         "laptop": 9,
         "huddle": 8,
         "conference": 7,
-        "hall": 7
+        "hall": 5
       },
       "14": {
         "laptop": 5,
@@ -293,7 +293,7 @@
           "laptop": 5,
           "huddle": 3,
           "conference": 2,
-          "hall": 2
+          "hall": 1
         }
       }
     }

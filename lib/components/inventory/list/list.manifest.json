@@ -246,13 +246,13 @@
       "6": {
         "laptop": 7,
         "huddle": 6,
-        "conference": 6,
+        "conference": 5,
         "hall": 5
       },
       "10": {
         "laptop": 7,
         "huddle": 6,
-        "conference": 6,
+        "conference": 5,
         "hall": 5
       },
       "14": {
@@ -269,13 +269,13 @@
             "laptop": 14,
             "huddle": 12,
             "conference": 10,
-            "hall": 9
+            "hall": 8
           },
           "10": {
             "laptop": 14,
             "huddle": 12,
             "conference": 10,
-            "hall": 9
+            "hall": 8
           },
           "14": {
             "laptop": 14,
@@ -290,19 +290,19 @@
               "laptop": 10,
               "huddle": 9,
               "conference": 7,
-              "hall": 6
+              "hall": 5
             },
             "10": {
               "laptop": 10,
               "huddle": 9,
               "conference": 7,
-              "hall": 6
+              "hall": 5
             },
             "14": {
               "laptop": 10,
               "huddle": 9,
               "conference": 3,
-              "hall": 3
+              "hall": 2
             }
           }
         }
@@ -312,7 +312,7 @@
       "byWords": {
         "14": {
           "laptop": 5,
-          "huddle": 5,
+          "huddle": 4,
           "conference": 2,
           "hall": 2
         }

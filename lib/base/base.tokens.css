@@ -126,6 +126,9 @@
    * the smallest readable role fails first at distance, so a venue lifts it past the
    * body's scale. 1 everywhere else. See engineering/typography.md §7 "Venue". */
   --venue-meta-lift: 1;
+  /* The body-compact role's own venue multiplier (code, support lines, chart keys), so the
+   * lifted labels never out-size it; below the label lift at hall to stay under body text. */
+  --venue-compact-lift: 1;
 
   /* ── Sovereign-bookend measures ────────────────────────────────────────
    * The ONLY width caps on framing text in the engine. `title` / `closing` /
