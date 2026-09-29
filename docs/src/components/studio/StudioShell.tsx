@@ -53,6 +53,7 @@ import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
+import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { activeChartFinish, CHART_FINISHES } from './chart-finish-catalog';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SLIDE_COUNTER_SLOT } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
@@ -103,7 +104,7 @@ import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, deckBackdrop } from './slide-provenance';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasMermaid } from './slide-thumb';
 import { applyVariant } from './slide-variants';
@@ -2235,6 +2236,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setDeckBackdrop = (axis: 'strength' | 'mask', v: string) => {
 		const next = { ...deckBd, [axis]: v === '__auto__' ? undefined : v };
 		settingsWrite('Backdrop', (s) => writeFrontMatterLine(s, 'backdrop', backdropDeckValue(next.strength, next.mask)));
+	};
+	// Card tags — the deck `tag:` register (lib/core/resolve-card-tag.js): ONE line holding up to
+	// four words (color, size, placement, alignment). Auto on an axis leaves its word out.
+	const deckTag = deckCardTag(source);
+	const setDeckTag = (axis: CardTagAxis, v: string) => {
+		const next = { ...deckTag, [axis]: v === '__auto__' ? undefined : v };
+		settingsWrite('Card tags', (s) => writeFrontMatterLine(s, 'tag', cardTagDeckValue(next)));
 	};
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeRegister(s, 'lift', lift ? 'off' : 'on'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
@@ -4413,6 +4421,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Chart finish" desc="How every chart spends its color." find="chart finish pigment etching tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> puts it in the body: full-strength, flat color. <strong>Etching</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. <strong>As designed</strong> (the default) keeps each chart's own paint. Every mark keeps an ink edge, and the a11y themes keep their patterns, under all three. A slide overrides it with <code>_class: chart-finish-*</code>.</>}>
 					<CatalogSelect ariaLabel="Choose chart finish" value={activeChartFinish(chartFinish).name} onValueChange={setChartFinish} className="w-full" groups={[{ options: catalogOptions(CHART_FINISHES) }]} />
 				</Field>
+				{/* The deck `tag:` register — ONE line, four axes, so four rows of one select each
+				    (the Backdrop pattern). Auto on every axis removes the key. */}
+				<SubGroup label="Card tags">
+					{CARD_TAG_ROWS.map((row) => (
+						<Field key={row.axis} label={row.label} desc={row.desc} find={row.find} help={row.help}>
+							<CatalogSelect
+								ariaLabel={row.label}
+								value={deckTag[row.axis] ?? '__auto__'}
+								onValueChange={(v) => setDeckTag(row.axis, v)}
+								className="w-full"
+								groups={[{ options: [{ value: '__auto__', label: "Component's own" }, ...CARD_TAG_AXES[row.axis].filter((w) => w !== row.native).map((w) => ({ value: w, label: cardTagOptionLabel(w) }))] }]}
+							/>
+						</Field>
+					))}
+				</SubGroup>
 				<SubGroup label="Frame and fit">
 					<Field label="Corners" desc="Square or rounded slide corners." help={<>Rounds the <strong>slide surface itself</strong> — a lighter, more screen-native frame. Square is the default. A slide opts back out with <code>_class: corners-square</code>.</>}>
 						<CatalogSelect ariaLabel="Choose corners" value={activeCorners(corners).name} onValueChange={setCorners} className="w-full" groups={[{ options: catalogOptions(CORNERS) }]} />

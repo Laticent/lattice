@@ -1,0 +1,1 @@
+- The Studio sets card tags without typing. Deck settings gain a **Card tags** group (Tag color, Tag size, Tag placement, Tag text) that writes the `tag:` front-matter line, and slide settings show the same four rows on `cards-grid`, `cards-stack`, `decision`, `compare-prose`, `split-compare` and `list-steps` slides, writing `tag-*` classes on that slide.

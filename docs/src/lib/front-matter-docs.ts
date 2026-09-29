@@ -54,6 +54,7 @@ export const FRONT_MATTER_DOCS: Record<string, FrontMatterDoc> = {
 	mode: { group: 'look', default: 'boardroom', studio: 'Look → Mode', slide: '_class: sketch' },
 	finish: { group: 'look', default: 'none', studio: 'Look → Finish', slide: '_class: finish-<name>', values: 'none · atrium · meridian · strata · halo · ledger · nimbus · loom · savile · gallery' },
 	backdrop: { group: 'look', default: "the finish's own", studio: 'Look → Backdrop strength · Backdrop mask', slide: '_class: backdrop-<value>', values: 'a strength (20 · 40 · 60 · 80 · full) and/or a mask (clear · open · spot-tl … spot-br), e.g. 40 clear' },
+	tag: { group: 'look', default: "the component's own", studio: 'Look → Card tags (Tag color · size · placement · text)', slide: '_class: tag-<value>', values: 'up to one word per axis: color (color · plain · none), size (small · regular · large), placement (corner · foot · notch · band · inline), text (start · center · end), e.g. plain band center' },
 	'finish-override': { group: 'look', default: 'none', values: 'a nested map of finish layers', scope: 'Studio only (written by Fabricate)' },
 	lift: { group: 'look', default: 'off', studio: 'Look → Card lift', slide: '_class: lifted · flat' },
 	'chart-finish': { group: 'look', default: 'off', studio: 'Look → Chart finish', slide: '_class: chart-finish-<value> · chart-finish-off', values: 'off · pigment · etching · tone', scope: 'every chart\'s marks and key' },

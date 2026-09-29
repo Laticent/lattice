@@ -230,3 +230,28 @@ describe('chart-finish provenance + override', () => {
 		expect(getClassTokens(setChartFinish(on, null))).toEqual(['bar']);
 	});
 });
+
+describe('card-tag provenance (the `tag:` register)', () => {
+	it('mirrors the kernel word lists exactly', async () => {
+		const { CARD_TAG_AXES } = await import('./slide-provenance');
+		const kernel = await import('../../../../lib/core/resolve-card-tag.js');
+		expect(CARD_TAG_AXES).toEqual(kernel.CARD_TAG_AXES);
+	});
+
+	it('reads the deck line per axis, overrides one axis per slide, and writes the line back', async () => {
+		const { cardTagProvenance, setCardTag, deckCardTag, cardTagDeckValue } = await import('./slide-provenance');
+		const src = deck('tag: plain band center  # quiet', '## A');
+		expect(deckCardTag(src)).toEqual({ color: 'plain', placement: 'band', align: 'center' });
+		const chunk = '<!-- _class: decision tag-foot -->\n\n## A';
+		expect(cardTagProvenance(chunk, src, 'placement')).toMatchObject({ state: 'on', value: 'foot', deckValue: 'band' });
+		expect(cardTagProvenance(chunk, src, 'color')).toMatchObject({ state: 'inherited', value: 'plain' });
+		expect(cardTagProvenance(chunk, src, 'size')).toMatchObject({ state: 'off' });
+		const set = setCardTag(chunk, 'placement', 'notch');
+		expect(getClassTokens(set)).toEqual(['decision', 'tag-notch']);
+		expect(getClassTokens(setCardTag(set, 'placement', null))).toEqual(['decision']);
+		// banner-tag is a modifier, not a register token: the placement setter leaves it alone.
+		expect(getClassTokens(setCardTag('<!-- _class: decision banner-tag -->\n', 'placement', 'foot'))).toEqual(['decision', 'banner-tag', 'tag-foot']);
+		expect(cardTagDeckValue({})).toBeNull();
+		expect(cardTagDeckValue({ align: 'end', color: 'none', placement: undefined })).toBe('none end');
+	});
+});

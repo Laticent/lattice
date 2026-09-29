@@ -1006,8 +1006,15 @@ tag beside a two-line one is centered in the taller box (a `tag-none` label, whi
 stays at the top so the labels line up). A measuring step does this after fonts load
 (`lib/core/card-tag-equalize.js`): in the live preview, and in the CLI's PDF, PNG, PPTX, Marp,
 `--fluid` and `--player` outputs. A plain `.html` export has no script, so there each tag keeps
-its own size and the card reserves one line of tag: a corner label that wraps covers the top of
-the body. The budget below is what keeps a lint-clean deck clear of that.
+its own size and the card reserves one line of tag plus its gap: a label that wraps to two lines
+still clears the body, and one that wraps further covers the top of it. The export measures that
+as it writes the file and names each such slide in a warning. The budget below is what keeps a
+lint-clean deck clear of it.
+
+**In the Studio**, deck settings carry a **Card tags** group with one select per axis (Tag
+color, Tag size, Tag placement, Tag text), which writes the `tag:` line; *Component's own* on
+every axis removes it. Slide settings show the same four rows on a tagged layout, each defaulting
+to the deck's word, and write `tag-*` classes on that slide.
 
 **A label fits one line of its tag.** One long label now widens every tag on the slide, and if it
 wraps, every card body moves down a line. So `lint:deck` warns (`tag-budget`) when a slot label

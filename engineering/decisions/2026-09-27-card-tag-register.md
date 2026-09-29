@@ -10,7 +10,7 @@ size axes, plus equal-size tags and the label budget) and phase 3's placement an
 are built. Phase 3 shipped **without** the new element (§3.1.1, an agent's call in the owner's
 absence, open for the owner to reverse). Phase 4 is built: `banner-tag` draws through the band
 rules and capsule's pill is the inline tag on the `--cat-N-mark` tier, both with an advisory
-`tag-alias` lint. Phase 5 (the Studio row) is not built yet. The owner settled the first
+`tag-alias` lint. Phase 5 is built: a Card tags group in deck settings and four Tag rows in slide settings. The owner settled the first
 six questions on 2026-09-27 and three more on 2026-09-28 (§7).
 
 ## 1. The problem in one example
@@ -229,7 +229,9 @@ they are — pseudo-elements and lifted `<strong>`s — so it did not wait for t
 The runtime runs it on its post-mutation dispatch and after fonts settle; the CLI export, which
 strips the runtime, injects the same function after every navigation and once more after the
 trim, before overflow is measured. A plain `.html` export skips it, because that file is built
-before the page renders and carries no script, so its tags keep their own sizes. Padding never
+before the page renders and carries no script, so its tags keep their own sizes; the export
+runs the same kernel in a write-nothing report mode and warns on each slide where a tag would
+cover its card body (2026-09-29). Padding never
 changes a content box, so the pass settles in one step and a repeat writes nothing; the checker
 confirmed one writing run over 400 random label sets, with no tag gaining a line or passing its
 card. A `tag-none` label, which has no box, is not centered in an invisible taller one, so the
@@ -319,7 +321,7 @@ and renders every shipped deck unchanged unless the phase says otherwise.
 | **2. Register: color and size; equal size** | `resolve-card-tag.js`; `tag:` and `tag-*` on the engine and the runtime, per-axis eviction, split pages, lint (`unknown-tag`), the modifier vocabulary, the Studio's value completion, docs. The color axis (`color` · `plain` · `none`) and the size axis (`small` · `regular` · `large`). Placement and alignment wait for phase 3 so every word works on every layout; until then the linter names them as not yet available. **Added on the owner's call (§7 Q9):** the equal-size pass (§3.4) and the `tag-budget` lint | Every boxed tag on a slide matches the widest and tallest; otherwise none unless a deck opts in | Unit: resolver, slide-over-deck per axis on the engine AND the runtime bundle, lint, CSS contract; `plain`/`none` pairs AA-pinned light and dark. Demo deck extended, light and dark |
 | **3. The element and placements** *(placements and alignment built 2026-09-29; the element deferred, §3.1.1)* | The real `card-tag` element on every render path (§3.1, with a CSS fallback for script-less pages), then `foot`, `notch`, `band` on every qualifying layout, `inline`, and text alignment. The measure pass already runs (phase 2) and extends to each new placement | None unless a deck opts in; wrapped tags stop colliding with the body | A row with one wrapped label at each placement, measured: every tag in the row the same height to the pixel, at `laptop` and `hall` |
 | **4. Aliases** *(built 2026-09-29)* | `banner-tag` and `capsule` as aliases with lint hints. The legal inline-eyebrow layouts stay out (§7 Q5) | capsule moves to the saturated tier (§3.5) | Gallery pixel diff |
-| **5. Studio** | The Tag row in deck settings and the slide drawer | Studio only | `docs/e2e` spec with screenshots at 1440, 820 and 390px |
+| **5. Studio** *(built 2026-09-29)* | The Tag row in deck settings and the slide drawer | Studio only | `docs/e2e` spec with screenshots at 1440, 820 and 390px |
 
 Export sign-off applies from phase 1: moving a tag from a pseudo-element to a real
 element changes the bytes of every exported deck that has one, so phase 1's demo PDFs go

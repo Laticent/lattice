@@ -64,6 +64,7 @@ export const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'finish', info: 'Finish backdrop — e.g. atrium, halo, gallery.' },
 	{ key: 'finish-override', info: 'Override the applied finish — a nested map (backdrop: { strength, clearance }, wash, …).' },
 	{ key: 'backdrop', info: 'Restrain any finish — a strength (20 / 40 / 60 / 80 / full) and/or a mask (clear / open / spot-tl … spot-br). e.g. `backdrop: 40 clear`.' },
+	{ key: 'tag', info: 'Style every card tag — up to one word per axis: color (color / plain / none), size (small / regular / large), placement (corner / foot / notch / band / inline), text (start / center / end). e.g. `tag: plain band center`.' },
 	{ key: 'lift', info: 'Card lift — the "Struck" shadow on card surfaces. on / off.' },
 	{ key: 'chart-finish', info: 'How every chart spends its color — off (default: as designed) / pigment (full-strength bodies) / etching (a whisper under a doubled edge) / tone (one hue in stepped shades).' },
 	{ key: 'venue', info: 'Where the deck is seen — sets the type size for the back row. laptop (default) · huddle (4–6 people) · conference (10–30) · hall (50+).' },
