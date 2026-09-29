@@ -31,8 +31,8 @@ const TOLERANCE = 6;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-hairline-'));
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
-function render(out, extra = [], fixture = FIXTURE) {
-  const r = spawnSync(process.execPath, [EMULATOR, fixture, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8' });
+function render(out, extra = []) {
+  const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
 }
 
@@ -54,17 +54,11 @@ function topRows(pdf) {
 
 const worst = (a, b) => Math.max(...a.map((p, i) => Math.max(...p.map((c, k) => Math.abs(c - b[i][k])))));
 
-// The 4K arm: a 3840 px slide was photographed at 2560 px, and that downsample smeared the same
-// rule even as PNG. The photo no longer drops below 1x (compose.mjs). FALSIFIABLE: with the
-// `Math.max(1, …)` floor removed, the 4K arm fails at ~50 levels while the 1280 px arm still passes.
-const FIXTURE_4K = path.join(tmp, 'hairline-4k.md');
-fs.writeFileSync(FIXTURE_4K, fs.readFileSync(FIXTURE, 'utf8').replace('marp: true', 'marp: true\nsize: 4K'));
-
-for (const [label, fixture] of [['1280 px', FIXTURE], ['4K', FIXTURE_4K]]) test(`${label}: the accent rule on a dark slide keeps its color, and the row under it stays clean`, { timeout: 180_000 }, () => {
-  const writer = path.join(tmp, `writer-${label}.pdf`.replace(/ /g, ''));
-  const chrome = path.join(tmp, `chrome-${label}.pdf`.replace(/ /g, ''));
-  render(writer, [], fixture);
-  render(chrome, ['--chrome-pdf'], fixture);
+test('the accent rule on a dark slide keeps its color, and the row under it stays clean', { timeout: 120_000 }, () => {
+  const writer = path.join(tmp, 'writer.pdf');
+  const chrome = path.join(tmp, 'chrome.pdf');
+  render(writer);
+  render(chrome, ['--chrome-pdf']);
   const [w0, w1] = topRows(writer);
   const [c0, c1] = topRows(chrome);
   assert.ok(new Set(c0.map(String)).size > 1 || c0[0].join() !== c1[0].join(), 'the fixture draws a rule on its top edge');

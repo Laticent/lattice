@@ -238,9 +238,9 @@ that keeps text or a raster image in it. That covers:
   struck tag read as live; `test/integration/export/pdf-text-decoration.test.js`).
 
 Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
-deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. The 2x
-photo stops at 2560 px on the long edge, and no photo goes below 1x: a 4K slide is photographed
-at its own 3840 px, because downsampling it smeared every 1 px rule.
+deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. Every
+photo stops at 2560 px on the long edge, so a 4K slide's is downsampled, and a 1 px rule on it
+stays slightly soft even as PNG (`followups.d/2503-p3-pdf-photo-exact-4k.md`).
 
 **The photo is PNG or JPEG, whichever is smaller.** The camera takes both and `smallestPhoto`
 (`compose.mjs`) keeps the smaller file. On a flat slide background that is the PNG, which keeps

@@ -354,9 +354,12 @@ Order of work, all in one PR (#2404):
     **Fixed 2026-09-29.** The golden re-render's parity sweep measured it on 59 of 330 decks
     (the keyline written as rgb(42,132,176) for rgb(0,146,216)). Each camera now offers PNG and
     JPEG and the writer keeps the smaller (`smallestPhoto`), so a flat slide is written
-    lossless. A 4K slide was also photographed at 2560 px, and that downsample smeared the same
-    line even as PNG; the photo no longer drops below 1x. Pinned by
-    `test/integration/export/pdf-photo-hairline.test.js`.
+    lossless and the rule exact. Pinned by `test/integration/export/pdf-photo-hairline.test.js`.
+    On a 4K slide the photo is still downsampled to 2560 px, which keeps the rule a little soft
+    even as PNG (y0 rgb(128,69,82) against the screen's rgb(181,95,116); JPEG gave 110,79,84).
+    Photographing 4K at 3840 px fixed it but cost ~21 s a 116-slide 4K gallery and pushed CI's
+    integration job past its timeout, so the owner kept the cap:
+    `followups.d/2503-p3-pdf-photo-exact-4k.md`.
   - A later sibling's outer `box-shadow` over a border is not hit-testable, so a border can
     draw over it.
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`
