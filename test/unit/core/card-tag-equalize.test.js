@@ -163,3 +163,17 @@ test('list-steps: a boxed step tag is measured; the rail variants are not tags',
   assert.ok(equalizeCardTags(page(steps('tag-corner'), sized)) > 0);
   assert.equal(equalizeCardTags(page(steps('timeline tag-corner'), sized)), 0);
 });
+
+test('report mode names the slides where a tag covers its card body, and writes nothing', () => {
+  // Two slides: the second has a label that wrapped to three lines, taller than the 30px its card
+  // keeps above the body (a one-line tag plus the gap), so it would cover the body.
+  const markup = decision('', ['BUILD', 'BUY']) + decision('', ['BUILD', 'A LABEL THAT WRAPPED THREE TIMES']);
+  const doc = page(markup, (el, pseudo) => {
+    if (el.tagName === 'LI' && !pseudo) return { paddingTop: '30px', paddingBottom: '10px' };
+    const lines = el.textContent.length > 20 ? 3 : 1;
+    return content(60, 15 * lines, { paddingTop: '5px', paddingBottom: '5px' });
+  });
+  const covered = equalizeCardTags(doc, 'report');
+  assert.deepEqual(covered, [{ slide: 2, over: 25 }]);
+  for (const el of doc.querySelectorAll('li, section')) assert.equal(el.getAttribute('style'), null, 'report mode writes nothing');
+});
