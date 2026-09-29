@@ -73,7 +73,7 @@ const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel);
 // the rule was kept "conservatively": all ~280 finish rules rode into every snapshot, it
 // outgrew MAX_UNITS, and nothing was stored. The class is decidable without the probe, so an
 // arm whose finish class is absent from the captured document is dropped exactly.
-const FINISH_ARM = /\bchart-finish-(pigment|etching|tone)(?![\w-])/;
+const FINISH_ARM = /(?<![\w-])chart-finish-(pigment|etching|tone)(?![\w-])/;
 const finishArmAbsent = (doc, sel) => {
 	const m = FINISH_ARM.exec(sel);
 	return !!m && !doc.querySelector(`.chart-finish-${m[1]}`);

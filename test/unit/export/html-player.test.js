@@ -260,6 +260,21 @@ test('dropUnusedChartFinishRules cuts the finish rules the deck cannot use, byte
 	assert.equal(dropUnusedChartFinishRules(plain, () => false), plain);
 });
 
+// Checker findings: the prelude runs from the last `}`, so a comment in front of a rule rode
+// in its selector. A comment naming a finish class made a plain rule a candidate (and cut it),
+// and a comma in one split off a selector that threw and kept a finish rule on doubt. And
+// `\b` matched after a hyphen, so a class merely ending in a finish name was a candidate.
+test('dropUnusedChartFinishRules reads a selector without its comment, and a finish class whole', () => {
+	const noMatch = (sel) => {
+		if (/[^\w\s.:()[\]="*>-]/.test(sel)) throw new Error(`unparseable: ${sel}`);
+		return false;
+	};
+	assert.equal(dropUnusedChartFinishRules('/* like .chart-finish-tone */ .lp-state{color:red}', noMatch), '/* like .chart-finish-tone */ .lp-state{color:red}');
+	assert.equal(dropUnusedChartFinishRules('/* a, b */ section.chart-finish-tone .m{fill:red}', noMatch), '');
+	const custom = '.my-chart-finish-tone{a:1}';
+	assert.equal(dropUnusedChartFinishRules(custom, () => false), custom);
+});
+
 test('hoistRuleLightDark routes a real-property pair through a private token, in place', () => {
 	const { css, darkBlock } = hoistRuleLightDark('.card{color:red;box-shadow:0 1px light-dark(#eee,#111)}');
 	// The declaration does not move and does not change property — only its VALUE gains an
