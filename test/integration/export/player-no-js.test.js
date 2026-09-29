@@ -13,10 +13,12 @@
  *     under a light and a dark OS;
  *   - print still gives every slide;
  *   - with the script on, none of the no-JS controls show.
- * CI runs it in Chromium, which is a stand-in for WebKit, not a substitute: Quick Look
- * itself is WebKit. To run the same file in WebKit, point LATTICE_PLAYWRIGHT at an installed
- * `playwright` package whose WebKit build is present (it is not a repo dependency):
- *   LATTICE_PLAYWRIGHT=/path/to/node_modules/playwright node --test <this file>
+ * It runs twice in CI. `integration` runs it in Chromium, which stands in for WebKit but
+ * does not replace it: Quick Look itself is WebKit. The `player-webkit` job re-runs it in
+ * WebKit whenever lib/export/** or this file changes, with LATTICE_PLAYWRIGHT pointed at
+ * the docs workspace's Playwright. Locally, after `npx playwright install --with-deps
+ * webkit` in docs/:
+ *   LATTICE_PLAYWRIGHT=$PWD/docs/node_modules/playwright node --test <this file>
  * Slow tier (spawns the emulator and a browser).
  */
 

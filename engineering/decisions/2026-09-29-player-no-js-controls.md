@@ -78,8 +78,9 @@ All in `lib/export/player-core.mjs`, all inert once the script runs (`:not(.lp-j
   the flip matches the scripted toggle in all 12 cells, that print media lays out every
   slide, that with the script on no no-JS control shows, and that a deck-wide `color-mode`
   ships no moon. It passes 8/8 in Chromium 131 (in CI, via `test:integration`) and 8/8 in
-  WebKit 26.0 (Playwright's build, run on demand with `LATTICE_PLAYWRIGHT`; it is not a repo
-  dependency and CI does not run it).
+  WebKit 26.0 (Playwright's build, pointed at by `LATTICE_PLAYWRIGHT`). CI runs the Chromium arm
+  in `integration` and, on the owner's call, the WebKit arm in the blocking `player-webkit` job
+  whenever `lib/export/**` or the test changes (~3.5 runner minutes, beside `integration`).
 - **The test can fail.** Three planted regressions each failed their test: the flip-to-light
   token rule removed, the Present strip applied to print media, and the hidden inputs put
   back to `position:absolute`.
