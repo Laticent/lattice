@@ -176,5 +176,5 @@ The `/segno` page runs the same ladder in your browser, and lets you write a gra
 
 `npm run segno-lib:build` regenerates `notation.generated.ts` and writes `dist/` (ESM + CJS +
 `.d.ts`); `npm run segno-lib:check` fails if either is stale. `npm run check:segno` (in `docs/`)
-typechecks the library alone with no DOM and no Node types, which is the mechanical proof it is
-publishable as-is. Tests: `cd docs && npx vitest run src/lib/segno`.
+typechecks the library alone with no DOM and no Node types, which is the mechanical proof it stands
+alone. Tests: `cd docs && npx vitest run src/lib/segno`.

@@ -61,10 +61,10 @@ them, and the rest are ordinary code that must stay literal.
 | 10 | **Coordinates are one record** for quadrant and scatter alike: `{3, 70, size=12}` | owner |
 | 11 | **Journey is a record** `{who=Customer, mood=4, volume=120}`, with `@Customer` kept as a declared shortcut for `who=`; `:4` and `+120` are dropped | owner |
 | 12 | **One `color` type**, `c1`–`c12`, and each slot declares its ceiling (the flowchart's is 8), so `c9` on a flowchart is an error that names the limit | owner |
-| 13 | **Segno is a general-purpose library; Lattice is its first user.** It will be published for non-Lattice uses, so nothing in its API, messages or docs may assume Lattice: "per deck" is "per document", examples lead with general cases (a rollout rule, a retry policy), and Lattice is the documented first user. The phase-1 audit and what it left open: § Published, not Lattice's | owner |
-| 14 | **The license stays `AGPL-3.0-only`**, as its sibling libraries are, with the adoption cost stated (§ Published, not Lattice's) | owner, over Apache-2.0 and MIT |
+| 13 | **Segno is a general-purpose library; Lattice is its first user.** It is meant for non-Lattice uses too, so nothing in its API, messages or docs may assume Lattice: "per deck" is "per document", examples lead with general cases (a rollout rule, a retry policy), and Lattice is the documented first user. The phase-1 audit and what it left open: § General-purpose, not Lattice's | owner |
+| 14 | **The license stays `AGPL-3.0-only`**, as its sibling libraries are, with the adoption cost stated (§ General-purpose, not Lattice's) | owner, over Apache-2.0 and MIT |
 | 15 | **`color()` becomes a general `indexed(prefix, { max })`**; Lattice's color slots are `indexed('c', { max: 12, label: 'a color' })`, so decision 12 stands with a general type under it | owner |
-| 16 | **Publish to npm after phase 2**, once Lattice runs on it in production, so the first public version has a real user and an API proven against the 27 schemas | owner, over publishing at phase 1 |
+| 16 | **No publish plan.** Segno, like every Laticent library, is not scheduled for publishing; the owner will publish the libraries together, deliberately, as its own act. No work plans around a release, and no step publishes anything | owner, correcting an earlier "publish after phase 2" |
 
 ## The notation
 
@@ -287,9 +287,9 @@ one JIT, so it stops here. In absolute terms a pill costs 0.7 µs, and the shipp
 of them. **Check-in:** phase 2 either accepts 2.0x on pills or binds straight off the flat tree,
 which removes the tree-to-values step (about 80 ns) and most of the binding allocations.
 
-## Published, not Lattice's
+## General-purpose, not Lattice's
 
-Decision 13 makes Segno a library other projects will adopt. Phase 1 audited it for Lattice leaking in:
+Decision 13 makes Segno a library other projects can adopt. Phase 1 audited it for Lattice leaking in:
 
 - **Code:** clean. Nothing in the source imports outside its folder (`checkSegnoBoundary`), and no
   message or type depends on Lattice.
@@ -308,8 +308,8 @@ Decision 13 makes Segno a library other projects will adopt. Phase 1 audited it 
   - **`indexed(prefix, { max })`** replaced `color({ max })`, whose `c1…cN` spelling was a Lattice
     convention (decision 15). It takes any letter prefix, reads without a regular expression, and
     refuses a prefix an author could not type.
-  - **Publish after phase 2** (decision 16). Publishing is external and cannot be taken back.
-- **Still to settle before that publish:** `number()`'s rules (accounting parentheses, `k`/`M`/`B`,
+  - **No publish plan** (decision 16): the owner publishes the libraries together, deliberately.
+- **Still to settle, whenever Segno leaves this repository:** `number()`'s rules (accounting parentheses, `k`/`M`/`B`,
   European separators) are documented as "numbers as people write them" and are opinionated; the
   parity test that holds them to `lib/core/chart-values.js` is Lattice's contract, and belongs on
   Lattice's side if the library moves to its own repository.
