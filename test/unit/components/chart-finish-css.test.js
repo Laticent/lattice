@@ -198,13 +198,23 @@ describe('chart-finish.generated.css', () => {
     return /(?:fill|background): ([^;]*) !important/.exec(css.slice(at, css.indexOf('}', at)))[1];
   };
 
+  // The finish paints the state chart's key swatch from `--fill-hue`, so the state chart's status
+  // table must set it there too. Without it the rule resolved to nothing and, under tone, the key
+  // went hollow beside filled tiles (seen on a rendered page; the CSS rule itself was present).
+  test('the state chart sets its status hue on the key swatch a finish repaints', () => {
+    const sc = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/state-chart/state-chart.styles.css'), 'utf8');
+    for (const s of ['on-track', 'at-risk', 'blocked', 'live', 'deferred']) {
+      assert.match(sc, new RegExp(`section\\.state-chart :is\\([^)]*\\.fc-key-swatch\\)[^{]*data-s="${s}"`), s);
+    }
+  });
+
   // A status key carries no text, but it keys marks that do, so it takes their level: under
   // tone the gantt key sat at the middle step beside bars at the text step.
   test('a status key takes the level of the text-bearing marks it keys', () => {
     for (const finish of ['pigment', 'etching', 'tone']) {
       assert.equal(statusBody(finish, '.gantt-legend-swatch[data-s]'), statusBody(finish, '.gantt-bar[data-s]'), `gantt, ${finish}`);
       assert.equal(
-        statusBody(finish, '.state-dot[data-s]:not([data-s="deferred"])'),
+        statusBody(finish, '[data-sc-model] .fc-key-swatch[data-s]:not([data-s="deferred"])'),
         statusBody(finish, '.state-node-shape[data-s]'),
         `state-chart, ${finish}`,
       );
