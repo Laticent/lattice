@@ -1612,7 +1612,10 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// icon and color-scheme), and themeDualMode's dark block gained the flip's own rules. The
 	// script did not change, so the CSP hash did not either. The Present strip is screen-only
 	// (print keeps the column), and the hidden inputs are position:fixed.
-	assert.equal(sha, 'b520ae15f982fd61d2b48688a6a9bfddd04b8ae5f489b0b784caa4ac9880f7af', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Then the no-JS page states a concrete color-scheme per baked scheme, as the script
+	// stamps it, where it used to inherit the sheet's `light dark` (found by the new
+	// integration test's style comparison).
+	assert.equal(sha, '22a355ea43e72b8b0843dca640f30288b9a8387c0c5c6e4b11acfe37c282ca11', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

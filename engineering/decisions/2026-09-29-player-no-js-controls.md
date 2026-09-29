@@ -70,6 +70,23 @@ All in `lib/export/player-core.mjs`, all inert once the script runs (`:not(.lp-j
 
 ## Evidence
 
+- **A committed test, run in two engines.** `test/integration/export/player-no-js.test.js`
+  exports `slide-class-forms` baked light, dark and system, plus a deck-wide `color-mode`
+  deck, and drives them with JavaScript off. It checks that the labels replace the dead
+  buttons, that Present is one whole slide at 390×844, 844×390 and 1440×900, that one swipe
+  moves one slide, that Read·Slides is the column, that a tap keeps the scroll position, that
+  the flip matches the scripted toggle in all 12 cells, that print media lays out every
+  slide, that with the script on no no-JS control shows, and that a deck-wide `color-mode`
+  ships no moon. It passes 8/8 in Chromium 131 (in CI, via `test:integration`) and 8/8 in
+  WebKit 26.0 (Playwright's build, run on demand with `LATTICE_PLAYWRIGHT`; it is not a repo
+  dependency and CI does not run it).
+- **The test can fail.** Three planted regressions each failed their test: the flip-to-light
+  token rule removed, the Present strip applied to print media, and the hidden inputs put
+  back to `position:absolute`.
+- **It found one more gap.** With no flip, the no-JS page computed `color-scheme: light dark`
+  where the scripted page stamps a concrete value. The no-JS page now states it the same way.
+- **The WebKit here is not iOS.** Playwright's WebKit is the Linux port. It shares the engine
+  with Safari and Quick Look, but not the iOS shell, touch handling or Quick Look's settings.
 - **The flip matches the scripted toggle.** In Chromium, for six decks (`chart-legends`,
   `data-viz-gallery`, `finish-per-slide`, `slide-class-forms`, `deck-logo-canvas`,
   `deck-logo-dark-theme`), each baked `light`, `dark` and `system`, under an OS in light and in
