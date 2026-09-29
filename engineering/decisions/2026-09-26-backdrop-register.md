@@ -209,7 +209,7 @@ seam. Measured on the final rule against the build before the content-box change
 - `accent-finishes`, `finish-split-covers`, `finish-backdrops`, `finish-override`,
   `finish-per-slide`, a baked-strength deck and a `backdrop: 40` deck export at the same byte count.
 - A register step over a legacy baked-mask finish no longer wedges. A legacy finish that bakes
-  both a strength and a mask still does, as on main (followup `2388-p2-legacy-saved-finish-wedge`).
+  both a strength and a mask still does, as on main (followup `2388-p3-legacy-saved-finish-wedge`).
 - The seams are followup `2388-p3-veil-tile-seams`.
 
 **Fabricate:** a newly saved clearance emits `--fin-backdrop-clear-scrim: var(--backdrop-clear-fill)`
@@ -272,6 +272,102 @@ Fabricate spotlight needed its own fix: `generateFinishCss` writes the finish's 
 rule itself and flipped `--fin-backdrop-mask` to the hard mirror there too; it now flips it for
 print only. **A Fabricate spotlight finish saved before this change keeps the old generated rule,
 and so its hard-edged Studio download, until it is re-saved.**
+
+### 4.9 Saved finishes in the Studio exports (2026-09-28)
+
+**Symptom (followup `2388-p1`, closed by this fix):** a finish saved in Fabricate showed in the live preview, but the
+Studio's Share → Images, PDF and PowerPoint exports came out identical to `finish: none`.
+
+**Cause, found in the real capture document:** the saved finish's class and CSS both reached the
+capture. Its layers still computed to `none` under `.lattice-exporting`. The Studio scopes the
+engine stylesheet under `article.lattice >`, so the engine's export flip
+(`--fin-texture: var(--fin-texture-opaque, none)`, and the wash, mark and edge siblings) is
+`article.lattice > section.finish.lattice-exporting`, specificity (0,3,2). The saved finish's own
+export rule is `section.finish.finish-<slug>.lattice-exporting`, (0,3,1), so the flip won. A
+built-in preset survives it because it declares `--fin-*-opaque` mirrors; a generated finish
+declared none, so every layer fell to `none`. The CLI was not affected, because its stylesheet is
+not scoped.
+
+**Fix:** `generateFinishCss` writes the four mirrors (`--fin-wash-opaque`, `--fin-texture-opaque`,
+`--fin-mark-opaque`, `--fin-edge-opaque`) in the finish's rich rule, the same shape a preset has.
+The flip then lands on the finish's own opaque face at any specificity. The Studio regenerates a
+saved finish's CSS from its recipe on every read, so finishes already in a library are fixed
+without a re-save.
+
+**Verified on the real Studio** (Fabricate save → `finish:` → Share), comparing each export of a
+slide wearing the saved finish against the same slide with `finish: none`: 0% of pixels differed
+before the fix on every lane; after it, 10.6% (Images), 8.6% (PDF) and 10.6% (PowerPoint) in
+light, and 9.4% (Images) in dark: the wash and the grid. A record saved with no recipe (only its
+CSS text) cannot be regenerated and keeps its old CSS.
+
+**Cost, measured on the real Studio** (10-slide deck, a Fabricate finish with a glow wash, grid,
+margin bar and margin rule; median of two exports; poppler draws the whole PDF at 110 dpi, best
+of three). Before the fix every slide matched `finish: none` to within 0.02% of pixels. After it,
+the saved finish costs what a built-in finish with a similar look costs:
+
+| Export | `finish: none` | Saved, before | Saved, after | atrium (built-in) |
+|---|---|---|---|---|
+| PDF | 146 KB, 3.1 s | 197 KB, 4.1 s | 351 KB, 4.1 s | 336 KB, 4.1 s |
+| PDF, poppler draw | 1.36 s | 1.28 s | 1.95 s | 1.90 s |
+| PowerPoint | 1.93 MB, 3.1 s | 2.10 MB, 4.3 s | 4.81 MB, 5.5 s | 4.66 MB, 5.4 s |
+| Images | 1.51 MB, 4.6 s | 1.69 MB, 5.7 s | 4.45 MB, 6.9 s | 4.33 MB, 7.1 s |
+
+The CLI output does not change (the independent checker rendered nine finish variants through
+the default writer, `--chrome-pdf` and PNG: 0 pixels differ). `docs/e2e/saved-finish-export.spec.ts` pins the Images lane and fails without
+the fix.
+
+### 4.10 The frame keyline in exports (2026-09-28)
+
+**Symptom:** the `frame` edge (the gallery preset, Fabricate's "Inset frame") showed on screen and
+was missing from every export: the CLI's PDF through both writers, and the Studio's images, PDF
+and PowerPoint. It had been missing since the frame existed; gallery's export wash was the same
+before #2387.
+
+**Cause:** the frame was an inset `box-shadow` on the section (`--fin-frame`). The section is a
+stacking context (`isolation: isolate`) and `.backdrop` sits inside it at `z-index: -2`, so every
+finish layer paints over the section's own shadow. On screen those layers are mostly transparent
+and the line shows through; an export face's wash ends on solid canvas and covers it. Fabricate
+labels the frame "EDGE z4", the top of the stack, but it was drawn at the bottom.
+
+**Fix:** the keyline is drawn a second time, on top, on the mask layer's `::after`, colored by
+`--fin-frame-mark` (the keyline color, written by the generator for a `frame` edge). The pseudo sits
+at the keyline's outer edge and paints the line as a spread `box-shadow`, which lands above the veil
+and the clear layer in every face. It is not an `outline`: Chrome snaps outline widths to whole
+pixels, so the ring drew 2px against the shadow's 2.8px and did not cover the line beneath it. The
+canvas-colored mat stays the section's shadow, underneath, so a texture still shows through it.
+Measured on screen, the ring lands on the old line: switching it off versus on changes only edge
+anti-aliasing (at most 17 levels, gallery), and the exported line is as wide as the screen's (6-7px
+at 2x). Two slide states move the section's own ring, and the pseudo follows them: a tone slide
+(`left` 8px further out, for the tone rail) and an overflowing slide with the overflow ring (4px
+further out on every side). Without those offsets the keyline jumped 4-8px on those slides.
+
+**The `backdrop:` register does not restrain the frame.** The register dims and masks the layers
+behind the content; the keyline sits at the slide edge and never competes with a word, so it stays
+crisp at every strength. Say so in review if a dimmed frame is wanted; it would be one more
+`opacity` read on the pseudo.
+
+**A hand-written finish must set `--fin-frame-mark`** to get the top keyline. A frame declared only
+through `--fin-frame` keeps the old behavior: visible on screen, gone in exports. The generator,
+the gallery preset, `design/skills/finish.md` and the Finishes docs all carry the mark. `finish-none`
+and print mode clear it with the rest of the finish.
+
+**Known caveat:** on an overflowing slide in an export, the "Content clipped" tag sits on the
+bottom keyline. It is cosmetic, appears only on a slide that is already flagged broken, and is not
+fixed here.
+
+**The inset moved from 2.6-2.82 to 1.1-1.32 section-cqi** (14-17px at 1280). At the old inset the
+keyline struck through the header (28-52px) on screen, which exports never showed only because
+they had no frame; drawing it in exports would have spread that collision to every PDF. At the new
+inset the frame encloses the header, the footer (to 696px) and the page number. This moves the
+gallery frame outward on screen too.
+
+**Measured:** decks without a frame export byte-identical (`accent-finishes`, both writers). In
+`finish-per-slide` and `finish-backdrops` the only pages that change are the gallery ones (page 4
+of 6, page 10 of 15), in both writers. On the real Studio, the saved Fabricate frame and gallery
+both carry the frame in Images, PDF and PowerPoint, including a tone slide.
+`docs/e2e/saved-finish-export.spec.ts` samples the keyline in an exported gallery slide and fails
+without the fix. Closes followups `2388-p3-studio-inset-frame-missing`,
+`2400-p3-gallery-frame-missing-studio-download` and `2388-p3-gallery-frame-crosses-header`.
 
 ### 4.5 `finish-override.backdrop`
 

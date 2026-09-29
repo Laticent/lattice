@@ -440,3 +440,29 @@ describe('finish-generate — the packaged preset recipes', () => {
 		expect([PRESET_RECIPES.loom.wash.x, PRESET_RECIPES.loom.wash.y]).toEqual([0, 0]);
 	});
 });
+
+describe('finish-generate — the -opaque mirrors the engine export flip lands on (backdrop-register.md §4.9)', () => {
+	// The Studio scopes the engine stylesheet under `article.lattice >`, so the engine's export
+	// flip (`--fin-texture: var(--fin-texture-opaque, none)`, and its wash/mark/edge siblings)
+	// out-specifies a saved finish's own export rule. The finish must therefore declare its opaque
+	// face under the `-opaque` names in its RICH rule, as a built-in preset does, or every layer
+	// falls to `none` in the Studio's image, PDF and PPTX exports.
+	const richRule = (css: string) => css.slice(0, css.indexOf('}') + 1);
+	const slot = (rule: string, name: string) => rule.match(new RegExp(`${name}:([^;]*);`))?.[1]?.trim();
+	it('the rich rule carries all four mirrors, equal to the opaque face', () => {
+		const recipe = coerceRecipe({ wash: { type: 'corner-glow' }, texture: { type: 'grid' }, mark: { type: 'bar' }, edge: { type: 'margin-rule' } });
+		const rich = richRule(generateFinishCss('probe', recipe));
+		const opaque = recipeSlots(recipe, 'opaque');
+		for (const name of ['--fin-wash', '--fin-texture', '--fin-mark', '--fin-edge']) {
+			const want = opaque.find((d) => d.startsWith(`${name}:`))?.slice(name.length + 1).trim();
+			expect(want, `${name} has an opaque face`).toBeTruthy();
+			expect(slot(rich, `${name}-opaque`), `${name}-opaque in the rich rule`).toBe(want);
+		}
+	});
+	it('an absent layer mirrors as none, so the flip never inherits a stale value', () => {
+		const rich = richRule(generateFinishCss('bare', coerceRecipe({ texture: { type: 'grid' } })));
+		expect(slot(rich, '--fin-wash-opaque')).toBe('none');
+		expect(slot(rich, '--fin-mark-opaque')).toBe('none');
+		expect(slot(rich, '--fin-edge-opaque')).toBe('none');
+	});
+});

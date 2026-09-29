@@ -56,7 +56,12 @@ beneath the content, bottom to top:
 The wash and texture ride the `.backdrop`'s `background-image`; the mark rides
 `.backdrop::before`; the vignette rides `.backdrop::after`, but a full keyline
 **frame** must be stacked inset box-shadows via `--fin-frame` — the *section*'s
-`::after` is reserved for the pagination marker (see the skeleton).
+`::after` is reserved for the pagination marker (see the skeleton). Set
+`--fin-frame-mark` to the keyline's color as well: the section's shadow paints
+under the finish layers, and every export covers it, so the engine draws the
+keyline again on top from `--fin-frame-mark`. Keep the keyline at the engine's
+inset (1.1–1.32 section-cqi, `var(--_sec-1cqi, 1cqi)`), outside the header and
+page number.
 
 The **`finish:` value maps to CSS classes** (`finish finish-<name>`) appended to
 every `<section>`. The base `finish` class is the compositor; each `finish-<name>`

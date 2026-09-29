@@ -315,6 +315,41 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).finish > .backdrop > 
   left: -8px;
 }
 
+/* z4 — THE FRAME KEYLINE, ON TOP. A `frame` edge draws its keyline twice. The section's inset
+ * box-shadow (`--fin-frame`, above) paints UNDER every finish layer: the section is a stacking
+ * context and `.backdrop` sits at a negative z-index inside it. On screen the layers are mostly
+ * transparent, so the line shows; an export face's wash ends on solid canvas and covered it, so
+ * every export (the CLI's PDF, the Studio's images, PDF and PPTX) lost the frame. This second
+ * copy is a ring on the mask's `::after`, which paints after the mask's own layers (the veil,
+ * the clear layer), so the keyline sits on top in every face, where Fabricate's "EDGE z4" puts
+ * it. ON PURPOSE the `backdrop:` register does not restrain it: a strength step, a spotlight and
+ * `clear` dim or hide the finish's layers but leave the keyline crisp. It sits at the slide's
+ * edge, outside the content, so it never muddles the words; restraint is for what is behind them. The same band as the shadow's keyline: 1.1 to 1.32 section-cqi in from the edge, outside
+ * the header and footer chrome (it used to sit at 2.6, through the header). With no
+ * frame, `--fin-frame-mark` is unset and the ring is transparent. (backdrop-register.md §4.10) */
+section.finish > .backdrop > .backdrop-mask::after {
+  content: "";
+  position: absolute;
+  /* The ring's inner edge: an OUTER spread shadow of the keyline's width, drawn from here
+   * outward, fills the same 1.1-1.32 cqi band as the section shadow. A shadow, not an
+   * `outline`: Chrome snaps an outline's width to whole pixels (2px for 2.816px at 1280), so
+   * the two lines did not coincide and the exported line came out thinner. */
+  inset: calc(1.32 * var(--_sec-1cqi, 1cqi));
+  pointer-events: none;
+  box-shadow: 0 0 0 calc(0.22 * var(--_sec-1cqi, 1cqi)) var(--fin-frame-mark, transparent);
+}
+/* The mask is inset on a tone slide (8px, the rail) and where the overflow ring is drawn (4px);
+ * the keyline steps back by the same amount so it stays where the section's frame is. */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).finish > .backdrop > .backdrop-mask::after {
+  left: calc(1.32 * var(--_sec-1cqi, 1cqi) - 8px);
+}
+section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-overflow-marker="off"]) > .backdrop > .backdrop-mask::after {
+  inset: calc(1.32 * var(--_sec-1cqi, 1cqi) - 4px);
+}
+section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-overflow-marker="off"]):is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) > .backdrop > .backdrop-mask::after {
+  left: calc(1.32 * var(--_sec-1cqi, 1cqi) - 12px);
+}
+
 /* LEGACY CLEARANCE ELLIPSE — kept ONLY for fabricated finishes saved before 2026-09-26, whose
  * generated CSS names `var(--backdrop-clear-mask)`; they keep it until re-saved. New saves and
  * the `backdrop:` register use the content-box clear above. The original note follows.
@@ -909,7 +944,8 @@ section.finish-gallery :is(.panel-left, .panel-right, .compare-left) {
   --fin-mark-justify: flex-start;
   --fin-edge: none;
   --fin-edge-opaque: none;
-  --fin-frame: inset 0 0 0 calc(2.6 * var(--_sec-1cqi, 1cqi)) var(--fin-canvas), inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--field-accent) 40%, var(--fin-canvas));
+  --fin-frame: inset 0 0 0 calc(1.1 * var(--_sec-1cqi, 1cqi)) var(--fin-canvas), inset 0 0 0 calc(1.32 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--field-accent) 40%, var(--fin-canvas));
+  --fin-frame-mark: color-mix(in srgb, var(--field-accent) 40%, var(--fin-canvas));
   --fin-surface-layers: var(--fin-texture), var(--fin-wash);
 }
 
@@ -1169,6 +1205,7 @@ section.print.finish[class] {
   --fin-mark-opaque: none;
   --fin-edge-opaque: none;
   --fin-frame: 0 0 transparent;
+  --fin-frame-mark: transparent;
   --fin-backdrop-mask: none;
   --fin-backdrop-mask-opaque: none;
   --backdrop-scrim: none;
@@ -1204,7 +1241,8 @@ section.backdrop-none {
    * value and took the TONE RAIL down with it. The comment at line 144 had already
    * stated the invariant ("never `none`, invalid inside a shadow list"); this line
    * broke it anyway, and nothing noticed until the css:values var() pass. */
-  --fin-frame: 0 0 transparent; /* clear the inset keyline frame too */
+  --fin-frame: 0 0 transparent;
+  --fin-frame-mark: transparent; /* clear the inset keyline frame too */
   /* …and the `backdrop:` register's layers, which a deck-wide `backdrop: clear` still stamps
    * here: without these the opted-out slide painted the clearance ellipse and the veil over a
    * bare canvas (a hairline on every `finish-none` bookend in the PDF). This rule follows the
