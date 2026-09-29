@@ -474,6 +474,7 @@ test('a size that changes the card morphs it from its painted box, then lets go'
     held.header(800, 1200); // a portrait: the wide guess was wrong
     held.probe.onload();
     assert.match(panel.style.transform, /^translate\(-100px, 30px\) scale\(2, 0\.9375\)$/, 'put back where it was painted');
+    assert.equal(panel.style.transition, 'none', 'the pin paints before the transition is armed (the checker: armed in the same task, it glides backwards)');
     view.tick(false); // the play frame
     assert.equal(panel.style.transform, '', 'then it glides to its new box');
     assert.match(panel.style.transition, /transform 360ms/);
@@ -499,26 +500,82 @@ test('a size that keeps the card where it was (the wide guess was right) does no
   } finally { global.Image = prev; }
 });
 
-test('the morph uses the Web Animations API where the host has it, starting at once', () => {
+// FRAME-DRIVEN, NOT CLOCK-DRIVEN: WebKit's first paint of the photo can stall for a second, and a
+// clock-driven glide (the Web Animations API back-dates its start) ran out inside the stall, so the
+// card snapped (headless WebKit: the whole 402px change in one frame). Each frame advances the
+// glide by its real gap, capped, so a stall pauses it.
+function rafView() {
+  const view = timedView(false);
+  const q = [];
+  view.requestAnimationFrame = (fn) => q.push(fn);
+  view.frame = (t) => { const fns = q.splice(0); for (const fn of fns) fn(t); };
+  return view;
+}
+// A paused animation the test can read: `currentTime` is the glide's clock.
+function fakeAnimate(panel) {
+  const made = [];
+  panel.animate = (frames, opts) => {
+    const anim = { frames, opts, currentTime: null, paused: false, cancelled: false, pause() { this.paused = true; }, cancel() { this.cancelled = true; } };
+    made.push(anim);
+    return anim;
+  };
+  return made;
+}
+function morphing(view, rects = [{ left: 100, top: 50, width: 600, height: 375 }, { left: 200, top: 20, width: 300, height: 400 }]) {
   const prev = global.Image;
   const { Image, held } = heldImage();
   global.Image = Image;
   try {
-    const view = timedView(false);
     const s = makeSection({ bgStyle: "url('portrait.jpg')" });
-    const panel = morphPanel([{ left: 100, top: 50, width: 600, height: 375 }, { left: 200, top: 20, width: 300, height: 400 }]);
-    const calls = [];
-    panel.animate = (frames, opts) => calls.push({ frames, opts });
+    const panel = morphPanel(rects);
+    const made = fakeAnimate(panel);
     s.querySelector = () => panel;
     imageAdaptive.applyToDom(rootIn([s], view));
     held.header(800, 1200);
     held.probe.onload();
-    assert.equal(calls.length, 1, 'animated in the same task');
-    assert.equal(calls[0].frames[0].transform, 'translate(-100px, 30px) scale(2, 0.9375)');
-    assert.equal(calls[0].frames[1].transform, 'none');
-    assert.equal(calls[0].opts.duration, imageAdaptive.MORPH_MS);
-    assert.equal(panel.style.transform, '', 'no inline style left behind');
+    return { panel, made };
   } finally { global.Image = prev; }
+}
+test('the glide is a paused animation, pinned at the painted box in the same task', () => {
+  const view = rafView();
+  const { panel, made } = morphing(view);
+  assert.equal(made.length, 1);
+  assert.equal(made[0].frames[0].transform, 'translate(-100px, 30px) scale(2, 0.9375)');
+  assert.equal(made[0].frames[1].transform, 'none');
+  assert.equal(made[0].opts.fill, 'both');
+  assert.equal(made[0].paused, true, 'paused: its clock is set by frames, not by time');
+  assert.equal(made[0].currentTime, 0, 'at the painted box');
+  assert.equal(panel.style.transform, '', 'no inline style: nothing wakes the runtime observer each frame');
+  assert.equal(panel.getAttribute(imageAdaptive.MORPH), '', 'marked while it moves');
+});
+test('a stall pauses the glide instead of eating it', () => {
+  const view = rafView();
+  const { panel, made } = morphing(view);
+  const anim = made[0];
+  view.frame(1000);
+  view.frame(2600); // a 1.6 s stall
+  assert.ok(anim.currentTime > 0 && anim.currentTime <= 25, `one frame after a stall advances at most one step (${anim.currentTime})`);
+  let frames = 0;
+  for (let t = 2616; !anim.cancelled && frames < 100; t += 16) { view.frame(t); frames++; }
+  assert.equal(anim.cancelled, true, 'it lands and lets go');
+  assert.ok(frames >= 15, `after real frames (${frames})`);
+  assert.equal(panel.hasAttribute(imageAdaptive.MORPH), false, 'unmarked once it lands');
+});
+test('a panel taken out mid-glide lets go', () => {
+  const view = rafView();
+  const { panel, made } = morphing(view);
+  view.frame(0);
+  panel.isConnected = false;
+  view.frame(16);
+  assert.equal(made[0].cancelled, true);
+  assert.equal(panel.hasAttribute(imageAdaptive.MORPH), false);
+});
+test('a reader who asked for less motion gets the new box at once', () => {
+  const view = rafView();
+  view.matchMedia = (q) => ({ matches: /reduce/.test(q) });
+  const { panel, made } = morphing(view);
+  assert.equal(made.length, 0);
+  assert.equal(panel.style.transform, '');
 });
 
 test('a web photo the reader has not loaded (the hatch) shows the painting, muted and still', () => {
@@ -563,13 +620,11 @@ test('the morph divides its offset by the section scale', () => {
     const s = makeSection({ bgStyle: "url('portrait.jpg')" });
     const panel = morphPanel([{ left: 100, top: 50, width: 600, height: 375 }, { left: 200, top: 20, width: 300, height: 400 }]);
     panel.offsetWidth = 600; // drawn at half scale: 300 visual px for 600 layout px
-    const calls = [];
-    panel.animate = (frames) => calls.push(frames);
     s.querySelector = () => panel;
     imageAdaptive.applyToDom(rootIn([s], view));
     held.header(800, 1200);
     held.probe.onload();
-    assert.equal(calls[0][0].transform, 'translate(-200px, 60px) scale(2, 0.9375)');
+    assert.equal(panel.style.transform, 'translate(-200px, 60px) scale(2, 0.9375)');
   } finally { global.Image = prev; }
 });
 

@@ -193,6 +193,20 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(snap?.html).not.toContain('margin-bottom');
 	});
 
+	// A card mid-morph in a host without the Web Animations API is pinned at its old box by an
+	// inline transform (image-adaptive's fallback); replayed, it would paint there for good.
+	it('strips a held morph from a panel in the captured slide', () => {
+		const frame = fakeFrame();
+		const sec = (frame.contentDocument as Document).querySelector('.lattice > section') as HTMLElement;
+		sec.insertAdjacentHTML('beforeend', '<div class="lattice-bg" data-img-morph="" style="background-image:url(x.jpg);transform:translate(-100px, 30px) scale(2, 0.9);transform-origin:0 0;transition:none"></div>');
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap?.html).toContain('lattice-bg');
+		expect(snap?.html).not.toContain('translate(-100px');
+		expect(snap?.html).not.toContain('data-img-morph');
+		expect(snap?.html).not.toContain('transform-origin');
+		expect(snap?.html).not.toContain('transition');
+	});
+
 	// The fit is what makes the cached slide land ON the live one instead of near it
 	// (#1563): stored in the replay box's coordinates, alongside the box size it was taken
 	// in, so a later replay into a re-dragged pane rescales rather than misplaces.

@@ -865,13 +865,18 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   floor (the checker's finding). **Not `:root[…]`:** the engine packs every selector under
   `article.lattice > section`, so `:root[x]` becomes the slide and never matched the document's
   attribute — measured in the Studio frame, the rule was present and dead. Any other shape
-  MORPHS there (`morphFrom` in image-adaptive.js, a FLIP
-  via the Web Animations API, 360ms). What is irreducible is that a portrait's shape is
-  unknown until its first bytes arrive; what is not is how it gets there. WebKit caveat:
-  when the size and the decoded photo land together (a server that sends the whole file at
-  once), the engine stalls ~400ms and headless Linux WebKit shows the glide as a snap; a
-  streamed load glides (Chromium always does). The API is used because it starts in the
-  same task; a transition armed two frames later was swallowed by the stall entirely.
+  MORPHS there (`morphFrom` in image-adaptive.js: pinned at its painted box, then glided to
+  the new one over 360ms). What is irreducible is that a portrait's shape is unknown until its
+  first bytes arrive; what is not is how it gets there. **The glide is FRAME-DRIVEN, not
+  clock-driven:** a PAUSED animation pins the card in the same task, and each frame sets its
+  clock forward by the frame's real gap, capped at 25ms, so a stall pauses the glide. WebKit's
+  first paint of the photo stalls the main thread (measured in headless WebKit: up to 1.6 s,
+  right AFTER the glide starts), and a clock-driven glide runs out inside the stall: a running
+  animation back-dates its start to when it was requested (start 2419 ms, first frame 4036 ms,
+  finished on that frame), and a CSS transition does the same, so the whole 402px change
+  landed in one frame. Setting the clock writes no attribute; an inline transform per frame
+  would wake the runtime's document-wide MutationObserver every frame (the checker). Reduced
+  motion gets the new box at once. The panel carries `data-img-morph` while it moves.
 - **Only a live preview holds text back, or paints:** the runtime sets `data-img-pending`,
   `data-lattice-painting` and `data-img-relayout` only in a document with a reveal gate
   (`__latticeFontsSettled` is a boolean) that ALSO opted in with `<html
