@@ -24,7 +24,7 @@ Use when a decision frames a binary choice and the recommendation must be unambi
 | `heading` | `h2` | yes | Decision framing in the dark left panel. |
 | `context` | `p` | yes | One-sentence context paragraph under the heading. |
 | `options` | `ul > li` | yes | Exactly two top-level items. First is the alternative; second is the preferred option. |
-| `verdict` | `blockquote` | yes | The recommendation — one short sentence in a blockquote. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
+| `verdict` | `blockquote` | yes | The recommendation — one short sentence in a blockquote: the first top-level one, so a quote inside a raw `<div>`, a table or an option stays where it is, and a quote nested in the verdict stays in the verdict. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
 
 ### Common mistakes
 
