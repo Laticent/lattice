@@ -3501,6 +3501,16 @@ async function renderBody(browser, g, closeBrowser) {
   // A trim clamps body text, not tags, so this is normally a no-op; it keeps the reserve true
   // for the overflow measurement if a trim ever does reach a tag.
   await equalizeCardTagsInPage(' (after trim)');
+  // Where the equalize pass does NOT reach the file (a plain `.html`: no script), a card tag that
+  // wraps keeps its own height against a one-line reserve and covers the top of its card body.
+  // Measure it here, write nothing, and name the slides — a PDF of the same deck is fine, so the
+  // author needs to hear it from this export (followups.d/2433-p3-plain-html-export-reserves-one-tag-line.md).
+  if (!TAGS_REACH_DELIVERABLE && !QUIET) {
+    const covered = await g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document, 'report')`), 'measure card tags') || [];
+    for (const { slide, over } of covered) {
+      console.warn(`  ⚠ slide ${slide}: a card tag is ${over}px taller than the room its card keeps, so in this .html (no script to equalize it) it covers the top of the card body. Shorten the label (lint:deck names it as tag-budget), or export --fluid or PDF.`);
+    }
+  }
   if (!TRIM_REACHES_DELIVERABLE) {
     // Only worth saying on a deck that asked for it. Counted off the live DOM rather
     // than the front matter, because a per-slide `<!-- _class: guards-strict -->` is

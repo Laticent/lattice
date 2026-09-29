@@ -219,7 +219,7 @@
     },
     {
       "variant": "banner-tag",
-      "useWhen": "The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag."
+      "useWhen": "The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag. `banner-tag` is the `tag-band` placement under its older name; `tag-band` (or `tag: band` deck-wide) works on every tagged layout."
     },
     {
       "variant": "rejected",

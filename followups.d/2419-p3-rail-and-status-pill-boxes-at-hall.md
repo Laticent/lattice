@@ -2,25 +2,33 @@
 origin: 2419
 priority: P3
 recorded: 2026-09-27
+updated: 2026-09-29
 source: https://github.com/Laticent/lattice/pull/2419
 ---
 
-# Check fixed-size rail and status-pill boxes at `venue: hall`.
+# Fixed-size rail and status-pill boxes do not grow with `venue: hall`.
 
-Found by the card-tag audit (PR #2419, `2026-09-27-card-tag-register.md` §3.6). It is out
-of that design's scope, so it is logged here.
+Rendered on 2026-09-29 (PR #2493 session) — each component's gallery with `venue: hall`
+added, slide 2 (list-steps: the `timeline` slide, 7), at 60 and 150 dpi. The earlier entry was
+inferred from CSS; this one is observed. Handed off rather than fixed in #2493: five separate
+components, each owing its own visual review, and none of them is a card tag.
 
 ```text
-  P3 · [no ticket] Fixed-cqi marker boxes may not grow with venue.
-       why now   — --fs-meta grows up to 1.95x at hall, but these boxes are fixed cqi:
-                   list-steps timeline disc (2.03125cqi), timeline-list pill height
-                   (1.875cqi), .chart-status height (1.71875cqi), kanban status
-                   (1.5625cqi), journey mood disc (1.40625cqi). Roadmap pills use a raw
-                   cqi font and ignore venue entirely.
-       where     — the component styles.css files above; chart-family.css:1210-1286.
-       done when — each marker's text fits its box at hall, or the claim is refuted
-                   by a render.
-       evidence  — a hall render of each, rasterized.
-       verify    — inferred from CSS by an audit scout, NOT rendered. The card-tag
-                   equivalent of this claim did not reproduce at hall, so render first.
+  P3 · [no ticket] Rail and status markers keep fixed-cqi boxes while their text grows.
+       why now   — at hall the text is 1.5x; the boxes are fixed cqi, so:
+                   · timeline-list date pill: the "Q1"…"Q4" text is taller than the pill's
+                     outline (CONFIRMED at 150 dpi);
+                   · list-steps `timeline` disc: the step numeral reads larger than its
+                     disc (seen at 60 dpi, not zoomed);
+                   · roadmap header meta pills ("Q2 2026"): a raw-cqi font that ignores
+                     venue, so they stay laptop-size and near-unreadable at hall;
+                   · .chart-status pills (progress): text fills the pill edge to edge but
+                     fits — tight, not broken;
+                   · kanban size letters and journey mood discs: fine.
+       where     — timeline-list, list-steps (timeline), roadmap styles.css;
+                   chart-family.css (.chart-status).
+       done when — each marker's box is sized in em of its own text (the card-tag kernel's
+                   --card-tag-pad-* pattern), so it grows with venue; hall renders clean.
+       evidence  — before/after hall renders of the four galleries named above.
+       verify    — tier 0 gates + a hall render per component, light and dark.
 ```

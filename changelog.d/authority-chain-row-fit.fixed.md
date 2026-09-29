@@ -1,0 +1,1 @@
+- `authority-chain`: each tier's gloss line no longer sits on the card's bottom border. The citation line takes a line box its own size, and each row pads by `--sp-sm` top and bottom, so a four-tier chain's text sits centered in its card at the laptop venue.

@@ -214,7 +214,7 @@
   "variantDecisionRule": [
     {
       "variant": "capsule",
-      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit). One class carries the whole look: centered masthead and cards, a pill badge per step in its own categorical hue, a serif title, no connector arrows, and no masthead hairline. Add `rule-full` if you want the hairline back."
+      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit). One class carries the whole look: centered masthead and cards, a pill badge per step in its own categorical hue, a serif title, no connector arrows, and no masthead hairline. Add `rule-full` if you want the hairline back. Its pill is the card tag at the `inline` placement, centered, in the categorical `--cat-N-mark` tier, so the `tag:` words (`tag-plain`, `tag-none`, `tag-large`, `tag-foot`) restyle it."
     },
     {
       "variant": "vertical",

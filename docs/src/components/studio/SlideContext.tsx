@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { autoHeadLabel } from './auto-mark';
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
+import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { activeChartFinish, CHART_FINISHES } from './chart-finish-catalog';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
@@ -38,7 +39,7 @@ import { SlideComments } from './SlideComments';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { BACKDROP_MASKS, backdropProvenance, type Canvas, canvasProvenance, chartFinishProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setChartFinish, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, chartFinishProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setChartFinish, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { getSayLine, setSayLine } from './slide-say';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -411,6 +412,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	];
 	const onBdStrength = (v: string | null) => onMutate((c) => setBackdrop(c, 'strength', v));
 	const onBdMask = (v: string) => onMutate((c) => setBackdrop(c, 'mask', v === '__inherit__' ? null : v));
+	// Card tags — the deck `tag:` register's per-slide override (lib/core/resolve-card-tag.js), on
+	// the layouts that draw a tag. Four axes, each Auto = follow the deck, then the component.
+	const showsCardTag = (CARD_TAG_LAYOUTS as readonly string[]).includes(component);
+	const cardTag = React.useMemo(
+		() => Object.fromEntries(CARD_TAG_ROWS.map((r) => [r.axis, cardTagProvenance(chunk, source, r.axis)])) as Record<CardTagAxis, ReturnType<typeof cardTagProvenance>>,
+		[chunk, source],
+	);
+	const onCardTag = (axis: CardTagAxis, v: string) => onMutate((c) => setCardTag(c, axis, v === '__inherit__' ? null : v));
 
 	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
 	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
@@ -701,6 +710,28 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 									</Row>
 								</>
 							)}
+							{showsCardTag &&
+								CARD_TAG_ROWS.map((row) => {
+									const p = cardTag[row.axis];
+									return (
+										<Row key={row.axis} label={row.label} hint={p.state === 'inherited' ? 'from deck' : undefined} desc={row.desc} find={row.find} help={row.help}>
+											<CatalogSelect
+												ariaLabel={row.label}
+												value={p.state === 'on' ? (p.value ?? '__inherit__') : '__inherit__'}
+												onValueChange={(v) => onCardTag(row.axis, v)}
+												className="w-full"
+												groups={[
+													{
+														options: [
+															{ value: '__inherit__', label: autoHead(p.deckValue ? cardTagOptionLabel(p.deckValue) : "Component's own") },
+															...CARD_TAG_AXES[row.axis].map((w) => ({ value: w, label: cardTagOptionLabel(w) })),
+														],
+													},
+												]}
+											/>
+										</Row>
+									);
+								})}
 							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
 							{accepts('compact') && (
 								<Row label="Compact" hint="tighter spacing" desc="Tighter spacing between elements.">
