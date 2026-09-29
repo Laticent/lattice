@@ -18,7 +18,7 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 ---
 
 <!-- _class: content -->
-<!-- caption: The quarter closed well. ARR closed at $48.6M, ahead of plan. Payback stretched to 19 months. -->
+<!-- say: The quarter closed well. ARR closed at $48.6M, ahead of plan. Payback stretched to 19 months. -->
 
 ## The quarter, line by line
 
