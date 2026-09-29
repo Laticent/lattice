@@ -127,7 +127,7 @@ section.video .video-qr-hint {
   color: var(--text-muted);
 }
 section.video .video-embed figcaption {
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);  /* the one reading size (typography.md §7) */
   color: var(--text-heading);
   text-align: center;
   line-height: 1.3;
@@ -280,7 +280,7 @@ section.video.gallery .video-aside {
 section.video.gallery .video-embed figcaption {
   position: relative;
   padding-top: var(--sp-sm);
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);  /* as image gallery's placard (typography.md §7) */
   color: var(--text-heading);
   text-align: center;
   line-height: 1.35;

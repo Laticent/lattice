@@ -442,12 +442,11 @@ section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-
 section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
   align-content: center;
 }
-/* one side per full-width card — its statement carries message weight, not body. */
+/* One side per full-width card. Its statement reads at --fs-body, the one reading size
+   (typography.md §7), as it does in the wide family: two sides are reading text, not a
+   one-per-slide lead line. It read at --fs-message here before. */
 section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
-  /* This portrait @container override (--fs-message, statement weight) WINS over the
-   * base body rule, so the dense-prose de-boost must live here too — the base de-boost
-   * is inert in portrait. (Parallels decision.styles.css line 100.) */
-  font-size: var(--fs-message);
+  font-size: var(--fs-body);
   line-height: var(--lh-snug);
 }
 section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before {

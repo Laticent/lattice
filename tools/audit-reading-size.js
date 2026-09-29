@@ -50,7 +50,10 @@ const ROLES = ['meta', 'body-compact', 'body', 'message', 'h3', 'emphasis', 'h2'
 // or it is a cover/section page. Their text is display, not reading, and the one-reading-size
 // rule does not apply to it. Named here so the report can sort them apart; the reasons are in
 // the decision note.
-const HERO = new Set(['big-number', 'closing', 'divider', 'quote', 'stats', 'title', 'topic']);
+// A slide with more than this share of its visible characters at `--fs-meta` is listed under
+// MOSTLY AT THE CHROME SIZE.
+const META_HEAVY = 0.4;
+const HERO = new Set(['big-number', 'closing', 'divider', 'kpi', 'quote', 'stats', 'title', 'topic']);
 
 // The owner-approved exceptions to one reading size (the decision note's §4), keyed by
 // component, or by `component variant` for one register. Each reads at its own role on
@@ -65,6 +68,7 @@ const EXCEPTIONS = {
   scene: 'E3 one lead caption',
   video: 'E3 one lead caption',
   flowchart: 'E4 chart key',
+  'state-chart': 'E4 chart text',
   journey: 'E4 chart key',
   kanban: 'E5 label board',
   'logo-wall': 'E5 label board',
@@ -76,7 +80,7 @@ const EXCEPTIONS = {
 };
 // Support lines (E7, owner ruling 2026-09-29): a line under a row reads one step below it.
 // The SECOND SIZES report marks these, since they are a second size on purpose.
-const SUPPORT_LINES = new Set(['list', 'content', 'split-panel proof', 'split-panel capstone']);
+const SUPPORT_LINES = new Set(['list', 'content', 'split-panel proof', 'split-panel capstone', 'timeline-list']);
 const exceptionOf = (component, variant) => EXCEPTIONS[`${component} ${variant}`] || EXCEPTIONS[component] || null;
 
 /** A component sample, as `{ tokens, body }`: the class tokens it already carries and the slide below them. */
@@ -202,7 +206,12 @@ async function measureComponent(browser, m) {
       // A second reading size on the same slide: any other non-chrome size carrying more than
       // 10% of the visible characters. The dominant size alone cannot show it.
       const second = main ? reading.filter((x) => x.px !== main.px && x.share > 0.1) : [];
-      return { component: m.name, variant: r.variant, venue: r.venue, kind: HERO.has(m.name) ? 'hero' : exceptionOf(m.name, r.variant) ? 'exception' : 'reading', exception: exceptionOf(m.name, r.variant), px: main?.px ?? null, role: main?.role ?? null, share: main?.share ?? 0, metaOnly, second, sizes, bodyPx: s.rolepx.body };
+      // The blind spot that leaving meta out opens: reading text SET at the chrome size never
+      // shows as a second size. `authority-chain branching` (its branch lines) and `list-steps
+      // timeline` (its step text) both hid there. A slide with most of its characters at meta
+      // is reported apart, so a reader can tell chrome from reading text at the wrong size.
+      const metaShare = sizes.filter((x) => x.role === 'meta').reduce((a, x) => a + x.share, 0);
+      return { component: m.name, variant: r.variant, venue: r.venue, kind: HERO.has(m.name) ? 'hero' : exceptionOf(m.name, r.variant) ? 'exception' : 'reading', exception: exceptionOf(m.name, r.variant), px: main?.px ?? null, role: main?.role ?? null, share: main?.share ?? 0, metaOnly, metaShare, second, sizes, bodyPx: s.rolepx.body };
     });
   } finally {
     await page.close();
@@ -257,6 +266,14 @@ async function main() {
   if (mixed.length) {
     console.log(`\nSECOND SIZES ON READING ROWS (${VENUES[0]}; a non-chrome size carrying >10% of the text)`);
     for (const r of mixed) console.log(`  ${key(r).padEnd(w)}${SUPPORT_LINES.has(key(r)) ? '(E7 support line) ' : ''}${r.second.map((x) => `${pt(x.px)}pt ${x.role || 'off-role'} ${Math.round(x.share * 100)}% [${(x.sample || '').slice(0, 40)}]`).join('  ·  ')}`);
+  }
+  // Slides that carry most of their text at the chrome size (laptop; the share barely moves by
+  // venue). Chrome-heavy components (a chart's keys, a label board) belong here by design; a
+  // component whose rows or descriptions sit here is reading text at the wrong role.
+  const heavy = rows.filter((r) => !r.error && r.venue === 'laptop' && r.kind !== 'hero' && r.metaShare > META_HEAVY);
+  if (heavy.length) {
+    console.log(`\nMOSTLY AT THE CHROME SIZE (over ${Math.round(META_HEAVY * 100)}% of the characters at --fs-meta, laptop)`);
+    for (const r of heavy) console.log(`  ${key(r).padEnd(w)}${Math.round(r.metaShare * 100)}%${r.exception ? `  (${r.exception})` : ''}`);
   }
   // Per venue: the distinct reading sizes, and how many component rows sit at each.
   console.log('\nDISTINCT READING SIZES PER VENUE (reading rows only; exceptions and hero text left out)');

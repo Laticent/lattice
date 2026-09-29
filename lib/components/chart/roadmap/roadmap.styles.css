@@ -812,7 +812,7 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
 }
 /* The row's height is set by `.row-text`, which carries the glyphs — setting
  * font-size on the <li> does nothing, because both spans declare their own. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .row-text { font-size: var(--fs-meta); }
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .row-text { font-size: var(--fs-body); }
 /* Chrome tightens hard at portrait. Every `--sp-*` rides `--canvas-scale`
  * (~1.95 here) just like the type does, so card padding, the head rule's
  * clearance and the inter-row gaps are all ~2x their landscape selves — and
@@ -828,7 +828,7 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
   gap: var(--sp-sm);
   padding-bottom: var(--sp-2xs);
 }
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-title { font-size: var(--fs-body-compact); }
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-title { font-size: var(--fs-body); }
 /* The phase pill is the least readable thing on a split page. `0.859375cqi`
  * resolves to ~8.4px at portrait, so the #1213 floor is what is actually
  * drawing it — at 11px, legible but not readable on a 1080-wide page where the

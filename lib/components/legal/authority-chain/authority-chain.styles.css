@@ -137,7 +137,10 @@ section.authority-chain.branching > .cell-stage > :is(ol, ul) > li {
   row-gap:var(--sp-sm);
 }
 section.authority-chain.branching > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
-  flex:0 0 100%;
+  /* border-box: the left padding holds the dashed rail's indent, and a content-box
+   * flex-basis of 100% would add it on top, pushing every branch past the row's
+   * right border. */
+  flex:0 0 100%; box-sizing:border-box; min-width:0;
   list-style:none; margin:0; padding:0 0 0 var(--sp-lg);
   display:flex; flex-direction:column; gap:var(--sp-xs);
   border-left:2px dashed var(--tier-hue, var(--accent));
@@ -147,7 +150,7 @@ section.authority-chain.branching > .cell-stage > :is(ol, ul) > li > :is(ul, ol)
   background:var(--bg);
   border:1px solid var(--border);
   border-radius:var(--radius-sm);
-  font-size:var(--fs-meta);
+  font-size:var(--fs-body);
   position:relative;
 }
 section.authority-chain.branching > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li::before {

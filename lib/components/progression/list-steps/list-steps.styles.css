@@ -215,23 +215,43 @@ section.form.list-steps.timeline .cell-masthead .masthead-lede { text-align:var(
  * strand it centered under `headline: left` while the heading + eyebrow move). `auto` → the
  * fallback `center`, byte-identical; `head-left` moves it left with the rest of the cluster. */
 section.list-steps.timeline > .cell-stage > p { text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
+/* EQUAL COLUMNS, one per stage. Each stage used to be a fixed 14cqi column with its text at
+ * the chrome size (--fs-meta), so at a larger venue a three-word line wrapped to a word a line
+ * while most of the width sat empty. The text reads at --fs-body (the one reading size,
+ * typography.md §7) and each stage takes an equal share of the row. */
 section.list-steps.timeline > .cell-stage > :is(ol,ul) {
-  display:flex; justify-content:space-between; align-items:flex-start;
+  display:flex; align-items:flex-start;
   width:100%; position:relative; flex:0 1 auto;
   padding:0 var(--sp-xl); gap:0; box-sizing:border-box; margin:0;
 }
+section.list-steps.timeline > .cell-stage > :is(ol,ul) > li {
+  flex:1 1 0; min-width:0; box-sizing:border-box;
+  display:flex; flex-direction:column; align-items:center;
+  text-align:center; position:relative; z-index:1;
+  background:none; border:none; border-radius:0; padding:0 var(--sp-sm);
+  font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading);
+}
+/* THE SPINE: one line under the whole row, from the first dot's center to the last one's, so a
+ * `spectrum-trim` gradient runs once across it. With N equal columns inside the list's
+ * `--sp-xl` padding, the first and last dots sit half a column in from each end. N comes from
+ * the list's own length (2 to 10 stages; more reads as 10). */
+section.list-steps.timeline > .cell-stage > :is(ol,ul) { --ls-stages:1; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(2)) { --ls-stages:2; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(3)) { --ls-stages:3; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(4)) { --ls-stages:4; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(5)) { --ls-stages:5; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(6)) { --ls-stages:6; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(7)) { --ls-stages:7; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(8)) { --ls-stages:8; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(9)) { --ls-stages:9; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(10)) { --ls-stages:10; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul)::before {
+  --ls-inset:calc(var(--sp-xl) + (100% - 2 * var(--sp-xl)) / (2 * var(--ls-stages)));
   content:''; position:absolute; top:1.015625cqi;
-  left:calc(var(--sp-xl) + 7.03125cqi); right:calc(var(--sp-xl) + 7.03125cqi);
+  left:var(--ls-inset); right:var(--ls-inset);
   height:3px; background:var(--spectrum-structure); border-radius:2px;
 }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li {
-  flex:0 0 auto;
-  display:flex; flex-direction:column; align-items:center;
-  width:14.0625cqi; text-align:center; position:relative; z-index:1;
-  background:none; border:none; border-radius:0; padding:0;
-  font-size:var(--fs-meta); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading);
-}
+section.list-steps.timeline > .cell-stage > :is(ol,ul) > li:not(:last-child)::after { content:none; }
 /* Seeded from `--lat-split-offset` for the same reason as `step-counter` above — the
    `.timeline` modifier added its own counter later and did not inherit the note. */
 section.list-steps.timeline > .cell-stage > ol { counter-reset:ls-timeline-counter var(--lat-split-offset, 0); }
@@ -249,11 +269,10 @@ section.list-steps.timeline > .cell-stage > ul > li::before {
   background:var(--accent); border:3px solid var(--bg);
   box-shadow:0 0 0 1px var(--border); flex-shrink:0;
 }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li:not(:last-child)::after { content:none; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > strong { display:block; padding-top:1.09375cqi; padding-bottom:0.3125cqi; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) { list-style:none; padding:0; margin:0; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li { font-weight:400; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em { font-size:var(--fs-meta); color:var(--text-body); line-height:var(--lh-snug); font-style:normal; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); font-style:normal; }
 
 /* ── chevron · converge · ghost — vertical staged-flow variants ──
  * Three looks for a labeled argument cascading DOWN the frame (Problem →
