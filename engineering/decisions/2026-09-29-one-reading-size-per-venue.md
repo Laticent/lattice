@@ -214,6 +214,14 @@ today would wrap. The recommendation is to keep code one step down, at
 
 ## 7 · Owner decision
 
-*Pending.* Put to the owner in one `AskUserQuestion` round on 2026-09-29: which option
-(A / B / C / D), whether code keeps its step-down exception, and whether the E3 lead
-statements stay display-sized.
+Asked on 2026-09-29 in one round; two of three answered.
+
+- **Code:** keep code one step down at `--fs-body-compact`, and raise `compare-code` to
+  it (§5.2). Tracked in `followups.d/2361-p2-compare-code-code-at-chrome-size.md`.
+- **One-per-slide lead sentences (E3):** stay display-sized.
+- **The shared reading size (§5):** *open.* No CSS changes until it is picked.
+
+Follow-ups for the pending work: `followups.d/2361-p1-one-text-size-per-venue.md`, plus
+the three defects in §3.3 (`2361-p2-hall-table-cells-smaller-than-labels.md`,
+`2361-p2-compare-code-code-at-chrome-size.md`,
+`2361-p3-citation-card-margin-ignores-venue.md`).
