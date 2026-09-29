@@ -57,7 +57,10 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li {
    * content on the row midline as it grows. min-height:0 lets a dense chain compress
    * gracefully instead of overrunning the clip. */
   flex:1; min-height:0;
-  padding:var(--sp-md) var(--sp-md);
+  /* --sp-sm top and bottom, not --sp-md: a four-tier chain gives each row a quarter of the
+   * stage, and at --sp-md the row's content box (92px row, 44px inside at laptop) was smaller
+   * than its two-line body, so the gloss line sat on the bottom border. */
+  padding:var(--sp-sm) var(--sp-md);
   background:var(--bg-alt);
   border:1px solid var(--border);
   border-left:4px solid var(--tier-hue, var(--accent));
@@ -101,6 +104,12 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
   display:flex; flex-direction:column; gap:var(--sp-xs);
 }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li::marker { content:''; }
+/* The citation line's box follows its own face: the item held the body's line box (32px at
+ * laptop) around a meta-size code span, 15px of empty leading above the gloss. */
+section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) {
+  font-size:var(--fs-meta);
+  line-height:var(--lh-tight);
+}
 section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
   font-family:var(--font-label);
   font-size:var(--fs-meta);
