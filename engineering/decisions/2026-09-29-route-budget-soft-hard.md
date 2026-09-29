@@ -99,17 +99,21 @@ session, but it can see a PR, and one PR per line of work makes the two the same
 - **The growth is measured, not declared.** On `pull_request`, CI's docs-build job runs
   `docs/scripts/measure-route-base.sh`: it builds the PR's base in a git worktree, with
   `node_modules` hard-linked from the checkout when the lockfiles match, and passes the
-  numbers to the gate. Measured locally: 61–64s. The owner approved adding this CI step
+  numbers to the gate. Measured locally: 61–85s, depending on load. The owner approved adding this CI step
   over publishing `main`'s numbers from the deploy workflow, which costs no build time but
   adds moving parts and can lag behind a PR's real base.
 - **Only eager JS has an allowance.** Two builds of the same `main` gave identical eager JS
-  and HTML sizes 1–3 bytes apart, and HTML has soft/hard.
+  and HTML sizes a few bytes apart (1–6), and HTML has soft/hard.
 - **Not in the merge queue.** There the base already carries the PRs ahead, so the
   difference would not be this PR's own. The queue still enforces soft/hard.
 - **A base that fails to build does not fail the PR.** The step writes no numbers and the
   gate logs the allowance as NOT checked, because a PR cannot fix `main`.
 - **Locally**, `npm run check:route-budget` says the allowance was not checked; the header
   of `measure-route-base.sh` shows how to run it against `origin/main`.
+- **Known gaps.** A base whose docs build stops before `inject-modulepreload` is skipped,
+  not measured. And the allowance runs only where docs-build runs: CI's `docs` path filter
+  does not include the root `package.json`/lockfile or `tools/**`, so a root dependency bump
+  or a bundler change that grows a route meets only soft/hard.
 
 Together the three layers give each PR a limit (2KB unless explained), the total a limit
 (soft + 3%), and the owner a checkpoint (every raise of soft).

@@ -243,7 +243,9 @@ function addedFragments(baseSha) {
 	});
 	return out
 		.split('\n')
-		.filter((f) => f.endsWith('.md') && !f.endsWith('/README.md'))
+		// Top-level files only: that is all a reset folds (pendingFragments), so a file in a
+		// subdirectory would explain growth once and then never reach the history.
+		.filter((f) => /^docs\/route-budget\.d\/[^/]+\.md$/.test(f) && !f.endsWith('/README.md'))
 		.filter((f) => fs.existsSync(path.join(repo, f)) && fs.readFileSync(path.join(repo, f), 'utf8').trim());
 }
 
@@ -329,7 +331,8 @@ function main() {
 			process.stdout.write(`  NOT raised: ${c.route} ${c.metric} ${c.from} -> ${c.to}. A raise needs the owner's OK; with it, re-run with --raise.\n`);
 		}
 		if (!changes.length) {
-			process.stdout.write('route-budget:rebaseline — nothing to reset.\n');
+			const waiting = pendingFragments().length;
+			process.stdout.write(`route-budget:rebaseline — nothing to reset${waiting ? `; ${waiting} explanation file(s) in docs/route-budget.d/ wait for the next reset` : ''}.\n`);
 			return;
 		}
 		writeReset(ledger, changes, reason);

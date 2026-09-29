@@ -663,7 +663,7 @@ jobs:
         working-directory: docs
       # The per-PR route allowance (docs/scripts/check-route-budget.mjs): build the PR's
       # base in a worktree and measure it, so the gate can see how much THIS PR adds.
-      # About a minute (hard-linked node_modules, then the root and docs builds). Pull
+      # About 1–1.5 minutes (hard-linked node_modules, then the root and docs builds). Pull
       # requests only: in the merge queue the base already carries the PRs ahead, so the
       # difference would not be this PR's. A base that fails to build leaves no file and
       # the gate logs the allowance as NOT checked. The owner approved this step
