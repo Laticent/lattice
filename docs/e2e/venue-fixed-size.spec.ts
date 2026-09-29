@@ -139,15 +139,16 @@ test('deck settings → Look → Venue writes venue:', async ({ page }) => {
 test('the Studio lint warns on a slide past its venue budget, and names the fix', async ({ page }) => {
 	test.setTimeout(90_000);
 	await gotoStudio(page);
-	// Five steps of ~13 words: list-steps holds 4 at conference (its venueCapacity) and 5 at
-	// the designed size (its hard), so this is `capacity-scale`, a warning under a venue.
+	// Five steps of ~13 words run past the slide at conference by the lines they wrap to
+	// (venueCapacity.rows; the export clips this slide, and four steps fit), so this is
+	// `capacity-scale`, a warning under a venue.
 	await setEditorContent(page, deck(5));
 	const squiggle = page.locator('.cm-content .cm-lintRange-warning').first();
 	await expect(squiggle).toBeVisible({ timeout: 20_000 });
 	await squiggle.hover();
 	const tip = page.locator('.cm-tooltip-lint');
 	await expect(tip).toContainText('at 1.3x', { timeout: 10_000 });
-	await expect(tip).toContainText('holds about 4');
+	await expect(tip).toContainText('counted in wrapped lines');
 	await expect(tip).toContainText('Fix:');
 	await expect(tip).toContainText(/set `venue: (huddle|laptop)`/);
 
