@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 // The CJS producer + the export kernel it feeds — proving the whole chain
 // (builder → manifest field → .vtt deriver) composes end-to-end, all in root CJS
 // now that Cadenza is a require-able workspace package.
-const { buildReadAlong, mergeNarration, plainCaption } = require('../../../lib/core/read-along-build.js');
+const { buildReadAlong, mergeNarration, plainSay } = require('../../../lib/core/read-along-build.js');
 const { buildEnvelope, parseEnvelope } = require('../../../lib/core/lattice-doc.js');
 const { readAlongToVtt } = require('../../../lib/core/read-along-vtt.js');
 
@@ -233,22 +233,22 @@ test('a hold on the FINAL cue is invisible to durationMs but present in the cue 
 	assert.equal(on - off, 250, `final-cue gap ${off} -> ${on}`);
 });
 
-// An author's caption is read as the words it says (design/skills/speaker-notes.md, "A caption is plain words"):
+// An author's `say:` line is read as the words it says (design/skills/speaker-notes.md, "A `say:` line is plain words"):
 // the Q3 fixture's decision slide carried `**It costs more than the segment earns.**` into the
 // caption band, the exported player and the .vtt, asterisks and all.
-test('plainCaption: inline Markdown is removed, the words kept', () => {
-  assert.equal(plainCaption('We did look hard. **It costs more than the segment earns.**'), 'We did look hard. It costs more than the segment earns.');
-  assert.equal(plainCaption('*em*, _em_, __strong__, ~~gone~~, `code` and [a link](https://x.y/a_(b))'), 'em, em, strong, gone, code and a link');
+test('plainSay: inline Markdown is removed, the words kept', () => {
+  assert.equal(plainSay('We did look hard. **It costs more than the segment earns.**'), 'We did look hard. It costs more than the segment earns.');
+  assert.equal(plainSay('*em*, _em_, __strong__, ~~gone~~, `code` and [a link](https://x.y/a_(b))'), 'em, em, strong, gone, code and a link');
 });
 
-test('plainCaption: a marker that is not emphasis passes through', () => {
+test('plainSay: a marker that is not emphasis passes through', () => {
   for (const t of ['2 * 3 = 6', 'snake_case_name', 'a lone * star', '$5* fee', 'x*y*z', '** not bold **']) {
-    assert.equal(plainCaption(t), t);
+    assert.equal(plainSay(t), t);
   }
-  assert.equal(plainCaption(null), '');
+  assert.equal(plainSay(null), '');
 });
 
-test('mergeNarration: both caption rungs are read through plainCaption, the projection is not', () => {
+test('mergeNarration: both say rungs are read through plainSay, the projection is not', () => {
   const out = mergeNarration(3, ['proj **kept**', 'proj', 'proj'], {
     captions: ['**Inline** caption', '', ''],
     fmCaptions: new Map([[2, 'Front-matter _caption_']]),

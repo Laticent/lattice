@@ -38,7 +38,7 @@
 // into it. A note is the author's alone — it rides in the deck as an HTML comment and reaches
 // the presenter's own surface, and nothing else reads it.
 
-import { narrateChart as narrateChartDefault, plainCaption } from '@/playground/read-along-core.generated.js';
+import { narrateChart as narrateChartDefault, plainSay } from '@/playground/read-along-core.generated.js';
 
 /** What a single slide offers, in precedence order. Every field is optional: each caller
  *  supplies the rungs it actually has, and a blank/whitespace value never wins. */
@@ -61,9 +61,9 @@ export type NarrationChain = {
 /** The one precedence ladder. Pure, synchronous, and total — an all-blank chain reads as
  *  silence (`''`), which is a legitimate answer for a genuinely contentless slide. */
 export function resolveNarration(chain: NarrationChain): string {
-	// An author's caption is read as the words it says: `**x**` → `x`, through the ONE kernel the CLI
-	// and the Captions download apply in `mergeNarration` (lib/core/read-along-build.js `plainCaption`).
-	const rungs = [plainCaption(chain.caption), plainCaption(chain.fmCaption), chain.chart, chain.projected, chain.fallback];
+	// An author's `say:` line is read as the words it says: `**x**` → `x`, through the ONE kernel the CLI
+	// and the Captions download apply in `mergeNarration` (lib/core/read-along-build.js `plainSay`).
+	const rungs = [plainSay(chain.caption), plainSay(chain.fmCaption), chain.chart, chain.projected, chain.fallback];
 	for (const rung of rungs) {
 		// Trim only to TEST the rung — a caption's own leading/trailing space is the author's,
 		// and `buildTrack` is what normalizes for speech.

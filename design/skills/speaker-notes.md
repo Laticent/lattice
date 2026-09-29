@@ -171,9 +171,9 @@ else; it travels in the deck as an HTML comment, for the author.
    say:
      6: Your registry taught it ARR and NDR, so this slide speaks them in full.
    ```
-   A caption is plain words. Markdown typed into either form is read as the words it marks:
+   A `say:` line is plain words. Markdown typed into either form is read as the words it marks:
    `**It costs more.**` shows and speaks as "It costs more." on every surface (Present's caption
-   band, the exported player, the `.vtt`), through one kernel, `plainCaption` in
+   band, the exported player, the `.vtt`), through one kernel, `plainSay` in
    `lib/core/read-along-build.js`. Emphasis you want HEARD belongs on the slide, where the
    projection turns bold into a held beat.
 3. **Generated (the default)** — with no override, a component-aware projection /
