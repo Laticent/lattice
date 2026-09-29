@@ -39,3 +39,5 @@ pass, over the last 300 commits on `main`: `docs/route-budget.json` changed in 5
 bumps, so it is a real conflict source this item should cost. The gotchas index follows its
 topic files' heading order, and a new gotcha is appended to the topic file too, so that file
 conflicts first; changing the index order alone would not help.
+
+**Progress 2026-09-29 (route budget).** `docs/route-budget.json` is off the conflict path: each number is a soft target with a derived hard limit 3% above it, and the build only warns between the two, so a routine Studio PR no longer edits the file. The notes that every raise prepended to moved to `docs/route-budget.history.md`, which only a reset writes; a reset that raises a number needs the owner's OK (`engineering/decisions/2026-09-29-route-budget-soft-hard.md`).

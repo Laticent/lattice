@@ -175,7 +175,7 @@ describe('the AI provider layer stays off the Studio’s eager path (#1773)', ()
 	// `'…/ai/architect-model'` as innocent — and that spelling gives the whole win back:
 	// measured, it re-inlines the module into the monolith chunk, restores studio
 	// eagerJsGz to 640,861, and leaves `check:route-budget` GREEN, because the ledger's
-	// ~3% headroom swallows it. The pin matches module IDENTITY, not one spelling of it.
+	// 3% band above its soft target swallows it. The pin matches module IDENTITY, not one spelling of it.
 	const NAMES_THE_PROVIDER_LAYER = /(?:^|\/)architect-model(?:\.(?:js|mjs|ts))?$/;
 
 	it('no docs/src module statically imports architect-model.js', () => {

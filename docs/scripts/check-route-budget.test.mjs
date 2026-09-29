@@ -3,75 +3,154 @@
 // so a dist-dependent test here would silently skip in CI and gate nothing.)
 //
 // The property that matters is not "it reports a number". It is that the gate fails in
-// BOTH directions: over budget (growth that must be reviewed where it happened) and far
-// under it (a budget that has gone stale-loose, so a hard-won reduction cannot be
+// BOTH directions: past the hard limit (growth that must be reviewed where it happened)
+// and far under the soft target (a stale-loose budget, so a hard-won reduction cannot be
 // silently re-spent). A gate that only catches one direction rots into a number nobody
-// has to respect — which is exactly how the drift this gate exists to stop happened.
+// has to respect. Between soft and hard it only WARNS, which is what keeps routine PRs
+// off the one ledger line every Studio PR used to edit.
 
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { evaluateRoute } from './check-route-budget.mjs';
+import { evaluateRoute, HARD_HEADROOM_PCT, hardLimit, rebaseline } from './check-route-budget.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 const SLACK_PCT = 0.05;
+const HARD_PCT = 0.03;
 const budget = { eagerJsGz: 660_000, htmlRaw: 192_000 };
+const hardJs = hardLimit(budget.eagerJsGz, HARD_PCT); // 679,800
+const ev = (actual) => evaluateRoute('studio', actual, budget, SLACK_PCT, HARD_PCT);
 
 describe('evaluateRoute', () => {
-	it('passes a route sitting just inside its budget', () => {
-		expect(evaluateRoute('studio', { eagerJsGz: 659_000, htmlRaw: 191_000 }, budget, SLACK_PCT)).toEqual([]);
+	it('passes silently at or under the soft target', () => {
+		expect(ev({ eagerJsGz: 659_000, htmlRaw: 191_000 })).toEqual({ problems: [], warnings: [] });
+		expect(ev({ eagerJsGz: 660_000, htmlRaw: 192_000 })).toEqual({ problems: [], warnings: [] });
 	});
 
-	it('FAILS when eager JS exceeds the budget, and names the file to edit', () => {
-		const problems = evaluateRoute('studio', { eagerJsGz: 700_000, htmlRaw: 191_000 }, budget, SLACK_PCT);
+	it('PASSES with a warning between soft and hard, so a routine PR needs no ledger edit', () => {
+		// This is the contention fix: before 2026-09-29 this measurement failed the build and
+		// forced an edit to the one line every Studio PR shared.
+		const r = ev({ eagerJsGz: 670_000, htmlRaw: 191_000 });
+		expect(r.problems).toEqual([]);
+		expect(r.warnings).toHaveLength(1);
+		expect(r.warnings[0]).toMatch(/over its soft target/);
+		expect(r.warnings[0]).toMatch(/left before the hard limit/);
+	});
+
+	it('passes exactly AT the hard limit and fails one byte past it', () => {
+		expect(ev({ eagerJsGz: hardJs, htmlRaw: 191_000 }).problems).toEqual([]);
+		const problems = ev({ eagerJsGz: hardJs + 1, htmlRaw: 191_000 }).problems;
 		expect(problems).toHaveLength(1);
-		expect(problems[0]).toMatch(/EXCEEDS its budget/);
-		expect(problems[0]).toMatch(/route-budget\.json/);
+		expect(problems[0]).toMatch(/EXCEEDS its hard limit/);
 	});
 
-	it('FAILS when the HTML document exceeds the budget', () => {
-		const problems = evaluateRoute('studio', { eagerJsGz: 659_000, htmlRaw: 250_000 }, budget, SLACK_PCT);
+	it('names the owner gate and the reset command when the hard limit is crossed', () => {
+		const [p] = ev({ eagerJsGz: 700_000, htmlRaw: 191_000 }).problems;
+		expect(p).toMatch(/owner/);
+		expect(p).toMatch(/route-budget:rebaseline/);
+		expect(p).toMatch(/route-budget\.json/);
+	});
+
+	it('FAILS when the HTML document exceeds its hard limit', () => {
+		const { problems } = ev({ eagerJsGz: 659_000, htmlRaw: 250_000 });
 		expect(problems).toHaveLength(1);
 		expect(problems[0]).toMatch(/htmlRaw/);
 		expect(problems[0]).toMatch(/EXCEEDS/);
 	});
 
-	it('FAILS when a budget has gone stale-loose, and says to ratchet it down', () => {
-		const problems = evaluateRoute('studio', { eagerJsGz: 400_000, htmlRaw: 191_000 }, budget, SLACK_PCT);
+	it('derives the hard limit from the soft target, 3% by default', () => {
+		expect(HARD_HEADROOM_PCT).toBe(0.03);
+		expect(hardLimit(637_490)).toBe(637_490 + 19_125);
+		for (const soft of [80_000, 660_000, 5_000_000]) {
+			expect(hardLimit(soft) - soft).toBe(Math.round(soft * 0.03));
+		}
+	});
+
+	it('FAILS when a soft target has gone stale-loose, and says to ratchet it down', () => {
+		const { problems } = ev({ eagerJsGz: 400_000, htmlRaw: 191_000 });
 		expect(problems).toHaveLength(1);
 		expect(problems[0]).toMatch(/STALE/);
 		expect(problems[0]).toMatch(/Ratchet it down/);
 	});
 
-	it('tolerates ordinary churn just inside the slack, so routine PRs need no ledger edit', () => {
+	it('tolerates ordinary churn just inside the slack below soft', () => {
 		const actual = {
 			eagerJsGz: budget.eagerJsGz - Math.round(budget.eagerJsGz * SLACK_PCT) + 1,
 			htmlRaw: budget.htmlRaw - Math.round(budget.htmlRaw * SLACK_PCT) + 1,
 		};
-		expect(evaluateRoute('studio', actual, budget, SLACK_PCT)).toEqual([]);
+		expect(ev(actual)).toEqual({ problems: [], warnings: [] });
 	});
 
-	it('scales the stale band with the budget, so a big route is not held to a small one\'s tolerance', () => {
+	it("scales the stale band with the budget, so a big route is not held to a small one's tolerance", () => {
 		// 4% under is inside the band at any size; 6% under is outside it at any size.
 		for (const cap of [100_000, 660_000, 5_000_000]) {
 			const b = { eagerJsGz: cap, htmlRaw: cap };
-			expect(evaluateRoute('r', { eagerJsGz: Math.round(cap * 0.96), htmlRaw: cap }, b, SLACK_PCT)).toEqual([]);
-			expect(evaluateRoute('r', { eagerJsGz: Math.round(cap * 0.94), htmlRaw: cap }, b, SLACK_PCT)[0]).toMatch(/STALE/);
+			expect(evaluateRoute('r', { eagerJsGz: Math.round(cap * 0.96), htmlRaw: cap }, b, SLACK_PCT).problems).toEqual([]);
+			expect(evaluateRoute('r', { eagerJsGz: Math.round(cap * 0.94), htmlRaw: cap }, b, SLACK_PCT).problems[0]).toMatch(/STALE/);
 		}
 	});
 
 	it('the ratchet instruction names an EXACT byte value, not a rounded one', () => {
 		// `600.0KB` written back into the ledger would fail on the very next run.
-		const problems = evaluateRoute('studio', { eagerJsGz: 400_000, htmlRaw: 191_000 }, budget, SLACK_PCT);
-		expect(problems[0]).toMatch(/Ratchet it down to 400000 /);
+		expect(ev({ eagerJsGz: 400_000, htmlRaw: 191_000 }).problems[0]).toMatch(/Ratchet it down to 400000 /);
 	});
 
 	it('reports BOTH metrics when both drift', () => {
-		expect(evaluateRoute('studio', { eagerJsGz: 700_000, htmlRaw: 250_000 }, budget, SLACK_PCT)).toHaveLength(2);
+		expect(ev({ eagerJsGz: 700_000, htmlRaw: 250_000 }).problems).toHaveLength(2);
+	});
+});
+
+describe('rebaseline', () => {
+	const routes = { studio: { html: 's', eagerJsGz: 660_000, htmlRaw: 192_000 }, home: { html: 'h', eagerJsGz: 80_000, htmlRaw: 100_000 } };
+
+	const measured = {
+		studio: { eagerJsGz: 670_000, htmlRaw: 190_000 }, // over soft; inside the stale band
+		home: { eagerJsGz: 70_000, htmlRaw: 100_000 }, // stale; exactly soft
+	};
+
+	it('lowers a stale target without --raise, and REFUSES the raise it would otherwise make', () => {
+		// A routine stale-lowering run must not also raise a metric that happens to sit in
+		// its warning band: raising needs the owner's OK.
+		expect(rebaseline(routes, measured, { slackPct: SLACK_PCT })).toEqual({
+			changes: [{ route: 'home', metric: 'eagerJsGz', from: 80_000, to: 70_000 }],
+			refused: [{ route: 'studio', metric: 'eagerJsGz', from: 660_000, to: 670_000 }],
+		});
+	});
+
+	it('applies the raise with --raise, and still leaves quiet metrics alone', () => {
+		expect(rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true })).toEqual({
+			changes: [
+				{ route: 'studio', metric: 'eagerJsGz', from: 660_000, to: 670_000 },
+				{ route: 'home', metric: 'eagerJsGz', from: 80_000, to: 70_000 },
+			],
+			refused: [],
+		});
+	});
+
+	it('changes nothing when every route is inside its range', () => {
+		const quiet = { studio: { eagerJsGz: 650_000, htmlRaw: 192_000 }, home: { eagerJsGz: 80_000, htmlRaw: 99_000 } };
+		expect(rebaseline(routes, quiet, { slackPct: SLACK_PCT, raise: true })).toEqual({ changes: [], refused: [] });
+	});
+});
+
+describe('route-budget.json', () => {
+	const ledger = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'route-budget.json'), 'utf8'));
+
+	it('stores soft targets only — no hard limit a PR could raise by hand, and no per-route notes', () => {
+		// Notes lived here as strings every raise prepended to; two PRs in flight always
+		// conflicted on them. History lives in route-budget.history.md now.
+		for (const [name, r] of Object.entries(ledger.routes)) {
+			expect(Object.keys(r).sort(), name).toEqual(['eagerJsGz', 'html', 'htmlRaw']);
+		}
+	});
+
+	it('keeps the reset anchor in the history file', () => {
+		const history = fs.readFileSync(path.join(HERE, '..', 'route-budget.history.md'), 'utf8');
+		expect(history).toContain('<!-- resets: newest first, below this line -->');
 	});
 });
 
