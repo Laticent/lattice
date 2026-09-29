@@ -289,8 +289,7 @@ jobs:
       # making build-css.js write `freshMin` to OUTPUT does the same for
       # lattice.css. That is the coverage a unit test used to carry by comparing
       # dist/lattice.css against bundle() on whatever the developer last built —
-      # vacuous in CI, and spuriously red locally after the rebase HARD RULE #16
-      # requires before every push (#1783).
+      # vacuous in CI, and spuriously red locally after a rebase (#1783).
       #
       # COST: ~12s, of which ~7s re-runs the ownership guard and preflight gates
       # that `npm run build` above already ran (build.js runs them unconditionally

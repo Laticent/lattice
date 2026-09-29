@@ -7,7 +7,7 @@ version: 2
 # group behind a review or sneak a major through on the group's coattails.
 #
 # Grouping matters more here than in most repos: every merge is a merge-queue
-# entry that re-runs the FULL ci suite and that every open PR must rebase past.
+# entry that re-runs the FULL ci suite and that every open PR's queue run is then tested on top of.
 # Sixteen ungrouped bumps is sixteen of those. One grouped PR is one.
 updates:
   - package-ecosystem: npm

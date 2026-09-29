@@ -1,26 +1,29 @@
 #!/bin/bash
-# Stop-hook backstop for the "stay rebased" rule (CLAUDE.md § Default Operating
-# Mode). Warns — never blocks — when the current branch is behind the
-# locally-known origin/main and likely needs a rebase before the next push.
+# Stop-hook backstop for HARD RULE #16: rebase only on a REAL conflict with main.
+# Warns — never blocks — when this branch would not merge cleanly with the
+# locally-known origin/main. It says nothing when the branch is merely BEHIND:
+# the merge queue re-tests every PR on top of current main before it merges, so
+# a behind-but-clean branch is fine as it is. Rebasing it anyway re-runs full CI
+# for nothing — 67 such rebases, ~895 minutes of CI wall-clock time, in the
+# eight days to 2026-09-28 (engineering/decisions/2026-09-28-rebase-only-on-conflict.md).
 #
-# Local-only by design: it does NOT run `git fetch`, so it adds no latency to
-# ending a turn. The agent's own workflow is responsible for the fetch + rebase;
-# this hook is the cheap safety net that catches "origin/main is known to be
-# ahead but I never rebased." Silent on the happy path (emits JSON only when a
-# rebase is actually warranted).
-set -euo pipefail
+# The check itself lives in tools/queue-precheck.sh, which sessions also run by
+# hand before the merge ask, so the two cannot disagree. Here it runs with
+# --no-fetch to add no latency to ending a turn. That makes silence mean "no
+# conflict with the origin/main you last fetched", not "no conflict". It merges
+# on GitHub's terms (no .gitattributes merge drivers), and it is advisory;
+# GitHub's mergeable_state is the authority.
+set -uo pipefail
 
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
 [ "$branch" = "main" ] && exit 0
 [ "$branch" = "HEAD" ] && exit 0
-
-# No known origin/main ref → nothing to compare against.
+[ -x tools/queue-precheck.sh ] || exit 0
+# No known origin/main (a fresh clone that never fetched it) → nothing to compare
+# against, and nothing worth a warning on every turn.
 git rev-parse --verify -q origin/main >/dev/null 2>&1 || exit 0
 
-behind=$(git rev-list --count "HEAD..origin/main" 2>/dev/null || echo 0)
-if [ "${behind:-0}" -gt 0 ]; then
-  printf '{"systemMessage":"Branch %s is %s commit(s) behind origin/main — rebase before pushing: git fetch origin main && git rebase origin/main"}\n' "$branch" "$behind"
-fi
+tools/queue-precheck.sh --no-fetch --json 2>/dev/null
 exit 0

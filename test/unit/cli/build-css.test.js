@@ -97,7 +97,7 @@ describe('build-css', () => {
   // Where it COULD fail was a developer's machine, and it failed for a reason
   // that has nothing to do with the code under test: `dist/lattice.css` is
   // whatever the last local build wrote, so any source change since then makes
-  // the two differ. HARD RULE #16 requires a rebase right before every push,
+  // the two differ. HARD RULE #16 then required a rebase before every push,
   // and the pre-push hook runs this suite — so the repo mandated the exact
   // action that turned this test red, at the worst possible moment, naming a
   // subsystem the session had not touched. It blocked the #1779 push and read

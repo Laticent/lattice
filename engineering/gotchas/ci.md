@@ -93,8 +93,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 ## A generated `dist/` artifact goes "stale" after a rebase, and that is not a defect
 
-- **Symptom:** You rebase on `origin/main` (HARD RULE #16 requires it right
-  before every push), the pre-push hook runs the unit suite, and a test fails
+- **Symptom:** You rebase on `origin/main` (HARD RULE #16 asks for it when
+  the branch conflicts with `main`), the pre-push hook runs the unit suite, and a test fails
   saying an artifact is stale — naming a subsystem you never touched. Meanwhile
   `npm run build:check` says every artifact is up to date, so two gates appear to
   contradict each other over the same file. `--no-verify` is banned (HARD RULE
@@ -145,7 +145,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `dist/` entirely via `--exclude-uncommitted`. By hand, `npm run css:check` is
   the same question narrowed to the CSS, in about half a second. A unit test
   asking it was removed in #1783: vacuous in CI, which full-builds first, and
-  spuriously red locally after the rebase the repo requires.
+  spuriously red locally after any rebase.
 - **What `build:check:all` does NOT catch — and don't "fix" it:** it delegates to
   each generator's own `--check`, and some are deliberately weaker than a
   byte-diff. `build-decisions-index` asserts every note has one correctly-formatted

@@ -36,8 +36,8 @@ choice:
 | When… | Do, automatically |
 |---|---|
 | a branch's meaty work is complete, verified, pushed (a design/decision doc counts — the doc *is* the deliverable) | **open the PR** via the template (rule 6) — **one PR for the session's line of work, one commit per item**, not a PR per slice (`workflow.md` §Batch a session's slices) |
-| a PR is open | **subscribe + drive CI green**; rebase before each push (rule 7) |
-| the PR is green and rebased | **ask to merge, with a fenced 🚦 pre-merge card — posted on the PR *and* in the ask** — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each. **This row is an INDEX, not the spec: open `workflow.md` §Pre-merge card and build the card from the template there** — the four-level scale, the lowest-axis floor rule, the axis attribution and the `raise it by:` line are all in that section and all load-bearing (HARD RULE #28) |
+| a PR is open | **subscribe + drive CI green**; rebase **only on a real conflict** (rule 4) |
+| the PR is green and `npm run queue:precheck` exits 0 (being *behind* `main` is fine) | **ask to merge, with a fenced 🚦 pre-merge card — posted on the PR *and* in the ask** — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each. **This row is an INDEX, not the spec: open `workflow.md` §Pre-merge card and build the card from the template there** — the four-level scale, the lowest-axis floor rule, the axis attribution and the `raise it by:` line are all in that section and all load-bearing (HARD RULE #28) |
 | merge confirmed + local `main` synced | **post the standup + the continuation brief** — two fenced cards, always fenced, **as one comment on the PR *and* in chat, same wording** (`workflow.md` §Post-merge standup + §Where the cards go) |
 | a session goes idle with work still pending — parked at the merge gate, or out of scope | **post the continuation brief** so a fresh session can pick it up cold — **on the PR as well as in chat** (same §) — and **write every item that has no issue to `followups.d/`** in the PR. A pending item that exists only in chat or a PR comment is lost work (`followups.d/README.md`; `npm run followups` lists them) |
 
@@ -115,10 +115,13 @@ seen the options first. Born from a session that labeled 60 issues
    settled point.** Spawn sub-agents only when a second independent pass changes
    the outcome (see Maker–checker) — not by reflex. My GitHub + Claude spend is a
    real constraint: where two routes meet the bar, take the cheaper one.
-4. **Stay *mergeable* — rebase right before you push.** Before every push (and
-   before calling anything done), `git fetch origin main` and rebase if behind or
-   conflicted. This is HARD RULE #16: fold it into the push, do **not** run a
-   background drift watch. (A Stop hook nudges you if you forget.)
+4. **Stay *mergeable* — rebase on a conflict, never on drift.** The merge queue
+   re-tests every PR on top of current `main` before merging, so a PR that is only
+   *behind* `main` needs nothing. Rebase only when the branch conflicts with `main`,
+   the queue ejected it, or you need code that landed on `main`. This is HARD RULE
+   #16; the live queue settings are `workflow.md` §Merge queue — the facts. Before
+   the merge ask, `npm run queue:precheck` says whether to rebase. (The Stop hook
+   runs the same check without fetching and warns on a real conflict.)
 5. **Run the gates yourself, proactively** — `npm run lint`, the unit suite,
    `npm run build:check`, the integration tier — *before* declaring done. Hooks
    enforce these at commit/push as a backstop, not a substitute.
@@ -354,18 +357,23 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   `capabilities:check` gate enforces it). Docs-site UI: extend the shadcn
   primitives in `docs/src/components/ui/` and the shared chrome
   (`PaletteControls`, `site-chrome.ts`) — don't fork a widget per surface.
-- **#16 — Keep an open PR mergeable by rebasing right before you push — NOT with a
-  background watch.** GitHub never delivers "`main` moved / now conflicted / CI
-  passed", and a polling auto-rebase thrashes the merge train and floods chat
-  (`engineering/decisions/2026-06-14-drift-watch-rebase-thrash.md`,
-  `2026-06-15-retire-drift-watch.md`). Fold the check into the push:
-  `git fetch origin main`, rebase if behind/conflicted, push. *The merge queue is
-  live (`workflow.md` §Merging): it performs the final pre-merge rebase + retest,
-  so there's no manual re-rebase right before an authorized merge — approve, enable
-  auto-merge, and the queue owns the rest.* Resolve recurring `dist` conflicts
-  mechanically and `--force-with-lease` silently. Never let an open PR **merge**
-  conflicted, stale, or CI-red. *(The recurring `CHANGELOG.md` conflict is gone —
-  entries are per-PR `changelog.d/` fragments as of #1593.)*
+- **#16 — Rebase an open PR only when it CONFLICTS with `main` — never because it is
+  behind, and never from a background watch.** The merge queue tests every PR on top
+  of current `main` plus the PRs ahead of it, and merges only if that is green, so a
+  behind-but-clean PR is already safe to queue. Rebasing it anyway re-runs full CI
+  for nothing: 67 such rebases (33 of green PRs, ~895 minutes of CI wall-clock time) in
+  the eight days to 2026-09-28 (`engineering/decisions/2026-09-28-rebase-only-on-conflict.md`).
+  **Before the merge ask, run `npm run queue:precheck`** — a check, not a rebase. It
+  fetches `main` and merges in memory **the way GitHub does**, ignoring
+  `.gitattributes` merge drivers — GitHub does not apply the decision index's
+  `merge=union`, so a local rebase that "just works" can still leave the PR `dirty`
+  and its CI silent. It exits 1 on a conflict. **Rebase when:** it exits 1, GitHub reports `mergeable_state: dirty`, the queue ejected
+  the PR, or you need a specific commit from `main` (name it in the commit message).
+  **Do not rebase when:** the PR page says "out-of-date", `main` moved, or another PR
+  merged. A polling auto-rebase is still banned — it thrashes the merge train
+  (`2026-06-14-drift-watch-rebase-thrash.md`). Resolve generated-file conflicts
+  mechanically and `--force-with-lease` silently. The queue's real settings and what
+  it does and does not do: `workflow.md` §Merge queue — the facts.
 - **#17 — One feature = one branch → one PR; never a stacked PR chain.** Increment
   in place (many commits, one PR). A slice that builds/tests with only `main` is
   independent → its own branch; one that needs another open PR's branch is not.
