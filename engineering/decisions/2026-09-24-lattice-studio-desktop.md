@@ -168,7 +168,9 @@ and links with `lld-link`, and `makensis` wraps the result as an installer.
   Windows machine or VM is reachable from the sandbox, and Wine does not run WebView2
   reliably enough to count as evidence. The save dialog on Windows is `rfd`'s Win32 file
   dialog, which has not been exercised either.
-- **Not in CI.** Adding a Windows job is a CI-contract change for the owner to decide.
+- **In CI since 2026-09-29.** The owner picked a cross-build step in the existing Linux
+  job over a native `windows-latest` job (which bills at 2x) and over no Windows CI. See
+  the CI section.
 
 ## Corrections to the May note
 
@@ -189,7 +191,10 @@ stable Rust, builds the root bundles and the docs site (`build:e2e`), runs
 artifact for a manual install test.
 
 - **What it proves:** the Rust compiles, its tests pass, and the package bundles.
-- **What it does not prove:** that the app boots. That still takes a display and a person.
+- **Windows (added 2026-09-29):** the same job then cross-builds the NSIS installer
+  (`npm run build:windows`, cargo-xwin from PyPI) and keeps it as a second 14-day
+  artifact. It downloads Microsoft's SDK each run rather than caching 1.1 GB.
+- **What it does not prove:** that either app boots. That still takes a display and a person.
 - **It is not a required check.** A path-filtered workflow never reports on a PR outside
   its paths, and a required check that never reports blocks every merge.
 - **What a PR that touches only `docs/` does not get:** a desktop build. A Studio change

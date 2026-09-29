@@ -47,8 +47,9 @@ also gives an `.msi` and signing.
 
 ## CI
 
-`.github/workflows/desktop.yml` builds the `.deb` whenever `desktop/**` changes, and keeps
-it as a downloadable artifact on the run. It proves the package builds, not that it boots.
+`.github/workflows/desktop.yml` builds the `.deb` and the Windows installer whenever
+`desktop/**` changes, and keeps both as downloadable artifacts on the run. It proves the
+packages build, not that they boot.
 
 ## Where things live
 
