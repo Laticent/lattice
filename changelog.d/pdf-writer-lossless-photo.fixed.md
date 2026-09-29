@@ -3,4 +3,4 @@
   slide (the accent rule along its top edge) into a duller color and bled it into the row below.
   The photo is now PNG wherever that is the smaller file, which on a plain slide background it
   usually is. This applies to `lattice deck.md out.pdf` and the Studio's Export to PDF, and most
-  PDFs get a little smaller. On a 4K deck the line is sharper than before but not yet exact.
+  PDFs get a little smaller. A 4K deck's photo is unchanged for now.

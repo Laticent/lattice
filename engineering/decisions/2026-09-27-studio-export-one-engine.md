@@ -358,7 +358,8 @@ Order of work, all in one PR (#2404):
     On a 4K slide the photo is still downsampled to 2560 px, which keeps the rule a little soft
     even as PNG (y0 rgb(128,69,82) against the screen's rgb(181,95,116); JPEG gave 110,79,84).
     Photographing 4K at 3840 px fixed it but cost ~21 s a 116-slide 4K gallery and pushed CI's
-    integration job past its timeout, so the owner kept the cap:
+    integration job past its timeout, so the owner kept the cap. A downsampled photo stays JPEG,
+    since PNG bought little there and still cost ~13 s a gallery render:
     `followups.d/2503-p3-pdf-photo-exact-4k.md`.
   - A later sibling's outer `box-shadow` over a border is not hit-testable, so a border can
     draw over it.
