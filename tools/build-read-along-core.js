@@ -45,7 +45,7 @@ const silent = argv.includes('--silent') || check;
 // package's `require` condition (its built dist/index.cjs), inlining the whole
 // (zero-dep) engine into this one file.
 const ENTRY_CONTENTS = `
-const { buildReadAlong, emphasisForResolved, mergeNarration } = require('./read-along-build.js');
+const { buildReadAlong, emphasisForResolved, mergeNarration, plainSay } = require('./read-along-build.js');
 const { readAlongToVtt, readAlongToVttParts } = require('./read-along-vtt.js');
 const { slideToSpeech } = require('./slide-speech.js');
 const {
@@ -55,7 +55,7 @@ const {
 } = require('./chart-narration.js');
 const { spokenValue } = require('./chart-values.js');
 export {
-  buildReadAlong, emphasisForResolved, mergeNarration, readAlongToVtt, readAlongToVttParts,
+  buildReadAlong, emphasisForResolved, mergeNarration, plainSay, readAlongToVtt, readAlongToVttParts,
   slideToSpeech,
   narrateChart, narrateFunnel, narrateJourneyWeighted, narrateJourneyMood, narrateRadar,
   narrateQuadrant, narrateStateChart, narrateStateChartInference, narrateDiagram,

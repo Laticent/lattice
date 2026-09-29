@@ -562,39 +562,43 @@ describe('bakeNarration — complete, or nothing', () => {
 	});
 });
 
-describe('a render-appended slide stands the projection down — exactly as Present does', () => {
+describe('the auto-glossary section is trimmed, so the projection narrates — as it does in Present and the CLI', () => {
 	// `glossary: auto` makes the renderer append a slide the SOURCE does not contain, so a
-	// projection taken from the render runs one entry long. Trimming it and keeping the richer
-	// component-aware text is the tempting move and the wrong one: Present applies the same
-	// length guard and therefore narrates such a deck through the markdown FLATTEN, so every
-	// clip on the device is keyed on the flatten. A bake that resolved the projection instead
-	// would match none of them and re-bill a fully rehearsed deck.
+	// projection taken from the render runs one entry long. That used to stand the projection down
+	// and narrate the markdown flatten, while `lattice video` narrated the projection: the same deck
+	// said different words on the two paths (engineering/pipeline.md §6).
+	// Now the ONE kernel (`withoutAutoGlossary`) trims the glossary's entry for every narrator —
+	// `projectDeckScript` (which Present reads), this bake, and the CLI — and nobody narrates it.
 	//
-	// This is a regression test for a live defect: the panel trimmed and the exporter did not,
-	// so the quote read "fully prepared — nothing is billed" and the bake billed the whole deck.
+	// The earlier defect this block guarded still has to stay dead: the quote and the bake must
+	// resolve the SAME sentences, or the quote reads "fully prepared" while the bake bills.
 	const glossaryDeck = ['---', 'theme: indaco', 'glossary: auto', 'acronyms:', '  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }', '---', '', '# ARR grew', '', 'It grew.', ''].join('\n');
+	const overlong = ['A projection of the authored slide.', 'A projection of the appended glossary.'];
 
-	it('resolves the FLATTEN, not the projection, when the render appended a slide', async () => {
-		// One authored slide, two rendered sections — the shape `glossary: auto` produces.
-		const overlong = ['A projection of the authored slide.', 'A projection of the appended glossary.'];
-		const m = await measureNarration(glossaryDeck, overlong, VOICE);
-		// The projection is stood down, so the sentences come from the markdown flatten — which
-		// is what Present spoke and therefore what the clip store is keyed on.
-		expect(m.total).toBeGreaterThan(0);
-		const keys = [...stored.keys()];
-		expect(keys).toEqual([]); // nothing cached yet; the point is WHICH text was resolved
+	it('resolves the PROJECTION of the authored slide, and nothing for the glossary', async () => {
 		const bake = await bakeNarration(glossaryDeck, overlong, { voice: VOICE, audio: false });
+		expect(bake.slides).toHaveLength(1);
 		const spoken = bake.slides.flat().map((c) => c.text);
-		expect(spoken.some((t) => t.includes('projection'))).toBe(false);
+		expect(spoken).toEqual(['A projection of the authored slide.']);
 	});
 
 	it('the quote and the bake resolve the SAME sentences for such a deck', async () => {
-		// The defect was that these two disagreed. Both now go through one `resolveDeck`, so a
-		// future divergence has to break this.
-		const overlong = ['A projection of the authored slide.', 'A projection of the appended glossary.'];
+		// Both go through one `resolveDeck`, so a future divergence has to break this.
 		const m = await measureNarration(glossaryDeck, overlong, VOICE);
 		const bake = await bakeNarration(glossaryDeck, overlong, { voice: VOICE, audio: false });
 		expect(bake.total).toBe(m.total);
+		expect(m.total).toBe(1);
+	});
+
+	it('a list already trimmed by the producer resolves the same text (the trim is idempotent)', async () => {
+		const bake = await bakeNarration(glossaryDeck, overlong.slice(0, 1), { voice: VOICE, audio: false });
+		expect(bake.slides.flat().map((c) => c.text)).toEqual(['A projection of the authored slide.']);
+	});
+
+	it('any OTHER length mismatch still stands the projection down', async () => {
+		// Two entries over (an autosplit, say) is not the glossary; misaligning would be worse.
+		const bake = await bakeNarration(glossaryDeck, [...overlong, 'a third section'], { voice: VOICE, audio: false });
+		expect(bake.slides.flat().map((c) => c.text).some((t) => t.includes('projection'))).toBe(false);
 	});
 });
 

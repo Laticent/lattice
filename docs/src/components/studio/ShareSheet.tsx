@@ -70,15 +70,11 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// Render the deck once and project every slide to narration text — what the webpage
 	// panel measures a bake against. Passed as a THUNK, not a result: it is a full deck
 	// render, and an author who never turns narration on should never pay for it.
-	// Handed back RAW, and NOT trimmed — which is the opposite of what an earlier version of
-	// this comment said. `glossary: auto` makes the render append a slide the source does not
-	// contain, so the projection runs one entry long. Trimming it here (or anywhere) would be
-	// wrong: Present applies the same length-equality guard and, when it fails, narrates the
-	// markdown flatten instead — so every clip on the device is keyed on THAT text. A trimmed
-	// projection would line up with neither and re-bill a fully prepared deck. The bake
-	// deliberately lets the mismatch stand the projection down, exactly as Present does
-	// (narration-bake.ts › resolveDeck). There is no `alignProjection`; the function this
-	// comment used to name was deleted for these reasons.
+	// `glossary: auto` makes the render append a slide the source does not contain; the producer
+	// (`projectDeckScript`) drops that section through `withoutAutoGlossary`, the kernel Present, the
+	// bake and the CLI all share, so this list is authored-length and every narrator resolves the
+	// same sentences. Trimming in ONE caller only is the defect an earlier version of this panel had:
+	// the quote read "fully prepared" and the bake then billed the whole deck.
 	const projectDeck = React.useCallback(async () => {
 		const { projectDeckSpeech } = await import('./narration-projection');
 		return projectDeckSpeech(options, artifactSource, palette, extraTheme, extraCss, mode);

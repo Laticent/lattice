@@ -36,6 +36,7 @@ import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
 import { isGeminiTtsModel } from '@/playground/tts-cost.js';
+import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { applyChartNarration, resolveNarration } from './narration-resolve';
@@ -389,31 +390,23 @@ function toBase64(bytes: Uint8Array): string {
  */
 type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
 
-function resolveDeck(source: string, projected?: readonly string[], projectedEmphasis?: readonly (EmphasisSpans | undefined)[]) {
+function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphasis?: readonly (EmphasisSpans | undefined)[]) {
 	const slides = splitSlides(stripFrontMatter(source));
 	const fmCaptions = frontMatterCaptions(source);
 	const acronyms = acronymSpokenMap(source);
 	const lexicon = lexiconMap(source);
 	const lang = frontMatterLang(source) ?? undefined;
-	// STRICT LENGTH EQUALITY, and it is deliberately NOT reconciled — because Present isn't.
-	//
-	// `glossary: auto` makes the renderer append a slide the SOURCE does not contain, so a
-	// projection taken from the render runs one entry long, and this guard stands the whole
-	// projection down. It is tempting to trim that trailing entry and keep the richer
-	// component-aware text. Doing it here would be actively harmful: Present applies the SAME
-	// equality guard (`PresentOverlay.tsx`, `texts.length === target.length`) and therefore
-	// narrates such a deck through the markdown flatten — which means every clip on the
-	// author's device is keyed on the FLATTEN. A bake that resolved the projection instead
-	// would match none of them, re-synthesize a fully rehearsed deck end to end, and ship
-	// narration the author never heard.
-	//
-	// So the rule is: the bake resolves narration EXACTLY as Present does, including where
-	// Present gives something up. Teaching both to trim is a coherent improvement and a
-	// separate change — it moves Present, and it invalidates every clip already stored.
-	//
-	// This cost a real defect. An earlier build had the panel trim and the exporter not, so the
-	// two halves of the same export resolved different sentences: the quote read "fully
-	// prepared, nothing is billed" and the bake then billed the whole deck.
+	// THE AUTO-GLOSSARY SECTION IS TRIMMED, by the same kernel the projection's producer and the
+	// CLI use (lib/core/glossary-auto.mjs `withoutAutoGlossary`). `glossary: auto` makes the render
+	// append a slide the source does not contain, so a raw projection runs one entry long. This used
+	// to stand the whole projection down, which made the Studio narrate the markdown flatten while
+	// `lattice video` narrated the projection: 8 of the Q3 fixture's 17 slides said different words
+	// (engineering/pipeline.md §6). `projectDeckScript` now trims at the source,
+	// so Present, the quote and the bake all see the authored-length list and resolve the same text;
+	// trimming here too keeps a caller that hands in a raw render list on the same footing. Any OTHER
+	// length mismatch still stands the projection down, exactly as Present's guard does.
+	const projected = withoutAutoGlossary(rawProjected, slides.length, source);
+	const projectedEmphasis = withoutAutoGlossary(rawEmphasis, slides.length, source);
 	const aligned = projected && projected.length === slides.length ? applyChartNarration(slides, projected) : null;
 	const texts = slides.map((md, i) =>
 		resolveNarration({

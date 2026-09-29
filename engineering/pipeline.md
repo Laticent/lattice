@@ -384,12 +384,20 @@ bake's own steps: `wavBlob` (`lib/core/speech-pcm.mjs`), then `compressClip`
 its first run downloads the ~80 MB model: `npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7`.
 Without it the command stops and prints that line. The Studio runs the same model in a browser
 (WebGPU fp32 with a GPU, wasm q8 without), so the voice is the same and the samples are not
-guaranteed to be the same bits. **The CLI's sentences are not always the Studio's.** The CLI
-resolves narration per rendered page and the Studio's bake per source slide, and on a deck the
-render lengthens (`glossary: auto`) the Studio stands its projection down and narrates the markdown
-instead: on the Q3 fixture 7 of 17 slides say different words (dividers in another order, the
-table, the glossary slide). That split predates the voice (`--captions` already had it) and is
-recorded in `followups.d/2372-p2-cli-studio-narration-text.md`. `--player-mode light|dark|system` on the player export (and
+guaranteed to be the same bits. **The CLI says the Studio's sentences.** Both resolve the same
+ladder over the same component-aware projection; the CLI indexes it per rendered page and the
+Studio per source slide. A `glossary: auto` deck renders one section more than its source, and
+`withoutAutoGlossary` (`lib/core/glossary-auto.mjs`) trims that section for every narrator: the
+Studio's `projectDeckScript` (which Present and the bake read), the bake's `resolveDeck`, the
+Studio's Captions (.vtt) download (`shareCaptions`), and the CLI's `resolveReadAlong`, which leaves
+the glossary page silent because Present never shows it and checks the `closing:` line against the
+last authored slide. On
+the Q3 fixture all 16 narrated slides now say the same words on both paths (8 of 17 differed
+before, when the Studio stood its projection down for the extra section). What the two still
+cannot share: any OTHER surplus of rendered sections (an autosplit slide, `_focusSteps`) stands
+the Studio's projection down to the markdown flatten, while the CLI narrates each rendered page.
+A split `panes` slide is folded back onto its source slide by the Studio (`foldPaneSplits`) and
+narrated page by page by the CLI. `--player-mode light|dark|system` on the player export (and
 `--mode` on `lattice video`) sets the mode the file opens in.
 
 The video is the export's own player, captured (the owner's rule in
@@ -424,6 +432,14 @@ only its own file and `data:` URLs.
 It refuses to write a file, rather than write a wrong one, when the stage moves under the capture,
 a slide or a cue lands off the layout, narration has not finished, no clip decodes, or a clip
 would lose speech off the front of the video.
+
+The capture's clock keeps the browser's nested-timer rule (a timer armed more than five timers deep
+waits at least 4 ms), because a viewer's browser does. The player's transport is one long chain of
+timers, so it runs a wait of 0 at once instead of arming a timer for it: a sentence whose clip ran
+past its estimate leaves the next one a gap of 0, and as a timer that gap cost 4 ms and moved every
+later slide off `timeline()`. That is why the spike's tone-voiced Q3 export used to be refused
+(the last two slides 35 ms late, against a bound of one frame plus 0.5 ms);
+`test/unit/export/ltt-player-transport.test.js` runs the player on a clock with the same rule.
 
 **Needs a Chromium that encodes H.264 through WebCodecs** (Chrome or Chrome for Testing; a
 distribution `chromium` may lack it). A probe runs before any capture and stops with an error

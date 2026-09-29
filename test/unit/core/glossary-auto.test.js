@@ -2,9 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 // ESM module under test — dynamic import from this CJS test (mirrors resolve-captions.test.js).
-let appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary;
+let appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary, autoGlossarySections, withoutAutoGlossary;
 test.before(async () => {
-  ({ appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary } = await import(
+  ({ appendAutoGlossary, glossaryEntries, resolveGlossaryMode, buildGlossarySlideMarkdown, readFrontMatterGlossary, autoGlossarySections, withoutAutoGlossary } = await import(
     '../../../lib/core/glossary-auto.mjs'
   ));
 });
@@ -90,4 +90,27 @@ test('appendAutoGlossary: no-op without the trigger, or with the trigger but no 
 
 test('appendAutoGlossary: bad input is safe', () => {
   for (const v of [null, undefined, 42, {}]) assert.equal(typeof appendAutoGlossary(v), 'string');
+});
+
+// The narration trim (engineering/pipeline.md §6): every narrator indexes the
+// projection by authored slide, so the glossary's one extra rendered section is dropped for all of
+// them through this one function, and only that shape is.
+test('autoGlossarySections: 1 when a slide is appended, 0 otherwise', () => {
+  assert.equal(autoGlossarySections(fm(REGISTRY)), 1);
+  assert.equal(autoGlossarySections(fm('theme: indaco')), 0);
+  // `glossary: auto` with no defined term appends nothing, so there is nothing to trim.
+  assert.equal(autoGlossarySections(fm('glossary: auto')), 0);
+});
+
+test('withoutAutoGlossary: drops exactly the trailing glossary entry, and only that', () => {
+  const md = fm(REGISTRY);
+  assert.deepEqual(withoutAutoGlossary(['a', 'glossary'], 1, md), ['a']);
+  // Already trimmed (the producer did it): unchanged, so applying it twice is safe.
+  const trimmed = ['a'];
+  assert.equal(withoutAutoGlossary(trimmed, 1, md), trimmed);
+  // Two over is not the glossary (an autosplit, say): left for the caller's own guard.
+  assert.deepEqual(withoutAutoGlossary(['a', 'b', 'c'], 1, md), ['a', 'b', 'c']);
+  // No glossary appended: a one-over list is not trimmed.
+  assert.deepEqual(withoutAutoGlossary(['a', 'b'], 1, fm('theme: indaco')), ['a', 'b']);
+  assert.equal(withoutAutoGlossary(undefined, 1, md), undefined);
 });
