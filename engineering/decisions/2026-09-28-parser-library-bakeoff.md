@@ -411,13 +411,58 @@ DNF cells.
   and 20x on inline spans (Peggy); the slowest is 146x on lists (Ohm) and about 550x on inline
   spans (Chevrotain and Ohm, tied).
 - **On hostile input, Segno is the only parser besides the kernels that stays linear on every
-  shape.** Its worst case is 7-8 ms at 32,000 characters. Peggy took 7.3 s on the unclosed-quote
+  shape.** Its worst case is 7-12 ms at 32,000 characters across runs (the re-run below). Peggy took 7.3 s on the unclosed-quote
   shape, Chevrotain 776 ms, and Ohm, Nearley and Parsimmon did not finish it.
 - **Read the unclosed-quote row with care.** It is the bake-off's shape, an unclosed apostrophe:
   a quote in today's syntax, ordinary text in Segno's. The row is kept for every candidate as-is,
   and the "unclosed double quote" row is Segno's real equivalent, where it also stays under 4 ms.
 - **Segno's flat nested-braces row is a refusal, not a parse.** It stops at its 31-level cap with
   an error, by design.
+
+### Re-run after the adversarial trio (2026-09-29, later the same day)
+
+The owner asked for fresh numbers once the trio's fixes landed (§ The adversarial trio in the Segno
+note). Same command, same sandbox, a slower machine state: the kernels' own inline figure went from
+33 to 50 ns, so absolute times are about 1.5x the first run across the board. The corpus also grew
+with `main` (4,667 inline spans).
+
+Per input, best of five rounds (node v22.22.2). Bracket lists: 64; inline spans: 4667.
+
+| parser | bracket lists (split into parts) | inline spans (dispatch) |
+|---|---|---|
+| Lattice kernels (hand-written) | 1,433 ns | 50 ns |
+| **Segno** | 1,043 ns | 93 ns |
+| Peggy | 8,723 ns | 1,870 ns |
+| Chevrotain | 7,661 ns | 32,635 ns |
+| Ohm | 182,489 ns | 39,924 ns |
+| Nearley | 119,445 ns | 18,810 ns |
+| Parsimmon | 103,398 ns | 2,264 ns |
+| Lezer | — | 14,223 ns |
+
+Hostile input: ms for one parse at 2k / 8k / 32k characters; DNF = the rung before took over 500 ms.
+
+| shape | Lattice kernels (hand-written) | **Segno** | Peggy | Chevrotain | Ohm | Nearley | Parsimmon |
+|---|---|---|---|---|---|---|---|
+| spaces in a member | 1.1 / 1.6 / 5.4 | 0.57 / 0.79 / 2.8 | 5.6 / 9.9 / 26 | 4.1 / 0.87 / 1.6 | 15 / 34 / 161 | 223 / 3,409 / DNF | 20 / 22 / 48 |
+| unclosed quotes | 0.65 / 2.7 / 7.5 | 1.8 / 5.0 / 12 | 104 / 732 / DNF | 15 / 138 / 1,689 | 685 / DNF / DNF | 1,901 / DNF / DNF | 1,640 / DNF / DNF |
+| nested braces | 0.35 / 1.0 / 4.3 | 1.3 / 0.07 / 0.03 | 1.3 / 2.3 / 11 | 6.6 / 8.8 / 40 | 11 / 30 / 176 | 179 / 3,176 / DNF | 2.4 / 9.0 / 45 |
+| unclosed double quote | 0.34 / 1.4 / 5.3 | 2.8 / 5.9 / 5.9 | 2.1 / 9.3 / 20 | 2.0 / 8.5 / 30 | 25 / 105 / 460 | 3,283 / DNF / DNF | 22 / 89 / 251 |
+
+**What moved, and what did not.**
+
+- **The field's order is unchanged.** Segno still beats the kernels on bracket lists (1,043 against
+  1,433 ns) and sits at about 1.9x them on inline spans; the nearest library is 7x Segno on lists
+  and 20x on spans.
+- **Segno's worst hostile case was 12 ms at 32k in this run** (unclosed quotes), against 7 ms in
+  the first. The ladder is ONE cold parse per rung in a fresh process, so it is the noisiest number
+  here; the growth stays linear (x2.4 from 8k to 32k). The committed arm, which warms up, measured
+  the same shape at 1.8 ms.
+- **The trio's fixes cost nothing measurable.** Before/after pairs with the committed arm
+  (`SEGNO_LIB` = the code just before the fix commit, alternated with it, two rounds each): pills
+  1.32 / 1.32 µs before and 1.31 / 1.37 µs after; every other row within the same noise. The
+  pill ratio to the kernel reads 2.0-2.4x across these runs because the kernel's own pill time
+  swung between 550 and 650 ns; the phase-2 decision on that bar is
+  `followups.d/2462-p2-decide-the-pill-speed-bar.md`.
 
 **Caveats.** Absolute times move by up to 2x between machines and runs on this sandbox; the ratios
 and the growth along the ladder are what carry. Lezer's grammar set does not cover bracket lists.
