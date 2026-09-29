@@ -376,8 +376,23 @@ function renderDrawn(ordered) {
     const lib = payload ? `/* @__PURE__ */ Object.freeze({ from: ${JSON.stringify(payload.from)}, file: ${JSON.stringify(payload.from.split('/').pop())}, global: ${JSON.stringify(payload.global)} })` : 'null';
     return `  ${JSON.stringify(p.manifest.name)}: /* @__PURE__ */ Object.freeze({ fences: /* @__PURE__ */ Object.freeze(${JSON.stringify(codeFences(p))}), payload: ${lib} }),`;
   });
+  // The two probes lib/plugins/drawn-probe.mjs exports, written out here as LITERALS: they ship in
+  // the Studio's and the Playground's startup JavaScript (docs/route-budget.json), and a literal is
+  // smaller there than the map/join that would build it at run time. Fence names go into a CSS
+  // selector and a RegExp unescaped, so anything but a plain name is refused rather than escaped.
+  for (const f of fences) {
+    if (!/^[a-z][a-z0-9-]*$/i.test(f)) throw new Error(`build-plugin-registry: runtime-drawn fence ${JSON.stringify(f)} is not a plain name`);
+  }
+  // No runtime-drawn fence → a selector and a pattern that match nothing, never `:is()` / `(?:)`.
+  const fenceCode = fences.length ? `:is(pre,marp-pre)>:is(${fences.map((f) => `code[class*="language-${f}"]`).join()})` : ':not(*)';
+  const sourceFence = fences.length ? `/^[ \\t>]*(?:\`{3,}|~{3,})[^\\S\\n]*(?:${fences.join('|')})(?![\\w-])/m` : '/(?!)/';
   return `${HEADER('The code fences a browser runtime draws (render.exec.hydrate "runtime"), and each such plugin\'s library. Plain data.')}
 export const RUNTIME_DRAWN_FENCES = Object.freeze(${JSON.stringify(fences)});
+
+// A runtime-drawn fence's \`<code>\` at any state (\`[class*=]\` also matches the defanged
+// \`language-<fence>-source\`), and a Markdown line that opens one. See lib/plugins/drawn-probe.mjs.
+export const RUNTIME_DRAWN_FENCE_CODE = ${JSON.stringify(fenceCode)};
+export const RUNTIME_DRAWN_SOURCE_FENCE = ${sourceFence};
 
 // Pure-annotated: \`Object.freeze\` reads as a side effect, so without it a bundle that imports only
 // the fence names (the Studio's startup JavaScript) would keep this unused record.
