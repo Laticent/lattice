@@ -1,6 +1,6 @@
 # Route budget history
 
-Every change to a soft target or a ceiling in `docs/route-budget.json`, newest first. A test holds that file to the newest row here for each route and metric, so a hand edit fails. `npm run route-budget:rebaseline -- --reason "…"` writes the entry and the numbers in one step, in a PR of its own. It lowers stale soft targets on its own. **Raising a soft target (`--raise`) or a ceiling (`--ceiling`) needs the owner's OK first.**
+Every change to a soft target or a ceiling in `docs/route-budget.json`, newest first. A test holds that file to the newest row here for each route and metric, and CI flags any raise on the job summary. `npm run route-budget:rebaseline -- --reason "…"` writes the entry and the numbers in one step, in a PR of its own. It lowers stale soft targets on its own. **Raising a soft target (`--raise`) or a ceiling (`--ceiling`) needs the owner's OK first.**
 
 A PR may add up to 2KB of eager JS per route over `main` while the route stays at or under its soft target. Every byte above soft is declared in the PR's own file under `docs/route-budget.d/`; each reset folds those files into its entry here, with how much of the raise they declared. The rules are in `engineering/decisions/2026-09-29-route-budget-soft-hard.md`.
 

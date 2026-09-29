@@ -60,7 +60,9 @@ And per PR, against `main` (§5):
   needs `--ceiling`; each needs the owner's OK first. It refuses to run on a branch behind
   `origin/main`, whose numbers would be stale.
 - **A test holds `route-budget.json` to the newest history row** for every route and metric,
-  so a hand edit fails the unit tier.
+  so a hand edit to the ledger alone fails the unit tier. Editing both files by hand still
+  passes, so on pull requests the gate also lists every number the PR raises over its base,
+  on the summary page, where the owner looks before approving.
 - **The notes left the JSON.** The ten per-route note strings moved verbatim to
   `route-budget.history.md`, below the dated entries.
 
@@ -76,7 +78,7 @@ refusing it:
   passed +100KB. Now a file must declare bytes per route, cover what CI says is owed, and
   give a reason.
 - **Soft could be raised by hand**, and the hard limit followed it. Now the history test
-  catches it.
+  catches a ledger-only edit, and CI flags any raise over the base on the summary page.
 - **At soft + 3% the hard limit was hit about every two days**, by whichever PR tipped it,
   with every Studio PR in flight tipping together and each asking the owner for a raise.
   The 10% ceiling turns that into a rare decision.
@@ -90,8 +92,10 @@ refusing it:
 ## 4. The measurement now follows static imports
 
 `measure()` counted only the `/_astro/*.js` a route's HTML names. The Studio and Playground
-list their full static-import closure there (`inject-modulepreload.mjs` `ENTRIES`); the
-content routes do not, so React and the shared UI chunks their islands import were invisible.
+list most of their static-import closure there (`inject-modulepreload.mjs` `ENTRIES`), though
+not all of it: following imports adds 8 chunks (3.9KB gz) on the Studio and 14 (27KB) on the
+Playground. The content routes list only their island entry points, so React and the shared
+UI chunks their islands import were invisible.
 The red team appended 300KB to two shared chunks and three routes read +0.
 
 `measure()` now follows each counted chunk's static imports (`import … from "./x.js"`,
@@ -141,8 +145,8 @@ justifies. They are the remaining ways growth goes unaccounted:
 - **PRs the docs path filter skips skip the allowance**: the root `package.json`, its lockfile
   and `tools/**`, including Dependabot bumps that merge themselves. Only the ceiling catches
   them.
-- **No code-owner review on the ledger.** The history test and the owner's merge approval are
-  what stand between a session and `--raise`.
+- **No code-owner review on the ledger.** The history test, the raise flag on the summary
+  page and the owner's merge approval are what stand between a session and a raise.
 - **A PR can edit the gate itself**, since CI runs the PR's own copy. The unit tests pin the
   owner's numbers (10%, 2KB), so doing it is a visible edit to a test.
 

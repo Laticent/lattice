@@ -50,7 +50,8 @@
 //      so explanations never conflict.
 //   2. Between soft and the ceiling the build passes; past the ceiling it fails.
 //   3. Moving either number is a reset with a history entry (`route-budget:rebaseline`); a
-//      test holds route-budget.json to the newest entry, so a hand edit fails.
+//      test holds route-budget.json to the newest entry, so a ledger-only hand edit fails,
+//      and CI flags any raise over the base on the summary page for the owner to see.
 // The adversarial review that shaped this: engineering/decisions/2026-09-29-route-budget-soft-hard.md.
 //
 // This gate does NOT try to be a performance model. It counts bytes on five routes: the two
@@ -118,7 +119,7 @@ export const ceilingFor = (soft) => soft + Math.round(soft * CEILING_PCT);
 
 // Static imports in a minified chunk: `import{a}from"./x.js"`, `import"./x.js"`,
 // `export{b}from"./x.js"`. Not `import("./x.js")`: the `(` never matches.
-const STATIC_IMPORT = /(?:import|export)\s*(?:[^'"()]*?\bfrom\s*)?["']\.\/([A-Za-z0-9._-]+\.js)["']/g;
+const STATIC_IMPORT = /(?<![\w$.])(?:import|export)\s*(?:[^'"()]*?\bfrom\s*)?["']\.\/([A-Za-z0-9._-]+\.js)["']/g;
 
 /**
  * A route's EAGER JS: every `/_astro/*.js` referenced in its HTML and, transitively, every
@@ -277,9 +278,10 @@ export function rebaseline(ledgerRoutes, measured, { slackPct = STALE_SLACK_PCT,
 			if (got > soft) {
 				if (!raise) refused.push({ ...change, why: 'a raise needs the owner\'s OK, then --raise' });
 				else if (got > hard && !ceiling) refused.push({ ...change, why: 'it is past the ceiling; moving a ceiling needs the owner\'s OK, then --ceiling' });
-				else changes.push(ceiling ? { ...change, hardTo: ceilingFor(got) } : change);
+				else changes.push(ceiling ? { ...change, hardTo: Math.max(hard, ceilingFor(got)) } : change);
 			} else if (got < soft - Math.round(soft * slackPct)) {
-				changes.push(change);
+				// A banked win pulls the ceiling down with it, so the gap stays CEILING_PCT.
+				changes.push({ ...change, hardTo: Math.min(hard, ceilingFor(got)) });
 			}
 		}
 	}
@@ -312,10 +314,13 @@ function writeReset(ledger, changes, reason) {
 	const date = new Date().toISOString().slice(0, 10);
 	const signed = (n) => `${n >= 0 ? '+' : '-'}${Math.abs(n)}`;
 	const rows = changes.map((c) => `| ${c.route} | ${c.metric} | ${c.from} | ${c.to} | ${signed(c.to - c.from)} | ${c.hardTo} |`);
-	const fragments = pendingFragments();
+	// Fold only the explanation files that declare a route this reset RAISES; a reset that
+	// only lowers a stale target leaves them for the raise they explain.
+	const raised = changes.filter((c) => c.metric === 'eagerJsGz' && c.to > c.from);
+	const raisedRoutes = new Set(raised.map((c) => c.route));
+	const fragments = pendingFragments().filter((f) => Object.keys(parseDeclarations(f.text)).some((r) => raisedRoutes.has(r)));
 	const declared = {};
 	for (const f of fragments) for (const [r, n] of Object.entries(parseDeclarations(f.text))) declared[r] = (declared[r] || 0) + n;
-	const raised = changes.filter((c) => c.metric === 'eagerJsGz' && c.to > c.from);
 	const accounting = raised.length
 		? `Of the eager-JS raises, declared in explanation files: ${raised.map((c) => `${c.route} ${declared[c.route] || 0} of ${c.to - c.from} bytes`).join('; ')}.\n\n`
 		: '';
@@ -345,6 +350,27 @@ function behindMain() {
 	} catch (e) {
 		return e.status === 1; // 1 = not an ancestor; anything else (no origin/main) is not a refusal
 	}
+}
+
+/** The numbers this PR's ledger raises over the base's. */
+function ledgerRaises(baseSha, ledger) {
+	let base;
+	try {
+		base = JSON.parse(execFileSync('git', ['show', `${baseSha}:docs/route-budget.json`], { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+	} catch {
+		return [];
+	}
+	const out = [];
+	for (const [route, b] of Object.entries(ledger.routes)) {
+		for (const metric of METRICS) {
+			for (const key of ['soft', 'hard']) {
+				const was = base.routes?.[route]?.[metric]?.[key];
+				const now = b[metric]?.[key];
+				if (typeof was === 'number' && typeof now === 'number' && now > was) out.push(`${route} ${metric} ${key} ${was} -> ${now}`);
+			}
+		}
+	}
+	return out;
 }
 
 function summary(markdown) {
@@ -429,9 +455,17 @@ function main() {
 		}
 		allowance = `per-PR allowance:\n${rows.map((l) => `    ${l}`).join('\n')}`;
 	}
+	// A PR that RAISES a number needs the owner's OK. Nothing here can prove the OK was given,
+	// so say it where the owner looks before approving: the log and the summary page.
+	const baseSha = process.env.ROUTE_BUDGET_BASE_SHA;
+	if (baseSha) {
+		for (const r of ledgerRaises(baseSha, ledger)) {
+			warnings.push(`${r} — this PR RAISES the budget; it needs the owner's OK and belongs in a reset PR of its own.`);
+		}
+	}
 	lines.push('', `  ${allowance}`);
 	summary(
-		`### Route budget\n\n${problems.length ? `❌ ${problems.length} problem(s)` : '✅ within budget'}\n\n` +
+		`### Route budget\n\n${problems.length ? `❌ ${problems.length} problem(s)\n\n${problems.map((p) => `- ${p.replace(/\n\s*/g, ' ')}`).join('\n')}` : '✅ within budget'}\n\n` +
 			`${warnings.map((w) => `- ⚠ ${w}`).join('\n')}\n\n\`\`\`\n${lines.join('\n')}\n\`\`\``,
 	);
 

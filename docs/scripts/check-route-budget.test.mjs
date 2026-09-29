@@ -128,7 +128,8 @@ describe('rebaseline', () => {
 	it('lowers a stale target on its own and refuses a raise without --raise', () => {
 		const measured = { studio: { eagerJsGz: 670_000, htmlRaw: 190_000 }, home: { eagerJsGz: 70_000, htmlRaw: 100_000 } };
 		const { changes, refused } = rebaseline(routes, measured, { slackPct: SLACK_PCT });
-		expect(changes).toEqual([{ route: 'home', metric: 'eagerJsGz', from: 80_000, to: 70_000, hardFrom: 88_000, hardTo: 88_000 }]);
+		// The banked win pulls the ceiling down to 10% above the new soft target.
+		expect(changes).toEqual([{ route: 'home', metric: 'eagerJsGz', from: 80_000, to: 70_000, hardFrom: 88_000, hardTo: ceilingFor(70_000) }]);
 		expect(refused.map((c) => `${c.route}.${c.metric}`)).toEqual(['studio.eagerJsGz']);
 	});
 
@@ -154,7 +155,7 @@ describe('route-budget.json', () => {
 		}
 	});
 
-	it('matches the newest history row for every route and metric, so a hand edit fails', () => {
+	it('matches the newest history row for every route and metric, so a ledger-only hand edit fails', () => {
 		// The red team raised a soft target by hand and the gate passed: hard followed soft,
 		// and nothing tied the number to a recorded reset. Now every number must be the
 		// newest row that `route-budget:rebaseline` wrote.

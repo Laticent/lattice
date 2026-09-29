@@ -61,7 +61,7 @@ start=$SECONDS
 # route-budget check, the last link, may fail without harm, so the exit code is ignored.
 # But an EARLIER link failing leaves a dist with no preload hints, which measures far
 # smaller and would fail the PR for main's problem: so require the hints, or skip.
-(cd "$WT/docs" && npm run build >/dev/null 2>&1) || true
+(cd "$WT/docs" && GITHUB_STEP_SUMMARY= npm run build >/dev/null 2>&1) || true
 grep -q 'rel="modulepreload"' "$WT/docs/dist/studio/index.html" 2>/dev/null || { warn "docs build on $BASE stopped before inject-modulepreload; allowance not checked"; exit 0; }
 
 node "$ROOT/docs/scripts/check-route-budget.mjs" --measure "$WT/docs/dist" > "$OUT" || { warn "measuring $BASE failed"; rm -f "$OUT"; exit 0; }
