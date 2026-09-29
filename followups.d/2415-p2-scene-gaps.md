@@ -13,11 +13,13 @@ why now   — engineering/decisions/2026-09-27-delivery-styles-and-component-sce
             their words (the old text path), so each delivery's style reaches them only partly:
             - flowchart: no narrator at all; its edges carry an index but no data-from / data-to.
             - diagram (Mermaid): Lattice stamps nothing on Mermaid's SVG; verify Mermaid's own ids
-              survive the render, then stamp data-mark from the parsed source.
-            - table: the projection's "Row — Col: value" sentences resolve by words
-              (findTableRowTarget); a table narrator would bind rows and columns outright.
-            - kpi, stats, matrix-2x2, verdict-grid, cycle, list-steps, list-tabular: list items,
-              resolved by words; a scene through `handles` would give them acts.
+              survive the render, then stamp data-mark from the parsed source. Seen on #2441's
+              storyboard deck (examples/guide-storyboards.md, slide 9): Present says only the
+              heading, so no delivery has a walk to play.
+            - kpi, stats: the projection speaks a card's value before its label, so no sentence
+              matches a card and nothing binds (#2441 binds every other list, table and prose
+              structure through the projection's refs). A narrator that walks the cards in order
+              would bind them.
             - gantt lanes: a lane is its label only; stamp data-lane on its tasks so `enter lane`
               focuses the lane's bars.
 where     — lib/core/chart-narration.js (narrators), lib/components/<bucket>/<name>/*.manifest.json

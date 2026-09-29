@@ -341,3 +341,10 @@ already reviewed (§11 Fork 1).
 4. The three delivery storyboards and the per-slide plan; score goldens per archetype.
 5. The Studio and the player run the plan; Vetrina in the expressive export.
 6. The storyboard deck and the storyboard sheets (30), sent for sign-off.
+
+**Status (2026-09-29): steps 1–6 built.** The storyboard deck is `examples/guide-storyboards.md`,
+one slide per archetype (big-number, list-steps, cards-grid, table, compare-prose, line, funnel,
+quadrant, diagram, code). The 30 sheets were captured in the Studio's Present, desktop Chromium,
+one still per sentence under each delivery. They are review artifacts, not committed. The Mermaid
+diagram slide narrates only its heading, so no delivery has a walk to play on it; that and the
+other unbound components are `followups.d/2415-p2-scene-gaps.md`.
