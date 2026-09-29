@@ -320,6 +320,13 @@ figure.chart-finish-pigment :where(.waterfall-bar[data-s="down"]) {
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
+section.chart-finish-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]),
+figure.chart-finish-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]) {
+  fill: color-mix(in oklab, var(--hs-state-hue) 82%, var(--chart-cat-base)) !important;
+  stroke: var(--hs-state-ink) !important;
+  stroke-width: var(--chart-edge) !important;
+  vector-effect: non-scaling-stroke !important;
+}
 
 /* RAMP — scaled into the finish's band; --mix stays the datum. */
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
@@ -771,6 +778,13 @@ figure.chart-finish-etching :where(.waterfall-bar[data-s="down"]) {
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
 }
+section.chart-finish-etching :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]),
+figure.chart-finish-etching :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]) {
+  fill: light-dark(color-mix(in oklab, var(--hs-state-hue) 30%, var(--bg)), color-mix(in oklab, var(--hs-state-hue) 40%, var(--bg))) !important;
+  stroke: var(--hs-state-ink) !important;
+  stroke-width: calc(var(--chart-edge) * 2) !important;
+  vector-effect: non-scaling-stroke !important;
+}
 
 /* RAMP — scaled into the finish's band; --mix stays the datum. */
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
@@ -930,6 +944,11 @@ section.chart-finish-tone :where(.fc-group-title[data-slot]),
 figure.chart-finish-tone :where(.fc-group-title[data-slot]) {
   fill: var(--chart-cat-1-ink) !important;
 }
+}
+section.chart-finish-tone :where(:is(.hub-spoke-neck, .hub-spoke-twig, .hub-spoke-arrow, .hub-spoke-name)[data-hue]),
+figure.chart-finish-tone :where(:is(.hub-spoke-neck, .hub-spoke-twig, .hub-spoke-arrow, .hub-spoke-name)[data-hue]) {
+  --hs-group-hue: var(--chart-cat-1-hue) !important;
+  --hs-group-ink: var(--chart-cat-1-ink) !important;
 }
 @supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
 section.chart-finish-tone :where(:is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card)),
@@ -1256,6 +1275,13 @@ section.chart-finish-tone :where(.waterfall-bar[data-s="down"]),
 figure.chart-finish-tone :where(.waterfall-bar[data-s="down"]) {
   fill: color-mix(in oklab, var(--state-fail-hue) 61%, var(--bg)) !important;
   stroke: var(--state-fail-ink) !important;
+  stroke-width: var(--chart-edge) !important;
+  vector-effect: non-scaling-stroke !important;
+}
+section.chart-finish-tone :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]),
+figure.chart-finish-tone :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]) {
+  fill: color-mix(in oklab, var(--hs-state-hue) 61%, var(--bg)) !important;
+  stroke: var(--hs-state-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }

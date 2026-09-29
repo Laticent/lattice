@@ -568,3 +568,56 @@ test('the kernel emits no color; the stylesheet carries no hex, margin or @layer
   assert.doesNotMatch(css, /\bmargin\s*:/);
   assert.doesNotMatch(css, /@layer/);
 });
+
+// ── the chart finish (#2451) ─────────────────────────────────────────────────────
+// A finish reaches a mark only through the mark contract (tools/build-chart-finish-css.js).
+// These pin what hub-spoke hands it: the hub nothing, a neutral satellite nothing, a group
+// disc and its key swatch the contract, a status disc the status channel; and what the
+// finish hands back: the status row and tone's re-point of the group property.
+describe('hub-spoke under a chart finish', () => {
+  const finishCss = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/chart-finish.generated.css'), 'utf8');
+  const CONTRACT = /data-hue="\d"[^>]*data-paint="fill"[^>]*data-encodes="hue"|data-paint="fill"[^>]*data-encodes="hue"/;
+  test('the hub carries no slot, paint or encodes, so no finish can reach it', () => {
+    const html = T.buildHubSpoke(model('Hub', [['A', ['Data']], ['B', ['Ops']], ['C', ['at-risk']]])).html;
+    const hub = html.match(/<path class="hub-spoke-hub"[^>]*>/)[0];
+    assert.doesNotMatch(hub, /data-(hue|paint|encodes|s)=/);
+  });
+  test('a neutral satellite carries no contract; a group disc and its key swatch do', () => {
+    const neutral = T.buildHubSpoke(model('Hub', [['A'], ['B'], ['C']])).html;
+    for (const node of neutral.match(/<path class="hub-spoke-node"[^>]*>/g)) assert.doesNotMatch(node, /data-(hue|paint|encodes)=/);
+    const grouped = T.buildHubSpoke(model('Hub', [['A', ['Data']], ['B', ['Ops']], ['C', ['Data']]])).html;
+    for (const node of grouped.match(/<path class="hub-spoke-node"[^>]*>/g)) assert.match(node, CONTRACT);
+    assert.match(grouped, /<rect class="chart-key-swatch" data-hue="1" data-paint="fill" data-encodes="hue"/);
+  });
+  test('a status disc keys on data-s and every finish paints it from --hs-state-*', () => {
+    const html = T.buildHubSpoke(model('Hub', [['A', ['blocked']], ['B'], ['C']])).html;
+    assert.match(html.match(/<path class="hub-spoke-node"[^>]*data-label="A"[^>]*>/)[0], /data-s="blocked"[^>]*data-paint="fill"/);
+    for (const f of ['pigment', 'etching', 'tone']) {
+      const rule = finishCss.match(new RegExp(`section\\.chart-finish-${f} :where\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-s\\]\\)[^{]*\\{([^}]*)\\}`));
+      assert.ok(rule, `${f}: no status rule for hub-spoke`);
+      assert.match(rule[1], /var\(--hs-state-hue\)/);
+      assert.match(rule[1], /stroke: var\(--hs-state-ink\)/);
+    }
+  });
+  test('under tone, a group\'s band, arrowhead and name join the one hue through --hs-group-*', () => {
+    const rule = finishCss.match(/section\.chart-finish-tone :where\(:is\(\.hub-spoke-neck, \.hub-spoke-twig, \.hub-spoke-arrow, \.hub-spoke-name\)\[data-hue\]\)[^{]*\{([^}]*)\}/);
+    assert.ok(rule, 'no tone re-point for hub-spoke');
+    assert.match(rule[1], /--hs-group-hue: var\(--chart-cat-1-hue\) !important/);
+    assert.match(rule[1], /--hs-group-ink: var\(--chart-cat-1-ink\) !important/);
+    assert.doesNotMatch(finishCss, /chart-finish-(pigment|etching) :where\([^)]*hub-spoke-neck/, 'only tone re-points the group property');
+    const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    // The band, arrowhead and name read the member property, never the family slot table,
+    // or the re-point above would land on nothing.
+    for (const sel of [/\.hub-spoke-twig\)\[data-hue\] \{([^}]*)\}/, /\.hub-spoke-arrow\[data-hue\] \{([^}]*)\}/, /\.hub-spoke-name\[data-hue\] \{([^}]*)\}/]) {
+      const body = css.match(sel)[1];
+      assert.match(body, /--hs-group-(hue|ink)/);
+      assert.doesNotMatch(body, /--mark-(hue|ink)/);
+    }
+  });
+  test('with groups on the slide, pigment and tone put the hub back on the full heading ink', () => {
+    const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const m = css.match(/:is\(section, figure\):is\(\.chart-finish-pigment, \.chart-finish-tone\) \.hub-spoke-svg:has\(:is\(\.hub-spoke-node, \.hub-spoke-leaf\)\[data-hue\]\) \.hub-spoke-hub \{([^}]*)\}/);
+    assert.ok(m, 'the grouped-hub lift is missing or no longer scoped to grouped charts under pigment and tone');
+    assert.match(m[1], /fill: var\(--text-heading\)/);
+  });
+});

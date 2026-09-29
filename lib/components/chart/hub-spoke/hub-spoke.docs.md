@@ -47,6 +47,7 @@ Use bar or stacked-bar instead when the claim is a ranking or a share: a length 
 - With `tiered`, keep leaf names to 14 characters and branch names to 16, and stay at 14 leaves or fewer for a layout the linter treats as proven; the kernel still draws up to 18. When a branch name has no clear lane beside its disc, the branch names move into a key band under the figure.
 - Keep the hub name under about 40 characters and its value under 12. The hub never outgrows three times the largest satellite; long text shrinks instead, and past the smallest type the linter flags it.
 - Satellite values under `sized` should share one unit and be positive; the hub value is not drawn to scale, and the linter warns only when the satellites add up to MORE than the hub.
+- Under a `chart-finish:` (`pigment`, `etching` or `tone`), the finish repaints the group discs, the key and a status disc's level; the hub and neutral satellites carry no color, so they stay as drawn. Under `tone` a group's connectors, arrowheads and names join the one hue with its discs. On a slide with groups, `pigment` and `tone` draw the hub in the full heading ink, so no group disc reaches the hub's lightness.
 
 ## When to use
 

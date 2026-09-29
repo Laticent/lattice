@@ -65,6 +65,17 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
   --hs-neutral-ink: var(--text-body);
 }
 
+/* ── a group's hue, for the marks that carry it at a faint level or as ink ─────
+ * The connector band, twig, arrowhead and name of a grouped spoke read the group's slot
+ * through this member property rather than the family's --mark-hue / --mark-ink directly,
+ * so the `tone` chart finish can re-point it to the one hue (tools/build-chart-finish-css.js)
+ * while the family slot table stays untouched. The discs and key swatches are not here:
+ * they carry the mark contract and every finish repaints them. */
+:is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-neck, .hub-spoke-twig, .hub-spoke-arrow, .hub-spoke-name)[data-hue] {
+  --hs-group-hue: var(--mark-hue);
+  --hs-group-ink: var(--mark-ink);
+}
+
 /* ── status: re-points the local state channel of a flagged spoke ─────────── */
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="on-track"], [data-s="done"], [data-s="live"]) { --hs-state-hue: var(--state-pass-hue); --hs-state-ink: var(--state-pass-ink); }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="at-risk"], [data-s="warn"]) { --hs-state-hue: var(--state-warn-hue); --hs-state-ink: var(--state-warn-ink); }
@@ -111,8 +122,8 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
   stroke-linejoin: round;
 }
 :is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-neck, .hub-spoke-twig)[data-hue] {
-  fill: light-dark(color-mix(in oklab, var(--mark-hue) 40%, var(--chart-cat-base)), color-mix(in oklab, var(--mark-hue) 46%, var(--chart-cat-base)));
-  stroke: var(--mark-ink);
+  fill: light-dark(color-mix(in oklab, var(--hs-group-hue) 40%, var(--chart-cat-base)), color-mix(in oklab, var(--hs-group-hue) 46%, var(--chart-cat-base)));
+  stroke: var(--hs-group-ink);
 }
 
 /* ── THE HUB: the page's heading ink, solid; canvas-colored type on it clears the same
@@ -126,11 +137,27 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
   stroke: light-dark(var(--text-heading), color-mix(in oklab, var(--text-heading) 74%, var(--bg)));
 }
 :is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-hub-name, .hub-spoke-hub-value) { fill: var(--bg); }
+/* Under the `pigment` and `tone` chart finishes a group disc takes the finish's body, without
+ * the lightness step above (a finish's paint wins), and on dark both reach the dimmed hub's
+ * own lightness: onyx-dark slot 4 under pigment measured OKLab ΔE 0.003 from the hub (a
+ * second hub), and tone's top step 0.08 on mustard-dark, both under the 0.15 floor the step
+ * above holds with no finish. Both bodies mix toward a dark base, so their L stays at or
+ * under 0.82 (pigment) and 0.92 (tone) of the hue's; the hub goes back to the full heading
+ * ink it wears on light. Measured on the 14 flat-fill palettes in both modes, the nearest
+ * group disc then sits at ΔE >= 0.15 from the hub under every finish. Etching's body (40%)
+ * never comes near, so it keeps the dimmed hub. Only a chart that draws a GROUP needs this:
+ * a neutral satellite is held under the hub by its own mix, so a neutral or status-only
+ * chart keeps the dimmed hub. The finish class sits on the section (or on Read·Article's
+ * chart figure), not on a hub-spoke variant. */
+:is(section, figure):is(.chart-finish-pigment, .chart-finish-tone) .hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub {
+  fill: var(--text-heading);
+  stroke: var(--text-heading);
+}
 
 /* ── emphasis halo and direction heads: filled ink, no edge ─────────────────── */
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-halo { fill: var(--hs-state-ink); stroke: none; }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow { fill: var(--hs-neutral-ink); stroke: none; }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow[data-hue] { fill: var(--mark-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow[data-hue] { fill: var(--hs-group-ink); }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow[data-s] { fill: var(--hs-state-ink); }
 
 /* ── type: the pie key's voice (--font-label) ─────────────────────────────────
@@ -141,7 +168,7 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
  * text contrast on every theme. */
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg text { font-family: var(--font-label); }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-name { fill: var(--text-body); font-weight: 560; }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-name[data-hue] { fill: var(--mark-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-name[data-hue] { fill: var(--hs-group-ink); }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-name[data-emph="true"] { fill: var(--text-heading); font-weight: 720; }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-value { fill: var(--text-heading); font-weight: 680; font-variant-numeric: tabular-nums; }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-value[data-emph="true"] { font-weight: 760; }

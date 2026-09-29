@@ -74,6 +74,25 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
+<!-- _class: hub-spoke chart-finish-tone -->
+<!-- _footer: "Chart finish · tone: groups, key, connectors and names in one hue; the hub stays the heaviest mark" -->
+
+`Partner ecosystem · By capability · chart-finish: tone`
+
+## Under a tone finish, the four capabilities read as four shades of one hue.
+
+- Lattice platform
+  - Northwind Data `Data`
+  - Quarry Analytics `Data`
+  - Halcyon Pay `Payments`
+  - Arbor Identity `Payments`
+  - Keel Logistics `Distribution`
+  - Beacon Retail `Distribution`
+  - Tessera Cloud `Infrastructure`
+  - Lumen Media `Infrastructure`
+
+---
+
 <!-- _class: hub-spoke sized -->
 <!-- _footer: "CFO · sized scales disc area; the printed share carries the claim" -->
 
