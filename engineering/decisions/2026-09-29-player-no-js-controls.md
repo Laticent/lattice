@@ -71,16 +71,23 @@ All in `lib/export/player-core.mjs`, all inert once the script runs (`:not(.lp-j
 ## Evidence
 
 - **A committed test, run in two engines.** `test/integration/export/player-no-js.test.js`
-  exports `slide-class-forms` baked light, dark and system, plus a deck-wide `color-mode`
-  deck, and drives them with JavaScript off. It checks that the labels replace the dead
-  buttons, that Present is one whole slide at 390×844, 844×390 and 1440×900, that one swipe
-  moves one slide, that Read·Slides is the column, that a tap keeps the scroll position, that
-  the flip matches the scripted toggle in all 12 cells, that print media lays out every
-  slide, that with the script on no no-JS control shows, and that a deck-wide `color-mode`
-  ships no moon. It passes 8/8 in Chromium 131 (in CI, via `test:integration`) and 8/8 in
-  WebKit 26.0 (Playwright's build, pointed at by `LATTICE_PLAYWRIGHT`). CI runs the Chromium arm
-  in `integration` and, on the owner's call, the WebKit arm in the blocking `player-webkit` job
-  whenever `lib/export/**` or the test changes (~3.5 runner minutes, beside `integration`).
+  exports `slide-class-forms` once and rewrites its `data-lp-scheme` to get the dark and
+  system files (`--player-mode` changes nothing else a reader sees), then drives them with
+  JavaScript off. It checks that the labels replace the dead buttons, that Present is one
+  whole slide at 390×844, 844×390 and 1440×900, that one swipe moves one slide, that
+  Read·Slides is the column, that a tap keeps the scroll position, that the flip matches the
+  scripted toggle in all 12 cells, that print media lays out every slide, and that with the
+  script on no no-JS control shows. It passes 7/7 in Chromium 131 and in WebKit 26.0
+  (Playwright's build, pointed at by `LATTICE_PLAYWRIGHT`). That a deck-wide `color-mode`
+  ships no moon is a unit test in `html-player.test.js`, since it needs no browser. CI runs
+  the Chromium arm in `integration` and, on the owner's call, the WebKit arm in the blocking
+  `player-webkit` job whenever `lib/export/**` or the test changes. Its first run took 3 min
+  24 s, beside `integration`.
+- **The test's first shape cost the integration tier 7 minutes.** It exported four decks,
+  and each export launches Chromium while the tier's other files are running. The tier's test
+  step went from 15 min 20 s (`f9dd027`) to 22 min 31 s (`62ae1e7`), and the next run passed
+  its 25-minute cap and was cancelled. One export instead of four, plus the deck-mode check
+  moved to a unit test, took the file alone from 66 s to 25 s.
 - **The test can fail.** Three planted regressions each failed their test: the flip-to-light
   token rule removed, the Present strip applied to print media, and the hidden inputs put
   back to `position:absolute`.

@@ -61,7 +61,7 @@ concurrency:
 #     ~3.4x an estimate of ~3.5 min, built from measured parts rather than a run:
 #     webkit-baselines-nightly's install steps on this runner (npm ci 22s, docs
 #     npm ci 16s, Playwright browsers + libraries 50s) and the test in a sandbox
-#     (87s in WebKit). Re-derive it from real runs once it has some.
+#     (87s in WebKit). First run on PR #2494: 3m24s. Re-derive it from real runs.
 #
 # THREE METHOD NOTES, without which the table does not reproduce:
 #   · SKIPPED jobs are dropped (the API returns them with started_at ==

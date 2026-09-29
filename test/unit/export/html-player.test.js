@@ -709,6 +709,21 @@ test('produces a self-contained file — no file:// survives', async () => {
 	assert.doesNotMatch(html, /file:\/\//, 'no file:// references may remain');
 });
 
+// The no-JS moon is a checkbox whose flip CSS can swap tokens but cannot restamp a class
+// on every section, which is how a deck-wide `color-mode` re-themes. So such a deck ships
+// no checkbox and no label, and the view controls still ship. Here rather than in the
+// browser-driven player-no-js integration test because it needs no render, and an export
+// there costs integration-tier minutes.
+test('a deck-wide color-mode ships no no-JS moon; other decks do', async () => {
+	const pinned = (await buildPlayerHtml({ docHtml, source: '---\ntheme: indaco\ncolor-mode: dark\n---\n\n# A\n', now: 0 })).html;
+	assert.doesNotMatch(pinned, /id="lp-nj-flip"/, 'no checkbox: only the script can restamp the section class');
+	assert.doesNotMatch(pinned, /for="lp-nj-flip"/, 'and no label for it');
+	assert.match(pinned, /id="lp-nj-present"/, 'the view controls still ship');
+	const plain = (await buildPlayerHtml({ docHtml, source: '---\ntheme: indaco\n---\n\n# A\n', now: 0 })).html;
+	assert.match(plain, /id="lp-nj-flip"/, 'a deck with no deck-wide mode gets the checkbox');
+	assert.match(plain, /for="lp-nj-flip"/, 'and its label');
+});
+
 // ── HARD RULE #22, stylesheet channel — the ROUND TRIP the assembler owns ────────
 // What arrives here is a PARSED DOM, so a raw `</style>` in `docHtml` was already
 // resolved by the parser: the assembler cannot un-break it, which is why the CLI's fix

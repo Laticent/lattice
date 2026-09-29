@@ -13,6 +13,8 @@
  *     under a light and a dark OS;
  *   - print still gives every slide;
  *   - with the script on, none of the no-JS controls show.
+ * (That a deck-wide color-mode ships no moon is a unit test in html-player.test.js: it needs
+ * no browser.)
  * It runs twice in CI. `integration` runs it in Chromium, which stands in for WebKit but
  * does not replace it: Quick Look itself is WebKit. The `player-webkit` job re-runs it in
  * WebKit whenever lib/export/** or this file changes, with LATTICE_PLAYWRIGHT pointed at
@@ -100,12 +102,18 @@ describe('html-player export — the controls work with scripting off', () => {
 
 	test.before(async () => {
 		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-nojs-'));
-		for (const mode of ['light', 'dark', 'system']) {
-			files[mode] = exportPlayer(DECK, dir, mode, ['--player-mode', mode]);
+		// ONE export, three schemes. `--player-mode` changes nothing but the `data-lp-scheme`
+		// attribute on <html> (and the mode recorded in the source envelope, which nothing
+		// here reads), so the other two files are that export with the attribute rewritten.
+		// Each export costs ~16 s and competes with the rest of the integration tier for CPU:
+		// three of them pushed the tier's test step from 15 to 23 minutes, past its cap.
+		files.light = exportPlayer(DECK, dir, 'light', ['--player-mode', 'light']);
+		const light = fs.readFileSync(files.light, 'utf8');
+		assert.equal(light.split('data-lp-scheme="light"').length, 2, 'the export bakes the scheme in exactly one place');
+		for (const mode of ['dark', 'system']) {
+			files[mode] = path.join(dir, `${mode}.html`);
+			fs.writeFileSync(files[mode], light.replace('data-lp-scheme="light"', `data-lp-scheme="${mode}"`));
 		}
-		const deckMode = path.join(dir, 'deck-mode.md');
-		fs.writeFileSync(deckMode, '---\ntheme: indaco\ncolor-mode: dark\n---\n\n# One\n\n---\n\n# Two\n');
-		files.deckMode = exportPlayer(deckMode, dir, 'deck-mode');
 		browser = await launchEngine();
 		console.log(`# no-JS player tests run in ${browser.name}`);
 	}, { timeout: TIMEOUT * 2 });
@@ -224,12 +232,5 @@ describe('html-player export — the controls work with scripting off', () => {
 		}
 		assert.ok(await shown(page, '#lp-mode'), 'the scripted moon shows');
 		await page.done();
-	});
-
-	test('a deck-wide color-mode ships no no-JS moon', async () => {
-		const html = fs.readFileSync(files.deckMode, 'utf8');
-		assert.doesNotMatch(html, /id="lp-nj-flip"/, 'no checkbox: only the script can restamp the section class');
-		assert.doesNotMatch(html, /for="lp-nj-flip"/, 'and no label for it');
-		assert.match(html, /id="lp-nj-present"/, 'the view controls still ship');
 	});
 });
