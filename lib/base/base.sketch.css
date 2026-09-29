@@ -160,8 +160,8 @@ section.sketch:not(.sketch-clean-body) {
  * selector here. Code stays monospace (--font-mono untouched).
  *
  * NOTE: there is deliberately NO x-height "bump" (the old `font-size:1.08em`
- * on p/li/td). It enlarged every body element 8% AND discarded the compact
- * sizes dense layouts set (glossary/list-tabular `--fs-body-compact`),
+ * on p/li/td). It enlarged every body element 8% AND discarded the sizes
+ * dense layouts set (then `--fs-body-compact`; `--fs-body` since 2026-09-29),
  * overrunning fixed content budgets — the single biggest source of clipped
  * slides. Shantell's x-height reads fine at the engine sizes; dense decks
  * use `sketch-clean-body` for the rare slide that still needs the clean

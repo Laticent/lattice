@@ -27,7 +27,7 @@ section.list > .cell-stage { display:flex; flex-direction:column; }
  * history of the pair that did drift). 1.25 fits two tabular digits in the label face;
  * the roman box fits four characters, because VIII is (a split run's offset reaches it). */
 section.list {
-  --list-row-fs: var(--fs-message);
+  --list-row-fs: var(--fs-body);
   --list-ord-fs: calc(var(--list-row-fs) * 1.4);
   --list-ord-w: calc(var(--list-ord-fs) * 1.25);
 }
@@ -96,7 +96,9 @@ section.list > .cell-stage > ul > li {
   border-radius:var(--radius-md);
   padding:var(--list-pad) var(--sp-md);
 }
-/* Optional second-line detail under a point. */
+/* Optional second-line detail under a point: a SUPPORT line, one step below its row
+   (owner ruling 2026-09-29, 2026-09-29-one-reading-size-per-venue.md §4 E7), as content's
+   sub-bullets and split-panel's supporting lines are. */
 section.list > .cell-stage > ul > li > ul { list-style:none; margin:0; padding:0; }
 section.list > .cell-stage > ul > li > ul > li {
   font-size:var(--fs-body-compact); color:var(--text-label);

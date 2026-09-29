@@ -449,7 +449,7 @@ section.image[data-img-composition="gallery"] .image-text h2 {
   padding: 0 0 var(--sp-xs);
 }
 section.image[data-img-composition="gallery"] .image-text p {
-  font-size: var(--fs-message);
+  font-size: var(--fs-body);
   max-width: 60ch;
   text-align: center;
 }

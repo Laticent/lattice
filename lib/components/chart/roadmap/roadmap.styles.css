@@ -120,10 +120,10 @@
 }
 :is(section.roadmap, figure.roadmap) table {
   width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0;
-  /* Dense grid inside the frame: opt down to the compact content step so
-   * four–five workstream rows clear the centered chart-header without the
-   * chart-body's overflow:hidden clipping the last row. */
-  font-size:var(--fs-body-compact); flex:1;
+  /* Workstream rows are reading text, so they read at the one reading size
+   * (2026-09-29-one-reading-size-per-venue.md); the per-venue lane budget in
+   * the manifest is measured at it. */
+  font-size:var(--fs-body); flex:1;
 }
 :is(section.roadmap, figure.roadmap) thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 :is(section.roadmap, figure.roadmap) thead th {
@@ -640,7 +640,7 @@
   color:var(--text-label);
 }
 :is(section.roadmap, figure.roadmap).horizons .row-text {
-  font-size:var(--fs-body-compact);
+  font-size:var(--fs-body);
   color:var(--text-body);
   line-height:var(--lh-snug);
 }

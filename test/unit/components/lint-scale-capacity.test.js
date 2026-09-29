@@ -301,10 +301,12 @@ describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () =
   });
 
   test('a variant with its own measured row is judged by it: list takeaway holds more than list', () => {
-    const bare = run(venueDeck('conference', `<!-- _class: list -->\n\n## H.\n\n${bullets(5, 10)}\n`));
-    const takeaway = run(venueDeck('conference', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(5, 10)}\n`));
-    assert.equal(bare.length, 1, 'bare list at 10 words holds 3 at conference');
-    assert.deepEqual(takeaway, [], 'list takeaway at 10 words holds 8 at conference');
+    // Re-measured 2026-09-29 (rows read at --fs-body): at 14 words and hall, a bare list
+    // holds 3 and list takeaway 4. (Below the component's `hard` of 6, which caps both.)
+    const bare = run(venueDeck('hall', `<!-- _class: list -->\n\n## H.\n\n${bullets(4, 14)}\n`));
+    const takeaway = run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(4, 14)}\n`));
+    assert.equal(bare.length, 1, 'bare list at 14 words holds 3 at hall');
+    assert.deepEqual(takeaway, [], 'list takeaway at 14 words holds 4 at hall');
   });
 
   test('an insight callout costs the slide its measured elements', () => {
@@ -336,17 +338,18 @@ describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () =
   });
 
   test('a variant measured with its callout is judged by that row: list takeaway with a callout', () => {
-    // list takeaway at 10 words holds 3 at hall, and 2 with a trailing callout (measured).
-    assert.deepEqual(run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(3, 10)}\n`)), []);
-    const out = run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(3, 10)}\n\n> The line to remember.\n`));
+    // list takeaway at 14 words holds 4 at hall, and 3 with a trailing callout (measured
+    // 2026-09-29, rows at --fs-body).
+    assert.deepEqual(run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(4, 14)}\n`)), []);
+    const out = run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(4, 14)}\n\n> The line to remember.\n`));
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /'list takeaway with its callout' holds about 2/);
+    assert.match(out[0].message, /'list takeaway with its callout' holds about 3/);
   });
 
   test('a variant finding names the variant row it quotes', () => {
-    const out = run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(4, 10)}\n`));
+    const out = run(venueDeck('hall', `<!-- _class: list takeaway -->\n\n## H.\n\n${bullets(5, 14)}\n`));
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /'list takeaway' holds about 3/);
+    assert.match(out[0].message, /'list takeaway' holds about 4/);
   });
 });
 
@@ -401,7 +404,8 @@ describe('withCompact at a venue', () => {
   const qa = require('../../../lib/components/inventory/q-and-a/q-and-a.manifest.json').capacity;
   const v = { names: new Set(['q-and-a']), modifiers: new Set(['compact']), capacity: { 'q-and-a': qa } };
   const pairs = (n) => Array.from({ length: n }, (_, i) => `- Question ${i + 1}?\n  - A short answer.`).join('\n');
-  const run = (cls) => core.lintTextWith(`---\nmarp: true\nvenue: huddle\n---\n\n<!-- _class: ${cls} -->\n\n## H.\n\n${pairs(5)}\n`, v).filter((f) => /^capacity-/.test(f.rule));
+  // Six pairs: one past even the compact row at huddle (bare 4, compact 5; re-measured 2026-09-29).
+  const run = (cls) => core.lintTextWith(`---\nmarp: true\nvenue: huddle\n---\n\n<!-- _class: ${cls} -->\n\n## H.\n\n${pairs(6)}\n`, v).filter((f) => /^capacity-/.test(f.rule));
 
   test('the compact hint is not offered where compact would still be over the venue budget', () => {
     for (const f of run('q-and-a')) assert.doesNotMatch(f.fix, /Add `compact`/);
@@ -412,12 +416,14 @@ describe('withCompact at a venue', () => {
   });
 
   test('a compact slide is judged by the measured compact row, not the bare one', () => {
-    // q-and-a bare holds 3 at huddle, compact 4 (calibrate-capacity --variant compact).
-    const out = run('q-and-a compact');
-    assert.equal(out.length, 1, 'five pairs are still one past the compact huddle row');
+    // At hall q-and-a bare holds 3 and compact 4 (calibrate-capacity --variant compact,
+    // re-measured 2026-09-29 with questions at --fs-body; huddle's rows now meet the
+    // component's `hard` of 4, which caps both, so hall is where they still differ).
+    const hall = (n) => core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: q-and-a compact -->\n\n## H.\n\n${pairs(n)}\n`, v).filter((f) => f.rule === 'capacity-scale');
+    const out = hall(5);
+    assert.equal(out.length, 1, 'five pairs are one past the compact hall row');
     assert.match(out[0].message, /'q-and-a compact' holds about 4/);
-    const four = core.lintTextWith(`---\nmarp: true\nvenue: huddle\n---\n\n<!-- _class: q-and-a compact -->\n\n## H.\n\n${pairs(4)}\n`, v).filter((f) => f.rule === 'capacity-scale');
-    assert.deepEqual(four, [], 'four compact pairs fit at huddle, where the bare row said 3');
+    assert.deepEqual(hall(4), [], 'four compact pairs fit at hall, where the bare row said 3');
   });
 });
 

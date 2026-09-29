@@ -114,3 +114,38 @@ test('withoutAutoGlossary: drops exactly the trailing glossary entry, and only t
   assert.deepEqual(withoutAutoGlossary(['a', 'b'], 1, fm('theme: indaco')), ['a', 'b']);
   assert.equal(withoutAutoGlossary(undefined, 1, md), undefined);
 });
+
+// Reading text reads at --fs-body at every venue (2026-09-29-one-reading-size-per-venue.md), so a
+// glossary with more terms than the room's budget pages instead of clipping. The budget is the
+// glossary component's measured venueCapacity (venue-capacity.generated.js).
+const manyTerms = (n) => `acronyms:\n${Array.from({ length: n }, (_, i) => `  T${String(i).padStart(2, '0')}: { expansion: term ${i}, definition: "A short definition for term number ${i}." }`).join('\n')}\nglossary: auto`;
+const glossarySlides = (out) => (out.match(/<!-- _class: glossary -->/g) || []).length;
+
+test('appendAutoGlossary: a glossary past the venue budget pages, evenly', () => {
+  const VC = require('../../../lib/authoring/venue-capacity.generated.js');
+  const rows = VC.items.glossary;
+  const shortest = String(Math.min(...Object.keys(rows).map(Number)));
+  const perLaptop = rows[shortest][0];
+  const out = appendAutoGlossary(fm(manyTerms(perLaptop + 2)));
+  assert.equal(glossarySlides(out), 2);
+  assert.equal(autoGlossarySections(fm(manyTerms(perLaptop + 2))), 2);
+  // An even cut: the two pages differ by at most one term.
+  const pages = out.split('<!-- _class: glossary -->').slice(1).map((p) => (p.match(/^- /gm) || []).length);
+  assert.ok(Math.abs(pages[0] - pages[1]) <= 1, `uneven pages ${pages}`);
+  // At or under the budget it stays one slide.
+  assert.equal(glossarySlides(appendAutoGlossary(fm(manyTerms(perLaptop)))), 1);
+});
+
+test('appendAutoGlossary: a bigger venue holds fewer terms a page', () => {
+  const laptop = glossarySlides(appendAutoGlossary(fm(manyTerms(12))));
+  const hall = glossarySlides(appendAutoGlossary(fm(`venue: hall\n${manyTerms(12)}`)));
+  assert.ok(hall > laptop, `hall ${hall} pages, laptop ${laptop}`);
+});
+
+test('withoutAutoGlossary: drops every glossary page when the glossary paginates', () => {
+  const md = fm(`venue: hall\n${manyTerms(12)}`);
+  const n = autoGlossarySections(md);
+  assert.ok(n > 1);
+  const list = ['a', ...Array.from({ length: n }, () => 'glossary')];
+  assert.deepEqual(withoutAutoGlossary(list, 1, md), ['a']);
+});

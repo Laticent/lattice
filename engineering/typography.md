@@ -28,7 +28,8 @@ standard slide.
 ### 1.1 Content scale
 
 The default container body anchors at `--fs-body = 1.67 cqi` (16 pt) —
-the size for cards, lists, and inline prose read at desk distance.
+the ONE size for reading text: list rows, card bodies, table cells, glossary
+definitions, tabular lists (§7, "One reading size").
 Slide-level statement bodies step up to `--fs-message = 2.1875 cqi`
 (21 pt). Values are normalized to the proven legacy footprint, a touch
 above it — not the projection-floor inflation the first rethink shipped.
@@ -37,9 +38,9 @@ Five steps.
 | Token | cqi | pt | Role |
 |---|---|---|---|
 | `--fs-meta` | 1.17 | 11.25 | Chrome only — pagination, footer, eyebrow labels, micro-captions, pills. |
-| `--fs-body-compact` | 1.40 | 13.5 | **Dense reference cells** — table cells, glossary definitions, grid-quadrant prose (list-tabular, glossary, table, matrix-2x2, verdict-grid, obligation-matrix, actors) **and every plain markdown table**, via the base layer's universal table treatment (`base.elements.css` § UNIVERSAL TABLE). Scanned, not read linearly; packs many cells in a fixed box, so it sits one step below the default body. |
-| `--fs-body` | 1.67 | 16 | **Default container body.** Cards, lists, inline prose, list-item bodies. The cascade default (`section { font-size }`). |
-| `--fs-message` | 2.1875 | 21 | **Slide-level statement body.** Paragraphs in statement / quote / divider / centered layouts. Anything author-written for "this is the slide's message." **NOT `content`** — it left this tier for `--fs-body` (#1292): as the DEFAULT layout it has to sit correctly beside a Key Insight and a below-note, both of which are body-tier, and at this tier the distillation rendered 24% smaller than what it distills. |
+| `--fs-body-compact` | 1.40 | 13.5 | **Code, and labels that sit between meta and body.** `code` and `compare-code` panes (a line of code cannot wrap without changing what it says, so code keeps a column budget one step down — owner ruling 2026-09-29), chart keys and legends, a fixed card's fields (`contact`), and label boards whose cells are marks (`obligation-matrix`). **Not a reading role:** since 2026-09-29 table cells, glossary, list-tabular, actors, verdict-grid and every plain markdown table read at `--fs-body`. |
+| `--fs-body` | 1.67 | 16 | **The reading size.** Every component's reading text: list rows (all `list` variants but the display register `principles`), agenda rows, q-and-a questions and answers, card bodies, table cells (every plain markdown table, via `base.elements.css` § UNIVERSAL TABLE), glossary, list-tabular, actors, verdict-grid, roadmap rows. The cascade default (`section { font-size }`). One reading size per venue: `npm run audit:reading-size`. |
+| `--fs-message` | 2.1875 | 21 | **Display text: one statement per slide.** Paragraphs in statement / quote / divider / title / topic layouts, and the one lead sentence a slide carries (the split-panel claim, the premise lead, a scene or video caption, policy-recommendation's impact line). **Never reading text:** a list row or a table cell is `--fs-body` whatever the component (2026-09-29). **NOT `content`** — it left this tier for `--fs-body` (#1292). |
 | `--fs-emphasis` | 3.125 | 30 | Lead paragraph, key-insight callout, step-forward block. *One* block per slide that should read first. |
 
 ### 1.2 Heading scale
@@ -116,15 +117,18 @@ page 18).
 > **Card / list / inline prose**: `--fs-body` (16 pt). The cascade
 > default — most container content needs no override.
 >
-> **Dense table / grid cell**: `--fs-body-compact` (13.5 pt). Wired into
-> the table/grid component CSS (list-tabular, glossary, table,
-> matrix-2x2, verdict-grid, obligation-matrix, actors). Authors don't
-> pick it; the component does, because those surfaces pack many cells
-> in a fixed box.
+> **Table cell, list row, glossary definition**: `--fs-body` too. Reading
+> text has ONE size, whatever the component; a table fits fewer rows than it
+> did at 13.5 pt, and each component's "By venue" line says how many.
+>
+> **Code**: `--fs-body-compact` (13.5 pt), one step below the reading size,
+> because a line of code cannot wrap. (The other exceptions are display text,
+> chart keys, label boards and fixed cards; §7 "One reading size" lists them.)
 >
 > **Slide-level statement body**: `--fs-message` (21 pt). Paragraphs in
-> statement, quote, divider, centered, big-number layouts. The "this is
-> what the slide says" prose.
+> statement, quote, divider, centered, big-number layouts, and the one lead
+> sentence a slide carries. The "this is what the slide says" prose — never
+> a row of a list.
 >
 > **Lead paragraph or key-insight callout** (not a heading, but one
 > block that needs to step forward): `--fs-emphasis` (30 pt).
@@ -165,10 +169,13 @@ delivered by the `\`label\`` inline-code paragraph modifier in
 - **Picking a size by feel.** "A bit smaller than h2" → use `--fs-h3`,
   not "let me try `--fs-xl` or `--fs-2xl`." The old t-shirt names
   are gone; everything has a role.
-- **Using `--fs-body-compact` for slide-level prose.** Compact is for
-  dense table/grid cells. The blockquote in a quote slide, the lead
-  paragraph under a title, the divider subtitle — those read
-  `--fs-message`; ordinary cards and lists read `--fs-body`.
+- **Setting reading text in any role but `--fs-body`.** A list row at
+  `--fs-message` or a table cell at `--fs-body-compact` puts a second
+  reading size on the deck (the #2361 talk showed three at once). The
+  blockquote in a quote slide, the lead paragraph under a title, the
+  divider subtitle read `--fs-message`; rows, cells and cards read
+  `--fs-body`; code reads `--fs-body-compact`. `npm run audit:reading-size`
+  lists every component's role at every venue.
 - **Using `--fs-meta` to fit more body text.** If you find yourself
   reaching for `--fs-meta` to compress a paragraph, the slide has too
   much content — split it. Never shrink prose to fit.
@@ -286,8 +293,8 @@ emulator paths):
 
 - **Scales** (rides `--fs-scale`): body prose, lists, cards; supporting
   headings h3–h6; the hero / big-number tier (`--fs-hero`); chrome
-  (pagination, footer, eyebrow); **table** cells (`--fs-body-compact`) and
-  headers (`--fs-meta`), including plain markdown tables (`--fs-body`);
+  (pagination, footer, eyebrow); **table** cells (`--fs-body`) and
+  headers (`--fs-meta`), including plain markdown tables;
   **code** blocks; **quote/blockquote** body text; **KaTeX math** (its
   `em`-relative sizing is anchored to the scaling container font-size);
   chart legends and token-styled labels.
@@ -455,8 +462,7 @@ One size per deck holds only if nothing on a single slide changes a type role's 
   Pseudo-elements (a state stamp's label, a drawn mark) are chrome and are exempt.
 - A component's OWN variant may assign its elements to roles (`list principles` sets rows in
   `--fs-emphasis`): that is a different layout, and each role still has one size per deck.
-  The dense-cell step (`--fs-body-compact` in tables and ledgers) is a role for the same
-  reason.
+  Code's step down (`--fs-body-compact`) is a role for the same reason.
 
 `checkTypeSizeModifiers` in `tools/check-ownership.js` enforces it in `build:check`, budget 0,
 with `SANCTIONED_TYPE_SIZE_MODIFIERS` for the provably size-neutral — each with its reason.
@@ -464,6 +470,35 @@ with `SANCTIONED_TYPE_SIZE_MODIFIERS` for the provably size-neutral — each wit
 they tighten spacing only, so a fifth q-and-a pair needs `compact` and a sixth needs a new
 slide. The audit is in `engineering/decisions/2026-09-25-font-scale-fit.md`, Amendment
 2026-09-27 (2).
+
+### One reading size — every component reads at `--fs-body`
+
+The venue multiplies every role by one factor, so it cannot make two components agree: if
+a list reads at `--fs-message` and a table at `--fs-body-compact`, a deck shows two reading
+sizes at every venue. So **every component's reading text is `--fs-body`** (owner ruling
+2026-09-29): 16 / 18.5 / 20.9 / 24.1 pt at laptop / huddle / conference / hall.
+
+| Venue | Reading text | Code |
+|---|---|---|
+| `laptop` | 16 pt | 13.5 pt |
+| `huddle` | 18.5 pt | 15.5 pt |
+| `conference` | 20.9 pt | 17.5 pt |
+| `hall` | 24.1 pt | 20.2 pt |
+
+The named exceptions, each reading at its own role on purpose: display components (title,
+divider, quote, big-number, closing, topic, stats); display registers (`list principles`,
+`list-steps ghost`, `q-and-a solo`, `image statement`, `citation-card margin` and
+`pull-quote`); one lead sentence per slide (split-panel claim, premise lead, scene and video
+captions, policy-recommendation's impact line and quote, inventory's callout band and pull
+line); text a chart draws (SVG labels, HTML chart keys and legends); label boards (kanban,
+logo-wall, obligation-matrix); fixed cards (contact, wifi); code; and **support lines**, which
+read one step below the row they support (a list item's detail line, `content`'s sub-bullets,
+split-panel `proof` / `capstone` supporting lines — owner ruling 2026-09-29). A generated `glossary:
+auto` appendix pages itself by the glossary's measured budget for the venue, so a long one
+no longer clips. `npm run
+audit:reading-size` prints component × venue → pt and lists these apart, so each venue's
+reading line holds one value. The record, with the measured capacity cost of each option:
+`engineering/decisions/2026-09-29-one-reading-size-per-venue.md`.
 
 ### When NOT to use it
 

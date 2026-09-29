@@ -14,7 +14,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short agenda line, not a description.
 
-**By venue** (`venue:`, ~10 words each) it holds laptop ~6 · huddle ~5 · conference ~3 · hall ~2 items. At ~6 words each: 6 · 5 · 5 · 4. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~10 words each) it holds laptop ~6 · huddle ~6 · conference ~6 · hall ~5 items. At ~6 words each: 6 · 6 · 6 · 5. No venue goes past the Capacity max of 6, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

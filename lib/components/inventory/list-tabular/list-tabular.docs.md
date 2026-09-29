@@ -12,7 +12,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a short row label plus a clause.
 
-**By venue** (`venue:`, ~12 words each) it holds laptop ~7 · huddle ~6 · conference ~6 · hall ~5 items. At ~6 words each: 7 · 6 · 6 · 5. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~12 words each) it holds laptop ~6 · huddle ~6 · conference ~5 · hall ~3 items. At ~6 words each: 6 · 6 · 5 · 5. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

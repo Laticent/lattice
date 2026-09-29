@@ -262,13 +262,13 @@
   "venueCapacity": {
     "axis": "col",
     "at": "wide",
-    "atLeast": ["laptop", "huddle"],
+    "atLeast": ["laptop"],
     "byWords": {
       "12": {
         "laptop": 12,
-        "huddle": 12,
-        "conference": 10,
-        "hall": 6
+        "huddle": 10,
+        "conference": 9,
+        "hall": 5
       }
     }
   }

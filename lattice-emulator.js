@@ -6079,11 +6079,19 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // Every page the appended slide became is blanked, should it ever paginate; `glossaryFrom` also
   // bounds the texts the bookends are checked against, so a closing the last AUTHORED slide already
   // says is dropped here as the Studio drops it, not compared against the silent glossary page.
+  // A long glossary is appended as several slides (one per page of the glossary's venue budget),
+  // so the silent run starts at the first page whose authored slide is one of the last `added`.
   let glossaryFrom = slideCount;
-  if (slideCount > 0 && autoGlossarySections(preGlossaryMd)) {
+  const glossaryAdded = slideCount > 0 ? autoGlossarySections(preGlossaryMd) : 0;
+  if (glossaryAdded) {
     const origin = pageOrigin();
-    glossaryFrom = origin.length === slideCount ? origin.indexOf(origin[slideCount - 1]) : slideCount - 1;
-    for (let i = glossaryFrom; i < slideCount; i++) slideTexts[i] = '';
+    if (origin.length === slideCount) {
+      const firstGlossary = origin[slideCount - 1] - glossaryAdded + 1;
+      glossaryFrom = origin.findIndex((authored) => authored >= firstGlossary);
+    } else {
+      glossaryFrom = slideCount - glossaryAdded;
+    }
+    for (let i = Math.max(0, glossaryFrom); i < slideCount; i++) slideTexts[i] = '';
   }
   // Emphasis survives only where the resolved narration is still the projected text — the ONE
   // shared rule (read-along-build.js), fed the PRE-substitution snapshot because `projected` was

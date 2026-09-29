@@ -14,7 +14,7 @@ Use to show 'who owns what' across a process, scoring policy, or org chart. Two-
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — one short responsibility per row, not a job description.
 
-**By venue** (`venue:`, ~12 words each) it holds laptop ~7 · huddle ~7 · conference ~6 · hall ~3 items. At ~6 words each: 7 · 7 · 6 · 5. No venue goes past the Capacity max of 7, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~12 words each) it holds laptop ~7 · huddle ~6 · conference ~3 · hall ~3 items. At ~6 words each: 7 · 6 · 5 · 4. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

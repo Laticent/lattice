@@ -413,19 +413,19 @@ _Evaluated against the same four pilot teams and the same 90-minute weekly budge
 ## Glossary
 
 - Adoption
-  - Percentage of eligible PMs filing a Decision Log entry within 24 hours of a decision close.
+  - Share of eligible PMs logging a decision within 24 hours.
 - Auditability
-  - The property that any decision can be reconstructed from its inputs three months later without the original author present.
+  - Any decision can be rebuilt from its inputs, months later, without its author.
 - Calibration
-  - The retrospective comparison of predicted to observed outcomes, used to score the framework's accuracy.
+  - Predicted against observed outcomes, scored at each retrospective.
 - Connector
   - The integration layer between signal intake and a source system. Owns ingestion and tagging.
 - Decision Log
-  - The append-only record of every prioritization decision, its predicted outcome, and the actual outcome at retrospective time.
+  - The append-only record of each decision, its prediction and its outcome.
 - Eligible PM
   - A PM whose team has adopted the framework and is past the 30-day onboarding period.
 - Framework
-  - The four-part system — Signal Intake, Scoring Model, Decision Log, Calibration Loop — judged on four criteria: speed, auditability, adoption, calibration.
+  - Signal Intake, Scoring Model, Decision Log and Calibration Loop, as one system.
 
 ---
 
@@ -441,11 +441,11 @@ _Evaluated against the same four pilot teams and the same 90-minute weekly budge
 - Retrospective
   - The 30-day review meeting where logged decisions are scored against observed outcomes.
 - Signal
-  - Any qualitative or quantitative input to a decision — survey response, NPS comment, support ticket, sales call note.
+  - Any input to a decision: a survey answer, a support ticket, a sales note.
 - Scoring policy
-  - The weight set the calibration loop refits each cycle — the artifact neither vendor would expose.
+  - The weights the calibration loop refits each cycle.
 - Vendor West
-  - The stronger of the two vendors evaluated; the demo everyone remembers, and the author of §9.2.
+  - The stronger of the two vendors evaluated, and the author of §9.2.
 
 ---
 
@@ -491,7 +491,7 @@ The pilot kept both — the feed for the two teams that mute nothing, the digest
    - Time-decay from signal date, configurable half-life
    - _0.0–1.0 · Auto-scored_
 3. Relevance
-   - Alignment to current strategic bets, owner-scored, ceiling frequently tested
+   - Alignment to current strategic bets, owner-scored
    - _1–5 · Manual_
 4. Reach
    - Number of customers or segments affected

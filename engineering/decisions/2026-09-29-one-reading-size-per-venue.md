@@ -1,12 +1,12 @@
 ---
-status: proposed
-summary: At every venue a deck sets its reading text (list rows, card bodies, table cells, glossary, code) at four different sizes, because each component picks its own role (`--fs-body-compact`, `--fs-body`, `--fs-message`, or `--fs-meta`), and a venue scales every role by the same factor. `npm run audit:reading-size` measures it. At laptop, 13 components read at 13.5pt, 30 at 16pt, 7 at 21pt and 3 at the 11.25pt chrome size (bare samples). At hall, a table cell (20.2pt) is smaller than its own label (21.9pt). Four options are costed by re-measured venue budgets. The recommendation is one reading size, `--fs-body` (16 / 18.5 / 20.9 / 24.1pt), with display text and charts as named exceptions. It costs 4% of the summed laptop budget and 15% of the summed huddle budget across the 16 components that move. The owner's choice is recorded in §7.
+status: shipped
+summary: At every venue a deck sets its reading text (list rows, card bodies, table cells, glossary, code) at four different sizes, because each component picks its own role (`--fs-body-compact`, `--fs-body`, `--fs-message`, or `--fs-meta`), and a venue scales every role by the same factor. `npm run audit:reading-size` measures it. At laptop, 13 components read at 13.5pt, 30 at 16pt, 7 at 21pt and 3 at the 11.25pt chrome size (bare samples). At hall, a table cell (20.2pt) is smaller than its own label (21.9pt). Four options are costed by re-measured venue budgets. The recommendation is one reading size, `--fs-body` (16 / 18.5 / 20.9 / 24.1pt), with display text and charts as named exceptions. It costs 4% of the summed laptop budget and 15% of the summed huddle budget across the 16 components that move. The owner picked A on 2026-09-29, with code kept at `--fs-body-compact` and lead sentences kept display-sized (§7).
 builds-on: 2026-09-25-font-scale-fit.md
 ---
 
 # One reading size per venue
 
-**Status:** proposed, waiting on the owner's pick (§7) · **Owner:** Sharmarke · **Code:**
+**Status:** accepted 2026-09-29 (option A, §7) and shipped (§6) · **Owner:** Sharmarke · **Code:**
 `tools/audit-reading-size.js` (the audit); after the pick, the component stylesheets named in §6
 
 ## 1 · The answer
@@ -47,7 +47,7 @@ text sits at meta is flagged `META-ONLY`.
 
 The run covers 71 components and 275 component-and-variant rows per venue. The 10 charts
 that draw all their text in SVG report no reading size, which is correct, and they are
-exception E2 below.
+exception E4 below.
 
 ## 3 · What it found (main, 2026-09-29)
 
@@ -100,25 +100,37 @@ Rows are component-and-variant pairs; hero components (§4) are left out.
 
 The rule covers **reading text**: text an audience reads line by line, several items to
 a slide. Display text is bigger on purpose: the slide *is* the sentence or the number,
-there is one per slide, and it is not read as a list. The proposal names every exception:
+there is one per slide, and it is not read as a list. Every exception is named here and in
+`EXCEPTIONS` / `HERO` in `tools/audit-reading-size.js`, which lists them apart so each
+venue's reading line holds one value:
 
-- **E1 · Display components.** big-number, closing, divider, quote, title, topic. Their
-  sentence or number is the slide.
-- **E2 · Display registers of reading components.** `list principles`, `q-and-a solo`,
-  `quote bare`, `topic fact`, `citation-card pull-quote`, `citation-card margin`,
-  `image statement`. The author picks them to make one statement big, and the variant
-  exists for that purpose.
-- **E3 · One lead statement per slide.** The `split-panel` claim, the `premise` lead, and
-  the caption of `scene` and `video`. Each is a single sentence that frames the slide, the
-  same job `--fs-emphasis` does for a Key Insight.
-- **E4 · Text a chart draws in SVG.** A chart scales its marks and labels to its box, so no
-  role sets that text. It is out of scope, and the audit already leaves it out.
-- **E5 · Chrome.** `--fs-meta` labels, pills, column headers and captions. The `kanban`
-  card and the `logo-wall` label are chrome-sized boards, and the kanban column holds 12
-  cards at laptop only because each card is a label, not a paragraph.
-- **Question for the owner: code.** Code is reading text, but it has a *column* budget as
-  well as a line budget: a line of code cannot wrap without changing what it says. §5.2
-  measures both choices.
+- **E1 · Display components.** big-number, closing, divider, quote, stats, title, topic.
+  Their sentence or number is the slide. (`stats` reads as its `--fs-h1` numbers, with
+  chrome-sized labels.)
+- **E2 · Display registers of reading components.** `list principles`,
+  `list-steps ghost` (documented as "hero body"), `q-and-a solo`, `quote bare`,
+  `topic fact`, `citation-card pull-quote`, `citation-card margin`, `image statement`. The
+  author picks them to make one statement big, and the variant exists for that purpose.
+- **E3 · One lead statement per slide.** The `split-panel` claim, the `premise` lead,
+  policy-recommendation's impact line and quote, inventory's callout band and pull line,
+  and the caption of `scene` and `video`. Each is a single sentence that frames the slide,
+  the same job `--fs-emphasis` does for a Key Insight. (Owner ruling: stay display-sized.)
+- **E4 · Text a chart draws.** SVG labels scale with the chart's box, so no role sets
+  them, and the audit leaves them out. The HTML keys and legends of `flowchart`,
+  `journey`, `state-chart` and `roadmap` are chart chrome and stay at
+  `--fs-body-compact`.
+- **E5 · Label boards.** `kanban`, `logo-wall` and `obligation-matrix`. Their words are
+  labels (a card title, a logo name, a regime name over status marks), not prose.
+  Obligation-matrix first moved to body with everything else. That cost a row and clipped
+  six gallery pages, and its cells hold no prose, so it went back (§6).
+- **E6 · Fixed cards.** `contact` and `wifi`: a fixed set of fields around a QR code.
+- **Code** (owner ruling). `code` and `compare-code` read at `--fs-body-compact`, because a
+  line of code cannot wrap without changing what it says (§5.2).
+- **E7 · Support lines** (owner ruling, 2026-09-29). A line that supports the row above it
+  reads one step below the row, at `--fs-body-compact`: a `list` item's detail line,
+  `content`'s nested sub-bullets, and split-panel `proof` / `capstone` supporting lines. The
+  step keeps a visible main-versus-support hierarchy. A second column of a row (a
+  list-tabular gloss, a table cell) is not a support line and reads at `--fs-body`.
 
 ## 5 · The options, costed
 
@@ -193,35 +205,79 @@ today would wrap. The recommendation is to keep code one step down, at
 `--fs-body-compact`, as a named exception, and to raise `compare-code` to it (defect
 §3.3.2). That keeps the code column budget and makes both code components agree.
 
-## 6 · What step 3 changes, if A is picked
+## 6 · What shipped (step 3)
 
-- **Reading roles to `--fs-body`.** `list` (`--list-row-fs`), `agenda`, `q-and-a`,
-  `policy-recommendation`, `stats` (its caption), `list-steps ghost`, `image gallery`.
-  From `--fs-body-compact`: the base layer's universal table, `table`, `list-tabular`,
-  `glossary`, `actors`, `pricing`, `team-profile`, `verdict-grid`, `obligation-matrix`,
-  `roadmap`, `journey`, `flowchart`'s HTML labels, `contact`, and the compact variants in §3.2.
-- **Kept, with the reason in the stylesheet:** E1–E5 and code (§5.2).
-- **`--fs-body-compact` stays a token.** Code keeps it, and so do chrome that must sit
-  between meta and body. It stops being the dense-cell reading role. `typography.md` §1.1
-  rewrites that role line.
-- **Re-measure and re-state the budgets.** `calibrate-capacity` for every component whose
-  role moved. Then the manifests' `venueCapacity`, each `.docs.md` "By venue" line,
-  `dist/docs/components.pick.md`, and `lib/authoring/venue-capacity.generated.js` for
-  `lint:deck`.
-- **A gate so it stays true.** Re-run `audit:reading-size` and show one reading value per
-  venue apart from the named exceptions. Whether it becomes a CI step is a separate owner
+- **Reading roles moved to `--fs-body`.** From `--fs-message`: `list` rows
+  (`--list-row-fs`; the detail line under a row stays one step down, E7), `agenda` rows and the circle counter, `q-and-a`
+  questions (and the `01` index, which keeps its 0.8 ratio to the question),
+  `policy-recommendation` rows, and `image gallery` captions. From
+  `--fs-body-compact`: the base layer's universal table (every plain markdown table),
+  `list-tabular` (every look but the `metric` pill), `glossary`, `actors`, `verdict-grid`,
+  `pricing` features, `team-profile` notes and `bench` names, `roadmap` rows,
+  `matrix-2x2` quadrant lines, `inventory timeline` items, and the `premise` ladder.
+- **`compare-code`** moved from `--fs-meta` up to `--fs-body-compact`, the same size as
+  `code`.
+- **Kept:** E1–E6 and code (§4). Labels that sit beside reading text keep their role:
+  agenda's page reference, the table `split-cards` field label, the pricing tier name and
+  inventory's editorial titles.
+- **`--fs-body-compact` stays a token.** Code and chart keys use it. It is no longer a
+  reading role, and `typography.md` §1.1 and §7 ("One reading size") say so.
+- **Markers follow their row.** A counter or dot sized off its row's role moved with it:
+  agenda's circle, list-tabular's `::before` ordinal, inventory's timeline dot, and
+  q-and-a's `01` index (0.8 of the question, floored at the label role so a venue's label
+  lift never puts it under a pill).
+- **Budgets re-measured** with `calibrate-capacity` for every component whose role moved.
+  That covers its `byWords` rows, `list`'s `takeaway` and callout rows, `q-and-a compact`
+  and `compare-code`'s line budget. They are written to the manifests' `venueCapacity`
+  and flow into the "By venue" lines, `components.pick.md` and `lint:deck`. Pane budgets
+  too (`calibrate-capacity --pane`): glossary side 12 → 5 and stacked 4 → 3, list-tabular
+  side 7 → 6. `compare-code`'s column budget in `lint-core.js` is 47 (was 57). The §5.1
+  table is the option simulation (the type scale patched); the numbers that shipped are
+  the manifests'.
+- **One regression found and fixed before shipping.** Six people no longer fit on a
+  `team-profile` slide (a 17px overrun) once each note read at body. The portrait went
+  from 7 to 6.25cqi, the row gap from `--sp-lg` to `--sp-md`, and `bench`'s from `--sp-sm`
+  to `--sp-xs`. Spacing may change under the one-size rule, and a type role may not. The
+  re-measured laptop budget is back to `main`'s.
+- **The check.** `npm run audit:reading-size` prints one value per venue for all 185
+  reading rows (221 rows minus 36 SVG-only charts): 16 / 18.5 / 20.9 / 24.1pt. Its SECOND
+  SIZES section lists any other non-chrome size carrying more than 10% of a reading slide's
+  text, so a size the dominant one hides still shows: today card and ledger titles at
+  heading roles, the E3 lead lines, chart legends, and split-panel `proof` / `capstone`
+  supporting lines (§7). Whether it becomes a CI step is a separate owner
   call (CLAUDE.md second filter, row 2). Until then it is on-demand.
+
+### 6.1 · What it costs, measured
+
+- The #2361 talk at `venue: laptop` renders with an empty OVERFLOW line. At `huddle` it
+  clipped nothing before and clips two `list-tabular` slides now (5 rows, one name wrapping
+  to two lines). `lint:deck` does not warn on them, because its budget assumes one-line
+  names. That accuracy gap is already tracked in
+  `followups.d/2361-p2-venue-lint-accuracy-on-real-decks.md`.
+- All 71 component galleries render with no clipped page (checked page by page against
+  `main` with the emulator's overflow report).
+
+### 6.2 · Found along the way, not caused by this change
+
+- `kanban`'s and `timeline-list`'s committed `venueCapacity` do not reproduce with
+  `calibrate-capacity --max 20`, on `main` as on this branch (kanban at huddle: committed 4,
+  measured 20). They were left untouched.
+- `team-profile`, `pricing` and `inventory` declare a `capacity.hard` above their measured
+  laptop ceiling, on `main` as on this branch. The per-venue numbers are correct; the
+  editorial `capacity` blocks are stale.
 
 ## 7 · Owner decision
 
-Asked on 2026-09-29 in one round; two of three answered.
+Asked on 2026-09-29. All three answered.
 
 - **Code:** keep code one step down at `--fs-body-compact`, and raise `compare-code` to
   it (§5.2). Tracked in `followups.d/2361-p2-compare-code-code-at-chrome-size.md`.
 - **One-per-slide lead sentences (E3):** stay display-sized.
-- **The shared reading size (§5):** *open.* No CSS changes until it is picked.
+- **Support lines (E7):** stay one step below their row (asked after the review surfaced
+  them; the list detail line, which this change had moved to body, went back).
+- **The shared reading size (§5):** option A, `--fs-body` (16 / 18.5 / 20.9 / 24.1pt).
 
-Follow-ups for the pending work: `followups.d/2361-p1-one-text-size-per-venue.md`, plus
-the three defects in §3.3 (`2361-p2-hall-table-cells-smaller-than-labels.md`,
-`2361-p2-compare-code-code-at-chrome-size.md`,
-`2361-p3-citation-card-margin-ignores-venue.md`).
+Resolved by this change: the P1 item, the hall defect (§3.3.1, cells now read above their
+labels at every venue) and compare-code (§3.3.2). Their follow-up files are deleted.
+Still open: `followups.d/2361-p3-citation-card-margin-ignores-venue.md` (§3.3.3) and
+`followups.d/2361-p3-stale-venue-and-capacity-budgets.md` and `2378-p3-capacity-hard-above-measured.md` (§6.2), `2361-p2-guard-the-reading-role.md`, `2361-p2-laptop-lint-for-list-tabular-and-glossary.md` and `2361-p3-authority-chain-branching-at-chrome-size.md` (from the review).

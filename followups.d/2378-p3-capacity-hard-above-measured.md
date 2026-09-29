@@ -21,3 +21,8 @@ rechecked — 2026-09-26, after #2386 opted the card catalog into `cards:`: STIL
 rechecked — 2026-09-27, while giving every component a per-venue budget: STILL OPEN, and one more.
             The rig's new `cycle` builder measures 5 stages of 12 words at `wide` (hard 6):
             `node tools/calibrate-capacity.js cycle --family wide --words soft`.
+rechecked — 2026-09-29, after reading text moved to one size (--fs-body): STILL OPEN.
+            `node tools/calibrate-capacity.js <c> --family wide --max 20` measures team-profile
+            6 (hard 12; unchanged, portraits were tightened to keep six people), pricing 3 (4)
+            and inventory 5 (6). q-and-a now measures 4 (hard 4, closed) and list 7 (hard 6,
+            closed). Budgets per venue are in each manifest's `venueCapacity`.

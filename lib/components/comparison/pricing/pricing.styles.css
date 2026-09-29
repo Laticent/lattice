@@ -108,7 +108,7 @@ section.pricing > .cell-stage > ul > li > ul {
   font-weight: 400;
 }
 section.pricing > .cell-stage > ul > li > ul > li {
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);
   font-weight: 400; color: var(--text-body);
   line-height: var(--lh-snug);
 }

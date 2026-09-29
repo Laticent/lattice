@@ -102,7 +102,7 @@ section.verdict-grid > .cell-stage > ul > li > ul > li:not(:last-child) { displa
 /* When emitter/runtime ran: strip neutral pill so .badge span styles through cleanly */
 section.verdict-grid > .cell-stage > ul > li > ul > li:not(:last-child):has(.badge) { background:none; border:none; padding:0; }
 /* Body text (last nested li) — reset inherited card-title styles */
-section.verdict-grid > .cell-stage > ul > li > ul > li:last-child { width:100%; font-size:var(--fs-body-compact); font-weight:400; color:var(--text-body); line-height:var(--lh-snug); background:none; border:none; border-radius:0; padding:0; display:block; }
+section.verdict-grid > .cell-stage > ul > li > ul > li:last-child { width:100%; font-size:var(--fs-body); font-weight:400; color:var(--text-body); line-height:var(--lh-snug); background:none; border:none; border-radius:0; padding:0; display:block; }
 section.verdict-grid > .cell-stage > ul > li:last-child > ul > li:last-child { padding-right:3.125cqi; }
 section.verdict-grid > .cell-stage > ul > li > ul > li::before { display:none; content:none; }
 

@@ -244,65 +244,65 @@
     "at": "wide",
     "byWords": {
       "6": {
-        "laptop": 6,
-        "huddle": 5,
-        "conference": 5,
-        "hall": 4
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 6,
+        "hall": 5
       },
       "10": {
-        "laptop": 6,
-        "huddle": 5,
-        "conference": 3,
-        "hall": 2
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 6,
+        "hall": 5
       },
       "14": {
-        "laptop": 3,
-        "huddle": 3,
+        "laptop": 7,
+        "huddle": 6,
         "conference": 3,
-        "hall": 2
+        "hall": 3
       }
     },
     "variants": {
       "takeaway": {
         "byWords": {
           "6": {
-            "laptop": 9,
-            "huddle": 9,
-            "conference": 8,
-            "hall": 7
+            "laptop": 14,
+            "huddle": 12,
+            "conference": 10,
+            "hall": 9
           },
           "10": {
-            "laptop": 9,
-            "huddle": 9,
-            "conference": 8,
-            "hall": 3
+            "laptop": 14,
+            "huddle": 12,
+            "conference": 10,
+            "hall": 9
           },
           "14": {
-            "laptop": 5,
-            "huddle": 4,
-            "conference": 4,
-            "hall": 3
+            "laptop": 14,
+            "huddle": 12,
+            "conference": 5,
+            "hall": 4
           }
         },
         "insight": {
           "byWords": {
             "6": {
-              "laptop": 8,
-              "huddle": 7,
-              "conference": 5,
-              "hall": 4
+              "laptop": 10,
+              "huddle": 9,
+              "conference": 7,
+              "hall": 6
             },
             "10": {
-              "laptop": 8,
-              "huddle": 7,
-              "conference": 5,
-              "hall": 2
+              "laptop": 10,
+              "huddle": 9,
+              "conference": 7,
+              "hall": 6
             },
             "14": {
-              "laptop": 4,
-              "huddle": 3,
-              "conference": 2,
-              "hall": 2
+              "laptop": 10,
+              "huddle": 9,
+              "conference": 3,
+              "hall": 3
             }
           }
         }
@@ -311,8 +311,8 @@
     "insight": {
       "byWords": {
         "14": {
-          "laptop": 3,
-          "huddle": 2,
+          "laptop": 5,
+          "huddle": 5,
           "conference": 2,
           "hall": 2
         }

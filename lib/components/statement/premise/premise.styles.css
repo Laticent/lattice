@@ -125,7 +125,7 @@ section.premise > ol > li {
   border: 1px solid var(--border);
   border-left: 4px solid var(--row-mark, var(--border));
   background: var(--bg-alt);
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);
   color: var(--text-heading);
   white-space: nowrap;
 }

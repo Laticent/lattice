@@ -11,11 +11,12 @@
  * variant — through the real emulator, at each of the four venues (a per-slide
  * `venue-*` class, which wins over the deck's). In Chromium it walks every visible text
  * node on the slide and sums its characters by computed font-size, leaving out what is not
- * reading text by construction: the slide title (h1/h2), the eyebrow, the running header
+ * reading text by construction: the slide title (h1/h2), the eyebrow and subtitle, the running header
  * and footer, screen-reader-only labels, a Key Insight / below-note coda, and text inside an SVG (a chart's labels
  * scale with its viewBox, not with a role). `--fs-meta` is the chrome role, so the size that
  * carries the most characters at any other role is the slide's READING size (a slide with only
- * meta-size text is flagged META-ONLY); the role it lands on is found by rendering one probe per
+ * meta-size text is flagged META-ONLY). A SECOND SIZE section lists any other non-chrome size
+ * carrying more than 10% of a reading slide's text, which the dominant size alone would hide; the role it lands on is found by rendering one probe per
  * `--fs-*` role on the same slide and matching within half a pixel.
  *
  * It does not decide what counts as reading text for the design: a statement or a big
@@ -49,7 +50,34 @@ const ROLES = ['meta', 'body-compact', 'body', 'message', 'h3', 'emphasis', 'h2'
 // or it is a cover/section page. Their text is display, not reading, and the one-reading-size
 // rule does not apply to it. Named here so the report can sort them apart; the reasons are in
 // the decision note.
-const HERO = new Set(['big-number', 'closing', 'divider', 'premise', 'quote', 'title', 'topic']);
+const HERO = new Set(['big-number', 'closing', 'divider', 'quote', 'stats', 'title', 'topic']);
+
+// The owner-approved exceptions to one reading size (the decision note's §4), keyed by
+// component, or by `component variant` for one register. Each reads at its own role on
+// purpose; the report lists them apart, so the per-venue line counts only what the rule covers.
+const EXCEPTIONS = {
+  'list principles': 'E2 display register',
+  'list-steps ghost': 'E2 display register',
+  'q-and-a solo': 'E2 display register',
+  'image statement': 'E2 display register',
+  'citation-card margin': 'E2 display register',
+  'citation-card pull-quote': 'E2 display register',
+  scene: 'E3 one lead caption',
+  video: 'E3 one lead caption',
+  flowchart: 'E4 chart key',
+  journey: 'E4 chart key',
+  kanban: 'E5 label board',
+  'logo-wall': 'E5 label board',
+  'obligation-matrix': 'E5 label board',
+  contact: 'E6 fixed card',
+  wifi: 'E6 fixed card',
+  code: 'code keeps --fs-body-compact (owner, 2026-09-29)',
+  'compare-code': 'code keeps --fs-body-compact (owner, 2026-09-29)',
+};
+// Support lines (E7, owner ruling 2026-09-29): a line under a row reads one step below it.
+// The SECOND SIZES report marks these, since they are a second size on purpose.
+const SUPPORT_LINES = new Set(['list', 'content', 'split-panel proof', 'split-panel capstone']);
+const exceptionOf = (component, variant) => EXCEPTIONS[`${component} ${variant}`] || EXCEPTIONS[component] || null;
 
 /** A component sample, as `{ tokens, body }`: the class tokens it already carries and the slide below them. */
 function splitSample(md, name) {
@@ -100,12 +128,14 @@ function render(src, tag, assetDir) {
 // Runs in the page: per slide, the role sizes and the character count per font-size.
 function measureInPage(roles) {
   const out = {};
-  // The eyebrow is positional: a paragraph holding one inline `code`, directly above a heading.
+  // The eyebrow and the subtitle are positional: a paragraph holding one inline `code`,
+  // directly above a heading (eyebrow) or directly below one (subtitle). Both are heading
+  // furniture, not reading text.
   const isEyebrow = (el) => {
     const p = el.closest('p');
     if (!p || p.children.length !== 1 || p.firstElementChild.tagName !== 'CODE' || p.textContent.trim() !== p.firstElementChild.textContent.trim()) return false;
-    const next = p.nextElementSibling;
-    return !!next && /^H[1-6]$/.test(next.tagName);
+    const heading = (n) => !!n && /^H[1-6]$/.test(n.tagName);
+    return heading(p.nextElementSibling) || heading(p.previousElementSibling);
   };
   const SKIP = 'header, footer, h1, h2, svg, [aria-hidden="true"], .eyebrow, [class*="eyebrow"], blockquote[class*="insight"], [class*="insight-"], .below-note, .lattice-pagination, [data-lattice-chrome]';
   for (const sec of document.querySelectorAll('section[data-lattice-slide]')) {
@@ -169,7 +199,10 @@ async function measureComponent(browser, m) {
       const reading = sizes.filter((x) => x.role !== 'meta');
       const main = reading[0] || sizes[0] || null;
       const metaOnly = !reading.length && !!sizes.length;
-      return { component: m.name, variant: r.variant, venue: r.venue, kind: HERO.has(m.name) ? 'hero' : 'reading', px: main?.px ?? null, role: main?.role ?? null, share: main?.share ?? 0, metaOnly, sizes, bodyPx: s.rolepx.body };
+      // A second reading size on the same slide: any other non-chrome size carrying more than
+      // 10% of the visible characters. The dominant size alone cannot show it.
+      const second = main ? reading.filter((x) => x.px !== main.px && x.share > 0.1) : [];
+      return { component: m.name, variant: r.variant, venue: r.venue, kind: HERO.has(m.name) ? 'hero' : exceptionOf(m.name, r.variant) ? 'exception' : 'reading', exception: exceptionOf(m.name, r.variant), px: main?.px ?? null, role: main?.role ?? null, share: main?.share ?? 0, metaOnly, second, sizes, bodyPx: s.rolepx.body };
     });
   } finally {
     await page.close();
@@ -207,19 +240,26 @@ async function main() {
   for (const r of rows) {
     if (r.error) { lines.set(r.component, { kind: '?', cells: {}, error: r.error }); continue; }
     const k = key(r);
-    if (!lines.has(k)) lines.set(k, { kind: r.kind, cells: {} });
+    if (!lines.has(k)) lines.set(k, { kind: r.kind, cells: {}, why: r.exception });
     lines.get(k).cells[r.venue] = r.px == null ? '—' : `${pt(r.px)} ${r.role || '(off-role)'}${r.metaOnly ? ' META-ONLY' : ''}`;
   }
   const w = Math.max(...[...lines.keys()].map((k) => k.length)) + 2;
   const head = `${'component'.padEnd(w)}kind     ${VENUES.map((v) => v.padEnd(26)).join('')}`;
-  for (const kind of ['reading', 'hero', '?']) {
+  for (const kind of ['reading', 'exception', 'hero', '?']) {
     const ks = [...lines.entries()].filter(([, l]) => l.kind === kind);
     if (!ks.length) continue;
-    console.log(`\n${kind === 'reading' ? 'READING TEXT' : kind === 'hero' ? 'HERO TEXT (bigger on purpose)' : 'NOT MEASURED'}\n${head}`);
-    for (const [k, l] of ks) console.log(l.error ? `${k.padEnd(w)}${l.error}` : `${k.padEnd(w)}${kind.padEnd(9)}${VENUES.map((v) => String(l.cells[v] ?? '—').padEnd(26)).join('')}`);
+    const title = { reading: 'READING TEXT', exception: 'NAMED EXCEPTIONS (decision note §4)', hero: 'HERO TEXT (bigger on purpose)', '?': 'NOT MEASURED' }[kind];
+    console.log(`\n${title}\n${head}`);
+    for (const [k, l] of ks) console.log(l.error ? `${k.padEnd(w)}${l.error}` : `${k.padEnd(w)}${kind.slice(0, 8).padEnd(9)}${VENUES.map((v) => String(l.cells[v] ?? '—').padEnd(26)).join('')}${l.why ? `  ${l.why}` : ''}`);
+  }
+  // Second sizes on reading rows (laptop only; every venue scales them by the same factor).
+  const mixed = rows.filter((r) => !r.error && r.kind === 'reading' && r.venue === VENUES[0] && r.second?.length);
+  if (mixed.length) {
+    console.log(`\nSECOND SIZES ON READING ROWS (${VENUES[0]}; a non-chrome size carrying >10% of the text)`);
+    for (const r of mixed) console.log(`  ${key(r).padEnd(w)}${SUPPORT_LINES.has(key(r)) ? '(E7 support line) ' : ''}${r.second.map((x) => `${pt(x.px)}pt ${x.role || 'off-role'} ${Math.round(x.share * 100)}% [${(x.sample || '').slice(0, 40)}]`).join('  ·  ')}`);
   }
   // Per venue: the distinct reading sizes, and how many component rows sit at each.
-  console.log('\nDISTINCT READING SIZES PER VENUE (reading components only)');
+  console.log('\nDISTINCT READING SIZES PER VENUE (reading rows only; exceptions and hero text left out)');
   for (const v of VENUES) {
     const tally = {};
     for (const r of rows) if (!r.error && r.kind === 'reading' && r.venue === v && r.px != null) { const k = `${pt(r.px)}pt ${r.role || 'off-role'}`; tally[k] = (tally[k] || 0) + 1; }
