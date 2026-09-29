@@ -449,3 +449,74 @@ test('the export capture frame (gated, not opted in) never holds text, paints or
     assert.equal(view.live(), 0, 'and no poll or cap running');
   } finally { global.Image = prev; }
 });
+
+// THE CARD MORPHS, IT DOES NOT SNAP (the owner's iPhone, PR #2471): when the measured size changes
+// the card's box, the panel is put back where it was painted and glides to its new box.
+function morphPanel(rects) {
+  const panel = paintablePanel('venue.png');
+  let i = 0;
+  panel.getBoundingClientRect = () => rects[Math.min(i++, rects.length - 1)];
+  panel.offsetWidth = rects[rects.length - 1].width;
+  panel.style = { backgroundImage: "url('venue.png')", transform: '', transition: '', transformOrigin: '' };
+  return panel;
+}
+
+test('a size that changes the card morphs it from its painted box, then lets go', () => {
+  const prev = global.Image;
+  const { Image, held } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(false);
+    const s = makeSection({ bgStyle: "url('portrait.jpg')" });
+    const panel = morphPanel([{ left: 100, top: 50, width: 600, height: 375 }, { left: 200, top: 20, width: 300, height: 400 }]);
+    s.querySelector = () => panel;
+    imageAdaptive.applyToDom(rootIn([s], view));
+    held.header(800, 1200); // a portrait: the wide guess was wrong
+    held.probe.onload();
+    assert.match(panel.style.transform, /^translate\(-100px, 30px\) scale\(2, 0\.9375\)$/, 'put back where it was painted');
+    view.tick(false); // the play frame
+    assert.equal(panel.style.transform, '', 'then it glides to its new box');
+    assert.match(panel.style.transition, /transform 360ms/);
+    view.tick(false);
+    assert.equal(panel.style.transition, '', 'and lets go');
+  } finally { global.Image = prev; }
+});
+
+test('a size that keeps the card where it was (the wide guess was right) does not morph', () => {
+  const prev = global.Image;
+  const { Image, held } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(false);
+    const s = makeSection({ bgStyle: "url('wide.jpg')" });
+    const box = { left: 100, top: 50, width: 600, height: 375 };
+    const panel = morphPanel([box, box]);
+    s.querySelector = () => panel;
+    imageAdaptive.applyToDom(rootIn([s], view));
+    held.header(1600, 1000);
+    held.probe.onload();
+    assert.equal(panel.style.transform, '');
+  } finally { global.Image = prev; }
+});
+
+test('the morph uses the Web Animations API where the host has it, starting at once', () => {
+  const prev = global.Image;
+  const { Image, held } = heldImage();
+  global.Image = Image;
+  try {
+    const view = timedView(false);
+    const s = makeSection({ bgStyle: "url('portrait.jpg')" });
+    const panel = morphPanel([{ left: 100, top: 50, width: 600, height: 375 }, { left: 200, top: 20, width: 300, height: 400 }]);
+    const calls = [];
+    panel.animate = (frames, opts) => calls.push({ frames, opts });
+    s.querySelector = () => panel;
+    imageAdaptive.applyToDom(rootIn([s], view));
+    held.header(800, 1200);
+    held.probe.onload();
+    assert.equal(calls.length, 1, 'animated in the same task');
+    assert.equal(calls[0].frames[0].transform, 'translate(-100px, 30px) scale(2, 0.9375)');
+    assert.equal(calls[0].frames[1].transform, 'none');
+    assert.equal(calls[0].opts.duration, imageAdaptive.MORPH_MS);
+    assert.equal(panel.style.transform, '', 'no inline style left behind');
+  } finally { global.Image = prev; }
+});

@@ -132,6 +132,23 @@ section.image[data-img-unloaded] .lattice-bg {
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
+/* THE GUESS WHILE THE SIZE IS UNKNOWN (a live preview, `data-img-pending` with no bucket yet): the
+ * card takes the WIDE shape, not the 4:3 floor. `wide` spans 1.3–2.0 (4:3, 3:2, 16:10, 16:9: nearly
+ * every camera and stock photo), so the common photo lands in exactly the shape it was painted in
+ * and nothing moves; the floor was a tall, near-square card that snapped to the photo's shape the
+ * moment its size arrived (the owner's iPhone, PR #2471). Any other shape MORPHS there instead of
+ * snapping (lib/transformers/image-adaptive.js). Scoped to the landscape rules the real `wide`
+ * bucket uses; a portrait deck's card takes the aspect alone, exactly as a wide photo would. */
+section.image[data-img-pending]:not([data-img-bucket]) {
+  --img-aspect: 16 / 10;
+  --img-aspect-n: 1.6;
+}
+section.image[data-img-composition="clean"][data-img-pending]:not([data-img-bucket]):not([data-orientation="portrait"]):not([data-orientation="square"]) .lattice-bg {
+  height: auto;
+  width: 88%;
+  max-height: 76cqh;
+}
+
 /* `data-img-pending` while the panel's photo is being measured in a live preview
  * (lib/transformers/image-adaptive.js). The layout is a guess until the size is known, and
  * text laid out on a guess moves when it is corrected, so the text waits: the panel is the

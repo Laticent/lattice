@@ -848,6 +848,20 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   hidden`, `clip` or `contain: paint` (all three measured in Chromium and WebKit), and the
   slide's overflow probe flagged the slide. So the strokes move by background and mask
   position over a `64cqi` tile, not by transform.
+- **The painted card must not snap to the photo's shape.** With no size yet, the card used
+  the floor shape (4:3, height-bound: 565×504 on a 1280 slide), and the moment the size
+  arrived it snapped to the photo's (552×345 for a landscape) in one frame, beside text
+  appearing in that same frame. The owner caught it on an iPhone; my own records showed the
+  resize and I had filed it as intended. Two fixes: while a live preview's photo is pending
+  with no bucket, `image.styles.css` gives the card the WIDE shape (`wide` spans 1.3–2.0:
+  4:3, 3:2, 16:10, 16:9), so the common photo lands in exactly the painted box (measured:
+  zero box changes); any other shape MORPHS there (`morphFrom` in image-adaptive.js, a FLIP
+  via the Web Animations API, 360ms). What is irreducible is that a portrait's shape is
+  unknown until its first bytes arrive; what is not is how it gets there. WebKit caveat:
+  when the size and the decoded photo land together (a server that sends the whole file at
+  once), the engine stalls ~400ms and headless Linux WebKit shows the glide as a snap; a
+  streamed load glides (Chromium always does). The API is used because it starts in the
+  same task; a transition armed two frames later was swallowed by the stall entirely.
 - **Only a live preview holds text back, or paints:** the runtime sets `data-img-pending`,
   `data-lattice-painting` and `data-img-relayout` only in a document with a reveal gate
   (`__latticeFontsSettled` is a boolean) that ALSO opted in with `<html
