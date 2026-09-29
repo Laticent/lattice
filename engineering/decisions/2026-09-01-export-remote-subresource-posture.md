@@ -327,6 +327,17 @@ The limits are deliberate:
   because it carries the bytes and its policy loads nothing on open. The switch decides only
   whether the AUTHOR's browser contacts those sites, which is the author's call to make, not a
   default to make for them.
+- **A redirect is refused while the switch is off.** The allow-list is checked on the address the
+  deck names, so a followed redirect could let a same-site URL pull a picture from a site the author
+  never agreed to contact; the switch-off promise is "the export contacts no other site". On, a
+  redirect is followed. Cross-site requests carry no cookies either way.
+- **At most 200 distinct pictures, read as a stream.** With the switch on, any site a deck names is
+  fetched, so the count is capped and a body is cancelled the moment it passes 8 MB rather than
+  buffered whole first.
+- **A host that refuses and a host that is down look the same to the page**, so the toast names
+  both causes. Measured against real hosts from the Studio: Wikimedia (sends a CORS header) embeds
+  and decodes; a picsum.photos CDN redirect that failed on the network had been reported as the site
+  refusing.
 - **Video and audio files are not embedded**; a clip can be hundreds of megabytes.
 - **A response must be a bare `image/*` type, 8 MB or less, within 20 seconds**, and the pictures
   together stay under 48 MB. A static host answers a missing file with its HTML 404 page;

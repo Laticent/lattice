@@ -452,9 +452,9 @@ export async function shareHtmlPlayer(
 	// placeholder pass below and counted — unless the author turned on "Embed pictures from other
 	// sites", which fetches those too. The recipient's file loads nothing on open either way.
 	onStatus?.('Embedding images…');
-	const { inlineUrlMedia, browserFetchDataUri, describeMissingMedia } = await import('../../../../lib/export/inline-url-media.mjs');
+	const { inlineUrlMedia, browserFetchDataUri, describeMissingMedia, sourceHasWebPictures } = await import('../../../../lib/export/inline-url-media.mjs');
 	const mediaCache = new Map();
-	const fetchDataUri = browserFetchDataUri(fetch.bind(globalThis), { ownOrigin: location.origin });
+	const fetchDataUri = browserFetchDataUri(fetch.bind(globalThis), { ownOrigin: location.origin, followRedirects: embedWebPictures });
 	const withMedia = (html: string) => inlineUrlMedia(html, { baseUrl: document.baseURI, origins: [location.origin], anyWebOrigin: embedWebPictures, fetchDataUri, cache: mediaCache });
 	const media = await withMedia(out.html);
 	const placed = remoteRef.blockWebImages(media.html, []);
@@ -464,7 +464,7 @@ export async function shareHtmlPlayer(
 	// silent gap otherwise, because the player's placeholder looks deliberate.
 	// Our own origin is left out of the placeholder list: a picture of ours reaching that pass is one
 	// that failed to embed, and `missing` already names it with its reason.
-	const mediaWarning = describeMissingMedia(media.missing, remoteRef.webOrigins(placed.blocked.filter((b) => b.kind !== 'diagram')), location.origin, embedWebPictures);
+	const mediaWarning = describeMissingMedia(media.missing, remoteRef.webOrigins(placed.blocked.filter((b) => b.kind !== 'diagram')), location.origin, embedWebPictures, sourceHasWebPictures(source, location.origin));
 	let recordSections = sectionsOf(playerHtml);
 	let noteRecord = notesCore.slideNoteRecord(recordSections);
 	// `let`, because the guard below picks WHICH cut ships once it knows which one reproduces

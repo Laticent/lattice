@@ -235,6 +235,56 @@ test('browserFetchDataUri refuses bytes labelled image/* that do not open as a p
 test('describeMissingMedia: a site whose picture failed is not listed twice, and the switch is not suggested once on', async () => {
 	const { describeMissingMedia } = await load();
 	const missing = [{ url: 'https://cdn.example/x.jpg', reason: 'not a picture the browser can open' }];
-	assert.equal(describeMissingMedia(missing, ['https://cdn.example'], 'https://studio.test', true), '1 image could not be embedded (/x.jpg: not a picture the browser can open)');
+	assert.equal(describeMissingMedia(missing, ['https://cdn.example'], 'https://studio.test', true), '1 image could not be embedded (cdn.example/x.jpg: not a picture the browser can open)');
 	assert.equal(describeMissingMedia([], ['https://other.example'], 'https://studio.test', true), 'images from other.example ship as placeholders');
+});
+
+// Maker-checker findings on the opt-in (PR #2495): each arm is one finding.
+test('sourceHasWebPictures: reference-style images and bracketed alts count; a video FILE does not', async () => {
+	const { sourceHasWebPictures } = await load();
+	const own = 'https://studio.test';
+	assert.equal(sourceHasWebPictures('![a][r]\n\n[r]: https://w.example/a.png', own), true, 'reference-style');
+	assert.equal(sourceHasWebPictures('![a [b] c](https://x.example/a.jpg)', own), true, 'bracketed alt');
+	assert.equal(sourceHasWebPictures('<video poster="https://x.example/p.jpg"></video>', own), true, 'video poster');
+	assert.equal(sourceHasWebPictures('<video src="https://x.example/a.mp4"></video>', own), false, 'a video file is never embedded');
+});
+
+test('describeMissingMedia: another site is named with its host, and the switch is suggested only when offered', async () => {
+	const { describeMissingMedia } = await load();
+	const own = 'https://studio.test';
+	assert.equal(describeMissingMedia([{ url: 'https://x.example/a.jpg', reason: 'r' }], ['https://x.example'], own, true), '1 image could not be embedded (x.example/a.jpg: r)');
+	assert.equal(describeMissingMedia([], ['https://x.example'], own, false, false), 'images from x.example ship as placeholders', 'no hint when the panel hid the switch');
+});
+
+test('browserFetchDataUri refuses redirects unless the author opted into other sites', async () => {
+	const { browserFetchDataUri } = await load();
+	const seen = [];
+	const ok = { ok: true, status: 200, headers: { get: (h) => (h === 'content-type' ? 'image/png' : null) }, arrayBuffer: async () => new Uint8Array([1]).buffer };
+	const fetchImpl = async (_u, init) => {
+		seen.push(init.redirect);
+		return ok;
+	};
+	await browserFetchDataUri(fetchImpl, { decode: async () => true })('https://studio.test/a.png');
+	await browserFetchDataUri(fetchImpl, { decode: async () => true, followRedirects: true })('https://studio.test/a.png');
+	assert.deepEqual(seen, ['error', 'follow']);
+});
+
+test('browserFetchDataUri stops reading a length-less body at the cap', async () => {
+	const { browserFetchDataUri } = await load();
+	let reads = 0;
+	let cancelled = false;
+	const body = { getReader: () => ({ read: async () => (reads++ < 1000 ? { done: false, value: new Uint8Array(4) } : { done: true }), cancel: async () => { cancelled = true; } }) };
+	const f = browserFetchDataUri(async () => ({ ok: true, status: 200, headers: { get: (h) => (h === 'content-type' ? 'image/png' : null) }, body }), { maxBytes: 10, decode: async () => true });
+	assert.match((await f('https://studio.test/x')).reason, /too large/);
+	assert.ok(reads <= 4, `read ${reads} chunks before stopping`);
+	assert.equal(cancelled, true);
+});
+
+test('inlineUrlMedia fetches at most maxPictures distinct pictures and reports the rest', async () => {
+	const { inlineUrlMedia } = await load();
+	const fetchDataUri = fakeFetch({ 'https://studio.test/1.png': { dataUri: PNG }, 'https://studio.test/2.png': { dataUri: PNG } });
+	const r = await inlineUrlMedia('<img src="/1.png"><img src="/2.png">', { baseUrl: BASE, origins: ORIGINS, fetchDataUri, maxPictures: 1 });
+	assert.equal(fetchDataUri.calls.length, 1);
+	assert.equal(r.count, 1);
+	assert.match(r.missing[0].reason, /1-picture limit/);
 });
