@@ -267,3 +267,46 @@ describe('split-compare: an author block the layout does not claim', () => {
     assert.equal(sec.querySelector('.compare-right [data-lattice-berth]'), null);
   });
 });
+
+// The verdict (split-compare) and the pull quote (split-panel `pullquote`) are the first TOP-LEVEL
+// `<blockquote>`, as the DOM path reads them (`:scope > blockquote`). The string path used to take
+// the first one anywhere and stop at the first `</blockquote>`, so a quote in raw HTML above the
+// slot became the slot, and a quote nested in the slot cut it short.
+describe('the quote slot is the first top-level blockquote, whole', () => {
+  const OPTIONS = '<ul><li><strong>A</strong></li><li><strong>B</strong></li></ul>';
+  const NESTED = '<blockquote><p>Q.</p><blockquote><p>Inner.</p></blockquote><p>Tail.</p></blockquote>';
+  const cases = {
+    'split-compare: a quote inside a raw div above the verdict': ['split-compare', `<h2>H</h2><p>C.</p><div><blockquote><p>Stray.</p></blockquote></div>${OPTIONS}<blockquote><p>Q.</p></blockquote>`, 'verdict'],
+    'split-compare: a quote in a table cell after the options': ['split-compare', `<h2>H</h2><p>C.</p>${OPTIONS}<table><tr><td><blockquote><p>Stray.</p></blockquote></td></tr></table><blockquote><p>Q.</p></blockquote>`, 'verdict'],
+    'split-compare: a quote nested in the verdict': ['split-compare', `<h2>H</h2><p>C.</p>${OPTIONS}${NESTED}`, 'verdict'],
+    'split-compare: a speaker note that names a blockquote': ['split-compare', `<h2>H</h2><p>C.</p>${OPTIONS}<!-- <blockquote> soon --><blockquote><p>Q.</p></blockquote>`, 'verdict'],
+    'split-panel pullquote: a quote inside a raw div above the pull quote': ['split-panel pullquote', '<div><blockquote><p>Stray.</p></blockquote></div><blockquote><p>Q.</p></blockquote><ul><li>one</li></ul>', 'panel-left'],
+    'split-panel pullquote: a quote inside a list item above the pull quote': ['split-panel pullquote', '<ul><li>one<blockquote><p>Stray.</p></blockquote></li></ul><blockquote><p>Q.</p></blockquote>', 'panel-left'],
+    'split-panel pullquote: a quote nested in the pull quote': ['split-panel pullquote', `${NESTED}<p><code>Ada</code></p><ul><li>one</li></ul>`, 'panel-left'],
+    // An unclosed block inside the quote: markdown-it's output for `> <details>` with no close. The
+    // browser closes the block at `</blockquote>`; masking it to the end hid the quote's own close.
+    'split-compare: an unclosed details inside the verdict': ['split-compare', `<h2>H</h2><p>C.</p>${OPTIONS}<blockquote><p>Q.</p><details><summary>More</summary>hidden</blockquote><p>After.</p>`, 'verdict'],
+    'split-panel pullquote: an unclosed details inside the pull quote': ['split-panel pullquote', '<blockquote><p>Q.</p><details><summary>More</summary>hidden</blockquote><p>After.</p><ul><li>one</li></ul>', 'panel-left'],
+    'split-panel pullquote: an unclosed div inside the pull quote': ['split-panel pullquote', '<blockquote><p>Q.</p><div>x</blockquote><p>After.</p><ul><li>one</li></ul>', 'panel-left'],
+    'split-panel pullquote: a speaker note that names a blockquote': ['split-panel pullquote', '<!-- a <blockquote> here? --><blockquote><p>Q.</p></blockquote><ul><li>one</li></ul>', 'panel-left'],
+  };
+  for (const [name, [cls, body, slot]] of Object.entries(cases)) {
+    const html = `<section class="${cls}"><header>Head</header>${body}<footer>Run</footer></section>`;
+    test(`${name}: both paths agree`, () => {
+      const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+      const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+      splitPanels.applyToDom(doc);
+      assert.equal(signature(doc.querySelector('section')), signature(str));
+    });
+    test(`${name}: the slot holds the top-level quote, whole`, () => {
+      const sec = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+      const quote = sec.querySelector(`.${slot} > blockquote`);
+      assert.ok(quote, 'the slot has its quote');
+      assert.match(quote.textContent, /^\s*Q\./);
+      assert.doesNotMatch(quote.textContent, /Stray/);
+      if (body.includes('Inner.')) assert.match(quote.textContent, /Inner\.\s*Tail\./);
+      if (body.includes('Stray.')) assert.match(sec.textContent, /Stray\./, 'the stray quote is kept, not dropped');
+      if (body.includes('After.')) assert.doesNotMatch(quote.textContent, /After\./, 'the quote stops at its own close');
+    });
+  }
+});

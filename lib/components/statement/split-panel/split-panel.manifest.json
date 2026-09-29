@@ -269,7 +269,7 @@
     },
     {
       "variant": "pullquote",
-      "useWhen": "The featured element is a verbatim quotation — author a blockquote in the left panel instead of a heading."
+      "useWhen": "The featured element is a verbatim quotation — author a blockquote in the left panel instead of a heading. The panel takes the first top-level blockquote, whole; one inside a raw `<div>`, a table or a list item stays on the right."
     },
     {
       "variant": "steps",

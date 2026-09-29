@@ -27,7 +27,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 
 - **default (no modifier).** A thesis heading deserves the panel and the right column substantiates it with prose points — the plain briefing look.
 - **`metric`.** A hero number is the featured element — the panel flips light and the number becomes the display type.
-- **`pullquote`.** The featured element is a verbatim quotation — author a blockquote in the left panel instead of a heading.
+- **`pullquote`.** The featured element is a verbatim quotation — author a blockquote in the left panel instead of a heading. The panel takes the first top-level blockquote, whole; one inside a raw `<div>`, a table or a list item stays on the right.
 - **`steps`.** The panel anchors a numbered phase rather than a heading, and the right column is a numbered sequence rather than loose points.
 - **`watermark`.** You want a decorative accent panel — an oversized letterform behind the heading — plus an optional two-line Audience/Intent metadata footer after the points.
 - **`mirror`.** Same anatomy, but the deck's reading rhythm wants the featured panel to land on the right instead of the left. On a portrait deck the panels stack, and `mirror` puts the featured panel at the bottom instead of the top.
