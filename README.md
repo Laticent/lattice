@@ -117,22 +117,22 @@ The package also exposes these named entry points:
 | Subpath | Resolves to | For |
 |---|---|---|
 | `@laticent/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one drop-in stylesheet |
-| `@laticent/lattice/default/min` | `dist/lattice-default.min.css` | minified zero-config default — the leanest single-file `<link>` for browser use |
+| `@laticent/lattice/default/min` | `dist/lattice-default-min.css` | minified zero-config default — the leanest single-file `<link>` for browser use |
 | `@laticent/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
 | `@laticent/lattice/runtime` | `dist/lattice-runtime.js` | the preview / web-export runtime transforms |
-| `@laticent/lattice/runtime/min` | `dist/lattice-runtime.min.js` | minified runtime — production / CDN drop-in (no inline source map). **Not self-sufficient:** ship `dist/lattice-dagre.min.js` beside it (see [Embed in a browser](#embed-in-a-browser)) |
-| — | `dist/lattice-dagre.min.js` | the graph-layout engine for a state chart that BRANCHES. Load it *before* the runtime. Its absence is silent on the slide — the chart draws its branches as skips on the reading-order grid a chain uses |
+| `@laticent/lattice/runtime/min` | `dist/lattice-runtime-min.js` | minified runtime — production / CDN drop-in (no inline source map). **Not self-sufficient:** ship `dist/lattice-dagre-min.js` beside it (see [Embed in a browser](#embed-in-a-browser)) |
+| — | `dist/lattice-dagre-min.js` | the graph-layout engine for a state chart that BRANCHES. Load it *before* the runtime. Its absence is silent on the slide — the chart draws its branches as skips on the reading-order grid a chain uses |
 | `@laticent/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
-| `@laticent/lattice/css/min` | `dist/lattice.min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
+| `@laticent/lattice/css/min` | `dist/lattice-min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
 | `@laticent/lattice/themes/<name>.css` | `themes/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
 | `lattice` bin · `@laticent/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
-| `@laticent/lattice/min` | `dist/lattice-emulator.min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
+| `@laticent/lattice/min` | `dist/lattice-emulator-min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
 
-The `.min` variants are byte-for-byte render-faithful to their unminified
+The `-min` variants are byte-for-byte render-faithful to their unminified
 siblings — the CSS minifier preserves Marp's directive comments, so a
 minified bundle still registers as a theme. Pick the unminified files for
 debugging (the CLI/runtime carry source maps; the CSS keeps comments) and
-the `.min` files for production / CDN delivery.
+the `-min` files for production / CDN delivery.
 
 **The default theme is cuoio** (warm leather/cream). In a Marp deck,
 `theme: cuoio` selects it; with no theme chosen, decks render against the
@@ -297,14 +297,14 @@ expects to find beside it:
 ```html
 <link rel="stylesheet" href="themes/indaco.css">
 <link rel="stylesheet" href="dist/lattice.css">
-<script src="mermaid-v11.min.js"></script>
-<script src="dist/lattice-dagre.min.js"></script>
+<script src="mermaid-v11-min.js"></script>
+<script src="dist/lattice-dagre-min.js"></script>
 <script src="dist/lattice-runtime.js"></script>
 ```
 
 **Order matters, and so does the third tag.** Mermaid and dagre install globals the
 runtime reads on its first pass, and classic scripts run in document order — a tag
-placed after the runtime arrives too late. Omitting `lattice-dagre.min.js` is the
+placed after the runtime arrives too late. Omitting `lattice-dagre-min.js` is the
 quiet one: a state chart still draws, but one that BRANCHES falls back to the
 reading-order grid a chain uses, drawing each branch as a skip — which looks like a
 deliberate layout rather than a missing asset.
@@ -314,7 +314,7 @@ marp kit) carry all three automatically.
 Both engines are vendored, not fetched: this snippet used to point Mermaid at
 jsdelivr, which is the CDN dependency
 `engineering/decisions/2026-09-03-self-hosted-runtime-deps.md` removed from the
-codebase — `mermaid-v11.min.js` ships in the repo root and in every export bundle.
+codebase — `mermaid-v11-min.js` ships in the repo root and in every export bundle.
 
 Keep `dist/fonts/` beside `dist/lattice.css` — the `@font-face` srcs are
 stylesheet-relative, so moving the CSS without the directory drops the deck to

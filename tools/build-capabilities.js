@@ -65,7 +65,7 @@ const SCRIPT_META = {
   'build:uncommitted':        ['Build & bundle', 'Generate ONLY the built-not-committed artifacts (dist/, the docs-site bundles). The cold-tree bootstrap: the ownership guard reads dist/ CSS, so it cannot run before this. Skips the guard for that reason.'],
   'prepack':                  ['Build & bundle', 'npm lifecycle: build before packing, so the published tarball carries dist/ even though git does not.'],
   'build:check:all':          ['Build & bundle', 'The same gate without the scope: every artifact, including the built-not-committed bundles. Needs dist/ present, so run it after npm run build.'],
-  'css:build':                ['Build & bundle', 'Bundle dist/lattice.css (+ .min) — the palette-blind engine stylesheet.'],
+  'css:build':                ['Build & bundle', 'Bundle dist/lattice.css (+ -min) — the palette-blind engine stylesheet.'],
   'css:check':                ['Build & bundle', 'Freshness gate for dist/lattice.css.'],
   'default:build':            ['Build & bundle', 'Build dist/lattice-default.css — the flattened zero-config drop-in (engine + cuoio).'],
   'default:check':            ['Build & bundle', 'Freshness gate for the default bundle.'],

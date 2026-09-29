@@ -15,7 +15,7 @@
  *   · emulator / CLI export — this file's IIFE is prepended to the serialised
  *     pass, so `globalThis.__latticeDagre` exists before the pass runs. Only for
  *     a deck whose machine actually BRANCHES (state-chart.adoption.js).
- *   · every browser host — `dist/lattice-dagre.min.js`, this same IIFE as a
+ *   · every browser host — `dist/lattice-dagre-min.js`, this same IIFE as a
  *     standalone script, referenced by a `<script src>` the host emits BEFORE
  *     the runtime tag. Classic scripts execute in document order, so the global
  *     is installed by the time the runtime's pass reads it.
@@ -24,7 +24,7 @@
  * `2026-09-03-self-hosted-runtime-deps.md` warns about in so many words: a heavy
  * dep "must never drift onto an eager path". Mermaid (3.16 MB) and the KaTeX
  * provider (268 KB) are both separate, conditionally-fetched files; dagre was the
- * one that sat inside `lattice-runtime.min.js`, so every reader of every deck
+ * one that sat inside `lattice-runtime-min.js`, so every reader of every deck
  * paid 25.9 KiB gzipped for a layout engine all 9 drawn machines in
  * the shipped galleries never use. Splitting it out took that bundle from 243,431
  * to 216,937 B gzipped.
@@ -38,7 +38,7 @@
  *
  * TWO OUTPUTS, one build. `lib/core/dagre-bundle.generated.js` wraps the IIFE as
  * a CommonJS STRING export, because the emulator concatenates it into a
- * `<script>` it is assembling; `dist/lattice-dagre.min.js` is the same bytes as
+ * `<script>` it is assembling; `dist/lattice-dagre-min.js` is the same bytes as
  * a file a browser can fetch. Neither is derived from the other at run time, so
  * they cannot drift: one esbuild run feeds both.
  *
@@ -53,11 +53,11 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'lib', 'core', 'dagre-bundle.generated.js');
-// The browser-fetchable half. `.min` in the dist name because that is what it is
+// The browser-fetchable half. `-min` in the dist name because that is what it is
 // (esbuild --minify below) and what every other dist script is called; the docs
-// site stages it as `lattice-dagre.js`, dropping `.min` exactly as it does for
+// site stages it as `lattice-dagre.js`, dropping `-min` exactly as it does for
 // the runtime.
-const DIST = path.join(ROOT, 'dist', 'lattice-dagre.min.js');
+const DIST = path.join(ROOT, 'dist', 'lattice-dagre-min.js');
 const ENTRY = path.join(ROOT, '.dagre-entry.tmp.mjs');
 
 // Only `layout` and `Graph` are reachable, which is what keeps this at ~62KB
@@ -111,7 +111,7 @@ function build({ check = false } = {}) {
   // the provenance the banner carries lives in dagre-bundle.generated.js and in
   // assets/licenses/MIT-dagre-d3-es.txt, which the marp kit redistributes.
   fs.writeFileSync(DIST, iife);
-  console.log(`[build-dagre-bundle] lib/core/dagre-bundle.generated.js + dist/lattice-dagre.min.js (${(iife.length / 1024).toFixed(1)} KB IIFE)`);
+  console.log(`[build-dagre-bundle] lib/core/dagre-bundle.generated.js + dist/lattice-dagre-min.js (${(iife.length / 1024).toFixed(1)} KB IIFE)`);
 }
 
 if (require.main === module) build({ check: process.argv.includes('--check') });

@@ -518,7 +518,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   deeper than it looks.** The bullet above is this one's mirror: there, an `@import` line
   broke a selector scan and the a11y palettes silently took onyx's status trio. Here, an
   embedder that did not follow `@import` at all lost onyx's contribution entirely. A review
-  harness composed `dist/themes/a11y-achromatopsia.min.css` with a hard-coded "a11y-* also
+  harness composed `dist/themes/a11y-achromatopsia-min.css` with a hard-coded "a11y-* also
   needs a11y-base" special case — which is one level short, because **`a11y-base` itself
   `@import`s `onyx`**, and onyx is where `--scheme-dark-bg: #000000` is declared. The a11y
   palettes declare no `--bg` of their own; they pin `color-scheme: light` and let the engine

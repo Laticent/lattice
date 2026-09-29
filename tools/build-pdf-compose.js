@@ -4,7 +4,7 @@
  * injects into its own Chrome page:
  *
  *   lib/core/pdf-compose/compose.mjs + html-to-image
- *     ->  dist/lattice-pdf-compose.min.js   (sets globalThis.LatticePdfCompose)
+ *     ->  dist/lattice-pdf-compose-min.js   (sets globalThis.LatticePdfCompose)
  *
  * WHY A BUNDLE AT ALL. The CLI and the Studio must run the SAME code that decides what
  * the PDF looks like (engineering/decisions/2026-09-27-studio-export-one-engine.md). The
@@ -24,7 +24,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
-const DIST = path.join(ROOT, 'dist', 'lattice-pdf-compose.min.js');
+const DIST = path.join(ROOT, 'dist', 'lattice-pdf-compose-min.js');
 const ENTRY = path.join(ROOT, 'lib', 'core', 'pdf-compose', '.bundle-entry.tmp.mjs');
 const ENTRY_SRC = `
 import { composeDeckPdf, makeHtmlToImageCamera } from './compose.mjs';
@@ -55,7 +55,7 @@ function build({ check = false, silent = false } = {}) {
 	}
 	fs.mkdirSync(path.dirname(DIST), { recursive: true });
 	fs.writeFileSync(DIST, iife);
-	if (!silent) console.log(`[build-pdf-compose] dist/lattice-pdf-compose.min.js (${(iife.length / 1024).toFixed(0)} KB)`);
+	if (!silent) console.log(`[build-pdf-compose] dist/lattice-pdf-compose-min.js (${(iife.length / 1024).toFixed(0)} KB)`);
 }
 
 if (require.main === module) build({ check: process.argv.includes('--check'), silent: process.argv.includes('--silent') });

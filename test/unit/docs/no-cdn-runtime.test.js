@@ -316,7 +316,7 @@ test('the relative paths the hosts request are the ones sync-playground-assets s
 		// plugin's payload beside itself. A page minting one again is the idiom the plugin
 		// migration ratchet (`drawnLibraryUrls`, tools/check-ownership.js) counts.
 		assert.ok(
-			!text.includes('mermaid-v11.min.js'),
+			!text.includes('mermaid-v11-min.js'),
 			`${rel} must not pass a Mermaid URL — the runtime's plugin host loads the Mermaid plugin's payload from beside the runtime`,
 		);
 		assert.ok(

@@ -134,7 +134,7 @@ conflate them:
 
 | Artifact | Built by | For |
 |---|---|---|
-| **npm tarball** | `npm publish` (`files` allowlist) | `npm install` consumers; engine source + `dist/` (incl. `.min` variants), no PDFs. ~2.6 MB. |
+| **npm tarball** | `npm publish` (`files` allowlist) | `npm install` consumers; engine source + `dist/` (incl. `-min` variants), no PDFs. ~2.6 MB. |
 | **Source code (zip/tar.gz)** | GitHub, automatically | the whole repo at the tag — clone-and-build. |
 | **`lattice-v<x.y.z>.zip`** | `npm run release:zip` | download-and-use: the curated, offline-browsable **full showcase**. |
 
@@ -145,8 +145,8 @@ tracked-only and deterministic per commit. Contents (full showcase):
 
 - `dist/` — the engine: `lattice.css`, `lattice-default.css`,
   `lattice-runtime.js`, the bundled `lattice-emulator.js`, each one's
-  minified `.min` twin (`lattice.min.css`, `lattice-default.min.css`,
-  `lattice-runtime.min.js`, `lattice-emulator.min.js`), `README.md`,
+  minified `-min` twin (`lattice-min.css`, `lattice-default-min.css`,
+  `lattice-runtime-min.js`, `lattice-emulator-min.js`), `README.md`,
   and `docs/components.{md,html,json}`. The whole `dist/` directory is
   archived (`git archive … -- dist`), so any tracked artifact ships
   automatically — no per-file allowlist to keep in sync.

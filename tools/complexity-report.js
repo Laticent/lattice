@@ -30,7 +30,7 @@ const acorn = require('acorn');
 
 const ROOT = path.resolve(__dirname, '..');
 const SCAN_DIRS = ['lib', 'tools'];
-const EXCLUDE = /(^|\/)(node_modules|dist|\.scratch)(\/|$)|\.min\.js$|\.generated\.js$/;
+const EXCLUDE = /(^|\/)(node_modules|dist|\.scratch)(\/|$)|[.-]min\.js$|\.generated\.js$/;
 
 function parseArgs(argv) {
   const args = { json: false, top: 40, minComplexity: 8 };

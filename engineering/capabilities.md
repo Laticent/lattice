@@ -58,7 +58,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `cadenza-lib:check` | Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
-| `css:build` | Bundle dist/lattice.css (+ .min) — the palette-blind engine stylesheet. |
+| `css:build` | Bundle dist/lattice.css (+ -min) — the palette-blind engine stylesheet. |
 | `css:check` | Freshness gate for dist/lattice.css. |
 | `decisions:index` | Regenerate the "Current notes" index in engineering/decisions/README.md from each note's YAML front-matter. Refuses a note whose index row exceeds ROW_CAP (285 characters). |
 | `decisions:index:check` | Gate for the decisions-index: every note has its own correct entry, in the right group, exactly once (content, not a byte-diff — row order is deliberately not asserted), and no row over the 285-character ROW_CAP. |
@@ -341,7 +341,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-theme-core.js` | Bundle the pure Theme Studio core for the browser. |
 | `tools/build.js` | The Lattice build orchestrator — one entry point that produces every |
 | `tools/make-pwa-icons.js` | Rasterize the brand mark into the PWA icon set (docs/public/icons/) with the |
-| `tools/minify-css.js` | Shared CSS minifier for the dist `.min.css` variants. |
+| `tools/minify-css.js` | Shared CSS minifier for the dist `-min.css` variants. |
 
 ### Check / gate
 

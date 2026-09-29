@@ -25,7 +25,7 @@ why now   — phase D's browser half landed: Mermaid's library loads through the
               another band" hook — phase F's chart bakes are its second user;
             - the CLI never passes `disabled` to `bakeDeck`, so a bake cannot be switched off from
               the CLI while the engine's `plugins.disabled` can switch the plugin off;
-            - two copies of the library: `mermaid-v11.min.js` (committed; the Export-to-Marp kit
+            - two copies of the library: `mermaid-v11-min.js` (committed; the Export-to-Marp kit
               and the integration tier's browser harness) and the payload
               `node_modules/mermaid/dist/mermaid.min.js` (every browser surface; the CLI bake
               resolves the same npm package). `mermaid-library-parity.test.js` holds them equal;

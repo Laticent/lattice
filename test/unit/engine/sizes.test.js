@@ -107,7 +107,7 @@ describe('the Marp `@size` stamp', () => {
     // Marp is the one consumer that reads geometry from the stylesheet, and it only
     // ever sees dist/. A missing stamp is a silently wrong page size in every
     // exported deck, which no in-repo render would notice.
-    for (const rel of ['dist/lattice.css', 'dist/lattice.min.css', 'dist/themes/cuoio.min.css', 'dist/marp-kit/lattice.min.css']) {
+    for (const rel of ['dist/lattice.css', 'dist/lattice-min.css', 'dist/themes/cuoio-min.css', 'dist/marp-kit/lattice-min.css']) {
       const file = path.join(ROOT, rel);
       if (!fs.existsSync(file)) continue; // marp-kit is built on demand
       const parsed = parseSizes(fs.readFileSync(file, 'utf8'));

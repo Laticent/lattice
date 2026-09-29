@@ -114,8 +114,8 @@ Then each slide opens with one comment naming its layout — `_class: kpi`,
 ```mermaid
 flowchart LR
   A["Sample-Deck.md"] --> B["Marp parses<br/>slides + directives"]
-  B --> C["lattice.min.css<br/>paints the layout"]
-  B --> D["lattice-runtime.min.js<br/>builds charts + diagrams"]
+  B --> C["lattice-min.css<br/>paints the layout"]
+  B --> D["lattice-runtime-min.js<br/>builds charts + diagrams"]
   C --> E["Rendered deck"]
   D --> E
   E -.->|"marp --pdf"| F["PDF"]
@@ -176,13 +176,13 @@ $$ \sigma(z)_i = \frac{e^{z_i}}{\sum_{j=1}^{K} e^{z_j}} $$
 
 1. This deck `Sample-Deck.md`
    - Your starting point. Edit it in place.
-2. The engine `lattice.min.css`
+2. The engine `lattice-min.css`
    - Every layout and token lives here.
-3. The palette `cuoio.min.css`
+3. The palette `cuoio-min.css`
    - Swap it to restyle. A dark one ships beside it.
-4. The runtime `lattice-runtime.min.js`
+4. The runtime `lattice-runtime-min.js`
    - Builds charts and diagrams in the browser.
-5. Mermaid `mermaid-v11.min.js`
+5. Mermaid `mermaid-v11-min.js`
    - Third party. Required for diagram slides.
 6. Type `fonts/`
    - Thirty-seven files. Drop them and type falls back.
@@ -212,6 +212,6 @@ Swap `theme: cuoio` for another palette. Delete a slide. Add your own.
 Nothing here needs a build step to try.
 
 <!-- markdownlint-disable MD033 -->
-<script src="mermaid-v11.min.js"></script>
-<script src="lattice-dagre.min.js"></script>
-<script src="lattice-runtime.min.js"></script>
+<script src="mermaid-v11-min.js"></script>
+<script src="lattice-dagre-min.js"></script>
+<script src="lattice-runtime-min.js"></script>

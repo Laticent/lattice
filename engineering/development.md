@@ -428,7 +428,7 @@ inputs).
 - `lattice-emulator.js`
 - `lattice.css` + every `themes/*.css`
 - every `lib/*.js`
-- `mermaid-v11.min.js`
+- `mermaid-v11-min.js`
 - `package-lock.json` (catches dependency upgrades)
 - palette argument
 - Node version

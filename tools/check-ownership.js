@@ -2252,8 +2252,8 @@ const SIZE_FREE_ROOTS = ['themes', 'lib'];
 // built on demand (`npm run marp-kit:build`), so it is checked when present.
 const SIZE_STAMPED_ARTIFACTS = [
   'dist/lattice.css',
-  'dist/lattice.min.css',
-  'dist/marp-kit/lattice.min.css',
+  'dist/lattice-min.css',
+  'dist/marp-kit/lattice-min.css',
 ];
 function checkSizeRegistryOwnership(errors) {
   const { SIZES } = require('../lib/engine/sizes');
@@ -2276,13 +2276,13 @@ function checkSizeRegistryOwnership(errors) {
     }
   }
 
-  // Every dist/themes/*.min.css too — the Export-to-Marp bundle ships whichever
+  // Every dist/themes/*-min.css too — the Export-to-Marp bundle ships whichever
   // palette the deck uses, so a stamp that only reached the base is a half-fix.
   const distThemes = path.join(ROOT, 'dist', 'themes');
   const artifacts = [...SIZE_STAMPED_ARTIFACTS];
   if (fs.existsSync(distThemes)) {
     for (const f of fs.readdirSync(distThemes).sort()) {
-      if (f.endsWith('.min.css')) artifacts.push(`dist/themes/${f}`);
+      if (f.endsWith('-min.css')) artifacts.push(`dist/themes/${f}`);
     }
   }
   for (const rel of artifacts) {
@@ -3902,7 +3902,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
     } else if (
       US_TEXT_EXTS.has(path.extname(e.name)) &&
       !e.name.startsWith('.') && // hidden files (.c8rc.json, …) aren't house prose
-      !/\.(min|generated)\.[a-z]+$/.test(e.name) && // minified / generated bundles
+      !/(?:[.-]min|\.generated)\.[a-z]+$/.test(e.name) && // minified / generated bundles
       // Emulator HTML sidecars are transient, gitignored render artifacts — the
       // emulator writes a `<name>.html` next to every `<name>.pdf` it renders
       // (gallery sidecars like `<name>.gallery.{light,dark}.html`, and the
@@ -4056,7 +4056,7 @@ function listEngineGlyphSurfaces() {
       if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
       const p = path.join(dir, e.name);
       if (e.isDirectory()) { walk(p); continue; }
-      if (e.name.endsWith('.css') && !/\.(min|generated)\./.test(e.name)) out.push(p);
+      if (e.name.endsWith('.css') && !/(?:[.-]min|\.generated)\.[a-z]+$/.test(e.name)) out.push(p);
     }
   };
   walk(LIB_DIR);
@@ -10779,7 +10779,7 @@ function auditPdfOwnership(files) {
 // 0x01 bytes sharing two of the same lines in `AcronymEditor.tsx`. Those two are
 // NOT the same defect: git's heuristic keys on NUL alone, so a 0x01 never makes a
 // file diff as binary (measured — inserting one at byte 200 still gives a text
-// diff, and the vendored `mermaid-v11.min.js` carries one unremarked). They went
+// diff, and the vendored `mermaid-v11-min.js` carries one unremarked). They went
 // because they were invisible bytes on a line being rewritten anyway, which is a
 // good enough reason on its own and a different one from the harm above.
 //
@@ -12070,7 +12070,7 @@ const DIST_VERBATIM_COPIES = Object.freeze([
   { copy: 'dist/marp-kit/Sample-Deck.md', source: 'kit/Sample-Deck.md', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/cuoio.css', source: 'themes/cuoio.css', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/cuoio-dark.css', source: 'themes/cuoio-dark.css', builder: 'tools/build-marp-kit.js' },
-  { copy: 'dist/marp-kit/mermaid-v11.min.js', source: 'mermaid-v11.min.js', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/mermaid-v11-min.js', source: 'mermaid-v11-min.js', builder: 'tools/build-marp-kit.js' },
 ]);
 
 /** One entry's problems. Split out so the unit suite can drive a synthetic table. */

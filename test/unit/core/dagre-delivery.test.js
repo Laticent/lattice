@@ -9,7 +9,7 @@
  *   emulator / CLI export  →  tools/build-dagre-bundle.js's IIFE, prepended at
  *                             the lattice-emulator.js call site, and only for a
  *                             deck whose machine actually BRANCHES
- *   every browser host     →  dist/lattice-dagre.min.js, the same IIFE as a
+ *   every browser host     →  dist/lattice-dagre-min.js, the same IIFE as a
  *                             standalone script, tagged BEFORE the runtime tag
  *
  * IT USED TO BE INLINED INTO THE RUNTIME BUNDLE, which is the drift this file now
@@ -105,8 +105,8 @@ describe('dagre delivery to the state-chart pass', () => {
   // A re-added `require('../core/dagre-layout.js')` anywhere in that graph would
   // leave every source assertion above green.
   test('the BUILT runtime bundle carries no dagre, and the standalone script does', () => {
-    const runtime = path.join(ROOT, 'dist/lattice-runtime.min.js');
-    const standalone = path.join(ROOT, 'dist/lattice-dagre.min.js');
+    const runtime = path.join(ROOT, 'dist/lattice-runtime-min.js');
+    const standalone = path.join(ROOT, 'dist/lattice-dagre-min.js');
     if (!fs.existsSync(runtime) || !fs.existsSync(standalone)) return;   // pre-build clone
     const rt = fs.readFileSync(runtime, 'utf8');
     const sa = fs.readFileSync(standalone, 'utf8');
@@ -115,11 +115,11 @@ describe('dagre delivery to the state-chart pass', () => {
     // legitimately sets it — the identifier says nothing about who carries the code.
     for (const marker of ['barycenter', 'nestingGraph', 'normalizeRanks']) {
       assert.equal(rt.includes(marker), false,
-        `dagre is back on the eager path (found "${marker}" in lattice-runtime.min.js). `
+        `dagre is back on the eager path (found "${marker}" in lattice-runtime-min.js). `
         + 'Some module in the runtime\'s import graph requires it again; esbuild has no '
         + 'externals here, so one import inlines the whole library — 25.9 KiB gzipped '
         + 'paid by every reader of every deck, for an engine only a BRANCHING state '
-        + 'chart uses. It belongs in dist/lattice-dagre.min.js, tagged by the host.');
+        + 'chart uses. It belongs in dist/lattice-dagre-min.js, tagged by the host.');
       assert.equal(sa.includes(marker), true,
         `the standalone engine is missing "${marker}" — a host tagging it would install `
         + 'nothing, and every branching machine would fall back to the numbered column');
