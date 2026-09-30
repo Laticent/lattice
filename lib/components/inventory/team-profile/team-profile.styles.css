@@ -30,12 +30,12 @@ section.team-profile > .cell-stage {
    * width below, so the tiling stays exact even when a reflow uses an asymmetric
    * gap (the same arrangement logo-wall uses). */
   --person-cols: 3;
-  --person-size: 7cqi;
+  --person-size: 6.25cqi;
   --person-gap: var(--sp-xl);
   /* Rows are the scarce axis — two rows of portrait + three text lines is what a
    * 16:9 stage holds — so the row gap runs tighter than the column gap rather
    * than one `gap` splitting the difference badly in both directions. */
-  --person-row-gap: var(--sp-lg);
+  --person-row-gap: var(--sp-md);
   --person-col-gap: var(--person-gap);
 }
 
@@ -245,7 +245,7 @@ section.team-profile .person-role {
 
 section.team-profile .person-note {
   padding-top: var(--sp-2xs);
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);
   font-weight: 400;
   line-height: var(--lh-base);
   color: var(--text-muted);
@@ -348,7 +348,7 @@ section.team-profile.lead:has(> .cell-coda)
 section.team-profile.lead:has(> .cell-coda)
   > .cell-stage > ul.team-roster > li.person:first-child .person-note {
   padding-top: var(--sp-xs);
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);
 }
 
 /* ── lead — one hero, the rest ranked beneath.
@@ -468,11 +468,11 @@ section.team-profile.bench > .cell-stage {
    * below it) grew every card, so the portrait gives the height back. */
   --person-size: 6.5cqi;
   --person-gap: var(--sp-lg);
-  --person-row-gap: var(--sp-sm);
+  --person-row-gap: var(--sp-xs);
 }
 
 section.team-profile.bench .person-note { display: none; }
-section.team-profile.bench .person-name { font-size: var(--fs-body-compact); }
+section.team-profile.bench .person-name { font-size: var(--fs-body); }
 section.team-profile.bench .person-role { font-size: var(--fs-meta); letter-spacing: 0.06em; }
 section.team-profile.bench > .cell-stage > ul.team-roster > li.person { gap: var(--sp-xs); }
 
@@ -712,7 +712,7 @@ section.team-profile.bio .person-name { font-size: var(--fs-body); }
 section.team-profile.bio .person-role { padding-top: 0; }
 section.team-profile.bio .person-note {
   padding-top: var(--sp-3xs);
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);
   color: var(--text-body);
   max-width: var(--measure-body);
 }

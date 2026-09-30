@@ -94,7 +94,7 @@ section.matrix-2x2 li > ol {
 }
 section.matrix-2x2 li > ul > li,
 section.matrix-2x2 li > ol > li {
-  font-size:var(--fs-body-compact);
+  font-size:var(--fs-body);
   font-weight:400;
   color:var(--text-body);
   line-height:var(--lh-base);

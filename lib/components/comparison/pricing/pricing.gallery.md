@@ -83,9 +83,9 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 <!-- _class: pricing four -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · pricing — Four tiers, six feature rows each — the ceiling on both axes." -->
+<!-- _footer: "Stress test · pricing — Four tiers, five feature rows each — the ceiling on both axes." -->
 
-## Four tiers at six feature rows each is the ceiling.
+## Four tiers at five feature rows each is the ceiling.
 
 - Starter `$0`
   - [x] Up to 3 seats
@@ -93,7 +93,6 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
   - [/] SSO
   - [/] Audit log
   - [/] Dedicated CSM
-  - [/] 99.9% uptime SLA
   - For evaluating, one team.
 - Growth `$49 / mo`
   - [x] Up to 25 seats
@@ -101,7 +100,6 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
   - [x] SSO
   - [-] Audit log
   - [/] Dedicated CSM
-  - [/] 99.9% uptime SLA
   - For scaling teams.
 - Business `$149 / mo` *Most popular*
   - [x] Up to 100 seats
@@ -109,7 +107,6 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
   - [x] SSO
   - [x] Audit log
   - [-] Dedicated CSM
-  - [/] 99.9% uptime SLA
   - For a department with its own budget.
 - Enterprise `Custom`
   - [x] Unlimited seats
@@ -117,7 +114,6 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
   - [x] SSO + SCIM
   - [x] Audit log
   - [x] Dedicated CSM
-  - [x] 99.9% uptime SLA
   - For procurement and compliance.
 
 

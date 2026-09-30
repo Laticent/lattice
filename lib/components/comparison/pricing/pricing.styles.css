@@ -40,6 +40,13 @@ section.pricing.two > .cell-stage > ul { --pricing-cols: 2; }
 section.pricing.two > .cell-stage > ul > li { width: calc(100% / 2 - var(--sp-md) / 2); }
 section.pricing.four > .cell-stage > ul { --pricing-cols: 4; }
 section.pricing.four > .cell-stage > ul > li { width: calc(100% / 4 - 3 * var(--sp-md) / 4); }
+/* FOUR TIERS, FOUR ACROSS, with or without `four`. The default row is three, so a bare
+ * four-tier slide wrapped its fourth tier to a second row and clipped it: `capacity.hard`
+ * says four, and nothing a bare slide could do reached it. Only the exact count moves, so a
+ * two- or three-tier slide is unchanged, and `two` still wins where the author set it. A
+ * portrait box stacks the tiers in one column (below), so it is left out. */
+section.pricing:not(.two):not([data-orientation="portrait"]):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ul:has(> li:nth-child(4):last-child) { --pricing-cols: 4; }
+section.pricing:not(.two):not([data-orientation="portrait"]):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ul:has(> li:nth-child(4):last-child) > li { width: calc(100% / 4 - 3 * var(--sp-md) / 4); }
 
 /* ── Tier card ── auto-bold name via the card's own weight (cards-grid
  * pattern); children revert below. */
@@ -108,7 +115,7 @@ section.pricing > .cell-stage > ul > li > ul {
   font-weight: 400;
 }
 section.pricing > .cell-stage > ul > li > ul > li {
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);
   font-weight: 400; color: var(--text-body);
   line-height: var(--lh-snug);
 }

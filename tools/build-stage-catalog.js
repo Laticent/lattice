@@ -456,7 +456,10 @@ function buildVenueLint() {
           out[k] = typeof v === 'object' ? rungs(v) : v;
         }
         for (const [shape, o] of Object.entries(g.ordered || {})) {
-          const own = Object.entries(rungs(o)).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(out[shape]?.[k]));
+          // The same 2 px as across the rungs: a budget measured 1542 bare and 1543 numbered is one
+          // stage, not a numbered register's own.
+          const same = (a, b) => (typeof a === 'number' && typeof b === 'number' ? Math.abs(a - b) <= 2 : JSON.stringify(a) === JSON.stringify(b));
+          const own = Object.entries(rungs(o)).filter(([k, v]) => !same(v, out[shape]?.[k]));
           (out.ordered ||= {})[shape] = Object.fromEntries(own);
         }
         regs[reg === 'bare' ? '' : reg] = out;

@@ -198,24 +198,24 @@ section.inventory.timeline > .cell-stage > ul {
   gap: var(--sp-lg); counter-reset: t var(--lat-split-offset, 0);
   /* THE DOT IS SIZED FROM THE NUMERAL IT HOLDS, not from the container — the same defect the
    * ledger's ordinal gutter had (see `--inv-ord-w` above). It was `3cqi` around a numeral set
-   * in `--fs-body-compact`, and those two units track different things: at `hd` the dot was
+   * in the item's type role (then `--fs-body-compact`, `--fs-body` since 2026-09-29), and those two units track different things: at `hd` the dot was
    * 34.5px around 17.9px type, but in a portrait box the preset scales type up while cqi
    * shrinks, and the dot rendered 29px around a 40px numeral, so the digit spilled out of
    * its own circle and read as a smudge. 1.9 is the landscape ratio, so `hd` moves by half
    * a pixel and every other preset now scales the circle with its numeral. The row's top
    * pad (1.5 dots) and the connector (from the dot's right edge, at its mid-height) derive
    * from the same value, so they cannot drift from it. */
-  --inv-dot: calc(var(--fs-body-compact) * 1.9);
+  --inv-dot: calc(var(--fs-body) * 1.9);
 }
 section.inventory.timeline > .cell-stage > ul > li {
   counter-increment: t; position: relative; list-style: none;
-  padding-top: calc(var(--inv-dot) * 1.5); font-size: var(--fs-body-compact); color: var(--text-body);
+  padding-top: calc(var(--inv-dot) * 1.5); font-size: var(--fs-body); color: var(--text-body);
 }
 section.inventory.timeline > .cell-stage > ul > li::before {
   content: counter(t); position: absolute; top: 0; left: 0; width: var(--inv-dot); height: var(--inv-dot);
   border-radius: 50%; background: var(--accent); color: var(--on-accent);
   display: grid; place-items: center; font-family: var(--font-label);
-  font-weight: 600; font-size: var(--fs-body-compact); z-index: 2;
+  font-weight: 600; font-size: var(--fs-body); z-index: 2;
 }
 section.inventory.timeline > .cell-stage > ul > li::after {
   content: ''; position: absolute; top: calc(var(--inv-dot) / 2); left: var(--inv-dot); right: calc(var(--sp-lg) * -1);

@@ -244,64 +244,64 @@
     "at": "wide",
     "byWords": {
       "6": {
-        "laptop": 6,
-        "huddle": 5,
+        "laptop": 7,
+        "huddle": 6,
         "conference": 5,
-        "hall": 4
+        "hall": 5
       },
       "10": {
-        "laptop": 6,
-        "huddle": 5,
-        "conference": 3,
-        "hall": 2
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 5,
+        "hall": 5
       },
       "14": {
-        "laptop": 3,
-        "huddle": 3,
+        "laptop": 7,
+        "huddle": 6,
         "conference": 3,
-        "hall": 2
+        "hall": 3
       }
     },
     "variants": {
       "takeaway": {
         "byWords": {
           "6": {
-            "laptop": 9,
-            "huddle": 9,
-            "conference": 8,
-            "hall": 7
+            "laptop": 14,
+            "huddle": 12,
+            "conference": 10,
+            "hall": 8
           },
           "10": {
-            "laptop": 9,
-            "huddle": 9,
-            "conference": 8,
-            "hall": 3
+            "laptop": 14,
+            "huddle": 12,
+            "conference": 10,
+            "hall": 8
           },
           "14": {
-            "laptop": 5,
-            "huddle": 4,
-            "conference": 4,
-            "hall": 3
+            "laptop": 14,
+            "huddle": 12,
+            "conference": 5,
+            "hall": 4
           }
         },
         "insight": {
           "byWords": {
             "6": {
-              "laptop": 8,
-              "huddle": 7,
-              "conference": 5,
-              "hall": 4
+              "laptop": 10,
+              "huddle": 9,
+              "conference": 7,
+              "hall": 5
             },
             "10": {
-              "laptop": 8,
-              "huddle": 7,
-              "conference": 5,
-              "hall": 2
+              "laptop": 10,
+              "huddle": 9,
+              "conference": 7,
+              "hall": 5
             },
             "14": {
-              "laptop": 4,
-              "huddle": 3,
-              "conference": 2,
+              "laptop": 10,
+              "huddle": 9,
+              "conference": 3,
               "hall": 2
             }
           }
@@ -311,8 +311,8 @@
     "insight": {
       "byWords": {
         "14": {
-          "laptop": 3,
-          "huddle": 2,
+          "laptop": 5,
+          "huddle": 4,
           "conference": 2,
           "hall": 2
         }
@@ -328,9 +328,9 @@
         },
         "heading": {
           "laptop": [66.1, 135],
-          "huddle": [66.1, 135],
-          "conference": [66.1, 135],
-          "hall": [66.1, 135]
+          "huddle": [57.5, 155],
+          "conference": [50.9, 176],
+          "hall": [44.1, 203]
         },
         "callout": {
           "laptop": [119.5, 97],
@@ -342,7 +342,7 @@
           "laptop": 11,
           "huddle": 11,
           "conference": 11,
-          "hall": 10
+          "hall": 11
         },
         "calloutAt": {
           "laptop": 211,
@@ -354,21 +354,21 @@
       "bare": {
         "flat": {
           "title": {
-            "laptop": [90.9, 127],
-            "huddle": [79, 146],
-            "conference": [70, 165],
-            "hall": [60.7, 190]
+            "laptop": [119.4, 97],
+            "huddle": [103.6, 111],
+            "conference": [91.5, 126],
+            "hall": [79.4, 145]
           },
           "budget": {
-            "laptop": 1519,
-            "huddle": 1519,
-            "conference": 1520,
-            "hall": 1519
+            "laptop": 1520,
+            "huddle": 1520,
+            "conference": 1518,
+            "hall": 1520
           },
           "row": {
             "laptop": 99,
             "huddle": 99,
-            "conference": 99,
+            "conference": 98,
             "hall": 99
           }
         },
@@ -376,22 +376,22 @@
         "ordered": {
           "flat": {
             "title": {
-              "laptop": [85, 127],
-              "huddle": [72.7, 146],
-              "conference": [64.3, 165],
-              "hall": [55.4, 190]
+              "laptop": [112.8, 97],
+              "huddle": [97.4, 111],
+              "conference": [85.7, 126],
+              "hall": [73.8, 145]
             },
             "budget": {
-              "laptop": 1519,
+              "laptop": 1520,
               "huddle": 1520,
-              "conference": 1519,
+              "conference": 1518,
               "hall": 1519
             },
             "row": {
               "laptop": 99,
               "huddle": 99,
               "conference": 98,
-              "hall": 99
+              "hall": 98
             }
           }
         }
@@ -399,16 +399,16 @@
       "takeaway": {
         "flat": {
           "title": {
-            "laptop": [93.7, 127],
-            "huddle": [80.2, 146],
-            "conference": [71.6, 165],
-            "hall": [62.4, 190]
+            "laptop": [122.5, 97],
+            "huddle": [106.4, 111],
+            "conference": [93.7, 126],
+            "hall": [80.8, 145]
           },
           "budget": {
-            "laptop": 1471,
-            "huddle": 1471,
-            "conference": 1471,
-            "hall": 1471
+            "laptop": 1472,
+            "huddle": 1472,
+            "conference": 1470,
+            "hall": 1470
           },
           "row": {
             "laptop": 0,
@@ -420,10 +420,10 @@
         "cols": 1,
         "nested": {
           "title": {
-            "laptop": [89.9, 127],
-            "huddle": [78.3, 146],
-            "conference": [68.8, 165],
-            "hall": [59.1, 190]
+            "laptop": [118.2, 97],
+            "huddle": [101.6, 111],
+            "conference": [89.9, 126],
+            "hall": [78.8, 145]
           },
           "body": {
             "laptop": [123, 97],
@@ -432,10 +432,10 @@
             "hall": [82, 145]
           },
           "budget": {
-            "laptop": 1470,
+            "laptop": 1471,
             "huddle": 1471,
-            "conference": 1471,
-            "hall": 1472
+            "conference": 1470,
+            "hall": 1470
           },
           "row": {
             "laptop": 12,
@@ -448,16 +448,16 @@
       "takeaway numbered": {
         "flat": {
           "title": {
-            "laptop": [87.5, 127],
-            "huddle": [75.6, 146],
-            "conference": [66.3, 165],
-            "hall": [56.9, 190]
+            "laptop": [114.1, 97],
+            "huddle": [99.5, 111],
+            "conference": [87.5, 126],
+            "hall": [75.6, 145]
           },
           "budget": {
-            "laptop": 1471,
-            "huddle": 1471,
+            "laptop": 1472,
+            "huddle": 1472,
             "conference": 1470,
-            "hall": 1471
+            "hall": 1470
           },
           "row": {
             "laptop": 0,
@@ -469,21 +469,21 @@
         "cols": 1,
         "nested": {
           "title": {
-            "laptop": [84.1, 127],
-            "huddle": [72.6, 146],
-            "conference": [64.2, 165],
-            "hall": [54.2, 190]
+            "laptop": [112, 97],
+            "huddle": [95.8, 111],
+            "conference": [84.1, 126],
+            "hall": [72.6, 145]
           },
           "body": {
-            "laptop": [115.1, 97],
-            "huddle": [99.4, 111],
-            "conference": [87.3, 126],
-            "hall": [75, 145]
+            "laptop": [116.4, 97],
+            "huddle": [100.7, 111],
+            "conference": [88.6, 126],
+            "hall": [76.2, 145]
           },
           "budget": {
-            "laptop": 1470,
-            "huddle": 1471,
-            "conference": 1471,
+            "laptop": 1471,
+            "huddle": 1470,
+            "conference": 1470,
             "hall": 1470
           },
           "row": {

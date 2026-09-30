@@ -54,7 +54,8 @@
  * is held at HALF the component's `density.soft` (a pane's content is written tighter). The
  * number it bounds is the manifest's `pane.budget.<side|stack>.hard`.
  *
- * THE SIGNAL. A step fails when it clips (the OVERFLOW line) OR stops being legible: a figure's
+ * THE SIGNAL. A step fails when it clips (the OVERFLOW line, or CONTENT CLIPPED for a box that
+ * loses content inside the frame, as a kanban lane does) OR stops being legible: a figure's
  * text under the type floor (TYPE FLOOR) or a chart label the kernel declined to paint (CHART
  * LABELS DROPPED). A viewBox chart never clips as it fills — it shrinks — so the legibility lines
  * are the only way its ceiling shows; the report names which signal tripped.
@@ -213,7 +214,7 @@ function measure(comp, family, wordsPer, share) {
           + `<!-- pane: ${comp} -->\n\n${body(n)}\n\n<!-- pane: content -->\n\nOne short line.\n` }
       : { label: `${n} element${n === 1 ? '' : 's'}`, body: body(n) + callout }),
   });
-  const { overflowed, underFloor, labelsDropped, overprint } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}`);
+  const { overflowed, underFloor, labelsDropped, overprint } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}`, { countBox: true });
   let lastFit = null;
   let firstOver = null;
   let signal = null;

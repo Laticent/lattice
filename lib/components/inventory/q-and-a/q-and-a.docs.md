@@ -14,7 +14,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a one-line question and a short answer.
 
-**By venue** (`venue:`, ~12 words each) it holds laptop ~4 · huddle ~3 · conference ~3 · hall ~3 items. At ~6 words each: 4 · 3 · 3 · 3. With `compact` (~12 words): 5 · 4 · 4 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~12 words each) it holds laptop ~4 · huddle ~4 · conference ~3 · hall ~3 items. At ~6 words each: 4 · 4 · 3 · 3. With `compact` (~12 words): 5 · 5 · 4 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

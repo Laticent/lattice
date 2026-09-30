@@ -2751,6 +2751,116 @@ function checkMarginDiscipline(errors) {
   }
 }
 
+// ─── One reading size (typography.md §7, "One reading size") ──────────────────
+// THE RULE: every component's reading text — rows, card bodies, table cells, captions —
+// reads at `--fs-body`, and the venue scales that one role. Record:
+// engineering/decisions/2026-09-29-one-reading-size-per-venue.md.
+//
+// WHY A GATE. The audit that proves it (`npm run audit:reading-size`) renders every
+// component at four venues, takes minutes and is on demand. Before the one-size change,
+// components picked `--fs-message` for list rows and `--fs-body-compact` for tables, and
+// nothing noticed three reading sizes on one slide. A new rule reaching for either role
+// is how that comes back, so a static count catches it at `build:check`.
+//
+// WHAT IS COUNTED: every `var(--fs-message` and `var(--fs-body-compact` in engine CSS
+// under lib/ (a `font-size`, a `font` shorthand or a custom property aliasing the role),
+// comments stripped, `*.tokens.css` excluded (token files declare the roles; a component
+// tokens file aliasing one, `--x: var(--fs-message)`, would slip past, and none does today).
+// Those two roles are legitimate for display
+// text, lead lines, chart keys, labels, code and support lines (the note's §4 exceptions
+// E1–E7), so each file's count is sanctioned WITH that reason. The gate fails both ways:
+// a count above its sanction (a new use to justify) and a count below it (a stale entry).
+const SANCTIONED_READING_ROLE = [
+  { file: 'lib/base/base.modifiers.css', role: 'message', count: 1, why: 'the eyebrow/subtitle line under a heading (label chrome, not reading text)' },
+  { file: 'lib/base/base.modifiers.css', role: 'body-compact', count: 4, why: 'the note a split page carries under its cards (E7 support line)' },
+  { file: 'lib/forms/cell/pane/pane.css', role: 'body-compact', count: 1, why: 'the subtitle line under a pane title (label chrome, like a slide subtitle)' },
+  { file: 'lib/components/anchor/closing/closing.styles.css', role: 'message', count: 2, why: 'E1 display component' },
+  { file: 'lib/components/anchor/divider/divider.styles.css', role: 'message', count: 1, why: 'E1 display component' },
+  { file: 'lib/components/anchor/title/title.styles.css', role: 'message', count: 1, why: 'E1 display component' },
+  { file: 'lib/components/anchor/topic/topic.styles.css', role: 'message', count: 2, why: 'E1 display component (lead line; `topic fact` headline)' },
+  { file: 'lib/components/anchor/topic/topic.styles.css', role: 'body-compact', count: 1, why: 'E1 display component: a tile track past six tiles steps its labels down' },
+  { file: 'lib/components/chart/flowchart/flowchart.styles.css', role: 'body-compact', count: 1, why: 'E4 chart text' },
+  { file: 'lib/components/chart/journey/journey.styles.css', role: 'body-compact', count: 3, why: 'E4 chart keys (legends)' },
+  { file: 'lib/components/chart/matrix-grid/matrix-grid.styles.css', role: 'body-compact', count: 3, why: 'E4 chart text (grid cells are a chart, not a table)' },
+  { file: 'lib/components/chart/roadmap/roadmap.styles.css', role: 'body-compact', count: 1, why: 'E4 chart key (the legend)' },
+  { file: 'lib/components/chart/state-chart/state-chart.styles.css', role: 'body-compact', count: 1, why: 'E4 chart text' },
+  { file: 'lib/components/chart/timeline-list/timeline-list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a milestone\'s description under its --fs-body title)' },
+  { file: 'lib/components/code/code/code.styles.css', role: 'body-compact', count: 1, why: 'code keeps --fs-body-compact: a code line cannot wrap (owner, 2026-09-29)' },
+  { file: 'lib/components/code/compare-code/compare-code.styles.css', role: 'body-compact', count: 2, why: 'code keeps --fs-body-compact (owner, 2026-09-29)' },
+  { file: 'lib/components/comparison/pricing/pricing.styles.css', role: 'message', count: 1, why: 'the tier name, a card title (features read at --fs-body)' },
+  { file: 'lib/components/comparison/table/table.styles.css', role: 'body-compact', count: 1, why: 'the field label in a table split into cards (label chrome)' },
+  { file: 'lib/components/connect/_qr-card/qr-general.css', role: 'body-compact', count: 1, why: 'E6 fixed card (a QR caption)' },
+  { file: 'lib/components/connect/contact/contact.styles.css', role: 'body-compact', count: 1, why: 'E6 fixed card' },
+  { file: 'lib/components/imagery/image/image.styles.css', role: 'message', count: 1, why: 'E2 display register (`image statement`)' },
+  { file: 'lib/components/imagery/scene/scene.styles.css', role: 'message', count: 2, why: 'E3 one lead caption; the live-preview play control' },
+  { file: 'lib/components/imagery/video/video.styles.css', role: 'message', count: 1, why: 'E3 one lead line (`video companion`)' },
+  { file: 'lib/components/inventory/agenda/agenda.styles.css', role: 'body-compact', count: 1, why: 'the time chip beside an agenda row (label chrome)' },
+  { file: 'lib/components/inventory/inventory/inventory.styles.css', role: 'message', count: 5, why: 'E3 one lead line: the callout band and pull line of each variant' },
+  { file: 'lib/components/inventory/list-tabular/list-tabular.styles.css', role: 'body-compact', count: 1, why: 'the `metric` pill (label chrome)' },
+  { file: 'lib/components/inventory/list/list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a row\'s detail line)' },
+  { file: 'lib/components/inventory/q-and-a/q-and-a.styles.css', role: 'message', count: 1, why: 'E2 display register (`q-and-a solo`)' },
+  { file: 'lib/components/inventory/team-profile/team-profile.styles.css', role: 'body-compact', count: 1, why: 'the lead person\'s role line (E7 support line)' },
+  { file: 'lib/components/legal/obligation-matrix/obligation-matrix.styles.css', role: 'body-compact', count: 1, why: 'E5 label board' },
+  { file: 'lib/components/legal/policy-recommendation/policy-recommendation.styles.css', role: 'message', count: 2, why: 'E3 one lead line: the impact line and the quote' },
+  { file: 'lib/components/statement/big-number/big-number.styles.css', role: 'message', count: 1, why: 'E1 display component' },
+  { file: 'lib/components/statement/content/content.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (sub-bullets)' },
+  { file: 'lib/components/statement/premise/premise.styles.css', role: 'message', count: 1, why: 'E3 one lead line (the premise lead)' },
+  { file: 'lib/components/statement/quote/quote.styles.css', role: 'message', count: 1, why: 'E1 display component' },
+  { file: 'lib/components/statement/split-panel/split-panel.styles.css', role: 'message', count: 3, why: 'E3 one lead line: the claim, its pull-quote cite and proof lead' },
+  { file: 'lib/components/statement/split-panel/split-panel.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (`proof` / `capstone` supporting lines)' },
+];
+const READING_ROLES = ['message', 'body-compact'];
+
+/** `{ message, 'body-compact' }` use counts in one stylesheet, comments stripped. */
+function readingRoleCountsIn(css) {
+  const bare = stripComments(css);
+  const out = {};
+  for (const r of READING_ROLES) {
+    const n = (bare.match(new RegExp(`var\\(\\s*--fs-${r}(?![\\w-])`, 'g')) || []).length;
+    if (n) out[r] = n;
+  }
+  return out;
+}
+
+/** Errors for `counts` (`[{ file, role, n }]`) judged against `sanctions`. */
+function readingRoleFindings(counts, sanctions) {
+  const errors = [];
+  const key = (f, r) => `${f}\u0000${r}`;
+  const have = new Map(counts.map((c) => [key(c.file, c.role), c.n]));
+  const allowed = new Map(sanctions.map((s) => [key(s.file, s.role), s]));
+  for (const c of counts) {
+    const s = allowed.get(key(c.file, c.role));
+    if (!s || c.n > s.count) {
+      errors.push(
+        `${c.file} sets text in \`--fs-${c.role}\` ${c.n} time(s), ${s ? `${s.count} sanctioned` : 'none sanctioned'}. ` +
+        'Reading text reads at `--fs-body`, the one reading size (typography.md §7). If this is display text, a ' +
+        'lead line, a chart key, a label, code or a support line, add or raise its SANCTIONED_READING_ROLE entry ' +
+        'in tools/check-ownership.js with the exception it falls under (the decision note\'s §4).',
+      );
+    }
+  }
+  for (const s of sanctions) {
+    const n = have.get(key(s.file, s.role)) || 0;
+    if (n < s.count) {
+      errors.push(
+        `stale reading-role sanction in tools/check-ownership.js — ${s.file} uses \`--fs-${s.role}\` ${n} time(s), ` +
+        `${s.count} sanctioned. Lower or remove the SANCTIONED_READING_ROLE entry so the allowlist stays honest.`,
+      );
+    }
+  }
+  return errors;
+}
+
+function checkReadingRole(errors) {
+  const counts = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    if (file.endsWith('.tokens.css')) continue;
+    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    for (const [role, n] of Object.entries(readingRoleCountsIn(fs.readFileSync(file, 'utf8')))) counts.push({ file: rel, role, n });
+  }
+  errors.push(...readingRoleFindings(counts, SANCTIONED_READING_ROLE));
+}
+
 // ─── One type size per deck (typography.md §7, "One size across modifiers") ──
 // THE RULE: a type role's size is set by the deck's venue, and no per-slide class changes
 // it. Spacing, chrome and color may change per slide; the size of `--fs-body`, `--fs-h2`
@@ -2907,7 +3017,7 @@ function subjectClasses(selector) {
   return [...compound.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
 }
 
-const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift)$/;
+const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift|venue-compact-lift)$/;
 const RUNG_RULE = /^section\.(venue|scale)-[a-z0-9]+$/;
 const isPseudoElement = (sel) => /::?(before|after|marker|placeholder)\b/.test(sel);
 
@@ -12926,6 +13036,7 @@ function run() {
   checkTypographyTokens(errors);
   checkLabelVoiceFont(errors);
   checkMarginDiscipline(errors);
+  checkReadingRole(errors);
   checkTypeSizeModifiers(errors);
   checkStageInsetOwnership(errors);
   checkBackgroundLayerVars(errors);
@@ -13027,6 +13138,10 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  checkReadingRole,
+  readingRoleCountsIn,
+  readingRoleFindings,
+  SANCTIONED_READING_ROLE,
   checkTypeSizeModifiers,
   typeSizeOffensesIn,
   applyTypeSizeSanctions,

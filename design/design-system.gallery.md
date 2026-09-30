@@ -69,7 +69,7 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- _class: list-tabular compact -->
 
 ## Pick by intent. Then by data shape.
 

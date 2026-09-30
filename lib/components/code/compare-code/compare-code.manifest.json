@@ -134,16 +134,16 @@
     "at": "wide",
     "lines": {
       "bare": {
-        "laptop": 20,
-        "huddle": 17,
-        "conference": 13,
-        "hall": 10
+        "laptop": 17,
+        "huddle": 14,
+        "conference": 11,
+        "hall": 9
       },
       "eyebrow": {
-        "laptop": 19,
-        "huddle": 16,
-        "conference": 12,
-        "hall": 9
+        "laptop": 16,
+        "huddle": 13,
+        "conference": 9,
+        "hall": 8
       }
     }
   },

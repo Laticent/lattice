@@ -174,16 +174,16 @@
     "at": "wide",
     "byWords": {
       "6": {
-        "laptop": 11,
-        "huddle": 10,
-        "conference": 9,
-        "hall": 7
+        "laptop": 10,
+        "huddle": 8,
+        "conference": 7,
+        "hall": 6
       },
       "12": {
-        "laptop": 11,
-        "huddle": 10,
-        "conference": 9,
-        "hall": 7
+        "laptop": 10,
+        "huddle": 8,
+        "conference": 7,
+        "hall": 3
       }
     }
   },
