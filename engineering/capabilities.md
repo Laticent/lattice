@@ -513,6 +513,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/measure-pane-fit.js` | measure-pane-fit — which SHARES a component reads at in a pane, side by side and stacked, |
 | `tools/measure-token-narration.mjs` | Measure which display tokens reach the voice UNCHANGED. |
 | `tools/measure-word-cloud-drop.mjs` | measure-word-cloud-drop.mjs — which words a word cloud LISTS and does not DRAW. |
+| `tools/migrate-state-chart-v1.js` | Migrate state-chart slides from the v1 grammar to v2 (the flowchart grammar). |
 | `tools/mutate-stage-window.mjs` | mutate-stage-window — break what each Stage-window cell NAMES, and watch it go red. |
 | `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |
 | `tools/pdf-writer-parity.mjs` | PDF writer parity — the shared writer (lib/core/pdf-compose) against the screen, with a thin-line sweep. |

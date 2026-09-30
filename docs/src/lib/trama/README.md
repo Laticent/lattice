@@ -50,6 +50,13 @@ are cached per kernel.
   wrapped layout wins only when every simpler one sets the type more than 12% smaller; a graph that branches keeps dagre's layout
   unless the grid beats it by that margin. The grid needs **no dagre**: pass `null` and a
   chain still lays out. `geo.lines` says how many lines it chose. Groups are never gridded.
+  It is cheap: every candidate is first sized from its boxes alone (a ceiling on its type,
+  since lines only add size), dagre's layout is routed only when its ceiling could still
+  win, and the pick is often proven from the others' ceilings after routing one grid. A
+  clean chain costs one routing pass, whether or not dagre is loaded.
+  A graph that branches keeps dagre's layout when it is clean and at least 0.8 scale: a
+  legible fan-out keeps its shape, and the grid only rescues a layout dagre has shrunk.
+  Both graph charts ask for `wrap`.
 - **`K.route(model, sizes, positions, opts)`** routes lines between boxes you have already
   placed (each shape's centre), with the same solver and never-rules, for a chart whose
   positions an axis fixes. No dagre. The positions set the boxes' places RELATIVE to each
@@ -58,7 +65,10 @@ are cached per kernel.
   self-loops gets room for them and can shift a few units. Positions must be finite
   numbers.
 - Shape kinds **`start`** and **`end`** (a filled dot; a ring around a dot) are ordinary
-  small boxes to the kernel; the pipeline's `outline` draws them.
+  small boxes to the kernel; the pipeline's `outline` draws them. On the grid they hug the
+  shape they lead into or out of.
+- **`K.isChain(model)`** says whether a graph lays out on the grid with no dagre: no groups,
+  two or more shapes, no two shapes on one rank. A host can ask it before loading dagre.
 
 ## The pipeline and adapters
 
@@ -76,13 +86,20 @@ function returning:
 | `paint(model, measured, geo, ctx)` | the SVG's painted children, as markup |
 
 The context carries the unit scale and the helpers an adapter paints with: `rectL`,
-`textLines`, `outline`, `grow`, `toOutline`, `cut`, `rounded`, `head`, `r1`, `esc`.
+`textLines`, `outline`, `grow`, `toOutline`, `cut`, `rounded`, `head`, `r1`, `esc`, and two
+whole painters both charts use: `lines(geo, edges, kindOf, { cls, radius, labelFont })` (every
+routed line, ends on the outlines, cut under labels and titles, with heads and labels) and
+`groups(list, geo, titleFont, cls)` (the group boxes and their titles).
+
+Without dagre the pipeline still draws a chart that wraps, on the grid; one that needs dagre
+keeps its tiles, marked `data-<attr>-nolayout`.
 
 **Serialization is the contract.** The kernel, the pipeline and every adapter may each be
 shipped as `fn.toString()` source (in a page's bootstrap script, or to build the worker),
 so each one closes over nothing: they reach one another only as arguments. The
 flowchart's adapter, `lib/components/chart/flowchart/flowchart.layout.js`, is the worked
-example.
+example; the state chart's, `lib/components/chart/state-chart/state-chart.layout.js`, adds
+markers to the kernel's input and asks for the grid (`wrap`).
 
 ## When it draws
 
@@ -111,5 +128,32 @@ When the host document's `<html>` carries `data-lattice-live-layout` (a preview 
 types into), a redraw of a chart already drawn at that position runs in a worker built
 from the kernel's source plus the page's `lattice-dagre` script. The figure keeps its last
 drawing, marked `data-<attr>-pending`, until the answer arrives, and only the newest edit
-is painted. The first draw, and every draw without the flag, stays synchronous, so a page
+is painted. Each round of the fit paints as it lands (a chart can take several), so a key
+shows after one layout, and the last round's drawing is the one that stays. The first draw, and every draw without the flag, stays synchronous, so a page
 being captured to PDF never captures a drawing in flight.
+
+**Sticky wrap.** A chart that asks for `wrap` remembers the wrap its last full search
+chose (the line count and direction), per chart position like the fit. A live redraw lays
+out that one grid (`wrap: false`, `grid`, `dir`, `grow: false`), which gives the same
+drawing the search would when the search keeps it, without the bounds passes, dagre's
+ceiling or a second routing. So a chart's rows hold while an author types, unless an edit
+leaves the pinned grid unable to hold the shapes (then that key searches), or the author
+changes the chart's direction (a pin holds only for the direction it was chosen under).
+Once the author pauses (300 ms after a live redraw's last round lands), the full search runs once and the chart
+takes its choice, so the drawing at rest is the one every export makes; when the content
+now wants other rows, that is the one reflow, at the pause. A pinned grid that can no
+longer hold the shapes falls back to the search. A chart whose search picked dagre's
+layout pins that (`lines: 0` and its direction), and a live redraw lays out dagre in that
+direction with `wrap: false`; half-typed text often parses as such a chart, and a chart
+with groups always is one. The pause search runs in a second worker, so a key typed while
+it runs never queues behind it (a worker cannot cancel a job already running, and a
+search a newer key made stale is dropped by its token).
+
+**The drawing at rest is a function of the text and the stage.** That search is the SETTLE:
+it fits from a cold start (k 1), as a paste, a reload or an export does, and paints only its
+last round, so its early rounds never flash a chart at the wrong type floor. Before it, a
+live redraw started its fit from the scale it remembered, and a fit started elsewhere could
+settle on another fixed point: the same text drew four ways depending on how it was typed.
+Now paste, reload, key by key and bursts at 50, 120 and 600 ms a key give one drawing on
+every chart measured, and the CLI export draws the same viewBox. A different chart at the
+same position (the next slide's) fits from a cold start too.

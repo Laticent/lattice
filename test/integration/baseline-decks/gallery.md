@@ -1422,17 +1422,17 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ## How a call moves through the log.
 
-1. Logged `start`
-   - `score => 2`
-2. Scored `on-track`
-   - `review => 3`
-3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
-4. Decided `decision`
-   - `calibrate => 5`
-5. Calibrated `end`
+- Logged `start`
+  - -score-> Scored
+- Scored `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Decided
+  - -reject-> Logged
+  - -revise-> In Review
+- Decided `decision`
+  - -calibrate-> Calibrated
+- Calibrated `end`
 
 *Rejected entries return to intake; revisions stay in review.*
 

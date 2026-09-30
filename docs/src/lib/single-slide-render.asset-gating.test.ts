@@ -49,13 +49,13 @@ beforeEach(() => {
 	document.body.innerHTML = '';
 });
 
-// A DRAWN state chart, as the transform emits it: the `data-sc-transitions` attribute is
+// A DRAWN state chart, as the transform emits it: the `data-sc-model` attribute is
 // what the dagre gate keys on, and only the DEFAULT variant carries it (the `inline`
 // variant is chips and needs no layout engine). Trimmed to the attribute and one node —
 // the gate is a string test, so a full figure would assert nothing extra.
 const STATE_CHART_HTML =
 	'<section class="lattice"><div class="state-chart-figure" data-variant="default" '
-	+ 'data-sc-dir="tb" data-states="2" data-transitions="1" data-sc-transitions="[]">'
+	+ 'data-sc-dir="tb" data-states="2" data-transitions="1" data-sc-model="{}">'
 	+ '<ol class="state-nodes"><li class="state-node" data-index="1">A</li></ol></div></section>';
 
 async function srcdocFor(opts: Record<string, unknown>, html?: string): Promise<string> {

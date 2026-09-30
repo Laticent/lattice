@@ -44,8 +44,8 @@ const FIXTURES = {
 	narrateQuadrant: ['quadrant', '`Effort 0–10`\n\n- Group\n  - Item `5, 85`'],
 	// No `end` marker on the last state ON PURPOSE: with both start AND end explicit the
 	// inference narrator correctly returns null, and the cell would certify nothing.
-	narrateStateChartInference: ['state-chart', '1. Draft `start`\n   - `submit => 2`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review\n   - `approve => 4`\n4. Approved `done`'],
-	narrateStateChart: ['state-chart', '1. Draft `start`\n   - `submit => 2`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review\n   - `approve => 4`\n4. Approved `done`'],
+	narrateStateChartInference: ['state-chart', '- Draft `start`\n  - -submit-> Submitted\n- Submitted `on-track`\n  - -review-> In Review\n- In Review\n  - -approve-> Approved\n- Approved `done`'],
+	narrateStateChart: ['state-chart', '- Draft `start`\n  - -submit-> Submitted\n- Submitted `on-track`\n  - -review-> In Review\n- In Review\n  - -approve-> Approved\n- Approved `done`'],
 	narrateSequence: ['diagram', `${F}mermaid\nsequenceDiagram\n  Alice->>Bob: Hello\n  Bob-->>Alice: Hi\n${F}`],
 	narratePie: ['diagram', `${F}mermaid\npie title Share\n  "A" : 60\n  "B" : 40\n${F}`],
 	narrateClass: ['diagram', `${F}mermaid\nclassDiagram\n  class Order\n  Order : +id\n  Order --> Item\n${F}`],

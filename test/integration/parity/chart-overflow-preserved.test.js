@@ -105,27 +105,24 @@ const FITTING_STATE = `<!-- _class: state-chart -->
 
 ## How a document moves to archive.
 
-1. Draft
-   - \`submit => 2\`
-2. Submitted
-   - \`review => 3\`
-3. Approved
-   - \`archive => 4\`
-4. Archived
+- Draft
+  - -submit-> Submitted
+- Submitted
+  - -review-> Approved
+- Approved
+  - -archive-> Archived
+- Archived
 
 _Source: workflow engine_
 `;
 
-// A DENSE machine: 14 ascending-numbered states with long labels + a full-span
-// back-edge. This is the "overstuffed author stress test" AND a regression guard
-// for the two-digit-marker split: states 10–14 use `10.`–`14.` markers whose
-// wider content column ejects the 3-space nested transitions, so markdown-it
-// splits the list — extractStateList must reassemble it (all 14 states rendered,
-// not lost as siblings) and the self-scale must still fit it without overflow.
-// See 2026-07-16-state-chart-self-scale.md §Follow-ups (the "ceiling" is retired).
+// A DENSE machine: 14 states with long labels + a full-span back-edge. This is the
+// "overstuffed author stress test": all 14 states render and the self-scale still fits it
+// without overflow. (v1 also guarded a two-digit numbered list here; in v2 a numbered list
+// past 9 with 3-space sub-items is named by lint, `flowchart-list-split`.)
 const OVER_STATES = Array.from(
   { length: 14 },
-  (_v, i) => `${i + 1}. State ${i + 1} with a reasonably long descriptive name\n   - \`=> ${i < 13 ? i + 2 : 1}\``,
+  (_v, i) => `- State ${i + 1} with a reasonably long descriptive name\n  - -> State ${i < 13 ? i + 2 : 1} with a reasonably long descriptive name`,
 ).join('\n');
 const OVER_TALL_STATE = `<!-- _class: state-chart -->
 
@@ -136,7 +133,7 @@ ${OVER_STATES}
 
 // The INLINE variant of the same self-scaling chart. It renders chips instead of an
 // SVG overlay, and for the life of the component that meant it carried no
-// `data-sc-transitions` — so draw() never visited it and it was the ONE presentation
+// model — so the layout pass never visited it and it was the ONE presentation
 // with no fit at all. Its rows sat in flow at natural height inside a figure that
 // flex-fills a fixed stage, and `.chart-body`'s clip sheared the tail: on
 // examples/state-chart.md p6, 434px of rows in a 358px figure lost the sixth state's
@@ -148,7 +145,7 @@ ${OVER_STATES}
 // `over`-only assertion passes against the broken build.
 const OVER_INLINE_STATES = Array.from(
   { length: 7 },
-  (_v, i) => `${i + 1}. Inline state ${i + 1} with a reasonably long name\n   - \`advance => ${i < 6 ? i + 2 : 1}\``,
+  (_v, i) => `- Inline state ${i + 1} with a reasonably long name\n  - -advance-> Inline state ${i < 6 ? i + 2 : 1} with a reasonably long name`,
 ).join('\n');
 const OVER_TALL_INLINE = `<!-- _class: state-chart inline -->
 
@@ -165,7 +162,7 @@ ${OVER_INLINE_STATES}
 // against a 7.2px floor, and not one channel said a word.
 const DENSE_INLINE_STATES = Array.from(
   { length: 24 },
-  (_v, i) => `${i + 1}. State ${i + 1} with a reasonably long descriptive name\n   - \`advance => ${i < 23 ? i + 2 : 1}\``,
+  (_v, i) => `- State ${i + 1} with a reasonably long descriptive name\n  - -advance-> State ${i < 23 ? i + 2 : 1} with a reasonably long descriptive name`,
 ).join('\n');
 const ILLEGIBLE_INLINE = `<!-- _class: state-chart inline -->
 
@@ -254,15 +251,7 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
   test('an overstuffed state-chart does NOT overflow — it self-scales to fit (cramped, not clipped)', async () => {
     const v = await probeFirstSection(OVER_TALL_STATE, 'chart-overflow-over-states');
     assert.equal(v.hasStage, true);
-    // Reassembly guard (real pipeline): the 14-state machine uses two-digit markers
-    // that split the markdown list; extractStateList must recover every state, so
-    // all 14 nodes render — none lost as leaked siblings.
-    assert.equal(
-      v.stateNodes,
-      14,
-      'REGRESSION: states past 9 were lost to the two-digit-marker list split — extractStateList ' +
-        'must reassemble the leaked <ol start>/orphan <ul> fragments (state-chart.transform.js §extractStateList).',
-    );
+    assert.equal(v.stateNodes, 14, 'every one of the 14 states must render');
     assert.equal(
       v.over,
       false,
@@ -285,9 +274,9 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
       v.bodyHidden,
       0,
       `REGRESSION: .chart-body is hiding ${v.bodyHidden}px of an inline state-chart. The inline variant renders ` +
-        'chips rather than an SVG overlay, so it carries no `data-sc-transitions` and draw() does not visit it — ' +
-        'it is fitted by the separate fitOnly() pass, which keys on the `.state-chart-scale` box instead. If this ' +
-        'trips, either renderInline stopped emitting that box or drawAll() stopped running the fit-only pass, and ' +
+        'chips rather than an SVG overlay, so it carries no `data-sc-model` and the layout pass does not visit it — ' +
+        'it is fitted by fitInlineStateCharts (state-chart.layout.js), which keys on the `.state-chart-scale` box. If ' +
+        'this trips, either renderInline stopped emitting that box or the inline fit stopped running, and ' +
         'the rows are being sheared away inside a box that clips (#1360).',
     );
     assert.equal(

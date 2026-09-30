@@ -4,8 +4,8 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 3,
-    "rmePct": 2.03
+    "ms": 2.59,
+    "rmePct": 1.07
   },
   "blessedOn": {
     "node": "v22",
@@ -16,31 +16,31 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 23.39,
-      "ms": 70.2,
-      "slidesPerSec": 826,
-      "rmePct": 4.34
+      "index": 28.18,
+      "ms": 72.94,
+      "slidesPerSec": 795,
+      "rmePct": 4.15
     },
     "charts": {
       "slides": 24,
-      "index": 26.2,
-      "ms": 96.33,
-      "slidesPerSec": 249,
-      "rmePct": 1.06
+      "index": 26.7,
+      "ms": 69.12,
+      "slidesPerSec": 347,
+      "rmePct": 5.78
     },
     "math": {
-      "slides": 16,
-      "index": 21.28,
-      "ms": 63.84,
-      "slidesPerSec": 251,
-      "rmePct": 3.29
+      "slides": 17,
+      "index": 23.77,
+      "ms": 61.52,
+      "slidesPerSec": 276,
+      "rmePct": 4.33
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 77.42,
-      "ms": 232.32,
-      "slidesPerSec": 1498,
-      "rmePct": 5.77
+      "index": 90.13,
+      "ms": 233.31,
+      "slidesPerSec": 1492,
+      "rmePct": 6.22
     }
   },
   "printDatasets": {
@@ -135,38 +135,52 @@
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 30.84,
-      "burstMs": 363.88
+      "ms": 33.95,
+      "burstMs": 429.08
     },
     "edit · charts": {
       "slides": 24,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 51.65,
-      "burstMs": 681.86
+      "ms": 29.92,
+      "burstMs": 365.67
     },
     "edit · math": {
-      "slides": 16,
+      "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 16.14,
-      "burstMs": 188.74
+      "ms": 17.49,
+      "burstMs": 188.32
     }
   },
   "flowchartDatasets": {
     "flowchart · demo deck page (10 calls)": {
       "calls": 10,
       "routed": 12,
-      "bounded": 3,
+      "bounded": 41,
       "hits": 1,
-      "ms": 212.25
+      "ms": 182.06
     },
     "flowchart · same calls, no cache": {
       "calls": 10,
       "routed": 14,
-      "bounded": 3,
+      "bounded": 44,
       "hits": 0,
-      "ms": 256.17
+      "ms": 199.06
+    },
+    "state chart · stress deck page (17 calls)": {
+      "calls": 17,
+      "routed": 18,
+      "bounded": 61,
+      "hits": 0,
+      "ms": 507.6
+    },
+    "state chart · same calls, no cache": {
+      "calls": 17,
+      "routed": 18,
+      "bounded": 61,
+      "hits": 0,
+      "ms": 494.66
     }
   }
 }

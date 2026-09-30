@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: shipped
 summary: Trama (`@laticent/trama`) is the graph-chart library. It holds the layout kernel and route solver the flowchart shipped in #2385, and the browser pipeline that measures, fits, lays out (in a worker while typing) and paints. It is a TypeScript npm workspace in docs/src/lib/trama/, shaped like Cadenza, with a boundary gate. It never sees Markdown or Lattice's CSS. A chart supplies an adapter (read the model, measure, paint), and the flowchart and the state chart are its first two adapters. It ships in two PRs: the first holds Trama with the flowchart moved onto it (byte-identical) and the state chart's hooks in the kernel; the second moves the state chart onto it (state chart v2) and deletes the old pass and its own dagre call.
 ---
 
 # Trama: one library for graph charts (2026-09-27)
 
-**Status: in progress.** The owner chose the shape (a workspace package, not a folder
+**Status: shipped.** State chart v2 is on Trama (§5, as built). The history: The owner chose the shape (a workspace package, not a folder
 in `_chart-family`), the name and the slicing (one PR, three commits) on
 2026-09-27, after #2385 merged. Later that day the owner split the slicing: commits 1
 and 2 ship as one PR, and commit 3 (state chart v2) ships as its own PR from `main`
@@ -179,6 +179,110 @@ The owner settled the open questions on 2026-09-27.
   moves to the new model shape.
 - **Gained:** the layout cache, one draw per keystroke, the Studio worker, and a
   sanitized model (closes the P2 census follow-up).
+
+**As built (state chart v2).** The pieces, and where each decision above landed:
+
+- **One parse.** `parseStateMachine` in `lib/core/state-graph-facts.js` runs the flowchart
+  grammar with the lead words `start` and `end`, numbers the states in list order and
+  stamps their roles through `inferRoles`. The transform and the narrator both call it, so
+  the picture and the voice read one machine (HARD RULE #1). The narrator's own Markdown
+  port of the v1 grammar is deleted. The grammar now folds a status word's case, the chart
+  family's rule, for both charts.
+- **The adapter.** `lib/components/chart/state-chart/state-chart.layout.js`: sanitize the
+  model, add the markers (an entry dot before the first state with a line to the start
+  state; one end ring after the last, with a line from every end state), measure the
+  harness (tiles with their badges, labels, composite titles) and paint the tiles in the
+  chart family's gradient with the status accent. Lines and composite boxes go through two
+  new Trama painters, `ctx.lines` and `ctx.groups`, which the flowchart now paints with
+  too: its figures without a blockquote paint byte-identical SVG before and after.
+- **The grid holds markers in place.** A start marker hugs the far side of its grid column
+  and an end marker the near side, so the dot sits beside its state, not a column's width
+  away.
+- **Hard faults before type in the wrap pick.** The grid candidates now compete on type
+  only among those with the fewest hard faults (a line through a box, an overlap), as the
+  direction choice already ranked them; when every grid the floor kept has one, dagre's
+  layout (already routed) joins the pick. Found on the 36-state stress fixture, where a
+  grid set the type 4 times larger with 55 lines through boxes.
+- **No dagre, still a drawing.** The pipeline no longer bails when dagre is absent: a chart
+  that wraps lays out on the grid, and anything that needs dagre keeps its tiles, marked
+  `data-<prefix>-nolayout`. `graphLayoutKernel().isChain(model)` is the predicate, and the
+  export's gate (`state-chart.adoption.js`) asks it of each figure's model as the adapter
+  builds it, so the gate and the drawing call the same code.
+- **Four router rules the state chart's review found**, each held on both charts:
+  - *A join is a never-rule.* One line's corner or end lying on an unrelated line, or a run
+    lying ON it, read as a transition that is not there (a 6-unit overlap on the stress
+    deck's incident machine). The solver's `sharesRun` now refuses it and `sharedRuns`
+    counts it. On the 1,000-chart fuzz corpus, `main` left 132 joins on 40 charts; none
+    remain, and crossings rose from 10 to 39 (clean X's). The ratchet in
+    `graph-layout.test.js` moved with that justification.
+  - *A labeled self-loop stands clear of its box.* A single loop reserved no room, so a
+    `tb` loop's label was seated half over its own state and painted under it.
+  - *Markers do not grow and sit in line.* The end ring was grown for its fan-in like a
+    shape, so lines ended on an invisible 40-unit box; and dagre left a start dot a few
+    units off its state's axis, which the router drew as a hook. A marker now keeps its
+    size and moves across the flow into line with its one state when that spot is free.
+  - *A wrapped line holds two real states.* A three-state chain with its markers wrapped
+    into a second line of one state and the ring.
+- **The key is shared.** Both charts build their key with
+  `lib/components/chart/_chart-family/graph-key.js`, and words that paint the same tone
+  share one entry (the state chart's v1 legend rule, now the flowchart's too).
+- **Codemod.** 62 slides in 18 decks migrated mechanically (432 transitions), each verified
+  by re-parsing the result with the real grammar (same states, statuses, roles, transitions
+  and details), plus the 5 fenced examples, which regenerate from the manifest. The 22
+  `:::` tints moved by hand: a pass tint on a transition became the heavy main path, a
+  fail tint `:dashed`, a tint on a state its status. The tint deck became
+  `examples/state-chart-paint.md`. Explicit label breaks (`\n`, `<br>`) are gone: a label
+  sits on its line, and 2 labels lost their break.
+- **Lint.** `findFlowchartIssues` reads state-chart slides with the same grammar (so a
+  near-duplicate target name is named), and names the retired v1 spellings
+  (`state-chart-v1-transition`, `state-chart-v1-tint`) with their fix.
+- **Wrapping is Trama's, not the state chart's (owner, 2026-09-27: "Trama should support
+  wrapping and do it efficiently").** Both charts ask for `wrap`. Three rules make it
+  cheap and safe:
+  - *Cheap.* Every candidate is sized from its boxes first, a ceiling on its type (lines
+    only add size). dagre's layout is routed only when its ceiling could still win, and
+    the pick is often proven from the others' ceilings after routing one grid. Same
+    answers on 1,916 recorded calls; the state chart's stress deck went from 77 routing
+    passes to 30 (1,152 to 533 ms).
+  - *A legible fan keeps its shape.* A branching graph whose dagre layout is clean and at
+    least 0.8 scale (`WRAP_BELOW`) keeps it. Measured on the flowchart demo, the grid
+    "won" two fans at 0.94 and 1.05 and read worse; the charts it rescues sat at 0.35
+    to 0.64. It changed one state-chart slide, for the better (the long-labels slide in
+    `state-chart-branching`).
+  - *Reading order is the author's.* A chain row (`A => B => C`) now lists its shapes in
+    that order; before, every shape leading a row came first, so a chain written on one
+    row wrapped out of order. A single connection never moves its target, and a chart
+    with no chain row keeps its order exactly. Two flowchart demo slides written with
+    chain rows changed their dagre tie-breaks (Checkout, Release train).
+  - *Sticky while typing* (owner, 2026-09-28: "make things faster without jank"). A live
+    redraw lays out the wrap the last full search chose, instead of searching again; laid
+    out directly, that grid is byte-identical to the search's pick on every recorded call
+    (20 of 20). Rows hold while typing (an edit the pinned grid cannot hold, or a
+    direction change, searches at once), and a key shows sooner (real Studio, same
+    machine: an 11-state state chart 280–325 -> 158–202 ms, the flowchart of it 230–241 ->
+    193–214 ms). The full search runs 300 ms after a live redraw's last round lands, and the chart takes its
+    choice, so the drawing at rest matches the export; content that wants other rows
+    reflows then, once (the owner chose this over keeping the rows until reload). Tried
+    and dropped on the way, measured: a smaller router budget while typing (drafts cost
+    crossings and the refine was itself a jump, and it made the flowchart settle 2.5x
+    later), and a flowchart-sized state tile (0.7x -> 0.9x, but typing got no faster).
+  - *The pin covers dagre too, and the pause search has its own worker* (owner,
+    2026-09-28: "no jank, no tech debt, no broken windows"). A per-key timeline on the real
+    Studio found the tail: half-typed text (`- -f`) parses as a chart whose search picks
+    dagre, so it had no pin and every key searched again (3-4 rounds of 100-400 ms), and a
+    key typed during the pause search queued behind it. A dagre pick is now pinned
+    (`lines: 0`), byte-identical pinned on every recorded call (11 of 11; grids 28 of 28),
+    and the pause search runs in a second worker. At 600 ms a key: an 11-state chart's key
+    lands in 150 / 214 ms (median / p90; was 178 / 417), a composite chart's in 242 / 423
+    ms (was 366 / 500), and no chart state goes unpainted.
+  - *The drawing at rest is a function of the text and the stage.* The pause search is
+    now the SETTLE: it fits from a cold start (k 1), as a paste or an export does, and
+    paints only its last round. A live redraw had started its fit from the scale it
+    remembered and could settle on another fixed point, so every typed path drew a
+    different width than a paste, on a 5-state chart too. Measured on the real Studio:
+    paste, reload, key by key and bursts at 50 / 120 / 600 ms a key (each also nudged)
+    now give one drawing on three charts (30 of 30), and the CLI export's viewBox matches
+    each. This closes `2385-p3-live-layout-not-deterministic`.
 
 ## 6. The three commits, in two PRs
 
