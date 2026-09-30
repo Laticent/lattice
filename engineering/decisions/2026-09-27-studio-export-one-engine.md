@@ -349,8 +349,18 @@ Order of work, all in one PR (#2404):
   - An `<svg>` no longer counts as covering text: KaTeX's root sign pushed the formula under it
     out of the text layer.
 - **Known limits:**
-  - The photo is JPEG, which stores color at half resolution. A 1px colored hairline left in
-    the photo (the top keyline of a dark slide) bleeds a little color into the row below.
+  - ~~The photo is JPEG, which stores color at half resolution. A 1px colored hairline left in
+    the photo (the top keyline of a dark slide) bleeds a little color into the row below.~~
+    **Fixed 2026-09-29.** The golden re-render's parity sweep measured it on 59 of 330 decks
+    (the keyline written as rgb(42,132,176) for rgb(0,146,216)). Each camera now offers PNG and
+    JPEG and the writer keeps the smaller (`smallestPhoto`), so a flat slide is written
+    lossless and the rule exact. Pinned by `test/integration/export/pdf-photo-hairline.test.js`.
+    On a 4K slide the photo is still downsampled to 2560 px, which keeps the rule a little soft
+    even as PNG (y0 rgb(128,69,82) against the screen's rgb(181,95,116); JPEG gave 110,79,84).
+    Photographing 4K at 3840 px fixed it but cost ~21 s a 116-slide 4K gallery and pushed CI's
+    integration job past its timeout, so the owner kept the cap. A downsampled photo stays JPEG,
+    since PNG bought little there and still cost ~13 s a gallery render:
+    `followups.d/2503-p3-pdf-photo-exact-4k.md`.
   - A later sibling's outer `box-shadow` over a border is not hit-testable, so a border can
     draw over it.
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`

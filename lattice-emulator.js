@@ -5077,7 +5077,7 @@ async function composePdfInPage(g, page) {
     composePdfInPage.handles = handles;
     if (!composePdfInPage.pages.has(page)) {
       composePdfInPage.pages.add(page);
-      await page.exposeFunction(PHOTO_FN, async (i, scale) => {
+      await page.exposeFunction(PHOTO_FN, async (i, scale, type) => {
         const h = composePdfInPage.handles[i];
         // deviceScaleFactor changes pixel density only, never layout.
         if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: scale });
@@ -5085,7 +5085,10 @@ async function composePdfInPage(g, page) {
           // Align the slide's top edge with the viewport's exactly: scrollIntoView can leave
           // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
-          const buf = await h.screenshot({ type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false });
+          // The encoding the writer asks for: PNG first, JPEG too on a busy slide (compose.mjs pngIsFlat).
+          const buf = await h.screenshot(type === 'jpeg'
+            ? { type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false }
+            : { type: 'png', captureBeyondViewport: false });
           return Buffer.from(buf).toString('base64');
         } finally {
           if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 });
@@ -5096,7 +5099,8 @@ async function composePdfInPage(g, page) {
       await page.exposeFunction(ASSET_FN, async (url) => pdfAssets.asset(url));
       await page.exposeFunction(FACES_FN, async (href) => pdfAssets.fontFaceRules(href));
     }
-    // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~33 s, and a
+    // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~45 s (PNG-first
+    // photos; ~35 s with the JPEG-only camera), and a
     // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
     const composeMs = Math.max(RENDER_WATCHDOG_MS, handles.length * 4000);
     const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide) => {
@@ -5113,7 +5117,8 @@ async function composePdfInPage(g, page) {
         for (let i = 0; i < b.length; i++) bytes[i] = b.charCodeAt(i);
         return bytes;
       };
-      const camera = async (section, { scale = 1 } = {}) => ({ bytes: unb64(await window[fnName](secs.indexOf(section), scale)), type: 'jpeg' });
+      const camera = async (section, { scale = 1, type = 'png' } = {}) =>
+        ({ bytes: unb64(await window[fnName](secs.indexOf(section), scale, type)), type: type === 'jpeg' ? 'jpeg' : 'png' });
       const fetchAsset = async (url) => unb64(await window[assetFn](url));
       const bin = atob(wasmB64);
       const wasmBytes = new Uint8Array(bin.length);
