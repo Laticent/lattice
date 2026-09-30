@@ -219,6 +219,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ☐ [2026-07-07-html-lattice-player.md](2026-07-07-html-lattice-player.md) — The HTML Lattice player — the shippable half of the 2026-06-16 export format.
 - ◐ [2026-07-15-incremental-per-slide-render-cache.md](2026-07-15-incremental-per-slide-render-cache.md) — Make the live Playground filmstrip's per-keystroke render cost sub-linear in deck size.
 - ◐ [2026-05-11-inline-code-directives.md](2026-05-11-inline-code-directives.md) — Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}:shape:c4` (the bracket-geometry map it proposed is superseded…
+- ☐ [2026-09-29-inline-icons.md](2026-09-29-inline-icons.md) — Icons join pills and sparks as a third thing an author writes in inline code, in Segno's record notation from day one: `^{database, c3}` on…
 - ◐ [2026-09-28-inline-sparks.md](2026-09-28-inline-sparks.md) — A spark is a word-sized chart an author writes in inline code, the way they write a pill — `~{12 14 13 17 21}:bar:c3:lg`.
 - ◐ [2026-08-18-inspection-oracle-catalog.md](2026-08-18-inspection-oracle-catalog.md) — Asked whether the build leans too hard on visual inspection and whether CSS-based checking could replace it.
 - ◐ [2026-06-13-islands-sketch-density-collisions.md](2026-06-13-islands-sketch-density-collisions.md) — Islands and sketch chrome paints over content because its height is not subtracted from the content safe-area
