@@ -407,7 +407,45 @@ arm), and Lattice reported "on by the platform's default (not measured here)"; t
 system's own verdict: Activity Monitor's Sandbox column on macOS, and Process Explorer's integrity
 level on Windows. Those two need a person, and the tool asks for them when one runs it. On Ubuntu
 24.04 as the ordinary runner user, AppArmor stops Chrome's sandbox from starting, and Lattice
-reports OFF, truthfully.
+reports OFF, truthfully. Its remedy was wrong there: "set CHROME_PATH to a Chromium the unprivileged
+user can run" cannot help when AppArmor blocks user namespaces for every unprivileged program
+without a profile. So the layer now carries a `reason` (`os-sandbox.js` `offReason`), and the
+consent text maps each reason to its own remedy (`offRemedy`). The AppArmor case is read from the
+`kernel.apparmor_restrict_unprivileged_userns` sysctl, not from Chromium's message, whose "No
+usable sandbox!" text points at AppArmor as a general hint; its remedy names an AppArmor profile
+for the browser or that sysctl. `CHROME_PATH` stays the remedy only where it helps: root on Linux
+whose unprivileged user cannot run the browser even without the sandbox (checked FIRST, since a
+root container on an Ubuntu 24.04 host reads the host's sysctl as 1), and no browser path at all.
+Every render's warning carries the same remedy (`code-door.js` `sandboxNotice`); it used to repeat
+the CHROME_PATH sentence after the prompt had given the right fix, and it printed that sentence as
+a warning on macOS and Windows too, where the layer is the platform's default and not OFF (the
+checker). `test/unit/cli/code-door.test.js` drives `launchCodeSandbox` with a stub browser to pin
+which rung's failure becomes which reason.
+
+**Root in a Docker container on an Ubuntu 24.04 host** (2026-09-29, ubuntu-latest, `node:22-bookworm`,
+runs 36554214907 and 36554842708). The container reads the host's AppArmor sysctl as 1, and every
+process in it reads `Seccomp: 2` (Docker's default profile). With puppeteer's browser under `/root`,
+`nobody` cannot run it at all and the remedy is `CHROME_PATH`, as it should be. With the browser
+where `nobody` can run it, the sandboxed launch fails and the remedy first said AppArmor, which was
+wrong: `nobody` could not `unshare -U` under Docker's default seccomp profile with the AppArmor sysctl
+at 0, and could, with Chrome's sandbox measured on, under `--security-opt seccomp=unconfined` with the
+sysctl still at 1. So `offReason` checks for a container's seccomp filter before AppArmor, and names
+the container's seccomp profile (`container-seccomp`). A container is a filter on Lattice's own process
+AND on pid 1 (`processSeccompFiltered`): in Docker pid 1 read Seccomp 2 too, while a hardened systemd
+unit filters the service but not systemd, and there AppArmor may still be the obstacle (the checker).
+The same runs showed `tools/verify-code-sandbox` step 7 reading the container's Seccomp 2 on renderers
+started with `--no-sandbox` as a mismatch. Where the browser process itself is already filtered, step
+7 now counts `Seccomp_filters` instead: Chromium's sandbox stacks its own filter on each renderer, so a
+sandboxed renderer carries more than its browser process. After the fix all three container cases
+passed all eight steps with the right remedy and a measurement (run 36557162573): the browser under
+`/root` (`CHROME_PATH`; renderers 1 filter, browser 1), the browser outside it under Docker's default
+profile (`container-seccomp`; 1 vs 1), and `--security-opt seccomp=unconfined` ("on"; renderers 1
+filter, browser 0). Lattice's own "on" measurement
+(`rendererSandboxed`) still reads the mode alone, so in a filtered container it would read "on" from
+the container's filter. The OFF cases measured here never reach it (they launched with
+`--no-sandbox`), and a Chromium that starts without `--no-sandbox` has refused to run without a
+sandbox in every run here ("No usable sandbox!"); a filtered container whose profile allows user
+namespaces has not been measured.
 
 **Measured on the real CLI** (`test/integration/export/code-package-door.test.js`): a hostile
 package that tries `fetch`, an image, a WebSocket and a beacon at load and on every slide, and
@@ -531,7 +569,7 @@ parity test logs how many class tokens the door strips from each (from 5 for `vi
   `chart-frame`, `logo` would add `logo-wall`), nor a runtime stem (`lat`, `lattice`, `mermaid`…):
   `codeNameRefusal`, at `add`, at the Studio's import and at render.
 - An `id` lives in the package's name or is one it was handed (a deck's `url(#id)` takes the first
-  element with it), and the runtime's markers (`data-mermaid-*`, `data-fp-*`, `data-img-*`,
+  element with it), and the runtime's markers (`data-mermaid-*`, `data-img-*`,
   `data-pane*`) survive only as handed.
 - The Studio's 4-million-character cap counts remembered output too, and a slide refused by the cap
   is not remembered as failed; a load that ran out of time is not retried within the same render;

@@ -49,7 +49,6 @@
  */
 const path = require('path');
 const fs = require('fs');
-const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'lib', 'core', 'dagre-bundle.generated.js');
@@ -73,11 +72,18 @@ function build({ check = false } = {}) {
   fs.writeFileSync(ENTRY, ENTRY_SRC);
   let iife;
   try {
-    iife = execFileSync(
-      path.join(ROOT, 'node_modules', '.bin', 'esbuild'),
-      [ENTRY, '--bundle', '--minify', '--format=iife', '--platform=browser', '--log-level=error'],
-      { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
-    );
+    // esbuild's own API, not `node_modules/.bin/esbuild`: that shim is extensionless and Windows
+    // cannot spawn it, so this step failed there with ENOENT (#2459).
+    iife = require('esbuild').buildSync({
+      entryPoints: [ENTRY],
+      bundle: true,
+      minify: true,
+      format: 'iife',
+      platform: 'browser',
+      logLevel: 'error',
+      write: false,
+      absWorkingDir: ROOT,
+    }).outputFiles[0].text;
   } finally {
     fs.rmSync(ENTRY, { force: true });
   }
