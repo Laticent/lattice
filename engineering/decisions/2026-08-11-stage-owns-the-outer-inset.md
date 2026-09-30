@@ -734,10 +734,31 @@ every arm is the same DOM):
 | all three | 1152×387 | 99.9% | 14.0px |
 
 The unit is **height-bound**, so every inline change buys a wider box and no
-larger label. Only the block inset moves the label — **+27%**. This change took
-the inline duplicate (which is a correctness fix, not a design change) and left
-the block inset alone (which is a design decision about a chart's berth). After
-it, #680's reclaim is **one number in one place** — the `--sp-lg` in
-`section.chart-frame > .cell-stage` — instead of three insets in three boxes.
+larger label. Only the block inset moves it.
 
-Neither card closes the other. #680 stays open.
+> **Correction — the label column above overstates the gain, and the number to
+> quote is ×1.20, not the +27% an earlier draft of this section carried.** The
+> painted-glyph bounding box quantizes to whole pixels (11 → 14), which rounds a
+> ×1.198 into a ×1.27. The SVG's own **CTM** is the unrounded measure: **0.929 →
+> 1.113 = ×1.20**, i.e. **+19.8%**. #680 had already published this correction
+> (`issuecomment-5248704863`, 2026-08-11 03:39) *before* this document was
+> written; the stale figure was carried in here anyway, and both PR bodies for
+> this line of work repeated it. Costing "does this reach `--fs-meta`" with 1.27
+> gives 16.8px instead of 15.8px — short either way, but only one of them is
+> true. **Measure a scale with the transform, not with a rasterized glyph.**
+
+This change took the inline duplicate (which is a correctness fix, not a design
+change) and left the block inset alone (which is a design decision about a
+chart's berth).
+
+**Status of the outcome card, as of this correction.** #680 is **closed**,
+superseded by **#1605** — it had become one live item wearing a seven-item batch
+card's history. #1605 restates it as the design problem it is, and re-orders the
+levers in a way that demotes this document: **per-slide sizing ≫ #1598 ≫ a key
+rail for four named slides.** The real defect there is not the type size at all —
+it is that `placeLabels` answers "no room" by *silently deleting a name*, which no
+gate in this repo can see. Measured per slide, 26 of 27 quadrant slides could run
+60–110% larger today; one 14-item slide pins the global constant for all of them.
+What this change contributes is a **multiplier** (the bar drops from 16.1 units to
+13.5), not the lever — and with per-slide sizing it moves the count of slides
+clearing `--fs-meta` from 12 of 26 to 22 of 26.
