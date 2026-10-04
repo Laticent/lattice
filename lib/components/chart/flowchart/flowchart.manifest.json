@@ -99,6 +99,7 @@
   "segno": {
     "style": {
       "label": "a flowchart style",
+      "sits": "list-rows",
       "params": {
         "id": "id",
         "status": { "type": "oneOf", "values": ["on-track", "done", "live", "at-risk", "warn", "blocked", "fail", "pilot", "decision", "deferred"] },
@@ -147,7 +148,7 @@
     "key": {
       "selector": "p > code",
       "required": false,
-      "description": "The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{\"=>\", Happy path}, {:dotted, Later}]` ``. It only renames; it never hides or adds an entry."
+      "description": "The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{\"=>\", Happy path}, {dotted, Later}]` ``. It only renames; it never hides or adds an entry."
     },
     "caption": {
       "selector": "p > em",

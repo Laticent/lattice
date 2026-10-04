@@ -1621,6 +1621,10 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "sits": {
+          "enum": ["list-rows"],
+          "description": "Where this slot's spans sit, when the component owns them outright. `list-rows`: every inline-code span inside the component's list items is this slot's, so the slide-wide mark / pill / spark pass leaves it as code for the component to read (lib/core/resolve-inline-code.js `isOwnedElement`). Needed where the slot's records could also read as a pill: a flowchart's `{diamond, c2}` is a valid pill. Decision 3 of the Segno note: where a span sits decides what it means."
         }
       }
     },

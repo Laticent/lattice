@@ -20,8 +20,8 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the analysis. |
 | `axes` | `p > code` | no | Optional axes, as ONE bracketed list in its own paragraph ABOVE the chart list — x first, then y: `[{Effort, 0..10}, {Reach, 0..100}]`. Each member is `{name, min..max, threshold}`; the domain and threshold are optional and derive from the data when absent. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. Same idiom as `scatter` and `matrix-grid`. |
-| `items` | `ul > li` | yes | One li per item. Format: `Label — x, y[, size]`. |
-| `detail` | `li > ul > li > ul` | no | Optional 3rd-level nested sublist under an item (the x,y are inline pills, so this level is free). Drives two surfaces from one source (shared with pie/funnel/map via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the item's `<circle>`/bubble with `data-mark` (a stable global index across all variants) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A quadrant with no sublists emits no note and is unchanged. |
+| `items` | `ul > li` | yes | One li per item: its label, then one point record, `{x, y}` or `{x, y, size=n}`. |
+| `detail` | `li > ul > li > ul` | no | Optional 3rd-level nested sublist under an item (the point is an inline record, so this level is free). Drives two surfaces from one source (shared with pie/funnel/map via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the item's `<circle>`/bubble with `data-mark` (a stable global index across all variants) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A quadrant with no sublists emits no note and is unchanged. |
 
 ### Variant decision rule
 
@@ -35,7 +35,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 
 ### Common mistakes
 
-- **Under `magic`, expecting the group heading text to move an item into that quadrant.** Placement is driven entirely by the item's `x, y` coordinate — the group heading is an editorial label only; an item whose coordinates don't fall in the region a heading like 'Leaders' implies still renders wherever its numbers place it.
+- **Under `magic`, expecting the group heading text to move an item into that quadrant.** Placement is driven entirely by the item's `{x, y}` point — the group heading is an editorial label only; an item whose coordinates don't fall in the region a heading like 'Leaders' implies still renders wherever its numbers place it.
 - **Reading a name as belonging to the dot nearest it.** Follow the hairline where there is one. A crowded corner pushes names one or two rings out from their own dot, and a leader is drawn for exactly that case — a name with no line is sitting against the dot it names.
 
 ### Data shape

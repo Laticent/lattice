@@ -479,6 +479,12 @@ reads the slot.
   The key's words drop their colons (`{dotted, Informal}`), and a channel color is `fill=c3`.
 - **Gantt (row 10).** Two dependencies are a list, `after=[Design, Build]`. The codemod reported, and did
   not guess, any `after: A, B`: the old chart read it as one name and the old lint as two. None shipped.
+- **A component can own its list rows' spans** (decision 3, enforced). One notation means a
+  flowchart style `{diamond, c2}` is also a valid pill, and the slide-wide pill pass reached it first:
+  the chart drew a box named "Triage diamond". A slot that declares `sits: "list-rows"` in its manifest
+  (flowchart's `style`) now keeps every inline-code span on that component's list rows out of the
+  mark / pill / spark pass, on the engine, the runtime and lint alike
+  (`lib/core/resolve-inline-code.js`). The demo deck caught it; no shipped deck had the colliding form.
 - **Row 23** moved from the words slice to the per-chart slice, because the parser that reads the
   state keywords is the state chart's own.
 
