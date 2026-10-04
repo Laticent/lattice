@@ -60,6 +60,8 @@ examples/*.notes.txt
 design/**/*.html
 exemplars/**/*.html
 lib/components/**/*.html
+lib/base/**/*.html
+kit/*.html
 test/integration/**/*.html
 !examples/*.pdf
 !examples/**/*.pdf
