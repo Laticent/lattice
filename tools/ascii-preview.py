@@ -1136,6 +1136,18 @@ def demo_blocks() -> dict[str, str]:
         ('split', 'footer', '1/19'),
     ])
 
+    blocks['hub-spoke-canvas'] = frame([
+        ('left', 'header'),
+        ('center', 'Structure heading'),
+        ('blank',),
+        ('center', 'Name  (o)        (o)  Name'),
+        ('center', '         \\  ___  /       '),
+        ('center', 'Name (o)--( HUB )--(o) Name'),
+        ('center', '         /  ---  \\       '),
+        ('center', 'Name  (o)        (o)  Name'),
+        ('split', 'footer', '1/19'),
+    ])
+
     blocks['word-cloud-canvas'] = frame([
         ('left', 'header'),
         ('center', 'Weighted words heading'),

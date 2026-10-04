@@ -102,6 +102,9 @@ const STATUS_MARKS = [
   { sel: '.chart-status[data-s]', hue: 'var(--pill-hue)', ink: 'var(--pill-ink)', paint: 'bg', bears: true },
   { sel: '.waterfall-bar[data-s="up"]', hue: 'var(--state-pass-hue)', ink: 'var(--state-pass-ink)', paint: 'fill', bears: false },
   { sel: '.waterfall-bar[data-s="down"]', hue: 'var(--state-fail-hue)', ink: 'var(--state-fail-ink)', paint: 'fill', bears: false },
+  // hub-spoke paints a status on the one spoke that carries it — its node, or a tiered leaf —
+  // from its own channel (hub-spoke.styles.css re-points --hs-state-* per status word).
+  { sel: ':is(.hub-spoke-node, .hub-spoke-leaf)[data-s]', hue: 'var(--hs-state-hue)', ink: 'var(--hs-state-ink)', paint: 'fill', bears: false },
 ];
 
 // What a body mixes toward. Pigment reproduces the family's shipped body tier
@@ -269,6 +272,15 @@ function build() {
         rule(name, ':is(.fc-group, .fc-key-swatch[data-kind="group"])[data-slot]', [`--fc-group-hue: ${ONE}`]),
         rule(name, '.fc-group-title[data-slot]', [`fill: ${ONE_INK}`]),
       ].join('\n')));
+      // A hub-spoke group's connector band, twig, arrowhead and satellite name are the
+      // group's hue at a faint level or as ink, never a body — so, like a container, they
+      // keep their level and join the one hue through the member's own group property.
+      // Left alone they kept eight category hues beside tonal discs and a tonal key. No text
+      // sits on a band (a name sits on the canvas), so nothing here waits on relative color.
+      w(rule(name, ':is(.hub-spoke-neck, .hub-spoke-twig, .hub-spoke-arrow, .hub-spoke-name)[data-hue]', [
+        `--hs-group-hue: ${ONE}`,
+        `--hs-group-ink: ${ONE_INK}`,
+      ]));
       // A roadmap's phase color is a container color too: one property per phase column,
       // workstream lane and horizon card, read by its pill, its stripe and its card rule. The
       // `.roadmap` inside :where() matches the finished section itself, so no other table on
