@@ -19,11 +19,11 @@ describe('axis forms — a positional list', () => {
     assert.deepEqual(parseBracketList('[Effort, Reach]'), [['Effort'], ['Reach']]);
   });
 
-  test('double and single quotes both work, and are optional', () => {
+  test('double quotes work and are optional; a single quote is ordinary text (Segno)', () => {
     const want = [['Wider reach'], ['Deeper cognition']];
     assert.deepEqual(parseBracketList('["Wider reach", "Deeper cognition"]'), want);
-    assert.deepEqual(parseBracketList("['Wider reach', 'Deeper cognition']"), want);
     assert.deepEqual(parseBracketList('[Wider reach, Deeper cognition]'), want);
+    assert.deepEqual(parseBracketList("['Wider reach', 'Deeper cognition']"), [["'Wider reach'"], ["'Deeper cognition'"]]);
   });
 
   test('a braced member carries the axis range beside its name', () => {
@@ -247,12 +247,13 @@ describe('nothing backtracks', () => {
 describe('malformed input is never given invented structure', () => {
   // A `{` only opens a member where a member can START. Anywhere else it is
   // text, so a stray brace cannot silently become a two-part member.
-  test('a brace mid-member stays literal', () => {
-    assert.deepEqual(parseBracketList('[a{b, c}]'), [['a{b'], ['c}']]);
+  test('a brace mid-member is not a list at all — the span stays literal, nothing is guessed', () => {
+    assert.equal(parseBracketList('[a{b, c}]'), null);
   });
 
-  test('adjacent braced groups are two members, not one merged four-part member', () => {
-    assert.deepEqual(parseBracketList('[{a,b}{c,d}]'), [['a', 'b'], ['c', 'd']]);
+  test('adjacent braced groups with no comma are not a list', () => {
+    assert.equal(parseBracketList('[{a,b}{c,d}]'), null);
+    assert.deepEqual(parseBracketList('[{a,b}, {c,d}]'), [['a', 'b'], ['c', 'd']]);
   });
 
   test('a nested brace cannot smuggle a part past the cap', () => {
@@ -275,14 +276,17 @@ describe('malformed input is never given invented structure', () => {
 describe('bracket-list — a quote opens only where a part starts', () => {
   // Straight apostrophes survive inside code spans, so ordinary English hit this:
   // the apostrophe opened a quote that swallowed the comma and the second axis.
-  test("an apostrophe mid-word is text, not a quote", () => {
+  test("an apostrophe is text, never a quote", () => {
     assert.deepEqual(parseBracketList("[Customer's spend, Churn rate]"), [["Customer's spend"], ['Churn rate']]);
     assert.deepEqual(parseBracketList("[{Owner's view, 0..10}, {Reach, 0..100}]"), [["Owner's view", '0..10'], ['Reach', '0..100']]);
-    assert.deepEqual(parseBracketList('[6" pipe, Flow]'), [['6" pipe'], ['Flow']]);
   });
-  test('a quote at the start of a part still protects its commas', () => {
+  test('a double quote is a stop character: inside a value it is quoted and escaped', () => {
+    assert.equal(parseBracketList('[6" pipe, Flow]'), null);
+    assert.deepEqual(parseBracketList('["6\\" pipe", Flow]'), [['6" pipe'], ['Flow']]);
+  });
+  test('a double-quoted part protects its commas', () => {
     assert.deepEqual(parseBracketList('["Cost, excluding tax", Value]'), [['Cost, excluding tax'], ['Value']]);
-    assert.deepEqual(parseBracketList("['a, b', c]"), [['a, b'], ['c']]);
+    assert.deepEqual(parseBracketList("['a, b', c]"), [["'a"], ["b'"], ['c']], 'single quotes do not');
   });
 });
 
@@ -295,7 +299,7 @@ describe('bracket-list — an empty member holds its position', () => {
   });
   test('the comma after a closing brace is a separator, not a blank member', () => {
     assert.deepEqual(parseBracketList('[{a, b}, {c, d}]'), [['a', 'b'], ['c', 'd']]);
-    assert.deepEqual(parseBracketList('[{a}x, , y]'), [['a'], ['x'], [], ['y']]);
+    assert.equal(parseBracketList('[{a}x, , y]'), null, 'text after a closing brace is not a list');
   });
   test('trailing blanks hold no position; an all-blank list is not a list', () => {
     assert.deepEqual(parseBracketList('[A, , ]'), [['A']]);
@@ -306,14 +310,10 @@ describe('bracket-list — an empty member holds its position', () => {
 describe('bracket-list — malformed braces keep every character', () => {
   // Pinned so a future change to the brace rules is a visible decision. In none
   // of these does a non-structural character vanish.
-  test('text after a closing brace starts a new member', () => {
-    assert.deepEqual(parseBracketList('[{a,b}c, d]'), [['a', 'b'], ['c'], ['d']]);
-  });
-  test('a stray closing brace is literal', () => {
-    assert.deepEqual(parseBracketList('[{a,b}}]'), [['a', 'b'], ['}']]);
-  });
-  test('an unclosed brace keeps the rest as parts of one member', () => {
-    assert.deepEqual(parseBracketList('[{Effort, 0..10, {Reach, 0..100}]'), [['Effort', '0..10', '{Reach', '0..100']]);
+  test('text after a closing brace, a stray brace, an unclosed brace: not a list', () => {
+    assert.equal(parseBracketList('[{a,b}c, d]'), null);
+    assert.equal(parseBracketList('[{a,b}}]'), null);
+    assert.equal(parseBracketList('[{Effort, 0..10, {Reach, 0..100}]'), null);
   });
 });
 
@@ -327,7 +327,7 @@ describe('bracket-list — an unclosed quote is text', () => {
     assert.deepEqual(parseBracketList("['90s cohort, Customer's spend]"), [["'90s cohort"], ["Customer's spend"]]);
     // A stray `]` inside the list does not end a part, so the apostrophe before it is no
     // partner and the comma still splits (the bake-off fuzz found the old reading).
-    assert.deepEqual(parseBracketList("['90s cohor{, Customer']s spend]"), [["'90s cohor{"], ["Customer']s spend"]]);
-    assert.deepEqual(parseBracketList("[{'x, y', 0..1}, z]"), [['x, y', '0..1'], ['z']]);
+    assert.equal(parseBracketList("['90s cohor{, Customer']s spend]"), null, 'a stray brace or bracket is not a list');
+    assert.deepEqual(parseBracketList('[{"x, y", 0..1}, z]'), [['x, y', '0..1'], ['z']]);
   });
 });

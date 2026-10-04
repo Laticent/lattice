@@ -130,7 +130,7 @@
     "key": {
       "selector": "p > code",
       "required": false,
-      "description": "The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{=>, Happy path}, {:dotted, Later}]` ``. It only renames; it never hides or adds an entry."
+      "description": "The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{\"=>\", Happy path}, {:dotted, Later}]` ``. It only renames; it never hides or adds an entry."
     },
     "caption": {
       "selector": "p > em",
@@ -139,7 +139,7 @@
     }
   },
   "skeleton": "<!-- _class: flowchart -->\n\n## The flow in one line.\n\n- Start `:pill` => Check => Decide?\n- Decide? `:diamond`\n  - -yes-> Ship\n  - -no-> Fix -> Check\n",
-  "sample": "<!-- _class: flowchart -->\n\n`Incident response`\n\n## Every page reaches a human within 15 minutes.\n\n- Alert fires `:pill` => Auto-triage => Severity?\n- Severity? `:diamond`\n  - =SEV1=> Page on-call\n  - -SEV2-> Open ticket -> Mitigate\n  - -SEV3-> Backlog `:dotted`\n- Page on-call `fail` =ack=> Mitigate => Postmortem\n  > Pages the secondary after 5 minutes.\n- Postmortem `:doc`\n\n`[{=>, Paging path}, {:dotted, Waits for business hours}]`\n",
+  "sample": "<!-- _class: flowchart -->\n\n`Incident response`\n\n## Every page reaches a human within 15 minutes.\n\n- Alert fires `:pill` => Auto-triage => Severity?\n- Severity? `:diamond`\n  - =SEV1=> Page on-call\n  - -SEV2-> Open ticket -> Mitigate\n  - -SEV3-> Backlog `:dotted`\n- Page on-call `fail` =ack=> Mitigate => Postmortem\n  > Pages the secondary after 5 minutes.\n- Postmortem `:doc`\n\n`[{\"=>\", Paging path}, {:dotted, Waits for business hours}]`\n",
   "stressDoc": {
     "summary": "Three groups, a group-to-shape line and a disconnected shape.",
     "sample": "<!-- _class: flowchart -->\n\n`Platform`\n\n## Payments sit between four parties.\n\n- Customers `:c1`\n  - Shopper `:circle`\n    - -browses-> Storefront\n  - Merchant `:circle`\n    - -lists items-> Storefront\n- Platform `:c2`\n  - Storefront\n    - => Payments\n  - Payments\n    - -screens-> Fraud checks\n    - <-> Card networks\n  - Fraud checks `:diamond`\n  - -ships via-> Carriers\n- Partners `:c3`\n  - Card networks `:square`\n  - Carriers `:square`\n- Regulators `:doc`\n"

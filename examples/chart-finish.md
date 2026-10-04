@@ -120,7 +120,7 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 <!-- _class: gantt chart-finish-tone -->
 <!-- _footer: "A status keeps its own color under every finish" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## Two workstreams land the scoring model by Q4.
 

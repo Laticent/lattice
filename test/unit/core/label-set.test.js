@@ -152,7 +152,9 @@ describe('the marker literal as a key', () => {
   });
 
   test('padding around a bracketed key does not change which member it names', () => {
-    assert.deepEqual(parseInlineSet('[{ [x] , Applies }]'), [{ key: '[x]', label: 'Applies' }]);
+    assert.deepEqual(parseInlineSet('[{[x] ,  Applies }]'), [{ key: '[x]', label: 'Applies' }]);
+    // …but a `{` is followed directly by its first item, in every directive (Segno).
+    assert.equal(parseInlineSet('[{ [x] , Applies }]'), null);
   });
 });
 

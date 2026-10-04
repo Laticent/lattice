@@ -55,9 +55,9 @@ describe('matrix-grid cell kernel', () => {
 
 describe('quadrant cohort hull', () => {
   test('a three-member cohort draws a stamped polygon', () => {
-    const ul = '<li>Bets<ul><li>A <code>2, 70</code></li><li>B <code>4, 90</code></li><li>C <code>3, 60</code></li></ul></li>' +
-      '<li>Wins<ul><li>D <code>8, 40</code></li></ul></li><li>Defer<ul><li>E <code>4, 20</code></li></ul></li>' +
-      '<li>Sinks<ul><li>F <code>7, 10</code></li></ul></li>';
+    const ul = '<li>Bets<ul><li>A <code>{2, 70}</code></li><li>B <code>{4, 90}</code></li><li>C <code>{3, 60}</code></li></ul></li>' +
+      '<li>Wins<ul><li>D <code>{8, 40}</code></li></ul></li><li>Defer<ul><li>E <code>{4, 20}</code></li></ul></li>' +
+      '<li>Sinks<ul><li>F <code>{7, 10}</code></li></ul></li>';
     const scale = { x: { min: 0, max: 10, label: 'Effort' }, y: { min: 0, max: 100, label: 'Reach' }, targets: null };
     const out = buildQuadrant(parseQuadrant(ul), 'cohort', scale);
     const [hull] = tagsOf(out, 'polygon', 'quadrant-hull');

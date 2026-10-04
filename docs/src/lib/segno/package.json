@@ -20,15 +20,15 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./number": {
-      "types": "./number.ts",
+    "./values": {
+      "types": "./values.ts",
       "import": {
-        "types": "./dist/number.d.ts",
-        "default": "./dist/number.mjs"
+        "types": "./dist/values.d.ts",
+        "default": "./dist/values.mjs"
       },
       "require": {
-        "types": "./dist/number.d.ts",
-        "default": "./dist/number.cjs"
+        "types": "./dist/values.d.ts",
+        "default": "./dist/values.cjs"
       }
     },
     "./package.json": "./package.json"

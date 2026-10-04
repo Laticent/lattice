@@ -359,7 +359,7 @@ test('narrateRadar: speaks a leading eyebrow FIRST, in its authored position, pr
 
 // ── narrateQuadrant ───────────────────────────────────────────────────────────
 test('narrateQuadrant: returns null for a non-quadrant slide', () => {
-  assert.equal(narrateQuadrant('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `1, 2`'), null);
+  assert.equal(narrateQuadrant('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `{1, 2}`'), null);
 });
 
 // The axis list is DATA: spoken as one sentence per axis, never read out with its
@@ -374,9 +374,9 @@ test('narrateQuadrant: speaks the axis list as a sentence per axis, never the br
     '## Where to put the next dollar.',
     '',
     '- Strategic Bets',
-    '  - Scoring model v2 `3, 70`',
+    '  - Scoring model v2 `{3, 70}`',
     '- Quick Wins',
-    '  - Weekly signal brief `8, 80`',
+    '  - Weekly signal brief `{8, 80}`',
   ].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten.'), out);
@@ -388,14 +388,14 @@ test('narrateQuadrant: speaks the axis list as a sentence per axis, never the br
 });
 
 test('narrateQuadrant: a threshold is spoken with the axis it belongs to', () => {
-  const md = ['<!-- _class: quadrant threshold -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
+  const md = ['<!-- _class: quadrant threshold -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '', '## X.', '', '- Group', '  - Item `{5, 85}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten, with a threshold at five.'), out);
   assert.ok(out.includes('The vertical axis, Reach, runs zero to one hundred, with a threshold at fifty.'), out);
 });
 
 test('narrateQuadrant: narrates both axis scales and every item when no eyebrow is authored', () => {
-  const md = ['<!-- _class: quadrant -->', '', '## Where to invest.', '', '- Strategic Bets', '  - Scoring model v2 `3, 70`', '  - Per-team calibration `5, 85`', '- Quick Wins', '  - Weekly signal brief `8, 80`'].join('\n');
+  const md = ['<!-- _class: quadrant -->', '', '## Where to invest.', '', '- Strategic Bets', '  - Scoring model v2 `{3, 70}`', '  - Per-team calibration `{5, 85}`', '- Quick Wins', '  - Weekly signal brief `{8, 80}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis runs zero to ten.'));
   assert.ok(out.includes('The vertical axis runs zero to one hundred.'));
@@ -406,19 +406,19 @@ test('narrateQuadrant: narrates both axis scales and every item when no eyebrow 
 test('narrateQuadrant: one threshold draws BOTH lines, so both are spoken', () => {
   // resolveScale puts the unnamed axis's line at its midpoint; the voice states
   // the line the picture draws, not only the number the author typed.
-  const md = ['<!-- _class: quadrant threshold -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100}]`', '', '## X.', '', '- G', '  - I `5, 85`'].join('\n');
+  const md = ['<!-- _class: quadrant threshold -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100}]`', '', '## X.', '', '- G', '  - I `{5, 85}`'].join('\n');
   assert.ok(narrateQuadrant(md).includes('The vertical axis, Reach, runs zero to one hundred, with a threshold at fifty.'));
 });
 
 test('narrateQuadrant: an axis list inside an HTML comment is not the axis', () => {
-  const md = ['<!-- _class: quadrant -->', '', '<!--', '`[{Effort, 0..50}, {Reach, 0..500}]`', '-->', '', '## X.', '', '- G', '  - I `5, 85`'].join('\n');
+  const md = ['<!-- _class: quadrant -->', '', '<!--', '`[{Effort, 0..50}, {Reach, 0..500}]`', '-->', '', '## X.', '', '- G', '  - I `{5, 85}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(!out.includes('Effort'), out);
   assert.ok(out.includes('The vertical axis runs zero to one hundred.'));
 });
 
 test('narrateQuadrant: an axis with no authored domain speaks the data-derived one', () => {
-  const md = ['<!-- _class: quadrant -->', '', '`[{Effort, 0..10}, Reach]`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
+  const md = ['<!-- _class: quadrant -->', '', '`[{Effort, 0..10}, Reach]`', '', '## X.', '', '- Group', '  - Item `{5, 85}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten.'));
   assert.ok(out.includes('The vertical axis, Reach, runs zero to one hundred.'));
@@ -431,10 +431,10 @@ test('narrateQuadrant: correctly parses the `trail` variant two-pill item instea
     '## trail shows where each point moved from.',
     '',
     '- Strategic Bets',
-    '  - Scoring model v2 `5, 60` `3, 78`',
-    '  - Per-team calibration `7, 70` `5, 88`',
+    '  - Scoring model v2 `{5, 60}` `{3, 78}`',
+    '  - Per-team calibration `{7, 70}` `{5, 88}`',
     '- Quick Wins',
-    '  - Snapshot exports `9, 45` `8, 62`',
+    '  - Snapshot exports `{9, 45}` `{8, 62}`',
   ].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('Scoring model v2 is high and to the left: three across, seventy-eight up. Per-team calibration is high and in the middle: five across, eighty-eight up.'), out);
@@ -444,7 +444,7 @@ test('narrateQuadrant: correctly parses the `trail` variant two-pill item instea
 });
 
 test('narrateQuadrant: handles a negative-extreme axis', () => {
-  const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - A `-20, 5`', '  - B `8, 3`'].join('\n');
+  const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - A `{-20, 5}`', '  - B `{8, 3}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis runs negative twenty to twenty.'));
   assert.ok(out.includes('The vertical axis runs zero to five.'));
@@ -462,9 +462,9 @@ test('narrateQuadrant: does not treat a per-item detail sublist line as an item,
     '## Where to invest.',
     '',
     '- Strategic Bets',
-    '  - Scoring model v2 `3, 70`',
+    '  - Scoring model v2 `{3, 70}`',
     '    - Confidence range `40, 95`',
-    '  - Per-team calibration `5, 85`',
+    '  - Per-team calibration `{5, 85}`',
   ].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis runs zero to five.'));
@@ -482,9 +482,9 @@ test('narrateQuadrant: speaks an intro paragraph between the heading and the gro
     'Bubble size reflects team size.',
     '',
     '- Strategic Bets',
-    '  - Scoring model v2 `3, 70`',
+    '  - Scoring model v2 `{3, 70}`',
     '- Quick Wins',
-    '  - Weekly signal brief `8, 80`',
+    '  - Weekly signal brief `{8, 80}`',
   ].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('Bubble size reflects team size.'));
@@ -500,9 +500,9 @@ test('narrateQuadrant: an unreadable threshold is not spoken, and the domain sti
     '## Where to invest.',
     '',
     '- Strategic Bets',
-    '  - Scoring model v2 `3, 45`',
+    '  - Scoring model v2 `{3, 45}`',
     '- Quick Wins',
-    '  - Weekly signal brief `8, 30`',
+    '  - Weekly signal brief `{8, 30}`',
   ].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten.'));
@@ -517,8 +517,8 @@ test('narrateQuadrant: tolerates ordinary indentation variance between sibling i
     '## Where to invest.',
     '',
     '- Strategic Bets',
-    '  - Scoring model v2 `3, 70`',
-    '   - Per-team calibration `7, 85`',
+    '  - Scoring model v2 `{3, 70}`',
+    '   - Per-team calibration `{7, 85}`',
   ].join('\n');
   assert.equal(
     narrateQuadrant(md),
@@ -527,13 +527,16 @@ test('narrateQuadrant: tolerates ordinary indentation variance between sibling i
 });
 
 test('narrateQuadrant: speaks a leading eyebrow FIRST, in its authored position, properly punctuated', () => {
-  const md = ['<!-- _class: quadrant -->', '', '`Portfolio review`', '', '`[Effort, Reach]`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
+  const md = ['<!-- _class: quadrant -->', '', '`Portfolio review`', '', '`[Effort, Reach]`', '', '## X.', '', '- Group', '  - Item `{5, 85}`'].join('\n');
   assert.equal(narrateQuadrant(md), 'Portfolio review. X. Each item sits at its two scores, so which quadrant it lands in is the read. The horizontal axis, Effort, runs zero to five. The vertical axis, Reach, runs zero to one hundred. Group, one item. Item is high on both Effort and Reach: Effort five, Reach eighty-five.');
 });
 
-test('narrateQuadrant: mirrors parseCoordPill leading-digit quirk (`.5` does not count as a coordinate)', () => {
-  const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - Item `.5, 80`'].join('\n');
-  assert.ok(narrateQuadrant(md).includes('Item is low and to the right: eighty across, zero up.'));
+test('narrateQuadrant: reads a point with the chart\'s reader — `{.5, 80}` is `{0.5, 80}`', () => {
+  // The old comma pill counted a coordinate only when it began with a digit, so `.5` fell to 0.
+  // A point record reads both with Segno's number type, as the chart does (chart-point.js).
+  const md = (pill) => ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', `  - Item \`${pill}\``].join('\n');
+  assert.equal(narrateQuadrant(md('{.5, 80}')), narrateQuadrant(md('{0.5, 80}')));
+  assert.ok(narrateQuadrant(md('{.5, 80}')).includes('zero point five across, eighty up'));
 });
 
 // ── narrateStateChartInference ─────────────────────────────────────────────────
@@ -2081,10 +2084,10 @@ test('narrateDataSeries: an axis legend binds only when EVERY row matches its pi
   // `>=` instead of `===` would bind a two-name legend to a three-pill row and silently
   // mislabel the third value.
   const md = (rows) => `<!-- _class: scatter -->\n\n\`Cost\` \`Reach\`\n\n## H.\n\n${rows}`;
-  assert.match(narrateDataSeries(md('- A `1` `2`\n- B `3` `4`')), /A: Cost, one; Reach, two\./);
+  assert.match(narrateDataSeries(md('- A `{1, 2}`\n- B `{3, 4}`')), /A: Cost, one; Reach, two\./);
   // Three pills against two names: the legend cannot bind, so it is spoken as a caption and
   // the values read in order rather than being labeled wrongly.
-  const wide = narrateDataSeries(md('- A `1` `2` `3`\n- B `4` `5` `6`'));
+  const wide = narrateDataSeries(md('- A `{1, 2, size=3}`\n- B `{4, 5, size=6}`'));
   assert.match(wide, /Cost, Reach\./);
   assert.match(wide, /A, one, two, three\./);
   assert.doesNotMatch(wide, /A: Cost/);
@@ -2095,7 +2098,7 @@ test('narrateDataSeries: an eyebrow is never deleted, whether or not it is a leg
   // on the real --captions export: "Tooling spend review" was on the slide and in no .vtt,
   // because one regex spanned both lines and consumed only the first.
   const out = narrateDataSeries(
-    '<!-- _class: scatter -->\n\n`Tooling spend review`\n\n`Annual cost` `Teams adopting`\n\n## H.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`',
+    '<!-- _class: scatter -->\n\n`Tooling spend review`\n\n`Annual cost` `Teams adopting`\n\n## H.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`',
   );
   assert.match(out, /^Tooling spend review\./, out.slice(0, 80));
   assert.match(out, /Atlas: Annual cost, four hundred twenty thousand dollars; Teams adopting, eighteen percent\./);
@@ -2286,7 +2289,7 @@ test('narrateDataSeries: a bracketed list cannot invent more axes than the compo
 test('an unnamed axis (a `[, y]` placeholder) binds its value with no dangling comma', () => {
   const { narrateChart: narrate } = require('../../../lib/core/chart-narration');
   const md = ['<!-- _class: scatter -->', '', '`[, Teams adopting]`', '', '## Cost against adoption.', '',
-    '- Atlas `$420k` `18%`', '- Borealis `$310k` `24%`', '- Cardinal `$180k` `52%`'].join('\n');
+    '- Atlas `{$420k, 18%}`', '- Borealis `{$310k, 24%}`', '- Cardinal `{$180k, 52%}`'].join('\n');
   const out = narrate(md);
   assert.ok(out.includes('Atlas: four hundred twenty thousand dollars; Teams adopting, eighteen percent.'), out);
   assert.ok(!/: ,|, ,/.test(out), out);
@@ -2300,7 +2303,7 @@ test('narrateDataSeries: a map region authored by its code is spelled, so "GA" i
 });
 
 test('narrateQuadrant: high and low are against the line the chart DRAWS — the midpoint unless the variant is `threshold`', () => {
-  const md = (cls) => `<!-- _class: ${cls} -->\n\n\`[{Effort, 0..10, 3}, {Reach, 0..100}]\`\n\n## X.\n\n- G\n  - Item one \`4, 70\``;
+  const md = (cls) => `<!-- _class: ${cls} -->\n\n\`[{Effort, 0..10, 3}, {Reach, 0..100}]\`\n\n## X.\n\n- G\n  - Item one \`{4, 70}\``;
   assert.match(narrateQuadrant(md('quadrant')), /Item one is low on Effort and high on Reach/);
   assert.match(narrateQuadrant(md('quadrant threshold')), /Item one is high on both Effort and Reach/);
 });

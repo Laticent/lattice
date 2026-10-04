@@ -55,7 +55,7 @@ Chart — series-substance data visualizations (SVG kernel).
   > Pages the secondary after 5 minutes.
 - Postmortem `:doc`
 
-`[{=>, Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
 
 ---
 
@@ -77,7 +77,7 @@ Chart — series-substance data visualizations (SVG kernel).
 <!-- _class: gantt -->
 <!-- _footer: "gantt · chart survey" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## A gantt lays overlapping work against a shared calendar.
 
@@ -266,19 +266,19 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
     - Owner: Platform team
     - A 3-week spike de-risks the roadmap
-  - Decision-log API `7, 74`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 
@@ -336,14 +336,14 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 Cost is the renewal we signed; adoption is the share of teams with a weekly active user.
 
-- Atlas `$420k` `18%`
+- Atlas `{$420k, 18%}`
   - Renewal lands in March
   - Two teams asked to drop it
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
 
 ---
 

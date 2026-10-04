@@ -385,7 +385,7 @@ describe('the cell key', () => {
 
   test('an authored label lands as text, never as markup', () => {
     const out = buildMatrixGridSection(
-      grid(OUTLINED, setPara('[{[-], &lt;img src=x onerror=alert(1)&gt;}]')), CTX);
+      grid(OUTLINED, setPara('[{[-], &quot;&lt;img src=x onerror=alert(1)&gt;&quot;}]')), CTX);
     assert.ok(!out.html.includes('<img'), 'the label must not become a live element');
     assert.match(out.html, /matrix-grid-key-label">&lt;img/);
   });
@@ -455,7 +455,7 @@ describe('the cell key and the screen-reader label agree', () => {
 
   test('an override lands as TEXT in the sr label, never as markup', () => {
     const out = buildMatrixGridSection(
-      grid(OUTLINED, setPara('[{[-], &lt;img src=x onerror=alert(1)&gt;}]')), CTX);
+      grid(OUTLINED, setPara('[{[-], &quot;&lt;img src=x onerror=alert(1)&gt;&quot;}]')), CTX);
     assert.ok(!out.html.includes('<img'), 'must not become a live element');
     assert.match(out.html, /cell-sr-label">&lt;img/);
   });

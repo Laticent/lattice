@@ -2163,7 +2163,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
     // key BELOW it read as below the body and the above-body coaching was lost.
     const all = { names: new Set(['scatter']), modifiers: new Set() };
     const src = ['<!-- _class: scatter -->', '', '<!--', '- speaker note', '-->', '',
-      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `{1, 2}`'].join('\n');
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-above-body']);
   });
 
@@ -2226,14 +2226,14 @@ describe('label-set-above-body — coaching, never refusal', () => {
     // and stays on the slide — lint must not call it an axis above the body.
     const all = { names: new Set(['scatter']), modifiers: new Set() };
     const src = ['<!-- _class: scatter -->', '', '> - quoted point', '',
-      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `{1, 2}`'].join('\n');
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
   });
 
   test('a state-marker key above a keyless chart is still a misplaced key', () => {
     // scatter declares no key vocabulary, so the state markers stand in for it.
     const all = { names: new Set(['scatter']), modifiers: new Set() };
-    const src = '<!-- _class: scatter -->\n\n`[{[x], Enacted}]`\n\n## H\n\n- A `1` `2`\n';
+    const src = '<!-- _class: scatter -->\n\n`[{[x], Enacted}]`\n\n## H\n\n- A `{1, 2}`\n';
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => f.rule === 'label-set-above-body').length, 1);
   });
 
@@ -2241,7 +2241,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
     const all = { names: new Set(['matrix-grid', 'scatter', 'quadrant']), modifiers: new Set() };
     const decks = [
       ['matrix-grid', '`[{Wider reach, 0..4}, {Deeper cognition, 0..6}]`', '| Verb | Self |\n| --- | :--: |\n| Notice | [x] |'],
-      ['scatter', '`[{Effort, 0..10}, {Reach, 0..100}]`', '- A `1` `2`\n- B `3` `4`'],
+      ['scatter', '`[{Effort, 0..10}, {Reach, 0..100}]`', '- A `{1, 2}`\n- B `{3, 4}`'],
       ['quadrant', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '- Bets\n  - A `3, 70`'],
     ];
     for (const [cls, axis, body] of decks) {

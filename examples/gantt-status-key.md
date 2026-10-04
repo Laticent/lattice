@@ -18,7 +18,7 @@ header: "Lattice · gantt status key"
 <!-- _class: gantt -->
 <!-- _footer: "Dashed bar and dashed diamond are deferred; the solid bar nobody labeled" -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## Two neutrals, and the key named one.
 
@@ -49,7 +49,7 @@ The chip without a hue is `no status` — the bar nobody labeled. It appears onl
 <!-- _class: gantt -->
 <!-- _footer: "Every status in the ramp, with the neutral named" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## The full ramp, so the dash has neighbors.
 
@@ -69,7 +69,7 @@ Five ramps carry ten status words, so some share. A status and the absence of on
 <!-- _class: gantt -->
 <!-- _footer: "The hard case: the two neutrals adjacent, in one lane" -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## Side by side in one lane is where the old cue failed.
 

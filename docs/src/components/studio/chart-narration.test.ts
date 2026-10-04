@@ -41,7 +41,7 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 	});
 
 	it('narrateQuadrant speaks the auto-fit axis ranges', () => {
-		const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - Item `3, 70`'].join('\n');
+		const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - Item `{3, 70}`'].join('\n');
 		expect(narrateQuadrant(md)).toContain('The vertical axis runs zero to one hundred');
 	});
 

@@ -18,7 +18,7 @@ Same nested-list muscle memory, now with validated tokens, milestones, dependenc
 <!-- _class: gantt -->
 <!-- _footer: "Quarters, a milestone, and a today line · gantt" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## A rollout plan, by workstream.
 
@@ -38,7 +38,7 @@ The at-risk bar quietly gates the rollout; GA is a milestone; the today line mar
 <!-- _class: gantt -->
 <!-- _footer: "Real calendar dates, axis auto-derived · gantt" -->
 
-`today 2026-04-01`
+`[{Timeline, today=2026-04-01}]`
 
 ## The same shape, with real dates.
 
@@ -57,7 +57,7 @@ Write ISO dates and the bars land on a day-accurate scale — the month ticks co
 <!-- _class: gantt -->
 <!-- _footer: "Multi-year, year-qualified quarters · gantt" -->
 
-`2027 Q3 .. 2028 Q4`
+`[{Timeline, 2027 Q3 .. 2028 Q4}]`
 
 ## Year-qualified quarters span multiple years.
 
@@ -75,7 +75,7 @@ Qualify a quarter with its year (`2027 Q3`) and a plan can cross the calendar bo
 <!-- _class: gantt dark -->
 <!-- _footer: "Dark composition · gantt dark" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## Every status, on the dark canvas.
 
@@ -94,7 +94,7 @@ Qualify a quarter with its year (`2027 Q3`) and a plan can cross the calendar bo
 <!-- _class: gantt compact -->
 <!-- _footer: "Portrait reflow adapts the same source · gantt compact" -->
 
-`Jan .. Jun`
+`[{Timeline, Jan .. Jun}]`
 
 ## Months work too.
 

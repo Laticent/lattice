@@ -177,7 +177,7 @@ describe('the span', () => {
 
 describe('key and caption', () => {
   test('the key is derived, and an authored key renames it', () => {
-    const src = '- A `fail` => B\n- Platform `:c2`\n  - C\n\n`[{=>, Happy path}]`\n\n*The caption.*';
+    const src = '- A `fail` => B\n- Platform `:c2`\n  - C\n\n`[{"=>", Happy path}]`\n\n*The caption.*';
     const m = parse(src);
     assert.deepEqual(m.key, [{ key: 'fail', label: 'Failing' }, { key: '=>', label: 'Happy path' }, { key: ':c2', label: 'Platform' }]);
     assert.equal(m.caption, 'The caption.');
@@ -187,7 +187,7 @@ describe('key and caption', () => {
   });
   test('the key arrives HTML-escaped from a rendered page and still binds', () => {
     const o = g.outlineFromMarkdown('- A => B');
-    const m = g.parseFlowchart(o.items, { key: '[{=&gt;, Happy path}]' });
+    const m = g.parseFlowchart(o.items, { key: '[{&quot;=&gt;&quot;, Happy path}]' });
     assert.equal(m.key.find((e) => e.key === '=>').label, 'Happy path');
   });
 });
@@ -286,7 +286,7 @@ describe('the HTML reader agrees with the Markdown reader', () => {
     ['notes join, detail lines read as detail', '- A\n  > line one\n  > line two\n- B\n  lazy text\n- C'],
     ['a loose list', '- A\n\n  more about A\n\n- B -> A'],
     ['an ordered list', '1. A => B\n2. B\n   - C'],
-    ['key and caption after the list', '- A => B `:dotted`\n\n`[{=>, Happy path}, {:dotted, Later}]`\n\n*Everything waits for review.*'],
+    ['key and caption after the list', '- A => B `:dotted`\n\n`[{"=>", Happy path}, {:dotted, Later}]`\n\n*Everything waits for review.*'],
     // The checker's parity cases on #2385.
     ['intraword emphasis', '- A*x* -> B\n- snake_case -> B'],
     ['an autolink', '- <https://x.com> -> B'],
@@ -297,7 +297,7 @@ describe('the HTML reader agrees with the Markdown reader', () => {
   }
 
   test('the offsets let a caller splice the list and the key out', () => {
-    const h = html('- A => B\n\n`[{=>, Main}]`\n\n*Cap.*');
+    const h = html('- A => B\n\n`[{"=>", Main}]`\n\n*Cap.*');
     const o = outlineFromHtml(h);
     assert.ok(h.slice(o.start).startsWith('<ul'));
     assert.ok(h.slice(o.end).trimStart().startsWith('<p><code>'));

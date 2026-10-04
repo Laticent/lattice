@@ -69,13 +69,14 @@ const FORMATS = [
 ];
 
 /**
- * The entries: the barrel, and `number` — the number reader alone (`@laticent/segno/number`),
- * for a consumer that reads only numbers and is bundled by a tool that cannot tree-shake a
- * CommonJS `require` (Lattice's chart-values.js reaches the exported guide player that way).
+ * The entries: the barrel, and `values` — the number and time readers alone
+ * (`@laticent/segno/values`), for a consumer that reads only values and is bundled by a tool
+ * that cannot tree-shake a CommonJS `require` (Lattice's chart-values.js reaches the exported
+ * guide player that way).
  */
 const ENTRIES = [
   { entry: ENTRY, name: 'index' },
-  { entry: path.join(LIB_DIR, 'number.ts'), name: 'number' },
+  { entry: path.join(LIB_DIR, 'values.ts'), name: 'values' },
 ];
 
 /** Bundle each entry into a CJS + an ESM file (zero-dep → everything inlines). */

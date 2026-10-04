@@ -15,11 +15,11 @@ theme: indaco
 ## Five long names in one corner
 
 - Strategic Bets
-  - Comprehensive quarterly revenue recognition overhaul `3, 70`
-  - Consolidated multi-region settlement reconciliation `3.2, 72`
-  - Automated counterparty exposure attestation service `3.4, 74`
-  - Distributed ledger provenance verification program `3.1, 71`
-  - Enterprise-wide procurement rationalization mandate `3.3, 73`
+  - Comprehensive quarterly revenue recognition overhaul `{3, 70}`
+  - Consolidated multi-region settlement reconciliation `{3.2, 72}`
+  - Automated counterparty exposure attestation service `{3.4, 74}`
+  - Distributed ledger provenance verification program `{3.1, 71}`
+  - Enterprise-wide procurement rationalization mandate `{3.3, 73}`
 - Quick Wins
 - Defer
 - Time Sinks

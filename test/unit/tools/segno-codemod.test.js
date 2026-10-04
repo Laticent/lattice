@@ -63,3 +63,29 @@ describe('segno-codemod: files', () => {
     assert.equal(r.changes.length, 2);
   });
 });
+
+describe('segno-codemod: chart points', () => {
+  const quad = (body) => `<!-- _class: quadrant -->\n\n## H\n\n${body}`;
+  test('a quadrant item\'s coordinate pill becomes a point; a size is named', () => {
+    const r = rewriteText(quad('- Bets\n  - Atlas `3, 70`\n  - Borealis `0.4, 0.55, 12`'));
+    assert.match(r.text, /- Atlas `\{3, 70\}`/);
+    assert.match(r.text, /- Borealis `\{0\.4, 0\.55, size=12\}`/);
+  });
+  test('a detail line under an item keeps its figures — it is prose, not a point', () => {
+    const r = rewriteText(quad('- Bets\n  - Atlas `3, 70`\n    - Confidence range `40, 95`'));
+    assert.match(r.text, /Confidence range `40, 95`/);
+  });
+  test('a thousands number on another chart is never a point', () => {
+    const r = rewriteText('<!-- _class: funnel -->\n\n- Visitors `12,000`');
+    assert.equal(r.changes.length, 0);
+  });
+  test('a scatter row\'s trailing value pills become one point; a prose pill ahead of them stays', () => {
+    const r = rewriteText('<!-- _class: scatter -->\n\n## H\n\n- Atlas `EMEA` `$4.2M` `62%`\n- Borealis `$2.1M` `38%` `140`');
+    assert.match(r.text, /- Atlas `EMEA` `\{\$4\.2M, 62%\}`/);
+    assert.match(r.text, /- Borealis `\{\$2\.1M, 38%, size=140\}`/);
+  });
+  test('a scatter legend line is not a row', () => {
+    const r = rewriteText('<!-- _class: scatter -->\n\n`Annual cost` `Teams adopting`\n\n- A `1` `2`');
+    assert.match(r.text, /`Annual cost` `Teams adopting`/);
+  });
+});

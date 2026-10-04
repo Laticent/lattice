@@ -356,7 +356,7 @@ describe('gantt linter — typed-token validation', () => {
   // S5 regression — a date-only eyebrow window over ordinal tasks is a genuine
   // mix; lint must fold the eyebrow into mode detection to catch it.
   test('regression(S5): date window over ordinal tasks is flagged mixed', () => {
-    const mixed = deck('`2026-01-01 .. 2026-12-31`\n\n## P\n\n- L\n  - A `Q1..Q2`');
+    const mixed = deck('`[{Timeline, 2026-01-01 .. 2026-12-31}]`\n\n## P\n\n- L\n  - A `Q1..Q2`');
     assert.ok(lintGantt(mixed).some((x) => x.rule === 'gantt-mixed-time'));
   });
 
@@ -603,7 +603,7 @@ describe('gantt — tick advance follows the painted face', () => {
 describe('gantt — the sketch token reaches the builder', () => {
   const { transformChartSection } = engine;
   const section = `<h2>Plan</h2>
-<p><code>2026-01-01 .. 2027-03-31</code></p>
+<p><code>[{Timeline, 2026-01-01 .. 2027-03-31}]</code></p>
 <ul><li>Framework<ul>
   <li>Taxonomy <code>2026-01-01..2026-04-30</code> <code>done</code></li>
   <li>Weighting <code>2026-10-01..2027-02-28</code> <code>at-risk</code></li>
@@ -1016,16 +1016,18 @@ describe('gantt — bracketed axis alongside the pills', () => {
   };
   const figure = (html) => html.match(/<div class="chart-body">[\s\S]*<\/svg>/)[0];
 
-  test('the list and the pills draw the identical chart', () => {
-    const pills = render('<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
-    const list = render('<p><code>[{Timeline, 2026 Q1..2026 Q4, Q3}]</code></p>');
-    assert.equal(figure(list), figure(pills));
-    assert.match(list, /class="gantt-today"/);
+  test('`today=Q3` and a bare `Q3` draw the identical chart', () => {
+    const named = render('<p><code>[{Timeline, 2026 Q1..2026 Q4, today=Q3}]</code></p>');
+    const bare = render('<p><code>[{Timeline, 2026 Q1..2026 Q4, Q3}]</code></p>');
+    assert.equal(figure(named), figure(bare));
+    assert.match(named, /class="gantt-today"/);
   });
 
-  test('the list is consumed; the pills stay on the slide as before', () => {
-    assert.doesNotMatch(render('<p><code>[{Timeline, 2026 Q1..2026 Q4, Q3}]</code></p>'), /Timeline/);
-    assert.match(render('<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>'), /today Q3/);
+  test('the list is consumed; the retired eyebrow pills are not a window (Segno phase 2)', () => {
+    assert.doesNotMatch(render('<p><code>[{Timeline, 2026 Q1..2026 Q4, today=Q3}]</code></p>'), /Timeline/);
+    const eyebrow = render('<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
+    assert.match(eyebrow, /today Q3/, 'the pills stay on the slide as text');
+    assert.doesNotMatch(eyebrow, /class="gantt-today"/, 'and draw no today line');
   });
 
   test('window and today are told apart by shape, so today may come first', () => {
@@ -1046,12 +1048,12 @@ describe('gantt — bracketed axis alongside the pills', () => {
     assert.match(below, /Source: PMO, FY26/);
   });
 
-  test('lint reads the list window for the mixed-time check, same as the pill', () => {
+  test('lint reads the list window for the mixed-time check', () => {
     const vocab = { names: new Set(['gantt']), modifiers: new Set() };
     const deck = (axis) => `<!-- _class: gantt -->\n\n\`${axis}\`\n\n## H\n\n- Lane\n  - A \`Q1..Q2\`\n`;
     const rules = (axis) => core.lintTextWith(deck(axis), vocab).filter((f) => f.rule === 'gantt-mixed-time').length;
     assert.equal(rules('[{Timeline, 2026-01-01..2026-06-01}]'), 1);
-    assert.equal(rules('2026-01-01 .. 2026-06-01'), 1);
+    assert.equal(rules('2026-01-01 .. 2026-06-01'), 0, 'the retired eyebrow pill is not a window');
     assert.equal(rules('[{Timeline, 2026 Q1..2026 Q4, Q3}]'), 0);
   });
 });

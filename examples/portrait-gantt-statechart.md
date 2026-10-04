@@ -31,7 +31,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 <!-- _class: gantt -->
 <!-- _footer: "gantt · lane labels over full-width bars" -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## What ships in each phase, by workstream.
 

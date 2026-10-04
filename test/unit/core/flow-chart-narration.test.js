@@ -63,7 +63,7 @@ test('kanban: a code that is not a size stays in the title, as it does on the ca
 });
 
 test('gantt: the window and today, then lanes and tasks, spans said "to"', () => {
-	const out = narrateGantt(slide('gantt', '`2026 Q1 .. 2026 Q4` `today Q3`\n\n## Plan.\n\n- Framework\n  - Taxonomy `Q1..Q2` `done`\n  - Scoring `Q2..Q3` `live` `after: Taxonomy`'));
+	const out = narrateGantt(slide('gantt', '`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`\n\n## Plan.\n\n- Framework\n  - Taxonomy `Q1..Q2` `done`\n  - Scoring `Q2..Q3` `live` `after: Taxonomy`'));
 	assert.ok(out.startsWith('The plan runs from 2026 Q1 to 2026 Q4. Today is Q3.'), out);
 	assert.ok(out.includes('Framework, two tasks. Taxonomy, Q1 to Q2, done. Scoring, Q2 to Q3, live, after Taxonomy.'), out);
 });

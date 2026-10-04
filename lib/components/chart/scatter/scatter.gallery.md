@@ -24,14 +24,14 @@ An XY plot with real units on both axes — one dot per entity, showing how two 
 
 Cost is the renewal we signed; adoption is the share of teams with a weekly active user.
 
-- Atlas `$420k` `18%`
+- Atlas `{$420k, 18%}`
   - Renewal lands in March
   - Two teams asked to drop it
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
 
 
 ---
@@ -43,12 +43,12 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ## bubble sizes each dot by a third measure.
 
-- Atlas `$420k` `18%` `1200`
-- Borealis `$310k` `24%` `640`
-- Cardinal `$180k` `52%` `900`
-- Dovetail `$95k` `61%` `310`
-- Everline `$240k` `31%` `180`
-- Fathom `$60k` `74%` `450`
+- Atlas `{$420k, 18%, size=1200}`
+- Borealis `{$310k, 24%, size=640}`
+- Cardinal `{$180k, 52%, size=900}`
+- Dovetail `{$95k, 61%, size=310}`
+- Everline `{$240k, 31%, size=180}`
+- Fathom `{$60k, 74%, size=450}`
 
 
 ---
@@ -60,14 +60,14 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ## trend draws the least-squares line through the cloud.
 
-- Atlas `$420k` `18%`
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
-- Juniper `$400k` `20%`
-- Keystone `$88k` `66%`
+- Atlas `{$420k, 18%}`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
+- Juniper `{$400k, 20%}`
+- Keystone `{$88k, 66%}`
 
 
 ---
@@ -80,18 +80,18 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ## Stress test — twelve tools and a cluster the eye cannot separate.
 
-- Atlas `$420k` `18%`
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
-- Granite `$182k` `53%`
-- Halyard `$178k` `50%`
-- Ironwood `$185k` `54%`
-- Juniper `$400k` `20%`
-- Keystone `$88k` `66%`
-- Lantern `$300k` `28%`
+- Atlas `{$420k, 18%}`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
+- Granite `{$182k, 53%}`
+- Halyard `{$178k, 50%}`
+- Ironwood `{$185k, 54%}`
+- Juniper `{$400k, 20%}`
+- Keystone `{$88k, 66%}`
+- Lantern `{$300k, 28%}`
 
 
 ---
@@ -105,14 +105,14 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 Cost is the renewal we signed; adoption is the share of teams with a weekly active user.
 
-- Atlas `$420k` `18%`
+- Atlas `{$420k, 18%}`
   - Renewal lands in March
   - Two teams asked to drop it
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
 
 
 ---
@@ -126,14 +126,14 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 Cost is the renewal we signed; adoption is the share of teams with a weekly active user.
 
-- Atlas `$420k` `18%`
+- Atlas `{$420k, 18%}`
   - Renewal lands in March
   - Two teams asked to drop it
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
 
 
 ---
@@ -147,14 +147,14 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 Cost is the renewal we signed; adoption is the share of teams with a weekly active user.
 
-- Atlas `$420k` `18%`
+- Atlas `{$420k, 18%}`
   - Renewal lands in March
   - Two teams asked to drop it
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
 
 
 ---

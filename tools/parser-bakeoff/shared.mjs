@@ -9,8 +9,8 @@
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { unquote } = require('../../lib/core/bracket-list.js');
-const { signedValue } = require('../../lib/core/chart-values.js');
+const { unquote } = require('../segno-legacy/bracket-list.js');
+const { signedValue } = require('../segno-legacy/chart-values.js');
 const { GANTT_MONTHS, GANTT_MONTHS_FULL } = require('../../lib/core/gantt-time.js');
 const { resolveMods, RESERVED_MARKERS, isLabel } = require('../segno-legacy/inline-pills.js');
 

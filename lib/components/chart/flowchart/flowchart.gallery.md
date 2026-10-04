@@ -31,7 +31,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
   > Pages the secondary after 5 minutes.
 - Postmortem `:doc`
 
-`[{=>, Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
 
 
 ---
@@ -110,7 +110,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
   > Pages the secondary after 5 minutes.
 - Postmortem `:doc`
 
-`[{=>, Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
 
 
 ---
@@ -131,7 +131,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
   > Pages the secondary after 5 minutes.
 - Postmortem `:doc`
 
-`[{=>, Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
 
 
 ---
@@ -152,7 +152,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
   > Pages the secondary after 5 minutes.
 - Postmortem `:doc`
 
-`[{=>, Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
 
 
 ---

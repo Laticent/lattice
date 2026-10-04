@@ -24,7 +24,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 | `groups` | `li > ul` | no | A sub-list of shapes makes its parent item a GROUP, drawn as a tinted background behind its members, like a Mermaid subgraph. `:cN` on a group tints it. Groups nest. A line can start or end at a group. |
 | `connections` | `li` | no | An arrow in a row connects shapes: `A -> B`, `A => B` (the heavy main path), `A -- B` (no head), `A <-> B`, `A <- B`. A label sits inside the arrow: `-ships via->`. A row may start with the arrow (`- => B`), meaning "from the item this row sits under", or name its source (`- A => B`). `&` fans out: `A -> B & C`. A trailing span after the target styles the line: `:dashed` `:dotted` `:open` `:dot` `:cross` `:loose` `:cN`. |
 | `notes` | `li > blockquote` | no | A `>` blockquote under a shape is a note pinned to it, drawn as a card on a dotted tether. |
-| `key` | `p > code` | no | The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{=>, Happy path}, {:dotted, Later}]` ``. It only renames; it never hides or adds an entry. |
+| `key` | `p > code` | no | The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{"=>", Happy path}, {:dotted, Later}]` ``. It only renames; it never hides or adds an entry. |
 | `caption` | `p > em` | no | An italic paragraph below becomes the chart caption. |
 
 ### Variant decision rule

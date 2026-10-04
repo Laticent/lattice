@@ -30,7 +30,7 @@ Use for project plans with overlapping or staggered tasks. Each task is a bar on
 - **Pointing `after:` at a task that carries only a status and no span.** A task with no parseable span is never indexed, so `after:` naming it is flagged dangling even though its label is visibly on the slide. Give the referenced task a span, or drop the dependency.
 - **Expecting a status alone to place a task on the axis.** Status is a tint, not a position. A task with `done` and no span renders as a full-width muted placeholder — the shape that says 'this task has no schedule' — rather than being dropped silently.
 - **Adding lanes and tasks until the chart no longer fits, expecting it to scale down.** It does not scale down: bars and captions are a fixed size, so the chart grows taller and past the budget it overflows and the render reports CONTENT CLIPPED, naming the first thing cut. About five bar ROWS fit a standard slide, and overlapping tasks stack into extra rows — split the plan across two slides. **That report has a blind band and it is worth knowing:** both of its checks are read against a 12px noise budget, so a chart painting up to 12px outside its stage does not reach either of them (#2252 measured one at 10.2px). The export now prints an ADVISORY naming those slides and their overshoot — useful, but not a verdict, and it starts at 3px. `npm run check:chart-fit -- <deck>` is the gate that adjudicates the band: it measures the painted chart against the stage with 1.5px of slack rather than asking the export.
-- **Writing `today Q3` in the eyebrow and expecting the marker without a window.** The `today` pill works with or without a window pill, but the point has to fall INSIDE the axis the chart resolves to. A `today` outside the derived or declared range draws nothing.
+- **Writing `today=Q3` in the axis line without a window and expecting the marker to land.** The `today` pill works with or without a window pill, but the point has to fall INSIDE the axis the chart resolves to. A `today` outside the derived or declared range draws nothing.
 - **Reading a pale bar as 'deferred' without checking the key.** A `deferred` bar and a bar with no status share the neutral ramp. `deferred` is drawn hollow with a DASHED edge; an unstated bar is solid. When a chart carries both, the key names the second one `no status` — so the answer is on the slide rather than in the author's head.
 
 ### Data shape
@@ -60,7 +60,7 @@ Use for project plans with overlapping or staggered tasks. Each task is a bar on
 ```markdown
 <!-- _class: gantt -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## What ships in each phase, by workstream.
 

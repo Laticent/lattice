@@ -36,11 +36,11 @@ const HOSTILE_QUADRANT = `
 ## Hostile.
 
 - Strategic Bets
-  - Comprehensive quarterly revenue recognition overhaul \`3, 70\`
-  - Consolidated multi-region settlement reconciliation \`3.2, 72\`
-  - Automated counterparty exposure attestation service \`3.4, 74\`
-  - Distributed ledger provenance verification program \`3.1, 71\`
-  - Enterprise-wide procurement rationalization mandate \`3.3, 73\`
+  - Comprehensive quarterly revenue recognition overhaul \`{3, 70}\`
+  - Consolidated multi-region settlement reconciliation \`{3.2, 72}\`
+  - Automated counterparty exposure attestation service \`{3.4, 74}\`
+  - Distributed ledger provenance verification program \`{3.1, 71}\`
+  - Enterprise-wide procurement rationalization mandate \`{3.3, 73}\`
 - Quick Wins
 - Defer
 - Time Sinks
@@ -95,7 +95,7 @@ describe('the render reports the labels it declined to paint', () => {
   // chart is one an author switches off, and every chart in the shipped corpus is
   // healthy — the census proves it. So the attribute must be ABSENT, not empty.
   test('a chart that drops nothing carries no attribute at all', () => {
-    const body = '## Fine.\n\n- Alpha `2, 30`\n- Beta `7, 80`\n- Gamma `4, 55`';
+    const body = '## Fine.\n\n- Alpha `{2, 30}`\n- Beta `{7, 80}`\n- Gamma `{4, 55}`';
     const { drops, html } = dropsOn(body, 'quadrant');
     assert.equal(drops.length, 0);
     assert.doesNotMatch(html, /data-label-drops/,

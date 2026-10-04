@@ -33,7 +33,7 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
   > Pages the secondary after 5 minutes.
 - Postmortem `:doc`
 
-`[{=>, Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
 
 *SEV1 pages a human inside five minutes; everything else waits for business hours.*
 

@@ -64,12 +64,12 @@ Nothing about the two spans distinguishes them. Only where they sit.
 
 ## The same line reads on a scatter.
 
-- Atlas `$420k` `18%`
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
+- Atlas `{$420k, 18%}`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
 
 ---
 
@@ -80,11 +80,11 @@ Nothing about the two spans distinguishes them. Only where they sit.
 
 ## A third member sizes the dot.
 
-- Atlas `$420k` `18%` `1200`
-- Borealis `$310k` `24%` `800`
-- Cardinal `$180k` `52%` `2400`
-- Dovetail `$95k` `61%` `3100`
-- Everline `$240k` `31%` `600`
+- Atlas `{$420k, 18%, size=1200}`
+- Borealis `{$310k, 24%, size=800}`
+- Cardinal `{$180k, 52%, size=2400}`
+- Dovetail `{$95k, 61%, size=3100}`
+- Everline `{$240k, 31%, size=600}`
 
 ---
 
@@ -97,10 +97,10 @@ Nothing about the two spans distinguishes them. Only where they sit.
 
 Unquoted, every comma splits. Quoted, a comma is part of the name.
 
-- Atlas `$420k` `18%`
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
+- Atlas `{$420k, 18%}`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
 
 ---
 
@@ -117,21 +117,21 @@ The eyebrow above is not a list, so it stays an eyebrow; the list below it
 sets both domains and draws both cutoff lines.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
+  - Weekly signal brief `{8, 80}`
 - Defer
-  - Vendor scoping `2, 30`
+  - Vendor scoping `{2, 30}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
+  - Custom audit log UI `{7, 18}`
 
 ---
 
 <!-- _class: gantt -->
 <!-- _footer: "gantt · the keyword pills, kept · order-independent" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## Gantt keeps its pills, and they still work.
 
@@ -148,7 +148,7 @@ sets both domains and draws both cutoff lines.
 <!-- _class: gantt -->
 <!-- _footer: "gantt · the same axis as one bracketed list · the identical chart" -->
 
-`[{Timeline, 2026 Q1..2026 Q4, Q3}]`
+`[{Timeline, 2026 Q1..2026 Q4, today=Q3}]`
 
 ## The bracketed form draws the identical chart.
 

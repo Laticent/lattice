@@ -77,7 +77,7 @@ A status word colors the same way wherever the engine accepts it.
 
 <!-- _class: gantt -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## Gantt spends the status word on the bar.
 

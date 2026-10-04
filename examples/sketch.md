@@ -99,7 +99,7 @@ The finish draws the lines a slide rules for itself, and reskins the heading and
 <!-- _class: gantt -->
 <!-- _footer: "gantt — the date axis wears the hand, and the tick math follows the face" -->
 
-`2026-01-01 .. 2027-03-31` `today 2026-08-01`
+`[{Timeline, 2026-01-01 .. 2027-03-31, today=2026-08-01}]`
 
 ## The calendar reads in the same hand as the plan above it.
 

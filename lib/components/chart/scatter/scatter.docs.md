@@ -19,8 +19,8 @@ Use when the argument is that two measures move together (or against each other)
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading — name the relationship the dots show, not the chart type. |
-| `axes` | `p > code` | yes | The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Quotes are optional, single or double, and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`. |
-| `points` | `ul > li` | yes | One li per entity: the name, then TWO trailing value pills — ``Atlas `$420k` `18%` ``. The first pill is x, the second y; a third sizes the dot under `bubble`. Magnitude suffixes are scale (`1.2M` is 1 200 000) and the affix every value agrees on is carried onto that axis, so a series authored in `$` gets a `$` axis. |
+| `axes` | `p > code` | yes | The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`. |
+| `points` | `ul > li` | yes | One li per entity: the name, then ONE point pill — ``Atlas `{$420k, 18%}` ``. Its first number is x, the second y; a named size (`{$420k, 18%, size=140}`) sizes the dot under `bubble`. Magnitude suffixes are scale (`1.2M` is 1 200 000) and the affix every value agrees on is carried onto that axis, so a series authored in `$` gets a `$` axis. |
 | `detail` | `li > ul` | no | Optional nested sublist under a point. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): the Present-mode reveal popover keyed on the dot's `data-mark`, and the PDF speaker note. Renders nowhere on the chart face — a scatter with detail bullets is pixel-identical to one without. |
 
 ### Variant decision rule
@@ -39,7 +39,7 @@ Use when the argument is that two measures move together (or against each other)
 
 ### Data shape
 
-- A point is a name plus TWO trailing inline-code pills — `` Atlas `$420k` `18%` `` — x then y, in that order. A third pill is the bubble magnitude and is ignored without the `bubble` class. Fewer than two numeric pills and the item is skipped, not plotted at zero.
+- A point is a name plus ONE point pill — `` Atlas `{$420k, 18%}` `` — x then y, in that order. A named `size=` is the bubble magnitude and is ignored without the `bubble` class. A row whose last pill is not a point is skipped, not plotted at zero.
 - Magnitude suffixes SCALE: `1.2M` is 1 200 000 and `800k` is 800 000, so the two can share one axis. `%` is not a magnitude, so `12%` is 12. A minus written outside the currency symbol (`-$400k`) is understood as negative.
 - The affix is per axis and is adopted only when EVERY value on that axis agrees on it: six values in `$` give a `$` axis, and a mixed series (`$4M`, `12%`) gets a bare one, which is the honest read of an axis that cannot describe itself.
 - Both axes are linear. There is no log scale, so a series spanning several orders of magnitude will pile up at one end — take the log yourself before authoring and say so in the axis caption.
@@ -66,10 +66,10 @@ Use when the argument is that two measures move together (or against each other)
 
 ## Two measures, one relationship.
 
-- First entity `4.2` `62`
-- Second entity `2.1` `38`
-- Third entity `6.8` `81`
-- Fourth entity `3.4` `55`
+- First entity `{4.2, 62}`
+- Second entity `{2.1, 38}`
+- Third entity `{6.8, 81}`
+- Fourth entity `{3.4, 55}`
 ```
 
 ## Anatomy
@@ -104,12 +104,12 @@ A third measure sizes each dot by area.
 
 ## bubble sizes each dot by a third measure.
 
-- Atlas `$420k` `18%` `1200`
-- Borealis `$310k` `24%` `640`
-- Cardinal `$180k` `52%` `900`
-- Dovetail `$95k` `61%` `310`
-- Everline `$240k` `31%` `180`
-- Fathom `$60k` `74%` `450`
+- Atlas `{$420k, 18%, size=1200}`
+- Borealis `{$310k, 24%, size=640}`
+- Cardinal `{$180k, 52%, size=900}`
+- Dovetail `{$95k, 61%, size=310}`
+- Everline `{$240k, 31%, size=180}`
+- Fathom `{$60k, 74%, size=450}`
 ```
 
 ### `trend` — trend
@@ -123,14 +123,14 @@ A least-squares line through the cloud.
 
 ## trend draws the least-squares line through the cloud.
 
-- Atlas `$420k` `18%`
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
-- Juniper `$400k` `20%`
-- Keystone `$88k` `66%`
+- Atlas `{$420k, 18%}`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
+- Juniper `{$400k, 20%}`
+- Keystone `{$88k, 66%}`
 ```
 
 ## Universal modifiers

@@ -521,7 +521,7 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 <!-- _class: gantt -->
 <!-- _footer: "Schedule by workstream · gantt" -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## The build schedule — Phase 3 is the big red bar, as it was last year
 
@@ -900,14 +900,14 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 ## Where the 18 logged decisions landed
 
 - After the fact
-  - Reprioritized the roadmap `2, 7`
-  - Picked the vendor `1, 6`
-  - Killed the connector rewrite `4, 8`
+  - Reprioritized the roadmap `{2, 7}`
+  - Picked the vendor `{1, 6}`
+  - Killed the connector rewrite `{4, 8}`
 - Predicted
-  - Cut the onboarding step `7, 7`
-  - Renamed the tier labels `8, 8`
+  - Cut the onboarding step `{7, 7}`
+  - Renamed the tier labels `{8, 8}`
 - Calibrated
-  - Adjusted recency weight `3, 2`
+  - Adjusted recency weight `{3, 2}`
 
 ---
 

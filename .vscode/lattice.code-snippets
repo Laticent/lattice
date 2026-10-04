@@ -374,7 +374,7 @@
     "body": [
       "<!-- _class: gantt -->",
       "",
-      "`2026 Q1 .. 2026 Q4` `today Q3`",
+      "`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`",
       "",
       "## What ships in each phase, by workstream.",
       "",
@@ -799,17 +799,17 @@
       "Effort estimated in story-points; reach as percent of addressable teams.",
       "",
       "- Strategic Bets",
-      "  - Scoring model v2 `3, 70`",
-      "  - Per-team calibration `5, 85`",
+      "  - Scoring model v2 `{3, 70}`",
+      "  - Per-team calibration `{5, 85}`",
       "- Quick Wins",
-      "  - Weekly signal brief `8, 80`",
-      "  - Snapshot exports `9, 55`",
+      "  - Weekly signal brief `{8, 80}`",
+      "  - Snapshot exports `{9, 55}`",
       "- Defer",
-      "  - Vendor scoping `2, 30`",
-      "  - Manual recalibration `1, 22`",
+      "  - Vendor scoping `{2, 30}`",
+      "  - Manual recalibration `{1, 22}`",
       "- Time Sinks",
-      "  - Custom audit log UI `7, 18`",
-      "  - Bespoke board export `9, 28`"
+      "  - Custom audit log UI `{7, 18}`",
+      "  - Bespoke board export `{9, 28}`"
     ],
     "description": "Native 2×2 scatter chart — items plotted on two continuous axes."
   },
@@ -937,10 +937,10 @@
       "",
       "## Two measures, one relationship.",
       "",
-      "- First entity `4.2` `62`",
-      "- Second entity `2.1` `38`",
-      "- Third entity `6.8` `81`",
-      "- Fourth entity `3.4` `55`"
+      "- First entity `{4.2, 62}`",
+      "- Second entity `{2.1, 38}`",
+      "- Third entity `{6.8, 81}`",
+      "- Fourth entity `{3.4, 55}`"
     ],
     "description": "An XY plot with real units on both axes — one dot per entity, showing how two measures relate."
   },

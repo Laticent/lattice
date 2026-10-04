@@ -199,8 +199,8 @@ The `/segno` page runs the same ladder in your browser, and lets you write a gra
 
 `npm run segno-lib:build` regenerates `notation.generated.ts` and writes `dist/` (ESM + CJS +
 `.d.ts`); `npm run segno-lib:check` fails if either is stale. Two entries: `@laticent/segno`, and
-`@laticent/segno/number` — `readNumber` alone, about 5 KB against the full library's 80, for a
-consumer that only reads numbers and cannot tree-shake a CommonJS `require`. `npm run check:segno` (in `docs/`)
+`@laticent/segno/values` — `readNumber` and `readTime` alone, a few KB against the full library's
+80, for a consumer that only reads values and cannot tree-shake a CommonJS `require`. `npm run check:segno` (in `docs/`)
 typechecks the library alone with no DOM and no Node types, which is the mechanical proof it stands
 alone. Tests: `cd docs && npx vitest run src/lib/segno` (fuzzing against a brute-force recognizer and
 against Lattice's number and time readers, and metamorphic tests of the notation's promises).

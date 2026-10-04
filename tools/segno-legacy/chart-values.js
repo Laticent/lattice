@@ -16,16 +16,7 @@
  * pasted out of French and German spreadsheets; each is a defect note, and a
  * paraphrase of it in a second file is a defect waiting to come back. One parser,
  * two layers, no copy (HARD RULE #1).
- *
- * ── AND ONE READER UNDER BOTH: SEGNO ──────────────────────────────────────────
- * Segno's `number` type (`@laticent/segno`, Segno phase 2) reads the same language — phase 1
- * fuzzed the two identical on 100,000 tokens — so a WHOLE value pill is read by Segno here,
- * and every chart, the narrator and every inline-code slot share one number reader. What is
- * left in this file is what Segno does not do: the lenient read of text that is not wholly a
- * number (`240,000 views` in prose, a label with a figure in it), and the spoken form.
  */
-
-const { readNumber } = require('@laticent/segno/values');
 
 const MAGNITUDE_ONLY = /^(?:bn|[kKmMBbT])$/;
 
@@ -77,8 +68,6 @@ function normalizeSeparators(s) {
 
 function parseValue(raw) {
   if (raw == null) return NaN;
-  const whole = readNumber(String(raw));
-  if (whole) return whole.value;
   let s = normalizeSeparators(String(raw).trim());
 
   // The SIGN is read separately from the numeric run, because the run is not
@@ -129,8 +118,6 @@ function parseValue(raw) {
  */
 function signedValue(raw) {
   const s = String(raw == null ? '' : raw).trim();
-  const whole = readNumber(s);
-  if (whole) return { value: whole.value, signed: whole.signed, negative: whole.signed && whole.value < 0 };
   // A sign counts wherever it sits BEFORE the digits — `-$0.9M` and `$-0.9M`
   // are both an author saying "down", and only the first has it in front. The
   // accounting parenthesis is the fourth spelling.
@@ -160,9 +147,8 @@ const NUMERIC_PILL =
 
 function isValuePill(raw) {
   if (raw == null) return false;
-  // Segno's reader IS this test: a wholly numeric pill, and never a range — `0..10` is not a
-  // value (the separator rule used to read it as 10, a range silently become its upper end).
-  return readNumber(String(raw)) !== undefined;
+  const s = String(raw).trim();
+  return s !== '' && NUMERIC_PILL.test(s) && Number.isFinite(parseValue(s));
 }
 
 /**

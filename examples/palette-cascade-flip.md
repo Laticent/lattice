@@ -76,7 +76,7 @@ On `a11y-achromatopsia` these were engine green and amber — one gray to the re
 <!-- _class: gantt -->
 <!-- _footer: "The --diagram-* state family" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## Plan bars take their status tints from the palette.
 

@@ -18,7 +18,7 @@ What a lane looks like when two tasks run at the same time.
 <!-- _class: gantt -->
 <!-- _footer: "Concurrency is the point — and now it is visible." -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## Three tasks, one lane, two of them running together.
 
@@ -38,7 +38,7 @@ Scoring model v2 overlaps both its neighbors, so it takes a row of its own; the 
 <!-- _class: gantt -->
 <!-- _footer: "A sequential lane costs no extra height." -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## Tasks that clear each other still share a row.
 
@@ -58,7 +58,7 @@ Packing only spends height where the data needs it. Nothing here overlaps, so ev
 <!-- _class: gantt -->
 <!-- _footer: "Three mutually overlapping tasks earn three rows." -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## When everything overlaps, every task gets its own row.
 
@@ -77,7 +77,7 @@ The decision log's three workstreams run across each other end to end. On one ro
 <!-- _class: gantt -->
 <!-- _footer: "A milestone inside a bar's span is a separate task." -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## A milestone never sits on top of a bar.
 
@@ -94,7 +94,7 @@ GA falls inside the rollout's span. It is its own task, so it takes its own row 
 <!-- _class: gantt -->
 <!-- _footer: "The chart grows; it does not shrink." -->
 
-`2026 Jan .. 2026 Dec`
+`[{Timeline, 2026 Jan .. 2026 Dec}]`
 
 ## The chart keeps its size and grows taller.
 
@@ -115,7 +115,7 @@ Bars and captions are one fixed size on every gantt in the deck. More work makes
 <!-- _class: gantt dark -->
 <!-- _footer: "Dark · the today rule is a reference, not a status." -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## The now line reads as chrome on either canvas.
 

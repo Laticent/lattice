@@ -468,7 +468,7 @@ describe('the mood scale label set', () => {
   });
 
   test('an authored pole lands as text, never as markup', () => {
-    const out = run(section(setPara('[{1, &lt;img src=x onerror=alert(1)&gt;}]')), 'landscape');
+    const out = run(section(setPara('[{1, &quot;&lt;img src=x onerror=alert(1)&gt;&quot;}]')), 'landscape');
     assert.ok(!(out.html ?? out).includes('<img'), 'the pole must not become a live element');
     assert.match(out.html ?? out, /journey-mood-key-low">&lt;img/);
   });

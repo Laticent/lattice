@@ -18,7 +18,7 @@ Gantt chart — task bars across a date axis.
 <!-- _class: gantt -->
 <!-- _footer: "Default · gantt" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## A gantt lays overlapping work against a shared calendar.
 
@@ -42,7 +42,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 <!-- stress-slide -->
 <!-- _footer: "Stress test · gantt — Twelve months, every lane overlapping." -->
 
-`2026 Jan .. 2026 Dec`
+`[{Timeline, 2026 Jan .. 2026 Dec}]`
 
 ## Every lane overlaps, at the row budget.
 
@@ -63,7 +63,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 <!-- _class: gantt dark -->
 <!-- _footer: "Composition: dark · gantt dark" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## A gantt lays overlapping work against a shared calendar.
 
@@ -86,7 +86,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 <!-- _class: gantt compact -->
 <!-- _footer: "Composition: compact · gantt compact" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## A gantt lays overlapping work against a shared calendar.
 
@@ -109,7 +109,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 <!-- _class: gantt accent -->
 <!-- _footer: "Composition: accent · gantt accent" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## A gantt lays overlapping work against a shared calendar.
 

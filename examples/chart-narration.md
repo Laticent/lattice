@@ -74,10 +74,10 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 ## Where to put the next dollar.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
+  - Weekly signal brief `{8, 80}`
 
 ---
 

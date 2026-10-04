@@ -45,17 +45,17 @@ _Measured on a 1280×720 indaco render — distance in px from the slide edge, b
 The figure box goes 896 to 1024; the letterboxed drawing is height-bound, so the room around it changes, not the mark.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
-  - Decision-log API `7, 74`
+  - Scoring model v2 `{8, 88}`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 

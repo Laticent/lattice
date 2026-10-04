@@ -29,17 +29,17 @@ paginate: true
 Every group name below carries `―` (horizontal bar), `→` (rightwards arrow) or `　` (ideographic space).
 
 - Quick Wins ― Bar
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets → Arrow
-  - Scoring model v2 `8, 88`
-  - Decision-log API `7, 74`
+  - Scoring model v2 `{8, 88}`
+  - Decision-log API `{7, 74}`
 - Defer　Ideographic
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks ― → 　 All Three
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 
@@ -52,17 +52,17 @@ Every group name below carries `―` (horizontal bar), `→` (rightwards arrow) 
 The cohort label wraps around its centroid, so a wider estimate breaks it earlier.
 
 - Platform Investment ― Long Runway
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Customer Facing → Fast Payback
-  - Scoring model v2 `8, 88`
-  - Decision-log API `7, 74`
+  - Scoring model v2 `{8, 88}`
+  - Decision-log API `{7, 74}`
 - Internal Tooling　Deferred Scope
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Compliance ― Mandatory → Fixed
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 
@@ -75,13 +75,13 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 `magic` tracks corner names at 0.08em, the widest rule the table feeds.
 
 - Leaders ― Established
-  - Weekly signal digest `2, 82`
+  - Weekly signal digest `{2, 82}`
 - Challengers → Rising
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
 - Niche Players　Focused
-  - Per-team weighting UI `2, 28`
+  - Per-team weighting UI `{2, 28}`
 - Visionaries ― → 　 Emerging
-  - Bespoke board exports `8, 18`
+  - Bespoke board exports `{8, 18}`
 
 ---
 
@@ -115,17 +115,17 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 `sketch` re-points the body font at the hand sans, so the hand half of the table bills these.
 
 - Quick Wins ― Bar
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets → Arrow
-  - Scoring model v2 `8, 88`
-  - Decision-log API `7, 74`
+  - Scoring model v2 `{8, 88}`
+  - Decision-log API `{7, 74}`
 - Defer　Ideographic
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks ― → 　 All Three
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 
@@ -136,17 +136,17 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 ## Cohort centroid names under the hand face.
 
 - Platform Investment ― Long Runway
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Customer Facing → Fast Payback
-  - Scoring model v2 `8, 88`
-  - Decision-log API `7, 74`
+  - Scoring model v2 `{8, 88}`
+  - Decision-log API `{7, 74}`
 - Internal Tooling　Deferred Scope
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Compliance ― Mandatory → Fixed
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 
@@ -157,13 +157,13 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 ## Magic archetypes at 0.08em tracking under the hand face.
 
 - Leaders ― Established
-  - Weekly signal digest `2, 82`
+  - Weekly signal digest `{2, 82}`
 - Challengers → Rising
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
 - Niche Players　Focused
-  - Per-team weighting UI `2, 28`
+  - Per-team weighting UI `{2, 28}`
 - Visionaries ― → 　 Emerging
-  - Bespoke board exports `8, 18`
+  - Bespoke board exports `{8, 18}`
 
 ---
 

@@ -22,7 +22,7 @@ const modelOf = (html) => {
 };
 
 describe('flowchart — the figure through the real engine', () => {
-  const html = render('- Alert `:pill` => Triage\n- Triage -done-> Close `:dotted`\n  > Closes itself after a day.\n\n`[{=>, Paging path}]`\n\n*Most alerts close themselves.*');
+  const html = render('- Alert `:pill` => Triage\n- Triage -done-> Close `:dotted`\n  > Closes itself after a day.\n\n`[{"=>", Paging path}]`\n\n*Most alerts close themselves.*');
 
   test('the chart frame wraps one figure, with the harness and an empty svg', () => {
     assert.match(html, /class="[^"]*\bchart-frame\b/);
