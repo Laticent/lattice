@@ -29,6 +29,7 @@ const {
   axisAngle,
   polar,
   readRadarAxis,
+  transformSection,
 } = require('../../../lib/components/chart/radar/radar.transform');
 
 // ── Fixtures ────────────────────────────────────────────────────────────
@@ -390,6 +391,17 @@ test('readRadarAxis: the axis list pins the scale and leaves the slide', () => {
   const a = readRadarAxis('<p><code>[{Scale, 0..100}]</code></p>\n<h2>X</h2>\n<ul><li>A<ul><li>x <code>3</code></li></ul></li></ul>');
   assert.deepEqual(a.range, { min: 0, max: 100 });
   assert.doesNotMatch(a.html, /Scale/);
+});
+
+test('a pinned scale stays on a small-multiples slide, whose mini radars print no ticks', () => {
+  const html = '<p><code>[{Scale, 0..10}]</code></p>\n<h2>T</h2>\n<ul><li>A<ul><li>x <code>3</code></li><li>y <code>4</code></li><li>z <code>5</code></li></ul></li></ul>';
+  const out = (cls) => { const r = transformSection(html, { classTokens: cls, orientation: 'landscape' }); return typeof r === 'string' ? r : r.html; };
+  assert.match(out(['radar', 'small-multiples']), /<p><code>Scale · 0–10<\/code><\/p>\n<h2>/);
+  assert.doesNotMatch(out(['radar']), /Scale/, 'a radar that prints ticks needs no eyebrow');
+  // An eyebrow the author kept is not doubled.
+  const kept = html.replace('<h2>', '<p><code>Scale · 0–10, on our criteria</code></p>\n<h2>');
+  const r = transformSection(kept, { classTokens: ['radar', 'small-multiples'], orientation: 'landscape' });
+  assert.equal(((typeof r === 'string' ? r : r.html).match(/Scale ·/g) || []).length, 1);
 });
 
 test('readRadarAxis: an eyebrow that is not a bracketed list is not the axis', () => {

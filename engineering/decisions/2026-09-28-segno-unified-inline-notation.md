@@ -467,7 +467,9 @@ reads the slot.
 
 - **Radar (row 27)** takes the bracketed axis line `[{Scale, 0..100}]`, the form quadrant and gantt
   read, rather than a bare `0..100` pill in the eyebrow. A bare pill would have printed `0..100` on the
-  slide. The line is lifted off the slide because the ring ticks already print the scale. Three
+  slide. The line is lifted off the slide because the ring ticks already print the scale. The one
+  variant that prints no ticks, `small-multiples`, re-shows a pinned scale as its old eyebrow
+  (`Scale · 0–10`); the same-machine render against base caught that slide losing it. Three
   shipped eyebrows said more than the scale (`Scale · 0–10, on the criteria we wrote`); they keep their
   words, and the axis line goes in above them.
 - **Journey (decision 11).** A record names `who` once, so a second actor is a second `@` pill:

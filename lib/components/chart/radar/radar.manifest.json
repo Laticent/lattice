@@ -115,7 +115,7 @@
     "axes": {
       "selector": "p > code",
       "required": false,
-      "description": "Optional value axis, as ONE bracketed list in its own paragraph ABOVE the heading: `[{Scale, 0..100}]` pins the scale the rings and ticks are drawn on. Without it the scale derives from the data, rounded up to a clean ceiling. The paragraph is consumed: the ring ticks already print the scale, so it never prints twice. Same idiom as `quadrant`, `scatter` and `gantt`. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone."
+      "description": "Optional value axis, as ONE bracketed list in its own paragraph ABOVE the heading: `[{Scale, 0..100}]` pins the scale the rings and ticks are drawn on. Without it the scale derives from the data, rounded up to a clean ceiling. The paragraph is consumed: the ring ticks already print the scale, so it never prints twice. `small-multiples`, whose mini radars print no ticks, shows a pinned scale as an eyebrow instead (`Scale · 0–10`), unless the slide has an eyebrow of its own. Same idiom as `quadrant`, `scatter` and `gantt`. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone."
     },
     "series": {
       "selector": "ul > li",
