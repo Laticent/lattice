@@ -1296,7 +1296,10 @@
         "bake.js",
         "docs.md",
         "fixtures.md",
-        "manifest.json"
+        "highlight.js",
+        "hydrate.js",
+        "manifest.json",
+        "styles.css"
       ],
       "code": true
     }

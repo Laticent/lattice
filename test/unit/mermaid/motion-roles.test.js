@@ -146,9 +146,9 @@ describe('tagMermaidMotion — wired into every path that produces a diagram', (
   const fs = require('node:fs');
   const path = require('node:path');
   const root = path.resolve(__dirname, '../../..');
-  it('the live runtime tags a diagram at both of its write sites', () => {
-    const src = fs.readFileSync(path.join(root, 'lib/runtime/index.js'), 'utf8');
-    assert.match(src, /require\('\.\.\/\.\.\/lib\/integrations\/mermaid\/motion-roles'\)/);
+  it('the live diagram pass tags a diagram at both of its write sites', () => {
+    const src = fs.readFileSync(path.join(root, 'lib/plugins/mermaid/mermaid.hydrate.js'), 'utf8');
+    assert.match(src, /require\('\.\.\/\.\.\/integrations\/mermaid\/motion-roles'\)/);
     // One call after the cache write, one after the fresh render.
     assert.equal((src.match(/target\.innerHTML = (?:cachedSvg|svg);\n\s*tagDiagramMotion\(target\);/g) || []).length, 2);
   });

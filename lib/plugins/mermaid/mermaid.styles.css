@@ -1,6 +1,9 @@
-/* _diagram-overrides.css — Mermaid SVG selectors, palette-blind.
+/* lib/plugins/mermaid/mermaid.styles.css — the Mermaid plugin's stylesheet: Mermaid SVG
+ * selectors, palette-blind (`contributes.styles`; every var(--…) read here is listed in the
+ * manifest's `tokens`, which the resolver checks).
  *
- * Extracted from lib/_legacy.css in Phase 7 of the destination map.
+ * Extracted from lib/_legacy.css in Phase 7 of the destination map; lived at
+ * lib/integrations/mermaid/mermaid.css until plugin-system phase D's browser half.
  *
  * Two blocks combined:
  *   1. Mermaid wrapper chrome — .mermaid-svg (CLI path) + the runtime
@@ -13,7 +16,9 @@
  *      themeVariables, missing class hooks). All color tokens consumed
  *      are --cN-light/--cN-dark plus the structural --diagram-* tokens.
  *
- * Bundle position: end of bundle (TAIL_SOURCES tail). Mermaid SVG
+ * Bundle position: the PLUGIN SLOT near the end of the bundle (tools/build-css.js, in the
+ * resolver's order — after the math and function-plot sheets, whose selectors match none of
+ * Mermaid's SVG; before the print textures, which must override its fills). Mermaid SVG
  * selectors are unique (.flowchart-link, g.actor, .er-relationshipLabel,
  * etc.) and don't compete with component or modifier rules — cascade
  * position is structural, not semantic.

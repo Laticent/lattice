@@ -78,7 +78,7 @@
 /* Mermaid radar-beta styling (`.radarCurve-N`, `.radarGraticule`, …) used to
  * live here, but it targets MERMAID's radar output, not this native component
  * (which uses `.radar-poly` / `.radar-ring` below). It now lives with the other
- * Mermaid type overrides in lib/integrations/mermaid/mermaid.css, re-pointed
+ * Mermaid type overrides in lib/plugins/mermaid/mermaid.styles.css, re-pointed
  * onto the engine `--cN` palette (N curves, not two brand accents). */
 
 /* ── Native radar SVG chrome — appended Phase 4 ──

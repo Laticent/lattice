@@ -80,7 +80,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   1. `writeFrame` rebuilt the preview with `document.open()/write()/close()`,
      which clears the *document* but reuses the iframe *window*.
      `lattice-runtime.js` is one IIFE guarded by
-     `globalScope.__llMermaidBootstrapLoaded` (set once per window); the starter
+     `globalScope.__llLatticeRuntimeLoaded` (`__llMermaidBootstrapLoaded` before 2026-10-04) (set once per window); the starter
      render set it, so every later render short-circuited the whole runtime.
   2. `runAllContentTransforms()` called `transformStripHeadingPeriods` /
      `transformAddHeadingPeriods` / `applyGlossaryListTable` /
@@ -189,7 +189,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   other diagram keeps its paint. The per-branch rule is
   `svg.mindmapDiagram .mindmap-node.section-N > :is(rect, circle, polygon, path)`
   at (0,3,3), above the flowchart default. A new generic `g.node` rule in
-  `lib/integrations/mermaid/mermaid.css` must exclude mindmap the same way.
+  `lib/plugins/mermaid/mermaid.styles.css` must exclude mindmap the same way.
   Check with the every-shape slide in `examples/mindmap-branch-colors.md`.
 - **Triggered by:** A generic `g.node` or `.node` rule in the Mermaid
   stylesheet that is not scoped to one diagram type.

@@ -40,7 +40,7 @@
  * BOTH TIERS ARE GATED, and the wash arm is not politeness. The natural reading is that the wash
  * is a quiet surface a label sits on while the saturated tier carries identity beside it — and on
  * most surfaces that is true. **It is false on the Mermaid pie**, which is a documented supported
- * type: `lib/integrations/mermaid/mermaid.css` paints all twelve wedges from
+ * type: `lib/plugins/mermaid/mermaid.styles.css` paints all twelve wedges from
  * `var(--cat-N-texture, var(--cat-N-fill))` and declares NO stroke, so the separator is Mermaid's
  * own white spacer and the per-slot mark is not on screen at all. There the wash IS the whole
  * discrimination channel, for twelve categories. Same on `list-steps`' categorical badges, which

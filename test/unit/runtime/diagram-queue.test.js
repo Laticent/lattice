@@ -32,7 +32,7 @@ const { renderDiagrams } = require('../../../lib/core/render-diagrams');
 const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
+const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
 
 /**
  * Lift the queue out of the shipped runtime.
@@ -47,7 +47,7 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
   const END = '  // Mermaid appends `<div class="mermaidTooltip">`';
   const start = RUNTIME_SRC.indexOf(BEGIN);
   const end = RUNTIME_SRC.indexOf(END);
-  assert.notEqual(start, -1, 'lib/runtime/index.js must still open its queue with the RENDER QUEUE banner');
+  assert.notEqual(start, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must still open its queue with the RENDER QUEUE banner');
   assert.notEqual(end, -1, 'could not find the end of the queue block');
   let block = RUNTIME_SRC.slice(start, end);
   // Shrink the settle cap so a hang is observable in a unit test rather than in 20 s.

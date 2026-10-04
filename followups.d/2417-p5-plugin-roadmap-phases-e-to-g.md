@@ -43,6 +43,12 @@ why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §
                and scenes (`docs/src/components/studio/*-library.ts`) and one import funnel
                (`library/import-parsed.ts`); a fifth kind needs a store, a Library row, the export,
                and the preview frames reading its CSS — the "CLI and the Studio" half of done-when.
+            ACCEPTANCE CRITERION added 2026-10-04 (HARD RULE #25 inversion lens, phase D's browser
+            half): the zip channel's resolver must REFUSE `highlight` and
+            `render.exec.hydrate: "pass"` by rule, not by prose — LPM §10 says zips never carry
+            them, and nothing enforces it until phase E builds the channel. A highlight grammar is
+            registered even for a switched-off plugin, so a zip grammar would run on author input
+            the user cannot switch off.
             Settled already, and to keep: refuse `payload`, any `exec`, `syntax`, `hydrate`, `bake`
             and every script file by extension (`lib/packages/read.js`); a name that collides with a
             shipped or installed plugin is DISABLED with a diagnostic, never a failed build; every

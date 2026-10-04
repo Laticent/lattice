@@ -99,7 +99,7 @@ describe('mermaid-var-map', () => {
     // The emulator's diagram walk is the mermaid plugin's bake since plugin-system phase D.
     assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(fs.readFileSync(path.join(root, 'lattice-emulator.js'), 'utf8')), false,
       'lattice-emulator.js defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead');
-    for (const rel of [path.join('lib', 'plugins', 'mermaid', 'mermaid.bake.js'), path.join('lib', 'runtime', 'index.js')]) {
+    for (const rel of [path.join('lib', 'plugins', 'mermaid', 'mermaid.bake.js'), path.join('lib', 'plugins', 'mermaid', 'mermaid.hydrate.js')]) {
       const src = fs.readFileSync(path.join(root, rel), 'utf8');
       assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(src), false,
         `${rel} defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead`);
