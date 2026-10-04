@@ -764,7 +764,17 @@ describe('a list or card slide is judged by the LINES its text wraps to (Amendme
     assert.equal(core.wrapLines(h, c, true), 2, 'in Outfit it would be two');
   });
 
-  test('a claim panel heading in Playfair: slide 224 at hall has five heading lines, as rendered', () => {
+  test('a claim panel heading in Playfair: slide 224 at laptop has three heading lines, where Outfit would have four', () => {
+    const p = core.panelOver('split-panel', ['split-panel', 'capstone'], SD224, 0);
+    assert.equal(p.n.heading, 3);
+    assert.equal(p.over, false);
+    const c = require('../../../lib/authoring/venue-capacity.generated.js').panel['split-panel capstone'].heading[0][0];
+    const h = 'Take one box out on paper, and follow what happens to the rest.';
+    assert.equal(core.wrapLines(h, c, core.GLYPH_DISPLAY), 3);
+    assert.equal(core.wrapLines(h, c, true), 4, 'in Outfit it would be four');
+  });
+
+  test('slide 224 at hall has five heading lines, as rendered', () => {
     // Rendered 2026-09-29 with titles scaling by the venue (42pt at hall): five heading lines and
     // seven lede lines, and the export clips the slide, so lint says so. On the unscaled title it
     // had three lines and fit.
@@ -774,7 +784,20 @@ describe('a list or card slide is judged by the LINES its text wraps to (Amendme
     assert.equal(p.over, true);
   });
 
-  test('a proof panel with no opening question has the question gap back (slide 192, counted as rendered)', () => {
+  test('a proof panel with no opening question has the question gap back: it is judged by the bare budget', () => {
+    // 1,747 px at huddle: past the proof budget (1,739), inside the bare one (1,765). Judged by the
+    // proof budget, as a slide WITH an opening question is, it would read as over.
+    const V = require('../../../lib/authoring/venue-capacity.generated.js');
+    const word = (n) => Array.from({ length: n }, () => 'abcd').join(' ');
+    const points = '- You know you are here when\n  - The team ships.\n- Proof one\n  - It holds.\n- Proof two\n  - It lasts.\n';
+    const body = `## ${word(4)}\n\n${word(75)}\n\n${points}`;
+    const p = core.panelOver('split-panel', ['split-panel', 'proof'], body, 1);
+    assert.ok(p.used > V.panel['split-panel proof'].budget[1], 'fixture: past the proof budget');
+    assert.ok(p.used <= V.panel['split-panel'].budget[1], 'fixture: inside the bare budget');
+    assert.equal(p.over, false);
+  });
+
+  test('slide 192, counted as rendered', () => {
     // At conference, with the scaled title, the render has a five-line heading and eight lede lines
     // and the export clips it; lint counts the same lines and agrees. The same text with an opening
     // question costs the question's block on top.

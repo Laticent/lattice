@@ -457,9 +457,14 @@ function buildVenueLint() {
         }
         for (const [shape, o] of Object.entries(g.ordered || {})) {
           // The same 2 px as across the rungs: a budget measured 1542 bare and 1543 numbered is one
-          // stage, not a numbered register's own.
-          const same = (a, b) => (typeof a === 'number' && typeof b === 'number' ? Math.abs(a - b) <= 2 : JSON.stringify(a) === JSON.stringify(b));
-          const own = Object.entries(rungs(o)).filter(([k, v]) => !same(v, out[shape]?.[k]));
+          // stage, not a numbered register's own. Dropped only toward a warning, as `rungs` collapses:
+          // the bare value stands in when it is the smaller budget or the larger cost, so a numbered
+          // row 2 px dearer than the bare one keeps its own.
+          const same = (k, a, b) => {
+            if (typeof a !== 'number' || typeof b !== 'number') return JSON.stringify(a) === JSON.stringify(b);
+            return k === 'budget' ? b <= a && a - b <= 2 : b >= a && b - a <= 2;
+          };
+          const own = Object.entries(rungs(o)).filter(([k, v]) => !same(k, v, out[shape]?.[k]));
           (out.ordered ||= {})[shape] = Object.fromEntries(own);
         }
         regs[reg === 'bare' ? '' : reg] = out;
