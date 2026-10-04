@@ -678,6 +678,27 @@ code. What changed because of them:
    render when a required plugin is off (§4.1). This replaces the first draft's
    `contributes.components`, and with it decision 1's count: five contribution points, not six.
 
+### Owner decisions (settled 2026-10-04, phase E's four questions)
+
+Put to the owner in one round with #2508's merge ask (the questions are in
+`followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`).
+
+6. **Every plugin is loaded explicitly — by default, or by the user.** The owner's words: "all
+   plugins should be explicitly loaded by default or by the user … plugins are plugins, we don't
+   care if they are style only." Three ways in, all explicit: the shipped default set; a deck's
+   front matter, which enables a list of plugins; and a component that declares the plugins it
+   needs (§9 decision 5), which loads them. The Studio gains a **Plugins tab in its settings**.
+   This replaces §4.8's "loaded because the deck uses it" as the LOADING rule; usage detection
+   stays as what a payload waits for, not as what admits a plugin.
+7. **A zip plugin's CSS reaches only its declared targets.** The manifest names the plugins it
+   styles; the gate scopes every selector under the host's marker for those plugins
+   (`[data-lattice-hydrate="<target>"]`) or under its own `.<name>`, and it passes the same
+   token-only gates component CSS does, through HARD RULE #22's style sink.
+8. **The zip channel waits for the code-package door.** No styles-only zip channel ships first:
+   phase E's import and export build when a data plugin can own a fence through the door (§9
+   decision 3), so a zip plugin is never a lesser kind of plugin (decision 6's "plugins are
+   plugins"). The Studio's storage for one is decided with that phase.
+
 ## 10. Non-goals
 
 - **No runtime discovery or network loading of code.** The export has to work offline, forever,
