@@ -2783,7 +2783,6 @@ const SANCTIONED_READING_ROLE = [
   { file: 'lib/components/chart/journey/journey.styles.css', role: 'body-compact', count: 3, why: 'E4 chart keys (legends)' },
   { file: 'lib/components/chart/matrix-grid/matrix-grid.styles.css', role: 'body-compact', count: 3, why: 'E4 chart text (grid cells are a chart, not a table)' },
   { file: 'lib/components/chart/roadmap/roadmap.styles.css', role: 'body-compact', count: 1, why: 'E4 chart key (the legend)' },
-  { file: 'lib/components/chart/state-chart/state-chart.styles.css', role: 'body-compact', count: 1, why: 'E4 chart text' },
   { file: 'lib/components/chart/timeline-list/timeline-list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a milestone\'s description under its --fs-body title)' },
   { file: 'lib/components/code/code/code.styles.css', role: 'body-compact', count: 1, why: 'code keeps --fs-body-compact: a code line cannot wrap (owner, 2026-09-29)' },
   { file: 'lib/components/code/compare-code/compare-code.styles.css', role: 'body-compact', count: 2, why: 'code keeps --fs-body-compact (owner, 2026-09-29)' },
