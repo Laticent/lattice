@@ -8,15 +8,18 @@ summary: >
   and line style; we draw its four architecture gaps ourselves. Cloud providers stay neutral: no vendor logos
   or service icons, only a role icon paired with the service name and a color, because the official AWS,
   Azure and GCP icons ship under vendor usage terms, not an open-source license, and are multicolored. Icons take the sparks' frame, look and
-  corner axes and an `icon:` register. Build waits for Segno phase 2.
+  corner axes and an `icon:` register. Icons ship as a PLUGIN (`lib/plugins/icons/`), so a deck that uses none
+  loads none; that adds three contribution points to the plugin host (an inline-code kind, the first
+  `services` callers, a plugin-declared register). Build waits for Segno phase 2.
 ---
 
 # Icons — drawn, themed, and written like sparks
 
-**Date:** 2026-09-29 · **Status:** proposed. The owner settled the four forks in § "Decided"; the
-three questions in § "Open questions" are small and wait for the build.
+**Date:** 2026-09-29, revised 2026-10-04 · **Status:** proposed. The owner settled the five forks in
+§ "Decided"; the three questions in § "Open questions" are small and wait for the build.
 **Follows:** `2026-09-28-inline-sparks.md` (the model this copies),
-`2026-09-28-segno-unified-inline-notation.md` (the notation this is written in)
+`2026-09-28-segno-unified-inline-notation.md` (the notation this is written in),
+`2026-09-27-plugin-system.md` (the package and contribution model icons ship on, § 6a)
 **Related:** `2026-08-25-typed-glyphs.md` (HARD RULE #29: we draw the shape), open PR #2396 (hub-spoke)
 
 ## 1. What an icon is, in one example
@@ -50,6 +53,7 @@ HARD RULE #29 already bars those for exactly this job.
 | 2 | **Cloud-provider neutral.** No vendor logos and no per-service vendor icons. A cloud service is a role icon paired with the service's name and a color: `{S3, icon=bucket, c4}` | owner |
 | 3 | **Written in Segno's notation, and icons are its first new user** after phase 2 | owner |
 | 4 | **Design now, build on Segno.** This note lands first; the kernel and chart wiring land after Segno phase 2, so icons never need a codemod | owner |
+| 5 | **Icons are a full plugin**, `lib/plugins/icons/`: the syntax, renderer, styles and the Tabler data all live in the package, and the plugin host gains the three contribution points icons need (§ 6a) | owner, 2026-10-04, over a core feature with icon packs as plugins, and core now with a move later |
 
 ## 3. Which icon set, measured
 
@@ -192,9 +196,11 @@ own words → the slide's class (`_class: icon-bare`) → the deck's register (`
 the default. A slide's word evicts the deck's word on that axis only.
 
 **The register is separate from `spark:`.** A deck may want framed sparks in a table and bare icons in
-its prose. The axes are the same, so the resolver generalizes: `resolve-spark.js` becomes one
-factory keyed by a prefix, with `spark` and `icon` as its two users, rather than a second copy
-(HARD RULE #1).
+its prose. The axes are the same, so the resolver generalizes: `resolve-spark.js` becomes the host's
+one register factory keyed by a prefix, rather than a second copy (HARD RULE #1). Sparks stay
+first-party and call it directly; the icons plugin DECLARES its register as data (the prefix and the
+three axes' words, § 6a) and the host resolves it, because a plugin reaches the engine only through
+`ctx` (plugin system § 4.6).
 
 **Line weight is a token.** Tabler draws at a 2-unit stroke on a 24-unit grid. The kernel emits the
 SVG with `stroke="currentColor"` and the stroke width from `--icon-stroke`, which each look sets:
@@ -205,26 +211,90 @@ the element's `color` comes from the slot's token.
 node draws bare in the node's color, whatever the register says; the register's `look` still
 applies. The same holds for an icon inside a pill.
 
+## 6a. Icons are a plugin
+
+The plugin system (`2026-09-27-plugin-system.md` § 1) defines a plugin as "a capability that works on
+any slide" and a component as a layout. Icons are the first kind: they render in a sentence, a table
+cell, a pill or a chart node, on any slide. So they ship the way math and Mermaid do, as a package:
+
+```
+lib/plugins/icons/
+  icons.manifest.json      what it contributes: the inline kind, the service, the register, styles,
+                           diagnostics, payload; the tokens it paints with
+  icons.render.js          resolve(record) → fields, and the two builders: an SVG string (engine
+                           path) and DOM nodes (runtime path, HARD RULE #22)
+  icons.data.generated.js  name → path data, generated from the curation list (§ 9)
+  icons.curation.json      our name, the Tabler source, the category, aliases
+  icons.own/               the four icons we draw (§ 3)
+  icons.styles.css         the tile, the axes, `--icon-stroke`; tokens only
+  icons.docs.md · icons.gallery.md · icons.fixtures.md
+  LICENSE-tabler.md
+```
+
+**What already fits, unchanged:**
+
+- **Charts depend on it the way components already do.** `diagram` requires `mermaid`; `math`
+  requires `math` and optionally `function-plot`. Flowchart, state-chart and hub-spoke declare
+  `"plugins": { "optional": ["icons"] }`. With the plugin off, a node shows its text and the render
+  reports `plugin/component-needs-plugin`, as § 4.1 of the plugin note already specifies. A plugin
+  never names a component (plugin note, decision 5).
+- **Payload when used** (plugin note § 4.8). The icon data loads only for a deck that uses an icon, so
+  the ~70 KB in § 7 stops being a cost every deck pays. The probe is the plugin's `detect(source)`: a
+  `^{` or an `icon=` in an inline-code span, a superset of what the dispatcher accepts.
+- **Lint coaching** reads the build's data-only vocabulary projection: icon names, aliases and the
+  service-name table, the way `lint-core` already reads fence names (HARD RULE #7 holds).
+- **Styles** go through `build-css.js`'s plugin slot and every CSS gate (#3, #4, #20, #26, #29).
+
+**What the host gains — three contribution points.** The plugin note adds points "each in the phase
+whose plugin needs it, as additive schema changes" (§ 4.3). Icons need three:
+
+1. **`inline` — an inline-code kind.** Plugins can add prose syntax (`$…$`) and fences, but every
+   inline-code form goes through `lib/core/inline-code-directives.js`, which names its three kinds
+   (state marks, pills, sparks) by hand in 93 lines. It becomes a table. A row is a sigil (`^`), a
+   Segno schema, and the `resolve` / html / element / diagnose functions the dispatcher already
+   calls for sparks. The host keeps the dispatch order and the backslash escape, which is the part
+   that must not drift between the two render paths (that file's header says why). Two rows
+   claiming one sigil is a build error naming both, as for fence names. Marks, pills and sparks stay
+   first-party rows, byte-identical. This is also the "kind character before a record" production
+   § 5.1 asks Segno phase 2 for: Segno owns the parse, the table owns the meaning.
+2. **`services` gets its first callers.** The point is in the plugin note's list with no consumer
+   (§ 4.3, § 6). Icons offer `icons.draw(name, opts) → fields`. The callers are the pill (core, for
+   `icon=`) and the chart kernels of components that declare the plugin. A caller never imports the
+   plugin: it asks the host, and with the plugin off it gets `null` and renders the text alone.
+3. **`registers` — a front-matter register declared as data.** Every register (`spark:`, `tag:`,
+   `finish:`) is host code today. The icons manifest declares `{ "prefix": "icon", "axes": … }`, and
+   the host's register factory (§ 6) turns it into the `icon:` key and the `icon-*` slide classes.
+   Data, not code, so a later data-layer plugin could declare one too.
+
+**Trust follows the channel** (plugin note § 4.10). `inline` and `services` carry code, so they are
+in-tree only, like `syntax`. A `registers` declaration is data.
+
+**Icon packs later.** Once the data layer ships (plugin note phase E), an installed data plugin could
+add an icon PACK: path data only, validated on install (path, circle, rect, line and polyline
+geometry; no markup, no `style`, no `href`, no color), filling an extension point the icons plugin
+offers. An organization could then install its own one-color set, including vendor icons it licenses
+itself, and Lattice still ships none (§ 4). Not in this plan; recorded so phase E knows the shape.
+
 ## 7. Rendering
 
 **Inline SVG built from a generated registry, not one mask token per icon.** Our 21 shapes are
 CSS mask tokens (`--shape-spark-open` is a data-URI SVG in `base.tokens.css`). That works for 21;
 for 250 it would put every icon in every deck's stylesheet whether it uses them or not. Instead:
 
-- `tools/build-icons.js` reads the curation list (§ 9) and the pinned `@tabler/icons` dev dependency,
-  and writes `lib/icons/icons.generated.js`: name → path data. Our own four icons come from
-  `lib/icons/own/*.svg`. The generated file is committed like other kernel data, and
-  `build:check` catches a stale one.
-- `lib/core/inline-icons.js` is the kernel, shaped like `inline-sparks.js`: pure, no DOM, no fs.
+- A build step reads `icons.curation.json` (§ 9) and the pinned `@tabler/icons` dev dependency, and
+  writes `lib/plugins/icons/icons.data.generated.js`: name → path data. Our own four icons come from
+  `icons.own/*.svg`. The generated file is committed like the plugin registry, and `build:check`
+  catches a stale one.
+- `icons.render.js` is the kernel, shaped like `inline-sparks.js`: pure, no DOM, no fs.
   `resolve()` returns fields (name, paths, color, size, axes, accessible name), never markup.
 - The markdown-it path builds an `<svg>` string from the fields. The runtime builds real nodes with
   `createElementNS`, as `sparkElement` does, because assigning markup inside an already-sanitized
   preview frame is the post-sanitize injection HARD RULE #22 bars. The new runtime sink goes on
   `SANCTIONED_RUNTIME_MARKUP_SINKS` with its justification, as #22 requires.
 - **Size.** Tabler's median icon is 251 bytes of SVG body, so a 250-icon registry is on the order of
-  70 KB before compression. It ships in the runtime bundle (the Studio needs every icon for
-  autocomplete), while a static export carries only the icons the deck uses. The build phase
-  measures the real bundle delta and the gzip cost, and states both in its PR.
+  70 KB before compression. As a plugin payload it loads only for a deck that uses an icon (§ 6a); a
+  static export carries only the icons the deck uses. The Studio's autocomplete loads it on first
+  use. The build phase measures the real delta and the gzip cost, and states both in its PR.
 
 **Exports.** An inline SVG with `currentColor` renders in the PDF and HTML exports as sparks do.
 The PPTX path must be checked, not assumed. Because the build adds a new element to what the
@@ -245,7 +315,7 @@ rendered in dark and light, sent for the owner's review.
 
 - **About 250 icons** (the owner accepted "about 250" with the Tabler choice), in role categories:
   compute, storage, data, network, security, integration, observability, delivery, clients, people,
-  business. The list lives in `lib/icons/curation.json`: our name, the Tabler source name, the
+  business. The list lives in `lib/plugins/icons/icons.curation.json`: our name, the Tabler source name, the
   category, and aliases.
 - **Our names, not Tabler's.** An author writes `icon=bucket`, not `icon=bucket-droplet`. Our name is
   the stable API; the source can change under it without a deck noticing.
@@ -253,7 +323,7 @@ rendered in dark and light, sent for the owner's review.
   ambiguous alias does not build, and the per-deck one-spelling rule (Segno decision 7) applies.
 - **Service names are not aliases.** `s3` is not an alias for `bucket`: that would bring a vendor
   vocabulary in by the back door. It is the lint coaching in § 4.
-- **License.** Tabler's MIT notice ships in `lib/icons/LICENSE-tabler.md` and in the third-party
+- **License.** Tabler's MIT notice ships in `lib/plugins/icons/LICENSE-tabler.md` and in the third-party
   notices. Our own four icons carry the repository's license.
 
 ## 10. Plan
@@ -261,13 +331,17 @@ rendered in dark and light, sent for the owner's review.
 | phase | what lands | depends on |
 |---|---|---|
 | 0 | This note | — |
-| 1 | The registry and its build step, the curation list, our four icons, the kernel, `^{…}` and the pill's `icon=`, the `icon:` register and `icon-*` classes (the resolver made a shared factory), lint coaching, component docs, a demo deck `examples/inline-icons.md` with its PDF (HARD RULE #9), the export sign-off, and a `changelog.d/` fragment | Segno phase 2 |
-| 2 | `icon=` and `icon-only` on flowchart and state-chart, and on hub-spoke once #2396 lands | phase 1 |
-| 3 | The Studio: autocomplete from the registry, and an icon picker | phase 1 |
+| 1a | The host: the inline-code dispatcher as a table with marks, pills and sparks as first-party rows (byte-identical), the `inline`, `services` and `registers` contribution points in the schema and resolver, the register factory, the vocabulary projection's new fields, and the plugin note's § 4.3 and § 5 updated | Segno phase 2 |
+| 1b | The icons plugin: the package in § 6a, the data build step, our four icons, `^{…}` and the pill's `icon=`, the `icon:` register, lint coaching, docs, a demo deck `examples/inline-icons.md` with its PDF (HARD RULE #9), the export sign-off, and a `changelog.d/` fragment | 1a |
+| 2 | `icon=` and `icon-only` on flowchart and state-chart (each declaring `optional: ["icons"]`), and on hub-spoke once #2396 lands | 1b |
+| 3 | The Studio: autocomplete from the plugin's data, and an icon picker | 1b |
 
-Phase 1 touches `lib/core`, both render paths and the exports, so it gets maker-checker with one
-independent checker (HARD RULE #25). It is not novel in the way Segno phase 2 is: it copies the
-sparks' shape, so the adversarial trio is not required.
+1a and 1b are one PR (HARD RULE #17: 1a has no user without 1b), one commit each.
+
+**Verification.** 1a changes what every inline-code span on every deck goes through, and it grows
+the plugin contract with three points no plugin has used, so it is high blast radius and novel: it
+gets the adversarial trio (HARD RULE #25), aimed at the dispatcher's parity across both render paths
+and at the escape rule. 1b copies the sparks' shape and gets maker-checker with one checker.
 
 ## 11. Open questions
 
