@@ -5048,9 +5048,12 @@ async function composePdfInPage(g, page) {
           // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
           // The encoding the writer asks for: PNG first, JPEG too on a busy slide (compose.mjs pngIsFlat).
+          // The PNG takes Chrome's fast encoder: 67 ms against 168 ms for a 1280 px slide (JPEG: 50 ms),
+          // at about 1.5x the bytes; CI's integration job renders hundreds of decks and sat 25 s from
+          // its timeout before #2503, so the owner traded those bytes for the time (2026-10-04).
           const buf = await h.screenshot(type === 'jpeg'
             ? { type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false }
-            : { type: 'png', captureBeyondViewport: false });
+            : { type: 'png', optimizeForSpeed: true, captureBeyondViewport: false });
           return Buffer.from(buf).toString('base64');
         } finally {
           if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 });
@@ -5065,7 +5068,7 @@ async function composePdfInPage(g, page) {
     // slide's photo is JPEG at 2560 px; PNG-first is for 16:9 and HD), and a
     // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
     const composeMs = Math.max(RENDER_WATCHDOG_MS, handles.length * 4000);
-    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide) => {
+    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
       // THE FACE: the export face (`.lattice-exporting`), the one the Studio photographs too.
@@ -5079,8 +5082,21 @@ async function composePdfInPage(g, page) {
         for (let i = 0; i < b.length; i++) bytes[i] = b.charCodeAt(i);
         return bytes;
       };
-      const camera = async (section, { scale = 1, type = 'png' } = {}) =>
-        ({ bytes: unb64(await window[fnName](secs.indexOf(section), scale, type)), type: type === 'jpeg' ? 'jpeg' : 'png' });
+      // A busy slide's JPEG is the PNG just taken, re-encoded here by Chrome's own encoder: no second
+      // screenshot (scroll, viewport, capture), so a busy slide costs ~50 ms more, not ~100.
+      let lastPng = null;
+      const camera = async (section, { scale = 1, type = 'png' } = {}) => {
+        if (type === 'jpeg' && lastPng && lastPng.section === section && lastPng.scale === scale) {
+          const bmp = await createImageBitmap(new Blob([lastPng.bytes], { type: 'image/png' }));
+          const canvas = new OffscreenCanvas(bmp.width, bmp.height);
+          canvas.getContext('2d').drawImage(bmp, 0, 0);
+          lastPng = null;
+          return { bytes: new Uint8Array(await (await canvas.convertToBlob({ type: 'image/jpeg', quality: jpegQuality })).arrayBuffer()), type: 'jpeg' };
+        }
+        const bytes = unb64(await window[fnName](secs.indexOf(section), scale, type));
+        lastPng = type === 'jpeg' ? null : { section, scale, bytes };
+        return { bytes, type: type === 'jpeg' ? 'jpeg' : 'png' };
+      };
       const fetchAsset = async (url) => unb64(await window[assetFn](url));
       const bin = atob(wasmB64);
       const wasmBytes = new Uint8Array(bin.length);
@@ -5097,7 +5113,7 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide'), 'compose pdf', composeMs);
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
     await page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); });
     if (!QUIET) {
