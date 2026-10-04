@@ -21,7 +21,7 @@ Two charts in Lattice lay out a graph, and they share nothing.
 | Places boxes | dagre, through `graphLayoutKernel()` in `lib/components/chart/_chart-family/graph-layout.js` | its own `dagrePositions` in `state-chart.transform.js:2241-2463`, only when the machine branches; otherwise its grid or a CSS column |
 | Draws lines | `solveRoutes`, one cost over every line | dagre's own polylines, curved, or its column router |
 | While typing | layout cache, one draw per keystroke, a worker in the Studio | no cache, no worker |
-| Checks its model | `sanitizeModel` (HARD RULE #22) | none (`followups.d/2385-p2-state-chart-pass-census.md`) |
+| Checks its model | `sanitizeModel` (HARD RULE #22) | none (v2 closed that followup, `2385-p2-state-chart-pass-census`: its adapter has its own `sanitizeModel`) |
 
 `dagre.layout` is called in three places: the flowchart's kernel, the state
 chart's `dagrePositions`, and the state chart's Node-side `machineBranches`

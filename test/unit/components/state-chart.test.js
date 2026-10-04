@@ -113,7 +113,7 @@ describe('state chart — the figure through the real engine', () => {
   });
 
   test('the key is derived, renamed by the authored span, and shared with the flowchart', () => {
-    assert.match(html, /<ol class="fc-key">.*Moving · Done.*Live/s, 'on-track and done paint alike, so they share one entry');
+    assert.match(html, /<ol class="fc-key" data-chart="state-chart">.*Moving · Done.*Live/s, 'on-track and done paint alike, so they share one entry');
     assert.doesNotMatch(html, /\[\{on-track/, 'the key span is consumed');
     assert.match(html, /<p class="chart-caption"[^>]*>Rejected drafts return to the author\.<\/p>/);
   });
