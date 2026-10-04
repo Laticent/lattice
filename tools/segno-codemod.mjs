@@ -506,8 +506,42 @@ export function rewriteText(src, active = Object.keys(REWRITERS)) {
   return { text: lines.join('\n'), changes, unsafe };
 }
 
+/**
+ * An `.mdx` docs page keeps its demo slides in JS template literals (`` export const X = `…` ``),
+ * where every backtick is escaped (`\\``). Each template is unescaped, rewritten as the deck it is,
+ * and escaped again; the prose between templates is rewritten as ordinary Markdown. A template
+ * that interpolates (`${…}`) is left alone, since its text is not the deck it renders.
+ */
+export function rewriteMdx(src, active = Object.keys(REWRITERS)) {
+  const changes = [];
+  const unsafe = [];
+  const prose = (text) => {
+    const r = rewriteText(text, active);
+    changes.push(...r.changes);
+    unsafe.push(...r.unsafe);
+    return r.text;
+  };
+  let out = '';
+  let at = 0;
+  for (const m of src.matchAll(/=\s*`((?:[^`\\]|\\.)*)`/gs)) {
+    const bodyFrom = m.index + m[0].indexOf('`') + 1;
+    out += prose(src.slice(at, bodyFrom));
+    const body = m[1];
+    if (body.includes('${')) out += body;
+    else {
+      const r = rewriteText(body.replace(/\\`/g, '`'), active);
+      changes.push(...r.changes);
+      unsafe.push(...r.unsafe);
+      out += r.changes.length ? r.text.replace(/`/g, '\\`') : body;
+    }
+    at = bodyFrom + body.length;
+  }
+  out += prose(src.slice(at));
+  return { text: out, changes, unsafe };
+}
+
 function corpus() {
-  const files = execFileSync('git', ['ls-files', '*.md', 'lib/components/**/*.manifest.json'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+  const files = execFileSync('git', ['ls-files', '*.md', '*.mdx', 'lib/components/**/*.manifest.json'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
   return files.filter((f) => !f.startsWith('engineering/decisions/') && !f.startsWith('changelog.d/') && f !== 'CHANGELOG.md' && !f.includes('/segno-legacy/'));
 }
 
@@ -565,7 +599,7 @@ function main(argv) {
   for (const rel of files) {
     const file = path.resolve(ROOT, rel);
     const src = fs.readFileSync(file, 'utf8');
-    const r = rel.endsWith('.manifest.json') ? rewriteManifest(src, active) : rewriteText(src, active);
+    const r = rel.endsWith('.manifest.json') ? rewriteManifest(src, active) : rel.endsWith('.mdx') ? rewriteMdx(src, active) : rewriteText(src, active);
     for (const u of r.unsafe) unsafeAll.push(`${rel}:${u.line}  \`${u.span}\` — ${u.why}`);
     if (!r.changes.length) continue;
     changed++;

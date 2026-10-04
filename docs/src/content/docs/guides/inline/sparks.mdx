@@ -11,9 +11,9 @@ export const LAB_TABLE = `<!-- _class: table -->
 
 | Region | Q3 revenue | Last 8 quarters | Plan |
 | --- | ---: | --- | --- |
-| North America | $4.2M | \`~{3.1 3.3 3.2 3.6 3.8 3.9 4.0 4.2}:end\` | \`~{4.2/4.0}:bullet\` |
-| Europe | $2.8M | \`~{2.9 2.8 2.9 2.7 2.8 2.6 2.7 2.8}:end\` | \`~{2.8/3.1}:bullet\` |
-| Asia Pacific | $1.9M | \`~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9}:end\` | \`~{1.9/1.6}:bullet\` |
+| North America | $4.2M | \`~{3.1 3.3 3.2 3.6 3.8 3.9 4.0 4.2, end}\` | \`~{4.2/4.0, bullet}\` |
+| Europe | $2.8M | \`~{2.9 2.8 2.9 2.7 2.8 2.6 2.7 2.8, end}\` | \`~{2.8/3.1, bullet}\` |
+| Asia Pacific | $1.9M | \`~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9, end}\` | \`~{1.9/1.6, bullet}\` |
 `;
 
 export const LAB_TYPES = `<!-- _class: list-tabular -->
@@ -21,11 +21,11 @@ export const LAB_TYPES = `<!-- _class: list-tabular -->
 ## Seven types, one grammar.
 
 1. Change over time
-   - \`~{12 14 13 17 16 21 24}\` \`~{12 14 13 17 16 21 24}:area\` \`~{12 14 13 17 16 21 24}:bar\` \`~{2 2 3 3 3 5 4}:step\`
+   - \`~{12 14 13 17 16 21 24}\` \`~{12 14 13 17 16 21 24, area}\` \`~{12 14 13 17 16 21 24, bar}\` \`~{2 2 3 3 3 5 4, step}\`
 2. Hit or miss
-   - \`~{1 1 -1 1 0 -1 1 1}:winloss\`
+   - \`~{1 1 -1 1 0 -1 1 1, winloss}\`
 3. One value against a whole
-   - \`~{72%}\` \`~{72/80}:bullet\`
+   - \`~{72%}\` \`~{72/80, bullet}\`
 `;
 
 export const LAB_FRAMES = `---
@@ -37,9 +37,9 @@ spark: etching
 ## The deck says etching; one spark says otherwise.
 
 1. The deck's word
-   - \`~{31 28 33 30 38 35 41 44}:c4:end\` \`{ON PLAN}:c4\`
+   - \`~{31 28 33 30 38 35 41 44, c4, end}\` \`{ON PLAN, c4}\`
 2. One spark's word
-   - \`~{31 28 33 30 38 35 41 44}:c4:pigment:rounded\` \`~{31 28 33 30 38 35 41 44}:c4:bare:end\`
+   - \`~{31 28 33 30 38 35 41 44, c4, pigment, rounded}\` \`~{31 28 33 30 38 35 41 44, c4, bare, end}\`
 `;
 
 export const LAB_LOOKS = `<!-- _class: list-tabular -->
@@ -47,11 +47,11 @@ export const LAB_LOOKS = `<!-- _class: list-tabular -->
 ## One color, three ways to spend it.
 
 1. Pigment — the hue fills the tile
-   - \`~{12 14 13 17 16 21 24}:c2:area\` \`~{3 5 4 6 7 5 8}:bar:c2\` \`~{72%}:c2\` \`~{72/80}:bullet:c2\`
+   - \`~{12 14 13 17 16 21 24, c2, area}\` \`~{3 5 4 6 7 5 8, bar, c2}\` \`~{72%, c2}\` \`~{72/80, bullet, c2}\`
 2. Etching — the hue is the line
-   - \`~{12 14 13 17 16 21 24}:c2:area:etching\` \`~{3 5 4 6 7 5 8}:bar:c2:etching\` \`~{72%}:c2:etching\` \`~{72/80}:bullet:c2:etching\`
+   - \`~{12 14 13 17 16 21 24, c2, area, etching}\` \`~{3 5 4 6 7 5 8, bar, c2, etching}\` \`~{72%, c2, etching}\` \`~{72/80, bullet, c2, etching}\`
 3. Tone — one hue, stepped by value
-   - \`~{12 14 13 17 16 21 24}:c2:area:tone\` \`~{3 5 4 6 7 5 8}:bar:c2:tone\` \`~{72%}:c2:tone\` \`~{72/80}:bullet:c2:tone\`
+   - \`~{12 14 13 17 16 21 24, c2, area, tone}\` \`~{3 5 4 6 7 5 8, bar, c2, tone}\` \`~{72%, c2, tone}\` \`~{72/80, bullet, c2, tone}\`
 `;
 
 A **spark** is a chart the size of a word: no axes, no labels, no legend. Edward
@@ -59,7 +59,7 @@ Tufte called the line version a *sparkline*. You make one by writing numbers in
 `~{…}` inside **single-backtick** inline code:
 
 ```markdown
-Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21}:end` in eight weeks.
+Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21, end}` in eight weeks.
 ```
 
 Like a [pill](/guides/status/pills/), a spark works on every slide, anywhere inline code
@@ -79,17 +79,17 @@ number.
 ## How to read a spark
 
 ```
-`~{12 14 13 17 21}:bar:c3:lg:end`
-  ───────┬──────  ─┬─ ─┬ ─┬ ─┬─
-         │         │   │  │  └ marker
-         │         │   │  └ size
-         │         │   └ color slot
-         │         └ type
-         └ the data, in ~{ }
+`~{12 14 13 17 21, bar, c3, lg, end}`
+   ───────┬──────  ─┬─  ┬─  ┬─  ─┬─
+          │         │   │   │    └ marker
+          │         │   │   └ size
+          │         │   └ color slot
+          │         └ type
+          └ the data, first in ~{ }
 ```
 
-Everything after the closing brace is a **modifier**, each starting with a colon, in
-any order: `` `~{1 3 2}:area:c4:lg` `` and `` `~{1 3 2}:lg:c4:area` `` are the same
+Everything after the data is a **modifier**, separated by commas inside the braces, in
+any order: `` `~{1 3 2, area, c4, lg}` `` and `` `~{1 3 2, lg, c4, area}` `` are the same
 spark. Leave a modifier out and you get the default.
 
 ## The data
@@ -134,7 +134,7 @@ one can be set for one spark, one slide or the whole deck:
 | Look | `pigment` · `etching` · `tone` (how the color is spent, [below](#look--pigment-etching-and-tone)) | `pigment` |
 | Corners | `square` · `rounded` (the theme's small radius) | `square` |
 
-- **One spark:** the word as a modifier, `` `~{1 3 2}:bare` ``.
+- **One spark:** the word as a modifier, `` `~{1 3 2, bare}` ``.
 - **One slide:** the word as a class, `<!-- _class: table spark-bare -->`.
 - **The whole deck:** the `spark:` line in front matter, `spark: etching rounded`.
 
@@ -213,9 +213,9 @@ length is its value.
 ## When a spark stays code
 
 **A mistake shows up as code, not as a wrong chart.** A span that opens with `~{`,
-with a digit in its data or a spark modifier after it, is a spark attempt. If it
+with a digit in its data or a spark modifier beside it, is a spark attempt. If it
 doesn't parse, it renders as the code you typed: `` `~{1,200 1,450}` `` (a comma),
-`` `~{72%}:bar` `` (a bar needs a series), `` `~{3 5 4}:c13` `` (there are twelve slots).
+`` `~{72%, bar}` `` (a bar needs a series), `` `~{3 5 4, c13}` `` (there are twelve slots).
 `lint:deck` warns with the reason, and the Studio's editor underlines the span.
 
 To keep the text on purpose, put a backslash in front: `` `\~{1,200}` `` renders as

@@ -36,7 +36,7 @@ Residency `[x]` · SOC 2 `[?]`            ← inline, on any slide
 ## Brace pills — [pills you place](/guides/status/pills/)
 
 ```
-`{LABEL}:shape:color:size`      modifiers in any order, all optional
+`{LABEL, shape, color, size}`      modifiers in any order, all optional
 ```
 
 | Kind | Modifiers |

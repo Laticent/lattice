@@ -5,8 +5,9 @@ const assert = require('node:assert/strict');
 
 let rewriteSpan;
 let rewriteText;
+let rewriteMdx;
 before(async () => {
-  ({ rewriteSpan, rewriteText } = await import('../../../tools/segno-codemod.mjs'));
+  ({ rewriteSpan, rewriteText, rewriteMdx } = await import('../../../tools/segno-codemod.mjs'));
 });
 
 describe('segno-codemod: pills and sparks', () => {
@@ -136,5 +137,19 @@ describe('segno-codemod: per-chart records (slice 5)', () => {
     assert.match(t, /- C `doc`/);
     assert.match(t, /- D `fail`/);
     assert.match(t, /\{dotted, Waits\}/);
+  });
+});
+
+describe('segno-codemod: .mdx docs pages', () => {
+  test('a template literal deck is rewritten with its backticks still escaped, and the prose too', () => {
+    const src = 'export const LAB = `<!-- _class: list -->\n\n- A \\`{BETA}:tag\\`\n`;\n\nThe engine is `{STABLE}:c2`.\n';
+    const r = rewriteMdx(src);
+    assert.equal(r.text, 'export const LAB = `<!-- _class: list -->\n\n- A \\`{BETA, tag}\\`\n`;\n\nThe engine is `{STABLE, c2}`.\n');
+    assert.equal(r.changes.length, 2);
+  });
+  test('an interpolating template is not a deck and is left alone', () => {
+    // The `$` + `{` is the mdx file's interpolation, built from two halves so it reads as data here.
+    const src = `export const X = \`- A \\\`{BETA}:tag\\\` ${'$'}{n}\`;`;
+    assert.equal(rewriteMdx(src).text, src);
   });
 });

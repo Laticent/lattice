@@ -9,10 +9,10 @@ export const LAB_ALL = `<!-- _class: checklist -->
 
 ## A mark says it, a pill names it, a spark shows it.
 
-- [x] Contract signed, 72% of plan billed \`~{72%}\` \`{LEGAL}:c2\`
-- [-] Data migration half cut over \`~{12 14 13 17 16 21 24 26}:end\` \`{DATA}:c4\`
-- [!] Load test failed at peak \`~{9 8 8 7 6 6 5 4}:end\` \`{INFRA}:c7\`
-- [ ] Security review not yet booked \`~{0 0 1 1 1 2 2 2}:step\` \`{SECURITY}:c5\`
+- [x] Contract signed, 72% of plan billed \`~{72%}\` \`{LEGAL, c2}\`
+- [-] Data migration half cut over \`~{12 14 13 17 16 21 24 26, end}\` \`{DATA, c4}\`
+- [!] Load test failed at peak \`~{9 8 8 7 6 6 5 4, end}\` \`{INFRA, c7}\`
+- [ ] Security review not yet booked \`~{0 0 1 1 1 2 2 2, step}\` \`{SECURITY, c5}\`
 `;
 
 Some things on a slide are smaller than a layout and bigger than a word: an answer
@@ -35,7 +35,7 @@ a list item, a `kpi` line or a sentence.
 | You want to show | Reach for | Write it as | Learn it in |
 |---|---|---|---|
 | **An answer**: yes, no, partly, unknown, not yet, not applicable | A **state mark** | `` `[x]` `` `` `[!]` `` `` `[?]` `` | [Status and labels](/guides/status/) |
-| **A label**: a team, a phase, a version | A **pill** | `` `{STABLE}:c2` `` | [Pills you place](/guides/status/pills/) |
+| **A label**: a team, a phase, a version | A **pill** | `` `{STABLE, c2}` `` | [Pills you place](/guides/status/pills/) |
 | **A trend or a share**: eight quarters, 72% of target | A **spark** | `` `~{12 14 17 21}` `` | [Sparks](/guides/inline/sparks/) |
 
 The opening character tells them apart: square brackets make a mark, braces make a

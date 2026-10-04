@@ -8,7 +8,7 @@ The syntax on one page. [Sparks](/guides/inline/sparks/) explains each part with
 ## The grammar
 
 ```
-`~{DATA}:type:size:color:look:markers`      modifiers in any order, all optional
+`~{DATA, type, size, color, look, markers}`      modifiers in any order, all optional
 ```
 
 ```markdown

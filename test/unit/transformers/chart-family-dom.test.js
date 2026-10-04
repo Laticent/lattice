@@ -402,7 +402,7 @@ describe('chart-family.applyToDom — the rebuild guard', () => {
       'the axis kept its mono tick count while the CSS moved to the hand face');
     assert.equal(ticks(sec), ganttKernel.buildGanttChart(
       engine.extractFirstList(GANTT.match(/<ul>[\s\S]*<\/ul>/)[0]).inner,
-      '<p><code>2026-01-01 .. 2027-03-31</code></p>', undefined, true,
+      { window: '2026-01-01 .. 2027-03-31' }, undefined, true,
     ).match(/class="gantt-tick"/g).length, 'the rebuild must match what the engine builds');
   });
 

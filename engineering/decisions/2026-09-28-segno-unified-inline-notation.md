@@ -447,6 +447,47 @@ its own mark and palette.
 Phase 2 changes what every chart reads, which is high blast radius and genuinely novel, so it gets the
 full adversarial trio before merge (HARD RULE #25).
 
+### Phase 2 as built
+
+Branch `claude/segno-phase-2`, one commit per slice: plumbing; pills and sparks; one number reader;
+axes, label sets and points; gantt dependencies, status words and markers; the per-chart records.
+`npm run segno:migrate` (`tools/segno-codemod.mjs`) rewrote the corpus. It only rewrites what the old
+kernel read, which it checks against frozen copies in `tools/segno-legacy/`. It re-reads every rewrite
+through the new reader, and after the sweep it is a no-op.
+
+**Where each slot lives.** A slot that works in any prose is a CORE slot in `lib/core/segno-slots.js`
+(`point`, `state`, `pill`, `spark`). A slot one component owns is declared in its manifest's `segno`
+field (`journey.step`, `flowchart.style`); the build compiles it, so a slot Segno refuses fails the build.
+The rest are one-word readers built in a shared `lib/core` kernel from Segno's types: `gantt-pill.js`,
+`state-pill.js`, `cell-note.js`, `chart-status.js`, `kanban-sizes.js`, the waterfall markers and the QR
+keys. In every case the transform and the narrator call the same kernel, and lint does too where it
+reads the slot.
+
+**Calls made while building, each reversible:**
+
+- **Radar (row 27)** takes the bracketed axis line `[{Scale, 0..100}]`, the form quadrant and gantt
+  read, rather than a bare `0..100` pill in the eyebrow. A bare pill would have printed `0..100` on the
+  slide. The line is lifted off the slide because the ring ticks already print the scale. Three
+  shipped eyebrows said more than the scale (`Scale · 0–10, on the criteria we wrote`); they keep their
+  words, and the axis line goes in above them.
+- **Journey (decision 11).** A record names `who` once, so a second actor is a second `@` pill:
+  `{who=me, mood=1}` `@cat`. `mood=2.5` now rounds to 3 in both the chart and the voice, where
+  `parseInt` truncated it to 2.
+- **Flowchart (row 25).** A single style word stands alone (`doc`, `fail`); two or more go in braces.
+  The key's words drop their colons (`{dotted, Informal}`), and a channel color is `fill=c3`.
+- **Gantt (row 10).** Two dependencies are a list, `after=[Design, Build]`. The codemod reported, and did
+  not guess, any `after: A, B`: the old chart read it as one name and the old lint as two. None shipped.
+- **Row 23** moved from the words slice to the per-chart slice, because the parser that reads the
+  state keywords is the state chart's own.
+
+**Known limit.** A number written with a thousands comma cannot sit inside a record: the comma separates
+items, and a quoted value is text. `{12000, 62%}` works; `{12,000, 62%}` is three items. No shipped deck
+had one.
+
+**Not in this PR — decision 7**, the per-deck alias-consistency lint with an autofix. The binder already
+reports each spelling an author used (`spellings` on every bind). Building the rule means every reader
+must hand those spellings to lint, which is its own change. It is open for the owner at the merge ask.
+
 ## Open questions
 
 The three this note first carried — coordinates, journey sigils, color slots — are decisions 10 to 12.
