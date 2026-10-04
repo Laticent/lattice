@@ -34,8 +34,9 @@ export type Expr =
   | { readonly t: 'set'; readonly cs: CharSet; readonly label?: string }
   | { readonly t: 'seq'; readonly xs: readonly Expr[] }
   | { readonly t: 'alt'; readonly xs: readonly Expr[] }
-  | { readonly t: 'many'; readonly x: Expr; readonly min: 0 | 1 }
-  | { readonly t: 'opt'; readonly x: Expr }
+  | { readonly t: 'many'; readonly x: Expr; readonly min: 0 | 1; readonly greedy?: true }
+  | { readonly t: 'opt'; readonly x: Expr; readonly greedy?: true }
+  | { readonly t: 'until'; readonly s: string; readonly orEnd: boolean }
   | { readonly t: 'ref'; readonly name: string }
   | { readonly t: 'node'; readonly kind: string; readonly x: Expr };
 
@@ -78,6 +79,38 @@ export const alt = (...xs: Part[]): Expr => ({ t: 'alt', xs: xs.map(part) });
 export const many = (x: Part): Expr => ({ t: 'many', x: part(x), min: 0 });
 export const many1 = (x: Part): Expr => ({ t: 'many', x: part(x), min: 1 });
 export const opt = (x: Part): Expr => ({ t: 'opt', x: part(x) });
+/**
+ * Mark a loop (`many`, `many1`) or an `opt` GREEDY: when the next character could either go
+ * round again or start what follows, it always goes round. This is "longest match", the rule
+ * every lexer uses, and it is what the parser already does — the mark only tells the checker
+ * the overlap is meant. It costs nothing at run time and keeps the linear bound: a step still
+ * either consumes a character or stops. The checker still refuses a greedy loop whose
+ * successor could NEVER be reached because the loop always eats its first character.
+ */
+export const greedy = (x: Part): Expr => {
+  const e = part(x);
+  if (e.t === 'many') return { t: 'many', x: e.x, min: e.min, greedy: true };
+  if (e.t === 'opt') return { t: 'opt', x: e.x, greedy: true };
+  throw new Error('segno: greedy() takes many(), many1() or opt()');
+};
+/**
+ * Everything up to and including the literal `end`: a comment to its close, a script to its
+ * `</script>`. One forward search, and the parse never goes back over what it searched.
+ * When `end` never appears the parse fails there, unless `orEnd` is set, which reads to the end
+ * of the input instead (an unclosed comment at the end of a file).
+ *
+ * The search is the engine's own `indexOf`, whose slow case costs about (input length) x
+ * (terminator length). So the terminator is capped at `MAX_UNTIL` characters: with the cap, the
+ * cost per character is bounded by a constant of the ENGINE, not of whoever wrote the grammar.
+ * (Measured by the prototype's red team: a 16,384-character terminator cost 1.5 µs per input
+ * character; a 32-character one, 4 ns.)
+ */
+export const MAX_UNTIL = 64;
+export const until = (end: string, options: { orEnd?: boolean } = {}): Expr => {
+  if (!end) throw new Error('segno: until() needs at least one character');
+  if (end.length > MAX_UNTIL) throw new Error(`segno: until() takes a terminator of at most ${MAX_UNTIL} characters`);
+  return { t: 'until', s: end, orEnd: !!options.orEnd };
+};
 /** A reference to another rule, so rules can recurse (a record holds values). */
 export const ref = (name: string): Expr => ({ t: 'ref', name });
 /** Keep this span in the parse tree as a node of `kind`. */
@@ -86,6 +119,12 @@ export const node = (kind: string, x: Part): Expr => ({ t: 'node', kind, x: part
 export interface GrammarSpec {
   readonly start: string;
   readonly rules: Readonly<Record<string, Expr>>;
+  /**
+   * How deep rule references may nest, for this grammar (default `MAX_DEPTH`, 64). A document
+   * format nests deeper than an inline span; the ceiling is `MAX_DEPTH_LIMIT`. Past the cap the
+   * parse is an error, never a stack overflow.
+   */
+  readonly maxDepth?: number;
 }
 
 // ── the parse tree ──────────────────────────────────────────────────────────
@@ -190,6 +229,9 @@ class Analysis {
       case 'opt': return { nullable: true, first: this.get(e.x).first };
       case 'node': { const i = this.get(e.x); return { nullable: i.nullable, first: i.first }; }
       case 'ref': { const i = this.get(this.spec.rules[e.name]); return { nullable: i.nullable, first: i.first }; }
+      // Any character can start the text before the terminator; it matches nothing only when
+      // `orEnd` lets it stop at the end of the input.
+      case 'until': return { nullable: e.orEnd, first: ANY };
     }
   }
 
@@ -257,7 +299,23 @@ class Analysis {
         const what = e.t === 'opt' ? 'opt' : e.min ? 'many1' : 'many';
         if (body.nullable) problems.push(`${inf.path}: the body of ${what} can match nothing, so the loop could spin without consuming`);
         const clash = intersect(body.first, inf.follow);
-        if (!isEmpty(clash)) problems.push(`${inf.path}: after ${what}, ${describe(clash)} could either repeat the body or follow it`);
+        if (!isEmpty(clash) && !e.greedy) problems.push(`${inf.path}: after ${what}, ${describe(clash)} could either repeat the body or follow it`);
+      }
+      // A greedy loop always eats the characters it can take, so what comes after it in a
+      // sequence must be able to start with something else, or it is dead code.
+      if (e.t === 'seq') {
+        let eaten: CharSet = EMPTY;
+        for (let k = 0; k + 1 < e.xs.length; k++) {
+          eaten = this.excludedAfter(e.xs[k], eaten, new Set());
+          if (isEmpty(eaten)) continue;
+          const after = e.xs.slice(k + 1);
+          const restNullable = after.every((x) => this.get(x).nullable);
+          let restFirst: CharSet = EMPTY;
+          for (const x of after) { restFirst = union(restFirst, this.get(x).first); if (!this.get(x).nullable) break; }
+          if (!restNullable && !isEmpty(restFirst) && isEmpty(intersect(restFirst, complement(eaten)))) {
+            problems.push(`${inf.path}: seq[${k + 1}] can never match: it must start with ${describe(restFirst)}, which the greedy loop before it always takes`);
+          }
+        }
       }
     }
     // Left recursion: a rule that reaches itself through a nullable prefix.
@@ -273,6 +331,45 @@ class Analysis {
       }
     }
     return [...new Set(problems)];
+  }
+
+  /**
+   * The characters that can NOT come next once `e` has matched, however it matched — given that
+   * `before` could not come next before it. A loop only stops when the next character cannot
+   * start its body, so after any `many` that is the body's FIRST set. After an `opt` it is what
+   * holds on both paths: taken (what its body leaves) and skipped (its FIRST, plus `before`).
+   * After a choice it is what holds after every branch. Anything that consumes a character and
+   * is not a loop leaves nothing excluded. Rule references are followed (`seen` stops a cycle,
+   * conservatively, with nothing excluded).
+   *
+   * Only greedy loops make this matter — in a strict grammar the LL(1) check already refuses a
+   * successor that a loop could take — and an answer that is too SMALL only ever lets a grammar
+   * through, so every case leans that way.
+   */
+  private excludedAfter(e: Expr, before: CharSet, seen: Set<string>): CharSet {
+    switch (e.t) {
+      case 'many': return this.get(e.x).first;
+      case 'opt': return intersect(this.excludedAfter(e.x, before, seen), union(before, this.get(e.x).first));
+      case 'node': return this.excludedAfter(e.x, before, seen);
+      case 'seq': {
+        let ex = before;
+        for (const x of e.xs) ex = this.excludedAfter(x, ex, seen);
+        return ex;
+      }
+      case 'alt': {
+        let out: CharSet | null = null;
+        for (const x of e.xs) { const ex = this.excludedAfter(x, before, seen); out = out === null ? ex : intersect(out, ex); }
+        return out ?? EMPTY;
+      }
+      case 'ref': {
+        if (seen.has(e.name)) return EMPTY;
+        seen.add(e.name);
+        const ex = this.excludedAfter(this.spec.rules[e.name], before, seen);
+        seen.delete(e.name);
+        return ex;
+      }
+      default: return EMPTY; // lit, set, until: they consume, and anything may follow
+    }
   }
 
   /** The rules an expression can enter before consuming anything. */
@@ -345,6 +442,7 @@ class Analysis {
         case 'seq': for (const y of x.xs) { walk(y); if (!this.nullable(y)) return; } return;
         case 'alt': for (const y of x.xs) walk(y); return;
         case 'many': case 'opt': case 'node': walk(x.x); return;
+        case 'until': add(`text ending in ${JSON.stringify(x.s)}`); return;
         case 'ref':
           if (seen.has(x.name)) return;
           seen.add(x.name);
@@ -373,6 +471,38 @@ interface State {
  * never to throw on input. 64 is far past any real span and far short of any stack.
  */
 export const MAX_DEPTH = 64;
+/**
+ * The most a grammar may raise its `maxDepth` to. Measured on Node 22's default stack with the
+ * cap removed, for grammars with a few expressions per level: `compile()` overflowed at about
+ * 2,300 nested references and the generated parser at about 8,600. That headroom is NOT a
+ * guarantee: `compile()` spends a stack frame per expression, so a grammar with many expressions
+ * between two references runs out far sooner (the prototype's checker hit it at ~150 levels),
+ * and the generated parser, which inlines a level into one function, does not. Such a parse is
+ * caught and reported as STACK_EXHAUSTED rather than thrown — but there the two runtimes can
+ * disagree, as the shipped engine's already did (it threw).
+ */
+export const MAX_DEPTH_LIMIT = 1000;
+
+/** What a parse reports when the stack runs out before the nesting cap does. */
+export const STACK_EXHAUSTED = 'less deeply nested input (the stack ran out before the nesting cap)';
+
+/**
+ * A stack overflow, and nothing else. V8 and JavaScriptCore throw a RangeError "Maximum call
+ * stack size exceeded"; SpiderMonkey an InternalError "too much recursion". Any other error —
+ * a RangeError from allocating a typed array, say — is a bug and is thrown on.
+ */
+export function isStackOverflow(x: unknown): boolean {
+  return x instanceof Error && /call stack size|too much recursion/i.test(x.message);
+}
+
+/** The nesting cap a spec asks for, checked against the ceiling. */
+export function depthOf(spec: GrammarSpec): number {
+  const d = spec.maxDepth ?? MAX_DEPTH;
+  if (!Number.isInteger(d) || d < 1 || d > MAX_DEPTH_LIMIT) {
+    throw new GrammarError([`maxDepth must be a whole number from 1 to ${MAX_DEPTH_LIMIT}, not ${d}`]);
+  }
+  return d;
+}
 
 type Matcher = (st: State) => boolean;
 
@@ -402,6 +532,7 @@ export function analyze(spec: GrammarSpec) {
 
 export function compile(spec: GrammarSpec): Grammar {
   const an = analyze(spec);
+  const maxDepth = depthOf(spec);
 
   const matchers = new Map<Expr, Matcher>();
   const ruleMatchers = new Map<string, Matcher>();
@@ -514,11 +645,24 @@ export function compile(spec: GrammarSpec): Grammar {
           break;
         }
         m = (st) => {
-          if (st.depth >= MAX_DEPTH) return fail(st, `at most ${MAX_DEPTH} levels of nesting`);
+          if (st.depth >= maxDepth) return fail(st, `at most ${maxDepth} levels of nesting`);
           st.depth++;
           const ok = (ruleMatchers.get(name) as Matcher)(st);
           st.depth--;
           return ok;
+        };
+        break;
+      }
+      case 'until': {
+        const end = e.s;
+        const orEnd = e.orEnd;
+        const want = JSON.stringify(end);
+        m = (st) => {
+          const at = st.s.indexOf(end, st.i);
+          if (at >= 0) { st.i = at + end.length; return true; }
+          if (orEnd) { st.i = st.s.length; return true; }
+          st.i = st.s.length;
+          return fail(st, want);
         };
         break;
       }
@@ -548,7 +692,17 @@ export function compile(spec: GrammarSpec): Grammar {
       const m = ruleMatchers.get(rule);
       if (!m) throw new Error(`segno: no rule "${rule}"`);
       const st: State = { s: input, i: 0, stack: [[]], err: null, depth: 0 };
-      const ok = m(st);
+      let ok: boolean;
+      try {
+        ok = m(st);
+      } catch (x) {
+        // The backstop for a grammar whose levels are unusually deep in frames: the stack ran
+        // out before `maxDepth` did. Report it as an error, never throw it — and do not name a
+        // level count: the cap was not reached, and where the stack runs out depends on the
+        // engine and on how warm its JIT is.
+        if (!isStackOverflow(x)) throw x;
+        return { ok: false, error: { at: st.i, expected: STACK_EXHAUSTED, found: st.i < input.length ? input[st.i] : null } };
+      }
       if (ok && st.i < input.length) fail(st, 'end of input');
       if (!ok || st.err) return { ok: false, error: st.err as ParseError };
       return { ok: true, node: { kind: rule, from: 0, to: input.length, kids: st.stack[0] } };

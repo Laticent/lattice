@@ -16,7 +16,7 @@
  */
 
 import { ANY, type CharSet, describe, equal } from './charset.js';
-import { analyze, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH } from './grammar.js';
+import { analyze, depthOf, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH, STACK_EXHAUSTED } from './grammar.js';
 
 /**
  * The next code unit, or -1 at the end of input. NOT `s.charCodeAt(i)` alone: past the end that
@@ -58,6 +58,7 @@ function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
 /** Generate an ES module exporting `parse(input, rule?)` with the same contract as `compile().parse`. */
 export function generate(spec: GrammarSpec, options: { banner?: string } = {}): string {
   const an = analyze(spec); // throws GrammarError exactly as compile() does
+  const maxDepth = depthOf(spec);
   // Rule names become identifiers (`r_<name>`), so they must be identifiers.
   // `__proto__` is an identifier but not a key: in the generated `RULES` object literal it would
   // set the prototype, and every parse starting there would throw "no rule".
@@ -121,7 +122,12 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
       case 'ref':
         // Only a rule that can reach itself spends the nesting cap, exactly as compile() does.
         if (!recursive.has(e.name)) return `${ind}if (!r_${e.name}()) return false;\n`;
-        return `${ind}if (depth >= ${MAX_DEPTH}) return fail(${q(`at most ${MAX_DEPTH} levels of nesting`)});\n${ind}depth++;\n${ind}if (!r_${e.name}()) return false;\n${ind}depth--;\n`;
+        return `${ind}if (depth >= ${maxDepth}) return fail(${q(`at most ${maxDepth} levels of nesting`)});\n${ind}depth++;\n${ind}if (!r_${e.name}()) return false;\n${ind}depth--;\n`;
+      case 'until': {
+        const c = fresh();
+        const miss = e.orEnd ? `${ind}  i = n;\n` : `${ind}  i = n;\n${ind}  return fail(${q(JSON.stringify(e.s))});\n`;
+        return `${ind}{\n${ind}  const ${c} = s.indexOf(${q(e.s)}, i);\n${ind}  if (${c} >= 0) i = ${c} + ${e.s.length};\n${ind}  else {\n${miss}${ind}  }\n${ind}}\n`;
+      }
       case 'node': {
         const b = fresh();
         let k = kinds.indexOf(e.kind);
@@ -176,7 +182,15 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   depth = 0;
   err = null;
   top = 0;
-  const ok = start();
+  ${maxDepth > MAX_DEPTH ? `let ok: boolean;
+  try {
+    ok = start();
+  } catch (x) {
+    // A grammar deep in frames per level can exhaust the stack before maxDepth: report it as
+    // nesting, never throw it (compile() does the same).
+    if (!(x instanceof Error && /call stack size|too much recursion/i.test(x.message))) throw x;
+    return { ok: false, error: { at: i, expected: ${q(STACK_EXHAUSTED)}, found: i < n ? s[i] : null } };
+  }` : 'const ok = start();'}
   if (ok && i < n) fail('end of input');
   const e = err as GenError | null;
   if (!ok || e) return { ok: false, error: e ?? { at: i, expected: 'a valid input', found: null } };
