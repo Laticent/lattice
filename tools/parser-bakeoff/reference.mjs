@@ -24,7 +24,7 @@ const { splitRow } = require('../../lib/core/flowchart-grammar.js');
 const { parseSpanToken, parseTimePoint } = require('../../lib/core/gantt-time.js');
 const { isValuePill, signedValue } = require('../../lib/core/chart-values.js');
 const { parseInlineState } = require('../../lib/core/state-marks.js');
-const { resolve: resolvePill } = require('../../lib/core/inline-pills.js');
+const { resolve: resolvePill } = require('../segno-legacy/inline-pills.js');
 
 /** One output shape per target; every candidate's impl returns the same. */
 export const reference = {

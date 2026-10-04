@@ -12,7 +12,7 @@ const require = createRequire(import.meta.url);
 const { unquote } = require('../../lib/core/bracket-list.js');
 const { signedValue } = require('../../lib/core/chart-values.js');
 const { GANTT_MONTHS, GANTT_MONTHS_FULL } = require('../../lib/core/gantt-time.js');
-const { resolveMods, RESERVED_MARKERS, isLabel } = require('../../lib/core/inline-pills.js');
+const { resolveMods, RESERVED_MARKERS, isLabel } = require('../segno-legacy/inline-pills.js');
 
 /** `\s` / String#trim's set, as a predicate and as a character class body. */
 export const WS_CLASS = '\\t-\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff';

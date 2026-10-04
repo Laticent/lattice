@@ -1,7 +1,7 @@
 /**
  * Measure inline sparks in the live preview and name the ones too big for the space they sit in.
  *
- * WHY THIS IS MEASURED, NOT LINTED. Whether `~{…}:lg` fits depends on the layout it lands in (a
+ * WHY THIS IS MEASURED, NOT LINTED. Whether `~{…, lg}` fits depends on the layout it lands in (a
  * table column, a kpi support row, a card), which lint-core cannot see. The Studio's preview frame
  * is same-origin, so the Studio reads the rendered sparks directly — no engine change, no message
  * channel. Each spark carries its own source text as `data-src` (lib/core/inline-sparks.js), so a
@@ -89,7 +89,7 @@ export function measureSparkFit(doc: Document): SparkFitReport[] {
 	if (!view) return [];
 	const out = new Map<string, SparkFitReport>();
 	for (const el of doc.querySelectorAll<HTMLElement>('section[data-lattice-slide] .lat-spark[data-src]')) {
-		// Running chrome repeats on every slide, and a `:fill` spark is full-width by design.
+		// Running chrome repeats on every slide, and a `fill` spark is full-width by design.
 		if (el.closest('header, footer') || el.hasAttribute('data-fill')) continue;
 		const section = el.closest('section');
 		const r = el.getBoundingClientRect();

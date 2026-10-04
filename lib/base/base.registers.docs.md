@@ -629,7 +629,7 @@ cleanly.
 | `underline` | `eyebrow-underline` | A hairline rule beneath the label. |
 
 **What this decorates has to BE an eyebrow first, and a pill is not one.** The kicker is a
-POSITION — a paragraph whose only child is a `<code>` element — so `` `{DRAFT}:c2` `` or
+POSITION — a paragraph whose only child is a `<code>` element — so `` `{DRAFT, c2}` `` or
 `` `[x]` `` on that line renders as a pill or a mark alone on a line, and no `eyebrow:`
 treatment reaches it. Escape it (`` `\{DRAFT}` ``) to keep the `<code>` and keep the
 kicker. Measured harmless across shipped decks (over a thousand spans across both positions, zero affected) and gated by
@@ -1063,9 +1063,9 @@ spark: etching rounded
 <!-- _class: table spark-bare -->
 ```
 
-**Most specific wins, one axis at a time:** the spark's own modifier (`` `~{…}:framed` ``), then
+**Most specific wins, one axis at a time:** the spark's own modifier (`` `~{…, framed}` ``), then
 the slide's class, then the deck's `spark:`, then the default. A spark that names its own
-corners keeps a frame in a bare deck unless it also says `:bare`. A ring's frame is
+corners keeps a frame in a bare deck unless it also says `bare`. A ring's frame is
 square rather than 3:2. The table slide above drops the
 frame and keeps the deck's etching and rounded words for any spark that asks for a frame back.
 `lint:deck` warns (`unknown-spark`) on a word it does not know and on a second word for one axis.

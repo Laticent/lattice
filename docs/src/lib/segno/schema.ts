@@ -360,6 +360,12 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
         const slots = Object.entries(params).filter(([, t]) => isSlot(t) && t.kind === v.kind);
         if (slots.length === 1) { b.put(slots[0][0], slots[0][1], v, it); continue; }
       }
+      if (v.kind === 'scalar' && !v.quoted) {
+        // A word a parameter almost takes (`c13` where colors stop at `c12`): name the limit.
+        let near: string | undefined;
+        for (const t of Object.values(params)) if (!near && !isSlot(t)) near = t.near?.(v.text);
+        if (near) { b.problem(err('out-of-range', near, it.from, it.to)); continue; }
+      }
       const what = v.kind === 'scalar' ? `"${v.text}"` : `this ${v.kind}`;
       b.problem(err('unknown-word', `${what} is not anything ${label} takes — it takes ${takes()}`, it.from, it.to));
     }

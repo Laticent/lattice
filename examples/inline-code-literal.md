@@ -33,7 +33,7 @@ One line of front matter, and every backtick span goes back to being text.
 ## Nothing on this slide is drawn.
 
 1. A pill that isn't
-   - Would be a capsule `{STABLE}:c2`
+   - Would be a capsule `{STABLE, c2}`
 2. A mark that isn't
    - Would be a green disc `[x]`
 3. A half mark that isn't
@@ -48,9 +48,9 @@ One line of front matter, and every backtick span goes back to being text.
 ## Two values, two behaviors.
 
 - Rich — the default
-  - Set `inline-code: rich`, or omit the key entirely. `{STABLE}:c2` draws a capsule and `[x]` draws a disc. Every deck we ship renders this way.
+  - Set `inline-code: rich`, or omit the key entirely. `{STABLE, c2}` draws a capsule and `[x]` draws a disc. Every deck we ship renders this way.
 - Literal — this deck
-  - Set `inline-code: literal`. `{STABLE}:c2` and `[x]` are characters. Nothing else changes: same theme, same layouts, same everything.
+  - Set `inline-code: literal`. `{STABLE, c2}` and `[x]` are characters. Nothing else changes: same theme, same layouts, same everything.
 
 ---
 

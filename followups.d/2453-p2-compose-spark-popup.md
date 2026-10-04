@@ -7,7 +7,7 @@ source: https://github.com/Laticent/lattice/pull/2453
 
 # A spark editing popup in the Studio's Compose view
 
-why now   — PR #2453 ships inline sparks (`~{12 14 17}:bar:lg`) with autocomplete and a
+why now   — PR #2453 ships inline sparks (`~{12 14 17, bar, lg}`) with autocomplete and a
             size-fit warning in the Markdown editor. The owner asked for a custom popup in
             Compose too and marked it a possible follow-up: in Compose a spark is a rendered
             chart, so an author who wants to change its type, size, color or frame has no
