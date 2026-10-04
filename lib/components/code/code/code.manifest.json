@@ -132,27 +132,27 @@
     "lines": {
       "bare": {
         "laptop": 15,
-        "huddle": 13,
-        "conference": 11,
-        "hall": 10
+        "huddle": 12,
+        "conference": 9,
+        "hall": 8
       },
       "eyebrow": {
         "laptop": 13,
         "huddle": 11,
-        "conference": 10,
-        "hall": 8
+        "conference": 8,
+        "hall": 7
       },
       "insight": {
         "laptop": 11,
         "huddle": 9,
-        "conference": 8,
-        "hall": 6
+        "conference": 6,
+        "hall": 5
       },
       "eyebrowInsight": {
         "laptop": 10,
         "huddle": 8,
-        "conference": 7,
-        "hall": 5
+        "conference": 5,
+        "hall": 4
       }
     }
   },

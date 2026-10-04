@@ -14,7 +14,7 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a metric label, not a sentence.
 
-**By venue** (`venue:`, ~8 words each) it holds laptop ~6 · huddle ~6 · conference ~6 · hall ~3 items. At ~6 words each: 6 · 6 · 6 · 5. No venue goes past the Capacity max of 6, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~8 words each) it holds laptop ~6 · huddle ~6 · conference ~4 · hall ~3 items. At ~6 words each: 6 · 6 · 6 · 3. No venue goes past the Capacity max of 6, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

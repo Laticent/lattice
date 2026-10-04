@@ -2076,6 +2076,10 @@ const widenDeckCss = (css) => (DECK_HAS_PANES ? widenForPanes(css, DECK_PANE_CLA
 const notesCore = require('./lib/authoring/notes-core');
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// For a double-quoted ATTRIBUTE value, where a `"` would end the attribute. escapeHtml is
+// for text, and adding `"` to it would change the bytes of every exported <title> that
+// quotes something.
+const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
 // The set of INDIVIDUAL note bodies straight from the render — the directive-safe
 // key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
 // attachment). NOT the `\n\n`-joined note split apart, which shatters a single
@@ -2721,7 +2725,7 @@ const a11yTextureDefs = texturePatternDefs(
   texturePrefixesReferencedIn(`${deckStyle}\n${slidesWithMeta2}`),
 );
 const htmlDoc = `<!DOCTYPE html>
-<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
+<html lang="${escapeAttr(deckLang)}"><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
 ${docFonts}
 ${katexCssTag}
@@ -6118,19 +6122,27 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   if (STRIP_SAY) fmForMerge = null;
   // Precedence, highest first: inline `<!-- say: -->` → front-matter `say:[n]` → projection.
   const slideTexts = mergeNarration(slideCount, projected, { sayLines: inlineForMerge, fmSayMap: fmForMerge });
-  // THE AUTO-GLOSSARY PAGE IS SILENT, as it is in the Studio. `glossary: auto` appends one slide
-  // the source does not contain, always last; Present never shows it, so the Studio has no clip for
+  // THE AUTO-GLOSSARY PAGES ARE SILENT, as they are in the Studio. `glossary: auto` appends one
+  // slide per glossary page, which the source does not contain, always last; Present never shows it, so the Studio has no clip for
   // it and its projection drops that section (`withoutAutoGlossary`, the same kernel). Narrating it
   // here made `lattice video` read four definitions the Studio export of the same deck never says
   // (engineering/pipeline.md §6).
   // Every page the appended slide became is blanked, should it ever paginate; `glossaryFrom` also
   // bounds the texts the bookends are checked against, so a closing the last AUTHORED slide already
   // says is dropped here as the Studio drops it, not compared against the silent glossary page.
+  // A long glossary is appended as several slides (one per page of the glossary's venue budget),
+  // so the silent run starts at the first page whose authored slide is one of the last `added`.
   let glossaryFrom = slideCount;
-  if (slideCount > 0 && autoGlossarySections(preGlossaryMd)) {
+  const glossaryAdded = slideCount > 0 ? autoGlossarySections(preGlossaryMd) : 0;
+  if (glossaryAdded) {
     const origin = pageOrigin();
-    glossaryFrom = origin.length === slideCount ? origin.indexOf(origin[slideCount - 1]) : slideCount - 1;
-    for (let i = glossaryFrom; i < slideCount; i++) slideTexts[i] = '';
+    if (origin.length === slideCount) {
+      const firstGlossary = origin[slideCount - 1] - glossaryAdded + 1;
+      glossaryFrom = origin.findIndex((authored) => authored >= firstGlossary);
+    } else {
+      glossaryFrom = slideCount - glossaryAdded;
+    }
+    for (let i = Math.max(0, glossaryFrom); i < slideCount; i++) slideTexts[i] = '';
   }
   // Emphasis survives only where the resolved narration is still the projected text — the ONE
   // shared rule (read-along-build.js), fed the PRE-substitution snapshot because `projected` was

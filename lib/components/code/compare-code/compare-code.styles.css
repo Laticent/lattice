@@ -79,7 +79,7 @@ section.compare-code pre {
  * two-pane diff exists for, drops trailing lines from the export, and bakes hard
  * breaks into the PDF text layer mid-token. The families that DO wrap are stacked to
  * one column, where none of those apply. */
-section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
+section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--fs-body-compact); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 
 /* ── COMPARE-CODE fallback ───────────────────────────────────────────────────
  * Column labels are p>code (inline code paragraphs), matching the eyebrow convention.

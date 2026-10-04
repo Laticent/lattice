@@ -91,9 +91,10 @@
    * the first rethink shipped — Lattice makes boardroom PDFs read at
    * desk distance, not slides projected at 20ft. Container body anchors
    * at 1.67cqi = 16pt (the default for cards / lists / inline prose);
-   * slide-level statement bodies use --fs-message = 21pt. Dense
-   * reference surfaces (tables, grids, glossary cells) drop to
-   * --fs-body-compact = 13.5pt: scanned, not read linearly.
+   * slide-level statement bodies use --fs-message = 21pt. Reading
+   * text has ONE size: list rows, table cells and glossary cells read
+   * --fs-body too (2026-09-29-one-reading-size-per-venue.md); code
+   * keeps --fs-body-compact = 13.5pt, because a code line cannot wrap.
    * Headings h4/h5/h6 are deliberately tied to message/body/meta tiers
    * (same size, weight-differentiated). Full contract:
    * engineering/typography.md.
@@ -101,7 +102,8 @@
    * Author's mental model — every decision in six rules:
    *   HTML heading                  → --fs-h<level>      (auto via base.elements.css)
    *   Card / list / inline prose    → --fs-body          (default; 18pt projection)
-   *   Dense table / grid cell       → --fs-body-compact  (tables, glossary, matrix; 16pt)
+   *   Table cell / list row         → --fs-body          (one reading size, 2026-09-29)
+   *   Code, chart keys              → --fs-body-compact  (a code line cannot wrap)
    *   Slide-level statement body    → --fs-message       (statement, quote, lead, divider sub)
    *   Lead / key-insight callout    → --fs-emphasis      (one block per slide)
    *   Chrome and labels             → --fs-meta          (pagination, footer, eyebrow)
@@ -124,6 +126,9 @@
    * the smallest readable role fails first at distance, so a venue lifts it past the
    * body's scale. 1 everywhere else. See engineering/typography.md §7 "Venue". */
   --venue-meta-lift: 1;
+  /* The body-compact role's own venue multiplier (code, support lines, chart keys), so the
+   * lifted labels never out-size it; below the label lift at hall to stay under body text. */
+  --venue-compact-lift: 1;
 
   /* ── Sovereign-bookend measures ────────────────────────────────────────
    * The ONLY width caps on framing text in the engine. `title` / `closing` /

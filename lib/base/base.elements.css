@@ -195,8 +195,8 @@ section blockquote { margin:0; padding:0; border:none; }
  * reads as the same family as every specialist: the `--spectrum-structure`
  * thead underline (unanimous across glossary / obligation-matrix /
  * statute-stack), label-cased column heads at `--fs-meta`,
- * `--border` hairlines under each row, `--fs-body-compact` cells (the type
- * contract's "dense reference cell" tier), and a low-alpha accent zebra.
+ * `--border` hairlines under each row, `--fs-body` cells (reading text has
+ * one size, 2026-09-29-one-reading-size-per-venue.md), and a low-alpha accent zebra.
  *
  * TWO scoping decisions, both load-bearing:
  *
@@ -269,7 +269,7 @@ section blockquote { margin:0; padding:0; border:none; }
 section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table,
 section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
   width:100%; table-layout:auto; border-collapse:collapse;
-  font-size:var(--fs-body-compact); line-height:var(--lh-snug);
+  font-size:var(--fs-body); line-height:var(--lh-snug);
   /* Vertical fill is a TOGGLE, off by default (`flex:0 1 auto` is a flex item's
    * own default, so this declaration changes nothing until --table-grow is set).
    * On, the table takes the leftover stage height and its rows spread to use it.

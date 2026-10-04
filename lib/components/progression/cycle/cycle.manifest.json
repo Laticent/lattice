@@ -87,13 +87,13 @@
         "laptop": 10,
         "huddle": 9,
         "conference": 8,
-        "hall": 7
+        "hall": 4
       },
       "12": {
         "laptop": 5,
         "huddle": 5,
         "conference": 4,
-        "hall": 4
+        "hall": 3
       }
     },
     "insight": {

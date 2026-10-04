@@ -40,8 +40,9 @@ dist/fonts/noto-color-emoji.ttf
 
 # Bucket-gallery build tempfiles — tools/build-bucket-galleries.js writes
 # <bucket>.gallery.<theme>.tmp.md next to the source during render and
-# normally deletes it; this catches the killed-mid-build case.
-lib/components/**/*.gallery.*.tmp.md
+# normally deletes it; this catches the killed-mid-build case, and a `git add -A`
+# while a render runs. `lib/**`, not `lib/components/**`: the logo gallery is in lib/base/_logo.
+lib/**/*.gallery.*.tmp.md
 
 # LibreOffice lock files
 .~lock.*#
@@ -59,6 +60,8 @@ examples/*.notes.txt
 design/**/*.html
 exemplars/**/*.html
 lib/components/**/*.html
+lib/base/**/*.html
+kit/*.html
 test/integration/**/*.html
 !examples/*.pdf
 !examples/**/*.pdf
