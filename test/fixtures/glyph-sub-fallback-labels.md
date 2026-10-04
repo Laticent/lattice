@@ -87,7 +87,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## Radar sector names ride the rim and wrap the same way.
 
@@ -169,7 +169,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 <!-- _class: radar sketch -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## Radar sector names under the hand face.
 

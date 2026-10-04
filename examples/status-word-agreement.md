@@ -100,12 +100,12 @@ A status word colors the same way wherever the engine accepts it.
 ## A state chart puts it on the badge.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Submitted `AT-RISK`
-   - `review => 3`
+   - `{review, to=3}`
 3. Reviewed `on-track`
-   - `approve => 4`
-   - `reject => 1`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
 4. Approved `end`
 
 ---

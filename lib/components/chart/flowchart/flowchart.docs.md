@@ -20,9 +20,9 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading: name the takeaway, not the diagram. |
 | `eyebrow` | `p > code` | no | Optional eyebrow naming the system or domain. |
-| `shapes` | `ul > li` | yes | One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`:box` `:square` `:pill` `:diamond` `:circle` `:cylinder` `:io` `:doc`), a slot `:c1`…`:c8`, one channel `:fill-cN` / `:border-cN` / `:text-cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. |
-| `groups` | `li > ul` | no | A sub-list of shapes makes its parent item a GROUP, drawn as a tinted background behind its members, like a Mermaid subgraph. `:cN` on a group tints it. Groups nest. A line can start or end at a group. |
-| `connections` | `li` | no | An arrow in a row connects shapes: `A -> B`, `A => B` (the heavy main path), `A -- B` (no head), `A <-> B`, `A <- B`. A label sits inside the arrow: `-ships via->`. A row may start with the arrow (`- => B`), meaning "from the item this row sits under", or name its source (`- A => B`). `&` fans out: `A -> B & C`. A trailing span after the target styles the line: `:dashed` `:dotted` `:open` `:dot` `:cross` `:loose` `:cN`. |
+| `shapes` | `ul > li` | yes | One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`box` `square` `pill` `diamond` `circle` `cylinder` `io` `doc`), a color `c1`…`c8`, one channel `fill=cN` / `border=cN` / `text=cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. One word stands alone; several go in one record, in any order: `{#kyc, diamond, c2}`. |
+| `groups` | `li > ul` | no | A sub-list of shapes makes its parent item a GROUP, drawn as a tinted background behind its members, like a Mermaid subgraph. `cN` on a group tints it. Groups nest. A line can start or end at a group. |
+| `connections` | `li` | no | An arrow in a row connects shapes: `A -> B`, `A => B` (the heavy main path), `A -- B` (no head), `A <-> B`, `A <- B`. A label sits inside the arrow: `-ships via->`. A row may start with the arrow (`- => B`), meaning "from the item this row sits under", or name its source (`- A => B`). `&` fans out: `A -> B & C`. A trailing span after the target styles the line: `dashed` `dotted` `open` `dot` `cross` `loose` `cN`, several in one record (`{dotted, cross}`). |
 | `notes` | `li > blockquote` | no | A `>` blockquote under a shape is a note pinned to it, drawn as a card on a dotted tether. |
 | `key` | `p > code` | no | The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{"=>", Happy path}, {:dotted, Later}]` ``. It only renames; it never hides or adds an entry. |
 | `caption` | `p > em` | no | An italic paragraph below becomes the chart caption. |
@@ -36,7 +36,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 ### Common mistakes
 
 - **Nesting a shape under a connection row.** A sub-list makes its parent a GROUP, so it must sit under a shape's row, never under `- -> B`. Lint names it: flowchart-nested-under-connection.
-- **Styling a shape from the line that points at it (`-> B `:diamond``).** A span after a connection's target styles the LINE. Give B its own row and put `:diamond` there.
+- **Styling a shape from the line that points at it (`-> B `diamond``).** A span after a connection's target styles the LINE. Give B its own row and put `diamond` there.
 - **Writing an arrow that is meant as text (`Input -> Output` as one name).** Escape it: `Input \-> Output`. A comparison like `2 => 3` is warned about for the same reason.
 
 ## When to use
@@ -58,8 +58,8 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 
 ## The flow in one line.
 
-- Start `:pill` => Check => Decide?
-- Decide? `:diamond`
+- Start `pill` => Check => Decide?
+- Decide? `diamond`
   - -yes-> Ship
   - -no-> Fix -> Check
 ```
@@ -91,11 +91,11 @@ Pins the flow left to right.
 
 ## Events land in the warehouse within a minute.
 
-- Web events `:io` => Ingest queue => Stream processor => Warehouse
-- Warehouse `:cylinder`
+- Web events `io` => Ingest queue => Stream processor => Warehouse
+- Warehouse `cylinder`
   - -> BI dashboards
   - -nightly-> ML training
-- BI dashboards `:doc`
+- BI dashboards `doc`
 ```
 
 ### `tb` — Top-to-bottom
@@ -107,7 +107,7 @@ Pins the flow top to bottom.
 
 ## The operating model has three lines of reporting.
 
-- Chief executive `:c1`
+- Chief executive `c1`
   - -- Finance & Technology & Operations
 - Finance
   - -- Controller & Planning

@@ -19,7 +19,7 @@ where     — lib/components/chart/state-chart/ — the tb column's fit on a tal
             each node is ~3x its landscape height). Repro: `size: portrait`,
             `<!-- _class: state-chart lr -->`, six states — "Draft awaiting
             review `start`", "Submitted to the queue", "Triaged by on-call",
-            "Assigned to engineer", "Fixed pending verify" (with `reopen => 4`),
+            "Assigned to engineer", "Fixed pending verify" (with `{reopen, to=4}`),
             "Closed and archived `end`" — chained `=> N+1`
 done when — all six nodes and both markers draw inside the frame on portrait
             and story, with no clipped badge

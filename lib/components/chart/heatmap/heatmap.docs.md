@@ -38,7 +38,7 @@ Use when the question is 'where does this concentrate', not 'how do these compar
 - The band key is OPT-IN. Add `scale` to the slide and the chart names each of the five ramp bands by the range of values that band actually holds.
 - To name the bands yourself, write a label set in an inline-code span above the table: `[{1, Cold}, {3, Warm}, {5, Hot}]`. The KEY IS THE RAMP STEP, 1 through 5 — not a value from your data. Name only the steps that carry meaning; the rest keep their derived range.
 - The ramp is cut at the matrix's own quantiles, so which step a value lands in depends on the whole matrix. If a step you named carries no cells, its label is dropped and the description says so — check the rendered key rather than assuming step 2 is 'the second-smallest value'.
-- A cell can carry its own description with a `# prose` annotation — `| Jan | 100 | 62 `# dipped after onboarding` |`. It shows on hover on the live surfaces, folds into the slide's speaker note for print, and never changes the value. The `#` must be followed by a space, so a hex color or an issue number in a cell is left alone.
+- A cell can carry its own description with a `note=` annotation — `| Jan | 100 | 62 `note=dipped after onboarding` |`. It shows on hover on the live surfaces, folds into the slide's speaker note for print, and never changes the value. Quote a note that holds a comma: `note="dipped, then recovered"`.
 
 ## When to use
 

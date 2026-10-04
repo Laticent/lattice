@@ -56,15 +56,15 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 ## Document approval flow.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
 4. Approved `done`
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `end`
 
 ---
@@ -77,14 +77,14 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 ## On-call escalation path.
 
 1. Detected `start`
-   - `page => 2`
+   - `{page, to=2}`
 2. Acknowledged `on-track`
-   - `mitigate => 3`
+   - `{mitigate, to=3}`
 3. Mitigating
-   - `resolve => 4`
-   - `escalate => self`
+   - `{resolve, to=4}`
+   - `{escalate, to=self}`
 4. Resolved `done`
-   - `close => 5`
+   - `{close, to=5}`
 5. Closed `end`
 
 ---

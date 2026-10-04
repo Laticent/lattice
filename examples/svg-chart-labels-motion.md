@@ -35,7 +35,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## Rim labels wrap, and the shape finally animates.
 
@@ -95,12 +95,12 @@ That one fact caused two different failures. A long label ran straight off its v
 ## States are painted from measured boxes, never guessed widths.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Awaiting compliance review `on-track`
-   - `approve => 3`
-   - `reject => 1`
+   - `{approve, to=3}`
+   - `{reject, to=1}`
 3. Counter-signature pending `at-risk`
-   - `sign => 4`
+   - `{sign, to=4}`
 4. Executed `end`
 
 ---

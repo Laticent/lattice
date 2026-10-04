@@ -6,7 +6,7 @@
  * (state-chart is one of CHART_LAYOUTS); this kernel just produces the figure HTML.
  * Tests cover the layers chart-family delegates to:
  *
- *   1. Transition-token lex: parseTransitionToken — `=>N`, `event=>N`,
+ *   1. Transition-token lex: parseTransitionToken — `{to=N}`, `{event, to=N}`,
  *      whitespace variants, `self` keyword, HTML-entity-escaped `&gt;`.
  *   2. State parsing: parseStateLi — label / status / start / end /
  *      unknown-pill fallthrough.
@@ -41,30 +41,30 @@ const OL_WORKED = (
   '<ol>' +
     '<li>Draft <code>start</code>' +
       '<ul>' +
-        '<li><code>submit =&gt; 2</code></li>' +
-        '<li><code>discard =&gt; 6</code></li>' +
+        '<li><code>{submit, to=2}</code></li>' +
+        '<li><code>{discard, to=6}</code></li>' +
       '</ul>' +
     '</li>' +
     '<li>Submitted <code>on-track</code>' +
       '<ul>' +
-        '<li><code>review =&gt; 3</code></li>' +
+        '<li><code>{review, to=3}</code></li>' +
       '</ul>' +
     '</li>' +
     '<li>In Review' +
       '<ul>' +
-        '<li><code>approve =&gt; 4</code></li>' +
-        '<li><code>reject =&gt; 1</code></li>' +
-        '<li><code>revise =&gt; self</code></li>' +
+        '<li><code>{approve, to=4}</code></li>' +
+        '<li><code>{reject, to=1}</code></li>' +
+        '<li><code>{revise, to=self}</code></li>' +
       '</ul>' +
     '</li>' +
     '<li>Approved <code>done</code>' +
       '<ul>' +
-        '<li><code>publish =&gt; 5</code></li>' +
+        '<li><code>{publish, to=5}</code></li>' +
       '</ul>' +
     '</li>' +
     '<li>Published <code>live</code>' +
       '<ul>' +
-        '<li><code>archive =&gt; 6</code></li>' +
+        '<li><code>{archive, to=6}</code></li>' +
       '</ul>' +
     '</li>' +
     '<li>Archived <code>end</code></li>' +
@@ -75,41 +75,38 @@ const OL_WORKED = (
 
 describe('parseTransitionToken', () => {
   test('basic: event with target index', () => {
-    assert.deepEqual(parseTransitionToken('submit=>2'), { event: 'submit', to: 2 });
+    assert.deepEqual(parseTransitionToken('{submit, to=2}'), { event: 'submit', to: 2 });
   });
 
-  test('whitespace around arrow is insignificant', () => {
+  test('whitespace inside the record is insignificant', () => {
     const expected = { event: 'submit', to: 2 };
-    assert.deepEqual(parseTransitionToken('submit => 2'), expected);
-    assert.deepEqual(parseTransitionToken('submit =>2'), expected);
-    assert.deepEqual(parseTransitionToken('submit=> 2'), expected);
-    assert.deepEqual(parseTransitionToken('  submit  =>  2  '), expected);
+    assert.deepEqual(parseTransitionToken('{submit,to=2}'), expected);
+    assert.deepEqual(parseTransitionToken('  {submit ,  to = 2}  '), expected);
   });
 
   test('event is optional', () => {
-    assert.deepEqual(parseTransitionToken('=>3'), { event: '', to: 3 });
-    assert.deepEqual(parseTransitionToken('=> 3'), { event: '', to: 3 });
+    assert.deepEqual(parseTransitionToken('{to=3}'), { event: '', to: 3 });
   });
 
   test('self keyword resolves the target slot', () => {
-    assert.deepEqual(parseTransitionToken('revise => self'), { event: 'revise', to: 'self' });
-    assert.deepEqual(parseTransitionToken('=>self'), { event: '', to: 'self' });
+    assert.deepEqual(parseTransitionToken('{revise, to=self}'), { event: 'revise', to: 'self' });
+    assert.deepEqual(parseTransitionToken('{to=self}'), { event: '', to: 'self' });
   });
 
-  test('multi-word events are allowed', () => {
-    assert.deepEqual(parseTransitionToken('auth success => 4'), { event: 'auth success', to: 4 });
+  test('multi-word events are allowed, and a quoted one keeps its comma', () => {
+    assert.deepEqual(parseTransitionToken('{auth success, to=4}'), { event: 'auth success', to: 4 });
+    assert.deepEqual(parseTransitionToken('{"approve, with notes", to=4}'), { event: 'approve, with notes', to: 4 });
   });
 
-  test('HTML-escaped &gt; decodes to => before matching', () => {
-    assert.deepEqual(parseTransitionToken('submit =&gt; 2'), { event: 'submit', to: 2 });
-    assert.deepEqual(parseTransitionToken('=&gt;self'), { event: '', to: 'self' });
+  test('HTML entities decode before the record is read', () => {
+    assert.deepEqual(parseTransitionToken('{&quot;a, b&quot;, to=2}'), { event: 'a, b', to: 2 });
   });
 
-  test('malformed tokens return null', () => {
-    assert.equal(parseTransitionToken('submit -> 2'), null);   // ASCII arrow rejected
-    assert.equal(parseTransitionToken('submit → 2'), null);    // Unicode arrow rejected
-    assert.equal(parseTransitionToken('=> notanumber'), null);
-    assert.equal(parseTransitionToken('=>'), null);
+  test('malformed tokens and the retired arrow return null', () => {
+    assert.equal(parseTransitionToken('submit => 2'), null); // the old spelling (codemod only)
+    assert.equal(parseTransitionToken('{submit, to=notanumber}'), null);
+    assert.equal(parseTransitionToken('{submit}'), null);
+    assert.equal(parseTransitionToken('{to=2.5}'), null);
     assert.equal(parseTransitionToken('just prose'), null);
   });
 });
@@ -172,7 +169,7 @@ describe('parseStateLi', () => {
 
   test('transitions parsed from nested ul', () => {
     const s = parseStateLi(
-      'Draft<ul><li><code>submit =&gt; 2</code></li><li><code>discard =&gt; 6</code></li></ul>',
+      'Draft<ul><li><code>{submit, to=2}</code></li><li><code>{discard, to=6}</code></li></ul>',
       1
     );
     assert.equal(s.transitions.length, 2);
@@ -182,7 +179,7 @@ describe('parseStateLi', () => {
 
   test('non-transition nested bullets become the state detail (the reveal payload)', () => {
     const s = parseStateLi(
-      'Draft<ul><li>just a note about this state</li><li><code>submit =&gt; 2</code></li></ul>',
+      'Draft<ul><li>just a note about this state</li><li><code>{submit, to=2}</code></li></ul>',
       1
     );
     assert.equal(s.transitions.length, 1);
@@ -222,14 +219,14 @@ describe('parseStateChart', () => {
   });
 
   test('self keyword resolves to current state index', () => {
-    const ol = '<li>A<ul><li><code>x =&gt; self</code></li></ul></li><li>B</li>';
+    const ol = '<li>A<ul><li><code>{x, to=self}</code></li></ul></li><li>B</li>';
     const model = parseStateChart(ol);
     assert.equal(model.transitions.length, 1);
     assert.deepEqual(model.transitions[0], { from: 1, to: 1, event: 'x', isSelf: true });
   });
 
   test('out-of-range targets land in annotations, not transitions', () => {
-    const ol = '<li>A<ul><li><code>boom =&gt; 99</code></li></ul></li>';
+    const ol = '<li>A<ul><li><code>{boom, to=99}</code></li></ul></li>';
     const model = parseStateChart(ol);
     assert.equal(model.transitions.length, 0);
     assert.equal(model.states[0].annotations.length, 1);
@@ -244,14 +241,14 @@ describe('parseStateChart', () => {
   });
 
   test('implicit terminal: states with no outgoing edges, when no end declared', () => {
-    const ol = '<li>A<ul><li><code>=&gt; 2</code></li></ul></li><li>B</li>';
+    const ol = '<li>A<ul><li><code>{to=2}</code></li></ul></li><li>B</li>';
     const model = parseStateChart(ol);
     assert.equal(model.states[0].isTerminal, false);
     assert.equal(model.states[1].isTerminal, true);
   });
 
   test('explicit end disables implicit-terminal heuristic', () => {
-    const ol = '<li>A<ul><li><code>=&gt; 2</code></li></ul></li><li>B <code>end</code></li><li>C</li>';
+    const ol = '<li>A<ul><li><code>{to=2}</code></li></ul></li><li>B <code>end</code></li><li>C</li>';
     const model = parseStateChart(ol);
     assert.equal(model.states[0].isTerminal, false);
     assert.equal(model.states[1].isTerminal, true);
@@ -274,7 +271,7 @@ describe('extractStateList — reassembles markdown-it split lists', () => {
   const machine = (n, marker) => {
     let src = '';
     for (let i = 1; i <= n; i++) {
-      src += `${marker(i)}. State ${i}\n   - \`go => ${i < n ? i + 1 : 1}\`\n`;
+      src += `${marker(i)}. State ${i}\n   - \`{go, to=${i < n ? i + 1 : 1}}\`\n`;
     }
     return md.render(src);
   };
@@ -321,7 +318,7 @@ describe('extractStateList — reassembles markdown-it split lists', () => {
   test('a genuinely separate trailing <ol> (no start=) is NOT swallowed', () => {
     // Only markdown-it\'s resumed `<ol start="N">` is a split continuation; an
     // unrelated fresh list must stay out of the machine.
-    const html = '<ol><li>A<ul><li><code>=&gt; 2</code></li></ul></li><li>B</li></ol>' +
+    const html = '<ol><li>A<ul><li><code>{to=2}</code></li></ul></li><li>B</li></ol>' +
       '<ol><li>unrelated</li></ol>';
     const model = parseStateChart(extractStateList(html).inner);
     assert.equal(model.states.length, 2, 'the second plain <ol> is left alone');
@@ -1001,12 +998,12 @@ describe('browser layout (fake DOM)', () => {
 // See engineering/decisions/2026-06-20-chart-detail-reveal-family.md.
 describe('Tier-2 per-node detail reveal', () => {
   const MODEL_DETAIL = parseStateChart(
-    '<li>Draft <code>start</code><ul><li><code>submit =&gt; 2</code></li></ul></li>' +
-    '<li>Review <code>at-risk</code><ul><li><code>approve =&gt; 3</code></li><li>Needs two approvers before sign-off.</li></ul></li>' +
+    '<li>Draft <code>start</code><ul><li><code>{submit, to=2}</code></li></ul></li>' +
+    '<li>Review <code>at-risk</code><ul><li><code>{approve, to=3}</code></li><li>Needs two approvers before sign-off.</li></ul></li>' +
     '<li>Done <code>end</code></li>'
   );
   const MODEL_PLAIN = parseStateChart(
-    '<li>A <code>start</code><ul><li><code>go =&gt; 2</code></li></ul></li><li>B <code>end</code></li>'
+    '<li>A <code>start</code><ul><li><code>{go, to=2}</code></li></ul></li><li>B <code>end</code></li>'
   );
 
   test('nodes are index-tagged (data-mark 0-based + data-label) for the reveal layer', () => {
@@ -1061,7 +1058,7 @@ describe('Tier-2 per-node detail reveal', () => {
  */
 describe('state-chart `:::token` tint channel', () => {
   const li = (spec = '', tspec = '') =>
-    `<li>Draft <code>start</code>${spec}\n<ul><li><code>go =&gt; 2</code>${tspec}</li></ul></li>` +
+    `<li>Draft <code>start</code>${spec}\n<ul><li><code>{go, to=2}</code>${tspec}</li></ul></li>` +
     `<li>Next <code>end</code></li>`;
 
   test('a well-formed token reaches both the state and the transition', () => {
@@ -1417,7 +1414,7 @@ describe('dagre re-ranking (fake DOM)', () => {
   const e = (from, to, event) => ({ from, to, event, isSelf: from === to });
 
   // A PAIRED EDGE'S LABELS GET THEIR OWN ROOM (followups.d 2355-p3, closed). On `tb`
-  // dagre was told nothing about labels, so `block => 7` beside `unblock => 3` (and
+  // dagre was told nothing about labels, so `{block, to=7}` beside `{unblock, to=3}` (and
   // `submit` beside `reject`, `ship` beside `fail`) put two labels in one short
   // rank gap, on each other and on the nodes. A paired edge now hands dagre its
   // label box. Boxes are estimated from the anchor the pass emits: a `tb` label
@@ -1753,7 +1750,7 @@ describe('dagre re-ranking (fake DOM)', () => {
     { skip: !hasDagre }, () => {
     const spec = {
       dir: 'lr',
-      // A GENUINE fan-out: three targets that land on one rank. `3 => 4` instead
+      // A GENUINE fan-out: three targets that land on one rank. `{3, to=4}` instead
       // would make this a chain with a skip edge, dagre would rank it linearly,
       // and the adoption test would decline to re-rank at all — no dagre layout,
       // no size pin, and this test would certify nothing.
@@ -2509,7 +2506,7 @@ describe('state-chart parsing stays linear on adversarial author text', () => {
     ['a state lead with a long whitespace run', (pad) =>
       () => parseStateLi(`Draft <code>start</code>a${pad}b`, 1)],
     ['an event label with a long whitespace run', (pad) =>
-      () => parseTransitionToken(`${pad}go => 2`)],
+      () => parseTransitionToken(`{${pad}go, to=2}`)],
     // A MATCHING input never backtracks, so the arm above cannot see the defect
     // it looks like it covers. `TRANSITION_RE` was
     // `/^\s*([^=]*?)\s*=>\s*(\d+|self)\s*$/` — three quantifiers dividing one

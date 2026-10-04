@@ -62,6 +62,8 @@ flowchart LR
 <!-- _class: radar -->
 <!-- _footer: "Spider comparison · radar" -->
 
+`[{Scale, 0..10}]`
+
 `Scale · 0–10, on the criteria we wrote`
 
 ## The four tools, scored across the criteria we wrote

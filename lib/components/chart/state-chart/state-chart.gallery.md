@@ -25,16 +25,16 @@ Native state machine diagram — states as a numbered list, transitions as neste
 How a draft moves from author to publication.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
    - Two reviewers must sign off before approval.
 4. Approved
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
@@ -48,12 +48,12 @@ How a draft moves from author to publication.
 ## lr flows the states left to right.
 
 1. Source `start`
-   - `compile => 2`
+   - `{compile, to=2}`
 2. Compiled
-   - `test => 3`
+   - `{test, to=3}`
 3. Tested
-   - `deploy => 4`
-   - `fail => 1`
+   - `{deploy, to=4}`
+   - `{fail, to=1}`
 4. Deployed `end`
 
 
@@ -65,10 +65,10 @@ How a draft moves from author to publication.
 ## tb stacks the states top to bottom.
 
 1. Queued `start`
-   - `claim => 2`
+   - `{claim, to=2}`
 2. Running `live`
-   - `finish => 3`
-   - `crash => 1`
+   - `{finish, to=3}`
+   - `{crash, to=1}`
 3. Complete `end`
 
 
@@ -80,11 +80,11 @@ How a draft moves from author to publication.
 ## inline sets the chart beside its prose.
 
 1. Connecting `start`
-   - `retry => self`
-   - `ok => 2`
-   - `fail => 3`
+   - `{retry, to=self}`
+   - `{ok, to=2}`
+   - `{fail, to=3}`
 2. Connected `live`
-   - `disconnect => 1`
+   - `{disconnect, to=1}`
 3. Failed `end`
 
 
@@ -96,16 +96,16 @@ How a draft moves from author to publication.
 ## curved eases the arrows between states.
 
 1. Draft `start`
-   - `submit => 2`
-   - `discard => 5`
+   - `{submit, to=2}`
+   - `{discard, to=5}`
 2. In Review `at-risk`
-   - `approve => 3`
-   - `revise => self`
-   - `reject => 1`
+   - `{approve, to=3}`
+   - `{revise, to=self}`
+   - `{reject, to=1}`
 3. Approved
-   - `publish => 4`
+   - `{publish, to=4}`
 4. Published `live`
-   - `archive => 5`
+   - `{archive, to=5}`
 5. Archived `end`
 
 
@@ -120,20 +120,20 @@ How a draft moves from author to publication.
 ## Stress test — back-edges, skips, self-loop.
 
 1. Draft `start`
-   - `submit => 2`
-   - `discard => 5`
+   - `{submit, to=2}`
+   - `{discard, to=5}`
 2. Submitted `on-track`
-   - `review => 3`
-   - `withdraw => 1`
+   - `{review, to=3}`
+   - `{withdraw, to=1}`
 3. In Review
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
 4. Approved `done`
-   - `recall => 3`
-   - `publish => 5`
+   - `{recall, to=3}`
+   - `{publish, to=5}`
 5. Published `end`
-   - `amend => 3`
+   - `{amend, to=3}`
 
 
 ---
@@ -148,16 +148,16 @@ How a draft moves from author to publication.
 How a draft moves from author to publication.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
    - Two reviewers must sign off before approval.
 4. Approved
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
@@ -175,16 +175,16 @@ How a draft moves from author to publication.
 How a draft moves from author to publication.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
    - Two reviewers must sign off before approval.
 4. Approved
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
@@ -202,16 +202,16 @@ How a draft moves from author to publication.
 How a draft moves from author to publication.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
    - Two reviewers must sign off before approval.
 4. Approved
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*

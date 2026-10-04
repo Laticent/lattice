@@ -46,16 +46,16 @@ Chart — series-substance data visualizations (SVG kernel).
 
 ## Every page reaches a human within 15 minutes.
 
-- Alert fires `:pill` => Auto-triage => Severity?
-- Severity? `:diamond`
+- Alert fires `pill` => Auto-triage => Severity?
+- Severity? `diamond`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket -> Mitigate
-  - -SEV3-> Backlog `:dotted`
+  - -SEV3-> Backlog `dotted`
 - Page on-call `fail` =ack=> Mitigate => Postmortem
   > Pages the secondary after 5 minutes.
-- Postmortem `:doc`
+- Postmortem `doc`
 
-`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {dotted, Waits for business hours}]`
 
 ---
 
@@ -118,15 +118,15 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 ## The journey scores each stage of the path.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 ---
 
@@ -285,7 +285,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 <!-- _class: radar -->
 <!-- _footer: "radar · chart survey" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The radar maps strengths around the compass.
 
@@ -400,16 +400,16 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 How a draft moves from author to publication.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
    - Two reviewers must sign off before approval.
 4. Approved
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*

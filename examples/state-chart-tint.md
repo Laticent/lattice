@@ -34,10 +34,10 @@ header: "Lattice · State chart tints"
 Every edge takes the engine's connector color.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Review `on-track`
-   - `approve => 3`
-   - `reject => 1`
+   - `{approve, to=3}`
+   - `{reject, to=1}`
 3. Published `end`
 
 *The baseline the next slide tints — same machine, no `:::`.*
@@ -53,10 +53,10 @@ Every edge takes the engine's connector color.
 The happy path reads green, the rejection red.
 
 1. Draft `start`
-   - `submit => 2`:::state-pass-hue
+   - `{submit, to=2}`:::state-pass-hue
 2. Review `on-track`
-   - `approve => 3`:::state-pass-hue
-   - `reject => 1`:::state-fail-hue
+   - `{approve, to=3}`:::state-pass-hue
+   - `{reject, to=1}`:::state-fail-hue
 3. Published `end`
 
 *Same machine — one token each on the edges that carry meaning.*
@@ -72,10 +72,10 @@ The happy path reads green, the rejection red.
 Terminal states carry their outcome in the tile.
 
 1. Intake `start`
-   - `triage => 2`
+   - `{triage, to=2}`
 2. Triage
-   - `accept => 3`:::state-pass-hue
-   - `refuse => 4`:::state-fail-hue
+   - `{accept, to=3}`:::state-pass-hue
+   - `{refuse, to=4}`:::state-fail-hue
 3. Accepted `done`:::state-pass-hue
 4. Refused `end`:::state-fail-hue
 
@@ -92,9 +92,9 @@ Terminal states carry their outcome in the tile.
 `:::edge-token/label-bg-token` — the edge, then the ground its label sits on.
 
 1. Queued `start`
-   - `run => 2`:::state-pass-hue/surface-raised
+   - `{run, to=2}`:::state-pass-hue/surface-raised
 2. Running
-   - `fail => 3`:::state-fail-hue/surface-raised
+   - `{fail, to=3}`:::state-fail-hue/surface-raised
 3. Done `end`
 
 *For when an edge crosses a busy area and its label must knock out more of it.*
@@ -110,8 +110,8 @@ Terminal states carry their outcome in the tile.
 Existence is not checked at build time.
 
 1. Draft `start`
-   - `submit => 2`:::state-pass-hue
-   - `typo => 3`:::stat-pas-hue
+   - `{submit, to=2}`:::state-pass-hue
+   - `{typo, to=3}`:::stat-pas-hue
 2. Live `live`
 3. Void `end`
 

@@ -32,7 +32,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## How we stack up across the buying criteria.
 
@@ -112,6 +112,8 @@ A wide basemap takes a wider canvas; the rail keeps its room and the spine still
 ---
 
 <!-- _class: radar dark -->
+
+`[{Scale, 0..10}]`
 
 `Scale · 0–10 · dark canvas`
 

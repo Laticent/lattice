@@ -45,7 +45,7 @@ than the chart's. Inside the viewBox it is locked to the cloud it explains.*
 
 <!-- _footer: "radar small-multiples · each series name inside its own mini" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## Four minis, four names, one drawing each.
 
@@ -83,7 +83,7 @@ captions sitting outside the drawing.*
 
 <!-- _footer: "radar small-multiples · a long name wraps, and every mini shares the band" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## A wrapping name grows the band for all of them.
 
@@ -127,7 +127,7 @@ shares that spine builder instead of a third copy of the same gradient.*
 
 <!-- _footer: "radar default · the legend was already SVG" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The single radar was never the problem.
 

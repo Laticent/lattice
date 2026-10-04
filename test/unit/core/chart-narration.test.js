@@ -159,18 +159,18 @@ const weightedSample = [
   '## weighted sizes the stages by importance.',
   '',
   '- Discover',
-  '  - Search `@prospect` `:4` `+45`',
-  '  - Referral `@prospect` `:5` `+18`',
+  '  - Search `{who=prospect, mood=4, volume=45}`',
+  '  - Referral `{who=prospect, mood=5, volume=18}`',
   '- Convert',
-  '  - Pricing page `@prospect` `:3` `+12`',
-  '  - Checkout `@prospect` `:2` `+10`',
+  '  - Pricing page `{who=prospect, mood=3, volume=12}`',
+  '  - Checkout `{who=prospect, mood=2, volume=10}`',
   '- Support',
-  '  - Settings `@user` `:3` `+8`',
-  '  - Help docs `@user` `:4` `+7`',
+  '  - Settings `{who=user, mood=3, volume=8}`',
+  '  - Help docs `{who=user, mood=4, volume=7}`',
 ].join('\n');
 
 test('narrateJourneyWeighted: returns null for a non-journey slide', () => {
-  assert.equal(narrateJourneyWeighted('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `+1`'), null);
+  assert.equal(narrateJourneyWeighted('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `volume=1`'), null);
 });
 
 test('narrateJourneyWeighted: returns null for journey without the weighted modifier', () => {
@@ -186,7 +186,7 @@ test('narrateJourneyWeighted: speaks each task share of the total volume', () =>
 });
 
 test('narrateJourneyWeighted: defaults an unweighted task to volume 1', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## Mixed.', '', '- Stage', '  - Weighted `@me` `:3` `+9`', '  - Unweighted `@me` `:3`'].join('\n');
+  const md = ['<!-- _class: journey weighted -->', '', '## Mixed.', '', '- Stage', '  - Weighted `{who=me, mood=3, volume=9}`', '  - Unweighted `{who=me, mood=3}`'].join('\n');
   const out = narrateJourneyWeighted(md);
   assert.ok(out.includes('Weighted, ninety percent'));
   assert.ok(out.includes('Unweighted, ten percent'));
@@ -199,9 +199,9 @@ test('narrateJourneyWeighted: does not treat a per-task detail sublist line as a
     '## Weighted flow.',
     '',
     '- Stage',
-    '  - Task A `@me` `:3` `+50`',
+    '  - Task A `{who=me, mood=3, volume=50}`',
     '    - Escalated after `3` retries',
-    '  - Task B `@me` `:3` `+50`',
+    '  - Task B `{who=me, mood=3, volume=50}`',
   ].join('\n');
   const out = narrateJourneyWeighted(md);
   assert.ok(out.includes('Stage, two steps. Task A, fifty percent of the traffic. Escalated after 3 retries. Task B, fifty percent of the traffic.'), out);
@@ -215,15 +215,15 @@ test('narrateJourneyWeighted: keeps a qualifying phrase authored AFTER a task to
     '## Flow.',
     '',
     '- Stage',
-    '  - Escalate `@support` `:2` to tier two `+40`',
-    '  - Resolve `@support` `:2` `+60`',
+    '  - Escalate `{who=support, mood=2, volume=40}` to tier two',
+    '  - Resolve `{who=support, mood=2, volume=60}`',
   ].join('\n');
   const out = narrateJourneyWeighted(md);
   assert.ok(out.includes('Stage, two steps. Escalate to tier two, forty percent of the traffic. Resolve, sixty percent of the traffic.'));
 });
 
 test('narrateJourneyWeighted: accepts a `+.5`-style fractional volume with no leading digit', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## Flow.', '', '- Stage', '  - A `@me` `:2` `+.5`', '  - B `@me` `:2` `+.5`'].join('\n');
+  const md = ['<!-- _class: journey weighted -->', '', '## Flow.', '', '- Stage', '  - A `{who=me, mood=2}` `+.5`', '  - B `{who=me, mood=2}` `+.5`'].join('\n');
   assert.ok(narrateJourneyWeighted(md).includes('Stage, two steps. A, fifty percent of the traffic. B, fifty percent of the traffic.'));
 });
 
@@ -234,19 +234,19 @@ test('narrateJourneyWeighted: tolerates ordinary indentation variance between si
     '## X.',
     '',
     '- Stage',
-    '  - Search `@me` `:3` `+50`',
-    '   - Referral `@me` `:3` `+50`',
+    '  - Search `{who=me, mood=3, volume=50}`',
+    '   - Referral `{who=me, mood=3, volume=50}`',
   ].join('\n');
   assert.equal(narrateJourneyWeighted(md), 'X. Stage, two steps. Search, fifty percent of the traffic. Referral, fifty percent of the traffic.');
 });
 
-test('narrateJourneyWeighted: accepts a trailing non-numeric suffix on a volume token (`+45%`)', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - Task `@me` `:3` `+45%`', '  - Filler `@me` `:3` `+1`'].join('\n');
+test('narrateJourneyWeighted: accepts a unit on a volume (`volume=45%`)', () => {
+  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - Task `{who=me, mood=3, volume=45%}`', '  - Filler `{who=me, mood=3, volume=1}`'].join('\n');
   assert.equal(narrateJourneyWeighted(md), 'X. Stage, two steps. Task, ninety-eight percent of the traffic. Filler, two percent of the traffic.');
 });
 
 test('narrateJourneyWeighted: recognizes an h1 heading, not just h2', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '# Flow', '', '- Stage', '  - A `@me` `:3` `+9`', '  - B `@me` `:3` `+1`'].join('\n');
+  const md = ['<!-- _class: journey weighted -->', '', '# Flow', '', '- Stage', '  - A `{who=me, mood=3, volume=9}`', '  - B `{who=me, mood=3, volume=1}`'].join('\n');
   assert.equal(narrateJourneyWeighted(md), 'Flow. Stage, two steps. A, ninety percent of the traffic. B, ten percent of the traffic.');
 });
 
@@ -255,16 +255,13 @@ test('narrateRadar: returns null for a non-radar slide', () => {
   assert.equal(narrateRadar('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `9`'), null);
 });
 
-// An eyebrow that declares the scale makes OUR scale sentence redundant — it does not make
-// the narration redundant. Bailing threw away every series and axis value to avoid one
-// duplicated line, and the shipped `radar` sample declares its scale, so the canonical
-// example of the component reached no narrator at all
-// (2026-09-20-narration-audit.md Finding 5).
-test('narrateRadar: skips only the scale SENTENCE when the eyebrow already declares it', () => {
+// The axis line pins the scale and is lifted off the slide, so the scale sentence SAYS the
+// pinned range — and the line itself is never read as an eyebrow (Segno phase 2, row 27).
+test('narrateRadar: says the range the axis line pins, and never reads the line aloud', () => {
   const md = [
     '<!-- _class: radar -->',
     '',
-    '`Scale · 0–10`',
+    '`[{Scale, 0..10}]`',
     '',
     '## How we stack up across the buying criteria.',
     '',
@@ -276,8 +273,8 @@ test('narrateRadar: skips only the scale SENTENCE when the eyebrow already decla
     '  - Pricing `8`',
   ].join('\n');
   const out = narrateRadar(md);
-  assert.ok(!out.includes('On a scale of'), 'the eyebrow already said it');
-  assert.ok(out.includes('Scale \u00b7 0\u201310.'), 'and the eyebrow itself is still read');
+  assert.ok(out.includes('On a scale of zero to ten.'), out);
+  assert.ok(!out.includes('Scale,') && !out.includes('{'), out);
   assert.ok(out.includes('Lattice is strongest on Performance, at nine. Lattice is weakest on Pricing, at seven.'), out);
   assert.ok(out.includes('Rival North is strongest on Pricing, at eight. Rival North is weakest on Performance, at seven.'), out);
 });
@@ -551,18 +548,18 @@ test('narrateStateChartInference: returns null when start AND end are both alrea
     '## Document approval flow.',
     '',
     '1. Draft `start`',
-    '   - `submit => 2`',
-    '   - `discard => 6`',
+    '   - `{submit, to=2}`',
+    '   - `{discard, to=6}`',
     '2. Submitted `on-track`',
-    '   - `review => 3`',
+    '   - `{review, to=3}`',
     '3. In Review',
-    '   - `approve => 4`',
-    '   - `reject => 1`',
-    '   - `revise => self`',
+    '   - `{approve, to=4}`',
+    '   - `{reject, to=1}`',
+    '   - `{revise, to=self}`',
     '4. Approved `done`',
-    '   - `publish => 5`',
+    '   - `{publish, to=5}`',
     '5. Published `live`',
-    '   - `archive => 6`',
+    '   - `{archive, to=6}`',
     '6. Archived `end`',
   ].join('\n');
   assert.equal(narrateStateChartInference(md), null);
@@ -575,42 +572,42 @@ test('narrateStateChartInference: infers only the terminal state when start is e
     '## States connect; the arrows carry the rules.',
     '',
     '1. Draft `start`',
-    '   - `submit => 2`',
+    '   - `{submit, to=2}`',
     '2. Submitted `on-track`',
-    '   - `review => 3`',
+    '   - `{review, to=3}`',
     '3. In Review `at-risk`',
-    '   - `approve => 4`',
-    '   - `reject => 1`',
-    '   - `revise => self`',
+    '   - `{approve, to=4}`',
+    '   - `{reject, to=1}`',
+    '   - `{revise, to=self}`',
     '4. Approved',
-    '   - `publish => 5`',
+    '   - `{publish, to=5}`',
     '5. Published',
   ].join('\n');
   assert.equal(narrateStateChartInference(md), 'It ends at Published.');
 });
 
 test('narrateStateChartInference: infers both start and terminal states when neither is tagged', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Review', '   - `approve => 3`', '3. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `{submit, to=2}`', '2. Review', '   - `{approve, to=3}`', '3. Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'This flow starts at Draft. It ends at Done.');
 });
 
 test('narrateStateChartInference: lists multiple inferred terminal states with "and"', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Start `start`', '   - `go => 2`', '   - `go => 3`', '2. Branch A', '3. Branch B'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Start `start`', '   - `{go, to=2}`', '   - `{go, to=3}`', '2. Branch A', '3. Branch B'].join('\n');
   assert.equal(narrateStateChartInference(md), 'It ends at Branch A and Branch B.');
 });
 
 test('narrateStateChartInference: does not let an out-of-range transition target suppress terminal inference', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 9`', '2. Review', '3. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{submit, to=9}`', '2. Review', '3. Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'It ends at Draft, Review, and Done.');
 });
 
 test('narrateStateChartInference: keeps an unrelated trailing annotation in an inferred state spoken label', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Config `port 8080`', '   - `next => 2`', '2. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Config `port 8080`', '   - `{next, to=2}`', '2. Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'This flow starts at Config port 8080. It ends at Done.');
 });
 
 test('narrateStateChartInference: does not include a status keyword pill in the spoken label', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Submitted `on-track`', '   - `go => 2`', '2. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Submitted `on-track`', '   - `{go, to=2}`', '2. Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'This flow starts at Submitted. It ends at Done.');
 });
 
@@ -621,7 +618,7 @@ test('narrateStateChartInference: does not include a status keyword pill in the 
 // only on one whose author left the roles untagged — the case the old sentence covered
 // was the rarer one, and every shipped sample got nothing from it.
 test('narrateStateChart: leads with the heading, then the machine SHAPE, then the rest', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Review', '   - `approve => 3`', '3. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `{submit, to=2}`', '2. Review', '   - `{approve, to=3}`', '3. Done'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.startsWith('Flow. A three-state machine from Draft to Done'), out);
   assert.ok(!out.includes('This flow starts at'), 'the shape sentence subsumes it — saying both is the duplication this pass removes');
@@ -632,11 +629,11 @@ test('narrateStateChart: leads with the heading, then the machine SHAPE, then th
 // With start AND end explicit there is nothing INFERRED to add — but there is still a
 // machine to read. The old docblock claimed the `event => N` pills "read as reasonable, if
 // plain, prose" through the flattener; measured, they do not: the pill is inline code, so
-// `submit => 2` reaches the voice whole and `=>` has no spoken form. The listener got a glyph
+// `{submit, to=2}` reaches the voice whole and `=>` has no spoken form. The listener got a glyph
 // and a bare index where the slide draws an arrow to a named state
 // (2026-09-20-narration-audit.md Finding 5).
 test('narrateStateChart: reads the machine by name even when nothing is inferred', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2`', '2. Done `end`'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{submit, to=2}`', '2. Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('From Draft, submit goes to Done.'), out);
   assert.ok(!out.includes('=>'), 'the raw pill must not also be read');
@@ -655,7 +652,7 @@ test('narrateStateChart: still returns null when there is no machine and no infe
 });
 
 test('narrateStateChart: reads a self-loop as staying put, not as its own name twice', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `revise => self`', '   - `submit => 2`', '2. Done `end`'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{revise, to=self}`', '   - `{submit, to=2}`', '2. Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('revise stays here'), out);
 });
@@ -671,9 +668,9 @@ test('narrateStateChart: does not speak a fenced doc-example heading as the titl
     '## The real heading.',
     '',
     '1. Draft',
-    '   - `submit => 2`',
+    '   - `{submit, to=2}`',
     '2. Review',
-    '   - `approve => 3`',
+    '   - `{approve, to=3}`',
     '3. Done',
   ].join('\n');
   const out = narrateStateChart(md);
@@ -687,12 +684,12 @@ test('narrateChart: recognizes a funnel slide', () => {
 });
 
 test('narrateChart: recognizes a weighted journey slide', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - A `@me` `:3` `+9`', '  - B `@me` `:3` `+1`'].join('\n');
+  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - A `{who=me, mood=3, volume=9}`', '  - B `{who=me, mood=3, volume=1}`'].join('\n');
   assert.ok(narrateChart(md).includes('ninety percent'));
 });
 
 test('narrateChart: recognizes a state-chart slide and reads its shape', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `{submit, to=2}`', '2. Done'].join('\n');
   assert.ok(narrateChart(md).includes('A two-state machine from Draft to Done'));
 });
 
@@ -1557,7 +1554,7 @@ test('narrateXychart: accessibility statements and comments carry nothing; negat
 // onboarding. Pain. 1. 2. 3. 4. 5. Delight." — the legend and the mood axis read as a list,
 // with no step attached to any score.
 test('narrateJourneyMood: reads each task with its actors and its mood, by section', () => {
-  const md = ['<!-- _class: journey -->', '', '## The path.', '', '- Evaluate', '  - Read case study `@prospect` `:5`', '  - Live demo `@prospect` `@sales` `:4`', '- Trial', '  - Signup `@user` `:3`'].join('\n');
+  const md = ['<!-- _class: journey -->', '', '## The path.', '', '- Evaluate', '  - Read case study `{who=prospect, mood=5}`', '  - Live demo `@prospect` `{who=sales, mood=4}`', '- Trial', '  - Signup `{who=user, mood=3}`'].join('\n');
   const out = narrateJourneyMood(md);
   // The scale once, in its own words; a stage by its size; a step per sentence, naming who.
   assert.ok(out.includes('Each step is scored for how it feels, from one, pain, to five, delight.'), out);
@@ -1571,7 +1568,7 @@ test('narrateJourneyMood: reads each task with its actors and its mood, by secti
 });
 
 test('narrateJourneyMood: stands down for the weighted variant, which has its own narrator', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Discover', '  - Search `@prospect` `:4` `+45`'].join('\n');
+  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Discover', '  - Search `{who=prospect, mood=4, volume=45}`'].join('\n');
   assert.equal(narrateJourneyMood(md), null);
 });
 
@@ -1590,7 +1587,7 @@ test('narrateJourneyMood: stands down when no task carries a mood or an actor', 
 });
 
 test('narrateJourneyMood: the dispatcher reaches it for a plain journey slide', () => {
-  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `@prospect` `:5`'].join('\n');
+  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `{who=prospect, mood=5}`'].join('\n');
   assert.ok(narrateChart(md).includes('five out of five'));
 });
 
@@ -1602,7 +1599,7 @@ test('narrateStateChart: a `:::tint` suffix does not hide a transition', () => {
   // point of the finding was examples/state-chart-tint.md, which writes the tint AFTER the
   // closing backtick (state-chart.transform.js's `codeOnly` is the authority). Verified against
   // that file's line 56. The tint is LATTICE's own channel, not Mermaid's `:::className`.
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2`:::state-pass-hue', '   - `hold => self`', '2. Done `end`'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{submit, to=2}`:::state-pass-hue', '   - `{hold, to=self}`', '2. Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('submit goes to Done'), out);
   assert.ok(out.includes('hold stays here'), out);
@@ -1613,7 +1610,7 @@ test('narrateStateChart: a `:::tint` suffix does not hide a transition', () => {
 test('narrateStateChart: the two-slot tint form is recognized too', () => {
   // `:::edge-token/label-bg-token` (state-chart.docs.md `tint` row, examples/state-chart-tint.md:95).
   // A `[\\w-]+` token class could not match slot two; the transform's own class allows the slash.
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `run => 2`:::state-pass-hue/surface-raised', '2. Done `end`'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{run, to=2}`:::state-pass-hue/surface-raised', '2. Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('run goes to Done'), out);
   assert.ok(!out.includes(':::'), out);
@@ -1621,28 +1618,27 @@ test('narrateStateChart: the two-slot tint form is recognized too', () => {
 
 test('narrateStateChart: an UNRESOLVED transition is still read, not silently dropped', () => {
   // The suppression filter dropped every line matching the pill pattern, but `parseStateChart`
-  // records a transition only when its target RESOLVES — so a dangling `typo => 9` was narrated
-  // by nobody, while the slide still renders it as "typo => 9 (unresolved)". Narration going
+  // records a transition only when its target RESOLVES — so a dangling `{typo, to=9}` was narrated
+  // by nobody, while the slide still renders it as "{typo, to=9} (unresolved)". Narration going
   // quiet about something the audience can see is the failure this pass exists to remove.
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2`', '   - `typo => 9`', '2. Done `end`'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{submit, to=2}`', '   - `{typo, to=9}`', '2. Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('submit goes to Done'), out);
-  assert.ok(out.includes('typo => 9'), `the unresolved pill went silent: ${out}`);
+  assert.ok(out.includes('typo, to=9'), `the unresolved pill went silent: ${out}`);
 });
 
 test('narrateJourneyMood: mirrors the transform’s clampMood, so it cannot state a score the chart does not plot', () => {
-  // journey.transform.js clamps to 1..5 with Math.round, parses with parseInt, and ignores a
-  // bare `@`. The narrator did none of those: `:99` read "ninety-nine out of five", `:0` read
-  // "zero", `:4x` read nothing, and `@` produced an empty actor and a double comma.
-  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Stage', '  - High `@prospect` `:99`', '  - Low `@` `:0`', '  - Odd `@user` `:4x`', '  - Half `@user` `:2.5`'].join('\n');
+  // journey.transform.js clamps to 1..5 with Math.round and ignores a bare `@`. The narrator
+  // once did none of those: a mood of 99 read "ninety-nine out of five", 0 read "zero", and `@`
+  // produced an empty actor and a double comma. Both now read through lib/core/journey-step.js.
+  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Stage', '  - High `{who=prospect, mood=99}`', '  - Low `@` `{mood=0}`', '  - Odd `{who=user, mood=4x}`', '  - Half `{who=user, mood=2.5}`'].join('\n');
   const out = narrateJourneyMood(md);
   assert.ok(out.includes('High, by the prospect, scores five out of five'), out); // 99 clamps to 5
   assert.ok(out.includes('Low scores one out of five'), out); // 0 clamps to 1, bare @ dropped
-  assert.ok(out.includes('Odd, by the user, scores four out of five'), out); // parseInt reads 4 from `4x`
-  // `:2.5` reads TWO, not three: the transform runs `parseInt` BEFORE `clampMood`, so the
-  // fraction is gone before any rounding happens. Asserted against journey.transform.js
-  // itself rather than against what rounding alone would suggest.
-  assert.ok(out.includes('Half, by the user, scores two out of five'), out);
+  assert.ok(out.includes('Odd, by the user, scores four out of five'), out); // the number reader reads 4 from `4x`
+  // `mood=2.5` reads THREE: Segno's number reader keeps the fraction and `clampMood` rounds it,
+  // in the transform and here alike.
+  assert.ok(out.includes('Half, by the user, scores three out of five'), out);
   assert.ok(!out.includes(', ,'), `an empty actor left a double comma: ${out}`);
 });
 
@@ -1659,7 +1655,7 @@ test('narrateStateChart: a state LABEL loses its tint but the author’s prose k
   const md = [
     '<!-- _class: state-chart -->', '', '`Legend`', '', '## F.', '',
     '`:::token` names a theme token, never a color.', '',
-    '1. Intake `start`', '   - `triage => 2`',
+    '1. Intake `start`', '   - `{triage, to=2}`',
     '2. Accepted `done`:::state-pass-hue',
     '3. Refused `end`:::state-fail-hue/surface-raised',
   ].join('\n');
@@ -2007,9 +2003,9 @@ test('detail order: journey reads a task\'s detail right after the task', () => 
     '## Onboarding.',
     '',
     '- Sign up',
-    '  - Create account `@prospect` `:4`',
+    '  - Create account `{who=prospect, mood=4}`',
     '    - Most finish in under a minute',
-    '  - Verify email `@prospect` `:2`',
+    '  - Verify email `{who=prospect, mood=2}`',
   ].join('\n');
   const out = narrateJourneyMood(md);
   assert.ok(out.includes('scores four out of five. Most finish in under a minute. Verify email'), out);
@@ -2156,7 +2152,7 @@ test('narrateDataSeries: the table reader narrates the grid markdown-it BUILDS',
   // A one-column table names no columns to read values against.
   assert.equal(t('| Jan |', '| Region |\n| --- |'), null);
   // A cell annotation is the chart's NOTE, not part of the value — and not dropped either.
-  assert.match(t('| Jan | 100 | 62 `# rollout paused` |'), /Jan at M1, sixty-two: rollout paused\./);
+  assert.match(t('| Jan | 100 | 62 `note=rollout paused` |'), /Jan at M1, sixty-two: rollout paused\./);
 });
 
 test('narrateDataSeries: a nested line with no pill is prose, not a value-less item', () => {
@@ -2238,7 +2234,7 @@ test('narrateDataSeries: a delimiter row needs a DASH — colons alone are not a
 // as honored, and the render draws both — so the voice was reading markup the audience sees
 // as a line break. Fixtures are the real deck's own line, not a model of it.
 test('narrateStateChart: an authored <br/> in an event label is a break, not words', () => {
-  const md = (evt) => `<!-- _class: state-chart lr -->\n\n## A label can break.\n\n1. Submitted \`start\`\n   - \`${evt} => 2\`\n2. Second review \`end\``;
+  const md = (evt) => `<!-- _class: state-chart lr -->\n\n## A label can break.\n\n1. Submitted \`start\`\n   - \`{${evt}, to=2}\`\n2. Second review \`end\``;
   // examples/state-chart-branching.md:126, verbatim.
   const br = narrateStateChart(md('needs<br/>second review'));
   assert.match(br, /needs second review goes to Second review/);
@@ -2253,7 +2249,7 @@ test('narrateStateChart: the break reads as a SPACE, not a comma', () => {
   // A state-chart event break is there to FIT the rank gap, so the label is one phrase split
   // across two lines. A comma would add a pause the author did not write. (A Mermaid node
   // label keeps its comma — `scrubLabel` — because that break usually separates two things.)
-  const out = narrateStateChart('<!-- _class: state-chart -->\n\n## M.\n\n1. Draft `start`\n   - `needs<br/>second review => 2`\n2. Done `end`');
+  const out = narrateStateChart('<!-- _class: state-chart -->\n\n## M.\n\n1. Draft `start`\n   - `{needs<br/>second review, to=2}`\n2. Done `end`');
   assert.match(out, /needs second review/);
   assert.doesNotMatch(out, /needs, second/);
 });

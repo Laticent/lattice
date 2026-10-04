@@ -19,7 +19,7 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the comparison. |
-| `axes` | `p > code` | no | Optional eyebrow listing the axes. |
+| `axes` | `p > code` | no | Optional value axis, as ONE bracketed list in its own paragraph ABOVE the heading: `[{Scale, 0..100}]` pins the scale the rings and ticks are drawn on. Without it the scale derives from the data, rounded up to a clean ceiling. The paragraph is consumed: the ring ticks already print the scale, so it never prints twice. Same idiom as `quadrant`, `scatter` and `gantt`. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. |
 | `series` | `ul > li` | yes | One li per series (option). Format: `Label — v1, v2, v3, v4, …` one number per axis. |
 | `detail` | `li > ul > li > ul` | no | Optional nested sublist under an AXIS in the first series (radar reveals per-axis — the mark is the axis). For the `quadrant` variant, one level deeper (under each axis within a group). Drives two surfaces from one source (shared with pie/funnel/map/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the axis label `<text>` with `data-mark` and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail folds into the slide's speaker note (`Axis: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. Detail sublists must use `-`/`*` bullets, not a numbered (`1.`) list. A radar with no sublists emits no note and is unchanged. |
 
@@ -55,7 +55,7 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 ```markdown
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## How we stack up across the buying criteria.
 
@@ -104,7 +104,7 @@ The bar the shape must clear.
 ```markdown
 <!-- _class: radar target -->
 
-`Scale · 0–100`
+`[{Scale, 0..100}]`
 
 ## target draws the bar the shape must clear.
 
@@ -131,7 +131,7 @@ The gap between two shapes, shaded.
 ```markdown
 <!-- _class: radar delta -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## delta shades the gap between two shapes.
 
@@ -156,7 +156,7 @@ A reference shape overlaid.
 ```markdown
 <!-- _class: radar benchmark -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## benchmark overlays the reference shape.
 
@@ -197,7 +197,7 @@ The compass quarters, shaded.
 ```markdown
 <!-- _class: radar quadrant -->
 
-`Scale · 0–5`
+`[{Scale, 0..5}]`
 
 ## quadrant shades the compass quarters.
 
@@ -225,7 +225,7 @@ One radar per option.
 ```markdown
 <!-- _class: radar small-multiples -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## small-multiples deals one radar per option.
 
@@ -262,7 +262,7 @@ Rings stripped to the shape.
 ```markdown
 <!-- _class: radar minimal -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## minimal strips the rings to the shape.
 

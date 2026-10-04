@@ -34,12 +34,12 @@ A chain reads `1, 2, 3` in order. A machine that branches is re-ranked.
 One outgoing edge per state — reading order already is the right answer.
 
 1. Source `start`
-   - `compile => 2`
+   - `{compile, to=2}`
 2. Compiled
-   - `test => 3`
+   - `{test, to=3}`
 3. Tested
-   - `deploy => 4`
-   - `fail => 1`
+   - `{deploy, to=4}`
+   - `{fail, to=1}`
 4. Deployed `end`
 
 *A long chain wraps onto a second row rather than shrinking — the order still reads left to right.*
@@ -55,18 +55,18 @@ One outgoing edge per state — reading order already is the right answer.
 No single column can show this; the states would read as a sequence.
 
 1. Intake `start`
-   - `triage => 2`
+   - `{triage, to=2}`
 2. Triage
-   - `fast => 3`
-   - `deep => 4`
-   - `hold => 5`
+   - `{fast, to=3}`
+   - `{deep, to=4}`
+   - `{hold, to=5}`
 3. Fast path
-   - `ship => 6`
+   - `{ship, to=6}`
 4. Deep review
-   - `ship => 6`:::state-pass-hue
-   - `refuse => 7`:::state-fail-hue
+   - `{ship, to=6}`:::state-pass-hue
+   - `{refuse, to=7}`:::state-fail-hue
 5. Legal hold
-   - `refuse => 7`:::state-fail-hue
+   - `{refuse, to=7}`:::state-fail-hue
 6. Approved `done`
 7. Refused `end`
 
@@ -83,10 +83,10 @@ No single column can show this; the states would read as a sequence.
 Direction is the author's call — `lr`, `tb`, or leave it to fit the stage.
 
 1. Intake `start`
-   - `triage => 2`
+   - `{triage, to=2}`
 2. Triage
-   - `accept => 3`:::state-pass-hue
-   - `refuse => 4`:::state-fail-hue
+   - `{accept, to=3}`:::state-pass-hue
+   - `{refuse, to=4}`:::state-fail-hue
 3. Accepted `done`:::state-pass-hue
 4. Refused `end`:::state-fail-hue
 
@@ -103,11 +103,11 @@ Direction is the author's call — `lr`, `tb`, or leave it to fit the stage.
 dagre does not route a self-edge, so the hand-written router keeps drawing them.
 
 1. Connecting `start`
-   - `retry => self`
-   - `ok => 2`:::state-pass-hue
-   - `fail => 3`:::state-fail-hue
+   - `{retry, to=self}`
+   - `{ok, to=2}`:::state-pass-hue
+   - `{fail, to=3}`:::state-fail-hue
 2. Connected `live`
-   - `drop => 1`
+   - `{drop, to=1}`
 3. Failed `end`
 
 *One machine, two routers — whichever is right for each edge.*
@@ -123,10 +123,10 @@ dagre does not route a self-edge, so the hand-written router keeps drawing them.
 `\n` and `<br/>` break where you say; anything still too long wraps on its own.
 
 1. Submitted `start`
-   - `needs<br/>second review => 2`
-   - `auto approve => 3`:::state-pass-hue
+   - `{needs<br/>second review, to=2}`
+   - `{auto approve, to=3}`:::state-pass-hue
 2. Second review
-   - `escalate to legal counsel => 4`
+   - `{escalate to legal counsel, to=4}`
 3. Approved `done`:::state-pass-hue
 4. Escalated `end`
 

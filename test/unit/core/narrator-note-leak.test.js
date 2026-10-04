@@ -36,16 +36,16 @@ const FIXTURES = {
 	// These five come from the shapes `chart-narration.test.js` already proves engage each
 	// narrator, rather than from guesswork — a guessed body that fails to engage makes the
 	// cell vacuous, which is the exact defect this file exists to prevent.
-	narrateJourneyWeighted: ['journey weighted', '- Discover\n  - Search `@prospect` `:4` `+45`\n  - Referral `@prospect` `:5` `+18`\n- Convert\n  - Pricing page `@prospect` `:3` `+12`'],
-	// PLAIN journey (no `weighted`): the mood narrator reads `@actor` / `:N`, where the
+	narrateJourneyWeighted: ['journey weighted', '- Discover\n  - Search `{who=prospect, mood=4, volume=45}`\n  - Referral `{who=prospect, mood=5, volume=18}`\n- Convert\n  - Pricing page `{who=prospect, mood=3, volume=12}`'],
+	// PLAIN journey (no `weighted`): the mood narrator reads `who=` / `mood=`, where the
 	// weighted one reads `+N` volume and gates itself out. Same source shape, different token.
-	narrateJourneyMood: ['journey', '- Discover\n  - Search `@prospect` `:4`\n  - Referral `@prospect` `:5`\n- Convert\n  - Pricing page `@prospect` `:3`'],
+	narrateJourneyMood: ['journey', '- Discover\n  - Search `{who=prospect, mood=4}`\n  - Referral `{who=prospect, mood=5}`\n- Convert\n  - Pricing page `{who=prospect, mood=3}`'],
 	narrateRadar: ['radar', '- Lattice\n  - Performance `9`\n  - Pricing `7`\n- Rival North\n  - Performance `7`\n  - Pricing `8`'],
 	narrateQuadrant: ['quadrant', '`Effort 0–10`\n\n- Group\n  - Item `5, 85`'],
 	// No `end` marker on the last state ON PURPOSE: with both start AND end explicit the
 	// inference narrator correctly returns null, and the cell would certify nothing.
-	narrateStateChartInference: ['state-chart', '1. Draft `start`\n   - `submit => 2`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review\n   - `approve => 4`\n4. Approved `done`'],
-	narrateStateChart: ['state-chart', '1. Draft `start`\n   - `submit => 2`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review\n   - `approve => 4`\n4. Approved `done`'],
+	narrateStateChartInference: ['state-chart', '1. Draft `start`\n   - `{submit, to=2}`\n2. Submitted `on-track`\n   - `{review, to=3}`\n3. In Review\n   - `{approve, to=4}`\n4. Approved `done`'],
+	narrateStateChart: ['state-chart', '1. Draft `start`\n   - `{submit, to=2}`\n2. Submitted `on-track`\n   - `{review, to=3}`\n3. In Review\n   - `{approve, to=4}`\n4. Approved `done`'],
 	narrateSequence: ['diagram', `${F}mermaid\nsequenceDiagram\n  Alice->>Bob: Hello\n  Bob-->>Alice: Hi\n${F}`],
 	narratePie: ['diagram', `${F}mermaid\npie title Share\n  "A" : 60\n  "B" : 40\n${F}`],
 	narrateClass: ['diagram', `${F}mermaid\nclassDiagram\n  class Order\n  Order : +id\n  Order --> Item\n${F}`],

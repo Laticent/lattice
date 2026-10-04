@@ -1,6 +1,6 @@
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## Radar must scale with the slide.
 

@@ -24,29 +24,29 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ## Every page reaches a human within 15 minutes.
 
-- Alert fires `:pill` => Auto-triage => Severity?
-- Severity? `:diamond`
+- Alert fires `pill` => Auto-triage => Severity?
+- Severity? `diamond`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket -> Mitigate
-  - -SEV3-> Backlog `:dotted`
+  - -SEV3-> Backlog `dotted`
 - Page on-call `fail` =ack=> Mitigate => Postmortem
   > Pages the secondary after 5 minutes.
-- Postmortem `:doc`
+- Postmortem `doc`
 
-`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {dotted, Waits for business hours}]`
 
 *SEV1 pages a human inside five minutes; everything else waits for business hours.*
 
 ---
 
 <!-- _class: flowchart tb -->
-<!-- _footer: "An org chart — `--` draws a line with no head, `&` fans out, `:loose` stays out of the layout" -->
+<!-- _footer: "An org chart — `--` draws a line with no head, `&` fans out, `loose` stays out of the layout" -->
 
 `Operating model`
 
 ## Three lines of reporting, one advisory line.
 
-- Chief executive `:c1`
+- Chief executive `c1`
   - -- Finance & Technology & Operations
 - Finance
   - -- Controller & Planning
@@ -54,8 +54,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
   - -- Platform & Security
 - Operations
   - -- Support & Logistics
-- Security `:c4`
-  - -advises-> Finance `:dotted:loose`
+- Security `c4`
+  - -advises-> Finance `{dotted, loose}`
 
 ---
 
@@ -66,22 +66,22 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ## Every event lands in the warehouse within a minute.
 
-- Sources `:c1`
-  - Web events `:io`
-  - Mobile events `:io`
-  - Billing DB `:cylinder`
+- Sources `c1`
+  - Web events `io`
+  - Mobile events `io`
+  - Billing DB `cylinder`
   - => Ingest queue
-- Pipeline `:c2`
+- Pipeline `c2`
   - Ingest queue
     - => Stream processor
   - Stream processor
     - -enrich-> Feature store
     - => Warehouse
-  - Feature store `:cylinder`
-  - Warehouse `:cylinder`
+  - Feature store `cylinder`
+  - Warehouse `cylinder`
     - -> BI dashboards
     - -nightly-> ML training
-- BI dashboards `:doc`
+- BI dashboards `doc`
 - ML training
   - -models-> Feature store
 
@@ -94,23 +94,23 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ## Payments sit between four parties.
 
-- Customers `:c1`
-  - Shopper `:circle`
+- Customers `c1`
+  - Shopper `circle`
     - -browses-> Storefront
-  - Merchant `:circle`
+  - Merchant `circle`
     - -lists items-> Storefront
-- Platform `:c2`
+- Platform `c2`
   - Storefront
     - => Payments
   - Payments
     - -screens-> Fraud checks
     - <-> Card networks
-  - Fraud checks `:diamond`
+  - Fraud checks `diamond`
   - -ships via-> Carriers
-- Partners `:c3`
-  - Card networks `:square`
-  - Carriers `:square`
-- Regulators `:doc`
+- Partners `c3`
+  - Card networks `square`
+  - Carriers `square`
+- Regulators `doc`
 
 ---
 
@@ -121,15 +121,15 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ## What a line says is in the arrow, how it looks is in the span.
 
-- Service `:c2`
+- Service `c2`
   - => Main database
-  - -reads-> Cache `:dot`
-  - -> Search index `:dashed`
-  - -> Audit log `:dotted:open`
-  - -> Legacy API `:cross:c6`
+  - -reads-> Cache `dot`
+  - -> Search index `dashed`
+  - -> Audit log `{dotted, open}`
+  - -> Legacy API `{c6, cross}`
   - <-> Partner API
-- Main database `:cylinder`
-- Cache `:cylinder`
+- Main database `cylinder`
+- Cache `cylinder`
 - Legacy API `blocked`
 
 ---
@@ -141,11 +141,11 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ## The same grammar reads a flat list.
 
-- Cart `:pill` => Address => Payment => Confirm
+- Cart `pill` => Address => Payment => Confirm
 - Payment -declined-> Retry
 - Retry `at-risk` -> Payment
-- Confirm `:pill` -emails-> Receipt
-- Receipt `:doc`
+- Confirm `pill` -emails-> Receipt
+- Receipt `doc`
 
 ---
 
@@ -161,8 +161,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 - Fix `fail` -> Build
 - Test -flaky-> Quarantine
 - Quarantine `warn` -> Test
-- Stage -rollback-> Build `:dashed`
-- Release `:pill` -> Monitor
+- Stage -rollback-> Build `dashed`
+- Release `pill` -> Monitor
 - Monitor `live` -alert-> Fix
 
 *Every failure returns to Build; nothing reaches Release without a green Stage.*

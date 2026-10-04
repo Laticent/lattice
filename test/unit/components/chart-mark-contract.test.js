@@ -123,7 +123,7 @@ describe('marks the gallery does not render', () => {
   // Checker finding: stamping a slotted GROUP made a finish paint it as a saturated 82% body
   // with its title unreadable on it. A group is a container; a finish leaves it alone.
   test('a slotted flowchart group carries no contract; its shapes and tile key do', () => {
-    const md = '<!-- _class: flowchart -->\n\n## F\n\n- Ingest `:c2`\n  - Pull `:c3` -> Parse `:c3`\n\n`[{:c2, Ingest}, {:c3, Step}]`\n';
+    const md = '<!-- _class: flowchart -->\n\n## F\n\n- Ingest `c2`\n  - Pull `c3` -> Parse `c3`\n\n`[{c2, Ingest}, {c3, Step}]`\n';
     const html = render(md);
     const { browserJs } = require('../../../lib/components/chart/flowchart/flowchart.layout');
     // The group is drawn by the browser pass; its template must not stamp the contract.

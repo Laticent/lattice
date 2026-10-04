@@ -23,10 +23,10 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Single-letter states.
 
 1. A `start`
-   - `=> 2`
+   - `{to=2}`
 2. B
-   - `=> 3`
-   - `=> 1`
+   - `{to=3}`
+   - `{to=1}`
 3. C `end`
 
 ---
@@ -37,12 +37,12 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Long state names.
 
 1. Awaiting Initial Submission `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Pending Manual Compliance Re-Review
-   - `escalate => 3`
-   - `return for changes => 1`
+   - `{escalate, to=3}`
+   - `{return for changes, to=1}`
 3. Approved by Regional Authority `done`
-   - `archive => 4`
+   - `{archive, to=4}`
 4. Archived in Cold Storage `end`
 
 ---
@@ -55,10 +55,10 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## CJK state labels.
 
 1. 待機 `start`
-   - `開始 => 2`
+   - `{開始, to=2}`
 2. 実行中 `on-track`
-   - `完了 => 3`
-   - `失敗 => 1`
+   - `{完了, to=3}`
+   - `{失敗, to=1}`
 3. 完了 `end`
 
 ---
@@ -69,26 +69,26 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Ten-step pipeline.
 
 1. Intake `start`
-   - `=> 2`
+   - `{to=2}`
 2. Triage
-   - `=> 3`
+   - `{to=3}`
 3. Assigned
-   - `=> 4`
+   - `{to=4}`
 4. In Progress `on-track`
-   - `=> 5`
-   - `block => 9`
+   - `{to=5}`
+   - `{block, to=9}`
 5. Code Review
-   - `=> 6`
-   - `reject => 4`
+   - `{to=6}`
+   - `{reject, to=4}`
 6. QA
-   - `=> 7`
-   - `fail => 4`
+   - `{to=7}`
+   - `{fail, to=4}`
 7. Staging
-   - `=> 8`
+   - `{to=8}`
 8. Released `live`
-   - `=> 10`
+   - `{to=10}`
 9. Blocked `blocked`
-   - `unblock => 4`
+   - `{unblock, to=4}`
 10. Closed `end`
 
 ---
@@ -99,11 +99,11 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Router with many exits.
 
 1. Dispatch `start`
-   - `a => 2`
-   - `b => 3`
-   - `c => 4`
-   - `d => 5`
-   - `retry => self`
+   - `{a, to=2}`
+   - `{b, to=3}`
+   - `{c, to=4}`
+   - `{d, to=5}`
+   - `{retry, to=self}`
 2. Handler A `done`
 3. Handler B `done`
 4. Handler C `at-risk`
@@ -117,18 +117,18 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Wizard with escape hatches.
 
 1. Welcome `start`
-   - `next => 2`
+   - `{next, to=2}`
 2. Account
-   - `next => 3`
-   - `cancel => 1`
+   - `{next, to=3}`
+   - `{cancel, to=1}`
 3. Profile
-   - `next => 4`
-   - `cancel => 1`
+   - `{next, to=4}`
+   - `{cancel, to=1}`
 4. Payment
-   - `next => 5`
-   - `cancel => 1`
+   - `{next, to=5}`
+   - `{cancel, to=1}`
 5. Confirm `done`
-   - `restart => 1`
+   - `{restart, to=1}`
 
 ---
 
@@ -147,17 +147,17 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Status palette across widths.
 
 1. Q `start`
-   - `=> 2`
+   - `{to=2}`
 2. Processing Now `on-track`
-   - `=> 3`
+   - `{to=3}`
 3. Hold `at-risk`
-   - `=> 4`
+   - `{to=4}`
 4. Stop `blocked`
-   - `=> 5`
+   - `{to=5}`
 5. Choose `decision`
-   - `=> 6`
+   - `{to=6}`
 6. Later `deferred`
-   - `=> 7`
+   - `{to=7}`
 7. Done `done` `end`
 
 ---
@@ -168,12 +168,12 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Left-to-right pipeline.
 
 1. Source `start`
-   - `compile => 2`
+   - `{compile, to=2}`
 2. Compiled `on-track`
-   - `test => 3`
+   - `{test, to=3}`
 3. Tested
-   - `deploy => 4`
-   - `fail => 1`
+   - `{deploy, to=4}`
+   - `{fail, to=1}`
 4. Deployed `live` `end`
 
 ---
@@ -184,11 +184,11 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Connection (left-to-right).
 
 1. Disconnected `start`
-   - `connect => 2`
+   - `{connect, to=2}`
 2. Establishing Session
-   - `retry => self`
-   - `ok => 3`
-   - `timeout => 1`
+   - `{retry, to=self}`
+   - `{ok, to=3}`
+   - `{timeout, to=1}`
 3. Connected `live` `end`
 
 ---
@@ -199,24 +199,24 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Incident response.
 
 1. Detected `start`
-   - `triage => 2`
+   - `{triage, to=2}`
 2. Triaged `on-track`
-   - `assign => 3`
-   - `false alarm => 7`
+   - `{assign, to=3}`
+   - `{false alarm, to=7}`
 3. Investigating
-   - `mitigate => 4`
-   - `escalate => 5`
-   - `need more info => 2`
+   - `{mitigate, to=4}`
+   - `{escalate, to=5}`
+   - `{need more info, to=2}`
 4. Mitigated
-   - `verify => 6`
+   - `{verify, to=6}`
 5. Escalated `at-risk`
-   - `hand off => 4`
-   - `re-page => self`
+   - `{hand off, to=4}`
+   - `{re-page, to=self}`
 6. Monitoring `live`
-   - `resolve => 7`
-   - `regression => 3`
+   - `{resolve, to=7}`
+   - `{regression, to=3}`
 7. Resolved `done`
-   - `postmortem => 8`
+   - `{postmortem, to=8}`
 8. Closed `end`
 
 ---
@@ -227,17 +227,17 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Build & release graph.
 
 1. Commit `start`
-   - `ci => 2`
-   - `hotfix => 4`
+   - `{ci, to=2}`
+   - `{hotfix, to=4}`
 2. Build `on-track`
-   - `test => 3`
-   - `retry => self`
+   - `{test, to=3}`
+   - `{retry, to=self}`
 3. Tested
-   - `stage => 4`
-   - `fail => 2`
+   - `{stage, to=4}`
+   - `{fail, to=2}`
 4. Staging `at-risk`
-   - `promote => 5`
-   - `rollback => 2`
+   - `{promote, to=5}`
+   - `{rollback, to=2}`
 5. Production `live` `end`
 
 ---
@@ -248,16 +248,16 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Document approval (curved).
 
 1. Draft `start`
-   - `submit => 2`
-   - `discard => 5`
+   - `{submit, to=2}`
+   - `{discard, to=5}`
 2. In Review `on-track`
-   - `approve => 3`
-   - `revise => self`
-   - `reject => 1`
+   - `{approve, to=3}`
+   - `{revise, to=self}`
+   - `{reject, to=1}`
 3. Approved
-   - `publish => 4`
+   - `{publish, to=4}`
 4. Published `live`
-   - `archive => 5`
+   - `{archive, to=5}`
 5. Archived `end`
 
 ---
@@ -268,11 +268,11 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ## Job runner (curved, lr).
 
 1. Idle `start`
-   - `run => 2`
-   - `skip => 4`
+   - `{run, to=2}`
+   - `{skip, to=4}`
 2. Running `on-track`
-   - `pause => 3`
-   - `finish => 4`
+   - `{pause, to=3}`
+   - `{finish, to=4}`
 3. Paused
-   - `resume => 2`
+   - `{resume, to=2}`
 4. Done `end`

@@ -1314,7 +1314,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 <!-- _class: radar -->
 <!-- _footer: "Chart — radar · radar" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The build and the two vendors trade blows on every axis but one.
 
@@ -1386,14 +1386,14 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## A team's first month runs from pain to belief, in that order, twice.
 
 - Onboard
-  - Kickoff workshop `@team` `@strategy` `:2`
-  - Taxonomy training `@team` `:2`
-  - Intake setup `@team` `@platform` `:1`
+  - Kickoff workshop `{who=team, mood=2}` `@strategy`
+  - Taxonomy training `{who=team, mood=2}`
+  - Intake setup `{who=team, mood=1}` `@platform`
 - Operate
-  - First signal scored `@team` `:4`
-  - First decision logged `@team` `:4`
+  - First signal scored `{who=team, mood=4}`
+  - First decision logged `{who=team, mood=4}`
 - Believe
-  - First calibration review `@team` `@strategy` `:5`
+  - First calibration review `{who=team, mood=5}` `@strategy`
 
 ---
 
@@ -1423,15 +1423,15 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## How a call moves through the log.
 
 1. Logged `start`
-   - `score => 2`
+   - `{score, to=2}`
 2. Scored `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
 4. Decided `decision`
-   - `calibrate => 5`
+   - `{calibrate, to=5}`
 5. Calibrated `end`
 
 *Rejected entries return to intake; revisions stay in review.*

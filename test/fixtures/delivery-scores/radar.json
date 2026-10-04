@@ -21,6 +21,16 @@
 			"cursor": "hide"
 		},
 		{
+			"said": "On a scale of zero to ten.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
 			"said": "Meridian is strongest on Performance and Security, at nine.",
 			"act": "enter",
 			"unit": "series",
@@ -143,6 +153,16 @@
 			"cursor": "point"
 		},
 		{
+			"said": "On a scale of zero to ten.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "reset",
+			"ink": "bracket figure quiet",
+			"cursor": "point"
+		},
+		{
 			"said": "Meridian is strongest on Performance and Security, at nine.",
 			"act": "enter",
 			"unit": "series",
@@ -256,6 +276,16 @@
 		},
 		{
 			"said": "Each spoke is one axis, and a rating further from the center is higher.",
+			"act": "frame",
+			"unit": null,
+			"select": null,
+			"key": false,
+			"focus": "none",
+			"ink": null,
+			"cursor": "hide"
+		},
+		{
+			"said": "On a scale of zero to ten.",
 			"act": "frame",
 			"unit": null,
 			"select": null,

@@ -78,7 +78,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The donut and the radar both fill their Cell.
 

@@ -111,7 +111,7 @@ Every color flips with the canvas; nothing is a baked literal.
 <!-- _class: radar -->
 <!-- _footer: "Radar — same key model, no value column (labels reclaim the width)" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## How we stack up across the buying criteria.
 

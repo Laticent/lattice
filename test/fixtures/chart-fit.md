@@ -197,15 +197,15 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 ## The journey scores each stage of the path.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 ---
 
@@ -335,7 +335,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The radar maps strengths around the compass.
 
@@ -386,16 +386,16 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 How a draft moves from author to publication.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
    - Two reviewers must sign off before approval.
 4. Approved
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
@@ -408,23 +408,23 @@ How a draft moves from author to publication.
 
 ## Payments sit between four parties.
 
-- Customers `:c1`
-  - Shopper `:circle`
+- Customers `c1`
+  - Shopper `circle`
     - -browses-> Storefront
-  - Merchant `:circle`
+  - Merchant `circle`
     - -lists items-> Storefront
-- Platform `:c2`
+- Platform `c2`
   - Storefront
     - => Payments
   - Payments
     - -screens-> Fraud checks
     - <-> Card networks
-  - Fraud checks `:diamond`
+  - Fraud checks `diamond`
   - -ships via-> Carriers
-- Partners `:c3`
-  - Card networks `:square`
-  - Carriers `:square`
-- Regulators `:doc`
+- Partners `c3`
+  - Card networks `square`
+  - Carriers `square`
+- Regulators `doc`
 
 ---
 

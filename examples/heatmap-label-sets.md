@@ -95,9 +95,9 @@ The key binds to the ramp STEP, one through five — not to a value in the table
 
 |  | M0 | M1 | M2 |
 | --- | --: | --: | --: |
-| Jan 2026 | 100 | 62 `# Onboarding changed mid-month; the dip is the change, not the cohort.` | 48 |
+| Jan 2026 | 100 | 62 `note="Onboarding changed mid-month; the dip is the change, not the cohort."` | 48 |
 | Feb 2026 | 100 | 58 | 44 |
-| Mar 2026 | 100 | 71 `# First cohort on the new activation flow.` | 59 |
+| Mar 2026 | 100 | 71 `note=First cohort on the new activation flow.` | 59 |
 
 ---
 
@@ -111,4 +111,4 @@ The key binds to the ramp STEP, one through five — not to a value in the table
 - **Inline.**
   - `` `[{1, Cold}, {3, Warm}, {5, Hot}]` `` above the table. Name some, keep the rest.
 - **Per cell.**
-  - `` `# prose` `` inside a cell. Hover on screen, speaker note in print.
+  - `` `note=prose` `` inside a cell. Hover on screen, speaker note in print.

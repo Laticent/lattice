@@ -62,13 +62,13 @@ _This numbered list — authored as the since-retired `list-criteria` then — c
 ## Reading a split run
 
 - Arrive
-  - Meet the cover `@reader` `:1`
-  - Learn what the run is about `@reader` `:1`
+  - Meet the cover `{who=reader, mood=1}`
+  - Learn what the run is about `{who=reader, mood=1}`
 - Move
-  - Take one element per page `@reader` `:4`
-  - Follow the pointer to the next `@reader` `:4`
+  - Take one element per page `{who=reader, mood=4}`
+  - Follow the pointer to the next `{who=reader, mood=4}`
 - Close
-  - Read the note and the insight together `@reader` `:2`
+  - Read the note and the insight together `{who=reader, mood=2}`
 
 _A chart splits when the splitter can reach its seam. On a tall deck journey stacks its stages, so each is a unit and this slide becomes three. On a wide deck the same list draws one grid over one shared axis, and the splitter declines._
 

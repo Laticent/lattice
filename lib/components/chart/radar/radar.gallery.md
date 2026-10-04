@@ -18,7 +18,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar -->
 <!-- _footer: "Default · radar" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The radar maps strengths around the compass.
 
@@ -49,7 +49,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar target -->
 <!-- _footer: "target · radar target — The bar the shape must clear." -->
 
-`Scale · 0–100`
+`[{Scale, 0..100}]`
 
 ## target draws the bar the shape must clear.
 
@@ -74,7 +74,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar delta -->
 <!-- _footer: "delta · radar delta — The gap between two shapes, shaded." -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## delta shades the gap between two shapes.
 
@@ -97,7 +97,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar benchmark -->
 <!-- _footer: "benchmark · radar benchmark — A reference shape overlaid." -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## benchmark overlays the reference shape.
 
@@ -136,7 +136,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar quadrant -->
 <!-- _footer: "quadrant · radar quadrant — The compass quarters, shaded." -->
 
-`Scale · 0–5`
+`[{Scale, 0..5}]`
 
 ## quadrant shades the compass quarters.
 
@@ -162,7 +162,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar small-multiples -->
 <!-- _footer: "small-multiples · radar small-multiples — One radar per option." -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## small-multiples deals one radar per option.
 
@@ -197,7 +197,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar minimal -->
 <!-- _footer: "minimal · radar minimal — Rings stripped to the shape." -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## minimal strips the rings to the shape.
 
@@ -221,7 +221,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- stress-slide -->
 <!-- _footer: "Stress test · radar — Many axes, many shapes — the ceiling." -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## Stress test — eight criteria, three vendors.
 
@@ -259,7 +259,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar dark -->
 <!-- _footer: "Composition: dark · radar dark" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The radar maps strengths around the compass.
 
@@ -290,7 +290,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar compact -->
 <!-- _footer: "Composition: compact · radar compact" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The radar maps strengths around the compass.
 
@@ -321,7 +321,7 @@ Native radar / spider chart — items rated across multiple axes.
 <!-- _class: radar accent -->
 <!-- _footer: "Composition: accent · radar accent" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The radar maps strengths around the compass.
 

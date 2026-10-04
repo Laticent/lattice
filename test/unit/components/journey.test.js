@@ -65,7 +65,7 @@ describe('journey', () => {
   // ── parseTask ─────────────────────────────────────────────────────────
 
   test('parseTask: extracts label, actors, mood from inline-code tokens', () => {
-    const t = parseTask('Make tea <code>@me</code> <code>:5</code>');
+    const t = parseTask('Make tea <code>{who=me, mood=5}</code>');
     assert.equal(t.label, 'Make tea');
     assert.deepEqual(t.actors, ['me']);
     assert.equal(t.mood, 5);
@@ -73,28 +73,28 @@ describe('journey', () => {
   });
 
   test('parseTask: handles multiple actors in appearance order', () => {
-    const t = parseTask('Do work <code>@me</code> <code>@cat</code> <code>:1</code>');
+    const t = parseTask('Do work <code>{who=me, mood=1}</code> <code>@cat</code>');
     assert.deepEqual(t.actors, ['me', 'cat']);
     assert.equal(t.mood, 1);
   });
 
-  test('parseTask: default mood is 3 (neutral) when no `:N` token is present', () => {
+  test('parseTask: default mood is 3 (neutral) when no `mood=` is given', () => {
     const t = parseTask('Stand up <code>@me</code>');
     assert.equal(t.mood, 3);
   });
 
   test('parseTask: clamps out-of-range mood to 1..5', () => {
-    assert.equal(parseTask('x <code>:9</code>').mood, 5);
-    assert.equal(parseTask('x <code>:0</code>').mood, 1);
+    assert.equal(parseTask('x <code>mood=9</code>').mood, 5);
+    assert.equal(parseTask('x <code>mood=0</code>').mood, 1);
   });
 
-  test('parseTask: captures `+N` volume token for the weighted variant', () => {
-    const t = parseTask('Big task <code>@me</code> <code>:3</code> <code>+30</code>');
+  test('parseTask: captures `volume=` for the weighted variant', () => {
+    const t = parseTask('Big task <code>{who=me, mood=3, volume=30}</code>');
     assert.equal(t.volume, 30);
   });
 
   test('parseTask: tolerates stray inline markup inside the label', () => {
-    const t = parseTask('<strong>Bold</strong> task <code>@me</code> <code>:4</code>');
+    const t = parseTask('<strong>Bold</strong> task <code>{who=me, mood=4}</code>');
     assert.equal(t.label, 'Bold task');
     assert.equal(t.mood, 4);
   });
@@ -104,21 +104,21 @@ describe('journey', () => {
   const SAMPLE_UL_INNER = (
     '<li>Go to work' +
       '<ul>' +
-        '<li>Make tea <code>@me</code> <code>:5</code></li>' +
-        '<li>Go upstairs <code>@me</code> <code>:3</code></li>' +
-        '<li>Do work <code>@me</code> <code>@cat</code> <code>:1</code></li>' +
+        '<li>Make tea <code>{who=me, mood=5}</code></li>' +
+        '<li>Go upstairs <code>{who=me, mood=3}</code></li>' +
+        '<li>Do work <code>{who=me, mood=1}</code> <code>@cat</code></li>' +
       '</ul>' +
     '</li>' +
     '<li>Go home' +
       '<ul>' +
-        '<li>Go downstairs <code>@me</code> <code>:5</code></li>' +
-        '<li>Sit down <code>@me</code> <code>:5</code></li>' +
+        '<li>Go downstairs <code>{who=me, mood=5}</code></li>' +
+        '<li>Sit down <code>{who=me, mood=5}</code></li>' +
       '</ul>' +
     '</li>'
   );
 
   test('parseSection: section name is the text before the nested <ul>', () => {
-    const li = 'Go to work<ul><li>x <code>:3</code></li></ul>';
+    const li = 'Go to work<ul><li>x <code>mood=3</code></li></ul>';
     const s = parseSection(li);
     assert.equal(s.name, 'Go to work');
     assert.equal(s.tasks.length, 1);
@@ -135,7 +135,7 @@ describe('journey', () => {
   });
 
   test('parseJourney: drops sections with no tasks', () => {
-    const ul = '<li>Empty</li><li>Real<ul><li>t <code>:3</code></li></ul></li>';
+    const ul = '<li>Empty</li><li>Real<ul><li>t <code>mood=3</code></li></ul></li>';
     const m = parseJourney(ul);
     assert.equal(m.sections.length, 1);
     assert.equal(m.sections[0].name, 'Real');
@@ -229,11 +229,11 @@ describe('journey', () => {
   test('emit: each section carries --section-volume aggregated from its tasks', () => {
     const ul = (
       '<li>A<ul>' +
-        '<li>a <code>:3</code> <code>+10</code></li>' +
-        '<li>b <code>:4</code> <code>+5</code></li>' +
+        '<li>a <code>{mood=3, volume=10}</code></li>' +
+        '<li>b <code>{mood=4, volume=5}</code></li>' +
       '</ul></li>' +
       '<li>B<ul>' +
-        '<li>c <code>:2</code> <code>+30</code></li>' +
+        '<li>c <code>{mood=2, volume=30}</code></li>' +
       '</ul></li>'
     );
     const m = parseJourney(ul);
@@ -258,8 +258,8 @@ describe('journey', () => {
 
   // ── Vertical board (portrait) ─────────────────────────────────────────
   const PORTRAIT_INNER = '<h2>X</h2><ul><li>Eval<ul>' +
-    '<li>Read <code>@me</code> <code>:5</code></li>' +
-    '<li>Setup <code>@me</code> <code>:1</code></li></ul></li></ul>';
+    '<li>Read <code>{who=me, mood=5}</code></li>' +
+    '<li>Setup <code>{who=me, mood=1}</code></li></ul></li></ul>';
 
   test('portrait: transformJourneySection emits the vertical board', () => {
     const html = transformJourneySection(PORTRAIT_INNER, 'journey', 'portrait');
@@ -302,8 +302,8 @@ describe('journey', () => {
   test('emit: weighted variant volume → --volume and --volume-pct on each task', () => {
     const ul = (
       '<li>S<ul>' +
-        '<li>a <code>:3</code> <code>+1</code></li>' +
-        '<li>b <code>:4</code> <code>+3</code></li>' +
+        '<li>a <code>{mood=3, volume=1}</code></li>' +
+        '<li>b <code>{mood=4, volume=3}</code></li>' +
       '</ul></li>'
     );
     const m = parseJourney(ul);

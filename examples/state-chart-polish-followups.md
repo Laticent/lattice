@@ -24,10 +24,10 @@ A caption stays one line, labels keep their room, and the key tells running work
 ## A caption with code reads as one sentence.
 
 1. Submitted `start`
-   - `needs<br/>second review => 2`
-   - `auto approve => 3`
+   - `{needs<br/>second review, to=2}`
+   - `{auto approve, to=3}`
 2. Second review
-   - `escalate to legal => 4`
+   - `{escalate to legal, to=4}`
 3. Approved `done`
 4. Escalated `end`
 
@@ -42,13 +42,13 @@ A caption stays one line, labels keep their room, and the key tells running work
 ## Two edges between the same states keep two labels apart.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Review `live`
-   - `reject => 1`
-   - `approve => 4`
-   - `block => 3`
+   - `{reject, to=1}`
+   - `{approve, to=4}`
+   - `{block, to=3}`
 3. Blocked `blocked`
-   - `unblock => 2`
+   - `{unblock, to=2}`
 4. Approved `done`
 
 *Each pair gets room for both labels, and no label sits on another edge's line.*
@@ -62,13 +62,13 @@ A caption stays one line, labels keep their room, and the key tells running work
 ## A loop's label sits clear of its own arc.
 
 1. Queued `start`
-   - `claim => 2`
+   - `{claim, to=2}`
 2. Running `live`
-   - `retry => self`
-   - `finish => 3`
+   - `{retry, to=self}`
+   - `{finish, to=3}`
 3. In Review
-   - `revise => self`
-   - `approve => 4`
+   - `{revise, to=self}`
+   - `{approve, to=4}`
 4. Complete `end`
 
 *The label moves just past the arc, so the loop and its name never overlap.*
@@ -82,13 +82,13 @@ A caption stays one line, labels keep their room, and the key tells running work
 ## Running work and finished work look different.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. Submitted `on-track`
-   - `approve => 3`
+   - `{approve, to=3}`
 3. Approved `done`
-   - `publish => 4`
+   - `{publish, to=4}`
 4. Published `live`
-   - `archive => 5`
+   - `{archive, to=5}`
 5. Archived `end`
 
 *`live` paints blue, as on a gantt bar; `on-track` and `done` share one green chip.*

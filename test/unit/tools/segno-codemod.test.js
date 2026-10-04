@@ -106,3 +106,35 @@ describe('segno-codemod: gantt dependencies', () => {
     assert.equal(rewriteText('Write `after: Design` to add one.').changes.length, 0);
   });
 });
+
+describe('segno-codemod: per-chart records (slice 5)', () => {
+  test('radar: a scale eyebrow becomes the axis line; one that says more keeps its words', () => {
+    const r = (eb) => rewriteText(`<!-- _class: radar -->\n\n\`${eb}\`\n\n## H\n\n- A\n  - x \`3\``).text;
+    assert.match(r('Scale · 0–100'), /\n`\[\{Scale, 0\.\.100\}\]`\n\n## H/);
+    const kept = r('Scale · 0–10, on the criteria we wrote');
+    assert.match(kept, /`\[\{Scale, 0\.\.10\}\]`\n\n`Scale · 0–10, on the criteria we wrote`/);
+    assert.match(r('Capability · team vs target'), /`Capability · team vs target`/);
+  });
+  test('heatmap: `# why` becomes `note=why`, quoted when it holds a comma', () => {
+    const t = rewriteText('<!-- _class: heatmap -->\n\n| | A |\n| --- | --: |\n| X | 1 `# dipped, then rose` |').text;
+    assert.match(t, /`note="dipped, then rose"`/);
+  });
+  test('journey: a task\'s pills become one step record; a second actor stays an @ pill', () => {
+    const t = rewriteText('<!-- _class: journey -->\n\n## H\n\n- S\n  - Work `@me` `@cat` `:1` `+40`\n  - Look `@me`').text;
+    assert.match(t, /- Work `\{who=me, mood=1, volume=40\}` `@cat`/);
+    assert.match(t, /- Look `@me`/);
+  });
+  test('state chart: `event => N` becomes `{event, to=N}`', () => {
+    const t = rewriteText('<!-- _class: state-chart -->\n\n## H\n\n1. A `start`\n   - `submit => 2`\n   - `=> self`\n2. B').text;
+    assert.match(t, /`\{submit, to=2\}`/);
+    assert.match(t, /`\{to=self\}`/);
+  });
+  test('flowchart: a colon chain becomes one record; one word stands alone; the key drops its colons', () => {
+    const t = rewriteText('<!-- _class: flowchart -->\n\n## H\n\n- A `#api:diamond:c2` -> B `:dotted:open`\n- C `:doc`\n- D `fail`\n\n`[{"=>", Main}, {:dotted, Waits}]`').text;
+    assert.match(t, /`\{#api, diamond, c2\}`/);
+    assert.match(t, /`\{dotted, open\}`/);
+    assert.match(t, /- C `doc`/);
+    assert.match(t, /- D `fail`/);
+    assert.match(t, /\{dotted, Waits\}/);
+  });
+});

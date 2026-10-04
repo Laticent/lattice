@@ -66,7 +66,7 @@ describe('the review cases', () => {
     assert.deepEqual(edgeList(m), ['know-your-customer-checks>approve']);
   });
   test('a comparison inside a name is escaped with a backslash', () => {
-    const m = parse('- Balance \\<= 0? `:diamond` -> Suspend');
+    const m = parse('- Balance \\<= 0? `diamond` -> Suspend');
     assert.equal(m.shapes[0].name, 'Balance <= 0?');
     assert.equal(m.shapes[0].shape, 'diamond');
   });
@@ -79,7 +79,7 @@ describe('the review cases', () => {
     assert.deepEqual(edgeList(m), ['r-d>terms-conditions', 'legal>sales', 'legal>finance']);
   });
   test('the explicit name is #id — braces are the pill grammar', () => {
-    const m = parse('- Know-your-customer checks `#kyc:diamond`\n- Start -> #kyc');
+    const m = parse('- Know-your-customer checks `{#kyc, diamond}`\n- Start -> #kyc');
     assert.equal(m.shapes[0].explicitId, 'kyc');
     assert.deepEqual(edgeList(m), ['start>know-your-customer-checks']);
     const braces = parse('- KYC `{kyc}:diamond`');
@@ -97,7 +97,7 @@ describe('the review cases', () => {
     assert.equal(m.edges.length, 0);
   });
   test('a name that is a list marker, or empty, is an error', () => {
-    assert.ok(rules(parse('- `:diamond`')).includes('flowchart-empty-name'));
+    assert.ok(rules(parse('- `diamond`')).includes('flowchart-empty-name'));
     assert.ok(rules(parse('- `#only-an-id`')).includes('flowchart-empty-name'));
     assert.ok(rules(parse('- +')).includes('flowchart-empty-name'));
   });
@@ -113,8 +113,8 @@ describe('the review cases', () => {
 
 describe('structure', () => {
   test('the flat row and the arrow sub-item are the same connection', () => {
-    const a = parse('- Platform `:c2`\n  - Storefront\n    - => Payments\n  - Payments');
-    const b = parse('- Platform `:c2`\n  - Storefront => Payments\n  - Payments');
+    const a = parse('- Platform `c2`\n  - Storefront\n    - => Payments\n  - Payments');
+    const b = parse('- Platform `c2`\n  - Storefront => Payments\n  - Payments');
     assert.deepEqual(a, b);
   });
   test('a sub-list of shapes makes a group; arrow sub-items do not', () => {
@@ -123,7 +123,7 @@ describe('structure', () => {
     assert.ok(m.shapes.some((s) => s.name === 'Warehouse'));
   });
   test('a target-only name sits beside its first source', () => {
-    const m = parse('- Platform `:c2`\n  - Payments -screens-> Fraud checks\n  - -ships via-> Carriers');
+    const m = parse('- Platform `c2`\n  - Payments -screens-> Fraud checks\n  - -ships via-> Carriers');
     const at = (n) => m.shapes.find((s) => s.name === n).parent;
     assert.equal(at('Fraud checks'), 'platform', 'a shape source keeps the target in its group');
     assert.equal(at('Carriers'), null, 'a group source puts the target next to the group');
@@ -149,22 +149,22 @@ describe('structure', () => {
 
 describe('the span', () => {
   test('it styles what it follows, in any order', () => {
-    const m = parse('- A `:c3` -> B `:dotted:c4`\n- C -> D `:c4:dotted`');
+    const m = parse('- A `c3` -> B `{c4, dotted}`\n- C -> D `{c4, dotted}`');
     assert.equal(m.shapes[0].slot, 3);
     assert.deepEqual(m.edges[0].style, m.edges[1].style);
     assert.deepEqual(m.edges[0].style, { slot: 4, pattern: 'dotted' });
   });
   test('a shape word after a target is an error', () => {
-    assert.ok(rules(parse('- A -> B `:diamond`')).includes('flowchart-shape-word-on-line'));
+    assert.ok(rules(parse('- A -> B `diamond`')).includes('flowchart-shape-word-on-line'));
   });
   test('a line word after a shape name is an error', () => {
-    assert.ok(rules(parse('- A `:dashed`')).includes('flowchart-line-word-on-shape'));
+    assert.ok(rules(parse('- A `dashed`')).includes('flowchart-line-word-on-shape'));
   });
   test('slots stop at the chart family\'s eight', () => {
-    assert.ok(rules(parse('- A `:c9`')).includes('flowchart-unknown-modifier'));
+    assert.ok(rules(parse('- A `c9`')).includes('flowchart-unknown-modifier'));
   });
   test('two different styles for one shape conflict', () => {
-    assert.ok(rules(parse('- A `:diamond`\n- A `:circle`')).includes('flowchart-conflicting-style'));
+    assert.ok(rules(parse('- A `diamond`\n- A `circle`')).includes('flowchart-conflicting-style'));
   });
   test('the status words are exactly CHART_STATUS', () => {
     assert.deepEqual([...g.STATUS_WORDS], [...CHART_STATUS]);
@@ -177,13 +177,13 @@ describe('the span', () => {
 
 describe('key and caption', () => {
   test('the key is derived, and an authored key renames it', () => {
-    const src = '- A `fail` => B\n- Platform `:c2`\n  - C\n\n`[{"=>", Happy path}]`\n\n*The caption.*';
+    const src = '- A `fail` => B\n- Platform `c2`\n  - C\n\n`[{"=>", Happy path}]`\n\n*The caption.*';
     const m = parse(src);
-    assert.deepEqual(m.key, [{ key: 'fail', label: 'Failing' }, { key: '=>', label: 'Happy path' }, { key: ':c2', label: 'Platform' }]);
+    assert.deepEqual(m.key, [{ key: 'fail', label: 'Failing' }, { key: '=>', label: 'Happy path' }, { key: 'c2', label: 'Platform' }]);
     assert.equal(m.caption, 'The caption.');
   });
   test('a key entry for a word the chart does not use is reported', () => {
-    assert.ok(rules(parse('- A -> B\n\n`[{:dotted, Informal}]`')).includes('flowchart-key-unbound'));
+    assert.ok(rules(parse('- A -> B\n\n`[{dotted, Informal}]`')).includes('flowchart-key-unbound'));
   });
   test('the key arrives HTML-escaped from a rendered page and still binds', () => {
     const o = g.outlineFromMarkdown('- A => B');
@@ -194,7 +194,7 @@ describe('key and caption', () => {
 
 describe('determinism', () => {
   test('the same source parses to the same model', () => {
-    const src = '- Alert `:pill` => Triage => Severity?\n- Severity? `:diamond`\n  - =SEV1=> Page\n  - -SEV2-> Ticket\n- Platform `:c2`\n  - Store => Pay\n  - -ships-> Carriers';
+    const src = '- Alert `pill` => Triage => Severity?\n- Severity? `diamond`\n  - =SEV1=> Page\n  - -SEV2-> Ticket\n- Platform `c2`\n  - Store => Pay\n  - -ships-> Carriers';
     assert.deepEqual(parse(src), parse(src));
   });
   test('fenced code in a slide is never read as the chart', () => {
@@ -277,16 +277,16 @@ describe('the HTML reader agrees with the Markdown reader', () => {
     return JSON.stringify({ shapes: m.shapes, groups: m.groups, edges: m.edges, notes: m.notes, key: m.key, details, caption: o.caption, rules: m.diagnostics.map((d) => d.rule) });
   };
   for (const [name, src] of [
-    ['nesting, spans, arrows and fan-out', '- Alpha `:c2` => Beta\n  - -ships via-> Gamma & Delta\n- Group\n  - Member one\n  - Member two'],
+    ['nesting, spans, arrows and fan-out', '- Alpha `c2` => Beta\n  - -ships via-> Gamma & Delta\n- Group\n  - Member one\n  - Member two'],
     ['an escaped arrow and fan-out stay text', '- Not \\-> an arrow\n- Q \\& A -\\> B\n- Top\\=> B'],
     ['any other escape loses its backslash', '- A \\* B\n- C \\\\ D\n- E \\d F'],
-    ['inline markup contributes its text', '- **Bold** step -> [Link](http://x.y) `:c3`\n- snake_case_name => x_y\n- Raw <b>tag</b> -> A'],
+    ['inline markup contributes its text', '- **Bold** step -> [Link](http://x.y) `c3`\n- snake_case_name => x_y\n- Raw <b>tag</b> -> A'],
     ['entities decode alike', '- Q &amp; A -> Fish &lt; Chips'],
     ['a left arrow is never a tag', '- A <- B\n- C <-> D'],
     ['notes join, detail lines read as detail', '- A\n  > line one\n  > line two\n- B\n  lazy text\n- C'],
     ['a loose list', '- A\n\n  more about A\n\n- B -> A'],
     ['an ordered list', '1. A => B\n2. B\n   - C'],
-    ['key and caption after the list', '- A => B `:dotted`\n\n`[{"=>", Happy path}, {:dotted, Later}]`\n\n*Everything waits for review.*'],
+    ['key and caption after the list', '- A => B `dotted`\n\n`[{"=>", Happy path}, {dotted, Later}]`\n\n*Everything waits for review.*'],
     // The checker's parity cases on #2385.
     ['intraword emphasis', '- A*x* -> B\n- snake_case -> B'],
     ['an autolink', '- <https://x.com> -> B'],
@@ -339,7 +339,7 @@ describe('grammar findings from the review', () => {
 
 describe('a group connected to itself', () => {
   test('is an error and draws no line', () => {
-    const m = parse('- G `:c2`\n  - A\n  - B\n- G -> G\n- C -> A');
+    const m = parse('- G `c2`\n  - A\n  - B\n- G -> G\n- C -> A');
     assert.ok(rules(m).includes('flowchart-group-self-edge'));
     assert.deepEqual(edgeList(m), ['c>a']);
   });
@@ -363,7 +363,7 @@ describe('budgets on untrusted input', () => {
 describe('lint integration', () => {
   const { findFlowchartIssues } = require('../../../lib/authoring/lint-core');
   test('slide numbers skip the front matter, and comments are not read', () => {
-    const deck = '---\ntheme: indaco\n---\n\n# Title\n\n---\n\n<!-- _class: flowchart -->\n\n## H\n\n- A -> B `:diamond`\n<!-- - C -> D `:circle` -->\n';
+    const deck = '---\ntheme: indaco\n---\n\n# Title\n\n---\n\n<!-- _class: flowchart -->\n\n## H\n\n- A -> B `diamond`\n<!-- - C -> D `circle` -->\n';
     const f = findFlowchartIssues(deck);
     assert.equal(f.length, 1);
     assert.equal(f[0].slide, 2);
@@ -373,4 +373,15 @@ describe('lint integration', () => {
     assert.deepEqual(findFlowchartIssues('# Just a title\n\n- a list -> of text'), []);
     assert.deepEqual(findFlowchartIssues(''), []);
   });
+});
+
+test('the style slot in flowchart.manifest.json names exactly the grammar\'s vocabulary', () => {
+  // The slot is declared as manifest data (Segno phase 2) and the key and docs read the
+  // grammar's exported lists, so the two copies are pinned equal here.
+  const spec = require('../../../lib/components/chart/flowchart/flowchart.manifest.json').segno.style.params;
+  assert.deepEqual(spec.shape.values, [...g.SHAPES]);
+  assert.deepEqual(spec.status.values, [...g.STATUS_WORDS]);
+  assert.deepEqual(spec.head.values, [...g.HEADS]);
+  assert.deepEqual(spec.pattern.values, [...g.PATTERNS]);
+  assert.equal(spec.color.max, g.SLOT_COUNT);
 });

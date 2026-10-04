@@ -43,14 +43,14 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 ## weighted sizes each step by its share of the whole.
 
 - Discover
-  - Search `@prospect` `:4` `+45`
-  - Referral `@prospect` `:5` `+18`
+  - Search `{who=prospect, mood=4, volume=45}`
+  - Referral `{who=prospect, mood=5, volume=18}`
 - Convert
-  - Pricing page `@prospect` `:3` `+12`
-  - Checkout `@prospect` `:2` `+10`
+  - Pricing page `{who=prospect, mood=3, volume=12}`
+  - Checkout `{who=prospect, mood=2, volume=10}`
 - Support
-  - Settings `@user` `:3` `+8`
-  - Help docs `@user` `:4` `+7`
+  - Settings `{who=user, mood=3, volume=8}`
+  - Help docs `{who=user, mood=4, volume=7}`
 
 ---
 
@@ -86,10 +86,10 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 ## The approval flow, and where it starts and ends.
 
 1. Draft
-   - `submit => 2`
+   - `{submit, to=2}`
 2. In Review
-   - `approve => 3`
-   - `revise => self`
+   - `{approve, to=3}`
+   - `{revise, to=self}`
 3. Published
 
 ---

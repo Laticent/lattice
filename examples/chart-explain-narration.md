@@ -123,11 +123,11 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 ## The shape comes before the edges.
 
 1. Draft `start`
-   - `submit => 2`
+   - `{submit, to=2}`
 2. In Review `at-risk`
-   - `approve => 3`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=3}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
 3. Published `end`
 
 <!-- Before, this read as four "From X" sentences and a listener rebuilt the graph from them. The caption now opens with the size, the endpoints, where the machine decides, what steps back and what loops — then reads the edges. -->
@@ -139,10 +139,10 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 ## Three hazards nothing else names.
 
 1. Running `start`
-   - `fail => 2`
-   - `finish => 4`
+   - `{fail, to=2}`
+   - `{finish, to=4}`
 2. Stuck
-   - `retry => self`
+   - `{retry, to=self}`
 3. Parked
 4. Done `end`
 

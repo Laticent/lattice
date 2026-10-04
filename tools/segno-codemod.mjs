@@ -151,7 +151,81 @@ function rewriteGanttAfter(text, ctx) {
   return back?.kind === 'after' && back.deps.length === 1 && back.deps[0] === dep ? out : { unsafe: `no spelling of it reads back the same (${out})` };
 }
 
-const REWRITERS = { pill: rewritePill, spark: rewriteSpark, bracket: rewriteBracket, point: rewriteQuadrantPoint, after: rewriteGanttAfter };
+const { readCellNote } = require('../lib/core/cell-note.js');
+
+/**
+ * Heatmap: a cell annotation `# dipped after onboarding` → `note=dipped after onboarding` (row 20
+ * of the Segno note), quoted when the note holds a Segno stop character. Heatmap slides only, and
+ * only the old reader's shape: `#`, then whitespace, then the note.
+ */
+function rewriteCellNote(text, ctx) {
+  if (!ctx || ctx.slideClass !== 'heatmap') return null;
+  const m = /^#\s+([\s\S]*)$/.exec(text);
+  if (!m) return null;
+  const note = m[1].trim();
+  if (!note) return null;
+  const out = /[,={}[\]"|\\]/.test(note) ? `note="${note.replace(/[\\"]/g, '\\$&')}"` : `note=${note}`;
+  return readCellNote(out) === note ? out : { unsafe: `no spelling of it reads back the same (${out})` };
+}
+
+const { readStateTransition } = require('../lib/core/state-pill.js');
+
+/**
+ * State chart: a transition `approve => 2` → `{approve, to=2}`, `=> 3` → `{to=3}` (row 22 of the
+ * Segno note). The old reader's pattern, frozen here: an event of anything but `=`, then `=>`,
+ * then a number or `self`. Re-read through the new reader before it is trusted.
+ */
+function rewriteTransition(text, ctx) {
+  if (!ctx || ctx.slideClass !== 'state-chart') return null;
+  const m = /^([^=]*?)=>\s*(\d+|self)\s*$/.exec(text);
+  if (!m) return null;
+  const event = m[1].trim();
+  const to = m[2];
+  const ev = /[,={}[\]"|\\]/.test(event) ? `"${event.replace(/[\\"]/g, '\\$&')}"` : event;
+  const out = event ? `{${ev}, to=${to}}` : `{to=${to}}`;
+  const back = readStateTransition(out);
+  return back && back.event === event && String(back.to) === to ? out : { unsafe: `no spelling of it reads back the same (${out})` };
+}
+
+const legacyFlow = require('./segno-legacy/flowchart-span.js');
+const flowGrammar = require('../lib/core/flowchart-grammar.js');
+
+/**
+ * Flowchart: a style span's colon chain → one record (row 25 of the Segno note).
+ *   `:doc` → `doc`   `#api:diamond:c2` → `{#api, diamond, c2}`   `:dotted:loose` → `{dotted, loose}`
+ * One word is written bare; two or more go in braces. And the key's colon words:
+ *   `[{"=>", Paging path}, {:dotted, Waits}]` → `[{"=>", Paging path}, {dotted, Waits}]`
+ * Only a span the old reader read in full is rewritten, and the result must read back the same.
+ */
+function rewriteFlowStyle(text, ctx) {
+  if (!ctx || ctx.slideClass !== 'flowchart') return null;
+  if (text.startsWith('[')) {
+    const out = text.replace(/\{\s*"?:([a-z0-9-]+)"?\s*,/g, '{$1,');
+    return out === text ? null : out;
+  }
+  if (!text.includes(':')) return null; // a bare status word or plain code: unchanged
+  const old = legacyFlow.parseSpan(text, null);
+  if (old.unknown.length) return null;
+  const words = [];
+  if (old.id) words.push(`#${old.id}`);
+  const sh = old.shape;
+  if (sh.status) words.push(sh.status);
+  if (sh.shape) words.push(sh.shape);
+  if (sh.slot) words.push(`c${sh.slot}`);
+  for (const k of ['fill', 'border', 'text']) if (sh[k]) words.push(`${k}=c${sh[k]}`);
+  const ln = old.line;
+  if (ln.pattern) words.push(ln.pattern);
+  if (ln.head) words.push(ln.head);
+  if (ln.loose) words.push('loose');
+  if (!words.length) return null;
+  const out = words.length === 1 ? words[0] : `{${words.join(', ')}}`;
+  const back = flowGrammar.parseSpan(out, null);
+  const sorted = (o) => Object.fromEntries(Object.entries(o).sort(([x], [y]) => (x < y ? -1 : 1)));
+  const same = (a, b) => JSON.stringify([a.id, sorted(a.shape), sorted(a.line)]) === JSON.stringify([b.id, sorted(b.shape), sorted(b.line)]);
+  return !back.unknown.length && same(back, old) ? out : { unsafe: `no spelling of it reads back the same (${out})` };
+}
+
+const REWRITERS = { pill: rewritePill, spark: rewriteSpark, bracket: rewriteBracket, point: rewriteQuadrantPoint, after: rewriteGanttAfter, note: rewriteCellNote, transition: rewriteTransition, flow: rewriteFlowStyle };
 
 /**
  * Scatter, a LINE rewrite: the row's trailing run of 2–3 value pills (the old reader's
@@ -228,8 +302,97 @@ function rewriteGanttAxis(line, ctx) {
   return `${indent}\`[{${items.join(', ')}}]\``;
 }
 
-const LINE_REWRITERS = { point: rewriteScatterRow, gantt: rewriteGanttAxis };
+const legacyRadar = require('./segno-legacy/radar-scale.js');
+
+/**
+ * Radar: an eyebrow that pinned the scale (`Scale · 0–100`) → the value axis line
+ * `[{Scale, 0..100}]` (row 27 of the Segno note), which the chart lifts off the slide. An eyebrow
+ * that says more than the scale (`Scale · 0–10, on the criteria we wrote`) is prose the author
+ * wrote for the slide, so it stays and the axis line goes in above it. An eyebrow the old reader
+ * found no scale in is left alone.
+ */
+function rewriteRadarScale(line, ctx) {
+  if (!ctx || ctx.slideClass !== 'radar' || ctx.listRow || ctx.headingSeen) return null;
+  const m = /^(\s*)`([^`\n]+)`\s*$/.exec(line);
+  if (!m) return null;
+  // A slide that already has its axis line is done: the eyebrow after it is prose (idempotence).
+  if (m[2].trim().startsWith('[')) { ctx.radarAxis = true; return null; }
+  if (ctx.radarAxis) return null;
+  const text = m[2].trim();
+  const scale = legacyRadar.parseScale(text);
+  if (!scale) return null;
+  const num = /(-?[\d.]+)\s*(?:[–—-]|to)\s*(-?[\d.]+)/.exec(text) || /(?:^|\s)([\d.]+)\s*$/.exec(text);
+  const before = text.slice(0, num.index).trim();
+  const after = text.slice(num.index + num[0].length).trim();
+  const head = before.replace(/\s*[·:]\s*$/, '').trim();
+  const segs = head.split(/\s*·\s*/).filter(Boolean);
+  const name = (segs[segs.length - 1] || 'Scale').replace(/\s+$/, '');
+  if (/[,={}[\]"|]/.test(name)) return { unsafe: 'the scale name holds a separator' };
+  const axis = `${m[1]}\`[{${name}, ${scale.min}..${scale.max}}]\``;
+  const pure = !after && segs.length <= 1;
+  return pure ? axis : `${axis}\n\n${line}`;
+}
+
+const { readJourneyStep } = require('../lib/core/journey-step.js');
+
+/**
+ * Journey, a LINE rewrite (decision 11 of the Segno note): a task's `@actor`, `:mood` and `+volume`
+ * pills become one step record. The first actor goes in as `who=`; a second actor stays an
+ * `@` pill, because a record names `who` once. A task with actors only keeps its `@` pills —
+ * that is still the shortcut.
+ *   - Make tea `@me` `:5`              →  - Make tea `{who=me, mood=5}`
+ *   - Do work `@me` `@cat` `:1` `+40`  →  - Do work `{who=me, mood=1, volume=40}` `@cat`
+ * The old reader's own rules decide what each pill was (`parseInt` for mood, `parseFloat` for
+ * volume), and the result is re-read through the new reader before it is trusted.
+ */
+function rewriteJourneyTask(line, ctx) {
+  if (!ctx || ctx.slideClass !== 'journey' || ctx.listDepth !== 1) return null;
+  const spans = spansOf(line).map((sp) => ({ ...sp, text: line.slice(sp.from, sp.to).trim() }));
+  const actors = [];
+  let mood = null;
+  let volume = null;
+  const used = [];
+  for (const sp of spans) {
+    const t = sp.text;
+    if (t.startsWith('@') && t.length > 1) { actors.push({ sp, name: t.slice(1) }); continue; }
+    if (t.startsWith(':')) { const n = Number.parseInt(t.slice(1), 10); if (Number.isFinite(n)) { mood = n; used.push(sp); } continue; }
+    if (t.startsWith('+')) { const n = Number.parseFloat(t.slice(1)); if (Number.isFinite(n)) { volume = n; used.push(sp); } }
+  }
+  if (mood == null && volume == null) return null; // actors only: `@me` is still valid
+  const q = (x) => (/[,={}[\]"|\\]/.test(x) || x !== x.trim() ? `"${x.replace(/[\\"]/g, '\\$&')}"` : x);
+  const items = [];
+  if (actors[0]) items.push(`who=${q(actors[0].name)}`);
+  if (mood != null) items.push(`mood=${mood}`);
+  if (volume != null) items.push(`volume=${volume}`);
+  const record = `{${items.join(', ')}}`;
+  const rest = actors.slice(1).map((a) => a.sp);
+  const want = { actors: actors.map((a) => a.name), mood, volume };
+  const got = readJourneyStep([record, ...rest.map((sp) => sp.text)]);
+  if (JSON.stringify(got) !== JSON.stringify(want)) return { unsafe: `no spelling reads back the same (${record})` };
+  // Rebuild the line: the record where the first consumed pill was, the extra actors after it,
+  // every other pill and all prose where they were.
+  const gone = new Set([...used, ...(actors[0] ? [actors[0].sp] : [])]);
+  const first = spans.find((sp) => gone.has(sp));
+  let out = '';
+  let at = 0;
+  for (const sp of spans) {
+    if (!gone.has(sp) && !rest.includes(sp)) continue;
+    // Each removed pill takes its backticks and the space before it.
+    let from = sp.from;
+    while (from > 0 && line[from - 1] === '`') from--;
+    let to = sp.to;
+    while (to < line.length && line[to] === '`') to++;
+    const pre = line.slice(at, from);
+    out += sp === first ? `${pre}\`${record}\`${rest.map((r) => ` \`${r.text}\``).join('')}` : pre.replace(/[ \t]+$/, '');
+    at = to;
+  }
+  return out + line.slice(at);
+}
+
+const LINE_REWRITERS = { point: rewriteScatterRow, gantt: rewriteGanttAxis, radar: rewriteRadarScale, journey: rewriteJourneyTask };
+REWRITERS.journey = () => null;
 REWRITERS.gantt = () => null; // a line rewriter only; listed so `--only gantt` is valid
+REWRITERS.radar = () => null;
 
 /** One span's text → its new text, or null; `{unsafe}` when it looks old but cannot be rewritten. */
 export function rewriteSpan(text, active = Object.keys(REWRITERS), ctx = null) {
@@ -295,7 +458,7 @@ export function rewriteText(src, active = Object.keys(REWRITERS)) {
   const changes = [];
   const unsafe = [];
   let fence = null; // { marker, prose: boolean }
-  const ctx = { slideClass: null, listRow: false, listDepth: -1 }; // the slide's component, from its `_class:` directive
+  const ctx = { slideClass: null, listRow: false, listDepth: -1, headingSeen: false }; // the slide's component, from its `_class:` directive
   lines.forEach((orig, n) => {
     let line = orig;
     const f = FENCE.exec(line);
@@ -307,7 +470,8 @@ export function rewriteText(src, active = Object.keys(REWRITERS)) {
       ctx.slideClass = null;
       return;
     }
-    if (/^---\s*$/.test(line)) ctx.slideClass = null;
+    if (/^---\s*$/.test(line)) { ctx.slideClass = null; ctx.headingSeen = false; ctx.radarAxis = false; }
+    if (/^#{1,6}\s/.test(line)) ctx.headingSeen = true;
     const cls = /<!--\s*_?class:\s*([a-z][a-z0-9-]*)/.exec(line);
     if (cls) ctx.slideClass = cls[1];
     const row = /^(\s*)(?:[-*+]|\d+[.)])\s/.exec(line);

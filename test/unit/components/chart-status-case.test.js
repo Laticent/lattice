@@ -112,8 +112,8 @@ describe('gantt — the bar stamps the folded word (already folded; pinned here 
 
 describe('state-chart narration — the voice folds case with the slide', () => {
   const { narrateStateChart } = require('../../../lib/core/chart-narration');
-  const md = (pill) => ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`',
-    `2. In Review \`${pill}\``, '   - `ok => 3`', '3. Done'].join('\n');
+  const md = (pill) => ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `{submit, to=2}`',
+    `2. In Review \`${pill}\``, '   - `{ok, to=3}`', '3. Done'].join('\n');
   // The closing read-out speaks each list line as written, pill included, so it
   // says `AT-RISK` exactly as it says `at-risk`: the pill keeps its spelling. The
   // state's NAME, in the transition sentences, must not carry it.

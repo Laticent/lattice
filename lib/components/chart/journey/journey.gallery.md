@@ -21,15 +21,15 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ## The journey scores each stage of the path.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 
 ---
@@ -40,14 +40,14 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ## heatmap shades the stages by score.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 
 ---
@@ -58,14 +58,14 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ## curve draws the sentiment line.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 
 ---
@@ -76,14 +76,14 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ## swimlane splits the journey by actor.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 
 ---
@@ -94,14 +94,14 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ## weighted sizes the stages by importance.
 
 - Discover
-  - Search `@prospect` `:4` `+45`
-  - Referral `@prospect` `:5` `+18`
+  - Search `{who=prospect, mood=4, volume=45}`
+  - Referral `{who=prospect, mood=5, volume=18}`
 - Convert
-  - Pricing page `@prospect` `:3` `+12`
-  - Checkout `@prospect` `:2` `+10`
+  - Pricing page `{who=prospect, mood=3, volume=12}`
+  - Checkout `{who=prospect, mood=2, volume=10}`
 - Support
-  - Settings `@user` `:3` `+8`
-  - Help docs `@user` `:4` `+7`
+  - Settings `{who=user, mood=3, volume=8}`
+  - Help docs `{who=user, mood=4, volume=7}`
 
 
 ---
@@ -113,22 +113,22 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ## Five stages of twelve tasks is the ceiling.
 
 - Discover
-  - Hear of it `@prospect` `:3`
-  - First visit `@prospect` `:4`
+  - Hear of it `{who=prospect, mood=3}`
+  - First visit `{who=prospect, mood=4}`
 - Evaluate
-  - Read the case `@prospect` `:4`
-  - Book a demo `@prospect` `:3`
-  - Sit the demo `@prospect` `@sales` `:4`
+  - Read the case `{who=prospect, mood=4}`
+  - Book a demo `{who=prospect, mood=3}`
+  - Sit the demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Sign up `@prospect` `:3`
-  - First setup `@user` `:1`
-  - Invite the team `@user` `:2`
+  - Sign up `{who=prospect, mood=3}`
+  - First setup `{who=user, mood=1}`
+  - Invite the team `{who=user, mood=2}`
 - Adopt
-  - First report `@user` `:4`
-  - Weekly habit `@user` `:5`
+  - First report `{who=user, mood=4}`
+  - Weekly habit `{who=user, mood=5}`
 - Expand
-  - Add seats `@buyer` `:4`
-  - Renew early `@buyer` `:5`
+  - Add seats `{who=buyer, mood=4}`
+  - Renew early `{who=buyer, mood=5}`
 
 
 ---
@@ -139,15 +139,15 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ## The journey scores each stage of the path.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 
 ---
@@ -158,15 +158,15 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ## The journey scores each stage of the path.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 
 ---
@@ -177,15 +177,15 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ## The journey scores each stage of the path.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 
 ---
@@ -200,7 +200,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 - More than ten tasks
   - Past ten tasks the chips compress and the labels become unreadable. Group into fewer sections, or split the journey at a natural break.
 - Volume tokens without weighted
-  - The `+N` volume token is meaningful only under the `weighted` variant. On the other four it is parsed but invisible — strip it from the markdown or commit to weighted.
+  - The `volume=` value is meaningful only under the `weighted` variant. On the other four it is parsed but invisible — strip it from the markdown or commit to weighted.
 
 ---
 

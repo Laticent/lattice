@@ -22,16 +22,16 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ## Every page reaches a human within 15 minutes.
 
-- Alert fires `:pill` => Auto-triage => Severity?
-- Severity? `:diamond`
+- Alert fires `pill` => Auto-triage => Severity?
+- Severity? `diamond`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket -> Mitigate
-  - -SEV3-> Backlog `:dotted`
+  - -SEV3-> Backlog `dotted`
 - Page on-call `fail` =ack=> Mitigate => Postmortem
   > Pages the secondary after 5 minutes.
-- Postmortem `:doc`
+- Postmortem `doc`
 
-`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {dotted, Waits for business hours}]`
 
 
 ---
@@ -41,11 +41,11 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ## Events land in the warehouse within a minute.
 
-- Web events `:io` => Ingest queue => Stream processor => Warehouse
-- Warehouse `:cylinder`
+- Web events `io` => Ingest queue => Stream processor => Warehouse
+- Warehouse `cylinder`
   - -> BI dashboards
   - -nightly-> ML training
-- BI dashboards `:doc`
+- BI dashboards `doc`
 
 
 ---
@@ -55,7 +55,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ## The operating model has three lines of reporting.
 
-- Chief executive `:c1`
+- Chief executive `c1`
   - -- Finance & Technology & Operations
 - Finance
   - -- Controller & Planning
@@ -73,23 +73,23 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ## Payments sit between four parties.
 
-- Customers `:c1`
-  - Shopper `:circle`
+- Customers `c1`
+  - Shopper `circle`
     - -browses-> Storefront
-  - Merchant `:circle`
+  - Merchant `circle`
     - -lists items-> Storefront
-- Platform `:c2`
+- Platform `c2`
   - Storefront
     - => Payments
   - Payments
     - -screens-> Fraud checks
     - <-> Card networks
-  - Fraud checks `:diamond`
+  - Fraud checks `diamond`
   - -ships via-> Carriers
-- Partners `:c3`
-  - Card networks `:square`
-  - Carriers `:square`
-- Regulators `:doc`
+- Partners `c3`
+  - Card networks `square`
+  - Carriers `square`
+- Regulators `doc`
 
 
 ---
@@ -101,16 +101,16 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ## Every page reaches a human within 15 minutes.
 
-- Alert fires `:pill` => Auto-triage => Severity?
-- Severity? `:diamond`
+- Alert fires `pill` => Auto-triage => Severity?
+- Severity? `diamond`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket -> Mitigate
-  - -SEV3-> Backlog `:dotted`
+  - -SEV3-> Backlog `dotted`
 - Page on-call `fail` =ack=> Mitigate => Postmortem
   > Pages the secondary after 5 minutes.
-- Postmortem `:doc`
+- Postmortem `doc`
 
-`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {dotted, Waits for business hours}]`
 
 
 ---
@@ -122,16 +122,16 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ## Every page reaches a human within 15 minutes.
 
-- Alert fires `:pill` => Auto-triage => Severity?
-- Severity? `:diamond`
+- Alert fires `pill` => Auto-triage => Severity?
+- Severity? `diamond`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket -> Mitigate
-  - -SEV3-> Backlog `:dotted`
+  - -SEV3-> Backlog `dotted`
 - Page on-call `fail` =ack=> Mitigate => Postmortem
   > Pages the secondary after 5 minutes.
-- Postmortem `:doc`
+- Postmortem `doc`
 
-`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {dotted, Waits for business hours}]`
 
 
 ---
@@ -143,16 +143,16 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ## Every page reaches a human within 15 minutes.
 
-- Alert fires `:pill` => Auto-triage => Severity?
-- Severity? `:diamond`
+- Alert fires `pill` => Auto-triage => Severity?
+- Severity? `diamond`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket -> Mitigate
-  - -SEV3-> Backlog `:dotted`
+  - -SEV3-> Backlog `dotted`
 - Page on-call `fail` =ack=> Mitigate => Postmortem
   > Pages the secondary after 5 minutes.
-- Postmortem `:doc`
+- Postmortem `doc`
 
-`[{"=>", Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {dotted, Waits for business hours}]`
 
 
 ---

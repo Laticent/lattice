@@ -86,7 +86,7 @@ Each dot carries its own rationale in the note.
 
 <!-- _class: radar -->
 
-`Capability · 0–100`
+`[{Capability, 0..100}]`
 
 ## Where the team is strong, and where it isn't.
 

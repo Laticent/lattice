@@ -51,7 +51,7 @@ footer: "Phase 6 — chart categorical"
 
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## Radar series, one hue each.
 

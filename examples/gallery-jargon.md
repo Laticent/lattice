@@ -399,6 +399,8 @@ _Criteria defined by the team building Sprig + Log. We're transparent about it. 
 <!-- _class: radar -->
 <!-- _footer: "Spider comparison · radar" -->
 
+`[{Scale, 0..10}]`
+
 `Scale · 0–10, on the criteria we wrote`
 
 ## The four tools, scored across the criteria we wrote
@@ -931,14 +933,14 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 ## A product manager's first month with the framework
 
 - Week 1
-  - Onboarding `@pm` `:4`
-  - First weekly brief `@pm` `:3`
+  - Onboarding `{who=pm, mood=4}`
+  - First weekly brief `{who=pm, mood=3}`
 - Week 2
-  - Logging a decision `@pm` `:2`
+  - Logging a decision `{who=pm, mood=2}`
 - Week 3
-  - The 2σ alert `@pm` `:1`
+  - The 2σ alert `{who=pm, mood=1}`
 - Week 4
-  - Retrospective `@team` `:2`
+  - Retrospective `{who=team, mood=2}`
 
 ---
 

@@ -8,7 +8,7 @@
 
 **Tags** `flowchart` · `states` · `workflow`
 
-Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the REF, always: transitions cite `=> 4`, and the ordinal is painted in the node's corner (on `inline`, in a leading column). It is also the READING ORDER: a chain reads 1, 2, 3 along its row and wraps onto the next row when one row would shrink the type. A machine that branches is re-ranked by dagre, because no single line can show a fan-out — the states would read as a sequence.
+Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the REF, always: transitions cite `to=4`, and the ordinal is painted in the node's corner (on `inline`, in a leading column). It is also the READING ORDER: a chain reads 1, 2, 3 along its row and wraps onto the next row when one row would shrink the type. A machine that branches is re-ranked by dagre, because no single line can show a fan-out — the states would read as a sequence.
 
 ## Agent contract
 
@@ -21,7 +21,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 | `title` | `h2` | yes | Slide heading framing the state machine. |
 | `eyebrow` | `p > code` | no | Optional eyebrow naming the machine or domain. |
 | `states` | `ol > li` | yes | One li per state. Index is the stable ref. Trailing inline code is a closed metadata vocabulary: `start`, `end`, or one of the chart-status keywords (on-track, at-risk, blocked, done, live, decision, deferred, warn, pilot, fail — case is ignored, so `AT-RISK` is `at-risk`). Multiple metadata tokens allowed; order is irrelevant. Unknown trailing codes are left in the rendered label. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and a state with none is a neutral tile. The colors follow gantt: `live` is running work and paints blue (info), apart from finished `done`. The legend shows one chip per color, so words that paint alike share a chip (`on-track · done`). |
-| `transitions` | `ol > li > ul > li` | no | Outgoing transitions from a state — one per nested bullet. Each carries a single inline-code arrow `event=>N` or `=>N` (event optional). Target is a state index or the literal `self` for self-loops. Whitespace inside the inline code is insignificant. The event text may carry explicit line breaks — a literal `\n` or an HTML `<br>` / `<br/>` — which are honored on any machine. The label sits BESIDE its line on every layout — below a horizontal run, to the right of a vertical one — so it never cuts a gap out of the connector, and text too long for the space it has wraps on its own, never mid-word. |
+| `transitions` | `ol > li > ul > li` | no | Outgoing transitions from a state — one per nested bullet. Each carries a single inline-code record `{event, to=N}` or `{to=N}` (event optional; quote one that holds a comma). Target is a state index or the literal `self` for self-loops. Whitespace inside the inline code is insignificant. The event text may carry explicit line breaks — a literal `\n` or an HTML `<br>` / `<br/>` — which are honored on any machine. The label sits BESIDE its line on every layout — below a horizontal run, to the right of a vertical one — so it never cuts a gap out of the connector, and text too long for the space it has wraps on its own, never mid-word. |
 | `detail` | `ol > li > ul > li (prose, no arrow)` | no | Optional per-state reveal detail (the shared chart-family detail substrate). A nested bullet under a state that is NOT an inline-code transition (plain prose — the entry/exit action, the rule, the why) is captured as that state's detail rather than a transition. It drives two surfaces from one source: (1) Present/Practice/Preview — the state node is tagged `data-mark` and the prose rides an inert `<template class="chart-detail">` the reveal layer shows in a popover on hover/tap, with the active node lifted, the rest dimmed, and the whole figure tilting (the edge-router skips re-measuring while the tilt is live, so the routed edges stay aligned); (2) the static PDF — the same detail folds into the slide's speaker note (`Label (status): item · item`) as a Marp-faithful comment. Renders nothing on the slide face, so a machine with no prose bullets is byte-identical. Must be a bullet (`-`/`*`), not numbered. |
 | `tint` | `ol > li (::: suffix), ol > li > ul > li (::: suffix)` | no | Optional `:::token` naming a THEME TOKEN to paint with — `:::state-fail-hue`, never a color literal. On a state it tints the node's gradient and stroke; on a transition it tints the line and its arrowhead. A transition takes an optional second slot for its edge-label background: `:::state-fail-hue/surface-raised`. The name is used verbatim as `var(--<token>)` and must match `^[a-z][a-z0-9-]*$` with no `--` prefix (the engine adds it); anything else is dropped whole and the element keeps its inherited paint. Existence is NOT checked at build time — this is a pure string transform and cannot read the theme's declared tokens — so a typo falls back to the untinted default and the deck degrades rather than breaking. Nothing names the typo today: it is silent on every surface, including `lint:deck`. |
 
@@ -35,8 +35,8 @@ Use to show a finite-state machine — the discrete states a system can be in an
 
 ### Common mistakes
 
-- **Writing a transition's event/target as plain text instead of a single inline-code arrow.** The transition/detail distinction is purely mechanical — a nested bullet whose SOLE content is one inline-code token matching `event => N` or `=> N` (N a digit or `self`) is a transition; anything else — plain text, or an inline-code token with a non-numeric target like `` `approve => Approved` `` — is captured as detail prose instead. A transition written as plain text (or with a named target) is silently treated as detail, not as an edge, and no arrow renders.
-- **Using a state's NAME instead of its numeric index as a transition target (`` `approve => Approved` `` instead of `` `approve => 4` ``).** Transitions target the state's INDEX — its position in the numbered list, which is the stable ref — not its name; a name in the target position won't resolve to any state.
+- **Writing a transition's event/target as plain text instead of a single inline-code record.** The transition/detail distinction is purely mechanical — a nested bullet whose SOLE content is one inline-code record `{event, to=N}` or `{to=N}` (N a number or `self`) is a transition; anything else — plain text, or an inline-code record with a non-numeric target like `` `{approve, to=Approved}` `` — is captured as detail prose instead. A transition written as plain text (or with a named target) is silently treated as detail, not as an edge, and no arrow renders.
+- **Using a state's NAME instead of its numeric index as a transition target (`` `{approve, to=Approved}` `` instead of `` `{approve, to=4}` ``).** Transitions target the state's INDEX — its position in the numbered list, which is the stable ref — not its name; a name in the target position won't resolve to any state.
 
 ## When to use
 
@@ -62,18 +62,18 @@ Use to show a finite-state machine — the discrete states a system can be in an
 How a draft moves from author to archive.
 
 1. Draft `start`
-   - `submit => 2`
-   - `discard => 6`
+   - `{submit, to=2}`
+   - `{discard, to=6}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
 4. Approved `done`
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `live`
-   - `archive => 6`
+   - `{archive, to=6}`
 6. Archived `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
@@ -106,12 +106,12 @@ States flow left to right.
 ## lr flows the states left to right.
 
 1. Source `start`
-   - `compile => 2`
+   - `{compile, to=2}`
 2. Compiled
-   - `test => 3`
+   - `{test, to=3}`
 3. Tested
-   - `deploy => 4`
-   - `fail => 1`
+   - `{deploy, to=4}`
+   - `{fail, to=1}`
 4. Deployed `end`
 ```
 
@@ -125,10 +125,10 @@ States flow top to bottom, whatever the stage.
 ## tb stacks the states top to bottom.
 
 1. Queued `start`
-   - `claim => 2`
+   - `{claim, to=2}`
 2. Running `live`
-   - `finish => 3`
-   - `crash => 1`
+   - `{finish, to=3}`
+   - `{crash, to=1}`
 3. Complete `end`
 ```
 
@@ -142,11 +142,11 @@ The chart sits beside its prose.
 ## inline sets the chart beside its prose.
 
 1. Connecting `start`
-   - `retry => self`
-   - `ok => 2`
-   - `fail => 3`
+   - `{retry, to=self}`
+   - `{ok, to=2}`
+   - `{fail, to=3}`
 2. Connected `live`
-   - `disconnect => 1`
+   - `{disconnect, to=1}`
 3. Failed `end`
 ```
 
@@ -160,16 +160,16 @@ Eased arrows between states.
 ## curved eases the arrows between states.
 
 1. Draft `start`
-   - `submit => 2`
-   - `discard => 5`
+   - `{submit, to=2}`
+   - `{discard, to=5}`
 2. In Review `at-risk`
-   - `approve => 3`
-   - `revise => self`
-   - `reject => 1`
+   - `{approve, to=3}`
+   - `{revise, to=self}`
+   - `{reject, to=1}`
 3. Approved
-   - `publish => 4`
+   - `{publish, to=4}`
 4. Published `live`
-   - `archive => 5`
+   - `{archive, to=5}`
 5. Archived `end`
 ```
 

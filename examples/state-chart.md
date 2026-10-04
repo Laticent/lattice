@@ -21,7 +21,7 @@ Numbered list, inline-code transitions, palette-blind SVG. No Mermaid, no charti
 
 ## What this deck shows.
 
-A finite-state machine authored as an ordered list. Each top-level item is a state; the index becomes a stable ref. Nested bullets carry the outgoing transitions, each a single inline-code arrow like `submit => 2` or `revise => self`. Whitespace inside the inline code is insignificant. The browser measures the laid-out nodes and draws the SVG edges, so it sizes to any content. Two orthogonal modifier classes: direction — `lr` (left-to-right, Mermaid `direction LR`), `tb` (top-to-bottom), or neither, which lets the chart pick whichever direction and row count sets the type largest — and presentation — `inline` (transitions as chips, no SVG). They compose. `dark` composes on top.
+A finite-state machine authored as an ordered list. Each top-level item is a state; the index becomes a stable ref. Nested bullets carry the outgoing transitions, each a single inline-code record like `{submit, to=2}` or `{revise, to=self}`. Whitespace inside the inline code is insignificant. The browser measures the laid-out nodes and draws the SVG edges, so it sizes to any content. Two orthogonal modifier classes: direction — `lr` (left-to-right, Mermaid `direction LR`), `tb` (top-to-bottom), or neither, which lets the chart pick whichever direction and row count sets the type largest — and presentation — `inline` (transitions as chips, no SVG). They compose. `dark` composes on top.
 
 ---
 
@@ -35,18 +35,18 @@ A finite-state machine authored as an ordered list. Each top-level item is a sta
 How a draft moves from author to archive.
 
 1. Draft `start`
-   - `submit => 2`
-   - `discard => 6`
+   - `{submit, to=2}`
+   - `{discard, to=6}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
 4. Approved `done`
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `live`
-   - `archive => 6`
+   - `{archive, to=6}`
 6. Archived `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
@@ -59,10 +59,10 @@ How a draft moves from author to archive.
 ## Job runner.
 
 1. Idle `start`
-   - `start => 2`
+   - `{start, to=2}`
 2. Running
-   - `done => 3`
-   - `fail => 1`
+   - `{done, to=3}`
+   - `{fail, to=1}`
 3. Done `end`
 
 ---
@@ -73,11 +73,11 @@ How a draft moves from author to archive.
 ## Connection retry.
 
 1. Connecting `start`
-   - `retry => self`
-   - `ok => 2`
-   - `fail => 3`
+   - `{retry, to=self}`
+   - `{ok, to=2}`
+   - `{fail, to=3}`
 2. Connected `live`
-   - `disconnect => 1`
+   - `{disconnect, to=1}`
 3. Failed `end`
 
 ---
@@ -88,18 +88,18 @@ How a draft moves from author to archive.
 ## Inline rendering.
 
 1. Draft `start`
-   - `submit => 2`
-   - `discard => 6`
+   - `{submit, to=2}`
+   - `{discard, to=6}`
 2. Submitted `on-track`
-   - `review => 3`
+   - `{review, to=3}`
 3. In Review
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
+   - `{approve, to=4}`
+   - `{reject, to=1}`
+   - `{revise, to=self}`
 4. Approved `done`
-   - `publish => 5`
+   - `{publish, to=5}`
 5. Published `live`
-   - `archive => 6`
+   - `{archive, to=6}`
 6. Archived `end`
 
 ---
@@ -110,12 +110,12 @@ How a draft moves from author to archive.
 ## Build pipeline.
 
 1. Source `start`
-   - `compile => 2`
+   - `{compile, to=2}`
 2. Compiled
-   - `test => 3`
+   - `{test, to=3}`
 3. Tested
-   - `deploy => 4`
-   - `fail => 1`
+   - `{deploy, to=4}`
+   - `{fail, to=1}`
 4. Deployed `end`
 
 ---

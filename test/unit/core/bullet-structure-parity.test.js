@@ -556,7 +556,7 @@ test('no narrator ever speaks a fence marker', () => {
   // would leak somewhere else.
   const FENCE = '\n```\nformat: whatever\n```\n';
   const decks = [
-    '<!-- _class: state-chart lr -->\n\n## H.\n\n1. Draft `start`\n   - `submit => 2`\n2. In Review\n   - `approve => 3`\n3. Published `end`\n',
+    '<!-- _class: state-chart lr -->\n\n## H.\n\n1. Draft `start`\n   - `{submit, to=2}`\n2. In Review\n   - `{approve, to=3}`\n3. Published `end`\n',
     '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n',
     '<!-- _class: word-cloud -->\n\n## H.\n\n- alpha `9`\n- beta `7`\n- gamma `3`\n',
   ];
