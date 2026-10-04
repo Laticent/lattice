@@ -79,6 +79,15 @@ const PREFLIGHT = [
 ];
 
 const STEPS = [
+  // Segno, the grammar engine (2026-09-28-segno-unified-inline-notation.md). FIRST, and in the
+  // FOREGROUND: since Segno phase 2 every inline-code directive in lib/core is read through
+  // `@laticent/segno` — the stage catalog compiles the manifests' slot specs with it, and the
+  // runtime, the emulator, authoring-core and the committed guide-player bundle inline it
+  // (chart-values.js reads every number through it). Its generated notation parser is
+  // committed source, so it is a PR-owned step of its own that runs first; the dist step only
+  // verifies it is fresh and writes nothing outside dist/.
+  { label: 'Segno notation parser (generated source)', script: 'build-segno-grammar.js' },
+  { label: 'Segno library dist (CJS + .d.ts)', script: 'build-segno-lib.js', uncommitted: true },
   // The shipped finish rules, written into base.finish.css from their recipes
   // (portable-packages §3.6). BEFORE lattice.css bundles that file, or a recipe edit would
   // reach the bundle one build late. The full package index runs later, after the catalogs
@@ -145,14 +154,6 @@ const STEPS = [
   // ahead of the runtime and the emulator, which both bundle `@laticent/trama` from this
   // dist/: as a background step it would be joined only at player-core, far too late.
   { label: 'Trama library dist (CJS + .d.ts)', script: 'build-trama-lib.js', uncommitted: true },
-  // Segno, the grammar engine (2026-09-28-segno-unified-inline-notation.md). FOREGROUND and
-  // ahead of the runtime, the emulator and authoring-core for Trama's reason: lib/core reads
-  // every inline-code directive through `@laticent/segno` (Segno phase 2), and each of those
-  // bundles inlines it from this dist/. Its generated notation parser is committed source, so
-  // it is a PR-owned step of its own that runs first; the dist step only verifies it is fresh
-  // and writes nothing outside dist/.
-  { label: 'Segno notation parser (generated source)', script: 'build-segno-grammar.js' },
-  { label: 'Segno library dist (CJS + .d.ts)', script: 'build-segno-lib.js', uncommitted: true },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
   // The shared PDF writer the CLI injects into its own Chrome (the Studio imports the same
@@ -365,7 +366,9 @@ async function main(argv) {
   // lib/export/anima-player-bundle.generated.mjs, and that file is committed, so a
   // checkout always has it. If a dependency of an uncommitted step is ever moved out
   // of git, bootstrap it here too.
-  const GUARD_INPUTS = ['dist/lattice.css', 'docs/src/playground/player-core.generated.js'];
+  // Segno's dist too: the guard loads lint-core, which reads every inline-code directive
+  // through `@laticent/segno` (Segno phase 2), so without it the guard dies on a require.
+  const GUARD_INPUTS = ['dist/lattice.css', 'docs/src/playground/player-core.generated.js', 'docs/src/lib/segno/dist/index.cjs'];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');
     // BACKGROUND_LABELS first, and this is a dependency, not a speed-up. The main

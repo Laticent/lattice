@@ -20,6 +20,17 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./number": {
+      "types": "./number.ts",
+      "import": {
+        "types": "./dist/number.d.ts",
+        "default": "./dist/number.mjs"
+      },
+      "require": {
+        "types": "./dist/number.d.ts",
+        "default": "./dist/number.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
