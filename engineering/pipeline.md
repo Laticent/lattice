@@ -245,8 +245,8 @@ a render (`followups.d/2503-p3-pdf-photo-exact-4k.md`).
 
 **The photo is PNG first.** A flat photo (`pngIsFlat`) is kept as PNG; a busy one is also
 taken as JPEG and `smallestPhoto` (`compose.mjs`) keeps the smaller file. The CLI's PNG uses
-Chrome's fast encoder (`optimizeForSpeed`), about 1.5x the bytes of the default one but as quick
-as a JPEG, and a busy slide's JPEG is that PNG re-encoded in the page rather than a second
+Chrome's fast encoder (`optimizeForSpeed`): about 3x the default encoder's bytes on a flat slide
+(a flat deck's whole PDF grows about 1.5x), but as quick as a JPEG, and a busy slide's JPEG is that PNG re-encoded in the page rather than a second
 screenshot: CI's integration job renders hundreds of decks, and the default encoder pushed it
 past its timeout. On a flat slide background that is the PNG, which keeps
 a 1 px colored rule exact; JPEG stores color at half resolution at every quality, and wrote the

@@ -5049,8 +5049,9 @@ async function composePdfInPage(g, page) {
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
           // The encoding the writer asks for: PNG first, JPEG too on a busy slide (compose.mjs pngIsFlat).
           // The PNG takes Chrome's fast encoder: 67 ms against 168 ms for a 1280 px slide (JPEG: 50 ms),
-          // at about 1.5x the bytes; CI's integration job renders hundreds of decks and sat 25 s from
-          // its timeout before #2503, so the owner traded those bytes for the time (2026-10-04).
+          // at about 3x the default encoder's bytes on a flat slide (a flat deck's whole PDF grows about
+          // 1.5x); CI's integration job renders hundreds of decks and sat 25 s from its timeout before
+          // #2503, so the owner traded those bytes for the time (2026-10-04).
           const buf = await h.screenshot(type === 'jpeg'
             ? { type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false }
             : { type: 'png', optimizeForSpeed: true, captureBeyondViewport: false });
