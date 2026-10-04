@@ -352,9 +352,9 @@ Order of work, all in one PR (#2404):
   - ~~The photo is JPEG, which stores color at half resolution. A 1px colored hairline left in
     the photo (the top keyline of a dark slide) bleeds a little color into the row below.~~
     **Fixed 2026-09-29.** The golden re-render's parity sweep measured it on 59 of 330 decks
-    (the keyline written as rgb(42,132,176) for rgb(0,146,216)). Each camera now offers PNG and
-    JPEG and the writer keeps the smaller (`smallestPhoto`), so a flat slide is written
-    lossless and the rule exact. Pinned by `test/integration/export/pdf-photo-hairline.test.js`.
+    (the keyline written as rgb(42,132,176) for rgb(0,146,216)). The writer now asks the camera for
+    PNG first and keeps it when it is flat (`pngIsFlat`); a busy slide is also taken as JPEG and the
+    smaller wins (`smallestPhoto`). So a flat slide is written lossless and the rule exact. Pinned by `test/integration/export/pdf-photo-hairline.test.js`.
     On a 4K slide the photo is still downsampled to 2560 px, which keeps the rule a little soft
     even as PNG (y0 rgb(128,69,82) against the screen's rgb(181,95,116); JPEG gave 110,79,84).
     Photographing 4K at 3840 px fixed it but cost ~21 s a 116-slide 4K gallery and pushed CI's

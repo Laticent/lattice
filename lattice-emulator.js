@@ -5061,8 +5061,8 @@ async function composePdfInPage(g, page) {
       await page.exposeFunction(ASSET_FN, async (url) => pdfAssets.asset(url));
       await page.exposeFunction(FACES_FN, async (href) => pdfAssets.fontFaceRules(href));
     }
-    // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~45 s (PNG-first
-    // photos; ~35 s with the JPEG-only camera), and a
+    // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~31 s (a 4K
+    // slide's photo is JPEG at 2560 px; PNG-first is for 16:9 and HD), and a
     // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
     const composeMs = Math.max(RENDER_WATCHDOG_MS, handles.length * 4000);
     const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide) => {

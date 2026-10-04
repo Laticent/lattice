@@ -183,6 +183,17 @@ test('canvasCamera: a busy slide is captured once and encoded twice', async () =
 	assert.equal(Buffer.from(jpeg.bytes).toString(), 'image/jpeg');
 	await camera({}, { scale: 1, type: 'png' });
 	assert.equal(captures, 2, 'another slide is captured afresh');
+	await camera(section, { scale: 1, type: 'png' });
+	await camera(section, { scale: 1, type: 'jpeg' });
+	await camera(section, { scale: 1, type: 'jpeg' });
+	assert.equal(captures, 4, 'a PNG ask always captures; its capture serves one JPEG ask and is dropped');
+});
+
+test('makeHtmlToImageCamera: the pre-#2503 `{ toJpeg }` signature still returns a JPEG', async () => {
+	const camera = compose.makeHtmlToImageCamera({ toJpeg: async () => `data:image/jpeg;base64,${Buffer.from('jpeg!').toString('base64')}` });
+	const shot = await camera({}, { scale: 1, type: 'png' });
+	assert.equal(shot.type, 'jpeg');
+	assert.equal(Buffer.from(shot.bytes).toString(), 'jpeg!');
 });
 
 // Chrome's screenshot is an 8-bit RGB, non-interlaced PNG: its IDAT stream IS a PDF FlateDecode
