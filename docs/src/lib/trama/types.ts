@@ -184,6 +184,11 @@ export interface GraphKernel {
    * relative. Positions must be finite.
    */
   route(model: GraphModel, sizes: SizeMap, positions: Record<string, Point>, opts?: LayoutOptions): Geometry | null;
+  /**
+   * True when the graph lays out on the reading-order grid with no dagre: no groups, two or
+   * more shapes, and no two shapes on one rank (forward lines only, in authored order).
+   */
+  isChain(model: GraphModel): boolean;
   simplify(pts: Point[]): Point[];
   stats: KernelStats;
 }

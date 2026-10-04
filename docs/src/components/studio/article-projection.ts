@@ -79,7 +79,7 @@ export const ARTICLE_ROOT = '.st-read-article';
  *
  * TWO markers, not three, and the two omissions are deliberate.
  *
- * `data-sc-transitions` (state-chart) is NOT here. A state-chart is in
+ * `data-sc-model` (state-chart) is NOT here. A state-chart is in
  * `SPATIAL_PLACEHOLDER_COMPONENTS`, and `projectDeckToProse` takes that branch first — so the
  * slide projects to its placeholder (plus the description the transform already wrote into
  * the static render) whether or not anything was baked. Gating on it bought a byte-identical

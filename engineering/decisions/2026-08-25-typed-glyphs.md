@@ -147,6 +147,12 @@ Export-to-Marp bundle takes) with parity kept across all three. Under HARD RULE 
 "found, not caused, and off-path" case: recorded here rather than pulled into this diff, and
 pinned by content in `test/unit/core/shape-glyphs.test.js` so a THIRD one cannot appear quietly.
 
+**Update (2026-09-27, state chart v2).** The state chart's chip is drawn now: the arrow is its
+own `span.state-chip-mark` masked with `--shape-arrow-right` (a self-loop takes
+`--shape-refresh`), the destination index is its own text node, and `role="img"` with an
+`aria-label` ("to state 3", "to itself") carries the meaning for assistive technology. Its row
+is gone from the pin. The matrix-grid axis marks remain.
+
 ## 5b. The quadrant eyebrow — the advice that was wrong
 
 The obvious coaching for a `quadrant` axis eyebrow is "the arrow is a parse-time delimiter

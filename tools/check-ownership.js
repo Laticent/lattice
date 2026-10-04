@@ -2783,7 +2783,6 @@ const SANCTIONED_READING_ROLE = [
   { file: 'lib/components/chart/journey/journey.styles.css', role: 'body-compact', count: 3, why: 'E4 chart keys (legends)' },
   { file: 'lib/components/chart/matrix-grid/matrix-grid.styles.css', role: 'body-compact', count: 3, why: 'E4 chart text (grid cells are a chart, not a table)' },
   { file: 'lib/components/chart/roadmap/roadmap.styles.css', role: 'body-compact', count: 1, why: 'E4 chart key (the legend)' },
-  { file: 'lib/components/chart/state-chart/state-chart.styles.css', role: 'body-compact', count: 1, why: 'E4 chart text' },
   { file: 'lib/components/chart/timeline-list/timeline-list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a milestone\'s description under its --fs-body title)' },
   { file: 'lib/components/code/code/code.styles.css', role: 'body-compact', count: 1, why: 'code keeps --fs-body-compact: a code line cannot wrap (owner, 2026-09-29)' },
   { file: 'lib/components/code/compare-code/compare-code.styles.css', role: 'body-compact', count: 2, why: 'code keeps --fs-body-compact (owner, 2026-09-29)' },
@@ -5635,6 +5634,9 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/slope/slope.transform.js', true, true],
   ['components/chart/stacked-bar/stacked-bar.transform.js', true, true],
   ['components/chart/state-chart/state-chart.transform.js', true, true],
+  // The state chart, like the flowchart, names each state on its harness tile and on the tile the
+  // pass paints; its status is the value.
+  ['components/chart/state-chart/state-chart.layout.js', true, true],
   // The flowchart names each shape twice: on the harness tile the server emits (what shows before
   // the browser pass, or where it cannot run) and on the shape the pass paints. No value: a shape's
   // status paints it rather than being a quantity a sentence could corroborate.
@@ -5875,9 +5877,9 @@ const SANCTIONED_PREVIEW_BUILDERS = [
 // it appears — because the file-scoped shape every other #22 arm uses would certify a
 // SECOND injection point hiding behind an already-legitimate one (#1731 §9.8, finding 7,
 // in a different channel). A stale entry fails too, so the list cannot rot.
-// Browser passes outside lib/runtime that write markup after the sanitizer ran. The state
-// chart's pass (state-chart.transform.js) is the other member of this class and is NOT listed
-// yet: followups.d/2385-p2-state-chart-pass-census.md.
+// Browser passes outside lib/runtime that write markup after the sanitizer ran. Both graph
+// charts now write through Trama's one pipeline (below): the state chart moved onto it in
+// state chart v2, which closed followups.d/2385-p2-state-chart-pass-census.md.
 //
 // Trama's pipeline (docs/src/lib/trama/pipeline.ts) is the one graph-chart writer: it writes
 // whatever an ADAPTER paints, so each adapter that calls it owns sanitizing its model, and a
@@ -5892,12 +5894,14 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
     count: 1,
     provenance:
       'OURS — Trama writes the markup its adapter paints (and the same string again when a live layout ' +
-      'holds the last drawing). Today one adapter calls it: the flowchart ' +
-      '(lib/components/chart/flowchart/flowchart.layout.js), painting from `data-fc-model`. A deck can ' +
-      'FORGE that attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so the ' +
-      'adapter trusts none of it: sanitizeModel rebuilds every structural field from a closed set or an ' +
-      'integer range and drops the rest, and every author string is escaped where it is painted. Pinned by ' +
-      'test/unit/components/flowchart.test.js "a forged model cannot inject markup".',
+      'holds the last drawing). Two adapters call it: the flowchart ' +
+      '(lib/components/chart/flowchart/flowchart.layout.js), painting from `data-fc-model`, and the state ' +
+      'chart (lib/components/chart/state-chart/state-chart.layout.js), painting from `data-sc-model`. A deck ' +
+      'can FORGE either attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so ' +
+      'neither adapter trusts any of it: its sanitizeModel rebuilds every structural field from a closed set ' +
+      'or an integer range and drops the rest, and every author string is escaped where it is painted. ' +
+      'Pinned by test/unit/components/flowchart.test.js "a forged model cannot inject markup" and ' +
+      'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary".',
   },
   {
     file: 'lib/runtime/index.js',

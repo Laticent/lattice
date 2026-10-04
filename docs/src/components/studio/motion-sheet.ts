@@ -152,10 +152,10 @@ export function markCount(chunk: string): number | null {
 			continue;
 		}
 		if (inFence) continue;
-		// BOTH list forms: charts use `- `, and `state-chart`'s states are an ORDERED list
-		// (`ol > li`) whose nested `- ` items are its transitions, not marks. Counting only
-		// bullets reported "not countable" for every state-chart — verified on the live surface,
-		// where a 3-state chart emits exactly 3 `[data-mark]` nodes.
+		// BOTH list forms: charts use `- `, and a numbered list means the same thing. Only
+		// TOP-LEVEL items count: a state chart's nested `- ` items are its transitions, not marks
+		// (a 3-state chart emits exactly 3 `[data-mark]` nodes). A composite state's members are
+		// nested too, so such a machine reads low; the duration is labeled an estimate.
 		const isTop = /^(?:[-*+]|\d+[.)])\s+\S/.test(raw);
 		const isNested = /^\s+(?:[-*+]|\d+[.)])\s+\S/.test(raw);
 		if (isTop) {

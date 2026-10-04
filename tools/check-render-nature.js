@@ -43,8 +43,8 @@
  * masthead, header, footer and the read-as caption — is outside the picture by
  * construction (chart-family emits `.chart-caption` as a SIBLING of `.chart-body`),
  * so nothing has to exclude it. What IS excluded is content that occupies no
- * layout at all (`display:none`, `visibility:hidden` — how state-chart's `<ol>`
- * stops counting once the browser pass paints over it) and content inside SVG's
+ * layout at all (`display:none`, `visibility:hidden` — how the state chart's measuring
+ * harness stops counting once the browser pass paints over it) and content inside SVG's
  * non-rendering containers (`<defs>`, `<pattern>`, `<marker>`, …), which lay out
  * but never paint. Everything else the picture is made of counts, so a word cloud
  * whose words are SVG but whose size key beside them is HTML is `hybrid`, and its
@@ -196,12 +196,10 @@ async function derive(components = vizComponents()) {
       await page.goto(`file://${html}`, { waitUntil: 'networkidle0', timeout: 120_000 });
       const records = await page.evaluate((GEOM, INERT, PICTURE, NAME) => {
         const geom = new Set(GEOM);
-        // Laid out at all? Zero client rects covers `display:none`; the second
-        // clause covers `visibility:hidden`, which is what state-chart uses to
-        // retire its `<ol>` once the browser pass has painted the SVG over it
-        // (deliberately NOT display:none — the boxes must keep occupying space
-        // so the next re-measure still works). Content occupying no layout is
-        // not part of the picture, whatever the markup says.
+        // Laid out at all? Zero client rects covers `display:none`, which is how the
+        // graph charts (state chart, flowchart) retire their measuring harness once the
+        // browser pass has painted the SVG; the second clause covers `visibility:hidden`.
+        // Content occupying no layout is not part of the picture, whatever the markup says.
         const shown = (el) => !!el && el.getClientRects().length > 0
           && getComputedStyle(el).visibility !== 'hidden'
           // …and inside a non-rendering SVG container it lays out but never

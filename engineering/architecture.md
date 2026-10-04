@@ -515,14 +515,15 @@ beats `--pale-blue-bg` because the role survives a palette swap.
   renderer falls back to monochrome if `hljs` is missing.
 - **dagre** (`dagre-d3-es`, MIT): places the boxes of a `flowchart` (through Trama,
   `@laticent/trama`, the graph-chart library, which is handed dagre and never imports
-  it) and of a `state-chart` that BRANCHES. Never bundled into the
+  it) and of a `state-chart` that BRANCHES (the same library). Never bundled into the
   runtime: it is built to a standalone `dist/lattice-dagre-min.js` that a host tags
   before `lattice-runtime-min.js`, and the CLI export inlines the same IIFE for a
   deck with a flowchart, or with a machine that actually branches. A state-chart
   chain is laid out by the reading-order grid and needs no engine, which is why that
   delivery is conditional: inlining it cost every reader of every deck 25.9 KiB
-  gzipped. Absent, a branching machine falls back to that grid (each branch drawn as
-  a skip) and a flowchart keeps its measuring tiles; the runtime says so on the
+  gzipped. The export asks Trama's own `isChain` of each machine to decide. Absent, a
+  branching machine falls back to that grid and a flowchart keeps its measuring tiles;
+  the runtime says so on the
   console. See `engineering/decisions/2026-09-06-state-chart-dagre-layout.md`,
   `2026-09-24-state-chart-fit-and-paint.md` and
   `2026-09-27-trama-graph-chart-library.md`.

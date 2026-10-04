@@ -1180,14 +1180,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			html;
 		// Read off the SANITIZED html above rather than taken as a caller flag the way
 		// `mermaid` is: the marker is on the element the pass draws, so a host cannot
-		// forget to set it. `data-sc-transitions` is emitted only by the DEFAULT state-chart
+		// forget to set it. `data-sc-model` is emitted only by the DEFAULT state-chart
 		// variant — the `inline` variant is chips and needs no engine — and data-* attributes
 		// survive DOMPurify. Content AND url, so a missing URL emits nothing.
 		//
 		// BEFORE the runtime tag: classic scripts run in document order, and the runtime's
 		// pass reads `globalThis.__latticeDagre` synchronously on its first draw.
 		// A flowchart always needs it (`data-fc-model`, on every flowchart figure).
-		if ((html.indexOf('data-sc-transitions') !== -1 || html.indexOf('data-fc-model') !== -1) && dagreUrl) {
+		if ((html.indexOf('data-sc-model') !== -1 || html.indexOf('data-fc-model') !== -1) && dagreUrl) {
 			s += '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>';
 		}
 		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>';

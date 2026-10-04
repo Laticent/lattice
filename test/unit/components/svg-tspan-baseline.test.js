@@ -80,15 +80,15 @@ const TSPAN_BUILDERS = [
       'entry only records that it is covered there',
   },
   {
-    file: 'lib/components/chart/state-chart/state-chart.transform.js',
+    file: 'lib/components/chart/state-chart/state-chart.layout.js',
     owes: 'attr',
-    why: 'two hand-rolled emitters (the node label and the multi-line edge label) ' +
-      'that predate the kernel and set the baseline on their own <text>',
+    why: 'the browser pass paints each state name as one <text> of measured lines, ' +
+      'centered with `central`, so every line carries it',
   },
   {
     file: 'lib/components/chart/flowchart/flowchart.layout.js',
     owes: 'attr',
-    why: 'the browser pass paints each shape name and note as one <text> of measured ' +
+    why: 'the browser pass paints each shape name as one <text> of measured ' +
       'lines, centred with `central`, so every line carries it',
   },
   {

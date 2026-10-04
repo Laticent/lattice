@@ -88,7 +88,7 @@ const F = {
 //
 // `keysText`: a KEY whose marks carry text takes their level, though it carries none itself —
 // under tone a gantt key at the middle step sat beside bars at the text step, and the key
-// stopped matching the chart. A state-chart tile or key dot that is `deferred` is left alone:
+// stopped matching the chart. A state-chart tile or key swatch that is `deferred` is left alone:
 // its hollowness is its background, which a finish would fill (an SVG shape's is
 // `fill-opacity`, which a finish does not touch, so the shape keeps `deferred`).
 const STATUS_MARKS = [
@@ -97,7 +97,10 @@ const STATUS_MARKS = [
   { sel: '.gantt-legend-swatch[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false, keysText: true },
   { sel: ':is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
   { sel: '.state-node-shape[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
-  { sel: '.state-dot[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
+  // A state chart's key is the shared graph key (`_chart-family/graph-key.js`, state chart v2):
+  // its status swatch follows the state tiles it keys. Scoped to the state chart's figure, since
+  // a flowchart's status shapes keep their paint under a finish and so must its key.
+  { sel: '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
   { sel: '.progress-fill[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
   { sel: '.chart-status[data-s]', hue: 'var(--pill-hue)', ink: 'var(--pill-ink)', paint: 'bg', bears: true },
   { sel: '.waterfall-bar[data-s="up"]', hue: 'var(--state-pass-hue)', ink: 'var(--state-pass-ink)', paint: 'fill', bears: false },

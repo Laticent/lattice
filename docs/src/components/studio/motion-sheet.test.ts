@@ -242,11 +242,11 @@ describe('mark counting stops at the end of the data list', () => {
 	});
 });
 
-describe('an ordered list counts too — state-chart authors its states that way', () => {
+describe('a state chart counts its states, not its transitions', () => {
 	// Verified on the live surface: a 3-state state-chart emits exactly 3 `[data-mark]` nodes,
 	// and its nested `- ` items are transitions, not marks.
 	it('counts the states, not the transitions', () => {
-		const chunk = '<!-- _class: state-chart -->\n\n## Approval\n\n1. Draft `start`\n   - `submit => 2`\n2. In Review\n   - `approve => 3`\n3. Signed `done`';
+		const chunk = '<!-- _class: state-chart -->\n\n## Approval\n\n- Draft `start`\n  - -submit-> In Review\n- In Review\n  - -approve-> Signed\n- Signed `done`';
 		expect(markCount(chunk)).toBe(3);
 	});
 });
