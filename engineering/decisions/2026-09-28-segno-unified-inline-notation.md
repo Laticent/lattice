@@ -204,6 +204,7 @@ So `{BETA, tag, c4}`, `{BETA, c4, tag}` and `{BETA, shape=tag, color=c4}` are th
 | 25 | flowchart `` `#api:diamond:c2` `` `` `:dashed:cross` `` | `` `{#api, diamond, c2}` `` `` `{dashed, cross}` `` |
 | 26 | QR `` `ssid` `` postfix key | unchanged (an enum key) |
 | 27 | radar `` `Scale · 0–100` `` | `` `0..100` `` |
+| 28 | spark `` `~{12 14 17}:bar:c3:lg` `` | `` `~{12 14 17, bar, c3, lg}`: a sigil before a record; the first item is the series or ratio (a new `series` scalar type) — owner, 2026-10-04, decided with icons (`2026-09-29-inline-icons.md` decision 6) |
 
 Out of scope for the first cut, because they live in list TEXT rather than inside backticks: flowchart
 arrows (`A -> B`), leading `- [x]` markers, the matrix-grid cell marker, and `_track`. They are Segno's

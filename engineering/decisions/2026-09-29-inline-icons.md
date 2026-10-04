@@ -15,7 +15,7 @@ summary: >
 
 # Icons — drawn, themed, and written like sparks
 
-**Date:** 2026-09-29, revised 2026-10-04 · **Status:** proposed. The owner settled the five forks in
+**Date:** 2026-09-29, revised 2026-10-04 · **Status:** proposed. The owner settled eight decisions in
 § "Decided"; the three questions in § "Open questions" are small and wait for the build.
 **Follows:** `2026-09-28-inline-sparks.md` (the model this copies),
 `2026-09-28-segno-unified-inline-notation.md` (the notation this is written in),
@@ -54,6 +54,9 @@ HARD RULE #29 already bars those for exactly this job.
 | 3 | **Written in Segno's notation, and icons are its first new user** after phase 2 | owner |
 | 4 | **Design now, build on Segno.** This note lands first; the kernel and chart wiring land after Segno phase 2, so icons never need a codemod | owner |
 | 5 | **Icons are a full plugin**, `lib/plugins/icons/`: the syntax, renderer, styles and the Tabler data all live in the package, and the plugin host gains the three contribution points icons need (§ 6a) | owner, 2026-10-04, over a core feature with icon packs as plugins, and core now with a move later |
+| 6 | **Sparks and icons share Segno's record spelling.** `^{database, c3, lg}` and `~{12 14 17, bar, c3, lg}`: the sigil, then a record whose first item is the subject (a name, or the data) and whose other items are the shared option words. Sparks move in Segno phase 2's codemod, like every other grammar | owner, 2026-10-04, over colon style for both and records for icons only |
+| 7 | **The default look is chosen on renders.** Phase 1b renders framed and bare side by side, in prose, tables, pills and charts, in dark and light, and the owner picks from the images | owner, 2026-10-04 |
+| 8 | **No short form.** `^{database}` already IS the unconfigured icon at its default look; a brace-less `^database` would only be a second spelling to learn and lint | owner, 2026-10-04 |
 
 ## 3. Which icon set, measured
 
@@ -125,7 +128,7 @@ older spelling first.
 ### 5.1 On its own: `^{…}`
 
 ```
-`^{database}`                 the default look: framed, pigment, square; size md; color c1
+`^{database}`                 no options: the default look (decision 7), size md, color c1
 `^{database, c3, lg}`         categorical slot 3, large
 `^{bucket, c4, bare}`         no frame, ink only
 `^{shield, etching, rounded}` the line-led look, soft corners
@@ -142,6 +145,10 @@ three style axes (§ 6). `label=` is named-only text.
 file, none opens with `^{`. The spans that open with `^` are regex anchors (`` `^---` ``,
 `` `^\s*…` ``), and none continues with `{`. `^` also reads as "a mark placed here", the way `~`
 reads as "trend" for sparks.
+
+**Sparks take the same shape** (decision 6): `~{12 14 17, bar, c3, lg}`, where the first item is the
+series or ratio a spark reads today (`12 14 17`, `72/80`, `72%`) as one scalar, and the rest are
+the shared option words. Phase 2 defines that scalar as a `series` type in Segno.
 
 **What this asks of Segno.** Segno's grammar has no prefixed record today. Sparks' `~{…}` landed
 the same day Segno did and is not yet in its table, so phase 2 needs one production, a single kind
@@ -350,10 +357,9 @@ Each has a recommendation; none blocks this note.
 1. **Where an icon sits in a chart node: before the text or above it.** Recommendation: before it in
    `lr` flowcharts and state charts, where nodes are short and wide, and above it in `tb` and in
    hub-spoke, where nodes are closer to square. The layout picks; the author does not.
-2. **Whether an icon's default frame should be `bare`** rather than the sparks' `framed`. An icon
-   inside a sentence may read better as ink. Recommendation: keep `framed`, so the one rule "icons
-   and sparks default the same" holds, and let `icon: bare` handle decks that want ink. Phase 1's
-   demo deck shows both, so the call is made on renders.
+2. **The default frame** — settled as a method, not a value: decision 7. Phase 1b renders `framed`
+   and `bare` side by side and the owner picks. Until then § 6's table shows `framed`, the sparks'
+   default, as a placeholder.
 3. **Service-name coaching coverage.** How many service names § 4's lint table starts with.
    Recommendation: the three largest providers' 20 most-used compute, storage, data and network
    services each, about 60 rows, grown when an author trips on a missing one.
