@@ -5,7 +5,8 @@ summary: >
   from day one: `^{database, c3}` on its own, `{S3, icon=bucket, c4}` inside a pill, and the same `icon=`
   parameter (plus an `icon-only` flag) on flowchart nodes, state-chart states and hub-spoke spokes. The set is
   a curated ~250 of Tabler (MIT), picked over Carbon and Lucide because it shares our own marks' 24-unit grid
-  and line style; we draw its four architecture gaps ourselves. Cloud providers stay neutral: no vendor logos
+  and line style; a rendered contact sheet found one real gap (stream) plus one
+  lettering icon to replace (API gateway), and we draw those two ourselves. Cloud providers stay neutral: no vendor logos
   or service icons, only a role icon paired with the service name and a color, because the official AWS,
   Azure and GCP icons ship under vendor usage terms, not an open-source license, and are multicolored. Icons take the sparks' frame, look and
   corner axes and an `icon:` register. Icons ship as a PLUGIN (`lib/plugins/icons/`), so a deck that uses none
@@ -49,7 +50,7 @@ HARD RULE #29 already bars those for exactly this job.
 
 | | decision | by |
 |---|---|---|
-| 1 | **Tabler, curated** is the base set (MIT). About 250 icons, no `brand-*` icons. We draw the four architecture concepts it lacks on its grid | owner, over Carbon, Lucide and Tabler with Carbon gap-fill, after the § 3 measurements |
+| 1 | **Tabler, curated** is the base set (MIT). About 250 icons, no `brand-*` icons. We draw the two concepts it cannot cover well (stream, API gateway) on its grid; see § 3, "Checked by eye" | owner, over Carbon, Lucide and Tabler with Carbon gap-fill, after the § 3 measurements |
 | 2 | **Cloud-provider neutral.** No vendor logos and no per-service vendor icons. A cloud service is a role icon paired with the service's name and a color: `{S3, icon=bucket, c4}` | owner |
 | 3 | **Written in Segno's notation, and icons are its first new user** after phase 2 | owner |
 | 4 | **Design now, build on Segno.** This note lands first; the kernel and chart wiring land after Segno phase 2, so icons never need a codemod | owner |
@@ -87,9 +88,25 @@ most architecture, but its solid 32-grid shapes are a different idiom from our m
 shape has no line weight to theme. Lucide is the docs site's UI set (`lucide-react`), but it lacks
 8 of the 44, API gateway and Kubernetes among them, which is too thin for architecture slides.
 
-Tabler's four gaps (CDN/edge, DNS, subnet, stream) are ours to draw on its grid: 24 units, 2-unit
-round-capped strokes. MIT allows the mix, and it keeps one drawing idiom where a Carbon gap-fill
-would put solid shapes among line ones.
+**Checked by eye (2026-10-04).** The name match above is a proxy for "has a usable icon", so every
+concept was rendered: three Tabler candidates each, at 44 px, in a pigment tile and an etching tile
+at 18 px, and bare at 16 px, in light and dark
+([light](2026-09-29-inline-icons/tabler-contact-sheet-light.jpg),
+[dark](2026-09-29-inline-icons/tabler-contact-sheet-dark.jpg)). The sheet merges Kubernetes into
+"cluster / orchestration", so it shows 43 concepts. It changed two findings:
+
+- **Three of the four name-match "gaps" are not gaps.** CDN/edge has `cloud-network`, DNS has
+  `world-search` and `address-book`, and subnet has `topology-ring-3`; each reads at 16 px. **Stream
+  is the one real gap**: every candidate (`arrow-wave-right-up`, `timeline`, `wave-sine`) reads as a
+  squiggle or a chart line.
+- **Icons drawn as letters are out.** `api`, `world-www` and `password` draw letters. The letters are
+  not in the deck's typeface, and "www" turns to mush at 16 px. That leaves **API gateway** without a
+  good Tabler icon (`door-enter` and `ai-gateway` do not say "gateway").
+
+So we draw two icons, stream and API gateway, on Tabler's grid: 24 units, 2-unit round-capped
+strokes. MIT allows the mix, and it keeps one drawing idiom where a Carbon gap-fill would put solid
+shapes among line ones. The pigment knock-out and the thinner etching stroke both read at 18 px
+on the sheet, in both modes.
 
 ## 4. Cloud providers: neutral, by license and by choice
 
@@ -232,7 +249,7 @@ lib/plugins/icons/
                            path) and DOM nodes (runtime path, HARD RULE #22)
   icons.data.generated.js  name → path data, generated from the curation list (§ 9)
   icons.curation.json      our name, the Tabler source, the category, aliases
-  icons.own/               the four icons we draw (§ 3)
+  icons.own/               the two icons we draw, stream and API gateway (§ 3)
   icons.styles.css         the tile, the axes, `--icon-stroke`; tokens only
   icons.docs.md · icons.gallery.md · icons.fixtures.md
   LICENSE-tabler.md
@@ -289,7 +306,7 @@ CSS mask tokens (`--shape-spark-open` is a data-URI SVG in `base.tokens.css`). T
 for 250 it would put every icon in every deck's stylesheet whether it uses them or not. Instead:
 
 - A build step reads `icons.curation.json` (§ 9) and the pinned `@tabler/icons` dev dependency, and
-  writes `lib/plugins/icons/icons.data.generated.js`: name → path data. Our own four icons come from
+  writes `lib/plugins/icons/icons.data.generated.js`: name → path data. Our own two icons come from
   `icons.own/*.svg`. The generated file is committed like the plugin registry, and `build:check`
   catches a stale one.
 - `icons.render.js` is the kernel, shaped like `inline-sparks.js`: pure, no DOM, no fs.
@@ -324,6 +341,8 @@ rendered in dark and light, sent for the owner's review.
   compute, storage, data, network, security, integration, observability, delivery, clients, people,
   business. The list lives in `lib/plugins/icons/icons.curation.json`: our name, the Tabler source name, the
   category, and aliases.
+- **No lettering.** An icon that draws letters (`api`, `world-www`, `password`) is excluded: the
+  letters are not in the deck's typeface and do not survive 16 px (§ 3, "Checked by eye").
 - **Our names, not Tabler's.** An author writes `icon=bucket`, not `icon=bucket-droplet`. Our name is
   the stable API; the source can change under it without a deck noticing.
 - **Aliases are Segno aliases** (`db` → `database`, `lb` → `load-balancer`, `fn` → `function`), so an
@@ -331,7 +350,7 @@ rendered in dark and light, sent for the owner's review.
 - **Service names are not aliases.** `s3` is not an alias for `bucket`: that would bring a vendor
   vocabulary in by the back door. It is the lint coaching in § 4.
 - **License.** Tabler's MIT notice ships in `lib/plugins/icons/LICENSE-tabler.md` and in the third-party
-  notices. Our own four icons carry the repository's license.
+  notices. Our own two icons carry the repository's license.
 
 ## 10. Plan
 
@@ -339,7 +358,7 @@ rendered in dark and light, sent for the owner's review.
 |---|---|---|
 | 0 | This note | — |
 | 1a | The host: the inline-code dispatcher as a table with marks, pills and sparks as first-party rows (byte-identical), the `inline`, `services` and `registers` contribution points in the schema and resolver, the register factory, the vocabulary projection's new fields, and the plugin note's § 4.3 and § 5 updated | Segno phase 2 |
-| 1b | The icons plugin: the package in § 6a, the data build step, our four icons, `^{…}` and the pill's `icon=`, the `icon:` register, lint coaching, docs, a demo deck `examples/inline-icons.md` with its PDF (HARD RULE #9), the export sign-off, and a `changelog.d/` fragment | 1a |
+| 1b | The icons plugin: the package in § 6a, the data build step, our two icons, `^{…}` and the pill's `icon=`, the `icon:` register, lint coaching, docs, a demo deck `examples/inline-icons.md` with its PDF (HARD RULE #9), the export sign-off, and a `changelog.d/` fragment | 1a |
 | 2 | `icon=` and `icon-only` on flowchart and state-chart (each declaring `optional: ["icons"]`), and on hub-spoke once #2396 lands | 1b |
 | 3 | The Studio: autocomplete from the plugin's data, and an icon picker | 1b |
 
