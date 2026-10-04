@@ -1683,7 +1683,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
  *   · document properties and comment sticky notes, as the photo lanes write them.
  */
 async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log) {
-	const [{ composeDeckPdf }, { default: hbUrl }, { toJpeg }, pdfLib, { stickyNotePlacements }] = await Promise.all([
+	const [{ composeDeckPdf, canvasCamera }, { default: hbUrl }, { toCanvas }, pdfLib, { stickyNotePlacements }] = await Promise.all([
 		import('../../../../../lib/core/pdf-compose/compose.mjs'),
 		import('harfbuzzjs/hb-subset.wasm?url'),
 		import('html-to-image'),
@@ -1692,15 +1692,16 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 	]);
 	const wasm = await (await fetch(hbUrl)).arrayBuffer();
 	const list = [...sections];
-	const camera = async (section, { scale = 1 } = {}) => {
-		let url;
+	// The writer asks for PNG, and for JPEG too on a busy slide (compose.mjs pngIsFlat); the
+	// canvas camera captures each slide once for both. toJpeg was this same canvas encoded at
+	// 0.92, so a JPEG it keeps is the bytes this camera used to return.
+	const camera = canvasCamera(async (section, scale) => {
 		try {
-			url = await withCaptureFixups(section, (w, h, pr) => toJpeg(section, { ...captureOptions(w, h, pr, fontEmbedCSS, log), quality: 0.92 }), scale, 'pdf');
+			return await withCaptureFixups(section, (w, h, pr) => toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log)), scale, 'pdf');
 		} catch (e) {
 			throw captureError(e);
 		}
-		return { bytes: dataUrlBytes(url), type: 'jpeg' };
-	};
+	}, 0.92);
 	const withSlide = (section, fn) => {
 		const restore = forceSectionVisibleForCapture(section);
 		const had = section.classList.contains('lattice-exporting');
@@ -1769,13 +1770,6 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		});
 	}
 	return new Blob([await doc.save({ useObjectStreams: true })], { type: 'application/pdf' });
-}
-
-function dataUrlBytes(url) {
-	const bin = atob(url.slice(url.indexOf(',') + 1));
-	const out = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-	return out;
 }
 
 /** Render a deck to PDF bytes (Blob) without downloading — for embedding (zips). */
