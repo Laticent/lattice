@@ -67,6 +67,10 @@ them, and the rest are ordinary code that must stay literal.
 | 16 | **No publish plan.** Segno, like every Laticent library, is not scheduled for publishing; the owner will publish the libraries together, deliberately, as its own act. No work plans around a release, and no step publishes anything | owner, correcting an earlier "publish after phase 2" |
 | 17 | **The authoring semantics stand; only very strong evidence reopens them.** Decisions 3, 9, 10 and 11 (brace records, the clean break, coordinates as one record, journey as a record) are the better authoring choices, and Lattice is not GA, so they are not held open. Evidence still guides phase 2, but the bar to change one is high: phase 2's corpus binding must show the notation cannot express content the shipped decks hold, or that authors mis-write it in measured, repeated cases, not that a spelling looks unfamiliar. Raised by the trio's inversion | owner |
 | 18 | **Both Segno build steps run on every PR.** Measured 2026-09-29: the generated-parser step takes about 0.1 s and is how `npm run build` regenerates `notation.generated.ts`; the library build takes about 1.7 s (it runs in `prepare` and in `npm run build`, so about 3.4 s of wall time in each of about seven CI jobs) and is the only check that catches a broken built package: a planted TS4094 declaration error passed the docs typecheck and failed only here. The rule: a per-PR step must add value and be fast, or it moves to nightly | owner, over moving the library build to nightly |
+| 19 | **Pills accept 2.0x.** A pill reads in 0.7 µs against today's 0.35 µs; across all 183 pill spans in the repo's Markdown that is about 0.06 ms per full render, so binding off the flat tree is not worth its complexity | owner, 2026-10-04, at the phase-2 check-in |
+| 20 | **A no-break space (U+00A0) is a space.** It separates and trims like a space and tab, and is kept inside quotes; text pasted from documents and chat carries it | owner, 2026-10-04, closing the open question |
+| 21 | **Codemod only.** Every shipped deck and doc is rewritten; an old spelling in someone else's deck renders as literal code, with no lint rule pointing at it | owner, 2026-10-04, over a retired-spelling lint with an autofix |
+| 22 | **Tagged records live in the grammar.** One tag character directly before a span's `{` — `~` for a spark, `^` for an icon (`2026-09-29-inline-icons.md`) — is a production of the notation, not a check in Lattice's dispatcher. At the start of a span a tag character always opens a tagged record, so the grammar stays LL(1); a top-level bare value cannot start with one, and `~/path` simply fails to parse and stays code. A slot declares the tag it needs (`record({ tag: '~' })`) | owner, 2026-10-04, over a dispatcher check before the parse |
 
 ## The notation
 
@@ -204,6 +208,7 @@ So `{BETA, tag, c4}`, `{BETA, c4, tag}` and `{BETA, shape=tag, color=c4}` are th
 | 25 | flowchart `` `#api:diamond:c2` `` `` `:dashed:cross` `` | `` `{#api, diamond, c2}` `` `` `{dashed, cross}` `` |
 | 26 | QR `` `ssid` `` postfix key | unchanged (an enum key) |
 | 27 | radar `` `Scale · 0–100` `` | `` `0..100` `` |
+| 28 | spark `` `~{12 14 17}:bar:c3:lg` `` | `` `~{12 14 17, bar, c3, lg}`: a sigil before a record; the first item is the series or ratio (a new `series` scalar type) — owner, 2026-10-04, decided with icons (`2026-09-29-inline-icons.md` decision 6) |
 
 Out of scope for the first cut, because they live in list TEXT rather than inside backticks: flowchart
 arrows (`A -> B`), leading `- [x]` markers, the matrix-grid cell marker, and `_track`. They are Segno's
@@ -450,10 +455,8 @@ Two are open, and both only matter from phase 2 on:
 - **Editor tooling.** Segno stops at the first error and has no incremental parsing or
   highlighting. If the Studio editor needs highlighting of Segno spans, is the path a display-only
   Lezer grammar, with Segno as the authority? (Raised by the trio's inversion.)
-- **No-break spaces and newlines.** The notation trims and separates on space and tab only, so a
-  pasted `{a,`U+00A0`b}` reads a value with a leading no-break space. Treating U+00A0 as a space is
-  kinder to pasted text; keeping the rule to two ASCII characters is simpler to state. A code span
-  cannot hold a newline, so only U+00A0 is a real question.
+- ~~**No-break spaces and newlines.**~~ Settled by decision 20: U+00A0 is a space. A code span
+  cannot hold a newline, so nothing else was open.
 
 **Phase 1's checker** (one independent agent) confirmed the LL(1) check sound on about 4,800 random
 grammars against a brute-force recognizer, the generated parser identical to the closure parser on the

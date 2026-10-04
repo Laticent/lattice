@@ -98,6 +98,54 @@ describe('isDirective — what may dispatch in prose', () => {
     expect(isDirective('\\{BETA}')).toBe('escaped');
     for (const code of ['{ ok, scene }', '{}', 'var(--bg)', 'npm test', '[x]', '$4.2M', '']) expect(isDirective(code)).toBe(null);
   });
+  it('a tagged record does, and only with its brace directly after the tag', () => {
+    expect(isDirective('~{12 14 17}')).toBe('directive');
+    expect(isDirective('^{database}')).toBe('directive');
+    expect(isDirective('\\~{12 14}')).toBe('escaped');
+    for (const code of ['~/projects/deck.md', '~ {12}', '~{ 12}', '~{}', '^', '~', '^x', '~~{1}']) expect(isDirective(code)).toBe(null);
+  });
+});
+
+describe('tagged records', () => {
+  it('a tag before the opening brace is carried on the top item', () => {
+    const p = parse('~{12 14 17, bar}');
+    expect(p.ok && p.item.tag).toBe('~');
+    expect(p.ok && shape(p.item.value)).toEqual({ '#0': '12 14 17', '#1': 'bar' });
+    const q = parse('^{database, c3}');
+    expect(q.ok && [q.item.tag, q.item.from, q.item.to]).toEqual(['^', 0, 15]);
+  });
+  it('an untagged span carries no tag', () => {
+    const p = parse('{BETA}');
+    expect(p.ok && 'tag' in p.item).toBe(false);
+  });
+  it('a top-level bare value cannot start with a tag character, so it is not a directive', () => {
+    expect(code('~/projects/deck.md')).not.toBe('ok');
+    expect(code('^x')).not.toBe('ok');
+    expect(code('~x=1')).not.toBe('ok');
+  });
+  it('inside a record or a list a tag character is ordinary text', () => {
+    expect(read('{~5 min, ^up}')).toEqual({ '#0': '~5 min', '#1': '^up' });
+    expect(read('[~a, ^b]')).toEqual(['~a', '^b']);
+    expect(read('after=~x')).toEqual({ after: '~x' });
+  });
+  it('only a record can be tagged', () => {
+    for (const s of ['~[a, b]', '~"x"', '^^{a}']) expect(code(s)).not.toBe('ok');
+  });
+});
+
+describe('the no-break space is a space', () => {
+  it('separates and trims like a space', () => {
+    expect(read('{a,\u00a0b\u00a0}')).toEqual({ '#0': 'a', '#1': 'b' });
+    expect(read('\u00a0[x,\u00a0y]')).toEqual(['x', 'y']);
+  });
+  it('is kept inside quotes, as every space is', () => {
+    expect(read('{"\u00a0a"}')).toEqual({ '#0': '"\u00a0a"' });
+  });
+  it('directly after "{" is the space-after-brace error, with a fix', () => {
+    const p = parse('{\u00a0a}');
+    expect(!p.ok && [p.diagnostic.code, p.diagnostic.fix]).toEqual(['space-after-brace', { from: 1, to: 2, insert: '' }]);
+    expect(isDirective('{\u00a0a}')).toBe(null);
+  });
 });
 
 describe('a fix, applied, makes progress (the checker found fixes that did not)', () => {

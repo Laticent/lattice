@@ -340,6 +340,16 @@
         }
       }
     },
+    "segno": {
+      "type": "object",
+      "description": "The component's inline-code SLOTS, as Segno slot specs (lib/core/segno-spec.js): what a code span means where it sits on this component's slide — a gantt task's pill, a quadrant's coordinate. Keyed by slot name. The build compiles each spec with Segno, so an ambiguous one fails the build. Why: engineering/decisions/2026-09-28-segno-unified-inline-notation.md.",
+      "propertyNames": {
+        "pattern": "^[a-z][a-zA-Z0-9]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/segnoSlot"
+      }
+    },
     "conformance": {
       "enum": [
         "strict"
@@ -1452,6 +1462,168 @@
     }
   },
   "$defs": {
+    "segnoType": {
+      "description": "A Segno type: a simple name, or an object whose `type` names it (lib/core/segno-spec.js).",
+      "oneOf": [
+        {
+          "enum": [
+            "text",
+            "number",
+            "time",
+            "id"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "enum": [
+                "text",
+                "number",
+                "time",
+                "id",
+                "oneOf",
+                "flag",
+                "indexed",
+                "range",
+                "list",
+                "record"
+              ]
+            },
+            "named": {
+              "type": "boolean",
+              "description": "Must be written name=value; takes no part in bare-word binding."
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            },
+            "aliases": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "word": {
+              "type": "string"
+            },
+            "prefix": {
+              "type": "string"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "label": {
+              "type": "string"
+            },
+            "of": {
+              "$ref": "#/$defs/segnoType"
+            },
+            "tag": {
+              "enum": [
+                "~",
+                "^"
+              ]
+            },
+            "positional": {
+              "$ref": "#/$defs/segnoSlot/properties/positional"
+            },
+            "params": {
+              "$ref": "#/$defs/segnoSlot/properties/params"
+            },
+            "shortcuts": {
+              "$ref": "#/$defs/segnoSlot/properties/shortcuts"
+            },
+            "sigils": {
+              "$ref": "#/$defs/segnoSlot/properties/sigils"
+            }
+          }
+        }
+      ]
+    },
+    "segnoSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A Segno record slot spec (lib/core/segno-spec.js).",
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "A human name for messages: \"a gantt task\"."
+        },
+        "tag": {
+          "enum": [
+            "~",
+            "^"
+          ],
+          "description": "The tag a whole span opens with to be this record."
+        },
+        "positional": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "type": {
+                "$ref": "#/$defs/segnoType"
+              },
+              "required": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "params": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/segnoType"
+          }
+        },
+        "shortcuts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "sigils": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "venueRow": {
       "type": "object",
       "additionalProperties": false,

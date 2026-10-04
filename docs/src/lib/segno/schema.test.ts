@@ -304,3 +304,25 @@ describe('the adversarial review, pinned', () => {
     expect(b.ok && Object.isFrozen(b.value)).toBe(true); // the shared cache is frozen, the caller's object is not
   });
 });
+
+describe('tags: a slot can require its span to open with a tag character', () => {
+  const spark = record({ label: 'a spark', tag: '~', positional: [{ name: 'data', type: text() }], params: { type: oneOf(['line', 'bar']) } });
+  it('binds a span with its tag', () => {
+    expect(ok(spark.read('~{12 14 17, bar}'))).toEqual({ data: '12 14 17', type: 'bar' });
+  });
+  it('refuses a span without its tag, with a fix that adds it', () => {
+    const r = spark.read('{12 14 17}');
+    expect(!r.ok && [r.diagnostics[0].code, r.diagnostics[0].fix]).toEqual(['missing-tag', { from: 0, to: 0, insert: '~' }]);
+  });
+  it('a slot with no tag refuses a tagged span, with a fix that removes it', () => {
+    const r = pill.read('^{BETA, tag}');
+    expect(!r.ok && [r.diagnostics[0].code, r.diagnostics[0].fix]).toEqual(['unexpected-tag', { from: 0, to: 1, insert: '' }]);
+  });
+  it('a slot with a different tag refuses it', () => {
+    expect(spark.read('^{12 14}').ok).toBe(false);
+  });
+  it('a tag that is not one of the notation\'s tag characters does not build', () => {
+    expect(() => record({ tag: '@', positional: [{ name: 'x', type: text() }] })).toThrow(SchemaError);
+    expect(() => record({ tag: '~~', positional: [{ name: 'x', type: text() }] })).toThrow(SchemaError);
+  });
+});

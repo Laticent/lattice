@@ -145,6 +145,14 @@ const STEPS = [
   // ahead of the runtime and the emulator, which both bundle `@laticent/trama` from this
   // dist/: as a background step it would be joined only at player-core, far too late.
   { label: 'Trama library dist (CJS + .d.ts)', script: 'build-trama-lib.js', uncommitted: true },
+  // Segno, the grammar engine (2026-09-28-segno-unified-inline-notation.md). FOREGROUND and
+  // ahead of the runtime, the emulator and authoring-core for Trama's reason: lib/core reads
+  // every inline-code directive through `@laticent/segno` (Segno phase 2), and each of those
+  // bundles inlines it from this dist/. Its generated notation parser is committed source, so
+  // it is a PR-owned step of its own that runs first; the dist step only verifies it is fresh
+  // and writes nothing outside dist/.
+  { label: 'Segno notation parser (generated source)', script: 'build-segno-grammar.js' },
+  { label: 'Segno library dist (CJS + .d.ts)', script: 'build-segno-lib.js', uncommitted: true },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
   // The shared PDF writer the CLI injects into its own Chrome (the Studio imports the same
@@ -189,11 +197,6 @@ const STEPS = [
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
   // build like its siblings or `require('@laticent/lente')` / publish break.
   { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js', uncommitted: true },
-  // Segno, the grammar engine, ships the same way (2026-09-28-segno-unified-inline-notation.md).
-  // Its generated notation parser is committed source, so it is a PR-owned step of its own that
-  // runs first; the dist step only verifies it is fresh and writes nothing outside dist/.
-  { label: 'Segno notation parser (generated source)', script: 'build-segno-grammar.js' },
-  { label: 'Segno library dist (CJS + .d.ts)', script: 'build-segno-lib.js', uncommitted: true },
   { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js', uncommitted: true },
   { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js', uncommitted: true },
   // Capability index — reads package.json scripts + tools/ headers (source,
