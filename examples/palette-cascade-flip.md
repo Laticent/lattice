@@ -84,11 +84,11 @@ Nine of these tokens used to resolve two ways in one render — the baked SVG fr
 
 - Cascade
   - Measure it `Q1..Q1` `done`
-  - Sweep it `Q2..Q2` `done` `after: Measure it`
-  - Flip it `Q3..Q4` `live` `after: Sweep it`
+  - Sweep it `Q2..Q2` `done` `after=Measure it`
+  - Flip it `Q3..Q4` `live` `after=Sweep it`
 - Palette
   - Respace `Q1..Q3` `at-risk`
-  - Concrete `Q4` `milestone` `after: Respace`
+  - Concrete `Q4` `milestone` `after=Respace`
 
 ---
 

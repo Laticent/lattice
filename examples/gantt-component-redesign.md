@@ -26,12 +26,12 @@ The at-risk bar quietly gates the rollout; GA is a milestone; the today line mar
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
-  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
+  - Scoring model v2 `Q2..Q3` `live` `after=Signal taxonomy`
+  - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
-  - GA `Q4` `milestone` `after: Org-wide rollout`
+  - Org-wide rollout `Q3..Q4` `after=Per-team weighting`
+  - GA `Q4` `milestone` `after=Org-wide rollout`
 
 ---
 
@@ -46,11 +46,11 @@ Write ISO dates and the bars land on a day-accurate scale — the month ticks co
 
 - Build
   - Foundations `2026-01-01..2026-03-15` `done`
-  - Core engine `2026-03-01..2026-06-01` `live` `after: Foundations`
-  - Hardening `2026-05-15..2026-07-15` `at-risk` `after: Core engine`
+  - Core engine `2026-03-01..2026-06-01` `live` `after=Foundations`
+  - Hardening `2026-05-15..2026-07-15` `at-risk` `after=Core engine`
 - Launch
-  - Beta `2026-06-01..2026-07-01` `after: Core engine`
-  - GA `2026-07-15` `milestone` `after: Hardening`
+  - Beta `2026-06-01..2026-07-01` `after=Core engine`
+  - GA `2026-07-15` `milestone` `after=Hardening`
 
 ---
 
@@ -65,10 +65,10 @@ Qualify a quarter with its year (`2027 Q3`) and a plan can cross the calendar bo
 
 - Discovery & design
   - Process mapping `2027 Q3..2027 Q4` `done`
-  - Solution design `2027 Q4..2028 Q1` `live` `after: Process mapping`
+  - Solution design `2027 Q4..2028 Q1` `live` `after=Process mapping`
 - Delivery
-  - Core platform `2028 Q1..2028 Q3` `at-risk` `after: Solution design`
-  - Cutover `2028 Q4` `milestone` `after: Core platform`
+  - Core platform `2028 Q1..2028 Q3` `at-risk` `after=Solution design`
+  - Cutover `2028 Q4` `milestone` `after=Core platform`
 
 ---
 
@@ -115,7 +115,7 @@ Qualify a quarter with its year (`2027 Q3`) and a plan can cross the calendar bo
 
 - **Retired delimiter.** `Q1 → Q2` errors with a "use `..`" fix — old decks fail loudly, with the correction inline.
 - **Bad span or status.** `Q9..Zz` or a misspelled status surfaces instead of rendering wrong.
-- **Dangling dependency.** `after: Phase 9` errors when no task named "Phase 9" is on the slide.
+- **Dangling dependency.** `after=Phase 9` errors when no task named "Phase 9" is on the slide.
 - **Inverted dependency.** A task that begins before its prerequisite even starts is flagged.
 
 ---

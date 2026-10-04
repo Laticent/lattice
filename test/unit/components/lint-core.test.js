@@ -389,7 +389,7 @@ describe('lint-core: auto-fix', () => {
 
   test('autofixGanttDelimiter swaps a retired delimiter only in the TRAILING span pills; null otherwise', () => {
     assert.equal(core.autofixGanttDelimiter('- Design `Q1→Q2`'), '- Design `Q1..Q2`');
-    assert.equal(core.autofixGanttDelimiter('  - Build `Q1 -> Q3` `after: Design`'), '  - Build `Q1..Q3` `after: Design`');
+    assert.equal(core.autofixGanttDelimiter('  - Build `Q1 -> Q3` `after=Design`'), '  - Build `Q1..Q3` `after=Design`');
     assert.equal(core.autofixGanttDelimiter('- No delim `Q1..Q2`'), null);
     assert.equal(core.autofixGanttDelimiter('prose with a → arrow, no code'), null); // outside a code span → untouched
     // Inline code in the LABEL (not a trailing pill) is prose — it must be left alone.

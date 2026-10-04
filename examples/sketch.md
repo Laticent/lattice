@@ -108,12 +108,12 @@ axis thins itself and the months that remain keep their air.
 
 - Framework
   - Signal taxonomy `2026-01-01..2026-04-30` `done`
-  - Scoring model v2 `2026-05-01..2026-09-30` `live` `after: Signal taxonomy`
-  - Per-team weighting `2026-10-01..2027-02-28` `at-risk` `after: Scoring model v2`
+  - Scoring model v2 `2026-05-01..2026-09-30` `live` `after=Signal taxonomy`
+  - Per-team weighting `2026-10-01..2027-02-28` `at-risk` `after=Scoring model v2`
 - Adoption
   - Pilot onboarding `2026-02-01..2026-06-30` `done`
-  - Org-wide rollout `2026-07-01..2027-01-31` `after: Pilot onboarding`
-  - GA `2027-02-15` `milestone` `after: Org-wide rollout`
+  - Org-wide rollout `2026-07-01..2027-01-31` `after=Pilot onboarding`
+  - GA `2027-02-15` `milestone` `after=Org-wide rollout`
 
 ---
 

@@ -131,7 +131,27 @@ function rewriteQuadrantPoint(text, ctx) {
   return pointRecord(parts[0], parts[1], parts[2]) || { unsafe: 'a coordinate is not a plain number' };
 }
 
-const REWRITERS = { pill: rewritePill, spark: rewriteSpark, bracket: rewriteBracket, point: rewriteQuadrantPoint };
+const { readGanttPill } = require('../lib/core/gantt-pill.js');
+
+/**
+ * Gantt: a dependency pill `after: Design` → `after=Design` (row 10 of the Segno note). A name
+ * holding a Segno stop character is quoted; one holding a comma is reported, because the old
+ * transform read `after: A, B` as ONE name and the old lint as TWO, so there is no single
+ * meaning to keep. Gantt slides only — elsewhere `after:` is prose.
+ */
+function rewriteGanttAfter(text, ctx) {
+  if (!ctx || ctx.slideClass !== 'gantt') return null;
+  const m = /^after\s*:\s*(.*)$/i.exec(text);
+  if (!m) return null;
+  const dep = m[1].trim();
+  if (!dep) return { unsafe: 'an `after:` with no task name' };
+  if (dep.includes(',')) return { unsafe: `"${dep}" was one dependency to the chart and two to lint` };
+  const out = /[={}[\]"|\\]/.test(dep) || dep !== dep.trim() ? `after="${dep.replace(/[\\"]/g, '\\$&')}"` : `after=${dep}`;
+  const back = readGanttPill(out);
+  return back?.kind === 'after' && back.deps.length === 1 && back.deps[0] === dep ? out : { unsafe: `no spelling of it reads back the same (${out})` };
+}
+
+const REWRITERS = { pill: rewritePill, spark: rewriteSpark, bracket: rewriteBracket, point: rewriteQuadrantPoint, after: rewriteGanttAfter };
 
 /**
  * Scatter, a LINE rewrite: the row's trailing run of 2–3 value pills (the old reader's

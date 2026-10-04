@@ -26,12 +26,12 @@ Scoring model v2 overlaps both its neighbors, so it takes a row of its own; the 
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
-  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
+  - Scoring model v2 `Q2..Q3` `live` `after=Signal taxonomy`
+  - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
-  - GA `Q4` `milestone` `after: Org-wide rollout`
+  - Org-wide rollout `Q3..Q4` `after=Per-team weighting`
+  - GA `Q4` `milestone` `after=Org-wide rollout`
 
 ---
 

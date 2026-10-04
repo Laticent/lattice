@@ -57,7 +57,7 @@ Five ramps carry ten status words, so some share. A status and the absence of on
 
 - Delivery
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model `Q3..Q4` `live` `after: Signal taxonomy`
+  - Scoring model `Q3..Q4` `live` `after=Signal taxonomy`
 - Holding
   - Connector retirement `Q1..Q2` `blocked`
   - Calibration cadence `Q3..Q4` `deferred`
@@ -80,7 +80,7 @@ Two bars on the same row, both neutral, one declared and one not. An 18% wash an
   - Org-wide log `Q3..Q4`
 - Intake
   - Connector wiring `Q1..Q2` `done`
-  - Source sweep `Q3..Q4` `live` `after: Connector wiring`
+  - Source sweep `Q3..Q4` `live` `after=Connector wiring`
 
 ---
 

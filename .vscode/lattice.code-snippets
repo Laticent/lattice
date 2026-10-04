@@ -380,8 +380,8 @@
       "",
       "- First workstream",
       "  - First task `Q1..Q2` `done`",
-      "  - Second task `Q2..Q3` `live` `after: First task`",
-      "  - Milestone `Q4` `milestone` `after: Second task`",
+      "  - Second task `Q2..Q3` `live` `after=First task`",
+      "  - Milestone `Q4` `milestone` `after=Second task`",
       "- Second workstream",
       "  - First task `Q1..Q2` `done`",
       "  - Second task `Q2..Q3`"

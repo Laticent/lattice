@@ -5,7 +5,7 @@
  *
  * Contract: a task is a nested bullet with trailing inline-code tokens — a span
  * `START..END` (a bar) or a single time point (a milestone diamond), an optional
- * status, an optional `after: Task name` dependency, an optional `milestone`
+ * status, an optional `after=Task name` dependency, an optional `milestone`
  * keyword. `..` is the only delimiter. Time points are ISO dates, quarters
  * (Q1 / 2026 Q1), or months (Jan); a chart is date-mode or ordinal-mode. The
  * axis auto-derives; the eyebrow may override it and add a `today` line.
@@ -301,8 +301,8 @@ describe('gantt linter — typed-token validation', () => {
 
 - Framework
   - Signal taxonomy \`Q1..Q2\` \`done\`
-  - Scoring model v2 \`Q2..Q3\` \`live\` \`after: Signal taxonomy\`
-  - GA \`Q4\` \`milestone\` \`after: Scoring model v2\``);
+  - Scoring model v2 \`Q2..Q3\` \`live\` \`after=Signal taxonomy\`
+  - GA \`Q4\` \`milestone\` \`after=Scoring model v2\``);
     assert.deepEqual(lintGantt(clean), []);
   });
 
@@ -325,15 +325,15 @@ describe('gantt linter — typed-token validation', () => {
   });
 
   test('a dangling after: (names no task) is an error', () => {
-    const f = lintGantt(deck('## P\n\n- L\n  - A `Q1..Q2` `after: Ghost`'));
+    const f = lintGantt(deck('## P\n\n- L\n  - A `Q1..Q2` `after=Ghost`'));
     assert.ok(f.some((x) => x.rule === 'gantt-dangling-after'));
   });
 
   test('an inverted dependency warns, but a boundary overlap does not', () => {
-    const inverted = deck('## P\n\n- L\n  - A `Q3..Q4`\n  - B `Q1..Q2` `after: A`');
+    const inverted = deck('## P\n\n- L\n  - A `Q3..Q4`\n  - B `Q1..Q2` `after=A`');
     assert.ok(lintGantt(inverted).some((x) => x.rule === 'gantt-inverted-dependency'));
     // B follows A sharing the Q2 boundary — idiomatic phasing, NOT inverted.
-    const ok = deck('## P\n\n- L\n  - A `Q1..Q2`\n  - B `Q2..Q3` `after: A`');
+    const ok = deck('## P\n\n- L\n  - A `Q1..Q2`\n  - B `Q2..Q3` `after=A`');
     assert.ok(!lintGantt(ok).some((x) => x.rule === 'gantt-inverted-dependency'));
   });
 

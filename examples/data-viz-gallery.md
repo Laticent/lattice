@@ -85,13 +85,13 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
+  - Scoring model v2 `Q2..Q3` `live` `after=Signal taxonomy`
     - Two teams contest the weighting; the Q3 review decides it.
-  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
+  - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
-  - GA `Q4` `milestone` `after: Org-wide rollout`
+  - Org-wide rollout `Q3..Q4` `after=Per-team weighting`
+  - GA `Q4` `milestone` `after=Org-wide rollout`
     - Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.
 
 ---

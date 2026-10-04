@@ -89,3 +89,20 @@ describe('segno-codemod: chart points', () => {
     assert.match(r.text, /`Annual cost` `Teams adopting`/);
   });
 });
+
+describe('segno-codemod: gantt dependencies', () => {
+  const gantt = (body) => `<!-- _class: gantt -->\n\n## H\n\n${body}`;
+  test('`after: X` becomes `after=X`, quoted when the name needs it', () => {
+    const r = rewriteText(gantt('- L\n  - B `Q2` `after: Design`\n  - C `Q3` `after: A=B`'));
+    assert.match(r.text, /`after=Design`/);
+    assert.match(r.text, /`after="A=B"`/);
+  });
+  test('a comma is reported, not guessed: the chart read one name and lint two', () => {
+    const r = rewriteText(gantt('- L\n  - B `Q2` `after: A, B`'));
+    assert.equal(r.changes.length, 0);
+    assert.equal(r.unsafe.length, 1);
+  });
+  test('off a gantt slide, `after:` is prose', () => {
+    assert.equal(rewriteText('Write `after: Design` to add one.').changes.length, 0);
+  });
+});

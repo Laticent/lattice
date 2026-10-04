@@ -165,7 +165,7 @@ const BUILDERS = {
   // charts carry TWO children per group, the gallery's smallest real group.
   // gantt counts LANES (workstreams), each a done task and a live one after it; the calendar
   // derives from the spans, so no window pill is needed.
-  gantt: (w, i = 0) => `- ${label(w, i)}\n  - Plan ${i + 1} \`Q${1 + (i % 2)}..Q${2 + (i % 2)}\` \`done\`\n  - Build ${i + 1} \`Q${2 + (i % 2)}..Q4\` \`live\` \`after: Plan ${i + 1}\``,
+  gantt: (w, i = 0) => `- ${label(w, i)}\n  - Plan ${i + 1} \`Q${1 + (i % 2)}..Q${2 + (i % 2)}\` \`done\`\n  - Build ${i + 1} \`Q${2 + (i % 2)}..Q4\` \`live\` \`after=Plan ${i + 1}\``,
   // journey counts STAGES, each two scored steps.
   journey: (w, i = 0) => `- ${label(w, i)}\n  - Step ${i + 1}a \`@user\` \`:${1 + (i % 5)}\`\n  - Step ${i + 1}b \`@user\` \`:${1 + ((i + 2) % 5)}\``,
   // matrix-grid counts ROWS of a five-column grid with one named cell; `BODY_WRAP` supplies the

@@ -182,13 +182,13 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
-  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
+  - Scoring model v2 `Q2..Q3` `live` `after=Signal taxonomy`
+  - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
     - Two teams contest the weighting; the Q3 review decides it.
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
-  - GA `Q4` `milestone` `after: Org-wide rollout`
+  - Org-wide rollout `Q3..Q4` `after=Per-team weighting`
+  - GA `Q4` `milestone` `after=Org-wide rollout`
 
 ---
 
