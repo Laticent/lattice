@@ -223,3 +223,53 @@ test('rgbPngXObject: an RGB PNG embeds as its own IDAT stream; alpha and palette
 	assert.equal(write.rgbPngXObject(doc, png(3, 1)), null, 'a palette PNG takes embedPng');
 	assert.equal(write.rgbPngXObject(doc, new Uint8Array(40)), null, 'not a PNG');
 });
+
+test('writer: tabular figures keep their widths and their text (coverShapedGlyphs)', async () => {
+	// tnum draws GSUB alternates no cmap entry names; pdf-lib listed only cmap glyphs in /W
+	// and ToUnicode, so the digits drew 1000 units wide and copied out as nothing.
+	const subset = await subsetMod.createFontSubsetter(WASM);
+	const outfit = fs.readFileSync(path.join(ROOT, 'assets/fonts/outfit-500.woff2'));
+	const ttf = await subset(outfit, '24 1,110', { wght: 500 }, ['tnum']);
+	const fk = fontkit.create(ttf);
+	const alt = fk.layout('2', { tnum: true }).glyphs[0];
+	assert.notEqual(alt.id, fk.glyphForCodePoint(0x32).id, 'the fixture really draws an alternate');
+	const word = { t: '1,110', fontKey: 'k', x: 100, top: 100, w: 60, h: 24, size: 20, ls: 0, color: [0, 0, 0, 1], op: 1 };
+	const { bytes } = await write.writeDeckPdf({ slides: [{ w: 1280, h: 720, words: [word], shapes: [], links: [] }], fonts: new Map([['k', { ttf, feat: { tnum: true } }]]) });
+	const doc = await pdfLib.PDFDocument.load(bytes);
+	const dicts = doc.context.enumerateIndirectObjects().map(([, o]) => o).filter((o) => o instanceof pdfLib.PDFDict);
+	const cid = dicts.find((d) => d.get(pdfLib.PDFName.of('Subtype'))?.toString() === '/CIDFontType2');
+	const W = cid.lookup(pdfLib.PDFName.of('W')).asArray().map((v) => (v instanceof pdfLib.PDFArray ? v.asArray().map((n) => n.asNumber()) : v.asNumber()));
+	const widthOf = (id) => {
+		for (let i = 0; i < W.length; i += 2) if (id >= W[i] && id < W[i] + W[i + 1].length) return W[i + 1][id - W[i]];
+		return undefined;
+	};
+	const one = fk.layout('1', { tnum: true }).glyphs[0];
+	assert.equal(Math.round(widthOf(one.id)), Math.round((one.advanceWidth * 1000) / fk.unitsPerEm), 'the tabular 1 has its own width in /W');
+	const type0 = dicts.find((d) => d.get(pdfLib.PDFName.of('Subtype'))?.toString() === '/Type0');
+	const cmap = Buffer.from(pdfLib.decodePDFRawStream(type0.lookup(pdfLib.PDFName.of('ToUnicode'))).decode()).toString('latin1');
+	const hex = (n) => n.toString(16).padStart(4, '0');
+	assert.match(cmap, new RegExp(`<${hex(one.id)}> <0031>`, 'i'), 'the tabular 1 copies out as "1"');
+	const comma = fk.layout(',', { tnum: true }).glyphs[0];
+	assert.match(cmap, new RegExp(`<${hex(comma.id)}> <002c>`, 'i'), 'the tabular comma copies out as ","');
+});
+
+test('coverShapedGlyphs: a glyph first reached by a decomposition keeps its /W width', async () => {
+	// fontkit caches a glyph with the code points it was first made with: "É" decomposes (ccmp) and
+	// makes the base "E" with none. ToUnicode must skip it, /W must not (the checker, 2026-10-05).
+	const outfit = fs.readFileSync(path.join(ROOT, 'assets/fonts/outfit-400.woff2'));
+	const doc = await pdfLib.PDFDocument.create();
+	doc.registerFontkit(fontkit);
+	const font = await doc.embedFont(outfit, { subset: false });
+	write.coverShapedGlyphs(font);
+	const page = doc.addPage();
+	page.drawText('Énergie', { x: 10, y: 700, font, size: 20 });
+	page.drawText('Every', { x: 10, y: 600, font, size: 20 });
+	await doc.save();
+	const e = font.embedder;
+	const id = e.font.glyphForCodePoint(0x45).id;
+	const W = e.computeWidths();
+	let w;
+	for (let i = 0; i < W.length; i += 2) if (id >= W[i] && id < W[i] + W[i + 1].length) w = W[i + 1][id - W[i]];
+	assert.ok(w > 0, `"E" (glyph ${id}) has a width in /W: ${w}`);
+	assert.throws(() => write.coverShapedGlyphs({ embedder: { glyphIdMap: new Map(), allGlyphsInFontSortedById() {} } }), /subset: false/);
+});

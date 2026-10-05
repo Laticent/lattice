@@ -225,7 +225,9 @@ before, then runs **the same code as the Studio's Export to PDF** inside that pa
    chart shape with its matrix, gradient and clip path; every `<img>` and single-layer CSS
    background image; every link.
 2. **Fonts** (`font-subset.mjs`): HarfBuzz cuts each web font to the characters used and pins a
-   variable font's weight, so the PDF embeds a small static font per weight.
+   variable font's weight, so the PDF embeds a small static font per weight. It keeps the
+   OpenType features the slide asked for (`tnum`); the writer's `coverShapedGlyphs` then gives
+   the alternates those features draw their own widths and text, which pdf-lib leaves out.
 3. **Photograph** what is left. The drawn text, shapes and images are hidden, and the slide is
    photographed on its export face (`.lattice-exporting`). The camera is the one piece each host
    supplies: the CLI uses Chrome's own screenshot, the Studio uses html-to-image.

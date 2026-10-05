@@ -236,12 +236,22 @@ Order of work, all in one PR (#2404):
   - Real spaces between words, so text copies and reads as sentences.
   - Byte-reproducible output: pdf-lib's random resource names replaced by a counter, and the
     dates taken from the CLI's pinned epoch.
-- **Two library bugs, fixed at the root:**
+- **Three library bugs, fixed at the root:**
   - `@pdf-lib/fontkit` reads past the end of a subset font whose last glyph is empty. The subset
     is padded with 16 zero bytes.
   - pdf-lib loses the text of ligature glyphs ("first" copies as "rst"). A subset keeps only the
     OpenType features the slide asked for (so `tnum` figures stay tabular) and never a
     ligature, and each word is fitted to the width the browser measured.
+  - **Added 2026-10-05:** pdf-lib writes a font's `/W` widths and its ToUnicode map from the
+    glyphs the font's cmap reaches, and nothing else. Keeping `tnum` in the subset was not
+    enough: a tabular digit (and comma and period) is a GSUB alternate the cmap never names. It
+    drew at the default 1000-unit width ("24 hours" as "2 4hours", gallery p27) and had no
+    Unicode, so pdftotext dropped it. `coverShapedGlyphs` (`write-pdf.mjs`) records each glyph
+    as it is encoded, with the code points fontkit carried through the substitution, and lists
+    them beside the cmap's. A scan of the committed PDFs for drawn glyphs with no ToUnicode
+    entry found 47; all 47 were re-rendered, and the scan finds 0 of 507 now.
+    Pinned by `test/integration/export/pdf-tabular-digits.test.js`, which checks the text and
+    each digit word's box against Chrome's printer.
 - **Measured on the owner's 9-slide cuoio deck, CLI:** 3.1 s end to end and 237 KB. Poppler
   draws all nine slides in 1.45 s, against 13.1 s and 335 KB for Chrome's printing (best of 3,
   110 dpi). 351 words and 26 shapes drawn; nothing left in the photo.
