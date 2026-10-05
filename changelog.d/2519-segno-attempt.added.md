@@ -13,8 +13,8 @@
   10,000 levels of nesting (`compile()` still overflows building one rule nested about 3,000
   deep, as before). Every error message reads as before.
 - **Fixed: `lint:deck` warns when a pill label needs quoting.** Since pills moved onto Segno, a
-  label holding `|` `=` `[` `]` or `{` (`{A|B, tag}`) leaves the span as plain code, and nothing
-  said why. The new `pill-literal` warning names the reserved character and the quoted spelling
+  label holding `|` `=` `[` `]` `{` or `"` (`{A|B, tag}`, `{5" screen}`) leaves the span as plain
+  code, and nothing said why. The new `pill-literal` warning names the reserved character and the quoted spelling
   that renders (`{"A|B", tag}`). It stays silent on chart points, journey steps and the other
   brace records a component reads; across the shipped decks it fires 0 times.
 - **Fixed: on a slow phone, the Playground's Explore walk bar no longer paints under the toolbar

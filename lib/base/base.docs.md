@@ -1574,8 +1574,9 @@ without any variant class on the section.
 The label comes first, then any shape, color and size words, separated by commas and in any
 order: `{BETA, tag, c4}`. Each word can also be written by name — `{BETA, shape=tag, color=c4}`
 is the same pill. A label that holds a comma is quoted: `{"Cost, excluding tax"}`, and so is
-one that holds `|` `=` `[` `]` or `{` (`{"A|B", tag}`). Unquoted, such a label leaves the span as
-plain code, and `lint:deck` warns (`pill-literal`) with the quoted spelling. This is
+one that holds `|` `=` `[` `]` `{` or `"` (`{"A|B", tag}`, `{"5\" screen"}`). Unquoted, such a
+label leaves the span as plain code, and `lint:deck` warns (`pill-literal`) with the quoted
+spelling. This is
 the [Segno notation](../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md)
 every inline directive shares.
 

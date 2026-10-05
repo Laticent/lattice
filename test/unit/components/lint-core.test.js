@@ -1379,9 +1379,21 @@ describe('lint-core: a pill whose label needs quoting renders as code (pill-lite
   });
 
   test('each reserved character a label can hold is caught', () => {
-    for (const bad of ['{A|B}', '{a=b}', '{x[1]}', '{x]}', '{a{b}']) {
+    for (const bad of ['{A|B}', '{a=b}', '{x[1]}', '{x]}', '{a{b}', '{5" screen}']) {
       assert.equal(literal(deck(`\`${bad}\``)).length, 1, bad);
     }
+  });
+
+  test('a quote in the label is escaped in the suggestion, which itself renders', () => {
+    // `{5" screen}` was a pill before #2513 (the PR's checker); the suggestion must be one too.
+    const [f] = literal(deck('`{5" screen, tag}`'));
+    assert.match(f.message, /`\{"5\\" screen", tag\}` renders/);
+  });
+
+  test('two records that open and close the span are not one pill, and a nested group is no label', () => {
+    // From the decision notes (the PR's checker): set notation and template braces, where the
+    // first suggestion pasted a quote across two records.
+    assert.equal(literal(deck('`{frame.cells} ∩ {slots}` `{A}{B}` `{{}}` `{[a, b]}`')).length, 0);
   });
 
   test('component records, quoted labels, working pills and escapes are not its business', () => {
