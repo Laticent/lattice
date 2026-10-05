@@ -500,7 +500,13 @@ state-chart `submit => 2` draws no edge and prints as text; an old heatmap `# wh
 an old gantt `after: X` joins the bar's label. A record that does not bind (a typo'd name, a
 thousands comma) behaves the same way. `lint:deck` is silent in every case. The adversarial trio
 found this, and the choice it raises — a data-integrity lint for an unreadable record, which is not a
-lint aimed at retired spellings — is the owner's.
+lint aimed at retired spellings — was put to the owner.
+
+**Settled by the owner, 2026-10-05: no handling.** Lattice is not GA, so the only old spellings that
+matter are our own, and they are converted. A unit test (`test/unit/tools/segno-codemod.test.js`,
+"the corpus stays migrated") fails if one comes back, so a parallel PR written before phase 2 cannot
+land an old spelling silently. No data-integrity lint, and no change to how a chart treats a span it
+cannot read.
 
 **Not in this PR — decision 7**, the per-deck alias-consistency lint with an autofix. The binder already
 reports each spelling an author used (`spellings` on every bind). Building the rule means every reader
