@@ -502,6 +502,44 @@ test.describe('on a phone', () => {
 		assertOneGeometry(log, ['previewPane', 'walkBar']);
 		expect((log.walkBar ?? []).length, 'the walk bar never laid out — nothing was measured').toBeGreaterThan(0);
 	});
+
+	// THE SAME DEFECT, HELD STILL — the walk bar's turn at #1800's. The case above caught a real
+	// jump once in twenty-odd nightly runs (run 37298787347: y=176 h=63 at t=455, then y=737
+	// h=107 at t=501), and its trace's screencast shows the frame: the bar under the toolbar,
+	// half built, nothing below it. The document is ~550 KB and the island's markup starts near
+	// its end, so a throttled phone parses it in chunks and paints between them; that chunk ended
+	// inside the bar, before the pane that follows it. Whether a chunk lands there is luck, so
+	// freeze the parser in exactly that state: the real document, cut where that chunk ended,
+	// with the island's modules held back so hydration cannot re-render what the parser left.
+	test('@smoke a page parsed up to the middle of the walk bar paints no walk bar yet', async ({ page }) => {
+		let cut = true;
+		await page.route('**/playground/**', async (route) => {
+			if (route.request().resourceType() !== 'document') return route.fallback();
+			const html = await (await route.fetch()).text();
+			const at = html.indexOf('<button type="button" class="pg-walk-step next"');
+			expect(at, 'the walk bar is not in the served document — this test would prove nothing').toBeGreaterThan(0);
+			expect(html.indexOf('id="pg-split"'), 'the pane no longer follows the walk bar in the markup').toBeGreaterThan(at);
+			await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: cut ? html.slice(0, at) : html });
+		});
+		await page.route(/\/_astro\/.*\.js/, (route) => route.abort());
+		const walkBox = () =>
+			page.evaluate(() => {
+				const r = document.querySelector('#pg-walk')?.getBoundingClientRect();
+				return r && r.height > 0 ? { y: Math.round(r.y), h: Math.round(r.height) } : null;
+			});
+
+		await page.goto('/playground/?view=read', { waitUntil: 'load' });
+		await expect(page.locator('html'), 'the pre-paint seed did not choose Explore').toHaveAttribute('data-pg-view', 'read');
+		expect(await page.locator('#pg-split').count(), 'the cut left the pane in').toBe(0);
+		expect(await walkBox(), 'the walk bar took a box before the pane under it was parsed').toBeNull();
+
+		// ANTI-VACUITY: the same document parsed whole shows the bar, at the foot of the viewport.
+		cut = false;
+		await page.goto('/playground/?view=read', { waitUntil: 'load' });
+		const whole = await walkBox();
+		expect(whole, 'the whole document shows no walk bar, so the check above proves nothing').not.toBeNull();
+		expect(whole!.y + whole!.h, 'the whole document puts the walk bar somewhere other than the foot').toBeGreaterThan(800);
+	});
 });
 
 // The bar's height has to be a constant even when the walk NEVER ARRIVES. A plan fetch that
