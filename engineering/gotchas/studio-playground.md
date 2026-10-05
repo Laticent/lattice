@@ -316,6 +316,14 @@ never turn "passed in headless" into "works on iOS."
   the same way: the real document cut where that chunk ended, held still (`@smoke a page parsed
   up to the middle of the walk bar…`). If you move the bar after the split in the markup, the
   PANE moves instead when the bar arrives.
+  **To see it on a real deploy, throttle the NETWORK, not just the CPU.** A local preview
+  delivers the document in one burst, so the 6x CPU throttle alone catches it about once in
+  twenty nightly runs. Stream the deployed page at ~40 KB/s (CDP
+  `Network.emulateNetworkConditions`) with a 390px touch viewport and the 6x throttle, and the
+  parser paints between small chunks: with this rule removed, 9 of 25 loads of the #2537 preview
+  painted the bar at y=176 before the pane; with it, 0 of 25. Chromium in the cloud sandbox does
+  not trust the egress proxy's CA, so stream the bytes through a localhost relay that `curl`s the
+  deploy (curl does trust it) rather than turning off TLS verification.
 - **`aria-live` has to arrive WITH its value.** `.pg-walk-pos` is SSR'd empty; a live region
   already in the tree that goes from nothing to "1 / 8" is a change, and assistive tech
   announces it. The attribute is set only once there is a position, so the region reads as
