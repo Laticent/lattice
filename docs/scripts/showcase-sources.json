@@ -12,42 +12,42 @@
 	"big-number.light": {
 		"src": "lib/components/statement/big-number/big-number.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "ee51629125dfb71904994636dbf0bbfb84c548c94726c42fc6ad9b8595e36f37"
+		"srcSha256": "791246e28c0288aa3f7a5c1216296d62e200fd71c2dc84d6dd284f686106e7cd"
 	},
 	"big-number.dark": {
 		"src": "lib/components/statement/big-number/big-number.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "1d0db1d48c3f526efc74bfd0233ed8a79858ec18527901f8ca4ed9e649f05b43"
+		"srcSha256": "44eda50fc67bf0f71065b3006dde5391d453d048a61f3c48d62277844a7d049f"
 	},
 	"cards-grid.light": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "010c9f9379e7cd80890e9108bf22c54daccfd1e551a0c6aab8c6be6533d5ae13"
+		"srcSha256": "b26f9b8c39f112b9cd4b0f71b012797b1f2c0cb3663b3105b1bd91f8f73cbc49"
 	},
 	"cards-grid.dark": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "34eebdc791c7b06f9f4c44aca6628d2ed6ee6c799ece53fa61f29bfb4482c554"
+		"srcSha256": "878ee7966a52503019a532433ff18889a2aa44e9e5521d982c7b066b8145a3b4"
 	},
 	"checklist.light": {
 		"src": "lib/components/inventory/checklist/checklist.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "f16e9edb432691d09b6ce484fec864315a6c824893eea9ffdcdbc226f07ed97e"
+		"srcSha256": "a109a27fe42109af27f55088aeb420987e6b8994d514f384be133e0d735ca4d0"
 	},
 	"checklist.dark": {
 		"src": "lib/components/inventory/checklist/checklist.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "001c11eb4dfbf475d2b86b812bbe8adc228c22f123b12898eb86be1c67e16d5e"
+		"srcSha256": "b48d57201f97bfcc88e5e766bcea8fd2415f438722dae91555d00c8497de7279"
 	},
 	"code.light": {
 		"src": "lib/components/code/code/code.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "bb981e659444ccf56233c2694939cece270e5b8a8dbf49c96f0a7c9521fa8452"
+		"srcSha256": "aa325611d9c625523055f0f0501a5af549dab3a826f6a9bd2e491a4aab74df27"
 	},
 	"code.dark": {
 		"src": "lib/components/code/code/code.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "395de348c4e5a47240f6bf42d9d7efa8cd6153016086479565e3ef72b5637e70"
+		"srcSha256": "174a11c798008829d7460e20c4efaf104255888b27e997a3fc576bed8e6870f4"
 	},
 	"diagram.light": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.light.pdf",
@@ -62,12 +62,12 @@
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "646aa8705ac7c3acf3b740a53f349f7f82df86f75328be3707c69caba777eca8"
+		"srcSha256": "abe4d79248c66ec667ae108384bbd87fa5f87084ffb54722fea67de9ce5258d7"
 	},
 	"divider.dark": {
 		"src": "lib/components/anchor/divider/divider.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "6ed77767352af4fa1fbc9f27af8653214c61782226f7cc0a13133a66069e5240"
+		"srcSha256": "49285620682765a89ce2ad514cd67bc9af30c6f538f9b3e9f7b98334f6082e7e"
 	},
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
@@ -82,52 +82,52 @@
 	"image.light": {
 		"src": "lib/components/imagery/image/image.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "b0b3c43be201451dbf2f056ee568571fe6fcc99211edefdabac0707b075ee4ac"
+		"srcSha256": "4e678a716ad762c18732a70901659882b47deff61499be54b45ba04df0eb6a64"
 	},
 	"image.dark": {
 		"src": "lib/components/imagery/image/image.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "dce11b940c3824cabc05dc94ac8eb8362c109b66f24502a209fad7d3a22faea3"
+		"srcSha256": "cd6de550b5c712888f9e10684de6e0803ed7821b8316272685f2f06163183cfa"
 	},
 	"inventory.light": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "f45a80abb0ce1a69e175ce54aee675023c201ce4acaa396281fdea2ae9f2b1f0"
+		"srcSha256": "ac6dcc13096e910daacbb6c569e88341a0ff59bae519e81acacde1dcafcf9880"
 	},
 	"inventory.dark": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "5fde11ee3b81ab1b8456bdc6ac624adb4988fc4f073e64a174cb8c5eb7eec777"
+		"srcSha256": "ff9d7ef6c12b45ff6ccab3815c501439fcaaf61238f32a483a437f0e7ebc8a2c"
 	},
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "f9ad103989b6ea6c0d96c9d58f511aeb41e98c2a8a504dbb48e4455fa1692114"
+		"srcSha256": "c606742bd81fb06805205bd908e7565716842479bc72c144b2a508484b76a03b"
 	},
 	"kpi.dark": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "52626ba56558e4dd6f26bef5da349a07e6d7c4419cc4d61cdb6b137cb20126d2"
+		"srcSha256": "fb03e2a93646d672912bca18631a8a45cf2c40a2a55467c58ad0aed77401f25a"
 	},
 	"pricing.light": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "a0d078d892d44a8cf5eebf4411ded484d0d240ad2d895276e471d088ab2b2ceb"
+		"srcSha256": "b3a0ea86126b08cedb4f825c5519ba9e9eb32187265a01c4d9852bde07763b16"
 	},
 	"pricing.dark": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "c6267426cff03c79ccea377cb42d22b21b95b3199e343be0aed8d2ec5c98f8fe"
+		"srcSha256": "9b9e261bb116579bb397e49e4ed7aa44c658f5827ae6a08c59248b6f7b5c01e7"
 	},
 	"quote.light": {
 		"src": "lib/components/statement/quote/quote.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "cb44a4f5a18138f5a42ebae33bde2d1ee7478a6f25d3b6fda4ba1e20026e4d1b"
+		"srcSha256": "de10f87834089a26b3326397ee87610e56f67a62ca00e0ca0b4254c8e3ea2126"
 	},
 	"quote.dark": {
 		"src": "lib/components/statement/quote/quote.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "100a00eed20f25c4b2953e3654b575dbf2ff63e1f9fb9b7ab03b3c9e0acaadf7"
+		"srcSha256": "c8a751f9b2136531453cd23656688b64460c33358e03dd700560ed26bf843f4d"
 	},
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
@@ -152,22 +152,22 @@
 	"topic.light": {
 		"src": "lib/components/anchor/topic/topic.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "2cb3f3401f621a4acbaf7e690a55394b5ebf62143612f1ff937e2368b681bf62"
+		"srcSha256": "02fa37d7110a8a55e2dcdeb7c0d82b4a4e9cf79d696f5961c930f2cf2ce87fb2"
 	},
 	"topic.dark": {
 		"src": "lib/components/anchor/topic/topic.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "d379a0a854bb81a4b1a9e04a0f65ebd1859e099693e553ddea52b12345982841"
+		"srcSha256": "969c02b1d82f12e921ac61236b46f0f7c35358eefd6281d30e28f6ecbae073ea"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "ff185babc06e92ac1e29ecda16886e2336001f5a8afcbf22f0e203a912ba9d20"
+		"srcSha256": "a155d76af1fcd75a9babd4f82b3e4d491e37f6df286c6365b3b358870750e5a0"
 	},
 	"verdict-grid.dark": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "6a6dbe2c76f3b06df88e61910b5769b58a19c6b30e0e45c6399b692d65dee371"
+		"srcSha256": "89778f42e0c3f8b67739503baeab8f785a121659b4df4e369207c392e6001c31"
 	},
 	"waterfall.light": {
 		"src": "lib/components/chart/waterfall/waterfall.gallery.light.pdf",
