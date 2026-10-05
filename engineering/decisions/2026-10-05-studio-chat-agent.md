@@ -259,6 +259,17 @@ a tool-use refusal is no longer treated as a retired model. The same run, re-dri
 request gets a 404, then the agent falls back to a tools-free request on the author's model,
 which gets a 200 and an answer. Pinned in `architect-agent.chat.test.ts`.
 
+**Found by the owner on production, after merge.** A turn on lattice.style answered "No change
+suggested." with $0.00 spent, so no request had succeeded. Any failure on the agent's first
+round fell back to the one-shot chat, which failed the same way, and the one-shot path reports
+every failure as an empty reply. So a rejected key, an account out of credits or a dead model
+all read as "No change suggested." The fallback now runs only when the model refused the tools
+(`isToolRefusal`); any other failure is shown with its cause and remedy
+(`describeModelError`). Verified on the real Studio with an invalid key at 390px: one
+request, a 401, and the notice "OpenRouter rejected the connection — reconnect in Workspace →
+AI. (OpenRouter said: User not found.)" The same request on production with a working key
+built a 7-slide deck with 0 lint errors.
+
 ## 10. What this does NOT do
 
 - **It cannot see the slides.** `check_deck` is lint, review and Mermaid's parser; no tool
