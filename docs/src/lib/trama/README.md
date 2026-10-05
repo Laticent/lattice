@@ -1,7 +1,7 @@
 # Trama
 
-**Graph charts for slides: boxes placed by dagre, lines drawn by one solver, painted
-in the deck's own fonts.**
+**Graph charts for slides: boxes placed by dagre or round a center, lines drawn by one
+solver, painted in the deck's own fonts.**
 
 Trama lays out a graph (shapes, nested groups, labelled lines) and routes every line as
 an elbow that never runs through a box or along another line. It prices everything else
@@ -69,6 +69,45 @@ are cached per kernel.
   shape they lead into or out of.
 - **`K.isChain(model)`** says whether a graph lays out on the grid with no dagre: no groups,
   two or more shapes, no two shapes on one rank. A host can ask it before loading dagre.
+
+## The radial kernel
+
+A second kernel, `radialLayoutKernel()`, arranges circles round a center: one ring
+(`solveStar`) or two, each inner node's children fanned on the outer ring (`twoRings`).
+Bands join the circles straight, and `placeLabels` puts every label where it touches no
+circle, band, other label or stage edge, and counts what it cannot place in `unresolved`.
+Like the graph kernel it knows nothing of what it lays out: a chart passes what its marks
+mean as numbers (`halo`, the extra radius round a flagged node; `floor(i)`, the band length
+a node needs; `centerAt`/`centerCeil`, how large the center may grow). Hub-spoke is its
+first adapter. It needs no dagre and no browser, so it runs inside the engine's render
+wherever that runs (the CLI, the build, the Studio's in-browser engine), never on the
+pipeline below.
+
+**Which parts are general.** The paint paths, the collision tests, `placeLabels`, `leader`
+and `ring` are general. `solveStar` and `twoRings` are hub-spoke's solver lifted whole, and
+their constants are calibrated to the envelope hub-spoke's linter certifies, so changing
+them changes hub-spoke's output. A second radial chart that does not fit them gets a solver
+designed from both charts rather than another flag.
+
+```ts
+import { radialLayoutKernel } from '@laticent/trama';
+
+const R = radialLayoutKernel();
+const n = 5;
+const { T, Rh, bad } = R.solveStar({
+  n, W: 544, half: 96, pad: 4, tall: false, cone: R.conesFor(n, false)[0], minNeck: 24,
+  rs0: 18, rsMin: 9, labelW: Array(n).fill(60), halo: Array(n).fill(0), floor: () => 24,
+  radiiAt: (rs) => Array.from({ length: n }, () => ({ r: rs, clamped: false })),
+  centerAt: (rs) => rs * 2, centerCeil: (r) => Math.max(...r) * 3,
+});
+// T.pts[i] is node i's center, T.r[i] its radius, Rh the center's radius; bad is empty when every floor held.
+const band = R.bandPath(0, 0, Rh, T.pts[0][0], T.pts[0][1], T.r[0], 10); // SVG path data
+```
+
+Paint helpers return path data only (`circlePath`, `annulusPath`, `bandPath`, `bandHeads`);
+the chart owns every class, color and attribute. The design and the measurements behind
+running it at build time are
+[`2026-10-05-trama-radial-layout.md`](../../../../engineering/decisions/2026-10-05-trama-radial-layout.md).
 
 ## The pipeline and adapters
 

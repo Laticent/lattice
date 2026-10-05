@@ -193,7 +193,7 @@ const SCRIPT_META = {
   'test:plugins':             ['Test & verify', 'Unit scope: the plugin host — resolver, install order, and every plugin\'s conformance fixtures.'],
   'test:layout':              ['Test & verify', 'Unit scope: the layout system.'],
   'test:transformers':        ['Test & verify', 'Unit scope: transformer registry/adapters.'],
-  'test:trama':               ['Test & verify', 'Unit scope: trama, the graph-chart library the flowchart is built on.'],
+  'test:trama':               ['Test & verify', 'Unit scope: trama, the graph-chart library the flowchart, the state chart and hub-spoke are built on (graph kernel, radial kernel, pipeline, serialization).'],
   'test:adaptive':            ['Test & verify', 'Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract.'],
   'test:concepts':            ['Test & verify', 'Unit scope: the concept ontology (lib/concepts) and its drift gate against the live catalogs.'],
   'test:exemplars':           ['Test & verify', 'Unit scope: the exemplar decks and the exemplar-core bundle.'],

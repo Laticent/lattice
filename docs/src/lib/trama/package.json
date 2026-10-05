@@ -20,6 +20,17 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./radial": {
+      "types": "./radial.ts",
+      "import": {
+        "types": "./dist/radial.d.ts",
+        "default": "./dist/radial.mjs"
+      },
+      "require": {
+        "types": "./dist/radial.d.ts",
+        "default": "./dist/radial.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [

@@ -39,7 +39,14 @@ const os = require('node:os');
 const ROOT = path.resolve(__dirname, '..');
 const LIB_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'trama');
 const DIST_DIR = path.join(LIB_DIR, 'dist');
-const ENTRY = path.join(LIB_DIR, 'index.ts');
+// Two entry points. `index` is the whole library. `radial` is the radial kernel alone, for a
+// chart that runs only that kernel at render time (hub-spoke): requiring the barrel's CJS
+// build would carry the graph kernel and the browser pipeline into its bundle, because
+// esbuild cannot drop unused exports from a CommonJS module.
+const ENTRIES = [
+  { name: 'index', file: path.join(LIB_DIR, 'index.ts') },
+  { name: 'radial', file: path.join(LIB_DIR, 'radial.ts') },
+];
 const TSC = path.join(ROOT, 'node_modules', '.bin', 'tsc');
 
 const argv = process.argv.slice(2);
@@ -71,12 +78,12 @@ const FORMATS = [
   { format: 'esm', ext: 'mjs' },
 ];
 
-/** Bundle the barrel into a CJS + an ESM file. */
+/** Bundle each entry into a CJS + an ESM file. */
 async function buildBundles(outDir) {
-  for (const { format, ext } of FORMATS) {
+  for (const entry of ENTRIES) for (const { format, ext } of FORMATS) {
     await esbuild.build({
-      entryPoints: [ENTRY],
-      outfile: path.join(outDir, `index.${ext}`),
+      entryPoints: [entry.file],
+      outfile: path.join(outDir, `${entry.name}.${ext}`),
       bundle: true,
       format,
       platform: 'node',
