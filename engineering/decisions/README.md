@@ -217,6 +217,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ☐ [2026-09-20-heatmap-table-authoring-label-sets.md](2026-09-20-heatmap-table-authoring-label-sets.md) — A heatmap is a matrix, and a matrix's notation is a TABLE — so heatmap's nested-list authoring is retired in favor of a markdown table, and…
 - ☐ [2026-05-16-html-assertion-refactor.md](2026-05-16-html-assertion-refactor.md) — Proposal to replace regex-on-HTML test assertions with parsed-DOM queries across chart-family and seven other test files
 - ☐ [2026-07-07-html-lattice-player.md](2026-07-07-html-lattice-player.md) — The HTML Lattice player — the shippable half of the 2026-06-16 export format.
+- ⏸ [2026-10-05-hub-spoke-and-trama.md](2026-10-05-hub-spoke-and-trama.md) — Hub-spoke should stay off Trama, the graph-chart library, pending the owner's pick, because Trama would give it nothing it lacks.
 - ◐ [2026-07-15-incremental-per-slide-render-cache.md](2026-07-15-incremental-per-slide-render-cache.md) — Make the live Playground filmstrip's per-keystroke render cost sub-linear in deck size.
 - ◐ [2026-05-11-inline-code-directives.md](2026-05-11-inline-code-directives.md) — Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}:shape:c4` (the bracket-geometry map it proposed is superseded…
 - ◐ [2026-09-28-inline-sparks.md](2026-09-28-inline-sparks.md) — A spark is a word-sized chart an author writes in inline code, the way they write a pill — `~{12 14 13 17 21}:bar:c3:lg`.
