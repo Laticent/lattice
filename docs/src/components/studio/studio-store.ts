@@ -624,7 +624,7 @@ export type ChatProposal = {
 	label: string;
 	slide: number;
 	action: string;
-	raw: { action: string; slide: number; body: string };
+	raw: { action: string; slide: number; body: string; key?: string; value?: string | null };
 	before: string;
 	after: string;
 	diff: { type: string; text: string }[];
@@ -643,6 +643,10 @@ export type ChatMessage = {
 	 *  run, so the badge can say "Applied 2 of 3" instead of a flat "Applied". */
 	appliedCount?: number;
 	refused?: number;
+	/** Assistant turn only: what the chat agent read, changed and checked to produce it
+	 *  ("Read kpi", "Checked the deck") — shown under the reply so the author can see the
+	 *  answer was grounded, not guessed. Never sent back to the model. */
+	activity?: string[];
 };
 
 export function loadChat(deckId: string): ChatMessage[] {

@@ -443,7 +443,11 @@ export function applyEditChecked(source, edit) {
     const blocks = splitTopLevel(block).map((s) => s.trim()).filter(Boolean);
     if (!blocks.length) return refuse('That edit block is empty.');
     const all = splitTopLevel(source);
-    const real = all.slice(fm).map((s) => s.replace(/^\n+|\n+$/g, ''));
+    // A blank deck splits to one EMPTY chunk. Kept, it became a phantom slide beside the
+    // insert ("# A\n\n---\n\n"), so the first slide written into a new deck brought an
+    // empty second one with it (checker, 2026-10-05-studio-chat-agent.md).
+    const chunks = all.slice(fm).map((s) => s.replace(/^\n+|\n+$/g, ''));
+    const real = chunks.every((s) => !s.trim()) ? [] : chunks;
     // `after=end` is the sanctioned append. Any OTHER number past the deck's end is a
     // hallucinated slide reference, and silently clamping it to append put the slides
     // somewhere the author never asked for (red team).

@@ -86,7 +86,7 @@ export function pickGrammarVariants(manifest) {
 // One layout's dossier block: name + when, its variants, the non-generic slot
 // contracts, and the authoring skeleton (four-backtick fenced so a skeleton that
 // itself contains ```chart / ```mermaid doesn't break the fence).
-function layoutBlock(c) {
+export function layoutBlock(c) {
   const lines = [`### ${c.name}${c.summary ? ` — ${c.summary}` : ''}`];
   if (c.variants?.length) {
     lines.push(`Variants: ${c.variants.join(', ')} (append to the class, e.g. \`${c.name} ${c.variants[0]}\`).`);

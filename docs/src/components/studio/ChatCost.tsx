@@ -31,9 +31,21 @@ export function ChatCost({ source, grounding, docs, primed, className }: { sourc
 	}, []);
 
 	const cloud = status.generation === 'openrouter';
+	// The cloud chat's prompt builders load on demand (architect.ts `loadChatAgent`); until
+	// they land the readout prices an approximation, so re-price once they arrive.
+	const [agentReady, setAgentReady] = React.useState(0);
+	React.useEffect(() => {
+		const on = () => setAgentReady((n) => n + 1);
+		globalThis.addEventListener?.('lattice-chat-agent-ready', on);
+		// Re-price once on subscribe too: the module may have landed between the first render
+		// (which started the load) and this effect, and that event would be lost.
+		on();
+		return () => globalThis.removeEventListener?.('lattice-chat-agent-ready', on);
+	}, []);
 	// Counts the SYSTEM turn, not just the deck — see chatSystemTokens. Memoized because
 	// building the primer walks the whole component catalog.
-	const promptExtra = React.useMemo(() => (cloud ? chatSystemTokens('openrouter', grounding, primed) + refDocsTokens(docs) : 0), [cloud, grounding, primed, docs]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `agentReady` is the intentional re-price trigger once the lazy agent module lands.
+	const promptExtra = React.useMemo(() => (cloud ? chatSystemTokens('openrouter', grounding, primed, source) + refDocsTokens(docs) : 0), [cloud, grounding, primed, docs, source, agentReady]);
 	const turnEst = React.useMemo(() => (cloud && status.price ? estimateUsd(source, status.price, CHAT_OUTPUT_EST, promptExtra) : null), [cloud, source, status.price, promptExtra]);
 
 	if (!cloud) return null;
