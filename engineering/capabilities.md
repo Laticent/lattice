@@ -524,6 +524,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/reader-extraction-probe.mjs` | Reader-mode extraction probe — re-derive the numbers behind the reader-mode work |
 | `tools/score-variance.js` | Score variance — which scorecard categories actually MOVE a deck's grade, and what a draft model is really perturbing. |
+| `tools/score-venue-lint.js` | score-venue-lint — score lint's `capacity-scale` warnings against the export's clips, per venue. |
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
 | `tools/spike-card-slack.mjs` | SPIKE — not production tooling, and not wired to any gate. The card-slack |
 | `tools/spike-composition-snapshot.mjs` | SPIKE — not production tooling. The measurement harness behind |

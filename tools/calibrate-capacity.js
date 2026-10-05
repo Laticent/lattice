@@ -26,10 +26,16 @@
  * Usage:
  *   node tools/calibrate-capacity.js <component> [--family wide,square,tall,strip]
  *                                    [--words N|soft|hard] [--max N] [--scale l|xl|2xl] [--eyebrow] [--json]
- *                                    [--variant "takeaway"] [--insight]
+ *                                    [--variant "takeaway"] [--insight] [--heading-lines N] [--size 4k]
  *
  *   --variant  appends class tokens to every probe slide (`list takeaway`), so a register that
  *              holds more or less than the bare component gets its own row.
+ *   --heading-lines N  writes each probe's heading as a sentence lint wraps to N lines at the
+ *              measured venue (lint-core `wrapLines`), instead of the rig's one-line heading. For
+ *              `code`, whose pane loses one to two lines to each extra heading line: the manifest's
+ *              `venueCapacity.lines.headed`.
+ *   --size 4k  measures on a 4k deck instead of the family's 720-high one (the strict basis: the
+ *              export's 12 px tolerance is a third as forgiving there).
  *   --insight  ends every probe slide with an `insight-so-what` callout (a one-line blockquote),
  *              the shape most real slides carry; the callout's height is what a bare row misses.
  *   --panel    measures the CLAIM PANEL instead of the element count, for `split-panel`, whose
@@ -85,6 +91,18 @@ const WORDS_OVERRIDE = flag('words', null);
 const SCALE = flag('scale', null);
 const VARIANT = flag('variant', null);
 const INSIGHT = has('insight');
+// The heading's height in LINES, as lint wraps it at this run's venue. The rig's own heading is one
+// line, and a `code` pane under a two-line heading holds one to two lines fewer, which a one-line
+// row cannot see (the talk's starter-kit code slides clipped at huddle unnamed, #2361 P2).
+const HEADING_LINES = flag('heading-lines', null) == null ? null : parseInt(flag('heading-lines'), 10);
+if (HEADING_LINES != null && !(HEADING_LINES >= 1 && HEADING_LINES <= 4)) die('--heading-lines takes 1 to 4.');
+if (HEADING_LINES != null && argv.includes('--pane')) die('--heading-lines measures a whole slide; it does not take --pane.');
+// The deck @size to measure on, in place of the family's (`16:9`, 720 high). The export forgives
+// 12 layout px at every size, which on a 720-high deck is 36 px of a 2160-high one, so a row
+// measured there can hold a line a 4k deck clips: `--size 4k` measures on the strict basis the line
+// models use (Amendment (7)).
+const SIZE_OVERRIDE = flag('size', null);
+if (SIZE_OVERRIDE && SIZE_OVERRIDE !== '4k') die("--size takes '4k'.");
 if (SCALE && !['l', 'xl', '2xl'].includes(SCALE)) die(`Unknown --scale '${SCALE}'. Known: l, xl, 2xl.`);
 const TARGET_FAMILIES = flag('family', FAMILIES.join(',')).split(',').map((s) => s.trim()).filter(Boolean);
 const PANE = flag('pane', null);
@@ -121,7 +139,7 @@ function calibratable() {
 }
 
 // A value that belongs to a flag (`--scale xl`, `--words 12`) is not a component name.
-const VALUE_FLAGS = new Set(['--family', '--words', '--max', '--scale', '--variant']);
+const VALUE_FLAGS = new Set(['--family', '--words', '--max', '--scale', '--variant', '--heading-lines', '--size']);
 const named = argv.find((a, i) => !a.startsWith('--') && !FAMILIES.includes(a) && !VALUE_FLAGS.has(argv[i - 1]));
 if (!has('all') && !named) {
   die('Usage: node tools/calibrate-capacity.js <component> [--family square] [--all]');
@@ -195,6 +213,28 @@ function declaredPane(manifest) {
   return b ? { sweet: b.sweet, hard: b.hard, source: `pane.budget.${PANE}` } : null;
 }
 
+/**
+ * A heading that lint wraps to exactly `n` lines at this run's venue, not far past `n - 1`: the
+ * shortest prefix of a fixed sentence that takes `n` lines with a margin either side (lint-core `wrapLines`, the
+ * heading's characters a line from the shared row frame, weighed in the display face). Measured
+ * against lint's own wrap, so the row it produces is the one lint looks up for a slide whose
+ * heading it wraps to `n` lines.
+ */
+function headingOfLines(n) {
+  const core = require('../lib/authoring/lint-core.js');
+  const frame = require('../lib/authoring/venue-capacity.generated.js').rowFrame;
+  const rung = { l: 1, xl: 2, '2xl': 3 }[SCALE] || 0;
+  const words = 'The instruction file states the rules once and links to the detail so every agent reads the same thing before it starts work and nobody has to guess which rule applies or where the reasoning behind it lives today'.split(' ');
+  const lines = (t, w) => core.wrapLines(core.lineText(t, core.GLYPH_DISPLAY), frame.heading[rung][0] * w, core.GLYPH_DISPLAY);
+  // `n` lines even if the real line is 8% wider or narrower than lint's: a heading on the edge of a
+  // wrap measured one line on compare-code, whose row then read a two-line heading as free.
+  for (let k = 1; k <= words.length; k++) {
+    const t = `${words.slice(0, k).join(' ')}.`;
+    if (lines(t, 0.92) === n && lines(t, 1.08) === n) return t;
+  }
+  return die(`No heading of ${n} line${n === 1 ? '' : 's'} at this venue.`);
+}
+
 /** Measure the first element count that overflows, or null if none up to MAX. */
 function measure(comp, family, wordsPer, share) {
   const build = BUILDERS[comp];
@@ -204,17 +244,19 @@ function measure(comp, family, wordsPer, share) {
   const callout = INSIGHT ? '\n\n> The one line the room should remember.\n' : '';
   const deck = gradedDeck({
     comp: cls,
-    size: SIZE_ALIAS[family],
+    size: SIZE_OVERRIDE || SIZE_ALIAS[family],
     scale: SCALE,
     eyebrow: has('eyebrow'),
     steps: counts,
-    slideFor: (n) => (PANE
+    slideFor: (n) => (HEADING_LINES != null
+      ? { slide: `${has('eyebrow') ? '`Calibration · eyebrow`\n\n' : ''}## ${headingOfLines(HEADING_LINES)}\n\n${body(n)}${callout}` }
+      : PANE
       ? { slide: `## Calibration step — ${n} element${n === 1 ? '' : 's'}.\n\n`
           + `<!-- panes: ${PANE === 'stack' ? 'stack ' : ''}${share}/${100 - share} -->\n\n`
           + `<!-- pane: ${comp} -->\n\n${body(n)}\n\n<!-- pane: content -->\n\nOne short line.\n` }
       : { label: `${n} element${n === 1 ? '' : 's'}`, body: body(n) + callout }),
   });
-  const { overflowed, underFloor, labelsDropped, overprint } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}`, { countBox: true });
+  const { overflowed, underFloor, labelsDropped, overprint } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}${HEADING_LINES ? `-h${HEADING_LINES}` : ''}`, { countBox: true });
   let lastFit = null;
   let firstOver = null;
   let signal = null;
