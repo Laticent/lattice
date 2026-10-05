@@ -23,6 +23,8 @@ why now   — a design question, NOT a latency fix. The state tile inherits the 
 where     — lib/components/chart/state-chart/state-chart.styles.css (.state-node),
             lib/components/chart/flowchart/flowchart.styles.css (.fc-node),
             engineering/decisions/2026-09-27-trama.md
+note      — written: engineering/decisions/2026-10-05-state-chart-tile-look.md (recommends
+            keeping the state tile; names land 26-37% smaller on the flowchart's tile)
 done when — the owner picks an option from a design note (it changes how every state
             chart looks); nothing ships before that pick
 evidence  — both chart decks rendered light and dark per option (SendUserFile)
