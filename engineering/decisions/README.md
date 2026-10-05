@@ -217,7 +217,6 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ☐ [2026-09-20-heatmap-table-authoring-label-sets.md](2026-09-20-heatmap-table-authoring-label-sets.md) — A heatmap is a matrix, and a matrix's notation is a TABLE — so heatmap's nested-list authoring is retired in favor of a markdown table, and…
 - ☐ [2026-05-16-html-assertion-refactor.md](2026-05-16-html-assertion-refactor.md) — Proposal to replace regex-on-HTML test assertions with parsed-DOM queries across chart-family and seven other test files
 - ☐ [2026-07-07-html-lattice-player.md](2026-07-07-html-lattice-player.md) — The HTML Lattice player — the shippable half of the 2026-06-16 export format.
-- ⏸ [2026-10-05-hub-spoke-and-trama.md](2026-10-05-hub-spoke-and-trama.md) — Hub-spoke should stay off Trama, the graph-chart library, pending the owner's pick, because Trama would give it nothing it lacks.
 - ◐ [2026-07-15-incremental-per-slide-render-cache.md](2026-07-15-incremental-per-slide-render-cache.md) — Make the live Playground filmstrip's per-keystroke render cost sub-linear in deck size.
 - ◐ [2026-05-11-inline-code-directives.md](2026-05-11-inline-code-directives.md) — Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}:shape:c4` (the bracket-geometry map it proposed is superseded…
 - ◐ [2026-09-28-inline-sparks.md](2026-09-28-inline-sparks.md) — A spark is a word-sized chart an author writes in inline code, the way they write a pill — `~{12 14 13 17 21}:bar:c3:lg`.
@@ -325,6 +324,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ◐ [2026-09-20-table-component.md](2026-09-20-table-component.md) — `compare-table` becomes `table` — a hard rename with no alias, matching every prior rename in this repo.
 - ☐ [2026-05-10-tauri-exploration.md](2026-05-10-tauri-exploration.md) — v1 architectural shape for the Laticent desktop app on Tauri, with personas, six-release plan, and engine-ownership decisions
 - ◐ [2026-06-22-the-fit-spine.md](2026-06-22-the-fit-spine.md) — The foundational spine for responsive/dense-slide work — Frames are the single owner of box-response; a solver fits content by COLLAPSE →…
+- ☐ [2026-10-05-trama-radial-layout.md](2026-10-05-trama-radial-layout.md) — Trama gains a third way to arrange boxes, a radial layout, and hub-spoke becomes its first adapter.
 - ◐ [2026-08-26-transform-twin-divergences.md](2026-08-26-transform-twin-divergences.md) — RETRACTION AND CORRECTION. The first version of this note claimed the parity harness had found six live defects — an extra line break in…
 - ☐ [2026-05-17-treatments-rename.md](2026-05-17-treatments-rename.md) — Proposal to rename the bg-* treatment family to tint-* / mark-* split across orthogonal category, treatment, and placement axes
 - ☐ [2026-05-19-typography-token-refactor.md](2026-05-19-typography-token-refactor.md) — Proposal to collapse the 16 --fs-* tokens to 10 organized as three role-based scales, migrated in five pixel-gated phases

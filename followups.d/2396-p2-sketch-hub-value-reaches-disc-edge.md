@@ -2,7 +2,7 @@
 origin: 2396
 priority: P2
 recorded: 2026-10-05
-source: engineering/decisions/2026-10-05-hub-spoke-and-trama.md
+source: engineering/decisions/2026-10-05-trama-radial-layout.md
 ---
 
 # Under `mode: sketch`, hub-spoke's text estimate runs short and the hub value reaches the disc edge
