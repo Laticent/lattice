@@ -502,11 +502,11 @@ async function flowchartTier() {
       return k.stats;
     };
     const eachFresh = () => {
-      const t = { calls: 0, hits: 0, routed: 0, bounded: 0 };
+      const t = { calls: 0, hits: 0, routed: 0, bounded: 0, evals: 0, capped: 0 };
       for (const c of calls) {
         const k = graphLayoutKernel();
         k.layout(c.model, c.sizes, c.opts, dagre);
-        for (const x of Object.keys(t)) t[x] += k.stats[x];
+        for (const x of Object.keys(t)) t[x] += k.stats[x] || 0;
       }
       return t;
     };
@@ -518,8 +518,11 @@ async function flowchartTier() {
     );
   }
   console.log('\n=== GRAPH LAYOUT \u00b7 each chart deck\'s browser calls, replayed ===');
-  console.log(`${'dataset'.padEnd(40)}${'ms'.padStart(9)}${'routed'.padStart(8)}${'bounded'.padStart(9)}${'hits'.padStart(6)}`);
-  for (const r of summary) console.log(`${r.dataset.padEnd(40)}${r.ms.toFixed(1).padStart(9)}${String(r.routed).padStart(8)}${String(r.bounded).padStart(9)}${String(r.hits).padStart(6)}`);
+  // `evals` (the router's candidate evaluations) and `capped` (routings past its work
+  // budget) are commentary: a tree whose kernel predates them prints a dash.
+  const n = (v) => (v == null ? '\u2014' : String(v));
+  console.log(`${'dataset'.padEnd(40)}${'ms'.padStart(9)}${'routed'.padStart(8)}${'bounded'.padStart(9)}${'hits'.padStart(6)}${'evals'.padStart(9)}${'capped'.padStart(8)}`);
+  for (const r of summary) console.log(`${r.dataset.padEnd(40)}${r.ms.toFixed(1).padStart(9)}${String(r.routed).padStart(8)}${String(r.bounded).padStart(9)}${String(r.hits).padStart(6)}${n(r.evals).padStart(9)}${n(r.capped).padStart(8)}`);
   return { summary };
 }
 

@@ -661,7 +661,9 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		// exactly the defect this bake exists to prevent. Silence here is indistinguishable
 		// from success, which is how the original bug went unnoticed for so long.
 		let unbaked = 0;
-		const svgs = doc.querySelectorAll('.mermaid-svg > svg, .mermaid > svg');
+		// The host's figure marker (plugin-system phase D), written by every drawn plugin's runtime pass
+		// and bake alike — never a plugin's own output class.
+		const svgs = doc.querySelectorAll('[data-lattice-figure] > svg');
 		for (const svg of svgs) {
 			try {
 				const flat = bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens });
@@ -679,8 +681,8 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 			// The spent source <pre> RIDES ALONG rather than being dropped, even though the
 			// CLI's player carries none (mmdc replaces the fence outright). It is already
 			// `display:none`, and both the visibility and the SVG sizing rules are written as
-			// ADJACENT-SIBLING selectors on it (`pre[data-lattice-settle="rendered"] + .mermaid`
-			// in mermaid.css / highlight-js.css) — removing the <pre> would unstyle the very
+			// ADJACENT-SIBLING selectors on it (`pre[data-lattice-settle="rendered"] + [data-lattice-figure]`
+			// in mermaid.styles.css / highlight-js.css) — removing the <pre> would unstyle the very
 			// diagram this step exists to ship. Read·Article is unaffected: the prose
 			// projection re-hosts the first `svg` under the stage, which is the rendered one.
 			//
@@ -2206,12 +2208,11 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 				const svgBg = core.svgBackgroundFill(options.svgBackground);
 				svgSections.forEach((sec, si) => {
 					const targets = [];
-					// Mermaid renders differently per surface: the engine pre-renders to a
-					// `.mermaid-svg` wrapper (the CLI path), while in the browser the runtime
-					// renders client-side into a `.mermaid` div (lib/runtime/index.js). Match
-					// BOTH so the Studio extracts the same diagrams the CLI does. (The
-					// `.mermaid-error` sibling has no <svg>, so it's never matched.)
-					sec.querySelectorAll('.mermaid-svg svg, .mermaid svg').forEach((s) => { targets.push([s, 'diagram', null]); });
+					// A drawn plugin's figure carries the host's marker on every surface — the CLI
+					// bake's wrapper and the browser pass's container alike
+					// (lib/plugins/mermaid/mermaid.bake.js, mermaid.hydrate.js) — so the Studio
+					// extracts the same diagrams the CLI does. (An error box has no marker.)
+					sec.querySelectorAll('[data-lattice-figure] svg').forEach((s) => { targets.push([s, 'diagram', null]); });
 					// Single-sourced with the CLI via the kernel (core.KEYED_CHART_LAYOUTS) so the two
 					// surfaces can't drift on which sections yield a standalone chart / its chartType.
 					if (sec.classList.contains('chart-frame') && core.KEYED_CHART_LAYOUTS.some((c) => sec.classList.contains(c))) {

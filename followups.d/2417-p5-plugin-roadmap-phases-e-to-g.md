@@ -9,8 +9,8 @@ recorded: 2026-09-27
 why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §7. Each phase
             ships on its own and deletes what it replaces. `checkPluginMigration` in
             `tools/check-ownership.js` must never rise. Phase D (Mermaid on the host, `bake` /
-            `exec.bake`) shipped on its own branch; its browser half is
-            `2417-p5-plugin-phase-d-browser-half.md`.
+            `exec.bake`) shipped on its own branch, and its browser half with #2508 and #2509; what
+            is left is `2509-p5-plugin-phase-d-residue.md`.
             E: the data layer, zip import and export of plugins in the CLI and the Studio
                (§4.10); this lifts the `plugin` refusal in `lib/packages/gate.js`.
             F: the chart family — `extensionPoints.kernel`, chart kernels read from the
@@ -26,12 +26,8 @@ why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §
                #22's style sink.
             3–4. Styles-only first? Where does the Studio keep one? → NEITHER YET: the zip channel
                WAITS for the code-package door, so a zip plugin can own a fence when it arrives.
-            SO THE ORDER IS NOW:
-            E0 (buildable now, its own PR): explicit loading. A deck front-matter `plugins:` list,
-               component declarations that load what they require, the shipped default set, and a
-               Plugins tab in the Studio settings; §4.8's usage probe stops ADMITTING plugins (it
-               still decides when a payload loads). Engine byte identity for every deck that names
-               no `plugins:`, which is every deck today.
+            SO THE ORDER IS NOW (E0, explicit loading, shipped with #2509's PR — §9 decisions 6
+            and 9):
             E (after the code-package door): zip import/export of plugins in the CLI and the
                Studio, with declared CSS targets.
             ACCEPTANCE CRITERION added 2026-10-04 (HARD RULE #25 inversion lens, phase D's browser

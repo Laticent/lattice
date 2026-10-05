@@ -308,11 +308,119 @@
         "conference": 5,
         "hall": 5
       },
+      "8": {
+        "laptop": 6,
+        "huddle": 6,
+        "conference": 5,
+        "hall": 5
+      },
+      "10": {
+        "laptop": 6,
+        "huddle": 6,
+        "conference": 5,
+        "hall": 5
+      },
       "12": {
         "laptop": 6,
         "huddle": 6,
         "conference": 5,
         "hall": 3
+      },
+      "13": {
+        "laptop": 6,
+        "huddle": 6,
+        "conference": 3,
+        "hall": 3
+      },
+      "14": {
+        "laptop": 6,
+        "huddle": 4,
+        "conference": 3,
+        "hall": 3
+      },
+      "16": {
+        "laptop": 6,
+        "huddle": 4,
+        "conference": 3,
+        "hall": 3
+      }
+    },
+    "eyebrow": {
+      "byWords": {
+        "6": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 5,
+          "hall": 4
+        },
+        "8": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 5,
+          "hall": 4
+        },
+        "10": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 5,
+          "hall": 4
+        },
+        "12": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 5,
+          "hall": 2
+        },
+        "13": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 3,
+          "hall": 2
+        },
+        "14": {
+          "laptop": 6,
+          "huddle": 3,
+          "conference": 3,
+          "hall": 2
+        },
+        "16": {
+          "laptop": 6,
+          "huddle": 3,
+          "conference": 3,
+          "hall": 2
+        }
+      }
+    },
+    "insight": {
+      "byWords": {
+        "6": {
+          "laptop": 5,
+          "huddle": 4,
+          "conference": 4,
+          "hall": 3
+        },
+        "12": {
+          "laptop": 5,
+          "huddle": 4,
+          "conference": 4,
+          "hall": 2
+        }
+      },
+      "eyebrow": {
+        "byWords": {
+          "6": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 3,
+            "hall": 2
+          },
+          "12": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 3,
+            "hall": 1
+          }
+        }
       }
     },
     "variants": {
@@ -329,6 +437,52 @@
             "huddle": 9,
             "conference": 7,
             "hall": 4
+          }
+        }
+      },
+      "fixed": {
+        "byWords": {
+          "6": {
+            "laptop": 6,
+            "huddle": 6,
+            "conference": 5,
+            "hall": 3
+          },
+          "8": {
+            "laptop": 6,
+            "huddle": 6,
+            "conference": 3,
+            "hall": 3
+          },
+          "10": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 3,
+            "hall": 3
+          },
+          "12": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 3,
+            "hall": 2
+          },
+          "13": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 2,
+            "hall": 2
+          },
+          "14": {
+            "laptop": 4,
+            "huddle": 3,
+            "conference": 2,
+            "hall": 1
+          },
+          "16": {
+            "laptop": 3,
+            "huddle": 3,
+            "conference": 2,
+            "hall": 1
           }
         }
       }

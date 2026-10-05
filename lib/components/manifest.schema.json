@@ -1147,14 +1147,30 @@
         },
         "lines": {
           "type": "object",
-          "description": "A code pane's line count per venue, under a one-line heading (`bare`) and under an eyebrow; `insight` and `eyebrowInsight` are the same two with the slide ending in a `> …` callout (`tools/calibrate-capacity.js code --insight`).",
+          "description": "A code pane's line count per venue, under a one-line heading (`bare`) and under an eyebrow; `insight` and `eyebrowInsight` are the same two with the slide ending in a `> …` callout (`tools/calibrate-capacity.js code --insight`); `headed` holds all four under a 2- or 3-line heading.",
           "additionalProperties": false,
           "required": ["bare", "eyebrow"],
           "properties": {
             "bare": { "$ref": "#/$defs/venueRow" },
             "eyebrow": { "$ref": "#/$defs/venueRow" },
             "insight": { "$ref": "#/$defs/venueRow" },
-            "eyebrowInsight": { "$ref": "#/$defs/venueRow" }
+            "eyebrowInsight": { "$ref": "#/$defs/venueRow" },
+            "headed": {
+              "type": "object",
+              "description": "The same four rows under a heading lint wraps to 2 or 3 lines at that venue, measured on a 4k deck (`tools/calibrate-capacity.js code --heading-lines N --size 4k`), keyed by the line count. Each extra heading line costs the pane one to two lines.",
+              "propertyNames": { "enum": ["2", "3"] },
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["bare", "eyebrow", "insight", "eyebrowInsight"],
+                "properties": {
+                  "bare": { "$ref": "#/$defs/venueRow" },
+                  "eyebrow": { "$ref": "#/$defs/venueRow" },
+                  "insight": { "$ref": "#/$defs/venueRow" },
+                  "eyebrowInsight": { "$ref": "#/$defs/venueRow" }
+                }
+              }
+            }
           }
         },
         "variants": {
@@ -1189,9 +1205,9 @@
             }
           }
         },
-        "insight": {
+        "eyebrow": {
           "type": "object",
-          "description": "The same component ending in a key-insight callout (a trailing `> …` blockquote, which an `insight-*` class only relabels), measured with `tools/calibrate-capacity.js --insight`. Lint subtracts the callout's cost per venue (bare row minus this row, at the same word length) from whichever row a slide ending in a blockquote uses.",
+          "description": "The same component under an eyebrow (a one-line code-span label above the heading), measured with `tools/calibrate-capacity.js --eyebrow --words N`. Lint subtracts the eyebrow's cost per venue (bare row minus this row, at the slide's element length) from whichever row a slide carrying an eyebrow uses; most real slides carry one, and every count row is measured without it.",
           "additionalProperties": false,
           "required": ["byWords"],
           "properties": {
@@ -1200,6 +1216,33 @@
               "propertyNames": { "pattern": "^[1-9][0-9]*$" },
               "minProperties": 1,
               "additionalProperties": { "$ref": "#/$defs/venueRow" }
+            }
+          }
+        },
+        "insight": {
+          "type": "object",
+          "description": "The same component ending in a key-insight callout (a trailing `> …` blockquote, which an `insight-*` class only relabels), measured with `tools/calibrate-capacity.js --insight`. Lint subtracts the callout's cost per venue (bare row minus this row, at the same word length) from whichever row a slide ending in a blockquote uses. `eyebrow` is the same under an eyebrow too (`--insight --eyebrow`): the two costs do not add, so a slide with both reads it in place of each.",
+          "additionalProperties": false,
+          "required": ["byWords"],
+          "properties": {
+            "byWords": {
+              "type": "object",
+              "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+              "minProperties": 1,
+              "additionalProperties": { "$ref": "#/$defs/venueRow" }
+            },
+            "eyebrow": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["byWords"],
+              "properties": {
+                "byWords": {
+                  "type": "object",
+                  "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+                  "minProperties": 1,
+                  "additionalProperties": { "$ref": "#/$defs/venueRow" }
+                }
+              }
             }
           }
         },

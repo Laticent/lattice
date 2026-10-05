@@ -56,6 +56,7 @@ error also prints the `.zip` command to use instead.
 | `--print` | Render in print mode: black ink on white, with textures on chart series. Any format. Same as `color-mode: print` |
 | `--allow-remote` | Let the render fetch web images, media and fonts. Off by default, so web images show as placeholders |
 | `--packages <dir>` | Use `<dir>` as the package store for this run |
+| `--disable-plugin <names>` | Switch plugins off for this run, comma-separated (`mermaid,math`) or repeated. The engine and the plugins' bakes both skip them, so the PDF, images and PowerPoint show their source, and a deck's `plugins:` list cannot turn them back on. A `--fluid` or `--player` page's browser runtime does not honor it yet. An unknown name fails the run |
 | `--overflow-marker <level>` | What a clipped slide shows: `reader` (default, a "Content clipped" tag), `author` (red ring and "Overflows" flag) or `off` |
 | `--no-split` | Never paginate an overflowing slide. For measurement rigs that need page N to stay slide N |
 

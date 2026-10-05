@@ -20,7 +20,7 @@ vi.mock('@/lib/single-slide-render', () => ({
 
 const DATA: HeroData = {
 	sample: '<!-- _class: verdict-grid -->\n# x',
-	mermaid: false,
+	drawn: false,
 	codeHtml: '<span class="ln-class">&lt;!-- _class: verdict-grid --&gt;</span>',
 	componentName: 'verdict-grid',
 	themeBase: '/themes/',

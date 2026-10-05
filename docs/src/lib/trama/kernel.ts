@@ -1806,6 +1806,8 @@ export function graphLayoutKernel(): GraphKernel {
       }
     }
     for (const r of work) if (r.labelAt && !onPathK(r.points, r.labelAt)) r.labelAt = longestRunMid(r.points);
+    stats.evals += evals;
+    if (over()) stats.capped++;
   }
 
   function onPathK(pts: Point[], q: Point) {
@@ -2018,7 +2020,9 @@ export function graphLayoutKernel(): GraphKernel {
   const CACHE_MAX = 64;
   // Work counts, for the bench (test/benchmark, the flowchart tier): integers that only
   // move when the work does, so they gate where a millisecond cannot.
-  const stats: KernelStats = { calls: 0, hits: 0, routed: 0, bounded: 0 };
+  // `evals` sums the router's candidate evaluations and `capped` counts the routings that
+  // ran past its work budget (and so skipped the refinements): the router's cost, in work.
+  const stats: KernelStats = { calls: 0, hits: 0, routed: 0, bounded: 0, evals: 0, capped: 0 };
   function layout(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | null {
     stats.calls++;
     // Without dagre there is no layout to cache (it degrades to null).

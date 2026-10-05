@@ -525,6 +525,24 @@ describe('lint-core: auto-fix', () => {
     assert.equal(core.lintTextWith(fixed, v).some((x) => x.rule === 'unknown-finish'), false);
   });
 
+  test('a misspelled plugins: name is fixed IN its own line, and every fix after it still runs', () => {
+    // `unknown-plugin` once pointed `line` at a made-up `plugins: <name>`; applyFix matches the
+    // finding's line against the source, so on a flow list or a block sequence the fix found no
+    // line, returned null, and applyAllFixes stopped there — dropping the `mode:` fix queued after
+    // it (HARD RULE #25 checker, E0).
+    const v = { ...vocab, modeNames: ['boardroom', 'sketch'] };
+    for (const [list, fixedList] of [
+      ['plugins: [math, mermiad]', 'plugins: [math, mermaid]'],
+      ['plugins:\n  - math\n  - mermiad', 'plugins:\n  - math\n  - mermaid'],
+      ['plugins: mermiad', 'plugins: mermaid'],
+    ]) {
+      const src = `---\n${list}\nmode: skech\n---\n\n# T\n`;
+      const f = core.lintTextWith(src, v).find((x) => x.rule === 'unknown-plugin');
+      assert.equal(f.didYouMean, 'mermaid', list);
+      assert.equal(core.applyAllFixes(src, v), `---\n${fixedList}\nmode: sketch\n---\n\n# T\n`, list);
+    }
+  });
+
   test('an unknown value with NO near candidate stays prose-only — no misleading button', () => {
     // `sketch` is a MODE, not a finish (the message says so). A suggestion engine that
     // reached for the nearest thing regardless would offer to rewrite it to an unrelated

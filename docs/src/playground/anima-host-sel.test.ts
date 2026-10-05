@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { type DeckMotion, hasAnimatableChart, isMermaidSvg, motionMarkCount, PREHIDE_CLASS, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, speedToDurationMs } from './anima-host-sel';
+import { type DeckMotion, hasAnimatableChart, isDrawnFigureSvg, motionMarkCount, PREHIDE_CLASS, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, speedToDurationMs } from './anima-host-sel';
 
 const section = (className: string, inner = ''): Element => {
   const s = document.createElement('section');
@@ -99,12 +99,12 @@ describe('hasAnimatableChart', () => {
     expect(hasAnimatableChart(section('line', labels))).toBe(false);
   });
   it('false for an untagged Mermaid diagram (a family we do not animate)', () => {
-    expect(hasAnimatableChart(section('', '<div class="mermaid"><svg><g class="task"><rect/></g></svg></div>'))).toBe(false);
+    expect(hasAnimatableChart(section('', '<div class="mermaid" data-lattice-figure="mermaid"><svg><g class="task"><rect/></g></svg></div>'))).toBe(false);
   });
 });
 
 const DIAGRAM =
-  '<pre data-lattice-hydrate="mermaid" data-lattice-settle="rendered"></pre><div class="mermaid"><svg>' +
+  '<pre data-lattice-hydrate="mermaid" data-lattice-settle="rendered"></pre><div class="mermaid" data-lattice-figure="mermaid"><svg>' +
   '<g data-anima-role="bar" data-anima-order="1"><rect/></g><g data-anima-role="bar" data-anima-order="1"><rect/></g>' +
   '<path data-anima-role="bar" data-anima-order="2"/><g data-anima-role="label"><text>yes</text></g></svg></div>';
 
@@ -117,10 +117,10 @@ describe('motionMarkCount — the auto speed\'s pacing input', () => {
   });
 });
 
-describe('isMermaidSvg', () => {
-  it('true inside the runtime\'s div.mermaid host; false for a chart', () => {
-    expect(isMermaidSvg(section('', DIAGRAM).querySelector('svg') as Element)).toBe(true);
-    expect(isMermaidSvg(section('funnel', CHART).querySelector('svg') as Element)).toBe(false);
+describe('isDrawnFigureSvg', () => {
+  it('true inside a drawn figure (the host data-lattice-figure marker); false for a chart', () => {
+    expect(isDrawnFigureSvg(section('', DIAGRAM).querySelector('svg') as Element)).toBe(true);
+    expect(isDrawnFigureSvg(section('funnel', CHART).querySelector('svg') as Element)).toBe(false);
   });
 });
 

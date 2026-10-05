@@ -19,7 +19,7 @@ vi.mock('@/lib/single-slide-render', () => ({
 
 const DATA: StudioPreviewData = {
 	sample: '<!-- _class: title -->\n\n# Markdown for the boardroom',
-	mermaid: false,
+	drawn: false,
 	deckTitle: 'Markdown for the boardroom',
 	slideCount: 7,
 	themeBase: '/themes/',

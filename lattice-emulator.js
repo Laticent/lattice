@@ -214,6 +214,12 @@ OPTIONS
                           deck's own 'color-mode:'.
       --size NAME         Render on another registered canvas, over the deck's own
                           'size:' (e.g. mobile-landscape, story, 4K).
+      --disable-plugin N  Switch plugins off for this run, comma-separated (e.g.
+                          mermaid,math; repeatable). The engine and the plugins' CLI
+                          bakes both honor it, and so does every plugin that requires
+                          one, so the PDF shows the deck's source instead. No deck can
+                          turn it back on. A --fluid/--player page's browser runtime
+                          does not honor it yet.
       --narrate           Voice the --player with Kokoro, the Studio's on-device
                           voice: every narrated sentence (the --captions narration)
                           becomes a clip, encoded as the Studio's export encodes it.
@@ -457,6 +463,8 @@ function parseArgs(argv) {
     '--player-mode': 'player-mode',
     // Render on another canvas, over the deck's own `size:` (lib/engine/sizes.js).
     '--size': 'size',
+    // Plugins switched off for this run (lib/plugins/host-grammar.mjs `admitPlugins`'s `disabled`).
+    '--disable-plugin': 'disable-plugin',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -514,6 +522,27 @@ function parseArgs(argv) {
 }
 
 const { flags, positional } = parseArgs(process.argv.slice(2));
+
+// THE PLUGINS THIS RUN SWITCHES OFF — one list, handed to BOTH the engine and the plugins' CLI
+// bakes (plugin-system phase D: the bake used to get none, so a plugin the engine switched off
+// still baked its figures into the deck). A name no plugin has is an error, not a no-op: a typo
+// would otherwise export the very figures the caller asked to leave out.
+// Every occurrence counts (`--disable-plugin a --disable-plugin b`): parseArgs keeps only the last
+// value of a flag, which would silently re-enable `a`.
+const PLUGINS_DISABLED = Object.freeze([...new Set(process.argv.slice(2).flatMap((a, i, argv) => {
+  if (a === '--disable-plugin') return [argv[i + 1] || ''];
+  if (a.startsWith('--disable-plugin=')) return [a.slice('--disable-plugin='.length)];
+  return [];
+}).join(',').split(',').map((n) => n.trim()).filter(Boolean))]);
+{
+  const { PLUGIN_GRAMMAR } = require('./lib/plugins/grammar.generated.mjs');
+  const known = PLUGIN_GRAMMAR.map((g) => g.name);
+  const unknown = PLUGINS_DISABLED.filter((n) => !known.includes(n));
+  if (unknown.length) {
+    console.error(`error: --disable-plugin: no plugin is named ${unknown.map((n) => `"${n}"`).join(', ')} (plugins: ${known.join(', ')})`);
+    process.exit(1);
+  }
+}
 
 // Resolve mdFile + outFile + cssFile + paletteArg from positionals, with
 // named flags overriding. Positional shape:
@@ -1666,7 +1695,7 @@ const bakeServices = {
   scopeKey: diagramScopeKey,
   paletteReader: paletteTokenReader,
 };
-const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true });
+const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, disabled: PLUGINS_DISABLED });
 // Every bake's RE-BAKE HOOK (`ctx.state.rebake`, lib/plugins/host-bake.js) — what the image-set
 // cross-scheme look re-renders from, read without naming a plugin. Empty when no bake that
 // publishes one ran, and then the page carries none of their figures either.
@@ -1945,7 +1974,7 @@ function engineSlides(deckSource = rawMd) {
   // the wrong artifact: the engine/preview path never overrode the default, so the
   // EXPORT (the file people actually ship, and the ADR's designated accessible route)
   // was the only path that lost it. See the semantic-html ADR §17.11.
-  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml' });
+  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml', plugins: { disabled: [...PLUGINS_DISABLED] } });
   // Both names are passed wherever they are known. The PALETTE's always is
   // (`palettePath` is `themes/<paletteName>.css`). The LAYOUT CSS's is known on the
   // DEFAULT path — it is `dist/lattice.css`, which is `lattice`, the name every
@@ -3939,7 +3968,7 @@ async function renderBody(browser, g, closeBrowser) {
       const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
-        const SEL = '.mermaid-svg > svg, .mermaid > svg';
+        const SEL = '[data-lattice-figure] > svg'; // the host's drawn-figure marker (bake and pass alike)
         const live = document.querySelectorAll(SEL);
         const copies = root.querySelectorAll(SEL);
         let unbaked = 0;

@@ -1000,11 +1000,12 @@ function contentKeys(s: string): Map<string, number> {
 const PARAPHRASE_MIN_SHARED = 2;
 
 /**
- * A picture a sentence can be about without naming a block: a chart, a diagram, an image, a
- * plugin figure (the host's `data-lattice-hydrate` marker), and a fence a runtime draws, found by
- * its code block before it is drawn (the registry's fence names — lib/plugins/drawn-probe.mjs).
+ * A picture a sentence can be about without naming a block: a chart, a drawn diagram (the
+ * host's `data-lattice-figure` marker), an image, a plugin placeholder (the host's
+ * `data-lattice-hydrate` marker), and a fence a runtime draws, found by its code block before it
+ * is drawn (the registry's fence names — lib/plugins/drawn-probe.mjs).
  */
-const FIGURE_SELECTOR = `.chart-body, .mermaid, [data-lattice-hydrate], figure, img:not(.deck-logo), ${DRAWN_FENCE_CODE}`;
+const FIGURE_SELECTOR = `.chart-body, [data-lattice-figure], [data-lattice-hydrate], figure, img:not(.deck-logo), ${DRAWN_FENCE_CODE}`;
 const PARAPHRASE_MIN_COVERAGE = 1 / 3;
 
 /** The one slide a paraphrase may match inside, or null when that is not knowable. */

@@ -97,8 +97,8 @@ export type DeckPreviewProps = {
 	 * Unmarked instances render identically and simply do not publish.
 	 */
 	focused?: boolean;
-	/** Whether the deck needs the mermaid runtime injected. */
-	mermaid: boolean;
+	/** Whether the sample holds a fence a runtime draws (the plugin registry's drawn fences, lib/plugins/drawn-probe.mjs): the frame then stamps `data-lattice-diagrams` and preloads the library. */
+	drawn: boolean;
 	/** Force a specific palette instead of the global `<html data-palette>`. */
 	paletteOverride?: string;
 	/** Render against a raw in-memory theme (Fabricate's live derived theme).
@@ -209,7 +209,7 @@ export function DeckPreview({
 	deckId,
 	webOrigins,
 	focused,
-	mermaid,
+	drawn,
 	paletteOverride,
 	extraTheme,
 	modeOverride,
@@ -517,7 +517,7 @@ export function DeckPreview({
 		if (!host || !activeRef.current) return;
 		// The deck-context opts travel as one object, passed only when `slideIndex` is set, so an
 		// omitting host hands the renderer no opts at all — byte-identical to the pre-deck-context call.
-		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? (allowWeb?.length ? { webOrigins: allowWeb } : undefined) : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex, ...(paneCounts ? { paneCounts, panePage } : {}), webOrigins: allowWeb });
+		const done = engineRef.current?.renderInto(host, sample, drawn, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? (allowWeb?.length ? { webOrigins: allowWeb } : undefined) : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex, ...(paneCounts ? { paneCounts, panePage } : {}), webOrigins: allowWeb });
 		issuedRef.current = slideIndex === undefined ? null : { slide: slideIndex, deck: deckId ?? '' };
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
@@ -530,7 +530,7 @@ export function DeckPreview({
 		return done;
 		// `splitCaret` is read through `caretRef`; it is listed so a caret move re-renders ONLY while
 		// the shown slide is split.
-	}, [sample, slideIndex, slideCount, slideMarkdown, splitCaret, pageIndex, paneKey, panePage, deckId, webOriginsKey, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
+	}, [sample, slideIndex, slideCount, slideMarkdown, splitCaret, pageIndex, paneKey, panePage, deckId, webOriginsKey, focused, drawn, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
 
 	// Always hold the LATEST render closure in a ref, so the frame scheduler and the
 	// active rising-edge effect can reach the current render WITHOUT listing it as a

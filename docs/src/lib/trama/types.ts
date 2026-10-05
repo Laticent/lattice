@@ -173,6 +173,10 @@ export interface KernelStats {
   hits: number;
   routed: number;
   bounded: number;
+  /** Candidate evaluations the router ran, summed over every routing. */
+  evals: number;
+  /** Routings that ran past the router's work budget, and so skipped its refinements. */
+  capped: number;
 }
 
 export interface GraphKernel {

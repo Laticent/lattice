@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance. Amended 2026-09-27: every component manifest carries `venueCapacity` (a measured count per venue, or a stated reason for none), which lint, the docs and the pick list all read; the calibration rig's SCALE-line parse, broken by LEVEL, is fixed. Amended 2026-09-27 (3): STEP, LEVEL and the Studio's hidden measuring frame are RETIRED by owner ruling — a venue (and any `scale-*`) is a fixed setting, like desktop zoom, so every slide renders at it; a slide too full for it clips and is named by `lint:deck`, the Studio's ring and clip notice (one-click Split or a smaller venue) and the export's OVERFLOW line. The Studio gains a Venue menu and a Present venue switch. Amended 2026-09-28 (6): a claim panel (split-panel) is judged by the LINES its eyebrow, heading, opening question and lede wrap to at each venue, from rig-measured line geometry, instead of by words.
+summary: `scale-l`/`scale-xl` clipped a large share of real decks (25 of 64 slides on the repro deck at xl, 133 slides across 47 of 70 galleries) because type grows and the box does not. Fixed with (c) both. The engine gains STEP, a Fit-Ladder move that takes a slide that does not fit back down the scale ladder, never below 1x, so nothing clips. `lint:deck` gains `capacity-scale`, an `info` budget measured per scale. Code keeps scaling; its line cap scales with it. Amended 2026-09-26: STEP made neighboring slides alternate size, so LEVEL now puts every slide that asked for one scale on one rung (the highest all fit), and a `venue:` register (laptop / huddle / conference / hall) sets the scale from the room's viewing distance. Amended 2026-09-27: every component manifest carries `venueCapacity` (a measured count per venue, or a stated reason for none), which lint, the docs and the pick list all read; the calibration rig's SCALE-line parse, broken by LEVEL, is fixed. Amended 2026-09-27 (3): STEP, LEVEL and the Studio's hidden measuring frame are RETIRED by owner ruling — a venue (and any `scale-*`) is a fixed setting, like desktop zoom, so every slide renders at it; a slide too full for it clips and is named by `lint:deck`, the Studio's ring and clip notice (one-click Split or a smaller venue) and the export's OVERFLOW line. The Studio gains a Venue menu and a Present venue switch. Amended 2026-09-28 (6): a claim panel (split-panel) is judged by the LINES its eyebrow, heading, opening question and lede wrap to at each venue, from rig-measured line geometry, instead of by words. Amended 2026-10-05 (8): a code or compare-code pane reads the lines its heading wraps to, `glossary` and `list-tabular` read an item's length in characters against rows measured at their wrap step and under an eyebrow, and a count finding claims a designed-size clip only where a laptop render checked the row.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-07-28-capacity-basis.md, 2026-07-29-autosplit-is-not-a-toggle.md, 2026-09-07-overflow-guards-trim.md
 ---
 
@@ -898,3 +898,107 @@ line model yet: its rig probe is not linear at seven items, and the cause was no
 lines and the browser on one) and a `glossary` slide (talk 72). Both were false before this change
 too. The line model for `compare-prose` and `cycle` (the most misses left, both a title over a body)
 is the next step.
+
+## Amendment 2026-10-05 (8) — the code panes read their heading, and two lists read characters
+
+**Lint now catches 11 more clips at huddle, 7 at conference and 4 at hall on the five scored decks,
+with three fewer false warnings and none new.** The five decks are the agentic-practices talk
+(PR #2399's branch), `gallery.md`, bloom, seven-steps and kaizen, each forced to each venue and
+scored by `tools/score-venue-lint.js`, which is new and puts the scorer earlier rounds ran by hand
+in the tree. It renders each deck at `venue: <v>`, reads the export's OVERFLOW pages and compares
+them with the slides `capacity-scale` names. Right, false and missed, on `main` 4ce0d29 and on this
+change:
+
+| venue | before | after |
+|---|---|---|
+| huddle | 14 / 5 / 34 | 25 / 2 / 23 |
+| conference | 54 / 3 / 62 | 61 / 3 / 55 |
+| hall | 110 / 0 / 54 | 114 / 0 / 50 |
+
+The numbers are lower than Amendment (7)'s: #2492 raised every component's reading text to
+`--fs-body`, so more slides clip at every venue and the rows were re-measured.
+
+**What changed, each with its measured cause.**
+
+1. **A `code` pane under a heading that wraps.** The pane rows were measured under a one-line
+   heading. Each extra line of a wrapped heading costs the pane 1.4 to 1.6 code lines (a heading
+   line is 135 to 203 px of a 2160-high slide, a code line 86 to 147). Nine of the talk's code
+   slides fit their one-line row at huddle and clip under two-line headings. `calibrate-capacity`
+   gains `--heading-lines N`, which writes the probe's heading as the shortest sentence lint wraps
+   to N lines at that venue with an 8% margin either side, and the manifest stores all four pane
+   rows under a two- and a three-line heading (`venueCapacity.lines.headed`). Lint wraps the slide's
+   own `##` heading (`codeHeadingLines`, the shared row frame in the display face) and reads the
+   matching row at each rung. A heading right on the wrap edge measured one line on compare-code,
+   which is why the margin exists.
+2. **The 720-high basis.** The rig measures on the family's `16:9` deck, 720 high, where the
+   export's 12 px tolerance is 36 px of a 2160-high slide. On a 4k deck it is 12. The headed rows
+   flipped a line on four cells between the two, so they are measured on the strict basis
+   (`--size 4k`, new), the one Amendment (7)'s line geometry already uses. The one-line rows
+   measure the same on both, except laptop `bare` (15 at 720, 14 at 4k), which this rule never
+   judges.
+3. **`compare-code`.** Lint counted no compare-code pane, so its slides clipped at every venue with
+   no finding (talk 9, 19, 36). It is judged now by its own rows, measured the same way (bare, under
+   an eyebrow, with a callout, both, and headed), against the taller of its two blocks. Columns are
+   not judged: dividing its 47-column budget by the venue said 40 at huddle, and a 43-column line
+   renders whole there (talk 36).
+4. **Length in characters for `glossary` and `list-tabular`.** A word row is measured in the rig's
+   filler, whose words are long (6.75 to 6.88 characters a word, its space included). The talk's
+   15-word glossary definitions run shorter than the rig's 13-word one, and three glossary slides
+   that fit at huddle were warned. For these two components (`CHAR_JUDGED`) lint reads an item's
+   length as its characters over 6.8, floored to a whole word. A code span counts as the mono pill
+   it renders (1.18 a glyph plus 0.78 padding, Amendment (7)), and a universal pill
+   (`{LABEL}:shape`) counts by its label alone. Characters for every component were tried and
+   dropped: they cost three catches (cycle, table, timeline-list, whose items are a title over a
+   body, so their break is not one line's).
+5. **Rows measured at the step.** Both components' rows step at a wrap rather than slide:
+   glossary holds 8 at huddle at 13 words and 4 at 14; list-tabular holds 6 at conference at 12
+   and 3 at 13. Two rows measured at 6 and 16 drew a line across the step, so both components now
+   carry rows at 8, 10, 12, 13, 14 and 16 words, and the length is floored rather than interpolated.
+   A line across the 13 to 14 step warned on talk 56 and 60 (13.2 and 13.5 rig words), which render
+   whole.
+6. **An eyebrow, and an eyebrow with a callout.** Every count row is measured without an eyebrow,
+   and most real slides carry one. A new optional `venueCapacity.eyebrow` row (measured with
+   `--eyebrow`) gives the cost lint subtracts at the slide's own length, as `insight` does for a
+   callout. The two costs do not add: list-tabular with both holds 4 at huddle, and the sum said 3.
+   So `insight.eyebrow` stores the pair, measured, and a slide with both reads it. Glossary and
+   list-tabular carry these rows; list-tabular gained a callout row too.
+7. **The designed-size claim.** A count finding said a slide "is clipped at any size" whenever it
+   was past the row's laptop rung. On `gallery.md` slide 66 (four `kpi` tiles, inside `hard` 4) the
+   laptop export renders it whole. The claim is now made only for a component whose laptop row was
+   checked against a render (`LAPTOP_JUDGED`). Elsewhere the row is the rig's shape, and a slide
+   inside `hard` can fit at 1x where the rig's shape does not. No scored deck now carries a
+   designed-size claim the laptop export contradicts.
+
+**Out of sample.** Lint was run on all 330 committed examples, component galleries and baseline
+decks, at their own size and at the three venues, on `main` and on this change. No verdict changes
+at a deck's own size. At the venues, 34 slides are newly warned and 3 no longer are, and each deck
+was rendered at that venue to classify them. All 34 new warnings clip, and none is false. Two of
+them are `gallery.md` slide 34, which is in the scored five; of the 32 out of sample,
+`system-design-foundations` has 22 and `gallery-jargon` 3. All 3 dropped warnings were false
+(`inline-code-literal` 3 and `list-tabular-responsive` 4 at hall, `one-reading-size-per-venue` 6 at
+conference).
+
+The first cut lost one catch, `list-tabular-responsive` slide 3 at hall: a `fixed` slide, whose
+pre-responsive name track wraps its long names to three lines. The word count had read it
+pessimistically enough to warn. `fixed` now has its own measured row (`variants.fixed`, 3 at hall
+at 10 words against the default's 5). Two other cuts were tried and dropped first. A row measured
+with every name wrapping to two lines, read wherever lint wraps a slide's longest name, warned on
+the default-track slide 4 beside it, which fits. Scaling that cost by how many names wrap still
+warned on it: on the default track a long name's second line costs nothing when the description
+already wraps.
+
+**The independent checker** reproduced both five-deck tables and the sweep, and found a false
+warning no committed deck carried: a markdown link's URL counted as characters. A link now counts
+by its text and an HTML tag not at all, and a code pane's fence closes only on its own marker.
+
+**Reproducing.** The talk is not in the tree. It is
+`engineering/decisions/2026-09-24-agentic-practice-audit/agentic-engineering-practices.md` on the
+`claude/agentic-practices-talk-tl7qum` branch (bbaf27b). Write it out and pass its path to
+`tools/score-venue-lint.js` beside the four committed decks.
+
+**Still missed, by component, on the five decks** (at all three venues): compare-prose 21,
+split-panel 16, list-steps 10, roadmap 5, image 5, cycle 5, content 5, table 4, matrix-2x2 4. One
+loss on the talk itself: glossary slide 76 at conference, whose term `Tautological test` wraps in
+the term column, which the rig's one-word terms never test. The talk's three remaining false
+warnings are gone. `gallery.md` keeps its three at conference and one at huddle, and bloom its one
+premise slide at huddle, all false on `main` too.

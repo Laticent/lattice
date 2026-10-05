@@ -43,6 +43,28 @@ model, see `design/concepts.md`.
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
+| [`plugins:`](#the-plugins-front-matter-import-list) | Plugins this deck needs loaded — an import list that only adds | *(the default set: every shipped plugin)* |
+
+## The `plugins:` front-matter import list
+
+`plugins:` names the plugins a deck needs loaded — like an import statement. Every shipped plugin
+(`math`, `function-plot`, `mermaid`, `anima`) is on by default, so listing one changes nothing on
+this engine; the list makes the deck say what it depends on, and it is what loads a plugin that is
+not in a host's default set.
+
+```yaml
+---
+plugins: [math, mermaid]
+---
+```
+
+`plugins: math, mermaid` and a YAML block sequence (`plugins:` then `- math` lines) read the same.
+The list **only adds**: there is no `-name` removal syntax, and no deck can switch off a plugin.
+A slide class that requires a plugin (`math`, `diagram`, `scene`) loads it without being listed.
+A name no plugin has is ignored and flagged by `lint:deck` as `unknown-plugin`. The Studio's deck
+settings have a **Plugins** tab that shows what is on for this deck and why, and writes this key.
+Not a per-slide register — it has no `_class:` form. Contract:
+`engineering/decisions/2026-09-27-plugin-system.md` §9 decision 9.
 
 ## The `preset:` front-matter register (a named look)
 

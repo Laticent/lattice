@@ -158,11 +158,87 @@
         "conference": 6,
         "hall": 5
       },
+      "8": {
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 6,
+        "hall": 5
+      },
+      "10": {
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 6,
+        "hall": 5
+      },
+      "12": {
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 6,
+        "hall": 3
+      },
+      "13": {
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 3,
+        "hall": 3
+      },
+      "14": {
+        "laptop": 9,
+        "huddle": 4,
+        "conference": 3,
+        "hall": 3
+      },
       "16": {
         "laptop": 9,
         "huddle": 4,
         "conference": 3,
         "hall": 3
+      }
+    },
+    "eyebrow": {
+      "byWords": {
+        "6": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 6,
+          "hall": 4
+        },
+        "8": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 6,
+          "hall": 4
+        },
+        "10": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 6,
+          "hall": 4
+        },
+        "12": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 6,
+          "hall": 2
+        },
+        "13": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 3,
+          "hall": 2
+        },
+        "14": {
+          "laptop": 8,
+          "huddle": 4,
+          "conference": 3,
+          "hall": 2
+        },
+        "16": {
+          "laptop": 8,
+          "huddle": 4,
+          "conference": 3,
+          "hall": 2
+        }
       }
     }
   },

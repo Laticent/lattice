@@ -111,7 +111,7 @@ export function initSpecimen() {
   }
   function render() {
     setStatus('Rendering…');
-    lr.renderInto(previewHost, state.source, !!data.mermaid).then((r) => {
+    lr.renderInto(previewHost, state.source, !!data.drawn).then((r) => {
       if (r.ok) setStatus(r.slides + ' slide' + (r.slides === 1 ? '' : 's'));
       else setStatus(r.error || 'render failed', true);
     });

@@ -54,7 +54,7 @@ import { mergeReadiness, readinessWindow } from './readiness-window';
 import { SlideOverview } from './SlideOverview';
 import { getNote } from './slide-notes';
 import { getSayLine } from './slide-say';
-import { hasMermaid } from './slide-thumb';
+import { hasDrawnFence } from './slide-thumb';
 import { buildStageDocument } from './studio-stage';
 
 // Present = a verb (plan §17): a full-screen takeover you ENTER and exit, with a
@@ -1553,7 +1553,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const [w, h] = sizeRatio(sizeFromSource(frontMatter));
 		return w >= h ? { aspectRatio: `${w} / ${h}`, width: '100%' } : { aspectRatio: `${w} / ${h}`, height: '40%', width: 'auto' };
 	}, [frontMatter]);
-	const presentMermaid = unavailable ? false : hasMermaid(presentSample || '');
+	const presentDrawn = unavailable ? false : hasDrawnFence(presentSample || '');
 	// ── THE CONSOLE'S OWN INSTRUMENTS (2026-08-24-stage-console-split.md §4) ─────
 	//
 	// Next slide and speaker notes are what the retired second window carried, and they
@@ -2250,7 +2250,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						// `rounded-2xl` here was 16px against a rounded slide's 1.5% of its width, and
 						// on a desktop Present the two disagreed at every corner (#1649).
 						<div ref={cardRef} data-slide-frame style={{ ...(consolePointerHidden ? { cursor: 'none' } : {}), ...slideFrameStyle('stage'), ...deckFrame }} className="pointer-events-none relative overflow-hidden">
-							<DeckPreview focused options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} paneCounts={paneCounts} pageIndex={paneCounts ? page : undefined} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
+							<DeckPreview focused options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} paneCounts={paneCounts} pageIndex={paneCounts ? page : undefined} slideMarkdown={presentSlideAlone} drawn={presentDrawn} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
 							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={!guidePlaying} />
@@ -2274,7 +2274,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 								// engine frame, and `coalesce` keeps a same-deck navigation a patch rather
 								// than a remount — this frame re-renders on every slide change, which is
 								// the one place a full rebuild per step would be felt.
-								<DeckPreview options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={nextIdx} slideCount={set.length} paneCounts={paneCounts} pageIndex={paneCounts ? nextPage : undefined} slideMarkdown={nextSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Next slide preview" />
+								<DeckPreview options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={nextIdx} slideCount={set.length} paneCounts={paneCounts} pageIndex={paneCounts ? nextPage : undefined} slideMarkdown={nextSlideAlone} drawn={presentDrawn} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Next slide preview" />
 							) : (
 								<div className="grid size-full place-items-center rounded-xl border border-border bg-card px-3 text-center text-[12px] text-muted-foreground">End of the deck</div>
 							)}

@@ -236,7 +236,7 @@ async function measure(page, slack, vbSlack) {
       // a future sovereign Frame holding a measured body would land on it.
       const holder = stage || sec;
       {
-        const body = holder.querySelector(':scope > .chart-body, :scope > .mermaid-svg, :scope > .mermaid, :scope > pre, :scope > marp-pre');
+        const body = holder.querySelector(':scope > .chart-body, :scope > [data-lattice-figure], :scope > pre, :scope > marp-pre');
         if (body?.getClientRects().length) {
           const sr = holder.getBoundingClientRect();
           const sc = getComputedStyle(holder);

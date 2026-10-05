@@ -99,7 +99,7 @@ const paletteAccents = palettes.map((name) => {
 // light/dark, instead of being baked-in-indaco static images.
 // A fence a runtime draws (Mermaid's), by the plugin registry's fence names — never narrower than
 // what the CLI bakes (`~~~`, indented and blockquoted fences count).
-const needsMermaid = (s) => sourceHasDrawnFence(s || '');
+const needsDrawn = (s) => sourceHasDrawnFence(s || '');
 
 // The "speaks your field" cards each render a REAL slide live (no static image)
 // through the same engine runtime the hero + carousel use. One representative
@@ -109,7 +109,7 @@ const cardData = CARD_COMPONENTS.reduce((acc, n) => {
 	const m = manifests.find((x) => x.name === n);
 	if (m) {
 		const s = m.sample || m.skeleton;
-		acc[n] = { sample: s, mermaid: needsMermaid(s) };
+		acc[n] = { sample: s, drawn: needsDrawn(s) };
 	}
 	return acc;
 }, {});
@@ -123,7 +123,7 @@ const runtimeUrl = url(pg + 'lattice-runtime.js');
 const engineUrl = url(pg + 'lattice-playground.js');
 // Locally-vendored Mermaid + KaTeX, the same copies the Playground and the Studio
 // use, staged by sync-playground-assets. The landing page DOES render diagrams —
-// `needsMermaid` above gates the `diagram` field card on ```mermaid (via CARD_COMPONENTS) — so
+// `needsDrawn` above gates the `diagram` field card on ```mermaid (via CARD_COMPONENTS) — so
 // without these the most-visited page on the site fetched a floating `mermaid@11`
 // from jsdelivr with no `integrity`: third-party code execution a firewall or an
 // offline reader can refuse, on every one of those renders.
@@ -135,7 +135,7 @@ const katexUrl = url(pg + 'katex/katex.min.css');
 
 const heroData = {
 	sample: heroComp.sample,
-	mermaid: needsMermaid(heroComp.sample),
+	drawn: needsDrawn(heroComp.sample),
 	codeHtml: heroCodeHtml,
 	componentName: heroComp.name,
 	themeBase,
@@ -147,7 +147,7 @@ const heroData = {
 const fieldCardsData = { cards: cardData, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl };
 const restyleData = {
 	sample: restyleComp.sample || restyleComp.skeleton,
-	mermaid: needsMermaid(restyleComp.sample || restyleComp.skeleton),
+	drawn: needsDrawn(restyleComp.sample || restyleComp.skeleton),
 	palettes: paletteAccents,
 	themeBase,
 	runtimeUrl,
@@ -166,7 +166,7 @@ const studioDeck = DECKS[0];
 const studioSample = studioDeck.slides[0];
 const studioData = {
 	sample: studioSample,
-	mermaid: needsMermaid(studioSample),
+	drawn: needsDrawn(studioSample),
 	deckTitle: studioDeck.title,
 	slideCount: studioDeck.slides.length,
 	themeBase,

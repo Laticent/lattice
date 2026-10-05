@@ -120,6 +120,20 @@ progress  — 2026-09-29 (font-scale-fit.md Amendment (7)): the LINE model for t
             `compare-prose` and `cycle`, both a title over a body, and the split-panel POINTS
             column (the two slides above); each component adds geometry to the Studio bundle, so
             price it the same way.
+progress  — 2026-10-05 (font-scale-fit.md Amendment (8)): the scorer is in the tree
+            (`tools/score-venue-lint.js`). Re-baselined after #2492 (reading text at --fs-body),
+            five decks, right/false/missed: huddle 14/5/34 → 25/2/23, conference 54/3/62 →
+            61/3/55, hall 110/0/54 → 114/0/50. Code and compare-code panes read the rows measured
+            under a 2- and 3-line heading (`--heading-lines`, on a 4k deck: `--size 4k`);
+            compare-code is judged at all; glossary and list-tabular read length in characters
+            against rows measured at their wrap step and under an eyebrow; a designed-size clip is
+            claimed only for LAPTOP_JUDGED components (gallery 66 `kpi` was the one false claim).
+            Out of sample (330 decks): 34 new warnings, all clip; 3 false warnings gone; none lost
+            (`list-tabular fixed` has its own measured row).
+            LEFT, by misses across the three venues: compare-prose 21, split-panel 16, list-steps
+            10, roadmap / image / cycle / content 5 each, table and matrix-2x2 4. Next steps: the
+            glossary term column (talk 76 at conference: `Tautological test` wraps, and the rig's
+            terms are one word); the line model for compare-prose and cycle, as Amendment (7) said.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.
