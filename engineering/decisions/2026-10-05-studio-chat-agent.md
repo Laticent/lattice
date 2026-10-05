@@ -127,8 +127,8 @@ on-device tiers keep the one-shot path unchanged.
 | `tools` / `tool_choice` / streamed `tool_calls` on the OpenRouter backend | `ai/architect-model.js` |
 | `check` — the Coach's assessment + Mermaid parse, run over the draft | `StudioShell.tsx` (`checkDraft`) |
 | Activity trail, live tool line, front-matter rows in the review card | `ArchitectChat.tsx` |
-| `fit` — the draft rendered off-screen, the runtime's overflow verdict per slide | `draft-fit.ts`, `export/deck-export.js` (`measureDeckFit`) |
-| The `≈ $` readout: a question and an edit, priced from the measured turn shape | `ChatCost.tsx`, `architect.ts` (`agentTurnUsd`) |
+| `fit` — the draft rendered off-screen, the runtime's overflow verdict per slide | `draft-fit.ts`, `export/deck-export.js` (`measureDeckFit`), `chat-agent.ts` (`withFit`) |
+| The `≈ $` readout: a question and an edit, priced from the measured turn shape | `ChatCost.tsx`, `chat-agent.ts` (`agentTurnUsd`, forwarded by `architect.ts`) |
 
 Choices worth knowing before changing any of it:
 
@@ -370,11 +370,22 @@ is measured in the live deck's theme and mode, not one the agent just set on the
 slide rewritten to match another original slide's text counts as untouched. Both are rare and
 named here so nobody mistakes them for coverage.
 
+**Startup JavaScript, again.** Both follow-ups first put code where startup pays for it, and
+it only showed once `main` gained the plugin split (#2525): measured on the branch alone the
+Studio grew 29–38 B, on the PR merged into `main` (what CI builds) 361 B. Bisected by merging
+`main` into each commit: the fit check's `import('./draft-fit')` in StudioShell cost ~172 B
+(every chunk the export renderer needs went into the shell's preload map), and the readout's
+`agentTurnUsd` in `architect.ts` ~170 B. The fix is the rule §6 already states: the shell hands
+the render settings to the agent as data, the lazy `chat-agent.ts` imports `draft-fit`, and
+`agentTurnUsd` lives in `chat-agent.ts` behind a five-line forwarder (the readout shows nothing
+until the agent module lands, then re-prices). Merged into `main`: −15 B, nothing to declare.
+
 ## 10. What this does NOT do
 
 - **It sees fit, not looks.** Since the follow-up (`followups.d/2518-p3-agent-cannot-see-slides`),
   every check renders the draft off-screen the way export does (`draft-fit.ts` →
-  `measureDeckFit`) and reads back the runtime's own per-slide verdict: `.overflow`,
+  `measureDeckFit`, imported by the lazy agent from settings the shell hands over as plain
+  data, `fitRender`) and reads back the runtime's own per-slide verdict: `.overflow`,
   `.clip-marked`, `.illegible`. A slide the turn wrote that overflows or cuts text counts as an
   error and holds the turn open; the same on an untouched slide is reported, not charged. It
   does not judge how a slide looks, and the prompt says so. The render uses the live deck's

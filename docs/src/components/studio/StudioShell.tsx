@@ -4285,25 +4285,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// this deck's diagrams (diagramErrors, below).
 	// `check` is the chat agent's verifier: the same assessment and the same Mermaid parse,
 	// run over the agent's DRAFT so an edit is checked before the author is shown it.
-	// And `fit` is the one check that needs a real render: the draft laid out off-screen the
-	// way export does, with the runtime's own overflow verdict per slide (draft-fit.ts).
 	const checkDraft = React.useCallback(
 		async (draft: string) => {
 			const diagrams = extractDiagrams(draft);
-			const [a, errs, fit] = await Promise.all([
+			const [a, errs] = await Promise.all([
 				assessDeck(draft, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined),
 				diagrams.length ? import('./mermaid-parse').then((m) => m.checkDiagrams(diagrams, options?.runtimeUrl ?? '')).catch(() => undefined) : Promise.resolve(undefined),
-				import('./draft-fit')
-					.then((m) => m.measureDraftFit(deckOptions, draft, preview.paletteOverride ?? palette, preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light'), preview.extraTheme, previewExtraCss))
-					.catch(() => undefined),
 			]);
-			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}), ...(fit ? { fit } : {}) };
+			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}) };
 		},
-		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, options?.runtimeUrl, deckOptions, preview, palette, mode, previewExtraCss],
+		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, options?.runtimeUrl],
+	);
+	// And the agent's fit check renders the draft the way export does (draft-fit.ts). The shell
+	// hands over only what that render needs; the lazy agent imports the render path itself.
+	const fitRender = React.useMemo(
+		() => ({ options: deckOptions, palette: preview.paletteOverride ?? palette, mode: (preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')) as 'light' | 'dark', extra: preview.extraTheme, extraCss: previewExtraCss }),
+		[deckOptions, preview, palette, mode, previewExtraCss],
 	);
 	const chatGrounding = React.useMemo(
-		() => ({ scorecard, findings, catalog: components, check: checkDraft, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
-		[scorecard, findings, components, diagramErrors, checkDraft],
+		() => ({ scorecard, findings, catalog: components, check: checkDraft, fitRender, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
+		[scorecard, findings, components, diagramErrors, checkDraft, fitRender],
 	);
 	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
 	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.

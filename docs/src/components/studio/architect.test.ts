@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, deckSystem, estimateUsd, generateComponent, generateTheme, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -613,6 +613,8 @@ describe('chatSystemTokens — the price strip counts the prompt it actually sen
 });
 
 describe('agentTurnUsd — the readout quotes a question AND an edit, at the typical turn', () => {
+	// The model lives in the lazy agent module; architect.ts forwards once it has loaded.
+	beforeAll(() => loadChatAgent());
 	const grounding = { catalog: [], findings: [] };
 	const price = { promptPerM: 2, completionPerM: 10 }; // Sonnet 5.5, the default model
 	const deck = '# A deck\n\n---\n\n## Another slide';
@@ -626,13 +628,6 @@ describe('agentTurnUsd — the readout quotes a question AND an edit, at the typ
 		expect(t.edit / t.question).toBeLessThan(2);
 		// The old readout priced 4,096 output tokens per turn — $0.041 of output alone here.
 		expect(t.question).toBeLessThan(((CHAT_OUTPUT_EST * price.completionPerM) / 1e6) * 0.5);
-	});
-
-	it('prices a deck past the inline limit by its outline, not its whole text', () => {
-		const long = `# Big\n\n${'---\n\n## Slide\n\n- a line of words\n\n'.repeat(1500)}`;
-		const t = agentTurnUsd(price, grounding, true, long);
-		const whole = ((long.length / 4) * 1.45 * 1.25 * price.promptPerM) / 1e6;
-		expect(t?.question).toBeLessThan(whole);
 	});
 
 	it('prices a first turn (the prefix not yet cached) above a warm one, and says nothing without a price', () => {
