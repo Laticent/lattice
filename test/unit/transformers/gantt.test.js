@@ -278,7 +278,7 @@ describe('gantt renderer — continuous time scale', () => {
   test('regression(S2): bars clamp to an explicit window', () => {
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q4</code></li></ul></li></ul>`;
     // Window is only Q2..Q3, but the task spans Q1..Q4.
-    const out = buildGanttChart(inner(ul), '<p><code>2026 Q2 .. 2026 Q3</code></p>');
+    const out = buildGanttChart(inner(ul), { window: '2026 Q2 .. 2026 Q3' });
     const x = barX(out);
     const w = barW(out);
     assert.ok(x >= -0.001 && x + w <= 100.001, `x=${x} w=${w} should stay within frame`);
@@ -656,7 +656,7 @@ const BAR = 'class="gantt-bar"';
 
 const barYs = (html) => attrsWith(html, BAR).map((a) => Number(a.y));
 const barXW = (html) => attrsWith(html, BAR).map((a) => ({ x: Number(a.x), w: Number(a.width) }));
-const WIN = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+const WIN = { window: '2026 Q1 .. 2026 Q4' };
 
 describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
   test('two OVERLAPPING tasks in one lane land on different rows', () => {
