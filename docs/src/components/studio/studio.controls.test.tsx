@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { loadStudioPanels, waitForPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
 
@@ -302,8 +302,10 @@ describe('Studio — every top-bar control responds', () => {
 		// jsdom File has no .text() by default in some setups — polyfill for the test.
 		if (!file.text) Object.defineProperty(file, 'text', { value: () => Promise.resolve('<!-- _class: title -->\n\n# Acme Annual Review\n\nThe year in numbers.') });
 		// …and no Blob.arrayBuffer, which the importer uses to sniff the first bytes (every
-		// browser has had it since 2020). Polyfilled on the prototype so `slice()` gets it too.
-		if (!Blob.prototype.arrayBuffer) {
+		// browser has had it since 2020). Patched on the prototype so `slice()` gets it too,
+		// and restored below so the patch never leaks into a later test.
+		const hadArrayBuffer = Object.getOwnPropertyDescriptor(Blob.prototype, 'arrayBuffer');
+		if (!hadArrayBuffer) {
 			Object.defineProperty(Blob.prototype, 'arrayBuffer', {
 				configurable: true,
 				value(this: Blob) {
@@ -313,6 +315,9 @@ describe('Studio — every top-bar control responds', () => {
 						r.readAsArrayBuffer(this);
 					});
 				},
+			});
+			onTestFinished(() => {
+				delete (Blob.prototype as { arrayBuffer?: unknown }).arrayBuffer;
 			});
 		}
 		await user.upload(input, file);

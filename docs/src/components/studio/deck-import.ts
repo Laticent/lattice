@@ -39,15 +39,34 @@ export const NO_SOURCE_PPTX = 'This PowerPoint has no editable deck inside. In L
  */
 export function sniffDeckFile(head: Uint8Array, name = ''): DeckFileKind | null {
 	if (head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04) return 'zip';
-	// `%PDF-` may sit after a little junk; the spec lets readers look in the first 1 KB.
 	const ascii = String.fromCharCode(...head.subarray(0, 1024));
-	if (ascii.includes('%PDF-')) return 'pdf';
+	// `%PDF-` belongs at byte 0. The spec lets a reader look further into the first 1 KB,
+	// so a PDF with junk in front still opens — but only when the NAME says PDF too: a
+	// Markdown deck that MENTIONS `%PDF-1.7` near its top is a deck, not a PDF.
+	if (ascii.startsWith('%PDF-') || (/\.pdf$/i.test(name) && ascii.includes('%PDF-'))) return 'pdf';
+	// UTF-16 text carries NULs by design; its byte-order mark says so before the binary check.
+	if (utf16Encoding(head)) return /\.html?$/i.test(name) ? 'html' : 'markdown';
 	// A NUL in the head is a binary file — never hand it to the Markdown editor.
 	if (head.subarray(0, 1024).includes(0)) return null;
-	const lead = ascii.replace(/^﻿|^\xEF\xBB\xBF/, '').trimStart().slice(0, 64).toLowerCase();
+	const lead = ascii.replace(/^\xEF\xBB\xBF/, '').trimStart().slice(0, 64).toLowerCase();
 	if (lead.startsWith('<!doctype html') || lead.startsWith('<html')) return 'html';
 	if (/\.html?$/i.test(name)) return 'html';
 	return 'markdown';
+}
+
+/** The UTF-16 flavor a byte-order mark names, or null for anything else. */
+function utf16Encoding(head: Uint8Array): 'utf-16le' | 'utf-16be' | null {
+	if (head[0] === 0xff && head[1] === 0xfe) return 'utf-16le';
+	if (head[0] === 0xfe && head[1] === 0xff) return 'utf-16be';
+	return null;
+}
+
+/** A text file's content. UTF-8 unless a byte-order mark says UTF-16 (Windows Notepad's
+ *  "Unicode" save), which `file.text()` would decode into mojibake. */
+async function readText(file: File, head: Uint8Array): Promise<string> {
+	const enc = utf16Encoding(head);
+	if (!enc) return file.text();
+	return new TextDecoder(enc).decode(await file.arrayBuffer());
 }
 
 const EMPTY_PACKAGES = (): LatticeImport['packages'] => ({ themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [] });
@@ -67,10 +86,10 @@ export async function readDeckFile(file: File): Promise<LatticeImport> {
 		if (!payload) throw new Error(NO_SOURCE_PDF);
 		return readEmbeddedLattice(payload);
 	}
-	if (kind === 'html') return readHtmlDeck(file);
+	if (kind === 'html') return readHtmlDeck(file, head);
 	if (kind === 'markdown') {
 		if (file.size > MAX_TEXT_BYTES) throw new Error('That file is too large to open.');
-		return { source: await file.text(), title: '', comments: [], packages: EMPTY_PACKAGES() };
+		return { source: await readText(file, head), title: '', comments: [], packages: EMPTY_PACKAGES() };
 	}
 	throw new Error('Lattice can’t open that kind of file. Import a .lattice, .md, .html, .pdf or .pptx exported from Lattice.');
 }
@@ -106,10 +125,10 @@ async function readEmbeddedLattice(payload: Uint8Array): Promise<LatticeImport> 
 	return readLatticeFile(payload);
 }
 
-async function readHtmlDeck(file: File): Promise<LatticeImport> {
+async function readHtmlDeck(file: File, head: Uint8Array): Promise<LatticeImport> {
 	if (file.size > MAX_TEXT_BYTES) throw new Error('That file is too large to open.');
 	const { default: latticeDoc } = await import('../../../../lib/core/lattice-doc.js');
-	const html = await file.text();
+	const html = await readText(file, head);
 	const payload = latticeDoc.readEnvelopePayload(html);
 	if (payload == null) {
 		throw new Error('This webpage has no Lattice deck inside. Export it from Lattice with “Download as webpage”, or ask the sender for the .lattice file.');

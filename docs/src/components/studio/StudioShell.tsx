@@ -132,6 +132,13 @@ import type { WebImageSummary } from './web-images';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
+// What "Import deck…" offers in the file picker — every format deck-import.ts reads. Kept
+// here, not in deck-import.ts, so the picker never pulls the reader onto the eager path.
+const DECK_IMPORT_ACCEPT = [
+	'.lattice', '.md', '.markdown', '.mdx', '.txt', '.html', '.htm', '.pdf', '.pptx',
+	'text/markdown', 'text/plain', 'text/html', 'application/pdf',
+	'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+].join(',');
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
 // self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest
@@ -157,13 +164,6 @@ const Fabricate = React.lazy(() => {
 // The Plugins tab pulls the plugin grammar and the admission kernel (lib/plugins/host-grammar.mjs);
 // lazy, so they load when the tab is shown rather than in the Studio's startup JavaScript
 // (docs/route-budget.json — eagerly it cost the studio route 7.6 KB gz).
-// What "Import deck…" offers in the file picker — every format deck-import.ts reads. Kept
-// here, not in deck-import.ts, so the picker never pulls the reader onto the eager path.
-const DECK_IMPORT_ACCEPT = [
-	'.lattice', '.md', '.markdown', '.mdx', '.txt', '.html', '.htm', '.pdf', '.pptx',
-	'text/markdown', 'text/plain', 'text/html', 'application/pdf',
-	'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-].join(',');
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
@@ -6582,7 +6582,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			<SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />
 			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
-			    Files greys out anything `accept` does not name, and `.lattice` has no
+			    Files grays out anything `accept` does not name, and `.lattice` has no
 			    registered type. What each format means is deck-import.ts's job. */}
 			<input ref={importInputRef} type="file" accept={DECK_IMPORT_ACCEPT} onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 

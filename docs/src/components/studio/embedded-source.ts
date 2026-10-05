@@ -164,20 +164,33 @@ export async function inflateCapped(raw: Uint8Array, max: number): Promise<Uint8
 export async function embedInPptx(pptx: Blob, lattice: Uint8Array): Promise<Blob> {
 	const { default: JSZip } = await import('jszip');
 	const zip = await JSZip.loadAsync(await pptx.arrayBuffer());
-	// STORE: the payload is a zip already, so deflating it again buys nothing.
-	zip.file(PPTX_EMBED_PART, lattice, { compression: 'STORE' });
+	// STORE: the payload is a zip already, so deflating it again buys nothing. No folder
+	// entry: OPC packages hold parts, not directories, and a strict reader flags a `lattice/`
+	// entry (JSZip adds one by default).
+	zip.file(PPTX_EMBED_PART, lattice, { compression: 'STORE', createFolders: false });
 	const types = await zip.file('[Content_Types].xml')?.async('string');
 	const rels = await zip.file('_rels/.rels')?.async('string');
 	if (!types || !rels) throw new Error('The PowerPoint file is missing its package parts.');
+	// Each edit must LAND: a writer that closes the root differently (a prefix, a space)
+	// would leave the part with no content type, and PowerPoint offers to "repair" that.
+	// Failing the export loudly beats shipping a file that opens with a warning.
+	const edit = (xml: string, close: string, add: string) => {
+		const at = xml.lastIndexOf(close);
+		if (at < 0) throw new Error('The PowerPoint file has a package layout this version cannot extend.');
+		return xml.slice(0, at) + add + xml.slice(at);
+	};
 	if (!/Extension="lattice"/i.test(types)) {
-		zip.file('[Content_Types].xml', types.replace('</Types>', `<Default Extension="lattice" ContentType="${EMBED_MIME}"/></Types>`));
+		zip.file('[Content_Types].xml', edit(types, '</Types>', `<Default Extension="lattice" ContentType="${EMBED_MIME}"/>`));
 	}
 	if (!rels.includes(PPTX_EMBED_REL)) {
 		let n = 1;
 		while (rels.includes(`Id="rIdLattice${n}"`)) n++;
-		zip.file('_rels/.rels', rels.replace('</Relationships>', `<Relationship Id="rIdLattice${n}" Type="${PPTX_EMBED_REL}" Target="${PPTX_EMBED_PART}"/></Relationships>`));
+		zip.file('_rels/.rels', edit(rels, '</Relationships>', `<Relationship Id="rIdLattice${n}" Type="${PPTX_EMBED_REL}" Target="${PPTX_EMBED_PART}"/>`));
 	}
-	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+	// STORE, as pptxgenjs writes every part: the repack changes the two XML parts and adds
+	// one, and leaves the rest of the package exactly as the exporter made it. (DEFLATE here
+	// recompressed all ~66 parts of a 10-slide deck, measured.)
+	return zip.generateAsync({ type: 'blob', compression: 'STORE', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 }
 
 /** Find the payload in an already-opened `.pptx` package; null when it carries none. */

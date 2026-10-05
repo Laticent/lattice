@@ -264,3 +264,35 @@ describe('buildReadAlong — what narrated the deck, in a document format\'s own
     assert.deepEqual(m.readAlong, ra);
   });
 });
+
+// The Studio's Import deck feeds readEnvelopePayload a whole page from anyone, up to 200 MB.
+// The single regex it used to be backtracked catastrophically: repeated `<script id="lattice-doc" `
+// with no `>` took 28.6 s at 50 KB (2026-10-05). These pin the old regex's MEANING and the
+// new scan's COST.
+describe('readEnvelopePayload — linear on hostile pages, same answers as the regex', () => {
+	test('finds the envelope wherever the tag puts its attributes, in any case', () => {
+		assert.equal(readEnvelopePayload('<p>x</p><SCRIPT type="a" ID="lattice-doc" data-x>QU JD\n</SCRIPT>'), 'QUJD');
+		assert.equal(readEnvelopePayload("<script id='lattice-doc'>QUJD</script>"), 'QUJD');
+	});
+	test('ignores the id on another element, in text, or on a non-script tag', () => {
+		assert.equal(readEnvelopePayload('<div id="lattice-doc">QUJD</div>'), null);
+		assert.equal(readEnvelopePayload('<scripts id="lattice-doc">QUJD</script>'), null);
+		assert.equal(readEnvelopePayload('<p>id="lattice-doc"</p><script id="lattice-doc">QUJD</script>'), 'QUJD');
+	});
+	test('a body that is not base64 does not match, but a later envelope still can', () => {
+		assert.equal(readEnvelopePayload('<script id="lattice-doc">alert(1)</script>'), null);
+		assert.equal(readEnvelopePayload('<script id="lattice-doc"><script id="lattice-doc">QUJD</script>'), 'QUJD');
+		assert.equal(readEnvelopePayload('<script id="lattice-doc">!</script><script id="lattice-doc">QUJD</script>'), 'QUJD');
+	});
+	test('stays fast on every repeating shape that defeated the regex', () => {
+		for (const unit of ['<script id="lattice-doc" ', 'id="lattice-doc"', '<script id="lattice-doc">', '<id="lattice-doc"', '<script id="lattice-doc">!<']) {
+			const html = `${unit.repeat(Math.ceil(5e6 / unit.length))}</script>`;
+			const t = process.hrtime.bigint();
+			readEnvelopePayload(html);
+			const ms = Number(process.hrtime.bigint() - t) / 1e6;
+			// ~40 ms measured per 5 MB; the regex needed seconds for 25 KB. A 2 s ceiling
+			// fails a regression to anything super-linear, and never a loaded CI box.
+			assert.ok(ms < 2000, `${JSON.stringify(unit)} × 5 MB took ${ms.toFixed(0)} ms`);
+		}
+	});
+});

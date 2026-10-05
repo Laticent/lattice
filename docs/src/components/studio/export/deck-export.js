@@ -1974,7 +1974,9 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Building .pptx…', { current: sections.length, total: sections.length });
 	// `write` + our own `download`, not `writeFile`: the blob has to pass through the
 	// re-openable step first, and both lanes then save the same way.
-	const built = await pptx.write({ outputType: 'blob' });
+	// Typed as a PowerPoint: pptxgenjs's `write` hands back JSZip's default `application/zip`,
+	// where `writeFile` used to wrap it in the presentation type before saving.
+	const built = new Blob([await pptx.write({ outputType: 'blob' })], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 	download(await withEmbeddedSource(built, 'pptx', opts?.embedSource, onStatus), safeName(name) + '.pptx');
 	// Same contract as exportPdf: a picture the capture could not load costs the image,
 	// never the export — and the author is told, because a silent hole is worse than a

@@ -73,10 +73,18 @@ plus the sheet path. The PowerPoint has two lanes. `deck-export.js` `withEmbedde
 once on the finished blob instead of being threaded through five lanes. The costs:
 
 - **A second pdf-lib load/save of the finished PDF.** It runs only when the switch is on, so a
-  plain export's bytes do not change. The PR measures the cost.
+  plain export's bytes do not change. Measured in Node (median of 5, after one warm run, with a
+  40 KB payload): **15 ms** on the real 10-slide `examples/studio-present.md` export (0.19 MB),
+  and **64 ms** on a synthetic 60-page PDF with one 400 KB picture per page (24.6 MB). The
+  exports themselves took 3 to 4 s, so a lane-by-lane embed would save less than 2%.
+- **The PPTX repack** stores every part uncompressed, as pptxgenjs writes them, and adds no
+  folder entry. A structural diff of a real export against its plain twin shows the same
+  parts with the same bytes, except `[Content_Types].xml`, `_rels/.rels` and the new
+  `lattice/deck.lattice`. (`docProps/core.xml` differs only in its timestamps.)
 - **The main-thread PPTX lane** now calls `pptx.write({ outputType: 'blob' })` and our own
   `download`, instead of `writeFile`, so both lanes pass through the same step and save the same
-  way.
+  way. The blob is re-typed as a presentation, because `write` returns JSZip's default
+  `application/zip` where `writeFile` used the presentation type.
 
 ## 5. Untrusted input
 
@@ -90,6 +98,16 @@ An imported PDF or PPTX is a file from anyone.
 - PPTX: the part is read through `readBytesBudget`, the same capped inflate a workspace backup's
   nested zip uses.
 - The payload then meets `readLatticeFile`'s own caps and the package gates.
+- HTML: the webpage reader used to locate the envelope with one regex,
+  `<script[^>]*\bid=…[^>]*>…</script>`. On a hostile page it backtracked catastrophically:
+  repeated `<script id="lattice-doc" ` took 28.6 s at 50 KB, and the time grew with the cube of
+  the size. This import is the first caller that feeds it a whole untrusted page, so
+  `lib/core/lattice-doc.js` `readEnvelopePayload` is now a forward-only scan. Every repeating
+  shape takes about 0.3 s at 50 MB, and `test/unit/core/lattice-doc.test.js` pins both its
+  answers and its cost.
+- Sniffing: `%PDF-` counts only at byte 0, or anywhere in the first 1 KB when the name ends in
+  `.pdf`, so a Markdown deck that mentions `%PDF-1.7` stays a deck. A UTF-16 byte-order mark
+  means text, which is decoded as UTF-16, not refused as binary.
 
 ## 6. Not done here (and why)
 

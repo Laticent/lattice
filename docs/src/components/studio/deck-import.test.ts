@@ -43,6 +43,14 @@ describe('sniffDeckFile — the bytes decide, the name only breaks a tie', () =>
 		expect(sniffDeckFile(enc('﻿  <!DOCTYPE html><html>'), 'deck')).toBe('html');
 		expect(sniffDeckFile(enc('# Title\n'), 'deck.md')).toBe('markdown');
 	});
+	it('a deck that MENTIONS %PDF- is still a deck; a PDF with junk in front still opens when named .pdf', () => {
+		expect(sniffDeckFile(enc('# File formats\n\nA PDF begins with `%PDF-1.7`.\n'), 'formats.md')).toBe('markdown');
+		expect(sniffDeckFile(enc('\r\n\r\n%PDF-1.4\n'), 'scan.pdf')).toBe('pdf');
+	});
+	it('UTF-16 text is text, not a binary — its NULs are the encoding', () => {
+		const le = new Uint8Array([0xff, 0xfe, 0x23, 0, 0x20, 0, 0x48, 0]);
+		expect(sniffDeckFile(le, 'notepad.md')).toBe('markdown');
+	});
 	it('refuses a binary it does not open, rather than handing it to the editor', () => {
 		expect(sniffDeckFile(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]), 'slide.png')).toBeNull();
 	});
@@ -60,6 +68,17 @@ describe('readDeckFile — every format ends in the same import shape', () => {
 	it('Markdown comes back byte-for-byte (line endings are the funnel’s job, not the reader’s)', async () => {
 		const got = await readDeckFile(file(SRC, 'deck.md'));
 		expect(got).toMatchObject({ source: SRC, title: '', comments: [] });
+	});
+
+	it('UTF-16 Markdown (Notepad’s "Unicode" save) opens as readable text', async () => {
+		const body = '# Hallo — Grüße\n';
+		const le = new Uint8Array(2 + body.length * 2);
+		le.set([0xff, 0xfe]);
+		for (let i = 0; i < body.length; i++) {
+			le[2 + i * 2] = body.charCodeAt(i) & 0xff;
+			le[3 + i * 2] = body.charCodeAt(i) >> 8;
+		}
+		expect((await readDeckFile(file(le, 'notepad.md'))).source).toBe(body);
 	});
 
 	it('a webpage export opens from its envelope', async () => {
@@ -106,6 +125,9 @@ describe('readDeckFile — every format ends in the same import shape', () => {
 		expect(got.source).toBe(SRC);
 		const zip = await JSZip.loadAsync(await bytesOf(pptx));
 		expect(zip.file(PPTX_EMBED_PART)).not.toBeNull();
+		// A part, not a directory: OPC has none, and a strict reader flags a folder entry.
+		// (The fixture's own `_rels/` and `ppt/` folders are JSZip's, not the embed's.)
+		expect(zip.files['lattice/']).toBeUndefined();
 		expect(await zip.file('[Content_Types].xml')!.async('string')).toMatch(/<Default Extension="lattice" ContentType="application\/vnd\.lattice\+zip"\/><\/Types>$/);
 		const rels = await zip.file('_rels/.rels')!.async('string');
 		expect(rels).toContain(`Type="${PPTX_EMBED_REL}" Target="${PPTX_EMBED_PART}"`);

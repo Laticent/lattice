@@ -574,7 +574,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(sheet.getByRole('button', { name: /download powerpoint/i }));
 		expect(shareSpies.sharePptx).toHaveBeenCalled();
 		// Re-openable is OFF by default: no `.lattice` payload (9th arg) rides in the file.
-		expect(shareSpies.sharePptx.mock.calls.at(-1)?.[8]).toBeUndefined();
+		expect((shareSpies.sharePptx.mock.calls.at(-1) as unknown[] | undefined)?.[8]).toBeUndefined();
 		await user.click(sheet.getByRole('button', { name: /all formats/i }));
 		// Marp now opens its own pre-export Options step (who a clipped slide's
 		// overflow marker speaks to), same shape as PDF above; Download runs it.
