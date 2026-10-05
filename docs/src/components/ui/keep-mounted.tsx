@@ -4,9 +4,10 @@ import * as React from "react"
 
 /**
  * Helpers for a surface that STAYS MOUNTED once it has been shown, and is only hidden after that:
- * `PersistentSurface`, the Studio's settings dock and Present's slide overview. They exist for one
- * reason — WebKit never frees a preview document whose frame is destroyed, so a surface of live
- * slide previews that unmounts on close strands its documents on every reopen
+ * `PersistentSurface`, the Studio's settings dock, Present's slide overview and the Share sheet's
+ * Print drawer. They exist for one reason — WebKit never frees a preview document whose frame is
+ * destroyed, so a surface of live slide previews that unmounts on close strands its documents on
+ * every reopen
  * (`engineering/decisions/2026-09-26-render-drift-and-unclosed-comments.md` §5).
  */
 

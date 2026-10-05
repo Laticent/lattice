@@ -338,6 +338,71 @@ Chromium; Safari and Firefox were not reachable here. Add slide paid 12–14 per
 justified `PersistentSurface` there. **Not measured:** WebKit memory itself, because this sandbox
 has no WebKit; the counts above are engine-independent.
 
+### The Share sheet stays mounted, so the Print drawer does (2026-10-05)
+
+This closes the residue above. The Share sheet is now `PanelSheet persistent`, the surface Add slide
+uses: mounted on its first open and only hidden after that. Inside it, the Print drawer stays
+mounted beside whichever view is up once it has been shown: hidden, and wrapped in `Frozen`, so a
+keystroke in the editor does not re-render a deck nobody can see. Its preview pool and its print
+frame therefore live as long as the Studio does. Three details carry the behavior the remount gave
+for free:
+
+- **Each show starts from the defaults.** `ShareSheet` counts the drawer's shows (`useShowCount`)
+  and passes the count as `resetKey`; a new value puts paper, orientation, layout, color and the
+  page back, without touching the pool or the frame.
+- **The sheet opens on its menu.** It resets in the render that opens it, so the kept sheet never
+  shows its last view for a frame. The other options steps (PDF, Webpage, Images, Marp) are dropped
+  400 ms after a close, once the sheet has slid out, which is close to when they unmounted before.
+- **A cold first open slides in once.** `PanelLoader` swaps the loading shell for the real sheet with
+  its enter animation off (`PanelSheetInstantCtx`); the persistent branch of `PanelSheet` now honors
+  that flag, as the plain branch always did.
+
+Measured on the real Studio (`npm run build:e2e`), a 12-slide deck that alternates Mermaid and plain
+slides, documents created per step (`docs/e2e/preview-documents.ts`), the same on desktop Chromium
+and Playwright WebKit at 1440×900:
+
+| | before (main, f73625a) | after |
+|---|---|---|
+| first open | 2 | 2 |
+| first print | 2 | 2 |
+| each of three reopens | 2 | **0** |
+| a print after each reopen | 2 | **0** |
+
+`documentsMade` counts each iframe AND each `srcdoc` write, so one document reads 2. WebKit RSS
+(the `WPEWebProcess` resident set, two runs each) from the first close to the third: main grew
+204 MB and 251 MB; this change grew 51, 42 and 48 MB over three runs. That is Playwright's WPE build on Linux, not
+Safari on an iPad, which is still an owner step.
+
+The print frame is no longer removed when the drawer closes, so the earlier assumption that
+`print()` blocks before the removal no longer matters. The drawer's state that is not a setting
+(`builtPdf`, the rasterized image cache) survives a close too, keyed as before on the render and
+the settings, so a reopen that changes nothing can reuse a PDF it already built.
+
+The independent checker found three things that unmounting had been doing for free, and each is
+now explicit:
+
+- **The cells read the source the render was built from** (`renderedSrc`), not the live one. A slide
+  added while the sheet was closed made 13 markdown slides against 12 rendered sections on the
+  reopen render, so the drawer took its per-cell fallback and unmounted the pool: +4 documents on
+  that reopen, worse than main.
+- **The kept print frame is `inert`** (and `tabIndex = -1`) except while it prints. Removed on close
+  before, it now outlives the sheet, and a deck with links put an invisible `aria-hidden` document
+  in the Studio's Tab order (reached after 41 Tab presses in the checker's probe).
+- **A print the author walked away from does not open.** Closing the sheet used to remove the frame
+  before it loaded. Now the drawer passes `active` down, and the hand-off to `print()`, the N-up PDF
+  tab and the iOS "PDF ready" toast are each dropped when the drawer is no longer shown. The PDF
+  stays cached for the next show.
+
+A failed re-render now clears the previous render, so a kept drawer cannot print the last deck after
+the new one failed, and the stage keeps its last measured size while hidden, so a reshow does not
+draw the sheet at the fallback size for a frame.
+
+`docs/e2e/print-preview-documents.spec.ts` pins the reopen zeros (with a slide added while closed),
+the reset to defaults, the frozen drawer (a MutationObserver on the hidden drawer counts 0 mutations
+while the deck is edited with the sheet closed), the cancelled print and the inert frame. On main
+the reopen test fails at its first assertion, because there is no drawer to find after a close;
+with the `isLive` check removed, the cancelled-print test fails with 1 print.
+
 ### Tried first, and why they failed
 
 - **A frame dock** (built, reviewed by the adversarial trio, then removed). One set of frames
