@@ -110,6 +110,17 @@ describe('a "your turn" beat', () => {
 	});
 });
 
+describe('a "your turn" beat whose control is missing', () => {
+	it('does nothing unless it can say what it is doing instead', async () => {
+		// Performing under the beat's own "Click X" line would edit the deck while telling the user it
+		// was their turn — what "Write a slide" did at the Read stop before this rule.
+		const { log, ctx } = harness('waits');
+		const who = await yourTurn(ctx, { say: 'Click at the end of your text.', target: '#nowhere', perform: (a) => a.appendSlide('# x') });
+		expect(who).toBe('nobody');
+		expect(log).not.toContain('append');
+	});
+});
+
 describe('targets', () => {
 	it('visible() skips hidden copies and finds the one on screen', () => {
 		const hidden = document.createElement('button');
@@ -141,5 +152,18 @@ describe('targets', () => {
 		el.focus();
 		expect(aimsAt(el, new KeyboardEvent('keydown', { key: 'Enter' }))).toBe(true);
 		expect(aimsAt(el, new KeyboardEvent('keydown', { key: 'a' }))).toBe(false);
+	});
+
+	it('an arrow key inside the target’s menu counts, so a keyboard user can finish a two-step lesson', () => {
+		const menu = document.createElement('div');
+		menu.setAttribute('role', 'menu');
+		const first = document.createElement('div');
+		first.tabIndex = -1;
+		const target = document.createElement('div');
+		menu.append(first, target);
+		document.body.appendChild(menu);
+		first.focus();
+		expect(aimsAt(target, new KeyboardEvent('keydown', { key: 'ArrowDown' }))).toBe(true);
+		expect(aimsAt(target, new KeyboardEvent('keydown', { key: 'Escape' }))).toBe(false);
 	});
 });

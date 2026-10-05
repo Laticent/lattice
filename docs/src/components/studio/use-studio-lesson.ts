@@ -82,7 +82,13 @@ export function useStudioLesson(rootRef: React.RefObject<HTMLElement | null>, bi
 				(build) => {
 					if (!build || latest.current !== id) return;
 					pending.current = { id, play: build(env) };
-					lesson.start();
+					// A tour started while this lesson was loading holds Vetrina's one run, and
+					// `start()` throws for a second. The tour wins; the lesson does not start.
+					try {
+						lesson.start();
+					} catch {
+						pending.current = null;
+					}
 				},
 				() => notify('That lesson could not load. Check your connection and try again.'),
 			);

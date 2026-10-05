@@ -64,7 +64,7 @@ Typing `pdf` in the palette shows two rows:
 - **Learn → How do I export a PDF?** starts a lesson.
 
 A lesson is three to six beats. A beat that needs the user's move points at the real control, says
-what to do, and **waits about seven seconds for the user's click**. If the user clicks it, the real
+what to do, and **waits seven seconds, counted from when the cursor arrives, for the user's click**. If the user clicks it, the real
 control does its real job and the lesson moves on. If the user waits, the lesson says so, clicks it
 for them through the same action, and moves on. So "show me" and "walk me through" are one lesson,
 not two modes to choose between, and every palette row is plain Enter.
@@ -73,6 +73,11 @@ The first proposal had three explicit modes per row ("Do it / Walk me through / 
 dropped on the second round: it needed trailing buttons inside palette rows plus `⌘↵`/`⇧↵`
 bindings across all three palette layouts, and it asked a learner to pick a mode before they had
 learned anything.
+
+A control that is not on screen (a hidden pane, a width where it lives in a menu) gets no turn.
+The lesson does the step only when the beat says what it is doing instead; otherwise it skips the
+step. "Write a slide" with the editor hidden says how to bring the editor back and stops, rather than
+adding a slide nobody asked for.
 
 ### Why this shape is honest
 

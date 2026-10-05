@@ -1,4 +1,4 @@
-import { expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 // Studio lessons (engineering/decisions/2026-10-05-studio-lessons.md). Search is the help: typing
 // "pdf" offers the action AND the lesson, and a lesson points at the real control, waits for the
@@ -62,4 +62,14 @@ test('any other input ends the lesson at once', async ({ page }) => {
 	await expect(page.locator(STAGE)).toBeVisible();
 	await page.keyboard.press('a');
 	await expect(page.locator(STAGE)).toHaveCount(0);
+});
+
+test('"Write a slide" with the editor hidden explains how to get it back and changes nothing', async ({ page }) => {
+	await page.getByRole('button', { name: CHROME.postureStops[0] }).click();
+	const before = await page.evaluate(() => localStorage.length && JSON.stringify(Object.entries(localStorage).filter(([k]) => k.includes('deck'))));
+	await search(page, 'write');
+	await page.getByRole('option', { name: 'How do I write a slide?', exact: true }).click();
+	await expect(page.locator(STAGE)).toContainText('Choose Write');
+	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 20_000 });
+	expect(await page.evaluate(() => localStorage.length && JSON.stringify(Object.entries(localStorage).filter(([k]) => k.includes('deck'))))).toBe(before);
 });

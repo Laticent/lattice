@@ -335,17 +335,22 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 				reject(newAbort());
 			};
 			signal.addEventListener('abort', onAbort, { once: true });
-			awaiting = {
+			const mine = {
 				match: o.match,
-				resolve: (e) => {
+				resolve: (e: Event) => {
 					window.clearTimeout(timer);
 					signal.removeEventListener('abort', onAbort);
 					resolve(e);
 				},
 			};
+			awaiting = mine;
 			if (o.timeout != null) {
 				timer = window.setTimeout(() => {
-					awaiting = null;
+					// Only clear the slot if it is still THIS turn's. A host may arm a newer turn before
+					// an older one times out (a lesson races its own window against this timer, then
+					// moves on), and clearing the newer one would turn the user's correct press into a
+					// take-over.
+					if (awaiting === mine) awaiting = null;
 					signal.removeEventListener('abort', onAbort);
 					if ((o.onTimeout ?? 'abort') === 'resume') resolve(new Event('vetrina:timeout'));
 					else {

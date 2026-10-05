@@ -16,7 +16,7 @@
 // supplied. `press` calls the real control's `click()`, which sends no `pointerdown`, so Vetrina's
 // take-over guard does not mistake it for the user; any OTHER real input still ends the lesson.
 
-import { type RunContext, storyboard, type Target, type Walkthrough, waitFor } from '../../../lib/vetrina/index.js';
+import { type RunContext, storyboard, type Target, type Walkthrough, wait, waitFor } from '../../../lib/vetrina/index.js';
 import type { StudioCommandId } from '../studio-commands';
 
 /** What a lesson may do to the Studio. Every member is bound to real state by `use-studio-lesson`. */
@@ -48,6 +48,10 @@ export type LessonBuild = (env: LessonEnv) => Walkthrough<LessonActions>;
  *  control the cursor is already resting on; short enough that someone who only wants to watch is
  *  not left staring at a still screen. */
 export const TURN_MS = 7000;
+
+/** Extra time Vetrina's own turn timeout allows on top of `TURN_MS`, to cover the cursor's travel
+ *  before the window starts. A backstop only: the window itself is timed from arrival. */
+const BACKSTOP_MS = 10_000;
 
 /** The line a lesson says when the user waited and it does the step itself. */
 export const TAKEOVER_LINE = 'No rush — I’ll do this one for you.';
@@ -94,11 +98,21 @@ function resolve(target: Aim): Element | null {
 /** Where a beat points: a selector, a list of selectors tried in order, or any Vetrina target. */
 export type Aim = Target | readonly string[];
 
-/** Did this real event aim at `el`? A pointer press inside it, or Enter/Space while it has focus. */
+/** Keys a keyboard user presses to use a control or move through the menu it sits in. */
+const TURN_KEYS = new Set(['Enter', ' ', 'ArrowDown', 'ArrowUp', 'Home', 'End']);
+
+/** Did this real event aim at `el`? A pointer press inside it; or, from the keyboard, Enter or
+ *  Space on it, or a key that moves through the same menu or list. Without the second half a
+ *  keyboard user could not finish a two-step lesson: Enter opens the deck menu, and ArrowDown to
+ *  reach "New deck" read as "the user took over" and ended the lesson. */
 export function aimsAt(el: Element, e: Event): boolean {
 	if (e.type === 'keydown') {
 		const k = (e as KeyboardEvent).key;
-		return (k === 'Enter' || k === ' ') && document.activeElement instanceof Node && el.contains(document.activeElement);
+		const focus = document.activeElement;
+		if (!TURN_KEYS.has(k) || !(focus instanceof Element)) return false;
+		if (el.contains(focus)) return true;
+		const group = el.closest('[role="menu"], [role="listbox"]');
+		return group != null && group.contains(focus);
 	}
 	return e.target instanceof Node && el.contains(e.target);
 }
@@ -114,11 +128,15 @@ export async function tell(ctx: LessonCtx, beat: { say: string; point?: Aim; cir
  * Point at a real control and wait for the user to use it; if they wait, do it for them.
  *
  * Resolves to who acted: `'user'` when their own press matched, `'lesson'` when the lesson ran
- * `perform`, and `'nobody'` when the beat has no `perform` and the user let it time out — a beat
- * the lesson deliberately will not do for them (it would download a file, say).
+ * `perform`, and `'nobody'` when nothing happened — the beat has no `perform` (a step the lesson
+ * deliberately leaves to the user, like a download), or its control is not on screen and the beat
+ * gave no `missing` line.
  *
- * A target that is not on screen at this width skips the wait: the lesson cannot ask anyone to press
- * a control that is not there, so it says `missing` (or the take-over line) and performs.
+ * A control that is not on screen skips the wait, because the lesson cannot ask anyone to press
+ * what is not there. It performs only when the beat says, in `missing`, what it is doing instead:
+ * performing under the beat's own "Click X" line would edit the user's deck while telling them it
+ * was their turn. (Found by review: "How do I write a slide?" at the Read stop, where the editor is
+ * inert, added a slide to the real deck without a turn.)
  */
 export async function yourTurn(
 	ctx: LessonCtx,
@@ -126,21 +144,28 @@ export async function yourTurn(
 ): Promise<'user' | 'lesson' | 'nobody'> {
 	const el = resolve(beat.target);
 	if (!el) {
-		if (!beat.perform) return 'nobody';
-		await storyboard<LessonActions>('', [{ say: beat.missing ?? beat.say, read: true, act: beat.perform, settle: 300 }])(ctx);
+		if (!beat.perform || !beat.missing) return 'nobody';
+		await storyboard<LessonActions>('', [{ say: beat.missing, read: true, act: beat.perform, settle: 300 }])(ctx);
 		return 'lesson';
 	}
 	const target = aim(beat.target);
 	// LISTEN BEFORE POINTING. The caption goes up as the cursor sets off, and a reader who acts on
-	// it presses the control while the cursor is still travelling. Armed after the theater, that
+	// it presses the control while the cursor is still traveling. Armed after the theater, that
 	// press arrived before anything was waiting for it and Vetrina's guard took it as "the user
 	// took over" — measured on the real Studio, where it ended the lesson on the very click it
 	// asked for. Armed first, the press resolves the turn whenever it lands.
-	const turn = ctx.awaitUser({ match: (e) => aimsAt(el, e), timeout: beat.turnMs ?? TURN_MS, onTimeout: 'resume' });
+	//
+	// THE TURN WINDOW STARTS WHEN THE CURSOR ARRIVES, not when the turn is armed. Vetrina's own
+	// timeout starts at arming, so it would spend the cursor's travel and settle out of the user's
+	// seven seconds; it is set long here as a backstop, and the real window is the race below.
+	const turnMs = beat.turnMs ?? TURN_MS;
+	const turn = ctx.awaitUser({ match: (e) => aimsAt(el, e), timeout: turnMs + BACKSTOP_MS, onTimeout: 'resume' });
 	turn.catch(() => {}); // an abort rejects both; the theater's rejection is the one that propagates
 	await storyboard<LessonActions>('', [{ say: beat.say, point: target }])(ctx);
-	const ev = await turn;
-	if (ev.type !== 'vetrina:timeout') return 'user';
+	const window = wait(turnMs, ctx.signal).then(() => 'waited' as const);
+	window.catch(() => {});
+	const ev = await Promise.race([turn, window]);
+	if (ev !== 'waited' && ev.type !== 'vetrina:timeout') return 'user';
 	if (!beat.perform) return 'nobody';
 	await storyboard<LessonActions>('', [{ say: TAKEOVER_LINE, point: target, click: true, act: beat.perform, settle: 300 }])(ctx);
 	return 'lesson';
