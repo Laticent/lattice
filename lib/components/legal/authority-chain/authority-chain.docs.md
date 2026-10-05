@@ -38,7 +38,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 ## When to use
 
 - **Provenance is the argument.** Use when the audience needs to see exactly where a rule comes from and how it has been interpreted. The chain itself is the evidence that the obligation is grounded, not invented.
-- **Tier labels carry the read.** Statute, regulation, guidance, case — each tier has a different legal weight. The left-rail label tells the audience what kind of source they are looking at before they read the citation.
+- **Tier labels carry the read.** Statute, regulation, guidance, case — each tier has a different legal weight. The left-rail label tells the audience what kind of source they are looking at before they read the citation. Every row shares one rail: it is the same width down the chain and widens to the longest single word in any label (Enforcement), so every citation starts at the same left edge.
 - **Three to five tiers; six only without glosses.** The chain reads top-to-bottom on a single canvas. A full row — a one-word tier label, its citation and a one-line gloss — holds five tiers on a laptop slide, and the sixth clips. Six tiers fit only as label-and-citation rows with no gloss. Keep each label to one word, or a short pair like Case law: a label that wraps in the left rail (Agency guidance) costs every row a line, and the chain then holds four. Past that, group sub-cases into the parent row's gloss or split into two slides. A chain that does not fit runs long at its tail and is reported as clipped; a row never shrinks below its own text, so one card never draws over the next.
 
 ## When NOT to use

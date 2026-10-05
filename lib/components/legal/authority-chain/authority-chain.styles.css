@@ -128,6 +128,41 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:firs
   white-space:nowrap;
 }
 
+/* ── One rail for the whole chain ─────────────────────────────────────────
+ * Each row above is its own flex line, so the label's `flex:0 0 14cqi` is a floor, not a
+ * width: a flex item never shrinks below its longest word (min-width:auto). ENFORCEMENT at
+ * 0.14em tracking is 174px against a 161px rail at 1280px, so that row's citation started
+ * 12.6px right of every other row and the text column zig-zagged
+ * (followups.d/2419-p4-authority-chain-rail-width-varies-per-row.md).
+ *
+ * The list owns the columns and each row is a subgrid, so one rail is shared by every row
+ * (same move as list-tabular). The rail track is `min-content` and the label carries the
+ * 14cqi floor as min-width, so the rail is 14cqi as before, widened to the LONGEST WORD in
+ * any label when that word is wider. The floor sits on the label, not in the track: a
+ * subgrid row's padding and border count toward its edge track, so a `minmax(14cqi, …)`
+ * track handed the label 28px less than the flex rail did. min-content, not max-content, so
+ * a two-word label (Agency guidance) still wraps in the rail instead of widening it for the
+ * whole chain. `1fr` rows keep the flex chain's behavior: equal shares of the stage,
+ * floored at each row's content.
+ *
+ * Only the variants whose rows carry the side rail. pyramid rows have different widths, so
+ * their citations cannot share an x anyway; branching and the tall/strip reflow put the
+ * label on its own line; trail is columns. Those keep the flex row above. */
+section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) {
+  display:grid;
+  grid-template-columns:min-content minmax(0, 1fr);
+  grid-auto-rows:1fr;
+  align-content:safe center;
+}
+section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
+  display:grid;
+  grid-column:1 / -1;
+  grid-template-columns:subgrid;
+}
+section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) > li > strong:first-child {
+  min-width:14cqi;
+}
+
 /* .pyramid — top is widest, each tier narrower. */
 section.authority-chain.pyramid > .cell-stage > :is(ol, ul) {
   align-items:center;
