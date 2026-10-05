@@ -76,3 +76,66 @@ for (const [label, defaults] of [
 		await setDefaults(page, null);
 	});
 }
+
+// ADMISSION IS DECK-WIDE, on the route that renders ONE slide (HARD RULE #25 inversion lens). Slide 1's
+// `diagram` class loads Mermaid for the whole deck, so slide 2's plain fence must draw — but the live
+// preview renders slide 2 ALONE (the slice route: a slide-local class needs no deck context), and a
+// slice admitted on itself would mark the fence and show source. The spec records every render the
+// page asks the engine for, so it proves the slice route ran and was handed the deck's admission,
+// not merely that a figure appeared.
+const TWO_SLIDES = `---
+color-mode: light
+---
+
+<!-- _class: diagram -->
+
+# One
+
+\`\`\`mermaid
+flowchart LR
+  A --> B
+\`\`\`
+
+---
+
+# Two, a plain slide
+
+\`\`\`mermaid
+flowchart LR
+  C[Deck-wide] --> D[Drawn]
+\`\`\`
+`;
+
+test('a slide rendered alone takes the whole deck\'s admission (defaults: [])', async ({ page }) => {
+	test.setTimeout(EVIDENCE ? 300_000 : 120_000);
+	await gotoStudio(page);
+	await setDefaults(page, []);
+	await page.evaluate(() => {
+		type PG = { render: (s: string, t: string, o?: { pluginDefaults?: string[] }) => unknown };
+		const w = window as unknown as { LatticePlayground: PG; __admissionCalls: Array<{ alone: boolean; defaults: string[] | null }> };
+		w.__admissionCalls = [];
+		const real = w.LatticePlayground.render.bind(w.LatticePlayground);
+		w.LatticePlayground.render = (s, t, o) => {
+			w.__admissionCalls.push({ alone: s.includes('# Two') && !s.includes('# One'), defaults: o?.pluginDefaults ?? null });
+			return real(s, t, o);
+		};
+	});
+	await setEditorContent(page, TWO_SLIDES);
+	await expect.poll(() => persistedSource(page)).toContain('# Two, a plain slide');
+	const frame = livePreview(page);
+	// The caret ends on slide 2, so the preview shows it — the slide the slice route renders alone.
+	await expect(frame.locator('h1', { hasText: 'Two, a plain slide' }).first()).toBeAttached({ timeout: 30_000 });
+	// Slide 2 alone: the fence is drawn, never marked.
+	await expect(frame.locator('[data-lattice-figure] svg').first()).toBeAttached({ timeout: 30_000 });
+	await expect(frame.locator('pre[data-lattice-off]')).toHaveCount(0);
+	// …and it got there by the slice route, handed the deck's admission (Mermaid, by the class).
+	const calls = await page.evaluate(() => (window as unknown as { __admissionCalls: Array<{ alone: boolean; defaults: string[] | null }> }).__admissionCalls);
+	const slices = calls.filter((c) => c.alone);
+	expect(slices.length, 'the preview never rendered slide 2 alone — the slice route did not run').toBeGreaterThan(0);
+	for (const c of slices) expect(c.defaults).toContain('mermaid');
+	if (EVIDENCE) {
+		fs.mkdirSync(EVIDENCE, { recursive: true });
+		await page.screenshot({ path: path.join(EVIDENCE, 'studio-preview-slice-deck-wide.png') });
+	}
+	await setDefaults(page, null);
+});
