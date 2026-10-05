@@ -62,6 +62,16 @@ const attrsOf = (tag) => {
 const attrsWith = (html, needle) => tagsWith(html, needle).map(attrsOf);
 const firstAttrs = (html, needle) => attrsWith(html, needle)[0] || {};
 const BAR = 'class="gantt-bar"';
+// Every run from `open` to the next `close` (close excluded), found with indexOf: linear.
+const between = (html, open, close) => {
+  const out = [];
+  for (let at = html.indexOf(open); at >= 0; at = html.indexOf(open, at + 1)) {
+    const end = html.indexOf(close, at);
+    if (end < 0) break;
+    out.push(html.slice(at, end));
+  }
+  return out;
+};
 
 // A bar's start, as a percentage of the axis.
 const barX = (html) => {
@@ -140,7 +150,7 @@ describe('gantt renderer — continuous time scale', () => {
     const out = buildGanttChart(inner(ul), { window: '2026 Q1 .. 2026 Q4' });
     assert.ok(attrsWith(out, BAR).some((a) => a['data-s'] === 'at-risk'));
     // The key chip is an SVG swatch now, keyed by the same status.
-    assert.match(out, /gantt-legend-swatch"[^>]*data-s="at-risk"/);
+    assert.ok(attrsWith(out, 'gantt-legend-swatch"').some((a) => a['data-s'] === 'at-risk'));
   });
 
   // #2255 — the key names the NEUTRAL too. A bar with no status and a `deferred`
@@ -409,14 +419,14 @@ describe('gantt detail reveal — per-task HTML-mark path (#475)', () => {
     // Exactly one template, keyed to mark 0, in the sibling payload (not the figure).
     const tpls = [...out.matchAll(/<template class="chart-detail" data-mark="(\d+)">/g)].map((m) => m[1]);
     assert.deepEqual(tpls, ['0']);
-    assert.match(out, /<div class="chart-details" hidden><template[^>]*>.*Platform team/);
+    const payload = out.indexOf('<div class="chart-details" hidden><template');
+    assert.ok(payload >= 0 && out.indexOf('Platform team', payload) > payload);
   });
 
   test('the payload is a SIBLING of .gantt-chart (not miscounted as a mark)', () => {
     const out = buildGanttChart(inner(ulDetail), '');
     // .chart-details opens AFTER .gantt-chart closes.
     assert.ok(out.indexOf('class="chart-details"') > out.indexOf('</div>'));
-    assert.ok(/<\/div>(<!--[\s\S]*?-->)?$|chart-details/.test(out));
   });
 
   test('detail folds into a Marp-faithful speaker-note comment', () => {
@@ -479,7 +489,7 @@ describe('gantt — portrait geometry', () => {
 
   test('portrait puts the lane name ABOVE its bars, on the full width', () => {
     // The reflow's whole point: no left label column stealing room from the bars.
-    assert.match(port, /class="gantt-lane-label"[^>]*data-pos="above"/);
+    assert.ok(attrsWith(port, 'class="gantt-lane-label"').some((a) => a['data-pos'] === 'above'));
     assert.doesNotMatch(land, /data-pos="above"/);
   });
 
@@ -522,11 +532,13 @@ describe('gantt — tick advance follows the painted face', () => {
   // extraction, and a single-pass tag strip is the shape CodeQL flags as an
   // incomplete sanitizer (harmless on engine-generated markup, but not worth
   // teaching by example in a test).
-  const ticks = (html) => [...html.matchAll(/<text class="gantt-tick"[\s\S]*?<\/text>/g)]
-    .map(m => [...m[0].matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g)].map(t => t[1]).join(''));
+  // Sliced with indexOf rather than a lazy regex, which CodeQL reads as polynomial on
+  // engine output.
+  const ticks = (html) => between(html, '<text class="gantt-tick"', '</text>')
+    .map(t => between(t, '<tspan', '</tspan>').map(sp => sp.slice(sp.indexOf('>') + 1)).join(''));
   // The gradient <defs> ids carry a module-level counter, so two identical calls
   // differ by id alone. Compare the AXIS, which is what the advance decides.
-  const axis = (html) => (html.match(/<g class="gantt-axis"[\s\S]*?<\/g>/) || [])[0];
+  const axis = (html) => between(html, '<g class="gantt-axis"', '</g>')[0];
   const mono = buildGanttChart(inner(ul), eyebrow, undefined, false);
   const hand = buildGanttChart(inner(ul), eyebrow, undefined, true);
 
