@@ -420,8 +420,9 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const valid = rows.filter((r) => r.valid).map((r) => r.scene);
 			const unreadable = rows.length - valid.length;
 			// Loaded on click, like the backup below: this sheet is in the Studio's eager bundle.
-			const { downloadBlob } = await import('./download');
-			downloadBlob('lattice-motion-scenes.zip', await packBundle([], [], [], valid));
+			const { saveBlob } = await import('./download');
+			// Tell the author only about a file that exists: the desktop dialog can be dismissed.
+			if ((await saveBlob('lattice-motion-scenes.zip', await packBundle([], [], [], valid))) !== 'saved') return;
 			notify(unreadable ? `Downloaded ${valid.length} scene(s). ${unreadable} could not be read — they stay in your library and in every backup.` : `Downloaded ${valid.length} scene(s).`);
 		} catch (e) {
 			notify(`Scene export failed: ${(e as Error)?.message || 'unknown error'}`);
@@ -435,9 +436,11 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		try {
 			const now = Date.now();
 			// Loaded on click: pack and restore are off the Studio's eager path.
-			const { backupRestoreGaps, downloadBlob, packWorkspace } = await import('./workspace-backup');
+			const { backupRestoreGaps, packWorkspace, saveBlob } = await import('./workspace-backup');
 			const report: PackReport = { refdocsBytes: 0 };
-			downloadBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report));
+			// Record the backup only once the file exists. On the desktop the save dialog can be
+			// dismissed or the write can fail, and a recorded backup turns off the backup nudge.
+			if ((await saveBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report))) !== 'saved') return;
 			markBackupTaken(now);
 			setBackupAt(now);
 			// Still downloaded: a backup you hold beats none. But it must not look like one that will

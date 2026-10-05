@@ -461,17 +461,14 @@ export function PrintOptionsPanel({
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 
 	// Through the platform seam like every other save. Every PDF this panel builds is also
-	// kept as a Blob by its URL, so the save starts SYNCHRONOUSLY: `openPdfTab` and the
-	// share-sheet fallback reach here inside the tap, and a browser can refuse a download
-	// that starts after an await has left the gesture. The fetch is only a fallback for a URL
-	// this panel did not build.
+	// kept as a Blob by its URL, so the save itself starts synchronously: when `openPdfTab`
+	// falls back to a save inside the tap, nothing awaits first. (The Download button and the
+	// share-sheet fallback reach here after an await either way, exactly as before the seam.)
+	// A URL leaves the map only when it is revoked, so a miss means the PDF is gone.
 	const triggerDownload = React.useCallback((url: string) => {
 		const blob = pdfBlobs.current.get(url);
-		if (blob) { downloadBlob(pdfFilename(), blob); return; }
-		fetch(url)
-			.then((r) => r.blob())
-			.then((b) => downloadBlob(pdfFilename(), b))
-			.catch(() => notify('Could not save the PDF.'));
+		if (blob) downloadBlob(pdfFilename(), blob);
+		else notify('Could not save the PDF. Build it again.');
 	}, [pdfFilename]);
 
 	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the

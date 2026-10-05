@@ -94,3 +94,33 @@ describe('saveFile — desktop host', () => {
 		expect(invoke).toHaveBeenCalledTimes(2);
 	});
 });
+
+// The seam only works if nothing goes around it: the desktop app's webview ignores an
+// <a download> click, so a save that bypasses saveFile fails there with no error at all.
+// A grep for `a.download` alone missed one (a library's own saver, pptxgenjs `writeFile`),
+// so this census also catches `writeFile(` called on a library object.
+describe('every Studio save goes through the seam', () => {
+	it('no source file outside lib/platform.js saves by itself', async () => {
+		const { readFileSync, readdirSync, statSync } = await import('node:fs');
+		const { join, relative } = await import('node:path');
+		const root = join(__dirname, '..');
+		// A standalone demo page; the desktop app opens /studio/ and never links to it.
+		const outsideTheApp = new Set(['pages/vetrina.astro']);
+		const bypass = /\.download\s*=|setAttribute\(\s*['"]download['"]|\.writeFile\s*\(/;
+		const offenders: string[] = [];
+		const walk = (dir: string) => {
+			for (const name of readdirSync(dir)) {
+				const path = join(dir, name);
+				if (statSync(path).isDirectory()) { walk(path); continue; }
+				if (!/\.(js|mjs|ts|tsx|astro)$/.test(name) || /\.test\./.test(name)) continue;
+				const rel = relative(root, path);
+				if (rel === 'lib/platform.js' || outsideTheApp.has(rel)) continue;
+				readFileSync(path, 'utf8').split('\n').forEach((line, i) => {
+					if (bypass.test(line) && !/^\s*(\/\/|\*)/.test(line)) offenders.push(`${rel}:${i + 1}`);
+				});
+			}
+		};
+		walk(root);
+		expect(offenders).toEqual([]);
+	});
+});

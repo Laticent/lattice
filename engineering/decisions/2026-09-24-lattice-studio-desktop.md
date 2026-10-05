@@ -162,6 +162,10 @@ and links with `lld-link`, and `makensis` wraps the result as an installer.
 - **Config:** `bundle.targets` gains `nsis`, which a Linux build ignores. `bundle.icon`
   gains `icons/icon.ico` for the exe's own icon. The NSIS install mode is `currentUser`,
   so the installer needs no admin prompt.
+- **File names:** `save_file` replaces every character Windows refuses in a name
+  (`<>:"|?*`, control characters, a trailing dot or space) on every platform. A reference
+  doc's original upload name, saved from the Library, is the one name that reached the
+  dialog uncleaned.
 - **Not signed.** Tauri signs only on a Windows host by default, so SmartScreen warns on
   first run. Signing is part of the release-pipeline slice (followup P5).
 - **UNVERIFIED on Windows.** Nothing here ran the installer or the app on Windows. No

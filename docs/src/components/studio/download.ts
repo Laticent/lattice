@@ -1,13 +1,22 @@
 import { notify } from '@/lib/notify';
-import { saveFile } from '@/lib/platform';
+import { type SaveResult, saveFile } from '@/lib/platform';
 
 // Save a Blob as a file the user keeps. Every Studio export lands here, and this hands
 // it to the platform seam (`lib/platform.js`), which clicks a download link in a browser
-// and shows the native save dialog on the desktop. Fire-and-forget: no caller acts on
-// the outcome today, and the web path must not await before its click (see saveFile).
+// and shows the native save dialog on the desktop. Fire-and-forget, for callers that do
+// nothing after the save; the web path must not await before its click (see saveFile).
 export function downloadBlob(filename: string, blob: Blob): void {
-	void saveFile(filename, blob).then((result) => {
+	void saveBlob(filename, blob);
+}
+
+/** The same save, for a caller that records something only once the file exists — a
+ *  backup timestamp, a "downloaded" toast. On the web it resolves 'saved' as soon as the
+ *  link is clicked, because a browser reports nothing back; on the desktop it waits for
+ *  the dialog, so a dismissed dialog resolves 'cancelled'. A failure is already toasted. */
+export function saveBlob(filename: string, blob: Blob): Promise<SaveResult> {
+	return saveFile(filename, blob).then((result) => {
 		if (result === 'failed') reportSaveFailure(filename);
+		return result;
 	});
 }
 

@@ -50,12 +50,17 @@ async fn save_file(app: tauri::AppHandle, request: Request<'_>) -> Result<bool, 
     Ok(true)
 }
 
-/// The dialog's suggested name, reduced to a bare file name. The Studio builds names
-/// from deck titles, and a title can contain a `/`; passed through as-is, the dialog
-/// would read it as a folder path.
+/// The dialog's suggested name, reduced to a bare file name that every OS accepts. The
+/// Studio builds names from deck titles and upload names, and either can hold a `/` (the
+/// dialog would read it as a folder) or a character Windows refuses in a name
+/// (`<>:"|?*`, control characters, a trailing dot or space). Cleaned on every platform,
+/// so a file saved on Linux keeps a name that opens on Windows.
 fn safe_file_name(name: &str) -> String {
-    let cleaned: String = name.chars().map(|c| if matches!(c, '/' | '\\' | '\0') { '-' } else { c }).collect();
-    let trimmed = cleaned.trim();
+    let cleaned: String = name
+        .chars()
+        .map(|c| if c.is_control() || matches!(c, '/' | '\\' | '<' | '>' | ':' | '"' | '|' | '?' | '*') { '-' } else { c })
+        .collect();
+    let trimmed = cleaned.trim().trim_end_matches(['.', ' ']);
     if trimmed.is_empty() { "untitled".into() } else { trimmed.into() }
 }
 
@@ -81,6 +86,15 @@ mod tests {
     fn a_slash_in_a_deck_title_cannot_become_a_folder() {
         assert_eq!(safe_file_name("Q3 / Q4 review.pdf"), "Q3 - Q4 review.pdf");
         assert_eq!(safe_file_name("  "), "untitled");
+    }
+
+    #[test]
+    fn a_name_windows_refuses_is_cleaned_on_every_platform() {
+        assert_eq!(safe_file_name("Q3: plan?.pdf"), "Q3- plan-.pdf");
+        assert_eq!(safe_file_name("a<b>c\"d|e*f.md"), "a-b-c-d-e-f.md");
+        assert_eq!(safe_file_name("notes.txt. "), "notes.txt");
+        assert_eq!(safe_file_name("tab\there.pdf"), "tab-here.pdf");
+        assert_eq!(safe_file_name("..."), "untitled");
     }
 
     #[test]
