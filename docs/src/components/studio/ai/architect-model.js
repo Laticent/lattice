@@ -524,6 +524,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
           // cause and a remedy. Every other caller keeps the partial prose it had before.
           if (streamError && body.tools) {
             if (onUsage && usage) { try { onUsage(usage); } catch {} }
+            try { reader.cancel(); } catch {} // release the body rather than leave it open
             throw new Error('OpenRouter error ' + (Number(streamError.code) >= 400 ? streamError.code : 502) + ': ' + JSON.stringify({ error: streamError }).slice(0, 300));
           }
         }

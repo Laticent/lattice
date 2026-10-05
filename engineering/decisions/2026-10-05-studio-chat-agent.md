@@ -345,6 +345,31 @@ fixed and pinned in `architect-agent.chat.test.ts` / `architect-agent.test.ts`:
   reaches Anthropic; the benchmark above shows it does, since each round's `cached_tokens`
   include the previous round's tool results.
 
+**A checker over the follow-ups themselves** (tier 1, the same pass the brief asked of each
+item). It reproduced four defects in the new code, all fixed and pinned in
+`architect-agent.test.ts` / `architect.test.ts`:
+
+- **A malformed edit inherited the previous edit's clean verdict.** A round of a clean edit
+  plus an edit whose arguments were cut off ended the turn, the second edit silently dropped.
+  An edit whose arguments do not parse now counts as refused.
+- **Fit rows are rendered sections, not source slides.** `split: headings` renders three
+  sections for two slides, so section N named the wrong slide and charged an untouched one.
+  Continuation pages (`N.k`) now fold into slide N, and a deck that still renders more sections
+  than slides has its fit reported by section and charged to nothing.
+- **A front-matter change that broke fit everywhere read as clean.** "Mine" was decided by
+  slide text, which a `size:` or `finish:` change does not touch. Once the turn changes front
+  matter, every slide is the turn's.
+- **An old error on an untouched slide held every turn open**, undoing the saving above on any
+  deck that already had one. The turn now answers for errors on the slides it changed (and
+  deck-level ones once it changed front matter), and the check tells the model the rest were
+  already there.
+
+Also fixed: the readout priced a deck past the inline limit by its whole text, though the turn
+carries an outline; and a stream error now releases the response body. Left as they are: fit
+is measured in the live deck's theme and mode, not one the agent just set on the draft; and a
+slide rewritten to match another original slide's text counts as untouched. Both are rare and
+named here so nobody mistakes them for coverage.
+
 ## 10. What this does NOT do
 
 - **It sees fit, not looks.** Since the follow-up (`followups.d/2518-p3-agent-cannot-see-slides`),

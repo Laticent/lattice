@@ -1727,7 +1727,9 @@ export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | u
 	const { staticTokens, tailTokens } = chatSystemParts('openrouter', grounding, source);
 	// The tool schemas lead every request, so they sit in the cached prefix with the system core.
 	const stat = (staticTokens + AGENT_TOOLS_TOKENS) * AGENT_TOKEN_SCALE;
-	const rest = (tailTokens + estTokens(source) + extraTokens) * AGENT_TOKEN_SCALE;
+	// The deck rides in the turn whole only up to INLINE_DECK_CHARS (architect-agent.ts, 24,000
+	// characters); past that the turn carries an outline the tail already counts.
+	const rest = (tailTokens + (source.length <= 24000 ? estTokens(source) : 0) + extraTokens) * AGENT_TOKEN_SCALE;
 	// Round one: the static prefix at the cache-read rate once a turn has written it, and
 	// at the 1-hour write rate (2x) on the turn that writes it; the rest is written to the
 	// 5-minute cache for the next round (1.25x).

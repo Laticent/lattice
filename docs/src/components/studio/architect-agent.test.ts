@@ -233,6 +233,7 @@ describe('draft → reviewable edits', () => {
 });
 
 describe('the loop', () => {
+	const fitFor = (n: number) => [1, 2, 3].map((slide) => ({ slide, overflows: slide === n, clipped: false, illegible: false }));
 	const call = (id: string, name: string, args: unknown): ToolCall => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } });
 
 	it('runs tool rounds until the model answers in prose, feeding results back', async () => {
@@ -332,12 +333,11 @@ describe('the loop', () => {
 	});
 
 	it('fit from a real render: an overflowing slide the turn wrote holds the turn open; an old one is only reported', async () => {
-		const fitFor = (n: number) => [1, 2, 3].map((slide) => ({ slide, overflows: slide === n, clipped: false, illegible: false }));
 		const body = '<!-- _class: content -->\n## Next\n\n- Hire';
 		const mineOver = toolbox({ check: async () => ({ findings: [], fit: fitFor(3) }) });
 		const out = await mineOver.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body }], summary: 's' }));
 		expect(out).toContain('1 error');
-		expect(out).toMatch(/slide 3 overflows its frame \(you wrote this slide: an error/);
+		expect(out).toMatch(/slide 3 overflows its frame \(you changed this slide: an error/);
 		expect(mineOver.settled()).toBe(false);
 		const oldOver = toolbox({ check: async () => ({ findings: [], fit: fitFor(1) }) });
 		const out2 = await oldOver.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body }], summary: 's' }));
@@ -346,6 +346,50 @@ describe('the loop', () => {
 		expect(oldOver.settled()).toBe(true);
 		const clean = toolbox({ check: async () => ({ findings: [], fit: fitFor(0) }) });
 		expect(await clean.run('check_deck', '{}')).toContain('all 3 slides fit');
+	});
+
+	// The second checker's findings on the follow-ups (decision note §9).
+	it('a malformed edit after a clean one does not end the turn on the clean one’s verdict', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [], fit: fitFor(0) }) });
+		let n = 0;
+		const complete: AgentComplete = async () => {
+			n++;
+			if (n > 1) return { text: 'Resent.', toolCalls: [], truncated: false };
+			return {
+				text: '',
+				toolCalls: [
+					call('a', 'edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 'Changed hires.' }),
+					{ id: 'b', type: 'function', function: { name: 'edit_slides', arguments: '{"edits":[{"action":"delete","slide":1}],"summary":"Dropped title' } },
+				],
+				truncated: false,
+			};
+		};
+		const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
+		expect(n).toBe(2);
+		expect(turn.endedOnEdit).toBe(false);
+	});
+
+	it('a deck that renders more sections than slides reports fit by section and charges none of it', async () => {
+		const rows = [1, 2, 3, 4].map((slide) => ({ slide, overflows: slide === 3, clipped: false, illegible: false }));
+		const tb = toolbox({ check: async () => ({ findings: [], fit: rows }) });
+		const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(out).toMatch(/renders 4 sections for its 3 slides/);
+		expect(out).toContain('- section 3 overflows its frame');
+		expect(tb.settled()).toBe(true);
+	});
+
+	it('a front-matter change owns every slide, so an overflow it causes holds the turn open', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [], fit: fitFor(1) }) });
+		const out = await tb.run('set_front_matter', JSON.stringify({ key: 'size', value: '4:3', summary: 's' }));
+		expect(out).toMatch(/slide 1 overflows its frame[^\n]*an error/);
+		expect(tb.settled()).toBe(false);
+	});
+
+	it('an error already on a slide the turn left alone does not hold the turn open', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [{ slide: 1, severity: 'error', message: 'old' }], fit: fitFor(0) }) });
+		const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(out).toContain('0 of the errors are on slides this turn changed');
+		expect(tb.settled()).toBe(true);
 	});
 
 	it('says fit was not measured rather than implying the slides fit', async () => {

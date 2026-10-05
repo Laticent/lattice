@@ -70,7 +70,7 @@ test('an overfull draft slide comes back flagged from a real render, and holds t
 	const tool = bodies[1].messages.filter((m) => m.role === 'tool').at(-1);
 	const text = typeof tool?.content === 'string' ? tool.content : JSON.stringify(tool?.content);
 	expect(text).toContain('Fit, measured from a real render of the draft');
-	expect(text).toMatch(/slide 2 overflows its frame[^\n]*\(you wrote this slide: an error/);
+	expect(text).toMatch(/slide 2 overflows its frame[^\n]*\(you changed this slide: an error/);
 	// The untouched title slide fits, so it is not named.
 	expect(text).not.toMatch(/slide 1 (overflows|has text cut)/);
 

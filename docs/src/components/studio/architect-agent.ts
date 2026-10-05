@@ -509,22 +509,37 @@ export function createToolbox(opts: {
 		// text is an error: the author would see it ringed in the preview the moment they apply.
 		// The same problem on a slide the turn left alone is reported, not charged to the change.
 		const now = deckSlides(draft);
-		const mine = (n?: number) => !!n && !!now[n - 1] && !originalSlides.has(now[n - 1]);
+		// A slide is the turn's when its text is new — or, once the turn changed front matter
+		// (a size, a finish, a theme), every slide is: a deck-level change can break any of them
+		// without changing a word (checker).
+		const mine = (n?: number) => !!n && !!now[n - 1] && (fmTouched.size > 0 || !originalSlides.has(now[n - 1]));
+		// The render numbers SECTIONS. A deck that splits one source slide into several
+		// (`split:`, focus steps) renders more sections than it has slides, and section N is
+		// then not slide N; attributing by number would charge an untouched slide and miss the
+		// one the turn wrote (checker). Such a deck's fit is reported, never charged.
+		const fitMapped = !!res.fit && res.fit.length === now.length;
 		const misfits = (res.fit ?? []).filter((f) => f.overflows || f.clipped || f.illegible);
-		const fitErrors = misfits.filter((f) => (f.overflows || f.clipped) && mine(f.slide)).length;
+		const fitErrors = fitMapped ? misfits.filter((f) => (f.overflows || f.clipped) && mine(f.slide)).length : 0;
+		// The turn answers for errors on the slides it changed. An error already on a slide it
+		// left alone would otherwise hold every turn open on that deck, which the prompt never
+		// asks the model to fix (checker). A finding with no slide is deck-level: the turn's
+		// only when it changed front matter.
+		const turnErrors =
+			findings.filter((f) => rank(f.severity) === 0 && (f.slide ? mine(f.slide) : fmTouched.size > 0)).length + (res.diagrams ?? []).filter((d) => mine(d.slide)).length + fitErrors;
 		if (verdict) {
-			// Errors anywhere hold the turn open; warnings are reported only on the slides this
-			// turn wrote, so an untouched slide's old warning is not pinned on the change.
+			// Warnings, like errors, are reported only on the slides this turn wrote, so an
+			// untouched slide's old warning is not pinned on the change.
 			verdict.checked = true;
-			verdict.errors = errors + (res.diagrams?.length ?? 0) + fitErrors;
+			verdict.errors = turnErrors;
 			verdict.warnings = [
 				...findings.filter((f) => rank(f.severity) === 1 && mine(f.slide)).map((f) => `slide ${f.slide}: ${String(f.message ?? '')}`),
 				...over.filter((x) => mine(x.n)).map((x) => `slide ${x.n} is over the ${budget}-word budget (${x.w}w)`),
-				...misfits.filter((f) => f.illegible && !f.overflows && !f.clipped && mine(f.slide)).map((f) => `slide ${f.slide}: type renders below the legibility floor`),
+				...misfits.filter((f) => fitMapped && f.illegible && !f.overflows && !f.clipped && mine(f.slide)).map((f) => `slide ${f.slide}: type renders below the legibility floor`),
 			];
 		}
 		const errs = errors + fitErrors;
 		const out = [`${errs} error${errs === 1 ? '' : 's'}, ${findings.length - errors} other finding${findings.length - errors === 1 ? '' : 's'}.`];
+		if (errs + (res.diagrams?.length ?? 0) > turnErrors) out.push(`${turnErrors} of the errors are on slides this turn changed; the rest were already in the deck — leave them unless the author asks.`);
 		if (findings.length)
 			out.push(
 				findings
@@ -540,7 +555,8 @@ export function createToolbox(opts: {
 		else if (!misfits.length) out.push(`Fit, measured from a real render of the draft: all ${res.fit.length} slide${res.fit.length === 1 ? '' : 's'} fit.`);
 		else {
 			const say = (f: { overflows: boolean; clipped: boolean; illegible: boolean }) => [f.overflows && 'overflows its frame', f.clipped && 'has text cut off', f.illegible && 'has type below the legibility floor'].filter(Boolean).join(', ');
-			out.push(`Fit, measured from a real render of the draft:\n${misfits.map((f) => `- slide ${f.slide} ${say(f)}${mine(f.slide) ? ' (you wrote this slide: an error — cut words, split the slide, or pick a roomier layout)' : ''}`).join('\n')}`);
+			if (fitMapped) out.push(`Fit, measured from a real render of the draft:\n${misfits.map((f) => `- slide ${f.slide} ${say(f)}${mine(f.slide) ? ' (you changed this slide: an error — cut words, split the slide, or pick a roomier layout)' : ''}`).join('\n')}`);
+			else out.push(`Fit, measured from a real render of the draft, which renders ${res.fit.length} sections for its ${now.length} slides (a split or stepped slide), so these are rendered sections, not slide numbers:\n${misfits.map((f) => `- section ${f.slide} ${say(f)}`).join('\n')}`);
 		}
 		if (over.length) out.push(`Over the ${budget}-word slide budget: ${over.map((x) => `slide ${x.n} (${x.w}w)`).join(', ')}.`);
 		return out.join('\n');
@@ -556,6 +572,9 @@ export function createToolbox(opts: {
 		try {
 			args = argsJson ? JSON.parse(argsJson) : {};
 		} catch {
+			// An edit whose arguments did not parse changed nothing, and must not inherit the
+			// previous edit's clean verdict — the turn would end with this edit silently dropped.
+			if (EDIT_TOOLS.has(name)) verdict = { refused: true, checked: false, errors: 0, warnings: [] };
 			return `The arguments for ${name} were not valid JSON — send them again.`;
 		}
 		switch (name) {

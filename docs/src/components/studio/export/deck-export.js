@@ -563,8 +563,10 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
  * taller or wider than the slide), `.clip-marked` (text is cut) and `.illegible` (type fell
  * under the legibility floor) on each `section[data-lattice-slide]`. This reads those
  * classes back after a full sweep — no second measurement to drift from the one the author
- * sees in the preview. A paginated slide renders as several sections with ONE slide number;
- * a page that misfits marks its slide.
+ * sees in the preview. A paginated slide's continuation pages are stamped `N.k` and fold
+ * into slide N; a page that misfits marks its slide. The numbers are RENDERED sections: a
+ * deck that splits one source slide into several (`split:`, focus steps) yields more rows
+ * than it has slides, and the caller must not read row N as source slide N.
  *
  * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl }`
  * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean }[] | null>}
@@ -583,7 +585,8 @@ export async function measureDeckFit(render) {
 		if (!sections.length) return null;
 		const bySlide = new Map();
 		sections.forEach((sec, i) => {
-			const n = Number(sec.getAttribute('data-lattice-slide')) || i + 1;
+			// A continuation page is stamped `N.k` (auto-split.js); it belongs to slide N.
+			const n = Math.floor(Number.parseFloat(sec.getAttribute('data-lattice-slide') ?? '')) || i + 1;
 			const row = bySlide.get(n) || { slide: n, overflows: false, clipped: false, illegible: false };
 			row.overflows ||= sec.classList.contains('overflow');
 			row.clipped ||= sec.classList.contains('clip-marked');

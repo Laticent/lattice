@@ -628,6 +628,13 @@ describe('agentTurnUsd — the readout quotes a question AND an edit, at the typ
 		expect(t.question).toBeLessThan(((CHAT_OUTPUT_EST * price.completionPerM) / 1e6) * 0.5);
 	});
 
+	it('prices a deck past the inline limit by its outline, not its whole text', () => {
+		const long = `# Big\n\n${'---\n\n## Slide\n\n- a line of words\n\n'.repeat(1500)}`;
+		const t = agentTurnUsd(price, grounding, true, long);
+		const whole = ((long.length / 4) * 1.45 * 1.25 * price.promptPerM) / 1e6;
+		expect(t?.question).toBeLessThan(whole);
+	});
+
 	it('prices a first turn (the prefix not yet cached) above a warm one, and says nothing without a price', () => {
 		const warm = agentTurnUsd(price, grounding, true, deck);
 		const cold = agentTurnUsd(price, grounding, false, deck);
