@@ -21,7 +21,8 @@ export type StudioCommandId =
 	| 'workspace'
 	| 'watch-demo'
 	| 'feedback'
-	| 'new-deck';
+	| 'new-deck'
+	| 'import-deck';
 
 export type StudioCommand = {
 	id: StudioCommandId;
