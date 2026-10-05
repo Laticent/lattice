@@ -66,15 +66,24 @@ function validNodes(nodes, where) {
   });
 }
 
-/** Our own drawings: plain SVG with shape elements only (the house grid is Tabler's, § 3). */
+/**
+ * Our own drawings: an SVG whose root holds shape elements only (the house grid is Tabler's, § 3).
+ * Parsed as XML, never pattern-matched: anything that is not one of the six shapes — a <g>, a
+ * <style>, text, a comment with content — fails the build rather than slipping past a regex.
+ */
 function ownNodes(file) {
+  const { JSDOM } = require('jsdom');
   const src = fs.readFileSync(path.join(SRC, 'own', `${file}.svg`), 'utf8');
-  const body = src.replace(/<\?xml[^>]*>|<svg\b[^>]*>|<\/svg>/g, '').trim();
+  const doc = new JSDOM(src, { contentType: 'image/svg+xml' }).window.document;
+  const root = doc.documentElement;
+  if (root.localName !== 'svg' || doc.querySelector('parsererror')) fail(`own/${file}.svg is not a well-formed SVG`);
   const nodes = [];
-  for (const m of body.matchAll(/<([a-z]+)\b([^>]*?)\/>/g)) {
-    nodes.push([m[1], Object.fromEntries([...m[2].matchAll(/([a-z0-9-]+)="([^"]*)"/g)].map((a) => [a[1], a[2]]))]);
+  for (const child of root.childNodes) {
+    if (child.nodeType === 3 && !child.textContent.trim()) continue; // whitespace between elements
+    if (child.nodeType !== 1) fail(`own/${file}.svg holds something other than shape elements`);
+    if (child.childNodes.length) fail(`own/${file}.svg: <${child.localName}> has content`);
+    nodes.push([child.localName, Object.fromEntries([...child.attributes].map((a) => [a.name, a.value]))]);
   }
-  if (body.replace(/<([a-z]+)\b([^>]*?)\/>/g, '').trim()) fail(`own/${file}.svg holds something other than self-closing shape elements`);
   return nodes;
 }
 
