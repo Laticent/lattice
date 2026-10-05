@@ -182,9 +182,13 @@ export async function embedInPptx(pptx: Blob, lattice: Uint8Array): Promise<Blob
 	if (!/Extension="lattice"/i.test(types)) {
 		zip.file('[Content_Types].xml', edit(types, '</Types>', `<Default Extension="lattice" ContentType="${EMBED_MIME}"/>`));
 	}
-	if (!rels.includes(PPTX_EMBED_REL)) {
+	// Compare each relationship's Type EXACTLY. A substring test would also match the URI
+	// sitting inside some other attribute or a longer type, and skip the relationship we need.
+	const attrs = (name: string) => [...rels.matchAll(new RegExp(`\\b${name}="([^"]*)"`, 'g'))].map((m) => m[1]);
+	if (!attrs('Type').includes(PPTX_EMBED_REL)) {
+		const ids = new Set(attrs('Id'));
 		let n = 1;
-		while (rels.includes(`Id="rIdLattice${n}"`)) n++;
+		while (ids.has(`rIdLattice${n}`)) n++;
 		zip.file('_rels/.rels', edit(rels, '</Relationships>', `<Relationship Id="rIdLattice${n}" Type="${PPTX_EMBED_REL}" Target="${PPTX_EMBED_PART}"/>`));
 	}
 	// STORE, as pptxgenjs writes every part: the repack changes the two XML parts and adds

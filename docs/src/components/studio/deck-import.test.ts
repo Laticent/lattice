@@ -143,6 +143,15 @@ describe('readDeckFile — every format ends in the same import shape', () => {
 		expect(rels.split(PPTX_EMBED_REL).length - 1).toBe(1);
 	});
 
+	it('the relationship is matched by its exact Type — the URI inside another attribute does not count', async () => {
+		const zip = await JSZip.loadAsync(await bytesOf(await plainPptx()));
+		const rels = await zip.file('_rels/.rels')!.async('string');
+		zip.file('_rels/.rels', rels.replace('</Relationships>', `<Relationship Id="rId9" Type="x" Target="${PPTX_EMBED_REL}/elsewhere"/></Relationships>`));
+		const out = await embedInPptx(await zip.generateAsync({ type: 'blob' }), await payload());
+		const after = await (await JSZip.loadAsync(await bytesOf(out))).file('_rels/.rels')!.async('string');
+		expect(after).toContain(`Type="${PPTX_EMBED_REL}" Target="${PPTX_EMBED_PART}"`);
+	});
+
 	it('a PowerPoint without a payload is refused with the way forward', async () => {
 		await expect(readDeckFile(file(await plainPptx(), 'board.pptx'))).rejects.toThrow(NO_SOURCE_PPTX);
 	});
