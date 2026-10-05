@@ -1,7 +1,8 @@
-playground: +34
+playground: +227
 
-The Playground retries its first-slide snapshot (`PlaygroundApp.tsx`, `captureFirstSlide`) every
-1.5 s, up to five more times, until a capture lands, instead of trying once 1.5 s after the first
-render: one early try against a slide the FIT agent had not scaled left nothing stored until the
-tab hid, the likely cause of the reload smoke test's 40 s timeout. The retry loop and the
-capture's success result are the 34 gzipped bytes; nothing else on the route moved.
+The Playground's first-slide snapshot (`PlaygroundApp.tsx`, `captureFirstSlide`) now waits for the
+slides to go live, retries every 1.5 s for up to 45 s, and on giving up logs which check refused it.
+Before, it tried once 1.5 s after the first render, and a slide the FIT agent had not yet scaled left
+nothing stored until the tab hid: the reload smoke test's 40 s timeout, seen again in CI with a
+render-anchored retry. The reveal wait and the refusal reasons (each check now returns why it said
+no) are the 227 gzipped bytes, measured against main with the CI build; nothing else on the route moved.
