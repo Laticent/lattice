@@ -252,6 +252,40 @@ fence `pending` before it can know whether Mermaid will arrive — deliberately,
 covers the load window — and nothing un-tagged them when the answer turned out to be
 never. **Fixed in #2092, and the fix is the state below.**
 
+### A label longer than 500 characters is refused
+
+Mermaid renders labels through `marked`, and marked's lexer is super-linear on some short repeated
+shapes: `[a](` repeated 2,000 times (8 KB) took 22.5 s in the marked 16.4.2 that Mermaid 11.14 ships,
+44 KB took 88.7 s, and `*a ` repeated 8,000 times still took 8 s on marked 18, so upgrading does not
+fix it. Deck text reaches it: a markdown string (``A["`**bold** text`"]``) goes to `marked.lexer` in
+every diagram type, and mindmap, kanban and architecture send their plain labels there too. Once a
+render starts, nothing in the live preview can stop it, so one pasted fence could freeze the Studio.
+
+So both render paths refuse a fence with an over-long label before Mermaid sees it. The check lives
+in ONE place, `lib/integrations/mermaid/label-length.js`, and measures labels ACROSS lines, because
+Mermaid's lexers let a label cross them:
+
+- every `"…"` span, in every diagram type (a markdown string is one);
+- in mindmap, kanban and architecture, also every bracket label (from `[` `(` `{` to the next closer)
+  and every line. A long line in any other type is not a label (an xychart data row, an init
+  directive) and is never refused.
+
+The CLI bake (`runMermaidWorker`) degrades a refused fence to its source with a warning; the browser
+pass (`renderDiagramJob`) shows the error box with the same message and never calls `mermaid.render`.
+The longest label any shipped fence holds is 83 characters, so the cap is six times that.
+
+| measured on a real CLI render (one-slide deck) | before | after |
+|---|---|---|
+| flowchart, one 8 KB markdown-string label | 26.7 s | 1.8 s (refused) |
+| mindmap, one 16 KB label over 20 short lines (the checker's bypass of a line-only cap) | 16.7 s | 1.7 s (refused) |
+| mindmap, 95 labels of `![a](` just under the cap (48 KB, the worst a fence can hold) | — | 5.8 s, drawn |
+| a small diagram, for scale | 1.75 s | 1.75 s |
+
+The last real row is the bound per fence; there is no bound per deck, so a deck of many such fences
+costs that many times over, but no single label can stall a render for minutes.
+`test/unit/mermaid/label-length.test.js` pins what is refused and marked's time at the cap, and
+`test/unit/runtime/diagram-queue.test.js` pins that the browser queue never starts a refused fence.
+
 ### When Mermaid never arrives: `unavailable`
 
 A fifth state, and the reason it exists rather than simply removing the attribute. **The
