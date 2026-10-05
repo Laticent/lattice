@@ -429,6 +429,53 @@ review (it widens what the checker accepts, as `greedy()` did), and the spike's 
 run are its starting point. The alternative, a hand-written loop around a Segno grammar as the
 spike does, is the second reader decision 20 rules out.
 
+**Built (2026-10-05).** `attempt(x, { max, next })` is in both runtimes, as specified above. The
+option is `next`, not `then`: Biome's `noThenProperty` refuses an object literal with a `then`
+key, because `await` treats such an object as a promise, and every grammar would carry one. Three
+choices the spike left open:
+
+- **Where a failed attempt goes.** As an `alt` branch, its character passes to the branches after
+  it in order, then to the branch that matches nothing. The checker skips only the pairs whose
+  FIRST branch is an attempt, so an ordinary branch still may not overlap anything after it.
+  Anywhere else, a failed attempt is a parse error at its start.
+- **What `x` is checked against.** Inside the attempt, `x`'s FOLLOW is `next` plus the end, not
+  the attempt's context: whatever else comes next, the attempt rewinds. The window's end reads as
+  the end of the input (a multi-character literal checks it too, emitted only in grammars that
+  hold an attempt, so the notation's generated parser is byte-identical). `max` is capped at
+  `MAX_ATTEMPT`, 256, so the bound is a constant of the engine, as `until()`'s 64 is.
+- **What the checker refuses.** An attempt that reaches another, directly or through a rule (one
+  summary per rule, in the SCC order the other passes use); `until()` inside one, whose
+  `indexOf` would search past the window to the end of the input; and an attempt whose `x` can
+  match nothing.
+
+The row grammar replaces the spike's stand-in loop in `tools/parser-bakeoff/flow-segno.mjs`. The
+kernel's 61-character label cap counts from the label, not the arrow, so a headed and an unheaded
+arrow at the cap differ in length by one, and the grammar spells each as its own attempt: the
+headed one first, which requires its `>`, then the rest. Measured with `npm run parser:bakeoff:flow`
+(best of seven rounds, one machine):
+
+| | kernel | `compile()` | `generate()` |
+|---|---|---|---|
+| agrees with `splitRow`: 442 corpus rows | — | 442 | 442 |
+| agrees with `splitRow`: 200,096 fuzzed rows | — | 200,096 | 200,096 |
+| per corpus row | 528 ns | 936 ns (1.8x) | 827 ns (1.6x) |
+| hostile `-y ` ladder, 2k / 8k / 32k characters | 0.28 / 1.16 / 5.2 ms | 3.1 / 12.8 / 44.7 ms | 2.3 / 9.3 / 36.0 ms |
+| a label run past the cap, every 66 characters, 2k / 8k / 32k | 0.06 / 0.24 / 1.0 ms | 0.18 / 0.76 / 3.2 ms | 0.17 / 0.68 / 2.7 ms |
+
+Every shape grows about 4x per 4x input, so the bound holds. The constant on the `-y ` ladder,
+where every third character opens an arrow that reads to the cap, is 7x the kernel's, and half of
+it is the doubled attempt: one attempt at a 64-character window measured 1.06x per row and
+20 ms at 32k. Phase 3 decides whether that constant matters; no corpus row comes near it, and the
+kernel itself spends 5 ms there.
+
+Tests (`attempt.test.ts`): the checker's acceptances and refusals, rewinding (position, kept
+nodes, depth, error), the window, fall-through to an empty branch, and the error reported, all in
+both runtimes; a 256,000-character worst case under 1.5 s; and 5,000 random grammars with
+attempts, where both runtimes must match a reference interpreter that states the semantics with
+no shared state (seed 2519: 292 compile, 81,687 attempts fail and rewind, 166,350 generated-parser
+comparisons). Planting a bug in the window, the rewind of kept nodes, the `next` check, the
+literal's window check or the generated parser's depth restore each fails it.
+
 ## How it is tested
 
 Passing tests say little until something shows they can fail. Segno is tested three ways, and the
@@ -578,7 +625,8 @@ its own mark and palette.
 | 1 | The Segno engine, the notation grammar, schema binding, aliases and shortcuts, typed output and diagnostics; unit tests, fuzz and the scaling ladder; the `/segno` page and mark. No Lattice wiring. | one |
 | 1b | `greedy()`, `until()`, per-grammar `maxDepth` (decision 21) | one |
 | 2 | Lattice on Segno: the 27 slot schemas plus sparks (row 28, decision 19) in the manifests, binding straight off the flat tree, the dispatcher, lint rules (including per-deck alias consistency), a codemod over every shipped deck and doc, the old parsers deleted, component docs updated, a `**Breaking:**` changelog fragment | one |
-| 3 | The list-text grammars (flowchart arrows, leading markers, `_track`) as Segno's second grammar; the arrows need `attempt()` (§ Flowchart rows need a bounded attempt) | one |
+| 3a | `attempt()` in both runtimes, and the flowchart-row grammar that uses it, in the bake-off (§ Flowchart rows need a bounded attempt, "Built") | #2519's follow-up |
+| 3 | The list-text grammars (flowchart arrows, leading markers, `_track`) as Segno's second grammar, starting from 3a's row grammar | one |
 
 Phase 2 changes what every chart reads, which is high blast radius and genuinely novel, so it gets the
 full adversarial trio before merge (HARD RULE #25).

@@ -37,6 +37,7 @@ export type Expr =
   | { readonly t: 'many'; readonly x: Expr; readonly min: 0 | 1; readonly greedy?: true }
   | { readonly t: 'opt'; readonly x: Expr; readonly greedy?: true }
   | { readonly t: 'until'; readonly s: string; readonly orEnd: boolean }
+  | { readonly t: 'attempt'; readonly x: Expr; readonly max: number; readonly next: CharSet }
   | { readonly t: 'ref'; readonly name: string }
   | { readonly t: 'node'; readonly kind: string; readonly x: Expr };
 
@@ -110,6 +111,37 @@ export const until = (end: string, options: { orEnd?: boolean } = {}): Expr => {
   if (!end) throw new Error('segno: until() needs at least one character');
   if (end.length > MAX_UNTIL) throw new Error(`segno: until() takes a terminator of at most ${MAX_UNTIL} characters`);
   return { t: 'until', s: end, orEnd: !!options.orEnd };
+};
+/**
+ * A BOUNDED ATTEMPT: read `x` on at most `max` characters, and keep it only if the character
+ * after it is in `next` (or the input ends). Otherwise rewind to where it started, as if it had
+ * never been tried. This is the one place the parser goes back, and it goes back a bounded
+ * distance: each attempt reads at most `max` characters, so a parse costs at most `max` times the
+ * input.
+ *
+ * As a branch of `alt`, an attempt may start with the same characters as the branches AFTER it:
+ * when it fails, the character passes to them (and to a branch that matches nothing), in order.
+ * That overlap is the only one the checker accepts, and only when the attempt comes first.
+ * Anywhere else, a failed attempt is an ordinary parse error.
+ *
+ * The checker refuses an attempt that can reach another attempt (directly or through rule
+ * references): nested attempts would multiply their `max` values, and an attempt reached through
+ * recursion once per level. It also refuses `until()` inside an attempt (its search would run
+ * past the window to the end of the input) and an attempt whose `x` can match nothing.
+ *
+ * Inside `x`, the end of the window reads as the end of the input, and `x` is checked as LL(1)
+ * against `next` and the end: the attempt's own decisions are strict; only the attempt as a whole
+ * is tried. (Phase 3's flowchart rows: `A -x-> B` is an arrow and `A -x B` a word, and the two
+ * part only at the closing shaft, up to 64 characters past the `-`.)
+ */
+export const MAX_ATTEMPT = 256;
+export const attempt = (x: Part, options: { max: number; next: string | CharSet }): Expr => {
+  const { max, next } = options;
+  if (!Number.isInteger(max) || max < 1 || max > MAX_ATTEMPT) {
+    throw new Error(`segno: attempt() takes a max from 1 to ${MAX_ATTEMPT} characters, not ${max}`);
+  }
+  if (next === undefined) throw new Error('segno: attempt() needs a `next` set: the characters that may follow it');
+  return { t: 'attempt', x: part(x), max, next: typeof next === 'string' ? ofChars(next) : normalize(next) };
 };
 /** A reference to another rule, so rules can recurse (a record holds values). */
 export const ref = (name: string): Expr => ({ t: 'ref', name });
@@ -189,6 +221,7 @@ class Analysis {
       case 'many': this.visit(e.x, `${path} › ${e.min ? 'many1' : 'many'}`); break;
       case 'opt': this.visit(e.x, `${path} › opt`); break;
       case 'node': this.visit(e.x, `${path} › ${e.kind}`); break;
+      case 'attempt': this.visit(e.x, `${path} › attempt`); break;
       case 'ref': if (!Object.hasOwn(this.spec.rules, e.name)) throw new GrammarError([`${path}: unknown rule "${e.name}"`]); break;
       default: break;
     }
@@ -208,7 +241,7 @@ class Analysis {
     for (const e of this.info.keys()) {
       switch (e.t) {
         case 'seq': case 'alt': for (const x of e.xs) use(x, e); break;
-        case 'many': case 'opt': case 'node': use(e.x, e); break;
+        case 'many': case 'opt': case 'node': case 'attempt': use(e.x, e); break;
         case 'ref': use(this.spec.rules[e.name], e); break;
         default: break;
       }
@@ -266,6 +299,8 @@ class Analysis {
       case 'many': { const i = this.get(e.x); return { nullable: e.min === 0 || i.nullable, first: i.first }; }
       case 'opt': return { nullable: true, first: this.get(e.x).first };
       case 'node': { const i = this.get(e.x); return { nullable: i.nullable, first: i.first }; }
+      // An attempt that succeeds consumed what `x` did; one whose `x` can match nothing is refused.
+      case 'attempt': { const i = this.get(e.x); return { nullable: i.nullable, first: i.first }; }
       case 'ref': { const i = this.get(this.spec.rules[e.name]); return { nullable: i.nullable, first: i.first }; }
       // Any character can start the text before the terminator; it matches nothing only when
       // `orEnd` lets it stop at the end of the input.
@@ -292,7 +327,7 @@ class Analysis {
           stack.push([e, true]);
           switch (e.t) {
             case 'seq': case 'alt': for (let k = e.xs.length - 1; k >= 0; k--) stack.push([e.xs[k], false]); break;
-            case 'many': case 'opt': case 'node': stack.push([e.x, false]); break;
+            case 'many': case 'opt': case 'node': case 'attempt': stack.push([e.x, false]); break;
             default: break;
           }
         }
@@ -339,6 +374,9 @@ class Analysis {
         case 'alt': for (const x of e.xs) add(x, follow, followEnd); break;
         case 'many': add(e.x, union(this.get(e.x).first, follow), followEnd); break;
         case 'opt': case 'node': add(e.x, follow, followEnd); break;
+        // Inside an attempt, `x` is followed by what the attempt checks for — `next` or the end —
+        // not by the attempt's context: whatever else comes next, the attempt rewinds.
+        case 'attempt': add(e.x, e.next, true); break;
         case 'ref': add(this.spec.rules[e.name], follow, followEnd); break;
         default: break;
       }
@@ -353,6 +391,8 @@ class Analysis {
       if (e.t === 'alt') {
         for (let a = 0; a < e.xs.length; a++) {
           for (let b = a + 1; b < e.xs.length; b++) {
+            // An attempt may overlap the branches after it: when it fails, they get the character.
+            if (e.xs[a].t === 'attempt') continue;
             const both = intersect(this.get(e.xs[a]).first, this.get(e.xs[b]).first);
             if (!isEmpty(both)) problems.push(`${inf.path}: branches ${a} and ${b} can both start with ${describe(both)}`);
           }
@@ -360,10 +400,17 @@ class Analysis {
         const empty = e.xs.map((x, k) => (this.get(x).nullable ? k : -1)).filter((k) => k >= 0);
         if (empty.length > 1) problems.push(`${inf.path}: branches ${empty.join(' and ')} can all match nothing`);
         if (empty.length === 1) {
-          const others = union(...e.xs.filter((_, k) => k !== empty[0]).map((x) => this.get(x).first));
+          // A failed attempt hands its character on to the empty branch too, so attempts do not clash.
+          const others = union(...e.xs.filter((x, k) => k !== empty[0] && x.t !== 'attempt').map((x) => this.get(x).first));
           const clash = intersect(others, inf.follow);
           if (!isEmpty(clash)) problems.push(`${inf.path}: branch ${empty[0]} matches nothing, and ${describe(clash)} could either start another branch or follow`);
         }
+      }
+      if (e.t === 'attempt') {
+        if (this.get(e.x).nullable) problems.push(`${inf.path}: the body of attempt can match nothing`);
+        const inner = this.attemptsIn(e.x);
+        if (inner.attempt) problems.push(`${inf.path}: an attempt can reach another attempt${inner.via ? ` (through rule "${inner.via}")` : ''}, which would multiply their reads`);
+        if (inner.until) problems.push(`${inf.path}: an attempt cannot contain until(), whose search runs past the attempt's window${inner.untilVia ? ` (through rule "${inner.untilVia}")` : ''}`);
       }
       if (e.t === 'many' || e.t === 'opt') {
         const body = this.get(e.x);
@@ -456,6 +503,9 @@ class Analysis {
           break;
         }
         case 'node': out = of(e.x, memo); break;
+        // Summarize the body (the check reads every sequence's summary); the attempt itself
+        // leaves nothing excluded, the safe answer (too small only lets a grammar through).
+        case 'attempt': of(e.x, memo); out = NONE; break;
         case 'seq': {
           out = { a: EMPTY, b: ANY }; // the identity: what was excluded before stays excluded
           for (const x of e.xs) { const p = of(x, memo); out = { a: union(p.a, intersect(p.b, out.a)), b: intersect(p.b, out.b) }; }
@@ -544,7 +594,7 @@ class Analysis {
         switch (e.t) {
           case 'ref': out.push(e.name); return;
           case 'seq': case 'alt': for (const x of e.xs) walk(x); return;
-          case 'many': case 'opt': case 'node': walk(e.x); return;
+          case 'many': case 'opt': case 'node': case 'attempt': walk(e.x); return;
           default: return;
         }
       };
@@ -594,6 +644,79 @@ class Analysis {
   }
 
 
+  /**
+   * What an attempt's body can reach: another attempt, or an `until()`, directly or through
+   * rule references (`via` names the first rule that leads there). Each rule is summarized once,
+   * in dependency order, so a grammar with many attempts still costs one pass over its rules.
+   */
+  private reachMemo: Map<string, { attempt: boolean; until: boolean }> | null = null;
+  attemptsIn(x: Expr): { attempt: boolean; until: boolean; via?: string; untilVia?: string } {
+    const reach = this.ruleReach();
+    const out: { attempt: boolean; until: boolean; via?: string; untilVia?: string } = { attempt: false, until: false };
+    const stack: Expr[] = [x];
+    const seen = new Set<Expr>();
+    while (stack.length) {
+      const e = stack.pop() as Expr;
+      if (seen.has(e)) continue;
+      seen.add(e);
+      switch (e.t) {
+        case 'attempt': out.attempt = true; break;
+        case 'until': out.until = true; break;
+        case 'ref': {
+          const r = reach.get(e.name);
+          if (r?.attempt && !out.attempt) { out.attempt = true; out.via = e.name; }
+          if (r?.until && !out.until) { out.until = true; out.untilVia = e.name; }
+          break;
+        }
+        case 'seq': case 'alt': for (const y of e.xs) stack.push(y); break;
+        case 'many': case 'opt': case 'node': stack.push(e.x); break;
+        default: break;
+      }
+    }
+    return out;
+  }
+
+  private ruleReach(): Map<string, { attempt: boolean; until: boolean }> {
+    if (this.reachMemo) return this.reachMemo;
+    const { refsOf, groups } = this.ruleGroups();
+    const reach = new Map<string, { attempt: boolean; until: boolean }>();
+    const direct = (body: Expr) => {
+      const out = { attempt: false, until: false };
+      const stack: Expr[] = [body];
+      const seen = new Set<Expr>();
+      while (stack.length) {
+        const e = stack.pop() as Expr;
+        if (seen.has(e)) continue;
+        seen.add(e);
+        switch (e.t) {
+          case 'attempt': out.attempt = true; stack.push(e.x); break;
+          case 'until': out.until = true; break;
+          case 'seq': case 'alt': for (const y of e.xs) stack.push(y); break;
+          case 'many': case 'opt': case 'node': stack.push(e.x); break;
+          default: break;
+        }
+      }
+      return out;
+    };
+    // Groups come dependencies first, so every rule a group references outside itself is final;
+    // the rules inside a group reach each other, so they share one answer.
+    for (const group of groups) {
+      const val = { attempt: false, until: false };
+      for (const name of group) {
+        const d = direct(this.spec.rules[name]);
+        val.attempt ||= d.attempt;
+        val.until ||= d.until;
+        for (const r of refsOf.get(name) as string[]) {
+          const v = reach.get(r);
+          if (v) { val.attempt ||= v.attempt; val.until ||= v.until; }
+        }
+      }
+      for (const name of group) reach.set(name, val);
+    }
+    this.reachMemo = reach;
+    return reach;
+  }
+
   private leadingRefs(e: Expr): string[] {
     switch (e.t) {
       case 'ref': return [e.name];
@@ -603,7 +726,7 @@ class Analysis {
         return out;
       }
       case 'alt': return e.xs.flatMap((x) => this.leadingRefs(x));
-      case 'many': case 'opt': case 'node': return this.leadingRefs(e.x);
+      case 'many': case 'opt': case 'node': case 'attempt': return this.leadingRefs(e.x);
       default: return [];
     }
   }
@@ -632,7 +755,7 @@ class Analysis {
         case 'set': add(x.label ?? describe(x.cs)); return;
         case 'seq': for (const y of x.xs) { walk(y); if (!this.nullable(y)) return; } return;
         case 'alt': for (const y of x.xs) walk(y); return;
-        case 'many': case 'opt': case 'node': walk(x.x); return;
+        case 'many': case 'opt': case 'node': case 'attempt': walk(x.x); return;
         case 'until': add(`text ending in ${JSON.stringify(x.s)}`); return;
         case 'ref':
           if (seen.has(x.name)) return;
@@ -650,6 +773,8 @@ class Analysis {
 
 interface State {
   s: string;
+  /** Where the input ends for this read: its length, or the end of an attempt's window. */
+  n: number;
   i: number;
   stack: Node[][];
   err: ParseError | null;
@@ -729,9 +854,9 @@ export function compile(spec: GrammarSpec): Grammar {
   const matchers = new Map<Expr, Matcher>();
   const ruleMatchers = new Map<string, Matcher>();
   const recursive = an.recursiveRules();
-  const code = (st: State) => (st.i < st.s.length ? st.s.charCodeAt(st.i) : -1);
+  const code = (st: State) => (st.i < st.n ? st.s.charCodeAt(st.i) : -1);
   const fail = (st: State, expected: string): false => {
-    if (!st.err) st.err = { at: st.i, expected, found: st.i < st.s.length ? st.s[st.i] : null };
+    if (!st.err) st.err = { at: st.i, expected, found: st.i < st.n ? st.s[st.i] : null };
     return false;
   };
   const firstTest = (e: Expr) => compileTest(an.info.get(e)?.first ?? EMPTY);
@@ -750,13 +875,13 @@ export function compile(spec: GrammarSpec): Grammar {
           // One character is the common case (a bracket, a comma): compare the code, no substring.
           const ch = s.charCodeAt(0);
           m = (st) => {
-            if (st.i < st.s.length && st.s.charCodeAt(st.i) === ch) { st.i++; return true; }
+            if (st.i < st.n && st.s.charCodeAt(st.i) === ch) { st.i++; return true; }
             return fail(st, want);
           };
           break;
         }
         m = (st) => {
-          if (st.s.startsWith(s, st.i)) { st.i += s.length; return true; }
+          if (st.i + s.length <= st.n && st.s.startsWith(s, st.i)) { st.i += s.length; return true; }
           return fail(st, want);
         };
         break;
@@ -779,6 +904,7 @@ export function compile(spec: GrammarSpec): Grammar {
         break;
       }
       case 'alt': {
+        if (e.xs.some((x) => x.t === 'attempt')) { m = buildTryingAlt(e.xs, an.expectedAt(e)); break; }
         const xs = e.xs.map(build);
         const tests = e.xs.map(firstTest);
         const empty = e.xs.findIndex((x) => an.info.get(x)?.nullable);
@@ -806,7 +932,7 @@ export function compile(spec: GrammarSpec): Grammar {
           const want = e.x.label ?? describe(e.x.cs);
           m = (st) => {
             const s = st.s;
-            const n = s.length;
+            const n = st.n;
             let i = st.i;
             while (i < n && test(s.charCodeAt(i))) i++;
             if (min && i === st.i) return fail(st, want);
@@ -858,6 +984,13 @@ export function compile(spec: GrammarSpec): Grammar {
         };
         break;
       }
+      case 'attempt': {
+        // Anywhere but an alt branch, a failed attempt is an ordinary error.
+        const t = tryAttempt(e);
+        const want = an.expectedAt(e.x);
+        m = (st) => t(st) || fail(st, want);
+        break;
+      }
       case 'node': {
         const x = build(e.x);
         const kind = e.kind;
@@ -876,6 +1009,56 @@ export function compile(spec: GrammarSpec): Grammar {
     return m;
   };
 
+  /**
+   * An attempt that rewinds when it fails: position, kept nodes and the error go back to where
+   * they were, so the caller sees a character nobody has read yet. (Nesting depth needs no
+   * restoring here: this runtime's `ref` gives its level back on failure too. The generated
+   * parser's does not, so `t_K` restores it.)
+   */
+  function tryAttempt(e: Extract<Expr, { t: 'attempt' }>): Matcher {
+    const x = build(e.x);
+    const max = e.max;
+    const nextOk = compileTest(e.next);
+    return (st) => {
+      const i0 = st.i;
+      const n0 = st.n;
+      const kids = st.stack[st.stack.length - 1];
+      const k0 = kids.length;
+      const err0 = st.err;
+      st.n = Math.min(n0, i0 + max);
+      const ok = x(st);
+      st.n = n0;
+      if (ok && st.err === err0 && (st.i >= n0 || nextOk(st.s.charCodeAt(st.i)))) return true;
+      st.i = i0;
+      kids.length = k0;
+      st.err = err0;
+      return false;
+    };
+  }
+
+  /**
+   * A choice with attempts among its branches. The checker lets an attempt overlap only the
+   * branches AFTER it, and no other branch overlaps anything after it, so: try the attempts that
+   * can start here, in order; then the one ordinary branch that can; then the empty branch.
+   */
+  function buildTryingAlt(branches: readonly Expr[], want: string): Matcher {
+    const tries: Array<[(c: number) => boolean, Matcher]> = [];
+    const plain: Array<[(c: number) => boolean, Matcher]> = [];
+    let empty: Matcher | null = null;
+    for (const x of branches) {
+      if (x.t === 'attempt') { tries.push([firstTest(x), tryAttempt(x)]); continue; }
+      if (an.info.get(x)?.nullable && !empty) empty = build(x);
+      plain.push([firstTest(x), build(x)]);
+    }
+    return (st) => {
+      const c = code(st);
+      for (let k = 0; k < tries.length; k++) if (tries[k][0](c) && tries[k][1](st)) return true;
+      for (let k = 0; k < plain.length; k++) if (plain[k][0](c)) return plain[k][1](st);
+      if (empty) return empty(st);
+      return fail(st, want);
+    };
+  }
+
   for (const [name, body] of Object.entries(spec.rules)) ruleMatchers.set(name, build(body));
 
   return {
@@ -883,7 +1066,7 @@ export function compile(spec: GrammarSpec): Grammar {
     parse(input: string, rule = spec.start): ParseResult {
       const m = ruleMatchers.get(rule);
       if (!m) throw new Error(`segno: no rule "${rule}"`);
-      const st: State = { s: input, i: 0, stack: [[]], err: null, depth: 0 };
+      const st: State = { s: input, n: input.length, i: 0, stack: [[]], err: null, depth: 0 };
       let ok: boolean;
       try {
         ok = m(st);

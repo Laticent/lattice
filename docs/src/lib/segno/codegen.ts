@@ -67,6 +67,18 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
   const tables = new Map<string, string>();
   const recursive = an.recursiveRules();
   const kinds: string[] = [];
+  // Attempts become functions of their own (`t_K` tries and rewinds, `b_K` is the body), written
+  // after the rules. A grammar without one is generated exactly as before.
+  const attempts = new Map<Expr, number>();
+  const attemptFns: string[] = [];
+  const hasAttempt = Object.values(spec.rules).some(function has(e: Expr): boolean {
+    switch (e.t) {
+      case 'attempt': return true;
+      case 'seq': case 'alt': return e.xs.some(has);
+      case 'many': case 'opt': case 'node': return has(e.x);
+      default: return false;
+    }
+  });
   let tmp = 0;
   const fresh = () => `c${tmp++}`;
   const q = (s: string) => JSON.stringify(s);
@@ -80,7 +92,8 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
     switch (e.t) {
       case 'lit':
         if (e.s.length === 1) return `${ind}if (${AT} !== ${e.s.charCodeAt(0)}) return fail(${q(expected(e))});\n${ind}i++;\n`;
-        return `${ind}if (!s.startsWith(${q(e.s)}, i)) return fail(${q(expected(e))});\n${ind}i += ${e.s.length};\n`;
+        // Inside an attempt the input ends at the window, so a literal must fit before `n`.
+        return `${ind}if (${hasAttempt ? `i + ${e.s.length} > n || ` : ''}!s.startsWith(${q(e.s)}, i)) return fail(${q(expected(e))});\n${ind}i += ${e.s.length};\n`;
       case 'set': {
         const c = fresh();
         return `${ind}{ const ${c} = ${AT}; if (!${testExpr(e.cs, c, tables)}) return fail(${q(expected(e))}); i++; }\n`;
@@ -91,7 +104,15 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
         let out = `${ind}{\n${ind}  const ${c} = ${AT};\n`;
         const empty = e.xs.findIndex((x) => an.nullable(x));
         let first = true;
+        // Attempts first, in order: each that can start here is tried, and a failed one hands
+        // the character on (see compile()'s buildTryingAlt).
+        e.xs.forEach((x) => {
+          if (x.t !== 'attempt') return;
+          out += `${ind}  ${first ? 'if' : 'else if'} (${testExpr(an.first(x), c, tables)} && t_${attemptFn(x)}()) { /* kept */ }\n`;
+          first = false;
+        });
         e.xs.forEach((x, k) => {
+          if (x.t === 'attempt') return;
           if (k === empty && an.first(x).length === 0) return;
           out += `${ind}  ${first ? 'if' : 'else if'} (${testExpr(an.first(x), c, tables)}) {\n${gen(x, `${ind}    `)}${ind}  }\n`;
           first = false;
@@ -128,6 +149,7 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
         const miss = e.orEnd ? `${ind}  i = n;\n` : `${ind}  i = n;\n${ind}  return fail(${q(JSON.stringify(e.s))});\n`;
         return `${ind}{\n${ind}  const ${c} = s.indexOf(${q(e.s)}, i);\n${ind}  if (${c} >= 0) i = ${c} + ${e.s.length};\n${ind}  else {\n${miss}${ind}  }\n${ind}}\n`;
       }
+      case 'attempt': return `${ind}if (!t_${attemptFn(e)}()) return fail(${q(an.expectedAt(e.x))});\n`;
       case 'node': {
         const b = fresh();
         let k = kinds.indexOf(e.kind);
@@ -136,6 +158,41 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
       }
     }
   };
+
+  function attemptFn(e: Extract<Expr, { t: 'attempt' }>): number {
+    const hit = attempts.get(e);
+    if (hit !== undefined) return hit;
+    const k = attempts.size;
+    attempts.set(e, k);
+    const c = fresh();
+    const body = gen(e.x, '  ');
+    attemptFns.push(`// Try the body on at most ${e.max} characters; keep it only before a \`next\` character or the end.
+function t_${k}(): boolean {
+  const i0 = i;
+  const n0 = n;
+  const top0 = top;
+  const d0 = depth;
+  const e0 = err;
+  n = Math.min(n0, i0 + ${e.max});
+  const ok = b_${k}();
+  n = n0;
+  if (ok && err === e0) {
+    const ${c} = ${AT};
+    if (${c} < 0 || ${testExpr(e.next, c, tables)}) return true;
+  }
+  i = i0;
+  top = top0;
+  depth = d0;
+  err = e0;
+  return false;
+}
+
+function b_${k}(): boolean {
+${body}  return true;
+}
+`);
+    return k;
+  }
 
   const rules = Object.entries(spec.rules).map(([name, body]) => `function r_${name}(): boolean {\n${gen(body, '  ')}  return true;\n}\n`).join('\n');
   const tableDecls = [...tables].map(([bits, name]) => `const ${name} = new Uint8Array([${bits.split('').join(',')}]);`).join('\n');
@@ -166,7 +223,7 @@ function fail(expected: string): false {
   return false;
 }
 
-${rules}
+${rules}${attemptFns.length ? `\n${attemptFns.join('\n')}` : ''}
 const RULES: Record<string, () => boolean> = { ${Object.keys(spec.rules).map((r) => `${q(r)}: r_${r}`).join(', ')} };
 
 /**
