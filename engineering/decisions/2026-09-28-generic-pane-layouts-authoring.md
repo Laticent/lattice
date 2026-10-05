@@ -401,6 +401,9 @@ after every pick. The owner's question was what an average user should expect. T
   "Starts with an example" replaces the author's text, and a wrong "keeps" loses nothing. The
   known cost of that lean: one code span in a technical list (`- Install with `npm i``) counts as a
   label, and an item that opens on a number ("3 reasons we win") counts as a figure.
+- The needs map rides the Studio's on-demand component catalog (`studio/component-catalog.json`,
+  whose slots now carry their selectors), derived in Compose's lazy chunk. A first cut inlined it
+  into the Studio page, which cost the page 8.3 KB of HTML that only this gallery reads.
 - **"Starts with an example"** when it cannot. The pane's body is swapped for the component's own
   starter, and a notice offers Undo. The Undo stands down once the author edits anything else.
 - **The pane's title and the slide's Key Insight never move.**

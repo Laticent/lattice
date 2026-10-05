@@ -99,6 +99,17 @@ describe('what each component would do to a pane', () => {
 	});
 });
 
+describe('where the needs map comes from', () => {
+	it('the Studio\'s fetched catalog yields the same map as the grammar it was built from', async () => {
+		// The map left the Studio page for the on-demand catalog (studio/component-catalog.json): the
+		// badges must not move with it.
+		const { buildStudioCatalog } = await import('../studio-catalog.mjs');
+		const rows = buildStudioCatalog(join(__dirname, '../../../..'));
+		expect(rows.length).toBeGreaterThan(0);
+		expect(paneNeedsFrom(rows)).toEqual(NEEDS);
+	});
+});
+
 describe('what the second review found a pick could lose', () => {
 	it('a pane whose component owns its ### never "keeps its text" under one that does not', () => {
 		const src = '<!-- _class: columns -->\n\n## T\n\n<!-- _pane: team-profile -->\n\n### Ann\n\nCEO\n\n### Bob\n\nCTO\n\n<!-- _pane: list -->\n\n- c';

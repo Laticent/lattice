@@ -1,8 +1,10 @@
 // What each component needs to find in a pane's body to render it: its REQUIRED grammar slots, less
 // the heading (a pane's title is its `###`, never the slide's `##`), plus, for a chart, a number.
-// Built once at site build from `dist/docs/grammar.json` and `components.json` (studio.astro), the
-// same generated grammar every other Compose map reads (HARD RULE #1). Compose uses it to tell the
-// author, before they choose, whether a component KEEPS a pane's text or starts it with an example
+// Built in the browser from the Studio's component catalog (`studio/component-catalog.json`, the
+// rows `lib/studio-catalog.mjs` builds from `dist/docs/components.json`), which carries each slot's
+// selector and each skeleton: the same generated grammar every other Compose map reads (HARD RULE
+// #1), fetched after the page rather than inlined into it, since only the pane gallery reads it.
+// Compose uses it to tell the author, before they choose, whether a component KEEPS a pane's text or starts it with an example
 // (pane-model.ts `paneFit`; engineering/decisions/2026-09-28-generic-pane-layouts-authoring.md §7.2).
 //
 // Shape alone over-promises. `contact` and `actors` require only `ul > li`, so a plain "- A point"
@@ -28,7 +30,7 @@ export type PaneCatalogRow = GrammarComponent;
 const HEADING_ONLY = /^h[1-6](?:\s*,\s*h[1-6])*$/;
 const OFF_HEADING = /\bh[1-6]\s*[+~]/;
 
-export function paneNeedsFrom(components: GrammarComponent[], substanceOf: Record<string, string>): PaneNeeds {
+export function paneNeedsFrom(components: GrammarComponent[], substanceOf: Record<string, string> = {}): PaneNeeds {
 	const out: PaneNeeds = {};
 	for (const c of components) {
 		if (!c.name) continue;
