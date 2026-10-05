@@ -109,6 +109,12 @@
             }
           }
         },
+        "figureClasses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+          "description": "The CSS classes of the container this plugin draws a figure into (on any surface: its runtime pass, its bake). They are the plugin's OWN: every consumer outside lib/plugins finds a drawn figure by the host's `data-lattice-figure` marker instead, and `checkPluginMigration`'s `drawnFigureClasses` arm counts any that names one of these (budget 0)."
+        },
         "surfaces": {
           "type": "object",
           "additionalProperties": false,

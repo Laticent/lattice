@@ -108,7 +108,7 @@ import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag } from './slide-provenance';
 import { sizeRatio } from './slide-size';
-import { hasMermaid } from './slide-thumb';
+import { hasDrawnFence } from './slide-thumb';
 import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -3700,7 +3700,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// on a text slide. It moves that load earlier rather than adding one — full writes
 	// become rare, which is the point — but the deck's own first mount pays it up front.
 	// engineering/decisions/2026-09-05-diagram-fence-flash.md §4D.
-	const editorMermaid = React.useMemo(() => hasMermaid(editorSample), [editorSample]);
+	const editorDrawn = React.useMemo(() => hasDrawnFence(editorSample), [editorSample]);
 	// Whether the editor preview should render (else it parks — iframe kept warm, per-keystroke
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
@@ -5190,7 +5190,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
+						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>

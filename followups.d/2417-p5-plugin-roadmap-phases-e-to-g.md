@@ -9,8 +9,8 @@ recorded: 2026-09-27
 why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §7. Each phase
             ships on its own and deletes what it replaces. `checkPluginMigration` in
             `tools/check-ownership.js` must never rise. Phase D (Mermaid on the host, `bake` /
-            `exec.bake`) shipped on its own branch; its browser half is
-            `2417-p5-plugin-phase-d-browser-half.md`.
+            `exec.bake`) shipped on its own branch, and its browser half with #2508 and #2509; what
+            is left is `2509-p5-plugin-phase-d-residue.md`.
             E: the data layer, zip import and export of plugins in the CLI and the Studio
                (§4.10); this lifts the `plugin` refusal in `lib/packages/gate.js`.
             F: the chart family — `extensionPoints.kernel`, chart kernels read from the

@@ -278,7 +278,7 @@ function sampler() {
 			// rather than a boolean: 240ms at 30% is not the same insult as 80ms at 100%.
 			const srcAlpha = code ? inkVisible(code) : 0;
 			const slotPresent = !!pre;
-			const svgEl = document.querySelector('.mermaid > svg, .mermaid-svg svg');
+			const svgEl = document.querySelector('[data-lattice-figure] svg');
 			// A generation per SVG ELEMENT, stamped once. The runtime can put a diagram on
 			// screen three ways and only node identity tells them apart: a fresh render and a
 			// cache replay both write `innerHTML` (a NEW element, so a new generation), while
@@ -360,7 +360,7 @@ function sampler() {
 		if (code) mark('fence');
 		const pre = code?.parentElement;
 		if (pre?.dataset?.latticeSettle) mark('tagged');
-		if (document.querySelector('.mermaid > svg, .mermaid-svg svg')) mark('svg');
+		if (document.querySelector('[data-lattice-figure] svg')) mark('svg');
 		if (window.mermaid) mark('mermaidLib');
 		try {
 			const fe = window.frameElement;
@@ -706,7 +706,7 @@ async function main() {
 				s.shift = 0;
 				// The generation on screen BEFORE the action. Everything at or below it is the
 				// outgoing diagram; the window closes on the first generation above it.
-				const cur = document.querySelector('.mermaid > svg, .mermaid-svg svg');
+				const cur = document.querySelector('[data-lattice-figure] svg');
 				// STAMP IT HERE if the rAF sampler has not yet. Defaulting to 0 for an
 				// un-stamped SVG makes the held diagram beat `baseGen` on the first frame, so
 				// `scoreWindow` closes the window immediately and reports a held run as an

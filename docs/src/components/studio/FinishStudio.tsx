@@ -460,7 +460,7 @@ export function FinishStudio({
 						<DeckPreview
 							options={options}
 							sample={specimen(exporting)}
-							mermaid={false}
+							drawn={false}
 							modeOverride={mode}
 							extraCss={previewCss}
 							coalesce

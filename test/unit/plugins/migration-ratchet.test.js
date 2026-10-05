@@ -38,7 +38,7 @@ describe('checkPluginMigration', () => {
     // bake-record arms read consumers the copy leaves out (lib/runtime, docs/src, the emulator), so
     // they have their own arms below.
     const { fenceWrappers, pluginTokenNames, pluginAssetsOutside } = pluginMigrationCounts(tmp);
-    const { drawnFenceClasses: _live, drawnLibraryUrls: _urls, drawnSettleStates: _states, runtimePluginNames: _rt, bakeContextByName: _bk, ...expected } = PLUGIN_MIGRATION_BUDGET;
+    const { drawnFenceClasses: _live, drawnLibraryUrls: _urls, drawnSettleStates: _states, runtimePluginNames: _rt, bakeContextByName: _bk, drawnFigureClasses: _fig, ...expected } = PLUGIN_MIGRATION_BUDGET;
     assert.deepEqual({ fenceWrappers, pluginTokenNames, pluginAssetsOutside }, expected);
   });
 
@@ -121,6 +121,31 @@ describe('checkPluginMigration', () => {
       assert.ok(errors.some((e) => /drawnSettleStates is 3, over its budget of 0/.test(e)), errors.join('\n'));
     } finally {
       for (const f of [js, css, test_]) fs.rmSync(f);
+    }
+  });
+
+  test('a drawn plugin\'s own figure class used as a selector counts, in code, CSS and a component manifest; a property read, a comment and a test do not', () => {
+    assert.equal(pluginMigrationCounts(tmp).drawnFigureClasses, 0);
+    const dir = path.join(tmp, 'lib/components/planted');
+    fs.mkdirSync(dir, { recursive: true });
+    const js = path.join(tmp, 'lib/core/planted.js');
+    const css = path.join(dir, 'planted.styles.css');
+    const json = path.join(dir, 'planted.manifest.json');
+    const test_ = path.join(tmp, 'lib/core/planted.test.js');
+    fs.writeFileSync(js, "doc.querySelectorAll('.mermaid-svg > svg');\nel.classList.contains('mermaid');\nq('[class~=mermaid]');\nconst lib = window.mermaid;\nconst p = s.props.mermaid;\n// '.mermaid' in prose\n/* section .mermaid */\nconst x = '.mermaid-error';\n");
+    fs.writeFileSync(css, '/* a comment\n * .mermaid in a block\n */\nsection.diagram > .mermaid { flex: 1; }\n');
+    fs.writeFileSync(json, '{ "slots": { "figure": { "selector": "div.mermaid, svg" } } }\n');
+    fs.writeFileSync(test_, "document.querySelector('.mermaid');\n");
+    try {
+      const { drawnFigureClasses, figureHits } = pluginMigrationCounts(tmp);
+      assert.equal(drawnFigureClasses, 5, figureHits.join('\n'));
+      assert.deepEqual(figureHits.map((h) => h.split(':')[0]).sort(), ['lib/components/planted/planted.manifest.json', 'lib/components/planted/planted.styles.css', 'lib/core/planted.js', 'lib/core/planted.js', 'lib/core/planted.js']);
+      const errors = [];
+      checkPluginMigration(errors, PLUGIN_MIGRATION_BUDGET, tmp);
+      assert.ok(errors.some((e) => /drawnFigureClasses is 5, over its budget of 0 — /.test(e)), errors.join('\n'));
+    } finally {
+      fs.rmSync(dir, { recursive: true });
+      for (const f of [js, test_]) fs.rmSync(f);
     }
   });
 

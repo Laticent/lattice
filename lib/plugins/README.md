@@ -181,6 +181,14 @@ author's, and is released at once. `drawn-library.mjs` gives a page the library'
 runtime URL (the Studio's diagram checker, its warm-up) and the `<link rel="preload">` a frame
 builder writes for a document with a drawn fence.
 
+**The drawn figure carries the host's marker.** A plugin that draws a figure (its pass, its bake)
+writes `data-lattice-figure="<name>"` on the container it draws into, beside its own classes
+(declared as `render.figureClasses`). Everything outside the plugin — the Studio export's SVG bake,
+the standalone-SVG export, the CLI player capture, Anima's diagram host, the Guide's figure
+selector, the diagram layout's CSS, the fit and label gates — selects `[data-lattice-figure]`, never
+`.mermaid` or `.mermaid-svg`; `checkPluginMigration`'s `drawnFigureClasses` arm holds that at 0.
+`--disable-plugin <names>` switches plugins off for one CLI run, for the engine and the bakes alike.
+
 Every capture waits until no placeholder is `pending` or `hydrating` — the CLI's PDF/PNG/PPTX and
 `--player` bake (`settleBarrierScript`), and the Studio export (`deck-export.js`,
 `PENDING_FIGURES`). The selector requires `[data-lattice-hydrate]`, so an author's own element
@@ -271,4 +279,5 @@ the budget only falls. Three more count the plugin doing its own work rather tha
 it by hand: a browser plugin named in `lib/runtime` code (`runtimePluginNames` — 139 before the
 pass moved, 0 since), a plugin's stylesheet or grammar left in `lib/integrations/<plugin>/`
 (`pluginAssetsOutside`, 2 → 0) and a plugin's bake record read by name (`bakeContextByName`,
-`contexts.get('mermaid')`, 1 → 0).
+`contexts.get('mermaid')`, 1 → 0), and a drawn plugin's own figure class used as a selector
+outside it (`drawnFigureClasses`, read from each manifest's `render.figureClasses`, 36 → 0).

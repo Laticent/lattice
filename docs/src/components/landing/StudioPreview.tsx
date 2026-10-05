@@ -23,7 +23,7 @@ import DeckPreview from '@/components/DeckPreview';
 
 export type StudioPreviewData = {
 	sample: string;
-	mermaid: boolean;
+	drawn: boolean;
 	deckTitle: string;
 	slideCount: number;
 	themeBase: string;
@@ -59,7 +59,7 @@ export default function StudioPreview({ data }: { data: StudioPreviewData }) {
 					<DeckPreview
 						options={options}
 						sample={data.sample}
-						mermaid={data.mermaid}
+						drawn={data.drawn}
 						frame="tile"
 						className="live-host relative m-0 aspect-video w-full overflow-hidden"
 						aria-label={`The first slide of the ${data.deckTitle} deck, rendered by Lattice`}

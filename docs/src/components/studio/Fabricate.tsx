@@ -1204,15 +1204,15 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 						<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
 							<div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2">
 								<span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">Slide</span>
-								<DeckPreview options={options} sample={SPECIMEN} mermaid={false} paletteOverride={derived.name} extraTheme={previewCss ? { name: derived.name, css: previewCss } : undefined} modeOverride={specimenMode} coalesce frame="tile" className="relative aspect-video w-full overflow-hidden" aria-label="Theme specimen" />
+								<DeckPreview options={options} sample={SPECIMEN} drawn={false} paletteOverride={derived.name} extraTheme={previewCss ? { name: derived.name, css: previewCss } : undefined} modeOverride={specimenMode} coalesce frame="tile" className="relative aspect-video w-full overflow-hidden" aria-label="Theme specimen" />
 							</div>
 							{[
-								{ label: 'Chart', sample: CHART_SPECIMEN, mermaid: false, aria: 'Chart specimen' },
-								{ label: 'Diagram', sample: DIAGRAM_SPECIMEN, mermaid: true, aria: 'Diagram specimen' },
+								{ label: 'Chart', sample: CHART_SPECIMEN, drawn: false, aria: 'Chart specimen' },
+								{ label: 'Diagram', sample: DIAGRAM_SPECIMEN, drawn: true, aria: 'Diagram specimen' },
 							].map((p) => (
 								<div key={p.label} className="flex min-w-0 flex-col gap-1.5">
 									<span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">{p.label}</span>
-									<DeckPreview options={options} sample={p.sample} mermaid={p.mermaid} paletteOverride={derived.name} extraTheme={previewCss ? { name: derived.name, css: previewCss } : undefined} modeOverride={specimenMode} coalesce frame="tile" className="relative aspect-video w-full overflow-hidden" aria-label={p.aria} />
+									<DeckPreview options={options} sample={p.sample} drawn={p.drawn} paletteOverride={derived.name} extraTheme={previewCss ? { name: derived.name, css: previewCss } : undefined} modeOverride={specimenMode} coalesce frame="tile" className="relative aspect-video w-full overflow-hidden" aria-label={p.aria} />
 								</div>
 							))}
 						</div>

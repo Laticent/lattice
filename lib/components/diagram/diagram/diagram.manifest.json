@@ -31,7 +31,7 @@
       "description": "Optional eyebrow caption."
     },
     "mermaid": {
-      "selector": "div.mermaid, svg",
+      "selector": "[data-lattice-figure], svg",
       "required": true,
       "description": "Fenced ```mermaid block, pre-rendered to SVG at build time."
     }
@@ -108,7 +108,7 @@
     "archetype": "flow",
     "units": {
       "figure": {
-        "select": ":is(pre, .mermaid, svg):not(header *)"
+        "select": ":is(pre, [data-lattice-figure], svg):not(header *)"
       }
     }
   }

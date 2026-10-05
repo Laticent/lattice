@@ -177,7 +177,7 @@ function EngineBreakdown({ stats }: { stats: RenderStats }) {
 function DeckContext({ stats }: { stats: RenderStats }) {
 	const chips: { label: string; warn?: boolean }[] = [];
 	if (stats.charts > 0) chips.push({ label: `${stats.charts} chart${stats.charts === 1 ? '' : 's'}` });
-	if (stats.mermaid > 0) chips.push({ label: `${stats.mermaid} mermaid` });
+	if (stats.drawn > 0) chips.push({ label: `${stats.drawn} diagram${stats.drawn === 1 ? '' : 's'}` });
 	if (stats.math) chips.push({ label: 'math' });
 	// Single-slide preview → 0 or 1; label the slide, not a deck-wide tally.
 	if (stats.overflow > 0) chips.push({ label: stats.overflow === 1 ? 'overflows' : `${stats.overflow} overflowing`, warn: true });

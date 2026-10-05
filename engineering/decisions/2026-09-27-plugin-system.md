@@ -637,8 +637,9 @@ recording exactly what is left.
   plugin owns its browser half** (§11, 2026-10-04): the diagram pass is the plugin's `hydrate.js`
   (`render.exec.hydrate: "pass"`), its stylesheet and highlight grammar are its `styles` and
   `highlight` contributions, and the bake context's services are generic — three more ratchet
-  arms (`runtimePluginNames`, `pluginAssetsOutside`, `bakeContextByName`), all 0. What is still
-  left is `followups.d/2417-p5-plugin-phase-d-browser-half.md`.
+  arms (`runtimePluginNames`, `pluginAssetsOutside`, `bakeContextByName`), all 0. Its last
+  consumers moved with #2509 (`drawnFigureClasses`, 0; `--disable-plugin`); what is still left is
+  `followups.d/2509-p5-plugin-phase-d-residue.md`.
 - **E. The data layer** — zip import/export of plugins in the CLI and the Studio (§4.10).
 - **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels; renderer
   libraries move to `optionalDependencies` (export sign-off: it changes what installs).
@@ -1113,6 +1114,22 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   boundary parser, drawn-probe consumers) and the CLI configures the bake's knobs separately —
   `followups.d/2509-p3-admission-on-the-browser-half.md`, a precondition for any host narrowing
   the default set.
+
+- **Phase D's last consumers: done (#2509 P2).** The drawn figure carries the host's marker,
+  `data-lattice-figure="<plugin>"`, written by the Mermaid pass (`mermaid.hydrate.js`) and its bake
+  (`mermaid.bake.js`, after `class` so the index stamp and the re-bake hook still key on it). Every
+  consumer outside the plugin selects it: the Studio export's SVG bake and standalone-SVG export
+  (`deck-export.js`), Anima's diagram host (`anima-host-sel.ts` `isDrawnFigureSvg`,
+  `anima-scenes.ts`), the Guide (`present-guide.ts`), the CLI player capture
+  (`lattice-emulator.js`), `overflow-probe.js`, the diagram component's CSS and manifest selectors,
+  `base.fluid-view.css`, `highlight-js.css` (which also stopped naming `[data-lattice-hydrate="mermaid"]`),
+  and the tools (`check-chart-fit`, `check-render-nature`, `check-diagram-labels`, `diagram-oracle`,
+  `bench-preview-diagrams`, `diagram-flash-bench`). `render.figureClasses` declares a plugin's own
+  output classes, and the new `drawnFigureClasses` arm counts them as selectors outside the plugin:
+  36 on `main`, 0 here. The `mermaid` prop is `drawn` (`DeckPreview`, `renderInto`, the pool, the
+  landing and specimen surfaces). The CLI builds ONE `PLUGINS_DISABLED` list (`--disable-plugin`)
+  for the engine and `bakeDeck`. Left, with reasons: `followups.d/2509-p5-plugin-phase-d-residue.md`
+  (the kernels need a package-kind role decision; the library copies are three builds, not two).
 
 ## References
 

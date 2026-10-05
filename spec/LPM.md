@@ -122,6 +122,7 @@ until they honor admission too.
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
 | `render.exec` | where code runs: `hydrate: "browser"` (a `hydrate.js` exporting `hydrate`, run by the plugin host on every browser surface, serialized onto the CLI export page) or `"pass"` (a `hydrate.js` exporting `createPass`, a document pass the runtime bundles and drives — §4.3; the plugin MUST `bake`, because the CLI export page carries no runtime). **`"pass"` is IN-TREE ONLY**: a pass is bundled into the runtime, which a zip or npm plugin cannot reach (§10); `bake: "subprocess"` (the bake blocks on another process, such as a headless browser) |
+| `render.figureClasses` | the CSS classes of the container the plugin draws a figure into (its pass, its bake). They are the plugin's OWN: the plugin MUST also write the host's figure marker, `data-lattice-figure="<name>"`, on that container, and every consumer outside the plugin selects `[data-lattice-figure]` — never these classes (`checkPluginMigration` `drawnFigureClasses`, budget 0) |
 | `render.surfaces` | what each surface emits — `engine`, `preview`, `pdf`, `player`, `marp` → `placeholder \| figure \| figure-baked \| source \| none` |
 
 ## 4. The role modules
@@ -372,6 +373,10 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, phase D's last consumers (2026-10-05).** `render.figureClasses` and the host's
+  figure marker `data-lattice-figure="<name>"` (§3.4): what an export, a capture or a layout
+  selects to find a drawn figure on any surface, so none names a plugin's output class.
 
 - **0.5-draft (2026-10-05).** Explicit loading (§3.2.1): a plugin is admitted by the host's
   default set, the deck's `plugins:` import list, or a component that requires it — never by the
