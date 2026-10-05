@@ -223,6 +223,17 @@ fixed and pinned by a test in `architect-agent.test.ts` / `architect-agent.chat.
   support would have made every turn come back empty. `tool_calls` fragments without an
   `index` now continue the open call rather than spawning nameless ones.
 
+**Found driving the fallback on the real surface, after the checker.** The one-shot fallback
+for a model without tool support had only been tested with a scripted backend. Driven for
+real in the Studio with `nex-agi/nex-n2.5-mini`, which lists no tool support, it never ran.
+OpenRouter answers that model's tool request with a 404, "No endpoints found that support tool
+use". The transport's retired-model self-heal (`isDeadModelError`) matched on "no endpoints
+found" and silently re-sent the turn on the default model, with tools. The author's chosen
+model was swapped for a pricier one without a word, and the cost landed on the author. Fixed:
+a tool-use refusal is no longer treated as a retired model. The same run, re-driven: the tools
+request gets a 404, then the agent falls back to a tools-free request on the author's model,
+which gets a 200 and an answer. Pinned in `architect-agent.chat.test.ts`.
+
 ## 10. What this does NOT do
 
 - **It cannot see the slides.** `check_deck` is lint, review and Mermaid's parser; no tool

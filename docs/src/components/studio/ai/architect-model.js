@@ -53,7 +53,14 @@ const OR_CATALOG_LS = 'lattice-db-or-catalog'; // {fetchedAt, models} — TTL-ca
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000; // refetch the catalog at most once a day
 // A retired/renamed model id fails with this signature — the trigger to self-heal
 // to the rot-proof latest alias (a pinned id the user stored can die under them).
-const isDeadModelError = (status, body) => (status === 400 || status === 404) && /not a valid model|no endpoints found|no allowed providers/i.test(String(body || ''));
+// NOT a dead model: "No endpoints found that support tool use" is a LIVE model that cannot
+// take the chat agent's tools. Self-healing it swapped the author's chosen model for the
+// default (a pricier one) without a word; it must instead reach the agent, which falls back
+// to the one-shot chat ON the author's model (2026-10-05-studio-chat-agent.md).
+export const isDeadModelError = (status, body) =>
+  (status === 400 || status === 404) &&
+  /not a valid model|no endpoints found|no allowed providers/i.test(String(body || '')) &&
+  !/support tool use|support tools?\b/i.test(String(body || ''));
 const EMBED_MODEL = 'Xenova/bge-small-en-v1.5';
 // Backstop for a warm embed worker that dies silently (no `onerror`) — resolve the
 // awaiting caller to null (→ lexical fallback) rather than hang the generate path.

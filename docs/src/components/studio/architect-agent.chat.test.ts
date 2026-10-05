@@ -67,3 +67,14 @@ describe('chatComplete — the cloud agent', () => {
 		if (out.status === 'ok') expect(out.reply).toContain('connection dropped');
 	});
 });
+
+describe('the transport self-heal', () => {
+	it('treats a model that cannot take tools as LIVE, so the chat falls back on the author’s own model', async () => {
+		const { isDeadModelError } = await import('./ai/architect-model.js');
+		const toolless = '{"error":{"message":"No endpoints found that support tool use. Try disabling \\"x\\".","code":404}}';
+		expect(isDeadModelError(404, toolless)).toBe(false);
+		// A genuinely retired id still self-heals.
+		expect(isDeadModelError(404, '{"error":{"message":"No endpoints found for some/retired-model."}}')).toBe(true);
+		expect(isDeadModelError(400, 'some/x is not a valid model ID')).toBe(true);
+	});
+});
