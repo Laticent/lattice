@@ -244,11 +244,15 @@ JPEG only: the downsample already softens a 1 px rule, and PNG there cost the 4K
 a render (`followups.d/2503-p3-pdf-photo-exact-4k.md`).
 
 **The photo is PNG first.** A flat photo (`pngIsFlat`) is kept as PNG; a busy one is also
-taken as JPEG and `smallestPhoto` (`compose.mjs`) keeps the smaller file. The CLI's PNG uses
-Chrome's fast encoder (`optimizeForSpeed`): about 3x the default encoder's bytes on a flat slide
-(a flat deck's whole PDF grows about 1.5x), but as quick as a JPEG, and a busy slide's JPEG is that PNG re-encoded in the page rather than a second
-screenshot: CI's integration job renders hundreds of decks, and the default encoder pushed it
-past its timeout. On a flat slide background that is the PNG, which keeps
+taken as JPEG and `smallestPhoto` (`compose.mjs`) keeps the smaller file. A busy slide's JPEG
+is that PNG re-encoded in the page rather than a second screenshot. The CLI's PNG uses Chrome's
+default encoder, except under a test: there it takes the fast encoder (`optimizeForSpeed`), which
+gives the same pixels at about 3x the bytes on a flat slide, as quick as a JPEG. CI's integration
+job renders hundreds of decks, and the default encoder pushed it past its timeout. The emulator
+picks the fast encoder when `NODE_TEST_CONTEXT` is set (`node --test` sets it on every process a
+test starts); `LATTICE_PDF_PHOTO_FAST=1` or `=0` overrides that. A shipped PDF and a committed
+golden take the default encoder: `examples/topic.pdf` is 109 KB, against 245 KB fast and 141 KB
+for the all-JPEG writer before #2503. On a flat slide background that is the PNG, which keeps
 a 1 px colored rule exact; JPEG stores color at half resolution at every quality, and wrote the
 top keyline of a dark slide as rgb(42,132,176) for rgb(0,146,216). On a photograph the JPEG is
 smaller and is kept (`LATTICE_PDF_PHOTO_QUALITY`, default 92, sets its quality).

@@ -147,7 +147,9 @@ function thinRuns(oraclePdf, writerPdf, name) {
 async function screenOracle(html, outPdf) {
 	const { default: puppeteer } = await import('puppeteer');
 	const { PDFDocument } = await import('pdf-lib');
-	const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox'] });
+	// A launch that waits out Puppeteer's 30 s default is slow, not broken: while the writer's own
+	// renders hold the other Chromes, a cold start passed it and aborted a 330-deck run at deck 5.
+	const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox'], timeout: 120_000 });
 	try {
 		const page = await browser.newPage();
 		await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
@@ -171,7 +173,9 @@ let next = 0;
 await Promise.all(Array.from({ length: JOBS }, async () => {
 	while (next < decks.length) {
 		const src = decks[next++];
-		const r = await one(src);
+		// One deck's failure is that deck's ERROR row, never the whole run: an escaped rejection
+		// here used to reject Promise.all and throw away every result so far.
+		const r = await one(src).catch((e) => ({ name: path.relative(ROOT, src).replace(/[/\\]/g, '__').replace(/\.md$/, ''), error: String(e?.message || e).split('\n')[0] }));
 		results.push(r);
 		const worst = r.pages ? Math.max(0, ...r.pages.map((p) => p.frac)) : null;
 		console.log(`${String(results.length).padStart(3)}/${decks.length} ${r.name}${r.error ? `  ERROR ${r.error}` : `  worst page ${(worst * 100).toFixed(2)}%  ${(r.bytes.writer / 1024).toFixed(0)} KB vs ${(r.bytes.chrome / 1024).toFixed(0)} KB`}`);
