@@ -527,7 +527,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const lastRenderedEditSrcRef = React.useRef<string | null>(null);
 	// Ref-indirected so `render` (defined above the capture callback) can fire the
 	// post-first-render capture without a use-before-declaration cycle.
-	const captureFirstSlideRef = React.useRef<() => boolean>(() => false);
+	const captureFirstSlideRef = React.useRef<() => true | string>(() => 'not mounted');
 	// Pending teardown of the instant-shell, held so unmount can cancel it (a setState
 	// after unmount is a React warning, and on the Studio→Playground back-and-forth it is
 	// reachable). See goLive below.
@@ -893,18 +893,27 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// flashing its opaque black body. This adds `is-live` (CSS reveals #preview +
 				// drops the skeleton) and dismisses the shell when the frame is ready.
 				markLiveWhenSlidesVisible(frame);
-				// One capture ~after the first render (async chart/mermaid draws settle),
-				// so the NEXT cold load has this slide to replay. Mirrors the Studio's
-				// onPreviewFirstRender; ref-indirected past the capture callback's TDZ.
-				// It RETRIES until a snapshot lands: a capture refuses an unfitted or placeholder
-				// slide, and on a slow machine the first try can come before the FIT agent has
-				// scaled it. One refused try used to leave nothing stored until the tab hid.
+				// One capture after the first render (async chart/mermaid draws settle), so the
+				// NEXT cold load has this slide to replay; ref-indirected past the capture
+				// callback's TDZ. Its clock starts at the REVEAL, not the render: a capture
+				// refuses a slide the FIT agent has not scaled, and on a slow machine a fixed
+				// window after the render could close before the reveal, storing nothing until
+				// the tab hid (the reload smoke test's 40 s timeout). It retries until a snapshot
+				// lands or 45 s pass, and then says which check refused it.
 				if (!firstCaptureDoneRef.current) {
 					firstCaptureDoneRef.current = true;
-					const attempt = (left: number) => {
-						if (!captureFirstSlideRef.current() && left > 0) setTimeout(() => attempt(left - 1), 1500);
+					const wrap = frame.parentElement;
+					const until = Date.now() + 45_000;
+					let why = 'the slides never went live';
+					const attempt = () => {
+						if (Date.now() > until) { console.warn(`[playground] no first-slide snapshot stored: ${why}`); return; }
+						if (wrap && !wrap.classList.contains('is-live')) { setTimeout(attempt, 500); return; }
+						const got = captureFirstSlideRef.current();
+						if (got === true) return;
+						why = got;
+						setTimeout(attempt, 1500);
 					};
-					setTimeout(() => attempt(5), 1500);
+					setTimeout(attempt, 1500);
 				}
 				// Re-bind the hover layer to the (possibly new) iframe document.
 				chartDetailRef.current?.rebind();
@@ -940,20 +949,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// the WRONG deck. So capture (and, in playground.astro, replay) only when the draft
 	// is on screen, keyed by a hash of the RENDERED source. Explore/newcomer cold loads
 	// fall back to the (now dark) loading skeleton.
-	const captureFirstSlide = React.useCallback((): boolean => {
+	const captureFirstSlide = React.useCallback((): true | string => {
 		try {
-			if (viewRef.current !== 'edit') return false;
+			if (viewRef.current !== 'edit') return 'not the edit view';
 			const fr = frameRef.current;
-			if (!fr) return false;
+			if (!fr) return 'no preview frame';
 			// Dedupe back-to-back captures: pagehide + visibilitychange both fire on a
 			// mobile nav, and the post-first-render timer can overlap.
 			const now = Date.now();
-			if (now - lastPgCaptureRef.current < 500) return false;
+			if (now - lastPgCaptureRef.current < 500) return 'a capture ran under 500 ms ago';
 			// Stamp the identity from the source that produced THIS frame, not the live
 			// SOURCE_KEY (which races ahead of the async render on every keystroke). Null →
 			// no Edit render has landed yet → nothing trustworthy to snapshot; skip.
 			const renderedSrc = lastRenderedEditSrcRef.current;
-			if (renderedSrc == null) return false;
+			if (renderedSrc == null) return 'no edit render has landed';
 			lastPgCaptureRef.current = now;
 			const root = document.documentElement;
 			// captureFirstSectionFromFrame sanitizes at the chokepoint (#22) before the HTML
@@ -977,12 +986,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			});
 			// A slide it could not capture is worth another try; one captured but too large to
 			// store is not (it will be as large next time).
-			if (!snap) return false;
+			if (!snap) return 'the capture refused the slide (unfitted, a placeholder, or no CSS)';
 			savePlaygroundSnapshot(snap);
 			return true;
-		} catch {
+		} catch (e) {
 			/* best-effort — a failed capture just means the next visit uses the skeleton */
-			return false;
+			return `the capture threw: ${String(e).slice(0, 80)}`;
 		}
 	}, [themeBase]);
 	captureFirstSlideRef.current = captureFirstSlide;
