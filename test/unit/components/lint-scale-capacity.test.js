@@ -81,9 +81,25 @@ describe('capacity-scale — a counted component', () => {
     assert.deepEqual(lint(deck('scale-xl', slide('cycle', n, 'plans it'))), []);
   });
 
-  test('past the DESIGNED-size budget too, it says a smaller size cannot save the slide', () => {
-    // authority-chain: measured 4 at the designed size, declared hard 6 — the gap the
-    // designed column exists for.
+  test('past the DESIGNED-size row of a render-checked component, it says a smaller size cannot save the slide', () => {
+    // premise is LAPTOP_JUDGED: its laptop row was checked against a render (6 rows of 14 words
+    // fit, 7 clip), and its `hard` (8) sits above that row.
+    const designed = core.SCALE_CAPACITY.premise['14'][0];
+    const v = { ...vocab, names: new Set([...vocab.names, 'premise']),
+      capacity: { ...vocab.capacity, premise: { axis: 'item', min: 3, sweet: 4, soft: 6, hard: 8 } } };
+    const rows = Array.from({ length: designed + 1 }, (_, i) => `1. Term ${i}\n   - A clause of about nine words that frames row ${i}.\n   - Why it matters?`).join('\n');
+    const out = core.lintTextWith(deck('scale-xl', `<!-- _class: premise -->\n\n## H.\n\n${rows}\n`), v).filter((f) => f.rule === 'capacity-scale');
+    assert.equal(out.length, 1);
+    assert.match(out[0].message, /even at the designed size/);
+    assert.match(out[0].message, /clipped at 1\.3x and would be at any smaller size/);
+    assert.match(out[0].fix, /^Split the slide/);
+    assert.doesNotMatch(out[0].fix, /scale-l/);
+  });
+
+  test('a row the rig measured but no render checked at 1x never claims a designed-size clip', () => {
+    // authority-chain: measured 4 at the designed size, declared hard 6, and a shape that reaches 6
+    // is recorded (2026-07-28-capacity-basis.md). gallery.md's four-tile `kpi` slide is the real
+    // case: its 3-tile row called it "clipped at any size" and the laptop export renders it whole.
     const row = core.SCALE_CAPACITY['authority-chain'];
     const len = Math.max(...Object.keys(row).map(Number));
     const designed = row[len][0];
@@ -92,10 +108,8 @@ describe('capacity-scale — a counted component', () => {
     const src = deck('scale-xl', slide('authority-chain', designed + 1));
     const out = core.lintTextWith(src, v).filter((f) => f.rule === 'capacity-scale');
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /even at the designed size/);
-    assert.match(out[0].message, /clipped at 1\.3x and would be at any smaller size/);
-    assert.match(out[0].fix, /^Split the slide/);
-    assert.doesNotMatch(out[0].fix, /scale-l/);
+    assert.doesNotMatch(out[0].message, /even at the designed size|any smaller size/);
+    assert.match(out[0].message, /never shrinks one to fit, so if it does not fit, it is clipped/);
   });
 
   test('past `hard` it is the overflow rule\'s slide, not this one', () => {
@@ -139,6 +153,33 @@ describe('capacity-scale — a code block', () => {
     assert.equal(out[0].severity, 'warning');
     assert.match(out[0].message, /so it is clipped at any size/);
     assert.doesNotMatch(out[0].message, /nothing is clipped/);
+  });
+
+  test('a heading that wraps costs the pane its measured lines, per room (the talk\'s starter kit at huddle)', () => {
+    // The talk's slide 79: an eyebrow, a 70-character heading lint wraps to two lines at huddle, and
+    // a ten-line block. It fits the one-line eyebrow row (11) and clips in the export (rendered, 4k).
+    const head = 'The settings file turns the reach test into allow, ask and deny lists.';
+    const slide79 = `<!-- _class: code -->\n\n\`Starter kit · 2 of 7\`\n\n## ${head}\n\n${block(10)}`;
+    const two = core.CODE_LINES_AT_SCALE.headed['2'].eyebrow[1];
+    assert.ok(two < 10 && core.CODE_LINES_AT_SCALE.eyebrow[1] >= 10, 'fixture: inside the one-line row, past the two-line one');
+    const [f] = lint(deck('venue-huddle', slide79));
+    assert.match(f.message, new RegExp(`10 lines \\(the pane holds about ${two}\\)`));
+    // The same block under a one-line heading is silent.
+    assert.deepEqual(lint(deck('venue-huddle', `<!-- _class: code -->\n\n\`Starter kit · 2 of 7\`\n\n## Short.\n\n${block(10)}`)), []);
+  });
+
+  test('compare-code is judged by its own rows: the taller block, with its callout (the talk\'s slide 9)', () => {
+    const cc = { ...vocab, names: new Set([...vocab.names, 'compare-code']) };
+    const pair = (n, m, end = '') => `<!-- _class: compare-code -->\n\n\`Your role · Declare the outcome\`\n\n## Declare the outcome.\n\n\`Tells it how\`\n\n${block(n)}\n\`Declares what\`\n\n${block(m)}${end}`;
+    const rows = core.VENUE_CAPACITY.compareCode;
+    const hall = rows.eyebrowInsight[3];
+    const run = (src) => core.lintTextWith(src, cc).filter((f) => f.rule === 'capacity-scale');
+    // The taller block counts, and a callout costs the pane its measured lines.
+    assert.equal(run(deck('venue-hall', pair(3, hall + 1, '\n> The schema outlives the code.\n'))).length, 1);
+    assert.deepEqual(run(deck('venue-hall', pair(3, hall, '\n> The schema outlives the code.\n'))), []);
+    // No column budget: compare-code's does not scale by division at a venue (talk slide 36).
+    const wide = '```js\n' + 'x'.repeat(45) + '\n```\n';
+    assert.deepEqual(run(deck('venue-huddle', `<!-- _class: compare-code -->\n\n## H.\n\n\`A\`\n\n${wide}\n\`B\`\n\n${wide}`)), []);
   });
 
   test('an eyebrow costs the pane its measured line', () => {
@@ -845,4 +886,104 @@ describe('a list or card slide is judged by the LINES its text wraps to (Amendme
     assert.ok(V.rows['cards-grid'].regs[''].span > 1, 'a lone last card spans the row');
     assert.equal(V.rows['list-steps'].regs[''].cols, 0);
   });
+});
+
+describe('a count row reads the slide a real deck writes (#2361 P2, 2026-10-05)', () => {
+  const v = { names: new Set(['glossary', 'list-tabular']), modifiers: new Set(), capacity: {} };
+  const run = (venue, body) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: ${venue}\n---\n\n${body}`, v).filter((f) => f.rule === 'capacity-scale');
+  // The talk's (PR #2399) glossary slide 74: seven terms whose definitions run 9 to 13 words. Its
+  // export at huddle renders it whole.
+  const glossary74 = `<!-- _class: glossary -->\n\n\`Starter kit · Glossary, 1 of 3\`\n\n## Terms from this talk, in plain words.\n\n${[
+    ['Baseline', 'The last approved result that a new one is compared against.'],
+    ['CI, the build', 'Automated checks that run on every proposed change.'],
+    ['Commit', "One saved change in the project's history."],
+    ['Conformance test', 'A test that proves a component keeps its written promises.'],
+    ['Context window', 'Everything the model can see at one moment.'],
+    ['Deprecate', 'Mark something as on its way out, while it still works.'],
+    ['Dot folder', 'A folder whose name starts with a dot, like .claude, hidden by default.'],
+  ].map(([t, d]) => `- ${t}\n  - ${d}`).join('\n')}\n`;
+
+  test('glossary reads an item by its characters: 15 short words are not the rig\'s 15 long ones', () => {
+    assert.equal(core.elementLength(glossary74, 'item', 'glossary'), 12);
+    assert.deepEqual(run('huddle', glossary74), []);
+    // Read as 15 words it warned (the brief's false warnings): the row at 15 words holds 4.
+    assert.ok(core.scaleCapacityFor('glossary', 'l', 15).ceiling < 7, 'fixture: the word count reads it as over');
+  });
+
+  // The talk's list-tabular slide 10: an eyebrow over five rows; it clips at huddle in the export.
+  const tabular10 = `<!-- _class: list-tabular -->\n\n\`Your role · Declare the outcome\`\n\n## Declarative works when the spec leaves nothing to guess.\n\n${[
+    ['Define the shape', 'A schema or types: what the data is, and what it can never be.'],
+    ['Name the constraints', 'What must never happen, and which tradeoffs you accept.'],
+    ['Say how you\'ll know', 'Checks that pass only when the outcome is right.'],
+    ['Stay imperative where order matters', 'Migrations, rollouts and cut-overs: spell out the steps.'],
+    ['Read the how anyway', "The agent's code is still yours, including its speed and safety."],
+  ].map(([t, d], i) => `${i + 1}. ${t}\n   - ${d}`).join('\n')}\n`;
+
+  test('list-tabular reads rows measured past 12 words, where its rows step at a wrap (slide 10 at conference)', () => {
+    // Read in characters the slide is 13 rig words; the rows measured at 13 and 14 hold 3 at
+    // conference. With rows to 12 words only, every length past 12 read as 12, which holds 5.
+    assert.equal(core.elementLength(tabular10, 'item', 'list-tabular'), 13);
+    assert.equal(core.SCALE_CAPACITY['list-tabular']['13'][2], 3);
+    const [f] = run('conference', tabular10);
+    assert.match(f.message, /'list-tabular with its eyebrow' holds about 3 items of up to 13 words/);
+  });
+
+  test('a callout under an eyebrow reads the row measured with both, not the sum of two costs', () => {
+    // The talk's slide 7: an eyebrow, four rows and a callout. It fits at huddle and clips at conference.
+    const slide7 = `<!-- _class: list-tabular insight-our-view -->\n\n\`Your role · How to word it\`\n\n## Clear and specific beats polite, rude or loud.\n\n${[
+      ['Say what to do', '"Use early returns" works better than a list of things to avoid.'],
+      ['Say why it matters', '"This runs in checkout, so a wrong total costs money."'],
+      ['Skip the shouting', '"CRITICAL" and "MUST" can make newer models overreact.'],
+      ['Keep the tone neutral', "Studies on politeness disagree, so don't spend effort on it."],
+    ].map(([t, d], i) => `${i + 1}. ${t}\n   - ${d}`).join('\n')}\n\n> Tone moves results a little. Missing information moves them a lot.\n`;
+    // Huddle: the measured pair holds 4. The two costs added would say 3, and warn on a slide that fits.
+    assert.deepEqual(run('huddle', slide7), []);
+    assert.match(run('conference', slide7)[0].message, /with its callout and eyebrow/);
+    // The eyebrow is what tips it at conference: the same slide without one is silent.
+    assert.deepEqual(run('conference', slide7.replace('`Your role · How to word it`\n\n', '')), []);
+  });
+
+  test('a code span is priced as the mono pill it renders, a universal pill by its label (examples/inline-pills.md)', () => {
+    const code = '1. An escape\n   - `\\{LIVE}` and `\\[x]` show the literal; `\\[a-z]` keeps its backslash\n';
+    const pills = '1. Round and pointed\n   - `{3}:circle:c5` `{NEXT}:chevron-right:c6` `{BACK}:chevron-left:c8`\n';
+    assert.equal(core.elementLength(code, 'item', 'list-tabular'), 11);
+    // Priced as code, the pill row would be 9 rig words; as the labels it shows, 4.
+    assert.equal(core.elementLength(pills, 'item', 'list-tabular'), 4);
+  });
+});
+
+test('a character length counts what the slide shows: a link by its text, a tag not at all', () => {
+  // The checker's probe: a glossary definition carrying a long URL read 14 rig words and warned on a
+  // slide that renders whole at huddle.
+  const link = '- RFC\n  - Defined in [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#name-semantics), section two.\n';
+  const plain = '- RFC\n  - Defined in RFC 9110, section two.\n';
+  assert.equal(core.elementLength(link, 'item', 'glossary'), core.elementLength(plain, 'item', 'glossary'));
+  assert.equal(core.elementLength('- A\n  - Some <span class="x">text</span> here.\n', 'item', 'glossary'), core.elementLength('- A\n  - Some text here.\n', 'item', 'glossary'));
+});
+
+test('list-tabular `fixed` reads its own measured row: its track holds fewer rows than the default', () => {
+  // examples/list-tabular-responsive.md slide 3: the pre-responsive `fixed` track wraps its long
+  // names, and the slide clips at hall; the same rows on the default track fit (slide 4 there).
+  const v = { names: new Set(['list-tabular']), modifiers: new Set(['fixed']), capacity: {} };
+  const rows = [['ID', 'Two letters, a track sized for twenty.'], ['Extraordinarily long row label that will not fit', 'Wraps three lines.'], ['Mid', 'The same waste again.'], ['Governance and control framework alignment', 'And again.']]
+    .map(([t, d], i) => `${i + 1}. ${t}\n   - ${d}`).join('\n');
+  const run = (cls) => core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: ${cls} -->\n\n## Before: every label paid for the longest one.\n\n${rows}\n`, v).filter((f) => f.rule === 'capacity-scale');
+  assert.match(run('list-tabular fixed')[0].message, /'list-tabular fixed' holds about 3 items/);
+  assert.deepEqual(run('list-tabular'), []);
+});
+
+test('two measured variants on one slide read the one that holds fewer, in either order', () => {
+  const v = { names: new Set(['list-tabular']), modifiers: new Set(['fixed', 'compact']), capacity: {} };
+  const rows = Array.from({ length: 6 }, (_, i) => `${i + 1}. Name ${i}\n   - A description of about eight words for row ${i}.`).join('\n');
+  const run = (cls) => core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: ${cls} -->\n\n## H.\n\n${rows}\n`, v).filter((f) => f.rule === 'capacity-scale').map((f) => f.message);
+  assert.deepEqual(run('list-tabular fixed compact'), run('list-tabular compact fixed'));
+  assert.match(run('list-tabular compact fixed')[0], /'list-tabular fixed'/);
+});
+
+test('a comparison and an autolink count as the text they show', () => {
+  const cmp = '- A\n  - Only when x<5 and y>3 does the check pass here.\n';
+  // Read as a tag, `<5 and y>` vanished and the item lost three words of characters.
+  assert.equal(core.elementLength(cmp, 'item', 'glossary'), core.elementLength(cmp.replace(/[<>]/g, ' '), 'item', 'glossary'));
+  const auto = '- A\n  - See <https://example.com/a/rather/long/path/to/the/page>.\n';
+  assert.ok(core.elementLength(auto, 'item', 'glossary') >= 8);
 });

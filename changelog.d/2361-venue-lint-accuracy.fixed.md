@@ -1,0 +1,6 @@
+- `lint:deck` now warns about more of the slides a `venue:` deck clips, and about fewer that fit. Scored on five real decks forced to each room, right / false / missed goes from 14 / 5 / 34 to 25 / 2 / 23 at huddle, from 54 / 3 / 62 to 61 / 3 / 55 at conference, and from 110 / 0 / 54 to 114 / 0 / 50 at hall:
+  - A `code` pane loses one to two lines to each extra line of a heading that wraps. Lint now wraps the slide's heading and reads the pane rows measured under a two- and a three-line heading.
+  - `compare-code` is judged by its own measured pane rows (the taller block, with its callout and heading) instead of not at all.
+  - `glossary` and `list-tabular` read an item's length in characters (a code span as the mono pill it renders), where a word count read short definitions as long ones. Both have rows measured under an eyebrow, which costs most real slides a row. `list-tabular` also has a measured callout row and a row for its `fixed` track.
+- A count finding no longer says a slide "is clipped at any size" unless that component's designed-size row was checked against a laptop render. A four-tile `kpi` slide that renders whole at laptop was told it clipped.
+- `tools/score-venue-lint.js` scores lint's `capacity-scale` warnings against the export's clips for any deck, per venue. `calibrate-capacity` takes `--heading-lines N` and `--size 4k`.

@@ -10,7 +10,7 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 
 ## Agent contract
 
-**By venue** the pane holds laptop ~17 · huddle ~14 · conference ~11 · hall ~9 lines (laptop ~16 · huddle ~13 · conference ~9 · hall ~8 under an eyebrow). Past the room's number the slide still renders at the venue's size and the pane clips its lines; the export's `⚠ OVERFLOW` line and the Studio's ring name it (`lint:deck` does not count these panes yet). Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** the pane holds laptop ~17 · huddle ~14 · conference ~10 · hall ~9 lines (laptop ~15 · huddle ~13 · conference ~9 · hall ~8 under an eyebrow). Ending in a `> …` callout: laptop ~13 · huddle ~11 · conference ~8 · hall ~6 (laptop ~12 · huddle ~9 · conference ~6 · hall ~5 under an eyebrow). Under a two-line heading: laptop ~15 · huddle ~12 · conference ~9 · hall ~7 (laptop ~14 · huddle ~11 · conference ~8 · hall ~6 under an eyebrow). Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

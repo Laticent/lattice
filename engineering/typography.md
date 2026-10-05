@@ -471,7 +471,10 @@ deck, and it shipped two live bugs. The record, with the numbers, is
   `cards-grid` and `list-steps` in the registers their manifest measures (`venueCapacity.panel`
   and `venueCapacity.rows`), are judged by the LINES their text wraps to rather than by a count,
   because an item's line breaks decide whether it fits (the decision record's Amendments (6) and
-  (7)).
+  (7)). A `code` or `compare-code` pane reads the row measured under as many heading lines as the
+  slide's heading wraps to, and `glossary` and `list-tabular` read an item's length in
+  characters, with an eyebrow's measured cost (Amendment (8)). `tools/score-venue-lint.js` scores
+  the rule against the export's clips on any deck.
 
 Code keeps scaling, and its line cap scales with it: at a wide @size the pane holds 15 /
 13 / 11 / 10 lines at 1 / l / xl / 2xl (13 / 11 / 10 / 8 under an eyebrow), and

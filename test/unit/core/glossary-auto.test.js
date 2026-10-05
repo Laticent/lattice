@@ -150,11 +150,14 @@ test('withoutAutoGlossary: drops every glossary page when the glossary paginates
   assert.deepEqual(withoutAutoGlossary(list, 1, md), ['a']);
 });
 
-test('GLOSSARY_VENUE_ROWS mirrors the generated glossary rows exactly', () => {
+test('GLOSSARY_VENUE_ROWS mirrors the generated glossary rows at 6 and 16 words exactly', () => {
   // The kernel keeps its own copy so the docs bundle does not ship the whole table
-  // (docs/route-budget.json). A re-measured glossary budget must update both.
+  // (docs/route-budget.json). A re-measured glossary budget must update both. The manifest also
+  // carries rows between them (8 to 14 words, for lint's wrap step); the auto-glossary pages on the
+  // two end rows only, so adding lint's rows changes no exported glossary page.
   const VC = require('../../../lib/authoring/venue-capacity.generated.js');
-  assert.deepEqual(JSON.parse(JSON.stringify(GLOSSARY_VENUE_ROWS)), VC.items.glossary);
+  assert.deepEqual(Object.keys(GLOSSARY_VENUE_ROWS), ['6', '16']);
+  for (const k of ['6', '16']) assert.deepEqual([...GLOSSARY_VENUE_ROWS[k]], VC.items.glossary[k]);
 });
 
 test('NON_WIDE_SIZES mirrors every size preset that is not in the wide family', async () => {
