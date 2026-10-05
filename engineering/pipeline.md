@@ -257,8 +257,22 @@ that keeps text or a raster image in it. That covers:
 Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
 deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. Every
 photo stops at 2560 px on the long edge, so a 4K slide's is downsampled. A downsampled photo is
-JPEG only: the downsample already softens a 1 px rule, and PNG there cost the 4K gallery ~13 s
-a render (`followups.d/2503-p3-pdf-photo-exact-4k.md`).
+JPEG only: PNG there cost the 4K gallery ~13 s a render.
+
+**The slide's own edge is a vector, not part of the photo.** The section paints its top edge
+itself, as a gradient: a light slide's spectrum bar is a `border-image` on its top border, and
+a dark slide's 1 px hairline is a `background-image` (the `spectrum-edge-*` rails are the same
+two shapes on other sides). The reader (`readSectionEdges`) draws each as an axial shading over
+the photo and drops it from the photo, so the edge is exact at any size: at 4K, where the
+downsampled photo wrote the dark hairline 86 levels off Chrome's print, it is now within 1.
+A gradient whose stops are not legacy sRGB colors (the `mono` style's `color-mix`) is sampled
+through the browser's own `color-mix` in the gradient's interpolation space. Only a strip flush with one side, the side's full length and at
+most 1% of the slide thick, counts as an edge. The edge stays in
+the photo when anything's ink can reach it (a finish's pseudo-element layer, an inset shadow over
+the hairline, an outer shadow, a list marker, a full-bleed image), when the slide is clipped or rounded (`corners-rounded`), or
+when its geometry is not one the reader models; `LATTICE_PDF_REPORT` names the reason
+(`edge-covered`, `edge-clip-path`, …). Other 1 px rules a finish paints (the frame keyline, an
+inset ring) still ride in the photo, and stay soft at 4K.
 
 **The photo is PNG first.** A flat photo (`pngIsFlat`) is kept as PNG; a busy one is also
 taken as JPEG and `smallestPhoto` (`compose.mjs`) keeps the smaller file. A busy slide's JPEG

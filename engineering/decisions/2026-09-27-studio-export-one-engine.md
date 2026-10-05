@@ -369,8 +369,28 @@ Order of work, all in one PR (#2404):
     even as PNG (y0 rgb(128,69,82) against the screen's rgb(181,95,116); JPEG gave 110,79,84).
     Photographing 4K at 3840 px fixed it but cost ~21 s a 116-slide 4K gallery and pushed CI's
     integration job past its timeout, so the owner kept the cap. A downsampled photo stays JPEG,
-    since PNG bought little there and still cost ~13 s a gallery render:
-    `followups.d/2503-p3-pdf-photo-exact-4k.md`.
+    since PNG bought little there and still cost ~13 s a gallery render.
+    **Fixed for the slide's own edge 2026-10-05.** A 1x band photographed along the edge cost
+    as much as the full photo (a screenshot is dominated by its per-call cost), so the edge is
+    drawn as a vector instead, as #2404 drew borders. `readSectionEdges` (`read-slide.mjs`)
+    reads the section's `border-image` bar and its single gradient `background-image` layer
+    (the dark slide's hairline, a rail) into axial shadings, and hideDrawn drops both from the
+    photo. On the 4K hairline fixture the dark keyline went from 86 levels off Chrome's print to
+    1, and the light slide's 12 px bar from 94 (its last row) to 1. The 116-slide 4K gallery
+    renders in 34.9 s against 34.8 s on main (mean of 3 alternating runs each); 82 of its 116
+    slides draw their edge, 2 are refused as covered.
+    Refused, and left in the photo, when anything's ink can reach the edge (checked by geometry,
+    not a hit test: the checker found outer shadows, list markers, underlines and a
+    pointer-events-none image that a hit test walks past), the slide is clipped or rounded, or
+    its geometry is not one the reader models. A background layer counts only when it is an
+    edge: flush with one side, the side's full length, at most 1% of the slide wide. The Studio
+    reads the slide under the camera's own fixups (no host keyline, a squared corner), so it
+    draws the same edges. Pinned by the 4K arm of
+    `test/integration/export/pdf-photo-hairline.test.js`.
+  - The other 1 px rules a FINISH paints at the slide's edge (the `frame` keyline's inset
+    box-shadow ring, `--fin-frame`, in `lib/base/base.finish.css`) are still in the photo, so
+    they stay slightly soft at 4K. A shadow ring is a different reader (box-shadow geometry,
+    not a gradient image), and no deck has asked for it yet.
   - A later sibling's outer `box-shadow` over a border is not hit-testable, so a border can
     draw over it.
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`
