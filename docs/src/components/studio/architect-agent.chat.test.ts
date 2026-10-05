@@ -101,3 +101,29 @@ describe('the transport never swaps the model on a tools request', () => {
 		}
 	});
 });
+
+describe('a failed request says why, instead of an empty reply', () => {
+	it('an out-of-credits 402 is reported, not silently retried as a one-shot', async () => {
+		let calls = 0;
+		await withBackend(async () => {
+			calls++;
+			throw new Error('OpenRouter error 402: {"error":{"message":"Insufficient credits","code":402}}');
+		});
+		const out = await chatComplete([{ role: 'user', content: 'i need a deck on the plight of day laborers' }], DECK);
+		expect(out.status).toBe('blocked');
+		if (out.status === 'blocked') expect(out.reply).toMatch(/out of credits/);
+		expect(calls).toBe(1);
+	});
+
+	it('only a tools refusal falls back to the one-shot chat', async () => {
+		const { isToolRefusal, describeModelError } = await import('./chat-agent');
+		expect(isToolRefusal('OpenRouter error 404: No endpoints found that support tool use.')).toBe(true);
+		expect(isToolRefusal('OpenRouter error 404: No endpoints found that can handle the requested parameters.')).toBe(true);
+		expect(isToolRefusal('OpenRouter error 401: User not found')).toBe(false);
+		expect(isToolRefusal('OpenRouter error 404: No endpoints found for some/retired-model.')).toBe(false);
+		expect(describeModelError('OpenRouter error 401: User not found')).toMatch(/reconnect in Workspace/);
+		expect(describeModelError('OpenRouter error 401: {"error":{"message":"User not found.","code":401}}')).toContain('(OpenRouter said: User not found.)');
+		expect(describeModelError('OpenRouter error 404: No endpoints found for x/y')).toMatch(/pick another model/);
+		expect(describeModelError('TypeError: Load failed')).toMatch(/never reached OpenRouter/);
+	});
+});

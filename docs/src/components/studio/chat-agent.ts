@@ -224,7 +224,15 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 						.catch(() => {});
 				}
 			}
-		} else if (!rounds) return null;
+		} else if (!rounds) {
+			// Nothing answered. Fall back to the one-shot chat ONLY when the model refused the
+			// tools themselves; any other failure (a bad key, no credits, a dead model, the
+			// network) would fail the one-shot the same way, and that path reports every failure
+			// as an empty reply. Say what happened instead.
+			const msg = String((e as { message?: string })?.message ?? e ?? '');
+			if (isToolRefusal(msg)) return null;
+			return { status: 'blocked', reply: describeModelError(msg) };
+		}
 		else {
 			reply = soFar();
 			notes.push('The model connection dropped partway through this turn.');
@@ -260,3 +268,33 @@ export function finalizeAgent(source: string, reply: string, raw: AgentRawEdit[]
 	};
 }
 
+/** True when a failed request was refused for carrying tools — the one case the one-shot
+ *  chat can still serve. OpenRouter answers 404 "No endpoints found that support tool use",
+ *  or names a tool parameter it cannot route. */
+export function isToolRefusal(message: string): boolean {
+	return /\b(404|400)\b/.test(message) && /tool|requested parameters/i.test(message);
+}
+
+/** An author-facing sentence for a failed model request, from the transport's
+ *  "OpenRouter error <status>: <detail>" message. */
+export function describeModelError(message: string): string {
+	const status = Number(/OpenRouter error (\d{3})/.exec(message)?.[1] ?? 0);
+	const raw = /OpenRouter error \d{3}: ([\s\S]*)/.exec(message)?.[1] ?? '';
+	// The body is usually JSON, `{"error":{"message":"…"}}`, sometimes cut short by the
+	// transport; take the message when it parses, else the first quoted message, else the text.
+	let detail = '';
+	try {
+		detail = String(JSON.parse(raw)?.error?.message ?? '');
+	} catch {
+		detail = /"message"\s*:\s*"([^"]*)/.exec(raw)?.[1] ?? raw;
+	}
+	detail = detail.replace(/\s+/g, ' ').trim().slice(0, 140);
+	const tail = detail ? ` (OpenRouter said: ${detail})` : '';
+	if (status === 401 || status === 403) return `OpenRouter rejected the connection — reconnect in Workspace → AI.${tail}`;
+	if (status === 402) return `Your OpenRouter account is out of credits — add credits at openrouter.ai, or switch to On-device in Workspace → AI.${tail}`;
+	if (status === 404 || status === 400) return `The selected model could not take this request — pick another model in Workspace → AI.${tail}`;
+	if (status === 429) return `OpenRouter is rate-limiting this key — wait a moment and send again.${tail}`;
+	if (status >= 500) return `OpenRouter or the model's provider had an error — send again in a moment.${tail}`;
+	if (/fetch|network|load failed/i.test(message)) return 'The request never reached OpenRouter — check the connection and send again.';
+	return `The model request failed — send again.${message ? ` (${message.slice(0, 140)})` : ''}`;
+}
