@@ -149,19 +149,57 @@ contract asks. A page that uses both has two contexts, well under Chromium's per
 | Track | Lessons |
 |---|---|
 | **Basics** (slice 1) | Start a new deck · Write a slide · Add a slide · Change the theme · Present · Export a PDF |
-| **Building** | Charts · Tables · Comparisons · Images · Speaker notes |
-| **Polish** | Coach · Fix all · Reshape · Light and dark |
+| **Building** (slice 3) | Charts · Tables · Comparisons · Images · Speaker notes |
+| **Polish** (slice 3) | Coach · Fix all · Reshape · Light and dark |
 | **Sharing** | The HTML player · PowerPoint |
+
+## Building, Polish, and the end of the long tours (slice 3)
+
+**Nine lessons, two tracks.** `lessons/building.ts` and `lessons/polish.ts` load on demand like
+Basics, and every line is recorded (§Voice). The four "add a …" lessons share one shape: open the
+gallery, type the kind into its search box, pick the card. The lesson types the search itself
+(the `type` action) rather than asking the user to, because a keystroke the lesson did not ask for
+reads as "the user took over" and ends it.
+
+**A lesson checks before it points.** These lessons run on whatever deck is open, so each first
+asks whether its control can act: Fix all with nothing to fix, Reshape on a slide with one layout,
+and Reshape on a phone (the control is in the desktop edit bar) each say so and stop, rather than
+pointing at a disabled button. Fix all also has no "I'll do it for you" fallback when its button is
+off screen: it is the largest edit any lesson can make, so it happens only after the lesson has
+pointed at the button. And the Coach lesson skips its "click Coach" turn when Coach is already
+open, because that button is a toggle.
+
+**Four new commands.** Coach, Fix all, light/dark and slide settings each had a button and no
+palette row, so a learner who searched "check", "fix", "dark" or "notes" found nothing, and their
+lessons had no verb for "I'll do it for you". They are now in the action list (`coach`, `fix-all`,
+`toggle-mode`, `slide-settings`). Fix all is listed only while there is something to fix, the same
+rule the bar button follows by disabling.
+
+**The long tours are gone.** `walkthrough`, `board-deck`, `just-markdown` and `quiet` are deleted;
+`first-look` is the default and only tour. Their beats that nothing else used (`reskin`, `coach`,
+`present`, `share`) and nine of the thirteen `StudioActions` setters went with them. The four
+setters left (`openDeckMenu`, `createFirstDeck`, `gotoSlide`, `setMobilePane`) are `first-look`'s
+staging verbs, not things a user asks for, so they stay out of the action list.
+
+**Vetrina loads on first use.** `useLazyWalkthrough` (Vetrina's React adapter) fetches the engine on
+the first `start()`, and the tour scripts moved behind `tours/build.ts`. Measured against `main` at
+78eaf0d with `measure-route-base.sh`, the Studio's eager JS is **18,500 B gzip smaller**, with this
+whole PR (voice wiring, fifteen catalog rows, four commands) included. The voice still unlocks inside
+the user's gesture, because the narrator is built before `start()` awaits anything.
+
+**The e2e fixtures moved.** `demo.spec.ts` and `demo-mobile.spec.ts` run `first-look` (three slides,
+not four). The reskin regression test left with the beat it tested. `vetrina-geometry.spec.ts` drove
+`quiet`'s reskin beat to reflow a pane under a live spotlight ring; no lesson closes a panel that
+way, so the spec now runs the light/dark lesson and presses Collapse editor from inside the page the
+frame the ring appears. With the ring's tracking patched out of the built engine, the spec fails
+(ring 571/609 against a pane at 99/1081), so it still measures the defect it was written for.
 
 ## Slices
 
 1. **This PR.** The action list, the lesson kit, the Learn group in the palette, six Basics lessons,
    the Share sheet opening straight to its PDF step, the "Export as PDF…" action.
 2. **Voice.** Shipped: see §Voice above.
-3. **Retire the long tours.** Once Building and Polish lessons cover Coach and light/dark: delete
-   `walkthrough`, `board-deck`, `just-markdown` and `quiet`, move the e2e fixtures that use them
-   (`vetrina-geometry.spec.ts` drives `quiet`), retire `StudioActions` into the action list, and
-   make Vetrina's engine a lazy chunk.
+3. **Retire the long tours.** Shipped: see §Building, Polish, and the end of the long tours.
 4. **Reach.** Site search deep-links lessons, progress is remembered and the next lesson suggested,
    and a panel offers its lesson the first time it opens.
 

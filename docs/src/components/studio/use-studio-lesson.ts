@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { notify } from '@/lib/notify';
 import type { StopReason, Walkthrough } from '../../lib/vetrina';
-import { useWalkthrough } from '../../lib/vetrina/react';
+import { useLazyWalkthrough } from '../../lib/vetrina/react';
 import { loadLesson } from './lessons/catalog';
 import type { LessonActions, LessonEnv } from './lessons/lesson-kit';
 import type { ClipNarrator } from './lessons/lesson-voice';
@@ -116,7 +116,9 @@ export function useStudioLesson(rootRef: React.RefObject<HTMLElement | null>, bi
 	// The id of the most recent start request; a slow `import()` for an older request must not run.
 	const latest = React.useRef('');
 
-	const lesson = useWalkthrough<LessonActions>(rootRef, () => {
+	const lesson = useLazyWalkthrough<LessonActions>(
+		rootRef,
+		() => {
 		const next = pending.current;
 		pending.current = null;
 		if (!next) return null;
@@ -132,6 +134,16 @@ export function useStudioLesson(rootRef: React.RefObject<HTMLElement | null>, bi
 			},
 			setPalette: (name) => bindRef.current.applyPalette(name),
 			appendSlide: (md) => bindRef.current.appendSlide(md),
+			type: (target, text) => {
+				const t = next.aim(target);
+				const el = typeof t === 'function' ? t() : t;
+				if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+				// React tracks an input's value through the prototype setter; setting `.value`
+				// directly is invisible to it, and the field's onChange would never run.
+				const proto = el instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
+				Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, text);
+				el.dispatchEvent(new Event('input', { bubbles: true }));
+			},
 		};
 		return {
 			actions,
@@ -147,7 +159,10 @@ export function useStudioLesson(rootRef: React.RefObject<HTMLElement | null>, bi
 				if (reason === 'complete') notify('Lesson done. Search for it any time to see it again.');
 			},
 		};
-	});
+		},
+		// The engine loads with the first lesson, beside the lesson's own script.
+		() => import('../../lib/vetrina/index.js'),
+	);
 
 	const startLesson = React.useCallback(
 		(id: string) => {
@@ -155,7 +170,7 @@ export function useStudioLesson(rootRef: React.RefObject<HTMLElement | null>, bi
 			bindRef.current.stopDemo();
 			lesson.stop();
 			const b = bindRef.current;
-			const env: LessonEnv = { mobile: b.mobile, palette: b.palette, palettes: b.palettes };
+			const env: LessonEnv = { mobile: b.mobile, palette: b.palette, palettes: b.palettes, can: (c) => bindRef.current.commands.some((x) => x.id === c) };
 			// Inside the gesture when the module is already here (search was open): build or unlock now.
 			const early = voiceModule ? ensureNarrator(voiceModule) : null;
 			// The kit loads with the lesson, not with the Studio: only `press` needs it at run time,
@@ -178,12 +193,11 @@ export function useStudioLesson(rootRef: React.RefObject<HTMLElement | null>, bi
 					if (!build || latest.current !== id) return;
 					pending.current = { id, play: build(env), aim: kit.aim, narrate };
 					// A tour started while this lesson was loading holds Vetrina's one run, and
-					// `start()` throws for a second. The tour wins; the lesson does not start.
-					try {
-						lesson.start();
-					} catch {
+					// `start()` rejects for a second. The tour wins; the lesson does not start.
+					lesson.start().catch(() => {
 						pending.current = null;
-					}
+						notify('That lesson could not start. If a tour is running, close it first, then try again.');
+					});
 				},
 				() => notify('That lesson could not load. Check your connection and try again.'),
 			);

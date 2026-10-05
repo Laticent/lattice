@@ -7,7 +7,7 @@
 
 import type { LessonBuild } from './lesson-kit';
 
-export type LessonTrack = 'basics';
+export type LessonTrack = 'basics' | 'building' | 'polish';
 
 export type LessonMeta = {
 	/** Stable id: the palette row's `data-lesson`, and the key in its track's module. */
@@ -26,10 +26,21 @@ export const LESSONS: readonly LessonMeta[] = [
 	{ id: 'change-theme', question: 'How do I change the theme?', keywords: ['theme', 'colors', 'palette', 'look', 'style', 'font'], track: 'basics' },
 	{ id: 'present', question: 'How do I present?', keywords: ['present', 'slideshow', 'full screen', 'play', 'show'], track: 'basics' },
 	{ id: 'export-pdf', question: 'How do I export a PDF?', keywords: ['pdf', 'export', 'download', 'save', 'print', 'share', 'send'], track: 'basics' },
+	{ id: 'add-chart', question: 'How do I add a chart?', keywords: ['chart', 'graph', 'bar', 'plot', 'data', 'numbers'], track: 'building' },
+	{ id: 'add-table', question: 'How do I add a table?', keywords: ['table', 'rows', 'columns', 'grid', 'spreadsheet'], track: 'building' },
+	{ id: 'add-comparison', question: 'How do I compare two options?', keywords: ['compare', 'comparison', 'versus', 'vs', 'options', 'pros and cons', 'recommend'], track: 'building' },
+	{ id: 'add-image', question: 'How do I add an image?', keywords: ['image', 'picture', 'photo', 'logo', 'png', 'jpg'], track: 'building' },
+	{ id: 'speaker-notes', question: 'How do I add speaker notes?', keywords: ['notes', 'speaker', 'presenter', 'script', 'remember'], track: 'building' },
+	{ id: 'coach', question: 'How do I check my deck?', keywords: ['coach', 'check', 'review', 'issues', 'problems', 'lint', 'feedback'], track: 'polish' },
+	{ id: 'fix-all', question: 'How do I fix every issue at once?', keywords: ['fix', 'fix all', 'repair', 'clean up', 'issues'], track: 'polish' },
+	{ id: 'reshape', question: 'How do I change a slide’s layout?', keywords: ['reshape', 'layout', 'look', 'variant', 'rearrange'], track: 'polish' },
+	{ id: 'light-dark', question: 'How do I switch light or dark?', keywords: ['dark', 'light', 'mode', 'night', 'contrast'], track: 'polish' },
 ];
 
 const TRACKS: Record<LessonTrack, () => Promise<Record<string, LessonBuild>>> = {
 	basics: () => import('./basics').then((m) => m.BASICS),
+	building: () => import('./building').then((m) => m.BUILDING),
+	polish: () => import('./polish').then((m) => m.POLISH),
 };
 
 /** Fetch one lesson's script. Null for an unknown id, so a stale link degrades to nothing. */

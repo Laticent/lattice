@@ -59,6 +59,76 @@ export const LESSON_LINES = {
 		download: 'Choose whether comments come along as sticky notes, then click Download PDF.',
 		next: 'Next time, search “pdf” and pick Export as PDF to come straight here.',
 	},
+	// BUILDING — the slides people reach for after the first one.
+	'add-chart': {
+		what: 'A chart is a ready-made slide. You add it from the slide gallery.',
+		click: 'Click Add slide.',
+		missing: 'I’ll open the slide gallery for you.',
+		search: 'Typing in the search box narrows the gallery. I’ll type chart.',
+		pick: 'Pick the bar chart.',
+		edit: 'The numbers are plain text in your slide. Change one and the bars follow.',
+	},
+	'add-table': {
+		what: 'A table slide lays out rows and columns for you, with the house style already applied.',
+		click: 'Click Add slide.',
+		missing: 'I’ll open the slide gallery for you.',
+		search: 'I’ll type table in the search box.',
+		pick: 'Pick the table.',
+		edit: 'Each row is a line of text, with a bar between the cells. Add a line to add a row.',
+	},
+	'add-comparison': {
+		what: 'A comparison puts two options side by side and marks the one you recommend.',
+		click: 'Click Add slide.',
+		missing: 'I’ll open the slide gallery for you.',
+		search: 'I’ll type compare in the search box.',
+		pick: 'Pick split compare.',
+		edit: 'The second option gets the highlight. Put your recommendation there.',
+	},
+	'add-image': {
+		what: 'An image slide shows one picture, sized to the slide.',
+		click: 'Click Add slide.',
+		missing: 'I’ll open the slide gallery for you.',
+		search: 'I’ll type image in the search box.',
+		pick: 'Pick image.',
+		edit: 'Replace the sample link with the address of your own picture.',
+	},
+	'speaker-notes': {
+		what: 'Speaker notes are for you. Present shows them to you, and the audience never sees them.',
+		click: 'Notes live in Slide settings. Click it.',
+		missing: 'I’ll open this slide’s settings for you.',
+		tab: 'Choose the Notes tab.',
+		write: 'Write what you want to remember here. It saves with the deck.',
+		noTab: 'This slide’s notes are in the Notes tab of Slide settings.',
+	},
+	// POLISH — checking and changing a deck that already has its words.
+	coach: {
+		what: 'Coach reads your whole deck and lists what could be better, most important first.',
+		click: 'Click Coach.',
+		missing: 'I’ll open Coach for you.',
+		list: 'These scores sum up the deck. Each finding below names its slide; click one to jump there.',
+		next: 'Search “fix” to learn how Coach can fix some of these for you.',
+	},
+	'fix-all': {
+		what: 'Some problems have one sure fix, like a slide with no heading. Fix all applies every one of them.',
+		nothing: 'This is Fix all. Your deck has nothing Coach can fix on its own right now, which is a good sign.',
+		click: 'Click Fix all.',
+		missing: 'Fix all sits in the bar above your text, and in the menu on a phone. Open your text to use it.',
+		undo: 'Each fix is in your text, and Undo takes it back.',
+	},
+	reshape: {
+		what: 'Reshape gives a slide a different layout and keeps every word.',
+		unavailable: 'This slide has no other layouts. Go to a slide from the gallery, like a chart, and ask again.',
+		phone: 'Reshape is in the bar above your text on a wider screen.',
+		click: 'Click Reshape.',
+		pick: 'Each tile is the same content in another layout. Pick one.',
+		done: 'Same words, new shape. Pick again to go back.',
+	},
+	'light-dark': {
+		what: 'Light or dark changes the Studio and your slides with it, unless a deck sets its own.',
+		click: 'Click the light and dark switch.',
+		missing: 'On this screen the switch is in the menu. I’ll flip it for you.',
+		done: 'Only the colors changed. Press it again to switch back.',
+	},
 } as const satisfies Record<string, Record<string, string>>;
 
 export type LessonId = keyof typeof LESSON_LINES;

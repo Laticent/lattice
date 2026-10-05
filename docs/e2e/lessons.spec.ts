@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, railButtons, test } from './studio-fixture';
 
 // Studio lessons (engineering/decisions/2026-10-05-studio-lessons.md). Search is the help: typing
 // "pdf" offers the action AND the lesson, and a lesson points at the real control, waits for the
@@ -72,6 +72,41 @@ test('"Write a slide" with the editor hidden explains how to get it back and cha
 	await expect(page.locator(STAGE)).toContainText('Choose Write');
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 20_000 });
 	expect(await page.evaluate(() => localStorage.length && JSON.stringify(Object.entries(localStorage).filter(([k]) => k.includes('deck'))))).toBe(before);
+});
+
+// BUILDING AND POLISH (P2 of the lessons work). Each oracle is the real effect the lesson promised,
+// reached with nobody touching anything: the slide it added, the mode it flipped, the panel it opened.
+
+test('"Add a chart" opens the gallery, types the search, and adds a bar chart when the user waits @crosswidth', async ({ page }) => {
+	const before = await railButtons(page).count();
+	await search(page, 'chart');
+	await page.getByRole('option', { name: 'How do I add a chart?', exact: true }).click();
+	await expect(page.locator('input[aria-label="Search slides"]')).toHaveValue('chart', { timeout: 30_000 });
+	await expect(page.locator(STAGE)).toContainText('bars follow', { timeout: 30_000 });
+	await expect.poll(() => railButtons(page).count(), { timeout: 10_000 }).toBe(before + 1);
+});
+
+test('"Switch light or dark" flips the mode when the user waits', async ({ page }) => {
+	const mode = () => page.evaluate(() => document.documentElement.dataset.mode || 'light');
+	const was = await mode();
+	await search(page, 'dark');
+	await page.getByRole('option', { name: 'How do I switch light or dark?', exact: true }).click();
+	await expect.poll(mode, { timeout: 30_000 }).not.toBe(was);
+	await expect(page.locator(STAGE)).toContainText('switch back', { timeout: 20_000 });
+});
+
+test('"Check my deck" opens Coach when the user waits', async ({ page }) => {
+	await search(page, 'coach');
+	await page.getByRole('option', { name: 'How do I check my deck?', exact: true }).click();
+	await expect(page.locator(STAGE)).toContainText('These scores sum up the deck', { timeout: 30_000 });
+	await expect(page.getByRole('button', { name: 'Toggle Coach' }).filter({ visible: true }).first()).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('"Speaker notes" opens the notes field of the slide when the user waits', async ({ page }) => {
+	await search(page, 'notes');
+	await page.getByRole('option', { name: 'How do I add speaker notes?', exact: true }).click();
+	await expect(page.getByLabel('Speaker note for this slide').filter({ visible: true })).toBeVisible({ timeout: 40_000 });
+	await expect(page.locator(STAGE)).toContainText('saves with the deck', { timeout: 20_000 });
 });
 
 // THE PHONE, ON SAFARI'S ENGINE, WITH REAL TAPS. The two phone claims in #2529 — a tapped palette
