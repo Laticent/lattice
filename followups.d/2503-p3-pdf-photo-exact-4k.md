@@ -30,3 +30,28 @@ vector like the borders, so nothing at 4K needs the full-size photo.
        evidence  — the hairline integration test with a 4K arm; the gallery timing, main vs branch.
        verify    — tier 1, because it changes exported bytes (owner sign-off, dark + light).
 ```
+
+## Measured 2026-10-05 (claude/pdf-writer-tnum-and-followups): both cheap routes fail the budget
+
+The 116-slide 4K baseline gallery (`test/integration/baseline-decks/gallery.md`), CLI render end
+to end, one run each on the same sandbox:
+
+| photo                              | PNG encoder           | time    | file      |
+|------------------------------------|-----------------------|---------|-----------|
+| capped at 2560 px (today, JPEG)    | fast (CI)             | 36.9 s  | 5.9 MB    |
+| capped at 2560 px (today, JPEG)    | default (real export) | 36.9 s  | 5.9 MB    |
+| its own 3840 px (PNG-first)        | fast (CI)             | 54.1 s  | 19.2 MB   |
+| its own 3840 px (PNG-first)        | default (real export) | 72.7 s  | 8.1 MB    |
+
+So the exact photo is +47% under CI's encoder and +97% for a real export, against the ~10% the
+done-when allows. #2515's fast encoder does not rescue it.
+
+A 1x band along the top edge, composited over the capped photo, is not cheaper: a Puppeteer
+screenshot is dominated by its per-call cost, and 116 clipped 24 px bands took 91 s against
+119 s for 116 full 1x slides on the same page (`.scratch/band-cost.mjs` in that session). One
+extra capture per 4K slide costs about what the full photo does.
+
+What is left is the vector route: draw the keyline rule (and every other 1 px edge rule a
+finish paints) as a PDF shape, the way #2404 drew solid borders. That is a reader change per
+paint source (a pseudo-element gradient bar, an inset box-shadow ring, the frame keyline in
+`lib/base/base.finish.css`), each owed a hairline arm and export sign-off. Not attempted here.
