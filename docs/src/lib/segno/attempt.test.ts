@@ -10,7 +10,7 @@ import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { generate } from './codegen.js';
 import { toNodes } from './flat.js';
-import { analyze, type Expr, GrammarError, type GrammarSpec, type Node } from './grammar.js';
+import { type Expr, GrammarError, type GrammarSpec, type Node } from './grammar.js';
 import { alt, attempt, chars, compile, greedy, lint, MAX_ATTEMPT, many, many1, node, noneOf, opt, ref, seq, until } from './index.js';
 
 const esbuild = createRequire(import.meta.url)('esbuild') as typeof import('esbuild');
@@ -105,11 +105,24 @@ describe('attempt(): what the checker accepts', () => {
     expect(lint({ start: 's', rules: { s: attempt(seq(many(chars('a ')), ' '), { max: 4, next: ' ' }) } }).join('\n')).toMatch(/could either repeat the body or follow it/);
   });
 
+  it('refuses a hand-built attempt the constructor would have refused', () => {
+    const hand = (max: unknown, next: unknown): GrammarSpec => ({
+      start: 's',
+      rules: { s: alt({ t: 'attempt', x: seq('a', 'b'), max, next } as unknown as Expr, 'a') },
+    });
+    expect(lint(hand(1e9, [32, 32])).join('\n')).toMatch(/max must be a whole number from 1 to 256, not 1000000000/);
+    expect(lint(hand('2', [32, 32])).join('\n')).toMatch(/max must be a whole number/);
+    expect(lint(hand(2, null)).join('\n')).toMatch(/next must be a CharSet/);
+    expect(lint(hand(2, [32, 32]))).toEqual([]);
+  });
+
   it('validates its options', () => {
     expect(() => attempt('a', { max: 0, next: ' ' })).toThrow(/max from 1/);
     expect(() => attempt('a', { max: MAX_ATTEMPT + 1, next: ' ' })).toThrow(/max from 1/);
     expect(() => attempt('a', { max: 1.5, next: ' ' })).toThrow(/max from 1/);
     expect(() => attempt('a', { max: 4 } as unknown as { max: number; next: string })).toThrow(/needs a `next` set/);
+    expect(() => attempt('a', { max: 4, next: null } as unknown as { max: number; next: string })).toThrow(/needs a `next` set/);
+    expect(() => attempt('a', { max: 4, next: 5 } as unknown as { max: number; next: string })).toThrow(/needs a `next` set/);
   });
 });
 
@@ -152,13 +165,23 @@ describe('attempt(): what it reads', () => {
     expect(r.ok && spans(r.node)).toEqual(['word:0-3', 'word:4-5']);
   });
 
-  it('falls through to a branch that matches nothing', () => {
-    const s: GrammarSpec = { start: 's', rules: { s: seq(alt(attempt(node('a', seq('a', 'b')), { max: 2, next: 'c' }), seq()), chars('a'), 'x') } };
+  // The PR's red team and inversion review: both runtimes try attempts BEFORE the empty branch,
+  // wherever it is listed, so an attempt that can start what follows the choice would win over
+  // matching nothing and refuse input the empty branch reads ("ab" here). Refused, as an
+  // ordinary branch overlapping that FOLLOW is.
+  it('refuses an attempt that can start what follows a choice that can match nothing', () => {
+    const after: GrammarSpec = { start: 's', rules: { s: seq(alt(attempt(node('a', seq('a', 'b')), { max: 2, next: 'c' }), seq()), chars('a'), 'x') } };
+    const before: GrammarSpec = { start: 's', rules: { s: seq(alt(opt('q'), attempt(seq('a', 'b'), { max: 2, next: '' })), chars('a'), many(chars('ab'))) } };
+    expect(lint(after).join('\n')).toMatch(/matches nothing, and "a" could either start another branch or follow/);
+    expect(lint(before).join('\n')).toMatch(/matches nothing, and "a" could either start another branch or follow/);
+  });
+
+  it('a failed attempt beside an empty branch hands the character on to it', () => {
+    const s: GrammarSpec = { start: 's', rules: { s: seq(alt(attempt(node('a', seq('a', 'b')), { max: 2, next: 'c' }), seq()), 'c') } };
     expect(lint(s)).toEqual([]);
-    const r = both(s, 'ax');
-    expect(r.ok).toBe(true);
-    const kept = both(s, 'abc');
-    expect(kept.ok).toBe(false); // the attempt is kept (c follows), then `a` is expected at 2
+    expect(both(s, 'abc').ok).toBe(true);
+    const r = both(s, 'ac'); // the attempt fails at "c", the empty branch takes over, "c" is expected and "a" found
+    expect(!r.ok && r.error).toEqual({ at: 0, expected: '"c"', found: 'a' });
   });
 
   it('a later branch\'s error is the one reported, not the failed attempt\'s', () => {
@@ -167,11 +190,18 @@ describe('attempt(): what it reads', () => {
     expect(!r.ok && r.error).toEqual({ at: 1, expected: '"x"', found: 'y' });
   });
 
-  it('outside a choice, a failed attempt is an ordinary error at its start', () => {
-    const s: GrammarSpec = { start: 's', rules: { s: seq('a', attempt(seq('-', '>'), { max: 2, next: SP }), ' ') } };
-    const r = both(s, 'a-x ');
-    expect(!r.ok && r.error).toEqual({ at: 1, expected: '"-"', found: '-' });
-    expect(both(s, 'a-> ').ok).toBe(true);
+  // Outside a choice a failed attempt is an error, and it says WHY the attempt failed: an earlier
+  // version reported what the attempt's first character should have been — `expected "-", found
+  // "-"` (the red team and the inversion review).
+  it('outside a choice, a failed attempt reports why it failed', () => {
+    const s: GrammarSpec = { start: 's', rules: { s: seq('a', attempt(seq('-', many(chars('x')), '->'), { max: 6, next: SP }), ' ') } };
+    expect(both(s, 'a-x-> ').ok).toBe(true);
+    const inner = both(s, 'a-x- ');
+    expect(!inner.ok && inner.error).toEqual({ at: 3, expected: '"->"', found: '-' });
+    const next = both(s, 'a-x->y');
+    expect(!next.ok && next.error).toEqual({ at: 5, expected: 'space or end of input', found: 'y' });
+    const window = both(s, 'a-xxxxxx-> ');
+    expect(!window.ok && window.error).toEqual({ at: 7, expected: 'the end within 6 characters', found: 'x' });
   });
 
   it('restores the nesting depth a failed attempt spent', () => {
@@ -197,7 +227,7 @@ describe('attempt(): the linear bound', () => {
   const spec = row(alt(attempt(arrow, { max: 64, next: SP }), word));
   const hostile = (n: number) => `-${'x'.repeat(62)} `.repeat(Math.ceil(n / 64)).slice(0, n);
 
-  it('costs at most max x input, in both runtimes', () => {
+  it('costs at most max x input with one attempt per position, in both runtimes', () => {
     const c = compile(spec);
     const g = gen(spec);
     const time = (f: () => unknown) => { let best = Infinity; for (let k = 0; k < 5; k++) { const t = performance.now(); f(); best = Math.min(best, performance.now() - t); } return best; };
@@ -213,9 +243,8 @@ describe('attempt(): the linear bound', () => {
 
 // ── random grammars with attempts, against a reference interpreter ─────────
 // The reference is the documented semantics written as plainly as possible: positions as return
-// values, no shared state, nothing to save or restore. Nullable and FIRST come from analyze(),
-// which grammar-fuzz.test.ts holds against brute force; what this checks is the runtimes' window,
-// rewind and fall-through.
+// values, no shared state, nothing to save or restore, and choices tried in order with
+// backtracking (PEG) rather than dispatched. Only `set` reads a character class.
 const ALPHA = ['a', 'b', 'c'];
 const RULES = ['r0', 'r1', 'r2'];
 function rng(seed: number) {
@@ -239,7 +268,10 @@ function randomExpr(r: () => number, depth: number): Expr {
   }
   const sub = () => randomExpr(r, depth - 1);
   const attemptOf = () => attempt(sub(), { max: 1 + Math.floor(r() * 4), next: [...ALPHA, 'd'].filter(() => r() < 0.4).join('') || 'd' });
-  switch (Math.floor(r() * 8)) {
+  switch (Math.floor(r() * 9)) {
+    // An attempt beside a branch that can match nothing, then a successor: the shape where an
+    // attempt can shadow the empty branch (the checker must refuse it when the two overlap).
+    case 8: return seq(r() < 0.5 ? alt(attemptOf(), opt(sub())) : alt(opt(sub()), attemptOf()), sub());
     case 0: return seq(sub(), sub());
     case 1: return alt(sub(), sub());
     case 2: return alt(attemptOf(), sub(), sub());
@@ -253,42 +285,72 @@ function randomExpr(r: () => number, depth: number): Expr {
 
 type Out = { end: number; kids: Node[] } | null;
 function reference(spec: GrammarSpec, s: string, stats: { fellThrough: number }) {
-  const an = analyze(spec);
-  const starts = (e: Expr, i: number, n: number) => {
-    if (i >= n) return false;
-    const c = s.charCodeAt(i);
-    const f = an.first(e);
-    for (let k = 0; k < f.length; k += 2) if (c >= f[k] && c <= f[k + 1]) return true;
+  // Which expressions can match nothing: its own fixpoint over the rules, not analyze()'s.
+  const nullable = new Map<Expr, boolean>();
+  const canBeEmpty = (e: Expr): boolean => {
+    switch (e.t) {
+      case 'lit': case 'set': return false;
+      case 'seq': return e.xs.every(canBeEmpty);
+      case 'alt': return e.xs.some(canBeEmpty);
+      case 'many': return e.min === 0 || canBeEmpty(e.x);
+      case 'opt': return true;
+      case 'ref': return nullable.get(spec.rules[e.name]) ?? false;
+      case 'node': case 'attempt': return canBeEmpty(e.x);
+      case 'until': return e.orEnd;
+    }
+  };
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const body of Object.values(spec.rules)) {
+      const v = canBeEmpty(body);
+      if (v !== (nullable.get(body) ?? false)) { nullable.set(body, v); changed = true; }
+    }
+  }
+  const inSet = (cs: readonly number[], c: number) => {
+    for (let k = 0; k < cs.length; k += 2) if (c >= cs[k] && c <= cs[k + 1]) return true;
     return false;
   };
   const tryIt = (e: Extract<Expr, { t: 'attempt' }>, i: number, n: number): Out => {
     const r = run(e.x, i, Math.min(n, i + e.max));
-    if (r && (r.end >= n || ((c) => { for (let k = 0; k < e.next.length; k += 2) if (c >= e.next[k] && c <= e.next[k + 1]) return true; return false; })(s.charCodeAt(r.end)))) return r;
+    if (r && (r.end >= n || inSet(e.next, s.charCodeAt(r.end)))) return r;
     stats.fellThrough++;
     return null;
   };
   const run = (e: Expr, i: number, n: number): Out => {
     switch (e.t) {
       case 'lit': return i + e.s.length <= n && s.startsWith(e.s, i) ? { end: i + e.s.length, kids: [] } : null;
-      case 'set': return starts(e, i, n) ? { end: i + 1, kids: [] } : null;
+      case 'set': return i < n && inSet(e.cs, s.charCodeAt(i)) ? { end: i + 1, kids: [] } : null;
       case 'seq': {
         let at = i;
         const kids: Node[] = [];
         for (const x of e.xs) { const r = run(x, at, n); if (!r) return null; at = r.end; kids.push(...r.kids); }
         return { end: at, kids };
       }
+      // ORDERED CHOICE, in the order written, with backtracking: no FIRST sets and no dispatch,
+      // so this does not restate how the runtimes choose. Where the checker's LL(1) promise
+      // holds, the first branch that matches is the one dispatch would pick; where a branch can
+      // still be reached after another fails, the two disagree, and that is a checker hole
+      // (an earlier version restated the runtimes' dispatch, and could not see one). The one
+      // rule taken from Segno rather than PEG is its documented one: a branch that can match
+      // nothing is the FALLBACK, tried after every branch that cannot, wherever it is listed.
+      // So this reference cannot see an attempt that shadows that fallback, because the rule
+      // that lets it is the one copied here; the unit tests above pin that refusal instead.
+      // (Measured: reopening it passed 8,000 grammars here and failed two unit tests.)
       case 'alt': {
-        for (const x of e.xs) if (x.t === 'attempt' && starts(x, i, n)) { const r = tryIt(x, i, n); if (r) return r; }
-        for (const x of e.xs) if (x.t !== 'attempt' && starts(x, i, n)) return run(x, i, n);
-        const empty = e.xs.find((x) => x.t !== 'attempt' && an.nullable(x));
-        return empty ? run(empty, i, n) : null;
+        for (const x of e.xs) {
+          if (canBeEmpty(x)) continue;
+          const r = x.t === 'attempt' ? tryIt(x, i, n) : run(x, i, n);
+          if (r) return r;
+        }
+        for (const x of e.xs) { if (!canBeEmpty(x)) continue; const r = run(x, i, n); if (r) return r; }
+        return null;
       }
-      case 'opt': return starts(e.x, i, n) ? run(e.x, i, n) : { end: i, kids: [] };
+      case 'opt': { const r = run(e.x, i, n); return r ?? { end: i, kids: [] }; }
       case 'many': {
         let at = i;
         const kids: Node[] = [];
         if (e.min) { const r = run(e.x, at, n); if (!r) return null; at = r.end; kids.push(...r.kids); }
-        while (starts(e.x, at, n)) { const r = run(e.x, at, n); if (!r) return null; at = r.end; kids.push(...r.kids); }
+        for (;;) { const r = run(e.x, at, n); if (!r || r.end === at) break; at = r.end; kids.push(...r.kids); }
         return { end: at, kids };
       }
       case 'ref': return run(spec.rules[e.name], i, n);
@@ -305,14 +367,14 @@ const ALL: string[] = [''];
 for (let n = 1; n <= 5; n++) for (const s of ALL.filter((x) => x.length === n - 1)) for (const c of [...ALPHA, 'd']) if (!(n === 5 && c === 'd')) ALL.push(s + c);
 
 describe('random grammars with attempts: compiled = reference, generated = compiled', () => {
-  it('holds on 5,000 random grammars, every string up to 5 characters', () => {
+  it('holds on 8,000 random grammars, every string up to 5 characters', () => {
     const r = rng(2519);
     let compiled = 0;
     let refused = 0;
     let generatedChecked = 0;
     const stats = { fellThrough: 0 };
     const bad: string[] = [];
-    for (let g = 0; g < 5000 && bad.length < 3; g++) {
+    for (let g = 0; g < 8000 && bad.length < 3; g++) {
       const spec: GrammarSpec = { start: 'r0', rules: Object.fromEntries(RULES.map((k) => [k, randomExpr(r, 3)])) };
       let grammar: ReturnType<typeof compile>;
       try { grammar = compile(spec); } catch (e) { if (!(e instanceof GrammarError)) throw e; refused++; continue; }

@@ -92,13 +92,17 @@ flowchart row. Three never let a parse go back over what it read; `attempt()` go
   back. It reads `x` on at most `max` characters (up to `MAX_ATTEMPT`, 256) and keeps it only if
   the next character is in `next` or the input ends; otherwise it rewinds as if it had never been
   tried. As an `alt` branch it may start with the same characters as the branches **after** it,
-  which get the character when it fails. That is the only overlap it opens. Each attempt reads at
-  most `max` characters, so a parse costs at most `max` × input, and the checker keeps it that
-  way: it refuses an attempt that can reach another attempt (nested attempts multiply their
+  which get the character when it fails. That is the only overlap it opens, and an attempt may not
+  start what follows a choice whose other branch can match nothing (the runtime tries attempts
+  first, so it would shadow that branch). Each attempt reads at most `max` characters, so a
+  position costs at most the sum of `max` over the attempts tried there (several side by side, or
+  in rules entered without consuming, each count): still linear in the input, with a constant the
+  grammar sets. The checker keeps it that way: it refuses an attempt that can reach another attempt (nested attempts multiply their
   `max`; one reached through recursion multiplies once per level), an `until()` inside one (its
   search would run past the window), and one whose `x` can match nothing. Inside `x`, the end of
   the window reads as the end of the input, and `x` is checked as strict LL(1) against `next`.
-  Elsewhere than an `alt` branch, a failed attempt is an ordinary parse error. Flowchart rows need
+  Elsewhere than an `alt` branch, a failed attempt is an ordinary parse error, and it reports why
+  the attempt failed: what its body expected, a `next` character, or its end within `max`. Flowchart rows need
   it: at a word start `-x->` is an arrow and `-x` a word, and the two part only at the closing
   shaft.
 - **`maxDepth`** on the spec raises the nesting cap for one grammar, up to `MAX_DEPTH_LIMIT`

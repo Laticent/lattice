@@ -116,8 +116,11 @@ export const until = (end: string, options: { orEnd?: boolean } = {}): Expr => {
  * A BOUNDED ATTEMPT: read `x` on at most `max` characters, and keep it only if the character
  * after it is in `next` (or the input ends). Otherwise rewind to where it started, as if it had
  * never been tried. This is the one place the parser goes back, and it goes back a bounded
- * distance: each attempt reads at most `max` characters, so a parse costs at most `max` times the
- * input.
+ * distance: each attempt reads at most `max` characters. So each position of the input costs at
+ * most the sum of `max` over the attempts tried there, and those are bounded by the grammar
+ * (attempts side by side in a choice, or in rules entered without consuming): linear in the
+ * input, with a constant the grammar sets, as every choice's cost already is. A failure past
+ * the nesting cap inside an attempt is that attempt failing, so the character passes on.
  *
  * As a branch of `alt`, an attempt may start with the same characters as the branches AFTER it:
  * when it fails, the character passes to them (and to a branch that matches nothing), in order.
@@ -140,7 +143,7 @@ export const attempt = (x: Part, options: { max: number; next: string | CharSet 
   if (!Number.isInteger(max) || max < 1 || max > MAX_ATTEMPT) {
     throw new Error(`segno: attempt() takes a max from 1 to ${MAX_ATTEMPT} characters, not ${max}`);
   }
-  if (next === undefined) throw new Error('segno: attempt() needs a `next` set: the characters that may follow it');
+  if (typeof next !== 'string' && !Array.isArray(next)) throw new Error('segno: attempt() needs a `next` set: the characters that may follow it, as a string or a CharSet');
   return { t: 'attempt', x: part(x), max, next: typeof next === 'string' ? ofChars(next) : normalize(next) };
 };
 /** A reference to another rule, so rules can recurse (a record holds values). */
@@ -271,7 +274,14 @@ class Analysis {
         case 'many': stack.push([e.x, `${path} › ${e.min ? 'many1' : 'many'}`]); break;
         case 'opt': stack.push([e.x, `${path} › opt`]); break;
         case 'node': stack.push([e.x, `${path} › ${e.kind}`]); break;
-        case 'attempt': stack.push([e.x, `${path} › attempt`]); break;
+        case 'attempt':
+          // A grammar is data and may be built by hand: the constructor's checks again, before
+          // any pass reads `next` (a null one crashed the FOLLOW pass) or trusts `max` (the
+          // cost bound; a string one made the runtimes disagree).
+          if (!Number.isInteger(e.max) || e.max < 1 || e.max > MAX_ATTEMPT) throw new GrammarError([`${path}: an attempt's max must be a whole number from 1 to ${MAX_ATTEMPT}, not ${String(e.max)}`]);
+          if (!Array.isArray(e.next) || e.next.length % 2 !== 0) throw new GrammarError([`${path}: an attempt's next must be a CharSet`]);
+          stack.push([e.x, `${path} › attempt`]);
+          break;
         case 'ref': if (!Object.hasOwn(this.spec.rules, e.name)) throw new GrammarError([`${path}: unknown rule "${e.name}"`]); break;
         default: break;
       }
@@ -452,8 +462,10 @@ class Analysis {
         const empty = e.xs.map((x, k) => (this.get(x).nullable ? k : -1)).filter((k) => k >= 0);
         if (empty.length > 1) problems.push(`${inf.path}: branches ${empty.join(' and ')} can all match nothing`);
         if (empty.length === 1) {
-          // A failed attempt hands its character on to the empty branch too, so attempts do not clash.
-          const others = union(...e.xs.filter((x, k) => k !== empty[0] && x.t !== 'attempt').map((x) => this.get(x).first));
+          // Attempts count here: the runtime tries them BEFORE the empty branch, wherever they are
+          // listed, so an attempt that can start what follows would win over matching nothing
+          // and refuse input the empty branch reads (the PR's red team and inversion review).
+          const others = union(...e.xs.filter((_, k) => k !== empty[0]).map((x) => this.get(x).first));
           const clash = intersect(others, inf.follow);
           if (!isEmpty(clash)) problems.push(`${inf.path}: branch ${empty[0]} matches nothing, and ${describe(clash)} could either start another branch or follow`);
         }
@@ -822,6 +834,8 @@ class Analysis {
 
 interface State {
   s: string;
+  /** Why the last attempt failed: what a bare attempt (not an alt branch) reports. */
+  why: ParseError | null;
   /** Where the input ends for this read: its length, or the end of an attempt's window. */
   n: number;
   i: number;
@@ -1041,10 +1055,14 @@ export function compile(spec: GrammarSpec): Grammar {
         break;
       }
       case 'attempt': {
-        // Anywhere but an alt branch, a failed attempt is an ordinary error.
+        // Anywhere but an alt branch, a failed attempt is an ordinary error — and it reports why
+        // the attempt failed, not what its first character should have been (which it was).
         const t = tryAttempt(e);
-        const want = expecting(e.x);
-        m = (st) => t(st) || fail(st, want);
+        m = (st) => {
+          if (t(st)) return true;
+          if (!st.err) st.err = st.why;
+          return false;
+        };
         break;
       }
       case 'node': {
@@ -1075,16 +1093,23 @@ export function compile(spec: GrammarSpec): Grammar {
     const x = build(e.x);
     const max = e.max;
     const nextOk = compileTest(e.next);
+    const wantNext = `${describe(e.next)} or end of input`;
+    const wantEnd = `the end within ${max} characters`;
     return (st) => {
       const i0 = st.i;
       const n0 = st.n;
       const kids = st.stack[st.stack.length - 1];
       const k0 = kids.length;
       const err0 = st.err;
-      st.n = Math.min(n0, i0 + max);
+      const w = Math.min(n0, i0 + max);
+      st.n = w;
       const ok = x(st);
       st.n = n0;
       if (ok && st.err === err0 && (st.i >= n0 || nextOk(st.s.charCodeAt(st.i)))) return true;
+      // Why, against the REAL input: inside, the window's end read as the end of the input.
+      const inner = st.err !== err0 ? st.err : null;
+      const at = inner ? inner.at : st.i;
+      st.why = { at, expected: !inner ? wantNext : at >= w && w < n0 ? wantEnd : inner.expected, found: at < n0 ? st.s[at] : null };
       st.i = i0;
       kids.length = k0;
       st.err = err0;
@@ -1122,7 +1147,7 @@ export function compile(spec: GrammarSpec): Grammar {
     parse(input: string, rule = spec.start): ParseResult {
       const m = ruleMatchers.get(rule);
       if (!m) throw new Error(`segno: no rule "${rule}"`);
-      const st: State = { s: input, n: input.length, i: 0, stack: [[]], err: null, depth: 0 };
+      const st: State = { s: input, why: null, n: input.length, i: 0, stack: [[]], err: null, depth: 0 };
       let ok: boolean;
       try {
         ok = m(st);

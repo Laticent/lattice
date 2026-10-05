@@ -149,7 +149,7 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
         const miss = e.orEnd ? `${ind}  i = n;\n` : `${ind}  i = n;\n${ind}  return fail(${q(JSON.stringify(e.s))});\n`;
         return `${ind}{\n${ind}  const ${c} = s.indexOf(${q(e.s)}, i);\n${ind}  if (${c} >= 0) i = ${c} + ${e.s.length};\n${ind}  else {\n${miss}${ind}  }\n${ind}}\n`;
       }
-      case 'attempt': return `${ind}if (!t_${attemptFn(e)}()) return fail(${q(an.expectedAt(e.x))});\n`;
+      case 'attempt': return `${ind}if (!t_${attemptFn(e)}()) {\n${ind}  if (!err) err = why;\n${ind}  return false;\n${ind}}\n`;
       case 'node': {
         const b = fresh();
         let k = kinds.indexOf(e.kind);
@@ -173,13 +173,17 @@ function t_${k}(): boolean {
   const top0 = top;
   const d0 = depth;
   const e0 = err;
-  n = Math.min(n0, i0 + ${e.max});
+  const w = Math.min(n0, i0 + ${e.max});
+  n = w;
   const ok = b_${k}();
   n = n0;
   if (ok && err === e0) {
     const ${c} = ${AT};
     if (${c} < 0 || ${testExpr(e.next, c, tables)}) return true;
   }
+  const inner = err !== e0 ? err : null;
+  const at = inner ? inner.at : i;
+  why = { at, expected: !inner ? ${q(`${describe(e.next)} or end of input`)} : at >= w && w < n0 ? ${q(`the end within ${e.max} characters`)} : inner.expected, found: at < n0 ? s[at] : null };
   i = i0;
   top = top0;
   depth = d0;
@@ -209,7 +213,7 @@ let n = 0;
 let i = 0;
 let depth = 0;
 let err: GenError | null = null;
-let buf = new Int32Array(256);
+${attemptFns.length ? 'let why: GenError | null = null;\n' : ''}let buf = new Int32Array(256);
 let top = 0;
 
 function grow(): void {

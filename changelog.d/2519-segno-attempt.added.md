@@ -8,9 +8,10 @@
   200,096 fuzzed rows exactly as `splitRow` does (`npm run parser:bakeoff:flow`).
 - **Fixed: Segno lints a grammar of thousands of rules in linear time.** A chain of 2,000 rules
   whose choices grow took 6.5 s to lint and 4,000 overflowed the stack; 8,000 now take about
-  150 ms. The "expected …" text in a parse error is built only when a parse fails, `lint()` no
-  longer builds a parser, and the checker's walks no longer recurse, so 10,000 levels of nesting
-  lint too. Every error message reads as before.
+  150 ms. The "expected …" text in a parse error is built only when a parse records an error,
+  `lint()` no longer builds a parser, and the checker's walks no longer recurse, so `lint()` reads
+  10,000 levels of nesting (`compile()` still overflows building one rule nested about 3,000
+  deep, as before). Every error message reads as before.
 - **Fixed: `lint:deck` warns when a pill label needs quoting.** Since pills moved onto Segno, a
   label holding `|` `=` `[` `]` or `{` (`{A|B, tag}`) leaves the span as plain code, and nothing
   said why. The new `pill-literal` warning names the reserved character and the quoted spelling
