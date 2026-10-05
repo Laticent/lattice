@@ -69,9 +69,10 @@ describe('author text in a string replacement — the rest of finding 3\'s class
 
   test('a blocked web image keeps a `$&` or `$`` in its recorded address', () => {
     const { blockWebImages } = require('../../../lib/core/remote-ref.js');
-    for (const q of ['$&', '$`']) {
+    // Each pair is [what the author wrote, how the attribute must carry it].
+    for (const [q, attr] of [['$&', '$&amp;'], ['$`', '$`']]) {
       const out = blockWebImages(`<img src="https://cdn.example.com/a.png?x=${q}y">`).html;
-      assert.ok(out.includes(`data-lattice-web-src="https://cdn.example.com/a.png?x=${q.replace('&', '&amp;')}y"`), out);
+      assert.ok(out.includes(`data-lattice-web-src="https://cdn.example.com/a.png?x=${attr}y"`), out);
     }
   });
 });
