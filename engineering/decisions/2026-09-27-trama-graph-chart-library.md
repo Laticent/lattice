@@ -283,6 +283,11 @@ The owner settled the open questions on 2026-09-27.
     paste, reload, key by key and bursts at 50 / 120 / 600 ms a key (each also nudged)
     now give one drawing on three charts (30 of 30), and the CLI export's viewBox matches
     each. This closes `2385-p3-live-layout-not-deterministic`.
+  - *The same settle with no worker* (2026-10-05). A live redraw drawn in place (a host
+    that blocks blob workers, a dead worker, dagre not loaded yet) started from the fit it
+    remembered and never settled. It now schedules the settle too: 300 ms later it fits from
+    a cold start on the page's thread, and a newer draw drops it by its token. This closes
+    `2424-p3-trama-sync-live-redraw-settles`.
 
 ## 6. The three commits, in two PRs
 
