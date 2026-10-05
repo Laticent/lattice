@@ -3,13 +3,14 @@
  * not fitting. Every per-venue budget in a manifest's `venueCapacity` is read through it.
  *
  * Since the automatic step-down was retired (2026-09-27), a deck at a scale renders every slide
- * at that scale and clips what does not fit, so the `⚠ OVERFLOW` line is the whole answer. The
+ * at that scale and clips what does not fit: the `⚠ OVERFLOW` line, and `⚠ CONTENT CLIPPED` for a box
+ * that clips inside the frame, are the whole answer. The
  * anchor on the glyph is pinned: a bare /OVERFLOW/ also matches prose that names "the OVERFLOW
  * line", which is how the rig once read the wrong pages.
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseProbeLog } = require('../../../tools/lib/calibrate-core.js');
+const { parseProbeLog, countClipped } = require('../../../tools/lib/calibrate-core.js');
 
 test('reads the pages on the OVERFLOW line', () => {
   const log = '  ⚠ OVERFLOW — 2 slides exceed the frame and are CLIPPED in this export: pages 7, 8.';
@@ -21,8 +22,23 @@ test('prose that names the OVERFLOW line is not read as it', () => {
   assert.deepEqual(parseProbeLog(log).clipped, [5]);
 });
 
+test('a box that clips its own content is read apart from the OVERFLOW pages', () => {
+  const log = '  ⚠ OVERFLOW — 1 slide exceeds the frame and is CLIPPED in this export: page 5.\n'
+    + '  ⚠ CONTENT CLIPPED — 2 slides lose content inside a box that clips, without exceeding the frame: pages 3, 5.';
+  assert.deepEqual(parseProbeLog(log).clipped, [5]);
+  assert.deepEqual(parseProbeLog(log).boxClipped, [3, 5]);
+});
+
+test('a count clips where its box starts losing content (kanban at hall)', () => {
+  assert.deepEqual(countClipped([5], [3, 4]), [3, 4, 5]);
+});
+
+test('a box clip already on page 1 is an ellipsis, not the count, and is not read (premise)', () => {
+  assert.deepEqual(countClipped([9], [1, 2, 3]), [9]);
+});
+
 test('a deck that fits reports nothing', () => {
-  assert.deepEqual(parseProbeLog('  ✓ rendered 8 pages'), { clipped: [], underFloor: [], labelsDropped: [], overprint: [] });
+  assert.deepEqual(parseProbeLog('  ✓ rendered 8 pages'), { clipped: [], boxClipped: [], underFloor: [], labelsDropped: [], overprint: [] });
 });
 
 // A viewBox chart never clips as it fills: it shrinks until its text is under the floor, or its
@@ -34,7 +50,7 @@ test('reads the pages on the TYPE FLOOR and CHART LABELS DROPPED lines', () => {
     '  ⚠ CHART LABELS DROPPED — 3 names are not painted in full on 1 chart: page 9 (bar).',
     '  ⚠ OVERFLOW — 1 slide exceeds the frame and is CLIPPED in this export: page 11.',
   ].join('\n');
-  assert.deepEqual(parseProbeLog(log), { clipped: [11], underFloor: [3, 6], labelsDropped: [9], overprint: [] });
+  assert.deepEqual(parseProbeLog(log), { clipped: [11], boxClipped: [], underFloor: [3, 6], labelsDropped: [9], overprint: [] });
 });
 
 // A label printed straight across another row's bar trips none of the three lines above: it is

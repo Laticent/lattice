@@ -22,6 +22,7 @@ const OLD = [
   ['a gantt today pill (`today Q3`)', /`today\s+[^`=]+`/],
   ['a state-chart arrow (`approve => 2`)', /`[A-Za-z][^`]*=>\s*(\d+|self)\s*`/],
   ['a flowchart id with colon styles (`#api:diamond`)', /`#[\w-]+:[\w-]/],
+  ['a flowchart style word after a colon (`:dashed`)', /(`|\{):(c[1-8]|dashed|dotted|cross|open|dot|diamond|pill|box|square|circle|cylinder|io|doc|loose|(fill|border|text)-c[1-8])\b/],
   ['a flowchart channel color (`fill-c3`)', /`[^`]*\bfill-c\d/],
   ['a journey mood (`:4`)', /`:[1-5]`/],
 ];
@@ -41,9 +42,11 @@ test('every deck we ship uses the Segno spellings, none of the retired ones', ()
 });
 
 test('the scan catches each retired shape', () => {
-  const samples = ['`{BETA}:tag`', '`after: Design`', '`today Q3`', '`approve => 2`', '`#api:diamond`', '`fill-c3`', '`:4`'];
+  const keySample = '`[{:dashed, Sent back}]`';
+  const samples = ['`{BETA}:tag`', '`after: Design`', '`today Q3`', '`approve => 2`', '`#api:diamond`', '`:dashed`', '`fill-c3`', '`:4`'];
   samples.forEach((s, i) => { assert.match(s, OLD[i][1], OLD[i][0]); });
-  for (const s of ['`{BETA, tag}`', '`after=Design`', '`{approve, to=2}`', '`{#api, diamond}`', '`fill=c3`', '`{who=A, mood=4}`', '`:root`', '`2 => 3`']) {
+  assert.ok(OLD.some(([, re]) => re.test(keySample)), 'a colon word inside a key record');
+  for (const s of ['`{BETA, tag}`', '`after=Design`', '`{approve, to=2}`', '`{#api, diamond}`', '`fill=c3`', '`{who=A, mood=4}`', '`:root`', '`:last-child`', '`2 => 3`']) {
     assert.ok(!OLD.some(([, re]) => re.test(s)), `${s} is current and must not match`);
   }
 });

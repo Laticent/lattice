@@ -44,8 +44,8 @@ const FIXTURES = {
 	narrateQuadrant: ['quadrant', '`Effort 0–10`\n\n- Group\n  - Item `5, 85`'],
 	// No `end` marker on the last state ON PURPOSE: with both start AND end explicit the
 	// inference narrator correctly returns null, and the cell would certify nothing.
-	narrateStateChartInference: ['state-chart', '1. Draft `start`\n   - `{submit, to=2}`\n2. Submitted `on-track`\n   - `{review, to=3}`\n3. In Review\n   - `{approve, to=4}`\n4. Approved `done`'],
-	narrateStateChart: ['state-chart', '1. Draft `start`\n   - `{submit, to=2}`\n2. Submitted `on-track`\n   - `{review, to=3}`\n3. In Review\n   - `{approve, to=4}`\n4. Approved `done`'],
+	narrateStateChartInference: ['state-chart', '- Draft `start`\n  - -submit-> Submitted\n- Submitted `on-track`\n  - -review-> In Review\n- In Review\n  - -approve-> Approved\n- Approved `done`'],
+	narrateStateChart: ['state-chart', '- Draft `start`\n  - -submit-> Submitted\n- Submitted `on-track`\n  - -review-> In Review\n- In Review\n  - -approve-> Approved\n- Approved `done`'],
 	narrateSequence: ['diagram', `${F}mermaid\nsequenceDiagram\n  Alice->>Bob: Hello\n  Bob-->>Alice: Hi\n${F}`],
 	narratePie: ['diagram', `${F}mermaid\npie title Share\n  "A" : 60\n  "B" : 40\n${F}`],
 	narrateClass: ['diagram', `${F}mermaid\nclassDiagram\n  class Order\n  Order : +id\n  Order --> Item\n${F}`],
@@ -73,6 +73,7 @@ const FIXTURES = {
 	narrateTimelineList: ['timeline-list', '1. `Q1` First milestone\n   - What changed.\n2. `Q2` Second milestone `decision`'],
 	narrateKanban: ['kanban', '- Backlog\n  - Waiting cards `S`\n- Done\n  - Shipped work `L`'],
 	narrateGantt: ['gantt', '- Framework\n  - Signal taxonomy `Q1..Q2` `done`\n  - GA `Q4` `after=Signal taxonomy`'],
+	narrateHubSpoke: ['hub-spoke', '- Program office\n  - Onboarding `at-risk`\n  - Governance'],
 	narrateMatrixGrid: ['matrix-grid', '| Verb | Self | Team |\n| --- | :-: | :-: |\n| Apply | [-] | [x] Senior |\n| Remember | [x] Junior | [-] |'],
 	narrateRoadmapHorizons: ['roadmap horizons', '| Workstream | Horizon 1 `Now` | Horizon 2 `Next` |\n| --- | --- | --- |\n| Intake | [x] Connector | [-] Dedupe |'],
 };

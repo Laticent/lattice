@@ -26,10 +26,30 @@ const core = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
 const deck = (cls, body) => ['---', 'theme: indaco', '---', '', `<!-- _class: ${cls} -->`, '', body].join('\n');
 const render = (md) => new JSDOM(latticeEngine.createEngine().render(md).html).window.document;
 
-test('the owners come from the manifests: flowchart, and only components that declare it', () => {
-  assert.deepEqual([...LIST_ROW_OWNERS], ['flowchart']);
+test('the owners come from the manifests: the two graph charts, and only components that declare it', () => {
+  assert.deepEqual([...LIST_ROW_OWNERS].sort(), ['flowchart', 'state-chart']);
   assert.equal(ownsListRows(['flowchart', 'lr']), true);
+  assert.equal(ownsListRows(['state-chart', 'tb']), true);
   assert.equal(ownsListRows(['list', 'quadrant']), false);
+});
+
+test('the state chart\'s style slot is the flowchart\'s, plus its lead words', () => {
+  // The state chart reads its rows with the flowchart's grammar (#2424), so its slot must take
+  // every word the flowchart's takes. Two manifests hold the spec; this keeps them one.
+  const catalog = require(path.join(ROOT, 'lib/core/segno-slots.generated.js'));
+  const fc = catalog.flowchart.style;
+  const sc = catalog['state-chart'].style;
+  const { lead, ...rest } = sc.params;
+  assert.deepEqual(rest, fc.params);
+  assert.deepEqual(lead, { type: 'oneOf', values: ['start', 'end'] });
+  assert.equal(sc.sits, 'list-rows');
+});
+
+test('engine: a state-chart row keeps its style record', () => {
+  const doc = render(deck('state-chart', '## Machine.\n\n- A `start`\n  - -> B\n- B `{done, c2}`'));
+  const names = [...doc.querySelectorAll('.state-node')].map((n) => n.getAttribute('data-label'));
+  assert.deepEqual(names, ['A', 'B'], 'the record styled B instead of joining its name');
+  assert.equal(doc.querySelectorAll('.lat-pill').length, 0);
 });
 
 test('engine: a flowchart row keeps its style record; a pill elsewhere on the slide still draws', () => {

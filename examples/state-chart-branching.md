@@ -33,14 +33,14 @@ A chain reads `1, 2, 3` in order. A machine that branches is re-ranked.
 
 One outgoing edge per state — reading order already is the right answer.
 
-1. Source `start`
-   - `{compile, to=2}`
-2. Compiled
-   - `{test, to=3}`
-3. Tested
-   - `{deploy, to=4}`
-   - `{fail, to=1}`
-4. Deployed `end`
+- Source `start`
+  - -compile-> Compiled
+- Compiled
+  - -test-> Tested
+- Tested
+  - -deploy-> Deployed
+  - -fail-> Source
+- Deployed `end`
 
 *A long chain wraps onto a second row rather than shrinking — the order still reads left to right.*
 
@@ -54,23 +54,23 @@ One outgoing edge per state — reading order already is the right answer.
 
 No single column can show this; the states would read as a sequence.
 
-1. Intake `start`
-   - `{triage, to=2}`
-2. Triage
-   - `{fast, to=3}`
-   - `{deep, to=4}`
-   - `{hold, to=5}`
-3. Fast path
-   - `{ship, to=6}`
-4. Deep review
-   - `{ship, to=6}`:::state-pass-hue
-   - `{refuse, to=7}`:::state-fail-hue
-5. Legal hold
-   - `{refuse, to=7}`:::state-fail-hue
-6. Approved `done`
-7. Refused `end`
+- Intake `start`
+  - -triage-> Triage
+- Triage
+  - -fast-> Fast path
+  - -deep-> Deep review
+  - -hold-> Legal hold
+- Fast path
+  - -ship-> Approved
+- Deep review
+  - -ship-> Approved
+  - -refuse-> Refused `dashed`
+- Legal hold
+  - -refuse-> Refused `dashed`
+- Approved `done`
+- Refused `end`
 
-*The numbering still names each state; it just no longer dictates the row.*
+*The badges still show the list order; they no longer dictate the row.*
 
 ---
 
@@ -82,15 +82,15 @@ No single column can show this; the states would read as a sequence.
 
 Direction is the author's call — `lr`, `tb`, or leave it to fit the stage.
 
-1. Intake `start`
-   - `{triage, to=2}`
-2. Triage
-   - `{accept, to=3}`:::state-pass-hue
-   - `{refuse, to=4}`:::state-fail-hue
-3. Accepted `done`:::state-pass-hue
-4. Refused `end`:::state-fail-hue
+- Intake `start`
+  - -triage-> Triage
+- Triage
+  - =accept=> Accepted
+  - -refuse-> Refused `dashed`
+- Accepted `done`
+- Refused `end` `fail`
 
-*Terminal states converge on one exit marker, ranked with everything else.*
+*End states converge on one end marker, laid out with everything else.*
 
 ---
 
@@ -98,19 +98,19 @@ Direction is the author's call — `lr`, `tb`, or leave it to fit the stage.
 
 `Self-loops`
 
-## A self-transition still routes the old way.
+## A self-transition loops at a corner.
 
-dagre does not route a self-edge, so the hand-written router keeps drawing them.
+The router nests each loop outside its state's corner and keeps every other line clear of it.
 
-1. Connecting `start`
-   - `{retry, to=self}`
-   - `{ok, to=2}`:::state-pass-hue
-   - `{fail, to=3}`:::state-fail-hue
-2. Connected `live`
-   - `{drop, to=1}`
-3. Failed `end`
+- Connecting `start`
+  - -retry-> Connecting
+  - =ok=> Connected
+  - -fail-> Failed `dashed`
+- Connected `live`
+  - -drop-> Connecting
+- Failed `end`
 
-*One machine, two routers — whichever is right for each edge.*
+*One router for every line, loops included.*
 
 ---
 
@@ -118,16 +118,16 @@ dagre does not route a self-edge, so the hand-written router keeps drawing them.
 
 `Long labels`
 
-## A label can break, or wrap itself.
+## A long label sits on its line.
 
-`\n` and `<br/>` break where you say; anything still too long wraps on its own.
+The router seats every label on its own line and cuts the line under it, so the label never crosses a state.
 
-1. Submitted `start`
-   - `{needs<br/>second review, to=2}`
-   - `{auto approve, to=3}`:::state-pass-hue
-2. Second review
-   - `{escalate to legal counsel, to=4}`
-3. Approved `done`:::state-pass-hue
-4. Escalated `end`
+- Submitted `start`
+  - -needs second review-> Second review
+  - =auto approve=> Approved
+- Second review
+  - -escalate to legal counsel-> Escalated
+- Approved `done`
+- Escalated `end`
 
-*Labels sit below the line on `lr` and beside it on `tb`, never through their edge.*
+*Keep an event to a few words: the gap it needs is the gap the machine gets.*

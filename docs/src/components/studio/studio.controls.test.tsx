@@ -420,8 +420,15 @@ describe('Studio — Architect + editor controls respond', () => {
 		// The unknown component surfaces as an inline issue.
 		expect(await screen.findByText(/\d+ issue/)).toBeInTheDocument();
 		// Fix all (Architect banner or Edit header — both fix) clears it.
-		await user.click(screen.getAllByRole('button', { name: 'Fix all' })[0]);
-		expect(screen.queryByText(/\d+ issue/)).not.toBeInTheDocument();
+		// WAIT FOR THE BUTTON, not for the count. The count renders off the deck's issue list, but
+		// the button renders off the editor linter's FIXABLE count (StudioShell `fixableIssues`),
+		// which CodeMirror reports on its own debounced lint pass — a later render. A synchronous
+		// `getAllByRole` right after the count passed on an idle machine and failed in a loaded
+		// full `npx vitest run` (#2475's followup). Same explicit budget as `editorReady`, and for
+		// the same reason: under load the wait is CPU, not a state update.
+		const [fixAll] = await screen.findAllByRole('button', { name: 'Fix all' }, { timeout: 15000 });
+		await user.click(fixAll);
+		await waitFor(() => expect(screen.queryByText(/\d+ issue/)).not.toBeInTheDocument(), { timeout: 15000 });
 	});
 
 	it('the Lenses panel adds a reader view and gates it behind approval (deterministic, real)', async () => {

@@ -11,7 +11,7 @@ header: "Lattice · state-chart"
 
 `Progression · Timeline · Graph`
 
-Native state machine diagram — states as a numbered list, transitions as nested inline-code refs.
+Native state machine diagram — states as a list, transitions as arrows to a state's name, on the flowchart's grammar.
 
 ---
 
@@ -24,18 +24,18 @@ Native state machine diagram — states as a numbered list, transitions as neste
 
 How a draft moves from author to publication.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-   - Two reviewers must sign off before approval.
-4. Approved
-   - `{publish, to=5}`
-5. Published `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+  > Two reviewers must sign off before approval.
+- Approved
+  - -publish-> Published
+- Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
 
@@ -47,14 +47,14 @@ How a draft moves from author to publication.
 
 ## lr flows the states left to right.
 
-1. Source `start`
-   - `{compile, to=2}`
-2. Compiled
-   - `{test, to=3}`
-3. Tested
-   - `{deploy, to=4}`
-   - `{fail, to=1}`
-4. Deployed `end`
+- Source `start`
+  - -compile-> Compiled
+- Compiled
+  - -test-> Tested
+- Tested
+  - -deploy-> Deployed
+  - -fail-> Source
+- Deployed `end`
 
 
 ---
@@ -64,49 +64,63 @@ How a draft moves from author to publication.
 
 ## tb stacks the states top to bottom.
 
-1. Queued `start`
-   - `{claim, to=2}`
-2. Running `live`
-   - `{finish, to=3}`
-   - `{crash, to=1}`
-3. Complete `end`
+- Queued `start`
+  - -claim-> Running
+- Running `live`
+  - -finish-> Complete
+  - -crash-> Queued
+- Complete `end`
 
 
 ---
 
 <!-- _class: state-chart inline -->
-<!-- _footer: "Inline · state-chart inline — The chart sits beside its prose." -->
+<!-- _footer: "Inline · state-chart inline — The machine as rows with transition chips, beside its prose." -->
 
 ## inline sets the chart beside its prose.
 
-1. Connecting `start`
-   - `{retry, to=self}`
-   - `{ok, to=2}`
-   - `{fail, to=3}`
-2. Connected `live`
-   - `{disconnect, to=1}`
-3. Failed `end`
+- Connecting `start`
+  - -retry-> Connecting
+  - -ok-> Connected
+  - -fail-> Failed
+- Connected `live`
+  - -disconnect-> Connecting
+- Failed `end`
 
 
 ---
 
 <!-- _class: state-chart curved -->
-<!-- _footer: "Curved · state-chart curved — Eased arrows between states." -->
+<!-- _footer: "Curved · state-chart curved — Generously rounded corners on the router's lines." -->
 
-## curved eases the arrows between states.
+## curved rounds the lines between states.
 
-1. Draft `start`
-   - `{submit, to=2}`
-   - `{discard, to=5}`
-2. In Review `at-risk`
-   - `{approve, to=3}`
-   - `{revise, to=self}`
-   - `{reject, to=1}`
-3. Approved
-   - `{publish, to=4}`
-4. Published `live`
-   - `{archive, to=5}`
-5. Archived `end`
+- Draft `start`
+  - -submit-> In Review
+  - -discard-> Archived
+- In Review `at-risk`
+  - -approve-> Approved
+  - -revise-> In Review
+  - -reject-> Draft
+- Approved
+  - -publish-> Published
+- Published `live`
+  - -archive-> Archived
+- Archived `end`
+
+
+---
+
+<!-- _class: state-chart unnumbered -->
+<!-- _footer: "Unnumbered · state-chart unnumbered — No badges: the states show no place in the list." -->
+
+## unnumbered drops the badges.
+
+- Open `start`
+  - -assign-> Assigned
+- Assigned `live`
+  - -resolve-> Resolved
+- Resolved `end`
 
 
 ---
@@ -119,21 +133,21 @@ How a draft moves from author to publication.
 
 ## Stress test — back-edges, skips, self-loop.
 
-1. Draft `start`
-   - `{submit, to=2}`
-   - `{discard, to=5}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-   - `{withdraw, to=1}`
-3. In Review
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-4. Approved `done`
-   - `{recall, to=3}`
-   - `{publish, to=5}`
-5. Published `end`
-   - `{amend, to=3}`
+- Draft `start`
+  - -submit-> Submitted
+  - -discard-> Published
+- Submitted `on-track`
+  - -review-> In Review
+  - -withdraw-> Draft
+- In Review
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+- Approved `done`
+  - -recall-> In Review
+  - -publish-> Published
+- Published `end`
+  - -amend-> In Review
 
 
 ---
@@ -147,18 +161,18 @@ How a draft moves from author to publication.
 
 How a draft moves from author to publication.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-   - Two reviewers must sign off before approval.
-4. Approved
-   - `{publish, to=5}`
-5. Published `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+  > Two reviewers must sign off before approval.
+- Approved
+  - -publish-> Published
+- Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
 
@@ -174,18 +188,18 @@ How a draft moves from author to publication.
 
 How a draft moves from author to publication.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-   - Two reviewers must sign off before approval.
-4. Approved
-   - `{publish, to=5}`
-5. Published `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+  > Two reviewers must sign off before approval.
+- Approved
+  - -publish-> Published
+- Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
 
@@ -201,18 +215,18 @@ How a draft moves from author to publication.
 
 How a draft moves from author to publication.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-   - Two reviewers must sign off before approval.
-4. Approved
-   - `{publish, to=5}`
-5. Published `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+  > Two reviewers must sign off before approval.
+- Approved
+  - -publish-> Published
+- Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
 
@@ -234,8 +248,8 @@ How a draft moves from author to publication.
 
 ## When NOT to reach for state-chart.
 
-- Hierarchical or parallel states
-  - v1 grammar is one flat list of states with one outgoing arrow per nested bullet. Composite states, orthogonal regions, history nodes — anything Mermaid's `stateDiagram-v2` does and this layout doesn't — belong in a Mermaid fence via the `diagram` component.
+- Parallel regions, history or guards
+  - A composite state is a sub-list of states, but orthogonal regions, history states and guard conditions are not in this grammar. Those belong in a Mermaid fence via the `diagram` component.
 - Continuous processes
   - If the diagram is really a workflow with stages that overlap or block (queue depth, throughput, capacity), a `gantt` or `kanban` chart reads better. State charts are for discrete, mutually-exclusive states the system flips between.
 

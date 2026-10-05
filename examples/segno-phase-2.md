@@ -105,16 +105,16 @@ Braces hold the value, commas separate what describes it, and the order is free.
 ---
 
 <!-- _class: state-chart -->
-<!-- _footer: "A transition is `{event, to=N}`." -->
+<!-- _footer: "A state's style is the flowchart's record: `\{start, c1}` is the start, in palette slot 1." -->
 
 ## A document moves from draft to published.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. In review `at-risk`
-   - `{approve, to=3}`
-   - `{"reject, with notes", to=1}`
-3. Published `end`
+- Draft `{start, c1}`
+  - -submit-> In review
+- In review `at-risk`
+  - -approve-> Published
+  - -reject-> Draft `dashed`
+- Published `end`
 
 ---
 
@@ -139,5 +139,5 @@ Braces hold the value, commas separate what describes it, and the order is free.
 ## One notation, one set of rules.
 
 - A record is `{value, word, word}`; a named item is `name=value`.
-- Quote a value that holds a comma: `{"reject, with notes", to=1}`.
+- Quote a value that holds a comma: `{"Draft, v2", tag}`.
 - Every deck in the repo is already written this way.

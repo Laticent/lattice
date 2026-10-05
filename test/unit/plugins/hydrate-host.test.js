@@ -238,7 +238,7 @@ describe('the host, against markup it did not write', () => {
 });
 
 /**
- * RUNTIME-DRAWN figures (Mermaid, `render.exec.hydrate: "runtime"`): the runtime's own pass tags a
+ * RUNTIME-DRAWN figures (Mermaid, `render.exec.hydrate: "pass"`): the plugin's pass tags a
  * fence's <pre> with the host's markup, so a capture waits on it — but the host must neither draw
  * nor release one (its pass owns it), a release keeps its highlighted content (it has no packed
  * config), and the host's one loader fetches its library for that pass (`ensureLibrary`).

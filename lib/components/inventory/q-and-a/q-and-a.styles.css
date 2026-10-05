@@ -49,14 +49,16 @@
  * up puts the modifier and the default in the same cascade, where specificity decides. */
 section.q-and-a {
   /* Index gutter — proportional to the number's own size, NOT a fixed step. The "01"
-   * counter is sized off --fs-message, which grows from landscape to portrait; a fixed
+   * counter is sized off the question's role (--fs-body), which grows from landscape to portrait; a fixed
    * gutter cleared the number in landscape but the portrait number overran it (the
    * "01Why" collision). Sizing the gutter off the counter keeps a constant gap in
    * every orientation without over-widening (which would crush the text column).
    * --qa-gutter is the index COLUMN's width — the flex item the counter occupies —
    * and the answer indents by the same token, so number, question and answer sit on
    * one vertical. */
-  --qa-index: calc(var(--fs-message) * 0.8); /* the index number reads as a label, not a 2nd headline */
+  /* The index reads as a label, not a 2nd headline: 0.8 of the question, but never below the
+   * label role itself, which a venue lifts (at hall 0.8 × body would sit under a pill). */
+  --qa-index: max(calc(var(--fs-body) * 0.8), var(--fs-meta));
   --qa-index-col: calc(var(--qa-index) * 1.9); /* the numeral's own flex item */
   --qa-col-gap: var(--sp-2xs);                 /* numeral → question, and the line-break lever below */
   --qa-gutter: calc(var(--qa-index-col) + var(--qa-col-gap)); /* the full indent: question and answer share it */
@@ -110,7 +112,7 @@ section.q-and-a > .cell-stage > :is(ul, ol) > li {
   padding-left: var(--sp-xs);
   border-left: 2px solid var(--accent);
   font-family: var(--font-display);
-  font-size: var(--fs-message);
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-heading);
   line-height: var(--lh-snug);
@@ -429,8 +431,8 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > strong))::after
 /* ── compact — tighter spacing, never smaller type ─────────────────────── */
 /* Closes the gaps between pairs and between a question and its answer. It does not
  * touch the type: a modifier never changes a type role's size (engineering/typography.md
- * §7, `checkTypeSizeModifiers`), so the question stays `--fs-message` and the answer
- * `--fs-body` on a compact slide as on its neighbors. It used to drop both a step to fit
+ * §7, `checkTypeSizeModifiers`), so the question and the answer stay `--fs-body` (one
+ * reading size, 2026-09-29) on a compact slide as on its neighbors. It used to drop both a step to fit
  * five or six pairs; past what fits, split the slide. */
 section.q-and-a.compact {
   --qa-gap: var(--sp-sm);

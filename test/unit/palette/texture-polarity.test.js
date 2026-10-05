@@ -457,7 +457,7 @@ describe('texture-polarity', () => {
     //   preview   test/unit/runtime/mermaid-per-slide-band.test.js
     //   PDF path  test/unit/core/render-diagrams.test.js
     //             test/unit/core/slide-class-spans.test.js
-    const runtime = fs.readFileSync(path.join(ROOT, 'lib', 'runtime', 'index.js'), 'utf8');
+    const runtime = fs.readFileSync(path.join(ROOT, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
     assert.match(runtime, /function openSectionReader\(scopeEl\)/,
       'the preview must read its palette from the SECTION it is rendering; resolving one '
       + 'inside the reader is the slide-1 bake that made the pins wrong on this path');

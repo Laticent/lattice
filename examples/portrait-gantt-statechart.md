@@ -31,7 +31,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 <!-- _class: gantt -->
 <!-- _footer: "gantt · lane labels over full-width bars" -->
 
-`[{Timeline, 2026 Q1 .. 2026 Q4}]`
+`2026 Q1 .. 2026 Q4`
 
 ## What ships in each phase, by workstream.
 
@@ -55,17 +55,17 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 
 ## Document approval flow.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-4. Approved `done`
-   - `{publish, to=5}`
-5. Published `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+- Approved `done`
+  - -publish-> Published
+- Published `end`
 
 ---
 
@@ -76,16 +76,16 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 
 ## On-call escalation path.
 
-1. Detected `start`
-   - `{page, to=2}`
-2. Acknowledged `on-track`
-   - `{mitigate, to=3}`
-3. Mitigating
-   - `{resolve, to=4}`
-   - `{escalate, to=self}`
-4. Resolved `done`
-   - `{close, to=5}`
-5. Closed `end`
+- Detected `start`
+  - -page-> Acknowledged
+- Acknowledged `on-track`
+  - -mitigate-> Mitigating
+- Mitigating
+  - -resolve-> Resolved
+  - -escalate-> Mitigating
+- Resolved `done`
+  - -close-> Closed
+- Closed `end`
 
 ---
 

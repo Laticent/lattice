@@ -289,6 +289,11 @@ about the whole plugin's CSS, not one render path.
 
 - `bake` and `exec.bake: "subprocess"` — Mermaid (phase D) renders in a Node-driven page before
   the deck renders.
+- `exec.hydrate: "pass"` — Mermaid (phase D's browser half): a `hydrate.js` exporting
+  `createPass(ctx)`, a document pass the runtime drives, for a browser half that cannot draw one
+  figure on its own (a global renderer config that needs every figure grouped by palette).
+- `highlight` — Mermaid (phase D's browser half): a highlight.js grammar the host registers under
+  the plugin's code fences, so the source a fence shows before it is drawn is colored.
 - `services` — a plugin calling another plugin's named function, declared in the manifest
   (`contributes.services: ["tex"]`) so the one-to-one check covers it. v1 has no consumer (§6).
 - `extensionPoints` — a plugin offering a slot others fill; the chart family is the consumer.
@@ -418,10 +423,16 @@ which cannot carry imports.
   D adds anyway), so the resolver exempts it from the no-import rule; or (b) an esbuild IIFE built
   into `dist/` beside `dist/lattice-emulator.js` at `prepare`, never committed, which answers this
   paragraph's staleness objection. (a) is the likelier: Mermaid already bakes on the CLI.
-  **As built (phase D): (a).** `render.exec.hydrate: "runtime"` marks a plugin whose browser half
-  is the runtime's own pass, with no hydrate module to serialize; the resolver then REQUIRES a
+  **As built (phase D): (a).** `render.exec.hydrate: "runtime"` marked a plugin whose browser half
+  was the runtime's own pass, with no hydrate module to serialize; the resolver then REQUIRES a
   `bake`, and the CLI draws the plugin there (`lib/plugins/host-bake.js`). Mermaid's fence is
   declared `as: "code"`, so the engine's bytes did not move (§11, phase D).
+  **As finished (phase D's browser half, 2026-10-04): `"pass"` replaced `"runtime"`.** The pass
+  moved into the plugin as `lib/plugins/mermaid/mermaid.hydrate.js`, exporting `createPass(ctx)`
+  — a DOCUMENT pass, because Mermaid's global config cannot draw one figure on its own. The
+  runtime bundles it through `passes.generated.js` and drives it (`boot`, `run`, `onMutations`)
+  without naming it; it is never serialized, so the no-import rule does not apply to it, and the
+  `bake` requirement stands. The CLI export page is unchanged: it still bakes.
 - **HTML player:** ships no plugin code; it bakes the hydrated page.
 
 **The settle barrier.** Today's PDF is correct only because the function-plot inflater runs
@@ -616,9 +627,12 @@ recording exactly what is left.
 - **D. Mermaid** — adds `bake` and `exec.bake`. **Done for the engine and the CLI** (§11), and
   **the browser half since** (§11): the library loads through the host's `payload`, the settle
   state is the host's, and no browser code names Mermaid by any of the three hand idioms the
-  ratchet counts (`drawnFenceClasses`, `drawnLibraryUrls`, `drawnSettleStates`, all 0). What is left of phase D —
-  the runtime pass moving into the plugin, the highlight grammar and `mermaid.css` contributed by
-  it — is `followups.d/2417-p5-plugin-phase-d-browser-half.md`.
+  ratchet counts (`drawnFenceClasses`, `drawnLibraryUrls`, `drawnSettleStates`, all 0). **And the
+  plugin owns its browser half** (§11, 2026-10-04): the diagram pass is the plugin's `hydrate.js`
+  (`render.exec.hydrate: "pass"`), its stylesheet and highlight grammar are its `styles` and
+  `highlight` contributions, and the bake context's services are generic — three more ratchet
+  arms (`runtimePluginNames`, `pluginAssetsOutside`, `bakeContextByName`), all 0. What is still
+  left is `followups.d/2417-p5-plugin-phase-d-browser-half.md`.
 - **E. The data layer** — zip import/export of plugins in the CLI and the Studio (§4.10).
 - **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels; renderer
   libraries move to `optionalDependencies` (export sign-off: it changes what installs).
@@ -663,6 +677,27 @@ code. What changed because of them:
    its own manifest. The declaration is checked against the component's gallery and reported at
    render when a required plugin is off (§4.1). This replaces the first draft's
    `contributes.components`, and with it decision 1's count: five contribution points, not six.
+
+### Owner decisions (settled 2026-10-04, phase E's four questions)
+
+Put to the owner in one round with #2508's merge ask (the questions are in
+`followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`).
+
+6. **Every plugin is loaded explicitly — by default, or by the user.** The owner's words: "all
+   plugins should be explicitly loaded by default or by the user … plugins are plugins, we don't
+   care if they are style only." Three ways in, all explicit: the shipped default set; a deck's
+   front matter, which enables a list of plugins; and a component that declares the plugins it
+   needs (§9 decision 5), which loads them. The Studio gains a **Plugins tab in its settings**.
+   This replaces §4.8's "loaded because the deck uses it" as the LOADING rule; usage detection
+   stays as what a payload waits for, not as what admits a plugin.
+7. **A zip plugin's CSS reaches only its declared targets.** The manifest names the plugins it
+   styles; the gate scopes every selector under the host's marker for those plugins
+   (`[data-lattice-hydrate="<target>"]`) or under its own `.<name>`, and it passes the same
+   token-only gates component CSS does, through HARD RULE #22's style sink.
+8. **The zip channel waits for the code-package door.** No styles-only zip channel ships first:
+   phase E's import and export build when a data plugin can own a fence through the door (§9
+   decision 3), so a zip plugin is never a lesser kind of plugin (decision 6's "plugins are
+   plugins"). The Studio's storage for one is decided with that phase.
 
 ## 10. Non-goals
 
@@ -955,6 +990,53 @@ code. What changed because of them:
   selectors in a few consumers, which a second runtime-drawn plugin would need generalized; a
   deck's author-written `data-lattice-*` attributes surviving the sanitizer (pre-existing: a forged
   `hydrating` stalled captures before this change too).
+
+- **Phase D, the plugin owns its browser half: done, on its branch (2026-10-04).** The followup's
+  four items the handoff asked for, each now counted by the ratchet at 0.
+  - **The pass moved.** Mermaid's diagram pass — the palette port, fence tagging and release,
+    adoption, the render queue, the error surface and the boot wait — moved verbatim out of
+    `lib/runtime/index.js` into `lib/plugins/mermaid/mermaid.hydrate.js` as `createPass(ctx)`
+    (`render.exec.hydrate: "pass"`, which replaced `"runtime"`). The runtime finds it through
+    `passes.generated.js` and drives `boot`, `run` and `onMutations`; it names no plugin in code
+    (`runtimePluginNames`: 139 on `main`, 0). It isolates passes, so a second one cannot disturb
+    the first: a pass runs only after its own boot, its `runAll` answers for itself, `force`
+    reaches only it, and a throw in its hooks is caught. The figure geometry §11 settled holds:
+    the host's markup on the `<pre>`, the drawing in the plugin's sibling.
+  - **Its stylesheet and grammar are contributions.** `mermaid.css` → `mermaid.styles.css`
+    (`styles`, 50 tokens listed), now in the plugin slot after math and function-plot, whose
+    selectors match none of Mermaid's SVG; `dist/lattice.css` holds the same lines in a new order.
+    `mermaid.hljs.js` → `mermaid.highlight.js`, the new `highlight` contribution
+    (`installHighlight` in `host.js`), which also took the grammar out of the runtime bundle,
+    where it rode in dead through `plugins.js` (`lattice-runtime-min.js` −2,465 B raw, −899 B gz).
+    `pluginAssetsOutside`: 2 → 0.
+  - **The bake context is generic.** `BAKE_SERVICES` is a closed list `bakeDeck` enforces;
+    `diagramTheme` became the generic `paletteReader`, and Mermaid's theme assembly moved into its
+    bake (`themeFor`, still the PDF path's one assembly site). The image-set cross-scheme look
+    reads `state.rebake` — figure selector, index attribute, baked band, `render`, the warnings'
+    words — for every bake that publishes one (`bakeContextByName`: 1 → 0).
+  **Evidence.** Engine: every tracked Markdown file × 4 configurations (default, a theme override,
+  flat styles, Mermaid switched off) — 9,324 renders — HTML identical to `main` but for the 12
+  docs this change edits; CSS output identical everywhere. CLI: the diagram gallery's PDFs
+  byte-identical to `main`, light and dark; an image-set export of the chart-and-diagram fixture
+  in three cross-scheme looks (light→dark, dark→print, dark→light) identical file for file but
+  the manifest's timestamp; the `.html` export the same lines reordered (the CSS block).
+  Studio: a PDF export of the diagram gallery from a built docs site of this branch and of `main`
+  (`tools/bench-pdf-export.mjs --verify`), 31 pages light and 31 dark, identical page for page.
+  Route startup JS: Studio −8 B gz, Playground −6 B. `export-formats` integration cells for the
+  image-set look: 9 of 9.
+  **Adversarial trio (HARD RULE #25).** No blocker stood; the checker diffed every moved range
+  against `main` line for line and found only the intended edits. Folded: a false spec line (a
+  `palette` service that does not exist); the multi-pass orchestration (inversion: one `walked`
+  result for all passes, a pass `run` before its `boot`, `force` leaking across passes) — fixed
+  rather than documented; per-pass try/catch (red team); `bakeContextByName` anchored on a
+  contexts receiver (inversion: it matched any `.get('math')`); the re-bake warnings' Mermaid
+  words moved into the hook; stale comments. Recorded rather than fixed: the Mermaid kernels
+  still under `lib/integrations/mermaid/`, the `runtimeDrawn` field name, the renamed double-load
+  guard, and — as a phase-E acceptance criterion — that the zip resolver must refuse `highlight`
+  and `"pass"` by rule.
+  **Left** (`followups.d/2417-p5-plugin-phase-d-browser-half.md`): consumers that still find a
+  drawn figure by Mermaid's output class or a `mermaid` prop, the CLI not passing `disabled` to
+  `bakeDeck`, the two library copies, and the items above.
 
 ## References
 

@@ -254,7 +254,7 @@ test('an engine sub-language is COLORED — by our own mermaid grammar', async (
 	// Reported from a real iPhone: the mermaid fence sat flat while the js fence beside
 	// it was colored. The first cut skipped all three engine sub-languages, reading
 	// `highlight-js.css`'s suppression as a blanket rule — it is scoped to the transient
-	// source <pre> on a diagram SLIDE. `mermaid.hljs.js` exists to color mermaid source.
+	// source <pre> on a diagram SLIDE. `mermaid.highlight.js` exists to color mermaid source.
 	await gotoStudio(page);
 	await seedDeck(page, ['<!-- _class: diagram -->', '', '## D', '', '```mermaid', 'flowchart LR', '  A[Input] --> B{Fits?}', '```'].join('\n'));
 	await toCompose(page);

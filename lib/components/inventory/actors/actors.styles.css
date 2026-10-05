@@ -107,7 +107,7 @@ section.actors > .cell-stage > ul > li > ul > li,
 section.actors > .cell-stage > ol > li > ul > li,
 section.actors > .cell-stage > ul > li > ol > li,
 section.actors > .cell-stage > ol > li > ol > li {
-  font-size:var(--fs-body-compact);
+  font-size:var(--fs-body);
   color:var(--text-body);
   line-height:var(--lh-base);
 }

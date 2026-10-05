@@ -31,7 +31,7 @@ concatenate in this order (the file-header docstring is canonical):
 10. lib/base/base.treatments.css                (tint-* / mark-* utilities)
 11. lib/shared/shared.styles.css
 12. lib/base/base.variants.css                  (state markers, tone, chrome)
-13. lib/integrations/mermaid/mermaid.css        (Mermaid SVG theme overrides)
+13. lib/plugins/mermaid/mermaid.styles.css        (Mermaid SVG theme overrides)
 ```
 
 The **bundle order IS the cascade order**: at equal specificity, later

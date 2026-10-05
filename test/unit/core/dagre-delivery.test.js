@@ -26,7 +26,7 @@
  *   1. the serialised pass must NOT carry the 62KB IIFE string — the runtime
  *      bundle imported the same module, and a top-level require there shipped
  *      dagre twice (+51KB gzipped instead of +28KB);
- *   2. a missing bundle must DEGRADE to the numbered column, not throw;
+ *   2. a missing bundle must DEGRADE (a chain still lays out on Trama's grid), not throw;
  *   3. the BUILT runtime must not contain dagre at all, and the standalone
  *      script must — an assertion on the artifacts, not on the source, because
  *      what an import costs is decided by the bundler and not by the import.
@@ -67,8 +67,8 @@ describe('dagre delivery to the state-chart pass', () => {
   });
 
   test('the serialised pass does NOT carry the dagre IIFE', () => {
-    const { STATE_CHART_BROWSER_JS } = require(
-      path.join(ROOT, 'lib/components/chart/state-chart/state-chart.transform.js'));
+    const STATE_CHART_BROWSER_JS = require(
+      path.join(ROOT, 'lib/components/chart/state-chart/state-chart.layout.js')).browserJs();
     // NOT `includes('__latticeDagre')`: the pass legitimately NAMES that global —
     // reading it is how a stringified function reaches a layout engine at all.
     // What must not be here is the LIBRARY, so the markers are internals only the
@@ -88,14 +88,14 @@ describe('dagre delivery to the state-chart pass', () => {
     const src = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
     assert.match(src, /dagre-bundle\.generated\.js/,
       'the export path is the one that needs the global installed for it');
-    assert.match(src, /\$\{dagreIife\}[\s\S]{0,40}\$\{STATE_CHART_BROWSER_JS\}/,
+    assert.match(src, /\$\{dagreIife \? `\$\{dagreIife\}\\n` : noDagreMark\}\$\{stateChartBrowserJs\(\)\}/,
       'and it must come BEFORE the pass, or the global does not exist yet');
   });
 
   test('a missing bundle degrades rather than throwing', () => {
     const src = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
     // The require is guarded: a fresh clone that never ran `npm install` has no
-    // generated bundle, and must still render — as the numbered column.
+    // generated bundle, and must still render — a chain on Trama's grid.
     assert.match(src, /try \{ \(\{ DAGRE_IIFE: dagreIife \} = require\([^)]*\)\); \} catch/);
   });
 

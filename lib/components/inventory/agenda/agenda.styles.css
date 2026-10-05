@@ -51,7 +51,7 @@ section.agenda ol > li {
    * from its originating element, so this reaches the counter without restating any of
    * the per-variant :not() chains. */
   --ag-marker-ink: var(--accent);
-  font-size: var(--fs-message);
+  font-size: var(--fs-body);
   line-height: var(--lh-snug);
 }
 /* Future/past de-emphasis, shared by every style — INK, not opacity.
@@ -165,7 +165,7 @@ section.agenda.circles ol > li::before {
   content: counter(agenda-counter); display: flex; align-items: center; justify-content: center;
   width: 2.4em; height: 2.4em; border-radius: 50%;
   border: 2px solid var(--ag-outline); background: none; margin: 0; letter-spacing: normal;
-  font-family: var(--font-label); font-weight: 700; font-size: var(--fs-message); line-height: 1;
+  font-family: var(--font-label); font-weight: 700; font-size: var(--fs-body); line-height: 1;
   color: var(--ag-marker-ink); -webkit-mask: none; mask: none;
 }
 section.agenda.circles ol > li::after { content: none; }

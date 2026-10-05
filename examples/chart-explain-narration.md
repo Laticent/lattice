@@ -122,13 +122,13 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ## The shape comes before the edges.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. In Review `at-risk`
-   - `{approve, to=3}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-3. Published `end`
+- Draft `start`
+  - -submit-> In Review
+- In Review `at-risk`
+  - -approve-> Published
+  - -reject-> Draft
+  - -revise-> In Review
+- Published `end`
 
 <!-- Before, this read as four "From X" sentences and a listener rebuilt the graph from them. The caption now opens with the size, the endpoints, where the machine decides, what steps back and what loops — then reads the edges. -->
 
@@ -138,13 +138,13 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ## Three hazards nothing else names.
 
-1. Running `start`
-   - `{fail, to=2}`
-   - `{finish, to=4}`
-2. Stuck
-   - `{retry, to=self}`
-3. Parked
-4. Done `end`
+- Running `start`
+  - -fail-> Stuck
+  - -finish-> Done
+- Stuck
+  - -retry-> Stuck
+- Parked
+- Done `end`
 
 <!-- Stuck has a self-loop and no other exit, so the machine can enter it and never leave — and it is never inferred terminal, because the loop counts as an outgoing transition. Nothing leads to Parked at all. Both are said aloud. -->
 

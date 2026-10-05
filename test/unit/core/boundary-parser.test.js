@@ -40,7 +40,7 @@ const { createBoundaryParser, boundaryParser, normalizeSource } = require('../..
  * OPTIONS, and those are what a reviewer diffs when `buildMd` changes.
  *
  * The pieces omitted are the ones that do not install a block rule: the
- * `highlight` callback (renderer), `registerMermaidHljs` (renderer), and the 19
+ * `highlight` callback (renderer), the plugin host's highlight grammar (renderer), and the 19
  * `LATTICE_PLUGINS` (core rulers, which run after block parsing).
  */
 function engineLikeParser() {

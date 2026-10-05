@@ -107,7 +107,7 @@ Inventory — parallel sets of related items.
 ## The inventory lists a system's parts.
 
 - **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
+- **Four parts reads best.** Five fits, and five is the ceiling.
 - **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
 - **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
@@ -139,7 +139,7 @@ Inventory — parallel sets of related items.
    - _def · spec · register_
 3. Escalation
    - Long content leaves for a table.
-   - _split past seven rows_
+   - _split past six rows_
 
 ---
 

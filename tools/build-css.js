@@ -237,10 +237,11 @@ const TAIL_SOURCES = [
   // these overrides win by source order as well as specificity. See base.accent-finish.css
   // and engineering/decisions/2026-07-15-accent-finish-consolidation.md.
   'lib/base/base.accent-finish.css',
-  'lib/integrations/mermaid/mermaid.css',
   // THE PLUGIN SLOT — every lib/plugins/<name>/<name>.styles.css, in the resolver's dependency
-  // order (lib/plugins/styles.generated.js), where lib/integrations' CSS already sits
-  // (engineering/decisions/2026-09-27-plugin-system.md §4.9). Before the print textures, so a
+  // order (lib/plugins/styles.generated.js), where lib/integrations' CSS used to sit
+  // (engineering/decisions/2026-09-27-plugin-system.md §4.9). Mermaid's stylesheet joined it in
+  // phase D's browser half: it used to be bundled just before this slot, and now follows the
+  // math and function-plot sheets — whose selectors match none of the SVG Mermaid draws. Before the print textures, so a
   // plugin figure takes the print-mode pattern fills like every other chart.
   ...require('../lib/plugins/styles.generated.js').PLUGIN_STYLE_SOURCES,
   // The `chart-finish:` register's rules, GENERATED from every chart manifest's kernel.marks
@@ -336,8 +337,8 @@ function formsSlicingCss() {
 }
 
 // KaTeX base stylesheet — the math-glyph layout engine CSS. Unlike the other
-// integrations (highlight-js, mermaid), whose lib/integrations/<name>/<name>.css
-// is a hand-authored token map, KaTeX's base is the package's own ~720-selector
+// stylesheets (highlight-js's, and mermaid's plugin sheet lib/plugins/mermaid/mermaid.styles.css),
+// each a hand-authored token map, KaTeX's base is the package's own ~720-selector
 // layout sheet, so we vendor it from the installed `katex` package at build time
 // (auto-synced — no stale committed blob). Its glyph fonts used to resolve to a
 // pinned jsDelivr CDN; they are now SELF-HOSTED — we copy the package's woff2 to

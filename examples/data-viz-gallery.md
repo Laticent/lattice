@@ -2,7 +2,7 @@
 
 # Data visualization
 
-`23 components`
+`24 components`
 
 Every chart component in one deck — the full charting surface.
 
@@ -109,6 +109,26 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 | Feb 2026 | 100 | 58 | 44 | 41 |
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
+
+---
+
+<!-- _class: hub-spoke -->
+<!-- _footer: "hub-spoke · data-viz gallery" -->
+
+`Transformation program · Workstream status · Q3`
+
+## Two of six workstreams are off track.
+
+- Program office
+  - Customer onboarding
+  - Core platform migration `at-risk`
+    - Cutover slipped from August to October
+    - Vendor data mapping is 60% complete
+  - Data governance
+  - Vendor consolidation `blocked`
+    - Waiting on the procurement freeze to lift
+  - Branch network
+  - Workforce reskilling
 
 ---
 
@@ -399,18 +419,18 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 How a draft moves from author to publication.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-   - Two reviewers must sign off before approval.
-4. Approved
-   - `{publish, to=5}`
-5. Published `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+  > Two reviewers must sign off before approval.
+- Approved
+  - -publish-> Published
+- Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
 

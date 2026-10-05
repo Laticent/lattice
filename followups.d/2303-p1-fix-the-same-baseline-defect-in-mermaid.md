@@ -18,7 +18,7 @@ Triaged 2026-09-24 against `main` at 6110a1e: still open.
        where     — the baseline comes from the <style> mermaid injects into its own
                    SVG, on classes mermaid owns (`actor`, `noteText`,
                    `ishikawa-label`). The only CSS we own that touches them is
-                   lib/integrations/mermaid/mermaid.css, which sets no baseline
+                   lib/plugins/mermaid/mermaid.styles.css, which sets no baseline
                    today — so the fix is a companion `… tspan` rule there, mirroring
                    what funnel.styles.css / chart-family.css / word-cloud.styles.css
                    now do. Check first whether mermaid's own rule out-specifies it.

@@ -58,11 +58,64 @@ The vocabulary is `lit`, `set` (`chars`, `noneOf`, `charRange`, `any`), `seq`, `
 listing EVERY violation with its rule path:
 
 - two `alt` branches that can start with the same character;
-- a loop whose body can match nothing, or that could either repeat or stop on the same character;
+- a loop whose body can match nothing, or that could either repeat or stop on the same character
+  (unless the loop is marked `greedy`, below);
 - a rule that reaches itself without consuming (left recursion).
 
 `lint(spec)` returns the same list without throwing. Nesting is capped at `MAX_DEPTH` (64) so a
 deeply nested input is an error, never a stack overflow.
+
+### Longest match, skip-to, and deeper nesting
+
+Three additions are for grammars longer than a span: a stylesheet, a page, a Markdown file. None of
+them lets a parse go back over what it read, so the linear bound holds for every grammar that
+compiles.
+
+- **`greedy(many(x))`**, also `greedy(many1(x))` and `greedy(opt(x))`, takes the longest match.
+  When the next character could either go round the loop again or start what follows, it goes
+  round. This is the rule every lexer uses, and the parser already worked this way: the mark only
+  tells the checker that the overlap is intended. A run of letters next to another run of letters
+  is refused without it. The checker still refuses a greedy loop whose successor could **never**
+  match, such as `seq(greedy(many(letter)), 's')`, and it follows rule references to find one.
+
+  **Greedy means commit.** The check cannot see a successor that is optional but that some inputs
+  needed: `seq(greedy(many(seq(word, '\n'))), opt(word))` takes the last word as a line and then
+  fails on the missing newline. A test pins this.
+- **`until(end, { orEnd })`** reads up to and including the literal `end`, such as `*/`, `-->` or
+  `</script>`. It runs one `indexOf` search and never re-reads. When `end` never appears, the parse
+  fails at the end of the input, unless `orEnd` reads to the end instead (an unclosed comment at
+  the end of a file). The terminator is capped at `MAX_UNTIL` (64) characters, because the search
+  costs about input length × terminator length. Any character can start the text before `end`, so
+  an `alt` branch beside `until` is ambiguous. Put a consumed character first.
+- **`maxDepth`** on the spec raises the nesting cap for one grammar, up to `MAX_DEPTH_LIMIT`
+  (1,000). If the JavaScript stack runs out first, the parse returns an error, `STACK_EXHAUSTED`,
+  instead of throwing. That happens in `compile()`, which spends a stack frame per expression, on
+  grammars with many expressions per level. The generated parser gets further on the same input,
+  so on such a grammar the two can disagree.
+
+```ts
+import { alt, charRange, chars, compile, greedy, many, node, opt, ref, seq, until } from '@laticent/segno';
+
+// A tiny stylesheet: words, spaces, blocks that nest, and /* comments */.
+const letter = charRange('a', 'z');
+const sheet = compile({
+  start: 'run',
+  maxDepth: 200,
+  rules: {
+    run: many(alt(
+      node('word', seq(letter, greedy(many(letter)))),          // the whole word, not a prefix
+      chars(' \n'),
+      node('block', seq('{', ref('run'), '}')),
+      seq('/', greedy(opt(node('comment', seq('*', until('*/')))))),   // after "/", a "*" opens a comment
+    )),
+  },
+});
+```
+
+Lattice's own CSS, HTML and Markdown grammars, written with these pieces, read every tracked file
+of each type (160, 31 and 2,332 on 2026-10-04; `npm run parser:bakeoff:languages`). They are a
+tokenizer layer: there is no element tree, no rule-versus-declaration split, and no CommonMark
+block pass. Those take code on top.
 
 **Two outputs.** `compile` builds a parser from closures, for a grammar that arrives at runtime.
 `generate(spec)` writes the same parser as TypeScript source — straight-line code, character tests

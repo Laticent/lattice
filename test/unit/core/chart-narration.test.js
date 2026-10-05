@@ -547,20 +547,20 @@ test('narrateStateChartInference: returns null when start AND end are both alrea
     '',
     '## Document approval flow.',
     '',
-    '1. Draft `start`',
-    '   - `{submit, to=2}`',
-    '   - `{discard, to=6}`',
-    '2. Submitted `on-track`',
-    '   - `{review, to=3}`',
-    '3. In Review',
-    '   - `{approve, to=4}`',
-    '   - `{reject, to=1}`',
-    '   - `{revise, to=self}`',
-    '4. Approved `done`',
-    '   - `{publish, to=5}`',
-    '5. Published `live`',
-    '   - `{archive, to=6}`',
-    '6. Archived `end`',
+    '- Draft `start`',
+    '  - -submit-> Submitted',
+    '  - -discard-> Archived',
+    '- Submitted `on-track`',
+    '  - -review-> In Review',
+    '- In Review',
+    '  - -approve-> Approved',
+    '  - -reject-> Draft',
+    '  - -revise-> In Review',
+    '- Approved `done`',
+    '  - -publish-> Published',
+    '- Published `live`',
+    '  - -archive-> Archived',
+    '- Archived `end`',
   ].join('\n');
   assert.equal(narrateStateChartInference(md), null);
 });
@@ -571,43 +571,43 @@ test('narrateStateChartInference: infers only the terminal state when start is e
     '',
     '## States connect; the arrows carry the rules.',
     '',
-    '1. Draft `start`',
-    '   - `{submit, to=2}`',
-    '2. Submitted `on-track`',
-    '   - `{review, to=3}`',
-    '3. In Review `at-risk`',
-    '   - `{approve, to=4}`',
-    '   - `{reject, to=1}`',
-    '   - `{revise, to=self}`',
-    '4. Approved',
-    '   - `{publish, to=5}`',
-    '5. Published',
+    '- Draft `start`',
+    '  - -submit-> Submitted',
+    '- Submitted `on-track`',
+    '  - -review-> In Review',
+    '- In Review `at-risk`',
+    '  - -approve-> Approved',
+    '  - -reject-> Draft',
+    '  - -revise-> In Review',
+    '- Approved',
+    '  - -publish-> Published',
+    '- Published',
   ].join('\n');
   assert.equal(narrateStateChartInference(md), 'It ends at Published.');
 });
 
 test('narrateStateChartInference: infers both start and terminal states when neither is tagged', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `{submit, to=2}`', '2. Review', '   - `{approve, to=3}`', '3. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> Review', '- Review', '  - -approve-> Done', '- Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'This flow starts at Draft. It ends at Done.');
 });
 
 test('narrateStateChartInference: lists multiple inferred terminal states with "and"', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Start `start`', '   - `{go, to=2}`', '   - `{go, to=3}`', '2. Branch A', '3. Branch B'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Start `start`', '  - -go-> Branch A', '  - -go-> Branch B', '- Branch A', '- Branch B'].join('\n');
   assert.equal(narrateStateChartInference(md), 'It ends at Branch A and Branch B.');
 });
 
 test('narrateStateChartInference: does not let an out-of-range transition target suppress terminal inference', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{submit, to=9}`', '2. Review', '3. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  > Unresolved in v1: submit => 9', '- Review', '- Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'It ends at Draft, Review, and Done.');
 });
 
 test('narrateStateChartInference: keeps an unrelated trailing annotation in an inferred state spoken label', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Config `port 8080`', '   - `{next, to=2}`', '2. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Config `port 8080` `#config`', '  - -next-> Done', '- Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'This flow starts at Config port 8080. It ends at Done.');
 });
 
 test('narrateStateChartInference: does not include a status keyword pill in the spoken label', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Submitted `on-track`', '   - `{go, to=2}`', '2. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Submitted `on-track`', '  - -go-> Done', '- Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'This flow starts at Submitted. It ends at Done.');
 });
 
@@ -618,7 +618,7 @@ test('narrateStateChartInference: does not include a status keyword pill in the 
 // only on one whose author left the roles untagged — the case the old sentence covered
 // was the rarer one, and every shipped sample got nothing from it.
 test('narrateStateChart: leads with the heading, then the machine SHAPE, then the rest', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `{submit, to=2}`', '2. Review', '   - `{approve, to=3}`', '3. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> Review', '- Review', '  - -approve-> Done', '- Done'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.startsWith('Flow. A three-state machine from Draft to Done'), out);
   assert.ok(!out.includes('This flow starts at'), 'the shape sentence subsumes it — saying both is the duplication this pass removes');
@@ -633,7 +633,7 @@ test('narrateStateChart: leads with the heading, then the machine SHAPE, then th
 // and a bare index where the slide draws an arrow to a named state
 // (2026-09-20-narration-audit.md Finding 5).
 test('narrateStateChart: reads the machine by name even when nothing is inferred', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{submit, to=2}`', '2. Done `end`'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  - -submit-> Done', '- Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('From Draft, submit goes to Done.'), out);
   assert.ok(!out.includes('=>'), 'the raw pill must not also be read');
@@ -647,12 +647,12 @@ test('narrateStateChart: reads the machine by name even when nothing is inferred
 test('narrateStateChart: still returns null when there is no machine and no inference', () => {
   // A state-chart slide with no resolvable transitions has nothing this narrator can add
   // over the flattener, so it falls through exactly as before.
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '2. Done `end`'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '- Done `end`'].join('\n');
   assert.equal(narrateStateChart(md), null);
 });
 
 test('narrateStateChart: reads a self-loop as staying put, not as its own name twice', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{revise, to=self}`', '   - `{submit, to=2}`', '2. Done `end`'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  - -revise-> Draft', '  - -submit-> Done', '- Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('revise stays here'), out);
 });
@@ -667,11 +667,11 @@ test('narrateStateChart: does not speak a fenced doc-example heading as the titl
     '',
     '## The real heading.',
     '',
-    '1. Draft',
-    '   - `{submit, to=2}`',
-    '2. Review',
-    '   - `{approve, to=3}`',
-    '3. Done',
+    '- Draft',
+    '  - -submit-> Review',
+    '- Review',
+    '  - -approve-> Done',
+    '- Done',
   ].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.startsWith('The real heading. A three-state machine from Draft to Done'), out);
@@ -689,7 +689,7 @@ test('narrateChart: recognizes a weighted journey slide', () => {
 });
 
 test('narrateChart: recognizes a state-chart slide and reads its shape', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `{submit, to=2}`', '2. Done'].join('\n');
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> Done', '- Done'].join('\n');
   assert.ok(narrateChart(md).includes('A two-state machine from Draft to Done'));
 });
 
@@ -1592,39 +1592,18 @@ test('narrateJourneyMood: the dispatcher reaches it for a plain journey slide', 
 });
 
 // ── Regressions the maker-checker caught before merge ───────────────────────────────
-test('narrateStateChart: a `:::tint` suffix does not hide a transition', () => {
-  // THE FIXTURE IS THE REAL AUTHORED SYNTAX, and the first version of this test was not —
-  // it put the tint INSIDE the backticks, which no deck writes and the transform rejects as a
-  // transition. So it passed against a fix that was a no-op on every shipped deck: the whole
-  // point of the finding was examples/state-chart-tint.md, which writes the tint AFTER the
-  // closing backtick (state-chart.transform.js's `codeOnly` is the authority). Verified against
-  // that file's line 56. The tint is LATTICE's own channel, not Mermaid's `:::className`.
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{submit, to=2}`:::state-pass-hue', '   - `{hold, to=self}`', '2. Done `end`'].join('\n');
+test('narrateStateChart: a heavy arrow and a self-loop read by name, never as glyphs', () => {
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  - =submit=> Done', '  - -hold-> Draft', '- Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('submit goes to Done'), out);
   assert.ok(out.includes('hold stays here'), out);
-  assert.ok(!out.includes('=>'), `a raw pill survived: ${out}`);
-  assert.ok(!out.includes(':::'), `a style hook was spoken: ${out}`);
+  assert.ok(!/=>|->/.test(out), `an arrow was spoken as typed: ${out}`);
 });
 
-test('narrateStateChart: the two-slot tint form is recognized too', () => {
-  // `:::edge-token/label-bg-token` (state-chart.docs.md `tint` row, examples/state-chart-tint.md:95).
-  // A `[\\w-]+` token class could not match slot two; the transform's own class allows the slash.
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{run, to=2}`:::state-pass-hue/surface-raised', '2. Done `end`'].join('\n');
+test('narrateStateChart: a state\'s hidden detail (a blockquote) is narrated with the state', () => {
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  - -submit-> Review', '- Review `at-risk`', '  - -approve-> Done', '  > Two reviewers must sign off.', '- Done `end`'].join('\n');
   const out = narrateStateChart(md);
-  assert.ok(out.includes('run goes to Done'), out);
-  assert.ok(!out.includes(':::'), out);
-});
-
-test('narrateStateChart: an UNRESOLVED transition is still read, not silently dropped', () => {
-  // The suppression filter dropped every line matching the pill pattern, but `parseStateChart`
-  // records a transition only when its target RESOLVES — so a dangling `{typo, to=9}` was narrated
-  // by nobody, while the slide still renders it as "{typo, to=9} (unresolved)". Narration going
-  // quiet about something the audience can see is the failure this pass exists to remove.
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `{submit, to=2}`', '   - `{typo, to=9}`', '2. Done `end`'].join('\n');
-  const out = narrateStateChart(md);
-  assert.ok(out.includes('submit goes to Done'), out);
-  assert.ok(out.includes('typo, to=9'), `the unresolved pill went silent: ${out}`);
+  assert.ok(out.includes('Review is at risk. Two reviewers must sign off.'), out);
 });
 
 test('narrateJourneyMood: mirrors the transform’s clampMood, so it cannot state a score the chart does not plot', () => {
@@ -1640,34 +1619,6 @@ test('narrateJourneyMood: mirrors the transform’s clampMood, so it cannot stat
   // in the transform and here alike.
   assert.ok(out.includes('Half, by the user, scores three out of five'), out);
   assert.ok(!out.includes(', ,'), `an empty actor left a double comma: ${out}`);
-});
-
-test('narrateStateChart: a state LABEL loses its tint but the author’s prose keeps it', () => {
-  // `:::state-pass-hue` after a state's pills is a style hook, not a name. It sits AFTER the
-  // pill's closing backtick, so `stripTrailingPills` never saw a trailing pill and the whole
-  // string became the label — "Accepted `done`:::state-pass-hue" reached the voice. That was
-  // already true on main in the terminal sentence; it became this branch's to fix when
-  // `narrateStateTransitions` started reading the same labels into every "goes to X".
-  //
-  // Found by rendering examples/state-chart-tint.md through the real CLI and reading the .vtt,
-  // not by a unit test — the two checker passes both caught me asserting from a fixture
-  // instead of from shipped bytes.
-  const md = [
-    '<!-- _class: state-chart -->', '', '`Legend`', '', '## F.', '',
-    '`:::token` names a theme token, never a color.', '',
-    '1. Intake `start`', '   - `{triage, to=2}`',
-    '2. Accepted `done`:::state-pass-hue',
-    '3. Refused `end`:::state-fail-hue/surface-raised',
-  ].join('\n');
-  const out = narrateStateChart(md);
-  assert.ok(out.includes('triage goes to Accepted.'), `dirty label in a transition: ${out}`);
-  // The state list now says only what the machine sentences do not: a status, and an end state.
-  assert.ok(out.includes('Accepted is done, an end state.'), `dirty label in the flatten: ${out}`);
-  assert.ok(out.includes('Refused is an end state.'), `two-slot tint survived: ${out}`);
-  // The author's own prose ABOUT the syntax is slide text and must survive untouched.
-  assert.ok(out.includes(':::token names a theme token'), `ate the author's prose: ${out}`);
-  // The eyebrow still leads — the tint strip is a map, so original line indices are preserved.
-  assert.ok(out.startsWith('Legend.'), out);
 });
 
 // ── narrateDataSeries (the generic floor) ─────────────────────────────────────
@@ -2179,7 +2130,7 @@ test('narrateDataSeries: strips the markdown a label carries rather than reading
 // is the tripwire that says when its OUTPUT moves, which is the thing a reviewer needs to see
 // in a diff.
 const PICTURE_DATA_ROSTER = [
-  'bar', 'bullet', 'funnel', 'heatmap', 'line', 'map', 'piechart',
+  'bar', 'bullet', 'funnel', 'heatmap', 'hub-spoke', 'line', 'map', 'piechart',
   'quadrant', 'radar', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'word-cloud',
 ];
 
@@ -2235,27 +2186,6 @@ test('narrateDataSeries: a delimiter row needs a DASH — colons alone are not a
 // that branch's path. `state-chart.docs.md`'s `transitions` slot documents BOTH break forms
 // as honored, and the render draws both — so the voice was reading markup the audience sees
 // as a line break. Fixtures are the real deck's own line, not a model of it.
-test('narrateStateChart: an authored <br/> in an event label is a break, not words', () => {
-  const md = (evt) => `<!-- _class: state-chart lr -->\n\n## A label can break.\n\n1. Submitted \`start\`\n   - \`{${evt}, to=2}\`\n2. Second review \`end\``;
-  // examples/state-chart-branching.md:126, verbatim.
-  const br = narrateStateChart(md('needs<br/>second review'));
-  assert.match(br, /needs second review goes to Second review/);
-  assert.doesNotMatch(br, /<br|br slash|&lt;/);
-  // The other documented form: a literal backslash-n.
-  assert.match(narrateStateChart(md('needs\\nsecond review')), /needs second review goes to Second review/);
-  // `<br>` without the slash, and mixed case, are the same break.
-  assert.match(narrateStateChart(md('needs<BR>second review')), /needs second review goes to Second review/);
-});
-
-test('narrateStateChart: the break reads as a SPACE, not a comma', () => {
-  // A state-chart event break is there to FIT the rank gap, so the label is one phrase split
-  // across two lines. A comma would add a pause the author did not write. (A Mermaid node
-  // label keeps its comma — `scrubLabel` — because that break usually separates two things.)
-  const out = narrateStateChart('<!-- _class: state-chart -->\n\n## M.\n\n1. Draft `start`\n   - `{needs<br/>second review, to=2}`\n2. Done `end`');
-  assert.match(out, /needs second review/);
-  assert.doesNotMatch(out, /needs, second/);
-});
-
 test('scrubLabel keeps its comma for a Mermaid label — the two breaks mean different things', () => {
   // Pinning the ASYMMETRY, so "consistency" does not quietly collapse it. examples/
   // mermaid-sketch-labels.md authors `Booking received<br/>(EDI 204 / portal)`, where the

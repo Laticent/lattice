@@ -57,15 +57,15 @@ three places a color can hide were already covered. This deck is the third.
 
 ## Where a color can hide, and which pass catches it.
 
-1. Authored `start`
-   - `{collapse, to=2}`
-2. Light base `on-track`
-   - `{token?, to=3}`
-   - `{attribute?, to=4}`
-   - `{rule?, to=5}`
-3. Token block `done`
-4. Inline hoist `done`
-5. Private token `end`
+- Authored `start`
+  - -collapse-> Light base
+- Light base `on-track`
+  - -token?-> Token block
+  - -attribute?-> Inline hoist
+  - -rule?-> Private token
+- Token block `done`
+- Inline hoist `done`
+- Private token `end`
 
 *The first two passes shipped earlier; the third is this change.*
 

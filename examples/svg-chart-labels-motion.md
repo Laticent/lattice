@@ -94,14 +94,14 @@ That one fact caused two different failures. A long label ran straight off its v
 
 ## States are painted from measured boxes, never guessed widths.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Awaiting compliance review `on-track`
-   - `{approve, to=3}`
-   - `{reject, to=1}`
-3. Counter-signature pending `at-risk`
-   - `{sign, to=4}`
-4. Executed `end`
+- Draft `start`
+  - -submit-> Awaiting compliance review
+- Awaiting compliance review `on-track`
+  - -approve-> Counter-signature pending
+  - -reject-> Draft
+- Counter-signature pending `at-risk`
+  - -sign-> Executed
+- Executed `end`
 
 ---
 

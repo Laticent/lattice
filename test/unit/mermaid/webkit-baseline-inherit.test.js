@@ -29,7 +29,7 @@ const path = require('node:path');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const CSS = fs
-  .readFileSync(path.join(REPO, 'lib/integrations/mermaid/mermaid.css'), 'utf8')
+  .readFileSync(path.join(REPO, 'lib/plugins/mermaid/mermaid.styles.css'), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** Every rule whose declarations include `dominant-baseline: inherit`. */

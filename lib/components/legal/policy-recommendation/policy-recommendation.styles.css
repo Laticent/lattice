@@ -116,7 +116,7 @@
   section.policy-recommendation > .cell-stage > ul > li {
     padding-left: var(--sp-md);
     border-left: 3px solid var(--stance);
-    font-size: var(--fs-message);
+    font-size: var(--fs-body);
     line-height: var(--lh-snug);
     font-weight: 700;
     color: var(--text-heading);

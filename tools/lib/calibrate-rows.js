@@ -68,7 +68,10 @@ function probe({ cls, shape, n, eyebrow, callout, ol }) {
   const pad = (i) => ' '.repeat(mark(i).length + 1);
   const items = Array.from({ length: n }, (_, i) => (shape === 'nested'
     ? `${mark(i)} ${prose(24, i)}\n${pad(i)}- ${prose(40, i + 3)}.`
-    : `${mark(i)} ${prose(40, i)}.`)).join('\n');
+    // 60 words, not 40: with list rows at --fs-body (16pt at laptop) four 40-word takeaway items
+    // no longer overflowed, and a probe that fits measures nothing. Length does not move the
+    // geometry, only whether the stage overflows.
+    : `${mark(i)} ${prose(60, i)}.`)).join('\n');
   return `<!-- _class: ${cls} -->\n\n${eyebrow ? `\`Calibration · ${prose(18).toUpperCase()}\`\n\n` : ''}## ${prose(16)}.\n\n${items}\n${callout ? `\n> ${prose(22, 5)}.\n` : ''}`;
 }
 const VENUES = { laptop: null, huddle: 'l', conference: 'xl', hall: '2xl' };

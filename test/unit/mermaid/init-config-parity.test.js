@@ -32,7 +32,7 @@ const {
 } = require('../../../lib/integrations/mermaid/init-directive');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
+const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
 const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8');
 
 const THEME_VARS = { primaryColor: '#111', fontFamily: 'X' };
@@ -49,8 +49,8 @@ const THEME_VARS = { primaryColor: '#111', fontFamily: 'X' };
 function previewConfig(themeVars = THEME_VARS) {
   const start = RUNTIME_SRC.indexOf('  // ── BEGIN PREVIEW INIT CONFIG');
   const end = RUNTIME_SRC.indexOf('  // ── END PREVIEW INIT CONFIG');
-  assert.notEqual(start, -1, 'lib/runtime/index.js must bracket its init config with BEGIN PREVIEW INIT CONFIG');
-  assert.notEqual(end, -1, 'lib/runtime/index.js must bracket its init config with END PREVIEW INIT CONFIG');
+  assert.notEqual(start, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must bracket its init config with BEGIN PREVIEW INIT CONFIG');
+  assert.notEqual(end, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must bracket its init config with END PREVIEW INIT CONFIG');
   const blockSrc = RUNTIME_SRC.slice(start, end);
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED source is the point.
   const factory = eval(`(function (engineInitConfig) {\n${blockSrc}\n  return previewInitConfig;\n})`);

@@ -27,18 +27,18 @@ A status paints the state, and a long machine wraps in reading order instead of 
 
 The same fill, edge and leading accent a gantt bar wears. A state with no status is a quiet tile.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-4. Approved `done`
-   - `{schedule, to=5}`
-5. Scheduled `deferred`
-   - `{publish, to=6}`
-6. Published `live` `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+- Approved `done`
+  - -schedule-> Scheduled
+- Scheduled `deferred`
+  - -publish-> Published
+- Published `end` `live`
 
 *Deferred draws hollow and dashed, so it never reads as "no status".*
 
@@ -52,25 +52,25 @@ The same fill, edge and leading accent a gantt bar wears. A state with no status
 
 Each row reads left to right, and one connector drops to the next.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-4. Approved `done`
-   - `{schedule, to=5}`
-5. Scheduled
-   - `{publish, to=6}`
-6. Published `live`
-   - `{watch, to=7}`
-7. Monitored
-   - `{archive, to=8}`
-8. Archived
-   - `{audit, to=9}`
-9. Audited
-   - `{retire, to=10}`
-10. Retired `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+- Approved `done`
+  - -schedule-> Scheduled
+- Scheduled
+  - -publish-> Published
+- Published `live`
+  - -watch-> Monitored
+- Monitored
+  - -archive-> Archived
+- Archived
+  - -audit-> Audited
+- Audited
+  - -retire-> Retired
+- Retired `end`
 
 *As a single column these names set at 4.6px on this stage.*
 
@@ -84,29 +84,29 @@ Each row reads left to right, and one connector drops to the next.
 
 The chart scores every row count and keeps the one that sets the type largest.
 
-1. Intake `start`
-   - `{triage, to=2}`
-2. Triage
-   - `{assign, to=3}`
-3. Assigned
-   - `{start, to=4}`
-4. In Progress `live`
-   - `{review, to=5}`
-5. Code Review
-   - `{approve, to=6}`
-6. QA `on-track`
-   - `{stage, to=7}`
-7. Staging
-   - `{release, to=8}`
-8. Released `done`
-   - `{announce, to=9}`
-9. Announced
-   - `{measure, to=10}`
-10. Measured
-   - `{learn, to=11}`
-11. Retro `deferred`
-   - `{close, to=12}`
-12. Closed `end`
+- Intake `start`
+  - -triage-> Triage
+- Triage
+  - -assign-> Assigned
+- Assigned
+  - -start-> In Progress
+- In Progress `live`
+  - -review-> Code Review
+- Code Review
+  - -approve-> QA
+- QA `on-track`
+  - -stage-> Staging
+- Staging
+  - -release-> Released
+- Released `done`
+  - -announce-> Announced
+- Announced
+  - -measure-> Measured
+- Measured
+  - -learn-> Retro
+- Retro `deferred`
+  - -close-> Closed
+- Closed `end`
 
 *A short chain stays on one row: wrapping has to buy a real gain in type size.*
 
@@ -120,25 +120,25 @@ The chart scores every row count and keeps the one that sets the type largest.
 
 Back-edges ride above their row, skips below, and each lane is ordered against the rest.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-   - `{fast track, to=5}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-4. Approved `done`
-   - `{schedule, to=5}`
-5. Scheduled
-   - `{publish, to=6}`
-6. Published `live`
-   - `{watch, to=7}`
-7. Monitored
-   - `{archive, to=8}`
-   - `{reopen, to=3}`
-8. Archived `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+  - -fast track-> Scheduled
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+- Approved `done`
+  - -schedule-> Scheduled
+- Scheduled
+  - -publish-> Published
+- Published `live`
+  - -watch-> Monitored
+- Monitored
+  - -archive-> Archived
+  - -reopen-> In Review
+- Archived `end`
 
 *Every label sits beside its own line, never on another.*
 
@@ -152,27 +152,27 @@ Back-edges ride above their row, skips below, and each lane is ordered against t
 
 dagre cannot wrap, so a wrapped layout competes with it and wins only by a clear margin.
 
-1. Intake `start`
-   - `{triage, to=2}`
-2. Triage
-   - `{assign, to=3}`
-3. Assigned
-   - `{start, to=4}`
-4. In Progress `live`
-   - `{review, to=5}`
-   - `{block, to=9}`
-5. Code Review
-   - `{approve, to=6}`
-6. QA `on-track`
-   - `{stage, to=7}`
-   - `{fail, to=4}`
-7. Staging
-   - `{release, to=8}`
-8. Released `done`
-   - `{close, to=10}`
-9. Blocked `blocked`
-   - `{unblock, to=4}`
-10. Closed `end`
+- Intake `start`
+  - -triage-> Triage
+- Triage
+  - -assign-> Assigned
+- Assigned
+  - -start-> In Progress
+- In Progress `live`
+  - -review-> Code Review
+  - -block-> Blocked
+- Code Review
+  - -approve-> QA
+- QA `on-track`
+  - -stage-> Staging
+  - -fail-> In Progress
+- Staging
+  - -release-> Released
+- Released `done`
+  - -close-> Closed
+- Blocked `blocked`
+  - -unblock-> In Progress
+- Closed `end`
 
 *A fan-out that reads best as parallel ranks still goes to dagre.*
 
@@ -186,16 +186,16 @@ dagre cannot wrap, so a wrapped layout competes with it and wins only by a clear
 
 `tb` keeps a ladder top to bottom on a wide stage; it still wraps into columns.
 
-1. Level 1 `start`
-   - `{escalate, to=2}`
-2. Level 2 `on-track`
-   - `{escalate, to=3}`
-3. Level 3 `at-risk`
-   - `{escalate, to=4}`
-   - `{resolve, to=1}`
-4. Incident lead
-   - `{escalate, to=5}`
-5. Executive `end`
+- Level 1 `start`
+  - -escalate-> Level 2
+- Level 2 `on-track`
+  - -escalate-> Level 3
+- Level 3 `at-risk`
+  - -escalate-> Incident lead
+  - -resolve-> Level 1
+- Incident lead
+  - -escalate-> Executive
+- Executive `end`
 
 *A row pins the same way. With neither, the stage's shape decides.*
 
@@ -209,21 +209,21 @@ dagre cannot wrap, so a wrapped layout competes with it and wins only by a clear
 
 Status tiles use the pill's stops, so every state name clears 4.5:1 on every theme.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-4. Approved `done`
-   - `{schedule, to=5}`
-5. Scheduled `blocked`
-   - `{publish, to=6}`
-6. Published `live`
-   - `{watch, to=7}`
-7. Monitored
-   - `{archive, to=8}`
-8. Archived `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+- Approved `done`
+  - -schedule-> Scheduled
+- Scheduled `blocked`
+  - -publish-> Published
+- Published `live`
+  - -watch-> Monitored
+- Monitored
+  - -archive-> Archived
+- Archived `end`
 
 *The ordinal takes the name's ink on a status tile, so it holds contrast too.*

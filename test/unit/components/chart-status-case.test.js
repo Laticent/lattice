@@ -16,7 +16,9 @@ const assert = require('node:assert/strict');
 const { CHART_STATUS, chartStatus } = require('../../../lib/components/chart/_chart-family/transform-utils');
 const { buildProgressBars } = require('../../../lib/components/chart/progress/progress.transform');
 const { buildTimelineSpine } = require('../../../lib/components/chart/timeline-list/timeline-list.transform');
-const { parseStateLi } = require('../../../lib/components/chart/state-chart/state-chart.transform');
+const { parseStateChart } = require('../../../lib/components/chart/state-chart/state-chart.transform');
+const { outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
+const parseState = (md) => parseStateChart(outlineFromMarkdown(md)).states[0];
 const { parseSlope, buildSlope } = require('../../../lib/components/chart/slope/slope.transform');
 const { transformSection: gantt } = require('../../../lib/components/chart/gantt/gantt.transform');
 
@@ -71,16 +73,17 @@ describe('state-chart — a capitalized status is a status, not a label', () => 
   for (const word of CHART_STATUS) {
     for (const spelled of spellings(word)) {
       test(`\`${spelled}\` becomes status "${word}"`, () => {
-        const s = parseStateLi(`In Review <code>${spelled}</code>`, 2);
+        const s = parseState(`- In Review \`${spelled}\``);
         assert.equal(s.status, word);
-        assert.doesNotMatch(s.label, /<code>/, 'the word must not fall into the label');
+        assert.equal(s.name, 'In Review', 'the word must not fall into the name');
       });
     }
   }
   test('a word outside the vocabulary stays in the label', () => {
-    const s = parseStateLi('In Review <code>Someday</code>', 2);
-    assert.equal(s.status, null);
-    assert.match(s.label, /<code>Someday<\/code>/);
+    // An unknown span is literal code: it stays in the name, and `lint:deck` names it.
+    const s = parseState('- In Review `Someday`');
+    assert.equal(s.status, undefined);
+    assert.equal(s.name, 'In Review Someday');
   });
 });
 
@@ -112,14 +115,14 @@ describe('gantt — the bar stamps the folded word (already folded; pinned here 
 
 describe('state-chart narration — the voice folds case with the slide', () => {
   const { narrateStateChart } = require('../../../lib/core/chart-narration');
-  const md = (pill) => ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `{submit, to=2}`',
-    `2. In Review \`${pill}\``, '   - `{ok, to=3}`', '3. Done'].join('\n');
-  // The closing read-out speaks each list line as written, pill included, so it
-  // says `AT-RISK` exactly as it says `at-risk`: the pill keeps its spelling. The
-  // state's NAME, in the transition sentences, must not carry it.
-  test('`AT-RISK` is a badge, never part of the spoken state name', () => {
+  const md = (pill) => ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> In Review',
+    `- In Review \`${pill}\``, '  - -ok-> Done', '- Done'].join('\n');
+  // The status is spoken in words ("is at risk"), whatever its spelling, and the state's
+  // NAME, in the transition sentences, never carries it.
+  test('`AT-RISK` is a status, never part of the spoken state name', () => {
     const out = narrateStateChart(md('AT-RISK'));
     assert.match(out, /From Draft, submit goes to In Review\. From In Review, ok goes to Done\./);
-    assert.equal(out, narrateStateChart(md('at-risk')).replace('at-risk', 'AT-RISK'));
+    assert.match(out, /In Review is at risk\./);
+    assert.equal(out, narrateStateChart(md('at-risk')));
   });
 });

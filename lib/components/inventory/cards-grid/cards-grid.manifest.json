@@ -269,9 +269,9 @@
         },
         "heading": {
           "laptop": [66.1, 135],
-          "huddle": [66.1, 135],
-          "conference": [66.1, 135],
-          "hall": [66.1, 135]
+          "huddle": [57.5, 155],
+          "conference": [50.9, 176],
+          "hall": [44.1, 203]
         },
         "callout": {
           "laptop": [119.5, 97],
@@ -283,7 +283,7 @@
           "laptop": 11,
           "huddle": 11,
           "conference": 11,
-          "hall": 10
+          "hall": 11
         },
         "calloutAt": {
           "laptop": 211,
@@ -308,8 +308,8 @@
           },
           "budget": {
             "laptop": 1544,
-            "huddle": 1543,
-            "conference": 1543,
+            "huddle": 1544,
+            "conference": 1542,
             "hall": 1543
           },
           "row": {
@@ -337,8 +337,8 @@
             },
             "budget": {
               "laptop": 1543,
-              "huddle": 1544,
-              "conference": 1544,
+              "huddle": 1545,
+              "conference": 1543,
               "hall": 1543
             },
             "row": {
@@ -366,7 +366,7 @@
           },
           "budget": {
             "laptop": 1543,
-            "huddle": 1544,
+            "huddle": 1545,
             "conference": 1543,
             "hall": 1544
           },
@@ -394,7 +394,7 @@
             },
             "budget": {
               "laptop": 1544,
-              "huddle": 1543,
+              "huddle": 1544,
               "conference": 1543,
               "hall": 1543
             },
@@ -423,8 +423,8 @@
           },
           "budget": {
             "laptop": 1544,
-            "huddle": 1544,
-            "conference": 1544,
+            "huddle": 1545,
+            "conference": 1543,
             "hall": 1543
           },
           "row": {
@@ -451,8 +451,8 @@
             },
             "budget": {
               "laptop": 1543,
-              "huddle": 1543,
-              "conference": 1544,
+              "huddle": 1544,
+              "conference": 1543,
               "hall": 1544
             },
             "row": {

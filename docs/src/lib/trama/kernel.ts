@@ -167,17 +167,36 @@ export function graphLayoutKernel(): GraphKernel {
     // each 10 units outside the one before it. dagre never sees loops, so the nesting's
     // room is reserved on the box, on both sides the loops reach, and taken back off
     // after layout: `loopPad` is { r, t, b } in units, keyed by shape.
-    const loopCount: Record<string, number> = {};
+    const loopCount: Record<string, number> = Object.create(null);
     for (const e of model.edges || []) if (e.from === e.to && !e.style?.loose) loopCount[e.from] = (loopCount[e.from] || 0) + 1;
-    const loopPad: Record<string, LoopPad> = {};
+    // A LABELED loop stands far enough out for its label to clear the box (see the loop's
+    // routing below: in lr the label sits on the top run, in tb on the outer vertical), and
+    // that reach is reserved too. Unreserved, a tb loop's label was seated half over its own
+    // box and painted under it ("vise" for "revise"), with nothing counting the collision.
+    const loopLabel: Record<string, Size> = Object.create(null);
+    (model.edges || []).forEach((e, i) => {
+      if (e.from !== e.to || e.style?.loose || !e.label) return;
+      const z = (opts.labelSizes || {})[i] || { w: e.label.length * 7 + 12, h: 16 };
+      const had = loopLabel[e.from];
+      loopLabel[e.from] = { w: Math.max(had ? had.w : 0, z.w), h: Math.max(had ? had.h : 0, z.h) };
+    });
+    const loopPad: Record<string, LoopPad> = Object.create(null);
     for (const [id, c] of Object.entries(loopCount)) {
       const j = 10 * (c - 1);
-      loopPad[id] = dir === 'LR' ? { r: j, t: j, b: 0 } : { r: j, t: 0, b: j };
+      const lw = loopLabel[id] ? loopLabel[id].w : 0;
+      const z = sizes[id] || { w: 96, h: 40 };
+      // How far past the box's right side the outermost loop and its label reach, beyond
+      // the 18 units the rank gap has always absorbed.
+      const reach = dir === 'LR' ? Math.max(0, z.w / -2 + lw + 8 - 18) : lw ? lw / 2 + 8 + lw / 2 + 4 - 18 : 0;
+      loopPad[id] = dir === 'LR' ? { r: j + Math.max(0, reach), t: j, b: 0 } : { r: j + Math.max(0, reach), t: 0, b: j };
     }
     for (const s of shapes) {
       const z = sizes[s.id] || { w: 96, h: 40 };
       const k = Math.max(outs.get(s.id) || 0, ins.get(s.id) || 0);
-      const need = opts.grow !== false && k >= 3 ? (k - 1) * PORT + 16 : 0; // the router keeps 8 clear at each corner
+      // A marker (a start dot, an end ring) never grows: it is painted at its own size, and
+      // its lines are meant to converge on it, as a state machine's final state gathers them.
+      const marker = s.shape === 'start' || s.shape === 'end';
+      const need = opts.grow !== false && k >= 3 && !marker ? (k - 1) * PORT + 16 : 0; // the router keeps 8 clear at each corner
       let w = z.w, h = z.h;
       if (dir === 'LR') h = Math.max(h, need); else w = Math.max(w, need);
       if (w !== z.w || h !== z.h) {
@@ -253,6 +272,15 @@ export function graphLayoutKernel(): GraphKernel {
       const per = Math.ceil(N / lines);
       const nLines = Math.ceil(N / per);
       if (nLines !== lines || (nLines > 1 && N - (nLines - 1) * per < Math.min(2, per))) return false;
+      // Every line holds at least two REAL shapes: a start dot or an end ring does not make a
+      // line. Without this a three-state chain with its two markers wrapped into a second
+      // line of one state and the ring, which read as a stray state hanging off the chain.
+      if (nLines > 1) {
+        for (let li = 0; li < nLines; li++) {
+          const real = shapes.slice(li * per, (li + 1) * per).filter((x) => x.shape !== 'start' && x.shape !== 'end').length;
+          if (real < 2) return false;
+        }
+      }
       let labW = 0, labH = 0;
       for (const r of laid) if (r.label) { labW = Math.max(labW, r.label.w); labH = Math.max(labH, r.label.h); }
       const rankGap = sp.rank != null ? sp.rank : 60;
@@ -273,7 +301,13 @@ export function graphLayoutKernel(): GraphKernel {
       for (let j = 0; j < nLines; j++) { lineStart.push(acc); acc += lineC[j] + lineGap; }
       shapes.forEach((s, i) => {
         const n = nodeOf(s.id);
-        const u = colStart[i % per] + colA[i % per] / 2, v = lineStart[Math.floor(i / per)] + lineC[Math.floor(i / per)] / 2;
+        // A machine's markers hug the state they lead into or out of: centered in a column
+        // as wide as the state under it, an entry dot stood a column's width from its line.
+        const c = i % per;
+        const u = s.shape === 'start' ? colStart[c] + colA[c] - along(n) / 2
+          : s.shape === 'end' ? colStart[c] + along(n) / 2
+            : colStart[c] + colA[c] / 2;
+        const v = lineStart[Math.floor(i / per)] + lineC[Math.floor(i / per)] / 2;
         n.x = lr ? u : v; n.y = lr ? v : u;
       });
       return true;
@@ -317,8 +351,40 @@ export function graphLayoutKernel(): GraphKernel {
       }
     }
 
+    // A MARKER sits in line with the one shape it leads into or out of, so its line is
+    // straight: dagre centers a rank's nodes, and a start dot alone in its rank came out a
+    // few units off its state's axis, which the router drew as a hook. Moved across the flow
+    // only, and only to a spot no other box is near.
+    for (const s of shapes) {
+      if (s.shape !== 'start' && s.shape !== 'end') continue;
+      const ends = laid.filter((r) => !r.loose && r.a !== r.b && (r.a === s.id || r.b === s.id));
+      if (ends.length !== 1) continue;
+      const other = ends[0].a === s.id ? ends[0].b : ends[0].a;
+      const mn = g.node(key.get(s.id) ?? ''), on = g.node(key.get(other) ?? '');
+      if (!mn || !on) continue;
+      const to = lr ? on.y : on.x;
+      const was = lr ? mn.y : mn.x;
+      if (Math.abs(to - was) < 0.05) continue;
+      const hw = mn.width / 2 + 6, hh = mn.height / 2 + 6;
+      const cx = lr ? mn.x : to, cy = lr ? to : mn.y;
+      const clash = g.nodes().some((v) => {
+        if (v === key.get(s.id) || clusters.has(v)) return false;
+        const n = g.node(v);
+        return !!n && Math.abs(n.x - cx) < n.width / 2 + hw && Math.abs(n.y - cy) < n.height / 2 + hh;
+      });
+      if (clash) continue;
+      if (lr) mn.y = to; else mn.x = to;
+      for (const ed of g.edges()) {
+        const e = g.edge(ed);
+        if (!e.points?.length || (ed.v !== key.get(s.id) && ed.w !== key.get(s.id))) continue;
+        // The marker's own line: dagre's waypoints ran to the old spot; drop them to the
+        // straight run the router will draw anyway.
+        e.points = [];
+      }
+    }
+
     const box = (gk: string): Box => { const n = sure(g.node(gk), 'laid-out node', gk); return { x: n.x - n.width / 2, y: n.y - n.height / 2, w: n.width, h: n.height, cx: n.x, cy: n.y }; };
-    const nodes: Record<string, Box> = {};
+    const nodes: Record<string, Box> = Object.create(null);
     for (const s of shapes) {
       const b = box(must(key, s.id)), lp = loopPad[s.id];
       if (lp) {
@@ -330,7 +396,7 @@ export function graphLayoutKernel(): GraphKernel {
       }
       nodes[s.id] = b;
     }
-    const gboxes: Record<string, Box> = {};
+    const gboxes: Record<string, Box> = Object.create(null);
     for (const gr of groups) gboxes[gr.id] = box(must(key, gr.id));
     // The boxes alone: a lower bound on the drawing's size (lines and labels only add to
     // it), which `layout()` uses to skip routing a direction that cannot win.
@@ -391,7 +457,7 @@ export function graphLayoutKernel(): GraphKernel {
     };
 
     const routes: Route[] = [];
-    const loopsOn: Record<string, number> = {};
+    const loopsOn: Record<string, number> = Object.create(null);
     for (const rec of laid) {
       const { e } = rec;
       // Route from the REPRESENTATIVE members, along dagre's crossing-free waypoints, and
@@ -411,7 +477,11 @@ export function graphLayoutKernel(): GraphKernel {
         const o = 10 * k;
         const ey = c > 1 ? Math.min(10, Math.max(0, (lr ? n.h / 2 + 2 : n.h / 2 - 4)) / (c - 1)) * k : 0;
         const ex = c > 1 ? Math.min(10, Math.max(0, n.w / 2 - 4) / (c - 1)) * k : 0;
-        const outX = n.x + n.w + 18 + o;
+        const lw = loopLabel[rec.a] ? loopLabel[rec.a].w : 0;
+        // Far enough out that a label clears the box: in lr the top run must hold the label
+        // between the box's center and the outer vertical; in tb the label sits on the outer
+        // vertical, so half its width must clear the box's side.
+        const outX = n.x + n.w + o + Math.max(18, lr ? n.w / -2 + lw + 8 : lw ? lw / 2 + 8 : 0);
         if (lr) {
           const endY = n.cy - 6 + ey, outY = n.y - 14 - o;
           pts = [{ x: n.x + n.w, y: endY }, { x: outX, y: endY }, { x: outX, y: outY }, { x: n.cx - ex, y: outY }, { x: n.cx - ex, y: n.y }];
@@ -532,7 +602,7 @@ export function graphLayoutKernel(): GraphKernel {
 
 
     function placeTitles(rs: Route[]): Record<string, Rect> {
-      const titles: Record<string, Rect> = {};
+      const titles: Record<string, Rect> = Object.create(null);
       const tsz = opts.groupTitleSizes || {};
       const inset = sp.titleInset != null ? sp.titleInset : 10;
       for (const gr of groups) {
@@ -754,6 +824,19 @@ export function graphLayoutKernel(): GraphKernel {
     // ends[id|side] = the routes (and which end) currently on that side of that box
     const port = new Map<Route, Ports>(); // route -> { start: {side, off}, end: {side, off} }
 
+    // Perpendicular segments ab and cd meet at an END of either (not through both
+    // interiors): a touch. Ends within half a unit count, as the drawing rounds to tenths.
+    const touches = (a: Point, b: Point, c: Point, d: Point) => {
+      const hz = Math.abs(a.y - b.y) < 0.05;
+      const [h0, h1, v0, v1] = hz ? [a, b, c, d] : [c, d, a, b];
+      const x = v0.x, y = h0.y;
+      const inH = x >= Math.min(h0.x, h1.x) - 0.5 && x <= Math.max(h0.x, h1.x) + 0.5;
+      const inV = y >= Math.min(v0.y, v1.y) - 0.5 && y <= Math.max(v0.y, v1.y) + 0.5;
+      if (!inH || !inV) return false;
+      const endH = Math.abs(x - h0.x) < 0.5 || Math.abs(x - h1.x) < 0.5;
+      const endV = Math.abs(y - v0.y) < 0.5 || Math.abs(y - v1.y) < 0.5;
+      return endH || endV;
+    };
     // Two runs within NEAR of each other, parallel, overlapping more than 10, are one line
     // to a reader. Runs that leave (or reach) the same box side are exempt until the ports
     // spread: they start at one provisional point by design.
@@ -765,13 +848,23 @@ export function graphLayoutKernel(): GraphKernel {
       const exempt = (j: number, k: number) => !!po && !(strict && ((j === 1 && (o.from === r.from ? po.start.lock : po.end.lock)) || (j === J && (o.to === r.to ? po.end.lock : po.start.lock)))) && (
         (j === 1 && ((o.from === r.from && po.start.side === sure(cur, 'side pair').sS && k === 1) || (o.to === r.from && po.end.side === sure(cur, 'side pair').sS && k === Kq))) ||
         (j === J && ((o.to === r.to && po.end.side === sure(cur, 'side pair').sT && k === Kq) || (o.from === r.to && po.start.side === sure(cur, 'side pair').sT && k === 1))));
+      const unrelated = r.from !== o.from && r.from !== o.to && r.to !== o.from && r.to !== o.to;
       for (let j = 1; j < pts.length; j++) for (let k = 1; k < q.length; k++) {
         const a = pts[j - 1], b = pts[j], c = q[k - 1], d = q[k];
         const h1 = Math.abs(a.y - b.y) < 0.05, h2 = Math.abs(c.y - d.y) < 0.05;
-        if (h1 !== h2 || Math.abs(h1 ? a.y - c.y : a.x - c.x) >= NEAR) continue;
+        // A TOUCH between lines that share no box: one line's corner or end lying on the
+        // other (a T, or two corners meeting) reads as one line feeding another. A proper
+        // crossing, through both runs' interiors, is a crossing and priced as one.
+        if (unrelated && h1 !== h2 && touches(a, b, c, d)) return true;
+        const gap = Math.abs(h1 ? a.y - c.y : a.x - c.x);
+        if (h1 !== h2 || gap >= NEAR) continue;
         const lo = Math.max(Math.min(h1 ? a.x : a.y, h1 ? b.x : b.y), Math.min(h1 ? c.x : c.y, h1 ? d.x : d.y));
         const hi = Math.min(Math.max(h1 ? a.x : a.y, h1 ? b.x : b.y), Math.max(h1 ? c.x : c.y, h1 ? d.x : d.y));
-        if (hi - lo <= 10) continue;
+        // Any run ON another line (not beside it) is a join to a reader, however short, when
+        // the two lines share no box: a 6-unit overlap between two unrelated lines read as a
+        // T-junction, one transition apparently feeding another (state chart v2's review).
+        const onTop = gap < 0.5 && hi - lo > 0.5 && unrelated;
+        if (hi - lo <= 10 && !onTop) continue;
         if (exempt(j, k)) continue;
         return true;
       }
@@ -781,11 +874,15 @@ export function graphLayoutKernel(): GraphKernel {
     let strict = false; // see sharesRun
     let wide = false; // the two-lane search's last resort: more lanes, every side pair
     const boxes = new WeakMap<Point[], BBox>(); // points array -> its bounding box
+    const bboxRaw = (pts: Point[]): BBox => {
+      const b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+      for (const q of pts) { b.x0 = Math.min(b.x0, q.x); b.x1 = Math.max(b.x1, q.x); b.y0 = Math.min(b.y0, q.y); b.y1 = Math.max(b.y1, q.y); }
+      return b;
+    };
     const bboxOf = (pts: Point[]) => {
       let b = boxes.get(pts);
       if (!b) {
-        b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
-        for (const q of pts) { b.x0 = Math.min(b.x0, q.x); b.x1 = Math.max(b.x1, q.x); b.y0 = Math.min(b.y0, q.y); b.y1 = Math.max(b.y1, q.y); }
+        b = bboxRaw(pts);
         boxes.set(pts, b);
       }
       return b;
@@ -814,6 +911,20 @@ export function graphLayoutKernel(): GraphKernel {
     // The part of a candidate's cost that needs no collision test: a lower bound on the
     // whole, so candidates can be sorted by it and the search stop early.
     let loads = null as Map<string, number> | null; // id|side -> ends of OTHER lines there, for the line being routed
+    // The line's own ends read the same eight counts for every candidate: looked up once per
+    // (loads, line) rather than as two string keys per candidate. `loads` is rebuilt, never
+    // edited, so its identity is the cache key.
+    let lkMap = null as Map<string, number> | null, lkRoute = null as Route | null;
+    const loadS = { R: 0, B: 0, L: 0, T: 0 } as Record<Side, number>, loadT = { R: 0, B: 0, L: 0, T: 0 } as Record<Side, number>;
+    const loadPair = (r: Route) => {
+      if (lkMap === loads && lkRoute === r) return;
+      lkMap = loads; lkRoute = r;
+      const load = sure(loads, 'side loads');
+      for (const sd of ['R', 'B', 'L', 'T'] as Side[]) {
+        loadS[sd] = load.get(`${r.from}|${sd}`) || 0;
+        loadT[sd] = load.get(`${r.to}|${sd}`) || 0;
+      }
+    };
     const loadsFor = (r: Route) => {
       const m = new Map<string, number>();
       for (const o of loops) {
@@ -837,8 +948,8 @@ export function graphLayoutKernel(): GraphKernel {
       let c = 0;
       const face = facing(S, T);
       if (face && sT !== face) c += W.arrive;
-      const load = sure(loads, 'side loads');
-      const nS = load.get(`${r.from}|${sS}`) || 0, nT = load.get(`${r.to}|${sT}`) || 0;
+      loadPair(r);
+      const nS = loadS[sS], nT = loadT[sT];
       // A side holds one end per 10 units of its length (less 8 clear at each corner); a
       // full side is not a candidate at all, so a crowd moves to another side.
       if (nS >= cap(S, sS) || nT >= cap(T, sT)) return Infinity;
@@ -865,6 +976,15 @@ export function graphLayoutKernel(): GraphKernel {
     };
     const haloed: Record<string, Rect> = Object.fromEntries(Object.entries(nodes).map(([id, b]) => [id, grown(b, HALO)]));
     const gHalo: Record<string, Rect> = Object.fromEntries(Object.entries(gboxes).map(([id, b]) => [id, grown(b, 2)]));
+    const nodeList: Box[] = Object.values(nodes);
+    // [id, box, halo] in the boxes' own order: a null-prototype map is slow to walk with
+    // for-in, and the hard-fault test walks it for every candidate.
+    const nodeEntries: [string, Box, Rect][] = Object.keys(nodes).map((id) => [id, nodes[id], haloed[id]]);
+    const everyLine: Route[] = [...work, ...loops];
+    // Can a path with this bounding box pass through the rect's interior? pathHits tests a
+    // run against the rect inset by 1 on every side, so a box that misses that inset rect
+    // cannot hit it: false here means pathHits is false, never the reverse.
+    const bboxMeets = (b: BBox, box: Rect) => b.x1 > box.x + 1 && b.x0 < box.x + box.w - 1 && b.y1 > box.y + 1 && b.y0 < box.y + box.h - 1;
     // A work budget, counted in candidate evaluations so the result is the same on every
     // machine: every corpus chart and the demo deck stay far under it (17,370 at most);
     // a dense chart past it keeps its first sweep and a spread that holds sides, and skips
@@ -887,7 +1007,7 @@ export function graphLayoutKernel(): GraphKernel {
     const seatCost = (r: Route, box: Rect) => {
       const near = { x: box.x - 4, y: box.y - 3, w: box.w + 8, h: box.h + 6 };
       let c = 0;
-      for (const id in nodes) if (overlaps(near, nodes[id])) c += overlaps(box, nodes[id]) ? W.label : 30;
+      for (const nb of nodeList) if (overlaps(near, nb)) c += overlaps(box, nb) ? W.label : 30;
       for (const id in gboxes) {
         const g = gboxes[id];
         if (overlaps(box, g) && !(box.x >= g.x && box.y >= g.y && box.x + box.w <= g.x + g.w && box.y + box.h <= g.y + g.h)) c += W.foreign;
@@ -907,8 +1027,11 @@ export function graphLayoutKernel(): GraphKernel {
       // One passing within 8 crowds it: a small cost, so a roomier seat wins.
       const clear = { x: box.x - 3, y: box.y - 3, w: box.w + 6, h: box.h + 6 };
       const roomy = { x: box.x - 9, y: box.y - 9, w: box.w + 18, h: box.h + 18 };
-      for (const o of [...work, ...loops]) {
+      for (const o of everyLine) {
         if (o === r || (!port.has(o) && o.from !== o.to)) continue;
+        // A path cannot pass through a rect its bounding box misses (pathHits insets by 1):
+        // the test that decides nothing is skipped, which is most of them.
+        if (!bboxMeets(bboxOf(o.points), roomy)) continue;
         if (pathHits(o.points, clear)) c += W.thru + 100;
         else if (pathHits(o.points, roomy)) c += 30;
       }
@@ -961,22 +1084,27 @@ export function graphLayoutKernel(): GraphKernel {
         const a = pts[j - 1], b = pts[j];
         if (Math.abs(a.x - b.x) > 0.05 && Math.abs(a.y - b.y) > 0.05) return Infinity;
       }
-      for (const id in nodes) {
+      // Every box's halo contains the box, so a halo the path's bounding box misses rules
+      // out both tests for that box: skip it (the result is the same, far fewer tests).
+      // (A candidate is evaluated once, so its box is computed here, not cached.)
+      const pb = bboxRaw(pts);
+      for (const [id, nb, halo] of nodeEntries) {
+        if (!bboxMeets(pb, halo)) continue;
         if (id === r.from || id === r.to) {
-          if (pathHits(pts, nodes[id])) return Infinity;
+          if (pathHits(pts, nb)) return Infinity;
           // Past its first and last runs, a line keeps its own boxes' halo too: nothing
           // may ride or circle back along its own border.
-          if (pts.length > 3 && pathHits(pts.slice(1, -1), haloed[id])) return Infinity;
+          if (pts.length > 3 && pathHits(pts.slice(1, -1), halo)) return Infinity;
           continue;
         }
-        if (pathHits(pts, haloed[id])) return Infinity;
+        if (pathHits(pts, halo)) return Infinity;
       }
       if (gboxes[r.from] && pathHits(pts, S)) return Infinity;
       if (gboxes[r.to] && pathHits(pts, T)) return Infinity;
       cur = { sS, sT };
       let c = base != null ? base : cheap(pts, r, sS, sT, offS, offT);
       // Lines whose boxes stay 12 apart cannot cross, share or crowd this one: skip them.
-      const bb = bboxOf(pts);
+      const bb = pb;
       for (const o of work) {
         if (o === r || !port.has(o)) continue;
         const ob = bboxOf(o.points);
@@ -1704,7 +1832,7 @@ export function graphLayoutKernel(): GraphKernel {
       if (last && Math.abs(last.x - p.x) < 0.05 && Math.abs(last.y - p.y) < 0.05) continue;
       out.push(p);
       while (out.length >= 3) {
-        const [a, b, c] = out.slice(-3);
+        const n = out.length, a = out[n - 3], b = out[n - 2], c = out[n - 1];
         const col = (Math.abs(a.x - b.x) < 0.05 && Math.abs(b.x - c.x) < 0.05) || (Math.abs(a.y - b.y) < 0.05 && Math.abs(b.y - c.y) < 0.05);
         if (!col) break;
         out.splice(out.length - 2, 1);
@@ -1728,8 +1856,9 @@ export function graphLayoutKernel(): GraphKernel {
         const c = q[j - 1], d = q[j];
         const hc = Math.abs(c.y - d.y) < 0.05;
         if (ha === hc) continue;
-        const [h0, h1, hy] = ha ? [Math.min(a.x, b.x), Math.max(a.x, b.x), a.y] : [Math.min(c.x, d.x), Math.max(c.x, d.x), c.y];
-        const [v0, v1, vx] = ha ? [Math.min(c.y, d.y), Math.max(c.y, d.y), c.x] : [Math.min(a.y, b.y), Math.max(a.y, b.y), a.x];
+        // Scalars, not destructured arrays: this runs for every pair of runs of every candidate.
+        const h0 = ha ? Math.min(a.x, b.x) : Math.min(c.x, d.x), h1 = ha ? Math.max(a.x, b.x) : Math.max(c.x, d.x), hy = ha ? a.y : c.y;
+        const v0 = ha ? Math.min(c.y, d.y) : Math.min(a.y, b.y), v1 = ha ? Math.max(c.y, d.y) : Math.max(a.y, b.y), vx = ha ? c.x : a.x;
         if (vx > h0 + 0.5 && vx < h1 - 0.5 && hy > v0 + 0.5 && hy < v1 - 0.5) n++;
       }
     }
@@ -1823,19 +1952,36 @@ export function graphLayoutKernel(): GraphKernel {
     }
     // Two lines closer than 6 units for more than a few units read as one line.
     let sharedRuns = 0;
+    // The solver's `touches`, restated here because measureQuality is its own scope.
+    const touchAt = (a: Point, b: Point, c: Point, d: Point) => {
+      const hz = Math.abs(a.y - b.y) < 0.05;
+      const [h0, h1, v0, v1] = hz ? [a, b, c, d] : [c, d, a, b];
+      const x = v0.x, y = h0.y;
+      if (x < Math.min(h0.x, h1.x) - 0.5 || x > Math.max(h0.x, h1.x) + 0.5 || y < Math.min(v0.y, v1.y) - 0.5 || y > Math.max(v0.y, v1.y) + 0.5) return false;
+      return Math.abs(x - h0.x) < 0.5 || Math.abs(x - h1.x) < 0.5 || Math.abs(y - v0.y) < 0.5 || Math.abs(y - v1.y) < 0.5;
+    };
     const segsOf = (r: Route): [Point, Point][] => r.points.slice(1).map((b, j) => [r.points[j], b]);
     for (let i = 0; i < routes.length; i++) for (let k = i + 1; k < routes.length; k++) {
       let shared = false;
+      const R = routes[i], K = routes[k];
+      const related = R.from === K.from || R.from === K.to || R.to === K.from || R.to === K.to;
       for (const [a, b] of segsOf(routes[i])) for (const [c, d] of segsOf(routes[k])) {
         if (shared) break;
         const h1 = Math.abs(a.y - b.y) < 0.05, h2 = Math.abs(c.y - d.y) < 0.05;
-        if (h1 !== h2) continue;
+        if (h1 !== h2) {
+          // A touch between unrelated lines (a corner or an end on the other line) is a join.
+          if (!related && touchAt(a, b, c, d)) shared = true;
+          continue;
+        }
         const off = h1 ? Math.abs(a.y - c.y) : Math.abs(a.x - c.x);
         if (off >= 6) continue;
         const [l1, r1] = h1 ? [Math.min(a.x, b.x), Math.max(a.x, b.x)] : [Math.min(a.y, b.y), Math.max(a.y, b.y)];
         const [l2, r2] = h1 ? [Math.min(c.x, d.x), Math.max(c.x, d.x)] : [Math.min(c.y, d.y), Math.max(c.y, d.y)];
-        // Lines out of one port share their first stub by design; only a longer run counts.
-        if (Math.min(r1, r2) - Math.max(l1, l2) > 10) shared = true;
+        // Lines out of one port share their first stub by design; only a longer run counts,
+        // except a run lying ON a line that shares no box with it, which is a join however
+        // short (the solver's `sharesRun` holds the same rule).
+        const over = Math.min(r1, r2) - Math.max(l1, l2);
+        if (over > 10 || (off < 0.5 && over > 0.5 && !related)) shared = true;
       }
       if (shared) sharedRuns++;
     }
@@ -1895,7 +2041,6 @@ export function graphLayoutKernel(): GraphKernel {
   }
   function layoutFresh(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | null {
     const dirs: ('lr' | 'tb')[] = opts.dir === 'lr' || opts.dir === 'tb' ? [opts.dir] : ['lr', 'tb'];
-    let best: { geo: Geometry; reach: number } | null = null;
     const scaleOf = (w: number, h: number) => {
       const st = opts.stage || { w, h };
       return Math.min(opts.maxScale != null ? opts.maxScale : 1.2, st.w / Math.max(1, w), st.h / Math.max(1, h));
@@ -1913,47 +2058,83 @@ export function graphLayoutKernel(): GraphKernel {
     // No dagre: a chart that wraps still lays out on the grid, which needs none (a chain
     // ships without the dagre script; a machine that branches falls back to the grid).
     if (opts.wrap && (!dagre || typeof dagre.layout !== 'function')) return wrapped(null);
-    for (const d of dirs) {
-      // A later direction wins only by beating the best so far by 3%, and its scale is at
-      // most what its boxes alone allow (grown or plain; lines only add size). When that
-      // bound cannot win, the direction is never routed: the answer is the same, cheaper.
-      if (best) {
-        // (A scale is rounded to 3 places, so the cap it can reach is the cap rounded.)
-        if (best.reach * 1.03 >= Math.round((opts.maxScale != null ? opts.maxScale : 1.2) * 1000) / 1000) continue;
+    // DAGRE'S LAYOUT, ON DEMAND. A chart that wraps also has the reading-order grid, and the
+    // grid usually wins by a margin dagre cannot close; routing dagre's layout first anyway
+    // cost a third of every such call (~100 ms of ~300 on an 11-state machine). So dagre's
+    // layout is routed only when its CEILING says it could still matter (`wrapped` asks),
+    // and that ceiling costs one bounds pass per direction. Same answer: `dagreCeil` is at
+    // least any scale `dagreBest` can return, since a routed layout's scale is at most what
+    // its boxes alone allow, grown or plain (lines only add size).
+    const FAIL = { fail: true } as const;
+    let dBest: { geo: Geometry; reach: number } | null | typeof FAIL | undefined;
+    const dagreBest = (): { geo: Geometry; reach: number } | null | typeof FAIL => {
+      if (dBest !== undefined) return dBest;
+      dBest = runDirs();
+      return dBest;
+    };
+    const dagreCeil = (): number | typeof FAIL => {
+      let ub = 0;
+      for (const d of dirs) {
         const gb = layoutOnce(model, sizes, { ...opts, dir: d, boundsOnly: true }, dagre);
-        if (!gb) return null;
-        let bound = scaleOf(gb.width, gb.height);
+        if (!gb) return FAIL;
+        let b = scaleOf(gb.width, gb.height);
         if (gb.grew) {
           const pb = layoutOnce(model, sizes, { ...opts, dir: d, grow: false, boundsOnly: true }, dagre);
-          const b = sure(pb, 'plain bounds', d);
-          bound = Math.max(bound, scaleOf(b.width, b.height));
+          const p = sure(pb, 'plain bounds', d);
+          b = Math.max(b, scaleOf(p.width, p.height));
         }
-        if (Math.round(bound * 1000) / 1000 <= best.reach * 1.03) continue;
+        ub = Math.max(ub, b);
       }
-      // Growing a fanning shape moves dagre's placement too, which can cost a crossing
-      // elsewhere; so each direction is laid out both ways. The grown one is kept only when
-      // it is no worse on hard faults, soft faults and crossings, and either buys something
-      // (fewer of any of those, or fewer crowded ends or grazes) or costs no type at all. A
-      // growth that buys nothing and shrinks the type must not tip the direction choice
-      // below: its 3% and that 3% used to add up.
-      const first = layoutOnce(model, sizes, { ...opts, dir: d }, dagre) as Geometry | null;
-      if (!first) return null;
-      const grown = scaled(first);
-      // Nothing grew: the second run would repeat the first.
-      const plain = grown.grew ? scaled(layoutOnce(model, sizes, { ...opts, dir: d, grow: false }, dagre) as Geometry) : grown;
-      const rg = rank(grown), rp = rank(plain);
-      const noWorse = rg[0] <= rp[0] && rg[1] <= rp[1] && rg[2] <= rp[2];
-      const buys = cmp(rg, rp) < 0;
-      const geo = grown === plain || (noWorse && (buys ? grown.scale >= plain.scale * 0.97 : grown.scale >= plain.scale)) ? grown : plain;
-      // Ties go to the first direction in preference order: a hair of difference must not
-      // flip a chart between edits. Each direction is judged by the best type it can reach,
-      // grown or plain, so a growth kept for its ports cannot tip the direction by the few
-      // percent it cost.
-      const reach = Math.max(grown.scale, plain.scale);
-      if (!best || reach > best.reach * 1.03) best = { geo, reach };
+      // A routed scale is rounded to 3 places, which can land a hair above its bound.
+      return ub + 0.001;
+    };
+    if (opts.wrap) return wrapped({ best: dagreBest, ceil: dagreCeil, FAIL });
+    const only = runDirs();
+    return only === FAIL || !only ? null : (only as { geo: Geometry; reach: number }).geo;
+
+    function runDirs(): { geo: Geometry; reach: number } | null | typeof FAIL {
+      let best: { geo: Geometry; reach: number } | null = null;
+      for (const d of dirs) {
+        // A later direction wins only by beating the best so far by 3%, and its scale is at
+        // most what its boxes alone allow (grown or plain; lines only add size). When that
+        // bound cannot win, the direction is never routed: the answer is the same, cheaper.
+        if (best) {
+          // (A scale is rounded to 3 places, so the cap it can reach is the cap rounded.)
+          if (best.reach * 1.03 >= Math.round((opts.maxScale != null ? opts.maxScale : 1.2) * 1000) / 1000) continue;
+          const gb = layoutOnce(model, sizes, { ...opts, dir: d, boundsOnly: true }, dagre);
+          if (!gb) return FAIL;
+          let bound = scaleOf(gb.width, gb.height);
+          if (gb.grew) {
+            const pb = layoutOnce(model, sizes, { ...opts, dir: d, grow: false, boundsOnly: true }, dagre);
+            const p = sure(pb, 'plain bounds', d);
+            bound = Math.max(bound, scaleOf(p.width, p.height));
+          }
+          if (Math.round(bound * 1000) / 1000 <= best.reach * 1.03) continue;
+        }
+        // Growing a fanning shape moves dagre's placement too, which can cost a crossing
+        // elsewhere; so each direction is laid out both ways. The grown one is kept only when
+        // it is no worse on hard faults, soft faults and crossings, and either buys something
+        // (fewer of any of those, or fewer crowded ends or grazes) or costs no type at all. A
+        // growth that buys nothing and shrinks the type must not tip the direction choice
+        // below: its 3% and that 3% used to add up.
+        const first = layoutOnce(model, sizes, { ...opts, dir: d }, dagre) as Geometry | null;
+        if (!first) return FAIL;
+        const grown = scaled(first);
+        // Nothing grew: the second run would repeat the first.
+        const plain = grown.grew ? scaled(layoutOnce(model, sizes, { ...opts, dir: d, grow: false }, dagre) as Geometry) : grown;
+        const rg = rank(grown), rp = rank(plain);
+        const noWorse = rg[0] <= rp[0] && rg[1] <= rp[1] && rg[2] <= rp[2];
+        const buys = cmp(rg, rp) < 0;
+        const geo = grown === plain || (noWorse && (buys ? grown.scale >= plain.scale * 0.97 : grown.scale >= plain.scale)) ? grown : plain;
+        // Ties go to the first direction in preference order: a hair of difference must not
+        // flip a chart between edits. Each direction is judged by the best type it can reach,
+        // grown or plain, so a growth kept for its ports cannot tip the direction by the few
+        // percent it cost.
+        const reach = Math.max(grown.scale, plain.scale);
+        if (!best || reach > best.reach * 1.03) best = { geo, reach };
+      }
+      return best;
     }
-    if (opts.wrap) return wrapped(best);
-    return sure(best, 'layout').geo;
 
     /**
      * THE READING-ORDER GRID (`opts.wrap`, the state chart's rule, kept from v1). A chain
@@ -1968,30 +2149,70 @@ export function graphLayoutKernel(): GraphKernel {
      * wraps only by that clear margin. Grid candidates are bounded by their boxes first,
      * and only those that could still be picked are routed.
      */
-    function wrapped(dagreBest: { geo: Geometry; reach: number } | null): Geometry | null {
+    function wrapped(lazy: { best: () => { geo: Geometry; reach: number } | null | { fail: true }; ceil: () => number | { fail: true }; FAIL: { fail: true } } | null): Geometry | null {
+      // dagre's layout, routed only when asked (and never without dagre). `undefined` means
+      // the layout failed, which fails the whole call as it always has.
+      let failed = false;
+      const dagreNow = (): { geo: Geometry; reach: number } | null => {
+        if (!lazy) return null;
+        const r = lazy.best();
+        if (r === lazy.FAIL) { failed = true; return null; }
+        return r as { geo: Geometry; reach: number } | null;
+      };
       const shapes = model.shapes || [];
-      if ((model.groups || []).length || shapes.length < 2) return dagreBest ? dagreBest.geo : null;
+      if ((model.groups || []).length || shapes.length < 2) { const d = dagreNow(); return failed ? null : d ? d.geo : null; }
       const WRAP_GAIN = 1.12;
-      const order = new Map(shapes.map((x, i) => [x.id, i]));
-      const at = (id: string) => order.get(id) ?? -1;
-      const rankOf = new Array(shapes.length).fill(0);
-      const fwd = (model.edges || []).filter((e) => !e.style?.loose && order.has(e.from) && order.has(e.to) && at(e.to) > at(e.from))
-        .sort((a, b) => at(a.to) - at(b.to));
-      for (const e of fwd) rankOf[at(e.to)] = Math.max(rankOf[at(e.to)], rankOf[at(e.from)] + 1);
-      const chain = new Set(rankOf).size === shapes.length;
+      const chain = isChain(model);
       const st = opts.stage;
       const pref: 'lr' | 'tb' = dirs.length === 1 ? dirs[0] : st && st.h > st.w ? 'tb' : 'lr';
-      const cands: { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null }[] = [];
-      if (dagreBest && !chain) cands.push({ lines: 1, dir: dagreBest.geo.dir, bound: dagreBest.geo.scale ?? 0, geo: dagreBest.geo });
+      type Cand = { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null; dagre?: boolean; ceil?: number };
+      const cands: Cand[] = [];
+      // A machine that branches keeps dagre's layout as its one-line candidate. Its bound is
+      // its routed scale; until routed, only its ceiling is known (see dagreCeil).
+      let dCand: (Cand & { ceil: number }) | null = null;
+      if (lazy && !chain) {
+        const ceil = lazy.ceil();
+        if (ceil === lazy.FAIL) return null;
+        dCand = { lines: 1, dir: pref, bound: ceil as number, geo: null, dagre: true, ceil: ceil as number };
+        cands.push(dCand);
+      }
+      const resolveD = (): boolean => {
+        if (!dCand || dCand.geo) return true;
+        const d = dagreNow();
+        if (failed) return false;
+        // Unreachable with a working dagre (runDirs returns FAIL or a layout); kept so a
+        // dagre that answers nothing drops out rather than competing unrouted.
+        // The early-proof loop below checks `dCand` after calling this, because the splice
+        // shifts its indices: it stops and hands the pick to the full procedure.
+        if (!d) { cands.splice(cands.indexOf(dCand), 1); dCand = null; return true; }
+        dCand.geo = d.geo; dCand.dir = d.geo.dir; dCand.bound = d.geo.scale ?? 0;
+        return true;
+      };
       for (const d of dirs) {
         for (let L = chain ? 1 : 2; L <= Math.ceil(shapes.length / 2); L++) {
           const b = layoutOnce(model, sizes, { ...opts, dir: d, grid: L, grow: false, boundsOnly: true }, dagre);
           if (b) cands.push({ lines: L, dir: d, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000, geo: null });
         }
       }
-      if (!cands.length) return dagreBest ? dagreBest.geo : null;
+      // A LEGIBLE FAN-OUT STAYS A FAN-OUT. Wrapping a graph that branches trades its shape
+      // (a decision's fan, a hub's star) for type size, which is only worth it when dagre's
+      // layout has shrunk the type: measured on the flowchart demo, the grid "won" two fans
+      // already at 0.94 and 1.05 scale and read worse, while the charts it rescues sit at
+      // 0.35-0.64. So a branching graph whose dagre layout is clean and at least WRAP_BELOW
+      // keeps it, and the grid never competes. (A chain has no fan to lose, and wraps as
+      // before.) A ceiling below WRAP_BELOW settles it without routing dagre's layout.
+      const WRAP_BELOW = 0.8;
+      if (dCand && dCand.ceil >= WRAP_BELOW) {
+        if (!resolveD()) return null;
+        if (dCand && dCand.geo && (dCand.geo.scale ?? 0) >= WRAP_BELOW && hard(dCand.geo) === 0) return dCand.geo;
+      }
+      const gridMax = cands.reduce((m, c) => (c.dagre ? m : Math.max(m, c.bound)), -Infinity);
+      // dagre's layout is the top candidate when its scale is at least every grid bound (it
+      // sorts first, and ties go to the first): if its ceiling says it could be, route it.
+      if (dCand && dCand.ceil >= gridMax && !resolveD()) return null;
+      if (!cands.length) { const d = dagreNow(); return failed ? null : d ? d.geo : null; }
       cands.sort((a, b) => (a.lines - b.lines) || ((a.dir === pref ? 0 : 1) - (b.dir === pref ? 0 : 1)));
-      const route = (c: (typeof cands)[number]) => {
+      const route = (c: Cand) => {
         if (!c.geo) {
           const g = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false }, dagre) as Geometry | null;
           c.geo = g ? scaled(g) : null;
@@ -2000,15 +2221,85 @@ export function graphLayoutKernel(): GraphKernel {
         return c.geo ? c.geo.scale ?? 0 : 0;
       };
       // The candidate that can reach furthest sets a floor: one whose bound cannot come
-      // within WRAP_GAIN of it is never picked, so it is never routed.
+      // within WRAP_GAIN of it is never picked, so it is never routed. (An unrouted dagre
+      // candidate never reaches here as top: its ceiling was below some grid bound.)
       const top = cands.reduce((m, c) => (c.bound > m.bound ? c : m));
+      // THE PICK, PROVEN EARLY. Walk the candidates in preference order and route only those
+      // surely live (their bound within WRAP_GAIN of the top's, which the floor cannot
+      // exceed). The first one with no hard fault whose scale is within WRAP_GAIN of every
+      // candidate's ceiling, and that no earlier candidate can beat (a hard fault, or a
+      // ceiling that cannot reach its scale), is the one the full procedure below would
+      // pick: it is live, the least hard fault is 0, and nothing clean can outscore it by
+      // WRAP_GAIN. Most calls end here without routing the top only to learn the floor. When
+      // the proof does not close, the full procedure runs on the same routings.
+      const ceilOf = (c: Cand) => (c.geo ? c.geo.scale ?? 0 : c.dagre ? (c.ceil ?? c.bound) : c.bound);
+      for (let i = 0; i < cands.length; i++) {
+        const c = cands[i];
+        if (c.dagre && !c.geo) continue;
+        if (!(c === top || c.bound * WRAP_GAIN >= top.bound)) continue;
+        route(c);
+        if (!c.geo || hard(c.geo) !== 0) continue;
+        const sc = c.geo.scale ?? 0;
+        if (cands.some((o) => o !== c && ceilOf(o) > sc * WRAP_GAIN)) break;
+        let beaten = false;
+        for (let j = 0; j < i && !beaten; j++) {
+          const e = cands[j];
+          if (e.dagre && !e.geo && (e.ceil ?? e.bound) * WRAP_GAIN >= sc) { if (!resolveD()) return null; if (!dCand) { beaten = true; break; } }
+          if (!e.geo) { if (e.bound * WRAP_GAIN >= sc) beaten = true; continue; }
+          if (hard(e.geo) === 0 && (e.geo.scale ?? 0) * WRAP_GAIN >= sc) beaten = true;
+        }
+        if (beaten) break;
+        return c.geo;
+      }
       const floor = route(top);
-      const live = cands.filter((c) => c === top || c.bound * WRAP_GAIN >= floor);
+      // dagre's layout is live when its scale comes within WRAP_GAIN of the floor; its
+      // ceiling decides whether that is possible before it costs a routing.
+      if (dCand && !dCand.geo && dCand.ceil * WRAP_GAIN >= floor && !resolveD()) return null;
+      let live = cands.filter((c) => c === top || (!(c.dagre && !c.geo) && c.bound * WRAP_GAIN >= floor));
+      for (const c of live) route(c);
+      // HARD FAULTS FIRST, as the direction choice ranks them: a larger type never buys a
+      // line through a box. Only the candidates with the fewest hard faults compete on type,
+      // and when every one the floor kept has a fault, the rest are routed too (a dense
+      // machine's grid can run lines through boxes where dagre's layout runs none). Then
+      // dagre's layout, routed now if it was not, joins them: routing every other grid
+      // instead cost 47 s on a 36-state stress machine, for a 13-line grid with 66 crossings.
+      const hardOf = (c: Cand) => (c.geo ? hard(c.geo) : Infinity);
+      if (!live.some((c) => hardOf(c) === 0)) {
+        // (A chain never lists dagre's layout as a candidate; it joins here too, when dagre is
+        // loaded: a chain dense with skips can defeat every grid.)
+        let d: Cand | null = null;
+        if (dCand) { if (!resolveD()) return null; d = dCand; }
+        else { const db = dagreNow(); if (failed) return null; if (db) d = { lines: 1, dir: db.geo.dir, bound: db.geo.scale ?? 0, geo: db.geo }; }
+        if (d && !live.includes(d)) live = [...live, d];
+      }
+      const least = Math.min(...live.map(hardOf));
+      const clean = live.filter((c) => c.geo && hardOf(c) === least);
       let bestScore = 0;
-      for (const c of live) bestScore = Math.max(bestScore, route(c));
-      for (const c of live) if (c.geo && (c.geo.scale ?? 0) * WRAP_GAIN >= bestScore) return c.geo;
-      return top.geo || (dagreBest ? dagreBest.geo : null);
+      for (const c of clean) bestScore = Math.max(bestScore, c.geo?.scale ?? 0);
+      for (const c of clean) if ((c.geo?.scale ?? 0) * WRAP_GAIN >= bestScore) return c.geo;
+      if (top.geo) return top.geo;
+      const d = dagreNow();
+      return failed ? null : d ? d.geo : null;
     }
+  }
+
+  /**
+   * IS THIS GRAPH A CHAIN? True when it has no groups, at least two shapes, and no two
+   * shapes share a rank, ranking only its forward lines in authored order (so a back edge
+   * or a skip keeps a chain a chain). A chain lays out on the reading-order grid and never
+   * needs dagre, which is why a host can ask this before deciding to load dagre at all
+   * (the state chart's export gate asks it in Node, on the same kernel).
+   */
+  function isChain(model: GraphModel): boolean {
+    const shapes = model.shapes || [];
+    if ((model.groups || []).length || shapes.length < 2) return false;
+    const order = new Map(shapes.map((x, i) => [x.id, i]));
+    const at = (id: string) => order.get(id) ?? -1;
+    const rankOf = new Array(shapes.length).fill(0);
+    const fwd = (model.edges || []).filter((e) => !e.style?.loose && order.has(e.from) && order.has(e.to) && at(e.to) > at(e.from))
+      .sort((a, b) => at(a.to) - at(b.to));
+    for (const e of fwd) rankOf[at(e.to)] = Math.max(rankOf[at(e.to)], rankOf[at(e.from)] + 1);
+    return new Set(rankOf).size === shapes.length;
   }
 
   /**
@@ -2021,7 +2312,7 @@ export function graphLayoutKernel(): GraphKernel {
     return layoutOnce(model, sizes, { ...opts, positions, grow: false }, null) as Geometry | null;
   }
 
-  return { layout, layoutOnce, route, simplify, stats };
+  return { layout, layoutOnce, route, isChain, simplify, stats };
 }
 
 

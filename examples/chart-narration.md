@@ -85,12 +85,12 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 
 ## The approval flow, and where it starts and ends.
 
-1. Draft
-   - `{submit, to=2}`
-2. In Review
-   - `{approve, to=3}`
-   - `{revise, to=self}`
-3. Published
+- Draft
+  - -submit-> In Review
+- In Review
+  - -approve-> Published
+  - -revise-> In Review
+- Published
 
 ---
 

@@ -51,7 +51,7 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 		// also runs on EVERY machine, where the inference sentence spoke only when the
 		// author had left the roles untagged — the rarer case, and not one any shipped
 		// sample hits.
-		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `{submit, to=2}`', '2. Done'].join('\n');
+		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> Done', '- Done'].join('\n');
 		const out = narrateStateChart(md);
 		expect(out).toContain('A two-state machine from Draft to Done');
 		expect(out).not.toContain('This flow starts at');

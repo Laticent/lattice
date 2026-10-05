@@ -13,7 +13,7 @@ header: "Lattice · State chart"
 
 # Native state machines in plain markdown.
 
-Numbered list, inline-code transitions, palette-blind SVG. No Mermaid, no charting library, no layout engine.
+A list of states, arrows to a state's name, palette-blind SVG. The flowchart's grammar, on the same graph library.
 
 ---
 
@@ -21,7 +21,7 @@ Numbered list, inline-code transitions, palette-blind SVG. No Mermaid, no charti
 
 ## What this deck shows.
 
-A finite-state machine authored as an ordered list. Each top-level item is a state; the index becomes a stable ref. Nested bullets carry the outgoing transitions, each a single inline-code record like `{submit, to=2}` or `{revise, to=self}`. Whitespace inside the inline code is insignificant. The browser measures the laid-out nodes and draws the SVG edges, so it sizes to any content. Two orthogonal modifier classes: direction — `lr` (left-to-right, Mermaid `direction LR`), `tb` (top-to-bottom), or neither, which lets the chart pick whichever direction and row count sets the type largest — and presentation — `inline` (transitions as chips, no SVG). They compose. `dark` composes on top.
+A finite-state machine, authored as a list. Each item is a state, named by its text; its badge shows its place in the list. A sub-item that starts with an arrow is a transition to a state named by its text: `-submit-> Submitted`, or the state's own name for a self-loop. A sub-list of states makes a composite state, and a `>` blockquote under a state is hidden detail. The browser measures the states and Trama lays the machine out: a chain wraps into rows, a machine that branches is ranked, and every line is an elbow that never crosses a state. `lr` and `tb` pin the direction, `inline` renders rows of chips, `curved` rounds the corners.
 
 ---
 
@@ -34,36 +34,22 @@ A finite-state machine authored as an ordered list. Each top-level item is a sta
 
 How a draft moves from author to archive.
 
-1. Draft `start`
-   - `{submit, to=2}`
-   - `{discard, to=6}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-4. Approved `done`
-   - `{publish, to=5}`
-5. Published `live`
-   - `{archive, to=6}`
-6. Archived `end`
+- Draft `start`
+  - -submit-> Submitted
+  - -discard-> Archived
+- Submitted `on-track`
+  - -review-> In Review
+- In Review
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+- Approved `done`
+  - -publish-> Published
+- Published `live`
+  - -archive-> Archived
+- Archived `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
-
----
-
-<!-- _class: state-chart -->
-<!-- _footer: "Minimal — three states, linear flow" -->
-
-## Job runner.
-
-1. Idle `start`
-   - `{start, to=2}`
-2. Running
-   - `{done, to=3}`
-   - `{fail, to=1}`
-3. Done `end`
 
 ---
 
@@ -72,13 +58,52 @@ How a draft moves from author to archive.
 
 ## Connection retry.
 
-1. Connecting `start`
-   - `{retry, to=self}`
-   - `{ok, to=2}`
-   - `{fail, to=3}`
-2. Connected `live`
-   - `{disconnect, to=1}`
-3. Failed `end`
+- Connecting `start`
+  - -retry-> Connecting
+  - -ok-> Connected
+  - -fail-> Failed
+- Connected `live`
+  - -disconnect-> Connecting
+- Failed `end`
+
+---
+
+<!-- _class: state-chart -->
+<!-- _footer: "Composite state — a sub-list of states is a group" -->
+
+## An order ships in stages.
+
+- Placed `start`
+  - -pay-> Fulfillment
+- Fulfillment
+  - Picking
+    - -packed-> Shipping
+  - Shipping `live`
+    - -arrive-> Delivered
+  - -cancel-> Refunded
+- Delivered `done` `end`
+- Refunded `end`
+
+*A transition from the composite leaves every state inside it.*
+
+---
+
+<!-- _class: state-chart lr -->
+<!-- _footer: "Hidden detail — a blockquote shows on hover and in the notes" -->
+
+## Every incident ends in a review.
+
+- Open `start`
+  - -triage-> Mitigating
+- Mitigating `at-risk`
+  - -resolve-> Resolved
+  > Paging stays on until the error rate is back under target.
+- Resolved
+  - -review-> Closed
+  > The postmortem is written within five working days.
+- Closed `end`
+
+*Hover a state in Present to read its detail.*
 
 ---
 
@@ -87,20 +112,20 @@ How a draft moves from author to archive.
 
 ## Inline rendering.
 
-1. Draft `start`
-   - `{submit, to=2}`
-   - `{discard, to=6}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-4. Approved `done`
-   - `{publish, to=5}`
-5. Published `live`
-   - `{archive, to=6}`
-6. Archived `end`
+- Draft `start`
+  - -submit-> Submitted
+  - -discard-> Archived
+- Submitted `on-track`
+  - -review-> In Review
+- In Review
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+- Approved `done`
+  - -publish-> Published
+- Published `live`
+  - -archive-> Archived
+- Archived `end`
 
 ---
 
@@ -109,14 +134,14 @@ How a draft moves from author to archive.
 
 ## Build pipeline.
 
-1. Source `start`
-   - `{compile, to=2}`
-2. Compiled
-   - `{test, to=3}`
-3. Tested
-   - `{deploy, to=4}`
-   - `{fail, to=1}`
-4. Deployed `end`
+- Source `start`
+  - -compile-> Compiled
+- Compiled
+  - -test-> Tested
+- Tested
+  - -deploy-> Deployed
+  - -fail-> Source
+- Deployed `end`
 
 ---
 
@@ -124,7 +149,7 @@ How a draft moves from author to archive.
 
 ## Why a native state chart.
 
-Mermaid's `stateDiagram-v2` works, but theming it cleanly requires a CSS override cascade with `!important` (see `docs/theming.md`). The native chart uses palette tokens directly — `var(--cat-1-fill)`, `var(--diagram-stroke)`, `var(--diagram-line)`, `var(--cat-on-fill)` — and inherits dark / light, every theme, automatically. No mmdc subprocess, no opaque SVG class names, no version coupling. The trade-off: no hierarchical states, no parallel regions, no guards in v1. When you need those, `<!-- _class: diagram -->` is the Mermaid escape hatch.
+Mermaid's `stateDiagram-v2` works, but theming it cleanly requires a CSS override cascade with `!important` (see `docs/theming.md`). The native chart uses palette tokens directly — `var(--cat-1-fill)`, `var(--diagram-stroke)`, `var(--diagram-line)`, `var(--cat-on-fill)` — and inherits dark / light, every theme, automatically. No mmdc subprocess, no opaque SVG class names, no version coupling. Composite states are a sub-list; parallel regions, history states and guards are not in the grammar. When you need those, `<!-- _class: diagram -->` is the Mermaid escape hatch.
 
 ---
 
@@ -132,4 +157,4 @@ Mermaid's `stateDiagram-v2` works, but theming it cleanly requires a CSS overrid
 
 `Lattice · State chart`
 
-## Numbered authoring is the layout.
+## The list is the reading order.

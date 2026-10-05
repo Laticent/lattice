@@ -374,9 +374,9 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // every section into a frame whose CSS and scale transform assume exactly one is both visibly
 // broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
 //
-// THE AUTO-GLOSSARY IS NOT A MISALIGNMENT. `glossary: auto` appends one section AFTER the
-// authored ones (lib/core/glossary-auto.mjs), so section k is still slide k for every slide the
-// caller counts. Compared raw, N+1 sections against N slides failed the guard, every slide fell
+// THE AUTO-GLOSSARY IS NOT A MISALIGNMENT. `glossary: auto` appends its section(s) AFTER the
+// authored ones (lib/core/glossary-auto.mjs; one per glossary page), so section k is still slide k
+// for every slide the caller counts. Compared raw, N+g sections against N slides failed the guard, every slide fell
 // back to rendering alone, and a lone slide numbers itself 1: the Studio preview numbered a
 // glossary deck's slides wrong while the PDF, which renders the whole deck, numbered them right.
 // So the alignment is judged on the authored sections (`withoutAutoGlossary`, the kernel the
@@ -1180,14 +1180,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			html;
 		// Read off the SANITIZED html above rather than taken as a caller flag the way
 		// `mermaid` is: the marker is on the element the pass draws, so a host cannot
-		// forget to set it. `data-sc-transitions` is emitted only by the DEFAULT state-chart
+		// forget to set it. `data-sc-model` is emitted only by the DEFAULT state-chart
 		// variant — the `inline` variant is chips and needs no engine — and data-* attributes
 		// survive DOMPurify. Content AND url, so a missing URL emits nothing.
 		//
 		// BEFORE the runtime tag: classic scripts run in document order, and the runtime's
 		// pass reads `globalThis.__latticeDagre` synchronously on its first draw.
 		// A flowchart always needs it (`data-fc-model`, on every flowchart figure).
-		if ((html.indexOf('data-sc-transitions') !== -1 || html.indexOf('data-fc-model') !== -1) && dagreUrl) {
+		if ((html.indexOf('data-sc-model') !== -1 || html.indexOf('data-fc-model') !== -1) && dagreUrl) {
 			s += '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>';
 		}
 		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>';
@@ -1605,7 +1605,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md).
 						// Overflow is read from the live frame after it settles (below) — 0 here
 						// as a placeholder.
-						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
+						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|progress|timeline-list|piechart|gantt|kanban|radar|hub-spoke|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
 						// Diagram fences a runtime draws (Mermaid's), by the plugin registry's fence names.
 						s.mermaid = drawnFenceCount(out.html);
 						// Match the engine's OWN KaTeX gate exactly — renderMarkdown

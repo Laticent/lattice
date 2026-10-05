@@ -1729,7 +1729,7 @@ test('video card: an embedded data:image poster keeps its thumbnail; other data:
 // the media walk never ran for them and the `.chart-caption` under the chart was dropped while
 // narration read it. The placeholder now carries it as prose. Rendered through the real engine.
 test("state-chart: the chart's caption follows the placeholder, once", async () => {
-	const md = '<!-- _class: state-chart -->\n\n## Every contract moves through three states.\n\n1. Draft `start`\n   - `{submit, to=2}`\n2. Signed\n   - `{go, to=3}`\n3. Live `end`\n\n*Rejected drafts return to the account owner.*\n';
+	const md = '<!-- _class: state-chart -->\n\n## Every contract moves through three states.\n\n- Draft `start`\n  - -submit-> Signed\n- Signed\n  - -go-> Live\n- Live `end`\n\n*Rejected drafts return to the account owner.*\n';
 	const { articleHtml } = project(await renderedSections(md));
 	const cap = '<p>Rejected drafts return to the account owner.</p>';
 	assert.equal(articleHtml.split(cap).length - 1, 1, articleHtml);

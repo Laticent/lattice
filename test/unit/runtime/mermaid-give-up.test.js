@@ -28,7 +28,7 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
+const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
 
 /**
  * Lift the fence-state block out of the shipped runtime.
@@ -41,7 +41,7 @@ function liftFenceState(document) {
   const END = '  /**\n   * The (scope, source) pair a pending fence resolves to';
   const start = RUNTIME_SRC.indexOf(BEGIN);
   const end = RUNTIME_SRC.indexOf(END);
-  assert.notEqual(start, -1, 'lib/runtime/index.js must still open its fence selectors with that comment');
+  assert.notEqual(start, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must still open its fence selectors with that comment');
   assert.notEqual(end, -1, 'could not find the end of the fence-state block');
   const block = RUNTIME_SRC.slice(start, end);
   assert.match(block, /function releaseUnrenderableFences/, 'the lifted block must carry the release');
@@ -212,7 +212,7 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
     assert.equal(doc.querySelectorAll(RELEASED_FENCE_SELECTOR).length, 1);
   });
 
-  test('initAndRun reclaims AFTER its theme guard, not before', () => {
+  test('the pass (runPass) reclaims AFTER its theme guard, not before', () => {
     // The one property of this fix that is an ORDERING rather than a value, and the one a
     // checker found broken: reclaiming before `themeSettled` means a host whose theme vars
     // never resolve hides the fence on every pass and renders on none. It cannot be driven
@@ -221,11 +221,11 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
     // otherwise. It is a text matcher with the usual envelope: it pins the ORDER of two
     // calls and cannot see a third path that reintroduces the same hazard. It fails loudly
     // if either call is renamed or removed, which is the drift it exists to catch.
-    const body = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function initAndRun('));
+    const body = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function runPass('));
     const guard = body.indexOf('themeSettled({ force })');
     const reclaim = body.indexOf('reclaimReleasedFences(');
-    assert.notEqual(guard, -1, 'initAndRun must still gate on themeSettled');
-    assert.notEqual(reclaim, -1, 'initAndRun must still reclaim released fences');
+    assert.notEqual(guard, -1, 'the pass must still gate on themeSettled');
+    assert.notEqual(reclaim, -1, 'the pass must still reclaim released fences');
     assert.ok(reclaim > guard,
       'reclaiming re-HIDES a fence, so it must come after the guard that can decline the walk');
   });

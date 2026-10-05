@@ -105,6 +105,12 @@ describe('the review cases', () => {
     assert.ok(rules(parse('- Mitigate\n- Page -> Mitgate')).includes('flowchart-near-duplicate'));
     assert.deepEqual(rules(parse('- UI -> DB\n- API -> DC')), []);
   });
+  test('a chain row lists its shapes in reading order; a single connection does not move its target', () => {
+    const chain = parse('- Sign up => Verify => Profile => Workspace\n- Verify -resend-> Verify\n- Workspace -fails-> Profile');
+    assert.deepEqual(chain.shapes.map((s) => s.name), ['Sign up', 'Verify', 'Profile', 'Workspace']);
+    const nested = parse('- Draft\n  - -discard-> Archived\n  - -submit-> Review\n- Review\n- Archived');
+    assert.deepEqual(nested.shapes.map((s) => s.name), ['Draft', 'Review', 'Archived'], 'a forward target keeps its own row\'s place');
+  });
   test('ids stay unique when two names slug alike', () => {
     const m = parse('- C++ -> C#\n- C');
     assert.deepEqual(m.shapes.map((s) => s.id), ['c', 'c-2', 'c-3']);
@@ -169,9 +175,9 @@ describe('the span', () => {
   test('the status words are exactly CHART_STATUS', () => {
     assert.deepEqual([...g.STATUS_WORDS], [...CHART_STATUS]);
   });
-  test('the host can allow its own lead words (the state chart\'s start / end)', () => {
+  test('the state chart\'s slot allows its own lead words (start / end)', () => {
     assert.ok(rules(parse('- Draft `start`')).includes('flowchart-unknown-modifier'));
-    assert.deepEqual(parse('- Draft `start`', { leadWords: ['start', 'end'] }).shapes[0].lead, ['start']);
+    assert.deepEqual(parse('- Draft `start`', { host: 'state-chart' }).shapes[0].lead, ['start']);
   });
 });
 

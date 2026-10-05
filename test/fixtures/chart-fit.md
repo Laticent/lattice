@@ -362,6 +362,47 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 ---
 
+<!-- _class: hub-spoke -->
+
+`Transformation program · Workstream status · Q3`
+
+## Two of six workstreams are off track.
+
+- Program office
+  - Customer onboarding
+  - Core platform migration `at-risk`
+  - Data governance
+  - Vendor consolidation `blocked`
+  - Branch network
+  - Workforce reskilling
+
+---
+
+<!-- _class: hub-spoke tiered -->
+
+`Platform organization · Service ownership · 2026`
+
+## Four platform teams own eleven services; two are in trouble.
+
+- Platform org
+  - Payments
+    - Card issuing
+    - Acquiring
+    - Fraud scoring `at-risk`
+  - Data
+    - Warehouse
+    - Streaming
+    - ML platform
+  - Identity
+    - Login
+    - Consent
+  - Core banking
+    - Ledger `blocked`
+    - Accounts
+    - Statements
+
+---
+
 <!-- _class: roadmap -->
 
 `H2 2026 · Rollout plan`
@@ -385,18 +426,18 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 How a draft moves from author to publication.
 
-1. Draft `start`
-   - `{submit, to=2}`
-2. Submitted `on-track`
-   - `{review, to=3}`
-3. In Review `at-risk`
-   - `{approve, to=4}`
-   - `{reject, to=1}`
-   - `{revise, to=self}`
-   - Two reviewers must sign off before approval.
-4. Approved
-   - `{publish, to=5}`
-5. Published `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+  > Two reviewers must sign off before approval.
+- Approved
+  - -publish-> Published
+- Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
 

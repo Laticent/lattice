@@ -43,8 +43,8 @@ describe('kinds', () => {
   test('a transform.js is a component\'s one code role', () => {
     assert.deepEqual(KINDS.component.code, ['transform.js']);
   });
-  test('a plugin\'s code roles are its grammar, its renderers and its browser half (plugin-system §4.1)', () => {
-    assert.deepEqual(KINDS.plugin.code, ['syntax.mjs', 'render.js', 'hydrate.js', 'bake.js']);
+  test('a plugin\'s code roles are its grammar, its renderers, its browser half, its bake and its highlight grammar (plugin-system §4.1)', () => {
+    assert.deepEqual(KINDS.plugin.code, ['syntax.mjs', 'render.js', 'hydrate.js', 'bake.js', 'highlight.js']);
     assert.ok(KINDS.plugin.optional.includes('styles.css'), 'a plugin may ship token-only CSS');
     assert.deepEqual(KINDS.plugin.required, ['manifest.json', 'docs.md', 'fixtures.md']);
   });

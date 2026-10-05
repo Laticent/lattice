@@ -73,7 +73,7 @@ describe('engine.paneOrientations — the CLI\'s answer before it bakes a fence'
 });
 
 describe('runtime fenceJob — the browser reads the pane', () => {
-  const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
+  const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
   const start = RUNTIME_SRC.indexOf('  function fenceJob(preEl) {');
   const end = RUNTIME_SRC.indexOf('\n  }\n', start) + 4;
   const fenceJob = new Function('reorientMermaidForPortrait', `${RUNTIME_SRC.slice(start, end)}\nreturn fenceJob;`)(reorientMermaidForPortrait);
@@ -85,7 +85,7 @@ describe('runtime fenceJob — the browser reads the pane', () => {
   const fence = '<pre><code>flowchart LR\n  A --> B</code></pre><div class="mermaid"></div>';
 
   test('a portrait pane on a landscape slide flows down', () => {
-    assert.equal(start > 0 && end > start, true, 'fenceJob must still be in lib/runtime/index.js');
+    assert.equal(start > 0 && end > start, true, 'fenceJob must still be in lib/plugins/mermaid/mermaid.hydrate.js');
     assert.equal(job(`<section><lat-pane data-orientation="portrait">${fence}</lat-pane></section>`), 'flowchart TB');
   });
   test('a landscape pane keeps the author\'s direction, and a bare slide reads its section', () => {

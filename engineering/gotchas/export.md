@@ -163,7 +163,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `themeDualMode` only ever read `<style>` BLOCKS, and two chart components write their
   gradient stops as an inline `style` ATTRIBUTE
   (`lib/components/chart/_chart-family/chart-family.js`,
-  `lib/components/chart/state-chart/state-chart.transform.js`). Those shipped verbatim — 22
+  the state chart's browser pass, now `lib/components/chart/state-chart/state-chart.layout.js`). Those shipped verbatim — 22
   of them in `examples/data-viz-gallery.md` — so the fill was decided by the element's
   `color-scheme` and the page by `data-lp-scheme`. The two agree only because the player's
   script writes an inline `color-scheme` onto `<html>`; wherever that coupling does not hold

@@ -418,6 +418,23 @@
     ],
     "description": "A numeric matrix read as intensity — where the value concentrates across two dimensions."
   },
+  "lattice: hub-spoke": {
+    "prefix": "lattice-hub-spoke",
+    "body": [
+      "<!-- _class: hub-spoke -->",
+      "",
+      "`Eyebrow · context`",
+      "",
+      "## What the structure shows.",
+      "",
+      "- Hub",
+      "  - First satellite",
+      "  - Second satellite `at-risk`",
+      "  - Third satellite",
+      "  - Fourth satellite"
+    ],
+    "description": "Hub and spoke — one center, its satellites, and what flows between them."
+  },
   "lattice: image": {
     "prefix": "lattice-image",
     "body": [
@@ -1061,24 +1078,24 @@
       "",
       "How a draft moves from author to archive.",
       "",
-      "1. Draft `start`",
-      "   - `{submit, to=2}`",
-      "   - `{discard, to=6}`",
-      "2. Submitted `on-track`",
-      "   - `{review, to=3}`",
-      "3. In Review",
-      "   - `{approve, to=4}`",
-      "   - `{reject, to=1}`",
-      "   - `{revise, to=self}`",
-      "4. Approved `done`",
-      "   - `{publish, to=5}`",
-      "5. Published `live`",
-      "   - `{archive, to=6}`",
-      "6. Archived `end`",
+      "- Draft `start`",
+      "  - -submit-> Submitted",
+      "  - -discard-> Archived",
+      "- Submitted `on-track`",
+      "  - -review-> In Review",
+      "- In Review",
+      "  - -approve-> Approved",
+      "  - -reject-> Draft",
+      "  - -revise-> In Review",
+      "- Approved `done`",
+      "  - -publish-> Published",
+      "- Published `live`",
+      "  - -archive-> Archived",
+      "- Archived `end`",
       "",
       "*Rejected drafts return to the author; revisions stay in review.*"
     ],
-    "description": "Native state machine diagram — states as a numbered list, transitions as nested inline-code refs."
+    "description": "Native state machine diagram — states as a list, transitions as arrows to a state's name, on the flowchart's grammar."
   },
   "lattice: stats": {
     "prefix": "lattice-stats",

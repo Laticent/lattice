@@ -57,7 +57,7 @@
         "hydrate": {
           "type": "object",
           "additionalProperties": false,
-          "description": "The browser half: `<name>.hydrate.js` exports `hydrate(el, ctx)`, which turns each placeholder this plugin's fences emitted into a figure. ONE source for every browser surface — the runtime bundles it, the CLI export page runs it serialized — so the module must be self-contained: no require, no import; everything it needs arrives through `ctx`.",
+          "description": "The browser half: `<name>.hydrate.js` exports `hydrate(el, ctx)`, which turns each placeholder this plugin's fences emitted into a figure. ONE source for every browser surface — the runtime bundles it, the CLI export page runs it serialized — so the module must be self-contained: no require, no import; everything it needs arrives through `ctx`. With `render.exec.hydrate: \"pass\"` the module exports `createPass(ctx)` instead — a document pass the runtime drives, never serialized — and `budgetMs` does not apply.",
           "properties": {
             "budgetMs": {
               "type": "integer",
@@ -70,6 +70,10 @@
         "bake": {
           "const": true,
           "description": "`<name>.bake.js` exports `bake(source, ctx)`: Node-side, run by the CLI export (lib/plugins/host-bake.js) over the deck's Markdown BEFORE the engine renders it, only for a deck that uses the plugin. It draws the plugin's figures into static markup and returns the new source. Never bundled for a browser. Requires `render.exec.bake`."
+        },
+        "highlight": {
+          "const": true,
+          "description": "`<name>.highlight.js` exports `highlight(hljs)`, a highlight.js language definition. The host registers it on the engine's highlight.js under each of the plugin's code fences (`as: \"code\"`), so the source a fence shows before it is drawn — or when it cannot be — is syntax-colored. Requires at least one code fence."
         },
         "styles": {
           "const": true,
@@ -96,8 +100,8 @@
           "description": "Where each code contribution runs.",
           "properties": {
             "hydrate": {
-              "enum": ["browser", "runtime"],
-              "description": "`browser`: `<name>.hydrate.js`, run by the plugin host on every browser surface. `runtime`: the runtime's own pass draws it (lib/runtime), with no hydrate module; the CLI export page carries no runtime, so such a plugin must declare `bake`."
+              "enum": ["browser", "pass"],
+              "description": "`browser`: `<name>.hydrate.js` exports `hydrate(el, ctx)`, run by the plugin host on every browser surface, the CLI export page included (serialized). `pass`: `<name>.hydrate.js` exports `createPass(ctx)`, a document pass the runtime bundles and drives (boot, run, onMutations) — for a browser half that must walk every figure together, as Mermaid's per-palette render queue does. A pass is never serialized, so it may require in-tree kernels; the CLI export page carries no runtime, so such a plugin must declare `bake`. In-tree only."
             },
             "bake": {
               "const": "subprocess",

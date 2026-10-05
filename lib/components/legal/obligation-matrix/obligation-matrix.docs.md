@@ -10,7 +10,7 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 
 ## Agent contract
 
-**By venue** (`venue:`, ~2 words each) it holds laptop ~7 · huddle ~6 · conference ~5 · hall ~5 rows. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~2 words each) it holds laptop ~7 · huddle ~6 · conference ~5 · hall ~4 rows. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

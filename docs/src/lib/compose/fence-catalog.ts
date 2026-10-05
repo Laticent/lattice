@@ -42,7 +42,7 @@ export type FenceOption = {
 	 *
 	 * Only an engine sub-language needs it, and each has a real answer: `mermaid` is
 	 * colored by Lattice's OWN highlight.js grammar
-	 * (`lib/integrations/mermaid/mermaid.hljs.js`, registered by `registerMermaidHljs`),
+	 * (`lib/plugins/mermaid/mermaid.highlight.js`, the Mermaid plugin's `highlight` contribution, registered by the plugin host),
 	 * `anima` / `functionplot` are JSON specs and `math` is TeX — `dist/docs/grammar.json`
 	 * records exactly that as each fence's `body`.
 	 */
@@ -99,7 +99,7 @@ export function isEngineFence(tag: string): boolean {
  * `section.diagram … :not([data-lattice-settle="rendered"])` — the transient SOURCE
  * `<pre>` on a slide whose fence is about to become a picture, where syntax colors on
  * a placeholder are noise. Compose is an EDITOR: the fence is source the author is
- * typing into, and `mermaid.hljs.js` exists for exactly this case, in its own words
+ * typing into, and `mermaid.highlight.js` exists for exactly this case, in its own words
  * "so that when a `mermaid` fence either has not yet been runtime-rendered or fails to
  * parse, the source still reads as syntax-colored code". The Studio's markdown editor
  * colors mermaid for the same reason (`EAGER_LANGUAGES` in playground/editor.js).
