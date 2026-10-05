@@ -1364,6 +1364,38 @@ describe('lint-core: a spark that renders as code (spark-literal)', () => {
   });
 });
 
+// #2519's follow-up: a pill label holding a reserved character (`|` `=` `[` `]` `{`) stopped
+// rendering when pills moved onto Segno (#2513), and lint said nothing.
+describe('lint-core: a pill whose label needs quoting renders as code (pill-literal)', () => {
+  const literal = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'pill-literal');
+  const deck = (body) => `${FM}## Heading\n\n${body}\n`;
+
+  test('it WARNS with the kernel\'s reason and the quoted spelling that renders', () => {
+    const [f] = literal(deck('Status `{A|B, tag, c4}` today.'));
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.span, '`{A|B, tag, c4}`');
+    assert.match(f.message, /"\|" is reserved/);
+    assert.match(f.message, /`\{"A\|B", tag, c4\}` renders/);
+  });
+
+  test('each reserved character a label can hold is caught', () => {
+    for (const bad of ['{A|B}', '{a=b}', '{x[1]}', '{x]}', '{a{b}']) {
+      assert.equal(literal(deck(`\`${bad}\``)).length, 1, bad);
+    }
+  });
+
+  test('component records, quoted labels, working pills and escapes are not its business', () => {
+    // A chart point and a journey step are brace records the COMPONENT reads; flagging them
+    // flagged 556 correct spans in the shipped decks.
+    assert.equal(literal(deck('`{3, 70}` `{who=team, mood=2}` `{"A|B"}` `{BETA, tag}` `\\{A|B}` `{x}`')).length, 0);
+  });
+
+  test('a code block and a literal deck render no pills, so they get no finding', () => {
+    assert.equal(literal(deck('```\n`{A|B}`\n```')).length, 0);
+    assert.equal(literal(`---\nmarp: true\ninline-code: literal\n---\n\n## H\n\n\`{A|B}\`\n`).length, 0);
+  });
+});
+
 describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
   const glyphs = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'typed-shape-glyph');
   const slide = (cls, body) => `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;

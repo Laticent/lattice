@@ -11,3 +11,8 @@
   150 ms. The "expected …" text in a parse error is built only when a parse fails, `lint()` no
   longer builds a parser, and the checker's walks no longer recurse, so 10,000 levels of nesting
   lint too. Every error message reads as before.
+- **Fixed: `lint:deck` warns when a pill label needs quoting.** Since pills moved onto Segno, a
+  label holding `|` `=` `[` `]` or `{` (`{A|B, tag}`) leaves the span as plain code, and nothing
+  said why. The new `pill-literal` warning names the reserved character and the quoted spelling
+  that renders (`{"A|B", tag}`). It stays silent on chart points, journey steps and the other
+  brace records a component reads; across the shipped decks it fires 0 times.
