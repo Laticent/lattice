@@ -10,11 +10,16 @@ Around that kernel sits a browser pipeline that measures a chart in the fonts it
 drawn in, fits it to its box, lays it out (in a worker while an author types), and paints
 it through a chart **adapter**.
 
+A second kernel, the **radial kernel**, arranges circles round a center instead: one ring
+or two, straight bands, and every label placed where it touches nothing. It needs no dagre
+and no browser, so a chart runs it inside its own render (`@laticent/trama/radial`; see
+[The radial kernel](#the-radial-kernel)).
+
 It has **no dependencies**. dagre is passed in, never imported, and nothing in Trama
 knows about Markdown, a grammar or a stylesheet: an adapter reads its own model and paints
 its own markup. The design contract is
 [`engineering/decisions/2026-09-27-trama-graph-chart-library.md`](../../../../engineering/decisions/2026-09-27-trama-graph-chart-library.md).
-**See it run:** the [`/trama` demo](https://lattice.style/trama) drives this kernel live: type
+**See it run:** the [`/trama` demo](https://lattice.style/trama) drives the graph kernel live: type
 rows, flip the direction, wrap a chain, drag a box and watch `route()` weave the lines again.
 **Not yet on npm:** no workflow publishes the workspace libraries today
 (`followups.d/2360-p3-publish-workspace-libraries.md`).

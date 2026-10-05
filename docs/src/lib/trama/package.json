@@ -1,7 +1,7 @@
 {
   "name": "@laticent/trama",
   "version": "0.1.0",
-  "description": "Graph-chart layout for slides: a dagre-placed, cost-routed elbow router (no line through a box, none along another, crossings then symmetry then turns), and a browser pipeline that measures a chart in its own fonts, fits it, lays it out in a worker while you type, and paints it through a chart adapter. No dependencies: dagre is passed in.",
+  "description": "Graph-chart layout for slides: a dagre-placed, cost-routed elbow router (no line through a box, none along another, crossings then symmetry then turns); a radial kernel (circles on one or two rings round a center, straight bands, labels placed clear of everything); and a browser pipeline that measures a chart in its own fonts, fits it, lays it out in a worker while you type, and paints it through a chart adapter. No dependencies: dagre is passed in.",
   "license": "AGPL-3.0-only",
   "type": "module",
   "sideEffects": false,

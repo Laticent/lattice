@@ -361,3 +361,21 @@ figures across the two decks, hashed per figure). Against the old COLD load,
 three demo-deck charts move by under 1% of their fit (a scale of 0.9829 becomes
 0.9834, for example), because the old result depended on which fallback draws had
 run first; the typing deck's big chart moves from a fit of 0.4461 to 0.4440.
+
+## 10. Amendment: a second kernel, the radial layout
+
+Added by #2512 (`2026-10-05-trama-radial-layout.md`).
+
+**What changed.** Trama now holds two kernels. Beside the graph kernel of §2 sits
+`radialLayoutKernel()` (`radial.ts`, also built alone as `@laticent/trama/radial`): circles on
+one or two rings round a center, straight bands between them, and a label placer that keeps
+every label clear of every circle, band, other label and the stage edge. Hub-spoke is its
+first adapter. It follows this note's rules: it knows nothing of what it lays out, imports
+nothing, and closes over nothing, so the serialization test rebuilds it from `dist/` like the
+graph kernel. It does not use the pipeline of §2: a chart calls it inside its own render.
+
+**Why.** The owner ruled on 2026-10-05 that every node-and-line chart runs on Trama, and that
+Trama knows how to arrange boxes, never what they mean. Hub-spoke was the one graph chart still
+holding its own geometry; its arrangement is radial, which neither dagre's ranks nor the
+reading-order grid can draw.
+
