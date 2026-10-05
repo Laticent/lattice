@@ -78,13 +78,21 @@ describe('what the second review found a pick could lose', () => {
 		const after = slidePanes(state.apply(tr as NonNullable<typeof tr>).doc.child(0));
 		expect(after?.panes.map((p) => p.cls)).toEqual(['content', 'list']);
 	});
-	it('a last pane of nothing but blockquotes replaces only its first: the slide\'s Key Insight stays', () => {
-		const src = '<!-- _class: columns -->\n\n## T\n\n### A\n\n- a\n\n<!-- _pane: quote -->\n### B\n\n> pane quote\n\n> Slide key insight';
-		const state = stateOf(src);
-		const tr = applyPaneChoice(state, 0, 1, { cls: 'bar', starter: '- One `1`' });
-		const out = emitDeck(state.apply(tr as NonNullable<typeof tr>).doc, initBaseline(state.doc));
-		expect(out).not.toContain('pane quote');
-		expect(out).toContain('> Slide key insight');
+	it('a pane of nothing but a quote and its attribution is the pane\'s own content: a fresh pick replaces all of it, as the engine reads it', () => {
+		// The engine keeps every block of an all-quote pane in the pane (lib/core/panes.js). A pick that
+		// left the attribution behind put it after the starter, where the engine moved it to the slide
+		// as a note: the third review's catch, against a fix the second review had asked for.
+		for (const index of [0, 1]) {
+			const quote = '<!-- _pane: quote -->\n\n> The best way.\n\n— Ann, CEO';
+			const other = '### Other\n\n- x';
+			const src = `<!-- _class: columns -->\n\n## T\n\n${index === 0 ? `${quote}\n\n${other}` : `${other}\n\n${quote}`}`;
+			const state = stateOf(src);
+			const tr = applyPaneChoice(state, 0, index, { cls: 'list', starter: '- One' });
+			const out = emitDeck(state.apply(tr as NonNullable<typeof tr>).doc, initBaseline(state.doc));
+			expect(out).not.toContain('The best way');
+			expect(out).not.toContain('Ann, CEO');
+			expect(out).toContain('<!-- _pane: list -->\n\n- One');
+		}
 	});
 	it('a speaker note inside the replaced body survives the starter', () => {
 		const src = '<!-- _class: columns -->\n\n## T\n\n### A\n\npara one\n\n<!-- speaker note -->\n\npara two\n\n### B\n\n- b';

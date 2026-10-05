@@ -5,7 +5,7 @@ import { baseKeymap } from 'prosemirror-commands';
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
-import { addPaneTitle, paneChoices, paneDirectionOf, paneMarkerGuard, paneMarkerText, setPaneComponent, slidePanes } from './pane-model';
+import { addPaneTitle, applyPaneChoice, paneChoices, paneDirectionOf, paneMarkerGuard, paneMarkerText, slidePanes } from './pane-model';
 
 // Compose edits a `columns` / `rows` slide's panes as fields: each pane's component is a picker and
 // its `###` title is a field (engineering/decisions/2026-09-28-generic-pane-layouts-authoring.md
@@ -189,15 +189,15 @@ describe('a hidden marker survives a stray keystroke', () => {
 describe('the pane picker and the title field write what an author would', () => {
 	it('rewrites a marker, keeping no-title and dropping the old component\'s modifiers', () => {
 		const state = stateOf(MARKED);
-		const tr = setPaneComponent(state, 0, 1, 'big-number');
+		const tr = applyPaneChoice(state, 0, 1, { cls: 'big-number', starter: null });
 		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
 		expect(out).toContain('<!-- _pane: big-number no-title -->\n\n### What changed');
 		expect(out).not.toContain('_pane: list');
-		expect(setPaneComponent(state, 0, 0, 'bar')).toBeNull(); // already bar
+		expect(applyPaneChoice(state, 0, 0, { cls: 'bar', starter: null })).toBeNull(); // already bar
 	});
 	it('writes a marker right above the `###` of a pane that has none, leaving a pill above it where the engine renders it', () => {
 		const state = stateOf(OUTLINE);
-		const tr = setPaneComponent(state, 0, 1, 'kpi');
+		const tr = applyPaneChoice(state, 0, 1, { cls: 'kpi', starter: null });
 		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
 		// The pill closes the first pane (the engine renders it there), so it stays above the marker.
 		expect(out).toContain('`Since May`\n\n<!-- _pane: kpi -->\n\n### After');

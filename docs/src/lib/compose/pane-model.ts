@@ -153,13 +153,6 @@ function childPos(parent: PMNode, start: number, k: number): number {
 	return pos;
 }
 
-/** Name pane `index`'s component: rewrite its `_pane` marker, or write one right above the `###`
- *  that starts a pane with none. Null when nothing changes —
- *  the slide is not a pane slide, the pane does not exist, or it already renders `cls`. */
-export function setPaneComponent(state: EditorState, slidePos: number, index: number, cls: string): Transaction | null {
-	return applyPaneChoice(state, slidePos, index, { cls, starter: null });
-}
-
 /** Give pane `index` a `###` title right under its marker, with the placeholder selected so the
  *  first keystroke replaces it. Null when the pane already has a title or has no marker to sit
  *  under (a pane with neither starts at its `###`, so it always has one). */
@@ -207,11 +200,11 @@ export function paneBodyRange(slide: PMNode, info: SlidePanes, index: number): {
 	const coda = (n: PMNode) => n.type.name === 'comment' || n.type.name === 'blockquote' || (n.type.name === 'paragraph' && /^—\s/.test(n.textContent));
 	let end = to;
 	while (end > from && coda(slide.child(end - 1))) end--;
-	// A body of nothing but blockquotes renders as the pane's own content, so it is the body — but
-	// only its first block: what follows reads as the slide's Key Insight once the pane holds anything
-	// else, and replacing it would take the slide's insight with the pane's text.
+	// A body of nothing but blockquotes and `— ` lines is the pane's OWN content, as the engine reads
+	// it (lib/core/panes.js: a pane that is all coda-shaped keeps every block) — a quote and its
+	// attribution are the quote component's body, not the slide's Key Insight. So all of it is the
+	// body: leaving any behind would put it after the starter, where the engine hands it to the slide.
 	if (end > from) to = end;
-	else if (to > from) to = from + 1;
 	return { from, to: Math.max(from, to) };
 }
 
