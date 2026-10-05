@@ -127,6 +127,7 @@ on-device tiers keep the one-shot path unchanged.
 | `tools` / `tool_choice` / streamed `tool_calls` on the OpenRouter backend | `ai/architect-model.js` |
 | `check` — the Coach's assessment + Mermaid parse, run over the draft | `StudioShell.tsx` (`checkDraft`) |
 | Activity trail, live tool line, front-matter rows in the review card | `ArchitectChat.tsx` |
+| `fit` — the draft rendered off-screen, the runtime's overflow verdict per slide | `draft-fit.ts`, `export/deck-export.js` (`measureDeckFit`) |
 
 Choices worth knowing before changing any of it:
 
@@ -345,9 +346,16 @@ fixed and pinned in `architect-agent.chat.test.ts` / `architect-agent.test.ts`:
 
 ## 10. What this does NOT do
 
-- **It cannot see the slides.** `check_deck` is lint, review and Mermaid's parser; no tool
-  renders or rasterizes. A visual check would need the preview frame's own measurements, a
-  separate piece of work.
+- **It sees fit, not looks.** Since the follow-up (`followups.d/2518-p3-agent-cannot-see-slides`),
+  every check renders the draft off-screen the way export does (`draft-fit.ts` →
+  `measureDeckFit`) and reads back the runtime's own per-slide verdict: `.overflow`,
+  `.clip-marked`, `.illegible`. A slide the turn wrote that overflows or cuts text counts as an
+  error and holds the turn open; the same on an untouched slide is reported, not charged. It
+  does not judge how a slide looks, and the prompt says so. The render uses the live deck's
+  palette and mode, not a theme the agent just set — fit barely depends on them. Proven on the
+  real Studio with a mocked model (`docs/e2e/chat-agent-fit.spec.ts`): a 28-item slide comes
+  back "slide 2 overflows its frame, has text cut off", and the turn takes a second round. A
+  render that cannot finish within 15 seconds reports fit as not measured, never as fine.
 - **The on-device tiers are unchanged** — still the one-shot path, short canon, and fenced
   edit blocks.
 - **The `≈ $/turn` readout prices round one.** A turn's tool rounds are not knowable before

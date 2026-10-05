@@ -4285,16 +4285,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// this deck's diagrams (diagramErrors, below).
 	// `check` is the chat agent's verifier: the same assessment and the same Mermaid parse,
 	// run over the agent's DRAFT so an edit is checked before the author is shown it.
+	// And `fit` is the one check that needs a real render: the draft laid out off-screen the
+	// way export does, with the runtime's own overflow verdict per slide (draft-fit.ts).
 	const checkDraft = React.useCallback(
 		async (draft: string) => {
 			const diagrams = extractDiagrams(draft);
-			const [a, errs] = await Promise.all([
+			const [a, errs, fit] = await Promise.all([
 				assessDeck(draft, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined),
 				diagrams.length ? import('./mermaid-parse').then((m) => m.checkDiagrams(diagrams, options?.runtimeUrl ?? '')).catch(() => undefined) : Promise.resolve(undefined),
+				import('./draft-fit')
+					.then((m) => m.measureDraftFit(deckOptions, draft, preview.paletteOverride ?? palette, preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light'), preview.extraTheme, previewExtraCss))
+					.catch(() => undefined),
 			]);
-			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}) };
+			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}), ...(fit ? { fit } : {}) };
 		},
-		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, options?.runtimeUrl],
+		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, options?.runtimeUrl, deckOptions, preview, palette, mode, previewExtraCss],
 	);
 	const chatGrounding = React.useMemo(
 		() => ({ scorecard, findings, catalog: components, check: checkDraft, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),

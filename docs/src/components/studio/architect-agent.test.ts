@@ -331,6 +331,28 @@ describe('the loop', () => {
 		}
 	});
 
+	it('fit from a real render: an overflowing slide the turn wrote holds the turn open; an old one is only reported', async () => {
+		const fitFor = (n: number) => [1, 2, 3].map((slide) => ({ slide, overflows: slide === n, clipped: false, illegible: false }));
+		const body = '<!-- _class: content -->\n## Next\n\n- Hire';
+		const mineOver = toolbox({ check: async () => ({ findings: [], fit: fitFor(3) }) });
+		const out = await mineOver.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body }], summary: 's' }));
+		expect(out).toContain('1 error');
+		expect(out).toMatch(/slide 3 overflows its frame \(you wrote this slide: an error/);
+		expect(mineOver.settled()).toBe(false);
+		const oldOver = toolbox({ check: async () => ({ findings: [], fit: fitFor(1) }) });
+		const out2 = await oldOver.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body }], summary: 's' }));
+		expect(out2).toContain('0 errors');
+		expect(out2).toMatch(/slide 1 overflows its frame\n|slide 1 overflows its frame$/m);
+		expect(oldOver.settled()).toBe(true);
+		const clean = toolbox({ check: async () => ({ findings: [], fit: fitFor(0) }) });
+		expect(await clean.run('check_deck', '{}')).toContain('all 3 slides fit');
+	});
+
+	it('says fit was not measured rather than implying the slides fit', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [] }) });
+		expect(await tb.run('check_deck', '{}')).toContain('Fit was not measured');
+	});
+
 	it('reports warnings only on the slides the turn wrote', async () => {
 		const check = vi.fn(async () => ({ findings: [{ slide: 1, severity: 'warning', message: 'old' }, { slide: 3, severity: 'warning', message: 'new one' }] }));
 		const tb = toolbox({ check });

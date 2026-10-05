@@ -557,6 +557,46 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
 }
 
 /**
+ * Measure whether each slide of a rendered deck FITS — the verdict the Studio chat agent's
+ * checker returns for its draft (2026-10-05-studio-chat-agent.md). The engine runtime in
+ * the frame already decides this: its overflow watcher stamps `.overflow` (the content is
+ * taller or wider than the slide), `.clip-marked` (text is cut) and `.illegible` (type fell
+ * under the legibility floor) on each `section[data-lattice-slide]`. This reads those
+ * classes back after a full sweep — no second measurement to drift from the one the author
+ * sees in the preview. A paginated slide renders as several sections with ONE slide number;
+ * a page that misfits marks its slide.
+ *
+ * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl }`
+ * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean }[] | null>}
+ *   one row per source slide, or null when the frame held no slides
+ */
+export async function measureDeckFit(render) {
+	const { frame, dispose } = await createCaptureFrame(render);
+	try {
+		const doc = frame.contentDocument;
+		const win = frame.contentWindow;
+		if (!doc) return null;
+		// A FULL sweep: the runtime measures only a band around the viewport until its idle
+		// backstop runs, and a slide nobody measured carries no class — which would read as fits.
+		try { win?.latticeSweep?.sweep?.({ all: true }); } catch (_e) { /* an older runtime: the backstop ran during the settle */ }
+		const sections = [...doc.querySelectorAll('section[data-lattice-slide]')];
+		if (!sections.length) return null;
+		const bySlide = new Map();
+		sections.forEach((sec, i) => {
+			const n = Number(sec.getAttribute('data-lattice-slide')) || i + 1;
+			const row = bySlide.get(n) || { slide: n, overflows: false, clipped: false, illegible: false };
+			row.overflows ||= sec.classList.contains('overflow');
+			row.clipped ||= sec.classList.contains('clip-marked');
+			row.illegible ||= sec.classList.contains('illegible');
+			bySlide.set(n, row);
+		});
+		return [...bySlide.values()].sort((a, b) => a.slide - b.slide);
+	} finally {
+		dispose();
+	}
+}
+
+/**
  * The per-slide comment channel (note / `describe:` / `say:`) for a deck, lifted from
  * the ENGINE render.
  *
