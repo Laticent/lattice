@@ -128,6 +128,7 @@ on-device tiers keep the one-shot path unchanged.
 | `check` — the Coach's assessment + Mermaid parse, run over the draft | `StudioShell.tsx` (`checkDraft`) |
 | Activity trail, live tool line, front-matter rows in the review card | `ArchitectChat.tsx` |
 | `fit` — the draft rendered off-screen, the runtime's overflow verdict per slide | `draft-fit.ts`, `export/deck-export.js` (`measureDeckFit`) |
+| The `≈ $` readout: a question and an edit, priced from the measured turn shape | `ChatCost.tsx`, `architect.ts` (`agentTurnUsd`) |
 
 Choices worth knowing before changing any of it:
 
@@ -358,5 +359,12 @@ fixed and pinned in `architect-agent.chat.test.ts` / `architect-agent.test.ts`:
   render that cannot finish within 15 seconds reports fit as not measured, never as fine.
 - **The on-device tiers are unchanged** — still the one-shot path, short canon, and fenced
   edit blocks.
-- **The `≈ $/turn` readout prices round one.** A turn's tool rounds are not knowable before
-  it runs; the authoritative per-round cost still lands in the spend tally from `usage.cost`.
+- **The `≈ $` readout is an estimate of a typical turn.** It shows a range, a question to an
+  edit (`agentTurnUsd`), from the turn shapes measured above: a question is one call that
+  writes ~1,000 tokens; an edit is two, the second re-reading the prompt from cache plus ~2,500
+  tokens of layout docs and writing ~700. On the bench deck it reads $0.014–0.020 warm against
+  $0.015 and $0.021 measured, and $0.053 for a cold first question against $0.049. It replaced
+  one figure priced at the 4,096-token output ceiling, which quoted every turn at ~3x a
+  question's real cost (the follow-up had guessed it under-quoted). The ceiling still prices the
+  budget GATE, which must hold the worst case. Long turns, like a whole new deck, cost more than
+  the range; the spend tally records the exact cost from `usage.cost`.

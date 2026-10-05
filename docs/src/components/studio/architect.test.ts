@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -612,6 +612,29 @@ describe('chatSystemTokens — the price strip counts the prompt it actually sen
 	});
 });
 
+describe('agentTurnUsd — the readout quotes a question AND an edit, at the typical turn', () => {
+	const grounding = { catalog: [], findings: [] };
+	const price = { promptPerM: 2, completionPerM: 10 }; // Sonnet 5.5, the default model
+	const deck = '# A deck\n\n---\n\n## Another slide';
+
+	it('prices an edit above a question, by the measured half again, and never at the output ceiling', () => {
+		const t = agentTurnUsd(price, grounding, true, deck);
+		expect(t).not.toBeNull();
+		if (!t) return;
+		expect(t.edit).toBeGreaterThan(t.question);
+		expect(t.edit / t.question).toBeGreaterThan(1.2);
+		expect(t.edit / t.question).toBeLessThan(2);
+		// The old readout priced 4,096 output tokens per turn — $0.041 of output alone here.
+		expect(t.question).toBeLessThan(((CHAT_OUTPUT_EST * price.completionPerM) / 1e6) * 0.5);
+	});
+
+	it('prices a first turn (the prefix not yet cached) above a warm one, and says nothing without a price', () => {
+		const warm = agentTurnUsd(price, grounding, true, deck);
+		const cold = agentTurnUsd(price, grounding, false, deck);
+		expect(cold?.question).toBeGreaterThan(warm?.question ?? Infinity);
+		expect(agentTurnUsd(null, grounding, true, deck)).toBeNull();
+	});
+});
 
 // The trio's headline finding: "couldn't check" must never render as "checked, clean".
 describe('diagram grounding — silence when we do not know', () => {

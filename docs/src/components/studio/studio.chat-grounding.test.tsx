@@ -41,6 +41,7 @@ vi.mock('./architect', () => ({
 	estimateUsd: () => 0.004,
 	CHAT_OUTPUT_EST: 4096,
 	chatSystemTokens: () => 0,
+	agentTurnUsd: () => null,
 	CHAT_MAX_TOKENS: 16384,
 	refineSelection: vi.fn(async () => ({ status: 'offline' })),
 	REFINE_ACTIONS: [],

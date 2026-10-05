@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { architectSpend, CHAT_OUTPUT_EST, type ChatGrounding, chatSystemTokens, estimateUsd, useArchitectStatus } from './architect';
+import { agentTurnUsd, architectSpend, type ChatGrounding, useArchitectStatus } from './architect';
 import { type ReferenceDoc, refDocsTokens } from './reference-doc';
 
 // The money readout: what this turn costs, and what the session has spent.
@@ -42,18 +42,27 @@ export function ChatCost({ source, grounding, docs, primed, className }: { sourc
 		on();
 		return () => globalThis.removeEventListener?.('lattice-chat-agent-ready', on);
 	}, []);
-	// Counts the SYSTEM turn, not just the deck — see chatSystemTokens. Memoized because
-	// building the primer walks the whole component catalog.
+	// A question and an edit, priced from the measured shape of each (agentTurnUsd): an edit
+	// takes a second model call and costs about half again as much, so one figure would
+	// mislead about one of them. Memoized because building the prompt walks the catalog.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `agentReady` is the intentional re-price trigger once the lazy agent module lands.
-	const promptExtra = React.useMemo(() => (cloud ? chatSystemTokens('openrouter', grounding, primed, source) + refDocsTokens(docs) : 0), [cloud, grounding, primed, docs, source, agentReady]);
-	const turnEst = React.useMemo(() => (cloud && status.price ? estimateUsd(source, status.price, CHAT_OUTPUT_EST, promptExtra) : null), [cloud, source, status.price, promptExtra]);
+	const turnEst = React.useMemo(() => (cloud && status.price ? agentTurnUsd(status.price, grounding, !!primed, source, refDocsTokens(docs)) : null), [cloud, grounding, primed, docs, source, status.price, agentReady]);
+	const usd = (n: number) => `$${n.toFixed(n < 0.1 ? 3 : 2)}`;
 
 	if (!cloud) return null;
 	return (
 		<span className={cn('flex items-center gap-2 font-sans text-[10.5px] normal-case tracking-normal', className)}>
 			{turnEst != null && (
-				<span className="text-muted-foreground">
-					≈ <span className="font-semibold text-foreground">${turnEst.toFixed(turnEst < 0.1 ? 3 : 2)}</span>/turn
+				// A RANGE, question to edit, and no "/turn": the docked column is ~200px wide, and
+				// "ask · edit" with two figures wrapped there while "/turn" pushed the session total
+				// off the edge. The low end is a question, the high end an edit; the title and a
+				// screen-reader line say so in words.
+				<span
+					className="whitespace-nowrap text-muted-foreground"
+					title={`About ${usd(turnEst.question)} to ask a question (one model call), about ${usd(turnEst.edit)} for an edit (it reads the layout, then edits). Estimates; the spend tally records the exact cost.`}
+				>
+					≈ <span className="font-semibold text-foreground">{usd(turnEst.question)}–{usd(turnEst.edit).slice(1)}</span>
+					<span className="sr-only"> per turn: the lower figure for a question, the higher for an edit</span>
 				</span>
 			)}
 			{spend.cap > 0 && (

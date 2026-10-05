@@ -1681,8 +1681,14 @@ export function loadChatAgent(): Promise<ChatAgentModule> {
 const AGENT_CORE_TOKENS = 6700;
 
 export function chatSystemTokens(generation: string, grounding?: ChatGrounding, cached = false, source = ''): number {
-	// The cloud tier runs the agent, whose prompt is the compact core + the deck brief; the
-	// tool rounds it may add are not knowable before the turn, so this prices round one.
+	// The cloud tier runs the agent, whose prompt is the compact core + the deck brief. This
+	// prices that system turn once; `agentTurnUsd` prices whole agent turns from it.
+	const { staticTokens, tailTokens } = chatSystemParts(generation, grounding, source);
+	return (cached ? Math.ceil(staticTokens * CACHE_READ_RATE) : staticTokens) + tailTokens;
+}
+
+/** The system turn's two halves in tokens: the cacheable static prefix and the per-turn tail. */
+function chatSystemParts(generation: string, grounding: ChatGrounding | undefined, source: string): { staticTokens: number; tailTokens: number } {
 	if (generation === 'openrouter' && !chatAgentMod) {
 		// The agent module is lazy (it is not startup JavaScript); until it lands, price its
 		// measured core (~6.7K tokens) plus the deck brief's rough share.
@@ -1690,12 +1696,55 @@ export function chatSystemTokens(generation: string, grounding?: ChatGrounding, 
 		// (offline) must not surface as an unhandled rejection per keystroke. The chat turn
 		// itself awaits the load and reports a failure.
 		loadChatAgent().catch(() => {});
-		return (cached ? Math.ceil(AGENT_CORE_TOKENS * CACHE_READ_RATE) : AGENT_CORE_TOKENS) + Math.ceil(estTokens(source) / 4);
+		return { staticTokens: AGENT_CORE_TOKENS, tailTokens: Math.ceil(estTokens(source) / 4) };
 	}
 	const { staticPrefix, dynamicTail } = generation === 'openrouter' && chatAgentMod ? chatAgentMod.agentSystemParts(source, grounding) : buildChatSystem(generation, grounding);
-	const stat = estTokens(staticPrefix);
-	return (cached ? Math.ceil(stat * CACHE_READ_RATE) : stat) + estTokens(dynamicTail);
+	return { staticTokens: estTokens(staticPrefix), tailTokens: estTokens(dynamicTail) };
 }
+
+/**
+ * What an agent turn costs, for the "≈ $/turn" readout: a QUESTION and an EDIT, because the
+ * two differ by half and one figure cannot honestly stand for both. The shape is measured
+ * (decision note §7, the matched benchmark, Sonnet 5.5 on OpenRouter, 2026-10-05):
+ *
+ * - a question is one call that writes ~1,000 tokens;
+ * - an edit is two calls: a short one that asks for the layout (~80 tokens out), then one
+ *   that re-reads the whole prompt from cache, writes ~2,500 tokens of layout docs to it,
+ *   and writes the slide and its summary (~700 tokens out).
+ *
+ * `estTokens` (4 characters a token) counts this prompt ~1.45x low against OpenRouter's own
+ * count (10.2K cached tokens against 7.1K estimated for the prefix and tools), so the input
+ * side carries that factor. Priced this way the bench deck reads question ≈ $0.014 and edit ≈
+ * $0.020 warm, against $0.015 and $0.021 measured, and a cold first question ≈ $0.052 against
+ * $0.049 measured (§7: the one-time write of the prefix). It replaced a single figure priced at the
+ * 4,096-token output CEILING, which is the budget gate's worst case and quoted every turn at
+ * ~3x a question's real cost. The ceiling stays in the gate; this is the typical turn.
+ */
+export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0): { question: number; edit: number } | null {
+	if (!price || price.promptPerM == null || price.completionPerM == null) return null;
+	const inUsd = price.promptPerM / 1e6;
+	const outUsd = price.completionPerM / 1e6;
+	const { staticTokens, tailTokens } = chatSystemParts('openrouter', grounding, source);
+	// The tool schemas lead every request, so they sit in the cached prefix with the system core.
+	const stat = (staticTokens + AGENT_TOOLS_TOKENS) * AGENT_TOKEN_SCALE;
+	const rest = (tailTokens + estTokens(source) + extraTokens) * AGENT_TOKEN_SCALE;
+	// Round one: the static prefix at the cache-read rate once a turn has written it, and
+	// at the 1-hour write rate (2x) on the turn that writes it; the rest is written to the
+	// 5-minute cache for the next round (1.25x).
+	const firstIn = stat * (primed ? CACHE_READ_RATE : CACHE_WRITE_1H_RATE) + rest * CACHE_WRITE_RATE;
+	const question = firstIn * inUsd + AGENT_TURN.questionOut * outUsd;
+	const second = ((stat + rest) * CACHE_READ_RATE + AGENT_TURN.editDocTokens * CACHE_WRITE_RATE) * inUsd + AGENT_TURN.editOut * outUsd;
+	const edit = firstIn * inUsd + AGENT_TURN.editFirstOut * outUsd + second;
+	return { question, edit };
+}
+const AGENT_TURN = { questionOut: 1000, editFirstOut: 80, editDocTokens: 2500, editOut: 700 };
+/** OpenRouter's token count over `estTokens` for the agent's prompt (see agentTurnUsd). */
+const AGENT_TOKEN_SCALE = 1.45;
+/** A 5-minute cache write, as a fraction of base input; the chat's prefix is a 1-hour one. */
+const CACHE_WRITE_RATE = 1.25;
+const CACHE_WRITE_1H_RATE = 2;
+/** The agent's tool schemas ride every request; ~875 estimated tokens (AGENT_TOOLS as JSON). */
+const AGENT_TOOLS_TOKENS = 875;
 
 /** Estimate a cloud call's USD cost: prompt tokens × in-price + an output ceiling ×
  *  out-price. `extraTokens` folds in an attached reference doc's contribution (#640)
