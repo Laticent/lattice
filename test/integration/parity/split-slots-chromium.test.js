@@ -9,7 +9,8 @@
  * output (lib/core/split-panels.js) parsed by Chromium. Both must give the same section.
  *
  * FALSIFIABLE: with #2538's walk reverted (lib/core/top-level-h2.mjs, lib/core/split-panels.js
- * and the DOM path from main), the shapes above the markdown controls disagree. Needs Chromium.
+ * and the DOM path from main), 17 of these 23 shapes disagree. The two markdown controls agree
+ * either way. Needs Chromium.
  * followups.d/2478-p5-split-slot-parser-model-gaps.md (closed by #2538).
  */
 
