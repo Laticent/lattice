@@ -112,17 +112,35 @@ section .lat-icon[data-c='c10'] { --icon-hue:var(--cat-10-mark); --icon-ink:var(
 section .lat-icon[data-c='c11'] { --icon-hue:var(--cat-11-mark); --icon-ink:var(--cat-11-mark); }
 section .lat-icon[data-c='c12'] { --icon-hue:var(--cat-12-mark); --icon-ink:var(--cat-12-mark); }
 
-/* Inside a pill the icon leads the label, in the pill's own ink, one text-height square. The
- * pill decides the frame (§ 6): an icon there is always bare. */
+/* Inside a pill the icon leads the label, in the pill's own ink, drawn 1.15em square. The
+ * pill decides the frame (§ 6): an icon there is always bare.
+ *
+ * THE LAYOUT BOX IS THE CAPITALS, THE DRAWING IS SCALED UP FROM IT. A pill is one
+ * `line-height:1` line, cap-centered (base.modifiers.css § Optical centering). A 1.15em box
+ * in that line is taller than the line, so the line grew around it: measured in the export's
+ * Chrome 131, an icon pill was 28.2px beside a plain pill's 25.9px, with its label 1px low,
+ * and an icon-only pill sat 1.6px low. Here the box runs from the baseline to the cap height
+ * (`1cap` tall, `vertical-align:baseline`), so it is centered on the capitals by
+ * construction and never taller than the line. The `<svg>` carries
+ * `preserveAspectRatio="xMidYMid slice"` (icons.inline.js), so the drawing takes the box's
+ * WIDTH, 1.15em, centered on the box, and `overflow:visible` paints the part above and below
+ * it. Painting outside a box does not lay anything out, so the line, the pill's height and the
+ * label do not move. (Not a `scale()` transform: the ratio is `1.15em / 1cap`, and the export's
+ * Chrome 131 cannot divide one length by another.) */
 section .lat-pill > .lat-pill-icon {
   display:inline-block;
   box-sizing:content-box;
   width:1.15em;
-  height:1.15em;
+  height:1cap;
   padding-right:0.35em;
-  vertical-align:-0.2em;
+  vertical-align:baseline;
+  overflow:visible;
   --icon-stroke:2.25;
 }
 /* An icon-only pill (`{icon=database}`, which names itself with role="img") has no label to
  * space from. Not `:last-child`: the label is a text node, which that selector never sees. */
 section .lat-pill[role='img'] > .lat-pill-icon { padding-right:0; }
+/* ...and no label tracking to balance either: the pill indents its line by `--pill-tracking` to
+ * cancel the space letter-spacing leaves after a label's last letter, and with no label that
+ * indent only pushed the drawing right. */
+section .lat-pill[role='img'] { text-indent:0; }

@@ -16,7 +16,7 @@ Raw files land in `^{bucket, c4}` S3.
 
 - renders `class="lat-icon" data-icon="bucket"`
 - renders `data-c="c4"`
-- renders `<svg class="lat-icon-svg" viewBox="0 0 24 24" aria-hidden="true"`
+- renders `<svg class="lat-icon-svg" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid slice" aria-hidden="true"`
 - omits `<code>^{bucket`
 - detect true
 
@@ -38,7 +38,7 @@ The `^{db, lg, bare}` primary.
 ```
 
 - renders `class="lat-pill"`
-- renders `<svg class="lat-pill-icon"`
+- renders `<svg class="lat-pill-icon" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid slice"`
 - renders `</svg>S3</span>`
 - detect true
 
