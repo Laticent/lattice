@@ -1,4 +1,4 @@
-import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Search, Settings as SettingsCog, Share2, Sparkles } from 'lucide-react';
+import { Columns2, FileText, GraduationCap, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, Search } from 'lucide-react';
 import * as React from 'react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Kbd } from '@/components/ui/kbd';
@@ -6,11 +6,12 @@ import { PanelDock, PanelHeader, PanelSheet, useKeyboardInset } from '@/componen
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import type { StudioDeck } from './decks';
-import { FeedbackIcon } from './icons';
+import type { LessonMeta } from './lessons/catalog';
+import type { StudioCommand } from './studio-commands';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
-	open, onOpenChange, onRun, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReadArticle, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
+	open, onOpenChange, onRun, commands, lessons, onLesson, decks, palettes, onPickDeck, onPalette,
 	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit, inline,
 }: {
 	/**
@@ -54,30 +55,23 @@ export function CommandPalette({
 	 * drawer's modal overlay then ate. (Red team, PR #1198.)
 	 */
 	onRun?: () => void;
+	/**
+	 * The Studio's action list (studio-commands.ts), in palette order. Each command is in the list
+	 * only while it applies, so the palette never lists a dead row. Lessons run the same commands
+	 * by id, so a lesson's "I'll do it for you" is exactly this row.
+	 */
+	commands: readonly StudioCommand[];
+	/**
+	 * The lessons search can find (lessons/catalog.ts). Typing "pdf" shows the Export as PDF action
+	 * AND "How do I export a PDF?" — the action for someone who knows what they want, the lesson
+	 * for someone learning. (2026-10-05-studio-lessons.md)
+	 */
+	lessons?: readonly LessonMeta[];
+	onLesson?: (id: string) => void;
 	decks: StudioDeck[];
 	palettes: string[];
 	onPickDeck: (d: StudioDeck) => void;
-	// New deck — the slim Write header's switcher carries it too, but ⌘K is the
-	// header's stated "reaches every feature" path, so it must be reachable here.
-	onNewDeck: () => void;
 	onPalette: (p: string) => void;
-	onPresent: () => void;
-	onShare: () => void;
-	onFabricate: () => void;
-	/** Open the deck as a prose article. Optional so the row never lists dead. */
-	onReadArticle?: () => void;
-	onReshape: () => void;
-	onWatchDemo?: () => void;
-	onInsert?: () => void;
-	onFocus?: () => void;
-	onFeedback?: () => void;
-	// Workspace opens as an overlay at ANY stop; the Library is now a docked Craft
-	// panel, so its handler (like onReshape) first transiently reveals Craft before
-	// opening the slot — keeping "every faculty is one keystroke away from every stop"
-	// true even from Read/Write where the activity bar isn't shown.
-	// (2026-07-17-studio-persona-dial.md, 2026-07-17-panel-drawer-cohesion.md)
-	onLibrary?: () => void;
-	onWorkspace?: () => void;
 	// The editor|preview split (2026-07-02 decision) — each handler is passed
 	// only while it applies (e.g. no Expand without a collapsed pane), so the
 	// palette never lists a dead command.
@@ -217,18 +211,20 @@ export function CommandPalette({
 			<CommandList>
 				<CommandEmpty>No matches.</CommandEmpty>
 				<CommandGroup heading="Actions">
-					<CommandItem onSelect={run(onPresent)}><Play />Present</CommandItem>
-					<CommandItem onSelect={run(onShare)}><Share2 />Share…</CommandItem>
-					<CommandItem onSelect={run(onReshape)}><Sparkles />Reshape for a reader</CommandItem>
-					{onInsert && <CommandItem onSelect={run(onInsert)}><Plus />Add a slide…</CommandItem>}
-					{onFocus && <CommandItem onSelect={run(onFocus)}><Focus />Focus mode — just editor &amp; preview</CommandItem>}
-					<CommandItem onSelect={run(onFabricate)}><PencilRuler />Fabricate — Theme &amp; Component Studio</CommandItem>
-					{onReadArticle && <CommandItem onSelect={run(onReadArticle)}><FileText />Read as an article</CommandItem>}
-					{onLibrary && <CommandItem onSelect={run(onLibrary)}><FileBox />Library — saved themes &amp; components</CommandItem>}
-					{onWorkspace && <CommandItem onSelect={run(onWorkspace)}><SettingsCog />Workspace settings</CommandItem>}
-					{onWatchDemo && <CommandItem onSelect={run(onWatchDemo)}><MonitorPlay />Watch demo — the Studio drives itself</CommandItem>}
-					{onFeedback && <CommandItem onSelect={run(onFeedback)}><FeedbackIcon />Send feedback</CommandItem>}
+					{commands.filter((c) => c.group === 'actions').map((c) => (
+						<CommandItem key={c.id} keywords={c.keywords} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
+					))}
 				</CommandGroup>
+				{lessons && lessons.length > 0 && onLesson && (
+					<>
+						<CommandSeparator />
+						<CommandGroup heading="Learn">
+							{lessons.map((l) => (
+								<CommandItem key={l.id} data-lesson={l.id} keywords={l.keywords} onSelect={run(() => onLesson(l.id))}><GraduationCap />{l.question}</CommandItem>
+							))}
+						</CommandGroup>
+					</>
+				)}
 				{(onCollapseEditor || onCollapsePreview || onExpandPane || onResetSplit) && (
 					<>
 						<CommandSeparator />
@@ -245,7 +241,9 @@ export function CommandPalette({
 					{decks.map((d) => (
 						<CommandItem key={d.id} onSelect={run(() => onPickDeck(d))}><FileText />{d.title}</CommandItem>
 					))}
-					<CommandItem onSelect={run(onNewDeck)}><Plus />New deck</CommandItem>
+					{commands.filter((c) => c.group === 'deck').map((c) => (
+						<CommandItem key={c.id} keywords={c.keywords} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
+					))}
 				</CommandGroup>
 				<CommandSeparator />
 				<CommandGroup heading="Theme">
@@ -520,6 +518,17 @@ export function CommandPalette({
 						'[&_[cmdk-group]]:px-2 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5',
 						'[&_[data-slot=command-list]]:min-h-0 [&_[data-slot=command-list]]:flex-1 [&_[data-slot=command-list]]:max-h-none',
 					)}
+					// A TAPPED ROW MUST NOT TAKE FOCUS FROM THE FIELD, or the tap is lost. The sheet is
+					// full height while its field has focus (`MOBILE_HEIGHT` in panel.tsx) and 54px
+					// shorter once it loses it, so a press that blurred the field moved the row out
+					// from under the finger: measured at 390px, `pointerdown` landed on the row and
+					// `pointerup` and `click` on the group heading above it, so no command ran. Tapping
+					// a result did nothing at all; only Enter worked. Keeping focus in the field holds
+					// the layout still, the click lands, and the palette closes on its own.
+					// (2026-10-05-studio-lessons.md, found driving a lesson from the phone palette.)
+					onMouseDown={(e) => {
+						if (e.target instanceof Element && e.target.closest('[cmdk-item]')) e.preventDefault();
+					}}
 				>
 					{list}
 					<PanelDock>{field}</PanelDock>

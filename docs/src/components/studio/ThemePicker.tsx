@@ -34,7 +34,7 @@ function Dot({ color }: { color: string }) {
 
 function ThemeItem({ name, label, color, active, onPick }: { name: string; label: string; color: string; active: boolean; onPick: (n: string) => void }) {
 	return (
-		<DropdownMenuItem onSelect={() => onPick(name)} className={cn('gap-2', active && 'font-semibold')}>
+		<DropdownMenuItem data-palette={name} onSelect={() => onPick(name)} className={cn('gap-2', active && 'font-semibold')}>
 			<Dot color={color} />
 			<span className="truncate">{label}</span>
 			{active && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}

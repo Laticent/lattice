@@ -23,16 +23,17 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // paths download/print the Markdown; the artifact paths run the engine export
 // pipeline (image PDF/PPTX, vector Print, the Marp ZIP) — see share-export.ts.
 
-export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void }) {
+export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; initialView?: 'menu' | 'pdf' }) {
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
 	// a real per-artifact decision: PDF (comments as sticky notes), the Webpage player
 	// (color mode / strip speaker notes), PRINT (paper + color with a live preview),
 	// IMAGE SET (format / resolution), and the MARP bundle (who the overflow marker
 	// speaks to). Reset to the menu whenever the sheet re-opens so it never lands
-	// mid-flow.
-	const [view, setView] = React.useState<'menu' | 'pdf' | 'html' | 'print' | 'imageset' | 'marp'>('menu');
-	React.useEffect(() => { if (open) setView('menu'); }, [open]);
+	// mid-flow — unless the opener asked for a step: "Export as PDF…" opens on the PDF step
+	// (2026-10-05-studio-lessons.md).
+	const [view, setView] = React.useState<'menu' | 'pdf' | 'html' | 'print' | 'imageset' | 'marp'>(initialView);
+	React.useEffect(() => { if (open) setView(initialView); }, [open, initialView]);
 	// A saved finish renders via a `finish finish-<slug>` class the engine doesn't know
 	// + its generated CSS. The two handoffs treat it differently:
 	//   • ARTIFACT paths (PDF/PPTX/Print/Present) — bake the look in. Stamp the class
@@ -251,7 +252,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<PanelSection key={section.label} label={section.label}>
 									<p className="text-xs text-muted-foreground">{section.blurb}</p>
 									{section.rows.map((r) => (
-										<ShareRow key={r.id} icon={r.icon} title={r.title} desc={r.desc} dev={r.dev} busy={act[r.id].busy} status={act[r.id].progress ? progress : undefined} onClick={act[r.id].onClick} />
+										<ShareRow key={r.id} demo={`share-${r.id}`} icon={r.icon} title={r.title} desc={r.desc} dev={r.dev} busy={act[r.id].busy} status={act[r.id].progress ? progress : undefined} onClick={act[r.id].onClick} />
 									))}
 								</PanelSection>
 							))
