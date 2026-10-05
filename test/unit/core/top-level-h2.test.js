@@ -179,6 +179,15 @@ test('agrees with a real HTML parser on every shape that has bitten this walk', 
     '<ul><li>a<li>b</ul><h2>Real</h2>',
     '<dl><dt>a<dd>b</dl><h2>Real</h2>',
     '<table><tr><td>a<td>b</table><h2>Real</h2>',
+    // An HTML element inside SVG or MathML breaks out to the section (the "in foreign content"
+    // rule), except inside an integration point, where HTML belongs. Surfaced by the checker on
+    // the split kernel's move onto this walk (2026-10-05).
+    '<svg><h2>Out</h2></svg>',
+    '<svg><g><ul><li>x</li></ul></g></svg>',
+    '<math><mi>x</mi><h2>Out</h2></math>',
+    '<svg><foreignObject><h2>In</h2></foreignObject></svg><h2>Real</h2>',
+    '<svg><desc><ul><li>x</li></ul></desc></svg>',
+    '<svg><br><h2>After</h2></svg>',
     // Case.
     '<H2>Deco</H2><h2>Real</h2>',
     '<H2>Up</H2>',
