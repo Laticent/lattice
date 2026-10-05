@@ -134,6 +134,11 @@ progress  — 2026-10-05 (font-scale-fit.md Amendment (8)): the scorer is in the
             10, roadmap / image / cycle / content 5 each, table and matrix-2x2 4. Next steps: the
             glossary term column (talk 76 at conference: `Tautological test` wraps, and the rig's
             terms are one word); the line model for compare-prose and cycle, as Amendment (7) said.
+progress  — 2026-10-05 (2): the out-of-sample sweep is in the tree too:
+            `node tools/score-venue-lint.js --sweep origin/main` lints every committed deck on
+            the branch and on the base and renders each changed verdict (NEW CATCH / NEW FALSE /
+            FALSE GONE / LOST CATCH, and any change at a deck's own size). On #2517 against
+            4ce0d29 it reproduces 34 / 0 / 3 / 0, own size 0.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.

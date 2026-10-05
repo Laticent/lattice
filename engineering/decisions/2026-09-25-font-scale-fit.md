@@ -994,7 +994,10 @@ by its text and an HTML tag not at all, and a code pane's fence closes only on i
 **Reproducing.** The talk is not in the tree. It is
 `engineering/decisions/2026-09-24-agentic-practice-audit/agentic-engineering-practices.md` on the
 `claude/agentic-practices-talk-tl7qum` branch (bbaf27b). Write it out and pass its path to
-`tools/score-venue-lint.js` beside the four committed decks.
+`tools/score-venue-lint.js` beside the four committed decks. The out-of-sample sweep is
+`tools/score-venue-lint.js --sweep <base-ref>` (added after the merge, in the follow-up PR): it
+lints every committed deck on both trees and renders each changed verdict, and against 4ce0d29 it
+reproduces the 34 / 0 / 3 / 0 above.
 
 **Still missed, by component, on the five decks** (at all three venues): compare-prose 21,
 split-panel 16, list-steps 10, roadmap 5, image 5, cycle 5, content 5, table 4, matrix-2x2 4. One
