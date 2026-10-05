@@ -3139,7 +3139,8 @@ function checkTypeSizeModifiers(errors) {
 //       basis is what makes it an inset rather than a size.
 //
 //   (b) BODY SHEETS ONLY — `padding` (or a `padding-*` longhand) on a rule whose
-//       subject is a known BODY element: `.chart-body`, `.mermaid`, `.mermaid-svg`.
+//       subject is a known BODY element: `.chart-body`, a drawn plugin figure
+//       (`[data-lattice-figure]`, or the Mermaid plugin's own `.mermaid` / `.mermaid-svg`).
 //       This is the easiest wrong move of all — "inset the chart a bit more" is
 //       spelled `padding` by anyone who has not read design/forms.md §6.1 — and
 //       (a) cannot see it, because a container-unit subtraction in `padding` is
@@ -3169,7 +3170,7 @@ const SANCTIONED_STAGE_INSETS = [
   {
     file: 'lib/integrations/highlight-js/highlight-js.css',
     prop: 'padding-bottom',
-    value: 'var(--sp-sm) (on `.mermaid:has(+ .mermaid-error)`)',
+    value: 'var(--sp-sm) (on `[data-lattice-figure]:has(+ .mermaid-error)`)',
     why: 'The gap between a failed diagram and the parser-error block beneath it. It '
       + 'cannot be a `margin-top` on the error block — HARD RULE #20, and that block is '
       + 'bordered and filled, so a margin there bleeds its fill and cannot be measured. It '
@@ -3183,8 +3184,11 @@ const SANCTIONED_STAGE_INSETS = [
 ];
 
 // The body elements the Forms inset rule governs — the boxes that dock in a stage
-// cell. Adding one here is how a newly-migrated component joins check (b).
-const INSET_BODY_SELECTORS = ['.chart-body', '.mermaid-svg', '.mermaid'];
+// cell. Adding one here is how a newly-migrated component joins check (b). A drawn
+// plugin figure is found by the host's MARKER, `[data-lattice-figure]` (plugin-system
+// phase D), which is what engine CSS outside lib/plugins selects it by; the plugin's own
+// output classes stay listed for its own stylesheet.
+const INSET_BODY_SELECTORS = ['.chart-body', '.mermaid-svg', '.mermaid', '[data-lattice-figure]'];
 
 /**
  * Blank out `var(--name)` references, keeping the parens balanced and the length
@@ -3276,8 +3280,12 @@ function offendingBodyPadding(css) {
     while (subject !== prev);
     subject = subject.split(/[\s>+~]+/).filter(Boolean).pop() || '';
     const subjectClasses = new Set([...subject.matchAll(/\.([\w-]+)/g)].map((c) => c[1]));
-    const subjectsBody = INSET_BODY_SELECTORS.some((cls) => subjectClasses.has(cls.slice(1)));
-    if (subjectsBody && !/\.canvas|figure/.test(selector)) {
+    const subjectAttrs = new Set([...subject.matchAll(/\[([\w-]+)/g)].map((a) => a[1]));
+    const subjectsBody = INSET_BODY_SELECTORS.some((sel) => (sel.startsWith('[')
+      ? subjectAttrs.has(sel.slice(1, -1))
+      : subjectClasses.has(sel.slice(1))));
+    // `figure` the ELEMENT, not the word: `[data-lattice-figure]` names a body, not the projection.
+    if (subjectsBody && !/\.canvas|(?<![\w-])figure(?![\w-])/.test(selector)) {
       for (const d of block.split(';')) {
         const [prop, ...rest] = d.split(':');
         const value = rest.join(':').trim();
@@ -7770,12 +7778,28 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
  *                       lib/plugins, where the host's generic hook (`state.rebake`) should answer.
  *                       Phase D's browser half: 1 → 0. (The bake's SERVICES are held generic at
  *                       run time instead: `bakeDeck` refuses any not in BAKE_SERVICES.)
+ *   drawnFigureClasses  a drawn plugin's OWN output class (`render.figureClasses` in its manifest:
+ *                       Mermaid's `.mermaid`, `.mermaid-svg`) used as a SELECTOR outside lib/plugins
+ *                       — in code, CSS, or a component manifest — where the host's
+ *                       `[data-lattice-figure]` marker, which every drawn plugin's pass and bake
+ *                       write, should answer. Phase D's last consumers: 36 → 0. ENVELOPE: it counts
+ *                       the selector shape (`.mermaid` after a selector boundary — a quote, space,
+ *                       comma, paren, bracket, combinator or brace — or after a tag name); a JS property read
+ *                       such as `window.mermaid` is not a selector and is not counted. It also counts
+ *                       `[class~=mermaid]`, `[x].mermaid`, and the DOM's class APIs
+ *                       (`classList.contains('mermaid')`, `className === 'mermaid-svg'`), which are the
+ *                       plugin's own idiom INSIDE lib/plugins and a consumer's outside it. NOT counted,
+ *                       because each reads the same as a JS property access: a class after `)`
+ *                       (`:is(.a).mermaid` — `(globalThis as T).mermaid` is the same text), after
+ *                       another class (`.x.mermaid` — `s.props.mermaid`) or after the tag `a`
+ *                       (`a.mermaid` — `if (a.mermaid)`). Scans lib,
+ *                       tools, themes, docs/src, docs/scripts and the emulator; tests are exempt.
  *
  * Over budget fails: something re-grew the old way. UNDER budget fails too, naming the new
  * count, so the budget ratchets down in the PR that earned it and can never silently rot upward
  * again.
  */
-const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0, drawnFenceClasses: 0, drawnLibraryUrls: 0, drawnSettleStates: 0, runtimePluginNames: 0, pluginAssetsOutside: 0, bakeContextByName: 0 });
+const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0, drawnFenceClasses: 0, drawnLibraryUrls: 0, drawnSettleStates: 0, runtimePluginNames: 0, pluginAssetsOutside: 0, bakeContextByName: 0, drawnFigureClasses: 0 });
 
 function pluginMigrationCounts(root = ROOT) {
   // EVERY override of markdown-it's fence renderer outside the host's one table, anywhere a render
@@ -7911,6 +7935,37 @@ function pluginMigrationCounts(root = ROOT) {
       for (const m of stripCodeComments(fs.readFileSync(file, 'utf8')).matchAll(re)) bakeHits.push(`${rel}: ${m[0]}`);
     }
   }
+  // A drawn plugin's own figure classes, from its manifest's `render.figureClasses`, used as a
+  // SELECTOR outside lib/plugins (see the doc block for the envelope).
+  const figureClasses = [...new Set(manifests.flatMap((m) => m.render?.figureClasses || []))];
+  const figureHits = [];
+  if (figureClasses.length) {
+    const alt = figureClasses.map(reEscape).sort((a, b) => b.length - a.length).join('|');
+    // Four shapes: a class selector (`.mermaid` after a selector boundary, a tag, or `]`), an
+    // attribute selector on the class (`[class~=mermaid]`), and the DOM's
+    // two class APIs (`classList.contains('mermaid')`, `className === 'mermaid-svg'`).
+    const re = new RegExp([
+      `(?:^|[\\s'"\`,(>+~*:{}\\[\\]]|\\b(?:div|pre|span|section|svg|figure|img))\\.(?:${alt})(?![\\w-])`,
+      `\\[class[~*^|$]?=\\s*["']?(?:${alt})(?![\\w-])`,
+      `classList\\.(?:contains|add|remove|toggle)\\(\\s*["'\`](?:${alt})["'\`]`,
+      `className\\s*(?:===?|!==?)\\s*["'\`](?:${alt})["'\`]`,
+    ].join('|'), 'gm');
+    const files = [];
+    for (const dir of ['lib', 'tools', 'themes', 'docs/src', 'docs/scripts']) listFilesByExt(path.join(root, dir), ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.astro', '.css', '.json'], files);
+    files.push(path.join(root, 'lattice-emulator.js'));
+    for (const file of files) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
+      if (/\.generated\.[cm]?[jt]s(?:on)?$/.test(rel) || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /(^|\/)dist\//.test(rel)) continue;
+      // A component manifest is the one JSON that carries selectors; every other JSON is data.
+      if (rel.endsWith('.json') && !/\.manifest\.json$/.test(rel)) continue;
+      if (!fs.existsSync(file)) continue;
+      // Full-line `//` comments, then block comments — the url arm's order, for its reason. (Blanking
+      // ` * …` lines too was tried and blanked every ` */`, so one comment swallowed the file.)
+      const code = fs.readFileSync(file, 'utf8').split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
+      for (const m of code.matchAll(re)) figureHits.push(`${rel}: ${m[0].trim()}`);
+    }
+  }
   return {
     fenceWrappers, pluginTokenNames: hits.length, hits,
     drawnFenceClasses: drawnHits.length, drawnHits,
@@ -7919,6 +7974,7 @@ function pluginMigrationCounts(root = ROOT) {
     runtimePluginNames: runtimeHits.length, runtimeHits,
     pluginAssetsOutside: assetHits.length, assetHits,
     bakeContextByName: bakeHits.length, bakeHits,
+    drawnFigureClasses: figureHits.length, figureHits,
   };
 }
 
@@ -7942,7 +7998,7 @@ function checkPluginMigration(errors, budget = PLUGIN_MIGRATION_BUDGET, root = R
   for (const [key, allowed] of Object.entries(budget)) {
     const n = counts[key];
     if (n > allowed) {
-      const list = { pluginTokenNames: counts.hits, runtimePluginNames: counts.runtimeHits, pluginAssetsOutside: counts.assetHits, bakeContextByName: counts.bakeHits }[key];
+      const list = { pluginTokenNames: counts.hits, runtimePluginNames: counts.runtimeHits, pluginAssetsOutside: counts.assetHits, bakeContextByName: counts.bakeHits, drawnFigureClasses: counts.figureHits }[key];
       const detail = list ? ` — ${list.slice(0, 12).join('; ')}${list.length > 12 ? '; …' : ''}` : '';
       errors.push(`plugin migration: ${key} is ${n}, over its budget of ${allowed}${detail}. The plugin system replaces this mechanism; extend the plugin host (lib/plugins/) instead of the old path (engineering/decisions/2026-09-27-plugin-system.md §7).`);
     } else if (n < allowed) {

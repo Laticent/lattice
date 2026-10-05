@@ -135,10 +135,11 @@ export function hasAnimatableChart(section: Element): boolean {
   return section.querySelector(MOTION_TARGET_SEL) != null;
 }
 
-/** Whether an svg is a rendered Mermaid diagram. The runtime writes every diagram into a
- *  `div.mermaid` (the HTML player's baked copy keeps that host), and a chart never lives there. */
-export function isMermaidSvg(svg: Element): boolean {
-  return svg.closest('.mermaid, .mermaid-svg') != null;
+/** Whether an svg is a drawn plugin figure (a diagram). Every drawn plugin's runtime pass and
+ *  bake write it into a container carrying the host's `data-lattice-figure` marker (the HTML
+ *  player's baked copy keeps it), and a chart never lives there. */
+export function isDrawnFigureSvg(svg: Element): boolean {
+  return svg.closest('[data-lattice-figure]') != null;
 }
 
 /** How many marks a section's chart builds — the `auto` speed's pacing input. A chart counts its

@@ -13,7 +13,7 @@ import { createSingleSlideRenderer } from '@/lib/single-slide-render';
 // the playground uses (React orchestrates; the engine renders).
 
 export type FieldCardsData = {
-	cards: Record<string, { sample: string; mermaid: boolean }>;
+	cards: Record<string, { sample: string; drawn: boolean }>;
 	themeBase: string;
 	runtimeUrl: string;
 	engineUrl: string;
@@ -42,7 +42,7 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 			const name = host.getAttribute('data-live-card') || '';
 			const c = data.cards[name];
 			if (!c) return;
-			engine.renderInto(host, c.sample, c.mermaid).then((r) => {
+			engine.renderInto(host, c.sample, c.drawn).then((r) => {
 				if (r.ok && !renderedRef.current.includes(host)) renderedRef.current.push(host);
 			});
 		};

@@ -12,7 +12,7 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — a term and a one-sentence definition.
 
-**By venue** (`venue:`, ~16 words each) it holds laptop ~9 · huddle ~4 · conference ~3 · hall ~3 items. At ~6 words each: 9 · 8 · 6 · 5. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~16 words each) it holds laptop ~9 · huddle ~4 · conference ~3 · hall ~3 items. At ~6 words each: 9 · 8 · 6 · 5. Under an eyebrow (~16 words): 8 · 4 · 3 · 2. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

@@ -20,6 +20,10 @@ why now   — the reading-order grid places boxes blind to the lines, so the rou
             loop (#2427's secant step) and a flowchart-sized tile were both measured on #2424
             and neither closes it; what is left is the cost of one routing pass.
 where     — docs/src/lib/trama/kernel.ts (wrapped, solveRoutes, the grid layoutOnce path)
+measured  — 2026-10-05: engineering/decisions/2026-10-05-graph-chart-typing-latency.md. The
+            cap is rarely hit (0 capped routings on either bench deck); the router is 23-38%
+            of a 70-101 ms key on the real Studio. The note proposes main-thread and
+            stale-job cuts first; the owner picks.
 done when — bench GRAPH LAYOUT faster and CROSSING_BUDGET lower, with zero hard faults
             across the shipped corpus (state-chart.test.js corpus quality)
 evidence  — npm run bench before/after, graph-layout.test.js fuzz counts, both chart decks

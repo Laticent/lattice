@@ -245,6 +245,86 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     assert.equal(t.svg(), fresh.svg());
   });
 
+  // THE SAME, WITH NO WORKER (a host that blocks blob workers, a worker that died). A live
+  // redraw on this thread starts from the fit it remembers; the stand-in's revision 1 is wider,
+  // so that warm start stops at another point than a cold one. The settle after the pause
+  // fits it again from a cold start, so the drawing at rest is a fresh page's.
+  function setupNoWorker(rev, perPx = 90) {
+    const dom = new JSDOM('<!doctype html><body><section><div class="g-figure" data-g-model="1"><div class="g-box"><div class="g-harness"></div><svg><title>Chart</title></svg></div></div></section></body>', { runScripts: 'outside-only' });
+    const w = dom.window;
+    const fig = w.document.querySelector('.g-figure');
+    if (rev) fig.setAttribute('data-rev', rev);
+    fig.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 1000, width: 1000, height: 1000 });
+    w.__latticeDagre = { layout() {} };
+    w.Worker = undefined;
+    const log = { layouts: [] };
+    const widen = (f) => (f.getAttribute('data-rev') === '1' ? 1600 : 400);
+    const ad = () => ({
+      ...live(),
+      measure(model, ctx) {
+        const floor = Number.parseFloat(ctx.fig.querySelector('.g-box').style.getPropertyValue('--chart-text-min')) || 11;
+        return { args: [model, { a: { w: floor, h: 10, base: widen(ctx.fig) } }, {}], floor };
+      },
+    });
+    const kernel = () => ({ layout(_m, sizes) { log.layouts.push(sizes.a.w); return { width: sizes.a.base + perPx * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] }; } });
+    const pass = w.eval(`(${installGraphPass.toString()})`);
+    const run = () => pass(w.document, kernel, ad, { live: true });
+    return { fig, log, run, svg: () => fig.querySelector('svg').innerHTML };
+  }
+
+  test('with no worker, a live redraw settles from a cold fit after the pause, and ends as a fresh page', async () => {
+    const fresh = setupNoWorker('1');
+    fresh.run();
+    const t = setupNoWorker('');
+    t.run();
+    t.fig.setAttribute('data-rev', '1');
+    t.run();
+    const warm = t.svg();
+    const n = t.log.layouts.length;
+    assert.notEqual(warm, fresh.svg(), 'the warm start must stop elsewhere, or this test proves nothing');
+    await sleep(450);
+    assert.equal(t.log.layouts[n], 11, 'the settle starts cold, at the declared floor');
+    assert.equal(t.svg(), fresh.svg());
+  });
+
+  test('with no worker, a newer redraw drops the pending settle', async () => {
+    const t = setupNoWorker('');
+    t.run();
+    t.fig.setAttribute('data-rev', '1');
+    t.run();
+    await sleep(100);
+    t.fig.setAttribute('data-g-model', '2');
+    t.run();
+    const n = t.log.layouts.length;
+    await sleep(450);
+    assert.match(t.svg(), />a2</);
+    assert.equal(t.log.layouts.length, n, 'another chart at this position fits cold at once, and nothing settles after it');
+  });
+
+  test('with no worker, the settle lays nothing out into a stage that collapsed to no height', async () => {
+    const t = setupNoWorker('');
+    t.run();
+    t.fig.setAttribute('data-rev', '1');
+    t.run();
+    const n = t.log.layouts.length;
+    // The stage collapses inside the pause (a narrow reflow): width, no height.
+    Object.defineProperty(t.fig, 'clientWidth', { value: 1000, configurable: true });
+    Object.defineProperty(t.fig, 'clientHeight', { value: 0, configurable: true });
+    await sleep(450);
+    assert.equal(t.log.layouts.length, n, 'a layout into a zero-height stage tries every candidate for nothing');
+  });
+
+  test('with no worker, a chart scaled up does not settle: its cold fit is the same drawing', async () => {
+    const t = setupNoWorker('', 10);
+    t.run();
+    assert.equal(t.fig.querySelector('.g-box').getAttribute('data-fit-k'), '1.2500');
+    t.fig.setAttribute('data-rev', '1');
+    t.run();
+    const n = t.log.layouts.length;
+    await sleep(450);
+    assert.equal(t.log.layouts.length, n);
+  });
+
   test('a chain in flight for the chart this element held before never paints over the next one', async () => {
     const t = setupLive(true);
     t.run();

@@ -14,11 +14,12 @@
 
 const VENUES = Object.freeze(['laptop', 'huddle', 'conference', 'hall']);
 
-/** The venue row an author is told to write for: the longest measured element length, which is
- * the component's `density.soft` where it has one. */
-function authoredRow(vc) {
+/** The venue row an author is told to write for: the component's `density.soft` where a row is
+ * measured at it, else the longest measured length. (Rows measured past `soft` — list-tabular's
+ * 13 to 16 words, which find its wrap step — do not move the headline.) */
+function authoredRow(vc, soft) {
   const lengths = Object.keys(vc.byWords).map(Number).sort((a, b) => a - b);
-  const words = lengths[lengths.length - 1];
+  const words = lengths.includes(Number(soft)) ? Number(soft) : lengths[lengths.length - 1];
   return { words, row: vc.byWords[String(words)], lengths };
 }
 
@@ -52,12 +53,14 @@ function venueDocsLine(m, noun) {
   const past = 'Past the room\'s number the slide still renders at the venue\'s size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export\'s `⚠ OVERFLOW` line and the Studio\'s ring name it.';
   if (vc.lines) {
     const fmt = (r) => VENUES.map((v) => `${v} ~${r[v]}`).join(' · ');
-    // Lint reads only `code`'s line budget, so another pane component's line promises no warning.
-    const pastLines = m.name === 'code' ? past : 'Past the room\'s number the slide still renders at the venue\'s size and the pane clips its lines; the export\'s `⚠ OVERFLOW` line and the Studio\'s ring name it (`lint:deck` does not count these panes yet).';
+    // Lint reads `code`'s and compare-code's line budgets (lint-core, the code-pane rule).
     const callout = vc.lines.insight ? ` Ending in a \`> …\` callout: ${fmt(vc.lines.insight)}${vc.lines.eyebrowInsight ? ` (${fmt(vc.lines.eyebrowInsight)} under an eyebrow)` : ''}.` : '';
-    return `**By venue** the pane holds ${fmt(vc.lines.bare)} lines (${fmt(vc.lines.eyebrow)} under an eyebrow).${callout} ${pastLines} ${how}`;
+    // A heading lint wraps to two lines costs the pane one to two lines (`headed`, `--heading-lines`).
+    const two = vc.lines.headed?.['2'];
+    const headed = two ? ` Under a two-line heading: ${fmt(two.bare)} (${fmt(two.eyebrow)} under an eyebrow).` : '';
+    return `**By venue** the pane holds ${fmt(vc.lines.bare)} lines (${fmt(vc.lines.eyebrow)} under an eyebrow).${callout}${headed} ${past} ${how}`;
   }
-  const { words, row, lengths } = authoredRow(vc);
+  const { words, row, lengths } = authoredRow(vc, m.density?.soft);
   const cap = hardCap(m);
   const main = VENUES.map((v) => `${v} ~${count(vc, row, v, cap)}`).join(' · ');
   const short = lengths.length > 1
@@ -88,6 +91,13 @@ function venueDocsLine(m, noun) {
       return ` Ending in a \`> …\` callout (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
     })()
     : '';
+  // Under an eyebrow, when measured (`--eyebrow`; lint-core subtracts its cost at the slide's length).
+  const eyebrow = vc.eyebrow
+    ? (() => {
+      const { len, r } = at(vc.eyebrow.byWords);
+      return ` Under an eyebrow (~${len} words): ${VENUES.map((x) => count(vc, r, x, cap)).join(' · ')}.`;
+    })()
+    : '';
   // A claim panel's line geometry (`venueCapacity.panel.lines`), which lint-core `panelOver` wraps
   // the slide's own heading and lede into. Said as what an author can count: the lede lines the
   // column holds under a one-line eyebrow and a two-line heading, and the characters a lede line takes.
@@ -98,7 +108,7 @@ function venueDocsLine(m, noun) {
       return ` The claim panel is judged by LINES, not words: under a one-line eyebrow and a two-line heading its lede holds ${lede(vc.panel.lines.bare)}.${regs}`;
     })()
     : '';
-  return `**By venue** (\`venue:\`, ~${words} words each) it holds ${main} ${noun}.${short}${variants}${insight}${panel}${capped}${floor} ${past} ${how}`;
+  return `**By venue** (\`venue:\`, ~${words} words each) it holds ${main} ${noun}.${short}${variants}${insight}${eyebrow}${panel}${capped}${floor} ${past} ${how}`;
 }
 
 /** The pick-list cell: laptop/huddle/conference/hall at the authored length, capped by the
@@ -107,7 +117,7 @@ function venuePickCell(m) {
   const vc = m.venueCapacity;
   if (!vc || vc.none) return '—';
   if (vc.lines) return `${VENUES.map((v) => vc.lines.bare[v]).join('/')} lines`;
-  const { row } = authoredRow(vc);
+  const { row } = authoredRow(vc, m.density?.soft);
   const cap = hardCap(m);
   return VENUES.map((v) => count(vc, row, v, cap)).join('/');
 }

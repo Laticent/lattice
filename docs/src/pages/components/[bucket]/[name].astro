@@ -65,7 +65,7 @@ const variants = [
 	...variantKeys.map((v) => ({ key: v, label: v, caption: variantDocs[v].summary || '', sample: variantDocs[v].sample })),
 ];
 // A fence a runtime draws (Mermaid's), by the plugin registry's fence names (lib/plugins/drawn-probe.mjs).
-const mermaid = variants.some((v) => sourceHasDrawnFence(v.sample));
+const drawn = variants.some((v) => sourceHasDrawnFence(v.sample));
 
 // Optional: group the variant chips by axis (manifest.variantAxes) so the
 // switcher reads as e.g. "Basemap: world · us" + "Modifier: highlight · …"
@@ -106,7 +106,7 @@ const variantGroups = Array.isArray(m.variantAxes) && m.variantAxes.length
 			base={base}
 		/>
 
-		<Specimen name={m.name} sample={sample} mermaid={mermaid} variants={variants} variantGroups={variantGroups} />
+		<Specimen name={m.name} sample={sample} drawn={drawn} variants={variants} variantGroups={variantGroups} />
 
 		<ComponentDocsView m={m} anatomy={anatomy} nameToBucket={nameToBucket} base={base} />
 

@@ -107,7 +107,7 @@ import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag } from './slide-provenance';
 import { sizeRatio } from './slide-size';
-import { hasMermaid } from './slide-thumb';
+import { hasDrawnFence } from './slide-thumb';
 import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -150,6 +150,10 @@ const Fabricate = React.lazy(() => {
 // tools never look into. Code-split for the same reason Fabricate is: it pulls the engine
 // render and the player-core bundle, and the /studio route has no eager budget to spare.
 // The clip notice and its split helper load the first time a slide clips at a venue (ClipNotice.tsx).
+// The Plugins tab pulls the plugin grammar and the admission kernel (lib/plugins/host-grammar.mjs);
+// lazy, so they load when the tab is shown rather than in the Studio's startup JavaScript
+// (docs/route-budget.json — eagerly it cost the studio route 7.6 KB gz).
+const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
 
@@ -211,7 +215,7 @@ const CodePackagesNotice = React.lazy(() => import('./CodePackagesNotice').then(
 // the old Developer footer disclosure, so there is one place for "things about this
 // deck" instead of a tab strip plus a stray expander.
 // See engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md.
-type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech';
+type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech' | 'plugins';
 // There is deliberately NO `DECK_TABS` list here. There was one, and it survived the
 // move to `deckSections` as a SECOND hand-kept copy of the same six labels in the same
 // order — the exact duplication the slide panel's `sectionDefs` had just collapsed, and
@@ -3699,7 +3703,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// on a text slide. It moves that load earlier rather than adding one — full writes
 	// become rare, which is the point — but the deck's own first mount pays it up front.
 	// engineering/decisions/2026-09-05-diagram-fence-flash.md §4D.
-	const editorMermaid = React.useMemo(() => hasMermaid(editorSample), [editorSample]);
+	const editorDrawn = React.useMemo(() => hasDrawnFence(editorSample), [editorSample]);
 	// Whether the editor preview should render (else it parks — iframe kept warm, per-keystroke
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
@@ -4719,6 +4723,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			</div>
 			),
 		},
+		{
+			// What loads a plugin for this deck, and the deck's `plugins:` import list
+			// (PluginsSettings.tsx; plugin-system §9 decision 6).
+			value: 'plugins',
+			label: 'Plugins',
+			keywords: 'plugins extensions math mermaid diagrams function plot anima import list',
+			body: () => (
+			<div>
+				<TabNote>What this deck can render beyond Markdown, and why each is on. Every shipped plugin is on by default; listing one writes it into the deck's <code>plugins:</code> line, so the deck names what it needs wherever it is opened. A list only adds — it never turns a plugin off.</TabNote>
+				<React.Suspense fallback={null}>
+					<PluginsSettings source={source} onWrite={settingsWrite} />
+				</React.Suspense>
+			</div>
+			),
+		},
 	];
 
 	// THE SETTINGS PANEL IS KEPT MOUNTED once shown (settings-dock.tsx; the phone's persistent
@@ -5189,7 +5208,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
+						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>

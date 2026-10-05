@@ -32,6 +32,7 @@
   "render": {
     "exec": { "hydrate": "pass", "bake": "subprocess" },
     "surfaces": { "engine": "source", "preview": "figure", "pdf": "figure-baked", "player": "figure-baked", "marp": "figure" },
+    "figureClasses": ["mermaid", "mermaid-svg"],
     "parity": "progressive",
     "degradesTo": "code-block"
   }

@@ -20,7 +20,7 @@ import { hydrateScene } from '@/lib/anima/hydrate';
 import { hydrateChart } from '@/lib/chart-anima-hydrate';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
 import { DRAWN_FENCE_CODE } from '../../../lib/plugins/drawn-probe.mjs';
-import { type DeckMotion, hasAnimatableChart, isMermaidSvg, MOTION_OPT_IN_SEL, motionMarkCount, PREHIDE_CLASS, prehideEligibleCharts, resolveMotion, SCENE_SEL, speedToDurationMs, watchDiagramDrawn } from './anima-host-sel';
+import { type DeckMotion, hasAnimatableChart, isDrawnFigureSvg, MOTION_OPT_IN_SEL, motionMarkCount, PREHIDE_CLASS, prehideEligibleCharts, resolveMotion, SCENE_SEL, speedToDurationMs, watchDiagramDrawn } from './anima-host-sel';
 
 // The eligibility selectors + the deck-default/slide-override cascade live in a zero-dependency leaf
 // (anima-host-sel.ts) so this host and the DeckPreview host-load gate share ONE definition and can't
@@ -94,7 +94,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
   }
   // Bake a live Mermaid svg into native `<text>` labels + inline paint, so it survives the sanitizer
   // (see `prepare` in chart-anima-hydrate.ts). A chart — or an already-baked diagram — passes through.
-  const needsBake = (svg: Element): boolean => isMermaidSvg(svg) && svg.querySelector('foreignObject, style') != null;
+  const needsBake = (svg: Element): boolean => isDrawnFigureSvg(svg) && svg.querySelector('foreignObject, style') != null;
   function prepareSvg(svg: SVGSVGElement): Element | null {
     if (!needsBake(svg)) return svg;
     // The frame's window resolves the frame's styles; the host's resolves them too on a same-origin
@@ -162,7 +162,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     // its whole textContent changes on every fresh render of an unchanged diagram. Read only the
     // words it draws — the `<text>` and `<foreignObject>` labels — so an unrelated edit does not
     // replay it. A chart's text is all `<text>` already, so a chart keys exactly as before.
-    const words = svg && isMermaidSvg(svg) ? Array.from(svg.querySelectorAll('text, foreignObject'), (n) => n.textContent ?? '').join(' ') : (svg?.textContent ?? '');
+    const words = svg && isDrawnFigureSvg(svg) ? Array.from(svg.querySelectorAll('text, foreignObject'), (n) => n.textContent ?? '').join(' ') : (svg?.textContent ?? '');
     const text = words.replace(/\s+/g, ' ').trim();
     const marks = svg?.querySelectorAll('[data-mark], [data-anima-role]').length ?? 0;
     const cfg = resolveMotion(s, deck);
@@ -258,7 +258,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     // deck with no diagram never loads it.
     if (!flatten && flattenState === 'idle') {
       const undrawn = `:is(pre, marp-pre)[data-lattice-hydrate]:not([data-lattice-settle="rendered"]), ${DRAWN_FENCE_CODE}`;
-      const hasDiagram = doc.querySelector(`.mermaid, .mermaid-svg, :is(pre, marp-pre)[data-lattice-hydrate], ${DRAWN_FENCE_CODE}`) != null;
+      const hasDiagram = doc.querySelector(`[data-lattice-figure], :is(pre, marp-pre)[data-lattice-hydrate], ${DRAWN_FENCE_CODE}`) != null;
       const early =
         (deck.play === 'on' && hasDiagram) ||
         Array.from(doc.querySelectorAll(undrawn)).some((fence) => {

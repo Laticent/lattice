@@ -97,11 +97,11 @@ const GEOMETRY = ['path', 'rect', 'circle', 'ellipse', 'polygon', 'polyline', 'l
  * rather than to the whole stage: a diagram slide may carry authored prose beside
  * its diagram, and that prose says nothing about how the diagram is drawn.
  * `.chart-body` is the chart-frame's picture cell (every chart-bucket component);
- * `.mermaid-svg` is the baked diagram, `.mermaid-fallback` the `<pre>` that ships
+ * `[data-lattice-figure]` is the baked diagram (the host's figure marker), `.mermaid-fallback` the `<pre>` that ships
  * when mmdc fails — measured deliberately, so a broken mermaid build derives
  * `html` and fails this gate instead of passing silently.
  */
-const PICTURE_SEL = '.chart-body, .mermaid-svg, .mermaid-fallback';
+const PICTURE_SEL = '.chart-body, [data-lattice-figure], .mermaid-fallback';
 
 /**
  * SVG containers whose contents lay out but NEVER paint. A `<text>` in `<defs>`

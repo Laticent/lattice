@@ -40,7 +40,7 @@ import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-mat
 import { splitSlides } from './lint';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
-import { hasMermaid } from './slide-thumb';
+import { hasDrawnFence } from './slide-thumb';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 
 type Paper = 'auto' | 'letter' | 'legal' | 'a4';
@@ -331,7 +331,7 @@ export function PrintOptionsPanel({
 	// made every flip between a diagram slide and a plain one a full document rewrite (the checker
 	// measured 5 documents in 5 flips on an alternating deck). The cost is the Mermaid runtime in at
 	// most four frames, and only for a deck that has a diagram at all.
-	const deckMermaid = React.useMemo(() => mdSlides.some((s) => hasMermaid(s)), [mdSlides]);
+	const deckDrawn = React.useMemo(() => mdSlides.some((s) => hasDrawnFence(s)), [mdSlides]);
 	// The fallback: one self-contained preview document per cell on the CURRENT sheet (screen,
 	// not print rules). For N-up this is up to `nup` slides; a trailing partial sheet leaves
 	// empty cells (''). Each is a bare section re-wrapped in `.lattice` (the theme's
@@ -573,7 +573,7 @@ export function PrintOptionsPanel({
 											className="pod-cell"
 											style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }}
 										>
-											<PooledThumbFace options={options} sample={printSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} mermaid={deckMermaid} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
+											<PooledThumbFace options={options} sample={printSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} drawn={deckDrawn} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
 										</div>
 									);
 								})}

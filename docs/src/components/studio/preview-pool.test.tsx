@@ -23,9 +23,9 @@ vi.mock('@/components/DeckPreview', async () => {
 					unmounts++;
 				};
 			}, []);
-			const shape = React.useRef(props.mermaid);
-			if (shape.current !== props.mermaid) {
-				shape.current = props.mermaid;
+			const shape = React.useRef(props.drawn);
+			if (shape.current !== props.drawn) {
+				shape.current = props.drawn;
 				reshapes++;
 			}
 			return <figure data-testid="deck-preview" data-sample={String(props.sample)} data-specimen={props.specimen ? 'yes' : 'no'} />;

@@ -214,6 +214,12 @@ OPTIONS
                           deck's own 'color-mode:'.
       --size NAME         Render on another registered canvas, over the deck's own
                           'size:' (e.g. mobile-landscape, story, 4K).
+      --disable-plugin N  Switch plugins off for this run, comma-separated (e.g.
+                          mermaid,math; repeatable). The engine and the plugins' CLI
+                          bakes both honor it, and so does every plugin that requires
+                          one, so the PDF shows the deck's source instead. No deck can
+                          turn it back on. A --fluid/--player page's browser runtime
+                          does not honor it yet.
       --narrate           Voice the --player with Kokoro, the Studio's on-device
                           voice: every narrated sentence (the --captions narration)
                           becomes a clip, encoded as the Studio's export encodes it.
@@ -457,6 +463,8 @@ function parseArgs(argv) {
     '--player-mode': 'player-mode',
     // Render on another canvas, over the deck's own `size:` (lib/engine/sizes.js).
     '--size': 'size',
+    // Plugins switched off for this run (lib/plugins/host-grammar.mjs `admitPlugins`'s `disabled`).
+    '--disable-plugin': 'disable-plugin',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -514,6 +522,27 @@ function parseArgs(argv) {
 }
 
 const { flags, positional } = parseArgs(process.argv.slice(2));
+
+// THE PLUGINS THIS RUN SWITCHES OFF — one list, handed to BOTH the engine and the plugins' CLI
+// bakes (plugin-system phase D: the bake used to get none, so a plugin the engine switched off
+// still baked its figures into the deck). A name no plugin has is an error, not a no-op: a typo
+// would otherwise export the very figures the caller asked to leave out.
+// Every occurrence counts (`--disable-plugin a --disable-plugin b`): parseArgs keeps only the last
+// value of a flag, which would silently re-enable `a`.
+const PLUGINS_DISABLED = Object.freeze([...new Set(process.argv.slice(2).flatMap((a, i, argv) => {
+  if (a === '--disable-plugin') return [argv[i + 1] || ''];
+  if (a.startsWith('--disable-plugin=')) return [a.slice('--disable-plugin='.length)];
+  return [];
+}).join(',').split(',').map((n) => n.trim()).filter(Boolean))]);
+{
+  const { PLUGIN_GRAMMAR } = require('./lib/plugins/grammar.generated.mjs');
+  const known = PLUGIN_GRAMMAR.map((g) => g.name);
+  const unknown = PLUGINS_DISABLED.filter((n) => !known.includes(n));
+  if (unknown.length) {
+    console.error(`error: --disable-plugin: no plugin is named ${unknown.map((n) => `"${n}"`).join(', ')} (plugins: ${known.join(', ')})`);
+    process.exit(1);
+  }
+}
 
 // Resolve mdFile + outFile + cssFile + paletteArg from positionals, with
 // named flags overriding. Positional shape:
@@ -652,6 +681,12 @@ const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 const CHROME_PDF = !!flags['chrome-pdf'];
 // JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
 const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || 92));
+// Chrome's fast PNG encoder for that photo: same pixels, ~3x the bytes on a flat slide, ~2.5x quicker.
+// On under `node --test` (it marks every process a test starts with NODE_TEST_CONTEXT) so the
+// integration tier fits its CI timeout; off for a real export. LATTICE_PDF_PHOTO_FAST=1/0 overrides.
+const PDF_PHOTO_FAST = process.env.LATTICE_PDF_PHOTO_FAST
+  ? process.env.LATTICE_PDF_PHOTO_FAST === '1'
+  : Boolean(process.env.NODE_TEST_CONTEXT);
 // Who the overflow marker in the printed artifact is addressed to. Same setting,
 // same kernel and same precedence as the Marp exporter — `--overflow-marker` for
 // this render, `LATTICE_OVERFLOW_MARKER` as the standing answer, else `reader`.
@@ -1660,7 +1695,7 @@ const bakeServices = {
   scopeKey: diagramScopeKey,
   paletteReader: paletteTokenReader,
 };
-const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true });
+const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, disabled: PLUGINS_DISABLED });
 // Every bake's RE-BAKE HOOK (`ctx.state.rebake`, lib/plugins/host-bake.js) — what the image-set
 // cross-scheme look re-renders from, read without naming a plugin. Empty when no bake that
 // publishes one ran, and then the page carries none of their figures either.
@@ -1939,7 +1974,7 @@ function engineSlides(deckSource = rawMd) {
   // the wrong artifact: the engine/preview path never overrode the default, so the
   // EXPORT (the file people actually ship, and the ADR's designated accessible route)
   // was the only path that lost it. See the semantic-html ADR §17.11.
-  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml' });
+  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml', plugins: { disabled: [...PLUGINS_DISABLED] } });
   // Both names are passed wherever they are known. The PALETTE's always is
   // (`palettePath` is `themes/<paletteName>.css`). The LAYOUT CSS's is known on the
   // DEFAULT path — it is `dist/lattice.css`, which is `lattice`, the name every
@@ -3933,7 +3968,7 @@ async function renderBody(browser, g, closeBrowser) {
       const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
-        const SEL = '.mermaid-svg > svg, .mermaid > svg';
+        const SEL = '[data-lattice-figure] > svg'; // the host's drawn-figure marker (bake and pass alike)
         const live = document.querySelectorAll(SEL);
         const copies = root.querySelectorAll(SEL);
         let unbaked = 0;
@@ -5038,13 +5073,13 @@ async function composePdfInPage(g, page) {
           // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
           // The encoding the writer asks for: PNG first, JPEG too on a busy slide (compose.mjs pngIsFlat).
-          // The PNG takes Chrome's fast encoder: 67 ms against 168 ms for a 1280 px slide (JPEG: 50 ms),
-          // at about 3x the default encoder's bytes on a flat slide (a flat deck's whole PDF grows about
-          // 1.5x); CI's integration job renders hundreds of decks and sat 25 s from its timeout before
-          // #2503, so the owner traded those bytes for the time (2026-10-04).
+          // A real export takes Chrome's default PNG encoder. Under a test (PDF_PHOTO_FAST) it takes the
+          // fast one instead: 67 ms against 168 ms for a 1280 px slide (JPEG: 50 ms), same pixels, about
+          // 3x the bytes on a flat slide. CI's integration job renders hundreds of decks and sat 25 s
+          // from its timeout before #2503; a shipped PDF and a committed golden keep the small bytes.
           const buf = await h.screenshot(type === 'jpeg'
             ? { type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false }
-            : { type: 'png', optimizeForSpeed: true, captureBeyondViewport: false });
+            : { type: 'png', optimizeForSpeed: PDF_PHOTO_FAST, captureBeyondViewport: false });
           return Buffer.from(buf).toString('base64');
         } finally {
           if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 });
