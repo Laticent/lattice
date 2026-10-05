@@ -6,8 +6,9 @@
  * grammar compiler, the code generator or the consistency checker, which only build parsers.
  * Lattice's lib/ takes this entry because its bundles reach the Studio's startup path through
  * the live lint, and a CommonJS `require` of the main entry carries the whole engine: measured
- * 2026-10-05, 9.6KB gzipped here against 23.3KB for `index.cjs`. Same code as the main entry —
- * this file only re-exports.
+ * 2026-10-05, 10.1KB gzipped (read.cjs, minified) against 23.3KB for `index.cjs`. Same source
+ * as the main entry — this file only re-exports — but each built entry bundles its own copy, so
+ * never compare a value from this entry to one from another by identity (`instanceof`, `===`).
  */
 export type { Diagnostic, Item, ListValue, Parsed, RecordValue, Scalar, Value } from './notation.js';
 export { isDirective, parse } from './notation.js';

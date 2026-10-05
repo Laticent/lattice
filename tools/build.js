@@ -367,8 +367,16 @@ async function main(argv) {
   // checkout always has it. If a dependency of an uncommitted step is ever moved out
   // of git, bootstrap it here too.
   // Segno's dist too: the guard loads lint-core, which reads every inline-code directive
-  // through `@laticent/segno` (Segno phase 2), so without it the guard dies on a require.
-  const GUARD_INPUTS = ['dist/lattice.css', 'docs/src/playground/player-core.generated.js', 'docs/src/lib/segno/dist/index.cjs'];
+  // through `@laticent/segno/read` and `@laticent/segno/values` (Segno phase 2), so without
+  // them the guard dies on a require. Every entry lib/ requires is listed, not just the
+  // barrel: a tree built before an entry existed has index.cjs and lacks the new one.
+  const GUARD_INPUTS = [
+    'dist/lattice.css',
+    'docs/src/playground/player-core.generated.js',
+    'docs/src/lib/segno/dist/index.cjs',
+    'docs/src/lib/segno/dist/read.cjs',
+    'docs/src/lib/segno/dist/values.cjs',
+  ];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');
     // BACKGROUND_LABELS first, and this is a dependency, not a speed-up. The main

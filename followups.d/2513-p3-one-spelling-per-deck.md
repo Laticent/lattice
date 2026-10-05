@@ -14,7 +14,7 @@ why now   — Segno decision 7 (engineering/decisions/2026-09-28-segno-unified-i
 where     — lib/authoring/lint-core.js (HARD RULE #7). Every Segno bind already reports the
             spellings an author used (`spellings` on each bind result, docs/src/lib/segno/schema.ts);
             the work is handing them from each reader (lib/core: inline-pills, inline-sparks,
-            state-marks, gantt-pill, state-pill, chart-status, waterfall markers, flowchart style)
+            state-marks, gantt-pill, chart-status, waterfall markers, the flowchart and state-chart style)
             to one lint rule, per deck.
 done when — `lint:deck` warns on a deck that writes one meaning two ways, names the spelling it
             uses most, and `--fix` rewrites the minority spans in place; a shortcut is swapped only
