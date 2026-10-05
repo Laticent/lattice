@@ -430,6 +430,9 @@ easy to delete unseen. Binding the keys that delete it missed chords (Shift-Back
 Mod-Backspace), so `paneMarkerGuard` guards the RESULT instead: it refuses any transaction that
 would leave the deck with fewer pane markers. Three things pass it: a pane command, Undo, and a
 range the author deliberately selected. A selection that lands on a hidden marker is moved off it.
+A refusal says why, in one status notice: "A ### here would start a new pane" when the edit added
+a `###` (a heading in a titled pane starts the next pane and folds the one after it), and "That
+would remove a pane" otherwise. A silent refusal looked like a broken button.
 A pane cut and pasted keeps its marker, because the paste gate admits a `_pane` comment in one
 strict shape (comment-block.ts). Before all this, Compose read every `<!-- _pane: … -->` as a slide
 directive and moved it to the slide's head, so one keystroke on a marked pane slide wrote both

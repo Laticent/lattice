@@ -325,6 +325,25 @@ export function applyPaneChoice(state: EditorState, slidePos: number, index: num
 	return closeHistory(tr).setMeta(PANE_OP, true);
 }
 
+/** What the author is told when the guard refuses an edit. A new `###` is the one case worth naming
+ *  apart: the author asked for a heading, and a heading is exactly what starts a pane. */
+export const PANE_REFUSAL = {
+	heading: 'A ### here would start a new pane. Use bold text for a heading inside a pane.',
+	marker: 'That would remove a pane. To delete one, select the whole pane first.',
+} as const;
+
+/** Why `before` → `after` loses a pane: a heading the edit added, or a marker it deleted. */
+export function paneRefusal(before: PMNode, after: PMNode): string {
+	const headings = (doc: PMNode) => {
+		let n = 0;
+		doc.descendants((node) => {
+			if (node.type.name === 'heading' && node.attrs.level === 3) n++;
+		});
+		return n;
+	};
+	return headings(after) > headings(before) ? PANE_REFUSAL.heading : PANE_REFUSAL.marker;
+}
+
 /** The meta a pane command sets so `paneMarkerGuard` lets it through. */
 export const PANE_OP = 'cs-pane-op';
 
@@ -347,8 +366,12 @@ function markerCount(doc: PMNode): number {
  * refused, unless a pane command made it (`PANE_OP`) or the author's own selection was a range
  * that spanned more than the marker (a deliberate cut or delete of a whole pane). And a selection
  * that lands ON a hidden marker is moved off it, so typing never replaces it.
+ *
+ * A refusal on its own looks like a broken button: turning a line of the first pane into a `###`
+ * does nothing. So the guard names the reason (`paneRefusal`) to `onRefuse`, once per refused
+ * transaction and after the dispatch, and the editor shows it as one short notice.
  */
-export function paneMarkerGuard() {
+export function paneMarkerGuard(onRefuse?: (reason: string) => void) {
 	return new Plugin({
 		filterTransaction(tr, state) {
 			if (!tr.docChanged || tr.getMeta(PANE_OP) || isHistoryTransaction(tr)) return true;
@@ -356,7 +379,12 @@ export function paneMarkerGuard() {
 			if (tr.doc.childCount !== state.doc.childCount) return true;
 			const sel = state.selection;
 			if (!sel.empty && !(sel instanceof NodeSelection)) return true;
-			return markerCount(tr.doc) >= markerCount(state.doc);
+			if (markerCount(tr.doc) >= markerCount(state.doc)) return true;
+			if (onRefuse) {
+				const reason = paneRefusal(state.doc, tr.doc);
+				queueMicrotask(() => onRefuse(reason));
+			}
+			return false;
 		},
 		appendTransaction(_trs, old, state) {
 			const sel = state.selection;

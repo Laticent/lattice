@@ -19,6 +19,7 @@ import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { notify } from '@/lib/notify';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
@@ -1501,7 +1502,8 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
-		paneMarkerGuard(),
+		// A refused pane-merging edit says why, as one status pill (lib/notify.ts), rather than doing nothing.
+		paneMarkerGuard((reason) => notify(reason)),
 		panePlugin(getPaneOpen),
 		collapsePlugin(),
 		activeSlidePlugin(),

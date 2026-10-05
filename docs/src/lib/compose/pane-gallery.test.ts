@@ -5,10 +5,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { history, undo } from 'prosemirror-history';
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { deckToDoc, emitDeck, initBaseline } from './deck-doc';
-import { applyPaneChoice, paneBodyRange, paneFit, paneMarkerGuard, paneStarter, slidePanes, starterEditable } from './pane-model';
+import { applyPaneChoice, PANE_REFUSAL, paneBodyRange, paneFit, paneMarkerGuard, paneStarter, slidePanes, starterEditable } from './pane-model';
 import { marksOf, paneNeedsFrom } from './pane-needs';
 
 const DIST = join(__dirname, '../../../../dist/docs');
@@ -200,3 +200,48 @@ describe('picking a component', () => {
 		expect(state.applyTransaction(tr as NonNullable<typeof tr>).state.doc.eq(state.doc)).toBe(false);
 	});
 });
+
+describe('a refused edit says why', () => {
+	// The guard's refusal is unchanged; what is new is that the author is told (PR 2520's third review:
+	// a refused `###` conversion looked like a broken button).
+	const guarded = (src: string) => {
+		const reasons: string[] = [];
+		const state = EditorState.create({ doc: deckToDoc(src), plugins: [history(), paneMarkerGuard((r) => reasons.push(r))] });
+		return { state, reasons };
+	};
+	const MARKED = SLIDE.replace('### First pane', '<!-- _pane: list -->\n### First pane').replace('### Second pane', '<!-- _pane: list -->\n### Second pane');
+	const flush = () => new Promise((r) => setTimeout(r, 0));
+	it('deleting a hidden marker is refused, once, with the marker reason', async () => {
+		const { state, reasons } = guarded(MARKED);
+		let at = -1;
+		let size = 0;
+		state.doc.child(0).forEach((node, offset) => {
+			if (at >= 0 || node.type.name !== 'comment' || !/_pane/.test(String(node.attrs.text))) return;
+			at = 1 + offset; // the slide's content starts one past the doc's
+			size = node.nodeSize;
+		});
+		const tr = state.tr.delete(at, at + size);
+		expect(state.applyTransaction(tr).state.doc.eq(state.doc)).toBe(true); // still refused
+		await flush();
+		expect(reasons).toEqual([PANE_REFUSAL.marker]);
+	});
+	it('a new ### that would fold the next pane is refused with the heading reason', async () => {
+		const { state, reasons } = guarded(MARKED.replace('- A point\n- Another point\n\n<!-- _pane: list -->\n### Second', 'Some text.\n\n<!-- _pane: list -->\n### Second'));
+		let at = -1;
+		state.doc.descendants((node, p) => {
+			if (at < 0 && node.type.name === 'paragraph' && node.textContent === 'Some text.') at = p;
+		});
+		expect(at).toBeGreaterThan(0);
+		const tr = state.tr.setSelection(TextSelection.create(state.doc, at + 1)).setBlockType(at + 1, at + 1, state.schema.nodes.heading, { level: 3 });
+		expect(state.applyTransaction(tr).state.doc.eq(state.doc)).toBe(true); // still refused
+		await flush();
+		expect(reasons).toEqual([PANE_REFUSAL.heading]);
+	});
+	it('an edit the guard lets through says nothing', async () => {
+		const { state, reasons } = guarded(MARKED);
+		state.applyTransaction(state.tr.insertText('x', 3));
+		await flush();
+		expect(reasons).toEqual([]);
+	});
+});
+
