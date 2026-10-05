@@ -129,12 +129,16 @@ figure.timeline-list.chart-frame .chart-body {
 :is(section.timeline-list, figure.timeline-list) .timeline-pill {
   display: inline-flex;
   align-items: center;
-  height: 1.875cqi;
-  padding: 0 0.78125cqi;
+  /* In em of the pill's own --fs-meta text, so the box grows with a `venue:` (at hall the
+   * "Q1" text overflowed a fixed 1.875cqi box). Old cqi / 1.17, the landscape meta
+   * coefficient, so laptop landscape is unchanged — the .chart-status recipe in
+   * chart-family.css. */
+  height: calc(1.875em / 1.17);
+  padding: 0 calc(0.78125em / 1.17);
   /* pill→title spacing moved to .timeline-title's padding-top (the pill is a
    * filled chip — self-padding would grow its outline; a margin would collapse
    * outside the flex content box). */
-  border-radius: 0.9375cqi;
+  border-radius: calc(0.9375em / 1.17);
   background: var(--bg);
   border: var(--chart-hairline) solid color-mix(in oklab, var(--accent) 40%, var(--border));
   color: var(--accent);
@@ -261,10 +265,11 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
   grid-column: 1;
   grid-row: 1;
   /* Portrait: the dot rides its own left-rail grid cell, so it needs no
-   * dot→pill padding-bottom (override the base) — just a top nudge to align
-   * with the row (was margin: 0.234375cqi 0 0 0; padding shifts the ::before
-   * ring down by the same amount). */
-  padding: 0.234375cqi 0 0 0;
+   * dot→pill padding-bottom (override the base). It centers on row 1, the date
+   * pill's row: a fixed top nudge (0.234375cqi) was tuned to the old fixed-cqi
+   * pill and fell above center once the pill took its height from its text. */
+  padding: 0;
+  align-self: center;
 }
 /* Chips hug their content; the title/body keep the default stretch so prose
  * fills the column and wraps. */

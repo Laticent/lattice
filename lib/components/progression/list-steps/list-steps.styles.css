@@ -256,9 +256,17 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(7)) { 
 section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(8)) { --ls-stages:8; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(9)) { --ls-stages:9; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(10)) { --ls-stages:10; }
+/* --ls-disc is the step marker's diameter. A numbered disc (ol) carries an --fs-meta
+   numeral, so it is sized off that role — 2.03125cqi over 1.17, the landscape meta
+   coefficient, so laptop landscape keeps 2.03125cqi exactly while hall grows it with the
+   numeral it holds (followups.d/2419-p3-rail-and-status-pill-boxes-at-hall.md). A bare
+   dot (ul) has no text to hold and stays the fixed 2.03125cqi. The spine reads the same
+   token, so it stays on the discs' center line. */
+section.list-steps.timeline > .cell-stage > :is(ol,ul) { --ls-disc:2.03125cqi; }
+section.list-steps.timeline > .cell-stage > ol { --ls-disc:calc(var(--fs-meta) * 2.03125 / 1.17); }
 section.list-steps.timeline > .cell-stage > :is(ol,ul)::before {
   --ls-inset:calc(var(--sp-xl) + (100% - 2 * var(--sp-xl)) / (2 * var(--ls-stages)));
-  content:''; position:absolute; top:1.015625cqi;
+  content:''; position:absolute; top:calc(var(--ls-disc) / 2);
   left:var(--ls-inset); right:var(--ls-inset);
   height:3px; background:var(--spectrum-structure); border-radius:2px;
 }
@@ -270,13 +278,13 @@ section.list-steps.timeline > .cell-stage > ol > li::before {
   counter-increment:ls-timeline-counter;
   content:counter(ls-timeline-counter);
   display:flex; align-items:center; justify-content:center;
-  width:2.03125cqi; height:2.03125cqi; border-radius:50%;
+  width:var(--ls-disc); height:var(--ls-disc); border-radius:50%;
   background:var(--accent); color:var(--on-accent, var(--on-dark-primary));
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
   flex-shrink:0;
 }
 section.list-steps.timeline > .cell-stage > ul > li::before {
-  content:''; display:block; width:2.03125cqi; height:2.03125cqi; border-radius:50%;
+  content:''; display:block; width:var(--ls-disc); height:var(--ls-disc); border-radius:50%;
   background:var(--accent); border:3px solid var(--bg);
   box-shadow:0 0 0 1px var(--border); flex-shrink:0;
 }

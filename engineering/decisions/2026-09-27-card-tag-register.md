@@ -281,8 +281,14 @@ to saturated. That is a visible change (§7 Q4).
 The font size is `--fs-meta × --card-tag-scale`, and `--fs-meta` already carries the
 venue lift. Because padding is in em, the box grows with the text, and because the
 reserve is measured (§3.4), the body clears the tag at every venue. That keeps the tag's
-proportions the same at every venue (gap 2.3.3). Rail nodes and status pills may have the
-same fixed-cqi boxes; that is unrendered and out of scope, logged in `followups.d/`.
+proportions the same at every venue (gap 2.3.3). Rail nodes and status pills had the
+same fixed-cqi boxes. A hall render on 2026-09-29 confirmed it, and the follow-up PR sized
+each box in em of its own text, as the tag's padding is: `.chart-status`, the
+timeline-list date pill, the numbered `list-steps timeline` disc, and kanban's compact
+status. roadmap's meta pill font was a raw cqi, so it takes the meta role's venue factor
+instead. Each box was the old cqi value over 1.17, the landscape `--fs-meta` coefficient,
+so a 1280 landscape slide moves by 0.4px at most. The bigger date pill cost timeline-list
+one short item at conference and hall, re-measured with `tools/calibrate-capacity.js`.
 
 ## 4. What does not change
 

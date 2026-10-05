@@ -1214,9 +1214,16 @@ section.chart-frame .chart-caption::before {
   align-items: center;
   justify-content: center;
   text-align: center;
-  height: 1.71875cqi;               /* sanctioned: fixed height matches the gantt/progress bar */
-  padding: 0 0.78125cqi;            /* sanctioned: horizontal-only — the height does vertical centering */
-  border-radius: 0.859375cqi;       /* sanctioned: semi-round so a status reads as the bar's small form */
+  /* The box is in em of the pill's OWN text (--pill-fs, the meta role), so it grows with
+   * a `venue:` and the orientation scale instead of staying a fixed cqi while the text
+   * inside it grows 1.95x at hall (followups.d/2419-p3-rail-and-status-pill-boxes-at-hall.md).
+   * Each length is the old cqi value over 1.17, the landscape meta coefficient, so a
+   * laptop landscape slide keeps the old 1.71875cqi / 0.78125cqi / 0.859375cqi exactly:
+   * the height still matches the gantt/progress bar there, and still does the vertical
+   * centering (the padding is horizontal-only). The --card-tag-pad-* kernel is the model. */
+  height: calc(1.71875em / 1.17);
+  padding: 0 calc(0.78125em / 1.17);
+  border-radius: calc(0.859375em / 1.17);
   font-family: var(--pill-font);
   font-size: var(--pill-fs);
   font-weight: var(--pill-weight);
