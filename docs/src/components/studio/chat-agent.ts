@@ -158,6 +158,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			plugins: ground.plugins,
 			fallback: '',
 			cacheTtl: '1h',
+			cacheTail: true,
 			maxTokens: CHAT_MAX_TOKENS,
 			tools: AGENT_TOOLS,
 			toolChoice: tools ? 'auto' : 'none',

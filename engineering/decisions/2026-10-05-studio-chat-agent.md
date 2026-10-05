@@ -183,6 +183,31 @@ Every proposal re-checked clean (0 errors) after Apply. The model discussed the 
 tools when no tool was needed, read before it authored, refused to invent figures it had not
 been given, and said "I haven't seen it rendered" rather than claiming a check it did not run.
 
+**Matched before/after** (owner asked for it, after the four-turn table above). Same deck, the
+same six asks, `~anthropic/claude-sonnet-latest` (Sonnet 5.5), the same cache marks as
+production, and the same linter afterwards; cost from OpenRouter's own `usage.cost`. Harness:
+`.scratch/bench-chat.test.ts` (throwaway, HARD RULE #24).
+
+| Ask | Old one-shot | Agent, first cut | Agent, shipped |
+|---|---|---|---|
+| Who is it for; weakest slide? | $0.019 · 10.4s | $0.013 · 10.5s | $0.049 · 7.3s (one-time cache write; warm ≈ $0.011) |
+| What is missing for a board? | $0.018 · 8.6s | $0.009 · 6.4s | $0.011 · 7.9s |
+| Add a KPI slide | $0.018 · 7.2s | $0.036 · 11.2s · 3 calls | $0.030 · 12.1s · 3 calls |
+| Fix the word budget | $0.019 · 8.3s | $0.108 · 15.9s · 5 calls | $0.037 · 20.6s · 6 calls |
+| Slide 3 → timeline | $0.019 · 9.6s | $0.029 · 10.9s · 3 calls | $0.024 · 10.5s · 3 calls |
+| Savile finish + dark mode | $0.023 · 12.1s — **not done** | $0.043 · 7.6s · 4 calls | $0.025 · 7.4s · 3 calls |
+
+The old prompt is 37.9K input tokens per message (OpenRouter's count); the agent's is 10.9K.
+Every applied edit, old and new, linted with 0 errors; only the agent could change front
+matter. Read honestly: **questions cost about 40% less; an edit costs about 1.5x the old
+one-shot** (about one cent more), the price of reading the layout's contract and checking
+the result before the author sees it. The first cut cost 3x on edits; two changes took it
+to 1.5x. `edit_slides` and `set_front_matter` now return the checker's verdict themselves,
+which removes the separate check round. And `withCachedTail` (`or-cache.js`) marks the
+newest message, so each tool round reads the earlier rounds from cache. The cold cache
+write is smaller too: the agent's 10.9K-token prefix against the old 37.9K, about 3.5x less
+to write after every hour-long lull (derived from the token counts, not measured cold).
+
 **The real Studio**, built and driven in headless Chromium at 1440 / 820 / 390: one turn
 asking for the `savile` finish plus a KPI slide streamed a live "Reading a component…" line,
 ended with the trail "Read the finish key · Read kpi · Set finish · Edited slides · Checked

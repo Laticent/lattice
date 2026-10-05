@@ -18,7 +18,7 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
-import { withCachedSystem } from './or-cache.js';
+import { withCachedSystem, withCachedTail } from './or-cache.js';
 import { readCachingEnabled } from './spend.js';
 
 // CDN entrypoints for the heavy, opt-in runtimes. Swap these for bundled
@@ -383,7 +383,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, cacheTail }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -400,7 +400,10 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // input against 1.25x for 5m — but one avoided re-write of the ~17K-token prefix more
       // than pays that back, so it wins after a single gap longer than five minutes. Ported
       // with its reasoning from the Drawing Board's chat, which set it explicitly.
-      const body = { model: this.getModel(), messages: cacheOn ? withCachedSystem(messages, this.getModel(), cacheTtl) : messages, stream: !!onToken, usage: { include: true } };
+      // `cacheTail` (the chat agent's tool loop) adds a rolling breakpoint on the newest
+      // message so each round reads the previous rounds from cache; see withCachedTail.
+      const cached = cacheOn ? withCachedSystem(messages, this.getModel(), cacheTtl) : messages;
+      const body = { model: this.getModel(), messages: cacheOn && cacheTail ? withCachedTail(cached, this.getModel()) : cached, stream: !!onToken, usage: { include: true } };
       // Optional plugins (e.g. the file-parser plugin that extracts an inlined
       // reference PDF server-side, #640). Passed through verbatim when present.
       if (plugins?.length) body.plugins = plugins;

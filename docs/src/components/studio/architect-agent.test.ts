@@ -346,3 +346,32 @@ describe('fixes from the maker-checker pass', () => {
 		expect(b).not.toMatch(/^header: "SYSTEM/m);
 	});
 });
+
+describe('efficiency: fewer rounds, cached tails', () => {
+	it('an edit returns the checker’s verdict, so the model needs no separate check round', async () => {
+		const check = vi.fn(async () => ({ findings: [{ slide: 3, severity: 'error', rule: 'r', message: 'bad nesting' }] }));
+		const tb = toolbox({ check });
+		const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }] }));
+		expect(out).toContain('Replaced slide 3');
+		expect(out).toContain('Check of the draft after this change');
+		expect(out).toContain('bad nesting');
+		expect(check).toHaveBeenCalledWith(tb.draft);
+		const fm = await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: 'atrium' }));
+		expect(fm).toContain('Check of the draft after this change');
+	});
+
+	it('marks the newest message for caching on breakpoint vendors only, and never mutates the input', async () => {
+		const { withCachedTail } = await import('./ai/or-cache.js');
+		const msgs = [
+			{ role: 'system', content: 'S' },
+			{ role: 'tool', tool_call_id: 't', content: 'result' },
+		];
+		const out = withCachedTail(msgs, '~anthropic/claude-sonnet-latest');
+		expect(out[1].content).toEqual([{ type: 'text', text: 'result', cache_control: { type: 'ephemeral' } }]);
+		expect(msgs[1].content).toBe('result');
+		expect(withCachedTail(msgs, 'openai/gpt-x')).toBe(msgs);
+		// An already-marked tail is left as authored.
+		const marked = [{ role: 'user', content: [{ type: 'text', text: 'u', cache_control: { type: 'ephemeral' } }] }];
+		expect(withCachedTail(marked, 'anthropic/x')).toBe(marked);
+	});
+});
