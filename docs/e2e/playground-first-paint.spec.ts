@@ -168,8 +168,11 @@ async function throttle(page: import('@playwright/test').Page) {
 async function seedRealSession(page: import('@playwright/test').Page) {
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('#pg-split-preview')).toBeVisible();
+	// The snapshot is captured from the LIVE preview, so wait for that first: it is the condition
+	// that precedes the write, and a timeout here names what was slow rather than the symptom.
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
 	await expect
-		.poll(async () => await page.evaluate(() => !!localStorage.getItem('lattice-docs-pg-last-slide')), { timeout: 40_000 })
+		.poll(async () => await page.evaluate(() => !!localStorage.getItem('lattice-docs-pg-last-slide')), { timeout: 20_000 })
 		.toBe(true);
 	const handle = page.locator('#pg-split [data-slot="resizable-handle"]').first();
 	const box = await handle.boundingBox();
@@ -196,8 +199,12 @@ async function seedRealSession(page: import('@playwright/test').Page) {
 // catches is silent (everything still ends up correct), it is what the reporter actually
 // complained about, and a nightly-only guard would surface a regression a day after merge.
 test('@smoke a reload paints one geometry per element — nothing assembles in view', async ({ page }) => {
-	await throttle(page);
+	// Seed at full speed and throttle only the reload under test. The seed measures nothing, and
+	// under 6x throttling its wait for the first snapshot timed out on slow runners (runs
+	// 37244171446 and 37219253540), so the real check below never ran. The throttle is applied
+	// to the page, so it holds across the reload.
 	await seedRealSession(page);
+	await throttle(page);
 
 	await sampleFrames(page);
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });

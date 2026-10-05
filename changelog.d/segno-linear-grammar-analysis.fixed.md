@@ -1,0 +1,1 @@
+- Segno's grammar analysis (FIRST, FOLLOW and which rules recurse) now runs in dependency order, so the order rules are listed in no longer matters: a 4,000-rule chain listed bottom-up took 12.4 s to lint and now takes 43 ms. This matters for grammars written at runtime, such as on the `/segno` page.

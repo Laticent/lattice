@@ -314,8 +314,16 @@ places: a run of letters next to another run (longest match), `/` against `/*`, 
   iterate). Walking references instead cost exponential time on a rule reached by many routes (a
   valid 25-rule grammar took 10 s to compile), and one fixpoint over all rules in source order
   cost a round per rule on a chain written top-down (24.5 s for 4,000 rules; 0.9 s now). The
-  engine's older FIRST/FOLLOW fixpoints are still quadratic on a chain listed bottom-up (12.8 s
-  for 4,000 rules on main as well); that is pre-existing and logged in `followups.d/`.
+  engine's older FIRST/FOLLOW fixpoints were quadratic on a chain listed bottom-up (12.4 s for
+  4,000 rules), and so was `recursiveRules()`, which searched from every rule. On 2026-10-05 both
+  fixpoints became worklists seeded in dependency order (an expression is recomputed only when
+  something it reads changed, and outside a cycle it is computed once), and recursion is read off
+  the same SCC pass: 43 ms for 4,000 rules in either order, and a checker found `lint()`,
+  `generate()` and parses identical to the previous version on 320,000 random grammars. What is
+  still quadratic is building the "expected …" text: `expectedAt()` writes every expression's
+  message eagerly, and on a chain whose FIRST sets grow from rule to rule (`r_i = alt(c_i, r_i+1)`)
+  that text grows too (6.5 s at 2,000 rules, and a stack overflow at 4,000, as on main). Logged in
+  `followups.d/`.
 - **`until(end)`**: one `indexOf` and no re-reading. `end` is capped at 64 characters, because
   `indexOf`'s slow case is input × terminator: the red team measured 1.5 µs per input character
   for a 16,384-character terminator, against 4 ns for 32 characters.
@@ -362,6 +370,64 @@ against brute-force parsing) and found the round-per-rule cost above. The five: 
 through rule references, the unbounded terminator, the backstop's invented level count, and its
 catching every RangeError. Two limits are pinned as tests rather than fixed: greedy commits (above),
 and the runtimes can disagree near the stack limit.
+
+### Flowchart rows need a bounded attempt (the #2462 spike)
+
+Phase 3 moves the flowchart's list text (`Storefront -SEV1-> Payments`) onto Segno, and #2462's
+inversion review asked whether Segno can read it at all before phase 2 commits to the engine.
+`npm run parser:bakeoff:flow` answers it against `splitRow` in `lib/core/flowchart-grammar.js`
+(436 distinct flowchart and state-chart rows from the corpus, plus 200,096 fuzzed rows that
+include escapes, long labels and labels at the 61-character cap). Measured 2026-10-05:
+
+| grammar | builds? | agrees with the kernel |
+|---|---|---|
+| strict: at a word start, an arrow or a word | refused: `branches 0 and 1 can both start with "-", "<"–"="` | — |
+| commit: a word may not start with `-` `=` `<` | yes | 433 of 436 corpus rows; 70,928 of 200,096 fuzzed |
+| the arrow alone, strict, tried in a 66-character window at each word start | yes | **436 of 436; 200,096 of 200,096** |
+
+- **The arrow is LL(1); the row is not.** Every arrow form (`->`, `<=>`, `-->`, `-label->`, a label
+  with spaces and inner shafts, the 61-character cap) compiles as a strict grammar once it is
+  followed by a space or the end. What does not compile is the choice at a word start: `-x` in
+  `A -x B` is a word and `-x->` in `A -x-> B` is an arrow, and the two only part at the closing
+  shaft and the character after it, up to 64 characters past the `-`. `node(kind, x)` fixes its
+  kind when it opens, so no strict grammar can open an `arrow` node at the `-` and agree with the
+  kernel. (The strings alone could be left-factored into a generic node, with the 61-character
+  count spelled out rule by rule, but a second pass would then have to decide which nodes are
+  arrows, and that pass is the second reader decision 20 rules out.)
+- **`greedy()` from #2510 does not help.** It accepts a loop or an `opt` whose body and successor
+  overlap, and it still never goes back: `greedy(opt(arrow))` commits exactly as the next row does.
+  The conflict here is between two alternatives, and only one of them is the arrow. The strict way
+  out is to commit (a word never starts with a shaft or `<`), and that misreads rows the kernel
+  reads: `Raw <b>tag</b> -> A`, `<>`, and every word that starts with a dash, such as `-5%`.
+- **What it needs: `attempt(x, { max, then })`**, a bounded ordered choice. Try `x` on at most `max`
+  characters, and keep it only if the character after it is in the set `then` (or the input ends);
+  otherwise rewind and take the next branch. The `then` check is not optional: without it
+  `A ->x B` would commit to the arrow `->` and then fail the row, where the kernel reads `->x` as a
+  word. The spike's window grammar does this check (a space or the end must follow the arrow).
+  Each attempt reads at most `max` characters, so a parse costs at most `max` × input, PROVIDED an
+  attempt cannot reach another attempt: nested attempts multiply their `max` values, and an attempt
+  reached through recursion multiplies once per level. The checker would refuse an attempt inside
+  an attempt, and accept an overlap between an attempt's branch and the branches after it, and
+  nothing else. The spike stands in for the primitive with a loop around the compiled arrow
+  grammar (`tools/parser-bakeoff/flow-segno.mjs`).
+- **Its cost, measured with the stand-in** (`compile()`'s closures and a sliced window; best of
+  seven rounds): 1,047 ns per corpus row against the kernel's 559 ns (1.9x); on the hostile ladder
+  (`-y ` repeated, an attempt every three characters, each running to the cap) 10.3 ms against
+  1.45 ms at 8,000 characters and 42 ms against 5.9 ms at 32,000. Both grow linearly (4.1x for 4x
+  input); the constant is 7 to 10 times the kernel's across runs, most of it the window slice and
+  the closures, which `generate()` and an in-place attempt remove.
+- **Checked** by one independent checker (tier 1): the counts above reproduce exactly, and its own
+  adversarial fuzz (1.5 million rows: labels of 58 to 64 characters, `<` as the first label
+  character, one to four shafts, `\r` `\t` `\n` in and around labels, astral characters, windows
+  cut at the cap) found no row where the stand-in and the kernel disagree; planted bugs (a cap one
+  short, `\r` not a space, no `<`) each produced thousands of mismatches. The `then` set and the
+  nesting rule above are its findings.
+
+**What this decides.** Phase 2 is unchanged: the flowchart's inline spans (row 25) are records, and
+the list text was always phase 3. Phase 3 needs `attempt()` as an engine addition with its own
+review (it widens what the checker accepts, as `greedy()` did), and the spike's grammar and parity
+run are its starting point. The alternative, a hand-written loop around a Segno grammar as the
+spike does, is the second reader decision 20 rules out.
 
 ## How it is tested
 
@@ -512,7 +578,7 @@ its own mark and palette.
 | 1 | The Segno engine, the notation grammar, schema binding, aliases and shortcuts, typed output and diagnostics; unit tests, fuzz and the scaling ladder; the `/segno` page and mark. No Lattice wiring. | one |
 | 1b | `greedy()`, `until()`, per-grammar `maxDepth` (decision 21) | one |
 | 2 | Lattice on Segno: the 27 slot schemas plus sparks (row 28, decision 19) in the manifests, binding straight off the flat tree, the dispatcher, lint rules (including per-deck alias consistency), a codemod over every shipped deck and doc, the old parsers deleted, component docs updated, a `**Breaking:**` changelog fragment | one |
-| 3 | The list-text grammars (flowchart arrows, leading markers, `_track`) as Segno's second grammar | one |
+| 3 | The list-text grammars (flowchart arrows, leading markers, `_track`) as Segno's second grammar; the arrows need `attempt()` (§ Flowchart rows need a bounded attempt) | one |
 
 Phase 2 changes what every chart reads, which is high blast radius and genuinely novel, so it gets the
 full adversarial trio before merge (HARD RULE #25).

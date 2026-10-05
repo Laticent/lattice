@@ -5,7 +5,12 @@ recorded: 2026-10-04
 source: https://github.com/Laticent/lattice/pull/2510
 ---
 
-# playground-first-paint's @smoke reload test times out in its seed step on some runs
+# playground-first-paint: confirm the seed fix holds over twenty CI runs
+
+status    — FIX LANDED on claude/segno-phase-2: the seed step now runs at full speed and waits
+            on the live preview before the snapshot; the 6x throttle applies only to the reload
+            under test. Locally: 5 of 5 throttled runs green (20 of 20 tests across the file's
+            @smoke cases). What is left is the CI count in "done when".
 
 why now   — studio-smoke failed on #2510 (run 37244171446) and on an unrelated PR
             (claude/plugin-system-continuation-imi319, run 37219253540), both in the same

@@ -194,18 +194,50 @@ class Analysis {
     }
   }
 
-  /** Fixpoint for nullable + FIRST over every expression, across rule references. */
+  /**
+   * Who reads whom: `users.get(x)` is every expression whose nullable/FIRST is computed from `x`'s
+   * (its parents, and for a rule body every `ref` to that rule). Built once, for the worklists.
+   */
+  private usersOf(): Map<Expr, Expr[]> {
+    const users = new Map<Expr, Expr[]>();
+    const use = (x: Expr, by: Expr) => {
+      const list = users.get(x);
+      if (list) list.push(by);
+      else users.set(x, [by]);
+    };
+    for (const e of this.info.keys()) {
+      switch (e.t) {
+        case 'seq': case 'alt': for (const x of e.xs) use(x, e); break;
+        case 'many': case 'opt': case 'node': use(e.x, e); break;
+        case 'ref': use(this.spec.rules[e.name], e); break;
+        default: break;
+      }
+    }
+    return users;
+  }
+
+  /**
+   * Fixpoint for nullable + FIRST over every expression, across rule references. A worklist,
+   * seeded in DEPENDENCY order (children before parents, a rule's references before the rule, by
+   * the SCC groups): outside a cycle every expression is then computed once, from final inputs,
+   * however the rules are listed. Only rules that reach each other iterate. (Sweeping every
+   * expression per round cost a round per rule on a chain listed bottom-up, 12.8 s for 4,000
+   * rules; a parents-first queue still cost a round per rule on a chain whose FIRST sets grow.)
+   */
   firstSets() {
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const [e, inf] of this.info) {
-        const { nullable, first } = this.compute(e);
-        if (nullable !== inf.nullable || first.length !== inf.first.length || first.some((v, i) => v !== inf.first[i])) {
-          inf.nullable = nullable;
-          inf.first = first;
-          changed = true;
-        }
+    const users = this.usersOf();
+    const queue = this.dependencyOrder();
+    const queued = new Set<Expr>(queue);
+    for (let k = 0; k < queue.length; k++) {
+      const e = queue[k];
+      queued.delete(e);
+      const inf = this.get(e);
+      const { nullable, first } = this.compute(e);
+      if (nullable === inf.nullable && first.length === inf.first.length && first.every((v, i) => v === inf.first[i])) continue;
+      inf.nullable = nullable;
+      inf.first = first;
+      for (const u of users.get(e) ?? []) {
+        if (!queued.has(u)) { queued.add(u); queue.push(u); }
       }
     }
   }
@@ -241,42 +273,74 @@ class Analysis {
     }
   }
 
-  /** Fixpoint for FOLLOW: what may come right after each expression. */
+  /**
+   * Every expression, children before parents, rule by rule in the SCC groups' order (a rule's
+   * references first). Iterative, so a deep expression cannot overflow the stack here.
+   */
+  private dependencyOrder(): Expr[] {
+    const out: Expr[] = [];
+    const seen = new Set<Expr>();
+    const { groups } = this.ruleGroups();
+    for (const group of groups) {
+      for (const name of group) {
+        const stack: Array<[Expr, boolean]> = [[this.spec.rules[name], false]];
+        while (stack.length) {
+          const [e, done] = stack.pop() as [Expr, boolean];
+          if (done) { out.push(e); continue; }
+          if (seen.has(e)) continue;
+          seen.add(e);
+          stack.push([e, true]);
+          switch (e.t) {
+            case 'seq': case 'alt': for (let k = e.xs.length - 1; k >= 0; k--) stack.push([e.xs[k], false]); break;
+            case 'many': case 'opt': case 'node': stack.push([e.x, false]); break;
+            default: break;
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Fixpoint for FOLLOW: what may come right after each expression. A worklist, as `firstSets()`
+   * is: FOLLOW flows from an expression to its children (and from a `ref` to the rule's body), so
+   * an expression is re-pushed into its children only when its own FOLLOW grew.
+   */
   followSets() {
     const start = this.get(this.spec.rules[this.spec.start]);
     start.followEnd = true;
-    let changed = true;
+    const queue: Expr[] = [...this.info.keys()];
+    const queued = new Set<Expr>(queue);
     const add = (e: Expr, cs: CharSet, end: boolean) => {
       const i = this.get(e);
       const next = union(i.follow, cs);
       if (next.length !== i.follow.length || next.some((v, k) => v !== i.follow[k]) || (end && !i.followEnd)) {
         i.follow = next;
         i.followEnd = i.followEnd || end;
-        changed = true;
+        if (!queued.has(e)) { queued.add(e); queue.push(e); }
       }
     };
-    while (changed) {
-      changed = false;
-      for (const [e, inf] of this.info) {
-        const { follow, followEnd } = inf;
-        switch (e.t) {
-          case 'seq': {
-            let cs = follow;
-            let end = followEnd;
-            for (let k = e.xs.length - 1; k >= 0; k--) {
-              add(e.xs[k], cs, end);
-              const x = this.get(e.xs[k]);
-              cs = x.nullable ? union(x.first, cs) : x.first;
-              end = x.nullable && end;
-            }
-            break;
+    for (let q = 0; q < queue.length; q++) {
+      const e = queue[q];
+      queued.delete(e);
+      const { follow, followEnd } = this.get(e);
+      switch (e.t) {
+        case 'seq': {
+          let cs = follow;
+          let end = followEnd;
+          for (let k = e.xs.length - 1; k >= 0; k--) {
+            add(e.xs[k], cs, end);
+            const x = this.get(e.xs[k]);
+            cs = x.nullable ? union(x.first, cs) : x.first;
+            end = x.nullable && end;
           }
-          case 'alt': for (const x of e.xs) add(x, follow, followEnd); break;
-          case 'many': add(e.x, union(this.get(e.x).first, follow), followEnd); break;
-          case 'opt': case 'node': add(e.x, follow, followEnd); break;
-          case 'ref': add(this.spec.rules[e.name], follow, followEnd); break;
-          default: break;
+          break;
         }
+        case 'alt': for (const x of e.xs) add(x, follow, followEnd); break;
+        case 'many': add(e.x, union(this.get(e.x).first, follow), followEnd); break;
+        case 'opt': case 'node': add(e.x, follow, followEnd); break;
+        case 'ref': add(this.spec.rules[e.name], follow, followEnd); break;
+        default: break;
       }
     }
   }
@@ -422,6 +486,57 @@ class Analysis {
     // final. A single fixpoint over all rules in source order needed one round per rule on a
     // chain written top-down — quadratic, 21 s for 4,000 rules (found by the PR's fourth
     // checker). Iterative, so a long chain cannot overflow the stack.
+    const { refsOf, groups } = this.ruleGroups();
+    for (const group of groups) {
+      const cyclic = group.length > 1 || (refsOf.get(group[0]) as string[]).includes(group[0]);
+      let memo = new Map<Expr, Excluded>();
+      for (let changed = true; changed; ) {
+        changed = false;
+        memo = new Map();
+        for (const name of group) {
+          const val = of(this.spec.rules[name], memo);
+          const prev = rules.get(name) as Excluded;
+          if (!same(val.a, prev.a) || !same(val.b, prev.b)) { rules.set(name, val); changed = true; }
+        }
+        if (!cyclic) break; // everything it reads is final already, so one round is the answer
+      }
+      for (const [e, v] of memo) this.excluded.set(e, v);
+    }
+  }
+
+  /** What cannot come next after `e`, given `before` could not come next before it. */
+  private excludedAfter(e: Expr, before: CharSet): CharSet {
+    const p = this.excluded.get(e) ?? { a: EMPTY, b: EMPTY };
+    return union(p.a, intersect(p.b, before));
+  }
+
+  /** The rules an expression can enter before consuming anything. */
+  /**
+   * The rules that can reach themselves through references — the only ones whose nesting can
+   * grow with the input. A reference to any other rule needs no depth count: `quoted` cannot
+   * call itself, so the cap is spent only where recursion is possible.
+   */
+  recursiveRules(): Set<string> {
+    // A rule is recursive when its group has more than one rule or it references itself. One
+    // SCC pass; a search from every rule cost quadratic time on a long chain (1.1 s of a 4,000-rule
+    // lint).
+    const { refsOf, groups } = this.ruleGroups();
+    const onCycle = new Set<string>();
+    for (const group of groups) {
+      if (group.length > 1 || (refsOf.get(group[0]) as string[]).includes(group[0])) for (const r of group) onCycle.add(r);
+    }
+    return onCycle;
+  }
+
+  /**
+   * The rules grouped by which reach each other through references (Tarjan's strongly connected
+   * components), dependencies first, with each rule's references. Iterative, so a long chain
+   * cannot overflow the stack. Computed once and shared by `excludedSets()` and `recursiveRules()`.
+   */
+  private groupsMemo: { refsOf: Map<string, string[]>; groups: string[][] } | null = null;
+  private ruleGroups(): { refsOf: Map<string, string[]>; groups: string[][] } {
+    if (this.groupsMemo) return this.groupsMemo;
+    const names = Object.keys(this.spec.rules);
     const refsOf = new Map<string, string[]>();
     for (const name of names) {
       const out: string[] = [];
@@ -474,59 +589,10 @@ class Analysis {
         }
       }
     }
-    for (const group of groups) {
-      const cyclic = group.length > 1 || (refsOf.get(group[0]) as string[]).includes(group[0]);
-      let memo = new Map<Expr, Excluded>();
-      for (let changed = true; changed; ) {
-        changed = false;
-        memo = new Map();
-        for (const name of group) {
-          const val = of(this.spec.rules[name], memo);
-          const prev = rules.get(name) as Excluded;
-          if (!same(val.a, prev.a) || !same(val.b, prev.b)) { rules.set(name, val); changed = true; }
-        }
-        if (!cyclic) break; // everything it reads is final already, so one round is the answer
-      }
-      for (const [e, v] of memo) this.excluded.set(e, v);
-    }
+    this.groupsMemo = { refsOf, groups };
+    return this.groupsMemo;
   }
 
-  /** What cannot come next after `e`, given `before` could not come next before it. */
-  private excludedAfter(e: Expr, before: CharSet): CharSet {
-    const p = this.excluded.get(e) ?? { a: EMPTY, b: EMPTY };
-    return union(p.a, intersect(p.b, before));
-  }
-
-  /** The rules an expression can enter before consuming anything. */
-  /**
-   * The rules that can reach themselves through references — the only ones whose nesting can
-   * grow with the input. A reference to any other rule needs no depth count: `quoted` cannot
-   * call itself, so the cap is spent only where recursion is possible.
-   */
-  recursiveRules(): Set<string> {
-    const refs = new Map<string, string[]>();
-    const collect = (e: Expr, out: string[]) => {
-      switch (e.t) {
-        case 'seq': case 'alt': for (const x of e.xs) collect(x, out); break;
-        case 'many': case 'opt': case 'node': collect(e.x, out); break;
-        case 'ref': out.push(e.name); break;
-      }
-    };
-    for (const [name, body] of Object.entries(this.spec.rules)) { const out: string[] = []; collect(body, out); refs.set(name, out); }
-    const onCycle = new Set<string>();
-    for (const start of refs.keys()) {
-      const seen = new Set<string>();
-      const stack = [...(refs.get(start) ?? [])];
-      while (stack.length) {
-        const r = stack.pop() as string;
-        if (r === start) { onCycle.add(start); break; }
-        if (seen.has(r)) continue;
-        seen.add(r);
-        stack.push(...(refs.get(r) ?? []));
-      }
-    }
-    return onCycle;
-  }
 
   private leadingRefs(e: Expr): string[] {
     switch (e.t) {
