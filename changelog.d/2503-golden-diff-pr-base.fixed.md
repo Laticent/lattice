@@ -1,0 +1,1 @@
+- CI's golden before/after (`tools/golden-diff.mjs`) now counts only the goldens a pull request moves. It used to diff against `main` as it was when the PR event fired, so a PR opened before a large re-bless rasterized every golden `main` had moved since (469 on #2503) and ran into the job's timeout.
