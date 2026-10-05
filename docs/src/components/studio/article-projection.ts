@@ -30,6 +30,7 @@
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
 import { scanTags } from '../../../../lib/core/top-level-h2.mjs';
 import { RUNTIME_DRAWN_FENCES } from '../../../../lib/plugins/drawn.generated.mjs';
+import { drawnFenceCount } from '../../../../lib/plugins/drawn-probe.mjs';
 import { buildDeckRender, type DeckRender, type ExtraTheme, loadDeckRenderFonts } from './share-export';
 
 // Every module the projection loads on demand, named once so the idle warm-up fetches the same
@@ -121,6 +122,8 @@ const DRAWN_CODE_CLASSES = RUNTIME_DRAWN_FENCES.map((f) => `language-${f}`);
 export function hasRuntimeDrawn(html: string): boolean {
 	if (html.includes('data-lattice-hydrate=')) return true;
 	if (!DRAWN_CODE_CLASSES.some((c) => html.includes(c))) return false;
+	// Every such fence marked `data-lattice-off` (the deck did not load its plugin): nothing draws.
+	if (drawnFenceCount(html) === 0) return false;
 	for (const t of scanTags(html)) {
 		if (t.kind !== 'tag' || t.isClose || t.name !== 'code') continue;
 		const classes = readClassAttr(html.slice(t.start, t.end)).split(/\s+/);

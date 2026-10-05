@@ -349,6 +349,11 @@ ${imports.join('\n')}${imports.length ? '\n' : ''}
 export function installPluginBlocks(md) {
 ${calls.join('\n')}${calls.length ? '\n' : ''}}
 
+/** Each plugin's block rules by name, so a host that admitted fewer plugins can switch a plugin's
+ *  rules off (lib/core/boundary-parser.mjs \`setBoundaryPluginsOff\`). Only the CLI calls that today;
+ *  a bundle that keeps the boundary parser's exports whole (authoring-core) carries the record too. */
+export const PLUGIN_BLOCK_RULES = /* @__PURE__ */ Object.freeze({${[...byPlugin].map(([plugin, tokens]) => ` ${JSON.stringify(plugin.manifest.name)}: /* @__PURE__ */ Object.freeze(${JSON.stringify(tokens)})`).join(',')}${byPlugin.size ? ' ' : ''}});
+
 /** Plugin block tokens whose body renders no inline Markdown (lint-core skips them). */
 export const OPAQUE_BLOCK_TOKENS = Object.freeze(${JSON.stringify(opaque)});
 
@@ -427,10 +432,18 @@ function renderDrawn(ordered) {
     if (!/^[a-z][a-z0-9-]*$/i.test(f)) throw new Error(`build-plugin-registry: runtime-drawn fence ${JSON.stringify(f)} is not a plain name`);
   }
   // No runtime-drawn fence → a selector and a pattern that match nothing, never `:is()` / `(?:)`.
-  const fenceCode = fences.length ? `:is(pre,marp-pre)>:is(${fences.map((f) => `code[class*="language-${f}"]`).join()})` : ':not(*)';
+  // `:not([data-lattice-off])`: a fence the engine marked as belonging to a plugin the deck did not
+  // load is the author's code block, never a drawing owed (spec/LPM.md §3.2.1).
+  const fenceCode = fences.length ? `:is(pre,marp-pre):not([data-lattice-off])>:is(${fences.map((f) => `code[class*="language-${f}"]`).join()})` : ':not(*)';
   const sourceFence = fences.length ? `/^[ \\t>]*(?:\`{3,}|~{3,})[^\\S\\n]*(?:${fences.join('|')})(?![\\w-])/m` : '/(?!)/';
   return `${HEADER('The code fences a browser runtime draws (render.exec.hydrate "pass"), and each such plugin\'s library. Plain data.')}
 export const RUNTIME_DRAWN_FENCES = Object.freeze(${JSON.stringify(fences)});
+
+// What the engine writes for such a fence when the deck did not load its plugin — the marked \`<pre>\`
+// opening straight into its \`<code class="language-…\`, one per plugin. A markup count subtracts
+// it: every marked \`<pre>\` holds exactly one fence the count saw. The whole serialization, not the
+// bare attribute, so a comment or a span quoting the attribute does not zero a real fence's count.
+export const RUNTIME_DRAWN_OFF = Object.freeze(${JSON.stringify(drawn.map((p) => `data-lattice-off="${p.manifest.name}"><code class="language-`))});
 
 // A runtime-drawn fence's \`<code>\` at any state (\`[class*=]\` also matches the defanged
 // \`language-<fence>-source\`), and a Markdown line that opens one. See lib/plugins/drawn-probe.mjs.

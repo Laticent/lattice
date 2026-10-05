@@ -94,12 +94,24 @@ has is reported (`plugin/unknown-plugin`) and ignored. The host's own switch (`d
 plugin off whatever admitted it, with every plugin that requires it, and a deck cannot override it.
 Using a plugin's syntax admits nothing: the usage probe (`detect`, the fence names) decides only
 when an admitted plugin's `payload` loads and its `bake` runs, and it reports a plugin the deck uses
-that no route loaded (`plugin/used-not-loaded`). In 0.5 the ENGINE and the CLI `bake` enforce
-admission. Three browser-side paths still act for every shipped plugin: a runtime pass (a fence
-`as: "code"` is drawn by its pass wherever it appears), the `highlight` grammars (registered for
-every installed plugin, on purpose), and the boundary parser's block rules. They agree with the
-engine while every shipped plugin is in the default set; a host MUST NOT narrow the default set
-until they honor admission too.
+that no route loaded (`plugin/used-not-loaded`).
+
+**Admission reaches the browser through the engine's markup.** A fence `as: "code"` renders the same
+code block whether or not its plugin is admitted, so the engine marks the `<pre>` of a fence whose
+plugin is NOT admitted: `<pre data-lattice-off="<plugin>">`. Only then, so a render in which every
+plugin is admitted carries no marker. A pass MUST NOT tag, draw, wait on or hide a fence whose
+`<pre>` carries `data-lattice-off` (§6), and a host's drawn-fence probes count none. The marker
+travels with the slide's markup, so every surface that shows the ENGINE's render (preview, export,
+`--fluid`, `--player`) honors the deck's admission with no knob of its own. Admission is
+DECK-WIDE: a host that renders one slide alone admits on the whole deck and passes the answer to
+that render (the engine's `render(…, { pluginDefaults })`), or a plain fence beside a slide class
+that loads its plugin would differ between the preview and the export. The Export-to-Marp bundle
+does not run the engine, so it does not carry the marker. The CLI admits once per run and hands the
+result to the engine, the `bake` and its boundary parser (whose block rules follow `off`, so a
+plugin's block body is opaque only where the engine admits it). The `highlight` grammars stay
+registered for every installed plugin, on purpose: an unadmitted plugin's fence is exactly the one
+that stays code, and it should read as code. A Studio's own source-side readers (its lint, its
+slide mapping) still read the default set's grammar and have no door for a narrowed one yet.
 
 ### 3.3 Contributions — `contributes`
 
@@ -275,6 +287,10 @@ host's code:
 | `error` | the plugin, or the host when `hydrate` throws or its promise rejects | a failure, shown on the slide |
 | `unavailable` | the host | the library never arrived; the author's source is shown. Recoverable |
 
+A fence of a plugin the deck did not load carries `data-lattice-off="<plugin>"` instead (§3.2.1),
+written by the ENGINE on its `<pre>`. It is never `pending`, nothing waits on it, and no pass or host
+writes settle state on it: it is the author's code block for good.
+
 `data-lattice-final` closes an element: a capture that stopped waiting, or a `hydrate` whose
 returned promise is still pending at `budgetMs` (a synchronous `hydrate` has no budget), sets it (with `unavailable` and the source shown), and nothing touches the element
 again — a late draw is discarded. Every capture — the CLI's PDF, PNG and PPTX, the `--player`
@@ -373,6 +389,10 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, admission on the browser half (2026-10-05).** `data-lattice-off="<plugin>"` (§3.2.1,
+  §6): the engine's marker on an unadmitted plugin's code fence, which every pass and probe skips.
+  The CLI's boundary parser follows the run's admission. A host may now narrow the default set.
 
 - **0.5-draft, phase D's last consumers (2026-10-05).** `render.figureClasses` and the host's
   figure marker `data-lattice-figure="<name>"` (§3.4): what an export, a capture or a layout

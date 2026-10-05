@@ -218,8 +218,12 @@ OPTIONS
                           mermaid,math; repeatable). The engine and the plugins' CLI
                           bakes both honor it, and so does every plugin that requires
                           one, so the PDF shows the deck's source instead. No deck can
-                          turn it back on. A --fluid/--player page's browser runtime
-                          does not honor it yet.
+                          turn it back on.
+      --default-plugins N Narrow the default plugin set for this run, comma-separated,
+                          or 'none' (default: every shipped plugin). A plugin outside
+                          it loads only when the deck lists it in 'plugins:' or a
+                          component it uses requires it; an unloaded plugin's figures
+                          export as source on every output, --fluid and --player too.
       --narrate           Voice the --player with Kokoro, the Studio's on-device
                           voice: every narrated sentence (the --captions narration)
                           becomes a clip, encoded as the Studio's export encodes it.
@@ -465,6 +469,8 @@ function parseArgs(argv) {
     '--size': 'size',
     // Plugins switched off for this run (lib/plugins/host-grammar.mjs `admitPlugins`'s `disabled`).
     '--disable-plugin': 'disable-plugin',
+    // The host's default plugin set for this run (`admitPlugins`'s `defaults`); `none` for empty.
+    '--default-plugins': 'default-plugins',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -543,6 +549,31 @@ const PLUGINS_DISABLED = Object.freeze([...new Set(process.argv.slice(2).flatMap
     process.exit(1);
   }
 }
+// THE DEFAULT SET THIS RUN LOADS FROM (plugin-system §9 decision 9) — `undefined`, every shipped
+// plugin, unless `--default-plugins` narrows it. Like PLUGINS_DISABLED it goes to BOTH the engine
+// and `bakeDeck`, so the two admit the same plugins from the same deck. `none` is the empty set;
+// a name no plugin has is an error, for the reason a mistyped --disable-plugin is.
+const PLUGINS_DEFAULTS = flags['default-plugins'] === undefined ? undefined : Object.freeze((() => {
+  const raw = String(flags['default-plugins']).trim();
+  // An EMPTY value is refused, not read as `none`: a script passing an unset `$VAR` would otherwise
+  // switch every default plugin off without a word.
+  if (!raw) {
+    console.error("error: --default-plugins needs plugin names or 'none'");
+    process.exit(1);
+  }
+  const names = raw === 'none' ? [] : [...new Set(raw.split(',').map((n) => n.trim()).filter(Boolean))];
+  const { PLUGIN_GRAMMAR } = require('./lib/plugins/grammar.generated.mjs');
+  const known = PLUGIN_GRAMMAR.map((g) => g.name);
+  const unknown = names.filter((n) => !known.includes(n));
+  if (unknown.length) {
+    console.error(`error: --default-plugins: no plugin is named ${unknown.map((n) => `"${n}"`).join(', ')} (plugins: ${known.join(', ')}; or none)`);
+    process.exit(1);
+  }
+  return names;
+})());
+// The plugin knobs as the engine and `bakeDeck` both take them — one object, so the two can never
+// be configured apart.
+const PLUGIN_HOST = Object.freeze({ disabled: PLUGINS_DISABLED, ...(PLUGINS_DEFAULTS === undefined ? {} : { defaults: PLUGINS_DEFAULTS }) });
 
 // Resolve mdFile + outFile + cssFile + paletteArg from positionals, with
 // named flags overriding. Positional shape:
@@ -910,6 +941,14 @@ const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.m
 // one `size:` (lib/engine/sizes.js `withSize`). An unknown name fails at the size check below.
 const mdSized = flags.size ? require('./lib/engine/sizes').withSize(mdRaw, flags.size) : mdRaw;
 const md = WANT_PRINT ? withPrintColorMode(mdSized) : mdSized;
+
+// THE PLUGINS THIS DECK LOADS UNDER THIS RUN'S HOST, decided once (`admitPlugins`, the kernel the
+// engine and `bakeDeck` call with the same PLUGIN_HOST knobs). Its `off` set configures the boundary
+// parser, the one reader here that does not admit on its own: with math off, a `---` inside `$$`
+// splits a slide in every source-side split exactly as it does in the engine (spec/LPM.md §3.2.1).
+// On the default set nothing is off and this changes no rule.
+const PLUGIN_ADMISSION = require('./lib/plugins/host-grammar.mjs').admitPlugins(md, PLUGIN_HOST);
+require('./lib/core/boundary-parser.mjs').setBoundaryPluginsOff(PLUGIN_ADMISSION.off);
 
 // A REFUSED deck-wide `class:` token says so HERE, not only in `lint:deck`.
 //
@@ -1695,7 +1734,7 @@ const bakeServices = {
   scopeKey: diagramScopeKey,
   paletteReader: paletteTokenReader,
 };
-const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, disabled: PLUGINS_DISABLED });
+const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, ...PLUGIN_HOST });
 // Every bake's RE-BAKE HOOK (`ctx.state.rebake`, lib/plugins/host-bake.js) — what the image-set
 // cross-scheme look re-renders from, read without naming a plugin. Empty when no bake that
 // publishes one ran, and then the page carries none of their figures either.
@@ -1974,7 +2013,7 @@ function engineSlides(deckSource = rawMd) {
   // the wrong artifact: the engine/preview path never overrode the default, so the
   // EXPORT (the file people actually ship, and the ADR's designated accessible route)
   // was the only path that lost it. See the semantic-html ADR §17.11.
-  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml', plugins: { disabled: [...PLUGINS_DISABLED] } });
+  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml', plugins: { disabled: [...PLUGIN_HOST.disabled], ...(PLUGIN_HOST.defaults ? { defaults: [...PLUGIN_HOST.defaults] } : {}) } });
   // Both names are passed wherever they are known. The PALETTE's always is
   // (`palettePath` is `themes/<paletteName>.css`). The LAYOUT CSS's is known on the
   // DEFAULT path — it is `dist/lattice.css`, which is `lattice`, the name every

@@ -1545,8 +1545,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// The position is part of the key: two BYTE-IDENTICAL slides at different
 					// deck positions render differently now (they print different numbers), so a
 					// key over source alone would serve slide 7 the number it cached for slide 3.
+					// PLUGIN ADMISSION IS DECK-WIDE (spec/LPM.md §3.2.1): a `diagram` slide anywhere loads
+					// Mermaid for every slide. A slide rendered alone would admit on itself, so under a host
+					// that narrowed its default set it hands the slice the WHOLE deck's answer. `undefined` on
+					// the shipped default set, where every plugin loads. Both are part of the key, with the
+					// bundle's own default set, so a change of either never serves a stale render.
+					const slicePlugins = renderSource !== markdown ? (PG.pluginAdmission?.(markdown) ?? undefined) : undefined;
+					const pluginKey = `${PG.pluginDefaultsKey?.() ?? '*'}:${slicePlugins ? slicePlugins.join(',') : ''}`;
 					const key = typeof opts?.slideIndex === 'number'
-						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${samplesBase}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}/${slicePage.deckSection ? `${slicePage.deckSection.index}of${slicePage.deckSection.total}` : ''}` : ''}`
+						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${pluginKey}|${samplesBase}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}/${slicePage.deckSection ? `${slicePage.deckSection.index}of${slicePage.deckSection.total}` : ''}` : ''}`
 						: null;
 					// Two caches, because the two paths cache different things: the whole-deck memo
 					// holds ONE un-narrowed deck render, the slice cache holds up to 24 single
@@ -1565,7 +1572,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
@@ -1656,7 +1663,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// slide ALONE: the right content, honestly numbered 1 of 1, which is exactly
 						// what this surface did before deck context existed. One extra engine call on
 						// an uncommon deck shape, and only for as long as the deck stays that shape.
-						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase });
+						const alonePlugins = PG.pluginAdmission?.(markdown) ?? undefined;
+						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase, ...(alonePlugins ? { pluginDefaults: alonePlugins } : {}) });
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 						// Swap only the HTML: theme CSS and `@size` geometry are identical (same theme,
 						// same front matter), and keeping the first render's `stats` keeps the perf
@@ -1847,7 +1855,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 											// the route-gated `slicePage` here meant omitting the position on the
 											// whole-deck route, and then reporting the pagination mismatch that caused
 											// as a finding, on any deck that paginates.
-											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: comparePage }),
+											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: comparePage, ...(PG.pluginAdmission?.(markdown) ? { pluginDefaults: PG.pluginAdmission(markdown) as string[] } : {}) }),
 											renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase }),
 										]);
 										// THE SAME ALIGNMENT GUARD narrowToSlide enforces, and for the same reason: an

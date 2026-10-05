@@ -259,8 +259,11 @@ section.diagram > .cell-stage > :is(pre, marp-pre):where([data-lattice-hydrate="
  * put an ordinary ```js block on a diagram slide and it must still read, and a fence
  * outside a slide host has the same window. `[class*=…]` covers both the authored
  * `language-mermaid` and the `language-mermaid-source` the runtime renames it to.
- * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A. */
-[data-lattice-diagrams] :is(pre, marp-pre):not([data-lattice-settle]) > code[class*="language-mermaid"] { visibility:hidden; }
+ * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
+ *
+ * Never a fence the engine marked `data-lattice-off` (a deck that did not load this plugin):
+ * no pass will ever tag it, so withholding its ink would hide the author's code for good. */
+[data-lattice-diagrams] :is(pre, marp-pre):not([data-lattice-settle]):not([data-lattice-off]) > code[class*="language-mermaid"] { visibility:hidden; }
 
 /* Base (theme-agnostic) styling for the source <pre> in pending/error states.
  * Structural only: layout, sizing, font, whitespace. No background, no

@@ -120,10 +120,16 @@ Installed via npm, the same binary is `npx lattice`.
 list to both the engine and the plugins' CLI bakes (`lib/plugins/host-bake.js`), so a
 switched-off Mermaid does not bake — its fences export as their highlighted source in the PDF,
 PNG and PPTX — and every plugin that `requires` one goes with it. A deck's `plugins:` list
-cannot turn it back on. A name no plugin has fails the run. **Not yet on a browser page:** a
-`--fluid` or `--player` export carries the runtime, whose Mermaid pass still acts on every
-` ```mermaid ` block (it finds no library there, so after its wait the source shows);
-`followups.d/2509-p3-admission-on-the-browser-half.md`.
+cannot turn it back on. A name no plugin has fails the run. A `--fluid` or `--player` page honors
+it too: the engine marks a switched-off plugin's fence `data-lattice-off`, and the runtime's pass
+skips it, so the page shows the source at once instead of waiting on a library.
+
+**Narrowing the default set for one run:** `--default-plugins math,mermaid` (or `none`) replaces
+the shipped default set — every plugin — for this run. A plugin outside it loads only when the
+deck lists it in `plugins:` or a slide class the deck uses requires it. The CLI admits ONCE
+(`admitPlugins`, with the same `defaults` and `disabled` the engine and `bakeDeck` take) and sets
+the boundary parser from the answer (`setBoundaryPluginsOff`), so a source-side slide split agrees
+with the engine's when math is off.
 
 **A theme or component the deck names but Lattice doesn't ship** resolves from the
 installed packages, `~/.lattice/packages/<type>/<name>/` (or `$LATTICE_HOME/packages`,
