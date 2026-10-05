@@ -20,6 +20,6 @@ import { sourceHasDrawnFence } from '../../../../lib/plugins/drawn-probe.mjs';
  * hardcode it. The fence names come from the plugin registry (lib/plugins/drawn-probe.mjs),
  * and the probe reads an opener as the CLI's bake does, so it is never narrower.
  */
-export function hasMermaid(md: string): boolean {
+export function hasDrawnFence(md: string): boolean {
 	return sourceHasDrawnFence(md);
 }

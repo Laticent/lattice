@@ -9,10 +9,10 @@
 // Props:
 //   name     string   — component name (storage key + handoff)
 //   sample   string   — the slide markdown to render / seed the editor
-//   mermaid  boolean  — whether any sample contains a ```mermaid fence
+//   drawn    boolean  — whether any sample holds a fence a runtime draws (lib/plugins/drawn-probe.mjs)
 //   variants [{key,label,caption,sample}] — base ('default') + each modifier;
 //            powers the variant switcher and per-variant playground handoff
-const { name, sample, mermaid = false, variants = [], variantGroups = null } = Astro.props;
+const { name, sample, drawn = false, variants = [], variantGroups = null } = Astro.props;
 
 import { assetBase } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
@@ -30,12 +30,12 @@ const engineUrl = url(pg + 'lattice-playground.js');
 const dataJson = JSON.stringify({
 	name,
 	sample,
-	mermaid,
+	drawn,
 	variants,
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
 	engineUrl,
-	// Locally-vendored Mermaid + KaTeX. A specimen takes a `mermaid` prop, so these
+	// Locally-vendored Mermaid + KaTeX. A specimen takes a `drawn` prop, so these
 	// tiles do render diagrams; with the CDN fallback removed, omitting these would
 	// silently leave a specimen's diagram blank instead of reaching jsdelivr.
 	dagreUrl: url(pg + 'lattice-dagre.js'),

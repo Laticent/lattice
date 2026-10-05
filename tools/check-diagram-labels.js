@@ -6,7 +6,8 @@
  * REAL exported artifact rather than a fixture (HARD RULE #23):
  *
  *   1. WHAT FACE is each diagram label actually in?  `getComputedStyle().fontFamily`
- *      on every `text` / `tspan` / label element inside every `.mermaid-svg`.
+ *      on every `text` / `tspan` / label element inside every drawn figure
+ *      (`[data-lattice-figure]`, the host's marker on the bake's wrapper).
  *   2. WAS IT MEASURED IN THE FACE IT IS PAINTED IN?  Mermaid sizes a label's
  *      `<foreignObject>` from the width it measures, then the deck paints the label
  *      inside it. When both happen in the same face those two widths are EQUAL — 0.00
@@ -55,7 +56,7 @@
  *
  *   4. DID EVERY DIAGRAM RENDER AT ALL?  Added after the #1674 adversarial review, which
  *      found the first two questions structurally blind to the worst failure: a diagram
- *      that never rendered has no `.mermaid-svg` wrapper, so it is a MISSING ROW rather
+ *      that never rendered has no figure wrapper, so it is a MISSING ROW rather
  *      than a red one, and a harness that counts labels reports "0 clipped" for a deck
  *      that lost a diagram entirely. That is exactly how two dropped renderer
  *      registrations survived a green verification pass. `<pre class="mermaid-fallback">`
@@ -100,7 +101,7 @@ async function main() {
       const out = [];
       /** First family of a font stack, unquoted and trimmed — the comparable part. */
       const head = (stack) => String(stack || '').split(',')[0].replace(/["']/g, '').trim();
-      document.querySelectorAll('.mermaid-svg').forEach((wrap, di) => {
+      document.querySelectorAll('[data-lattice-figure]').forEach((wrap, di) => {
         const svg = wrap.querySelector('svg');
         if (!svg) return;
         // WHAT THIS SLIDE ASKED FOR. `--font-body` on the label's own <section> is the
@@ -169,7 +170,7 @@ async function main() {
       });
       return out;
     });
-    const diagramCount = await page.evaluate(() => document.querySelectorAll('.mermaid-svg').length);
+    const diagramCount = await page.evaluate(() => document.querySelectorAll('[data-lattice-figure]').length);
 
     // A FACE THE SLIDE NEVER ASKED FOR is the failure `mode: sketch` is supposed to make
     // impossible, and it hid behind the census for a whole review round: C4 and journey
@@ -207,7 +208,7 @@ async function main() {
         console.log(`  NO EXPECTED FACE  ${unknownWant.length} label(s) on a slide whose --font-body `
           + 'does not resolve — the token itself is broken, so nothing can be compared');
       }
-      if (nothingToCheck) console.log('  NOTHING TO CHECK  the page contains no .mermaid-svg diagrams');
+      if (nothingToCheck) console.log('  NOTHING TO CHECK  the page contains no drawn diagrams ([data-lattice-figure])');
       console.log(`diagrams: ${diagramCount}   degraded: ${degraded.length}   labels: ${rows.length}   `
         + `mismeasured: ${clippedRows.length}   foreign-face: ${foreign.length}`);
       for (const [f, n] of [...faces].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${f}`);

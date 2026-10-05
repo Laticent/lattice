@@ -116,6 +116,15 @@ Installed via npm, the same binary is `npx lattice`.
 `LATTICE_PALETTE` env → the deck's own front-matter `theme:` → default
 `indaco`.
 
+**Switching a plugin off for one run:** `--disable-plugin mermaid,math` (repeatable) hands one
+list to both the engine and the plugins' CLI bakes (`lib/plugins/host-bake.js`), so a
+switched-off Mermaid does not bake — its fences export as their highlighted source in the PDF,
+PNG and PPTX — and every plugin that `requires` one goes with it. A deck's `plugins:` list
+cannot turn it back on. A name no plugin has fails the run. **Not yet on a browser page:** a
+`--fluid` or `--player` export carries the runtime, whose Mermaid pass still acts on every
+` ```mermaid ` block (it finds no library there, so after its wait the source shows);
+`followups.d/2509-p3-admission-on-the-browser-half.md`.
+
 **A theme or component the deck names but Lattice doesn't ship** resolves from the
 installed packages, `~/.lattice/packages/<type>/<name>/` (or `$LATTICE_HOME/packages`,
 or `--packages <dir>` for one run). Install one with `lattice packages add

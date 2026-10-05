@@ -65,7 +65,7 @@ function normalize(s) {
 
 function extractDiagrams(html) {
   const out = [];
-  const re = /<div class="mermaid-svg[^"]*"[^>]*>/g;
+  const re = /<div [^>]*data-lattice-figure="[^"]*"[^>]*>/g; // the host's drawn-figure marker (bake and pass)
   let m;
   while ((m = re.exec(html))) {
     // Walk to the matching </div> by depth, since the SVG payload contains divs.

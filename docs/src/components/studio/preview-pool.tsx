@@ -3,7 +3,7 @@ import DeckPreview from '@/components/DeckPreview';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
-import { hasMermaid } from './slide-thumb';
+import { hasDrawnFence } from './slide-thumb';
 
 // ── A POOL OF PREVIEW FRAMES THAT ARE NEVER DESTROYED (#1538) ───────────────────────
 //
@@ -71,7 +71,7 @@ export type PooledPreviewProps = {
 	/** Override Mermaid detection. Required alongside `slideIndex`: auto-detection reads
 	 *  `sample`, and for a deck document that means ANY mermaid slide would inject the mermaid
 	 *  runtime into EVERY thumbnail. Pass the shown slide's own markdown result. */
-	mermaid?: boolean;
+	drawn?: boolean;
 	paletteOverride?: string;
 	extraTheme?: { name: string; css: string };
 	modeOverride?: 'light' | 'dark';
@@ -141,8 +141,8 @@ type Tile = {
  * bucket (mermaid) and saved local components (their own CSS) are the two that do not.
  */
 function shapeKey(p: PooledPreviewProps): string {
-	const mermaid = p.mermaid ?? hasMermaid(p.sample);
-	return `${mermaid ? 'M' : '-'}|${p.extraCss || ''}|${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}`;
+	const drawn = p.drawn ?? hasDrawnFence(p.sample);
+	return `${drawn ? 'M' : '-'}|${p.extraCss || ''}|${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}`;
 }
 
 /**
@@ -643,7 +643,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 								style={{ top: clip.top, left: clip.left, width: clip.width, height: clip.height, visibility: hidden ? 'hidden' : 'visible' }}
 							>
 								<div data-slide-frame className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, ...slideFrameStyle('flat') }}>
-									{s.props ? <DeckPreview {...s.props} mermaid={s.props.mermaid ?? hasMermaid(s.props.sample)} active className="size-full" aria-hidden /> : null}
+									{s.props ? <DeckPreview {...s.props} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} active className="size-full" aria-hidden /> : null}
 								</div>
 							</div>
 						);

@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export type HeroData = {
 	sample: string;
-	mermaid: boolean;
+	drawn: boolean;
 	codeHtml: string; // pre-highlighted source (built server-side in the Astro page)
 	componentName: string;
 	themeBase: string;
@@ -53,7 +53,7 @@ export default function HeroPreview({ data }: { data: HeroData }) {
 					<DeckPreview
 						options={options}
 						sample={data.sample}
-						mermaid={data.mermaid}
+						drawn={data.drawn}
 						active={view === 'preview'}
 						frame="stage"
 						className="live-host relative m-0 aspect-video w-full overflow-hidden"

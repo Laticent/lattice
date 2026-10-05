@@ -59,6 +59,7 @@ export const CHROME = {
 		accent: 'Accent',
 		motion: 'Motion',
 		speech: 'Speech',
+		plugins: 'Plugins',
 	},
 	slideTab: {
 		look: 'Look',

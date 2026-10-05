@@ -62,7 +62,7 @@ export type CraftLabProps = {
 	 */
 	canvasToggle?: boolean;
 	/** The deck needs the Mermaid runtime. */
-	mermaid?: boolean;
+	drawn?: boolean;
 	/** Editor height. Tall panes (a whole theme file) want "tall". */
 	size?: 'short' | 'tall';
 	className?: string;
@@ -81,7 +81,7 @@ export function CraftLab({
 	hint,
 	startMode,
 	canvasToggle = true,
-	mermaid = false,
+	drawn = false,
 	size = 'short',
 	className,
 }: CraftLabProps) {
@@ -169,7 +169,7 @@ export function CraftLab({
 				<DeckPreview
 					options={options}
 					sample={mdText}
-					mermaid={mermaid}
+					drawn={drawn}
 					coalesce
 					paletteOverride={kind === 'theme' ? LAB_THEME : undefined}
 					extraTheme={extraTheme}

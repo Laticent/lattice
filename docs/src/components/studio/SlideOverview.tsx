@@ -5,7 +5,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { SLIDE_SEP } from './deck-ops';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
-import { hasMermaid } from './slide-thumb';
+import { hasDrawnFence } from './slide-thumb';
 
 // Present → slide overview (the "slide sorter"). A grid of rendered slide
 // thumbnails over the presented set, for jumping anywhere — especially in Q&A.
@@ -24,7 +24,7 @@ import { hasMermaid } from './slide-thumb';
 // clipped slide (see `isSpecimenDocument` in lib/runtime/index.js for the regression that
 // makes this worth saying out loud).
 
-function Thumb({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; slideIndex: number; slideCount: number; slideMarkdown: string; mermaid: boolean; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
+function Thumb({ options, sample, slideIndex, slideCount, slideMarkdown, drawn, paletteOverride, extraTheme, modeOverride, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; slideIndex: number; slideCount: number; slideMarkdown: string; drawn: boolean; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
 	return (
 		<button type="button" onClick={onClick} aria-current={current ? 'true' : undefined} aria-label={label} className={cn('group relative text-left outline outline-2 outline-offset-[3px] transition-[outline-color]', current ? 'outline-[var(--accent)]' : 'outline-transparent hover:outline-[color-mix(in_srgb,var(--accent)_45%,var(--border))] focus-visible:outline-[var(--accent)]')}>
 			{/* The tile IS the slide: no card, radius or border of its own, so a square deck shows
@@ -33,7 +33,7 @@ function Thumb({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid
 			    An empty box; the pixels arrive from a pooled frame positioned over it. The frame is
 			    pointer-events:none either way — it is a separate document that would otherwise
 			    swallow this button's click. */}
-			<PooledThumbFace options={options} sample={sample} slideIndex={slideIndex} slideCount={slideCount} slideMarkdown={slideMarkdown} mermaid={mermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="pointer-events-none aspect-video w-full" />
+			<PooledThumbFace options={options} sample={sample} slideIndex={slideIndex} slideCount={slideCount} slideMarkdown={slideMarkdown} drawn={drawn} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="pointer-events-none aspect-video w-full" />
 			{/* The slide number. `z-10` because the pooled preview layer paints above the grid
 			    (preview-pool.tsx) — without it the number is behind the frame. */}
 			<span className="absolute bottom-1.5 left-1.5 z-10 rounded-md bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--text-heading)] backdrop-blur-sm">{label.replace('Slide ', '')}</span>
@@ -104,7 +104,7 @@ export function SlideOverview({ open, onClose, options, set, frontMatter = '', c
 								slideIndex={i}
 								slideCount={set.length}
 								slideMarkdown={frontMatter ? frontMatter + s : s}
-								mermaid={hasMermaid(s)}
+								drawn={hasDrawnFence(s)}
 								paletteOverride={paletteOverride}
 								extraTheme={extraTheme}
 								modeOverride={modeOverride}

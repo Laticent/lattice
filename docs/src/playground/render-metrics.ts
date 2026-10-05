@@ -39,7 +39,7 @@ export type RenderStats = {
 	/** Chart-layout sections in the rendered HTML. */
 	charts: number;
 	/** Mermaid diagrams in the rendered HTML. */
-	mermaid: number;
+	drawn: number;
 	/** Whether the source contains math (KaTeX). */
 	math: boolean;
 	/** Slides overflowing their box (Fit Spine ring), read from the live frame. */

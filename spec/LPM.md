@@ -1,6 +1,6 @@
 # LPM — the Lattice Plugin Model
 
-**Version:** 0.4-draft · **Status:** Draft · **Date:** 2026-10-04 · **Host API:** `api: 1`
+**Version:** 0.5-draft · **Status:** Draft · **Date:** 2026-10-05 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block
 (` ```functionplot `), the browser code that draws it and the CSS that paints it — as one folder
@@ -78,6 +78,29 @@ v1 checks names, presence and cycles, not versions. Disabling a plugin disables 
 `requires` it. The host orders plugins topologically (ties broken by name); the order decides rule
 installation, CSS order and hydrate order, and nothing else.
 
+### 3.2.1 Loading — what admits a plugin
+
+Every plugin is loaded EXPLICITLY, by one of three routes, and nothing else admits one:
+
+| Route | Source |
+|---|---|
+| default | the host's default set — every shipped plugin, unless the host narrows it |
+| listed | the deck's front-matter `plugins:` import list (`plugins: [math, mermaid]`) |
+| component | a slide class the deck uses, whose component manifest declares `plugins.requires` |
+
+A loaded plugin loads what it `requires`, transitively; `optional` loads nothing. The list only
+adds: listing a default plugin changes nothing, there is no removal syntax, and a name no plugin
+has is reported (`plugin/unknown-plugin`) and ignored. The host's own switch (`disabled`) turns a
+plugin off whatever admitted it, with every plugin that requires it, and a deck cannot override it.
+Using a plugin's syntax admits nothing: the usage probe (`detect`, the fence names) decides only
+when an admitted plugin's `payload` loads and its `bake` runs, and it reports a plugin the deck uses
+that no route loaded (`plugin/used-not-loaded`). In 0.5 the ENGINE and the CLI `bake` enforce
+admission. Three browser-side paths still act for every shipped plugin: a runtime pass (a fence
+`as: "code"` is drawn by its pass wherever it appears), the `highlight` grammars (registered for
+every installed plugin, on purpose), and the boundary parser's block rules. They agree with the
+engine while every shipped plugin is in the default set; a host MUST NOT narrow the default set
+until they honor admission too.
+
 ### 3.3 Contributions — `contributes`
 
 | Key | Declares | Needs |
@@ -99,6 +122,7 @@ installation, CSS order and hydrate order, and nothing else.
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
 | `render.exec` | where code runs: `hydrate: "browser"` (a `hydrate.js` exporting `hydrate`, run by the plugin host on every browser surface, serialized onto the CLI export page) or `"pass"` (a `hydrate.js` exporting `createPass`, a document pass the runtime bundles and drives — §4.3; the plugin MUST `bake`, because the CLI export page carries no runtime). **`"pass"` is IN-TREE ONLY**: a pass is bundled into the runtime, which a zip or npm plugin cannot reach (§10); `bake: "subprocess"` (the bake blocks on another process, such as a headless browser) |
+| `render.figureClasses` | the CSS classes of the container the plugin draws a figure into (its pass, its bake). They are the plugin's OWN: the plugin MUST also write the host's figure marker, `data-lattice-figure="<name>"`, on that container, and every consumer outside the plugin selects `[data-lattice-figure]` — never these classes (`checkPluginMigration` `drawnFigureClasses`, budget 0) |
 | `render.surfaces` | what each surface emits — `engine`, `preview`, `pdf`, `player`, `marp` → `placeholder \| figure \| figure-baked \| source \| none` |
 
 ## 4. The role modules
@@ -349,6 +373,14 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, phase D's last consumers (2026-10-05).** `render.figureClasses` and the host's
+  figure marker `data-lattice-figure="<name>"` (§3.4): what an export, a capture or a layout
+  selects to find a drawn figure on any surface, so none names a plugin's output class.
+
+- **0.5-draft (2026-10-05).** Explicit loading (§3.2.1): a plugin is admitted by the host's
+  default set, the deck's `plugins:` import list, or a component that requires it — never by the
+  usage probe, which now decides only when a payload loads and a bake runs.
 
 - **0.4-draft (2026-10-04).** Phase D's browser half, finished: `render.exec.hydrate: "runtime"` is
   gone, and `"pass"` replaces it — Mermaid's diagram pass is the plugin's own `hydrate.js`
