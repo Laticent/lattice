@@ -130,6 +130,13 @@ function stressDeck(times) {
   return jargon.slice(0, fmEnd) + Array.from({ length: times }, () => jargon.slice(fmEnd)).join('\n');
 }
 
+function hubSpokeDeck(tieredCopies) {
+  const gallery = readFileSync(join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.gallery.md'), 'utf8');
+  const tiered = gallery.split('\n---\n').find((s) => /_class: hub-spoke tiered/.test(s));
+  if (!tiered) throw new Error('hub-spoke.gallery.md has no tiered slide — the hub-spoke dataset would measure the wrong thing');
+  return gallery + Array.from({ length: tieredCopies }, () => `\n---\n${tiered}`).join('');
+}
+
 const datasets = [
   { name: 'normal (jargon)', src: jargon, theme: 'crepuscolo' },
   { name: 'charts', src: readFileSync(join(ROOT, 'lib/components/chart/chart.gallery.md'), 'utf8'), theme: 'indaco' },
@@ -142,6 +149,11 @@ const datasets = [
   // Without this row the two dominant costs of a math deck are invisible.
   { name: 'math', src: readFileSync(join(ROOT, 'lib/components/math/math/math.gallery.md'), 'utf8'), theme: 'indaco' },
   { name: 'stress (jargon x6)', src: stressDeck(6), theme: 'crepuscolo' },
+  // hub-spoke's own path: the radial kernel (Trama's radialLayoutKernel), the text fit and
+  // the label wrap run on every slide. The component gallery covers every variant once;
+  // the tiered slide, the dearest solve (branches, then leaves around each), rides three
+  // more times so it carries real weight in the row.
+  { name: 'hub-spoke (gallery + tiered x3)', src: hubSpokeDeck(3), theme: 'indaco' },
 ];
 // The datasets the BROWSER tiers (export, print) skip.
 //
@@ -155,7 +167,9 @@ const datasets = [
 // add ~11 minutes to a `--print` bless to re-measure a number dominated by the
 // rasterizer. If a math-specific EXPORT regression is ever suspected, deleting its
 // name from this set is the whole change.
-const EXCLUDED_FROM_BROWSER_TIERS = new Set(['stress (jargon x6)', 'math']);
+// `hub-spoke` for the same reason as math: its cost is the engine-side solve, which the
+// render and edit tiers measure; the rasterizer would only add minutes to a print bless.
+const EXCLUDED_FROM_BROWSER_TIERS = new Set(['stress (jargon x6)', 'math', 'hub-spoke (gallery + tiered x3)']);
 
 // The edit tier's own exclusion, NAMED rather than a second `startsWith('stress')`
 // scan. Two different mechanisms answering "which datasets does this tier skip?" in
