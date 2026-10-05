@@ -137,4 +137,70 @@ gets a solver designed from both charts
   `followups.d/2396-p2-sketch-hub-value-reaches-disc-edge.md`, found while measuring
   this note: bold digits and symbols in the hand face print up to 1.233× their estimate,
   and the hub's `$120M` reaches the disc edge. Fix it before or after the move, not in it,
-  so the byte-identical check stays meaningful.
+  so the byte-identical check stays meaningful. It was fixed after the move: §6.
+
+## 6. The sketch estimate
+
+*Added after the move, in the change that closed
+`followups.d/2396-p2-sketch-hub-value-reaches-disc-edge.md`.*
+
+**What was wrong.** `textWidth` billed the hand face (Shantell Sans, the label face under
+`mode: sketch`) at a flat 0.66em a character, and bold at 3% more. Two facts made that
+number wrong in both directions:
+
+- Only the 400, 500 and 700 Shantell faces ship (`lib/fonts/text-faces.js`). Every weight
+  hub-spoke asks for is between 560 and 760, so the browser paints all of it with the 700
+  face. The estimate was calibrated as if names were a regular weight.
+- Shantell is proportional. Its 700 digits paint 0.70em with `tabular-nums` (which the
+  values set), `%` 0.98em and `M` 1.04em, while most lowercase letters paint 0.5 to 0.65em.
+
+So values ran short and names ran long. Across every hub-spoke label on the demo deck, the
+component gallery and the baseline gallery under `mode: sketch` (340 labels), 51 painted
+wider than their estimate, the worst `8M` at 1.270×, while the median name was billed 12%
+wide. `$120M` reached 1.052 of the hub radius, past the disc edge.
+
+**What replaced it.** `HAND_ADVANCE` in `lib/core/hub-spoke-model.js`: a per-character
+table of the 700 face for U+0020 to U+007E, plus a few typographic marks, in hundredths of
+an em, rounded up. Each entry is the widest the glyph measured across contexts: alone, in a
+run of 20, and between `H`, `n`, `o`, `a` and `1`, with and without `tabular-nums`. A
+single context under-read some glyphs (`L` alone paints 3.8% wider than between two `H`s).
+Bold adds 0.02em a character for the tracking the status word and hub name carry, and the
+sum is billed 1.5% over for kerning and the face's contextual alternates. Accented letters
+bill as their base letter, a lone combining mark bills nothing and a no-break space bills
+as a space; anything else, and every wide character, bills a full em.
+
+**Measured result**, Chromium `getComputedTextLength` against `textWidth`:
+
+| Surface | Before | After |
+|---|---|---|
+| hub-spoke labels over their estimate (sketch, 3 decks) | 51 of 340, worst 1.270× | 0 of 322, worst 0.975× |
+| median name, real ÷ estimate | 0.878 | 0.960 |
+| hub text, farthest corner ÷ disc radius, worst hub | 1.052 (`$120M`) | 0.942 (`12,000`; `$120M` is 0.936) |
+| 3,994 bullet strings and pills from every shipped deck, each with and without `tabular-nums` (7,988 measurements) | not measured | 3 over: `[/]` 1.010× and two emoji strings; median 0.959 |
+
+The label count drops from 340 to 322 because tighter name estimates let fewer names wrap.
+
+**The word-split rule.** The same pass found `fitHubText` taking a mid-word cut at full
+type size before it tried a smaller size: the tiered gallery hub printed `Framewor` over
+`k` under `mode: sketch`. A fit that cuts a word mid-run now waits until every type step
+has been tried, and is taken only when no step keeps the words whole. A break `wrapText`
+makes by design, after a hyphen, slash, dot or colon or between two wide characters, is
+not a cut: `know-your-customer` still prints as `know-your-` over `customer` at full size.
+In the clean face the rule changes 1,302 of 184,824 sampled hub fits (1,812 names from
+the shipped decks, three hub values, radii 14 to 80), none of them at a designed break,
+and no shipped deck's bytes. The checker's first cut of this rule also deferred designed
+breaks, which shrank the type and the hub value under a hyphenated name; that is fixed.
+
+**What keeps it honest.** The table measures the same `shantell-700.woff2` bytes that
+`GLYPH_UPPER_FONTS` pins, so a face swap fails `checkFontMetricsPin`, and
+`npm run fonts:measure` now re-measures `HAND_ADVANCE` beside `GLYPH_UPPER` and fails
+`--check` on an entry that under-counts. It lives in `lib/core`, not beside `GLYPH_UPPER`,
+because `lib/core` may not import `lib/components` (`.dependency-cruiser.cjs`).
+`test/unit/components/hub-spoke.test.js` pins the estimate between 1.00× and 1.06× of 13
+measured strings.
+
+**The residual.** Two shapes still paint a little over their estimate in the sweep. A
+color emoji is billed 1em in both faces, as before, and paints wider in the hand face's
+emoji fallback (`"🎯": ""` 1.030×). The kerned pair in `[/]` paints 1.010×. No shipped
+hub-spoke label carries either, and the labels sit inside generous lanes, so neither is
+worth a wider bill on every other string.

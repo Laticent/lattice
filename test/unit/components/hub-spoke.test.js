@@ -224,9 +224,35 @@ describe('hub-spoke lint (through lint-core)', () => {
   });
   test('a deck-wide `mode: sketch` bills the hand face in the width estimate', () => {
     const six = ['A', 'B', 'C', 'D', 'E', 'F'].map((x) => `  - ${x}`).join('\n');
-    const body = `<!-- _class: hub-spoke -->\n\n## T.\n\n- Enterprise customer relationship management \`$48M\`\n${six}\n`;
+    // Capitals and the wide letters paint far wider in the hand face (M is 1.04em against
+    // the mono 0.6). A mostly lowercase name no longer works here: the hand face's
+    // lowercase paints about as wide as the mono face, and the estimate now knows it.
+    const body = `<!-- _class: hub-spoke -->\n\n## T.\n\n- MOMENTUM WORKFLOW MANAGEMENT OFFICE \`$48M\`\n${six}\n`;
     assert.ok(!findHubSpokeIssues(`---\nmarp: true\n---\n\n${body}`).some((f) => f.rule === 'hub-spoke-hub-overflow'), 'fits in the mono face');
     assert.ok(findHubSpokeIssues(`---\nmarp: true\nmode: sketch\n---\n\n${body}`).some((f) => f.rule === 'hub-spoke-hub-overflow'), 'mode: sketch was ignored');
+  });
+  // Painted width ÷ font size, Shantell Sans 700 with tabular-nums, measured in Chromium
+  // with SVG getComputedTextLength (followups 2396-p2). The flat 0.66em this replaced billed
+  // `8%` at 79% of its paint and `$120M` at 86%; the table must never bill under these.
+  const HAND_MEASURED = {
+    '8%': 1.677, '8M': 1.727, '$120M': 3.827, '$4.2M': 3.477, '12,000': 3.85, '45M': 2.427,
+    Legal: 2.812, Canada: 4.012, Framework: 5.9641, tb: 1.1331, 'Keel Logistics': 7.0631,
+    Southeast: 5.2831, 'MOMENTUM WORKFLOW': 12.8181,
+  };
+  test('the hand-face estimate is never under the measured paint, and stays within 6% of it', () => {
+    for (const [s, painted] of Object.entries(HAND_MEASURED)) {
+      const est = HS.textWidth(s, 1, { hand: true });
+      assert.ok(est >= painted, `${JSON.stringify(s)} billed ${est.toFixed(3)}em, paints ${painted}em`);
+      assert.ok(est <= painted * 1.06, `${JSON.stringify(s)} billed ${est.toFixed(3)}em, ${((est / painted - 1) * 100).toFixed(1)}% over`);
+    }
+  });
+  test('a hub name keeps its words whole when a smaller type size fits them', () => {
+    const ht = HS.fitHubText('Framework', '', 36, { hand: true });
+    assert.deepEqual(ht.lines, ['Framework']);
+    assert.equal(ht.overflow, false);
+    // A designed break (after a hyphen or slash) is not a cut: it stays at full size.
+    assert.deepEqual(HS.fitHubText('know-your-customer', '$48M', 54).lines, ['know-your-', 'customer']);
+    assert.equal(HS.fitHubText('know-your-customer', '$48M', 54).fsN, 11);
   });
   test('sized-floor counts clamped discs with the kernel\'s own function', () => {
     const vals = [100, 60, 4, 3, 2];
