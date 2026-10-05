@@ -5,7 +5,10 @@ recorded: 2026-09-24
 source: https://github.com/Laticent/lattice/pull/2354
 ---
 
-# Desktop: AI key in the OS keychain, and an OpenRouter sign-in that works outside a browser
+# Desktop: AI key in the OS keychain (sign-in itself moved to 2354-p1, 2026-10-05)
+
+The 2026-10-05 decision puts OpenRouter sign-in in its own app window (2354-p1, the Studio is
+the whole app). What remains here is the key's storage and the main-frame check.
 
 why now   — the Studio's AI features need a key. On desktop the key sits in localStorage,
             and sign-in cannot return: architect.ts builds the callback from location.href

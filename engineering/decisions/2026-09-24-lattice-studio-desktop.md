@@ -168,13 +168,66 @@ and links with `lld-link`, and `makensis` wraps the result as an installer.
   dialog uncleaned.
 - **Not signed.** Tauri signs only on a Windows host by default, so SmartScreen warns on
   first run. Signing is part of the release-pipeline slice (followup P5).
-- **UNVERIFIED on Windows.** Nothing here ran the installer or the app on Windows. No
-  Windows machine or VM is reachable from the sandbox, and Wine does not run WebView2
-  reliably enough to count as evidence. The save dialog on Windows is `rfd`'s Win32 file
-  dialog, which has not been exercised either.
+- **Run on Windows by the owner, 2026-10-05** (see the next section). Before that, nothing
+  had run it on Windows: the sandbox reaches no Windows machine, and Wine does not run
+  WebView2 reliably enough to count as evidence.
 - **In CI since 2026-09-29.** The owner picked a cross-build step in the existing Linux
   job over a native `windows-latest` job (which bills at 2x) and over no Windows CI. See
   the CI section.
+
+## The Windows test run (2026-10-05)
+
+The owner installed the build of `9aed22c8` on Windows 11 Home (build 26200, WebView2 154,
+175% display scaling, dark mode) and walked the scripted checklist
+(`Test-LatticeStudio.ps1`, run beside the installer). **21 of 29 checks passed:**
+
+- The installer's hash matched the build. It installed for the user with no admin prompt,
+  and the app launched, resized and stayed sharp at 175%.
+- Find and replace in the Markdown editor: Ctrl+F, Enter/F3/Shift+F3, Ctrl+H with a
+  replace and its undo, Escape, the palette row and the header button.
+- Every save went through the Win32 save dialog: Markdown, a cancelled save (nothing
+  written), PowerPoint, PDF, the Print deck PDF, and the workspace backup in both halves
+  (cancel records nothing, save records the date).
+- Edits survived a restart; light and dark; Present; Import deck; uninstall.
+
+**What it found:**
+
+1. **Ctrl+F in Compose opened Edge's own find bar.** The Studio's find bar lives in the
+   Markdown editor only, so the key fell through to WebView2.
+2. **Back reached the OpenRouter sign-in page.** Sign-in navigates the main window away,
+   so the mouse back button and touch gestures walk back to OpenRouter.
+3. **Print behaved like Download PDF.** For 2-up, 4-up and Notes, Print builds the PDF and
+   opens it in a new window; the app opens no new windows, so the fallback saves it.
+4. **An imported Markdown file brought its own style.** Share > Markdown embeds the theme's
+   CSS (2026-06-11), so on import that block overrides the front matter. This predates the
+   desktop app.
+
+The five automatic file checks failed only because the script looked in one folder and
+the dialog saved elsewhere; the saves themselves passed by eye. The script now searches
+the usual folders (`-CheckOnly` re-runs just those checks).
+
+### The owner's direction: the Studio is the whole app
+
+> find should do what it does on markdown editor in compose. i dont want edge or native
+> find showing up and messing with our find /replace feature. user should not know [edge]
+> is there at all. [...] lets think about how we make the studio the focal point, leverage
+> edge for those things that need external website like authz/authn only.
+
+Decided with the owner the same day, for the next desktop PR (this one merges as the
+preview it is):
+
+| Leak | Decision |
+|---|---|
+| Browser shortcuts (Ctrl+F, Ctrl+P, F5/Ctrl+R) | Off in WebView2 (`AreBrowserAcceleratorKeysEnabled`, reached through Tauri's `with_webview`); Ctrl+F and Ctrl+P go to the Studio's own find and print |
+| Back to OpenRouter | The main window never leaves the Studio: `on_navigation` refuses every address outside the app |
+| OpenRouter sign-in | **A sign-in window** (owner's pick over the system browser): a separate app window shows OpenRouter's page, hands the code to the Studio when OpenRouter returns, and closes |
+| Edge's right-click menu | Off outside text fields, which keep cut/copy/paste |
+| Links to outside sites | Open in the default browser |
+| Find in Compose | **A find bar in Compose** (owner's pick over switching to Markdown): the same bar, searching and replacing the whole deck and jumping to the matching block |
+| Print for 2-up, 4-up and Notes | **The 1-up path** (owner's pick over a desktop-only native PDF print): lay the rendered slide images out as print pages and print them through the hidden print frame, so Print opens the print dialog on every host and layout |
+
+Markdown import (finding 4) is a separate PR, because changing it changes exported bytes
+and needs the owner's export sign-off.
 
 ## Corrections to the May note
 
@@ -215,11 +268,15 @@ The costs the owner weighed, measured in this sandbox (4 cores, 15 GB):
 
 ## Next slices, in order of what they unblock
 
-1. **Decks as files.** This is the reason to install a desktop app at all, and every later
+1. **The Studio is the whole app** (decided 2026-10-05, above): no browser shortcuts, menus
+   or navigation, sign-in in its own window, find in Compose, Print that always prints. It
+   comes first because it is what the owner's first Windows run hit.
+2. **Decks as files.** This is the reason to install a desktop app at all, and every later
    seam (file association, recent files, open-with) stands on it.
-2. **Keychain and OAuth**, so the AI features work signed-in on desktop.
-3. **The Present audience window** as a native second window.
-4. **Native print**, for vector PDF.
-5. **A release pipeline**: signing, AppImage, auto-update.
+3. **Keychain**, so the OpenRouter key leaves localStorage (the sign-in window above
+   covers the OAuth half).
+4. **The Present audience window** as a native second window.
+5. **Native print**, for vector PDF.
+6. **A release pipeline**: signing, AppImage, auto-update.
 
 Each slice has a file in `followups.d/` whose origin is this PR.
