@@ -33,6 +33,17 @@ recorded: 2026-10-05
                    Still open: the cause confirmed from a CI trace (the next failure logs
                    it as "[playground] no first-slide snapshot stored: <reason>"), and that
                    toolbar jump.
+       2026-10-05 — the continuation session (PR "perf(trama): no forced style
+                   pass…"): 60 of 60 clean on the merged code, production build,
+                   --repeat-each 30 twice (--workers 2, CI's shape, 6.7 min; then
+                   --workers 4 on this sandbox's cores, 4.3 min). Neither the seed
+                   timeout nor the .pg-bar jump came back. A frame probe of a cold
+                   visit at 6x CPU throttle holds the toolbar at 53 px from its first
+                   sampled frame. CI's studio-smoke has been green since 0265c61
+                   (#2516, #2517), so no CI log carries the logged reason yet. The
+                   toolbar's 17 px reading is padding plus border with zero-height
+                   children, so a fix aimed at it now would be a guess; this stays
+                   open until a failure logs its reason.
        done when — the cause is named, and the test passes 30 of 30 with --repeat-each in
                    CI shape.
        evidence  — the repeat run, and the cause in the PR body.
