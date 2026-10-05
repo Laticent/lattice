@@ -108,10 +108,10 @@ that no route loaded (`plugin/used-not-loaded`).
 code block whether or not its plugin is admitted, so the engine marks the `<pre>` of a fence whose
 plugin is NOT admitted: `<pre data-lattice-off="<plugin>">`. Only then, so a render in which every
 plugin is admitted carries no marker. A pass MUST NOT tag, draw, wait on or hide a fence whose
-`<pre>` carries `data-lattice-off` (§6), and a host's drawn-fence probes count none. An inline-code
-kind is marked the same way: a span the engine leaves literal only because the plugin whose `inline`
-row would draw it is not admitted is `<code data-lattice-off="<plugin>">`, and a pass MUST NOT draw
-it. The marker travels with the slide's markup, so every surface that shows the ENGINE's render (preview, export,
+`<pre>` carries `data-lattice-off` (§6), and a host's drawn-fence probes count none. Inline code is
+marked the same way: a span the engine leaves literal only because a plugin is not admitted (its
+`inline` row would draw it, or a host row needs its `services` to, as an icon-only pill does) is
+`<code data-lattice-off="<plugin>">`, and a pass MUST NOT draw it. The marker travels with the slide's markup, so every surface that shows the ENGINE's render (preview, export,
 `--fluid`, `--player`) honors the deck's admission with no knob of its own. Admission is
 DECK-WIDE: a host that renders one slide alone admits on the whole deck and passes the answer to
 that render (the engine's `render(…, { pluginDefaults })`), or a plain fence beside a slide class
@@ -423,7 +423,8 @@ highlight.js language or alias, and at most 64 characters.
 
 - **0.5-draft, admission on the browser half (2026-10-05).** `data-lattice-off="<plugin>"` (§3.2.1,
   §6): the engine's marker on an unadmitted plugin's code fence, which every pass and probe skips.
-  The same marker on an unadmitted plugin's inline-code span (`^{…}` with icons not loaded).
+  The same marker on inline code left literal because a plugin is not admitted (`^{…}`, and an
+  icon-only pill, with icons not loaded).
   The CLI's boundary parser follows the run's admission. A host may now narrow the default set.
 
 - **0.5-draft, phase D's last consumers (2026-10-05).** `render.figureClasses` and the host's

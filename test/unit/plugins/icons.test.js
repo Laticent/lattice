@@ -167,7 +167,9 @@ describe('icons — admission reaches the runtime (spec/LPM.md § 3.2.1)', () =>
   const path = require('node:path');
   const { createEngine } = require('../../../lib/engine/index.js');
   const RUNTIME = path.join(__dirname, '../../../dist/lattice-runtime.js');
-  const SRC = '---\nmarp: true\n---\n\nA `^{database}` here.\n';
+  // `^{…}` is the plugin's own row; `{icon=bucket}` is the pill row calling the plugin's service,
+  // and with icons off it has nothing to show (the checker's finding on the first cut).
+  const SRC = '---\nmarp: true\n---\n\nA `^{database}` here, and `{icon=bucket, c3}` there.\n';
 
   /** Boot the real runtime bundle over `body`, with the icons' drawings already on the page. */
   function boot(body) {
@@ -187,10 +189,11 @@ describe('icons — admission reaches the runtime (spec/LPM.md § 3.2.1)', () =>
     const engine = createEngine();
     const off = String(engine.render(SRC, undefined, { pluginDefaults: [] }).html);
     assert.match(off, /<code data-lattice-off="icons">\^\{database\}<\/code>/);
+    assert.match(off, /<code data-lattice-off="icons">\{icon=bucket, c3\}<\/code>/);
     const on = String(engine.render(SRC).html);
     assert.doesNotMatch(on, /data-lattice-off/, 'a render with icons loaded carries no marker');
     // A span that is not an icon is not the plugin's, loaded or not.
-    const plain = String(engine.render('---\nmarp: true\n---\n\nA `^{ x }` and `getUserId()`\n', undefined, { pluginDefaults: [] }).html);
+    const plain = String(engine.render('---\nmarp: true\n---\n\nA `^{ x }`, `getUserId()`, `{LIVE}` and `{S3, icon=bucket}`\n', undefined, { pluginDefaults: [] }).html);
     assert.doesNotMatch(plain, /data-lattice-off/);
   });
 
@@ -198,9 +201,11 @@ describe('icons — admission reaches the runtime (spec/LPM.md § 3.2.1)', () =>
     const html = sections(String(createEngine().render(SRC, undefined, { pluginDefaults: [] }).html));
     const kept = await boot(html);
     assert.equal(kept.querySelector('.lat-icon'), null);
-    assert.equal(kept.querySelector('code[data-lattice-off="icons"]')?.textContent, '^{database}');
-    // Control: the same markup without the marker is drawn, so the arm above can fail.
-    const drawn = await boot(html.replace(' data-lattice-off="icons"', ''));
+    assert.equal(kept.querySelector('.lat-pill-icon'), null);
+    assert.deepEqual([...kept.querySelectorAll('code[data-lattice-off="icons"]')].map((c) => c.textContent), ['^{database}', '{icon=bucket, c3}']);
+    // Control: the same markup without the marker is drawn, so the arms above can fail.
+    const drawn = await boot(html.replaceAll(' data-lattice-off="icons"', ''));
     assert.ok(drawn.querySelector('.lat-icon[data-icon="database"] svg'), 'control: the runtime draws an unmarked span');
+    assert.ok(drawn.querySelector('.lat-pill .lat-pill-icon'), 'control: and an unmarked icon-only pill');
   });
 });

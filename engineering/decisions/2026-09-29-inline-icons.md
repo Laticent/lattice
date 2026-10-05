@@ -393,7 +393,8 @@ pills, sparks) first, then each plugin's `contributes.inline` rows from
 deck's `off` set (the plugins it did not load, `md.latticePluginsOff` from the engine), so a
 plugin's row and the services a first-party row calls leave the render when the deck does not load
 the plugin. The runtime has no `off`, so the engine writes the answer into its markup, as #2525
-does for fences: a span left literal only because its plugin is not loaded is
+does for fences: a span left literal only because a plugin is not loaded (`^{database}`, and the icon-only
+pill `{icon=bucket}`, which has nothing to show without the drawing) is
 `<code data-lattice-off="<plugin>">` (`offPlugin`), and the runtime's pass skips it (spec/LPM.md
 § 3.2.1). Marks, pills and sparks are byte-identical through the table over every inline-code
 span in the tracked corpus (`test/unit/core/inline-code-table.test.js`).
