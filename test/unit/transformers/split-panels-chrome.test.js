@@ -498,3 +498,22 @@ describe('parser shapes: the walk does not over-reach', () => {
     assert.equal(signature(str), signature(dom));
   });
 });
+
+// split-panel `watermark`: the letter is the heading text's first character, on both paths. The
+// kernel reads the text through the tokenizer (an attribute value holding `>` is not text) and
+// writes the letter back escaped, keeping a leading character reference whole: CodeQL flagged the
+// old `/<[^>]+>/` strip as incomplete sanitization, and `&lt;b&gt;` gave `&` here and `<` there.
+describe('split-panel watermark: the same letter on both paths, written as safe markup', () => {
+  for (const h of ['<span title="a>b">Q</span>uote', '&lt;b&gt;', '&amp; co', '&#8220;Quoted', '<em>E</em>mph', '"Quote"', 'Plain']) {
+    test(h, () => {
+      const html = `<section class="split-panel watermark"><h2>${h}</h2><p>x</p></section>`;
+      const out = kernel.applyToRenderedHtml(html);
+      const str = new JSDOM(out).window.document.querySelector('div.watermark');
+      const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+      splitPanels.applyToDom(doc);
+      assert.equal(str.textContent, doc.querySelector('div.watermark').textContent);
+      assert.equal(str.children.length, 0, 'the letter is text, never an element');
+      assert.doesNotMatch(out.match(/<div class="watermark">([\s\S]*?)<\/div>/)[1], /[<>"]|&(?![a-z#][a-z0-9]*;)/i);
+    });
+  }
+});
