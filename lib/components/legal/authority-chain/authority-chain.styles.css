@@ -131,6 +131,11 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:firs
 /* .pyramid — top is widest, each tier narrower. */
 section.authority-chain.pyramid > .cell-stage > :is(ol, ul) {
   align-items:center;
+  /* --sp-sm, not the chain's --sp-md: the pyramid draws no connector in the gap (its
+   * ::after is off), and its rows can no longer shrink below their text, so four
+   * glossed tiers in the legal survey's stage overran it by 1.8px at --sp-md and the
+   * last card lost its bottom border. */
+  gap:var(--sp-sm);
 }
 section.authority-chain.pyramid > .cell-stage > :is(ol, ul) > li {
   width:100%;
