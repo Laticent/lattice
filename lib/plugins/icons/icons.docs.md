@@ -80,6 +80,9 @@ name, a repeated or unknown word, `c13`. `lint:deck` warns (`icon-literal`) with
 for a typo, the nearest names. `\^{database}` shows the notation itself. A regex anchor
 (`` `^foo` ``) is not an icon: only `^{` followed by a word opens one.
 
+An alias and its icon are one icon written two ways, so `lint:deck` asks a deck to pick one
+(`mixed-spelling`): `^{db}` among three `^{database}` gets a warning and a one-click fix.
+
 ## The set
 
 Names are ours, not Tabler's: an author writes `bucket`, not `bucket-droplet`, so the source can
