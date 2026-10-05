@@ -177,8 +177,8 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
 - **The experimental syntax still renders**, as an alias, with the rules it always had:
   `<!-- panes: 40/60 -->` for the layout (`stack` for rows) and `<!-- pane: list -->` for a marker.
   In the alias a pane's `###` stays its component's (there are no pane titles), and only a Key
-  Insight or note written after the last pane goes to the slide. `lint:deck` suggests the rewrite
-  (`pane-syntax`).
+  Insight or note written after the last pane goes to the slide. `lint:deck` warns and gives the
+  rewrite (`pane-syntax`); the alias may be retired after the next release.
 
 Known limits while it is experimental: a Mermaid diagram scales into its pane, so it draws small
 in a narrow one and nothing warns; the pane's size is modelled from measurements of the slide's

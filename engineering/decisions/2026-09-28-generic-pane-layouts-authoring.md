@@ -489,10 +489,11 @@ working as aliases, and `lint:deck` offers the rewrite:
 `lib/base/base.docs.md` § "Two components on one slide — pane layouts" and the new demo,
 `examples/pane-layouts.md`, teach the syntax. The six example decks first written in the alias
 (panes, panes-mermaid, panes-radar, panes-sketch, chart-lead-blocks, chart-lead-paragraphs) moved
-to it on 2026-10-05, and each renders byte-identical HTML before and after. The alias is still
+to it on 2026-10-05, and each renders byte-identical HTML before and after. A seventh,
+panes-row-labels (#2476), was missed and moved the same way later that day, also byte-identical.
+`pane-syntax` is a warning from then on, so a release carries the warning before the alias can go. The alias is still
 pinned by test/unit/core/pane-layouts.test.js ("the alias still renders the same panes"). Whether
-it stays past the next release, with `pane-syntax` promoted from a suggestion to a warning first,
-is recorded in `followups.d/2473-p3-retire-the-experimental-pane-syntax.md`.
+it stays past the next release is recorded in `followups.d/2473-p3-retire-the-experimental-pane-syntax.md`.
 
 ## 10. Questions for the internal-structure note
 
