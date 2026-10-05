@@ -103,7 +103,7 @@ describe('the per-diagram font keys cover every one mermaid ships', () => {
   // `engineInitConfig` has to enumerate those keys (it is pure and fs-free, so it cannot
   // read mermaid's schema), which means the enumeration can rot. This derives the truth
   // from the installed mermaid and fails when it does.
-  const { engineInitConfig, C4_FONT_KINDS } = require('../../../lib/integrations/mermaid/init-directive');
+  const { engineInitConfig, C4_FONT_KINDS } = require('../../../lib/plugins/mermaid/shared/init-directive');
 
   /**
    * The object a source offset sits directly inside, by BRACE DEPTH — walk backwards to

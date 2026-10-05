@@ -15,7 +15,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
-const { reorientMermaidForPortrait } = require('../../../lib/integrations/mermaid/reorient');
+const { reorientMermaidForPortrait } = require('../../../lib/plugins/mermaid/shared/reorient');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const FLOW = '```mermaid\nflowchart LR\n  A[Intake] --> B[Triage] --> C[Build]\n```';

@@ -24,8 +24,8 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const WORKER = path.join(REPO, 'lib', 'integrations', 'mermaid', 'render-worker.js');
-const { engineInitConfig } = require('../../../lib/integrations/mermaid/init-directive');
+const WORKER = path.join(REPO, 'lib', 'plugins', 'mermaid', 'shared', 'render-worker.js');
+const { engineInitConfig } = require('../../../lib/plugins/mermaid/shared/init-directive');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 
 const CHROME = resolveChrome();

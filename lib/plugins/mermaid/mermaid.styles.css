@@ -349,7 +349,7 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
 /* ── TYPE ESCAPE: SEQUENCE AUTONUMBER ──
  * Every other diagram family takes its face from config — the global
  * `themeVariables.fontFamily`, or its own block's `*FontFamily` keys, which
- * `perDiagramFonts` fills in (lib/integrations/mermaid/init-directive.js).
+ * `perDiagramFonts` fills in (lib/plugins/mermaid/shared/init-directive.js).
  * `autonumber` is the one label mermaid hard-codes past all of it: the bubble's
  * <text> is written with a `font-family="sans-serif"` PRESENTATION ATTRIBUTE
  * (mermaid/dist/chunks/mermaid.core/sequenceDiagram-*.mjs, `.attr("font-family",

@@ -20,7 +20,7 @@ flowchart LR
 
 | Path | Who renders | When |
 | --- | --- | --- |
-| PDF / export (`lattice-emulator.js`) | the engine's own Mermaid render worker, one batched child process (it replaced a per-diagram `mmdc` shell-out — `lib/integrations/mermaid/render-worker.js`) | build time, pre-rendered to inline SVG |
+| PDF / export (`lattice-emulator.js`) | the engine's own Mermaid render worker, one batched child process (it replaced a per-diagram `mmdc` shell-out — `lib/plugins/mermaid/shared/render-worker.js`) | build time, pre-rendered to inline SVG |
 | Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode¹ |
 
 ¹ **marp-vscode only at preview security = Disable.** Its webview carries
@@ -262,7 +262,7 @@ every diagram type, and mindmap, kanban and architecture send their plain labels
 render starts, nothing in the live preview can stop it, so one pasted fence could freeze the Studio.
 
 So both render paths refuse a fence with an over-long label before Mermaid sees it. The check lives
-in ONE place, `lib/integrations/mermaid/label-length.js`, and measures labels ACROSS lines, because
+in ONE place, `lib/plugins/mermaid/shared/label-length.js`, and measures labels ACROSS lines, because
 Mermaid's lexers let a label cross them:
 
 - every `"…"` span, in every diagram type (a markdown string is one);
@@ -496,7 +496,7 @@ prefer that div over a fence was wrong; use the fence.
 
 A `flowchart LR` (or `RL`) on a portrait slide is rewritten to `TB` (or `BT`) before Mermaid
 lays it out, so a wide graph flows down the tall frame instead of shrinking into a strip
-(`lib/integrations/mermaid/reorient.js`). Every other diagram keeps its source.
+(`lib/plugins/mermaid/shared/reorient.js`). Every other diagram keeps its source.
 
 A fence in a PANE turns for the pane's box, not the slide's. The engine stamps each
 `<lat-pane>` with its own orientation, and both render paths read that stamp:
@@ -664,7 +664,7 @@ global config with `mermaid.initialize` and let Mermaid merge your in-source
 export used to be the odd one out: it shelled out to the `mmdc` binary, one process per
 diagram, so its config could only travel *in* the diagram source and a hand-written
 merge kernel spliced it in ahead of yours. It renders in a page the engine owns now
-(`lib/integrations/mermaid/render-worker.js`), so the kernel is gone and the merge is
+(`lib/plugins/mermaid/shared/render-worker.js`), so the kernel is gone and the merge is
 Mermaid's own.
 
 The mapping is `MERMAID_VAR_MAP` in `lib/core/mermaid-theme-map.js`, imported by
@@ -852,7 +852,7 @@ changes.
 
 ### One non-palette config, both paths (#1347)
 
-`engineInitConfig` (`lib/integrations/mermaid/init-directive.js`) holds the shared
+`engineInitConfig` (`lib/plugins/mermaid/shared/init-directive.js`) holds the shared
 **non-palette** options, and the preview builds its `mermaid.initialize` argument from
 it rather than hand-rolling a second copy. It always claimed to be shared; the runtime
 did not call it, so eight keys diverged with nothing watching — the `themeVariables`
@@ -1374,7 +1374,7 @@ chart. Demo: `examples/mermaid-motion.md`.
 
 **How.** The chart motion layer (`chartToScene`, `docs/src/lib/chart-anima.ts`) animates any SVG
 whose parts declare `data-anima-role`. Chart kernels emit that attribute; Mermaid does not, and we
-do not control its output. So `tagMermaidMotion` (`lib/integrations/mermaid/motion-roles.js`) reads
+do not control its output. So `tagMermaidMotion` (`lib/plugins/mermaid/shared/motion-roles.js`) reads
 the classes Mermaid already writes (`g.node`, `g.cluster`, `path.pieCircle`, …) and writes the roles,
 plus a `data-anima-order` sort key. The key exists because Mermaid paints the arrows BEFORE the boxes
 (they sit underneath), so document order would draw the arrows first; a sequence diagram's

@@ -2,7 +2,7 @@
  * Unit: `tagMermaidMotion` — the roles that let `motion:` animate a Mermaid diagram.
  *
  * The chart motion layer animates any SVG whose parts declare `data-anima-role`. Mermaid emits
- * none, so `lib/integrations/mermaid/motion-roles.js` writes them from the classes Mermaid already
+ * none, so `lib/plugins/mermaid/shared/motion-roles.js` writes them from the classes Mermaid already
  * uses. The fixtures below are TRIMMED Mermaid 11 output: the same element and class structure
  * the real renderer writes, with the geometry and labels cut down. Each arm pins one family.
  *
@@ -15,7 +15,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const { tagMermaidMotion } = require('../../../lib/integrations/mermaid/motion-roles');
+const { tagMermaidMotion } = require('../../../lib/plugins/mermaid/shared/motion-roles');
 
 function svgOf(markup) {
   return new JSDOM(`<!doctype html><body>${markup}</body>`).window.document.querySelector('svg');
@@ -148,7 +148,7 @@ describe('tagMermaidMotion — wired into every path that produces a diagram', (
   const root = path.resolve(__dirname, '../../..');
   it('the live diagram pass tags a diagram at both of its write sites', () => {
     const src = fs.readFileSync(path.join(root, 'lib/plugins/mermaid/mermaid.hydrate.js'), 'utf8');
-    assert.match(src, /require\('\.\.\/\.\.\/integrations\/mermaid\/motion-roles'\)/);
+    assert.match(src, /require\('\.\/shared\/motion-roles'\)/);
     // One call after the cache write, one after the fresh render.
     assert.equal((src.match(/target\.innerHTML = (?:cachedSvg|svg);\n\s*tagDiagramMotion\(target\);/g) || []).length, 2);
   });

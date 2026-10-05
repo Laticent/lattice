@@ -76,12 +76,12 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
       if (preEl.dataset.latticeSettle === 'hydrating') preEl.dataset.latticeSettle = 'pending';
     },
     markFenceDrawn: () => {},
-    // Writes the chart motion roles on a drawn diagram (lib/integrations/mermaid/motion-roles.js).
+    // Writes the chart motion roles on a drawn diagram (lib/plugins/mermaid/shared/motion-roles.js).
     // Motion is not what these cells are about, so it stands in as a no-op.
     tagDiagramMotion: () => {},
     // The label-length guard is the shipped kernel itself: a fence it refuses never reaches
-    // `mermaid.render` (lib/integrations/mermaid/label-length.js).
-    ...require('../../../lib/integrations/mermaid/label-length'),
+    // `mermaid.render` (lib/plugins/mermaid/shared/label-length.js).
+    ...require('../../../lib/plugins/mermaid/shared/label-length'),
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(

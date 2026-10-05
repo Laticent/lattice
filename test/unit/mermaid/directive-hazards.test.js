@@ -2,7 +2,7 @@
  * The two directive hazards that outlived the code that defended against them (#1674).
  *
  * The engine used to serialize its config into a `%%{init}%%` directive, and
- * `lib/integrations/mermaid/init-directive.js` carried real machinery for two traps in
+ * `lib/plugins/mermaid/shared/init-directive.js` carried real machinery for two traps in
  * Mermaid's directive parser. That machinery is gone — the engine's config goes to
  * `mermaid.initialize` now, which runs the far more permissive `sanitize`.
  *
@@ -53,7 +53,7 @@ describe('mermaid directive hazards (characterization — the installed Mermaid)
     assert.equal(allow.test('Outfit, system-ui, sans-serif'), false,
       `Mermaid's themeVariables allow-list (${src}) now admits the hyphen. A real font stack `
       + 'can ride a directive again — engineering/mermaid.md §5.3 says it cannot, and the note '
-      + 'in lib/integrations/mermaid/init-directive.js explaining the retired constants is stale.');
+      + 'in lib/plugins/mermaid/shared/init-directive.js explaining the retired constants is stale.');
     // …and it is not simply rejecting everything: the values the engine used to emit pass.
     assert.equal(allow.test('#1F4A6E'), true);
     assert.equal(allow.test('"JetBrains Mono", monospace'), true);

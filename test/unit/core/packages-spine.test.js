@@ -312,3 +312,59 @@ test('a folder of components that is not a known bucket fails the walk instead o
   // The arm: registered as a bucket, the same folder is walked.
   assert.equal(listComponentFolders(root, { isBucket: (n) => n === 'newbucket' }).length, 1);
 });
+
+// A plugin's `shared/` folder (lib/packages/kinds.js `plugin.codeDirs`, plugin-system §11, #2509 P5):
+// in-tree only. The strict repo walk admits exactly the declared folder, holding modules. The
+// importers read top-level files only, so an import never brings one (and a strict read of a file map
+// that names one fails).
+describe('plugin shared/ — the one subfolder a plugin may carry, in-tree only', () => {
+  const pluginFiles = (name = 'probe') => ({
+    [`${name}.manifest.json`]: JSON.stringify({ type: 'plugin', format: 1, name, api: 1 }),
+    [`${name}.docs.md`]: '# probe',
+    [`${name}.fixtures.md`]: '## a case',
+  });
+  function repoWith(extra) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-plugin-dirs-'));
+    const dir = path.join(root, 'lib/plugins/probe');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [f, v] of Object.entries(pluginFiles())) fs.writeFileSync(path.join(dir, f), v);
+    for (const [rel, v] of Object.entries(extra)) {
+      fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+      fs.writeFileSync(path.join(dir, rel), v);
+    }
+    return discoverPackages({ root, types: ['plugin'] })[0].result;
+  }
+
+  test('the kind declares shared/ and nothing else', () => {
+    assert.deepEqual(KINDS.plugin.codeDirs, ['shared']);
+  });
+
+  test('a shared/ of modules and a README reads clean', () => {
+    const r = repoWith({ 'shared/reorient.js': 'module.exports = {};', 'shared/README.md': '# shared' });
+    assert.equal(r.ok, true, JSON.stringify(r.errors));
+  });
+
+  test('THE FAILING ARMS: another folder, or a non-module in shared/, fails the walk', () => {
+    assert.match(repoWith({ 'lib/x.js': '' }).errors.join('\n'), /lib\/ is not a plugin folder \(a plugin may carry shared\/\)/);
+    assert.match(repoWith({ 'shared/data.json': '{}' }).errors.join('\n'), /shared\/data\.json is not a module/);
+    assert.match(repoWith({ 'shared/deep/x.js': '' }).errors.join('\n'), /shared\/deep is not a module/);
+    assert.match(repoWith({ 'shared/_huge.png': '' }).errors.join('\n'), /shared\/_huge\.png is not a module/);
+    assert.match(repoWith({ 'shared/.env': '' }).errors.join('\n'), /shared\/\.env is not a module/);
+  });
+
+  test('a symlink in a plugin folder is refused, never followed', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-plugin-link-'));
+    const dir = path.join(root, 'lib/plugins/probe');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [f, v] of Object.entries(pluginFiles())) fs.writeFileSync(path.join(dir, f), v);
+    fs.mkdirSync(path.join(root, 'elsewhere'));
+    fs.symlinkSync(path.join(root, 'elsewhere'), path.join(dir, 'shared'));
+    const r = discoverPackages({ root, types: ['plugin'] })[0].result;
+    assert.match(r.errors.join('\n'), /shared is a symlink/);
+  });
+
+  test('a strict read of a file map naming shared/ fails: it is no role', () => {
+    const files = { ...pluginFiles(), 'shared/reorient.js': 'module.exports = {};' };
+    assert.equal(readPackage(files, { type: 'plugin', strict: true }).ok, false);
+  });
+});

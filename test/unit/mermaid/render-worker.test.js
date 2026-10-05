@@ -20,7 +20,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const WORKER = path.join(REPO, 'lib', 'integrations', 'mermaid', 'render-worker.js');
+const WORKER = path.join(REPO, 'lib', 'plugins', 'mermaid', 'shared', 'render-worker.js');
 const { resolveBundles } = require(WORKER);
 const { fontFaceCss, fontFamilies } = require('../../../lib/fonts/face-css.js');
 

@@ -28,6 +28,11 @@ lib/plugins/<name>/
   <name>.bake.js          the CLI half: bake(source, ctx) draws the figures into the Markdown. Node-side
   <name>.highlight.js     highlight(hljs): a highlight.js grammar for the plugin's code fences
   <name>.styles.css       token-only CSS, bundled into the plugin slot of dist/lattice.css
+  shared/                 the plugin's own shared modules (.js/.cjs/.mjs, and a README.md) that its
+                          role modules import — Mermaid's init directive, render worker, reorientation
+                          and motion roles. IN-TREE ONLY: the one subfolder the plugin kind admits
+                          (lib/packages/kinds.js `plugin.codeDirs`); the importers read top-level
+                          files only, so a zip's copy is dropped, never installed
 ```
 
 The grammar and the renderers are separate files on purpose: the boundary parser and the docs

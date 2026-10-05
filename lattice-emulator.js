@@ -15,7 +15,7 @@
  * this engine, not for Marp. See engineering/marp-independence.md.
  *
  * Mermaid diagrams (```mermaid blocks) are rendered to SVG in an engine-owned
- * Puppeteer page (lib/integrations/mermaid/render-worker.js), with theme variables
+ * Puppeteer page (lib/plugins/mermaid/shared/render-worker.js), with theme variables
  * mapped to the Lattice palette and the engine's own fonts loaded before Mermaid
  * measures a label.
  *
@@ -4002,7 +4002,7 @@ async function renderBody(browser, g, closeBrowser) {
       // from the render worker, not the runtime, so they arrive untagged; tagging the baked copy
       // here is what lets a `motion: on` deck animate its diagrams in the player too.
       // Closure-free for the same reason the flattener is.
-      const { tagMermaidMotion: tagPlayerSvg } = require('./lib/integrations/mermaid/motion-roles.js');
+      const { tagMermaidMotion: tagPlayerSvg } = require('./lib/plugins/mermaid/shared/motion-roles.js');
       await g(() => page.evaluate(`window.__tagMermaidMotion = ${tagPlayerSvg.toString()};`), 'player capture: inject diagram motion tagger');
       const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.

@@ -1,6 +1,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { reorientMermaidForPortrait } = require('../../../lib/integrations/mermaid/reorient');
+const { reorientMermaidForPortrait } = require('../../../lib/plugins/mermaid/shared/reorient');
 
 describe('reorientMermaidForPortrait', () => {
   test('portrait: flowchart LR → TB, graph RL → BT (direction preserved)', () => {

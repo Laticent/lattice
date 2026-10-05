@@ -45,10 +45,18 @@ lib/plugins/<name>/
   <name>.bake.js          optional  the CLI half: bake(source, ctx), Node-side (§4.5)
   <name>.highlight.js     optional  a highlight.js grammar for its code fences (§4.6)
   <name>.styles.css       optional  token-only CSS (§4.4)
+  shared/                 optional  IN-TREE ONLY: the plugin's own shared modules (.js/.cjs/.mjs
+                                    and a README.md), imported by its role modules
 ```
 
 - `<name>` MUST match `^[a-z][a-z0-9-]*$`, MUST equal the folder name and the manifest's `name`,
-  and prefixes every file. A file with any other role is an error.
+  and prefixes every file. A file with any other role is an error, and so is any subfolder but
+  `shared/` (a folder whose name starts with `_` or `.` is not read).
+- `shared/` holds code a plugin shares between its halves (Mermaid's init directive, render
+  worker, reorientation, motion roles). It is in-tree only. A zip plugin carries none: the importer
+  reads a package's top-level files, so a zip's `shared/` is dropped; when the code-package door
+  admits a zip plugin's fence renderer, its export bundles what the renderer imports. An npm
+  plugin's layout is settled with phase G.
 - A plugin carries only the roles it contributes, and every role it carries MUST be declared
   (§3.3). The build checks both directions.
 
@@ -389,6 +397,9 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, `shared/` (2026-10-05).** A shipped plugin may carry an in-tree-only `shared/`
+  folder of modules (§2); Mermaid's five shared kernels moved there from `lib/integrations/mermaid/`.
 
 - **0.5-draft, admission on the browser half (2026-10-05).** `data-lattice-off="<plugin>"` (§3.2.1,
   §6): the engine's marker on an unadmitted plugin's code fence, which every pass and probe skips.

@@ -5129,7 +5129,7 @@ function checkAdaptDeclarations(manifests, errors) {
     // defined as "ships DISTINCT per-family structural layouts (via `[data-family=…]`
     // CSS, a `*.transform.js` that branches geometry on orientation, or the mermaid
     // reorient)". A CSS-only check is a FALSE POSITIVE machine: `diagram` carries no
-    // layout CSS at all and reflows through `lib/integrations/mermaid/reorient.js`,
+    // layout CSS at all and reflows through `lib/plugins/mermaid/shared/reorient.js`,
     // which rewrites a flowchart's direction token LR→TB on a portrait box. Checking
     // only for `[data-family=]` would have demanded it re-declare itself `native`,
     // i.e. the gate would have driven a TRUE declaration into a false one.
@@ -5934,6 +5934,24 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'no second place that parses the string. A future caller must reuse that helper for this count ' +
       'to hold — writing `job.target.innerHTML` inline would read to this text matcher as a new, ' +
       'undeclared sink.',
+  },
+  // The Mermaid plugin's RENDER WORKER, found by the plugin walk since its kernels moved into
+  // lib/plugins/mermaid/shared/ (#2509 P5; it lived in lib/integrations/mermaid/, outside this
+  // census, with the same two writes). It is NOT a preview-frame sink: the census matches it
+  // because every lib/plugins file is walked, and the declaration says where it really runs.
+  {
+    file: 'lib/plugins/mermaid/shared/render-worker.js',
+    sink: 'container.innerHTML',
+    count: 2,
+    provenance:
+      'THIRD PARTY (1 of 2) — the SVG mermaid.render() returns, written into `#container` of the CLI ' +
+      "bake's OWN headless Chromium page: mermaid-cli's own dist/index.html (its bundle, with KaTeX and " +
+      'FontAwesome faces) plus the Mermaid library, given one diagram definition and an init config of ' +
+      'palette-derived theme variables, so it can read the drawn SVG back out. It never runs in the ' +
+      'preview frame or any document a reader opens; the SVG it reads out reaches the deck as the ' +
+      "bake's output, which the export path's HARD RULE #22 arms already cover. Contained by " +
+      "securityLevel:'strict' in the init config (shared/init-directive.js). The other write is an " +
+      'empty-string CLEAR before each render, which parses nothing.',
   },
   {
     file: 'lib/plugins/mermaid/mermaid.hydrate.js',

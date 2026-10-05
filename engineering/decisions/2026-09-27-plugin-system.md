@@ -166,6 +166,8 @@ lib/plugins/function-plot/
 ```
 
 Every file is `<name>.<role>.<ext>`, the spine's rule. A plugin carries only the roles it needs.
+One folder is allowed beside them (since #2509 P5, §11): `shared/`, IN-TREE ONLY, the modules a
+plugin's role files import (Mermaid's init directive, render worker, reorientation, motion roles).
 
 **Grammar and renderers are separate roles** (found building phase A). The boundary parser needs a
 plugin's block rules and the docs site's pre-scan needs its `detect`, and neither may pull in the
@@ -1134,7 +1136,7 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   36 on `main`, 0 here. The `mermaid` prop is `drawn` (`DeckPreview`, `renderInto`, the pool, the
   landing and specimen surfaces). The CLI builds ONE `PLUGINS_DISABLED` list (`--disable-plugin`)
   for the engine and `bakeDeck`. Left, with reasons: `followups.d/2509-p5-plugin-phase-d-residue.md`
-  (the kernels need a package-kind role decision; the library copies are three builds, not two).
+  (the kernels needed a package-kind role decision — settled by #2509 P5 below; the library copies are three builds, not two).
 
 - **Admission on the browser half: done (#2509 P3).** The engine marks the `<pre>` of a code fence
   (`as: "code"`) whose plugin the deck did not load, `data-lattice-off="<plugin>"`, by PREFIX of the
@@ -1159,6 +1161,27 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   and the Studio's own lint and slide mapping do not follow a narrowed set, and an author's raw
   `<pre><code class="language-mermaid">` is still drawn —
   `followups.d/2509-p3-admission-marp-and-studio-source-readers.md`.
+
+- **A plugin's own modules: `shared/` (#2509 P5).** The decision the phase D residue asked for —
+  may a plugin carry its kernels? — made by the maker under the owner's pre-authorization, with the
+  tier 2 trio. **Yes, one folder, in-tree only:** the `plugin` kind gains `codeDirs: ['shared']`
+  (`lib/packages/kinds.js`), and `discoverPackages` refuses any other subfolder in a package of a
+  no-asset kind (plugin, finish, motion; 0 found today) and any non-module in a declared one — before,
+  `folderFiles` read only top-level files, so a subfolder rode beside a package unseen. Mermaid's
+  five kernels moved (with the label-length guard that landed on main meanwhile) from `lib/integrations/mermaid/` to `lib/plugins/mermaid/shared/`; the engine,
+  the diagram gallery's CLI PDFs (light and dark) and every committed deck render byte-identical.
+  **Rejected:** one role per kernel (a closed list filled with one-off names); a manifest `modules`
+  list (surface every author keeps in sync, buying nothing a folder does not); `lib/` (reads as
+  `lib/plugins/x/lib/`); and **`kernels/`**, the first name, because phase F gives "kernel" a
+  package meaning (`extensionPoints.kernel`, §5) and one word must not name both (inversion lens).
+  **Zips:** the importers read top-level files only (`cli.js` `readSource`, `home.js`), so a zip's
+  `shared/` is dropped, never installed — phase E should report the drop rather than stay silent,
+  and a fence renderer admitted through the code-package door bundles what it imports, as
+  `code-bundle.js` does. **npm:** left to phase G, not closed here (inversion lens). Folded from the
+  trio: the stale `lib/integrations/mermaid/*` claims, the render worker's #22 sanction text (the page
+  is mermaid-cli's `dist/index.html`, not a blank document), the overclaimed "refused whole".
+  Recorded, not built: a gate refusing a require into `lib/plugins/<x>/shared/` from outside the
+  plugin (the emulator's player capture reaches in today).
 
 ## References
 

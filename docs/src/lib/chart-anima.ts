@@ -239,7 +239,7 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   // fall into the geometry stagger.
   // Build order is document order, unless a part declares a `data-anima-order` wave. Mermaid needs
   // it: it paints edges BEFORE nodes (arrows sit under the boxes), so document order would draw the
-  // arrows first (lib/integrations/mermaid/motion-roles.js). The sort is STABLE and a part with no
+  // arrows first (lib/plugins/mermaid/shared/motion-roles.js). The sort is STABLE and a part with no
   // order is wave 0, so every chart kernel — none of which emits the attribute — keeps its order.
   const orderOf = (el: Element): number => {
     const v = Number(el.getAttribute('data-anima-order'));
