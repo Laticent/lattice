@@ -975,7 +975,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				themeUrlBase: themeBase,
 				ts: now,
 			});
-			return snap ? savePlaygroundSnapshot(snap) : false;
+			// A slide it could not capture is worth another try; one captured but too large to
+			// store is not (it will be as large next time).
+			if (!snap) return false;
+			savePlaygroundSnapshot(snap);
+			return true;
 		} catch {
 			/* best-effort — a failed capture just means the next visit uses the skeleton */
 			return false;

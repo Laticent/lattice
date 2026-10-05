@@ -249,7 +249,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
   // redraw on this thread starts from the fit it remembers; the stand-in's revision 1 is wider,
   // so that warm start stops at another point than a cold one. The settle after the pause
   // fits it again from a cold start, so the drawing at rest is a fresh page's.
-  function setupNoWorker(rev) {
+  function setupNoWorker(rev, perPx = 90) {
     const dom = new JSDOM('<!doctype html><body><section><div class="g-figure" data-g-model="1"><div class="g-box"><div class="g-harness"></div><svg><title>Chart</title></svg></div></div></section></body>', { runScripts: 'outside-only' });
     const w = dom.window;
     const fig = w.document.querySelector('.g-figure');
@@ -266,7 +266,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
         return { args: [model, { a: { w: floor, h: 10, base: widen(ctx.fig) } }, {}], floor };
       },
     });
-    const kernel = () => ({ layout(_m, sizes) { log.layouts.push(sizes.a.w); return { width: sizes.a.base + 90 * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] }; } });
+    const kernel = () => ({ layout(_m, sizes) { log.layouts.push(sizes.a.w); return { width: sizes.a.base + perPx * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] }; } });
     const pass = w.eval(`(${installGraphPass.toString()})`);
     const run = () => pass(w.document, kernel, ad, { live: true });
     return { fig, log, run, svg: () => fig.querySelector('svg').innerHTML };
@@ -299,6 +299,30 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     await sleep(450);
     assert.match(t.svg(), />a2</);
     assert.equal(t.log.layouts.length, n, 'another chart at this position fits cold at once, and nothing settles after it');
+  });
+
+  test('with no worker, the settle lays nothing out into a stage that collapsed to no height', async () => {
+    const t = setupNoWorker('');
+    t.run();
+    t.fig.setAttribute('data-rev', '1');
+    t.run();
+    const n = t.log.layouts.length;
+    // The stage collapses inside the pause (a narrow reflow): width, no height.
+    Object.defineProperty(t.fig, 'clientWidth', { value: 1000, configurable: true });
+    Object.defineProperty(t.fig, 'clientHeight', { value: 0, configurable: true });
+    await sleep(450);
+    assert.equal(t.log.layouts.length, n, 'a layout into a zero-height stage tries every candidate for nothing');
+  });
+
+  test('with no worker, a chart scaled up does not settle: its cold fit is the same drawing', async () => {
+    const t = setupNoWorker('', 10);
+    t.run();
+    assert.equal(t.fig.querySelector('.g-box').getAttribute('data-fit-k'), '1.2500');
+    t.fig.setAttribute('data-rev', '1');
+    t.run();
+    const n = t.log.layouts.length;
+    await sleep(450);
+    assert.equal(t.log.layouts.length, n);
   });
 
   test('a chain in flight for the chart this element held before never paints over the next one', async () => {

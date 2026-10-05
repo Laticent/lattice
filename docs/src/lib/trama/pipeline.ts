@@ -709,7 +709,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       }
       return m as Measured & { geo: Geometry };
     };
-    const warm = kGuess !== 1;
+    // Only a fit under 1 is warm: at or above it the floor is never lifted, so a cold fit
+    // computes the same drawing.
+    const warm = kGuess < 1;
     const m = fitHere();
     if (!m) return;
     finish(m);
@@ -721,6 +723,11 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     if (live && sec && sameChart && warm) {
       setTimeout(() => {
         if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected) return;
+        // draw()'s own guards, again: a stage that collapsed to no height meanwhile would make
+        // the search try every candidate for nothing, here on the page's thread; a figure
+        // mid-reveal measures foreshortened. The resize observer draws it once it is back.
+        if (port0.clientWidth > 0 && !(port0.clientHeight > 0)) return;
+        try { const t = getComputedStyle(fig).transform; if (t && t !== 'none') return; } catch (_e) { /* measure anyway */ }
         readVis(sec);
         kGuess = 1;
         last = null;
