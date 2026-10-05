@@ -652,6 +652,12 @@ const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 const CHROME_PDF = !!flags['chrome-pdf'];
 // JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
 const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || 92));
+// Chrome's fast PNG encoder for that photo: same pixels, ~3x the bytes on a flat slide, ~2.5x quicker.
+// On under `node --test` (it marks every process a test starts with NODE_TEST_CONTEXT) so the
+// integration tier fits its CI timeout; off for a real export. LATTICE_PDF_PHOTO_FAST=1/0 overrides.
+const PDF_PHOTO_FAST = process.env.LATTICE_PDF_PHOTO_FAST
+  ? process.env.LATTICE_PDF_PHOTO_FAST === '1'
+  : Boolean(process.env.NODE_TEST_CONTEXT);
 // Who the overflow marker in the printed artifact is addressed to. Same setting,
 // same kernel and same precedence as the Marp exporter — `--overflow-marker` for
 // this render, `LATTICE_OVERFLOW_MARKER` as the standing answer, else `reader`.
@@ -5038,13 +5044,13 @@ async function composePdfInPage(g, page) {
           // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
           // The encoding the writer asks for: PNG first, JPEG too on a busy slide (compose.mjs pngIsFlat).
-          // The PNG takes Chrome's fast encoder: 67 ms against 168 ms for a 1280 px slide (JPEG: 50 ms),
-          // at about 3x the default encoder's bytes on a flat slide (a flat deck's whole PDF grows about
-          // 1.5x); CI's integration job renders hundreds of decks and sat 25 s from its timeout before
-          // #2503, so the owner traded those bytes for the time (2026-10-04).
+          // A real export takes Chrome's default PNG encoder. Under a test (PDF_PHOTO_FAST) it takes the
+          // fast one instead: 67 ms against 168 ms for a 1280 px slide (JPEG: 50 ms), same pixels, about
+          // 3x the bytes on a flat slide. CI's integration job renders hundreds of decks and sat 25 s
+          // from its timeout before #2503; a shipped PDF and a committed golden keep the small bytes.
           const buf = await h.screenshot(type === 'jpeg'
             ? { type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false }
-            : { type: 'png', optimizeForSpeed: true, captureBeyondViewport: false });
+            : { type: 'png', optimizeForSpeed: PDF_PHOTO_FAST, captureBeyondViewport: false });
           return Buffer.from(buf).toString('base64');
         } finally {
           if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 });
