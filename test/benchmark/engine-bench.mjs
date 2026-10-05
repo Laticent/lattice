@@ -930,8 +930,8 @@ async function diagramTier() {
   const { tmpdir } = await import('node:os');
   const HERE = dirname(fileURLToPath(import.meta.url));
   const REPO = join(HERE, '..', '..');
-  const WORKER = join(REPO, 'lib', 'integrations', 'mermaid', 'render-worker.js');
-  const { engineInitConfig } = await import(`file://${join(REPO, 'lib/integrations/mermaid/init-directive.js')}`)
+  const WORKER = join(REPO, 'lib', 'plugins', 'mermaid', 'shared', 'render-worker.js');
+  const { engineInitConfig } = await import(`file://${join(REPO, 'lib/plugins/mermaid/shared/init-directive.js')}`)
     .then((m) => m.default || m);
 
   // The real gallery's fences, which is what the 92%-of-render-time figure was measured

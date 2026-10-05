@@ -28,6 +28,11 @@ lib/plugins/<name>/
   <name>.bake.js          the CLI half: bake(source, ctx) draws the figures into the Markdown. Node-side
   <name>.highlight.js     highlight(hljs): a highlight.js grammar for the plugin's code fences
   <name>.styles.css       token-only CSS, bundled into the plugin slot of dist/lattice.css
+  shared/                 the plugin's own shared modules (.js/.cjs/.mjs, and a README.md) that its
+                          role modules import — Mermaid's init directive, render worker, reorientation
+                          and motion roles. IN-TREE ONLY: the one subfolder the plugin kind admits
+                          (lib/packages/kinds.js `plugin.codeDirs`); the importers read top-level
+                          files only, so a zip's copy is dropped, never installed
 ```
 
 The grammar and the renderers are separate files on purpose: the boundary parser and the docs
@@ -53,10 +58,18 @@ whatever loaded it. Using a plugin's syntax loads nothing: `usesPlugin` (its `de
 names) decides only when a loaded plugin's payload loads and its bake runs — and warns
 (`plugin/used-not-loaded`) when the deck uses a plugin no route loaded.
 
-**Where admission is enforced today:** the engine's parse and the CLI's `bakeDeck`. The runtime's
-passes (Mermaid's draws every ` ```mermaid ` block it finds), the `highlight` grammars and the
-boundary parser still act for every shipped plugin. That is harmless while the default set is
-every shipped plugin, and it is why no host should narrow the set until they follow (LPM §3.2.1).
+**The browser half follows the engine's markup.** A fence the plugin draws later (`as: "code"`)
+renders as the same code block either way, so for a deck that did not load the plugin the engine
+marks its `<pre>`: `data-lattice-off="mermaid"`. The runtime's pass, the drawn-fence probes
+(`drawn-probe.mjs`) and the preview's ink-withholding rule all skip a marked `<pre>`, so every
+surface that shows the engine's render — the Studio's preview and export, `--fluid`, `--player` —
+draws nothing of that plugin. Admission is deck-wide, so the Studio's one-slide renders take the
+whole deck's answer (`LatticePlayground.pluginAdmission`). Not yet: the Export-to-Marp bundle (Marp
+renders it, not the engine) and the Studio's own lint and slide mapping, which read the default
+set's grammar (`followups.d/2509-p3-admission-marp-and-studio-source-readers.md`). The CLI admits once per run and hands the answer to the engine, `bakeDeck`
+and the boundary parser (`setBoundaryPluginsOff`). A host narrows the set with
+`createEngine({ plugins: { defaults } })`, `--default-plugins` on the CLI, or
+`LatticePlayground.setPluginDefaults` in a browser.
 
 ## The manifest says what, the modules say how
 

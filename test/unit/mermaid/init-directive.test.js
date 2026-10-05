@@ -20,7 +20,7 @@ const path   = require('path');
 const {
   readAuthorInit,
   authorPinsTheme,
-} = require('../../../lib/integrations/mermaid/init-directive');
+} = require('../../../lib/plugins/mermaid/shared/init-directive');
 
 // `VARS` / `ENGINE` / `firstPayload` are gone with the directive transport they served
 // (#1674) — there is no emitted payload left to parse.
@@ -236,7 +236,7 @@ describe('mermaid init-directive: the retired directive transport', () => {
   //
   // What remains here is the one assertion worth keeping: the transport stays retired.
   test('the retired exports are gone, and no path rebuilds a directive', () => {
-    const mod = require('../../../lib/integrations/mermaid/init-directive');
+    const mod = require('../../../lib/plugins/mermaid/shared/init-directive');
     for (const gone of ['engineInitDirective', 'withEngineInit', 'DIRECTIVE_VALUE_OK', 'DIAGRAM_FONT_STACK']) {
       assert.equal(gone in mod, false, `${gone} was retired in #1674`);
     }
@@ -256,7 +256,7 @@ describe('mermaid init-directive: render-path wiring', () => {
 
   test('the PDF path hands its config to the worker, and leaves the source alone', () => {
     const src = pdfPath();
-    assert.match(src, /require\('\.\.\/\.\.\/integrations\/mermaid\/init-directive'\)/);
+    assert.match(src, /require\('\.\/shared\/init-directive'\)/);
     // #1674: the config is DATA in the worker job, not text prepended to the diagram.
     assert.match(src, /config: engineInitConfig\(r\.themeVars, \{/,
       'the worker job carries the engine config per diagram');
@@ -325,10 +325,10 @@ describe('mermaid init-directive: render-path wiring', () => {
     // So the value is now asserted where it lives: the shared config, sent by BOTH paths.
     assert.doesNotMatch(src, /securityLevel: ['"]loose['"]/,
       'the runtime must never reintroduce loose — it was a live XSS in the Studio frame');
-    const { engineInitConfig: cfg } = require('../../../lib/integrations/mermaid/init-directive');
+    const { engineInitConfig: cfg } = require('../../../lib/plugins/mermaid/shared/init-directive');
     assert.equal(cfg({}).securityLevel, 'strict',
       'strict must be stated in the SHARED config, so the export carries it too');
-    const { DIVERGENT_CONFIG } = require('../../../lib/integrations/mermaid/init-directive');
+    const { DIVERGENT_CONFIG } = require('../../../lib/plugins/mermaid/shared/init-directive');
     assert.equal(DIVERGENT_CONFIG.includes('securityLevel'), false,
       'securityLevel is SHARED since #1674 — leaving it enumerated as divergent would '
       + 'license the export to drop back to Mermaid\'s default without a gate noticing');

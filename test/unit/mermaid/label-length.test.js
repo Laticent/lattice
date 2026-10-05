@@ -1,10 +1,10 @@
-// The Mermaid label cap (lib/integrations/mermaid/label-length.js): which fences it refuses, that
+// The Mermaid label cap (lib/plugins/mermaid/shared/label-length.js): which fences it refuses, that
 // the check is linear, and that a label AT the cap stays cheap in the marked Mermaid ships — the
 // timing arm that pins the guard (engineering/mermaid.md § A label longer than 500 characters).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { MAX_LABEL_TEXT, overlongLabelText, overlongMessage } = require('../../../lib/integrations/mermaid/label-length.js');
+const { MAX_LABEL_TEXT, overlongLabelText, overlongMessage } = require('../../../lib/plugins/mermaid/shared/label-length.js');
 
 const B = '`';
 const fence = (label) => `flowchart LR\n  A["${label}"] --> B\n`;

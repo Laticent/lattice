@@ -30,7 +30,7 @@ const {
   DIAGRAM_NODE_PADDING,
   engineInitConfig,
   readAuthorInit,
-} = require('../../../lib/integrations/mermaid/init-directive');
+} = require('../../../lib/plugins/mermaid/shared/init-directive');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const read = (rel) => fs.readFileSync(path.join(REPO, rel), 'utf8');
@@ -207,7 +207,7 @@ describe('handDrawnSeed is pinned on BOTH looks, not just handDrawn', () => {
     // failure this guards is a REVERT of the shape — folding the seed back into the
     // `look === 'handDrawn'` spread restores the bug with every value assertion
     // above still green on the hand-drawn arm.
-    const src = readCode(path.join('lib', 'integrations', 'mermaid', 'init-directive.js'));
+    const src = readCode(path.join('lib', 'plugins', 'mermaid', 'shared', 'init-directive.js'));
     assert.equal(/handDrawnSeed[^\n]*\}\s*:\s*\{\}\)/.test(src), false,
       'the seed must not be conditional on `look` — see this describe block');
   });

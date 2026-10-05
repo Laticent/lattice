@@ -52,6 +52,9 @@ export type RenderMarkdownOpts = {
 	/** This is the preview's own render: the code-package notice hears which packages failed in
 	 *  it (code-packages/door.ts). A scan, a gate or an export rendering on the side leaves it unset. */
 	codeStatus?: boolean;
+	/** The default plugin set for THIS render (engine `render(…, { pluginDefaults })`). A slide
+	 *  rendered alone passes the whole deck's admission (`PG.pluginAdmission`): it is deck-wide. */
+	pluginDefaults?: string[];
 };
 export type RenderMarkdownResult = { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 

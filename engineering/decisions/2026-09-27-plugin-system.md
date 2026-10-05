@@ -166,6 +166,8 @@ lib/plugins/function-plot/
 ```
 
 Every file is `<name>.<role>.<ext>`, the spine's rule. A plugin carries only the roles it needs.
+One folder is allowed beside them (since #2509 P5, §11): `shared/`, IN-TREE ONLY, the modules a
+plugin's role files import (Mermaid's init directive, render worker, reorientation, motion roles).
 
 **Grammar and renderers are separate roles** (found building phase A). The boundary parser needs a
 plugin's block rules and the docs site's pre-scan needs its `detect`, and neither may pull in the
@@ -740,17 +742,21 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
    no route loaded that the deck uses) and the engine reports each as `plugin/used-not-loaded`.
    It is empty, and the probe never runs, while every plugin is in the default set.
 
-   **Where admission is NOT enforced yet (HARD RULE #25 inversion lens, E0).** Three paths still
-   act for every shipped plugin: the runtime's passes (Mermaid's pass draws every
-   `code.language-mermaid` it finds — the fence is `as: "code"`, so the engine's output is the same
-   whether Mermaid is admitted or not), the `highlight` grammars (registered for every installed
-   plugin, on purpose), and the boundary parser's block rules (a host that
-   narrows the set can see the Studio keep a `---` inside a `$$` block on one slide where that
-   host's engine, with math off, splits it). The CLI emulator also passes no `defaults` or
-   `disabled` to `bakeDeck`, so the engine's knobs and the bake's are configured separately. All of
-   it agrees while the default set is every shipped plugin, which is every shipped host. **No host
-   may narrow the default set until those paths honor admission**:
-   `followups.d/2509-p3-admission-on-the-browser-half.md`.
+   **Where admission is enforced (E0, then #2509 P3).** E0 enforced it in the engine and the CLI's
+   `bakeDeck`; the inversion lens found three browser paths still acting for every shipped plugin
+   (the runtime's passes, the boundary parser's block rules, the drawn-fence probes) and the CLI
+   configuring the engine and the bake apart. The follow-up closed them through the engine's
+   markup: a fence `as: "code"` of a plugin the deck did not load renders with
+   `data-lattice-off="<plugin>"` on its `<pre>`, and every pass, probe and the preview's
+   ink-withholding rule skips it — so every surface that shows the engine's render honors
+   admission with no knob of its own, and a default-set render is byte-identical. Admission is
+   deck-wide, so the Studio's one-slide renders take the whole deck's answer
+   (`LatticePlayground.pluginAdmission` → `render(…, { pluginDefaults })`) and key their caches on
+   it (inversion lens). Not yet: the Export-to-Marp bundle and the Studio's own lint and slide
+   mapping — `followups.d/2509-p3-admission-marp-and-studio-source-readers.md`. The CLI admits once per run (new
+   `--default-plugins`) and hands the same knobs to the engine and `bakeDeck`, and the answer's
+   `off` to the boundary parser (`setBoundaryPluginsOff`). The `highlight` grammars stay registered
+   for every installed plugin, on purpose. A host may narrow the default set.
 
 ## 10. Non-goals
 
@@ -1130,7 +1136,52 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   36 on `main`, 0 here. The `mermaid` prop is `drawn` (`DeckPreview`, `renderInto`, the pool, the
   landing and specimen surfaces). The CLI builds ONE `PLUGINS_DISABLED` list (`--disable-plugin`)
   for the engine and `bakeDeck`. Left, with reasons: `followups.d/2509-p5-plugin-phase-d-residue.md`
-  (the kernels need a package-kind role decision; the library copies are three builds, not two).
+  (the kernels needed a package-kind role decision — settled by #2509 P5 below; the library copies are three builds, not two).
+
+- **Admission on the browser half: done (#2509 P3).** The engine marks the `<pre>` of a code fence
+  (`as: "code"`) whose plugin the deck did not load, `data-lattice-off="<plugin>"`, by PREFIX of the
+  fence name (the pass matches `[class*="language-<fence>"]`); only then, so a default-set render is
+  byte-identical (511 of 512 tracked decks on `main` and the branch; the 512th is the README this
+  change edits). The Mermaid pass, `drawn-probe.mjs` (the count subtracts the whole marked
+  serialization, so a quoted attribute cannot zero it), `article-projection.ts`'s bake probe and the
+  `[data-lattice-diagrams]` withholding rule skip it. The CLI gains `--default-plugins` and admits
+  once per run: one `PLUGIN_HOST` for the engine and `bakeDeck`, and `setBoundaryPluginsOff` for the
+  boundary parser (whose memo in `slide-boundaries.mjs` resets with it). The playground bundle gains
+  `setPluginDefaults`, `pluginAdmission` and `pluginDefaultsKey`; the engine, `render(…, {
+  pluginDefaults })`; both refuse a name no plugin has. **Evidence.** With `defaults: []` the same
+  deck shows the Mermaid source, and with the default set the diagram, on the CLI PDF, `--fluid` and
+  `--player` (driven in Chromium: no figure, no tag, no library) and the Studio's preview and PDF
+  export (`docs/e2e/plugin-admission.spec.ts`). **Adversarial trio (HARD RULE #25).** Folded: a slide
+  rendered alone admitted on itself, so a plain fence beside a `diagram` slide showed source in the
+  Studio and was drawn in the export (inversion, checker — the slice now takes the deck's admission,
+  and the render caches key on it); prefix-named fences (` ```mermaid-source `) escaped the marker
+  and were drawn (red team, observed in Chromium); a quoted marker zeroed the probe count; the
+  boundary memo outlived the switch; unknown default names narrowed to nothing; an empty
+  `--default-plugins=`; the overclaim "every surface". Recorded, not fixed: the Export-to-Marp bundle
+  and the Studio's own lint and slide mapping do not follow a narrowed set, and an author's raw
+  `<pre><code class="language-mermaid">` is still drawn —
+  `followups.d/2509-p3-admission-marp-and-studio-source-readers.md`.
+
+- **A plugin's own modules: `shared/` (#2509 P5).** The decision the phase D residue asked for —
+  may a plugin carry its kernels? — made by the maker under the owner's pre-authorization, with the
+  tier 2 trio. **Yes, one folder, in-tree only:** the `plugin` kind gains `codeDirs: ['shared']`
+  (`lib/packages/kinds.js`), and `discoverPackages` refuses any other subfolder in a package of a
+  no-asset kind (plugin, finish, motion; 0 found today) and any non-module in a declared one — before,
+  `folderFiles` read only top-level files, so a subfolder rode beside a package unseen. Mermaid's
+  five kernels moved (with the label-length guard that landed on main meanwhile) from `lib/integrations/mermaid/` to `lib/plugins/mermaid/shared/`; the engine,
+  the diagram gallery's CLI PDFs (light and dark) and every committed deck render byte-identical.
+  **Rejected:** one role per kernel (a closed list filled with one-off names); a manifest `modules`
+  list (surface every author keeps in sync, buying nothing a folder does not); `lib/` (reads as
+  `lib/plugins/x/lib/`); and **`kernels/`**, the first name, because phase F gives "kernel" a
+  package meaning (`extensionPoints.kernel`, §5) and one word must not name both (inversion lens).
+  **Zips:** the importers read top-level files only (`cli.js` `readSource`, `home.js`), so a zip's
+  `shared/` is dropped, never installed — phase E should report the drop rather than stay silent,
+  and a fence renderer admitted through the code-package door bundles what it imports, as
+  `code-bundle.js` does. **npm:** left to phase G, not closed here (inversion lens). Folded from the
+  trio: the stale `lib/integrations/mermaid/*` claims, the render worker's #22 sanction text (the page
+  is mermaid-cli's `dist/index.html`, not a blank document), the overclaimed "refused whole".
+  Recorded, not built: a gate refusing a require into `lib/plugins/<x>/shared/` from outside the
+  plugin (the emulator's player capture reaches in today).
 
 ## References
 

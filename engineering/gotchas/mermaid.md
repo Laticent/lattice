@@ -55,7 +55,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   diagram's theme" and skipped the injected `themeVariables` wholesale — even for
   a directive that named nothing but `flowchart.curve`. `engineering/mermaid.md`
   §5.3 was, at the same time, telling authors to write exactly such a directive.
-- **Mitigation:** fixed in #1311 — `lib/integrations/mermaid/init-directive.js`
+- **Mitigation:** fixed in #1311 — `lib/plugins/mermaid/shared/init-directive.js`
   merges instead: the engine directive is emitted ahead of the author's, and
   Mermaid merges init directives in source order (later wins), so an author's
   keys override ours and everything else keeps the palette. The kernel is the PDF

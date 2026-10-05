@@ -21,8 +21,16 @@ export interface LatticePlaygroundEngine {
 		/** `page` supplies the DECK POSITION of a partial-deck document ({ offset, total }),
 		 *  so a single-slide render numbers itself truthfully without a whole-deck parse.
 		 *  Omitted on every full-deck and export path, where numbering is already right. */
-		opts?: { baseUrl?: string; stats?: boolean; page?: { offset: number; total?: number; deckSection?: { index: number; total: number } }; styles?: 'scoped' | 'flat' },
+		opts?: { baseUrl?: string; stats?: boolean; page?: { offset: number; total?: number; deckSection?: { index: number; total: number } }; styles?: 'scoped' | 'flat'; pluginDefaults?: string[] },
 	) => { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
+	/** Narrow the default plugin set every later render loads from; `null` restores every shipped
+	 *  plugin (lib/playground/index.js). The Studio ships on the default set. */
+	setPluginDefaults?: (names: string[] | null) => void;
+	/** The plugins a WHOLE deck loads under the bundle's default set, or `null` on the shipped
+	 *  default set. A slide rendered alone passes it as `pluginDefaults` (admission is deck-wide). */
+	pluginAdmission?: (deck: string) => string[] | null;
+	/** Moves whenever `setPluginDefaults` does — part of every render-cache key. */
+	pluginDefaultsKey?: () => string;
 	/** Register stylesheets. `{ name, css }` is the contract — identity is GIVEN, so the
 	 *  store never regexes it back out of the sheet (and a directive-less sheet can no
 	 *  longer register nothing while returning a `false` nobody checks). A bare string

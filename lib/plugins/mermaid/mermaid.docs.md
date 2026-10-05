@@ -57,7 +57,7 @@ and the CLI names the plugin.
   it counts as use), but the engine renders it as the code block it always was.
 - **`bake`, `render.exec.bake: "subprocess"`** — `mermaid.bake.js` exports `bake(source, ctx)`.
   The plugin host (`lib/plugins/host-bake.js`) runs it on the CLI before the engine, only for a
-  deck that uses the plugin. It drives `lib/integrations/mermaid/render-worker.js` in a child
+  deck that uses the plugin. It drives `lib/plugins/mermaid/shared/render-worker.js` in a child
   process, so the bake stays synchronous.
 - **`hydrate`, `render.exec.hydrate: "pass"`** — `mermaid.hydrate.js` exports `createPass(ctx)`:
   the diagram pass every browser surface draws through, which the runtime drives (`boot`, `run`,
@@ -75,9 +75,11 @@ and the CLI names the plugin.
   The bake assembles Mermaid's theme variables itself (`themeFor`, with `ctx.paletteReader`) and publishes the generic re-bake hook, `ctx.state.rebake`, which the
   image-set export's cross-scheme look reads.
 
-The render kernels both halves share — `lib/core/render-diagrams.js`, `mermaid-theme-map.js`,
-`diagram-scope.js`, `diagram-look.js`, `lib/integrations/mermaid/*` — stay where HARD RULE #1 put
-them; the plugin's modules are the entry points onto them.
+The render kernels both halves share live in two places. The plugin's OWN — the init directive,
+the render worker, portrait reorientation and the motion roles — are in its `shared/` folder. The
+ones other code also reads — `lib/core/render-diagrams.js`, `mermaid-theme-map.js`,
+`diagram-scope.js`, `diagram-look.js` — stay where HARD RULE #1 put them; the plugin's modules are
+the entry points onto them.
 
 ## See also
 

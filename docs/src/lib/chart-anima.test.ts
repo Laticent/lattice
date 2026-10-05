@@ -462,7 +462,7 @@ describe('radar motion', () => {
 
 describe('chartToScene — data-anima-order (the Mermaid build waves)', () => {
   // Mermaid paints its edges BEFORE its nodes, so document order would draw the arrows first.
-  // `lib/integrations/mermaid/motion-roles.js` declares waves instead; chartToScene must honor them.
+  // `lib/plugins/mermaid/shared/motion-roles.js` declares waves instead; chartToScene must honor them.
   const DIAGRAM =
     '<svg viewBox="0 0 200 100">' +
     '<g class="edgePaths"><path data-anima-role="bar" data-anima-order="2" d="M0 0L10 10"/></g>' +

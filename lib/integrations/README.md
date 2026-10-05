@@ -11,8 +11,10 @@ its own `.docs.md` — read those for specifics.
   markdown-it transforms (badges, checklists, deck-class propagation,
   `logo:` directive, functionplot fences) shared by every render path
   (HARD RULE #1). Plus `scaffold.css`.
-- `mermaid/` — `reorient.js` (portrait flow reorientation), the hljs
-  language def, `mermaid.css`. Authoring guide: `engineering/mermaid.md`.
+- `mermaid/` — the integration's notes only. The Mermaid plugin owns its code:
+  its stylesheet, grammar and kernels (`reorient.js`, the render worker, the init directive, the
+  motion roles, the label-length guard) live in `lib/plugins/mermaid/` and `lib/plugins/mermaid/shared/`. Authoring guide:
+  `engineering/mermaid.md`.
 - `highlight-js/` — syntax-highlight CSS + docs.
 
 **Gotcha:** `plugins.js` must stay pure markdown-it/Marpit token

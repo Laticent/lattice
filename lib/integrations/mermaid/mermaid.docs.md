@@ -12,9 +12,11 @@ overrides, and custom syntax highlighting for the source.
 phase D's browser half): `mermaid.styles.css` — per-diagram CSS overrides, Lattice-theme-aware
 selectors targeting Mermaid's emitted SVG (flowchart, journey, mindmap, gitgraph, treemap, c4,
 venn, and 9 more that ignore Mermaid's own `themeVariables`) — and `mermaid.highlight.js`, the
-highlight.js grammar that colors a raw `\`\`\`mermaid` fence's source. This folder keeps the
-kernels both of the plugin's halves share (HARD RULE #1): the init directive, the render worker,
-portrait reorientation and the motion roles.
+highlight.js grammar that colors a raw `\`\`\`mermaid` fence's source. **So does every kernel**
+both of the plugin's halves share (HARD RULE #1) — the init directive, the render worker, portrait
+reorientation, the motion roles and the overlong-label guard — in `lib/plugins/mermaid/shared/`, the plugin kind's one
+in-tree-only folder (`lib/packages/kinds.js` `plugin.codeDirs`). This page keeps the integration's
+history and its theme bridge.
 
 ---
 

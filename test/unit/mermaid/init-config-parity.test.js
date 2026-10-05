@@ -29,7 +29,7 @@ const {
   DIVERGENT_CONFIG,
   DIAGRAM_NODE_PADDING,
   DIAGRAM_WRAPPING_WIDTH,
-} = require('../../../lib/integrations/mermaid/init-directive');
+} = require('../../../lib/plugins/mermaid/shared/init-directive');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
@@ -209,7 +209,7 @@ describe('mermaid init-config parity — one non-palette config, both paths', ()
     // What is worth pinning is that it STAYS out. A path that goes back to emitting a
     // directive re-acquires the sanitizer constraint that made `fontFamily` diverge, and
     // it should not be able to do so without this test noticing.
-    const initDirective = require('../../../lib/integrations/mermaid/init-directive');
+    const initDirective = require('../../../lib/plugins/mermaid/shared/init-directive');
     for (const gone of ['engineInitDirective', 'withEngineInit', 'DIRECTIVE_VALUE_OK', 'DIAGRAM_FONT_STACK']) {
       assert.equal(gone in initDirective, false,
         `${gone} was retired in #1674 — see engineering/decisions/2026-08-17-mermaid-render-worker.md `

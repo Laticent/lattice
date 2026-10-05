@@ -5,7 +5,7 @@
  *                                              surface draws with (lib/plugins/mermaid/…manifest.json,
  *                                              staged beside lattice-runtime.js), and the package the
  *                                              CLI bake resolves (`mermaid/dist/mermaid.js`, the same
- *                                              version, lib/integrations/mermaid/render-worker.js)
+ *                                              version, lib/plugins/mermaid/shared/render-worker.js)
  *   mermaid-v11-min.js (committed, repo root)  what the Export-to-Marp kit ships (and what
  *                                              test/integration/export/marp-kit-render.test.js
  *                                              runs); test/helpers/render.js only HASHES it into
