@@ -370,6 +370,29 @@ different of the name:
 | **The AI drafting the deck** (the agent-workflow persona in `2026-07-02-website-copy-positioning.md` §2) | whatever it guesses | be the word its training data taught it: `columns` is what Quarto, Beamer and CSS use, so a model guesses it without reading our docs, where a house word like `panes` would have to be looked up |
 | **The reviewer reading the source in a pull request** | the raw Markdown | read as prose: `columns ratio-60-40` over two `###` headings describes the slide without a render |
 
+**In Compose (2026-10-05).** The Studio user edits a pane slide without seeing its syntax. Each
+pane opens with a bar that names its place and share ("Left pane 60%") and holds a picker of the
+components that fit there. Its `###` title reads as a field labeled "Title" ("Title · hidden on the
+slide" under `no-title`), and a pane with a marker and no title gets an "Add title" button. Picking
+a component rewrites the pane's `_pane` marker, or writes one right above the `###` of a pane that
+has none; a pill above that `###` stays where it is, because the engine renders it as the tail of
+the pane before. Both where each pane starts and which `###` titles it are the kernel's answer:
+`docs/src/lib/compose/pane-model.ts` runs `scanPanes` on a stand-in text, each block's lines kept
+line for line, and maps the lines back to blocks. The independent review found three slides where a
+node loop of its own disagreed with the engine (a multi-line note under the marker, a bold pill, a
+pill then a comment). The picker's list is `fits` over the pane catalog, so it offers what `lint:deck`
+accepts.
+
+The bar is a decoration and writes nothing to the source. The marker stays in the document as a
+comment node with its pill hidden, since the bar names the component in words. Two keystrokes would
+then delete it unseen, so Compose swallows them (`keepPaneMarker`): Backspace at the start of a pane
+title, and Delete at the end of the block above a marker, which would otherwise pull the marker into
+a list. A pane cut and pasted keeps its marker: the paste gate admits a `_pane` comment in one
+strict shape (comment-block.ts). Before all this, Compose read every `<!-- _pane: … -->` as a slide
+directive and moved it to the slide's head, so one keystroke on a marked pane slide wrote both
+markers above the `##` and the slide lost its panes. The markers now stay in the body
+(`deck-source.ts`).
+
 A fifth person never sees a name at all: **the audience in the room.** What they need is for two
 panes to read as one argument, which is what the shared title row (§3) and the rule that the Key
 Insight is the slide's, with a lint warning when there are two (§4), are for.

@@ -14,6 +14,7 @@ import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from 
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
+import { addPaneTitle, keepPaneMarker, type PaneDirection, type PaneInfo, paneChoices, paneLabel, paneOwnsTitles, setPaneComponent, slidePanes } from '@/lib/compose/pane-model';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
@@ -403,6 +404,150 @@ const LUCIDE_PATHS: Record<string, string> = {
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
+}
+
+// ── Pane slides: each pane's component as a picker, its `###` title as a field ──────────────────
+// A `columns` / `rows` slide holds two panes (engineering/decisions/2026-09-28-generic-pane-layouts-
+// authoring.md). A Studio user who never types Markdown inserts one from the "Two columns" / "Top and
+// bottom" tiles, and before this saw one block of text: no way to say what a pane holds, and a
+// `_pane` marker was a "note" pill. So each pane opens with a BAR — where it sits ("Left pane", 60%)
+// and a picker of the components that fit there — and its title reads as a labeled field.
+//
+// The bar is a widget DECORATION, not a node: it is chrome over the document, so it never reaches the
+// source. The `_pane` marker it stands for stays in the document as the comment node it parses to, so
+// the bytes round-trip in place; the bar hides that node's pill, since the picker says the same thing
+// in words. Where each pane starts is the kernel's rule (`slidePanes`, lib/compose/pane-model.ts),
+// read per doc and memoized by doc identity, the stateMarkerPlugin pattern.
+const paneKey = new PluginKey<DecorationSet>('cs-panes');
+/** The function band each component sits in (`anchor`, `evidence`, …), when the catalog has
+ *  loaded — the picker's option groups. Absent, the picker is one list by name. */
+export type ComponentFunctions = Record<string, string>;
+const PANE_FUNCTION_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery', 'layout'];
+function paneBar(view: EditorView, getPos: () => number | undefined, info: { direction: PaneDirection; pane: PaneInfo; locked: boolean }, functions: ComponentFunctions | undefined): HTMLElement {
+	const { direction, pane, locked } = info;
+	const bar = document.createElement('div');
+	bar.className = 'cs-pane-bar';
+	bar.contentEditable = 'false';
+	bar.setAttribute('role', 'group');
+	const where = paneLabel(direction, pane.index);
+	bar.setAttribute('aria-label', where);
+	const slideAt = getPos();
+	if (slideAt !== undefined) bar.dataset.pane = `${view.state.doc.resolve(slideAt).before(1)}:${pane.index}`;
+	const label = document.createElement('span');
+	label.className = 'cs-pane-where';
+	label.textContent = where;
+	const share = document.createElement('span');
+	share.className = 'cs-pane-share';
+	share.textContent = `${pane.share}%`;
+	label.append(share);
+	const select = document.createElement('select');
+	select.className = 'cs-pane-select';
+	select.setAttribute('aria-label', `${where} component`);
+	select.title = 'What this pane holds';
+	select.disabled = locked;
+	const choices = paneChoices(direction, pane.share);
+	// The pane's own component stays on the list even where the manifest says it does not fit:
+	// the picker shows what the slide says, and lint:deck already flags the misfit.
+	if (!choices.includes(pane.cls)) choices.push(pane.cls);
+	const option = (name: string) => {
+		const o = document.createElement('option');
+		o.value = name;
+		o.textContent = name === 'content' ? 'content (text)' : name;
+		o.selected = name === pane.cls;
+		return o;
+	};
+	const grouped = functions && choices.slice(1).some((n) => functions[n]);
+	select.append(option('content'));
+	if (grouped) {
+		const bands = new Map<string, string[]>();
+		for (const n of choices.slice(1)) {
+			const f = functions[n] || 'other';
+			bands.set(f, [...(bands.get(f) || []), n]);
+		}
+		const order = [...PANE_FUNCTION_ORDER, ...[...bands.keys()].filter((k) => !PANE_FUNCTION_ORDER.includes(k))];
+		for (const f of order) {
+			const names = bands.get(f);
+			if (!names) continue;
+			const g = document.createElement('optgroup');
+			g.label = f[0].toUpperCase() + f.slice(1);
+			g.append(...names.map(option));
+			select.append(g);
+		}
+	} else select.append(...choices.slice(1).map(option));
+	select.addEventListener('change', () => {
+		const at = getPos();
+		if (at === undefined) return;
+		const slidePos = view.state.doc.resolve(at).before(1);
+		const tr = setPaneComponent(view.state, slidePos, pane.index, select.value);
+		if (!tr) return;
+		// The new component rebuilds this bar (its decoration key names the component), which drops
+		// the focused select. A keyboard user stepping through the list with the arrow keys fires a
+		// change per step, so the new bar's select takes the focus back.
+		view.dispatch(tr.scrollIntoView());
+		view.dom.querySelector<HTMLSelectElement>(`.cs-pane-bar[data-pane="${slidePos}:${pane.index}"] .cs-pane-select`)?.focus();
+	});
+	// The chevron is DRAWN (a mask on the wrapper, colored by the element), never a typed glyph.
+	const pick = document.createElement('span');
+	pick.className = 'cs-pane-pick';
+	pick.append(select);
+	bar.append(label, pick);
+	if (pane.title === null && pane.marker !== null && !locked && !paneOwnsTitles(pane.cls)) {
+		const add = document.createElement('button');
+		add.type = 'button';
+		add.className = 'cs-pane-add-title';
+		add.textContent = 'Add title';
+		add.addEventListener('mousedown', (e) => e.preventDefault());
+		add.addEventListener('click', (e) => {
+			e.preventDefault();
+			const at = getPos();
+			if (at === undefined) return;
+			const tr = addPaneTitle(view.state, view.state.doc.resolve(at).before(1), pane.index);
+			if (!tr) return;
+			view.dispatch(tr.scrollIntoView());
+			view.focus();
+		});
+		bar.append(add);
+	}
+	return bar;
+}
+function panePlugin(getFunctions: () => ComponentFunctions | undefined) {
+	let cachedDoc: PMNode | null = null;
+	let cachedFns: ComponentFunctions | undefined;
+	let cached: DecorationSet = DecorationSet.empty;
+	return new Plugin({
+		key: paneKey,
+		props: {
+			decorations(state) {
+				const functions = getFunctions();
+				if (state.doc === cachedDoc && functions === cachedFns) return cached;
+				const decos: Decoration[] = [];
+				state.doc.forEach((slide, slidePos) => {
+					const info = slidePanes(slide);
+					if (!info) return;
+					const locked = !!slide.attrs.locked;
+					const at = (k: number) => {
+						let pos = slidePos + 1;
+						for (let i = 0; i < k; i++) pos += slide.child(i).nodeSize;
+						return pos;
+					};
+					for (const pane of info.panes) {
+						const start = pane.marker ?? pane.anchor;
+						const key = `pane:${pane.index}:${info.direction}:${pane.share}:${pane.cls}:${pane.title === null}:${pane.marker === null}:${locked}:${functions ? 1 : 0}`;
+						decos.push(Decoration.widget(at(start), (view, getPos) => paneBar(view, getPos, { direction: info.direction, pane, locked }, functions), { side: -1, key, stopEvent: () => true, ignoreSelection: true }));
+						if (pane.marker !== null) decos.push(Decoration.node(at(pane.marker), at(pane.marker) + slide.child(pane.marker).nodeSize, { class: 'cs-pane-marker' }));
+						if (pane.title !== null) {
+							const hidden = pane.mods.includes('no-title');
+							decos.push(Decoration.node(at(pane.title), at(pane.title) + slide.child(pane.title).nodeSize, { class: 'cs-pane-title', 'data-pane-label': hidden ? 'Title · hidden on the slide' : 'Title' }));
+						}
+					}
+				});
+				cachedDoc = state.doc;
+				cachedFns = functions;
+				cached = DecorationSet.create(state.doc, decos);
+				return cached;
+			},
+		},
+	});
 }
 
 /** Which React island the divider pill's Format group is hosting. The group swaps
@@ -1361,10 +1506,11 @@ export class CommentView {
 	}
 }
 
-function buildPlugins(getDefaultTag: () => string) {
+function buildPlugins(getDefaultTag: () => string, getFunctions: () => ComponentFunctions | undefined = () => undefined) {
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
+		panePlugin(getFunctions),
 		collapsePlugin(),
 		activeSlidePlugin(),
 		stateMarkerPlugin(),
@@ -1372,6 +1518,8 @@ function buildPlugins(getDefaultTag: () => string) {
 		formatSyncPlugin(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
+		// A hidden `_pane` marker is never deleted by one stray keystroke (pane-model.ts).
+		keymap({ Backspace: keepPaneMarker('backward'), Delete: keepPaneMarker('forward') }),
 		// Table cell navigation FIRST — Tab hops cells and appends a row off the end
 		// (tabToNextCellOrAddRow), Shift-Tab hops back. Both return false outside a table, so Tab
 		// falls through to list-item sink/lift. Enter is a no-op inside a table: a GFM cell is
@@ -1449,7 +1597,7 @@ export type ComposeHandle = {
 	revealTail: () => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; componentFunctions?: ComponentFunctions }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, componentFunctions }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -1709,6 +1857,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// both default to the tag the layout already asks for rather than opening a modal.
 	const slideFencesRef = React.useRef(slideFences);
 	slideFencesRef.current = slideFences;
+	// Each component's function band, for the pane picker's option groups. Read lazily for the
+	// same reason: the catalog loads after the editor mounts.
+	const componentFunctionsRef = React.useRef(componentFunctions);
+	componentFunctionsRef.current = componentFunctions;
 	// The live source, for the door's fallback (the tag this deck already uses most) and
 	// for the picker's "In this deck" group. A ref, not a dep: the NodeView factory is
 	// constructed once per deck and must not be rebuilt on every keystroke.
@@ -1779,7 +1931,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
-				state: EditorState.create({ doc, plugins: buildPlugins(() => defaultTagAtCaret()) }),
+				state: EditorState.create({ doc, plugins: buildPlugins(() => defaultTagAtCaret(), () => componentFunctionsRef.current) }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
 						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current),
@@ -2087,6 +2239,22 @@ function ComposeStyles() {
 			.cs-host h2{font-family:inherit;font-size:1.45rem;font-weight:700;line-height:1.18;margin:.5em 0 .32em;color:var(--text-heading,#14243a);letter-spacing:-.005em}
 			.cs-host h3{font-family:inherit;font-size:1.15rem;font-weight:600;margin:.5em 0 .25em;color:var(--text-heading,#14243a)}
 			.cs-host p{margin:0 0 .6em}
+			/* Pane slides (panePlugin): a bar opens each pane, and its title reads as a labeled field. */
+			.cs-host .cs-pane-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:1.1em 0 .45em;padding:7px 0 0;border-top:1px solid var(--border,#e4eaf2);user-select:none}
+			.cs-host .cs-pane-where{display:inline-flex;align-items:baseline;gap:7px;font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted,#6b7f9a)}
+			.cs-host .cs-pane-share{font-weight:400;letter-spacing:.04em;opacity:.8}
+			.cs-host .cs-pane-pick{position:relative;display:inline-flex;align-items:center;max-width:100%}
+			.cs-host .cs-pane-pick::after{content:"";position:absolute;right:8px;width:10px;height:10px;background:var(--text-muted,#6b7f9a);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5l3 3 3-3' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5l3 3 3-3' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;pointer-events:none}
+			.cs-host .cs-pane-select{appearance:none;-webkit-appearance:none;max-width:100%;min-height:26px;padding:2px 26px 2px 9px;border:1px solid var(--border,#e4eaf2);border-radius:6px;background:var(--bg,#fff);color:var(--text-heading,#14243a);font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;cursor:pointer;transition:border-color .12s,background .12s}
+			.cs-host .cs-pane-select:hover:not(:disabled){border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-host .cs-pane-select:focus-visible{outline:2px solid var(--accent,#006fa8);outline-offset:1px}
+			.cs-host .cs-pane-select:disabled{cursor:default;opacity:.7}
+			.cs-host .cs-pane-add-title{min-height:26px;padding:2px 9px;border:1px dashed var(--border,#e4eaf2);border-radius:6px;background:transparent;color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s}
+			.cs-host .cs-pane-add-title:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
+			/* The marker's own pill: the bar above already names the component in words. */
+			.cs-host .cs-pane-marker{display:none}
+			.cs-host h3.cs-pane-title{position:relative;margin:.1em 0 .5em;padding:17px 10px 6px;border:1px solid var(--border,#e4eaf2);border-radius:6px;background:var(--bg-alt,#f2f5fa);font-size:1rem}
+			.cs-host h3.cs-pane-title::before{content:attr(data-pane-label);position:absolute;top:4px;left:10px;font-family:var(--font-mono,ui-monospace,monospace);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);pointer-events:none}
 			/* eyebrow / subtitle: an inline-code-only paragraph reads as a mono label */
 			.cs-host p > code:only-child{font-family:var(--font-mono,ui-monospace,monospace);font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--text-heading) 35%);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px}
 			/* key-insight panel: a blockquote */
@@ -2215,6 +2383,7 @@ function ComposeStyles() {
 				.cs-no-code .cs-insert-code{display:none}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
+				.cs-host .cs-pane-select,.cs-host .cs-pane-add-title{min-height:32px}
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
 				.cs-sb-line{height:28px}
 				.cs-sc-cap{width:28px;height:28px}

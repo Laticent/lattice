@@ -70,6 +70,8 @@ const COMMENT_SHAPE = /^<!--(?!>|->)(?:(?!--!?>)[\s\S])*-->$/;
 
 /** A `_`-prefixed DIRECTIVE, which a comment node must never carry. See `readCommentText`. */
 const DIRECTIVE_SHAPED = /^<!--\s*_[A-Za-z]/;
+/** A `_pane` marker in its one admitted shape: lowercase words only (lib/core/pane-spec.js). */
+const PANE_MARKER_SHAPE = /^<!--[ \t]*_pane:(?:[ \t]+[a-z][a-z0-9-]*){0,8}[ \t]*-->$/;
 
 /** Whether a string is exactly one inert HTML comment (see COMMENT_SHAPE). */
 export function isWellFormedComment(text: string): boolean {
@@ -92,14 +94,18 @@ export function isWellFormedComment(text: string): boolean {
  *  2. NOT A DIRECTIVE — defense in depth for the case where the token leaks or a future change
  *     relaxes it. A directive is hoisted out of the prose before parsing ever reaches this node,
  *     so a directive-shaped comment arriving here is already anomalous; refusing it keeps the
- *     invariant "a comment node never carries a directive" true by construction.
+ *     invariant "a comment node never carries a directive" true by construction. ONE carve-out: a
+ *     `_pane` marker is not hoisted (deck-source.ts) and sets no attribute, only where a pane starts
+ *     and which component it renders — so a pane cut and pasted inside Compose keeps its marker. It
+ *     is admitted in one strict shape (`PANE_MARKER_SHAPE`: a component word and modifiers, nothing
+ *     else), so the carve-out cannot carry a value the way `_backgroundImage: url(…)` did.
  *  3. SHAPE — exactly one inert comment (COMMENT_SHAPE).
  *
  *  Anything failing any gate is REJECTED (`false` tells ProseMirror to skip the parse rule), so the
  *  paste degrades to plain text — the pre-node behavior, and therefore never a regression. */
 export function readCommentText(raw: string | null, origin?: string | null): { text: string } | false {
 	if (!raw || origin !== CLIP_ORIGIN) return false;
-	if (raw.length > 8192 || DIRECTIVE_SHAPED.test(raw) || !isWellFormedComment(raw)) return false;
+	if (raw.length > 8192 || (DIRECTIVE_SHAPED.test(raw) && !PANE_MARKER_SHAPE.test(raw)) || !isWellFormedComment(raw)) return false;
 	return { text: raw };
 }
 

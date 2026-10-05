@@ -3841,6 +3841,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const reshapeAxes = React.useMemo(() => (lintVocab as { exclusiveAxes?: Record<string, string[]> } | null)?.exclusiveAxes ?? {}, [lintVocab]);
 	const activeChunk = slides[activeFullIndex] ?? '';
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
+	// Each component's function band, for Compose's pane picker groups (an empty map until the
+	// catalog loads, which leaves the picker one list by name).
+	const componentFunctions = React.useMemo(() => Object.fromEntries(components.filter((c) => c.function).map((c) => [c.name, c.function as string])), [components]);
 	const reshapeEntry = React.useMemo(() => components.find((c) => c.name === reshapeComponent), [components, reshapeComponent]);
 	const reshapeVariants = React.useMemo(() => reshapeEntry?.variants ?? [], [reshapeEntry]);
 	// The component's OWN axes decide replace-vs-toggle; the vocab axes and its declared
@@ -5029,7 +5032,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={setSourceFromEditor} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} />
+				<ComposeView ref={composeRef} source={source} onChange={setSourceFromEditor} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} componentFunctions={componentFunctions} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>

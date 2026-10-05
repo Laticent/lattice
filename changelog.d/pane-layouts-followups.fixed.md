@@ -5,3 +5,6 @@
   the engine does when it sizes the pane. A stacked table that the slide's chrome leaves room for one
   row now gets `pane-overflow`. Before this, the export clipped its second row while the linter
   called the slide clean.
+- Compose no longer moves a slide's `<!-- _pane: … -->` markers to the top of the slide. Before
+  this, one keystroke on a pane slide with markers wrote both markers above the `##`, and the
+  slide lost its panes.
