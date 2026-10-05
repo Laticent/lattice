@@ -9,8 +9,9 @@ recorded: 2026-09-27
 why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §7. Each phase
             ships on its own and deletes what it replaces. `checkPluginMigration` in
             `tools/check-ownership.js` must never rise. Phase D (Mermaid on the host, `bake` /
-            `exec.bake`) shipped on its own branch, and its browser half with #2508 and #2509; what
-            is left is `2509-p5-plugin-phase-d-residue.md`.
+            `exec.bake`) shipped on its own branch, and its browser half with #2508 and #2509; its
+            residue is decided (the plugin note §11) and what is open is
+            `2509-p5-mermaid-library-copies.md`.
             E: the data layer, zip import and export of plugins in the CLI and the Studio
                (§4.10); this lifts the `plugin` refusal in `lib/packages/gate.js`.
             F: the chart family — `extensionPoints.kernel` and the registry reading chart
@@ -42,6 +43,10 @@ why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §
             them, and nothing enforces it until phase E builds the channel. A highlight grammar is
             registered even for a switched-off plugin, so a zip grammar would run on author input
             the user cannot switch off.
+            ALSO FOR E (from #2509 P5): an importer that meets a plugin zip's `shared/` (or any
+            subfolder) must REPORT it, never drop it silently; today `cli.js` `readSource` and
+            `home.js` read top-level files only, which is safe only because the gate refuses
+            every plugin zip whole.
             Settled already, and to keep: refuse `payload`, any `exec`, `syntax`, `hydrate`, `bake`
             and every script file by extension (`lib/packages/read.js`); a name that collides with a
             shipped or installed plugin is DISABLED with a diagnostic, never a failed build; every

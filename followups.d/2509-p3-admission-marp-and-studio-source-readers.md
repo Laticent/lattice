@@ -20,7 +20,7 @@ why now   — the Export-to-Marp bundle and the Studio's lint and slide mapping 
             - an AUTHOR's raw HTML `<pre><code class="language-mermaid">` (no fence, so the engine
               never marks it) is still drawn by the pass under a narrowed set — the same
               author-forged markup class as `data-lattice-hydrate`
-              (`2509-p5-plugin-phase-d-residue.md`); the engine could refuse author-written
+              (the plugin note §11, "Phase D's residue, decided"); the engine could refuse author-written
               `language-<drawn fence>` classes inside raw HTML;
             - the same class one level up: a deck's own `data-lattice-hydrate`, `data-lattice-settle`,
               `data-lattice-figure` (and `data-lattice-off`) survive the slide sanitizer, so an author

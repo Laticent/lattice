@@ -641,8 +641,9 @@ recording exactly what is left.
   (`render.exec.hydrate: "pass"`), its stylesheet and highlight grammar are its `styles` and
   `highlight` contributions, and the bake context's services are generic — three more ratchet
   arms (`runtimePluginNames`, `pluginAssetsOutside`, `bakeContextByName`), all 0. Its last
-  consumers moved with #2509 (`drawnFigureClasses`, 0; `--disable-plugin`); what is still left is
-  `followups.d/2509-p5-plugin-phase-d-residue.md`.
+  consumers moved with #2509 (`drawnFigureClasses`, 0; `--disable-plugin`); its residue is decided
+  (§11, "Phase D's residue, decided"), and what is still open is
+  `followups.d/2509-p5-mermaid-library-copies.md`.
 - **E. The data layer** — zip import/export of plugins in the CLI and the Studio (§4.10).
 - **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels. **The slot
   is done** (§11, "Phase F, the slot"); the family's code and the chart-frame stylesheet moving into
@@ -1137,7 +1138,7 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   output classes, and the new `drawnFigureClasses` arm counts them as selectors outside the plugin:
   36 on `main`, 0 here. The `mermaid` prop is `drawn` (`DeckPreview`, `renderInto`, the pool, the
   landing and specimen surfaces). The CLI builds ONE `PLUGINS_DISABLED` list (`--disable-plugin`)
-  for the engine and `bakeDeck`. Left, with reasons: `followups.d/2509-p5-plugin-phase-d-residue.md`
+  for the engine and `bakeDeck`. Left, with reasons: `followups.d/2509-p5-plugin-phase-d-residue.md` (since split; §11 "Phase D's residue, decided")
   (the kernels needed a package-kind role decision — settled by #2509 P5 below; the library copies are three builds, not two).
 
 - **Admission on the browser half: done (#2509 P3).** The engine marks the `<pre>` of a code fence
@@ -1262,6 +1263,35 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   `--default-plugins=`. **Not covered, and recorded:** Marp typesets math itself, so a bundle with
   math off still typesets it (its slide splits are right); an author's raw-HTML Mermaid block and
   forged `data-lattice-*` markers; the Playground page's own lint (`2509-p3` followup, narrowed).
+
+- **Phase D's residue, decided (`2509-p5`).** The list #2509 left, item by item; the followup is
+  deleted and its two open items moved to where they will be done.
+  - **The grammar field `runtimeDrawn` → `pass`**, named for `render.exec.hydrate: "pass"` (two
+    readers, both tests). **Kept:** `RUNTIME_DRAWN*` in `drawn.generated.mjs` and the browser host's
+    `runtimeDrawn` option, because they name what is still true — the runtime draws those fences —
+    and renaming them would churn thirteen files (fifteen with the host option) for a word.
+  - **The pass interface:** `describe()` keys no longer merge flat — the runtime's breadcrumb logs
+    each pass's fields under its name, so a second pass cannot overwrite the first's. **Kept:** each
+    pass's own boot wait, because each waits for its own library; one shared wait would make every
+    pass wait for the slowest.
+  - **The double-load guard's rename** (`__llMermaidBootstrapLoaded` → `__llLatticeRuntimeLoaded`):
+    accepted. Only a page carrying a pre-2026-10-04 runtime AND a current one boots both, and no such
+    page is produced or known.
+  - **`tools/diagram-oracle.mjs` captures before and after #2509 differ** by the figure marker: a
+    one-time boundary, accepted — re-capture both sides with the current tool.
+  - **The diagram component's slot named `mermaid`:** kept until the manifest schema is next revised
+    as a whole (phase G freezes LPM 1.0); renaming a slot changes every reader of slots for a word,
+    and its selector already reads the host's marker.
+  - **Moved, open:** retiring the committed `mermaid-v11-min.js` touches `lefthook.yml`, a hook
+    contract, so it is the owner's pick (`followups.d/2509-p5-mermaid-library-copies.md`); an
+    importer REPORTING a zip's dropped `shared/` belongs to phase E, while the gate refuses every
+    plugin zip whole (`2417` followup); author-forged `data-lattice-*` markers join the raw-HTML
+    `language-<fence>` refusal (`2509-p3` followup).
+  **Evidence:** engine byte identity, 502 tracked Markdown files × the default and `defaults: []`
+  engines, 1,004 renders before and after, 0 differences (the grammar field is read by no render);
+  the diagram gallery's CLI PDFs (`diagram.gallery.md` and the member gallery) byte-identical
+  before and after. The one byte change that ships is the runtime bundle's bootstrap
+  `console.log` payload (passes now nested under `passes`), which draws nothing.
 
 ## References
 

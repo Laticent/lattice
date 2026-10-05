@@ -87,7 +87,7 @@ describe('the host fence table leaves a code fence to the code renderer', () => 
   test('the registry records the fence as code, drawn by a hydrate pass, with no renderer', () => {
     const mermaid = PLUGINS.find((p) => p.name === 'mermaid');
     assert.equal(mermaid.fences.mermaid.as, 'code');
-    assert.equal(mermaid.runtimeDrawn, true);
+    assert.equal(mermaid.pass, true);
     assert.equal(mermaid.hydrate, true);
     assert.equal(mermaid.fenceRenderers.mermaid, undefined);
   });

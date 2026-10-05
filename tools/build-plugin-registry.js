@@ -314,7 +314,7 @@ function renderGrammar(ordered, exportsByName, components, fills) {
       `    syntax: Object.freeze({${syntax.length ? `\n${syntax.join('\n')}\n    ` : ''}}),`,
       `    fences: Object.freeze({${fences.length ? `\n${fences.join('\n')}\n    ` : ''}}),`,
       `    hydrate: ${m.contributes.hydrate ? 'true' : 'false'},`,
-      `    runtimeDrawn: ${m.render?.exec?.hydrate === 'pass'},`,
+      `    pass: ${m.render?.exec?.hydrate === 'pass'},`,
       `    detect: ${mod && exportsByName.get(p.manifest.name).detect ? `${mod}__detect` : 'null'},`,
       '  }),',
     ].join('\n');

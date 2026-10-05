@@ -49,7 +49,7 @@ describe('the plugin scaffold', () => {
       manifest: JSON.parse(fs.readFileSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.manifest.json`), 'utf8')),
       exports: {
         rules: Object.keys(p.syntax), renderers: Object.keys(p.renderers), fences: Object.keys(p.fenceRenderers),
-        detect: Boolean(p.detect), hasHydrate: p.hydrate && !p.runtimeDrawn, hasPass: p.hydrate && p.runtimeDrawn, hasHighlight: Boolean(p.highlight), hasBake: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.bake.js`)), hasStyles: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`)),
+        detect: Boolean(p.detect), hasHydrate: p.hydrate && !p.pass, hasPass: p.hydrate && p.pass, hasHighlight: Boolean(p.highlight), hasBake: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.bake.js`)), hasStyles: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`)),
         stylesSource: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`)) ? fs.readFileSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`), 'utf8') : '',
       },
     }));
