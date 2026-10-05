@@ -28,7 +28,8 @@ standard slide.
 ### 1.1 Content scale
 
 The default container body anchors at `--fs-body = 1.67 cqi` (16 pt) —
-the size for cards, lists, and inline prose read at desk distance.
+the ONE size for reading text: list rows, card bodies, table cells, glossary
+definitions, tabular lists (§7, "One reading size").
 Slide-level statement bodies step up to `--fs-message = 2.1875 cqi`
 (21 pt). Values are normalized to the proven legacy footprint, a touch
 above it — not the projection-floor inflation the first rethink shipped.
@@ -37,9 +38,9 @@ Five steps.
 | Token | cqi | pt | Role |
 |---|---|---|---|
 | `--fs-meta` | 1.17 | 11.25 | Chrome only — pagination, footer, eyebrow labels, micro-captions, pills. |
-| `--fs-body-compact` | 1.40 | 13.5 | **Dense reference cells** — table cells, glossary definitions, grid-quadrant prose (list-tabular, glossary, table, matrix-2x2, verdict-grid, obligation-matrix, actors) **and every plain markdown table**, via the base layer's universal table treatment (`base.elements.css` § UNIVERSAL TABLE). Scanned, not read linearly; packs many cells in a fixed box, so it sits one step below the default body. |
-| `--fs-body` | 1.67 | 16 | **Default container body.** Cards, lists, inline prose, list-item bodies. The cascade default (`section { font-size }`). |
-| `--fs-message` | 2.1875 | 21 | **Slide-level statement body.** Paragraphs in statement / quote / divider / centered layouts. Anything author-written for "this is the slide's message." **NOT `content`** — it left this tier for `--fs-body` (#1292): as the DEFAULT layout it has to sit correctly beside a Key Insight and a below-note, both of which are body-tier, and at this tier the distillation rendered 24% smaller than what it distills. |
+| `--fs-body-compact` | 1.40 | 13.5 | **Code, and labels that sit between meta and body.** `code` and `compare-code` panes (a line of code cannot wrap without changing what it says, so code keeps a column budget one step down — owner ruling 2026-09-29), chart keys and legends, a fixed card's fields (`contact`), and label boards whose cells are marks (`obligation-matrix`). **Not a reading role:** since 2026-09-29 table cells, glossary, list-tabular, actors, verdict-grid and every plain markdown table read at `--fs-body`. |
+| `--fs-body` | 1.67 | 16 | **The reading size.** Every component's reading text: list rows (all `list` variants but the display register `principles`), agenda rows, q-and-a questions and answers, card bodies, table cells (every plain markdown table, via `base.elements.css` § UNIVERSAL TABLE), glossary, list-tabular, actors, verdict-grid, roadmap rows. The cascade default (`section { font-size }`). One reading size per venue: `npm run audit:reading-size`. |
+| `--fs-message` | 2.1875 | 21 | **Display text: one statement per slide.** Paragraphs in statement / quote / divider / title / topic layouts, and the one lead sentence a slide carries (the split-panel claim, the premise lead, a scene or video caption, policy-recommendation's impact line). **Never reading text:** a list row or a table cell is `--fs-body` whatever the component (2026-09-29). **NOT `content`** — it left this tier for `--fs-body` (#1292). |
 | `--fs-emphasis` | 3.125 | 30 | Lead paragraph, key-insight callout, step-forward block. *One* block per slide that should read first. |
 
 ### 1.2 Heading scale
@@ -116,15 +117,18 @@ page 18).
 > **Card / list / inline prose**: `--fs-body` (16 pt). The cascade
 > default — most container content needs no override.
 >
-> **Dense table / grid cell**: `--fs-body-compact` (13.5 pt). Wired into
-> the table/grid component CSS (list-tabular, glossary, table,
-> matrix-2x2, verdict-grid, obligation-matrix, actors). Authors don't
-> pick it; the component does, because those surfaces pack many cells
-> in a fixed box.
+> **Table cell, list row, glossary definition**: `--fs-body` too. Reading
+> text has ONE size, whatever the component; a table fits fewer rows than it
+> did at 13.5 pt, and each component's "By venue" line says how many.
+>
+> **Code**: `--fs-body-compact` (13.5 pt), one step below the reading size,
+> because a line of code cannot wrap. (The other exceptions are display text,
+> chart keys, label boards and fixed cards; §7 "One reading size" lists them.)
 >
 > **Slide-level statement body**: `--fs-message` (21 pt). Paragraphs in
-> statement, quote, divider, centered, big-number layouts. The "this is
-> what the slide says" prose.
+> statement, quote, divider, centered, big-number layouts, and the one lead
+> sentence a slide carries. The "this is what the slide says" prose — never
+> a row of a list.
 >
 > **Lead paragraph or key-insight callout** (not a heading, but one
 > block that needs to step forward): `--fs-emphasis` (30 pt).
@@ -165,10 +169,13 @@ delivered by the `\`label\`` inline-code paragraph modifier in
 - **Picking a size by feel.** "A bit smaller than h2" → use `--fs-h3`,
   not "let me try `--fs-xl` or `--fs-2xl`." The old t-shirt names
   are gone; everything has a role.
-- **Using `--fs-body-compact` for slide-level prose.** Compact is for
-  dense table/grid cells. The blockquote in a quote slide, the lead
-  paragraph under a title, the divider subtitle — those read
-  `--fs-message`; ordinary cards and lists read `--fs-body`.
+- **Setting reading text in any role but `--fs-body`.** A list row at
+  `--fs-message` or a table cell at `--fs-body-compact` puts a second
+  reading size on the deck (the #2361 talk showed three at once). The
+  blockquote in a quote slide, the lead paragraph under a title, the
+  divider subtitle read `--fs-message`; rows, cells and cards read
+  `--fs-body`; code reads `--fs-body-compact`. `npm run audit:reading-size`
+  lists every component's role at every venue.
 - **Using `--fs-meta` to fit more body text.** If you find yourself
   reaching for `--fs-meta` to compress a paragraph, the slide has too
   much content — split it. Never shrink prose to fit.
@@ -260,24 +267,41 @@ var(--fs-scale))`, and so on. (The `1cqi` is wrapped in
 slide width in iframe/VS Code previews, not the editor viewport — see
 `engineering/gotchas.md` "Section geometry AND body font … look wrong". The
 fallback keeps the canonical/print render identical.) The three documented between-token raw-cqi sites (§4) carry it
-too. Raising it scales the readable sizes **in lockstep** — body,
+too. Raising it scales **every role in lockstep** — titles (h1, h2), body,
 supporting headings (h3–h6), hero, chrome (pagination / footer / eyebrow)
 — so the tuned proportions are preserved; only the magnitude moves.
 
-### `--fs-h1` and `--fs-h2` are exempt
+### Every role scales, titles included (since 2026-09-29)
 
-Ten of the twelve tokens scale. **`--fs-h1` (48 pt) and `--fs-h2` (28 pt)
-stay fixed** — they're left as plain literals, outside the multiplier.
-That tier is the *dominant display* role: the deck title, the standard
-slide title, and the KPI/stats headline numbers and table/chart column
-headers that reuse those two tokens (see §3 and the consumer list in the
-token CSS). It is already large enough to carry the back of the room, and
-scaling it too is what makes titles balloon past the safe area or wrap to
-a second line. So the rule is: **the big stuff holds its designed size;
-the small, readable stuff grows toward it.** At `scale-2xl` a 16 pt body
-(→ 24 pt) closes most of the gap to a 28 pt h2 — the title still leads,
-but no longer by 12 pt. If you genuinely need a bigger *title*, that's a
-per-element token choice (h1 vs h2), not a job for the global scale.
+Until 2026-09-29 **`--fs-h1` and `--fs-h2` held their designed size** (48 / 28 pt) while
+everything else grew, on the reasoning that titles are big enough for the back row and
+that scaling them makes them wrap. The cost showed at the larger venues: display text kept
+growing past the title it sits under, so at `hall` a 34.5 pt `h3`, 31.5 pt lead lines and
+a 45 pt Key Insight all outranked a 28 pt slide title. The owner ruled for proportions
+over wrapping: **every role scales**, so the ladder at every venue is the laptop ladder
+multiplied (`NO_FS_SCALE` in `lib/typography/scale.js` is empty).
+
+The measured cost, on the #2361 talk at `hall`: slide titles that wrap to two lines went
+from 5 to 58 of 83, and clipped pages from 49 to 54. List, table and card budgets at hall
+were unchanged at their authored lengths. A title that wraps at a large venue is the cue
+to shorten it. Record: `engineering/decisions/2026-09-29-one-reading-size-per-venue.md` §8.
+
+### The ladder per venue (measured, pt at the 1280×720 slide)
+
+| Role | laptop | huddle | conference | hall |
+|---|---|---|---|---|
+| `--fs-hero` | 86.0 | 98.9 | 111.8 | 129.0 |
+| `--fs-h1` | 48.0 | 55.2 | 62.4 | 72.0 |
+| `--fs-emphasis` | 30.0 | 34.5 | 39.0 | 45.0 |
+| `--fs-h2` (slide title) | 28.0 | 32.2 | 36.4 | 42.0 |
+| `--fs-h3` | 23.0 | 26.4 | 29.9 | 34.5 |
+| `--fs-message` / `--fs-h4` | 21.0 | 24.2 | 27.3 | 31.5 |
+| **`--fs-body` / `--fs-h5` (reading text)** | **16.0** | **18.4** | **20.8** | **24.0** |
+| `--fs-body-compact` (code, support lines, chart keys) | 13.4 | 15.5 | 20.1 | 23.0 |
+| `--fs-meta` / `--fs-h6` (labels) | 11.2 | 12.9 | 16.8 | 21.9 |
+
+Each role sits above the one below it at every venue. The two lifts (next section) are
+why the bottom three rows do not scale by exactly the venue step.
 
 ### What scales, what holds, what's independent
 
@@ -286,15 +310,15 @@ emulator paths):
 
 - **Scales** (rides `--fs-scale`): body prose, lists, cards; supporting
   headings h3–h6; the hero / big-number tier (`--fs-hero`); chrome
-  (pagination, footer, eyebrow); **table** cells (`--fs-body-compact`) and
-  headers (`--fs-meta`), including plain markdown tables (`--fs-body`);
+  (pagination, footer, eyebrow); **table** cells (`--fs-body`) and
+  headers (`--fs-meta`), including plain markdown tables;
   **code** blocks; **quote/blockquote** body text; **KaTeX math** (its
   `em`-relative sizing is anchored to the scaling container font-size);
   chart legends and token-styled labels.
-- **Holds its designed size** (the h1/h2 exemption above): slide titles;
-  the KPI/stats headline numbers and panel metrics that reuse
-  `--fs-h1`/`--fs-h2`; the decorative quote marks; `list-tabular`'s large
-  index numerals; a chart's big value.
+- **Holds its designed size**: nothing that rides a role token since 2026-09-29 — slide
+  titles, the KPI/stats headline numbers and panel metrics that reuse `--fs-h1`/`--fs-h2`
+  scale with the rest. Values set in raw `cqi` outside the roles (a decorative quote mark,
+  a chart's big value) still hold.
 - **Independent of the scale** (rendered to SVG by its own engine):
   **Mermaid diagrams.** Mermaid sizes its node/edge labels itself (px
   baked into the emitted SVG via `themeVariables`), so a scaled slide
@@ -349,16 +373,16 @@ way to set the scale: an author knows the room, not the multiplier the back row 
 venue: conference   # laptop (default) · huddle · conference · hall
 ```
 
-| `venue:` | Who is watching | Back row, in screen-heights | Type step | Label lift | Body x-height at the back row |
-|---|---|---|---|---|---|
-| `laptop` *(default)* | You on your own screen: a PDF or a handout | ≤ 3 | 1x | — | ~17′ |
-| `huddle` | 4–6 people around a TV | ~4.5 | 1.15x | — | ~13′ |
-| `conference` | 10–30 people, a large TV or projector | 5–7 | 1.3x | 1.15x | ~11′ |
-| `hall` | 50–2,000 people, a stage screen | 7–10 | 1.5x | 1.3x | ~10′ |
+| `venue:` | Who is watching | Back row, in screen-heights | Type step | Label lift | Code lift | Body x-height at the back row |
+|---|---|---|---|---|---|---|
+| `laptop` *(default)* | You on your own screen: a PDF or a handout | ≤ 3 | 1x | — | — | ~17′ |
+| `huddle` | 4–6 people around a TV | ~4.5 | 1.15x | — | — | ~13′ |
+| `conference` | 10–30 people, a large TV or projector | 5–7 | 1.3x | 1.15x | 1.15x | ~11′ |
+| `hall` | 50–2,000 people, a stage screen | 7–10 | 1.5x | 1.3x | 1.14x | ~10′ |
 
 `lib/core/resolve-venue.js` maps each venue to a class (`venue-huddle`,
 `venue-conference`, `venue-hall`; `laptop` stamps none), and `base.modifiers.css` gives
-each class its `--fs-scale` rung and its `--venue-meta-lift`. A per-slide `venue-*`
+each class its `--fs-scale` rung, its `--venue-meta-lift` and its `--venue-compact-lift`. A per-slide `venue-*`
 overrides the deck's, and a slide can still carry `scale-*`, which wins over the venue's
 rung (the venue rules come first in the file) while the label lift stays.
 
@@ -384,6 +408,13 @@ its x-height about half that. The meta role (labels, captions, header, page numb
 band's typical `k`; the label lift is the one that keeps meta at about 8′ or more there
 while staying under the body (0.81 of body at `conference`, 0.91 at `hall`).
 
+**The code lift keeps labels from out-sizing the data beside them** (owner ruling
+2026-09-29). The label lift alone put labels (21.9 pt at hall) above code and support
+lines (20.2 pt). So `--fs-body-compact` takes its own lift: the label lift at `conference`
+(1.15x), and 1.14x at `hall`, the most that keeps it under body text (the label's 1.3x
+would put code at 26.2 pt over a 24.0 pt body). The code pane's line and column budgets at
+those venues are measured with it.
+
 **`hall` cannot get there on size alone.** At 8 screen-heights even 1.5x leaves body text
 near 10′. The answer is fewer words per slide, which is why `lint:deck`'s budget
 message suggests a statement, big-number or divider slide at `hall`.
@@ -391,7 +422,8 @@ message suggests a statement, big-number or divider slide at `hall`.
 **What a venue changes, all at once:**
 
 - the type step (the rung above);
-- the label lift (`--venue-meta-lift`, a factor on the meta role only; 1 elsewhere);
+- the label lift (`--venue-meta-lift`, a factor on the meta and h6 roles; 1 elsewhere);
+- the code lift (`--venue-compact-lift`, a factor on the body-compact role; 1 elsewhere);
 - `capacity-scale` warns on a slide past its budget for the room;
 - the fixed-size rule below applies, as it does to any scale.
 
@@ -439,18 +471,21 @@ deck, and it shipped two live bugs. The record, with the numbers, is
   `cards-grid` and `list-steps` in the registers their manifest measures (`venueCapacity.panel`
   and `venueCapacity.rows`), are judged by the LINES their text wraps to rather than by a count,
   because an item's line breaks decide whether it fits (the decision record's Amendments (6) and
-  (7)).
+  (7)). A `code` or `compare-code` pane reads the row measured under as many heading lines as the
+  slide's heading wraps to, and `glossary` and `list-tabular` read an item's length in
+  characters, with an eyebrow's measured cost (Amendment (8)). `tools/score-venue-lint.js` scores
+  the rule against the export's clips on any deck.
 
 Code keeps scaling, and its line cap scales with it: at a wide @size the pane holds 15 /
 13 / 11 / 10 lines at 1 / l / xl / 2xl (13 / 11 / 10 / 8 under an eyebrow), and
-`floor(102 / s)` columns. See `engineering/decisions/2026-09-25-font-scale-fit.md`.
+`floor(102 / (s × lift))` columns, where the lift is the code role's venue lift (1 / 1 / 1.15 / 1.14). See `engineering/decisions/2026-09-25-font-scale-fit.md`.
 
 ### One size across modifiers — spacing may change, a type role may not
 
 One size per deck holds only if nothing on a single slide changes a type role's size. So
 **a per-slide class may change spacing, chrome and color, never the size of a type role**:
 
-- A role token (`--fs-*`, and the label lift `--venue-meta-lift`) is declared only on
+- A role token (`--fs-*`, and the lifts `--venue-meta-lift` / `--venue-compact-lift`) is declared only on
   `:root` / `section` in a `*.tokens.css` file or by a venue / scale rung (`section.venue-*`,
   `section.scale-*`). The rung is the one carve-out: a spot `_class: scale-xl` (above) still
   sets one slide apart; `lint:deck` names it (`spot-scale`: a warning for a spot `venue-*`, a note for a spot `scale-*`).
@@ -459,8 +494,7 @@ One size per deck holds only if nothing on a single slide changes a type role's 
   Pseudo-elements (a state stamp's label, a drawn mark) are chrome and are exempt.
 - A component's OWN variant may assign its elements to roles (`list principles` sets rows in
   `--fs-emphasis`): that is a different layout, and each role still has one size per deck.
-  The dense-cell step (`--fs-body-compact` in tables and ledgers) is a role for the same
-  reason.
+  Code's step down (`--fs-body-compact`) is a role for the same reason.
 
 `checkTypeSizeModifiers` in `tools/check-ownership.js` enforces it in `build:check`, budget 0,
 with `SANCTIONED_TYPE_SIZE_MODIFIERS` for the provably size-neutral — each with its reason.
@@ -468,6 +502,55 @@ with `SANCTIONED_TYPE_SIZE_MODIFIERS` for the provably size-neutral — each wit
 they tighten spacing only, so a fifth q-and-a pair needs `compact` and a sixth needs a new
 slide. The audit is in `engineering/decisions/2026-09-25-font-scale-fit.md`, Amendment
 2026-09-27 (2).
+
+### One reading size — every component reads at `--fs-body`
+
+The venue multiplies every role by one factor, so it cannot make two components agree: if
+a list reads at `--fs-message` and a table at `--fs-body-compact`, a deck shows two reading
+sizes at every venue. So **every component's reading text is `--fs-body`** (owner ruling
+2026-09-29): 16 / 18.4 / 20.8 / 24.0 pt at laptop / huddle / conference / hall.
+
+| Venue | Reading text | Code |
+|---|---|---|
+| `laptop` | 16 pt | 13.5 pt |
+| `huddle` | 18.4 pt | 15.5 pt |
+| `conference` | 20.8 pt | 20.1 pt |
+| `hall` | 24.0 pt | 23.0 pt |
+
+The named exceptions, each reading at its own role on purpose: display components (title,
+divider, quote, big-number, closing, topic, stats, kpi); display registers (`list principles`,
+`list-steps ghost`, `q-and-a solo`, `image statement`, `citation-card margin` and
+`pull-quote`); one lead sentence per slide (split-panel claim, premise lead, scene and video
+lead lines, policy-recommendation's impact line and quote, inventory's callout band and pull
+line); text a chart draws (SVG labels, HTML chart keys and legends); label boards (kanban,
+logo-wall, obligation-matrix); fixed cards (contact, wifi); code; and **support lines**, which
+read one step below the row they support (a list item's detail line, `content`'s sub-bullets,
+split-panel `proof` / `capstone` supporting lines, a timeline-list milestone's description —
+owner ruling 2026-09-29). The rule holds in every family and finish, not only the wide
+default: portrait `decision`, `compare-prose` and `roadmap horizons` read at `--fs-body`, and
+so does the `sketch` finish's split-panel. A generated `glossary: auto` appendix pages itself
+by the glossary's measured budget for the venue, so a long one no longer clips.
+
+Three things keep it that way:
+
+- **`build:check` counts the smaller roles.** Every `var(--fs-message)` and
+  `var(--fs-body-compact)` in engine CSS is counted per file against
+  `SANCTIONED_READING_ROLE` in `tools/check-ownership.js`, which names the exception each
+  use falls under. That list is the one place the exceptions are enumerated. A new use
+  fails the build until it is sanctioned with its reason, and a sanction nothing uses fails
+  as stale.
+- **`npm run audit:reading-size`** renders every component at the four venues, prints
+  component × venue → pt, lists the exceptions apart so each venue's reading line holds one
+  value, and lists slides with most of their text at `--fs-meta` (MOSTLY AT THE CHROME
+  SIZE). That last list is where reading text set at the chrome size shows up, which the
+  count above cannot see.
+- **`lint:deck` counts rows at laptop** for `list-tabular`, `glossary`, `premise` and
+  `timeline-list` on a 16:9 deck, by each one's measured laptop row (`LAPTOP_JUDGED` in
+  lint-core); the first two have no `capacity` block, and the other two hold fewer long rows
+  than their `hard`.
+
+The record, with the measured capacity cost of each option:
+`engineering/decisions/2026-09-29-one-reading-size-per-venue.md`.
 
 ### When NOT to use it
 

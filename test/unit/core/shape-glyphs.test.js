@@ -212,25 +212,22 @@ describe('shape-glyphs — engine JS render sites stay drawn', () => {
   // module, and the heuristic that could not tell them apart cried wolf on a
   // Symbol() sentinel's trailing comment when this gate was first drafted.
   //
-  // These two modules are the ones that genuinely wrote a shape into rendered
+  // These modules are the ones that genuinely wrote a shape into rendered
   // markup, so they are pinned here by CONTENT rather than by count. Each
   // surviving line is recorded verbatim, so the test says what is still typed
   // and fails the moment a new one appears OR a recorded one changes shape —
   // which a count could not distinguish from a fix.
   //
-  // Why they survive, and what it would take: both write their glyph into an
+  // (The state chart's `inline` chip was one; state chart v2 draws its arrow with
+  // the `--shape-arrow-right` / `--shape-refresh` masks.)
+  //
+  // Why they survive, and what it would take: they write their glyph into an
   // HTML attribute or a text node rather than a `content:` declaration, so
   // drawing them needs a MARKUP change to a shared chart transform (with the
   // three render paths kept in parity), not a CSS swap. Recorded as named
   // follow-up work in engineering/decisions/2026-08-25-typed-glyphs.md
   // § "What is still typed, and why".
   const PINNED = {
-    'lib/components/chart/state-chart/state-chart.transform.js': [
-      // A template literal (with `\${` escaped) rather than a plain string: the
-      // recorded line contains a placeholder, and a plain string holding one
-      // reads as a mistake to every linter that looks.
-      `const dest = t.isSelf ? '\u21ba' : \`\u2192 \${t.to}\`;`,
-    ],
     // The matrix-grid axis arrows moved here with the rest of that chart's
     // kernel when chart-family.js stopped holding per-chart code (LPM Phase 1);
     // the glyphs are unchanged, only the file that holds them.

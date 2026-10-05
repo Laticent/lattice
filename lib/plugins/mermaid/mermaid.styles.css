@@ -1,0 +1,1292 @@
+/* lib/plugins/mermaid/mermaid.styles.css — the Mermaid plugin's stylesheet: Mermaid SVG
+ * selectors, palette-blind (`contributes.styles`; every var(--…) read here is listed in the
+ * manifest's `tokens`, which the resolver checks).
+ *
+ * Extracted from lib/_legacy.css in Phase 7 of the destination map; lived at
+ * lib/integrations/mermaid/mermaid.css until plugin-system phase D's browser half.
+ *
+ * Two blocks combined:
+ *   1. Mermaid wrapper chrome — .mermaid-svg (CLI path) + the runtime
+ *      <pre is="marp-pre"><code class="language-mermaid"> upgrade
+ *      sibling <div class="mermaid"> handling.
+ *   2. DIAGRAM OVERRIDES — per-diagram CSS overrides for Mermaid-emitted
+ *      SVG (flowchart, journey, mindmap, gitgraph, treemap, c4, venn,
+ *      ishikawa, sankey, packet, architecture, er). Every rule addresses
+ *      a real Mermaid behavior (hardcoded internal palettes, ignored
+ *      themeVariables, missing class hooks). All color tokens consumed
+ *      are --cN-light/--cN-dark plus the structural --diagram-* tokens.
+ *
+ * Bundle position: the PLUGIN SLOT near the end of the bundle (tools/build-css.js, in the
+ * resolver's order — after the math and function-plot sheets, whose selectors match none of
+ * Mermaid's SVG; before the print textures, which must override its fills). Mermaid SVG
+ * selectors are unique (.flowchart-link, g.actor, .er-relationshipLabel,
+ * etc.) and don't compete with component or modifier rules — cascade
+ * position is structural, not semantic.
+ */
+
+/* ── Mermaid ── */
+/* .mermaid-svg = CLI path (lattice.js pre-renders into a wrapper).
+   Runtime path (lattice-runtime.js) does NOT wrap the original
+   `<pre is="marp-pre"><code class="language-mermaid">`. Marp's <pre> is
+   a direct flex child of <section> with auto-scaling — wrapping it
+   broke that. Instead the runtime marks state on the <pre> itself and
+   inserts a sibling `<div class="mermaid">` (SVG target) and, on
+   failure, a sibling `<div class="mermaid-error">`. */
+.mermaid-svg                             { display:flex; align-items:safe center; justify-content:safe center; width:100%; flex:1; min-height:0; overflow:hidden; }
+/* `> .cell-stage > .mermaid`: since diagram opted into `conformance:"strict"`
+ * (model-driven frame render §4), the masthead kernel now wraps the diagram body
+ * — the source `<pre>` AND the runtime-inserted `.mermaid` sibling next to it —
+ * into the frame's `.cell-stage` cell. On the RUNTIME/DOM path the `.mermaid`
+ * SVG-target div therefore lands INSIDE `.cell-stage`, so the direct-child rule
+ * needs the wrapped arm too. The bare `section.diagram > .mermaid` arm stays for
+ * an unwrapped slide. */
+section.diagram > .mermaid,
+section.diagram > .cell-stage > .mermaid { display:flex; align-items:safe center; justify-content:safe center; width:100%; flex:1; min-height:0; overflow:hidden; }
+.mermaid-svg svg,
+section.diagram > .mermaid svg,
+section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:100% !important; height:100% !important; max-height:100% !important; display:block; }
+
+/* ── THE RE-HOSTED FIGURE (Read · Article): DELIBERATELY NO SIZING ARM ──
+ * The prose projection lifts the bare `<svg>` out of the slide into a `<figure>`, so none
+ * of the three selectors above reach it. That looks like a missing arm. It is not one, and
+ * this comment is here so the next session does not add it back — that arm was written,
+ * measured, and reverted. This paragraph is the ONE long form; the three article hosts
+ * carry the rule and a pointer here, and `engineering/mermaid.md` §"How big the re-hosted
+ * diagram is" is the doc-side summary.
+ *
+ * WHAT THE ARM DID WRONG: it maximized the diagram. `width:100% !important` in the 1100px
+ * article band drew a 2-node flowchart whose natural size is 238x67 at 1100x310, and a
+ * 141x572 state chart at 1100x702 — labels several times the size of the body text beside
+ * them, one diagram per screen. Filling the box is right on a SLIDE, which hands the
+ * diagram a fixed box; in prose the diagram is a figure, and at natural size its labels
+ * set at the prose size.
+ *
+ * WHAT THE HOSTS DO INSTEAD — the `<img>` contract, one line each:
+ *   figure svg[aria-roledescription] { width:auto; max-width:100% }
+ * `width:auto` takes the diagram's own size, `max-width:100%` scales it DOWN to the column
+ * and never up, and the host's `height:auto` + `max-height` do the same on the other axis.
+ *
+ * `width:auto` AND NOT `width:100%`, because a Mermaid svg root states its natural size in
+ * two shapes and `auto` reads both. The split is not CLI-vs-browser, which an earlier
+ * version of this note claimed: it is FLOWCHART-IN-THE-PREVIEW against everything else.
+ * `lib/runtime/index.js` sets `useMaxWidth:false` in `PREVIEW_ONLY_FLOWCHART` only, so a
+ * browser-rendered flowchart ships `width`/`height` ATTRIBUTES in px and no inline cap
+ * (measured in the Studio pane: 923.671875 x 67, style carries no max-width). Every other
+ * family on that path, and every family on the mmdc path, keeps mermaid's default
+ * `useMaxWidth:true`: `width="100%"` plus an inline `style="max-width:<natural>px"`
+ * (measured: pie 563.344px, sequence 650px in the pane; flowchart 896.438px from mmdc).
+ *
+ * THE VIEWBOX IS THE UNIVERSAL DIMENSION, so no per-family rule is needed. A wide LR
+ * flowchart binds on the column width (the widest in `.scratch/matrix.md` measures aspect
+ * 13.8 in the pane, 8.4 from mmdc — the two paths lay out at different font metrics); a
+ * tall TB one binds on the host's `max-height` and shrinks proportionally (measured:
+ * 141x976 draws at 113x780); a square pie binds on whichever is scarcer.
+ * `preserveAspectRatio` does the rest. Nothing here has to know which family it is looking
+ * at.
+ *
+ * WHY THE RULE IS NOT HERE. The Studio's pane ships no `lattice.css` at all, so nothing
+ * written in this file reaches it — that alone forces a per-host line. Specificity settles
+ * the other two: a rule here reaching the same element as `figure>svg[aria-roledescription]`
+ * is (0,1,2), and it loses to `#lp-article .lp-figure svg` (1,1,1) and to `#lat-read figure
+ * svg` (1,0,2). That is what the reverted arm's `!important` was paying for. (Against the
+ * Studio's own `.st-read-article figure svg`, (0,1,2), it would have TIED and source order
+ * would have decided — moot, since it never arrives.)
+ *
+ * KEYED ON `aria-roledescription`, which every Mermaid family writes on the svg root and
+ * none of our chart SVGs carry — a chart is token-driven and must keep filling its band.
+ * `class` is not usable (null on sequence and pie) and neither is the svg id (`lattice-mmd-N`
+ * from the CLI, `lattice-mermaid-N` from the browser).
+ *
+ * THE FLOOR. The contract above scales down without limit, so a wide LR flowchart drew
+ * 3.4px labels on a phone. The prose-projection kernel now writes natural width, floor
+ * (12/14, for a diagram 2:1 or longer either way) and aspect ratio inline on each diagram
+ * figure, and each host clamps the svg's width between them inside a sideways-scrolling
+ * figure. Same one-rule-per-host shape, same reason it is not here.
+ * `engineering/mermaid.md` §"How big the re-hosted diagram is" has the measurements. */
+
+/* ── A LABEL KEEPS THE TYPE MERMAID MEASURED IT AT ──
+ * Mermaid sizes every node box around its label, measured at the diagram's own font
+ * size (the `#lattice-mmd-N{font-size}` rule mermaid writes into the svg: 14px by default,
+ * or whatever a `%%{init}%%` fontSize sets), then wraps the label
+ * text in a `<p>`. That `<p>` sits inside our slide, so the slide's prose rules reach
+ * it: `section.content p { font-size: var(--fs-body); line-height: var(--lh-relaxed) }`
+ * set it at 21.4px in a box sized for 14px. Measured on an 8-node LR flowchart on a
+ * plain slide: all 8 labels clipped ("Order pl…"), each 1.52x its box in both
+ * directions. The baked article copy then inherited the same 21.4px and, with nothing
+ * clipping it, spilled right of every box.
+ * `content` is the layout a slide gets when it declares none, so this reached every
+ * diagram not on a `_class: diagram` slide, in every family that draws HTML labels
+ * (flowchart, class, state, ER, mindmap, kanban, requirement, block). Reset to the svg's own type, and
+ * `!important` because a deck's prose rule for `p` can out-rank anything scoped here. */
+:is(section, figure) svg[aria-roledescription] foreignObject p {
+  font-size: inherit !important;
+  line-height: inherit !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+/* ── A LABEL TAKES ITS PARENT'S BASELINE, IN WEBKIT TOO ──
+ * Mermaid declares `dominant-baseline` one level ABOVE the glyphs it means to place, and
+ * WebKit does not carry the value down. Two shapes, both measured on the diagram gallery
+ * (WebKit minus Chromium, on a 1280x720 slide):
+ *   - on the `<text>`, with each line in a `<tspan>` — an attribute on sequence `actor`
+ *     (−5.89px) and `noteText` (−3.54px), a rule in mermaid's own `<style>` on
+ *     `ishikawa-label` (−3.27px). SVG 1.1 §10.9.2 and SVG 2 both say a tspan's `auto`
+ *     keeps the parent's baseline; WebKit resolves it to `alphabetic`.
+ *   - on a `<g>` above the `<text>` — architecture service labels (−3.54px), two groups
+ *     up. CSS Inline 3 makes the property inherited and Chromium follows it; WebKit keeps
+ *     SVG 1.1's "not inherited", so the inner `<g>`, then the `<text>`, compute `auto`.
+ *     That is why the rule lists `g` and `a`: `inherit` on the `<text>` alone would copy
+ *     the inner group's `auto`.
+ * Either way the label paints about a third of a font-size high in Safari.
+ *
+ * `inherit`, NOT a repeated value per class as the chart stylesheets do: this markup is
+ * mermaid's, and a class list copied from mermaid 11.14 goes stale on the next upgrade with
+ * nothing to notice. `inherit` names no class, so it covers every family and every future
+ * one. It also cannot move a label in Chromium — there it states exactly what the cascade
+ * already resolves to. Mermaid's own `<style>` rules are scoped by the svg's `#id`, so they
+ * out-specify this one and still win wherever they set a baseline. `:not([dominant-baseline])`
+ * leaves alone a node that states its own baseline as an attribute; author CSS beats a
+ * presentation attribute, so without it this rule would override one. Keyed on
+ * `aria-roledescription` for the reason given above: every mermaid root carries it, and no
+ * chart SVG of ours does.
+ * engineering/decisions/2026-09-22-webkit-tspan-baseline.md §8. */
+:is(section, figure) svg[aria-roledescription] :is(g, a, text, tspan, textPath):not([dominant-baseline]) { dominant-baseline: inherit; }
+
+/* Visibility states keyed off `data-lattice-settle` on the <pre>.
+ *
+ * The source <pre> is hidden for every tagged state except "error".
+ * Keeping it visible while pending/hydrating caused raw Mermaid source to
+ * flash on every preview keystroke (the marp-vscode preview replaces
+ * section DOM on each edit, briefly removing data-lattice-settle before our
+ * runtime re-tags the fresh <pre>). The "error" state still shows the
+ * source so the author can see what failed.
+ *
+ * While pending/hydrating the .mermaid sibling fills the layout slot as an
+ * empty flex container; when rendered it holds the SVG; for "error" and
+ * "unavailable" it is collapsed so the source <pre> has full room.
+ *
+ * TWO STATES SHOW THE SOURCE, not one, and the second is why this rule is a
+ * chain of :not() rather than a single one. "error" is Mermaid rejecting the
+ * DIAGRAM; "unavailable" is the runtime giving up on MERMAID ITSELF — the
+ * script 404'd, a CSP blocked it, the host installed a stub, nothing ever
+ * arrived. Both mean no picture is coming, and in both the source the author
+ * wrote is the honest artifact. Without the second the fence stayed tagged
+ * `pending` forever, and `pending` is hidden — so a failed diagram exported an
+ * EMPTY SLOT, permanently, in a file the author had already downloaded (#2092,
+ * engineering/decisions/2026-09-05-diagram-fence-flash.md §7).
+ *
+ * Chained :not(), not `:not(a, b)`: this stylesheet is inlined into every
+ * exported artifact and rendered by whatever opens that file years from now,
+ * so the Selectors-3 spelling is worth the eight characters.
+ *
+ * Keyed on the plugin host's ONE settle state (`data-lattice-settle`, the attribute every
+ * export capture waits on — lib/plugins/host-browser.mjs), which the runtime writes on the
+ * fence's <pre> beside `data-lattice-hydrate="mermaid"`. The plugin name rides in `:where()`,
+ * which adds no specificity, so every rule here weighs exactly what the old private
+ * `data-mermaid-state` rule weighed — the collapse below is decided by that arithmetic. Only
+ * the runtime tags a <pre>, so these cannot affect unrelated <pre> blocks. */
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle]:not([data-lattice-settle="error"]):not([data-lattice-settle="unavailable"]) { display:none; }
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle="error"]         + .mermaid        { display:none; }
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle="unavailable"]   + .mermaid        { display:none; }
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle="rendered"]      + .mermaid        { display:flex; }
+/* …AND THE SAME COLLAPSE ON A FORM-WRAPPED DIAGRAM SLIDE, which the two rules above
+ * could not reach. `section.diagram > .cell-stage > .mermaid { display:flex; flex:1 }`
+ * (line 39) is (0,3,1); `[data-lattice-settle="error"] + .mermaid` is (0,2,1). So on every
+ * diagram slide since the masthead kernel began wrapping the body in `.cell-stage`, an
+ * EMPTY `.mermaid` box kept `flex:1` and claimed half the stage — while the source <pre>,
+ * also `flex:1`, got the other half. The comment above has promised "full room" for the
+ * error state the whole time; this is the rule that keeps the promise.
+ *
+ * Found by measuring the error state while adding `unavailable` beside it, not by reading
+ * the specificity off the page — the arithmetic is exactly what a review gets wrong.
+ * Driven in test/integration/mermaid/mermaid-unavailable.test.js. */
+section.diagram > :is(pre, marp-pre):where([data-lattice-hydrate="mermaid"]):is([data-lattice-settle="error"], [data-lattice-settle="unavailable"]) + .mermaid,
+section.diagram > .cell-stage > :is(pre, marp-pre):where([data-lattice-hydrate="mermaid"]):is([data-lattice-settle="error"], [data-lattice-settle="unavailable"]) + .mermaid { display:none; }
+
+/* …and BEFORE it is tagged, the fence paints nothing either — in a document that is
+ * injecting a Mermaid renderer, and so has promised something will draw it.
+ *
+ * The three rules above key on `data-lattice-settle`, which exists only once the
+ * runtime has run. Nothing covered the window before that, so a diagram slide painted
+ * its raw Mermaid source and then swapped: measured on the Studio at 10 painted frames
+ * per keystroke on an idle machine, 4 more on every navigation onto the slide, with
+ * the finished SVG in cache the whole time.
+ *
+ * `visibility:hidden` on the CODE, not `display:none` on the <pre>: the <pre> is
+ * already sized to the rendered diagram's slot by the rule below, so withholding only
+ * its ink leaves the slot reserved and nothing on the slide moves when the SVG lands
+ * (measured layout shift: 0). Hiding the box would collapse the slot and reflow twice.
+ *
+ * `[data-lattice-diagrams]` IS THE SAFETY ARGUMENT, and this rule shipped two wrong
+ * versions before it. Hiding the source is only right when something is going to replace
+ * it; in a document that draws no diagram nothing will, and the rule blanked the slide —
+ * including in an EXPORT. `preprocessMermaid` (lattice-emulator.js) matches
+ * ```` ```mermaid ```` and nothing else, so a `~~~mermaid` fence, or one carrying an
+ * info-string, reaches the exported HTML unsubstituted with the runtime stripped.
+ * That renders as raw source: ugly, and the author's only signal that the CLI never
+ * drew their diagram. Unscoped, this rule turned it into an empty slot — verified on
+ * a real export, and an export-bytes regression on an authoring-error surface.
+ *
+ * So the attribute is stamped by the BUILDER, and it names the builder's commitment to a
+ * drawer rather than the runtime's boot mark: a host earns this rule by loading the runtime
+ * FROM A URL into a document that holds a drawn fence — the runtime's plugin host then loads
+ * Mermaid (the plugin's payload) from beside it. (It used to name the Mermaid `<script src>`
+ * the builder injected; no builder injects one now.) `previewDiagramsAttr()` in
+ * docs/src/playground/deck-preview.js is the one place that writes it; the two preview
+ * frames and the Stage window are the callers. A document we did not assemble — a
+ * hand-rolled Marp page, marp-vscode's own preview — never gets it and keeps the old
+ * behavior. It must be in the MARKUP the host writes, not set by script at boot: the
+ * window this covers STARTS at the first paint of a full document write, which is before
+ * any script of ours has run.
+ *
+ * THE FIRST ATTEMPT AT THIS GATE USED `data-lattice-runtime`, AND THAT WAS A DEFECT —
+ * a name `lib/runtime/index.js` has always written on `document.documentElement` at boot.
+ * So the rule turned itself ON in every document the runtime booted in, which is exactly
+ * the set it was meant to spare, and on a host with the runtime but NO Mermaid (the
+ * markdown-preview stub, a 404 on the script, a CSP that blocks it) a fence arriving
+ * after boot was hidden permanently. Driven and confirmed by an independent checker
+ * before this shipped. The runtime was never the right precondition anyway: a fence is
+ * replaced by MERMAID, so that is what the document has to promise.
+ *
+ * NO EXPORT PATH STAMPS: the Studio's offscreen EXPORT capture frame goes through
+ * `buildSrcdoc` with the runtime but passes `diagrams: false` (deck-export.js), because it is
+ * rasterized and a withheld ink would be baked into the file; the desktop print document does
+ * the same; and the player builder re-assembles its document without stamping. So a
+ * DOWNLOADED file still shows the source of anything Mermaid failed to draw.
+ *
+ * Scoped by the LANGUAGE CLASS rather than by `section.diagram`, because an author may
+ * put an ordinary ```js block on a diagram slide and it must still read, and a fence
+ * outside a slide host has the same window. `[class*=…]` covers both the authored
+ * `language-mermaid` and the `language-mermaid-source` the runtime renames it to.
+ * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A. */
+[data-lattice-diagrams] :is(pre, marp-pre):not([data-lattice-settle]) > code[class*="language-mermaid"] { visibility:hidden; }
+
+/* Base (theme-agnostic) styling for the source <pre> in pending/error states.
+ * Structural only: layout, sizing, font, whitespace. No background, no
+ * border, no fill colors — those belong in the per-theme stylesheet
+ * (see `section.diagram > pre` in themes/indaco.css etc.). The selector
+ * pair covers two paths: (1) any pre inside section.diagram (slide host,
+ * styling applies even before the runtime tags it), and (2) any pre
+ * tagged by the runtime in a non-slide host. `:not([data-lattice-settle=
+ * "rendered"])` steps aside once the SVG sibling takes over. */
+section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]),
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle]:not([data-lattice-settle="rendered"]) {
+  margin:0 !important;
+  /* ZERO, not `var(--sp-sm) var(--sp-md)` (#1598). This box paints nothing — the
+   * two lines below take the background and the border away deliberately — so
+   * under the Forms inset rule (design/forms.md §6.1) it owns no inset of its own;
+   * the padding was a leftover of the code-block defaults these !importants exist
+   * to undo. It also contradicted this rule's own stated goal, three lines down:
+   * the slot is supposed to MATCH the rendered `.mermaid` container so the layout
+   * does not reflow when the diagram swaps in, and `.mermaid` has no padding — so
+   * the source text sat 24px inside the diagram that replaces it, and 24px inside
+   * the title above it. Measured on diagram.gallery.md: the un-rendered `<pre>`
+   * now shares one left edge with the dek, the title and the Key Insight.
+   *
+   * BOTH ARMS of this selector are zeroed, including the unscoped
+   * `[data-lattice-settle]` one that reaches a non-slide host (a plain markdown
+   * preview, the Studio's preview frame). That is deliberate and rests on the same
+   * ground, not on the slide context: the two lines below strip the background and
+   * the border on both arms, so the box paints nothing on any host and owes no
+   * inset anywhere. The non-slide arm's own sizing (width/height, below) is
+   * untouched. */
+  padding:0 !important;
+  background:none !important;
+  border:none !important;
+  border-radius:var(--radius-md) !important;
+  overflow:auto;
+  box-sizing:border-box;
+  /* Match the rendered .mermaid container so the slot doesn't reflow when the
+   * diagram swaps in. Slide hosts override via the more-specific
+   * `section.diagram > :is(pre, marp-pre)` rule above (flex:1 + slide width). */
+  width:1152px; height:480px;
+  max-width:100%;
+}
+section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle]:not([data-lattice-settle="rendered"]) > code {
+  font-family:var(--font-mono);
+  font-size:var(--fs-meta);
+  line-height:var(--lh-base);
+  background:none !important;
+  border:none !important;
+  padding:0 !important;
+  display:block;
+  white-space:pre;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * DIAGRAM OVERRIDES (Mermaid-emitted SVG selectors, palette-blind)
+ * ════════════════════════════════════════════════════════════════════════
+ * Per-diagram CSS overrides for Mermaid-emitted SVG. Every rule addresses
+ * a real Mermaid behavior (hardcoded internal palettes, ignored
+ * themeVariables, missing class hooks); none are speculative.
+ *
+ * All color tokens consumed are --cN-light/--cN-dark plus the
+ * structural --diagram-* tokens (stroke, line, state, note, error,
+ * quadrant), declared by the active palette (themes/indaco.css,
+ * themes/cuoio.css, …). Rules are palette-blind: a new palette
+ * automatically picks up these overrides by defining the same token
+ * contract.
+ *
+ * Loaded by every render path as part of lattice.css. The inline SVG
+ * inherits these rules from the page cascade — no Mermaid `themeCSS`
+ * init parameter is used. See engineering/decisions/2026-05-12-diagram-tokens.md
+ * for the architectural rationale.
+ *
+ * Selectors are scoped to `:is(section, figure) ` — the Marp slide root OR a
+ * re-hosted figure (the Read·Article projection lifts the mermaid SVG into a
+ * `<figure>` outside its `<section>`, so a `section `-only guard left the nodes
+ * uncolored/black there). Both arms are element-only (specificity 0,0,1), so the
+ * slide cascade is unchanged; the mermaid class names are unique to a mermaid SVG,
+ * so the `figure` arm can only ever match a mermaid, never leak onto another figure.
+ * Class names verified against rendered SVG output on Mermaid 11.14.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ── TYPE ESCAPE: SEQUENCE AUTONUMBER ──
+ * Every other diagram family takes its face from config — the global
+ * `themeVariables.fontFamily`, or its own block's `*FontFamily` keys, which
+ * `perDiagramFonts` fills in (lib/integrations/mermaid/init-directive.js).
+ * `autonumber` is the one label mermaid hard-codes past all of it: the bubble's
+ * <text> is written with a `font-family="sans-serif"` PRESENTATION ATTRIBUTE
+ * (mermaid/dist/chunks/mermaid.core/sequenceDiagram-*.mjs, `.attr("font-family",
+ * "sans-serif")`), so no config key can reach it. A presentation attribute loses to
+ * any CSS rule, so one element-specificity rule is the whole fix, and it is a rule
+ * rather than a config change because there is no config to change.
+ *
+ * It surfaced when tools/check-diagram-labels.js started comparing each label
+ * against its own slide's --font-body instead of a denylist of famous default face
+ * names: two labels per autonumbered sequence on a `mode: sketch` deck were in
+ * generic sans-serif while every other word on the slide was hand-drawn. */
+:is(section, figure) text.sequenceNumber { font-family: var(--font-body); }
+
+/* ── DIAGRAM TITLE SUPPRESSION ──
+ * The slide's `## heading` is the canonical title. Hide Mermaid's own
+ * title (frontmatter `title:` or in-body `title`) so the audience sees one
+ * source of truth, not two. Known gap: sequence, journey, C4, quadrant,
+ * timeline, xy-chart render bare <text> titles with no class — those
+ * cannot be class-targeted from CSS and will still render.
+ */
+:is(section, figure) .titleText,
+:is(section, figure) .pieTitleText,
+:is(section, figure) .radarTitle,
+:is(section, figure) .packetTitle,
+:is(section, figure) [class$="TitleText"] { display: none; }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * RADAR (radar-beta)
+ * ──────────────────────────────────────────────────────────────────────
+ * Mermaid's radar ships its curves gray with no per-curve theme hook, so we
+ * paint them from the engine `--cN` categorical palette — like the band cycle
+ * — giving each series a distinct, theme-flavored color, extensible to eight
+ * curves (not the two brand accents this used to hard-code). `--cN-dark` is the
+ * saturated stroke tone that flips per canvas (vivid on light, pale on dark).
+ * Moved here from radar.styles.css (the NATIVE radar component): this is
+ * Mermaid output and belongs with the diagram overrides. `!important` beats
+ * Mermaid's auto-emitted inline CSS. (`.radarTitle` is suppressed above.)
+ * LOAD-BEARING — render-verified 2026-06-18: stripping ANY radar `!important`
+ * group regresses the override (curve fills AE≈230k, axis/graticule AE≈270k vs
+ * baseline). These are NOT a removal target; Mermaid's inline styles only yield
+ * to `!important`. See engineering/decisions/2026-06-18-chart-mermaid-style-separation.md.
+ */
+:is(section, figure) .radarGraticule {
+  /* Decorative background grid, NOT a category — stays a flat tint (a texture
+     pattern here reads as speckle behind the plot). Universal texture channel
+     deliberately skipped. See 2026-07-16-universal-texture-channel.md. */
+  fill: var(--cat-1-fill) !important;
+  fill-opacity: 0.25 !important;
+  stroke: var(--diagram-stroke) !important;
+  stroke-opacity: 0.20 !important;
+  stroke-width: 1 !important;
+}
+:is(section, figure) .radarAxisLine {
+  stroke: var(--diagram-stroke) !important;
+  stroke-width: 1.5 !important;
+  stroke-opacity: 0.5 !important;
+}
+:is(section, figure) .radarAxisLabel {
+  fill: var(--text-heading) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+:is(section, figure) .radarLegendText { fill: var(--text-heading) !important; }
+:is(section, figure) .radarCurve-0, :is(section, figure) .radarCurve-1, :is(section, figure) .radarCurve-2, :is(section, figure) .radarCurve-3,
+:is(section, figure) .radarCurve-4, :is(section, figure) .radarCurve-5, :is(section, figure) .radarCurve-6, :is(section, figure) .radarCurve-7 {
+  fill-opacity: 0.28 !important;
+  stroke-width: 2.5 !important;
+}
+:is(section, figure) .radarCurve-0 { fill: var(--cat-1-mark) !important; stroke: var(--cat-1-mark) !important; }
+:is(section, figure) .radarCurve-1 { fill: var(--cat-2-mark) !important; stroke: var(--cat-2-mark) !important; }
+:is(section, figure) .radarCurve-2 { fill: var(--cat-3-mark) !important; stroke: var(--cat-3-mark) !important; }
+:is(section, figure) .radarCurve-3 { fill: var(--cat-4-mark) !important; stroke: var(--cat-4-mark) !important; }
+:is(section, figure) .radarCurve-4 { fill: var(--cat-5-mark) !important; stroke: var(--cat-5-mark) !important; }
+:is(section, figure) .radarCurve-5 { fill: var(--cat-6-mark) !important; stroke: var(--cat-6-mark) !important; }
+:is(section, figure) .radarCurve-6 { fill: var(--cat-7-mark) !important; stroke: var(--cat-7-mark) !important; }
+:is(section, figure) .radarCurve-7 { fill: var(--cat-8-mark) !important; stroke: var(--cat-8-mark) !important; }
+:is(section, figure) .radarLegendBox-0 { fill: var(--cat-1-mark) !important; }
+:is(section, figure) .radarLegendBox-1 { fill: var(--cat-2-mark) !important; }
+:is(section, figure) .radarLegendBox-2 { fill: var(--cat-3-mark) !important; }
+:is(section, figure) .radarLegendBox-3 { fill: var(--cat-4-mark) !important; }
+:is(section, figure) .radarLegendBox-4 { fill: var(--cat-5-mark) !important; }
+:is(section, figure) .radarLegendBox-5 { fill: var(--cat-6-mark) !important; }
+:is(section, figure) .radarLegendBox-6 { fill: var(--cat-7-mark) !important; }
+:is(section, figure) .radarLegendBox-7 { fill: var(--cat-8-mark) !important; }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * EDGE LABELS — ink that pairs with the CANVAS, not with a node chip
+ * ──────────────────────────────────────────────────────────────────────
+ * Mermaid paints node labels and edge labels from ONE rule —
+ * `#<id> .label text, #<id> span { fill: nodeTextColor; color: … }` — so no
+ * themeVariable can serve both. They sit on opposite surfaces: a node label
+ * on a categorical chip, an edge label on `edgeLabelBackground` (= --bg).
+ *
+ * On 27 palettes that is invisible, because `--cat-on-fill` is declared as
+ * `var(--text-heading)` and one value happens to suit both. The `a11y-*`
+ * family PINS its categorical tier mode-invariant — fixed pale chips
+ * carrying CVD-safe textures — while the canvas still flips, so in a dark
+ * context `--cat-on-fill` is #000000 (right, on those pale chips) and --bg
+ * is #000000 too. Flowchart edge labels rendered black on black and
+ * disappeared outright; verified on a11y-deuteranopia.
+ *
+ * CSS is the only instrument that can tell the two apart, and it has to
+ * out-specify Mermaid's own ID-scoped rule, hence `!important`. The chip
+ * itself is left as Mermaid draws it (a 50%-opacity --bg wash); only the
+ * ink is re-paired, to the token that tracks the canvas.
+ */
+:is(section, figure) .edgeLabel,
+:is(section, figure) .edgeLabel p,
+:is(section, figure) .edgeLabel span,
+:is(section, figure) .edgeLabels .label span {
+  color: var(--text-heading) !important;
+}
+:is(section, figure) .edgeLabel text,
+:is(section, figure) .edgeLabels .label text {
+  fill: var(--text-heading) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * CONTAINMENT BOX — the subgraph cluster's corner
+ * ──────────────────────────────────────────────────────────────────────
+ * A subgraph box is a containment SURFACE — the same role a Lattice card
+ * plays — and it was the one such surface in the system with square
+ * corners. `border-radius` does nothing to an SVG <rect>; rounding is
+ * `rx`/`ry`, and Chromium accepts those as CSS geometry properties, which
+ * is what lets ONE rule reach both render paths: the mmdc-produced SVG is
+ * embedded inline in the exported HTML, so the same bundle cascades onto
+ * it that the live preview already applies. Mermaid offers no cluster-`rx`
+ * config for flowcharts (`node.rx` is undefined for a subgraph, so the
+ * attribute is never written), so CSS is not merely convenient here — it
+ * is the only lever. Nothing is being overridden: there is no presentation
+ * attribute to beat.
+ *
+ * See --diagram-cluster-radius in lib/base/base.tokens.css for why the
+ * value is in SVG user space rather than on the `cqi` radius scale.
+ *
+ * SCOPED TO THE CONTAINMENT TIER, deliberately. A `.section-N` cluster is
+ * painted from the CATEGORICAL band by the cycle below, not from
+ * `--c-container` — a different tier, and Mermaid already rounds those
+ * itself at rx=5. Whether they should adopt this radius too is a live
+ * question for a human, not an assumption to bury in a selector, so they
+ * are left exactly as they render today.
+ *
+ * WHAT ACTUALLY EMITS `g.cluster`, enumerated from rendered output rather
+ * than guessed: a flowchart `subgraph` (`cluster`), a classDiagram
+ * `namespace` (`cluster undefined` — so it rounds too), and kanban
+ * (`cluster undefined section-N` — excluded). Timeline and mindmap emit no
+ * `g.cluster` at all, and a stateDiagram composite is `statediagram-cluster`,
+ * which is a different class token and never matched here.
+ *
+ * `[class*="section-"]` is a SUBSTRING test where the band cycle below uses
+ * a class TOKEN. An author `classDef` named `section-…` on a flowchart
+ * subgraph would therefore lose the rounding. Left as-is rather than
+ * hand-rolled into a token match: `:not()` takes no substring-safe form
+ * without repeating the selector per band index, and the failure is a
+ * missing corner, not a wrong one.
+ */
+:is(section, figure) g.cluster:not([class*="section-"]) > rect {
+  rx: var(--diagram-cluster-radius);
+  ry: var(--diagram-cluster-radius);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * BAND CYCLE — sections / clusters / category panels
+ * ──────────────────────────────────────────────────────────────────────
+ * The `.section-N` class is emitted by timeline, kanban, mindmap, and
+ * (indirectly via journey-style cycles) every diagram that uses Mermaid's
+ * categorical cluster scheme. Mermaid's own auto-emitted CSS uses the
+ * same selector but indexes from 0..N for sections counted from 1; the
+ * timeline renderer additionally offsets `f = r % h - 1`, so the first
+ * timeline period gets `section--1` (literal double-dash) which Mermaid
+ * NEVER styles. We cover `section--1` plus `section-0..section-11` here
+ * so every diagram type lands on a tested-contrast band.
+ */
+:is(section, figure) .cluster.section--1 rect, :is(section, figure) .section--1 rect,
+:is(section, figure) .section--1 path, :is(section, figure) .section--1 circle { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section--1 text, :is(section, figure) .section--1 tspan, :is(section, figure) .section--1 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-0 rect, :is(section, figure) .section-0 rect,
+:is(section, figure) .section-0 path, :is(section, figure) .section-0 circle { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-0 text, :is(section, figure) .section-0 tspan, :is(section, figure) .section-0 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-1 rect, :is(section, figure) .section-1 rect,
+:is(section, figure) .section-1 path, :is(section, figure) .section-1 circle { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-1 text, :is(section, figure) .section-1 tspan, :is(section, figure) .section-1 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-2 rect, :is(section, figure) .section-2 rect,
+:is(section, figure) .section-2 path, :is(section, figure) .section-2 circle { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-2 text, :is(section, figure) .section-2 tspan, :is(section, figure) .section-2 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-3 rect, :is(section, figure) .section-3 rect,
+:is(section, figure) .section-3 path, :is(section, figure) .section-3 circle { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-3 text, :is(section, figure) .section-3 tspan, :is(section, figure) .section-3 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-4 rect, :is(section, figure) .section-4 rect,
+:is(section, figure) .section-4 path, :is(section, figure) .section-4 circle { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-4 text, :is(section, figure) .section-4 tspan, :is(section, figure) .section-4 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-5 rect, :is(section, figure) .section-5 rect,
+:is(section, figure) .section-5 path, :is(section, figure) .section-5 circle { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-5 text, :is(section, figure) .section-5 tspan, :is(section, figure) .section-5 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-6 rect, :is(section, figure) .section-6 rect,
+:is(section, figure) .section-6 path, :is(section, figure) .section-6 circle { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-6 text, :is(section, figure) .section-6 tspan, :is(section, figure) .section-6 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-7 rect, :is(section, figure) .section-7 rect,
+:is(section, figure) .section-7 path, :is(section, figure) .section-7 circle { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-7 text, :is(section, figure) .section-7 tspan, :is(section, figure) .section-7 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-8 rect, :is(section, figure) .section-8 rect,
+:is(section, figure) .section-8 path, :is(section, figure) .section-8 circle { fill: var(--cat-9-texture, var(--cat-9-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-8 text, :is(section, figure) .section-8 tspan, :is(section, figure) .section-8 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-9 rect, :is(section, figure) .section-9 rect,
+:is(section, figure) .section-9 path, :is(section, figure) .section-9 circle { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-9 text, :is(section, figure) .section-9 tspan, :is(section, figure) .section-9 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-10 rect, :is(section, figure) .section-10 rect,
+:is(section, figure) .section-10 path, :is(section, figure) .section-10 circle { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-10 text, :is(section, figure) .section-10 tspan, :is(section, figure) .section-10 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .cluster.section-11 rect, :is(section, figure) .section-11 rect,
+:is(section, figure) .section-11 path, :is(section, figure) .section-11 circle { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-11 text, :is(section, figure) .section-11 tspan, :is(section, figure) .section-11 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+
+
+
+
+
+/* ── FLOWCHART NODE FILL COVERAGE ──
+ * Extends Mermaid default to label-container and outer-path shapes.
+ */
+:is(section, figure) .node .label-container,
+:is(section, figure) .node .basic.label-container,
+:is(section, figure) .node .outer-path {
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
+  stroke: var(--diagram-stroke) !important;
+}
+
+/* ── JOURNEY ──
+ * Journey ignores cScale entirely; its renderer hardcodes X11 named
+ * colors (#191970 midnight blue, etc.). Mermaid emits parallel class
+ * cycles on section bars (`.section-type-N`) and on the tasks that fall
+ * inside them (`.task-type-N`), where N is the SECTION index in source
+ * order — not the emotion score (the score drives stroke / avatar
+ * placement instead). Pair the section bar and its tasks on the same
+ * band so each phase reads as one colored strip from header to last
+ * task. Legacy classes (.section0/.task0 from pre-11 versions) included
+ * so older renders inherit the same contract.
+ */
+:is(section, figure) .section-type-0 rect, :is(section, figure) .section0 rect,
+:is(section, figure) .task-type-0 rect,    section .task0 rect    { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
+:is(section, figure) .section-type-0 text, :is(section, figure) .section0 text,
+:is(section, figure) .task-type-0 text,    section .task0 text    { fill: var(--cat-on-fill) !important; }
+
+:is(section, figure) .section-type-1 rect, :is(section, figure) .section1 rect,
+:is(section, figure) .task-type-1 rect,    section .task1 rect    { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; }
+:is(section, figure) .section-type-1 text, :is(section, figure) .section1 text,
+:is(section, figure) .task-type-1 text,    section .task1 text    { fill: var(--cat-on-fill) !important; }
+
+:is(section, figure) .section-type-2 rect, :is(section, figure) .section2 rect,
+:is(section, figure) .task-type-2 rect,    section .task2 rect    { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; }
+:is(section, figure) .section-type-2 text, :is(section, figure) .section2 text,
+:is(section, figure) .task-type-2 text,    section .task2 text    { fill: var(--cat-on-fill) !important; }
+
+:is(section, figure) .section-type-3 rect, :is(section, figure) .task-type-3 rect { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; }
+:is(section, figure) .section-type-3 text, :is(section, figure) .task-type-3 text { fill: var(--cat-on-fill) !important; }
+:is(section, figure) .section-type-4 rect, :is(section, figure) .task-type-4 rect { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; }
+:is(section, figure) .section-type-4 text, :is(section, figure) .task-type-4 text { fill: var(--cat-on-fill) !important; }
+:is(section, figure) .section-type-5 rect, :is(section, figure) .task-type-5 rect { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; }
+:is(section, figure) .section-type-5 text, :is(section, figure) .task-type-5 text { fill: var(--cat-on-fill) !important; }
+:is(section, figure) .section-type-6 rect, :is(section, figure) .task-type-6 rect { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; }
+:is(section, figure) .section-type-6 text, :is(section, figure) .task-type-6 text { fill: var(--cat-on-fill) !important; }
+:is(section, figure) .section-type-7 rect, :is(section, figure) .task-type-7 rect { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; }
+:is(section, figure) .section-type-7 text, :is(section, figure) .task-type-7 text { fill: var(--cat-on-fill) !important; }
+
+:is(section, figure) .journey-section text { font-weight: 600 !important; }
+:is(section, figure) .legend text { fill: var(--cat-on-fill) !important; }
+
+/* ── MINDMAP ──
+ * Mindmap reads cScale verbatim with no transformation. cScale inputs
+ * are mid-tone (L≈60) so kanban lighten lands well, but mindmap renders
+ * them at full saturation. Override mindmap level fills to pale band
+ * tints; --cat-on-fill stays AA against each band.
+ *
+ * ONE BRANCH, ONE CATEGORY: `section-N` → `--cat-(N+1)`, the same map the
+ * branch edges use below, so a branch's boxes and its lines always land on one
+ * category. Mermaid numbers branches `section-0` … `section-10` and wraps the
+ * twelfth back to `section-0` (measured on a 13-branch render); `section-11` is
+ * covered so the cycle matches the 12-slot band cycle above.
+ *
+ * WHY THIS SELECTOR, measured on a render with every node shape:
+ *   - `.section-N` is a class TOKEN. The old `[class*="section-1"]` substring
+ *     test also matched `section-10` and `section-11`.
+ *   - Specificity (0,3,3) beats the flowchart coverage rule
+ *     `.node .basic.label-container` (0,3,1). Below it, circle, bang and cloud
+ *     nodes (which carry `basic label-container`) all painted `--cat-1`. A
+ *     hexagon is `polygon.label-container` without `.basic` and escaped it.
+ *   - `:is(rect, circle, polygon, path)` covers every shape Mermaid draws:
+ *     default and bang/cloud are a `path`, `[square]`/`(rounded)` a `rect`,
+ *     `((circle))` a `circle`, `{{hexagon}}` a `polygon`.
+ *   - `>` (direct child) keeps the fill off the hand-drawn shapes below, whose
+ *     paths sit one group deeper.
+ */
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-0 > :is(rect, circle, polygon, path) { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-1 > :is(rect, circle, polygon, path) { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-2 > :is(rect, circle, polygon, path) { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-3 > :is(rect, circle, polygon, path) { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-4 > :is(rect, circle, polygon, path) { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-5 > :is(rect, circle, polygon, path) { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-6 > :is(rect, circle, polygon, path) { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-7 > :is(rect, circle, polygon, path) { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-8 > :is(rect, circle, polygon, path) { fill: var(--cat-9-texture, var(--cat-9-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-9 > :is(rect, circle, polygon, path) { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-10 > :is(rect, circle, polygon, path) { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-11 > :is(rect, circle, polygon, path) { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; }
+/* The same branch map under `mode: sketch` (Mermaid's `look: 'handDrawn'`).
+ * Every shape except the default rounded bar becomes `g.rough-node >
+ * g:first-of-type > path, path`: a stroked hachure bundle, then the outline.
+ * As in §ROUGH NODE FILL below, the palette goes on with `stroke` (a `fill`
+ * turns the hachure into a blob), and the outline keeps --diagram-stroke from
+ * that section's `path:last-child` rule. The position cycle there skips
+ * mindmap, so this is the only rule that colors a hand-drawn mindmap node.
+ */
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-0 > g:first-of-type > path:first-child { stroke: var(--cat-1-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-1 > g:first-of-type > path:first-child { stroke: var(--cat-2-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-2 > g:first-of-type > path:first-child { stroke: var(--cat-3-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-3 > g:first-of-type > path:first-child { stroke: var(--cat-4-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-4 > g:first-of-type > path:first-child { stroke: var(--cat-5-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-5 > g:first-of-type > path:first-child { stroke: var(--cat-6-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-6 > g:first-of-type > path:first-child { stroke: var(--cat-7-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-7 > g:first-of-type > path:first-child { stroke: var(--cat-8-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-8 > g:first-of-type > path:first-child { stroke: var(--cat-9-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-9 > g:first-of-type > path:first-child { stroke: var(--cat-10-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-10 > g:first-of-type > path:first-child { stroke: var(--cat-11-fill) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-11 > g:first-of-type > path:first-child { stroke: var(--cat-12-fill) !important; }
+/* Root node: Mermaid emits classes "section-root" AND "section--1"
+ * (note double-dash = minus one). Both have hardcoded fills:
+ *   .section-root → #C20000 (red — alarm color, wrong for root)
+ *   .section--1   → #5C9DD3 (cScale1 mid-blue)
+ * The root takes the deck ACCENT, not a category. On `--cat-1` it read as part
+ * of the first branch, which is `--cat-1` too. `--accent` / `--on-accent` is the
+ * curated per-theme AA pair (gated in test/unit/palette/contrast.test.js), and a
+ * solid accent hub stands apart from the pale branch tints in both modes.
+ *
+ * Under `mode: sketch` the root stays SOLID: its hachure takes the accent as
+ * both fill and stroke. A hachure of lines behind --on-accent text would put
+ * white ink on a mostly white canvas.
+ */
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-root :is(rect, circle, polygon, path) {
+  fill: var(--accent) !important;
+}
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-root > g:first-of-type > path:first-child { stroke: var(--accent) !important; }
+:is(section, figure) svg.mindmapDiagram .mindmap-node.section-root :is(text, tspan, foreignObject *) {
+  fill: var(--on-accent) !important;
+  color: var(--on-accent) !important;
+}
+:is(section, figure) .mindmap-node text, :is(section, figure) .mindmap-node tspan, :is(section, figure) .mindmap-node foreignObject * {
+  fill: var(--cat-on-fill) !important;
+  color: var(--cat-on-fill) !important;
+}
+
+/* ── PIE — universal texture channel ──
+ * Mermaid pie slices (path.pieCircle, a pieOuterCircle <circle> precedes them) are
+ * painted from the --cat FILL ramp, cycling mod-12. This is the canonical pie fill
+ * rule: --cat-N-texture (a url(#…) a theme opts into) wins, else the flat --cat-N-fill
+ * — so pie textures for a11y/onyx/concrete and is byte-identical for every other theme. */
+:is(section, figure) .pieCircle:nth-of-type(12n+1) { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+2) { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+3) { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+4) { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+5) { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+6) { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+7) { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+8) { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+9) { fill: var(--cat-9-texture, var(--cat-9-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+10) { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+11) { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n)    { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; }
+
+/* ── GITGRAPH ARROW FILLS ──
+ * Mermaid's gitgraph emits .arrow0..N with a "stroke" declaration but no
+ * "fill". SVG paths default fill to black when not specified, so the
+ * curved branch transitions render as solid black wedges. Force fill:none.
+ */
+:is(section, figure) .arrow, :is(section, figure) .arrow0, :is(section, figure) .arrow1, :is(section, figure) .arrow2, :is(section, figure) .arrow3, :is(section, figure) .arrow4,
+:is(section, figure) .arrow5, :is(section, figure) .arrow6, :is(section, figure) .arrow7 {
+  fill: none !important;
+}
+
+/* Gitgraph branch label pills — band fills, paired dark text. */
+:is(section, figure) rect.branchLabelBkg.label0 { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label1 { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label2 { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label3 { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label4 { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label5 { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label6 { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label7 { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.branchLabel text, :is(section, figure) .branchLabel text { fill: var(--cat-on-fill) !important; }
+
+/* ── TREEMAP ──
+ * Leaf cycles use the band ladder; section containers stay near-white so
+ * they recede behind colored tiles. The g.leafNx rect.treemapLeaf compound
+ * selector is more specific than the generic .treemapNode rect rule, so
+ * per-cycle hues win.
+ */
+:is(section, figure) .treemapSection rect, :is(section, figure) .treemapNode rect { fill: var(--bg-alt) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf0x rect.treemapLeaf { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf1x rect.treemapLeaf { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf2x rect.treemapLeaf { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf3x rect.treemapLeaf { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf4x rect.treemapLeaf { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf5x rect.treemapLeaf { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf6x rect.treemapLeaf { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf7x rect.treemapLeaf { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.treemapLeaf { fill-opacity: 1 !important; }
+:is(section, figure) .treemapLabel, :is(section, figure) .treemapNode text, :is(section, figure) .treemapLeaf text { fill: var(--cat-on-fill) !important; }
+
+/* ── C4 ──
+ * C4 has a hardcoded official palette (#08427B, #1168BD, etc.) that
+ * ignores themeVariables. Override the box fills to band tokens.
+ */
+:is(section, figure) .person, :is(section, figure) .person_ext { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .system, :is(section, figure) .system_ext { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .container, :is(section, figure) .container_ext { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .component, :is(section, figure) .component_ext { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .person text, :is(section, figure) .system text, :is(section, figure) .container text, :is(section, figure) .component text,
+:is(section, figure) .person_ext text, :is(section, figure) .system_ext text, :is(section, figure) .container_ext text, :is(section, figure) .component_ext text,
+:is(section, figure) text.legendW, :is(section, figure) text.legendT { fill: var(--cat-on-fill) !important; }
+
+/* C4 emits group classes like .person-man, .person-woman, .system-other,
+ * .container-db, .component-queue, .boundary, etc. — wider than the bare
+ * .person/.system/... selectors above. Catch the entire C4 cycle via
+ * prefix match for inner unclassed <rect> elements.
+ */
+:is(section, figure) g[class*="person"] > rect, :is(section, figure) g[class*="system"] > rect,
+:is(section, figure) g[class*="container"] > rect, :is(section, figure) g[class*="component"] > rect,
+:is(section, figure) g[class*="boundary"] > rect, :is(section, figure) g[class*="node-bkg"] > rect {
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
+  stroke: var(--diagram-stroke) !important;
+}
+/* All text/lines/paths inside any C4 SVG (scoped via :has() so non-C4
+ * trees aren't affected). */
+:is(section, figure) svg:has(g[class*="person"]) text,
+:is(section, figure) svg:has(g[class*="person"]) tspan,
+:is(section, figure) svg:has(g[class*="system"]) text,
+:is(section, figure) svg:has(g[class*="system"]) tspan {
+  fill: var(--cat-on-fill) !important;
+}
+:is(section, figure) svg:has(g[class*="person"]) line,
+:is(section, figure) svg:has(g[class*="person"]) path:not([class]),
+:is(section, figure) svg:has(g[class*="system"]) line,
+:is(section, figure) svg:has(g[class*="system"]) path:not([class]) {
+  stroke: var(--diagram-line) !important;
+}
+:is(section, figure) text.legendW, :is(section, figure) text.legendT, :is(section, figure) .legend text, :is(section, figure) .legend tspan {
+  fill: var(--cat-on-fill) !important;
+}
+
+
+/* ── VENN ──
+ * Full-opacity band fills with strong stroke. Mermaid's default puts inline
+ * style="fill-opacity: 0.1" on each circle path; that opacity inherits down
+ * to text. Force fill-opacity:1 on path AND text so labels render at full
+ * contrast.
+ */
+:is(section, figure) .venn-set-0, :is(section, figure) g.venn-set-0 path, :is(section, figure) .venn-set-0 path {
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
+  fill-opacity: 1 !important;
+  stroke: var(--diagram-stroke) !important;
+  stroke-width: 2 !important;
+  stroke-opacity: 1 !important;
+}
+:is(section, figure) .venn-set-1, :is(section, figure) g.venn-set-1 path, :is(section, figure) .venn-set-1 path {
+  fill: var(--cat-2-texture, var(--cat-2-fill)) !important;
+  fill-opacity: 1 !important;
+  stroke: var(--diagram-stroke) !important;
+  stroke-width: 2 !important;
+  stroke-opacity: 1 !important;
+}
+:is(section, figure) .venn-set-2, :is(section, figure) g.venn-set-2 path, :is(section, figure) .venn-set-2 path {
+  fill: var(--cat-3-texture, var(--cat-3-fill)) !important;
+  fill-opacity: 1 !important;
+  stroke: var(--diagram-stroke) !important;
+  stroke-width: 2 !important;
+  stroke-opacity: 1 !important;
+}
+/* `:not(.lp-own-ink)` on the tspan arms. The player bakes a Mermaid label into native
+ * `<text>/<tspan>` (the sanitizer bars the `<foreignObject>` it is authored in), which
+ * brings every diagram label under this rule for the first time. That is RIGHT for an
+ * ordinary label — the chips re-theme from tokens and the ink must follow — and wrong for
+ * one the AUTHOR colored via `classDef … color:`, which the live render honors and this
+ * rule silently took back: white-on-black authored, dark-on-black shipped, 1.04:1. The
+ * bake marks only those spans, so the theme keeps every label it should own. */
+:is(section, figure) .venn-area text, :is(section, figure) text.label, :is(section, figure) text.label tspan:not(.lp-own-ink), :is(section, figure) .label tspan:not(.lp-own-ink) {
+  fill: var(--text-heading) !important;
+  fill-opacity: 1 !important;
+  paint-order: normal !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+  font-weight: 500 !important;
+}
+/* Intersection regions read as "this is the shared region" without
+ * competing with the circle colors. */
+:is(section, figure) .venn-intersection path, :is(section, figure) g.venn-intersection path {
+  fill: var(--diagram-stroke) !important;
+  fill-opacity: 0.08 !important;
+  stroke: var(--diagram-stroke) !important;
+  stroke-width: 1.5 !important;
+  stroke-dasharray: 4 3 !important;
+  stroke-opacity: 0.7 !important;
+}
+
+/* ── ISHIKAWA ──
+ * Branch heads use an internal palette baked into the renderer. Force
+ * dark text via cascade; recolor connectors onto the brand line.
+ */
+:is(section, figure) .ishikawa-head-label { fill: var(--text-heading) !important; font-weight: 600 !important; }
+:is(section, figure) .ishikawa-label.cause, :is(section, figure) .ishikawa-label.align { fill: var(--text-heading) !important; }
+:is(section, figure) .ishikawa-spine, :is(section, figure) .ishikawa-arrow, :is(section, figure) .ishikawa-branch, :is(section, figure) .ishikawa-sub-branch {
+  stroke: var(--diagram-line) !important;
+}
+
+
+/* ── JOURNEY · ACTOR FACES + STROKES ──
+ * Journey draws actor avatars: a body circle (no class), a head circle.face
+ * (cornsilk #FFF8DC by default), eyes, a path.mouth + line.mouth at #666666,
+ * plus per-actor circle.actor-N marker pills filled with X11 named colors.
+ * Force the entire avatar cluster onto the brand palette.
+ *
+ * Section/task strokes are also #666666 by default — section/task rules
+ * above set fill but not stroke. Patch strokes by targeting the rect
+ * directly with the actual emitted compound selectors.
+ */
+:is(section, figure) svg:has(path.mouth) circle:not(.face):not([class*="actor-"]) {
+  fill: var(--diagram-line) !important;
+  stroke: var(--diagram-line) !important;
+}
+:is(section, figure) circle.face {
+  fill: var(--bg-alt) !important;
+  stroke: var(--diagram-line) !important;
+}
+:is(section, figure) path.mouth { fill: var(--diagram-line) !important; }
+:is(section, figure) path.mouth, :is(section, figure) line.mouth {
+  stroke: var(--diagram-line) !important;
+}
+:is(section, figure) circle.actor-0 { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-1 { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-2 { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-3 { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-4 { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-5 { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
+/* Legend titles inherit actor color via <title> SVG element; force their
+ * text-bearing tspans to read on the brand palette. */
+:is(section, figure) .legend > title, :is(section, figure) title { fill: var(--text-heading) !important; }
+:is(section, figure) rect.section0, :is(section, figure) rect.section1, :is(section, figure) rect.section2,
+:is(section, figure) rect.task0, :is(section, figure) rect.task1, :is(section, figure) rect.task2,
+:is(section, figure) rect[class*="section-type-"], :is(section, figure) rect[class*="task-type-"],
+:is(section, figure) rect.journey-section, :is(section, figure) rect.task {
+  stroke: var(--diagram-stroke) !important;
+}
+
+/* ── MINDMAP + TIMELINE CONNECTOR LINES ──
+ * Both diagrams emit `line.node-line-N` (with index 0, 1, -1, …) using
+ * Mermaid's internal lightened cScale, producing inconsistent off-band
+ * strokes. Force all connector strokes to the deck's single line color
+ * so connectors recede behind the colored nodes.
+ */
+:is(section, figure) line.node-line-, :is(section, figure) line[class*="node-line-"] {
+  stroke: var(--diagram-line) !important;
+  stroke-width: 1.5 !important;
+}
+
+/* ── SANKEY ──
+ * Mermaid sankey hardcodes the Tableau-10 categorical palette for both
+ * node fills and link gradients. The .node group has no per-cycle class
+ * on the rect — Mermaid's only signal is element order inside
+ * `<g class="nodes">`. Earlier this rule pinned every node to band-1
+ * (reasoning: sankey distinguishes flows by width, not color). That
+ * left sankey reading as flat compared to treemap's six-color
+ * distribution.
+ *
+ * Cycle node fills through bands 1–8 via :nth-of-type() so each node
+ * picks up a different palette slot — same principle as treemap. The
+ * NODES carry the distinct colors; the link ribbons ("tentacles") are
+ * connective tissue tied to c1 — the brand/lead color every other
+ * diagram opens on — at reduced opacity so overlapping flows stay
+ * legible and the node bars remain the primary read. --cat-1-fill is a
+ * light-dark() pair, so the ribbons flip with the canvas.
+ *
+ * NOT SANKEY-ONLY. The same position cycle is what colors flowchart, state
+ * and ER nodes (each is a `g.node > rect` inside `g.nodes`), so it stays on
+ * every diagram type except MINDMAP. A mindmap `[square]` or `(rounded)` node
+ * is a `g.node > rect` too, and at (0,3,4) this cycle beat the per-branch
+ * rule and painted those nodes by DOM order. Mindmap colors by branch
+ * (`.section-N`, above), never by position. `:where()` adds no specificity, so
+ * every other diagram keeps exactly the paint it had.
+ */
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(1)  > rect { fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(2)  > rect { fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(3)  > rect { fill: var(--cat-3-texture, var(--cat-3-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(4)  > rect { fill: var(--cat-4-texture, var(--cat-4-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(5)  > rect { fill: var(--cat-5-texture, var(--cat-5-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(6)  > rect { fill: var(--cat-6-texture, var(--cat-6-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(7)  > rect { fill: var(--cat-7-texture, var(--cat-7-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(8)  > rect { fill: var(--cat-8-texture, var(--cat-8-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(9)  > rect { fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(10) > rect { fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
+/* ── ROUGH NODE FILL — the same categorical cycle, under the hand-drawn look ──
+ * `mode: sketch` bakes Mermaid's `look: 'handDrawn'` (lib/core/diagram-look.js),
+ * which swaps the node renderer: `g.node > rect` becomes
+ * `g.rough-node > g.basic.label-container > path`, drawn by rough.js.
+ *
+ * WRAPPER-AGNOSTIC on purpose. A rect or circle wraps its two paths in
+ * `g.basic.label-container`; a diamond, slant or any other polygon shape wraps
+ * the same two paths in a CLASSLESS `g[transform]`. Keying on the class left
+ * decision nodes — the single most common flowchart idiom after the rectangle —
+ * with Mermaid's derived gray outline sitting beside correctly-inked neighbors
+ * in one diagram. `> g:first-of-type` is the shape group in both shapes; the
+ * label group that follows it holds a foreignObject, never a path.
+ *
+ * A rough node HAS NO FILL. Its two paths both carry `fill="none"`, and the
+ * "fill" you see is the FIRST path — a bundle of stroked hachure lines — with
+ * the outline as the second. So the palette goes on with `stroke`, not `fill`.
+ * Both failure modes are worth naming, because both look like a CSS typo:
+ * setting `fill` on the parent `<g>` does nothing (the paths' own `fill="none"`
+ * attribute means there is nothing to inherit), and setting `fill` on the paths
+ * turns each squiggle into a filled blob.
+ *
+ * TEXTURE IS DELIBERATELY ABSENT here — this cycle names `--cat-N-fill` with no
+ * `--cat-N-texture` fallback, unlike its classic sibling above. A pattern
+ * paint-server sampled through a 4px variable-width stroke reads as speckle, not
+ * a tile (the same reason the sankey ribbons below stay on a flat color). That
+ * is exactly why `resolveDiagramLook` refuses the hand look outright on a
+ * texture palette: on `a11y-*` / `onyx` / `concrete` the pattern IS the
+ * redundant encoding, so those decks keep classic shapes and this block never
+ * matches. Measured: four distinct tiles collapse to four grays 5% apart.
+ */
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(1) > g:first-of-type > path:first-child { stroke: var(--cat-1-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(2) > g:first-of-type > path:first-child { stroke: var(--cat-2-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(3) > g:first-of-type > path:first-child { stroke: var(--cat-3-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(4) > g:first-of-type > path:first-child { stroke: var(--cat-4-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(5) > g:first-of-type > path:first-child { stroke: var(--cat-5-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(6) > g:first-of-type > path:first-child { stroke: var(--cat-6-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(7) > g:first-of-type > path:first-child { stroke: var(--cat-7-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(8) > g:first-of-type > path:first-child { stroke: var(--cat-8-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(9) > g:first-of-type > path:first-child { stroke: var(--cat-1-fill) !important; }
+:is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.rough-node:nth-of-type(10) > g:first-of-type > path:first-child { stroke: var(--cat-2-fill) !important; }
+:is(section, figure) g.nodes > g.rough-node > g:first-of-type > path:last-child { stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.node-labels text, :is(section, figure) g.nodes text {
+  fill: var(--cat-on-fill) !important;
+}
+/* THE DARK SANKEY IS A KNOWN LIMITATION, AND THIS IS THE RECORD OF WHY IT IS NOT
+ * FIXED HERE — so the next person does not re-derive the same dead end.
+ *
+ * Symptom: on a dark deck the link ribbons render as a near-black smudge on
+ * near-black while the node bars beside them stay correctly colored. The entire
+ * payload of the diagram is the part that disappears.
+ *
+ * Cause: mermaid paints every link group through an inline
+ * `mix-blend-mode: multiply` (`sankeyDiagram-*.mjs`). Multiply darkens toward the
+ * backdrop, so on a near-black canvas ANY ribbon color multiplies to near-black.
+ * No color fixes it — `multiply(x, #001D33)` is dark for every x.
+ *
+ * WHY THE OBVIOUS FIX IS WRONG, measured. Overriding to `mix-blend-mode: normal`
+ * does make the dark ribbons visible, and it breaks the LIGHT deck: mermaid appends
+ * `g.node-labels` BEFORE `g.links`, so every ribbon paints ON TOP of the labels, and
+ * multiply is what was protecting them — multiply of a near-black glyph with
+ * anything stays near-black. Under `normal` the ribbon composites over the glyph
+ * instead. Measured on the real exported PDF, "Wages 750" under its ribbon:
+ *
+ *     multiply @0.4  → glyph #081426 on #E4EEF7 = 15.66:1
+ *     normal   @0.55 → glyph #6B7E93 on #DAE7F4 =  3.32:1   (below AA)
+ *
+ * — an accessibility regression, on a change whose whole purpose is accessibility.
+ * Note also that on a WHITE canvas multiply IS the identity (`multiply(x, #FFF) = x`),
+ * so there is nothing to compensate for by raising opacity; an earlier revision of
+ * this block claimed otherwise and was arithmetically wrong.
+ *
+ * WHAT WOULD ACTUALLY WORK is `screen` on dark (multiply's dual — it lightens toward
+ * the backdrop, so it preserves a LIGHT glyph exactly as multiply preserves a dark
+ * one; measured 6.70:1 label and a BETTER ribbon-vs-canvas than `normal`). It cannot
+ * be applied: a blend mode has to be selected per color-scheme, and the dark context
+ * here is expressed only as `color-scheme: dark` — `light-dark()` takes colors, not
+ * keywords, and no CSS selector can query a computed `color-scheme`. Sections carry
+ * no `.dark` class on either dark path (verified on both `color-mode: dark` and a
+ * `-dark` palette render).
+ *
+ * So this stays on mermaid's own multiply. Closing it needs either a scheme hook the
+ * cascade does not currently expose, or upstream paint-order (labels after links).
+ */
+:is(section, figure) g.link path, :is(section, figure) g.links path {
+  /* Ribbons are connective tissue tied to c1 at reduced opacity — a flat COLOR,
+   * NOT the texture channel: a pattern paint-server sampled through a thin,
+   * variable-width stroke reads as speckle, not a tint. So stay on --cat-1-fill. */
+  stroke: var(--cat-1-fill) !important;
+  stroke-opacity: 0.4 !important;
+  fill: none !important;
+}
+
+/* ── PACKET ──
+ * Packet hardcodes #EFEFEF rect fills and #000000 text. Pull onto the
+ * brand band-1 + paired dark text.
+ */
+:is(section, figure) rect.packetBlock {
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
+  stroke: var(--diagram-stroke) !important;
+}
+:is(section, figure) text.packetLabel, :is(section, figure) text.packetByte, :is(section, figure) text.packetTitle {
+  fill: var(--cat-on-fill) !important;
+}
+
+/* ── ARCHITECTURE ──
+ * The architecture-beta renderer draws each service as an outer rect
+ * with inline style="fill:#087ebf" (a hardcoded Mermaid blue), inside
+ * which white icon glyphs are drawn with inline stroke:#fff. Replace
+ * service fills with band-1; re-skin glyphs to read on the now-pale
+ * background. !important wins over inline styles per CSS spec, so the
+ * unclassed inline-styled rects are reachable.
+ */
+:is(section, figure) g.architecture-groups rect:not(.background):not(.node-bkg),
+:is(section, figure) g.architecture-services rect:not(.background):not(.node-bkg),
+:is(section, figure) g.architecture-service rect:not(.background):not(.node-bkg) {
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
+  stroke: var(--diagram-stroke) !important;
+}
+:is(section, figure) g.architecture-groups path.edge,
+:is(section, figure) g.architecture-edges path.edge {
+  stroke: var(--diagram-line) !important;
+  stroke-width: 1.5 !important;
+}
+/* Glyphs inside services: re-skin from white to brand stroke so they
+ * read on the pale fill. */
+:is(section, figure) g.architecture-groups svg path,
+:is(section, figure) g.architecture-groups svg circle,
+:is(section, figure) g.architecture-groups svg ellipse,
+:is(section, figure) g.architecture-groups svg line,
+:is(section, figure) g.architecture-service svg path,
+:is(section, figure) g.architecture-service svg circle,
+:is(section, figure) g.architecture-service svg ellipse,
+:is(section, figure) g.architecture-service svg line {
+  fill: var(--diagram-stroke) !important;
+  stroke: var(--diagram-stroke) !important;
+}
+:is(section, figure) g.architecture-groups svg path[style*="fill: none"],
+:is(section, figure) g.architecture-groups svg circle[style*="fill: none"],
+:is(section, figure) g.architecture-groups svg ellipse[style*="fill: none"],
+:is(section, figure) g.architecture-groups svg line[style*="fill: none"],
+:is(section, figure) g.architecture-service svg path[style*="fill: none"],
+:is(section, figure) g.architecture-service svg circle[style*="fill: none"],
+:is(section, figure) g.architecture-service svg ellipse[style*="fill: none"],
+:is(section, figure) g.architecture-service svg line[style*="fill: none"] {
+  fill: none !important;
+}
+:is(section, figure) g.architecture-groups text, :is(section, figure) g.architecture-groups tspan,
+:is(section, figure) g.architecture-service text, :is(section, figure) g.architecture-service tspan {
+  fill: var(--cat-on-fill) !important;
+}
+
+/* ── ER ROW-RECT EVEN/ODD ──
+ * The ER renderer alternates row backgrounds via .row-rect-even and
+ * .row-rect-odd <path> elements. Mermaid 11 derives one of them by
+ * lightening the primary, producing an off-palette stray. Pin both
+ * bands to palette tokens for deterministic output.
+ */
+:is(section, figure) g.row-rect-even > path { fill: var(--bg-alt) !important; }
+:is(section, figure) g.row-rect-odd > path  { fill: var(--bg) !important; }
+
+/* ── EDGE MARKERS = EDGE COLOR (style, both modes) ──
+ * Arrowheads and crow's-foot relationship markers render UNFILLED by default
+ * in some diagram types — notably ER relationship terminals, which come out as
+ * thin open outlines. Fill every marker with the flipping edge color so each
+ * connector terminal reads as solidly as its line (matching flowchart/state
+ * arrowheads). Not a dark-flip hack: --diagram-line flips with the canvas, so this
+ * is identical in both schemes — it's a deliberate "solid terminals" style.
+ * (Edge LINE strokes and arrowheads are otherwise baked correctly by the
+ * lineColor themeVar via dual-render; only the ER marker FILL needs this.) */
+:is(section, figure) .marker,
+:is(section, figure) .marker path,
+:is(section, figure) .arrowMarkerPath,
+:is(section, figure) .arrowheadPath {
+  fill: var(--diagram-line) !important;
+  stroke: var(--diagram-line) !important;
+}
+
+/* ── JOURNEY AXIS + TASK CONNECTORS (canvas-borne structural lines) ──
+ * The journey axis line and the dashed task→face connectors emit as inline
+ * stroke="black" — NOT a themeVar, so dual-render can't bake them to the dark
+ * scheme. Re-point at the flipping --diagram-line. Scoped by aria-roledescription
+ * and excludes `.mouth` (the smiley strokes on the mood faces). The mood-face
+ * fill/eyes/mouth are handled by the journey block above. */
+:is(section, figure) svg[aria-roledescription="journey"] line:not(.mouth) {
+  stroke: var(--diagram-line) !important;
+}
+
+/* ── TIMELINE AXIS + PERIOD DIVIDERS ──
+ * The timeline's section/period divider lines (`.node-line-*`) and the
+ * unclassed axis line (inline stroke="black") bake dark, so the spine vanishes
+ * on a dark slide. Re-point every timeline line at --diagram-line. */
+:is(section, figure) svg[aria-roledescription="timeline"] line {
+  stroke: var(--diagram-line) !important;
+}
+
+/* ── TREEVIEW LABELS + LINES (beta type — hardcoded black) ──
+ * treeView-beta bakes `.treeView-node-label { fill: black }` and
+ * `.treeView-node-line { stroke: black }` as LITERAL black in its own injected
+ * <style> block — it ignores the labelColor/lineColor themeVariables we inject
+ * (a beta-type gap, despite its docs claiming those vars). So on a dark slide
+ * both the file labels and the tree connectors vanish. Re-point at the flipping
+ * tokens: dark on a light canvas (unchanged from baked black), light on a dark
+ * canvas (now visible). The !important beats Mermaid's un-important inline rule. */
+:is(section, figure) .treeView-node-label { fill: var(--cat-on-fill) !important; }
+:is(section, figure) .treeView-node-line  { stroke: var(--diagram-line) !important; }
+
+/* ── MINDMAP BRANCH EDGES (per-section color, from the branch's own fill) ──
+ * Mindmap draws each branch in its section's cScale color, which bakes at the
+ * light side and reads dark on a dark canvas. Re-point each `.section-edge-N`
+ * at the SAME category its nodes fill with (`--cat-(N+1)`, see §MINDMAP), so a
+ * branch's line and boxes read as one hue.
+ *
+ * Derived from the FILL, not the MARK. `--cat-N-mark` is the opposite tier and
+ * is not the fill's hue: indaco's cat-2 fill is a sand yellow and its mark a
+ * maroon, so the line and its boxes disagreed. On a dark slide the old 78% mix
+ * toward --cat-on-fill also washed every line out to near-white.
+ *
+ * HOW: `oklch(L none none)` has no chroma and no hue, and color-mix takes a
+ * missing component from the other color. So the mix keeps the fill's exact
+ * hue and chroma and sets only the lightness: 0.47 on a light slide (darker
+ * than the pale fill), 0.8 on a dark one (lighter than the jewel fill). The
+ * fill's weight is 0% on purpose; it contributes hue and chroma, nothing else.
+ * Measured on all 14 color themes: every line clears 3:1 on --bg (worst
+ * concrete light, 3.3:1) and keeps the fill's hue. Gray palettes (onyx,
+ * concrete, a11y-*) have no hue to keep and get one gray line; their nodes
+ * carry the pattern that tells branches apart.
+ *
+ * Scoped to svg.mindmapDiagram so no other diagram's edges are touched.
+ */
+:is(section, figure) svg.mindmapDiagram .section-edge--1,
+:is(section, figure) svg.mindmapDiagram .section-edge-0 { stroke: color-mix(in oklch, var(--cat-1-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-1 { stroke: color-mix(in oklch, var(--cat-2-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-2 { stroke: color-mix(in oklch, var(--cat-3-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-3 { stroke: color-mix(in oklch, var(--cat-4-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-4 { stroke: color-mix(in oklch, var(--cat-5-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-5 { stroke: color-mix(in oklch, var(--cat-6-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-6 { stroke: color-mix(in oklch, var(--cat-7-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-7 { stroke: color-mix(in oklch, var(--cat-8-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-8 { stroke: color-mix(in oklch, var(--cat-9-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-9 { stroke: color-mix(in oklch, var(--cat-10-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-10 { stroke: color-mix(in oklch, var(--cat-11-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-11 { stroke: color-mix(in oklch, var(--cat-12-fill) 0%, light-dark(oklch(0.47 none none), oklch(0.8 none none))) !important; }
+
+
+/* ── TIMELINE diagram overrides (Mermaid) — relocated from the retired
+ * timeline component on 2026-06-07 when timeline merged into list-steps.
+ * These target Mermaid-emitted SVG (.timeline-node, .eventWrapper), not the
+ * list-steps.timeline layout variant. */
+/* ── TIMELINE BAND CYCLE (shifted) ──
+ * Mermaid's timeline renderer uses `f = r % h - 1` for its section index,
+ * so the FIRST timeline section gets `section--1`, the second gets
+ * `section-0`, and so on. The general band-cycle rules above pin BOTH
+ * `section--1` AND `section-0` to band-1 (because that's the correct map
+ * for mindmap and other diagrams where `section-0` is the first), which
+ * means every timeline renders its first two sections in the same band.
+ * Visible on the gallery's Phase 01 / Phase 02 (both blue) and on
+ * diagram-tokens' Discover / Frame (both blue) where the deck's footer
+ * literally claims "8 sections cycling --c1..8-light".
+ *
+ * Timeline groups wrap each section in <g class="timeline-node section-N">.
+ * Re-pin the cycle one band up for `.timeline-node` only so timeline
+ * sections cycle c1-light (section--1), c2-light (section-0), c3-light
+ * (section-1), …, c12-light (section-10). Higher specificity than the
+ * generic `.section-N` rules above wins automatically. Other diagram
+ * types that use bare `.section-N` (mindmap, kanban via .cluster) keep
+ * their existing mappings.
+ */
+:is(section, figure) .timeline-node.section--1 rect, :is(section, figure) .timeline-node.section--1 path, :is(section, figure) .timeline-node.section--1 circle { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section--1 text, :is(section, figure) .timeline-node.section--1 tspan, :is(section, figure) .timeline-node.section--1 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-0 rect, :is(section, figure) .timeline-node.section-0 path, :is(section, figure) .timeline-node.section-0 circle { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-0 text, :is(section, figure) .timeline-node.section-0 tspan, :is(section, figure) .timeline-node.section-0 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-1 rect, :is(section, figure) .timeline-node.section-1 path, :is(section, figure) .timeline-node.section-1 circle { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-1 text, :is(section, figure) .timeline-node.section-1 tspan, :is(section, figure) .timeline-node.section-1 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-2 rect, :is(section, figure) .timeline-node.section-2 path, :is(section, figure) .timeline-node.section-2 circle { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-2 text, :is(section, figure) .timeline-node.section-2 tspan, :is(section, figure) .timeline-node.section-2 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-3 rect, :is(section, figure) .timeline-node.section-3 path, :is(section, figure) .timeline-node.section-3 circle { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-3 text, :is(section, figure) .timeline-node.section-3 tspan, :is(section, figure) .timeline-node.section-3 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-4 rect, :is(section, figure) .timeline-node.section-4 path, :is(section, figure) .timeline-node.section-4 circle { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-4 text, :is(section, figure) .timeline-node.section-4 tspan, :is(section, figure) .timeline-node.section-4 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-5 rect, :is(section, figure) .timeline-node.section-5 path, :is(section, figure) .timeline-node.section-5 circle { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-5 text, :is(section, figure) .timeline-node.section-5 tspan, :is(section, figure) .timeline-node.section-5 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-6 rect, :is(section, figure) .timeline-node.section-6 path, :is(section, figure) .timeline-node.section-6 circle { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-6 text, :is(section, figure) .timeline-node.section-6 tspan, :is(section, figure) .timeline-node.section-6 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-7 rect, :is(section, figure) .timeline-node.section-7 path, :is(section, figure) .timeline-node.section-7 circle { fill: var(--cat-9-texture, var(--cat-9-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-7 text, :is(section, figure) .timeline-node.section-7 tspan, :is(section, figure) .timeline-node.section-7 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-8 rect, :is(section, figure) .timeline-node.section-8 path, :is(section, figure) .timeline-node.section-8 circle { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-8 text, :is(section, figure) .timeline-node.section-8 tspan, :is(section, figure) .timeline-node.section-8 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-9 rect, :is(section, figure) .timeline-node.section-9 path, :is(section, figure) .timeline-node.section-9 circle { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-9 text, :is(section, figure) .timeline-node.section-9 tspan, :is(section, figure) .timeline-node.section-9 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+:is(section, figure) .timeline-node.section-10 rect, :is(section, figure) .timeline-node.section-10 path, :is(section, figure) .timeline-node.section-10 circle { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-10 text, :is(section, figure) .timeline-node.section-10 tspan, :is(section, figure) .timeline-node.section-10 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
+
+/* ── TIMELINE EVENT WRAPPER ──
+ * Mermaid wraps every timeline event in <g class="eventWrapper"> and pins
+ * `filter: brightness(120%)` on the class. Their intent is to lighten the
+ * event tile so it reads as "inside" the period header above it, but the
+ * band cycle already sits at L≈83 — pushing it +20% lightness clamps the
+ * G/B channels to 255 and collapses every band into a near-cyan wash
+ * (band-1 #BCD5EC → ~#E1FEFE, band-2 #C1E4D5 → ~#E7FEFE — indistinguishable
+ * from band-1). Drop the filter so event tiles match their section's band
+ * exactly. The size difference (event tile is narrower than the period
+ * header above it) is enough to keep the visual hierarchy.
+ */
+:is(section, figure) .eventWrapper { filter: none !important; }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * RELOCATED FROM OWNED COMPONENT FILES (owned chart stylesheets carry zero
+ * Mermaid selectors — all third-party CSS lives here). See
+ * engineering/decisions/2026-06-18-chart-mermaid-style-separation.md.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* Mermaid kanban ticket nodes — the ticket card takes the subcontainer rung
+ * (was kanban.styles.css). Wins on specificity over the .node fill above. */
+:is(section, figure) .cluster .items .node rect.basic.label-container,
+:is(section, figure) .cluster .items .node .label-container,
+:is(section, figure) .items .node rect.basic.label-container,
+:is(section, figure) .items .node .label-container {
+  fill: var(--c-subcontainer) !important;
+  stroke: var(--c-subcontainer-edge) !important;
+}
+
+/* Kanban ticket ink — the subcontainer rung's own ink, not the categorical
+ * tier's. Gated with its surface by containment-contrast.test.js. */
+:is(section, figure) .cluster .items .node .label-container ~ .label text,
+:is(section, figure) .cluster .items .node foreignObject div,
+:is(section, figure) .items .node .nodeLabel {
+  fill: var(--c-on-subcontainer) !important;
+  color: var(--c-on-subcontainer) !important;
+}
+
+/* ── CONTAINMENT LABEL INK ──
+ * A subgraph title sits ON the container, so it takes the containment tier's ink
+ * rather than --cat-on-fill (the CATEGORICAL tier's, which it borrowed because
+ * Mermaid paints this with `titleColor`). Done in CSS, not by re-pointing
+ * titleColor, because that variable also paints DIAGRAM titles — moving it would
+ * restyle far more than the cluster. */
+:is(section, figure) .cluster-label text,
+:is(section, figure) .cluster-label .nodeLabel,
+:is(section, figure) .cluster-label foreignObject div {
+  fill: var(--c-on-container) !important;
+  color: var(--c-on-container) !important;
+}
+
+/* Mermaid gantt — taskTextOutsideLeft/Right ignore taskTextOutsideColor for some
+ * bar widths; force dark text in the outside-the-bar margin (was gantt.styles.css). */
+:is(section, figure) .taskTextOutsideLeft, :is(section, figure) .taskTextOutsideRight { fill: var(--text-heading) !important; }

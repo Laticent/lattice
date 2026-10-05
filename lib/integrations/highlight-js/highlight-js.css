@@ -75,20 +75,20 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code 
  * a deterministic box even when no flex parent provides one.
  *
  * :where() reduces specificity to 0 so the slide-context rule
- * (`section.diagram > .mermaid`, specificity 0,2,1) always wins. Both
+ * (`section.diagram [data-lattice-figure]`, specificity 0,2,1) always wins. Both
  * rules would otherwise be (0,2,1) and source order would let this
  * non-slide rule override the slide-context width. At HD the two values
  * coincided (1152px, which is what the slide rule's retired inset calc also
  * produced), hiding the bug; at 4K the container would be stuck at 1152px
  * instead of 3456px. The slide rule is `width: 100%` since #1598 — the same
  * specificity story, and the coincidence at HD is unchanged. */
-:where(:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle="rendered"] + .mermaid) {
+:where(:is(pre, marp-pre):where([data-lattice-hydrate])[data-lattice-settle="rendered"] + [data-lattice-figure]) {
   align-items:center; justify-content:center;
   width:1152px; height:480px;
   max-width:100%;
   box-sizing:border-box;
 }
-:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle="rendered"] + .mermaid > svg {
+:is(pre, marp-pre):where([data-lattice-hydrate])[data-lattice-settle="rendered"] + [data-lattice-figure] > svg {
   max-width:100%; max-height:100%; display:block;
 }
 
@@ -108,7 +108,7 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code 
  * separation instead. Measured before and after that collapse: the <pre> goes 92px → 216px
  * and the gap to `.mermaid-error` 140px → 16px. Kept for the hosts that do not wrap a
  * diagram slide in `.cell-stage`, where the container still lays out. */
-.mermaid:has(+ .mermaid-error) {
+[data-lattice-figure]:has(+ .mermaid-error) {
   padding-bottom:var(--sp-sm);
 }
 .mermaid-error {
@@ -125,7 +125,7 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code 
   box-sizing:border-box;
 }
 /* `> .cell-stage >` arm: diagram is `conformance:"strict"`, so its body — the
- * source `<pre>`, the runtime `.mermaid` SVG target, and the `.mermaid-error`
+ * source `<pre>`, the drawn figure (`[data-lattice-figure]`), and the `.mermaid-error`
  * block attached after it — hoists into `.cell-stage` on the wrapped (Form) path.
  * The bare `section.diagram >` arm keeps an unwrapped slide working. */
 /* Full width of the box that already carries the frame inset (#1598) — the error

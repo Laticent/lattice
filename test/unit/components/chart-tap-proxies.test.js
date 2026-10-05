@@ -155,8 +155,8 @@ describe('tap proxies name the right mark', () => {
   });
 
   test('quadrant: each dot\'s name names that dot', () => {
-    const sec = render('quadrant', '<p><code>[{Effort, 0..10}, {Reach, 0..100}]</code></p><ul><li>Bets<ul><li>Scoring model <code>3, 70</code></li></ul></li>'
-      + '<li>Wins<ul><li>Weekly brief <code>8, 80</code></li></ul></li><li>Sinks<ul><li>Board export <code>9, 28</code></li></ul></li></ul>');
+    const sec = render('quadrant', '<p><code>[{Effort, 0..10}, {Reach, 0..100}]</code></p><ul><li>Bets<ul><li>Scoring model <code>{3, 70}</code></li></ul></li>'
+      + '<li>Wins<ul><li>Weekly brief <code>{8, 80}</code></li></ul></li><li>Sinks<ul><li>Board export <code>{9, 28}</code></li></ul></li></ul>');
     for (const p of assertAllResolve(sec)) {
       assert.equal(text(p), labelOf(sec, p.getAttribute('data-mark-for')));
     }

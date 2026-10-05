@@ -47,16 +47,6 @@ const SANCTIONED = [
        + 'fixed accent disc.',
   },
   {
-    file: 'lib/components/chart/state-chart/state-chart.styles.css',
-    count: 1,
-    why: 'the index numeral set inside a cqi-sized default node — flooring the numeral without '
-       + 'flooring the node would overflow its corner. (The status badge went when status moved '
-       + 'onto the node, and the inline row\'s numeral when it moved into its own column and took '
-       + 'the chart-text floor, both 2026-09-24.) Note state-chart also self-scales '
-       + '(2026-07-16-state-chart-self-scale.md), so a CSS floor cannot pin an EFFECTIVE size '
-       + 'here regardless; see the .state-edge-label comment.',
-  },
-  {
     file: 'lib/components/chart/journey/journey.styles.css',
     count: 2,
     why: 'actor initials fitted inside a fixed 1.45cqi disc. Measured legible as-is: 15.2px '

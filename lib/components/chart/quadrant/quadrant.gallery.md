@@ -25,19 +25,19 @@ Native 2×2 scatter chart — items plotted on two continuous axes.
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
     - Owner: Platform team
     - A 3-week spike de-risks the roadmap
-  - Decision-log API `7, 74`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 
 ---
@@ -50,15 +50,15 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## bubble sizes each point by a third value.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70, 2.4`
-  - Per-team calibration `5, 85, 4.1`
+  - Scoring model v2 `{3, 70, size=2.4}`
+  - Per-team calibration `{5, 85, size=4.1}`
 - Quick Wins
-  - Weekly signal brief `8, 80, 0.9`
-  - Snapshot exports `9, 55, 0.6`
+  - Weekly signal brief `{8, 80, size=0.9}`
+  - Snapshot exports `{9, 55, size=0.6}`
 - Defer
-  - Vendor scoping `2, 30, 0.4`
+  - Vendor scoping `{2, 30, size=0.4}`
 - Time Sinks
-  - Custom audit log UI `7, 18, 1.3`
+  - Custom audit log UI `{7, 18, size=1.3}`
 
 
 ---
@@ -71,12 +71,12 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## trail shows where each point moved from.
 
 - Strategic Bets
-  - Scoring model v2 `5, 60` `3, 78`
-  - Per-team calibration `7, 70` `5, 88`
+  - Scoring model v2 `{5, 60}` `{3, 78}`
+  - Per-team calibration `{7, 70}` `{5, 88}`
 - Quick Wins
-  - Snapshot exports `9, 45` `8, 62`
+  - Snapshot exports `{9, 45}` `{8, 62}`
 - Time Sinks
-  - Custom audit log UI `6, 25` `7, 16`
+  - Custom audit log UI `{6, 25}` `{7, 16}`
 
 
 ---
@@ -89,17 +89,17 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## cohort colors the points by group.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
-  - Snapshot exports `9, 55`
+  - Weekly signal brief `{8, 80}`
+  - Snapshot exports `{9, 55}`
 - Defer
-  - Vendor scoping `2, 30`
-  - Manual recalibration `1, 22`
+  - Vendor scoping `{2, 30}`
+  - Manual recalibration `{1, 22}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
-  - Bespoke board export `9, 28`
+  - Custom audit log UI `{7, 18}`
+  - Bespoke board export `{9, 28}`
 
 
 ---
@@ -112,14 +112,14 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## threshold draws the lines that matter.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
+  - Weekly signal brief `{8, 80}`
 - Defer
-  - Vendor scoping `2, 30`
+  - Vendor scoping `{2, 30}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
+  - Custom audit log UI `{7, 18}`
 
 
 ---
@@ -132,14 +132,14 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## magic names all four quadrants.
 
 - Challengers
-  - Productboard `30, 82`
+  - Productboard `{30, 82}`
 - Leaders
-  - Sprig + Log `85, 88`
-  - Chorus `72, 76`
+  - Sprig + Log `{85, 88}`
+  - Chorus `{72, 76}`
 - Niche Players
-  - Notion build-out `25, 28`
+  - Notion build-out `{25, 28}`
 - Visionaries
-  - Spreadsheet `82, 34`
+  - Spreadsheet `{82, 34}`
 
 
 ---
@@ -152,15 +152,15 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## minimal strips the chart to its points.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
-  - Snapshot exports `9, 55`
+  - Weekly signal brief `{8, 80}`
+  - Snapshot exports `{9, 55}`
 - Defer
-  - Vendor scoping `2, 30`
+  - Vendor scoping `{2, 30}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
+  - Custom audit log UI `{7, 18}`
 
 
 ---
@@ -174,23 +174,23 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## Stress test — fourteen initiatives, dense labels, one owner.
 
 - Strategic Bets
-  - Scoring model v2 `3, 72`
-  - Per-team calibration `5, 85`
-  - Multi-source signal dedupe `4, 78`
-  - Decision-log audit trail `2, 66`
+  - Scoring model v2 `{3, 72}`
+  - Per-team calibration `{5, 85}`
+  - Multi-source signal dedupe `{4, 78}`
+  - Decision-log audit trail `{2, 66}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
-  - Snapshot exports `9, 55`
-  - Adoption dashboard `7, 62`
+  - Weekly signal brief `{8, 80}`
+  - Snapshot exports `{9, 55}`
+  - Adoption dashboard `{7, 62}`
 - Defer
-  - Vendor scoping `2, 30`
-  - Manual recalibration `1, 22`
-  - Legacy intake shim `3, 14`
+  - Vendor scoping `{2, 30}`
+  - Manual recalibration `{1, 22}`
+  - Legacy intake shim `{3, 14}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
-  - Bespoke board export `9, 28`
-  - Per-decision profiles `8, 12`
-  - Self-assessment generator `6, 25`
+  - Custom audit log UI `{7, 18}`
+  - Bespoke board export `{9, 28}`
+  - Per-decision profiles `{8, 12}`
+  - Self-assessment generator `{6, 25}`
 
 
 ---
@@ -205,19 +205,19 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
     - Owner: Platform team
     - A 3-week spike de-risks the roadmap
-  - Decision-log API `7, 74`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 
 ---
@@ -232,19 +232,19 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
     - Owner: Platform team
     - A 3-week spike de-risks the roadmap
-  - Decision-log API `7, 74`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 
 ---
@@ -259,19 +259,19 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
     - Owner: Platform team
     - A 3-week spike de-risks the roadmap
-  - Decision-log API `7, 74`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 
 ---
@@ -294,7 +294,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## When NOT to reach for quadrant.
 
 - Coordinates without an audience-shared scale
-  - If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either give each axis its domain in the axis list — the `[{Effort, 0..10}, {Reach, 0..100}]` line above every slide here — or normalize to a familiar scale before authoring.
+  - If `{8, 80}` requires a footnote to interpret, the slide doesn't pay off. Either give each axis its domain in the axis list — the `[{Effort, 0..10}, {Reach, 0..100}]` line above every slide here — or normalize to a familiar scale before authoring.
 
 ---
 

@@ -14,7 +14,7 @@ const CYCLE_MS = 2600;
 
 export type RestyleData = {
 	sample: string;
-	mermaid: boolean;
+	drawn: boolean;
 	palettes: Palette[];
 	themeBase: string;
 	runtimeUrl: string;
@@ -50,9 +50,9 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 		(i: number) => {
 			const host = stageRef.current;
 			const pal = palettes[i];
-			if (host && pal) engineRef.current.renderInto(host, data.sample, data.mermaid, pal.name);
+			if (host && pal) engineRef.current.renderInto(host, data.sample, data.drawn, pal.name);
 		},
-		[palettes, data.sample, data.mermaid],
+		[palettes, data.sample, data.drawn],
 	);
 
 	const stop = React.useCallback(() => {

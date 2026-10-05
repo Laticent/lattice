@@ -214,6 +214,12 @@ OPTIONS
                           deck's own 'color-mode:'.
       --size NAME         Render on another registered canvas, over the deck's own
                           'size:' (e.g. mobile-landscape, story, 4K).
+      --disable-plugin N  Switch plugins off for this run, comma-separated (e.g.
+                          mermaid,math; repeatable). The engine and the plugins' CLI
+                          bakes both honor it, and so does every plugin that requires
+                          one, so the PDF shows the deck's source instead. No deck can
+                          turn it back on. A --fluid/--player page's browser runtime
+                          does not honor it yet.
       --narrate           Voice the --player with Kokoro, the Studio's on-device
                           voice: every narrated sentence (the --captions narration)
                           becomes a clip, encoded as the Studio's export encodes it.
@@ -457,6 +463,8 @@ function parseArgs(argv) {
     '--player-mode': 'player-mode',
     // Render on another canvas, over the deck's own `size:` (lib/engine/sizes.js).
     '--size': 'size',
+    // Plugins switched off for this run (lib/plugins/host-grammar.mjs `admitPlugins`'s `disabled`).
+    '--disable-plugin': 'disable-plugin',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -514,6 +522,27 @@ function parseArgs(argv) {
 }
 
 const { flags, positional } = parseArgs(process.argv.slice(2));
+
+// THE PLUGINS THIS RUN SWITCHES OFF — one list, handed to BOTH the engine and the plugins' CLI
+// bakes (plugin-system phase D: the bake used to get none, so a plugin the engine switched off
+// still baked its figures into the deck). A name no plugin has is an error, not a no-op: a typo
+// would otherwise export the very figures the caller asked to leave out.
+// Every occurrence counts (`--disable-plugin a --disable-plugin b`): parseArgs keeps only the last
+// value of a flag, which would silently re-enable `a`.
+const PLUGINS_DISABLED = Object.freeze([...new Set(process.argv.slice(2).flatMap((a, i, argv) => {
+  if (a === '--disable-plugin') return [argv[i + 1] || ''];
+  if (a.startsWith('--disable-plugin=')) return [a.slice('--disable-plugin='.length)];
+  return [];
+}).join(',').split(',').map((n) => n.trim()).filter(Boolean))]);
+{
+  const { PLUGIN_GRAMMAR } = require('./lib/plugins/grammar.generated.mjs');
+  const known = PLUGIN_GRAMMAR.map((g) => g.name);
+  const unknown = PLUGINS_DISABLED.filter((n) => !known.includes(n));
+  if (unknown.length) {
+    console.error(`error: --disable-plugin: no plugin is named ${unknown.map((n) => `"${n}"`).join(', ')} (plugins: ${known.join(', ')})`);
+    process.exit(1);
+  }
+}
 
 // Resolve mdFile + outFile + cssFile + paletteArg from positionals, with
 // named flags overriding. Positional shape:
@@ -652,6 +681,12 @@ const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 const CHROME_PDF = !!flags['chrome-pdf'];
 // JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
 const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || 92));
+// Chrome's fast PNG encoder for that photo: same pixels, ~3x the bytes on a flat slide, ~2.5x quicker.
+// On under `node --test` (it marks every process a test starts with NODE_TEST_CONTEXT) so the
+// integration tier fits its CI timeout; off for a real export. LATTICE_PDF_PHOTO_FAST=1/0 overrides.
+const PDF_PHOTO_FAST = process.env.LATTICE_PDF_PHOTO_FAST
+  ? process.env.LATTICE_PDF_PHOTO_FAST === '1'
+  : Boolean(process.env.NODE_TEST_CONTEXT);
 // Who the overflow marker in the printed artifact is addressed to. Same setting,
 // same kernel and same precedence as the Marp exporter — `--overflow-marker` for
 // this render, `LATTICE_OVERFLOW_MARKER` as the standing answer, else `reader`.
@@ -965,6 +1000,24 @@ if (movedBoxes.some((f) => f.autofixable)) {
   // Only a repo checkout has `lint:deck` (tools/ is not in the published package), so the
   // per-slide line above already says what to write; this names the shortcut for those who have it.
   console.error('warning: in a Lattice checkout, `npm run lint:deck -- --fix <deck>` rewrites the verdict-grid and pricing ones as `[!]`.');
+}
+
+// A STATE CHART STILL IN THE v1 GRAMMAR. State chart v2 moved to the flowchart grammar
+// (`- -event-> Target` under a state), and a v1 `event => 2` pill now reads as part of a
+// name: the machine draws with no transitions and a successful exit code. Same channel and
+// reason as the two blocks above; the detector is lint-core's (HARD RULE #7).
+const { findFlowchartIssues } = require('./lib/authoring/lint-core');
+const v1States = findFlowchartIssues(md).filter((f) => f.shapeChange);
+const v1Slides = [...new Set(v1States.map((f) => f.slide))];
+for (const n of v1Slides.slice(0, RETIRED_FORM_SHOWN)) {
+  const f = v1States.find((x) => x.slide === n);
+  console.error(`warning: slide ${n}: this state chart is in the retired v1 grammar — ${f.message}.`);
+}
+if (v1Slides.length > RETIRED_FORM_SHOWN) {
+  console.error(`warning: … and ${v1Slides.length - RETIRED_FORM_SHOWN} more v1 state-chart slide(s).`);
+}
+if (v1Slides.length) {
+  console.error('warning: in a Lattice checkout, `node tools/migrate-state-chart-v1.js --write <deck>` rewrites them; `lattice lint` names each line.');
 }
 
 // Resolve palette name from the precedence chain (CLI > env > front
@@ -1334,10 +1387,8 @@ try {
 //
 // The `%%{init}%%` reconciliation kernel (#1311) — how the engine palette and an
 // author's own directive coexist, shared with the runtime (HARD RULE #1).
-// The mermaid plugin's bake hands the engine config to its worker; this file reads only
-// `authorPinsTheme`, for the image-set look re-bake.
-const { authorPinsTheme } = require('./lib/integrations/mermaid/init-directive');
-const { buildDiagramTheme } = require('./lib/core/mermaid-theme-map');
+// The mermaid plugin's bake hands the engine config to its worker and assembles Mermaid's theme
+// variables itself; this file reads neither.
 
 
 // Offline value evaluator shared with the unit tests — var()/light-dark()/
@@ -1407,17 +1458,20 @@ function readPaletteToken(paletteVars, name) {
   return val;
 }
 
-function resolveMermaidThemeVars(paletteVars, hand = false) {
-  return buildDiagramTheme((name) => {
-    // Same sketch re-point `readScopeToken` applies, against a palette handed in
-    // rather than one selected by band — the image-set look re-bake parses a
-    // DIFFERENT theme file, so it cannot go through the band reader. Stated in both
-    // places would be two answers; `readScopeToken` delegates the lookup and this
-    // repeats only the one-line table read.
+/**
+ * A token reader over ONE palette, in the clean or the sketch hand face: the generic bake service
+ * `paletteReader` (lib/plugins/host-bake.js), and the reader `readScopeToken` delegates to, so the
+ * sketch re-point is stated once. A palette handed in rather than one selected by band, because
+ * the image-set look re-bake parses a DIFFERENT theme file and so has no band to name.
+ */
+function paletteTokenReader(paletteVars, hand = false) {
+  return (name) => {
+    // Fall through to the base token when a theme somehow carries no sketch value, so a
+    // missing re-point degrades to the clean face rather than to the black sentinel.
     const repoint = hand ? SKETCH_TOKEN_REPOINTS[name] : undefined;
     if (repoint && paletteVars[repoint]) return readPaletteToken(paletteVars, repoint);
     return readPaletteToken(paletteVars, name);
-  });
+  };
 }
 
 // Parse the combined cascade (layoutCSS first, then paletteCSS) so the
@@ -1502,12 +1556,7 @@ const SKETCH_TOKEN_REPOINTS = Object.freeze({ 'font-body': 'sketch-font-body' })
  */
 function readScopeToken(scope, name) {
   const { band, hand } = normalizeScope(scope);
-  const vars = paletteVarsForBand(band);
-  const repoint = hand ? SKETCH_TOKEN_REPOINTS[name] : undefined;
-  // Fall through to the base token when a theme somehow carries no sketch value, so a
-  // missing re-point degrades to the clean face rather than to the black sentinel.
-  if (repoint && vars[repoint]) return readPaletteToken(vars, repoint);
-  return readPaletteToken(vars, name);
+  return paletteTokenReader(paletteVarsForBand(band), hand)(name);
 }
 
 /** Accept a bare band string as well as a scope object — the look re-bake passes one. */
@@ -1520,26 +1569,6 @@ function diagramScopeKey(scope) {
   const { band, hand } = normalizeScope(scope);
   return `${band}|${hand ? 'hand' : 'clean'}`;
 }
-// The band palettes, for the ONE caller that renders outside the kernel's walk: the
-// image-set cross-scheme look re-bake, which re-renders an already-placed diagram in a
-// different band (and, for a light/dark look, out of a DIFFERENT theme file, which is
-// why that caller cannot simply name a band). Memoized so it costs the same as the
-// constants it replaced, and built through `resolveMermaidThemeVars` — the same single
-// assembly point that caller uses — so the two cannot diverge.
-const bandThemeVars = new Map();
-function themeVarsForBand(band, hand = false) {
-  const key = diagramScopeKey({ band, hand });
-  let vars = bandThemeVars.get(key);
-  if (!vars) {
-    // Through `resolveMermaidThemeVars`, deliberately: the PDF path keeps exactly ONE
-    // palette-assembly site, and `test/unit/core/diagram-theme-parity.test.js` fails on
-    // a second one — that is where the 38 drifted values came from (#511).
-    vars = resolveMermaidThemeVars(paletteVarsForBand(band), hand);
-    bandThemeVars.set(key, vars);
-  }
-  return vars;
-}
-
 // The browser every Chromium launch in the CLI uses — the render, the diagram worker, and the code
 // sandbox, which must be the SAME browser `lattice packages trust` measured the OS sandbox on
 // (lib/core/chrome-exec.js has the resolution order and why).
@@ -1650,10 +1679,10 @@ function withInstalledComponents(source) {
   }
   return r.source;
 }
-// The export's services every plugin bake reads (lib/plugins/host-bake.js; Mermaid's list is in
-// lib/plugins/mermaid/mermaid.bake.js). The palette reader, the scope key and the diagram theme stay
-// HERE, where the palette is parsed: the PDF path keeps one palette-assembly site
-// (test/unit/core/diagram-theme-parity.test.js).
+// The export's services every plugin bake reads — the GENERIC list in lib/plugins/host-bake.js
+// (`BAKE_SERVICES`), which `bakeDeck` holds this object to. The palette readers and the scope key
+// stay HERE, where the palette is parsed; what a plugin builds from a palette (Mermaid's theme
+// variables) is the plugin's, in its bake.
 const mdForBake = withInstalledComponents(md);
 const bakeServices = {
   pkgRoot: PKG_ROOT,
@@ -1664,12 +1693,13 @@ const bakeServices = {
   browser: { path: CHROME_EXEC, args: OFFLINE_ARGS },
   readToken: readScopeToken,
   scopeKey: diagramScopeKey,
-  diagramTheme: themeVarsForBand,
+  paletteReader: paletteTokenReader,
 };
-const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true });
-// Mermaid's record of this bake — what the image-set cross-scheme look re-bakes from. Empty when
-// the deck drew no diagram (no bake ran), and then no `.mermaid-svg[data-mmd-idx]` exists either.
-const MERMAID_BAKE = BAKE_CONTEXTS.get('mermaid')?.state || { defs: [], modes: [], looks: [], hand: [] };
+const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, disabled: PLUGINS_DISABLED });
+// Every bake's RE-BAKE HOOK (`ctx.state.rebake`, lib/plugins/host-bake.js) — what the image-set
+// cross-scheme look re-renders from, read without naming a plugin. Empty when no bake that
+// publishes one ran, and then the page carries none of their figures either.
+const REBAKES = [...BAKE_CONTEXTS.values()].map((c) => c.state.rebake).filter(Boolean);
 const rawMd = appendAutoGlossary(preGlossaryMd);
 // The manifest term→definition projection is part of the SAME `glossary: auto` opt-in as the
 // slide (design §18) — gate it so a deck with acronym definitions but no `glossary: auto` stays
@@ -1944,7 +1974,7 @@ function engineSlides(deckSource = rawMd) {
   // the wrong artifact: the engine/preview path never overrode the default, so the
   // EXPORT (the file people actually ship, and the ADR's designated accessible route)
   // was the only path that lost it. See the semantic-html ADR §17.11.
-  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml' });
+  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml', plugins: { disabled: [...PLUGINS_DISABLED] } });
   // Both names are passed wherever they are known. The PALETTE's always is
   // (`palettePath` is `themes/<paletteName>.css`). The LAYOUT CSS's is known on the
   // DEFAULT path — it is `dist/lattice.css`, which is `lattice`, the name every
@@ -2076,6 +2106,10 @@ const widenDeckCss = (css) => (DECK_HAS_PANES ? widenForPanes(css, DECK_PANE_CLA
 const notesCore = require('./lib/authoring/notes-core');
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// For a double-quoted ATTRIBUTE value, where a `"` would end the attribute. escapeHtml is
+// for text, and adding `"` to it would change the bytes of every exported <title> that
+// quotes something.
+const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
 // The set of INDIVIDUAL note bodies straight from the render — the directive-safe
 // key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
 // attachment). NOT the `\n\n`-joined note split apart, which shatters a single
@@ -2531,21 +2565,16 @@ const pluginHydrateScript = hasHydratedPlugins
   : '';
 
 // ── state-chart browser-measured layout bootstrap ─────────────────────────
-// state-chart emits HTML nodes + a transitions JSON attr + an empty SVG
-// overlay; the browser measures the laid-out nodes and draws the edges.
-// Only emitted if a slide actually contains a state-chart figure, and it
-// runs on DOMContentLoaded, which the navigation's `waitUntil: 'load'` covers —
-// the same pre-render-then-PDF flow function-plot uses. Its first draw is in fact
-// synchronous at parse time; the DOMContentLoaded and `fonts.ready` handlers are
-// re-draws. The `fonts.ready` one is a promise continuation no navigation wait ever
-// covered; what keeps it correct is NOT registration order — see the invariant written
-// beside the Node-side force-load below, which is the accurate account. The function body
-// is the canonical installStateChartLayout from the kernel, serialized so
-// the emulator and lattice-runtime share one implementation.
+// The state chart takes the flowchart's delivery (state-chart.layout.js, a Trama
+// adapter): an HTML measuring harness the page sizes in its own fonts, then a pass that
+// lays the machine out with Trama's kernel and paints the SVG. Emitted only when a slide
+// holds a state-chart figure. Its first draw is synchronous at parse time; the
+// DOMContentLoaded and `fonts.ready` handlers are re-draws, and what keeps the
+// `fonts.ready` one correct is the invariant written beside the Node-side force-load below.
 const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure'));
-// Whether any machine on any slide would actually be RE-RANKED. Kept separate
-// from `hasStateChart`, which still gates the player's SVG bake below — a chain
-// is drawn by the pass and has to be baked exactly like a fan-out.
+// Whether any machine needs dagre. Kept separate from `hasStateChart`, which still gates
+// the player's SVG bake below: a chain is drawn by the pass and baked exactly like a
+// machine that branches.
 let needsDagre = false;
 if (hasStateChart) {
   try {
@@ -2556,48 +2585,28 @@ if (hasStateChart) {
 let stateChartScript = '';
 if (hasStateChart) {
   try {
-    const { STATE_CHART_BROWSER_JS } = require('./lib/components/chart/state-chart/state-chart.transform');
-    // The pass is serialized through `.toString()`, so it carries no imports and
-    // can only reach a layout engine through a global that already exists in the
-    // document. This IIFE installs `globalThis.__latticeDagre` ahead of it.
-    // Prepended HERE rather than inside the transform because the runtime bundle
-    // imports that module too, and a top-level require there shipped the 62KB
-    // string to every reader of every deck — measured at +51KB gzipped on
-    // lattice-runtime-min.js (dagre carried twice: inlined AND as this string)
-    // against +28KB for the live library alone. Missing bundle (a clone that
-    // never ran `npm install`) → '' → the pass falls back to the numbered column.
-    //
-    // GATED ON THE MACHINE, NOT ON THE COMPONENT. dagre's answer is only ever
-    // USED when it puts two nodes in one rank, and zero of the 9 drawn machines in
-    // the shipped galleries branch — so keying this on `hasStateChart` made every
-    // one of them carry 62.2 KiB raw / 21.8 KiB gzipped for a layout the pass then
-    // discarded. `htmlNeedsDagre` runs the REAL dagre in Node over the real
-    // topology (rank assignment is topology-only, so unit boxes give the same
-    // partition the browser gets with measured ones) and answers TRUE for
-    // anything it cannot read — a false positive ships an unused engine, a false
-    // negative silently drops a branching machine back to the column.
+    const { browserJs: stateChartBrowserJs } = require('./lib/components/chart/state-chart/state-chart.layout.js');
+    // GATED ON THE MACHINE, NOT ON THE COMPONENT. Trama's kernel lays a CHAIN out on its
+    // reading-order grid with no dagre at all, and most shipped machines are chains, so
+    // the engine ships only when `htmlNeedsDagre` finds a machine that is not one. It asks
+    // Trama's own `isChain` of each figure's model, as the adapter builds it, and answers
+    // TRUE for anything it cannot read: a false positive ships an unused engine, a false
+    // negative lays a branching machine out on the grid. Missing bundle (a clone that never
+    // ran `npm install`) → '' → a branching machine falls back to the grid.
     let dagreIife = '';
     if (needsDagre) {
-      try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* column fallback */ }
+      try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* grid fallback */ }
     }
-    // WITHHELD ON PURPOSE, and the document says so. `lib/runtime/index.js` warns
-    // when a state chart is present and the engine is not, because everywhere else
-    // that means a host forgot the tag. Here it means the gate looked at the deck's
-    // own machines and found nothing to lay out, so the warning would be a false
-    // alarm — on the exact artifact it exists to protect.
-    //
-    // MEASURED SCOPE, because the case is narrower than it looks: the only export
-    // that inlines the runtime at all is `--fluid`, and there the runtime's
-    // state-chart transform does not run (the SVG is already drawn by the pass
-    // above), so the warning does not fire today with or without this marker. It is
-    // one line that makes "withheld deliberately" distinguishable from "forgotten"
-    // at the moment the export knows the difference, rather than a fix for an alarm
-    // anyone has heard.
-    const noDagreMark = hasStateChart && !dagreIife ? 'globalThis.__latticeDagreNotNeeded=1;\n' : '';
-    stateChartScript = dagreIife
-      ? `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${STATE_CHART_BROWSER_JS}\n</script>`
-      : `${ENGINE_SCRIPT_OPEN}\n${noDagreMark}${STATE_CHART_BROWSER_JS}\n</script>`;
-  } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
+    // WITHHELD ON PURPOSE, and the document says so. `lib/runtime/index.js` warns when a
+    // state chart that needs the engine is present and the engine is not, because
+    // everywhere else that means a host forgot the tag. Here the gate looked at the deck's
+    // own machines and found nothing that needs it.
+    const noDagreMark = !dagreIife ? 'globalThis.__latticeDagreNotNeeded=1;\n' : '';
+    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife ? `${dagreIife}\n` : noDagreMark}${stateChartBrowserJs()}\n</script>`;
+  } catch (e) {
+    // The harness tiles show. Say so, as the flowchart does below.
+    console.warn(`  ⚠ state chart layout unavailable (${e?.message ? e.message.split('\n')[0] : e}) — state charts export as their fallback tiles.`);
+  }
 }
 
 // ── flowchart browser-measured layout bootstrap ──────────────────────────────
@@ -2721,7 +2730,7 @@ const a11yTextureDefs = texturePatternDefs(
   texturePrefixesReferencedIn(`${deckStyle}\n${slidesWithMeta2}`),
 );
 const htmlDoc = `<!DOCTYPE html>
-<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
+<html lang="${escapeAttr(deckLang)}"><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
 ${docFonts}
 ${katexCssTag}
@@ -3959,7 +3968,7 @@ async function renderBody(browser, g, closeBrowser) {
       const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
-        const SEL = '.mermaid-svg > svg, .mermaid > svg';
+        const SEL = '[data-lattice-figure] > svg'; // the host's drawn-figure marker (bake and pass alike)
         const live = document.querySelectorAll(SEL);
         const copies = root.querySelectorAll(SEL);
         let unbaked = 0;
@@ -4207,10 +4216,10 @@ async function renderBody(browser, g, closeBrowser) {
         let lookApplied = true;
         let lookPaletteCss = paletteCSS;
         let sectionLookClass = lookMode === 'print' ? 'form print' : 'form';
-        // Per HAND, not one for the deck: a deck can mix sketch and boardroom slides, and
-        // the two resolve `--font-body` differently. Memoized so the palette is still
-        // built at most twice however many diagrams are re-baked.
-        let lookThemeVarsFor = null;
+        // The palette a re-bake renders the look from: print's own band (scheme-independent), or
+        // the LOOK theme file parsed below. A bake's hook builds what it needs from it — Mermaid
+        // its theme variables, per hand face, memoized (lib/plugins/mermaid/mermaid.bake.js).
+        let lookPalette = lookMode === 'print' ? paletteVarsForBand('print') : null;
         if (lookMode !== 'print') {
           const base = paletteName.replace(/-dark$/, '');
           const targetName = lookMode === 'dark' ? `${base}-dark` : base;
@@ -4220,17 +4229,11 @@ async function renderBody(browser, g, closeBrowser) {
               .map((n) => readFileOrDie(path.join(THEMES_DIR, `${n}.css`), 'svg-look palette'))
               .join('\n');
             sectionLookClass = lookMode === 'dark' ? 'dark form' : 'form';
-            // Resolve Mermaid theme vars from the LOOK palette (not the deck's) — the module-level
-            // themeVarsForBand is baked from the deck's resolved palette, which for `--image-mode
-            // dark` is the DARK theme, so re-rendering `light` with it would still read dark. Parse
-            // the look palette fresh so a light look bakes light diagram colors and a dark look dark.
-            const lookPaletteVars = parsePaletteVars(layoutCSS + '\n' + lookPaletteCss, lookMode === 'dark');
-            const byHand = new Map();
-            lookThemeVarsFor = (hand) => {
-              const k = hand ? 'hand' : 'clean';
-              if (!byHand.has(k)) byHand.set(k, resolveMermaidThemeVars(lookPaletteVars, hand));
-              return byHand.get(k);
-            };
+            // Re-bake from the LOOK palette (not the deck's) — the deck's resolved palette for
+            // `--image-mode dark` is the DARK theme, so re-rendering `light` with it would still
+            // read dark. Parse the look palette fresh so a light look bakes light figure colors and
+            // a dark look dark.
+            lookPalette = parsePaletteVars(layoutCSS + '\n' + lookPaletteCss, lookMode === 'dark');
           } else {
             // Can't honor the look (no companion theme) — coerce to `inherit` so the baked canvas
             // + manifest describe what actually renders (the slide look), not a lie. Warn even
@@ -4268,123 +4271,103 @@ async function renderBody(browser, g, closeBrowser) {
           // A diagram already in the look scheme keeps its live markup (its live context matches the
           // look — natively, or via the chart restyle above — so it flattens correctly).
           // De-duped: a diagram can be stamped on >1 section (autosplit clones a shared block).
-          const allIdxs = await g(() => page.evaluate(() =>
-            [...new Set([...document.querySelectorAll('.mermaid-svg[data-mmd-idx]')].map((d) => Number(d.getAttribute('data-mmd-idx'))))],
-          ), 'collect diagram indices');
-          const idxs = allIdxs.filter((idx) => MERMAID_BAKE.modes[idx] !== lookMode);
-          if (idxs.length) {
-            if (!QUIET) process.stdout.write(`  re-rendering ${idxs.length} Mermaid diagram(s) → ${lookMode}...`);
-            const { flattenSvgStyles: flatten } = require('./lib/components/chart/_chart-family/standalone-svg.js');
-            const parts = [];
-            const authorKept = new Set();   // sets its own colors — the look can't override (intended, benign)
-            const renderFailed = new Set(); // mmdc fell back — no look render; keeps the slide-scheme bake (may be WRONG)
-            for (const idx of idxs) {
-              const def = MERMAID_BAKE.defs[idx];
-              if (def == null) continue;
-              // A diagram that sets its OWN colors overrides Mermaid's theme variables, so the look
-              // re-render can't fully recolor it: an author `%%{init}%%` that PINS A THEME (the engine
-              // stands down and injects no themeVars), or explicit `fill:`/`stroke:`/`color:` hex/rgb
-              // in `style`/`classDef`/`linkStyle`.
-              // A pinned theme makes the re-render a total NO-OP (the init block survives untouched),
-              // so skip the wasted mmdc/Chromium cost and keep the diagram's live markup — its author
-              // colors are literal and context-independent. Flag it as author-kept. (An explicit
-              // `style`/`classDef` fill still benefits: the re-render recolors the theme-driven parts,
-              // leaving only the styled nodes in the author's colors — so it IS re-rendered below.)
-              // The test is `authorPinsTheme`, NOT "has an init directive": since #1311 a
-              // color-neutral directive (layout, curve, renderer) keeps the engine palette, so it
-              // re-bakes like any other diagram and must not be reported as author-kept.
-              if (authorPinsTheme(def)) { authorKept.add(idx); continue; }
-              const explicitColor = /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
-              // print → the print theme vars (themeVarsForBand('print'), scheme-independent); light/dark
-              // → the vars resolved from the LOOK palette above, so the diagram bakes the look's colors.
-              // The LOOK is the slide's own, so a sketch deck's re-baked diagrams stay
-              // hand-drawn like the ones that were not re-baked — EXCEPT into print,
-              // which is a texture band for every theme (base.print-textures.css). The
-              // hand look has no texture channel, so re-baking a sketch diagram onto a
-              // print canvas would strip the redundant encoding exactly the way rule 1
-              // of resolveDiagramLook exists to prevent — and the scratch document this
-              // lands in really is `section.print` (sectionLookClass below). Same rule,
-              // enforced at the second place a diagram can be baked.
-              const bakeLook = lookMode === 'print' ? 'classic' : MERMAID_BAKE.looks[idx];
-              const out = lookMode === 'print'
-                ? MERMAID_BAKE.renderInBand(def, 'print', bakeLook, MERMAID_BAKE.hand[idx])
-                : MERMAID_BAKE.renderOne(def, lookThemeVarsFor(MERMAID_BAKE.hand[idx]), null, bakeLook);
-              // mmdc can degrade to a `<pre class="mermaid-fallback">` (no <div> wrapper) after exhausting
-              // its retries — keep the ORIGINAL live diagram (still an <svg>) below, but flag it distinctly:
-              // it's still in the slide scheme, unlike the benign author-color case.
-              if (!/^\s*<div\b/.test(out)) { renderFailed.add(idx); continue; }
-              parts.push(out.replace(/^<div class="mermaid-svg/, `<div data-look-idx="${idx}" class="mermaid-svg`));
-              if (explicitColor) authorKept.add(idx);
-            }
-            lookDiagramMarkup = new Map();
-            if (parts.length) {
-              // Clean look-scheme doc: engine layout CSS + the look palette + a section in the look scheme,
-              // holding just the re-rendered diagrams. No slide content, no rendered-scheme CSS. NOTE: the
-              // scratch page is trusted for COLOR only — it carries no usable `@font-face` (the engine
-              // sheet's are dropped as covered upstream, and the base64 block is not inlined here), so
-              // text renders in a fallback font. That costs nothing: glyph geometry is baked by mmdc and
-              // font bytes are embedded post-hoc (standaloneFontFaceCss), so only the flattened COLORS
-              // are ever read here. It is also why this page can navigate on `load` — it asks the
-              // network for nothing at all.
-              // Same `<style>` RAWTEXT rule as the deliverable document (HARD RULE #22), and
-              // `layoutCSS` is the caller's `--css` sheet: a `</style>` here would end the
-              // element and hand the remainder to the parser as markup in a live page THIS
-              // process drives. Nothing in the scratch page ships, but a script node in it
-              // reads and writes the render browser all the same — and the guard is free.
-              const scratchDoc = `<!DOCTYPE html><html style="color-scheme:${lookMode === 'dark' ? 'dark' : 'light'}"><head><meta charset="utf-8"><style>${sanitizeStyleText(`${layoutCSS}\n${lookPaletteCss}`)}</style></head><body><section class="${sectionLookClass}" data-lattice-slide="1">${parts.join('')}</section></body></html>`;
-              const scratch = await g(() => page.browser().newPage(), 'look-diagram scratch page');
-              try {
-                // `load`, not `networkidle0` — the fourth and last navigation wait on this
-                // path to be sized rather than inherited (#1795 did the other three).
-                // This page issues NO subresource request AT ALL, and the reason is the
-                // one the comment above already gives: `setContent` leaves the document
-                // at `about:blank`, against which a relative url cannot resolve, so it is
-                // never even requested. Instrumented on the real navigation, both revisions:
-                // BEFORE the `@font-face` fix the page declared 37 faces (36 `unloaded` +
-                // 1 `error`) and started 0 requests; AFTER it declares 0 faces and starts 0.
-                // Zero either way — which is the point. A first draft quoted the 36+1 as
-                // though it described THIS build; it is the pre-fix census, and the comment
-                // 20 lines up already says this page carries no usable face at all.
-                // `load` therefore fires with nothing outstanding and
-                // `networkidle0` can only add its own idle floor on top — 1,986 ms against
-                // 154 ms, measured through the real CLI on an image-set export.
-                //
-                // A first draft of this comment credited the `@font-face` fix above with
-                // making the page request-free. That is FALSE and it overwrote a comment
-                // that was already right: the page never fetched anything, before the fix
-                // or after. The fix changes what this document DECLARES, not what it asks
-                // for. Caught by the HARD RULE #25 checker; the wait change stands on its
-                // own measurement, which is unaffected.
-                //
-                // The 120 ms settle below is unchanged: it is a LAYOUT wait for the SVG,
-                // not a network one, and it is what the flatten pass actually depends on.
-                await g(() => scratch.setContent(scratchDoc, { waitUntil: 'load', timeout: 60000 }), 'load look scratch');
-                await g(() => scratch.evaluate(`window.__flattenSvgStyles = ${flatten.toString()};`), 'inject flattener (scratch)');
-                await g(() => scratch.evaluate(() => new Promise((r) => setTimeout(r, 120))), 'settle scratch');
-                const flat = await g(() => scratch.evaluate(() => {
-                  const ser = new XMLSerializer();
-                  const acc = {};
-                  for (const wrap of document.querySelectorAll('.mermaid-svg[data-look-idx]')) {
-                    const svg = wrap.querySelector('svg');
-                    if (!svg) continue;
-                    try { acc[wrap.getAttribute('data-look-idx')] = ser.serializeToString(window.__flattenSvgStyles(svg, window, { collectTokens: true })); } catch (_e) { /* skip one un-flattenable svg */ }
-                  }
-                  return acc;
-                }), 'flatten look diagrams');
-                for (const [k, v] of Object.entries(flat)) lookDiagramMarkup.set(Number(k), v);
-              } finally {
-                await scratch.close().catch(() => {});
+          // Every bake that published a RE-BAKE HOOK (`REBAKES`), each on its own: its figures, its
+          // bands, its render — the export names none of them.
+          for (const [h, rb] of REBAKES.entries()) {
+            const allIdxs = await g(() => page.evaluate(({ figure, indexAttr }) =>
+              [...new Set([...document.querySelectorAll(`${figure}[${indexAttr}]`)].map((d) => Number(d.getAttribute(indexAttr))))],
+            { figure: rb.figure, indexAttr: rb.indexAttr }), 'collect diagram indices');
+            const idxs = allIdxs.filter((idx) => rb.bakedBand(idx) !== lookMode);
+            if (idxs.length) {
+              if (!QUIET) process.stdout.write(`  re-rendering ${idxs.length} ${rb.noun}(s) → ${lookMode}...`);
+              const { flattenSvgStyles: flatten } = require('./lib/components/chart/_chart-family/standalone-svg.js');
+              const parts = [];
+              const authorKept = new Set();   // sets its own colors — the look can't override (intended, benign)
+              const renderFailed = new Set(); // mmdc fell back — no look render; keeps the slide-scheme bake (may be WRONG)
+              for (const idx of idxs) {
+                // The hook decides, per figure, and says why one was not recolored (its contract in
+                // lib/plugins/host-bake.js; Mermaid's reasons in mermaid.bake.js): `kept` — the
+                // author fixed its colors, so the look cannot fully override them (intended,
+                // benign); `failed` — the render fell back and the figure keeps its slide-scheme
+                // bake (may read WRONG on the look canvas). A figure with markup AND `kept`
+                // recolored its theme-driven parts and is reported as kept as well.
+                const r = rb.render(idx, { band: lookMode, palette: lookPalette });
+                if (!r) continue;
+                if (!r.markup) { (r.failed ? renderFailed : authorKept).add(idx); continue; }
+                parts.push(r.markup);
+                if (r.kept) authorKept.add(idx);
               }
-            }
-            const recolored = idxs.length - authorKept.size - renderFailed.size;
-            if (!QUIET) console.log(` ${recolored}/${idxs.length} recolored`);
-            // Distinguish the two non-recolor causes — one is intended, one is a real wrong export.
-            // Both are ungated by --quiet so an automated pipeline sees them.
-            if (authorKept.size) {
-              console.warn(`  ⚠ ${authorKept.size} of ${idxs.length} Mermaid diagram(s) kept their own colors — an author \`%%{init}%%\` theme or explicit \`style\`/\`classDef\` fills override the ${lookMode} look. Remove the fixed theme/style, or re-color in the Studio.`);
-            }
-            if (renderFailed.size) {
-              console.warn(`  ⚠ ${renderFailed.size} of ${idxs.length} Mermaid diagram(s) could NOT be re-rendered (Mermaid failed) and remain in the SLIDE scheme — they may read wrong on the ${lookMode} canvas. Re-run the export, or use the Studio.`);
+              lookDiagramMarkup = lookDiagramMarkup || new Map();
+              if (parts.length) {
+                // Clean look-scheme doc: engine layout CSS + the look palette + a section in the look scheme,
+                // holding just the re-rendered diagrams. No slide content, no rendered-scheme CSS. NOTE: the
+                // scratch page is trusted for COLOR only — it carries no usable `@font-face` (the engine
+                // sheet's are dropped as covered upstream, and the base64 block is not inlined here), so
+                // text renders in a fallback font. That costs nothing: glyph geometry is baked by mmdc and
+                // font bytes are embedded post-hoc (standaloneFontFaceCss), so only the flattened COLORS
+                // are ever read here. It is also why this page can navigate on `load` — it asks the
+                // network for nothing at all.
+                // Same `<style>` RAWTEXT rule as the deliverable document (HARD RULE #22), and
+                // `layoutCSS` is the caller's `--css` sheet: a `</style>` here would end the
+                // element and hand the remainder to the parser as markup in a live page THIS
+                // process drives. Nothing in the scratch page ships, but a script node in it
+                // reads and writes the render browser all the same — and the guard is free.
+                const scratchDoc = `<!DOCTYPE html><html style="color-scheme:${lookMode === 'dark' ? 'dark' : 'light'}"><head><meta charset="utf-8"><style>${sanitizeStyleText(`${layoutCSS}\n${lookPaletteCss}`)}</style></head><body><section class="${sectionLookClass}" data-lattice-slide="1">${parts.join('')}</section></body></html>`;
+                const scratch = await g(() => page.browser().newPage(), 'look-diagram scratch page');
+                try {
+                  // `load`, not `networkidle0` — the fourth and last navigation wait on this
+                  // path to be sized rather than inherited (#1795 did the other three).
+                  // This page issues NO subresource request AT ALL, and the reason is the
+                  // one the comment above already gives: `setContent` leaves the document
+                  // at `about:blank`, against which a relative url cannot resolve, so it is
+                  // never even requested. Instrumented on the real navigation, both revisions:
+                  // BEFORE the `@font-face` fix the page declared 37 faces (36 `unloaded` +
+                  // 1 `error`) and started 0 requests; AFTER it declares 0 faces and starts 0.
+                  // Zero either way — which is the point. A first draft quoted the 36+1 as
+                  // though it described THIS build; it is the pre-fix census, and the comment
+                  // 20 lines up already says this page carries no usable face at all.
+                  // `load` therefore fires with nothing outstanding and
+                  // `networkidle0` can only add its own idle floor on top — 1,986 ms against
+                  // 154 ms, measured through the real CLI on an image-set export.
+                  //
+                  // A first draft of this comment credited the `@font-face` fix above with
+                  // making the page request-free. That is FALSE and it overwrote a comment
+                  // that was already right: the page never fetched anything, before the fix
+                  // or after. The fix changes what this document DECLARES, not what it asks
+                  // for. Caught by the HARD RULE #25 checker; the wait change stands on its
+                  // own measurement, which is unaffected.
+                  //
+                  // The 120 ms settle below is unchanged: it is a LAYOUT wait for the SVG,
+                  // not a network one, and it is what the flatten pass actually depends on.
+                  await g(() => scratch.setContent(scratchDoc, { waitUntil: 'load', timeout: 60000 }), 'load look scratch');
+                  await g(() => scratch.evaluate(`window.__flattenSvgStyles = ${flatten.toString()};`), 'inject flattener (scratch)');
+                  await g(() => scratch.evaluate(() => new Promise((r) => setTimeout(r, 120))), 'settle scratch');
+                  const flat = await g(() => scratch.evaluate((figure) => {
+                    const ser = new XMLSerializer();
+                    const acc = {};
+                    for (const wrap of document.querySelectorAll(`${figure}[data-look-idx]`)) {
+                      const svg = wrap.querySelector('svg');
+                      if (!svg) continue;
+                      try { acc[wrap.getAttribute('data-look-idx')] = ser.serializeToString(window.__flattenSvgStyles(svg, window, { collectTokens: true })); } catch (_e) { /* skip one un-flattenable svg */ }
+                    }
+                    return acc;
+                  }, rb.figure), 'flatten look diagrams');
+                  // Keyed by hook AND index: two plugins' figures may share an index.
+                  for (const [k, v] of Object.entries(flat)) lookDiagramMarkup.set(`${h}:${Number(k)}`, v);
+                } finally {
+                  await scratch.close().catch(() => {});
+                }
+              }
+              const recolored = idxs.length - authorKept.size - renderFailed.size;
+              if (!QUIET) console.log(` ${recolored}/${idxs.length} recolored`);
+              // Distinguish the two non-recolor causes — one is intended, one is a real wrong export.
+              // Both are ungated by --quiet so an automated pipeline sees them.
+              if (authorKept.size) {
+                console.warn(`  ⚠ ${authorKept.size} of ${idxs.length} ${rb.noun}(s) kept their own colors — ${rb.keptWhy} override the ${lookMode} look. ${rb.keptFix}, or re-color in the Studio.`);
+              }
+              if (renderFailed.size) {
+                console.warn(`  ⚠ ${renderFailed.size} of ${idxs.length} ${rb.noun}(s) could NOT be re-rendered (${rb.failedWhy}) and remain in the SLIDE scheme — they may read wrong on the ${lookMode} canvas. Re-run the export, or use the Studio.`);
+              }
             }
           }
         }
@@ -4393,21 +4376,25 @@ async function renderBody(browser, g, closeBrowser) {
       const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } =
         require('./lib/components/chart/_chart-family/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenSvgStyles.toString()};`), 'inject svg flattener');
-      const raw = await g(() => page.evaluate((KEYED) => {
+      const raw = await g(() => page.evaluate(({ KEYED, FIGURES }) => {
         const ser = new XMLSerializer();
         const out = [];
         document.querySelectorAll('section[data-lattice-slide]').forEach((sec, si) => {
-          const push = (svg, kind, chartType, mmdIdx) => {
+          const push = (svg, kind, chartType, figureKey) => {
             try {
               const flat = window.__flattenSvgStyles(svg, window, { collectTokens: true });
-              out.push({ slide: si + 1, kind, chartType: chartType || null, mmdIdx: mmdIdx == null ? null : Number(mmdIdx), markup: ser.serializeToString(flat) });
+              out.push({ slide: si + 1, kind, chartType: chartType || null, figureKey: figureKey ?? null, markup: ser.serializeToString(flat) });
             } catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
           };
-          // Mermaid/diagram blocks render to an inline <svg> inside `.mermaid-svg`; carry the stamp
-          // index so a cross-scheme look can swap in the isolated look-rendered markup below.
-          sec.querySelectorAll('.mermaid-svg').forEach((wrap) => {
-            const svg = wrap.querySelector('svg');
-            if (svg) push(svg, 'diagram', null, wrap.getAttribute('data-mmd-idx'));
+          // A baked figure (a Mermaid diagram) renders to an inline <svg> inside the figure element
+          // its bake's re-bake hook names; carry hook + stamp index, so a cross-scheme look can swap
+          // in the isolated look-rendered markup below.
+          FIGURES.forEach(({ figure, indexAttr }, h) => {
+            sec.querySelectorAll(figure).forEach((wrap) => {
+              const svg = wrap.querySelector('svg');
+              const idx = wrap.getAttribute(indexAttr);
+              if (svg) push(svg, 'diagram', null, idx == null ? null : `${h}:${Number(idx)}`);
+            });
           });
           // The four keyed chart layouts emit the diagram+key as one self-contained svg;
           // the section class (piechart/radar/…) is the manifest's `chartType`.
@@ -4417,13 +4404,13 @@ async function renderBody(browser, g, closeBrowser) {
           }
         });
         return out;
-      }, KEYED_CHART_LAYOUTS), 'extract standalone svgs');
+      }, { KEYED: KEYED_CHART_LAYOUTS, FIGURES: REBAKES.map(({ figure, indexAttr }) => ({ figure, indexAttr })) }), 'extract standalone svgs');
       // For a cross-scheme look, replace each diagram's LIVE markup (flattened against the slide doc)
       // with the look-rendered one from the isolated scratch page. Diagrams that couldn't be recolored
       // (author-themed / mmdc fallback) aren't in the map and keep their live markup.
       if (lookDiagramMarkup) {
         for (const t of raw) {
-          if (t.kind === 'diagram' && t.mmdIdx != null && lookDiagramMarkup.has(t.mmdIdx)) t.markup = lookDiagramMarkup.get(t.mmdIdx);
+          if (t.kind === 'diagram' && t.figureKey != null && lookDiagramMarkup.has(t.figureKey)) t.markup = lookDiagramMarkup.get(t.figureKey);
         }
       }
       const svgBg = svgBackgroundFill(effectiveSvgBackground);
@@ -5077,7 +5064,7 @@ async function composePdfInPage(g, page) {
     composePdfInPage.handles = handles;
     if (!composePdfInPage.pages.has(page)) {
       composePdfInPage.pages.add(page);
-      await page.exposeFunction(PHOTO_FN, async (i, scale) => {
+      await page.exposeFunction(PHOTO_FN, async (i, scale, type) => {
         const h = composePdfInPage.handles[i];
         // deviceScaleFactor changes pixel density only, never layout.
         if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: scale });
@@ -5085,7 +5072,14 @@ async function composePdfInPage(g, page) {
           // Align the slide's top edge with the viewport's exactly: scrollIntoView can leave
           // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
-          const buf = await h.screenshot({ type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false });
+          // The encoding the writer asks for: PNG first, JPEG too on a busy slide (compose.mjs pngIsFlat).
+          // A real export takes Chrome's default PNG encoder. Under a test (PDF_PHOTO_FAST) it takes the
+          // fast one instead: 67 ms against 168 ms for a 1280 px slide (JPEG: 50 ms), same pixels, about
+          // 3x the bytes on a flat slide. CI's integration job renders hundreds of decks and sat 25 s
+          // from its timeout before #2503; a shipped PDF and a committed golden keep the small bytes.
+          const buf = await h.screenshot(type === 'jpeg'
+            ? { type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false }
+            : { type: 'png', optimizeForSpeed: PDF_PHOTO_FAST, captureBeyondViewport: false });
           return Buffer.from(buf).toString('base64');
         } finally {
           if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: 1 });
@@ -5096,10 +5090,11 @@ async function composePdfInPage(g, page) {
       await page.exposeFunction(ASSET_FN, async (url) => pdfAssets.asset(url));
       await page.exposeFunction(FACES_FN, async (href) => pdfAssets.fontFaceRules(href));
     }
-    // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~33 s, and a
+    // Its own watchdog, scaled to the deck: the 116-slide 4K gallery composes in ~31 s (a 4K
+    // slide's photo is JPEG at 2560 px; PNG-first is for 16:9 and HD), and a
     // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
     const composeMs = Math.max(RENDER_WATCHDOG_MS, handles.length * 4000);
-    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide) => {
+    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
       // THE FACE: the export face (`.lattice-exporting`), the one the Studio photographs too.
@@ -5113,7 +5108,21 @@ async function composePdfInPage(g, page) {
         for (let i = 0; i < b.length; i++) bytes[i] = b.charCodeAt(i);
         return bytes;
       };
-      const camera = async (section, { scale = 1 } = {}) => ({ bytes: unb64(await window[fnName](secs.indexOf(section), scale)), type: 'jpeg' });
+      // A busy slide's JPEG is the PNG just taken, re-encoded here by Chrome's own encoder: no second
+      // screenshot (scroll, viewport, capture), so a busy slide costs ~50 ms more, not ~100.
+      let lastPng = null;
+      const camera = async (section, { scale = 1, type = 'png' } = {}) => {
+        if (type === 'jpeg' && lastPng && lastPng.section === section && lastPng.scale === scale) {
+          const bmp = await createImageBitmap(new Blob([lastPng.bytes], { type: 'image/png' }));
+          const canvas = new OffscreenCanvas(bmp.width, bmp.height);
+          canvas.getContext('2d').drawImage(bmp, 0, 0);
+          lastPng = null;
+          return { bytes: new Uint8Array(await (await canvas.convertToBlob({ type: 'image/jpeg', quality: jpegQuality })).arrayBuffer()), type: 'jpeg' };
+        }
+        const bytes = unb64(await window[fnName](secs.indexOf(section), scale, type));
+        lastPng = type === 'jpeg' ? null : { section, scale, bytes };
+        return { bytes, type: type === 'jpeg' ? 'jpeg' : 'png' };
+      };
       const fetchAsset = async (url) => unb64(await window[assetFn](url));
       const bin = atob(wasmB64);
       const wasmBytes = new Uint8Array(bin.length);
@@ -5130,7 +5139,7 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide'), 'compose pdf', composeMs);
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
     await page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); });
     if (!QUIET) {
@@ -5596,7 +5605,7 @@ html,body{background:var(--bg,#fff)}
    states it as an inline max-width, and auto reads both. Scoped by aria-roledescription
    so it cannot reach a chart, which is token-driven and must keep filling its band.
    The long form, with the measurements and why the rule is not in the kernel:
-   lib/integrations/mermaid/mermaid.css § THE RE-HOSTED FIGURE. */
+   lib/plugins/mermaid/mermaid.styles.css § THE RE-HOSTED FIGURE. */
 #lat-read figure svg[aria-roledescription]{width:auto;max-width:100%}
 /* A WIDE DIAGRAM STOPS SHRINKING AND SCROLLS. The kernel writes each diagram figure's
    natural width, floor width (a fixed share of natural) and aspect ratio inline, and makes
@@ -6118,19 +6127,27 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   if (STRIP_SAY) fmForMerge = null;
   // Precedence, highest first: inline `<!-- say: -->` → front-matter `say:[n]` → projection.
   const slideTexts = mergeNarration(slideCount, projected, { sayLines: inlineForMerge, fmSayMap: fmForMerge });
-  // THE AUTO-GLOSSARY PAGE IS SILENT, as it is in the Studio. `glossary: auto` appends one slide
-  // the source does not contain, always last; Present never shows it, so the Studio has no clip for
+  // THE AUTO-GLOSSARY PAGES ARE SILENT, as they are in the Studio. `glossary: auto` appends one
+  // slide per glossary page, which the source does not contain, always last; Present never shows it, so the Studio has no clip for
   // it and its projection drops that section (`withoutAutoGlossary`, the same kernel). Narrating it
   // here made `lattice video` read four definitions the Studio export of the same deck never says
   // (engineering/pipeline.md §6).
   // Every page the appended slide became is blanked, should it ever paginate; `glossaryFrom` also
   // bounds the texts the bookends are checked against, so a closing the last AUTHORED slide already
   // says is dropped here as the Studio drops it, not compared against the silent glossary page.
+  // A long glossary is appended as several slides (one per page of the glossary's venue budget),
+  // so the silent run starts at the first page whose authored slide is one of the last `added`.
   let glossaryFrom = slideCount;
-  if (slideCount > 0 && autoGlossarySections(preGlossaryMd)) {
+  const glossaryAdded = slideCount > 0 ? autoGlossarySections(preGlossaryMd) : 0;
+  if (glossaryAdded) {
     const origin = pageOrigin();
-    glossaryFrom = origin.length === slideCount ? origin.indexOf(origin[slideCount - 1]) : slideCount - 1;
-    for (let i = glossaryFrom; i < slideCount; i++) slideTexts[i] = '';
+    if (origin.length === slideCount) {
+      const firstGlossary = origin[slideCount - 1] - glossaryAdded + 1;
+      glossaryFrom = origin.findIndex((authored) => authored >= firstGlossary);
+    } else {
+      glossaryFrom = slideCount - glossaryAdded;
+    }
+    for (let i = Math.max(0, glossaryFrom); i < slideCount; i++) slideTexts[i] = '';
   }
   // Emphasis survives only where the resolved narration is still the projected text — the ONE
   // shared rule (read-along-build.js), fed the PRE-substitution snapshot because `projected` was

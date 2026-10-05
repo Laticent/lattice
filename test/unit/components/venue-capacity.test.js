@@ -45,6 +45,7 @@ test('lint reads the manifests\' numbers, in laptop/huddle/conference/hall order
     eyebrow: VENUES.map((v) => code.eyebrow[v]),
     insight: VENUES.map((v) => code.insight[v]),
     eyebrowInsight: VENUES.map((v) => code.eyebrowInsight[v]),
+    headed: Object.fromEntries(Object.entries(code.headed).map(([k, g]) => [k, Object.fromEntries(Object.entries(g).map(([sh, r]) => [sh, VENUES.map((v) => r[v])]))])),
   });
   assert.equal(core.SCALE_CAPACITY, generated.items);
 });
@@ -52,7 +53,14 @@ test('lint reads the manifests\' numbers, in laptop/huddle/conference/hall order
 test('a measured row never grows as the room grows', () => {
   for (const m of manifests) {
     const vc = m.venueCapacity;
-    const rows = vc.lines ? Object.entries(vc.lines) : Object.entries(vc.byWords || {});
+    // Every row the manifest stores: the code pane's (headed ones too), the count rows, and the
+    // eyebrow and callout rows.
+    const lines = vc.lines ? Object.entries(vc.lines).flatMap(([k, r]) => (k === 'headed'
+      ? Object.entries(r).flatMap(([n, g]) => Object.entries(g).map(([sh, row]) => [`headed ${n} ${sh}`, row]))
+      : [[k, r]])) : [];
+    const words = (tag, byWords) => Object.entries(byWords || {}).map(([w, r]) => [`${tag}${w}`, r]);
+    const rows = [...lines, ...words('', vc.byWords), ...words('eyebrow ', vc.eyebrow?.byWords),
+      ...words('insight ', vc.insight?.byWords), ...words('insight eyebrow ', vc.insight?.eyebrow?.byWords)];
     for (const [key, row] of rows) {
       const seq = VENUES.map((v) => row[v]);
       for (let i = 1; i < seq.length; i++) {

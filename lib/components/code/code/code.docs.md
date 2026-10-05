@@ -10,7 +10,7 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 
 ## Agent contract
 
-**By venue** the pane holds laptop ~15 · huddle ~13 · conference ~11 · hall ~10 lines (laptop ~13 · huddle ~11 · conference ~10 · hall ~8 under an eyebrow). Ending in a `> …` callout: laptop ~11 · huddle ~9 · conference ~8 · hall ~6 (laptop ~10 · huddle ~8 · conference ~7 · hall ~5 under an eyebrow). Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** the pane holds laptop ~15 · huddle ~12 · conference ~9 · hall ~8 lines (laptop ~13 · huddle ~11 · conference ~8 · hall ~7 under an eyebrow). Ending in a `> …` callout: laptop ~11 · huddle ~9 · conference ~6 · hall ~5 (laptop ~10 · huddle ~8 · conference ~5 · hall ~4 under an eyebrow). Under a two-line heading: laptop ~13 · huddle ~11 · conference ~8 · hall ~6 (laptop ~12 · huddle ~9 · conference ~7 · hall ~5 under an eyebrow). Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

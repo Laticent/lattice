@@ -28,6 +28,12 @@ describe('trama — serialization', () => {
     assert.ok(geo?.nodes?.a && geo.routes.length === 1);
   });
 
+  test('the radial kernel rebuilt from its own source lays a star out', () => {
+    const K = new Function(`return (${trama.radialLayoutKernel.toString()})`)()();
+    assert.equal(K.ring(5, 100, 60).length, 5);
+    assert.match(K.bandPath(0, 0, 20, 80, 0, 10, 6), /^M[\d.,-]+L/);
+  });
+
   test('the pipeline and the flowchart adapter compile from their own source', () => {
     for (const fn of [trama.installGraphPass, flowchartAdapter]) assert.doesNotThrow(() => new Function(`return (${fn.toString()})`), fn.name);
   });
@@ -38,7 +44,7 @@ describe('trama — serialization', () => {
     const src = fs.readFileSync(DIST, 'utf8');
     const helpers = [...src.matchAll(/^var (__\w+) = /gm)].map((m) => m[1]).filter((h) => !['__defProp', '__getOwnPropDesc', '__getOwnPropNames', '__hasOwnProp', '__export', '__copyProps', '__toCommonJS'].includes(h));
     assert.deepEqual(helpers, [], 'a helper the shipped functions could reach');
-    for (const fn of [trama.graphLayoutKernel, trama.installGraphPass]) {
+    for (const fn of [trama.graphLayoutKernel, trama.installGraphPass, trama.radialLayoutKernel]) {
       for (const h of ['__spread', '__objRest', '__publicField', '__async', '__name']) assert.ok(!fn.toString().includes(h), `${fn.name} references ${h}`);
     }
   });

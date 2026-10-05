@@ -16,8 +16,9 @@ import { expect, test } from './studio-fixture';
 //     promotes it — the deck says one thing on load and another a second later. The
 //     runtime re-runs on its own MutationObserver, so the way to exercise this is to
 //     make the frame mutate, which is what the loop below does.
-//  2. A HOSTILE LABEL CANNOT BECOME MARKUP. `{<img src=x onerror=…>}` is a VALID label
-//     — the grammar rejects commas and untrimmed edges, not angle brackets — so the
+//  2. A HOSTILE LABEL CANNOT BECOME MARKUP. `{"<img src=x onerror=…>"}` is a VALID label
+//     — quoted, because Segno reads a bare `=` as a name; the grammar refuses no angle
+//     brackets — so the
 //     only thing between it and script in the docs origin is `pillElement` building the
 //     span with `textContent`. That is the #1246 post-sanitize class (HARD RULE #22),
 //     one step downstream of any sanitizer, and this is the surface where it would pay
@@ -38,11 +39,11 @@ marp: true
 
 # Grammar
 
-- Live pills: \`{Alpha}\` \`{Beta}:c2:tag\` \`{Gamma}:circle:lg\`
+- Live pills: \`{Alpha}\` \`{Beta, c2, tag}\` \`{Gamma, circle, lg}\`
 - Live marks: \`[x]\` \`[-]\` \`[ ]\` \`[/]\`
 - Escaped: \`\\{Alpha}\` and \`\\[x]\`
 - Literal: \`getUserId()\` and \`[data-mark]\` and \`{ ok, scene }\`
-- Hostile: \`{<img src=x onerror=top.__pwned=1>}\`
+- Hostile: \`{"<img src=x onerror=top.__pwned=1>"}\`
 `;
 
 test('the inline pill + mark grammar renders, escapes, and stays inert in the Playground', async ({ page }) => {

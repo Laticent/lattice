@@ -76,7 +76,7 @@ On `a11y-achromatopsia` these were engine green and amber — one gray to the re
 <!-- _class: gantt -->
 <!-- _footer: "The --diagram-* state family" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## Plan bars take their status tints from the palette.
 
@@ -84,11 +84,11 @@ Nine of these tokens used to resolve two ways in one render — the baked SVG fr
 
 - Cascade
   - Measure it `Q1..Q1` `done`
-  - Sweep it `Q2..Q2` `done` `after: Measure it`
-  - Flip it `Q3..Q4` `live` `after: Sweep it`
+  - Sweep it `Q2..Q2` `done` `after=Measure it`
+  - Flip it `Q3..Q4` `live` `after=Sweep it`
 - Palette
   - Respace `Q1..Q3` `at-risk`
-  - Concrete `Q4` `milestone` `after: Respace`
+  - Concrete `Q4` `milestone` `after=Respace`
 
 ---
 

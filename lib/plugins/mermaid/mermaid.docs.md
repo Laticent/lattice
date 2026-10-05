@@ -34,7 +34,7 @@ inside an HTML comment — a speaker note, a commented-out draft — is not a di
 | Surface | What it shows | Who draws it |
 |---|---|---|
 | engine (`render()`) | `<pre><code class="language-mermaid">`, highlighted | the engine's code renderer — the fence is declared `as: "code"` |
-| Studio, Playground, `--fluid` | the diagram | the runtime's diagram pass (`lib/runtime`), with `mermaid-v11-min.js` |
+| Studio, Playground, `--fluid` | the diagram | the plugin's pass, `mermaid.hydrate.js`, driven by the runtime, with the library its `payload` names (`mermaid.min.js`, staged beside the runtime) |
 | PDF, PNG, PPTX, an `.html` export, `--player` | a static `<div class="mermaid-svg">` | the plugin's bake, `mermaid.bake.js`, in a headless render worker |
 | Export to Marp | the diagram | Mermaid in the recipient's browser (the bundle ships the library) |
 
@@ -44,7 +44,7 @@ turns a left-to-right flowchart top-to-bottom.
 
 ## Failure behavior
 
-A definition Mermaid rejects never aborts a deck. In a browser the runtime shows an error surface
+A definition Mermaid rejects never aborts a deck. In a browser the pass shows an error surface
 with the parser's message and keeps the source. On the CLI the bake degrades that one diagram to
 an escaped `<pre class="mermaid-fallback">` of its source; the rest of the deck's diagrams still
 draw. If the render worker cannot run at all (no Chromium), each diagram is retried one at a time,
@@ -59,9 +59,21 @@ and the CLI names the plugin.
   The plugin host (`lib/plugins/host-bake.js`) runs it on the CLI before the engine, only for a
   deck that uses the plugin. It drives `lib/integrations/mermaid/render-worker.js` in a child
   process, so the bake stays synchronous.
-- **`render.exec.hydrate: "runtime"`** — the browser half is the runtime's own diagram pass, not
-  a `mermaid.hydrate.js`. The resolver requires the bake for exactly this reason: the CLI export
-  page carries no runtime.
+- **`hydrate`, `render.exec.hydrate: "pass"`** — `mermaid.hydrate.js` exports `createPass(ctx)`:
+  the diagram pass every browser surface draws through, which the runtime drives (`boot`, `run`,
+  `onMutations`) without naming Mermaid. A pass rather than a per-figure `hydrate(el, ctx)`,
+  because `mermaid.initialize` is global: every fence is grouped by the palette its slide resolves
+  and each band renders on one serial queue. It is bundled and never serialized, so it requires
+  the kernels it shares with the bake. The resolver requires the bake for exactly this reason: the
+  CLI export page carries no runtime.
+- **`highlight`** — `mermaid.highlight.js` exports `highlight(hljs)`, the highlight.js grammar
+  the host registers under ```` ```mermaid ````, so an undrawn or failed fence reads as colored source.
+- **`styles`** — `mermaid.styles.css` is the plugin's stylesheet: the wrapper chrome, the settle
+  states the anti-flash rules read, and the per-diagram overrides. Bundled in the plugin slot of
+  `dist/lattice.css`; every `var(--…)` it reads is listed in the manifest's `tokens`.
+- **The bake's context** — only the generic services in `BAKE_SERVICES` (`lib/plugins/host-bake.js`).
+  The bake assembles Mermaid's theme variables itself (`themeFor`, with `ctx.paletteReader`) and publishes the generic re-bake hook, `ctx.state.rebake`, which the
+  image-set export's cross-scheme look reads.
 
 The render kernels both halves share — `lib/core/render-diagrams.js`, `mermaid-theme-map.js`,
 `diagram-scope.js`, `diagram-look.js`, `lib/integrations/mermaid/*` — stay where HARD RULE #1 put

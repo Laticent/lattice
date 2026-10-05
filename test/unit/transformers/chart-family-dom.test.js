@@ -369,7 +369,7 @@ describe('chart-family.applyToDom — the rebuild guard', () => {
   const GANTT = `
     <section class="gantt">
       <h2>Plan</h2>
-      <p><code>2026-01-01 .. 2027-03-31</code></p>
+      <p><code>[{Timeline, 2026-01-01 .. 2027-03-31}]</code></p>
       <ul><li>Framework<ul>
         <li>Taxonomy <code>2026-01-01..2026-04-30</code> <code>done</code></li>
         <li>Weighting <code>2026-10-01..2027-02-28</code> <code>at-risk</code></li>
@@ -402,7 +402,7 @@ describe('chart-family.applyToDom — the rebuild guard', () => {
       'the axis kept its mono tick count while the CSS moved to the hand face');
     assert.equal(ticks(sec), ganttKernel.buildGanttChart(
       engine.extractFirstList(GANTT.match(/<ul>[\s\S]*<\/ul>/)[0]).inner,
-      '<p><code>2026-01-01 .. 2027-03-31</code></p>', undefined, true,
+      { window: '2026-01-01 .. 2027-03-31' }, undefined, true,
     ).match(/class="gantt-tick"/g).length, 'the rebuild must match what the engine builds');
   });
 

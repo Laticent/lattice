@@ -43,8 +43,8 @@
  * masthead, header, footer and the read-as caption — is outside the picture by
  * construction (chart-family emits `.chart-caption` as a SIBLING of `.chart-body`),
  * so nothing has to exclude it. What IS excluded is content that occupies no
- * layout at all (`display:none`, `visibility:hidden` — how state-chart's `<ol>`
- * stops counting once the browser pass paints over it) and content inside SVG's
+ * layout at all (`display:none`, `visibility:hidden` — how the state chart's measuring
+ * harness stops counting once the browser pass paints over it) and content inside SVG's
  * non-rendering containers (`<defs>`, `<pattern>`, `<marker>`, …), which lay out
  * but never paint. Everything else the picture is made of counts, so a word cloud
  * whose words are SVG but whose size key beside them is HTML is `hybrid`, and its
@@ -97,11 +97,11 @@ const GEOMETRY = ['path', 'rect', 'circle', 'ellipse', 'polygon', 'polyline', 'l
  * rather than to the whole stage: a diagram slide may carry authored prose beside
  * its diagram, and that prose says nothing about how the diagram is drawn.
  * `.chart-body` is the chart-frame's picture cell (every chart-bucket component);
- * `.mermaid-svg` is the baked diagram, `.mermaid-fallback` the `<pre>` that ships
+ * `[data-lattice-figure]` is the baked diagram (the host's figure marker), `.mermaid-fallback` the `<pre>` that ships
  * when mmdc fails — measured deliberately, so a broken mermaid build derives
  * `html` and fails this gate instead of passing silently.
  */
-const PICTURE_SEL = '.chart-body, .mermaid-svg, .mermaid-fallback';
+const PICTURE_SEL = '.chart-body, [data-lattice-figure], .mermaid-fallback';
 
 /**
  * SVG containers whose contents lay out but NEVER paint. A `<text>` in `<defs>`
@@ -196,12 +196,10 @@ async function derive(components = vizComponents()) {
       await page.goto(`file://${html}`, { waitUntil: 'networkidle0', timeout: 120_000 });
       const records = await page.evaluate((GEOM, INERT, PICTURE, NAME) => {
         const geom = new Set(GEOM);
-        // Laid out at all? Zero client rects covers `display:none`; the second
-        // clause covers `visibility:hidden`, which is what state-chart uses to
-        // retire its `<ol>` once the browser pass has painted the SVG over it
-        // (deliberately NOT display:none — the boxes must keep occupying space
-        // so the next re-measure still works). Content occupying no layout is
-        // not part of the picture, whatever the markup says.
+        // Laid out at all? Zero client rects covers `display:none`, which is how the
+        // graph charts (state chart, flowchart) retire their measuring harness once the
+        // browser pass has painted the SVG; the second clause covers `visibility:hidden`.
+        // Content occupying no layout is not part of the picture, whatever the markup says.
         const shown = (el) => !!el && el.getClientRects().length > 0
           && getComputedStyle(el).visibility !== 'hidden'
           // …and inside a non-rendering SVG container it lays out but never

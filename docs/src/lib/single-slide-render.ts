@@ -374,9 +374,9 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // every section into a frame whose CSS and scale transform assume exactly one is both visibly
 // broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
 //
-// THE AUTO-GLOSSARY IS NOT A MISALIGNMENT. `glossary: auto` appends one section AFTER the
-// authored ones (lib/core/glossary-auto.mjs), so section k is still slide k for every slide the
-// caller counts. Compared raw, N+1 sections against N slides failed the guard, every slide fell
+// THE AUTO-GLOSSARY IS NOT A MISALIGNMENT. `glossary: auto` appends its section(s) AFTER the
+// authored ones (lib/core/glossary-auto.mjs; one per glossary page), so section k is still slide k
+// for every slide the caller counts. Compared raw, N+g sections against N slides failed the guard, every slide fell
 // back to rendering alone, and a lone slide numbers itself 1: the Studio preview numbered a
 // glossary deck's slides wrong while the PDF, which renders the whole deck, numbered them right.
 // So the alignment is judged on the authored sections (`withoutAutoGlossary`, the kernel the
@@ -1140,7 +1140,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// (never the SVG) to fit the host — sidesteps the Safari foreignObject scaling
 	// bug (see frame-css.js + index.astro srcdoc note). `geom` is the render's
 	// reported { width, height } (px).
-	function srcdoc(html: string, css: string, mode: 'light' | 'dark', mermaid: boolean, geom: Geom, extraCss = ''): string {
+	function srcdoc(html: string, css: string, mode: 'light' | 'dark', drawn: boolean, geom: Geom, extraCss = ''): string {
 		// Strip script-bearing content before it enters this same-origin,
 		// un-sandboxed frame (#616 T-CONTENT) — the runtime/Mermaid scripts are
 		// appended separately below, so they're untouched.
@@ -1156,7 +1156,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// so the flag survives every re-render short of a full write, which rebuilds it.
 			// `data-lattice-live-media`: this frame is ON SCREEN, so a picture still loading shows the
 			// Underpainting (lib/core/image-painting.js). An export capture never sets it.
-			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(mermaid && !!runtimeUrl) +
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(drawn && !!runtimeUrl) +
 			' data-lattice-live-media><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
@@ -1175,19 +1175,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// no-op. See lib/core/preview-font-gate.mjs.
 			'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
 			// The diagram library's fetch starts with the document, not after the runtime boots.
-			(mermaid && runtimeUrl ? drawnLibraryPreload(runtimeUrl) : '') +
+			(drawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl) : '') +
 			'</head><body>' +
 			html;
 		// Read off the SANITIZED html above rather than taken as a caller flag the way
 		// `mermaid` is: the marker is on the element the pass draws, so a host cannot
-		// forget to set it. `data-sc-transitions` is emitted only by the DEFAULT state-chart
+		// forget to set it. `data-sc-model` is emitted only by the DEFAULT state-chart
 		// variant — the `inline` variant is chips and needs no engine — and data-* attributes
 		// survive DOMPurify. Content AND url, so a missing URL emits nothing.
 		//
 		// BEFORE the runtime tag: classic scripts run in document order, and the runtime's
 		// pass reads `globalThis.__latticeDagre` synchronously on its first draw.
 		// A flowchart always needs it (`data-fc-model`, on every flowchart figure).
-		if ((html.indexOf('data-sc-transitions') !== -1 || html.indexOf('data-fc-model') !== -1) && dagreUrl) {
+		if ((html.indexOf('data-sc-model') !== -1 || html.indexOf('data-fc-model') !== -1) && dagreUrl) {
 			s += '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>';
 		}
 		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>';
@@ -1357,7 +1357,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	function renderInto(
 		host: HTMLElement,
 		markdown: string,
-		mermaid: boolean,
+		drawn: boolean,
 		paletteOverride?: string,
 		// Opt-in: render against a RAW in-memory theme (e.g. Fabricate's live
 		// derived theme) instead of fetching `<themeBase><name>.css`. Registered
@@ -1605,9 +1605,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md).
 						// Overflow is read from the live frame after it settles (below) — 0 here
 						// as a placeholder.
-						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
+						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|progress|timeline-list|piechart|gantt|kanban|radar|hub-spoke|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
 						// Diagram fences a runtime draws (Mermaid's), by the plugin registry's fence names.
-						s.mermaid = drawnFenceCount(out.html);
+						s.drawn = drawnFenceCount(out.html);
 						// Match the engine's OWN KaTeX gate exactly — renderMarkdown
 						// (render-engine.ts) loads KaTeX when `sourceHasMath(source)` is true on
 						// the UN-stripped source, and that cold-load cost lands in `other`. Using
@@ -1942,7 +1942,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// takes the restyle one, which swaps the sheet. Not in `restyleSig`: nothing about the
 				// frame box changes.
 				const paneSig = paneComponentsSig([out.html]);
-				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}|P:${paneSig}`;
+				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${drawn ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}|P:${paneSig}`;
 				// IS THIS RENDER THE SAME SLIDE AS THE LAST ONE, EDITED? The one fact the frame
 				// cannot work out for itself, and the one `patchSlideBody` hands the runtime.
 				// The answer is derived in the kernel, shared with the Playground's filmstrip
@@ -1972,7 +1972,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Theme, mode, the composed CSS, and author extraCss all bake into the swappable
 				// <style>, so they are DELIBERATELY absent here — a change in any of them keeps the
 				// same geom+mermaid, hits the restyle path, and swaps the <style> instead of rewriting.
-				const restyleSig = `${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|W:${webSig}`;
+				const restyleSig = `${geom.width}x${geom.height}|${drawn ? 'M' : ''}|W:${webSig}`;
 				const live = host.querySelector<HTMLIFrameElement>('iframe.live');
 				// Skip the patch while a full-write srcdoc is still loading: its
 				// contentDocument is briefly the OUTGOING one (which still has `.lattice`),
@@ -2265,7 +2265,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// back, and the return trip was stamped `in-place` (found by the trio's checker).
 				// The identity has to track the document, not the code path that wrote it.
 				stampShownSlide();
-				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
+				fr.srcdoc = srcdoc(out.html, out.css, mode, drawn, geom, extraCss);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;

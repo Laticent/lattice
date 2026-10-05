@@ -4,16 +4,19 @@
 // the derived tokens — so the delivered palette is always AA-clean.
 import Fuse from 'fuse.js';
 import * as React from 'react';
-import { applyEdit, applyEditChecked, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { applyEdit, applyEditChecked, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide, slideCount, splitTopLevel } from '@/components/studio/ai/architect-edits.js';
 import { requestSlideFix } from '@/components/studio/ai/architect-fix.js';
-import { buildLatticePrimer } from '@/components/studio/ai/architect-knowledge.js';
+import { AUTHORING_RULES, buildLatticePrimer, layoutBlock } from '@/components/studio/ai/architect-knowledge.js';
 import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
-import { deckCanon } from '@/playground/authoring-core.generated.js';
+import { deckCanon, deckProfiles } from '@/playground/authoring-core.generated.js';
+import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
+import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from './front-matter';
+import { BUILTIN_PALETTES } from './palettes';
 import { type ContentPart, type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { deckOutputLang, languageDirective } from './studio-language';
 import { loadInstructions, loadOnDeviceInstructions, loadSettings } from './studio-store';
@@ -196,8 +199,8 @@ export type ModelAvailability = {
 /** Download progress for an on-device tier (0–1 fraction + a status line). */
 export type TierProgress = { progress: number; text?: string; status?: string };
 
-type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string }) => Promise<string>;
+export type ArchitectModel = {
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; cacheTail?: boolean }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -238,7 +241,7 @@ export const CHAT_MAX_TOKENS = 16384;
 export const CHAT_OUTPUT_EST = 4096;
 
 /** Shown when the transport reports the reply was cut off at the output ceiling. */
-const TRUNCATION_NOTE = 'This reply hit its length ceiling and stopped early — anything after that point never arrived. Ask for fewer slides per turn, or pick a model with more output room.';
+export const TRUNCATION_NOTE = 'This reply hit its length ceiling and stopped early — anything after that point never arrived. Ask for fewer slides per turn, or pick a model with more output room.';
 
 let modelPromise: Promise<ArchitectModel | null> | null = null;
 /** The single shared architect model (lazy — backends touch window). */
@@ -296,17 +299,26 @@ export type EditRun = {
 	refusals: string[];
 };
 
-type RawEdit = { action: string; slide: number; body: string };
+type RawEdit = { action: string; slide: number; body: string; key?: string; value?: string | null };
+
+/** One front-matter write from the chat agent, through the lossless line writer. */
+function applyFrontMatterWrite(source: string, e: AgentRawEdit): { source: string; ok: boolean; reason: string | null } {
+	if (!e.key) return { source, ok: false, reason: 'A front-matter edit without a key.' };
+	const next = writeFrontMatterLine(source, e.key, e.value ?? null);
+	return next === source ? { source, ok: false, reason: `\`${e.key}\` already reads that way.` } : { source: next, ok: true, reason: null };
+}
 
 /** Apply edits highest-slide-first (so earlier indices stay valid as the deck shifts),
  *  counting what landed and collecting why the rest didn't. */
-function applyEditsChecked(source: string, edits: RawEdit[]): EditRun {
+export function applyEditsChecked(source: string, edits: RawEdit[]): EditRun {
 	let next = source;
 	let applied = 0;
 	let slides = 0;
 	const refusals: string[] = [];
 	for (const e of [...edits].sort((a, b) => b.slide - a.slide)) {
-		const r = applyEditChecked(next, e) as { source: string; ok: boolean; reason: string | null; inserted?: number };
+		// A front-matter write (the chat agent's set_front_matter) touches no slide, so its
+		// place in the order is immaterial; it goes through the lossless line writer.
+		const r = (e.action === 'frontmatter' ? applyFrontMatterWrite(next, e as AgentRawEdit) : applyEditChecked(next, e)) as { source: string; ok: boolean; reason: string | null; inserted?: number };
 		if (r.ok) {
 			next = r.source;
 			applied += 1; // BLOCKS — the same unit `refusals` counts in
@@ -1242,14 +1254,14 @@ export type DiffRow = { type: 'same' | 'add' | 'del'; text: string };
 export type ProposedEdit = {
 	label: string;
 	slide: number;
-	action: 'replace' | 'insert' | 'delete';
-	raw: { action: string; slide: number; body: string };
+	action: 'replace' | 'insert' | 'delete' | 'frontmatter';
+	raw: { action: string; slide: number; body: string; key?: string; value?: string | null };
 	before: string;
 	after: string;
 	diff: DiffRow[];
 };
 export type ChatResult =
-	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null }
+	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[] }
 	| { status: 'offline' }
 	| { status: 'blocked'; reply: string };
 
@@ -1271,6 +1283,10 @@ export type ChatGrounding = {
 	 *  shared with the CLI — it can't take a ~1MB dependency). Empty when the deck has no
 	 *  diagrams or the check couldn't run; never a guess. */
 	diagrams?: { slide: number; message: string }[];
+	/** Lint + review + Mermaid-parse ANY source — the chat agent's `check_deck` tool runs it
+	 *  over its draft, so an edit is checked before the author sees it. The host supplies it
+	 *  because only the host holds the lint vocabulary and the author's local components. */
+	check?: (source: string) => Promise<DeckCheck>;
 };
 
 /**
@@ -1372,18 +1388,31 @@ export function buildChatSystem(generation: string, grounding?: ChatGrounding, f
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: { onToken?: (t: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding }): Promise<ChatResult> {
+export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding };
+
+// "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
+// model may improve wording/structure but must not alter any number, date, name, or
+// claim; if a fix would require changing a fact, it explains instead of editing.
+export const FACT_GUARD =
+	'\n\nCONSTRAINT — FACTS LOCKED: You may improve wording, structure, and clarity ONLY. Do NOT change, add, or remove any number, date, name, metric, currency amount, or factual claim. If a genuine improvement would require changing a fact, do NOT edit — explain what you would change and why, and let the author decide.';
+
+export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: ChatOptions): Promise<ChatResult> {
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
+	// The cloud tier is an AGENT (chat-agent.ts, loaded on demand): tools to read the docs, edit a draft,
+	// and check it. The on-device tiers cannot drive a tool loop reliably and keep the
+	// one-shot path that follows. See 2026-10-05-studio-chat-agent.md.
+	if (generation === 'openrouter') {
+		const { chatAgent } = await loadChatAgent();
+		const agent = await chatAgent(model, history, source, docs, opts);
+		// null = the model failed before answering anything — most often one that does not
+		// support tool calling. The one-shot path below still serves it.
+		if (agent) return agent;
+	}
 	const last = history[history.length - 1];
-	// "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
-	// model may improve wording/structure but must not alter any number, date, name, or
-	// claim; if a fix would require changing a fact, it explains instead of editing.
-	const factGuard = opts?.constrainFacts
-		? '\n\nCONSTRAINT — FACTS LOCKED: You may improve wording, structure, and clarity ONLY. Do NOT change, add, or remove any number, date, name, metric, currency amount, or factual claim. If a genuine improvement would require changing a fact, do NOT edit — explain what you would change and why, and let the author decide.'
-		: '';
+	const factGuard = opts?.constrainFacts ? FACT_GUARD : '';
 	// The grounded system turn, split static/dynamic (buildChatSystem). On the cloud tier
 	// the two halves stay SEPARATE content-parts so the cache breakpoint can land between
 	// them; on-device backends read `content` as a string, so they get the halves joined.
@@ -1538,6 +1567,11 @@ export function applyProposedEditsChecked(source: string, edits: { raw: RawEdit 
  *  an edit the author made to that slide after the proposal arrived (K1 stale guard). */
 export function isProposedEditStale(source: string, edit: ProposedEdit): boolean {
 	if (edit.action === 'insert') return false;
+	if (edit.action === 'frontmatter') {
+		const key = edit.raw.key ?? '';
+		const cur = getFrontMatter(source, key);
+		return (cur === undefined ? '' : `${key}: ${cur}`) !== edit.before;
+	}
 	return sliceSlide(source, edit.slide).trim() !== edit.before.trim();
 }
 
@@ -1585,7 +1619,7 @@ export async function architectCredits(): Promise<ORCredits | null> {
 }
 
 // A cheap token estimate: ~4 chars/token. Enough for a pre-send "≈ $X".
-const estTokens = (text: string) => Math.ceil((text || '').length / 4);
+export const estTokens = (text: string) => Math.ceil((text || '').length / 4);
 
 // What a cached prompt-prefix READ costs, as a fraction of base input. A chat turn after
 // the first re-reads the ~16.5K-token primer at roughly a tenth of writing it, which is
@@ -1608,8 +1642,57 @@ const CACHE_READ_RATE = 0.1;
  * `cached` should be true once a turn in this thread has already written the prefix and
  * caching is on; the static half is then weighted at the cache-read rate.
  */
-export function chatSystemTokens(generation: string, grounding?: ChatGrounding, cached = false): number {
-	const { staticPrefix, dynamicTail } = buildChatSystem(generation, grounding);
+// The chat agent lives in its own chunk, fetched on the first chat turn or cost readout —
+// it carries the tool loop, the doc shelf and the prompt builders, none of which the Studio
+// needs to paint (route budget: studio eagerJsGz).
+type ChatAgentModule = typeof import('./chat-agent');
+let chatAgentMod: ChatAgentModule | null = null;
+let chatAgentLoad: Promise<ChatAgentModule> | null = null;
+/** Everything the lazy chat agent needs that this (startup) module already holds — handed
+ *  over rather than imported there, so its chunk names stay out of startup JavaScript (see
+ *  chat-agent.ts). Exported for the agent's tests. */
+export function chatAgentDeps(): import('./chat-agent').ChatAgentDeps {
+	return {
+		applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel, AUTHORING_RULES, layoutBlock, getFrontMatter, innerFrontMatter, writeFrontMatterLine,
+		adjustSpend, recordSpend, deckCanon, deckProfiles,
+		applyEditsChecked, CHAT_MAX_TOKENS, cloudBudgetBlock, estimateUsd, estTokens, FACT_GUARD, TRUNCATION_NOTE, withStudioVoice,
+		groundMessages, refDocsTokens, FINISHES, BUILTIN_PALETTES, deckOutputLang,
+	};
+}
+
+export function loadChatAgent(): Promise<ChatAgentModule> {
+	if (!chatAgentLoad)
+		chatAgentLoad = import('./chat-agent').then(async (m) => {
+			await m.init(chatAgentDeps());
+			chatAgentMod = m;
+			try {
+				globalThis.dispatchEvent?.(new Event('lattice-chat-agent-ready'));
+			} catch {
+				/* no window */
+			}
+			return m;
+		}).catch((e) => {
+			chatAgentLoad = null; // a failed chunk fetch (offline) may succeed next turn
+			throw e;
+		});
+	return chatAgentLoad;
+}
+/** The agent's measured always-on core, for the readout before its module has loaded. */
+const AGENT_CORE_TOKENS = 6700;
+
+export function chatSystemTokens(generation: string, grounding?: ChatGrounding, cached = false, source = ''): number {
+	// The cloud tier runs the agent, whose prompt is the compact core + the deck brief; the
+	// tool rounds it may add are not knowable before the turn, so this prices round one.
+	if (generation === 'openrouter' && !chatAgentMod) {
+		// The agent module is lazy (it is not startup JavaScript); until it lands, price its
+		// measured core (~6.7K tokens) plus the deck brief's rough share.
+		// Swallowed here: the readout re-prices on every edit, and a failed chunk fetch
+		// (offline) must not surface as an unhandled rejection per keystroke. The chat turn
+		// itself awaits the load and reports a failure.
+		loadChatAgent().catch(() => {});
+		return (cached ? Math.ceil(AGENT_CORE_TOKENS * CACHE_READ_RATE) : AGENT_CORE_TOKENS) + Math.ceil(estTokens(source) / 4);
+	}
+	const { staticPrefix, dynamicTail } = generation === 'openrouter' && chatAgentMod ? chatAgentMod.agentSystemParts(source, grounding) : buildChatSystem(generation, grounding);
 	const stat = estTokens(staticPrefix);
 	return (cached ? Math.ceil(stat * CACHE_READ_RATE) : stat) + estTokens(dynamicTail);
 }
@@ -1625,7 +1708,7 @@ export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 
 // The cloud budget gate, shared by every architect action: blocks when already over
 // the cap/balance, AND — in hard-stop mode — refuses a call whose ESTIMATE would
 // breach the self-cap, so a single large request can't overshoot. Returns a note, or null.
-function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST): string | null {
+export function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST): string | null {
 	const s = architectSpend();
 	if (s.status.blocked) return 'Budget cap reached — raise it in Workspace → Spend, or switch tier.';
 	if (s.mode === 'stop' && s.cap > 0) {

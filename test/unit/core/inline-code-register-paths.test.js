@@ -27,7 +27,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
 const { INLINE_CODE_LITERAL } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
 
-const BODY = 'Prose with `{ALPHA}:c2` and `[x]` and `\\[y]` and plain `getUserId()`.';
+const BODY = 'Prose with `{ALPHA, c2}` and `[x]` and `\\[y]` and plain `getUserId()`.';
 const deck = (fm, body) => ['---', 'theme: indaco', ...fm, '---', '', body || `# Deck\n\n${BODY}`].join('\n');
 
 const render = (fm, body) => new JSDOM(latticeEngine.createEngine().render(deck(fm, body)).html).window.document;
@@ -48,7 +48,7 @@ test('the engine renders every span literally under inline-code: literal', () =>
 
   assert.equal(off.pills, 0);
   assert.equal(off.marks, 0);
-  assert.deepEqual(off.codes, ['{ALPHA}:c2', '[x]', '\\[y]', 'getUserId()']);
+  assert.deepEqual(off.codes, ['{ALPHA, c2}', '[x]', '\\[y]', 'getUserId()']);
 });
 
 test('a literal deck keeps a backslash the author typed', () => {
@@ -154,7 +154,7 @@ test('the RUNTIME honors inline-code: literal on the BAKED path, engine nowhere 
   assert.equal(on.marks, 1);
   assert.equal(off.pills, 0);
   assert.equal(off.marks, 0);
-  assert.deepEqual(off.codes, ['{ALPHA}:c2', '[x]', '\\[y]', 'getUserId()']);
+  assert.deepEqual(off.codes, ['{ALPHA, c2}', '[x]', '\\[y]', 'getUserId()']);
 });
 
 test('the fetch fallback draws first — a KNOWN limit of a pre-bake export, pinned deliberately', async () => {
@@ -200,7 +200,7 @@ test('the RUNTIME gates the deck CHROME too, and gates it on the same class the 
   // WITHOUT anyone having to trust that reasoning.
   const chrome = (cls) =>
     `<section class="${cls}"><header><code>{HEAD}</code> <code>[x]</code></header>` +
-    `<p>Body <code>{ALPHA}:c2</code></p><footer><code>{FOOT}</code></footer></section>`;
+    `<p>Body <code>{ALPHA, c2}</code></p><footer><code>{FOOT}</code></footer></section>`;
 
   const on = await renderRuntimeBaked(deck([]), chrome('content'));
   const off = await renderRuntimeBaked(deck([]), chrome(`content ${INLINE_CODE_LITERAL}`));

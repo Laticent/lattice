@@ -28,7 +28,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
    - _def · spec · register_
 3. Escalation
    - Long content leaves for a table.
-   - _split past seven rows_
+   - _split past six rows_
 
 
 ---
@@ -225,17 +225,16 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 <!-- _class: list-tabular register -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · list-tabular — Seven rows — the register's page." -->
+<!-- _footer: "Stress test · list-tabular — Six rows — the register's page." -->
 
-## Seven rows is the register's practical page.
+## Six rows is the register's practical page.
 
 1. title `stable`
 2. big-number `stable`
 3. cards-grid `stable`
 4. split-panel `stable`
 5. funnel `stable`
-6. map `stable`
-7. radar `beta`
+6. radar `beta`
 
 
 ---
@@ -253,7 +252,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
    - _def · spec · register_
 3. Escalation
    - Long content leaves for a table.
-   - _split past seven rows_
+   - _split past six rows_
 
 
 ---
@@ -271,7 +270,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
    - _def · spec · register_
 3. Escalation
    - Long content leaves for a table.
-   - _split past seven rows_
+   - _split past six rows_
 
 
 ---
@@ -289,7 +288,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
    - _def · spec · register_
 3. Escalation
    - Long content leaves for a table.
-   - _split past seven rows_
+   - _split past six rows_
 
 
 ---

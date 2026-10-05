@@ -58,7 +58,41 @@ export interface GraphContext {
   toOutline(end: Point, prev: Point, b: Box, kind: string | null): Point;
   cut(pts: Point[], boxes: Rect[]): Point[][];
   rounded(pts: Point[], rad: number): string;
-  head(kind: string, tip: Point, dx: number, dy: number, size: number, cls: string): string;
+  head(kind: string, tip: Point, dx: number, dy: number, size: number, cls: string, extra?: string): string;
+  /** Every routed line as markup: ends on outlines, cut under labels and titles, rounded, with heads and labels. */
+  lines(geo: Geometry, edges: LineEdge[], kindOf: (id: string) => string | null, o: LineOptions): string;
+  /** The group boxes (`under`, before the lines) and their titles (`over`, after them). */
+  groups(list: LineGroup[], geo: Geometry, titleFont: number, cls: { box: string; title: string }): { under: string; over: string };
+}
+
+/** A line as the `lines` painter reads it (the chart's model edge, or one it added). */
+export interface LineEdge {
+  dir?: string;
+  label?: string;
+  heavy?: boolean;
+  back?: boolean;
+  /** A note's tether: no head. */
+  tether?: boolean;
+  style?: { slot?: number | string; pattern?: string; head?: string; [extra: string]: unknown };
+  [extra: string]: unknown;
+}
+
+/** How `lines` paints: the chart's class names, the corner radius and the label size. */
+export interface LineOptions {
+  cls: { group: string; path: string; head: string; label: string };
+  radius: number;
+  labelFont: number;
+  /** Extra attributes on every path and every head, e.g. ` data-anima-role="bar"`. */
+  pathAttrs?: string;
+  headAttrs?: string;
+}
+
+/** A group as the `groups` painter reads it. */
+export interface LineGroup {
+  id: string;
+  name: string;
+  parent?: string | null;
+  slot?: number | string;
 }
 
 /** What an adapter's `measure` returns: the kernel's input, plus anything its paint needs. */
@@ -140,15 +174,21 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
   // first. Without a Worker, or without dagre's script URL to load into it, every draw
   // stays synchronous.
   const live = Boolean(opts?.live) || Boolean(doc.documentElement?.hasAttribute?.('data-lattice-live-layout'));
-  function liveWorker(): Bag | null {
-    if (D[key('Worker')] !== undefined) return D[key('Worker')];
-    D[key('Worker')] = null;
+  // SLOT: 'Worker' lays out every keystroke. 'Search' runs only the pause search (sticky wrap,
+  // below), so a key typed while that search runs never queues behind it: a worker cannot be
+  // interrupted, and a search that a newer key made stale is dropped by its token anyway.
+  function liveWorker(slot: 'Worker' | 'Search' = 'Worker'): Bag | null {
+    if (D[key(slot)] !== undefined) return D[key(slot)];
+    D[key(slot)] = null;
     try {
       const w = doc.defaultView as (Window & typeof globalThis) | null;
       if (!w || typeof w.Worker !== 'function' || typeof w.Blob !== 'function' || !w.URL?.createObjectURL) return null;
       let dagreSrc = '';
       for (const el of doc.querySelectorAll<HTMLScriptElement>('script[src]')) if (/lattice-dagre(-min)?\.js(\?|#|$)/.test(el.src)) { dagreSrc = el.src; break; }
-      if (!dagreSrc) return null;
+      // No dagre tag YET is not a verdict: a host adds it once a chart appears (the Studio's
+      // `ensureDagre`), and a pass can run first. Ask again next time, rather than caching a
+      // null that would keep every later layout on the editor's thread for the frame's life.
+      if (!dagreSrc) { D[key(slot)] = undefined; return null; }
       const src = `importScripts(${JSON.stringify(dagreSrc)});var K=(${kernelFactory.toString()})();` +
         'onmessage=function(e){var d=e.data,geo=null;try{geo=K.layout(d.model,d.sizes,d.opts,self.__latticeDagre)}catch(_x){}postMessage({id:d.id,geo:geo})};';
       const url = w.URL.createObjectURL(new w.Blob([src], { type: 'text/javascript' }));
@@ -158,13 +198,16 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       // A worker that cannot start (a host that blocks blob: workers, dagre that will not
       // load) or stops answering falls back to drawing in place, for good.
       const fail = () => {
-        if (D[key('Worker')] !== W) return;
+        if (D[key(slot)] !== W) return;
         try { worker.terminate(); } catch (_e) { /* gone */ }
-        D[key('Worker')] = null;
+        D[key(slot)] = null;
         for (const f of doc.querySelectorAll(A.figure)) { const F = f as unknown as Bag; F[key('PendingSig')] = null; f.removeAttribute(`data-${P}-pending`); F[key('Sig')] = null; }
         drawAll();
       };
-      const DEADLINE = 3000;
+      // The search worker runs only settles, which nobody waits on, and its clock starts at the
+      // post, so it counts the queue behind other charts' settles and its first dagre load: a
+      // legitimately slow settle must not drop it (and send every settle back onto the keys').
+      const DEADLINE = slot === 'Search' ? 15000 : 3000;
       const send = (job: Bag) => {
         const id = ++W.id;
         W.jobs.set(id, job);
@@ -187,9 +230,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         try { job.cb(e.data.geo); } catch (_e) { /* the next edit redraws */ }
       };
       worker.onerror = fail;
-      D[key('Worker')] = W;
-    } catch (_e) { D[key('Worker')] = null; }
-    return D[key('Worker')];
+      D[key(slot)] = W;
+    } catch (_e) { D[key(slot)] = null; }
+    return D[key(slot)];
   }
 
   let VIS = 1;
@@ -353,14 +396,80 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     return d;
   }
   /** A head at `tip`, pointing along (dx, dy). Drawn, never typed (HARD RULE #29). */
-  function head(kind: string, tip: Point, dx: number, dy: number, size: number, cls: string): string {
+  function head(kind: string, tip: Point, dx: number, dy: number, size: number, cls: string, extra = ''): string {
     const L = Math.hypot(dx, dy) || 1;
     const ux = dx / L, uy = dy / L, px = -uy, py = ux;
     const at = (a: number, b: number) => `${r1(tip.x - ux * a + px * b)} ${r1(tip.y - uy * a + py * b)}`;
-    if (kind === 'dot') return `<circle class="${cls}" data-head="dot" cx="${r1(tip.x - ux * size * 0.45)}" cy="${r1(tip.y - uy * size * 0.45)}" r="${r1(size * 0.4)}"/>`;
-    if (kind === 'open') return `<path class="${cls}" data-head="open" d="M${at(size, size * 0.55)}L${at(0, 0)}L${at(size, -size * 0.55)}"/>`;
-    if (kind === 'cross') return `<path class="${cls}" data-head="cross" d="M${at(size * 1.1, size * 0.5)}L${at(size * 0.1, -size * 0.5)}M${at(size * 1.1, -size * 0.5)}L${at(size * 0.1, size * 0.5)}"/>`;
-    return `<path class="${cls}" data-head="arrow" d="M${at(0, 0)}L${at(size, size * 0.5)}L${at(size, -size * 0.5)}Z"/>`;
+    if (kind === 'dot') return `<circle class="${cls}"${extra} data-head="dot" cx="${r1(tip.x - ux * size * 0.45)}" cy="${r1(tip.y - uy * size * 0.45)}" r="${r1(size * 0.4)}"/>`;
+    if (kind === 'open') return `<path class="${cls}"${extra} data-head="open" d="M${at(size, size * 0.55)}L${at(0, 0)}L${at(size, -size * 0.55)}"/>`;
+    if (kind === 'cross') return `<path class="${cls}"${extra} data-head="cross" d="M${at(size * 1.1, size * 0.5)}L${at(size * 0.1, -size * 0.5)}M${at(size * 1.1, -size * 0.5)}L${at(size * 0.1, size * 0.5)}"/>`;
+    return `<path class="${cls}"${extra} data-head="arrow" d="M${at(0, 0)}L${at(size, size * 0.5)}L${at(size, -size * 0.5)}Z"/>`;
+  }
+
+  /**
+   * Every routed line as markup, the way both graph charts draw them: each end carried on
+   * to its shape's outline, the stroke backed off a head's tip, the path cut where it
+   * passes under a label or a group title (so a label sits ON its line), corners rounded
+   * by `o.radius`, and the label centered in its seat. The class names come from the chart.
+   */
+  function lines(geo: Geometry, edges: LineEdge[], kindOf: (id: string) => string | null, o: LineOptions): string {
+    const parts: string[] = [];
+    const holes: Rect[] = [];
+    for (const r of geo.routes) if (r.labelAt && r.labelSize) holes.push({ x: r.labelAt.x - r.labelSize.w / 2, y: r.labelAt.y - r.labelSize.h / 2, w: r.labelSize.w, h: r.labelSize.h });
+    for (const t of Object.values(geo.titles || {})) holes.push({ x: t.x - 3, y: t.y, w: t.w + 6, h: t.h });
+    const HEAD = 7;
+    for (const r of geo.routes) {
+      const e = edges[r.index];
+      if (!e || r.points.length < 2) continue;
+      const st = e.style || {};
+      const endHead = e.tether ? null : e.dir === 'out' || e.dir === 'both' ? (st.head || 'arrow') : null;
+      const startHead = e.tether ? null : e.dir === 'in' || e.dir === 'both' ? (st.head || 'arrow') : null;
+      const P = r.points.map((p) => ({ ...p }));
+      const nb = (id: string) => geo.nodes[id];
+      if (nb(r.from) && P.length > 1) P[0] = toOutline(P[0], P[1], nb(r.from), kindOf(r.from));
+      if (nb(r.to) && P.length > 1) P[P.length - 1] = toOutline(P[P.length - 1], P[P.length - 2], nb(r.to), kindOf(r.to));
+      // Back the stroke off the tip so it never pokes through the head.
+      const pts = P.map((p) => ({ ...p }));
+      const back = (i: number, j: number, by: number) => { const a = pts[i], b = pts[j]; const L = Math.hypot(a.x - b.x, a.y - b.y); if (L > by + 1) { a.x -= ((a.x - b.x) / L) * by; a.y -= ((a.y - b.y) / L) * by; } };
+      const n = pts.length;
+      if (endHead === 'arrow') back(n - 1, n - 2, HEAD * 0.8);
+      if (startHead === 'arrow') back(0, 1, HEAD * 0.8);
+      const attrs = `${e.heavy ? ' data-heavy="1"' : ''}${st.pattern ? ` data-pattern="${esc(st.pattern)}"` : ''}${st.slot ? ` data-slot="${esc(st.slot)}"` : ''}${e.back ? ' data-back="1"' : ''}${e.tether ? ' data-tether="1"' : ''}`;
+      const runs = cut(pts, holes);
+      let g = `<g class="${o.cls.group}" data-edge="${r.index}"${attrs}>`;
+      const pa = o.pathAttrs || '';
+      for (const run of runs) g += `<path class="${o.cls.path}"${pa} d="${rounded(run, o.radius)}"/>`;
+      const ha = o.headAttrs || '';
+      if (endHead) g += head(endHead, P[P.length - 1], P[P.length - 1].x - P[P.length - 2].x, P[P.length - 1].y - P[P.length - 2].y, HEAD * (e.heavy ? 1.25 : 1), o.cls.head, ha);
+      if (startHead) g += head(startHead, P[0], P[0].x - P[1].x, P[0].y - P[1].y, HEAD * (e.heavy ? 1.25 : 1), o.cls.head, ha);
+      if (r.labelAt && e.label) g += `<text class="${o.cls.label}" x="${r1(r.labelAt.x)}" y="${r1(r.labelAt.y)}" font-size="${r1(o.labelFont)}" text-anchor="middle" dominant-baseline="central">${esc(e.label)}</text>`;
+      parts.push(`${g}</g>`);
+    }
+    return parts.join('');
+  }
+
+  /**
+   * The groups as markup: a box per group, outer ones first (`under`, painted before the
+   * lines), and each group's title in the seat the kernel kept for it (`over`, painted
+   * after them). The class names come from the chart.
+   */
+  function groups(list: LineGroup[], geo: Geometry, titleFont: number, cls: { box: string; title: string }): { under: string; over: string } {
+    const all = list || [];
+    const depth = (gid: string) => { let d = 0; let p = all.find((g) => g.id === gid)?.parent; while (p) { d++; const q: string | null | undefined = p; p = all.find((g) => g.id === q)?.parent; } return d; };
+    const sorted = all.slice().sort((a, b) => depth(a.id) - depth(b.id));
+    let under = '';
+    let over = '';
+    for (const g of sorted) {
+      const b = geo.groups[g.id];
+      if (!b) continue;
+      under += `<rect class="${cls.box}" data-group="${esc(g.id)}"${g.slot ? ` data-slot="${esc(g.slot)}"` : ''} data-depth="${depth(g.id)}" x="${r1(b.x)}" y="${r1(b.y)}" width="${r1(b.w)}" height="${r1(b.h)}" rx="10"/>`;
+    }
+    for (const g of sorted) {
+      const t = geo.titles?.[g.id];
+      if (!t) continue;
+      over += `<text class="${cls.title}" data-group="${esc(g.id)}"${g.slot ? ` data-slot="${esc(g.slot)}"` : ''} x="${r1(t.x)}" y="${r1(t.y + t.h / 2)}" font-size="${r1(titleFont)}" dominant-baseline="central">${esc(g.name)}</text>`;
+    }
+    return { under, over };
   }
 
   // The letterbox scale a drawing of natW by natH gets in `port`; null when unmeasurable.
@@ -399,8 +508,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     const parts = A.parts(fig);
     if (!parts) return;
     const { box, harness, svg } = parts;
-    if (!dagre) { fig.setAttribute(`data-${P}-nolayout`, '1'); return; }
-    fig.removeAttribute(`data-${P}-nolayout`);
+    // No dagre is not the end: a chart that wraps (the state chart's chain) lays out on the
+    // kernel's reading-order grid without it. Whatever still needs dagre comes back null
+    // below and keeps its measuring tiles, marked `data-<prefix>-nolayout`.
     // A figure mid-reveal (the docs Drawing Board tilts it) measures foreshortened.
     try { const t = getComputedStyle(fig).transform; if (t && t !== 'none') return; } catch (_e) { /* measure anyway */ }
     let read: M | null;
@@ -413,16 +523,21 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // forces a page layout per read. Its inputs are cheap to read, so skip it when they
     // match the last completed draw.
     const port0 = parts.port;
-    const sigNow = () => [...A.signature(fig, harness), sec ? sec.offsetWidth : 0, port0.clientWidth, port0.clientHeight, doc.fonts ? doc.fonts.status : ''].join('\u0001');
+    const sigNow = () => [...A.signature(fig, harness), sec ? sec.offsetWidth : 0, port0.clientWidth, port0.clientHeight, doc.fonts ? doc.fonts.status : '', dagre ? 1 : 0].join('\u0001');
     const sig = sigNow();
     if (F[key('Sig')] === sig && fig.getAttribute(`data-${P}-drawn`)) return;
     // A live layout for exactly these inputs is already in flight.
     if (F[key('PendingSig')] === sig) return;
     // ...or it answered, with no layout for exactly these inputs.
     if (F[key('NoLayoutSig')] === sig) return;
+    // A viewport laid out with a width but no height (a stage collapsed at a narrow
+    // viewport) has nothing to fit into: a layout into a zero-height stage tries every
+    // candidate for nothing (52 s on a dense machine). The resize observer draws it once it
+    // has a height. (A document that lays nothing out, jsdom, reads 0 for both and draws.)
+    if (port0.clientWidth > 0 && !(port0.clientHeight > 0)) return;
     readVis(sec);
     const S = sec && sec.offsetWidth > 0 ? sec.offsetWidth / HD : 1;
-    const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, r1, esc, outline, grow, toOutline, cut, rounded, head };
+    const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, r1, esc, outline, grow, toOutline, cut, rounded, head, lines, groups };
 
     // Measure with the harness laid out and the box unscaled.
     const unlay = () => {
@@ -455,11 +570,28 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     const lift = (k: number) => (k < 1 ? 1 / k : 1);
     const fitKey = chartKey(fig, sec);
     if (!D[key('Fit')]) D[key('Fit')] = new Map();
+    // STICKY WRAP. What a full search chose for this chart, kept per chart position like the
+    // fit: a grid (its line count and direction) or dagre's layout (its direction). Laying out
+    // that one choice directly gives the same drawing as the search that picked it (every
+    // recorded call is byte-identical pinned: 28 grid picks, 11 dagre picks), without the
+    // search: no bounds passes, no dagre ceiling, no second routing. So a live keystroke lays
+    // out the pinned choice and the chart's rows hold mid-edit; the full search runs once the
+    // pinned drawing has stood REWRAP_AFTER, in its own worker so a key never waits behind it.
+    if (!D[key('Wrap')]) D[key('Wrap')] = new Map();
     let kGuess: number = D[key('Fit')].get(fitKey) ?? 1;
     const measure = (): Measured & { geo: Geometry | null } => ({ ...A.measure(model, ctx), geo: null });
     // The last round's [lift guessed, lift it came out at], for the secant step.
     let last: [number, number] | null = null;
     // Another round only while the floor the new fit implies moves by more than 1%.
+    // A CHART UNDER HALF SIZE STOPS ONLY WHEN IT CANNOT SETTLE. Lifting the floor by 1/k grows
+    // the text, which grows the layout and lowers k again. When the text drives the size
+    // faster than the lift (slope 1 or more), there is no fixed point: a 36-state machine went
+    // k 0.10, 0.04, 0.01 over three rounds of 7-13 s each, and every round only made it
+    // smaller. A contracting chart under half size DOES settle, and the secant step lands it
+    // (a chart at k 0.45 whose floor must reach 35 px gets there in three rounds). Two rounds
+    // give the slope, so an over-budget chart stops at the second round when that slope is
+    // 0.9 or more (where the secant step gives up) or negative; the TYPE FLOOR report says so.
+    const OVER_BUDGET = 0.5;
     const settled = (geo: Geometry) => {
       const kNow = fitOf(port0, geo.width * S, geo.height * S);
       if (kNow == null || Math.abs(lift(kNow) - lift(kGuess)) / lift(kGuess) < 0.01) return true;
@@ -470,6 +602,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         // extrapolated (0 to 0.9, so at most 9 steps' worth); anything else iterates plainly.
         const b = (ln - last[1]) / (lg - last[0]);
         if (b >= 0 && b <= 0.9) { const L = (ln - b * lg) / (1 - b); next = L > 1 ? 1 / L : 1; }
+        else if (kNow < OVER_BUDGET) return true;
       }
       last = [lg, ln];
       kGuess = next;
@@ -483,47 +616,129 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // same ones (a keystroke renames one). A figure outside a section has no position to key on.
     const ids = model.shapes.map((x) => x.id);
     const same = prev ? ids.filter((id) => prev.ids.includes(id)).length : 0;
-    const W = live && sec && prev && same >= Math.max(ids.length, prev.ids.length) - 2 ? liveWorker() : null;
+    const sameChart = Boolean(prev && same >= Math.max(ids.length, prev.ids.length) - 2);
+    // Only the chart drawn here before starts from its remembered fit. Another chart at this
+    // position (the next slide's, in a live preview) fits from a cold start, as an export does.
+    if (!sameChart) kGuess = 1;
+    // The pause after a live redraw's last round, before it settles from a cold fit.
+    const REWRAP_AFTER = 300;
+    const W = live && sec && sameChart ? liveWorker() : null;
     if (W) {
       if (!D[key('Latest')]) D[key('Latest')] = new Map();
       const token = (D[key('Tokens')] = (D[key('Tokens')] || 0) + 1);
       D[key('Latest')].set(fitKey, token);
-      const round = (r: number) => {
+      // SETTLE: the chain that runs once the drawing has stood REWRAP_AFTER. It searches, and it
+      // fits from a cold start (k 1, as a paste or an export does) with its rounds hidden, so the
+      // drawing at rest is a function of the text and the stage alone, never of the path typed.
+      const round = (r: number, search: boolean, via: Bag = W, settle = false) => {
         readVis(sec);
         unlay();
         floorFor(kGuess);
         const m = measure();
-        showPrev(prev);
+        const opts = m.args[2];
+        // A pin holds only for the direction the chart asked for when the search chose it: an
+        // author who changes the direction gets a search at once, not at the pause.
+        const held = search || !opts.wrap ? undefined : (D[key('Wrap')].get(fitKey) as { lines: number; dir: 'lr' | 'tb'; asked: unknown } | undefined);
+        const pin = held && held.asked === opts.dir ? held : undefined;
+        if (pin) m.pinned = true;
+        // A pinned grid lays out that grid; a pinned dagre pick (lines 0) lays out dagre's layout
+        // in that direction. Each is byte-identical to the search's pick (every recorded call).
+        const args: typeof m.args = pin
+          ? [m.args[0], m.args[1], pin.lines ? { ...opts, wrap: false, dir: pin.dir, grid: pin.lines, grow: false } : { ...opts, wrap: false, dir: pin.dir }]
+          : m.args;
+        // The newest drawing stands in while this round is in flight: the last keystroke's,
+        // or this keystroke's own earlier round once it has painted (below).
+        showPrev(D[key('Prev')].get(fitKey) || prev);
         // The state the figure holds while this is in flight: a pass the runtime runs
         // meanwhile (it answers every attribute change above) finds it and skips.
         F[key('PendingSig')] = sigNow();
-        W.post(fitKey, m.args, (geo: Geometry | null) => {
+        via.post(fitKey, args, (geo: Geometry | null) => {
           if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected) return;
+          // The pinned grid cannot hold the shapes (a line would drop under two): search.
+          if (!geo && pin) { D[key('Wrap')].delete(fitKey); last = null; round(r, true, via, settle); return; }
           // No layout: the measuring tiles, as a synchronous draw leaves them, never the old
           // drawing standing in for a chart that no longer looks like it.
           if (!geo) { unlay(); fig.removeAttribute(`data-${P}-pending`); F[key('PendingSig')] = null; F[key('NoLayoutSig')] = sigNow(); return; }
           m.geo = geo;
-          if (r < ROUNDS - 1 && !settled(geo)) { round(r + 1); return; }
+          // PAINT EVERY ROUND. The fit's fixed point can take up to ROUNDS layouts, and a mid-size
+          // machine spends ~400 ms on each, so waiting for the last one froze the drawing for
+          // the whole burst (measured: 1.3 s from a key to anything visible on an 11-state
+          // chart). A round's drawing is already this keystroke's text, laid out; only its
+          // type floor may still move a little, and the next round repaints it. The drawing
+          // that remains is the last round's, the same as before.
+          // A settling chain paints only its last round: its early rounds start from a cold fit and
+          // would flash a chart drawn at the wrong type floor.
+          if (r < ROUNDS - 1 && !settled(geo)) { if (!settle) finish(m as Measured & { geo: Geometry }); round(r + 1, search, via, settle); return; }
           finish(m as Measured & { geo: Geometry });
+          if (settle) return;
+          // The author paused: settle once, so the drawing at rest is the one every export makes
+          // (the search's wrap, the cold fit's scale). When it matches the drawing up, the
+          // painted markup is only replaced when it changed.
+          setTimeout(() => {
+            // A worker dropped meanwhile (an error, or another chart's deadline) already had the
+            // chart redrawn synchronously; posting to it would leave the figure pending.
+            if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected || D[key('Worker')] !== W) return;
+            kGuess = 1;
+            last = null;
+            round(0, true, liveWorker('Search') || W, true);
+          }, REWRAP_AFTER);
         });
       };
-      round(0);
+      round(0, false);
       return;
     }
-    unlay();
-    floorFor(kGuess);
-    let m: (Measured & { geo: Geometry | null }) | null = null;
-    for (let round = 0; round < ROUNDS; round++) {
-      m = measure();
-      m.geo = K.layout(m.args[0], m.args[1], m.args[2], dagre);
-      if (!m.geo) return;
-      if (settled(m.geo)) break;
-      floorFor(kGuess);
+    // A synchronous draw in a live preview takes a token too, so a chain still in flight for
+    // the chart this element held before (a host that patches a figure in place) is dropped.
+    let token = 0;
+    if (live) {
+      if (!D[key('Latest')]) D[key('Latest')] = new Map();
+      token = D[key('Tokens')] = (D[key('Tokens')] || 0) + 1;
+      D[key('Latest')].set(fitKey, token);
     }
-    finish(m as Measured & { geo: Geometry });
+    // The fit's rounds, on this thread; a round paints nothing until the last one.
+    const fitHere = (): (Measured & { geo: Geometry }) | null => {
+      unlay();
+      floorFor(kGuess);
+      let m: (Measured & { geo: Geometry | null }) | null = null;
+      for (let round = 0; round < ROUNDS; round++) {
+        m = measure();
+        m.geo = K.layout(m.args[0], m.args[1], m.args[2], dagre);
+        if (!m.geo) { if (!dagre) fig.setAttribute(`data-${P}-nolayout`, '1'); F[key('NoLayoutSig')] = sig; return null; }
+        if (settled(m.geo)) break;
+        floorFor(kGuess);
+      }
+      return m as Measured & { geo: Geometry };
+    };
+    // Only a fit under 1 is warm: at or above it the floor is never lifted, so a cold fit
+    // computes the same drawing.
+    const warm = kGuess < 1;
+    const m = fitHere();
+    if (!m) return;
+    finish(m);
+    // THE SETTLE, WITH NO WORKER. A live redraw started its fit from the scale it remembers,
+    // which can settle on another fixed point than an export's cold start. So once the drawing
+    // has stood REWRAP_AFTER, fit it again from a cold start, as the worker path's settle does:
+    // the drawing at rest is a function of the text and the stage, on a host that blocks blob
+    // workers too. A keystroke never pays for it; a newer draw here drops it by its token.
+    if (live && sec && sameChart && warm) {
+      setTimeout(() => {
+        if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected) return;
+        // draw()'s own guards, again: a stage that collapsed to no height meanwhile would make
+        // the search try every candidate for nothing, here on the page's thread; a figure
+        // mid-reveal measures foreshortened. The resize observer draws it once it is back.
+        if (port0.clientWidth > 0 && !(port0.clientHeight > 0)) return;
+        try { const t = getComputedStyle(fig).transform; if (t && t !== 'none') return; } catch (_e) { /* measure anyway */ }
+        readVis(sec);
+        kGuess = 1;
+        last = null;
+        const cold = fitHere();
+        if (cold) finish(cold);
+      }, REWRAP_AFTER);
+    }
 
     function finish(m: Measured & { geo: Geometry }) {
       const geo = m.geo;
+      fig.removeAttribute(`data-${P}-nolayout`);
       const drawn = A.paint(model, m, geo, ctx);
       const vb = `0 0 ${r1(geo.width)} ${r1(geo.height)}`;
       writeSvg(drawn, vb);
@@ -533,6 +748,10 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       if (fig.getAttribute(`data-${P}-laid`) !== geo.dir) fig.setAttribute(`data-${P}-laid`, geo.dir);
       const kFit = applyFit(port0, box, geo.width * S, geo.height * S);
       if (kFit != null) D[key('Fit')].set(fitKey, kFit);
+      // A full search's choice is the pin: a grid (its lines and direction), or dagre's layout
+      // (lines 0) in its direction. Half-typed text often parses as a chart whose search picks
+      // dagre, and without a pin every key of it searched again: 3-4 rounds of 100-400 ms.
+      if (!m.pinned && m.args[2].wrap) D[key('Wrap')].set(fitKey, { lines: geo.lines ?? 0, dir: geo.dir, asked: m.args[2].dir });
       // The signature of the state this draw LEFT (its own fit and type floor included), so
       // the resize observer and the next pass see nothing new and skip.
       F[key('Sig')] = sigNow();

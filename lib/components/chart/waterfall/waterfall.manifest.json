@@ -65,7 +65,7 @@
     "marker": {
       "selector": "li > code:last-child",
       "required": false,
-      "description": "An optional SECOND inline-code pill that overrides the sign rule for one bar — `total` (also `subtotal`, `sum`, `level`) anchors it to zero, `step` (also `delta`, `change`) floats it. Needed only for the two shapes the sign cannot express: a walk that opens or closes on a step, and a mid-walk subtotal the author wants stated as a level. Follows the family's two-pill convention (see `progress`)."
+      "description": "An optional SECOND inline-code pill that overrides the sign rule for one bar — `total` (also `subtotal`, `sum`, `level`) anchors it to zero, `step` (also `delta`, `change`) floats it. The marker may come before or after the value, in any case. Needed only for the two shapes the sign cannot express: a walk that opens or closes on a step, and a mid-walk subtotal the author wants stated as a level. Follows the family's two-pill convention (see `progress`)."
     },
     "detail": {
       "selector": "li > ul",

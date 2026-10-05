@@ -62,6 +62,8 @@ We reconstructed each cascade as a reshare tree, sampled it at fixed time slices
 <!-- _class: radar -->
 <!-- tier: short -->
 
+`[{Structural features, 0..10}]`
+
 `Structural features · 0–10 (normalized)`
 
 ## False cascades are deeper, faster, and less broad than true ones.

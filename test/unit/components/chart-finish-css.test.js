@@ -198,13 +198,23 @@ describe('chart-finish.generated.css', () => {
     return /(?:fill|background): ([^;]*) !important/.exec(css.slice(at, css.indexOf('}', at)))[1];
   };
 
+  // The finish paints the state chart's key swatch from `--fill-hue`, so the state chart's status
+  // table must set it there too. Without it the rule resolved to nothing and, under tone, the key
+  // went hollow beside filled tiles (seen on a rendered page; the CSS rule itself was present).
+  test('the state chart sets its status hue on the key swatch a finish repaints', () => {
+    const sc = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/state-chart/state-chart.styles.css'), 'utf8');
+    for (const s of ['on-track', 'at-risk', 'blocked', 'live', 'deferred']) {
+      assert.match(sc, new RegExp(`section\\.state-chart :is\\([^)]*\\.fc-key-swatch\\)[^{]*data-s="${s}"`), s);
+    }
+  });
+
   // A status key carries no text, but it keys marks that do, so it takes their level: under
   // tone the gantt key sat at the middle step beside bars at the text step.
   test('a status key takes the level of the text-bearing marks it keys', () => {
     for (const finish of ['pigment', 'etching', 'tone']) {
       assert.equal(statusBody(finish, '.gantt-legend-swatch[data-s]'), statusBody(finish, '.gantt-bar[data-s]'), `gantt, ${finish}`);
       assert.equal(
-        statusBody(finish, '.state-dot[data-s]:not([data-s="deferred"])'),
+        statusBody(finish, '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])'),
         statusBody(finish, '.state-node-shape[data-s]'),
         `state-chart, ${finish}`,
       );
@@ -218,6 +228,25 @@ describe('chart-finish.generated.css', () => {
       assert.match(statusBody(finish, '.state-node-shape[data-s]'), /var\(--fill-hue\)/);
       assert.match(statusBody(finish, ':is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])'), /var\(--fill-hue\)/);
     }
-    assert.doesNotMatch(css, /:where\((?:\.state-dot|:is\(\.state-node, \.state-node-row\))\[data-s\]\)/, 'no bg rule reaches a deferred tile');
+    assert.doesNotMatch(css, /:where\(:is\(\.state-node, \.state-node-row\)\[data-s\]\)/, 'no bg rule reaches a deferred tile');
+    // The key's row skips a deferred swatch too: it keeps the hollow look of the tile it keys.
+    const key = STATUS_MARKS.find((m) => m.sel.includes('.fc-key-swatch'));
+    assert.match(key.sel, /:not\(\[data-s="deferred"\]\)$/);
+  });
+
+  // The rebase checker's finding: the row was scoped to `[data-sc-model]`, which only the
+  // default variant's figure carries. The `inline` variant writes its key AFTER its figure, so
+  // a finish repainted its rows and left its key at the plain status paint. The row now keys on
+  // the key's own `data-chart`, which both variants write.
+  test('the state chart key row reaches the key of both variants', () => {
+    const { transformSection } = require('../../../lib/components/chart/state-chart/state-chart.transform');
+    const inner = '<h2>T</h2><ul><li>A <code>AT-RISK</code><ul><li>-&gt; B</li></ul></li><li>B</li></ul>';
+    const key = STATUS_MARKS.find((m) => m.sel.includes('.fc-key-swatch'));
+    const scope = /^\[data-chart="([a-z-]+)"\] /.exec(key.sel);
+    assert.ok(scope, 'the row is scoped by the key\'s data-chart');
+    for (const variant of [[], ['inline']]) {
+      const html = transformSection(inner, { classTokens: ['state-chart', ...variant] });
+      assert.match(html, new RegExp(`<ol class="fc-key" data-chart="${scope[1]}">.*class="fc-key-swatch"[^>]*data-s="at-risk"`), variant.join() || 'default');
+    }
   });
 });

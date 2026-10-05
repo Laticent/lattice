@@ -389,7 +389,7 @@ describe('lint-core: auto-fix', () => {
 
   test('autofixGanttDelimiter swaps a retired delimiter only in the TRAILING span pills; null otherwise', () => {
     assert.equal(core.autofixGanttDelimiter('- Design `Q1→Q2`'), '- Design `Q1..Q2`');
-    assert.equal(core.autofixGanttDelimiter('  - Build `Q1 -> Q3` `after: Design`'), '  - Build `Q1..Q3` `after: Design`');
+    assert.equal(core.autofixGanttDelimiter('  - Build `Q1 -> Q3` `after=Design`'), '  - Build `Q1..Q3` `after=Design`');
     assert.equal(core.autofixGanttDelimiter('- No delim `Q1..Q2`'), null);
     assert.equal(core.autofixGanttDelimiter('prose with a → arrow, no code'), null); // outside a code span → untouched
     // Inline code in the LABEL (not a trailing pill) is prose — it must be left alone.
@@ -523,6 +523,24 @@ describe('lint-core: auto-fix', () => {
     const fixed = core.applyFix(src, f);
     assert.ok(fixed.includes('finish: atrium'));
     assert.equal(core.lintTextWith(fixed, v).some((x) => x.rule === 'unknown-finish'), false);
+  });
+
+  test('a misspelled plugins: name is fixed IN its own line, and every fix after it still runs', () => {
+    // `unknown-plugin` once pointed `line` at a made-up `plugins: <name>`; applyFix matches the
+    // finding's line against the source, so on a flow list or a block sequence the fix found no
+    // line, returned null, and applyAllFixes stopped there — dropping the `mode:` fix queued after
+    // it (HARD RULE #25 checker, E0).
+    const v = { ...vocab, modeNames: ['boardroom', 'sketch'] };
+    for (const [list, fixedList] of [
+      ['plugins: [math, mermiad]', 'plugins: [math, mermaid]'],
+      ['plugins:\n  - math\n  - mermiad', 'plugins:\n  - math\n  - mermaid'],
+      ['plugins: mermiad', 'plugins: mermaid'],
+    ]) {
+      const src = `---\n${list}\nmode: skech\n---\n\n# T\n`;
+      const f = core.lintTextWith(src, v).find((x) => x.rule === 'unknown-plugin');
+      assert.equal(f.didYouMean, 'mermaid', list);
+      assert.equal(core.applyAllFixes(src, v), `---\n${fixedList}\nmode: sketch\n---\n\n# T\n`, list);
+    }
   });
 
   test('an unknown value with NO near candidate stays prose-only — no misleading button', () => {
@@ -1244,67 +1262,67 @@ describe('lint-core: crowded circle / diamond pills (pill-shape-crowded)', () =>
   test('the budget is one character, or a number up to two digits', () => {
     for (const ok of ['3', '!', '?', '%', 'W', '12', '99']) {
       assert.equal(core.pillFitsShape(ok), true, `${ok} fits`);
-      assert.equal(crowded(deck(`\`{${ok}}:circle\` \`{${ok}}:diamond\``)).length, 0, `${ok} is not flagged`);
+      assert.equal(crowded(deck(`\`{${ok}, circle}\` \`{${ok}, diamond}\``)).length, 0, `${ok} is not flagged`);
     }
     for (const bad of ['OK', 'AB', '1/2', 'WM', '100', 'NEW']) {
       assert.equal(core.pillFitsShape(bad), false, `${bad} does not fit`);
-      assert.equal(crowded(deck(`\`{${bad}}:circle\` \`{${bad}}:diamond\``)).length, 2, `${bad} is flagged on both shapes`);
+      assert.equal(crowded(deck(`\`{${bad}, circle}\` \`{${bad}, diamond}\``)).length, 2, `${bad} is flagged on both shapes`);
     }
   });
 
-  test('it WARNS, names the span for the editor underline, and points at :tag', () => {
-    const [f] = crowded(deck('Status is `{WM}:circle:c5` today.'));
+  test('it WARNS, names the span for the editor underline, and points at tag', () => {
+    const [f] = crowded(deck('Status is `{WM, circle, c5}` today.'));
     assert.equal(f.severity, 'warning');
-    assert.equal(f.span, '`{WM}:circle:c5`');
+    assert.equal(f.span, '`{WM, circle, c5}`');
     assert.match(f.message, /too long for a circle/);
-    assert.match(f.fix, /:tag/);
+    assert.match(f.fix, /`tag`/);
   });
 
-  test('modifier order does not hide it, and other shapes are not its business', () => {
-    assert.equal(crowded(deck('`{WM}:lg:c3:diamond`')).length, 1);
-    assert.equal(crowded(deck('`{WM}:tag` `{WM}` `{WM}:chevron-right`')).length, 0);
+  test('word order does not hide it, and other shapes are not its business', () => {
+    assert.equal(crowded(deck('`{WM, lg, c3, diamond}`')).length, 1);
+    assert.equal(crowded(deck('`{WM, tag}` `{WM}` `{WM, chevron-right}`')).length, 0);
   });
 
   test('spans are found the way CommonMark finds them, which is how the engine decodes them', () => {
     // Double backticks DISPATCH (plugins.js), and a padded span loses one edge space.
-    assert.deepEqual(crowded(deck('One ``{WM}:circle`` double')).map((f) => f.span), ['``{WM}:circle``']);
-    assert.deepEqual(crowded(deck('x ` {AB}:diamond ` y')).map((f) => f.span), ['` {AB}:diamond `']);
+    assert.deepEqual(crowded(deck('One ``{WM, circle}`` double')).map((f) => f.span), ['``{WM, circle}``']);
+    assert.deepEqual(crowded(deck('x ` {AB, diamond} ` y')).map((f) => f.span), ['` {AB, diamond} `']);
     // An odd run pairs as CommonMark pairs it: the first span is code, the later one a pill.
-    const odd = crowded(deck('Adjacent `{3}:circle``{WM}:circle` and a`{WM}:circle`b``'));
+    const odd = crowded(deck('Adjacent `{3, circle}``{WM, circle}` and a`{WM, circle}`b``'));
     assert.equal(odd.length, 1);
-    assert.equal(odd[0].col, 'Adjacent `{3}:circle``{WM}:circle` and a'.length);
+    assert.equal(odd[0].col, 'Adjacent `{3, circle}``{WM, circle}` and a'.length);
   });
 
   test('two identical crowded pills on a line carry their own columns', () => {
-    const both = crowded(deck('x `{WM}:circle` y `{WM}:circle`'));
-    assert.deepEqual(both.map((f) => f.col), [2, 18]);
+    const both = crowded(deck('x `{WM, circle}` y `{WM, circle}`'));
+    assert.deepEqual(both.map((f) => f.col), [2, 19]);
   });
 
   test('a slide or deck that switches the grammar off by CLASS gets no finding', () => {
-    assert.equal(crowded(`${FM}## A\n\n---\n\n<!-- _class: inline-code-literal -->\n\n## B \`{WM}:circle\`\n`).length, 0);
-    assert.equal(crowded('---\nmarp: true\nclass: inline-code-literal\n---\n\n## B `{WM}:circle`\n').length, 0);
+    assert.equal(crowded(`${FM}## A\n\n---\n\n<!-- _class: inline-code-literal -->\n\n## B \`{WM, circle}\`\n`).length, 0);
+    assert.equal(crowded('---\nmarp: true\nclass: inline-code-literal\n---\n\n## B `{WM, circle}`\n').length, 0);
   });
 
   test('a hidden comment draws nothing; a header/footer directive comment does', () => {
-    assert.equal(crowded(deck('<!-- note: speaker `{OK}:circle` -->')).length, 0);
-    assert.equal(crowded(deck('<!-- _footer: "F `{OK}:circle`" -->')).length, 1);
+    assert.equal(crowded(deck('<!-- note: speaker `{OK, circle}` -->')).length, 0);
+    assert.equal(crowded(deck('<!-- _footer: "F `{OK, circle}`" -->')).length, 1);
   });
 
   test('a front-matter footer pill reports as slide 0, where the editor finds the line', () => {
-    const [f] = crowded('---\nmarp: true\nfooter: "F `{WM}:circle`"\n---\n\n## A\n\ntext\n');
+    const [f] = crowded('---\nmarp: true\nfooter: "F `{WM, circle}`"\n---\n\n## A\n\ntext\n');
     assert.equal(f.slide, 0);
-    assert.equal(f.line, 'footer: "F `{WM}:circle`"');
+    assert.equal(f.line, 'footer: "F `{WM, circle}`"');
   });
 
   test('blocks that render no inline markdown get no finding; the engine parser decides', () => {
     // Each case matches the engine's render: an indented code block and a raw HTML block
     // draw no pill, while a list continuation and a lazy paragraph line do.
-    assert.equal(crowded(deck('text\n\n    indented `{ST}:circle` code')).length, 0, 'indented code block');
-    assert.equal(crowded(deck('<p>raw `{RA}:circle` html</p>')).length, 0, 'raw HTML block');
-    assert.equal(crowded(deck('$$\nx = `{B3}:circle`\n$$')).length, 0, 'display math');
-    assert.equal(crowded(deck('- item\n\n    more `{LC}:circle` text')).length, 1, 'list continuation renders');
-    assert.equal(crowded(deck('para\n    lazy `{LZ}:circle` line')).length, 1, 'lazy paragraph line renders');
-    assert.equal(crowded(deck('<div>\n\ninside `{YZ}:circle` para\n\n</div>')).length, 1, 'markdown between HTML lines renders');
+    assert.equal(crowded(deck('text\n\n    indented `{ST, circle}` code')).length, 0, 'indented code block');
+    assert.equal(crowded(deck('<p>raw `{RA, circle}` html</p>')).length, 0, 'raw HTML block');
+    assert.equal(crowded(deck('$$\nx = `{B3, circle}`\n$$')).length, 0, 'display math');
+    assert.equal(crowded(deck('- item\n\n    more `{LC, circle}` text')).length, 1, 'list continuation renders');
+    assert.equal(crowded(deck('para\n    lazy `{LZ, circle}` line')).length, 1, 'lazy paragraph line renders');
+    assert.equal(crowded(deck('<div>\n\ninside `{YZ, circle}` para\n\n</div>')).length, 1, 'markdown between HTML lines renders');
   });
 
   test('one glyph is one character, however many code points it takes', () => {
@@ -1312,9 +1330,9 @@ describe('lint-core: crowded circle / diamond pills (pill-shape-crowded)', () =>
   });
 
   test('code, escapes and the literal register draw no pill, so they get no finding', () => {
-    assert.equal(crowded(deck('```\n`{WM}:circle`\n```')).length, 0, 'fenced code is quoted material');
-    assert.equal(crowded(deck('`\\{WM}:circle`')).length, 0, 'an escaped span is literal');
-    assert.equal(crowded('---\nmarp: true\ninline-code: literal\n---\n\n## H\n\n`{WM}:circle`\n').length, 0, 'inline-code: literal draws no pills');
+    assert.equal(crowded(deck('```\n`{WM, circle}`\n```')).length, 0, 'fenced code is quoted material');
+    assert.equal(crowded(deck('`\\{WM, circle}`')).length, 0, 'an escaped span is literal');
+    assert.equal(crowded('---\nmarp: true\ninline-code: literal\n---\n\n## H\n\n`{WM, circle}`\n').length, 0, 'inline-code: literal draws no pills');
   });
 });
 
@@ -1331,7 +1349,7 @@ describe('lint-core: a spark that renders as code (spark-literal)', () => {
   });
 
   test('a working spark, an escaped attempt and non-spark code are not its business', () => {
-    assert.equal(literal(deck('`~{1 2 3}:bar` `\\~{1,2}` `~15` `{LIVE}` `~~x~~`')).length, 0);
+    assert.equal(literal(deck('`~{1 2 3, bar}` `\\~{1,2}` `~15` `{LIVE}` `~~x~~`')).length, 0);
   });
 
   test('a code block and a literal deck render no sparks, so they get no finding', () => {
@@ -1340,7 +1358,7 @@ describe('lint-core: a spark that renders as code (spark-literal)', () => {
   });
 
   test('every refusal the kernel makes has a reason the rule can show', () => {
-    for (const bad of ['~{1 2}:bar:end', '~{72%}:bar', '~{1 2}:c13', '~{5}']) {
+    for (const bad of ['~{1 2, bar, end}', '~{72%, bar}', '~{1 2, c13}', '~{5}']) {
       assert.equal(literal(deck(`\`${bad}\``)).length, 1, bad);
     }
   });
@@ -2163,7 +2181,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
     // key BELOW it read as below the body and the above-body coaching was lost.
     const all = { names: new Set(['scatter']), modifiers: new Set() };
     const src = ['<!-- _class: scatter -->', '', '<!--', '- speaker note', '-->', '',
-      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `{1, 2}`'].join('\n');
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-above-body']);
   });
 
@@ -2226,14 +2244,14 @@ describe('label-set-above-body — coaching, never refusal', () => {
     // and stays on the slide — lint must not call it an axis above the body.
     const all = { names: new Set(['scatter']), modifiers: new Set() };
     const src = ['<!-- _class: scatter -->', '', '> - quoted point', '',
-      '`[{[x], Enacted}]`', '', '## H', '', '- A `1` `2`'].join('\n');
+      '`[{[x], Enacted}]`', '', '## H', '', '- A `{1, 2}`'].join('\n');
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
   });
 
   test('a state-marker key above a keyless chart is still a misplaced key', () => {
     // scatter declares no key vocabulary, so the state markers stand in for it.
     const all = { names: new Set(['scatter']), modifiers: new Set() };
-    const src = '<!-- _class: scatter -->\n\n`[{[x], Enacted}]`\n\n## H\n\n- A `1` `2`\n';
+    const src = '<!-- _class: scatter -->\n\n`[{[x], Enacted}]`\n\n## H\n\n- A `{1, 2}`\n';
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => f.rule === 'label-set-above-body').length, 1);
   });
 
@@ -2241,7 +2259,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
     const all = { names: new Set(['matrix-grid', 'scatter', 'quadrant']), modifiers: new Set() };
     const decks = [
       ['matrix-grid', '`[{Wider reach, 0..4}, {Deeper cognition, 0..6}]`', '| Verb | Self |\n| --- | :--: |\n| Notice | [x] |'],
-      ['scatter', '`[{Effort, 0..10}, {Reach, 0..100}]`', '- A `1` `2`\n- B `3` `4`'],
+      ['scatter', '`[{Effort, 0..10}, {Reach, 0..100}]`', '- A `{1, 2}`\n- B `{3, 4}`'],
       ['quadrant', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '- Bets\n  - A `3, 70`'],
     ];
     for (const [cls, axis, body] of decks) {

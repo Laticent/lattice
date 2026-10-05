@@ -6,7 +6,7 @@
  * here cover the layers chart-family delegates to:
  *
  *   1. Source parsing: parseAxisItem, parseSeries, parseRadar
- *   2. Scale resolution: niceCeil, parseScale, resolveScale, matchEyebrowText
+ *   2. Scale resolution: niceCeil, resolveScale, readRadarAxis
  *   3. Geometry: axisAngle, polar, valueRadius, seriesPoints — pure,
  *      deterministic functions of the value model.
  *   4. Variant emission: buildRadar — one default + five modifiers.
@@ -20,7 +20,6 @@ const {
   parseRadar,
   parseSeries,
   parseAxisItem,
-  parseScale,
   resolveScale,
   niceCeil,
   pickVariant,
@@ -29,7 +28,8 @@ const {
   valueRadius,
   axisAngle,
   polar,
-  matchEyebrowText,
+  readRadarAxis,
+  transformSection,
 } = require('../../../lib/components/chart/radar/radar.transform');
 
 // ── Fixtures ────────────────────────────────────────────────────────────
@@ -153,35 +153,17 @@ test('niceCeil: rounds up to a clean interval', () => {
   assert.equal(niceCeil(0), 1);
 });
 
-// ── parseScale ──────────────────────────────────────────────────────────
-
-test('parseScale: reads an explicit range', () => {
-  assert.deepEqual(parseScale('0–100'), { min: 0, max: 100 });
-  assert.deepEqual(parseScale('0-100'), { min: 0, max: 100 });
-  assert.deepEqual(parseScale('Scale · 0 to 100'), { min: 0, max: 100 });
-});
-
-test('parseScale: reads a lone maximum', () => {
-  assert.deepEqual(parseScale('100'), { min: 0, max: 100 });
-  assert.deepEqual(parseScale('Layout · 5'), { min: 0, max: 5 });
-});
-
-test('parseScale: returns null when there are no numbers', () => {
-  assert.equal(parseScale('Layout · radar'), null);
-  assert.equal(parseScale(''), null);
-});
-
 // ── resolveScale ────────────────────────────────────────────────────────
 
-test('resolveScale: eyebrow override wins', () => {
+test('resolveScale: a pinned range wins', () => {
   const model = parseRadar(UL_TWO.replace(/^<ul>|<\/ul>$/g, ''), false);
-  assert.deepEqual(resolveScale(model, '0–100'), { min: 0, max: 100 });
+  assert.deepEqual(resolveScale(model, { min: 0, max: 120 }), { min: 0, max: 120 });
 });
 
 test('resolveScale: auto-fits the data max when no override', () => {
   const model = parseRadar(UL_TWO.replace(/^<ul>|<\/ul>$/g, ''), false);
   // data max is 90 → niceCeil → 100
-  assert.deepEqual(resolveScale(model, ''), { min: 0, max: 100 });
+  assert.deepEqual(resolveScale(model, null), { min: 0, max: 100 });
 });
 
 // ── Geometry ────────────────────────────────────────────────────────────
@@ -403,11 +385,27 @@ test('buildRadar in a pane: the ticks stop growing before they crowd one ring ap
   assert.ok(9 * t * 1.6 <= GEOM.R / GEOM.rings + 0.01, `tick ${9 * t} in a ${GEOM.R / GEOM.rings} ring`);
 });
 
-// ── matchEyebrowText ────────────────────────────────────────────────────
+// ── readRadarAxis ───────────────────────────────────────────────────────
 
-test('matchEyebrowText: pulls the first <p><code> text', () => {
-  assert.equal(matchEyebrowText('<p><code>0–100</code></p><h2>X</h2>'), '0–100');
-  assert.equal(matchEyebrowText('<h2>X</h2><ul></ul>'), '');
+test('readRadarAxis: the axis list pins the scale and leaves the slide', () => {
+  const a = readRadarAxis('<p><code>[{Scale, 0..100}]</code></p>\n<h2>X</h2>\n<ul><li>A<ul><li>x <code>3</code></li></ul></li></ul>');
+  assert.deepEqual(a.range, { min: 0, max: 100 });
+  assert.doesNotMatch(a.html, /Scale/);
+});
+
+test('a pinned scale stays on a small-multiples slide, whose mini radars print no ticks', () => {
+  const html = '<p><code>[{Scale, 0..10}]</code></p>\n<h2>T</h2>\n<ul><li>A<ul><li>x <code>3</code></li><li>y <code>4</code></li><li>z <code>5</code></li></ul></li></ul>';
+  const out = (cls) => { const r = transformSection(html, { classTokens: cls, orientation: 'landscape' }); return typeof r === 'string' ? r : r.html; };
+  assert.match(out(['radar', 'small-multiples']), /<p><code>Scale · 0–10<\/code><\/p>\n<h2>/);
+  assert.doesNotMatch(out(['radar']), /Scale/, 'a radar that prints ticks needs no eyebrow');
+  // An eyebrow the author kept is not doubled.
+  const kept = html.replace('<h2>', '<p><code>Scale · 0–10, on our criteria</code></p>\n<h2>');
+  const r = transformSection(kept, { classTokens: ['radar', 'small-multiples'], orientation: 'landscape' });
+  assert.equal(((typeof r === 'string' ? r : r.html).match(/Scale ·/g) || []).length, 1);
+});
+
+test('readRadarAxis: an eyebrow that is not a bracketed list is not the axis', () => {
+  assert.equal(readRadarAxis('<p><code>Scale · 0–10</code></p>\n<h2>X</h2>\n<ul><li>A</li></ul>'), null);
 });
 
 // ── chart-family dispatch (integration with lib/components/chart/_chart-family/chart-family.js) ────────
@@ -522,12 +520,12 @@ describe('radar — per-axis detail (interactive reveal substrate)', () => {
   );
   const build = (variant) => {
     const model = parseRadar(UL_DETAIL, variant === 'quadrant');
-    return buildRadar(model, variant, resolveScale(model, '0–100'), false);
+    return buildRadar(model, variant, resolveScale(model, { min: 0, max: 100 }), false);
   };
 
   test('a plain radar emits no detail payload and no note', () => {
     const model = parseRadar(UL_TWO, false);
-    const html = buildRadar(model, 'default', resolveScale(model, '0–100'), false);
+    const html = buildRadar(model, 'default', resolveScale(model, { min: 0, max: 100 }), false);
     assert.doesNotMatch(html, /chart-details/);
     assert.doesNotMatch(html, /<!--/);
   });

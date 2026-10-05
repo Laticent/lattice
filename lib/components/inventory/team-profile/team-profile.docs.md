@@ -14,7 +14,7 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 
 **Density** aim ~12 words per item; past ~14 it reads as a wall of text — one clause on what this person owns, not a paragraph — and the count includes the name and the image reference beside it, so about four of the allowance is fixed cost before a word of prose.
 
-**By venue** (`venue:`, ~12 words each) it holds laptop ~6 · huddle ~3 · conference ~3 · hall ~3 items. At ~6 words each: 8 · 8 · 6 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~12 words each) it holds laptop ~6 · huddle ~3 · conference ~3 · hall ~3 items. At ~6 words each: 8 · 6 · 6 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

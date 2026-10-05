@@ -88,7 +88,7 @@ describe('buildSrcdoc', () => {
 		const { previewDiagramsAttr } = await load();
 		const fs = require('node:fs');
 		const path = require('node:path');
-		const css = fs.readFileSync(path.join(__dirname, '../../../lib/integrations/mermaid/mermaid.css'), 'utf8');
+		const css = fs.readFileSync(path.join(__dirname, '../../../lib/plugins/mermaid/mermaid.styles.css'), 'utf8');
 		// The one rule that withholds an un-tagged fence's ink, minus comments.
 		const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
 		const rule = live.split('\n').find((l) => l.includes('language-mermaid') && l.includes('visibility:hidden'));

@@ -236,7 +236,7 @@ async function measure(page, slack, vbSlack) {
       // a future sovereign Frame holding a measured body would land on it.
       const holder = stage || sec;
       {
-        const body = holder.querySelector(':scope > .chart-body, :scope > .mermaid-svg, :scope > .mermaid, :scope > pre, :scope > marp-pre');
+        const body = holder.querySelector(':scope > .chart-body, :scope > [data-lattice-figure], :scope > pre, :scope > marp-pre');
         if (body?.getClientRects().length) {
           const sr = holder.getBoundingClientRect();
           const sc = getComputedStyle(holder);
@@ -306,11 +306,12 @@ async function measure(page, slack, vbSlack) {
         // hidden measuring scaffold reports its full natural size and is counted
         // as content cut at the stage. Nothing is cut: there is nothing to cut.
         //
-        // `state-chart` is where this surfaced. It keeps a hidden `<ol
+        // `state-chart` v1 is where this surfaced. It kept a hidden `<ol
         // class="state-nodes">` of `<li data-mark>` boxes purely so the browser
-        // pass can measure real, font-dependent text, then paints the SVG from
-        // those measurements; once a re-ranked machine pins the scale box to the
-        // DRAWING, the column no longer matches it and overflows. Measured on
+        // pass could measure real, font-dependent text, then painted the SVG from
+        // those measurements; once a re-ranked machine pinned the scale box to the
+        // DRAWING, the column no longer matched it and overflowed. (v2's harness
+        // leaves layout once drawn, as the flowchart's does; the guard stays.) Measured on
         // `examples/state-chart-branching.md`: four reports, every offender a
         // `visibility: hidden` `LI`, with no visible mark outside the stage on any
         // of them. A gate that cannot tell that from a real clip cannot be trusted

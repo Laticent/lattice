@@ -8,7 +8,7 @@
 
 **Tags** `process` · `assessment` · `walkthrough`
 
-Use when a process or experience needs charting as a horizontal sequence of moments, each scored for affect. Five variants reshape the same source list: default (Mermaid-style classic), heatmap (mood-tinted chips), curve (mood polyline with axis), swimlane (per-actor rows), weighted (chip widths proportional to `+volume`).
+Use when a process or experience needs charting as a horizontal sequence of moments, each scored for affect. Five variants reshape the same source list: default (Mermaid-style classic), heatmap (mood-tinted chips), curve (mood polyline with axis), swimlane (per-actor rows), weighted (chip widths proportional to `volume=`).
 
 ## Agent contract
 
@@ -20,7 +20,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 |---|---|---|---|
 | `key` | `p > code:only-child` | no | OPTIONAL label set renaming the mood scale's two POLES: `[{1, Friction}, {5, Flow}]`, one inline-code span alone in its paragraph, outside the journey list. Only `1` and `5` are keyable — the steps between them show their number, which is the scale itself. The defaults `Pain` and `Delight` are declared in this manifest's `labelSet`; naming one pole leaves the other on its default. The rename reaches the key's accessible name too, so a screen reader and the slide cannot disagree. |
 | `heading` | `h1, h2` | yes | Slide heading naming the journey or process. |
-| `sections` | `ul > li` | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries inline-code tokens: `@actor` (one or more), `:N` mood 1-5, optional `+N` volume (used by .weighted). |
+| `sections` | `ul > li` | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries one step record, `{who=actor, mood=N, volume=N}`: `who` the actor (`@actor` is the shortcut, and a second actor is a second `@` pill), `mood` 1-5, optional `volume` (used by .weighted). |
 
 ### Variant decision rule
 
@@ -28,13 +28,13 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 - **`heatmap`.** The fastest scan matters more than a precise trend — mood-tinted chips let the audience read the emotional contour at a glance.
 - **`curve`.** The trend across the journey is the point — a mood polyline with an axis makes the trajectory, not just each moment, legible.
 - **`swimlane`.** Actor load and handoff is the story — splits the journey into one row per actor.
-- **`weighted`.** Traffic volume through each step matters as much as mood — chip width encodes the `+N` volume token.
+- **`weighted`.** Traffic volume through each step matters as much as mood — chip width encodes the `volume=` value.
 
 ### Common mistakes
 
 - **Keying a middle step in a label set, e.g. `[{3, Neutral}]`.** Only the two POLES are keyable — `1` and `5`. The steps between show their number, which IS the scale; a word on step 3 would compete with the number beside it. `lint:deck` says so, quoting the manifest's own reason.
 - **Treating the mood scale as if 1 were best instead of worst.** The mood scale runs 1 (worst) to 5 (best) — authoring it inverted flips heatmap tinting and the curve variant's trend direction.
-- **Assuming an omitted `:N` mood token leaves the task unplotted.** Omitting `:N` silently defaults the task to a neutral mood of 3 — it still plots normally under every variant, just without a deliberate score. Always give an explicit `:N` so the chart reflects real affect instead of a silent default.
+- **Assuming an omitted `mood=` leaves the task unplotted.** Omitting `mood=` silently defaults the task to a neutral mood of 3 — it still plots normally under every variant, just without a deliberate score. Always give an explicit `mood=` so the chart reflects real affect instead of a silent default.
 
 ## When to use
 
@@ -47,7 +47,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 
 - **Process without affect.** If the mood scores are all the same or arbitrary, the chart is doing less work than `timeline` or `list-steps`. Reserve journey for sequences where the affect changes meaningfully.
 - **More than ten tasks.** Past ten tasks the chips compress and the labels become unreadable. Group into fewer sections, or split the journey at a natural break.
-- **Volume tokens without weighted.** The `+N` volume token is meaningful only under the `weighted` variant. On the other four it is parsed but invisible — strip it from the markdown or commit to weighted.
+- **Volume tokens without weighted.** The `volume=` value is meaningful only under the `weighted` variant. On the other four it is parsed but invisible — strip it from the markdown or commit to weighted.
 
 ## Authoring
 
@@ -57,14 +57,14 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 ## Walking through my Tuesday morning.
 
 - Wake up
-  - Hit snooze `@me` `:2`
-  - Make coffee `@me` `:4`
+  - Hit snooze `{who=me, mood=2}`
+  - Make coffee `{who=me, mood=4}`
 - Commute
-  - Subway `@me` `:1`
-  - Walk `@me` `:5`
+  - Subway `{who=me, mood=1}`
+  - Walk `{who=me, mood=5}`
 - Work
-  - Standup `@team` `:3`
-  - Deep work `@me` `:5`
+  - Standup `{who=team, mood=3}`
+  - Deep work `{who=me, mood=5}`
 ```
 
 ## Anatomy
@@ -94,14 +94,14 @@ Stages shade by score.
 ## heatmap shades the stages by score.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 ```
 
 ### `curve` — curve
@@ -114,14 +114,14 @@ A sentiment line rides the stages.
 ## curve draws the sentiment line.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 ```
 
 ### `swimlane` — swimlane
@@ -134,14 +134,14 @@ One lane per actor.
 ## swimlane splits the journey by actor.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 ```
 
 ### `weighted` — weighted
@@ -154,14 +154,14 @@ Stage size carries weight.
 ## weighted sizes the stages by importance.
 
 - Discover
-  - Search `@prospect` `:4` `+45`
-  - Referral `@prospect` `:5` `+18`
+  - Search `{who=prospect, mood=4, volume=45}`
+  - Referral `{who=prospect, mood=5, volume=18}`
 - Convert
-  - Pricing page `@prospect` `:3` `+12`
-  - Checkout `@prospect` `:2` `+10`
+  - Pricing page `{who=prospect, mood=3, volume=12}`
+  - Checkout `{who=prospect, mood=2, volume=10}`
 - Support
-  - Settings `@user` `:3` `+8`
-  - Help docs `@user` `:4` `+7`
+  - Settings `{who=user, mood=3, volume=8}`
+  - Help docs `{who=user, mood=4, volume=7}`
 ```
 
 ## Universal modifiers

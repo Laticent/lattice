@@ -125,9 +125,16 @@ section.premise > ol > li {
   border: 1px solid var(--border);
   border-left: 4px solid var(--row-mark, var(--border));
   background: var(--bg-alt);
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);
   color: var(--text-heading);
-  white-space: nowrap;
+  /* WRAP, never cut. Rows were `nowrap` with the term and description ellipsized, which
+   * held while every row fit its track. At a larger venue the slide title widens the claim
+   * rail and the text grows, so the ledger narrows as its words widen: at hall the term cut
+   * to "Clear con…" and the framing question ran out past the card. Line PLACEMENT is
+   * unchanged, because a flex item is placed at its max-content width: the question still
+   * drops to its own line as a unit. Only an item wider than the whole track now wraps
+   * inside itself instead of being cut. */
+  white-space: normal;
 }
 /* The ordinal is generated, not hand-typed per row — rows renumber themselves on
  * reorder, which a typed `01` cannot. The list's own `start` is honored though
@@ -157,8 +164,6 @@ section.premise > ol > li > strong {
    * for it to do. (Not a claim that 600 is universal: several components do set 700
    * deliberately, for emphasis. This one never did.) (#1263) */
   color: var(--row-ink, var(--text-heading));
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
 }
 /* The row's two nested items share the last grid track as a WRAPPING flex line:
@@ -166,8 +171,8 @@ section.premise > ol > li > strong {
  * `space-between`. When both no longer fit on one line, the question drops to a
  * second line under the description instead of either being cut. A lone item on
  * a flex line sits at the start, so the dropped question aligns under its clause.
- * That is a designed second line, not a text wrap: each item stays `nowrap`, and
- * only a description wider than the whole track still ellipsizes. */
+ * That is a designed second line: each item is placed at its full width, and only an
+ * item wider than the whole track wraps inside itself (see the row's `white-space`). */
 section.premise > ol > li > ul {
   display: flex;
   flex-wrap: wrap;
@@ -187,8 +192,9 @@ section.premise > ol > li > ul > li {
 section.premise > ol > li > ul > li:nth-child(1) {
   flex: 0 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+section.premise > ol > li > ul > li:nth-child(2) {
+  min-width: 0;
 }
 section.premise > ol > li > ul > li:nth-child(2) {
   font-size: var(--fs-meta);
@@ -329,7 +335,8 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
  * and the term stacks OVER its description instead of competing for a fixed
  * track. `white-space: normal` is the load-bearing one — the landscape row is
  * `nowrap` (correct when every track is wide enough), which is what forced the
- * ellipsis rather than a wrap. */
+ * ellipsis rather than a wrap. (The landscape row wraps too now, for the same reason at
+ * a larger venue.) */
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li {
   /* The row STAYS A ROW — ordinal, term, rest — it just stops pinning the term to
    * a fixed `10.9375cqi` track and stops forbidding a wrap. That is the whole

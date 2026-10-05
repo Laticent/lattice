@@ -20,7 +20,7 @@ Use for relational or topological visuals — flowcharts, sequence diagrams, sta
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing what the diagram shows. |
 | `subtitle` | `p > code` | no | Optional eyebrow caption. |
-| `mermaid` | `div.mermaid, svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
+| `mermaid` | `[data-lattice-figure], svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
 
 ### Common mistakes
 

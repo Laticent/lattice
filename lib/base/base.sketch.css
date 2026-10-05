@@ -160,8 +160,8 @@ section.sketch:not(.sketch-clean-body) {
  * selector here. Code stays monospace (--font-mono untouched).
  *
  * NOTE: there is deliberately NO x-height "bump" (the old `font-size:1.08em`
- * on p/li/td). It enlarged every body element 8% AND discarded the compact
- * sizes dense layouts set (glossary/list-tabular `--fs-body-compact`),
+ * on p/li/td). It enlarged every body element 8% AND discarded the sizes
+ * dense layouts set (then `--fs-body-compact`; `--fs-body` since 2026-09-29),
  * overrunning fixed content budgets — the single biggest source of clipped
  * slides. Shantell's x-height reads fine at the engine sizes; dense decks
  * use `sketch-clean-body` for the rare slide that still needs the clean
@@ -759,22 +759,13 @@ section.sketch.image.contain p:last-of-type {
  * content that fit the engine face still fits; only a genuinely overstuffed
  * slide overflows the whole frame (and trips the overflow ring). */
 
-/* list: rows are equal-height bands (flex:1 1 0) sized for the engine face at
- * --fs-message (21pt). The wider hand font makes a multi-line item overrun
- * its 1/N band and collide with the next. Step the rows down to --fs-body so
- * the same content fits the same bands (short-item lists still read fine, a
- * touch quieter). */
-section.sketch.list > :is(ul, ol) > li,
-section.sketch.list > .cell-stage > :is(ul, ol) > li {
-  font-size: var(--fs-body);
-}
-
 /* split-panel: the right-zone supporting cards are sized for the engine face
  * in a fixed-width panel; the wider hand font pushed the last card past the
- * panel (and the section clips it). Drop them to the compact step so the set
- * fits. */
+ * panel (and the section clips it). Hold every line, titles included, at
+ * --fs-body, the one reading size (typography.md §7), so the set fits. It was
+ * --fs-body-compact before reading text had one size; body measured to fit. */
 section.sketch.split-panel .panel-right :is(p, li, strong) {
-  font-size: var(--fs-body-compact);
+  font-size: var(--fs-body);
 }
 
 /* checklist: a full 7-row list plus the per-row offset-ink shadow runs the

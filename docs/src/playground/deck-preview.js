@@ -509,12 +509,12 @@ export function buildSrcdoc({
 	// below (`previewDiagramsAttr`), and the fence probe comes from the plugin registry.
 	const needsKatex = deck ? deck.katex : html.indexOf('katex') !== -1;
 	const needsDrawn = deck ? deck.drawn : markupHasDrawnFence(html);
-	// `data-sc-transitions` and not the `.state-chart-figure` class: only the DEFAULT
-	// variant emits the attribute, and it is the only variant the browser pass draws.
-	// The `inline` variant renders chips and needs no layout engine at all. The
-	// attribute survives DOMPurify (data-* attributes are allowed), so it reads the
-	// same on the sanitized sections renderDeck signs below.
-	const needsDagre = deck ? deck.dagre : html.indexOf('data-sc-transitions') !== -1;
+	// The graph charts' model attributes, not their classes: only a state chart's DEFAULT
+	// variant emits `data-sc-model`, and it is the only variant the browser pass draws (the
+	// `inline` variant renders chips and needs no layout engine at all); every flowchart
+	// emits `data-fc-model`. The attributes survive DOMPurify (data-* attributes are
+	// allowed), so they read the same on the sanitized sections renderDeck signs below.
+	const needsDagre = deck ? deck.dagre : html.indexOf('data-sc-model') !== -1 || html.indexOf('data-fc-model') !== -1;
 	return (
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + (previewFonts ? ' data-lattice-preview=""' : '') + previewDiagramsAttr(diagrams && needsDrawn && !!runtimeUrl) + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only

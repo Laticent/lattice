@@ -146,15 +146,15 @@
     "at": "wide",
     "byWords": {
       "6": {
-        "laptop": 8,
-        "huddle": 7,
-        "conference": 6,
-        "hall": 5
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 5,
+        "hall": 4
       },
       "12": {
-        "laptop": 8,
-        "huddle": 7,
-        "conference": 6,
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 3,
         "hall": 3
       }
     }

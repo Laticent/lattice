@@ -36,16 +36,16 @@ Residency `[x]` · SOC 2 `[?]`            ← inline, on any slide
 ## Brace pills — [pills you place](/guides/status/pills/)
 
 ```
-`{LABEL}:shape:color:size`      modifiers in any order, all optional
+`{LABEL, shape, color, size}`      modifiers in any order, all optional
 ```
 
 | Kind | Modifiers |
 |---|---|
-| Shape | *(capsule)* · `:chip` · `:tag` · `:tag-bordered` · `:circle` · `:chevron-right` · `:chevron-left` · `:diamond` |
-| Color | `:c1` … `:c12` — numbered slots, never a meaning |
-| Size | *(automatic: large in headings, small in notes and footers)* · `:sm` · `:lg` |
+| Shape | *(capsule)* · `chip` · `tag` · `tag-bordered` · `circle` · `chevron-right` · `chevron-left` · `diamond` |
+| Color | `c1` … `c12` — numbered slots, never a meaning |
+| Size | *(automatic: large in headings, small in notes and footers)* · `sm` · `lg` |
 
-`:circle` and `:diamond` hold one character or a number up to two digits; longer labels get a lint warning. An unknown modifier leaves
+`circle` and `diamond` hold one character or a number up to two digits; longer labels get a lint warning. An unknown modifier leaves
 the span as plain code.
 
 ## Status words — [pills a component places](/guides/status/component-pills/)
@@ -89,7 +89,7 @@ unknown word still draws, in the informational color. Only `gantt` warns.
 
 | Command | Catches |
 |---|---|
-| `npm run lint:deck -- deck.md` | Moved `[ ]`, label-set keys, words in `:circle`, `{x}` in braces, typed `✓` `✗` |
+| `npm run lint:deck -- deck.md` | Moved `[ ]`, label-set keys, words in `circle`, `{x}` in braces, typed `✓` `✗` |
 | `npm run lint:deck -- --fix deck.md` | Rewrites old verdict-grid and pricing `[ ]` to `[!]`, plus every other machine fix |
 
 Upgrading a deck written before the six answers? See

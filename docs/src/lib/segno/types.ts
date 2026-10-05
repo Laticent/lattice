@@ -36,6 +36,12 @@ export interface Type<T> {
   canonical?(text: string): string | undefined;
   /** Only ever bound by `name=value`, never by a bare word (see `named`). */
   readonly namedOnly?: boolean;
+  /**
+   * For a word this type does NOT take but plainly meant to (`c13` where colors stop at `c12`),
+   * the message that names why; undefined otherwise. The binder asks before falling back to
+   * "not anything this record takes", so the author is told the limit, not the vocabulary.
+   */
+  near?(text: string): string | undefined;
 }
 
 /**
@@ -134,6 +140,10 @@ export function indexed(prefix: string, options: { max: number; label?: string }
       return n;
     },
     canonical: (s) => s.toLowerCase(),
+    near: (s) => {
+      if (s.length <= p.length || s.slice(0, p.length).toLowerCase() !== p || !/^[1-9]\d*$/.test(s.slice(p.length))) return undefined;
+      return `"${s}" is past the limit — this takes ${range}`;
+    },
   };
 }
 

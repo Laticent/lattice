@@ -16,6 +16,8 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 <!-- _class: radar -->
 
+`[{Scale, 0..10}]`
+
 `Vendor review · Scale 0–10`
 
 ## Northwind leads on support; Contoso on cost.

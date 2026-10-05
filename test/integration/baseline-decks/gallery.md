@@ -413,19 +413,19 @@ _Evaluated against the same four pilot teams and the same 90-minute weekly budge
 ## Glossary
 
 - Adoption
-  - Percentage of eligible PMs filing a Decision Log entry within 24 hours of a decision close.
+  - Share of eligible PMs logging a decision within 24 hours.
 - Auditability
-  - The property that any decision can be reconstructed from its inputs three months later without the original author present.
+  - Any decision can be rebuilt from its inputs, months later, without its author.
 - Calibration
-  - The retrospective comparison of predicted to observed outcomes, used to score the framework's accuracy.
+  - Predicted against observed outcomes, scored at each retrospective.
 - Connector
   - The integration layer between signal intake and a source system. Owns ingestion and tagging.
 - Decision Log
-  - The append-only record of every prioritization decision, its predicted outcome, and the actual outcome at retrospective time.
+  - The append-only record of each decision, its prediction and its outcome.
 - Eligible PM
   - A PM whose team has adopted the framework and is past the 30-day onboarding period.
 - Framework
-  - The four-part system — Signal Intake, Scoring Model, Decision Log, Calibration Loop — judged on four criteria: speed, auditability, adoption, calibration.
+  - Signal Intake, Scoring Model, Decision Log and Calibration Loop, as one system.
 
 ---
 
@@ -441,11 +441,11 @@ _Evaluated against the same four pilot teams and the same 90-minute weekly budge
 - Retrospective
   - The 30-day review meeting where logged decisions are scored against observed outcomes.
 - Signal
-  - Any qualitative or quantitative input to a decision — survey response, NPS comment, support ticket, sales call note.
+  - Any input to a decision: a survey answer, a support ticket, a sales note.
 - Scoring policy
-  - The weight set the calibration loop refits each cycle — the artifact neither vendor would expose.
+  - The weights the calibration loop refits each cycle.
 - Vendor West
-  - The stronger of the two vendors evaluated; the demo everyone remembers, and the author of §9.2.
+  - The stronger of the two vendors evaluated, and the author of §9.2.
 
 ---
 
@@ -491,7 +491,7 @@ The pilot kept both — the feed for the two teams that mute nothing, the digest
    - Time-decay from signal date, configurable half-life
    - _0.0–1.0 · Auto-scored_
 3. Relevance
-   - Alignment to current strategic bets, owner-scored, ceiling frequently tested
+   - Alignment to current strategic bets, owner-scored
    - _1–5 · Manual_
 4. Reach
    - Number of customers or segments affected
@@ -1210,7 +1210,7 @@ The marks bring their own haze and sit on top of either wash. Two backgrounds, o
 <!-- _class: gantt -->
 <!-- _footer: "Chart — gantt · gantt" -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## Four workstreams carry the rollout across the year
 
@@ -1314,7 +1314,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 <!-- _class: radar -->
 <!-- _footer: "Chart — radar · radar" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The build and the two vendors trade blows on every axis but one.
 
@@ -1349,17 +1349,17 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
-  - Decision-log API `7, 74`
+  - Scoring model v2 `{8, 88}`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 
@@ -1386,14 +1386,14 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## A team's first month runs from pain to belief, in that order, twice.
 
 - Onboard
-  - Kickoff workshop `@team` `@strategy` `:2`
-  - Taxonomy training `@team` `:2`
-  - Intake setup `@team` `@platform` `:1`
+  - Kickoff workshop `{who=team, mood=2}` `@strategy`
+  - Taxonomy training `{who=team, mood=2}`
+  - Intake setup `{who=team, mood=1}` `@platform`
 - Operate
-  - First signal scored `@team` `:4`
-  - First decision logged `@team` `:4`
+  - First signal scored `{who=team, mood=4}`
+  - First decision logged `{who=team, mood=4}`
 - Believe
-  - First calibration review `@team` `@strategy` `:5`
+  - First calibration review `{who=team, mood=5}` `@strategy`
 
 ---
 
@@ -1422,17 +1422,17 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ## How a call moves through the log.
 
-1. Logged `start`
-   - `score => 2`
-2. Scored `on-track`
-   - `review => 3`
-3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
-4. Decided `decision`
-   - `calibrate => 5`
-5. Calibrated `end`
+- Logged `start`
+  - -score-> Scored
+- Scored `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Decided
+  - -reject-> Logged
+  - -revise-> In Review
+- Decided `decision`
+  - -calibrate-> Calibrated
+- Calibrated `end`
 
 *Rejected entries return to intake; revisions stay in review.*
 

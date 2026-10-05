@@ -62,6 +62,8 @@ flowchart LR
 <!-- _class: radar -->
 <!-- _footer: "Spider comparison · radar" -->
 
+`[{Scale, 0..10}]`
+
 `Scale · 0–10, on the criteria we wrote`
 
 ## The four tools, scored across the criteria we wrote
@@ -114,14 +116,14 @@ Last updated 2026-05-07 · the 9% is probably higher
 ## Where the 18 logged decisions landed
 
 - After the fact
-  - Reprioritized the roadmap `2, 7`
-  - Picked the vendor `1, 6`
-  - Killed the connector rewrite `4, 8`
+  - Reprioritized the roadmap `{2, 7}`
+  - Picked the vendor `{1, 6}`
+  - Killed the connector rewrite `{4, 8}`
 - Predicted
-  - Cut the onboarding step `7, 7`
-  - Renamed the tier labels `8, 8`
+  - Cut the onboarding step `{7, 7}`
+  - Renamed the tier labels `{8, 8}`
 - Calibrated
-  - Adjusted recency weight `3, 2`
+  - Adjusted recency weight `{3, 2}`
 
 ---
 

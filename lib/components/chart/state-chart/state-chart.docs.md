@@ -1,14 +1,14 @@
 # state-chart
 
-> Native state machine diagram — states as a numbered list, transitions as nested inline-code refs.
+> Native state machine diagram — states as a list, transitions as arrows to a state's name, on the flowchart's grammar.
 
 **Function** progression · **Form** timeline · **Substance** graph
 
-**Drawn with** `hybrid` — States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay — edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over. LAYOUT IS CHOSEN BY FIT. The pass scores candidate layouts against the real stage and takes the one that sets the state names largest (capped a step above body size, so a short chain is not folded for no gain): a CHAIN is laid out on a reading-order grid — one row, or several rows that all run the same way with a connector dropping to the next — and a machine that BRANCHES is re-ranked by dagre, unless a wrapped grid beats it by a clear margin. With no direction modifier both directions compete and the stage's shape breaks the tie; `lr` or `tb` pins it. The browser measures, the layout positions — neither dagre nor the grid can measure text. Self-transitions are drawn by the hand-written corner hook on every layout.
+**Drawn with** `hybrid` — States are authored as a list and emitted as an HTML measuring harness (every state a tile with its badge, every transition label and composite title a box); the browser pass measures it in the deck's own fonts, lays the machine out with Trama, the graph-chart library the flowchart shares, and paints every mark into the `<svg>`. LAYOUT IS CHOSEN BY FIT: Trama scores its candidates against the real stage and keeps the one that sets the type largest. A CHAIN is laid out on a reading-order grid, one row or several that all run the same way, and needs no layout engine at all; a machine that branches, or has a composite state, is laid out by dagre unless a wrapped grid beats it by a clear margin. With no direction modifier both directions compete; `lr` or `tb` pins it. Lines are the router's elbows, which never cross a state; their labels sit on the line. Once painted the harness leaves layout, so a default slide is SVG in practice; the `inline` variant's rows stay HTML.
 
 **Tags** `flowchart` · `states` · `workflow`
 
-Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the REF, always: transitions cite `=> 4`, and the ordinal is painted in the node's corner (on `inline`, in a leading column). It is also the READING ORDER: a chain reads 1, 2, 3 along its row and wraps onto the next row when one row would shrink the type. A machine that branches is re-ranked by dagre, because no single line can show a fan-out — the states would read as a sequence.
+Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a list of states; a sub-item that starts with an arrow is a transition to a state named by its text (`- -approve-> Approved`). Each state wears a badge with its place in the list, which is the machine's READING ORDER: a chain reads 1, 2, 3 along its row and wraps onto the next row when one row would shrink the type. A machine that branches is laid out by dagre, because no single line can show a fan-out.
 
 ## Agent contract
 
@@ -20,10 +20,11 @@ Use to show a finite-state machine — the discrete states a system can be in an
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the state machine. |
 | `eyebrow` | `p > code` | no | Optional eyebrow naming the machine or domain. |
-| `states` | `ol > li` | yes | One li per state. Index is the stable ref. Trailing inline code is a closed metadata vocabulary: `start`, `end`, or one of the chart-status keywords (on-track, at-risk, blocked, done, live, decision, deferred, warn, pilot, fail — case is ignored, so `AT-RISK` is `at-risk`). Multiple metadata tokens allowed; order is irrelevant. Unknown trailing codes are left in the rendered label. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and a state with none is a neutral tile. The colors follow gantt: `live` is running work and paints blue (info), apart from finished `done`. The legend shows one chip per color, so words that paint alike share a chip (`on-track · done`). |
-| `transitions` | `ol > li > ul > li` | no | Outgoing transitions from a state — one per nested bullet. Each carries a single inline-code arrow `event=>N` or `=>N` (event optional). Target is a state index or the literal `self` for self-loops. Whitespace inside the inline code is insignificant. The event text may carry explicit line breaks — a literal `\n` or an HTML `<br>` / `<br/>` — which are honored on any machine. The label sits BESIDE its line on every layout — below a horizontal run, to the right of a vertical one — so it never cuts a gap out of the connector, and text too long for the space it has wraps on its own, never mid-word. |
-| `detail` | `ol > li > ul > li (prose, no arrow)` | no | Optional per-state reveal detail (the shared chart-family detail substrate). A nested bullet under a state that is NOT an inline-code transition (plain prose — the entry/exit action, the rule, the why) is captured as that state's detail rather than a transition. It drives two surfaces from one source: (1) Present/Practice/Preview — the state node is tagged `data-mark` and the prose rides an inert `<template class="chart-detail">` the reveal layer shows in a popover on hover/tap, with the active node lifted, the rest dimmed, and the whole figure tilting (the edge-router skips re-measuring while the tilt is live, so the routed edges stay aligned); (2) the static PDF — the same detail folds into the slide's speaker note (`Label (status): item · item`) as a Marp-faithful comment. Renders nothing on the slide face, so a machine with no prose bullets is byte-identical. Must be a bullet (`-`/`*`), not numbered. |
-| `tint` | `ol > li (::: suffix), ol > li > ul > li (::: suffix)` | no | Optional `:::token` naming a THEME TOKEN to paint with — `:::state-fail-hue`, never a color literal. On a state it tints the node's gradient and stroke; on a transition it tints the line and its arrowhead. A transition takes an optional second slot for its edge-label background: `:::state-fail-hue/surface-raised`. The name is used verbatim as `var(--<token>)` and must match `^[a-z][a-z0-9-]*$` with no `--` prefix (the engine adds it); anything else is dropped whole and the element keeps its inherited paint. Existence is NOT checked at build time — this is a pure string transform and cannot read the theme's declared tokens — so a typo falls back to the untinted default and the deck degrades rather than breaking. Nothing names the typo today: it is silent on every surface, including `lint:deck`. |
+| `states` | `ul > li` | yes | One list item per state, named by its text (matched case-insensitively; a `#id` at the lead of its span names it for long text or twins). Numbered and bulleted lists mean the same thing; the badge shows the state's place in the list. A trailing code span styles the state: `start` or `end` (the machine's entry and end), a status word (on-track, done, live, at-risk, warn, blocked, fail, pilot, decision, deferred), a palette slot `c1`…`c8`, one channel `fill=cN` `border=cN` `text=cN`, or a shape word such as `diamond`; several go in one record, in any order: `\{#id, diamond, c2}`. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and wins over a slot on the same state, as on the flowchart; a state with neither is a neutral tile. With no `start`, the first state is the start; with no `end`, every state with no way out is an end. |
+| `transitions` | `ul > li > ul > li (starts with an arrow)` | no | A sub-item that starts with an arrow is a transition from its state: `- -submit-> Submitted` (the event label sits inside the arrow), `- -> Done` (no label), `- =ship=> Shipped` (heavy: the main path). A state's own name as the target is a self-loop. The flowchart's arrows and line words apply: `<-`, `<->`, `--`, a trailing `dashed` `dotted` `open` `dot` `cross` `cN` span, several in one record (`\{dashed, cross}`). The label sits ON its line, which is cut under it. |
+| `composites` | `ul > li > ul > li (starts with a name)` | no | A sub-item that starts with a NAME is a member state, which makes its parent a composite state (a group), drawn as a box around its members. Groups nest; a transition may leave or enter a group. |
+| `detail` | `ul > li > blockquote` | no | A `>` blockquote under a state is its HIDDEN DETAIL: the slide never shows it. It appears when the state is hovered or tapped in Present, Practice and Preview (the chart family's detail substrate: the tile carries `data-mark`, the text rides an inert `<template class="chart-detail">`), and it is folded into the slide's speaker note. A PDF does not show it: text the page must carry belongs in a caption. |
+| `key` | `p > code ([…] after the list)` | no | The key is derived from what the chart uses (statuses, heavy and patterned lines, slots on composites); one bracketed span after the list renames entries, `[{=>, Happy path}]`, as on the flowchart. Words that paint the same tone share one entry. |
 
 ### Variant decision rule
 
@@ -31,23 +32,24 @@ Use to show a finite-state machine — the discrete states a system can be in an
 - **`lr`.** The flow must read left to right whatever the stage shape (a pipeline, a funnel of stages). The chart may still wrap onto more rows.
 - **`tb`.** The flow must read top to bottom whatever the stage shape (a ladder, an escalation). The chart may still wrap into more columns.
 - **`inline`.** The chart needs to sit directly beside its explanatory prose rather than take the full canvas.
-- **`curved`.** Eased, curved connectors fit the deck's visual tone better than straight arrows.
+- **`curved`.** Softer, generously rounded corners fit the deck's visual tone better than tight elbows. The lines are still the router's: they never cross a state.
+- **`unnumbered`.** The list order means nothing to the audience, and the badges would suggest a sequence that is not there.
 
 ### Common mistakes
 
-- **Writing a transition's event/target as plain text instead of a single inline-code arrow.** The transition/detail distinction is purely mechanical — a nested bullet whose SOLE content is one inline-code token matching `event => N` or `=> N` (N a digit or `self`) is a transition; anything else — plain text, or an inline-code token with a non-numeric target like `` `approve => Approved` `` — is captured as detail prose instead. A transition written as plain text (or with a named target) is silently treated as detail, not as an edge, and no arrow renders.
-- **Using a state's NAME instead of its numeric index as a transition target (`` `approve => Approved` `` instead of `` `approve => 4` ``).** Transitions target the state's INDEX — its position in the numbered list, which is the stable ref — not its name; a name in the target position won't resolve to any state.
+- **Targeting a state by its number (`- -approve-> 4`) the way v1 did.** A transition names its target state by its text: `- -approve-> Approved`. A number is read as a new state named "4", and `lint:deck` warns when a new name looks like an existing one.
+- **Writing a note as a sub-bullet under a state.** A sub-item that starts with a name is a MEMBER state and makes its parent a composite. A note is a `>` blockquote under the state, which is hidden detail shown on hover and in the speaker notes.
 
 ## When to use
 
-- **Finite, named states with discrete events.** When the slide is about a system with a small set of named places it can be in (Draft / Submitted / Approved / Archived) and the events that move between them (submit, approve, reject). The numbered authoring forces you to enumerate every state up front; the inline refs force you to be explicit about every transition.
-- **Sequential authoring as a forcing function.** Numbering the states makes the author commit to an order. Reading the list top-to-bottom is reading the machine from start to terminal. This is the same forcing function that `list-steps` and `agenda` apply — a sequence the reader can scan in one pass.
+- **Finite, named states with discrete events.** When the slide is about a system with a small set of named places it can be in (Draft / Submitted / Approved / Archived) and the events that move between them (submit, approve, reject). Listing the states forces you to enumerate every one up front; the arrows force you to be explicit about every transition.
+- **Sequential authoring as a forcing function.** The list order is the reading order the badges show: reading the list top to bottom is reading the machine from start to end, the forcing function `list-steps` and `agenda` apply.
 - **Native theming without Mermaid overhead.** Mermaid's `stateDiagram-v2` works but requires a CSS override cascade with `!important` to theme cleanly (see `docs/theming.md`). A native state chart uses palette tokens directly — no overrides, no mmdc subprocess, no version-coupled SVG class names.
 
 ## When NOT to use
 
 - **More than ~12 states.** A long chain wraps onto more lines rather than shrinking, so eight or ten states still read. Past about a dozen the machine stops reading as a machine and starts reading as a list, however it is laid out. Group the states into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
-- **Hierarchical or parallel states.** v1 grammar is one flat list of states with one outgoing arrow per nested bullet. Composite states, orthogonal regions, history nodes — anything Mermaid's `stateDiagram-v2` does and this layout doesn't — belong in a Mermaid fence via the `diagram` component.
+- **Parallel regions, history or guards.** A composite state is a sub-list of states, but orthogonal regions, history states and guard conditions are not in this grammar. Those belong in a Mermaid fence via the `diagram` component.
 - **Continuous processes.** If the diagram is really a workflow with stages that overlap or block (queue depth, throughput, capacity), a `gantt` or `kanban` chart reads better. State charts are for discrete, mutually-exclusive states the system flips between.
 
 ## Authoring
@@ -61,20 +63,20 @@ Use to show a finite-state machine — the discrete states a system can be in an
 
 How a draft moves from author to archive.
 
-1. Draft `start`
-   - `submit => 2`
-   - `discard => 6`
-2. Submitted `on-track`
-   - `review => 3`
-3. In Review
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
-4. Approved `done`
-   - `publish => 5`
-5. Published `live`
-   - `archive => 6`
-6. Archived `end`
+- Draft `start`
+  - -submit-> Submitted
+  - -discard-> Archived
+- Submitted `on-track`
+  - -review-> In Review
+- In Review
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+- Approved `done`
+  - -publish-> Published
+- Published `live`
+  - -archive-> Archived
+- Archived `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
 ```
@@ -105,14 +107,14 @@ States flow left to right.
 
 ## lr flows the states left to right.
 
-1. Source `start`
-   - `compile => 2`
-2. Compiled
-   - `test => 3`
-3. Tested
-   - `deploy => 4`
-   - `fail => 1`
-4. Deployed `end`
+- Source `start`
+  - -compile-> Compiled
+- Compiled
+  - -test-> Tested
+- Tested
+  - -deploy-> Deployed
+  - -fail-> Source
+- Deployed `end`
 ```
 
 ### `tb` — Top-to-bottom
@@ -124,53 +126,69 @@ States flow top to bottom, whatever the stage.
 
 ## tb stacks the states top to bottom.
 
-1. Queued `start`
-   - `claim => 2`
-2. Running `live`
-   - `finish => 3`
-   - `crash => 1`
-3. Complete `end`
+- Queued `start`
+  - -claim-> Running
+- Running `live`
+  - -finish-> Complete
+  - -crash-> Queued
+- Complete `end`
 ```
 
 ### `inline` — Inline
 
-The chart sits beside its prose.
+The machine as rows with transition chips, beside its prose.
 
 ```markdown
 <!-- _class: state-chart inline -->
 
 ## inline sets the chart beside its prose.
 
-1. Connecting `start`
-   - `retry => self`
-   - `ok => 2`
-   - `fail => 3`
-2. Connected `live`
-   - `disconnect => 1`
-3. Failed `end`
+- Connecting `start`
+  - -retry-> Connecting
+  - -ok-> Connected
+  - -fail-> Failed
+- Connected `live`
+  - -disconnect-> Connecting
+- Failed `end`
 ```
 
 ### `curved` — Curved
 
-Eased arrows between states.
+Generously rounded corners on the router's lines.
 
 ```markdown
 <!-- _class: state-chart curved -->
 
-## curved eases the arrows between states.
+## curved rounds the lines between states.
 
-1. Draft `start`
-   - `submit => 2`
-   - `discard => 5`
-2. In Review `at-risk`
-   - `approve => 3`
-   - `revise => self`
-   - `reject => 1`
-3. Approved
-   - `publish => 4`
-4. Published `live`
-   - `archive => 5`
-5. Archived `end`
+- Draft `start`
+  - -submit-> In Review
+  - -discard-> Archived
+- In Review `at-risk`
+  - -approve-> Approved
+  - -revise-> In Review
+  - -reject-> Draft
+- Approved
+  - -publish-> Published
+- Published `live`
+  - -archive-> Archived
+- Archived `end`
+```
+
+### `unnumbered` — Unnumbered
+
+No badges: the states show no place in the list.
+
+```markdown
+<!-- _class: state-chart unnumbered -->
+
+## unnumbered drops the badges.
+
+- Open `start`
+  - -assign-> Assigned
+- Assigned `live`
+  - -resolve-> Resolved
+- Resolved `end`
 ```
 
 ## Universal modifiers

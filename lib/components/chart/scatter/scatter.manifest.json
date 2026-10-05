@@ -77,12 +77,12 @@
     "axes": {
       "selector": "p > code",
       "required": true,
-      "description": "The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Quotes are optional, single or double, and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`."
+      "description": "The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`."
     },
     "points": {
       "selector": "ul > li",
       "required": true,
-      "description": "One li per entity: the name, then TWO trailing value pills — ``Atlas `$420k` `18%` ``. The first pill is x, the second y; a third sizes the dot under `bubble`. Magnitude suffixes are scale (`1.2M` is 1 200 000) and the affix every value agrees on is carried onto that axis, so a series authored in `$` gets a `$` axis."
+      "description": "One li per entity: the name, then ONE point pill — ``Atlas `{$420k, 18%}` ``. Its first number is x, the second y; a named size (`{$420k, 18%, size=140}`) sizes the dot under `bubble`. Magnitude suffixes are scale (`1.2M` is 1 200 000) and the affix every value agrees on is carried onto that axis, so a series authored in `$` gets a `$` axis."
     },
     "detail": {
       "selector": "li > ul",
@@ -90,12 +90,12 @@
       "description": "Optional nested sublist under a point. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): the Present-mode reveal popover keyed on the dot's `data-mark`, and the PDF speaker note. Renders nowhere on the chart face — a scatter with detail bullets is pixel-identical to one without."
     }
   },
-  "skeleton": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## Two measures, one relationship.\n\n- First entity `4.2` `62`\n- Second entity `2.1` `38`\n- Third entity `6.8` `81`\n- Fourth entity `3.4` `55`\n",
+  "skeleton": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## Two measures, one relationship.\n\n- First entity `{4.2, 62}`\n- Second entity `{2.1, 38}`\n- Third entity `{6.8, 81}`\n- Fourth entity `{3.4, 55}`\n",
   "anatomyBlock": "scatter",
-  "sample": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## The tools we pay most for are the ones nobody adopts.\n\nCost is the renewal we signed; adoption is the share of teams with a weekly active user.\n\n- Atlas `$420k` `18%`\n  - Renewal lands in March\n  - Two teams asked to drop it\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n- Dovetail `$95k` `61%`\n- Everline `$240k` `31%`\n- Fathom `$60k` `74%`\n",
+  "sample": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## The tools we pay most for are the ones nobody adopts.\n\nCost is the renewal we signed; adoption is the share of teams with a weekly active user.\n\n- Atlas `{$420k, 18%}`\n  - Renewal lands in March\n  - Two teams asked to drop it\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n",
   "stressDoc": {
     "summary": "Twelve entities, four of them inside four points of each other.",
-    "sample": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## Stress test — twelve tools and a cluster the eye cannot separate.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n- Dovetail `$95k` `61%`\n- Everline `$240k` `31%`\n- Fathom `$60k` `74%`\n- Granite `$182k` `53%`\n- Halyard `$178k` `50%`\n- Ironwood `$185k` `54%`\n- Juniper `$400k` `20%`\n- Keystone `$88k` `66%`\n- Lantern `$300k` `28%`\n"
+    "sample": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## Stress test — twelve tools and a cluster the eye cannot separate.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n- Granite `{$182k, 53%}`\n- Halyard `{$178k, 50%}`\n- Ironwood `{$185k, 54%}`\n- Juniper `{$400k, 20%}`\n- Keystone `{$88k, 66%}`\n- Lantern `{$300k, 28%}`\n"
   },
   "whenToUse": [
     {
@@ -159,12 +159,12 @@
     "bubble": {
       "label": "bubble",
       "summary": "A third measure sizes each dot by area.",
-      "sample": "<!-- _class: scatter bubble -->\n\n`[Annual cost, Teams adopting, Seats]`\n\n## bubble sizes each dot by a third measure.\n\n- Atlas `$420k` `18%` `1200`\n- Borealis `$310k` `24%` `640`\n- Cardinal `$180k` `52%` `900`\n- Dovetail `$95k` `61%` `310`\n- Everline `$240k` `31%` `180`\n- Fathom `$60k` `74%` `450`\n"
+      "sample": "<!-- _class: scatter bubble -->\n\n`[Annual cost, Teams adopting, Seats]`\n\n## bubble sizes each dot by a third measure.\n\n- Atlas `{$420k, 18%, size=1200}`\n- Borealis `{$310k, 24%, size=640}`\n- Cardinal `{$180k, 52%, size=900}`\n- Dovetail `{$95k, 61%, size=310}`\n- Everline `{$240k, 31%, size=180}`\n- Fathom `{$60k, 74%, size=450}`\n"
     },
     "trend": {
       "label": "trend",
       "summary": "A least-squares line through the cloud.",
-      "sample": "<!-- _class: scatter trend -->\n\n`[Annual cost, Teams adopting]`\n\n## trend draws the least-squares line through the cloud.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n- Dovetail `$95k` `61%`\n- Everline `$240k` `31%`\n- Fathom `$60k` `74%`\n- Juniper `$400k` `20%`\n- Keystone `$88k` `66%`\n"
+      "sample": "<!-- _class: scatter trend -->\n\n`[Annual cost, Teams adopting]`\n\n## trend draws the least-squares line through the cloud.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n- Juniper `{$400k, 20%}`\n- Keystone `{$88k, 66%}`\n"
     }
   },
   "variantDecisionRule": [
@@ -174,7 +174,7 @@
     },
     {
       "variant": "bubble",
-      "useWhen": "A third numeric measure (seats, headcount, revenue) should scale each dot's AREA. Keep it to about ten entities, and name the measure in the third inline-code span so the size key has a caption."
+      "useWhen": "A third numeric measure (seats, headcount, revenue) should scale each dot's AREA. Keep it to about ten entities, and name the measure as the third member of the axis line (`[Cost, Adoption, Seats]`) so the size key has a caption."
     },
     {
       "variant": "trend",
@@ -183,8 +183,8 @@
   ],
   "commonMistakes": [
     {
-      "mistake": "Splitting a point's two numbers into one comma-separated pill, `` `4.2, 8.1` ``, the way `quadrant` takes them.",
-      "fix": "A scatter takes TWO separate pills — `` `4.2` `8.1` `` — because each axis carries its own unit and its own affix (`$420k` on x, `18%` on y), which one shared pill cannot express. An item without two numeric pills is skipped rather than plotted, so the point disappears from the chart and from its description."
+      "mistake": "Writing a point as separate value pills, `` `4.2` `8.1` ``, the spelling before Segno phase 2.",
+      "fix": "A point is ONE record — `` `{4.2, 8.1}` ``, or `` `{$420k, 18%}` `` — and each value keeps its own unit and affix. A row without a point record is skipped rather than plotted, so the point disappears from the chart and from its description."
     },
     {
       "mistake": "Expecting the axes to start at zero.",
@@ -200,11 +200,11 @@
     },
     {
       "mistake": "Encoding a third measure in the dot's RADIUS.",
-      "fix": "`bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no third pill is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why a THIRD member on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide."
+      "fix": "`bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no `size=` is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why a THIRD member on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide."
     }
   ],
   "dataShapeGuidance": [
-    "A point is a name plus TWO trailing inline-code pills — `` Atlas `$420k` `18%` `` — x then y, in that order. A third pill is the bubble magnitude and is ignored without the `bubble` class. Fewer than two numeric pills and the item is skipped, not plotted at zero.",
+    "A point is a name plus ONE point pill — `` Atlas `{$420k, 18%}` `` — x then y, in that order. A named `size=` is the bubble magnitude and is ignored without the `bubble` class. A row whose last pill is not a point is skipped, not plotted at zero.",
     "Magnitude suffixes SCALE: `1.2M` is 1 200 000 and `800k` is 800 000, so the two can share one axis. `%` is not a magnitude, so `12%` is 12. A minus written outside the currency symbol (`-$400k`) is understood as negative.",
     "The affix is per axis and is adopted only when EVERY value on that axis agrees on it: six values in `$` give a `$` axis, and a mixed series (`$4M`, `12%`) gets a bare one, which is the honest read of an axis that cannot describe itself.",
     "Both axes are linear. There is no log scale, so a series spanning several orders of magnitude will pile up at one end — take the log yourself before authoring and say so in the axis caption."

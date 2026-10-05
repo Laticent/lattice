@@ -119,7 +119,7 @@ const TEXT_ROLES = [
   // A key entry naming a category away from the mark.
   ['legend', [
     'chart-key-label', 'chart-key-value', 'gantt-legend-label',
-    'roadmap-legend-label', 'state-legend-label', 'wc-key-label',
+    'roadmap-legend-label', 'fc-key-label', 'wc-key-label',
     'journey-mood-key-label',
   ]],
   // A column / lane / state heading — a bin's name, not a mark's.

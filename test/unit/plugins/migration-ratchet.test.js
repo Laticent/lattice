@@ -34,11 +34,12 @@ describe('checkPluginMigration', () => {
   });
 
   test('the copy counts what the live tree counts', () => {
-    // The two counts the copy holds everything for; the three `drawn*` counts read consumers the
-    // copy leaves out (lib/runtime, docs/src), so they have their own arms below.
-    const { fenceWrappers, pluginTokenNames } = pluginMigrationCounts(tmp);
-    const { drawnFenceClasses: _live, drawnLibraryUrls: _urls, drawnSettleStates: _states, ...expected } = PLUGIN_MIGRATION_BUDGET;
-    assert.deepEqual({ fenceWrappers, pluginTokenNames }, expected);
+    // The counts the copy holds everything for; the three `drawn*` counts and the runtime and
+    // bake-record arms read consumers the copy leaves out (lib/runtime, docs/src, the emulator), so
+    // they have their own arms below.
+    const { fenceWrappers, pluginTokenNames, pluginAssetsOutside } = pluginMigrationCounts(tmp);
+    const { drawnFenceClasses: _live, drawnLibraryUrls: _urls, drawnSettleStates: _states, runtimePluginNames: _rt, bakeContextByName: _bk, drawnFigureClasses: _fig, ...expected } = PLUGIN_MIGRATION_BUDGET;
+    assert.deepEqual({ fenceWrappers, pluginTokenNames, pluginAssetsOutside }, expected);
   });
 
   test('OVER budget: code outside lib/plugins that hand-names a plugin token fails, naming the file', () => {
@@ -120,6 +121,81 @@ describe('checkPluginMigration', () => {
       assert.ok(errors.some((e) => /drawnSettleStates is 3, over its budget of 0/.test(e)), errors.join('\n'));
     } finally {
       for (const f of [js, css, test_]) fs.rmSync(f);
+    }
+  });
+
+  test('a drawn plugin\'s own figure class used as a selector counts, in code, CSS and a component manifest; a property read, a comment and a test do not', () => {
+    assert.equal(pluginMigrationCounts(tmp).drawnFigureClasses, 0);
+    const dir = path.join(tmp, 'lib/components/planted');
+    fs.mkdirSync(dir, { recursive: true });
+    const js = path.join(tmp, 'lib/core/planted.js');
+    const css = path.join(dir, 'planted.styles.css');
+    const json = path.join(dir, 'planted.manifest.json');
+    const test_ = path.join(tmp, 'lib/core/planted.test.js');
+    fs.writeFileSync(js, "doc.querySelectorAll('.mermaid-svg > svg');\nel.classList.contains('mermaid');\nq('[class~=mermaid]');\nconst lib = window.mermaid;\nconst p = s.props.mermaid;\n// '.mermaid' in prose\n/* section .mermaid */\nconst x = '.mermaid-error';\n");
+    fs.writeFileSync(css, '/* a comment\n * .mermaid in a block\n */\nsection.diagram > .mermaid { flex: 1; }\n');
+    fs.writeFileSync(json, '{ "slots": { "figure": { "selector": "div.mermaid, svg" } } }\n');
+    fs.writeFileSync(test_, "document.querySelector('.mermaid');\n");
+    try {
+      const { drawnFigureClasses, figureHits } = pluginMigrationCounts(tmp);
+      assert.equal(drawnFigureClasses, 5, figureHits.join('\n'));
+      assert.deepEqual(figureHits.map((h) => h.split(':')[0]).sort(), ['lib/components/planted/planted.manifest.json', 'lib/components/planted/planted.styles.css', 'lib/core/planted.js', 'lib/core/planted.js', 'lib/core/planted.js']);
+      const errors = [];
+      checkPluginMigration(errors, PLUGIN_MIGRATION_BUDGET, tmp);
+      assert.ok(errors.some((e) => /drawnFigureClasses is 5, over its budget of 0 — /.test(e)), errors.join('\n'));
+    } finally {
+      fs.rmSync(dir, { recursive: true });
+      for (const f of [js, test_]) fs.rmSync(f);
+    }
+  });
+
+  test('a browser plugin named in lib/runtime CODE counts, in any spelling; a comment does not', () => {
+    const dir = path.join(tmp, 'lib/runtime');
+    fs.mkdirSync(dir, { recursive: true });
+    const js = path.join(dir, 'planted.js');
+    fs.writeFileSync(js, "const lib = window.mermaid;\nconst FP = 'functionPlot';\n// mermaid in prose\n/* function-plot too */\nconst m = Math.round(1);\n");
+    try {
+      const { runtimePluginNames, runtimeHits } = pluginMigrationCounts(tmp);
+      assert.equal(runtimePluginNames, 2, runtimeHits.join('\n'));
+      assert.deepEqual(runtimeHits.sort(), ['lib/runtime/planted.js: functionPlot', 'lib/runtime/planted.js: mermaid']);
+      const errors = [];
+      checkPluginMigration(errors, PLUGIN_MIGRATION_BUDGET, tmp);
+      assert.ok(errors.some((e) => /runtimePluginNames is 2, over its budget of 0 — lib\/runtime\/planted\.js/.test(e)), errors.join('\n'));
+    } finally {
+      fs.rmSync(js);
+    }
+  });
+
+  test('a plugin stylesheet or grammar left in lib/integrations/<plugin> counts; another file there does not', () => {
+    const dir = path.join(tmp, 'lib/integrations/mermaid');
+    fs.mkdirSync(dir, { recursive: true });
+    const files = ['mermaid.css', 'mermaid.hljs.js', 'reorient.js'].map((f) => path.join(dir, f));
+    for (const f of files) fs.writeFileSync(f, '/* x */\n');
+    try {
+      const { pluginAssetsOutside, assetHits } = pluginMigrationCounts(tmp);
+      assert.equal(pluginAssetsOutside, 2);
+      assert.deepEqual(assetHits.sort(), ['lib/integrations/mermaid/mermaid.css', 'lib/integrations/mermaid/mermaid.hljs.js']);
+      const errors = [];
+      checkPluginMigration(errors, PLUGIN_MIGRATION_BUDGET, tmp);
+      assert.ok(errors.some((e) => /pluginAssetsOutside is 2, over its budget of 0/.test(e)), errors.join('\n'));
+    } finally {
+      for (const f of files) fs.rmSync(f);
+    }
+  });
+
+  test('a plugin\'s bake record read by NAME off a contexts map outside lib/plugins counts; another receiver, a test or lib/plugins does not', () => {
+    const js = path.join(tmp, 'lib/core/planted.js');
+    const inPlugins = path.join(tmp, 'lib/plugins/mermaid/planted.js');
+    fs.writeFileSync(js, "const s = BAKE_CONTEXTS.get('mermaid').state;\nconst t = bakeContexts.get(\"math\");\nconst u = contexts.get('mermaid-ish');\nconst q = searchParams.get('math');\n");
+    fs.writeFileSync(inPlugins, "contexts.get('mermaid');\n");
+    try {
+      const { bakeContextByName, bakeHits } = pluginMigrationCounts(tmp);
+      assert.equal(bakeContextByName, 2, bakeHits.join('\n'));
+      const errors = [];
+      checkPluginMigration(errors, PLUGIN_MIGRATION_BUDGET, tmp);
+      assert.ok(errors.some((e) => /bakeContextByName is 2, over its budget of 0/.test(e)), errors.join('\n'));
+    } finally {
+      for (const f of [js, inPlugins]) fs.rmSync(f);
     }
   });
 

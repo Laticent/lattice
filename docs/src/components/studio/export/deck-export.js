@@ -661,7 +661,9 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		// exactly the defect this bake exists to prevent. Silence here is indistinguishable
 		// from success, which is how the original bug went unnoticed for so long.
 		let unbaked = 0;
-		const svgs = doc.querySelectorAll('.mermaid-svg > svg, .mermaid > svg');
+		// The host's figure marker (plugin-system phase D), written by every drawn plugin's runtime pass
+		// and bake alike — never a plugin's own output class.
+		const svgs = doc.querySelectorAll('[data-lattice-figure] > svg');
 		for (const svg of svgs) {
 			try {
 				const flat = bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens });
@@ -679,8 +681,8 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 			// The spent source <pre> RIDES ALONG rather than being dropped, even though the
 			// CLI's player carries none (mmdc replaces the fence outright). It is already
 			// `display:none`, and both the visibility and the SVG sizing rules are written as
-			// ADJACENT-SIBLING selectors on it (`pre[data-lattice-settle="rendered"] + .mermaid`
-			// in mermaid.css / highlight-js.css) — removing the <pre> would unstyle the very
+			// ADJACENT-SIBLING selectors on it (`pre[data-lattice-settle="rendered"] + [data-lattice-figure]`
+			// in mermaid.styles.css / highlight-js.css) — removing the <pre> would unstyle the very
 			// diagram this step exists to ship. Read·Article is unaffected: the prose
 			// projection re-hosts the first `svg` under the stage, which is the rendered one.
 			//
@@ -1683,7 +1685,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
  *   · document properties and comment sticky notes, as the photo lanes write them.
  */
 async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log) {
-	const [{ composeDeckPdf }, { default: hbUrl }, { toJpeg }, pdfLib, { stickyNotePlacements }] = await Promise.all([
+	const [{ composeDeckPdf, canvasCamera }, { default: hbUrl }, { toCanvas }, pdfLib, { stickyNotePlacements }] = await Promise.all([
 		import('../../../../../lib/core/pdf-compose/compose.mjs'),
 		import('harfbuzzjs/hb-subset.wasm?url'),
 		import('html-to-image'),
@@ -1692,15 +1694,16 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 	]);
 	const wasm = await (await fetch(hbUrl)).arrayBuffer();
 	const list = [...sections];
-	const camera = async (section, { scale = 1 } = {}) => {
-		let url;
+	// The writer asks for PNG, and for JPEG too on a busy slide (compose.mjs pngIsFlat); the
+	// canvas camera captures each slide once for both. toJpeg was this same canvas encoded at
+	// 0.92, so a JPEG it keeps is the bytes this camera used to return.
+	const camera = canvasCamera(async (section, scale) => {
 		try {
-			url = await withCaptureFixups(section, (w, h, pr) => toJpeg(section, { ...captureOptions(w, h, pr, fontEmbedCSS, log), quality: 0.92 }), scale, 'pdf');
+			return await withCaptureFixups(section, (w, h, pr) => toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log)), scale, 'pdf');
 		} catch (e) {
 			throw captureError(e);
 		}
-		return { bytes: dataUrlBytes(url), type: 'jpeg' };
-	};
+	}, 0.92);
 	const withSlide = (section, fn) => {
 		const restore = forceSectionVisibleForCapture(section);
 		const had = section.classList.contains('lattice-exporting');
@@ -1769,13 +1772,6 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		});
 	}
 	return new Blob([await doc.save({ useObjectStreams: true })], { type: 'application/pdf' });
-}
-
-function dataUrlBytes(url) {
-	const bin = atob(url.slice(url.indexOf(',') + 1));
-	const out = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-	return out;
 }
 
 /** Render a deck to PDF bytes (Blob) without downloading — for embedding (zips). */
@@ -2212,12 +2208,11 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 				const svgBg = core.svgBackgroundFill(options.svgBackground);
 				svgSections.forEach((sec, si) => {
 					const targets = [];
-					// Mermaid renders differently per surface: the engine pre-renders to a
-					// `.mermaid-svg` wrapper (the CLI path), while in the browser the runtime
-					// renders client-side into a `.mermaid` div (lib/runtime/index.js). Match
-					// BOTH so the Studio extracts the same diagrams the CLI does. (The
-					// `.mermaid-error` sibling has no <svg>, so it's never matched.)
-					sec.querySelectorAll('.mermaid-svg svg, .mermaid svg').forEach((s) => { targets.push([s, 'diagram', null]); });
+					// A drawn plugin's figure carries the host's marker on every surface — the CLI
+					// bake's wrapper and the browser pass's container alike
+					// (lib/plugins/mermaid/mermaid.bake.js, mermaid.hydrate.js) — so the Studio
+					// extracts the same diagrams the CLI does. (An error box has no marker.)
+					sec.querySelectorAll('[data-lattice-figure] svg').forEach((s) => { targets.push([s, 'diagram', null]); });
 					// Single-sourced with the CLI via the kernel (core.KEYED_CHART_LAYOUTS) so the two
 					// surfaces can't drift on which sections yield a standalone chart / its chartType.
 					if (sec.classList.contains('chart-frame') && core.KEYED_CHART_LAYOUTS.some((c) => sec.classList.contains(c))) {

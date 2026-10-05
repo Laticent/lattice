@@ -7,6 +7,7 @@
  *   `"Cost, excluding tax"`     quoted text: protects separators, forces the text type
  *   `after=Design`              a named item on its own
  *   `$4.2M`  `Q1..Q3`  `at-risk` a bare value; its type is the slot's to decide
+ *   `~{12 14 17}` `^{database}` a TAGGED record: one tag character (TAGS) before the `{`
  *   `\{BETA}`                   the leading backslash turns the whole span off
  *
  * Separators: `,` between items and `=` after a name — nothing else. `|` is reserved: it
@@ -20,7 +21,7 @@
 
 import { compile, type Grammar, MAX_DEPTH, type ParseError } from './grammar.js';
 import { parse as parseGenerated } from './notation.generated.js';
-import { notationSpec } from './notation-grammar.js';
+import { notationSpec, TAGS } from './notation-grammar.js';
 
 let compiled: Grammar | null = null;
 /** The closure-compiled notation grammar — the reference the generated parser must match. */
@@ -57,6 +58,11 @@ export type Value = Scalar | RecordValue | ListValue;
 export interface Item {
   /** The parameter name for `name=value`, else null. */
   readonly name: string | null;
+  /**
+   * The tag character of a tagged record at the start of a span (`~` in `~{12 14 17}`). Only a
+   * span's top item can carry one; absent everywhere else.
+   */
+  readonly tag?: string;
   readonly value: Value;
   readonly from: number;
   readonly to: number;
@@ -79,11 +85,15 @@ const NAME = /^[A-Za-z][A-Za-z0-9-]*$/;
 
 /**
  * How many levels of brackets a span may nest. Each level spends two of the engine's
- * MAX_DEPTH references (an item, then the record or list inside it), so 64 allows 31 — far
- * past any real span, which nests three at most. A test pins it, so the message cannot drift.
+ * MAX_DEPTH references (an item, then the record or list inside it). The span's top item is
+ * its own rule (`top`, which cannot recurse), so it spends none, and 64 allows 32 — far past
+ * any real span, which nests three at most. A test pins it, so the message cannot drift.
  */
-export const MAX_NESTING = Math.floor((MAX_DEPTH - 1) / 2);
+export const MAX_NESTING = Math.floor(MAX_DEPTH / 2);
 
+
+/** Space, tab or no-break space — the grammar's WS. */
+const isSpace = (c: number) => c === 32 || c === 9 || c === 160;
 
 function unquote(s: string, from: number, to: number): string {
   let out = '';
@@ -106,13 +116,13 @@ class ReadError {
 
 // The reader walks the generated parser's flat tree (flat.ts): four integers per node — kind,
 // from, to, next. Kind numbers are resolved to names once, from the tree's own table.
-let K_BARE = -1, K_QUOTED = -1, K_RECORD = -1, K_LIST = -1, K_WORD = -1;
+let K_BARE = -1, K_QUOTED = -1, K_RECORD = -1, K_LIST = -1, K_WORD = -1, K_TAGGED = -1;
 let kindsSeen: readonly string[] | null = null;
 function bindKinds(kinds: readonly string[]) {
   if (kinds === kindsSeen) return;
   kindsSeen = kinds;
   K_BARE = kinds.indexOf('bare'); K_QUOTED = kinds.indexOf('quoted'); K_RECORD = kinds.indexOf('record');
-  K_LIST = kinds.indexOf('list'); K_WORD = kinds.indexOf('word');
+  K_LIST = kinds.indexOf('list'); K_WORD = kinds.indexOf('word'); K_TAGGED = kinds.indexOf('tagged');
 }
 
 function readValue(s: string, b: Int32Array, at: number): Value {
@@ -124,7 +134,7 @@ function readValue(s: string, b: Int32Array, at: number): Value {
     // A bare run never STARTS with a space (the grammar forbids it), so only its end is
     // trimmed — in place, with no [from, to] pair allocated on the hot path.
     let end = to;
-    while (end > from && (s.charCodeAt(end - 1) === 32 || s.charCodeAt(end - 1) === 9)) end--;
+    while (end > from && isSpace(s.charCodeAt(end - 1))) end--;
     return { kind: 'scalar', text: s.slice(from, end), quoted: false, from, to: end };
   }
   if (kind === K_QUOTED) return { kind: 'scalar', text: unquote(s, from, to), quoted: true, from, to };
@@ -159,6 +169,13 @@ function itemAsValue(s: string, b: Int32Array, at: number): Value {
     throw new ReadError({ code: 'named-in-list', severity: 'error', message: `"${it.name}=" names a parameter, but a list holds values`, from: it.from, to: it.to });
   }
   return it.value;
+}
+
+/** The span's top item: a tagged record, or any item. */
+function readTop(s: string, b: Int32Array, at: number): Item {
+  if (b[at] !== K_TAGGED) return readItem(s, b, at);
+  const value = readValue(s, b, at + 4);
+  return { name: null, value, from: b[at + 1], to: value.to, tag: s[b[at + 1]] };
 }
 
 function readItem(s: string, b: Int32Array, at: number): Item {
@@ -215,7 +232,7 @@ function syntaxDiagnostic(s: string, e: ParseError): Diagnostic {
     // A second `=` (`a=b=c`) is inside a value too: quote from where that value starts.
     let start = at;
     while (start > 0 && !',{}[]"|='.includes(s[start - 1])) start--;
-    while (s[start] === ' ' || s[start] === '\t') start++;
+    while (start < s.length && isSpace(s.charCodeAt(start))) start++;
     let end = at;
     while (end < s.length && !',{}[]"|'.includes(s[end])) end++;
     const body = s.slice(start, end).trimEnd();
@@ -224,9 +241,9 @@ function syntaxDiagnostic(s: string, e: ParseError): Diagnostic {
       from: at, to: at + 1, fix: { from: start, to: start + body.length, insert: quote(body) },
     };
   }
-  if ((e.found === ' ' || e.found === '\t') && s[at - 1] === '{') {
+  if (e.found !== null && isSpace(e.found.charCodeAt(0)) && s[at - 1] === '{') {
     let end = at;
-    while (s[end] === ' ' || s[end] === '\t') end++;
+    while (end < s.length && isSpace(s.charCodeAt(end))) end++;
     return { code: 'space-after-brace', severity: 'error', message: 'a record starts with "{" directly followed by its first value', from: at - 1, to: end, fix: { from: at, to: end, insert: '' } };
   }
   if (e.expected.startsWith('at most ')) {
@@ -268,7 +285,7 @@ function parseRaw(text: string): Parsed {
   if (!r.ok) return { ok: false, diagnostic: syntaxDiagnostic(text, r.error) };
   bindKinds(r.tree.kinds);
   try {
-    return { ok: true, item: readItem(text, r.tree.buf, 0) };
+    return { ok: true, item: readTop(text, r.tree.buf, 0) };
   } catch (e) {
     if (e instanceof ReadError) return { ok: false, diagnostic: e.diagnostic };
     throw e;
@@ -295,16 +312,19 @@ function withoutFix(d: Diagnostic): Diagnostic {
 
 /**
  * Is this span a directive at all, in PROSE (outside a slot a component declares)? Only a
- * record opens one there — `{` then a non-space, non-`}` — so the 95%+ of inline code that is
- * ordinary code is rejected on its first two characters and never reaches the parser.
- * `\` in front turns it off; the caller shows the rest literally.
+ * record opens one there — `{` then a non-space, non-`}`, optionally after one tag character
+ * (`~{…}`, `^{…}`) — so the 95%+ of inline code that is ordinary code is rejected on its first
+ * three characters and never reaches the parser. `\` in front turns it off; the caller shows
+ * the rest literally. This is a cheap FILTER, not a second grammar: everything it lets through
+ * is read by `parse`, which alone decides what the span is.
  */
 export function isDirective(text: string): 'directive' | 'escaped' | null {
   let i = 0;
   let escaped = false;
   if (text.charCodeAt(0) === 0x5c /* \ */) { escaped = true; i = 1; }
+  if (TAGS.includes(text[i] ?? '\0')) i++;
   if (text.charCodeAt(i) !== 0x7b /* { */) return null;
   const c = text.charCodeAt(i + 1);
-  if (Number.isNaN(c) || c === 0x20 || c === 0x09 || c === 0x7d) return null;
+  if (Number.isNaN(c) || isSpace(c) || c === 0x7d) return null;
   return escaped ? 'escaped' : 'directive';
 }

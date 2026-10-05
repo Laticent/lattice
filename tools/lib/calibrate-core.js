@@ -165,7 +165,7 @@ const BUILDERS = {
   // charts carry TWO children per group, the gallery's smallest real group.
   // gantt counts LANES (workstreams), each a done task and a live one after it; the calendar
   // derives from the spans, so no window pill is needed.
-  gantt: (w, i = 0) => `- ${label(w, i)}\n  - Plan ${i + 1} \`Q${1 + (i % 2)}..Q${2 + (i % 2)}\` \`done\`\n  - Build ${i + 1} \`Q${2 + (i % 2)}..Q4\` \`live\` \`after: Plan ${i + 1}\``,
+  gantt: (w, i = 0) => `- ${label(w, i)}\n  - Plan ${i + 1} \`Q${1 + (i % 2)}..Q${2 + (i % 2)}\` \`done\`\n  - Build ${i + 1} \`Q${2 + (i % 2)}..Q4\` \`live\` \`after=Plan ${i + 1}\``,
   // journey counts STAGES, each two scored steps.
   journey: (w, i = 0) => `- ${label(w, i)}\n  - Step ${i + 1}a \`@user\` \`:${1 + (i % 5)}\`\n  - Step ${i + 1}b \`@user\` \`:${1 + ((i + 2) % 5)}\``,
   // matrix-grid counts ROWS of a five-column grid with one named cell; `BODY_WRAP` supplies the
@@ -304,14 +304,34 @@ function gradedDeck({ comp, size, steps, slideFor, scale = null, eyebrow = false
 function parseProbeLog(log) {
   const pageNums = (list) => list.split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean);
   const m = log.match(/⚠ OVERFLOW[^\n]*?pages?\s+([\d,\s]+)/);
+  // A box that clips its own content (a kanban lane, a timeline card) loses text without
+  // the slide exceeding the frame, so the engine reports it on its own CONTENT CLIPPED line.
+  // Read as a fit, it let kanban's hall row claim 4 lanes where 4 lanes lose their cards.
+  // It is returned apart, because the same line also reports an ELLIPSIS (premise's label),
+  // which cuts text sideways at any count; `countClipped` below decides which it is.
+  const box = log.match(/⚠ CONTENT CLIPPED[^\n]*?pages?\s+([\d,\s]+)/);
   const line = (re) => (log.match(re) || [''])[0];
   const pagesOn = (text) => [...text.matchAll(/page (\d+)/g)].map((x) => Number(x[1]));
   return {
     clipped: m ? pageNums(m[1]) : [],
+    boxClipped: box ? pageNums(box[1]) : [],
     underFloor: pagesOn(line(/⚠ TYPE FLOOR —[^\n]*/)),
     labelsDropped: pagesOn(line(/⚠ CHART LABELS DROPPED —[^\n]*/)),
     overprint: pagesOn(line(/⚠ CHART LABELS OVERPRINT —[^\n]*/)),
   };
+}
+
+/**
+ * The pages a COUNT-graded deck clips on (`calibrate-capacity`, whose deck grows one element a
+ * page from page 1): every OVERFLOW page, plus the box clips once they start. A box clip
+ * already on page 1 does not come from the count — it is an ellipsis on a label, the same at
+ * any count — so the box line is not read at all. Otherwise a box clip is the count filling
+ * its box. Only that caller opts in (`renderProbe`'s `countBox`): `calibrate-density` grows
+ * words, not elements, and `check-jank` reads its own axis, so neither is read this way.
+ */
+function countClipped(clipped, boxClipped) {
+  const box = boxClipped.includes(1) ? [] : boxClipped;
+  return [...new Set([...clipped, ...box])].sort((a, b) => a - b);
 }
 
 /**
@@ -328,8 +348,10 @@ function parseProbeLog(log) {
  *   keep     hold the temp directory and hand back `out` + `cleanup()`, so the
  *            caller can load the rendered file. The default still deletes it
  *            before returning, which is what the two calibrators want.
+ *   countBox also count CONTENT CLIPPED pages, the way a count ceiling reads them
+ *            (`countClipped`). Only `calibrate-capacity` passes it.
  */
-function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false } = {}) {
+function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false, countBox = false } = {}) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'calibrate-'));
   const src = path.join(tmpDir, `${label}.md`);
   const out = path.join(tmpDir, `${label}.${format}`);
@@ -347,7 +369,8 @@ function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false
       const tail = log.trim().split('\n').slice(-8).join('\n');
       throw new Error(`Render failed for '${label}' (exit ${r.status}).\n${tail}`);
     }
-    const { clipped: pages, underFloor, labelsDropped, overprint } = parseProbeLog(log);
+    const { clipped, boxClipped, underFloor, labelsDropped, overprint } = parseProbeLog(log);
+    const pages = countBox ? countClipped(clipped, boxClipped) : clipped;
     handedOver = keep;
     return {
       overflowed: new Set(pages), clipped: new Set(pages),
@@ -359,4 +382,4 @@ function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false
   }
 }
 
-module.exports = { ROOT, EMULATOR, SIZE_ALIAS, FAMILIES, BUILDERS, BODY_WRAP, NOT_COUNT_CALIBRATABLE, words, cap, findManifest, gradedDeck, renderProbe, parseProbeLog };
+module.exports = { ROOT, EMULATOR, SIZE_ALIAS, FAMILIES, BUILDERS, BODY_WRAP, NOT_COUNT_CALIBRATABLE, words, cap, findManifest, gradedDeck, renderProbe, parseProbeLog, countClipped };

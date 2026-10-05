@@ -182,7 +182,7 @@ versa:
 |------|-----------|------|
 | **Component transform** | one component's CSS/manifest | `lib/components/<bucket>/<name>/<name>.transform.js` (roadmap, journey, word-cloud, the chart layouts) |
 | **Bucket-family transform** | one bucket | `lib/components/<bucket>/_<bucket>-family/` (`_chart-family`) |
-| **Workspace library** | nothing in Lattice — spin-off-able, gated by a boundary check | `docs/src/lib/<name>/` (Cadenza, LTT, Lente, Suono, Vetrina, and **Trama**, the graph-chart layout library the flowchart draws through: `2026-09-27-trama-graph-chart-library.md`) |
+| **Workspace library** | nothing in Lattice — spin-off-able, gated by a boundary check | `docs/src/lib/<name>/` (Cadenza, LTT, Lente, Suono, Vetrina, and **Trama**, the graph-chart layout library the flowchart, the state chart and hub-spoke draw through: `2026-09-27-trama-graph-chart-library.md`, and for its radial kernel `2026-10-05-trama-radial-layout.md`) |
 | **Structural primitive** | nothing — any component opts in | `lib/core/` (coda, split-panels, split-slides, below-note, slot-label-lift, match-section, resolve-palette, html-lists, section-walk) |
 | **Registry + render adapters** | the wiring across render paths | `lib/transformers/` |
 
@@ -515,14 +515,15 @@ beats `--pale-blue-bg` because the role survives a palette swap.
   renderer falls back to monochrome if `hljs` is missing.
 - **dagre** (`dagre-d3-es`, MIT): places the boxes of a `flowchart` (through Trama,
   `@laticent/trama`, the graph-chart library, which is handed dagre and never imports
-  it) and of a `state-chart` that BRANCHES. Never bundled into the
+  it) and of a `state-chart` that BRANCHES (the same library). Never bundled into the
   runtime: it is built to a standalone `dist/lattice-dagre-min.js` that a host tags
   before `lattice-runtime-min.js`, and the CLI export inlines the same IIFE for a
   deck with a flowchart, or with a machine that actually branches. A state-chart
   chain is laid out by the reading-order grid and needs no engine, which is why that
   delivery is conditional: inlining it cost every reader of every deck 25.9 KiB
-  gzipped. Absent, a branching machine falls back to that grid (each branch drawn as
-  a skip) and a flowchart keeps its measuring tiles; the runtime says so on the
+  gzipped. The export asks Trama's own `isChain` of each machine to decide. Absent, a
+  branching machine falls back to that grid and a flowchart keeps its measuring tiles;
+  the runtime says so on the
   console. See `engineering/decisions/2026-09-06-state-chart-dagre-layout.md`,
   `2026-09-24-state-chart-fit-and-paint.md` and
   `2026-09-27-trama-graph-chart-library.md`.

@@ -244,13 +244,13 @@
     "byWords": {
       "6": {
         "laptop": 4,
-        "huddle": 3,
+        "huddle": 4,
         "conference": 3,
         "hall": 3
       },
       "12": {
         "laptop": 4,
-        "huddle": 3,
+        "huddle": 4,
         "conference": 3,
         "hall": 3
       }
@@ -260,13 +260,13 @@
         "byWords": {
           "6": {
             "laptop": 5,
-            "huddle": 4,
+            "huddle": 5,
             "conference": 4,
             "hall": 3
           },
           "12": {
             "laptop": 5,
-            "huddle": 4,
+            "huddle": 5,
             "conference": 4,
             "hall": 3
           }

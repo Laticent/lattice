@@ -57,7 +57,7 @@ describe('sanitizeSlideHtml — preserves legitimate engine output', () => {
 		// The engine's own output for three sparks (lib/core/inline-sparks.js), so a sanitizer
 		// config change that drops a spark's geometry fails here, not on a slide.
 		const sparks = require('../../../lib/core/inline-sparks.js') as { sparkHtml: (t: string) => string };
-		const html = ['~{1 3 2 5}:area:end:minmax', '~{72%}', '~{3/4}:bullet:fill'].map((t) => sparks.sparkHtml(t)).join('');
+		const html = ['~{1 3 2 5, area, end, minmax}', '~{72%}', '~{3/4, bullet, fill}'].map((t) => sparks.sparkHtml(t)).join('');
 		const out = sanitizeSlideHtml(html);
 		for (const kept of [
 			'class="lat-spark"', 'role="img"', 'aria-label="Trend, 4 points', 'data-fill=""',

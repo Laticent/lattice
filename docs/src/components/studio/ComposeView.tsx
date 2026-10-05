@@ -833,7 +833,7 @@ class SlideView {
 //    functionplot as the JSON they are. An earlier cut skipped all three, reading
 //    `highlight-js.css`'s mermaid suppression as a blanket rule; it is scoped to the
 //    transient source `<pre>` on a diagram SLIDE, where the fence is a placeholder for
-//    a picture. In an editor the fence is source, and `mermaid.hljs.js` exists to color
+//    a picture. In an editor the fence is source, and `mermaid.highlight.js` exists to color
 //    exactly that. Two thirds of the fences we ship are mermaid, so this is most of
 //    them.
 //  · IT DEGRADES TO PLAIN MONO. The engine bundle is loaded by the preview, not by

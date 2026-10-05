@@ -40,12 +40,12 @@ describe('funnel kernel', () => {
       assert.deepEqual(m.stages.map((s) => s.num), [12000, 4800, 864]);
     });
 
-    test('tolerates commas and units in the value, keeping the raw text', () => {
+    test('reads commas, units and magnitude suffixes as every chart does, keeping the raw text', () => {
       const m = parseFunnel(ul([['Impressions', '240,000 views'], ['Clicks', '$38.4k']]));
       assert.equal(m.stages[0].num, 240000);
       assert.equal(m.stages[0].valueRaw, '240,000 views');
-      // The first numeric run wins; the raw label text is preserved verbatim.
-      assert.equal(m.stages[1].num, 38.4);
+      // A magnitude suffix scales, as on every chart (chart-values.js); the raw text is kept.
+      assert.equal(m.stages[1].num, 38400);
       assert.equal(m.stages[1].valueRaw, '$38.4k');
     });
 

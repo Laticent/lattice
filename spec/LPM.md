@@ -1,6 +1,6 @@
 # LPM — the Lattice Plugin Model
 
-**Version:** 0.3-draft · **Status:** Draft · **Date:** 2026-09-29 · **Host API:** `api: 1`
+**Version:** 0.5-draft · **Status:** Draft · **Date:** 2026-10-05 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block
 (` ```functionplot `), the browser code that draws it and the CSS that paints it — as one folder
@@ -41,8 +41,9 @@ lib/plugins/<name>/
   <name>.fixtures.md      REQUIRED  conformance cases (§9)
   <name>.syntax.mjs       optional  the grammar: markdown-it rules and detect(source) (§4.1)
   <name>.render.js        optional  the renderers: what a token or fence becomes (§4.2)
-  <name>.hydrate.js       optional  the browser half: hydrate(el, ctx) (§4.3)
+  <name>.hydrate.js       optional  the browser half: hydrate(el, ctx), or createPass(ctx) (§4.3)
   <name>.bake.js          optional  the CLI half: bake(source, ctx), Node-side (§4.5)
+  <name>.highlight.js     optional  a highlight.js grammar for its code fences (§4.6)
   <name>.styles.css       optional  token-only CSS (§4.4)
 ```
 
@@ -77,14 +78,38 @@ v1 checks names, presence and cycles, not versions. Disabling a plugin disables 
 `requires` it. The host orders plugins topologically (ties broken by name); the order decides rule
 installation, CSS order and hydrate order, and nothing else.
 
+### 3.2.1 Loading — what admits a plugin
+
+Every plugin is loaded EXPLICITLY, by one of three routes, and nothing else admits one:
+
+| Route | Source |
+|---|---|
+| default | the host's default set — every shipped plugin, unless the host narrows it |
+| listed | the deck's front-matter `plugins:` import list (`plugins: [math, mermaid]`) |
+| component | a slide class the deck uses, whose component manifest declares `plugins.requires` |
+
+A loaded plugin loads what it `requires`, transitively; `optional` loads nothing. The list only
+adds: listing a default plugin changes nothing, there is no removal syntax, and a name no plugin
+has is reported (`plugin/unknown-plugin`) and ignored. The host's own switch (`disabled`) turns a
+plugin off whatever admitted it, with every plugin that requires it, and a deck cannot override it.
+Using a plugin's syntax admits nothing: the usage probe (`detect`, the fence names) decides only
+when an admitted plugin's `payload` loads and its `bake` runs, and it reports a plugin the deck uses
+that no route loaded (`plugin/used-not-loaded`). In 0.5 the ENGINE and the CLI `bake` enforce
+admission. Three browser-side paths still act for every shipped plugin: a runtime pass (a fence
+`as: "code"` is drawn by its pass wherever it appears), the `highlight` grammars (registered for
+every installed plugin, on purpose), and the boundary parser's block rules. They agree with the
+engine while every shipped plugin is in the default set; a host MUST NOT narrow the default set
+until they honor admission too.
+
 ### 3.3 Contributions — `contributes`
 
 | Key | Declares | Needs |
 |---|---|---|
 | `syntax` | markdown-it rules, keyed by the TOKEN TYPE each emits: `{ kind: "inline" \| "block", anchor: { before \| after: <host rule> }, triggers: [<char>…], opaque? }` | a rule export per key in `syntax.mjs`, `detect`, and a renderer per key in `render.js` `renderers` |
-| `fences` | fenced blocks, keyed by NAME: `{ body: "json" \| "tex" \| "text" \| "mermaid", aliases?: [{ name, deprecated? }], as?: "code" }` | a renderer per name in `render.js` `fences` — except a fence `as: "code"`, which the engine renders as the highlighted code block every other fence becomes, and which has no renderer and no aliases (the plugin draws it later: by `bake`, or in the runtime) |
+| `fences` | fenced blocks, keyed by NAME: `{ body: "json" \| "tex" \| "text" \| "mermaid", aliases?: [{ name, deprecated? }], as?: "code" }` | a renderer per name in `render.js` `fences` — except a fence `as: "code"`, which the engine renders as the highlighted code block every other fence becomes, and which has no renderer and no aliases (the plugin draws it later: by `bake`, or by its hydrate pass in a browser) |
 | `bake` | `true` — the plugin draws its figures into the deck's Markdown on the CLI, before the engine renders | `bake.js` exporting `bake`, and `render.exec.bake` |
-| `hydrate` | a browser half: `{ budgetMs? }` — an integer 100–30000, default 4000 | `hydrate.js` exporting `hydrate` |
+| `hydrate` | a browser half: `{ budgetMs? }` — an integer 100–30000, default 4000 (ignored by a pass) | `hydrate.js` exporting `hydrate` — or, with `render.exec.hydrate: "pass"`, exporting `createPass` |
+| `highlight` | `true` — a highlight.js grammar for the plugin's code fences | `highlight.js` exporting `highlight`, and at least one fence `as: "code"` |
 | `styles` | `true` | `styles.css` |
 | `diagnostics` | `{ "<name>/<id>": "message" }` — every ID reported on the plugin's behalf. **In api 1 only the HOST reports**, and only `<name>/deprecated-alias` (a deprecated fence alias was used); a plugin module has no `ctx.report` yet | — |
 
@@ -92,11 +117,12 @@ installation, CSS order and hydrate order, and nothing else.
 
 | Field | Value |
 |---|---|
-| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate`, or `render.exec.hydrate: "runtime"` (the runtime's pass asks the host for it — `ensureLibrary`, §6) |
+| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6) |
 | `tokens` | every design token `styles.css` reads — exactly the set of its `var(--…)` reads |
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
-| `render.exec` | where code runs: `hydrate: "browser"` (a `hydrate.js`, run by the plugin host) or `"runtime"` (the runtime's own pass draws it — no `hydrate.js`, and the plugin MUST `bake`, because the CLI export page carries no runtime). **`"runtime"` is IN-TREE ONLY and TRANSITIONAL**: it names code that still lives in `lib/runtime` (Mermaid's diagram pass), which a zip or npm plugin cannot put there. It goes when that pass moves into the plugin as a runtime-bundled `hydrate.js`, and the rule that a runtime-drawn plugin may not also declare `hydrate` changes with it; `bake: "subprocess"` (the bake blocks on another process, such as a headless browser) |
+| `render.exec` | where code runs: `hydrate: "browser"` (a `hydrate.js` exporting `hydrate`, run by the plugin host on every browser surface, serialized onto the CLI export page) or `"pass"` (a `hydrate.js` exporting `createPass`, a document pass the runtime bundles and drives — §4.3; the plugin MUST `bake`, because the CLI export page carries no runtime). **`"pass"` is IN-TREE ONLY**: a pass is bundled into the runtime, which a zip or npm plugin cannot reach (§10); `bake: "subprocess"` (the bake blocks on another process, such as a headless browser) |
+| `render.figureClasses` | the CSS classes of the container the plugin draws a figure into (its pass, its bake). They are the plugin's OWN: the plugin MUST also write the host's figure marker, `data-lattice-figure="<name>"`, on that container, and every consumer outside the plugin selects `[data-lattice-figure]` — never these classes (`checkPluginMigration` `drawnFigureClasses`, budget 0) |
 | `render.surfaces` | what each surface emits — `engine`, `preview`, `pdf`, `player`, `marp` → `placeholder \| figure \| figure-baked \| source \| none` |
 
 ## 4. The role modules
@@ -141,6 +167,28 @@ through `ctx` (§5.2).
 - It MUST emit SVG or HTML the slide sanitizer allows. A `<canvas>` loses its pixels when the
   player clones the page; a plugin that needs one needs a `bake` (§4.5).
 
+**A pass** (`render.exec.hydrate: "pass"`, in-tree only) is the other shape, for a browser half
+that cannot draw one figure on its own — Mermaid's: `mermaid.initialize` is global, so per-slide
+palettes need every fence grouped by the palette its slide resolves and each band rendered on one
+serial queue. `hydrate.js` exports `createPass(ctx)` instead of `hydrate`, and the runtime finds
+it through the registry (`lib/plugins/passes.generated.js`) and drives what it returns:
+
+- `boot()` — once, at the runtime's bootstrap, before the pass is ever `run`: tag its figures with
+  the host's markup (§6), ask the host for its library, start its own wait;
+- `run({ force })` — on every content pass; returns false to be asked again next frame;
+- `onMutations(records)` — in the runtime's mutation observer, before its debounce: cheap work
+  only (settle what it already holds), never a render;
+- `describe()` — fields for the runtime's bootstrap log.
+
+`ctx` carries `name`, `fences` (the plugin's code fences), `win`, `ownScript` (the runtime's
+`<script>`, or null), `host()` (the plugin host — `ensureLibrary`), `schedule()` (the debounced
+content pass) and `runAll({ force })` (the content pass, now, which calls `run` back — and returns
+whether THIS pass walked; `force` reaches only this pass). Passes are isolated: a throw in one
+pass's `boot` or `onMutations` is caught and logged, and the others and the runtime go on. The
+runtime's bootstrap log merges every pass's `describe()`, so a second pass SHOULD prefix its keys. A pass is
+never serialized, so it MAY require; it is still inside the HARD RULE #22 census of markup written
+into the preview frame (`SANCTIONED_RUNTIME_MARKUP_SINKS`).
+
 ### 4.4 `styles.css`
 
 Token-only CSS: every color through `var(--token)`, and it passes every gate component CSS
@@ -158,15 +206,31 @@ Markdown with this plugin's figures drawn into static markup out. The CLI's plug
 engine renders, and only for a deck that uses the plugin (its `detect`, or one of its fence names).
 It may require anything; no browser bundle ever loads it. `ctx` is frozen and carries:
 
-- **stable** — `name`, `pkgRoot`, `quiet`, `print`, `paletteUsesTexture`, `orientation`,
-  `browser: { path, args }`, `readToken(scope, name)` (a palette token as a `{ band, hand }` scope
-  resolves it), `scopeKey(scope)`, and a fresh `state` object the bake may fill;
-- **in-tree, unstable** — `diagramTheme(band, hand)` (Mermaid's theme variables), and what
-  Mermaid's bake leaves on `state` for the image-set re-bake (`renderOne`, `renderInBand`, the
-  per-diagram records). The chart family (phase F) is expected to replace these with a generic
-  "re-bake in another band" hook; nothing outside `lib/plugins` may rely on them.
+- `name`, a fresh `state` object the bake may fill, and the export's GENERIC services
+  (`BAKE_SERVICES` in `lib/plugins/host-bake.js`; `bakeDeck` refuses any other): `pkgRoot`,
+  `quiet`, `print`, `paletteUsesTexture`, `orientation`, `browser: { path, args }`,
+  `readToken(scope, name)` (a palette token as a `{ band, hand }` scope resolves it),
+  `scopeKey(scope)` and `paletteReader(palette, hand)` (a token reader over any palette, with the sketch face's
+  re-points). None names a plugin: what a plugin builds from a palette is the plugin's.
+
+A bake whose figures bake a palette in MAY publish **the re-bake hook**, `state.rebake`, which the
+image-set export's cross-scheme look reads instead of anything plugin-named: `noun` (how a warning
+names one figure), `keptWhy` / `keptFix` / `failedWhy` (the warnings' plugin-specific words), `figure` and `indexAttr` (its figures' selector in the rendered page, and the
+attribute carrying each one's index), `bakedBand(idx)`, and `render(idx, { band, palette })` →
+`{ markup, kept }` (the figure re-rendered, its element carrying `data-look-idx`; `kept` when
+author-fixed colors survive), `{ kept: true }`, `{ failed: true }` or null. Mermaid's bake publishes
+one; the chart family (phase F) is its expected second user.
 
 On the CLI a bake that throws or returns a non-string FAILS THE EXPORT, naming the plugin (§8).
+
+### 4.6 `highlight.js` — the source grammar
+
+CommonJS, exporting `highlight(hljs)`: a highlight.js language definition. The host
+(`installPlugins`) registers it on the engine's highlight.js under each of the plugin's fences
+declared `as: "code"`, so that fence's source is syntax-colored wherever it shows — before a
+browser draws it, and when it cannot be drawn. It is registered for EVERY installed plugin, a
+switched-off one included: a switched-off plugin's fence is exactly the fence that stays source.
+A language highlight.js already knows by that name is left alone.
 
 ## 5. The host API (`api: 1`)
 
@@ -219,14 +283,14 @@ bake, the Studio's export — waits until no element matches
 bounded. A placeholder naming a plugin the page has no browser half for is settled `unavailable`
 at once.
 
-**A figure drawn from its own code block** (a fence `as: "code"`, drawn by the runtime — Mermaid)
-carries the same markup on its `<pre>`, written by the RUNTIME's pass when it reaches the fence
+**A figure drawn from its own code block** (a fence `as: "code"`, drawn by a pass — Mermaid)
+carries the same markup on its `<pre>`, written by the plugin's PASS when it reaches the fence
 (at boot, before `load`) rather than by the engine: `data-lattice-hydrate="<plugin>"` and the settle
 state, `hydrating` while a draw is in flight. So every capture above waits on it with no selector
 of its own. It has no `data-lattice-config`: its content already is the author's highlighted
 source, so a release (`unavailable`, from the host or a capture) leaves that content in place,
 and the plugin's CSS shows it. On a page whose runtime draws that plugin, the host's `run` never
-draws or releases its `<pre>` — the runtime's pass owns it — while any OTHER element carrying the
+draws or releases its `<pre>` — the pass owns it, and draws into a sibling it owns — while any OTHER element carrying the
 plugin's name is an author's and is settled `unavailable` at once; a page with no such pass (the CLI
 export page) releases them all. The host loads the plugin's `payload` for that pass through the same
 loader a `hydrate`'s uses (`ensureLibrary(name, isReady, onSettled)`: from beside the runtime, once
@@ -242,10 +306,11 @@ plugin, when:
   not installed, or sits on a dependency cycle;
 - a syntax anchor is not a host rule, an inline trigger is a character markdown-it's `text` rule
   does not stop at, or an inline rule is marked `opaque`;
-- `payload` is declared without `hydrate` (or `render.exec.hydrate: "runtime"`), or names more than one file;
+- `payload` is declared without `hydrate`, or names more than one file;
 
 - a declared contribution has no module export, or a module exports one the manifest does not
-  declare (syntax renderers, fence renderers, `hydrate`, `styles.css`, `tokens`);
+  declare (syntax renderers, fence renderers, `hydrate` or `createPass`, `highlight`, `styles.css`,
+  `tokens`); `highlight` is declared with no fence `as: "code"` to register it under;
 - two plugins emit one token type, claim one trigger character in one ruler, or claim one fence
   name or alias;
 - a fence name is a code language — any highlight.js language or alias — unless the committed
@@ -253,10 +318,11 @@ plugin, when:
   shipped fence name leaves the plugin its fence and the build warns, so the upgrade cannot break
   decks already written;
 - a fence `as: "code"` has a renderer or an alias; `bake` is declared without `bake.js` or without
-  `render.exec.bake`, or the reverse; a plugin drawn by the runtime (`render.exec.hydrate:
-  "runtime"`) declares no `bake`, or also declares `hydrate`;
+  `render.exec.bake`, or the reverse; a plugin whose hydrate is a pass (`render.exec.hydrate:
+  "pass"`) declares no `bake` or no `hydrate`, or its `hydrate.js` exports `hydrate` instead of
+  `createPass` (or a non-pass exports `createPass`);
 - a deprecated alias has no `<name>/deprecated-alias` diagnostic to report it with;
-- a `hydrate.js` requires or imports a module, or holds code outside `hydrate()`;
+- a `hydrate.js` that is not a pass requires or imports a module, or holds code outside `hydrate()`;
 - two plugins' payload files share a file name, or one is a file the runtime host serves;
 - a diagnostic ID is outside the plugin's `<name>/` namespace;
 - a component `requires` a plugin that does not exist, or its gallery uses a plugin's syntax or
@@ -289,7 +355,7 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics`; fence code only through the code-package door (consent pinned to the code's hash, then a sandbox). Never `syntax`, `hydrate`, `bake` or `payload` — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics`; fence code only through the code-package door (consent pinned to the code's hash, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake` or `payload` — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
 A shipped plugin's name is reserved.
@@ -308,6 +374,20 @@ highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
 
+- **0.5-draft, phase D's last consumers (2026-10-05).** `render.figureClasses` and the host's
+  figure marker `data-lattice-figure="<name>"` (§3.4): what an export, a capture or a layout
+  selects to find a drawn figure on any surface, so none names a plugin's output class.
+
+- **0.5-draft (2026-10-05).** Explicit loading (§3.2.1): a plugin is admitted by the host's
+  default set, the deck's `plugins:` import list, or a component that requires it — never by the
+  usage probe, which now decides only when a payload loads and a bake runs.
+
+- **0.4-draft (2026-10-04).** Phase D's browser half, finished: `render.exec.hydrate: "runtime"` is
+  gone, and `"pass"` replaces it — Mermaid's diagram pass is the plugin's own `hydrate.js`
+  (`createPass`, §4.3), which the runtime drives through the registry. A `highlight` contribution
+  (§4.6) and Mermaid's `styles`: the plugin owns its grammar and its stylesheet. The bake context's
+  services are a closed, generic list (`diagramTheme` is gone; `paletteReader` is
+  new), and `state.rebake` is the generic re-bake hook (§4.5).
 - **0.3-draft (2026-09-29).** Phase D's browser half: a runtime-drawn plugin may declare a
   `payload` (Mermaid's library, `npm:mermaid/dist/mermaid.min.js`), which the host loads for the
   runtime's pass (`ensureLibrary`); a figure drawn from its own code block carries the settle

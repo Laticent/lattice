@@ -348,7 +348,7 @@ describe('createAnimaScenes — Mermaid diagrams (deck `motion: on`)', () => {
     const label = live ? '<g class="label"><foreignObject><div>Input</div></foreignObject></g>' : '<text>Input</text>';
     section.innerHTML =
       `<pre data-lattice-hydrate="mermaid" data-lattice-settle="${state}"></pre>` +
-      '<div class="mermaid"><svg aria-roledescription="flowchart-v2" viewBox="0 0 200 100">' +
+      '<div class="mermaid" data-lattice-figure="mermaid"><svg aria-roledescription="flowchart-v2" viewBox="0 0 200 100">' +
       (live ? '<style>#m{fill:red}</style>' : '') +
       '<g class="edgePaths"><path data-anima-role="bar" data-anima-order="2" d="M0 0L10 10"/></g>' +
       `<g class="nodes"><g class="node" data-anima-role="bar" data-anima-order="1"><rect width="10" height="10"/>${label}</g></g>` +

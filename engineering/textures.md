@@ -184,7 +184,7 @@ nothing else**:
 }
 ```
 
-The canonical rules (`lib/integrations/mermaid/mermaid.css`, the pie block, the chart
+The canonical rules (`lib/plugins/mermaid/mermaid.styles.css`, the pie block, the chart
 family) already paint `var(--cat-N-texture, var(--cat-N-fill))`, so a declared token
 textures every categorical diagram at once and an undeclared one falls back to flat
 color — byte-identical for non-texture themes. The print band declares the same tokens

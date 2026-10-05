@@ -139,7 +139,7 @@ async function settle(expected) {
     for (const f of [page, ...page.frames()]) {
       const st = await f
         .evaluate(() => ({
-          svgs: document.querySelectorAll('.mermaid svg').length,
+          svgs: document.querySelectorAll('[data-lattice-figure] svg').length,
           busy: document.querySelectorAll('[data-lattice-hydrate][data-lattice-settle="pending"],[data-lattice-hydrate][data-lattice-settle="hydrating"]').length,
         }))
         .catch(() => null);
@@ -188,7 +188,7 @@ const initCallsAfterEdit = await page.evaluate(() => window.__llPerf.initCalls);
 const bands = scope2
   ? await scope2.evaluate(() => {
       const digests = new Set();
-      for (const svg of document.querySelectorAll('.mermaid svg')) {
+      for (const svg of document.querySelectorAll('[data-lattice-figure] svg')) {
         const baked = [...svg.querySelectorAll('style')].map((s) => s.textContent).join('').replace(/lattice-mermaid-\d+/g, 'ID');
         let h = 0;
         for (let i = 0; i < baked.length; i++) h = (h * 31 + baked.charCodeAt(i)) | 0;

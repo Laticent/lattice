@@ -116,6 +116,15 @@ Installed via npm, the same binary is `npx lattice`.
 `LATTICE_PALETTE` env → the deck's own front-matter `theme:` → default
 `indaco`.
 
+**Switching a plugin off for one run:** `--disable-plugin mermaid,math` (repeatable) hands one
+list to both the engine and the plugins' CLI bakes (`lib/plugins/host-bake.js`), so a
+switched-off Mermaid does not bake — its fences export as their highlighted source in the PDF,
+PNG and PPTX — and every plugin that `requires` one goes with it. A deck's `plugins:` list
+cannot turn it back on. A name no plugin has fails the run. **Not yet on a browser page:** a
+`--fluid` or `--player` export carries the runtime, whose Mermaid pass still acts on every
+` ```mermaid ` block (it finds no library there, so after its wait the source shows);
+`followups.d/2509-p3-admission-on-the-browser-half.md`.
+
 **A theme or component the deck names but Lattice doesn't ship** resolves from the
 installed packages, `~/.lattice/packages/<type>/<name>/` (or `$LATTICE_HOME/packages`,
 or `--packages <dir>` for one run). Install one with `lattice packages add
@@ -238,7 +247,24 @@ that keeps text or a raster image in it. That covers:
   struck tag read as live; `test/integration/export/pdf-text-decoration.test.js`).
 
 Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
-deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size.
+deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. Every
+photo stops at 2560 px on the long edge, so a 4K slide's is downsampled. A downsampled photo is
+JPEG only: the downsample already softens a 1 px rule, and PNG there cost the 4K gallery ~13 s
+a render (`followups.d/2503-p3-pdf-photo-exact-4k.md`).
+
+**The photo is PNG first.** A flat photo (`pngIsFlat`) is kept as PNG; a busy one is also
+taken as JPEG and `smallestPhoto` (`compose.mjs`) keeps the smaller file. A busy slide's JPEG
+is that PNG re-encoded in the page rather than a second screenshot. The CLI's PNG uses Chrome's
+default encoder, except under a test: there it takes the fast encoder (`optimizeForSpeed`), which
+gives the same pixels at about 3x the bytes on a flat slide, as quick as a JPEG. CI's integration
+job renders hundreds of decks, and the default encoder pushed it past its timeout. The emulator
+picks the fast encoder when `NODE_TEST_CONTEXT` is set (`node --test` sets it on every process a
+test starts); `LATTICE_PDF_PHOTO_FAST=1` or `=0` overrides that. A shipped PDF and a committed
+golden take the default encoder: `examples/topic.pdf` is 109 KB, against 245 KB fast and 141 KB
+for the all-JPEG writer before #2503. On a flat slide background that is the PNG, which keeps
+a 1 px colored rule exact; JPEG stores color at half resolution at every quality, and wrote the
+top keyline of a dark slide as rgb(42,132,176) for rgb(0,146,216). On a photograph the JPEG is
+smaller and is kept (`LATTICE_PDF_PHOTO_QUALITY`, default 92, sets its quality).
 
 **The CLI's file reader is a trust boundary.** The page calls back into Node for local images and
 fonts, and a deck's own scripts can call it too. So `lib/export/pdf-asset-reader.js` reads local

@@ -18,7 +18,7 @@ header: "Lattice · gantt status key"
 <!-- _class: gantt -->
 <!-- _footer: "Dashed bar and dashed diamond are deferred; the solid bar nobody labeled" -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## Two neutrals, and the key named one.
 
@@ -49,7 +49,7 @@ The chip without a hue is `no status` — the bar nobody labeled. It appears onl
 <!-- _class: gantt -->
 <!-- _footer: "Every status in the ramp, with the neutral named" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## The full ramp, so the dash has neighbors.
 
@@ -57,7 +57,7 @@ Five ramps carry ten status words, so some share. A status and the absence of on
 
 - Delivery
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model `Q3..Q4` `live` `after: Signal taxonomy`
+  - Scoring model `Q3..Q4` `live` `after=Signal taxonomy`
 - Holding
   - Connector retirement `Q1..Q2` `blocked`
   - Calibration cadence `Q3..Q4` `deferred`
@@ -69,7 +69,7 @@ Five ramps carry ten status words, so some share. A status and the absence of on
 <!-- _class: gantt -->
 <!-- _footer: "The hard case: the two neutrals adjacent, in one lane" -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## Side by side in one lane is where the old cue failed.
 
@@ -80,7 +80,7 @@ Two bars on the same row, both neutral, one declared and one not. An 18% wash an
   - Org-wide log `Q3..Q4`
 - Intake
   - Connector wiring `Q1..Q2` `done`
-  - Source sweep `Q3..Q4` `live` `after: Connector wiring`
+  - Source sweep `Q3..Q4` `live` `after=Connector wiring`
 
 ---
 

@@ -375,3 +375,15 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
     }
   });
 });
+
+test('CODE_LIFT in lint-core matches `--venue-compact-lift` in the venue CSS', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.modifiers.css'), 'utf8');
+  const lift = (venue) => {
+    const m = css.match(new RegExp(`section\\.venue-${venue}\\s*\\{[^}]*--venue-compact-lift:\\s*([0-9.]+)`));
+    return m ? Number(m[1]) : 1;
+  };
+  const { CODE_LIFT } = require('../../../lib/authoring/lint-core.js');
+  assert.deepEqual({ ...CODE_LIFT }, { l: lift('huddle'), xl: lift('conference'), '2xl': lift('hall') });
+});

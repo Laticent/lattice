@@ -154,10 +154,11 @@ section.decision.decision:where([data-family="tall"], [data-family="strip"]):whe
    tall and strip. It is not a family behavior — a card that fills its track owes
    its content the height in every family — so it moved up to the base card rule
    and this per-family copy is gone. */
-/* One option per full-width card — the justification is the card's hero, so it
-   carries statement weight (--fs-message), not body weight. */
+/* One option per full-width card. The justification reads at --fs-body, the one
+   reading size (typography.md §7): a portrait slide carries two to four of them, so it
+   is reading text, not a one-per-slide lead line. It read at --fs-message here before. */
 section.decision.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
-  font-size:var(--fs-message);
+  font-size:var(--fs-body);
   line-height: var(--lh-snug);
 }
 

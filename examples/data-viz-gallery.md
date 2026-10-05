@@ -2,7 +2,7 @@
 
 # Data visualization
 
-`23 components`
+`24 components`
 
 Every chart component in one deck — the full charting surface.
 
@@ -46,16 +46,16 @@ Every chart component in one deck — the full charting surface.
 
 ## Every page reaches a human within 15 minutes.
 
-- Alert fires `:pill` => Auto-triage => Severity?
-- Severity? `:diamond`
+- Alert fires `pill` => Auto-triage => Severity?
+- Severity? `diamond`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket -> Mitigate
-  - -SEV3-> Backlog `:dotted`
+  - -SEV3-> Backlog `dotted`
 - Page on-call `fail` =ack=> Mitigate => Postmortem
   > Pages the secondary after 5 minutes.
-- Postmortem `:doc`
+- Postmortem `doc`
 
-`[{=>, Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {dotted, Waits for business hours}]`
 
 ---
 
@@ -77,7 +77,7 @@ Every chart component in one deck — the full charting surface.
 <!-- _class: gantt -->
 <!-- _footer: "gantt · data-viz gallery" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## A gantt lays overlapping work against a shared calendar.
 
@@ -85,13 +85,13 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
+  - Scoring model v2 `Q2..Q3` `live` `after=Signal taxonomy`
     - Two teams contest the weighting; the Q3 review decides it.
-  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
+  - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
-  - GA `Q4` `milestone` `after: Org-wide rollout`
+  - Org-wide rollout `Q3..Q4` `after=Per-team weighting`
+  - GA `Q4` `milestone` `after=Org-wide rollout`
     - Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.
 
 ---
@@ -112,21 +112,41 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
+<!-- _class: hub-spoke -->
+<!-- _footer: "hub-spoke · data-viz gallery" -->
+
+`Transformation program · Workstream status · Q3`
+
+## Two of six workstreams are off track.
+
+- Program office
+  - Customer onboarding
+  - Core platform migration `at-risk`
+    - Cutover slipped from August to October
+    - Vendor data mapping is 60% complete
+  - Data governance
+  - Vendor consolidation `blocked`
+    - Waiting on the procurement freeze to lift
+  - Branch network
+  - Workforce reskilling
+
+---
+
 <!-- _class: journey -->
 <!-- _footer: "journey · data-viz gallery" -->
 
 ## The journey scores each stage of the path.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 ---
 
@@ -266,26 +286,26 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
     - Owner: Platform team
     - A 3-week spike de-risks the roadmap
-  - Decision-log API `7, 74`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 
 <!-- _class: radar -->
 <!-- _footer: "radar · data-viz gallery" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The radar maps strengths around the compass.
 
@@ -336,14 +356,14 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 Cost is the renewal we signed; adoption is the share of teams with a weekly active user.
 
-- Atlas `$420k` `18%`
+- Atlas `{$420k, 18%}`
   - Renewal lands in March
   - Two teams asked to drop it
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
 
 ---
 
@@ -399,18 +419,18 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 How a draft moves from author to publication.
 
-1. Draft `start`
-   - `submit => 2`
-2. Submitted `on-track`
-   - `review => 3`
-3. In Review `at-risk`
-   - `approve => 4`
-   - `reject => 1`
-   - `revise => self`
-   - Two reviewers must sign off before approval.
-4. Approved
-   - `publish => 5`
-5. Published `end`
+- Draft `start`
+  - -submit-> Submitted
+- Submitted `on-track`
+  - -review-> In Review
+- In Review `at-risk`
+  - -approve-> Approved
+  - -reject-> Draft
+  - -revise-> In Review
+  > Two reviewers must sign off before approval.
+- Approved
+  - -publish-> Published
+- Published `end`
 
 *Rejected drafts return to the author; revisions stay in review.*
 

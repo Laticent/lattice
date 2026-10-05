@@ -64,25 +64,27 @@ describe('heatmap — what it refuses to draw', () => {
 });
 
 describe('a cell can carry its own annotation', () => {
-  // The table has no sublist channel, so a cell's "why" rides a `# prose` sigil
+  // The table has no sublist channel, so a cell's "why" rides a `note=prose` span
   // in the cell itself. The arms below hold the two things that makes or breaks:
-  // the annotation must not disturb the VALUE, and the sigil must not eat the
-  // `#`-leading strings an author legitimately writes.
+  // the annotation must not disturb the VALUE, and it must not eat the strings an
+  // author legitimately writes in a cell.
   test('the prose is captured and the value is left exactly as authored', () => {
-    assert.deepEqual(readCell('62 <code># dipped after the onboarding change</code>'),
+    assert.deepEqual(readCell('62 <code>note=dipped after the onboarding change</code>'),
       { raw: '62', detail: 'dipped after the onboarding change' });
   });
 
   test('an annotated cell measures as the same number as a bare one', () => {
-    assert.equal(readCell('62 <code># why</code>').raw, readCell('62').raw);
+    assert.equal(readCell('62 <code>note=why</code>').raw, readCell('62').raw);
   });
 
-  test('a hex color or an issue ref is NOT an annotation', () => {
-    // Measured over the shipped decks: 12 inline-code spans start with `#` and
-    // they are hex colors, issue refs and quoted heading syntax. Requiring the
-    // SPACE is what separates prose from a literal an author pasted in.
+  test('a hex color, an issue ref or the retired `# ` sigil is NOT an annotation', () => {
     assert.equal(readCell('62 <code>#7DE38A</code>').detail, '');
     assert.equal(readCell('62 <code>#1311</code>').detail, '');
+    assert.equal(readCell('62 <code># why</code>').detail, '');
+  });
+
+  test('a quoted note keeps its comma, and an escaped quote reads back', () => {
+    assert.equal(readCell('62 <code>note=&quot;dipped, then recovered&quot;</code>').detail, 'dipped, then recovered');
   });
 
   test('a cell with no annotation reports none', () => {
@@ -93,7 +95,7 @@ describe('a cell can carry its own annotation', () => {
     // A second value pill made the cell vanish (readLeadValue takes the LAST
     // <code>), and a heatmap paints a vanished crossing as unmeasured — so the
     // slide asserted something false about the data. This is that regression.
-    const m = parseHeatmapTable(grid2('| Jan | 100 | 62 `# dipped` |', '| Feb | 100 | 58 |'));
+    const m = parseHeatmapTable(grid2('| Jan | 100 | 62 `note=dipped` |', '| Feb | 100 | 58 |'));
     assert.equal(m.rows[0].cells.filter(Boolean).length, 2, 'the annotated cell must still be a cell');
     assert.equal(m.rows[0].cells[1].num, 62);
     assert.equal(m.rows[0].cells[1].detail, 'dipped');
@@ -616,7 +618,7 @@ describe('a cell annotation reaches both surfaces', () => {
     return transformSection(html, { cls: 'heatmap', classTokens: ['heatmap'] });
   };
   const RAGGED = ['## T.', '', '|  | M0 | M1 | M2 |', '| --- | --: | --: | --: |',
-    '| Jan | 100 | 62 |  |', '| Feb | 90 | 58 `# the one that matters` | 40 |'].join('\n');
+    '| Jan | 100 | 62 |  |', '| Feb | 90 | 58 `note=the one that matters` | 40 |'].join('\n');
 
   test('the template index matches the rect it describes, across a ragged matrix', () => {
     // The reveal layer looks a template up BY data-mark. A crossing nobody
@@ -674,7 +676,7 @@ describe('the mark index holds its alignment across every matrix shape', () => {
     const rows = Array.from({ length: nr }, (_, r) => `| R${r} | ${cols.map((_, c) => {
       if (holes.has(`${r},${c}`)) return '';
       const v = r * 7 + c * 3 + 1;
-      return notes.has(`${r},${c}`) ? `${v} \`# note-${r}-${c}\`` : String(v);
+      return notes.has(`${r},${c}`) ? `${v} \`note=note-${r}-${c}\`` : String(v);
     }).join(' | ')} |`);
     return tbl([`|  | ${cols.join(' | ')} |`, `| --- |${' --: |'.repeat(nc)}`, ...rows].join('\n'));
   };
@@ -721,7 +723,7 @@ describe('findings from the checker pass — each one a regression arm', () => {
     // already-rendered markdown where `<` is still `&lt;`, which is why the
     // substrate never needed to escape and heatmap does.
     const out = slide(['|  | M0 |', '| --- | --: |',
-      '| Jan | 100 `# </template><img src=x onerror="alert(1)">` |',
+      '| Jan | 100 `note="</template><img src=x onerror=\\"alert(1)\\">"` |',
       '| Feb | 58 |'].join('\n'));
     const d = parse(out);
     assert.equal(d.querySelectorAll('img').length, 0, 'no live element may escape the template');
@@ -784,7 +786,7 @@ describe('findings from the checker pass — each one a regression arm', () => {
   test('F12: a second annotation in one cell is captured, not left in the value', () => {
     // A non-global regex left the extra span in the value text, where affixOf
     // adopted it as the matrix's common suffix and printed it on every cell.
-    assert.deepEqual(readCell('7 <code># one</code> <code># two</code>'),
+    assert.deepEqual(readCell('7 <code>note=one</code> <code>note=two</code>'),
       { raw: '7', detail: 'one two' });
   });
 });

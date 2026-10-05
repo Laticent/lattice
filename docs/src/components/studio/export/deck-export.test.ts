@@ -176,7 +176,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 	// has tagged it (lib/runtime/index.js `wrapFences`): the plugin's name and the ONE settle state
 	// every capture reads. So these cells are the plot cells above with a different figure.
 	const fenceAt = (settle: string, id = '', code = 'flowchart LR') =>
-		`<pre${id ? ` id="${id}"` : ''} data-lattice-hydrate="mermaid" data-lattice-settle="${settle}"><code class="language-mermaid-source">${code}</code></pre><div class="mermaid"></div>`;
+		`<pre${id ? ` id="${id}"` : ''} data-lattice-hydrate="mermaid" data-lattice-settle="${settle}"><code class="language-mermaid-source">${code}</code></pre><div class="mermaid" data-lattice-figure="mermaid"></div>`;
 
 	it('RELEASES a fence still un-settled at the budget, so it bakes as source not as a blank', async () => {
 		// THE WHOLE FIX. `mermaid.css` hides the source <pre> for every state but `error` and
@@ -294,7 +294,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 
 	it('releases only the figures still blanking, not the ones that drew or settled', async () => {
 		const doc = frag(
-			'<pre id="a" data-lattice-hydrate="mermaid" data-lattice-settle="rendered"><code>x</code></pre><div class="mermaid"><svg></svg></div>' +
+			'<pre id="a" data-lattice-hydrate="mermaid" data-lattice-settle="rendered"><code>x</code></pre><div class="mermaid" data-lattice-figure="mermaid"><svg></svg></div>' +
 				fenceAt('pending', 'b', 'y') +
 				fenceAt('error', 'c', 'z') +
 				fenceAt('hydrating', 'd', 'w') +
@@ -355,7 +355,7 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 	const DECK =
 		'<div class="lattice"><section><h1>probe</h1>' +
 		'<pre data-lattice-hydrate="mermaid" data-lattice-settle="pending"><code class="language-mermaid-source">flowchart LR</code></pre>' +
-		'<div class="mermaid"></div></section></div>';
+		'<div class="mermaid" data-lattice-figure="mermaid"></div></section></div>';
 
 	/** The `DeckRender` shape `createCaptureFrame` destructures. Every field is inert here. */
 	const render = () => ({ html: '', css: '', mode: 'light', geom: { w: 1280, h: 720 }, runtimeUrl: '', fontCss: '' });

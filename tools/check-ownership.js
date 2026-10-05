@@ -1820,7 +1820,7 @@ const SANCTIONED_MONO_FONTS = [
        + 'must never read as deck content.',
   },
   {
-    file: 'lib/integrations/mermaid/mermaid.css',
+    file: 'lib/plugins/mermaid/mermaid.styles.css',
     selector: 'data-lattice-settle',
     count: 1,
     why: 'mermaid source that has not rendered yet — still source, briefly visible.',
@@ -2751,6 +2751,115 @@ function checkMarginDiscipline(errors) {
   }
 }
 
+// ─── One reading size (typography.md §7, "One reading size") ──────────────────
+// THE RULE: every component's reading text — rows, card bodies, table cells, captions —
+// reads at `--fs-body`, and the venue scales that one role. Record:
+// engineering/decisions/2026-09-29-one-reading-size-per-venue.md.
+//
+// WHY A GATE. The audit that proves it (`npm run audit:reading-size`) renders every
+// component at four venues, takes minutes and is on demand. Before the one-size change,
+// components picked `--fs-message` for list rows and `--fs-body-compact` for tables, and
+// nothing noticed three reading sizes on one slide. A new rule reaching for either role
+// is how that comes back, so a static count catches it at `build:check`.
+//
+// WHAT IS COUNTED: every `var(--fs-message` and `var(--fs-body-compact` in engine CSS
+// under lib/ (a `font-size`, a `font` shorthand or a custom property aliasing the role),
+// comments stripped, `*.tokens.css` excluded (token files declare the roles; a component
+// tokens file aliasing one, `--x: var(--fs-message)`, would slip past, and none does today).
+// Those two roles are legitimate for display
+// text, lead lines, chart keys, labels, code and support lines (the note's §4 exceptions
+// E1–E7), so each file's count is sanctioned WITH that reason. The gate fails both ways:
+// a count above its sanction (a new use to justify) and a count below it (a stale entry).
+const SANCTIONED_READING_ROLE = [
+  { file: 'lib/base/base.modifiers.css', role: 'message', count: 1, why: 'the eyebrow/subtitle line under a heading (label chrome, not reading text)' },
+  { file: 'lib/base/base.modifiers.css', role: 'body-compact', count: 4, why: 'the note a split page carries under its cards (E7 support line)' },
+  { file: 'lib/forms/cell/pane/pane.css', role: 'body-compact', count: 1, why: 'the subtitle line under a pane title (label chrome, like a slide subtitle)' },
+  { file: 'lib/components/anchor/closing/closing.styles.css', role: 'message', count: 2, why: 'E1 display component' },
+  { file: 'lib/components/anchor/divider/divider.styles.css', role: 'message', count: 1, why: 'E1 display component' },
+  { file: 'lib/components/anchor/title/title.styles.css', role: 'message', count: 1, why: 'E1 display component' },
+  { file: 'lib/components/anchor/topic/topic.styles.css', role: 'message', count: 2, why: 'E1 display component (lead line; `topic fact` headline)' },
+  { file: 'lib/components/anchor/topic/topic.styles.css', role: 'body-compact', count: 1, why: 'E1 display component: a tile track past six tiles steps its labels down' },
+  { file: 'lib/components/chart/flowchart/flowchart.styles.css', role: 'body-compact', count: 1, why: 'E4 chart text' },
+  { file: 'lib/components/chart/journey/journey.styles.css', role: 'body-compact', count: 3, why: 'E4 chart keys (legends)' },
+  { file: 'lib/components/chart/matrix-grid/matrix-grid.styles.css', role: 'body-compact', count: 3, why: 'E4 chart text (grid cells are a chart, not a table)' },
+  { file: 'lib/components/chart/roadmap/roadmap.styles.css', role: 'body-compact', count: 1, why: 'E4 chart key (the legend)' },
+  { file: 'lib/components/chart/timeline-list/timeline-list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a milestone\'s description under its --fs-body title)' },
+  { file: 'lib/components/code/code/code.styles.css', role: 'body-compact', count: 1, why: 'code keeps --fs-body-compact: a code line cannot wrap (owner, 2026-09-29)' },
+  { file: 'lib/components/code/compare-code/compare-code.styles.css', role: 'body-compact', count: 2, why: 'code keeps --fs-body-compact (owner, 2026-09-29)' },
+  { file: 'lib/components/comparison/pricing/pricing.styles.css', role: 'message', count: 1, why: 'the tier name, a card title (features read at --fs-body)' },
+  { file: 'lib/components/comparison/table/table.styles.css', role: 'body-compact', count: 1, why: 'the field label in a table split into cards (label chrome)' },
+  { file: 'lib/components/connect/_qr-card/qr-general.css', role: 'body-compact', count: 1, why: 'E6 fixed card (a QR caption)' },
+  { file: 'lib/components/connect/contact/contact.styles.css', role: 'body-compact', count: 1, why: 'E6 fixed card' },
+  { file: 'lib/components/imagery/image/image.styles.css', role: 'message', count: 1, why: 'E2 display register (`image statement`)' },
+  { file: 'lib/components/imagery/scene/scene.styles.css', role: 'message', count: 2, why: 'E3 one lead caption; the live-preview play control' },
+  { file: 'lib/components/imagery/video/video.styles.css', role: 'message', count: 1, why: 'E3 one lead line (`video companion`)' },
+  { file: 'lib/components/inventory/agenda/agenda.styles.css', role: 'body-compact', count: 1, why: 'the time chip beside an agenda row (label chrome)' },
+  { file: 'lib/components/inventory/inventory/inventory.styles.css', role: 'message', count: 5, why: 'E3 one lead line: the callout band and pull line of each variant' },
+  { file: 'lib/components/inventory/list-tabular/list-tabular.styles.css', role: 'body-compact', count: 1, why: 'the `metric` pill (label chrome)' },
+  { file: 'lib/components/inventory/list/list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a row\'s detail line)' },
+  { file: 'lib/components/inventory/q-and-a/q-and-a.styles.css', role: 'message', count: 1, why: 'E2 display register (`q-and-a solo`)' },
+  { file: 'lib/components/inventory/team-profile/team-profile.styles.css', role: 'body-compact', count: 1, why: 'the lead person\'s role line (E7 support line)' },
+  { file: 'lib/components/legal/obligation-matrix/obligation-matrix.styles.css', role: 'body-compact', count: 1, why: 'E5 label board' },
+  { file: 'lib/components/legal/policy-recommendation/policy-recommendation.styles.css', role: 'message', count: 2, why: 'E3 one lead line: the impact line and the quote' },
+  { file: 'lib/components/statement/big-number/big-number.styles.css', role: 'message', count: 1, why: 'E1 display component' },
+  { file: 'lib/components/statement/content/content.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (sub-bullets)' },
+  { file: 'lib/components/statement/premise/premise.styles.css', role: 'message', count: 1, why: 'E3 one lead line (the premise lead)' },
+  { file: 'lib/components/statement/quote/quote.styles.css', role: 'message', count: 1, why: 'E1 display component' },
+  { file: 'lib/components/statement/split-panel/split-panel.styles.css', role: 'message', count: 3, why: 'E3 one lead line: the claim, its pull-quote cite and proof lead' },
+  { file: 'lib/components/statement/split-panel/split-panel.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (`proof` / `capstone` supporting lines)' },
+];
+const READING_ROLES = ['message', 'body-compact'];
+
+/** `{ message, 'body-compact' }` use counts in one stylesheet, comments stripped. */
+function readingRoleCountsIn(css) {
+  const bare = stripComments(css);
+  const out = {};
+  for (const r of READING_ROLES) {
+    const n = (bare.match(new RegExp(`var\\(\\s*--fs-${r}(?![\\w-])`, 'g')) || []).length;
+    if (n) out[r] = n;
+  }
+  return out;
+}
+
+/** Errors for `counts` (`[{ file, role, n }]`) judged against `sanctions`. */
+function readingRoleFindings(counts, sanctions) {
+  const errors = [];
+  const key = (f, r) => `${f}\u0000${r}`;
+  const have = new Map(counts.map((c) => [key(c.file, c.role), c.n]));
+  const allowed = new Map(sanctions.map((s) => [key(s.file, s.role), s]));
+  for (const c of counts) {
+    const s = allowed.get(key(c.file, c.role));
+    if (!s || c.n > s.count) {
+      errors.push(
+        `${c.file} sets text in \`--fs-${c.role}\` ${c.n} time(s), ${s ? `${s.count} sanctioned` : 'none sanctioned'}. ` +
+        'Reading text reads at `--fs-body`, the one reading size (typography.md §7). If this is display text, a ' +
+        'lead line, a chart key, a label, code or a support line, add or raise its SANCTIONED_READING_ROLE entry ' +
+        'in tools/check-ownership.js with the exception it falls under (the decision note\'s §4).',
+      );
+    }
+  }
+  for (const s of sanctions) {
+    const n = have.get(key(s.file, s.role)) || 0;
+    if (n < s.count) {
+      errors.push(
+        `stale reading-role sanction in tools/check-ownership.js — ${s.file} uses \`--fs-${s.role}\` ${n} time(s), ` +
+        `${s.count} sanctioned. Lower or remove the SANCTIONED_READING_ROLE entry so the allowlist stays honest.`,
+      );
+    }
+  }
+  return errors;
+}
+
+function checkReadingRole(errors) {
+  const counts = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    if (file.endsWith('.tokens.css')) continue;
+    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    for (const [role, n] of Object.entries(readingRoleCountsIn(fs.readFileSync(file, 'utf8')))) counts.push({ file: rel, role, n });
+  }
+  errors.push(...readingRoleFindings(counts, SANCTIONED_READING_ROLE));
+}
+
 // ─── One type size per deck (typography.md §7, "One size across modifiers") ──
 // THE RULE: a type role's size is set by the deck's venue, and no per-slide class changes
 // it. Spacing, chrome and color may change per slide; the size of `--fs-body`, `--fs-h2`
@@ -2907,7 +3016,7 @@ function subjectClasses(selector) {
   return [...compound.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
 }
 
-const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift)$/;
+const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift|venue-compact-lift)$/;
 const RUNG_RULE = /^section\.(venue|scale)-[a-z0-9]+$/;
 const isPseudoElement = (sel) => /::?(before|after|marker|placeholder)\b/.test(sel);
 
@@ -3030,7 +3139,8 @@ function checkTypeSizeModifiers(errors) {
 //       basis is what makes it an inset rather than a size.
 //
 //   (b) BODY SHEETS ONLY — `padding` (or a `padding-*` longhand) on a rule whose
-//       subject is a known BODY element: `.chart-body`, `.mermaid`, `.mermaid-svg`.
+//       subject is a known BODY element: `.chart-body`, a drawn plugin figure
+//       (`[data-lattice-figure]`, or the Mermaid plugin's own `.mermaid` / `.mermaid-svg`).
 //       This is the easiest wrong move of all — "inset the chart a bit more" is
 //       spelled `padding` by anyone who has not read design/forms.md §6.1 — and
 //       (a) cannot see it, because a container-unit subtraction in `padding` is
@@ -3060,7 +3170,7 @@ const SANCTIONED_STAGE_INSETS = [
   {
     file: 'lib/integrations/highlight-js/highlight-js.css',
     prop: 'padding-bottom',
-    value: 'var(--sp-sm) (on `.mermaid:has(+ .mermaid-error)`)',
+    value: 'var(--sp-sm) (on `[data-lattice-figure]:has(+ .mermaid-error)`)',
     why: 'The gap between a failed diagram and the parser-error block beneath it. It '
       + 'cannot be a `margin-top` on the error block — HARD RULE #20, and that block is '
       + 'bordered and filled, so a margin there bleeds its fill and cannot be measured. It '
@@ -3074,8 +3184,11 @@ const SANCTIONED_STAGE_INSETS = [
 ];
 
 // The body elements the Forms inset rule governs — the boxes that dock in a stage
-// cell. Adding one here is how a newly-migrated component joins check (b).
-const INSET_BODY_SELECTORS = ['.chart-body', '.mermaid-svg', '.mermaid'];
+// cell. Adding one here is how a newly-migrated component joins check (b). A drawn
+// plugin figure is found by the host's MARKER, `[data-lattice-figure]` (plugin-system
+// phase D), which is what engine CSS outside lib/plugins selects it by; the plugin's own
+// output classes stay listed for its own stylesheet.
+const INSET_BODY_SELECTORS = ['.chart-body', '.mermaid-svg', '.mermaid', '[data-lattice-figure]'];
 
 /**
  * Blank out `var(--name)` references, keeping the parens balanced and the length
@@ -3167,8 +3280,12 @@ function offendingBodyPadding(css) {
     while (subject !== prev);
     subject = subject.split(/[\s>+~]+/).filter(Boolean).pop() || '';
     const subjectClasses = new Set([...subject.matchAll(/\.([\w-]+)/g)].map((c) => c[1]));
-    const subjectsBody = INSET_BODY_SELECTORS.some((cls) => subjectClasses.has(cls.slice(1)));
-    if (subjectsBody && !/\.canvas|figure/.test(selector)) {
+    const subjectAttrs = new Set([...subject.matchAll(/\[([\w-]+)/g)].map((a) => a[1]));
+    const subjectsBody = INSET_BODY_SELECTORS.some((sel) => (sel.startsWith('[')
+      ? subjectAttrs.has(sel.slice(1, -1))
+      : subjectClasses.has(sel.slice(1))));
+    // `figure` the ELEMENT, not the word: `[data-lattice-figure]` names a body, not the projection.
+    if (subjectsBody && !/\.canvas|(?<![\w-])figure(?![\w-])/.test(selector)) {
       for (const d of block.split(';')) {
         const [prop, ...rest] = d.split(':');
         const value = rest.join(':').trim();
@@ -5500,6 +5617,9 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/funnel/funnel.transform.js', true, true],
   ['components/chart/gantt/gantt.transform.js', true, true],
   ['components/chart/heatmap/heatmap.transform.js', true, true],
+  // A hub-spoke names its hub, every satellite, and (tiered) every branch and leaf — each
+  // sentence of `narrateHubSpoke` opens with one — and a node carries its printed value.
+  ['components/chart/hub-spoke/hub-spoke.transform.js', true, true],
   // A journey's stage and step — each sentence of `narrateJourneyMood` opens with one. The mood is
   // said as a score ("scores four"), and a step carries no value attribute to corroborate it.
   ['components/chart/journey/journey.transform.js', true, false],
@@ -5522,6 +5642,9 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/slope/slope.transform.js', true, true],
   ['components/chart/stacked-bar/stacked-bar.transform.js', true, true],
   ['components/chart/state-chart/state-chart.transform.js', true, true],
+  // The state chart, like the flowchart, names each state on its harness tile and on the tile the
+  // pass paints; its status is the value.
+  ['components/chart/state-chart/state-chart.layout.js', true, true],
   // The flowchart names each shape twice: on the harness tile the server emits (what shows before
   // the browser pass, or where it cannot run) and on the shape the pass paints. No value: a shape's
   // status paints it rather than being a quantity a sentence could corroborate.
@@ -5762,9 +5885,9 @@ const SANCTIONED_PREVIEW_BUILDERS = [
 // it appears — because the file-scoped shape every other #22 arm uses would certify a
 // SECOND injection point hiding behind an already-legitimate one (#1731 §9.8, finding 7,
 // in a different channel). A stale entry fails too, so the list cannot rot.
-// Browser passes outside lib/runtime that write markup after the sanitizer ran. The state
-// chart's pass (state-chart.transform.js) is the other member of this class and is NOT listed
-// yet: followups.d/2385-p2-state-chart-pass-census.md.
+// Browser passes outside lib/runtime that write markup after the sanitizer ran. Both graph
+// charts now write through Trama's one pipeline (below): the state chart moved onto it in
+// state chart v2, which closed followups.d/2385-p2-state-chart-pass-census.md.
 //
 // Trama's pipeline (docs/src/lib/trama/pipeline.ts) is the one graph-chart writer: it writes
 // whatever an ADAPTER paints, so each adapter that calls it owns sanitizing its model, and a
@@ -5779,15 +5902,20 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
     count: 1,
     provenance:
       'OURS — Trama writes the markup its adapter paints (and the same string again when a live layout ' +
-      'holds the last drawing). Today one adapter calls it: the flowchart ' +
-      '(lib/components/chart/flowchart/flowchart.layout.js), painting from `data-fc-model`. A deck can ' +
-      'FORGE that attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so the ' +
-      'adapter trusts none of it: sanitizeModel rebuilds every structural field from a closed set or an ' +
-      'integer range and drops the rest, and every author string is escaped where it is painted. Pinned by ' +
-      'test/unit/components/flowchart.test.js "a forged model cannot inject markup".',
+      'holds the last drawing). Two adapters call it: the flowchart ' +
+      '(lib/components/chart/flowchart/flowchart.layout.js), painting from `data-fc-model`, and the state ' +
+      'chart (lib/components/chart/state-chart/state-chart.layout.js), painting from `data-sc-model`. A deck ' +
+      'can FORGE either attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so ' +
+      'neither adapter trusts any of it: its sanitizeModel rebuilds every structural field from a closed set ' +
+      'or an integer range and drops the rest, and every author string is escaped where it is painted. ' +
+      'Pinned by test/unit/components/flowchart.test.js "a forged model cannot inject markup" and ' +
+      'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary".',
   },
+  // Mermaid's two entries MOVED with its diagram pass, verbatim, from lib/runtime/index.js into the
+  // plugin (phase D's browser half, `render.exec.hydrate: "pass"`): same sinks, same counts, same
+  // provenance — the pass still runs inside the preview frame, after the builder sanitized.
   {
-    file: 'lib/runtime/index.js',
+    file: 'lib/plugins/mermaid/mermaid.hydrate.js',
     sink: 'target.innerHTML',
     count: 4,
     provenance:
@@ -5808,7 +5936,7 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'undeclared sink.',
   },
   {
-    file: 'lib/runtime/index.js',
+    file: 'lib/plugins/mermaid/mermaid.hydrate.js',
     sink: 'errEl.innerHTML',
     count: 1,
     provenance: 'OURS — clears the themed diagram error block to the empty string before it is rebuilt from text nodes.',
@@ -7636,12 +7764,42 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
  *                       spellings) outside lib/plugins, in code AND CSS: a private settle state
  *                       beside the host's one `data-lattice-settle`, which no capture that reads
  *                       the host's barrier can see.
+ *   runtimePluginNames  the name of a plugin with a browser half (`mermaid`, `functionPlot`,
+ *                       `function-plot`, any case) in lib/runtime CODE: the runtime doing a plugin's
+ *                       work by hand where it should drive the plugin through the registry
+ *                       (`PASSES`, `HYDRATORS`). Phase D's browser half moved Mermaid's diagram
+ *                       pass into lib/plugins/mermaid/mermaid.hydrate.js and took this from 139 to 0.
+ *   pluginAssetsOutside a plugin's stylesheet (`.css`) or highlight grammar (`*.hljs.js`) living in
+ *                       lib/integrations/<plugin>/, where the engine installs it by hand, instead of
+ *                       in the plugin (`styles`, `highlight`). Phase D's browser half: 2 → 0. It
+ *                       looks only there, under those two name shapes — the shape this repo grew;
+ *                       it is not a census of every file that styles a plugin.
+ *   bakeContextByName   one plugin's bake record read BY NAME (`contexts.get('mermaid')`) outside
+ *                       lib/plugins, where the host's generic hook (`state.rebake`) should answer.
+ *                       Phase D's browser half: 1 → 0. (The bake's SERVICES are held generic at
+ *                       run time instead: `bakeDeck` refuses any not in BAKE_SERVICES.)
+ *   drawnFigureClasses  a drawn plugin's OWN output class (`render.figureClasses` in its manifest:
+ *                       Mermaid's `.mermaid`, `.mermaid-svg`) used as a SELECTOR outside lib/plugins
+ *                       — in code, CSS, or a component manifest — where the host's
+ *                       `[data-lattice-figure]` marker, which every drawn plugin's pass and bake
+ *                       write, should answer. Phase D's last consumers: 36 → 0. ENVELOPE: it counts
+ *                       the selector shape (`.mermaid` after a selector boundary — a quote, space,
+ *                       comma, paren, bracket, combinator or brace — or after a tag name); a JS property read
+ *                       such as `window.mermaid` is not a selector and is not counted. It also counts
+ *                       `[class~=mermaid]`, `[x].mermaid`, and the DOM's class APIs
+ *                       (`classList.contains('mermaid')`, `className === 'mermaid-svg'`), which are the
+ *                       plugin's own idiom INSIDE lib/plugins and a consumer's outside it. NOT counted,
+ *                       because each reads the same as a JS property access: a class after `)`
+ *                       (`:is(.a).mermaid` — `(globalThis as T).mermaid` is the same text), after
+ *                       another class (`.x.mermaid` — `s.props.mermaid`) or after the tag `a`
+ *                       (`a.mermaid` — `if (a.mermaid)`). Scans lib,
+ *                       tools, themes, docs/src, docs/scripts and the emulator; tests are exempt.
  *
  * Over budget fails: something re-grew the old way. UNDER budget fails too, naming the new
  * count, so the budget ratchets down in the PR that earned it and can never silently rot upward
  * again.
  */
-const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0, drawnFenceClasses: 0, drawnLibraryUrls: 0, drawnSettleStates: 0 });
+const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0, drawnFenceClasses: 0, drawnLibraryUrls: 0, drawnSettleStates: 0, runtimePluginNames: 0, pluginAssetsOutside: 0, bakeContextByName: 0, drawnFigureClasses: 0 });
 
 function pluginMigrationCounts(root = ROOT) {
   // EVERY override of markdown-it's fence renderer outside the host's one table, anywhere a render
@@ -7734,11 +7892,89 @@ function pluginMigrationCounts(root = ROOT) {
       for (const m of code.matchAll(stateRe)) stateHits.push(`${rel}: ${m[0]}`);
     }
   }
+  // The plugin names, from the manifests' DATA (the same reason as the tokens): every plugin for the
+  // asset and bake-record arms, and the ones with a browser half (a `hydrate`, or a `render.exec.hydrate`) for the
+  // runtime arm — a plugin with no browser half has nothing the runtime could do for it by hand, and
+  // `math` would match `Math.round` everywhere.
+  const manifests = listPluginManifests(root);
+  const allNames = manifests.map((m) => m.name);
+  if (!allNames.length) throw new Error('plugin migration: lib/plugins holds no manifest — the ratchet would check nothing');
+  const variants = (n) => [n, n.replace(/-/g, ''), n.replace(/-([a-z])/g, (_m, c) => c.toUpperCase())];
+  const reEscape = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const browserNames = manifests.filter((m) => m.contributes?.hydrate || m.render?.exec?.hydrate).map((m) => m.name);
+  const runtimeHits = [];
+  if (browserNames.length) {
+    const re = new RegExp([...new Set(browserNames.flatMap(variants))].map(reEscape).join('|'), 'gi');
+    const files = [];
+    listSourceFiles(path.join(root, 'lib', 'runtime'), files);
+    for (const file of files) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (/\.generated\.[cm]?[jt]s$/.test(rel) || !/\.[cm]?js$/.test(rel) || !fs.existsSync(file)) continue;
+      const code = fs.readFileSync(file, 'utf8').split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
+      for (const m of stripCodeComments(code).matchAll(re)) runtimeHits.push(`${rel}: ${m[0]}`);
+    }
+  }
+  const assetHits = [];
+  for (const name of allNames) {
+    const dir = path.join(root, 'lib', 'integrations', name);
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir)) if (/\.css$|\.hljs\.js$/.test(f)) assetHits.push(`lib/integrations/${name}/${f}`);
+  }
+  const bakeHits = [];
+  {
+    // Anchored on a bake-CONTEXTS receiver (`contexts`, `BAKE_CONTEXTS`, `bakeContexts`), so an
+    // unrelated `searchParams.get('math')` never trips it. A tripwire for this one idiom: a
+    // `.get(name)` through a variable, or a `.find()` over the values, is not counted.
+    const re = new RegExp(`\\b\\w*contexts\\s*\\.get\\(\\s*(['"\`])(?:${allNames.map(reEscape).join('|')})\\1\\s*\\)`, 'gi');
+    const files = [path.join(root, 'lattice-emulator.js')];
+    for (const dir of ['lib', 'tools']) listSourceFiles(path.join(root, dir), files);
+    for (const file of files) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
+      if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel) || !/\.[cm]?js$/.test(rel) || !fs.existsSync(file)) continue;
+      for (const m of stripCodeComments(fs.readFileSync(file, 'utf8')).matchAll(re)) bakeHits.push(`${rel}: ${m[0]}`);
+    }
+  }
+  // A drawn plugin's own figure classes, from its manifest's `render.figureClasses`, used as a
+  // SELECTOR outside lib/plugins (see the doc block for the envelope).
+  const figureClasses = [...new Set(manifests.flatMap((m) => m.render?.figureClasses || []))];
+  const figureHits = [];
+  if (figureClasses.length) {
+    const alt = figureClasses.map(reEscape).sort((a, b) => b.length - a.length).join('|');
+    // Four shapes: a class selector (`.mermaid` after a selector boundary, a tag, or `]`), an
+    // attribute selector on the class (`[class~=mermaid]`), and the DOM's
+    // two class APIs (`classList.contains('mermaid')`, `className === 'mermaid-svg'`).
+    const re = new RegExp([
+      `(?:^|[\\s'"\`,(>+~*:{}\\[\\]]|\\b(?:div|pre|span|section|svg|figure|img))\\.(?:${alt})(?![\\w-])`,
+      `\\[class[~*^|$]?=\\s*["']?(?:${alt})(?![\\w-])`,
+      `classList\\.(?:contains|add|remove|toggle)\\(\\s*["'\`](?:${alt})["'\`]`,
+      `className\\s*(?:===?|!==?)\\s*["'\`](?:${alt})["'\`]`,
+    ].join('|'), 'gm');
+    const files = [];
+    for (const dir of ['lib', 'tools', 'themes', 'docs/src', 'docs/scripts']) listFilesByExt(path.join(root, dir), ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.astro', '.css', '.json'], files);
+    files.push(path.join(root, 'lattice-emulator.js'));
+    for (const file of files) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
+      if (/\.generated\.[cm]?[jt]s(?:on)?$/.test(rel) || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /(^|\/)dist\//.test(rel)) continue;
+      // A component manifest is the one JSON that carries selectors; every other JSON is data.
+      if (rel.endsWith('.json') && !/\.manifest\.json$/.test(rel)) continue;
+      if (!fs.existsSync(file)) continue;
+      // Full-line `//` comments, then block comments — the url arm's order, for its reason. (Blanking
+      // ` * …` lines too was tried and blanked every ` */`, so one comment swallowed the file.)
+      const code = fs.readFileSync(file, 'utf8').split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
+      for (const m of code.matchAll(re)) figureHits.push(`${rel}: ${m[0].trim()}`);
+    }
+  }
   return {
     fenceWrappers, pluginTokenNames: hits.length, hits,
     drawnFenceClasses: drawnHits.length, drawnHits,
     drawnLibraryUrls: urlHits.length, urlHits,
     drawnSettleStates: stateHits.length, stateHits,
+    runtimePluginNames: runtimeHits.length, runtimeHits,
+    pluginAssetsOutside: assetHits.length, assetHits,
+    bakeContextByName: bakeHits.length, bakeHits,
+    drawnFigureClasses: figureHits.length, figureHits,
   };
 }
 
@@ -7762,7 +7998,8 @@ function checkPluginMigration(errors, budget = PLUGIN_MIGRATION_BUDGET, root = R
   for (const [key, allowed] of Object.entries(budget)) {
     const n = counts[key];
     if (n > allowed) {
-      const detail = key === 'pluginTokenNames' ? ` — ${counts.hits.join('; ')}` : '';
+      const list = { pluginTokenNames: counts.hits, runtimePluginNames: counts.runtimeHits, pluginAssetsOutside: counts.assetHits, bakeContextByName: counts.bakeHits, drawnFigureClasses: counts.figureHits }[key];
+      const detail = list ? ` — ${list.slice(0, 12).join('; ')}${list.length > 12 ? '; …' : ''}` : '';
       errors.push(`plugin migration: ${key} is ${n}, over its budget of ${allowed}${detail}. The plugin system replaces this mechanism; extend the plugin host (lib/plugins/) instead of the old path (engineering/decisions/2026-09-27-plugin-system.md §7).`);
     } else if (n < allowed) {
       errors.push(`plugin migration: ${key} is ${n}, under its budget of ${allowed}. Lower PLUGIN_MIGRATION_BUDGET.${key} to ${n} in tools/check-ownership.js — the ratchet only moves down.`);
@@ -8991,6 +9228,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   journey: 'data viz — stage map, not prose bodies',
   map: 'data viz — geographic series',
   piechart: 'data viz — series',
+  'hub-spoke': 'data viz — a hub and its satellites, names and pills, not prose',
   progress: 'data viz — series',
   quadrant: 'data viz — scatter',
   radar: 'data viz — scatter series',
@@ -12926,6 +13164,7 @@ function run() {
   checkTypographyTokens(errors);
   checkLabelVoiceFont(errors);
   checkMarginDiscipline(errors);
+  checkReadingRole(errors);
   checkTypeSizeModifiers(errors);
   checkStageInsetOwnership(errors);
   checkBackgroundLayerVars(errors);
@@ -13027,6 +13266,10 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  checkReadingRole,
+  readingRoleCountsIn,
+  readingRoleFindings,
+  SANCTIONED_READING_ROLE,
   checkTypeSizeModifiers,
   typeSizeOffensesIn,
   applyTypeSizeSanctions,

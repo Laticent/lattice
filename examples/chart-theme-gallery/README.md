@@ -1,16 +1,12 @@
 # Chart gallery × 3 themes
 
-The chart bucket's nine layouts rendered across the three themes that now
-carry a **curated chart palette** — so you can read each theme's
-`--chart-cat*` / `--chart-state-*` curation side by side, light and dark.
-
-Each deck is the same source (`lib/components/chart/chart.gallery.md`),
-re-rendered under one palette:
+The chart bucket's nine layouts (`lib/components/chart/chart.gallery.md`), rendered under
+each theme's **curated chart palette**, light and dark:
 
 | Theme | Character | Light | Dark |
 |---|---|---|---|
-| **cuoio** | warm brand-triad (the shipped default, #51 curation) | [light](./chart-cuoio-light.pdf) | [dark](./chart-cuoio-dark.pdf) |
-| **onyx** | slate · red · green triad (Jun-4 re-curation) | [light](./chart-onyx-light.pdf) | [dark](./chart-onyx-dark.pdf) |
+| **cuoio** | warm brand triad (the default, #51) | [light](./chart-cuoio-light.pdf) | [dark](./chart-cuoio-dark.pdf) |
+| **onyx** | slate · red · green triad | [light](./chart-onyx-light.pdf) | [dark](./chart-onyx-dark.pdf) |
 | **indaco** | cool blue palette | [light](./chart-indaco-light.pdf) | [dark](./chart-indaco-dark.pdf) |
 
 Every deck covers all nine chart layouts: **gantt · kanban · progress ·

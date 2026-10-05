@@ -111,7 +111,7 @@ Every color flips with the canvas; nothing is a baked literal.
 <!-- _class: radar -->
 <!-- _footer: "Radar — same key model, no value column (labels reclaim the width)" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## How we stack up across the buying criteria.
 
@@ -166,17 +166,17 @@ itself.
 ## Cohorts of work for next quarter.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
-  - Decision-log API `7, 74`
+  - Scoring model v2 `{8, 88}`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 

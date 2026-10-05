@@ -47,7 +47,7 @@ const RUNTIME_SRC = fs.readFileSync(
 
 // A 15-month date axis — the span where the two faces disagree about culling.
 const GANTT_SECTION = `<section class="gantt"><h2>Plan</h2>
-<p><code>2026-01-01 .. 2027-03-31</code></p>
+<p><code>[{Timeline, 2026-01-01 .. 2027-03-31}]</code></p>
 <ul><li>Framework<ul>
 <li>Taxonomy <code>2026-01-01..2026-04-30</code> <code>done</code></li>
 <li>Weighting <code>2026-10-01..2027-02-28</code> <code>at-risk</code></li>
@@ -61,7 +61,7 @@ const engineTicks = (hand) => {
   const ul = GANTT_SECTION.match(/<ul>[\s\S]*<\/ul>/)[0];
   const out = ganttKernel.buildGanttChart(
     engine.extractFirstList(ul).inner,
-    '<p><code>2026-01-01 .. 2027-03-31</code></p>',
+    { window: '2026-01-01 .. 2027-03-31' },
     undefined,
     hand,
   );

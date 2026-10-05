@@ -68,12 +68,26 @@ const FORMATS = [
   { format: 'esm', ext: 'mjs' },
 ];
 
-/** Bundle the barrel into a CJS + an ESM file (zero-dep → everything inlines). */
+/**
+ * The entries: the barrel; `values` — the number and time readers alone
+ * (`@laticent/segno/values`), for a consumer that reads only values and is bundled by a tool
+ * that cannot tree-shake a CommonJS `require` (Lattice's chart-values.js reaches the exported
+ * guide player that way); and `read` — parse, the schema and the types without the grammar
+ * compiler (`@laticent/segno/read`), which Lattice's lib/ takes for the same reason on the
+ * Studio's startup path.
+ */
+const ENTRIES = [
+  { entry: ENTRY, name: 'index' },
+  { entry: path.join(LIB_DIR, 'values.ts'), name: 'values' },
+  { entry: path.join(LIB_DIR, 'read.ts'), name: 'read' },
+];
+
+/** Bundle each entry into a CJS + an ESM file (zero-dep → everything inlines). */
 async function buildBundles(outDir) {
-  for (const { format, ext } of FORMATS) {
+  for (const { entry, name } of ENTRIES) for (const { format, ext } of FORMATS) {
     await esbuild.build({
-      entryPoints: [ENTRY],
-      outfile: path.join(outDir, `index.${ext}`),
+      entryPoints: [entry],
+      outfile: path.join(outDir, `${name}.${ext}`),
       bundle: true,
       format,
       platform: 'node',

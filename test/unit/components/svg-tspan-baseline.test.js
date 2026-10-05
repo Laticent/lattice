@@ -80,15 +80,15 @@ const TSPAN_BUILDERS = [
       'entry only records that it is covered there',
   },
   {
-    file: 'lib/components/chart/state-chart/state-chart.transform.js',
+    file: 'lib/components/chart/state-chart/state-chart.layout.js',
     owes: 'attr',
-    why: 'two hand-rolled emitters (the node label and the multi-line edge label) ' +
-      'that predate the kernel and set the baseline on their own <text>',
+    why: 'the browser pass paints each state name as one <text> of measured lines, ' +
+      'centered with `central`, so every line carries it',
   },
   {
     file: 'lib/components/chart/flowchart/flowchart.layout.js',
     owes: 'attr',
-    why: 'the browser pass paints each shape name and note as one <text> of measured ' +
+    why: 'the browser pass paints each shape name as one <text> of measured ' +
       'lines, centred with `central`, so every line carries it',
   },
   {
@@ -97,6 +97,13 @@ const TSPAN_BUILDERS = [
     why: 'declares no dominant-baseline anywhere — every line is positioned by an ' +
       'explicit baseline y, so there is nothing to carry down and WebKit and ' +
       'Chromium already agree (measured at 0.7px, rasterization noise)',
+  },
+  {
+    file: 'lib/components/chart/hub-spoke/hub-spoke.transform.js',
+    owes: 'none',
+    why: 'its only tspans are the value and status folded onto a label line in a ' +
+      'crowded wing; they ride the parent <text>\'s explicit baseline y and the file ' +
+      'declares no dominant-baseline, so there is nothing to carry down',
   },
   {
     file: 'lib/components/chart/_chart-family/standalone-svg.js',

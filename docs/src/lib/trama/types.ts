@@ -173,6 +173,10 @@ export interface KernelStats {
   hits: number;
   routed: number;
   bounded: number;
+  /** Candidate evaluations the router ran, summed over every routing. */
+  evals: number;
+  /** Routings that ran past the router's work budget, and so skipped its refinements. */
+  capped: number;
 }
 
 export interface GraphKernel {
@@ -184,6 +188,11 @@ export interface GraphKernel {
    * relative. Positions must be finite.
    */
   route(model: GraphModel, sizes: SizeMap, positions: Record<string, Point>, opts?: LayoutOptions): Geometry | null;
+  /**
+   * True when the graph lays out on the reading-order grid with no dagre: no groups, two or
+   * more shapes, and no two shapes on one rank (forward lines only, in authored order).
+   */
+  isChain(model: GraphModel): boolean;
   simplify(pts: Point[]): Point[];
   stats: KernelStats;
 }

@@ -195,3 +195,29 @@ sentence the reflow note used to justify *not* shipping the current ones.
 
 No figure in this note is a constant someone has to trust. That is deliberate: the
 claim it corrects was one.
+
+## Amendment 2026-09-29 — the `hard` values above the rig's ceiling
+
+`followups.d/2378-p3-capacity-hard-above-measured.md` listed components whose declared
+`capacity.hard` sits above what `calibrate-capacity` measures at `density.soft`. This note
+says the ceiling depends on the element's shape, so each one was checked two ways: the rig at
+a short length (`--words 3`, 16:9), and the component's own gallery, whose largest slide is
+real authored content rendered at laptop.
+
+| Component | Rig at soft | Rig at 3 words | Gallery | `hard` | Outcome |
+|---|---|---|---|---|---|
+| `authority-chain` | 4 | 4 | 6 one-line tiers fit | 6 | Stays. The rig puts two lines under every tier; a one-line tier reaches 6. |
+| `regulatory-update` | 4 | 4 | 6 fit | 6 | Stays, for the same reason. |
+| `kpi` | 3 | 3 | 4 fit | 4 (wide) | Stays. Its note already says a fourth metric needs one pill, no eyebrow and a one-line title; the rig's tiles carry two pills. |
+| `team-profile` | 6 | 8 | — | 12 | Stays. 12 is `bench`'s ceiling and the default holds 8, measured per composition in the manifest's note. |
+| `cycle` | 5 | 10 | — | 6 | Stays; reached at shorter stages. |
+| `kanban` | 5 (15-word lanes) | 6 | — | 6 | Stays; reached at shorter cards. |
+| `pricing` | 3 | 3 | 4 fit with `four` | 4 | **Fixed in the component.** A bare slide laid four tiers three across and wrapped the fourth, so it clipped; four tiers now go four across with or without `four`. |
+| `inventory` | 5 | 5 | its stress slide says six clips | 6 | **Lowered to 5 at wide** (`adapt.capacity.wide`). The flat 6 stays for the portrait and square boxes, which hold more. |
+| `premise` | 6 (14 words) | 13 (6 words) | — | 8 | Stays; reached at shorter rows. Its rows used to cut their text instead of wrapping, which is how it read 9. `lint:deck` now judges a landscape premise slide by its measured row, so 7 fourteen-word rows warn below `hard`. Portrait holds 2 at 14 words and 7 at 6 (`hard` 6). |
+
+The kanban row also found a rig defect: `parseProbeLog` read only the OVERFLOW line, so a
+kanban lane that clips inside its own box (CONTENT CLIPPED) read as a fit, and its laptop row
+was stored as "at least 12". The rig now reads box clips once they start with the count
+(`countClipped` in `tools/lib/calibrate-core.js`); a box clip already on the first page is an
+ellipsis, not the count, and is left out.

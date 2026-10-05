@@ -36,3 +36,11 @@ resolve it only through the workspace symlink: the LOOSE `lattice-emulator.js` s
 consumer that `require()`s `lib/components/chart/flowchart/flowchart.layout.js` directly. On
 either, outside the repo, the flowchart exports as its fallback tiles, and the CLI now warns
 that it did. Publishing Trama, or adding it to `dependencies`, closes both.
+
+**Added by #2512, 2026-10-05: the main package now needs Trama at render time.** Hub-spoke's
+transform requires `@laticent/trama/radial` on its first slide (lazily, so the engine itself
+still loads). The bundles in `dist/` inline it, but the `./engine` and `./lib/*` exports load
+`lib/` raw, and the package's `files` does not carry `docs/src/lib/trama/dist/`. So the day
+`@laticent/lattice` publishes, Trama must ship with it (a dependency or inside `files`), or a
+hub-spoke slide rendered through `./engine` throws `Cannot find module '@laticent/trama/radial'`.
+The flowchart's browser pass has the same need.

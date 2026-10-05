@@ -107,7 +107,7 @@ import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag } from './slide-provenance';
 import { sizeRatio } from './slide-size';
-import { hasMermaid } from './slide-thumb';
+import { hasDrawnFence } from './slide-thumb';
 import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -150,6 +150,10 @@ const Fabricate = React.lazy(() => {
 // tools never look into. Code-split for the same reason Fabricate is: it pulls the engine
 // render and the player-core bundle, and the /studio route has no eager budget to spare.
 // The clip notice and its split helper load the first time a slide clips at a venue (ClipNotice.tsx).
+// The Plugins tab pulls the plugin grammar and the admission kernel (lib/plugins/host-grammar.mjs);
+// lazy, so they load when the tab is shown rather than in the Studio's startup JavaScript
+// (docs/route-budget.json — eagerly it cost the studio route 7.6 KB gz).
+const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
 
@@ -211,7 +215,7 @@ const CodePackagesNotice = React.lazy(() => import('./CodePackagesNotice').then(
 // the old Developer footer disclosure, so there is one place for "things about this
 // deck" instead of a tab strip plus a stray expander.
 // See engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md.
-type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech';
+type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech' | 'plugins';
 // There is deliberately NO `DECK_TABS` list here. There was one, and it survived the
 // move to `deckSections` as a SECOND hand-kept copy of the same six labels in the same
 // order — the exact duplication the slide panel's `sectionDefs` had just collapsed, and
@@ -3699,7 +3703,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// on a text slide. It moves that load earlier rather than adding one — full writes
 	// become rare, which is the point — but the deck's own first mount pays it up front.
 	// engineering/decisions/2026-09-05-diagram-fence-flash.md §4D.
-	const editorMermaid = React.useMemo(() => hasMermaid(editorSample), [editorSample]);
+	const editorDrawn = React.useMemo(() => hasDrawnFence(editorSample), [editorSample]);
 	// Whether the editor preview should render (else it parks — iframe kept warm, per-keystroke
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
@@ -4213,9 +4217,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// scorecard and findings — so the two can never argue from different truths, plus the
 	// component catalog the Lattice primer is built from, plus Mermaid's own verdict on
 	// this deck's diagrams (diagramErrors, below).
+	// `check` is the chat agent's verifier: the same assessment and the same Mermaid parse,
+	// run over the agent's DRAFT so an edit is checked before the author is shown it.
+	const checkDraft = React.useCallback(
+		async (draft: string) => {
+			const diagrams = extractDiagrams(draft);
+			const [a, errs] = await Promise.all([
+				assessDeck(draft, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined),
+				diagrams.length ? import('./mermaid-parse').then((m) => m.checkDiagrams(diagrams, options?.runtimeUrl ?? '')).catch(() => undefined) : Promise.resolve(undefined),
+			]);
+			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}) };
+		},
+		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, options?.runtimeUrl],
+	);
 	const chatGrounding = React.useMemo(
-		() => ({ scorecard, findings, catalog: components, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
-		[scorecard, findings, components, diagramErrors],
+		() => ({ scorecard, findings, catalog: components, check: checkDraft, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
+		[scorecard, findings, components, diagramErrors, checkDraft],
 	);
 	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
 	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.
@@ -4534,7 +4551,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="New slide on" desc="Headings, or --- dividers." find="split divider break" help={<>How the markdown body divides into slides. <strong>Headings</strong> (the default) starts a slide at each <code>##</code>, so the deck needs no separators — a <code>---</code> still works. <strong>Dividers</strong> splits only on <code>---</code>.</>}>
 					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="w-full" groups={[{ options: [{ value: 'headings', label: 'Each ## heading' }, { value: 'rule', label: '--- dividers only' }] }] } />
 				</Field>
-				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE}:c2`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
+				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE, c2}`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
 				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
 				<TextRow label="Default slide class" desc="A modifier applied to every slide." help={<>Space-separated modifiers stamped on every slide — e.g. <code>no-note</code>. Color belongs to <strong>Color mode</strong>, which supersedes a <code>dark</code>/<code>light</code> token here, and a component name is ignored outright. The Section rail toggle owns its own token in this key and isn't shown here.</>} value={deckClass} placeholder="e.g. no-note" onCommit={setDeckClass} />
 				{/* Developer — the two preview-only authoring aids. They used to be a footer
@@ -4703,6 +4720,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<InspGroup icon={<BookMarked className="size-3.5" />} label="Acronyms" desc="A term's spoken expansion (and an optional glossary definition) — e.g. EBITDA → “ee bit dah”." last>
 					<AcronymEditor acronyms={acronyms} onChange={setAcronyms} />
 				</InspGroup>
+			</div>
+			),
+		},
+		{
+			// What loads a plugin for this deck, and the deck's `plugins:` import list
+			// (PluginsSettings.tsx; plugin-system §9 decision 6).
+			value: 'plugins',
+			label: 'Plugins',
+			keywords: 'plugins extensions math mermaid diagrams function plot anima import list',
+			body: () => (
+			<div>
+				<TabNote>What this deck can render beyond Markdown, and why each is on. Every shipped plugin is on by default; listing one writes it into the deck's <code>plugins:</code> line, so the deck names what it needs wherever it is opened. A list only adds — it never turns a plugin off.</TabNote>
+				<React.Suspense fallback={null}>
+					<PluginsSettings source={source} onWrite={settingsWrite} />
+				</React.Suspense>
 			</div>
 			),
 		},
@@ -5176,7 +5208,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
+						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} caretText={caretText} paneCounts={editorPaneCounts} panePage={editorPanePage} pageIndex={pageRequest?.slide === viewIndex && pageRequest.deck === previewDeckId ? pageRequest.page : undefined} onSplitPage={onSplitPage} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>

@@ -55,9 +55,9 @@ describe('matrix-grid cell kernel', () => {
 
 describe('quadrant cohort hull', () => {
   test('a three-member cohort draws a stamped polygon', () => {
-    const ul = '<li>Bets<ul><li>A <code>2, 70</code></li><li>B <code>4, 90</code></li><li>C <code>3, 60</code></li></ul></li>' +
-      '<li>Wins<ul><li>D <code>8, 40</code></li></ul></li><li>Defer<ul><li>E <code>4, 20</code></li></ul></li>' +
-      '<li>Sinks<ul><li>F <code>7, 10</code></li></ul></li>';
+    const ul = '<li>Bets<ul><li>A <code>{2, 70}</code></li><li>B <code>{4, 90}</code></li><li>C <code>{3, 60}</code></li></ul></li>' +
+      '<li>Wins<ul><li>D <code>{8, 40}</code></li></ul></li><li>Defer<ul><li>E <code>{4, 20}</code></li></ul></li>' +
+      '<li>Sinks<ul><li>F <code>{7, 10}</code></li></ul></li>';
     const scale = { x: { min: 0, max: 10, label: 'Effort' }, y: { min: 0, max: 100, label: 'Reach' }, targets: null };
     const out = buildQuadrant(parseQuadrant(ul), 'cohort', scale);
     const [hull] = tagsOf(out, 'polygon', 'quadrant-hull');
@@ -123,7 +123,7 @@ describe('marks the gallery does not render', () => {
   // Checker finding: stamping a slotted GROUP made a finish paint it as a saturated 82% body
   // with its title unreadable on it. A group is a container; a finish leaves it alone.
   test('a slotted flowchart group carries no contract; its shapes and tile key do', () => {
-    const md = '<!-- _class: flowchart -->\n\n## F\n\n- Ingest `:c2`\n  - Pull `:c3` -> Parse `:c3`\n\n`[{:c2, Ingest}, {:c3, Step}]`\n';
+    const md = '<!-- _class: flowchart -->\n\n## F\n\n- Ingest `c2`\n  - Pull `c3` -> Parse `c3`\n\n`[{c2, Ingest}, {c3, Step}]`\n';
     const html = render(md);
     const { browserJs } = require('../../../lib/components/chart/flowchart/flowchart.layout');
     // The group is drawn by the browser pass; its template must not stamp the contract.

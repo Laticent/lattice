@@ -8,12 +8,25 @@
 
 import { alt, any, type GrammarSpec, many, node, noneOf, oneOf, opt, ref, seq } from './grammar.js';
 
-const WS = ' \t';
+/** Space, tab and no-break space (U+00A0, which text pasted from documents and chat carries). */
+export const WS = ' \t\u00a0';
 /** Characters that end a bare value. `|` is here so it can be reported as reserved. */
 export const STOP = ',={}[]"|';
+/**
+ * TAGS: a character directly before a span's opening `{` names what kind of record it is —
+ * `~{12 14 17}`, `^{database}`. Only at the very START of a span: there, a tag character
+ * always opens a tagged record, so the choice is made on one character and the grammar stays
+ * LL(1). The price is that a span's top-level bare value cannot start with a tag character —
+ * `~/path` simply fails to parse, which for inline code means it stays code. Inside a record or
+ * a list a tag character is ordinary text (`{~5 min}`). What each tag MEANS is the slot's
+ * business (`record({ tag: '~' })`), not the grammar's.
+ */
+export const TAGS = '~^';
 
 const ws = many(oneOf(WS, 'a space'));
 const bare = node('bare', seq(noneOf(STOP + WS, 'a value'), many(noneOf(STOP, 'a value'))));
+// The same run at the START of a span, where a tag character opens a tagged record instead.
+const topBare = node('bare', seq(noneOf(STOP + WS + TAGS, 'a value'), many(noneOf(STOP, 'a value'))));
 
 // Each shape is its OWN rule, referenced from `value` and `item`, rather than an expression
 // both of them embed. Embedded, every shape was generated twice, into two large functions V8
@@ -23,7 +36,9 @@ const bare = node('bare', seq(noneOf(STOP + WS, 'a value'), many(noneOf(STOP, 'a
 export const notationSpec: GrammarSpec = {
   start: 'span',
   rules: {
-    span: seq(ws, ref('item')),
+    span: seq(ws, alt(node('tagged', seq(oneOf(TAGS, 'a tag'), ref('record'), ws)), ref('top'))),
+    // `item`, less the bare runs that start with a tag character (see TAGS).
+    top: alt(seq(ref('record'), ws), seq(ref('list'), ws), seq(ref('quoted'), ws), node('word', seq(topBare, opt(seq('=', ws, ref('value')))))),
     record: node('record', seq('{', ref('item'), many(seq(',', ws, ref('item'))), '}')),
     list: node('list', seq('[', ws, opt(ref('item')), many(seq(',', ws, opt(ref('item')))), ']')),
     quoted: node('quoted', seq('"', many(alt(seq('\\', any()), noneOf('"\\', 'text'))), '"')),

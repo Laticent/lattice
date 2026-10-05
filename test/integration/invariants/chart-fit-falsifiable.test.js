@@ -32,7 +32,7 @@
  * measured mid-branch, before §9.3's scale-box pin fix changed what the hidden
  * column lays out inside; on today's tree the branching deck is clean at landscape
  * with the scaffold visible. The pair below was re-measured rather than inherited
- * — 3 clips at `square`, 0 as shipped — which is the point the decision note keeps
+ * — 2 clips at `square` (state chart v2), 0 as shipped — which is the point the decision note keeps
  * making about numbers that are quoted rather than re-derived.
  *
  * ONE SIZE, ONE DECK. The gate costs an emulator render per size, and the property
@@ -53,18 +53,15 @@ const TOOL = path.join(ROOT, 'tools', 'check-chart-fit.js');
 const DECK = path.join(ROOT, 'examples', 'state-chart-branching.md');
 const TIMEOUT = 600000;
 
-// The one declaration that separates the two runs. `state-chart` hides its
-// measuring column with `[data-sc-svg="1"] .state-nodes { visibility: hidden }`
-// once the SVG is painted; putting it back is precisely the input the filter
-// exists to classify.
-//
-// AND `display`, since 2026-09-24 (#2355): while the layout pass has pinned the
-// scale box to its drawing it also takes the column out of layout
-// (`[data-sc-pinned="1"] … { display: none }`), which ended a false CONTENT
-// CLIPPED on wide rows. Restoring visibility alone then shows nothing, the control
-// could not fire, and this arm went red for the wrong reason — the lever has to
-// undo both ways the scaffold is hidden, or it tests nothing.
-const SHOW_SCAFFOLD = '[data-sc-svg="1"] .state-nodes { visibility: visible !important; display: flex !important }';
+// The one declaration that separates the two runs. The state chart takes its measuring
+// harness out of layout once the SVG is painted (`[data-sc-drawn="1"] .sc-harness
+// { display: none }`, the flowchart's rule); putting it back is precisely the input the
+// filter exists to classify: a box of hidden-by-design tiles, sized for measuring and not
+// for the stage. The v2 harness wraps its tiles into rows, which can happen to fit a
+// square stage, so the control also holds them on one line (as the v1 column did not
+// fit): shown that way, the scaffold is wider than the stage on two of the five slides.
+const SHOW_SCAFFOLD = '[data-sc-drawn="1"] .sc-harness { display: block !important } ' +
+  '[data-sc-drawn="1"] .sc-harness .state-nodes { flex-wrap: nowrap !important; max-width: none !important }';
 
 function fit(extraArgs) {
   const args = [TOOL, DECK, '--size', 'square', ...extraArgs];

@@ -32,7 +32,7 @@ const { renderDiagrams } = require('../../../lib/core/render-diagrams');
 const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
+const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
 
 /**
  * Lift the queue out of the shipped runtime.
@@ -47,7 +47,7 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
   const END = '  // Mermaid appends `<div class="mermaidTooltip">`';
   const start = RUNTIME_SRC.indexOf(BEGIN);
   const end = RUNTIME_SRC.indexOf(END);
-  assert.notEqual(start, -1, 'lib/runtime/index.js must still open its queue with the RENDER QUEUE banner');
+  assert.notEqual(start, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must still open its queue with the RENDER QUEUE banner');
   assert.notEqual(end, -1, 'could not find the end of the queue block');
   let block = RUNTIME_SRC.slice(start, end);
   // Shrink the settle cap so a hang is observable in a unit test rather than in 20 s.
@@ -79,16 +79,19 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
     // Writes the chart motion roles on a drawn diagram (lib/integrations/mermaid/motion-roles.js).
     // Motion is not what these cells are about, so it stands in as a no-op.
     tagDiagramMotion: () => {},
+    // The label-length guard is the shipped kernel itself: a fence it refuses never reaches
+    // `mermaid.render` (lib/integrations/mermaid/label-length.js).
+    ...require('../../../lib/integrations/mermaid/label-length'),
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, tagDiagramMotion) {
+    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, tagDiagramMotion, overlongLabelText, overlongMessage) {
        let renderCounter = 0;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
   );
-  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.tagDiagramMotion);
+  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.tagDiagramMotion, deps.overlongLabelText, deps.overlongMessage);
 
   /** Drive the real kernel over a deck, exactly as the runtime does. */
   const tagOf = new WeakMap();
@@ -182,6 +185,24 @@ describe('the diagram queue always advances', () => {
         `band A's slow render finished AFTER band B reconfigured — it baked the wrong palette.\n  ${log.join('\n  ')}`);
     });
   }
+
+  test('a fence with an over-long label is refused before mermaid.render, and the chain moves on', async () => {
+    // Mermaid's markdown renderer (marked) took 22.5 s on an 8 KB label; the settle cap stops
+    // WAITING for such a render but cannot stop the main thread, so the fence must never start.
+    const log = [];
+    const mermaid = {
+      initialize: () => {},
+      render: (_id, source) => { log.push(`render:${source.slice(0, 12)}`); return Promise.resolve({ svg: '<svg/>' }); },
+    };
+    const long = fence(`flowchart LR\n  A["\`${'[a]('.repeat(2000)}\`"]`);
+    const later = fence('band-b');
+    const q = liftQueue({ mermaid, log, capMs: 5000 });
+    await q.run(twoBandDeck([long], [later]));
+    assert.ok(!log.some((l) => l.startsWith('render:flowchart')), `the over-long fence reached mermaid.render:\n  ${log.join('\n  ')}`);
+    assert.equal(long.preEl.dataset.latticeSettle, 'error');
+    assert.ok(log.some((l) => /^error:a quoted label in this diagram is \d+ characters; Mermaid labels are capped at 500/.test(l)));
+    assert.equal(later.preEl.dataset.latticeSettle, 'rendered');
+  });
 
   test('a run that throws while configuring hands its fences back to `pending`', async () => {
     // A bare `.catch(() => {})` used to swallow this, leaving those diagrams blank for the

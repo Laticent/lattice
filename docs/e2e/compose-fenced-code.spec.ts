@@ -197,11 +197,32 @@ test('Enter on a blank last line leaves the fence — the only exit a phone can 
 
 	// Click the LAST line of the fence body, so `End` lands at the end of the block.
 	const code = page.locator('.cs-host pre.cs-code code').first();
-	await code.click({ position: { x: 4, y: 6 } });
 	// `End`, not `ControlOrMeta+End`: the latter is not a ProseMirror binding, so the
 	// browser took it as "end of DOCUMENT" and the caret left the fence entirely —
 	// after which the test typed into prose and asserted against an untouched deck.
-	await page.keyboard.press('End');
+	//
+	// THE PRECONDITION, ASSERTED rather than assumed. On a cold build the first click can land
+	// while the Compose editor is still settling, and the caret it set does not survive to the
+	// `End`: one cold run in five typed both Enters and the text at the START of the fence body
+	// (followups.d/2508-p4-compose-fence-exit-e2e-flakes-cold.md). What the Enter handler needs
+	// is a caret at the end of the fence's last line, so the test waits for exactly that —
+	// reading the live DOM selection — and re-places it until it holds.
+	await expect(async () => {
+		await code.click({ position: { x: 4, y: 6 } });
+		await page.keyboard.press('End');
+		const caret = await page.evaluate(() => {
+			const sel = document.getSelection();
+			const node = sel?.anchorNode;
+			const el = node?.nodeType === 1 ? (node as Element) : node?.parentElement;
+			const host = el?.closest('.cs-host pre.cs-code code');
+			if (!sel || !node || !host) return 'outside the fence';
+			const rest = document.createRange();
+			rest.selectNodeContents(host);
+			rest.setStart(node, sel.anchorOffset);
+			return rest.toString().replace(/\n+$/, '') === '' ? 'at the end' : 'mid-fence';
+		});
+		expect(caret).toBe('at the end');
+	}).toPass({ timeout: 20_000 });
 	// Two Enters: the first opens a blank last line, the second takes the exit.
 	await page.keyboard.press('Enter');
 	await page.keyboard.press('Enter');
@@ -254,7 +275,7 @@ test('an engine sub-language is COLORED — by our own mermaid grammar', async (
 	// Reported from a real iPhone: the mermaid fence sat flat while the js fence beside
 	// it was colored. The first cut skipped all three engine sub-languages, reading
 	// `highlight-js.css`'s suppression as a blanket rule — it is scoped to the transient
-	// source <pre> on a diagram SLIDE. `mermaid.hljs.js` exists to color mermaid source.
+	// source <pre> on a diagram SLIDE. `mermaid.highlight.js` exists to color mermaid source.
 	await gotoStudio(page);
 	await seedDeck(page, ['<!-- _class: diagram -->', '', '## D', '', '```mermaid', 'flowchart LR', '  A[Input] --> B{Fits?}', '```'].join('\n'));
 	await toCompose(page);

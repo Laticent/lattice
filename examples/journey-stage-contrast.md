@@ -37,14 +37,14 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 ## A team's first month runs from pain to belief, in that order, twice.
 
 - Onboard
-  - Kickoff workshop `@team` `@strategy` `:2`
-  - Taxonomy training `@team` `:2`
-  - Intake setup `@team` `@platform` `:1`
+  - Kickoff workshop `{who=team, mood=2}` `@strategy`
+  - Taxonomy training `{who=team, mood=2}`
+  - Intake setup `{who=team, mood=1}` `@platform`
 - Operate
-  - First signal scored `@team` `:4`
-  - First decision logged `@team` `:4`
+  - First signal scored `{who=team, mood=4}`
+  - First decision logged `{who=team, mood=4}`
 - Believe
-  - First calibration review `@team` `@strategy` `:5`
+  - First calibration review `{who=team, mood=5}` `@strategy`
 
 ---
 
@@ -54,14 +54,14 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 ## Tinting the chips surfaces the same month's emotional contour.
 
 - Onboard
-  - Kickoff workshop `@team` `@strategy` `:2`
-  - Taxonomy training `@team` `:2`
-  - Intake setup `@team` `@platform` `:1`
+  - Kickoff workshop `{who=team, mood=2}` `@strategy`
+  - Taxonomy training `{who=team, mood=2}`
+  - Intake setup `{who=team, mood=1}` `@platform`
 - Operate
-  - First signal scored `@team` `:4`
-  - First decision logged `@team` `:4`
+  - First signal scored `{who=team, mood=4}`
+  - First decision logged `{who=team, mood=4}`
 - Believe
-  - First calibration review `@team` `@strategy` `:5`
+  - First calibration review `{who=team, mood=5}` `@strategy`
 
 ---
 
@@ -71,14 +71,14 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 ## Chip width shows where the traffic in that month actually went.
 
 - Onboard
-  - Kickoff workshop `@team` `@strategy` `:2` `+45`
-  - Taxonomy training `@team` `:2` `+18`
-  - Intake setup `@team` `@platform` `:1` `+12`
+  - Kickoff workshop `{who=team, mood=2, volume=45}` `@strategy`
+  - Taxonomy training `{who=team, mood=2, volume=18}`
+  - Intake setup `{who=team, mood=1, volume=12}` `@platform`
 - Operate
-  - First signal scored `@team` `:4` `+10`
-  - First decision logged `@team` `:4` `+8`
+  - First signal scored `{who=team, mood=4, volume=10}`
+  - First decision logged `{who=team, mood=4, volume=8}`
 - Believe
-  - First calibration review `@team` `@strategy` `:5` `+7`
+  - First calibration review `{who=team, mood=5, volume=7}` `@strategy`
 
 ---
 
@@ -88,14 +88,14 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 ## Lanes show who was carrying each step, and where it handed off.
 
 - Onboard
-  - Kickoff workshop `@team` `@strategy` `:2`
-  - Taxonomy training `@team` `:2`
-  - Intake setup `@team` `@platform` `:1`
+  - Kickoff workshop `{who=team, mood=2}` `@strategy`
+  - Taxonomy training `{who=team, mood=2}`
+  - Intake setup `{who=team, mood=1}` `@platform`
 - Operate
-  - First signal scored `@team` `:4`
-  - First decision logged `@team` `:4`
+  - First signal scored `{who=team, mood=4}`
+  - First decision logged `{who=team, mood=4}`
 - Believe
-  - First calibration review `@team` `@strategy` `:5`
+  - First calibration review `{who=team, mood=5}` `@strategy`
 
 ---
 

@@ -103,9 +103,7 @@ section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
    identical to the pre-wrap direct-child render (proven: fitting → not-over, and a genuinely
    over-tall body — e.g. a long Key Insight — → over, pre==post). §5 PROTECTED machinery,
    task hazard #1 ("risk is LOW … flex fix if any"). */
-section.diagram .mermaid-svg,
-section.diagram > .mermaid,
-section.diagram > .cell-stage > .mermaid { flex:1; width:100%; height:auto; max-width:100%; box-sizing:border-box; }
+section.diagram [data-lattice-figure] { flex:1; width:100%; height:auto; max-width:100%; box-sizing:border-box; }
 
 /* Source <pre> in pending/error states occupies the same slot as the rendered
  * diagram so the slide layout does not reflow when the diagram swaps in. */

@@ -6,9 +6,10 @@
  *                                              staged beside lattice-runtime.js), and the package the
  *                                              CLI bake resolves (`mermaid/dist/mermaid.js`, the same
  *                                              version, lib/integrations/mermaid/render-worker.js)
- *   mermaid-v11-min.js (committed, repo root)  what the Export-to-Marp kit ships and what the
- *                                              integration tier's browser harness loads
- *                                              (test/helpers/render.js)
+ *   mermaid-v11-min.js (committed, repo root)  what the Export-to-Marp kit ships (and what
+ *                                              test/integration/export/marp-kit-render.test.js
+ *                                              runs); test/helpers/render.js only HASHES it into
+ *                                              the render cache key
  *
  * They are byte-identical today. Dependabot bumps `mermaid` on its own, so without this the
  * preview and the export would move to a new Mermaid while the kit and every browser test stayed on

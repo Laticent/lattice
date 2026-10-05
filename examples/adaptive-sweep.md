@@ -325,13 +325,13 @@ $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 ## A height-bound chart letterboxes instead of shrinking its labels.
 
 - Quick Wins
-  - Weekly digest `2, 82`
+  - Weekly digest `{2, 82}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
 - Defer
-  - Weighting UI `2, 28`
+  - Weighting UI `{2, 28}`
 - Time Sinks
-  - Board exports `8, 18`
+  - Board exports `{8, 18}`
 
 ---
 

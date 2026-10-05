@@ -661,9 +661,24 @@ jobs:
       - name: Test docs React islands (Vitest + RTL)
         run: npm test
         working-directory: docs
+      # The per-PR route allowance (docs/scripts/check-route-budget.mjs): build the base in a
+      # worktree and measure it, so the gate can see how much THIS PR adds. The base is the
+      # test-merge commit's first parent, not the event's base.sha, which can be an older
+      # main and would charge the PR for other PRs' growth. About 67s on a runner. Pull
+      # requests only. A base that fails to build leaves no file and the gate reports the
+      # allowance as NOT checked. The owner approved this step
+      # (engineering/decisions/2026-09-29-route-budget-soft-hard.md §5).
+      - name: Measure the base for the per-PR route allowance
+        if: github.event_name == 'pull_request'
+        run: |
+          base="$(git cat-file -p HEAD | awk '/^parent/{print $2; exit}')"
+          echo "ROUTE_BUDGET_BASE_SHA=$base" >> "$GITHUB_ENV"
+          bash docs/scripts/measure-route-base.sh "$base" "$RUNNER_TEMP/route-base.json"
       - name: Build docs site
         run: npm run build
         working-directory: docs
+        env:
+          ROUTE_BUDGET_BASE_JSON: ${{ runner.temp }}/route-base.json
       # Responsive guard (advisory): no page may exceed its viewport width at
       # 390/700/820/1440 — a pannable page breaks on touch — and no row named in a
       # case's `noSelfOverflow` may exceed ITSELF, which is how a toolbar loses the

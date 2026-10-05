@@ -132,7 +132,7 @@ describe('the author\'s override', () => {
   test('an authored label lands as text, never as markup', () => {
     // Fed entity-escaped, as markdown-it really emits a code span's content.
     const out = t.applyToHtml(
-      section(FULL, setPara('[{[x], &lt;img src=x onerror=alert(1)&gt;}]')));
+      section(FULL, setPara('[{[x], &quot;&lt;img src=x onerror=alert(1)&gt;&quot;}]')));
     assert.ok(!out.includes('<img'), 'the label must not become a live element');
     assert.match(out, /label-set-key-label">&lt;img/);
   });

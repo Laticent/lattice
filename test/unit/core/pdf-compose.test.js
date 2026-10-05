@@ -139,3 +139,87 @@ test('path data: every SVG spelling reaches pdf-lib as finite numbers, and a bro
 	assert.equal(write.matrixIsDrawable([1, 0, 0, NaN, 0, 0]), false);
 	assert.ok(write.matrixIsDrawable([2, 0, 0, 2, 10, 10]));
 });
+
+// JPEG halves color resolution at every quality, so a 1 px rule on a dark field lost its color in
+// the photo. The camera offers PNG and JPEG and the writer keeps the smaller: lossless on a flat
+// slide, JPEG where PNG would be the bigger file (a photograph).
+test('smallestPhoto: the smaller encoding wins; a single shot passes through', () => {
+	const png = { bytes: new Uint8Array(10), type: 'png' };
+	const jpeg = { bytes: new Uint8Array(20), type: 'jpeg' };
+	assert.equal(compose.smallestPhoto([png, jpeg]), png);
+	assert.equal(compose.smallestPhoto([{ ...png, bytes: new Uint8Array(30) }, jpeg]), jpeg);
+	assert.equal(compose.smallestPhoto(jpeg), jpeg, 'a camera that returns one shot keeps it');
+	assert.equal(compose.smallestPhoto([png, { ...jpeg, bytes: new Uint8Array(10) }]), png, 'a tie keeps the first, lossless');
+});
+
+// A PNG header with the given size, padded to `bytes` long: all pngIsFlat reads is IHDR and length.
+function fakePng(w, h, bytes) {
+	const b = new Uint8Array(bytes);
+	b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+	new DataView(b.buffer).setUint32(16, w);
+	new DataView(b.buffer).setUint32(20, h);
+	return b;
+}
+
+test('pngIsFlat: at or under FLAT_PNG_BYTES_PER_PX is flat; a busier photo is not', () => {
+	const px = 1280 * 720;
+	const limit = Math.floor(px * compose.FLAT_PNG_BYTES_PER_PX);
+	assert.equal(compose.pngIsFlat(fakePng(1280, 720, limit)), true);
+	assert.equal(compose.pngIsFlat(fakePng(1280, 720, limit + 1)), false);
+	assert.equal(compose.pngIsFlat(fakePng(3840, 2160, limit + 1)), true, 'the same bytes over 9x the pixels are flat');
+	assert.equal(compose.pngIsFlat(new Uint8Array(10)), false, 'too short to carry IHDR');
+});
+
+test('canvasCamera: a busy slide is captured once and encoded twice', async () => {
+	let captures = 0;
+	const canvas = { toDataURL: (mime) => `data:${mime};base64,${Buffer.from(mime).toString('base64')}` };
+	const camera = compose.canvasCamera(async () => { captures++; return canvas; });
+	const section = {};
+	const png = await camera(section, { scale: 1, type: 'png' });
+	const jpeg = await camera(section, { scale: 1, type: 'jpeg' });
+	assert.equal(captures, 1);
+	assert.equal(png.type, 'png');
+	assert.equal(jpeg.type, 'jpeg');
+	assert.equal(Buffer.from(jpeg.bytes).toString(), 'image/jpeg');
+	await camera({}, { scale: 1, type: 'png' });
+	assert.equal(captures, 2, 'another slide is captured afresh');
+	await camera(section, { scale: 1, type: 'png' });
+	await camera(section, { scale: 1, type: 'jpeg' });
+	await camera(section, { scale: 1, type: 'jpeg' });
+	assert.equal(captures, 4, 'a PNG ask always captures; its capture serves one JPEG ask and is dropped');
+});
+
+test('makeHtmlToImageCamera: the pre-#2503 `{ toJpeg }` signature still returns a JPEG', async () => {
+	const camera = compose.makeHtmlToImageCamera({ toJpeg: async () => `data:image/jpeg;base64,${Buffer.from('jpeg!').toString('base64')}` });
+	const shot = await camera({}, { scale: 1, type: 'png' });
+	assert.equal(shot.type, 'jpeg');
+	assert.equal(Buffer.from(shot.bytes).toString(), 'jpeg!');
+});
+
+// Chrome's screenshot is an 8-bit RGB, non-interlaced PNG: its IDAT stream IS a PDF FlateDecode
+// image under /Predictor 15, so the writer embeds it without decoding (embedPng decoded and
+// deflated a 4K photo again in JavaScript, ~0.45 s a slide). Anything else takes embedPng.
+test('rgbPngXObject: an RGB PNG embeds as its own IDAT stream; alpha and palette PNGs do not', async () => {
+	const zlib = require('node:zlib');
+	const chunk = (type, data) => {
+		const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+		const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+		const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32 ? zlib.crc32(body) : 0);
+		return Buffer.concat([len, body, crc]);
+	};
+	const png = (colorType, channels) => {
+		const ihdr = Buffer.alloc(13);
+		ihdr.writeUInt32BE(2, 0); ihdr.writeUInt32BE(1, 4); ihdr[8] = 8; ihdr[9] = colorType;
+		const raw = Buffer.from([0, ...Array(2 * channels).fill(200)]);
+		return new Uint8Array(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]));
+	};
+	const doc = await pdfLib.PDFDocument.create();
+	const ref = write.rgbPngXObject(doc, png(2, 3));
+	assert.ok(ref, 'RGB is embedded directly');
+	const dict = doc.context.lookup(ref).dict;
+	assert.equal(String(dict.get(pdfLib.PDFName.of('Filter'))), '/FlateDecode');
+	assert.equal(String(dict.get(pdfLib.PDFName.of('ColorSpace'))), '/DeviceRGB');
+	assert.equal(write.rgbPngXObject(doc, png(6, 4)), null, 'RGBA takes embedPng');
+	assert.equal(write.rgbPngXObject(doc, png(3, 1)), null, 'a palette PNG takes embedPng');
+	assert.equal(write.rgbPngXObject(doc, new Uint8Array(40)), null, 'not a PNG');
+});

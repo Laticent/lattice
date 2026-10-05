@@ -197,8 +197,8 @@ measurement, and most undo a defect a render or the adversarial review found:
   key's done, live, at-risk and blocked swatches came out identical. A status is
   a meaning the reader decodes, not one of the categories tone collapses, so it
   keeps its hue at tone's quiet level. Every member that paints a status reads it
-  from the one table (`STATUS_MARKS`): gantt, progress, the status pill, waterfall
-  and the state chart. A status KEY takes the level of the text-bearing marks it
+  from the one table (`STATUS_MARKS`): gantt, progress, the status pill, waterfall,
+  the state chart and hub-spoke. A status KEY takes the level of the text-bearing marks it
   keys (`keysText`), or under tone a gantt key sat a step louder than its bars. A
   state chart's `deferred` HTML tile and key dot are left out, because their
   hollowness is a background a finish would fill; its SVG tile keeps `deferred`
@@ -230,7 +230,10 @@ never re-pointed; an earlier cut did, under tone, and washed line's series 5–8
 out to near-white. A finish also never repaints a CONTAINER as a mark (a slotted
 flowchart group, a tinted kanban column): that buried a group's title under an 82%
 body. Under tone a container's own hue property is re-pointed to the one hue
-instead, so it keeps its faint level and its key still matches. A roadmap's phase
+instead, so it keeps its faint level and its key still matches. A hub-spoke group's
+connector band, arrowhead and name are too: they read `--hs-group-hue` /
+`--hs-group-ink`, which tone re-points, while the discs and key take the finish
+as marks. A roadmap's phase
 color is one of these: each phase column, workstream lane and horizon card sets
 `--phase-accent`, which its pill, stripe and card rule read. Under tone it joins
 the one hue, and the pill takes black or white from its new ground, because its

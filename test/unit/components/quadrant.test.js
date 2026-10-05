@@ -126,17 +126,17 @@ function labelLines(html, className) {
 const UL_FOUR = (
   '<ul>' +
     '<li>Strategic Bets<ul>' +
-      '<li>Scoring model v2 <code>3, 70</code></li>' +
-      '<li>Per-team calibration <code>7, 85</code></li>' +
+      '<li>Scoring model v2 <code>{3, 70}</code></li>' +
+      '<li>Per-team calibration <code>{7, 85}</code></li>' +
     '</ul></li>' +
     '<li>Quick Wins<ul>' +
-      '<li>Weekly signal brief <code>8, 40</code></li>' +
+      '<li>Weekly signal brief <code>{8, 40}</code></li>' +
     '</ul></li>' +
     '<li>Defer<ul>' +
-      '<li>Vendor scoping <code>4, 55</code></li>' +
+      '<li>Vendor scoping <code>{4, 55}</code></li>' +
     '</ul></li>' +
     '<li>Time Sinks<ul>' +
-      '<li>Manual rotation <code>2, 20</code></li>' +
+      '<li>Manual rotation <code>{2, 20}</code></li>' +
     '</ul></li>' +
   '</ul>'
 );
@@ -144,10 +144,10 @@ const UL_FOUR = (
 const UL_TRAIL = (
   '<ul>' +
     '<li>Strategic Bets<ul>' +
-      '<li>Acme <code>3, 60</code> <code>4, 78</code></li>' +
+      '<li>Acme <code>{3, 60}</code> <code>{4, 78}</code></li>' +
     '</ul></li>' +
     '<li>Quick Wins<ul>' +
-      '<li>Initech <code>7, 50</code> <code>8, 78</code></li>' +
+      '<li>Initech <code>{7, 50}</code> <code>{8, 78}</code></li>' +
     '</ul></li>' +
   '</ul>'
 );
@@ -155,8 +155,8 @@ const UL_TRAIL = (
 const UL_BUBBLE = (
   '<ul>' +
     '<li>Strategic Bets<ul>' +
-      '<li>Acme <code>3, 70, 8.2</code></li>' +
-      '<li>Northwind <code>5, 85, 5.4</code></li>' +
+      '<li>Acme <code>{3, 70, size=8.2}</code></li>' +
+      '<li>Northwind <code>{5, 85, size=5.4}</code></li>' +
     '</ul></li>' +
   '</ul>'
 );
@@ -166,15 +166,15 @@ const innerOf = s => s.replace(/^<ul>|<\/ul>$/g, '');
 // ── parseItemPills ─────────────────────────────────────────────────────
 
 test('parseItemPills: extracts a single trailing <code> as the pill', () => {
-  const r = parseItemPills('Acme <code>3, 70</code>');
+  const r = parseItemPills('Acme <code>{3, 70}</code>');
   assert.equal(r.label, 'Acme');
-  assert.deepEqual(r.pills, ['3, 70']);
+  assert.deepEqual(r.pills, ['{3, 70}']);
 });
 
 test('parseItemPills: extracts multiple trailing pills for trail', () => {
-  const r = parseItemPills('Acme <code>3, 60</code> <code>4, 78</code>');
+  const r = parseItemPills('Acme <code>{3, 60}</code> <code>{4, 78}</code>');
   assert.equal(r.label, 'Acme');
-  assert.deepEqual(r.pills, ['3, 60', '4, 78']);
+  assert.deepEqual(r.pills, ['{3, 60}', '{4, 78}']);
 });
 
 test('parseItemPills: empty pills when none', () => {
@@ -185,18 +185,22 @@ test('parseItemPills: empty pills when none', () => {
 
 // ── parseCoordPill ─────────────────────────────────────────────────────
 
-test('parseCoordPill: two numeric tokens become x, y', () => {
-  const r = parseCoordPill('3, 70');
+test('parseCoordPill: a point record becomes x, y', () => {
+  const r = parseCoordPill('{3, 70}');
   assert.equal(r.x, 3);
   assert.equal(r.y, 70);
   assert.equal(r.size, undefined);
 });
 
-test('parseCoordPill: three tokens fill x, y, size', () => {
-  const r = parseCoordPill('5, 85, 5.4');
+test('parseCoordPill: a named size fills x, y, size', () => {
+  const r = parseCoordPill('{5, 85, size=5.4}');
   assert.equal(r.x, 5);
   assert.equal(r.y, 85);
   assert.equal(r.size, 5.4);
+});
+
+test('parseCoordPill: the old comma pill is not a point (Segno phase 2 is a clean break)', () => {
+  assert.deepEqual(parseCoordPill('3, 70'), { x: 0, y: 0, size: undefined, parts: [] });
 });
 
 test('parseCoordPill: missing tokens default to 0', () => {
@@ -208,7 +212,7 @@ test('parseCoordPill: missing tokens default to 0', () => {
 // ── parseItem ──────────────────────────────────────────────────────────
 
 test('parseItem: pulls x, y from the first pill', () => {
-  const it = parseItem('Acme <code>3, 70</code>');
+  const it = parseItem('Acme <code>{3, 70}</code>');
   assert.equal(it.label, 'Acme');
   assert.equal(it.x, 3);
   assert.equal(it.y, 70);
@@ -216,12 +220,12 @@ test('parseItem: pulls x, y from the first pill', () => {
 });
 
 test('parseItem: trail — second pill becomes "to"', () => {
-  const it = parseItem('Acme <code>3, 60</code> <code>4, 78</code>');
+  const it = parseItem('Acme <code>{3, 60}</code> <code>{4, 78}</code>');
   assert.deepEqual(it.to, { x: 4, y: 78 });
 });
 
 test('parseItem: bubble — preserves the raw third-token rendition', () => {
-  const it = parseItem('Acme <code>3, 70, 8.2</code>');
+  const it = parseItem('Acme <code>{3, 70, size=8.2}</code>');
   assert.equal(it.size, 8.2);
   assert.equal(it.sizePill, '8.2');
 });
@@ -229,7 +233,7 @@ test('parseItem: bubble — preserves the raw third-token rendition', () => {
 // ── parseGroup / parseQuadrant ─────────────────────────────────────────
 
 test('parseGroup: pulls name + items from a top-level <li>', () => {
-  const g = parseGroup('Strategic Bets<ul><li>Acme <code>3, 70</code></li></ul>');
+  const g = parseGroup('Strategic Bets<ul><li>Acme <code>{3, 70}</code></li></ul>');
   assert.equal(g.name, 'Strategic Bets');
   assert.equal(g.items.length, 1);
   assert.equal(g.items[0].label, 'Acme');
@@ -510,10 +514,10 @@ test('buildQuadrant: threshold emits target-line split + zone labels', () => {
 test('buildQuadrant: threshold zone labels fall back to defaults', () => {
   // Empty group names → fall back to On Pace / Star / At Risk / Lagging.
   const minimalUl = (
-    '<li><ul><li>X <code>5, 60</code></li></ul></li>' +
-    '<li><ul><li>Y <code>7, 80</code></li></ul></li>' +
-    '<li><ul><li>Z <code>3, 30</code></li></ul></li>' +
-    '<li><ul><li>W <code>8, 40</code></li></ul></li>'
+    '<li><ul><li>X <code>{5, 60}</code></li></ul></li>' +
+    '<li><ul><li>Y <code>{7, 80}</code></li></ul></li>' +
+    '<li><ul><li>Z <code>{3, 30}</code></li></ul></li>' +
+    '<li><ul><li>W <code>{8, 40}</code></li></ul></li>'
   );
   const model = parseQuadrant(minimalUl);
   const out = buildQuadrant(model, 'threshold', { ...SCALE, targets: { x: 5, y: 50 } });
@@ -525,10 +529,10 @@ test('buildQuadrant: threshold zone labels fall back to defaults', () => {
 
 test('buildQuadrant: magic — falls back to canonical Gartner labels', () => {
   const minimalUl = (
-    '<li><ul><li>X <code>3, 8</code></li></ul></li>' +
-    '<li><ul><li>Y <code>8, 9</code></li></ul></li>' +
-    '<li><ul><li>Z <code>2, 3</code></li></ul></li>' +
-    '<li><ul><li>W <code>8, 4</code></li></ul></li>'
+    '<li><ul><li>X <code>{3, 8}</code></li></ul></li>' +
+    '<li><ul><li>Y <code>{8, 9}</code></li></ul></li>' +
+    '<li><ul><li>Z <code>{2, 3}</code></li></ul></li>' +
+    '<li><ul><li>W <code>{8, 4}</code></li></ul></li>'
   );
   const model = parseQuadrant(minimalUl);
   const out = buildQuadrant(model, 'magic', SCALE);
@@ -628,8 +632,8 @@ describe('quadrant — the sketch token reaches the builder', () => {
   // is why the shipped corpus renders byte-identically), so this fixture is
   // deliberately picked to make the seam observable at all (#1672).
   const inner = '<h2>X</h2><ul>' +
-    '<li>Commitment Wave<ul><li>A <code>2, 82</code></li></ul></li>' +
-    '<li>Quick Wins<ul><li>B <code>8, 88</code></li></ul></li>' +
+    '<li>Commitment Wave<ul><li>A <code>{2, 82}</code></li></ul></li>' +
+    '<li>Quick Wins<ul><li>B <code>{8, 88}</code></li></ul></li>' +
     '</ul>';
   const labelsOf = (cls) => labelLines(transformChartSection(inner, cls).html, 'quadrant-label');
 
@@ -653,8 +657,8 @@ describe('quadrant — the sketch token reaches the builder', () => {
   const { LW: QLW } = require('../../../lib/components/chart/quadrant/quadrant.transform');
   const overrunsIn = (cls, name, hand) => {
     const html = transformChartSection(
-      `<h2>X</h2><ul><li>${name}<ul><li>A <code>2, 82</code></li></ul></li>`
-      + '<li>Other<ul><li>B <code>8, 88</code></li></ul></li></ul>', cls).html;
+      `<h2>X</h2><ul><li>${name}<ul><li>A <code>{2, 82}</code></li></ul></li>`
+      + '<li>Other<ul><li>B <code>{8, 88}</code></li></ul></li></ul>', cls).html;
     return labelLines(html, 'quadrant-label')[0]
       .filter((line) => line.length * FS_LABEL * upperAdvance(line, { hand, tracking: 0.04 }) > QLW.corner + 0.01);
   };
@@ -703,11 +707,11 @@ describe('quadrant — per-item detail (interactive reveal substrate)', () => {
   const UL_DETAIL = (
     '<ul>' +
       '<li>Strategic Bets<ul>' +
-        '<li>Scoring model v2 <code>3, 70</code><ul><li>Owner: Platform</li><li>Q3 bet</li></ul></li>' +
-        '<li>Per-team calibration <code>5, 85</code></li>' +
+        '<li>Scoring model v2 <code>{3, 70}</code><ul><li>Owner: Platform</li><li>Q3 bet</li></ul></li>' +
+        '<li>Per-team calibration <code>{5, 85}</code></li>' +
       '</ul></li>' +
       '<li>Quick Wins<ul>' +
-        '<li>Weekly brief <code>8, 80</code><ul><li>Already scoped</li></ul></li>' +
+        '<li>Weekly brief <code>{8, 80}</code><ul><li>Already scoped</li></ul></li>' +
       '</ul></li>' +
     '</ul>'
   );
@@ -748,12 +752,12 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
   // to move labels a long way.
   const ul = innerOf(`<ul>
     <li>Quick Wins<ul>
-      <li>Multi-region failover <code>8, 88</code></li>
-      <li>Legacy connector rewrite <code>8, 86</code></li>
-      <li>Self-serve onboarding <code>7, 87</code></li>
-      <li>Partner API keys <code>8, 84</code></li>
+      <li>Multi-region failover <code>{8, 88}</code></li>
+      <li>Legacy connector rewrite <code>{8, 86}</code></li>
+      <li>Self-serve onboarding <code>{7, 87}</code></li>
+      <li>Partner API keys <code>{8, 84}</code></li>
     </ul></li>
-    <li>Strategic Bets<ul><li>Decision-log API <code>2, 20</code></li></ul></li>
+    <li>Strategic Bets<ul><li>Decision-log API <code>{2, 20}</code></li></ul></li>
   </ul>`);
   const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
 
@@ -808,14 +812,14 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
 test('buildQuadrant: every item label stays adjacent to the mark it names', () => {
   const ul = innerOf(`<ul>
     <li>Quick Wins<ul>
-      <li>Weekly signal digest <code>8, 88</code></li>
-      <li>Slack intake bot <code>8, 86</code></li>
-      <li>Decision-log API <code>7, 87</code></li>
-      <li>Scoring model v2 <code>8, 84</code></li>
+      <li>Weekly signal digest <code>{8, 88}</code></li>
+      <li>Slack intake bot <code>{8, 86}</code></li>
+      <li>Decision-log API <code>{7, 87}</code></li>
+      <li>Scoring model v2 <code>{8, 84}</code></li>
     </ul></li>
     <li>Defer<ul>
-      <li>Maturity self-assessment <code>1, 12</code></li>
-      <li>Per-team weighting UI <code>2, 14</code></li>
+      <li>Maturity self-assessment <code>{1, 12}</code></li>
+      <li>Per-team weighting UI <code>{2, 14}</code></li>
     </ul></li>
   </ul>`);
   const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
@@ -846,12 +850,12 @@ test('buildQuadrant: every item label stays adjacent to the mark it names', () =
 // dot's name, a label printed through another one reads as neither.
 test('buildQuadrant: a dense cluster fans out instead of overprinting', () => {
   const ul = innerOf(`<ul><li>Quick Wins<ul>
-    <li>Weekly signal digest <code>8, 88</code></li>
-    <li>Slack intake bot <code>8, 87</code></li>
-    <li>Decision-log API <code>7.6, 87</code></li>
-    <li>Scoring model v2 <code>8.2, 86</code></li>
-    <li>Partner API keys <code>7.8, 85</code></li>
-    <li>Self-serve onboarding <code>8.1, 84</code></li>
+    <li>Weekly signal digest <code>{8, 88}</code></li>
+    <li>Slack intake bot <code>{8, 87}</code></li>
+    <li>Decision-log API <code>{7.6, 87}</code></li>
+    <li>Scoring model v2 <code>{8.2, 86}</code></li>
+    <li>Partner API keys <code>{7.8, 85}</code></li>
+    <li>Self-serve onboarding <code>{8.1, 84}</code></li>
   </ul></li></ul>`);
   const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
   const boxes = textBoxes(out, 'quadrant-dot-label', FS_ITEM);
@@ -918,26 +922,26 @@ describe('quadrant — every name says which dot it belongs to', () => {
     // corridor (seven head-on, one to a corner).
     const ul = innerOf(`<ul>
       <li>Strategic Bets<ul>
-        <li>Scoring model v2 <code>3, 72</code></li>
-        <li>Per-team calibration <code>5, 85</code></li>
-        <li>Multi-source signal dedupe <code>4, 78</code></li>
-        <li>Decision-log audit trail <code>2, 66</code></li>
+        <li>Scoring model v2 <code>{3, 72}</code></li>
+        <li>Per-team calibration <code>{5, 85}</code></li>
+        <li>Multi-source signal dedupe <code>{4, 78}</code></li>
+        <li>Decision-log audit trail <code>{2, 66}</code></li>
       </ul></li>
       <li>Quick Wins<ul>
-        <li>Weekly signal brief <code>8, 80</code></li>
-        <li>Snapshot exports <code>9, 55</code></li>
-        <li>Adoption dashboard <code>7, 62</code></li>
+        <li>Weekly signal brief <code>{8, 80}</code></li>
+        <li>Snapshot exports <code>{9, 55}</code></li>
+        <li>Adoption dashboard <code>{7, 62}</code></li>
       </ul></li>
       <li>Defer<ul>
-        <li>Vendor scoping <code>2, 30</code></li>
-        <li>Manual recalibration <code>1, 22</code></li>
-        <li>Legacy intake shim <code>3, 14</code></li>
+        <li>Vendor scoping <code>{2, 30}</code></li>
+        <li>Manual recalibration <code>{1, 22}</code></li>
+        <li>Legacy intake shim <code>{3, 14}</code></li>
       </ul></li>
       <li>Time Sinks<ul>
-        <li>Custom audit log UI <code>7, 18</code></li>
-        <li>Bespoke board export <code>9, 28</code></li>
-        <li>Per-decision profiles <code>8, 12</code></li>
-        <li>Self-assessment generator <code>6, 25</code></li>
+        <li>Custom audit log UI <code>{7, 18}</code></li>
+        <li>Bespoke board export <code>{9, 28}</code></li>
+        <li>Per-decision profiles <code>{8, 12}</code></li>
+        <li>Self-assessment generator <code>{6, 25}</code></li>
       </ul></li>
     </ul>`);
     const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
@@ -978,25 +982,25 @@ describe('quadrant — every name says which dot it belongs to', () => {
       // The exact slide that carried the defect.
       bubble: [innerOf(`<ul>
         <li>Strategic Bets<ul>
-          <li>Scoring model v2 <code>3, 70, 2.4</code></li>
-          <li>Per-team calibration <code>5, 85, 4.1</code></li>
+          <li>Scoring model v2 <code>{3, 70, size=2.4}</code></li>
+          <li>Per-team calibration <code>{5, 85, size=4.1}</code></li>
         </ul></li>
         <li>Quick Wins<ul>
-          <li>Weekly signal brief <code>8, 80, 0.9</code></li>
-          <li>Snapshot exports <code>9, 55, 0.6</code></li>
+          <li>Weekly signal brief <code>{8, 80, size=0.9}</code></li>
+          <li>Snapshot exports <code>{9, 55, size=0.6}</code></li>
         </ul></li>
-        <li>Defer<ul><li>Vendor scoping <code>2, 30, 0.4</code></li></ul></li>
-        <li>Time Sinks<ul><li>Custom audit log UI <code>7, 18, 1.3</code></li></ul></li>
+        <li>Defer<ul><li>Vendor scoping <code>{2, 30, size=0.4}</code></li></ul></li>
+        <li>Time Sinks<ul><li>Custom audit log UI <code>{7, 18, size=1.3}</code></li></ul></li>
       </ul>`), 'bubble', 'quadrant-bubble-label'],
       // Six names inside four points — the packed case, where most corridors
       // are blocked and the honest answer is to draw nothing.
       packed: [innerOf(`<ul><li>Quick Wins<ul>
-        <li>Weekly signal digest <code>8, 88</code></li>
-        <li>Slack intake bot <code>8, 87</code></li>
-        <li>Decision-log API <code>7.6, 87</code></li>
-        <li>Scoring model v2 <code>8.2, 86</code></li>
-        <li>Partner API keys <code>7.8, 85</code></li>
-        <li>Self-serve onboarding <code>8.1, 84</code></li>
+        <li>Weekly signal digest <code>{8, 88}</code></li>
+        <li>Slack intake bot <code>{8, 87}</code></li>
+        <li>Decision-log API <code>{7.6, 87}</code></li>
+        <li>Scoring model v2 <code>{8.2, 86}</code></li>
+        <li>Partner API keys <code>{7.8, 85}</code></li>
+        <li>Self-serve onboarding <code>{8.1, 84}</code></li>
       </ul></li></ul>`), 'default', 'quadrant-dot-label'],
     };
     for (const [name, [ul, variant, labelClass]] of Object.entries(fixtures)) {
@@ -1024,10 +1028,10 @@ describe('quadrant — every name says which dot it belongs to', () => {
 
   test('a spread plot draws no leaders at all — a line nobody needs is noise', () => {
     const ul = innerOf(`<ul>
-      <li>Strategic Bets<ul><li>Scoring model v2 <code>3, 72</code></li></ul></li>
-      <li>Quick Wins<ul><li>Weekly signal brief <code>8, 80</code></li></ul></li>
-      <li>Defer<ul><li>Vendor scoping <code>2, 30</code></li></ul></li>
-      <li>Time Sinks<ul><li>Custom audit log UI <code>7, 18</code></li></ul></li>
+      <li>Strategic Bets<ul><li>Scoring model v2 <code>{3, 72}</code></li></ul></li>
+      <li>Quick Wins<ul><li>Weekly signal brief <code>{8, 80}</code></li></ul></li>
+      <li>Defer<ul><li>Vendor scoping <code>{2, 30}</code></li></ul></li>
+      <li>Time Sinks<ul><li>Custom audit log UI <code>{7, 18}</code></li></ul></li>
     </ul>`);
     const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
     assert.equal(leadersOf(out).length, 0);
@@ -1079,8 +1083,8 @@ test('buildQuadrant: a chart with no bottom names reserves no band for them', ()
   assert.equal(vbHeight(false), GEOM.vbH - 28);
 
   const topOnly = innerOf(`<ul>
-    <li>Quick Wins<ul><li>Alpha <code>2, 90</code></li></ul></li>
-    <li>Strategic Bets<ul><li>Bravo <code>8, 90</code></li></ul></li>
+    <li>Quick Wins<ul><li>Alpha <code>{2, 90}</code></li></ul></li>
+    <li>Strategic Bets<ul><li>Bravo <code>{8, 90}</code></li></ul></li>
   </ul>`);
   const out = buildQuadrant(parseQuadrant(topOnly), 'default', SCALE);
   assert.match(out, /data-band="none"/, 'a chart with no bottom names says so');
@@ -1163,12 +1167,12 @@ test('buildQuadrant: a moved split re-centers the names on their real columns', 
 test('buildQuadrant: an item label never overprints a quadrant name', () => {
   const ul = innerOf(`<ul>
     <li>Quick Wins<ul>
-      <li>Weekly signal digest <code>1, 99</code></li>
-      <li>Slack intake bot <code>2, 97</code></li>
+      <li>Weekly signal digest <code>{1, 99}</code></li>
+      <li>Slack intake bot <code>{2, 97}</code></li>
     </ul></li>
-    <li>Strategic Bets<ul><li>Decision-log API <code>9, 98</code></li></ul></li>
-    <li>Defer<ul><li>Maturity self-assessment <code>1, 1</code></li></ul></li>
-    <li>Time Sinks<ul><li>Bespoke board exports <code>9, 2</code></li></ul></li>
+    <li>Strategic Bets<ul><li>Decision-log API <code>{9, 98}</code></li></ul></li>
+    <li>Defer<ul><li>Maturity self-assessment <code>{1, 1}</code></li></ul></li>
+    <li>Time Sinks<ul><li>Bespoke board exports <code>{9, 2}</code></li></ul></li>
   </ul>`);
   for (const variant of ['default', 'bubble']) {
     const out = buildQuadrant(parseQuadrant(ul), variant, SCALE);
@@ -1195,8 +1199,8 @@ test('buildQuadrant: an item label never overprints a quadrant name', () => {
 // it in the plot.
 test('buildQuadrant: a bottom-row bubble caption flips above its bubble', () => {
   const ul = innerOf(`<ul>
-    <li>Quick Wins<ul><li>Weekly signal digest <code>2, 90</code> <code>40</code></li></ul></li>
-    <li>Time Sinks<ul><li>Custom audit log UI <code>8, 3</code> <code>60</code></li></ul></li>
+    <li>Quick Wins<ul><li>Weekly signal digest <code>{2, 90}</code> <code>40</code></li></ul></li>
+    <li>Time Sinks<ul><li>Custom audit log UI <code>{8, 3}</code> <code>60</code></li></ul></li>
   </ul>`);
   const out = buildQuadrant(parseQuadrant(ul), 'bubble', SCALE);
   const captions = [...out.matchAll(/<text class="quadrant-bubble-label"([^>]*)>[\s\S]*?<tspan x="([-\d.]+)" y="([-\d.]+)"/g)]
@@ -1258,20 +1262,20 @@ describe('quadrant — per-slide sizing never trades attribution for type', () =
   // a committed PDF, and a synthetic fixture is what let it.
   const GALLERY_DEFAULT = innerOf(`<ul>
     <li>Quick Wins<ul>
-      <li>Weekly signal digest <code>2, 82</code></li>
-      <li>Slack intake bot <code>3, 72</code></li>
+      <li>Weekly signal digest <code>{2, 82}</code></li>
+      <li>Slack intake bot <code>{3, 72}</code></li>
     </ul></li>
     <li>Strategic Bets<ul>
-      <li>Scoring model v2 <code>8, 88</code></li>
-      <li>Decision-log API <code>7, 74</code></li>
+      <li>Scoring model v2 <code>{8, 88}</code></li>
+      <li>Decision-log API <code>{7, 74}</code></li>
     </ul></li>
     <li>Defer<ul>
-      <li>Per-team weighting UI <code>2, 28</code></li>
-      <li>Maturity self-assessment <code>1, 20</code></li>
+      <li>Per-team weighting UI <code>{2, 28}</code></li>
+      <li>Maturity self-assessment <code>{1, 20}</code></li>
     </ul></li>
     <li>Time Sinks<ul>
-      <li>Bespoke board exports <code>8, 18</code></li>
-      <li>Custom calibration tooling <code>9, 26</code></li>
+      <li>Bespoke board exports <code>{8, 18}</code></li>
+      <li>Custom calibration tooling <code>{9, 26}</code></li>
     </ul></li>
   </ul>`);
 
@@ -1327,22 +1331,22 @@ describe('quadrant — per-slide sizing never trades attribution for type', () =
   test('the ladder never paints fewer names than the floor would', () => {
     const CROWDED = innerOf(`<ul>
       <li>Strategic Bets<ul>
-        <li>Integration <code>3.99, 85.9</code></li>
-        <li>Revenue Signal Analytics <code>5.39, 94.1</code></li>
-        <li>Automation Analytics Analytics <code>7.26, 98.4</code></li>
-        <li>Migration Retention Revenue <code>2.39, 82.8</code></li>
+        <li>Integration <code>{3.99, 85.9}</code></li>
+        <li>Revenue Signal Analytics <code>{5.39, 94.1}</code></li>
+        <li>Automation Analytics Analytics <code>{7.26, 98.4}</code></li>
+        <li>Migration Retention Revenue <code>{2.39, 82.8}</code></li>
       </ul></li>
       <li>Quick Wins<ul>
-        <li>Migration Integration Automation <code>2.26, 21.6</code></li>
-        <li>Intake Migration Analytics <code>0.82, 32.0</code></li>
-        <li>Reliability Revenue Partner <code>9.60, 86.3</code></li>
+        <li>Migration Integration Automation <code>{2.26, 21.6}</code></li>
+        <li>Intake Migration Analytics <code>{0.82, 32.0}</code></li>
+        <li>Reliability Revenue Partner <code>{9.60, 86.3}</code></li>
       </ul></li>
       <li>Defer<ul>
-        <li>Adoption Audit <code>7.38, 75.3</code></li>
-        <li>Adoption Analytics Analytics <code>2.23, 53.9</code></li>
+        <li>Adoption Audit <code>{7.38, 75.3}</code></li>
+        <li>Adoption Analytics Analytics <code>{2.23, 53.9}</code></li>
       </ul></li>
       <li>Time Sinks<ul>
-        <li>Integration Integration <code>9.49, 69.6</code></li>
+        <li>Integration Integration <code>{9.49, 69.6}</code></li>
       </ul></li>
     </ul>`);
     const model = parseQuadrant(CROWDED);
@@ -1368,22 +1372,22 @@ describe('quadrant — per-slide sizing never trades attribution for type', () =
   describe('the ten-item slide, where the COUNT term is what decides', () => {
     const TEN = innerOf(`<ul>
       <li>Strategic Bets<ul>
-        <li>Scoring model v2 <code>3, 78</code></li>
-        <li>Decision-log API <code>2.2, 70</code></li>
-        <li>Signal dedupe <code>3.6, 84</code></li>
+        <li>Scoring model v2 <code>{3, 78}</code></li>
+        <li>Decision-log API <code>{2.2, 70}</code></li>
+        <li>Signal dedupe <code>{3.6, 84}</code></li>
       </ul></li>
       <li>Quick Wins<ul>
-        <li>Weekly brief <code>7.4, 88</code></li>
-        <li>Adoption board <code>8.2, 74</code></li>
-        <li>Snapshot export <code>6.8, 66</code></li>
+        <li>Weekly brief <code>{7.4, 88}</code></li>
+        <li>Adoption board <code>{8.2, 74}</code></li>
+        <li>Snapshot export <code>{6.8, 66}</code></li>
       </ul></li>
       <li>Defer<ul>
-        <li>Vendor scoping <code>2.6, 30</code></li>
-        <li>Intake shim <code>3.4, 22</code></li>
+        <li>Vendor scoping <code>{2.6, 30}</code></li>
+        <li>Intake shim <code>{3.4, 22}</code></li>
       </ul></li>
       <li>Time Sinks<ul>
-        <li>Custom audit log <code>7.8, 26</code></li>
-        <li>Manual recalibration <code>8.6, 16</code></li>
+        <li>Custom audit log <code>{7.8, 26}</code></li>
+        <li>Manual recalibration <code>{8.6, 16}</code></li>
       </ul></li>
     </ul>`);
     const tenOut = buildQuadrant(parseQuadrant(TEN), 'default', SCALE);

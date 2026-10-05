@@ -67,6 +67,13 @@ them, and the rest are ordinary code that must stay literal.
 | 16 | **No publish plan.** Segno, like every Laticent library, is not scheduled for publishing; the owner will publish the libraries together, deliberately, as its own act. No work plans around a release, and no step publishes anything | owner, correcting an earlier "publish after phase 2" |
 | 17 | **The authoring semantics stand; only very strong evidence reopens them.** Decisions 3, 9, 10 and 11 (brace records, the clean break, coordinates as one record, journey as a record) are the better authoring choices, and Lattice is not GA, so they are not held open. Evidence still guides phase 2, but the bar to change one is high: phase 2's corpus binding must show the notation cannot express content the shipped decks hold, or that authors mis-write it in measured, repeated cases, not that a spelling looks unfamiliar. Raised by the trio's inversion | owner |
 | 18 | **Both Segno build steps run on every PR.** Measured 2026-09-29: the generated-parser step takes about 0.1 s and is how `npm run build` regenerates `notation.generated.ts`; the library build takes about 1.7 s (it runs in `prepare` and in `npm run build`, so about 3.4 s of wall time in each of about seven CI jobs) and is the only check that catches a broken built package: a planted TS4094 declaration error passed the docs typecheck and failed only here. The rule: a per-PR step must add value and be fast, or it moves to nightly | owner, over moving the library build to nightly |
+| 19 | **Sparks join the notation** as a record behind their own opener: `` `~{12 14 17, bar, c3}` ``, `` `~{72/80, bullet}` ``, replacing `` `~{12 14 17}:bar:c3` ``. Sparks shipped (#2453) the day this note was written and were missing from its migration table; they are row 28 now, and the phase-2 codemod rewrites them (211 spans in 10 files on 2026-10-04) under the clean break (decision 9) | owner, 2026-10-04, over keeping the colon syntax as a second grammar |
+| 20 | **Segno is Lattice's one parser.** Pills, sparks, axes, labels and every grammar Lattice adds later are Segno grammars with slot schemas, never a new hand-written parser. Recorded here and not as a CLAUDE.md rule; a gate can follow once phase 2 has deleted the old parsers | owner, 2026-10-04, over a HARD RULE and over a gate with a 27-entry allowlist |
+| 21 | **The engine takes three additions now, as their own PR**: `greedy()` (longest match, opt-in per loop), `until()` (skip to a literal of at most 64 characters) and a per-grammar `maxDepth` (to 1,000). Each one keeps the linear bound. The README's promise changes from "every ambiguous grammar is refused" to "refused unless a loop is marked greedy". § The engine has the measurements | owner, 2026-10-04, over waiting for phase 3 |
+| 22 | **Pills accept 2.0x.** A pill reads in 0.7 µs against today's 0.35 µs; across all 183 pill spans in the repo's Markdown that is about 0.06 ms per full render, so binding off the flat tree is not worth its complexity | owner, 2026-10-04, at the phase-2 check-in |
+| 23 | **A no-break space (U+00A0) is a space.** It separates and trims like a space and tab, and is kept inside quotes; text pasted from documents and chat carries it | owner, 2026-10-04, closing the open question |
+| 24 | **Our decks are rewritten; nothing else reads the old spellings.** Every shipped deck and doc is rewritten, with no lint rule pointing at an old spelling. Lattice is not GA, so the one-off codemod was deleted before merge and a unit test keeps our own decks current | owner, 2026-10-04, over a retired-spelling lint with an autofix; the codemod dropped 2026-10-05 |
+| 25 | **Tagged records live in the grammar.** One tag character directly before a span's `{` — `~` for a spark, `^` for an icon (`2026-09-29-inline-icons.md`) — is a production of the notation, not a check in Lattice's dispatcher. At the start of a span a tag character always opens a tagged record, so the grammar stays LL(1); a top-level bare value cannot start with one, and `~/path` simply fails to parse and stays code. A slot declares the tag it needs (`record({ tag: '~' })`) | owner, 2026-10-04, over a dispatcher check before the parse |
 
 ## The notation
 
@@ -199,12 +206,12 @@ So `{BETA, tag, c4}`, `{BETA, c4, tag}` and `{BETA, shape=tag, color=c4}` are th
 | 19 | journey `` `@Customer` `:4` `+120` `` | `` `{who=Customer, mood=4, volume=120}` ``, or the `` `@Customer` `` shortcut (decision 11) |
 | 20 | heatmap `` `# why` `` | `` `note="why"` `` |
 | 21 | kanban `` `XL` `` | unchanged (a `size` enum) |
-| 22 | state-chart `` `approve => 2` `` | `` `{approve, to=2}` `` |
+| 22 | state-chart `` `approve => 2` `` | retired with state chart v1: v2 (#2424) reads the flowchart's rows, `-approve-> Approved`, so its styles are row 25 |
 | 23 | state `` `start` `` `` `at-risk` `` | unchanged (enum words) |
 | 25 | flowchart `` `#api:diamond:c2` `` `` `:dashed:cross` `` | `` `{#api, diamond, c2}` `` `` `{dashed, cross}` `` |
 | 26 | QR `` `ssid` `` postfix key | unchanged (an enum key) |
 | 27 | radar `` `Scale · 0–100` `` | `` `0..100` `` |
-| 28 | spark `` `~{12 14 17}:bar:c3:lg` `` | `` `~{12 14 17, bar, c3, lg}`: a sigil before a record; the first item is the series or ratio (a new `series` scalar type) — owner, 2026-10-04, decided with icons (`2026-09-29-inline-icons.md` decision 6) |
+| 28 | sparks `` `~{12 14 17}:bar:c3:lg` `` `` `~{72/80}:bullet` `` | `` `~{12 14 17, bar, c3, lg}` `` `` `~{72/80, bullet}` `` (decision 19): a tag character before a record, read by the grammar (decision 25); the first item is a `series` (2–48 numbers, space-separated) or a `ratio` (`72/80`, `72%`) — the tag form decided by the owner, 2026-10-04, with icons (`2026-09-29-inline-icons.md` decision 6) |
 
 Out of scope for the first cut, because they live in list TEXT rather than inside backticks: flowchart
 arrows (`A -> B`), leading `- [x]` markers, the matrix-grid cell marker, and `_track`. They are Segno's
@@ -289,6 +296,138 @@ with a handful of inputs, and V8 names no single deoptimization; chasing it furt
 one JIT, so it stops here. In absolute terms a pill costs 0.7 µs, and the shipped decks hold 24
 of them. **Check-in:** phase 2 either accepts 2.0x on pills or binds straight off the flat tree,
 which removes the tree-to-values step (about 80 ns) and most of the binding allocations.
+
+### Three additions for document-sized grammars (decision 21)
+
+Phase 1's engine is built for short spans, and a probe on 2026-10-04 asked whether it could read
+whole CSS, HTML and Markdown files. Written strictly, all three grammars were refused at the same
+places: a run of letters next to another run (longest match), `/` against `/*`, and "read until
+`</script>`". So three additions landed, each in both runtimes, and the README documents them:
+
+- **`greedy(many|many1|opt)`**: the checker accepts the overlap and the loop goes round. The
+  parser was already longest-match, so the runtime is unchanged. A check refuses a greedy loop whose
+  successor can never match, and it follows rule references. It is computed as "the characters
+  that cannot come next, however the piece matched", because the first version refused valid
+  grammars (an `opt` takes at most one character) and missed dead code behind a rule reference.
+  That answer always has the shape `a ∪ (b ∩ before)`, so each rule is summarized once, in
+  dependency order (a strongly-connected-components pass, so only rules that reach each other
+  iterate). Walking references instead cost exponential time on a rule reached by many routes (a
+  valid 25-rule grammar took 10 s to compile), and one fixpoint over all rules in source order
+  cost a round per rule on a chain written top-down (24.5 s for 4,000 rules; 0.9 s now). The
+  engine's older FIRST/FOLLOW fixpoints were quadratic on a chain listed bottom-up (12.4 s for
+  4,000 rules), and so was `recursiveRules()`, which searched from every rule. On 2026-10-05 both
+  fixpoints became worklists seeded in dependency order (an expression is recomputed only when
+  something it reads changed, and outside a cycle it is computed once), and recursion is read off
+  the same SCC pass: 43 ms for 4,000 rules in either order, and a checker found `lint()`,
+  `generate()` and parses identical to the previous version on 320,000 random grammars. What is
+  still quadratic is building the "expected …" text: `expectedAt()` writes every expression's
+  message eagerly, and on a chain whose FIRST sets grow from rule to rule (`r_i = alt(c_i, r_i+1)`)
+  that text grows too (6.5 s at 2,000 rules, and a stack overflow at 4,000, as on main). Logged in
+  `followups.d/`.
+- **`until(end)`**: one `indexOf` and no re-reading. `end` is capped at 64 characters, because
+  `indexOf`'s slow case is input × terminator: the red team measured 1.5 µs per input character
+  for a 16,384-character terminator, against 4 ns for 32 characters.
+- **`maxDepth`** per grammar, up to 1,000, plus a backstop that turns a stack overflow into an
+  error (`STACK_EXHAUSTED`) rather than a throw. It catches only stack overflows, and names no cap,
+  because where the stack runs out depends on the engine and on how warm its JIT is. Measured on
+  Node 22: `compile()` overflowed at about 2,300 nested references on a thin grammar and about 150
+  on one with 30 expressions per level. The generated parser reached about 8,600. On a thick grammar
+  the two runtimes can therefore disagree. The shipped engine's `compile()` threw there.
+
+**Nothing Lattice runs changes.** `generate(notationSpec)` is byte-identical, and the generator emits
+the backstop only when a grammar raises `maxDepth` above 64.
+
+**Measured on the repository's own files** on 2026-10-04 (fresh process per run, median of five, on
+the files both versions read). The right-hand column reproduces with `npm run parser:bakeoff:languages`,
+whose grammars are `tools/parser-bakeoff/languages-grammars.mjs`; the strict grammars and the
+before/after harness were a one-off probe and are not kept:
+
+| | strict grammars | with the additions |
+|---|---|---|
+| files read: CSS / HTML / Markdown | 159/159 · 30/31 · 1,898/2,303 | 159/159 · 31/31 · 2,303/2,303 |
+| generated parser, CSS / Markdown | 148 / 91 MB/s | 211 / 194 MB/s |
+| hostile ladders (12 shapes aimed at the additions) | 6 of 12 refused | all 12 read, about 10x for 10x input |
+
+The inline notation, pills and sparks are unaffected: the bake-off arm measures the same within
+noise (pills 764 ns before, 759 ns after, median of three alternating runs). Sparks were also
+written as a Segno grammar and raced against `lib/core/inline-sparks.js`: same answers on 211
+real spans and 200,000 fuzzed ones. The grammar reads the text in 250 ns where the kernel's split
+takes 810 ns, but turning the tree into values costs that back, as it does for pills. Binding
+straight off the flat tree is the phase-2 fix for both (the pill row above).
+
+**Review.** One checker and one red team (HARD RULE #25's maker-checker plus an adversary aimed at
+the linear bound), then a second checker on the fixes. Neither of the first two found a compiling
+grammar that runs superlinearly or an input that throws. Together the three found six defects, all
+fixed with tests: the five below, and the exponential cost of the dead-code check's first fix
+(above). Its replacement agrees with the walking version on 60,000 random greedy grammars — a
+run that also caught a miss in the replacement's first draft, which did not summarize a sequence
+nested in a loop body. A seventh came from driving the real `/segno` page: the check counted
+PLAIN loops too, so its "greedy, then a quote" preset (a strict grammar) showed a second refusal
+calling the loop greedy. Only greedy loops count now, and on 60,000 random strict grammars `lint`
+matches `main` exactly (the pre-fix commit differed on 13,054). A fourth checker, on those last
+fixes, confirmed the algebra and its soundness (0 false refusals in 16,000 random greedy grammars
+against brute-force parsing) and found the round-per-rule cost above. The five: the dead-code check's false refusals and its miss
+through rule references, the unbounded terminator, the backstop's invented level count, and its
+catching every RangeError. Two limits are pinned as tests rather than fixed: greedy commits (above),
+and the runtimes can disagree near the stack limit.
+
+### Flowchart rows need a bounded attempt (the #2462 spike)
+
+Phase 3 moves the flowchart's list text (`Storefront -SEV1-> Payments`) onto Segno, and #2462's
+inversion review asked whether Segno can read it at all before phase 2 commits to the engine.
+`npm run parser:bakeoff:flow` answers it against `splitRow` in `lib/core/flowchart-grammar.js`
+(436 distinct flowchart and state-chart rows from the corpus, plus 200,096 fuzzed rows that
+include escapes, long labels and labels at the 61-character cap). Measured 2026-10-05:
+
+| grammar | builds? | agrees with the kernel |
+|---|---|---|
+| strict: at a word start, an arrow or a word | refused: `branches 0 and 1 can both start with "-", "<"–"="` | — |
+| commit: a word may not start with `-` `=` `<` | yes | 433 of 436 corpus rows; 70,928 of 200,096 fuzzed |
+| the arrow alone, strict, tried in a 66-character window at each word start | yes | **436 of 436; 200,096 of 200,096** |
+
+- **The arrow is LL(1); the row is not.** Every arrow form (`->`, `<=>`, `-->`, `-label->`, a label
+  with spaces and inner shafts, the 61-character cap) compiles as a strict grammar once it is
+  followed by a space or the end. What does not compile is the choice at a word start: `-x` in
+  `A -x B` is a word and `-x->` in `A -x-> B` is an arrow, and the two only part at the closing
+  shaft and the character after it, up to 64 characters past the `-`. `node(kind, x)` fixes its
+  kind when it opens, so no strict grammar can open an `arrow` node at the `-` and agree with the
+  kernel. (The strings alone could be left-factored into a generic node, with the 61-character
+  count spelled out rule by rule, but a second pass would then have to decide which nodes are
+  arrows, and that pass is the second reader decision 20 rules out.)
+- **`greedy()` from #2510 does not help.** It accepts a loop or an `opt` whose body and successor
+  overlap, and it still never goes back: `greedy(opt(arrow))` commits exactly as the next row does.
+  The conflict here is between two alternatives, and only one of them is the arrow. The strict way
+  out is to commit (a word never starts with a shaft or `<`), and that misreads rows the kernel
+  reads: `Raw <b>tag</b> -> A`, `<>`, and every word that starts with a dash, such as `-5%`.
+- **What it needs: `attempt(x, { max, then })`**, a bounded ordered choice. Try `x` on at most `max`
+  characters, and keep it only if the character after it is in the set `then` (or the input ends);
+  otherwise rewind and take the next branch. The `then` check is not optional: without it
+  `A ->x B` would commit to the arrow `->` and then fail the row, where the kernel reads `->x` as a
+  word. The spike's window grammar does this check (a space or the end must follow the arrow).
+  Each attempt reads at most `max` characters, so a parse costs at most `max` × input, PROVIDED an
+  attempt cannot reach another attempt: nested attempts multiply their `max` values, and an attempt
+  reached through recursion multiplies once per level. The checker would refuse an attempt inside
+  an attempt, and accept an overlap between an attempt's branch and the branches after it, and
+  nothing else. The spike stands in for the primitive with a loop around the compiled arrow
+  grammar (`tools/parser-bakeoff/flow-segno.mjs`).
+- **Its cost, measured with the stand-in** (`compile()`'s closures and a sliced window; best of
+  seven rounds): 1,047 ns per corpus row against the kernel's 559 ns (1.9x); on the hostile ladder
+  (`-y ` repeated, an attempt every three characters, each running to the cap) 10.3 ms against
+  1.45 ms at 8,000 characters and 42 ms against 5.9 ms at 32,000. Both grow linearly (4.1x for 4x
+  input); the constant is 7 to 10 times the kernel's across runs, most of it the window slice and
+  the closures, which `generate()` and an in-place attempt remove.
+- **Checked** by one independent checker (tier 1): the counts above reproduce exactly, and its own
+  adversarial fuzz (1.5 million rows: labels of 58 to 64 characters, `<` as the first label
+  character, one to four shafts, `\r` `\t` `\n` in and around labels, astral characters, windows
+  cut at the cap) found no row where the stand-in and the kernel disagree; planted bugs (a cap one
+  short, `\r` not a space, no `<`) each produced thousands of mismatches. The `then` set and the
+  nesting rule above are its findings.
+
+**What this decides.** Phase 2 is unchanged: the flowchart's inline spans (row 25) are records, and
+the list text was always phase 3. Phase 3 needs `attempt()` as an engine addition with its own
+review (it widens what the checker accepts, as `greedy()` did), and the spike's grammar and parity
+run are its starting point. The alternative, a hand-written loop around a Segno grammar as the
+spike does, is the second reader decision 20 rules out.
 
 ## How it is tested
 
@@ -437,11 +576,78 @@ its own mark and palette.
 |---|---|---|
 | 0 | This note, confirmed | with phase 1 |
 | 1 | The Segno engine, the notation grammar, schema binding, aliases and shortcuts, typed output and diagnostics; unit tests, fuzz and the scaling ladder; the `/segno` page and mark. No Lattice wiring. | one |
-| 2 | Lattice on Segno: the 27 slot schemas in the manifests, the dispatcher, lint rules (including per-deck alias consistency), a codemod over every shipped deck and doc, the old parsers deleted, component docs updated, a `**Breaking:**` changelog fragment | one |
-| 3 | The list-text grammars (flowchart arrows, leading markers, `_track`) as Segno's second grammar | one |
+| 1b | `greedy()`, `until()`, per-grammar `maxDepth` (decision 21) | one |
+| 2 | Lattice on Segno: the 27 slot schemas plus sparks (row 28, decision 19) in the manifests, binding straight off the flat tree, the dispatcher, lint rules (including per-deck alias consistency), a codemod over every shipped deck and doc, the old parsers deleted, component docs updated, a `**Breaking:**` changelog fragment | one |
+| 3 | The list-text grammars (flowchart arrows, leading markers, `_track`) as Segno's second grammar; the arrows need `attempt()` (§ Flowchart rows need a bounded attempt) | one |
 
 Phase 2 changes what every chart reads, which is high blast radius and genuinely novel, so it gets the
 full adversarial trio before merge (HARD RULE #25).
+
+### Phase 2 as built
+
+Branch `claude/segno-phase-2`, one commit per slice: plumbing; pills and sparks; one number reader;
+axes, label sets and points; gantt dependencies, status words and markers; the per-chart records.
+A one-off codemod rewrote the corpus, re-reading every rewrite through the new reader. It was deleted
+before merge: Lattice is not GA, so once our own decks were converted nothing needed to read the old
+spellings again (owner, 2026-10-05). It is in the branch history if that ever changes.
+
+**Where each slot lives.** A slot that works in any prose is a CORE slot in `lib/core/segno-slots.js`
+(`point`, `state`, `pill`, `spark`). A slot one component owns is declared in its manifest's `segno`
+field (`journey.step`, `flowchart.style`); the build compiles it, so a slot Segno refuses fails the build.
+The rest are one-word readers built in a shared `lib/core` kernel from Segno's types: `gantt-pill.js`,
+`cell-note.js`, `chart-status.js`, `kanban-sizes.js`, the waterfall markers and the QR
+keys. In every case the transform and the narrator call the same kernel, and lint does too where it
+reads the slot.
+
+**Calls made while building, each reversible:**
+
+- **Radar (row 27)** takes the bracketed axis line `[{Scale, 0..100}]`, the form quadrant and gantt
+  read, rather than a bare `0..100` pill in the eyebrow. A bare pill would have printed `0..100` on the
+  slide. The line is lifted off the slide because the ring ticks already print the scale. The one
+  variant that prints no ticks, `small-multiples`, re-shows a pinned scale as its old eyebrow
+  (`Scale · 0–10`); the same-machine render against base caught that slide losing it. Three
+  shipped eyebrows said more than the scale (`Scale · 0–10, on the criteria we wrote`); they keep their
+  words, and the axis line goes in above them.
+- **Journey (decision 11).** A record names `who` once, so a second actor is a second `@` pill:
+  `{who=me, mood=1}` `@cat`. `mood=2.5` now rounds to 3 in both the chart and the voice, where
+  `parseInt` truncated it to 2.
+- **Flowchart (row 25).** A single style word stands alone (`doc`, `fail`); two or more go in braces.
+  The key's words drop their colons (`{dotted, Informal}`), and a channel color is `fill=c3`.
+- **Gantt (row 10).** Two dependencies are a list, `after=[Design, Build]`. The codemod reported, and did
+  not guess, any `after: A, B`: the old chart read it as one name and the old lint as two. None shipped.
+- **A component can own its list rows' spans** (decision 3, enforced). One notation means a
+  flowchart style `{diamond, c2}` is also a valid pill, and the slide-wide pill pass reached it first:
+  the chart drew a box named "Triage diamond". A slot that declares `sits: "list-rows"` in its manifest
+  (flowchart's `style`) now keeps every inline-code span on that component's list rows out of the
+  mark / pill / spark pass, on the engine, the runtime and lint alike
+  (`lib/core/resolve-inline-code.js`). The demo deck caught it; no shipped deck had the colliding form.
+- **Row 23** moved from the words slice to the per-chart slice, because the parser that reads the
+  state keywords is the state chart's own.
+
+**Known limit.** A number written with a thousands comma cannot sit inside a record: the comma separates
+items, and a quoted value is text. `{12000, 62%}` works; `{12,000, 62%}` is three items. No shipped deck
+had one.
+
+**Measured against decision 24's premise (open for the owner).** Decision 24 was taken on "an old
+spelling in someone else's deck renders as literal code". That holds for pills and sparks: the old
+form does not parse, and the span stays code. It does not hold for the chart grammars. An old
+quadrant pill (`3, 70`) plots at the origin; an old journey `:4` leaves the step at mood 3; an old
+state-chart `submit => 2` draws no edge and prints as text; an old heatmap `# why` joins the value;
+an old gantt `after: X` joins the bar's label. A record that does not bind (a typo'd name, a
+thousands comma) behaves the same way. `lint:deck` is silent in every case. The adversarial trio
+found this, and the choice it raises — a data-integrity lint for an unreadable record, which is not a
+lint aimed at retired spellings — was put to the owner.
+
+**Settled by the owner, 2026-10-05: no handling.** Lattice is not GA, so the only old spellings that
+matter are our own, and they are converted. A unit test
+(`test/unit/authoring/segno-decks-current.test.js`) scans every deck we ship for the old shapes that
+cannot be mistaken for anything else and fails if one comes back, so a parallel PR written before phase 2 cannot
+land an old spelling silently. No data-integrity lint, and no change to how a chart treats a span it
+cannot read.
+
+**Not in this PR — decision 7**, the per-deck alias-consistency lint with an autofix. The binder already
+reports each spelling an author used (`spellings` on every bind). Building the rule means every reader
+must hand those spellings to lint, which is its own change. It is open for the owner at the merge ask.
 
 ## Open questions
 
@@ -451,10 +657,8 @@ Two are open, and both only matter from phase 2 on:
 - **Editor tooling.** Segno stops at the first error and has no incremental parsing or
   highlighting. If the Studio editor needs highlighting of Segno spans, is the path a display-only
   Lezer grammar, with Segno as the authority? (Raised by the trio's inversion.)
-- **No-break spaces and newlines.** The notation trims and separates on space and tab only, so a
-  pasted `{a,`U+00A0`b}` reads a value with a leading no-break space. Treating U+00A0 as a space is
-  kinder to pasted text; keeping the rule to two ASCII characters is simpler to state. A code span
-  cannot hold a newline, so only U+00A0 is a real question.
+- ~~**No-break spaces and newlines.**~~ Settled by decision 23: U+00A0 is a space. A code span
+  cannot hold a newline, so nothing else was open.
 
 **Phase 1's checker** (one independent agent) confirmed the LL(1) check sound on about 4,800 random
 grammars against a brute-force recognizer, the generated parser identical to the closure parser on the

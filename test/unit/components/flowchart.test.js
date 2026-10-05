@@ -22,7 +22,7 @@ const modelOf = (html) => {
 };
 
 describe('flowchart — the figure through the real engine', () => {
-  const html = render('- Alert `:pill` => Triage\n- Triage -done-> Close `:dotted`\n  > Closes itself after a day.\n\n`[{=>, Paging path}]`\n\n*Most alerts close themselves.*');
+  const html = render('- Alert `pill` => Triage\n- Triage -done-> Close `dotted`\n  > Closes itself after a day.\n\n`[{"=>", Paging path}]`\n\n*Most alerts close themselves.*');
 
   test('the chart frame wraps one figure, with the harness and an empty svg', () => {
     assert.match(html, /class="[^"]*\bchart-frame\b/);
@@ -38,8 +38,15 @@ describe('flowchart — the figure through the real engine', () => {
     assert.deepEqual(m.edges.map((e) => `${e.from}>${e.to}`), ['alert>triage', 'triage>close']);
     assert.equal(m.edges[0].heavy, true);
     assert.deepEqual(m.edges[1].style, { pattern: 'dotted' });
-    assert.deepEqual(m.notes, [{ on: 'triage', text: 'Closes itself after a day.' }]);
+    assert.equal(m.notes, undefined, 'a blockquote is hidden detail, not a painted note');
     assert.equal(m.diagnostics, undefined);
+  });
+
+  test('a blockquote is HIDDEN DETAIL: a template on the shape\'s mark, and a speaker note', () => {
+    assert.match(html, /<div class="chart-details" hidden><template class="chart-detail" data-mark="1"><li>Closes itself after a day\.<\/li><\/template><\/div>/);
+    assert.doesNotMatch(html, /fc-note/, 'no visible note card, and no note in the harness');
+    // Outside the figure: a template inside it would count as a mark.
+    assert.ok(html.indexOf('chart-details') > html.indexOf('fc-key'));
   });
 
   test('the key span is consumed and drawn as the key; the caption is left to the frame', () => {
@@ -56,6 +63,7 @@ describe('flowchart — the figure through the real engine', () => {
 describe('flowchart — untrusted text never becomes markup', () => {
   test('a name, a label and a note that look like HTML are escaped everywhere', () => {
     const html = render('- `<img>` \\<script> -a<b-> B\n- B\n  > <i>note</i>');
+    assert.match(html, /&lt;i&gt;note&lt;\/i&gt;|<li>note<\/li>/, 'the detail is escaped text');
     assert.doesNotMatch(html, /<script\b/i);
     assert.doesNotMatch(html, /<img\b/i);
     assert.doesNotMatch(html, /<i>note<\/i>/);
@@ -73,6 +81,11 @@ describe('flowchart — pass-through', () => {
     assert.equal(transformSection(inner, { classTokens: ['flowchart'] }), inner);
   });
 
+  test('`curved` is a paint setting on the figure', () => {
+    assert.match(render('- A -> B', 'flowchart curved'), /data-fc-style="curved"/);
+    assert.doesNotMatch(render('- A -> B'), /data-fc-style/);
+  });
+
   test('`lr` pins the direction, and a portrait deck turns it to `tb`', () => {
     assert.match(render('- A -> B', 'flowchart lr'), /data-fc-dir="lr"/);
     assert.match(render('- A -> B'), /data-fc-dir="auto"/);
@@ -83,7 +96,7 @@ describe('flowchart — pass-through', () => {
 
 describe('flowchart — payload', () => {
   test('carries every styled fact the painter reads', () => {
-    const o = outlineFromMarkdown('- Box `:c2:diamond:fill-c4:border-c1:text-c3`\n- Done `done`\n- Box -> Done `:dashed:c5:open:loose`');
+    const o = outlineFromMarkdown('- Box `{diamond, c2, fill=c4, border=c1, text=c3}`\n- Done `done`\n- Box -> Done `{c5, dashed, open, loose}`');
     const p = payload(parseFlowchart(o.items, {}));
     assert.deepEqual(p.shapes[0], { id: 'box', name: 'Box', parent: null, shape: 'diamond', slot: 2, fill: 4, border: 1, text: 3 });
     assert.equal(p.shapes[1].status, 'done');
@@ -118,7 +131,6 @@ describe('flowchart — a forged model cannot inject markup (HARD RULE #22)', ()
     ],
     groups: [{ id: 'g', name: `G${evil}`, slot: `3${evil}` }],
     edges: [{ from: 'a', to: `b${evil}`, dir: `out${evil}`, label: `L${evil}`, style: { pattern: `dotted${evil}`, slot: `4${evil}`, head: `dot${evil}` } }],
-    notes: [{ on: 'a', text: `N${evil}` }],
   };
   const attr = JSON.stringify(forged).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   const dom = new JSDOM(`<!doctype html><section class="flowchart"><div class="flowchart-figure" data-fc-model="${attr}">` +
@@ -160,13 +172,13 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
   const { JSDOM } = require('jsdom');
   require('../../../lib/core/dagre-layout.js');
   const { graphLayoutKernel } = require('@laticent/trama');
-  const figHtml = (names) => {
+  const figHtml = (names, dir) => {
     // Ids come from names, as the grammar makes them: a rename is a new id.
     const id = (n) => n.toLowerCase();
     const model = { shapes: names.map((n) => ({ id: id(n), name: n, shape: 'box' })), groups: [], edges: names.slice(1).map((n, i) => ({ from: id(names[i]), to: id(n), dir: 'out' })) };
     const attr = JSON.stringify(model).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     // An empty harness, as above: jsdom has no Range rects to measure text with.
-    return `<div class="flowchart-figure" data-fc-model="${attr}"><div class="fc-canvas"><div class="flowchart-scale"><div class="fc-harness"><ol class="fc-nodes"></ol></div>` +
+    return `<div class="flowchart-figure"${dir ? ` data-fc-dir="${dir}"` : ''} data-fc-model="${attr}"><div class="fc-canvas"><div class="flowchart-scale"><div class="fc-harness"><ol class="fc-nodes"></ol></div>` +
       '<svg class="flowchart-svg"><title>Flowchart</title></svg></div></div></div>';
   };
   const setup = (liveAttr, mode = 'answer', wrap = (h) => `<section class="flowchart">${h}</section>`) => {
@@ -175,26 +187,40 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const w = dom.window;
     w.__latticeDagre = globalThis.__latticeDagre;
     const K = graphLayoutKernel();
-    const log = { posts: [], sources: [] };
+    const log = { posts: [], sources: [], answered: 0 };
     w.URL.createObjectURL = () => 'blob:test';
     w.URL.revokeObjectURL = () => {};
     const RealBlob = w.Blob;
     w.Blob = class extends RealBlob { constructor(parts, o) { super(parts, o); log.sources.push(parts.join('')); } };
     w.Worker = class {
+      constructor() { log.worker = this; this.n = log.workers = (log.workers || 0) + 1; }
       postMessage(d) {
-        log.posts.push(d);
+        log.posts.push({ ...d, via: this.n });
         if (mode === 'silent') return;
-        setTimeout(() => this.onmessage({ data: { id: d.id, geo: mode === 'null' ? null : JSON.parse(JSON.stringify(K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre))) } }), 5);
+        // 'nolines': a search answers the way a search that picks dagre's layout does (no
+        // `lines`); the first draw (synchronous, the real kernel) still pins a grid.
+        const out = () => { const g = K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre); if (mode === 'nolines' && g && d.opts.wrap) delete g.lines; return g; };
+        setTimeout(() => { log.answered++; this.onmessage({ data: { id: d.id, geo: mode === 'null' ? null : JSON.parse(JSON.stringify(out())) } }); }, 5);
       }
       terminate() {}
     };
     const pass = () => w.eval(browserJs());
     // The Studio replaces the figure on every edit.
-    const edit = (names) => { (w.document.querySelector('section') || w.document.body).innerHTML = figHtml(names); pass(); };
+    const edit = (names, dir) => { (w.document.querySelector('section') || w.document.body).innerHTML = figHtml(names, dir); pass(); };
     pass();
     return { w, log, edit, fig: () => w.document.querySelector('.flowchart-figure'), text: () => w.document.querySelector('svg.flowchart-svg').textContent };
   };
-  const settle = () => new Promise((r) => setTimeout(r, 60));
+  // Wait for the stand-in worker to answer every post and the figure to leave pending, not
+  // for a fixed interval: a fixed 60 ms lost the race on a loaded machine. Bounded, so a
+  // real hang still fails the test's own assertions rather than the runner's timeout.
+  const settle = async (t) => {
+    const tick = () => new Promise((r) => setTimeout(r, 10));
+    for (const end = Date.now() + 2000; Date.now() < end;) {
+      await tick();
+      if (t.log.answered === t.log.posts.length && t.fig()?.getAttribute('data-fc-pending') == null) break;
+    }
+    await tick();
+  };
 
   test('the first draw is synchronous and starts no worker', () => {
     const t = setup(true);
@@ -210,7 +236,11 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.equal(t.fig().getAttribute('data-fc-drawn'), '1', 'the old drawing is up, not the tiles');
     assert.match(t.text(), /Gamma/);
     assert.equal(t.log.posts.length, 1);
-    await settle();
+    // The flowchart asks Trama to wrap, like the state chart: its first draw searched the
+    // wraps, and a live keystroke lays out the grid that search pinned (sticky wrap). A
+    // chart that did not ask for wrap has no pin, so this post would carry no grid.
+    assert.ok(t.log.posts[0].opts.grid >= 1 && t.log.posts[0].opts.wrap === false, JSON.stringify(t.log.posts[0].opts));
+    await settle(t);
     assert.equal(t.fig().getAttribute('data-fc-pending'), null);
     assert.match(t.text(), /Delta/);
     assert.doesNotMatch(t.text(), /Gamma/);
@@ -220,7 +250,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const t = setup(true);
     for (const n of ['D', 'De', 'Del', 'Delt', 'Delta']) t.edit(['Alpha', 'Beta', n]);
     assert.equal(t.log.posts.length, 1, 'the rest wait, and only the newest of them is kept');
-    await settle();
+    await settle(t);
     assert.equal(t.log.posts.length, 2);
     assert.equal(t.log.posts[1].model.shapes[2].name, 'Delta');
     assert.match(t.text(), /Delta/);
@@ -245,7 +275,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.equal(replies.length, 1);
     assert.equal(replies[0].id, job.id);
     assert.ok(replies[0].geo?.nodes?.delta, 'a layout came back');
-    await settle();
+    await settle(t);
   });
 
   test('another slide\'s chart at the same position draws at once, never showing the last slide\'s drawing', () => {
@@ -260,12 +290,98 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
   test('a worker that answers with no layout leaves the measuring tiles, not the old drawing', async () => {
     const t = setup(true, 'null');
     t.edit(['Alpha', 'Beta', 'Delta']);
-    await settle();
+    await settle(t);
     assert.equal(t.fig().getAttribute('data-fc-pending'), null);
     assert.equal(t.fig().getAttribute('data-fc-drawn'), null);
     t.edit(['Alpha', 'Beta', 'Delta']);
-    await settle();
-    assert.equal(t.log.posts.length, 2, 'one post per edit, and none from the passes between');
+    await settle(t);
+    // The first edit laid out the pinned grid, which answered nothing, so it searched once
+    // and dropped the pin; the second edit searches. None from the passes between.
+    assert.equal(t.log.posts.length, 3, 'a pinned try, its search, then one search');
+    assert.ok(t.log.posts[0].opts.grid >= 1);
+    assert.equal(t.log.posts[1].opts.grid, undefined);
+    assert.equal(t.log.posts[2].opts.grid, undefined);
+  });
+
+  // STICKY WRAP (pipeline.ts): a keystroke lays out the grid the last search picked; the
+  // search runs again once the author pauses; a newer key cancels that search.
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  test('a keystroke lays out the pinned grid, and one search follows the pause', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    assert.equal(t.log.posts.length, 1);
+    await sleep(360);
+    await settle(t);
+    assert.equal(t.log.posts.length, 2, 'one search after the pause');
+    assert.equal(t.log.posts[1].opts.wrap, true);
+    assert.equal(t.log.posts[1].opts.grid, undefined);
+    assert.match(t.text(), /Delta/);
+    // Nothing more: the search kept the wrap, so no further round is asked for.
+    await sleep(360);
+    assert.equal(t.log.posts.length, 2);
+  });
+
+  test('a key inside the pause cancels the search; only the newest text is searched', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delt']);
+    await settle(t);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    await sleep(360);
+    await settle(t);
+    const searches = t.log.posts.filter((p) => p.opts.wrap === true);
+    assert.equal(searches.length, 1);
+    assert.equal(searches[0].model.shapes[2].name, 'Delta');
+    // The second key was pinned too: a pinned drawing never clears the pin it drew from.
+    assert.ok(t.log.posts[1].opts.grid >= 1 && t.log.posts[1].opts.wrap === false, JSON.stringify(t.log.posts[1].opts));
+  });
+
+  test('a search that picks dagre pins dagre: the next key lays out dagre, with no search', async () => {
+    const t = setup(true, 'nolines');
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    await sleep(360);
+    await settle(t);
+    assert.equal(t.log.posts.length, 2, 'a pinned key, then the pause search');
+    t.edit(['Alpha', 'Beta', 'Delt']);
+    await settle(t);
+    assert.equal(t.log.posts.length, 3);
+    const o = t.log.posts[2].opts;
+    assert.ok(o.wrap === false && o.grid === undefined && (o.dir === 'lr' || o.dir === 'tb'), JSON.stringify(o));
+  });
+
+  test('the pause search runs in its own worker, so a key never queues behind it', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    await sleep(360);
+    await settle(t);
+    assert.equal(t.log.posts.length, 2);
+    assert.equal(t.log.posts[0].via, 1, 'the key on the live worker');
+    assert.equal(t.log.posts[1].via, 2, 'the pause search on a second one');
+    assert.equal(t.log.posts[1].opts.wrap, true);
+  });
+
+  test('a new direction searches at once; the pin holds only for the direction it was chosen under', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta'], 'tb');
+    await settle(t);
+    assert.equal(t.log.posts[0].opts.wrap, true);
+    assert.equal(t.log.posts[0].opts.dir, 'tb');
+  });
+
+  test('a worker dropped during the pause is never posted to again; the figure is not left pending', async () => {
+    const t = setup(true);
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    await settle(t);
+    assert.equal(t.log.posts.length, 1);
+    t.log.worker.onerror();
+    await sleep(360);
+    await settle(t);
+    assert.equal(t.log.posts.length, 1, 'no search posted to the dropped worker');
+    assert.equal(t.fig().getAttribute('data-fc-pending'), null);
+    assert.match(t.text(), /Delta/);
   });
 
   test('a worker that stops answering is dropped and the chart draws in place', async () => {
@@ -277,6 +393,20 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     assert.match(t.text(), /Delta/);
     t.edit(['Alpha', 'Beta', 'Epsilon']);
     assert.equal(t.log.posts.length, 1, 'no worker after it failed');
+    assert.match(t.text(), /Epsilon/);
+  });
+
+  test('no dagre tag yet is asked again, not cached: the worker starts once the host adds it', async () => {
+    const t = setup(true);
+    const tag = t.w.document.querySelector('script[src]');
+    tag.remove();
+    t.edit(['Alpha', 'Beta', 'Delta']);
+    assert.equal(t.log.posts.length, 0, 'no dagre to load into a worker, so the edit draws in place');
+    assert.match(t.text(), /Delta/);
+    t.w.document.head.appendChild(tag);
+    t.edit(['Alpha', 'Beta', 'Epsilon']);
+    assert.equal(t.log.posts.length, 1, 'the worker starts once the tag is there');
+    await settle(t);
     assert.match(t.text(), /Epsilon/);
   });
 

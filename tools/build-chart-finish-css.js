@@ -88,7 +88,7 @@ const F = {
 //
 // `keysText`: a KEY whose marks carry text takes their level, though it carries none itself —
 // under tone a gantt key at the middle step sat beside bars at the text step, and the key
-// stopped matching the chart. A state-chart tile or key dot that is `deferred` is left alone:
+// stopped matching the chart. A state-chart tile or key swatch that is `deferred` is left alone:
 // its hollowness is its background, which a finish would fill (an SVG shape's is
 // `fill-opacity`, which a finish does not touch, so the shape keeps `deferred`).
 const STATUS_MARKS = [
@@ -97,11 +97,17 @@ const STATUS_MARKS = [
   { sel: '.gantt-legend-swatch[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false, keysText: true },
   { sel: ':is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
   { sel: '.state-node-shape[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
-  { sel: '.state-dot[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
+  // A state chart's key is the shared graph key (`_chart-family/graph-key.js`, state chart v2):
+  // its status swatch follows the state tiles it keys. Scoped to the state chart's figure, since
+  // a flowchart's status shapes keep their paint under a finish and so must its key.
+  { sel: '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
   { sel: '.progress-fill[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
   { sel: '.chart-status[data-s]', hue: 'var(--pill-hue)', ink: 'var(--pill-ink)', paint: 'bg', bears: true },
   { sel: '.waterfall-bar[data-s="up"]', hue: 'var(--state-pass-hue)', ink: 'var(--state-pass-ink)', paint: 'fill', bears: false },
   { sel: '.waterfall-bar[data-s="down"]', hue: 'var(--state-fail-hue)', ink: 'var(--state-fail-ink)', paint: 'fill', bears: false },
+  // hub-spoke paints a status on the one spoke that carries it — its node, or a tiered leaf —
+  // from its own channel (hub-spoke.styles.css re-points --hs-state-* per status word).
+  { sel: ':is(.hub-spoke-node, .hub-spoke-leaf)[data-s]', hue: 'var(--hs-state-hue)', ink: 'var(--hs-state-ink)', paint: 'fill', bears: false },
 ];
 
 // What a body mixes toward. Pigment reproduces the family's shipped body tier
@@ -269,6 +275,15 @@ function build() {
         rule(name, ':is(.fc-group, .fc-key-swatch[data-kind="group"])[data-slot]', [`--fc-group-hue: ${ONE}`]),
         rule(name, '.fc-group-title[data-slot]', [`fill: ${ONE_INK}`]),
       ].join('\n')));
+      // A hub-spoke group's connector band, twig, arrowhead and satellite name are the
+      // group's hue at a faint level or as ink, never a body — so, like a container, they
+      // keep their level and join the one hue through the member's own group property.
+      // Left alone they kept eight category hues beside tonal discs and a tonal key. No text
+      // sits on a band (a name sits on the canvas), so nothing here waits on relative color.
+      w(rule(name, ':is(.hub-spoke-neck, .hub-spoke-twig, .hub-spoke-arrow, .hub-spoke-name)[data-hue]', [
+        `--hs-group-hue: ${ONE}`,
+        `--hs-group-ink: ${ONE_INK}`,
+      ]));
       // A roadmap's phase color is a container color too: one property per phase column,
       // workstream lane and horizon card, read by its pill, its stripe and its card rule. The
       // `.roadmap` inside :where() matches the finished section itself, so no other table on

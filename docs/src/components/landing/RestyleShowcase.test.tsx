@@ -22,7 +22,7 @@ vi.mock('@/lib/single-slide-render', () => ({
 
 const DATA: RestyleData = {
 	sample: '<!-- _class: kpi -->\n# x',
-	mermaid: false,
+	drawn: false,
 	palettes: [
 		{ name: 'indaco', label: 'Indaco', accent: '#006fa8' },
 		{ name: 'cuoio', label: 'Cuoio', accent: '#9a3b2f' },

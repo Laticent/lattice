@@ -399,6 +399,8 @@ _Criteria defined by the team building Sprig + Log. We're transparent about it. 
 <!-- _class: radar -->
 <!-- _footer: "Spider comparison · radar" -->
 
+`[{Scale, 0..10}]`
+
 `Scale · 0–10, on the criteria we wrote`
 
 ## The four tools, scored across the criteria we wrote
@@ -521,7 +523,7 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 <!-- _class: gantt -->
 <!-- _footer: "Schedule by workstream · gantt" -->
 
-`2026 Q1 .. 2026 Q4`
+`[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
 ## The build schedule — Phase 3 is the big red bar, as it was last year
 
@@ -900,14 +902,14 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 ## Where the 18 logged decisions landed
 
 - After the fact
-  - Reprioritized the roadmap `2, 7`
-  - Picked the vendor `1, 6`
-  - Killed the connector rewrite `4, 8`
+  - Reprioritized the roadmap `{2, 7}`
+  - Picked the vendor `{1, 6}`
+  - Killed the connector rewrite `{4, 8}`
 - Predicted
-  - Cut the onboarding step `7, 7`
-  - Renamed the tier labels `8, 8`
+  - Cut the onboarding step `{7, 7}`
+  - Renamed the tier labels `{8, 8}`
 - Calibrated
-  - Adjusted recency weight `3, 2`
+  - Adjusted recency weight `{3, 2}`
 
 ---
 
@@ -931,14 +933,14 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 ## A product manager's first month with the framework
 
 - Week 1
-  - Onboarding `@pm` `:4`
-  - First weekly brief `@pm` `:3`
+  - Onboarding `{who=pm, mood=4}`
+  - First weekly brief `{who=pm, mood=3}`
 - Week 2
-  - Logging a decision `@pm` `:2`
+  - Logging a decision `{who=pm, mood=2}`
 - Week 3
-  - The 2σ alert `@pm` `:1`
+  - The 2σ alert `{who=pm, mood=1}`
 - Week 4
-  - Retrospective `@team` `:2`
+  - Retrospective `{who=team, mood=2}`
 
 ---
 

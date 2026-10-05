@@ -63,7 +63,7 @@ browser renderer, a library loaded only when used. They share a slide layout, no
 | R2 | Import and export | the spine's `lattice packages add / check / export` and the Studio Library, with one kind row added; what a zip may carry is §4.10 | §4.11 |
 | R3 | Stand alone or depend on other plugins | `requires` / `optional`, resolved and ordered at build time; cycles and misses fail by name | §4.5 |
 | R4 | Easy to create | `lattice packages new plugin <name>` writes a working plugin that passes the build untouched | §4.13 |
-| R5 | Easy to use | the author types the fence or syntax; the plugin loads because the deck uses it | §4.8 |
+| R5 | Easy to use | the author types the fence or syntax; every shipped plugin is loaded by default, and a deck names any other in its `plugins:` list (amended 2026-10-05, §9 decisions 6 and 9 — usage no longer loads a plugin; it decides when a loaded one's payload loads) | §4.8, §9 |
 | R6 | Works today and tomorrow | an `api` field, one conformance harness, a deprecation rule for aliases, and a draft spec frozen only after Mermaid and the charts prove it | §4.12 |
 | R7 | No jank | derived rosters, a deletion ratchet so no phase leaves two systems, host-owned fail-soft, one settle barrier before any capture | §3, §4.6–4.7, §7 |
 | R8 | Mermaid, the chart family and the rest become plugins | each mapped in §5; the contract carries what they need without a breaking change | §5 |
@@ -289,6 +289,11 @@ about the whole plugin's CSS, not one render path.
 
 - `bake` and `exec.bake: "subprocess"` — Mermaid (phase D) renders in a Node-driven page before
   the deck renders.
+- `exec.hydrate: "pass"` — Mermaid (phase D's browser half): a `hydrate.js` exporting
+  `createPass(ctx)`, a document pass the runtime drives, for a browser half that cannot draw one
+  figure on its own (a global renderer config that needs every figure grouped by palette).
+- `highlight` — Mermaid (phase D's browser half): a highlight.js grammar the host registers under
+  the plugin's code fences, so the source a fence shows before it is drawn is colored.
 - `services` — a plugin calling another plugin's named function, declared in the manifest
   (`contributes.services: ["tex"]`) so the one-to-one check covers it. v1 has no consumer (§6).
 - `extensionPoints` — a plugin offering a slot others fill; the chart family is the consumer.
@@ -418,10 +423,16 @@ which cannot carry imports.
   D adds anyway), so the resolver exempts it from the no-import rule; or (b) an esbuild IIFE built
   into `dist/` beside `dist/lattice-emulator.js` at `prepare`, never committed, which answers this
   paragraph's staleness objection. (a) is the likelier: Mermaid already bakes on the CLI.
-  **As built (phase D): (a).** `render.exec.hydrate: "runtime"` marks a plugin whose browser half
-  is the runtime's own pass, with no hydrate module to serialize; the resolver then REQUIRES a
+  **As built (phase D): (a).** `render.exec.hydrate: "runtime"` marked a plugin whose browser half
+  was the runtime's own pass, with no hydrate module to serialize; the resolver then REQUIRES a
   `bake`, and the CLI draws the plugin there (`lib/plugins/host-bake.js`). Mermaid's fence is
   declared `as: "code"`, so the engine's bytes did not move (§11, phase D).
+  **As finished (phase D's browser half, 2026-10-04): `"pass"` replaced `"runtime"`.** The pass
+  moved into the plugin as `lib/plugins/mermaid/mermaid.hydrate.js`, exporting `createPass(ctx)`
+  — a DOCUMENT pass, because Mermaid's global config cannot draw one figure on its own. The
+  runtime bundles it through `passes.generated.js` and drives it (`boot`, `run`, `onMutations`)
+  without naming it; it is never serialized, so the no-import rule does not apply to it, and the
+  `bake` requirement stands. The CLI export page is unchanged: it still bakes.
 - **HTML player:** ships no plugin code; it bakes the hydrated page.
 
 **The settle barrier.** Today's PDF is correct only because the function-plot inflater runs
@@ -440,6 +451,12 @@ it — shape 4 of #22. `checkRuntimeMarkupSinks` scans `lib/runtime` plus named 
 an inflater into a plugin never takes it out of the census.
 
 ### 4.8 Payload: loaded because the deck uses it
+
+> **Amended 2026-10-05 (§9 decisions 6 and 9).** This section decides when a loaded plugin's
+> PAYLOAD (and its bake) runs. It no longer decides whether a plugin is loaded at all: every
+> plugin is loaded explicitly — the default set, the deck's `plugins:` import list, or a component
+> that requires it (`lib/plugins/host-grammar.mjs` `admitPlugins`). The probe below never admits
+> one.
 
 A payload entry declares a file and `when`: `"always"` (part of the engine's CSS or bundle) or
 `"used"`.
@@ -617,9 +634,13 @@ recording exactly what is left.
 - **D. Mermaid** — adds `bake` and `exec.bake`. **Done for the engine and the CLI** (§11), and
   **the browser half since** (§11): the library loads through the host's `payload`, the settle
   state is the host's, and no browser code names Mermaid by any of the three hand idioms the
-  ratchet counts (`drawnFenceClasses`, `drawnLibraryUrls`, `drawnSettleStates`, all 0). What is left of phase D —
-  the runtime pass moving into the plugin, the highlight grammar and `mermaid.css` contributed by
-  it — is `followups.d/2417-p5-plugin-phase-d-browser-half.md`.
+  ratchet counts (`drawnFenceClasses`, `drawnLibraryUrls`, `drawnSettleStates`, all 0). **And the
+  plugin owns its browser half** (§11, 2026-10-04): the diagram pass is the plugin's `hydrate.js`
+  (`render.exec.hydrate: "pass"`), its stylesheet and highlight grammar are its `styles` and
+  `highlight` contributions, and the bake context's services are generic — three more ratchet
+  arms (`runtimePluginNames`, `pluginAssetsOutside`, `bakeContextByName`), all 0. Its last
+  consumers moved with #2509 (`drawnFigureClasses`, 0; `--disable-plugin`); what is still left is
+  `followups.d/2509-p5-plugin-phase-d-residue.md`.
 - **E. The data layer** — zip import/export of plugins in the CLI and the Studio (§4.10).
 - **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels; renderer
   libraries move to `optionalDependencies` (export sign-off: it changes what installs).
@@ -665,15 +686,80 @@ code. What changed because of them:
    render when a required plugin is off (§4.1). This replaces the first draft's
    `contributes.components`, and with it decision 1's count: five contribution points, not six.
 
+### Owner decisions (settled 2026-10-04, phase E's four questions)
+
+Put to the owner in one round with #2508's merge ask (the questions are in
+`followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`).
+
+6. **Every plugin is loaded explicitly — by default, or by the user.** The owner's words: "all
+   plugins should be explicitly loaded by default or by the user … plugins are plugins, we don't
+   care if they are style only." Three ways in, all explicit: the shipped default set; a deck's
+   front matter, which enables a list of plugins; and a component that declares the plugins it
+   needs (§9 decision 5), which loads them. The Studio gains a **Plugins tab in its settings**.
+   This replaces §4.8's "loaded because the deck uses it" as the LOADING rule; usage detection
+   stays as what a payload waits for, not as what admits a plugin.
+7. **A zip plugin's CSS reaches only its declared targets.** The manifest names the plugins it
+   styles; the gate scopes every selector under the host's marker for those plugins
+   (`[data-lattice-hydrate="<target>"]`) or under its own `.<name>`, and it passes the same
+   token-only gates component CSS does, through HARD RULE #22's style sink.
+8. **The zip channel waits for the code-package door.** No styles-only zip channel ships first:
+   phase E's import and export build when a data plugin can own a fence through the door (§9
+   decision 3), so a zip plugin is never a lesser kind of plugin (decision 6's "plugins are
+   plugins"). The Studio's storage for one is decided with that phase.
+
+### Owner decisions (settled 2026-10-05, E0's semantics)
+
+Answered by the owner on #2509 after #2508 merged; written here with the E0 change that builds them.
+
+9. **What "explicit" means, in three rules.**
+   - **The default set is every shipped plugin** (`math`, `function-plot`, `mermaid`, `anima`). A
+     deck with no `plugins:` key renders byte-identical to before E0.
+   - **Front matter `plugins:` is an import list.** It names the plugins the deck needs enabled.
+     Listing a default plugin is a no-op. There is no `-name` removal syntax and no "exactly these"
+     reading: a list only ever adds. A name no plugin has is reported (render diagnostic
+     `plugin/unknown-plugin`, lint `unknown-plugin`) and changes nothing.
+   - **The Studio's Plugins tab toggles the current deck's front matter.** It writes the deck's
+     `plugins:` key, so the choice travels with the deck and every export reproduces it. The tab
+     shows what is on for this deck and why: default, listed, or required by a component.
+
+   **As built (E0).** One kernel decides admission for every render path:
+   `lib/plugins/host-grammar.mjs` `admitPlugins(source, { defaults, disabled })` — the default set
+   ∪ the listed plugins ∪ the plugins the deck's slide classes require (`COMPONENT_PLUGINS`, now in
+   `grammar.generated.mjs`), closed over `requires`; then the host's `disabled` switch, which
+   cascades as before and which a deck cannot override. `lib/plugins/deck-plugins.mjs` is the one
+   reader and writer of the list (every YAML spelling of a list of names reads; the register is a
+   SPAN of lines, so the writer replaces all of it and leaves no orphaned line; the Studio writes
+   `plugins: [a, b]`) and of the deck's class directives and pane markers (which replaced
+   `lib/packages/render.js`'s reader; that file re-exports it). It is linear by construction — the
+   red team found a quadratic blank-line strip and an inherited cubic class-directive regex in the
+   first cut, both now pinned by timing arms in `test/unit/plugins/admit.test.js`. The
+   engine admits per render and keys both parser memos on the resolved off-set; the CLI's
+   `bakeDeck` admits from the same source; `createEngine({ plugins: { defaults } })` lets a host
+   narrow the default set, which is how the listed and component routes are tested end to end.
+   The usage probe stays as a WARNING, never a route: `admitPlugins` returns `unloaded` (plugins
+   no route loaded that the deck uses) and the engine reports each as `plugin/used-not-loaded`.
+   It is empty, and the probe never runs, while every plugin is in the default set.
+
+   **Where admission is NOT enforced yet (HARD RULE #25 inversion lens, E0).** Three paths still
+   act for every shipped plugin: the runtime's passes (Mermaid's pass draws every
+   `code.language-mermaid` it finds — the fence is `as: "code"`, so the engine's output is the same
+   whether Mermaid is admitted or not), the `highlight` grammars (registered for every installed
+   plugin, on purpose), and the boundary parser's block rules (a host that
+   narrows the set can see the Studio keep a `---` inside a `$$` block on one slide where that
+   host's engine, with math off, splits it). The CLI emulator also passes no `defaults` or
+   `disabled` to `bakeDeck`, so the engine's knobs and the bake's are configured separately. All of
+   it agrees while the default set is every shipped plugin, which is every shipped host. **No host
+   may narrow the default set until those paths honor admission**:
+   `followups.d/2509-p3-admission-on-the-browser-half.md`.
+
 ## 10. Non-goals
 
 - **No runtime discovery or network loading of code.** The export has to work offline, forever,
   under `script-src 'sha256-…'`.
 - **No third-party section transforms or deck passes** (§4.3).
 - **No marketplace, remote registry, `install` from a URL, or signing.**
-- **No per-deck `plugins:` front matter.** A deck uses a plugin by using its syntax; an explicit
-  list is a second place to keep in sync. The export's plugin record (§4.10) covers
-  reproducibility.
+- ~~**No per-deck `plugins:` front matter.**~~ **Retired 2026-10-05** by §9 decisions 6 and 9: a
+  deck's `plugins:` list is how a deck names what it needs, and it only ever adds.
 
 ## 11. Progress
 
@@ -956,6 +1042,95 @@ code. What changed because of them:
   selectors in a few consumers, which a second runtime-drawn plugin would need generalized; a
   deck's author-written `data-lattice-*` attributes surviving the sanitizer (pre-existing: a forged
   `hydrating` stalled captures before this change too).
+
+- **Phase D, the plugin owns its browser half: done, on its branch (2026-10-04).** The followup's
+  four items the handoff asked for, each now counted by the ratchet at 0.
+  - **The pass moved.** Mermaid's diagram pass — the palette port, fence tagging and release,
+    adoption, the render queue, the error surface and the boot wait — moved verbatim out of
+    `lib/runtime/index.js` into `lib/plugins/mermaid/mermaid.hydrate.js` as `createPass(ctx)`
+    (`render.exec.hydrate: "pass"`, which replaced `"runtime"`). The runtime finds it through
+    `passes.generated.js` and drives `boot`, `run` and `onMutations`; it names no plugin in code
+    (`runtimePluginNames`: 139 on `main`, 0). It isolates passes, so a second one cannot disturb
+    the first: a pass runs only after its own boot, its `runAll` answers for itself, `force`
+    reaches only it, and a throw in its hooks is caught. The figure geometry §11 settled holds:
+    the host's markup on the `<pre>`, the drawing in the plugin's sibling.
+  - **Its stylesheet and grammar are contributions.** `mermaid.css` → `mermaid.styles.css`
+    (`styles`, 50 tokens listed), now in the plugin slot after math and function-plot, whose
+    selectors match none of Mermaid's SVG; `dist/lattice.css` holds the same lines in a new order.
+    `mermaid.hljs.js` → `mermaid.highlight.js`, the new `highlight` contribution
+    (`installHighlight` in `host.js`), which also took the grammar out of the runtime bundle,
+    where it rode in dead through `plugins.js` (`lattice-runtime-min.js` −2,465 B raw, −899 B gz).
+    `pluginAssetsOutside`: 2 → 0.
+  - **The bake context is generic.** `BAKE_SERVICES` is a closed list `bakeDeck` enforces;
+    `diagramTheme` became the generic `paletteReader`, and Mermaid's theme assembly moved into its
+    bake (`themeFor`, still the PDF path's one assembly site). The image-set cross-scheme look
+    reads `state.rebake` — figure selector, index attribute, baked band, `render`, the warnings'
+    words — for every bake that publishes one (`bakeContextByName`: 1 → 0).
+  **Evidence.** Engine: every tracked Markdown file × 4 configurations (default, a theme override,
+  flat styles, Mermaid switched off) — 9,324 renders — HTML identical to `main` but for the 12
+  docs this change edits; CSS output identical everywhere. CLI: the diagram gallery's PDFs
+  byte-identical to `main`, light and dark; an image-set export of the chart-and-diagram fixture
+  in three cross-scheme looks (light→dark, dark→print, dark→light) identical file for file but
+  the manifest's timestamp; the `.html` export the same lines reordered (the CSS block).
+  Studio: a PDF export of the diagram gallery from a built docs site of this branch and of `main`
+  (`tools/bench-pdf-export.mjs --verify`), 31 pages light and 31 dark, identical page for page.
+  Route startup JS: Studio −8 B gz, Playground −6 B. `export-formats` integration cells for the
+  image-set look: 9 of 9.
+  **Adversarial trio (HARD RULE #25).** No blocker stood; the checker diffed every moved range
+  against `main` line for line and found only the intended edits. Folded: a false spec line (a
+  `palette` service that does not exist); the multi-pass orchestration (inversion: one `walked`
+  result for all passes, a pass `run` before its `boot`, `force` leaking across passes) — fixed
+  rather than documented; per-pass try/catch (red team); `bakeContextByName` anchored on a
+  contexts receiver (inversion: it matched any `.get('math')`); the re-bake warnings' Mermaid
+  words moved into the hook; stale comments. Recorded rather than fixed: the Mermaid kernels
+  still under `lib/integrations/mermaid/`, the `runtimeDrawn` field name, the renamed double-load
+  guard, and — as a phase-E acceptance criterion — that the zip resolver must refuse `highlight`
+  and `"pass"` by rule.
+  **Left** (`followups.d/2417-p5-plugin-phase-d-browser-half.md`): consumers that still find a
+  drawn figure by Mermaid's output class or a `mermaid` prop, the CLI not passing `disabled` to
+  `bakeDeck`, the two library copies, and the items above.
+
+- **E0, explicit loading: done (#2509).** §9 decision 9 records the owner's semantics and what was
+  built: `admitPlugins` in `host-grammar.mjs` (the default set, the deck's `plugins:` import list, the
+  plugins a slide class or pane requires, closed over `requires`, then the host's `disabled`);
+  `deck-plugins.mjs` reads and writes the list; the engine admits per render and keys both parser
+  memos on the result; `bakeDeck` admits from the same source; `render()` reports
+  `plugin/unknown-plugin` and `plugin/used-not-loaded`; `lint:deck` warns `unknown-plugin` (with a
+  one-click fix inside any spelling of the list); the Studio's deck settings gained a Plugins tab.
+  **Evidence.** Engine byte identity: all 424 tracked decks under `examples/`, `exemplars/`,
+  `design/`, `themes/`, `lib/components/`, `lib/plugins/` and the baseline decks hash the same
+  (`html`, `css`, size, diagnostics) on `main` and the branch; the same sweep with
+  `defaults: []` changes 5, so it can fail. The Studio tab driven at 1440, 820 and 390 px
+  (`docs/e2e/plugins-tab.spec.ts`), and a Studio PDF export of a deck listing
+  `plugins: [math, mermaid]` in light and dark, both drawing the diagram and the math.
+  **Adversarial trio (HARD RULE #25).** Folded: a quadratic blank-line strip in the list reader and
+  an inherited cubic class-directive regex (red team — the reader is now linear, with timing arms);
+  the writer orphaning lines of a multi-line flow list, a commented sequence or a block scalar (red
+  team — the register is now a span of lines); BOM and fence disagreements with the engine; a pane
+  marker missing the component route; a lint autofix whose made-up line stopped every later fix
+  (checker); quoted class tokens; the R5 row; a Studio switch that read as the plugin's on/off state
+  next to "On" (inversion — now a labeled checkbox); the probe kept as a warning
+  (`used-not-loaded`) so a narrowed default set is never silent (inversion). Recorded, not fixed:
+  the browser half still acts for every shipped plugin (runtime passes, highlight grammars,
+  boundary parser, drawn-probe consumers) and the CLI configures the bake's knobs separately —
+  `followups.d/2509-p3-admission-on-the-browser-half.md`, a precondition for any host narrowing
+  the default set.
+
+- **Phase D's last consumers: done (#2509 P2).** The drawn figure carries the host's marker,
+  `data-lattice-figure="<plugin>"`, written by the Mermaid pass (`mermaid.hydrate.js`) and its bake
+  (`mermaid.bake.js`, after `class` so the index stamp and the re-bake hook still key on it). Every
+  consumer outside the plugin selects it: the Studio export's SVG bake and standalone-SVG export
+  (`deck-export.js`), Anima's diagram host (`anima-host-sel.ts` `isDrawnFigureSvg`,
+  `anima-scenes.ts`), the Guide (`present-guide.ts`), the CLI player capture
+  (`lattice-emulator.js`), `overflow-probe.js`, the diagram component's CSS and manifest selectors,
+  `base.fluid-view.css`, `highlight-js.css` (which also stopped naming `[data-lattice-hydrate="mermaid"]`),
+  and the tools (`check-chart-fit`, `check-render-nature`, `check-diagram-labels`, `diagram-oracle`,
+  `bench-preview-diagrams`, `diagram-flash-bench`). `render.figureClasses` declares a plugin's own
+  output classes, and the new `drawnFigureClasses` arm counts them as selectors outside the plugin:
+  36 on `main`, 0 here. The `mermaid` prop is `drawn` (`DeckPreview`, `renderInto`, the pool, the
+  landing and specimen surfaces). The CLI builds ONE `PLUGINS_DISABLED` list (`--disable-plugin`)
+  for the engine and `bakeDeck`. Left, with reasons: `followups.d/2509-p5-plugin-phase-d-residue.md`
+  (the kernels need a package-kind role decision; the library copies are three builds, not two).
 
 ## References
 

@@ -20,7 +20,7 @@ describe('inline-pills — what it renders', () => {
 
   test('every shape name in SHAPES is selectable, and none is unreachable', () => {
     for (const shape of pills.SHAPES) {
-      const html = pills.pillHtml(`{X}:${shape}`);
+      const html = pills.pillHtml(`{X, ${shape}}`);
       assert.ok(html, `${shape} did not parse`);
       assert.match(html, new RegExp(`data-shape="${shape}"`));
     }
@@ -29,23 +29,37 @@ describe('inline-pills — what it renders', () => {
 
   test('all twelve color slots resolve, and c13 does not', () => {
     for (let i = 1; i <= 12; i++) {
-      assert.match(pills.pillHtml(`{X}:c${i}`), new RegExp(`data-c="c${i}"`), `c${i}`);
+      assert.match(pills.pillHtml(`{X, c${i}}`), new RegExp(`data-c="c${i}"`), `c${i}`);
     }
-    assert.equal(pills.pillHtml('{X}:c13'), null);
-    assert.equal(pills.pillHtml('{X}:c0'), null);
+    assert.equal(pills.pillHtml('{X, c13}'), null);
+    assert.equal(pills.pillHtml('{X, c0}'), null);
   });
 
-  test('modifier order is free — the axes are sorted, not positional', () => {
-    assert.equal(pills.pillHtml('{X}:tag:c4:lg'), pills.pillHtml('{X}:lg:c4:tag'));
-    assert.equal(pills.pillHtml('{X}:c4:tag'), pills.pillHtml('{X}:tag:c4'));
+  test('word order is free — the axes are sorted, not positional', () => {
+    assert.equal(pills.pillHtml('{X, tag, c4, lg}'), pills.pillHtml('{X, lg, c4, tag}'));
+    assert.equal(pills.pillHtml('{X, c4, tag}'), pills.pillHtml('{X, tag, c4}'));
+  });
+
+  test('a word can be written by name', () => {
+    assert.equal(pills.pillHtml('{X, shape=tag, color=c4}'), pills.pillHtml('{X, tag, c4}'));
+  });
+
+  test('a quoted label can hold a comma', () => {
+    assert.equal(pills.pillHtml('{"Cost, excl. tax", c2}'), '<span class="lat-pill" data-shape="pill" data-c="c2">Cost, excl. tax</span>');
+  });
+
+  test('the old colon spelling is no longer a pill (Segno phase 2 is a clean break)', () => {
+    for (const old of ['{BETA}:tag', '{BETA}:tag:c4', '{1}:circle:c5:lg']) assert.equal(pills.pillHtml(old), null, old);
   });
 
   test('a label is escaped, so it can never become markup', () => {
-    // This one DOES parse — it is comma-free and trimmed, so it is a legal label. That
-    // is the point: containment here is escaping, not refusal, because a grammar that
-    // only refused what looked dangerous would be guessing. The `<` and `>` come back
-    // as entities and no element is created on either path.
-    const hostile = pills.pillHtml('{<img src=x onerror=alert(1)>}');
+    // This one DOES parse — it holds no separator, so it is a legal label. That is the
+    // point: containment here is escaping, not refusal, because a grammar that only refused
+    // what looked dangerous would be guessing. The `<` and `>` come back as entities and no
+    // element is created on either path. (An `=` would make it a name=value item, so the
+    // classic `<img src=x>` is not a label at all — quoted, it is, and is escaped the same.)
+    const hostile = pills.pillHtml('{<img src/onerror(1)>}');
+    assert.match(pills.pillHtml('{"<img src=x onerror=alert(1)>"}'), /&lt;img src=x/);
     assert.match(hostile, /&lt;img/);
     assert.doesNotMatch(hostile, /<img/);
     assert.match(pills.pillHtml('{A&B}'), /&amp;/);
@@ -65,7 +79,7 @@ describe('inline-pills — what it refuses (the whole point)', () => {
     // plain code
     'getUserId()', ':root', '@media', '--accent', '#header', '!important',
     // malformed or over-specified
-    '{}', '{X}abc', '{X}:c9:c4', '{X}:tag:chip', '{X}:sm:lg', '{X}:nope',
+    '{}', '{X}abc', '{X, c9, c4}', '{X, tag, chip}', '{X, sm, lg}', '{X}:nope',
     '{unclosed', 'no braces at all',
   ];
   for (const text of LITERAL) {
@@ -81,11 +95,10 @@ describe('inline-pills — what it refuses (the whole point)', () => {
     assert.equal(pills.pillHtml('{}'), null);
   });
 
-  test('a padded or comma-bearing value is a code literal, not a label', () => {
-    assert.equal(pills.isLabel(' ok'), false);
-    assert.equal(pills.isLabel('ok '), false);
-    assert.equal(pills.isLabel('a, b'), false);
-    assert.equal(pills.isLabel('STEP 2'), true); // a space INSIDE is fine — two words
+  test('padded braces are code; an unquoted comma starts a second word', () => {
+    assert.equal(pills.pillHtml('{ ok}'), null);
+    assert.equal(pills.pillHtml('{a, b}'), null, '"b" is not a pill word');
+    assert.ok(pills.pillHtml('{STEP 2}'), 'a space INSIDE is fine — two words');
   });
 });
 
@@ -97,8 +110,8 @@ describe('inline-pills — the state markers are reserved', () => {
   for (const m of ['x', '-', '/', ' ']) {
     test(`{${m}} is literal, not a pill labeled "${m}"`, () => {
       assert.equal(pills.pillHtml(`{${m}}`), null);
-      assert.equal(pills.pillHtml(`{${m}}:c4`), null, 'a modifier must not smuggle it past');
-      assert.equal(pills.pillHtml(`{${m}}:tag:lg`), null);
+      assert.equal(pills.pillHtml(`{${m}, c4}`), null, 'a word must not smuggle it past');
+      assert.equal(pills.pillHtml(`{${m}, tag, lg}`), null);
     });
   }
 
@@ -119,23 +132,23 @@ describe('inline-pills — the parser stays allocation-free on the literal path'
     // for the 99.75% of spans that are ordinary code. Measured separately at ~78ns/span
     // cold over the repo's real distribution; see the kernel docblock for the method.
     const src = require('node:fs').readFileSync(require.resolve('../../../lib/core/inline-pills.js'), 'utf8');
-    const body = /function parse\(text\) \{([\s\S]*?)\n\}/.exec(src)[1];
+    const body = /function read\(text\) \{([\s\S]*?)\n\}/.exec(src)[1];
     const rejectLine = body.split('\n').find((l) => l.includes('charCodeAt'));
     assert.ok(rejectLine, 'the O(1) first-char reject is gone');
     assert.match(rejectLine, /return null/, 'the reject must return, not fall through');
-    // and it must come before any allocation
+    // and it must come before Segno is asked anything
     assert.ok(
-      body.indexOf('charCodeAt') < body.indexOf('.slice('),
-      'the first-char reject must precede the first slice',
+      body.indexOf('charCodeAt') < body.indexOf('isDirective('),
+      'the first-char reject must precede the directive check and the read',
     );
-    assert.doesNotMatch(body, /\/[^/\s]+\/[gimsuy]*\.(test|exec)|\.match\(/, 'parse must stay regex-free');
+    assert.doesNotMatch(body, /\/[^/\s]+\/[gimsuy]*\.(test|exec)|\.match\(/, 'read must stay regex-free');
   });
 });
 
 describe('inline-pills — the two render paths agree', () => {
   test('pillElement and pillHtml carry identical attributes and text', () => {
     const doc = new JSDOM().window.document;
-    for (const src of ['{LIVE}', '{BETA}:tag:c4', '{3}:circle:c12:lg', '{!}:diamond', '{A&B}']) {
+    for (const src of ['{LIVE}', '{BETA, tag, c4}', '{3, circle, c12, lg}', '{!, diamond}', '{A&B}']) {
       const el = pills.pillElement(doc, src);
       const html = pills.pillHtml(src);
       assert.ok(el && html, src);
@@ -146,7 +159,7 @@ describe('inline-pills — the two render paths agree', () => {
       }
       // The element carries TEXT, never markup — that is what keeps the runtime path
       // out of HARD RULE #22's post-sanitize injection surface.
-      assert.equal(el.textContent, /\{([^}]*)\}/.exec(src)[1]);
+      assert.equal(el.textContent, /\{([^,}]*)/.exec(src)[1]); // the label: the record's first item
       assert.equal(el.children.length, 0);
     }
   });

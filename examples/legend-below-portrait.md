@@ -90,14 +90,14 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 ## Cohorts on the impact/effort board.
 
 - Quick wins
-  - Cache layer `8, 2`
-  - Copy fixes `7, 1`
+  - Cache layer `{8, 2}`
+  - Copy fixes `{7, 1}`
 - Big bets
-  - Search rebuild `9, 8`
-  - New onboarding `8, 7`
+  - Search rebuild `{9, 8}`
+  - New onboarding `{8, 7}`
 - Fill-ins
-  - Icon polish `3, 2`
-  - Tooltip tweaks `2, 3`
+  - Icon polish `{3, 2}`
+  - Tooltip tweaks `{2, 3}`
 
 ---
 

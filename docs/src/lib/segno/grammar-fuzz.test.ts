@@ -76,6 +76,10 @@ function language(spec: GrammarSpec): Map<string, Lang> {
       }
       case 'ref': return L.get(e.name) ?? new Set();
       case 'node': return ev(e.x);
+      // The random grammars below never use until(), and its `orEnd` reads to the end of the
+      // INPUT — not a set of strings this model can concatenate. engine-additions.test.ts
+      // covers it in both runtimes instead.
+      case 'until': throw new Error('the brute-force language does not model until()');
     }
   };
   for (let changed = true; changed; ) {

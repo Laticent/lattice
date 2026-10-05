@@ -14,7 +14,7 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 **Density** aim ~14 words per item; past ~20 it reads as a wall of text — one statement per line, not a paragraph.
 
-**By venue** (`venue:`, ~14 words each) it holds laptop ~3 · huddle ~3 · conference ~3 · hall ~2 items. At ~6 words each: 6 · 5 · 5 · 4. With `takeaway` (~14 words): 5 · 4 · 4 · 3. Ending in a `> …` callout (~14 words): 3 · 2 · 2 · 2. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~14 words each) it holds laptop ~6 · huddle ~6 · conference ~3 · hall ~3 items. At ~6 words each: 6 · 6 · 5 · 5. With `takeaway` (~14 words): 6 · 6 · 5 · 4. Ending in a `> …` callout (~14 words): 5 · 4 · 2 · 2. No venue goes past the Capacity max of 6, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

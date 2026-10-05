@@ -59,13 +59,15 @@ const SLIDES = {
   'stacked-bar': '## S.\n\n- Q1\n  - New `12`\n  - Renewal `8`\n- Q2\n  - New `14`\n  - Renewal `9`\n',
   line: '## L.\n\n- Q1 2025 `4.2`\n- Q2 2025 `5.1`\n- Q3 2025 `6.4`\n',
   waterfall: '## W.\n\n- Opening `10`\n- Upsell `+3`\n- Churn `-2`\n- Closing `11`\n',
-  scatter: '## Sc.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n',
+  scatter: '## Sc.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n',
   slope: '## Sl.\n\n- Northwind\n  - 2023 `31%`\n  - 2026 `24%`\n- Kestrel\n  - 2023 `22%`\n  - 2026 `29%`\n',
   bullet: '## Bu.\n\n- Qualified pipeline `128%` `100%`\n- New ARR `4.2M` `5M`\n',
   funnel: '## F.\n\n- Visitors `12000`\n- Signups `4800`\n- Paid `1200`\n',
   piechart: '## P.\n\n- Alpha `46`\n- Beta `32`\n- Gamma `22`\n',
   radar: '## R.\n\n- Meridian\n  - Speed `8`\n  - Cost `6`\n  - Care `7`\n',
-  quadrant: '`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Q.\n\n- Bets\n  - Scoring v2 `3, 70`\n'
+  'hub-spoke': '## HS.\n\n- Program office\n  - Onboarding `at-risk`\n  - Governance\n  - Branch network\n',
+  'hub-spoke tiered': '## HT.\n\n- Platform org\n  - Payments\n    - Acquiring\n    - Fraud `blocked`\n  - Data\n    - Warehouse\n',
+  quadrant: '`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Q.\n\n- Bets\n  - Scoring v2 `{3, 70}`\n'
     + '- Wins\n  - Weekly brief `8, 40`\n- Defer\n  - Weighting UI `4, 55`\n- Sinks\n  - Exports `2, 20`\n',
   gantt: '`Q1 2025 - Q4 2025`\n\n## G.\n\n- Build\n  - Kernel `Q1-Q2`\n  - Ship `Q3-Q4`\n',
   'word-cloud': '## WC.\n\n- alpha `9`\n- beta `7`\n- gamma `5`\n- delta `3`\n',
@@ -198,42 +200,33 @@ describe('chart SVGs hide their marks from the accessibility tree', () => {
     }
   });
 
-  test('state-chart marks its runtime geometry aria-hidden IN PLACE', () => {
-    // Its geometry is written by draw() in the browser, so no build-time string
-    // carries it — pinned at the source instead, see the file docblock.
+  test('the graph charts mark their runtime geometry aria-hidden IN PLACE', () => {
+    // The state chart and the flowchart paint in the browser, through Trama's one SVG write
+    // (docs/src/lib/trama/pipeline.ts `writeSvg`), so no build-time string carries their
+    // geometry — pinned at the source instead, see the file docblock.
     //
-    // AND IT IS THE ONE MEMBER THAT MUST NOT USE THE SHARED WRAPPER. Wrapping
-    // its marks in a `<g>` moved the drawing: `check:chart-fit` went red at
-    // square with the machine painting ~40px outside its stage on both sides,
-    // reproducibly, twice on each arm. It is the family's only runtime-laid-out
-    // member — it measures the document it just wrote and scales itself to fit —
-    // so an element that is free everywhere else is not free here. This arm
-    // therefore pins the OPPOSITE of the others: no wrapper, and an explicit
-    // per-child marking pass that skips <title>/<desc>.
-    const src = fs.readFileSync(P('lib/components/chart/state-chart/state-chart.transform.js'), 'utf8');
+    // AND THEY MUST NOT USE THE SHARED WRAPPER. Wrapping a runtime-laid-out chart's marks in
+    // a `<g>` moved the drawing: `check:chart-fit` went red at square with the machine
+    // painting ~40px outside its stage (measured on the state chart, v1). A chart that
+    // measures the document it just wrote is not free to gain an element. So this arm pins
+    // the OPPOSITE of the others: no wrapper, and an explicit per-child marking pass that
+    // skips <title>/<desc>.
+    const src = fs.readFileSync(P('docs/src/lib/trama/pipeline.ts'), 'utf8');
     const writes = [...src.matchAll(/svg\.innerHTML\s*=\s*([^;]+);/g)].map((m) => m[1].trim());
     assert.equal(writes.length, 1, `expected exactly one svg.innerHTML assignment, found ${writes.length}`);
-    assert.doesNotMatch(
-      writes[0], /ariaHiddenMarks\(/,
-      'state-chart must NOT use the shared wrapper — the extra <g> moves its layout '
-      + 'and takes check:chart-fit red at square.',
-    );
+    assert.doesNotMatch(writes[0], /ariaHiddenMarks\(/, 'the graph charts must NOT use the shared wrapper');
     assert.match(
-      src, /for \(const el of[^)]*svg\.children[\s\S]{0,500}setAttribute\('aria-hidden', 'true'\)/,
-      'state-chart\'s runtime redraw leaves its geometry in the accessibility tree.\n'
-      + '  It must mark the children it just wrote, or every state name and edge label is\n'
-      + '  read aloud a second time after the <desc>.\n',
+      src, /for \(const el of[^)]*svg\.children[\s\S]{0,300}setAttribute\('aria-hidden', 'true'\)/,
+      'the runtime redraw leaves its geometry in the accessibility tree: every state name and label\n'
+      + '  would be read aloud a second time after the <desc>.\n',
     );
-    assert.match(
-      src, /tag === 'title' \|\| tag === 'desc'/,
-      'the marking pass must skip <title>/<desc>, or the chart loses its accessible name',
-    );
-    // The pass must survive the synthetic DOM the kernel's own tests build.
-    // Unguarded it threw `svg.children is not iterable` and took 72 arms with it:
-    // an a11y decoration must never be the reason a render fails.
-    assert.match(
-      src, /svg\.children \? \[\.\.\.svg\.children\] : \[\]/,
-      'the marking pass must tolerate a DOM with no children collection',
-    );
+    assert.match(src, /tag !== 'title' && tag !== 'desc'/, 'the marking pass must skip <title>/<desc>, or the chart loses its accessible name');
+    // The pass must survive a synthetic DOM with no children collection: an a11y
+    // decoration must never be the reason a render fails.
+    assert.match(src, /svg\.children \? \[\.\.\.svg\.children\] : \[\]/, 'the marking pass must tolerate a DOM with no children collection');
+    // And neither chart's adapter writes the SVG itself.
+    for (const f of ['lib/components/chart/state-chart/state-chart.layout.js', 'lib/components/chart/flowchart/flowchart.layout.js']) {
+      assert.doesNotMatch(fs.readFileSync(P(f), 'utf8'), /\.innerHTML\s*=/, `${f} writes markup itself instead of through Trama`);
+    }
   });
 });

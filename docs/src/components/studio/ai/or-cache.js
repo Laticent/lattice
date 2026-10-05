@@ -80,3 +80,27 @@ export function withCachedSystem(messages, modelId, ttl) {
     return m;
   });
 }
+
+// A ROLLING breakpoint on the LAST message, for the chat agent's tool loop. Each tool
+// round re-sends the whole conversation so far — the system prompt (cached by
+// withCachedSystem), then the user turn, the deck, and every earlier tool call and result.
+// Unmarked, that tail was billed at full input price on every round. Marking the newest
+// message makes round N+1 read everything up to it from cache (~0.1x) and pay full price
+// only for what round N added. Default 5-minute TTL: the tail changes every round, so the
+// cheaper write is the right one. Same vendor gate as the system mark; a second breakpoint
+// is within Anthropic's limit of four. Pure — returns a new array.
+export function withCachedTail(messages, modelId, ttl) {
+  if (!OR_CACHE_BREAKPOINT_VENDORS.has(cacheVendorOf(modelId))) return messages;
+  const list = messages || [];
+  if (!list.length) return list;
+  const last = list[list.length - 1];
+  const mark = ttl ? { type: 'ephemeral', ttl } : { type: 'ephemeral' };
+  let content = last.content;
+  if (typeof content === 'string') {
+    if (!content) return list;
+    content = [{ type: 'text', text: content, cache_control: mark }];
+  } else if (Array.isArray(content) && content.length && typeof content[content.length - 1]?.text === 'string' && !content.some((p) => p?.cache_control)) {
+    content = content.map((p, i) => (i === content.length - 1 ? { ...p, cache_control: mark } : p));
+  } else return list;
+  return [...list.slice(0, -1), { ...last, content }];
+}

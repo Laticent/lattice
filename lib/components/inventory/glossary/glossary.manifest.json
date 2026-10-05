@@ -138,14 +138,14 @@
       "axis": "item",
       "basis": "measured",
       "side": {
-        "sweet": 10,
-        "hard": 12
+        "sweet": 4,
+        "hard": 5
       },
       "stack": {
-        "sweet": 3,
-        "hard": 4
+        "sweet": 2,
+        "hard": 3
       },
-      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 8 words per element, half the slide density (side 50%: fits 12+, so 12 is a floor, not a ceiling; stack 50/50: clips at 5). sweet sits below it."
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 8 words per element, half the slide density (side 50%: clips at 6; stack 50/50: clips at 4). Re-measured 2026-09-29, when definitions moved to the one reading size (--fs-body). sweet sits below it."
     }
   },
   "venueCapacity": {
@@ -153,16 +153,92 @@
     "at": "wide",
     "byWords": {
       "6": {
-        "laptop": 10,
-        "huddle": 9,
-        "conference": 8,
-        "hall": 7
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 6,
+        "hall": 5
+      },
+      "8": {
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 6,
+        "hall": 5
+      },
+      "10": {
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 6,
+        "hall": 5
+      },
+      "12": {
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 6,
+        "hall": 3
+      },
+      "13": {
+        "laptop": 9,
+        "huddle": 8,
+        "conference": 3,
+        "hall": 3
+      },
+      "14": {
+        "laptop": 9,
+        "huddle": 4,
+        "conference": 3,
+        "hall": 3
       },
       "16": {
-        "laptop": 10,
-        "huddle": 9,
-        "conference": 4,
+        "laptop": 9,
+        "huddle": 4,
+        "conference": 3,
         "hall": 3
+      }
+    },
+    "eyebrow": {
+      "byWords": {
+        "6": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 6,
+          "hall": 4
+        },
+        "8": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 6,
+          "hall": 4
+        },
+        "10": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 6,
+          "hall": 4
+        },
+        "12": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 6,
+          "hall": 2
+        },
+        "13": {
+          "laptop": 8,
+          "huddle": 7,
+          "conference": 3,
+          "hall": 2
+        },
+        "14": {
+          "laptop": 8,
+          "huddle": 4,
+          "conference": 3,
+          "hall": 2
+        },
+        "16": {
+          "laptop": 8,
+          "huddle": 4,
+          "conference": 3,
+          "hall": 2
+        }
       }
     }
   },

@@ -81,10 +81,10 @@
   },
   "skeleton": "<!-- _class: list-tabular -->\n\n## Slide heading.\n\n1. First entry\n   - Description or value for the first entry.\n2. Second entry\n   - Description or value for the second entry.\n3. Third entry\n   - Description or value for the third entry.\n4. Fourth entry\n   - Description or value for the fourth entry.\n",
   "anatomyBlock": "list-tabular",
-  "sample": "<!-- _class: list-tabular -->\n\n## The tabular list rules rows into a register.\n\n1. Rows\n   - Label, clause, optional meta line.\n   - _Twelve soft · sixteen hard_\n2. Looks\n   - Eight named looks reskin the rows.\n   - _def · spec · register_\n3. Escalation\n   - Long content leaves for a table.\n   - _split past seven rows_\n",
+  "sample": "<!-- _class: list-tabular -->\n\n## The tabular list rules rows into a register.\n\n1. Rows\n   - Label, clause, optional meta line.\n   - _Twelve soft · sixteen hard_\n2. Looks\n   - Eight named looks reskin the rows.\n   - _def · spec · register_\n3. Escalation\n   - Long content leaves for a table.\n   - _split past six rows_\n",
   "stressDoc": {
-    "summary": "Seven rows — the register's page.",
-    "sample": "<!-- _class: list-tabular register -->\n\n## Seven rows is the register's practical page.\n\n1. title `stable`\n2. big-number `stable`\n3. cards-grid `stable`\n4. split-panel `stable`\n5. funnel `stable`\n6. map `stable`\n7. radar `beta`\n"
+    "summary": "Six rows — the register's page.",
+    "sample": "<!-- _class: list-tabular register -->\n\n## Six rows is the register's practical page.\n\n1. title `stable`\n2. big-number `stable`\n3. cards-grid `stable`\n4. split-panel `stable`\n5. funnel `stable`\n6. radar `beta`\n"
   },
   "whenToUse": [
     {
@@ -289,13 +289,13 @@
       "basis": "measured",
       "side": {
         "sweet": 5,
-        "hard": 7
+        "hard": 6
       },
       "stack": {
         "sweet": 2,
         "hard": 3
       },
-      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 6 words per element, half the slide density (side 50%: clips at 8; stack 50/50: clips at 4). sweet sits below it."
+      "note": "hard = the ceiling tools/calibrate-capacity.js --pane measured at 6 words per element, half the slide density (side 50%: clips at 7; stack 50/50: clips at 4). Re-measured 2026-09-29, when rows moved to the one reading size (--fs-body). sweet sits below it."
     }
   },
   "venueCapacity": {
@@ -303,16 +303,188 @@
     "at": "wide",
     "byWords": {
       "6": {
-        "laptop": 7,
+        "laptop": 6,
         "huddle": 6,
-        "conference": 6,
+        "conference": 5,
+        "hall": 5
+      },
+      "8": {
+        "laptop": 6,
+        "huddle": 6,
+        "conference": 5,
+        "hall": 5
+      },
+      "10": {
+        "laptop": 6,
+        "huddle": 6,
+        "conference": 5,
         "hall": 5
       },
       "12": {
-        "laptop": 7,
+        "laptop": 6,
         "huddle": 6,
-        "conference": 6,
-        "hall": 5
+        "conference": 5,
+        "hall": 3
+      },
+      "13": {
+        "laptop": 6,
+        "huddle": 6,
+        "conference": 3,
+        "hall": 3
+      },
+      "14": {
+        "laptop": 6,
+        "huddle": 4,
+        "conference": 3,
+        "hall": 3
+      },
+      "16": {
+        "laptop": 6,
+        "huddle": 4,
+        "conference": 3,
+        "hall": 3
+      }
+    },
+    "eyebrow": {
+      "byWords": {
+        "6": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 5,
+          "hall": 4
+        },
+        "8": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 5,
+          "hall": 4
+        },
+        "10": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 5,
+          "hall": 4
+        },
+        "12": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 5,
+          "hall": 2
+        },
+        "13": {
+          "laptop": 6,
+          "huddle": 5,
+          "conference": 3,
+          "hall": 2
+        },
+        "14": {
+          "laptop": 6,
+          "huddle": 3,
+          "conference": 3,
+          "hall": 2
+        },
+        "16": {
+          "laptop": 6,
+          "huddle": 3,
+          "conference": 3,
+          "hall": 2
+        }
+      }
+    },
+    "insight": {
+      "byWords": {
+        "6": {
+          "laptop": 5,
+          "huddle": 4,
+          "conference": 4,
+          "hall": 3
+        },
+        "12": {
+          "laptop": 5,
+          "huddle": 4,
+          "conference": 4,
+          "hall": 2
+        }
+      },
+      "eyebrow": {
+        "byWords": {
+          "6": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 3,
+            "hall": 2
+          },
+          "12": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 3,
+            "hall": 1
+          }
+        }
+      }
+    },
+    "variants": {
+      "compact": {
+        "byWords": {
+          "6": {
+            "laptop": 9,
+            "huddle": 9,
+            "conference": 7,
+            "hall": 7
+          },
+          "12": {
+            "laptop": 9,
+            "huddle": 9,
+            "conference": 7,
+            "hall": 4
+          }
+        }
+      },
+      "fixed": {
+        "byWords": {
+          "6": {
+            "laptop": 6,
+            "huddle": 6,
+            "conference": 5,
+            "hall": 3
+          },
+          "8": {
+            "laptop": 6,
+            "huddle": 6,
+            "conference": 3,
+            "hall": 3
+          },
+          "10": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 3,
+            "hall": 3
+          },
+          "12": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 3,
+            "hall": 2
+          },
+          "13": {
+            "laptop": 4,
+            "huddle": 4,
+            "conference": 2,
+            "hall": 2
+          },
+          "14": {
+            "laptop": 4,
+            "huddle": 3,
+            "conference": 2,
+            "hall": 1
+          },
+          "16": {
+            "laptop": 3,
+            "huddle": 3,
+            "conference": 2,
+            "hall": 1
+          }
+        }
       }
     }
   },

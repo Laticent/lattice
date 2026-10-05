@@ -40,7 +40,9 @@ function resolveChrome() {
 
 const deck = (front, body) => `---\nmarp: true\ntheme: indaco\n${front}---\n\n${body.trim()}\n`;
 
-const WRAP = 'A long line may spend twenty words, and this one spends them to show where the wrap lands.';
+// Long enough to wrap at the one reading size (--fs-body, 2026-09-29); at the old 21pt
+// --fs-message rows a shorter line wrapped already.
+const WRAP = 'A long line may spend twenty words or more, and this one spends every one of them on purpose to show exactly where the wrap lands on a wide slide.';
 const WIDE = deck('', `
 <!-- _class: list -->
 

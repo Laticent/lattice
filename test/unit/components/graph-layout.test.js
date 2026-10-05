@@ -49,8 +49,12 @@ const WIDE_SOFT_BUDGET = 0;
 // worse. Then the route solver (one cost for every line, rip-up and reroute, see the
 // decision note §7) replaced the pass stack: 16, and its review round (a relax phase, an
 // order for each side's ends that crosses nothing) took it to 10. A crossing is a cost, not a defect, so this
-// is a ceiling to ratchet down.
-const CROSSING_BUDGET = 10;
+// is a ceiling to ratchet down. State chart v2 raised it to 39, on purpose: the solver had
+// been buying those crossings with JOINS, one line's corner or end lying on an unrelated line
+// (a T that reads as a transition that is not there). Measured on this corpus, main left 132
+// joins on 40 of the 1,000 charts; joins are now a never-rule (`sharesRun`, and counted in
+// `sharedRuns`), so none remain, and the 29 extra crossings are clean X's a reader can follow.
+const CROSSING_BUDGET = 39;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -73,12 +77,12 @@ const run = (src, kernel = K, extra = {}) => {
 };
 
 const GALLERY = {
-  incident: `- Alert fires \`:pill\`
+  incident: `- Alert fires \`pill\`
   - => Auto-triage => Severity?
-- Severity? \`:diamond\`
+- Severity? \`diamond\`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket
-  - -SEV3-> Backlog \`:dotted\`
+  - -SEV3-> Backlog \`dotted\`
 - Page on-call \`fail\`
   - =ack=> Mitigate
   - -no ack 5m-> Escalate to lead
@@ -89,19 +93,19 @@ const GALLERY = {
 - Mitigate
   - => Postmortem
 - Backlog \`muted\`
-- Postmortem \`:doc\``,
-  flat: `- Alert fires \`:pill\` => Auto-triage => Severity?
-- Severity? \`:diamond\`
+- Postmortem \`doc\``,
+  flat: `- Alert fires \`pill\` => Auto-triage => Severity?
+- Severity? \`diamond\`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket -> Mitigate
-  - -SEV3-> Backlog \`:dotted\`
+  - -SEV3-> Backlog \`dotted\`
 - Page on-call \`fail\` =ack=> Mitigate => Postmortem
   > Pages the secondary after 5 minutes.
-- Platform \`:c2\`
+- Platform \`c2\`
   - Storefront => Payments
   - Payments -screens-> Fraud checks
   - -ships via-> Carriers`,
-  org: `- Chief executive \`:c1\`
+  org: `- Chief executive \`c1\`
   - -- Finance & Technology & Operations
 - Finance
   - -- Controller & Planning
@@ -109,43 +113,43 @@ const GALLERY = {
   - -- Platform & Product engineering & Security
 - Operations
   - -- Support & Logistics
-- Security \`:c4\`
-  - -advises-> Finance \`:dotted:loose\``,
-  dataflow: `- Sources \`:c1\`
-  - Web events \`:io\`
-  - Mobile events \`:io\`
-  - Billing DB \`:cylinder\`
+- Security \`c4\`
+  - -advises-> Finance \`{dotted, loose}\``,
+  dataflow: `- Sources \`c1\`
+  - Web events \`io\`
+  - Mobile events \`io\`
+  - Billing DB \`cylinder\`
   - => Ingest queue
-- Pipeline \`:c2\`
+- Pipeline \`c2\`
   - Ingest queue
     - => Stream processor
   - Stream processor
     - -enrich-> Feature store
     - => Warehouse
-  - Feature store \`:cylinder\`
-  - Warehouse \`:cylinder\`
+  - Feature store \`cylinder\`
+  - Warehouse \`cylinder\`
     - -> BI dashboards
     - -nightly-> ML training
-- BI dashboards \`:doc\`
+- BI dashboards \`doc\`
 - ML training
   - -models-> Feature store`,
-  system: `- Customers \`:c1\`
-  - Shopper \`:circle\`
+  system: `- Customers \`c1\`
+  - Shopper \`circle\`
     - -browses-> Storefront
-  - Merchant \`:circle\`
+  - Merchant \`circle\`
     - -lists items-> Storefront
-- Platform \`:c2\`
+- Platform \`c2\`
   - Storefront
     - => Payments
   - Payments
     - -screens-> Fraud checks
     - <-> Card networks
-  - Fraud checks \`:diamond\`
+  - Fraud checks \`diamond\`
   - -ships via-> Carriers
-- Partners \`:c3\`
-  - Card networks \`:square\`
-  - Carriers \`:square\`
-- Regulators \`:doc\``,
+- Partners \`c3\`
+  - Card networks \`square\`
+  - Carriers \`square\`
+- Regulators \`doc\``,
   // Two labeled lines in opposite directions between the same pair, on a short run:
   // neither label can clear the other alone, so the seating must move both.
   crowded: `- Golf -lab3-> Delta
@@ -236,7 +240,7 @@ describe('graph-layout — seeded random charts (ratchet)', () => {
         const lines = [];
         const grouped = rnd() < 0.5;
         if (grouped) {
-          lines.push('- Grp One `:c2`');
+          lines.push('- Grp One `c2`');
           for (const x of ns.slice(0, 3)) lines.push(`  - ${x}`);
         }
         for (const x of ns.slice(grouped ? 3 : 0)) lines.push(`- ${x}`);
@@ -278,12 +282,12 @@ describe('graph-layout — groups as endpoints, nested groups, self-loops (ratch
         const groups = [];
         const kind = rnd();
         if (kind < 0.33) {
-          lines.push('- One `:c2`');
+          lines.push('- One `c2`');
           for (const x of ns.slice(0, 3)) lines.push(`  - ${x}`);
           groups.push('One');
           for (const x of ns.slice(3)) lines.push(`- ${x}`);
         } else if (kind < 0.66) {
-          lines.push('- Outer `:c3`', `  - ${ns[0]}`, '  - Inner `:c5`');
+          lines.push('- Outer `c3`', `  - ${ns[0]}`, '  - Inner `c5`');
           for (const x of ns.slice(1, 3)) lines.push(`    - ${x}`);
           groups.push('Outer', 'Inner');
           for (const x of ns.slice(3)) lines.push(`- ${x}`);
@@ -412,8 +416,8 @@ describe('graph-layout — what review found (#2385)', () => {
   test('a line the spread cannot reroute keeps its old route rather than break a never-rule', () => {
     // The red team's cases: the spread's fallback slid a line's ends without a check, into
     // Delta's box (tb) and 1.5 units from another line (auto).
-    const through = '- Grp0 `:c2`\n  - Alpha\n- Grp1 `:c3`\n  - Beta\n- Grp2 `:c4`\n  - Gamma\n  - Delta\n- Echo -> Echo\n- Grp0 -x-> Gamma\n- Alpha => Grp2\n- Alpha -lab3-> Echo\n- Beta => Echo\n- Gamma -> Alpha\n- Alpha -a much longer label here-> Beta';
-    const shared = '- Alpha\n- Echo `:diamond`\n- Fox `:circle`\n- Golf `:pill`\n- Hotel `:circle`\n- Kilo `:pill`\n- Lima\n- Fox -> Gamma\n- Alpha -> Hotel\n- Beta -- Juliet\n- Fox -ok-> Alpha\n- Golf <- Alpha\n- Alpha => Fox\n- Alpha <- Juliet\n- Alpha -> Fox\n- Alpha -lab12-> Hotel\n- Alpha <-> India\n- Kilo -> Gamma\n- India => Beta\n- Hotel <- Kilo\n- Echo <-> Echo';
+    const through = '- Grp0 `c2`\n  - Alpha\n- Grp1 `c3`\n  - Beta\n- Grp2 `c4`\n  - Gamma\n  - Delta\n- Echo -> Echo\n- Grp0 -x-> Gamma\n- Alpha => Grp2\n- Alpha -lab3-> Echo\n- Beta => Echo\n- Gamma -> Alpha\n- Alpha -a much longer label here-> Beta';
+    const shared = '- Alpha\n- Echo `diamond`\n- Fox `circle`\n- Golf `pill`\n- Hotel `circle`\n- Kilo `pill`\n- Lima\n- Fox -> Gamma\n- Alpha -> Hotel\n- Beta -- Juliet\n- Fox -ok-> Alpha\n- Golf <- Alpha\n- Alpha => Fox\n- Alpha <- Juliet\n- Alpha -> Fox\n- Alpha -lab12-> Hotel\n- Alpha <-> India\n- Kilo -> Gamma\n- India => Beta\n- Hotel <- Kilo\n- Echo <-> Echo';
     for (const src of [through, shared]) for (const dir of DIRS) assert.deepEqual(hard(run(src, K, dir ? { dir } : {}).geo.quality), CLEAN, `${dir || 'auto'}:\n${src}`);
   });
 
@@ -468,7 +472,7 @@ describe('graph-layout — what review found (#2385)', () => {
 
   test('a narrow group keeps a slot for its title when a line crosses its band', () => {
     // A269 forced to tb: a line up through the band left no slot as wide as the title.
-    const src = '- Grp One `:c2`\n  - Alpha\n  - Beta\n  - Gamma\n- Delta\n- Echo\n- Fox\n- Echo -> Alpha\n- Gamma -> Echo\n- Gamma -lab5-> Echo\n- Gamma => Fox\n- Alpha -> Beta';
+    const src = '- Grp One `c2`\n  - Alpha\n  - Beta\n  - Gamma\n- Delta\n- Echo\n- Fox\n- Echo -> Alpha\n- Gamma -> Echo\n- Gamma -lab5-> Echo\n- Gamma => Fox\n- Alpha -> Beta';
     for (const dir of DIRS) assert.equal(run(src, K, dir ? { dir } : {}).geo.quality.linesThroughTitles, 0, dir || 'auto');
   });
 
@@ -477,7 +481,7 @@ describe('graph-layout — what review found (#2385)', () => {
     // and a diamond's lines spread over those points before any lands off one. The
     // incident chart's decision, and a straight line into a diamond whose middle sits
     // off the source's (the payments map's Fraud checks).
-    for (const src of [GALLERY.incident, '- Payments\n- Fraud checks `:diamond`\n- Card networks\n- Payments -screens-> Fraud checks\n- Payments -> Card networks']) {
+    for (const src of [GALLERY.incident, '- Payments\n- Fraud checks `diamond`\n- Card networks\n- Payments -screens-> Fraud checks\n- Payments -> Card networks']) {
       for (const dir of DIRS) {
         const { m, geo } = run(src, K, dir ? { dir } : {});
         const tips = new Set(m.shapes.filter((x) => x.shape === 'diamond').map((x) => x.id));
@@ -510,14 +514,14 @@ describe('graph-layout — what review found (#2385)', () => {
     // Inventory sat on the Edge and Delivery titles (Pricing on Commerce too, at the
     // painter's own sizes).
     const src = [
-      '- Edge `:c1`', '  - Browser `:io`', '  - CDN', '  - Gateway',
-      '- Commerce `:c2`', '  - Cart', '  - Pricing', '  - Checkout', '  - Orders `:cylinder`',
-      '- Payments `:c3`', '  - Payment API', '  - Fraud `:diamond`', '  - Ledger `:cylinder`',
-      '- Delivery `:c4`', '  - Inventory `:cylinder`', '  - Shipping', '  - Email',
+      '- Edge `c1`', '  - Browser `io`', '  - CDN', '  - Gateway',
+      '- Commerce `c2`', '  - Cart', '  - Pricing', '  - Checkout', '  - Orders `cylinder`',
+      '- Payments `c3`', '  - Payment API', '  - Fraud `diamond`', '  - Ledger `cylinder`',
+      '- Delivery `c4`', '  - Inventory `cylinder`', '  - Shipping', '  - Email',
       '- Browser -> CDN => Gateway', '- Gateway => Cart => Checkout', '- Cart -prices-> Pricing',
       '- Checkout => Payment API', '- Payment API -screen-> Fraud', '- Fraud -ok-> Ledger',
       '- Fraud -review-> Checkout', '- Payment API => Orders', '- Orders -reserve-> Inventory',
-      '- Orders => Shipping', '- Shipping -notify-> Email', '- Ledger -nightly-> Orders `:dotted`',
+      '- Orders => Shipping', '- Shipping -notify-> Email', '- Ledger -nightly-> Orders `dotted`',
     ].join('\n');
     const compact = { node: 20, rank: 40, edge: 10, groupPad: 10, groupPadTop: 26, lane: 7 };
     for (const spacing of [compact, undefined]) for (const dir of DIRS) {
@@ -529,7 +533,7 @@ describe('graph-layout — what review found (#2385)', () => {
   test('the title band never carries a shape outside the group level with its title', () => {
     // The checker's fuzz chart: a band moved Gamma (in Inner) down whole, level with Deep's
     // title, and the router then ran Fox -> Gamma through it.
-    const src = '- Outer `:c3`\n  - Alpha\n  - Inner `:c5`\n    - Beta\n    - Gamma\n    - Deep `:c4`\n      - Delta\n- Echo\n- Fox\n- Golf\n- Hotel\n- Echo => Echo\n- Fox -l1-> Gamma\n- Outer => Delta\n- Fox => Delta\n- Deep -l4-> Gamma\n- Fox -> Hotel\n- Delta -> Delta\n- Fox -> Fox\n- Alpha => Outer\n- Delta -> Delta';
+    const src = '- Outer `c3`\n  - Alpha\n  - Inner `c5`\n    - Beta\n    - Gamma\n    - Deep `c4`\n      - Delta\n- Echo\n- Fox\n- Golf\n- Hotel\n- Echo => Echo\n- Fox -l1-> Gamma\n- Outer => Delta\n- Fox => Delta\n- Deep -l4-> Gamma\n- Fox -> Hotel\n- Delta -> Delta\n- Fox -> Fox\n- Alpha => Outer\n- Delta -> Delta';
     for (const dir of DIRS) {
       const q = run(src, K, dir ? { dir } : {}).geo.quality;
       assert.equal(q.linesThroughTitles, 0, dir || 'auto');

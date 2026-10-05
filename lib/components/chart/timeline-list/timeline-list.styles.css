@@ -159,14 +159,22 @@ figure.timeline-list.chart-frame .chart-body {
   padding-top: var(--sp-sm);
   padding-bottom: 0.3125cqi;
   line-height: var(--lh-tight);
-  max-width: 17.1875cqi;
+  /* A MEASURE, so in em: it follows the text size. At 17.1875cqi (220px at 1280) it held
+   * the same pixel width at every venue while the text grew, so a hall title wrapped a word
+   * a line. 10.3125em is those 220px at the laptop size, so laptop is unchanged. */
+  max-width: 10.3125em;
 }
+/* A support line under its milestone's title (E7, typography.md §7): one step below the
+ * title's --fs-body. It sat at the chrome size (--fs-meta) before, two steps below. */
 :is(section.timeline-list, figure.timeline-list) .timeline-body {
-  font-size: var(--fs-meta);
+  font-size: var(--fs-body-compact);
   color: var(--text-secondary);
   text-align: center;
   line-height: var(--lh-relaxed);
-  max-width: 17.1875cqi;
+  /* A measure in em, like the title's; the item's own grid column bounds it when the row is
+   * full. A fixed 17.1875cqi wrapped a lone 16-word milestone two words a line at conference
+   * and ran it off the slide with most of the width empty. */
+  max-width: 16em;
 }
 /* status→body gap (was the .chart-status margin-bottom: var(--sp-xs)). Scoped to
  * an immediately-preceding status so a body without a status doesn't inherit the

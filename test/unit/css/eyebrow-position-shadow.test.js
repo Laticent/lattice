@@ -21,7 +21,7 @@
  * `H1 FY26 · 1,840 person-hours`, and none starts with a brace or is a bare marker.
  *
  * THE DECISION IT SPEAKS FOR is deliberate: the selector was NOT widened to accept
- * `.lat-pill`. Letting a pill be a kicker is a real capability (`{Q3 REVIEW}:c2` as
+ * `.lat-pill`. Letting a pill be a kicker is a real capability (`{Q3 REVIEW, c2}` as
  * a colored eyebrow) and the eyebrow's mono-caps, letterspaced styling would fight
  * the pill chrome — a visual design task with a review pass, not a selector edit.
  * See `engineering/decisions/2026-05-11-inline-code-directives.md`

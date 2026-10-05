@@ -132,27 +132,81 @@
     "lines": {
       "bare": {
         "laptop": 15,
-        "huddle": 13,
-        "conference": 11,
-        "hall": 10
+        "huddle": 12,
+        "conference": 9,
+        "hall": 8
       },
       "eyebrow": {
         "laptop": 13,
         "huddle": 11,
-        "conference": 10,
-        "hall": 8
+        "conference": 8,
+        "hall": 7
       },
       "insight": {
         "laptop": 11,
         "huddle": 9,
-        "conference": 8,
-        "hall": 6
+        "conference": 6,
+        "hall": 5
       },
       "eyebrowInsight": {
         "laptop": 10,
         "huddle": 8,
-        "conference": 7,
-        "hall": 5
+        "conference": 5,
+        "hall": 4
+      },
+      "headed": {
+        "2": {
+          "bare": {
+            "laptop": 13,
+            "huddle": 11,
+            "conference": 8,
+            "hall": 6
+          },
+          "eyebrow": {
+            "laptop": 12,
+            "huddle": 9,
+            "conference": 7,
+            "hall": 5
+          },
+          "insight": {
+            "laptop": 9,
+            "huddle": 7,
+            "conference": 5,
+            "hall": 4
+          },
+          "eyebrowInsight": {
+            "laptop": 8,
+            "huddle": 6,
+            "conference": 4,
+            "hall": 2
+          }
+        },
+        "3": {
+          "bare": {
+            "laptop": 11,
+            "huddle": 9,
+            "conference": 6,
+            "hall": 5
+          },
+          "eyebrow": {
+            "laptop": 10,
+            "huddle": 8,
+            "conference": 5,
+            "hall": 4
+          },
+          "insight": {
+            "laptop": 8,
+            "huddle": 6,
+            "conference": 4,
+            "hall": 2
+          },
+          "eyebrowInsight": {
+            "laptop": 6,
+            "huddle": 4,
+            "conference": 2,
+            "hall": 1
+          }
+        }
       }
     }
   },

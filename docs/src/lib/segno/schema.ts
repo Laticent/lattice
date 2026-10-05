@@ -29,6 +29,7 @@
  */
 
 import { type Diagnostic, type Item, parse, type Scalar, type Value } from './notation.js';
+import { TAGS } from './notation-grammar.js';
 import { CLASS_ORDER, type Cls, type Type } from './types.js';
 
 // ── declaring ──────────────────────────────────────────────────────────────
@@ -49,6 +50,12 @@ export interface RecordSpec {
   readonly sigils?: Readonly<Record<string, string>>;
   /** A human name for messages: "a badge", "a retry policy". */
   readonly label?: string;
+  /**
+   * The tag a whole span must open with to be this record: `'~'` makes the slot read
+   * `~{12 14 17}`. One of TAGS. A slot without a tag refuses a tagged span, and a slot with one
+   * refuses an untagged span, so two slots can share the `{…}` shape and never be confused.
+   */
+  readonly tag?: string;
 }
 
 /** What a slot reports about each vocab word it bound, for per-document consistency. */
@@ -138,6 +145,9 @@ const PARAM_NAME = /^[a-z][a-z0-9-]*$/;
 /** Refuse a schema a bare word could bind two ways. Returns the problems, or []. */
 export function schemaProblems(spec: RecordSpec): string[] {
   const problems: string[] = [];
+  if (spec.tag !== undefined && (spec.tag.length !== 1 || !TAGS.includes(spec.tag))) {
+    problems.push(`tag "${spec.tag}" is not one of the notation's tag characters (${[...TAGS].join(' ')})`);
+  }
   const params = Object.entries(spec.params ?? {});
   const names = new Set<string>();
   for (const p of spec.positional ?? []) {
@@ -350,6 +360,12 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
         const slots = Object.entries(params).filter(([, t]) => isSlot(t) && t.kind === v.kind);
         if (slots.length === 1) { b.put(slots[0][0], slots[0][1], v, it); continue; }
       }
+      if (v.kind === 'scalar' && !v.quoted) {
+        // A word a parameter almost takes (`c13` where colors stop at `c12`): name the limit.
+        let near: string | undefined;
+        for (const t of Object.values(params)) if (!near && !isSlot(t)) near = t.near?.(v.text);
+        if (near) { b.problem(err('out-of-range', near, it.from, it.to)); continue; }
+      }
       const what = v.kind === 'scalar' ? `"${v.text}"` : `this ${v.kind}`;
       b.problem(err('unknown-word', `${what} is not anything ${label} takes — it takes ${takes()}`, it.from, it.to));
     }
@@ -390,6 +406,16 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
       }
       const p = parse(text);
       if (!p.ok) return { ok: false, diagnostics: [p.diagnostic] };
+      const tagged = p.item.tag ?? '';
+      if (tagged !== (spec.tag ?? '')) {
+        const v = p.item.value;
+        return {
+          ok: false,
+          diagnostics: [spec.tag
+            ? err('missing-tag', `${label} starts with "${spec.tag}{"`, v.from, v.to, { from: v.from, to: v.from, insert: spec.tag })
+            : err('unexpected-tag', `${label} takes no "${tagged}" before its "{"`, p.item.from, p.item.from + 1, { from: p.item.from, to: p.item.from + 1, insert: '' })],
+        };
+      }
       if (p.item.name !== null) return bindItems([p.item]);
       const v = p.item.value;
       // Only a WHOLE span can be rewritten to a shortcut, so only a top-level one-item record is

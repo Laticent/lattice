@@ -10,13 +10,13 @@ export const LAB_LEDGER = `<!-- _class: list-tabular -->
 ## One slide, four different statuses.
 
 1. Settlement engine
-   - Shipped and load-tested \`{STABLE}:c2\`
+   - Shipped and load-tested \`{STABLE, c2}\`
 2. Ledger migration
-   - Cutover paused for review \`{PARTIAL}:c4\`
+   - Cutover paused for review \`{PARTIAL, c4}\`
 3. Reconciliation
-   - Design agreed, not started \`{QUEUED}:tag:c7\`
+   - Design agreed, not started \`{QUEUED, tag, c7}\`
 4. Legacy batch
-   - Retired this quarter \`{CLOSED}:tag:c12\`
+   - Retired this quarter \`{CLOSED, tag, c12}\`
 `;
 
 export const LAB_SHAPES = `<!-- _class: list-tabular -->
@@ -24,20 +24,20 @@ export const LAB_SHAPES = `<!-- _class: list-tabular -->
 ## Eight shapes, one geometry.
 
 1. Capsule and tag
-   - \`{DEFAULT}:c1\` \`{TAG}:tag:c2\`
+   - \`{DEFAULT, c1}\` \`{TAG, tag, c2}\`
 2. Bordered and chip
-   - \`{BORDERED}:tag-bordered:c4\` \`{CHIP}:chip:c7\`
+   - \`{BORDERED, tag-bordered, c4}\` \`{CHIP, chip, c7}\`
 3. Round and pointed
-   - \`{3}:circle:c5\` \`{NEXT}:chevron-right:c6\` \`{BACK}:chevron-left:c8\`
+   - \`{3, circle, c5}\` \`{NEXT, chevron-right, c6}\` \`{BACK, chevron-left, c8}\`
 4. Decision marks
-   - \`{!}:diamond:c3\` \`{?}:diamond:c11\`
+   - \`{!, diamond, c3}\` \`{?, diamond, c11}\`
 `;
 
 A **pill** is a small rounded label: a status, a category, a version. You make
 one by writing a label in braces inside **single-backtick** inline code:
 
 ```markdown
-The settlement engine is `{STABLE}:c2` as of this week.
+The settlement engine is `{STABLE, c2}` as of this week.
 ```
 
 This is the **universal** pill. It works on every slide, in every component,
@@ -50,25 +50,25 @@ choose everything about it. If you learn only one pill, learn this one.
 	editMarkdown
 	markdown={LAB_LEDGER}
 	size="short"
-	hint="Change :c2 to :c9 and watch only that row move. The slide has no variant class — the color travels with the value."
+	hint="Change c2 to c9 and watch only that row move. The slide has no variant class — the color travels with the value."
 />
 
 ## How to read a pill
 
 ```
-`{QUEUED}:tag:c7:lg`
-  ───┬──  ─┬─ ─┬ ─┬
-     │     │   │  └ size
-     │     │   └ color slot
-     │     └ shape
-     └ the label, in braces
+`{QUEUED, tag, c7, lg}`
+  ──┬───  ─┬─  ┬─  ┬
+    │      │   │   └ size
+    │      │   └ color slot
+    │      └ shape
+    └ the label, first in the braces
 ```
 
-Everything after the closing brace is a **modifier**, and each one starts with
-a colon. **Order does not matter**: `` `{X}:tag:c4:lg` `` and `` `{X}:lg:c4:tag` ``
+Everything after the label is a **modifier**, separated by commas inside the
+braces. **Order does not matter**: `` `{X, tag, c4, lg}` `` and `` `{X, lg, c4, tag}` ``
 are the same pill. Leave a modifier out and you get the default.
 
-In the Studio's editor, `:` after the closing brace offers the next step: a shape, then a
+In the Studio's editor, a comma after the label offers the next step: a shape, then a
 color, then a size, and only what the pill can still take.
 
 ## Shape
@@ -80,13 +80,13 @@ the PDF, in the browser and in an export.
 | Modifier | Shape | Use it for |
 |---|---|---|
 | *(none)* | Capsule | The default status chip |
-| `:chip` | Softly rounded | A quieter label |
-| `:tag` | Square corners | A filed or categorical label |
-| `:tag-bordered` | Square, double stroke | Emphasis without spending a color |
-| `:circle` | Circle | **A digit or a single character** — `` `{3}:circle` `` |
-| `:chevron-right` | Right-pointing | Sequence, forward — `` `{STEP 2}:chevron-right` `` |
-| `:chevron-left` | Left-pointing | Sequence, back |
-| `:diamond` | Diamond | **One or two characters** — `` `{!}:diamond` `` |
+| `chip` | Softly rounded | A quieter label |
+| `tag` | Square corners | A filed or categorical label |
+| `tag-bordered` | Square, double stroke | Emphasis without spending a color |
+| `circle` | Circle | **A digit or a single character** — `` `{3, circle}` `` |
+| `chevron-right` | Right-pointing | Sequence, forward — `` `{STEP 2, chevron-right}` `` |
+| `chevron-left` | Left-pointing | Sequence, back |
+| `diamond` | Diamond | **One or two characters** — `` `{!, diamond}` `` |
 
 <CraftLab
 	label="Every shape, side by side"
@@ -94,7 +94,7 @@ the PDF, in the browser and in an export.
 	editMarkdown
 	markdown={LAB_SHAPES}
 	size="short"
-	hint="Put a whole word in the :circle. It either overflows or stretches until it stops reading as a circle — which is what lint:deck warns about."
+	hint="Put a whole word in the circle. It either overflows or stretches until it stops reading as a circle — which is what lint:deck warns about."
 />
 
 Every shape is as tall as the capsule, so mixed shapes share one line and never
@@ -102,15 +102,15 @@ push a row apart. That makes `circle` and `diamond` small: they hold **one
 character, or a number up to two digits**. `{3}`, `{!}` and `{12}` fit; `{OK}`,
 `{WM}` and `{100}` stretch the shape into an oval or a sliver. Put one of those in
 a circle or diamond and `lint:deck` warns, the editor underlines the pill, and the
-fix suggests `:tag` or `:chip`. The warning never stops a deck from rendering.
+fix suggests `tag` or `chip`. The warning never stops a deck from rendering.
 
-## Color — `:c1` … `:c12`
+## Color — `c1` … `c12`
 
-The twelve color slots are **numbered, not named**. `:c1` is a light blue in
+The twelve color slots are **numbered, not named**. `c1` is a light blue in
 the `indaco` theme and a khaki in `burgundy`, so a slot picks a *distinct*
 color, never a *meaning*.
 
-> Never write `:c2` because "green means good." It is not green in every theme.
+> Never write `c2` because "green means good." It is not green in every theme.
 
 Use slots to tell categories apart: team A, team B, team C. You never do
 contrast math. Each slot takes the theme's fill and edge for that category, plus
@@ -123,18 +123,18 @@ the twelve slots, on purpose. To say *good*, *careful* or *bad*, use a
 instead. Picking whichever slot happens to look red in your theme breaks the
 moment someone switches themes.
 
-## Size — automatic, then `:sm` and `:lg`
+## Size — automatic, then `sm` and `lg`
 
 A pill takes its size from the text around it, so you rarely type one. In a
 heading or other large text it is half the text's size, so a title gets a bigger
 pill than a slide title. In body text, lists and table cells it is the usual metadata size.
 In a below-note, a caption or a footer it is small.
 
-`:sm` makes a pill smaller and `:lg` larger than that automatic size. They
-scale the context, so `:lg` in a footer is still a footer-sized pill, only bigger.
+`sm` makes a pill smaller and `lg` larger than that automatic size. They
+scale the context, so `lg` in a footer is still a footer-sized pill, only bigger.
 
 ```markdown
-- Small `{MINOR}:sm:c9` · default `{NORMAL}:c9` · large `{MAJOR}:lg:c9`
+- Small `{MINOR, sm, c9}` · default `{NORMAL, c9}` · large `{MAJOR, lg, c9}`
 ```
 
 ## When inline code should stay code
@@ -145,8 +145,8 @@ A pill needs a brace pair with no comma inside, which is what keeps
 `` `{ ok, scene }` `` looking like the code it is.
 
 **A mistake shows up as code, not as a wrong pill.** An unknown or repeated
-modifier leaves the whole span literal: `` `{X}:c13` `` renders as the text
-`{X}:c13`. You catch it on the first read-through, which you would not if it
+modifier leaves the whole span literal: `` `{X, c13}` `` renders as the text
+`{X, c13}`. You catch it on the first read-through, which you would not if it
 quietly drew something.
 
 ### Forcing literal text

@@ -66,14 +66,14 @@ We opened our Eastside kitchen in March, grew our volunteer corps to 340, and ad
 ## How a rescued meal reaches a neighbor.
 
 - Recover
-  - Grocery pickup `@driver` `:3`
-  - Cold storage `@kitchen` `:4`
+  - Grocery pickup `{who=driver, mood=3}`
+  - Cold storage `{who=kitchen, mood=4}`
 - Cook
-  - Batch prep `@chef` `:4`
-  - Plating `@volunteer` `:5`
+  - Batch prep `{who=chef, mood=4}`
+  - Plating `{who=volunteer, mood=5}`
 - Serve
-  - Hot line `@volunteer` `:5`
-  - Take-home boxes `@neighbor` `:5`
+  - Hot line `{who=volunteer, mood=5}`
+  - Take-home boxes `{who=neighbor, mood=5}`
 
 ---
 

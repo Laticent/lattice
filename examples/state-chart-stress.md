@@ -22,12 +22,12 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Single-letter states.
 
-1. A `start`
-   - `=> 2`
-2. B
-   - `=> 3`
-   - `=> 1`
-3. C `end`
+- A `start`
+  - -> B
+- B
+  - -> C
+  - -> A
+- C `end`
 
 ---
 
@@ -36,14 +36,14 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Long state names.
 
-1. Awaiting Initial Submission `start`
-   - `submit => 2`
-2. Pending Manual Compliance Re-Review
-   - `escalate => 3`
-   - `return for changes => 1`
-3. Approved by Regional Authority `done`
-   - `archive => 4`
-4. Archived in Cold Storage `end`
+- Awaiting Initial Submission `start`
+  - -submit-> Pending Manual Compliance Re-Review
+- Pending Manual Compliance Re-Review
+  - -escalate-> Approved by Regional Authority
+  - -return for changes-> Awaiting Initial Submission
+- Approved by Regional Authority `done`
+  - -archive-> Archived in Cold Storage
+- Archived in Cold Storage `end`
 
 ---
 
@@ -54,12 +54,12 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## CJK state labels.
 
-1. 待機 `start`
-   - `開始 => 2`
-2. 実行中 `on-track`
-   - `完了 => 3`
-   - `失敗 => 1`
-3. 完了 `end`
+- 待機 `start`
+  - -開始-> 実行中
+- 実行中 `on-track`
+  - -完了-> 完了
+  - -失敗-> 待機
+- 完了 `end`
 
 ---
 
@@ -68,28 +68,28 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Ten-step pipeline.
 
-1. Intake `start`
-   - `=> 2`
-2. Triage
-   - `=> 3`
-3. Assigned
-   - `=> 4`
-4. In Progress `on-track`
-   - `=> 5`
-   - `block => 9`
-5. Code Review
-   - `=> 6`
-   - `reject => 4`
-6. QA
-   - `=> 7`
-   - `fail => 4`
-7. Staging
-   - `=> 8`
-8. Released `live`
-   - `=> 10`
-9. Blocked `blocked`
-   - `unblock => 4`
-10. Closed `end`
+- Intake `start`
+  - -> Triage
+- Triage
+  - -> Assigned
+- Assigned
+  - -> In Progress
+- In Progress `on-track`
+  - -> Code Review
+  - -block-> Blocked
+- Code Review
+  - -> QA
+  - -reject-> In Progress
+- QA
+  - -> Staging
+  - -fail-> In Progress
+- Staging
+  - -> Released
+- Released `live`
+  - -> Closed
+- Blocked `blocked`
+  - -unblock-> In Progress
+- Closed `end`
 
 ---
 
@@ -98,16 +98,16 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Router with many exits.
 
-1. Dispatch `start`
-   - `a => 2`
-   - `b => 3`
-   - `c => 4`
-   - `d => 5`
-   - `retry => self`
-2. Handler A `done`
-3. Handler B `done`
-4. Handler C `at-risk`
-5. Dead Letter `fail`
+- Dispatch `start`
+  - -a-> Handler A
+  - -b-> Handler B
+  - -c-> Handler C
+  - -d-> Dead Letter
+  - -retry-> Dispatch
+- Handler A `done`
+- Handler B `done`
+- Handler C `at-risk`
+- Dead Letter `fail`
 
 ---
 
@@ -116,19 +116,19 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Wizard with escape hatches.
 
-1. Welcome `start`
-   - `next => 2`
-2. Account
-   - `next => 3`
-   - `cancel => 1`
-3. Profile
-   - `next => 4`
-   - `cancel => 1`
-4. Payment
-   - `next => 5`
-   - `cancel => 1`
-5. Confirm `done`
-   - `restart => 1`
+- Welcome `start`
+  - -next-> Account
+- Account
+  - -next-> Profile
+  - -cancel-> Welcome
+- Profile
+  - -next-> Payment
+  - -cancel-> Welcome
+- Payment
+  - -next-> Confirm
+  - -cancel-> Welcome
+- Confirm `done`
+  - -restart-> Welcome
 
 ---
 
@@ -137,7 +137,7 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Degenerate: one state.
 
-1. Singleton `start`
+- Singleton `start`
 
 ---
 
@@ -146,19 +146,19 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Status palette across widths.
 
-1. Q `start`
-   - `=> 2`
-2. Processing Now `on-track`
-   - `=> 3`
-3. Hold `at-risk`
-   - `=> 4`
-4. Stop `blocked`
-   - `=> 5`
-5. Choose `decision`
-   - `=> 6`
-6. Later `deferred`
-   - `=> 7`
-7. Done `done` `end`
+- Q `start`
+  - -> Processing Now
+- Processing Now `on-track`
+  - -> Hold
+- Hold `at-risk`
+  - -> Stop
+- Stop `blocked`
+  - -> Choose
+- Choose `decision`
+  - -> Later
+- Later `deferred`
+  - -> Done
+- Done `end` `done`
 
 ---
 
@@ -167,14 +167,14 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Left-to-right pipeline.
 
-1. Source `start`
-   - `compile => 2`
-2. Compiled `on-track`
-   - `test => 3`
-3. Tested
-   - `deploy => 4`
-   - `fail => 1`
-4. Deployed `live` `end`
+- Source `start`
+  - -compile-> Compiled
+- Compiled `on-track`
+  - -test-> Tested
+- Tested
+  - -deploy-> Deployed
+  - -fail-> Source
+- Deployed `end` `live`
 
 ---
 
@@ -183,13 +183,13 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Connection (left-to-right).
 
-1. Disconnected `start`
-   - `connect => 2`
-2. Establishing Session
-   - `retry => self`
-   - `ok => 3`
-   - `timeout => 1`
-3. Connected `live` `end`
+- Disconnected `start`
+  - -connect-> Establishing Session
+- Establishing Session
+  - -retry-> Establishing Session
+  - -ok-> Connected
+  - -timeout-> Disconnected
+- Connected `end` `live`
 
 ---
 
@@ -198,26 +198,26 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Incident response.
 
-1. Detected `start`
-   - `triage => 2`
-2. Triaged `on-track`
-   - `assign => 3`
-   - `false alarm => 7`
-3. Investigating
-   - `mitigate => 4`
-   - `escalate => 5`
-   - `need more info => 2`
-4. Mitigated
-   - `verify => 6`
-5. Escalated `at-risk`
-   - `hand off => 4`
-   - `re-page => self`
-6. Monitoring `live`
-   - `resolve => 7`
-   - `regression => 3`
-7. Resolved `done`
-   - `postmortem => 8`
-8. Closed `end`
+- Detected `start`
+  - -triage-> Triaged
+- Triaged `on-track`
+  - -assign-> Investigating
+  - -false alarm-> Resolved
+- Investigating
+  - -mitigate-> Mitigated
+  - -escalate-> Escalated
+  - -need more info-> Triaged
+- Mitigated
+  - -verify-> Monitoring
+- Escalated `at-risk`
+  - -hand off-> Mitigated
+  - -re-page-> Escalated
+- Monitoring `live`
+  - -resolve-> Resolved
+  - -regression-> Investigating
+- Resolved `done`
+  - -postmortem-> Closed
+- Closed `end`
 
 ---
 
@@ -226,19 +226,19 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Build & release graph.
 
-1. Commit `start`
-   - `ci => 2`
-   - `hotfix => 4`
-2. Build `on-track`
-   - `test => 3`
-   - `retry => self`
-3. Tested
-   - `stage => 4`
-   - `fail => 2`
-4. Staging `at-risk`
-   - `promote => 5`
-   - `rollback => 2`
-5. Production `live` `end`
+- Commit `start`
+  - -ci-> Build
+  - -hotfix-> Staging
+- Build `on-track`
+  - -test-> Tested
+  - -retry-> Build
+- Tested
+  - -stage-> Staging
+  - -fail-> Build
+- Staging `at-risk`
+  - -promote-> Production
+  - -rollback-> Build
+- Production `end` `live`
 
 ---
 
@@ -247,18 +247,18 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Document approval (curved).
 
-1. Draft `start`
-   - `submit => 2`
-   - `discard => 5`
-2. In Review `on-track`
-   - `approve => 3`
-   - `revise => self`
-   - `reject => 1`
-3. Approved
-   - `publish => 4`
-4. Published `live`
-   - `archive => 5`
-5. Archived `end`
+- Draft `start`
+  - -submit-> In Review
+  - -discard-> Archived
+- In Review `on-track`
+  - -approve-> Approved
+  - -revise-> In Review
+  - -reject-> Draft
+- Approved
+  - -publish-> Published
+- Published `live`
+  - -archive-> Archived
+- Archived `end`
 
 ---
 
@@ -267,12 +267,12 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ## Job runner (curved, lr).
 
-1. Idle `start`
-   - `run => 2`
-   - `skip => 4`
-2. Running `on-track`
-   - `pause => 3`
-   - `finish => 4`
-3. Paused
-   - `resume => 2`
-4. Done `end`
+- Idle `start`
+  - -run-> Running
+  - -skip-> Done
+- Running `on-track`
+  - -pause-> Paused
+  - -finish-> Done
+- Paused
+  - -resume-> Running
+- Done `end`

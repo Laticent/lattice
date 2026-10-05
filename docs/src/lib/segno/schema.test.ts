@@ -33,16 +33,17 @@ describe('a pill', () => {
     expect(ok(pill.read('{"A, B", lg}'))).toEqual({ value: 'A, B', size: 'lg' });
   });
   it('errors never half-apply, and name what the slot takes', () => {
-    const r = pill.read('{BETA, tag, c13}');
+    const r = pill.read('{BETA, tag, bold}');
     expect(codes(r)).toEqual(['unknown-word']);
     if (!r.ok) expect(r.diagnostics[0].message).toMatch(/color \(a color c1–c12\)/);
+    expect(codes(pill.read('{BETA, tag, c13}'))).toEqual(['out-of-range']);
     expect(codes(pill.read('{BETA, tag, chip}'))).toEqual(['given-twice']);
     expect(codes(pill.read('{BETA, weight=bold}'))).toEqual(['unknown-param']);
   });
   it('the color ceiling is the slot\'s', () => {
     const node = record({ positional: [{ name: 'name', type: text() }], params: { color: indexed('c', { max: 8, label: 'a color' }) } });
     expect(ok(node.read('{Api, c8}'))).toEqual({ name: 'Api', color: 8 });
-    expect(codes(node.read('{Api, c9}'))).toEqual(['unknown-word']);
+    expect(codes(node.read('{Api, c9}'))).toEqual(['out-of-range']);
   });
 });
 
@@ -302,5 +303,43 @@ describe('the adversarial review, pinned', () => {
     expect(Object.isFrozen(shared)).toBe(false);
     const b = r.read('[t]');
     expect(b.ok && Object.isFrozen(b.value)).toBe(true); // the shared cache is frozen, the caller's object is not
+  });
+});
+
+describe('tags: a slot can require its span to open with a tag character', () => {
+  const spark = record({ label: 'a spark', tag: '~', positional: [{ name: 'data', type: text() }], params: { type: oneOf(['line', 'bar']) } });
+  it('binds a span with its tag', () => {
+    expect(ok(spark.read('~{12 14 17, bar}'))).toEqual({ data: '12 14 17', type: 'bar' });
+  });
+  it('refuses a span without its tag, with a fix that adds it', () => {
+    const r = spark.read('{12 14 17}');
+    expect(!r.ok && [r.diagnostics[0].code, r.diagnostics[0].fix]).toEqual(['missing-tag', { from: 0, to: 0, insert: '~' }]);
+  });
+  it('a slot with no tag refuses a tagged span, with a fix that removes it', () => {
+    const r = pill.read('^{BETA, tag}');
+    expect(!r.ok && [r.diagnostics[0].code, r.diagnostics[0].fix]).toEqual(['unexpected-tag', { from: 0, to: 1, insert: '' }]);
+  });
+  it('a slot with a different tag refuses it', () => {
+    expect(spark.read('^{12 14}').ok).toBe(false);
+  });
+  it('a tag that is not one of the notation\'s tag characters does not build', () => {
+    expect(() => record({ tag: '@', positional: [{ name: 'x', type: text() }] })).toThrow(SchemaError);
+    expect(() => record({ tag: '~~', positional: [{ name: 'x', type: text() }] })).toThrow(SchemaError);
+  });
+});
+
+describe('a word past an indexed ceiling names the limit', () => {
+  it('c13 on a twelve-color slot', () => {
+    const r = pill.read('{BETA, c13}');
+    expect(!r.ok && [r.diagnostics[0].code, r.diagnostics[0].message]).toEqual(['out-of-range', '"c13" is past the limit — this takes c1–c12']);
+  });
+  it('c9 on an eight-color slot', () => {
+    const flow = record({ positional: [{ name: 'id', type: text() }], params: { color: indexed('c', { max: 8 }) } });
+    const r = flow.read('{a, c9}');
+    expect(!r.ok && r.diagnostics[0].message).toBe('"c9" is past the limit — this takes c1–c8');
+  });
+  it('a word that is not the prefix is still unknown', () => {
+    const r = pill.read('{BETA, zz9}');
+    expect(!r.ok && r.diagnostics[0].code).toBe('unknown-word');
   });
 });

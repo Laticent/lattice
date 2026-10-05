@@ -357,18 +357,18 @@ const PROBES = {
       // a drift that starts promoting `[x]` or `{ ok, scene }` is the failure that
       // matters, and it is invisible to a probe that only feeds it valid pills.
       '1. Shapes',
-      '   - `{A}` `{B}:tag` `{C}:chip` `{D}:tag-bordered`',
+      '   - `{A}` `{B, tag}` `{C, chip}` `{D, tag-bordered}`',
       '2. More shapes',
-      '   - `{E}:circle` `{F}:chevron-right` `{G}:chevron-left` `{H}:diamond`',
+      '   - `{E, circle}` `{F, chevron-right}` `{G, chevron-left}` `{H, diamond}`',
       '3. Axes',
-      '   - `{I}:c1:lg` `{J}:c12:sm`',
+      '   - `{I, c1, lg}` `{J, c12, sm}`',
       // The INLINE STATE vocabulary shares this pass, so it shares this probe: `[x]`
       // and `{LABEL}` are disjoint by opening character, and a drift that let one
       // swallow the other would show here as a path disagreement.
       '4. Marks',
       '   - `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`',
       '5. Literals',
-      '   - `[~]` `[X]` `[data-mark]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
+      '   - `[~]` `[X]` `[data-mark]` `{ ok, scene }` `getUserId()` `{K, c13}` `{}`',
       // The escape, on both paths. A backslash survives into the DOM, which is why it
       // replaced the double-backtick form — that one was invisible to the runtime and
       // this arm is what proved it.

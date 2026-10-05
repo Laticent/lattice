@@ -18,7 +18,7 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
-import { withCachedSystem } from './or-cache.js';
+import { withCachedSystem, withCachedTail } from './or-cache.js';
 import { readCachingEnabled } from './spend.js';
 
 // CDN entrypoints for the heavy, opt-in runtimes. Swap these for bundled
@@ -53,7 +53,14 @@ const OR_CATALOG_LS = 'lattice-db-or-catalog'; // {fetchedAt, models} — TTL-ca
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000; // refetch the catalog at most once a day
 // A retired/renamed model id fails with this signature — the trigger to self-heal
 // to the rot-proof latest alias (a pinned id the user stored can die under them).
-const isDeadModelError = (status, body) => (status === 400 || status === 404) && /not a valid model|no endpoints found|no allowed providers/i.test(String(body || ''));
+// NOT a dead model: "No endpoints found that support tool use" is a LIVE model that cannot
+// take the chat agent's tools. Self-healing it swapped the author's chosen model for the
+// default (a pricier one) without a word; it must instead reach the agent, which falls back
+// to the one-shot chat ON the author's model (2026-10-05-studio-chat-agent.md).
+export const isDeadModelError = (status, body) =>
+  (status === 400 || status === 404) &&
+  /not a valid model|no endpoints found|no allowed providers/i.test(String(body || '')) &&
+  !/support tool use|support tools?\b/i.test(String(body || ''));
 const EMBED_MODEL = 'Xenova/bge-small-en-v1.5';
 // Backstop for a warm embed worker that dies silently (no `onerror`) — resolve the
 // awaiting caller to null (→ lexical fallback) rather than hang the generate path.
@@ -376,7 +383,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, cacheTail }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -393,7 +400,10 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // input against 1.25x for 5m — but one avoided re-write of the ~17K-token prefix more
       // than pays that back, so it wins after a single gap longer than five minutes. Ported
       // with its reasoning from the Drawing Board's chat, which set it explicitly.
-      const body = { model: this.getModel(), messages: cacheOn ? withCachedSystem(messages, this.getModel(), cacheTtl) : messages, stream: !!onToken, usage: { include: true } };
+      // `cacheTail` (the chat agent's tool loop) adds a rolling breakpoint on the newest
+      // message so each round reads the previous rounds from cache; see withCachedTail.
+      const cached = cacheOn ? withCachedSystem(messages, this.getModel(), cacheTtl) : messages;
+      const body = { model: this.getModel(), messages: cacheOn && cacheTail ? withCachedTail(cached, this.getModel()) : cached, stream: !!onToken, usage: { include: true } };
       // Optional plugins (e.g. the file-parser plugin that extracts an inlined
       // reference PDF server-side, #640). Passed through verbatim when present.
       if (plugins?.length) body.plugins = plugins;
@@ -403,6 +413,20 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       const cap = maxTokens || defaultMaxTokens;
       if (cap > 0) body.max_tokens = cap;
       if (json) body.response_format = { type: 'json_object' };
+      // Tool calling (the Studio chat agent). The tools ride verbatim; the calls the model
+      // makes come back through `onToolCalls` once the reply ends — the text return value
+      // stays the prose, so every caller that never passes tools is unaffected.
+      if (tools?.length) {
+        body.tools = tools;
+        // 'none' still sends the tools: Anthropic-family endpoints refuse a history that holds
+        // tool calls unless the tools are defined, so the agent's last round says 'none' instead
+        // of dropping them.
+        if (toolChoice) body.tool_choice = toolChoice;
+      }
+      const reportTools = (calls) => {
+        if (!onToolCalls || !calls?.length) return;
+        try { onToolCalls(calls); } catch {}
+      };
       const headers = {
         'Content-Type': 'application/json',
         Authorization: 'Bearer ' + key,
@@ -416,7 +440,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         // Self-heal: a retired/renamed model id (a stale stored pick can die under
         // the user) → retry ONCE with the rot-proof latest alias, and drop the
         // cached catalog so the picker refetches fresh next open.
-        if (isDeadModelError(res.status, errText) && body.model !== defaultModel) {
+        // Never on a request that carries TOOLS. A "no endpoints" answer there is far more
+        // likely the model refusing tools (or a tool parameter) than a retired id, and the
+        // caller — the chat agent — has the right fallback: the same turn without tools, on the
+        // author's own model. If the id really is retired, THAT request self-heals here.
+        if (isDeadModelError(res.status, errText) && body.model !== defaultModel && !body.tools) {
           catalogCache = null;
           writeLS(OR_CATALOG_LS, null);
           res = await send(defaultModel);
@@ -435,6 +463,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         const data = await res.json();
         if (onUsage && data.usage) { try { onUsage(data.usage); } catch {} }
         reportFinish(data.choices?.[0]?.finish_reason || data.choices?.[0]?.native_finish_reason);
+        reportTools(data.choices?.[0]?.message?.tool_calls);
         return data.choices?.[0]?.message?.content ?? '';
       }
       // SSE stream: lines of `data: {json}`; `: OPENROUTER PROCESSING` keep-alives
@@ -445,9 +474,13 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       let full = '';
       let usage = null; // the final stream chunk carries usage (cost) when usage:include is set
       let finish = null; // the chunk that ends the turn carries finish_reason ('stop' | 'length' | …)
+      // Streamed tool calls arrive as fragments keyed by `index`: the first carries the id
+      // and name, the rest append to `function.arguments` (a JSON string, split anywhere).
+      const calls = [];
       const reportUsage = () => {
         if (onUsage && usage) { try { onUsage(usage); } catch {} }
         reportFinish(finish);
+        reportTools(calls.filter(Boolean));
       };
       while (true) {
         const { value, done } = await reader.read();
@@ -467,6 +500,15 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
             if (obj.id && onGenerationId) { try { onGenerationId(obj.id); } catch {} onGenerationId = null; }
             const t = obj.choices?.[0]?.delta?.content || '';
             if (t) { full += t; onToken(t); }
+            for (const d of obj.choices?.[0]?.delta?.tool_calls || []) {
+              // No `index` (some providers omit it): a fragment WITH an id starts a call, one
+              // without continues the last — never a nameless call of its own.
+              const i = Number.isInteger(d.index) ? d.index : d.id || !calls.length ? calls.length : calls.length - 1;
+              const c = (calls[i] ||= { id: '', type: 'function', function: { name: '', arguments: '' } });
+              if (d.id) c.id = d.id;
+              if (d.function?.name) c.function.name += d.function.name;
+              if (d.function?.arguments) c.function.arguments += d.function.arguments;
+            }
             const fr = obj.choices?.[0]?.finish_reason || obj.choices?.[0]?.native_finish_reason;
             if (fr) finish = fr;
             if (obj.usage) usage = obj.usage;
@@ -800,6 +842,10 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
       // already billed — so a hard-stop budget cap could be evaded by repeatedly
       // starting and stopping turns. Every OTHER failure still floors.
       if (e?.name === 'AbortError') throw e;
+      // A TOOL call's failure reaches the caller too. The chat agent cannot tell an empty
+      // floor reply from "the model said nothing", and it has a better fallback than the
+      // floor: the one-shot chat, for a model that refuses `tools` outright.
+      if (opts?.tools?.length) throw e;
       return floorBackend.complete(opts); // any model failure → the floor
     }
   }

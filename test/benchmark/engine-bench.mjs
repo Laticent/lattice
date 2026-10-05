@@ -438,8 +438,9 @@ async function editTier() {
   return { summary };
 }
 
-// ── FLOWCHART LAYOUT TIER ────────────────────────────────────────────────────
+// ── GRAPH LAYOUT TIER (the flowchart and the state chart) ───────────────────
 //
+// (Its rows bless under `flowchartDatasets`, the key it had when it held one chart.)
 // The flowchart's browser pass calls Trama's `graphLayoutKernel().layout()` for every chart
 // once the page's fonts have loaded (or at a 2 s deadline), once per round of the fit and
 // type-floor fixed point, and again on a resize. This tier replays the exact calls one cold
@@ -457,36 +458,27 @@ async function editTier() {
 async function flowchartTier() {
   const { createRequire } = await import('node:module');
   const req = createRequire(import.meta.url);
-  const fixture = join(ROOT, 'test/benchmark/fixtures/flowchart-deck-layouts.json');
   // Trama's built kernel (the graph-chart library), or, on a tree from before Trama, the
   // kernel's old home in the chart family, so a base arm cut from an older main still runs.
   const kernelPath = [
     join(ROOT, 'docs/src/lib/trama/dist/index.cjs'),
     join(ROOT, 'lib/components/chart/_chart-family/graph-layout.js'),
   ].find((p) => existsSync(p));
-  if (!existsSync(fixture) || !kernelPath) return { summary: [] };
+  if (!kernelPath) return { summary: [] };
   req(join(ROOT, 'lib/core/dagre-layout.js'));
   const dagre = globalThis.__latticeDagre;
   const { graphLayoutKernel } = req(kernelPath);
-  const { calls } = JSON.parse(readFileSync(fixture, 'utf8'));
   if (!graphLayoutKernel().stats) {
-    console.log('\n=== FLOWCHART LAYOUT \u00b7 not comparable (this kernel has no work counters) ===');
+    console.log('\n=== GRAPH LAYOUT \u00b7 not comparable (this kernel has no work counters) ===');
     return { summary: [] };
   }
-  const page = () => {
-    const k = graphLayoutKernel();
-    for (const c of calls) k.layout(c.model, c.sizes, c.opts, dagre);
-    return k.stats;
-  };
-  const eachFresh = () => {
-    const t = { calls: 0, hits: 0, routed: 0, bounded: 0 };
-    for (const c of calls) {
-      const k = graphLayoutKernel();
-      k.layout(c.model, c.sizes, c.opts, dagre);
-      for (const x of Object.keys(t)) t[x] += k.stats[x];
-    }
-    return t;
-  };
+  // BOTH graph charts, since state chart v2: the state chart's rows replay one Chromium render
+  // of examples/state-chart-stress.md (14 machines, grid and dagre candidates both). A tree
+  // without a fixture (a base arm from before v2) reports only the charts it has.
+  const FIXTURES = [
+    { file: 'flowchart-deck-layouts.json', page: 'flowchart \u00b7 demo deck page', fresh: 'flowchart \u00b7 same calls, no cache' },
+    { file: 'state-chart-deck-layouts.json', page: 'state chart \u00b7 stress deck page', fresh: 'state chart \u00b7 same calls, no cache' },
+  ];
   const time = (f, n) => {
     f(); // warm
     const ms = [];
@@ -499,15 +491,38 @@ async function flowchartTier() {
     ms.sort((a, b) => a - b);
     return { ms: ms[Math.floor(ms.length / 2)], st };
   };
-  const a = time(page, 5);
-  const b = time(eachFresh, 3);
-  const summary = [
-    { dataset: `flowchart \u00b7 demo deck page (${calls.length} calls)`, slides: calls.length, ...a.st, ms: a.ms },
-    { dataset: `flowchart \u00b7 same calls, no cache`, slides: calls.length, ...b.st, ms: b.ms },
-  ];
-  console.log('\n=== FLOWCHART LAYOUT \u00b7 the demo deck\'s browser calls, replayed ===');
-  console.log(`${'dataset'.padEnd(40)}${'ms'.padStart(9)}${'routed'.padStart(8)}${'bounded'.padStart(9)}${'hits'.padStart(6)}`);
-  for (const r of summary) console.log(`${r.dataset.padEnd(40)}${r.ms.toFixed(1).padStart(9)}${String(r.routed).padStart(8)}${String(r.bounded).padStart(9)}${String(r.hits).padStart(6)}`);
+  const summary = [];
+  for (const fx of FIXTURES) {
+    const fixture = join(ROOT, 'test/benchmark/fixtures', fx.file);
+    if (!existsSync(fixture)) continue;
+    const { calls } = JSON.parse(readFileSync(fixture, 'utf8'));
+    const page = () => {
+      const k = graphLayoutKernel();
+      for (const c of calls) k.layout(c.model, c.sizes, c.opts, dagre);
+      return k.stats;
+    };
+    const eachFresh = () => {
+      const t = { calls: 0, hits: 0, routed: 0, bounded: 0, evals: 0, capped: 0 };
+      for (const c of calls) {
+        const k = graphLayoutKernel();
+        k.layout(c.model, c.sizes, c.opts, dagre);
+        for (const x of Object.keys(t)) t[x] += k.stats[x] || 0;
+      }
+      return t;
+    };
+    const a = time(page, 5);
+    const b = time(eachFresh, 3);
+    summary.push(
+      { dataset: `${fx.page} (${calls.length} calls)`, slides: calls.length, ...a.st, ms: a.ms },
+      { dataset: fx.fresh, slides: calls.length, ...b.st, ms: b.ms },
+    );
+  }
+  console.log('\n=== GRAPH LAYOUT \u00b7 each chart deck\'s browser calls, replayed ===');
+  // `evals` (the router's candidate evaluations) and `capped` (routings past its work
+  // budget) are commentary: a tree whose kernel predates them prints a dash.
+  const n = (v) => (v == null ? '\u2014' : String(v));
+  console.log(`${'dataset'.padEnd(40)}${'ms'.padStart(9)}${'routed'.padStart(8)}${'bounded'.padStart(9)}${'hits'.padStart(6)}${'evals'.padStart(9)}${'capped'.padStart(8)}`);
+  for (const r of summary) console.log(`${r.dataset.padEnd(40)}${r.ms.toFixed(1).padStart(9)}${String(r.routed).padStart(8)}${String(r.bounded).padStart(9)}${String(r.hits).padStart(6)}${n(r.evals).padStart(9)}${n(r.capped).padStart(8)}`);
   return { summary };
 }
 

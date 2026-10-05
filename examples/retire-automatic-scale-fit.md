@@ -43,15 +43,15 @@ Every slide renders at 1.5x. A slide too full for the room clips and is named, a
 ## Five long steps do not fit at 1.5x.
 
 1. Plan
-   - Reads the ticket, plans the change, and writes down why before anyone asks for it.
+   - Reads the ticket, plans the change, and writes down why before anyone asks.
 2. Build
-   - Writes the code and the tests, then opens a pull request with a clear summary.
+   - Writes the code and tests, then opens a pull request with a summary.
 3. Fix
-   - Fixes whatever breaks the build and explains each fix in a short commit message.
+   - Fixes whatever breaks the build and explains each fix in a commit.
 4. Report
-   - Notes how sure it is about the change, and names the parts it could not check.
+   - Notes how sure it is, and names the parts it could not check.
 5. Hand off
-   - Waits for approval, answers the review comments, and leaves notes for the next session.
+   - Waits for approval, answers review comments, and leaves notes for next time.
 
 <!-- stress-slide -->
 
@@ -66,14 +66,14 @@ This slide clips on purpose: it is the one the demo is about. Without the stress
 
 `Split · list-steps`
 
-## Five long steps do not fit at 1.5x.
+## Split: the first three steps.
 
 1. Plan
-   - Reads the ticket, plans the change, and writes down why before anyone asks for it.
+   - Reads the ticket, plans the change, and writes down why before anyone asks.
 2. Build
-   - Writes the code and the tests, then opens a pull request with a clear summary.
+   - Writes the code and tests, then opens a pull request with a summary.
 3. Fix
-   - Fixes whatever breaks the build and explains each fix in a short commit message.
+   - Fixes whatever breaks the build and explains each fix in a commit.
 
 ---
 
@@ -82,12 +82,12 @@ This slide clips on purpose: it is the one the demo is about. Without the stress
 
 `Split · list-steps`
 
-## Five long steps do not fit at 1.5x.
+## Split: the last two steps.
 
 4. Report
-   - Notes how sure it is about the change, and names the parts it could not check.
+   - Notes how sure it is, and names the parts it could not check.
 5. Hand off
-   - Waits for approval, answers the review comments, and leaves notes for the next session.
+   - Waits for approval, answers review comments, and leaves notes for next time.
 
 ---
 

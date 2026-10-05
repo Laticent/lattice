@@ -221,7 +221,7 @@ describe('Compose fenced code agrees with the other two surfaces', () => {
 		// functionplot entirely, reading `highlight-js.css`'s suppression as "mermaid is
 		// never colored". That rule is scoped to `section.diagram … :not([data-lattice-settle=
 		// "rendered"])` — the transient source `<pre>` on a SLIDE whose fence is about to
-		// become a picture. Compose is an editor, `mermaid.hljs.js` exists to color mermaid
+		// become a picture. Compose is an editor, `mermaid.highlight.js` exists to color mermaid
 		// source, and the Studio's markdown editor already does. Reported from a real iPhone:
 		// the mermaid fence sat flat while the js fence beside it was colored.
 		const src = fs.readFileSync(COMPOSE_VIEW, 'utf8');
