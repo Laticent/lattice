@@ -297,6 +297,16 @@ A pane's budget is its box minus its own chrome, measured the same way as a slid
   reads the same copy. A flat
   "one item fewer" was tried first and was wrong both ways on the demo deck: it called three short
   items crowded in a titled 50% pane, which read with room to spare.
+- *Added 2026-10-05:* the slide's own chrome takes height too. An eyebrow, subtitle, Key Insight
+  or note each takes a measured band of the stage (`SLIDE_BANDS`, lib/core/pane-spec.js, the copy
+  the engine's `stageBox` reads), and `chromeBudget` cuts the HARD count to the room left. A count
+  budget is a height with a fixed cost in it, so the budget counts that fixed cost as items
+  (`BUDGET_OVERHEAD`: a table's header row) before scaling, and takes it back after. A first try
+  scaled the counts by height alone. It passed a two-row table that the slide's eyebrow and Key
+  Insight clip, and flagged three panes that render with room. Measured at 1280 through the export's
+  overflow probe, the shipped model flags the clipping table and none of the three. The sweet count
+  only drops to stay at or under the hard count, because chrome changes how much fits, not how a
+  pane reads. Run against every shipped example and gallery, the change adds no new finding.
 - The component budgets in each manifest's `pane` field stay what they are. They were measured
   with no pane title, so they are the untitled figures; the title's cost is subtracted from
   them, never measured into them.
