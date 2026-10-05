@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X, 
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -84,6 +84,7 @@ import { LexiconEditor } from './LexiconEditor';
 import { PanelLoader, useLatch, warmPanels } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
+import { LESSONS } from './lessons/catalog';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { MotionTargets } from './MotionTargets';
@@ -114,6 +115,7 @@ import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edg
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
+import type { StudioCommand } from './studio-commands';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
@@ -121,6 +123,7 @@ import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePick
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
 import { useStudioDemo } from './use-studio-demo';
+import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
 import { mayReferenceWebImage } from './web-image-hint';
@@ -652,6 +655,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const viewRef = React.useRef(view);
 	viewRef.current = view;
 	const [shareOpen, setShareOpen] = React.useState(false);
+	// Which step the Share sheet opens on. "Export as PDF…" opens it straight on the PDF step;
+	// every other opener gets the menu, so this falls back to 'menu' whenever the sheet closes.
+	const [shareStart, setShareStart] = React.useState<'menu' | 'pdf'>('menu');
+	React.useEffect(() => {
+		if (!shareOpen) setShareStart('menu');
+	}, [shareOpen]);
 	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
 	const shareMounted = useLatch(shareOpen);
@@ -2675,7 +2684,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			off();
 		};
 	}, []);
-	const { demoActive, startDemo } = useStudioDemo(rootRef, {
+	const { demoActive, startDemo, stopDemo } = useStudioDemo(rootRef, {
 		palette,
 		createFirstDeck: createDemoFirstDeck,
 		setSource,
@@ -2729,6 +2738,34 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		if (demoActive) setChromeCollapsed(false);
 	}, [demoActive]);
+
+	// ── Lessons (2026-10-05-studio-lessons.md) ─────────────────────────────
+	// A lesson answers one question on the deck the user has open: it points at the real control,
+	// waits for their click, and does the step itself if they wait. The palette's Learn group starts
+	// one. The action list is built further down (it closes over handlers declared later), so the
+	// hook reads it through a ref that render keeps current.
+	const commandsRef = React.useRef<StudioCommand[]>([]);
+	const slideCountRef = React.useRef(0);
+	slideCountRef.current = slides.length;
+	const { lessonActive, startLesson } = useStudioLesson(rootRef, {
+		get commands() {
+			return commandsRef.current;
+		},
+		palette,
+		palettes: BUILTIN_PALETTES,
+		applyPalette,
+		// Add a slide after the last one and show it — the "do it for me" step of "How do I write a
+		// slide?". Two frames let the new source parse before the preview is asked to show it.
+		appendSlide: (md: string) => {
+			setSource(`${sourceRef.current.replace(/\s+$/, '')}\n\n---\n\n${md}\n`);
+			requestAnimationFrame(() => requestAnimationFrame(() => goToSlideRef.current(slideCountRef.current - 1)));
+		},
+		mobile,
+		stopDemo,
+	});
+	React.useEffect(() => {
+		if (lessonActive) setChromeCollapsed(false);
+	}, [lessonActive]);
 
 	// ── Resizable/collapsible editor|preview split (2026-07-02 decision) ─────
 	// Active on every non-mobile Compose branch (desktop, tablet, focus) — on
@@ -5636,6 +5673,41 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `cmdPalette` the overlay every other tier uses. They are MUTUALLY EXCLUSIVE — desktop
 	// renders only the inline one, compact only the overlay — so `⌘K` never has two homes
 	// and the command list has exactly one definition (CommandPalette.tsx).
+	// THE ACTION LIST (studio-commands.ts) — every palette verb, defined once. The palette renders
+	// its Actions rows from it and a lesson runs a verb by id through it, so a lesson's "I'll do it
+	// for you" is exactly the row. A command is left out while it would do nothing, so the palette
+	// never lists a dead row. Labels are e2e anchors: keep them stable.
+	const studioCommands: StudioCommand[] = [
+		{ id: 'present', group: 'actions', label: 'Present', icon: Play, keywords: ['slideshow', 'full screen', 'play'], run: openPresent },
+		{ id: 'share', group: 'actions', label: 'Share…', icon: Share2, keywords: ['send', 'export', 'download'], run: () => setShareOpen(true) },
+		{
+			id: 'export-pdf',
+			group: 'actions',
+			label: 'Export as PDF…',
+			icon: FileDown,
+			keywords: ['pdf', 'download', 'save', 'print'],
+			run: () => {
+				setShareStart('pdf');
+				setShareOpen(true);
+			},
+		},
+		{ id: 'reshape', group: 'actions', label: 'Reshape for a reader', icon: Sparkles, run: () => { revealCraftDock(); setLensesOpen(true); } },
+		...(insertComponents.length > 0 ? [{ id: 'insert', group: 'actions', label: 'Add a slide…', icon: Plus, keywords: ['insert', 'new slide', 'layout'], run: () => setInsertOpen(true) } satisfies StudioCommand] : []),
+		...(posture === 'craft' ? [{ id: 'focus', group: 'actions', label: 'Focus mode — just editor & preview', icon: Focus, run: () => setQuietened(true) } satisfies StudioCommand] : []),
+		{ id: 'fabricate', group: 'actions', label: 'Fabricate — Theme & Component Studio', icon: PencilRuler, run: () => setView('fabricate') },
+		// Read-only: the article is a way to read the deck, so it is offered on the reading surface
+		// alone — the same place its bar button lives.
+		...(effectiveStop === 'read' ? [{ id: 'read-article', group: 'actions', label: 'Read as an article', icon: FileText, run: () => setView('article') } satisfies StudioCommand] : []),
+		{ id: 'library', group: 'actions', label: 'Library — saved themes & components', icon: FileBox, run: () => { revealCraftDock(); setLibraryOpen(true); } },
+		{ id: 'workspace', group: 'actions', label: 'Workspace settings', icon: SettingsCog, run: () => setWorkspaceOpen(true) },
+		{ id: 'watch-demo', group: 'actions', label: 'Watch demo — the Studio drives itself', icon: MonitorPlay, run: () => startDemo() },
+		{ id: 'feedback', group: 'actions', label: 'Send feedback', icon: FeedbackIcon, run: () => setFeedbackOpen(true) },
+		// New deck — the slim Write header's switcher carries it too, but ⌘K is the header's
+		// stated "reaches every feature" path, so it must be reachable here.
+		{ id: 'new-deck', group: 'deck', label: 'New deck', icon: Plus, keywords: ['create', 'blank'], run: () => newDeck() },
+	];
+	commandsRef.current = studioCommands;
+
 	const cmdProps = {
 				open: cmdOpen,
 				onOpenChange: setCmdOpen,
@@ -5643,24 +5715,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// must not follow you to wherever the command took you. Without this, all
 				// ~31 commands sprang the drawer back open on top of the result.
 				onRun: () => setDrawerPendingReturn(false),
+				commands: studioCommands,
+				lessons: LESSONS,
+				onLesson: startLesson,
 				decks: deckList,
 				palettes: BUILTIN_PALETTES,
 				onPickDeck: loadDeck,
-				onNewDeck: () => newDeck(),
 				onPalette: applyPalette,
-				onPresent: openPresent,
-				onShare: () => setShareOpen(true),
-				onFeedback: () => setFeedbackOpen(true),
-				onFabricate: () => setView('fabricate'),
-				// Read-only: the article is a way to read the deck, so it is offered on the
-				// reading surface alone — the same place its bar button lives.
-				onReadArticle: effectiveStop === 'read' ? () => setView('article') : undefined,
-				onLibrary: () => { revealCraftDock(); setLibraryOpen(true); },
-				onWorkspace: () => setWorkspaceOpen(true),
-				onReshape: () => { revealCraftDock(); setLensesOpen(true); },
-				onWatchDemo: startDemo,
-				onInsert: insertComponents.length > 0 ? () => setInsertOpen(true) : undefined,
-				onFocus: posture === 'craft' ? () => setQuietened(true) : undefined,
 				onCollapseEditor: splitUsable && split.collapsed !== 'a' ? () => collapseFromHeader('a') : undefined,
 				onCollapsePreview: splitUsable && split.collapsed !== 'b' ? () => collapseFromHeader('b') : undefined,
 				onExpandPane: split.collapsed ? () => { const c = splitApiRef.current.collapsed; if (c) splitApiRef.current.expand(c); } : undefined,
@@ -5868,7 +5929,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<div className="hidden h-8 items-center rounded-md border border-border bg-background p-[3px] xl:flex">
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon-sm" aria-label="Theme" className="size-[26px]"><Palette className="size-[18px]" /></Button>
+								<Button variant="ghost" size="icon-sm" data-demo="theme" aria-label="Theme" className="size-[26px]"><Palette className="size-[18px]" /></Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end" className="max-h-[70vh] w-52 overflow-y-auto">
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
@@ -6371,7 +6432,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			{shareMounted && (
 				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
-					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />}
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />}
 				</PanelLoader>
 			)}
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />

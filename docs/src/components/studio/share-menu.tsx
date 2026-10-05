@@ -48,9 +48,9 @@ export const SHARE_MENU: ReadonlyArray<{ label: string; blurb: string; rows: Rea
  * exactly as it will be, but its arrow is a spinner, so a tap that cannot act yet does not look
  * like a tap that was ignored. The spinner is the arrow's size, so nothing moves when it goes.
  */
-export function ShareRow({ icon, title, desc, dev, busy, status, pending, onClick }: { icon: React.ReactNode; title: string; desc: string; dev?: boolean; busy?: boolean; status?: string | null; pending?: boolean; onClick?: () => void }) {
+export function ShareRow({ icon, title, desc, dev, busy, status, pending, onClick, demo }: { icon: React.ReactNode; title: string; desc: string; dev?: boolean; busy?: boolean; status?: string | null; pending?: boolean; onClick?: () => void; demo?: string }) {
 	return (
-		<button type="button" disabled={busy} onClick={onClick} className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-3 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:bg-[var(--accent-soft)] disabled:opacity-60">
+		<button type="button" data-demo={demo} disabled={busy} onClick={onClick} className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-3 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:bg-[var(--accent-soft)] disabled:opacity-60">
 			<span className={`grid size-9 place-items-center rounded-lg ${dev ? 'bg-card text-muted-foreground' : 'bg-[var(--accent-soft)] text-[var(--accent)]'}`}>{icon}</span>
 			<span className="min-w-0"><span className="block text-[13.5px] font-semibold text-[var(--text-heading)]">{title}</span><span className={`block truncate text-[11.5px] ${busy && status ? 'text-[var(--accent)]' : 'text-muted-foreground'}`}>{busy && status ? status : desc}</span></span>
 			{busy ? <Loader2 className="ml-auto size-4 animate-spin text-[var(--accent)]" /> : pending ? <Loader2 className="ml-auto size-4 animate-spin text-muted-foreground" /> : <ChevronRight className="ml-auto size-4 text-muted-foreground" />}

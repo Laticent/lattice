@@ -62,12 +62,8 @@ const props = {
 	decks: [],
 	palettes: ['indaco'],
 	onPickDeck: noop,
-	onNewDeck: noop,
 	onPalette: noop,
-	onPresent: noop,
-	onShare: noop,
-	onFabricate: noop,
-	onReshape: noop,
+	commands: [],
 };
 
 const vvh = () => document.documentElement.style.getPropertyValue('--vvh');

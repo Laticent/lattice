@@ -89,6 +89,7 @@ export function ExportOptionsPanel({
 
 			<button
 				type="button"
+				data-demo="pdf-download"
 				disabled={busy}
 				onClick={() => onExport({ commentsInPdf: commentsInPdf && total > 0, commentScope })}
 				className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"

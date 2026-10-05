@@ -577,6 +577,8 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 		onMouseEnter: () => onDetail(item),
 		onFocus: () => onDetail(item),
 		'aria-label': label,
+		// The lesson anchor for "How do I add a slide?" — the Blank tile is the one it may press.
+		'data-demo': isBlank ? 'picker-blank' : undefined,
 	};
 
 	if (isList) {

@@ -1174,7 +1174,8 @@ describe('StudioShell — topbar information architecture', () => {
 		await user.click(await screen.findByRole('button', { name: 'Search / commands' }));
 		const PALETTE = 'Search or run a command…';
 		await user.type(await screen.findByPlaceholderText(PALETTE), 'Present');
-		await screen.findByRole('option', { name: /Present/i });
+		// Exact: "How do I present?" (the Learn group) also matches the query.
+	await screen.findByRole('option', { name: 'Present' });
 		await user.keyboard('{Enter}');
 
 		await waitFor(() => expect(screen.queryByPlaceholderText(PALETTE)).not.toBeInTheDocument(), { timeout: 3000 });
