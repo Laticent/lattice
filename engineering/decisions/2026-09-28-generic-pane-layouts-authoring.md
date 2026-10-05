@@ -371,23 +371,46 @@ different of the name:
 | **The reviewer reading the source in a pull request** | the raw Markdown | read as prose: `columns ratio-60-40` over two `###` headings describes the slide without a render |
 
 **In Compose (2026-10-05).** The Studio user edits a pane slide without seeing its syntax. Each
-pane opens with a bar that names its place and share ("Left pane 60%") and holds a picker of the
-components that fit there. Its `###` title reads as a field labeled "Title" ("Title · hidden on the
-slide" under `no-title`), and a pane with a marker and no title gets an "Add title" button. Picking
-a component rewrites the pane's `_pane` marker, or writes one right above the `###` of a pane that
-has none; a pill above that `###` stays where it is, because the engine renders it as the tail of
-the pane before. Both where each pane starts and which `###` titles it are the kernel's answer:
+pane opens with a bar that names its place, its share and what it holds ("Left pane 60% · bar ·
+Change"). Its `###` title reads as a field labeled "Title" ("Title · hidden on the slide" under
+`no-title`), and a pane with a marker and no title gets an "Add title" button.
+
+**Changing what a pane holds is a choice of OUTCOME, not of a name.** A first cut put a native
+`<select>` of component names on the bar. The owner tried it on an iPhone. It relabeled the pane
+and left its content alone, so "- A point" sat under `bar` and drew nothing, and the menu reopened
+after every pick. The owner's question was what an average user should expect. The answer:
+- **What happens is shown before the pick.** "Change" opens the slide gallery in pane mode
+  (SlidePicker `pane`): live tiles of the components that fit the pane, each saying what picking it
+  does.
+- **"Keeps your text"** when the component can read the pane as it stands: every slot its grammar
+  requires is present, and a chart has numbers (`paneFit`, `pane-needs.ts`).
+- **"Starts with an example"** when it cannot. The pane's body is swapped for the component's own
+  starter, and a notice offers Undo. The Undo stands down once the author edits anything else.
+- **The pane's title and the slide's Key Insight never move.**
+- **The pane's own component leads the "Keeps your text" band.**
+- **A component whose starter Compose could not edit is not offered:** a checklist's state markers
+  or a formula would lock the slide read-only.
+
+This is the PowerPoint "change layout" model with the guesswork removed: the tile says which way
+the change goes.
+
+Where each pane starts, and which `###` titles it, are the kernel's answer.
 `docs/src/lib/compose/pane-model.ts` runs `scanPanes` on a stand-in text, each block's lines kept
-line for line, and maps the lines back to blocks. The independent review found three slides where a
-node loop of its own disagreed with the engine (a multi-line note under the marker, a bold pill, a
-pill then a comment). The picker's list is `fits` over the pane catalog, so it offers what `lint:deck`
-accepts.
+line for line, and maps the lines back to blocks. The two independent reviews found four slides
+where Compose and the engine disagreed; each is now pinned:
+- a multi-line note under a marker, which the kernel itself read wrongly and is fixed in
+  `paneStartsOf`;
+- a bold pill;
+- a pill followed by a comment;
+- a double-backtick pill.
 
 The bar is a decoration and writes nothing to the source. The marker stays in the document as a
-comment node with its pill hidden, since the bar names the component in words. Two keystrokes would
-then delete it unseen, so Compose swallows them (`keepPaneMarker`): Backspace at the start of a pane
-title, and Delete at the end of the block above a marker, which would otherwise pull the marker into
-a list. A pane cut and pasted keeps its marker: the paste gate admits a `_pane` comment in one
+comment node, with its pill hidden, since the bar names the component in words. A hidden node is
+easy to delete unseen. Binding the keys that delete it missed chords (Shift-Backspace,
+Mod-Backspace), so `paneMarkerGuard` guards the RESULT instead: it refuses any transaction that
+would leave the deck with fewer pane markers. Three things pass it: a pane command, Undo, and a
+range the author deliberately selected. A selection that lands on a hidden marker is moved off it.
+A pane cut and pasted keeps its marker, because the paste gate admits a `_pane` comment in one
 strict shape (comment-block.ts). Before all this, Compose read every `<!-- _pane: … -->` as a slide
 directive and moved it to the slide's head, so one keystroke on a marked pane slide wrote both
 markers above the `##` and the slide lost its panes. The markers now stay in the body

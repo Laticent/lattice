@@ -1,10 +1,11 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { baseKeymap } from 'prosemirror-commands';
+import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
-import { addPaneTitle, keepPaneMarker, paneChoices, paneDirectionOf, paneMarkerText, setPaneComponent, slidePanes } from './pane-model';
+import { addPaneTitle, paneChoices, paneDirectionOf, paneMarkerGuard, paneMarkerText, setPaneComponent, slidePanes } from './pane-model';
 
 // Compose edits a `columns` / `rows` slide's panes as fields: each pane's component is a picker and
 // its `###` title is a field (engineering/decisions/2026-09-28-generic-pane-layouts-authoring.md
@@ -100,11 +101,12 @@ describe('slidePanes reads panes with the kernel rule', () => {
 			const slide = stateOf(src).doc.child(0);
 			return slidePanes(slide)?.panes.map((p) => [p.cls, p.title === null ? null : slide.child(p.title).textContent]);
 		};
-		// A MULTI-LINE note between the marker and `### T` is not "only a pill": T starts the right
-		// pane and U folds into it, as the engine renders it.
+		// A MULTI-LINE note between the marker and `### T` is skipped whole, as the engine skips it:
+		// T titles the marker's pane and U starts the second. (The kernel read it line by line until
+		// the second review: T started a pane and the `list`-style marker after it folded away.)
 		expect(titles('<!-- _class: columns -->\n\n## H\n\n<!-- _pane: bar -->\n<!-- a note\nover two lines -->\n\n### T\n\n- A `1`\n\n### U\n\ny')).toEqual([
-			['bar', null],
-			['content', 'T'],
+			['bar', 'T'],
+			['content', 'U'],
 		]);
 		// A BOLD pill is not a pill.
 		expect(titles('<!-- _class: columns -->\n\n## H\n\n<!-- _pane: bar -->\n\n**`eb`**\n\n### T\n\n- A `1`\n\n### U\n\ny')).toEqual([
@@ -133,28 +135,54 @@ describe('slidePanes reads panes with the kernel rule', () => {
 });
 
 describe('a hidden marker survives a stray keystroke', () => {
-	const MARKED_AT = (state: EditorState, text: string) => {
-		let at = -1;
-		state.doc.descendants((n, pos) => {
-			if (at < 0 && n.isTextblock && n.textContent === text) at = pos + 1;
-			return at < 0;
+	const at = (state: EditorState, text: string, offset = 0) => {
+		let pos = -1;
+		state.doc.descendants((n, p) => {
+			if (pos < 0 && n.isTextblock && n.textContent === text) pos = p + 1 + offset;
+			return pos < 0;
 		});
-		return at;
+		expect(pos).toBeGreaterThan(0);
+		return state.apply(state.tr.setSelection(TextSelection.create(state.doc, pos)));
 	};
-	it('Backspace at the start of a pane title keeps the marker above it; elsewhere it does nothing special', () => {
-		const state = stateOf(MARKED);
-		const start = MARKED_AT(state, 'Revenue by line');
-		const at = (pos: number) => state.apply(state.tr.setSelection(TextSelection.create(state.doc, pos)));
-		expect(keepPaneMarker('backward')(at(start))).toBe(true);
-		expect(keepPaneMarker('backward')(at(start + 1))).toBe(false);
-		// Delete at the end of the block above the second marker.
-		const end = MARKED_AT(state, 'Services 47');
-		expect(keepPaneMarker('forward')(at(end + 'Services 47'.length))).toBe(true);
-		// Not at the end of that list: an ordinary Delete.
-		expect(MARKED_AT(state, 'Licenses 42')).toBeGreaterThan(0);
-		expect(keepPaneMarker('forward')(at(MARKED_AT(state, 'Licenses 42') + 3))).toBe(false);
-		// The `##` sits under no marker.
-		expect(keepPaneMarker('backward')(at(MARKED_AT(state, 'Services outgrew licenses.')))).toBe(false);
+	const panesAfter = (state: EditorState, key: string) => {
+		let next = state;
+		baseKeymap[key]?.(state, (tr) => {
+			next = state.apply(tr);
+		});
+		return slidePanes(next.doc.child(0))?.panes.map((p) => p.cls);
+	};
+	// Every chord baseKeymap binds to joinBackward / joinForward, not only the two plain keys: the
+	// second review found Shift-Backspace and Mod-Backspace walking straight past a keymap guard.
+	it.each(['Backspace', 'Shift-Backspace', 'Mod-Backspace', 'Ctrl-h', 'Alt-Backspace'])('%s at the start of a pane title keeps the marker above it', (key) => {
+		const state = EditorState.create({ doc: deckToDoc(MARKED), plugins: [paneMarkerGuard()] });
+		expect(panesAfter(at(state, 'Revenue by line'), key)).toEqual(['bar', 'list']);
+	});
+	it.each(['Delete', 'Mod-Delete', 'Ctrl-d', 'Alt-Delete'])('%s at the end of the list above a marker keeps it (and the list stays a list)', (key) => {
+		const state = EditorState.create({ doc: deckToDoc(MARKED), plugins: [paneMarkerGuard()] });
+		expect(panesAfter(at(state, 'Services 47', 'Services 47'.length), key)).toEqual(['bar', 'list']);
+	});
+	it('ordinary editing and a deliberate range delete still work', () => {
+		const state = EditorState.create({ doc: deckToDoc(MARKED), plugins: [paneMarkerGuard()] });
+		const typed = at(state, 'Revenue by line', 3);
+		const next = typed.apply(typed.tr.insertText('X'));
+		expect(next.doc.textContent).toContain('RevXenue by line');
+		// A range the author selected across a whole pane goes, marker and all.
+		const full = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1, state.doc.child(0).nodeSize - 1)));
+		const cut = full.apply(full.tr.deleteSelection());
+		expect(cut.doc.child(0).textContent).toBe('');
+	});
+	it('a selection that lands on a hidden marker moves off it', () => {
+		const state = EditorState.create({ doc: deckToDoc(MARKED), plugins: [paneMarkerGuard()] });
+		const info = slidePanes(state.doc.child(0));
+		let pos = 1;
+		for (let k = 0; k < (info?.panes[1].marker as number); k++) pos += state.doc.child(0).child(k).nodeSize;
+		const next = state.apply(state.tr.setSelection(NodeSelection.create(state.doc, pos)));
+		expect(next.selection instanceof NodeSelection).toBe(false);
+		// Arriving from below (ArrowUp), the caret carries on up into the first pane, not back down.
+		const below = state.apply(state.tr.setSelection(TextSelection.create(state.doc, pos + 3)));
+		const up = below.apply(below.tr.setSelection(NodeSelection.create(below.doc, pos)));
+		expect(up.selection.from).toBeLessThan(pos);
+		expect(next.selection.from).toBeGreaterThan(pos);
 	});
 });
 

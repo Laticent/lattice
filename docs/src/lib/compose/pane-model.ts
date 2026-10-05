@@ -1,8 +1,13 @@
-import type { Node as PMNode } from 'prosemirror-model';
-import { type EditorState, TextSelection, type Transaction } from 'prosemirror-state';
+import { closeHistory, isHistoryTransaction } from 'prosemirror-history';
+import { DOMSerializer, Fragment, type Node as PMNode } from 'prosemirror-model';
+import { type EditorState, NodeSelection, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 // DEFAULT imports: both are CommonJS leaves (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import paneCatalog from '../../../../lib/authoring/pane-lint.generated.js';
 import paneSpec from '../../../../lib/core/pane-spec.js';
+import { normalizeSourceText } from '../normalize-source-text';
+import { parseSlideProse } from './deck-markdown';
+import { hasLossyConstruct } from './deck-source';
+import type { PaneNeeds } from './pane-needs';
 
 // The panes of a `columns` / `rows` slide, read off the Compose document — so the editor can show
 // each pane's component as a picker and its `###` title as a field
@@ -77,7 +82,17 @@ export function paneDirectionOf(directives: string[]): PaneDirection | null {
 
 /** The panes of one Compose slide node, or null when it is not a pane slide with two panes. Both
  *  where each pane starts and which `###` titles it come from the kernel (`scanPanes`). */
+const PANES_OF = new WeakMap<PMNode, SlidePanes | null>();
 export function slidePanes(slide: PMNode): SlidePanes | null {
+	// Nodes are immutable, so a slide's panes are memoized by node identity: the marker guard reads
+	// every slide of two docs per transaction, and a 300-pane-slide deck cost 14.6ms a keystroke
+	// before this (the second review's measurement).
+	if (PANES_OF.has(slide)) return PANES_OF.get(slide) ?? null;
+	const read = readSlidePanes(slide);
+	PANES_OF.set(slide, read);
+	return read;
+}
+function readSlidePanes(slide: PMNode): SlidePanes | null {
 	const directives = (slide.attrs.directives as string[]) || [];
 	if (!paneDirectionOf(directives)) return null;
 	// The directives, a blank line, then each block's lines with a blank line between: the blank
@@ -142,16 +157,7 @@ function childPos(parent: PMNode, start: number, k: number): number {
  *  that starts a pane with none. Null when nothing changes —
  *  the slide is not a pane slide, the pane does not exist, or it already renders `cls`. */
 export function setPaneComponent(state: EditorState, slidePos: number, index: number, cls: string): Transaction | null {
-	const at = slideAt(state.doc, slidePos);
-	const info = at && slidePanes(at.slide);
-	const pane = info?.panes[index];
-	if (!at || !pane || pane.cls === cls) return null;
-	const marker = state.schema.nodes.comment.create({ text: paneMarkerText(cls, pane.mods) });
-	if (pane.marker !== null) {
-		const pos = childPos(at.slide, at.start, pane.marker);
-		return state.tr.replaceWith(pos, pos + at.slide.child(pane.marker).nodeSize, marker);
-	}
-	return state.tr.insert(childPos(at.slide, at.start, pane.anchor), marker);
+	return applyPaneChoice(state, slidePos, index, { cls, starter: null });
 }
 
 /** Give pane `index` a `###` title right under its marker, with the placeholder selected so the
@@ -174,35 +180,184 @@ export function paneOwnsTitles(cls: string): boolean {
 	return paneSpec.ownsHeadings(SPECS, cls);
 }
 
-/** Whether child `k` of `slide` is a pane's `_pane` marker (the kernel's reading, not a regex). */
-function isPaneMarker(slide: PMNode, k: number): boolean {
-	return !!slidePanes(slide)?.panes.some((p) => p.marker === k);
+
+// ── Changing what a pane holds ──────────────────────────────────────────────────────────────────
+// Naming a different component does not by itself make a pane's content read as that component:
+// "- A point" under `bar` draws no bars. So the Studio offers the change from the slide gallery,
+// where each tile says what will happen BEFORE the author picks it — "Keeps your text" when the
+// component can read the pane as it stands (`paneFit`), "Starts with an example" when it cannot,
+// in which case the pane's body is swapped for that component's own starter (`paneStarter`) and
+// an Undo is offered. The pane's title and the slide's Key Insight are never touched.
+
+/** The child range `[from, to)` of pane `index`'s BODY: after its head (marker, title, a subtitle
+ *  pill under the title) and before the next pane, less a trailing Key Insight, note or comment,
+ *  which the engine gives to the slide. A pane that is nothing but those keeps them as its body. */
+export function paneBodyRange(slide: PMNode, info: SlidePanes, index: number): { from: number; to: number } {
+	const pane = info.panes[index];
+	let from: number;
+	if (pane.title !== null) {
+		from = pane.title + 1;
+		if (from < slide.childCount && isPill(slide.child(from))) from++;
+	} else {
+		from = (pane.marker ?? pane.anchor) + 1;
+		while (from < slide.childCount && slide.child(from).type.name === 'comment') from++;
+	}
+	const next = info.panes[index + 1];
+	let to = next ? (next.marker ?? next.anchor) : slide.childCount;
+	const coda = (n: PMNode) => n.type.name === 'comment' || n.type.name === 'blockquote' || (n.type.name === 'paragraph' && /^—\s/.test(n.textContent));
+	let end = to;
+	while (end > from && coda(slide.child(end - 1))) end--;
+	// A body of nothing but blockquotes renders as the pane's own content, so it is the body — but
+	// only its first block: what follows reads as the slide's Key Insight once the pane holds anything
+	// else, and replacing it would take the slide's insight with the pane's text.
+	if (end > from) to = end;
+	else if (to > from) to = from + 1;
+	return { from, to: Math.max(from, to) };
+}
+
+/** Whether `cls` can read pane `index`'s body as it stands: every slot its grammar requires is
+ *  present (`needs`), and a chart has a number to draw. `doc` is the DOM document the schema's
+ *  own `toDOM` serializes into, so the test runs on the same shapes the engine will see. */
+export function paneFit(slide: PMNode, info: SlidePanes, index: number, needs: PaneNeeds, doc: Document): (cls: string) => 'keeps' | 'fresh' {
+	const { from, to } = paneBodyRange(slide, info, index);
+	const nodes: PMNode[] = [];
+	for (let k = from; k < to; k++) if (slide.child(k).type.name !== 'comment') nodes.push(slide.child(k));
+	const section = doc.createElement('section');
+	if (nodes.length) section.append(DOMSerializer.fromSchema(slide.type.schema).serializeFragment(Fragment.from(nodes), { document: doc }));
+	const hasNumber = [...section.querySelectorAll('code, td')].some((el) => /\d/.test(el.textContent || ''));
+	const matches = (sel: string) => {
+		try {
+			return !!section.querySelector(sel);
+		} catch {
+			return false;
+		}
+	};
+	const current = info.panes[index].cls;
+	const known = Object.keys(needs).length > 0;
+	return (cls) => {
+		// A component that owns its `###`s (team-profile) holds them as its own anatomy: under any
+		// other they would start new panes, so leaving one always starts fresh.
+		if (cls !== current && paneSpec.ownsHeadings(SPECS, current) && !paneSpec.ownsHeadings(SPECS, cls)) return 'fresh';
+		// No needs map (the grammar failed to load at build): never replace the author's text on a
+		// guess. The pick then only names the component, which loses nothing.
+		if (!known) return 'keeps';
+		const need = needs[cls];
+		if (!need || !nodes.length) return 'fresh';
+		return need.slots.every(matches) && (!need.numbers || hasNumber) ? 'keeps' : 'fresh';
+	};
+}
+
+/** A component's starter as a PANE body: its gallery skeleton less the slide's own parts — the
+ *  directives, the `#`/`##` heading with the pills above and below it, and a closing Key Insight
+ *  the component does not read as its own (`keepQuote`), which would become the slide's. */
+export function paneStarter(skeleton: string, keepQuote: boolean): string {
+	const lines = normalizeSourceText(String(skeleton || '')).split('\n');
+	const isDirective = (l: string) => /^\s*<!--\s*_?[A-Za-z][\w-]*\s*:/.test(l) && l.trim().endsWith('-->');
+	const pill = (l: string | undefined) => paneSpec.isPillLine(l || '');
+	const body = lines.filter((l) => !isDirective(l));
+	const h = body.findIndex((l) => /^ {0,3}#{1,2}(?:\s|$)/.test(l));
+	if (h >= 0) {
+		let a = h;
+		let b = h + 1;
+		while (a > 0 && (!body[a - 1].trim() || pill(body[a - 1]))) a--;
+		while (b < body.length && !body[b].trim()) b++;
+		if (pill(body[b])) b++;
+		body.splice(a, b - a);
+	}
+	let text = body.join('\n').trim();
+	if (!keepQuote) {
+		const blocks = text.split(/\n{2,}/);
+		while (blocks.length > 1 && /^>/.test(blocks[blocks.length - 1].trim())) blocks.pop();
+		text = blocks.join('\n\n');
+	}
+	return text;
+}
+
+/** Whether Compose could edit a starter it inserted: one that holds a construct the round-trip
+ *  would flatten (a checklist's state markers, a math formula) would lock the slide read-only the moment it landed. */
+export function starterEditable(skeleton: string): boolean {
+	return !hasLossyConstruct(paneStarter(skeleton, true));
+}
+
+export type PaneChoice = { cls: string; modifiers?: string[]; starter: string | null };
+
+/** Make pane `index` hold `choice.cls`: rewrite (or write) its `_pane` marker, keeping `no-title`,
+ *  with the look's modifiers; and when `choice.starter` is set, swap the pane's body for it. The
+ *  title and the slide's Key Insight stay. Null when nothing would change. Carries the `paneOp`
+ *  meta, the one transaction the marker guard lets remove or rewrite a marker. */
+export function applyPaneChoice(state: EditorState, slidePos: number, index: number, choice: PaneChoice): Transaction | null {
+	const at = slideAt(state.doc, slidePos);
+	const info = at && slidePanes(at.slide);
+	const pane = info?.panes[index];
+	if (!at || !info || !pane) return null;
+	const picked = (choice.modifiers || []).filter((w) => /^[a-z][a-z0-9-]*$/.test(w));
+	// The pane's own component picked again with no look of its own keeps the look it has.
+	const modifiers = choice.cls === pane.cls && !picked.length ? pane.modifiers : picked;
+	const sameMarker = pane.cls === choice.cls && modifiers.join(' ') === pane.modifiers.join(' ');
+	if (sameMarker && choice.starter === null) return null;
+	const tr = state.tr;
+	// The body first: it sits after the marker, so replacing it moves nothing the marker needs.
+	if (choice.starter !== null) {
+		const { from, to } = paneBodyRange(at.slide, info, index);
+		const parsed = parseSlideProse(choice.starter).content.toJSON();
+		let content = parsed ? Fragment.fromJSON(state.schema, parsed) : Fragment.empty;
+		// A speaker note (any comment) inside the replaced body is the author's, not the pane's
+		// content: it survives, after the starter.
+		for (let k = from; k < to; k++) if (at.slide.child(k).type.name === 'comment') content = content.addToEnd(at.slide.child(k));
+		tr.replaceWith(childPos(at.slide, at.start, from), childPos(at.slide, at.start, to), content);
+	}
+	if (!sameMarker) {
+		const words = [choice.cls, ...modifiers, ...pane.mods.filter((w) => w === 'no-title')];
+		const marker = state.schema.nodes.comment.create({ text: `<!-- _pane: ${words.join(' ')} -->` });
+		if (pane.marker !== null) {
+			const pos = childPos(at.slide, at.start, pane.marker);
+			tr.replaceWith(pos, pos + at.slide.child(pane.marker).nodeSize, marker);
+		} else tr.insert(childPos(at.slide, at.start, pane.anchor), marker);
+	}
+	// Its own history step, so the notice's Undo takes back the pick and never typing just before it.
+	return closeHistory(tr).setMeta(PANE_OP, true);
+}
+
+/** The meta a pane command sets so `paneMarkerGuard` lets it through. */
+export const PANE_OP = 'cs-pane-op';
+
+/** How many pane markers a doc holds, across its pane slides — what the guard compares. */
+function markerCount(doc: PMNode): number {
+	let n = 0;
+	doc.forEach((slide) => {
+		const info = slidePanes(slide);
+		if (info) n += info.panes.filter((p) => p.marker !== null).length;
+	});
+	return n;
 }
 
 /**
- * Two keystrokes would remove a hidden pane marker, and Compose hides it (the pane bar names the
- * component instead), so either would silently turn a pane back into `content` — the footgun the
- * comment pill was made visible to avoid (ComposeView.tsx, "Authoring comments"):
- *   - Backspace at the start of the block right under a marker: `joinBackward` deletes an atom
- *     before a textblock. (At the start of a list under a marker it LIFTS the list, which leaves the
- *     marker alone, so only a top-level textblock is guarded.)
- *   - Delete at the very end of the block right above a marker, at any depth: `joinForward` deletes
- *     the atom after a textblock, and from the end of a list it pulls the marker INTO the list, so
- *     the marker stops marking anything and the two panes' lists merge.
- * These commands swallow exactly those keystrokes; the picker is the way to change a pane's
- * component, and a selection across the marker still deletes it with everything else selected.
+ * Compose hides a pane's marker (the pane bar names the component in words), and an invisible
+ * node is exactly the thing a stray keystroke deletes unseen: Backspace, Shift-Backspace,
+ * Mod-Backspace, Delete, the mac Ctrl-h / Alt-Backspace / Ctrl-d chords, or arrowing onto the
+ * selectable atom and typing. Binding each key would leave the next chord out, so this guards the
+ * RESULT instead: a transaction that would leave a pane slide with fewer markers than it had is
+ * refused, unless a pane command made it (`PANE_OP`) or the author's own selection was a range
+ * that spanned more than the marker (a deliberate cut or delete of a whole pane). And a selection
+ * that lands ON a hidden marker is moved off it, so typing never replaces it.
  */
-export function keepPaneMarker(dir: 'backward' | 'forward') {
-	return (state: EditorState): boolean => {
-		const { $from, empty } = state.selection;
-		if (!empty || $from.depth < 2 || !$from.parent.isTextblock) return false;
-		const slide = $from.node(1);
-		const k = $from.index(1);
-		if (dir === 'backward') return $from.depth === 2 && $from.parentOffset === 0 && k > 0 && isPaneMarker(slide, k - 1);
-		// At the very end of slide child k: the end of every node from the textblock up to it.
-		for (let d = $from.depth; d >= 2; d--) {
-			if (d === $from.depth ? $from.parentOffset !== $from.parent.content.size : $from.index(d) !== $from.node(d).childCount - 1) return false;
-		}
-		return k + 1 < slide.childCount && isPaneMarker(slide, k + 1);
-	};
+export function paneMarkerGuard() {
+	return new Plugin({
+		filterTransaction(tr, state) {
+			if (!tr.docChanged || tr.getMeta(PANE_OP) || isHistoryTransaction(tr)) return true;
+			// Adding or removing whole slides is the structural guard's business, not this one's.
+			if (tr.doc.childCount !== state.doc.childCount) return true;
+			const sel = state.selection;
+			if (!sel.empty && !(sel instanceof NodeSelection)) return true;
+			return markerCount(tr.doc) >= markerCount(state.doc);
+		},
+		appendTransaction(_trs, old, state) {
+			const sel = state.selection;
+			if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment' || !/^<!--\s*_pane\s*:/.test(String(sel.node.attrs.text))) return null;
+			// On in the direction of travel: ArrowUp onto a marker carries on up, or a keyboard user
+			// could never arrow from the second pane into the first.
+			const up = sel.from < old.selection.from;
+			return state.tr.setSelection(TextSelection.near(state.doc.resolve(up ? sel.from : sel.to), up ? -1 : 1));
+		},
+	});
 }

@@ -343,6 +343,14 @@ test('a double-backtick pill above a ### is one pill: linter and engine both cou
   }
 });
 
+test('a multi-line note between a marker and its ### does not start a new pane: scanner and engine agree', () => {
+  // The scanner tested comments line by line, so a note's first line read as text and `### Rev`
+  // started a content pane that folded the `list` marker away; the engine skips the whole comment.
+  const slide = '<!-- _class: columns -->\n\n## H\n\n<!-- _pane: bar -->\n<!-- note\n\nmore -->\n### Rev\n\n- A `1`\n\n<!-- _pane: list -->\n\n- x\n';
+  assert.deepEqual(spec.scanPanes(slide).split.panes.map((p) => [p.cls, p.title]), [['bar', 8], ['list', null]]);
+  assert.deepEqual(cells(render(slide)), ['bar', 'list']);
+});
+
 test('export-to-Marp drops the layout words and the markers, and keeps the other classes', () => {
   const out = stripPaneMarkers('<!-- _class: columns ratio-60-40 dark -->\n\n## T\n\n<!-- _pane: bar -->\n\n- A `4`\n\n<!-- _pane: list -->\n\n- x\n');
   assert.match(out, /<!-- _class: dark -->/);
