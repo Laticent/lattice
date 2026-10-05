@@ -234,7 +234,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:theme` | Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet). |
 | `test:tokens` | Unit scope: the universal token system. |
 | `test:tools` | Unit scope: author tools (export-marp, …). |
-| `test:trama` | Unit scope: trama, the graph-chart library the flowchart is built on. |
+| `test:trama` | Unit scope: trama, the graph-chart library the flowchart, the state chart and hub-spoke are built on (graph kernel, radial kernel, pipeline, serialization). |
 | `test:transform-dsl` | Unit scope: the declarative component-transform DSL and its safety validator (lib/core/transform-dsl). |
 | `test:transformers` | Unit scope: transformer registry/adapters. |
 | `test:watch` | Re-run the unit suite on file change. |
