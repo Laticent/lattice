@@ -20,7 +20,7 @@ const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
-const { LIST_ROW_OWNERS, ownsListRows, ownsSpan } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
+const { LIST_ROW_OWNERS, ownsListRows } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
 const core = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
 
 const deck = (cls, body) => ['---', 'theme: indaco', '---', '', `<!-- _class: ${cls} -->`, '', body].join('\n');
@@ -30,9 +30,6 @@ test('the owners come from the manifests: flowchart, and only components that de
   assert.deepEqual([...LIST_ROW_OWNERS], ['flowchart']);
   assert.equal(ownsListRows(['flowchart', 'lr']), true);
   assert.equal(ownsListRows(['list', 'quadrant']), false);
-  assert.equal(ownsSpan(['flowchart'], '{diamond, c2}'), true);
-  assert.equal(ownsSpan(['flowchart'], '[x]'), false, 'a mark is not a flowchart style');
-  assert.equal(ownsSpan(['list'], '{diamond, c2}'), false);
 });
 
 test('engine: a flowchart row keeps its style record; a pill elsewhere on the slide still draws', () => {
@@ -52,7 +49,7 @@ test('engine: a flowchart row keeps its style record; a pill elsewhere on the sl
 test('runtime: the DOM mirror leaves an owned row\'s span as code', async () => {
   const bundle = path.join(ROOT, 'dist', 'lattice-runtime.js');
   const md = new MarkdownIt();
-  const markup = (cls) => `<section class="${cls}">${md.render('- Triage `{diamond, c2}`\n\nText `{BETA, c2}`.')}</section>`;
+  const markup = (cls) => `<section class="${cls}">${md.render('- Triage `{diamond, c2}`\n- Intake `\\{LIVE}`\n\nText `{BETA, c2}`.')}</section>`;
   const boot = async (cls) => {
     const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body>${markup(cls)}</body></html>`, {
       url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
@@ -67,6 +64,11 @@ test('runtime: the DOM mirror leaves an owned row\'s span as code', async () => 
   const owned = await boot('flowchart');
   assert.equal(owned.querySelectorAll('li .lat-pill').length, 0, 'the row span stays for the chart');
   assert.equal(owned.querySelectorAll('p .lat-pill').length, 1, 'a prose span still draws');
+  // An escape is still an escape on an owned row: the backslash comes off and the span is
+  // stamped, before the ownership gate (the engine path does the same).
+  const esc = [...owned.querySelectorAll('li code')].find((c) => c.textContent.includes('LIVE'));
+  assert.equal(esc.textContent, '{LIVE}');
+  assert.ok(esc.hasAttribute('data-lat-escaped'), 'stamped, so the chart reads it as name text');
   const ctl = await boot('content');
   assert.equal(ctl.querySelectorAll('li .lat-pill').length, 1, 'control: an unowned row draws the pill');
 });
@@ -92,4 +94,17 @@ test('an escaped span on a flowchart row is name text on every path — never a 
   const m = g.parseFlowchart(g.outlineFromMarkdown('- Intake `\\{LIVE}` -> Triage').items, {});
   assert.equal(m.shapes[0].name, 'Intake {LIVE}', 'lint and the narrator read the same name');
   assert.equal(m.diagnostics.length, 0);
+});
+
+test('the text of an escaped span is protected: no arrow, fan-out or markup inside it is read', () => {
+  // An escape is a LITERAL segment in both readers, so `\{go -> stop}` cannot split the row and
+  // the Markdown reader cannot clean emphasis or entities the render keeps.
+  const g = require(path.join(ROOT, 'lib/core/flowchart-grammar.js'));
+  for (const [span, name] of [['\\{go -> stop}', 'Intake {go -> stop}'], ['\\{a & b}', 'Intake {a & b}'], ['\\{a **b** c}', 'Intake {a **b** c}']]) {
+    const m = g.parseFlowchart(g.outlineFromMarkdown(`- Intake \`${span}\` -> Triage`).items, {});
+    assert.deepEqual(m.shapes.map((x) => x.name), [name, 'Triage'], span);
+    const doc = render(deck('flowchart', `## F.\n\n- Intake \`${span}\` -> Triage`));
+    const names = [...doc.querySelectorAll('[data-shape]')].map((n) => n.textContent.trim());
+    assert.deepEqual(names.sort(), [name, 'Triage'].sort(), `render: ${span}`);
+  }
 });
