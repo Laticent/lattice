@@ -305,9 +305,13 @@ places: a run of letters next to another run (longest match), `/` against `/*`, 
   successor can never match, and it follows rule references. It is computed as "the characters
   that cannot come next, however the piece matched", because the first version refused valid
   grammars (an `opt` takes at most one character) and missed dead code behind a rule reference.
-  That answer always has the shape `a ∪ (b ∩ before)`, so each rule is summarized once by a
-  fixpoint from empty, the way FIRST is. Walking references instead cost exponential time on a
-  rule reached by many routes (a valid 25-rule grammar took 10 s to compile).
+  That answer always has the shape `a ∪ (b ∩ before)`, so each rule is summarized once, in
+  dependency order (a strongly-connected-components pass, so only rules that reach each other
+  iterate). Walking references instead cost exponential time on a rule reached by many routes (a
+  valid 25-rule grammar took 10 s to compile), and one fixpoint over all rules in source order
+  cost a round per rule on a chain written top-down (24.5 s for 4,000 rules; 0.9 s now). The
+  engine's older FIRST/FOLLOW fixpoints are still quadratic on a chain listed bottom-up (12.8 s
+  for 4,000 rules on main as well); that is pre-existing and logged in `followups.d/`.
 - **`until(end)`**: one `indexOf` and no re-reading. `end` is capped at 64 characters, because
   `indexOf`'s slow case is input × terminator: the red team measured 1.5 µs per input character
   for a 16,384-character terminator, against 4 ns for 32 characters.
@@ -348,7 +352,9 @@ run that also caught a miss in the replacement's first draft, which did not summ
 nested in a loop body. A seventh came from driving the real `/segno` page: the check counted
 PLAIN loops too, so its "greedy, then a quote" preset (a strict grammar) showed a second refusal
 calling the loop greedy. Only greedy loops count now, and on 60,000 random strict grammars `lint`
-matches `main` exactly (the pre-fix commit differed on 13,054). The five: the dead-code check's false refusals and its miss
+matches `main` exactly (the pre-fix commit differed on 13,054). A fourth checker, on those last
+fixes, confirmed the algebra and its soundness (0 false refusals in 16,000 random greedy grammars
+against brute-force parsing) and found the round-per-rule cost above. The five: the dead-code check's false refusals and its miss
 through rule references, the unbounded terminator, the backstop's invented level count, and its
 catching every RangeError. Two limits are pinned as tests rather than fixed: greedy commits (above),
 and the runtimes can disagree near the stack limit.

@@ -115,6 +115,20 @@ describe('greedy()', () => {
     }
   });
 
+  // The fourth checker: the single fixpoint over all rules needed one round per rule on a chain
+  // written top-down with a greedy loop at its end — 21 s for 4,000 rules. Rules are solved in
+  // dependency order now. The greedy leaf is what makes the summary move; a chain without one
+  // settles in a round either way, which is why the test below did not catch it.
+  it('solves a long top-down chain with a greedy leaf in one visit per rule, and still finds the dead code', () => {
+    const n = 3000;
+    const rules: Record<string, ReturnType<typeof seq>> = { start: seq(ref('r0'), 'a') };
+    for (let i = 0; i < n; i++) rules[`r${i}`] = i === n - 1 ? seq('x', greedy(many('a'))) : seq('x', ref(`r${i + 1}`));
+    const t = performance.now();
+    const problems = lint({ start: 'start', rules });
+    expect(performance.now() - t).toBeLessThan(2_000);
+    expect(problems.join('\n')).toMatch(/start: seq\[1\] can never match/);
+  });
+
   it('does not recurse through rule references (a long chain lints without a stack overflow)', () => {
     const chain: Record<string, ReturnType<typeof seq>> = {};
     for (let i = 0; i < 3000; i++) chain[`r${i}`] = i === 2999 ? seq('x') : seq('x', ref(`r${i + 1}`));

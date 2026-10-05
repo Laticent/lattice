@@ -349,10 +349,10 @@ class Analysis {
    *
    * The answer depends on what was excluded BEFORE the expression, and it always has the shape
    * `a ∪ (b ∩ before)` (every step is a union or an intersection, and sets distribute), so each
-   * expression is summarized once as the pair `{ a, b }`. Rules are summarized by a fixpoint from
-   * empty, the way FIRST is, so a rule reached by many routes costs one visit per pass. Walking
-   * references instead re-walked a shared rule once per route: exponential, and a 25-rule
-   * grammar took 10 s to compile (found by the PR's checker).
+   * expression is summarized once as the pair `{ a, b }`, and each rule once, in dependency
+   * order (below), so a rule reached by many routes is still visited once. Walking references
+   * instead re-walked a shared rule once per route: exponential, and a 25-rule grammar took
+   * 10 s to compile (found by the PR's checker).
    *
    * Starting from empty gives the LEAST fixpoint, which is never larger than the true answer.
    * Too small only lets a grammar through, so the check can miss dead code but never refuses
@@ -363,59 +363,131 @@ class Analysis {
 
   private excludedSets() {
     const NONE: Excluded = { a: EMPTY, b: EMPTY };
-    const rules = new Map<string, Excluded>(Object.keys(this.spec.rules).map((k) => [k, NONE]));
+    const names = Object.keys(this.spec.rules);
+    const rules = new Map<string, Excluded>(names.map((k) => [k, NONE]));
     const same = (x: CharSet, y: CharSet) => x.length === y.length && x.every((v, i) => v === y[i]);
-    for (let changed = true; changed; ) {
-      changed = false;
-      this.excluded = new Map();
-      const of = (e: Expr): Excluded => {
-        const hit = this.excluded.get(e);
-        if (hit) return hit;
-        let out: Excluded;
-        switch (e.t) {
-          // Visit the body even though the loop's own answer does not depend on it: the check
-          // reads the summary of every sequence, including one nested inside a loop. Skipping it
-          // left nested sequences unsummarized, and the differential fuzz caught 400 missed
-          // refusals in 60,000 grammars.
-          // Only a GREEDY loop counts. A plain loop stops on the same characters, but in a grammar
-          // that passes the LL(1) check its body cannot start what follows it, so it can never
-          // starve a successor; counting it only repeated that check's refusal under a message
-          // that called the loop greedy (the /segno page's "greedy, then a quote" preset showed it).
-          case 'many': of(e.x); out = e.greedy ? { a: this.get(e.x).first, b: EMPTY } : NONE; break;
-          case 'opt': {
-            const p = of(e.x);
-            out = { a: intersect(p.a, this.get(e.x).first), b: union(p.a, p.b) };
-            break;
-          }
-          case 'node': out = of(e.x); break;
-          case 'seq': {
-            out = { a: EMPTY, b: ANY }; // the identity: what was excluded before stays excluded
-            for (const x of e.xs) { const p = of(x); out = { a: union(p.a, intersect(p.b, out.a)), b: intersect(p.b, out.b) }; }
-            break;
-          }
-          case 'alt': {
-            let acc: Excluded | null = null;
-            for (const x of e.xs) {
-              const p = of(x);
-              acc = acc === null ? p : {
-                a: intersect(acc.a, p.a),
-                b: union(intersect(acc.a, p.b), intersect(p.a, acc.b), intersect(acc.b, p.b)),
-              };
-            }
-            out = acc ?? NONE;
-            break;
-          }
-          case 'ref': out = rules.get(e.name) ?? NONE; break;
-          default: out = NONE; // lit, set, until: they consume, and anything may follow
+    this.excluded = new Map();
+
+    // One expression's summary, given the current summaries of the rules it references. `memo`
+    // is per round, so a rule that changes is re-read on the next round of its own group.
+    const of = (e: Expr, memo: Map<Expr, Excluded>): Excluded => {
+      const hit = memo.get(e);
+      if (hit) return hit;
+      let out: Excluded;
+      switch (e.t) {
+        // Visit the body even though the loop's own answer does not depend on it: the check
+        // reads the summary of every sequence, including one nested inside a loop. Skipping it
+        // left nested sequences unsummarized, and the differential fuzz caught 400 missed
+        // refusals in 60,000 grammars.
+        // Only a GREEDY `many` counts. A plain loop stops on the same characters, but in a
+        // grammar that passes the LL(1) check its body cannot start what follows it, so it can
+        // never starve a successor; counting it only repeated that check's refusal under a
+        // message that called the loop greedy (the /segno page's "greedy, then a quote" preset).
+        // An `opt` counts whether or not it is greedy: it runs the same way either way, and it
+        // only ever passes on what its body excludes, so a strict grammar gives it nothing.
+        case 'many': of(e.x, memo); out = e.greedy ? { a: this.get(e.x).first, b: EMPTY } : NONE; break;
+        case 'opt': {
+          const p = of(e.x, memo);
+          out = { a: intersect(p.a, this.get(e.x).first), b: union(p.a, p.b) };
+          break;
         }
-        this.excluded.set(e, out);
-        return out;
-      };
-      for (const [name, body] of Object.entries(this.spec.rules)) {
-        const next = of(body);
-        const prev = rules.get(name) as Excluded;
-        if (!same(next.a, prev.a) || !same(next.b, prev.b)) { rules.set(name, next); changed = true; }
+        case 'node': out = of(e.x, memo); break;
+        case 'seq': {
+          out = { a: EMPTY, b: ANY }; // the identity: what was excluded before stays excluded
+          for (const x of e.xs) { const p = of(x, memo); out = { a: union(p.a, intersect(p.b, out.a)), b: intersect(p.b, out.b) }; }
+          break;
+        }
+        case 'alt': {
+          let acc: Excluded | null = null;
+          for (const x of e.xs) {
+            const p = of(x, memo);
+            acc = acc === null ? p : {
+              a: intersect(acc.a, p.a),
+              b: union(intersect(acc.a, p.b), intersect(p.a, acc.b), intersect(acc.b, p.b)),
+            };
+          }
+          out = acc ?? NONE;
+          break;
+        }
+        case 'ref': out = rules.get(e.name) ?? NONE; break; // never followed: rules are solved below
+        default: out = NONE; // lit, set, until: they consume, and anything may follow
       }
+      memo.set(e, out);
+      return out;
+    };
+
+    // Solve the rules in DEPENDENCY ORDER: the groups of rules that reach each other (Tarjan's
+    // strongly connected components, emitted dependencies first), each group to its own
+    // fixpoint. A rule outside any cycle is then read once, after everything it references is
+    // final. A single fixpoint over all rules in source order needed one round per rule on a
+    // chain written top-down — quadratic, 21 s for 4,000 rules (found by the PR's fourth
+    // checker). Iterative, so a long chain cannot overflow the stack.
+    const refsOf = new Map<string, string[]>();
+    for (const name of names) {
+      const out: string[] = [];
+      const walk = (e: Expr): void => {
+        switch (e.t) {
+          case 'ref': out.push(e.name); return;
+          case 'seq': case 'alt': for (const x of e.xs) walk(x); return;
+          case 'many': case 'opt': case 'node': walk(e.x); return;
+          default: return;
+        }
+      };
+      walk(this.spec.rules[name]);
+      refsOf.set(name, out);
+    }
+    const index = new Map<string, number>();
+    const low = new Map<string, number>();
+    const onStack = new Set<string>();
+    const stack: string[] = [];
+    const groups: string[][] = [];
+    let next = 0;
+    for (const root of names) {
+      if (index.has(root)) continue;
+      const work: Array<[string, number]> = [[root, 0]];
+      index.set(root, next); low.set(root, next); next++; stack.push(root); onStack.add(root);
+      while (work.length) {
+        const frame = work[work.length - 1];
+        const [v, i] = frame;
+        const refs = refsOf.get(v) as string[];
+        if (i < refs.length) {
+          frame[1]++;
+          const w = refs[i];
+          if (!index.has(w)) {
+            index.set(w, next); low.set(w, next); next++; stack.push(w); onStack.add(w);
+            work.push([w, 0]);
+          } else if (onStack.has(w)) {
+            low.set(v, Math.min(low.get(v) as number, index.get(w) as number));
+          }
+          continue;
+        }
+        work.pop();
+        if (work.length) {
+          const u = work[work.length - 1][0];
+          low.set(u, Math.min(low.get(u) as number, low.get(v) as number));
+        }
+        if (low.get(v) === index.get(v)) {
+          const group: string[] = [];
+          let w: string;
+          do { w = stack.pop() as string; onStack.delete(w); group.push(w); } while (w !== v);
+          groups.push(group);
+        }
+      }
+    }
+    for (const group of groups) {
+      const cyclic = group.length > 1 || (refsOf.get(group[0]) as string[]).includes(group[0]);
+      let memo = new Map<Expr, Excluded>();
+      for (let changed = true; changed; ) {
+        changed = false;
+        memo = new Map();
+        for (const name of group) {
+          const val = of(this.spec.rules[name], memo);
+          const prev = rules.get(name) as Excluded;
+          if (!same(val.a, prev.a) || !same(val.b, prev.b)) { rules.set(name, val); changed = true; }
+        }
+        if (!cyclic) break; // everything it reads is final already, so one round is the answer
+      }
+      for (const [e, v] of memo) this.excluded.set(e, v);
     }
   }
 
