@@ -25,7 +25,14 @@ recorded: 2026-10-05
                    1 of 30 failed on another assertion of the same test, `.pg-bar` (the
                    toolbar) laid out 2 ways, [0,61,1194,17] at 498 ms then [0,61,1194,53] at
                    596 ms: the toolbar growing as it hydrates, before any capture runs.
-                   Still open: that toolbar jump, and the seed timeout's cause confirmed.
+                   Then CI's studio-smoke hit the same seed timeout WITH that retry (on
+                   fb041d4; it had passed on 6a39c34, same code), so a window anchored to the
+                   first render was not enough. 0265c61 anchors it to the reveal (is-live),
+                   retries for up to 45 s, and logs the check that refused on giving up:
+                   12 of 12 seed runs and 10 of 10 test runs pass locally on 2 loaded cores.
+                   Still open: the cause confirmed from a CI trace (the next failure logs
+                   it as "[playground] no first-slide snapshot stored: <reason>"), and that
+                   toolbar jump.
        done when — the cause is named, and the test passes 30 of 30 with --repeat-each in
                    CI shape.
        evidence  — the repeat run, and the cause in the PR body.
