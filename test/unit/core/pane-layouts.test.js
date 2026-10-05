@@ -302,11 +302,53 @@ test('lint: a titled pane holds fewer items than an untitled one', () => {
   assert.ok(paneRules(md('### Title', hard)).includes('pane-overflow'));
 });
 
+test('lint: the slide\'s eyebrow and Key Insight take height from a pane, and only a clipping table is flagged', () => {
+  // The four slides of followups.d/2473-p2-pane-budget-counts-slide-chrome.md, each rendered at 1280
+  // through the export's overflow probe: the first clips its table's second row; the other three
+  // render with room (the third is the rows gallery stress slide, overflowing by padding alone).
+  const table = ['<!-- _pane: table -->', '### By function', '', '| Function | Plan | Hired | Open |', '|---|---|---|---|', '| Engineering | 120 | 118 | 2 |', '| Sales | 60 | 55 | 5 |', ''];
+  const progress = ['<!-- _pane: progress -->', '### Hired against plan', '', '- Engineering `98%`', '- Sales `92%`', ''];
+  const rows = (eyebrow) => ['<!-- _class: rows -->', '', ...(eyebrow ? ['`Q3 hiring`', ''] : []), '## Hiring kept pace with the plan through Q3.', '', ...progress, ...table, '> Sales is the one function still hiring into Q4.', ''].join('\n');
+  const clipped = lintText(rows(true)).filter((f) => f.rule.startsWith('pane-'));
+  assert.deepEqual(clipped.map((f) => [f.rule, f.classToken]), [['pane-overflow', 'table']]);
+  assert.match(clipped[0].message, /holds 1 row .* under the slide's eyebrow and Key Insight; this pane has 2/);
+  assert.deepEqual(paneRules(rows(false)), []);
+  const text = ['<!-- _class: columns -->', '', '`Support · after the migration`', '', '## The migration halved support tickets.', '', '### Before', '', '- 1,240 tickets a month', '- 31 hours to first reply', '- Four tools to answer one question', '', '### After', '', '- 610 tickets a month', '- 6 hours to first reply', '- One console for every question', ''].join('\n');
+  assert.deepEqual(paneRules(text), []);
+  const vendors = ['<!-- _class: columns ratio-40-60 -->', '', '`columns · stress`', '', '## Two vendors cleared the security review.', '', '<!-- _pane: list -->', '### Cleared', '', '- Northwind', '- Contoso', '', '<!-- _pane: table -->', '### Findings by vendor', '', '| Vendor | Critical | High | Status |', '|---|---|---|---|', '| Northwind | 0 | 1 | Cleared |', '| Contoso | 0 | 2 | Cleared |', '| Fabrikam | 2 | 4 | Rejected |', '', '> Fabrikam can re-apply after its Q1 fixes.', ''].join('\n');
+  assert.deepEqual(paneRules(vendors), []);
+  // A pane that IS one blockquote keeps it as content: no Key Insight, no chrome.
+  assert.equal(spec.chromeBudget({ sweet: 3, hard: 4 }, { sweet: 3, hard: 4 }, 'stack', 50, null, {}, 'row').hard, 4);
+});
+
 test('the text scanner and the engine agree on where each pane starts', () => {
   const slide = '<!-- _class: columns -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n';
   assert.deepEqual(lintCore.paneStarts(slide), [4, 8]);
   const marked = '## T\n\n<!-- _pane: list -->\n### A\n\n- x\n\n<!-- _pane: content -->\n\ny\n';
   assert.deepEqual(lintCore.paneStarts(marked), [2, 7]);
+});
+
+test('a double-backtick pill above a ### is one pill: linter and engine both count two panes', () => {
+  // `` ``a`b`` `` is one code span holding a backtick (CommonMark §6.1). A one-backtick pill regex
+  // read it as text, so the scanner started a third pane at the `###` under it.
+  const slide = '<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n``a`b``\n### One\n\n- x\n\n### Two\n\n- y\n';
+  assert.equal(spec.scanPanes(slide).split.markers, 2);
+  assert.deepEqual(lintCore.paneStarts(slide), [4, 10]);
+  const html = render(slide);
+  assert.equal(count(html, /<lat-pane /g), 2);
+  assert.deepEqual(spec.paneHeadText('``a`b``\n### One\n'), { eyebrow: 'a`b', title: 'One', subtitle: null, body: '' });
+  assert.equal(paneRules(slide).includes('pane-layout'), false);
+  for (const [line, want] of [['`a`', true], ['``a`b``', true], ['`` `x` ``', true], ['``a``b``', false], ['`a` b', false], ['`a`b`', false], ['```', false]]) {
+    assert.equal(spec.isPillLine(line), want, line);
+  }
+});
+
+test('a multi-line note between a marker and its ### does not start a new pane: scanner and engine agree', () => {
+  // The scanner tested comments line by line, so a note's first line read as text and `### Rev`
+  // started a content pane that folded the `list` marker away; the engine skips the whole comment.
+  const slide = '<!-- _class: columns -->\n\n## H\n\n<!-- _pane: bar -->\n<!-- note\n\nmore -->\n### Rev\n\n- A `1`\n\n<!-- _pane: list -->\n\n- x\n';
+  assert.deepEqual(spec.scanPanes(slide).split.panes.map((p) => [p.cls, p.title]), [['bar', 8], ['list', null]]);
+  assert.deepEqual(cells(render(slide)), ['bar', 'list']);
 });
 
 test('export-to-Marp drops the layout words and the markers, and keeps the other classes', () => {

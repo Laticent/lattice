@@ -307,6 +307,10 @@ describe('the clipboard shape gate', () => {
 	it('REJECTS a directive-shaped comment even WITH provenance (defense in depth)', () => {
 		expect(readCommentText('<!-- _backgroundImage: url(https://evil.example/beacon.png) -->', CLIP_ORIGIN)).toBe(false);
 		expect(readCommentText('<!-- _class: quote -->', CLIP_ORIGIN)).toBe(false);
+		// The one carve-out: a `_pane` marker in its strict shape, so a pane cut and pasted keeps it.
+		expect(readCommentText('<!-- _pane: bar no-title -->', CLIP_ORIGIN)).toEqual({ text: '<!-- _pane: bar no-title -->' });
+		expect(readCommentText('<!-- _pane: url(https://evil.example/beacon.png) -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- _pane: bar -->', null)).toBe(false);
 	});
 
 	it('a foreign div.cs-comment cannot put a directive into the deck source', () => {

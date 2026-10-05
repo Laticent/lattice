@@ -297,6 +297,16 @@ A pane's budget is its box minus its own chrome, measured the same way as a slid
   reads the same copy. A flat
   "one item fewer" was tried first and was wrong both ways on the demo deck: it called three short
   items crowded in a titled 50% pane, which read with room to spare.
+- *Added 2026-10-05:* the slide's own chrome takes height too. An eyebrow, subtitle, Key Insight
+  or note each takes a measured band of the stage (`SLIDE_BANDS`, lib/core/pane-spec.js, the copy
+  the engine's `stageBox` reads), and `chromeBudget` cuts the HARD count to the room left. A count
+  budget is a height with a fixed cost in it, so the budget counts that fixed cost as items
+  (`BUDGET_OVERHEAD`: a table's header row) before scaling, and takes it back after. A first try
+  scaled the counts by height alone. It passed a two-row table that the slide's eyebrow and Key
+  Insight clip, and flagged three panes that render with room. Measured at 1280 through the export's
+  overflow probe, the shipped model flags the clipping table and none of the three. The sweet count
+  only drops to stay at or under the hard count, because chrome changes how much fits, not how a
+  pane reads. Run against every shipped example and gallery, the change adds no new finding.
 - The component budgets in each manifest's `pane` field stay what they are. They were measured
   with no pane title, so they are the untitled figures; the title's cost is subtracted from
   them, never measured into them.
@@ -360,6 +370,52 @@ different of the name:
 | **The AI drafting the deck** (the agent-workflow persona in `2026-07-02-website-copy-positioning.md` §2) | whatever it guesses | be the word its training data taught it: `columns` is what Quarto, Beamer and CSS use, so a model guesses it without reading our docs, where a house word like `panes` would have to be looked up |
 | **The reviewer reading the source in a pull request** | the raw Markdown | read as prose: `columns ratio-60-40` over two `###` headings describes the slide without a render |
 
+**In Compose (2026-10-05).** The Studio user edits a pane slide without seeing its syntax. Each
+pane opens with a bar that names its place, its share and what it holds ("Left pane 60% · bar ·
+Change"). Its `###` title reads as a field labeled "Title" ("Title · hidden on the slide" under
+`no-title`), and a pane with a marker and no title gets an "Add title" button.
+
+**Changing what a pane holds is a choice of OUTCOME, not of a name.** A first cut put a native
+`<select>` of component names on the bar. The owner tried it on an iPhone. It relabeled the pane
+and left its content alone, so "- A point" sat under `bar` and drew nothing, and the menu reopened
+after every pick. The owner's question was what an average user should expect. The answer:
+- **What happens is shown before the pick.** "Change" opens the slide gallery in pane mode
+  (SlidePicker `pane`): live tiles of the components that fit the pane, each saying what picking it
+  does.
+- **"Keeps your text"** when the component can read the pane as it stands: every slot its grammar
+  requires is present, and a chart has numbers (`paneFit`, `pane-needs.ts`).
+- **"Starts with an example"** when it cannot. The pane's body is swapped for the component's own
+  starter, and a notice offers Undo. The Undo stands down once the author edits anything else.
+- **The pane's title and the slide's Key Insight never move.**
+- **The pane's own component leads the "Keeps your text" band.**
+- **A component whose starter Compose could not edit is not offered:** a checklist's state markers
+  or a formula would lock the slide read-only.
+
+This is the PowerPoint "change layout" model with the guesswork removed: the tile says which way
+the change goes.
+
+Where each pane starts, and which `###` titles it, are the kernel's answer.
+`docs/src/lib/compose/pane-model.ts` runs `scanPanes` on a stand-in text, each block's lines kept
+line for line, and maps the lines back to blocks. The two independent reviews found four slides
+where Compose and the engine disagreed; each is now pinned:
+- a multi-line note under a marker, which the kernel itself read wrongly and is fixed in
+  `paneStartsOf`;
+- a bold pill;
+- a pill followed by a comment;
+- a double-backtick pill.
+
+The bar is a decoration and writes nothing to the source. The marker stays in the document as a
+comment node, with its pill hidden, since the bar names the component in words. A hidden node is
+easy to delete unseen. Binding the keys that delete it missed chords (Shift-Backspace,
+Mod-Backspace), so `paneMarkerGuard` guards the RESULT instead: it refuses any transaction that
+would leave the deck with fewer pane markers. Three things pass it: a pane command, Undo, and a
+range the author deliberately selected. A selection that lands on a hidden marker is moved off it.
+A pane cut and pasted keeps its marker, because the paste gate admits a `_pane` comment in one
+strict shape (comment-block.ts). Before all this, Compose read every `<!-- _pane: … -->` as a slide
+directive and moved it to the slide's head, so one keystroke on a marked pane slide wrote both
+markers above the `##` and the slide lost its panes. The markers now stay in the body
+(`deck-source.ts`).
+
 A fifth person never sees a name at all: **the audience in the room.** What they need is for two
 panes to read as one argument, which is what the shared title row (§3) and the rule that the Key
 Insight is the slide's, with a lint warning when there are two (§4), are for.
@@ -408,9 +464,12 @@ working as aliases, and `lint:deck` offers the rewrite:
 | `<!-- pane: bar -->` | `<!-- _pane: bar -->` |
 
 `lib/base/base.docs.md` § "Two components on one slide — pane layouts" and the new demo,
-`examples/pane-layouts.md`, teach the syntax. The six example decks written in the alias stay in
-it for now; they prove the alias renders, and their rewrite, with the Studio's insert-menu
-entries, is recorded in `followups.d/` (2473-p2, 2473-p3).
+`examples/pane-layouts.md`, teach the syntax. The six example decks first written in the alias
+(panes, panes-mermaid, panes-radar, panes-sketch, chart-lead-blocks, chart-lead-paragraphs) moved
+to it on 2026-10-05, and each renders byte-identical HTML before and after. The alias is still
+pinned by test/unit/core/pane-layouts.test.js ("the alias still renders the same panes"). Whether
+it stays past the next release, with `pane-syntax` promoted from a suggestion to a warning first,
+is recorded in `followups.d/2473-p3-retire-the-experimental-pane-syntax.md`.
 
 ## 10. Questions for the internal-structure note
 

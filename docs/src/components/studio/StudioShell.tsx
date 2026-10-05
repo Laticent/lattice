@@ -25,6 +25,7 @@ import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/to
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
 import { codePackagesStamp, setCodePackages } from '@/lib/code-packages/entry';
+import type { PaneNeeds } from '@/lib/compose/pane-needs';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
@@ -50,7 +51,7 @@ import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineAc
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
-import type { ComposeHandle } from './ComposeView';
+import type { ComposeHandle, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
@@ -332,11 +333,11 @@ const unassessedCard = (id: string): CoachCard => ({
 });
 
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
-type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]>; slideFences?: Record<string, string> };
+type Props = { options: SingleSlideOptions; paneNeeds?: PaneNeeds; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]>; slideFences?: Record<string, string> };
 
 const NO_WEB_IMAGES_EAGER: WebImageSummary = { count: 0, origins: [], byOrigin: {} };
 
-export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideFences }: Props) {
+export default function StudioShell({ options, paneNeeds, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideFences }: Props) {
 	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
 	// Serialized into the island's props it was ~180KB raw — 72% of a 433KB HTML document,
 	// parsed before hydration on every launch to serve a gallery the user may never open.
@@ -3845,6 +3846,35 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const reshapeAxes = React.useMemo(() => (lintVocab as { exclusiveAxes?: Record<string, string[]> } | null)?.exclusiveAxes ?? {}, [lintVocab]);
 	const activeChunk = slides[activeFullIndex] ?? '';
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
+	// THE PANE GALLERY — Compose's "Change" on a pane bar opens the slide gallery in pane mode
+	// (SlidePicker `pane`): only the components that fit that pane, each saying whether it keeps the
+	// pane's text or starts it with an example. A component whose starter Compose could not edit
+	// (a checklist's state markers, a formula: each would lock the slide read-only) is left out unless the pane holds it.
+	const [paneReq, setPaneReq] = React.useState<PaneRequest | null>(null);
+	const paneItems = React.useMemo(() => {
+		if (!paneReq) return [];
+		const allowed = new Set(paneReq.choices);
+		const compose = composeRef.current;
+		return insertComponents.filter((c) => c.bucket !== 'local' && allowed.has(c.name) && (c.name === paneReq.current || !compose || compose.starterEditable(c.skeleton)));
+	}, [paneReq, insertComponents]);
+	const onPanePick = React.useCallback(
+		(item: ComponentEntry) => {
+			const req = paneReq;
+			const compose = composeRef.current;
+			if (!req || !compose) return;
+			// A look's modifiers ride its skeleton's `_class` (SlidePicker `variantSample`); they go
+			// on the pane's marker the way a slide's go on its `_class`.
+			const classWords = (item.skeleton.match(/<!--\s*_class:\s*([^>]*?)\s*-->/)?.[1] || '').split(/\s+/).filter(Boolean);
+			const modifiers = classWords[0] === item.name ? classWords.slice(1) : [];
+			const keeps = item.name === req.current || req.fit[item.name] === 'keeps';
+			const token = compose.applyPane(req, { cls: item.name, modifiers, skeleton: keeps ? null : item.skeleton });
+			if (!token) return;
+			const shown = item.name === 'content' ? 'text' : (item.label ?? item.name);
+			if (keeps) notify(`The ${req.where.toLowerCase()} now holds ${shown}.`);
+			else notifyAction(`The ${req.where.toLowerCase()} now holds ${shown}, with an example in place of its text.`, { label: 'Undo', onClick: () => compose.undoPane(token) });
+		},
+		[paneReq],
+	);
 	const reshapeEntry = React.useMemo(() => components.find((c) => c.name === reshapeComponent), [components, reshapeComponent]);
 	const reshapeVariants = React.useMemo(() => reshapeEntry?.variants ?? [], [reshapeEntry]);
 	// The component's OWN axes decide replace-vs-toggle; the vocab axes and its declared
@@ -5061,7 +5091,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={setSourceFromEditor} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} />
+				<ComposeView ref={composeRef} source={source} onChange={setSourceFromEditor} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} paneNeeds={paneNeeds} onOpenPanePicker={setPaneReq} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
@@ -6483,6 +6513,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{cmdPalette}
 			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
+			<SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}
 			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 

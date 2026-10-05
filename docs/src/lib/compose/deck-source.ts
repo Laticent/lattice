@@ -18,6 +18,7 @@ export type SlideChunk = { directives: string[]; prose: string };
 export type ParsedSlide = SlideChunk & { raw: string };
 
 const DIRECTIVE_LINE_RE = /^[ \t]*<!--\s*_[A-Za-z][\w-]*:[\s\S]*?-->[ \t]*$/gm;
+const PANE_MARKER_RE = /^[ \t]*<!--\s*_pane\s*:/;
 export const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)/;
 const SEP = '\n\n---\n\n';
 
@@ -41,7 +42,12 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 	const directives: string[] = [];
 	const prose = chunk
 		.replace(DIRECTIVE_LINE_RE, (line, offset: number) => {
-			if (inFence(offset)) return line;
+			// A `_pane` marker is not a slide directive: it marks WHERE a pane starts, so its place in
+			// the body is its meaning. Hoisted to the head, one keystroke re-emitted both markers above
+			// the `##` and the slide lost its panes. Left in the prose it parses as a comment node,
+			// which round-trips its bytes in place (comment-block.ts), and Compose draws it as the
+			// pane's component picker (pane-model.ts).
+			if (inFence(offset) || PANE_MARKER_RE.test(line)) return line;
 			directives.push(line.trim());
 			return '';
 		})

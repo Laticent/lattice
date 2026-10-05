@@ -14,6 +14,8 @@ import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from 
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
+import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
+import type { PaneNeeds } from '@/lib/compose/pane-needs';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
@@ -403,6 +405,139 @@ const LUCIDE_PATHS: Record<string, string> = {
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
+}
+
+// ── Pane slides: what each pane holds, and its `###` title as a field ────────────────────────────
+// A `columns` / `rows` slide holds two panes (engineering/decisions/2026-09-28-generic-pane-layouts-
+// authoring.md §7.2). A Studio user who never types Markdown inserts one from the "Two columns" / "Top
+// and bottom" tiles; each pane then opens with a BAR — where it sits ("Left pane", 60%) and a button
+// naming what it holds — and its title reads as a labeled field.
+//
+// The button opens the slide GALLERY in pane mode (SlidePicker, via StudioShell), not a list of
+// names: a component name alone does not say what the pane will become, and "- A point" under `bar`
+// draws no bars. Each tile renders the component and says what picking it does to this pane — "Keeps
+// your text" when the component can read the pane as it stands, "Starts with an example" when the
+// pane's body will be swapped for the component's starter (pane-model.ts `paneFit`, `applyPaneChoice`).
+// A first cut put a native <select> here; on iOS it relabeled the pane without touching its content,
+// and its menu reopened after every pick (the owner's screen recording, 2026-10-05).
+//
+// The bar is a widget DECORATION, not a node: it is chrome over the document and never reaches the
+// source. The `_pane` marker it stands for stays in the document as the comment node it parses to, so
+// its bytes round-trip in place; its pill is hidden, since the bar says the same thing in words, and
+// `paneMarkerGuard` keeps a hidden marker from being deleted unseen. Where each pane starts is the
+// kernel's rule (`slidePanes`), read per doc and memoized by doc identity, the stateMarkerPlugin pattern.
+const paneKey = new PluginKey<DecorationSet>('cs-panes');
+
+/** A pick from the pane gallery: the component, its look's modifiers, and its gallery skeleton
+ *  when the pane starts fresh (null when it keeps its text). */
+export type PanePick = { cls: string; modifiers: string[]; skeleton: string | null };
+
+/** What the pane gallery needs to open for one pane: where it is, what fits there, and what each
+ *  candidate would do to the pane's content. StudioShell renders the gallery; Compose applies the pick. */
+export type PaneRequest = {
+	slideIndex: number;
+	paneIndex: number;
+	/** "Left pane", "Bottom pane" — the gallery's heading. */
+	where: string;
+	share: number;
+	current: string;
+	/** The components that fit this pane (`fits` over the pane catalog), the current one included. */
+	choices: string[];
+	fit: Record<string, 'keeps' | 'fresh'>;
+};
+
+function paneBar(view: EditorView, getPos: () => number | undefined, info: { direction: PaneDirection; pane: PaneInfo; locked: boolean }, open: ((getPos: () => number | undefined, paneIndex: number) => void) | undefined): HTMLElement {
+	const { direction, pane, locked } = info;
+	const bar = document.createElement('div');
+	bar.className = 'cs-pane-bar';
+	bar.contentEditable = 'false';
+	bar.setAttribute('role', 'group');
+	const where = paneLabel(direction, pane.index);
+	bar.setAttribute('aria-label', where);
+	const label = document.createElement('span');
+	label.className = 'cs-pane-where';
+	label.textContent = where;
+	const share = document.createElement('span');
+	share.className = 'cs-pane-share';
+	share.textContent = `${pane.share}%`;
+	label.append(share);
+	const change = document.createElement('button');
+	change.type = 'button';
+	change.className = 'cs-pane-change';
+	change.disabled = locked || !open;
+	change.title = locked ? 'This slide is edited in Markdown' : 'Change what this pane holds';
+	change.setAttribute('aria-label', `${where} holds ${pane.cls === 'content' ? 'text' : pane.cls}. Change what this pane holds`);
+	change.setAttribute('aria-haspopup', 'dialog');
+	const name = document.createElement('span');
+	name.className = 'cs-pane-name';
+	name.textContent = pane.cls === 'content' ? 'text' : pane.cls;
+	const verb = document.createElement('span');
+	verb.className = 'cs-pane-verb';
+	verb.textContent = 'Change';
+	change.append(name, verb);
+	change.addEventListener('mousedown', (e) => e.preventDefault());
+	change.addEventListener('click', (e) => {
+		e.preventDefault();
+		open?.(getPos, pane.index);
+	});
+	bar.append(label, change);
+	if (pane.title === null && pane.marker !== null && !locked && !paneOwnsTitles(pane.cls)) {
+		const add = document.createElement('button');
+		add.type = 'button';
+		add.className = 'cs-pane-add-title';
+		add.textContent = 'Add title';
+		add.addEventListener('mousedown', (e) => e.preventDefault());
+		add.addEventListener('click', (e) => {
+			e.preventDefault();
+			const at = getPos();
+			if (at === undefined) return;
+			const tr = addPaneTitle(view.state, view.state.doc.resolve(at).before(1), pane.index);
+			if (!tr) return;
+			view.dispatch(tr.scrollIntoView());
+			view.focus();
+		});
+		bar.append(add);
+	}
+	return bar;
+}
+function panePlugin(getOpen: () => ((getPos: () => number | undefined, paneIndex: number) => void) | undefined) {
+	let cachedDoc: PMNode | null = null;
+	let cachedOpen: unknown;
+	let cached: DecorationSet = DecorationSet.empty;
+	return new Plugin({
+		key: paneKey,
+		props: {
+			decorations(state) {
+				const open = getOpen();
+				if (state.doc === cachedDoc && open === cachedOpen) return cached;
+				const decos: Decoration[] = [];
+				state.doc.forEach((slide, slidePos) => {
+					const info = slidePanes(slide);
+					if (!info) return;
+					const locked = !!slide.attrs.locked;
+					const at = (k: number) => {
+						let pos = slidePos + 1;
+						for (let i = 0; i < k; i++) pos += slide.child(i).nodeSize;
+						return pos;
+					};
+					for (const pane of info.panes) {
+						const start = pane.marker ?? pane.anchor;
+						const key = `pane:${pane.index}:${info.direction}:${pane.share}:${pane.cls}:${pane.title === null}:${pane.marker === null}:${locked}:${open ? 1 : 0}`;
+						decos.push(Decoration.widget(at(start), (view, getPos) => paneBar(view, getPos, { direction: info.direction, pane, locked }, open), { side: -1, key, stopEvent: () => true, ignoreSelection: true }));
+						if (pane.marker !== null) decos.push(Decoration.node(at(pane.marker), at(pane.marker) + slide.child(pane.marker).nodeSize, { class: 'cs-pane-marker' }));
+						if (pane.title !== null) {
+							const hidden = pane.mods.includes('no-title');
+							decos.push(Decoration.node(at(pane.title), at(pane.title) + slide.child(pane.title).nodeSize, { class: 'cs-pane-title', 'data-pane-label': hidden ? 'Title · hidden on the slide' : 'Title' }));
+						}
+					}
+				});
+				cachedDoc = state.doc;
+				cachedOpen = open;
+				cached = DecorationSet.create(state.doc, decos);
+				return cached;
+			},
+		},
+	});
 }
 
 /** Which React island the divider pill's Format group is hosting. The group swaps
@@ -1361,10 +1496,13 @@ export class CommentView {
 	}
 }
 
-function buildPlugins(getDefaultTag: () => string) {
+type PaneOpen = (getPos: () => number | undefined, paneIndex: number) => void;
+function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined) {
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
+		paneMarkerGuard(),
+		panePlugin(getPaneOpen),
 		collapsePlugin(),
 		activeSlidePlugin(),
 		stateMarkerPlugin(),
@@ -1447,9 +1585,20 @@ export type ComposeHandle = {
 	 *  PURE scroll: no transaction, so it cannot disturb the document, move the caret, or fire
 	 *  the caret→slide channel that would jump the preview on every keystroke of a demo. */
 	revealTail: () => void;
+	/** Apply a pick from the pane gallery (`PaneRequest`) — the component, its look's modifiers, and
+	 *  the starter body when the pane starts fresh. Returns a token for `undoPane`, or null when
+	 *  nothing changed (the slide moved on, or the pick is what the pane already holds). */
+	applyPane: (req: PaneRequest, choice: PanePick) => unknown;
+	/** Whether Compose could edit a component's starter once inserted (pane-model `starterEditable`):
+	 *  StudioShell asks here so the pane gallery never offers one that would lock the slide, without
+	 *  pulling the Compose model into the Studio's eager bundle. */
+	starterEditable: (skeleton: string) => boolean;
+	/** Undo that pick, but only while nothing has been written since (the token is the document
+	 *  the pick produced): an Undo toast must never undo the author's later typing. */
+	undoPane: (token: unknown) => boolean;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneNeeds?: PaneNeeds; onOpenPanePicker?: (req: PaneRequest) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneNeeds, onOpenPanePicker }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -1602,6 +1751,28 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// the slide's first editable position so the next keystroke edits the slide the
 	// preview picker just chose (#1288).
 	React.useImperativeHandle(ref, () => ({
+		applyPane(req: PaneRequest, pick: PanePick) {
+			const v = viewRef.current;
+			if (!v || req.slideIndex >= v.state.doc.childCount) return null;
+			let slidePos = 0;
+			for (let i = 0; i < req.slideIndex; i++) slidePos += v.state.doc.child(i).nodeSize;
+			// The starter keeps a closing blockquote only for a component that reads one as its own
+			// (quote, redline); anywhere else it would become a second Key Insight for the slide.
+			const keepQuote = (paneNeedsRef.current?.[pick.cls]?.slots || []).some((sel) => sel.includes('blockquote'));
+			const choice: PaneChoice = { cls: pick.cls, modifiers: pick.modifiers, starter: pick.skeleton === null ? null : paneStarter(pick.skeleton, keepQuote) };
+			const tr = applyPaneChoice(v.state, slidePos, req.paneIndex, choice);
+			if (!tr) return null;
+			v.dispatch(tr);
+			return v.state.doc;
+		},
+		starterEditable(skeleton: string) {
+			return starterEditable(skeleton);
+		},
+		undoPane(token: unknown) {
+			const v = viewRef.current;
+			if (!v || v.state.doc !== token) return false;
+			return undo(v.state, v.dispatch);
+		},
 		revealSlide(index: number, opts?: { focus?: boolean }) {
 			const v = viewRef.current;
 			if (!v) return;
@@ -1709,6 +1880,32 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// both default to the tag the layout already asks for rather than opening a modal.
 	const slideFencesRef = React.useRef(slideFences);
 	slideFencesRef.current = slideFences;
+	// The pane gallery: what each component needs to keep a pane's text (build-static, read live
+	// like the maps above), and the opener. The opener the bars hold is ONE stable function that
+	// reads the latest prop, so a re-render never invalidates the bars' decorations.
+	const paneNeedsRef = React.useRef(paneNeeds);
+	paneNeedsRef.current = paneNeeds;
+	const onOpenPanePickerRef = React.useRef(onOpenPanePicker);
+	onOpenPanePickerRef.current = onOpenPanePicker;
+	const openPane = React.useCallback<PaneOpen>((getPos, paneIndex) => {
+		const v = viewRef.current;
+		const at = getPos();
+		const opener = onOpenPanePickerRef.current;
+		if (!v || at === undefined || !opener) return;
+		const slideIndex = v.state.doc.resolve(at).index(0);
+		const slide = v.state.doc.child(slideIndex);
+		const info = slidePanes(slide);
+		const pane = info?.panes[paneIndex];
+		if (!info || !pane) return;
+		// A component that owns its `###`s (team-profile) would take the pane's title as one of its
+		// own headings, so it is offered only to a pane that already holds it.
+		const choices = paneChoices(info.direction, pane.share).filter((c) => c === pane.cls || !paneOwnsTitles(c));
+		// The pane's own component stays on offer even where the manifest says it does not fit:
+		// the gallery shows what the slide says, and lint:deck already names the misfit.
+		if (!choices.includes(pane.cls)) choices.push(pane.cls);
+		const fitOf = paneFit(slide, info, paneIndex, paneNeedsRef.current || {}, document);
+		opener({ slideIndex, paneIndex, where: paneLabel(info.direction, paneIndex), share: pane.share, current: pane.cls, choices, fit: Object.fromEntries(choices.map((c) => [c, fitOf(c)])) });
+	}, []);
 	// The live source, for the door's fallback (the tag this deck already uses most) and
 	// for the picker's "In this deck" group. A ref, not a dep: the NodeView factory is
 	// constructed once per deck and must not be rebuilt on every keystroke.
@@ -1779,7 +1976,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
-				state: EditorState.create({ doc, plugins: buildPlugins(() => defaultTagAtCaret()) }),
+				state: EditorState.create({ doc, plugins: buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined)) }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
 						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current),
@@ -2087,6 +2284,23 @@ function ComposeStyles() {
 			.cs-host h2{font-family:inherit;font-size:1.45rem;font-weight:700;line-height:1.18;margin:.5em 0 .32em;color:var(--text-heading,#14243a);letter-spacing:-.005em}
 			.cs-host h3{font-family:inherit;font-size:1.15rem;font-weight:600;margin:.5em 0 .25em;color:var(--text-heading,#14243a)}
 			.cs-host p{margin:0 0 .6em}
+			/* Pane slides (panePlugin): a bar opens each pane, and its title reads as a labeled field. */
+			.cs-host .cs-pane-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:1.1em 0 .45em;padding:7px 0 0;border-top:1px solid var(--border,#e4eaf2);user-select:none}
+			.cs-host .cs-pane-where{display:inline-flex;align-items:baseline;gap:7px;font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted,#6b7f9a)}
+			.cs-host .cs-pane-share{font-weight:400;letter-spacing:.04em;opacity:.8}
+			.cs-host .cs-pane-change{display:inline-flex;align-items:center;gap:8px;max-width:100%;min-height:26px;padding:2px 10px 2px 9px;border:1px solid var(--border,#e4eaf2);border-radius:6px;background:var(--bg,#fff);color:var(--text-heading,#14243a);cursor:pointer;transition:border-color .12s,background .12s}
+			.cs-host .cs-pane-change:hover:not(:disabled){border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-host .cs-pane-change:focus-visible{outline:2px solid var(--accent,#006fa8);outline-offset:1px}
+			.cs-host .cs-pane-change:disabled{cursor:default;opacity:.7}
+			.cs-host .cs-pane-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono,ui-monospace,monospace);font-size:12px}
+			.cs-host .cs-pane-verb{font-size:11px;font-weight:600;color:var(--accent,#006fa8)}
+			.cs-host .cs-pane-change:disabled .cs-pane-verb{display:none}
+			.cs-host .cs-pane-add-title{min-height:26px;padding:2px 9px;border:1px dashed var(--border,#e4eaf2);border-radius:6px;background:transparent;color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s}
+			.cs-host .cs-pane-add-title:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
+			/* The marker's own pill: the bar above already names the component in words. */
+			.cs-host .cs-pane-marker{display:none}
+			.cs-host h3.cs-pane-title{position:relative;margin:.1em 0 .5em;padding:17px 10px 6px;border:1px solid var(--border,#e4eaf2);border-radius:6px;background:var(--bg-alt,#f2f5fa);font-size:1rem}
+			.cs-host h3.cs-pane-title::before{content:attr(data-pane-label);position:absolute;top:4px;left:10px;font-family:var(--font-mono,ui-monospace,monospace);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);pointer-events:none}
 			/* eyebrow / subtitle: an inline-code-only paragraph reads as a mono label */
 			.cs-host p > code:only-child{font-family:var(--font-mono,ui-monospace,monospace);font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--text-heading) 35%);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px}
 			/* key-insight panel: a blockquote */
@@ -2215,6 +2429,7 @@ function ComposeStyles() {
 				.cs-no-code .cs-insert-code{display:none}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
+				.cs-host .cs-pane-change,.cs-host .cs-pane-add-title{min-height:32px}
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
 				.cs-sb-line{height:28px}
 				.cs-sc-cap{width:28px;height:28px}

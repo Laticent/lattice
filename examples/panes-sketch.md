@@ -18,14 +18,14 @@ footer: "Panes under a sketch finish"
 
 ## EMEA carried the quarter while APAC held flat.
 
-<!-- panes: 40/60 -->
-<!-- pane: list -->
+<!-- _class: columns ratio-40-60 -->
+<!-- _pane: list -->
 
 - EMEA closed three late deals
 - APAC renewals slipped a quarter
 - Americas held its run rate
 
-<!-- pane: table -->
+<!-- _pane: table -->
 
 | Region | Q2 | Q3 | Δ |
 |---|---|---|---|
@@ -51,8 +51,8 @@ footer: "Panes under a sketch finish"
 
 ## Each signal is scored before it is ranked.
 
-<!-- panes: 55/45 -->
-<!-- pane: list-tabular -->
+<!-- _class: columns ratio-55-45 -->
+<!-- _pane: list-tabular -->
 
 1. Confidence
    - Independent sources behind the signal
@@ -64,7 +64,7 @@ footer: "Panes under a sketch finish"
    - Customers or segments affected
    - _1–5 · Auto_
 
-<!-- pane: table -->
+<!-- _pane: table -->
 
 | Signal | Weight |
 |---|---|
@@ -78,12 +78,12 @@ footer: "Panes under a sketch finish"
 
 ## A stacked pane gets the same hand.
 
-<!-- panes: stack 60/40 -->
-<!-- pane: list -->
+<!-- _class: rows ratio-60-40 -->
+<!-- _pane: list -->
 
 - Three regions, two quarters, one outlier
 
-<!-- pane: table -->
+<!-- _pane: table -->
 
 | Region | Q2 | Q3 |
 |---|---|---|

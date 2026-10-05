@@ -1,4 +1,4 @@
-import { ChevronDown, Layers, LayoutGrid, Plus, Rows3 } from 'lucide-react';
+import { ChevronDown, Columns2, Layers, LayoutGrid, Plus, Rows3 } from 'lucide-react';
 import * as React from 'react';
 import { DialogCloseButton, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
@@ -125,7 +125,22 @@ export type SlidePickerProps = {
 	recent?: string[];
 	/** Insert the chosen slide (its skeleton) — StudioShell routes it to addSlideAfter. */
 	onInsert: (item: PickerItem) => void;
+	/** PANE MODE: the gallery chooses what one pane of a `columns` / `rows` slide holds, for
+	 *  Compose (ComposeView.tsx `PaneRequest`). `items` is already the components that fit the pane;
+	 *  each tile says what picking it does to the pane's content BEFORE the author picks — the
+	 *  outcome is the thing a bare component name could not tell them. No Blank, Recent or local
+	 *  bands: a pane holds a catalog component. */
+	pane?: PanePickerMode;
 };
+
+export type PanePickerMode = {
+	/** "Left pane", "Bottom pane". */
+	where: string;
+	current: string;
+	fit: Record<string, 'keeps' | 'fresh'>;
+};
+type TileFit = 'keeps' | 'fresh' | 'current';
+const FIT_TEXT: Record<TileFit, string> = { current: 'In this pane now', keeps: 'Keeps your text', fresh: 'Starts with an example' };
 
 /**
  * The gallery stays mounted between opens (see the return below), so without this every Studio
@@ -135,7 +150,7 @@ export type SlidePickerProps = {
  */
 export const SlidePicker = React.memo(SlidePickerImpl, (prev, next) => !prev.open && !next.open);
 
-function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, paletteOverride, extraTheme, modeOverride, recent = [], onInsert }: SlidePickerProps) {
+function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, paletteOverride, extraTheme, modeOverride, recent = [], onInsert, pane }: SlidePickerProps) {
 	const bp = useBreakpoint();
 	const compact = bp === 'mobile';
 	const [query, setQuery] = React.useState('');
@@ -228,6 +243,17 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	const bands = React.useMemo(() => {
 		if (searching) return null;
 		const out: { key: string; label: string; items: PickerItem[] }[] = [];
+		if (pane) {
+			// Two bands, by what picking does to the pane: the ones that read it as it stands first,
+			// the pane's own component leading them, then the ones that start it with an example.
+			const ordered = groupBy(pool, FUNCTION_LENS).flatMap((g) => g.items.map((ci) => byName.get(ci.name)).filter((x): x is PickerItem => !!x));
+			const current = ordered.filter((i) => i.name === pane.current);
+			const keeps = ordered.filter((i) => i.name !== pane.current && pane.fit[i.name] === 'keeps');
+			const fresh = ordered.filter((i) => i.name !== pane.current && pane.fit[i.name] !== 'keeps');
+			if (current.length || keeps.length) out.push({ key: 'keeps', label: 'Keeps your text', items: [...current, ...keeps] });
+			if (fresh.length) out.push({ key: 'fresh', label: 'Starts with an example — Undo puts your text back', items: fresh });
+			return out;
+		}
 		if (!facet) {
 			out.push({ key: 'blank', label: '', items: [BLANK] });
 			const recentItems = recent.map((n) => byName.get(n)).filter((x): x is PickerItem => !!x).slice(0, 6);
@@ -240,7 +266,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 			if (mapped.length) out.push({ key: g.key, label: g.label, items: mapped });
 		}
 		return out;
-	}, [searching, facet, recent, byName, items, pool]);
+	}, [searching, facet, recent, byName, items, pool, pane]);
 
 	// Ranked search results, mapped back to PickerItems and DE-DUPED by name: a saved
 	// local component that shares a catalog name would otherwise yield two tiles (and a
@@ -279,7 +305,8 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 		onOpenChange(false);
 	};
 
-	const tileProps = { options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert: insert, onDetail: setDetail, view: effectiveView };
+	const fitOf = (name: string): TileFit | undefined => (!pane ? undefined : name === pane.current ? 'current' : pane.fit[name] === 'keeps' ? 'keeps' : 'fresh');
+	const tileProps = { options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert: insert, onDetail: setDetail, view: effectiveView, paneWhere: pane?.where };
 	const previewProps = { options, frontMatter, paletteOverride, extraTheme, modeOverride };
 
 	// A tile, followed by its expanded looks panel when open. `looksFilter` narrows the
@@ -289,7 +316,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	const renderTile = (item: PickerItem, key: string, looksFilter?: string[]) => {
 		const variantCount = item.variants?.length ?? 0;
 		const nodes: React.ReactNode[] = [
-			<Tile key={key} item={item} looksCount={variantCount} matchCount={looksFilter?.length ?? 0} match={matchByName.get(item.name) ?? null} isOpen={expanded === key} onToggleLooks={variantCount ? () => setExpanded((e) => (e === key ? null : key)) : undefined} {...tileProps} />,
+			<Tile key={key} item={item} fit={fitOf(item.name)} looksCount={variantCount} matchCount={looksFilter?.length ?? 0} match={matchByName.get(item.name) ?? null} isOpen={expanded === key} onToggleLooks={variantCount ? () => setExpanded((e) => (e === key ? null : key)) : undefined} {...tileProps} />,
 		];
 		if (expanded === key && variantCount) {
 			nodes.push(<LooksPanel key={`looks:${key}`} item={item} looksFilter={looksFilter} onInsertLook={insertLook} {...previewProps} />);
@@ -306,7 +333,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 			value={query}
 			onChange={setQuery}
 			onClear={() => setQuery('')}
-			placeholder={compact ? 'Search slides…' : intentSearch ? `Search ${items.length} slides — a name, or what you want to say…` : `Search ${items.length} slides — name, bucket, or what it's for…`}
+			placeholder={pane ? (compact ? 'Search components…' : `Search ${items.length} components that fit this pane — a name, or what it should show…`) : compact ? 'Search slides…' : intentSearch ? `Search ${items.length} slides — a name, or what you want to say…` : `Search ${items.length} slides — name, bucket, or what it's for…`}
 			label="Search slides"
 			className="flex-1"
 		/>
@@ -336,7 +363,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 						onValueChange={(v) => setFacet(v === 'all' ? null : v)}
 						tabs={[{ value: 'all', label: 'All' }, ...functions.map((f) => ({ value: f, label: cap(f) }))]}
 					/>
-					<span className="shrink-0 self-start pt-1.5 text-[12px] text-muted-foreground">{count} slides</span>
+					<span className="shrink-0 self-start pt-1.5 text-[12px] text-muted-foreground">{count} {pane ? 'components' : 'slides'}</span>
 				</div>
 			)}
 
@@ -398,14 +425,14 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 						{detail.bucket && detail.bucket !== 'local' && <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">{detail.bucket}</span>}
 					</>
 				) : (
-					<span className="text-[12.5px] text-muted-foreground">Pick a slide to add it after the current one — or search by name.</span>
+					<span className="text-[12.5px] text-muted-foreground">{pane ? `Pick what the ${pane.where.toLowerCase()} holds. Its title stays; the slide's Key Insight stays.` : 'Pick a slide to add it after the current one — or search by name.'}</span>
 				)}
 			</div>
 		</>
 	);
 
-	const title = 'Add a slide';
-	const description = 'Search the slide gallery and add one as a new slide.';
+	const title = pane ? `${pane.where}: what it holds` : 'Add a slide';
+	const description = pane ? `Choose the component the ${pane.where.toLowerCase()} renders. Each one says whether it keeps the pane's text.` : 'Search the slide gallery and add one as a new slide.';
 
 	// Grid ↔ list, in the header beside the dialog's close button — where a file browser
 	// puts it. Icon-only: the two glyphs are the convention, and the header is tight.
@@ -459,7 +486,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 		>
 			{[
 				compact ? (
-					<PanelHeader key="sheet-header" icon={<Plus />} title={title} srDescription={description} />
+					<PanelHeader key="sheet-header" icon={pane ? <Columns2 /> : <Plus />} title={title} srDescription={description} />
 				) : (
 					<React.Fragment key="dialog-header">
 						{/* `pr-24` clears BOTH the view toggle and the corner close button. */}
@@ -541,12 +568,13 @@ function LooksToggle({ name, looksCount, matchCount, isOpen, onToggle }: { name:
 // LIST view is the same three pieces on one row — preview, then name over purpose, then
 // the meta — for when you are reading names and descriptions rather than scanning
 // artwork. Both views render the SAME live engine preview through the same windowing.
-function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, view = 'grid', looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks }: { item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; view?: PickerView; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
+function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, view = 'grid', looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks, fit, paneWhere }: { fit?: TileFit; paneWhere?: string; item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; view?: PickerView; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
 	const ref = React.useRef<HTMLDivElement>(null);
 	const sample = frontMatter ? frontMatter + item.skeleton : item.skeleton;
 	const isBlank = item.name === 'Blank';
 	const isList = view === 'list';
-	const label = `Insert ${item.label ?? item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`;
+	const verb = fit ? 'Use' : 'Insert';
+	const label = fit ? `Use ${item.label ?? item.name} in the ${(paneWhere || 'pane').toLowerCase()} — ${FIT_TEXT[fit].toLowerCase()}${item.purpose ? ` — ${item.purpose}` : ''}` : `Insert ${item.label ?? item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`;
 
 	// The preview face — identical in both views; only its box differs. The box carries no
 	// radius or border: the pool draws the slide frame, so the tile shows the deck's corner.
@@ -589,12 +617,12 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 						    `z-10` because the pooled preview layer paints ABOVE the grid (see
 						    preview-pool.tsx) — without it this overlay is hidden behind the frame. */}
 						<span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-1 bg-[color-mix(in_srgb,var(--accent)_88%,#000)] text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-							<Plus className="size-3.5" /> Insert
+							{fit ? null : <Plus className="size-3.5" />} {verb}
 						</span>
 					</span>
 					<span className="min-w-0 flex-1">
 						<span className="block truncate font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{item.label ?? item.name}</span>
-						<span className="mt-0.5 block truncate text-[12px] text-muted-foreground">{item.purpose || item.description}</span>
+						<span className="mt-0.5 block truncate text-[12px] text-muted-foreground">{fit ? `${FIT_TEXT[fit]} · ` : ''}{item.purpose || item.description}</span>
 					</span>
 				</button>
 				{meta}
@@ -613,12 +641,13 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 					{/* Insert affordance on hover/focus — decorative; the button owns the click.
 					    `z-10`: the pooled preview layer paints above the grid (preview-pool.tsx). */}
 					<span className="pointer-events-none absolute inset-x-4 bottom-2 z-10 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-						<Plus className="size-3.5" /> Insert
+						{fit ? null : <Plus className="size-3.5" />} {verb}
 					</span>
 				</span>
 				{/* Name owns a FULL line — always legible, never a hover afterthought, and no
 				    longer sharing the row with a control. */}
 				<span className="block truncate px-2 pt-1.5 font-mono text-[11.5px] font-semibold text-[var(--text-heading)]">{item.label ?? item.name}</span>
+				{fit && <span className={cn('block truncate px-2 pt-0.5 text-[11px]', fit === 'fresh' ? 'text-muted-foreground' : 'text-[var(--accent)]')}>{FIT_TEXT[fit]}</span>}
 			</button>
 			{meta ? meta : <span className="pb-1.5" />}
 		</div>
