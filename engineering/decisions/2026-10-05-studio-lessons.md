@@ -1,0 +1,128 @@
+---
+status: in-progress
+summary: The Studio teaches through search — type "pdf" and get the action AND a short lesson that points at each control, waits for your click, and does it for you if you wait. Replaces the five watch-only tours (first-look stays).
+---
+
+# Studio lessons — search is the help, and every answer is a lesson (2026-10-05)
+
+**Branch:** `claude/lattice-walkthrough-training-pehuqc` · **Builds on:**
+`2026-07-07-studio-show-me-tours.md`, `2026-07-05-vetrina-walkthrough-library.md`,
+`2026-06-14-read-aloud-kokoro.md`.
+
+## The ask
+
+Feedback: Lattice is too complicated and hard to learn. The owner agrees, and points out that nobody
+starts out knowing PowerPoint either — a whole training industry exists for it. The Studio should do
+that training itself: narrated walkthroughs that teach, and that **do common actions for the user**
+to cut the hassle. Today's walkthroughs feel out of date, don't teach, can't be found from search,
+don't use Vetrina's newer abilities or a voice, and have jank.
+
+## What is wrong today (measured 2026-10-05)
+
+- **Five tours, all "watch me".** `first-look` (10 steps), `walkthrough` (24), `board-deck` (16),
+  `just-markdown` (12), `quiet` (13). Not one step asks the viewer to do anything: Vetrina's
+  cooperative step, `awaitUser`, is unused. A 24-step show is a demo, not a lesson.
+- **Not findable.** The Studio palette has one entry, "Watch demo", and it plays only the default
+  tour. The site search's "Start walkthrough" opens the Playground's Explore walk, which is a
+  different feature.
+- **Half of Vetrina is unused.** No narrator, no word cues, no `awaitUser`, no recorder, and one
+  gesture out of twelve.
+- **No voice.** The voice ladder (`playground/voice-model.js`), Suono playback and Vetrina's
+  `Narrator` port all exist; nothing connects them to a tour.
+- **Jank.** On a phone the "change theme" step points at nothing (the theme sheet is portalled
+  outside the Studio root, `tour-kit.ts` `SEL.theme`). The Share step's caption says "export a PDF"
+  and only opens and closes the sheet. Present opens for two seconds.
+- **No shared action list.** The palette's props, `StudioActions` (13 setters) and
+  `StudioDemoBindings` each list Studio verbs separately. "Export PDF" is in none of them.
+
+## The axes
+
+1. **Unit of teaching** — a long tour vs. a short lesson that answers one question.
+2. **Who acts** — the Studio (watch), the user (guided), or either.
+3. **Where help is found** — a menu, search, or contextual prompts.
+4. **When it loads** — bundled with the Studio vs. fetched on first use.
+5. **Voice** — live synthesis vs. clips recorded ahead of time vs. browser speech.
+
+## Decision
+
+**Owner rulings, 2026-10-05** (one round, all on the recommendation):
+
+| Question | Ruling |
+|---|---|
+| Voice source | **Pre-recorded clips.** Generate each lesson's lines offline with Kokoro and ship them with the lesson. One voice on every device, no key, no 80 MB model download. The `speechSynthesis` ban (2026-06-14) stands. |
+| The five tours | **Keep `first-look` as the showcase; fold the other four into lessons.** |
+| Where lessons are searchable | **The Studio palette first.** The site search deep-links (`?lesson=id`) in a later slice. |
+| First slice | **The action list, the lesson kit and six Basics lessons, without voice.** |
+| Modes (second round) | **Two rows, one adaptive lesson** — not three explicit modes per row. |
+
+### Two rows, one adaptive lesson
+
+Typing `pdf` in the palette shows two rows:
+
+- **Actions → Export as PDF…** does the thing now. This is "do it for me" for someone who already
+  knows what they want.
+- **Learn → How do I export a PDF?** starts a lesson.
+
+A lesson is three to six beats. A beat that needs the user's move points at the real control, says
+what to do, and **waits about seven seconds for the user's click**. If the user clicks it, the real
+control does its real job and the lesson moves on. If the user waits, the lesson says so, clicks it
+for them through the same action, and moves on. So "show me" and "walk me through" are one lesson,
+not two modes to choose between, and every palette row is plain Enter.
+
+The first proposal had three explicit modes per row ("Do it / Walk me through / Show me"). It was
+dropped on the second round: it needed trailing buttons inside palette rows plus `⌘↵`/`⇧↵`
+bindings across all three palette layouts, and it asked a learner to pick a mode before they had
+learned anything.
+
+### Why this shape is honest
+
+Vetrina's rule is that the cursor is theater and every real effect comes from an `act` the host
+supplies. A lesson keeps that rule. Its "do it for you" path calls a command from the shared action
+list, or `press(target)`, which calls the real control's `click()`. A programmatic `click()` sends
+no `pointerdown`, so Vetrina's take-over guard does not mistake it for the user. Any other real
+input still ends the lesson at once, exactly as it ends a tour.
+
+A lesson **never resets the Studio**. A tour clears the shell and builds "My First Deck"; a lesson
+runs on the deck the user has open, because the point is to learn on your own work.
+
+### The action list
+
+`studio-commands.ts` defines a `StudioCommand` (`id`, `label`, `keywords`, `icon`, `run`). The
+Studio builds the list once; the palette's Actions group renders from it, and lessons call
+`run(id)` from it. This replaces the palette's eleven one-callback-per-action props. `StudioActions`
+stays for now, because `first-look` still drives it. It retires with the tours (below).
+
+### Loading on demand
+
+The Studio bundle carries only the catalog (`lessons/catalog.ts`): each lesson's id, question,
+track and search keywords — the part search needs. Lesson scripts load through `import()` on first
+use. Vetrina's engine is still in the Studio chunk, because `first-look` imports it statically;
+making the engine itself lazy is a later slice (see below), measured then.
+
+## The curriculum
+
+| Track | Lessons |
+|---|---|
+| **Basics** (slice 1) | Start a new deck · Write a slide · Add a slide · Change the theme · Present · Export a PDF |
+| **Building** | Charts · Tables · Comparisons · Images · Speaker notes |
+| **Polish** | Coach · Fix all · Reshape · Light and dark |
+| **Sharing** | The HTML player · PowerPoint |
+
+## Slices
+
+1. **This PR.** The action list, the lesson kit, the Learn group in the palette, six Basics lessons,
+   the Share sheet opening straight to its PDF step, the "Export as PDF…" action.
+2. **Voice.** A clip-generation tool (Kokoro, offline) writes one clip per beat plus an LTT word
+   track; a `clipNarrator` plays them through Suono. Captions stay, for anyone with sound off.
+3. **Retire the long tours.** Once Building and Polish lessons cover Coach and light/dark: delete
+   `walkthrough`, `board-deck`, `just-markdown` and `quiet`, move the e2e fixtures that use them
+   (`vetrina-geometry.spec.ts` drives `quiet`), retire `StudioActions` into the action list, and
+   make Vetrina's engine a lazy chunk.
+4. **Reach.** Site search deep-links lessons, progress is remembered and the next lesson suggested,
+   and a panel offers its lesson the first time it opens.
+
+Slices 2–4 are recorded in `followups.d/` so they survive this session.
+
+## Open questions
+
+- None blocking slice 1.
