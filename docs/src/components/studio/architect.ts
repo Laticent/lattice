@@ -4,20 +4,18 @@
 // the derived tokens — so the delivered palette is always AA-clean.
 import Fuse from 'fuse.js';
 import * as React from 'react';
-import { applyEdit, applyEditChecked, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { applyEdit, applyEditChecked, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide, slideCount, splitTopLevel } from '@/components/studio/ai/architect-edits.js';
 import { requestSlideFix } from '@/components/studio/ai/architect-fix.js';
-import { buildLatticePrimer } from '@/components/studio/ai/architect-knowledge.js';
+import { AUTHORING_RULES, buildLatticePrimer, layoutBlock } from '@/components/studio/ai/architect-knowledge.js';
 import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { deckCanon, deckProfiles } from '@/playground/authoring-core.generated.js';
-import { agentLibrary } from './agent-library';
-import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, applyFrontMatterEdit, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, runAgentLoop, type ToolCall } from './architect-agent';
+import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
-import { getFrontMatter } from './front-matter';
-import { FRONT_MATTER_KEYS } from './front-matter-keys';
+import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from './front-matter';
 import { BUILTIN_PALETTES } from './palettes';
 import { type ContentPart, type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { deckOutputLang, languageDirective } from './studio-language';
@@ -201,7 +199,7 @@ export type ModelAvailability = {
 /** Download progress for an on-device tier (0–1 fraction + a status line). */
 export type TierProgress = { progress: number; text?: string; status?: string };
 
-type ArchitectModel = {
+export type ArchitectModel = {
 	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
@@ -243,7 +241,7 @@ export const CHAT_MAX_TOKENS = 16384;
 export const CHAT_OUTPUT_EST = 4096;
 
 /** Shown when the transport reports the reply was cut off at the output ceiling. */
-const TRUNCATION_NOTE = 'This reply hit its length ceiling and stopped early — anything after that point never arrived. Ask for fewer slides per turn, or pick a model with more output room.';
+export const TRUNCATION_NOTE = 'This reply hit its length ceiling and stopped early — anything after that point never arrived. Ask for fewer slides per turn, or pick a model with more output room.';
 
 let modelPromise: Promise<ArchitectModel | null> | null = null;
 /** The single shared architect model (lazy — backends touch window). */
@@ -303,9 +301,16 @@ export type EditRun = {
 
 type RawEdit = { action: string; slide: number; body: string; key?: string; value?: string | null };
 
+/** One front-matter write from the chat agent, through the lossless line writer. */
+function applyFrontMatterWrite(source: string, e: AgentRawEdit): { source: string; ok: boolean; reason: string | null } {
+	if (!e.key) return { source, ok: false, reason: 'A front-matter edit without a key.' };
+	const next = writeFrontMatterLine(source, e.key, e.value ?? null);
+	return next === source ? { source, ok: false, reason: `\`${e.key}\` already reads that way.` } : { source: next, ok: true, reason: null };
+}
+
 /** Apply edits highest-slide-first (so earlier indices stay valid as the deck shifts),
  *  counting what landed and collecting why the rest didn't. */
-function applyEditsChecked(source: string, edits: RawEdit[]): EditRun {
+export function applyEditsChecked(source: string, edits: RawEdit[]): EditRun {
 	let next = source;
 	let applied = 0;
 	let slides = 0;
@@ -313,7 +318,7 @@ function applyEditsChecked(source: string, edits: RawEdit[]): EditRun {
 	for (const e of [...edits].sort((a, b) => b.slide - a.slide)) {
 		// A front-matter write (the chat agent's set_front_matter) touches no slide, so its
 		// place in the order is immaterial; it goes through the lossless line writer.
-		const r = (e.action === 'frontmatter' ? applyFrontMatterEdit(next, e as AgentRawEdit) : applyEditChecked(next, e)) as { source: string; ok: boolean; reason: string | null; inserted?: number };
+		const r = (e.action === 'frontmatter' ? applyFrontMatterWrite(next, e as AgentRawEdit) : applyEditChecked(next, e)) as { source: string; ok: boolean; reason: string | null; inserted?: number };
 		if (r.ok) {
 			next = r.source;
 			applied += 1; // BLOCKS — the same unit `refusals` counts in
@@ -1388,7 +1393,7 @@ export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: 
 // "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
 // model may improve wording/structure but must not alter any number, date, name, or
 // claim; if a fix would require changing a fact, it explains instead of editing.
-const FACT_GUARD =
+export const FACT_GUARD =
 	'\n\nCONSTRAINT — FACTS LOCKED: You may improve wording, structure, and clarity ONLY. Do NOT change, add, or remove any number, date, name, metric, currency amount, or factual claim. If a genuine improvement would require changing a fact, do NOT edit — explain what you would change and why, and let the author decide.';
 
 export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: ChatOptions): Promise<ChatResult> {
@@ -1396,10 +1401,11 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	if (!model) return { status: 'offline' };
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
-	// The cloud tier is an AGENT (chatAgent, below): tools to read the docs, edit a draft,
+	// The cloud tier is an AGENT (chat-agent.ts, loaded on demand): tools to read the docs, edit a draft,
 	// and check it. The on-device tiers cannot drive a tool loop reliably and keep the
 	// one-shot path that follows. See 2026-10-05-studio-chat-agent.md.
 	if (generation === 'openrouter') {
+		const { chatAgent } = await loadChatAgent();
 		const agent = await chatAgent(model, history, source, docs, opts);
 		// null = the model failed before answering anything — most often one that does not
 		// support tool calling. The one-shot path below still serves it.
@@ -1512,203 +1518,6 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	return finalizeChat(reply, source, finishReason === 'length');
 }
 
-// ── The chat agent (cloud tier) ─────────────────────────────────────────────
-
-// The agent's static system prompt, memoized on the catalog it indexes: the catalog
-// arrives once per page (or once more when a local component is saved), and a byte-stable
-// prefix is what lets the 1h cache breakpoint hit turn after turn.
-let agentSystemMemo: { catalog: unknown[]; text: string } | null = null;
-function agentSystem(catalog: unknown[]): string {
-	if (agentSystemMemo?.catalog === catalog) return agentSystemMemo.text;
-	const text = buildAgentSystem({
-		canon: deckCanon.DECK_CANON,
-		catalog: catalog as AgentComponent[],
-		frontMatterKeys: FRONT_MATTER_KEYS,
-		themes: [...BUILTIN_PALETTES],
-		finishes: FINISHES.filter((f) => f.name !== 'none'),
-	});
-	agentSystemMemo = { catalog, text };
-	return text;
-}
-
-/** The deck's per-slide word budget and the profile it comes from, read off the Coach's
- *  scorecard so the agent and the Coach hold the deck to the same bar. */
-function agentBudget(grounding?: ChatGrounding): { slideWordBudget: number; profileLabel: string } {
-	const prof = grounding?.scorecard?.profile as { key?: string; label?: string } | undefined;
-	const rec = (deckProfiles.getProfile?.(prof?.key ?? 'general') ?? deckProfiles.PROFILES?.general) as { slideWords?: number; label?: string } | null;
-	return { slideWordBudget: rec?.slideWords ?? 70, profileLabel: prof?.label ?? rec?.label ?? 'General' };
-}
-
-/** The agent's two system halves — exported so the cost readout prices the same prompt. */
-export function agentSystemParts(source: string, grounding?: ChatGrounding, factGuard = ''): { staticPrefix: string; dynamicTail: string } {
-	const budget = agentBudget(grounding);
-	const brief = deckBrief(source, { ...budget, findings: grounding?.findings, diagrams: grounding?.diagrams });
-	return { staticPrefix: agentSystem(grounding?.catalog ?? []), dynamicTail: `\n\n${brief}${factGuard}` };
-}
-
-async function chatAgent(model: ArchitectModel, history: ChatTurn[], source: string, docs: ReferenceDoc[] | undefined, opts: ChatOptions | undefined): Promise<ChatResult | null> {
-	const grounding = opts?.grounding;
-	const last = history[history.length - 1];
-	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '');
-	const systemContent = [
-		{ type: 'text', text: staticPrefix },
-		{ type: 'text', text: dynamicTail },
-	] as ContentPart[];
-	const ground = groundMessages(
-		withStudioVoice(
-			[{ role: 'system', content: systemContent }, ...history.slice(0, -1), { role: 'user', content: `${last?.content ?? ''}\n\n${deckForTurn(source)}` }],
-			'openrouter',
-			deckOutputLang(source),
-		),
-		docs,
-		true,
-	);
-	const toolbox = createToolbox({
-		source,
-		catalog: (grounding?.catalog ?? []) as AgentComponent[],
-		frontMatterKeys: FRONT_MATTER_KEYS,
-		library: agentLibrary,
-		check: grounding?.check,
-		slideWordBudget: agentBudget(grounding).slideWordBudget,
-	});
-	const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
-	const docTokens = refDocsTokens(docs);
-	// Prose per FINISHED round, and the round in flight. Kept apart so a Stop charges an
-	// estimate for the aborted round only — earlier rounds already reported their exact cost
-	// through onUsage, and estimating over them double-charged (checker).
-	const done: string[] = [];
-	let streamed = '';
-	let roundPrompt = '';
-	let genId: string | null = null;
-	let rounds = 0;
-	let blockedNote: string | null = null;
-	const soFar = () => [...done, streamed].map((t) => t.trim()).filter(Boolean).join('\n\n');
-	const complete: AgentComplete = async (msgs, { tools, onToken }) => {
-		// The budget gate prices EVERY round, not just the first: a tool round re-sends the
-		// whole conversation so far, and a hard-stop cap has to hold across all of them.
-		const convo = msgs
-			.slice(1)
-			.map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '')) + (m.tool_calls ? JSON.stringify(m.tool_calls) : ''))
-			.join('\n');
-		if (streamed.trim()) done.push(streamed);
-		streamed = '';
-		genId = null;
-		roundPrompt = convo;
-		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens, CHAT_MAX_TOKENS);
-		if (blk) {
-			blockedNote = blk;
-			const e = new Error(blk);
-			e.name = 'BudgetBlock';
-			throw e;
-		}
-		let calls: ToolCall[] = [];
-		let finish: string | null = null;
-		const text = await model.complete({
-			messages: msgs as { role: string; content: MsgContent }[],
-			plugins: ground.plugins,
-			fallback: '',
-			cacheTtl: '1h',
-			maxTokens: CHAT_MAX_TOKENS,
-			tools: AGENT_TOOLS,
-			toolChoice: tools ? 'auto' : 'none',
-			onToolCalls: (c) => {
-				calls = c;
-			},
-			onToken: (t: string) => {
-				streamed += t;
-				onToken(t);
-			},
-			onGenerationId: (id) => {
-				genId = id;
-			},
-			onFinishReason: (r) => {
-				finish = r;
-			},
-			signal: opts?.signal,
-			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
-		});
-		rounds++;
-		return { text, toolCalls: calls.filter((c) => c?.function?.name), truncated: finish === 'length' };
-	};
-	let reply = '';
-	const notes: string[] = [];
-	try {
-		const turn = await runAgentLoop({
-			complete,
-			messages: ground.messages as unknown as Parameters<typeof runAgentLoop>[0]['messages'],
-			toolbox,
-			onToken: opts?.onToken,
-			onTool: (name) => opts?.onActivity?.(TOOL_ACTIVITY[name] ?? name),
-			signal: opts?.signal,
-		});
-		reply = turn.reply;
-		if (turn.truncated) notes.push(TRUNCATION_NOTE);
-		if (turn.hitRoundCap) notes.push('I hit this turn’s limit on tool calls before finishing — ask me to continue.');
-	} catch (e) {
-		const name = (e as { name?: string })?.name;
-		if (name === 'BudgetBlock') {
-			// Blocked before anything was spent: say so the way the one-shot path does.
-			if (!rounds) return { status: 'blocked', reply: blockedNote ?? 'Budget cap reached.' };
-			reply = soFar();
-			notes.push(blockedNote ?? 'Budget cap reached.');
-		} else if (name === 'AbortError') {
-			// Stop keeps what streamed AND what was staged — the author can still review it.
-			// Same estimate-then-reconcile as the one-shot path (the usage chunk never came).
-			reply = soFar();
-			if (streamed) {
-				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens) ?? 0;
-				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
-				if (genId && model.openRouterGenerationCost) {
-					void model
-						.openRouterGenerationCost(genId)
-						.then((exact) => {
-							if (exact == null || !Number.isFinite(exact)) return;
-							adjustSpend(exact - est);
-							try {
-								globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
-							} catch {
-								/* no window */
-							}
-						})
-						.catch(() => {});
-				}
-			}
-		} else if (!rounds) return null;
-		else {
-			reply = soFar();
-			notes.push('The model connection dropped partway through this turn.');
-		}
-	}
-	return finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
-}
-
-/** What the transcript says while a tool runs. */
-const TOOL_ACTIVITY: Record<string, string> = {
-	read_component: 'Reading a component…',
-	read_front_matter: 'Reading a front-matter key…',
-	read_guide: 'Reading a guide…',
-	read_slides: 'Reading slides…',
-	edit_slides: 'Editing the draft…',
-	set_front_matter: 'Setting front matter…',
-	check_deck: 'Checking the deck…',
-};
-
-/** Fold an agent turn into the ChatResult the panel already renders: the prose, and the
- *  staged draft as one review card of per-slide edits against the ORIGINAL deck. */
-export function finalizeAgent(source: string, reply: string, raw: AgentRawEdit[], activity: string[], notes: string[] = []): ChatResult {
-	const withNotes = (body: string) => [body, ...notes].filter(Boolean).join('\n\n');
-	if (!raw.length) return { status: 'ok', reply: withNotes(reply) || 'No reply came back — try again.', proposed: null, activity };
-	const run = applyEditsChecked(source, raw);
-	if (!run.applied) return { status: 'ok', reply: withNotes([reply, ...run.refusals].filter(Boolean).join('\n\n')) || 'Nothing in that turn could be applied.', proposed: null, activity };
-	const edits: ProposedEdit[] = raw.map((e) => ({ ...describeEdit(source, e), slide: e.slide, action: e.action, raw: e }));
-	return {
-		status: 'ok',
-		reply: withNotes([reply || `Proposed ${edits.length} edit${edits.length > 1 ? 's' : ''} — review and apply below.`, ...run.refusals].filter(Boolean).join('\n\n')),
-		proposed: { edits, count: edits.length, source: run.source },
-		activity,
-	};
-}
-
 // Parse a (possibly partial) reply into prose + a set of reviewable, RE-APPLIABLE
 // edits. Each edit carries its parsed block (`raw`, re-fed to applyEdit against the
 // CURRENT deck at Apply-time — never a stale whole-deck snapshot) and its propose-time
@@ -1810,7 +1619,7 @@ export async function architectCredits(): Promise<ORCredits | null> {
 }
 
 // A cheap token estimate: ~4 chars/token. Enough for a pre-send "≈ $X".
-const estTokens = (text: string) => Math.ceil((text || '').length / 4);
+export const estTokens = (text: string) => Math.ceil((text || '').length / 4);
 
 // What a cached prompt-prefix READ costs, as a fraction of base input. A chat turn after
 // the first re-reads the ~16.5K-token primer at roughly a tenth of writing it, which is
@@ -1833,10 +1642,54 @@ const CACHE_READ_RATE = 0.1;
  * `cached` should be true once a turn in this thread has already written the prefix and
  * caching is on; the static half is then weighted at the cache-read rate.
  */
+// The chat agent lives in its own chunk, fetched on the first chat turn or cost readout —
+// it carries the tool loop, the doc shelf and the prompt builders, none of which the Studio
+// needs to paint (route budget: studio eagerJsGz).
+type ChatAgentModule = typeof import('./chat-agent');
+let chatAgentMod: ChatAgentModule | null = null;
+let chatAgentLoad: Promise<ChatAgentModule> | null = null;
+/** Everything the lazy chat agent needs that this (startup) module already holds — handed
+ *  over rather than imported there, so its chunk names stay out of startup JavaScript (see
+ *  chat-agent.ts). Exported for the agent's tests. */
+export function chatAgentDeps(): import('./chat-agent').ChatAgentDeps {
+	return {
+		applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel, AUTHORING_RULES, layoutBlock, getFrontMatter, innerFrontMatter, writeFrontMatterLine,
+		adjustSpend, recordSpend, deckCanon, deckProfiles,
+		applyEditsChecked, CHAT_MAX_TOKENS, cloudBudgetBlock, estimateUsd, estTokens, FACT_GUARD, TRUNCATION_NOTE, withStudioVoice,
+		groundMessages, refDocsTokens, FINISHES, BUILTIN_PALETTES, deckOutputLang,
+	};
+}
+
+export function loadChatAgent(): Promise<ChatAgentModule> {
+	if (!chatAgentLoad)
+		chatAgentLoad = import('./chat-agent').then(async (m) => {
+			await m.init(chatAgentDeps());
+			chatAgentMod = m;
+			try {
+				globalThis.dispatchEvent?.(new Event('lattice-chat-agent-ready'));
+			} catch {
+				/* no window */
+			}
+			return m;
+		}).catch((e) => {
+			chatAgentLoad = null; // a failed chunk fetch (offline) may succeed next turn
+			throw e;
+		});
+	return chatAgentLoad;
+}
+/** The agent's measured always-on core, for the readout before its module has loaded. */
+const AGENT_CORE_TOKENS = 6700;
+
 export function chatSystemTokens(generation: string, grounding?: ChatGrounding, cached = false, source = ''): number {
 	// The cloud tier runs the agent, whose prompt is the compact core + the deck brief; the
 	// tool rounds it may add are not knowable before the turn, so this prices round one.
-	const { staticPrefix, dynamicTail } = generation === 'openrouter' ? agentSystemParts(source, grounding) : buildChatSystem(generation, grounding);
+	if (generation === 'openrouter' && !chatAgentMod) {
+		// The agent module is lazy (it is not startup JavaScript); until it lands, price its
+		// measured core (~6.7K tokens) plus the deck brief's rough share.
+		void loadChatAgent();
+		return (cached ? Math.ceil(AGENT_CORE_TOKENS * CACHE_READ_RATE) : AGENT_CORE_TOKENS) + Math.ceil(estTokens(source) / 4);
+	}
+	const { staticPrefix, dynamicTail } = generation === 'openrouter' && chatAgentMod ? chatAgentMod.agentSystemParts(source, grounding) : buildChatSystem(generation, grounding);
 	const stat = estTokens(staticPrefix);
 	return (cached ? Math.ceil(stat * CACHE_READ_RATE) : stat) + estTokens(dynamicTail);
 }
@@ -1852,7 +1705,7 @@ export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 
 // The cloud budget gate, shared by every architect action: blocks when already over
 // the cap/balance, AND — in hard-stop mode — refuses a call whose ESTIMATE would
 // breach the self-cap, so a single large request can't overshoot. Returns a note, or null.
-function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST): string | null {
+export function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST): string | null {
 	const s = architectSpend();
 	if (s.status.blocked) return 'Budget cap reached — raise it in Workspace → Spend, or switch tier.';
 	if (s.mode === 'stop' && s.cap > 0) {

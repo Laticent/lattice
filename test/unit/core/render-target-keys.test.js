@@ -544,8 +544,8 @@ test('the emulator reads all three through the kernel, not its own regex', () =>
 });
 
 test("the Studio editor offers every one, so a hand-typed key is discoverable", () => {
-	// FRONT_MATTER_KEYS lives in its own module (the Studio chat agent names every key from
-	// it); editor-complete.ts re-exports it to the editor.
+	// FRONT_MATTER_KEYS lives in its own module (the Studio chat agent reads it too);
+	// editor-complete.ts re-exports it to the editor.
 	const src = readFileSync(join(REPO, 'docs/src/components/studio/front-matter-keys.ts'), 'utf8');
 	for (const key of RENDER_TARGET_KEY_NAMES) {
 		const entry = src.match(new RegExp(`\\{ key: '${key}', info: '([^']*)'`));

@@ -12,9 +12,31 @@
 // — is injected, so a test drives the whole loop with a scripted model and no network.
 // `architect.ts` (`chatComplete`) is the wiring.
 
-import { applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel } from '@/components/studio/ai/architect-edits.js';
-import { AUTHORING_RULES, layoutBlock } from '@/components/studio/ai/architect-knowledge.js';
-import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from './front-matter';
+// The splicer, the authoring rules and the front-matter readers are BOUND, not imported
+// (`bindKernel`). This module loads lazily, and those three are startup modules: a static
+// import from here lists their chunks — and every chunk THEY need, i.e. the whole Studio —
+// in the eager importer's preload map, ~2KB gz on a route over its soft budget (route
+// budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
+type Edits = typeof import('@/components/studio/ai/architect-edits.js');
+type Knowledge = typeof import('@/components/studio/ai/architect-knowledge.js');
+type FM = typeof import('./front-matter');
+export type KernelDeps = Pick<Edits, 'applyEditChecked' | 'diffLines' | 'sliceSlide' | 'slideCount' | 'splitTopLevel'> &
+	Pick<Knowledge, 'AUTHORING_RULES' | 'layoutBlock'> &
+	Pick<FM, 'getFrontMatter' | 'innerFrontMatter' | 'writeFrontMatterLine'>;
+let applyEditChecked: Edits['applyEditChecked'];
+let diffLines: Edits['diffLines'];
+let sliceSlide: Edits['sliceSlide'];
+let slideCount: Edits['slideCount'];
+let splitTopLevel: Edits['splitTopLevel'];
+let AUTHORING_RULES: Knowledge['AUTHORING_RULES'];
+let layoutBlock: Knowledge['layoutBlock'];
+let getFrontMatter: FM['getFrontMatter'];
+let innerFrontMatter: FM['innerFrontMatter'];
+let writeFrontMatterLine: FM['writeFrontMatterLine'];
+/** Supply the kernel's runtime dependencies. Called once, before any other export is used. */
+export function bindKernel(d: KernelDeps): void {
+	({ applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel, AUTHORING_RULES, layoutBlock, getFrontMatter, innerFrontMatter, writeFrontMatterLine } = d);
+}
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
@@ -551,13 +573,6 @@ export function proposalFromDraft(original: string, draft: string, fmTouched: Ma
 		edits.push({ action: 'frontmatter', slide: 0, body: after ?? '', key, value: after ?? null });
 	}
 	return edits;
-}
-
-/** Apply one front-matter edit — the review card's Apply path for `action: 'frontmatter'`. */
-export function applyFrontMatterEdit(source: string, e: AgentRawEdit): { source: string; ok: boolean; reason: string | null } {
-	if (!e.key) return { source, ok: false, reason: 'A front-matter edit without a key.' };
-	const next = writeFrontMatterLine(source, e.key, e.value ?? null);
-	return next === source ? { source, ok: false, reason: `\`${e.key}\` already reads that way.` } : { source: next, ok: true, reason: null };
 }
 
 /** The review-card row for one raw edit: label, before/after, line diff. */

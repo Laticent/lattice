@@ -1,6 +1,7 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
+import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import { MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { STUDIO_LANGUAGES } from './studio-language';
 
@@ -37,9 +38,7 @@ export type CompletionVocab = {
 // Deck-level front-matter directives the engine honors, with a one-line hint. Values
 // are left to the author (a few common ones are suggested inline below).
 //
-export { FRONT_MATTER_KEYS } from './front-matter-keys';
-
-import { FRONT_MATTER_KEYS } from './front-matter-keys';
+export { FRONT_MATTER_KEYS };
 
 // The `lang:` front-matter VALUE vocabulary — the supported document languages
 // (studio-language, English-only for now). Static, so built once at module load;

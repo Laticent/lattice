@@ -1,8 +1,8 @@
 // The deck front-matter keys the engine reads, with a one-line description each.
 //
-// Its own module so the Studio chat agent (architect-agent.ts) can name every key in
-// its prompt without importing the editor's autocomplete. `editor-complete.ts`
-// re-exports it, so existing importers are unchanged.
+// Its own module so the Studio chat agent (chat-agent.ts) can read the table without
+// importing the editor's completion code; `editor-complete.ts` re-exports it, so existing
+// importers are unchanged.
 //
 // This list was a THIRD hand-maintained enumeration of the deck's front-matter surface,
 // alongside the Inspector's rows and deck-config's FIELD_DEFAULTS, and it had drifted

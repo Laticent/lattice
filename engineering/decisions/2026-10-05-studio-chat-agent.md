@@ -148,9 +148,18 @@ Choices worth knowing before changing any of it:
 - **The docs are read from source, not from `dist/agent-kit/`.** The kit is generated from
   the same files, but `dist/` is not committed, and a lazy `?raw` import keeps every doc off
   the startup path.
-- **`FRONT_MATTER_KEYS` moved to `front-matter-keys.ts`** (re-exported from
-  `editor-complete.ts`) so the prompt can name every key without importing the editor's
-  autocomplete.
+- **The agent is not startup JavaScript, and that took three tries.** Shipped eagerly it
+  cost the Studio 13.1KB gz against a 2KB per-PR allowance (route budget). Moved behind a
+  dynamic import (`chat-agent.ts`, via `loadChatAgent()` in `architect.ts`), it still cost
+  ~2.2KB: Vite writes every chunk a lazy module statically needs into the EAGER importer's
+  preload map, and importing `architect.ts` / `front-matter` from the agent listed ~95 chunk
+  names — the whole Studio. Importing those dynamically instead made Rollup re-split shared
+  chunks and cost +3.5KB. What works: the lazy modules import only their own files, and
+  `architect.ts` hands over everything startup already holds (`chatAgentDeps()` →
+  `init()`, `bindKernel()`). Measured +830–846 B against `main`, declared in
+  `docs/route-budget.d/2518-studio-chat-agent.md`. `FRONT_MATTER_KEYS` moved to
+  `front-matter-keys.ts` (re-exported by `editor-complete.ts`): a dynamic import of
+  `editor-complete` from the agent re-split the Playground's `slide-context` (+212 B).
 
 ## 7. What was measured
 

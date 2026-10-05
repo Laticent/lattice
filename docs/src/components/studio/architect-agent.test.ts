@@ -1,9 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
-import { applyProposedEditsChecked, finalizeAgent } from './architect';
+import { applyProposedEditsChecked, chatAgentDeps } from './architect';
 import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
+import { finalizeAgent, init as initChatAgent } from './chat-agent';
+import { FRONT_MATTER_KEYS } from './editor-complete';
 import { getFrontMatter } from './front-matter';
-import { FRONT_MATTER_KEYS } from './front-matter-keys';
+
+beforeAll(() => initChatAgent(chatAgentDeps()));
 
 const DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: title -->', '# Q3 review', '', '---', '', '<!-- _class: kpi -->', '## Revenue grew', '', '1. Revenue `$4.2M`', '', '---', '', '<!-- _class: content -->', '## Next steps', '', '- Hire two'].join('\n');
 
