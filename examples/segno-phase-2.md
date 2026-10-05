@@ -41,7 +41,13 @@ Braces hold the value, commas separate what describes it, and the order is free.
   - Usage alerts `{3, 64}`
 - Big bets
   - Partner marketplace `{8, 90}`
-  - Data residency `{7, 58}`
+  - Data residency `{7, 68}`
+- Fill-ins
+  - Dark-mode emails `{2, 28}`
+  - CSV import presets `{3, 16}`
+- Time sinks
+  - Custom audit UI `{8, 22}`
+  - Bespoke board export `{7, 34}`
 
 ---
 
