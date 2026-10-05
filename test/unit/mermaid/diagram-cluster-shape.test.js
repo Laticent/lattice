@@ -46,7 +46,7 @@ const read = (rel) => fs.readFileSync(path.join(REPO, rel), 'utf8');
 const readCode = (rel) => read(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 describe('cluster corner — the CSS rx rule', () => {
-  const MERMAID_CSS = read(path.join('lib', 'integrations', 'mermaid', 'mermaid.css'));
+  const MERMAID_CSS = read(path.join('lib', 'plugins', 'mermaid', 'mermaid.styles.css'));
   const TOKENS = read(path.join('lib', 'base', 'base.tokens.css'));
 
   test('the rule exists, uses the token, and sets BOTH rx and ry', () => {
@@ -120,7 +120,7 @@ describe('node padding — one constant, both render paths', () => {
     // rather than being re-stated beside them. A re-typed number could not diverge
     // silently even if someone added one — `init-config-parity.test.js` diffs the two
     // configs — but the composition is the thing to pin here.
-    const src = readCode(path.join('lib', 'runtime', 'index.js'));
+    const src = readCode(path.join('lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'));
     assert.match(src, /engineInitConfig\s*\}\s*=\s*require\(/, 'the runtime must import the shared config builder');
     assert.match(src, /const shared = engineInitConfig\(themeVars[^)]*\);/, 'and compose its config from it');
     assert.equal(/padding:\s*15\b/.test(src), false, 'the old divergent literal must be gone');
@@ -160,7 +160,7 @@ describe('subGraphTitleMargin is set on NEITHER path', () => {
   });
 
   test('not in the runtime config either — it carried 10/100 and clipped every subgraph title', () => {
-    assert.equal(/subGraphTitleMargin:\s*\{/.test(readCode(path.join('lib', 'runtime', 'index.js'))), false);
+    assert.equal(/subGraphTitleMargin:\s*\{/.test(readCode(path.join('lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'))), false);
   });
 });
 

@@ -49,7 +49,7 @@ const silent = argv.includes('--silent') || check;
 // A slide deck's fenced code is JS/TS/Python/YAML/SQL/etc. — all in `common`; an exotic
 // language degrades gracefully to monochrome (`lib/engine/index.js` guards
 // `hljs.getLanguage(lang)` before highlighting, so a miss is escaped plaintext, never an
-// error). registerMermaidHljs still works — `common` exposes the same singleton
+// error). The plugin host's grammar registration still works — `common` exposes the same singleton
 // `.registerLanguage` API. SCOPED TO THE PREVIEW BUNDLE ONLY: the CLI/PDF export path
 // imports the SAME `require('highlight.js')` from lib/engine and keeps the full build, so
 // exported artifacts highlight every language and no export-sign-off gate fires.

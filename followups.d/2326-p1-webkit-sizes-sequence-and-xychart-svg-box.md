@@ -18,7 +18,7 @@ where     — `examples/universal-tokens-p2-structural.md`: the sequence `<svg>`
             `examples/sequence-narration.md` (16 labels, 4.75 → 27.05px) and in
             `examples/xychart-narration.md` (18 labels). The diagram gallery does not
             show it. Start at the svg sizing rules in
-            `lib/integrations/mermaid/mermaid.css` (`height:100% !important` inside a
+            `lib/plugins/mermaid/mermaid.styles.css` (`height:100% !important` inside a
             flex band) and mermaid's `useMaxWidth` inline `max-width`.
 done when — `node tools/audit-svg-baselines.mjs --deck examples/sequence-narration.md`
             and the same on the other two decks each report 0 labels over 3px,

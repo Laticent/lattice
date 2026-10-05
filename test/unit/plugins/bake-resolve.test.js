@@ -1,6 +1,6 @@
 /**
- * Plugin-system phase D: a fence rendered `as: "code"`, the `bake` contribution, a plugin the
- * runtime draws — each resolver arm proven on the smallest synthetic plugin that must fail one
+ * Plugin-system phase D: a fence rendered `as: "code"`, the `bake` contribution, a plugin whose
+ * browser half is a document pass (`render.exec.hydrate: "pass"`) — each resolver arm proven on the smallest synthetic plugin that must fail one
  * way — and the Node host that runs the bakes (lib/plugins/host-bake.js), on synthetic bakers and
  * on the real registry.
  */
@@ -14,14 +14,14 @@ const { installPlugins, PLUGINS } = require('../../../lib/plugins/host');
 const { bakeDeck } = require('../../../lib/plugins/host-bake');
 const { BAKERS } = require('../../../lib/plugins/bake.generated.js');
 
-/** A Mermaid-shaped plugin: a code fence, a bake, drawn by the runtime. `patch` edits the manifest. */
+/** A Mermaid-shaped plugin: a code fence, a bake, a browser pass. `patch` edits the manifest. */
 function bakingPlugin(name, { patch = (m) => m, exports = {} } = {}) {
   const manifest = patch({
     type: 'plugin', format: 1, name, api: 1, title: name, description: name,
-    contributes: { fences: { [`${name}fence`]: { body: 'text', as: 'code' } }, bake: true },
-    render: { exec: { hydrate: 'runtime', bake: 'subprocess' }, parity: 'progressive', degradesTo: 'code-block' },
+    contributes: { fences: { [`${name}fence`]: { body: 'text', as: 'code' } }, hydrate: {}, bake: true },
+    render: { exec: { hydrate: 'pass', bake: 'subprocess' }, parity: 'progressive', degradesTo: 'code-block' },
   });
-  return { folder: name, manifest, exports: { fences: [], hasBake: true, ...exports } };
+  return { folder: name, manifest, exports: { fences: [], hasBake: true, hasPass: true, ...exports } };
 }
 
 const errorsOf = (plugins) => resolvePlugins(plugins).errors;
@@ -30,7 +30,7 @@ const expectError = (plugins, pattern) => {
   assert.ok(errors.some((e) => pattern.test(e)), `expected an error matching ${pattern}; got:\n${errors.join('\n') || '(none)'}`);
 };
 
-describe('resolvePlugins — code fences, bake, runtime-drawn', () => {
+describe('resolvePlugins — code fences, bake, a hydrate pass', () => {
   test('a Mermaid-shaped plugin resolves', () => {
     assert.deepEqual(errorsOf([bakingPlugin('a')]), []);
   });
@@ -45,12 +45,34 @@ describe('resolvePlugins — code fences, bake, runtime-drawn', () => {
   test('bake ⇔ a bake module, and it says where it runs', () => {
     expectError([bakingPlugin('a', { exports: { hasBake: false } })], /declares bake but has no a\.bake\.js/);
     expectError([bakingPlugin('a', { patch: (m) => { delete m.contributes.bake; m.render.exec = { bake: 'subprocess' }; return m; } })], /ships a\.bake\.js but its manifest declares no bake/);
-    expectError([bakingPlugin('a', { patch: (m) => { m.render.exec = { hydrate: 'runtime' }; return m; } })], /declares bake but not where it runs/);
+    expectError([bakingPlugin('a', { patch: (m) => { m.render.exec = { hydrate: 'pass' }; return m; } })], /declares bake but not where it runs/);
     expectError([bakingPlugin('a', { patch: (m) => { delete m.contributes.bake; m.render.exec = { bake: 'subprocess' }; return m; }, exports: { hasBake: false } })], /says where its bake runs but declares no bake/);
   });
-  test('a plugin the runtime draws must bake, and ships no hydrate module', () => {
-    expectError([bakingPlugin('a', { patch: (m) => { delete m.contributes.bake; m.render.exec = { hydrate: 'runtime' }; return m; }, exports: { hasBake: false } })], /drawn by the runtime but declares no bake/);
-    expectError([bakingPlugin('a', { patch: (m) => { m.contributes.hydrate = {}; return m; }, exports: { hasHydrate: true } })], /drawn by the runtime .* also declares a hydrate module/);
+  test('a hydrate pass must bake, and its module exports createPass — never hydrate', () => {
+    expectError([bakingPlugin('a', { patch: (m) => { delete m.contributes.bake; m.render.exec = { hydrate: 'pass' }; return m; }, exports: { hasBake: false } })], /drawn by a runtime pass but declares no bake/);
+    expectError([bakingPlugin('a', { exports: { hasPass: false } })], /declares a hydrate pass but has no a\.hydrate\.js exporting createPass/);
+    expectError([bakingPlugin('a', { exports: { hasHydrate: true } })], /exports hydrate\(el, ctx\), but its manifest says its hydrate is a pass/);
+    expectError([bakingPlugin('a', { patch: (m) => { delete m.contributes.hydrate; return m; } })], /says its hydrate is a pass \(render\.exec\.hydrate "pass"\) but declares no hydrate/);
+    expectError([bakingPlugin('a', { patch: (m) => { m.render.exec = { hydrate: 'browser', bake: 'subprocess' }; return m; } })], /exports createPass\(ctx\), but its manifest does not say its hydrate is a pass/);
+  });
+  test('highlight ⇔ a highlight module, and a code fence to register it under', () => {
+    assert.deepEqual(errorsOf([bakingPlugin('a', { patch: (m) => { m.contributes.highlight = true; return m; }, exports: { hasHighlight: true } })]), []);
+    expectError([bakingPlugin('a', { patch: (m) => { m.contributes.highlight = true; return m; } })], /declares highlight but has no a\.highlight\.js/);
+    expectError([bakingPlugin('a', { exports: { hasHighlight: true } })], /ships a\.highlight\.js but its manifest declares no highlight/);
+    expectError([bakingPlugin('a', { patch: (m) => { m.contributes.highlight = true; m.contributes.fences.afence = { body: 'text' }; return m; }, exports: { hasHighlight: true, fences: ['afence'] } })], /declares highlight but no fence rendered as code/);
+  });
+  test('the host registers a plugin grammar under its code fence, even with the plugin switched off', () => {
+    const hljs = require('highlight.js');
+    for (const disabled of [[], ['mermaid']]) {
+      const md = new MarkdownIt('commonmark');
+      md.highlightjs = hljs.newInstance();
+      installPlugins(md, { disabled });
+      assert.ok(md.highlightjs.getLanguage('mermaid'), `the mermaid grammar is registered (disabled: ${JSON.stringify(disabled)})`);
+      assert.match(md.highlightjs.highlight('flowchart LR\n  A --> B', { language: 'mermaid' }).value, /hljs-keyword/);
+    }
+  });
+  test('a pass may require: it is bundled, never serialized', () => {
+    assert.deepEqual(errorsOf([bakingPlugin('a', { exports: { hydrateSource: "const k = require('../../core/x');\nfunction createPass() {}\nmodule.exports = { createPass };" } })]), []);
   });
 });
 
@@ -62,11 +84,11 @@ describe('the host fence table leaves a code fence to the code renderer', () => 
     assert.ok(installed.includes('mermaid'));
     assert.equal(md.render('```mermaid\nflowchart LR\n```\n'), 'PREVIOUS:mermaid');
   });
-  test('the registry records the fence as code, drawn by the runtime, with no renderer', () => {
+  test('the registry records the fence as code, drawn by a hydrate pass, with no renderer', () => {
     const mermaid = PLUGINS.find((p) => p.name === 'mermaid');
     assert.equal(mermaid.fences.mermaid.as, 'code');
     assert.equal(mermaid.runtimeDrawn, true);
-    assert.equal(mermaid.hydrate, false);
+    assert.equal(mermaid.hydrate, true);
     assert.equal(mermaid.fenceRenderers.mermaid, undefined);
   });
 });

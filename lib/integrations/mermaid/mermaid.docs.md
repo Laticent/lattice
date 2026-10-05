@@ -8,12 +8,13 @@ overrides, and custom syntax highlighting for the source.
 
 **External dep:** `@mermaid-js/mermaid-cli` (declared in `package.json`).
 
-**Files in this folder:**
-
-| File | What it implements |
-|---|---|
-| `mermaid.css` | Per-diagram CSS overrides — Lattice-theme-aware selectors targeting Mermaid's emitted SVG (flowchart, journey, mindmap, gitgraph, treemap, c4, venn, and 9 more that ignore Mermaid's own `themeVariables`). |
-| `mermaid.hljs.js` | Custom highlight.js language definition for Mermaid syntax, so raw `\`\`\`mermaid` fences fall back to syntax-colored code when not (yet) runtime-rendered. |
+**The plugin owns its stylesheet and its grammar** (`lib/plugins/mermaid/`, since plugin-system
+phase D's browser half): `mermaid.styles.css` — per-diagram CSS overrides, Lattice-theme-aware
+selectors targeting Mermaid's emitted SVG (flowchart, journey, mindmap, gitgraph, treemap, c4,
+venn, and 9 more that ignore Mermaid's own `themeVariables`) — and `mermaid.highlight.js`, the
+highlight.js grammar that colors a raw `\`\`\`mermaid` fence's source. This folder keeps the
+kernels both of the plugin's halves share (HARD RULE #1): the init directive, the render worker,
+portrait reorientation and the motion roles.
 
 ---
 
@@ -28,7 +29,7 @@ A `\`\`\`mermaid` fenced block is processed in this order:
      from the active palette's tokens.
    - `mmdc` returns SVG. The SVG is embedded inline in the slide.
    - The `.mermaid-svg` wrapper class + per-diagram-type CSS overrides
-     from `mermaid.css` style the SVG.
+     from `mermaid.styles.css` style the SVG.
 
 2. **At runtime** (`lattice-runtime.js`):
    - The browser Mermaid script renders the SVG client-side.
@@ -38,7 +39,7 @@ A `\`\`\`mermaid` fenced block is processed in this order:
 3. **At build time (raw fallback)** (`lattice-emulator.js`):
    - If `mmdc` isn't available OR Mermaid source fails to parse, the
      raw source is shown as a syntax-highlighted code block.
-   - Highlighting is provided by `mermaid.hljs.js`, our custom
+   - Highlighting is provided by `mermaid.highlight.js`, our custom
      highlight.js language definition.
 
 ---
@@ -54,12 +55,12 @@ recolor without re-rendering.
 Mermaid's themeVariables don't cover everything. 9 diagram types
 (notably journey, mindmap, treemap, c4, venn, sankey, packet, block,
 xychart) ignore the variables and use hard-coded SVG colors. Lattice
-overrides those with palette-blind CSS in `mermaid.css`. See
+overrides those with palette-blind CSS in `mermaid.styles.css`. See
 `design/theming.md` for the full per-diagram override surface.
 
 ---
 
-## `mermaid.hljs.js` — custom syntax highlighting
+## `mermaid.highlight.js` — custom syntax highlighting
 
 A highlight.js language definition for Mermaid source. Adapted from
 Prism's `prism-mermaid.js` (MIT) to the highlight.js mode-tree API.
@@ -76,11 +77,11 @@ avoids mode-stacks that depend on knowing which diagram type a fence
 is. Trade-off: some precision lost (`section` is treated uniformly
 across gantt/journey/timeline) for a smaller grammar.
 
-The file lives **here** rather than in `lib/integrations/highlight-js/`
-because the SUBJECT is Mermaid (this is "Lattice's syntax highlighting
-for Mermaid"). The hljs integration doc lists it as a registered
-custom language. Same principle as how we organize React components
-by subject not by hook usage.
+The file lives **in the plugin** (`lib/plugins/mermaid/`) rather than in
+`lib/integrations/highlight-js/` because the SUBJECT is Mermaid (this is
+"Lattice's syntax highlighting for Mermaid"): it is the plugin's `highlight`
+contribution, registered by the plugin host under the plugin's code fence.
+The hljs integration doc lists it as a registered custom language.
 
 ---
 
@@ -107,4 +108,5 @@ visual parity.
 - `engineering/mermaid.md` — Mermaid-specific authoring conventions
   used in shipped decks.
 - `lib/integrations/highlight-js/highlight-js.docs.md` — the hljs
-  integration that registers `mermaid.hljs.js` as a custom language.
+  integration that lists `mermaid.highlight.js` as a custom language.
+- `lib/plugins/mermaid/mermaid.docs.md` — the plugin: what it contributes, and where it draws.

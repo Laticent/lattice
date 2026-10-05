@@ -280,8 +280,10 @@ describe('mermaid init-directive: render-path wiring', () => {
     // A color-neutral directive keeps the engine palette, so it re-bakes like
     // any other diagram. Testing for the mere presence of `%%{init` here would
     // silently drop it from the re-bake and over-report "kept their own colors".
-    const src = read('lattice-emulator.js');
-    assert.match(src, /if \(authorPinsTheme\(def\)\) \{ authorKept\.add\(idx\); continue; \}/);
+    // The decision lives in the mermaid bake's re-bake hook (`state.rebake.render`) since the
+    // export's image-set look stopped naming Mermaid; the emulator only counts the `kept` answer.
+    const src = read('lib/plugins/mermaid/mermaid.bake.js');
+    assert.match(src, /if \(authorPinsTheme\(def\)\) return \{ kept: true \};/);
     assert.doesNotMatch(src, /\/%%\\\{\\s\*init\/i\.test\(def\)/,
       'no surviving raw `%%{init` regex test on a diagram definition');
   });
@@ -294,7 +296,7 @@ describe('mermaid init-directive: render-path wiring', () => {
     // reverted: a directive's themeVariables go through mermaid's much stricter
     // `sanitizeDirective`, which blanked the hyphenated font stack and left
     // Mermaid measuring in one font while the page rendered in another.
-    const src = read('lib/runtime/index.js');
+    const src = read('lib/plugins/mermaid/mermaid.hydrate.js');
     // Per SLIDE since #1332 step 3, resolved by the KERNEL since step 4, and built from
     // the SHARED non-palette config since #1347: the palette still rides the global
     // config, but that config is `engineInitConfig` plus the enumerated preview-only
@@ -316,7 +318,7 @@ describe('mermaid init-directive: render-path wiring', () => {
     // `loose` let `click X "javascript:…"` reach innerHTML as a working anchor in
     // the docs Studio's same-origin, un-sandboxed preview frame (HARD RULE #22).
     // strict is also mermaid's own default, which the PDF path never overrode.
-    const src = read('lib/runtime/index.js');
+    const src = read('lib/plugins/mermaid/mermaid.hydrate.js');
     // It moved into PREVIEW_ONLY_CONFIG with #1347 (a Mermaid secure key could not ride
     // a directive, so the export could not share it) and moved OUT again with #1674,
     // into `engineInitConfig`, once the export got its own page and called `initialize`.

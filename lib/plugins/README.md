@@ -22,8 +22,11 @@ lib/plugins/<name>/
   <name>.fixtures.md      required — the conformance cases the harness runs
   <name>.syntax.mjs       the GRAMMAR: markdown-it rules + detect(source). Pure; no library imports
   <name>.render.js        the RENDERERS: what each token and fence becomes. May load a library (math loads KaTeX)
-  <name>.hydrate.js       the BROWSER half: hydrate(el, ctx) draws one placeholder. Self-contained
+  <name>.hydrate.js       the BROWSER half: hydrate(el, ctx) draws one placeholder. Self-contained.
+                          Or, with render.exec.hydrate "pass", createPass(ctx): a document pass the
+                          runtime drives (Mermaid's), bundled and never serialized
   <name>.bake.js          the CLI half: bake(source, ctx) draws the figures into the Markdown. Node-side
+  <name>.highlight.js     highlight(hljs): a highlight.js grammar for the plugin's code fences
   <name>.styles.css       token-only CSS, bundled into the plugin slot of dist/lattice.css
 ```
 
@@ -83,9 +86,14 @@ and it counts as use), but the engine renders it as the highlighted code block i
 the host leaves it to the fence renderer installed before the table, so it has no renderer and no
 aliases. The plugin draws it later, in two places:
 
-- **In a browser, the runtime draws it** (`render.exec.hydrate: "runtime"`): the runtime's own
-  diagram pass, not a `<name>.hydrate.js`. It reads the plugin's fence names and library from the
-  registry (`drawn.generated.mjs` `RUNTIME_DRAWN`), tags each fence's `<pre>` with the host's markup
+- **In a browser, the plugin's PASS draws it** (`render.exec.hydrate: "pass"`):
+  `mermaid.hydrate.js` exports `createPass(ctx)` rather than a per-placeholder `hydrate(el, ctx)`,
+  because Mermaid's palette is global and every fence must be grouped by the palette its slide
+  resolves and rendered on one serial queue. The runtime finds the pass through the registry
+  (`passes.generated.js` `PASSES`) and drives it at three points — `boot`, `run` (every content
+  pass) and `onMutations` (the observer's microtask) — and names no plugin. The pass is bundled,
+  never serialized, so it may require the kernels it shares with the bake. It reads its fence
+  names from `ctx.fences`, tags each fence's `<pre>` with the host's markup
   at boot (`data-lattice-hydrate="mermaid"` and the settle state below — `hydrating` while a draw is
   in flight), and asks the host for the library (`ensureLibrary`), which loads the plugin's
   `payload` from beside the runtime exactly as it loads a hydrator's. So no page threads a URL, and
@@ -96,13 +104,19 @@ aliases. The plugin draws it later, in two places:
 - **On the CLI, its bake draws it** (`contributes.bake`, `render.exec.bake: "subprocess"`):
   `<name>.bake.js` exports `bake(source, ctx)`, and `host-bake.js` runs every active plugin's bake,
   in dependency order, over the deck's Markdown before the engine renders — only for a deck that
-  uses the plugin. `ctx` is frozen: the export's services (the palette reader, the Chromium to
-  use, the deck's orientation, …; `mermaid.bake.js` lists them) plus `name` and a fresh `state` the
-  caller reads back. On the CLI a bake that throws or returns no text fails the export, naming the
+  uses the plugin. `ctx` is frozen: the export's GENERIC services (`BAKE_SERVICES` — the palette
+  readers, the Chromium to use, the deck's orientation, …; `bakeDeck` refuses any other) plus
+  `name` and a fresh `state` the caller reads back — Mermaid's bake publishes the generic re-bake
+  hook there, `state.rebake`, which the image-set export's cross-scheme look reads. On the CLI a bake that throws or returns no text fails the export, naming the
 plugin (`strict`); a single diagram Mermaid rejects is degraded inside the bake, as before.
 
-The resolver requires the bake of any plugin the runtime draws: the CLI export page carries no
+The resolver requires the bake of any plugin a pass draws: the CLI export page carries no
 runtime, so nothing else would draw it there.
+
+**Its grammar and its stylesheet are its own** (`contributes.highlight`, `contributes.styles`):
+`installPlugins` registers `mermaid.highlight.js` on the engine's highlight.js under the code
+fence (for every installed plugin, a switched-off one included — its fence is the one that stays
+source), and `mermaid.styles.css` is bundled into the plugin slot like any plugin's CSS.
 
 ## The browser half: hydrate and the settle state
 
@@ -206,14 +220,18 @@ committed files — never edit them:
 - `blocks.generated.mjs` — the block rules as a straight-line installer, for the boundary parser
   (it ships in the Studio's startup JavaScript, so it skips the generic host)
 - `hydrate.generated.js` — each browser half and the library it waits for (the runtime bundles it)
+- `passes.generated.js` — each document pass (`render.exec.hydrate: "pass"`) and its fence names;
+  only the runtime requires it
 - `styles.generated.js` — the stylesheets, in dependency order, for `tools/build-css.js`
 - `bake.generated.js` — each Node-side bake, required lazily (`host-bake.js` runs them)
 - `drawn.generated.mjs` — the code fences a browser runtime draws, and each such plugin's
   `payload` (plain data; `drawn-probe.mjs` is the hand-written reader browser surfaces import)
 
 The resolver also holds the manifest to the files for the phase-B contributions: a declared fence
-has a renderer and no renderer is undeclared, `hydrate` ⇔ a self-contained `<name>.hydrate.js`,
-`styles` ⇔ `<name>.styles.css`, and `tokens` is exactly the set of `var(--…)` reads in it.
+has a renderer and no renderer is undeclared, `hydrate` ⇔ a self-contained `<name>.hydrate.js`
+(or, for a pass, one exporting `createPass`), `highlight` ⇔ `<name>.highlight.js` and a code
+fence to register it under, `styles` ⇔ `<name>.styles.css`, and `tokens` is exactly the set of
+`var(--…)` reads in it.
 
 `npm run build:check` fails when they are stale, and `checkPluginMigration` in
 `tools/check-ownership.js` fails when code outside `lib/plugins` hand-names a plugin's token, or a
@@ -222,4 +240,8 @@ counts the three hand idioms a runtime-drawn plugin's browser half grew before t
 answer for it: `language-<fence>` rosters (`drawnFenceClasses`), a hand-threaded library URL
 (`drawnLibraryUrls`, `mermaidUrl`) and a private settle state in code or CSS
 (`drawnSettleStates`, `data-mermaid-state`). All three are 0 since phase D's browser half, and
-the budget only falls.
+the budget only falls. Three more count the plugin doing its own work rather than the engine doing
+it by hand: a browser plugin named in `lib/runtime` code (`runtimePluginNames` — 139 before the
+pass moved, 0 since), a plugin's stylesheet or grammar left in `lib/integrations/<plugin>/`
+(`pluginAssetsOutside`, 2 → 0) and a plugin's bake record read by name (`bakeContextByName`,
+`contexts.get('mermaid')`, 1 → 0).

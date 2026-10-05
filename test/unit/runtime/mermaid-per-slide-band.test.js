@@ -37,7 +37,7 @@ const {
 const { renderDiagrams } = require('../../../lib/core/render-diagrams');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const RUNTIME_PATH = path.join(REPO, 'lib', 'runtime', 'index.js');
+const RUNTIME_PATH = path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js');
 const RUNTIME_SRC = fs.readFileSync(RUNTIME_PATH, 'utf8');
 
 /**
@@ -52,8 +52,8 @@ function liftPreviewBuild(tokensBySection, fallbackSection, captured = {}) {
   const END = '  // ── END PALETTE PORT';
   const start = RUNTIME_SRC.indexOf(BEGIN);
   const end = RUNTIME_SRC.indexOf(END);
-  assert.notEqual(start, -1, 'lib/runtime/index.js must bracket its palette port with BEGIN PALETTE PORT');
-  assert.notEqual(end, -1, 'lib/runtime/index.js must bracket its palette port with END PALETTE PORT');
+  assert.notEqual(start, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must bracket its palette port with BEGIN PALETTE PORT');
+  assert.notEqual(end, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must bracket its palette port with END PALETTE PORT');
   const blockSrc = RUNTIME_SRC.slice(start, end);
   assert.match(blockSrc, /function openSectionReader\(scopeEl\)/,
     'the reader must take the SECTION as a parameter (#1332 step 3) — resolving one inside '

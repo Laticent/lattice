@@ -1820,7 +1820,7 @@ const SANCTIONED_MONO_FONTS = [
        + 'must never read as deck content.',
   },
   {
-    file: 'lib/integrations/mermaid/mermaid.css',
+    file: 'lib/plugins/mermaid/mermaid.styles.css',
     selector: 'data-lattice-settle',
     count: 1,
     why: 'mermaid source that has not rendered yet — still source, briefly visible.',
@@ -5903,8 +5903,11 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'Pinned by test/unit/components/flowchart.test.js "a forged model cannot inject markup" and ' +
       'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary".',
   },
+  // Mermaid's two entries MOVED with its diagram pass, verbatim, from lib/runtime/index.js into the
+  // plugin (phase D's browser half, `render.exec.hydrate: "pass"`): same sinks, same counts, same
+  // provenance — the pass still runs inside the preview frame, after the builder sanitized.
   {
-    file: 'lib/runtime/index.js',
+    file: 'lib/plugins/mermaid/mermaid.hydrate.js',
     sink: 'target.innerHTML',
     count: 4,
     provenance:
@@ -5925,7 +5928,7 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'undeclared sink.',
   },
   {
-    file: 'lib/runtime/index.js',
+    file: 'lib/plugins/mermaid/mermaid.hydrate.js',
     sink: 'errEl.innerHTML',
     count: 1,
     provenance: 'OURS — clears the themed diagram error block to the empty string before it is rebuilt from text nodes.',
@@ -7753,12 +7756,26 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
  *                       spellings) outside lib/plugins, in code AND CSS: a private settle state
  *                       beside the host's one `data-lattice-settle`, which no capture that reads
  *                       the host's barrier can see.
+ *   runtimePluginNames  the name of a plugin with a browser half (`mermaid`, `functionPlot`,
+ *                       `function-plot`, any case) in lib/runtime CODE: the runtime doing a plugin's
+ *                       work by hand where it should drive the plugin through the registry
+ *                       (`PASSES`, `HYDRATORS`). Phase D's browser half moved Mermaid's diagram
+ *                       pass into lib/plugins/mermaid/mermaid.hydrate.js and took this from 139 to 0.
+ *   pluginAssetsOutside a plugin's stylesheet (`.css`) or highlight grammar (`*.hljs.js`) living in
+ *                       lib/integrations/<plugin>/, where the engine installs it by hand, instead of
+ *                       in the plugin (`styles`, `highlight`). Phase D's browser half: 2 → 0. It
+ *                       looks only there, under those two name shapes — the shape this repo grew;
+ *                       it is not a census of every file that styles a plugin.
+ *   bakeContextByName   one plugin's bake record read BY NAME (`contexts.get('mermaid')`) outside
+ *                       lib/plugins, where the host's generic hook (`state.rebake`) should answer.
+ *                       Phase D's browser half: 1 → 0. (The bake's SERVICES are held generic at
+ *                       run time instead: `bakeDeck` refuses any not in BAKE_SERVICES.)
  *
  * Over budget fails: something re-grew the old way. UNDER budget fails too, naming the new
  * count, so the budget ratchets down in the PR that earned it and can never silently rot upward
  * again.
  */
-const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0, drawnFenceClasses: 0, drawnLibraryUrls: 0, drawnSettleStates: 0 });
+const PLUGIN_MIGRATION_BUDGET = Object.freeze({ fenceWrappers: 0, pluginTokenNames: 0, drawnFenceClasses: 0, drawnLibraryUrls: 0, drawnSettleStates: 0, runtimePluginNames: 0, pluginAssetsOutside: 0, bakeContextByName: 0 });
 
 function pluginMigrationCounts(root = ROOT) {
   // EVERY override of markdown-it's fence renderer outside the host's one table, anywhere a render
@@ -7851,11 +7868,57 @@ function pluginMigrationCounts(root = ROOT) {
       for (const m of code.matchAll(stateRe)) stateHits.push(`${rel}: ${m[0]}`);
     }
   }
+  // The plugin names, from the manifests' DATA (the same reason as the tokens): every plugin for the
+  // asset and bake-record arms, and the ones with a browser half (a `hydrate`, or a `render.exec.hydrate`) for the
+  // runtime arm — a plugin with no browser half has nothing the runtime could do for it by hand, and
+  // `math` would match `Math.round` everywhere.
+  const manifests = listPluginManifests(root);
+  const allNames = manifests.map((m) => m.name);
+  if (!allNames.length) throw new Error('plugin migration: lib/plugins holds no manifest — the ratchet would check nothing');
+  const variants = (n) => [n, n.replace(/-/g, ''), n.replace(/-([a-z])/g, (_m, c) => c.toUpperCase())];
+  const reEscape = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const browserNames = manifests.filter((m) => m.contributes?.hydrate || m.render?.exec?.hydrate).map((m) => m.name);
+  const runtimeHits = [];
+  if (browserNames.length) {
+    const re = new RegExp([...new Set(browserNames.flatMap(variants))].map(reEscape).join('|'), 'gi');
+    const files = [];
+    listSourceFiles(path.join(root, 'lib', 'runtime'), files);
+    for (const file of files) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (/\.generated\.[cm]?[jt]s$/.test(rel) || !/\.[cm]?js$/.test(rel) || !fs.existsSync(file)) continue;
+      const code = fs.readFileSync(file, 'utf8').split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
+      for (const m of stripCodeComments(code).matchAll(re)) runtimeHits.push(`${rel}: ${m[0]}`);
+    }
+  }
+  const assetHits = [];
+  for (const name of allNames) {
+    const dir = path.join(root, 'lib', 'integrations', name);
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir)) if (/\.css$|\.hljs\.js$/.test(f)) assetHits.push(`lib/integrations/${name}/${f}`);
+  }
+  const bakeHits = [];
+  {
+    // Anchored on a bake-CONTEXTS receiver (`contexts`, `BAKE_CONTEXTS`, `bakeContexts`), so an
+    // unrelated `searchParams.get('math')` never trips it. A tripwire for this one idiom: a
+    // `.get(name)` through a variable, or a `.find()` over the values, is not counted.
+    const re = new RegExp(`\\b\\w*contexts\\s*\\.get\\(\\s*(['"\`])(?:${allNames.map(reEscape).join('|')})\\1\\s*\\)`, 'gi');
+    const files = [path.join(root, 'lattice-emulator.js')];
+    for (const dir of ['lib', 'tools']) listSourceFiles(path.join(root, dir), files);
+    for (const file of files) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
+      if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel) || !/\.[cm]?js$/.test(rel) || !fs.existsSync(file)) continue;
+      for (const m of stripCodeComments(fs.readFileSync(file, 'utf8')).matchAll(re)) bakeHits.push(`${rel}: ${m[0]}`);
+    }
+  }
   return {
     fenceWrappers, pluginTokenNames: hits.length, hits,
     drawnFenceClasses: drawnHits.length, drawnHits,
     drawnLibraryUrls: urlHits.length, urlHits,
     drawnSettleStates: stateHits.length, stateHits,
+    runtimePluginNames: runtimeHits.length, runtimeHits,
+    pluginAssetsOutside: assetHits.length, assetHits,
+    bakeContextByName: bakeHits.length, bakeHits,
   };
 }
 
@@ -7879,7 +7942,8 @@ function checkPluginMigration(errors, budget = PLUGIN_MIGRATION_BUDGET, root = R
   for (const [key, allowed] of Object.entries(budget)) {
     const n = counts[key];
     if (n > allowed) {
-      const detail = key === 'pluginTokenNames' ? ` — ${counts.hits.join('; ')}` : '';
+      const list = { pluginTokenNames: counts.hits, runtimePluginNames: counts.runtimeHits, pluginAssetsOutside: counts.assetHits, bakeContextByName: counts.bakeHits }[key];
+      const detail = list ? ` — ${list.slice(0, 12).join('; ')}${list.length > 12 ? '; …' : ''}` : '';
       errors.push(`plugin migration: ${key} is ${n}, over its budget of ${allowed}${detail}. The plugin system replaces this mechanism; extend the plugin host (lib/plugins/) instead of the old path (engineering/decisions/2026-09-27-plugin-system.md §7).`);
     } else if (n < allowed) {
       errors.push(`plugin migration: ${key} is ${n}, under its budget of ${allowed}. Lower PLUGIN_MIGRATION_BUDGET.${key} to ${n} in tools/check-ownership.js — the ratchet only moves down.`);

@@ -51,9 +51,10 @@ per deck. That split, and why it is answerable rather than implicit, is
 
 Two, both registered in `createEngine()` so every surface gets them:
 
-- **Mermaid** — `lib/integrations/mermaid/mermaid.hljs.js`, via
-  `registerMermaidHljs`. The definition lives next to the rest of the Mermaid
-  integration (subject over means — see that doc for the rationale).
+- **Mermaid** — `lib/plugins/mermaid/mermaid.highlight.js`, the Mermaid plugin's
+  `highlight` contribution: the plugin host (`installPlugins`, `lib/plugins/host.js`)
+  registers it under the plugin's code fence. It lives with the rest of the plugin
+  (subject over means — see `lib/plugins/mermaid/mermaid.docs.md`).
 - **Shell** — `shell.hljs.js` in this folder, via `registerShellHljs`. hljs's own
   bash grammar plus modern CLI tools as `built_in` and `--flags` as `params`,
   because stock bash knows POSIX built-ins and nothing else — so the shape a

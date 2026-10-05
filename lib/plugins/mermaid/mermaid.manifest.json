@@ -5,18 +5,32 @@
   "name": "mermaid",
   "api": 1,
   "title": "Mermaid diagrams",
-  "description": "Flowcharts, sequence, state, class, Gantt and the rest of Mermaid's diagram types from a fence. The engine emits the highlighted source; the runtime draws it in a browser, and the CLI bakes it to a static SVG before the engine renders.",
+  "description": "Flowcharts, sequence, state, class, Gantt and the rest of Mermaid's diagram types from a fence. The engine emits the highlighted source; the plugin's diagram pass draws it in a browser, and its bake draws it to a static SVG on the CLI before the engine renders.",
   "contributes": {
     "fences": {
       "mermaid": { "body": "mermaid", "as": "code" }
     },
-    "bake": true
+    "hydrate": {},
+    "bake": true,
+    "highlight": true,
+    "styles": true
   },
+  "tokens": [
+    "--accent", "--bg", "--bg-alt", "--c-on-container", "--c-on-subcontainer", "--c-subcontainer",
+    "--c-subcontainer-edge", "--cat-1-fill", "--cat-1-mark", "--cat-1-texture", "--cat-10-fill", "--cat-10-texture",
+    "--cat-11-fill", "--cat-11-texture", "--cat-12-fill", "--cat-12-texture", "--cat-2-fill", "--cat-2-mark",
+    "--cat-2-texture", "--cat-3-fill", "--cat-3-mark", "--cat-3-texture", "--cat-4-fill", "--cat-4-mark",
+    "--cat-4-texture", "--cat-5-fill", "--cat-5-mark", "--cat-5-texture", "--cat-6-fill", "--cat-6-mark",
+    "--cat-6-texture", "--cat-7-fill", "--cat-7-mark", "--cat-7-texture", "--cat-8-fill", "--cat-8-mark",
+    "--cat-8-texture", "--cat-9-fill", "--cat-9-texture", "--cat-on-fill", "--diagram-cluster-radius", "--diagram-line",
+    "--diagram-stroke", "--font-body", "--font-mono", "--fs-meta", "--lh-base", "--on-accent",
+    "--radius-md", "--text-heading"
+  ],
   "payload": {
     "mermaid": { "from": "npm:mermaid/dist/mermaid.min.js", "global": "mermaid", "when": "used" }
   },
   "render": {
-    "exec": { "hydrate": "runtime", "bake": "subprocess" },
+    "exec": { "hydrate": "pass", "bake": "subprocess" },
     "surfaces": { "engine": "source", "preview": "figure", "pdf": "figure-baked", "player": "figure-baked", "marp": "figure" },
     "parity": "progressive",
     "degradesTo": "code-block"

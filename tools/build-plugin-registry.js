@@ -19,6 +19,10 @@
  *   lib/plugins/hydrate.generated.js    CommonJS. Each plugin's browser half (`<name>.hydrate.js`)
  *                                        and the library it waits for — what the runtime bundles
  *                                        and lib/plugins/hydrate-script.js serializes for the CLI.
+ *   lib/plugins/passes.generated.js     CommonJS. Each plugin whose browser half is a document PASS
+ *                                        (`render.exec.hydrate: "pass"` — Mermaid's): its
+ *                                        `createPass` and fence names, what the runtime drives.
+ *                                        Never serialized, so the module may require.
  *   lib/plugins/styles.generated.js     CommonJS. The plugins' stylesheets, in dependency order,
  *                                        for tools/build-css.js's plugin slot.
  *
@@ -53,6 +57,7 @@ const GRAMMAR_FILE = path.join(PLUGINS_DIR, 'grammar.generated.mjs');
 const REGISTRY_FILE = path.join(PLUGINS_DIR, 'registry.generated.js');
 const BLOCKS_FILE = path.join(PLUGINS_DIR, 'blocks.generated.mjs');
 const HYDRATE_FILE = path.join(PLUGINS_DIR, 'hydrate.generated.js');
+const PASSES_FILE = path.join(PLUGINS_DIR, 'passes.generated.js');
 const STYLES_FILE = path.join(PLUGINS_DIR, 'styles.generated.js');
 const BAKE_FILE = path.join(PLUGINS_DIR, 'bake.generated.js');
 const DRAWN_FILE = path.join(PLUGINS_DIR, 'drawn.generated.mjs');
@@ -101,8 +106,12 @@ async function readExports(folder, name, manifest) {
   }
   const hydratePath = path.join(dir, `${name}.hydrate.js`);
   if (fs.existsSync(hydratePath)) {
-    const { hydrate } = require(hydratePath);
+    const { hydrate, createPass } = require(hydratePath);
     out.hasHydrate = typeof hydrate === 'function';
+    // A PASS (`render.exec.hydrate: "pass"`) exports `createPass(ctx)` instead: the runtime bundles
+    // it and never serializes it, so neither the no-import rule nor the module-scope rule below
+    // applies to it (lib/plugins/resolve.js decides which rules a plugin answers to).
+    out.hasPass = typeof createPass === 'function';
     out.hydrateSource = fs.readFileSync(hydratePath, 'utf8');
     // What the module holds OUTSIDE the hydrate function: its own source text (which is exactly
     // what the CLI page receives, serialized) cut out, then comments and the one export statement.
@@ -119,6 +128,9 @@ async function readExports(folder, name, manifest) {
         .trim();
     }
   }
+  // The highlight grammar is a pure function of highlight.js's API; read for its export.
+  const highlightPath = path.join(dir, `${name}.highlight.js`);
+  if (fs.existsSync(highlightPath)) out.hasHighlight = typeof require(highlightPath).highlight === 'function';
   // The bake module is Node-only and may be heavy (it drives a render worker), so it is read for
   // its export and never imported by anything the engine or a browser loads.
   const bakePath = path.join(dir, `${name}.bake.js`);
@@ -289,7 +301,7 @@ function renderGrammar(ordered, exportsByName) {
       `    syntax: Object.freeze({${syntax.length ? `\n${syntax.join('\n')}\n    ` : ''}}),`,
       `    fences: Object.freeze({${fences.length ? `\n${fences.join('\n')}\n    ` : ''}}),`,
       `    hydrate: ${m.contributes.hydrate ? 'true' : 'false'},`,
-      `    runtimeDrawn: ${m.render?.exec?.hydrate === 'runtime'},`,
+      `    runtimeDrawn: ${m.render?.exec?.hydrate === 'pass'},`,
       `    detect: ${mod && exportsByName.get(p.manifest.name).detect ? `${mod}__detect` : 'null'},`,
       '  }),',
     ].join('\n');
@@ -340,7 +352,7 @@ export const OPAQUE_BLOCK_TOKENS = Object.freeze(${JSON.stringify(opaque)});
  * modules — never a renderer, whose library (KaTeX) the runtime must not carry.
  */
 function renderHydrate(ordered) {
-  const lines = ordered.filter((p) => p.manifest.contributes.hydrate).map((p) => {
+  const lines = ordered.filter((p) => p.manifest.contributes.hydrate && p.manifest.render?.exec?.hydrate !== 'pass').map((p) => {
     const m = p.manifest;
     const [payload] = Object.values(m.payload || {});
     const fields = [
@@ -359,13 +371,32 @@ module.exports = { HYDRATORS };
 }
 
 /**
+ * The document passes, in dependency order: each plugin whose browser half walks the whole
+ * document (`render.exec.hydrate: "pass"` — Mermaid's diagram pass), with its fence names. What
+ * lib/runtime/index.js drives; nothing else requires it, because a pass module requires the
+ * kernels it shares with its bake and has no business in a Node-side or serialized path.
+ */
+function renderPasses(ordered) {
+  const codeFences = (p) => Object.entries(p.manifest.contributes.fences || {}).filter(([, d]) => d.as === 'code').map(([f]) => f);
+  const lines = ordered.filter((p) => p.manifest.render?.exec?.hydrate === 'pass').map((p) => {
+    const m = p.manifest;
+    return `  Object.freeze({ name: ${JSON.stringify(m.name)}, createPass: require('./${p.folder}/${m.name}.hydrate.js').createPass, fences: Object.freeze(${JSON.stringify(codeFences(p))}) }),`;
+  });
+  return `${HEADER('The plugins\' document PASSES, in dependency order: each pass factory and its fence names. Bundled by the runtime only.')}
+const PASSES = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
+
+module.exports = { PASSES };
+`;
+}
+
+/**
  * The fences a browser's RUNTIME draws from their highlighted code block (a code fence of a plugin
- * with `render.exec.hydrate: "runtime"` — Mermaid). A surface that must tell "this render still
+ * with `render.exec.hydrate: "pass"` — Mermaid). A surface that must tell "this render still
  * owes a drawing" reads this instead of naming a plugin. Plain data, so a lazily loaded view can
  * import it without the grammar behind it.
  */
 function renderDrawn(ordered) {
-  const drawn = ordered.filter((p) => p.manifest.render?.exec?.hydrate === 'runtime');
+  const drawn = ordered.filter((p) => p.manifest.render?.exec?.hydrate === 'pass');
   const codeFences = (p) => Object.entries(p.manifest.contributes.fences || {}).filter(([, d]) => d.as === 'code').map(([f]) => f);
   const fences = drawn.flatMap(codeFences);
   // Per plugin: its code fences and the library the runtime's host loads for it (`payload`), so
@@ -386,7 +417,7 @@ function renderDrawn(ordered) {
   // No runtime-drawn fence → a selector and a pattern that match nothing, never `:is()` / `(?:)`.
   const fenceCode = fences.length ? `:is(pre,marp-pre)>:is(${fences.map((f) => `code[class*="language-${f}"]`).join()})` : ':not(*)';
   const sourceFence = fences.length ? `/^[ \\t>]*(?:\`{3,}|~{3,})[^\\S\\n]*(?:${fences.join('|')})(?![\\w-])/m` : '/(?!)/';
-  return `${HEADER('The code fences a browser runtime draws (render.exec.hydrate "runtime"), and each such plugin\'s library. Plain data.')}
+  return `${HEADER('The code fences a browser runtime draws (render.exec.hydrate "pass"), and each such plugin\'s library. Plain data.')}
 export const RUNTIME_DRAWN_FENCES = Object.freeze(${JSON.stringify(fences)});
 
 // A runtime-drawn fence's \`<code>\` at any state (\`[class*=]\` also matches the defanged
@@ -408,7 +439,7 @@ export const RUNTIME_DRAWN = /* @__PURE__ */ Object.freeze({${byPlugin.length ? 
  */
 function renderDrawnLibrary(ordered) {
   const files = {};
-  for (const p of ordered.filter((q) => q.manifest.render?.exec?.hydrate === 'runtime')) {
+  for (const p of ordered.filter((q) => q.manifest.render?.exec?.hydrate === 'pass')) {
     const [payload] = Object.values(p.manifest.payload || {});
     if (payload) files[p.manifest.name] = payload.from.split('/').pop();
   }
@@ -450,17 +481,24 @@ function renderRegistry(ordered, exportsByName, components) {
     const hasRender = exportsByName.get(p.manifest.name).hasRender;
     return `  ${JSON.stringify(p.manifest.name)}: ${hasRender ? `require('./${p.folder}/${p.manifest.name}.render.js')` : 'Object.freeze({})'},`;
   });
-  return `${HEADER('The plugins the engine installs, in dependency order: the grammar plus each plugin\'s renderers.')}
+  // Each plugin's highlight.js grammar (`contributes.highlight`), for the host to register under its
+  // code fences. Only the plugins that declare one; the others read null.
+  const highlights = ordered.filter((p) => p.manifest.contributes.highlight === true)
+    .map((p) => `  ${JSON.stringify(p.manifest.name)}: require('./${p.folder}/${p.manifest.name}.highlight.js').highlight,`);
+  return `${HEADER('The plugins the engine installs, in dependency order: the grammar plus each plugin\'s renderers and highlight grammar.')}
 const { PLUGIN_GRAMMAR } = require('./grammar.generated.mjs');
 
 const RENDER_MODULES = {
 ${lines.join('\n')}
 };
 
+const HIGHLIGHT = {${highlights.length ? `\n${highlights.join('\n')}\n` : ''}};
+
 const PLUGINS = Object.freeze(PLUGIN_GRAMMAR.map((g) => Object.freeze({
   ...g,
   renderers: RENDER_MODULES[g.name].renderers || Object.freeze({}),
   fenceRenderers: RENDER_MODULES[g.name].fences || Object.freeze({}),
+  highlight: HIGHLIGHT[g.name] || null,
 })));
 
 // In-tree components that REQUIRE a plugin, keyed by component name — which is the slide class an
@@ -494,6 +532,7 @@ async function build(opts = {}) {
       [REGISTRY_FILE, renderRegistry(ordered, exportsByName, components)],
       [BLOCKS_FILE, renderBlocks(ordered)],
       [HYDRATE_FILE, renderHydrate(ordered)],
+      [PASSES_FILE, renderPasses(ordered)],
       [STYLES_FILE, renderStyles(ordered)],
       [BAKE_FILE, renderBake(ordered)],
       [DRAWN_FILE, renderDrawn(ordered)],
@@ -518,7 +557,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,styles,bake,drawn,drawn-library}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library}.generated.*\n`);
 }
 
 if (require.main === module) {

@@ -106,7 +106,7 @@ export const READ_ARTICLE_CSS = `
    states it as an inline max-width, and auto reads both. Scoped by aria-roledescription
    so it cannot reach a chart, which is token-driven and must keep filling its band.
    The long form, with the measurements and why the rule is not in the kernel:
-   lib/integrations/mermaid/mermaid.css § THE RE-HOSTED FIGURE. */
+   lib/plugins/mermaid/mermaid.styles.css § THE RE-HOSTED FIGURE. */
 .st-read-article figure svg[aria-roledescription]{width:auto;max-width:100%}
 /* A WIDE DIAGRAM STOPS SHRINKING AND SCROLLS. The kernel writes each diagram figure's
    natural width, floor width (a fixed share of natural) and aspect ratio inline, and makes

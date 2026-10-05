@@ -35,7 +35,7 @@ const { JSDOM } = require('jsdom');
 const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
+const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
 
 const BEGIN = '  // ── BEGIN ADOPTION PORT';
 const END = '  // ── END ADOPTION PORT';
@@ -47,9 +47,9 @@ const END = '  // ── END ADOPTION PORT';
  */
 function shippedFenceSelector() {
   const m = RUNTIME_SRC.match(/const FENCE_CODE_SELECTOR\s*=\s*\n?\s*(`[^`]+`);/);
-  assert.ok(m, 'lib/runtime/index.js must declare FENCE_CODE_SELECTOR as a single template literal');
+  assert.ok(m, 'lib/plugins/mermaid/mermaid.hydrate.js must declare FENCE_CODE_SELECTOR as a single template literal');
   const code = RUNTIME_SRC.match(/const MERMAID_CODE = (.+);\n/);
-  assert.ok(code, 'lib/runtime/index.js must derive MERMAID_CODE from the registry');
+  assert.ok(code, 'lib/plugins/mermaid/mermaid.hydrate.js must derive MERMAID_CODE from the registry');
   const { RUNTIME_DRAWN } = require('../../../lib/plugins/drawn.generated.mjs');
   const MERMAID_CODE = new Function('MERMAID_FENCES', `return ${code[1]};`)(RUNTIME_DRAWN.mermaid.fences);
   return new Function('MERMAID_CODE', `return ${m[1]};`)(MERMAID_CODE);
@@ -59,8 +59,8 @@ function shippedFenceSelector() {
 function liftAdoption(dom, { mermaid = { render() {}, initialize() {} } } = {}) {
   const start = RUNTIME_SRC.indexOf(BEGIN);
   const end = RUNTIME_SRC.indexOf(END);
-  assert.notEqual(start, -1, 'lib/runtime/index.js must bracket the adoption port with BEGIN ADOPTION PORT');
-  assert.notEqual(end, -1, 'lib/runtime/index.js must bracket the adoption port with END ADOPTION PORT');
+  assert.notEqual(start, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must bracket the adoption port with BEGIN ADOPTION PORT');
+  assert.notEqual(end, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must bracket the adoption port with END ADOPTION PORT');
   const src = RUNTIME_SRC.slice(start, end);
   assert.match(src, /function adoptOutgoingDiagrams\(records\)/, 'the port must hold adoptOutgoingDiagrams');
   // eslint-disable-next-line no-new-func
@@ -83,12 +83,19 @@ function liftAdoption(dom, { mermaid = { render() {}, initialize() {} } } = {}) 
  * a call from a call that runs — but they do fail on the two edits most likely to happen by
  * accident: dropping a call, and reordering them.
  */
+// The wiring has two halves since the pass moved into the plugin: the RUNTIME's observer hands
+// each burst to every plugin pass (`entry.pass.onMutations(records)`, one try per pass) and then schedules the debounce,
+// and the PASS's `onMutations` replays the cache and then adopts. Both are read here.
+const RUNTIME_INDEX_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
 function observerCallbackSrc() {
-  const at = RUNTIME_SRC.indexOf('replayCachedFences();\n        adoptOutgoingDiagrams(records);');
+  const at = RUNTIME_INDEX_SRC.indexOf('try { entry.pass.onMutations(records); }');
   // To the end of the callback, not a fixed length: a comment or a call added inside it must
   // not push a later call out of the slice this reads.
-  const end = at === -1 ? -1 : RUNTIME_SRC.indexOf('.observe(', at);
-  return end === -1 ? null : RUNTIME_SRC.slice(at, end);
+  const end = at === -1 ? -1 : RUNTIME_INDEX_SRC.indexOf('.observe(', at);
+  if (end === -1) return null;
+  // And the pass's half must still replay first, then adopt.
+  if (!/function onMutations\(records\) \{\n {4}replayCachedFences\(\);\n {4}adoptOutgoingDiagrams\(records\);\n {2}\}/.test(RUNTIME_SRC)) return null;
+  return RUNTIME_INDEX_SRC.slice(at, end);
 }
 
 /**
@@ -358,11 +365,12 @@ describe('the observer wiring', () => {
     // pinning it at 150 left 9134 tests green. These two arms are the pin: the call takes
     // no delay argument, and nothing reintroduces a second timer constant.
     assert.match(observerCallbackSrc() || '', /scheduleRun\(\);/, 'the observer must schedule a plain debounced run');
-    assert.doesNotMatch(RUNTIME_SRC, /COLD_MS|burstFirstSight|scheduledRunDelay/, 'the second-delay policy is cut; re-adding one needs its own tests and a measurement');
+    assert.doesNotMatch(RUNTIME_SRC + RUNTIME_INDEX_SRC, /COLD_MS|burstFirstSight|scheduledRunDelay/, 'the second-delay policy is cut; re-adding one needs its own tests and a measurement');
   });
 
   test('scheduleRun re-arms from the full debounce, so a burst coalesces', () => {
-    const src = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function scheduleRun('), RUNTIME_SRC.indexOf('function wrapFences('));
+    const at = RUNTIME_INDEX_SRC.indexOf('function scheduleRun(');
+    const src = RUNTIME_INDEX_SRC.slice(at, RUNTIME_INDEX_SRC.indexOf('\n  function ', at + 1));
     assert.match(src, /clearTimeout\(scheduledRunHandle\)/, 'a re-arm must cancel the pending run');
     assert.match(src, /\}, DEBOUNCE_MS\);/, 'the re-armed run must wait the full debounce, not a latched shorter one');
   });
@@ -370,7 +378,7 @@ describe('the observer wiring', () => {
 
 function liftReset(reclaimedHas = false) {
   const m = RUNTIME_SRC.match(/ {2}function resetFenceAfterFailure\(preEl\) \{[\s\S]*?\n {2}\}/);
-  assert.ok(m, 'lib/runtime/index.js must declare resetFenceAfterFailure');
+  assert.ok(m, 'lib/plugins/mermaid/mermaid.hydrate.js must declare resetFenceAfterFailure');
   assert.match(m[0], /innerHTML = ''/, 'the reset must clear the slot on its way back');
   // eslint-disable-next-line no-new-func
   return new Function('reclaimed', `${m[0]}\nreturn resetFenceAfterFailure;`)({ has: () => reclaimedHas });

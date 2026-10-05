@@ -25,7 +25,7 @@
  * routing through it, and `both paths agree` goes red. The two `mutating …`
  * tests below prove that in-process rather than asking you to take it on faith.
  *
- * The RUNTIME adapter is exercised through the real `lib/runtime/index.js`
+ * The RUNTIME adapter is exercised through the real `lib/plugins/mermaid/mermaid.hydrate.js`
  * source (it is an IIFE that needs a DOM, so it cannot simply be required) —
  * see `runtimeThemeVars` for how, and for what that does and does not prove.
  */
@@ -45,10 +45,11 @@ const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 // The PDF path's source: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D
-// moved the diagram walk there; the palette assembly stayed in the emulator).
+// moved the diagram walk there, and its browser half moved the one palette-assembly site there too,
+// so the export's bake services name no plugin).
 const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8')
   + fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.bake.js'), 'utf8');
-const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
+const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
 
 /**
  * A complete, deterministic stand-in for "read one palette token".
@@ -82,7 +83,7 @@ function pdfThemeVars(readToken) {
 }
 
 /**
- * The preview path: run the REAL palette port out of lib/runtime/index.js.
+ * The preview path: run the REAL palette port out of lib/plugins/mermaid/mermaid.hydrate.js.
  *
  * The runtime is one big IIFE around a `document` guard, so requiring it in Node
  * yields nothing callable. Rather than paraphrase the port — which would test the
@@ -101,8 +102,8 @@ function previewThemeVars(readToken, scopeEl = { className: 'content', getAttrib
   const END = '  // ── END PALETTE PORT';
   const start = RUNTIME_SRC.indexOf(BEGIN);
   const end = RUNTIME_SRC.indexOf(END);
-  assert.notEqual(start, -1, 'lib/runtime/index.js must still bracket its palette port with BEGIN PALETTE PORT');
-  assert.notEqual(end, -1, 'lib/runtime/index.js must still bracket its palette port with END PALETTE PORT');
+  assert.notEqual(start, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must still bracket its palette port with BEGIN PALETTE PORT');
+  assert.notEqual(end, -1, 'lib/plugins/mermaid/mermaid.hydrate.js must still bracket its palette port with END PALETTE PORT');
   const blockSrc = RUNTIME_SRC.slice(start, end);
   assert.match(blockSrc, /function openSectionReader\(scopeEl\)/,
     'the port must read from the SECTION it is handed — resolving one inside is the slide-1 bake');
@@ -303,7 +304,7 @@ describe('neither path keeps a private copy', () => {
   test('the map is defined exactly once in the tree', () => {
     // `grep MERMAID_VAR_MAP` must find ONE definition. A second `const
     // MERMAID_VAR_MAP = {` anywhere means the drift has been reintroduced.
-    for (const [label, src] of [['lattice-emulator.js', EMULATOR_SRC], ['lib/runtime/index.js', RUNTIME_SRC]]) {
+    for (const [label, src] of [['lattice-emulator.js', EMULATOR_SRC], ['lib/plugins/mermaid/mermaid.hydrate.js', RUNTIME_SRC]]) {
       assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(src), false, `${label} must not define its own map`);
     }
   });
@@ -315,25 +316,27 @@ describe('neither path keeps a private copy', () => {
     // `renderDiagrams`. A path that went back to assembling its own palette would
     // still import the map and would still pass the old form of this test.
     assert.match(EMULATOR_SRC, /require\('\.\.\/\.\.\/core\/render-diagrams'\)/);
-    assert.match(RUNTIME_SRC, /require\('\.\.\/\.\.\/lib\/core\/render-diagrams'\)/);
+    assert.match(RUNTIME_SRC, /require\('\.\.\/\.\.\/core\/render-diagrams'\)/);
     assert.match(EMULATOR_SRC, /renderDiagrams\(deck, \{/);
     assert.match(RUNTIME_SRC, /renderDiagrams\(deck, \{/);
     assert.equal(/buildDiagramTheme\(/.test(RUNTIME_SRC), false,
-      'lib/runtime/index.js assembles its own themeVariables — that is the kernel\'s job now, '
+      'lib/plugins/mermaid/mermaid.hydrate.js assembles its own themeVariables — that is the kernel\'s job now, '
       + 'and a second assembly site is where the 38 drifted values came from');
     // The PDF path keeps EXACTLY ONE assembly site, and it is enumerated rather than
     // banned: the image-set cross-scheme look re-bake re-renders an already-placed
     // diagram out of a DIFFERENT theme file, so it has no band to name and cannot ride
     // the kernel's walk. A SECOND site is the drift returning.
     assert.equal((EMULATOR_SRC.match(/buildDiagramTheme\(/g) || []).length, 1,
-      'the PDF path must keep exactly one palette-assembly site (resolveMermaidThemeVars, '
-      + 'for the image-set look re-bake) — every other palette comes from the kernel');
-    // The signature grew a `hand` argument in #1674 — the sketch re-point of
-    // `--font-body`, which this path's OFFLINE reader cannot see in the cascade the way
-    // the preview's `getComputedStyle` can. Match the shape loosely enough to survive
-    // that, and tightly enough that the one assembly site still routes through the map.
-    assert.match(EMULATOR_SRC, /function resolveMermaidThemeVars\(paletteVars[^)]*\) \{\n\s*return buildDiagramTheme\(/);
-    assert.match(EMULATOR_SRC, /function themeVarsForBand\(band, hand = false\)/);
+      'the PDF path must keep exactly one palette-assembly site (the bake\'s `themeFor`, '
+      + 'for a re-render outside the walk and the image-set look re-bake) — every other palette comes from the kernel');
+    // And it is the BAKE's, not the emulator's: the emulator hands generic palette services
+    // (`paletteReader` — lib/plugins/host-bake.js BAKE_SERVICES) and builds nothing
+    // Mermaid-shaped from them. The `hand` argument (#1674 — the sketch re-point of
+    // `--font-body`, which this path's OFFLINE reader cannot see in the cascade) rides the
+    // generic reader, so the one assembly site still routes through the map.
+    const EMULATOR_ONLY = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8');
+    assert.equal(/buildDiagramTheme\(/.test(EMULATOR_ONLY), false, 'the emulator must not assemble Mermaid theme variables');
+    assert.match(EMULATOR_SRC, /function themeFor\(palette, hand = false\) \{[\s\S]{0,300}buildDiagramTheme\(ctx\.paletteReader\(palette, hand\)\)/);
   });
 
   test('the runtime no longer points at the emulator for an explanation', () => {

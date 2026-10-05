@@ -234,7 +234,7 @@
    *
    * 7 is `--radius-md` rendered: the diagram SVGs on examples/containment-tier.md
    * are fitted at 1.40x-2.17x (median 1.64), and 7 x 1.64 = 11.5px against
-   * --radius-md's 10.8px at hd. Consumed by lib/integrations/mermaid/mermaid.css. */
+   * --radius-md's 10.8px at hd. Consumed by lib/plugins/mermaid/mermaid.styles.css. */
   --diagram-cluster-radius:7px;
 
   /* THE SLIDE'S OWN CORNER — a different tier from the three radii above, which round
