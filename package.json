@@ -164,7 +164,6 @@
     "lente-lib:check": "node tools/build-lente-lib.js --check",
     "segno-lib:build": "node tools/build-segno-grammar.js && node tools/build-segno-lib.js",
     "segno-lib:check": "node tools/build-segno-grammar.js --check && node tools/build-segno-lib.js --check",
-    "segno:migrate": "node tools/segno-codemod.mjs",
     "ltt-lib:build": "node tools/build-ltt-lib.js",
     "ltt-lib:check": "node tools/build-ltt-lib.js --check",
     "ltt-schema:build": "node tools/build-ltt-schema.js",

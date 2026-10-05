@@ -40,7 +40,7 @@ const ROOT = path.join(__dirname, '../../../lib/components/chart');
 // Rows are written as the old three-pill shape — `[label, ...pills]` — and the trailing run
 // of 2–3 value pills becomes the ONE point pill a scatter row carries since Segno phase 2
 // (`{x, y}` / `{x, y, size=s}`). Anything ahead of the run stays a pill of its own.
-const { isValuePill } = require('../../../tools/segno-legacy/chart-values.js');
+const { isValuePill } = require('../../../lib/core/chart-values.js');
 function ul(rows) {
   return rows.map(([label, ...pills]) => {
     let first = pills.length;

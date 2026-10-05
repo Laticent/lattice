@@ -451,9 +451,9 @@ full adversarial trio before merge (HARD RULE #25).
 
 Branch `claude/segno-phase-2`, one commit per slice: plumbing; pills and sparks; one number reader;
 axes, label sets and points; gantt dependencies, status words and markers; the per-chart records.
-`npm run segno:migrate` (`tools/segno-codemod.mjs`) rewrote the corpus. It only rewrites what the old
-kernel read, which it checks against frozen copies in `tools/segno-legacy/`. It re-reads every rewrite
-through the new reader, and after the sweep it is a no-op.
+A one-off codemod rewrote the corpus, re-reading every rewrite through the new reader. It was deleted
+before merge: Lattice is not GA, so once our own decks were converted nothing needed to read the old
+spellings again (owner, 2026-10-05). It is in the branch history if that ever changes.
 
 **Where each slot lives.** A slot that works in any prose is a CORE slot in `lib/core/segno-slots.js`
 (`point`, `state`, `pill`, `spark`). A slot one component owns is declared in its manifest's `segno`
@@ -503,8 +503,9 @@ found this, and the choice it raises — a data-integrity lint for an unreadable
 lint aimed at retired spellings — was put to the owner.
 
 **Settled by the owner, 2026-10-05: no handling.** Lattice is not GA, so the only old spellings that
-matter are our own, and they are converted. A unit test (`test/unit/tools/segno-codemod.test.js`,
-"the corpus stays migrated") fails if one comes back, so a parallel PR written before phase 2 cannot
+matter are our own, and they are converted. A unit test
+(`test/unit/authoring/segno-decks-current.test.js`) scans every deck we ship for the old shapes that
+cannot be mistaken for anything else and fails if one comes back, so a parallel PR written before phase 2 cannot
 land an old spelling silently. No data-integrity lint, and no change to how a chart treats a span it
 cannot read.
 
