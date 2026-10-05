@@ -4,7 +4,9 @@
   leads a pill with one. An `icon:` front-matter register and `icon-*` slide classes set the frame,
   look and corners, axis by axis. No vendor logos: `lint:deck` coaches `^{s3}` to `^{bucket}`
   beside the service's name (`icon-literal`). The drawings load only for a deck that writes an
-  icon. Demo: `examples/inline-icons.md`.
+  icon. Demo: `examples/inline-icons.md`. A deck that does not load icons leaves `^{…}` as code
+  on every surface: the engine marks the span `data-lattice-off="icons"`, as it marks an
+  unadmitted plugin's fence, and the browser runtime leaves it alone.
 - The plugin host gains four contribution points: `inline` (an inline-code kind in the host's
   dispatch table), `services` (a function other code asks the host for), `registers` (a
   front-matter axis register declared as data) and `data` (data loaded only when the deck uses the

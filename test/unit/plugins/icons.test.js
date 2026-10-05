@@ -161,3 +161,46 @@ describe('icons — a pill whose icon= names no icon (lint, beside #2537\'s pill
     assert.match(f.fix, /Quote a label/);
   });
 });
+
+describe('icons — admission reaches the runtime (spec/LPM.md § 3.2.1)', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { createEngine } = require('../../../lib/engine/index.js');
+  const RUNTIME = path.join(__dirname, '../../../dist/lattice-runtime.js');
+  const SRC = '---\nmarp: true\n---\n\nA `^{database}` here.\n';
+
+  /** Boot the real runtime bundle over `body`, with the icons' drawings already on the page. */
+  function boot(body) {
+    const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body>${body}</body></html>`, {
+      url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
+    });
+    dom.window.__latticePluginData = { icons: DATA };
+    dom.window.fetch = () => Promise.reject(new Error('no fetch'));
+    const el = dom.window.document.createElement('script');
+    el.textContent = fs.readFileSync(RUNTIME, 'utf8');
+    dom.window.document.body.appendChild(el);
+    return new Promise((r) => setTimeout(() => r(dom.window.document), 1000));
+  }
+  const sections = (html) => html.match(/<section[\s\S]*<\/section>/)[0];
+
+  test('the engine marks a span it leaves literal because icons are not loaded, and only then', () => {
+    const engine = createEngine();
+    const off = String(engine.render(SRC, undefined, { pluginDefaults: [] }).html);
+    assert.match(off, /<code data-lattice-off="icons">\^\{database\}<\/code>/);
+    const on = String(engine.render(SRC).html);
+    assert.doesNotMatch(on, /data-lattice-off/, 'a render with icons loaded carries no marker');
+    // A span that is not an icon is not the plugin's, loaded or not.
+    const plain = String(engine.render('---\nmarp: true\n---\n\nA `^{ x }` and `getUserId()`\n', undefined, { pluginDefaults: [] }).html);
+    assert.doesNotMatch(plain, /data-lattice-off/);
+  });
+
+  test('the runtime leaves a marked span as code, even with the drawings on the page', async () => {
+    const html = sections(String(createEngine().render(SRC, undefined, { pluginDefaults: [] }).html));
+    const kept = await boot(html);
+    assert.equal(kept.querySelector('.lat-icon'), null);
+    assert.equal(kept.querySelector('code[data-lattice-off="icons"]')?.textContent, '^{database}');
+    // Control: the same markup without the marker is drawn, so the arm above can fail.
+    const drawn = await boot(html.replace(' data-lattice-off="icons"', ''));
+    assert.ok(drawn.querySelector('.lat-icon[data-icon="database"] svg'), 'control: the runtime draws an unmarked span');
+  });
+});
