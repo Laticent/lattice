@@ -80,6 +80,9 @@ function language(spec: GrammarSpec): Map<string, Lang> {
       // INPUT — not a set of strings this model can concatenate. engine-additions.test.ts
       // covers it in both runtimes instead.
       case 'until': throw new Error('the brute-force language does not model until()');
+      // Nor attempt(): it is not a set of strings either (it reads what follows it). Its own
+      // differential is attempt.test.ts.
+      case 'attempt': throw new Error('the brute-force language does not model attempt()');
     }
   };
   for (let changed = true; changed; ) {

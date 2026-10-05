@@ -319,11 +319,24 @@ places: a run of letters next to another run (longest match), `/` against `/*`, 
   fixpoints became worklists seeded in dependency order (an expression is recomputed only when
   something it reads changed, and outside a cycle it is computed once), and recursion is read off
   the same SCC pass: 43 ms for 4,000 rules in either order, and a checker found `lint()`,
-  `generate()` and parses identical to the previous version on 320,000 random grammars. What is
-  still quadratic is building the "expected …" text: `expectedAt()` writes every expression's
-  message eagerly, and on a chain whose FIRST sets grow from rule to rule (`r_i = alt(c_i, r_i+1)`)
-  that text grows too (6.5 s at 2,000 rules, and a stack overflow at 4,000, as on main). Logged in
-  `followups.d/`.
+  `generate()` and parses identical to the previous version on 320,000 random grammars. The last
+  quadratic step was building the "expected …" text: `expectedAt()` wrote every choice's message
+  when `compile()` built it, and on a chain whose FIRST sets grow from rule to rule
+  (`r_i = alt(c_i, r_i+1)`) each text lists everything reachable (6.5 s at 2,000 rules, and a
+  stack overflow at 4,000). On 2026-10-05 `compile()` began building that text only when a parse
+  records an error (an attempt that fails and rewinds counts), at most once per choice for the
+  compiled grammar's life; `lint()` stopped building a parser at all (it runs the analysis
+  `compile()` and `generate()` share, and the same `maxDepth` check); the left-recursion check
+  became one SCC pass over the "can enter before consuming" graph instead of a search from every
+  rule; and every analysis walk became iterative. `lint()` on that chain: 1,364 / 6,633 ms /
+  RangeError at 1k / 2k / 4k rules before, 64 / 78 / 139 ms after (154 ms at 8k), and 10,000
+  levels of nesting in one rule lint in 283 ms where 2,000 overflowed. A differential of 20,000
+  random grammars (`greedy`, `until`, attempts, recursion) against the previous engine found the
+  same `lint()` problems, the same `generate()` source and the same trees and errors on 479,446
+  parses. `generate()` still writes every message, because generated code carries them as
+  strings; only shipped grammars are generated. One limit remains: `compile()` builds its
+  closures recursively, so one rule nested about 3,000 levels deep still overflows while
+  building (as it did before); `lint()` of the same grammar does not.
 - **`until(end)`**: one `indexOf` and no re-reading. `end` is capped at 64 characters, because
   `indexOf`'s slow case is input × terminator: the red team measured 1.5 µs per input character
   for a 16,384-character terminator, against 4 ns for 32 characters.
@@ -404,7 +417,8 @@ include escapes, long labels and labels at the 61-character cap). Measured 2026-
   otherwise rewind and take the next branch. The `then` check is not optional: without it
   `A ->x B` would commit to the arrow `->` and then fail the row, where the kernel reads `->x` as a
   word. The spike's window grammar does this check (a space or the end must follow the arrow).
-  Each attempt reads at most `max` characters, so a parse costs at most `max` × input, PROVIDED an
+  Each attempt reads at most `max` characters, so a parse costs at most `max` × input (per attempt
+  tried at a position; "Built" below has the corrected bound), PROVIDED an
   attempt cannot reach another attempt: nested attempts multiply their `max` values, and an attempt
   reached through recursion multiplies once per level. The checker would refuse an attempt inside
   an attempt, and accept an overlap between an attempt's branch and the branches after it, and
@@ -428,6 +442,92 @@ the list text was always phase 3. Phase 3 needs `attempt()` as an engine additio
 review (it widens what the checker accepts, as `greedy()` did), and the spike's grammar and parity
 run are its starting point. The alternative, a hand-written loop around a Segno grammar as the
 spike does, is the second reader decision 20 rules out.
+
+**Built (2026-10-05).** `attempt(x, { max, next })` is in both runtimes, as specified above. The
+option is `next`, not `then`: Biome's `noThenProperty` refuses an object literal with a `then`
+key, because `await` treats such an object as a promise, and every grammar would carry one. Three
+choices the spike left open:
+
+- **Where a failed attempt goes.** As an `alt` branch, its character passes to the branches after
+  it in order, then to the branch that matches nothing. The checker skips only the pairs whose
+  FIRST branch is an attempt, so an ordinary branch still may not overlap anything after it, and
+  an attempt may not start what follows a choice that can match nothing: the runtimes try
+  attempts before that branch wherever it is listed, so the attempt would shadow it. Anywhere
+  else, a failed attempt is a parse error, and it reports why the attempt failed (what its body
+  expected, a `next` character, or its end within `max`), from one more read of its body without
+  the window, so the reason is about the real input. A nesting cap
+  reached inside an attempt is that attempt failing.
+- **What `x` is checked against.** Inside the attempt, `x`'s FOLLOW is `next` plus the end, not
+  the attempt's context: whatever else comes next, the attempt rewinds. The window's end reads as
+  the end of the input (a multi-character literal checks it too, emitted only in grammars that
+  hold an attempt, so the notation's generated parser is byte-identical). `max` is capped at
+  `MAX_ATTEMPT`, 256. That bounds ONE attempt; a position costs the sum of `max` over the
+  attempts tried there, which the grammar sets: several side by side in a choice, or in rules
+  entered without consuming, each count (the red team measured 256 chained rules at 65,536
+  reads per character). So the parse stays linear in the input with a constant the grammar
+  chooses, which is true of every choice already, and unlike `until()`'s cap this is not a
+  constant of the engine. Capping the sum was not done: it needs a per-position count across
+  rules, and no grammar here comes near it.
+- **What the checker refuses.** An attempt that reaches another, directly or through a rule (one
+  summary per rule, in the SCC order the other passes use); `until()` inside one, whose
+  `indexOf` would search past the window to the end of the input; an attempt whose `x` can
+  match nothing; and, for a grammar built by hand rather than by `attempt()`, a `max` outside
+  1–256 or a `next` that is not a set.
+
+The row grammar replaces the spike's stand-in loop; it lives in
+`tools/parser-bakeoff/flow-row-grammar.mjs`, which the bake-off and a unit test both import. The
+kernel's 61-character label cap counts from the label, not the arrow, so a headed and an unheaded
+arrow at the cap differ in length by one, and the grammar spells each as its own attempt: the
+headed one first, which requires its `>`, then the rest. Measured with `npm run parser:bakeoff:flow`
+(best of seven rounds, one machine):
+
+| | kernel | `compile()` | `generate()` |
+|---|---|---|---|
+| agrees with `splitRow`: 442 corpus rows | — | 442 | 442 |
+| agrees with `splitRow`: 200,096 fuzzed rows | — | 200,096 | 200,096 |
+| per corpus row | 528 ns | 936 ns (1.8x) | 827 ns (1.6x) |
+| hostile `-y ` ladder, 2k / 8k / 32k characters | 0.28 / 1.16 / 5.2 ms | 3.1 / 12.8 / 44.7 ms | 2.3 / 9.3 / 36.0 ms |
+| a label run past the cap, every 66 characters, 2k / 8k / 32k | 0.06 / 0.24 / 1.0 ms | 0.18 / 0.76 / 3.2 ms | 0.17 / 0.68 / 2.7 ms |
+
+Every shape grows about 4x per 4x input, so the bound holds. The constant on the `-y ` ladder,
+where every third character opens an arrow that reads to the cap, is 7x the kernel's, and half of
+it is the doubled attempt: one attempt at a 64-character window measured 1.06x per row and
+20 ms at 32k. The doubled attempt is a workaround, not the intended shape: `max` bounds the whole
+arrow while the kernel's cap bounds its label. A `cap(x, max)` that only narrows the window and
+never rewinds would let one attempt do both; phase 3 decides whether that constant matters
+enough to add it. No corpus row comes near it, and the kernel itself spends 5 ms there.
+
+Tests (`attempt.test.ts`): the checker's acceptances and refusals, rewinding (position, kept
+nodes, depth, error), the window, fall-through to an empty branch, and the error reported, all in
+both runtimes; a 256,000-character worst case under 1.5 s; and 8,000 random grammars with
+attempts, where both runtimes must match a reference interpreter that takes nothing from the
+engine's analysis: positions as return values, no shared state, and choices tried in written
+order with backtracking (PEG), with Segno's one documented difference, that a branch which can
+match nothing is the fallback (seed 2519: 290 compile, 146,745 attempts fail and rewind, 170,786
+generated-parser comparisons). Planting a bug in the window, the rewind of kept nodes, the `next`
+check, the literal's window check or the generated parser's depth restore each fails it. What it
+cannot see is an attempt shadowing that fallback, because the rule that allows it is the one it
+copies; reopening that hole passed it and failed a unit test. `test/unit/tools/flow-row-grammar.test.js`
+holds the row grammar to `splitRow` on the corpus and 20,000 fuzzed rows on every PR, so an
+engine change that breaks it fails CI; when phase 3 deletes `splitRow`, it must freeze the
+kernel's outputs first, or the test loses its oracle.
+
+**Review** (HARD RULE #25's adversarial trio, on the first commit). The red team broke no promise:
+a 60,000-grammar differential of both runtimes and its own reference found no difference and no
+throw, and grammars without attempts lint and generate byte-identically. It, the inversion review
+and the checker found, all fixed here: the cost bound stated as `max` × input (above); an attempt
+that could shadow an empty branch listed before it; a bare attempt reporting `expected "-", found
+"-"`; hand-built `max` and `next` not checked; a reference interpreter that restated the runtimes'
+dispatch; parity only in an on-demand script; a typecheck error in `grammar-fuzz.test.ts`; and a
+stale header in the bake-off. A second checker, on those fixes, confirmed them (`lint()` identical
+on 60,000 random grammars without attempts; both runtimes identical on 4.5M parses with bare
+attempts) and found four more, also fixed: a literal cut by the window still gave a contradicting
+error, so a failed bare attempt now re-reads its body once without the window (it ends the parse,
+so this runs once) and reports what that shows; a hand-built `next` or `set` was checked for
+shape but not content (`[null, null]` crashed `compile()`); the CI row test never generated `\r`;
+and a stale count. Left as is: a nesting cap reached inside an attempt falls through
+(consistent in both runtimes; the arrow grammar does not recurse), and `greedy(opt(attempt(…)))`
+fails rather than falling through, as any attempt outside a choice does.
 
 ## How it is tested
 
@@ -578,7 +678,8 @@ its own mark and palette.
 | 1 | The Segno engine, the notation grammar, schema binding, aliases and shortcuts, typed output and diagnostics; unit tests, fuzz and the scaling ladder; the `/segno` page and mark. No Lattice wiring. | one |
 | 1b | `greedy()`, `until()`, per-grammar `maxDepth` (decision 21) | one |
 | 2 | Lattice on Segno: the 27 slot schemas plus sparks (row 28, decision 19) in the manifests, binding straight off the flat tree, the dispatcher, lint rules (including per-deck alias consistency), a codemod over every shipped deck and doc, the old parsers deleted, component docs updated, a `**Breaking:**` changelog fragment | one |
-| 3 | The list-text grammars (flowchart arrows, leading markers, `_track`) as Segno's second grammar; the arrows need `attempt()` (§ Flowchart rows need a bounded attempt) | one |
+| 3a | `attempt()` in both runtimes, and the flowchart-row grammar that uses it, in the bake-off (§ Flowchart rows need a bounded attempt, "Built") | #2519's follow-up |
+| 3 | The list-text grammars (flowchart arrows, leading markers, `_track`) as Segno's second grammar, starting from 3a's row grammar | one |
 
 Phase 2 changes what every chart reads, which is high blast radius and genuinely novel, so it gets the
 full adversarial trio before merge (HARD RULE #25).

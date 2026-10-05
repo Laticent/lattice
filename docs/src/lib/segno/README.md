@@ -57,7 +57,8 @@ The vocabulary is `lit`, `set` (`chars`, `noneOf`, `charRange`, `any`), `seq`, `
 `many1`, `opt`, `ref`, and `node` to keep a span in the tree. `compile` throws a `GrammarError`
 listing EVERY violation with its rule path:
 
-- two `alt` branches that can start with the same character;
+- two `alt` branches that can start with the same character (unless the first is an `attempt`,
+  below);
 - a loop whose body can match nothing, or that could either repeat or stop on the same character
   (unless the loop is marked `greedy`, below);
 - a rule that reaches itself without consuming (left recursion).
@@ -67,9 +68,9 @@ deeply nested input is an error, never a stack overflow.
 
 ### Longest match, skip-to, and deeper nesting
 
-Three additions are for grammars longer than a span: a stylesheet, a page, a Markdown file. None of
-them lets a parse go back over what it read, so the linear bound holds for every grammar that
-compiles.
+Four additions are for grammars beyond strict LL(1): a stylesheet, a page, a Markdown file, a
+flowchart row. Three never let a parse go back over what it read; `attempt()` goes back at most
+`max` characters. So the linear bound holds for every grammar that compiles.
 
 - **`greedy(many(x))`**, also `greedy(many1(x))` and `greedy(opt(x))`, takes the longest match.
   When the next character could either go round the loop again or start what follows, it goes
@@ -87,6 +88,23 @@ compiles.
   the end of a file). The terminator is capped at `MAX_UNTIL` (64) characters, because the search
   costs about input length × terminator length. Any character can start the text before `end`, so
   an `alt` branch beside `until` is ambiguous. Put a consumed character first.
+- **`attempt(x, { max, next })`** is a bounded ordered choice, the one place the parser goes
+  back. It reads `x` on at most `max` characters (up to `MAX_ATTEMPT`, 256) and keeps it only if
+  the next character is in `next` or the input ends; otherwise it rewinds as if it had never been
+  tried. As an `alt` branch it may start with the same characters as the branches **after** it,
+  which get the character when it fails. That is the only overlap it opens, and an attempt may not
+  start what follows a choice whose other branch can match nothing (the runtime tries attempts
+  first, so it would shadow that branch). Each attempt reads at most `max` characters, so a
+  position costs at most the sum of `max` over the attempts tried there (several side by side, or
+  in rules entered without consuming, each count): still linear in the input, with a constant the
+  grammar sets. The checker keeps it that way: it refuses an attempt that can reach another attempt (nested attempts multiply their
+  `max`; one reached through recursion multiplies once per level), an `until()` inside one (its
+  search would run past the window), and one whose `x` can match nothing. Inside `x`, the end of
+  the window reads as the end of the input, and `x` is checked as strict LL(1) against `next`.
+  Elsewhere than an `alt` branch, a failed attempt is an ordinary parse error, and it reports why
+  the attempt failed: what its body expected, a `next` character, or its end within `max`. Flowchart rows need
+  it: at a word start `-x->` is an arrow and `-x` a word, and the two part only at the closing
+  shaft.
 - **`maxDepth`** on the spec raises the nesting cap for one grammar, up to `MAX_DEPTH_LIMIT`
   (1,000). If the JavaScript stack runs out first, the parse returns an error, `STACK_EXHAUSTED`,
   instead of throwing. That happens in `compile()`, which spends a stack frame per expression, on

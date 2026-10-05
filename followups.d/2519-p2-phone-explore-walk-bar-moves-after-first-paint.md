@@ -7,6 +7,13 @@ source: https://github.com/Laticent/lattice/pull/2519
 
 # On a phone, the Explore walk bar can paint in the wrong place and then move
 
+status    — CAUSE FOUND AND FIXED on claude/segno-attempt-phase2-m5hc7y: the document is parsed
+            and painted in chunks, and the run's screencast shows a chunk that ended inside the
+            bar (Prev and an empty position parsed; Next, caption and the split not yet). The bar
+            now takes no box until `.pg-split` is parsed, and a deterministic @smoke case holds
+            that parser state still (measured failing without the rule, passing with it). What is
+            left is the CI count in "done when": 20 dispatch runs of the spec with no flaky result.
+
 why now   — PR #2519 re-ran docs/e2e/playground-first-paint.spec.ts many times in CI to count
             its first-paint fix. In run 37298787347 (head d53ca06), `on a phone › the Explore
             walk bar is there from the first paint, not a second in` failed once and passed on

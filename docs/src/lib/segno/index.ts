@@ -13,7 +13,7 @@ export { consistency } from './consistency.js';
 export type { FlatTree } from './flat.js';
 export { toNodes } from './flat.js';
 export type { Expr, Grammar, GrammarSpec, Node, ParseError, ParseResult } from './grammar.js';
-export { alt, any, compile, GrammarError, greedy, lint, lit, MAX_DEPTH, MAX_DEPTH_LIMIT, MAX_UNTIL, many, many1, node, noneOf, oneOf as chars, opt, range as charRange, ref, STACK_EXHAUSTED, seq, set, until } from './grammar.js';
+export { alt, any, attempt, compile, GrammarError, greedy, lint, lit, MAX_ATTEMPT, MAX_DEPTH, MAX_DEPTH_LIMIT, MAX_UNTIL, many, many1, node, noneOf, oneOf as chars, opt, range as charRange, ref, STACK_EXHAUSTED, seq, set, until } from './grammar.js';
 export type { Diagnostic, Item, ListValue, Parsed, RecordValue, Scalar, Value } from './notation.js';
 export { isDirective, notationGrammar, parse } from './notation.js';
 export { notationSpec, STOP, TAGS, WS } from './notation-grammar.js';

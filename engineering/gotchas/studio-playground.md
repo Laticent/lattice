@@ -306,11 +306,29 @@ never turn "passed in headless" into "works on iOS."
   puts the jump back, and the e2e case that catches it is the Explore one in
   `playground-first-paint.spec.ts` (which tracks `previewPane` and `walkBar` again precisely
   because of this). Test it with the LONGEST cross-component label, not the first one you hit.
+- **The document is parsed and PAINTED in chunks, so the bar must not take a box before the pane
+  after it exists.** The page is ~550 KB and the island's markup starts near its end; a slow
+  device paints between chunks. When a chunk ended inside the bar (Prev and an empty position
+  parsed, Next, caption and the split not yet), the bar painted under the toolbar, half built,
+  and jumped to the foot 46ms later (nightly run 37298787347, a phone under the 6x throttle:
+  y=176 h=63, then y=737 h=107). `.pg-walk:not(:has(~ .pg-split))` keeps it out of layout until
+  the split is parsed. It is the walk bar's turn at #1800's editor-pane defect, and it is tested
+  the same way: the real document cut where that chunk ended, held still (`@smoke a page parsed
+  up to the middle of the walk bar…`). If you move the bar after the split in the markup, the
+  PANE moves instead when the bar arrives.
+  **To see it on a real deploy, throttle the NETWORK, not just the CPU.** A local preview
+  delivers the document in one burst, so the 6x CPU throttle alone catches it about once in
+  twenty nightly runs. Stream the deployed page at ~40 KB/s (CDP
+  `Network.emulateNetworkConditions`) with a 390px touch viewport and the 6x throttle, and the
+  parser paints between small chunks: with this rule removed, 9 of 25 loads of the #2537 preview
+  painted the bar at y=176 before the pane; with it, 0 of 25. Chromium in the cloud sandbox does
+  not trust the egress proxy's CA, so stream the bytes through a localhost relay that `curl`s the
+  deploy (curl does trust it) rather than turning off TLS verification.
 - **`aria-live` has to arrive WITH its value.** `.pg-walk-pos` is SSR'd empty; a live region
   already in the tree that goes from nothing to "1 / 8" is a change, and assistive tech
   announces it. The attribute is set only once there is a position, so the region reads as
   arriving populated. A pending state has to be pending to AT too.
-- **Triggered by:** #1563, #1588.
+- **Triggered by:** #1563, #1588, and #2519's follow-up (the chunked paint).
 
 ## The Playground's divider is in one place before hydration and another after
 

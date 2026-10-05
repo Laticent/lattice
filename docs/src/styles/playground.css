@@ -929,6 +929,22 @@
 	border-block-start: 1px solid var(--border);
 	border-block-end: 0;
 }
+/* …but not before the pane it sits under has been PARSED. The page is ~550 KB and the island's
+   markup starts near its end, so a slow device parses it in chunks and paints between them.
+   When a chunk ended inside the bar, the bar painted with nothing after it: under the toolbar,
+   half built (no Next, no caption box), and 46ms later it was at the bottom — a phone on the
+   nightly's 6x CPU throttle caught it (run 37298787347: y=176 h=63, then y=737 h=107). The pane
+   follows the bar in the markup, so until `.pg-split` exists the bar takes no box at all; by
+   then the bar is whole, and the pane's first layout already has the bar under it.
+   INSIDE `@supports`, and that is load-bearing: bare, the minifier merged this selector into the
+   focus-mode rule's list below (both are `display:none`), and a browser without `:has` drops a
+   WHOLE list it cannot parse — so focus mode stopped hiding the toolbar there (the PR's checker).
+   Where `:has` is unsupported, this block is skipped and the bar behaves as before. */
+@supports selector(:has(*)) {
+	:is(:root[data-pg-view='read'], body[data-view='read']) .pg-walk:not(:has(~ .pg-split)) {
+		display: none;
+	}
+}
 
 /* ── Focus mode (2026-07-06) — the user-controllable space reclaim ────────────
    One toggle (⤢) hides the whole toolbar so the deck (Explore) or the editor
