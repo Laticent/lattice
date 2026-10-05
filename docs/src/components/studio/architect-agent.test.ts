@@ -266,6 +266,79 @@ describe('the loop', () => {
 		expect(turn.reply).toBe('Out of budget.');
 	});
 
+	it('ends the turn on a clean edit that already carries its summary — no summary-only round', async () => {
+		const check = vi.fn(async () => ({ findings: [] }));
+		const tb = toolbox({ check });
+		let n = 0;
+		const complete: AgentComplete = async (_m, { onToken }) => {
+			n++;
+			onToken('Tightened slide 3.');
+			return { text: 'Tightened slide 3.', toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }] })], truncated: false };
+		};
+		const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
+		expect(n).toBe(1);
+		expect(turn).toMatchObject({ rounds: 1, endedOnEdit: true, reply: 'Tightened slide 3.' });
+		expect(tb.proposal()).toHaveLength(1);
+	});
+
+	it('answers with the summary the edit call carried when the model wrote no prose beside it', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [] }) });
+		const tokens: string[] = [];
+		const complete: AgentComplete = async () => ({
+			text: '',
+			toolCalls: [call('a', 'set_front_matter', { key: 'finish', value: 'atrium', summary: 'Set the atrium finish.' }), call('b', 'set_front_matter', { key: 'mode', value: 'dark', summary: 'Opened it dark.' })],
+			truncated: false,
+		});
+		const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb, onToken: (t) => tokens.push(t) });
+		expect(turn).toMatchObject({ rounds: 1, endedOnEdit: true, reply: 'Set the atrium finish. Opened it dark.' });
+		expect(tokens.join('')).toBe(turn.reply);
+	});
+
+	it('keeps going after an edit when the checker finds an error, the edit was refused, or no summary was written', async () => {
+		const cases: { check: () => Promise<{ findings: { slide: number; severity: string; message: string }[] }>; text: string; body?: string; slide?: number }[] = [
+			{ check: async () => ({ findings: [{ slide: 3, severity: 'error', message: 'bad nesting' }] }), text: 'Edited.' },
+			{ check: async () => ({ findings: [] }), text: 'Edited.', slide: 99 },
+			{ check: async () => ({ findings: [] }), text: '' },
+		];
+		for (const c of cases) {
+			const tb = toolbox({ check: c.check });
+			let n = 0;
+			const complete: AgentComplete = async () => {
+				n++;
+				if (n > 1) return { text: 'Done.', toolCalls: [], truncated: false };
+				return { text: c.text, toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: c.slide ?? 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }] })], truncated: false };
+			};
+			const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
+			expect(n).toBe(2);
+			expect(turn.endedOnEdit).toBe(false);
+		}
+	});
+
+	it('does not end on a round that mixed an edit with a read, or two edits where one was refused', async () => {
+		const check = vi.fn(async () => ({ findings: [] }));
+		for (const calls of [
+			[call('a', 'edit_slides', { edits: [{ action: 'delete', slide: 3 }] }), call('b', 'read_slides', { from: 1 })],
+			[call('a', 'set_front_matter', { key: 'not a key', value: 'x' }), call('b', 'set_front_matter', { key: 'finish', value: 'atrium' })],
+		]) {
+			let n = 0;
+			const complete: AgentComplete = async () => {
+				n++;
+				return n > 1 ? { text: 'Done.', toolCalls: [], truncated: false } : { text: 'Changing it.', toolCalls: calls, truncated: false };
+			};
+			const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: toolbox({ check }) });
+			expect(n).toBe(2);
+			expect(turn.endedOnEdit).toBe(false);
+		}
+	});
+
+	it('reports warnings only on the slides the turn wrote', async () => {
+		const check = vi.fn(async () => ({ findings: [{ slide: 1, severity: 'warning', message: 'old' }, { slide: 3, severity: 'warning', message: 'new one' }] }));
+		const tb = toolbox({ check });
+		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }] }));
+		expect(tb.settled()).toBe(true);
+		expect(tb.verdict?.warnings).toEqual(['slide 3: new one']);
+	});
+
 	it('stops when aborted', async () => {
 		const ctl = new AbortController();
 		const complete: AgentComplete = async () => {

@@ -208,6 +208,46 @@ newest message, so each tool round reads the earlier rounds from cache. The cold
 write is smaller too: the agent's 10.9K-token prefix against the old 37.9K, about 3.5x less
 to write after every hour-long lull (derived from the token counts, not measured cold).
 
+**Edit cost parity, the follow-up** (`followups.d/2518-p2`, closed here). The table above left
+an edit at ~1.5x the old one-shot. Three changes, re-measured with the same harness rebuilt
+from this section (`.scratch/bench/`, HARD RULE #24), the same six asks on a five-slide board
+deck, Sonnet 5.5, the prefix warmed first so no column pays the one-time write, and a nonce in
+each run's deck so no run reads another's tail from cache. Two runs each; cost from
+`usage.cost`.
+
+| Ask | Old one-shot | Agent on main | Agent, this change |
+|---|---|---|---|
+| Who is it for; weakest slide? | $0.021 | $0.014 | $0.013 · 1 call |
+| What is missing for a board? | $0.026 | $0.020 | $0.016 · 1 call |
+| Add a KPI slide | $0.021 | $0.030 · 3 calls | $0.022 · 2 calls |
+| Fix the word budget | $0.026 | $0.088 · 7 calls | $0.023 · 2 calls |
+| Slide 3 → timeline | $0.019 | $0.024 · 3 calls | $0.018 · 2 calls |
+| Savile finish + dark mode | $0.028 (cannot set front matter) | $0.027 · 3 calls | $0.020 · 2 calls |
+
+"Agent on main" is the first run of each ask (the second run of main's agent read the first
+run's tails from cache, which a real author does not get). Every applied edit linted with 0
+errors. Across the four edit asks the agent now costs $0.083 against the old $0.093, 11% less;
+questions cost 40% less. One ask is still over: the KPI edit, by about $0.001 (5%), the price of
+reading the layout's contract before writing it. What changed:
+
+- **An edit that checks clean ends the turn.** `edit_slides` and `set_front_matter` take a
+  `summary` for the author. When every call in a round was an edit that applied whole and the
+  checker found no errors, `runAgentLoop` ends the turn with that summary instead of re-sending
+  the whole conversation for the model to say it is done. That round was a third of an edit's
+  cost. An error or a refused edit still gets its round. The prompt alone did not do this: told
+  to write its summary beside the edit, Sonnet called the tool with no prose every time, so the
+  summary is a required argument. Warnings on slides the turn wrote are appended to the reply,
+  because the model never saw them.
+- **`read_component` returns the doc's core, not all of it.** The contract (capacity, slots,
+  the variant decision rule, common mistakes), when to use it and when not, and the skeleton.
+  A worked example per variant made up most of `kpi`'s ~4K tokens; those sections are listed by
+  name, one `section` call away. The doc's own Authoring example is dropped when the catalog's
+  skeleton already rides in the same result.
+- **A long guide returns its table of contents.** The cap fell from 24,000 characters to
+  12,000. The "fix the word budget" turn read the whole 21K-character speaker-notes guide for
+  the comment syntax: 7.6K tokens written to the cache for one line. The syntax is now one line
+  of the always-on prompt.
+
 **The real Studio**, built and driven in headless Chromium at 1440 / 820 / 390: one turn
 asking for the `savile` finish plus a KPI slide streamed a live "Reading a component…" line,
 ended with the trail "Read the finish key · Read kpi · Set finish · Edited slides · Checked

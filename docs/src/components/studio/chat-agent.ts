@@ -200,6 +200,10 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		reply = turn.reply;
 		if (turn.truncated) notes.push(TRUNCATION_NOTE);
 		if (turn.hitRoundCap) notes.push('I hit this turn’s limit on tool calls before finishing — ask me to continue.');
+		// A turn that ended on a clean edit never showed the model the warnings, so the author
+		// gets them here rather than not at all.
+		const warn = turn.endedOnEdit ? (toolbox.verdict?.warnings ?? []) : [];
+		if (warn.length) notes.push(checkerNote(warn));
 	} catch (e) {
 		const name = (e as { name?: string })?.name;
 		if (name === 'BudgetBlock') {
@@ -255,6 +259,13 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		}
 	}
 	return finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
+}
+
+/** The checker's warnings on a draft the turn ended on: no errors, but worth a look. */
+export function checkerNote(warnings: string[]): string {
+	const shown = warnings.slice(0, 3).map((w) => w.replace(/\s+/g, ' ').trim().slice(0, 120));
+	const more = warnings.length - shown.length;
+	return `The checker found no errors in this change, and ${warnings.length} warning${warnings.length === 1 ? '' : 's'}: ${shown.join('; ')}${more ? `; and ${more} more in the Coach` : ''}.`;
 }
 
 /** What the transcript says while a tool runs. */
