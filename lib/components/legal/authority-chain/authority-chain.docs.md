@@ -10,11 +10,11 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic) / statute-stack. Past six tiers the chain overflows a portrait box; a split run carries a derived “governs ↓ / under ↑” signal — a hierarchy, never a temporal “next” (§0b connected members). Pacing stays the authored split.perPage: the signal reads across pages whatever the pacing.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic) / statute-stack. Five full rows (a one-word tier label, its citation, a one-line gloss) fit a laptop slide and a sixth clips; six fit only as label-and-citation rows with no gloss. Past six tiers the chain overflows a portrait box; a split run carries a derived “governs ↓ / under ↑” signal — a hierarchy, never a temporal “next” (§0b connected members). Pacing stays the authored split.perPage: the signal reads across pages whatever the pacing.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per tier.
 
-**By venue** (`venue:`, ~14 words each) it holds laptop ~4 · huddle ~3 · conference ~3 · hall ~2 items. At ~6 words each: 4 · 3 · 3 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+**By venue** (`venue:`, ~14 words each) it holds laptop ~5 · huddle ~4 · conference ~3 · hall ~2 items. At ~6 words each: 5 · 4 · 4 · 3. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 
@@ -39,7 +39,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 - **Provenance is the argument.** Use when the audience needs to see exactly where a rule comes from and how it has been interpreted. The chain itself is the evidence that the obligation is grounded, not invented.
 - **Tier labels carry the read.** Statute, regulation, guidance, case — each tier has a different legal weight. The left-rail label tells the audience what kind of source they are looking at before they read the citation.
-- **Three to five tiers, no more.** The chain reads top-to-bottom on a single canvas. Past five rows the connectors compress and the tier labels lose room. Group sub-cases into the parent row's gloss or split into two slides. A chain that does not fit runs long at its tail and is reported as clipped; a row never shrinks below its own text, so one card never draws over the next.
+- **Three to five tiers; six only without glosses.** The chain reads top-to-bottom on a single canvas. A full row — a one-word tier label, its citation and a one-line gloss — holds five tiers on a laptop slide, and the sixth clips. Six tiers fit only as label-and-citation rows with no gloss. Keep each label to one word, or a short pair like Case law: a label that wraps in the left rail (Agency guidance) costs every row a line, and the chain then holds four. Past that, group sub-cases into the parent row's gloss or split into two slides. A chain that does not fit runs long at its tail and is reported as clipped; a row never shrinks below its own text, so one card never draws over the next.
 
 ## When NOT to use
 
