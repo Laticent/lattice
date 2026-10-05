@@ -3,6 +3,8 @@
 // code lives in workspace-backup.ts and is imported only when the user makes or restores a
 // backup, which keeps it off the Studio's eager path (docs/route-budget.json).
 
+import { isDesktop } from '@/lib/host';
+
 export const WORKSPACE_ZIP_NAME = 'lattice-workspace.zip';
 
 /** One human line for the settings row: what's in this browser right now. */
@@ -38,7 +40,9 @@ export function isEvictionProneBrowser(): boolean {
 		const ua = navigator.userAgent;
 		const isWebKitSafari = /Safari\//.test(ua) && !/Chrom|Edg|OPR|Firefox/i.test(ua);
 		const standalone = window.matchMedia?.('(display-mode: standalone)').matches || ('standalone' in navigator && (navigator as unknown as { standalone?: boolean }).standalone === true);
-		return isWebKitSafari && !standalone;
+		// The desktop app is an installed app too, and its WebKit engine reads as Safari here;
+		// its storage is the app's own, not a browser profile Safari's eviction applies to.
+		return isWebKitSafari && !standalone && !isDesktop();
 	} catch {
 		return false;
 	}

@@ -22,21 +22,12 @@
  *  which toast to show, and the desktop host has already logged the reason.
  *  @typedef {'saved' | 'cancelled' | 'failed'} SaveResult */
 
-// `@tauri-apps/api`'s `invoke` is a thin wrapper over this same global; calling it directly
-// keeps a Tauri package out of the website's bundle for one function call.
-/** @typedef {{ invoke: (cmd: string, args?: unknown, options?: { headers?: Record<string, string> }) => Promise<unknown> }} TauriInternals */
-
-/** @returns {TauriInternals | null} */
-function tauri() {
-	if (typeof window === 'undefined') return null;
-	return /** @type {{ __TAURI_INTERNALS__?: TauriInternals }} */ (/** @type {unknown} */ (window)).__TAURI_INTERNALS__ ?? null;
-}
+import { isDesktop, tauri } from './host.js';
 
 /** True inside the Lattice Studio desktop app. Prefer adding a seam here over branching on this. */
-/** @returns {boolean} */
-export function isDesktop() {
-	return tauri() !== null;
-}
+export { isDesktop };
+
+/** @typedef {import('./host.js').TauriInternals} TauriInternals */
 
 /**
  * Save `data` as a file the user keeps, suggesting `filename`.
