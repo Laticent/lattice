@@ -391,8 +391,11 @@ until the agent module lands, then re-prices). Merged into `main`: −15 B, noth
   does not judge how a slide looks, and the prompt says so. The render uses the live deck's
   palette and mode, not a theme the agent just set — fit barely depends on them. Proven on the
   real Studio with a mocked model (`docs/e2e/chat-agent-fit.spec.ts`): a 28-item slide comes
-  back "slide 2 overflows its frame, has text cut off", and the turn takes a second round. A
-  render that cannot finish within 15 seconds reports fit as not measured, never as fine.
+  back "slide 2 overflows its frame, has text cut off", and the turn takes a second round. And
+  with a live model on the real Studio (Sonnet 5.5, a real key, `.scratch/` only): asked to put
+  22 sentence-long items on one slide, it wrote them all, got that verdict back, read the `list`
+  layout, and split them 6/6/5/5 across four slides before the turn ended clean. A render that
+  cannot finish within 15 seconds reports fit as not measured, never as fine.
 - **The on-device tiers are unchanged** — still the one-shot path, short canon, and fenced
   edit blocks.
 - **The `≈ $` readout is an estimate of a typical turn.** It shows a range, a question to an
