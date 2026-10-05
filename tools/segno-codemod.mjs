@@ -542,10 +542,16 @@ export function rewriteMdx(src, active = Object.keys(REWRITERS)) {
     const body = m[1];
     if (body.includes('${')) out += body;
     else {
-      const r = rewriteText(body.replace(/\\`/g, '`'), active);
+      // Cook only the escaped backticks, so the rewriters see the code spans; every other
+      // escape (`\\`, `\{`) stays in its source form. Re-escaping then walks the text
+      // pair by pair: an escape pair passes through untouched, and only a BARE backtick
+      // gains a backslash — so a backslash already in the source is never doubled, and
+      // one that ends up before a backtick can never close the template early.
+      const cooked = body.replace(/\\[\s\S]/g, (e) => (e === '\\`' ? '`' : e));
+      const r = rewriteText(cooked, active);
       changes.push(...r.changes);
       unsafe.push(...r.unsafe);
-      out += r.changes.length ? r.text.replace(/`/g, '\\`') : body;
+      out += r.changes.length ? r.text.replace(/\\[\s\S]|`/g, (t) => (t === '`' ? '\\`' : t)) : body;
     }
     at = bodyFrom + body.length;
   }

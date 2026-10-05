@@ -44,30 +44,48 @@ const PLOT_W = GANTT_GEOM.vbW - GANTT_GEOM.padRight - PLOT_X0;
 const BAR_INSET = ganttGutter(GANTT_GEOM);
 const pctOfPlot = (x) => ((x - PLOT_X0) / PLOT_W) * 100;
 
-const attrNum = (html, re) => {
-  const m = html.match(re);
-  return m ? Number(m[1]) : null;
+// Attribute reads go tag-first rather than through one regex spanning a
+// whole tag. A pattern like /class="gantt-bar"[^>]*\sy="…"/ lets `[^>]*` and
+// `\s` match the same characters, so a tag that never carries the attribute
+// backtracks over every split — polynomial, and 11 CodeQL js/polynomial-redos
+// alerts on #2250. Slicing the tag out first, then reading its attributes from
+// a bounded string, keeps both steps linear. `[^<>]` rather than `[^>]` is the
+// linear half: excluding `<` stops a run of unclosed `<` rescanning to the end
+// of the input from every one of them, which is the 12th alert CodeQL raised.
+const tagsWith = (html, needle) =>
+  (html.match(/<[^<>]+>/g) || []).filter((t) => t.includes(needle));
+const attrsOf = (tag) => {
+  const out = {};
+  for (const m of (tag || '').matchAll(/\s([\w:-]+)="([^"]*)"/g)) out[m[1]] = m[2];
+  return out;
 };
+const attrsWith = (html, needle) => tagsWith(html, needle).map(attrsOf);
+const firstAttrs = (html, needle) => attrsWith(html, needle)[0] || {};
+const BAR = 'class="gantt-bar"';
+
 // A bar's start, as a percentage of the axis.
 const barX = (html) => {
-  const x = attrNum(html, /class="gantt-bar"[^>]*\sx="([-\d.]+)"/);
-  return x == null ? null : round3(pctOfPlot(x - BAR_INSET));
+  const x = firstAttrs(html, BAR).x;
+  return x == null ? null : round3(pctOfPlot(Number(x) - BAR_INSET));
 };
 // A bar's span, as a percentage of the axis.
 const barW = (html) => {
-  const w = attrNum(html, /class="gantt-bar"[^>]*\swidth="([-\d.]+)"/);
-  return w == null ? null : round3(((w + BAR_INSET * 2) / PLOT_W) * 100);
+  const w = firstAttrs(html, BAR).width;
+  return w == null ? null : round3(((Number(w) + BAR_INSET * 2) / PLOT_W) * 100);
 };
 // A milestone diamond's center, as a percentage of the axis. The polygon's
 // points are "cx,top cx+r,mid cx,bottom cx-r,mid" — the first x IS the center.
 const milestoneX = (html) => {
-  const m = html.match(/class="gantt-milestone"[^>]*points="([-\d.]+),/);
-  return m ? round3(pctOfPlot(Number(m[1]))) : null;
+  const pts = firstAttrs(html, 'class="gantt-milestone"').points;
+  return pts ? round3(pctOfPlot(Number.parseFloat(pts))) : null;
 };
 // The today rule's x, as a percentage of the axis.
 const todayX = (html) => {
-  const m = html.match(/class="gantt-today"[^>]*>\s*<line x1="([-\d.]+)"/);
-  return m ? round3(pctOfPlot(Number(m[1]))) : null;
+  // The rule is the first tag after the group that opens the today mark.
+  const tags = html.match(/<[^<>]+>/g) || [];
+  const at = tags.findIndex((t) => t.includes('class="gantt-today"'));
+  const line = at >= 0 && tags[at + 1]?.startsWith('<line') ? attrsOf(tags[at + 1]).x1 : undefined;
+  return line == null ? null : round3(pctOfPlot(Number(line)));
 };
 const round3 = (n) => Math.round(n * 1000) / 1000;
 
@@ -120,7 +138,7 @@ describe('gantt renderer — continuous time scale', () => {
   test('status tints the bar + emits a legend chip', () => {
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>at-risk</code></li></ul></li></ul>`;
     const out = buildGanttChart(inner(ul), { window: '2026 Q1 .. 2026 Q4' });
-    assert.match(out, /class="gantt-bar"[^>]*data-s="at-risk"/);
+    assert.ok(attrsWith(out, BAR).some((a) => a['data-s'] === 'at-risk'));
     // The key chip is an SVG swatch now, keyed by the same status.
     assert.match(out, /gantt-legend-swatch"[^>]*data-s="at-risk"/);
   });
@@ -380,14 +398,14 @@ describe('gantt detail reveal — per-task HTML-mark path (#475)', () => {
 
   test('every bar is tagged with a chart-wide 0-based data-mark', () => {
     const out = buildGanttChart(inner(ulDetail), '');
-    const marks = [...out.matchAll(/class="gantt-bar"[^>]*\sdata-mark="(\d+)"/g)].map((m) => m[1]);
+    const marks = attrsWith(out, BAR).map((a) => a['data-mark']);
     assert.deepEqual(marks, ['0', '1']);
   });
 
   test('a nested prose bullet becomes an inert detail template keyed to the bar mark', () => {
     const out = buildGanttChart(inner(ulDetail), '');
     // The detailed bar (mark 0) carries data-mark + an invisible data-label.
-    assert.match(out, /class="gantt-bar"[^>]*data-mark="0"[^>]*data-label="API design"/);
+    assert.ok(attrsWith(out, BAR).some((a) => a['data-mark'] === '0' && a['data-label'] === 'API design'));
     // Exactly one template, keyed to mark 0, in the sibling payload (not the figure).
     const tpls = [...out.matchAll(/<template class="chart-detail" data-mark="(\d+)">/g)].map((m) => m[1]);
     assert.deepEqual(tpls, ['0']);
@@ -418,7 +436,7 @@ describe('gantt detail reveal — per-task HTML-mark path (#475)', () => {
   test('a milestone is a mark too (data-mark on the diamond container)', () => {
     const ul = `<ul><li>L<ul><li>Launch <code>Q4</code> <code>milestone</code><ul><li>Go/no-go gate.</li></ul></li></ul></li></ul>`;
     const out = buildGanttChart(inner(ul), null);
-    assert.match(out, /class="gantt-milestone"[^>]*data-mark="0"/);
+    assert.ok(attrsWith(out, 'class="gantt-milestone"').some((a) => a['data-mark'] === '0'));
     assert.match(out, /<template class="chart-detail" data-mark="0">/);
   });
 
@@ -466,7 +484,7 @@ describe('gantt — portrait geometry', () => {
   });
 
   test('portrait bars span more of the width than landscape (no label column)', () => {
-    const barX = (html) => Number((html.match(/class="gantt-bar"[^>]*\sx="([-\d.]+)"/) || [])[1]);
+    const barX = (html) => Number(firstAttrs(html, BAR).x);
     const [lw] = viewBox(land);
     const [pw] = viewBox(port);
     // As a FRACTION of the chart width, the plot starts further left in portrait.
@@ -635,24 +653,6 @@ describe('gantt — the sketch token reaches the builder', () => {
 // pair read as two abutting segments of a relay. That is the failure mode these
 // lock — a gantt whose whole job is "make concurrency visible at a glance"
 // (gantt.docs.md) was rendering the opposite of its data.
-// Attribute reads below go tag-first rather than through one regex spanning a
-// whole tag. A pattern like /class="gantt-bar"[^>]*\sy="…"/ lets `[^>]*` and
-// `\s` match the same characters, so a tag that never carries the attribute
-// backtracks over every split — polynomial, and 11 CodeQL js/polynomial-redos
-// alerts on #2250. Slicing the tag out first, then reading its attributes from
-// a bounded string, keeps both steps linear. `[^<>]` rather than `[^>]` is the
-// linear half: excluding `<` stops a run of unclosed `<` rescanning to the end
-// of the input from every one of them, which is the 12th alert CodeQL raised.
-const tagsWith = (html, needle) =>
-  (html.match(/<[^<>]+>/g) || []).filter((t) => t.includes(needle));
-const attrsOf = (tag) => {
-  const out = {};
-  for (const m of (tag || '').matchAll(/\s([\w:-]+)="([^"]*)"/g)) out[m[1]] = m[2];
-  return out;
-};
-const attrsWith = (html, needle) => tagsWith(html, needle).map(attrsOf);
-const firstAttrs = (html, needle) => attrsWith(html, needle)[0] || {};
-const BAR = 'class="gantt-bar"';
 
 const barYs = (html) => attrsWith(html, BAR).map((a) => Number(a.y));
 const barXW = (html) => attrsWith(html, BAR).map((a) => ({ x: Number(a.x), w: Number(a.width) }));

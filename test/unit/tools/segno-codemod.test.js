@@ -149,6 +149,12 @@ describe('segno-codemod: .mdx docs pages', () => {
     assert.equal(r.text, 'export const LAB = `<!-- _class: list -->\n\n- A \\`{BETA, tag}\\`\n`;\n\nThe engine is `{STABLE, c2}`.\n');
     assert.equal(r.changes.length, 2);
   });
+  test('a backslash already in the template is kept as written, never doubled', () => {
+    // Source `\\` and `\{` are escapes of the template, not of the deck: the rewrite must leave
+    // them byte-for-byte while it re-escapes the code-span backticks it cooked.
+    const src = 'export const D = `- \\\\ path \\`\\\\{LIVE}\\` and \\`{BETA}:tag\\`\n`;\n';
+    assert.equal(rewriteMdx(src).text, 'export const D = `- \\\\ path \\`\\\\{LIVE}\\` and \\`{BETA, tag}\\`\n`;\n');
+  });
   test('an interpolating template is not a deck and is left alone', () => {
     // The `$` + `{` is the mdx file's interpolation, built from two halves so it reads as data here.
     const src = `export const X = \`- A \\\`{BETA}:tag\\\` ${'$'}{n}\`;`;
