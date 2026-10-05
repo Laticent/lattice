@@ -231,9 +231,10 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		// A real href, not an onClick: ⌘-click, middle-click and "copy link address" all have
 		// to work, which is also what makes it match SiteHeader's `sh-brand`.
 		expect(home).toHaveAttribute('href', '/');
-		// …and the menu is still one tap away on its own trigger, with the same three doors.
+		// …and the menu is still one tap away on its own trigger, with its navigation doors.
+		// (Import deck… moved to the deck switcher, beside New deck — see the switcher test.)
 		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
-		for (const door of ['Decks', 'Fabricate', 'Import deck…']) {
+		for (const door of ['Decks', 'Fabricate']) {
 			expect(screen.getByRole('menuitem', { name: new RegExp(door.replace('…', '')) })).toBeInTheDocument();
 		}
 	});
@@ -568,8 +569,13 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(typeof shareSpies.sharePdf.mock.calls.at(-1)?.[6]).toBe('function');
 		// Back to the format list for the remaining formats.
 		await user.click(sheet.getByRole('button', { name: /all formats/i }));
+		// PowerPoint opens its own options step too (re-openable in Lattice), same shape as PDF.
 		await user.click(sheet.getByText('PowerPoint'));
+		await user.click(sheet.getByRole('button', { name: /download powerpoint/i }));
 		expect(shareSpies.sharePptx).toHaveBeenCalled();
+		// Re-openable is OFF by default: no `.lattice` payload (9th arg) rides in the file.
+		expect(shareSpies.sharePptx.mock.calls.at(-1)?.[8]).toBeUndefined();
+		await user.click(sheet.getByRole('button', { name: /all formats/i }));
 		// Marp now opens its own pre-export Options step (who a clipped slide's
 		// overflow marker speaks to), same shape as PDF above; Download runs it.
 		await user.click(sheet.getByText('Marp bundle'));
@@ -1011,14 +1017,18 @@ describe('StudioShell — topbar information architecture', () => {
 		await waitFor(() => expect(within(scopeSheet).getAllByRole('status').map((n) => n.textContent ?? '').join(' | ')).toMatch(/Slide \d+ — overrides the deck/));
 	});
 
-	it('the launcher and deck switcher no longer duplicate "New deck" (deck CRUD lives in the switcher)', async () => {
+	it('deck CRUD lives in the switcher: New deck AND Import deck… sit together, and the launcher offers neither', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
-		expect(await screen.findByRole('menuitem', { name: /Import deck/ })).toBeInTheDocument();
+		expect(await screen.findByRole('menuitem', { name: 'Fabricate' }).catch(() => screen.findByRole('menuitem', { name: /Fabricate/ }))).toBeInTheDocument();
 		expect(screen.queryByRole('menuitem', { name: 'New deck' })).not.toBeInTheDocument();
+		// Import sat in the launcher until 2026-10, where people looking beside "New deck"
+		// concluded the Studio could not import a deck at all.
+		expect(screen.queryByRole('menuitem', { name: /Import deck/ })).not.toBeInTheDocument();
 		await user.keyboard('{Escape}');
 		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
 		expect(await screen.findByRole('menuitem', { name: 'New deck' })).toBeInTheDocument();
+		expect(screen.getByRole('menuitem', { name: /Import deck/ })).toBeInTheDocument();
 	});
 
 	it('compact: the search pill IS the launcher — no menu row stands in for it', async () => {

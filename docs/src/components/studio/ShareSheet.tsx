@@ -14,7 +14,7 @@ import { SHEET_EXIT_MS } from './lazy-panel';
 import { splitSlides } from './lint';
 import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
-import { type DeckPackages, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
+import { type DeckPackages, embeddableLattice, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { SHARE_HEADER, SHARE_MENU, ShareRow, type ShareRowId } from './share-menu';
 import { loadSettings, type OverflowMarker } from './studio-store';
 import { DEGRADED_TOAST_MS } from './toast-duration';
@@ -28,7 +28,8 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; initialView?: 'menu' | 'pdf' }) {
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
-	// a real per-artifact decision: PDF (comments as sticky notes), the Webpage player
+	// a real per-artifact decision: PDF (comments as sticky notes; re-openable),
+	// POWERPOINT (re-openable — the deck's `.lattice` rides inside), the Webpage player
 	// (color mode / strip speaker notes), PRINT (paper + color with a live preview),
 	// IMAGE SET (format / resolution), and the MARP bundle (who the overflow marker
 	// speaks to). Reset to the menu whenever the sheet re-opens so it never lands
@@ -42,7 +43,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// reset in the render that OPENS the sheet (or that changes `initialView` while it is open), so
 	// the kept sheet never shows the last view for a frame; the other options steps are dropped
 	// once the sheet has slid out, as they were when the sheet unmounted on close.
-	const [view, setView] = React.useState<'menu' | 'pdf' | 'html' | 'print' | 'imageset' | 'marp'>(initialView);
+	const [view, setView] = React.useState<'menu' | 'pdf' | 'pptx' | 'html' | 'print' | 'imageset' | 'marp'>(initialView);
 	const shows = useShowCount(open);
 	const [seen, setSeen] = React.useState({ shows, initialView });
 	if (seen.shows !== shows || (open && seen.initialView !== initialView)) {
@@ -164,10 +165,20 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		// what is missing from it, because the progress line it was announced on is gone
 		// by then.
 		run('pdf', 'PDF', async (onStatus, onDegraded) => {
-			const reason = await sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations);
+			const reason = await sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations, await embedPayload(opts));
 			if (reason) onDegraded(reason);
 		});
 	};
+	// PowerPoint from its options step — re-openable is its only choice (no sticky notes).
+	const exportPptx = (opts: ExportOptions) => {
+		run('pptx', 'PowerPoint', async (onStatus, onDegraded) => {
+			const reason = await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, await embedPayload(opts));
+			if (reason) onDegraded(reason);
+		});
+	};
+	// The `.lattice` a re-openable export carries: the author's `source` (never the artifact
+	// copy with a finish baked in) and the saved packages it uses — and no comments, ever.
+	const embedPayload = (opts: ExportOptions) => (opts.embedSource ? embeddableLattice(source, deckTitle, Date.now(), deckPackages) : Promise.resolve(undefined));
 
 	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
 	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
@@ -234,14 +245,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const act: Record<ShareRowId, { onClick: () => void; busy?: boolean; progress?: boolean }> = {
 		present: { onClick: () => { close(); onPresent(); } },
 		pdf: { busy: busy === 'pdf', progress: true, onClick: () => setView('pdf') },
-		pptx: {
-			busy: busy === 'pptx',
-			progress: true,
-			onClick: () => run('pptx', 'PowerPoint', async (onStatus, onDegraded) => {
-				const reason = await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss);
-				if (reason) onDegraded(reason);
-			}),
-		},
+		pptx: { busy: busy === 'pptx', progress: true, onClick: () => setView('pptx') },
 		images: { busy: busy === 'images', progress: true, onClick: () => setView('imageset') },
 		print: { onClick: () => setView('print') },
 		html: { busy: busy === 'html', progress: true, onClick: () => setView('html') },
@@ -266,6 +270,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					) : null}
 					{view === 'print' ? null : view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
+					) : view === 'pptx' ? (
+						<ExportOptionsPanel format="pptx" deckId={deckId} slideCount={slideCount} busy={busy === 'pptx'} status={progress} onBack={() => setView('menu')} onExport={exportPptx} />
 					) : view === 'html' ? (
 						<WebpageOptionsPanel
 							busy={busy === 'html'}

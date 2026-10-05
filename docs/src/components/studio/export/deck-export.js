@@ -1789,12 +1789,27 @@ export async function renderPdfBlob(render, name, onStatus, meta, opts) {
 	return blob;
 }
 
+/**
+ * "Re-openable in Lattice": put the deck's `.lattice` inside the finished file
+ * (embedded-source.ts). ONE step after the build, not one per lane — the PDF has three
+ * writers (shared, worker, main thread) and the PowerPoint two, and a payload threaded
+ * through each would be five places for one to be forgotten. Runs only when the author
+ * opted in, so a plain export's bytes are exactly what they were.
+ */
+async function withEmbeddedSource(blob, kind, payload, onStatus) {
+	if (!payload) return blob;
+	if (onStatus) onStatus('Adding the editable deck…');
+	const { embedInPdf, embedInPptx } = await import('../embedded-source');
+	return kind === 'pdf' ? embedInPdf(blob, payload) : embedInPptx(blob, payload);
+}
+
 /** `opts.pageFormat`: 'png' (default, lossless) or 'jpeg' (faster, smaller —
- *  the Studio Workspace › General preference rides in here). */
+ *  the Studio Workspace › General preference rides in here). `opts.embedSource`: the
+ *  `.lattice` bytes to carry when the author chose "Re-openable in Lattice". */
 export async function exportPdf(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Preparing PDF…');
 	const log = createImageFailureLog();
-	const blob = await buildPdfBlob(render, name, onStatus, meta, opts, log);
+	const blob = await withEmbeddedSource(await buildPdfBlob(render, name, onStatus, meta, opts, log), 'pdf', opts?.embedSource, onStatus);
 	if (onStatus) onStatus('Saving PDF…');
 	download(blob, safeName(name) + '.pdf');
 	// Returned, not thrown: the deck exported. The Share sheet folds this into the
@@ -1882,7 +1897,8 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 	}
 }
 
-export async function exportPptx(render, name, onStatus, meta) {
+/** `opts.embedSource`: the `.lattice` bytes to carry, as for `exportPdf`. */
+export async function exportPptx(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const log = createImageFailureLog();
 	// Lift the `describe:` channel from the ENGINE render, before the capture frame
@@ -1917,7 +1933,7 @@ export async function exportPptx(render, name, onStatus, meta) {
 	const altTextFor = (i) => (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
 	if (canUsePptxWorker()) {
 		try {
-			const blob = await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log);
+			const blob = await withEmbeddedSource(await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log), 'pptx', opts?.embedSource, onStatus);
 			download(blob, safeName(name) + '.pptx');
 			return missingImageReason(log);
 		} catch (e) {
@@ -1956,7 +1972,10 @@ export async function exportPptx(render, name, onStatus, meta) {
 		await new Promise((r) => setTimeout(r));
 	}
 	if (onStatus) onStatus('Building .pptx…', { current: sections.length, total: sections.length });
-	await pptx.writeFile({ fileName: safeName(name) + '.pptx' });
+	// `write` + our own `download`, not `writeFile`: the blob has to pass through the
+	// re-openable step first, and both lanes then save the same way.
+	const built = await pptx.write({ outputType: 'blob' });
+	download(await withEmbeddedSource(built, 'pptx', opts?.embedSource, onStatus), safeName(name) + '.pptx');
 	// Same contract as exportPdf: a picture the capture could not load costs the image,
 	// never the export — and the author is told, because a silent hole is worse than a
 	// loud failure.

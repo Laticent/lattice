@@ -301,6 +301,20 @@ describe('Studio — every top-bar control responds', () => {
 		const file = new File(['<!-- _class: title -->\n\n# Acme Annual Review\n\nThe year in numbers.'], 'acme.md', { type: 'text/markdown' });
 		// jsdom File has no .text() by default in some setups — polyfill for the test.
 		if (!file.text) Object.defineProperty(file, 'text', { value: () => Promise.resolve('<!-- _class: title -->\n\n# Acme Annual Review\n\nThe year in numbers.') });
+		// …and no Blob.arrayBuffer, which the importer uses to sniff the first bytes (every
+		// browser has had it since 2020). Polyfilled on the prototype so `slice()` gets it too.
+		if (!Blob.prototype.arrayBuffer) {
+			Object.defineProperty(Blob.prototype, 'arrayBuffer', {
+				configurable: true,
+				value(this: Blob) {
+					return new Promise<ArrayBuffer>((resolve) => {
+						const r = new FileReader();
+						r.onload = () => resolve(r.result as ArrayBuffer);
+						r.readAsArrayBuffer(this);
+					});
+				},
+			});
+		}
 		await user.upload(input, file);
 		// The new deck is created, titled from the first heading, and made active.
 		expect(await screen.findByRole('button', { name: /Acme Annual Review/ })).toBeInTheDocument();

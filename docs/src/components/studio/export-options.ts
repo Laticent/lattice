@@ -22,7 +22,37 @@ export type ExportOptions = {
 	commentsInPdf: boolean;
 	/** All comments, or only the unresolved (open) ones. */
 	commentScope: CommentScope;
+	/** Carry the deck's `.lattice` inside the file, so it re-opens in the Studio
+	 *  (embedded-source.ts). Opt-in: the source holds speaker notes and hidden slides.
+	 *  Comments never ride in it, whatever `commentsInPdf` says. */
+	embedSource: boolean;
 };
+
+// The re-openable switch is remembered PER DECK: a deck you share with collaborators keeps
+// it on, a board deck you send outside keeps it off, and neither decision leaks into the
+// other. Browser storage, because it is a convenience — a lost value only means the switch
+// starts off, which is the safe default.
+const EMBED_KEY = (deckId: string) => `lattice-studio-embed-source:${deckId}`;
+
+/** Was the deck last exported re-openable? Off when unknown. */
+export function loadEmbedSource(deckId: string | undefined): boolean {
+	if (!deckId) return false;
+	try {
+		return localStorage.getItem(EMBED_KEY(deckId)) === '1';
+	} catch {
+		return false;
+	}
+}
+
+export function saveEmbedSource(deckId: string | undefined, on: boolean): void {
+	if (!deckId) return;
+	try {
+		if (on) localStorage.setItem(EMBED_KEY(deckId), '1');
+		else localStorage.removeItem(EMBED_KEY(deckId));
+	} catch {
+		// Storage blocked (private window): the switch still applies to this export.
+	}
+}
 
 /** A single PDF sticky note — a title (who) + the comment body. */
 export type PdfAnnotation = { title: string; contents: string };

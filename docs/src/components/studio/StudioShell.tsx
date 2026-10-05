@@ -81,6 +81,7 @@ import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
+import type { LatticeImport } from './lattice-file';
 import { PanelLoader, useLatch, warmPanels } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
@@ -156,6 +157,13 @@ const Fabricate = React.lazy(() => {
 // The Plugins tab pulls the plugin grammar and the admission kernel (lib/plugins/host-grammar.mjs);
 // lazy, so they load when the tab is shown rather than in the Studio's startup JavaScript
 // (docs/route-budget.json — eagerly it cost the studio route 7.6 KB gz).
+// What "Import deck…" offers in the file picker — every format deck-import.ts reads. Kept
+// here, not in deck-import.ts, so the picker never pulls the reader onto the eager path.
+const DECK_IMPORT_ACCEPT = [
+	'.lattice', '.md', '.markdown', '.mdx', '.txt', '.html', '.htm', '.pdf', '.pptx',
+	'text/markdown', 'text/plain', 'text/html', 'application/pdf',
+	'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+].join(',');
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
@@ -2383,9 +2391,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// notifies on success.
 	function openImportedDeck(rawText: string, title: string, comments?: unknown) {
 		// THE STUDIO'S DECK-IMPORT LINE-ENDING BOUNDARY, and it belongs HERE — at the funnel —
-		// not in a caller. Deck source reaches this function two ways: a plain `.md` via
-		// `file.text()`, and a `.lattice` zip whose `deck.md` carries whatever the machine that
-		// exported it wrote. A first cut normalized only the `.md` caller and called the boundary
+		// not in a caller. Deck source reaches this function from every format `deck-import.ts`
+		// reads — a plain `.md`, a `.lattice` zip's `deck.md`, a webpage envelope, the `.lattice`
+		// inside a PDF or PowerPoint — each carrying whatever the machine that wrote it used. A first cut normalized only the `.md` caller and called the boundary
 		// covered, which is the same mistake that produced #1349: fix the path you were looking
 		// at, declare the class closed. Everything downstream (the editor, ~55 register kernels,
 		// every export) assumes LF. `\r\n?` covers Windows CRLF and classic-Mac lone CR, and is
@@ -2411,70 +2419,64 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setView('compose');
 		notify(`Imported “${d.title}”.`);
 	}
-	// Normalization happens in `openImportedDeck` (the funnel both import paths cross), so
-	// this caller does not repeat it — `titleFromSource` reads a heading, which no line-ending
-	// convention affects.
-	function importDeckFromText(text: string) {
-		openImportedDeck(text, titleFromSource(text));
+	// THE ONE FUNNEL every imported file reaches (deck-import.ts says which files): the deck
+	// source, the comments a `.lattice` carries, and the saved packages it brought along.
+	async function openLatticeImport({ source: src, title, comments, packages }: LatticeImport) {
+		// The saved themes/components/finishes the deck was exported with ride in the
+		// file as package folders (portable-packages §4). They go through the SAME funnel
+		// as a Library import — same gates, same `-custom` rename, same refusals — so a
+		// `.lattice` file is never a side door around them. Two differences, both because
+		// OPENING a file is not asking to change your Library:
+		//   - keepMine: nothing you saved is overwritten (import-parsed.ts says how);
+		//   - motion is not taken from the file. A deck inlines its motion (§5), so a
+		//     carried motion package is never needed to render it.
+		// The packages go in FIRST, so the deck can be pointed at the names they were
+		// saved under before it opens.
+		const scenesLeft = packages.scenes.length;
+		const carried = { ...packages, scenes: [] };
+		if (!carried.themes.length && !carried.components.length && !carried.finishes.length && !carried.refused.length && !scenesLeft) {
+			openImportedDeck(src, title, comments);
+			return;
+		}
+		const { importParsedBundle, applyImportRenames } = await import('./library/import-parsed');
+		let t: Awaited<ReturnType<typeof importParsedBundle>>;
+		try {
+			t = await importParsedBundle(carried, { keepMine: true });
+		} catch (err) {
+			// The deck is the thing the person asked for; a Library that won't take its
+			// assets must not stop it opening.
+			openImportedDeck(src, title, comments);
+			notify(`Opened the deck, but its saved assets could not be added: ${(err as Error)?.message || 'the Library is unavailable'}.`);
+			return;
+		}
+		openImportedDeck(applyImportRenames(src, t.renames), title, comments);
+		refreshThemes();
+		refreshComponents();
+		refreshFinishes();
+		const got = [t.themes && `${t.themes} theme(s)`, t.components && `${t.components} component(s)`, t.finishes && `${t.finishes} finish(es)`].filter(Boolean).join(' + ');
+		const detail = [
+			t.renamed.length ? `Saved under another name, and this deck now uses it: ${t.renamed.join(', ')}.` : null,
+			t.unchanged ? `${t.unchanged} already in your Library, unchanged.` : null,
+			t.refused.length ? `Not added: ${t.refused.map((r) => `${r.name} (${r.why})`).join('; ')}.` : null,
+			scenesLeft ? `${scenesLeft} motion(s) in the file were not added — the deck carries its motion inline.` : null,
+			t.notes.length ? t.notes.join(' ') : null,
+		].filter(Boolean).join('\n') || undefined;
+		if (got || detail) notify(got ? `Added the deck's ${got} to your Library. Nothing you had was changed.` : 'Nothing was added to your Library.', { description: detail });
 	}
 	function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
 		e.target.value = ''; // allow re-importing the same file
 		if (!file) return;
-		// A .lattice file is a zip carrying the deck + its comments; a .md is plain text.
-		if (/\.lattice$/i.test(file.name)) {
-			import('./lattice-file')
-				.then(({ readLatticeFile }) => readLatticeFile(file))
-				.then(async ({ source: src, title, comments, packages }) => {
-					// The saved themes/components/finishes the deck was exported with ride in the
-					// file as package folders (portable-packages §4). They go through the SAME funnel
-					// as a Library import — same gates, same `-custom` rename, same refusals — so a
-					// `.lattice` file is never a side door around them. Two differences, both because
-					// OPENING a file is not asking to change your Library:
-					//   - keepMine: nothing you saved is overwritten (import-parsed.ts says how);
-					//   - motion is not taken from the file. A deck inlines its motion (§5), so a
-					//     carried motion package is never needed to render it.
-					// The packages go in FIRST, so the deck can be pointed at the names they were
-					// saved under before it opens.
-					const scenesLeft = packages.scenes.length;
-					const carried = { ...packages, scenes: [] };
-					if (!carried.themes.length && !carried.components.length && !carried.finishes.length && !carried.refused.length && !scenesLeft) {
-						openImportedDeck(src, title, comments);
-						return;
-					}
-					const { importParsedBundle, applyImportRenames } = await import('./library/import-parsed');
-					let t: Awaited<ReturnType<typeof importParsedBundle>>;
-					try {
-						t = await importParsedBundle(carried, { keepMine: true });
-					} catch (err) {
-						// The deck is the thing the person asked for; a Library that won't take its
-						// assets must not stop it opening.
-						openImportedDeck(src, title, comments);
-						notify(`Opened the deck, but its saved assets could not be added: ${(err as Error)?.message || 'the Library is unavailable'}.`);
-						return;
-					}
-					openImportedDeck(applyImportRenames(src, t.renames), title, comments);
-					refreshThemes();
-					refreshComponents();
-					refreshFinishes();
-					const got = [t.themes && `${t.themes} theme(s)`, t.components && `${t.components} component(s)`, t.finishes && `${t.finishes} finish(es)`].filter(Boolean).join(' + ');
-					const detail = [
-						t.renamed.length ? `Saved under another name, and this deck now uses it: ${t.renamed.join(', ')}.` : null,
-						t.unchanged ? `${t.unchanged} already in your Library, unchanged.` : null,
-						t.refused.length ? `Not added: ${t.refused.map((r) => `${r.name} (${r.why})`).join('; ')}.` : null,
-						scenesLeft ? `${scenesLeft} motion(s) in the file were not added — the deck carries its motion inline.` : null,
-						t.notes.length ? t.notes.join(' ') : null,
-					].filter(Boolean).join('\n') || undefined;
-					if (got || detail) notify(got ? `Added the deck's ${got} to your Library. Nothing you had was changed.` : 'Nothing was added to your Library.', { description: detail });
-				})
-				// A stale tab fails HERE before it ever reads the file (#1242): the reader is a
-				// lazy chunk, and a superseded deploy's URL is gone. Blaming the .lattice file
-				// for that sends the user to re-export a perfectly good deck — name the real
-				// cause instead. This import is async, so it never reaches the ErrorBoundary.
-				.catch((err) => notify(messageForFailure(err, err?.message || 'Could not read that .lattice file.')));
-			return;
-		}
-		file.text().then(importDeckFromText).catch(() => notify('Could not read that file.'));
+		// ONE reader for every format — `.lattice`, `.md`, `.html`, and a PDF or PowerPoint
+		// exported "Re-openable in Lattice". It sniffs the bytes, so the name is only a hint.
+		import('./deck-import')
+			.then(({ readDeckFile }) => readDeckFile(file))
+			.then(openLatticeImport)
+			// A stale tab fails HERE before it ever reads the file (#1242): the reader is a
+			// lazy chunk, and a superseded deploy's URL is gone. Blaming the file for that
+			// sends the user to re-export a perfectly good deck — name the real cause instead.
+			// This import is async, so it never reaches the ErrorBoundary.
+			.catch((err) => notify(messageForFailure(err, err?.message || 'Could not read that file.')));
 	}
 	// Rename REWRITES whatever the deck's title actually comes from — its `title:`
 	// front-matter override when it has one, else its first heading — because that is
@@ -5505,11 +5507,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Workspace</DropdownMenuLabel>
 					<DropdownMenuItem onSelect={() => setView('compose')}><Layers className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Decks</div><div className="text-[11px] text-muted-foreground">Your saved decks</div></div></DropdownMenuItem>
 					<DropdownMenuItem onSelect={() => setView('fabricate')}><PencilRuler className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Fabricate</div><div className="text-[11px] text-muted-foreground">Theme &amp; Component Studio</div></div></DropdownMenuItem>
-					<DropdownMenuSeparator />
-					{/* Deck CRUD lives in the deck switcher (New deck is there) — the
-					    launcher keeps app navigation + Import only, so the two adjacent
-					    menus don't offer the same action twice. */}
-					<DropdownMenuItem onSelect={() => importInputRef.current?.click()}><Upload className="size-4" />Import deck…</DropdownMenuItem>
+					{/* Deck CRUD — New deck AND Import deck… — lives in the deck switcher, so
+					    the launcher is app navigation only and the two adjacent menus never
+					    offer the same action twice. Import sat here until 2026-10, where people
+					    looking beside "New deck" concluded the Studio could not import at all. */}
 				</DropdownMenuContent>
 			</DropdownMenu>
 		</div>
@@ -5706,6 +5707,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onSelect={renamePrompt}><PencilLine className="size-4" />Rename “{deckTitle}”</DropdownMenuItem>
 				<DropdownMenuItem data-demo="new-deck" onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
+				{/* Beside New deck, because it IS a new deck — one made from a file: a .lattice,
+				    Markdown, a webpage export, or a PDF / PowerPoint exported re-openable. */}
+				<DropdownMenuItem onSelect={() => importInputRef.current?.click()}><Upload className="size-4" />Import deck…</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
@@ -5747,6 +5751,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// New deck — the slim Write header's switcher carries it too, but ⌘K is the header's
 		// stated "reaches every feature" path, so it must be reachable here.
 		{ id: 'new-deck', group: 'deck', label: 'New deck', icon: Plus, keywords: ['create', 'blank'], run: () => newDeck() },
+		// Import deck… — the same file picker the deck switcher opens, beside New deck for the same
+		// reason: a deck made from a file (.lattice, Markdown, a webpage, a re-openable PDF/PPTX).
+		{ id: 'import-deck', group: 'deck', label: 'Import deck…', icon: Upload, keywords: ['open', 'upload', 'lattice', 'pdf', 'pptx', 'powerpoint', 'markdown'], run: () => importInputRef.current?.click() },
 	];
 	commandsRef.current = studioCommands;
 
@@ -6574,8 +6581,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{cmdPalette}
 			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			<SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />
-			{/* Hidden file input for "Import deck…" (.md upload). */}
-			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
+			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
+			    Files greys out anything `accept` does not name, and `.lattice` has no
+			    registered type. What each format means is deck-import.ts's job. */}
+			<input ref={importInputRef} type="file" accept={DECK_IMPORT_ACCEPT} onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 
 			{/* The one toast surface. What lands here is `lib/notify.ts`'s three kinds. */}
 			<Toaster />

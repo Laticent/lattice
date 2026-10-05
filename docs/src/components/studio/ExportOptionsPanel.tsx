@@ -1,18 +1,23 @@
-// Export options — the pre-export step for PDF. The deck's notes + descriptions
-// already ride into their native export homes automatically; COMMENTS are the
-// deliberate choice: app-state review feedback that should enter a shared PDF only
-// when the author says so (a board handout shouldn't silently carry private review
-// notes; a reviewer handoff should). So tapping "PDF" lands here first — pick what
-// rides along, then Download. See engineering/decisions/2026-07-04-comments-layer.md.
+// Export options — the pre-export step for PDF and PowerPoint. The deck's notes +
+// descriptions already ride into their native export homes automatically; two things are
+// the author's deliberate choice, both default OFF:
+//   · COMMENTS (PDF only) — app-state review feedback that should enter a shared PDF only
+//     when the author says so (a board handout shouldn't silently carry private review
+//     notes; a reviewer handoff should). engineering/decisions/2026-07-04-comments-layer.md.
+//   · RE-OPENABLE — the deck's `.lattice` rides inside the file so the recipient can open
+//     and edit it in the Studio. It carries speaker notes and hidden slides, never
+//     comments. engineering/decisions/2026-10-05-reopenable-exports.md.
+// So tapping "PDF" or "PowerPoint" lands here first — pick what rides along, then Download.
 
-import { ArrowLeft, Download, Loader2, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Download, FileArchive, Loader2, MessageSquare } from 'lucide-react';
 import * as React from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { type CommentScope, commentCount, type ExportOptions } from './export-options';
+import { type CommentScope, commentCount, type ExportOptions, loadEmbedSource, saveEmbedSource } from './export-options';
 
 export function ExportOptionsPanel({
+	format = 'pdf',
 	deckId,
 	slideCount,
 	busy,
@@ -20,6 +25,9 @@ export function ExportOptionsPanel({
 	onBack,
 	onExport,
 }: {
+	/** Which export this step is for. PowerPoint has no sticky notes, so it shows only the
+	 *  re-openable switch. */
+	format?: 'pdf' | 'pptx';
 	deckId?: string;
 	/** The deck's rendered slide count — bounds a comment's anchor so the count
 	 *  shown here matches exactly what the export embeds (see export-options). */
@@ -33,6 +41,10 @@ export function ExportOptionsPanel({
 	// deliberate opt-in, so the plain one-tap PDF never leaks review notes.
 	const [commentsInPdf, setCommentsInPdf] = React.useState(false);
 	const [commentScope, setCommentScope] = React.useState<CommentScope>('all');
+	// Remembered per deck (export-options.ts): the answer for THIS deck's audience.
+	const [embedSource, setEmbedSource] = React.useState(() => loadEmbedSource(deckId));
+	const isPdf = format === 'pdf';
+	const label = isPdf ? 'PDF' : 'PowerPoint';
 	const total = commentCount(deckId, 'all', slideCount);
 	const inScope = commentCount(deckId, commentScope, slideCount);
 
@@ -44,15 +56,16 @@ export function ExportOptionsPanel({
 
 			<section className="space-y-3">
 				<div>
-					<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Export PDF</h3>
-					<p className="mt-0.5 text-[12px] text-muted-foreground">One slide per page, high-resolution. Choose what rides along before you download.</p>
+					<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Export {label}</h3>
+					<p className="mt-0.5 text-[12px] text-muted-foreground">{isPdf ? 'One slide per page, high-resolution.' : 'One full-bleed picture per slide.'} Choose what rides along before you download.</p>
 				</div>
 
 				{/* Comments → sticky notes. Only actionable when the deck has comments. */}
+				{isPdf && (
 				<div className="rounded-xl border border-border bg-background p-3.5">
 					<div className="flex items-start justify-between gap-3">
 						<span className="flex items-start gap-2">
-							<MessageSquare className="mt-0.5 size-4 text-[var(--accent)]" />
+							<MessageSquare className="mt-0.5 size-4 shrink-0 text-[var(--accent)]" />
 							<span>
 								<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Add comments as sticky notes</span>
 								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
@@ -85,17 +98,37 @@ export function ExportOptionsPanel({
 						</div>
 					)}
 				</div>
+				)}
+
+				{/* Re-openable: the deck's source rides inside the file. */}
+				<div className="rounded-xl border border-border bg-background p-3.5">
+					<div className="flex items-start justify-between gap-3">
+						<span className="flex items-start gap-2">
+							<FileArchive className="mt-0.5 size-4 shrink-0 text-[var(--accent)]" />
+							<span>
+								<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Re-openable in Lattice</span>
+								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
+									Anyone you send this {label} to can import it in Lattice and edit the deck. It includes your speaker notes and hidden slides; comments stay out.
+								</span>
+							</span>
+						</span>
+						<Switch className="mt-0.5" aria-label="Re-openable in Lattice" checked={embedSource} disabled={busy} onCheckedChange={setEmbedSource} />
+					</div>
+				</div>
 			</section>
 
 			<button
 				type="button"
 				data-demo="pdf-download"
 				disabled={busy}
-				onClick={() => onExport({ commentsInPdf: commentsInPdf && total > 0, commentScope })}
+				onClick={() => {
+					saveEmbedSource(deckId, embedSource);
+					onExport({ commentsInPdf: isPdf && commentsInPdf && total > 0, commentScope, embedSource });
+				}}
 				className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
 			>
 				{busy ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-				{busy ? status || 'Exporting…' : 'Download PDF'}
+				{busy ? status || 'Exporting…' : `Download ${label}`}
 			</button>
 		</div>
 	);
