@@ -35,7 +35,10 @@
 //
 // Usage:
 //   node tools/golden-diff.mjs [--base <ref>] [--json]
-//     --base   git ref/sha to diff against (default: origin/main)
+//     --base   git ref/sha to diff against (default: origin/main). On a PR's merge
+//              checkout (GITHUB_EVENT_NAME=pull_request), a base older than HEAD^1 is
+//              replaced by HEAD^1 (current main),
+//              so main's own re-blesses never count as this PR's (tools/lib/golden-base.mjs).
 //
 // Output (under .scratch/golden-diff/):
 //   changes.pdf   — combined before│after│overlay montage (CI artifact); only
@@ -56,6 +59,7 @@ import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prBaseRef } from './lib/golden-base.mjs';
 import { classifyChangedPdf } from './lib/golden-set.mjs';
 
 const require = createRequire(import.meta.url);
@@ -176,7 +180,10 @@ function main() {
   const args = process.argv.slice(2);
   const json = args.includes('--json');
   const baseIdx = args.indexOf('--base');
-  const base = baseIdx >= 0 ? args[baseIdx + 1] : 'origin/main';
+  // A PR run's base sha goes stale as main moves; prBaseRef swaps in the merge's first parent.
+  const resolved = prBaseRef(baseIdx >= 0 ? args[baseIdx + 1] : 'origin/main', ROOT, { pr: process.env.GITHUB_EVENT_NAME === 'pull_request' });
+  const base = resolved.base;
+  if (!json) process.stderr.write(`golden-diff: base ${base} — ${resolved.reason}\n`);
 
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(MONTAGE_DIR, { recursive: true });

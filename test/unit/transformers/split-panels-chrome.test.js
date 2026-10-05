@@ -310,3 +310,69 @@ describe('the quote slot is the first top-level blockquote, whole', () => {
     });
   }
 });
+
+// A slot inside any container the browser nests it in is not the slot. The string path used to mask
+// a named list of blocks (`div`, `table`, …) and missed the rest, and read raw-text bodies and
+// attribute values as markup; it now reads every slot through the shared tokenizer
+// (lib/core/top-level-h2.mjs `topLevelElements`). Each arm renders both paths and compares them
+// (followups.d/2478-p4-split-slot-mask-coverage.md).
+describe('a slot inside a browser container or a raw-text element is not the slot, on both paths', () => {
+  const Q = '<blockquote><p>Q.</p></blockquote>';
+  const L = '<ul><li><strong>X</strong></li><li><strong>Y</strong></li></ul>';
+  const P = '<p>Inner.</p>';
+  const containers = {
+    span: (x) => `<span>${x}</span>`,
+    main: (x) => `<main>${x}</main>`,
+    'a stray dd': (x) => `<dd>${x}</dd>`,
+    'a stray li': (x) => `<li>${x}</li>`,
+    template: (x) => `<template>${x}</template>`,
+    'svg foreignObject': (x) => `<svg><foreignObject>${x}</foreignObject></svg>`,
+    pre: (x) => `<pre>${x}</pre>`,
+    script: (x) => `<script>var s = '${x}';</script>`,
+    style: (x) => `<style>/* ${x} */</style>`,
+    textarea: (x) => `<textarea>${x}</textarea>`,
+    'an attribute value': (x) => `<figure data-x='${x}'></figure>`,
+  };
+  const both = (html) => {
+    const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+    const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+    splitPanels.applyToDom(doc);
+    return { str, dom: doc.querySelector('section') };
+  };
+  for (const [name, wrap] of Object.entries(containers)) {
+    test(`${name}: the verdict, the options and the context paragraph`, () => {
+      const html = `<section class="split-compare"><h2>H</h2>${wrap(P)}<p>C.</p>${wrap(L)}<ul><li><strong>A</strong></li><li><strong>B</strong></li></ul>${wrap(Q)}</section>`;
+      const { str, dom } = both(html);
+      assert.equal(signature(str), signature(dom));
+      assert.deepEqual([...str.querySelectorAll('.option > strong')].map(e => e.textContent), ['A', 'B'], 'the options are the top-level list');
+      assert.equal(str.querySelector('.verdict'), null, 'no top-level quote, so no verdict');
+      assert.equal(str.querySelector('.compare-left p')?.textContent, 'C.', 'the context paragraph is the top-level one');
+    });
+    test(`${name}: the pull quote`, () => {
+      const html = `<section class="split-panel pullquote">${wrap(Q)}<blockquote><p>Real.</p></blockquote><ul><li>P</li></ul></section>`;
+      const { str, dom } = both(html);
+      assert.equal(signature(str), signature(dom));
+      assert.equal(str.querySelector('.panel-left > blockquote')?.textContent, 'Real.');
+    });
+  }
+  // The reverse of the containers above: HTML written inside an `<svg>` (outside a foreignObject)
+  // BREAKS OUT of it in a parser, so this quote and this paragraph ARE top-level (the checker,
+  // 2026-10-05; the old mask agreed by accident, the first cut of the tokenizer read did not).
+  test('HTML inside an <svg> breaks out: the verdict and the lede are top-level, on both paths', () => {
+    for (const html of [
+      '<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><svg><blockquote><p>V.</p></blockquote></svg></section>',
+      '<section class="split-compare"><h2>H</h2><svg><p>Breaks out.</p></svg><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul></section>',
+      '<section class="split-panel"><h2>H</h2><svg><p>Breaks out.</p></svg><p>C.</p><ul><li>one</li></ul></section>',
+    ]) {
+      const { str, dom } = both(html);
+      assert.equal(signature(str), signature(dom), html);
+    }
+  });
+
+  test('an unclosed paragraph ends where the next block starts: the quote after it is top-level', () => {
+    const html = '<section class="split-compare"><h2>H</h2><p>C.<ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><blockquote><p>V.</p></blockquote></section>';
+    const { str, dom } = both(html);
+    assert.equal(signature(str), signature(dom));
+    assert.equal(str.querySelector('.verdict')?.textContent, 'V.');
+  });
+});

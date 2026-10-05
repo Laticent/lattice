@@ -1,0 +1,1 @@
+- CLI PDF export: digits set with tabular figures (`tnum`, used by tables, glossaries, KPIs and charts) now draw where the screen draws them and copy out of the PDF. Before, "24 hours" drew as "2 4hours" and the digits were missing from the text layer, so copy-paste and screen readers lost them. The 47 committed PDFs that carried the defect are re-rendered.
