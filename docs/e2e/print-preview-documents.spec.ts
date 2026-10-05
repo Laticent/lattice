@@ -176,9 +176,12 @@ test('reopening the Print drawer builds no preview documents, and each open star
 test('a print the author walks away from opens no dialog, and the kept print frame stays out of reach', async ({ page }) => {
 	await page.addInitScript(() => {
 		// Every frame gets this, the print frame included; the count lives on the Studio's window.
+		// It also records whether the frame was inert at the call: an inert frame cannot take the
+		// focus `print()` is handed with, so the drawer lifts `inert` for exactly that moment.
 		window.print = () => {
-			const top = window.top as unknown as { __prints?: number };
+			const top = window.top as unknown as { __prints?: number; __inertAtPrint?: boolean[] };
 			top.__prints = (top.__prints ?? 0) + 1;
+			(top.__inertAtPrint ??= []).push(!!(window.frameElement as HTMLIFrameElement | null)?.inert);
 		};
 	});
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -215,6 +218,7 @@ test('a print the author walks away from opens no dialog, and the kept print fra
 	await expect(print).toBeEnabled({ timeout: 60_000 });
 	await print.click();
 	await expect.poll(prints, { timeout: 60_000 }).toBe(1);
+	expect(await page.evaluate(() => (window as unknown as { __inertAtPrint?: boolean[] }).__inertAtPrint), 'the frame is not inert while it prints').toEqual([false]);
 	await expect(printFrame).toHaveCount(1);
 	await expect(printFrame).toHaveJSProperty('inert', true);
 });
