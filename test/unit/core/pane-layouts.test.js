@@ -309,6 +309,21 @@ test('the text scanner and the engine agree on where each pane starts', () => {
   assert.deepEqual(lintCore.paneStarts(marked), [2, 7]);
 });
 
+test('a double-backtick pill above a ### is one pill: linter and engine both count two panes', () => {
+  // `` ``a`b`` `` is one code span holding a backtick (CommonMark §6.1). A one-backtick pill regex
+  // read it as text, so the scanner started a third pane at the `###` under it.
+  const slide = '<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n``a`b``\n### One\n\n- x\n\n### Two\n\n- y\n';
+  assert.equal(spec.scanPanes(slide).split.markers, 2);
+  assert.deepEqual(lintCore.paneStarts(slide), [4, 10]);
+  const html = render(slide);
+  assert.equal(count(html, /<lat-pane /g), 2);
+  assert.deepEqual(spec.paneHeadText('``a`b``\n### One\n'), { eyebrow: 'a`b', title: 'One', subtitle: null, body: '' });
+  assert.equal(paneRules(slide).includes('pane-layout'), false);
+  for (const [line, want] of [['`a`', true], ['``a`b``', true], ['`` `x` ``', true], ['``a``b``', false], ['`a` b', false], ['`a`b`', false], ['```', false]]) {
+    assert.equal(spec.isPillLine(line), want, line);
+  }
+});
+
 test('export-to-Marp drops the layout words and the markers, and keeps the other classes', () => {
   const out = stripPaneMarkers('<!-- _class: columns ratio-60-40 dark -->\n\n## T\n\n<!-- _pane: bar -->\n\n- A `4`\n\n<!-- _pane: list -->\n\n- x\n');
   assert.match(out, /<!-- _class: dark -->/);
