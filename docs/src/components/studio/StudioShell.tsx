@@ -87,6 +87,7 @@ import { PanelLoader, useLatch, warmPanels } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { LESSONS } from './lessons/catalog';
+import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { MotionTargets } from './MotionTargets';
@@ -2762,6 +2763,44 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		mobile,
 		stopDemo,
 	});
+	// THE DEEP LINK — `/studio/?lesson=<id>`, what the site search's Learn rows open. The param is
+	// read when the timer fires, not when the effect runs, so StrictMode's mount-unmount-mount cannot
+	// strand it; it is removed only as the lesson starts, so a reload does not replay it. There is no
+	// gesture here, so the lesson's first lines may be silent until the first tap unlocks audio
+	// (use-studio-lesson.ts §THE VOICE); the captions carry them.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: once per page load, by design; startLesson is stable.
+	React.useEffect(() => {
+		const t = window.setTimeout(() => {
+			const url = new URL(window.location.href);
+			const id = url.searchParams.get('lesson');
+			if (!id) return;
+			url.searchParams.delete('lesson');
+			window.history.replaceState(window.history.state, '', url);
+			if (LESSONS.some((l) => l.id === id)) startLesson(id);
+		}, 600);
+		return () => window.clearTimeout(t);
+	}, []);
+	// FIRST-OPEN OFFERS — a panel that has a lesson offers it the first time it opens, once ever
+	// (lessons/progress.ts), and never while a lesson or tour is running or once the lesson is done.
+	// Only panels whose lesson copes with the panel already being open: Coach and Slide settings.
+	// An OPENING, not a state: a panel restored open on load was not just opened by anyone, so the
+	// first render only records where each panel stands.
+	const slideSettingsOpen = activeSettings === 'slide';
+	const wasOpen = React.useRef<Record<string, boolean> | null>(null);
+	React.useEffect(() => {
+		const offers: [boolean, string, string, string][] = [
+			[coachOpen, 'coach', 'coach', 'New to Coach? A short lesson shows you around.'],
+			[slideSettingsOpen, 'slide-settings', 'speaker-notes', 'Slide settings hold your speaker notes. Want the short lesson?'],
+		];
+		const before = wasOpen.current;
+		wasOpen.current = Object.fromEntries(offers.map(([open, panel]) => [panel, open]));
+		if (!before) return;
+		for (const [open, panel, lesson, message] of offers) {
+			if (!open || before[panel] || lessonActive || demoActive || wasOffered(panel) || doneLessons().has(lesson)) continue;
+			markOffered(panel);
+			notifyAction(message, { label: 'Show me', onClick: () => startLesson(lesson) });
+		}
+	}, [coachOpen, slideSettingsOpen, lessonActive, demoActive, startLesson]);
 	// Search is where lessons are found, so opening it fetches the lesson voice. Ready by the pick,
 	// the narrator is built inside that click and iOS lets it play (use-studio-lesson.ts §THE VOICE).
 	React.useEffect(() => {

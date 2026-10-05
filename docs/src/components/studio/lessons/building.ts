@@ -31,8 +31,10 @@ const NOTES_TAB = tabNamed('[aria-label="Slide settings sections"]', 'Notes');
 
 const speakerNotes: LessonBuild = () => async (ctx) => {
 	await tell(ctx, { say: N.what });
-	const who = await yourTurn(ctx, { say: N.click, target: SEL.slideSettings, perform: (a) => a.run('slide-settings'), missing: N.missing });
 	const shown = () => NOTES_TAB() != null || visible(SEL.notesField)() != null;
+	// Already open (the panel offered this lesson): the Slide settings button is a toggle, so asking
+	// for it now would close the panel.
+	const who = shown() ? 'lesson' : await yourTurn(ctx, { say: N.click, target: SEL.slideSettings, perform: (a) => a.run('slide-settings'), missing: N.missing });
 	let open = await settle(ctx, shown, who === 'user' ? 1500 : 4000);
 	// The user's own press opened nothing (a surface where the panel needs the Craft stop): the
 	// command steps up for them, so open it that way rather than end on an empty screen.

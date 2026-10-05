@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: The Studio teaches through search — type "pdf" and get the action AND a short lesson that points at each control, waits for your click, and does it for you if you wait. Replaces the five watch-only tours (first-look stays).
 ---
 
@@ -194,17 +194,42 @@ way, so the spec now runs the light/dark lesson and presses Collapse editor from
 frame the ring appears. With the ring's tracking patched out of the built engine, the spec fails
 (ring 571/609 against a pane at 99/1081), so it still measures the defect it was written for.
 
+## Reach (slice 4)
+
+**Site search finds lessons.** The site-wide ⌘K (`site/CommandMenu.tsx`) shows a "Learn in the
+Studio" group on a query, matched against each lesson's question and search words, at most four
+rows. Picking one opens `/studio/?lesson=<id>`. The Studio reads the param 600 ms after mount,
+removes it as the lesson starts (so a reload does not replay it), and ignores an unknown id. There
+is no gesture on that path, so the first lines can be silent until the first tap unlocks audio; the
+captions carry them.
+
+**Progress is remembered.** `lessons/progress.ts` keeps finished lessons in browser storage — a
+per-viewer convenience, guarded so a private window or blocked storage costs only the memory. A
+finished lesson's palette row says "Done", and the completion toast offers the curriculum's next
+unfinished lesson with a Start button (a click, so that lesson's voice unlocks in it).
+
+**The Learn group waits for a query.** With fifteen lessons, an unfiltered Learn group buried the
+actions, so past ten it appears on the first keystroke. Search is how lessons are found anyway.
+
+**First-open offers.** Opening Coach or Slide settings for the first time offers its lesson in a
+toast, once ever, and never while a lesson or tour runs or after the lesson is done. Two rules
+keep this quiet: it fires on an *opening* (a panel restored open on load does not count), and only
+for panels whose lesson copes with the panel already being open. Share and the slide gallery are
+left out for that reason: their lessons start by pointing at the button that opens them, which the
+open sheet covers.
+
 ## Slices
 
 1. **This PR.** The action list, the lesson kit, the Learn group in the palette, six Basics lessons,
    the Share sheet opening straight to its PDF step, the "Export as PDF…" action.
 2. **Voice.** Shipped: see §Voice above.
 3. **Retire the long tours.** Shipped: see §Building, Polish, and the end of the long tours.
-4. **Reach.** Site search deep-links lessons, progress is remembered and the next lesson suggested,
-   and a panel offers its lesson the first time it opens.
+4. **Reach.** Shipped: see §Reach.
 
-Slices 2–4 are recorded in `followups.d/` so they survive this session.
+Slices 2–4 shipped together in one PR, one commit each.
 
 ## Open questions
 
-- None blocking slice 1.
+- None blocking. Still to come, recorded in `followups.d/`: the Sharing track (the HTML player,
+  PowerPoint), locking in the Studio's smaller startup bundle with a route-budget rebaseline, and a
+  listen on a real iPhone.

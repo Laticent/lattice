@@ -109,6 +109,52 @@ test('"Speaker notes" opens the notes field of the slide when the user waits', a
 	await expect(page.locator(STAGE)).toContainText('saves with the deck', { timeout: 20_000 });
 });
 
+// REACH (P3 of the lessons work): lessons are found from the whole site, finished ones are
+// remembered, and a panel offers its lesson the first time someone opens it.
+
+test('a site search for "pdf" opens the Studio running the PDF lesson @crosswidth', async ({ page }) => {
+	await page.goto('/');
+	// The header is an island: a click before it hydrates does nothing, so click until the dialog opens.
+	const field = page.getByPlaceholder('Search docs, jump to a page, switch theme…');
+	await expect(async () => {
+		await page.getByRole('button', { name: 'Search (⌘K)' }).filter({ visible: true }).first().click();
+		await expect(field).toBeVisible({ timeout: 1000 });
+	}).toPass({ timeout: 20_000 });
+	await field.fill('pdf');
+	await page.getByRole('option', { name: 'How do I export a PDF?', exact: true }).click();
+	await expect(page).toHaveURL(/\/studio\//);
+	await expect(page.locator(STAGE)).toContainText('Click Share', { timeout: 30_000 });
+	// The param is spent as the lesson starts, so a reload does not replay it.
+	expect(new URL(page.url()).searchParams.get('lesson')).toBeNull();
+});
+
+test('a finished lesson is remembered: search marks it Done and the toast offers the next one', async ({ page }) => {
+	await search(page, 'dark');
+	await page.getByRole('option', { name: 'How do I switch light or dark?', exact: true }).click();
+	// Running first: the engine loads on start, so "no stage" is also what the page shows before it.
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 60_000 });
+	await expect(page.getByText(/^Lesson done\. Next: How do I /)).toBeVisible();
+	await gotoStudio(page); // a fresh load, waited until the Studio is ready; storage survives it
+	await search(page, 'dark');
+	await expect(page.locator('[data-lesson="light-dark"]')).toHaveAttribute('data-done', 'true');
+	await expect(page.locator('[data-lesson="light-dark"]')).toContainText('Done');
+});
+
+test('opening Coach offers its lesson once, and never again', async ({ page }) => {
+	const offer = page.getByText('New to Coach? A short lesson shows you around.');
+	await search(page, 'coach');
+	await page.getByRole('option', { name: 'Coach — check this deck', exact: true }).click();
+	await expect(offer).toBeVisible();
+	await gotoStudio(page); // a fresh load, waited until the Studio is ready; storage survives it
+	await search(page, 'coach');
+	await page.getByRole('option', { name: 'Coach — check this deck', exact: true }).click();
+	// The offer is raised by the effect of the render that mounts the Coach card, so by the time the
+	// card is visible a second offer would already be on screen.
+	await expect(page.locator('[data-demo="coach-read"]')).toBeVisible();
+	await expect(offer).toHaveCount(0);
+});
+
 // THE PHONE, ON SAFARI'S ENGINE, WITH REAL TAPS. The two phone claims in #2529 — a tapped palette
 // result runs (it did nothing on `main`: the tap blurred the field, the sheet shrank 54px and the
 // row slid out from under the finger), and a lesson completes on a phone — were verified only in

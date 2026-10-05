@@ -1,10 +1,11 @@
 import * as React from 'react';
-import { notify } from '@/lib/notify';
+import { notify, notifyAction } from '@/lib/notify';
 import type { StopReason, Walkthrough } from '../../lib/vetrina';
 import { useLazyWalkthrough } from '../../lib/vetrina/react';
-import { loadLesson } from './lessons/catalog';
+import { LESSONS, loadLesson } from './lessons/catalog';
 import type { LessonActions, LessonEnv } from './lessons/lesson-kit';
 import type { ClipNarrator } from './lessons/lesson-voice';
+import { markDone, nextLesson } from './lessons/progress';
 import { runCommand, type StudioCommand } from './studio-commands';
 
 // useStudioLesson — runs one lesson against the live Studio.
@@ -156,7 +157,13 @@ export function useStudioLesson(rootRef: React.RefObject<HTMLElement | null>, bi
 			onStop: (reason: StopReason) => {
 				// Only a finished lesson earns a toast. A take-over is the user getting on with it, and
 				// a toast then would interrupt the very thing the lesson taught.
-				if (reason === 'complete') notify('Lesson done. Search for it any time to see it again.');
+				if (reason !== 'complete') return;
+				// Remembered, so search marks it Done, and the curriculum's next unfinished lesson is one
+				// click away. The click is a gesture, so the next lesson's voice can unlock in it.
+				markDone(next.id);
+				const after = nextLesson(next.id);
+				if (after) notifyAction(`Lesson done. Next: ${after.question}`, { label: 'Start', onClick: () => startRef.current(after.id) });
+				else notify(`Lesson done — that was the last of all ${LESSONS.length}. Search for any of them to see it again.`);
 			},
 		};
 		},
@@ -204,6 +211,9 @@ export function useStudioLesson(rootRef: React.RefObject<HTMLElement | null>, bi
 		},
 		[lesson.start, lesson.stop],
 	);
+
+	const startRef = React.useRef(startLesson);
+	startRef.current = startLesson;
 
 	const warmLessons = React.useCallback(() => {
 		importVoice().catch(() => {});
