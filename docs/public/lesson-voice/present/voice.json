@@ -1,0 +1,295 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 54432,
+	"lines": [
+		{
+			"key": "b39e6dcc8044",
+			"text": "Present plays your deck full screen. Click Present.",
+			"file": "b39e6dcc8044.mp3",
+			"bytes": 16416,
+			"speechMs": 2688,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Present plays your deck full screen.",
+						"words": [
+							{
+								"display": "Present",
+								"spoken": "Present",
+								"startMs": 0,
+								"endMs": 362,
+								"charOffset": 0
+							},
+							{
+								"display": "plays",
+								"spoken": "plays",
+								"startMs": 362,
+								"endMs": 543,
+								"charOffset": 8
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 543,
+								"endMs": 724,
+								"charOffset": 14
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 724,
+								"endMs": 905,
+								"charOffset": 19
+							},
+							{
+								"display": "full",
+								"spoken": "full",
+								"startMs": 905,
+								"endMs": 1086,
+								"charOffset": 24
+							},
+							{
+								"display": "screen.",
+								"spoken": "screen.",
+								"startMs": 1086,
+								"endMs": 1293,
+								"charOffset": 29
+							}
+						],
+						"startMs": 0,
+						"endMs": 1633,
+						"charOffset": 0
+					},
+					{
+						"display": "Click Present.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 1779,
+								"endMs": 1960,
+								"charOffset": 37
+							},
+							{
+								"display": "Present.",
+								"spoken": "Present.",
+								"startMs": 1960,
+								"endMs": 2348,
+								"charOffset": 43
+							}
+						],
+						"startMs": 1779,
+						"endMs": 2688,
+						"charOffset": 37
+					}
+				],
+				"durationMs": 2688
+			}
+		},
+		{
+			"key": "ca82316ff7eb",
+			"text": "I’ll start the presentation for you.",
+			"file": "ca82316ff7eb.mp3",
+			"bytes": 11376,
+			"speechMs": 1835,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll start the presentation for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 166,
+								"charOffset": 0
+							},
+							{
+								"display": "start",
+								"spoken": "start",
+								"startMs": 166,
+								"endMs": 333,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 333,
+								"endMs": 499,
+								"charOffset": 11
+							},
+							{
+								"display": "presentation",
+								"spoken": "presentation",
+								"startMs": 499,
+								"endMs": 1165,
+								"charOffset": 15
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1165,
+								"endMs": 1332,
+								"charOffset": 28
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 1332,
+								"endMs": 1522,
+								"charOffset": 32
+							}
+						],
+						"startMs": 0,
+						"endMs": 1835,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1835
+			}
+		},
+		{
+			"key": "94f249ffc74c",
+			"text": "Use the arrow keys, or click, to move through the slides. Press Esc to stop.",
+			"file": "94f249ffc74c.mp3",
+			"bytes": 26640,
+			"speechMs": 4379,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Use the arrow keys, or click, to move through the slides.",
+						"words": [
+							{
+								"display": "Use",
+								"spoken": "Use",
+								"startMs": 0,
+								"endMs": 182,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 182,
+								"endMs": 363,
+								"charOffset": 4
+							},
+							{
+								"display": "arrow",
+								"spoken": "arrow",
+								"startMs": 363,
+								"endMs": 727,
+								"charOffset": 8
+							},
+							{
+								"display": "keys,",
+								"spoken": "keys,",
+								"startMs": 727,
+								"endMs": 935,
+								"charOffset": 14
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 1112,
+								"endMs": 1294,
+								"charOffset": 20
+							},
+							{
+								"display": "click,",
+								"spoken": "click,",
+								"startMs": 1294,
+								"endMs": 1503,
+								"charOffset": 23
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 1680,
+								"endMs": 1862,
+								"charOffset": 30
+							},
+							{
+								"display": "move",
+								"spoken": "move",
+								"startMs": 1862,
+								"endMs": 2043,
+								"charOffset": 33
+							},
+							{
+								"display": "through",
+								"spoken": "through",
+								"startMs": 2043,
+								"endMs": 2225,
+								"charOffset": 38
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2225,
+								"endMs": 2407,
+								"charOffset": 46
+							},
+							{
+								"display": "slides.",
+								"spoken": "slides.",
+								"startMs": 2407,
+								"endMs": 2797,
+								"charOffset": 50
+							}
+						],
+						"startMs": 0,
+						"endMs": 3138,
+						"charOffset": 0
+					},
+					{
+						"display": "Press Esc to stop.",
+						"words": [
+							{
+								"display": "Press",
+								"spoken": "Press",
+								"startMs": 3284,
+								"endMs": 3466,
+								"charOffset": 58
+							},
+							{
+								"display": "Esc",
+								"spoken": "Esc",
+								"startMs": 3466,
+								"endMs": 3648,
+								"charOffset": 64
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 3648,
+								"endMs": 3829,
+								"charOffset": 68
+							},
+							{
+								"display": "stop.",
+								"spoken": "stop.",
+								"startMs": 3829,
+								"endMs": 4038,
+								"charOffset": 71
+							}
+						],
+						"startMs": 3284,
+						"endMs": 4379,
+						"charOffset": 58
+					}
+				],
+				"durationMs": 4379
+			}
+		}
+	]
+}

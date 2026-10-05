@@ -1,0 +1,1 @@
+- Studio lessons now speak. Every line of the six Basics lessons plays a clip recorded with Kokoro, the Studio's own voice, so no key and no model download are needed. Captions still show every line, and a line without a clip falls back to its caption. `node tools/record-lesson-voice.mjs` records the clips, and a unit test fails when a lesson line has no current clip.

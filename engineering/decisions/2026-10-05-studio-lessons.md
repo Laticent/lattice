@@ -104,6 +104,46 @@ track and search keywords — the part search needs. Lesson scripts load through
 use. Vetrina's engine is still in the Studio chunk, because `first-look` imports it statically;
 making the engine itself lazy is a later slice (see below), measured then.
 
+## Voice (slice 2)
+
+Lessons speak. Every line is a clip recorded ahead of time with Kokoro, the Studio's own voice, and
+shipped under `docs/public/lesson-voice/<lesson-id>/`. The caption still shows every line, for anyone
+with sound off.
+
+**Where the clips come from.** `tools/record-lesson-voice.mjs` reads every line from
+`lessons/lines.ts` and records the missing ones. It reuses `lib/export/narrate-kokoro.mjs`, the
+Kokoro loader `lattice video` already runs in Node (same model, voice and q8 weights as the Studio
+without a GPU), and the bake's encoder, `compressClip`, at 48 kbps. The handoff for this slice
+proposed driving the Studio's browser rung in headless Chromium; the Node path already existed, so
+the tool uses it (HARD RULE #15). Each folder's `voice.json` maps a line's text to its clip, its
+measured speech length and its word track: the Cadenza estimate scaled to the clip, so a word cue
+lands on the clip rather than on the estimate.
+
+**Why lines live in one table.** A clip has to exist before anyone runs the lesson, so the set of
+lines must be knowable without running it: a branch the recorder never took would be a line with
+no clip. Lessons say only what `lines.ts` holds, and `lesson-voice.test.ts` fails when a track
+writes a line inline, when a line has no clip, when a clip was recorded for other words or another
+voice (its key hashes both), or when a clip is left over.
+
+**Never stale, never stuck.** The narrator (`lessons/lesson-voice.ts`, a `Narrator` on Vetrina's
+port) finds a clip by the line's exact text. A reworded line has no entry and plays as the silent
+caption, with the word clock still running; a clip that fails to fetch or decode does the same
+inside `voicedNarrator`. Either way the storyboard holds the caption for its reading time.
+
+**One narrator per page, and the iOS unlock.** The narrator is built once and disposed on
+`pagehide`. It opens its own `AudioContext`, and iOS plays only from a context unlocked inside a
+user gesture. An `import()` resolves after the gesture is gone, so the Studio fetches the voice
+module when search opens; by the time the user picks a lesson row the module is ready, and the
+narrator is built inside that click or Enter. If the module is not ready yet, the narrator is built
+after the import and unlocks on the user's next press. The clips load with the lesson: its folder's
+`voice.json` and clips are fetched when it starts, and the lesson waits at most 1.5 s for the list
+before starting on captions.
+
+**Its own context, not read-aloud's.** Read-aloud keeps a page-wide Suono stage that it never
+disposes, because closing it would leave a page restored from the back/forward cache without sound.
+The lesson narrator owns a separate stage so it can be disposed on `pagehide` as the Vetrina
+contract asks. A page that uses both has two contexts, well under Chromium's per-document cap.
+
 ## The curriculum
 
 | Track | Lessons |
@@ -117,8 +157,7 @@ making the engine itself lazy is a later slice (see below), measured then.
 
 1. **This PR.** The action list, the lesson kit, the Learn group in the palette, six Basics lessons,
    the Share sheet opening straight to its PDF step, the "Export as PDF…" action.
-2. **Voice.** A clip-generation tool (Kokoro, offline) writes one clip per beat plus an LTT word
-   track; a `clipNarrator` plays them through Suono. Captions stay, for anyone with sound off.
+2. **Voice.** Shipped: see §Voice above.
 3. **Retire the long tours.** Once Building and Polish lessons cover Coach and light/dark: delete
    `walkthrough`, `board-deck`, `just-markdown` and `quiet`, move the e2e fixtures that use them
    (`vetrina-geometry.spec.ts` drives `quiet`), retire `StudioActions` into the action list, and

@@ -2755,7 +2755,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const commandsRef = React.useRef<StudioCommand[]>([]);
 	const slideCountRef = React.useRef(0);
 	slideCountRef.current = slides.length;
-	const { lessonActive, startLesson } = useStudioLesson(rootRef, {
+	const { lessonActive, startLesson, warmLessons } = useStudioLesson(rootRef, {
 		get commands() {
 			return commandsRef.current;
 		},
@@ -2771,6 +2771,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		mobile,
 		stopDemo,
 	});
+	// Search is where lessons are found, so opening it fetches the lesson voice. Ready by the pick,
+	// the narrator is built inside that click and iOS lets it play (use-studio-lesson.ts §THE VOICE).
+	React.useEffect(() => {
+		if (cmdOpen) warmLessons();
+	}, [cmdOpen, warmLessons]);
 	React.useEffect(() => {
 		if (lessonActive) setChromeCollapsed(false);
 	}, [lessonActive]);

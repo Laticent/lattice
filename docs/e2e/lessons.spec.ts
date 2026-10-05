@@ -101,6 +101,33 @@ test.describe('on an iPhone, by touch @webkit-phone', () => {
 		await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 30_000 });
 	});
 
+	// THE VOICE ON SAFARI'S ENGINE. iOS plays WebAudio only from a context unlocked inside a user
+	// gesture, and a lesson builds its narrator inside the tap that picks it (use-studio-lesson.ts
+	// §THE VOICE). This records, in the page, every decoded clip that starts playing and the
+	// context's state at that moment, so "the lesson spoke" is measured rather than assumed.
+	test('a lesson started by tap speaks: its first clip plays on a running AudioContext', async ({ page }) => {
+		await page.addInitScript(() => {
+			const w = window as unknown as { __played: { sec: number; state: string }[] };
+			w.__played = [];
+			const start = AudioBufferSourceNode.prototype.start;
+			AudioBufferSourceNode.prototype.start = function (...a: Parameters<typeof start>) {
+				// Past the 1-sample unlock blip and the keep-alive tone: a real clip is longer than 0.3s.
+				if (this.buffer && this.buffer.duration > 0.3) w.__played.push({ sec: this.buffer.duration, state: this.context.state });
+				return start.apply(this, a);
+			};
+		});
+		await gotoStudio(page); // again, so the probe is installed before the Studio boots
+		await tapSearch(page, 'pdf');
+		await page.getByRole('option', { name: 'How do I export a PDF?', exact: true }).tap();
+		await expect(page.locator(STAGE)).toContainText('Click Share');
+		const played = () => page.evaluate(() => (window as unknown as { __played: { sec: number; state: string }[] }).__played);
+		await expect.poll(async () => (await played()).length, { timeout: 15_000 }).toBeGreaterThan(0);
+		const [first] = await played();
+		// "…under Share. Click Share." is recorded at 3.0s; the clip, not the 1-sample unlock, played.
+		expect(first.sec).toBeGreaterThan(2);
+		expect(first.state).toBe('running');
+	});
+
 	test('a tap on the control the lesson points at is the user’s turn, not a take-over', async ({ page }) => {
 		await tapSearch(page, 'present');
 		await page.getByRole('option', { name: 'How do I present?', exact: true }).tap();

@@ -18,6 +18,7 @@
 
 import { type RunContext, storyboard, type Target, type Walkthrough, wait, waitFor } from '../../../lib/vetrina/index.js';
 import type { StudioCommandId } from '../studio-commands';
+import { SHARED_LINES } from './lines';
 
 /** What a lesson may do to the Studio. Every member is bound to real state by `use-studio-lesson`. */
 export type LessonActions = {
@@ -54,7 +55,7 @@ export const TURN_MS = 7000;
 const BACKSTOP_MS = 10_000;
 
 /** The line a lesson says when the user waited and it does the step itself. */
-export const TAKEOVER_LINE = 'No rush — I’ll do this one for you.';
+export const TAKEOVER_LINE: string = SHARED_LINES.takeover;
 
 /** Can a person see and press this element? A box is not enough: the pre-paint skeleton keeps an
  *  exact copy of the header (same label, same box) inside an `inert`, `aria-hidden` layer the
