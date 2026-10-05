@@ -445,8 +445,11 @@ test('a share below the snap midpoint is NOT clamped — the seed lets the rail 
 // pane labels and adds the walk bar. Before the pre-paint seed, all four of those arrived a
 // second after the Edit layout had already painted.
 test('an Explore reload paints one geometry per element too', async ({ page }) => {
-	await throttle(page);
+	// Seeded at full speed and throttled only for what is measured, as the Edit case above is,
+	// and for the same reason: the seed measures nothing, and under 6x its snapshot wait is
+	// what timed out on slow runners.
 	await seedRealSession(page);
+	await throttle(page);
 	// One full Explore visit first, so the reload under test is a RETURNING one.
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');

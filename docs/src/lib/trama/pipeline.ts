@@ -489,7 +489,8 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     for (let i = 0; i < figs.length; i++) if (figs[i] === fig) { fi = i; break; }
     return `${si}:${fi}`;
   }
-  function applyFit(fig: Element, box: HTMLElement, natW: number, natH: number): number | null {
+  // `textMin` is the port's declared type floor, read once per draw (see draw()).
+  function applyFit(fig: Element, box: HTMLElement, natW: number, natH: number, textMin: number): number | null {
     const k = fitOf(fig, natW, natH);
     if (k == null) return null;
     const fitted = Math.abs(k - 1) >= 0.005;
@@ -497,7 +498,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     if (fitted) box.setAttribute('data-fit-k', k.toFixed(4)); else box.removeAttribute('data-fit-k');
     // The type floor, counter-scaled: raise the DECLARED floor by 1/k so the transform
     // brings it back down to the floor the token asks for. Only ever upwards.
-    if (k < 1) box.style.setProperty('--chart-text-min', `${(readTextMin(fig, 11) / k).toFixed(3)}px`);
+    if (k < 1) box.style.setProperty('--chart-text-min', `${(textMin / k).toFixed(3)}px`);
     else box.style.removeProperty('--chart-text-min');
     return k;
   }
@@ -535,6 +536,19 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // candidate for nothing (52 s on a dense machine). The resize observer draws it once it
     // has a height. (A document that lays nothing out, jsdom, reads 0 for both and draws.)
     if (port0.clientWidth > 0 && !(port0.clientHeight > 0)) return;
+    // THE DECLARED TYPE FLOOR, READ ONCE A DRAW, while the style is clean from the reads above
+    // (and after the skip checks, so a pass that skips never pays for it). It is the figure's
+    // and the port's own, and every write below lands on the box inside them, so this draw's
+    // own writes cannot change it. Read per round, it forced a style recalculation after each
+    // round's writes, on the editor's thread, before the worker was asked. A settle, which
+    // runs after a pause, reads it again (`readMins`).
+    let figMin = 11;
+    let portMin = 11;
+    const readMins = () => {
+      figMin = readTextMin(fig, 11);
+      portMin = port0 === fig ? figMin : readTextMin(port0, 11);
+    };
+    readMins();
     readVis(sec);
     const S = sec && sec.offsetWidth > 0 ? sec.offsetWidth / HD : 1;
     const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, r1, esc, outline, grow, toOutline, cut, rounded, head, lines, groups };
@@ -564,7 +578,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // The first two rounds are unchanged, so a chart that settles in two draws the same bytes.
     const ROUNDS = 4;
     const floorFor = (k: number) => {
-      if (k < 1) box.style.setProperty('--chart-text-min', `${(readTextMin(fig, 11) / k).toFixed(3)}px`);
+      if (k < 1) box.style.setProperty('--chart-text-min', `${(figMin / k).toFixed(3)}px`);
       else box.style.removeProperty('--chart-text-min');
     };
     const lift = (k: number) => (k < 1 ? 1 / k : 1);
@@ -631,9 +645,12 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       // fits from a cold start (k 1, as a paste or an export does) with its rounds hidden, so the
       // drawing at rest is a function of the text and the stage alone, never of the path typed.
       const round = (r: number, search: boolean, via: Bag = W, settle = false) => {
-        readVis(sec);
+        // Writes first, then the reads: the stage's visual scale (readVis) does not depend on
+        // the box, so reading it after the writes shares the one style and layout pass the
+        // measure needs, instead of forcing one of its own on the last round's paint.
         unlay();
         floorFor(kGuess);
+        readVis(sec);
         const m = measure();
         const opts = m.args[2];
         // A pin holds only for the direction the chart asked for when the search chose it: an
@@ -649,9 +666,6 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         // The newest drawing stands in while this round is in flight: the last keystroke's,
         // or this keystroke's own earlier round once it has painted (below).
         showPrev(D[key('Prev')].get(fitKey) || prev);
-        // The state the figure holds while this is in flight: a pass the runtime runs
-        // meanwhile (it answers every attribute change above) finds it and skips.
-        F[key('PendingSig')] = sigNow();
         via.post(fitKey, args, (geo: Geometry | null) => {
           if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected) return;
           // The pinned grid cannot hold the shapes (a line would drop under two): search.
@@ -668,7 +682,8 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
           // that remains is the last round's, the same as before.
           // A settling chain paints only its last round: its early rounds start from a cold fit and
           // would flash a chart drawn at the wrong type floor.
-          if (r < ROUNDS - 1 && !settled(geo)) { if (!settle) finish(m as Measured & { geo: Geometry }); round(r + 1, search, via, settle); return; }
+          // A mid-chain paint leaves no signature: the next round rewrites the figure at once.
+          if (r < ROUNDS - 1 && !settled(geo)) { if (!settle) finish(m as Measured & { geo: Geometry }, false); round(r + 1, search, via, settle); return; }
           finish(m as Measured & { geo: Geometry });
           if (settle) return;
           // The author paused: settle once, so the drawing at rest is the one every export makes
@@ -680,9 +695,15 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
             if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected || D[key('Worker')] !== W) return;
             kGuess = 1;
             last = null;
+            readMins();
             round(0, true, liveWorker('Search') || W, true);
           }, REWRAP_AFTER);
         });
+        // The state the figure holds while this is in flight: a pass the runtime runs
+        // meanwhile (it answers every attribute change above) finds it and skips. Read AFTER
+        // the post: the post writes nothing and answers on a later task, so the value is the
+        // same, but its style and layout pass no longer delays the worker's start.
+        F[key('PendingSig')] = sigNow();
       };
       round(0, false);
       return;
@@ -729,6 +750,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         if (port0.clientWidth > 0 && !(port0.clientHeight > 0)) return;
         try { const t = getComputedStyle(fig).transform; if (t && t !== 'none') return; } catch (_e) { /* measure anyway */ }
         readVis(sec);
+        readMins();
         kGuess = 1;
         last = null;
         const cold = fitHere();
@@ -736,7 +758,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       }, REWRAP_AFTER);
     }
 
-    function finish(m: Measured & { geo: Geometry }) {
+    function finish(m: Measured & { geo: Geometry }, final = true) {
       const geo = m.geo;
       fig.removeAttribute(`data-${P}-nolayout`);
       const drawn = A.paint(model, m, geo, ctx);
@@ -746,15 +768,17 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       box.style.height = `${r1(geo.height * S)}px`;
       fig.setAttribute(`data-${P}-drawn`, '1');
       if (fig.getAttribute(`data-${P}-laid`) !== geo.dir) fig.setAttribute(`data-${P}-laid`, geo.dir);
-      const kFit = applyFit(port0, box, geo.width * S, geo.height * S);
+      const kFit = applyFit(port0, box, geo.width * S, geo.height * S, portMin);
       if (kFit != null) D[key('Fit')].set(fitKey, kFit);
       // A full search's choice is the pin: a grid (its lines and direction), or dagre's layout
       // (lines 0) in its direction. Half-typed text often parses as a chart whose search picks
       // dagre, and without a pin every key of it searched again: 3-4 rounds of 100-400 ms.
       if (!m.pinned && m.args[2].wrap) D[key('Wrap')].set(fitKey, { lines: geo.lines ?? 0, dir: geo.dir, asked: m.args[2].dir });
       // The signature of the state this draw LEFT (its own fit and type floor included), so
-      // the resize observer and the next pass see nothing new and skip.
-      F[key('Sig')] = sigNow();
+      // the resize observer and the next pass see nothing new and skip. A mid-chain paint
+      // (`final` false) is rewritten by the next round in the same task, so its signature
+      // could never match: reading it only forced a style and layout pass for nothing.
+      F[key('Sig')] = final ? sigNow() : null;
       F[key('PendingSig')] = null;
       fig.removeAttribute(`data-${P}-pending`);
       D[key('Prev')].set(fitKey, { ids: model.shapes.map((x) => x.id), drawn, vb, w: box.style.width, h: box.style.height, transform: box.style.transform, k: box.getAttribute('data-fit-k'), floor: box.style.getPropertyValue('--chart-text-min'), dir: geo.dir });

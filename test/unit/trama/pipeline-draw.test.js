@@ -325,6 +325,93 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     assert.equal(t.log.layouts.length, n);
   });
 
+  // THE EDITOR'S THREAD BEFORE THE POST (option C of
+  // engineering/decisions/2026-10-05-graph-chart-typing-latency.md). Every style
+  // read after a DOM write forces a style recalculation. The pending signature is read after
+  // the post, a mid-chain paint reads none, and the declared type floor is read once a draw.
+  test('a live redraw reads the signature after each post, none for a mid-chain paint, and the floor once', async () => {
+    const dom = new JSDOM('<!doctype html><head><script src="https://x.test/lattice-dagre.js"></script></head><body><section><div class="g-figure" data-g-model="1"><div class="g-port"><div class="g-box"><div class="g-harness"></div><svg><title>Chart</title></svg></div></div></div></section></body>', { runScripts: 'outside-only' });
+    const w = dom.window;
+    const fig = w.document.querySelector('.g-figure');
+    // A port of its own inside the figure, as both shipping adapters have (.sc-canvas, .fc-canvas).
+    const port = w.document.querySelector('.g-port');
+    for (const el of [fig, port]) el.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 1000, width: 1000, height: 1000 });
+    w.__latticeDagre = { layout() {} };
+    const events = [];
+    const kernel = () => ({ layout(_m, sizes) { return { width: sizes.a.base + 90 * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] }; } });
+    w.URL.createObjectURL = () => 'blob:test';
+    w.URL.revokeObjectURL = () => {};
+    let workers = 0;
+    w.Worker = class {
+      constructor() { this.n = ++workers; }
+      postMessage(d) {
+        events.push(this.n === 1 ? 'post' : 'settle-post');
+        setTimeout(() => this.onmessage({ data: { id: d.id, geo: kernel().layout(d.model, d.sizes) } }), 5);
+      }
+      terminate() {}
+    };
+    const gcs = w.getComputedStyle;
+    w.getComputedStyle = (el, ...r) => {
+      if (el === fig) events.push('style(fig)');
+      if (el === port) events.push('style(port)');
+      return gcs.call(w, el, ...r);
+    };
+    // Revision 1 is wider, so its warm start is off its fixed point and takes several rounds.
+    const ad = () => ({
+      ...live(),
+      parts(f) { return { box: f.querySelector('.g-box'), harness: f.querySelector('.g-harness'), svg: f.querySelector('svg'), port: f.querySelector('.g-port') }; },
+      signature(f) { events.push('sig'); return [f.getAttribute('data-g-model'), f.getAttribute('data-rev') || '']; },
+      measure(model, ctx) {
+        const floor = Number.parseFloat(ctx.fig.querySelector('.g-box').style.getPropertyValue('--chart-text-min')) || 11;
+        return { args: [model, { a: { w: floor, h: 10, base: ctx.fig.getAttribute('data-rev') === '1' ? 1600 : 400 } }, {}], floor };
+      },
+    });
+    const pass = w.eval(`(${installGraphPass.toString()})`);
+    pass(w.document, kernel, ad, { live: true });
+    fig.setAttribute('data-rev', '1');
+    events.length = 0;
+    pass(w.document, kernel, ad, { live: true });
+    await sleep(100);
+    const keyEvents = events.filter((e) => e !== 'settle-post');
+    const posts = keyEvents.filter((e) => e === 'post').length;
+    assert.ok(posts >= 2, `the redraw must take more than one round, or this test proves nothing: ${keyEvents}`);
+    keyEvents.forEach((e, i) => { if (e === 'post') assert.equal(keyEvents[i + 1], 'sig', `the pending signature follows the post: ${keyEvents}`); });
+    // A draw's entry reads the figure's transform, then its signature; the runtime's own pass
+    // re-enters for the attributes a round writes, and skips there on the pending signature.
+    const entries = keyEvents.filter((e, i) => e === 'sig' && keyEvents[i - 1] === 'style(fig)').length;
+    // The entry checks, one pending signature per post, and the final paint's: none for the
+    // mid-chain paints.
+    assert.equal(keyEvents.filter((e) => e === 'sig').length, entries + posts + 1, `${keyEvents}`);
+    // The declared floor of the figure and of the port: once each for the one draw that did not
+    // skip, however many rounds it ran; a skipping pass reads neither.
+    assert.equal(keyEvents.filter((e) => e === 'style(fig)').length, entries + 1, `${keyEvents}`);
+    assert.equal(keyEvents.filter((e) => e === 'style(port)').length, 1, `${keyEvents}`);
+    // ...and a pass run while a round is in flight still finds the pending signature and skips.
+    fig.setAttribute('data-rev', '');
+    events.length = 0;
+    pass(w.document, kernel, ad, { live: true });
+    const inFlight = events.filter((e) => e === 'post').length;
+    pass(w.document, kernel, ad, { live: true });
+    assert.equal(events.filter((e) => e === 'post').length, inFlight, 'the second pass skipped');
+  });
+
+  // The floor is read once a draw, but a settle runs after a pause: a declared floor that
+  // changed meanwhile (with no signature change) must reach it, as it reaches a fresh page.
+  test('the settle reads the declared type floor again', async () => {
+    const fresh = setupLive(false);
+    fresh.fig.style.setProperty('--chart-text-min', '24px');
+    fresh.run();
+    const t = setupLive(true);
+    t.run();
+    t.fig.setAttribute('data-rev', '1');
+    t.run();
+    await sleep(100);
+    t.fig.style.setProperty('--chart-text-min', '24px');
+    await sleep(600);
+    assert.notEqual(fresh.svg(), '', 'the fresh page drew');
+    assert.equal(t.svg(), fresh.svg());
+  });
+
   test('a chain in flight for the chart this element held before never paints over the next one', async () => {
     const t = setupLive(true);
     t.run();

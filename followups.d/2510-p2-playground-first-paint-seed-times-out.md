@@ -11,6 +11,10 @@ status    — FIX LANDED on claude/segno-phase-2: the seed step now runs at full
             on the live preview before the snapshot; the 6x throttle applies only to the reload
             under test. Locally: 5 of 5 throttled runs green (20 of 20 tests across the file's
             @smoke cases). What is left is the CI count in "done when".
+            2026-10-05, the trama continuation PR: the Explore reload case now seeds at full
+            speed too. Locally, production build, --repeat-each 30 --workers 2: 60 of 60 for
+            the two reload cases with the seed unthrottled; 60 of 60 before it (2 and 4
+            workers), so the flake does not reproduce here and CI is the only count.
 
 why now   — studio-smoke failed on #2510 (run 37244171446) and on an unrelated PR
             (claude/plugin-system-continuation-imi319, run 37219253540), both in the same

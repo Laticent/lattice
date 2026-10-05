@@ -33,8 +33,23 @@ recorded: 2026-10-05
                    Still open: the cause confirmed from a CI trace (the next failure logs
                    it as "[playground] no first-slide snapshot stored: <reason>"), and that
                    toolbar jump.
-       done when — the cause is named, and the test passes 30 of 30 with --repeat-each in
-                   CI shape.
+       2026-10-05 — the continuation session (PR "perf(trama): no forced style
+                   pass…"): 60 of 60 clean on the merged code, production build,
+                   --repeat-each 30 twice (--workers 2, CI's shape, 6.7 min; then
+                   --workers 4 on this sandbox's cores, 4.3 min). Neither the seed
+                   timeout nor the .pg-bar jump came back. A frame probe of a cold
+                   visit at 6x CPU throttle holds the toolbar at 53 px from its first
+                   sampled frame. CI's studio-smoke has been green since 0265c61
+                   (#2516, #2517), so no CI log carries the logged reason yet. The
+                   toolbar's 17 px reading is padding plus border with zero-height
+                   children, so a fix aimed at it now would be a guess.
+                   The seed half is now followups.d/2510-p2-playground-first-paint-seed-
+                   times-out.md: #2519 seeded the @smoke case at full speed, and the next
+                   PR did the same for the Explore case. What stays here is the cause
+                   (unconfirmed) and the toolbar jump.
+       done when — a CI failure's logged reason names the cause, or the 2510 follow-up's
+                   twenty green runs close the seed path; and the .pg-bar jump is
+                   reproduced and fixed, or not seen in those runs.
        evidence  — the repeat run, and the cause in the PR body.
        verify    — tier 0, because it is a test or a timing fix.
 ```

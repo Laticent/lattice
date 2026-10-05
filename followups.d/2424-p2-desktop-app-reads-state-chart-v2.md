@@ -25,5 +25,8 @@ recorded: 2026-10-04
                    moved to the v2 names), and the app opens `examples/state-chart.md` and
                    draws its default and `inline` slides as the CLI export does.
        evidence  — the grep output, and a screenshot of the state chart slide in the app.
+       blocked   — 2026-10-05: still unreachable. The session's GitHub account lists only
+                   Laticent/lattice, and attaching the desktop repo was refused. The
+                   owner, or a session started with that repository selected, can run it.
        verify    — tier 1.
 ```

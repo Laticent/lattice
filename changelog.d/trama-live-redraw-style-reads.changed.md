@@ -1,0 +1,2 @@
+- **Graph charts:** a live redraw in the Studio asks its layout worker 3–7 ms sooner a key. The pipeline no longer forces a style and layout pass before the post: it reads the pending signature after posting, skips the signature on a paint the next round replaces, and reads the type floor once a draw. Drawings are unchanged.
+- **Tooling:** `tools/graph-typing-bench.mjs` times each stage of a graph chart's live redraw, key by key, in the production-built Studio, and with `CAPTURE` checks that two builds paint byte-identical drawings.

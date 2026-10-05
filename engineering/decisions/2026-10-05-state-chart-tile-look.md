@@ -1,12 +1,13 @@
 ---
-status: proposed
-summary: Should the state chart's tile become the flowchart's (its type size, wrap width and flat fill), making the state chart a flowchart preset? Measured on four slides in light and dark, the flowchart's tile sets state names about a third smaller on the slide (20–22 px against 27–34 px on a 1280 px slide) although the fit scale rises, and it adds line detours. Recommendation is to keep the state chart's tile and leave the shared code where it already is. The owner picks.
+status: shipped
+summary: Should the state chart's tile become the flowchart's (its type size, wrap width and flat fill), making the state chart a flowchart preset? Measured on four slides in light and dark, the flowchart's tile sets state names about a third smaller on the slide (20–22 px against 27–34 px on a 1280 px slide) although the fit scale rises, and it adds line detours. Recommendation is to keep the state chart's tile and leave the shared code where it already is. The owner picked A: keep the state tile; nothing changes on a slide.
 ---
 
 # Should the state chart be a flowchart preset? (2026-10-05)
 
-**Status: proposed.** The owner picks one option below. Nothing ships before that pick,
-because the answer changes how every state chart looks. Origin:
+**Status: shipped — the decision is A, keep the state chart's tile** (the owner's pick, 2026-10-05, after
+seeing the light sheet below). No slide changes, and the follow-up is closed. The rest of
+this note is the case as it was put. Origin:
 `followups.d/2424-p2-state-chart-as-flowchart-preset.md`.
 
 ## The question
@@ -95,3 +96,12 @@ flowchart a larger tile when its steps are short. That is a separate question.
 
 If the owner picks B or C, the work is a new PR: the tile change, every state-chart deck
 re-rendered light and dark, and the golden diff reviewed.
+
+## Decision
+
+**A** (2026-10-05). The owner chose to keep the state chart's tile after seeing the three
+columns side by side. State names stay at 27–34 px on a 1280 px slide, every state-chart deck
+renders as before, and `followups.d/2424-p2-state-chart-as-flowchart-preset.md` is deleted.
+The two tile stylesheets (`state-chart.styles.css` `.state-node`, `flowchart.styles.css`
+`.fc-node`) stay separate on purpose. Later tile work serves one chart at a time. The reverse
+question, a larger flowchart tile when its steps are short, is still open and was not asked.
