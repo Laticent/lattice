@@ -464,6 +464,9 @@ export function createToolbox(opts: {
 					.map((f) => `- ${f.severity || 'info'}${f.rule ? ` [${f.rule}]` : ''}${f.slide ? ` slide ${f.slide}` : ''}: ${JSON.stringify(String(f.message ?? ''))}`)
 					.join('\n'),
 			);
+		// `undefined` means Mermaid's parser did not run (it failed to load), not that every
+		// diagram parsed — say so, or the model reports diagrams it never had checked as fine.
+		if (res.diagrams === undefined && /^\s*(`{3,}|~{3,})\s*mermaid\b/m.test(draft)) out.push("Mermaid diagrams were not checked: the parser did not run. Do not say they parse.");
 		if (res.diagrams?.length) out.push(`Mermaid parse errors:\n${res.diagrams.map((d) => `- slide ${d.slide}: ${JSON.stringify(String(d.message ?? ''))}`).join('\n')}`);
 		if (over.length) out.push(`Over the ${budget}-word slide budget: ${over.map((x) => `slide ${x.n} (${x.w}w)`).join(', ')}.`);
 		return out.join('\n');

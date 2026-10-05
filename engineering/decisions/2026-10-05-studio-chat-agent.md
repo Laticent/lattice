@@ -270,6 +270,39 @@ request, a 401, and the notice "OpenRouter rejected the connection — reconnect
 AI. (OpenRouter said: User not found.)" The same request on production with a working key
 built a 7-slide deck with 0 lint errors.
 
+**The second checker pass, over the self-reviewed commits** (`followups.d/2518-p1`, closed
+here). An independent checker read `withCheck`, `withCachedTail`, the transport's tools
+handling and #2531's error routing, and reproduced each finding against the real wiring. All
+fixed and pinned in `architect-agent.chat.test.ts` / `architect-agent.test.ts`:
+
+- **An error inside a 200 stream was dropped.** OpenRouter reports a provider that drops
+  mid-reply as an `error` object in the stream, after a 200. The parser never read it, so the
+  turn ended as "No reply came back", and a half-streamed tool call ran on cut-off arguments.
+  On a request with tools it now throws `OpenRouter error <code>`, which names the cause.
+  Callers without tools keep their partial prose, as before.
+- **A context-length 400 fell back to the one-shot.** `isToolRefusal` matched any 400 that
+  mentioned "tool", and OpenRouter's overflow message counts "tool input" tokens. The one-shot
+  then sent the larger old prompt, which overflowed too, and said "Nothing came back". The
+  match now needs the refusal's own words and the transport's status prefix; a context-length
+  error says the deck and attachments are too long for the model.
+- **A failure after round one always read "the connection dropped".** A 429 between tool
+  rounds, the likeliest case, now says it is rate-limiting; any OpenRouter status names its
+  cause and remedy.
+- **A Stop during a round that streamed only a tool call recorded $0** and skipped the
+  exact-cost lookup. A round in flight is now estimated from its prompt and reconciled by its
+  generation id whether or not prose streamed.
+- **A 403 for flagged input said "reconnect".** It now says moderation flagged the request.
+- **"Diagrams were not checked" was silent.** When Mermaid's parser did not run, the check
+  now says so, so the model cannot claim the diagrams parse.
+- **A retired model id no longer self-heals on the chat**, and the transport's comment said it
+  did. Kept as a decision: the chat shows "pick another model" with OpenRouter's words rather
+  than moving the author onto the default model without saying so. Comment and test corrected.
+- **Answered, not changed:** the checker suspected Google models would refuse the tool schemas
+  (a `type` array, an empty `properties`). One live turn on `google/gemini-2.5-flash` took the
+  tools with a 200. And it could not tell whether the rolling cache mark on a `tool` message
+  reaches Anthropic; the benchmark above shows it does, since each round's `cached_tokens`
+  include the previous round's tool results.
+
 ## 10. What this does NOT do
 
 - **It cannot see the slides.** `check_deck` is lint, review and Mermaid's parser; no tool

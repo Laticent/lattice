@@ -130,6 +130,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	let streamed = '';
 	let roundPrompt = '';
 	let genId: string | null = null;
+	// A request is in flight: set when a round is sent, cleared when it returns. A Stop
+	// prices only an open round — a finished one already reported its exact cost.
+	let roundOpen = false;
 	let rounds = 0;
 	let blockedNote: string | null = null;
 	const soFar = () => [...done, streamed].map((t) => t.trim()).filter(Boolean).join('\n\n');
@@ -153,6 +156,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		}
 		let calls: ToolCall[] = [];
 		let finish: string | null = null;
+		roundOpen = true;
 		const text = await model.complete({
 			messages: msgs as { role: string; content: MsgContent }[],
 			plugins: ground.plugins,
@@ -178,6 +182,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			signal: opts?.signal,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
+		roundOpen = false;
 		rounds++;
 		return { text, toolCalls: calls.filter((c) => c?.function?.name), truncated: finish === 'length' };
 	};
@@ -206,7 +211,12 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// Stop keeps what streamed AND what was staged — the author can still review it.
 			// Same estimate-then-reconcile as the one-shot path (the usage chunk never came).
 			reply = soFar();
-			if (streamed) {
+			// Priced whenever a round was in flight, not only when prose streamed: a round that
+			// streams only a tool call (a whole slide in `edit_slides`) streams no prose, and was
+			// recorded as $0 with the exact-cost lookup skipped (checker). The estimate covers the
+			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
+			// exact figure.
+			if (roundOpen && (streamed || genId)) {
 				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
@@ -234,8 +244,14 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			return { status: 'blocked', reply: describeModelError(msg) };
 		}
 		else {
+			// A failure after a finished round. A status from OpenRouter (a 429 between rounds
+			// is the likeliest) gets its own cause and remedy; anything else is a dropped
+			// connection, with the error's own words when it was not the network.
 			reply = soFar();
-			notes.push('The model connection dropped partway through this turn.');
+			const msg = String((e as { message?: string })?.message ?? e ?? '');
+			if (/OpenRouter error \d{3}/.test(msg)) notes.push(`This turn stopped partway. ${describeModelError(msg)}`);
+			else if (!msg || /fetch|network|load failed/i.test(msg)) notes.push('The model connection dropped partway through this turn.');
+			else notes.push(`This turn stopped partway with an error: ${msg.slice(0, 140)}`);
 		}
 	}
 	return finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
@@ -272,7 +288,12 @@ export function finalizeAgent(source: string, reply: string, raw: AgentRawEdit[]
  *  chat can still serve. OpenRouter answers 404 "No endpoints found that support tool use",
  *  or names a tool parameter it cannot route. */
 export function isToolRefusal(message: string): boolean {
-	return /\b(404|400)\b/.test(message) && /tool|requested parameters/i.test(message);
+	// The status is anchored to the transport's prefix, and the refusal named by its own
+	// words: a context-length 400 mentions "tool input" in its token breakdown, and matching
+	// a bare "tool" sent it down the one-shot path, which overflowed too and said nothing.
+	if (!/^OpenRouter error (400|404)\b/.test(message)) return false;
+	if (/context length|maximum context|too many tokens/i.test(message)) return false;
+	return /support tool|tool use|tool_choice|tool calling|requested parameters/i.test(message);
 }
 
 /** An author-facing sentence for a failed model request, from the transport's
@@ -290,8 +311,11 @@ export function describeModelError(message: string): string {
 	}
 	detail = detail.replace(/\s+/g, ' ').trim().slice(0, 140);
 	const tail = detail ? ` (OpenRouter said: ${detail})` : '';
+	// OpenRouter also uses 403 for input a moderated model flagged — reconnecting does not help.
+	if (status === 403 && /moderation|flagged/i.test(detail)) return `The selected model's moderation flagged this request — rephrase it, or pick another model in Workspace → AI.${tail}`;
 	if (status === 401 || status === 403) return `OpenRouter rejected the connection — reconnect in Workspace → AI.${tail}`;
 	if (status === 402) return `Your OpenRouter account is out of credits — add credits at openrouter.ai, or switch to On-device in Workspace → AI.${tail}`;
+	if (status === 400 && /context length|maximum context|too many tokens/i.test(detail || raw)) return `The deck and its attachments are too long for this model — detach a reference document, or pick a model with a longer context in Workspace → AI.${tail}`;
 	if (status === 404 || status === 400) return `The selected model could not take this request — pick another model in Workspace → AI.${tail}`;
 	if (status === 429) return `OpenRouter is rate-limiting this key — wait a moment and send again.${tail}`;
 	if (status >= 500) return `OpenRouter or the model's provider had an error — send again in a moment.${tail}`;
