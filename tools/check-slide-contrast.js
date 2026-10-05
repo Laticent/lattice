@@ -481,8 +481,86 @@ const PROBE = () => {
 
   // `under()` already yields topmost-first, so composite straight down it until an
   // opaque paint closes the stack.
-  const underlays = (el, rect) => {
+  // BLIND SPOT 3: an SVG SHAPE as the ground. Every paint above is a CSS
+  // `backgroundColor`, so SVG text drawn on an SVG shape — hub-spoke's hub name on its
+  // dark disc, a label inside a filled node — climbed past the shape onto the section
+  // canvas and scored white-on-white (1.00:1) for text that renders white on navy. Found
+  // when hub-spoke graduated into the gallery (#2524): 20 runs at 1:1, all legible.
+  //
+  // This is a real measurement, not an exemption: `isPointInFill` tests the glyph box's
+  // center against each filled shape that PRECEDES the run in the same <svg> (SVG paints
+  // in document order, so only an earlier shape can sit under it), in that shape's own
+  // user space. Hits are returned topmost first, like `underlays`, with each fill's alpha
+  // scaled by its `fill-opacity` and the shape's own `opacity`. A `url(#…)` fill (a
+  // gradient or pattern) does not parse and is skipped, which falls back to the old
+  // reading for that shape rather than inventing a color.
+  //
+  // APPROXIMATE in the way `under()` is: the glyph box's CENTER stands for the whole run,
+  // so a label straddling a shape's edge is scored entirely against the shape. And an
+  // SVG hit ranks above every HTML underlay, which is wrong only for HTML painted inside
+  // the same <svg> after the shape (a <foreignObject>); none is on a gated surface.
+  // A shape a <use> instantiates is not found, which falls back to the old reading.
+  const SVG_SHAPES = 'circle, ellipse, rect, path, polygon, polyline';
+  const NON_PAINTING = new Set(['defs', 'clipPath', 'mask', 'marker', 'pattern', 'symbol',
+    'linearGradient', 'radialGradient', 'filter', 'switch']);
+  const svgUnderlays = (el, rect) => {
+    const svg = el.ownerSVGElement;
+    if (!svg) return [];
+    rect = rect || el.getBoundingClientRect();
+    let root = svg;
+    while (root.ownerSVGElement) root = root.ownerSVGElement;
+    const cx = rect.x + rect.width / 2;
+    const cy = rect.y + rect.height / 2;
+    const hits = [];
+    for (const shape of root.querySelectorAll(SVG_SHAPES)) {
+      if (!(shape.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+      if (typeof shape.isPointInFill !== 'function') continue;
+      const cs = getComputedStyle(shape);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      if (cs.clipPath !== 'none' || cs.mask !== 'none') continue;
+      const c = cs.fill && cs.fill !== 'none' ? parse(cs.fill) : null;
+      if (!c || c.a <= 0) continue;
+      // An earlier shape is only a ground if it PAINTS where it sits. A shape inside
+      // <defs>, <clipPath>, <marker>, <mask>, <pattern> or <symbol> never does (a clip
+      // rect even carries the initial `fill: black`); one under a `display:none` group
+      // does not (display does not inherit, so its own computed value says nothing);
+      // one under a clipped group or a nested <svg> may not; and a group's opacity
+      // scales it. A checker built each case and measured an 18.13:1 pass for text that
+      // renders at 1:1, so the walk skips them rather than trusting the shape alone.
+      let groupAlpha = 1;
+      let paints = true;
+      for (let a = shape.parentElement; a && a !== root.parentElement; a = a.parentElement) {
+        if (NON_PAINTING.has(a.localName)) { paints = false; break; }
+        const acs = getComputedStyle(a);
+        if (acs.display === 'none') { paints = false; break; }
+        if (a !== root && (acs.clipPath !== 'none' || acs.mask !== 'none' || a.localName === 'svg')) { paints = false; break; }
+        const o = parseFloat(acs.opacity);
+        if (!Number.isNaN(o)) groupAlpha *= o;
+      }
+      if (!paints) continue;
+      const ctm = shape.getScreenCTM();
+      if (!ctm) continue;
+      // An SVGPoint, not a DOMPoint: the pinned Chromium's isPointInFill rejects the latter.
+      const sp = root.createSVGPoint();
+      sp.x = cx;
+      sp.y = cy;
+      const pt = sp.matrixTransform(ctm.inverse());
+      if (!shape.isPointInFill(pt)) continue;
+      const fo = parseFloat(cs.fillOpacity);
+      const op = parseFloat(cs.opacity);
+      hits.push({ rgb: c.rgb, a: c.a * (Number.isNaN(fo) ? 1 : fo) * (Number.isNaN(op) ? 1 : op) * groupAlpha });
+    }
     const out = [];
+    for (let i = hits.length - 1; i >= 0; i--) {
+      out.push(hits[i]);
+      if (hits[i].a >= 1) break;
+    }
+    return out;
+  };
+
+  const underlays = (el, rect) => {
+    const out = svgUnderlays(el, rect);
+    if (out.length && out[out.length - 1].a >= 1) return out;
     for (const node of under(el, rect)) {
       const c = parse(getComputedStyle(node).backgroundColor);
       if (!c || c.a <= 0) continue;

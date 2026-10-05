@@ -1438,6 +1438,82 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
+<!-- _class: hub-spoke -->
+<!-- _footer: "Chart — hub-spoke · hub-spoke" -->
+
+`Program office · Q3 2026`
+
+## Six workstreams report to the program office; two are off track.
+
+- Framework office `$4.2M`
+  - Signal intake `on-track`
+  - Scoring policy `at-risk`
+  - Decision log
+  - Calibration
+  - Training
+  - Adoption `blocked`
+
+---
+
+<!-- _class: hub-spoke sized -->
+<!-- _footer: "Chart — hub-spoke · hub-spoke sized" -->
+
+`Signal share · H1 2026`
+
+## Three teams send almost two thirds of every signal.
+
+- Signals logged `12,000`
+  - Sales `28%`
+  - Support `21%`
+  - Product `15%`
+  - Finance `12%`
+  - Operations `10%`
+  - Marketing `8%`
+  - Legal `6%`
+
+---
+
+<!-- _class: hub-spoke flow-in -->
+<!-- _footer: "Chart — hub-spoke · hub-spoke flow-in" -->
+
+`Decision log · Entries per month`
+
+## Two channels feed most of what the decision log takes in.
+
+- Decision log `840`
+  - Steering committee `310`
+  - Weekly review `240`
+  - Team leads `150`
+  - Slack intake bot `90`
+  - Ad hoc email `50` `at-risk`
+
+---
+
+<!-- _class: hub-spoke tiered -->
+<!-- _footer: "Chart — hub-spoke · hub-spoke tiered" -->
+
+`Framework ownership · 2026`
+
+## Four teams own the framework's ten moving parts.
+
+- Framework
+  - Strategy
+    - Scoring model
+    - Weights
+    - Calibration `at-risk`
+  - Platform
+    - Intake bot
+    - Decision API
+  - Enablement
+    - Workshops
+    - Taxonomy
+  - Analytics
+    - Dashboards
+    - Exports `blocked`
+    - Audits
+
+---
+
 <!-- _class: word-cloud -->
 <!-- _footer: "Chart — word-cloud · word-cloud" -->
 

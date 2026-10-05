@@ -244,8 +244,14 @@ const EXEMPT_TIER_FLOOR = {
     // written for (the tier's own note names "pagination/header/footer"), and the runs
     // that were NOT correct as muted chrome are the two the floor arm above just caught
     // and the fix removed from this count rather than hid inside it.
-    'gallery @ indaco': 343,
-    'gallery @ indaco-dark': 343,
+    // 354 since hub-spoke graduated in (#2524): four slides, each with the running
+    // header, the footer and the page number, all muted chrome (5.13:1 on indaco, 5.31:1
+    // on indaco-dark) (+12). The deck
+    // already measured 342 against the old 343, so the ceiling moves by 11. No real text
+    // was re-pointed at the tier; the count is the same with and without the SVG-ground
+    // change in tools/check-slide-contrast.js.
+    'gallery @ indaco': 354,
+    'gallery @ indaco-dark': 354,
     // 184 until the kanban de-emphasis stopped being an opacity wash. One `.kanban-size`
     // token ("M"/"L"/"XL") returned to the tier: the wash had been shifting its COMPOSITED
     // value off `--text-muted`, so a run authored in the exempt tier was being measured as

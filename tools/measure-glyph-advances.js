@@ -90,6 +90,11 @@ const path = require('node:path');
 const {
   GLYPH_UPPER, GLYPH_UPPER_FONTS, GLYPH_UPPER_MAX,
 } = require('../lib/components/chart/_chart-family/svg-label');
+// hub-spoke's MIXED-CASE hand table measures the same pinned Shantell Sans 700 bytes, so a
+// face swap that trips checkFontMetricsPin owes it a re-measure too. lib/core may not import
+// lib/components (.dependency-cruiser.cjs), which is why it lives in its own kernel and not
+// beside GLYPH_UPPER.
+const { handAdvanceTable } = require('../lib/core/hub-spoke-model');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -296,6 +301,27 @@ async function measure() {
       }
       out[face].stack = stack;
     }
+    // hub-spoke's table: weight 700, no case transform, no tracking (the kernel adds it),
+    // the wider of tabular and proportional digits, and the widest of several contexts, so
+    // a kerning pair or a contextual alternate cannot read narrower than it paints.
+    out.hubSpokeHand = await page.evaluate(async (stk, chars, fs_) => {
+      const probe = document.getElementById('probe');
+      probe.style.fontFamily = stk;
+      probe.style.textTransform = 'none';
+      const w = (text) => { probe.textContent = text; return probe.getComputedTextLength() / fs_; };
+      const adv = {};
+      for (const tab of [false, true]) {
+        probe.style.fontVariantNumeric = tab ? 'tabular-nums' : '';
+        for (const ch of chars) {
+          const v = ch === ' ' ? [] : [w(ch), w(ch.repeat(20)) / 20];
+          for (const k of ['H', 'n', 'o', 'a', '1']) v.push(w(k + ch + k) - w(k + k));
+          adv[ch] = Math.max(adv[ch] || 0, ...v);
+        }
+      }
+      probe.style.textTransform = '';
+      probe.style.fontVariantNumeric = '';
+      return adv;
+    }, faceStacks().hand, Object.keys(handAdvanceTable()), FS);
     return out;
   } finally {
     await browser.close();
@@ -394,10 +420,22 @@ async function main() {
     }
   }
 
+  // hub-spoke's mixed-case hand table (lib/core/hub-spoke-model.js HAND_ADVANCE), in
+  // hundredths of an em, rounded UP. Under is the clipping direction; more than a hundredth
+  // over the tightest value is slack worth taking back.
+  const hsTable = handAdvanceTable();
+  const hsRows = Object.entries(measured.hubSpokeHand).map(([ch, painted]) => {
+    const want = Math.ceil(painted * 100 - 0.05); // 0.0005em of tolerance: the probe size reads 1e-4em apart
+    const have = hsTable[ch];
+    return { ch, painted, have, want, status: have < painted * 100 - 0.05 ? 'under' : (have > want + 1 ? 'loose' : 'ok') };
+  });
+  const hsUnder = hsRows.filter((r) => r.status === 'under');
+  under += hsUnder.length;
+
   if (JSON_OUT) {
     process.stdout.write(`${JSON.stringify({
       ok: under === 0, under, loose, fonts: GLYPH_UPPER_FONTS, max: GLYPH_UPPER_MAX,
-      faces: report, strings: WITH_STRINGS ? strings : undefined,
+      faces: report, hubSpokeHand: hsRows, strings: WITH_STRINGS ? strings : undefined,
     }, null, 2)}\n`);
     return under === 0 || !CHECK ? 0 : 1;
   }
@@ -446,6 +484,14 @@ async function main() {
     }
   }
 
+  process.stdout.write(
+    `\n── hub-spoke hand (HAND_ADVANCE, mixed case, 700) — ${hsRows.length} glyphs, `
+    + `${hsUnder.length} under · ${hsRows.filter((r) => r.status === 'loose').length} loose\n`,
+  );
+  for (const r of hsRows.filter((x) => x.status !== 'ok')) {
+    process.stdout.write(`  ${r.status.toUpperCase().padEnd(5)} ${JSON.stringify(r.ch).padEnd(6)} painted ${r.painted.toFixed(4)}  table ${r.have}  tightest ${r.want}\n`);
+  }
+
   if (!under) {
     process.stdout.write(
       `\nglyph metrics OK — no entry under-counts${loose ? `; ${loose} ${loose === 1 ? 'carries' : 'carry'} slack above the tightest step` : ''}.\n`,
@@ -454,7 +500,7 @@ async function main() {
   }
   process.stdout.write(
     `\n${under} entr(ies) UNDER-count — the clipping direction, and the property the table exists `
-    + 'to hold. Paste the tightest rows into GLYPH_UPPER, re-run the unit suite, and update the '
+    + 'to hold. Paste the tightest rows into GLYPH_UPPER (or HAND_ADVANCE in hub-spoke-model.js), re-run the unit suite, and update the '
     + 'sha256 pins in GLYPH_UPPER_FONTS if the faces themselves changed.\n',
   );
   return CHECK ? 1 : 0;
