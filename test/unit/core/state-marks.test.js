@@ -175,7 +175,7 @@ describe('inline-code-directives — the escape, on both paths', () => {
   test('a backslash escapes what would have dispatched, and shows the literal', () => {
     assert.equal(d.escapedText('\\{LIVE}'), '{LIVE}');
     assert.equal(d.escapedText('\\[x]'), '[x]');
-    assert.equal(d.escapedText('\\{BETA}:tag:c4'), '{BETA}:tag:c4');
+    assert.equal(d.escapedText('\\{BETA, tag, c4}'), '{BETA, tag, c4}');
   });
 
   test('it does NOT strip a backslash that was never an escape — regexes are safe', () => {

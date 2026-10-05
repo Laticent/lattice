@@ -293,7 +293,7 @@ test('state-chart — names what comes BACK, which is the difference between pro
 
 test('state-chart — a SELF-LOOP is not counted as a way out', () => {
   // In Review has three nested transitions and only TWO exits: approve and reject.
-  // `revise => self` keeps the document where it is. Counting it would be wrong in
+  // `{revise, to=self}` keeps the document where it is. Counting it would be wrong in
   // the one place a listener is trying to count exits.
   const out = narrateStateChart(slide('state-chart', MACHINE));
   assert.ok(out.includes('with two ways out'), out);
@@ -714,7 +714,7 @@ test('CHECKER3 — an endpoint claim names only a terminal the machine can REACH
   ].join('\n')));
   assert.ok(island.includes('A four-state machine from Draft to Done.'), island);
   // "THE MACHINE NEVER REACHES", NOT "NOTHING LEADS TO". Something does lead to
-  // Alpha — `y => 3` — and this narrator reads that edge out three clauses later, so
+  // Alpha — `{y, to=3}` — and this narrator reads that edge out three clauses later, so
   // the in-degree sentence would be refuted inside its own caption track. A checker
   // caught the first cut shipping the wider set under the narrower wording, and an
   // earlier version of THIS arm asserted the false sentence as correct.

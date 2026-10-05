@@ -330,7 +330,7 @@ describe('the status key label set', () => {
     // produces, and would fail for the wrong reason: the label parses empty,
     // the set is rejected, and the paragraph survives with its raw tag.)
     const out = transformSection(
-      setPara('[{[x], &lt;img src=x onerror=alert(1)&gt;}]') + GRID, { ...CTX });
+      setPara('[{[x], &quot;&lt;img src=x onerror=alert(1)&gt;&quot;}]') + GRID, { ...CTX });
     assert.ok(!out.html.includes('<img'), 'the label must not become a live element');
     assert.match(out.html, /roadmap-legend-label">&lt;img src=x onerror=alert\(1\)&gt;</);
   });

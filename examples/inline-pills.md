@@ -20,8 +20,8 @@ Shape and color travel with the thing they describe, not with the slide.
 ## What changed.
 
 - `\{LABEL}` inside inline code becomes a pill; `\[x]` becomes a mark.
-- `:tag` `:chip` `:circle` `:chevron-right` name the shape.
-- `:c1`–`:c12` name a categorical slot, never a color.
+- `tag` `chip` `circle` `chevron-right` name the shape.
+- `c1`–`c12` name a categorical slot, never a color.
 - Plain inline code is untouched, so nothing existing moves.
 
 ---
@@ -32,13 +32,13 @@ Shape and color travel with the thing they describe, not with the slide.
 ## One slide can hold four different statuses.
 
 1. Settlement engine
-   - Shipped and load-tested `{STABLE}:c2`
+   - Shipped and load-tested `{STABLE, c2}`
 2. Ledger migration
-   - Cutover paused for review `{PARTIAL}:c4`
+   - Cutover paused for review `{PARTIAL, c4}`
 3. Reconciliation
-   - Design agreed, not started `{QUEUED}:tag:c7`
+   - Design agreed, not started `{QUEUED, tag, c7}`
 4. Legacy batch
-   - Retired this quarter `{CLOSED}:tag:c12`
+   - Retired this quarter `{CLOSED, tag, c12}`
 
 ---
 
@@ -64,26 +64,26 @@ Shape and color travel with the thing they describe, not with the slide.
 ## Eight shapes cover the vocabulary.
 
 1. Capsule and tag
-   - `{DEFAULT}:c1` `{TAG}:tag:c2`
+   - `{DEFAULT, c1}` `{TAG, tag, c2}`
 2. Bordered and chip
-   - `{BORDERED}:tag-bordered:c4` `{CHIP}:chip:c7`
+   - `{BORDERED, tag-bordered, c4}` `{CHIP, chip, c7}`
 3. Round and pointed
-   - `{3}:circle:c5` `{NEXT}:chevron-right:c6` `{BACK}:chevron-left:c8`
+   - `{3, circle, c5}` `{NEXT, chevron-right, c6}` `{BACK, chevron-left, c8}`
 4. Decision marks
-   - `{!}:diamond:c3` `{?}:diamond:c11`
+   - `{!, diamond, c3}` `{?, diamond, c11}`
 
 ---
 
-<!-- _footer: "The footer is small print, so its pill is small too `{AUTO}:c9`" -->
+<!-- _footer: "The footer is small print, so its pill is small too `{AUTO, c9}`" -->
 
-## A pill sizes itself `{LIVE}:c2`
+## A pill sizes itself `{LIVE, c2}`
 
-In a heading it is large. In body text it is the metadata size, the same as `{STABLE}:c2` in a table cell.
+In a heading it is large. In body text it is the metadata size, the same as `{STABLE, c2}` in a table cell.
 
-- `:sm` and `:lg` still work: `{MINOR}:sm:c9` · `{NORMAL}:c9` · `{MAJOR}:lg:c9`
+- `sm` and `lg` still work: `{MINOR, sm, c9}` · `{NORMAL, c9}` · `{MAJOR, lg, c9}`
 - They scale the automatic size, so they read the same way in every context
 
-— Note: in a below-note or a footer a pill is small, like `{DRAFT}:tag:c7` here.
+— Note: in a below-note or a footer a pill is small, like `{DRAFT, tag, c7}` here.
 
 ---
 
@@ -111,7 +111,7 @@ In a heading it is large. In body text it is the metadata size, the same as `{ST
 ## A mark goes wherever inline code goes.
 
 1. Settlement engine
-   - `[x]` signed `{STABLE}:c2` — and `[data-mark]` stays literal
+   - `[x]` signed `{STABLE, c2}` — and `[data-mark]` stays literal
 2. Ledger migration
    - Cutover paused for review `[-]`
 3. Vendor audit
@@ -135,7 +135,7 @@ In a heading it is large. In body text it is the metadata size, the same as `{ST
 - A word in a circle or diamond
   - Both are only as tall as a capsule, so they hold a digit or a mark. `lint:deck` says so rather than refusing the deck.
 - A color that means something
-  - `:c1`–`:c12` are ordinal slots, not colors. The same slot is sky blue on indaco and deep red on burgundy — pick a slot for contrast, never to say "green means good".
+  - `c1`–`c12` are ordinal slots, not colors. The same slot is sky blue on indaco and deep red on burgundy — pick a slot for contrast, never to say "green means good".
 
 ---
 

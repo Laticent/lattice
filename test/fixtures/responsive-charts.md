@@ -1,6 +1,6 @@
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## Radar must scale with the slide.
 
@@ -26,11 +26,11 @@
 ## Quadrant must scale with the slide.
 
 - Quick Wins
-  - Weekly digest `2, 82`
-  - Slack bot `3, 72`
+  - Weekly digest `{2, 82}`
+  - Slack bot `{3, 72}`
 - Strategic Bets
-  - Scoring v2 `8, 88`
-  - Decision API `7, 74`
+  - Scoring v2 `{8, 88}`
+  - Decision API `{7, 74}`
 
 ---
 

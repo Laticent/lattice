@@ -25,49 +25,49 @@ describe('inline-sparks — what it renders', () => {
   });
 
   test('every type, size and color slot is reachable with data of the right shape', () => {
-    for (const type of sparks.SERIES_TYPES) assert.equal(sparks.resolve(`~{1 -2 3}:${type}`)?.type, type, type);
-    for (const type of sparks.RATIO_TYPES) assert.equal(sparks.resolve(`~{3/4}:${type}`)?.type, type, type);
-    for (const size of sparks.SIZES) assert.equal(sparks.resolve(`~{1 2}:${size}`)?.size, size, size);
-    for (const c of sparks.COLORS) assert.equal(sparks.resolve(`~{1 2}:${c}`)?.c, c, c);
+    for (const type of sparks.SERIES_TYPES) assert.equal(sparks.resolve(`~{1 -2 3, ${type}}`)?.type, type, type);
+    for (const type of sparks.RATIO_TYPES) assert.equal(sparks.resolve(`~{3/4, ${type}}`)?.type, type, type);
+    for (const size of sparks.SIZES) assert.equal(sparks.resolve(`~{1 2, ${size}}`)?.size, size, size);
+    for (const c of sparks.COLORS) assert.equal(sparks.resolve(`~{1 2, ${c}}`)?.c, c, c);
     assert.equal(sparks.TYPES.length, 7);
     assert.equal(sparks.COLORS.length, 12);
   });
 
   test('frame, look and corners are per-spark axes that mark the host and leave the drawing alone', () => {
-    for (const text of ['~{1 2 3}', '~{1 -1}:winloss', '~{72%}', '~{3/4}:bullet']) {
+    for (const text of ['~{1 2 3}', '~{1 -1, winloss}', '~{72%}', '~{3/4, bullet}']) {
       const bare = sparks.resolve(text);
       for (const mod of ['framed', 'bare', 'pigment', 'etching', 'tone', 'square', 'rounded']) {
-        assert.deepEqual(sparks.resolve(`${text}:${mod}`).marks, bare.marks, `${text}:${mod}: the frame is CSS`);
+        assert.deepEqual(sparks.resolve(sparks.withWord(text, mod)).marks, bare.marks, `${text} + ${mod}: the frame is CSS`);
       }
     }
     // Only what the author wrote reaches the host; the slide and deck fill in the rest in CSS.
     assert.doesNotMatch(sparks.sparkHtml('~{1 2}'), /data-frame|data-look|data-corners/);
-    assert.match(sparks.sparkHtml('~{1 2}:bare:etching:rounded:c3'),
+    assert.match(sparks.sparkHtml('~{1 2, bare, etching, rounded, c3}'),
       /data-c="c3" data-frame="bare" data-look="etching" data-corners="rounded"/);
     // One word per axis.
-    for (const text of ['~{1 2}:framed:bare', '~{1 2}:pigment:tone', '~{1 2}:square:rounded']) {
+    for (const text of ['~{1 2, framed, bare}', '~{1 2, pigment, tone}', '~{1 2, square, rounded}']) {
       assert.equal(sparks.resolve(text), null, text);
-      assert.match(sparks.diagnose(text), /repeats the/, text);
+      assert.match(sparks.diagnose(text), /is given twice/, text);
     }
-    // The retired surface words are gone, not aliased: a stale `:outline` stays literal.
-    for (const text of ['~{1 2}:outline', '~{1 2}:solid']) assert.equal(sparks.resolve(text), null, text);
+    // The retired surface words are gone, not aliased: a stale `outline` stays literal.
+    for (const text of ['~{1 2, outline}', '~{1 2, solid}']) assert.equal(sparks.resolve(text), null, text);
   });
 
   test('modifier order is free — the axes are sorted, not positional', () => {
     // Same drawing and attributes; only `data-src` (the author's own text) differs.
     const noSrc = (h) => h.replace(/ data-src="[^"]*"/, '');
-    assert.equal(noSrc(sparks.sparkHtml('~{1 3 2}:area:c4:lg:end')), noSrc(sparks.sparkHtml('~{1 3 2}:end:lg:c4:area')));
+    assert.equal(noSrc(sparks.sparkHtml('~{1 3 2, area, c4, lg, end}')), noSrc(sparks.sparkHtml('~{1 3 2, end, lg, c4, area}')));
   });
 
   test('numbers take a sign, decimals and the typographic minus', () => {
-    const s = sparks.resolve('~{+1.5 −2 .5 -3}:bar');
+    const s = sparks.resolve('~{+1.5 −2 .5 -3, bar}');
     assert.ok(s);
     assert.match(s.label, /low -3, high 1\.5/);
   });
 
   test('the html path emits one host span, an svg, and dots as round html spans', () => {
-    const html = sparks.sparkHtml('~{1 3 2}:end');
-    assert.match(html, /^<span class="lat-spark" data-type="line" data-size="md" role="img" aria-label="[^"]+" data-src="~\{1 3 2\}:end">/);
+    const html = sparks.sparkHtml('~{1 3 2, end}');
+    assert.match(html, /^<span class="lat-spark" data-type="line" data-size="md" role="img" aria-label="[^"]+" data-src="~\{1 3 2, end\}">/);
     assert.match(html, /<svg viewBox="0 0 100 30" aria-hidden="true" preserveAspectRatio="none">/);
     assert.match(html, /<span class="lat-spark-dot s-end" style="--x:97;--y:50"><\/span><\/span>$/);
     assert.doesNotMatch(html, /<circle/, 'a series spark draws no svg circles — dots are html');
@@ -83,16 +83,16 @@ describe('inline-sparks — what it renders', () => {
   });
 
   test('data-src carries the author\'s text, escaped, so a measuring editor can find the span', () => {
-    assert.match(sparks.sparkHtml('~{1 2}:lg:c3'), / data-src="~\{1 2\}:lg:c3"/);
-    assert.match(sparks.sparkHtml('~{1 2}:lg'), /data-src="~\{1 2\}:lg"/);
+    assert.match(sparks.sparkHtml('~{1 2, lg, c3}'), / data-src="~\{1 2, lg, c3\}"/);
+    assert.match(sparks.sparkHtml('~{1 2, lg}'), /data-src="~\{1 2, lg\}"/);
   });
 
   test('the aria label carries the numbers a screen reader needs', () => {
     assert.equal(sparks.resolve('~{0.8 1.9 1.1}').label, 'Trend, 3 points, from 0.8 to 1.1, low 0.8, high 1.9');
-    assert.equal(sparks.resolve('~{1 1 -1 0}:winloss').label, '2 up, 1 down, of 4');
+    assert.equal(sparks.resolve('~{1 1 -1 0, winloss}').label, '2 up, 1 down, of 4');
     assert.equal(sparks.resolve('~{72%}').label, '72%');
     assert.equal(sparks.resolve('~{3/4}').label, '3 of 4');
-    assert.equal(sparks.resolve('~{1.9/1.6}:bullet').label, '1.9 against a target of 1.6');
+    assert.equal(sparks.resolve('~{1.9/1.6, bullet}').label, '1.9 against a target of 1.6');
   });
 
   test('a small value keeps its significant digits in the label, rather than reading as 0', () => {
@@ -109,27 +109,28 @@ describe('inline-sparks — what it refuses', () => {
     ['~{$4 $5}', 'currency signs'],
     ['~{4% 5%}', 'units inside a series'],
     ['~{1 2', 'no closing brace'],
-    ['~{1 2}bar', 'a modifier without its colon'],
-    ['~{1 2}:c13', 'a thirteenth color slot'],
-    ['~{1 2}:huge', 'an unknown modifier'],
-    ['~{1 2}:bar:line', 'two types'],
-    ['~{1 2}:sm:lg', 'two sizes'],
-    ['~{1 2}:end:end', 'a repeated marker'],
-    ['~{72%}:bar', 'a series type given one value'],
-    ['~{1 2 3}:ring', 'a ratio type given a series'],
-    ['~{1 2 3}:bar:end', 'a marker on a type without a line'],
-    ['~{1 2 3}:winloss:zero', ':zero on a type without a line'],
-    ['~{3/4}:fill', ':fill on a ring'],
+    ['~{1 2}bar', 'text after the closing brace'],
+    ['~{1 2}:bar', 'the old colon spelling (Segno phase 2 is a clean break)'],
+    ['~{1 2, c13}', 'a thirteenth color slot'],
+    ['~{1 2, huge}', 'an unknown word'],
+    ['~{1 2, bar, line}', 'two types'],
+    ['~{1 2, sm, lg}', 'two sizes'],
+    ['~{1 2, end, end}', 'a repeated marker'],
+    ['~{72%, bar}', 'a series type given one value'],
+    ['~{1 2 3, ring}', 'a ratio type given a series'],
+    ['~{1 2 3, bar, end}', 'a marker on a type without a line'],
+    ['~{1 2 3, winloss, zero}', ':zero on a type without a line'],
+    ['~{3/4, fill}', ':fill on a ring'],
     ['~{3/0}', 'a total of zero'],
     ['~{-5%}', 'a negative percentage'],
-    ['~{1 2}:', 'a trailing colon (an empty modifier)'],
+    ['~{1 2,}', 'a trailing comma (an empty word)'],
     ['~{1 2}::bar', 'a doubled colon (an empty modifier)'],
     [`~{${'9'.repeat(400)} 1}`, 'a number too large to draw (it would be NaN in the svg)'],
     [`~{${'9'.repeat(400)}/1}:bullet`, 'a ratio too large to draw'],
     [`~{${'9'.repeat(308)} -${'9'.repeat(308)}}`, 'a range that overflows though each value is finite'],
     ['~{-0%}', 'a minus sign on a percentage, even on zero'],
-    ['~{abc}:c3', 'no digit, but a spark modifier makes it an attempt'],
-    ['~{}:bar', 'empty data with a spark modifier'],
+    ['~{abc, c3}', 'no digit, but a spark modifier makes it an attempt'],
+    ['~{, bar}', 'empty data with a spark modifier'],
     ['~{-3/4}', 'a negative value in a ratio'],
     [`~{${Array.from({ length: sparks.MAX_POINTS + 1 }, () => 1).join(' ')}}`, 'more than the point cap'],
   ];
@@ -151,7 +152,7 @@ describe('inline-sparks — what it refuses', () => {
   });
 
   test('a spark that renders has no diagnosis', () => {
-    assert.equal(sparks.diagnose('~{1 2 3}:bar'), null);
+    assert.equal(sparks.diagnose('~{1 2 3, bar}'), null);
   });
 
   test('the point cap is inclusive', () => {
@@ -169,19 +170,19 @@ describe('inline-sparks — scaling (spec §6)', () => {
   });
 
   test(':zero starts the axis at 0, so a 4 → 5 series barely moves', () => {
-    const d = marks('~{4 5}:zero', 'line')[0].d;
+    const d = marks('~{4 5, zero}', 'line')[0].d;
     assert.equal(d, 'M3 8.4L97 4');
   });
 
   test('bars always start at zero — a bar\'s length is its value', () => {
-    const [a, b] = marks('~{4 5}:bar', 'up');
+    const [a, b] = marks('~{4 5, bar}', 'up');
     assert.equal(a.y + a.h, b.y + b.h, 'both bars stand on the same zero baseline');
     assert.ok(Math.abs(a.h / b.h - 4 / 5) < 0.01, 'bar heights are in proportion to the values');
   });
 
   test('a zero line appears only when the data crosses zero', () => {
-    assert.equal(marks('~{1 2 3}:bar', 'zero').length, 0);
-    assert.equal(marks('~{1 -2 3}:bar', 'zero').length, 1);
+    assert.equal(marks('~{1 2 3, bar}', 'zero').length, 0);
+    assert.equal(marks('~{1 -2 3, bar}', 'zero').length, 1);
     assert.equal(marks('~{1 -2 3}', 'zero').length, 1);
   });
 
@@ -191,14 +192,14 @@ describe('inline-sparks — scaling (spec §6)', () => {
   });
 
   test('win-loss reads the sign only', () => {
-    const s = sparks.resolve('~{5 -1 0 100}:winloss');
+    const s = sparks.resolve('~{5 -1 0 100, winloss}');
     assert.deepEqual(s.marks.map((m) => m.role), ['up', 'down', 'tie', 'up']);
     assert.equal(s.marks[0].h, s.marks[3].h, 'magnitude is discarded');
   });
 
   test('a ring clamps past the whole, and a bullet keeps its target tick off the edge', () => {
     assert.deepEqual(marks('~{150%}', 'arc')[0].dash, marks('~{100%}', 'arc')[0].dash);
-    const tick = Number(marks('~{80/80}:bullet', 'target')[0].d.slice(1).split(' ')[0]);
+    const tick = Number(marks('~{80/80, bullet}', 'target')[0].d.slice(1).split(' ')[0]);
     assert.ok(tick < 97, `target tick at ${tick} sits inside the track's right edge`);
   });
 });
@@ -226,7 +227,7 @@ describe('inline-sparks — the dispatcher and the escape', () => {
 
 describe('inline-sparks — the two render paths agree', () => {
   const doc = new JSDOM('<!doctype html><body></body>').window.document;
-  const cases = ['~{1 3 2 5}:end:minmax', '~{1 -2 3}:bar:c3:lg', '~{1 -1 0}:winloss:sm', '~{72%}', '~{3/4}:bullet:fill', '~{2 2 3}:step:c2'];
+  const cases = ['~{1 3 2 5, end, minmax}', '~{1 -2 3, bar, c3, lg}', '~{1 -1 0, winloss, sm}', '~{72%}', '~{3/4, bullet, fill}', '~{2 2 3, step, c2}'];
   for (const text of cases) {
     test(`sparkElement serializes to sparkHtml: ${text}`, () => {
       const el = sparks.sparkElement(doc, text);
@@ -254,46 +255,46 @@ describe('inline-sparks — the two render paths agree', () => {
 
 describe('inline-sparks — measured too big (lint-core sparkFitFindings)', () => {
   const lintCore = require('../../../lib/authoring/lint-core.js');
-  const deckSrc = '---\nmarp: true\n---\n\n## A\n\n| a | b |\n| - | - |\n| x | `~{1 2 3}:lg:end` |\n| y | `~{1 2 3}:c3` |\n';
+  const deckSrc = '---\nmarp: true\n---\n\n## A\n\n| a | b |\n| - | - |\n| x | `~{1 2 3, lg, end}` |\n| y | `~{1 2 3, c3}` |\n';
 
   test('a report becomes a warning on that exact span, with a one-click resize', () => {
-    const [f, ...rest] = lintCore.sparkFitFindings(deckSrc, [{ src: '~{1 2 3}:lg:end', why: 'wide', to: 'sm', over: 40.2, stillOver: false }]);
+    const [f, ...rest] = lintCore.sparkFitFindings(deckSrc, [{ src: '~{1 2 3, lg, end}', why: 'wide', to: 'sm', over: 40.2, stillOver: false }]);
     assert.equal(rest.length, 0, 'only the measured span is flagged');
     assert.equal(f.rule, 'spark-too-big');
-    assert.equal(f.span, '`~{1 2 3}:lg:end`');
-    assert.match(f.message, /about 41px wider than the space it sits in — :sm fits/);
-    assert.equal(f.didYouMean, ':sm');
-    assert.match(lintCore.applyFix(deckSrc, f), /\| x \| `~\{1 2 3\}:end:sm` \|/);
+    assert.equal(f.span, '`~{1 2 3, lg, end}`');
+    assert.match(f.message, /about 41px wider than the space it sits in — `sm` fits/);
+    assert.equal(f.didYouMean, 'sm');
+    assert.match(lintCore.applyFix(deckSrc, f), /\| x \| `~\{1 2 3, end, sm\}` \|/);
   });
 
   test('sizing to md drops the size word, and "still too wide" says so', () => {
-    const [md] = lintCore.sparkFitFindings(deckSrc, [{ src: '~{1 2 3}:lg:end', why: 'tall', to: 'md', over: 1.9, stillOver: false }]);
-    assert.equal(md.replace.to, '`~{1 2 3}:end`');
+    const [md] = lintCore.sparkFitFindings(deckSrc, [{ src: '~{1 2 3, lg, end}', why: 'tall', to: 'md', over: 1.9, stillOver: false }]);
+    assert.equal(md.replace.to, '`~{1 2 3, end}`');
     assert.equal(md.didYouMean, 'default size', 'the button says what pressing it does');
-    assert.match(md.message, /stands 1\.9 lines tall, which pushes its row apart — :md \(the default\) fits/);
-    const [still] = lintCore.sparkFitFindings(deckSrc, [{ src: '~{1 2 3}:lg:end', why: 'wide', to: 'sm', over: 90, stillOver: true }]);
-    assert.match(still.message, /even at :sm/);
+    assert.match(md.message, /stands 1\.9 lines tall, which pushes its row apart — md \(the default\) fits/);
+    const [still] = lintCore.sparkFitFindings(deckSrc, [{ src: '~{1 2 3, lg, end}', why: 'wide', to: 'sm', over: 90, stillOver: true }]);
+    assert.match(still.message, /even at `sm`/);
   });
 
   test('a running header spark is never flagged — the measure skips chrome, so must the finding', () => {
-    const withHeader = `---\nmarp: true\nheader: "\`~{1 2 3}:lg:end\`"\n---\n\n## A\n\nBody \`~{1 2 3}:lg:end\`\n`;
-    const found = lintCore.sparkFitFindings(withHeader, [{ src: '~{1 2 3}:lg:end', why: 'tall', to: 'md', over: 2, stillOver: false }]);
+    const withHeader = `---\nmarp: true\nheader: "\`~{1 2 3, lg, end}\`"\n---\n\n## A\n\nBody \`~{1 2 3, lg, end}\`\n`;
+    const found = lintCore.sparkFitFindings(withHeader, [{ src: '~{1 2 3, lg, end}', why: 'tall', to: 'md', over: 2, stillOver: false }]);
     assert.equal(found.length, 1);
     assert.equal(found[0].slide, 1);
   });
 
   test('the autocomplete asks the kernels what comes next, one axis at a time', () => {
     assert.deepEqual(sparks.nextWords('~{1 2 3}').next, 'type');
-    assert.deepEqual(sparks.nextWords('~{1 2 3}:bar').next, 'size');
-    const onBar = sparks.nextWords('~{1 2 3}:bar').words.map((w) => w.label);
+    assert.deepEqual(sparks.nextWords('~{1 2 3, bar}').next, 'size');
+    const onBar = sparks.nextWords('~{1 2 3, bar}').words.map((w) => w.label);
     assert.ok(!onBar.includes('end') && !onBar.includes('zero'), 'a bar takes no markers or :zero');
     assert.deepEqual(sparks.nextWords('~{72%}').words.filter((w) => w.axis === 'type').map((w) => w.label), ['ring', 'bullet']);
     assert.equal(sparks.nextWords('~{1,2}'), null, 'a broken spark offers nothing');
     const pills = require('../../../lib/core/inline-pills.js');
     assert.equal(pills.nextWords('{LIVE}').next, 'shape');
-    assert.equal(pills.nextWords('{LIVE}:tag').next, 'color');
-    assert.equal(pills.nextWords('{LIVE}:tag:c3:lg'), null, 'a complete pill offers nothing');
-    const hit = lintCore.inlineCodeCompletions('{LIVE}:tag:c3');
+    assert.equal(pills.nextWords('{LIVE, tag}').next, 'color');
+    assert.equal(pills.nextWords('{LIVE, tag, c3, lg}'), null, 'a complete pill offers nothing');
+    const hit = lintCore.inlineCodeCompletions('{LIVE, tag, c3}');
     assert.equal(hit.next, 'size');
     assert.ok(hit.words.every((w) => typeof w.info === 'string' && w.info));
   });

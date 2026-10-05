@@ -21,7 +21,7 @@ Status words, a heavy main path, line patterns and palette slots — every one a
 
 ## The vocabulary
 
-A status word or a slot `:c1`…`:c8` after a state; `=>` for the main path, `:dashed` or `:dotted` after a line's target.
+A status word or a slot `c1`…`c8` after a state; `=>` for the main path, `dashed` or `dotted` after a line's target.
 
 ---
 
@@ -56,10 +56,10 @@ Every line takes the connector color; every state is a neutral tile.
   - =submit=> Review
 - Review `on-track`
   - =approve=> Published
-  - -reject-> Draft `:dashed`
+  - -reject-> Draft `dashed`
 - Published `end`
 
-`[{=>, Happy path}, {:dashed, Sent back}]`
+`[{"=>", Happy path}, {dashed, Sent back}]`
 
 *Same machine — a word on each line that carries meaning.*
 
@@ -89,14 +89,14 @@ The end states carry their outcome, and words that paint alike share one key ent
 
 ## A slot names a palette color, not a hue.
 
-`:c1` on a state, `:c2` on a composite; the key shows a composite's slot by its name.
+`c1` on a state, `c2` on a composite; the key shows a composite's slot by its name.
 
-- Queued `start` `:c1`
+- Queued `start` `c1`
   - -claim-> Workers
-- Workers `:c2`
+- Workers `c2`
   - Running
     - -finish-> Done
-    - -crash-> Queued `:dotted`
+    - -crash-> Queued `dotted`
   - Retrying
     - -> Running
 - Done `end`

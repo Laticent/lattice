@@ -37,9 +37,20 @@ const ROOT = path.join(__dirname, '../../../lib/components/chart');
 
 // The <ul> inner HTML the dispatcher hands the kernel, matching Marp Core /
 // emulator output: `<li>Label <code>x</code> <code>y</code></li>`.
+// Rows are written as the old three-pill shape — `[label, ...pills]` — and the trailing run
+// of 2–3 value pills becomes the ONE point pill a scatter row carries since Segno phase 2
+// (`{x, y}` / `{x, y, size=s}`). Anything ahead of the run stays a pill of its own.
+const { isValuePill } = require('../../../lib/core/chart-values.js');
 function ul(rows) {
-  return rows.map(([label, ...pills]) =>
-    `<li>${label}${pills.map((p) => ` <code>${p}</code>`).join('')}</li>`).join('');
+  return rows.map(([label, ...pills]) => {
+    let first = pills.length;
+    while (first > 0 && isValuePill(pills[first - 1])) first -= 1;
+    const nums = pills.slice(first);
+    const point = nums.length >= 2
+      ? [`{${nums[0]}, ${nums[1]}${nums[2] !== undefined ? `, size=${nums[2]}` : ''}}`]
+      : nums;
+    return `<li>${label}${[...pills.slice(0, first), ...point].map((p) => ` <code>${p}</code>`).join('')}</li>`;
+  }).join('');
 }
 
 const CTX = { cls: 'scatter', classTokens: ['scatter'], orientation: 'landscape' };
@@ -81,7 +92,7 @@ describe('scatter kernel', () => {
     });
 
     test('a nested sublist is DETAIL, not a third coordinate', () => {
-      const inner = '<li>Atlas <code>4</code> <code>8</code>'
+      const inner = '<li>Atlas <code>{4, 8}</code>'
         + '<ul><li>Renewal lands in March</li></ul></li>';
       const m = parseScatter(inner);
       assert.equal(m.points.length, 1);
@@ -126,8 +137,8 @@ describe('scatter kernel', () => {
 
     test('a non-numeric pill AHEAD of the coordinates stays with the name', () => {
       const m = parseScatter(
-        '<li>Atlas <code>EMEA</code> <code>$420k</code> <code>18%</code></li>'
-        + '<li>Borealis <code>$310k</code> <code>24%</code></li>');
+        '<li>Atlas <code>EMEA</code> <code>{$420k, 18%}</code></li>'
+        + '<li>Borealis <code>{$310k, 24%}</code></li>');
       assert.deepEqual(m.points.map((p) => p.label), ['Atlas EMEA', 'Borealis']);
       assert.deepEqual(m.points.map((p) => p.x), [420000, 310000]);
     });
@@ -522,8 +533,8 @@ describe('scatter kernel', () => {
     test('detail bullets ride the mark-detail substrate and leave the chart face alone', () => {
       const plain = section(ul([['Atlas', '4', '8'], ['Borealis', '2', '3']]));
       const withDetail = section(
-        '<li>Atlas <code>4</code> <code>8</code><ul><li>Renewal in March</li></ul></li>'
-        + '<li>Borealis <code>2</code> <code>3</code></li>');
+        '<li>Atlas <code>{4, 8}</code><ul><li>Renewal in March</li></ul></li>'
+        + '<li>Borealis <code>{2, 3}</code></li>');
       const a = transformSection(plain, CTX);
       const b = transformSection(withDetail, CTX);
       assert.match(b, /<template class="chart-detail" data-mark="0">/);
@@ -698,7 +709,7 @@ describe('scatter — an empty member holds its axis position', () => {
   const { transformChartSection } = require('../../../lib/components/chart/_chart-family/chart-family');
   test('[, Teams adopting] names y and leaves x unnamed', () => {
     const { html } = transformChartSection('<p><code>[, Teams adopting]</code></p><h2>X</h2>' +
-      '<ul><li>A <code>1</code> <code>2</code></li><li>B <code>3</code> <code>4</code></li><li>C <code>5</code> <code>1</code></li></ul>', 'scatter');
+      '<ul><li>A <code>{1, 2}</code></li><li>B <code>{3, 4}</code></li><li>C <code>{5, 1}</code></li></ul>', 'scatter');
     assert.match(html, /data-y-axis="Teams adopting"/);
     assert.doesNotMatch(html, /data-x-axis=/);
   });

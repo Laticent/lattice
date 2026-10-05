@@ -33,15 +33,15 @@ A crowded plot asks the reader two questions. **Which mark does this name belong
 A leader is drawn only where a name could not sit against its own dot. None had to here, so the chart carries none.
 
 - Strategic Bets
-  - Scoring model v2 `3, 72`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 72}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
+  - Weekly signal brief `{8, 80}`
 - Defer
-  - Vendor scoping `2, 30`
+  - Vendor scoping `{2, 30}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
-  - Bespoke board export `9, 28`
+  - Custom audit log UI `{7, 18}`
+  - Bespoke board export `{9, 28}`
 
 ---
 
@@ -55,23 +55,23 @@ A leader is drawn only where a name could not sit against its own dot. None had 
 Eight names travelled far enough to need a line. Trace any one and it lands on its own dot.
 
 - Strategic Bets
-  - Scoring model v2 `3, 72`
-  - Per-team calibration `5, 85`
-  - Multi-source signal dedupe `4, 78`
-  - Decision-log audit trail `2, 66`
+  - Scoring model v2 `{3, 72}`
+  - Per-team calibration `{5, 85}`
+  - Multi-source signal dedupe `{4, 78}`
+  - Decision-log audit trail `{2, 66}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
-  - Snapshot exports `9, 55`
-  - Adoption dashboard `7, 62`
+  - Weekly signal brief `{8, 80}`
+  - Snapshot exports `{9, 55}`
+  - Adoption dashboard `{7, 62}`
 - Defer
-  - Vendor scoping `2, 30`
-  - Manual recalibration `1, 22`
-  - Legacy intake shim `3, 14`
+  - Vendor scoping `{2, 30}`
+  - Manual recalibration `{1, 22}`
+  - Legacy intake shim `{3, 14}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
-  - Bespoke board export `9, 28`
-  - Per-decision profiles `8, 12`
-  - Self-assessment generator `6, 25`
+  - Custom audit log UI `{7, 18}`
+  - Bespoke board export `{9, 28}`
+  - Per-decision profiles `{8, 12}`
+  - Self-assessment generator `{6, 25}`
 
 ---
 
@@ -84,18 +84,18 @@ Eight names travelled far enough to need a line. Trace any one and it lands on i
 
 Four sit within four points of each other and their dots overlap. The stacked names read in the dots' order; Ironwood, which could not join that column honestly, moved beside it.
 
-- Atlas `$420k` `18%`
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
-- Granite `$182k` `53%`
-- Halyard `$178k` `50%`
-- Ironwood `$185k` `54%`
-- Juniper `$400k` `20%`
-- Keystone `$88k` `66%`
-- Lantern `$300k` `28%`
+- Atlas `{$420k, 18%}`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
+- Granite `{$182k, 53%}`
+- Halyard `{$178k, 50%}`
+- Ironwood `{$185k, 54%}`
+- Juniper `{$400k, 20%}`
+- Keystone `{$88k, 66%}`
+- Lantern `{$300k, 28%}`
 
 ---
 
@@ -109,17 +109,17 @@ Four sit within four points of each other and their dots overlap. The stacked na
 Five names in one corner, and their dots far enough apart to check the reading. An out-of-order position is still a clear one, so its cost rides the anchor preference and never the collision test.
 
 - Strategic Bets
-  - Fraud-signal rewrite `3, 70`
+  - Fraud-signal rewrite `{3, 70}`
 - Quick Wins
-  - Weekly signal digest `8.4, 90`
-  - Slack intake bot `7.6, 84`
-  - Decision-log API `8.2, 78`
-  - Scoring model v2 `7.4, 72`
-  - Partner API keys `8.6, 66`
+  - Weekly signal digest `{8.4, 90}`
+  - Slack intake bot `{7.6, 84}`
+  - Decision-log API `{8.2, 78}`
+  - Scoring model v2 `{7.4, 72}`
+  - Partner API keys `{8.6, 66}`
 - Defer
-  - Quarterly vendor review `2, 24`
+  - Quarterly vendor review `{2, 24}`
 - Time Sinks
-  - Bespoke board export `9, 22`
+  - Bespoke board export `{9, 22}`
 
 ---
 

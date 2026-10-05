@@ -34,15 +34,15 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 ## Customer onboarding · trial to activation.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 ---
 
@@ -52,14 +52,14 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 ## Curve · the affect contour.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 ---
 

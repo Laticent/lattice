@@ -29,7 +29,7 @@ Use for a pipeline that narrows — a sales / conversion funnel, a hiring or gra
 ### Data shape
 
 - Stage values must be monotonically non-increasing in authored order (top to bottom) — the taper and every printed conversion percentage assume each stage is a strict subset of the one before it.
-- The trailing value is a single number tolerant of thousands commas (`4,800`) — it takes the FIRST numeric run and discards everything after, so a magnitude suffix is silently dropped, not scaled: `$12k` parses as `12`, not `12000`. Use consistent full-magnitude numbers across every stage (`12,000`, not `$12k`) or the taper and every printed conversion percentage will be wrong.
+- The trailing value is read the way every chart reads a number (lib/core/chart-values.js): thousands commas (`4,800`), a decimal comma (`1,25M`), a magnitude suffix (`$12k` is 12,000) and a currency sign all mean what they say, so `$12k` and `12,000` draw the same stage. A unit after the number (`240,000 views`) is fine; text before it is not a value.
 
 ## When to use
 

@@ -25,7 +25,7 @@ export const SLIDE = {
 	title: '<!-- _class: title -->\n\n# Q4 Board Update\n\n`Board · Q4 2026`\n\nGrowth held; spend stayed disciplined.',
 	bigNumber: '<!-- _class: big-number -->\n\n`Net Revenue Retention`\n\n- 127%\n  - Expansion outran churn every month this quarter.',
 	radar:
-		'<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## Where the platform bet is paying off.\n\n- This quarter\n  - Coverage `8`\n  - Reliability `9`\n  - Velocity `7`\n  - Cost control `8`\n  - Sentiment `9`\n- A year ago\n  - Coverage `5`\n  - Reliability `6`\n  - Velocity `4`\n  - Cost control `6`\n  - Sentiment `5`',
+		'<!-- _class: radar -->\n\n`[{Scale, 0..10}]`\n\n## Where the platform bet is paying off.\n\n- This quarter\n  - Coverage `8`\n  - Reliability `9`\n  - Velocity `7`\n  - Cost control `8`\n  - Sentiment `9`\n- A year ago\n  - Coverage `5`\n  - Reliability `6`\n  - Velocity `4`\n  - Cost control `6`\n  - Sentiment `5`',
 	quote: '<!-- _class: quote -->\n\n> Expansion outpaced new business again — the platform bet is compounding.\n\n— Maya Chen, COO',
 	kpi: '<!-- _class: kpi -->\n\n`Financial · Q4 2026`\n\n## The quarter in four numbers\n\n1. $4.6M\n   - Net revenue\n   - target $4.4M · +16% YoY `On plan` `Board`\n2. +16%\n   - YoY growth\n   - vs +18% last quarter `On plan` `Investor`\n3. 155\n   - New logos\n   - target 130 · +19% `On plan` `Sales`\n4. 1.2%\n   - Net churn\n   - target < 2% `On plan` `Success`',
 	closing: '<!-- _class: closing -->\n\n## Fund the expansion motion — it is the cheapest growth we have.\n\n`Q1 plan follows`',

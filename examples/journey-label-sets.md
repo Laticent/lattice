@@ -23,13 +23,13 @@ decision record had already argued exactly that, about a different chart.
 ## Onboarding, as a customer feels it.
 
 - Discover
-  - Search the docs `@user` `:3`
-  - Read the guide `@user` `:4`
+  - Search the docs `{who=user, mood=3}`
+  - Read the guide `{who=user, mood=4}`
 - Install
-  - Run the installer `@user` `:2`
-  - Repair the shell path `@user` `:1`
+  - Run the installer `{who=user, mood=2}`
+  - Repair the shell path `{who=user, mood=1}`
 - Succeed
-  - First green build `@user` `:5`
+  - First green build `{who=user, mood=5}`
 
 ---
 
@@ -41,14 +41,14 @@ decision record had already argued exactly that, about a different chart.
 ## The same board, for an engineer on call.
 
 - Page
-  - Alert fires `@sre` `:2`
-  - Find the runbook `@sre` `:1`
+  - Alert fires `{who=sre, mood=2}`
+  - Find the runbook `{who=sre, mood=1}`
 - Triage
-  - Reproduce the fault `@sre` `:3`
-  - Size the blast radius `@sre` `:3`
+  - Reproduce the fault `{who=sre, mood=3}`
+  - Size the blast radius `{who=sre, mood=3}`
 - Resolve
-  - Ship the fix `@sre` `:4`
-  - Write the postmortem `@sre` `:5`
+  - Ship the fix `{who=sre, mood=4}`
+  - Write the postmortem `{who=sre, mood=5}`
 
 ---
 
@@ -60,11 +60,11 @@ decision record had already argued exactly that, about a different chart.
 ## Naming one pole leaves the other alone.
 
 - Request
-  - Submit the form `@ops` `:2`
-  - Wait for approval `@ops` `:1`
+  - Submit the form `{who=ops, mood=2}`
+  - Wait for approval `{who=ops, mood=1}`
 - Fulfill
-  - Provision access `@ops` `:4`
-  - Confirm with the requester `@ops` `:5`
+  - Provision access `{who=ops, mood=4}`
+  - Confirm with the requester `{who=ops, mood=5}`
 
 ---
 
@@ -76,13 +76,13 @@ decision record had already argued exactly that, about a different chart.
 ## Every variant gets the same key.
 
 - Evaluate
-  - Trial the product `@buyer` `:3`
-  - Compare vendors `@buyer` `:2`
+  - Trial the product `{who=buyer, mood=3}`
+  - Compare vendors `{who=buyer, mood=2}`
 - Commit
-  - Negotiate terms `@buyer` `:3`
-  - Sign the contract `@buyer` `:4`
+  - Negotiate terms `{who=buyer, mood=3}`
+  - Sign the contract `{who=buyer, mood=4}`
 - Expand
-  - Add a second team `@buyer` `:5`
+  - Add a second team `{who=buyer, mood=5}`
 
 ---
 

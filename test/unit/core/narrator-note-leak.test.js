@@ -36,10 +36,10 @@ const FIXTURES = {
 	// These five come from the shapes `chart-narration.test.js` already proves engage each
 	// narrator, rather than from guesswork — a guessed body that fails to engage makes the
 	// cell vacuous, which is the exact defect this file exists to prevent.
-	narrateJourneyWeighted: ['journey weighted', '- Discover\n  - Search `@prospect` `:4` `+45`\n  - Referral `@prospect` `:5` `+18`\n- Convert\n  - Pricing page `@prospect` `:3` `+12`'],
-	// PLAIN journey (no `weighted`): the mood narrator reads `@actor` / `:N`, where the
+	narrateJourneyWeighted: ['journey weighted', '- Discover\n  - Search `{who=prospect, mood=4, volume=45}`\n  - Referral `{who=prospect, mood=5, volume=18}`\n- Convert\n  - Pricing page `{who=prospect, mood=3, volume=12}`'],
+	// PLAIN journey (no `weighted`): the mood narrator reads `who=` / `mood=`, where the
 	// weighted one reads `+N` volume and gates itself out. Same source shape, different token.
-	narrateJourneyMood: ['journey', '- Discover\n  - Search `@prospect` `:4`\n  - Referral `@prospect` `:5`\n- Convert\n  - Pricing page `@prospect` `:3`'],
+	narrateJourneyMood: ['journey', '- Discover\n  - Search `{who=prospect, mood=4}`\n  - Referral `{who=prospect, mood=5}`\n- Convert\n  - Pricing page `{who=prospect, mood=3}`'],
 	narrateRadar: ['radar', '- Lattice\n  - Performance `9`\n  - Pricing `7`\n- Rival North\n  - Performance `7`\n  - Pricing `8`'],
 	narrateQuadrant: ['quadrant', '`Effort 0–10`\n\n- Group\n  - Item `5, 85`'],
 	// No `end` marker on the last state ON PURPOSE: with both start AND end explicit the
@@ -72,7 +72,7 @@ const FIXTURES = {
 	narrateProgress: ['progress', '- Signal Intake `92%` `on-track`\n- Adoption `12%` `blocked`'],
 	narrateTimelineList: ['timeline-list', '1. `Q1` First milestone\n   - What changed.\n2. `Q2` Second milestone `decision`'],
 	narrateKanban: ['kanban', '- Backlog\n  - Waiting cards `S`\n- Done\n  - Shipped work `L`'],
-	narrateGantt: ['gantt', '- Framework\n  - Signal taxonomy `Q1..Q2` `done`\n  - GA `Q4` `after: Signal taxonomy`'],
+	narrateGantt: ['gantt', '- Framework\n  - Signal taxonomy `Q1..Q2` `done`\n  - GA `Q4` `after=Signal taxonomy`'],
 	narrateHubSpoke: ['hub-spoke', '- Program office\n  - Onboarding `at-risk`\n  - Governance'],
 	narrateMatrixGrid: ['matrix-grid', '| Verb | Self | Team |\n| --- | :-: | :-: |\n| Apply | [-] | [x] Senior |\n| Remember | [x] Junior | [-] |'],
 	narrateRoadmapHorizons: ['roadmap horizons', '| Workstream | Horizon 1 `Now` | Horizon 2 `Next` |\n| --- | --- | --- |\n| Intake | [x] Connector | [-] Dedupe |'],

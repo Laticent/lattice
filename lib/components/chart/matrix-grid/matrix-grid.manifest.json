@@ -86,7 +86,7 @@
     "eyebrow": {
       "selector": "p > code",
       "required": false,
-      "description": "OPTIONAL axis labels: ONE bracketed list in its own paragraph ABOVE the table — `` `[Wider reach, Deeper cognition]` ``. The first member names the column (reach) axis and renders centered above the grid; the second names the row (depth) axis and renders rotated along its left edge. Quotes are optional, single or double, and protect a comma inside a name — `[\"Reach, net\", Depth]` is two axes. Direction arrows are GENERATED — write only the names. Omit the paragraph entirely and the grid renders with no axis labels. A paragraph that is not a bracketed list is an ordinary eyebrow/subtitle and is left alone."
+      "description": "OPTIONAL axis labels: ONE bracketed list in its own paragraph ABOVE the table — `` `[Wider reach, Deeper cognition]` ``. The first member names the column (reach) axis and renders centered above the grid; the second names the row (depth) axis and renders rotated along its left edge. Double quotes are optional and protect a comma inside a name — `[\"Reach, net\", Depth]` is two axes. Direction arrows are GENERATED — write only the names. Omit the paragraph entirely and the grid renders with no axis labels. A paragraph that is not a bracketed list is an ordinary eyebrow/subtitle and is left alone."
     },
     "subtitle": {
       "selector": "h2 + p",

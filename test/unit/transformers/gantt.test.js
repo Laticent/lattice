@@ -5,7 +5,7 @@
  *
  * Contract: a task is a nested bullet with trailing inline-code tokens — a span
  * `START..END` (a bar) or a single time point (a milestone diamond), an optional
- * status, an optional `after: Task name` dependency, an optional `milestone`
+ * status, an optional `after=Task name` dependency, an optional `milestone`
  * keyword. `..` is the only delimiter. Time points are ISO dates, quarters
  * (Q1 / 2026 Q1), or months (Jan); a chart is date-mode or ordinal-mode. The
  * axis auto-derives; the eyebrow may override it and add a `today` line.
@@ -44,30 +44,58 @@ const PLOT_W = GANTT_GEOM.vbW - GANTT_GEOM.padRight - PLOT_X0;
 const BAR_INSET = ganttGutter(GANTT_GEOM);
 const pctOfPlot = (x) => ((x - PLOT_X0) / PLOT_W) * 100;
 
-const attrNum = (html, re) => {
-  const m = html.match(re);
-  return m ? Number(m[1]) : null;
+// Attribute reads go tag-first rather than through one regex spanning a
+// whole tag. A pattern like /class="gantt-bar"[^>]*\sy="…"/ lets `[^>]*` and
+// `\s` match the same characters, so a tag that never carries the attribute
+// backtracks over every split — polynomial, and 11 CodeQL js/polynomial-redos
+// alerts on #2250. Slicing the tag out first, then reading its attributes from
+// a bounded string, keeps both steps linear. `[^<>]` rather than `[^>]` is the
+// linear half: excluding `<` stops a run of unclosed `<` rescanning to the end
+// of the input from every one of them, which is the 12th alert CodeQL raised.
+const tagsWith = (html, needle) =>
+  (html.match(/<[^<>]+>/g) || []).filter((t) => t.includes(needle));
+const attrsOf = (tag) => {
+  const out = {};
+  for (const m of (tag || '').matchAll(/\s([\w:-]+)="([^"]*)"/g)) out[m[1]] = m[2];
+  return out;
 };
+const attrsWith = (html, needle) => tagsWith(html, needle).map(attrsOf);
+const firstAttrs = (html, needle) => attrsWith(html, needle)[0] || {};
+const BAR = 'class="gantt-bar"';
+// Every run from `open` to the next `close` (close excluded), found with indexOf: linear.
+const between = (html, open, close) => {
+  const out = [];
+  for (let at = html.indexOf(open); at >= 0; at = html.indexOf(open, at + 1)) {
+    const end = html.indexOf(close, at);
+    if (end < 0) break;
+    out.push(html.slice(at, end));
+  }
+  return out;
+};
+
 // A bar's start, as a percentage of the axis.
 const barX = (html) => {
-  const x = attrNum(html, /class="gantt-bar"[^>]*\sx="([-\d.]+)"/);
-  return x == null ? null : round3(pctOfPlot(x - BAR_INSET));
+  const x = firstAttrs(html, BAR).x;
+  return x == null ? null : round3(pctOfPlot(Number(x) - BAR_INSET));
 };
 // A bar's span, as a percentage of the axis.
 const barW = (html) => {
-  const w = attrNum(html, /class="gantt-bar"[^>]*\swidth="([-\d.]+)"/);
-  return w == null ? null : round3(((w + BAR_INSET * 2) / PLOT_W) * 100);
+  const w = firstAttrs(html, BAR).width;
+  return w == null ? null : round3(((Number(w) + BAR_INSET * 2) / PLOT_W) * 100);
 };
 // A milestone diamond's center, as a percentage of the axis. The polygon's
 // points are "cx,top cx+r,mid cx,bottom cx-r,mid" — the first x IS the center.
 const milestoneX = (html) => {
-  const m = html.match(/class="gantt-milestone"[^>]*points="([-\d.]+),/);
-  return m ? round3(pctOfPlot(Number(m[1]))) : null;
+  const pts = firstAttrs(html, 'class="gantt-milestone"').points;
+  return pts ? round3(pctOfPlot(Number.parseFloat(pts))) : null;
 };
 // The today rule's x, as a percentage of the axis.
 const todayX = (html) => {
-  const m = html.match(/class="gantt-today"[^>]*>\s*<line x1="([-\d.]+)"/);
-  return m ? round3(pctOfPlot(Number(m[1]))) : null;
+  // The rule is the first tag after the group that opens the today mark.
+  const tags = html.match(/<[^<>]+>/g) || [];
+  const at = tags.findIndex((t) => t.includes('class="gantt-today"'));
+  const line = at >= 0 && tags[at + 1]?.startsWith('<line') ? attrsOf(tags[at + 1]).x1 : undefined;
+  return line == null ? null : round3(pctOfPlot(Number(line)));
 };
 const round3 = (n) => Math.round(n * 1000) / 1000;
 
@@ -81,7 +109,7 @@ describe('gantt renderer — continuous time scale', () => {
     const ul = `<ul><li>Lane<ul>
       <li>A <code>Q1..Q2</code> <code>done</code></li>
     </ul></li></ul>`;
-    const out = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code></p>');
+    const out = buildGanttChart(inner(ul), { window: '2026 Q1 .. 2026 Q4' });
     // 4-quarter window → Q1..Q2 starts at 0 and spans 50%.
     assert.equal(barX(out), 0);
     assert.equal(barW(out), 50);
@@ -91,7 +119,7 @@ describe('gantt renderer — continuous time scale', () => {
     const ul = `<ul><li>Lane<ul>
       <li>GA <code>Q4</code></li>
     </ul></li></ul>`;
-    const out = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code></p>');
+    const out = buildGanttChart(inner(ul), { window: '2026 Q1 .. 2026 Q4' });
     assert.match(out, /gantt-milestone/);
     assert.doesNotMatch(out, /class="gantt-bar"/);
     // Q4 starts at 75% of a four-quarter axis.
@@ -102,7 +130,7 @@ describe('gantt renderer — continuous time scale', () => {
     const ul = `<ul><li>Build<ul>
       <li>Alpha <code>2026-01-01..2026-04-01</code></li>
     </ul></li></ul>`;
-    const out = buildGanttChart(inner(ul), '');
+    const out = buildGanttChart(inner(ul), null);
     // Axis auto-derives to [Jan 1, Apr 1] → the only bar fills the whole width.
     assert.equal(barX(out), 0);
     assert.equal(barW(out), 100);
@@ -110,19 +138,19 @@ describe('gantt renderer — continuous time scale', () => {
 
   test('opt-in today line is emitted only when the eyebrow asks for it', () => {
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q4</code></li></ul></li></ul>`;
-    const withToday = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
+    const withToday = buildGanttChart(inner(ul), { window: '2026 Q1 .. 2026 Q4', today: 'Q3' });
     assert.match(withToday, /gantt-today/);
     assert.equal(todayX(withToday), 50); // Q3 start of 4
-    const without = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code></p>');
+    const without = buildGanttChart(inner(ul), { window: '2026 Q1 .. 2026 Q4' });
     assert.doesNotMatch(without, /gantt-today/);
   });
 
   test('status tints the bar + emits a legend chip', () => {
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>at-risk</code></li></ul></li></ul>`;
-    const out = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code></p>');
-    assert.match(out, /class="gantt-bar"[^>]*data-s="at-risk"/);
+    const out = buildGanttChart(inner(ul), { window: '2026 Q1 .. 2026 Q4' });
+    assert.ok(attrsWith(out, BAR).some((a) => a['data-s'] === 'at-risk'));
     // The key chip is an SVG swatch now, keyed by the same status.
-    assert.match(out, /gantt-legend-swatch"[^>]*data-s="at-risk"/);
+    assert.ok(attrsWith(out, 'gantt-legend-swatch"').some((a) => a['data-s'] === 'at-risk'));
   });
 
   // #2255 — the key names the NEUTRAL too. A bar with no status and a `deferred`
@@ -148,7 +176,7 @@ describe('gantt renderer — continuous time scale', () => {
     /** Each legend swatch's attribute text, by the same linear split. */
     const swatchAttrs = (out) => out.split('<rect class="gantt-legend-swatch"').slice(1)
       .map((seg) => seg.slice(0, seg.indexOf('>')));
-    const eyebrow = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+    const eyebrow = { window: '2026 Q1 .. 2026 Q4' };
 
     test('an unstated task adds a "no status" chip, carrying no data-s', () => {
       const ul = '<ul><li>L<ul>'
@@ -267,7 +295,7 @@ describe('gantt renderer — continuous time scale', () => {
   // fell back to 0..4 in ordinal units against an epoch-day value).
   test('regression(S1): a lone date milestone stays on-screen', () => {
     const ul = `<ul><li>L<ul><li>Launch <code>2026-07-15</code></li></ul></li></ul>`;
-    const out = buildGanttChart(inner(ul), '');
+    const out = buildGanttChart(inner(ul), null);
     const x = milestoneX(out);
     assert.ok(x >= 0 && x <= 100, `milestone x=${x} should be within [0,100]`);
     assert.equal(x, 50); // padded window centers a solitary point
@@ -278,7 +306,7 @@ describe('gantt renderer — continuous time scale', () => {
   test('regression(S2): bars clamp to an explicit window', () => {
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q4</code></li></ul></li></ul>`;
     // Window is only Q2..Q3, but the task spans Q1..Q4.
-    const out = buildGanttChart(inner(ul), '<p><code>2026 Q2 .. 2026 Q3</code></p>');
+    const out = buildGanttChart(inner(ul), { window: '2026 Q2 .. 2026 Q3' });
     const x = barX(out);
     const w = barW(out);
     assert.ok(x >= -0.001 && x + w <= 100.001, `x=${x} w=${w} should stay within frame`);
@@ -288,7 +316,7 @@ describe('gantt renderer — continuous time scale', () => {
   // read as a time point (would silently become a milestone/span endpoint).
   test('regression(C1): a label word is not mistaken for a month', () => {
     const ul = `<ul><li>L<ul><li>Marketing push <code>done</code></li></ul></li></ul>`;
-    const out = buildGanttChart(inner(ul), '');
+    const out = buildGanttChart(inner(ul), null);
     // No valid span → unscaled placeholder, never a milestone.
     assert.match(out, /gantt-bar--unscaled/);
     assert.doesNotMatch(out, /gantt-milestone/);
@@ -301,8 +329,8 @@ describe('gantt linter — typed-token validation', () => {
 
 - Framework
   - Signal taxonomy \`Q1..Q2\` \`done\`
-  - Scoring model v2 \`Q2..Q3\` \`live\` \`after: Signal taxonomy\`
-  - GA \`Q4\` \`milestone\` \`after: Scoring model v2\``);
+  - Scoring model v2 \`Q2..Q3\` \`live\` \`after=Signal taxonomy\`
+  - GA \`Q4\` \`milestone\` \`after=Scoring model v2\``);
     assert.deepEqual(lintGantt(clean), []);
   });
 
@@ -325,15 +353,15 @@ describe('gantt linter — typed-token validation', () => {
   });
 
   test('a dangling after: (names no task) is an error', () => {
-    const f = lintGantt(deck('## P\n\n- L\n  - A `Q1..Q2` `after: Ghost`'));
+    const f = lintGantt(deck('## P\n\n- L\n  - A `Q1..Q2` `after=Ghost`'));
     assert.ok(f.some((x) => x.rule === 'gantt-dangling-after'));
   });
 
   test('an inverted dependency warns, but a boundary overlap does not', () => {
-    const inverted = deck('## P\n\n- L\n  - A `Q3..Q4`\n  - B `Q1..Q2` `after: A`');
+    const inverted = deck('## P\n\n- L\n  - A `Q3..Q4`\n  - B `Q1..Q2` `after=A`');
     assert.ok(lintGantt(inverted).some((x) => x.rule === 'gantt-inverted-dependency'));
     // B follows A sharing the Q2 boundary — idiomatic phasing, NOT inverted.
-    const ok = deck('## P\n\n- L\n  - A `Q1..Q2`\n  - B `Q2..Q3` `after: A`');
+    const ok = deck('## P\n\n- L\n  - A `Q1..Q2`\n  - B `Q2..Q3` `after=A`');
     assert.ok(!lintGantt(ok).some((x) => x.rule === 'gantt-inverted-dependency'));
   });
 
@@ -356,7 +384,7 @@ describe('gantt linter — typed-token validation', () => {
   // S5 regression — a date-only eyebrow window over ordinal tasks is a genuine
   // mix; lint must fold the eyebrow into mode detection to catch it.
   test('regression(S5): date window over ordinal tasks is flagged mixed', () => {
-    const mixed = deck('`2026-01-01 .. 2026-12-31`\n\n## P\n\n- L\n  - A `Q1..Q2`');
+    const mixed = deck('`[{Timeline, 2026-01-01 .. 2026-12-31}]`\n\n## P\n\n- L\n  - A `Q1..Q2`');
     assert.ok(lintGantt(mixed).some((x) => x.rule === 'gantt-mixed-time'));
   });
 
@@ -380,25 +408,25 @@ describe('gantt detail reveal — per-task HTML-mark path (#475)', () => {
 
   test('every bar is tagged with a chart-wide 0-based data-mark', () => {
     const out = buildGanttChart(inner(ulDetail), '');
-    const marks = [...out.matchAll(/class="gantt-bar"[^>]*\sdata-mark="(\d+)"/g)].map((m) => m[1]);
+    const marks = attrsWith(out, BAR).map((a) => a['data-mark']);
     assert.deepEqual(marks, ['0', '1']);
   });
 
   test('a nested prose bullet becomes an inert detail template keyed to the bar mark', () => {
     const out = buildGanttChart(inner(ulDetail), '');
     // The detailed bar (mark 0) carries data-mark + an invisible data-label.
-    assert.match(out, /class="gantt-bar"[^>]*data-mark="0"[^>]*data-label="API design"/);
+    assert.ok(attrsWith(out, BAR).some((a) => a['data-mark'] === '0' && a['data-label'] === 'API design'));
     // Exactly one template, keyed to mark 0, in the sibling payload (not the figure).
     const tpls = [...out.matchAll(/<template class="chart-detail" data-mark="(\d+)">/g)].map((m) => m[1]);
     assert.deepEqual(tpls, ['0']);
-    assert.match(out, /<div class="chart-details" hidden><template[^>]*>.*Platform team/);
+    const payload = out.indexOf('<div class="chart-details" hidden><template');
+    assert.ok(payload >= 0 && out.indexOf('Platform team', payload) > payload);
   });
 
   test('the payload is a SIBLING of .gantt-chart (not miscounted as a mark)', () => {
     const out = buildGanttChart(inner(ulDetail), '');
     // .chart-details opens AFTER .gantt-chart closes.
     assert.ok(out.indexOf('class="chart-details"') > out.indexOf('</div>'));
-    assert.ok(/<\/div>(<!--[\s\S]*?-->)?$|chart-details/.test(out));
   });
 
   test('detail folds into a Marp-faithful speaker-note comment', () => {
@@ -417,8 +445,8 @@ describe('gantt detail reveal — per-task HTML-mark path (#475)', () => {
 
   test('a milestone is a mark too (data-mark on the diamond container)', () => {
     const ul = `<ul><li>L<ul><li>Launch <code>Q4</code> <code>milestone</code><ul><li>Go/no-go gate.</li></ul></li></ul></li></ul>`;
-    const out = buildGanttChart(inner(ul), '');
-    assert.match(out, /class="gantt-milestone"[^>]*data-mark="0"/);
+    const out = buildGanttChart(inner(ul), null);
+    assert.ok(attrsWith(out, 'class="gantt-milestone"').some((a) => a['data-mark'] === '0'));
     assert.match(out, /<template class="chart-detail" data-mark="0">/);
   });
 
@@ -441,7 +469,7 @@ describe('gantt — portrait geometry', () => {
   </ul></li><li>Security<ul>
     <li>Review <code>Q3..Q4</code> <code>at-risk</code></li>
   </ul></li></ul>`;
-  const eyebrow = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+  const eyebrow = { window: '2026 Q1 .. 2026 Q4' };
   const land = buildGanttChart(inner(ul), eyebrow);
   const port = buildGanttChart(inner(ul), eyebrow, 'portrait');
   const viewBox = (html) => (html.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
@@ -461,12 +489,12 @@ describe('gantt — portrait geometry', () => {
 
   test('portrait puts the lane name ABOVE its bars, on the full width', () => {
     // The reflow's whole point: no left label column stealing room from the bars.
-    assert.match(port, /class="gantt-lane-label"[^>]*data-pos="above"/);
+    assert.ok(attrsWith(port, 'class="gantt-lane-label"').some((a) => a['data-pos'] === 'above'));
     assert.doesNotMatch(land, /data-pos="above"/);
   });
 
   test('portrait bars span more of the width than landscape (no label column)', () => {
-    const barX = (html) => Number((html.match(/class="gantt-bar"[^>]*\sx="([-\d.]+)"/) || [])[1]);
+    const barX = (html) => Number(firstAttrs(html, BAR).x);
     const [lw] = viewBox(land);
     const [pw] = viewBox(port);
     // As a FRACTION of the chart width, the plot starts further left in portrait.
@@ -497,18 +525,20 @@ describe('gantt — tick advance follows the painted face', () => {
     <li>Taxonomy <code>2026-01-01..2026-04-30</code> <code>done</code></li>
     <li>Weighting <code>2026-10-01..2027-02-28</code> <code>at-risk</code></li>
   </ul></li></ul>`;
-  const eyebrow = '<p><code>2026-01-01 .. 2027-03-31</code></p>';
+  const eyebrow = { window: '2026-01-01 .. 2027-03-31' };
   // One entry per tick, tspans joined — a wrapped tick is one label, not two.
   // Reads the <tspan> contents rather than stripping tags out of the <text>: the
   // emitter puts one tspan per line and nothing else inside, so this is the exact
   // extraction, and a single-pass tag strip is the shape CodeQL flags as an
   // incomplete sanitizer (harmless on engine-generated markup, but not worth
   // teaching by example in a test).
-  const ticks = (html) => [...html.matchAll(/<text class="gantt-tick"[\s\S]*?<\/text>/g)]
-    .map(m => [...m[0].matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g)].map(t => t[1]).join(''));
+  // Sliced with indexOf rather than a lazy regex, which CodeQL reads as polynomial on
+  // engine output.
+  const ticks = (html) => between(html, '<text class="gantt-tick"', '</text>')
+    .map(t => between(t, '<tspan', '</tspan>').map(sp => sp.slice(sp.indexOf('>') + 1)).join(''));
   // The gradient <defs> ids carry a module-level counter, so two identical calls
   // differ by id alone. Compare the AXIS, which is what the advance decides.
-  const axis = (html) => (html.match(/<g class="gantt-axis"[\s\S]*?<\/g>/) || [])[0];
+  const axis = (html) => between(html, '<g class="gantt-axis"', '</g>')[0];
   const mono = buildGanttChart(inner(ul), eyebrow, undefined, false);
   const hand = buildGanttChart(inner(ul), eyebrow, undefined, true);
 
@@ -603,7 +633,7 @@ describe('gantt — tick advance follows the painted face', () => {
 describe('gantt — the sketch token reaches the builder', () => {
   const { transformChartSection } = engine;
   const section = `<h2>Plan</h2>
-<p><code>2026-01-01 .. 2027-03-31</code></p>
+<p><code>[{Timeline, 2026-01-01 .. 2027-03-31}]</code></p>
 <ul><li>Framework<ul>
   <li>Taxonomy <code>2026-01-01..2026-04-30</code> <code>done</code></li>
   <li>Weighting <code>2026-10-01..2027-02-28</code> <code>at-risk</code></li>
@@ -635,28 +665,10 @@ describe('gantt — the sketch token reaches the builder', () => {
 // pair read as two abutting segments of a relay. That is the failure mode these
 // lock — a gantt whose whole job is "make concurrency visible at a glance"
 // (gantt.docs.md) was rendering the opposite of its data.
-// Attribute reads below go tag-first rather than through one regex spanning a
-// whole tag. A pattern like /class="gantt-bar"[^>]*\sy="…"/ lets `[^>]*` and
-// `\s` match the same characters, so a tag that never carries the attribute
-// backtracks over every split — polynomial, and 11 CodeQL js/polynomial-redos
-// alerts on #2250. Slicing the tag out first, then reading its attributes from
-// a bounded string, keeps both steps linear. `[^<>]` rather than `[^>]` is the
-// linear half: excluding `<` stops a run of unclosed `<` rescanning to the end
-// of the input from every one of them, which is the 12th alert CodeQL raised.
-const tagsWith = (html, needle) =>
-  (html.match(/<[^<>]+>/g) || []).filter((t) => t.includes(needle));
-const attrsOf = (tag) => {
-  const out = {};
-  for (const m of (tag || '').matchAll(/\s([\w:-]+)="([^"]*)"/g)) out[m[1]] = m[2];
-  return out;
-};
-const attrsWith = (html, needle) => tagsWith(html, needle).map(attrsOf);
-const firstAttrs = (html, needle) => attrsWith(html, needle)[0] || {};
-const BAR = 'class="gantt-bar"';
 
 const barYs = (html) => attrsWith(html, BAR).map((a) => Number(a.y));
 const barXW = (html) => attrsWith(html, BAR).map((a) => ({ x: Number(a.x), w: Number(a.width) }));
-const WIN = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+const WIN = { window: '2026 Q1 .. 2026 Q4' };
 
 describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
   test('two OVERLAPPING tasks in one lane land on different rows', () => {
@@ -897,7 +909,7 @@ describe('gantt — mark chrome', () => {
     // across every bar it crossed. SVG has no z-index — document order is paint
     // order — so this is an ordering assertion, not a style one.
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q4</code></li></ul></li></ul>`;
-    const out = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
+    const out = buildGanttChart(inner(ul), { window: '2026 Q1 .. 2026 Q4', today: 'Q3' });
     assert.ok(out.indexOf('gantt-today') < out.indexOf('class="gantt-bar"'),
       'the today rule must be emitted before the bars');
   });
@@ -1016,16 +1028,18 @@ describe('gantt — bracketed axis alongside the pills', () => {
   };
   const figure = (html) => html.match(/<div class="chart-body">[\s\S]*<\/svg>/)[0];
 
-  test('the list and the pills draw the identical chart', () => {
-    const pills = render('<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
-    const list = render('<p><code>[{Timeline, 2026 Q1..2026 Q4, Q3}]</code></p>');
-    assert.equal(figure(list), figure(pills));
-    assert.match(list, /class="gantt-today"/);
+  test('`today=Q3` and a bare `Q3` draw the identical chart', () => {
+    const named = render('<p><code>[{Timeline, 2026 Q1..2026 Q4, today=Q3}]</code></p>');
+    const bare = render('<p><code>[{Timeline, 2026 Q1..2026 Q4, Q3}]</code></p>');
+    assert.equal(figure(named), figure(bare));
+    assert.match(named, /class="gantt-today"/);
   });
 
-  test('the list is consumed; the pills stay on the slide as before', () => {
-    assert.doesNotMatch(render('<p><code>[{Timeline, 2026 Q1..2026 Q4, Q3}]</code></p>'), /Timeline/);
-    assert.match(render('<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>'), /today Q3/);
+  test('the list is consumed; the retired eyebrow pills are not a window (Segno phase 2)', () => {
+    assert.doesNotMatch(render('<p><code>[{Timeline, 2026 Q1..2026 Q4, today=Q3}]</code></p>'), /Timeline/);
+    const eyebrow = render('<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
+    assert.match(eyebrow, /today Q3/, 'the pills stay on the slide as text');
+    assert.doesNotMatch(eyebrow, /class="gantt-today"/, 'and draw no today line');
   });
 
   test('window and today are told apart by shape, so today may come first', () => {
@@ -1046,12 +1060,12 @@ describe('gantt — bracketed axis alongside the pills', () => {
     assert.match(below, /Source: PMO, FY26/);
   });
 
-  test('lint reads the list window for the mixed-time check, same as the pill', () => {
+  test('lint reads the list window for the mixed-time check', () => {
     const vocab = { names: new Set(['gantt']), modifiers: new Set() };
     const deck = (axis) => `<!-- _class: gantt -->\n\n\`${axis}\`\n\n## H\n\n- Lane\n  - A \`Q1..Q2\`\n`;
     const rules = (axis) => core.lintTextWith(deck(axis), vocab).filter((f) => f.rule === 'gantt-mixed-time').length;
     assert.equal(rules('[{Timeline, 2026-01-01..2026-06-01}]'), 1);
-    assert.equal(rules('2026-01-01 .. 2026-06-01'), 1);
+    assert.equal(rules('2026-01-01 .. 2026-06-01'), 0, 'the retired eyebrow pill is not a window');
     assert.equal(rules('[{Timeline, 2026 Q1..2026 Q4, Q3}]'), 0);
   });
 });

@@ -166,7 +166,7 @@ function emitV2(model, tintMap) {
 /** Verify the v2 text parses to the v1 machine. */
 function verify(v1, v2lines) {
   const o = outlineFromMarkdown(v2lines.join('\n'));
-  const m = parseFlowchart(o.items, { leadWords: ['start', 'end'] });
+  const m = parseFlowchart(o.items, { host: 'state-chart' });
   const errs = [];
   for (const d of m.diagnostics) if (d.severity === 'error') errs.push(`grammar error: ${d.rule} ${d.message}`);
   if (m.groups.length) errs.push(`unexpected groups: ${m.groups.map((g) => g.name)}`);
@@ -210,7 +210,7 @@ const TINTS = {
   edge: (tint) => {
     const [t] = tint.split('/');
     if (/pass/.test(t)) return { heavy: true };
-    if (/fail/.test(t)) return { style: ':dashed' };
+    if (/fail/.test(t)) return { style: 'dashed' };
     return null;
   },
 };

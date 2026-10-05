@@ -31,7 +31,7 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 	});
 
 	it('narrateJourneyWeighted speaks each task volume share', () => {
-		const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - A `@me` `:3` `+9`', '  - B `@me` `:3` `+1`'].join('\n');
+		const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - A `{who=me, mood=3, volume=9}`', '  - B `{who=me, mood=3, volume=1}`'].join('\n');
 		expect(narrateJourneyWeighted(md)).toContain('ninety percent');
 	});
 
@@ -41,7 +41,7 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 	});
 
 	it('narrateQuadrant speaks the auto-fit axis ranges', () => {
-		const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - Item `3, 70`'].join('\n');
+		const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - Item `{3, 70}`'].join('\n');
 		expect(narrateQuadrant(md)).toContain('The vertical axis runs zero to one hundred');
 	});
 

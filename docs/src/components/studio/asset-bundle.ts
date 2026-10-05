@@ -119,14 +119,14 @@ Every surface this palette touches — type, charts, diagrams, structure.
 ## From first touch to activation.
 
 - Evaluate
-  - Read the case study \`@prospect\` \`:4\`
-  - Book a demo \`@prospect\` \`:3\`
+  - Read the case study \`{who=prospect, mood=4}\`
+  - Book a demo \`{who=prospect, mood=3}\`
 - Trial
-  - First win \`@user\` \`:5\`
-  - Invite the team \`@user\` \`:4\`
+  - First win \`{who=user, mood=5}\`
+  - Invite the team \`{who=user, mood=4}\`
 - Adopt
-  - Roll out \`@team\` \`:5\`
-  - Renew \`@team\` \`:5\`
+  - Roll out \`{who=team, mood=5}\`
+  - Renew \`{who=team, mood=5}\`
 
 ---
 

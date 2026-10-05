@@ -107,7 +107,7 @@ describe('slope — a capitalized status marks the line', () => {
 
 describe('gantt — the bar stamps the folded word (already folded; pinned here with the rest)', () => {
   test('`AT-RISK` stamps data-s="at-risk"', () => {
-    const html = gantt('<p><code>2026 Q1 .. 2026 Q4</code></p><ul><li>Build<ul><li>API <code>Q1..Q2</code> <code>AT-RISK</code></li></ul></li></ul>', { classTokens: [] });
+    const html = gantt('<p><code>[{Timeline, 2026 Q1 .. 2026 Q4}]</code></p><ul><li>Build<ul><li>API <code>Q1..Q2</code> <code>AT-RISK</code></li></ul></li></ul>', { classTokens: [] });
     assert.match(html, /data-s="at-risk"/);
     assert.doesNotMatch(html, /data-s="AT-RISK"/);
   });

@@ -32,7 +32,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## How we stack up across the buying criteria.
 
@@ -83,17 +83,17 @@ A wide basemap takes a wider canvas; the rail keeps its room and the spine still
 ## Where to put the next dollar — clustered by theme.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
-  - Snapshot exports `9, 55`
+  - Weekly signal brief `{8, 80}`
+  - Snapshot exports `{9, 55}`
 - Defer
-  - Vendor scoping `2, 30`
-  - Manual recalibration `1, 22`
+  - Vendor scoping `{2, 30}`
+  - Manual recalibration `{1, 22}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
-  - Bespoke board export `9, 28`
+  - Custom audit log UI `{7, 18}`
+  - Bespoke board export `{9, 28}`
 
 ---
 
@@ -112,6 +112,8 @@ A wide basemap takes a wider canvas; the rail keeps its room and the spine still
 ---
 
 <!-- _class: radar dark -->
+
+`[{Scale, 0..10}]`
 
 `Scale · 0–10 · dark canvas`
 

@@ -70,23 +70,23 @@ Hover a region on screen; read the note in the PDF.
 Each dot carries its own rationale in the note.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
+  - Scoring model v2 `{3, 70}`
     - Owner: Platform. A 3-week spike de-risks the whole roadmap.
     - Unblocks per-team calibration below it.
-  - Per-team calibration `5, 85`
+  - Per-team calibration `{5, 85}`
     - Needs the scoring model first.
 - Quick Wins
-  - Weekly signal brief `8, 80`
+  - Weekly signal brief `{8, 80}`
     - Already scoped; one engineer, one sprint.
 - Time Sinks
-  - Bespoke board export `9, 28`
+  - Bespoke board export `{9, 28}`
     - High ask, low reach — defer past this half.
 
 ---
 
 <!-- _class: radar -->
 
-`Capability · 0–100`
+`[{Capability, 0..100}]`
 
 ## Where the team is strong, and where it isn't.
 

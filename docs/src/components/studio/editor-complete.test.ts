@@ -473,31 +473,32 @@ describe('inlineCodeCompletion — only what comes next, in a spark or a pill', 
 		expect(r?.options.map((o) => o.label)).toContain('~{12 14 13 17 21}');
 	});
 	it('offers one axis at a time: a type, then a size, then a color', () => {
-		expect(labels('`~{1 2 3}:')).toEqual(['line', 'area', 'bar', 'step', 'winloss']);
-		expect(labels('`~{1 2 3}:bar:')).toEqual(['sm', 'md', 'lg']);
-		expect(labels('`~{1 2 3}:bar:lg:')?.[0]).toBe('c1');
+		expect(labels('`~{1 2 3, ')).toEqual(['line', 'area', 'bar', 'step', 'winloss']);
+		expect(labels('`~{1 2 3, bar, ')).toEqual(['sm', 'md', 'lg']);
+		expect(labels('`~{1 2 3, bar, lg, ')?.[0]).toBe('c1');
 	});
 	it('offers only what the kernel accepts: one value gets a ring or bullet, never a line', () => {
-		expect(labels('`~{72%}:')).toEqual(['ring', 'bullet']);
+		expect(labels('`~{72%, ')).toEqual(['ring', 'bullet']);
 	});
 	it('widens to every valid word when the typing matches nothing in the next step', () => {
-		const r = inlineCodeCompletion('`~{1 2 3}:c3', next);
+		const r = inlineCodeCompletion('`~{1 2 3, c3', next);
 		expect(r?.typed).toBe('c3');
 		expect(r?.options.some((o) => o.label === 'c3')).toBe(true);
 		expect(r?.options.some((o) => o.label === 'line')).toBe(true); // still valid, in its own section
 		// …and a bar never offers markers, which it does not take
-		expect(inlineCodeCompletion('`~{1 2 3}:bar:e', next)?.options.some((o) => o.label === 'end')).toBe(false);
+		expect(inlineCodeCompletion('`~{1 2 3, bar, e', next)?.options.some((o) => o.label === 'end')).toBe(false);
 	});
 	it('pills: shape, then color, then size', () => {
-		expect(labels('A `{LIVE}:')?.[0]).toBe('pill');
-		expect(labels('A `{LIVE}:tag:')?.[0]).toBe('c1');
-		expect(labels('A `{LIVE}:tag:c3:')).toEqual(['sm', 'md', 'lg']);
-		expect(labels('A `{LIVE}:tag:c3:lg:')).toBeUndefined(); // nothing left to set
+		expect(labels('A `{LIVE, ')?.[0]).toBe('pill');
+		expect(labels('A `{LIVE, tag, ')?.[0]).toBe('c1');
+		expect(labels('A `{LIVE, tag, c3, ')).toEqual(['sm', 'md', 'lg']);
+		expect(labels('A `{LIVE, tag, c3, lg, ')).toBeUndefined(); // nothing left to set
 	});
-	it('stays closed outside a span, before the data closes, and before the lint core loads', () => {
-		expect(inlineCodeCompletion('`~{1 2 3}` and ~{1}:', next)).toBeNull();
+	it('stays closed outside a span, before the first comma, and before the lint core loads', () => {
+		expect(inlineCodeCompletion('`~{1 2 3}` and ~{1, ', next)).toBeNull();
 		expect(inlineCodeCompletion('`~{1 2 3', next)).toBeNull();
-		expect(inlineCodeCompletion('`~{1 2 3}:', null)).toBeNull();
-		expect(inlineCodeCompletion('`getUser():', next)).toBeNull();
+		expect(inlineCodeCompletion('`~{1 2 3, ', null)).toBeNull();
+		expect(inlineCodeCompletion('`getUser(a, ', next)).toBeNull();
+		expect(inlineCodeCompletion('`~{1 2 3}, ', next)).toBeNull(); // a closed record takes no more words
 	});
 });

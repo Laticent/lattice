@@ -38,17 +38,17 @@ const BODY = [
 	'## Pills',
 	'',
 	'1. Shapes',
-	'   - `{A}` `{B}:tag` `{C}:chip` `{D}:tag-bordered`',
+	'   - `{A}` `{B, tag}` `{C, chip}` `{D, tag-bordered}`',
 	'2. More shapes',
-	'   - `{E}:circle` `{F}:chevron-right` `{G}:chevron-left` `{H}:diamond`',
+	'   - `{E, circle}` `{F, chevron-right}` `{G, chevron-left}` `{H, diamond}`',
 	'3. Axes',
-	'   - `{I}:c1:lg` `{J}:c12:sm`',
+	'   - `{I, c1, lg}` `{J, c12, sm}`',
 	'4. Marks',
 	'   - `[x]` `[-]` `[ ]` `[/]` `[?]`',
 	// The literals are half the probe: this grammar reads every single-backtick span in
 	// every deck, so the drift that matters is `getUserId()` quietly becoming a pill.
 	'5. Literals',
-	'   - `[data-mark]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
+	'   - `[data-mark]` `{ ok, scene }` `getUserId()` `{K, c13}` `{}`',
 	'6. Escaped',
 	'   - `\\{LIVE}` and `\\[x]` and `\\[a-z]` and `\\d+`',
 ].join('\n');

@@ -59,7 +59,7 @@ const SLIDES = {
   'stacked-bar': '## S.\n\n- Q1\n  - New `12`\n  - Renewal `8`\n- Q2\n  - New `14`\n  - Renewal `9`\n',
   line: '## L.\n\n- Q1 2025 `4.2`\n- Q2 2025 `5.1`\n- Q3 2025 `6.4`\n',
   waterfall: '## W.\n\n- Opening `10`\n- Upsell `+3`\n- Churn `-2`\n- Closing `11`\n',
-  scatter: '## Sc.\n\n- Atlas `$420k` `18%`\n- Borealis `$310k` `24%`\n- Cardinal `$180k` `52%`\n',
+  scatter: '## Sc.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n',
   slope: '## Sl.\n\n- Northwind\n  - 2023 `31%`\n  - 2026 `24%`\n- Kestrel\n  - 2023 `22%`\n  - 2026 `29%`\n',
   bullet: '## Bu.\n\n- Qualified pipeline `128%` `100%`\n- New ARR `4.2M` `5M`\n',
   funnel: '## F.\n\n- Visitors `12000`\n- Signups `4800`\n- Paid `1200`\n',
@@ -67,7 +67,7 @@ const SLIDES = {
   radar: '## R.\n\n- Meridian\n  - Speed `8`\n  - Cost `6`\n  - Care `7`\n',
   'hub-spoke': '## HS.\n\n- Program office\n  - Onboarding `at-risk`\n  - Governance\n  - Branch network\n',
   'hub-spoke tiered': '## HT.\n\n- Platform org\n  - Payments\n    - Acquiring\n    - Fraud `blocked`\n  - Data\n    - Warehouse\n',
-  quadrant: '`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Q.\n\n- Bets\n  - Scoring v2 `3, 70`\n'
+  quadrant: '`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Q.\n\n- Bets\n  - Scoring v2 `{3, 70}`\n'
     + '- Wins\n  - Weekly brief `8, 40`\n- Defer\n  - Weighting UI `4, 55`\n- Sinks\n  - Exports `2, 20`\n',
   gantt: '`Q1 2025 - Q4 2025`\n\n## G.\n\n- Build\n  - Kernel `Q1-Q2`\n  - Ship `Q3-Q4`\n',
   'word-cloud': '## WC.\n\n- alpha `9`\n- beta `7`\n- gamma `5`\n- delta `3`\n',

@@ -101,6 +101,17 @@ describe('waterfall kernel', () => {
       assert.equal(m.rows[1].end, 50);
     });
 
+    test('the marker is an order-free flag, in any case, under any alias', () => {
+      // Row 15 of the Segno note: the marker used to count only as the LAST pill, so
+      // `total` written first was read as the value and the row dropped.
+      const m = parseWaterfall(
+        '<li>Baseline <code>TOTAL</code> <code>+40</code></li>' +
+        '<li>Driver <code>delta</code> <code>10</code></li><li>Close <code>50</code></li>');
+      assert.deepEqual(m.rows.map((r) => r.kind), ['total', 'step', 'total']);
+      assert.equal(m.rows[0].end, 40);
+      assert.equal(m.rows[1].start, 40);
+    });
+
     test('the magnitude suffix is scale, and % is not a magnitude', () => {
       const m = parseWaterfall(ul([['Open', '800k'], ['Up', '+1.2M'], ['Close', '2.0M']]));
       assert.deepEqual(m.rows.map((r) => r.num), [800000, 1200000, 2000000]);

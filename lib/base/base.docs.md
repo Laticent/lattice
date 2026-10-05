@@ -239,7 +239,7 @@ backticks.
 kicker.** The selector needs a `<code>` ELEMENT as the paragraph's only
 child, and the inline directive grammar (`{LABEL}` pills, `[x]` marks —
 see *Inline pills — `{LABEL}`* below) replaces that `<code>` with a
-`<span>`. So `` `{DRAFT}:c2` `` above a heading renders as a **pill alone
+`<span>`. So `` `{DRAFT, c2}` `` above a heading renders as a **pill alone
 on a line**, not as a colored eyebrow, and `` `[x]` `` there renders as a
 state disc. Both are legal; neither is promoted.
 
@@ -1571,39 +1571,45 @@ A `{LABEL}` inside **single-backtick** inline code renders as a pill. Shape and 
 belong to the value, not to the slide — one ledger can carry four different statuses
 without any variant class on the section.
 
+The label comes first, then any shape, color and size words, separated by commas and in any
+order: `{BETA, tag, c4}`. Each word can also be written by name — `{BETA, shape=tag, color=c4}`
+is the same pill. A label that holds a comma is quoted: `{"Cost, excluding tax"}`. This is
+the [Segno notation](../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md)
+every inline directive shares.
+
 ```markdown
 1. Settlement engine
-   - Shipped and load-tested `{STABLE}:c2`
+   - Shipped and load-tested `{STABLE, c2}`
 2. Ledger migration
-   - Cutover paused for review `{PARTIAL}:c4`
+   - Cutover paused for review `{PARTIAL, c4}`
 ```
 
 ### Shape
 
-`:tag` · `:tag-bordered` · `:chip` · `:circle` · `:chevron-right` · `:chevron-left` ·
-`:diamond`. With no shape modifier you get the capsule `pill`.
+`tag` · `tag-bordered` · `chip` · `circle` · `chevron-right` · `chevron-left` ·
+`diamond`. With no shape word you get the capsule `pill`.
 
 Every shape is exactly as tall as the capsule, so pills of different shapes share one
 center line and never make a row or a line of prose taller. `circle` is a
 capsule-height disc and `diamond` a capsule-height rhombus, so they hold **one
-character, or a number up to two digits** — `{3}:circle`, `{12}:circle`, `{!}:diamond`. The clipped shapes (the chevrons and the diamond)
+character, or a number up to two digits** — `{3, circle}`, `{12, circle}`, `{!, diamond}`. The clipped shapes (the chevrons and the diamond)
 carry the same 1px edge as the rest. The label is centered on its capitals, not on the
 line box, so it sits on the pill's visual center in Chrome, Firefox and Safari alike;
 lowercase descenders hang into the bottom padding. Anything longer stretches the box until
-it stops reading as the shape (`{OK}:circle` is an oval, `{WM}:circle` a capsule), so
+it stops reading as the shape (`{OK, circle}` is an oval, `{WM, circle}` a capsule), so
 `lint:deck` **warns** (`pill-shape-crowded`), the editor underlines the pill, and the fix
-points at `:tag` or `:chip`. It never blocks a deck.
+points at `tag` or `chip`. It never blocks a deck.
 
-### Color — `:c1` … `:c12`
+### Color — `c1` … `c12`
 
 Ordinal slots onto the categorical tokens, **not color names**. The same slot is sky
 blue on `indaco` and deep red on `burgundy`, so a slot picks contrast, never meaning —
-never write `:c2` because "green means good". Text contrast comes from the categorical
+never write `c2` because "green means good". Text contrast comes from the categorical
 policy already in the engine, so a slot needs no per-pill contrast math.
 
-### Size — automatic, then `:sm` `:lg`
+### Size — automatic, then `sm` `lg`
 
-A pill sizes itself from the text it sits in, so most pills need no size modifier:
+A pill sizes itself from the text it sits in, so most pills need no size word:
 
 | Where the pill sits | Size |
 |---|---|
@@ -1612,20 +1618,20 @@ A pill sizes itself from the text it sits in, so most pills need no size modifie
 | A below-note, a chart caption or a figure caption | Small |
 | Footers, headers and other small print | Small, 0.85 of the text around it |
 
-`:sm` and `:lg` still work, and they scale whatever the context gave: `:lg` in a
+`sm` and `lg` still work, and they scale whatever the context gave: `lg` in a
 footer is a bigger footer pill, not a heading-sized one.
 
-Modifier order is free: `` `{X}:tag:c4:lg` `` and `` `{X}:lg:c4:tag` `` are the same pill.
+Word order is free: `` `{X, tag, c4, lg}` `` and `` `{X, lg, c4, tag}` `` are the same pill.
 
 ### What stays literal
 
 Plain inline code is untouched — `` `getUserId()` ``, `` `:root` ``, `` `[data-mark]` ``,
-`` `--accent` ``, `` `{ ok, scene }` ``. A pill needs a brace pair whose label is
-trimmed and comma-free, which is what separates a label from a JS object literal an
-author wrote as code.
+`` `--accent` ``, `` `{ ok, scene }` ``. A pill's `{` is followed directly by its label,
+which is what separates it from a JS object literal an author wrote as code: those pad
+their braces.
 
-An unknown or repeated modifier fails back to literal rather than being ignored:
-`` `{X}:c13` `` renders as code, visibly wrong in review, instead of quietly becoming a
+An unknown or repeated word fails back to literal rather than being ignored:
+`` `{X, c13}` `` renders as code, visibly wrong in review, instead of quietly becoming a
 pill the author did not ask for.
 
 To force the literal for a label that WOULD qualify, put a **backslash** in front:
@@ -1645,7 +1651,7 @@ mid-sentence, a blockquote, a table cell, a footer, and a list row's clause. A f
 ` ``` ` block is not inline code and is never touched.
 
 In a **`list-tabular` row** a pill takes the same cell a trailing `` `code` `` takes, so
-`` 1. cards-grid `{STABLE}:c2` `` puts the pill in the trailing column. Two limits, both
+`` 1. cards-grid `{STABLE, c2}` `` puts the pill in the trailing column. Two limits, both
 measured:
 
 - **`spec`** addresses its two codes by position among `code` elements, which cannot see
@@ -1666,10 +1672,14 @@ belongs beside a current number that has a history: a `kpi` line, a trend column
 ```markdown
 | Region | Q3 revenue | Last 8 quarters | Plan |
 | --- | ---: | --- | --- |
-| Asia Pacific | $1.9M | `~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9}:end` | `~{1.9/1.6}:bullet` |
+| Asia Pacific | $1.9M | `~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9, end}` | `~{1.9/1.6, bullet}` |
 ```
 
 ### Data
+
+The data comes first inside the braces, then any words — type, size, color, markers, frame —
+separated by commas and in any order: `~{12 14 17, bar, c3, lg}`. The `~` before the brace is
+what makes it a spark rather than a pill.
 
 - **A series** is two to 48 numbers, space-separated, oldest first: `~{12 14 13 17 21}`.
 - **A ratio** is one value against a whole or a target: `~{72/80}`, or `~{72%}` for 72 of 100.
@@ -1689,33 +1699,33 @@ signs. The reader's number is already in the text beside the spark.
 | `ring` (default for a ratio) | ratio | one part of a whole |
 | `bullet` | ratio | a value against a target tick |
 
-### Size — `:sm` `:md` `:lg` and `:fill`
+### Size — `sm` `md` `lg` and `fill`
 
 A **framed** spark (the default) is a tile measured in a pill's type size, so it matches
-the pills around it wherever it sits: 1.25× a pill's height at `:md`, and 0.85× or 1.6×
-that at `:sm` and `:lg`. A **bare** spark is measured in the text's own em instead:
-`:sm` is 0.8em × 3em, `:md` 1em × 4.5em, `:lg` 1.7em × 7.5em. Either way widths are fixed
-per size, so every row's spark in a table can be compared. `:fill` puts the spark on a line of its
+the pills around it wherever it sits: 1.25× a pill's height at `md`, and 0.85× or 1.6×
+that at `sm` and `lg`. A **bare** spark is measured in the text's own em instead:
+`sm` is 0.8em × 3em, `md` 1em × 4.5em, `lg` 1.7em × 7.5em. Either way widths are fixed
+per size, so every row's spark in a table can be compared. `fill` puts the spark on a line of its
 own and stretches it to the width of the text block it sits in. In a `kpi` hero tile that
 is the width of the tile's widest line, which is what lets a trend underline the metric.
-Keep `:fill` out of a sentence, because it breaks the paragraph. It works on every type
+Keep `fill` out of a sentence, because it breaks the paragraph. It works on every type
 except `ring`.
 
-### Scale — `:zero`
+### Scale — `zero`
 
 A `line`, `area` or `step` runs from its own low to its own high, which shows the shape
-of change. It also makes a series that barely moved look dramatic. `:zero` starts the
+of change. It also makes a series that barely moved look dramatic. `zero` starts the
 axis at 0 instead, so churn between 4% and 5% reads as flat. Use it when the claim is
 that something held. A `bar` always starts at zero, because a bar's length is its value.
 
-### Markers — `:end` `:minmax`
+### Markers — `end` `minmax`
 
-`:end` dots the latest value in `--accent`, so "now" looks the same in every spark on a
-slide. `:minmax` dots the low and the high. Both apply to `line`, `area` and `step`.
+`end` dots the latest value in `--accent`, so "now" looks the same in every spark on a
+slide. `minmax` dots the low and the high. Both apply to `line`, `area` and `step`.
 
-### Color — `:c1` … `:c12`
+### Color — `c1` … `c12`
 
-A spark with no color is `:c1`, the deck's first chart hue; `:c1`–`:c12` are the same numbered
+A spark with no color is `c1`, the deck's first chart hue; `c1`–`c12` are the same numbered
 slots pills use, drawn from the chart cycle (`--chart-catN`) so a spark shows a slot in the hue a
 chart gives it. The **look** (below) decides where that one color goes. A bare spark draws in
 the slot's mark. A `winloss` loss is `--accent`, but its position below the line
@@ -1726,7 +1736,7 @@ carries the meaning.
 Every spark sits in a **squared frame**: a 3:2 tile (a ring's is square) about 1.25× a pill's
 height, measured in the pill's type size and wearing its fill and edge, but a visible step
 taller, so it reads as a small chart and never as a pill. With a color slot the frame takes the slot's fill and edge, as
-`` `{X}:c3` `` does. The frame has three axes, and each can be set for one spark, one slide or
+`` `{X, c3}` `` does. The frame has three axes, and each can be set for one spark, one slide or
 the whole deck:
 
 | Axis | Words | Default |
@@ -1735,16 +1745,16 @@ the whole deck:
 | Look | `pigment` · `etching` · `tone` (how the color is spent, below) | `pigment` |
 | Corners | `square` · `rounded` (the theme's small radius) | `square` |
 
-- **One spark:** the word as a modifier, `` `~{1 3 2}:bare` `` or `` `~{1 3 2}:etching:rounded` ``.
+- **One spark:** the word in the spark, `` `~{1 3 2, bare}` `` or `` `~{1 3 2, etching, rounded}` ``.
 - **One slide:** the word as a class with `spark-` in front, `<!-- _class: table spark-bare -->`.
 - **The deck:** the `spark:` front-matter register, `spark: bare` or `spark: etching rounded`
   ([`base.registers.docs.md`](base.registers.docs.md) § `spark:`).
 
 The most specific wins, one axis at a time: the spark, then the slide, then the deck, then the
-default. `:framed`, `:pigment` and `:square` (and the matching classes) exist so a spark or a
+default. `framed`, `pigment` and `square` (and the matching classes) exist so a spark or a
 slide can return to the default inside a deck that set another value. A spark that names its
-own corners (`` `~{…}:rounded` ``) wants a frame, so it keeps one on a bare slide or in a bare
-deck unless it also says `:bare`. A look is about color, not the tile, so it does not. The three sizes scale
+own corners (`` `~{…, rounded}` ``) wants a frame, so it keeps one on a bare slide or in a bare
+deck unless it also says `bare`. A look is about color, not the tile, so it does not. The three sizes scale
 the whole tile (0.85× / 1× / 1.6×). A frame adds a little height to a line of prose, so a
 paragraph with several sparks may read better with `spark-bare` on that slide.
 
@@ -1771,16 +1781,16 @@ The CSS is `lib/base/base.modifiers.css` § Inline sparks; the four parts are `-
 a bullet's tick and a ring's arc, in each part's own color. Fills keep their look, and the zero
 baseline stays clean. Nothing to write — the finish does it.
 
-Modifier order is free: `` `~{1 3 2}:area:c4:lg` `` and `` `~{1 3 2}:lg:c4:area` `` are
+Word order is free: `` `~{1 3 2, area, c4, lg}` `` and `` `~{1 3 2, lg, c4, area}` `` are
 the same spark. Each spark carries `role="img"` and a spoken label with its numbers
 ("Trend, 8 points, from 0.8 to 1.9, low 0.8, high 1.9").
 
 ### What stays literal
 
-A span that opens with `~{` and has a digit in its data, or a spark modifier after it (`~{abc}:bar`), is a spark attempt. If it doesn't
+A span that opens with `~{` and has a digit in it, or a spark word (`~{abc, bar}`), is a spark attempt. If it doesn't
 parse, it stays code, and nothing is guessed:
-`` `~{1,200 1,450}` `` (a comma), `` `~{72%}:bar` `` (a bar needs a series),
-`` `~{3 5 4}:bar:end` `` (markers only go on the line types), `` `~{3 5 4}:c13` ``.
+`` `~{1,200 1,450}` `` (a comma), `` `~{72%, bar}` `` (a bar needs a series),
+`` `~{3 5 4, bar, end}` `` (markers only go on the line types), `` `~{3 5 4, c13}` ``.
 `lint:deck` **warns** (`spark-literal`) and names the reason, and the editor underlines
 the span. A **backslash** keeps the literal on purpose, and silences the warning:
 `` `\~{1,200}` `` renders as `~{1,200}`. A `~{` with no digit in it is not a spark attempt at
@@ -1788,8 +1798,8 @@ all, so LaTeX's `` `\~{}` `` and `` `\~{n}` `` keep their backslash and get no w
 
 ### In the Studio — autocomplete and a size check
 
-Type `` `~ `` in the Studio's editor for a menu of starter sparks. After the closing brace,
-`:` offers the next step only — a type, then a size, a color, the markers and the frame — and
+Type `` `~ `` in the Studio's editor for a menu of starter sparks. After a comma inside the
+braces, the menu offers the next step only — a type, then a size, a color, the markers and the frame — and
 only words the kernel accepts there, so one value is offered a ring or a bullet and a bar is
 never offered markers. Typing a word from a later step widens the menu to everything still
 valid. Pills complete the same way: a shape, then a color, then a size.

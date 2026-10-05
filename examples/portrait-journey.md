@@ -24,7 +24,7 @@ The landscape board is three parallel column-grids; you can't make a stage label
 
 - **Row wash** — pain warm, delight cool. The emotional arc is the first thing you see.
 - **Plotted face** — seated on a pain-to-delight track with a dashed reach to the spine. The exact value, when you look closer.
-- A `:1` task is then unmistakable: a pink row with the face pulled to the edge.
+- A `mood=1` task is then unmistakable: a pink row with the face pulled to the edge.
 
 ---
 
@@ -34,15 +34,15 @@ The landscape board is three parallel column-grids; you can't make a stage label
 ## Customer onboarding · trial to activation.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 ---
 
@@ -52,14 +52,14 @@ The landscape board is three parallel column-grids; you can't make a stage label
 ## Support ticket · first touch to resolved.
 
 - Intake
-  - Ticket filed `@customer` `:2`
-  - Auto-triage `@system` `:3`
+  - Ticket filed `{who=customer, mood=2}`
+  - Auto-triage `{who=system, mood=3}`
 - Work
-  - First reply `@agent` `:4`
-  - Investigation `@agent` `:3`
-  - Fix shipped `@agent` `@eng` `:4`
+  - First reply `{who=agent, mood=4}`
+  - Investigation `{who=agent, mood=3}`
+  - Fix shipped `{who=agent, mood=4}` `@eng`
 - Close
-  - Confirmation `@customer` `:5`
+  - Confirmation `{who=customer, mood=5}`
 
 ---
 
@@ -69,13 +69,13 @@ The landscape board is three parallel column-grids; you can't make a stage label
 ## Heatmap · where the trial drops off.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:2`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=2}`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}`
 - Activate
-  - Daily use `@user` `:5`
+  - Daily use `{who=user, mood=5}`
 
 ---
 

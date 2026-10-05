@@ -174,7 +174,7 @@ so each slide below is really three cases.
 
 <!-- _class: gantt -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## The gantt lays the work against the calendar.
 
@@ -182,13 +182,13 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
-  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
+  - Scoring model v2 `Q2..Q3` `live` `after=Signal taxonomy`
+  - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
     - Two teams contest the weighting; the Q3 review decides it.
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
-  - GA `Q4` `milestone` `after: Org-wide rollout`
+  - Org-wide rollout `Q3..Q4` `after=Per-team weighting`
+  - GA `Q4` `milestone` `after=Org-wide rollout`
 
 ---
 
@@ -197,15 +197,15 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 ## The journey scores each stage of the path.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 ---
 
@@ -317,25 +317,25 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
     - Owner: Platform team
     - A 3-week spike de-risks the roadmap
-  - Decision-log API `7, 74`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The radar maps strengths around the compass.
 
@@ -449,23 +449,23 @@ How a draft moves from author to publication.
 
 ## Payments sit between four parties.
 
-- Customers `:c1`
-  - Shopper `:circle`
+- Customers `c1`
+  - Shopper `circle`
     - -browses-> Storefront
-  - Merchant `:circle`
+  - Merchant `circle`
     - -lists items-> Storefront
-- Platform `:c2`
+- Platform `c2`
   - Storefront
     - => Payments
   - Payments
     - -screens-> Fraud checks
     - <-> Card networks
-  - Fraud checks `:diamond`
+  - Fraud checks `diamond`
   - -ships via-> Carriers
-- Partners `:c3`
-  - Card networks `:square`
-  - Carriers `:square`
-- Regulators `:doc`
+- Partners `c3`
+  - Card networks `square`
+  - Carriers `square`
+- Regulators `doc`
 
 ---
 
@@ -560,15 +560,15 @@ slide is the only committed coverage of the `canvas` modifier; without it the
 panel's inset chain had no gate at all.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
-  - Decision-log API `7, 74`
+  - Scoring model v2 `{8, 88}`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
+  - Per-team weighting UI `{2, 28}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
+  - Bespoke board exports `{8, 18}`
 
 ---
 
@@ -751,14 +751,14 @@ panel token, not to re-litigate that. -->
 
 ## Ten entities with a size measure — the cluster case.
 
-- Atlas `$420k` `18%` `1200`
-- Borealis `$310k` `24%` `900`
-- Cirrus `$240k` `61%` `640`
-- Delta `$180k` `72%` `520`
-- Ember `$95k` `84%` `410`
-- Fornax `$88k` `79%` `260`
-- Gemini `$82k` `76%` `250`
-- Hydra `$79k` `74%` `240`
+- Atlas `{$420k, 18%, size=1200}`
+- Borealis `{$310k, 24%, size=900}`
+- Cirrus `{$240k, 61%, size=640}`
+- Delta `{$180k, 72%, size=520}`
+- Ember `{$95k, 84%, size=410}`
+- Fornax `{$88k, 79%, size=260}`
+- Gemini `{$82k, 76%, size=250}`
+- Hydra `{$79k, 74%, size=240}`
 
 ---
 

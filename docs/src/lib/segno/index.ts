@@ -16,7 +16,7 @@ export type { Expr, Grammar, GrammarSpec, Node, ParseError, ParseResult } from '
 export { alt, any, compile, GrammarError, greedy, lint, lit, MAX_DEPTH, MAX_DEPTH_LIMIT, MAX_UNTIL, many, many1, node, noneOf, oneOf as chars, opt, range as charRange, ref, STACK_EXHAUSTED, seq, set, until } from './grammar.js';
 export type { Diagnostic, Item, ListValue, Parsed, RecordValue, Scalar, Value } from './notation.js';
 export { isDirective, notationGrammar, parse } from './notation.js';
-export { notationSpec, STOP } from './notation-grammar.js';
+export { notationSpec, STOP, TAGS, WS } from './notation-grammar.js';
 export type { Bound, Positional, RecordOf, RecordSpec, Slot, Spelling } from './schema.js';
 export { list, record, SchemaError, schemaProblems, value } from './schema.js';
 export type { Cls, EnumOptions, NumberValue, Range, TimePoint, Type } from './types.js';

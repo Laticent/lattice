@@ -70,6 +70,10 @@ them, and the rest are ordinary code that must stay literal.
 | 19 | **Sparks join the notation** as a record behind their own opener: `` `~{12 14 17, bar, c3}` ``, `` `~{72/80, bullet}` ``, replacing `` `~{12 14 17}:bar:c3` ``. Sparks shipped (#2453) the day this note was written and were missing from its migration table; they are row 28 now, and the phase-2 codemod rewrites them (211 spans in 10 files on 2026-10-04) under the clean break (decision 9) | owner, 2026-10-04, over keeping the colon syntax as a second grammar |
 | 20 | **Segno is Lattice's one parser.** Pills, sparks, axes, labels and every grammar Lattice adds later are Segno grammars with slot schemas, never a new hand-written parser. Recorded here and not as a CLAUDE.md rule; a gate can follow once phase 2 has deleted the old parsers | owner, 2026-10-04, over a HARD RULE and over a gate with a 27-entry allowlist |
 | 21 | **The engine takes three additions now, as their own PR**: `greedy()` (longest match, opt-in per loop), `until()` (skip to a literal of at most 64 characters) and a per-grammar `maxDepth` (to 1,000). Each one keeps the linear bound. The README's promise changes from "every ambiguous grammar is refused" to "refused unless a loop is marked greedy". § The engine has the measurements | owner, 2026-10-04, over waiting for phase 3 |
+| 22 | **Pills accept 2.0x.** A pill reads in 0.7 µs against today's 0.35 µs; across all 183 pill spans in the repo's Markdown that is about 0.06 ms per full render, so binding off the flat tree is not worth its complexity | owner, 2026-10-04, at the phase-2 check-in |
+| 23 | **A no-break space (U+00A0) is a space.** It separates and trims like a space and tab, and is kept inside quotes; text pasted from documents and chat carries it | owner, 2026-10-04, closing the open question |
+| 24 | **Our decks are rewritten; nothing else reads the old spellings.** Every shipped deck and doc is rewritten, with no lint rule pointing at an old spelling. Lattice is not GA, so the one-off codemod was deleted before merge and a unit test keeps our own decks current | owner, 2026-10-04, over a retired-spelling lint with an autofix; the codemod dropped 2026-10-05 |
+| 25 | **Tagged records live in the grammar.** One tag character directly before a span's `{` — `~` for a spark, `^` for an icon (`2026-09-29-inline-icons.md`) — is a production of the notation, not a check in Lattice's dispatcher. At the start of a span a tag character always opens a tagged record, so the grammar stays LL(1); a top-level bare value cannot start with one, and `~/path` simply fails to parse and stays code. A slot declares the tag it needs (`record({ tag: '~' })`) | owner, 2026-10-04, over a dispatcher check before the parse |
 
 ## The notation
 
@@ -202,12 +206,12 @@ So `{BETA, tag, c4}`, `{BETA, c4, tag}` and `{BETA, shape=tag, color=c4}` are th
 | 19 | journey `` `@Customer` `:4` `+120` `` | `` `{who=Customer, mood=4, volume=120}` ``, or the `` `@Customer` `` shortcut (decision 11) |
 | 20 | heatmap `` `# why` `` | `` `note="why"` `` |
 | 21 | kanban `` `XL` `` | unchanged (a `size` enum) |
-| 22 | state-chart `` `approve => 2` `` | `` `{approve, to=2}` `` |
+| 22 | state-chart `` `approve => 2` `` | retired with state chart v1: v2 (#2424) reads the flowchart's rows, `-approve-> Approved`, so its styles are row 25 |
 | 23 | state `` `start` `` `` `at-risk` `` | unchanged (enum words) |
 | 25 | flowchart `` `#api:diamond:c2` `` `` `:dashed:cross` `` | `` `{#api, diamond, c2}` `` `` `{dashed, cross}` `` |
 | 26 | QR `` `ssid` `` postfix key | unchanged (an enum key) |
 | 27 | radar `` `Scale · 0–100` `` | `` `0..100` `` |
-| 28 | sparks `` `~{12 14 17}:bar:c3` `` `` `~{72/80}:bullet` `` | `` `~{12 14 17, bar, c3}` `` `` `~{72/80, bullet}` `` (decision 19): a `series` type (2–48 numbers, space-separated) and a `ratio` type (`72/80`, `72%`) |
+| 28 | sparks `` `~{12 14 17}:bar:c3:lg` `` `` `~{72/80}:bullet` `` | `` `~{12 14 17, bar, c3, lg}` `` `` `~{72/80, bullet}` `` (decision 19): a tag character before a record, read by the grammar (decision 25); the first item is a `series` (2–48 numbers, space-separated) or a `ratio` (`72/80`, `72%`) — the tag form decided by the owner, 2026-10-04, with icons (`2026-09-29-inline-icons.md` decision 6) |
 
 Out of scope for the first cut, because they live in list TEXT rather than inside backticks: flowchart
 arrows (`A -> B`), leading `- [x]` markers, the matrix-grid cell marker, and `_track`. They are Segno's
@@ -513,6 +517,72 @@ its own mark and palette.
 Phase 2 changes what every chart reads, which is high blast radius and genuinely novel, so it gets the
 full adversarial trio before merge (HARD RULE #25).
 
+### Phase 2 as built
+
+Branch `claude/segno-phase-2`, one commit per slice: plumbing; pills and sparks; one number reader;
+axes, label sets and points; gantt dependencies, status words and markers; the per-chart records.
+A one-off codemod rewrote the corpus, re-reading every rewrite through the new reader. It was deleted
+before merge: Lattice is not GA, so once our own decks were converted nothing needed to read the old
+spellings again (owner, 2026-10-05). It is in the branch history if that ever changes.
+
+**Where each slot lives.** A slot that works in any prose is a CORE slot in `lib/core/segno-slots.js`
+(`point`, `state`, `pill`, `spark`). A slot one component owns is declared in its manifest's `segno`
+field (`journey.step`, `flowchart.style`); the build compiles it, so a slot Segno refuses fails the build.
+The rest are one-word readers built in a shared `lib/core` kernel from Segno's types: `gantt-pill.js`,
+`cell-note.js`, `chart-status.js`, `kanban-sizes.js`, the waterfall markers and the QR
+keys. In every case the transform and the narrator call the same kernel, and lint does too where it
+reads the slot.
+
+**Calls made while building, each reversible:**
+
+- **Radar (row 27)** takes the bracketed axis line `[{Scale, 0..100}]`, the form quadrant and gantt
+  read, rather than a bare `0..100` pill in the eyebrow. A bare pill would have printed `0..100` on the
+  slide. The line is lifted off the slide because the ring ticks already print the scale. The one
+  variant that prints no ticks, `small-multiples`, re-shows a pinned scale as its old eyebrow
+  (`Scale · 0–10`); the same-machine render against base caught that slide losing it. Three
+  shipped eyebrows said more than the scale (`Scale · 0–10, on the criteria we wrote`); they keep their
+  words, and the axis line goes in above them.
+- **Journey (decision 11).** A record names `who` once, so a second actor is a second `@` pill:
+  `{who=me, mood=1}` `@cat`. `mood=2.5` now rounds to 3 in both the chart and the voice, where
+  `parseInt` truncated it to 2.
+- **Flowchart (row 25).** A single style word stands alone (`doc`, `fail`); two or more go in braces.
+  The key's words drop their colons (`{dotted, Informal}`), and a channel color is `fill=c3`.
+- **Gantt (row 10).** Two dependencies are a list, `after=[Design, Build]`. The codemod reported, and did
+  not guess, any `after: A, B`: the old chart read it as one name and the old lint as two. None shipped.
+- **A component can own its list rows' spans** (decision 3, enforced). One notation means a
+  flowchart style `{diamond, c2}` is also a valid pill, and the slide-wide pill pass reached it first:
+  the chart drew a box named "Triage diamond". A slot that declares `sits: "list-rows"` in its manifest
+  (flowchart's `style`) now keeps every inline-code span on that component's list rows out of the
+  mark / pill / spark pass, on the engine, the runtime and lint alike
+  (`lib/core/resolve-inline-code.js`). The demo deck caught it; no shipped deck had the colliding form.
+- **Row 23** moved from the words slice to the per-chart slice, because the parser that reads the
+  state keywords is the state chart's own.
+
+**Known limit.** A number written with a thousands comma cannot sit inside a record: the comma separates
+items, and a quoted value is text. `{12000, 62%}` works; `{12,000, 62%}` is three items. No shipped deck
+had one.
+
+**Measured against decision 24's premise (open for the owner).** Decision 24 was taken on "an old
+spelling in someone else's deck renders as literal code". That holds for pills and sparks: the old
+form does not parse, and the span stays code. It does not hold for the chart grammars. An old
+quadrant pill (`3, 70`) plots at the origin; an old journey `:4` leaves the step at mood 3; an old
+state-chart `submit => 2` draws no edge and prints as text; an old heatmap `# why` joins the value;
+an old gantt `after: X` joins the bar's label. A record that does not bind (a typo'd name, a
+thousands comma) behaves the same way. `lint:deck` is silent in every case. The adversarial trio
+found this, and the choice it raises — a data-integrity lint for an unreadable record, which is not a
+lint aimed at retired spellings — was put to the owner.
+
+**Settled by the owner, 2026-10-05: no handling.** Lattice is not GA, so the only old spellings that
+matter are our own, and they are converted. A unit test
+(`test/unit/authoring/segno-decks-current.test.js`) scans every deck we ship for the old shapes that
+cannot be mistaken for anything else and fails if one comes back, so a parallel PR written before phase 2 cannot
+land an old spelling silently. No data-integrity lint, and no change to how a chart treats a span it
+cannot read.
+
+**Not in this PR — decision 7**, the per-deck alias-consistency lint with an autofix. The binder already
+reports each spelling an author used (`spellings` on every bind). Building the rule means every reader
+must hand those spellings to lint, which is its own change. It is open for the owner at the merge ask.
+
 ## Open questions
 
 The three this note first carried — coordinates, journey sigils, color slots — are decisions 10 to 12.
@@ -521,10 +591,8 @@ Two are open, and both only matter from phase 2 on:
 - **Editor tooling.** Segno stops at the first error and has no incremental parsing or
   highlighting. If the Studio editor needs highlighting of Segno spans, is the path a display-only
   Lezer grammar, with Segno as the authority? (Raised by the trio's inversion.)
-- **No-break spaces and newlines.** The notation trims and separates on space and tab only, so a
-  pasted `{a,`U+00A0`b}` reads a value with a leading no-break space. Treating U+00A0 as a space is
-  kinder to pasted text; keeping the rule to two ASCII characters is simpler to state. A code span
-  cannot hold a newline, so only U+00A0 is a real question.
+- ~~**No-break spaces and newlines.**~~ Settled by decision 23: U+00A0 is a space. A code span
+  cannot hold a newline, so nothing else was open.
 
 **Phase 1's checker** (one independent agent) confirmed the LL(1) check sound on about 4,800 random
 grammars against a brute-force recognizer, the generated parser identical to the closure parser on the

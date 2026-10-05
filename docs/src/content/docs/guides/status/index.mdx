@@ -9,12 +9,12 @@ export const LAB_BOTH = `<!-- _class: checklist -->
 
 ## Brackets make a mark, braces make a pill.
 
-- [x] Contract signed by both parties \`{LEGAL}:tag:c2\`
-- [-] Data migration half cut over \`{DATA}:tag:c4\`
-- [!] Load test failed at peak \`{INFRA}:tag:c7\`
-- [?] Vendor SLA terms not disclosed \`{VENDOR}:tag:c11\`
-- [ ] Security review not yet booked \`{SECURITY}:tag:c5\`
-- [/] Legacy batch retired this quarter \`{DATA}:tag:c4\`
+- [x] Contract signed by both parties \`{LEGAL, tag, c2}\`
+- [-] Data migration half cut over \`{DATA, tag, c4}\`
+- [!] Load test failed at peak \`{INFRA, tag, c7}\`
+- [?] Vendor SLA terms not disclosed \`{VENDOR, tag, c11}\`
+- [ ] Security review not yet booked \`{SECURITY, tag, c5}\`
+- [/] Legacy batch retired this quarter \`{DATA, tag, c4}\`
 `;
 
 Almost every business deck has to say where something stands: shipped or
@@ -35,7 +35,7 @@ it. They look alike, and they do different jobs.
 | You want to say | Reach for | Looks like | Learn it in |
 |---|---|---|---|
 | **An answer**: yes, no, partly, unknown, not yet, not applicable | A **state mark** | `[x]` `[!]` `[?]` | [The six answers](/guides/status/answers/) |
-| **A label or category**: a team, a phase, a version | A **pill you place** | `` `{STABLE}:c2` `` | [Pills you place](/guides/status/pills/) |
+| **A label or category**: a team, a phase, a version | A **pill you place** | `` `{STABLE, c2}` `` | [Pills you place](/guides/status/pills/) |
 | **How a chart item is going**: on track, at risk, blocked | A **status word** | `` `at-risk` `` | [Pills a component places](/guides/status/component-pills/) |
 | **Different words** for a layout's answers | A **label set** | `` `[{[x], Enacted}]` `` | [Marks in layouts](/guides/status/marks-in-layouts/#rename-the-words-with-a-label-set) |
 

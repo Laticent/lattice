@@ -22,7 +22,7 @@ const modelOf = (html) => {
 };
 
 describe('flowchart — the figure through the real engine', () => {
-  const html = render('- Alert `:pill` => Triage\n- Triage -done-> Close `:dotted`\n  > Closes itself after a day.\n\n`[{=>, Paging path}]`\n\n*Most alerts close themselves.*');
+  const html = render('- Alert `pill` => Triage\n- Triage -done-> Close `dotted`\n  > Closes itself after a day.\n\n`[{"=>", Paging path}]`\n\n*Most alerts close themselves.*');
 
   test('the chart frame wraps one figure, with the harness and an empty svg', () => {
     assert.match(html, /class="[^"]*\bchart-frame\b/);
@@ -96,7 +96,7 @@ describe('flowchart — pass-through', () => {
 
 describe('flowchart — payload', () => {
   test('carries every styled fact the painter reads', () => {
-    const o = outlineFromMarkdown('- Box `:c2:diamond:fill-c4:border-c1:text-c3`\n- Done `done`\n- Box -> Done `:dashed:c5:open:loose`');
+    const o = outlineFromMarkdown('- Box `{diamond, c2, fill=c4, border=c1, text=c3}`\n- Done `done`\n- Box -> Done `{c5, dashed, open, loose}`');
     const p = payload(parseFlowchart(o.items, {}));
     assert.deepEqual(p.shapes[0], { id: 'box', name: 'Box', parent: null, shape: 'diamond', slot: 2, fill: 4, border: 1, text: 3 });
     assert.equal(p.shapes[1].status, 'done');

@@ -46,16 +46,16 @@ Chart — series-substance data visualizations (SVG kernel).
 
 ## Every page reaches a human within 15 minutes.
 
-- Alert fires `:pill` => Auto-triage => Severity?
-- Severity? `:diamond`
+- Alert fires `pill` => Auto-triage => Severity?
+- Severity? `diamond`
   - =SEV1=> Page on-call
   - -SEV2-> Open ticket -> Mitigate
-  - -SEV3-> Backlog `:dotted`
+  - -SEV3-> Backlog `dotted`
 - Page on-call `fail` =ack=> Mitigate => Postmortem
   > Pages the secondary after 5 minutes.
-- Postmortem `:doc`
+- Postmortem `doc`
 
-`[{=>, Paging path}, {:dotted, Waits for business hours}]`
+`[{"=>", Paging path}, {dotted, Waits for business hours}]`
 
 ---
 
@@ -77,7 +77,7 @@ Chart — series-substance data visualizations (SVG kernel).
 <!-- _class: gantt -->
 <!-- _footer: "gantt · chart survey" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## A gantt lays overlapping work against a shared calendar.
 
@@ -85,13 +85,13 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
+  - Scoring model v2 `Q2..Q3` `live` `after=Signal taxonomy`
     - Two teams contest the weighting; the Q3 review decides it.
-  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
+  - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
-  - GA `Q4` `milestone` `after: Org-wide rollout`
+  - Org-wide rollout `Q3..Q4` `after=Per-team weighting`
+  - GA `Q4` `milestone` `after=Org-wide rollout`
     - Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.
 
 ---
@@ -138,15 +138,15 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 ## The journey scores each stage of the path.
 
 - Evaluate
-  - Read case study `@prospect` `:5`
-  - Book demo `@prospect` `:4`
-  - Live demo `@prospect` `@sales` `:4`
+  - Read case study `{who=prospect, mood=5}`
+  - Book demo `{who=prospect, mood=4}`
+  - Live demo `{who=prospect, mood=4}` `@sales`
 - Trial
-  - Trial signup `@prospect` `:3`
-  - Workspace setup `@user` `@onboarding` `:1`
+  - Trial signup `{who=prospect, mood=3}`
+  - Workspace setup `{who=user, mood=1}` `@onboarding`
 - Activate
-  - First report `@user` `:3`
-  - Daily use `@user` `:5`
+  - First report `{who=user, mood=3}`
+  - Daily use `{who=user, mood=5}`
 
 ---
 
@@ -286,26 +286,26 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
 - Quick Wins
-  - Weekly signal digest `2, 82`
-  - Slack intake bot `3, 72`
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
 - Strategic Bets
-  - Scoring model v2 `8, 88`
+  - Scoring model v2 `{8, 88}`
     - Owner: Platform team
     - A 3-week spike de-risks the roadmap
-  - Decision-log API `7, 74`
+  - Decision-log API `{7, 74}`
 - Defer
-  - Per-team weighting UI `2, 28`
-  - Maturity self-assessment `1, 20`
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
 - Time Sinks
-  - Bespoke board exports `8, 18`
-  - Custom calibration tooling `9, 26`
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
 
 ---
 
 <!-- _class: radar -->
 <!-- _footer: "radar · chart survey" -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## The radar maps strengths around the compass.
 
@@ -356,14 +356,14 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 Cost is the renewal we signed; adoption is the share of teams with a weekly active user.
 
-- Atlas `$420k` `18%`
+- Atlas `{$420k, 18%}`
   - Renewal lands in March
   - Two teams asked to drop it
-- Borealis `$310k` `24%`
-- Cardinal `$180k` `52%`
-- Dovetail `$95k` `61%`
-- Everline `$240k` `31%`
-- Fathom `$60k` `74%`
+- Borealis `{$310k, 24%}`
+- Cardinal `{$180k, 52%}`
+- Dovetail `{$95k, 61%}`
+- Everline `{$240k, 31%}`
+- Fathom `{$60k, 74%}`
 
 ---
 

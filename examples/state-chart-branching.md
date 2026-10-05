@@ -64,9 +64,9 @@ No single column can show this; the states would read as a sequence.
   - -ship-> Approved
 - Deep review
   - -ship-> Approved
-  - -refuse-> Refused `:dashed`
+  - -refuse-> Refused `dashed`
 - Legal hold
-  - -refuse-> Refused `:dashed`
+  - -refuse-> Refused `dashed`
 - Approved `done`
 - Refused `end`
 
@@ -86,7 +86,7 @@ Direction is the author's call — `lr`, `tb`, or leave it to fit the stage.
   - -triage-> Triage
 - Triage
   - =accept=> Accepted
-  - -refuse-> Refused `:dashed`
+  - -refuse-> Refused `dashed`
 - Accepted `done`
 - Refused `end` `fail`
 
@@ -105,7 +105,7 @@ The router nests each loop outside its state's corner and keeps every other line
 - Connecting `start`
   - -retry-> Connecting
   - =ok=> Connected
-  - -fail-> Failed `:dashed`
+  - -fail-> Failed `dashed`
 - Connected `live`
   - -drop-> Connecting
 - Failed `end`

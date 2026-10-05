@@ -19,9 +19,9 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the analysis. |
-| `axes` | `p > code` | no | Optional axes, as ONE bracketed list in its own paragraph ABOVE the chart list — x first, then y: `[{Effort, 0..10}, {Reach, 0..100}]`. Each member is `{name, min..max, threshold}`; the domain and threshold are optional and derive from the data when absent. The paragraph is consumed and painted on the axes, so it never prints twice. Quotes are optional and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. Same idiom as `scatter` and `matrix-grid`. |
-| `items` | `ul > li` | yes | One li per item. Format: `Label — x, y[, size]`. |
-| `detail` | `li > ul > li > ul` | no | Optional 3rd-level nested sublist under an item (the x,y are inline pills, so this level is free). Drives two surfaces from one source (shared with pie/funnel/map via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the item's `<circle>`/bubble with `data-mark` (a stable global index across all variants) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A quadrant with no sublists emits no note and is unchanged. |
+| `axes` | `p > code` | no | Optional axes, as ONE bracketed list in its own paragraph ABOVE the chart list — x first, then y: `[{Effort, 0..10}, {Reach, 0..100}]`. Each member is `{name, min..max, threshold}`; the domain and threshold are optional and derive from the data when absent. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. Same idiom as `scatter` and `matrix-grid`. |
+| `items` | `ul > li` | yes | One li per item: its label, then one point record, `{x, y}` or `{x, y, size=n}`. |
+| `detail` | `li > ul > li > ul` | no | Optional 3rd-level nested sublist under an item (the point is an inline record, so this level is free). Drives two surfaces from one source (shared with pie/funnel/map via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the item's `<circle>`/bubble with `data-mark` (a stable global index across all variants) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A quadrant with no sublists emits no note and is unchanged. |
 
 ### Variant decision rule
 
@@ -35,12 +35,12 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 
 ### Common mistakes
 
-- **Under `magic`, expecting the group heading text to move an item into that quadrant.** Placement is driven entirely by the item's `x, y` coordinate — the group heading is an editorial label only; an item whose coordinates don't fall in the region a heading like 'Leaders' implies still renders wherever its numbers place it.
+- **Under `magic`, expecting the group heading text to move an item into that quadrant.** Placement is driven entirely by the item's `{x, y}` point — the group heading is an editorial label only; an item whose coordinates don't fall in the region a heading like 'Leaders' implies still renders wherever its numbers place it.
 - **Reading a name as belonging to the dot nearest it.** Follow the hairline where there is one. A crowded corner pushes names one or two rings out from their own dot, and a leader is drawn for exactly that case — a name with no line is sitting against the dot it names.
 
 ### Data shape
 
-- An item is ONE inline-code chip with comma-separated numbers — `Label — x, y[, size]` as `` `3, 70` `` or `` `3, 70, 2.4` `` under `bubble` — EXCEPT `trail`, which needs TWO chips (`` `5, 60` `` `` `3, 78` ``, from-position then to-position); splitting a non-`trail` item's coordinates into two chips silently zeroes the second axis instead of erroring.
+- An item is ONE inline-code point — `Label — {x, y}` as `` `{3, 70}` ``, or `` `{3, 70, size=2.4}` `` under `bubble` — EXCEPT `trail`, which needs TWO points (`` `{5, 60}` `` `` `{3, 78}` ``, from-position then to-position); splitting a non-`trail` item's coordinates into two chips silently zeroes the second axis instead of erroring.
 - The axis list is not just a label — a member's domain SETS the scale (`{Effort, 0..10}` fixes it instead of deriving it from the data), and its optional third part is that axis's threshold, which `threshold` draws as a cutoff line (`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`); omit either and the chart falls back to a data-derived scale / a midpoint threshold. The retired arrow eyebrow (`Effort 0–10 → Reach 0–100`) now renders as a plain eyebrow — `lint:deck` flags it and rewrites it.
 
 ## When to use
@@ -53,7 +53,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 
 - **Static categorical 2×2.** If the quadrants are fixed labels (Important × Urgent, Build × Buy × Partner × Defer) and items are placed by category not coordinate, use `matrix-2x2`. `quadrant` is data-driven; `matrix-2x2` is conceptual.
 - **Single axis matters.** If one axis is decorative and only the other carries meaning, you have a ranking, not a scatter. Use `progress` for percent-complete or `kpi` for ranked metrics with status.
-- **Coordinates without an audience-shared scale.** If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either give each axis its domain in the axis list — the `[{Effort, 0..10}, {Reach, 0..100}]` line above every slide here — or normalize to a familiar scale before authoring.
+- **Coordinates without an audience-shared scale.** If `{8, 80}` requires a footnote to interpret, the slide doesn't pay off. Either give each axis its domain in the axis list — the `[{Effort, 0..10}, {Reach, 0..100}]` line above every slide here — or normalize to a familiar scale before authoring.
 
 ## Authoring
 
@@ -67,17 +67,17 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 Effort estimated in story-points; reach as percent of addressable teams.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
-  - Snapshot exports `9, 55`
+  - Weekly signal brief `{8, 80}`
+  - Snapshot exports `{9, 55}`
 - Defer
-  - Vendor scoping `2, 30`
-  - Manual recalibration `1, 22`
+  - Vendor scoping `{2, 30}`
+  - Manual recalibration `{1, 22}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
-  - Bespoke board export `9, 28`
+  - Custom audit log UI `{7, 18}`
+  - Bespoke board export `{9, 28}`
 ```
 
 ## Anatomy
@@ -111,15 +111,15 @@ A third value sizes each point.
 ## bubble sizes each point by a third value.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70, 2.4`
-  - Per-team calibration `5, 85, 4.1`
+  - Scoring model v2 `{3, 70, size=2.4}`
+  - Per-team calibration `{5, 85, size=4.1}`
 - Quick Wins
-  - Weekly signal brief `8, 80, 0.9`
-  - Snapshot exports `9, 55, 0.6`
+  - Weekly signal brief `{8, 80, size=0.9}`
+  - Snapshot exports `{9, 55, size=0.6}`
 - Defer
-  - Vendor scoping `2, 30, 0.4`
+  - Vendor scoping `{2, 30, size=0.4}`
 - Time Sinks
-  - Custom audit log UI `7, 18, 1.3`
+  - Custom audit log UI `{7, 18, size=1.3}`
 ```
 
 ### `trail` — trail
@@ -134,12 +134,12 @@ Arrows show where points moved from.
 ## trail shows where each point moved from.
 
 - Strategic Bets
-  - Scoring model v2 `5, 60` `3, 78`
-  - Per-team calibration `7, 70` `5, 88`
+  - Scoring model v2 `{5, 60}` `{3, 78}`
+  - Per-team calibration `{7, 70}` `{5, 88}`
 - Quick Wins
-  - Snapshot exports `9, 45` `8, 62`
+  - Snapshot exports `{9, 45}` `{8, 62}`
 - Time Sinks
-  - Custom audit log UI `6, 25` `7, 16`
+  - Custom audit log UI `{6, 25}` `{7, 16}`
 ```
 
 ### `cohort` — cohort
@@ -154,17 +154,17 @@ Points color by group.
 ## cohort colors the points by group.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
-  - Snapshot exports `9, 55`
+  - Weekly signal brief `{8, 80}`
+  - Snapshot exports `{9, 55}`
 - Defer
-  - Vendor scoping `2, 30`
-  - Manual recalibration `1, 22`
+  - Vendor scoping `{2, 30}`
+  - Manual recalibration `{1, 22}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
-  - Bespoke board export `9, 28`
+  - Custom audit log UI `{7, 18}`
+  - Bespoke board export `{9, 28}`
 ```
 
 ### `threshold` — threshold
@@ -179,14 +179,14 @@ The lines that matter, drawn.
 ## threshold draws the lines that matter.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
+  - Weekly signal brief `{8, 80}`
 - Defer
-  - Vendor scoping `2, 30`
+  - Vendor scoping `{2, 30}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
+  - Custom audit log UI `{7, 18}`
 ```
 
 ### `magic` — magic
@@ -201,14 +201,14 @@ All four quadrants named.
 ## magic names all four quadrants.
 
 - Challengers
-  - Productboard `30, 82`
+  - Productboard `{30, 82}`
 - Leaders
-  - Sprig + Log `85, 88`
-  - Chorus `72, 76`
+  - Sprig + Log `{85, 88}`
+  - Chorus `{72, 76}`
 - Niche Players
-  - Notion build-out `25, 28`
+  - Notion build-out `{25, 28}`
 - Visionaries
-  - Spreadsheet `82, 34`
+  - Spreadsheet `{82, 34}`
 ```
 
 ### `minimal` — minimal
@@ -223,15 +223,15 @@ Just the points.
 ## minimal strips the chart to its points.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
-  - Snapshot exports `9, 55`
+  - Weekly signal brief `{8, 80}`
+  - Snapshot exports `{9, 55}`
 - Defer
-  - Vendor scoping `2, 30`
+  - Vendor scoping `{2, 30}`
 - Time Sinks
-  - Custom audit log UI `7, 18`
+  - Custom audit log UI `{7, 18}`
 ```
 
 ## Universal modifiers

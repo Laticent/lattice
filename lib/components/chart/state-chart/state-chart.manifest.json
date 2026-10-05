@@ -110,12 +110,12 @@
     "states": {
       "selector": "ul > li",
       "required": true,
-      "description": "One list item per state, named by its text (matched case-insensitively; a `#id` at the lead of its span names it for long text or twins). Numbered and bulleted lists mean the same thing; the badge shows the state's place in the list. A trailing code span styles the state: `start` or `end` (the machine's entry and end), a status word (on-track, done, live, at-risk, warn, blocked, fail, pilot, decision, deferred), a palette slot `:c1`…`:c8`, one channel `:fill-cN` `:border-cN` `:text-cN`, or a shape word such as `:diamond`. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and wins over a slot on the same state, as on the flowchart; a state with neither is a neutral tile. With no `start`, the first state is the start; with no `end`, every state with no way out is an end."
+      "description": "One list item per state, named by its text (matched case-insensitively; a `#id` at the lead of its span names it for long text or twins). Numbered and bulleted lists mean the same thing; the badge shows the state's place in the list. A trailing code span styles the state: `start` or `end` (the machine's entry and end), a status word (on-track, done, live, at-risk, warn, blocked, fail, pilot, decision, deferred), a palette slot `c1`…`c8`, one channel `fill=cN` `border=cN` `text=cN`, or a shape word such as `diamond`; several go in one record, in any order: `\\{#id, diamond, c2}`. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and wins over a slot on the same state, as on the flowchart; a state with neither is a neutral tile. With no `start`, the first state is the start; with no `end`, every state with no way out is an end."
     },
     "transitions": {
       "selector": "ul > li > ul > li (starts with an arrow)",
       "required": false,
-      "description": "A sub-item that starts with an arrow is a transition from its state: `- -submit-> Submitted` (the event label sits inside the arrow), `- -> Done` (no label), `- =ship=> Shipped` (heavy: the main path). A state's own name as the target is a self-loop. The flowchart's arrows and line words apply: `<-`, `<->`, `--`, a trailing `:dashed` `:dotted` `:open` `:dot` `:cross` `:cN` span. The label sits ON its line, which is cut under it."
+      "description": "A sub-item that starts with an arrow is a transition from its state: `- -submit-> Submitted` (the event label sits inside the arrow), `- -> Done` (no label), `- =ship=> Shipped` (heavy: the main path). A state's own name as the target is a self-loop. The flowchart's arrows and line words apply: `<-`, `<->`, `--`, a trailing `dashed` `dotted` `open` `dot` `cross` `cN` span, several in one record (`\\{dashed, cross}`). The label sits ON its line, which is cut under it."
     },
     "composites": {
       "selector": "ul > li > ul > li (starts with a name)",
@@ -131,6 +131,96 @@
       "selector": "p > code ([…] after the list)",
       "required": false,
       "description": "The key is derived from what the chart uses (statuses, heavy and patterned lines, slots on composites); one bracketed span after the list renames entries, `[{=>, Happy path}]`, as on the flowchart. Words that paint the same tone share one entry."
+    }
+  },
+  "segno": {
+    "style": {
+      "label": "a state-chart style",
+      "sits": "list-rows",
+      "params": {
+        "lead": {
+          "type": "oneOf",
+          "values": [
+            "start",
+            "end"
+          ]
+        },
+        "id": "id",
+        "status": {
+          "type": "oneOf",
+          "values": [
+            "on-track",
+            "done",
+            "live",
+            "at-risk",
+            "warn",
+            "blocked",
+            "fail",
+            "pilot",
+            "decision",
+            "deferred"
+          ]
+        },
+        "shape": {
+          "type": "oneOf",
+          "values": [
+            "box",
+            "square",
+            "pill",
+            "diamond",
+            "circle",
+            "cylinder",
+            "io",
+            "doc"
+          ]
+        },
+        "head": {
+          "type": "oneOf",
+          "values": [
+            "open",
+            "dot",
+            "cross"
+          ]
+        },
+        "pattern": {
+          "type": "oneOf",
+          "values": [
+            "dashed",
+            "dotted"
+          ]
+        },
+        "loose": {
+          "type": "flag",
+          "word": "loose"
+        },
+        "color": {
+          "type": "indexed",
+          "prefix": "c",
+          "max": 8,
+          "label": "a color"
+        },
+        "fill": {
+          "type": "indexed",
+          "prefix": "c",
+          "max": 8,
+          "label": "a color",
+          "named": true
+        },
+        "border": {
+          "type": "indexed",
+          "prefix": "c",
+          "max": 8,
+          "label": "a color",
+          "named": true
+        },
+        "text": {
+          "type": "indexed",
+          "prefix": "c",
+          "max": 8,
+          "label": "a color",
+          "named": true
+        }
+      }
     }
   },
   "skeleton": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Document approval flow.\n\nHow a draft moves from author to archive.\n\n- Draft `start`\n  - -submit-> Submitted\n  - -discard-> Archived\n- Submitted `on-track`\n  - -review-> In Review\n- In Review\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n- Approved `done`\n  - -publish-> Published\n- Published `live`\n  - -archive-> Archived\n- Archived `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",

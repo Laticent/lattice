@@ -26,7 +26,7 @@ test('line: a series name with a quote is one attribute, read back verbatim', ()
 });
 
 test('journey: stage and step labels decode once and escape once', () => {
-	const d = render(`<!-- _class: journey -->\n\n## J.\n\n- S & "q"\n  - T & "q" \`@a\` \`:3\``);
+	const d = render(`<!-- _class: journey -->\n\n## J.\n\n- S & "q"\n  - T & "q" \`{who=a, mood=3}\``);
 	assert.equal(d.querySelector('.journey-stage').getAttribute('data-label'), 'S & "q"');
 	assert.equal(d.querySelector('.journey-task').getAttribute('data-label'), 'T & "q"');
 });

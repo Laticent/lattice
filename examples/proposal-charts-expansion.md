@@ -114,11 +114,11 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 ## The tools we pay most for are the ones nobody adopts.
 
-- Atlas `$420k` `18%`
-- Borealis `$310k` `24%`
-- Cirrus `$240k` `61%`
-- Delta `$180k` `72%`
-- Ember `$95k` `84%`
+- Atlas `{$420k, 18%}`
+- Borealis `{$310k, 24%}`
+- Cirrus `{$240k, 61%}`
+- Delta `{$180k, 72%}`
+- Ember `{$95k, 84%}`
 
 *Two numeric axes carrying real units, which is what separates this from a quadrant — a quadrant scores on a unitless two-by-two.*
 

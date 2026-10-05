@@ -226,7 +226,7 @@ section.state-chart .state-index-t[data-s] {
   fill: var(--state-node-ink);
 }
 
-/* A SLOT (`:c1`…`:c8`) paints a state with a chart palette slot. A status wins over a slot
+/* A SLOT (`c1`…`c8`) paints a state with a chart palette slot. A status wins over a slot
  * (the key names the status), as it does on the flowchart; a deferred status takes the slot. */
 section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="1"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-1-hue); --fill-ink: var(--chart-cat-1-ink); }
 section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="2"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-2-hue); --fill-ink: var(--chart-cat-2-ink); }
@@ -236,7 +236,7 @@ section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data
 section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="6"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-6-hue); --fill-ink: var(--chart-cat-6-ink); }
 section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="7"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-7-hue); --fill-ink: var(--chart-cat-7-ink); }
 section.state-chart :is(.state-node, .state-node-shape, .state-node-accent)[data-slot="8"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-8-hue); --fill-ink: var(--chart-cat-8-ink); }
-/* One channel only: `:border-cN` inks the edge, `:text-cN` the name. (`:fill-cN` is the
+/* One channel only: `border=cN` inks the edge, `text=cN` the name. (`fill=cN` is the
  * gradient the pass picks.) */
 section.state-chart .state-node-shape[data-border="1"] { stroke: var(--chart-cat-1-ink); }
 section.state-chart .state-node-shape[data-border="2"] { stroke: var(--chart-cat-2-ink); }

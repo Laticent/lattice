@@ -31,13 +31,13 @@ A quadrant prints each item's name beside its dot. That name had **one size**, w
 ## Where to put the next dollar.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
+  - Scoring model v2 `{3, 70}`
 - Quick Wins
-  - Weekly signal brief `8, 40`
+  - Weekly signal brief `{8, 40}`
 - Defer
-  - Per-team weighting UI `4, 55`
+  - Per-team weighting UI `{4, 55}`
 - Time Sinks
-  - Bespoke board exports `2, 20`
+  - Bespoke board exports `{2, 20}`
 
 ---
 
@@ -49,19 +49,19 @@ A quadrant prints each item's name beside its dot. That name had **one size**, w
 ## Ten initiatives, and every name still reads.
 
 - Strategic Bets
-  - Scoring model v2 `3, 78`
-  - Decision-log API `2.2, 70`
-  - Signal dedupe `3.6, 84`
+  - Scoring model v2 `{3, 78}`
+  - Decision-log API `{2.2, 70}`
+  - Signal dedupe `{3.6, 84}`
 - Quick Wins
-  - Weekly brief `7.4, 88`
-  - Adoption board `8.2, 74`
-  - Snapshot export `6.8, 66`
+  - Weekly brief `{7.4, 88}`
+  - Adoption board `{8.2, 74}`
+  - Snapshot export `{6.8, 66}`
 - Defer
-  - Vendor scoping `2.6, 30`
-  - Intake shim `3.4, 22`
+  - Vendor scoping `{2.6, 30}`
+  - Intake shim `{3.4, 22}`
 - Time Sinks
-  - Custom audit log `7.8, 26`
-  - Manual recalibration `8.6, 16`
+  - Custom audit log `{7.8, 26}`
+  - Manual recalibration `{8.6, 16}`
 
 ---
 
@@ -89,23 +89,23 @@ The kernel walks a ladder of sizes **largest first** and keeps the first rung wh
 ## The density that pins the floor.
 
 - Strategic Bets
-  - Scoring model v2 `3, 78`
-  - Decision-log audit trail `2.2, 70`
-  - Multi-source signal dedupe `3.6, 84`
-  - Per-team calibration `4.4, 92`
+  - Scoring model v2 `{3, 78}`
+  - Decision-log audit trail `{2.2, 70}`
+  - Multi-source signal dedupe `{3.6, 84}`
+  - Per-team calibration `{4.4, 92}`
 - Quick Wins
-  - Weekly signal brief `7.4, 88`
-  - Adoption dashboard `6.6, 74`
-  - Snapshot exports `8.2, 70`
+  - Weekly signal brief `{7.4, 88}`
+  - Adoption dashboard `{6.6, 74}`
+  - Snapshot exports `{8.2, 70}`
 - Defer
-  - Vendor scoping `2.6, 30`
-  - Legacy intake shim `1.6, 24`
-  - Manual recalibration `3.4, 14`
-  - Self-assessment generator `4.2, 22`
+  - Vendor scoping `{2.6, 30}`
+  - Legacy intake shim `{1.6, 24}`
+  - Manual recalibration `{3.4, 14}`
+  - Self-assessment generator `{4.2, 22}`
 - Time Sinks
-  - Bespoke board export `8.6, 28`
-  - Custom audit log UI `7.4, 22`
-  - Per-decision profiles `6.6, 12`
+  - Bespoke board export `{8.6, 28}`
+  - Custom audit log UI `{7.4, 22}`
+  - Per-decision profiles `{6.6, 12}`
 
 ---
 

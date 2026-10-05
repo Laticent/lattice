@@ -148,16 +148,17 @@ export type InlineNext = { next: string; words: { label: string; axis: string; i
 /** Starter sparks, offered once `` `~ `` is typed. */
 const SPARK_TEMPLATES: Completion[] = [
 	['~{12 14 13 17 21}', 'line'],
-	['~{12 14 13 17 21}:bar', 'bars'],
-	['~{1 1 -1 1 -1 1}:winloss', 'win-loss'],
+	['~{12 14 13 17 21, bar}', 'bars'],
+	['~{1 1 -1 1 -1 1, winloss}', 'win-loss'],
 	['~{72%}', 'ring'],
-	['~{72/80}:bullet', 'bullet'],
+	['~{72/80, bullet}', 'bullet'],
 ].map(([label, detail]) => ({ label, detail, type: 'snippet' }));
 
 const WORD = /^[\w-]*$/;
 
 /**
- * Completion inside a spark (`` `~{…}:` ``) or a pill (`` `{LABEL}:` ``), by POSITION like the
+ * Completion inside a spark (`` `~{12 14, `` ``) or a pill (`` `{LABEL, `` ``) — after a comma in
+ * the record still being typed, so before its closing brace — by POSITION like the
  * `_class:` line (slide-context.js classTokenResult): the menu holds only the NEXT open axis —
  * a type, then a size, then a color … — and only the words the kernel accepts there. When what
  * the author types matches none of those (`c3` while types are showing), it widens to every
@@ -173,8 +174,10 @@ export function inlineCodeCompletion(
 	if (((before.match(/`/g) || []).length & 1) === 0) return null;
 	const inside = before.slice(before.lastIndexOf('`') + 1);
 	if (/^~\{?$/.test(inside)) return { typed: inside, options: SPARK_TEMPLATES, validFor: (t) => /^~\{?[^`]*$/.test(t) };
-	const m = /^(~?\{[^}`]*\}(?::[\w-]+)*):([\w-]*)$/.exec(inside);
-	const got = m && next ? next(m[1]) : null;
+	// The record so far, up to the last comma: its first item, then complete words. The kernel
+	// is asked about that record CLOSED (`{LIVE, tag}`), which is what it can judge.
+	const m = /^(~?\{[^{}`,]+(?:,\s*[\w-]+)*),\s*([\w-]*)$/.exec(inside);
+	const got = m && next ? next(`${m[1]}}`) : null;
 	if (!m || !got) return null;
 	const typed = m[2];
 	// `boost` keeps the kernel's order inside a step (sm md lg, c1 … c12), not the alphabet's.
@@ -217,8 +220,8 @@ export function makeStudioCompletion(
 	//   vocab     — the lint vocab's modifier registry; drives the positional
 	//     `_class:` completion (falls back to the flat `modifiers` list).
 	//   inlineNext — what may come next in a spark or pill (lint-core's
-	//     `inlineCodeCompletions`, read from the kernels), offered after `` `~{…}: `` or
-	//     `` `{LABEL}: ``. Null until the lazy lint core arrives; the menu stays closed till then.
+	//     `inlineCodeCompletions`, read from the kernels), offered after `` `~{…, `` or
+	//     `` `{LABEL, ``. Null until the lazy lint core arrives; the menu stays closed till then.
 	opts: { modifiers?: string[]; palettes?: string[]; registers?: Record<string, string[]>; vocab?: CompletionVocab | null; inlineNext?: ((span: string) => InlineNext | null) | null } = {},
 ) {
 	// The `finish:` front-matter VALUE vocabulary — built-in presets (bare, e.g.
@@ -249,7 +252,7 @@ export function makeStudioCompletion(
 		const line = context.state.doc.lineAt(context.pos);
 		const before = line.text.slice(0, context.pos - line.from);
 
-		// 0. Inside a spark (`` `~{12 14 17}:bar:lg` ``) or a pill (`` `{LIVE}:tag:c4` ``).
+		// 0. Inside a spark (`` `~{12 14 17, bar, lg` ``) or a pill (`` `{LIVE, tag, c4` ``).
 		const inline = inlineCodeCompletion(before, opts.inlineNext ?? null);
 		if (inline) return { from: context.pos - inline.typed.length, options: inline.options, validFor: inline.validFor };
 

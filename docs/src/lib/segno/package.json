@@ -20,6 +20,28 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./values": {
+      "types": "./values.ts",
+      "import": {
+        "types": "./dist/values.d.ts",
+        "default": "./dist/values.mjs"
+      },
+      "require": {
+        "types": "./dist/values.d.ts",
+        "default": "./dist/values.cjs"
+      }
+    },
+    "./read": {
+      "types": "./read.ts",
+      "import": {
+        "types": "./dist/read.d.ts",
+        "default": "./dist/read.mjs"
+      },
+      "require": {
+        "types": "./dist/read.d.ts",
+        "default": "./dist/read.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [

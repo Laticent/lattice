@@ -1936,7 +1936,7 @@ for (const [name, md] of [
 	['bar (media)', '<!-- _class: bar -->\n\n## Mix\n\nFirst line.\n\nSecond line.\n\n- Licenses `42`\n- Services `47`\n'],
 	['progress (flow)', '<!-- _class: progress -->\n\n## Readiness\n\nFirst line.\n\nSecond line.\n\n- Intake `92%` `on-track`\n- Scoring `68%` `at-risk`\n'],
 	['word-cloud (spatial)', '<!-- _class: word-cloud -->\n\n## Themes\n\nFirst line.\n\nSecond line.\n\n- Pricing `9`\n- Support `6`\n- Speed `4`\n'],
-	['journey (placeholder)', '<!-- _class: journey -->\n\n## Onboarding\n\nFirst line.\n\nSecond line.\n\n- Evaluate\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n'],
+	['journey (placeholder)', '<!-- _class: journey -->\n\n## Onboarding\n\nFirst line.\n\nSecond line.\n\n- Evaluate\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n'],
 ]) {
 	test(`chart lead: ${name} projects its second paragraph once, before the figure`, async () => {
 		const { articleHtml } = project(await renderedSections(md));
@@ -1953,7 +1953,7 @@ for (const [name, cls, data] of [
 	['bar (media)', 'bar', '- Licenses `42`\n- Services `47`\n'],
 	['progress (flow)', 'progress', '- Intake `92%` `on-track`\n- Scoring `68%` `at-risk`\n'],
 	['kanban (flow)', 'kanban', '- Backlog\n  - Waiting cards `S`\n- Review\n  - Almost done `S`\n'],
-	['journey (placeholder)', 'journey', '- Evaluate\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n'],
+	['journey (placeholder)', 'journey', '- Evaluate\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n'],
 ]) {
 	test(`chart lead block: ${name} projects its code block and quote once, before the figure`, async () => {
 		const md = `<!-- _class: ${cls} -->\n\n## Head\n\nFirst line.\n\n\`\`\`js\nCODELB = 1\n\`\`\`\n\n> QUOTELB here.\n\n${data}`;

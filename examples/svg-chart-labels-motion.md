@@ -35,7 +35,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 <!-- _class: radar -->
 
-`Scale · 0–10`
+`[{Scale, 0..10}]`
 
 ## Rim labels wrap, and the shape finally animates.
 
@@ -61,17 +61,17 @@ That one fact caused two different failures. A long label ran straight off its v
 ## Crowded item names are placed apart, not on top of each other.
 
 - Quick Wins
-  - Enterprise data platform modernization `2, 82`
-  - Customer self-service portal rebuild `3, 72`
+  - Enterprise data platform modernization `{2, 82}`
+  - Customer self-service portal rebuild `{3, 72}`
 - Strategic Bets
-  - Legacy mainframe decommissioning program `8, 88`
-  - Decision-log API `7, 74`
+  - Legacy mainframe decommissioning program `{8, 88}`
+  - Decision-log API `{7, 74}`
 
 ---
 
 <!-- _class: gantt -->
 
-`Jan..Dec` `today Jun`
+`[{Timeline, Jan..Dec, today=Jun}]`
 
 ## The gantt is one SVG, so motion can build it.
 

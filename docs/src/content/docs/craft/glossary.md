@@ -98,8 +98,8 @@ a state mark, so they belong to the first meaning.
 | **Marker** | What you type: `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`. Six of them, one answer each. |
 | **State mark** | What a marker draws: a disc or ring whose shape says the answer. |
 | **Answer** | What a mark means — yes, partly, no, unknown, open, does not apply. The same in every layout. |
-| **Pill** | A small rounded label. `` `{STABLE}:c2` `` places one by hand; some components place one from a word. |
-| **Color slot** | `:c1` … `:c12` on a pill. Numbered, not named: a slot picks a distinct color, never a meaning. |
+| **Pill** | A small rounded label. `` `{STABLE, c2}` `` places one by hand; some components place one from a word. |
+| **Color slot** | `c1` … `c12` on a pill. Numbered, not named: a slot picks a distinct color, never a meaning. |
 | **Status word** | One of ten words — `on-track`, `at-risk`, `blocked` … — that six chart components read and color by meaning. |
 | **Label set** | `` `[{[x], Enacted}]` `` — renames the words a layout's key uses, without changing the answer. |
 | **Key** | The legend a layout draws under its grid, naming each mark the slide uses. |

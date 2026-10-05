@@ -120,17 +120,17 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 <!-- _class: gantt chart-finish-tone -->
 <!-- _footer: "A status keeps its own color under every finish" -->
 
-`2026 Q1 .. 2026 Q4` `today Q3`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
 ## Two workstreams land the scoring model by Q4.
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
-  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
-  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
+  - Scoring model v2 `Q2..Q3` `live` `after=Signal taxonomy`
+  - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide rollout `Q3..Q4` `blocked` `after: Per-team weighting`
+  - Org-wide rollout `Q3..Q4` `blocked` `after=Per-team weighting`
 
 ---
 

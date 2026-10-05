@@ -455,7 +455,7 @@ describe('state chart — hostile names and grammar edges', () => {
   });
 
   test('a status wins over a slot on one state, as on the flowchart, and the key names it', () => {
-    const html = render('- A `start`\n  - -> B\n- B `done :c2`');
+    const html = render('- A `start`\n  - -> B\n- B `{done, c2}`');
     assert.match(html, /fc-key-label">Done</);
   });
 

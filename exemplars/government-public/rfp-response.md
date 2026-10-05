@@ -63,7 +63,7 @@ We deliver the highest-volume permit types first, run them in parallel with the 
 <!-- _class: gantt -->
 <!-- tier: short -->
 
-`2027 Q3 .. 2028 Q4`
+`[{Timeline, 2027 Q3 .. 2028 Q4}]`
 
 ## The 18-month delivery plan, by workstream.
 

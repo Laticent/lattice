@@ -43,14 +43,14 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 ## weighted sizes each step by its share of the whole.
 
 - Discover
-  - Search `@prospect` `:4` `+45`
-  - Referral `@prospect` `:5` `+18`
+  - Search `{who=prospect, mood=4, volume=45}`
+  - Referral `{who=prospect, mood=5, volume=18}`
 - Convert
-  - Pricing page `@prospect` `:3` `+12`
-  - Checkout `@prospect` `:2` `+10`
+  - Pricing page `{who=prospect, mood=3, volume=12}`
+  - Checkout `{who=prospect, mood=2, volume=10}`
 - Support
-  - Settings `@user` `:3` `+8`
-  - Help docs `@user` `:4` `+7`
+  - Settings `{who=user, mood=3, volume=8}`
+  - Help docs `{who=user, mood=4, volume=7}`
 
 ---
 
@@ -74,10 +74,10 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 ## Where to put the next dollar.
 
 - Strategic Bets
-  - Scoring model v2 `3, 70`
-  - Per-team calibration `5, 85`
+  - Scoring model v2 `{3, 70}`
+  - Per-team calibration `{5, 85}`
 - Quick Wins
-  - Weekly signal brief `8, 80`
+  - Weekly signal brief `{8, 80}`
 
 ---
 

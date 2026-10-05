@@ -101,14 +101,14 @@ footer: "Laticent · the Guide plays every structure its own way"
 ## Which initiatives earn the next quarter.
 
 - Quick wins
-  - Self-serve onboarding `3, 82`
-  - Pricing page refresh `2, 64`
+  - Self-serve onboarding `{3, 82}`
+  - Pricing page refresh `{2, 64}`
 - Strategic bets
-  - Partner portal `7, 74`
+  - Partner portal `{7, 74}`
 - Defer
-  - Dark-mode admin console `2, 22`
+  - Dark-mode admin console `{2, 22}`
 - Time sinks
-  - Legacy reporting rewrite `8, 30`
+  - Legacy reporting rewrite `{8, 30}`
 
 ---
 
