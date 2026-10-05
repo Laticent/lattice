@@ -38,7 +38,7 @@ marp: true
 
 # Grammar
 
-- Live pills: \`{Alpha}\` \`{Beta}:c2:tag\` \`{Gamma}:circle:lg\`
+- Live pills: \`{Alpha}\` \`{Beta, c2, tag}\` \`{Gamma, circle, lg}\`
 - Live marks: \`[x]\` \`[-]\` \`[ ]\` \`[/]\`
 - Escaped: \`\\{Alpha}\` and \`\\[x]\`
 - Literal: \`getUserId()\` and \`[data-mark]\` and \`{ ok, scene }\`

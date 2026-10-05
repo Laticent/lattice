@@ -22,5 +22,5 @@ test('flags and status words fold case; a quoted word is text, not a keyword', (
 
 test('anything else is left to the span reader, and a broken or foreign item is null', () => {
   assert.deepEqual(readGanttPill('Q1..Q3'), { kind: 'span', text: 'Q1..Q3' });
-  for (const t of ['', 'after=', 'before=Design', 'after=A, B', '~{1 2}']) assert.equal(readGanttPill(t), null, t);
+  for (const t of ['', 'after=', 'after=[]', 'before=Design', 'after=A, B', '~{1 2}']) assert.equal(readGanttPill(t), null, t);
 });

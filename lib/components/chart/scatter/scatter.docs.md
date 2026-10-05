@@ -26,16 +26,16 @@ Use when the argument is that two measures move together (or against each other)
 ### Variant decision rule
 
 - **default (no modifier).** Two measures per entity — the plain XY plot.
-- **`bubble`.** A third numeric measure (seats, headcount, revenue) should scale each dot's AREA. Keep it to about ten entities, and name the measure in the third inline-code span so the size key has a caption.
+- **`bubble`.** A third numeric measure (seats, headcount, revenue) should scale each dot's AREA. Keep it to about ten entities, and name the measure as the third member of the axis line (`[Cost, Adoption, Seats]`) so the size key has a caption.
 - **`trend`.** The claim is explicitly that the two measures move together, there are at least five points, and the audience will read the line as a summary rather than a forecast.
 
 ### Common mistakes
 
-- **Splitting a point's two numbers into one comma-separated pill, `` `4.2, 8.1` ``, the way `quadrant` takes them.** A scatter takes TWO separate pills — `` `4.2` `8.1` `` — because each axis carries its own unit and its own affix (`$420k` on x, `18%` on y), which one shared pill cannot express. An item without two numeric pills is skipped rather than plotted, so the point disappears from the chart and from its description.
+- **Writing a point as separate value pills, `` `4.2` `8.1` ``, the spelling before Segno phase 2.** A point is ONE record — `` `{4.2, 8.1}` ``, or `` `{$420k, 18%}` `` — and each value keeps its own unit and affix. A row without a point record is skipped rather than plotted, so the point disappears from the chart and from its description.
 - **Expecting the axes to start at zero.** They do not, and that is deliberate. The domain is the data's own range plus about 8% of air. Two measures with narrow ranges — margin 38-44%, NPS 51-58 — forced to include zero collapse into one corner and the relationship disappears. A non-negative series still gets its air below zero — a bubble sitting at zero has to fit inside the plot — but its axis never prints a negative tick.
 - **Writing the axis names as a normal one-pill eyebrow, `` `Cost vs value` ``.** That is the chart eyebrow and it stays in the masthead; the plot then has unlabeled axes, which is the one thing a scatter cannot survive. Write the captions as one bracketed list in its own paragraph above the points — `` `[Annual cost, Teams adopting]` ``.
 - **Assuming a name that does not appear on the plot was lost.** A name with nowhere left to sit is dropped rather than painted through its neighbor — two overprinted names are two names lost, not one. The name still rides `data-label` on its dot, the mark-detail popover, and the `<desc>` a screen reader reads. Fewer points, or shorter names, brings it back.
-- **Encoding a third measure in the dot's RADIUS.** `bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no third pill is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why a THIRD member on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide.
+- **Encoding a third measure in the dot's RADIUS.** `bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no `size=` is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why a THIRD member on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide.
 
 ### Data shape
 

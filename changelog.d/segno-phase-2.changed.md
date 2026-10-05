@@ -1,4 +1,4 @@
-- **Breaking: every inline-code notation now reads through Segno, one notation with one set of rules.** A value is a record in braces, its items separated by commas, in any order; a named item is `name=value`; a value holding a comma or `=` is quoted with `"…"`. Every deck and doc in this repo is rewritten. A deck kept elsewhere runs `npm run segno:migrate -- <file>`; until it does, an old spelling renders as plain code rather than erroring. The changes, old → new:
+- **Breaking: every inline-code notation now reads through Segno, one notation with one set of rules.** A value is a record in braces, its items separated by commas, in any order; a named item is `name=value`; a value holding a comma or `=` is quoted with `"…"`. Every deck and doc in this repo is rewritten. A deck kept elsewhere is rewritten by `npm run segno:migrate -- <file>`, run from a Lattice clone. Until it is, an old pill or spark spelling renders as plain code, but an old CHART spelling is simply not read: the chart draws without that value (a quadrant point at the origin, a journey step at mood 3, a state-chart edge as text), and `lint:deck` does not flag it. The changes, old → new:
   - Pill: `` `{BETA}:tag:c4` `` → `` `{BETA, tag, c4}` ``. Spark: `` `~{12 14 17}:bar:lg` `` → `` `~{12 14 17, bar, lg}` ``.
   - Quadrant and scatter point: `` `3, 70` `` (quadrant) and `` `$4.2M` `62%` `140` `` (scatter) → one record, `` `{3, 70}` ``, `` `{$4.2M, 62%, size=140}` ``.
   - Gantt: the eyebrow window and `today Q3` pills are retired; the axis line `` `[{Timeline, 2026 Q1..2026 Q4, today=Q3}]` `` is the one form. A dependency is `` `after=Design` `` (`after=[Design, Build]` for two), not `` `after: Design` ``.
@@ -9,6 +9,6 @@
   - Flowchart style: `` `#api:diamond:c2` `` → `` `{#api, diamond, c2}` ``, and one word stands alone (`` `doc` ``, not `` `:doc` ``); a channel color is `` `fill=c3` ``, not `fill-c3`; the key drops its colons, `` `{dotted, Informal}` ``.
   - Waterfall: the `total` / `step` marker may now come before or after the value.
 - **One number reader for every chart.** Piechart, funnel, map, progress, radar and word-cloud read values the way the cartesian charts do, so `1,25M` is 1.25M everywhere and `($1.2M)` is negative everywhere.
-- **Enum words fold case everywhere** — status words, state roles (`Start`), kanban sizes, QR keys.
-- **Fixed:** a quoted state-chart event (`{"approve, with notes", to=4}`) could not parse, because the transform left `&quot;` encoded; a journey actor named `R&D` printed as `R&amp;D`.
+- **State roles (`Start`, `END`) and QR keys now fold case**, as status words and kanban sizes already did; all of them read through Segno's enum type.
+- **Fixed:** a journey actor named `R&D` printed as `R&amp;D` (the name was escaped twice).
 - **Known limit:** a number written with a thousands comma cannot sit inside a record, because the comma separates items and a quoted value is text. Write `{12000, 62%}`, not `{12,000, 62%}`.

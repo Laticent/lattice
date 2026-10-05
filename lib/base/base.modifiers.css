@@ -4236,7 +4236,7 @@ section > .slide-edge[data-lattice-berth] {
  * painted 3px past the border on every side: measured, it ate more than half of the
  * 0.22em outer gap and crowded the word or pill next to it. An inset shadow fixed that
  * but put the inner line 2–3px into the PADDING, where a lowercase descender hangs:
- * the `g` of `{Qg}:tag-bordered` ran through it at every size. The border keeps both
+ * the `g` of `{Qg, tag-bordered}` ran through it at every size. The border keeps both
  * lines out of the padding, and `--lat-pill-inset` takes the 2px of extra border back
  * out of the padding, so the box is still exactly a capsule's size. */
 .lat-pill[data-shape='tag-bordered'] {
@@ -4266,7 +4266,7 @@ section > .slide-edge[data-lattice-berth] {
  * equal to the height, so a digit or two sits in a round box (`12` is 17px wide, plus
  * 0.25em a side, inside a 26px circle). A wider label widens the box and the capsule
  * radius turns it into a capsule, and the 0.25em side padding keeps the text off the
- * curve: with none, `{WM}:circle` and `{1234}:circle` ran over the outline. */
+ * curve: with none, `{WM, circle}` and `{1234, circle}` ran over the outline. */
 
 /* CLIPPED SHAPES DRAW THEIR STROKE AS A RING. Chevrons and the diamond are cut with
  * `clip-path`, which slices a border off on every cut edge — so they used to drop the
@@ -4338,7 +4338,7 @@ section > .slide-edge[data-lattice-berth] {
    * own width. The box widens instead of heightening, so the line never grows:
    *   - `min-width` 1.6× the height holds one character or two digits;
    *   - side padding of 1.1em grows the box WITH the label, so two wide letters
-   *     (`{WM}:diamond`) still clear the outline. A fixed 1.4:1 box let `12` touch
+   *     (`{WM, diamond}`) still clear the outline. A fixed 1.4:1 box let `12` touch
    *     the ring and `WM` overflow it.
    * A word wants `tag` or `chip`, and `lint:deck` says so. */
   box-sizing:border-box;
@@ -4380,7 +4380,7 @@ section > .slide-edge[data-lattice-berth] {
 .lat-pill[data-c='c11'] { --lat-pill-bg:var(--cat-11-fill); --lat-pill-edge:var(--cat-11-mark); --lat-pill-ink:var(--cat-on-fill); }
 .lat-pill[data-c='c12'] { --lat-pill-bg:var(--cat-12-fill); --lat-pill-edge:var(--cat-12-mark); --lat-pill-ink:var(--cat-on-fill); }
 
-/* ── Inline sparks — `~{12 14 17}:bar:c3:lg` ─────────────────────────────────────
+/* ── Inline sparks — `~{12 14 17, bar, c3, lg}` ───────────────────────────────────
  * A word-sized chart, decoded by `lib/core/inline-sparks.js` into
  * `<span class="lat-spark" data-type=… data-size=…><svg>…</svg>…dots</span>`.
  * Spec: engineering/decisions/2026-09-28-inline-sparks.md (§5 sizes, §10 i the frame).
@@ -4400,7 +4400,7 @@ section > .slide-edge[data-lattice-berth] {
  * THE LOOK SPENDS ONE COLOR ACROSS FOUR PARTS, and a look is only ever a choice of these four:
  * `--spark-tile` (the frame's fill), `--spark-edge` (its border), the ink (`color`, which every
  * line, dot and ring arc draws in) and `--spark-body` (what bars, an area and a bullet's value
- * are filled with). All four derive from `--spark-hue` and its curated `--spark-ink` (`:c4` →
+ * are filled with). All four derive from `--spark-hue` and its curated `--spark-ink` (`c4` →
  * `--chart-cat4` / `--chart-cat4-ink`, below) or the text's ink when the spark names no color, so every look is on brand in every theme.
  * The names are the chart family's three finishes (engineering/chart-styling.md §3):
  *   pigment  the hue is the TILE — a hue-bodied tile, an ink edge, the marks in the ink

@@ -492,6 +492,16 @@ reads the slot.
 items, and a quoted value is text. `{12000, 62%}` works; `{12,000, 62%}` is three items. No shipped deck
 had one.
 
+**Measured against decision 21's premise (open for the owner).** Decision 21 was taken on "an old
+spelling in someone else's deck renders as literal code". That holds for pills and sparks: the old
+form does not parse, and the span stays code. It does not hold for the chart grammars. An old
+quadrant pill (`3, 70`) plots at the origin; an old journey `:4` leaves the step at mood 3; an old
+state-chart `submit => 2` draws no edge and prints as text; an old heatmap `# why` joins the value;
+an old gantt `after: X` joins the bar's label. A record that does not bind (a typo'd name, a
+thousands comma) behaves the same way. `lint:deck` is silent in every case. The adversarial trio
+found this, and the choice it raises — a data-integrity lint for an unreadable record, which is not a
+lint aimed at retired spellings — is the owner's.
+
 **Not in this PR — decision 7**, the per-deck alias-consistency lint with an autofix. The binder already
 reports each spelling an author used (`spellings` on every bind). Building the rule means every reader
 must hand those spellings to lint, which is its own change. It is open for the owner at the merge ask.

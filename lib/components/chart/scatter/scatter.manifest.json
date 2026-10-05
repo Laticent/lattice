@@ -174,7 +174,7 @@
     },
     {
       "variant": "bubble",
-      "useWhen": "A third numeric measure (seats, headcount, revenue) should scale each dot's AREA. Keep it to about ten entities, and name the measure in the third inline-code span so the size key has a caption."
+      "useWhen": "A third numeric measure (seats, headcount, revenue) should scale each dot's AREA. Keep it to about ten entities, and name the measure as the third member of the axis line (`[Cost, Adoption, Seats]`) so the size key has a caption."
     },
     {
       "variant": "trend",
@@ -183,8 +183,8 @@
   ],
   "commonMistakes": [
     {
-      "mistake": "Splitting a point's two numbers into one comma-separated pill, `` `4.2, 8.1` ``, the way `quadrant` takes them.",
-      "fix": "A scatter takes TWO separate pills — `` `4.2` `8.1` `` — because each axis carries its own unit and its own affix (`$420k` on x, `18%` on y), which one shared pill cannot express. An item without two numeric pills is skipped rather than plotted, so the point disappears from the chart and from its description."
+      "mistake": "Writing a point as separate value pills, `` `4.2` `8.1` ``, the spelling before Segno phase 2.",
+      "fix": "A point is ONE record — `` `{4.2, 8.1}` ``, or `` `{$420k, 18%}` `` — and each value keeps its own unit and affix. A row without a point record is skipped rather than plotted, so the point disappears from the chart and from its description."
     },
     {
       "mistake": "Expecting the axes to start at zero.",
@@ -200,7 +200,7 @@
     },
     {
       "mistake": "Encoding a third measure in the dot's RADIUS.",
-      "fix": "`bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no third pill is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why a THIRD member on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide."
+      "fix": "`bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no `size=` is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why a THIRD member on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide."
     }
   ],
   "dataShapeGuidance": [

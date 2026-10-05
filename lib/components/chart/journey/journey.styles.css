@@ -11,9 +11,9 @@
  *   <!-- _class: journey -->
  *   # My working day
  *   - Go to work
- *     - Make tea `@me` `:5`
- *     - Go upstairs `@me` `:3`
- *     - Do work `@me` `@cat` `:1`
+ *     - Make tea `{who=me, mood=5}`
+ *     - Go upstairs `{who=me, mood=3}`
+ *     - Do work `{who=me, mood=1}` `@cat`
  *
  * Inline-code tokens per task: `@actor`, `:mood` (1–5), `+volume` (used
  * by the weighted variant). The lib/journey.js transform parses the

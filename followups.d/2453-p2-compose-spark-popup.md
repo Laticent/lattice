@@ -17,7 +17,7 @@ where     — the Studio's Compose view (docs/src/components/studio/, the Markdo
             (type, size, c, fill, zero, frame, look, corners, markers) are the popup's
             model; spec engineering/decisions/2026-09-28-inline-sparks.md.
 done when — clicking a spark in Compose opens a popup that edits its data and every
-            modifier axis, writes the canonical `` `~{…}:mods` `` span back to the source, and
+            modifier axis, writes the canonical `` `~{…, modifiers}` `` span back to the source, and
             offers the same "size it down to fit" fix as the Markdown editor's warning.
 evidence  — owner's request in the PR #2453 session, 2026-09-28.
 verify    — drive the real Studio (built docs site) at 1440 / 820 / 390px: click a spark in

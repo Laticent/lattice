@@ -1966,7 +1966,7 @@ test('detail order: a line reads a category\'s note after the first series that 
 
 test('detail order: scatter, map, piechart and waterfall read each detail after its own item', () => {
   const cases = [
-    ['scatter', '`Cost` `Adoption`\n\n## Tools.\n\n- Atlas `10` `20`\n  - Reviewed in 2024\n- Beacon `30` `15`', 'Atlas: Cost, ten; Adoption, twenty. Reviewed in 2024. Beacon: Cost, thirty; Adoption, fifteen.'],
+    ['scatter', '`Cost` `Adoption`\n\n## Tools.\n\n- Atlas `{10, 20}`\n  - Reviewed in 2024\n- Beacon `{30, 15}`', 'Atlas: Cost, ten; Adoption, twenty. Reviewed in 2024. Beacon: Cost, thirty; Adoption, fifteen.'],
     ['map us', '## States.\n\n- CA `40`\n  - Largest office\n- TX `25`', 'C A, forty. Largest office. T X, twenty-five.'],
     ['piechart', '## Mix.\n\n- Retail `45%`\n  - Mostly stores\n- Online `55%`', 'Retail, forty-five percent. Mostly stores. Online, fifty-five percent.'],
     ['waterfall', '## Bridge.\n\n- Start `100`\n- Price `+20`\n  - List price rose\n- End `120`', 'Price, twenty. List price rose. End, one hundred twenty.'],
@@ -2123,7 +2123,7 @@ test('narrateDataSeries: bails on a three-level list rather than flattening the 
   );
   // …while a two-level list with an ordinary pill-less DETAIL line under it still narrates.
   assert.match(
-    narrateDataSeries('<!-- _class: scatter -->\n\n## S.\n\n- Atlas `$420k`\n  - Renewal lands in March\n- Borealis `$310k`'),
+    narrateDataSeries('<!-- _class: bar -->\n\n## S.\n\n- Atlas `$420k`\n  - Renewal lands in March\n- Borealis `$310k`'),
     /Atlas, four hundred twenty thousand dollars\./,
   );
 });
@@ -2186,7 +2186,9 @@ const PICTURE_DATA_ROSTER = [
 test('narrateDataSeries: exactly the declared picture-data components narrate, and no others', () => {
   const { PROJECTION } = require('../../../lib/core/projection-catalog.generated.mjs');
   const rows = '\n\n## Heading.\n\n- A `1`\n- B `2`';
-  const fires = Object.keys(PROJECTION).filter((n) => narrateDataSeries(`<!-- _class: ${n} -->${rows}`) !== null);
+  // A scatter row is one point record (Segno phase 2); every other member reads one value.
+  const pointRows = '\n\n## Heading.\n\n- A `{1, 2}`\n- B `{2, 3}`';
+  const fires = Object.keys(PROJECTION).filter((n) => narrateDataSeries(`<!-- _class: ${n} -->${n === 'scatter' ? pointRows : rows}`) !== null);
   assert.deepEqual(fires.sort(), [...PICTURE_DATA_ROSTER].sort());
   // Every member really does declare BOTH halves — so the snapshot above is the derivation's
   // output and not a list someone typed.
@@ -2313,4 +2315,25 @@ test('narrateMatrixGrid: every drawn cell is said — a second placed level and 
   const out = narrateChart('<!-- _class: matrix-grid -->\n\n## T\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Lead | [x] Head | [x] Coach |\n| Build | Pair only | [!] Blocked |');
   assert.match(out, /Head sits at Lead and Self\. Coach sits at Lead and Team\./);
   assert.match(out, /Build at Self: Pair only\. Build at Team: Blocked\./);
+});
+
+// ── Segno phase 2: the trio's narrator findings ───────────────────────────────
+test('narrateRadar (quadrant): the axis line is never read aloud; the pinned scale is said', () => {
+  const md = ['<!-- _class: radar quadrant -->', '', '`[{Scale, 0..5}]`', '', '## Q.', '', '- Us', '  - People', '    - Hiring `4`', '    - Retention `3`', '  - Process', '    - Speed `5`', '    - Quality `4`'].join('\n');
+  const out = narrateRadar(md);
+  assert.ok(!out.includes('[{') && !out.includes('0..5'), out);
+  assert.ok(out.includes('On a scale of zero to five.'), out);
+});
+
+test('narrateRadar: an eyebrow kept under the axis line is still said first', () => {
+  const md = ['<!-- _class: radar -->', '', '`[{Scale, 0..10}]`', '', '`Scale · 0–10, on the criteria we wrote`', '', '## Tools.', '', '- A', '  - X `3`', '  - Y `5`', '  - Z `7`'].join('\n');
+  assert.ok(narrateRadar(md).startsWith('Scale · 0–10, on the criteria we wrote.'), narrateRadar(md));
+});
+
+test('scatter narration says only the rows the chart draws: a point comes from its record', () => {
+  const md = ['<!-- _class: scatter -->', '', '`Cost` `Adoption`', '', '## S.', '', '- Alpha `{4, 62}`', '- Beta `3` `40`', '- Gamma `{2, 30}`'].join('\n');
+  const out = narrateChart(md);
+  assert.match(out, /Alpha/);
+  assert.match(out, /Gamma/);
+  assert.doesNotMatch(out, /Beta/, 'the chart draws no Beta, so the voice says none');
 });

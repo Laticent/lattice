@@ -544,3 +544,9 @@ describe('journeyDesc — the board in words', () => {
     assert.doesNotMatch(emitJourneyBoard({ sections: [] }), /journey-desc/);
   });
 });
+
+test('an actor named with an ampersand is drawn once-escaped, not as R&amp;amp;D', () => {
+  // The step record is decoded before Segno reads it, and every sink escapes once.
+  const t = parseTask('Kickoff <code>{who=R&amp;D, mood=4}</code>');
+  assert.deepEqual(t.actors, ['R&D']);
+});

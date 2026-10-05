@@ -6,8 +6,10 @@ const assert = require('node:assert/strict');
 let rewriteSpan;
 let rewriteText;
 let rewriteMdx;
+let rewriteManifest;
+let corpus;
 before(async () => {
-  ({ rewriteSpan, rewriteText, rewriteMdx } = await import('../../../tools/segno-codemod.mjs'));
+  ({ rewriteSpan, rewriteText, rewriteMdx, rewriteManifest, corpus } = await import('../../../tools/segno-codemod.mjs'));
 });
 
 describe('segno-codemod: pills and sparks', () => {
@@ -151,5 +153,25 @@ describe('segno-codemod: .mdx docs pages', () => {
     // The `$` + `{` is the mdx file's interpolation, built from two halves so it reads as data here.
     const src = `export const X = \`- A \\\`{BETA}:tag\\\` ${'$'}{n}\`;`;
     assert.equal(rewriteMdx(src).text, src);
+  });
+});
+
+describe('segno-codemod: the corpus stays migrated', () => {
+  // The clean break (decision 9) is only clean while no old spelling comes back: a parallel PR
+  // written before phase 2, or a conflict resolved by hand, lands one silently, and an old chart
+  // spelling draws a wrong chart rather than an error. This pins `segno:migrate --check` at zero.
+  test('the codemod would change nothing in any shipped deck, doc or manifest', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const ROOT = path.join(__dirname, '..', '..', '..');
+    const files = corpus();
+    assert.ok(files.length > 300, `the corpus walk found only ${files.length} files`);
+    const left = [];
+    for (const rel of files) {
+      const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      const r = rel.endsWith('.manifest.json') ? rewriteManifest(src) : rel.endsWith('.mdx') ? rewriteMdx(src) : rewriteText(src);
+      for (const c of r.changes) left.push(`${rel}:${c.line}  \`${c.from}\` → \`${c.to}\``);
+    }
+    assert.deepEqual(left, [], `old spellings are back — run \`npm run segno:migrate\`:\n${left.join('\n')}`);
   });
 });

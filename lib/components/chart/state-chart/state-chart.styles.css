@@ -290,7 +290,7 @@ section.state-chart .state-node .state-label {
   min-width: 0;
 }
 
-/* The ordinal — the state's ref, the number `=> 4` cites. A quiet numeral in
+/* The ordinal — the state's ref, the number `to=4` cites. A quiet numeral in
  * the node's top-right corner on EVERY node; the status is on the tile itself. */
 section.state-chart .state-node .state-index {
   position: absolute;

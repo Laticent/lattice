@@ -134,4 +134,4 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 - A record is `{value, word, word}`; a named item is `name=value`.
 - Quote a value that holds a comma: `{"reject, with notes", to=1}`.
-- An old spelling renders as plain code; `npm run segno:migrate` rewrites a deck.
+- `npm run segno:migrate` rewrites a deck written in the old spellings.

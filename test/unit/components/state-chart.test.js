@@ -2584,3 +2584,8 @@ describe('state-chart status tones — one mapping, three statements', () => {
     assert.equal(table('STATUS_TONE').live, 'info');
   });
 });
+
+test('an unresolved transition echoes the record as written, quotes included', () => {
+  const m = parseStateChart('<li>A <code>start</code><ul><li><code>{&quot;a, b&quot;, to=9}</code></li></ul></li><li>B</li>');
+  assert.deepEqual(m.states[0].annotations, ['<code>{"a, b", to=9}</code> (unresolved)']);
+});

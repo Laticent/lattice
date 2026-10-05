@@ -33,6 +33,8 @@ import path from 'node:path';
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const legacyPills = require('./segno-legacy/inline-pills.js');
+const newPills = require('../lib/core/inline-pills.js');
+const newSparks = require('../lib/core/inline-sparks.js');
 const legacyBrackets = require('./segno-legacy/bracket-list.js');
 const { parseBracketList } = require('../lib/core/bracket-list.js');
 
@@ -57,7 +59,15 @@ function rewritePill(text) {
   const parsed = legacyPills.parse(text);
   if (!parsed?.mods.length) return null; // `{LIVE}` is spelled the same in both
   if (!parsed.mods.every(isPillWord)) return null;
-  return `{${parsed.value}, ${parsed.mods.join(', ')}}`;
+  const out = `{${partSpelling(parsed.value)}, ${parsed.mods.join(', ')}}`;
+  // RE-READ: a pill the old kernel drew must draw the same pill now — label, shape, color and
+  // size — and an attempt it refused (`{X}:c13`, kept to teach its error) must still be refused.
+  const was = legacyPills.resolve(text);
+  const now = newPills.resolve(out);
+  const same = was
+    ? now && now.value === was.value && now.shape === was.shape && (now.c ?? null) === (was.c ?? null) && (now.size ?? null) === (was.size ?? null)
+    : !now;
+  return same ? out : { unsafe: `no spelling of it reads back the same (${out})` };
 }
 
 const SPARK_WORDS = new Set([
@@ -76,7 +86,10 @@ function rewriteSpark(text) {
   if (!hm?.mods.length) return null;
   if (!hm.mods.every((m) => m && isSparkWord(m))) return null;
   if (hm.body.includes(',')) return { unsafe: 'the data holds a comma, which the new notation reads as a separator' };
-  return `~{${hm.body.trim()}, ${hm.mods.join(', ')}}`;
+  const out = `~{${hm.body.trim()}, ${hm.mods.join(', ')}}`;
+  // RE-READ: there is no frozen old spark kernel, so the bar is that the new reader still reads
+  // the rewrite as a spark, or as a spark attempt it can name the fault in (a teaching example).
+  return newSparks.resolve(out) || newSparks.diagnose(out) ? out : { unsafe: `the new reader does not read it as a spark (${out})` };
 }
 
 /** The chart components whose slides read a bracketed span (an axis, a key, a label set). */
@@ -540,7 +553,7 @@ export function rewriteMdx(src, active = Object.keys(REWRITERS)) {
   return { text: out, changes, unsafe };
 }
 
-function corpus() {
+export function corpus() {
   const files = execFileSync('git', ['ls-files', '*.md', '*.mdx', 'lib/components/**/*.manifest.json'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
   return files.filter((f) => !f.startsWith('engineering/decisions/') && !f.startsWith('changelog.d/') && f !== 'CHANGELOG.md' && !f.includes('/segno-legacy/'));
 }
@@ -597,7 +610,8 @@ function main(argv) {
   let spans = 0;
   const unsafeAll = [];
   for (const rel of files) {
-    const file = path.resolve(ROOT, rel);
+    // A path the author typed is theirs: from the working directory first, then the repo root.
+    const file = named.length && fs.existsSync(path.resolve(process.cwd(), rel)) ? path.resolve(process.cwd(), rel) : path.resolve(ROOT, rel);
     const src = fs.readFileSync(file, 'utf8');
     const r = rel.endsWith('.manifest.json') ? rewriteManifest(src, active) : rel.endsWith('.mdx') ? rewriteMdx(src, active) : rewriteText(src, active);
     for (const u of r.unsafe) unsafeAll.push(`${rel}:${u.line}  \`${u.span}\` — ${u.why}`);

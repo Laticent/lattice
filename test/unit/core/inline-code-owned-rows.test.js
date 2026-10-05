@@ -20,7 +20,7 @@ const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
-const { LIST_ROW_OWNERS, ownsListRows } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
+const { LIST_ROW_OWNERS, ownsListRows, ownsSpan } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
 const core = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
 
 const deck = (cls, body) => ['---', 'theme: indaco', '---', '', `<!-- _class: ${cls} -->`, '', body].join('\n');
@@ -30,6 +30,9 @@ test('the owners come from the manifests: flowchart, and only components that de
   assert.deepEqual([...LIST_ROW_OWNERS], ['flowchart']);
   assert.equal(ownsListRows(['flowchart', 'lr']), true);
   assert.equal(ownsListRows(['list', 'quadrant']), false);
+  assert.equal(ownsSpan(['flowchart'], '{diamond, c2}'), true);
+  assert.equal(ownsSpan(['flowchart'], '[x]'), false, 'a mark is not a flowchart style');
+  assert.equal(ownsSpan(['list'], '{diamond, c2}'), false);
 });
 
 test('engine: a flowchart row keeps its style record; a pill elsewhere on the slide still draws', () => {
@@ -74,4 +77,19 @@ test('lint: no pill warning on a span the flowchart owns', () => {
     .filter((f) => f.rule === 'pill-shape-crowded');
   assert.equal(crowded('flowchart').length, 0, '`#api` is an id there, not a crowded diamond pill');
   assert.equal(crowded('list').length, 1, 'control: on a list slide it is a pill, and too long');
+});
+
+test('an escaped span on a flowchart row is name text on every path — never a style', () => {
+  // `\{LIVE}` asks to be read as written. The ownership gate once ran before the escape, so the
+  // backslash stayed on the slide; then, once the gate read only slot spans, the stripped
+  // `{LIVE}` was read as the status `live` and the word vanished. Base read "Intake {LIVE}".
+  const body = '## F.\n\n- Intake `\\{LIVE}` -> Triage';
+  const doc = render(deck('flowchart', body));
+  const intake = [...doc.querySelectorAll('[data-shape]')].find((n) => /Intake/.test(n.textContent));
+  assert.equal(intake.textContent.trim(), 'Intake {LIVE}');
+  assert.equal(intake.getAttribute('data-s'), null, 'not a status');
+  const g = require(path.join(ROOT, 'lib/core/flowchart-grammar.js'));
+  const m = g.parseFlowchart(g.outlineFromMarkdown('- Intake `\\{LIVE}` -> Triage').items, {});
+  assert.equal(m.shapes[0].name, 'Intake {LIVE}', 'lint and the narrator read the same name');
+  assert.equal(m.diagnostics.length, 0);
 });

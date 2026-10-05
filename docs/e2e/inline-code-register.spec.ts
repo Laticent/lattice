@@ -25,7 +25,7 @@ test('the deck-settings toggle turns the inline grammar off, and the preview obe
 	// Typed into the REAL editor rather than seeded through localStorage: the Studio keys
 	// its draft per deck (`lattice-studio-src-<deckId>`), so there is no fixed key to seed,
 	// and typing is the flow an author actually takes anyway.
-	await appendToEditor(page, '\n\nProse with `{ALPHA}:c2` and `[x]` and plain `getUserId()`.\n');
+	await appendToEditor(page, '\n\nProse with `{ALPHA, c2}` and `[x]` and plain `getUserId()`.\n');
 	await openInspector(page);
 	await openSection(page, CHROME.deckTab.general);
 
@@ -53,7 +53,7 @@ test('the deck-settings toggle turns the inline grammar off, and the preview obe
 	await expect(preview.locator('.lat-pill')).toHaveCount(0, { timeout: 30_000 });
 	await expect(preview.locator('.lat-state')).toHaveCount(0);
 	expect(await preview.locator('section code').allTextContents()).toEqual(
-		expect.arrayContaining(['{ALPHA}:c2', '[x]', 'getUserId()']),
+		expect.arrayContaining(['{ALPHA, c2}', '[x]', 'getUserId()']),
 	);
 
 	// And turning it back on REMOVES the key rather than writing `inline-code: rich` —

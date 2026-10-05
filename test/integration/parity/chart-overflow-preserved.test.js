@@ -106,11 +106,11 @@ const FITTING_STATE = `<!-- _class: state-chart -->
 ## How a document moves to archive.
 
 1. Draft
-   - \`submit => 2\`
+   - \`{submit, to=2}\`
 2. Submitted
-   - \`review => 3\`
+   - \`{review, to=3}\`
 3. Approved
-   - \`archive => 4\`
+   - \`{archive, to=4}\`
 4. Archived
 
 _Source: workflow engine_
@@ -125,7 +125,7 @@ _Source: workflow engine_
 // See 2026-07-16-state-chart-self-scale.md §Follow-ups (the "ceiling" is retired).
 const OVER_STATES = Array.from(
   { length: 14 },
-  (_v, i) => `${i + 1}. State ${i + 1} with a reasonably long descriptive name\n   - \`=> ${i < 13 ? i + 2 : 1}\``,
+  (_v, i) => `${i + 1}. State ${i + 1} with a reasonably long descriptive name\n   - \`{to=${i < 13 ? i + 2 : 1}}\``,
 ).join('\n');
 const OVER_TALL_STATE = `<!-- _class: state-chart -->
 

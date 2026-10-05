@@ -58,9 +58,9 @@ theme: indaco
 
 |  | M0 | M1 | M2 |
 | --- | --: | --: | --: |
-| Jan 2026 | 100 | 62 \`# Onboarding changed mid-month; the dip is the change, not the cohort.\` | 48 |
+| Jan 2026 | 100 | 62 \`note="Onboarding changed mid-month; the dip is the change, not the cohort."\` | 48 |
 | Feb 2026 | 100 | 58 | 44 |
-| Mar 2026 | 100 | 71 \`# First cohort on the new activation flow.\` | 59 |
+| Mar 2026 | 100 | 71 \`note=First cohort on the new activation flow.\` | 59 |
 `;
 
 const FUNNEL = `---
