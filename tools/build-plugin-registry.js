@@ -351,6 +351,10 @@ ${calls.join('\n')}${calls.length ? '\n' : ''}}
 
 /** Plugin block tokens whose body renders no inline Markdown (lint-core skips them). */
 export const OPAQUE_BLOCK_TOKENS = Object.freeze(${JSON.stringify(opaque)});
+
+/** Every shipped plugin's name, in dependency order — for a reader that needs only the names
+ *  (lint-core's \`unknown-plugin\`), so it does not pull every plugin's grammar into a bundle. */
+export const PLUGIN_NAMES = Object.freeze(${JSON.stringify(ordered.map((p) => p.manifest.name))});
 `;
 }
 

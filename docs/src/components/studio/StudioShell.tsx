@@ -91,7 +91,6 @@ import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
-import { PluginsSettings } from './PluginsSettings';
 import { PresetPicker } from './PresetPicker';
 import { mayHavePaneSlides } from './pane-probe';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
@@ -151,6 +150,10 @@ const Fabricate = React.lazy(() => {
 // tools never look into. Code-split for the same reason Fabricate is: it pulls the engine
 // render and the player-core bundle, and the /studio route has no eager budget to spare.
 // The clip notice and its split helper load the first time a slide clips at a venue (ClipNotice.tsx).
+// The Plugins tab pulls the plugin grammar and the admission kernel (lib/plugins/host-grammar.mjs);
+// lazy, so they load when the tab is shown rather than in the Studio's startup JavaScript
+// (docs/route-budget.json — eagerly it cost the studio route 7.6 KB gz).
+const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
 
@@ -4716,7 +4719,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			body: () => (
 			<div>
 				<TabNote>What this deck can render beyond Markdown, and why each is on. Every shipped plugin is on by default; listing one writes it into the deck's <code>plugins:</code> line, so the deck names what it needs wherever it is opened. A list only adds — it never turns a plugin off.</TabNote>
-				<PluginsSettings source={source} onWrite={settingsWrite} />
+				<React.Suspense fallback={null}>
+					<PluginsSettings source={source} onWrite={settingsWrite} />
+				</React.Suspense>
 			</div>
 			),
 		},
