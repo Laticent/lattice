@@ -5,20 +5,20 @@ recorded: 2026-10-05
 source: https://github.com/Laticent/lattice/pull/2521
 ---
 
-# The integration job runs into its 25-minute timeout after every test has passed
+# The integration suite has more than doubled in a month
 
-why now   — on #2521 (9c37039) `integration (node 22)` ran 972 tests (971 pass, 0 fail, 1
-            skipped, 1427 s) and was then cancelled at `timeout-minutes: 25`
-            (.github/workflows/ci.yml, the integration job). The `ci` gate counts `cancelled`
-            as passing (it is the supersession case), so a real cancelled-by-timeout run
-            reads green, and a run that grows a little longer cancels mid-suite with no
-            failure shown. #2517's runs took 21 to 25 minutes on the same job.
-where     — .github/workflows/ci.yml (the integration job's `timeout-minutes`, and the
-            `ci` gate's `success|skipped|cancelled` case); the integration tier's slowest
-            files (`node --test` durations in the job log)
-done when — the integration job finishes with margin (or is split or sped up), and a
-            timeout cancel no longer reads as a pass at the gate
-evidence  — job durations over a week of `main` runs before and after; a run cancelled by
-            timeout shown failing the gate
-verify    — owner call first: a CI job change is on CLAUDE.md's stop list (the CI / hook
-            contract), so put the options and their measured cost to the owner
+status    — narrowed 2026-10-05 by #2524's follow-up PR: the cap went 25 -> 45 minutes and the
+            merge queue now fails a `cancelled` tier, so a timeout no longer reads as a pass
+            where it matters. The growth itself is untouched.
+why now   — `integration (node 22)` ran p50 1372s across 41 passing runs on 2026-10-05,
+            against p50 601s on 2026-09-02 (`.github/workflows/ci.yml`'s timeout block has both
+            samples). On that trend the new 45-minute cap lasts weeks, not a season. The slow
+            runs are runner speed, not one test: the palette sweep, export-formats, frame
+            identity and strip-notes files each took 1.35-1.75x as long in a slow run.
+where     — `npm run test:integration:pr` and those four files (`node --test` durations in the
+            job log); `.github/workflows/ci.yml`, the integration job.
+done when — integration's p50 is back under 15 minutes, or the owner has picked a split
+            or a slice.
+evidence  — the 100-run duration pull the ci.yml timeout block describes, before and after.
+verify    — owner call first: splitting or adding a CI job is on CLAUDE.md's stop list (the
+            CI / hook contract), so put the options and their measured cost to the owner.

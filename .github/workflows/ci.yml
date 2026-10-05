@@ -51,7 +51,8 @@ concurrency:
 #   lint                   99    61s    66s    76s    10m     7.9x
 #   unit (node 22)         86   170s   183s   188s    15m     4.8x
 #   unit (node 24)         86   103s   112s  4580s    15m      —  (the wedge)
-#   integration (node 22)  86   601s   648s   669s    25m     2.2x
+#   integration (node 22)  86   601s   648s   669s    25m     2.2x  (outgrown: see the
+#                                                              2026-10-05 re-sample below)
 #   golden-diff            69    91s   511s   554s    25m     2.7x
 #   docs-build             89   420s   445s   466s    20m     2.6x
 #   studio-smoke           89   342s   364s   829s    15m     1.1x  <-- thin
@@ -99,6 +100,23 @@ concurrency:
 # kills a job that would have passed and reds a PR for nothing. RAISE a number
 # rather than deleting it if a job outgrows its cap, and say in the PR what the new
 # measured duration is.
+#
+# INTEGRATION RE-SAMPLE, 2026-10-05 (the last 100 completed ci.yml runs, 11:18Z to
+# 21:57Z that day, `filter=latest`): 41 success, 3 failure, 40 cancelled, 15 of the
+# cancelled at 1500-1521s, i.e. killed by the old 25m cap.
+#
+#   integration (node 22), success only   n=41  min 924s  p50 1372s  max 1500s
+#
+# Successes spread from 924s to 1500s, and 19 of the 41 bunch at 1461-1500s,
+# pressed against the cap. The slow runs are not hung. Their longest test files (palette
+# sweep, export-formats, frame identity, strip-notes) each take 1.35-1.75x as long
+# as in a fast run, which is runner speed. Extrapolating the fast mode's worst
+# (1252s) by 1.75 gives ~2190s (37m); 45m is ~1.2x that. The 2026-09-02 check above
+# read p50 601s and 2.2x headroom; the suite has since run 2.3x as long.
+#
+# This mattered more than a red PR: until the same change, the `ci` gate accepted a
+# `cancelled` tier on merge_group too, and in the 39 completed queue runs from
+# 2026-09-29 to 2026-10-05, 11 merged with integration cut off mid-suite.
 
 jobs:
   # ── Change classifier ──────────────────────────────────────────────────
@@ -370,7 +388,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Raised 25 -> 45 on 2026-10-05: the suite outgrew 25 (the INTEGRATION RE-SAMPLE
+    # note at the top of this file has the numbers).
+    timeout-minutes: 45
     name: integration (node 22)
     steps:
       - uses: actions/checkout@v4
@@ -841,15 +861,23 @@ jobs:
           # carries the authoritative verdict. Painting the orphaned SHA red on a
           # supersession-cancel manufactured false-alarm webhooks during a merge
           # train (see engineering/decisions/2026-06-14-drift-watch-rebase-thrash.md).
-          # Only a real failure/timeout stops the gate.
+          # Only a real failure stops the gate on a PR run.
           #
-          # ONE EXCEPTION: `changes` must SUCCEED (followups.d/2524-p1-*,
-          # engineering/gotchas/ci.md). Every test tier `needs: changes`, so when
-          # `changes` does not succeed, unit, integration and docs-build all read
-          # `skipped`, and `skipped` passes below. On #2524's re-run `changes` got no
-          # runner, sat queued 19 min and was canceled, and a diff touching lib/ and
-          # tools/ went green on lint alone. A `skipped` tier is a pass only when the
-          # path filter decided to skip it, so the filter has to have run.
+          # TWO EXCEPTIONS (followups.d/2524-p1-*, engineering/gotchas/ci.md):
+          #
+          # 1. `changes` must SUCCEED. Every test tier `needs: changes`, so when
+          #    `changes` does not succeed, unit, integration and docs-build all read
+          #    `skipped`, and `skipped` passes below. On #2524's re-run `changes` got
+          #    no runner, sat queued 19 min and was canceled, and a diff touching lib/
+          #    and tools/ went green on lint alone. A `skipped` tier is a pass only
+          #    when the path filter decided to skip it, so the filter has to have run.
+          #
+          # 2. On merge_group a `cancelled` tier FAILS. Supersession, the only reason
+          #    `cancelled` passes, cannot happen there: each queue group runs on its
+          #    own gh-readonly-queue ref, so `cancel-in-progress` never fires. There a
+          #    `cancelled` tier is a timeout or a hand cancel, and the queue merges on
+          #    THIS check. d63fa45 (#2524) merged with integration cut off at its
+          #    25-minute timeout, mid-suite.
           changes="${{ needs.changes.result }}"
           if [ "$changes" != "success" ]; then
             echo "::error::the path filter (changes) did not succeed (${changes}), so a skipped tier proves nothing"
@@ -859,7 +887,12 @@ jobs:
                       "integration=${{ needs.integration.result }}" "docs-build=${{ needs.docs-build.result }}" \
                       "player-webkit=${{ needs.player-webkit.result }}"; do
             case "${tier#*=}" in
-              success|skipped|cancelled) ;;
+              success|skipped) ;;
+              cancelled)
+                if [ "${{ github.event_name }}" = "merge_group" ]; then
+                  echo "::error::tier ${tier%%=*} was cancelled in the merge queue (a timeout or a hand cancel; nothing supersedes a queue run)"
+                  exit 1
+                fi ;;
               *) echo "::error::tier ${tier%%=*} did not pass (${tier#*=})"; exit 1 ;;
             esac
           done

@@ -511,6 +511,14 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   after 15-19 minutes queued): both attempts of #2524's PR run, and the queue groups for
   #2525 and #2535, both of which merged with no test tier run.
 - **Now:** the `ci` job needs `changes` and fails unless it succeeded (2026-10-05).
+- **The same gate passed a `cancelled` tier in the merge queue.** It accepts `cancelled`
+  because `concurrency: cancel-in-progress` cancels a superseded PR run. A queue group runs
+  on its own `gh-readonly-queue/…` ref, so nothing supersedes it, and there `cancelled` is a
+  timeout or a hand cancel. In the 39 completed queue runs from 2026-09-29 to 2026-10-05,
+  11 merged with `integration` cut off at its 25-minute cap. The gate now fails a
+  `cancelled` tier when `github.event_name == 'merge_group'`; a PR run still passes one, and
+  the queue run is the backstop. `integration`'s cap went to 45 minutes in the same change,
+  because the suite had outgrown 25 (the numbers are in `ci.yml`'s timeout block).
 - **How to read a green `ci` you doubt:** list the run's jobs and look at `changes` first. A
   `changes` that did not succeed means every `skipped` below it is unproven.
 - **What it costs:** a PR run superseded by a push while its `changes` is still queued now
