@@ -389,6 +389,26 @@ report that exits 0, not a gate.
 
 Both are a change to what CI runs, so neither is taken here.
 
+**Addendum, 2026-10-05: darkening onyx's warn does not pay.** A follow-up
+(`2396-p2-onyx-state-warn-ink-text-contrast`, from hub-spoke) asked for onyx's light
+`--chart-state-warn` to clear 4.5:1 as text. `#9C6B00`, the same olive at 86% of its
+channel values, reads 4.65:1 on white (4.27:1 on `--bg-alt`), but it moves warn into the
+lightness band of pass and fail (OKLab L 0.631 to 0.565, against 0.519 and 0.535). The
+separation (OKLab distance) under simulated color blindness, old to new:
+
+| pair | achromatopsia | deuteranopia | protanopia |
+|---|---|---|---|
+| pass–warn | 0.095 → 0.028 | 0.150 → 0.093 | 0.085 → 0.053 |
+| warn–fail | 0.116 → 0.049 | 0.094 → 0.029 | 0.186 → 0.122 |
+
+Gantt bars and state-chart nodes carry status by color, so that is a live regression traded
+for a latent one. A fresh check confirmed (a) still holds: no rule sets text color from any
+`--state-*-ink` (kanban, slope and the flowchart use it for borders, strokes and fills;
+`.chart-status` text is `--text-heading`; hub-spoke's status word mixes the ink 62% toward
+the heading color). The change was dropped and the follow-up closed. The fix, if a member
+ever wants warn as text, is a separate text tier mixed toward `--text-heading`, the way
+hub-spoke's status word does it, not a darker mark.
+
 ## 10 · A gate floor this change was holding down
 
 `tools/composed-contrast.js` scored the kpi pill's border on two tiles with two different
