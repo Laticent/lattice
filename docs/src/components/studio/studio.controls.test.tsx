@@ -1064,6 +1064,17 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await waitFor(() => expect(source()).not.toMatch(/pace:/));
 	});
 
+	it('Delivery writes the `delivery:` register and clears at the default', async () => {
+		const user = await setup();
+		await openDeckTab(user, 'Speech');
+		await pick(user, 'Choose delivery', 'Somber');
+		await waitFor(() => expect(source()).toMatch(/delivery: somber/));
+		await pick(user, 'Choose delivery', 'Expressive');
+		await waitFor(() => expect(source()).toMatch(/delivery: expressive/));
+		await pick(user, 'Choose delivery', /Restrained/);
+		await waitFor(() => expect(source()).not.toMatch(/delivery:/));
+	});
+
 	// ── Find + browse ────────────────────────────────────────────────────────
 	// The two controls that answer "where does this setting live" without opening six
 	// tabs to find out. Asserted on the REAL panel, not the primitive: settings-view's

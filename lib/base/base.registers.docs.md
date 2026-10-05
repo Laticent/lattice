@@ -1294,7 +1294,8 @@ deck sent as a file shows its focus but not its ink. A deck with no `delivery:` 
 without the Guide, exactly as before.
 
 Each delivery lives in its own file, `lib/core/delivery-styles/<name>.mjs`; the names are gathered
-in `lib/core/resolve-delivery.mjs`. The linter flags an unknown value (`unknown-delivery`). Design:
+in `lib/core/resolve-delivery.mjs`. The linter flags an unknown value (`unknown-delivery`). In the
+Studio, Settings ▸ Speech ▸ **Delivery** writes the line, and choosing Restrained removes it. Design:
 `engineering/decisions/2026-09-27-delivery-styles-and-component-scenes.md` (superseding the budget
 model of `2026-09-25-vetrina-delivery-presets.md`).
 

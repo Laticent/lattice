@@ -28,6 +28,7 @@ import { codePackagesStamp, setCodePackages } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
+import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/delivery-names';
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
@@ -2059,6 +2060,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// speaks. lib/core/resolve-pace.mjs; `natural` is the default, so it clears the key.
 	const pace = getFrontMatter(source, 'pace') || DEFAULT_PACE;
 	const setPace = (value: string) => settingsWrite(`Pace → ${value}`, (s) => writeFrontMatterLine(s, 'pace', value === DEFAULT_PACE ? null : value));
+	// Delivery (`delivery:`) — how much the narrated Guide gestures. lib/core/resolve-delivery.mjs;
+	// `restrained` is the default, so it clears the key. An unknown value reads as the default,
+	// the same fallback Present plays it under; lint reports the typo.
+	const delivery = frontMatterDelivery(source) || DEFAULT_DELIVERY;
+	const setDelivery = (value: string) => settingsWrite(`Delivery → ${value}`, (s) => writeFrontMatterLine(s, 'delivery', value === DEFAULT_DELIVERY ? null : value));
 	// Slide splitting (`split:`) — headings (default) or `---` dividers. lib/core/resolve-split.js.
 	// `slideSplit`, not `split` — the Studio already has a `split` in scope (the resizable
 	// editor/preview divider), and shadowing it silently breaks every layout read below.
@@ -4773,12 +4779,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		{
 			value: 'speech',
 			label: 'Speech',
-			keywords: 'read aloud narration voice tts audio',
+			keywords: 'read aloud narration voice tts audio delivery guide gesture',
 			body: () => (
 			<div>
 				<TabNote>Teach read-aloud how to say tricky words, symbols and acronyms — carried into the deck and its captions.</TabNote>
 				<Field label="Pace" desc="How long a slide holds before speaking." help={<>The rhythm a self-presenting deck keeps. <strong>Brisk</strong> for a demo or an audience that knows the material, <strong>Natural</strong> for boardroom delivery, <strong>Deliberate</strong> for a technical audience or one reading in a second language.</>}>
 					<CatalogSelect ariaLabel="Choose pace" value={pace} onValueChange={setPace} className="w-full" groups={[{ options: PACE_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_PACE ? ' (default)' : '') })) }]} />
+				</Field>
+				<Field label="Delivery" desc="How much the Guide gestures as it speaks." find="guide gesture cursor ink focus restrained expressive somber narration" help={<>How the narrated Guide points at what it is saying. <strong>Restrained</strong> highlights each part the narration names, with no cursor — for a boardroom, or a board member reading the file alone. <strong>Expressive</strong> leads with the cursor and draws ink — for a sales room, a talk or a lesson. <strong>Somber</strong> shows no cursor and gestures once, on the slide's key point — for bad news. Saved with the deck as <code>delivery:</code>, so it plays the same wherever it is opened.</>}>
+					<CatalogSelect ariaLabel="Choose delivery" value={delivery} onValueChange={setDelivery} className="w-full" groups={[{ options: DELIVERY_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_DELIVERY ? ' (default)' : '') })) }]} />
 				</Field>
 				<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="A tricky word or symbol to say a certain way, or to silence. Overrides the built-in symbol commons.">
 					<LexiconEditor lexicon={lexicon} onChange={setLexicon} />
