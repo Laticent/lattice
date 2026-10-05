@@ -73,3 +73,40 @@ test('"Write a slide" with the editor hidden explains how to get it back and cha
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 20_000 });
 	expect(await page.evaluate(() => localStorage.length && JSON.stringify(Object.entries(localStorage).filter(([k]) => k.includes('deck'))))).toBe(before);
 });
+
+// THE PHONE, ON SAFARI'S ENGINE, WITH REAL TAPS. The two phone claims in #2529 — a tapped palette
+// result runs (it did nothing on `main`: the tap blurred the field, the sheet shrank 54px and the
+// row slid out from under the finger), and a lesson completes on a phone — were verified only in
+// Chromium with mouse clicks. WebKit is not installed in the sandbox; run this through the nightly
+// workflow's `spec` input (engineering/development.md §Studio e2e suite).
+test.describe('on an iPhone, by touch @webkit-phone', () => {
+	async function tapSearch(page: import('@playwright/test').Page, q: string): Promise<void> {
+		await page.getByRole('button', { name: 'Menu' }).tap();
+		await page.getByRole('button', { name: 'Search / commands' }).tap();
+		await page.getByPlaceholder(PALETTE).fill(q);
+	}
+
+	test('tapping a search result runs it', async ({ page }) => {
+		await tapSearch(page, 'pdf');
+		await page.getByRole('option', { name: 'Export as PDF…', exact: true }).tap();
+		await expect(page.locator('[data-demo="pdf-download"]')).toBeVisible();
+	});
+
+	test('a lesson started by tap does the steps when the user waits', async ({ page }) => {
+		await tapSearch(page, 'pdf');
+		await page.getByRole('option', { name: 'How do I export a PDF?', exact: true }).tap();
+		await expect(page.locator(STAGE)).toContainText('Click Share');
+		await expect(page.locator('[data-demo="share-pdf"]')).toBeVisible({ timeout: 20_000 });
+		await expect(page.locator('[data-demo="pdf-download"]')).toBeVisible({ timeout: 20_000 });
+		await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 30_000 });
+	});
+
+	test('a tap on the control the lesson points at is the user’s turn, not a take-over', async ({ page }) => {
+		await tapSearch(page, 'present');
+		await page.getByRole('option', { name: 'How do I present?', exact: true }).tap();
+		await expect(page.locator(STAGE)).toContainText('Click Present');
+		await page.locator('button[data-demo="present"]:visible').tap();
+		await expect(page.getByRole('dialog', { name: 'Present' })).toBeVisible();
+		await expect(page.locator(STAGE)).toContainText('arrow keys');
+	});
+});
