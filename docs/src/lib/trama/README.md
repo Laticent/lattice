@@ -157,3 +157,10 @@ settle on another fixed point: the same text drew four ways depending on how it 
 Now paste, reload, key by key and bursts at 50, 120 and 600 ms a key give one drawing on
 every chart measured, and the CLI export draws the same viewBox. A different chart at the
 same position (the next slide's) fits from a cold start too.
+
+**With no worker, the same settle.** A host that blocks blob workers, a worker that died
+mid-session, and the moment before dagre's script loads all draw a live redraw in place,
+from the fit the chart remembers. That redraw schedules the same settle: 300 ms after it,
+the chart fits again from a cold start on the page's thread, so the drawing at rest matches
+the export there too. A keystroke never pays for the cold fit, and a newer draw at that
+position drops the pending settle by its token.

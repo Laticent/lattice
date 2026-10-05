@@ -620,12 +620,13 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // Only the chart drawn here before starts from its remembered fit. Another chart at this
     // position (the next slide's, in a live preview) fits from a cold start, as an export does.
     if (!sameChart) kGuess = 1;
+    // The pause after a live redraw's last round, before it settles from a cold fit.
+    const REWRAP_AFTER = 300;
     const W = live && sec && sameChart ? liveWorker() : null;
     if (W) {
       if (!D[key('Latest')]) D[key('Latest')] = new Map();
       const token = (D[key('Tokens')] = (D[key('Tokens')] || 0) + 1);
       D[key('Latest')].set(fitKey, token);
-      const REWRAP_AFTER = 300;
       // SETTLE: the chain that runs once the drawing has stood REWRAP_AFTER. It searches, and it
       // fits from a cold start (k 1, as a paste or an export does) with its rounds hidden, so the
       // drawing at rest is a function of the text and the stage alone, never of the path typed.
@@ -688,21 +689,52 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     }
     // A synchronous draw in a live preview takes a token too, so a chain still in flight for
     // the chart this element held before (a host that patches a figure in place) is dropped.
+    let token = 0;
     if (live) {
       if (!D[key('Latest')]) D[key('Latest')] = new Map();
-      D[key('Latest')].set(fitKey, (D[key('Tokens')] = (D[key('Tokens')] || 0) + 1));
+      token = D[key('Tokens')] = (D[key('Tokens')] || 0) + 1;
+      D[key('Latest')].set(fitKey, token);
     }
-    unlay();
-    floorFor(kGuess);
-    let m: (Measured & { geo: Geometry | null }) | null = null;
-    for (let round = 0; round < ROUNDS; round++) {
-      m = measure();
-      m.geo = K.layout(m.args[0], m.args[1], m.args[2], dagre);
-      if (!m.geo) { if (!dagre) fig.setAttribute(`data-${P}-nolayout`, '1'); F[key('NoLayoutSig')] = sig; return; }
-      if (settled(m.geo)) break;
+    // The fit's rounds, on this thread; a round paints nothing until the last one.
+    const fitHere = (): (Measured & { geo: Geometry }) | null => {
+      unlay();
       floorFor(kGuess);
+      let m: (Measured & { geo: Geometry | null }) | null = null;
+      for (let round = 0; round < ROUNDS; round++) {
+        m = measure();
+        m.geo = K.layout(m.args[0], m.args[1], m.args[2], dagre);
+        if (!m.geo) { if (!dagre) fig.setAttribute(`data-${P}-nolayout`, '1'); F[key('NoLayoutSig')] = sig; return null; }
+        if (settled(m.geo)) break;
+        floorFor(kGuess);
+      }
+      return m as Measured & { geo: Geometry };
+    };
+    // Only a fit under 1 is warm: at or above it the floor is never lifted, so a cold fit
+    // computes the same drawing.
+    const warm = kGuess < 1;
+    const m = fitHere();
+    if (!m) return;
+    finish(m);
+    // THE SETTLE, WITH NO WORKER. A live redraw started its fit from the scale it remembers,
+    // which can settle on another fixed point than an export's cold start. So once the drawing
+    // has stood REWRAP_AFTER, fit it again from a cold start, as the worker path's settle does:
+    // the drawing at rest is a function of the text and the stage, on a host that blocks blob
+    // workers too. A keystroke never pays for it; a newer draw here drops it by its token.
+    if (live && sec && sameChart && warm) {
+      setTimeout(() => {
+        if (D[key('Latest')].get(fitKey) !== token || !fig.isConnected) return;
+        // draw()'s own guards, again: a stage that collapsed to no height meanwhile would make
+        // the search try every candidate for nothing, here on the page's thread; a figure
+        // mid-reveal measures foreshortened. The resize observer draws it once it is back.
+        if (port0.clientWidth > 0 && !(port0.clientHeight > 0)) return;
+        try { const t = getComputedStyle(fig).transform; if (t && t !== 'none') return; } catch (_e) { /* measure anyway */ }
+        readVis(sec);
+        kGuess = 1;
+        last = null;
+        const cold = fitHere();
+        if (cold) finish(cold);
+      }, REWRAP_AFTER);
     }
-    finish(m as Measured & { geo: Geometry });
 
     function finish(m: Measured & { geo: Geometry }) {
       const geo = m.geo;

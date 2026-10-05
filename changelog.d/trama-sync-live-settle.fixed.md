@@ -1,0 +1,1 @@
+- **Graph charts:** a live preview with no layout worker (a host that blocks blob workers, a worker that died, or dagre not loaded yet) now settles from a cold fit after the author pauses, so its drawing at rest matches the export, as the worker path already did.

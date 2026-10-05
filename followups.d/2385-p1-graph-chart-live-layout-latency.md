@@ -39,6 +39,10 @@ recorded: 2026-09-27
        where     — docs/src/lib/trama/kernel.ts: `costOf` (~35% of self time), `cheap`,
                    `build`, `crossings`, `seatCost`, `sharesRun`; the fit's rounds in
                    pipeline.ts (the secant step in the cold-load PR cuts them).
+       measured  — 2026-10-05: engineering/decisions/2026-10-05-graph-chart-typing-latency.md.
+                   The cap is rarely hit (0 capped routings on either bench deck); the router
+                   is 23-38% of a 70-101 ms key on the real Studio. The note proposes
+                   main-thread and stale-job cuts first; the owner picks.
        done when — an 11-to-14-state machine lays out in under 150 ms in Node, and a
                    27-key burst shows its last key drawn within 400 ms of the key.
        evidence  — `npm run bench` GRAPH LAYOUT tier before/after (HARD RULE #19), plus a
