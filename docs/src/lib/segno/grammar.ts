@@ -160,6 +160,12 @@ export class GrammarError extends Error {
 
 // ── analysis: nullable, FIRST and FOLLOW for every expression ───────────────
 
+/** What cannot come next after an expression: `a ∪ (b ∩ before)` (see `excludedSets`). */
+interface Excluded {
+  a: CharSet;
+  b: CharSet;
+}
+
 interface Info {
   nullable: boolean;
   first: CharSet;
@@ -278,6 +284,7 @@ class Analysis {
   /** Every LL(1) violation, with the path of the expression that causes it. */
   check(): string[] {
     const problems: string[] = [];
+    this.excludedSets();
     for (const [e, inf] of this.info) {
       if (e.t === 'alt') {
         for (let a = 0; a < e.xs.length; a++) {
@@ -306,7 +313,7 @@ class Analysis {
       if (e.t === 'seq') {
         let eaten: CharSet = EMPTY;
         for (let k = 0; k + 1 < e.xs.length; k++) {
-          eaten = this.excludedAfter(e.xs[k], eaten, new Set());
+          eaten = this.excludedAfter(e.xs[k], eaten);
           if (isEmpty(eaten)) continue;
           const after = e.xs.slice(k + 1);
           const restNullable = after.every((x) => this.get(x).nullable);
@@ -334,42 +341,84 @@ class Analysis {
   }
 
   /**
-   * The characters that can NOT come next once `e` has matched, however it matched — given that
-   * `before` could not come next before it. A loop only stops when the next character cannot
-   * start its body, so after any `many` that is the body's FIRST set. After an `opt` it is what
-   * holds on both paths: taken (what its body leaves) and skipped (its FIRST, plus `before`).
-   * After a choice it is what holds after every branch. Anything that consumes a character and
-   * is not a loop leaves nothing excluded. Rule references are followed (`seen` stops a cycle,
-   * conservatively, with nothing excluded).
+   * The characters that can NOT come next once an expression has matched, however it matched.
+   * A loop only stops when the next character cannot start its body, so after any `many` that is
+   * the body's FIRST set. After an `opt` it is what holds on both paths: taken (what its body
+   * leaves) and skipped (its FIRST, plus what was already excluded). After a choice it is what
+   * holds after every branch. Anything else that consumes leaves nothing excluded.
    *
-   * Only greedy loops make this matter — in a strict grammar the LL(1) check already refuses a
-   * successor that a loop could take — and an answer that is too SMALL only ever lets a grammar
-   * through, so every case leans that way.
+   * The answer depends on what was excluded BEFORE the expression, and it always has the shape
+   * `a ∪ (b ∩ before)` (every step is a union or an intersection, and sets distribute), so each
+   * expression is summarized once as the pair `{ a, b }`. Rules are summarized by a fixpoint from
+   * empty, the way FIRST is, so a rule reached by many routes costs one visit per pass. Walking
+   * references instead re-walked a shared rule once per route: exponential, and a 25-rule
+   * grammar took 10 s to compile (found by the PR's checker).
+   *
+   * Starting from empty gives the LEAST fixpoint, which is never larger than the true answer.
+   * Too small only lets a grammar through, so the check can miss dead code but never refuses
+   * a live successor. Only greedy loops make this matter: in a strict grammar the LL(1) check
+   * already refuses a successor that a loop could take.
    */
-  private excludedAfter(e: Expr, before: CharSet, seen: Set<string>): CharSet {
-    switch (e.t) {
-      case 'many': return this.get(e.x).first;
-      case 'opt': return intersect(this.excludedAfter(e.x, before, seen), union(before, this.get(e.x).first));
-      case 'node': return this.excludedAfter(e.x, before, seen);
-      case 'seq': {
-        let ex = before;
-        for (const x of e.xs) ex = this.excludedAfter(x, ex, seen);
-        return ex;
+  private excluded = new Map<Expr, Excluded>();
+
+  private excludedSets() {
+    const NONE: Excluded = { a: EMPTY, b: EMPTY };
+    const rules = new Map<string, Excluded>(Object.keys(this.spec.rules).map((k) => [k, NONE]));
+    const same = (x: CharSet, y: CharSet) => x.length === y.length && x.every((v, i) => v === y[i]);
+    for (let changed = true; changed; ) {
+      changed = false;
+      this.excluded = new Map();
+      const of = (e: Expr): Excluded => {
+        const hit = this.excluded.get(e);
+        if (hit) return hit;
+        let out: Excluded;
+        switch (e.t) {
+          // Visit the body even though the loop's own answer does not depend on it: the check
+          // reads the summary of every sequence, including one nested inside a loop. Skipping it
+          // left nested sequences unsummarized, and the differential fuzz caught 400 missed
+          // refusals in 60,000 grammars.
+          case 'many': of(e.x); out = { a: this.get(e.x).first, b: EMPTY }; break;
+          case 'opt': {
+            const p = of(e.x);
+            out = { a: intersect(p.a, this.get(e.x).first), b: union(p.a, p.b) };
+            break;
+          }
+          case 'node': out = of(e.x); break;
+          case 'seq': {
+            out = { a: EMPTY, b: ANY }; // the identity: what was excluded before stays excluded
+            for (const x of e.xs) { const p = of(x); out = { a: union(p.a, intersect(p.b, out.a)), b: intersect(p.b, out.b) }; }
+            break;
+          }
+          case 'alt': {
+            let acc: Excluded | null = null;
+            for (const x of e.xs) {
+              const p = of(x);
+              acc = acc === null ? p : {
+                a: intersect(acc.a, p.a),
+                b: union(intersect(acc.a, p.b), intersect(p.a, acc.b), intersect(acc.b, p.b)),
+              };
+            }
+            out = acc ?? NONE;
+            break;
+          }
+          case 'ref': out = rules.get(e.name) ?? NONE; break;
+          default: out = NONE; // lit, set, until: they consume, and anything may follow
+        }
+        this.excluded.set(e, out);
+        return out;
+      };
+      for (const [name, body] of Object.entries(this.spec.rules)) {
+        const next = of(body);
+        const prev = rules.get(name) as Excluded;
+        if (!same(next.a, prev.a) || !same(next.b, prev.b)) { rules.set(name, next); changed = true; }
       }
-      case 'alt': {
-        let out: CharSet | null = null;
-        for (const x of e.xs) { const ex = this.excludedAfter(x, before, seen); out = out === null ? ex : intersect(out, ex); }
-        return out ?? EMPTY;
-      }
-      case 'ref': {
-        if (seen.has(e.name)) return EMPTY;
-        seen.add(e.name);
-        const ex = this.excludedAfter(this.spec.rules[e.name], before, seen);
-        seen.delete(e.name);
-        return ex;
-      }
-      default: return EMPTY; // lit, set, until: they consume, and anything may follow
     }
+  }
+
+  /** What cannot come next after `e`, given `before` could not come next before it. */
+  private excludedAfter(e: Expr, before: CharSet): CharSet {
+    const p = this.excluded.get(e) ?? { a: EMPTY, b: EMPTY };
+    return union(p.a, intersect(p.b, before));
   }
 
   /** The rules an expression can enter before consuming anything. */
@@ -499,7 +548,8 @@ export function isStackOverflow(x: unknown): boolean {
 export function depthOf(spec: GrammarSpec): number {
   const d = spec.maxDepth ?? MAX_DEPTH;
   if (!Number.isInteger(d) || d < 1 || d > MAX_DEPTH_LIMIT) {
-    throw new GrammarError([`maxDepth must be a whole number from 1 to ${MAX_DEPTH_LIMIT}, not ${d}`]);
+    // Not a GrammarError: that one's message calls the grammar "not linear", and this is a setting.
+    throw new Error(`segno: maxDepth must be a whole number from 1 to ${MAX_DEPTH_LIMIT}, not ${d}`);
   }
   return d;
 }

@@ -305,6 +305,9 @@ places: a run of letters next to another run (longest match), `/` against `/*`, 
   successor can never match, and it follows rule references. It is computed as "the characters
   that cannot come next, however the piece matched", because the first version refused valid
   grammars (an `opt` takes at most one character) and missed dead code behind a rule reference.
+  That answer always has the shape `a ∪ (b ∩ before)`, so each rule is summarized once by a
+  fixpoint from empty, the way FIRST is. Walking references instead cost exponential time on a
+  rule reached by many routes (a valid 25-rule grammar took 10 s to compile).
 - **`until(end)`**: one `indexOf` and no re-reading. `end` is capped at 64 characters, because
   `indexOf`'s slow case is input × terminator: the red team measured 1.5 µs per input character
   for a 16,384-character terminator, against 4 ns for 32 characters.
@@ -337,8 +340,12 @@ takes 810 ns, but turning the tree into values costs that back, as it does for p
 straight off the flat tree is the phase-2 fix for both (the pill row above).
 
 **Review.** One checker and one red team (HARD RULE #25's maker-checker plus an adversary aimed at
-the linear bound). Neither found a compiling grammar that runs superlinearly or an input that throws.
-They found five defects, all fixed with tests: the dead-code check's false refusals and its miss
+the linear bound), then a second checker on the fixes. Neither of the first two found a compiling
+grammar that runs superlinearly or an input that throws. Together the three found six defects, all
+fixed with tests: the five below, and the exponential cost of the dead-code check's first fix
+(above). Its replacement agrees with the walking version on 60,000 random greedy grammars — a
+run that also caught a miss in the replacement's first draft, which did not summarize a sequence
+nested in a loop body. The five: the dead-code check's false refusals and its miss
 through rule references, the unbounded terminator, the backstop's invented level count, and its
 catching every RangeError. Two limits are pinned as tests rather than fixed: greedy commits (above),
 and the runtimes can disagree near the stack limit.

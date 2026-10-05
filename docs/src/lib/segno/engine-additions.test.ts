@@ -62,6 +62,16 @@ describe('greedy()', () => {
     expect(lint(dead).join('\n')).toMatch(/can never match/);
   });
 
+  // Found by differential fuzz against the walking version: a sequence nested inside a loop
+  // body was never summarized, so its dead successor slipped through.
+  it('finds dead code in a sequence nested inside a loop', () => {
+    const k = seq('c', greedy(many(chars('a'))));
+    const flat: GrammarSpec = { start: 's', rules: { s: seq(ref('k'), chars('a')), k } };
+    const nested: GrammarSpec = { start: 's', rules: { s: seq('x', greedy(many(seq(ref('k'), chars('a'))))), k } };
+    expect(lint(flat).join('\n')).toMatch(/can never match/);
+    expect(lint(nested).join('\n')).toMatch(/can never match/);
+  });
+
   it('follows rule references (red team: this passed lint and matched nothing)', () => {
     const dead: GrammarSpec = { start: 'r', rules: { r: seq(ref('a'), 'a'), a: greedy(many('a')) } };
     expect(lint(dead).join('\n')).toMatch(/can never match/);
@@ -85,6 +95,30 @@ describe('greedy()', () => {
     expect(lint(ok)).toEqual([]);
     expect(compile(ok).parse('ab1').ok).toBe(true);
     expect(compile(ok).parse('abx').ok).toBe(false); // the loop took the x: greedy means what it says
+  });
+
+  // The PR's checker: the first version walked rule references afresh on every route, so a rule
+  // shared by two callers was visited twice per level — 10 s to compile 25 rules. Both
+  // grammars are valid LL(1); the shipped engine lints them in milliseconds.
+  it('costs linear time on rules reached by many routes', () => {
+    const doubling: Record<string, ReturnType<typeof seq>> = {};
+    for (let i = 0; i < 40; i++) doubling[`r${i}`] = i === 39 ? seq('x') : seq('x', ref(`r${i + 1}`), ref(`r${i + 1}`));
+    const fanOut: Record<string, ReturnType<typeof seq>> = {};
+    for (let i = 0; i < 40; i++) fanOut[`r${i}`] = seq('x', ...Array.from({ length: 39 - i }, (_, j) => opt(ref(`r${i + 1 + j}`))));
+    // `doubling` is valid; `fanOut` is not LL(1) (every rule opens with x), but what it measures
+    // is the cost of getting the answer, which the first version paid exponentially either way.
+    for (const [rules, valid] of [[doubling, true], [fanOut, false]] as const) {
+      const t = performance.now();
+      const problems = lint({ start: 'r0', rules });
+      expect(performance.now() - t).toBeLessThan(2_000);
+      if (valid) expect(problems).toEqual([]);
+    }
+  });
+
+  it('does not recurse through rule references (a long chain lints without a stack overflow)', () => {
+    const chain: Record<string, ReturnType<typeof seq>> = {};
+    for (let i = 0; i < 3000; i++) chain[`r${i}`] = i === 2999 ? seq('x') : seq('x', ref(`r${i + 1}`));
+    expect(() => lint({ start: 'r0', rules: chain })).not.toThrow();
   });
 
   it('only marks loops and opt', () => {
