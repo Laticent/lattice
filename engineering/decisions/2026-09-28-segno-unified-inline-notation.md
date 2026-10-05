@@ -310,8 +310,16 @@ places: a run of letters next to another run (longest match), `/` against `/*`, 
   iterate). Walking references instead cost exponential time on a rule reached by many routes (a
   valid 25-rule grammar took 10 s to compile), and one fixpoint over all rules in source order
   cost a round per rule on a chain written top-down (24.5 s for 4,000 rules; 0.9 s now). The
-  engine's older FIRST/FOLLOW fixpoints are still quadratic on a chain listed bottom-up (12.8 s
-  for 4,000 rules on main as well); that is pre-existing and logged in `followups.d/`.
+  engine's older FIRST/FOLLOW fixpoints were quadratic on a chain listed bottom-up (12.4 s for
+  4,000 rules), and so was `recursiveRules()`, which searched from every rule. On 2026-10-05 both
+  fixpoints became worklists seeded in dependency order (an expression is recomputed only when
+  something it reads changed, and outside a cycle it is computed once), and recursion is read off
+  the same SCC pass: 43 ms for 4,000 rules in either order, and a checker found `lint()`,
+  `generate()` and parses identical to the previous version on 320,000 random grammars. What is
+  still quadratic is building the "expected …" text: `expectedAt()` writes every expression's
+  message eagerly, and on a chain whose FIRST sets grow from rule to rule (`r_i = alt(c_i, r_i+1)`)
+  that text grows too (6.5 s at 2,000 rules, and a stack overflow at 4,000, as on main). Logged in
+  `followups.d/`.
 - **`until(end)`**: one `indexOf` and no re-reading. `end` is capped at 64 characters, because
   `indexOf`'s slow case is input × terminator: the red team measured 1.5 µs per input character
   for a 16,384-character terminator, against 4 ns for 32 characters.
