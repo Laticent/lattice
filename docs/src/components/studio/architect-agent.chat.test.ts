@@ -78,3 +78,26 @@ describe('the transport self-heal', () => {
 		expect(isDeadModelError(400, 'some/x is not a valid model ID')).toBe(true);
 	});
 });
+
+describe('the transport never swaps the model on a tools request', () => {
+	it('a "no endpoints" 404 on a tools request reaches the caller, with no retry on the default model', async () => {
+		const { createArchitectModel } = await import('./ai/architect-model.js');
+		localStorage.setItem('lattice-db-or-key', 'test-key');
+		localStorage.setItem('lattice-db-or-model', 'some/model-without-tool-choice');
+		const sent: string[] = [];
+		const realFetch = globalThis.fetch;
+		globalThis.fetch = (async (_url: string, init: { body: string }) => {
+			sent.push(JSON.parse(init.body).model);
+			return new Response('{"error":{"message":"No endpoints found that can handle the requested parameters.","code":404}}', { status: 404 });
+		}) as unknown as typeof fetch;
+		try {
+			const m = createArchitectModel({ getSettings: () => ({}) });
+			await expect(m.complete({ messages: [{ role: 'user', content: 'hi' }], tools: [{ type: 'function', function: { name: 'x', parameters: {} } }] })).rejects.toThrow(/404/);
+			expect(sent).toEqual(['some/model-without-tool-choice']);
+		} finally {
+			globalThis.fetch = realFetch;
+			localStorage.removeItem('lattice-db-or-key');
+			localStorage.removeItem('lattice-db-or-model');
+		}
+	});
+});

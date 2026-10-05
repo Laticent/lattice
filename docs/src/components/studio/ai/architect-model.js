@@ -437,7 +437,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         // Self-heal: a retired/renamed model id (a stale stored pick can die under
         // the user) → retry ONCE with the rot-proof latest alias, and drop the
         // cached catalog so the picker refetches fresh next open.
-        if (isDeadModelError(res.status, errText) && body.model !== defaultModel) {
+        // Never on a request that carries TOOLS. A "no endpoints" answer there is far more
+        // likely the model refusing tools (or a tool parameter) than a retired id, and the
+        // caller — the chat agent — has the right fallback: the same turn without tools, on the
+        // author's own model. If the id really is retired, THAT request self-heals here.
+        if (isDeadModelError(res.status, errText) && body.model !== defaultModel && !body.tools) {
           catalogCache = null;
           writeLS(OR_CATALOG_LS, null);
           res = await send(defaultModel);

@@ -37,6 +37,9 @@ export function ChatCost({ source, grounding, docs, primed, className }: { sourc
 	React.useEffect(() => {
 		const on = () => setAgentReady((n) => n + 1);
 		globalThis.addEventListener?.('lattice-chat-agent-ready', on);
+		// Re-price once on subscribe too: the module may have landed between the first render
+		// (which started the load) and this effect, and that event would be lost.
+		on();
 		return () => globalThis.removeEventListener?.('lattice-chat-agent-ready', on);
 	}, []);
 	// Counts the SYSTEM turn, not just the deck — see chatSystemTokens. Memoized because

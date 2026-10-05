@@ -1686,7 +1686,10 @@ export function chatSystemTokens(generation: string, grounding?: ChatGrounding, 
 	if (generation === 'openrouter' && !chatAgentMod) {
 		// The agent module is lazy (it is not startup JavaScript); until it lands, price its
 		// measured core (~6.7K tokens) plus the deck brief's rough share.
-		void loadChatAgent();
+		// Swallowed here: the readout re-prices on every edit, and a failed chunk fetch
+		// (offline) must not surface as an unhandled rejection per keystroke. The chat turn
+		// itself awaits the load and reports a failure.
+		loadChatAgent().catch(() => {});
 		return (cached ? Math.ceil(AGENT_CORE_TOKENS * CACHE_READ_RATE) : AGENT_CORE_TOKENS) + Math.ceil(estTokens(source) / 4);
 	}
 	const { staticPrefix, dynamicTail } = generation === 'openrouter' && chatAgentMod ? chatAgentMod.agentSystemParts(source, grounding) : buildChatSystem(generation, grounding);
