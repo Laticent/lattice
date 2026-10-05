@@ -158,7 +158,9 @@ export function rowFromFlat(s, { buf, top, kinds }) {
 
 /** The bake-off's fuzz: short rows over the characters that matter, and labels around the cap. */
 export function flowFuzz(count = 200_000, seed = 0x2462) {
-  const ALPHA = ['-', '=', '<', '>', ' ', 'a', 'b', '\\', '&', '\t', '\n', 'x', '-', '-', '>', '='];
+  // `\r` too: it is a label space and a boundary (`isSpace`), and without it a grammar that
+  // dropped `\r` from either passed (the PR's second checker).
+  const ALPHA = ['-', '=', '<', '>', ' ', 'a', 'b', '\\', '&', '\t', '\n', '\r', 'x', '-', '-', '>', '='];
   let st = seed;
   const rand = () => { st = (st * 1103515245 + 12345) & 0x7fffffff; return st / 0x7fffffff; };
   const out = [];

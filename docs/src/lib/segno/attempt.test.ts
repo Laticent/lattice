@@ -112,7 +112,11 @@ describe('attempt(): what the checker accepts', () => {
     });
     expect(lint(hand(1e9, [32, 32])).join('\n')).toMatch(/max must be a whole number from 1 to 256, not 1000000000/);
     expect(lint(hand('2', [32, 32])).join('\n')).toMatch(/max must be a whole number/);
-    expect(lint(hand(2, null)).join('\n')).toMatch(/next must be a CharSet/);
+    for (const bad of [null, [32], [null, null], ['a', 'b'], [40, 32], [1.5, 40], [-1, 3], [0, 0x10000]]) {
+      expect(lint(hand(2, bad)).join('\n'), JSON.stringify(bad)).toMatch(/next must be a CharSet/);
+      expect(() => compile(hand(2, bad)), JSON.stringify(bad)).toThrow(GrammarError);
+    }
+    expect(lint({ start: 's', rules: { s: { t: 'set', cs: [null, null] } as unknown as Expr } }).join('\n')).toMatch(/a set must be a CharSet/);
     expect(lint(hand(2, [32, 32]))).toEqual([]);
   });
 
@@ -202,6 +206,15 @@ describe('attempt(): what it reads', () => {
     expect(!next.ok && next.error).toEqual({ at: 5, expected: 'space or end of input', found: 'y' });
     const window = both(s, 'a-xxxxxx-> ');
     expect(!window.ok && window.error).toEqual({ at: 7, expected: 'the end within 6 characters', found: 'x' });
+    // A literal the window cuts in two (the second checker): the text DOES hold "bc" there, so
+    // the error is the window's, not 'expected "bc", found "b"'.
+    const cut: GrammarSpec = { start: 's', rules: { s: seq(attempt(seq('a', 'bc'), { max: 2, next: SP }), ' ') } };
+    const r = both(cut, 'abc ');
+    expect(!r.ok && r.error).toEqual({ at: 2, expected: 'the end within 2 characters', found: 'c' });
+    // A loop the window stops: the body wanted more than max, not a space.
+    const loop: GrammarSpec = { start: 's', rules: { s: seq(attempt(many1(chars('abcd')), { max: 3, next: SP }), ' ') } };
+    const l = both(loop, 'abcd ');
+    expect(!l.ok && l.error).toEqual({ at: 3, expected: 'the end within 3 characters', found: 'd' });
   });
 
   it('restores the nesting depth a failed attempt spent', () => {
@@ -335,7 +348,7 @@ function reference(spec: GrammarSpec, s: string, stats: { fellThrough: number })
       // nothing is the FALLBACK, tried after every branch that cannot, wherever it is listed.
       // So this reference cannot see an attempt that shadows that fallback, because the rule
       // that lets it is the one copied here; the unit tests above pin that refusal instead.
-      // (Measured: reopening it passed 8,000 grammars here and failed two unit tests.)
+      // (Measured: reopening it passed 8,000 grammars here and failed a unit test above.)
       case 'alt': {
         for (const x of e.xs) {
           if (canBeEmpty(x)) continue;
@@ -396,8 +409,8 @@ describe('random grammars with attempts: compiled = reference, generated = compi
       }
     }
     expect(bad).toEqual([]);
-    // At seed 2519: 292 compile with an attempt, 4,347 refused, 166,350 generated-parser
-    // comparisons, 81,687 attempts that failed and rewound.
+    // At seed 2519: 290 compile with an attempt, 7,259 refused, 170,786 generated-parser
+    // comparisons, 146,745 attempts that failed and rewound.
     if (process.env.SEGNO_FUZZ_STATS) console.error({ compiled, refused, generatedChecked, fellThrough: stats.fellThrough });
     // Not vacuous: grammars with attempts compile, attempts fail and rewind, codegen runs.
     expect(compiled).toBeGreaterThan(250);

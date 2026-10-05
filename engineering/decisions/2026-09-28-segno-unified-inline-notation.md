@@ -454,7 +454,8 @@ choices the spike left open:
   an attempt may not start what follows a choice that can match nothing: the runtimes try
   attempts before that branch wherever it is listed, so the attempt would shadow it. Anywhere
   else, a failed attempt is a parse error, and it reports why the attempt failed (what its body
-  expected, a `next` character, or its end within `max`), against the real input. A nesting cap
+  expected, a `next` character, or its end within `max`), from one more read of its body without
+  the window, so the reason is about the real input. A nesting cap
   reached inside an attempt is that attempt failing.
 - **What `x` is checked against.** Inside the attempt, `x`'s FOLLOW is `next` plus the end, not
   the attempt's context: whatever else comes next, the attempt rewinds. The window's end reads as
@@ -506,7 +507,7 @@ match nothing is the fallback (seed 2519: 290 compile, 146,745 attempts fail and
 generated-parser comparisons). Planting a bug in the window, the rewind of kept nodes, the `next`
 check, the literal's window check or the generated parser's depth restore each fails it. What it
 cannot see is an attempt shadowing that fallback, because the rule that allows it is the one it
-copies; reopening that hole passed it and failed two unit tests. `test/unit/tools/flow-row-grammar.test.js`
+copies; reopening that hole passed it and failed a unit test. `test/unit/tools/flow-row-grammar.test.js`
 holds the row grammar to `splitRow` on the corpus and 20,000 fuzzed rows on every PR, so an
 engine change that breaks it fails CI; when phase 3 deletes `splitRow`, it must freeze the
 kernel's outputs first, or the test loses its oracle.
@@ -518,7 +519,13 @@ and the checker found, all fixed here: the cost bound stated as `max` × input (
 that could shadow an empty branch listed before it; a bare attempt reporting `expected "-", found
 "-"`; hand-built `max` and `next` not checked; a reference interpreter that restated the runtimes'
 dispatch; parity only in an on-demand script; a typecheck error in `grammar-fuzz.test.ts`; and a
-stale header in the bake-off. Left as is: a nesting cap reached inside an attempt falls through
+stale header in the bake-off. A second checker, on those fixes, confirmed them (`lint()` identical
+on 60,000 random grammars without attempts; both runtimes identical on 4.5M parses with bare
+attempts) and found four more, also fixed: a literal cut by the window still gave a contradicting
+error, so a failed bare attempt now re-reads its body once without the window (it ends the parse,
+so this runs once) and reports what that shows; a hand-built `next` or `set` was checked for
+shape but not content (`[null, null]` crashed `compile()`); the CI row test never generated `\r`;
+and a stale count. Left as is: a nesting cap reached inside an attempt falls through
 (consistent in both runtimes; the arrow grammar does not recurse), and `greedy(opt(attempt(…)))`
 fails rather than falling through, as any attempt outside a choice does.
 

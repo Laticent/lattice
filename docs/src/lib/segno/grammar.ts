@@ -255,6 +255,18 @@ function sccs(names: readonly string[], edges: ReadonlyMap<string, readonly stri
   return groups;
 }
 
+/** A CharSet as the passes assume it: pairs of whole numbers in 0..0xFFFF, each low to high. */
+const CHARSET_SHAPE = 'must be a CharSet: pairs of whole numbers from 0 to 65535, each low to high';
+function isCharSet(cs: unknown): boolean {
+  if (!Array.isArray(cs) || cs.length % 2 !== 0) return false;
+  for (let k = 0; k < cs.length; k += 2) {
+    const lo = cs[k];
+    const hi = cs[k + 1];
+    if (!Number.isInteger(lo) || !Number.isInteger(hi) || lo < 0 || hi > MAX_UNIT || lo > hi) return false;
+  }
+  return true;
+}
+
 class Analysis {
   readonly info = new Map<Expr, Info>();
   constructor(readonly spec: GrammarSpec) {
@@ -270,6 +282,8 @@ class Analysis {
       if (this.info.has(e)) continue;
       this.info.set(e, { nullable: false, first: EMPTY, follow: EMPTY, followEnd: false, path });
       switch (e.t) {
+        // A hand-built set is checked too: `[null, null]` crashed the passes after this one.
+        case 'set': if (!isCharSet(e.cs)) throw new GrammarError([`${path}: a set ${CHARSET_SHAPE}`]); break;
         case 'seq': case 'alt': for (let i = e.xs.length - 1; i >= 0; i--) stack.push([e.xs[i], `${path} › ${e.t}[${i}]`]); break;
         case 'many': stack.push([e.x, `${path} › ${e.min ? 'many1' : 'many'}`]); break;
         case 'opt': stack.push([e.x, `${path} › opt`]); break;
@@ -279,7 +293,7 @@ class Analysis {
           // any pass reads `next` (a null one crashed the FOLLOW pass) or trusts `max` (the
           // cost bound; a string one made the runtimes disagree).
           if (!Number.isInteger(e.max) || e.max < 1 || e.max > MAX_ATTEMPT) throw new GrammarError([`${path}: an attempt's max must be a whole number from 1 to ${MAX_ATTEMPT}, not ${String(e.max)}`]);
-          if (!Array.isArray(e.next) || e.next.length % 2 !== 0) throw new GrammarError([`${path}: an attempt's next must be a CharSet`]);
+          if (!isCharSet(e.next)) throw new GrammarError([`${path}: an attempt's next ${CHARSET_SHAPE}`]);
           stack.push([e.x, `${path} › attempt`]);
           break;
         case 'ref': if (!Object.hasOwn(this.spec.rules, e.name)) throw new GrammarError([`${path}: unknown rule "${e.name}"`]); break;
@@ -834,8 +848,6 @@ class Analysis {
 
 interface State {
   s: string;
-  /** Why the last attempt failed: what a bare attempt (not an alt branch) reports. */
-  why: ParseError | null;
   /** Where the input ends for this read: its length, or the end of an attempt's window. */
   n: number;
   i: number;
@@ -1058,9 +1070,10 @@ export function compile(spec: GrammarSpec): Grammar {
         // Anywhere but an alt branch, a failed attempt is an ordinary error — and it reports why
         // the attempt failed, not what its first character should have been (which it was).
         const t = tryAttempt(e);
+        const explain = explainAttempt(e);
         m = (st) => {
           if (t(st)) return true;
-          if (!st.err) st.err = st.why;
+          if (!st.err) st.err = explain(st);
           return false;
         };
         break;
@@ -1093,27 +1106,50 @@ export function compile(spec: GrammarSpec): Grammar {
     const x = build(e.x);
     const max = e.max;
     const nextOk = compileTest(e.next);
-    const wantNext = `${describe(e.next)} or end of input`;
-    const wantEnd = `the end within ${max} characters`;
     return (st) => {
       const i0 = st.i;
       const n0 = st.n;
       const kids = st.stack[st.stack.length - 1];
       const k0 = kids.length;
       const err0 = st.err;
-      const w = Math.min(n0, i0 + max);
-      st.n = w;
+      st.n = Math.min(n0, i0 + max);
       const ok = x(st);
       st.n = n0;
       if (ok && st.err === err0 && (st.i >= n0 || nextOk(st.s.charCodeAt(st.i)))) return true;
-      // Why, against the REAL input: inside, the window's end read as the end of the input.
-      const inner = st.err !== err0 ? st.err : null;
-      const at = inner ? inner.at : st.i;
-      st.why = { at, expected: !inner ? wantNext : at >= w && w < n0 ? wantEnd : inner.expected, found: at < n0 ? st.s[at] : null };
       st.i = i0;
       kids.length = k0;
       st.err = err0;
       return false;
+    };
+  }
+
+  /**
+   * Why a bare attempt failed, against the REAL input. Inside the window its end reads as the end
+   * of the input, so the windowed run's own error can contradict the text (`expected "bc", found
+   * "b"` where the window cut the literal). So read the body once more WITHOUT the window — it
+   * makes the same decisions up to the window's end — and say what that shows: an error before
+   * the end of the window, a body that needs more than `max` characters, or a missing `next`.
+   * A bare attempt's failure ends the parse, so this runs at most once per parse.
+   */
+  function explainAttempt(e: Extract<Expr, { t: 'attempt' }>): (st: State) => ParseError {
+    const x = build(e.x);
+    const wantNext = `${describe(e.next)} or end of input`;
+    const wantEnd = `the end within ${e.max} characters`;
+    return (st) => {
+      const i0 = st.i;
+      const kids = st.stack[st.stack.length - 1];
+      const k0 = kids.length;
+      const err0 = st.err;
+      const w = Math.min(st.n, i0 + e.max);
+      const ok = x(st);
+      const inner = st.err;
+      const j = st.i;
+      st.i = i0;
+      kids.length = k0;
+      st.err = err0;
+      const at = (k: number, expected: string): ParseError => ({ at: k, expected, found: k < st.n ? st.s[k] : null });
+      if (!ok && inner) return inner.at < w ? inner : at(w, wantEnd);
+      return j > w ? at(w, wantEnd) : at(j, wantNext);
     };
   }
 
@@ -1147,7 +1183,7 @@ export function compile(spec: GrammarSpec): Grammar {
     parse(input: string, rule = spec.start): ParseResult {
       const m = ruleMatchers.get(rule);
       if (!m) throw new Error(`segno: no rule "${rule}"`);
-      const st: State = { s: input, why: null, n: input.length, i: 0, stack: [[]], err: null, depth: 0 };
+      const st: State = { s: input, n: input.length, i: 0, stack: [[]], err: null, depth: 0 };
       let ok: boolean;
       try {
         ok = m(st);
