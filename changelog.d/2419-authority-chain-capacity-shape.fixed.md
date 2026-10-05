@@ -1,0 +1,1 @@
+- `authority-chain`'s docs now say which row shape holds how many tiers: five full rows (label, citation, gloss) on a laptop slide, six only as label-and-citation rows, and four when a tier label wraps in the rail. Its venue capacities rise by one tier at laptop, huddle and conference (6-word rows), because the calibration rig had been measuring a two-word label that wraps.

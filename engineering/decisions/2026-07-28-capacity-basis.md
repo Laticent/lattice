@@ -221,3 +221,22 @@ kanban lane that clips inside its own box (CONTENT CLIPPED) read as a fit, and i
 was stored as "at least 12". The rig now reads box clips once they start with the count
 (`countClipped` in `tools/lib/calibrate-core.js`); a box clip already on the first page is an
 ellipsis, not the count, and is left out.
+
+## Amendment 2026-10-05 — why the rig read `authority-chain` at 4
+
+The 2026-09-29 row above says the rig's `authority-chain` ceiling of 4 comes from the two lines
+it puts under every tier. That was the wrong line. The rig wrote a two-word tier LABEL
+("Clear concise"), and the left rail is too narrow for it: the label wraps to a second line
+and costs every row a line. Rendering the same rows with a one-word label, the shape the docs
+teach (Statute, Regulation, Guidance, Case), moves the laptop ceiling to 5 at both 6 and 14
+words. The builder in `tools/lib/calibrate-core.js` now writes a one-word label, and the
+manifest's `venueCapacity` moved with it (6 words: 4·3·3·3 → 5·4·4·3; 14 words: 4·3·3·2 →
+5·4·3·2, laptop · huddle · conference · hall).
+
+`hard` stays 6, for the reason the row above gives: a label-and-citation row with no gloss
+fits six (and seven) on a laptop slide. A full row does not, so the docs now say so: five
+full rows, six only without glosses, and a label that wraps in the rail drops the chain to
+four. Re-derive:
+
+    node tools/calibrate-capacity.js authority-chain --family wide --words 6    # ceiling 5
+    node tools/calibrate-capacity.js authority-chain --family wide --words 14   # ceiling 5

@@ -102,7 +102,10 @@ const BUILDERS = {
   'split-compare': (w) => `- ${cap(words(2))}\n  - ${cap(words(w - 2))}.`,
   // Legal-family layouts with a countable item axis (added for the square
   // capacity grounding, #1218). Shapes follow each manifest's own skeleton.
-  'authority-chain': (w) => `1. ${cap(words(2))}\n   - \`${cap(words(2))}\`\n   - ${cap(words(Math.max(1, w - 4)))}.`,
+  // A ONE-word tier label, the shape the docs teach (Statute, Regulation, Guidance, Case). The rail
+  // is narrow: a two-word label like "Agency guidance" wraps to a second line and costs every row a
+  // line, which is how this rig read a laptop ceiling of 4 while the documented row holds 5.
+  'authority-chain': (w) => `1. ${cap(words(1))}\n   - \`${cap(words(2))}\`\n   - ${cap(words(Math.max(1, w - 3)))}.`,
   'regulatory-update': (w) => `1. ${cap(words(2))}\n   - \`${cap(words(2))}\`\n   - ${cap(words(Math.max(1, w - 6)))}.\n   - \`Effective Mar 2026\``,
   'statute-stack': (w) => `- ${cap(words(1))} \`${cap(words(2))}\`\n  - ${cap(words(Math.max(1, w - 5)))}.\n  - \`${cap(words(2))}\``,
   // A `code` "element" is one LINE of a single fenced block — `BODY_WRAP.code` puts the

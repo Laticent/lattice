@@ -32,7 +32,7 @@
       "split across slides (automatic)",
       "statute-stack"
     ],
-    "note": "past six tiers the chain overflows a portrait box; a split run carries a derived “governs ↓ / under ↑” signal — a hierarchy, never a temporal “next” (§0b connected members). Pacing stays the authored split.perPage: the signal reads across pages whatever the pacing"
+    "note": "five full rows (a one-word tier label, its citation, a one-line gloss) fit a laptop slide and a sixth clips; six fit only as label-and-citation rows with no gloss. Past six tiers the chain overflows a portrait box; a split run carries a derived “governs ↓ / under ↑” signal — a hierarchy, never a temporal “next” (§0b connected members). Pacing stays the authored split.perPage: the signal reads across pages whatever the pacing"
   },
   "density": {
     "axis": "item",
@@ -89,8 +89,8 @@
       "body": "Statute, regulation, guidance, case — each tier has a different legal weight. The left-rail label tells the audience what kind of source they are looking at before they read the citation."
     },
     {
-      "title": "Three to five tiers, no more",
-      "body": "The chain reads top-to-bottom on a single canvas. Past five rows the connectors compress and the tier labels lose room. Group sub-cases into the parent row's gloss or split into two slides. A chain that does not fit runs long at its tail and is reported as clipped; a row never shrinks below its own text, so one card never draws over the next."
+      "title": "Three to five tiers; six only without glosses",
+      "body": "The chain reads top-to-bottom on a single canvas. A full row — a one-word tier label, its citation and a one-line gloss — holds five tiers on a laptop slide, and the sixth clips. Six tiers fit only as label-and-citation rows with no gloss. Keep each label to one word, or a short pair like Case law: a label that wraps in the left rail (Agency guidance) costs every row a line, and the chain then holds four. Past that, group sub-cases into the parent row's gloss or split into two slides. A chain that does not fit runs long at its tail and is reported as clipped; a row never shrinks below its own text, so one card never draws over the next."
     }
   ],
   "antiPatterns": [
@@ -196,14 +196,14 @@
     "at": "wide",
     "byWords": {
       "6": {
-        "laptop": 4,
-        "huddle": 3,
-        "conference": 3,
+        "laptop": 5,
+        "huddle": 4,
+        "conference": 4,
         "hall": 3
       },
       "14": {
-        "laptop": 4,
-        "huddle": 3,
+        "laptop": 5,
+        "huddle": 4,
         "conference": 3,
         "hall": 2
       }
