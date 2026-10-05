@@ -319,7 +319,7 @@ async function pasteDeck(page: Page, text: string): Promise<void> {
 async function newDeck(page: Page): Promise<void> {
 	const before = new Set(await deckIds(page));
 	await page.keyboard.press('ControlOrMeta+k');
-	await page.getByRole('option', { name: 'New deck' }).click();
+	await page.getByRole('option', { name: 'New deck', exact: true }).click();
 	// A NEW ID, not a bigger count: the index is empty until the first deck op and then
 	// materializes with the built-ins too, so the first call sees 0 -> 4 and a count-based
 	// wait would be satisfied by that alone.
