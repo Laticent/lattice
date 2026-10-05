@@ -26,12 +26,8 @@ why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §
                #22's style sink.
             3–4. Styles-only first? Where does the Studio keep one? → NEITHER YET: the zip channel
                WAITS for the code-package door, so a zip plugin can own a fence when it arrives.
-            SO THE ORDER IS NOW:
-            E0 (buildable now, its own PR): explicit loading. A deck front-matter `plugins:` list,
-               component declarations that load what they require, the shipped default set, and a
-               Plugins tab in the Studio settings; §4.8's usage probe stops ADMITTING plugins (it
-               still decides when a payload loads). Engine byte identity for every deck that names
-               no `plugins:`, which is every deck today.
+            SO THE ORDER IS NOW (E0, explicit loading, shipped with #2509's PR — §9 decisions 6
+            and 9):
             E (after the code-package door): zip import/export of plugins in the CLI and the
                Studio, with declared CSS targets.
             ACCEPTANCE CRITERION added 2026-10-04 (HARD RULE #25 inversion lens, phase D's browser

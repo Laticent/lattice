@@ -91,6 +91,7 @@ import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
+import { PluginsSettings } from './PluginsSettings';
 import { PresetPicker } from './PresetPicker';
 import { mayHavePaneSlides } from './pane-probe';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
@@ -211,7 +212,7 @@ const CodePackagesNotice = React.lazy(() => import('./CodePackagesNotice').then(
 // the old Developer footer disclosure, so there is one place for "things about this
 // deck" instead of a tab strip plus a stray expander.
 // See engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md.
-type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech';
+type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech' | 'plugins';
 // There is deliberately NO `DECK_TABS` list here. There was one, and it survived the
 // move to `deckSections` as a SECOND hand-kept copy of the same six labels in the same
 // order — the exact duplication the slide panel's `sectionDefs` had just collapsed, and
@@ -4703,6 +4704,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<InspGroup icon={<BookMarked className="size-3.5" />} label="Acronyms" desc="A term's spoken expansion (and an optional glossary definition) — e.g. EBITDA → “ee bit dah”." last>
 					<AcronymEditor acronyms={acronyms} onChange={setAcronyms} />
 				</InspGroup>
+			</div>
+			),
+		},
+		{
+			// What loads a plugin for this deck, and the deck's `plugins:` import list
+			// (PluginsSettings.tsx; plugin-system §9 decision 6).
+			value: 'plugins',
+			label: 'Plugins',
+			keywords: 'plugins extensions math mermaid diagrams function plot anima import list',
+			body: () => (
+			<div>
+				<TabNote>What this deck can render beyond Markdown, and why each is on. Every shipped plugin is on by default; listing one writes it into the deck's <code>plugins:</code> line, so the deck names what it needs wherever it is opened. A list only adds — it never turns a plugin off.</TabNote>
+				<PluginsSettings source={source} onWrite={settingsWrite} />
 			</div>
 			),
 		},

@@ -33,6 +33,31 @@ lib/plugins/<name>/
 The grammar and the renderers are separate files on purpose: the boundary parser and the docs
 site's pre-scan need the grammar without the library behind it.
 
+## What loads a plugin
+
+Every plugin is loaded **explicitly**, and the host decides it once per render, from the deck's
+source (`host-grammar.mjs` `admitPlugins`; plugin-system §9 decisions 6 and 9):
+
+- **the default set** — every shipped plugin, so a deck that lists nothing renders as it always
+  did. A host may narrow it: `createEngine({ plugins: { defaults: [] } })`.
+- **the deck's `plugins:` list** — an import list in the front matter, `plugins: [math, mermaid]`.
+  It only adds: listing a default plugin changes nothing, and there is no removal syntax. A name
+  no plugin has is a render diagnostic (`plugin/unknown-plugin`) and a `lint:deck` warning
+  (`unknown-plugin`). `deck-plugins.mjs` is its one reader and writer; the Studio's Plugins tab
+  (deck settings) writes it.
+- **a component that requires it** — a slide class whose manifest declares
+  `plugins: { requires: [...] }` loads those plugins for any deck that uses the class.
+
+A loaded plugin loads what it `requires`. The host's `disabled` switch then turns a plugin off
+whatever loaded it. Using a plugin's syntax loads nothing: `usesPlugin` (its `detect`, its fence
+names) decides only when a loaded plugin's payload loads and its bake runs — and warns
+(`plugin/used-not-loaded`) when the deck uses a plugin no route loaded.
+
+**Where admission is enforced today:** the engine's parse and the CLI's `bakeDeck`. The runtime's
+passes (Mermaid's draws every ` ```mermaid ` block it finds), the `highlight` grammars and the
+boundary parser still act for every shipped plugin. That is harmless while the default set is
+every shipped plugin, and it is why no host should narrow the set until they follow (LPM §3.2.1).
+
 ## The manifest says what, the modules say how
 
 ```jsonc
@@ -174,7 +199,8 @@ that sizes a figure selects the host's marker, `[data-lattice-hydrate]`, never a
 - **The boundary parser agrees.** Every block rule is installed there too, so a plugin block's
   body can never become a slide break.
 - **Disabling cascades.** `createEngine({ plugins: { disabled: ['x'] } })` turns `x` off and every
-  plugin that `requires` it; `optional` users keep running. (`math: false` still works.)
+  plugin that `requires` it; `optional` users keep running. (`math: false` still works.) A deck's
+  `plugins:` list cannot turn a disabled plugin back on.
 
 ## Components that need a plugin
 
@@ -186,6 +212,7 @@ the component:
 "plugins": { "requires": ["math"] }     // "optional": [...] for one it works without
 ```
 
+A required plugin is LOADED for every deck that uses the class (see *What loads a plugin*).
 The build fails when a component requires a plugin that does not exist, and when its own gallery
 (`<name>.gallery.md`) uses a plugin's syntax or fence without declaring it (the build runs every
 plugin's rules over every component gallery).
