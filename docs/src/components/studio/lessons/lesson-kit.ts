@@ -112,7 +112,7 @@ export function aimsAt(el: Element, e: Event): boolean {
 		if (!TURN_KEYS.has(k) || !(focus instanceof Element)) return false;
 		if (el.contains(focus)) return true;
 		const group = el.closest('[role="menu"], [role="listbox"]');
-		return group != null && group.contains(focus);
+		return group?.contains(focus) ?? false;
 	}
 	return e.target instanceof Node && el.contains(e.target);
 }
