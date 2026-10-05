@@ -1530,7 +1530,7 @@ function finalizeChat(reply: string, source: string, truncated = false): ChatRes
 	// hit its output ceiling), which is the usual cause and worth naming separately.
 	const notes = [...(truncated ? [TRUNCATION_NOTE] : []), ...problems.map((p: EditProblem) => p.message)];
 	const withNotes = (body: string) => [body, ...notes].filter(Boolean).join('\n\n');
-	if (!edits.length) return { status: 'ok', reply: withNotes(text) || 'No reply came back from the model — send again, or try another model in Workspace → AI.', proposed: null };
+	if (!edits.length) return { status: 'ok', reply: withNotes(text) || 'Nothing came back.', proposed: null };
 	// The propose-time full result, kept only as a fallback; the UI re-applies `raw`.
 	const run = applyEditsChecked(source, edits);
 	const next = run.source;
