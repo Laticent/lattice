@@ -821,7 +821,7 @@ jobs:
   # green streak (#800). Adding a job here makes it merge-BLOCKING — do it deliberately.
   ci:
     if: always()
-    needs: [lint, unit, integration, docs-build, player-webkit]
+    needs: [changes, lint, unit, integration, docs-build, player-webkit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -829,7 +829,7 @@ jobs:
     steps:
       - name: Verify gate
         run: |
-          echo "lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} player-webkit=${{ needs.player-webkit.result }}"
+          echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} player-webkit=${{ needs.player-webkit.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
           # tier that didn't apply — e.g. docs-only skips unit/integration); or
           # cancelled. NOTE THE SPELLING: 'cancelled' is GitHub's own enum value
@@ -842,6 +842,19 @@ jobs:
           # supersession-cancel manufactured false-alarm webhooks during a merge
           # train (see engineering/decisions/2026-06-14-drift-watch-rebase-thrash.md).
           # Only a real failure/timeout stops the gate.
+          #
+          # ONE EXCEPTION: `changes` must SUCCEED (followups.d/2524-p1-*,
+          # engineering/gotchas/ci.md). Every test tier `needs: changes`, so when
+          # `changes` does not succeed, unit, integration and docs-build all read
+          # `skipped`, and `skipped` passes below. On #2524's re-run `changes` got no
+          # runner, sat queued 19 min and was canceled, and a diff touching lib/ and
+          # tools/ went green on lint alone. A `skipped` tier is a pass only when the
+          # path filter decided to skip it, so the filter has to have run.
+          changes="${{ needs.changes.result }}"
+          if [ "$changes" != "success" ]; then
+            echo "::error::the path filter (changes) did not succeed (${changes}), so a skipped tier proves nothing"
+            exit 1
+          fi
           for tier in "lint=${{ needs.lint.result }}" "unit=${{ needs.unit.result }}" \
                       "integration=${{ needs.integration.result }}" "docs-build=${{ needs.docs-build.result }}" \
                       "player-webkit=${{ needs.player-webkit.result }}"; do

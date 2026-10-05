@@ -382,7 +382,9 @@ integration tests, not unit tests.
 - **`ci`** — the single gate job (`if: always()`). **Set this as the only
   required status check** in branch protection: it passes when lint
   succeeds and the test tiers passed or were skipped, so the conditional
-  jobs never leave a PR stuck on a pending required check.
+  jobs never leave a PR stuck on a pending required check. A skip counts
+  only when the path filter made it: the gate fails unless `changes`
+  succeeded (`engineering/gotchas/ci.md`).
 
 Integration runs once because the emulator/Puppeteer pipeline
 doesn't vary with Node version; matrix-testing the slow tier is paranoia,
