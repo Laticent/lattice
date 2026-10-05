@@ -7,7 +7,7 @@ import paneSpec from '../../../../lib/core/pane-spec.js';
 import { normalizeSourceText } from '../normalize-source-text';
 import { parseSlideProse } from './deck-markdown';
 import { hasLossyConstruct } from './deck-source';
-import type { PaneNeeds } from './pane-needs';
+import type { PaneMark, PaneNeeds } from './pane-needs';
 
 // The panes of a `columns` / `rows` slide, read off the Compose document — so the editor can show
 // each pane's component as a picker and its `###` title as a field
@@ -209,7 +209,9 @@ export function paneBodyRange(slide: PMNode, info: SlidePanes, index: number): {
 }
 
 /** Whether `cls` can read pane `index`'s body as it stands: every slot its grammar requires is
- *  present (`needs`), and a chart has a number to draw. `doc` is the DOM document the schema's
+ *  present (`needs`), a chart has a number to draw, and when the component's example marks every
+ *  item (a trailing label, a leading figure, a picture, an arrow) the pane uses one of those marks, so a plain list is
+ *  never offered as a contact card (pane-needs.ts `marksOf`). `doc` is the DOM document the schema's
  *  own `toDOM` serializes into, so the test runs on the same shapes the engine will see. */
 export function paneFit(slide: PMNode, info: SlidePanes, index: number, needs: PaneNeeds, doc: Document): (cls: string) => 'keeps' | 'fresh' {
 	const { from, to } = paneBodyRange(slide, info, index);
@@ -218,6 +220,17 @@ export function paneFit(slide: PMNode, info: SlidePanes, index: number, needs: P
 	const section = doc.createElement('section');
 	if (nodes.length) section.append(DOMSerializer.fromSchema(slide.type.schema).serializeFragment(Fragment.from(nodes), { document: doc }));
 	const hasNumber = [...section.querySelectorAll('code, td')].some((el) => /\d/.test(el.textContent || ''));
+	const items = [...section.querySelectorAll('li')];
+	const ownCode = (li: Element) => [...li.querySelectorAll('code')].some((code) => code.closest('li') === li);
+	// An item's own line: its text less any nested list.
+	const ownText = (li: Element) => [...li.childNodes].filter((n) => n.nodeName !== 'UL' && n.nodeName !== 'OL').map((n) => n.textContent || '').join('').trim();
+	const topLevel = items.filter((li) => li.parentElement?.parentElement === section);
+	const used: Record<PaneMark, boolean> = {
+		label: topLevel.some(ownCode),
+		figure: topLevel.some((li) => /^[^\p{L}\p{N}]{0,3}\p{N}/u.test(ownText(li))),
+		picture: !!section.querySelector('img'),
+		arrow: items.some((li) => /->|=>/.test(li.textContent || '')),
+	};
 	const matches = (sel: string) => {
 		try {
 			return !!section.querySelector(sel);
@@ -236,7 +249,8 @@ export function paneFit(slide: PMNode, info: SlidePanes, index: number, needs: P
 		if (!known) return 'keeps';
 		const need = needs[cls];
 		if (!need || !nodes.length) return 'fresh';
-		return need.slots.every(matches) && (!need.numbers || hasNumber) ? 'keeps' : 'fresh';
+		const marked = !need.marks?.length || need.marks.some((m) => used[m]);
+		return need.slots.every(matches) && (!need.numbers || hasNumber) && marked ? 'keeps' : 'fresh';
 	};
 }
 

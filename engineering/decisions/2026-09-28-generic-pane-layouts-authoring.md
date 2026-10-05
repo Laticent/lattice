@@ -384,6 +384,23 @@ after every pick. The owner's question was what an average user should expect. T
   does.
 - **"Keeps your text"** when the component can read the pane as it stands: every slot its grammar
   requires is present, and a chart has numbers (`paneFit`, `pane-needs.ts`).
+- *Ruled 2026-10-05:* **"Keeps" means the text would read as that component, not merely fit its
+  shape.** Shape alone over-promised. `contact` and `actors` require only a list item, so "- A
+  point" kept its text as a contact card. Now a component whose own example puts a mark on EVERY
+  item asks the pane to use one of those marks: a trailing label (`- Ann Lee `name``), a leading
+  figure (big-number's `- 92%`), a picture (logo-wall), or an arrow (flowchart). `marksOf` reads
+  the marks off the generated skeleton, so a new component gets its rule with no code change. A mark
+  only some items carry (team-profile's portrait) is optional and not asked for. Measured on the
+  real Studio, on a plain list in a 40% pane, five of the 37 tiles moved to "Starts with an
+  example": contact, actors, big-number, logo-wall and flowchart. statute-stack, wifi and pricing
+  follow the same rule where a pane is wide enough to offer them. The list-shaped components whose
+  examples are plain lists still keep the text: cards-grid, glossary, decision, state-chart.
+  Numbered examples count too: a plain `1. First point` list no longer keeps under `kpi` or
+  `stats`, whose example items open on a figure.
+  The rule leans toward "keeps" when the evidence is mixed. One labeled item is enough, because
+  "Starts with an example" replaces the author's text, and a wrong "keeps" loses nothing. The
+  known cost of that lean: one code span in a technical list (`- Install with `npm i``) counts as a
+  label, and an item that opens on a number ("3 reasons we win") counts as a figure.
 - **"Starts with an example"** when it cannot. The pane's body is swapped for the component's own
   starter, and a notice offers Undo. The Undo stands down once the author edits anything else.
 - **The pane's title and the slide's Key Insight never move.**

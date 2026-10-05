@@ -9,7 +9,7 @@ import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { deckToDoc, emitDeck, initBaseline } from './deck-doc';
 import { applyPaneChoice, paneBodyRange, paneFit, paneMarkerGuard, paneStarter, slidePanes, starterEditable } from './pane-model';
-import { paneNeedsFrom } from './pane-needs';
+import { marksOf, paneNeedsFrom } from './pane-needs';
 
 const DIST = join(__dirname, '../../../../dist/docs');
 const grammar = JSON.parse(readFileSync(join(DIST, 'grammar.json'), 'utf8'));
@@ -53,6 +53,38 @@ describe('what each component would do to a pane', () => {
 		const outcome = fitOf(SLIDE.replace('- A point\n- Another point', '- Licenses `42`\n- Services `47`'), 0);
 		expect(outcome('bar')).toBe('keeps');
 		expect(outcome('line')).toBe('keeps');
+	});
+	it('a plain list does not "keep" under a component whose example labels every item: it would read as a contact card', () => {
+		// The owner's question on PR 2520: shape matched, meaning did not. A plain "- A point" filled
+		// contact's and actors' one required slot, so the tile promised the text would keep.
+		const outcome = fitOf(SLIDE, 0);
+		for (const cls of ['contact', 'actors', 'statute-stack', 'wifi', 'logo-wall', 'flowchart', 'pricing', 'big-number']) expect([cls, outcome(cls)]).toEqual([cls, 'fresh']);
+		// List-shaped components whose example is a plain list are unchanged.
+		for (const cls of ['cards-grid', 'cycle', 'glossary', 'team-profile', 'split-panel']) expect([cls, outcome(cls)]).toEqual([cls, 'keeps']);
+	});
+	it('a list that uses the component\'s mark keeps its text: a label, a picture, an arrow', () => {
+		const labeled = fitOf(SLIDE.replace('- A point\n- Another point', '- Ann Lee `name`\n- ann@example.com `email`'), 0);
+		expect(labeled('contact')).toBe('keeps');
+		expect(labeled('actors')).toBe('keeps');
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '- Draft -> Review\n- Review -> Ship'), 0)('flowchart')).toBe('keeps');
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '- 92%\n  - of the room remembers one number'), 0)('big-number')).toBe('keeps');
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '- ![Acme](acme.svg)\n- ![Beta](beta.svg)'), 0)('logo-wall')).toBe('keeps');
+		// A label inside a NESTED item is not the item's own label.
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '- A point\n  - detail `x`'), 0)('contact')).toBe('fresh');
+	});
+	it('the marks come from the skeleton: every item must carry one for it to be asked for', () => {
+		expect(marksOf(SKELETON.contact)).toEqual(['label']);
+		expect(marksOf(SKELETON['big-number'])).toEqual(['figure']);
+		expect(marksOf(SKELETON['logo-wall'])).toEqual(['picture']); // its stage pill is on one item only
+		expect(marksOf(SKELETON['team-profile'])).toEqual([]); // the third person has no portrait
+		expect(marksOf(SKELETON['cards-grid'])).toEqual([]);
+		expect(marksOf('```\n- a `x`\n```\n\n- plain')).toEqual([]); // a fenced example is not the list
+		// A numbered example marks its items too: a plain numbered list is not a KPI row.
+		expect(marksOf(SKELETON.kpi)).toContain('figure');
+		const numbered = fitOf(SLIDE.replace('- A point\n- Another point', '1. First point\n2. Second point'), 0);
+		expect(numbered('kpi')).toBe('fresh');
+		expect(numbered('stats')).toBe('fresh');
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '1. $2.4B\n2. 73%'), 0)('kpi')).toBe('keeps');
 	});
 	it('the slide\'s Key Insight is not the pane\'s body: it neither makes a pane a quote nor gets replaced', () => {
 		const slide = deckToDoc(SLIDE).child(0);
