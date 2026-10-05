@@ -16,7 +16,6 @@
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, bindKernel, buildAgentSystem, createToolbox, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
-import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
 type Arch = typeof import('./architect');
@@ -33,6 +32,9 @@ export type ChatAgentDeps = KernelDeps &
 		FINISHES: typeof import('./finish-catalog')['FINISHES'];
 		BUILTIN_PALETTES: typeof import('./palettes')['BUILTIN_PALETTES'];
 		deckOutputLang: typeof import('./studio-language')['deckOutputLang'];
+		/** The front-matter key table lives with the editor's completions (a lazy chunk the
+		 *  Studio editor and the Playground already load); the agent reads it through this. */
+		loadFrontMatterKeys: () => Promise<typeof import('./editor-complete')['FRONT_MATTER_KEYS']>;
 	};
 
 let adjustSpend: Spend['adjustSpend'];
@@ -52,14 +54,21 @@ let BUILTIN_PALETTES: ChatAgentDeps['BUILTIN_PALETTES'];
 let groundMessages: Ref['groundMessages'];
 let refDocsTokens: Ref['refDocsTokens'];
 let deckOutputLang: ChatAgentDeps['deckOutputLang'];
+let FRONT_MATTER_KEYS: Awaited<ReturnType<ChatAgentDeps['loadFrontMatterKeys']>>;
 
 let ready: Promise<void> | null = null;
-/** Bind the dependencies. `architect.ts` awaits this before any other use. */
+/** Bind the dependencies and load the front-matter key table. `architect.ts` awaits this
+ *  before any other use. */
 export function init(d: ChatAgentDeps): Promise<void> {
 	if (!ready) {
 		bindKernel(d);
 		({ adjustSpend, recordSpend, deckCanon, deckProfiles, applyEditsChecked, CHAT_MAX_TOKENS, cloudBudgetBlock, estimateUsd, estTokens, FACT_GUARD, TRUNCATION_NOTE, withStudioVoice, FINISHES, BUILTIN_PALETTES, groundMessages, refDocsTokens, deckOutputLang } = d);
-		ready = Promise.resolve();
+		ready = d.loadFrontMatterKeys().then((k) => {
+			FRONT_MATTER_KEYS = k;
+		});
+		ready.catch(() => {
+			ready = null;
+		});
 	}
 	return ready;
 }
