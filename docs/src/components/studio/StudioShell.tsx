@@ -4213,9 +4213,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// scorecard and findings — so the two can never argue from different truths, plus the
 	// component catalog the Lattice primer is built from, plus Mermaid's own verdict on
 	// this deck's diagrams (diagramErrors, below).
+	// `check` is the chat agent's verifier: the same assessment and the same Mermaid parse,
+	// run over the agent's DRAFT so an edit is checked before the author is shown it.
+	const checkDraft = React.useCallback(
+		async (draft: string) => {
+			const diagrams = extractDiagrams(draft);
+			const [a, errs] = await Promise.all([
+				assessDeck(draft, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined),
+				diagrams.length ? import('./mermaid-parse').then((m) => m.checkDiagrams(diagrams, options?.runtimeUrl ?? '')).catch(() => undefined) : Promise.resolve(undefined),
+			]);
+			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}) };
+		},
+		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, options?.runtimeUrl],
+	);
 	const chatGrounding = React.useMemo(
-		() => ({ scorecard, findings, catalog: components, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
-		[scorecard, findings, components, diagramErrors],
+		() => ({ scorecard, findings, catalog: components, check: checkDraft, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
+		[scorecard, findings, components, diagramErrors, checkDraft],
 	);
 	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
 	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.

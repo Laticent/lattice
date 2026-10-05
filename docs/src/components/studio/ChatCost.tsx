@@ -33,7 +33,7 @@ export function ChatCost({ source, grounding, docs, primed, className }: { sourc
 	const cloud = status.generation === 'openrouter';
 	// Counts the SYSTEM turn, not just the deck — see chatSystemTokens. Memoized because
 	// building the primer walks the whole component catalog.
-	const promptExtra = React.useMemo(() => (cloud ? chatSystemTokens('openrouter', grounding, primed) + refDocsTokens(docs) : 0), [cloud, grounding, primed, docs]);
+	const promptExtra = React.useMemo(() => (cloud ? chatSystemTokens('openrouter', grounding, primed, source) + refDocsTokens(docs) : 0), [cloud, grounding, primed, docs, source]);
 	const turnEst = React.useMemo(() => (cloud && status.price ? estimateUsd(source, status.price, CHAT_OUTPUT_EST, promptExtra) : null), [cloud, source, status.price, promptExtra]);
 
 	if (!cloud) return null;

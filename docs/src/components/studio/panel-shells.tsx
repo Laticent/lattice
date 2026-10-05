@@ -222,9 +222,17 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
 
+/** The Chat composer's row, shared with `ArchitectChat.tsx`. It WRAPS: the field asks for at
+ *  least 8rem (`basis-32`), and when the column cannot fit that beside the buttons, the button
+ *  group drops to a second line, right-aligned. The docked desktop column is ~200px wide, and
+ *  without the wrap four 28px buttons squeezed the field to ~20px — the placeholder broke one
+ *  word per line and a typed message was unreadable. A wide sheet still gets one row. */
+export const CHAT_COMPOSER_ROW = 'flex flex-wrap items-end justify-end gap-2 rounded-xl border border-border bg-background p-2';
+/** The composer's buttons, kept together so they wrap as ONE group, never one at a time. */
+export const CHAT_COMPOSER_TOOLS = 'flex shrink-0 items-center gap-2';
 /** The Chat composer's text field, shared with `ArchitectChat.tsx`. */
 export const CHAT_COMPOSER_FIELD =
-	'block min-h-7 min-w-0 flex-1 resize-none border-0 bg-transparent px-0 py-[5px] text-[12.5px] leading-[1.45] text-foreground shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground md:text-[12.5px]';
+	'block min-h-7 min-w-0 grow basis-32 resize-none border-0 bg-transparent px-0 py-[5px] text-[12.5px] leading-[1.45] text-foreground shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground md:text-[12.5px]';
 
 /** The Chat's first-run card, shared with `ArchitectChat.tsx`: a deck with no chat yet opens on exactly this. */
 export function ChatEmptyCard({ aiReady }: { aiReady: boolean }) {
@@ -266,18 +274,20 @@ export function ChatShell({ title, aiReady, deckId, children }: { title?: string
 			</div>
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{/* The composer, built like the real one so its placeholder wraps to the same height. */}
-				<Inert className="flex items-end gap-2 rounded-xl border border-border bg-background p-2">
+				<Inert className={CHAT_COMPOSER_ROW}>
 					{/* The same field, not a look-alike: a touch screen forces fields to 16px, and the
 					    placeholder wraps with the field's width, so only the real element sizes the same. */}
 					<Textarea autosize maxRows={4} rows={1} readOnly tabIndex={-1} value="" data-focus-ring="container" placeholder={aiReady ? 'Ask or instruct…' : 'Connect a model to chat…'} className={CHAT_COMPOSER_FIELD} />
-					<span className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground">
-						<Paperclip className="size-4" />
-					</span>
-					<span className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground">
-						<Unlock className="size-3.5" />
-					</span>
-					<span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground opacity-40">
-						<ArrowUp className="size-4" />
+					<span className={CHAT_COMPOSER_TOOLS}>
+						<span className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground">
+							<Paperclip className="size-4" />
+						</span>
+						<span className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground">
+							<Unlock className="size-3.5" />
+						</span>
+						<span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground opacity-40">
+							<ArrowUp className="size-4" />
+						</span>
 					</span>
 				</Inert>
 			</div>

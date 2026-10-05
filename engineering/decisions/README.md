@@ -669,6 +669,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ☑ [2026-07-22-structure-derived-split-patterns.md](2026-07-22-structure-derived-split-patterns.md) — Make auto-split less component-centric — hardened by TWO HARD RULE #25 trio passes (§12) + owner design review.
 - ☑ [2026-07-20-studio-audit-instrument-fix.md](2026-07-20-studio-audit-instrument-fix.md) — Correction to the 2026-07-20 Studio degradation audit.
 - ☑ [2026-07-03-studio-brand-mark-toolbar.md](2026-07-03-studio-brand-mark-toolbar.md) — The Studio topbar rendered the brand as a text "L" tile (the only surface not using the real mark), hid the workspace launcher's dropdown…
+- ☑ [2026-10-05-studio-chat-agent.md](2026-10-05-studio-chat-agent.md) — The Studio chat was a one-shot prompt, not an agent.
 - ☑ [2026-07-21-studio-compose-listener-leak-is-a-perf-overlay-artifact.md](2026-07-21-studio-compose-listener-leak-is-a-perf-overlay-artifact.md) — RETRACTION of the "confirmed + named" Studio compose/insert event-LISTENER leak (2026-07-21-studio-compose-listener-leak.md, #1139).
 - ☑ [2026-08-11-studio-craft-stop-rename.md](2026-08-11-studio-craft-stop-rename.md) — The Studio's posture dial reads Read · Write · Craft.
 - ☑ [2026-08-10-studio-crash-sentinel.md](2026-08-10-studio-crash-sentinel.md) — The Studio had zero visibility into the one failure users actually report — 'it crashed and the page refreshed'.

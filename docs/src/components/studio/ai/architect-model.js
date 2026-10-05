@@ -376,7 +376,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -403,6 +403,20 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       const cap = maxTokens || defaultMaxTokens;
       if (cap > 0) body.max_tokens = cap;
       if (json) body.response_format = { type: 'json_object' };
+      // Tool calling (the Studio chat agent). The tools ride verbatim; the calls the model
+      // makes come back through `onToolCalls` once the reply ends — the text return value
+      // stays the prose, so every caller that never passes tools is unaffected.
+      if (tools?.length) {
+        body.tools = tools;
+        // 'none' still sends the tools: Anthropic-family endpoints refuse a history that holds
+        // tool calls unless the tools are defined, so the agent's last round says 'none' instead
+        // of dropping them.
+        if (toolChoice) body.tool_choice = toolChoice;
+      }
+      const reportTools = (calls) => {
+        if (!onToolCalls || !calls?.length) return;
+        try { onToolCalls(calls); } catch {}
+      };
       const headers = {
         'Content-Type': 'application/json',
         Authorization: 'Bearer ' + key,
@@ -435,6 +449,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         const data = await res.json();
         if (onUsage && data.usage) { try { onUsage(data.usage); } catch {} }
         reportFinish(data.choices?.[0]?.finish_reason || data.choices?.[0]?.native_finish_reason);
+        reportTools(data.choices?.[0]?.message?.tool_calls);
         return data.choices?.[0]?.message?.content ?? '';
       }
       // SSE stream: lines of `data: {json}`; `: OPENROUTER PROCESSING` keep-alives
@@ -445,9 +460,13 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       let full = '';
       let usage = null; // the final stream chunk carries usage (cost) when usage:include is set
       let finish = null; // the chunk that ends the turn carries finish_reason ('stop' | 'length' | …)
+      // Streamed tool calls arrive as fragments keyed by `index`: the first carries the id
+      // and name, the rest append to `function.arguments` (a JSON string, split anywhere).
+      const calls = [];
       const reportUsage = () => {
         if (onUsage && usage) { try { onUsage(usage); } catch {} }
         reportFinish(finish);
+        reportTools(calls.filter(Boolean));
       };
       while (true) {
         const { value, done } = await reader.read();
@@ -467,6 +486,15 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
             if (obj.id && onGenerationId) { try { onGenerationId(obj.id); } catch {} onGenerationId = null; }
             const t = obj.choices?.[0]?.delta?.content || '';
             if (t) { full += t; onToken(t); }
+            for (const d of obj.choices?.[0]?.delta?.tool_calls || []) {
+              // No `index` (some providers omit it): a fragment WITH an id starts a call, one
+              // without continues the last — never a nameless call of its own.
+              const i = Number.isInteger(d.index) ? d.index : d.id || !calls.length ? calls.length : calls.length - 1;
+              const c = (calls[i] ||= { id: '', type: 'function', function: { name: '', arguments: '' } });
+              if (d.id) c.id = d.id;
+              if (d.function?.name) c.function.name += d.function.name;
+              if (d.function?.arguments) c.function.arguments += d.function.arguments;
+            }
             const fr = obj.choices?.[0]?.finish_reason || obj.choices?.[0]?.native_finish_reason;
             if (fr) finish = fr;
             if (obj.usage) usage = obj.usage;
@@ -800,6 +828,10 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
       // already billed — so a hard-stop budget cap could be evaded by repeatedly
       // starting and stopping turns. Every OTHER failure still floors.
       if (e?.name === 'AbortError') throw e;
+      // A TOOL call's failure reaches the caller too. The chat agent cannot tell an empty
+      // floor reply from "the model said nothing", and it has a better fallback than the
+      // floor: the one-shot chat, for a model that refuses `tools` outright.
+      if (opts?.tools?.length) throw e;
       return floorBackend.complete(opts); // any model failure → the floor
     }
   }

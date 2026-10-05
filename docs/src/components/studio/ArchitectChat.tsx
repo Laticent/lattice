@@ -12,7 +12,8 @@ import { ChatCodeBlock } from './ChatCodeBlock';
 import { ChatCost } from './ChatCost';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { DiffCard } from './diff-card';
-import { CHAT_COMPOSER_FIELD, ChatEmptyCard } from './panel-shells';
+import { getFrontMatter } from './front-matter';
+import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS, ChatEmptyCard } from './panel-shells';
 import { useReferenceDoc } from './reference-doc-ui';
 import { type ChatMessage, type ChatProposal, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
 
@@ -159,6 +160,9 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// transcript. Filtered at the render (`live`), never cleared on the switch, so switching
 	// BACK shows the reply still arriving rather than a blank turn (#1787, checker F1).
 	const [streaming, setStreaming] = React.useState<{ deck: string; text: string } | null>(null);
+	// What the agent is doing between replies ("Reading a component…"), for the live bubble.
+	// Panel state like `streaming`, cleared with it when the turn ends.
+	const [liveActivity, setLiveActivity] = React.useState<string | null>(null);
 	// An EPHEMERAL notice (offline / blocked / error). NEVER persisted as an assistant turn —
 	// a persisted notice would re-enter the model history and be re-sent. It is read from the
 	// module store rather than held in state, keyed by THIS deck: a turn keeps completing
@@ -254,7 +258,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		};
 		try {
 			const turns: ChatTurn[] = history.map((m) => ({ role: m.role, content: m.content }));
-			const out = await chatComplete(turns, source, refDoc.docs, { onToken, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current });
+			const onActivity = (label: string) => {
+				if (mountedRef.current) setLiveActivity(label);
+			};
+			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current });
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
@@ -279,7 +286,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			} else if (out.status === 'blocked') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'blocked', out.reply);
 			} else {
-				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined }]);
+				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined, ...(out.activity?.length ? { activity: out.activity } : {}) }]);
 			}
 		} catch {
 			raiseTurnNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
@@ -300,6 +307,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			if (mountedRef.current) {
 				setBusy(false);
 				setStreaming(null);
+				setLiveActivity(null);
 				setPulse((p) => p + 1);
 				// The gauge is rendered elsewhere now — announce, don't set.
 				try {
@@ -418,6 +426,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							<div className="text-[12.5px] leading-relaxed text-foreground">
 								<AssistantBody text={m.content} streaming={false} />
 							</div>
+							{m.activity?.length ? <div className="text-[10.5px] leading-snug text-muted-foreground">{m.activity.join(' · ')}</div> : null}
 							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">
@@ -433,6 +442,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						<div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
 							<Sparkles className="size-3 animate-pulse text-[var(--accent)]" /> Architect
 						</div>
+						{liveActivity && <div className="text-[10.5px] text-muted-foreground" role="status">{liveActivity}</div>}
 						{live === '' ? (
 							<div className="flex gap-1 py-1" role="status" aria-label="Thinking">
 								<span className="size-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:-0.2s]" />
@@ -463,7 +473,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 					    flexible child, so the row reflows by changing the FIELD's width and nothing
 					    else. Gap matches the padding (both 8px) so the spacing keeps one rhythm
 					    instead of two nearly-equal values reading as a mistake. */}
-				<div className="flex items-end gap-2 rounded-xl border border-border bg-background p-2 focus-within:border-[var(--accent)]">
+				<div className={cn(CHAT_COMPOSER_ROW, 'focus-within:border-[var(--accent)]')}>
 					{/* `block` is load-bearing: the shadcn base sets `display:flex` on the field,
 					    which wrecks a textarea's own text layout — with it, 800 characters
 					    measured as 67 wrapped lines against a ~72px-wide box. `min-w-0` lets it
@@ -500,6 +510,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						aria-label="Message the Architect"
 						className={CHAT_COMPOSER_FIELD}
 					/>
+					<div className={CHAT_COMPOSER_TOOLS}>
 					{refDoc.attachButton}
 					<button
 						type="button"
@@ -525,6 +536,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							<ArrowUp className="size-4" />
 						</button>
 					)}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -587,20 +599,38 @@ export function figureChange(before: string, after: string): { removed: string[]
 // A grouped, per-slide review of proposed edits. Nothing changes until Apply; each edit
 // re-applies against the CURRENT deck, and a slide that changed since the proposal is
 // flagged so the author knows Apply will replace their current slide content.
+// Whether the deck moved under a proposal since it was made: the target slide no longer
+// reads as it did, or a front-matter key no longer holds the value the diff started from.
+// Mirrors `isProposedEditStale` in architect.ts, kept here so the card has no runtime
+// dependency on the model layer.
+function isStale(source: string, e: ChatProposal): boolean {
+	if (e.action === 'insert') return false;
+	if (e.action === 'frontmatter') {
+		const key = e.raw.key ?? '';
+		const cur = getFrontMatter(source, key);
+		return (cur === undefined ? '' : `${key}: ${cur}`) !== e.before;
+	}
+	return sliceSlide(source, e.slide).trim() !== e.before.trim();
+}
+
 function ProposalReview({ edits, liveSource, onApply, onDiscard }: { edits: ChatProposal[]; liveSource: string; onApply: () => void; onDiscard: () => void }) {
-	const slides = new Set(edits.map((e) => e.slide));
-	const staleSlides = edits.filter((e) => e.action !== 'insert' && sliceSlide(liveSource, e.slide).trim() !== e.before.trim()).map((e) => e.slide);
+	// Front-matter writes carry slide 0 — they are deck settings, not a slide to count.
+	const slides = new Set(edits.filter((e) => e.action !== 'frontmatter').map((e) => e.slide));
+	const stale = edits.filter((e) => isStale(liveSource, e));
+	const staleSlides = stale.filter((e) => e.action !== 'frontmatter').map((e) => e.slide);
+	const staleKeys = stale.filter((e) => e.action === 'frontmatter').map((e) => e.raw.key);
 	return (
 		<div className="mt-1 overflow-hidden rounded-lg border border-border bg-background">
 			<div className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-1.5">
 				<span className="text-[11px] font-semibold text-foreground">
-					{edits.length} edit{edits.length > 1 ? 's' : ''} · {slides.size} slide{slides.size > 1 ? 's' : ''}
+					{edits.length} edit{edits.length > 1 ? 's' : ''}
+					{slides.size ? ` · ${slides.size} slide${slides.size > 1 ? 's' : ''}` : ''}
 				</span>
 				<span className="text-[10px] text-muted-foreground">nothing changes until you Apply</span>
 			</div>
 			<div className="max-h-[220px] overflow-y-auto">
 				{edits.map((e, i) => {
-					const fig = e.action !== 'insert' ? figureChange(e.before, e.after) : null;
+					const fig = e.action !== 'insert' && e.action !== 'frontmatter' ? figureChange(e.before, e.after) : null;
 					return (
 						// biome-ignore lint/suspicious/noArrayIndexKey: static proposal list.
 						<div key={i} className="border-b border-border last:border-b-0">
@@ -620,6 +650,14 @@ function ProposalReview({ edits, liveSource, onApply, onDiscard }: { edits: Chat
 				<div className="flex items-start gap-1.5 border-t border-border px-2.5 py-1.5 text-[10.5px] text-[var(--warn,#9a6a00)]">
 					<TriangleAlert className="mt-0.5 size-3 shrink-0" />
 					<span>Slide {staleSlides.join(', ')} changed since this was proposed — Apply will replace your current version.</span>
+				</div>
+			)}
+			{staleKeys.length > 0 && (
+				<div className="flex items-start gap-1.5 border-t border-border px-2.5 py-1.5 text-[10.5px] text-[var(--warn,#9a6a00)]">
+					<TriangleAlert className="mt-0.5 size-3 shrink-0" />
+					<span>
+						{staleKeys.map((k) => `${k}:`).join(', ')} changed since this was proposed — Apply will overwrite it.
+					</span>
 				</div>
 			)}
 			<div className="flex items-center gap-1.5 border-t border-border px-2.5 py-1.5">
