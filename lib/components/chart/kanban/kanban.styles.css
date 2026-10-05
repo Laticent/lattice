@@ -345,9 +345,11 @@
 
 /* Reuse .chart-status but compact it for the tight card meta row */
 .kanban-card-meta .chart-status {
-  height: 1.5625cqi;
-  padding: 0 0.546875cqi;
+  /* em of its own --fs-meta text, so it grows with a `venue:`; old cqi / 1.17 (the
+   * landscape meta coefficient) keeps laptop landscape unchanged. */
   font-size: var(--fs-meta);
+  height: calc(1.5625em / 1.17);
+  padding: 0 calc(0.546875em / 1.17);
   font-weight: 600;
   letter-spacing: 0.02em;
   /* Right-anchored by the meta row's justify-content + the lane's flex-grow
