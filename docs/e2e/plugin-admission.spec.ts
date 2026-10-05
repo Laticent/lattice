@@ -193,7 +193,7 @@ test('under defaults: [] the rail splits a `$$` block as the engine does; the Ma
 	const zipPath = await (await download).path();
 	const zip = await JSZip.loadAsync(fs.readFileSync(zipPath as string));
 	const md = await Object.values(zip.files).find((f) => /\.md$/.test(f.name) && !/README|AGENTS/i.test(f.name))!.async('string');
-	expect(md).toContain('"pluginsOff":["anima","chart-family","function-plot","math","mermaid"]');
+	expect(md).toContain('"pluginsOff":["anima","chart-family","function-plot","icons","math","mermaid"]');
 	// Marp typesets math itself, so the bundle's own config turns it off for this deck.
 	const cfg = await Object.values(zip.files).find((f) => /marp\.config\.cjs$/.test(f.name))!.async('string');
 	expect(cfg).toContain('options: { math: false }');

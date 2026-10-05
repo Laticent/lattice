@@ -29,6 +29,7 @@
  *   8. landing tokens          tools/build-landing-tokens.js  (docs site palette CSS)
  *   9. playground bundle       tools/build-playground.js      (docs site browser engine)
  *   9b. katex-provider bundle  tools/build-katex-provider.js  (on-demand KaTeX, split out of 9)
+ *   9c. plugin data bundles    tools/build-plugin-data-bundles.js (on-demand plugin data, split out of 9)
  *  10. theme-core bundle       tools/build-theme-core.js      (docs site Theme Studio core)
  *  11. layout-core bundle      tools/build-layout-core.js     (docs site Layout Studio core)
  *  12. authoring-core bundle   tools/build-authoring-core.js  (docs site Architect/Coach core)
@@ -99,6 +100,10 @@ const STEPS = [
   // also ahead of the bundles: lib/engine requires the registry, and the boundary parser imports
   // its grammar, so esbuild inlines both into every engine bundle.
   // engineering/decisions/2026-09-27-plugin-system.md.
+  // The icons plugin's vocabulary and drawings, from its curation list and the pinned Tabler
+  // package. BEFORE the registry: the registry requires each plugin's inline and services modules,
+  // which require the vocabulary. engineering/decisions/2026-09-29-inline-icons.md § 7.
+  { label: 'icons data (lib/plugins/icons)', script: 'build-icons-data.js' },
   { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
   // The chart-finish rules, generated from the chart manifests. BEFORE lattice.css bundles
   // them, for the same one-build-late reason as the finish presets above.
@@ -169,6 +174,9 @@ const STEPS = [
   { label: 'spec pages (docs site)', script: 'build-spec-docs.js' },
   { label: 'playground bundle (docs site)', script: 'build-playground.js', uncommitted: true },
   { label: 'katex-provider bundle (docs site)', script: 'build-katex-provider.js', uncommitted: true },
+  // Each plugin's data as its own on-demand script (lattice-plugin-<name>.js), split out of the
+  // playground bundle the way KaTeX is: a deck that uses no icon never fetches the drawings.
+  { label: 'plugin data bundles (docs site)', script: 'build-plugin-data-bundles.js', uncommitted: true },
   // Per-language highlight.js grammars for on-demand preview loading. After the
   // playground bundle only for log ordering — it reads node_modules, not the bundle.
   { label: 'hljs grammars (docs site)', script: 'build-hljs-languages.js', uncommitted: true },

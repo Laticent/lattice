@@ -6,7 +6,7 @@
     "component": 74,
     "finish": 9,
     "motion": 0,
-    "plugin": 5
+    "plugin": 6
   },
   "packages": [
     {
@@ -1294,6 +1294,23 @@
         "manifest.json",
         "render.js",
         "styles.css"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "icons",
+      "path": "lib/plugins/icons",
+      "roles": [
+        "data.generated.js",
+        "docs.md",
+        "fixtures.md",
+        "inline.js",
+        "manifest.json",
+        "services.js",
+        "styles.css",
+        "syntax.mjs",
+        "vocab.generated.js"
       ],
       "code": true
     },

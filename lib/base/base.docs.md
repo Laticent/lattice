@@ -1651,6 +1651,16 @@ backslash.
 **Fenced and indented code blocks are never touched at all** — they are not inline code,
 so nothing in them is ever read as a directive.
 
+### An icon in a pill — `icon=`
+
+`{S3, icon=bucket, c4}` leads the label with a drawn icon, in the pill's own color, at any shape:
+`{Primary, icon=database, tag}`. `{icon=database}` is an icon with no label. `icon` is written by
+name, because a pill's first word is its label. The icons come from the **icons** plugin
+(`lib/plugins/icons/icons.docs.md`), which also draws an icon on its own in prose (`^{database}`);
+with that plugin off, the pill shows its label alone. A name the set does not have — or a vendor
+service name like `icon=lambda` — keeps the span literal, and `lint:deck` names the role icon to
+use instead.
+
 ### Where a pill can go
 
 Anywhere inline code can — verified on a real render: a heading, a paragraph,

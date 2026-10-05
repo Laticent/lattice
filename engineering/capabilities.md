@@ -442,6 +442,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-guide-handles.js` | Generates docs/src/components/studio/guide-handles.generated.ts — the RENDERED-part |
 | `tools/build-guide-player.js` | Bundle the Guide — the resolver, the per-sentence conductor and Vetrina's hand — into ONE |
 | `tools/build-hljs-languages.js` | Build the on-demand highlight.js grammars for the browser preview. |
+| `tools/build-icons-data.js` | Build the icons plugin's two generated files from its curation list |
 | `tools/build-image-set-core.js` | Bundle the shared image-set contract for the browser. |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
 | `tools/build-lente-lib.js` | Build the Lente library's consumable dist/ — the ESM + CJS entries + type |
@@ -453,6 +454,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-pdf-compose.js` | Bundle the shared PDF writer (lib/core/pdf-compose) into one browser IIFE the CLI |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
+| `tools/build-plugin-data-bundles.js` | Build each plugin's DATA as its own on-demand browser script (`contributes.data`). |
 | `tools/build-plugin-registry.js` | Freezes the in-tree plugins (lib/plugins/) into the registries every render path reads, |
 | `tools/build-projection-catalog.js` | build-projection-catalog.js — freeze every component manifest's `projection` |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |

@@ -83,6 +83,61 @@
           "propertyNames": {"pattern": "^[a-z][a-zA-Z0-9]*$"},
           "additionalProperties": {"$ref": "#/$defs/extensionPoint"}
         },
+        "inline": {
+          "type": "object",
+          "description": "Inline-code KINDS: a record behind one tag character, written in Segno's notation (`^{database, c3}`), keyed by the kind's name. The host owns one dispatch table (lib/core/inline-code-directives.js) whose first rows are its own marks, pills and sparks; it keeps the dispatch order and the backslash escape. The plugin's `<name>.inline.js` exports an `inline` object with the same keys, each `{ resolve, html, element, diagnose }`: text → fields, an HTML string, a DOM element, or why an attempt does not render. Bundled wherever the dispatcher is (the linter, the runtime), so the module must stay light: no data it can load later. A sigil another row claims (`~` is the spark's) fails the build by name. In-tree only.",
+          "minProperties": 1,
+          "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sigil"],
+            "properties": {
+              "sigil": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1,
+                "description": "The tag character before `{`: one of Segno's TAGS (docs/src/lib/segno/notation-grammar.ts)."
+              }
+            }
+          }
+        },
+        "services": {
+          "type": "array",
+          "description": "Named functions other code may call through the host (lib/plugins/services.js `service(plugin, name)`), never by importing the plugin: with the plugin off, the caller gets null and renders without it. The plugin's `<name>.services.js` exports a `services` object with exactly these keys. Light, like `inline`. In-tree only.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$"}
+        },
+        "registers": {
+          "type": "object",
+          "description": "Front-matter registers declared as DATA, keyed by the register's key and class prefix (`icon` → `icon: bare etching` and the `icon-bare` slide classes). The host's register factory (lib/core/register-factory.js) builds each one exactly as it builds `spark:`: one word per axis, a slide's word evicting the deck's on that axis only. A prefix a first-party register owns, or a word two axes share, fails the build.",
+          "minProperties": 1,
+          "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["axes"],
+            "properties": {
+              "axes": {
+                "type": "object",
+                "minProperties": 1,
+                "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+                "additionalProperties": {
+                  "type": "array",
+                  "minItems": 2,
+                  "uniqueItems": true,
+                  "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+                  "description": "The axis's words, its default first."
+                }
+              }
+            }
+          }
+        },
+        "data": {
+          "const": true,
+          "description": "`<name>.data.generated.js` exists: plain data the plugin's kernels read through lib/plugins/plugin-data.js `pluginData(name)`, never by `require`. The engine registers a lazy loader for it (lib/plugins/data.generated.js), so a Node render loads it on first use; a browser bundle aliases that file to a stub and the data arrives as its own script (`globalThis.__latticePluginData`), fetched only for a deck that uses the plugin."
+        },
         "styles": {
           "const": true,
           "description": "`<name>.styles.css` exists: token-only CSS, bundled into the plugin slot of dist/lattice.css in dependency order. Every `var(--token)` it reads must be listed in `tokens`, and every listed token read."

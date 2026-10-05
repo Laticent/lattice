@@ -1,0 +1,4 @@
+studio: +5964
+playground: +367
+home: +355
+Inline icons, phase 1 (engineering/decisions/2026-09-29-inline-icons.md § 12). The Studio's live lint is lint-core itself (HARD RULE #7), and lint-core now reads the icons plugin's inline-code row and the pill's `icon=`, so the icon VOCABULARY (265 names, their aliases and the vendor-name coaching table, ~2.6KB gz), the icon kernel, the services and register factory, and the plugin rows' dispatch table ride on the Studio's startup path. Given back first: the drawings themselves (~14KB gz) are NOT in any startup bundle — they are their own on-demand script (lattice-plugin-icons.js), fetched only for a deck that writes an icon — and each icon's category moved out of the vocabulary into the data file. This measurement also carries Segno's per-deck consistency check, which the same PR's `mixed-spelling` lint rule reads through `@laticent/segno/read`. Measured against origin/main at fc7906f on 2026-10-05.

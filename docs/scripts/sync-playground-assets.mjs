@@ -97,6 +97,12 @@ const assets = [
     .map((d) => [d.payload.file, createRequire(import.meta.url).resolve(d.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
   ['lattice-playground.js', engineJs],
   ['lattice-katex.js', katexProviderJs],
+  // Each plugin's data script (the icons plugin's drawings), split out of the engine bundle like
+  // KaTeX and staged beside it, DERIVED from the plugin registry (lib/plugins/data.generated.js)
+  // so a new data plugin is staged without an edit here. docs/src/lib/ensure-plugin-data.ts
+  // derives each URL from the engine's by the same file name.
+  ...Object.keys(createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'data.generated.js')).DATA_LOADERS)
+    .map((name) => [`lattice-plugin-${name}.js`, join(pgDir, `lattice-plugin-${name}.js`)]),
   ['themes/lattice.css', latticeCss],
 ];
 for (const file of readdirSync(distThemesDir)) {
