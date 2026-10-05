@@ -34,7 +34,10 @@ section.authority-chain > .cell-stage > ul {
   /* flex:1 fills the stage; min-height:0 lets the chain shrink to the bounded stage
    * (flex cell-tree §6) — without it the list's min-height:auto floor kept the rows at
    * natural height and clipped the last tier on a 4-tier chain. */
-  gap:var(--sp-md); flex:1; min-height:0; justify-content:center;
+  /* `safe`: when the rows outgrow the stage (a large venue), the chain overflows at its
+   * TAIL, where the overflow probe and the auto-splitter see it, instead of spilling
+   * evenly off both ends. */
+  gap:var(--sp-md); flex:1; min-height:0; justify-content:safe center;
   /* `--lat-split-offset` (set by the auto-splitter on a body page of a split run) continues the
    * tier index across pages instead of restarting at 1 on each — a chain whose numbering resets
    * mid-run reads as several chains. 0 on an unsplit slide. Same idiom as q-and-a. */
@@ -54,13 +57,19 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li {
    * and don't overflow the stage horizontally. */
   box-sizing:border-box;
   /* Rows distribute to fill the bounded stage; align-items:center keeps each tier's
-   * content on the row midline as it grows. min-height:0 lets a dense chain compress
-   * gracefully instead of overrunning the clip. */
-  flex:1; min-height:0;
-  /* --sp-sm top and bottom, not --sp-md: a four-tier chain gives each row a quarter of the
-   * stage, and at --sp-md the row's content box (92px row, 44px inside at laptop) was smaller
-   * than its two-line body, so the gloss line sat on the bottom border. */
-  padding:var(--sp-sm) var(--sp-md);
+   * content on the row midline as it grows. The floor is the row's CONTENT
+   * (min-height:auto), not 0: at `venue: hall` four tiers need more than the stage, and a
+   * zero floor shrank each card below its text, so the citation and gloss painted over
+   * the next card. With the content floor a chain that does not fit runs long at its
+   * tail and the overflow is reported, never drawn card over card
+   * (followups.d/2419-p3-authority-chain-body-sits-on-card-edge.md). */
+  flex:1; min-height:auto;
+  /* The vertical inset comes from CENTERING, not padding: rows take an equal share of the
+   * stage and align-items:center splits the slack evenly, so a two-line body clears the top
+   * and bottom border by the same amount (17px each at laptop on a four-tier chain). The
+   * padding is only a floor, --sp-2xs, because the row's min-height:auto floor below counts
+   * it: at --sp-sm a six-tier chain no longer fit a laptop stage it had always fit. */
+  padding:var(--sp-2xs) var(--sp-md);
   background:var(--bg-alt);
   border:1px solid var(--border);
   border-left:4px solid var(--tier-hue, var(--accent));
@@ -132,6 +141,10 @@ section.authority-chain.pyramid > .cell-stage > :is(ol, ul) > li {
    * base chain's flex:1 stretch which would balloon each tier and break the silhouette. */
   flex:0 1 auto;
 }
+/* A row with no stage share to center in keeps the --sp-sm inset as padding: the pyramid's
+ * rows are content-height, and the branching row's label sits at its top. Only the
+ * stretched base rows take their inset from centering. */
+section.authority-chain:is(.pyramid, .branching) > .cell-stage > :is(ol, ul) > li { padding-block:var(--sp-sm); }
 section.authority-chain.pyramid > .cell-stage > :is(ol, ul) > li:nth-child(1) { width:100%; }
 section.authority-chain.pyramid > .cell-stage > :is(ol, ul) > li:nth-child(2) { width:84%; }
 section.authority-chain.pyramid > .cell-stage > :is(ol, ul) > li:nth-child(3) { width:68%; }

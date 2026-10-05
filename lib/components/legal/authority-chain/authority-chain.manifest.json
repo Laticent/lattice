@@ -90,7 +90,7 @@
     },
     {
       "title": "Three to five tiers, no more",
-      "body": "The chain reads top-to-bottom on a single canvas. Past five rows the connectors compress and the tier labels lose room. Group sub-cases into the parent row's gloss or split into two slides."
+      "body": "The chain reads top-to-bottom on a single canvas. Past five rows the connectors compress and the tier labels lose room. Group sub-cases into the parent row's gloss or split into two slides. A chain that does not fit runs long at its tail and is reported as clipped; a row never shrinks below its own text, so one card never draws over the next."
     }
   ],
   "antiPatterns": [
