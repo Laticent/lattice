@@ -342,8 +342,8 @@ class Analysis {
 
   /**
    * The characters that can NOT come next once an expression has matched, however it matched.
-   * A loop only stops when the next character cannot start its body, so after any `many` that is
-   * the body's FIRST set. After an `opt` it is what holds on both paths: taken (what its body
+   * A loop only stops when the next character cannot start its body, so after a greedy `many`
+   * that is the body's FIRST set. After an `opt` it is what holds on both paths: taken (what its body
    * leaves) and skipped (its FIRST, plus what was already excluded). After a choice it is what
    * holds after every branch. Anything else that consumes leaves nothing excluded.
    *
@@ -377,7 +377,11 @@ class Analysis {
           // reads the summary of every sequence, including one nested inside a loop. Skipping it
           // left nested sequences unsummarized, and the differential fuzz caught 400 missed
           // refusals in 60,000 grammars.
-          case 'many': of(e.x); out = { a: this.get(e.x).first, b: EMPTY }; break;
+          // Only a GREEDY loop counts. A plain loop stops on the same characters, but in a grammar
+          // that passes the LL(1) check its body cannot start what follows it, so it can never
+          // starve a successor; counting it only repeated that check's refusal under a message
+          // that called the loop greedy (the /segno page's "greedy, then a quote" preset showed it).
+          case 'many': of(e.x); out = e.greedy ? { a: this.get(e.x).first, b: EMPTY } : NONE; break;
           case 'opt': {
             const p = of(e.x);
             out = { a: intersect(p.a, this.get(e.x).first), b: union(p.a, p.b) };

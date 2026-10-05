@@ -121,6 +121,17 @@ describe('greedy()', () => {
     expect(() => lint({ start: 'r0', rules: chain })).not.toThrow();
   });
 
+  // The /segno page's "greedy, then a quote" preset: a PLAIN loop. A strict grammar must lint
+  // exactly as before greedy() existed — one clash, and no "greedy loop" message. The first
+  // version of the dead-code check counted every loop, and a differential fuzz against main
+  // found 13,054 of 60,000 strict grammars with that extra, wrong message.
+  it('leaves a strict grammar’s refusals exactly as they were', () => {
+    const problems = lint({ start: 's', rules: { s: seq('"', many(noneOf('')), '"') } });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/could either repeat the body or follow it/);
+    expect(problems.join('\n')).not.toMatch(/greedy/);
+  });
+
   it('only marks loops and opt', () => {
     expect(() => greedy(seq('a', 'b'))).toThrow(/greedy\(\) takes/);
   });

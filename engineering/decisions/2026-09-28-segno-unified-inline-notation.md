@@ -345,7 +345,10 @@ grammar that runs superlinearly or an input that throws. Together the three foun
 fixed with tests: the five below, and the exponential cost of the dead-code check's first fix
 (above). Its replacement agrees with the walking version on 60,000 random greedy grammars — a
 run that also caught a miss in the replacement's first draft, which did not summarize a sequence
-nested in a loop body. The five: the dead-code check's false refusals and its miss
+nested in a loop body. A seventh came from driving the real `/segno` page: the check counted
+PLAIN loops too, so its "greedy, then a quote" preset (a strict grammar) showed a second refusal
+calling the loop greedy. Only greedy loops count now, and on 60,000 random strict grammars `lint`
+matches `main` exactly (the pre-fix commit differed on 13,054). The five: the dead-code check's false refusals and its miss
 through rule references, the unbounded terminator, the backstop's invented level count, and its
 catching every RangeError. Two limits are pinned as tests rather than fixed: greedy commits (above),
 and the runtimes can disagree near the stack limit.
