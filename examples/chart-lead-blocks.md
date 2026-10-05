@@ -97,8 +97,8 @@ Percent of exit criteria met.
 
 ## A pane keeps its code block too.
 
-<!-- panes: 55/45 -->
-<!-- pane: bar -->
+<!-- _class: columns ratio-55-45 -->
+<!-- _pane: bar -->
 
 p95 milliseconds.
 
@@ -110,7 +110,7 @@ CREATE INDEX ON orders (region);
 - After `190`
 - Budget `250`
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - The report query was a full scan
 - One composite index fixed it

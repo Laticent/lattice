@@ -29,15 +29,15 @@ flowchart LR
 
 ## In a tall pane, the same flow runs down the page.
 
-<!-- panes: 35/65 -->
-<!-- pane: diagram -->
+<!-- _class: columns ratio-35-65 -->
+<!-- _pane: diagram -->
 
 ```mermaid
 flowchart LR
   A[Intake] --> B[Triage] --> C[Build] --> D[Review] --> E[Ship]
 ```
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Intake takes a day
 - Review holds work for a week
@@ -49,15 +49,15 @@ flowchart LR
 
 ## Two teams share the same five stages.
 
-<!-- panes: 65/35 -->
-<!-- pane: diagram -->
+<!-- _class: columns ratio-65-35 -->
+<!-- _pane: diagram -->
 
 ```mermaid
 flowchart LR
   A[Intake] --> B[Triage] --> C[Build] --> D[Review] --> E[Ship]
 ```
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Platform ships Mondays
 - Apps ship Thursdays
@@ -70,8 +70,8 @@ flowchart LR
 
 ## A top-down flowchart needs nothing from the pane.
 
-<!-- panes: 35/65 -->
-<!-- pane: diagram -->
+<!-- _class: columns ratio-35-65 -->
+<!-- _pane: diagram -->
 
 ```mermaid
 flowchart TB
@@ -80,7 +80,7 @@ flowchart TB
   B -->|no| D[Close]
 ```
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Most requests pass on the first review
 - A closed request can be filed again
@@ -93,8 +93,8 @@ flowchart TB
 
 ## The hand-off is two messages.
 
-<!-- panes: 55/45 -->
-<!-- pane: diagram -->
+<!-- _class: columns ratio-55-45 -->
+<!-- _pane: diagram -->
 
 ```mermaid
 sequenceDiagram
@@ -102,7 +102,7 @@ sequenceDiagram
   Build->>Review: change ready
 ```
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Triage owns the ticket until Build accepts it
 - Review sees only finished changes

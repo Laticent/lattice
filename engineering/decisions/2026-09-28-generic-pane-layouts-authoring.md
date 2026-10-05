@@ -441,9 +441,12 @@ working as aliases, and `lint:deck` offers the rewrite:
 | `<!-- pane: bar -->` | `<!-- _pane: bar -->` |
 
 `lib/base/base.docs.md` § "Two components on one slide — pane layouts" and the new demo,
-`examples/pane-layouts.md`, teach the syntax. The six example decks written in the alias stay in
-it for now; they prove the alias renders, and their rewrite, with the Studio's insert-menu
-entries, is recorded in `followups.d/` (2473-p2, 2473-p3).
+`examples/pane-layouts.md`, teach the syntax. The six example decks first written in the alias
+(panes, panes-mermaid, panes-radar, panes-sketch, chart-lead-blocks, chart-lead-paragraphs) moved
+to it on 2026-10-05, and each renders byte-identical HTML before and after. The alias is still
+pinned by test/unit/core/pane-layouts.test.js ("the alias still renders the same panes"). Whether
+it stays past the next release, with `pane-syntax` promoted from a suggestion to a warning first,
+is recorded in `followups.d/2473-p3-retire-the-experimental-pane-syntax.md`.
 
 ## 10. Questions for the internal-structure note
 

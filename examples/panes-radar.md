@@ -41,8 +41,8 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ## In a narrow pane the key drops below the web.
 
-<!-- panes: 35/65 -->
-<!-- pane: radar -->
+<!-- _class: columns ratio-35-65 -->
+<!-- _pane: radar -->
 
 - Northwind
   - Coverage `8`
@@ -51,7 +51,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
   - Support `9`
   - Speed `7`
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Northwind leads on support and speed
 - Cost is its weakest axis
@@ -64,8 +64,8 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ## A half-width pane grows its type as far as the web allows.
 
-<!-- panes: 50/50 -->
-<!-- pane: radar -->
+<!-- _class: columns -->
+<!-- _pane: radar -->
 
 - Northwind
   - Coverage `8`
@@ -80,7 +80,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
   - Support `5`
   - Speed `6`
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Northwind wins on support and speed
 - Contoso wins on cost and integration
@@ -93,8 +93,8 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ## A wide pane reads at the slide's size.
 
-<!-- panes: 65/35 -->
-<!-- pane: radar -->
+<!-- _class: columns ratio-65-35 -->
+<!-- _pane: radar -->
 
 - Northwind
   - Coverage `8`
@@ -109,7 +109,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
   - Support `5`
   - Speed `6`
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Support decides it
 - Cost is the tie-break
@@ -122,8 +122,8 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ## Resilience is the axis that still lags.
 
-<!-- panes: 50/50 -->
-<!-- pane: radar -->
+<!-- _class: columns -->
+<!-- _pane: radar -->
 
 - This year
   - Operational resilience `5`
@@ -138,7 +138,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
   - Release cadence `6`
   - Security posture `6`
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Resilience moved one point in a year
 - Onboarding moved two

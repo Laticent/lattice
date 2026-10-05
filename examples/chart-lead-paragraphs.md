@@ -81,8 +81,8 @@ Adoption is blocked on the data-sharing agreement, not on engineering.
 
 ## A pane keeps its second paragraph too.
 
-<!-- panes: 55/45 -->
-<!-- pane: bar -->
+<!-- _class: columns ratio-55-45 -->
+<!-- _pane: bar -->
 
 Revenue by line, $M.
 
@@ -92,7 +92,7 @@ Bookings, not billings.
 - Services `47`
 - Support `18`
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Services crossed licenses in March
 - Support margin is the steadiest line
