@@ -567,6 +567,7 @@ untouched. `lattice packages check <folder>` runs the schema, the resolver and t
 | **chart family** | `extensionPoints.kernel`, the chart frame, `styles` | parse-time | — | `KERNEL_BUCKETS` and its mirror `KERNEL_BUCKETS_GATED` |
 | **each chart** (23) | stays a **component**; its manifest's `kernel` block (+ #287's adapter) is the slot fill | parse-time | the family, by bucket | nothing moves; the plugin registry reads kernels as a second source |
 | **highlight.js languages** | `providers` (grammar files) | `browser` | — | the fourth loader idiom; code, so in-tree only |
+| **icons** | `inline` (the `^{…}` kind), `services.draw` (callers: the pill's `icon=`, chart kernels), `registers` (`icon:`), `styles`, `diagnostics`, payload (the curated Tabler data, `when: used`); flowchart, state-chart and hub-spoke declare `optional: ["icons"]` | parse-time | — | the inline-code dispatcher's hand list (it becomes a table). Design: `2026-09-29-inline-icons.md` § 6a |
 
 **#287 is not on this path.** The uniform `transformSection` adapter is a refactor inside
 `lib/components/chart/`. It needs no plugin system and can land first as its own PR; phase F then
