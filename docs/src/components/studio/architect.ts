@@ -1657,7 +1657,6 @@ export function chatAgentDeps(): import('./chat-agent').ChatAgentDeps {
 		adjustSpend, recordSpend, deckCanon, deckProfiles,
 		applyEditsChecked, CHAT_MAX_TOKENS, cloudBudgetBlock, estimateUsd, estTokens, FACT_GUARD, TRUNCATION_NOTE, withStudioVoice,
 		groundMessages, refDocsTokens, FINISHES, BUILTIN_PALETTES, deckOutputLang,
-		loadFrontMatterKeys: () => import('./editor-complete').then((m) => m.FRONT_MATTER_KEYS),
 	};
 }
 
