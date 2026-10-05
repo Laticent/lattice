@@ -50,6 +50,7 @@ type NUp = 1 | 2 | 4;
 // Sheet layout: 1/2/4 slides per sheet, or the speaker-notes handout (slide + its notes).
 type Layout = '1' | '2' | '4' | 'handout';
 type Opts = { paper: Paper; orientation: Orient; color: Color; layout: Layout };
+const DEFAULT_OPTS: Opts = { paper: 'auto', orientation: 'auto', color: 'color', layout: '1' };
 
 const SHEET_LABEL: Record<Exclude<Paper, 'auto'>, string> = { letter: 'US Letter', legal: 'US Legal', a4: 'A4' };
 
@@ -135,15 +136,30 @@ type PrintFrame = { frame: HTMLIFrameElement; doc: string; loaded: boolean };
 // measurements), so every print stranded a whole deck's document. Now the panel keeps one frame:
 // printing the SAME document again prints the frame it already has (no new document), and a
 // changed deck is written into that frame (one document, as before). The panel removes the frame
-// when it unmounts.
-function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialog?: () => void): void {
+// when it unmounts, which is when the Studio does: the Share sheet keeps this panel mounted.
+//
+// So the frame outlives the sheet, and two things follow. It is `inert` except for the moment it
+// prints, or a deck with links left an invisible, `aria-hidden` document in the Studio's Tab order.
+// And `isLive` is asked before the dialog opens: a print the author walked away from (closed the
+// sheet, or went back to the menu, while the frame was still loading) does not pop a dialog over the
+// Studio, as it could not when closing the sheet unmounted the frame.
+function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialog?: () => void, isLive: () => boolean = () => true): void {
 	let signaled = false;
 	const signal = () => { if (!signaled) { signaled = true; try { onDialog?.(); } catch { /* noop */ } } };
 	// Clear the caller's loading state right as we open the dialog (print() then blocks).
 	const printWhenReady = (frame: HTMLIFrameElement) => {
 		try {
-			frame.contentWindow?.focus();
-			const go = () => { signal(); try { frame.contentWindow?.print(); } catch { /* noop */ } };
+			const go = () => {
+				signal();
+				if (!isLive()) return;
+				frame.inert = false;
+				try {
+					frame.contentWindow?.focus();
+					frame.contentWindow?.print();
+				} catch { /* noop */ } finally {
+					frame.inert = true;
+				}
+			};
 			const w = frame.contentWindow as (Window & { __latticeFontsReady?: Promise<void> }) | null;
 			whenPrintReady(w?.__latticeFontsReady, go);
 		} catch { signal(); }
@@ -159,6 +175,8 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 	const frame = kept?.frame ?? document.createElement('iframe');
 	if (!kept) {
 		frame.setAttribute('aria-hidden', 'true');
+		frame.tabIndex = -1;
+		frame.inert = true;
 		// Off-screen at a real size (not 0×0/hidden) so fonts + layout actually render before
 		// print; the @media print rules (not the on-screen size) drive the printed output.
 		frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:720px;border:0;';
@@ -180,6 +198,8 @@ export function PrintOptionsPanel({
 	mode,
 	extraTheme,
 	extraCss,
+	resetKey = 0,
+	active = true,
 	onBack,
 }: {
 	options: SingleSlideOptions;
@@ -189,12 +209,30 @@ export function PrintOptionsPanel({
 	mode: 'light' | 'dark';
 	extraTheme?: ExtraTheme;
 	extraCss?: string;
+	/** The Share sheet keeps this panel mounted between shows (its preview pool and print frame
+	 *  are documents WebKit never frees) and bumps this on each show. A new value puts the paper,
+	 *  layout, color and page back to their defaults, as the remount on every open used to. */
+	resetKey?: number;
+	/** False while the Share sheet hides this panel (closed, or on another view). A print or an
+	 *  opened PDF tab that lands then is dropped; the built PDF stays cached for the next show. */
+	active?: boolean;
 	onBack: () => void;
 }) {
-	const [opts, setOpts] = React.useState<Opts>({ paper: 'auto', orientation: 'auto', color: 'color', layout: '1' });
+	const [opts, setOpts] = React.useState<Opts>(DEFAULT_OPTS);
 	const [render, setRender] = React.useState<DeckRender | null>(null);
+	// The source `render` was built from. The pooled cells read their slides from it, not from the
+	// live source, so a cell never addresses a slide count the render does not have: reopening the
+	// kept panel after a slide was added found 13 markdown slides against 12 rendered sections, took
+	// the per-cell fallback, and unmounted the pool it exists to keep.
+	const [renderedSrc, setRenderedSrc] = React.useState<string | null>(null);
 	const [sections, setSections] = React.useState<string[]>([]);
 	const [slide, setSlide] = React.useState(0);
+	const [seenReset, setSeenReset] = React.useState(resetKey);
+	if (seenReset !== resetKey) {
+		setSeenReset(resetKey);
+		setOpts(DEFAULT_OPTS);
+		setSlide(0);
+	}
 	const [status, setStatus] = React.useState('Rendering the deck…');
 	// `rendering` = the deck is (re-)rendering (color / source / theme change); readiness
 	// drops the instant any render input changes so a stale preview is never treated fresh.
@@ -216,6 +254,8 @@ export function PrintOptionsPanel({
 	const ios = React.useMemo(() => isIOSLike(), []);
 
 	const mountedRef = React.useRef(true);
+	const activeRef = React.useRef(active);
+	activeRef.current = active;
 	const builtUrlRef = React.useRef<string | null>(null);
 	const printFrameRef = React.useRef<PrintFrame | null>(null);
 	React.useEffect(() => { builtUrlRef.current = builtPdf?.url ?? null; }, [builtPdf]);
@@ -236,7 +276,9 @@ export function PrintOptionsPanel({
 	React.useEffect(() => {
 		const el = stageRef.current;
 		if (!el || typeof ResizeObserver === 'undefined') return;
-		const measure = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+		// Hidden (the Share sheet keeps this panel mounted), the stage measures 0×0. Keep the last real
+		// box, so the render that shows the panel again draws the sheet at its size, not the fallback.
+		const measure = () => { if (el.clientWidth) setBox({ w: el.clientWidth, h: el.clientHeight }); };
 		const ro = new ResizeObserver(measure);
 		ro.observe(el);
 		measure();
@@ -246,8 +288,9 @@ export function PrintOptionsPanel({
 	// The deck as it prints: B&W remaps class tokens through the print canvas.
 	const printSrc = React.useMemo(() => (opts.color === 'bw' ? withPrintCanvas(source) : source), [source, opts.color]);
 	// The same deck split into its markdown slides, for the pooled preview cells below.
-	const fm = React.useMemo(() => frontMatterBlock(printSrc), [printSrc]);
-	const mdSlides = React.useMemo(() => splitSlides(stripFrontMatter(printSrc)), [printSrc]);
+	const cellSrc = renderedSrc ?? printSrc;
+	const fm = React.useMemo(() => frontMatterBlock(cellSrc), [cellSrc]);
+	const mdSlides = React.useMemo(() => splitSlides(stripFrontMatter(cellSrc)), [cellSrc]);
 
 	// ── Render the deck whenever the color changes (B&W remaps class tokens). This is the
 	// only re-render; paper/orientation just re-fit the SAME render via the CSS math below. ──
@@ -262,10 +305,20 @@ export function PrintOptionsPanel({
 			.then((r) => {
 				if (!alive) return;
 				setRender(r);
+				setRenderedSrc(printSrc);
 				setSections(splitSections(r.html));
 				setRendering(false);
 			})
-			.catch((e) => { if (alive) { setStatus(messageForFailure(e, 'Could not render the deck.')); setRendering(false); } });
+			.catch((e) => {
+				if (!alive) return;
+				// Drop the previous render: the panel outlives a close, so keeping it left the LAST deck
+				// on screen and printable after the new one failed to render.
+				setRender(null);
+				setRenderedSrc(null);
+				setSections([]);
+				setStatus(messageForFailure(e, 'Could not render the deck.'));
+				setRendering(false);
+			});
 		return () => { alive = false; };
 	}, [options, printSrc, palette, mode, extraTheme, extraCss]);
 
@@ -510,7 +563,7 @@ export function PrintOptionsPanel({
 			if (nup === 1 && !handout) {
 				setBuilding('print');
 				setStatus('Preparing print…');
-				printHtmlDoc(printDoc(), printFrameRef, () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
+				printHtmlDoc(printDoc(), printFrameRef, () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } }, () => activeRef.current);
 				return;
 			}
 			// Desktop, N-up / handout: the one-slide-per-page vector path can't grid or add a
@@ -518,7 +571,7 @@ export function PrintOptionsPanel({
 			// back to a download if blocked).
 			setBuilding('print');
 			buildPdf()
-				.then((url) => { if (mountedRef.current) openPdfTab(url); })
+				.then((url) => { if (mountedRef.current && activeRef.current) openPdfTab(url); })
 				.catch((e) => notify(messageForFailure(e, 'Could not build the PDF.')))
 				.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
 			return;
@@ -529,7 +582,7 @@ export function PrintOptionsPanel({
 		// lands, `cachedForCurrent` flips true and the button arms to "Open PDF" for tap 2.
 		setBuilding('print');
 		buildPdf()
-			.then(() => { if (mountedRef.current) notify('PDF ready — tap “Open PDF” to print.'); })
+			.then(() => { if (mountedRef.current && activeRef.current) notify('PDF ready — tap “Open PDF” to print.'); })
 			.catch((e) => notify(messageForFailure(e, 'Could not build the PDF.')))
 			.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
 	}, [render, building, ios, nup, handout, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, openPdfToPrint]);
@@ -573,7 +626,7 @@ export function PrintOptionsPanel({
 											className="pod-cell"
 											style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }}
 										>
-											<PooledThumbFace options={options} sample={printSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} drawn={deckDrawn} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
+											<PooledThumbFace options={options} sample={cellSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} drawn={deckDrawn} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
 										</div>
 									);
 								})}

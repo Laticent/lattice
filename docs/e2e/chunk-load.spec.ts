@@ -53,7 +53,10 @@ test('an export whose chunk never loads blames the load, not the deck (#1242)', 
 	await page.route(/\/_astro\/deck-export\.[^/]*\.js/, (route) => route.fulfill({ status: 404, body: '' }));
 
 	await page.getByRole('button', { name: 'Share' }).click();
-	await page.getByRole('button', { name: /Markdown/ }).first().click();
+	// Scoped to the sheet: the Share sheet keeps the page `inert` while open, not `aria-hidden`, and
+	// Playwright's role query still finds inert elements, so the header's deck switcher (named after
+	// the "Markdown for the boardroom" deck) matched first.
+	await page.getByRole('dialog').getByRole('button', { name: /Markdown/ }).first().click();
 
 	const toast = page.locator('[data-sonner-toaster]');
 	await expect(toast).toContainText(/couldn't load part of the app/i, { timeout: 15_000 });

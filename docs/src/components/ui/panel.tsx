@@ -549,11 +549,13 @@ export function PanelSheet({
 				onInteractOutside={() => nav.onLeave?.()}
 				// Never `hidden`: a persistent sheet is always modal, and a backdrop that is not there leaves
 				// the page blocked with nothing to click away on. Transparent keeps the click.
-				overlayClassName={overlay ? undefined : 'bg-transparent'}
+				// `instant`: a lazy panel's loader swaps this in for its shell once the shell has slid in
+				// (`PanelLoader`), so this open must not slide in a second time — as the plain sheet below.
+				overlayClassName={cn(!overlay && 'bg-transparent', instant && NO_ENTER) || undefined}
 				className={
 					!mobile && dialogClassName
-						? cn(DIALOG_BOX, dialogClassName)
-						: cn(sheetBox(mobile ? 'bottom' : side), 'flex w-full flex-col gap-0 p-0', mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width], className)
+						? cn(DIALOG_BOX, dialogClassName, instant && NO_ENTER)
+						: cn(sheetBox(mobile ? 'bottom' : side), 'flex w-full flex-col gap-0 p-0', mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width], instant && NO_ENTER, className)
 				}
 			>
 				{inner}
@@ -713,6 +715,7 @@ export function PanelBody({
 	padded = true,
 	center = false,
 	className,
+	ref,
 	children,
 }: {
 	/** Standard `p-4`; set false for edge-to-edge lists/grids that pad themselves. */
@@ -720,10 +723,13 @@ export function PanelBody({
 	/** Center the content in the available height — for a ZERO STATE. See PanelEmpty. */
 	center?: boolean;
 	className?: string;
+	/** The scroll region itself — for a kept surface that resets its scroll on each show. */
+	ref?: React.Ref<HTMLDivElement>;
 	children: React.ReactNode;
 }) {
 	return (
 		<div
+			ref={ref}
 			className={cn(
 				// The ONE scroll region. overscroll-contain + pan-y kill the sideways
 				// touch-drift; min-w-0 stops a wide child forcing the body wider than the

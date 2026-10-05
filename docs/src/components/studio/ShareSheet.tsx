@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Frozen, ScrollTopOnMount, useEverTrue, useShowCount } from '@/components/ui/keep-mounted';
 import { PanelBody, PanelHeader, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { chunkLoadMessage, isChunkLoadError } from '@/lib/chunk-load';
 import { deckColorMode } from '@/lib/deck-theme';
@@ -9,6 +10,7 @@ import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
 import { ImageSetOptionsPanel } from './ImageSetOptionsPanel';
+import { SHEET_EXIT_MS } from './lazy-panel';
 import { splitSlides } from './lint';
 import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
@@ -32,8 +34,34 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// speaks to). Reset to the menu whenever the sheet re-opens so it never lands
 	// mid-flow — unless the opener asked for a step: "Export as PDF…" opens on the PDF step
 	// (2026-10-05-studio-lessons.md).
+	//
+	// THE SHEET STAYS MOUNTED once opened (`PanelSheet persistent`), for the Print drawer's
+	// sake: its preview cells and its print frame are documents WebKit never frees, so a drawer
+	// that unmounted with the sheet stranded one document per open, two if it printed
+	// (`engineering/decisions/2026-09-26-render-drift-and-unclosed-comments.md` §5). The view is
+	// reset in the render that OPENS the sheet (or that changes `initialView` while it is open), so
+	// the kept sheet never shows the last view for a frame; the other options steps are dropped
+	// once the sheet has slid out, as they were when the sheet unmounted on close.
 	const [view, setView] = React.useState<'menu' | 'pdf' | 'html' | 'print' | 'imageset' | 'marp'>(initialView);
-	React.useEffect(() => { if (open) setView(initialView); }, [open, initialView]);
+	const shows = useShowCount(open);
+	const [seen, setSeen] = React.useState({ shows, initialView });
+	if (seen.shows !== shows || (open && seen.initialView !== initialView)) {
+		setSeen({ shows, initialView });
+		setView(initialView);
+	}
+	React.useEffect(() => {
+		if (open) return;
+		const t = window.setTimeout(() => setView('menu'), SHEET_EXIT_MS + 100);
+		return () => window.clearTimeout(t);
+	}, [open]);
+	const bodyRef = React.useRef<HTMLDivElement>(null);
+	// The Print drawer, once shown, stays mounted beside whichever view is up: hidden, and FROZEN,
+	// so a keystroke in the editor does not re-render a deck nobody can see. It catches up in the
+	// render that shows it again. Each show starts from the default paper, layout and color
+	// (`resetKey`), as the remount did; the pool and the print frame live on.
+	const printShown = open && view === 'print';
+	const printEver = useEverTrue(printShown);
+	const printShows = useShowCount(printShown);
 	// A saved finish renders via a `finish finish-<slug>` class the engine doesn't know
 	// + its generated CSS. The two handoffs treat it differently:
 	//   • ARTIFACT paths (PDF/PPTX/Print/Present) — bake the look in. Stamp the class
@@ -224,10 +252,19 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		printsrc: { onClick: () => run('printsrc', 'Print source', () => sharePrintSource(source, name)) },
 	};
 	return (
-		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md" persistent>
 			<PanelHeader icon={SHARE_HEADER.icon} title={SHARE_HEADER.title(deckTitle)} srDescription={SHARE_HEADER.srDescription} />
-			<PanelBody padded={false} className="space-y-6 p-5">
-					{view === 'pdf' ? (
+			<PanelBody ref={bodyRef} padded={false} className="space-y-6 p-5">
+					<ScrollTopOnMount key={shows} target={bodyRef} />
+					{/* FIRST, so a hidden drawer never sits between `space-y` siblings. */}
+					{printEver ? (
+						<div hidden={view !== 'print'}>
+							<Frozen active={printShown}>
+								<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} resetKey={printShows} active={printShown} onBack={() => setView('menu')} />
+							</Frozen>
+						</div>
+					) : null}
+					{view === 'print' ? null : view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'html' ? (
 						<WebpageOptionsPanel
@@ -241,8 +278,6 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 							onExport={exportHtml}
 							onCancel={() => bakeRef.current?.abort()}
 						/>
-					) : view === 'print' ? (
-						<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} onBack={() => setView('menu')} />
 					) : view === 'imageset' ? (
 						<ImageSetOptionsPanel busy={busy === 'images'} status={progress} onBack={() => setView('menu')} onExport={exportImages} />
 					) : view === 'marp' ? (
