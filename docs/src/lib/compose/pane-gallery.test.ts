@@ -5,11 +5,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { history, undo } from 'prosemirror-history';
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { deckToDoc, emitDeck, initBaseline } from './deck-doc';
-import { applyPaneChoice, paneBodyRange, paneFit, paneMarkerGuard, paneStarter, slidePanes, starterEditable } from './pane-model';
-import { paneNeedsFrom } from './pane-needs';
+import { applyPaneChoice, PANE_REFUSAL, paneBodyRange, paneFit, paneMarkerGuard, paneStarter, slidePanes, starterEditable } from './pane-model';
+import { marksOf, paneNeedsFrom } from './pane-needs';
 
 const DIST = join(__dirname, '../../../../dist/docs');
 const grammar = JSON.parse(readFileSync(join(DIST, 'grammar.json'), 'utf8'));
@@ -54,6 +54,38 @@ describe('what each component would do to a pane', () => {
 		expect(outcome('bar')).toBe('keeps');
 		expect(outcome('line')).toBe('keeps');
 	});
+	it('a plain list does not "keep" under a component whose example labels every item: it would read as a contact card', () => {
+		// The owner's question on PR 2520: shape matched, meaning did not. A plain "- A point" filled
+		// contact's and actors' one required slot, so the tile promised the text would keep.
+		const outcome = fitOf(SLIDE, 0);
+		for (const cls of ['contact', 'actors', 'statute-stack', 'wifi', 'logo-wall', 'flowchart', 'pricing', 'big-number']) expect([cls, outcome(cls)]).toEqual([cls, 'fresh']);
+		// List-shaped components whose example is a plain list are unchanged.
+		for (const cls of ['cards-grid', 'cycle', 'glossary', 'team-profile', 'split-panel']) expect([cls, outcome(cls)]).toEqual([cls, 'keeps']);
+	});
+	it('a list that uses the component\'s mark keeps its text: a label, a picture, an arrow', () => {
+		const labeled = fitOf(SLIDE.replace('- A point\n- Another point', '- Ann Lee `name`\n- ann@example.com `email`'), 0);
+		expect(labeled('contact')).toBe('keeps');
+		expect(labeled('actors')).toBe('keeps');
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '- Draft -> Review\n- Review -> Ship'), 0)('flowchart')).toBe('keeps');
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '- 92%\n  - of the room remembers one number'), 0)('big-number')).toBe('keeps');
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '- ![Acme](acme.svg)\n- ![Beta](beta.svg)'), 0)('logo-wall')).toBe('keeps');
+		// A label inside a NESTED item is not the item's own label.
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '- A point\n  - detail `x`'), 0)('contact')).toBe('fresh');
+	});
+	it('the marks come from the skeleton: every item must carry one for it to be asked for', () => {
+		expect(marksOf(SKELETON.contact)).toEqual(['label']);
+		expect(marksOf(SKELETON['big-number'])).toEqual(['figure']);
+		expect(marksOf(SKELETON['logo-wall'])).toEqual(['picture']); // its stage pill is on one item only
+		expect(marksOf(SKELETON['team-profile'])).toEqual([]); // the third person has no portrait
+		expect(marksOf(SKELETON['cards-grid'])).toEqual([]);
+		expect(marksOf('```\n- a `x`\n```\n\n- plain')).toEqual([]); // a fenced example is not the list
+		// A numbered example marks its items too: a plain numbered list is not a KPI row.
+		expect(marksOf(SKELETON.kpi)).toContain('figure');
+		const numbered = fitOf(SLIDE.replace('- A point\n- Another point', '1. First point\n2. Second point'), 0);
+		expect(numbered('kpi')).toBe('fresh');
+		expect(numbered('stats')).toBe('fresh');
+		expect(fitOf(SLIDE.replace('- A point\n- Another point', '1. $2.4B\n2. 73%'), 0)('kpi')).toBe('keeps');
+	});
 	it('the slide\'s Key Insight is not the pane\'s body: it neither makes a pane a quote nor gets replaced', () => {
 		const slide = deckToDoc(SLIDE).child(0);
 		const info = slidePanes(slide);
@@ -64,6 +96,17 @@ describe('what each component would do to a pane', () => {
 	});
 	it('a component with no grammar entry (an installed package) never claims to keep the text', () => {
 		expect(fitOf(SLIDE, 0)('not-a-component')).toBe('fresh');
+	});
+});
+
+describe('where the needs map comes from', () => {
+	it('the Studio\'s fetched catalog yields the same map as the grammar it was built from', async () => {
+		// The map left the Studio page for the on-demand catalog (studio/component-catalog.json): the
+		// badges must not move with it.
+		const { buildStudioCatalog } = await import('../studio-catalog.mjs');
+		const rows = buildStudioCatalog(join(__dirname, '../../../..'));
+		expect(rows.length).toBeGreaterThan(0);
+		expect(paneNeedsFrom(rows)).toEqual(NEEDS);
 	});
 });
 
@@ -157,3 +200,48 @@ describe('picking a component', () => {
 		expect(state.applyTransaction(tr as NonNullable<typeof tr>).state.doc.eq(state.doc)).toBe(false);
 	});
 });
+
+describe('a refused edit says why', () => {
+	// The guard's refusal is unchanged; what is new is that the author is told (PR 2520's third review:
+	// a refused `###` conversion looked like a broken button).
+	const guarded = (src: string) => {
+		const reasons: string[] = [];
+		const state = EditorState.create({ doc: deckToDoc(src), plugins: [history(), paneMarkerGuard((r) => reasons.push(r))] });
+		return { state, reasons };
+	};
+	const MARKED = SLIDE.replace('### First pane', '<!-- _pane: list -->\n### First pane').replace('### Second pane', '<!-- _pane: list -->\n### Second pane');
+	const flush = () => new Promise((r) => setTimeout(r, 0));
+	it('deleting a hidden marker is refused, once, with the marker reason', async () => {
+		const { state, reasons } = guarded(MARKED);
+		let at = -1;
+		let size = 0;
+		state.doc.child(0).forEach((node, offset) => {
+			if (at >= 0 || node.type.name !== 'comment' || !/_pane/.test(String(node.attrs.text))) return;
+			at = 1 + offset; // the slide's content starts one past the doc's
+			size = node.nodeSize;
+		});
+		const tr = state.tr.delete(at, at + size);
+		expect(state.applyTransaction(tr).state.doc.eq(state.doc)).toBe(true); // still refused
+		await flush();
+		expect(reasons).toEqual([PANE_REFUSAL.marker]);
+	});
+	it('a new ### that would fold the next pane is refused with the heading reason', async () => {
+		const { state, reasons } = guarded(MARKED.replace('- A point\n- Another point\n\n<!-- _pane: list -->\n### Second', 'Some text.\n\n<!-- _pane: list -->\n### Second'));
+		let at = -1;
+		state.doc.descendants((node, p) => {
+			if (at < 0 && node.type.name === 'paragraph' && node.textContent === 'Some text.') at = p;
+		});
+		expect(at).toBeGreaterThan(0);
+		const tr = state.tr.setSelection(TextSelection.create(state.doc, at + 1)).setBlockType(at + 1, at + 1, state.schema.nodes.heading, { level: 3 });
+		expect(state.applyTransaction(tr).state.doc.eq(state.doc)).toBe(true); // still refused
+		await flush();
+		expect(reasons).toEqual([PANE_REFUSAL.heading]);
+	});
+	it('an edit the guard lets through says nothing', async () => {
+		const { state, reasons } = guarded(MARKED);
+		state.applyTransaction(state.tr.insertText('x', 3));
+		await flush();
+		expect(reasons).toEqual([]);
+	});
+});
+

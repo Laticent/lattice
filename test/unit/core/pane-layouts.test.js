@@ -283,6 +283,7 @@ test('on a split page a bare ### takes its pills with it, and no subtitle reache
 test('lint: the alias gets pane-syntax with the rewrite', () => {
   const f = lintText('## T\n\n<!-- panes: stack 40/60 -->\n<!-- pane: list -->\n\n- a\n\n<!-- pane: content -->\n\nx\n').find((x) => x.rule === 'pane-syntax');
   assert.ok(f);
+  assert.equal(f.severity, 'warning'); // promoted from a suggestion ahead of retiring the alias
   assert.match(f.fix, /<!-- _class: rows ratio-40-60 -->/);
 });
 

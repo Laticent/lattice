@@ -26,7 +26,6 @@ import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 // The webfont files the PRE-PAINT SHELL's top bar paints with, imported with `?url` so
 import { joinBase } from '../lib/base-url.mjs';
 import { buildStudioCatalog } from '../lib/studio-catalog.mjs';
-import { paneNeedsFrom } from '../lib/compose/pane-needs';
 import { assetBase } from '../playground/asset-version.mjs';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
@@ -155,22 +154,6 @@ try {
 	// writes a tagged fence, just from the deck's own habit rather than the layout's.
 	console.warn('[studio] slideFences: could not derive the grammar fence map — the insert-code door falls back to the deck default', e && e.message);
 	slideFences = {};
-}
-
-// The per-component PANE NEEDS for Compose's pane gallery: what each component must find in a pane's
-// body to read it as it stands (its required grammar slots, less the heading, and a number for a
-// chart) — so each tile can say "Keeps your text" or "Starts with an example" before the author
-// picks (lib/compose/pane-needs.ts). Same grammar, same route as the maps above (HARD RULE #1).
-let paneNeeds = {};
-try {
-	const grammarForPanes = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/grammar.json'), 'utf8'));
-	const catalogForPanes = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
-	const substanceOf = Object.fromEntries((catalogForPanes.components || []).map((c) => [c.name, c.substance || '']));
-	paneNeeds = paneNeedsFrom(grammarForPanes.components || [], substanceOf);
-} catch (e) {
-	// Without the map every tile says "Starts with an example": honest, if less helpful.
-	console.warn('[studio] paneNeeds: could not derive the pane needs map — the pane gallery offers every component as a fresh start', e && e.message);
-	paneNeeds = {};
 }
 
 // The deterministic lint vocabulary — built at build time from the LIVE component
@@ -1010,7 +993,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		</div>
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
-		<StudioIsland client:only="react" options={options} componentNames={componentNames} catalogUrl={url('studio/component-catalog.json')} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} paneNeeds={paneNeeds} />
+		<StudioIsland client:only="react" options={options} componentNames={componentNames} catalogUrl={url('studio/component-catalog.json')} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} />
 		{/* Live viz diagnostics — renders nothing until the Workspace → Diagnostics
 		    switch (or ?viz) turns it on; then reads dropped-to-black chart paint from
 		    the render pipeline. */}

@@ -73,6 +73,9 @@ export function buildStudioCatalog(root = join(process.cwd(), '..')) {
 				slots: Object.entries(c.slots || {}).map(([slotName, v]) => ({
 					name: slotName,
 					required: !!v.required,
+					// Compose's pane gallery reads a slot's selector to tell whether a pane's text
+					// already fills it (lib/compose/pane-needs.ts `paneNeedsFrom`).
+					...(v.selector ? { selector: String(v.selector) } : {}),
 					description: String(v.description || '').slice(0, 240),
 				})),
 				...(variantSkeletonsByName[c.name] ? { variantSkeletons: variantSkeletonsByName[c.name] } : {}),

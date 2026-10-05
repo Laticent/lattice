@@ -384,6 +384,26 @@ after every pick. The owner's question was what an average user should expect. T
   does.
 - **"Keeps your text"** when the component can read the pane as it stands: every slot its grammar
   requires is present, and a chart has numbers (`paneFit`, `pane-needs.ts`).
+- *Ruled 2026-10-05:* **"Keeps" means the text would read as that component, not merely fit its
+  shape.** Shape alone over-promised. `contact` and `actors` require only a list item, so "- A
+  point" kept its text as a contact card. Now a component whose own example puts a mark on EVERY
+  item asks the pane to use one of those marks: a trailing label (`- Ann Lee `name``), a leading
+  figure (big-number's `- 92%`), a picture (logo-wall), or an arrow (flowchart). `marksOf` reads
+  the marks off the generated skeleton, so a new component gets its rule with no code change. A mark
+  only some items carry (team-profile's portrait) is optional and not asked for. Measured on the
+  real Studio, on a plain list in a 40% pane, five of the 37 tiles moved to "Starts with an
+  example": contact, actors, big-number, logo-wall and flowchart. statute-stack, wifi and pricing
+  follow the same rule where a pane is wide enough to offer them. The list-shaped components whose
+  examples are plain lists still keep the text: cards-grid, glossary, decision, state-chart.
+  Numbered examples count too: a plain `1. First point` list no longer keeps under `kpi` or
+  `stats`, whose example items open on a figure.
+  The rule leans toward "keeps" when the evidence is mixed. One labeled item is enough, because
+  "Starts with an example" replaces the author's text, and a wrong "keeps" loses nothing. The
+  known cost of that lean: one code span in a technical list (`- Install with `npm i``) counts as a
+  label, and an item that opens on a number ("3 reasons we win") counts as a figure.
+- The needs map rides the Studio's on-demand component catalog (`studio/component-catalog.json`,
+  whose slots now carry their selectors), derived in Compose's lazy chunk. A first cut inlined it
+  into the Studio page, which cost the page 8.3 KB of HTML that only this gallery reads.
 - **"Starts with an example"** when it cannot. The pane's body is swapped for the component's own
   starter, and a notice offers Undo. The Undo stands down once the author edits anything else.
 - **The pane's title and the slide's Key Insight never move.**
@@ -410,6 +430,9 @@ easy to delete unseen. Binding the keys that delete it missed chords (Shift-Back
 Mod-Backspace), so `paneMarkerGuard` guards the RESULT instead: it refuses any transaction that
 would leave the deck with fewer pane markers. Three things pass it: a pane command, Undo, and a
 range the author deliberately selected. A selection that lands on a hidden marker is moved off it.
+A refusal says why, in one status notice: "A ### here would start a new pane" when the edit added
+a `###` (a heading in a titled pane starts the next pane and folds the one after it), and "That
+would remove a pane" otherwise. A silent refusal looked like a broken button.
 A pane cut and pasted keeps its marker, because the paste gate admits a `_pane` comment in one
 strict shape (comment-block.ts). Before all this, Compose read every `<!-- _pane: … -->` as a slide
 directive and moved it to the slide's head, so one keystroke on a marked pane slide wrote both
@@ -466,10 +489,11 @@ working as aliases, and `lint:deck` offers the rewrite:
 `lib/base/base.docs.md` § "Two components on one slide — pane layouts" and the new demo,
 `examples/pane-layouts.md`, teach the syntax. The six example decks first written in the alias
 (panes, panes-mermaid, panes-radar, panes-sketch, chart-lead-blocks, chart-lead-paragraphs) moved
-to it on 2026-10-05, and each renders byte-identical HTML before and after. The alias is still
+to it on 2026-10-05, and each renders byte-identical HTML before and after. A seventh,
+panes-row-labels (#2476), was missed and moved the same way later that day, also byte-identical.
+`pane-syntax` is a warning from then on, so a release carries the warning before the alias can go. The alias is still
 pinned by test/unit/core/pane-layouts.test.js ("the alias still renders the same panes"). Whether
-it stays past the next release, with `pane-syntax` promoted from a suggestion to a warning first,
-is recorded in `followups.d/2473-p3-retire-the-experimental-pane-syntax.md`.
+it stays past the next release is recorded in `followups.d/2473-p3-retire-the-experimental-pane-syntax.md`.
 
 ## 10. Questions for the internal-structure note
 

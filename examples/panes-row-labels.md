@@ -34,15 +34,15 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ## In a half-width pane the names still read in full.
 
-<!-- panes: 50/50 -->
-<!-- pane: progress -->
+<!-- _class: columns -->
+<!-- _pane: progress -->
 
 - Signal intake review `92%` `on-track`
 - Scoring policy draft `68%` `at-risk`
 - Calibration cadence reset `34%` `deferred`
 - Adoption across teams `12%` `blocked`
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Two workstreams are behind plan
 - Calibration waits on the scoring draft
@@ -55,13 +55,13 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ## A narrow pane gives each name its own row.
 
-<!-- panes: 35/65 -->
-<!-- pane: progress -->
+<!-- _class: columns ratio-35-65 -->
+<!-- _pane: progress -->
 
 - Signal intake review `92%` `on-track`
 - Adoption across teams `12%` `blocked`
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - A pane squarer than the slide sets the name above its bar
 - The bar keeps the pane's full width
@@ -72,14 +72,14 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ## Stacked, the pane is slide-wide and nothing moves.
 
-<!-- panes: stack 55/45 -->
-<!-- pane: progress -->
+<!-- _class: rows ratio-55-45 -->
+<!-- _pane: progress -->
 
 - Signal intake review `92%` `on-track`
 - Scoring policy draft `68%` `at-risk`
 - Decision log rollout `81%` `on-track`
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - A stacked pane's label column is the slide's own
 
@@ -89,8 +89,8 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ## Each row name reads on one line, and so does each cell.
 
-<!-- panes: 65/35 -->
-<!-- pane: matrix-grid -->
+<!-- _class: columns ratio-65-35 -->
+<!-- _pane: matrix-grid -->
 
 `[Wider reach, Deeper cognition]`
 
@@ -100,7 +100,7 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 | Weigh the options | [ ] | [-] | [x] Level 2 | [ ] |
 | Decide under risk | [-] | [x] Level 3 | [-] | [ ] |
 
-<!-- pane: list -->
+<!-- _pane: list -->
 
 - Each verb is a row the reader scans first
 - A filled cell names the level it reaches

@@ -15,10 +15,11 @@ import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, seria
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
-import type { PaneNeeds } from '@/lib/compose/pane-needs';
+import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { notify } from '@/lib/notify';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
@@ -1501,7 +1502,8 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
-		paneMarkerGuard(),
+		// A refused pane-merging edit says why, as one status pill (lib/notify.ts), rather than doing nothing.
+		paneMarkerGuard((reason) => notify(reason)),
 		panePlugin(getPaneOpen),
 		collapsePlugin(),
 		activeSlidePlugin(),
@@ -1598,7 +1600,7 @@ export type ComposeHandle = {
 	undoPane: (token: unknown) => boolean;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneNeeds?: PaneNeeds; onOpenPanePicker?: (req: PaneRequest) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneNeeds, onOpenPanePicker }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -1883,6 +1885,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// The pane gallery: what each component needs to keep a pane's text (build-static, read live
 	// like the maps above), and the opener. The opener the bars hold is ONE stable function that
 	// reads the latest prop, so a re-render never invalidates the bars' decorations.
+	// What each component needs to find in a pane to keep its text, derived here from the catalog the
+	// Studio fetches after the page (not inlined into it), so its code rides Compose's lazy chunk.
+	const paneNeeds = React.useMemo(() => paneNeedsFrom(paneCatalog || []), [paneCatalog]);
 	const paneNeedsRef = React.useRef(paneNeeds);
 	paneNeedsRef.current = paneNeeds;
 	const onOpenPanePickerRef = React.useRef(onOpenPanePicker);
