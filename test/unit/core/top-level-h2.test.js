@@ -188,6 +188,16 @@ test('agrees with a real HTML parser on every shape that has bitten this walk', 
     '<svg><foreignObject><h2>In</h2></foreignObject></svg><h2>Real</h2>',
     '<svg><desc><ul><li>x</li></ul></desc></svg>',
     '<svg><br><h2>After</h2></svg>',
+    // Foster parenting, a stray `</p>` and the adoption agency (followups.d/2478-p5, closed),
+    // with the scope rule the adoption agency obeys: a table open above the formatting element
+    // hides it, and the end tag is ignored (the checker, 2026-10-05).
+    '<table><h2>Fostered</h2><tr><td>c</td></tr></table>',
+    '<table><p>C.<tr><td><h2>Cell</h2></td></tr></table>',
+    '</p><h2>Real</h2>',
+    '<a><ul><li>x</li></a></ul><h2>Real</h2>',
+    '<b><table></b><h2>X</h2></table>',
+    '<a><table><tr><td></a><h2>Cell</h2></td></tr></table>',
+    '<b><marquee></b><h2>X</h2></marquee>',
     // Case.
     '<H2>Deco</H2><h2>Real</h2>',
     '<H2>Up</H2>',
