@@ -206,6 +206,52 @@ interface Info {
   path: string;
 }
 
+/**
+ * The strongly connected components of a graph over `names` (Tarjan's algorithm), dependencies
+ * first. Iterative, so a long chain cannot overflow the stack.
+ */
+function sccs(names: readonly string[], edges: ReadonlyMap<string, readonly string[]>): string[][] {
+  const index = new Map<string, number>();
+  const low = new Map<string, number>();
+  const onStack = new Set<string>();
+  const stack: string[] = [];
+  const groups: string[][] = [];
+  let next = 0;
+  for (const root of names) {
+    if (index.has(root)) continue;
+    const work: Array<[string, number]> = [[root, 0]];
+    index.set(root, next); low.set(root, next); next++; stack.push(root); onStack.add(root);
+    while (work.length) {
+      const frame = work[work.length - 1];
+      const [v, i] = frame;
+      const refs = edges.get(v) ?? [];
+      if (i < refs.length) {
+        frame[1]++;
+        const w = refs[i];
+        if (!index.has(w)) {
+          index.set(w, next); low.set(w, next); next++; stack.push(w); onStack.add(w);
+          work.push([w, 0]);
+        } else if (onStack.has(w)) {
+          low.set(v, Math.min(low.get(v) as number, index.get(w) as number));
+        }
+        continue;
+      }
+      work.pop();
+      if (work.length) {
+        const u = work[work.length - 1][0];
+        low.set(u, Math.min(low.get(u) as number, low.get(v) as number));
+      }
+      if (low.get(v) === index.get(v)) {
+        const group: string[] = [];
+        let w: string;
+        do { w = stack.pop() as string; onStack.delete(w); group.push(w); } while (w !== v);
+        groups.push(group);
+      }
+    }
+  }
+  return groups;
+}
+
 class Analysis {
   readonly info = new Map<Expr, Info>();
   constructor(readonly spec: GrammarSpec) {
@@ -213,19 +259,25 @@ class Analysis {
     if (!Object.hasOwn(spec.rules, spec.start)) throw new GrammarError([`start rule "${spec.start}" is not defined`]);
   }
 
-  private visit(e: Expr, path: string) {
-    if (this.info.has(e)) return;
-    this.info.set(e, { nullable: false, first: EMPTY, follow: EMPTY, followEnd: false, path });
-    switch (e.t) {
-      case 'seq': case 'alt': e.xs.forEach((x, i) => { this.visit(x, `${path} › ${e.t}[${i}]`); }); break;
-      case 'many': this.visit(e.x, `${path} › ${e.min ? 'many1' : 'many'}`); break;
-      case 'opt': this.visit(e.x, `${path} › opt`); break;
-      case 'node': this.visit(e.x, `${path} › ${e.kind}`); break;
-      case 'attempt': this.visit(e.x, `${path} › attempt`); break;
-      case 'ref': if (!Object.hasOwn(this.spec.rules, e.name)) throw new GrammarError([`${path}: unknown rule "${e.name}"`]); break;
-      default: break;
+  /** Record every expression with its rule path, in preorder. Iterative, so deep nesting cannot overflow the stack. */
+  private visit(root: Expr, rootPath: string) {
+    const stack: Array<[Expr, string]> = [[root, rootPath]];
+    while (stack.length) {
+      const [e, path] = stack.pop() as [Expr, string];
+      if (this.info.has(e)) continue;
+      this.info.set(e, { nullable: false, first: EMPTY, follow: EMPTY, followEnd: false, path });
+      switch (e.t) {
+        case 'seq': case 'alt': for (let i = e.xs.length - 1; i >= 0; i--) stack.push([e.xs[i], `${path} › ${e.t}[${i}]`]); break;
+        case 'many': stack.push([e.x, `${path} › ${e.min ? 'many1' : 'many'}`]); break;
+        case 'opt': stack.push([e.x, `${path} › opt`]); break;
+        case 'node': stack.push([e.x, `${path} › ${e.kind}`]); break;
+        case 'attempt': stack.push([e.x, `${path} › attempt`]); break;
+        case 'ref': if (!Object.hasOwn(this.spec.rules, e.name)) throw new GrammarError([`${path}: unknown rule "${e.name}"`]); break;
+        default: break;
+      }
     }
   }
+
 
   /**
    * Who reads whom: `users.get(x)` is every expression whose nullable/FIRST is computed from `x`'s
@@ -436,18 +488,16 @@ class Analysis {
         }
       }
     }
-    // Left recursion: a rule that reaches itself through a nullable prefix.
-    for (const name of Object.keys(this.spec.rules)) {
-      const seen = new Set<string>();
-      const stack: string[] = [name];
-      while (stack.length) {
-        const r = stack.pop() as string;
-        for (const next of this.leadingRefs(this.spec.rules[r])) {
-          if (next === name) { problems.push(`rule "${name}" can reach itself without consuming a character (left recursion)`); stack.length = 0; break; }
-          if (!seen.has(next)) { seen.add(next); stack.push(next); }
-        }
-      }
+    // Left recursion: a rule that reaches itself through a nullable prefix — exactly the rules on
+    // a cycle of the "can enter before consuming" graph. One SCC pass; a search from every rule
+    // cost quadratic time on a long chain.
+    const names = Object.keys(this.spec.rules);
+    const leads = new Map(names.map((n) => [n, this.leadingRefs(this.spec.rules[n])]));
+    const onCycle = new Set<string>();
+    for (const group of sccs(names, leads)) {
+      if (group.length > 1 || (leads.get(group[0]) as string[]).includes(group[0])) for (const r of group) onCycle.add(r);
     }
+    for (const name of names) if (onCycle.has(name)) problems.push(`rule "${name}" can reach itself without consuming a character (left recursion)`);
     return [...new Set(problems)];
   }
 
@@ -481,9 +531,8 @@ class Analysis {
 
     // One expression's summary, given the current summaries of the rules it references. `memo`
     // is per round, so a rule that changes is re-read on the next round of its own group.
-    const of = (e: Expr, memo: Map<Expr, Excluded>): Excluded => {
-      const hit = memo.get(e);
-      if (hit) return hit;
+    const summarize = (e: Expr, memo: Map<Expr, Excluded>): Excluded => {
+      const of = (x: Expr) => memo.get(x) as Excluded; // children are summarized first
       let out: Excluded;
       switch (e.t) {
         // Visit the body even though the loop's own answer does not depend on it: the check
@@ -496,25 +545,25 @@ class Analysis {
         // message that called the loop greedy (the /segno page's "greedy, then a quote" preset).
         // An `opt` counts whether or not it is greedy: it runs the same way either way, and it
         // only ever passes on what its body excludes, so a strict grammar gives it nothing.
-        case 'many': of(e.x, memo); out = e.greedy ? { a: this.get(e.x).first, b: EMPTY } : NONE; break;
+        case 'many': of(e.x); out = e.greedy ? { a: this.get(e.x).first, b: EMPTY } : NONE; break;
         case 'opt': {
-          const p = of(e.x, memo);
+          const p = of(e.x);
           out = { a: intersect(p.a, this.get(e.x).first), b: union(p.a, p.b) };
           break;
         }
-        case 'node': out = of(e.x, memo); break;
+        case 'node': out = of(e.x); break;
         // Summarize the body (the check reads every sequence's summary); the attempt itself
         // leaves nothing excluded, the safe answer (too small only lets a grammar through).
-        case 'attempt': of(e.x, memo); out = NONE; break;
+        case 'attempt': of(e.x); out = NONE; break;
         case 'seq': {
           out = { a: EMPTY, b: ANY }; // the identity: what was excluded before stays excluded
-          for (const x of e.xs) { const p = of(x, memo); out = { a: union(p.a, intersect(p.b, out.a)), b: intersect(p.b, out.b) }; }
+          for (const x of e.xs) { const p = of(x); out = { a: union(p.a, intersect(p.b, out.a)), b: intersect(p.b, out.b) }; }
           break;
         }
         case 'alt': {
           let acc: Excluded | null = null;
           for (const x of e.xs) {
-            const p = of(x, memo);
+            const p = of(x);
             acc = acc === null ? p : {
               a: intersect(acc.a, p.a),
               b: union(intersect(acc.a, p.b), intersect(p.a, acc.b), intersect(acc.b, p.b)),
@@ -526,8 +575,23 @@ class Analysis {
         case 'ref': out = rules.get(e.name) ?? NONE; break; // never followed: rules are solved below
         default: out = NONE; // lit, set, until: they consume, and anything may follow
       }
-      memo.set(e, out);
       return out;
+    };
+    // Children before parents with an explicit stack, so deep nesting cannot overflow it.
+    const of = (root: Expr, memo: Map<Expr, Excluded>): Excluded => {
+      const stack: Array<[Expr, boolean]> = [[root, false]];
+      while (stack.length) {
+        const [e, ready] = stack.pop() as [Expr, boolean];
+        if (memo.has(e)) continue;
+        if (ready) { memo.set(e, summarize(e, memo)); continue; }
+        stack.push([e, true]);
+        switch (e.t) {
+          case 'seq': case 'alt': for (let k = e.xs.length - 1; k >= 0; k--) stack.push([e.xs[k], false]); break;
+          case 'many': case 'opt': case 'node': case 'attempt': stack.push([e.x, false]); break;
+          default: break;
+        }
+      }
+      return memo.get(root) as Excluded;
     };
 
     // Solve the rules in DEPENDENCY ORDER: the groups of rules that reach each other (Tarjan's
@@ -560,7 +624,6 @@ class Analysis {
     return union(p.a, intersect(p.b, before));
   }
 
-  /** The rules an expression can enter before consuming anything. */
   /**
    * The rules that can reach themselves through references — the only ones whose nesting can
    * grow with the input. A reference to any other rule needs no depth count: `quoted` cannot
@@ -589,56 +652,22 @@ class Analysis {
     const names = Object.keys(this.spec.rules);
     const refsOf = new Map<string, string[]>();
     for (const name of names) {
+      // Preorder with an explicit stack (children pushed in reverse), so deep nesting cannot
+      // overflow the call stack.
       const out: string[] = [];
-      const walk = (e: Expr): void => {
+      const stack: Expr[] = [this.spec.rules[name]];
+      while (stack.length) {
+        const e = stack.pop() as Expr;
         switch (e.t) {
-          case 'ref': out.push(e.name); return;
-          case 'seq': case 'alt': for (const x of e.xs) walk(x); return;
-          case 'many': case 'opt': case 'node': case 'attempt': walk(e.x); return;
-          default: return;
-        }
-      };
-      walk(this.spec.rules[name]);
-      refsOf.set(name, out);
-    }
-    const index = new Map<string, number>();
-    const low = new Map<string, number>();
-    const onStack = new Set<string>();
-    const stack: string[] = [];
-    const groups: string[][] = [];
-    let next = 0;
-    for (const root of names) {
-      if (index.has(root)) continue;
-      const work: Array<[string, number]> = [[root, 0]];
-      index.set(root, next); low.set(root, next); next++; stack.push(root); onStack.add(root);
-      while (work.length) {
-        const frame = work[work.length - 1];
-        const [v, i] = frame;
-        const refs = refsOf.get(v) as string[];
-        if (i < refs.length) {
-          frame[1]++;
-          const w = refs[i];
-          if (!index.has(w)) {
-            index.set(w, next); low.set(w, next); next++; stack.push(w); onStack.add(w);
-            work.push([w, 0]);
-          } else if (onStack.has(w)) {
-            low.set(v, Math.min(low.get(v) as number, index.get(w) as number));
-          }
-          continue;
-        }
-        work.pop();
-        if (work.length) {
-          const u = work[work.length - 1][0];
-          low.set(u, Math.min(low.get(u) as number, low.get(v) as number));
-        }
-        if (low.get(v) === index.get(v)) {
-          const group: string[] = [];
-          let w: string;
-          do { w = stack.pop() as string; onStack.delete(w); group.push(w); } while (w !== v);
-          groups.push(group);
+          case 'ref': out.push(e.name); break;
+          case 'seq': case 'alt': for (let k = e.xs.length - 1; k >= 0; k--) stack.push(e.xs[k]); break;
+          case 'many': case 'opt': case 'node': case 'attempt': stack.push(e.x); break;
+          default: break;
         }
       }
+      refsOf.set(name, out);
     }
+    const groups = sccs(names, refsOf);
     this.groupsMemo = { refsOf, groups };
     return this.groupsMemo;
   }
@@ -717,19 +746,28 @@ class Analysis {
     return reach;
   }
 
+  /** The rules an expression can enter before consuming anything. Iterative (deep nesting). */
   private leadingRefs(e: Expr): string[] {
-    switch (e.t) {
-      case 'ref': return [e.name];
-      case 'seq': {
-        const out: string[] = [];
-        for (const x of e.xs) { out.push(...this.leadingRefs(x)); if (!this.get(x).nullable) break; }
-        return out;
+    const out: string[] = [];
+    const stack: Expr[] = [e];
+    while (stack.length) {
+      const x = stack.pop() as Expr;
+      switch (x.t) {
+        case 'ref': out.push(x.name); break;
+        case 'seq': {
+          let k = 0;
+          while (k < x.xs.length && this.get(x.xs[k]).nullable) k++;
+          for (let j = Math.min(k, x.xs.length - 1); j >= 0; j--) stack.push(x.xs[j]);
+          break;
+        }
+        case 'alt': for (let j = x.xs.length - 1; j >= 0; j--) stack.push(x.xs[j]); break;
+        case 'many': case 'opt': case 'node': case 'attempt': stack.push(x.x); break;
+        default: break;
       }
-      case 'alt': return e.xs.flatMap((x) => this.leadingRefs(x));
-      case 'many': case 'opt': case 'node': case 'attempt': return this.leadingRefs(e.x);
-      default: return [];
     }
+    return out;
   }
+
 
   nullable(e: Expr): boolean {
     return this.get(e).nullable;
@@ -747,26 +785,37 @@ class Analysis {
    */
   expectedAt(e: Expr): string {
     const parts: string[] = [];
+    const have = new Set<string>();
     const seen = new Set<string>();
-    const add = (x: string) => { if (!parts.includes(x)) parts.push(x); };
-    const walk = (x: Expr): void => {
+    const add = (x: string) => { if (!have.has(x)) { have.add(x); parts.push(x); } };
+    // Preorder, as the recursive walk it replaced: an explicit stack, children pushed in reverse,
+    // so a chain of thousands of rules cannot overflow the call stack.
+    const stack: Expr[] = [e];
+    while (stack.length) {
+      const x = stack.pop() as Expr;
       switch (x.t) {
-        case 'lit': add(JSON.stringify(x.s)); return;
-        case 'set': add(x.label ?? describe(x.cs)); return;
-        case 'seq': for (const y of x.xs) { walk(y); if (!this.nullable(y)) return; } return;
-        case 'alt': for (const y of x.xs) walk(y); return;
-        case 'many': case 'opt': case 'node': case 'attempt': walk(x.x); return;
-        case 'until': add(`text ending in ${JSON.stringify(x.s)}`); return;
+        case 'lit': add(JSON.stringify(x.s)); break;
+        case 'set': add(x.label ?? describe(x.cs)); break;
+        case 'seq': {
+          // The pieces up to and including the first that must consume.
+          let k = 0;
+          while (k < x.xs.length && this.nullable(x.xs[k])) k++;
+          for (let j = Math.min(k, x.xs.length - 1); j >= 0; j--) stack.push(x.xs[j]);
+          break;
+        }
+        case 'alt': for (let j = x.xs.length - 1; j >= 0; j--) stack.push(x.xs[j]); break;
+        case 'many': case 'opt': case 'node': case 'attempt': stack.push(x.x); break;
+        case 'until': add(`text ending in ${JSON.stringify(x.s)}`); break;
         case 'ref':
-          if (seen.has(x.name)) return;
+          if (seen.has(x.name)) break;
           seen.add(x.name);
-          walk(this.spec.rules[x.name]);
+          stack.push(this.spec.rules[x.name]);
       }
-    };
-    walk(e);
+    }
     if (!parts.length) return 'end of input';
     return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} or ${parts[parts.length - 1]}`;
   }
+
 }
 
 // ── code generation: one closure per expression, dispatch by table ──────────
@@ -855,9 +904,16 @@ export function compile(spec: GrammarSpec): Grammar {
   const ruleMatchers = new Map<string, Matcher>();
   const recursive = an.recursiveRules();
   const code = (st: State) => (st.i < st.n ? st.s.charCodeAt(st.i) : -1);
-  const fail = (st: State, expected: string): false => {
-    if (!st.err) st.err = { at: st.i, expected, found: st.i < st.n ? st.s[st.i] : null };
+  const fail = (st: State, expected: string | (() => string)): false => {
+    if (!st.err) st.err = { at: st.i, expected: typeof expected === 'string' ? expected : expected(), found: st.i < st.n ? st.s[st.i] : null };
     return false;
+  };
+  // A choice's "expected …" text lists everything that can start it, which on a long chain of
+  // rules is long, and building it for every choice up front cost quadratic time (6.5 s to lint
+  // 2,000 rules). Built on the error path instead, once.
+  const expecting = (e: Expr) => {
+    let text: string | null = null;
+    return () => (text ??= an.expectedAt(e));
   };
   const firstTest = (e: Expr) => compileTest(an.info.get(e)?.first ?? EMPTY);
 
@@ -904,14 +960,14 @@ export function compile(spec: GrammarSpec): Grammar {
         break;
       }
       case 'alt': {
-        if (e.xs.some((x) => x.t === 'attempt')) { m = buildTryingAlt(e.xs, an.expectedAt(e)); break; }
+        if (e.xs.some((x) => x.t === 'attempt')) { m = buildTryingAlt(e.xs, expecting(e)); break; }
         const xs = e.xs.map(build);
         const tests = e.xs.map(firstTest);
         const empty = e.xs.findIndex((x) => an.info.get(x)?.nullable);
         // ASCII dispatch table: the branch for each code 0..127, or -1.
         const table = new Int8Array(128).fill(-1);
         for (let c = 0; c < 128; c++) for (let k = 0; k < tests.length; k++) if (tests[k](c)) { table[c] = k; break; }
-        const want = an.expectedAt(e);
+        const want = expecting(e);
         m = (st) => {
           const c = code(st);
           let k = c >= 0 && c < 128 ? table[c] : -1;
@@ -987,7 +1043,7 @@ export function compile(spec: GrammarSpec): Grammar {
       case 'attempt': {
         // Anywhere but an alt branch, a failed attempt is an ordinary error.
         const t = tryAttempt(e);
-        const want = an.expectedAt(e.x);
+        const want = expecting(e.x);
         m = (st) => t(st) || fail(st, want);
         break;
       }
@@ -1041,7 +1097,7 @@ export function compile(spec: GrammarSpec): Grammar {
    * branches AFTER it, and no other branch overlaps anything after it, so: try the attempts that
    * can start here, in order; then the one ordinary branch that can; then the empty branch.
    */
-  function buildTryingAlt(branches: readonly Expr[], want: string): Matcher {
+  function buildTryingAlt(branches: readonly Expr[], want: () => string): Matcher {
     const tries: Array<[(c: number) => boolean, Matcher]> = [];
     const plain: Array<[(c: number) => boolean, Matcher]> = [];
     let empty: Matcher | null = null;
@@ -1085,10 +1141,16 @@ export function compile(spec: GrammarSpec): Grammar {
   };
 }
 
-/** Check a grammar without building it: the LL(1) violations, or an empty list. */
+/**
+ * Check a grammar without building it: the LL(1) violations, or an empty list. It runs the same
+ * analysis `compile()` and `generate()` start from, and the same `maxDepth` check, but builds no
+ * parser — so a grammar nested thousands of levels deep lints, where building its closures
+ * would exhaust the stack.
+ */
 export function lint(spec: GrammarSpec): string[] {
   try {
-    compile(spec);
+    analyze(spec);
+    depthOf(spec);
     return [];
   } catch (e) {
     if (e instanceof GrammarError) return [...e.problems];

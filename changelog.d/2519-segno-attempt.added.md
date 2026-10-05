@@ -6,3 +6,8 @@
   Both runtimes (`compile()` and `generate()`) support it, and a grammar without one generates
   byte-identical code. A flowchart-row grammar built on it reads all 442 corpus rows and
   200,096 fuzzed rows exactly as `splitRow` does (`npm run parser:bakeoff:flow`).
+- **Fixed: Segno lints a grammar of thousands of rules in linear time.** A chain of 2,000 rules
+  whose choices grow took 6.5 s to lint and 4,000 overflowed the stack; 8,000 now take about
+  150 ms. The "expected …" text in a parse error is built only when a parse fails, `lint()` no
+  longer builds a parser, and the checker's walks no longer recurse, so 10,000 levels of nesting
+  lint too. Every error message reads as before.

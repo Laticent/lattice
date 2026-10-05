@@ -319,11 +319,23 @@ places: a run of letters next to another run (longest match), `/` against `/*`, 
   fixpoints became worklists seeded in dependency order (an expression is recomputed only when
   something it reads changed, and outside a cycle it is computed once), and recursion is read off
   the same SCC pass: 43 ms for 4,000 rules in either order, and a checker found `lint()`,
-  `generate()` and parses identical to the previous version on 320,000 random grammars. What is
-  still quadratic is building the "expected …" text: `expectedAt()` writes every expression's
-  message eagerly, and on a chain whose FIRST sets grow from rule to rule (`r_i = alt(c_i, r_i+1)`)
-  that text grows too (6.5 s at 2,000 rules, and a stack overflow at 4,000, as on main). Logged in
-  `followups.d/`.
+  `generate()` and parses identical to the previous version on 320,000 random grammars. The last
+  quadratic step was building the "expected …" text: `expectedAt()` wrote every choice's message
+  when `compile()` built it, and on a chain whose FIRST sets grow from rule to rule
+  (`r_i = alt(c_i, r_i+1)`) each text lists everything reachable (6.5 s at 2,000 rules, and a
+  stack overflow at 4,000). On 2026-10-05 `compile()` began building that text on the error path
+  only, once per failed parse; `lint()` stopped building a parser at all (it runs the analysis
+  `compile()` and `generate()` share, and the same `maxDepth` check); the left-recursion check
+  became one SCC pass over the "can enter before consuming" graph instead of a search from every
+  rule; and every analysis walk became iterative. `lint()` on that chain: 1,364 / 6,633 ms /
+  RangeError at 1k / 2k / 4k rules before, 64 / 78 / 139 ms after (154 ms at 8k), and 10,000
+  levels of nesting in one rule lint in 283 ms where 2,000 overflowed. A differential of 20,000
+  random grammars (`greedy`, `until`, attempts, recursion) against the previous engine found the
+  same `lint()` problems, the same `generate()` source and the same trees and errors on 479,446
+  parses. `generate()` still writes every message, because generated code carries them as
+  strings; only shipped grammars are generated. One limit remains: `compile()` builds its
+  closures recursively, so one rule nested about 3,000 levels deep still overflows while
+  building (as it did before); `lint()` of the same grammar does not.
 - **`until(end)`**: one `indexOf` and no re-reading. `end` is capped at 64 characters, because
   `indexOf`'s slow case is input × terminator: the red team measured 1.5 µs per input character
   for a 16,384-character terminator, against 4 ns for 32 characters.

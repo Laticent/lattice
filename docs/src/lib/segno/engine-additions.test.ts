@@ -363,3 +363,47 @@ it('greedy can commit to a branch that later fails, and the checker does not fla
   expect(compile(lines).parse('a\nb\n').ok).toBe(true);
   expect(compile(lines).parse('a\nb').ok).toBe(false); // …but a last line with no newline fails
 });
+
+// Runtime grammars of thousands of rules (the /segno page): the "expected …" text was built for
+// every choice up front, and on a chain whose FIRST sets grow from rule to rule each text lists
+// everything reachable — 6.5 s to lint 2,000 rules, and a RangeError at 4,000. It is built on the
+// error path now, and the walks that remained recursive are iterative.
+describe('document-sized grammars lint in linear time, without overflowing the stack', () => {
+  const growing = (n: number): GrammarSpec => {
+    const rules: Record<string, ReturnType<typeof alt>> = {};
+    for (let i = 0; i < n; i++) {
+      const c = String.fromCharCode(0x4e00 + i);
+      rules[`r${i}`] = i === n - 1 ? chars(c) : alt(chars(c), ref(`r${i + 1}`));
+    }
+    return { start: 'r0', rules };
+  };
+
+  it('a 4,000-rule chain whose FIRST sets grow lints in under a second', () => {
+    const spec = growing(4000);
+    const t = performance.now();
+    expect(lint(spec)).toEqual([]);
+    expect(performance.now() - t).toBeLessThan(1_000);
+  });
+
+  it('builds the expected text only when a parse fails, and it says the same thing', () => {
+    const g = compile(growing(50));
+    const r = g.parse('x');
+    expect(!r.ok && r.error.expected.match(/"[^"]+"/g)?.length).toBe(50); // every rule's character, listed once
+    expect(!r.ok && r.error.expected).toMatch(/^"一", "丁", .* or "[^"]+"$/);
+  });
+
+  it('a 4,000-rule left-recursive cycle is found without a search from every rule', () => {
+    const rules: Record<string, ReturnType<typeof seq>> = {};
+    for (let i = 0; i < 4000; i++) rules[`r${i}`] = seq(opt('x'), ref(`r${(i + 1) % 4000}`));
+    const t = performance.now();
+    const problems = lint({ start: 'r0', rules });
+    expect(performance.now() - t).toBeLessThan(1_000);
+    expect(problems.filter((p) => p.includes('left recursion')).length).toBe(4000);
+  });
+
+  it('lints 10,000 levels of nesting in one rule', () => {
+    let deep = chars('a');
+    for (let i = 0; i < 10_000; i++) deep = seq('b', opt(deep));
+    expect(lint({ start: 's', rules: { s: deep } })).toEqual([]);
+  });
+});
