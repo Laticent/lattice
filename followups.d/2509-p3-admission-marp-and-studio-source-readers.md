@@ -23,6 +23,11 @@ why now   — the browser half honors admission through the engine's `data-latti
               never marks it) is still drawn by the pass under a narrowed set — the same author-forged
               markup class as `data-lattice-hydrate` (`2509-p5-plugin-phase-d-residue.md`); the engine
               could refuse author-written `language-<drawn fence>` classes inside raw HTML.
+            - the STUDIO's deck-wide admission on a slide rendered ALONE (a plain ```mermaid beside a
+              `diagram` slide, under `setPluginDefaults([])`) is proved by unit test against the
+              playground bundle (`browser-admission.test.js`), not on the real Studio: extend
+              `docs/e2e/plugin-admission.spec.ts` with a two-slide deck driven in the single-slide
+              view (the slice route), the fence drawn in both views.
             None of it matters while every shipped host runs on the default set.
 where     — the files above; `lib/core/boundary-parser.mjs`, `docs/src/components/studio/share-export.ts`.
 done when — with a narrowed default set, a Marp export and the Studio's lint and slide mapping
