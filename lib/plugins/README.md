@@ -10,8 +10,8 @@ are `engineering/decisions/2026-09-27-plugin-system.md`; the contract a plugin i
 **Shipped plugins:** `math` (`$…$`, `$$…$$`, ` ```math `; the `math` slide class requires it),
 `function-plot` (` ```functionplot `, drawn in the browser; `math` lists it as optional), `anima`
 (` ```anima `; the `scene` slide class requires it) and `mermaid` (` ```mermaid `, drawn by the
-runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it). The chart
-family moves here next.
+runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it) and
+`chart-family` (the `kernel` extension point every chart fills; see "Extension points" below).
 
 ## A plugin is a folder
 
@@ -116,6 +116,34 @@ claim, or one a code language owns (every highlight.js name and alias), fails th
 exception: when a highlight.js upgrade later adds a language named like a fence the committed
 registry already ships, that plugin keeps the fence and the build warns. A deprecated alias still renders and reports `<name>/deprecated-alias`, which the manifest
 must declare. A fence counts as use: the host derives a plugin's `detect` probe from its fence names.
+
+## Extension points
+
+A plugin may OFFER a slot that components FILL (`contributes.extensionPoints`, one per plugin in
+api 1). The chart family is the one in tree:
+
+```jsonc
+"extensionPoints": {
+  "kernel": { "bucket": "chart", "role": "transform", "entry": "transformSection", "description": "…" }
+}
+```
+
+A filler declares the slot's BLOCK (`block`, default the slot name), so a chart's existing
+`"kernel": { … }` block IS the fill; the slot adds who may fill it (`bucket`) and what the plugin calls (`role`,
+`entry`: `bar/bar.transform.js` exporting `transformSection`). The build writes the slot into
+`extension-points.generated.json`, keyed by block, which the component loader (who may declare `kernel`),
+`tools/build-chart-registry.js` (the dispatch table) and `tools/check-ownership.js` (each filler's
+module and export) read instead of a bucket list of their own.
+
+**Filling a slot is requiring the plugin.** The build adds every filler to `COMPONENT_PLUGINS`, so
+a chart class loads the family on a narrowed host and reports `plugin/component-needs-plugin` when
+the family is switched off. Switched off, the family passes each chart section through as written
+and marks it `data-lattice-off="chart-family"`; the runtime's DOM pass skips a marked section.
+
+The resolver fails a block two plugins read, a bucket two slots claim, a block that is not an
+object block of the component schema, and a component that declares the block outside the slot's
+bucket. In api 1 only in-tree components fill a slot; a slot that plugins fill (an icon pack) is
+reserved as a later, additive field.
 
 ## A fence rendered as code, and the bake
 

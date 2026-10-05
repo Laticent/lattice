@@ -13,8 +13,14 @@ why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §
             is left is `2509-p5-plugin-phase-d-residue.md`.
             E: the data layer, zip import and export of plugins in the CLI and the Studio
                (§4.10); this lifts the `plugin` refusal in `lib/packages/gate.js`.
-            F: the chart family — `extensionPoints.kernel`, chart kernels read from the
-               registry, renderer libraries move to `optionalDependencies` (#287 separately).
+            F: the chart family — `extensionPoints.kernel` and the registry reading chart
+               kernels SHIPPED (the plugin-system note §11, "Phase F, the slot"). Left of F:
+               the family's own code and the chart-frame stylesheet move into
+               `lib/plugins/chart-family/` (a `styles` contribution and the dispatch as the
+               plugin's module). The "renderer libraries → `optionalDependencies`" step has
+               nothing to move (measured 2026-10-05: chart kernels import only the in-repo
+               workspace libraries `@laticent/trama` and `@laticent/segno`, no npm dependency),
+               so it is dropped from F. #287 separately.
             G: the npm door, after the LICENSE-EXCEPTIONS grant; `spec/LPM.md` goes to 1.0.
             PHASE E's FOUR DECISIONS ARE SETTLED (owner, 2026-10-04 — the plugin note §9, decisions
             6–8). Asked because they are trust calls, hard to reverse:

@@ -125,6 +125,43 @@ describe('resolvePlugins — components that depend on plugins, and diagnostics'
   });
 });
 
+describe('resolvePlugins — extension points (phase F)', () => {
+  /** A plugin offering one slot, with no syntax: what the chart family is. */
+  const family = (name, slot = 'kernel', bucket = 'chart', block) => ({
+    folder: name,
+    manifest: {
+      type: 'plugin', format: 1, name, api: 1, title: name, description: name,
+      contributes: { extensionPoints: { [slot]: { ...(block ? { block } : {}), bucket, role: 'transform', entry: 'transformSection', description: 'x' } } },
+    },
+    exports: {},
+  });
+  const blocks = new Set(['kernel', 'name', 'plugins']);
+  test('filling a slot is requiring its plugin: fills come back per component', () => {
+    const r = resolvePlugins([family('charts')], { componentBlocks: blocks, components: [
+      { name: 'bar', bucket: 'chart', blocks: ['name', 'kernel'] },
+      { name: 'title', bucket: 'anchor', blocks: ['name'] },
+    ] });
+    assert.deepEqual(r.errors, []);
+    assert.deepEqual(r.fills, { bar: ['charts'] });
+  });
+  test('a block declared outside the slot\'s bucket is an error naming both', () => {
+    expectError([family('charts')], /component "hero" declares a `kernel` block, but the "charts" plugin's extension point "kernel" is filled from the "chart" bucket and this component is in "anchor"/,
+      { componentBlocks: blocks, components: [{ name: 'hero', bucket: 'anchor', blocks: ['kernel'] }] });
+  });
+  test('one plugin per block, one slot per bucket — slot names are the plugin\'s own', () => {
+    expectError([family('a'), family('b')], /plugins "a" and "b" both offer an extension point filled by the `kernel` block/, { componentBlocks: blocks });
+    expectError([family('a'), family('b', 'renderer', 'chart', 'plugins')], /extension points "a.kernel" and "b.renderer" both claim the "chart" bucket/, { componentBlocks: blocks });
+    // Two plugins may both call their slot `kernel` when they read different blocks.
+    assert.deepEqual(resolvePlugins([family('a'), family('b', 'kernel', 'diagram', 'plugins')], { componentBlocks: blocks }).errors, []);
+  });
+  test('a slot\'s block must be an object block the component schema defines, or nothing could fill it', () => {
+    expectError([family('a', 'renderer')], /extension point "renderer" is filled by the `renderer` block, which is not an object block the component manifest schema defines/, { componentBlocks: blocks });
+    // `block` names it explicitly, and the fill reads that block.
+    const r = resolvePlugins([family('a', 'renderer', 'chart', 'kernel')], { componentBlocks: blocks, components: [{ name: 'bar', bucket: 'chart', blocks: ['kernel'] }] });
+    assert.deepEqual([r.errors, r.fills], [[], { bar: ['a'] }]);
+  });
+});
+
 describe('host constants match the installed markdown-it', () => {
   test('HOST_ANCHORS are exactly markdown-it\'s own rule names', () => {
     const md = new MarkdownIt('commonmark');

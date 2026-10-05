@@ -644,8 +644,10 @@ recording exactly what is left.
   consumers moved with #2509 (`drawnFigureClasses`, 0; `--disable-plugin`); what is still left is
   `followups.d/2509-p5-plugin-phase-d-residue.md`.
 - **E. The data layer** — zip import/export of plugins in the CLI and the Studio (§4.10).
-- **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels; renderer
-  libraries move to `optionalDependencies` (export sign-off: it changes what installs).
+- **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels. **The slot
+  is done** (§11, "Phase F, the slot"); the family's code and the chart-frame stylesheet moving into
+  the plugin folder are left. The renderer-library step has nothing to move: chart kernels import
+  only the in-repo workspace libraries (`@laticent/trama`, `@laticent/segno`), no npm dependency.
 - **G. The npm door**, after the legal grant; version ranges switch on. `spec/LPM.md` → 1.0.
 
 ## 8. Adversarial review of this note (HARD RULE #25)
@@ -1182,6 +1184,52 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   is mermaid-cli's `dist/index.html`, not a blank document), the overclaimed "refused whole".
   Recorded, not built: a gate refusing a require into `lib/plugins/<x>/shared/` from outside the
   plugin (the emulator's player capture reaches in today).
+
+- **Phase F, the slot (`extensionPoints.kernel`).** The chart family is a plugin,
+  `lib/plugins/chart-family/`, whose one contribution is an EXTENSION POINT: `contributes.extensionPoints.kernel
+  = { bucket: "chart", role: "transform", entry: "transformSection" }`. A chart fills it with the
+  `kernel` block its manifest already carried, so no chart manifest changed. The build writes the
+  slot into `lib/plugins/extension-points.generated.json`, keyed by the block a filler declares, and
+  the three hand-kept readers now read it: the component loader's `KERNEL_BUCKETS`
+  (`lib/components/index.js`), `check-ownership.js`'s `KERNEL_BUCKETS_GATED` and its module/export
+  conventions, and `tools/build-chart-registry.js`, which freezes the fills (and now the plugin's
+  name) into the dispatch table. **Filling a slot is requiring the plugin**: the build merges every
+  filler into `COMPONENT_PLUGINS`, so a chart class loads the family on a narrowed host, and a chart
+  slide reports `plugin/component-needs-plugin` when the family is not running. Switched off, the
+  family passes each chart section through as authored and marks it — and a pane of it —
+  `data-lattice-off="chart-family"`; the runtime's DOM pass skips a marked section.
+  **Design choices** (maker, under the owner's pre-authorization; tier 2 trio):
+  the slot NAME is the plugin's own and the BLOCK it reads is a separate optional field (`block`,
+  default the slot name), because a block is one global word in every component manifest and the
+  icons design already calls its renderer "the kernel" (inversion lens: slot == block would have
+  locked the word and baked a global namespace into the artifact). In api 1 a slot is filled only by
+  in-tree COMPONENTS, with code; a slot that PLUGINS fill — the icon pack of `2026-09-29-inline-icons.md`
+  §6, which is data — is reserved as a later, additive field rather than forced into this shape. One
+  slot per plugin, one per bucket, and a slot's block must be an OBJECT block of the component schema
+  (a scalar such as `name` would make every component in the bucket a filler — red team).
+  **Rejected:** a `plugins.requires: ["chart-family"]` line in 24 chart manifests (a roster by
+  another name, and the slot already says who fills it); keeping the family off the plugin list (a
+  capability the host cannot switch off is the special case "plugins are plugins" refused).
+  **Found and fixed by the trio:** `deckClassTokens` paired a stray `<!--` (quoted in a code span or
+  a fence) with the next directive's `-->`, so on a narrowed host a later chart class was never read
+  and the chart rendered as a list with no diagnostic — pre-existing, but this phase made 24 classes
+  depend on it; it now re-anchors on the opener nearest the `-->`, and the engine reports a class
+  whose plugin admission left off (`componentPluginDiagnostics` reads the admission's `off`, which
+  is the host's `disabled` on the default set). A switched-off PANE chart was silent and unmarked:
+  pane classes now count, and the marker rides onto `<lat-pane>`. The code-package shim gained
+  `PLUGIN`; the off stamp no longer stacks on a second pass; `entry` admits no `$`; a missing slot
+  throws by name instead of reading as an empty bucket list.
+  **Evidence.** Engine byte identity: every tracked Markdown file under `examples/`, `lib/`,
+  `test/integration/`, `docs/src/content/` and `spec/` (500), on the default engine and on
+  `plugins: { defaults: [] }`, against a clean `origin/main` worktree at `eb88b64` — 1,000 renders,
+  every deck identical; the only differences are the four Markdown docs this phase adds or edits.
+  `checkPluginMigration` stays at 0 on every arm. Off-state: the CLI with `--disable-plugin
+  chart-family` prints a bar slide as its list (rasterized and looked at).
+  **Recorded, not built:** the family's dispatch and the chart-frame CSS still live in
+  `lib/components/chart/_chart-family/` and the CSS bundle, so the plugin folder holds no code yet;
+  `stats.charts` in `docs/src/lib/single-slide-render.ts` counts a switched-off section (nothing
+  reads it); a code package does not receive `pluginsOff`, so it cannot honor the switch (no export
+  path uses code packages yet).
 
 ## References
 

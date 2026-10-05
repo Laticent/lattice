@@ -6,7 +6,7 @@
     "component": 74,
     "finish": 9,
     "motion": 0,
-    "plugin": 4
+    "plugin": 5
   },
   "packages": [
     {
@@ -1272,6 +1272,16 @@
         "render.js"
       ],
       "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "chart-family",
+      "path": "lib/plugins/chart-family",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "manifest.json"
+      ]
     },
     {
       "type": "plugin",

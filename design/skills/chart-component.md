@@ -83,7 +83,9 @@ dispatcher + the categorical/semantic color token model in `chart-family.css`),
 `transform-utils.js`.
 
 - **Dispatch registers itself.** Declare a `kernel` block in your manifest and
-  the dispatcher finds you; `chart-family.js` is not edited. **Everything else
+  the dispatcher finds you; `chart-family.js` is not edited. The block FILLS the
+  chart family plugin's `kernel` slot (`lib/plugins/chart-family/`), which is why
+  your manifest needs no `plugins` block: filling the slot is requiring the plugin. **Everything else
   still does not** — see step 9 for the rosters that are hand-maintained and
   fail silently.
 - **Declare your data marks in the same block.** `kernel.marks` is required: one

@@ -1,0 +1,23 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "chart-family",
+  "api": 1,
+  "title": "Chart family",
+  "description": "Draws a chart slide (`_class: bar`, `line`, `gantt`, … every member of the chart bucket) from its authored list or table: it dispatches the section to the member's kernel and frames the figure. Each chart fills the family's `kernel` slot from its own manifest; switched off, a chart slide shows the list it was written as.",
+  "contributes": {
+    "extensionPoints": {
+      "kernel": {
+        "bucket": "chart",
+        "role": "transform",
+        "entry": "transformSection",
+        "description": "transformSection(html, ctx) → html | { html, cls } | null: builds one chart section's figure from its first list or table. The member's `kernel` block declares the figure root's class and its data marks; the family dispatches on the first chart class a section carries and wraps the result in the chart frame."
+      }
+    }
+  },
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  }
+}
