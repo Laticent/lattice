@@ -114,12 +114,16 @@ travels with the slide's markup, so every surface that shows the ENGINE's render
 DECK-WIDE: a host that renders one slide alone admits on the whole deck and passes the answer to
 that render (the engine's `render(…, { pluginDefaults })`), or a plain fence beside a slide class
 that loads its plugin would differ between the preview and the export. The Export-to-Marp bundle
-does not run the engine, so it does not carry the marker. The CLI admits once per run and hands the
+does not run the engine, so the PRODUCER records the plugins its admission left off in the bundle's
+export-settings block (`pluginsOff`), and the bundled runtime writes the marker from that list
+before any pass runs — on the `<pre>` of a drawn fence and on an extension-point filler's
+`<section>` — so Marp's render honors the deck's admission as the engine's does. The CLI admits once per run and hands the
 result to the engine, the `bake` and its boundary parser (whose block rules follow `off`, so a
 plugin's block body is opaque only where the engine admits it). The `highlight` grammars stay
 registered for every installed plugin, on purpose: an unadmitted plugin's fence is exactly the one
 that stays code, and it should read as code. A Studio's own source-side readers (its lint, its
-slide mapping) still read the default set's grammar and have no door for a narrowed one yet.
+slide mapping) point their boundary parser at the deck's `off` set before they parse (every bundle
+holds its own copy, and each is switched), so they split where the engine splits.
 
 ### 3.3 Contributions — `contributes`
 
@@ -401,6 +405,10 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, admission on Export-to-Marp and the Studio's readers (2026-10-05).** An exported
+  Marp bundle carries `pluginsOff` and its runtime marks from it (§3.2.1); the Studio's lint and
+  slide mapping parse under the deck's admission.
 
 - **0.5-draft, extension points (2026-10-05).** `contributes.extensionPoints` (§3.3): a slot a
   plugin offers and components fill. The chart family offers `kernel`, filled by every chart in the

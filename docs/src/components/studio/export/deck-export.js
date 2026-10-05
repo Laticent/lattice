@@ -188,7 +188,7 @@ export async function importedThemeNames(css) {
  * @param {string} palette theme name
  * @param {string} themeBase hashed `…/playground/v/<hash>/themes/` URL
  * @param {{includeAgent?: boolean, version?: string,
- *          overflowMarker?: 'author'|'reader'|'off',
+ *          overflowMarker?: 'author'|'reader'|'off', pluginsOff?: string[],
  *          extraTheme?: {name: string, css: string},
  *          components?: Array<{name: string, css: string}>}} [opts]
  *   `overflowMarker` is the EXPORT setting (lib/core/resolve-overflow-marker.js) —
@@ -200,7 +200,7 @@ export async function importedThemeNames(css) {
  *   bundle writes its CSS directly. `components` are the saved components the deck
  *   uses, embedded as `<style>` blocks exactly as the Markdown export embeds them.
  */
-export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [] } = {}) {
+export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [], pluginsOff = [] } = {}) {
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
@@ -239,7 +239,9 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
 			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(source, components)))), undefined),
-			{ localAssets: false, overflowMarker },
+			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
+			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
+			{ localAssets: false, overflowMarker, pluginsOff },
 		),
 	);
 

@@ -64,9 +64,10 @@ marks its `<pre>`: `data-lattice-off="mermaid"`. The runtime's pass, the drawn-f
 (`drawn-probe.mjs`) and the preview's ink-withholding rule all skip a marked `<pre>`, so every
 surface that shows the engine's render — the Studio's preview and export, `--fluid`, `--player` —
 draws nothing of that plugin. Admission is deck-wide, so the Studio's one-slide renders take the
-whole deck's answer (`LatticePlayground.pluginAdmission`). Not yet: the Export-to-Marp bundle (Marp
-renders it, not the engine) and the Studio's own lint and slide mapping, which read the default
-set's grammar (`followups.d/2509-p3-admission-marp-and-studio-source-readers.md`). The CLI admits once per run and hands the answer to the engine, `bakeDeck`
+whole deck's answer (`LatticePlayground.pluginAdmission`). Two readers that do not run the engine follow it too: an Export-to-Marp bundle (Marp renders it)
+records the plugins its producer left off in its settings block, `pluginsOff`, and the bundled
+runtime marks them before any pass (`mark-off.mjs`); the Studio's lint and slide mapping point their
+boundary parser at the deck's `off` set first (`docs/src/lib/plugin-admission.ts`). The CLI admits once per run and hands the answer to the engine, `bakeDeck`
 and the boundary parser (`setBoundaryPluginsOff`). A host narrows the set with
 `createEngine({ plugins: { defaults } })`, `--default-plugins` on the CLI, or
 `LatticePlayground.setPluginDefaults` in a browser.

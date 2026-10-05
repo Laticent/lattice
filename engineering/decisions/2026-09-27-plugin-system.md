@@ -1231,6 +1231,38 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   reads it); a code package does not receive `pluginsOff`, so it cannot honor the switch (no export
   path uses code packages yet).
 
+- **Admission reaches Export-to-Marp and the Studio's own readers (`2509-p3`).** Two readers that do
+  not run the engine now follow a narrowed set, for every plugin whose output they draw (Marp's own
+  math excepted, below). **The Marp bundle:** Marp renders it, so no marker is
+  ever written; the producer (`tools/export-marp.js`, which gains `--default-plugins=` and
+  `--disable-plugin=`; the Studio's Share → Marp) admits the deck and records the plugins left off
+  in the bundle's export-settings block, `pluginsOff`, and the bundled runtime writes the engine's
+  marker from it before any pass (`lib/plugins/mark-off.mjs`: a drawn fence's `<pre>`, and an
+  extension-point filler's `<section>` from the transformer that offers the slot — `plugin` +
+  `layouts` on the chart-family adapter). Absent when nothing is off, so a default-set bundle is
+  byte-identical. **The Studio's readers:** every bundle carries its own boundary-parser copy, so
+  `docs/src/lib/plugin-admission.ts` points each at the deck's `off` set — the main bundle's
+  and authoring-core's (which now exports `setBoundaryPluginsOff`). Admission
+  is decided where the WHOLE deck is held (`StudioShell`'s slide memo, the editor's lint pass):
+  every rail reader parses the body with the front matter stripped, so a hook inside `splitSlides`
+  could not see a deck's `plugins:` list — the first cut put it there and the real Studio caught it
+  (the rail stayed at 3 slides for a deck that listed math). On the default set
+  `pluginAdmission` answers null and none of it runs.
+  **Evidence.** Real marp-cli + Chromium (`test/integration/export/marp-admission.test.js`): a
+  default bundle draws the flowchart and builds the bar chart; under `--default-plugins=none
+  --disable-plugin=chart-family` the fence stays source and the chart its list, marked. The real
+  Studio (`docs/e2e/plugin-admission.spec.ts`, desktop): under `setPluginDefaults([])` the rail
+  shows 3 slides for a `$$`-with-`---` deck, as the engine renders, and 2 once the deck lists math;
+  the Share → Marp ZIP's deck carries `pluginsOff`; and when the host changes its defaults with no
+  edit, the rail follows (`setPluginDefaults` fires `lattice:plugin-defaults`). **Folded from the
+  checker:** both parser copies are switched directly (authoring-core is in the Studio's eager
+  chunk, so the lint copy is imported statically, not adopted when the editor's lint loads, which
+  left earlier readers on the default grammar); the rail re-reads on the defaults event;
+  `export-marp` sets the boundary parser before its split bake and refuses an empty
+  `--default-plugins=`. **Not covered, and recorded:** Marp typesets math itself, so a bundle with
+  math off still typesets it (its slide splits are right); an author's raw-HTML Mermaid block and
+  forged `data-lattice-*` markers; the Playground page's own lint (`2509-p3` followup, narrowed).
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.
