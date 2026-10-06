@@ -59,10 +59,10 @@ const WIDE_SOFT_BUDGET = 0;
 const CROSSING_BUDGET = 31;
 // The wrap corpus below: 100 state machines laid out on the reading-order grid alone (no
 // dagre, as a chain ships). 42 crossings when it was added, with every line count's even
-// split; 26 once a grid that crosses also tries moving one line break by one shape, and the
-// other direction, and keeps either only if it routes with no crossing and no fault (decision
-// note 2026-10-06-trama-crossing-aware-wrap.md).
-const WRAP_CROSSING_BUDGET = 26;
+// split; 24 once a picked grid that crosses also tries moving one line break by one shape, and
+// the other direction, and keeps either only if it routes with no crossing and no fault
+// (decision note 2026-10-06-trama-crossing-aware-wrap.md).
+const WRAP_CROSSING_BUDGET = 24;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -361,6 +361,15 @@ describe('graph-layout — the reading-order grid (wrap ratchet)', () => {
     assert.equal(geo.lines, 2);
     assert.equal(geo.crossings, 0);
     assert.equal(geo.scale, 1.25, 'at the type cap, as the even split was');
+    assert.deepEqual(geo.breaks, [4, 2], 'the geometry names its breaks, so the live pin can hold them');
+    // The pipeline pins the search's pick while the author types (pipeline.ts, `held`): the
+    // pinned call must draw exactly what the search drew, breaks included, and route it once.
+    // A pin without its breaks drew 3/3 while typing and jumped to 4/2 at every pause.
+    const k = graphLayoutKernel();
+    const pinned = k.layout({ shapes, groups: [], edges }, sizes, { ...opts, wrap: false, dir: geo.dir, grid: geo.lines, grow: false, breaks: geo.breaks }, null);
+    assert.deepEqual(JSON.parse(JSON.stringify(pinned.nodes)), JSON.parse(JSON.stringify(geo.nodes)));
+    assert.deepEqual(JSON.parse(JSON.stringify(pinned.routes)), JSON.parse(JSON.stringify(geo.routes)));
+    assert.equal(k.stats.routed, 1, 'a fixed grid is not reranked: dagre never places it');
   });
 });
 

@@ -2167,7 +2167,9 @@ export function graphLayoutKernel(): GraphKernel {
      * layout that routes without a crossing (most of them) pays nothing.
      */
     function reranked(geo: Geometry, d: 'lr' | 'tb', grown: boolean, reach: number): Geometry {
-      if (!(geo.crossings > 0)) return geo;
+      // A fixed placement (a grid, the caller's positions) has no ranks to rerank: dagre never
+      // places it, and laying it out again would route the same drawing twice for nothing.
+      if (!(geo.crossings > 0) || opts.grid != null || opts.positions != null) return geo;
       let keep = geo;
       for (const ranker of ['tight-tree', 'longest-path'] as const) {
         const raw = layoutOnce(model, sizes, { ...opts, dir: d, ranker, ...(grown ? {} : { grow: false }) }, dagre) as Geometry | null;
@@ -2209,16 +2211,7 @@ export function graphLayoutKernel(): GraphKernel {
       const chain = isChain(model);
       const st = opts.stage;
       const pref: 'lr' | 'tb' = dirs.length === 1 ? dirs[0] : st && st.h > st.w ? 'tb' : 'lr';
-      type Split = { breaks: number[]; bound: number };
-      type Cand = { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null; dagre?: boolean; ceil?: number; even?: boolean; splits?: Split[] };
-      const boundSplits = (d: 'lr' | 'tb', L: number): Split[] => {
-        const out: Split[] = [];
-        for (const breaks of unevenSplits(shapes.length, L)) {
-          const b = layoutOnce(model, sizes, { ...opts, dir: d, grid: L, grow: false, boundsOnly: true, breaks }, dagre);
-          if (b) out.push({ breaks, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000 });
-        }
-        return out;
-      };
+      type Cand = { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null; dagre?: boolean; ceil?: number };
       const cands: Cand[] = [];
       // A machine that branches keeps dagre's layout as its one-line candidate. Its bound is
       // its routed scale; until routed, only its ceiling is known (see dagreCeil).
@@ -2243,15 +2236,8 @@ export function graphLayoutKernel(): GraphKernel {
       };
       for (const d of dirs) {
         for (let L = chain ? 1 : 2; L <= Math.ceil(shapes.length / 2); L++) {
-          // The candidate's bound is its even split's, as it always was. A line count the even
-          // split cannot draw is bounded by its best near-even split, so only then are those
-          // bounded here; otherwise they are bounded when the even split routes badly.
           const b = layoutOnce(model, sizes, { ...opts, dir: d, grid: L, grow: false, boundsOnly: true }, dagre);
-          if (b) cands.push({ lines: L, dir: d, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000, geo: null, even: true });
-          else {
-            const splits = boundSplits(d, L);
-            if (splits.length) cands.push({ lines: L, dir: d, bound: Math.max(...splits.map((x) => x.bound)), geo: null, even: false, splits });
-          }
+          if (b) cands.push({ lines: L, dir: d, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000, geo: null });
         }
       }
       // A LEGIBLE FAN-OUT STAYS A FAN-OUT. Wrapping a graph that branches trades its shape
@@ -2272,84 +2258,66 @@ export function graphLayoutKernel(): GraphKernel {
       if (dCand && dCand.ceil >= gridMax && !resolveD()) return null;
       if (!cands.length) { const d = dagreNow(); return failed ? null : d ? d.geo : null; }
       cands.sort((a, b) => (a.lines - b.lines) || ((a.dir === pref ? 0 : 1) - (b.dir === pref ? 0 : 1)));
-      const routeSplit = (c: Cand, breaks: number[] | null): Geometry | null => {
+      const routeGrid = (c: Cand, breaks: number[] | null): Geometry | null => {
         const g = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false, ...(breaks ? { breaks } : {}) }, dagre) as Geometry | null;
         if (!g) return null;
         const geo = scaled(g);
         geo.lines = c.lines;
+        if (breaks) geo.breaks = breaks;
         return geo;
       };
-      // WHERE THE LINES BREAK. A grid candidate is one line count in one direction, and its
-      // shapes stay in reading order; what can still move is where each line ends. The even
-      // split is routed first and kept when it routes clean, which is most charts, so they pay
-      // nothing. When it crosses or faults, up to SPLIT_TRIES near-even splits (one break moved
-      // by one shape, `unevenSplits`) are routed, largest bound first, and one replaces it only
-      // when it routes SPOTLESS (no fault, no crossing) at 97% of its type or more, never past
-      // the candidate's bound, which the pick reads as a ceiling. Spotless only, rather than
-      // merely fewer crossings, so the even split stays put unless the move clears the drawing:
-      // a partial gain flipped the layout between keystrokes for one crossing. A line count
-      // whose even split cannot be drawn at all (a line would hold a lone state) joins the pick
-      // only through a spotless split, so a new candidate never wins on type with lines that
-      // cross (measured: the stress deck's incident machine at three lines, 1.05, three
-      // crossings, against two lines at 0.76 with one).
-      const SPLIT_TRIES = 2;
-      const spotless = (g: Geometry) => !hard(g) && !soft(g) && g.crossings === 0;
-      const routed = new Set<Cand>();
       const route = (c: Cand) => {
-        if (!routed.has(c) && !c.dagre) {
-          routed.add(c);
-          let keep: Geometry | null = c.even ? routeSplit(c, null) : null;
-          if (!keep || !spotless(keep)) {
-            let tries = 0;
-            const splits = c.splits || (c.splits = boundSplits(c.dir, c.lines));
-            for (const sp of splits.slice().sort((a, b) => b.bound - a.bound)) {
-              if (tries >= SPLIT_TRIES || (keep && sp.bound < (keep.scale ?? 0) * 0.97)) break;
-              tries++;
-              const alt = routeSplit(c, sp.breaks);
-              if (!alt) continue;
-              // Held under the candidate's bound, which the pick reads as a ceiling.
-              if ((alt.scale ?? 0) > c.bound) continue;
-              if (spotless(alt) && (!c.even || (keep && (alt.scale ?? 0) >= (keep.scale ?? 0) * 0.97))) keep = alt;
-              if (keep && spotless(keep)) break;
-            }
-          }
-          c.geo = keep;
-        }
+        if (!c.geo) c.geo = routeGrid(c, null);
         return c.geo ? c.geo.scale ?? 0 : 0;
       };
-      // THE SAME LINES, THE OTHER WAY. The pick prefers the stage's own direction, which is a
-      // tie-break, not a reason to keep a crossing: when the picked grid crosses, the grid with
-      // as many lines the other way is routed too, and taken only when it routes spotless at
-      // 97% of the type or more (the 'branching' slide of the state-chart polish deck: three
-      // crossings across, none down, at 1.243 to 1.25).
+      /**
+       * A PICK THAT CROSSES, CALMED. The pick below is the one it always was; only when the
+       * grid it picked routes with a crossing (or a fault) does this look further, and only at
+       * that one candidate, so a chart that routes clean pays nothing and the pick's own proof
+       * is untouched:
+       *  - WHERE THE LINES BREAK: the shapes stay in reading order, but one line break may move
+       *    by one shape (`unevenSplits`), which is what separates a side state (Blocked,
+       *    Escalated) from the run it would otherwise cut across. Up to SPLIT_TRIES of them,
+       *    largest bound first.
+       *  - THE SAME LINES, THE OTHER WAY: the stage's own direction is a tie-break, not a
+       *    reason to keep a crossing (the state-chart polish deck's 'branching' slide: three
+       *    crossings across, none down, at 1.243 against 1.25).
+       * A replacement must route SPOTLESS (no fault, no crossing) at 97% of the type or more.
+       * Spotless, not merely fewer: a partial gain flipped the layout between keystrokes for
+       * one crossing. And it happens here, at the pick, not while candidates are routed: the
+       * first build calmed every live candidate, which cost a 40-state chain 1.5 s (0.5 s on
+       * main) in routings that were thrown away, and let a line count the even split cannot
+       * draw win on type through a split, which tripled the incident machine's typing time.
+       */
+      const SPLIT_TRIES = 1;
+      const spotless = (g: Geometry) => !hard(g) && !soft(g) && g.crossings === 0;
       const calm = (c: Cand): Geometry | null => {
         const g = c.geo;
-        if (!g || c.dagre || !(g.crossings > 0)) return g;
-        let keep = g;
-        for (const o of cands) {
-          if (o === c || o.dagre || o.lines !== c.lines || o.bound < (g.scale ?? 0) * 0.97) continue;
-          route(o);
-          if (o.geo && spotless(o.geo) && (o.geo.scale ?? 0) >= (g.scale ?? 0) * 0.97) { keep = o.geo; break; }
+        if (!g || c.dagre || spotless(g)) return g;
+        const floor = (g.scale ?? 0) * 0.97;
+        const better = (alt: Geometry | null) => !!alt && spotless(alt) && (alt.scale ?? 0) >= floor;
+        const splits: { breaks: number[]; bound: number }[] = [];
+        for (const breaks of unevenSplits(shapes.length, c.lines)) {
+          const b = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false, boundsOnly: true, breaks }, dagre);
+          if (b) splits.push({ breaks, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000 });
         }
-        return keep;
+        splits.sort((x, y) => y.bound - x.bound);
+        for (const sp of splits.slice(0, SPLIT_TRIES)) {
+          if (sp.bound < floor) break;
+          const alt = routeGrid(c, sp.breaks);
+          if (alt && better(alt)) return alt;
+        }
+        const o = cands.find((x) => x !== c && !x.dagre && x.lines === c.lines);
+        if (o && o.bound >= floor) {
+          route(o);
+          if (o.geo && better(o.geo)) return o.geo;
+        }
+        return g;
       };
       // The candidate that can reach furthest sets a floor: one whose bound cannot come
       // within WRAP_GAIN of it is never picked, so it is never routed. (An unrouted dagre
       // candidate never reaches here as top: its ceiling was below some grid bound.)
-      // A line count only a near-even split can draw is a candidate only if one routes spotless.
-      // When one would set the floor, it is routed now and dropped if none does: a candidate with
-      // no drawing would set a floor of 0, and every other candidate would be routed for nothing.
-      let top = cands.reduce((m, c) => (c.bound > m.bound ? c : m));
-      const drawsNothing = (c: Cand) => {
-        if (c.even || c.dagre) return false;
-        route(c);
-        return !c.geo;
-      };
-      while (drawsNothing(top)) {
-        cands.splice(cands.indexOf(top), 1);
-        if (!cands.length) { const d = dagreNow(); return failed ? null : d ? d.geo : null; }
-        top = cands.reduce((m, c) => (c.bound > m.bound ? c : m));
-      }
+      const top = cands.reduce((m, c) => (c.bound > m.bound ? c : m));
       // THE PICK, PROVEN EARLY. Walk the candidates in preference order and route only those
       // surely live (their bound within WRAP_GAIN of the top's, which the floor cannot
       // exceed). The first one with no hard fault whose scale is within WRAP_GAIN of every

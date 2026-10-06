@@ -164,6 +164,8 @@ export interface Geometry {
   scale?: number;
   /** Set when the drawing is a reading-order grid: how many lines it runs on. */
   lines?: number;
+  /** Set when that grid breaks its lines unevenly: how many shapes each line holds, in order. */
+  breaks?: number[];
 }
 
 /** The dagre build Trama is handed: it never imports one. */
