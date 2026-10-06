@@ -15,9 +15,9 @@
  * uppercase label is stored in capitals.
  */
 
-import { type FontMetrics, faceFor, facesUsed } from './fonts';
+import { type FontMetrics, faceFor, faceKey, facesUsed } from './fonts';
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame } from './layout';
-import { renameFace, toEot } from './sfnt';
+import { canEmbedAsEot, renameFace, toEot } from './sfnt';
 import type { Deck, EmbeddedFont, JSZipClass, TextRun } from './types';
 
 const WEIGHT_NAMES: Record<number, string> = { 100: 'Thin', 200: 'ExtraLight', 300: 'Light', 400: '', 500: 'Medium', 600: 'SemiBold', 700: 'Bold', 800: 'ExtraBold', 900: 'Black' };
@@ -91,7 +91,7 @@ export function pptxPageSize(width: number, height: number): { w: number; h: num
 /**
  * Build the presentation. Returns the PptxGenJS instance; call `write({ outputType })`.
  */
-export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { embedFonts?: boolean }): PptxGenJSLike {
+export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { embedded?: EmbeddingPlan }): PptxGenJSLike {
 	if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
 		throw new Error('calco: no slides to write');
 	}
@@ -121,10 +121,13 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		const s = run.style;
 		// An embedded face is named as its own family and carries its weight and slant; a
 		// system font is asked for by family, with OOXML's bold and italic flags.
-		const face = options?.embedFonts ? faceFor(s, fonts) : null;
+		// Only the run's EXACT face, and only when the file carries it: a nearest-weight
+		// stand-in or a face that could not be embedded would name a family nobody has.
+		const name = options?.embedded?.byKey.get(faceKey(s.family, s.weight, s.italic));
+		const face = name !== undefined;
 		const opts: Record<string, unknown> = {
-			fontFace: face ? pptxFaceName(face) : safeFamily(s.family),
-			fontSize: points(s.size),
+			fontFace: face ? name : safeFamily(s.family),
+			fontSize: Math.max(1, points(s.size)), // OOXML: 1pt is the smallest size (a 2px spacer on a wide deck)
 			color: bareHex(s.alpha < 1 && s.flatColor ? s.flatColor : s.color),
 			bold: face ? false : s.weight >= 600,
 			italic: face ? false : s.italic,
@@ -179,17 +182,37 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 
 export const PPTX_MIMETYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
-/** The faces a deck's runs draw with, as embeddable TrueType (CFF faces cannot be EOT-wrapped). */
-function embeddableFaces(deck: Deck): EmbeddedFont[] {
+/** What a .pptx embeds: each face once, under a family name no other face uses, and the run styles it serves. */
+export interface EmbeddingPlan {
+	faces: Array<{ face: EmbeddedFont; name: string }>;
+	/** `faceKey(family, weight, italic)` of a run style → the embedded family it names. */
+	byKey: Map<string, string>;
+}
+
+/**
+ * Plan the embedding: every run style whose exact face the deck carries as TrueType with the
+ * tables an EOT header repeats. Names are unique: two weights that round to one name
+ * ("Outfit Bold" for 700 and 720) keep the second's number ("Outfit 720").
+ */
+export function planEmbedding(deck: Deck): EmbeddingPlan {
 	const fonts = deck.fonts || [];
-	const out: EmbeddedFont[] = [];
+	const plan: EmbeddingPlan = { faces: [], byKey: new Map() };
+	const taken = new Set<string>();
 	for (const use of facesUsed(deck)) {
 		const face = faceFor(use, fonts);
-		if (!face || out.includes(face)) continue;
-		const b = face.bytes;
-		if (b.length > 4 && b[0] === 0x00 && b[1] === 0x01 && b[2] === 0x00 && b[3] === 0x00) out.push(face);
+		if (!face || face.weight !== use.weight || !canEmbedAsEot(face.bytes)) continue;
+		let entry = plan.faces.find((f) => f.face === face);
+		if (!entry) {
+			let name = pptxFaceName(face);
+			if (taken.has(name)) name = [safeFamily(face.family), String(face.weight), face.italic ? 'Italic' : ''].filter(Boolean).join(' ');
+			if (taken.has(name)) continue;
+			taken.add(name);
+			entry = { face, name };
+			plan.faces.push(entry);
+		}
+		plan.byKey.set(faceKey(use.family, use.weight, use.italic), entry.name);
 	}
-	return out;
+	return plan;
 }
 
 type ZipLike = {
@@ -203,7 +226,7 @@ type ZipLike = {
  * `p:embeddedFontLst` right after `p:notesSz` (where the schema puts it), with
  * `embedTrueTypeFonts="1"` on the presentation.
  */
-export async function embedPptxFonts(JSZip: JSZipClass, bytes: Uint8Array, faces: EmbeddedFont[]): Promise<Uint8Array> {
+export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, faces: EmbeddingPlan['faces'], outputType = 'uint8array'): Promise<T> {
 	const zip = (await (JSZip as unknown as { loadAsync(b: Uint8Array): Promise<ZipLike> }).loadAsync(bytes)) as ZipLike;
 	const read = async (name: string) => {
 		const f = zip.file(name);
@@ -220,8 +243,7 @@ export async function embedPptxFonts(JSZip: JSZipClass, bytes: Uint8Array, faces
 	};
 	const entries: string[] = [];
 	const relXml: string[] = [];
-	faces.forEach((face, i) => {
-		const name = pptxFaceName(face);
+	faces.forEach(({ face, name }, i) => {
 		const eot = toEot(renameFace(face.bytes, name), { family: name });
 		const part = `fonts/calco-font${i + 1}.fntdata`;
 		const id = `rIdCalcoFont${i + 1}`;
@@ -238,7 +260,8 @@ export async function embedPptxFonts(JSZip: JSZipClass, bytes: Uint8Array, faces
 	const after = notesSz.index + notesSz[0].length;
 	pres = `${pres.slice(0, after)}<p:embeddedFontLst>${entries.join('')}</p:embeddedFontLst>${pres.slice(after)}`;
 	zip.file('ppt/presentation.xml', pres);
-	return (await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })) as Uint8Array;
+	// JSZip writes every output type PptxGenJS does (uint8array, nodebuffer, blob, arraybuffer, base64, binarystring).
+	return (await zip.generateAsync({ type: outputType, mimeType: PPTX_MIMETYPE, compression: 'DEFLATE' })) as T;
 }
 
 /**
@@ -246,13 +269,8 @@ export async function embedPptxFonts(JSZip: JSZipClass, bytes: Uint8Array, faces
  * Pass `JSZip` to embed the deck's fonts; without it the runs name their families only.
  */
 export async function writePptx<T = Uint8Array>(PptxGenJS: PptxGenJSClass, deck: Deck, outputType = 'uint8array', JSZip?: JSZipClass): Promise<T> {
-	const faces = JSZip ? embeddableFaces(deck) : [];
-	if (!faces.length) return (await buildPptx(PptxGenJS, deck).write({ outputType })) as T;
-	const raw = (await buildPptx(PptxGenJS, deck, { embedFonts: true }).write({ outputType: 'uint8array' })) as Uint8Array;
-	const bytes = await embedPptxFonts(JSZip as JSZipClass, raw, faces);
-	if (outputType === 'uint8array') return bytes as T;
-	if (outputType === 'nodebuffer') return (globalThis as unknown as { Buffer: { from(b: Uint8Array): unknown } }).Buffer.from(bytes) as T;
-	if (outputType === 'blob') return new Blob([bytes as BlobPart], { type: PPTX_MIMETYPE }) as T;
-	if (outputType === 'arraybuffer') return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as T;
-	throw new Error(`calco: output type ${outputType} is not supported with embedded fonts`);
+	const plan = JSZip ? planEmbedding(deck) : null;
+	if (!plan?.faces.length) return (await buildPptx(PptxGenJS, deck).write({ outputType })) as T;
+	const raw = (await buildPptx(PptxGenJS, deck, { embedded: plan }).write({ outputType: 'uint8array' })) as Uint8Array;
+	return embedPptxFonts<T>(JSZip as JSZipClass, raw, plan.faces, outputType);
 }

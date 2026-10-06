@@ -70,7 +70,9 @@ export function embeddingAllowed(bytes: Uint8Array): boolean {
 		if (String.fromCharCode(bytes[rec], bytes[rec + 1], bytes[rec + 2], bytes[rec + 3]) !== 'OS/2') continue;
 		const at = view.getUint32(rec + 8);
 		if (at + 10 > bytes.length) return false;
-		return (view.getUint16(at + 8) & 0x000f) !== 0x0002;
+		const fsType = view.getUint16(at + 8);
+		// Restricted (bit 1) forbids embedding; bitmap-only (bit 9) forbids the outlines Calco embeds.
+		return (fsType & 0x000f) !== 0x0002 && (fsType & 0x0200) === 0;
 	}
 	return readFontMetrics(bytes) !== null;
 }

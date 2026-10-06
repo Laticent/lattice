@@ -88,8 +88,39 @@ function utf16be(s: string): Uint8Array {
 	return out;
 }
 
-/** The name records a renamed face carries: Windows platform, Unicode BMP, US English. */
-function nameTable(family: string, version: string): Uint8Array {
+/** Name IDs a rename replaces: the family, style, unique, full, version and PostScript names, and the typographic and variations names that would contradict them. */
+const RENAMED_IDS = new Set([1, 2, 3, 4, 5, 6, 16, 17, 21, 22, 25]);
+
+interface NameRecord {
+	platform: number;
+	encoding: number;
+	language: number;
+	id: number;
+	bytes: Uint8Array;
+}
+
+/** Every record of a name table, so a rename can keep the copyright, license and the names STAT and the stylistic sets point at. */
+function nameRecords(t: Table | undefined): NameRecord[] {
+	if (!t || t.data.length < 6) return [];
+	const v = new DataView(t.data.buffer, t.data.byteOffset, t.data.byteLength);
+	const count = v.getUint16(2);
+	const storage = v.getUint16(4);
+	const out: NameRecord[] = [];
+	for (let i = 0; i < count && 6 + i * 12 + 12 <= t.data.length; i++) {
+		const r = 6 + i * 12;
+		const len = v.getUint16(r + 8);
+		const off = storage + v.getUint16(r + 10);
+		if (off + len > t.data.length) continue;
+		out.push({ platform: v.getUint16(r), encoding: v.getUint16(r + 2), language: v.getUint16(r + 4), id: v.getUint16(r + 6), bytes: t.data.slice(off, off + len) });
+	}
+	return out;
+}
+
+/**
+ * The name table a renamed face carries: its own Windows (Unicode BMP, US English) records
+ * for the IDs a rename owns, and every other record of the original kept as it was.
+ */
+function nameTable(family: string, version: string, keep: NameRecord[] = []): Uint8Array {
 	const ps = family.replace(/[^A-Za-z0-9-]/g, '');
 	const records: Array<[number, string]> = [
 		[1, family],
@@ -99,25 +130,30 @@ function nameTable(family: string, version: string): Uint8Array {
 		[5, version],
 		[6, ps || 'CalcoFace'],
 	];
-	const strings = records.map(([, s]) => utf16be(s));
-	const headerLen = 6 + records.length * 12;
-	const total = headerLen + strings.reduce((n, s) => n + s.length, 0);
+	const all: NameRecord[] = [
+		...keep.filter((r) => !RENAMED_IDS.has(r.id)),
+		...records.map(([id, text]) => ({ platform: 3, encoding: 1, language: 0x409, id, bytes: utf16be(text) })),
+	];
+	// The spec orders records by platform, encoding, language, then name ID.
+	all.sort((a, b) => a.platform - b.platform || a.encoding - b.encoding || a.language - b.language || a.id - b.id);
+	const headerLen = 6 + all.length * 12;
+	const total = headerLen + all.reduce((n, r) => n + r.bytes.length, 0);
 	const out = new Uint8Array(total);
 	const v = new DataView(out.buffer);
 	v.setUint16(0, 0);
-	v.setUint16(2, records.length);
+	v.setUint16(2, all.length);
 	v.setUint16(4, headerLen);
 	let off = 0;
-	records.forEach(([id], i) => {
+	all.forEach((rec, i) => {
 		const r = 6 + i * 12;
-		v.setUint16(r, 3); // Windows
-		v.setUint16(r + 2, 1); // Unicode BMP
-		v.setUint16(r + 4, 0x409); // en-US
-		v.setUint16(r + 6, id);
-		v.setUint16(r + 8, strings[i].length);
+		v.setUint16(r, rec.platform);
+		v.setUint16(r + 2, rec.encoding);
+		v.setUint16(r + 4, rec.language);
+		v.setUint16(r + 6, rec.id);
+		v.setUint16(r + 8, rec.bytes.length);
 		v.setUint16(r + 10, off);
-		out.set(strings[i], headerLen + off);
-		off += strings[i].length;
+		out.set(rec.bytes, headerLen + off);
+		off += rec.bytes.length;
 	});
 	return out;
 }
@@ -150,7 +186,7 @@ export function renameFace(bytes: Uint8Array, family: string): Uint8Array {
 	const { flavor, tables } = readTables(bytes);
 	const version = versionOf(tables);
 	const next = tables.map((t) => {
-		if (t.tag === 'name') return { tag: 'name', data: nameTable(family, version) };
+		if (t.tag === 'name') return { tag: 'name', data: nameTable(family, version, nameRecords(t)) };
 		if (t.tag === 'OS/2' && t.data.length >= 64) {
 			const d = t.data.slice();
 			const v = new DataView(d.buffer);
@@ -196,6 +232,23 @@ function utf16le(s: string): Uint8Array {
 		out[i * 2 + 1] = s.charCodeAt(i) >> 8;
 	}
 	return out;
+}
+
+/**
+ * Whether `toEot` can wrap a face: TrueType outlines (an EOT holds no CFF), a table
+ * directory that reads, an OS/2 of version 1 or later (it carries the code-page ranges the
+ * header repeats) and a head table. A face that fails is named, not embedded.
+ */
+export function canEmbedAsEot(bytes: Uint8Array): boolean {
+	if (bytes.length < 12 || bytes[0] !== 0x00 || bytes[1] !== 0x01 || bytes[2] !== 0x00 || bytes[3] !== 0x00) return false;
+	try {
+		const { tables } = readTables(bytes);
+		const os2 = tables.find((t) => t.tag === 'OS/2')?.data;
+		const head = tables.find((t) => t.tag === 'head')?.data;
+		return !!os2 && os2.length >= 86 && !!head && head.length >= 54;
+	} catch {
+		return false;
+	}
 }
 
 /**

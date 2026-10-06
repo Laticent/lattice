@@ -147,6 +147,18 @@ describe('calco reader in Chromium', () => {
     await f.evaluate(restoreSlide);
     assert.equal(await page.evaluate(() => document.body.innerHTML), before);
   });
+
+  test('a wrapper that would change only PAINT (a :first-child background) also falls back', { timeout: 60000 }, async () => {
+    // `<p>Plain <b>hi</b>`: wrapping "Plain" makes <b> no longer the first child, and its
+    // yellow background would vanish from the picture while every word stays put.
+    await page.setContent('<style>p > b:first-child { background: rgb(255, 255, 0); }</style><section id="g" style="width:600px;height:300px"><p>Plain <b>hi</b></p></section>');
+    const g = await page.$('#g');
+    const res = await g.evaluate(readSlide, { hide: true });
+    assert.equal(res.hidden, true);
+    const state = await page.evaluate(() => ({ wrapped: !!document.querySelector('calco-hide'), bg: getComputedStyle(document.querySelector('b')).backgroundColor }));
+    assert.deepEqual(state, { wrapped: false, bg: 'rgb(255, 255, 0)' });
+    await g.evaluate(restoreSlide);
+  });
 });
 
 // The cases the adversarial review of the first cut found (decision note §5): each one
@@ -175,6 +187,7 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .grad { left: 700px; top: 560px; width: 400px; padding: 10px; background: #003366 linear-gradient(90deg, #00aa00 0 6px, transparent 6px); }
   .grad p { margin: 0; color: rgba(255, 255, 255, 0.76); letter-spacing: 3px; font-size: 14px; }
   .grad .plain { letter-spacing: normal; }
+  .tall { left: 40px; top: 20px; width: 600px; font: 20px/1.5 sans-serif; }
 </style></head><body>
 <section id="r">
   <p class="ws"><b>bold</b> <i>italic</i></p>
@@ -190,6 +203,7 @@ third</pre>
   <pre class="wrapcode">const value = "a long string that wraps";</pre>
   <p class="chip"><code>render</code> is derived</p>
   <div class="grad"><p>THE PREMISE</p><p class="plain">Not spaced</p></div>
+  <p class="tall">one two three four five<br>six <span style="font-size: 40px">BIG</span> seven<br>eight nine ten</p>
 </section></body></html>`;
 
 describe('calco reader: the review cases', () => {
@@ -257,5 +271,9 @@ describe('calco reader: the review cases', () => {
   test('letter-spaced translucent text over a gradient is flattened (LibreOffice clips it otherwise)', () => {
     assert.equal(find(/THE PREMISE/).lines[0][0].style.flatColor, '#c2ceda');
     assert.equal(find(/Not spaced/).lines[0][0].style.flatColor, undefined, 'unspaced text keeps its opacity over a gradient');
+  });
+
+  test('a taller inline in prose never adds a blank line', () => {
+    assert.deepEqual(find(/BIG/).lines.map((l) => l.map((r) => r.text).join('')), ['one two three four five', 'six BIG seven', 'eight nine ten']);
   });
 });

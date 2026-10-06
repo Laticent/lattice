@@ -144,7 +144,9 @@ freeze. Both paths restore the DOM byte for byte.
 ## 5a. What the adversarial review changed
 
 The red team, a Munger inversion and an independent checker reviewed the first cut
-(commit 2fef869). Every finding below was reproduced, fixed and given a test:
+(commit 2fef869); a second independent checker reviewed the font embedding and the hide
+rewrite that came after, and wider decks rendered in LibreOffice 26.8 found two more. Every
+finding below was reproduced, fixed and given a test:
 
 | Finding | Fix |
 |---|---|
@@ -161,6 +163,12 @@ The red team, a Munger inversion and an independent checker reviewed the first c
 | A restricted-license font would be embedded by a non-Lattice host | `fsType` bit 1 refuses it (`embeddingAllowed`); Lattice's faces are all OFL |
 | A letter-spaced translucent eyebrow over a gradient lost its last letters in LibreOffice ("THE PREMI") | LibreOffice clips letter-spaced text drawn with opacity; such text is flattened over the gradient's base color (never over a `url()` image) |
 | The gap after a small padded code chip collapsed | at a style boundary a 1px difference already makes a spacer |
+| A `.pptx` run whose exact face was not embedded (CFF, a failed fetch) named a renamed family nobody had, and lost its bold | `planEmbedding` maps only exact, embeddable faces; every other run names its family with bold at 600+ |
+| Two weights that round to one name ("Outfit Bold" for 700 and 720) were listed twice | names are unique; the second keeps its number ("Outfit 720") |
+| A renamed face dropped its copyright and the names STAT points at | the rename replaces only the IDs it owns (1–6, 16, 17, 21, 22, 25) |
+| A face `toEot` could not wrap failed the whole export | `canEmbedAsEot` checks first; that face is named instead. Bitmap-only fsType is refused too |
+| A taller inline in prose became a blank line inside the paragraph | blank lines are inserted for preformatted text only |
+| A wrapper flipped `:first-child` and changed paint without moving a word | the hide also compares the paint of the parents and siblings, and falls back to the color freeze |
 | PowerPoint would re-wrap a line set in a wider substitute font | `.pptx` boxes do not wrap, and the fonts are now embedded (§6) |
 
 Recorded, not fixed: PowerPoint itself (§6), the AGPL license for a library meant for

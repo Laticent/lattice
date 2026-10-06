@@ -10,9 +10,10 @@ export { embeddingAllowed, faceFor, facesUsed, nearestFace, pinFeatures, prepare
 export type { PlacedBox } from './layout';
 export { applyTransform, placeFrame } from './layout';
 export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp';
-export type { PptxGenJSClass, PptxGenJSLike } from './pptx';
-export { buildPptx, embedPptxFonts, PPTX_MIMETYPE, pptxFaceName, pptxPageSize, writePptx } from './pptx';
+
+export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx';
+export { buildPptx, embedPptxFonts, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, writePptx } from './pptx';
 export type { ReadOptions, ReadResult } from './reader';
 export { readSlide, restoreSlide } from './reader';
-export { familyNameOf, renameFace, toEot } from './sfnt';
+export { canEmbedAsEot, familyNameOf, renameFace, toEot } from './sfnt';
 export type * from './types';

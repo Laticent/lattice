@@ -398,9 +398,11 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// computed line-height is a pitch even when no two lines sit one step apart. (Prose is
 		// not given this: an inline child can make a line taller than the block's line-height.)
 		const declared = Number.parseFloat(bcs.lineHeight);
-		if (words.some((wd) => wd.pre) && declared > firstH * 0.5) steps.push(declared);
+		const preformatted = words.some((wd) => wd.pre);
+		if (preformatted && declared > firstH * 0.5) steps.push(declared);
 		const lineHeight = steps.length ? Math.min(...steps) : lines.length > 1 ? (lastTop - firstTop) / (lines.length - 1) : firstH;
-		for (let k = lines.length - 1; k > 0; k--) {
+		// A tall inline in prose makes an uneven step, not a blank line: only code gets them.
+		for (let k = lines.length - 1; preformatted && k > 0; k--) {
 			const blanks = Math.round((tops[k] - tops[k - 1]) / lineHeight) - 1;
 			if (blanks > 0 && blanks < 50) lines.splice(k, 0, ...Array.from({ length: blanks }, () => [] as Word[]));
 		}
@@ -476,6 +478,29 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 			for (const r of deco) r();
 		};
+		// A wrapper is an element, so it can also change PAINT without moving a word: it flips
+		// `:first-child`, `:only-child` or `:has(> x:only-child)` for the elements around it.
+		// Snapshot what such a rule paints on the parents, grandparents and element siblings
+		// of every wrapped node, and fall back if any of it changes.
+		const PAINT = [
+			'background-color', 'background-image', 'border-top-color', 'border-top-width', 'border-bottom-color', 'border-bottom-width',
+			'border-left-color', 'border-left-width', 'border-right-color', 'border-right-width', 'outline-style', 'outline-width',
+			'outline-color', 'box-shadow', 'display', 'visibility', 'opacity', 'color',
+		];
+		const watched = new Set<Element>();
+		for (const wd of kept) {
+			const parent = wd.node.parentElement;
+			if (!parent) continue;
+			watched.add(parent);
+			if (parent.parentElement) watched.add(parent.parentElement);
+			for (const child of Array.from(parent.children)) watched.add(child);
+		}
+		const paintOf = (el: Element) => {
+			const cs = win.getComputedStyle(el);
+			return PAINT.map((p) => cs.getPropertyValue(p)).join('|');
+		};
+		const paintBefore = new Map<Element, string>();
+		for (const el of watched) paintBefore.set(el, paintOf(el));
 		for (const node of new Set(kept.map((wd) => wd.node))) {
 			if (!node.parentNode) continue;
 			const wrap = doc.createElement('calco-hide');
@@ -503,6 +528,12 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			probe.setEnd(wd.node, wd.end);
 			const r = probe.getClientRects()[0];
 			if (!r || Math.abs((r.left - now.left) / k - wd.x) > 0.5 || Math.abs((r.top - now.top) / k - wd.y) > 0.5) {
+				undo();
+				return false;
+			}
+		}
+		for (const [el, before] of paintBefore) {
+			if (paintOf(el) !== before) {
 				undo();
 				return false;
 			}
