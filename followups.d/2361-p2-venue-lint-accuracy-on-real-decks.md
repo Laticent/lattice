@@ -139,6 +139,16 @@ progress  — 2026-10-05 (2): the out-of-sample sweep is in the tree too:
             the branch and on the base and renders each changed verdict (NEW CATCH / NEW FALSE /
             FALSE GONE / LOST CATCH, and any change at a deck's own size). On #2517 against
             4ce0d29 it reproduces 34 / 0 / 3 / 0, own size 0.
+progress  — 2026-10-06 (font-scale-fit.md Amendment (9)): `compare-prose` (closing note included)
+            and `cycle` are judged by lines; glossary under an eyebrow reads a 4k-measured row on a 4k deck. Five decks,
+            right/false/missed: huddle 25/1/23 → 28/1/20, conference 61/3/55 → 75/3/41, hall
+            114/0/50 → 119/0/45. Sweep vs df6e3f5: 23 new catches, 0 new false, 1 false gone,
+            0 lost, own size 0. The glossary "term column" lead was wrong: terms are `nowrap`, and
+            talk 75/76 clip on the 4k basis with every definition on one line.
+            LEFT, by misses across the venues: split-panel 16, list-steps 10, compare-prose 6
+            (`axis`, a `transition` with a subtitle line, gallery 12 at conference), roadmap /
+            list-tabular / image / content 5 each, table and matrix-2x2 4. Next: the split-panel
+            POINTS column, and list-steps' own registers (`phase`, `milestone`, `vertical`, `capsule`).
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.

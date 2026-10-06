@@ -34,7 +34,7 @@
 
 const { gradedDeck, renderProbe, cap } = require('./calibrate-core.js');
 const { resolveChrome } = require('./resolve-chrome.js');
-const { FRAME_TOLERANCE } = require('../../lib/core/overflow-probe.js');
+const { FRAME_TOLERANCE, probeSectionOverflow, CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR } = require('../../lib/core/overflow-probe.js');
 
 const JSON_OUT = process.argv.includes('--json');
 function die(msg) {
@@ -48,31 +48,66 @@ const ROWS = {
   list: { bare: ['flat'], takeaway: ['flat', 'nested'], 'takeaway numbered': ['flat', 'nested'] },
   'cards-grid': { bare: ['nested'], three: ['nested'], four: ['nested'] },
   'list-steps': { bare: ['nested'] },
+  // Two cards in one row, a title over a body (Amendment (9)); `vertical` stacks them, one column.
+  'compare-prose': { bare: ['nested'], transition: ['nested'], mirror: ['nested'], chosen: ['nested'], decision: ['nested'], vertical: ['nested'], 'mirror chosen': ['nested'], 'chosen vertical': ['nested'] },
+  // A ring of stages in one row, each a name over one clause (Amendment (9)).
+  cycle: { bare: ['nested'] },
 };
 // Columns per register; 0 is ONE ROW of every item (list-steps), where a step's width is the
 // stage's shared by the step count, so each role's characters are measured per count (ONE_ROW).
 // At six steps the columns reach their minimum width and the row stops sharing (the budget drops by
 // a line), so a longer row keeps its count row.
-const COLS = { 'cards-grid': 2, 'cards-grid three': 3, 'cards-grid four': 4, 'list-steps': 0 };
-const ONE_ROW = [2, 3, 4, 5];
+const COLS = { 'cards-grid': 2, 'cards-grid three': 3, 'cards-grid four': 4, 'list-steps': 0, 'compare-prose': 0, 'compare-prose transition': 0, 'compare-prose mirror': 0, 'compare-prose chosen': 0, 'compare-prose decision': 0, 'compare-prose mirror chosen': 0, cycle: 0 };
+// The item counts a one-row register is measured at, from two (lint reads a count's characters at
+// index `count - 2`). compare-prose is two cards by contract. cycle documents three to six stages,
+// but at six a hall column is narrower than the probe's longest word (every role reads 10.7 there,
+// the word, not the column), so a six-stage ring keeps its count row, as list-steps does.
+const ONE_ROW_AT = { 'list-steps': [2, 3, 4, 5], 'compare-prose': [2], cycle: [2, 3, 4, 5] };
 // list-steps lays out a ROW only as an ordered list (`1.`), the form it documents; written with `-`
 // it is a plain vertical list, which keeps its count row.
 const ORDERED_ONLY = new Set(['list-steps']);
+// cycle styles only `ul > li` (an `ol` renders as a plain list), and compare-prose writes `1.` only
+// in `axis`, which this rig does not measure: both are measured unordered only, and the row is
+// stored with `ul: 1` so lint keeps an ordered slide on its count row.
+const UNORDERED_ONLY = new Set(['compare-prose', 'cycle']);
+// A ring the stage CENTERS (cycle: `justify-content: safe center`). An overflowing probe's text runs
+// out of its card, so the card's bottom padding, the ring's reserved arc band and its ↻ mark (drawn
+// half below the ring) sit inside the text's overflow and never reach the overhead. On a real slide
+// near the edge the ring is centered, and the export flags it once the mark's overhang passes the
+// free space below it: overhang − (stage − ring) / 2 > FRAME_TOLERANCE. So the probe lets the list
+// grow to its content (the whole ring counted), and the budget gives back the overhang past the
+// tolerance, twice halved: talk slide 3 (four short stages) clips at huddle by 12 px and read 20%
+// under without it (Amendment (9)). compare-prose is NOT grown: its stage does not center, and its
+// card's bottom padding is squeezable — the export flags nothing until text leaves the card
+// (kaizen slide 10 at huddle, 25 px into the padding, renders whole).
+const GROW = new Set(['cycle']);
 
 const SAMPLE = 'you recall syntax patterns and standards so the path is known and the job is to follow it without error while the team learns what a real answer should look like before anyone writes code'.split(' ');
 const prose = (n, from = 0) => cap(Array.from({ length: n }, (_, i) => SAMPLE[(i + from) % SAMPLE.length]).join(' '));
 
 /** One probe slide: long enough in every role that each wraps and the stage overflows. */
-function probe({ cls, shape, n, eyebrow, callout, ol }) {
+// Words in a nested body. Two compare-prose cards share the whole stage, so a 40-word body leaves
+// the laptop probe with no eyebrow short of the stage's foot; a probe that fits measures nothing.
+const BODY_WORDS = { 'compare-prose': 110 };
+// Components whose slide may close on a NOTE, a paragraph under the list inside the stage
+// (compare-prose `:is(ul, ol) + p`): measured as its own role, with the block's cost (`noteAt`).
+const NOTE = new Set(['compare-prose']);
+// Components whose overflow is read with the export's own probe (`probeSectionOverflow`) rather
+// than the stage's scroll height. A note sits under the squeezed cards, so the cards' text runs
+// down past it, and a scroll height takes the larger of the two where the export measures the
+// cards against the note's top: the sum, which is what the model adds.
+const PROBED = new Set(['compare-prose']);
+function probe({ cls, shape, n, eyebrow, callout, ol, note }) {
+  const bodyWords = BODY_WORDS[cls.split(' ')[0]] || 40;
   const mark = (i) => (ol ? `${i + 1}.` : '-');
   const pad = (i) => ' '.repeat(mark(i).length + 1);
   const items = Array.from({ length: n }, (_, i) => (shape === 'nested'
-    ? `${mark(i)} ${prose(24, i)}\n${pad(i)}- ${prose(40, i + 3)}.`
+    ? `${mark(i)} ${prose(24, i)}\n${pad(i)}- ${prose(bodyWords, i + 3)}.`
     // 60 words, not 40: with list rows at --fs-body (16pt at laptop) four 40-word takeaway items
     // no longer overflowed, and a probe that fits measures nothing. Length does not move the
     // geometry, only whether the stage overflows.
     : `${mark(i)} ${prose(60, i)}.`)).join('\n');
-  return `<!-- _class: ${cls} -->\n\n${eyebrow ? `\`Calibration · ${prose(18).toUpperCase()}\`\n\n` : ''}## ${prose(16)}.\n\n${items}\n${callout ? `\n> ${prose(22, 5)}.\n` : ''}`;
+  return `<!-- _class: ${cls} -->\n\n${eyebrow ? `\`Calibration · ${prose(18).toUpperCase()}\`\n\n` : ''}## ${prose(16)}.\n\n${items}\n${note ? `\n${prose(30, 7)}.\n` : ''}${callout ? `\n> ${prose(22, 5)}.\n` : ''}`;
 }
 const VENUES = { laptop: null, huddle: 'l', conference: 'xl', hall: '2xl' };
 
@@ -92,10 +127,17 @@ async function main() {
         const cols = COLS[cls] ?? 1;
         // An ordered list (`1.`) draws an ordinal beside each item on some registers, which narrows
         // its lines: measured as well, and stored under `ordered` where it differs.
-        for (const shape of shapes.flatMap((x) => (ORDERED_ONLY.has(comp) ? [`${x}.ol`] : [x, `${x}.ol`]))) {
-          const a = cols === 1 ? 4 : 2 * cols || 4;
+        const ONE_ROW = ONE_ROW_AT[comp];
+        for (const shape of shapes.flatMap((x) => (ORDERED_ONLY.has(comp) ? [`${x}.ol`] : UNORDERED_ONLY.has(comp) ? [x] : [x, `${x}.ol`]))) {
+          // One row: the frame probes (no eyebrow, no callout) at four items, or the first count
+          // measured where four is not one (compare-prose's two cards).
+          const a = cols === 1 ? 4 : 2 * cols || (ONE_ROW.includes(4) ? 4 : ONE_ROW[0]);
           const b = cols === 1 ? 7 : 4 * cols;
           const tags = { A: { n: a, eyebrow: 1, callout: 1 }, B: { n: b, eyebrow: 1, callout: 1 }, E: { n: a, eyebrow: 0, callout: 1 }, C: { n: a, eyebrow: 1, callout: 0 }, S: { n: a + 1, eyebrow: 1, callout: 1 } };
+          // Measured against the no-eyebrow probe (E): with an eyebrow, a callout and the note under
+          // a 16-word heading, the hall stage is squeezed to nothing and the cards' overflow stops
+          // adding to the note's.
+          if (NOTE.has(comp) && !cols) tags.N = { n: a, eyebrow: 0, callout: 1, note: 1 };
           if (!cols) {
             delete tags.B;
             for (const n of ONE_ROW) tags[`A${n}`] = { n, eyebrow: 1, callout: 1 };
@@ -113,7 +155,8 @@ async function main() {
         const page = await browser.newPage();
         await page.goto(`file://${r.out}`, { waitUntil: 'load', timeout: 120_000 });
         await page.evaluate(() => document.fonts.ready);
-        const got = await page.evaluate((sample) => {
+        await page.addScriptTag({ content: `window.__probeSectionOverflow = ${probeSectionOverflow.toString()};` });
+        const got = await page.evaluate((sample, grow, probed) => {
           const cv = document.createElement('canvas').getContext('2d');
           // The line boxes of a range: its client rects grouped by top (a run in another font sits
           // a few px off the line it shares).
@@ -132,9 +175,12 @@ async function main() {
             const unit = 2160 / sec.clientHeight;
             const stage = sec.querySelector('.cell-stage');
             const list = stage.querySelector(':scope > ul, :scope > ol');
+            if (grow) list.style.minHeight = 'auto';
+            // What the list's own decorations hang below it (cycle's ↻ mark), once it is grown.
+            const hang = grow && /center/.test(getComputedStyle(stage).justifyContent) ? Math.max(0, list.scrollHeight - list.clientHeight) : 0;
             const lis = [...list.children].filter((x) => x.tagName === 'LI');
             // Every role's text as [range, the element whose font sets it, the item it belongs to].
-            const roles = { eyebrow: [], heading: [], title: [], body: [], callout: [] };
+            const roles = { eyebrow: [], heading: [], title: [], body: [], callout: [], note: [] };
             const whole = (el) => { const rg = document.createRange(); rg.selectNodeContents(el); return rg; };
             const eb = sec.querySelector('.cell-masthead p');
             if (eb) roles.eyebrow.push([whole(eb), eb.querySelector('code') || eb]);
@@ -145,13 +191,20 @@ async function main() {
               const rg = document.createRange();
               rg.setStart(li, 0);
               if (sub) rg.setEndBefore(sub); else rg.setEnd(li, li.childNodes.length);
-              roles.title.push([rg, li, k]);
+              // A lead the transform wraps in <strong> is drawn as a corner tag (compare-prose,
+              // base.card-tag.css): its font, not the item's, sets its lines.
+              const tag = li.firstChild === li.firstElementChild && li.firstElementChild?.tagName === 'STRONG' && getComputedStyle(li.firstElementChild).textTransform === 'uppercase' ? li.firstElementChild : null;
+              roles.title.push([rg, tag || li, k]);
+              if (tag) roles.tagged = true;
               if (sub) for (const b of sub.children) roles.body.push([whole(b), b, k]);
             });
             for (const p of sec.querySelectorAll('.cell-coda blockquote p')) roles.callout.push([whole(p), p]);
+            for (const p of stage.querySelectorAll(':scope > p')) roles.note.push([whole(p), p]);
             const geo = {};
             const perItem = lis.map(() => 0);
             let text = 0;
+            const tagged = roles.tagged === true;
+            delete roles.tagged;
             for (const [role, list] of Object.entries(roles)) {
               if (!list.length) continue;
               let width = 0;
@@ -176,8 +229,10 @@ async function main() {
                   cv.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
                   geo[role] = { advance: cv.measureText(t).width / t.length + (parseFloat(cs.letterSpacing) || 0), lh };
                 }
+                // A tag is absolutely placed in the padding the card reserves for one tag line
+                // (base.card-tag.css `--card-tag-h`), so its lines move nothing: it costs no height.
                 if (k == null) text += rows.length * geo[role].lh;
-                else perItem[k] += rows.length * geo[role].lh;
+                else if (!(role === 'title' && tagged)) perItem[k] += rows.length * geo[role].lh;
                 lines0 += rows.length;
               }
               geo[role].width = width;
@@ -194,17 +249,17 @@ async function main() {
             const firstW = lis[0].getBoundingClientRect().width;
             const lastW = lis[lis.length - 1].getBoundingClientRect().width;
             return {
-              rows: tops.length, cols: Math.max(...tops.map((x) => lis.filter((li) => Math.abs(li.getBoundingClientRect().top - x.top) < 2).length)),
+              tagged, hang: hang * unit, rows: tops.length, cols: Math.max(...tops.map((x) => lis.filter((li) => Math.abs(li.getBoundingClientRect().top - x.top) < 2).length)),
               span: Math.round((lastW / firstW) * 100) / 100,
               // Overflow past the stage, minus the text: overhead minus space, in slide px.
-              k: (stage.scrollHeight - stage.clientHeight - text) * unit,
+              k: ((probed ? (({ scrollH, clientH }) => scrollH - clientH)(window.__probeSectionOverflow(sec, ...probed)) : stage.scrollHeight - stage.clientHeight) - text) * unit,
               over: stage.scrollHeight > stage.clientHeight,
               // Characters to a tenth (a narrow column holds 16, so a tenth is half a percent); a line's
               // height to the whole px, half a px a line against a budget near 1500.
               geo: Object.fromEntries(Object.entries(geo).map(([role, g]) => [role, [Math.round((g.width / g.advance) * 10) / 10, Math.round(g.lh * unit)]])),
             };
           });
-        }, SAMPLE.join(' '));
+        }, SAMPLE.join(' '), GROW.has(comp), PROBED.has(comp) && [CLIP_CELL_SELECTOR, FRAME_TOLERANCE, IGNORED_CLIP_SELECTOR]);
         await page.close();
         if (got.length !== probes.length) die(`${venue}: ${got.length} measured sections for ${probes.length} probes.`);
         const by = {};
@@ -228,20 +283,33 @@ async function main() {
               else if ([had].flat().some((x, j) => Math.abs(x - [v].flat()[j]) > (Array.isArray(v) && !j ? 0.5 : 4))) die(`${reg} ${shape} at ${venue}: the frame's ${k} reads ${JSON.stringify(v)}, not ${JSON.stringify(had)} — the frame is not shared, so one row cannot hold it.`);
             }
             const g = shape.endsWith('.ol') ? ((R.ordered ||= {})[shape.slice(0, -3)] ||= {}) : (R[shape] ||= {});
-            const budget = (A) => Math.round(FRAME_TOLERANCE - (A.k - A.rows * row - f.eyebrowAt - f.calloutAt));
+            // A centered ring flags at half its overhang's slope (GROW, above).
+            const budget = (A) => Math.round(FRAME_TOLERANCE - (A.k - A.rows * row - f.eyebrowAt - f.calloutAt) - Math.max(0, A.hang - FRAME_TOLERANCE));
             if (t.B) {
-              for (const role of ['title', 'body']) if (t.A.geo[role]) (g[role] ||= {})[venue] = t.A.geo[role];
+              for (const role of ['title', 'body']) if (t.A.geo[role] && !(role === 'title' && t.A.tagged)) (g[role] ||= {})[venue] = t.A.geo[role];
               // The budget: what `used` may reach, FRAME_TOLERANCE included.
               (g.budget ||= {})[venue] = budget(t.A);
               R.cols = t.A.cols;
             } else {
               // One row: a role's characters for 2, 3, … steps; the budget is the least any count reads.
-              for (const role of ['title', 'body']) if (t.A.geo[role]) (g[role] ||= {})[venue] = [ONE_ROW.map((n) => t[`A${n}`].geo[role][0]), t.A.geo[role][1]];
+              const ONE_ROW = ONE_ROW_AT[comp];
+              for (const role of ['title', 'body']) if (t.A.geo[role] && !(role === 'title' && t.A.tagged)) (g[role] ||= {})[venue] = [ONE_ROW.map((n) => t[`A${n}`].geo[role][0]), t.A.geo[role][1]];
               (g.budget ||= {})[venue] = Math.min(...ONE_ROW.map((n) => budget(t[`A${n}`])));
               R.cols = 0;
             }
             (g.row ||= {})[venue] = Math.round(row);
+            // A note: its lines at its own geometry, and what its block adds past them. Measured on a
+            // one-row register only: stacked (`vertical`), the note costs 238 px where this model
+            // charges 168 (the checker's probe, Amendment (9)), so a stacked slide with a note keeps
+            // its count row.
+            if (t.N && !t.B) {
+              (g.note ||= {})[venue] = t.N.geo.note;
+              (g.noteAt ||= {})[venue] = Math.round(t.N.k - t.E.k);
+            }
             if (t.S && t.S.span > 1.2) R.span = t.S.span;
+            if (UNORDERED_ONLY.has(comp)) R.ul = 1;
+            // A tag title costs no height, so it stores no geometry; lint charges it nothing.
+            if (t.A.tagged) R.tag = 1;
           }
         }
       } finally {

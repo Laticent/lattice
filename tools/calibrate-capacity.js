@@ -44,7 +44,7 @@
  *              calibrate-panel.js). It is the manifest's `venueCapacity.panel.lines`; only `--json`
  *              applies (`--variant`, `--scale` and `--max` are refused).
  *   --rows     measures the LINE GEOMETRY of a list or card component (list, cards-grid,
- *              list-steps) instead of its element count: each register's item roles (title, body)
+ *              list-steps, compare-prose, cycle) instead of its element count: each register's item roles (title, body)
  *              in characters a line and px a line, the cost of a row, and the slide's budget, at
  *              all four venues in one run (tools/lib/calibrate-rows.js). It is the manifest's
  *              `venueCapacity.rows`; only `--json` applies.
