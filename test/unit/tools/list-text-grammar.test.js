@@ -74,7 +74,13 @@ describe('the list-text grammar reads as the regular expressions it replaced did
       }
       return { labels, current };
     },
-    spokenGrid: lead('spoken', (s, ks) => s.slice(find(ks, 'rest').from)),
+    spokenGrid: (s) => {
+      const t = String(s ?? '').trim();
+      const ks = kids(t, 'grid');
+      if (!ks) return null;
+      const mark = t[find(ks, 'mark').from];
+      return [mark, mark === 'x' ? t.slice(find(ks, 'rest').from) : ''];
+    },
     unbracket: (s) => {
       const ks = kids(s, 'any');
       return ks ? s.slice(find(ks, 'rest').from) : s;

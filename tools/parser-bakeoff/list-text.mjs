@@ -40,9 +40,10 @@ export const FROZEN_BLOCK = 100;
 /** The shipped kernels, shaped as the legacy readers are. */
 export function shippedReaders() {
   const marks = require('../../lib/core/leading-marker.js');
-  const { parseCell, readGridMarker } = require('../../lib/core/matrix-grid-cells.js');
+  const { parseCell, SHAPES } = require('../../lib/core/matrix-grid-cells.js');
   const { parseTrackSpec } = require('../../lib/core/track-spec.js');
   const pair = (r, b) => (r ? [r.marker, b(r)] : null);
+  const GRID_MARK = Object.fromEntries(Object.entries(SHAPES).map(([mark, shape]) => [shape, mark]));
   return {
     line: (s) => pair(marks.readLeadingMarker(s), (r) => r.rest),
     lead: (s) => pair(marks.leadingMarkerPrefix(s), (r) => r.length),
@@ -51,7 +52,9 @@ export function shippedReaders() {
     bare: (s) => marks.isMarkerCell(s),
     grid: (s) => parseCell(s),
     track: (s) => parseTrackSpec(s),
-    spokenGrid: (s) => pair(readGridMarker(s), (r) => r.rest),
+    // Narration's reading of a matrix-grid cell: since the `spoken` rule folded into `grid`, it is
+    // `parseCell`'s, as [marker, the words narration says].
+    spokenGrid: (s) => { const c = parseCell(s); return c ? [GRID_MARK[c.shape], c.label] : null; },
     unbracket: (s) => { const r = marks.leadingBracketPrefix(s); return r ? s.slice(r.length) : s; },
   };
 }
