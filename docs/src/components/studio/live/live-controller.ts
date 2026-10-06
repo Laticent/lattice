@@ -460,6 +460,16 @@ export class LiveController {
 				if (prev.stage === 'live' && s.stage === 'live') {
 					for (const m of s.members) {
 						if (before.has(m.id) || m.id === s.selfId) continue;
+						// The host hands every (re)admitted member the chat so far: a member whose tab was in
+						// the background missed every line sent meanwhile, and a quiet rejoin by token never
+						// changes its stage, so its own "history?" ask on admission does not fire. A beat
+						// later, so the admission lands first; duplicates are dropped by id.
+						if (s.isHost) {
+							const to = m.id;
+							setTimeout(() => {
+								if (this.rt === r) this.post({ k: 'history', lines: this.chat }, to);
+							}, 400);
+						}
 						// Back from a dropped link (a backgrounded phone tab, a blip): not news.
 						const back = this.away.get(m.name);
 						if (back) {

@@ -322,6 +322,10 @@ back for the editor.
   muted surface, with their name in their session color once per run. "Amina is typing…" shows
   above the composer (a throttled post, at most one every 2 s, shown for 4 s). On a phone the
   invite and people block folds away while you type, so the composer stays above the keyboard.
+- **Nothing is lost across a dropped link.** Chat posts reach only who is connected, so the
+  host hands every (re)admitted member the chat so far — a backgrounded phone tab comes back to
+  the lines it missed. The one gap: lines two guests exchange while the HOST is away never reach
+  the host's copy, so a later newcomer will not see them.
 - **"Left" means left.** A dropped connection (a phone that backgrounds the tab, a blip) shows the
   person dimmed as *Reconnecting…*; coming back within 60 s is not news, and only then does the
   chat say they left. Leave sends a goodbye first, so it says "left" at once.

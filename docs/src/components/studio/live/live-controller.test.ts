@@ -222,4 +222,17 @@ describe('LiveController (second-round trio)', () => {
 		await until(() => h.view().typing.length === 0 && h.view().chat.some((l) => l.kind === 'message' && l.text === 'done' && !l.mine), h, g);
 		expect(g.view().chat.find((l) => l.kind === 'message' && l.text === 'done')).toMatchObject({ mine: true });
 	});
+
+	it('a member whose link was down gets the lines sent meanwhile when it comes back', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Mark');
+		// biome-ignore lint/suspicious/noExplicitAny: the test reaches the transports' ids.
+		const id = (c: Ctl) => (c as any).rt.session.getState().selfId as string;
+		net.current?.cut(id(h), id(g));
+		await until(() => h.view().people.some((p) => p.name === 'Mark' && p.away), h, g);
+		h.actions.sendChat("what's up");
+		await settle(h, g);
+		net.current?.heal(id(h), id(g));
+		await until(() => g.view().chat.some((l) => l.kind === 'message' && l.text === "what's up"), h, g);
+	});
 });
