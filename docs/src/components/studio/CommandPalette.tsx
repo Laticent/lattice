@@ -1,12 +1,14 @@
+import { useCommandState } from 'cmdk';
 import { Columns2, FileText, GraduationCap, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, Search } from 'lucide-react';
 import * as React from 'react';
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from '@/components/ui/command';
 import { Kbd } from '@/components/ui/kbd';
 import { PanelDock, PanelHeader, PanelSheet, useKeyboardInset } from '@/components/ui/panel';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import type { StudioDeck } from './decks';
 import type { LessonMeta } from './lessons/catalog';
+import { doneLessons } from './lessons/progress';
 import type { StudioCommand } from './studio-commands';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
@@ -215,16 +217,7 @@ export function CommandPalette({
 						<CommandItem key={c.id} keywords={c.keywords} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
 					))}
 				</CommandGroup>
-				{lessons && lessons.length > 0 && onLesson && (
-					<>
-						<CommandSeparator />
-						<CommandGroup heading="Learn">
-							{lessons.map((l) => (
-								<CommandItem key={l.id} data-lesson={l.id} keywords={l.keywords} onSelect={run(() => onLesson(l.id))}><GraduationCap />{l.question}</CommandItem>
-							))}
-						</CommandGroup>
-					</>
-				)}
+				{lessons && lessons.length > 0 && onLesson && <LearnGroup lessons={lessons} onLesson={(id) => run(() => onLesson(id))()} />}
 				{(onCollapseEditor || onCollapsePreview || onExpandPane || onResetSplit) && (
 					<>
 						<CommandSeparator />
@@ -551,5 +544,38 @@ export function CommandPalette({
 			{field}
 			{list}
 		</CommandDialog>
+	);
+}
+
+/** Past this many lessons, an unfiltered Learn group is a wall of questions under the actions, so
+ *  it waits for the first keystroke. Typing is how lessons are found anyway: search is the help. */
+const LEARN_ON_QUERY_ABOVE = 10;
+
+/**
+ * The Learn rows. Each is a lesson's question; a finished one carries a quiet "Done" mark, read from
+ * this viewer's progress (lessons/progress.ts) each time the palette renders it.
+ * (2026-10-05-studio-lessons.md §Reach)
+ */
+function LearnGroup({ lessons, onLesson }: { lessons: readonly LessonMeta[]; onLesson: (id: string) => void }) {
+	const search = useCommandState((st) => st.search);
+	// HIDDEN, NOT UNMOUNTED. cmdk scores an item when it registers, and a row that mounts after the
+	// query changed was never scored against it, so it never showed (measured: "dark" found only the
+	// action). So the rows stay mounted; with no query they are hidden and `disabled`, which also takes
+	// them out of arrow-key navigation.
+	const waiting = lessons.length > LEARN_ON_QUERY_ABOVE && !search.trim();
+	const done = doneLessons();
+	return (
+		<div hidden={waiting}>
+			<CommandSeparator />
+			<CommandGroup heading="Learn">
+				{lessons.map((l) => (
+					<CommandItem key={l.id} data-lesson={l.id} data-done={done.has(l.id) || undefined} disabled={waiting} keywords={l.keywords} onSelect={() => onLesson(l.id)}>
+						<GraduationCap />
+						{l.question}
+						{done.has(l.id) && <CommandShortcut>Done</CommandShortcut>}
+					</CommandItem>
+				))}
+			</CommandGroup>
+		</div>
 	);
 }

@@ -22,7 +22,11 @@ export type StudioCommandId =
 	| 'watch-demo'
 	| 'feedback'
 	| 'new-deck'
-	| 'import-deck';
+	| 'import-deck'
+	| 'coach'
+	| 'fix-all'
+	| 'toggle-mode'
+	| 'slide-settings';
 
 export type StudioCommand = {
 	id: StudioCommandId;

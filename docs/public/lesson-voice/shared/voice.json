@@ -1,0 +1,97 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 11664,
+	"lines": [
+		{
+			"key": "2ce6d67b28bb",
+			"text": "No rush — I’ll do this one for you.",
+			"file": "2ce6d67b28bb.mp3",
+			"bytes": 11664,
+			"speechMs": 1875,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "No rush — I’ll do this one for you.",
+						"words": [
+							{
+								"display": "No",
+								"spoken": "No",
+								"startMs": 0,
+								"endMs": 170,
+								"charOffset": 0
+							},
+							{
+								"display": "rush",
+								"spoken": "rush",
+								"startMs": 170,
+								"endMs": 340,
+								"charOffset": 3
+							},
+							{
+								"display": "—",
+								"spoken": "—",
+								"startMs": 340,
+								"endMs": 510,
+								"charOffset": 8
+							},
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 510,
+								"endMs": 680,
+								"charOffset": 10
+							},
+							{
+								"display": "do",
+								"spoken": "do",
+								"startMs": 680,
+								"endMs": 850,
+								"charOffset": 15
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 850,
+								"endMs": 1020,
+								"charOffset": 18
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 1020,
+								"endMs": 1191,
+								"charOffset": 23
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1191,
+								"endMs": 1361,
+								"charOffset": 27
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 1361,
+								"endMs": 1556,
+								"charOffset": 31
+							}
+						],
+						"startMs": 0,
+						"endMs": 1875,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1875
+			}
+		}
+	]
+}

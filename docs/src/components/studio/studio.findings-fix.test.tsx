@@ -180,7 +180,9 @@ describe('Studio — batch fix (Draft all / Apply all)', () => {
 			{ slide: 3, rule: 'label-title', severity: 'warning', message: 'Slide three has a label, not a takeaway.' },
 		];
 		const user = setup();
-		// Draft only the slide-3 finding.
+		// Draft only the slide-3 finding. Wait for the finding itself: a toast is a listitem too (the
+		// Coach's first-open lesson offer raises one), so "any listitem" can resolve before the cards.
+		await screen.findByText(/Slide three has a label/);
 		const cards = await screen.findAllByRole('listitem');
 		const slide3Card = cards.find((c) => within(c).queryByText(/slide three/i));
 		expect(slide3Card).toBeTruthy();

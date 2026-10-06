@@ -1,0 +1,527 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 96192,
+	"lines": [
+		{
+			"key": "432f5991bba0",
+			"text": "A chart is a ready-made slide. You add it from the slide gallery.",
+			"file": "432f5991bba0.mp3",
+			"bytes": 23184,
+			"speechMs": 3802,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "A chart is a ready-made slide.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 0,
+								"endMs": 174,
+								"charOffset": 0
+							},
+							{
+								"display": "chart",
+								"spoken": "chart",
+								"startMs": 174,
+								"endMs": 348,
+								"charOffset": 2
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 348,
+								"endMs": 522,
+								"charOffset": 8
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 522,
+								"endMs": 696,
+								"charOffset": 11
+							},
+							{
+								"display": "ready-made",
+								"spoken": "ready-made",
+								"startMs": 696,
+								"endMs": 1218,
+								"charOffset": 13
+							},
+							{
+								"display": "slide.",
+								"spoken": "slide.",
+								"startMs": 1218,
+								"endMs": 1417,
+								"charOffset": 24
+							}
+						],
+						"startMs": 0,
+						"endMs": 1744,
+						"charOffset": 0
+					},
+					{
+						"display": "You add it from the slide gallery.",
+						"words": [
+							{
+								"display": "You",
+								"spoken": "You",
+								"startMs": 1884,
+								"endMs": 2058,
+								"charOffset": 31
+							},
+							{
+								"display": "add",
+								"spoken": "add",
+								"startMs": 2058,
+								"endMs": 2232,
+								"charOffset": 35
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 2232,
+								"endMs": 2406,
+								"charOffset": 39
+							},
+							{
+								"display": "from",
+								"spoken": "from",
+								"startMs": 2406,
+								"endMs": 2580,
+								"charOffset": 42
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2580,
+								"endMs": 2754,
+								"charOffset": 47
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 2754,
+								"endMs": 2928,
+								"charOffset": 51
+							},
+							{
+								"display": "gallery.",
+								"spoken": "gallery.",
+								"startMs": 2928,
+								"endMs": 3475,
+								"charOffset": 57
+							}
+						],
+						"startMs": 1884,
+						"endMs": 3802,
+						"charOffset": 31
+					}
+				],
+				"durationMs": 3802
+			}
+		},
+		{
+			"key": "dd4adc973399",
+			"text": "Click Add slide.",
+			"file": "dd4adc973399.mp3",
+			"bytes": 6336,
+			"speechMs": 1006,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click Add slide.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 200,
+								"charOffset": 0
+							},
+							{
+								"display": "Add",
+								"spoken": "Add",
+								"startMs": 200,
+								"endMs": 400,
+								"charOffset": 6
+							},
+							{
+								"display": "slide.",
+								"spoken": "slide.",
+								"startMs": 400,
+								"endMs": 630,
+								"charOffset": 10
+							}
+						],
+						"startMs": 0,
+						"endMs": 1006,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1006
+			}
+		},
+		{
+			"key": "d7aede9b9439",
+			"text": "I’ll open the slide gallery for you.",
+			"file": "d7aede9b9439.mp3",
+			"bytes": 11520,
+			"speechMs": 1858,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll open the slide gallery for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 155,
+								"charOffset": 0
+							},
+							{
+								"display": "open",
+								"spoken": "open",
+								"startMs": 155,
+								"endMs": 464,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 464,
+								"endMs": 618,
+								"charOffset": 10
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 618,
+								"endMs": 773,
+								"charOffset": 14
+							},
+							{
+								"display": "gallery",
+								"spoken": "gallery",
+								"startMs": 773,
+								"endMs": 1236,
+								"charOffset": 20
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1236,
+								"endMs": 1391,
+								"charOffset": 28
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 1391,
+								"endMs": 1568,
+								"charOffset": 32
+							}
+						],
+						"startMs": 0,
+						"endMs": 1858,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1858
+			}
+		},
+		{
+			"key": "1ea4d2b07dbf",
+			"text": "Typing in the search box narrows the gallery. I’ll type chart.",
+			"file": "1ea4d2b07dbf.mp3",
+			"bytes": 22608,
+			"speechMs": 3706,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Typing in the search box narrows the gallery.",
+						"words": [
+							{
+								"display": "Typing",
+								"spoken": "Typing",
+								"startMs": 0,
+								"endMs": 373,
+								"charOffset": 0
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 373,
+								"endMs": 560,
+								"charOffset": 7
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 560,
+								"endMs": 747,
+								"charOffset": 10
+							},
+							{
+								"display": "search",
+								"spoken": "search",
+								"startMs": 747,
+								"endMs": 933,
+								"charOffset": 14
+							},
+							{
+								"display": "box",
+								"spoken": "box",
+								"startMs": 933,
+								"endMs": 1120,
+								"charOffset": 21
+							},
+							{
+								"display": "narrows",
+								"spoken": "narrows",
+								"startMs": 1120,
+								"endMs": 1493,
+								"charOffset": 25
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1493,
+								"endMs": 1680,
+								"charOffset": 33
+							},
+							{
+								"display": "gallery.",
+								"spoken": "gallery.",
+								"startMs": 1680,
+								"endMs": 2267,
+								"charOffset": 37
+							}
+						],
+						"startMs": 0,
+						"endMs": 2618,
+						"charOffset": 0
+					},
+					{
+						"display": "I’ll type chart.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 2768,
+								"endMs": 2955,
+								"charOffset": 46
+							},
+							{
+								"display": "type",
+								"spoken": "type",
+								"startMs": 2955,
+								"endMs": 3141,
+								"charOffset": 51
+							},
+							{
+								"display": "chart.",
+								"spoken": "chart.",
+								"startMs": 3141,
+								"endMs": 3355,
+								"charOffset": 56
+							}
+						],
+						"startMs": 2768,
+						"endMs": 3706,
+						"charOffset": 46
+					}
+				],
+				"durationMs": 3706
+			}
+		},
+		{
+			"key": "3fe62a2a7bf2",
+			"text": "Pick the bar chart.",
+			"file": "3fe62a2a7bf2.mp3",
+			"bytes": 7488,
+			"speechMs": 1182,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Pick the bar chart.",
+						"words": [
+							{
+								"display": "Pick",
+								"spoken": "Pick",
+								"startMs": 0,
+								"endMs": 196,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 196,
+								"endMs": 392,
+								"charOffset": 5
+							},
+							{
+								"display": "bar",
+								"spoken": "bar",
+								"startMs": 392,
+								"endMs": 589,
+								"charOffset": 9
+							},
+							{
+								"display": "chart.",
+								"spoken": "chart.",
+								"startMs": 589,
+								"endMs": 814,
+								"charOffset": 13
+							}
+						],
+						"startMs": 0,
+						"endMs": 1182,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1182
+			}
+		},
+		{
+			"key": "54ba6e6830ca",
+			"text": "The numbers are plain text in your slide. Change one and the bars follow.",
+			"file": "54ba6e6830ca.mp3",
+			"bytes": 25056,
+			"speechMs": 4118,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "The numbers are plain text in your slide.",
+						"words": [
+							{
+								"display": "The",
+								"spoken": "The",
+								"startMs": 0,
+								"endMs": 197,
+								"charOffset": 0
+							},
+							{
+								"display": "numbers",
+								"spoken": "numbers",
+								"startMs": 197,
+								"endMs": 592,
+								"charOffset": 4
+							},
+							{
+								"display": "are",
+								"spoken": "are",
+								"startMs": 592,
+								"endMs": 790,
+								"charOffset": 12
+							},
+							{
+								"display": "plain",
+								"spoken": "plain",
+								"startMs": 790,
+								"endMs": 987,
+								"charOffset": 16
+							},
+							{
+								"display": "text",
+								"spoken": "text",
+								"startMs": 987,
+								"endMs": 1185,
+								"charOffset": 22
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 1185,
+								"endMs": 1382,
+								"charOffset": 27
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 1382,
+								"endMs": 1580,
+								"charOffset": 30
+							},
+							{
+								"display": "slide.",
+								"spoken": "slide.",
+								"startMs": 1580,
+								"endMs": 1806,
+								"charOffset": 35
+							}
+						],
+						"startMs": 0,
+						"endMs": 2177,
+						"charOffset": 0
+					},
+					{
+						"display": "Change one and the bars follow.",
+						"words": [
+							{
+								"display": "Change",
+								"spoken": "Change",
+								"startMs": 2336,
+								"endMs": 2533,
+								"charOffset": 42
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 2533,
+								"endMs": 2731,
+								"charOffset": 49
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2731,
+								"endMs": 2928,
+								"charOffset": 53
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2928,
+								"endMs": 3126,
+								"charOffset": 57
+							},
+							{
+								"display": "bars",
+								"spoken": "bars",
+								"startMs": 3126,
+								"endMs": 3323,
+								"charOffset": 61
+							},
+							{
+								"display": "follow.",
+								"spoken": "follow.",
+								"startMs": 3323,
+								"endMs": 3747,
+								"charOffset": 66
+							}
+						],
+						"startMs": 2336,
+						"endMs": 4118,
+						"charOffset": 42
+					}
+				],
+				"durationMs": 4118
+			}
+		}
+	]
+}

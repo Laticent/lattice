@@ -800,8 +800,25 @@ function Panel() {
 }
 ```
 
-The Studio's `use-studio-demo.ts` is the reference consumer. Import `./react` directly — it
-is **not** re-exported through `index.ts`, which stays zero-dependency.
+Import `./react` directly — it is **not** re-exported through `index.ts`, which stays
+zero-dependency.
+
+**When the walkthrough is on demand, load the engine on demand too.** `useWalkthrough`'s `run`
+import is static, so its host carries the whole engine at startup. `useLazyWalkthrough` takes a
+loader instead and fetches the engine on the first `start()`; import only this hook from `./react`
+and the bundler splits the engine into its own chunk:
+
+```tsx
+const demo = useLazyWalkthrough(rootRef, configure, () => import('…/lib/vetrina/index.js'));
+demo.start().catch(() => toast('The tour could not start.'));
+```
+
+`start()` returns a promise: it rejects with what `run()` threw (another run holds the one slot,
+an unsafe accent) or with the failed load. `active` is true from the call, a second start while
+the engine loads is a no-op, and `stop()` during the load cancels the start. One caveat: anything
+that must happen inside the user's gesture (unlocking audio for a voiced narrator) has to happen
+before `start()`, because the run itself now begins after an `await`. The Studio's
+`use-studio-demo.ts` and `use-studio-lesson.ts` are the reference consumers.
 
 ## Accessibility & reduced motion
 

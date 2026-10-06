@@ -4,7 +4,7 @@
 // THE ONE IDEA. The top level is a complete, flat index of nine tappable rows, and
 // exactly TWO of them are DOORS that push a second level inside this same Sheet.
 // Everything you *do* is a leaf you tap once; everything you *browse* — 18 themes,
-// 5 tours — lives behind a door, where it finally has room to be legible instead of
+// the tours — lives behind a door, where it finally has room to be legible instead of
 // crushed into a sideways rail. Nothing leaves the drawer: the product owner's
 // constraint is that the whole inventory stays reachable here, and a door is still
 // "here".
@@ -398,7 +398,7 @@ export function StudioDrawer({
 										ref={(el) => { doorRefs.current['show-me'] = el; }}
 										icon={<MonitorPlay className="size-[18px]" />}
 										label="Show me"
-										value={`${tours.length} tours`}
+										value={`${tours.length} ${tours.length === 1 ? 'tour' : 'tours'}`}
 										valueText={`${tours.length} guided ${tours.length === 1 ? 'tour' : 'tours'}`}
 										onClick={() => enter('show-me')}
 									/>

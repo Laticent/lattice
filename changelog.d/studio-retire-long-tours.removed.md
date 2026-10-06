@@ -1,0 +1,1 @@
+- The Studio's four long "Show me" tours (the full walkthrough, the board deck, "It's just Markdown" and the quiet tour) are retired in favor of lessons. "First look" remains as the one tour and is now what "Watch demo" plays.

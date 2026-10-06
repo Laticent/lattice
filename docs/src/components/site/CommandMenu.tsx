@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, LayoutGrid, Moon, Palette, PencilRuler, Play, Sparkles, Sun, Wrench } from 'lucide-react';
+import { ArrowRight, BookOpen, GraduationCap, LayoutGrid, Moon, Palette, PencilRuler, Play, Sparkles, Sun, Wrench } from 'lucide-react';
 import * as React from 'react';
 import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import {
 import { useOverlayBack } from '@/lib/overlay-back';
 import { cycleModePref, setPalette } from '@/lib/site-chrome';
 import { useIsPhone } from '@/lib/use-breakpoint';
+import type { LessonMeta } from '../studio/lessons/catalog';
 
 export type NavLink = { label: string; href: string; desc?: string; current?: boolean; badge?: string };
 
@@ -91,6 +92,15 @@ export function CommandMenu({
 	const pf = React.useRef<PagefindModule | null | 'unavailable'>(null);
 
 	const go = (href: string) => {
+		// On a phone the dialog owns a history entry (`useOverlayBack`), and closing it rewinds that
+		// entry with an ASYNCHRONOUS `history.back()` — which cancelled the navigation started in the
+		// same tick, so every pick (a page, a doc, a lesson) left the phone where it was. Measured on
+		// the built site at 390px. Replacing the dialog's own entry instead leaves the page, and Back
+		// from the destination lands on the page the search was opened on.
+		if (phone && open) {
+			window.location.replace(href);
+			return;
+		}
 		onOpenChange(false);
 		window.location.href = href;
 	};
@@ -210,6 +220,22 @@ export function CommandMenu({
 	// "Start walkthrough" — the Explore surface's front door (Specimen Book §4,
 	// PR 6): jump to the Playground in Explore and walk the catalog end to end.
 	const playgroundHref = links.find((l) => /playground/i.test(l.label))?.href ?? null;
+	// LESSONS — the Studio teaches through search, and this is search on every other page: "pdf" here
+	// offers the same "How do I export a PDF?" the Studio palette does, and opens the Studio running
+	// it (`?lesson=`, StudioShell.tsx). Only on a query: fifteen questions would bury the page links.
+	// Listed ABOVE the docs hits: "pdf" matches a dozen pages, and the lesson below them sat under the
+	// fold at 1440 (measured), which defeated the point of offering it.
+	// The catalog loads on the first keystroke, as Pagefind does: every page carries this menu, and
+	// fifteen questions are bytes no page needs until someone searches (measured +1.3 KB gzip on every
+	// route when it was a static import).
+	const studioHref = links.find((l) => l.label === 'Studio')?.href ?? null;
+	const [lessons, setLessons] = React.useState<readonly LessonMeta[]>([]);
+	const wantLessons = studioHref != null && query.trim() !== '';
+	React.useEffect(() => {
+		if (!wantLessons || lessons.length) return;
+		import('../studio/lessons/catalog').then((m) => setLessons(m.LESSONS)).catch(() => {});
+	}, [wantLessons, lessons.length]);
+	const lessonRows = studioHref ? matchLessons(lessons, query) : [];
 	const walkQ = query.trim().toLowerCase();
 	const showWalkthrough = playgroundHref != null && (!walkQ || 'start walkthrough explore components'.includes(walkQ));
 
@@ -251,6 +277,16 @@ export function CommandMenu({
 									</CommandItem>
 								);
 							})}
+						</CommandGroup>
+					),
+					lessonRows.length > 0 && studioHref != null && (
+						<CommandGroup heading="Learn in the Studio" key="learn">
+							{lessonRows.map((l) => (
+								<CommandItem key={l.id} value={`lesson-${l.id}`} data-lesson={l.id} onSelect={() => go(`${studioHref}${studioHref.includes('?') ? '&' : '?'}lesson=${l.id}`)}>
+									<GraduationCap />
+									{l.question}
+								</CommandItem>
+							))}
 						</CommandGroup>
 					),
 					docs.length > 0 && (
@@ -330,3 +366,14 @@ function matchLinks(items: NavLink[], query: string): NavLink[] {
 	if (!q) return items;
 	return items.filter((l) => `${l.label} ${l.desc ?? ''}`.toLowerCase().includes(q));
 }
+
+/** Lessons whose question or search words contain every word typed. Empty on an empty query. */
+function matchLessons(lessons: readonly LessonMeta[], query: string): LessonMeta[] {
+	const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+	if (!words.length) return [];
+	return lessons.filter((l) => {
+		const hay = `${l.question} ${l.keywords.join(' ')}`.toLowerCase();
+		return words.every((w) => hay.includes(w));
+	}).slice(0, 4);
+}
+

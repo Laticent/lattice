@@ -1,0 +1,442 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 79056,
+	"lines": [
+		{
+			"key": "4851c430c5dd",
+			"text": "Light or dark changes the Studio and your slides with it, unless a deck sets its own.",
+			"file": "4851c430c5dd.mp3",
+			"bytes": 30240,
+			"speechMs": 4978,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Light or dark changes the Studio and your slides with it, unless a deck sets its own.",
+						"words": [
+							{
+								"display": "Light",
+								"spoken": "Light",
+								"startMs": 0,
+								"endMs": 206,
+								"charOffset": 0
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 206,
+								"endMs": 412,
+								"charOffset": 6
+							},
+							{
+								"display": "dark",
+								"spoken": "dark",
+								"startMs": 412,
+								"endMs": 618,
+								"charOffset": 9
+							},
+							{
+								"display": "changes",
+								"spoken": "changes",
+								"startMs": 618,
+								"endMs": 1031,
+								"charOffset": 14
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1031,
+								"endMs": 1237,
+								"charOffset": 22
+							},
+							{
+								"display": "Studio",
+								"spoken": "Studio",
+								"startMs": 1237,
+								"endMs": 1649,
+								"charOffset": 26
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 1649,
+								"endMs": 1855,
+								"charOffset": 33
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 1855,
+								"endMs": 2062,
+								"charOffset": 37
+							},
+							{
+								"display": "slides",
+								"spoken": "slides",
+								"startMs": 2062,
+								"endMs": 2474,
+								"charOffset": 42
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 2474,
+								"endMs": 2680,
+								"charOffset": 49
+							},
+							{
+								"display": "it,",
+								"spoken": "it,",
+								"startMs": 2680,
+								"endMs": 2916,
+								"charOffset": 54
+							},
+							{
+								"display": "unless",
+								"spoken": "unless",
+								"startMs": 3118,
+								"endMs": 3530,
+								"charOffset": 58
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3530,
+								"endMs": 3736,
+								"charOffset": 65
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 3736,
+								"endMs": 3942,
+								"charOffset": 67
+							},
+							{
+								"display": "sets",
+								"spoken": "sets",
+								"startMs": 3942,
+								"endMs": 4148,
+								"charOffset": 72
+							},
+							{
+								"display": "its",
+								"spoken": "its",
+								"startMs": 4148,
+								"endMs": 4354,
+								"charOffset": 77
+							},
+							{
+								"display": "own.",
+								"spoken": "own.",
+								"startMs": 4354,
+								"endMs": 4591,
+								"charOffset": 81
+							}
+						],
+						"startMs": 0,
+						"endMs": 4978,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4978
+			}
+		},
+		{
+			"key": "d5a31bea67a1",
+			"text": "Click the light and dark switch.",
+			"file": "d5a31bea67a1.mp3",
+			"bytes": 10080,
+			"speechMs": 1630,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click the light and dark switch.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 203,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 203,
+								"endMs": 406,
+								"charOffset": 6
+							},
+							{
+								"display": "light",
+								"spoken": "light",
+								"startMs": 406,
+								"endMs": 609,
+								"charOffset": 10
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 609,
+								"endMs": 813,
+								"charOffset": 16
+							},
+							{
+								"display": "dark",
+								"spoken": "dark",
+								"startMs": 813,
+								"endMs": 1016,
+								"charOffset": 20
+							},
+							{
+								"display": "switch.",
+								"spoken": "switch.",
+								"startMs": 1016,
+								"endMs": 1249,
+								"charOffset": 25
+							}
+						],
+						"startMs": 0,
+						"endMs": 1630,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1630
+			}
+		},
+		{
+			"key": "eb13789cf9e7",
+			"text": "On this screen the switch is in the menu. I’ll flip it for you.",
+			"file": "eb13789cf9e7.mp3",
+			"bytes": 19584,
+			"speechMs": 3196,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "On this screen the switch is in the menu.",
+						"words": [
+							{
+								"display": "On",
+								"spoken": "On",
+								"startMs": 0,
+								"endMs": 161,
+								"charOffset": 0
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 161,
+								"endMs": 322,
+								"charOffset": 3
+							},
+							{
+								"display": "screen",
+								"spoken": "screen",
+								"startMs": 322,
+								"endMs": 483,
+								"charOffset": 8
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 483,
+								"endMs": 644,
+								"charOffset": 15
+							},
+							{
+								"display": "switch",
+								"spoken": "switch",
+								"startMs": 644,
+								"endMs": 805,
+								"charOffset": 19
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 805,
+								"endMs": 966,
+								"charOffset": 26
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 966,
+								"endMs": 1127,
+								"charOffset": 29
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1127,
+								"endMs": 1288,
+								"charOffset": 32
+							},
+							{
+								"display": "menu.",
+								"spoken": "menu.",
+								"startMs": 1288,
+								"endMs": 1633,
+								"charOffset": 36
+							}
+						],
+						"startMs": 0,
+						"endMs": 1936,
+						"charOffset": 0
+					},
+					{
+						"display": "I’ll flip it for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 2065,
+								"endMs": 2226,
+								"charOffset": 42
+							},
+							{
+								"display": "flip",
+								"spoken": "flip",
+								"startMs": 2226,
+								"endMs": 2387,
+								"charOffset": 47
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 2387,
+								"endMs": 2548,
+								"charOffset": 52
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 2548,
+								"endMs": 2709,
+								"charOffset": 55
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 2709,
+								"endMs": 2894,
+								"charOffset": 59
+							}
+						],
+						"startMs": 2065,
+						"endMs": 3196,
+						"charOffset": 42
+					}
+				],
+				"durationMs": 3196
+			}
+		},
+		{
+			"key": "0bb29cf99f70",
+			"text": "Only the colors changed. Press it again to switch back.",
+			"file": "0bb29cf99f70.mp3",
+			"bytes": 19152,
+			"speechMs": 3136,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Only the colors changed.",
+						"words": [
+							{
+								"display": "Only",
+								"spoken": "Only",
+								"startMs": 0,
+								"endMs": 333,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 333,
+								"endMs": 499,
+								"charOffset": 5
+							},
+							{
+								"display": "colors",
+								"spoken": "colors",
+								"startMs": 499,
+								"endMs": 832,
+								"charOffset": 9
+							},
+							{
+								"display": "changed.",
+								"spoken": "changed.",
+								"startMs": 832,
+								"endMs": 1189,
+								"charOffset": 16
+							}
+						],
+						"startMs": 0,
+						"endMs": 1501,
+						"charOffset": 0
+					},
+					{
+						"display": "Press it again to switch back.",
+						"words": [
+							{
+								"display": "Press",
+								"spoken": "Press",
+								"startMs": 1635,
+								"endMs": 1801,
+								"charOffset": 25
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 1801,
+								"endMs": 1968,
+								"charOffset": 31
+							},
+							{
+								"display": "again",
+								"spoken": "again",
+								"startMs": 1968,
+								"endMs": 2300,
+								"charOffset": 34
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 2300,
+								"endMs": 2467,
+								"charOffset": 40
+							},
+							{
+								"display": "switch",
+								"spoken": "switch",
+								"startMs": 2467,
+								"endMs": 2633,
+								"charOffset": 43
+							},
+							{
+								"display": "back.",
+								"spoken": "back.",
+								"startMs": 2633,
+								"endMs": 2824,
+								"charOffset": 50
+							}
+						],
+						"startMs": 1635,
+						"endMs": 3136,
+						"charOffset": 25
+					}
+				],
+				"durationMs": 3136
+			}
+		}
+	]
+}
