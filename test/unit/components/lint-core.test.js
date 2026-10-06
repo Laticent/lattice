@@ -117,8 +117,9 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
 
   // A retired directive is FLAGGED, not ignored. Silence would read as "this still
   // works", and a deck carrying `autosplit: off` would look opted-out while the engine
-  // paginated it anyway — which is why `off` is the error and `on` is only a suggestion.
-  test('autosplit: off is an ERROR — it asks for something the engine no longer offers', () => {
+  // paginated it anyway — which is why `off` is the error where the engine splits, and `on`
+  // (or `off` at a landscape size, where nothing splits) is only a suggestion.
+  test('autosplit: off is an ERROR where the engine splits; a suggestion at a landscape size', () => {
     // The MESSAGE is family-aware, because "this deck paginates anyway" is only true where the
     // split move runs. It shipped once asserting it unconditionally, which was false at the
     // DEFAULT @size — the lie-to-the-author defect inside the rule that exists to prevent it.
@@ -130,7 +131,7 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
 
     const wide = core.lintTextWith(overflowDeck('autosplit: off\n'), capVocab)
       .find((x) => x.rule === 'autosplit-retired');
-    assert.equal(wide.severity, 'error', 'still an error — the directive is retired either way');
+    assert.equal(wide.severity, 'suggestion', 'nothing splits at a landscape size, so the line is only stale');
     assert.doesNotMatch(wide.message, /WILL paginate/,
       'at a landscape @size nothing paginates, so the message must not claim it does');
     assert.match(wide.message, /does not run there/);
@@ -628,10 +629,10 @@ describe('lint-core: capacity rule', () => {
     const out = core.lintTextWith(itemsSlide(4), capVocab);
     assert.equal(out.filter((f) => f.rule.startsWith('capacity')).length, 0);
   });
-  test('past soft (but within hard) → crowd warning with escalateTo fix', () => {
+  test('past soft (but within hard) → crowd suggestion with escalateTo fix', () => {
     const f = capRule(itemsSlide(5), 'capacity-crowd');
     assert.ok(f, 'expected a capacity-crowd finding at 5 items');
-    assert.equal(f.severity, 'warning');
+    assert.equal(f.severity, 'suggestion', 'a crowded slide still renders whole — advice, not a defect');
     assert.equal(f.classToken, 'cards-grid');
     assert.match(f.message, /this slide has 5/);
     assert.match(f.fix, /list-tabular/);

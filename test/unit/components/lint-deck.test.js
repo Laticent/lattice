@@ -514,8 +514,8 @@ describe('deck linter', () => {
     // out of showing the thing it exists to show.
     // checklist's crowd band is (8, 9]: nine items crowd without passing `hard`.
     const crowd = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: checklist -->\n${marker}\n\n## H.\n\n${Array.from({ length: 9 }, (_, i) => `- [x] Item ${i}`).join('\n')}\n`;
-    assert.equal(lintText(crowd('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd warning');
-    assert.equal(lintText(crowd(''), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 1, 'no marker, crowd warns as before');
+    assert.equal(lintText(crowd('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd suggestion');
+    assert.equal(lintText(crowd(''), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 1, 'no marker, crowd speaks as before');
     // Past hard, an ordinary slide at the landscape authoring box gets the overflow warning
     // (at a presentation @size the engine splits it, and nothing is said)…
     const over = (marker, size = '') => `---\nmarp: true\ntheme: indaco\n${size}---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
