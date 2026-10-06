@@ -1116,3 +1116,120 @@ list-steps 10, compare-prose 6 (bloom's `axis` slide at every venue, which is no
 `gallery.md` 63, a `transition` slide whose code-span subtitle sits under the heading; `gallery.md`
 12 at conference, which the model reads 4% under), roadmap, list-tabular, image and content 5 each,
 table and matrix-2x2 4. cycle and glossary miss nothing.
+
+## Amendment 2026-10-06 (10) — list-steps' registers and the split-panel points column are judged by lines
+
+**Lint now catches 1 more clip at huddle, 6 at conference and 8 at hall on the five scored decks,
+with no new false warning.** Scored by `tools/score-venue-lint.js` on Amendment (9)'s five decks
+(the talk from `claude/agentic-practices-talk-tl7qum` bbaf27b, `gallery.md`, bloom, seven-steps,
+kaizen), each forced to each venue. Right, false and missed, on `main` 9b46f54 and on this change:
+
+| venue | before | after |
+|---|---|---|
+| huddle | 28 / 1 / 20 | 29 / 1 / 19 |
+| conference | 75 / 3 / 41 | 81 / 3 / 35 |
+| hall | 119 / 0 / 45 | 127 / 0 / 37 |
+
+All ten list-steps misses are gone, and five of the sixteen split-panel ones.
+
+**What changed, each with its measured cause.**
+
+1. **`list-steps` has line geometry in six more registers.** `phase`, `milestone` and
+   `milestone lettered` rename the STEP badge; `vertical` stacks the steps; `vertical compact`
+   tightens it; `capsule` centers a row of pill-badged cards. `calibrate-capacity list-steps --rows`
+   measures each. Three things the rig found:
+   - **A badge register is bare's geometry until its badge wraps.** `MILESTONE 05` does not fit a
+     column five steps wide at conference, and wraps to a second line that costs 101 to 133 px; at
+     hall `milestone` wraps from four steps and `phase` at five. Below that every role and budget
+     measures as bare's. A budget that was the least across the counts would have charged a
+     three-step slide for a five-step badge, so a one-row budget is now ONE PER COUNT where the
+     counts differ by more than 2 px (`[1217, 1218, 1085, 1086]` at hall for two to five steps), and
+     one number where they do not. `milestone lettered` measures the same as `milestone` and is
+     baked as its key.
+   - **`capsule` is grown, like `cycle`.** Its stage centers the row (`justify-content: safe
+     center`), so an overflowing probe hid the cards' bottom padding; grown to content, its budget
+     is 1,199 px at laptop where bare's is 1,281. Its columns reach their minimum width at four steps
+     at hall, so the budget per count matters there too (1,126 at three steps, 1,038 at four).
+   - **`compact` restyles the masthead too.** The rig refused `vertical compact` because its
+     frame differs from the shared one (its callout block costs 30 px less). A register measured
+     with a universal modifier now stores its own frame, baked as only the fields the shared frame
+     gets wrong toward silence or by more than 2 px (here `calloutAt`); the shared frame's narrower
+     lines stand in for the rest, which errs toward a warning by under 1.5 characters a line.
+     `compact` reaches a component's `of` only where a register is measured with it, so a
+     `list-steps compact` slide keeps its count row.
+2. **The split-panel POINTS column has line geometry.** A split-panel slide has two clipping boxes,
+   and the points column (`.panel-right`) had only a count row. `calibrate-capacity split-panel
+   --points` (tools/lib/calibrate-points.js, new) measures it per register, reading overflow with the
+   export's own `probeSectionOverflow` at `size: 4k`. `pointsAt` in lint-core wraps the slide's
+   points into it, and a finding names the column, beside any claim-panel finding: "this
+   'split-panel watermark' points column's text runs about 9% too long". Where the geometry
+   describes the slide, the split-panel count row no longer judges it. What the rig found:
+   - **A `watermark` column carries the slide's `###` and paragraph.** `applyPanel` routes every
+     block but the eyebrow, the `#####` kicker and the heading to the right, so `gallery.md` slides
+     18 and 57 clip at conference with three points under a sub-heading and a four-line paragraph
+     the count row never saw. Their lines and block costs are measured (`sub`, `subAt`, `para`,
+     `paraAt`). Its titles are shrink-wrapped (`justify-items: start`), so the probe writes titles
+     long enough to wrap; a one-line title measured its own text, 44 characters at every venue.
+   - **A `proof` grid is as tall as its tallest row.** Its rows are `1fr` with `min-height: 0`, so
+     the signal and the cards each get an equal share, and a point taller than its share clips
+     inside itself; the export reads that row's excess (`squeezed`). Measured as a sum, the budget
+     grew from 2,401 px at laptop to 5,481 at hall; measured as the tallest row it is 956 to 970 at
+     every venue. A `proof` slide is judged at its three documented points only.
+   - **`bare`, `mirror` and `metric` are one flex column**, with a point costing 10 to 18 px past its
+     lines; `metric` holds fewer characters a line. `mirror` measures the same as bare and is baked
+     as its key. `watermark mirror` does not: under a slide header it pads the column's leading
+     `###` past the header (`.mirror:has(> header) .panel-right > h3:first-child`), which costs 147
+     to 207 px where `watermark`'s sub-heading costs 12. The rig measures that cost with a
+     `_header` (`subAtHeader`), and lint charges it when the slide renders a header: the deck's
+     `header:` or any `header:` directive, unless the slide sets `_header: ""`.
+   - **Only an `##` heading is the claim panel's.** `applyPanel` moves an `<h2>` left and leaves an
+     `<h1>` in the column above the points, so a slide headed `#` is one the points model does not
+     describe, and it keeps its count row. `steps` and `watermark` style an
+     ordered list and are measured both ways; the others style only `.panel-right > ul`, so a `1.`
+     slide there keeps its count row.
+   - **`capstone` is not measured.** Its first row is `1fr` with `min-height: 0` and a centered
+     quotation, so a long quotation overlaps the row below rather than pushing it, and a probe whose
+     card pair ran 110 words did not flag at laptop. `pullquote` is not measured either: its clips
+     are in the quote panel, not the points.
+3. **An inline icon and a pill wrap as they render.** `lineText` priced `` `^{bucket, c4}` `` and
+   `` `{S3, icon=bucket, c4}` `` as mono code pills of their source, so `examples/inline-icons.md`
+   slide 3 read 10% over its points column at conference, where three pills set on one line and the
+   slide renders whole. An icon now counts as one `m`, and a pill as its label, an `m` if it names an
+   icon, and a `tt` of padding. That false warning came from the sweep below; no scored deck carries
+   one.
+
+**The independent checker** reproduced both tables and wrote its own probe decks for registers and
+shapes no committed deck uses (at 4k and 16:9). Its two must-fixes came from those probes, not from
+the committed decks, and are fixed above: a `#`-headed slide that `pointsAt` read as headed in the
+panel lost a conference catch `main` made through the count row, and `watermark mirror` under a
+header was missed by 29 to 53 px. Its should-fix on pills is fixed too: a quoted label keeps its
+comma (`{"Cost, excluding tax", c2}`) and an icon-only pill has no label. A pill on an
+`inline-code: literal` deck renders as code, but such a deck fails the line models' front-matter
+allowlist and an `inline-code-literal` slide fails their token check, so neither is read this way;
+only a claim panel's lede on such a slide could be. On its probes the points model is within about
+±8% for bare, `steps`, `metric` and `watermark`, and the list-steps registers within about ±8%
+(`capsule` the loosest). Two clips it found the export does not report, both older than this
+change, are logged in followups.d/2361-p3-split-panel-export-blind-spots.md: a `proof` signal row
+taller than its share spills under the cards with no OVERFLOW line (lint warns on those slides, and
+the scorer counts the warning false), and a `metric` slide's left panel clips by 17 to 38 px under a
+deck header.
+
+**Out of sample.** `node tools/score-venue-lint.js --sweep origin/main` lints all 351 committed
+examples, component galleries and baseline decks on both trees and renders every changed verdict:
+30 new catches, 0 new false warnings, 0 false warnings gone, 0 lost catches, and no change at a
+deck's own size. Fifteen of the 30 are in the scored five (`gallery.md` 12, bloom 2, seven-steps
+1); the other 15 are `system-design-foundations` (5), `diagram.gallery.md` (3),
+`list-steps.gallery.md` (3), `accent-on-accent` (2) and `slide-edge` (2).
+
+**Bundle.** The Studio's eager JS grows by 1,808 bytes gz against `main` 9b46f54, measured the way
+CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:route-budget`); no other
+route moves. Given back first: `mirror` and `milestone lettered` are baked as their twins' keys, and
+`vertical compact` stores only the frame field that differs (`calloutAt`). Declared in
+`docs/route-budget.d/2361-venue-lint-steps-points.md`.
+
+**Still missed, by component, on the five decks** (at all three venues): split-panel 11 (all in the
+claim panel: `pullquote` 6, `metric` 2, two `proof` slides seven-steps 5 and 10 at conference whose
+panel sits 14 and 53 px over a model that reads 0%, and `gallery.md` 97 at huddle, whose heading
+`dashboard did` is 9 px wider than its line at weight 800 and wraps where the table says it fits),
+compare-prose 6, roadmap, list-tabular, image and content 5 each, table and matrix-2x2 4.
+list-steps misses nothing.

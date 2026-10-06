@@ -149,6 +149,18 @@ progress  — 2026-10-06 (font-scale-fit.md Amendment (9)): `compare-prose` (clo
             (`axis`, a `transition` with a subtitle line, gallery 12 at conference), roadmap /
             list-tabular / image / content 5 each, table and matrix-2x2 4. Next: the split-panel
             POINTS column, and list-steps' own registers (`phase`, `milestone`, `vertical`, `capsule`).
+progress  — 2026-10-06 (2) (font-scale-fit.md Amendment (10)): `list-steps` is judged by lines in
+            `phase`, `milestone`, `milestone lettered`, `vertical`, `vertical compact` and `capsule`
+            (a one-row budget per step count where a badge wraps); the split-panel POINTS column has
+            line geometry (`calibrate-capacity split-panel --points`, `pointsAt`) in bare, `mirror`,
+            `metric`, `steps`, `watermark` and `proof`. Five decks, right/false/missed: huddle
+            28/1/20 → 29/1/19, conference 75/3/41 → 81/3/35, hall 119/0/45 → 127/0/37. Sweep vs
+            9b46f54: 30 new catches, 0 new false, 0 false gone, 0 lost, own size 0.
+            LEFT, by misses across the venues: split-panel 11, all in the CLAIM panel (`pullquote` 6,
+            `metric` 2, seven-steps 5 and 10 at conference, gallery 97 at huddle), compare-prose 6,
+            roadmap / list-tabular / image / content 5 each, table and matrix-2x2 4. Not measured:
+            `capstone`'s points (its quotation overlaps the row below instead of pushing it). Next:
+            a `pullquote` quote-panel line model, the largest split-panel miss left.
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.
