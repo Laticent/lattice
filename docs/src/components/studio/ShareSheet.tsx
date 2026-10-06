@@ -6,6 +6,7 @@ import { deckColorMode } from '@/lib/deck-theme';
 import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
+import { dismissPendingSave, iosNeedsShareSheet } from './download';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
@@ -52,9 +53,21 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	}
 	React.useEffect(() => {
 		if (open) return;
-		const t = window.setTimeout(() => setView('menu'), SHEET_EXIT_MS + 100);
+		// The iOS Save toast belongs to the export it offers, so it goes when the sheet does —
+		// after the slide-out, not on the close itself: tapping the toast is what closes a modal
+		// sheet, and retiring it in that same instant would swallow the tap.
+		const t = window.setTimeout(() => {
+			setView('menu');
+			dismissPendingSave();
+		}, SHEET_EXIT_MS + 100);
 		return () => window.clearTimeout(t);
 	}, [open]);
+	// …and when the author moves to another format, or back to the list (the owner's iPhone kept
+	// the PDF's Save toast up over the PowerPoint step).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `view` is the trigger, not an input.
+	React.useEffect(() => {
+		dismissPendingSave();
+	}, [view]);
 	const bodyRef = React.useRef<HTMLDivElement>(null);
 	// The Print drawer, once shown, stays mounted beside whichever view is up: hidden, and FROZEN,
 	// so a keystroke in the editor does not re-render a deck nobody can see. It catches up in the
@@ -131,7 +144,11 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				});
 				// A degradation names a path to go and fix, so it stays up long enough to read.
 				// The plain "ready." stays transient — there is nothing in it to act on.
-				notify(degraded ? `${label} ready — but ${degraded}.` : `${label} ready.`, degraded ? { duration: DEGRADED_TOAST_MS } : undefined);
+				// On iOS every browser gets a "<file> is ready · Save" toast from download.js
+				// instead of a download, so a plain "ready." beside it is a second toast saying the
+				// same thing (the owner's iPhone showed both). A degradation still speaks.
+				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });
+				else if (!iosNeedsShareSheet()) notify(`${label} ready.`);
 			} catch (e) {
 				// Every share row funnels through here, and each one lazy-imports its exporter.
 				// A stale tab or a dropped connection failed BEFORE the export began, so echoing

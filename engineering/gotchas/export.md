@@ -622,3 +622,59 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   cost lands on every 4K export to fix what only a pixel gate sees. So run a pixel gate on a 4K
   deck on an idle machine, and read a 4K DIFF whose pixels all vanish at `compare -fuzz 5%` as
   this, not as a regression.
+
+## A Studio export saves as a UUID (`76f752a8-….html`) in Firefox
+
+**Symptom** — An export lands named like `76f752a8-f837-4922-a860-7cda2b89453a.html`: the
+right extension, a UUID for a name. The owner hit it on an **iPhone 15 Pro in Firefox for
+iOS**, for every format. Desktop Firefox shows the same shape whenever a browser drops the
+`download` hint, and its PDF viewer titled the Print panel's 2-up/4-up/handout tab
+`… - <uuid>` and saved it as `document.pdf`.
+
+**Cause** — A `blob:` URL ends in a UUID, and the exports named the file only through the
+anchor's `download` attribute. Two separate paths lose it:
+
+- **Firefox (and Chrome, Edge, …) on iOS.** Every iOS browser is Safari's engine, and the
+  non-Safari ones save a page's download with their own script. Firefox for iOS's
+  `DownloadHelper.js` (mozilla-mobile/firefox-ios) intercepts the click and, for a `blob:`
+  URL, takes the name from a `Content-Disposition` header or else
+  `url.split("/").pop()` — the UUID. Its click handler passes `event.target.download`, but
+  the function never reads that argument. **No page-side name survives this path**: a
+  `File`-backed URL did not help on the owner's iPhone.
+- **Desktop Firefox, whenever the hint is dropped.** Measured in a plain Firefox 142 writing
+  to its own download folder: hint dropped + `Blob` URL → `tmueBFT2.pptx`; hint dropped +
+  `File` URL → the File's name. Its PDF viewer reads the same name for the tab title and Save.
+
+**Mitigation** — Every save goes through `docs/src/components/studio/download.js`:
+
+- It builds the URL from a `File` named like the download (`namedFileUrl`), keeps the
+  `download` attribute, and revokes the URL a minute later rather than in the click's tick.
+- On an iPhone or iPad — **every iOS browser, Safari included** (the owner's call: one native
+  iOS save) — it loads `download-ios.js`, which clicks no link: it raises one
+  "<name> is ready · Save" toast, and the tap opens the share sheet with the named `File`
+  (files only — a `title` becomes a second "text" item in Save to Files); "Save to Files" keeps
+  the name. Two taps, because iOS opens the sheet only inside a tap and an export finishes
+  seconds after its tap — the same shape iOS Print uses. The Share sheet skips its own
+  "ready." toast there, and retires the Save toast when the author changes format or closes it.
+- The toaster sets `pointer-events: auto`: a Radix modal sets `pointer-events: none` on
+  `<body>`, so a toast over the Share sheet showed and ignored every tap.
+- A phone panel answers to the keyboard (`--kb` lift, `--vvh` height) only while a text field
+  in it has focus (`panel.tsx`). Before, a visual viewport that shrank with nothing focused
+  shrank and lifted the Share sheet to half height over the Studio after a Webpage export on
+  the owner's iPhone. The e2e spec fakes that report with nothing focused and requires a
+  full-height sheet.
+- `download-ios.js` raises its toast through `notify.ts`'s `NOTIFY_ACTION_EVENT`, never by
+  importing `notify`: a lazy chunk that imports `notify` splits it into a first-paint chunk of
+  its own (measured +1,239 B gz on the Studio, +460 B on the Playground).
+- `download.test.ts` pins both paths against real iOS user agents, and two censuses fail if
+  any other file under `docs/src` names a download or makes a `blob:` URL outside the known
+  Worker/CSS sites. The bug lived in five hand-rolled copies of the anchor click.
+
+**Triggered by** — Share → any export; Library and workspace-backup downloads; the Print
+panel's Download button and its 2-up / 4-up / Notes tab.
+
+**Removable when** — never by default: the share sheet is the deliberate iOS save, not only a
+workaround. The `File` naming costs nothing. `docs/e2e/export-filenames.spec.ts` drives both
+paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome user agents).
+
+**Commits** — the commit that added this entry.
