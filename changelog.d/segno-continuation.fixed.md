@@ -1,1 +1,2 @@
 - `NUMERIC_PILL` in `lib/core/chart-values.js` now runs in linear time. It is Segno's rewrite of the same pattern and accepts the same strings (0 disagreements on a 300,000-case fuzz). A failing match on `1` + 50,000 tabs + `x!` took about 3 s and now takes 0.2 ms.
+- The /segno playground runs the visitor's grammar code in a Web Worker with a 1.5 s limit. A grammar that loops, such as `for (;;) {}`, used to freeze the tab; now the page stops the worker, says the code did not finish, and starts a fresh worker.
