@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Download check</title>
+<style>
+	:root { color-scheme: light dark; --bg: #fff; --fg: #111; --muted: #555; --line: #ddd; --accent: #2b6cb0; }
+	@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #111; --fg: #eee; --muted: #aaa; --line: #333; --accent: #7fb3ff; } }
+	body { background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, sans-serif; padding: 16px; max-width: 40rem; }
+	h1 { font-size: 1.25rem; }
+	dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; }
+	dt { color: var(--muted); }
+	dd { margin: 0; word-break: break-all; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+	button { display: block; width: 100%; padding: 14px; margin: 10px 0; font-size: 1rem; border-radius: 10px; border: 1px solid var(--line); background: var(--accent); color: var(--bg); }
+	#log { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 8px; }
+</style>
+</head>
+<body>
+<!-- Temporary diagnostic for PR #2555 (export file names on iOS). Remove before merge. -->
+<h1>Download check</h1>
+<p>Screenshot this page and send it back. Then try the two buttons.</p>
+<dl id="facts"></dl>
+<button id="share" type="button">1 · Save through Share (named file)</button>
+<button id="anchor" type="button">2 · Save as a normal download</button>
+<div id="log"></div>
+<script>
+const $ = (s) => document.querySelector(s);
+const log = (m) => { $('#log').textContent += m + '\n'; };
+const ua = navigator.userAgent;
+const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const brand = /\b(FxiOS|CriOS|EdgiOS|OPiOS|OPT|DuckDuckGo|Ddg|GSA|YaBrowser|Brave)\//.test(ua);
+const safari = /\bVersion\/[\d.]+.*\bSafari\//.test(ua);
+const file = new File(['%PDF-1.4 test'], 'Q3-Board-Review.pdf', { type: 'application/pdf' });
+let canShareFiles = 'no canShare';
+try { if (navigator.canShare) canShareFiles = String(navigator.canShare({ files: [file] })); } catch (e) { canShareFiles = 'threw ' + e.name; }
+const facts = {
+	'user agent': ua,
+	'platform / touch': navigator.platform + ' / ' + navigator.maxTouchPoints,
+	'looks like iOS': String(ios),
+	'non-Safari brand': String(brand),
+	'Safari token': String(safari),
+	'needs share sheet': String(ios && (brand || !safari)),
+	'navigator.share': typeof navigator.share,
+	'canShare(files)': canShareFiles,
+	'canShare(text)': navigator.canShare ? String(navigator.canShare({ text: 'x' })) : 'no canShare',
+};
+for (const [k, v] of Object.entries(facts)) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; $('#facts').append(dt, dd); }
+$('#share').onclick = () => {
+	if (typeof navigator.share !== 'function') { log('share: not available'); return; }
+	navigator.share({ files: [file], title: file.name }).then(() => log('share: done')).catch((e) => log('share: ' + e.name + ' — ' + e.message));
+};
+$('#anchor').onclick = () => {
+	const a = document.createElement('a');
+	a.href = URL.createObjectURL(file);
+	a.download = file.name;
+	document.body.appendChild(a); a.click(); a.remove();
+	log('anchor: clicked (name asked: ' + file.name + ')');
+};
+</script>
+</body>
+</html>
