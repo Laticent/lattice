@@ -658,6 +658,11 @@ anchor's `download` attribute. Two separate paths lose it:
   "ready." toast there, and retires the Save toast when the author changes format or closes it.
 - The toaster sets `pointer-events: auto`: a Radix modal sets `pointer-events: none` on
   `<body>`, so a toast over the Share sheet showed and ignored every tap.
+- A phone panel answers to the keyboard (`--kb` lift, `--vvh` height) only while a text field
+  in it has focus (`panel.tsx`). Before, a visual viewport that shrank with nothing focused
+  shrank and lifted the Share sheet to half height over the Studio after a Webpage export on
+  the owner's iPhone. The e2e spec fakes that report with nothing focused and requires a
+  full-height sheet.
 - `download-ios.js` raises its toast through `notify.ts`'s `NOTIFY_ACTION_EVENT`, never by
   importing `notify`: a lazy chunk that imports `notify` splits it into a first-paint chunk of
   its own (measured +1,239 B gz on the Studio, +460 B on the Playground).

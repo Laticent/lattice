@@ -83,6 +83,22 @@ for (const [name, ua] of Object.entries(IOS_AGENTS)) {
 		await expect(page.locator('[data-sonner-toast]', { hasText: /^PDF ready\.?$/ }), 'the Share sheet\'s own "ready." doubles the Save toast').toHaveCount(0);
 		expect(downloads, 'an iOS export must not fall back to a link download (Firefox names it after the UUID)').toEqual([]);
 
+		// 1b · The sheet answers to a keyboard only while one of its text fields has focus. A
+		// visual viewport that reports a keyboard with nothing focused (the owner's iPhone, after
+		// a Webpage export) must not lift or shorten it: the Share sheet stays full height.
+		const full = await page.getByRole('dialog').boundingBox();
+		await page.evaluate(() => {
+			document.documentElement.style.setProperty('--kb', '300px');
+			document.documentElement.style.setProperty('--vvh', '360px');
+		});
+		const fake = await page.getByRole('dialog').boundingBox();
+		expect(fake?.y, 'the sheet moved with a keyboard nobody raised').toBeCloseTo(full?.y ?? -1, 0);
+		expect(fake?.height, 'the sheet shrank for a keyboard nobody raised').toBeCloseTo(full?.height ?? -1, 0);
+		await page.evaluate(() => {
+			document.documentElement.style.removeProperty('--kb');
+			document.documentElement.style.removeProperty('--vvh');
+		});
+
 		// 2 · Save takes a TAP over the open, modal Share sheet, and shares one named file, no title.
 		await saveToast(page).getByRole('button', { name: 'Save' }).tap();
 		const shared = await page.evaluate(() => (window as unknown as { __shared: { names: string[]; keys: string[] }[] }).__shared);

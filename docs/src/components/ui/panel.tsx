@@ -137,7 +137,13 @@ export const MOBILE_OFFSET = 'bottom-[var(--kb)]';
 // inset was reserved while not one element carried the class. Headless Chromium
 // reports the inset as 0, so the geometry looked identical either way — only
 // asserting on the CLASS could catch it (HARD RULE #23). Found by the checker.
-const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]`;
+// The lift follows the SAME focus rule as the height below: a sheet answers to the keyboard
+// only while a text field in it has focus. Unconditionally, a viewport that reported a
+// keyboard-sized `--kb` with nothing focused lifted and shortened the Share sheet to half
+// height over the Studio on the owner's iPhone (Firefox for iOS, after a Webpage export,
+// PR #2555); the Share sheet has no text field, so it has no reason to make room for one.
+// Written out, not `${MOBILE_OFFSET}`: inside a variant it must be a literal for the scan.
+const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus)]:bottom-[var(--kb)] rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]';
 
 /**
  * THE height for every mobile panel — see the block above for why there is one.
@@ -149,6 +155,14 @@ const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t pb-[env(s
  * source text, not evaluated template literals — so every panel silently fell back to
  * content height. Caught only by measuring the built site (HARD RULE #23): twelve
  * drawers came back at twelve different heights, from 274px to 5133px.
+ *
+ * WITHOUT A FOCUSED TEXT FIELD THE SHEET IS `100dvh` minus the header — it does not read
+ * the visual viewport at all. It used to be `--vvh` minus the header always, and a visual
+ * viewport that shrank with nothing typed into the sheet shrank the sheet with it: the
+ * Share sheet came up half height over the Studio on the owner's iPhone (Firefox for iOS,
+ * after a Webpage export, PR #2555). `dvh` tracks the URL bar, and with no keyboard up
+ * that is all the visible height does. The visual viewport is the keyboard's business,
+ * so it is read only while you type (MOBILE_BASE applies the same rule to the lift).
  *
  * The inset YIELDS WHILE YOU TYPE, and it keys off FOCUS rather than off `--kb`.
  *
@@ -179,7 +193,7 @@ const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t pb-[env(s
  * keyboard while every other sheet lifted clear). See that declaration's comment.
  */
 export const MOBILE_HEIGHT =
-	'h-[calc(var(--vvh)-3.375rem)] [&:has(input:focus,textarea:focus)]:h-[var(--vvh)]';
+	'h-[calc(100dvh-3.375rem)] [&:has(input:focus,textarea:focus)]:h-[var(--vvh)]';
 
 /**
  * Publishes the on-screen keyboard's height as `--kb`, and the VISIBLE height as
