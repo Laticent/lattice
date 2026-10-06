@@ -358,18 +358,21 @@ integration tests, not unit tests.
 `concurrency` group cancels superseded runs on the same ref.
 
 - **`changes`** — classifies the diff (`dorny/paths-filter`). `code` is
-  true unless EVERY changed file is prose markdown; decks
-  (`examples/**.md`, `baseline-decks/**.md`, `**.gallery.md`) count as
-  code. **A docs-only change runs lint and unit only** — `integration`
-  is skipped.
+  true when any changed file is under the filter's path list (`lib/`,
+  `tools/`, `test/`, `themes/`, `examples/`, `exemplars/`, `package.json`,
+  … — the list in `ci.yml` is canonical); decks under those roots count as
+  code. **A prose- or docs-only change runs lint and unit only** —
+  `integration` is skipped.
 - **`lint`** — ALWAYS runs, single Node, browser-free
   (`PUPPETEER_SKIP_DOWNLOAD=1`). `npm run lint` + `npm run lint:deck:all`.
 - **`unit`** — ALWAYS runs, on every PR, because unit tests read prose and
   config too (the US-English audit walks every `.md`). Matrix Node 22/24, `fail-fast: false`,
-  browser-free. `npm test`, plus `npm run build:check` once (on 22) — the
-  render-free artifact-freshness gate (css, default bundle, runtime +
-  emulator bundles, component docs, portal, dist README).
-- **`integration`** — code changes only, `needs: unit`, single Node (22).
+  browser-free. `npm run build`, then `npm run build:check:all`, then
+  `npm test` on 22 (an engine subset on 24). The committed-artifact
+  freshness gate (`build:check`) lives in `lint`. Costs ~12 runner-minutes
+  a run (457s + 260s, measured on PR #2554).
+- **`integration`** — code changes only, `needs: changes` (it runs beside
+  `unit`, not after it), single Node (22).
   The only tier that renders, so the only one that downloads Chromium —
   **cached** via `actions/cache` on `~/.cache/puppeteer` (keyed on the
   lockfile). Installs `poppler-utils` (for `pdfinfo`), runs
