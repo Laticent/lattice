@@ -346,7 +346,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const lower = !!prev && w.y > prev.y + prev.h * 0.5;
 			const back = !!prev && (rtl ? w.x + w.w > prev.x + 1 : w.x < prev.x + prev.w - 1);
 			if (!prev || (lower && back)) lines.push([]);
-			else if (prev && !w.pre && !w.lead && prev.node !== w.node && /\s$/.test(prev.node.nodeValue || '')) w.lead = true;
+			else if (!w.pre && !w.lead && prev.node !== w.node && /\s$/.test(prev.node.nodeValue || '')) w.lead = true;
 			lines[lines.length - 1].push(w);
 			prev = w;
 		}
@@ -526,20 +526,17 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		for (const p of plan) {
 			const el = p.el;
 			const saved = el.getAttribute('style');
-			let touched = false;
 			if (p.isOwner) {
 				for (const [k, v] of p.frozen) if (v) el.style.setProperty(k, v, 'important');
 				el.style.setProperty('color', 'transparent', 'important');
 				el.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
 				el.style.setProperty('text-shadow', 'none', 'important');
 				el.style.setProperty('text-decoration-color', 'transparent', 'important');
-				touched = true;
 			} else {
 				// Stop the transparent color inheriting into children that are not hidden
 				// (an SVG with fill: currentColor, a nested element whose text was skipped).
 				el.style.setProperty('color', p.color, 'important');
 				el.style.setProperty('-webkit-text-fill-color', p.fillColor, 'important');
-				touched = true;
 			}
 			const live = p.pseudo.filter(Boolean) as Array<{ p: string; color: string; frozen: ReadonlyArray<readonly [string, string]> }>;
 			if (live.length && p.isOwner) {
@@ -550,16 +547,14 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					sheet.push(`[data-calco-freeze="${tag}"]${ps.p}{${decls.join(';')}}`);
 				}
 			}
-			if (touched) {
-				restores.push(() => {
-					// Read first: Chrome writes CSSOM changes back to the attribute lazily, and a
-					// removeAttribute before that flush comes back as `style=""` (measured).
-					el.getAttribute('style');
-					if (saved === null) el.removeAttribute('style');
-					else el.setAttribute('style', saved);
-					el.removeAttribute('data-calco-freeze');
-				});
-			}
+			restores.push(() => {
+				// Read first: Chrome writes CSSOM changes back to the attribute lazily, and a
+				// removeAttribute before that flush comes back as `style=""` (measured).
+				el.getAttribute('style');
+				if (saved === null) el.removeAttribute('style');
+				else el.setAttribute('style', saved);
+				el.removeAttribute('data-calco-freeze');
+			});
 		}
 		const styleEl = doc.createElement('style');
 		styleEl.setAttribute('data-calco', 'freeze');
