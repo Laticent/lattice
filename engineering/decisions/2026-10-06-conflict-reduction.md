@@ -82,3 +82,31 @@ the guard refuses the push and prints how to undo the catch-up.
 
 `queue-precheck.sh` gained `--head=<rev>` and `--onto=<rev>` (defaults `HEAD` and
 `origin/main`), so the guard reuses its GitHub-terms merge rather than copying it.
+
+## 3. Committed generated JS under `lib/`: deferred
+
+34 `lib/**/*.generated.*` files are still committed, although the 2026-08-17 decision
+stopped committing `dist/` for the same reason. They were in 6 of the 19 real conflicts.
+
+**Uncommitting is feasible.** Every CI workflow that loads them runs root `npm ci`, and
+`npm ci` runs `prepare` (`tools/build.js --only-uncommitted`). The two workflows that skip
+it import none of them. It would add up to ~27s to `npm install`: the full build takes 39s,
+against 12.5s for the steps already uncommitted.
+
+**The owner deferred it until the Tauri desktop app lands.** That app embeds the engine,
+and nothing in this repo shows whether its build runs `npm install`. Tracked in
+`followups.d/2554-p3-uncommit-generated-js-after-desktop-app.md`.
+
+## 4. Splitting `lint-core.js`: dropped
+
+`lib/authoring/lint-core.js` is the busiest hand-written file (22 commits since 09-06), and
+it caused 2 conflicts in the whole replay window. A new rule lands in four places in the
+file: its imports, the rule's own function, the call in `lintChunksWith`, and
+`module.exports`. Two PRs adding rules touch different lines in all four, and git merges
+them. No hand-written file caused more than 3 conflicts.
+
+**The hand-written conflicts follow parallel work, not files.** Of the 14 real conflicts
+in hand-written code from 09-30, most came from two lines of work that ran side by side:
+the plugin system and the Studio. The lever there is in how work is scheduled, for
+example at most one open PR per subsystem at a time. That is the owner's call, and it is
+not adopted here.
