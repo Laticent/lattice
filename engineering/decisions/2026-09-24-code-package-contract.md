@@ -525,6 +525,38 @@ Worker, SharedWorker, BroadcastChannel, and the cache and storage handles), non-
 bundle cannot put one back and has no other realm to take one from. The policy is still the first
 wall; this one does not depend on each engine inheriting it. All 29 conformance packages still match.
 
+**The wall's holes: a font load, and the prototypes (2026-10-06).** The fact-checker on the public
+guide found `FontFace` and `self.fonts` still in the worker, where `new FontFace(name, 'url(…)')
+.load()` is a fetch that only `font-src data:` stopped. Measured with a throwaway probe on GitHub's
+runners (a blob worker in a sandboxed frame, a loopback log server, each arm counted; the probe ran
+from `claude/sandbox-probe-run`), in four configurations per engine:
+
+| Engine | Policy + wall (shipped) | Policy alone | Wall alone | Neither (control) |
+|---|---|---|---|---|
+| Chromium | 0 | 0 | 1 (`import()`) | 8 of 8 arms |
+| Gecko | 0 | **3** (`FontFace`, `self.fonts`, `EventSource`) | 1 (`import()`) | 8 of 8 |
+| WebKit | 0 | 0 | 1 (`import()`) | 6 of 8 (its worker loads no font even unwalled) |
+
+So the policy did NOT hold for a font load on Gecko, as it had not for `EventSource`: before this
+change a package could send a slide out of Firefox with a font address. `WORKER_NETWORK` now takes
+`FontFace`, `FontFaceSet` and `fonts` too. Measuring where each name lives found the second hole:
+Chromium defines `fetch`, `importScripts`, `indexedDB` and the `fonts` getter on
+`WorkerGlobalScope.prototype`, not on `self`, so the old wall only shadowed them and
+`WorkerGlobalScope.prototype.fetch.call(self, …)` walked around it (the policy still stopped it). The wall now redefines each name on
+every holder up the chain, takes `storage` and `storageBuckets` off the worker's `navigator` (a
+bucket's `caches.add(url)` fetches; an opaque origin hides both today, and the wall does not lean on
+that), then checks every holder and refuses to load the package if a name survives, rather than
+leaving it live in silence (the red team). `kit.measure` needs none of them: the Studio spec's package
+measures from inside its worker on all three engines, and reports the wall from there too
+(`data-wall="none"`, 0 requests at the log server per engine).
+
+What the wall cannot reach is syntax. `import()` is not a name on the global, so the "wall alone"
+column shows it on every engine; under the policy it reached nothing on all three. The policy
+has no `'unsafe-eval'`, and under it `eval` and `Function` reached nothing (the probe cannot tell a
+refused `eval` from a blocked fetch inside it); behind the wall alone they build code with no `fetch`
+left to call. A gate that refuses a dynamic `import(` in the source is pending
+(`followups.d/2435-p3-worker-syntax-paths-policy-only.md`).
+
 **The Studio's door** (`docs/src/lib/code-packages/`). Every Studio render goes through
 `renderMarkdown` (`docs/src/lib/render-engine.ts`), and it goes through `door.ts`:
 - **Import** (`asset-bundle.ts`, `package-zip.ts`, `library/import-parsed.ts`): a code component

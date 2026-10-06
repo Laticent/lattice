@@ -433,3 +433,32 @@ describe('doorFinish: the handed classes come back', () => {
     assert.match(out, /^<section class="acme content form acme-drawn">/);
   });
 });
+
+describe('workerScript: the second wall', () => {
+  const { workerScript, WORKER_NETWORK } = require('../../../lib/packages/code-door-core.mjs');
+  const run = (self) => new Function('self', 'postMessage', 'OffscreenCanvas', workerScript('function t(s){return s.html}export{t as default};'))(self, () => {}, undefined);
+  // A stand-in global shaped like Chromium's: a name on `self` and again on a prototype above it.
+  const globalWith = (lock) => {
+    const top = { fetch() {}, importScripts() {} };
+    Object.defineProperty(top, 'fonts', { get: () => ({}), configurable: true });
+    const self = Object.create(Object.create(top));
+    for (const n of WORKER_NETWORK) Object.defineProperty(self, n, { value: () => {}, configurable: true, writable: true });
+    if (lock) Object.defineProperty(top, 'fetch', { value: () => {}, configurable: false, writable: false });
+    self.navigator = Object.create({ get storage() { return {}; } });
+    return { self, top };
+  };
+
+  test('every holder on the prototype chain loses the name, and so does the navigator', () => {
+    const { self, top } = globalWith(false);
+    run(self);
+    for (const n of WORKER_NETWORK) assert.equal(self[n], undefined, n);
+    assert.equal(top.fetch, undefined);
+    assert.equal(Object.getOwnPropertyDescriptor(top, 'fonts').get, undefined, 'the fonts getter is gone from the prototype');
+    assert.equal(self.navigator.storage, undefined);
+  });
+
+  test('a name an engine will not let it redefine stops the package loading (fails closed)', () => {
+    const { self } = globalWith(true);
+    assert.throws(() => run(self), /could not take fetch off the worker/);
+  });
+});
