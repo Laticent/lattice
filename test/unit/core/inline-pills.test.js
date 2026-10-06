@@ -132,7 +132,7 @@ describe('inline-pills — the parser stays allocation-free on the literal path'
     // for the 99.75% of spans that are ordinary code. Measured separately at ~78ns/span
     // cold over the repo's real distribution; see the kernel docblock for the method.
     const src = require('node:fs').readFileSync(require.resolve('../../../lib/core/inline-pills.js'), 'utf8');
-    const body = /function read\(text\) \{([\s\S]*?)\n\}/.exec(src)[1];
+    const body = /function read\(text, off\) \{([\s\S]*?)\n\}/.exec(src)[1];
     const rejectLine = body.split('\n').find((l) => l.includes('charCodeAt'));
     assert.ok(rejectLine, 'the O(1) first-char reject is gone');
     assert.match(rejectLine, /return null/, 'the reject must return, not fall through');

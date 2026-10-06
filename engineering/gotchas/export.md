@@ -571,3 +571,25 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   names), because over-stripping is the expensive failure: it eats a real note silently and
   the author has no way to tell what ate it. `lib/authoring/notes-core.js` ›
   `isLatticePragma`.
+
+## A Studio PDF drew a pill over the end of its caption
+
+- **Symptom:** in a Studio PDF export (not the CLI's), an inline pill after a caption draws
+  over the caption's last letters: kpi slide 4 of `examples/studio-present.md`, the `OPS` /
+  `GAP` pills over "…CHROME", "…QUARTER", "…HEAD", light and dark alike. The live preview and
+  the CLI PDF are right.
+- **Cause:** the shared writer (`lib/core/pdf-compose`) draws text as vectors where the LIVE
+  page measured it, and photographs everything else. The Studio's camera is html-to-image,
+  which re-lays the slide out in an SVG image after copying computed styles, and its copier
+  sets every `font-size` to `floor(px) - 0.1`: a 14.976px caption is photographed at 13.9px,
+  ends about 13px early, and a pill placed by the text flow moves left with it. The vector
+  caption stays put, so the photo's pill lands on it. Exact font sizes do not fix it: the
+  clone then WRAPS the caption, because a content-sized box is serialized a hair narrower than
+  its content, which is why html-to-image shrinks in the first place.
+- **Fix:** `read-slide.mjs` › `chipOf`: a box placed by the text flow (inline-level, or a flex
+  / grid item beside its parent's own text) whose content is only text the PDF draws gets its
+  fill and border drawn as vectors at its live box, and `hideDrawn` takes both out of the
+  photo. No camera's text metrics can move what the photo no longer carries. Anything the
+  chip test refuses (a shadow, a wrap, a cover, an undrawn word, a link underline) stays in the photo, counted
+  as `chip-<why>`. `test/integration/export/pdf-inline-chip.test.js` checks the photo, since
+  the CLI's camera never drifted and its page alone cannot tell the designs apart.

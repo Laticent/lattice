@@ -298,6 +298,12 @@ OPTIONS
                           panel), so the deck can be re-rendered from the PDF
                           alone. Note: ships your source (including speaker
                           notes) inside the artifact.
+      --reopenable        Carry the deck inside the .pdf or .pptx as a .lattice
+                          project, so whoever you send it to can open it in Lattice
+                          Studio (Import deck…) and edit it — the same payload as the
+                          Studio's "Re-openable in Lattice" switch. Comments never
+                          ride along. Hidden slides DO, and so do speaker notes
+                          unless you add --strip-notes. PDF and PPTX only.
       --overflow-marker <author|reader|off>
                           Who a clipped slide's marker speaks to in the exported
                           artifact. A slide with more content than fits is CLIPPED
@@ -510,6 +516,7 @@ function parseArgs(argv) {
     if (a === '--editable') { flags.editable = true; continue; }
     if (a === '--allow-remote') { flags['allow-remote'] = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
+    if (a === '--reopenable') { flags.reopenable = true; continue; }
     if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
     if (a === '--chrome-pdf') { flags['chrome-pdf'] = true; continue; }
     if (a === '--no-thumbnails') { flags['no-thumbnails'] = true; continue; }
@@ -671,6 +678,7 @@ function composeStrippedSource(src, noteBodies, boundary = scrubBoundary) {
     boundary,
   });
 }
+const survivorWarned = new Set();
 function stripSharedSource(src, noteBodies, boundary = undefined) {
   const out = composeStrippedSource(src, noteBodies, boundary ?? scrubBoundary);
   if (STRIP_NOTES) {
@@ -681,7 +689,11 @@ function stripSharedSource(src, noteBodies, boundary = undefined) {
     // through. Reported, never silent — a `--strip-notes` export that quietly keeps a note is
     // the one failure the author cannot take back once the file is sent.
     const survivors = notesCore.auditStrippedSource(out);
-    if (survivors.length) {
+    // Once per run: `--embed-source` and `--reopenable` scrub two sources when `--size` or
+    // `--print` makes them differ, and the same survivor would otherwise be reported twice.
+    const key = survivors.join('\u0000');
+    if (survivors.length && !survivorWarned.has(key)) {
+      survivorWarned.add(key);
       console.warn(
         `  WARNING: --strip-notes left ${survivors.length} comment(s) in the embedded source that look like speaker text.\n` +
           // Wide enough for the whole line a survivor carries. A survivor is not always just
@@ -719,6 +731,10 @@ const {
 const ENGINE_SCRIPT_OPEN = `<script ${ENGINE_SCRIPT_ATTR}>`;
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
+// `--reopenable`: carry the deck's `.lattice` inside the PDF / PPTX, the payload the Studio's
+// "Re-openable in Lattice" switch embeds, so the file imports through the Studio's Import deck
+// (lib/core/reopenable.js; engineering/decisions/2026-10-05-reopenable-exports.md).
+const REOPENABLE = !!flags.reopenable;
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 const CHROME_PDF = !!flags['chrome-pdf'];
 // JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
@@ -1037,31 +1053,6 @@ if (flags['strip-say'] && retiredComments) {
   console.error(`note: --strip-say also removed ${retiredComments} retired \`caption:\` comment(s), including any that start with \`Caption:\`, from the shipped copies.`);
 }
 
-// AN EMPTY BOX WHOSE MEANING MOVED — the six-marker grammar (lib/core/state-marks.js,
-// engineering/decisions/2026-09-24-six-state-marks.md). A verdict-grid or pricing `[ ]`
-// drew the red "not met" / "missing" cross and now draws the open ring; an
-// obligation-matrix `[ ]` was keyed "exempt" and is now "undetermined". A deck written
-// before the change renders differently with a successful exit code, so the render says
-// so, on the same channel and for the same reason as the retired Form opt-outs above.
-// The detector is lint rule 16 (HARD RULE #7); it already stays silent on a slide that
-// uses `[!]` or `[?]`, so a deck written for the six markers is not warned.
-// The rule reads the deck with its heading splits baked into `---` (lint-core's
-// `bakeHeadingChunks`, the engine's own `headingSplitPoints`), so each chunk is one RENDERED
-// slide and these slide numbers match the PDF.
-const { findMovedEmptyBoxes, bakeHeadingChunks } = require('./lib/authoring/lint-core');
-const movedBoxes = findMovedEmptyBoxes(bakeHeadingChunks(md)?.baked ?? md).filter((f) => f.shapeChange);
-for (const f of movedBoxes.slice(0, RETIRED_FORM_SHOWN)) {
-  console.error(`warning: slide ${f.slide}: ${f.message} ${f.short}`);
-}
-if (movedBoxes.length > RETIRED_FORM_SHOWN) {
-  console.error(`warning: \u2026 and ${movedBoxes.length - RETIRED_FORM_SHOWN} more slide(s) with a moved \`[ ]\`.`);
-}
-if (movedBoxes.some((f) => f.autofixable)) {
-  // Only a repo checkout has `lint:deck` (tools/ is not in the published package), so the
-  // per-slide line above already says what to write; this names the shortcut for those who have it.
-  console.error('warning: in a Lattice checkout, `npm run lint:deck -- --fix <deck>` rewrites the verdict-grid and pricing ones as `[!]`.');
-}
-
 // A STATE CHART STILL IN THE v1 GRAMMAR. State chart v2 moved to the flowchart grammar
 // (`- -event-> Target` under a state), and a v1 `event => 2` pill now reads as part of a
 // name: the machine draws with no transitions and a successful exit code. Same channel and
@@ -1134,7 +1125,7 @@ const { subresourceCspMeta } = require('./lib/core/subresource-csp.mjs');
 // Pin /CreationDate + /ModDate on the way out, so re-rendering an unchanged deck
 // writes byte-identical bytes and git stores nothing new (HARD RULE #1: both PDF
 // write sites below call the one kernel).
-const { pinPdfTimestamps, pinPdfLibDates } = require('./lib/core/pdf-timestamps');
+const { pinPdfTimestamps, pinPdfLibDates, resolveEpoch } = require('./lib/core/pdf-timestamps');
 const {
   OVERFLOW_TAB_TEXT_SRC,
   LEGIBILITY_TAB_TEXT_SRC,
@@ -1680,6 +1671,10 @@ function refuseUnapprovedCode(pkgs) {
   }
   process.exit(1);
 }
+// The installed component packages this render USES — `--reopenable` carries them in the
+// `.lattice`, so the deck opens styled for a recipient who never installed them. Filled by
+// `withInstalledComponents`, which is where "used" is decided.
+let REOPENABLE_COMPONENTS = [];
 function withInstalledComponents(source) {
   const { embedInstalledComponents, classTokens } = require('./lib/packages/render.js');
   const { refusePackage } = require('./lib/packages/gate.js');
@@ -1703,6 +1698,7 @@ function withInstalledComponents(source) {
     console.error(`         (${p.dir}). To use yours, re-add it: it installs as "${p.name}-custom".`);
   }
   if (r.used.length && !flags.quiet) console.log(`  components: ${r.used.join(', ')} (installed packages)`);
+
   // CODE PACKAGES (contract note §9): an installed component with a `transform.js` runs only
   // with the user's consent at exactly these bytes (lib/packages/trust.js). One the deck names
   // without that consent fails the render with its name, before anything renders — never a silent
@@ -1723,6 +1719,10 @@ function withInstalledComponents(source) {
   });
   DECK_CODE_PACKAGES = installedCode.map((p) => ({ name: p.name, sha256: codeDigest(p.pkg), layer: approvals[`component/${p.name}`]?.layer ?? null, code: String(p.pkg.files[p.pkg.roles['transform.js']]), facts: p.pkg.manifest?.facts }));
   refuseUnapprovedCode(DECK_CODE_PACKAGES.filter((p) => named.has(p.name)));
+  // `--reopenable` carries what this render used: the components the CSS pass embedded, and the
+  // code packages the deck names that passed the name gate above (never one the render refused).
+  const usedNames = new Set(r.used);
+  REOPENABLE_COMPONENTS = [...installed.filter((p) => usedNames.has(p.name)), ...installedCode.filter((p) => named.has(p.name) && !usedNames.has(p.name))];
   // A class the deck names that is not shipped, embedded or installed renders its slides
   // UNSTYLED — silently, unlike a missing theme. Say so, with the command that fixes it
   // (portable-packages §6). The deck linter decides what counts as known; it is loaded only
@@ -1790,6 +1790,12 @@ const PRESENT = !!flags.present || readRenderTargetKey(fm, 'present');
 if (OUT_FORMAT === 'html') {
   if (PRESENT) console.warn('  ⚠ --present / `present: true` sets PDF viewer hints — ignoring for .html (no PDF is written).');
   if (EMBED_SOURCE) console.warn('  ⚠ --embed-source embeds the deck in the PDF — ignoring for .html. Use --player, which embeds the source for lossless re-import.');
+}
+// `--reopenable` has a home in exactly two formats. Named for every other one rather than
+// dropped silently: an author who asked for an editable file and got a plain one would only
+// find out from the person they sent it to.
+if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx') {
+  console.warn(`  ⚠ --reopenable embeds the deck in a .pdf or .pptx — ignoring for this output.${OUT_FORMAT === 'html' ? ' Use --player, which embeds the source for lossless re-import.' : ''}`);
 }
 // Self-contained HTML PLAYER (2026-07-07-html-lattice-player.md): rewrite the .html
 // sidecar into a portable, offline, three-view player (Present · Read·Slides ·
@@ -4147,6 +4153,7 @@ async function renderBody(browser, g, closeBrowser) {
     let finalBytes = await embedNotesInPdf(pdfBytes, pageNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
+    finalBytes = await embedLatticeInPdf(finalBytes);
     fs.writeFileSync(outFile, pinPdfTimestamps(finalBytes).bytes);
     const noteCount = materializedNotes.filter(Boolean).length;
     if (!QUIET) {
@@ -4154,6 +4161,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (noteCount) tags.push(`${noteCount} slide${noteCount > 1 ? 's' : ''} with speaker notes`);
       if (PRESENT) tags.push('presentation mode');
       if (EMBED_SOURCE) tags.push('source embedded');
+      if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}`);
     }
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
@@ -4181,6 +4189,7 @@ async function renderBody(browser, g, closeBrowser) {
     finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(cleanDocHtml, materializedNotes));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
+    finalBytes = await embedLatticeInPdf(finalBytes);
     fs.writeFileSync(outFile, pinPdfTimestamps(finalBytes).bytes);
     // materializedNotes, NOT slideNotes — see the sidecar write below. Counting the
     // unstripped array made this line claim "3 slides with speaker notes" on a run that
@@ -4197,6 +4206,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (noteCount) tags.push(`${noteCount} slide${noteCount > 1 ? 's' : ''} with speaker notes`);
       if (PRESENT) tags.push('presentation mode');
       if (EMBED_SOURCE) tags.push('source embedded');
+      if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile} (${tags.join(', ')})`);
     }
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
@@ -4585,11 +4595,14 @@ async function renderBody(browser, g, closeBrowser) {
         height: slideH,
         // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null, and
         // both suites show the notes to anyone who opens the file (#1837).
-      }, materializedNotes, slideDescriptions, PKG_ROOT);
+      }, materializedNotes, slideDescriptions, PKG_ROOT,
+      // `--reopenable` rides in the editable .pptx exactly as in the picture one.
+      REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
       if (!QUIET) {
         const kind = OUT_FORMAT === 'odp' ? 'ODP' : 'PPTX';
         const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.fonts ? `, ${res.fonts} fonts embedded` : ''})` : '';
-        console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}`);
+        const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
+        console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}`);
       }
     } else {
       const pngBuffers = [];
@@ -4620,8 +4633,8 @@ async function renderBody(browser, g, closeBrowser) {
           // the one format whose native viewer puts the author's private text in front of the
           // recipient by default. This call site was the last one still reading the unstripped
           // array (#1837).
-        }, materializedNotes, slideDescriptions);
-        if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}`);
+        }, materializedNotes, slideDescriptions, REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+        if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}`);
       }
     }
   }
@@ -5541,32 +5554,7 @@ async function embedSourceInPdf(pdfBytes) {
   try {
     const { PDFDocument } = require('pdf-lib');
     const doc = await PDFDocument.load(pdfBytes);
-    // Under --strip-notes / --strip-say the attached source is scrubbed too — else
-    // the PDF leaks the speaker notes and/or caption text the outputs were careful to remove.
-    // Under the cut measured against THIS document (`attachmentCut`), not the one measured
-    // against the re-rendered `rawMd` — they are the same string on most decks and the guard
-    // says so for free, but where they are not, a cut measured elsewhere is a guess.
-    const cut = STRIP_NOTES || STRIP_SAY ? attachmentCut() : { boundary: undefined, measured: true };
-    // ONLY WHEN IT ADDS SOMETHING. `!cut.measured` is also true when pass 2 itself fell back, and
-    // pass 2 already warned about that in full. On a deck where `md === rawMd` — no Mermaid
-    // fence, no auto-glossary, which is the large majority — there is no second document and
-    // therefore no second problem, so repeating the warning says the same thing twice and the
-    // repeat claims a distinction ("on the pre-Mermaid source rather than the rendered one") that
-    // does not exist for that deck. Two warnings for one fault is how the real one stops being
-    // read, which is the same failure this guard's own no-op regression had.
-    if (!cut.measured && md !== rawMd) {
-      console.warn(
-        '  WARNING: the Markdown attached to the PDF could not have a note or say comment '
-        + 'removed without changing the deck. This is the block-boundary case --strip-notes '
-        + 'reports, measured separately here because --embed-source attaches the deck as you '
-        + 'wrote it, before the Mermaid pre-render, which is not the document the slides were '
-        + 'rendered from. The text is still removed from every copy; the attached source will '
-        + 're-import with that block boundary changed. Drop --embed-source, or move the comment '
-        + 'out of the list.'
-      );
-    }
-    const attachSource = stripSharedSource(md, noteStripSet, cut.boundary);
-    await doc.attach(Buffer.from(attachSource, 'utf8'), path.basename(mdFile), {
+    await doc.attach(Buffer.from(attachableSource(md), 'utf8'), path.basename(mdFile), {
       mimeType: 'text/markdown',
       description: 'Lattice deck source (Markdown). Re-render with: lattice-emulator <this file> out.pdf',
     });
@@ -5574,6 +5562,92 @@ async function embedSourceInPdf(pdfBytes) {
   } catch (e) {
     console.warn(`  ⚠ Could not attach the Markdown source to the PDF (${e.message}); writing deck without it.`);
     return pdfBytes;
+  }
+}
+
+// The source a SHARED copy carries — `--embed-source`'s attachment and `--reopenable`'s
+// `.lattice` — with the privacy strips applied. Memoized per input string, so a run with both
+// flags scrubs once and warns once.
+const attachableMemo = new Map();
+function attachableSource(src) {
+  if (attachableMemo.has(src)) return attachableMemo.get(src);
+  // Under --strip-notes / --strip-say the attached source is scrubbed too — else the PDF leaks
+  // the speaker notes and/or caption text the outputs were careful to remove. Under the cut
+  // measured against THIS document (`attachmentCut`), not the one measured against the
+  // re-rendered `rawMd` — they are the same string on most decks and the guard says so for
+  // free, but where they are not, a cut measured elsewhere is a guess.
+  const cut = STRIP_NOTES || STRIP_SAY ? attachmentCut() : { boundary: undefined, measured: true };
+  // ONLY WHEN IT ADDS SOMETHING. `!cut.measured` is also true when pass 2 itself fell back, and
+  // pass 2 already warned about that in full. On a deck where `md === rawMd` — no Mermaid
+  // fence, no auto-glossary, which is the large majority — there is no second document and
+  // therefore no second problem, so repeating the warning says the same thing twice and the
+  // repeat claims a distinction ("on the pre-Mermaid source rather than the rendered one") that
+  // does not exist for that deck. Two warnings for one fault is how the real one stops being
+  // read, which is the same failure this guard's own no-op regression had. Once per run.
+  if (!cut.measured && md !== rawMd && !attachableMemo.size) {
+    // Names the flags that are on and the format, as `strippedSlidesOrAuthored` does: an author
+    // who ran `deck.pptx --reopenable` must not be told about a PDF and `--embed-source`.
+    const flagList = [EMBED_SOURCE && '--embed-source', REOPENABLE && '--reopenable'].filter(Boolean).join(' / ');
+    console.warn(
+      `  WARNING: the deck source embedded in the .${OUT_FORMAT} could not have a note or say comment `
+      + 'removed without changing the deck. This is the block-boundary case --strip-notes '
+      + `reports, measured separately here because ${flagList} embeds the deck as you `
+      + 'wrote it, before the Mermaid pre-render, which is not the document the slides were '
+      + 'rendered from. The text is still removed from every copy; the embedded source will '
+      + `re-import with that block boundary changed. Drop ${flagList}, or move `
+      + 'the comment out of the list.'
+    );
+  }
+  const out = stripSharedSource(src, noteStripSet, cut.boundary);
+  attachableMemo.set(src, out);
+  return out;
+}
+
+// `--reopenable`: the deck's `.lattice`, built by the kernel the Studio's "Re-openable in
+// Lattice" uses (lib/core/reopenable.js), so the payload is the same file either tool writes.
+//   · SOURCE — `mdRaw`, the deck as the author wrote it: before the Mermaid pre-render, and
+//     before `--size` / `--print` rewrite its front matter for this one run. The recipient
+//     edits the deck, not this export's settings. The privacy strips apply under the cut
+//     measured on `md`, which differs from `mdRaw` in front matter only — and a front-matter
+//     key is never a note's block boundary.
+//   · COMMENTS — none. Review comments never ride in a PDF or PPTX (reopenable-exports §3.5),
+//     and the CLI has none to give.
+//   · PACKAGES — the installed theme and components this render used, as package folders, so
+//     the deck opens styled on a machine that never ran `lattice packages add`. The Studio's
+//     import gates them exactly as it gates a `.lattice` from the Studio.
+//   · CLOCK — pinned like every PDF date (SOURCE_DATE_EPOCH, else the epoch), so a re-render of
+//     an unchanged deck writes the same payload bytes.
+let reopenableMemo = null;
+function reopenableDate() {
+  return new Date(resolveEpoch() * 1000);
+}
+function reopenableLattice() {
+  if (reopenableMemo) return reopenableMemo;
+  const packages = [];
+  if (installedTheme) packages.push({ type: 'theme', name: paletteName, files: packagesHome.readFolder(installedTheme.dir) });
+  for (const p of REOPENABLE_COMPONENTS) packages.push({ type: 'component', name: p.name, files: packagesHome.readFolder(p.dir) });
+  const { buildLatticeZip } = require('./lib/core/reopenable');
+  return (reopenableMemo = buildLatticeZip(require('jszip'), {
+    source: attachableSource(mdRaw),
+    title: deckTitle,
+    comments: [],
+    now: reopenableDate().getTime(),
+    packages,
+    date: reopenableDate(),
+  }));
+}
+
+// Attach the `.lattice` to the finished PDF. NOT forgiving, unlike the two passes around it:
+// a provenance note may drop and leave the deck whole, but the author asked for a file someone
+// can open and edit, and a plain PDF under that promise is found out by the recipient, too late.
+async function embedLatticeInPdf(pdfBytes) {
+  if (!REOPENABLE) return pdfBytes;
+  try {
+    const { embedInPdfBytes } = require('./lib/core/reopenable');
+    return await embedInPdfBytes(require('pdf-lib'), pdfBytes, await reopenableLattice(), { beforeSave: (doc) => pinPdfLibDates(doc) });
+  } catch (e) {
+    console.error(`error: --reopenable could not put the deck inside the PDF (${e.message}). No PDF was written.`);
+    process.exit(1);
   }
 }
 

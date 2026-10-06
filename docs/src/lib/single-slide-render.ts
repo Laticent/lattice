@@ -52,6 +52,7 @@ import { previewCspMeta } from '../playground/preview-csp.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
+import { pluginDataMissing } from './ensure-plugin-data';
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
@@ -1577,7 +1578,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
 						// deck-context render populates it (`key !== null`) — see the gate above.
-						if (key !== null) {
+						// …unless a plugin's data (icon drawings) had not arrived: that render is a
+						// placeholder, and memoizing it would serve it until the next edit.
+						if (key !== null && !pluginDataMissing(renderSource)) {
 							const snapshot = { html: out.html, css: out.css, width: out.width, height: out.height };
 							// A slice render goes in the LRU; a whole-deck render in the single memo.
 							if (slicePage) sliceCachePut(key, keyInputs, snapshot);

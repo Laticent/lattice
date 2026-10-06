@@ -146,7 +146,7 @@ export function ExportOptionsPanel({
 
 			<button
 				type="button"
-				data-demo="pdf-download"
+				data-demo={isPdf ? 'pdf-download' : 'pptx-download'}
 				disabled={busy}
 				onClick={() => {
 					const reopenable = format !== 'odp' && embedSource;

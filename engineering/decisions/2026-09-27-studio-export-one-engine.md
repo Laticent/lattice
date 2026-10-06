@@ -369,8 +369,36 @@ Order of work, all in one PR (#2404):
     even as PNG (y0 rgb(128,69,82) against the screen's rgb(181,95,116); JPEG gave 110,79,84).
     Photographing 4K at 3840 px fixed it but cost ~21 s a 116-slide 4K gallery and pushed CI's
     integration job past its timeout, so the owner kept the cap. A downsampled photo stays JPEG,
-    since PNG bought little there and still cost ~13 s a gallery render:
-    `followups.d/2503-p3-pdf-photo-exact-4k.md`.
+    since PNG bought little there and still cost ~13 s a gallery render.
+    **Fixed for the slide's own edge 2026-10-05.** A 1x band photographed along the edge cost
+    as much as the full photo (a screenshot is dominated by its per-call cost), so the edge is
+    drawn as a vector instead, as #2404 drew borders. `readSectionEdges` (`read-slide.mjs`)
+    reads the section's `border-image` bar and its single gradient `background-image` layer
+    (the dark slide's hairline, a rail) into axial shadings, and hideDrawn drops both from the
+    photo. On the 4K hairline fixture the dark keyline went from 86 levels off Chrome's print to
+    1, and the light slide's 12 px bar from 94 (its last row) to 1. The 116-slide 4K gallery
+    renders in 34.9 s against 34.8 s on main (mean of 3 alternating runs each); 82 of its 116
+    slides draw their edge, 2 are refused as covered.
+    Refused, and left in the photo, when anything's ink can reach the edge (checked by geometry,
+    not a hit test: the checker found outer shadows, list markers, underlines and a
+    pointer-events-none image that a hit test walks past), the slide is clipped or rounded, or
+    its geometry is not one the reader models. A background layer counts only when it is an
+    edge: flush with one side, the side's full length, at most 1% of the slide wide. The Studio
+    reads the slide under the camera's own fixups (no host keyline, a squared corner), so it
+    draws the same edges.
+    **Three checker rounds** found ink the geometry still missed (a scaled shadow, an SVG stroke,
+    a text stroke, a pseudo inside a scaled parent), so the photo has the last word on a
+    background edge: taken with the edge hidden, its band must show only the slide's color, or
+    the edge goes back into the photo (`bandIsClear`, `edge-ink`). The edge is also drawn before
+    the slide's own images and shapes, as the browser paints a section's background under its
+    content; drawn with them, it buried a chart line crossing a divider's rail. On the 4K gallery
+    the photo check refuses nothing (83 edges drawn, 1 refused by geometry under a full-bleed
+    image); on the checkers' 17 attack slides, the PDF's band matches the screen's on every one. Pinned by the 4K arm of
+    `test/integration/export/pdf-photo-hairline.test.js`.
+  - The other 1 px rules a FINISH paints at the slide's edge (the `frame` keyline's inset
+    box-shadow ring, `--fin-frame`, in `lib/base/base.finish.css`) are still in the photo, so
+    they stay slightly soft at 4K. A shadow ring is a different reader (box-shadow geometry,
+    not a gradient image), and no deck has asked for it yet.
   - A later sibling's outer `box-shadow` over a border is not hit-testable, so a border can
     draw over it.
   - The 1x background photo is soft at deep zoom or in print; `LATTICE_PDF_PHOTO_SCALE=2`
@@ -379,3 +407,19 @@ Order of work, all in one PR (#2404):
   - The photo is Chrome's own raster, so the PDF is byte-reproducible on one machine but not
     across machines — the same as before for anything Chrome rasterized.
 
+
+## 8. The two cameras do not lay out the same (2026-10-06)
+
+The photo is only safe to composite under the vector layer where its layout matches the live
+page's. The CLI's camera is Chrome itself, so it always does. The Studio's is html-to-image,
+which re-lays the slide out in an SVG image, and its style copier rounds every `font-size` down
+to `floor(px) - 0.1`. Text that the photo hides still takes up its (smaller) room there, so a box
+placed after it by the text flow moves: a kpi pill drew over the end of its caption, about
+13px early (`engineering/gotchas/export.md`, "A Studio PDF drew a pill over the end of its
+caption").
+
+The fix is camera-independent: such a box, when its content is only drawn text, is drawn from
+the live geometry, fill and border, and hidden in the photo (`read-slide.mjs` › `chipOf`). The
+same drift still exists for anything else the photo keeps that sits after text in a flow; none
+was found on `examples/studio-present.md` or the gallery sweep for this change, and the chip
+test is the shape to widen if one turns up.

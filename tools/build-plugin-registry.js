@@ -25,6 +25,23 @@
  *                                        Never serialized, so the module may require.
  *   lib/plugins/styles.generated.js     CommonJS. The plugins' stylesheets, in dependency order,
  *                                        for tools/build-css.js's plugin slot.
+ *   lib/plugins/extension-points.generated.json   JSON. Each slot a plugin offers (phase F: the
+ *                                        chart family's \`kernel\`), keyed by the component block
+ *                                        that fills it: its plugin and slot, the bucket that
+ *                                        fills it, and the filler module's role and entry — what
+ *                                        the component loader, tools/build-chart-registry.js and
+ *                                        tools/check-ownership.js read instead of a hand-kept
+ *                                        bucket list.
+ *   lib/plugins/inline.generated.js     CommonJS. Each plugin's inline-code kinds (`<name>.inline.js`),
+ *                                        the rows lib/core/inline-code-directives.js appends to its own.
+ *   lib/plugins/services.generated.js   CommonJS. Each plugin's services (`<name>.services.js`), for
+ *                                        lib/plugins/services.js.
+ *   lib/plugins/registers.generated.js  CommonJS, data only. Each plugin's front-matter registers, for
+ *                                        lib/core/register-factory.js.
+ *   lib/plugins/data.generated.js       CommonJS. Each plugin's data as a LAZY loader, which the
+ *                                        engine registers with lib/plugins/plugin-data.js.
+ *   lib/plugins/data-probe.generated.mjs  ESM. Each data plugin's `detect` and on-demand file, for a
+ *                                        browser surface that fetches the data before rendering.
  *
  * GENERATED, NOT SCANNED AT RUN TIME, for the reason the chart registry is: a bundler cannot
  * follow `require(templateLiteral)`, and the runtime should pay nothing to find its plugins. Both
@@ -62,6 +79,12 @@ const STYLES_FILE = path.join(PLUGINS_DIR, 'styles.generated.js');
 const BAKE_FILE = path.join(PLUGINS_DIR, 'bake.generated.js');
 const DRAWN_FILE = path.join(PLUGINS_DIR, 'drawn.generated.mjs');
 const DRAWN_LIBRARY_FILE = path.join(PLUGINS_DIR, 'drawn-library.generated.mjs');
+const EXTENSION_POINTS_FILE = path.join(PLUGINS_DIR, 'extension-points.generated.json');
+const INLINE_FILE = path.join(PLUGINS_DIR, 'inline.generated.js');
+const SERVICES_FILE = path.join(PLUGINS_DIR, 'services.generated.js');
+const REGISTERS_FILE = path.join(PLUGINS_DIR, 'registers.generated.js');
+const DATA_FILE = path.join(PLUGINS_DIR, 'data.generated.js');
+const DATA_PROBE_FILE = path.join(PLUGINS_DIR, 'data-probe.generated.mjs');
 
 /** Every `lib/plugins/<folder>/` holding a `*.manifest.json`, `_`-prefixed folders skipped. */
 function listPlugins() {
@@ -128,6 +151,17 @@ async function readExports(folder, name, manifest) {
         .trim();
     }
   }
+  // The inline kinds and services: light modules every dispatcher bundle carries, read for their
+  // keys (and each kind's four functions) so the one-to-one check can compare them.
+  const inlinePath = path.join(dir, `${name}.inline.js`);
+  if (fs.existsSync(inlinePath)) {
+    const { inline = {} } = require(inlinePath);
+    out.inline = Object.keys(inline);
+    out.inlineFns = Object.fromEntries(Object.entries(inline).map(([k, row]) => [k, Object.keys(row || {}).filter((f) => typeof row[f] === 'function')]));
+  }
+  const servicesPath = path.join(dir, `${name}.services.js`);
+  if (fs.existsSync(servicesPath)) out.services = Object.keys(require(servicesPath).services || {});
+  out.hasData = fs.existsSync(path.join(dir, `${name}.data.generated.js`));
   // The highlight grammar is a pure function of highlight.js's API; read for its export.
   const highlightPath = path.join(dir, `${name}.highlight.js`);
   if (fs.existsSync(highlightPath)) out.hasHighlight = typeof require(highlightPath).highlight === 'function';
@@ -157,6 +191,20 @@ function reservedFenceNames() {
     for (const alias of hljs.getLanguage(lang)?.aliases || []) names.add(alias);
   }
   return names;
+}
+
+/**
+ * Every slide class a FIRST-PARTY modifier group owns (lib/components/index.js MODIFIER_GROUPS, less
+ * the groups a plugin register added), so a plugin register cannot stamp one. Empty when the module
+ * will not load, so a broken tree still regenerates its registry.
+ */
+function hostClasses() {
+  try {
+    const { MODIFIER_GROUPS } = require(path.join(ROOT, 'lib', 'components', 'index.js'));
+    return new Set(MODIFIER_GROUPS.filter((g) => !g.plugin).flatMap((g) => g.tokens || []));
+  } catch {
+    return new Set();
+  }
 }
 
 /**
@@ -245,6 +293,10 @@ function componentsWithPlugins(listed, exportsByName) {
       const gallery = path.join(ROOT, p.path, `${name}.gallery.md`);
       return {
         name,
+        // The bucket as the component loader reads it, and the manifest's blocks: what the
+        // resolver's extension-point arm needs to find a slot's fillers (phase F).
+        bucket: typeof manifest.bucket === 'string' && manifest.bucket ? manifest.bucket : manifest.function,
+        blocks: Object.keys(manifest),
         requires: manifest.plugins?.requires || [],
         optional: manifest.plugins?.optional || [],
         uses: fs.existsSync(gallery) ? uses(fs.readFileSync(gallery, 'utf8')) : [],
@@ -259,7 +311,7 @@ const HEADER = (what) => `// GENERATED by tools/build-plugin-registry.js from li
 
 const ident = (name) => `p_${name.replace(/-/g, '_')}`;
 
-function renderGrammar(ordered, exportsByName, components) {
+function renderGrammar(ordered, exportsByName, components, fills) {
   const imports = ordered
     .filter((p) => {
       const exp = exportsByName.get(p.manifest.name);
@@ -302,7 +354,7 @@ function renderGrammar(ordered, exportsByName, components) {
       `    syntax: Object.freeze({${syntax.length ? `\n${syntax.join('\n')}\n    ` : ''}}),`,
       `    fences: Object.freeze({${fences.length ? `\n${fences.join('\n')}\n    ` : ''}}),`,
       `    hydrate: ${m.contributes.hydrate ? 'true' : 'false'},`,
-      `    runtimeDrawn: ${m.render?.exec?.hydrate === 'pass'},`,
+      `    pass: ${m.render?.exec?.hydrate === 'pass'},`,
       `    detect: ${mod && exportsByName.get(p.manifest.name).detect ? `${mod}__detect` : 'null'},`,
       '  }),',
     ].join('\n');
@@ -317,10 +369,39 @@ ${entries.join('\n')}
 // In-tree components that REQUIRE a plugin, keyed by component name — which is the slide class an
 // author writes (\`_class: math\`). A required plugin is LOADED for a deck that uses the class
 // (host-grammar.mjs \`admitPlugins\`, plugin-system §9 decision 6), and the engine reports a slide
-// whose required plugin is switched off. A user component's declaration joins with the data layer
-// (plugin-system phase E).
-export const COMPONENT_PLUGINS = Object.freeze(${JSON.stringify(Object.fromEntries(components.filter((c) => c.requires.length).map((c) => [c.name, c.requires])))});
+// whose required plugin is switched off. A component that FILLS a plugin's extension point (a chart
+// filling the chart family's \`kernel\` slot) requires that plugin by the act, with no \`plugins\` block.
+// A user component's declaration joins with the data layer (plugin-system phase E).
+export const COMPONENT_PLUGINS = Object.freeze(${JSON.stringify(componentRequirements(components, fills))});
 `;
+}
+
+/** Each component's required plugins: its own \`plugins.requires\`, then the plugins whose slots it fills. */
+function componentRequirements(components, fills) {
+  const out = {};
+  for (const c of components) {
+    const all = [...new Set([...c.requires, ...(fills[c.name] || [])])];
+    if (all.length) out[c.name] = all;
+  }
+  return out;
+}
+
+/**
+ * The EXTENSION POINTS, keyed by slot name: which plugin offers it, which bucket fills it, and the
+ * role and entry of a filler's module. JSON, because its readers are CommonJS that a browser also
+ * bundles (lib/components/index.js validates a \`kernel\` block against it) and Node tools
+ * (tools/build-chart-registry.js freezes the fills; tools/check-ownership.js checks them).
+ */
+function renderExtensionPoints(ordered) {
+  // Keyed by the BLOCK a filler declares — what every reader is asking about ("who reads a
+  // component's \`kernel\` block?") — with the plugin and its own slot name inside.
+  const out = {};
+  for (const p of ordered) {
+    for (const [slot, point] of Object.entries(p.manifest.contributes.extensionPoints || {})) {
+      out[point.block || slot] = { plugin: p.manifest.name, slot, bucket: point.bucket, role: point.role, entry: point.entry };
+    }
+  }
+  return `${JSON.stringify(out, null, 2)}\n`;
 }
 
 /**
@@ -501,6 +582,87 @@ module.exports = { PLUGIN_STYLE_SOURCES: Object.freeze(${JSON.stringify(files)})
 `;
 }
 
+/**
+ * The plugins' INLINE kinds, in dependency order: the rows lib/core/inline-code-directives.js
+ * appends to its own (marks, pills, sparks). Each row's module is light by contract — no data —
+ * because every bundle that dispatches inline code (the linter, the runtime) carries it.
+ */
+function renderInline(ordered) {
+  const lines = ordered.flatMap((p) => Object.entries(p.manifest.contributes.inline || {}).map(([kind, decl]) => {
+    const m = p.manifest;
+    return `  Object.freeze({ name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}, sigil: ${JSON.stringify(decl.sigil)}, ...require('./${p.folder}/${m.name}.inline.js').inline${/^[a-z_][a-z0-9_]*$/i.test(kind) ? `.${kind}` : `[${JSON.stringify(kind)}]`} }),`;
+  }));
+  return `${HEADER('The plugins\' INLINE-CODE kinds, in dependency order: the rows the host\'s dispatcher appends to its own.')}
+const INLINE = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
+
+module.exports = { INLINE };
+`;
+}
+
+/**
+ * The plugins' SERVICES, keyed by plugin: the named functions lib/plugins/services.js hands a
+ * caller that asks the host, never the plugin. Light modules, like the inline kinds.
+ */
+function renderServices(ordered) {
+  const lines = ordered.filter((p) => (p.manifest.contributes.services || []).length)
+    .map((p) => `  ${JSON.stringify(p.manifest.name)}: require('./${p.folder}/${p.manifest.name}.services.js').services,`);
+  return `${HEADER('The plugins\' SERVICES, keyed by plugin name: what lib/plugins/services.js hands a caller.')}
+const SERVICES = Object.freeze({${lines.length ? `\n${lines.join('\n')}\n` : ''}});
+
+module.exports = { SERVICES };
+`;
+}
+
+/**
+ * The plugins' front-matter REGISTERS, as data: the key (which is also the class prefix) and each
+ * axis's words, default first. lib/core/register-factory.js builds each into a resolver exactly as
+ * it builds \`spark:\`. Plain data, so the linter and the runtime read it for free.
+ */
+function renderRegisters(ordered) {
+  const lines = ordered.flatMap((p) => Object.entries(p.manifest.contributes.registers || {}).map(([key, decl]) => {
+    const axes = Object.entries(decl.axes).map(([axis, words]) => `Object.freeze({ axis: ${JSON.stringify(axis)}, names: Object.freeze(${JSON.stringify(words)}) })`);
+    return `  Object.freeze({ key: ${JSON.stringify(key)}, plugin: ${JSON.stringify(p.manifest.name)}, axes: Object.freeze([${axes.join(', ')}]) }),`;
+  }));
+  return `${HEADER('The plugins\' front-matter REGISTERS, as data: key (= class prefix) and axes, each axis\'s default first.')}
+const PLUGIN_REGISTERS = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
+
+module.exports = { PLUGIN_REGISTERS };
+`;
+}
+
+/**
+ * Each plugin's DATA, as a lazy loader the engine registers with lib/plugins/plugin-data.js, so a
+ * Node render loads it on first use and never otherwise. A browser bundle that carries the engine
+ * aliases THIS file to lib/plugins/data-browser-stub.js, and the data arrives as its own script.
+ */
+function renderData(ordered) {
+  const lines = ordered.filter((p) => p.manifest.contributes.data === true)
+    .map((p) => `  ${JSON.stringify(p.manifest.name)}: () => require('./${p.folder}/${p.manifest.name}.data.generated.js'),`);
+  return `${HEADER('Each plugin\'s DATA, as a lazy loader. Engine-only; a browser bundle aliases this file to data-browser-stub.js.')}
+const DATA_LOADERS = Object.freeze({${lines.length ? `\n${lines.join('\n')}\n` : ''}});
+
+module.exports = { DATA_LOADERS };
+`;
+}
+
+/**
+ * Each data plugin's usage probe and the file its data ships in, for a BROWSER surface that must
+ * fetch the data before it renders (docs/src/lib/render-engine.ts). ESM, importing only each
+ * plugin's `detect` — never its data — so the Studio's render path pays a few bytes for it.
+ */
+function renderDataProbe(ordered, exportsByName) {
+  const withData = ordered.filter((p) => p.manifest.contributes.data === true);
+  const imports = withData.map((p) => `import { detect as ${ident(p.manifest.name)}__detect } from './${p.folder}/${p.manifest.name}.syntax.mjs';`);
+  const rows = withData.map((p) => `  Object.freeze({ name: ${JSON.stringify(p.manifest.name)}, file: ${JSON.stringify(`lattice-plugin-${p.manifest.name}.js`)}, detect: ${ident(p.manifest.name)}__detect }),`);
+  for (const p of withData) {
+    if (!exportsByName.get(p.manifest.name).detect) throw new Error(`build-plugin-registry: plugin "${p.manifest.name}" declares data but its syntax module exports no detect(source)`);
+  }
+  return `${HEADER('Each data plugin\'s usage probe and on-demand data file, for a browser surface that fetches the data before it renders.')}
+${imports.join('\n')}${imports.length ? '\n' : ''}
+export const DATA_PLUGINS = Object.freeze([${rows.length ? `\n${rows.join('\n')}\n` : ''}]);
+`;
+}
+
 function renderRegistry(ordered, exportsByName) {
   const lines = ordered.map((p) => {
     const hasRender = exportsByName.get(p.manifest.name).hasRender;
@@ -536,9 +698,13 @@ async function build(opts = {}) {
   const exportsByName = new Map();
   for (const p of listed) exportsByName.set(p.manifest.name, await readExports(p.folder, p.manifest.name, p.manifest));
   const components = componentsWithPlugins(listed, exportsByName);
-  const { errors, warnings, order } = resolvePlugins(
+  // The OBJECT blocks a component manifest may carry: a slot's block must be one (a scalar such as
+  // \`name\` would make every component in the bucket a filler — red team, phase F).
+  const schemaProps = require(path.join(ROOT, 'lib', 'components', 'manifest.schema.json')).properties;
+  const componentBlocks = new Set(Object.keys(schemaProps).filter((k) => schemaProps[k].type === 'object'));
+  const { errors, warnings, order, fills } = resolvePlugins(
     listed.map((p) => ({ manifest: p.manifest, folder: p.folder, exports: exportsByName.get(p.manifest.name) })),
-    { components, reservedFences: opts.reservedFences || reservedFenceNames(), shippedFences: await shippedFenceClaims() },
+    { components, componentBlocks, reservedFences: opts.reservedFences || reservedFenceNames(), shippedFences: await shippedFenceClaims(), hostClasses: hostClasses() },
   );
   if (errors.length) return { errors, warnings };
   const byName = new Map(listed.map((p) => [p.manifest.name, p]));
@@ -548,7 +714,7 @@ async function build(opts = {}) {
     warnings,
     count: ordered.length,
     files: [
-      [GRAMMAR_FILE, renderGrammar(ordered, exportsByName, components)],
+      [GRAMMAR_FILE, renderGrammar(ordered, exportsByName, components, fills)],
       [REGISTRY_FILE, renderRegistry(ordered, exportsByName)],
       [BLOCKS_FILE, renderBlocks(ordered)],
       [HYDRATE_FILE, renderHydrate(ordered)],
@@ -557,6 +723,12 @@ async function build(opts = {}) {
       [BAKE_FILE, renderBake(ordered)],
       [DRAWN_FILE, renderDrawn(ordered)],
       [DRAWN_LIBRARY_FILE, renderDrawnLibrary(ordered)],
+      [EXTENSION_POINTS_FILE, renderExtensionPoints(ordered)],
+      [INLINE_FILE, renderInline(ordered)],
+      [SERVICES_FILE, renderServices(ordered)],
+      [REGISTERS_FILE, renderRegisters(ordered)],
+      [DATA_FILE, renderData(ordered)],
+      [DATA_PROBE_FILE, renderDataProbe(ordered, exportsByName)],
     ],
   };
 }
@@ -577,7 +749,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,extension-points,inline,services,registers,data,data-probe}.generated.*\n`);
 }
 
 if (require.main === module) {

@@ -134,6 +134,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [`pkill -f astro` kills the shell that's launching astro](gotchas/docs-site.md#pkill--f-astro-kills-the-shell-thats-launching-astro)
 - [An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish](gotchas/docs-site.md#an-astro-island-without-ssr-is-mounted-not-yet-wired--clicks-still-vanish)
 - [A spec is green after `npm run build:e2e` and red after `npm run build`](gotchas/docs-site.md#a-spec-is-green-after-npm-run-builde2e-and-red-after-npm-run-build)
+- [A timing spec re-downloads everything, because `page.route()` turns off the HTTP cache](gotchas/docs-site.md#a-timing-spec-re-downloads-everything-because-pageroute-turns-off-the-http-cache)
 
 ### [Export (PDF, PPTX, the HTML player)](gotchas/export.md)
 
@@ -154,6 +155,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The exported player told the recipient a deck HAD notes, after `--strip-notes` removed them](gotchas/export.md#the-exported-player-told-the-recipient-a-deck-had-notes-after---strip-notes-removed-them)
 - [The PDF's embedded source was scrubbed under a cut measured on a different document](gotchas/export.md#the-pdfs-embedded-source-was-scrubbed-under-a-cut-measured-on-a-different-document)
 - [A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format](gotchas/export.md#a-tier--galleryauthored-pragma-shipped-as-the-speaker-note-in-every-format)
+- [A Studio PDF drew a pill over the end of its caption](gotchas/export.md#a-studio-pdf-drew-a-pill-over-the-end-of-its-caption)
 
 ### [Fonts and emoji](gotchas/fonts.md)
 
@@ -203,6 +205,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Tapping a link on a slide in the exported player loses the deck](gotchas/lattice-internals.md#tapping-a-link-on-a-slide-in-the-exported-player-loses-the-deck)
 - [A code block or a prose line after a heading is pulled into the masthead band](gotchas/lattice-internals.md#a-code-block-or-a-prose-line-after-a-heading-is-pulled-into-the-masthead-band)
 - [G-gen merge must use non-G file's G-gen block, not the G-file's block](gotchas/lattice-internals.md#g-gen-merge-must-use-non-g-files-g-gen-block-not-the-g-files-block)
+- [An author's `$&` in a label turns into a piece of the slide](gotchas/lattice-internals.md#an-authors--in-a-label-turns-into-a-piece-of-the-slide)
 
 ### [Marp / Marpit](gotchas/marp.md)
 

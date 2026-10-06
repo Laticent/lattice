@@ -70,7 +70,11 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
   // Attempts become functions of their own (`t_K` tries and rewinds, `b_K` is the body), written
   // after the rules. A grammar without one is generated exactly as before.
   const attempts = new Map<Expr, number>();
-  const attemptFns: string[] = [];
+  // Each attempt's t_K and b_K, and its x_K (why a bare attempt failed) emitted only for an
+  // attempt that is used bare: one inside a choice never reads it, and an unused function in a
+  // committed parser is what a code-quality scan flags (phase 3b, PR #2545).
+  const attemptFns: { k: number; tryAndBody: string; explain: string }[] = [];
+  const explained = new Set<number>();
   const hasAttempt = Object.values(spec.rules).some(function has(e: Expr): boolean {
     switch (e.t) {
       case 'attempt': return true;
@@ -149,7 +153,11 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
         const miss = e.orEnd ? `${ind}  i = n;\n` : `${ind}  i = n;\n${ind}  return fail(${q(JSON.stringify(e.s))});\n`;
         return `${ind}{\n${ind}  const ${c} = s.indexOf(${q(e.s)}, i);\n${ind}  if (${c} >= 0) i = ${c} + ${e.s.length};\n${ind}  else {\n${miss}${ind}  }\n${ind}}\n`;
       }
-      case 'attempt': return `${ind}if (!t_${attemptFn(e)}()) {\n${ind}  if (!err) err = x_${attemptFn(e)}();\n${ind}  return false;\n${ind}}\n`;
+      case 'attempt': {
+        const k = attemptFn(e);
+        explained.add(k);
+        return `${ind}if (!t_${k}()) {\n${ind}  if (!err) err = x_${k}();\n${ind}  return false;\n${ind}}\n`;
+      }
       case 'node': {
         const b = fresh();
         let k = kinds.indexOf(e.kind);
@@ -166,7 +174,7 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
     attempts.set(e, k);
     const c = fresh();
     const body = gen(e.x, '  ');
-    attemptFns.push(`// Try the body on at most ${e.max} characters; keep it only before a \`next\` character or the end.
+    const tryAndBody = `// Try the body on at most ${e.max} characters; keep it only before a \`next\` character or the end.
 function t_${k}(): boolean {
   const i0 = i;
   const n0 = n;
@@ -190,7 +198,8 @@ function t_${k}(): boolean {
 function b_${k}(): boolean {
 ${body}  return true;
 }
-
+`;
+    const explain = `
 // Why a bare attempt failed, against the real input: the body once more without the window
 // (compile()'s explainAttempt). A bare attempt's failure ends the parse, so this runs once.
 function x_${k}(): GenError {
@@ -210,7 +219,8 @@ function x_${k}(): GenError {
   if (j > w) return { at: w, expected: ${q(`the end within ${e.max} characters`)}, found: w < n ? s[w] : null };
   return { at: j, expected: ${q(`${describe(e.next)} or end of input`)}, found: j < n ? s[j] : null };
 }
-`);
+`;
+    attemptFns.push({ k, tryAndBody, explain });
     return k;
   }
 
@@ -243,7 +253,7 @@ function fail(expected: string): false {
   return false;
 }
 
-${rules}${attemptFns.length ? `\n${attemptFns.join('\n')}` : ''}
+${rules}${attemptFns.length ? `\n${attemptFns.map((a) => a.tryAndBody + (explained.has(a.k) ? a.explain : '')).join('\n')}` : ''}
 const RULES: Record<string, () => boolean> = { ${Object.keys(spec.rules).map((r) => `${q(r)}: r_${r}`).join(', ')} };
 
 /**
@@ -259,6 +269,9 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   depth = 0;
   err = null;
   top = 0;
+  // A tree that outgrew the first buffer is let go here rather than kept for the page's life: one
+  // hostile 3M-character flowchart row held 67 MB through every later parse (phase 3b's red team).
+  if (buf.length > 65536) buf = new Int32Array(256);
   ${maxDepth > MAX_DEPTH ? `let ok: boolean;
   try {
     ok = start();

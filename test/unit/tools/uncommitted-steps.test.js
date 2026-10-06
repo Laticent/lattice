@@ -52,6 +52,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-concepts.js',
   'build-playground.js',
   'build-katex-provider.js',
+  // Measured 2026-10-05: writes only docs/public/playground/lattice-plugin-<name>.js, beside the
+  // KaTeX provider and covered by the same ignore rule.
+  'build-plugin-data-bundles.js',
   'build-hljs-languages.js',
   'build-theme-core.js',
   'build-layout-core.js',
@@ -108,10 +111,15 @@ const EXPECTED_PR_OWNED = new Set([
   // Measured 2026-09-27: writes exactly lib/plugins/grammar.generated.mjs and
   // lib/plugins/registry.generated.js, both tracked.
   'build-plugin-registry.js',
+  // Measured 2026-10-05: writes lib/plugins/icons/icons.{vocab,data}.generated.js, both tracked —
+  // the registry and the engine require them.
+  'build-icons-data.js',
   'build-projection-catalog.js', // lib/core/projection-catalog.generated.mjs
   // Measured 2026-09-28: writes exactly docs/src/lib/segno/notation.generated.ts, which git
-  // tracks — the docs site and Vitest import it.
-  'build-segno-grammar.js', // docs/src/lib/segno
+  // tracks — the docs site and Vitest import it. Since Segno phase 3 (2026-10-06) also
+  // lib/core/flowchart-row.generated.js, tracked too: `splitRow` requires it; and since phase 3's
+  // list text (2026-10-06) lib/core/list-text.generated.js, which leading-marker.js requires.
+  'build-segno-grammar.js', // docs/src/lib/segno, lib/core
   'build-snippets.js', // .vscode
   'build-component-docs.js', // lib/components/**/*.docs.md
   'build-landing-tokens.js', // docs/src/styles

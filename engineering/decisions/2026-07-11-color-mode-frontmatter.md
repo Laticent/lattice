@@ -121,7 +121,9 @@ bytes; they differ only on the embedded surfaces, exactly as the model says.
 - `color-mode:` is the canonical, documented key.
 - **`class: dark` / `class: light` keep working as a deprecated alias** (existing decks —
   `examples/color-mode.md`, any user deck — must not break). The linter emits an *info/deprecation*
-  nudge pointing at `color-mode:`, not an error.
+  nudge pointing at `color-mode:`, not an error. *(Superseded 2026-10-06: the nudge,
+  `deprecated-class-color-mode`, was deleted — the alias still works, so it flagged a deck that
+  rendered as asked.)*
 - **Per-slide `<!-- _class: dark|light -->` is unchanged** — it stays the per-slide override token
   (there is no per-slide `color-mode:`; front matter is deck-wide by definition).
 - The shared token vocabulary stays single-sourced in `lib/core/color-mode.js`; the new

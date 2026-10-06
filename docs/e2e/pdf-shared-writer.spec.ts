@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { expect, gotoStudio, railButtons, setEditorContent, test } from './studio-fixture';
 
@@ -92,4 +93,36 @@ test('Share → PDF keeps the deck’s own section box-shadow (the tone rail), a
 	const colAt = (x: number) => [0, 1, 2].map((c) => { let v = 0; for (let y = 0; y < h; y++) v += px[(y * w + x) * 3 + c]; return v / h; });
 	const [edge, mid] = [colAt(1), colAt(Math.round(w / 2))];
 	expect(edge.reduce((d, v, c) => d + Math.abs(v - mid[c]), 0), 'a colored rail down the left edge').toBeGreaterThan(90);
+});
+
+// A 4K slide's photo stops at 2560 px, so an edge left in it comes out soft. The section's own
+// edge (a dark slide's 1 px hairline, a light slide's spectrum bar) is drawn as a vector
+// (read-slide.mjs readSectionEdges), and the Studio reads the slide under the camera's own
+// fixups so it draws the same edges the CLI does (#2538). FALSIFIABLE: with the edge left in the
+// photo, the hairline row reads ~43 levels from the row under it (not >100), and the rows under
+// the hairline and the bar carry 20-25 levels of bleed.
+test('Share → PDF at 4K draws the slide edge crisp: the dark hairline and the light bar', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'test', 'fixtures', 'pdf-photo-hairline-4k.md'), 'utf8'));
+	await expect(railButtons(page)).toHaveCount(3);
+	const file = join(tmpdir(), `shared-writer-4k-${Date.now()}.pdf`);
+	writeFileSync(file, await exportPdf(page));
+	// One pixel row, across the middle half of the page, at the slide's own 96 dpi.
+	const row = (pageNo: number, y: number) => {
+		const base = file.replace(/\.pdf$/, `-p${pageNo}-y${y}`);
+		execFileSync('pdftoppm', ['-r', '96', '-f', String(pageNo), '-l', String(pageNo), '-singlefile', '-y', String(y), '-H', '1', '-W', '4000', file, base]);
+		const ppm = readFileSync(`${base}.ppm`);
+		const [, w] = ppm.toString('latin1', 0, 20).match(/P6\s+(\d+)\s+(\d+)\s+255\s/)!.map(Number);
+		const px = ppm.subarray(ppm.length - w * 3);
+		return Array.from({ length: Math.floor(w / 2) }, (_, i) => [0, 1, 2].map((c) => px[(Math.floor(w / 4) + i) * 3 + c]));
+	};
+	const gap = (a: number[][], b: number[][]) => Math.max(...a.map((p, i) => Math.max(...p.map((v, c) => Math.abs(v - b[i][c])))));
+	const least = (a: number[][], b: number[][]) => Math.min(...a.map((p, i) => Math.max(...p.map((v, c) => Math.abs(v - b[i][c])))));
+	// Dark slide (page 2): the hairline at row 0 stands well clear of the canvas, and the canvas
+	// under it is flat (no bleed).
+	expect(least(row(2, 0), row(2, 1)), 'a crisp hairline on row 0').toBeGreaterThan(100);
+	expect(gap(row(2, 1), row(2, 2)), 'no bleed under the hairline').toBeLessThanOrEqual(6);
+	// Light slide (page 3): the 12 px bar ends at row 11, and the page under it is flat.
+	expect(least(row(3, 11), row(3, 12)), 'a crisp bar edge at row 11').toBeGreaterThan(100);
+	expect(gap(row(3, 12), row(3, 13)), 'no bleed under the bar').toBeLessThanOrEqual(6);
 });

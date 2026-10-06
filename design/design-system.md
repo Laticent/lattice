@@ -693,8 +693,8 @@ AI agents authoring decks get a discovery surface and a validation loop:
   how many elements (along the `item`/`row`/`col`/`cell`/`line` axis it's built
   on) it holds: `sweet` is ideal, past `soft` it crowds, past `hard` it
   overflows. **Count the content first, then filter by capacity**; over `hard`,
-  take an `escalateTo` target or split across slides. `lint:deck` warns
-  (`capacity-crowd` / `capacity-overflow`) as a backstop. See
+  take an `escalateTo` target or split across slides. `lint:deck` flags it
+  (`capacity-crowd` suggests, `capacity-overflow` warns) as a backstop. See
   `engineering/decisions/2026-06-17-content-capacity-contract.md`.
 - **Code panes budget WIDTH too.** Counting elements says nothing about a fenced
   line that runs off the right edge: the code panes in `code` and `compare-code`

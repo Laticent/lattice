@@ -147,7 +147,7 @@ describe('rough-ink — column rules are opt-in at the source', () => {
 
 describe('rough-ink — the structure registry', () => {
   test('every entry names a known kind and a non-empty selector', () => {
-    const KINDS = new Set(['grid', 'ledger', 'rows', 'mid', 'underline', 'spark']);
+    const KINDS = new Set(['grid', 'ledger', 'rows', 'mid', 'underline', 'spark', 'icon']);
     for (const s of ROUGH_INK_STRUCTURES) {
       assert.ok(KINDS.has(s.kind), `${s.id}: unknown kind ${s.kind}`);
       assert.ok(s.sel.trim().length > 0, `${s.id}: empty selector`);
@@ -177,6 +177,21 @@ describe('rough-ink — the structure registry', () => {
     const divider = ROUGH_INK_STRUCTURES.find((s) => s.id === 'divider');
     assert.match(divider.sel, /:not\(\.masthead-rule\)/);
     assert.ok(ROUGH_INK_STRUCTURES.some((s) => s.id === 'masthead-rule'));
+  });
+});
+
+describe('rough-ink — icons', () => {
+  test('an icon plan draws its tile edge, in the plan stroke, and nothing else', () => {
+    const paths = pathsForPlan({
+      key: 'icon:0:0', kind: 'icon', x: 100, y: 50, w: 30, h: 30, hLines: [], vLines: [],
+      stroke: 'rgb(1,2,3)', strokeWidth: 0.9, frame: { x: 2, y: 0, w: 26, h: 30 }, marks: [],
+    });
+    assert.ok(paths.length > 0, 'the tile is inked');
+    assert.ok(paths.every((p) => p.stroke === 'rgb(1,2,3)' && p.strokeWidth === 0.9));
+  });
+
+  test('a bare icon (no tile) draws nothing', () => {
+    assert.deepEqual(pathsForPlan({ key: 'icon:0:1', kind: 'icon', x: 0, y: 0, w: 20, h: 20, hLines: [], vLines: [], stroke: 'rgb(1,2,3)', strokeWidth: 0.9, marks: [] }), []);
   });
 });
 

@@ -1216,6 +1216,20 @@
               "propertyNames": { "pattern": "^[1-9][0-9]*$" },
               "minProperties": 1,
               "additionalProperties": { "$ref": "#/$defs/venueRow" }
+            },
+            "strict": {
+              "type": "object",
+              "description": "The same row measured on a 4k deck (`--size 4k`), where the export forgives 12 px of a 2160-high slide rather than the 720-high deck's 36. Lint reads it in place of `byWords` on a deck whose tolerance is that strict (lint-core `lineSlack` 0); 2026-09-25-font-scale-fit.md Amendment (9).",
+              "additionalProperties": false,
+              "required": ["byWords"],
+              "properties": {
+                "byWords": {
+                  "type": "object",
+                  "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+                  "minProperties": 1,
+                  "additionalProperties": { "$ref": "#/$defs/venueRow" }
+                }
+              }
             }
           }
         },
@@ -1288,8 +1302,10 @@
             "required": ["cols"],
             "additionalProperties": false,
             "properties": {
-              "cols": { "type": "integer", "minimum": 0, "description": "Items a row holds; 0 is one row of every item (list-steps), whose item roles list their characters per item count." },
+              "cols": { "type": "integer", "minimum": 0, "description": "Items a row holds; 0 is one row of every item (list-steps, cycle, compare-prose), whose item roles list their characters per item count from two." },
               "span": { "type": "number", "exclusiveMinimum": 1 },
+              "ul": { "type": "integer", "minimum": 1, "maximum": 1, "description": "Measured unordered only (cycle styles only `ul > li`; compare-prose writes `1.` only in `axis`): lint keeps a `1.` slide on its count row." },
+              "tag": { "type": "integer", "minimum": 1, "maximum": 1, "description": "The item's lead is a corner tag, placed absolutely in the one tag line the card reserves (compare-prose, base.card-tag.css), so it costs no height: the shapes carry no `title`, and lint charges the lead nothing (Amendment (9))." },
               "flat": { "$ref": "#/$defs/venueRowShape" },
               "nested": { "$ref": "#/$defs/venueRowShape" },
               "ordered": {
@@ -1708,13 +1724,15 @@
     "venueRowShape": {
       "type": "object",
       "description": "One register's item geometry in one shape: `title` and `body` per venue [characters a line holds, px a line takes of a 2160-high slide], `row` the px each row of items adds past its lines, `budget` the px the slide's text lines and those costs may reach.",
-      "required": ["title", "row", "budget"],
+      "required": ["row", "budget"],
       "additionalProperties": false,
       "properties": {
-        "title": { "$ref": "#/$defs/venueItemRow" },
+        "title": { "$ref": "#/$defs/venueItemRow", "description": "Absent only on a `tag` register, whose lead costs no height." },
         "body": { "$ref": "#/$defs/venueItemRow" },
         "row": { "$ref": "#/$defs/venuePx" },
-        "budget": { "$ref": "#/$defs/venuePx" }
+        "budget": { "$ref": "#/$defs/venuePx" },
+        "note": { "$ref": "#/$defs/venueLineRow", "description": "A closing paragraph under the list inside the stage (compare-prose `:is(ul, ol) + p`), per venue [characters a line holds, px a line takes]; a slide with a note is judged only where this is present." },
+        "noteAt": { "$ref": "#/$defs/venuePx", "description": "The px a note block adds past its lines." }
       }
     },
     "venuePx": {

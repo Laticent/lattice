@@ -20,7 +20,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the state machine. |
 | `eyebrow` | `p > code` | no | Optional eyebrow naming the machine or domain. |
-| `states` | `ul > li` | yes | One list item per state, named by its text (matched case-insensitively; a `#id` at the lead of its span names it for long text or twins). Numbered and bulleted lists mean the same thing; the badge shows the state's place in the list. A trailing code span styles the state: `start` or `end` (the machine's entry and end), a status word (on-track, done, live, at-risk, warn, blocked, fail, pilot, decision, deferred), a palette slot `c1`…`c8`, one channel `fill=cN` `border=cN` `text=cN`, or a shape word such as `diamond`; several go in one record, in any order: `\{#id, diamond, c2}`. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and wins over a slot on the same state, as on the flowchart; a state with neither is a neutral tile. With no `start`, the first state is the start; with no `end`, every state with no way out is an end. |
+| `states` | `ul > li` | yes | One list item per state, named by its text (matched case-insensitively; a `#id` at the lead of its span names it for long text or twins). Numbered and bulleted lists mean the same thing; the badge shows the state's place in the list. A trailing code span styles the state: `start` or `end` (the machine's entry and end), a status word (on-track, done, live, at-risk, warn, blocked, fail, pilot, decision, deferred), a palette slot `c1`…`c8`, one channel `fill=cN` `border=cN` `text=cN`, or a shape word such as `diamond`; several go in one record, in any order: `\{#id, diamond, c2}`. An icon from the icons plugin draws beside the name: `\{on-track, icon=send}` (before the name, or above it when the chart is pinned `tb`); add `icon-only` to draw the icon alone, and the name stays as what a screen reader says and the hover title. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and wins over a slot on the same state, as on the flowchart; a state with neither is a neutral tile. With no `start`, the first state is the start; with no `end`, every state with no way out is an end. |
 | `transitions` | `ul > li > ul > li (starts with an arrow)` | no | A sub-item that starts with an arrow is a transition from its state: `- -submit-> Submitted` (the event label sits inside the arrow), `- -> Done` (no label), `- =ship=> Shipped` (heavy: the main path). A state's own name as the target is a self-loop. The flowchart's arrows and line words apply: `<-`, `<->`, `--`, a trailing `dashed` `dotted` `open` `dot` `cross` `cN` span, several in one record (`\{dashed, cross}`). The label sits ON its line, which is cut under it. |
 | `composites` | `ul > li > ul > li (starts with a name)` | no | A sub-item that starts with a NAME is a member state, which makes its parent a composite state (a group), drawn as a box around its members. Groups nest; a transition may leave or enter a group. |
 | `detail` | `ul > li > blockquote` | no | A `>` blockquote under a state is its HIDDEN DETAIL: the slide never shows it. It appears when the state is hovered or tapped in Present, Practice and Preview (the chart family's detail substrate: the tile carries `data-mark`, the text rides an inert `<template class="chart-detail">`), and it is folded into the slide's speaker note. A PDF does not show it: text the page must carry belongs in a caption. |
@@ -34,6 +34,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 - **`inline`.** The chart needs to sit directly beside its explanatory prose rather than take the full canvas.
 - **`curved`.** Softer, generously rounded corners fit the deck's visual tone better than tight elbows. The lines are still the router's: they never cross a state.
 - **`unnumbered`.** The list order means nothing to the audience, and the badges would suggest a sequence that is not there.
+- **`rearrange`.** The chart wraps and its lines cross, and where each state sits matters more than the order you wrote them in: a side state written last (Blocked, Escalated) moves beside the state it leaves. The chart moves a state only when that draws a cleaner chart (fewer crossings, or a line no longer through a state), so with nothing to fix it draws as before. The badges still show each state's place in your list.
 
 ### Common mistakes
 
@@ -189,6 +190,36 @@ No badges: the states show no place in the list.
 - Assigned `live`
   - -resolve-> Resolved
 - Resolved `end`
+```
+
+### `rearrange` — Rearrange
+
+States may leave their written order when that draws a cleaner chart.
+
+```markdown
+<!-- _class: state-chart rearrange -->
+
+## rearrange lets a side state sit beside the state it leaves.
+
+- Intake `start`
+  - -triage-> Triage
+- Triage
+  - -start-> In Progress
+- In Progress `live`
+  - -review-> Code Review
+  - -block-> Blocked
+- Code Review
+  - -approve-> QA
+- QA `on-track`
+  - -stage-> Staging
+  - -fail-> In Progress
+- Staging
+  - -release-> Released
+- Released `done`
+  - -close-> Closed
+- Blocked `blocked`
+  - -unblock-> In Progress
+- Closed `end`
 ```
 
 ## Universal modifiers

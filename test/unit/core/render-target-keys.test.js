@@ -422,10 +422,10 @@ test('a nested render-target key is warned about, deck-level and verbatim', () =
 	// (docs/e2e/editor-lint.spec.ts drives that on the real Studio).
 	assert.equal(f.line, '  fluid: "true"');
 	assert.ok(src.includes(f.line), 'the quoted line is not in the deck');
-	// The warning has to say what the EXPORT does — that half is always true — and put the
-	// YAML disagreement conditionally, because a uniformly indented block has no key above.
-	assert.match(f.message, /the export reads it as the deck's own/);
-	assert.match(f.message, /Wherever YAML reads this line/);
+	// The warning has to say what the EXPORT does — that half is always true; the fix covers
+	// the line that belongs to the block above (quote the key).
+	assert.match(f.message, /the export still reads it as the deck setting/);
+	assert.match(f.fix, /quote the key/);
 	assert.match(f.fix, /left margin/);
 });
 

@@ -32,6 +32,15 @@
  * Usage:
  *   node tools/export-marp.js <deck.md> <out-dir-or-zip> [palette]
  *                             [--no-agent] [--overflow-marker=author|reader|off]
+ *                             [--default-plugins=a,b|none] [--disable-plugin=a,b]
+ *
+ * `--default-plugins` / `--disable-plugin` are the render CLI's plugin knobs (lattice-emulator.js),
+ * in the `=` form only (a bare value would read as a positional argument):
+ * the deck is admitted under them (lib/plugins/host-grammar.mjs `admitPlugins`) and the plugins left
+ * off ride in the bundle's settings block (`pluginsOff`), which the bundled runtime reads before it
+ * draws anything — Marp renders the deck, so the engine's own marker is never written. Marp draws
+ * MATH itself (marp-core's own math), which no marker reaches, so with math off the bundle's
+ * marp.config.cjs turns Marp's math off too (`marpConfigCjs`).
  *
  * `--overflow-marker` decides who the overflow signal in the rendered bundle is
  * addressed to — see lib/core/resolve-overflow-marker.js. It is an EXPORT setting,
@@ -69,7 +78,7 @@ const { liftImageBgImages } = require('../lib/core/bg-image');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const {
-  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
+  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScripts, packageJson,
   safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
 } = require('../lib/core/marp-bundle');
 
@@ -250,6 +259,25 @@ function main(argv) {
   const markerFlag = markerArgs.length
     ? markerArgs[0].slice('--overflow-marker'.length).replace(/^=/, '')
     : null;
+  // The plugin knobs, `=` form only (a bare value would read as a positional argument).
+  const listFlag = (flag) => {
+    const hits = argv.filter((a) => a === flag || a.startsWith(`${flag}=`));
+    if (hits.some((a) => !a.startsWith(`${flag}=`))) die(`${flag} takes its value after '=' (${flag}=a,b)`);
+    if (!hits.length) return undefined;
+    return hits.flatMap((a) => a.slice(flag.length + 1).split(',')).map((n) => n.trim()).filter(Boolean);
+  };
+  const { PLUGIN_NAMES } = require('../lib/plugins/blocks.generated.mjs');
+  const disabledPlugins = listFlag('--disable-plugin') || [];
+  const rawDefaults = listFlag('--default-plugins');
+  // As the render CLI: an empty list is a mistake, `none` is the empty set.
+  if (rawDefaults && !rawDefaults.length) die("--default-plugins needs plugin names or 'none'");
+  const defaultPlugins = rawDefaults && (rawDefaults.length === 1 && rawDefaults[0] === 'none' ? [] : rawDefaults);
+  for (const n of disabledPlugins) {
+    if (!PLUGIN_NAMES.includes(n)) die(`--disable-plugin: no plugin is named "${n}" (plugins: ${PLUGIN_NAMES.join(', ')})`);
+  }
+  for (const n of defaultPlugins || []) {
+    if (!PLUGIN_NAMES.includes(n)) die(`--default-plugins: no plugin is named "${n}" (plugins: ${PLUGIN_NAMES.join(', ')}; or none)`);
+  }
   const [deckPath, outArg, paletteArg] = argv.filter((a) => !a.startsWith('--'));
   if (!deckPath || !outArg) {
     die('usage: node tools/export-marp.js <deck.md> <out-dir-or-zip> [palette] [--no-agent] '
@@ -290,6 +318,11 @@ function main(argv) {
   }
 
   const src = readDeckSource(deckPath);
+  // THE DECK'S ADMISSION under this run's knobs, decided once on the source as authored, as the
+  // render CLI decides it. Its `off` set configures the boundary parser BEFORE the split bake below
+  // (with math off, a `---` inside `$$` splits there as in the engine) and rides into the bundle.
+  const admission = require('../lib/plugins/host-grammar.mjs').admitPlugins(src, { defaults: defaultPlugins, disabled: disabledPlugins });
+  require('../lib/core/boundary-parser.mjs').setBoundaryPluginsOff(admission.off);
   const palette = (paletteArg || readTheme(src) || 'indaco').toLowerCase();
   const name = path.basename(deckPath).replace(/\.md$/i, '');
   // Every PATH in the bundle — the directory, the deck file, and the commands the
@@ -347,7 +380,10 @@ function main(argv) {
   // client-side when the deck is opened as HTML in a browser.
   fs.writeFileSync(
     path.join(dest, `${file}.md`),
-    withRuntimeScripts(fm + bakedBody, { overflowMarker: marker }),
+    withRuntimeScripts(fm + bakedBody, {
+      overflowMarker: marker,
+      pluginsOff: admission.off,
+    }),
   );
 
   // 3) the deck's palette (+ -dark) under themes/, MINIFIED (from dist/themes/),
@@ -387,7 +423,7 @@ function main(argv) {
   // 5) generated text files (from the shared bundle spec): marp-cli config,
   //    package.json, .vscode/settings.json (Marp VS Code theme registration),
   //    and the README.
-  fs.writeFileSync(path.join(dest, 'marp.config.cjs'), MARP_CONFIG_CJS);
+  fs.writeFileSync(path.join(dest, 'marp.config.cjs'), marpConfigCjs({ math: !admission.off.includes('math') }));
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify(packageJson(name), null, 2) + '\n');
   fs.mkdirSync(path.join(dest, '.vscode'), { recursive: true });
   fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList));

@@ -12,7 +12,10 @@ describe('the read entry', () => {
     for (const name of Object.keys(read)) expect((read as Record<string, unknown>)[name]).toBe((main as Record<string, unknown>)[name]);
   });
   it('carries no part of the grammar compiler', () => {
-    for (const name of ['compile', 'generate', 'consistency', 'lint']) expect(name in read).toBe(false);
+    for (const name of ['compile', 'generate', 'lint']) expect(name in read).toBe(false);
+  });
+  it('carries the per-document consistency check, which reads binds and builds nothing', () => {
+    expect(read.consistency).toBe(main.consistency);
   });
   it('parses and binds', () => {
     const slot = read.record({ positional: [{ name: 'n', type: read.number() }], params: { tone: read.oneOf(['tag', 'pill']) } });

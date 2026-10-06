@@ -1,14 +1,15 @@
 import { expect, gotoStudio, readStorage, test, toastText } from './studio-fixture';
 
-// The PHONE-NATIVE "Watch demo" walkthrough (@mobile — 390px single-pane project).
+// The PHONE-NATIVE "Watch demo" tour, `first-look` (@mobile — 390px single-pane project). It is the
+// one tour left: the full walkthrough this file drove first became Studio lessons (2026-10-05).
 // The desktop demo choreographs a cursor across the side-by-side editor+preview; a
 // phone has ONE pane, so this storyboard alternates: tap Edit → type a slide → tap
 // Preview → reveal, per slide. The load-bearing risk is that the mobile pane is
 // conditionally rendered — the editor UNMOUNTS on Preview and REMOUNTS on the swap
-// back — so the real oracle is end-to-end: the four-slide phone deck must land in the
+// back — so the real oracle is end-to-end: the three-slide phone deck must land in the
 // persisted "My First Deck" IN ORDER, with no slide dropped or duplicated by a
 // remount race. If per-slide alternation + typeTail-across-remount works, the source
-// is exactly four `_class` slides ending in `closing`.
+// is exactly three `_class` slides ending in the radar's last line.
 //
 // Mechanics (mount/unmount, typing, pane-swap, render) are NOT iOS-specific, so this
 // 390px Chromium run is valid verification of them (HARD RULE #23). What it can NOT
@@ -40,6 +41,10 @@ async function firstDeckSource(page: import('@playwright/test').Page): Promise<s
 /** The `_class` slide count in a source string (one per slide). */
 const slideClasses = (src: string) => (src.match(/<!--\s*_class:/g) ?? []).length;
 
+/** The last line `first-look` types — the radar's final value. Its arrival means the whole deck,
+ *  every slide in full, is in the editor (tour-kit.ts SLIDE.radar). */
+const DECK_END = '  - Sentiment `5`';
+
 /** Launch a tour from the persistent phone entry — "Menu" opens the StudioDrawer
  *  (2026-07-26-studio-mobile-eight-cell-bar.md; a bottom Sheet, replacing the old inlined "···"
  *  DropdownMenu). As of the "Two Doors" rebuild the tour cards no longer sit on the drawer's
@@ -47,15 +52,15 @@ const slideClasses = (src: string) => (src.match(/<!--\s*_class:/g) ?? []).lengt
  *  the SAME sheet. So the phone path to a tour is three taps, and this helper walks all three
  *  — which is also the point of asserting it here: the drawer is the ONLY mobile entry to a
  *  guided tour (`StudioShell.tsx`'s tour menu is gated `!mobile`), and there is no first-run
- *  banner any more (the posture dial replaced it). Defaults to the full walkthrough (4 slides:
- *  title · big-number · radar · close). */
-async function startMobileDemo(page: import('@playwright/test').Page, tourId = 'walkthrough'): Promise<void> {
+ *  banner any more (the posture dial replaced it). Defaults to `first-look` (3 slides:
+ *  title · big-number · radar). */
+async function startMobileDemo(page: import('@playwright/test').Page, tourId = 'first-look'): Promise<void> {
 	await page.getByRole('button', { name: 'Menu' }).click();
 	await page.getByRole('button', { name: 'Show me' }).click();
 	await page.locator(`[data-tour="${tourId}"]`).first().click();
 }
 
-test('@mobile the phone demo types the 4-slide deck across pane-swaps and completes', async ({ page }) => {
+test('@mobile the phone demo types the 3-slide deck across pane-swaps and completes', async ({ page }) => {
 	await gotoStudio(page);
 	await startMobileDemo(page);
 
@@ -63,14 +68,13 @@ test('@mobile the phone demo types the 4-slide deck across pane-swaps and comple
 	await expect(page.locator(STAGE)).toBeVisible();
 
 	// It alternates Edit⇄Preview, typing each slide; the built "My First Deck" grows to
-	// the FULL four-slide phone deck — title → big-number → radar → closing, in order —
+	// the FULL three-slide phone deck — title → big-number → radar, in order —
 	// proving typeTail survived every editor unmount/remount.
-	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain('_class: closing');
+	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain(DECK_END);
 	const src = await firstDeckSource(page);
-	expect(slideClasses(src)).toBe(4); // no slide dropped, none duplicated by a remount race
+	expect(slideClasses(src)).toBe(3); // no slide dropped, none duplicated by a remount race
 	expect(src.indexOf('_class: title')).toBeLessThan(src.indexOf('_class: big-number'));
 	expect(src.indexOf('_class: big-number')).toBeLessThan(src.indexOf('_class: radar'));
-	expect(src.indexOf('_class: radar')).toBeLessThan(src.indexOf('_class: closing'));
 
 	// It completes on its own: the stage detaches and the deck is LEFT BEHIND.
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 120_000 });
@@ -82,14 +86,14 @@ test('@mobile the phone demo types the 4-slide deck across pane-swaps and comple
 	// still that, which is what firstDeckSource keys on.
 	await expect(toastText(page)).toContainText('yours to edit');
 	// Still a single "My First Deck" (deduped fixture — a re-run never doubles it).
-	expect(await firstDeckSource(page)).toContain('_class: closing');
+	expect(await firstDeckSource(page)).toContain(DECK_END);
 });
 
 test('@mobile under prefers-reduced-motion the demo still TYPES the full deck (legible tier, not a collapse)', async ({ page }) => {
 	// The reduced-motion regression this guards: a reduced-motion device used to collapse the
 	// whole run to instant placement, so the iPhone demo raced past unwatchably. Vetrina now
 	// resolves reduced-motion to the `legible` tier — vestibular motion off, but the typing
-	// reveal KEPT. Force the OS preference and prove the run still builds the four-slide deck
+	// reveal KEPT. Force the OS preference and prove the run still builds the three-slide deck
 	// in order and completes (it neither no-ops nor hangs under reduce). The char-by-char
 	// cadence itself is unit-covered (motion.test.ts: system+reduce → still=false); this is the
 	// real-surface guard that the end-to-end run survives the preference. (Chromium exercises
@@ -99,11 +103,10 @@ test('@mobile under prefers-reduced-motion the demo still TYPES the full deck (l
 	await startMobileDemo(page);
 
 	await expect(page.locator(STAGE)).toBeVisible();
-	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain('_class: closing');
+	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain(DECK_END);
 	const src = await firstDeckSource(page);
-	expect(slideClasses(src)).toBe(4);
+	expect(slideClasses(src)).toBe(3);
 	expect(src.indexOf('_class: title')).toBeLessThan(src.indexOf('_class: big-number'));
-	expect(src.indexOf('_class: radar')).toBeLessThan(src.indexOf('_class: closing'));
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 120_000 });
 });
 
@@ -356,7 +359,7 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 		const cdp = await page.context().newCDPSession(page);
 		await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: pageScale });
 	}
-	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain('_class: closing');
+	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain(DECK_END);
 
 	const tail = await page.evaluate(() => (window as unknown as { __tail: TailReport }).__tail);
 	// Guard the oracle itself: a sampler that threw, or that never saw an overflowing editor being
@@ -515,7 +518,7 @@ async function expectComposeTailFollows(page: import('@playwright/test').Page, s
 	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
 	await startMobileDemo(page);
 	await expect(page.locator(STAGE)).toBeVisible();
-	await expect.poll(() => firstDeckSource(page), { timeout: 120_000 }).toContain('_class: closing');
+	await expect.poll(() => firstDeckSource(page), { timeout: 120_000 }).toContain(DECK_END);
 
 	const tail = await page.evaluate(() => (window as unknown as { __tail: TailReport }).__tail);
 	expect(pageErrors, `the page threw: ${pageErrors.join(' | ')}`).toEqual([]);

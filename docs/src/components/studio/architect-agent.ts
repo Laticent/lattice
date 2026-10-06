@@ -49,7 +49,7 @@ export type AgentFinding = { slide?: number; rule?: string; severity?: string; m
 /** What `check_deck` gets back from the host: the lint + review findings for a source,
  *  Mermaid's own parse errors, and each slide's fit from a real render of the source
  *  (undefined = not checked, never a guess). */
-export type DeckCheck = { findings: AgentFinding[]; diagrams?: { slide: number; message: string }[]; fit?: { slide: number; overflows: boolean; clipped: boolean; illegible: boolean }[] };
+export type DeckCheck = { findings: AgentFinding[]; diagrams?: { slide: number; message: string }[]; fit?: { slide: number; overflows: boolean; clipped: boolean; illegible: boolean; undrawn?: boolean }[] };
 
 /** The doc loaders the read tools sit on. Each resolves to raw Markdown or null. */
 export type AgentLibrary = {
@@ -518,7 +518,11 @@ export function createToolbox(opts: {
 		// then not slide N; attributing by number would charge an untouched slide and miss the
 		// one the turn wrote (checker). Such a deck's fit is reported, never charged.
 		const fitMapped = !!res.fit && res.fit.length === now.length;
-		const misfits = (res.fit ?? []).filter((f) => f.overflows || f.clipped || f.illegible);
+		// A slide whose diagram had not drawn when the render was measured has no verdict: it was
+		// measured with the diagram's source text in its place. It is neither "fits" nor an error.
+		const undrawn = (res.fit ?? []).filter((f) => f.undrawn);
+		const measured = (res.fit ?? []).filter((f) => !f.undrawn);
+		const misfits = measured.filter((f) => f.overflows || f.clipped || f.illegible);
 		const fitErrors = fitMapped ? misfits.filter((f) => (f.overflows || f.clipped) && mine(f.slide)).length : 0;
 		// The turn answers for errors on the slides it changed. An error already on a slide it
 		// left alone would otherwise hold every turn open on that deck, which the prompt never
@@ -551,13 +555,17 @@ export function createToolbox(opts: {
 		// diagram parsed — say so, or the model reports diagrams it never had checked as fine.
 		if (res.diagrams === undefined && /^\s*(`{3,}|~{3,})\s*mermaid\b/m.test(draft)) out.push("Mermaid diagrams were not checked: the parser did not run. Do not say they parse.");
 		if (res.diagrams?.length) out.push(`Mermaid parse errors:\n${res.diagrams.map((d) => `- slide ${d.slide}: ${JSON.stringify(String(d.message ?? ''))}`).join('\n')}`);
+		const unit = fitMapped ? 'slide' : 'section';
 		if (res.fit === undefined) out.push('Fit was not measured: the draft could not be rendered. Do not say the slides fit.');
-		else if (!misfits.length) out.push(`Fit, measured from a real render of the draft: all ${res.fit.length} slide${res.fit.length === 1 ? '' : 's'} fit.`);
-		else {
+		else if (!misfits.length && !undrawn.length) out.push(`Fit, measured from a real render of the draft: all ${res.fit.length} slide${res.fit.length === 1 ? '' : 's'} fit.`);
+		else if (!misfits.length) {
+			if (measured.length) out.push(`Fit, measured from a real render of the draft: the other ${measured.length} ${unit}${measured.length === 1 ? '' : 's'} fit.`);
+		} else {
 			const say = (f: { overflows: boolean; clipped: boolean; illegible: boolean }) => [f.overflows && 'overflows its frame', f.clipped && 'has text cut off', f.illegible && 'has type below the legibility floor'].filter(Boolean).join(', ');
 			if (fitMapped) out.push(`Fit, measured from a real render of the draft:\n${misfits.map((f) => `- slide ${f.slide} ${say(f)}${mine(f.slide) ? ' (you changed this slide: an error — cut words, split the slide, or pick a roomier layout)' : ''}`).join('\n')}`);
 			else out.push(`Fit, measured from a real render of the draft, which renders ${res.fit.length} sections for its ${now.length} slides (a split or stepped slide), so these are rendered sections, not slide numbers:\n${misfits.map((f) => `- section ${f.slide} ${say(f)}`).join('\n')}`);
 		}
+		if (undrawn.length) out.push(`Fit was not measured for ${unit}${undrawn.length === 1 ? '' : 's'} ${undrawn.map((f) => f.slide).join(', ')}: a diagram there had not drawn when the render was measured. Do not say ${undrawn.length === 1 ? 'it fits' : 'they fit'}; the author's preview will show it.`);
 		if (over.length) out.push(`Over the ${budget}-word slide budget: ${over.map((x) => `slide ${x.n} (${x.w}w)`).join(', ')}.`);
 		return out.join('\n');
 	}

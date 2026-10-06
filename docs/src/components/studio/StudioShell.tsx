@@ -33,6 +33,7 @@ import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
+import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
@@ -87,6 +88,7 @@ import { PanelLoader, useLatch, warmPanels } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { LESSONS } from './lessons/catalog';
+import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { MotionTargets } from './MotionTargets';
@@ -642,7 +644,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			return (typeof v === 'function' ? v(was) : v) ? (was ? prev : 'coach') : null;
 		});
 	}, []);
-	const setArchitectTab = React.useCallback((t: 'coach' | 'chat') => setActiveAssistant(t), []);
 	// Lenses + Library share the assistant slot (mutually exclusive with the Architect).
 	const setLensesOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : null));
@@ -1386,10 +1387,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [options?.runtimeUrl]);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
-	// Indirection so the demo can drive the slide scope's commit funnel —
-	// `mutateActiveSlide` is defined lower down (it needs `activeFullIndex`), so the
-	// hook reads it through this ref, assigned once it exists.
-	const mutateSlideRef = React.useRef<(fn: (chunk: string) => string) => void>(() => {});
 
 	// ── Settings-write funnel with one-click Undo ────────────────────────────
 	// Every panel settings write routes through this: it snapshots the pre-change
@@ -1486,7 +1483,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// single slide the preview renders so its directives (e.g. `size`) take effect.
 	const fm = React.useMemo(() => frontMatterBlock(source), [source]);
 	const body = React.useMemo(() => stripFrontMatter(source), [source]);
-	const slides = React.useMemo(() => splitSlides(body), [body]);
+	// THE DECK'S PLUGIN ADMISSION, decided on the WHOLE source — every reader below parses the body
+	// alone, which has lost the front matter's `plugins:` list — and before any of them parses. A
+	// no-op on the shipped default set; under a host that narrowed it, every source-side reader
+	// splits slides where the engine does (docs/src/lib/plugin-admission.ts).
+	// The host may narrow its defaults after the deck loaded (the playground bundle loads late), so
+	// the split re-reads when it says so, not only on an edit (checker).
+	const [pluginDefaultsTick, setPluginDefaultsTick] = React.useState(0);
+	React.useEffect(() => {
+		const bump = () => setPluginDefaultsTick((n) => n + 1);
+		window.addEventListener(PLUGIN_DEFAULTS_EVENT, bump);
+		return () => window.removeEventListener(PLUGIN_DEFAULTS_EVENT, bump);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: pluginDefaultsTick is the re-read signal, not an input.
+	const slides = React.useMemo(() => {
+		followDeckAdmission(source);
+		return splitSlides(body);
+	}, [source, body, pluginDefaultsTick]);
 	// The deck's reader-lens registry (front-matter `lenses:` block). Empty (just the implicit
 	// `full`) for a deck with no block → the picker shows just "Full deck" (a static label + an
 	// "＋ Reader view" entry to the Lenses panel).
@@ -2716,7 +2729,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		goToSlide,
 		setView,
 		setArchitectOpen,
-		setArchitectTab,
 		setInspectorOpen,
 		applyPalette,
 		toggleMode,
@@ -2724,10 +2736,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// tour opening Present never discards Fabricate state; close returns to the prior view.
 		setPresentOpen: (o: boolean) => setPresentOpen(o),
 		setShareOpen,
-		setInspectorScope,
 		setDeckMenuOpen,
-		mutateSlide: (fn: (chunk: string) => string) => mutateSlideRef.current(fn),
-		fixAll: () => editorRef.current?.fixAll(),
 		setActiveSlide,
 		setFocus: setQuietened,
 		setPosture: changePosture,
@@ -2755,7 +2764,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const commandsRef = React.useRef<StudioCommand[]>([]);
 	const slideCountRef = React.useRef(0);
 	slideCountRef.current = slides.length;
-	const { lessonActive, startLesson } = useStudioLesson(rootRef, {
+	const { lessonActive, startLesson, warmLessons } = useStudioLesson(rootRef, {
 		get commands() {
 			return commandsRef.current;
 		},
@@ -2771,6 +2780,49 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		mobile,
 		stopDemo,
 	});
+	// THE DEEP LINK — `/studio/?lesson=<id>`, what the site search's Learn rows open. The param is
+	// read when the timer fires, not when the effect runs, so StrictMode's mount-unmount-mount cannot
+	// strand it; it is removed only as the lesson starts, so a reload does not replay it. There is no
+	// gesture here, so the lesson's first lines may be silent until the first tap unlocks audio
+	// (use-studio-lesson.ts §THE VOICE); the captions carry them.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: once per page load, by design; startLesson is stable.
+	React.useEffect(() => {
+		const t = window.setTimeout(() => {
+			const url = new URL(window.location.href);
+			const id = url.searchParams.get('lesson');
+			if (!id) return;
+			url.searchParams.delete('lesson');
+			window.history.replaceState(window.history.state, '', url);
+			if (LESSONS.some((l) => l.id === id)) startLesson(id);
+		}, 600);
+		return () => window.clearTimeout(t);
+	}, []);
+	// FIRST-OPEN OFFERS — a panel that has a lesson offers it the first time it opens, once ever
+	// (lessons/progress.ts), and never while a lesson or tour is running or once the lesson is done.
+	// Only panels whose lesson copes with the panel already being open: Coach and Slide settings.
+	// An OPENING, not a state: a panel restored open on load was not just opened by anyone, so the
+	// first render only records where each panel stands.
+	const slideSettingsOpen = activeSettings === 'slide';
+	const wasOpen = React.useRef<Record<string, boolean> | null>(null);
+	React.useEffect(() => {
+		const offers: [boolean, string, string, string][] = [
+			[coachOpen, 'coach', 'coach', 'New to Coach? A short lesson shows you around.'],
+			[slideSettingsOpen, 'slide-settings', 'speaker-notes', 'Slide settings hold your speaker notes. Want the short lesson?'],
+		];
+		const before = wasOpen.current;
+		wasOpen.current = Object.fromEntries(offers.map(([open, panel]) => [panel, open]));
+		if (!before) return;
+		for (const [open, panel, lesson, message] of offers) {
+			if (!open || before[panel] || lessonActive || demoActive || wasOffered(panel) || doneLessons().has(lesson)) continue;
+			markOffered(panel);
+			notifyAction(message, { label: 'Show me', onClick: () => startLesson(lesson) });
+		}
+	}, [coachOpen, slideSettingsOpen, lessonActive, demoActive, startLesson]);
+	// Search is where lessons are found, so opening it fetches the lesson voice. Ready by the pick,
+	// the narrator is built inside that click and iOS lets it play (use-studio-lesson.ts §THE VOICE).
+	React.useEffect(() => {
+		if (cmdOpen) warmLessons();
+	}, [cmdOpen, warmLessons]);
 	React.useEffect(() => {
 		if (lessonActive) setChromeCollapsed(false);
 	}, [lessonActive]);
@@ -3865,19 +3917,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}
 
 	// ── Architect body (cards) — shared by the desktop column and the sheet ──
-	// Per-slide edits (note + class tokens) commit through ONE funnel: a pure
-	// transform applied to the FRESHEST slide chunk via a functional setSource, so a
-	// pending editor flush or an AI edit can't land a stale write on the wrong slide.
-	// The Inspector's slide scope owns the note + class controls (SlideContextBody).
-	const mutateActiveSlide = React.useCallback((fn: (chunk: string) => string) => {
-		setSource((s) => {
-			const chunk = splitSlides(stripFrontMatter(s))[activeFullIndex];
-			return chunk == null ? s : replaceSlide(s, activeFullIndex, fn(chunk)).source;
-		});
-	}, [activeFullIndex, setSource]);
-	mutateSlideRef.current = mutateActiveSlide;
-	// The panel's slide-scope writes route through the Undo funnel (a user tuning a
-	// slide); the demo keeps the plain `mutateActiveSlide` so it never spawns toasts.
+	// Per-slide edits (note + class tokens) commit through ONE funnel: a pure transform applied to
+	// the FRESHEST slide chunk, so a pending editor flush or an AI edit can't land a stale write on
+	// the wrong slide. The Inspector's slide scope owns the note + class controls (SlideContextBody),
+	// and its writes route through the Undo funnel (a user tuning a slide). The demo's plain,
+	// toast-free twin of this left with the tours that used it (2026-10-05-studio-lessons.md).
 	const mutateSlideFromPanel = React.useCallback((fn: (chunk: string) => string) => {
 		settingsWrite('This slide', (s) => {
 			const chunk = splitSlides(stripFrontMatter(s))[activeFullIndex];
@@ -4024,7 +4068,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    genre-blind (same bar for every deck), Style is measured against a named profile and
 			    is always shown WITH that profile, so a style score can never read as a verdict on
 			    worth. Never a fabricated grade for an empty deck (K1). */}
-			<ArchCard tag={<IntentTag intent={scoreIntent(scorecard?.craft.band)} />} title="Deck read">
+			<ArchCard tag={<IntentTag intent={scoreIntent(scorecard?.craft.band)} />} title="Deck read" demo="coach-read">
 				{!deckHasContent ? (
 					<p className="text-xs leading-relaxed text-muted-foreground">Add a slide or two and I’ll assess the deck — craft, style, and the fixes that matter most. No grade is shown for an empty deck.</p>
 				) : assessing && !scorecard ? (
@@ -5131,7 +5175,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* Slide-settings launcher — on DESKTOP the activity bar's Slide icon owns this
 				    (a duplicate here would break the e2e strict 'Slide settings' locator); on
 				    tablet/mobile the editor header is the opener. */}
-				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
+				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
 				{/* Editing-mode toggle: markdown source ⟷ rich Compose. Both bind to `source`. */}
 				<div className="ml-0.5 inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
 					<button type="button" aria-label="Markdown source" onClick={() => setEditMode('markdown')} aria-pressed={editMode === 'markdown'} className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal transition-colors', editMode === 'markdown' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}><FileText className="size-3" /><span className="hidden @[34rem]:inline">Markdown</span></button>
@@ -5755,6 +5799,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		{ id: 'reshape', group: 'actions', label: 'Reshape for a reader', icon: Sparkles, run: () => { revealCraftDock(); setLensesOpen(true); } },
 		...(insertComponents.length > 0 ? [{ id: 'insert', group: 'actions', label: 'Add a slide…', icon: Plus, keywords: ['insert', 'new slide', 'layout'], run: () => setInsertOpen(true) } satisfies StudioCommand] : []),
 		...(posture === 'craft' ? [{ id: 'focus', group: 'actions', label: 'Focus mode — just editor & preview', icon: Focus, run: () => setQuietened(true) } satisfies StudioCommand] : []),
+		// Coach, Fix all, light/dark and slide settings each had a button and no row: a learner who
+		// searched "check", "fix", "dark" or "notes" found nothing, and their lessons had no verb to
+		// do the step with (2026-10-05-studio-lessons.md §Building and Polish).
+		{ id: 'coach', group: 'actions', label: 'Coach — check this deck', icon: Gauge, keywords: ['check', 'lint', 'issues', 'problems', 'review'], run: () => { revealCraftDock(); setActiveAssistant('coach'); } },
+		...(fixableIssues > 0 ? [{ id: 'fix-all', group: 'actions', label: 'Fix all issues', icon: ListChecks, keywords: ['fix', 'repair', 'clean up'], run: () => editorRef.current?.fixAll() } satisfies StudioCommand] : []),
+		{ id: 'toggle-mode', group: 'actions', label: 'Switch light / dark mode', icon: SunMoon, keywords: ['dark', 'light', 'night', 'mode'], run: toggleMode },
+		{ id: 'slide-settings', group: 'actions', label: 'Slide settings — look, notes', icon: FileSliders, keywords: ['speaker notes', 'notes', 'slide options'], run: () => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); } },
 		{ id: 'fabricate', group: 'actions', label: 'Fabricate — Theme & Component Studio', icon: PencilRuler, run: () => setView('fabricate') },
 		// Read-only: the article is a way to read the deck, so it is offered on the reading surface
 		// alone — the same place its bar button lives.
@@ -6644,9 +6695,9 @@ function LandscapeWhisper({ current, total, revealKey }: { current: number; tota
 		</div>
 	);
 }
-function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: string; children: React.ReactNode }) {
+function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title: string; children: React.ReactNode; demo?: string }) {
 	return (
-		<div className="relative m-2.5 rounded-xl border border-border bg-background p-3 shadow-[0_1px_2px_rgba(10,22,40,.06)]">
+		<div data-demo={demo} className="relative m-2.5 rounded-xl border border-border bg-background p-3 shadow-[0_1px_2px_rgba(10,22,40,.06)]">
 			<span className="absolute right-2.5 top-2.5">{tag}</span>
 			<div className="pr-16 text-[12px] font-bold text-[var(--text-heading)]">{title}</div>
 			<div className="mt-1">{children}</div>

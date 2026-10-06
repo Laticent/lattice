@@ -192,14 +192,13 @@ test('an eyebrow pill above a pane title joins it as one label, above a pane and
   assert.doesNotMatch(narrow, /<code>Shortlist<\/code>/);
 });
 
-test('lint: a pill above a pane title, and a pane title past five words, are suggestions', () => {
+test('lint: a pill above a pane title is a suggestion; a long pane title is not a finding', () => {
   const f = lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n`Shortlist`\n### Cleared\n\n- a\n\n<!-- _pane: content -->\n### What we learned from the pilot\n\ny\n')
     .filter((x) => x.rule === 'pane-title');
-  assert.equal(f.length, 2);
-  assert.ok(f.every((x) => x.severity === 'suggestion'));
+  // The over-five-words branch was deleted (2026-10-06): a long pane title renders fine.
+  assert.equal(f.length, 1);
+  assert.equal(f[0].severity, 'suggestion');
   assert.match(f[0].fix, /### Shortlist · Cleared/);
-  assert.match(f[1].message, /6 words/);
-  // A hidden title is not read as a label, and five words is fine.
   assert.equal(lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content no-title -->\n### The Lisbon office in its opening week\n\nx\n\n<!-- _pane: content -->\n### Eleven weeks, lease to open\n\ny\n').filter((x) => x.rule === 'pane-title').length, 0);
 });
 
@@ -237,7 +236,7 @@ test('a host with fewer than two panes still renders as content; a host inside a
   assert.equal(sectionTags(inPane).length, 1);
   const f = lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: columns -->\n### A\n\nx\n\n### B\n\ny\n').filter((x) => x.rule.startsWith('pane-'));
   assert.deepEqual(f.map((x) => x.rule), ['pane-layout']);
-  assert.match(f[0].message, /cannot be a pane's component/);
+  assert.match(f[0].message, /is a slide layout, not a component/);
 });
 
 test('lint: a host in a class: run, or deck-wide, is one warning that says it lays out nothing', () => {
@@ -287,9 +286,10 @@ test('lint: the alias gets pane-syntax with the rewrite', () => {
   assert.match(f.fix, /<!-- _class: rows ratio-40-60 -->/);
 });
 
-test('lint: a layout with fewer than two panes, a no-title with no title, two insights, a component in the layout class', () => {
+test('lint: a layout with fewer than two panes, two insights, a component in the layout class', () => {
   assert.deepEqual(paneRules('<!-- _class: columns -->\n\n## T\n\n### Only one\n\nx\n'), ['pane-layout']);
-  assert.ok(lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content no-title -->\n\nx\n\n<!-- _pane: list -->\n\n- y\n').some((f) => /no-title/.test(f.message)));
+  // `no-title` on a pane with no title hides nothing and harms nothing: not a finding (2026-10-06).
+  assert.equal(lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content no-title -->\n\nx\n\n<!-- _pane: list -->\n\n- y\n').some((f) => /no-title/.test(f.message)), false);
   assert.ok(paneRules('<!-- _class: columns -->\n\n## T\n\n### A\n\n- a\n\n> One.\n\n### B\n\n- b\n\n> Two.\n').includes('pane-insight'));
   assert.ok(lintText('<!-- _class: columns table -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && f.classToken === 'table'));
 });
@@ -312,7 +312,7 @@ test('lint: the slide\'s eyebrow and Key Insight take height from a pane, and on
   const rows = (eyebrow) => ['<!-- _class: rows -->', '', ...(eyebrow ? ['`Q3 hiring`', ''] : []), '## Hiring kept pace with the plan through Q3.', '', ...progress, ...table, '> Sales is the one function still hiring into Q4.', ''].join('\n');
   const clipped = lintText(rows(true)).filter((f) => f.rule.startsWith('pane-'));
   assert.deepEqual(clipped.map((f) => [f.rule, f.classToken]), [['pane-overflow', 'table']]);
-  assert.match(clipped[0].message, /holds 1 row .* under the slide's eyebrow and Key Insight; this pane has 2/);
+  assert.match(clipped[0].message, /fits 1 row .* under the slide's eyebrow and Key Insight; this pane has 2/);
   assert.deepEqual(paneRules(rows(false)), []);
   const text = ['<!-- _class: columns -->', '', '`Support · after the migration`', '', '## The migration halved support tickets.', '', '### Before', '', '- 1,240 tickets a month', '- 31 hours to first reply', '- Four tools to answer one question', '', '### After', '', '- 610 tickets a month', '- 6 hours to first reply', '- One console for every question', ''].join('\n');
   assert.deepEqual(paneRules(text), []);
@@ -469,13 +469,13 @@ test('a pane pill renders through the host\'s inline rules, as a slide pill does
 
 test('lint: a folded marker, columns with rows, a ### above the title, a bare ###', () => {
   const folded = lintText('<!-- _class: columns -->\n\n## X\n\n<!-- _pane: content -->\n### Plan\n\n- a\n\n### Risks\n\n- r\n\n<!-- _pane: bar -->\n### Revenue\n\n- Q1 `10`\n').find((f) => f.rule === 'pane-layout');
-  assert.match(folded.message, /renders as its text, not as 'bar'/);
-  assert.match(folded.message, /####/);
+  assert.match(folded.message, /shows as text, not as 'bar'/);
+  assert.match(folded.fix, /####/);
   assert.ok(lintText('<!-- _class: columns rows -->\n\n## X\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => /both `columns` and `rows`/.test(f.message)));
   assert.ok(lintText('<!-- _class: columns -->\n\n### Kicker\n\n## X\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => /above the slide's `##`/.test(f.message)));
   assert.doesNotMatch(render('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content -->\n###\n\nx\n\n### B\n\ny\n'), /<h3><\/h3>/);
 });
 
 test('lint: a deck-wide class: columns lays out nothing, and says so', () => {
-  assert.ok(lintText('---\nclass: columns\n---\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && /deck-wide/.test(f.message)));
+  assert.ok(lintText('---\nclass: columns\n---\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && /front matter/.test(f.message)));
 });

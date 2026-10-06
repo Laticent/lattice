@@ -238,6 +238,23 @@ npx lattice deck.md deck.pdf --embed-source
 npx lattice deck.md deck.pdf --embed-source --strip-notes
 ```
 
+### Send a PDF or PowerPoint someone can edit
+
+`--reopenable` puts the whole deck inside a `.pdf` or `.pptx` as a `.lattice`
+project. Whoever you send it to opens the Studio, picks **Import deck…** in the
+deck switcher, and gets the deck back to edit, exactly as you wrote it. It is
+the same file the Studio's "Re-openable in Lattice" switch writes, so the two
+tools' exports open the same way.
+
+Review comments never go in. Hidden slides do, and so do speaker notes unless
+you add `--strip-notes`. A theme or component you installed with
+`lattice packages add` travels with the deck.
+
+```sh
+npx lattice deck.md deck.pdf --reopenable --strip-notes
+npx lattice deck.md deck.pptx --reopenable
+```
+
 ## Speaker notes and captions
 
 A plain HTML comment on a slide is that slide's speaker note:

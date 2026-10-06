@@ -88,7 +88,7 @@ describe('deck linter', () => {
     const f = lintText(three, { vocab }).find((x) => x.rule === 'split-compare-option-count');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
-    assert.match(f.message, /found 3/);
+    assert.match(f.message, /this slide has 3/);
   });
 
   test('accepts a well-formed split-compare two-up', () => {
@@ -194,22 +194,17 @@ describe('deck linter', () => {
     }
   });
 
-  test('nudges a deck-wide `class: dark`/`light` toward `color-mode:` (info) while the alias still works', () => {
-    const nudge = lintText('---\ntheme: indaco\nclass: dark\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'deprecated-class-color-mode');
-    assert.ok(nudge, 'the legacy color alias should nudge');
-    assert.equal(nudge.severity, 'info');
-    assert.match(nudge.fix, /color-mode: dark/);
-    // Once the key is present the alias is REFUSED, not merely deprecated — that is a
-    // behavior change, so it is a warning from `deck-wide-component`, not an info nudge.
+  test('a deck-wide `class: dark` is not nudged; once `color-mode:` is set it is refused', () => {
+    // `deprecated-class-color-mode` was deleted (2026-10-06): the alias still works, so the
+    // nudge flagged a deck that rendered as asked.
+    const alone = lintText('---\ntheme: indaco\nclass: dark\n---\n\n## H.\n', { vocab });
+    assert.equal(alone.filter((x) => /color-mode/.test(x.rule)).length, 0);
+    // Once the key is present the alias is REFUSED — a behavior change, so a warning.
     const half = lintText('---\ntheme: indaco\nclass: dark\ncolor-mode: light\n---\n\n## H.\n', { vocab });
-    assert.equal(half.filter((x) => x.rule === 'deprecated-class-color-mode').length, 0,
-      'the info nudge steps aside for the warning');
     const refused = half.find((x) => x.rule === 'deck-wide-component');
     assert.ok(refused, 'a superseded alias is flagged');
     assert.equal(refused.severity, 'warning');
-    assert.match(refused.message, /superseded by `color-mode: light`/);
-    // A non-color class token is never nudged.
-    assert.equal(lintText('---\ntheme: indaco\nclass: numbered\n---\n\n## H.\n', { vocab }).filter((x) => x.rule === 'deprecated-class-color-mode').length, 0);
+    assert.match(refused.message, /ignored because `color-mode: light` is set/);
   });
 
   test('warns when the deck-wide `class:` names a COMPONENT — every slide would be that layout', () => {
@@ -237,7 +232,7 @@ describe('deck linter', () => {
       .find((x) => x.rule === 'deck-wide-component');
     assert.ok(found, 'the superseded print token is flagged');
     assert.equal(found.classToken, 'print');
-    assert.match(found.message, /dropped, not merged/);
+    assert.match(found.message, /`print` is ignored because `color-mode: dark` is set/);
     // Without the key, `class: print` is the supported legacy spelling — silent.
     assert.equal(lintText('---\ntheme: indaco\nclass: print\n---\n\n## H.\n', { vocab })
       .filter((x) => x.rule === 'deck-wide-component').length, 0);
@@ -365,25 +360,24 @@ describe('deck linter', () => {
     assert.equal(ok.filter((x) => /backdrop/.test(x.rule)).length, 0);
   });
 
-  test('warns that the deck-wide `form:` key is retired, whatever its value', () => {
-    // Retired 2026-09-20: Form is the composition model and cannot be disabled or
-    // configured, so EVERY value is inert now — including the two that used to be
-    // live (`standard`, `off`) and the long-retired `minimal`.
-    for (const v of ['minimal', 'standard', 'off', 'false', 'no', 'on']) {
+  test('warns about `form: off`, the one retired `form:` value that changes the render', () => {
+    // Retired 2026-09-20: Form is the composition model and cannot be disabled. Only `off`
+    // (and its YAML spellings) suppressed chrome, so only it moves an existing deck.
+    for (const v of ['off', 'false', 'no']) {
       const found = lintText(`---\ntheme: indaco\nform: ${v}\n---\n\n## H.\n`, { vocab })
         .filter((x) => x.rule === 'retired-form-key');
       assert.equal(found.length, 1, `exactly one migration warning for form: ${v}`);
       assert.equal(found[0].classToken, 'form');
       assert.equal(found[0].severity, 'warning', 'coach, never block — the deck still renders');
     }
-    // Only `off` actually CHANGES what an existing deck renders, so only it names the
-    // consequence. The rest just say the key is inert.
+    // Every other value was already a no-op, so its line is inert and not reported (2026-10-06).
+    for (const v of ['minimal', 'standard', 'on']) {
+      assert.equal(lintText(`---\ntheme: indaco\nform: ${v}\n---\n\n## H.\n`, { vocab })
+        .filter((x) => x.rule === 'retired-form-key').length, 0, `form: ${v} is inert`);
+    }
     const off = lintText('---\ntheme: indaco\nform: off\n---\n\n## H.\n', { vocab })
       .find((x) => x.rule === 'retired-form-key');
-    assert.match(off.message, /cannot be disabled/);
-    const std = lintText('---\ntheme: indaco\nform: standard\n---\n\n## H.\n', { vocab })
-      .find((x) => x.rule === 'retired-form-key');
-    assert.match(std.message, /does nothing/);
+    assert.match(off.message, /title band and progress bar/);
     // A deck with no `form:` key earns nothing.
     assert.equal(
       lintText('---\ntheme: indaco\n---\n\n## H.\n', { vocab }).filter((x) => x.rule === 'retired-form-key').length,
@@ -399,29 +393,25 @@ describe('deck linter', () => {
     const keyOf = (v) => lintText(`---\ntheme: indaco\nform: ${v}\n---\n\n## H.\n`, { vocab })
       .find((x) => x.rule === 'retired-form-key');
     assert.equal(keyOf('off').shapeChange, true, '`form: off` suppressed chrome — the deck moves');
-    for (const v of ['standard', 'minimal', 'on']) {
-      assert.equal(keyOf(v).shapeChange, false, `form: ${v} is inert — the deck does not move`);
-    }
 
     const tokens = (src) => lintText(src, { vocab }).filter((x) => x.rule === 'retired-form-token');
     // Deck-wide: `no-form` propagated to every slide, so the whole deck moves.
     const deckWide = tokens('---\ntheme: indaco\nclass: no-form\n---\n\n## H.\n');
     assert.equal(deckWide.length, 1);
     assert.equal(deckWide[0].shapeChange, true);
-    assert.equal(
-      tokens('---\ntheme: indaco\nclass: form\n---\n\n## H.\n')[0].shapeChange, false,
-      'a deck-wide `form` token was always redundant');
+    assert.equal(tokens('---\ntheme: indaco\nclass: form\n---\n\n## H.\n').length, 0,
+      'a deck-wide `form` token was always redundant, so it is not reported');
 
     // Per slide.
     const perSlide = tokens('---\ntheme: indaco\n---\n\n# T\n\n---\n\n<!-- _class: content no-form -->\n\n## H.\n');
     assert.equal(perSlide.length, 1);
     assert.equal(perSlide[0].shapeChange, true);
     assert.equal(
-      tokens('---\ntheme: indaco\n---\n\n# T\n\n---\n\n<!-- _class: content form -->\n\n## H.\n')[0].shapeChange,
-      false, 'a per-slide `form` token was always redundant');
+      tokens('---\ntheme: indaco\n---\n\n# T\n\n---\n\n<!-- _class: content form -->\n\n## H.\n').length,
+      0, 'a per-slide `form` token was always redundant, so it is not reported');
   });
 
-  test('warns that a per-slide `form` / `no-form` token is retired', () => {
+  test('warns that a per-slide `no-form` token is retired; a bare `form` is inert', () => {
     // `no-form` no longer opts a slide out and `form` no longer opts one in. A slide
     // that carries no chrome does so because its FRAME is sovereign, which is a
     // property of the component, not something a token selects.
@@ -430,12 +420,11 @@ describe('deck linter', () => {
     assert.equal(out.length, 1);
     assert.equal(out[0].classToken, 'no-form');
     assert.equal(out[0].severity, 'warning');
-    assert.match(out[0].fix, /sovereign component/);
-    // The bare `form` token too.
+    assert.match(out[0].fix, /a layout like/);
+    // The bare `form` token never changed the render, so it is not reported (2026-10-06).
     const optIn = lintText('---\ntheme: indaco\n---\n\n<!-- _class: content form -->\n\n## H.\n', { vocab })
       .filter((x) => x.rule === 'retired-form-token');
-    assert.equal(optIn.length, 1);
-    assert.equal(optIn[0].classToken, 'form');
+    assert.equal(optIn.length, 0);
     // A slide naming neither is untouched — and `no-progress`, the SURVIVING rail
     // control, must never be mistaken for one of them.
     assert.equal(
@@ -452,7 +441,7 @@ describe('deck linter', () => {
     // the editor anchors a diagnostic inside the chunk for that slide, so slide 0 is the
     // FRONT MATTER and every warning collapsed onto the deck's opening `---`.
     const two = lintText(
-      '---\ntheme: indaco\n---\n\n<!-- _class: content no-form -->\n\n## One.\n\n---\n\n<!-- _class: table form -->\n\n## Two.\n',
+      '---\ntheme: indaco\n---\n\n<!-- _class: content no-form -->\n\n## One.\n\n---\n\n<!-- _class: table no-form -->\n\n## Two.\n',
       { vocab },
     ).filter((x) => x.rule === 'retired-form-token');
     assert.deepEqual(two.map((x) => x.slide), [1, 2], 'each finding names its own slide');
@@ -471,7 +460,7 @@ describe('deck linter', () => {
       '---\ntheme: indaco\nclass: no-form\n---\n\n## H.\n', { vocab },
     ).filter((x) => x.rule === 'retired-form-token');
     assert.equal(deckWide.length, 1, 'a deck-wide `class: no-form` warns');
-    assert.match(deckWide[0].message, /EVERY slide/);
+    assert.match(deckWide[0].message, /every slide now shows/);
 
     // (d) A TRAILING YAML COMMENT. `form: off  # legacy` read as the literal value
     // `off  # legacy`, so the one deck whose render actually changes was told the key
@@ -479,7 +468,7 @@ describe('deck linter', () => {
     const commented = lintText(
       '---\ntheme: indaco\nform: off  # legacy deck\n---\n\n## H.\n', { vocab },
     ).find((x) => x.rule === 'retired-form-key');
-    assert.match(commented.message, /cannot be disabled/, 'the comment does not hide the value');
+    assert.match(commented.message, /no longer works/, 'the comment does not hide the value');
   });
 
   test('a token quoted inside a fence is not warned on', () => {
@@ -492,12 +481,12 @@ describe('deck linter', () => {
     assert.equal(fenced.length, 0, 'quoted material is not authored material');
   });
 
-  test('a retired token draws ONE warning, not two', () => {
+  test('a retired `form` token draws no spelling warning', () => {
     // `form` left UNIVERSAL_GROUPS.chrome, so the generic `unknown-class` rule started
-    // firing on it too — telling the author to "check the spelling" of a token that is
-    // spelled perfectly and is never coming back. `retired-form-token` owns these.
+    // firing on it — telling the author to "check the spelling" of a token that is
+    // spelled perfectly and is never coming back. The token is inert, so nothing reports it.
     const all = lintText('---\ntheme: indaco\n---\n\n<!-- _class: table form -->\n\n## H.\n', { vocab });
-    assert.equal(all.filter((x) => x.rule === 'retired-form-token').length, 1);
+    assert.equal(all.filter((x) => x.rule === 'retired-form-token').length, 0);
     assert.equal(
       all.filter((x) => x.rule === 'unknown-class' && x.classToken === 'form').length,
       0, 'no second, misleading warning about spelling');
@@ -525,21 +514,17 @@ describe('deck linter', () => {
     // out of showing the thing it exists to show.
     // checklist's crowd band is (8, 9]: nine items crowd without passing `hard`.
     const crowd = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: checklist -->\n${marker}\n\n## H.\n\n${Array.from({ length: 9 }, (_, i) => `- [x] Item ${i}`).join('\n')}\n`;
-    assert.equal(lintText(crowd('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd warning');
-    assert.equal(lintText(crowd(''), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 1, 'no marker, crowd warns as before');
-    // Past hard, an ordinary slide is told what its box will do to it — the split advisory
-    // at a presentation @size, the overflow warning at the landscape authoring box…
+    assert.equal(lintText(crowd('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd suggestion');
+    assert.equal(lintText(crowd(''), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 1, 'no marker, crowd speaks as before');
+    // Past hard, an ordinary slide at the landscape authoring box gets the overflow warning
+    // (at a presentation @size the engine splits it, and nothing is said)…
     const over = (marker, size = '') => `---\nmarp: true\ntheme: indaco\n${size}---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
-    assert.equal(lintText(over('', 'size: portrait\n'), { vocab }).filter((x) => x.rule === 'capacity-autosplit').length, 1, 'the budget speaks');
-    assert.equal(lintText(over(''), { vocab }).filter((x) => x.rule === 'capacity-overflow').length, 1, 'and speaks louder where nothing will be split');
-    // …but a SPECIMEN is told neither, in either box. It will not be divided (promising a
-    // split that never happens is the lie-to-the-author defect pointed the other way) and
-    // it overflows on purpose, so the warning is noise its author has already answered.
+    assert.equal(lintText(over(''), { vocab }).filter((x) => x.rule === 'capacity-overflow').length, 1, 'the budget speaks where nothing will be split');
+    // …but a SPECIMEN is not, in either box: it overflows on purpose, so the warning is
+    // noise its author has already answered.
     for (const size of ['size: portrait\n', '']) {
       const out = lintText(over('<!-- stress-slide -->', size), { vocab });
-      assert.equal(out.filter((x) => x.rule === 'capacity-autosplit').length, 0,
-        'a specimen is never promised a split it will not get');
-      assert.equal(out.filter((x) => x.rule === 'capacity-overflow').length, 0,
+      assert.equal(out.filter((x) => x.rule.startsWith('capacity-')).length, 0,
         'and is never warned about the overflow it exists to demonstrate');
     }
   });
@@ -660,10 +645,8 @@ describe('deck linter', () => {
     //
     // The ADVISORY tier (`info` / `suggestion`) is excluded, mirroring how
     // tools/lint-deck.js routes it: those findings report something true about a
-    // DELIBERATE choice, not a defect — `capacity-autosplit` fires on every deck that
-    // opts into autosplit and authors a slide past its budget ON PURPOSE, which is the
-    // whole point of those decks. Counting them here would make `--strict` unpassable
-    // for any autosplit deck, i.e. it would gate against the feature working.
+    // DELIBERATE choice, not a defect. Counting them here would make `--strict` gate
+    // on an author's choices rather than on what is broken.
     //
     // The three decks on SANCTIONED_GLYPH_DECKS are exempt from `typed-shape-glyph`
     // ONLY — every other rule still applies to them. Their glyphs are the SUBJECT:

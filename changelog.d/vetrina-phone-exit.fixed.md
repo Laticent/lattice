@@ -1,0 +1,2 @@
+- **Fixed: a lesson's Exit button works while a sheet is open.** Over the Share sheet, Exit was drawn but took no clicks, and a press on it went to the share row underneath. The sheet now leaves the walkthrough layer alone.
+- **Fixed: lesson and tour captions are easier to read and to close on a phone.** At phone widths the caption text is 15px instead of 13.5px, and Exit takes a press anywhere in a 44px square, the touch-target size, while its drawn circle and the bar keep their size. Desktop and tablet are unchanged.

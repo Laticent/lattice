@@ -315,6 +315,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `followups` | List followups.d/ — every pending item with no issue, one line each (contract: followups.d/README.md). |
+| `parser:bakeoff:list-text` | **TODO: describe `parser:bakeoff:list-text` in tools/build-capabilities.js (SCRIPT_META).** |
 | `prepare` | npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
@@ -446,6 +447,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-guide-handles.js` | Generates docs/src/components/studio/guide-handles.generated.ts — the RENDERED-part |
 | `tools/build-guide-player.js` | Bundle the Guide — the resolver, the per-sentence conductor and Vetrina's hand — into ONE |
 | `tools/build-hljs-languages.js` | Build the on-demand highlight.js grammars for the browser preview. |
+| `tools/build-icons-data.js` | Build the icons plugin's two generated files from its curation list |
 | `tools/build-image-set-core.js` | Bundle the shared image-set contract for the browser. |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
 | `tools/build-lente-lib.js` | Build the Lente library's consumable dist/ — the ESM + CJS entries + type |
@@ -457,10 +459,11 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-pdf-compose.js` | Bundle the shared PDF writer (lib/core/pdf-compose) into one browser IIFE the CLI |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
+| `tools/build-plugin-data-bundles.js` | Build each plugin's DATA as its own on-demand browser script (`contributes.data`). |
 | `tools/build-plugin-registry.js` | Freezes the in-tree plugins (lib/plugins/) into the registries every render path reads, |
 | `tools/build-projection-catalog.js` | build-projection-catalog.js — freeze every component manifest's `projection` |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |
-| `tools/build-segno-grammar.js` | build-segno-grammar — write Segno's generated notation parser. |
+| `tools/build-segno-grammar.js` | build-segno-grammar — write the parsers Segno's code generator makes from a grammar. |
 | `tools/build-segno-lib.js` | Build the Segno library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-showcase-galleries.js` | build-showcase-galleries — GENERATED consolidated cross-bucket showcase decks. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
@@ -529,6 +532,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/reader-extraction-probe.mjs` | Reader-mode extraction probe — re-derive the numbers behind the reader-mode work |
+| `tools/record-lesson-voice.mjs` | Record the voice of every Studio lesson: one mp3 per line, plus the line's word track. |
 | `tools/score-variance.js` | Score variance — which scorecard categories actually MOVE a deck's grade, and what a draft model is really perturbing. |
 | `tools/score-venue-lint.js` | score-venue-lint — score lint's `capacity-scale` warnings against the export's clips, per venue. |
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |

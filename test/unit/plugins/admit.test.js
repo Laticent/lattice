@@ -106,7 +106,7 @@ describe('the plugins: register — every YAML spelling, and no orphaned lines (
 
 describe('admitPlugins — the three routes', () => {
   it('the default set is every shipped plugin, and a deck that lists nothing loads all of it', () => {
-    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'function-plot', 'math', 'mermaid']);
+    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'chart-family', 'function-plot', 'icons', 'math', 'mermaid']);
     const a = admitPlugins('# Hi\n');
     assert.deepEqual(a.off, []);
     assert.deepEqual(names(a).sort(), [...DEFAULT_PLUGINS].sort());
@@ -119,11 +119,19 @@ describe('admitPlugins — the three routes', () => {
     assert.deepEqual(names(admitPlugins('---\nclass: scene\n---\n# Flow\n', { defaults: [] })), ['anima']);
     // A pane renders as its component's class, so a pane marker is the component route too.
     assert.deepEqual(names(admitPlugins('<!-- _pane: math -->\n$$x^2$$\n', { defaults: [] })), ['math']);
+    // A chart FILLS the chart family's `kernel` slot, and filling it is requiring it (phase F): no
+    // chart manifest carries a `plugins` block, and the class still loads the family.
+    assert.deepEqual(names(admitPlugins('<!-- _class: bar -->\n## Revenue\n', { defaults: [] })), ['chart-family']);
+    assert.deepEqual(names(admitPlugins('<!-- _pane: gantt -->\n- A `Q1`\n', { defaults: [] })), ['chart-family']);
+    // A stray `<!--` quoted earlier (a code span, a fence) must not swallow a later directive: it
+    // used to pair with the directive's `-->`, so the chart class was never read (red team).
+    assert.deepEqual(names(admitPlugins('# Intro\n\nWrite `<!--` to open one.\n\n---\n\n<!-- _class: bar -->\n\n## G\n', { defaults: [] })), ['chart-family']);
+    assert.deepEqual(names(admitPlugins('```html\n<!--\n```\n\n---\n\n<!-- _class: math -->\n', { defaults: [] })), ['math']);
   });
 
   it('the usage probe admits nothing: a deck that USES a plugin it never loads keeps it off', () => {
     const a = admitPlugins('# Hi\n\n```mermaid\ngraph LR; A-->B\n```\n', { defaults: [] });
-    assert.deepEqual(a.off, ['anima', 'function-plot', 'math', 'mermaid']);
+    assert.deepEqual(a.off, ['anima', 'chart-family', 'function-plot', 'icons', 'math', 'mermaid']);
   });
 
   it('a loaded plugin loads what it requires, transitively; optional loads nothing', () => {

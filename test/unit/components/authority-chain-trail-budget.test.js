@@ -35,7 +35,7 @@ test('trail-budget: a citation word past its column warns at the venue that clip
   assert.equal(found({ fm: ['venue: conference'], tiers: four(word) }).length, 0, 'conference holds 17');
   const hall = found({ fm: ['venue: hall'], tiers: four(word) });
   assert.equal(hall.length, 1, 'hall holds 13');
-  assert.match(hall[0].message, /citation word "X{14}" is 14 characters; a column of a 4-tier trail holds 13 at hall/);
+  assert.match(hall[0].message, /citation word "X{14}" is too long for its column \(14 characters, max 13\)/);
   assert.equal(found({ cls: 'authority-chain trail scale-2xl', tiers: four(word) }).length, 1,
     'a slide scale class counts as its venue rung');
   const hand = found({ fm: ['venue: hall', 'mode: sketch'], tiers: four('X'.repeat(12)) });

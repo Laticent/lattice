@@ -500,3 +500,23 @@ owe nothing here. See
   above.
 - **Triggered by:** #2125. **Removable when:** #2134 makes the two builds agree
   on the served document.
+
+## A timing spec re-downloads everything, because `page.route()` turns off the HTTP cache
+
+- **Symptom:** an e2e spec that times something after page load (a first render, a lazy
+  check) reports seconds where a real browser takes milliseconds, and the request log shows
+  `200`s with full bodies for files the page already fetched: `lattice-runtime.js` and
+  `mermaid.min.js` fetched two or three times in one test.
+- **Cause:** Playwright documents it: "enabling routing disables http cache". It disables the
+  cache for every request in the page, not just the URL the route matched. Turning the cache
+  back on with CDP `Network.setCacheDisabled(false)` after the route is installed did not help
+  (measured: still full `200`s).
+- **What it cost:** the chat agent's cold fit check (decision note
+  `2026-10-05-studio-chat-agent.md` §11) measured 20.5 s and timed out on an emulated slow link.
+  With the cache working, the same check took 2.2 s.
+- **Fix:** for a TIMING spec, mock the network from inside the page instead: patch
+  `window.fetch` in `page.addInitScript` for the one origin you need to fake, and pass every
+  other call through. Check the log for `304`s to confirm the cache is in play. Specs that only
+  check behavior can keep `page.route()`.
+- **Triggered by:** follow-up `2539-p3-fit-check-cold-start`.
+

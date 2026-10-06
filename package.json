@@ -246,6 +246,7 @@
     "parser:bakeoff:languages": "node tools/parser-bakeoff/languages.mjs",
     "parser:bakeoff:versus": "node tools/parser-bakeoff/versus.mjs",
     "parser:bakeoff:flow": "node tools/parser-bakeoff/flow-segno.mjs",
+    "parser:bakeoff:list-text": "node tools/parser-bakeoff/list-text-speed.mjs",
     "dom:bakeoff:chromium": "node tools/dom-bakeoff/chromium.mjs",
     "bench:bless": "node test/benchmark/engine-bench.mjs --bless",
     "bench:check": "node test/benchmark/engine-bench.mjs --check",
@@ -343,6 +344,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
     "@breezystack/lamejs": "^1.2.7",
+    "@tabler/icons": "3.49.0",
     "@types/react": "^19.2.17",
     "acorn": "^8.17.0",
     "ajv": "^8.20.0",

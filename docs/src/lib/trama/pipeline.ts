@@ -51,6 +51,8 @@ export interface GraphContext {
   maxScale: number;
   rectL(el: Element): RectLike;
   textLines(el: Element): string[];
+  /** A harness icon's shapes, rebuilt from a closed vocabulary for the chart's SVG ('' for none). */
+  drawing(svgEl: Element | null): string;
   r1(v: number): number;
   esc(t: unknown): string;
   outline(kind: string, x: number, y: number, w: number, h: number, attrs: string, rimAttrs: string): string;
@@ -259,6 +261,42 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
   }
   const r1 = (v: number) => Math.round(v * 10) / 10;
   const esc = (t: unknown) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  /**
+   * A node's DRAWING — an icon the server put in the harness (lib/components/chart/_chart-family/
+   * graph-icons.js) — as markup for the chart's SVG, rebuilt from a closed vocabulary: the six
+   * shape elements an icon is drawn with and only their geometry attributes, every value
+   * checked against the characters geometry is written in. The harness is markup the sanitizer
+   * kept and a deck can forge one in raw HTML, so nothing else of it survives: no other element,
+   * no style, no href, no event attribute, no paint (HARD RULE #22). The caller wraps the result
+   * in its own `<svg viewBox="0 0 24 24">`, the icons' grid.
+   */
+  function drawing(svgEl: Element | null): string {
+    if (!svgEl) return '';
+    const GEO: Record<string, string[]> = {
+      path: ['d'], circle: ['cx', 'cy', 'r'], ellipse: ['cx', 'cy', 'rx', 'ry'],
+      rect: ['x', 'y', 'width', 'height', 'rx', 'ry'], line: ['x1', 'y1', 'x2', 'y2'], polyline: ['points'],
+    };
+    const NUM = /^[-+0-9.eE,\s]{1,4000}$/;
+    const PATH = /^[-+0-9.eE,\sMmLlHhVvCcSsQqTtAaZz]{1,4000}$/;
+    let out = '';
+    const kids = Array.from(svgEl.children || []).slice(0, 64);
+    for (const el of kids) {
+      const tag = String(el.localName || '').toLowerCase();
+      const allowed = Object.hasOwn(GEO, tag) ? GEO[tag] : null;
+      if (!allowed) continue;
+      let a = '';
+      let ok = true;
+      for (const k of allowed) {
+        const v = el.getAttribute(k);
+        if (v == null) continue;
+        if (!(k === 'd' ? PATH : NUM).test(v)) { ok = false; break; }
+        a += ` ${k}="${esc(v)}"`;
+      }
+      if (ok && a) out += `<${tag}${a}/>`;
+    }
+    return out;
+  }
 
   /** The lines the browser actually broke `el`'s text into, read with Range rects. */
   function textLines(el: Element): string[] {
@@ -551,7 +589,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     readMins();
     readVis(sec);
     const S = sec && sec.offsetWidth > 0 ? sec.offsetWidth / HD : 1;
-    const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, r1, esc, outline, grow, toOutline, cut, rounded, head, lines, groups };
+    const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, drawing, r1, esc, outline, grow, toOutline, cut, rounded, head, lines, groups };
 
     // Measure with the harness laid out and the box unscaled.
     const unlay = () => {
@@ -655,13 +693,13 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         const opts = m.args[2];
         // A pin holds only for the direction the chart asked for when the search chose it: an
         // author who changes the direction gets a search at once, not at the pause.
-        const held = search || !opts.wrap ? undefined : (D[key('Wrap')].get(fitKey) as { lines: number; dir: 'lr' | 'tb'; asked: unknown } | undefined);
+        const held = search || !opts.wrap ? undefined : (D[key('Wrap')].get(fitKey) as { lines: number; dir: 'lr' | 'tb'; breaks?: number[]; seq?: string[]; asked: unknown } | undefined);
         const pin = held && held.asked === opts.dir ? held : undefined;
         if (pin) m.pinned = true;
         // A pinned grid lays out that grid; a pinned dagre pick (lines 0) lays out dagre's layout
         // in that direction. Each is byte-identical to the search's pick (every recorded call).
         const args: typeof m.args = pin
-          ? [m.args[0], m.args[1], pin.lines ? { ...opts, wrap: false, dir: pin.dir, grid: pin.lines, grow: false } : { ...opts, wrap: false, dir: pin.dir }]
+          ? [m.args[0], m.args[1], pin.lines ? { ...opts, wrap: false, dir: pin.dir, grid: pin.lines, grow: false, ...(pin.breaks ? { breaks: pin.breaks } : {}), ...(pin.seq ? { seq: pin.seq } : {}) } : { ...opts, wrap: false, dir: pin.dir }]
           : m.args;
         // The newest drawing stands in while this round is in flight: the last keystroke's,
         // or this keystroke's own earlier round once it has painted (below).
@@ -770,10 +808,13 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       if (fig.getAttribute(`data-${P}-laid`) !== geo.dir) fig.setAttribute(`data-${P}-laid`, geo.dir);
       const kFit = applyFit(port0, box, geo.width * S, geo.height * S, portMin);
       if (kFit != null) D[key('Fit')].set(fitKey, kFit);
-      // A full search's choice is the pin: a grid (its lines and direction), or dagre's layout
-      // (lines 0) in its direction. Half-typed text often parses as a chart whose search picks
-      // dagre, and without a pin every key of it searched again: 3-4 rounds of 100-400 ms.
-      if (!m.pinned && m.args[2].wrap) D[key('Wrap')].set(fitKey, { lines: geo.lines ?? 0, dir: geo.dir, asked: m.args[2].dir });
+      // A full search's choice is the pin: a grid (its lines, direction and, when the pick moved
+      // a line break or reordered the shapes, its breaks and order), or dagre's layout (lines 0)
+      // in its direction. Half-typed text
+      // often parses as a chart whose search picks dagre, and without a pin every key of it
+      // searched again: 3-4 rounds of 100-400 ms. A pin without its breaks drew the even split
+      // while typing and jumped back to the searched split at every pause.
+      if (!m.pinned && m.args[2].wrap) D[key('Wrap')].set(fitKey, { lines: geo.lines ?? 0, dir: geo.dir, ...(geo.breaks ? { breaks: geo.breaks } : {}), ...(geo.seq ? { seq: geo.seq } : {}), asked: m.args[2].dir });
       // The signature of the state this draw LEFT (its own fit and type floor included), so
       // the resize observer and the next pass see nothing new and skip. A mid-chain paint
       // (`final` false) is rewritten by the next round in the same task, so its signature

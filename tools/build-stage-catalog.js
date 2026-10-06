@@ -429,6 +429,7 @@ function buildVenueLint() {
   const insightVariants = {};
   const eyebrow = {};
   const insightEyebrow = {};
+  const eyebrowStrict = {};
   const panel = {};
   const panelNot = {};
   const rows = {};
@@ -470,6 +471,8 @@ function buildVenueLint() {
     if (vc.insight?.eyebrow) insightEyebrow[m.name] = words(vc.insight.eyebrow.byWords);
     // `eyebrow`: component → a word map measured under an eyebrow, whose cost lint subtracts.
     if (vc.eyebrow) eyebrow[m.name] = words(vc.eyebrow.byWords);
+    // `eyebrowStrict`: the same row on a 4k deck, where the export forgives a third as much.
+    if (vc.eyebrow?.strict) eyebrowStrict[m.name] = words(vc.eyebrow.strict.byWords);
     // `panel`: "<component>" / "<component> <register>" → the claim panel's line geometry, each role
     // as [chars a line holds, px a line takes] per rung and `budget` per rung, and the variants the
     // geometry does not describe (Amendment (6)).
@@ -516,7 +519,10 @@ function buildVenueLint() {
           const own = Object.entries(rungs(o)).filter(([k, v]) => !same(k, v, out[shape]?.[k]));
           (out.ordered ||= {})[shape] = Object.fromEntries(own);
         }
-        regs[reg === 'bare' ? '' : reg] = out;
+        // A register measured the same as one before it is baked as that one's key (compare-prose's
+        // `chosen`, `mirror` and `transition` are bare's geometry): lint follows the string.
+        const twin = Object.keys(regs).find((k) => typeof regs[k] !== 'string' && JSON.stringify(regs[k]) === JSON.stringify(out));
+        regs[reg === 'bare' ? '' : reg] = twin != null ? twin : out;
       }
       // The frame is the standard frame's, the same measurement on every component that has one:
       // baked once as `rowFrame`, and per component only where it differs.
@@ -532,7 +538,7 @@ function buildVenueLint() {
     '   under an eyebrow, and `headed` under a 2- or 3-line heading; variants: "<component> <token>" rows; insight: rows with a trailing\n' +
     '   insight callout; panel: claim-panel line geometry; rows: list and card line geometry. Rebuild:\n' +
     '   node tools/build-stage-catalog.js */\n' +
-    'module.exports = ' + JSON.stringify({ items, code: codeRows, compareCode, variants, insight, insightVariants, eyebrow, insightEyebrow, axis, panel, panelNot, rows, rowFrame }) + ';\n';
+    'module.exports = ' + JSON.stringify({ items, code: codeRows, compareCode, variants, insight, insightVariants, eyebrow, eyebrowStrict, insightEyebrow, axis, panel, panelNot, rows, rowFrame }) + ';\n';
   return { source, count: Object.keys(items).length + (codeRows ? 1 : 0) + (compareCode ? 1 : 0) };
 }
 

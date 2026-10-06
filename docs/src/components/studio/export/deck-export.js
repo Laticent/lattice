@@ -188,7 +188,7 @@ export async function importedThemeNames(css) {
  * @param {string} palette theme name
  * @param {string} themeBase hashed `…/playground/v/<hash>/themes/` URL
  * @param {{includeAgent?: boolean, version?: string,
- *          overflowMarker?: 'author'|'reader'|'off',
+ *          overflowMarker?: 'author'|'reader'|'off', pluginsOff?: string[],
  *          extraTheme?: {name: string, css: string},
  *          components?: Array<{name: string, css: string}>}} [opts]
  *   `overflowMarker` is the EXPORT setting (lib/core/resolve-overflow-marker.js) —
@@ -200,11 +200,11 @@ export async function importedThemeNames(css) {
  *   bundle writes its CSS directly. `components` are the saved components the deck
  *   uses, embedded as `<style>` blocks exactly as the Markdown export embeds them.
  */
-export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [] } = {}) {
+export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [], pluginsOff = [] } = {}) {
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -239,7 +239,9 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
 			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(source, components)))), undefined),
-			{ localAssets: false, overflowMarker },
+			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
+			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
+			{ localAssets: false, overflowMarker, pluginsOff },
 		),
 	);
 
@@ -345,7 +347,8 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 
 	// generated text files (the shared bundle spec).
 	const themesList = ['lattice.css', ...bundledThemes];
-	dir.file('marp.config.cjs', MARP_CONFIG_CJS);
+	// Marp typesets math itself; with the math plugin off for this deck, its config turns that off too.
+	dir.file('marp.config.cjs', marpConfigCjs({ math: !pluginsOff.includes('math') }));
 	dir.file('package.json', `${JSON.stringify(packageJson(slug), null, 2)}\n`);
 	dir.file('.vscode/settings.json', vscodeSettings(themesList));
 	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk }));
@@ -556,6 +559,13 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
 	return stranded.length;
 }
 
+// A figure that had not drawn when the frame was measured: still pending, or released to its
+// source text (`unavailable`) because its library had not arrived. Its slide was measured with
+// the source in the diagram's place, so its fit is unknown. On a slow link, a session's first
+// diagram can miss the 4 s wait while Mermaid downloads (decision note §11). `error` is not
+// here: a parse error draws its error box, which is what the author sees.
+const UNDRAWN_FIGURES = '[data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="hydrating"], [data-lattice-settle="unavailable"])';
+
 /**
  * Measure whether each slide of a rendered deck FITS — the verdict the Studio chat agent's
  * checker returns for its draft (2026-10-05-studio-chat-agent.md). The engine runtime in
@@ -569,8 +579,9 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
  * than it has slides, and the caller must not read row N as source slide N.
  *
  * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl }`
- * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean }[] | null>}
- *   one row per source slide, or null when the frame held no slides
+ * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean, undrawn: boolean }[] | null>}
+ *   one row per source slide, or null when the frame held no slides. `undrawn` marks a slide
+ *   holding a figure that had not drawn when it was measured: its other flags are not a verdict.
  */
 export async function measureDeckFit(render) {
 	const { frame, dispose } = await createCaptureFrame(render);
@@ -587,10 +598,11 @@ export async function measureDeckFit(render) {
 		sections.forEach((sec, i) => {
 			// A continuation page is stamped `N.k` (auto-split.js); it belongs to slide N.
 			const n = Math.floor(Number.parseFloat(sec.getAttribute('data-lattice-slide') ?? '')) || i + 1;
-			const row = bySlide.get(n) || { slide: n, overflows: false, clipped: false, illegible: false };
+			const row = bySlide.get(n) || { slide: n, overflows: false, clipped: false, illegible: false, undrawn: false };
 			row.overflows ||= sec.classList.contains('overflow');
 			row.clipped ||= sec.classList.contains('clip-marked');
 			row.illegible ||= sec.classList.contains('illegible');
+			row.undrawn ||= !!sec.querySelector(UNDRAWN_FIGURES);
 			bySlide.set(n, row);
 		});
 		return [...bySlide.values()].sort((a, b) => a.slide - b.slide);
@@ -1765,9 +1777,20 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		const strip = section.parentElement;
 		const clip = strip && { height: strip.style.height, overflow: strip.style.overflow };
 		if (strip) { strip.style.height = 'auto'; strip.style.overflow = 'visible'; }
+		// The camera's own fixups, applied for the read too (withCaptureFixups): no host keyline
+		// (`--slide-edge-k: 0`), and a PDF page squares a rounded corner. Read without them, a live
+		// keyline covered the slide's edge and a rounded clip refused it, so the reader left the
+		// spectrum bar and the dark hairline in the photo, soft at 4K (read-slide.mjs readSectionEdges).
+		const edgeK = section.style.getPropertyValue('--slide-edge-k');
+		section.style.setProperty('--slide-edge-k', '0');
+		const squared = section.classList.contains('corners-rounded') && !cornerSurvivesExport('pdf');
+		const radius = section.style.borderRadius;
+		if (squared) { section.classList.remove('corners-rounded'); section.style.borderRadius = '0'; }
 		try {
 			return fn();
 		} finally {
+			if (squared) { section.classList.add('corners-rounded'); section.style.borderRadius = radius; }
+			if (edgeK) section.style.setProperty('--slide-edge-k', edgeK); else section.style.removeProperty('--slide-edge-k');
 			if (strip) { strip.style.height = clip.height; strip.style.overflow = clip.overflow; }
 			section.style.transform = fit.transform;
 			section.style.transformOrigin = fit.origin;

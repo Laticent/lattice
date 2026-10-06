@@ -4216,7 +4216,20 @@ section > .slide-edge[data-lattice-berth] {
  * at `:sm`. That is whole-pixel rounding, so no single offset is exact at every size.
  * Extra top padding, taken back from the bottom so the height holds, was swept from
  * 0.02em to 0.08em against the PDF. 0.05em gives the smallest worst case: 1.47px → 0.68px,
- * mean 0.92px → 0.30px. At 0.06em and above, `:lg` flips a whole pixel low. */
+ * mean 0.92px → 0.30px. At 0.06em and above, `:lg` flips a whole pixel low.
+ *
+ * NOT ON A LARGE PILL. Measured again in the exported PDF (2026-10-06, Outfit), the shift pushes a
+ * large pill LOW: an `h1` pill up to 2.25px, an `h2` pill 1.38px. Unshifted, every pill measured
+ * at 18.67px and up sits within 0.63px (h1 at 27–38px, h2 at 18.7–22.4px). Below that the sizes
+ * split both ways (an `h3` pill at 15.3px and a body `:sm` center better unshifted, others do
+ * not), so the shift is left exactly as it was there. `clamp()` turns `(18.5px − 1em)` into the
+ * full 0.05em below 18.5px and into 0 above it. The cut sits in the gap between the sizes that
+ * exist today (18.4px, an `h3 :lg`, and 18.67px, an `h2`); a change to the heading scale or the
+ * pill sizes can move a size across it, and it is in CSS px on the 1280×720 slide. No Outfit pill
+ * measured got worse. Each pill's place in its line still moves it by about ±0.4px.
+ *
+ * NOT ON A SKETCH SLIDE. The sketch face sits differently: under the size rule its `h2` pill moved
+ * from 0.13px to 0.88px off, so sketch keeps the old shift at every size. */
 @supports (text-box: trim-both cap alphabetic) {
   .lat-pill[data-shape] {
     text-box:trim-both cap alphabetic;
@@ -4226,9 +4239,11 @@ section > .slide-edge[data-lattice-berth] {
 }
 @supports not (text-box: trim-both cap alphabetic) {
   .lat-pill[data-shape] {
-    --lat-pill-pt:calc(var(--pill-pad-y) + 0.05em);
-    --lat-pill-pb:calc(var(--pill-pad-y) - 0.05em);
+    --lat-pill-shift:clamp(0px, (18.5px - 1em) * 1000, 0.05em);
+    --lat-pill-pt:calc(var(--pill-pad-y) + var(--lat-pill-shift));
+    --lat-pill-pb:calc(var(--pill-pad-y) - var(--lat-pill-shift));
   }
+  section.sketch .lat-pill[data-shape] { --lat-pill-shift:0.05em; }
 }
 
 /* Geometry per shape. `pill` is the default and needs no rule — it inherits the

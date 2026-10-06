@@ -121,8 +121,8 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   reach the pane as a slide's `_class` would carry them.
 - **The pane title is optional**, but write one: it says what the pane is for. It is set in the
   eyebrow's voice, as a label: the slide's `##` makes the point, and each pane names what it holds
-  ("Revenue by line", "Findings by vendor"). Keep it to five words or fewer; `lint:deck` suggests a
-  shorter one past that (`pane-title`). A pane shows one label, so an eyebrow pill written above
+  ("Revenue by line", "Findings by vendor"). Keep it short: a label reads best at five words or
+  fewer. A pane shows one label, so an eyebrow pill written above
   its `###` joins it: `` `Shortlist` `` over `### Cleared` renders "Shortlist · Cleared", and
   `lint:deck` suggests writing it that way. Side by side, the two titles share a row, so both
   bodies start on one line even when one title wraps.
@@ -154,8 +154,8 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
 - `lint:deck` names each problem before you render: `pane-arrange` (the slide will re-orient or
   split), `pane-overflow` (past the budget), `pane-crowd` (past the comfortable count),
   `pane-layout` (a ratio off the grid, a third pane, fewer than two, a modifier the component does
-  not know, a deck-wide `class: columns`), `pane-title` (a pill above a pane title, a title past
-  five words) and `pane-insight`. It warns and never blocks; the Studio's editor shows the same
+  not know, a deck-wide `class: columns`), `pane-title` (a pill above a pane title) and
+  `pane-insight`. It warns and never blocks; the Studio's editor shows the same
   warnings as you type. At export, a pane that really clips is marked like any clipped slide.
 - **On a square, portrait, story or mobile deck the panes split** into one slide per pane.
   Those sizes set type about twice as large, so two components do not share one frame there.
@@ -1297,11 +1297,13 @@ foreground tokens meet WCAG AA on body backgrounds. The `.heat` modifier remaps
 hollow rings neutral.
 
 **Implementation contract:** the marker grammar AND its meaning live in one
-kernel, `lib/core/state-marks.js` — `MARKER_CLASS`, `LEADING_MARKER_RE` and
-`stateClassesFor`. Every consumer builds its pattern from that kernel: the
-engine (`lib/integrations/markdown-it/plugins.js`), the VS Code / export-to-Marp
-runtime (`lib/runtime/index.js`), roadmap's transform, the table row-label
-heuristic, and the docs-site Compose editor. Each strips the marker and adds
+pair of kernels: `lib/core/leading-marker.js` reads it (`readLeadingMarker`, the
+Segno list-text grammar in `lib/core/list-text-grammar.js`) and
+`lib/core/state-marks.js` says what it means (`stateClassesFor`). Every consumer
+reads through them: the engine (`lib/integrations/markdown-it/plugins.js`),
+the VS Code / export-to-Marp runtime (`lib/runtime/index.js`), roadmap's
+transform, the table row-label heuristic, and chart narration. The docs-site
+Compose editor still builds its patterns from the kernel's `MARKER_CLASS`. Each strips the marker and adds
 `class="state {sem} {shape}"` (a `badge` span on verdict-grid and pricing rows).
 A unit test fails on a private copy of the marker class. Two consumers cannot
 import the kernel and are pinned to it by test instead: the linter
@@ -1638,14 +1640,28 @@ An unknown or repeated word fails back to literal rather than being ignored:
 pill the author did not ask for.
 
 To force the literal for a label that WOULD qualify, put a **backslash** in front:
-`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`.
+`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`. A broken pill escapes
+the same way and silences `pill-literal`: `` `\{A|B}` `` renders as `{A|B}`.
 
-The backslash is only an escape when what follows would actually have become a pill or
-a mark, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched and keep their
+The backslash is only an escape when what follows would have become a pill or a mark, or
+is a broken pill attempt, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched
+and keep their backslash. Braces that belong to another language are never a pill attempt —
+a span holding a backslash (LaTeX `` `\{a,b\}` ``, a regex `` `\{2,3\}` ``), a regex interval
+(`` `{2,5}` ``) or a template tag (`` `{{name}}` ``) — so they get no warning and keep every
 backslash.
 
 **Fenced and indented code blocks are never touched at all** — they are not inline code,
 so nothing in them is ever read as a directive.
+
+### An icon in a pill — `icon=`
+
+`{S3, icon=bucket, c4}` leads the label with a drawn icon, in the pill's own color, at any shape:
+`{Primary, icon=database, tag}`. `{icon=database}` is an icon with no label. `icon` is written by
+name, because a pill's first word is its label. The icons come from the **icons** plugin
+(`lib/plugins/icons/icons.docs.md`), which also draws an icon on its own in prose (`^{database}`);
+with that plugin off, the pill shows its label alone. A name the set does not have — or a vendor
+service name like `icon=lambda` — keeps the span literal, and `lint:deck` names the role icon to
+use instead.
 
 ### Where a pill can go
 
@@ -1847,7 +1863,9 @@ opens a CSS attribute selector, an array index and a citation.
 
 Braces make a pill, so `` `{x}` `` would be a pill containing the letter `x`. The six
 markers are **reserved** inside `{}` and render literal, with a `lint:deck` suggestion
-pointing at `` `[x]` `` — the bracket form above.
+pointing at `` `[x]` `` — the bracket form above. With options after it (`` `{x, c2}` ``,
+`` `{x, icon=code}` ``) the span was meant as a pill, so `lint:deck` warns `pill-literal` instead:
+pick another label, or drop it for an icon-only pill (`` `{icon=code}` ``).
 
 ## Composition syntax
 

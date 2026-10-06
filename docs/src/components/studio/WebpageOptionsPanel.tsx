@@ -245,6 +245,7 @@ export function WebpageOptionsPanel({
 			<div className="flex gap-2">
 				<button
 					type="button"
+					data-demo="html-download"
 					disabled={busy}
 					onClick={() => launch(narration)}
 					className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"

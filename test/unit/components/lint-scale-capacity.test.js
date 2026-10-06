@@ -26,7 +26,10 @@ const core = require('../../../lib/authoring/lint-core');
 
 // The COUNT-ROW fixture is `cycle`: its rows are word rows, and its items are a title over a body,
 // the shape these tests were written in. `list-steps`, `list` and `cards-grid` are judged by lines
-// (Amendment (7), pinned at the end of this file), so they no longer exercise the count rows.
+// (Amendment (7), pinned at the end of this file), and so are `cycle` and `compare-prose` since
+// Amendment (9). So the fixture decks carry `logo:`, a front-matter key outside the line model's
+// allowlist, which keeps every slide on its count row (Amendment (7), "the front matter is part of
+// the choice too"); the line verdicts for both are pinned in their own block below.
 const vocab = {
   names: new Set(['cycle', 'code']),
   modifiers: new Set(['scale-l', 'scale-xl', 'scale-2xl', 'compact']),
@@ -35,7 +38,7 @@ const vocab = {
   },
 };
 const lint = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'capacity-scale');
-const deck = (fmClass, body) => `---\nmarp: true\n${fmClass ? `class: ${fmClass}\n` : ''}---\n\n${body}`;
+const deck = (fmClass, body) => `---\nmarp: true\nlogo: logo.svg\n${fmClass ? `class: ${fmClass}\n` : ''}---\n\n${body}`;
 const long = 'reads the ticket and plans the change before anyone asks it to';
 const steps = (n, body = long) => Array.from({ length: n }, (_, i) => `- Step ${i + 1}\n  - ${body}\n`).join('');
 const slide = (cls, n, body) => `<!-- _class: ${cls} -->\n\n## Heading.\n\n${steps(n, body)}`;
@@ -54,10 +57,9 @@ describe('capacity-scale — a counted component', () => {
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'info');
     assert.equal(out[0].classToken, 'cycle');
-    assert.match(out[0].message, new RegExp(`at 1\\.3x 'cycle' holds about ${ceilXl} items`));
-    assert.match(out[0].message, /at the designed size/);
-    assert.match(out[0].message, /never shrinks one to fit, so if it does not fit, it is clipped/);
-    assert.match(out[0].fix, /(use `scale-l`|drop the `scale-\*` class) for the whole deck/);
+    assert.match(out[0].message, new RegExp(`At \`scale-xl\` 'cycle' fits about ${ceilXl} items`));
+    assert.match(out[0].message, /so some may be cut off/);
+    assert.match(out[0].fix, /(use `scale-l`|drop the `scale-\*` class)\./);
   });
 
   test('within the budget → silent', () => {
@@ -90,8 +92,8 @@ describe('capacity-scale — a counted component', () => {
     const rows = Array.from({ length: designed + 1 }, (_, i) => `1. Term ${i}\n   - A clause of about nine words that frames row ${i}.\n   - Why it matters?`).join('\n');
     const out = core.lintTextWith(deck('scale-xl', `<!-- _class: premise -->\n\n## H.\n\n${rows}\n`), v).filter((f) => f.rule === 'capacity-scale');
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /even at the designed size/);
-    assert.match(out[0].message, /clipped at 1\.3x and would be at any smaller size/);
+    assert.match(out[0].message, /even at laptop size/);
+    assert.match(out[0].message, /so some are cut off/);
     assert.match(out[0].fix, /^Split the slide/);
     assert.doesNotMatch(out[0].fix, /scale-l/);
   });
@@ -108,8 +110,8 @@ describe('capacity-scale — a counted component', () => {
     const src = deck('scale-xl', slide('authority-chain', designed + 1));
     const out = core.lintTextWith(src, v).filter((f) => f.rule === 'capacity-scale');
     assert.equal(out.length, 1);
-    assert.doesNotMatch(out[0].message, /even at the designed size|any smaller size/);
-    assert.match(out[0].message, /never shrinks one to fit, so if it does not fit, it is clipped/);
+    assert.doesNotMatch(out[0].message, /even at laptop size/);
+    assert.match(out[0].message, /so some may be cut off/);
   });
 
   test('past `hard` it is the overflow rule\'s slide, not this one', () => {
@@ -140,10 +142,10 @@ describe('capacity-scale — a code block', () => {
     const out = lint(deck('scale-xl', code(bareXl + 1)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'info');
-    assert.match(out[0].message, /the block is clipped/);
+    assert.match(out[0].message, /, so it is cut off\./);
     assert.match(out[0].message, new RegExp(`${bareXl + 1} lines \\(the pane holds about ${bareXl}\\)`));
     // A spot `scale-xl` carries no code lift (only a venue sets one): 102 ÷ 1.3 = 78.
-    assert.match(out[0].fix, new RegExp(`${bareXl} lines of 78 columns`));
+    assert.match(out[0].fix, new RegExp(`${bareXl} lines of 78 characters`));
     assert.deepEqual(lint(deck('scale-xl', code(bareXl))), []);
   });
 
@@ -151,7 +153,7 @@ describe('capacity-scale — a code block', () => {
     const out = lint(deck('scale-xl', code(30)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'warning');
-    assert.match(out[0].message, /so it is clipped at any size/);
+    assert.match(out[0].message, /so it is cut off at any size/);
     assert.doesNotMatch(out[0].message, /nothing is clipped/);
   });
 
@@ -216,7 +218,7 @@ describe('capacity-scale — a code block', () => {
     const wide = '```js\n' + 'x'.repeat(90) + '\n```\n';
     const out = lint(deck('scale-xl', `<!-- _class: code -->\n\n## H.\n\n${wide}`));
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /a 90-column line \(the pane holds about 78\)/);
+    assert.match(out[0].message, /a 90-character line \(the pane holds about 78\)/);
   });
 
   test('in a venue the code lift narrows the pane: 68 columns at conference, 59 at hall', () => {
@@ -225,10 +227,10 @@ describe('capacity-scale — a code block', () => {
     const at = (venue) => core.lintTextWith(`---\nmarp: true\nvenue: ${venue}\n---\n\n<!-- _class: code -->\n\n## H.\n\n${cols73}`, vocab).filter((f) => f.rule === 'capacity-scale');
     const conf = at('conference');
     assert.equal(conf.length, 1);
-    assert.match(conf[0].message, /a 73-column line \(the pane holds about 68\)/);
+    assert.match(conf[0].message, /a 73-character line \(the pane holds about 68\)/);
     const hall = at('hall');
     assert.equal(hall.length, 1);
-    assert.match(hall[0].message, /a 73-column line \(the pane holds about 59\)/);
+    assert.match(hall[0].message, /a 73-character line \(the pane holds about 59\)/);
     // A 73-column line clips at conference too, so the hall fix must not offer it.
     assert.doesNotMatch(hall[0].fix, /venue: conference/);
   });
@@ -262,6 +264,14 @@ describe('the fit: register in lint', () => {
     assert.match(f.fix, /fit: trim/);
   });
 
+  test('an unknown old guards: value is one guards-renamed warning (unknown-guards was folded in)', () => {
+    const out = rules(deck(null, '## x\n').replace('marp: true', 'marp: true\nguards: strct'));
+    assert.deepEqual(out.filter((x) => /guards/.test(x.rule)).map((x) => [x.rule, x.severity]), [['guards-renamed', 'warning']]);
+    // With `fit:` present, `fit:` decides, so the old line is only a note.
+    const both = rules(deck(null, '## x\n').replace('marp: true', 'marp: true\nfit: trim\nguards: strct'));
+    assert.equal(both.find((x) => x.rule === 'guards-renamed')?.severity, 'info');
+  });
+
   test('fit: report changes nothing about the scale finding: no fit level changes the size', () => {
     const row = core.SCALE_CAPACITY.cycle;
     const len = Math.max(...Object.keys(row).map(Number));
@@ -292,9 +302,8 @@ describe('capacity-scale — under a venue', () => {
     const out = lint(venueDeck('conference', slide('cycle', xl[longCol][2] + 1)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'warning');
-    assert.match(out[0].message, /at 1\.3x/);
-    assert.match(out[0].message, /renders every slide at 1\.3x/);
-    assert.match(out[0].fix, /set `venue: (huddle|laptop)` for the whole deck/);
+    assert.match(out[0].message, /At conference size/);
+    assert.match(out[0].fix, /set `venue: (huddle|laptop)`/);
   });
 
   test('the smaller size it names is the LARGEST whose budget holds the slide, never one that still clips', () => {
@@ -311,8 +320,8 @@ describe('capacity-scale — under a venue', () => {
     const out = lint(venueDeck('hall', slide('cycle', xl[longCol][3] + 1)));
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'warning');
-    assert.match(out[0].message, /at 1\.5x/);
-    assert.match(out[0].fix, /venue: hall/);
+    assert.match(out[0].message, /At hall size/);
+    assert.match(out[0].fix, /At hall size, carry fewer words/);
   });
 
   test('venue: laptop, and an unknown venue, are the designed size — silent', () => {
@@ -332,8 +341,8 @@ describe('capacity-scale — a slide that names its own venue', () => {
   test('is judged at its own venue, not the deck\'s, as the renderer evicts the deck token', () => {
     const src = `---\nmarp: true\nvenue: hall\n---\n\n${slide('cycle venue-huddle', 5)}`;
     const out = lint(src);
-    assert.ok(out.every((f) => !/at 1\.5x/.test(f.message)), 'never judged at the hall scale');
-    assert.ok(out.every((f) => !/venue: hall/.test(f.fix)));
+    assert.ok(out.every((f) => !/At hall size/.test(f.message)), 'never judged at the hall scale');
+    assert.ok(out.every((f) => !/At hall size/.test(f.fix)));
   });
 });
 
@@ -354,7 +363,8 @@ describe('unknown-venue', () => {
 });
 
 describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () => {
-  const venueDeck = (venue, body) => `---\nmarp: true\nvenue: ${venue}\n---\n\n${body}`;
+  // `logo:` keeps the count rows (see `deck` above).
+  const venueDeck = (venue, body) => `---\nmarp: true\nlogo: logo.svg\nvenue: ${venue}\n---\n\n${body}`;
   const v = { names: new Set(['cards-stack', 'cycle']), modifiers: new Set(['compact', 'insight-so-what']),
     capacity: { 'cards-stack': { axis: 'item', min: 2, sweet: 3, soft: 4, hard: 5 }, cycle: { axis: 'item', min: 3, sweet: 4, soft: 5, hard: 5 } } };
   const run = (src) => core.lintTextWith(src, v).filter((f) => f.rule === 'capacity-scale');
@@ -381,7 +391,7 @@ describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () =
     const withCallout = run(venueDeck('conference', `<!-- _class: cycle insight-so-what -->\n\n## H.\n\n${steps(3)}\n> The line to remember.\n`));
     assert.deepEqual(plain, [], 'three stages fit at conference');
     assert.equal(withCallout.length, 1, 'with a callout, conference holds two');
-    assert.match(withCallout[0].message, /'cycle with its callout' holds about 2 items/);
+    assert.match(withCallout[0].message, /'cycle with its callout' fits about 2 items/);
   });
 
   test('the callout is the trailing blockquote, not the insight-* class that relabels it', () => {
@@ -395,7 +405,7 @@ describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () =
   test('a component with a venue row but no capacity block is judged, and never claims a 1x clip', () => {
     const vv = { names: new Set(['compare-prose']), modifiers: new Set(['vertical']), capacity: {} };
     const side = (t) => `- ${t}\n  - ${Array.from({ length: 18 }, (_, i) => `w${i}`).join(' ')}.`;
-    const src = `---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: compare-prose vertical -->\n\n## H.\n\n${side('A')}\n${side('B')}\n\n> The line to remember.\n`;
+    const src = `---\nmarp: true\nlogo: logo.svg\nvenue: hall\n---\n\n<!-- _class: compare-prose vertical -->\n\n## H.\n\n${side('A')}\n${side('B')}\n\n> The line to remember.\n`;
     const out = core.lintTextWith(src, vv).filter((f) => f.rule === 'capacity-scale');
     assert.equal(out.length, 1);
     assert.match(out[0].message, /'compare-prose vertical with its callout'/);
@@ -411,7 +421,7 @@ describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () =
     assert.deepEqual(at(`${side('A')}\n${side('B')}\n`), []);
     const out = at(`${side('A')}\n${side('B')}\n\n> The line to remember.\n`);
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /'compare-prose vertical with its callout' holds about 1/);
+    assert.match(out[0].message, /'compare-prose vertical with its callout' fits about 1/);
   });
 
   test('a variant finding names the variant row it quotes', () => {
@@ -419,7 +429,7 @@ describe('capacity-scale — the row a real slide is judged by (#2361 P2)', () =
     const side = (t) => `- ${t}\n  - ${Array.from({ length: 11 }, (_, i) => `w${i}`).join(' ')}.`;
     const out = core.lintTextWith(venueDeck('conference', `<!-- _class: compare-prose vertical -->\n\n## H.\n\n${side('A')}\n${side('B')}\n${side('C')}\n`), vv).filter((f) => f.rule === 'capacity-scale');
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /'compare-prose vertical' holds about 2/);
+    assert.match(out[0].message, /'compare-prose vertical' fits about 2/);
   });
 });
 
@@ -456,7 +466,7 @@ describe('withCompact — a budget that knows `compact` (#2361 P3)', () => {
     const out = run('q-and-a', 5);
     assert.equal(out.length, 1);
     assert.equal(out[0].rule, 'capacity-overflow');
-    assert.match(out[0].fix, /Add `compact`.*holds 5/);
+    assert.match(out[0].fix, /add `compact`, which fits 5/);
   });
 
   test('the same five pairs with compact are silent', () => {
@@ -492,7 +502,7 @@ describe('withCompact at a venue', () => {
     const conf = (n) => core.lintTextWith(`---\nmarp: true\nvenue: conference\n---\n\n<!-- _class: q-and-a compact -->\n\n## H.\n\n${pairs(n)}\n`, v).filter((f) => f.rule === 'capacity-scale');
     const out = conf(5);
     assert.equal(out.length, 1, 'five pairs are one past the compact conference row');
-    assert.match(out[0].message, /'q-and-a compact' holds about 4/);
+    assert.match(out[0].message, /'q-and-a compact' fits about 4/);
     assert.deepEqual(conf(4), [], 'four compact pairs fit at conference, where the bare row said 3');
   });
 });
@@ -505,7 +515,7 @@ describe('venue-only rows count on their own axis', () => {
     const run = (venue, n) => core.lintTextWith(deck(venue, n), v).filter((f) => f.rule === 'capacity-scale');
     assert.deepEqual(run('hall', 4), []);
     assert.equal(run('hall', 5).length, 1);
-    assert.match(run('hall', 5)[0].message, /holds about 4 rows/);
+    assert.match(run('hall', 5)[0].message, /fits about 4 rows/);
   });
 });
 
@@ -531,7 +541,7 @@ describe('a claim panel is judged by the LINES its text wraps to (split-panel, A
     assert.deepEqual(run('hall', 'split-panel proof', 30), []); // 6 lede lines: 1598.2
     const over = run('hall', 'split-panel proof', 31); // 7 lede lines: 1742.5
     assert.equal(over.length, 1);
-    assert.match(over[0].message, /'split-panel proof' claim panel's text runs about 1% past its column \(eyebrow 1 line, heading 2 lines, question 1 line, lede 7 lines\)/);
+    assert.match(over[0].message, /'split-panel proof' claim panel's text runs about 1% too long for its column/);
     assert.match(over[0].fix, /Shorten the heading or the lede/);
   });
 
@@ -573,7 +583,7 @@ describe('a claim panel is judged by the LINES its text wraps to (split-panel, A
     const [f] = raw('hall', 'split-panel', `## ${w(8)}\n\n${w(80)}\n\n${points}`);
     assert.doesNotMatch(f.fix, /venue: laptop|for the whole deck/);
     const [g] = run('hall', 'split-panel proof', 40);
-    assert.match(g.fix, /for the whole deck/);
+    assert.match(g.fix, /venue:/);
   });
 
   test('a panel over its column is reported beside an over-full list, not hidden by it', () => {
@@ -600,7 +610,7 @@ test('a row of 0 says the venue holds not one element, and never "keep 0"', (t) 
   const v = { names: new Set(['timeline-list']), modifiers: new Set(), capacity: {} };
   const items = Array.from({ length: 2 }, (_, i) => `1. \`2025 Q${i + 1}\` Phase ${i}\n   - ${Array.from({ length: 16 }, (_, j) => `word${j}`).join(' ')}.`).join('\n');
   const [f] = core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: timeline-list -->\n\n## H.\n\n${items}\n`, v).filter((x) => x.rule === 'capacity-scale');
-  assert.match(f.message, /holds not one item/);
+  assert.match(f.message, /fits not even one item/);
   assert.doesNotMatch(f.fix, /Keep 0/);
 });
 
@@ -615,7 +625,7 @@ describe('capacity-scale — the designed size, for a component with no `capacit
   test('one row past the laptop budget warns, with no venue set (rendered: 7 rows clip)', () => {
     const [f] = run(`<!-- _class: list-tabular -->\n\n## H.\n\n${rows(ceil + 1)}\n`);
     assert.equal(f.severity, 'warning');
-    assert.match(f.message, new RegExp(`holds about ${ceil} items.*this slide has ${ceil + 1}, so it is clipped`));
+    assert.match(f.message, new RegExp(`fits about ${ceil} items.*this slide has ${ceil + 1}, so some are cut off`));
     assert.doesNotMatch(f.fix, /venue|huddle|laptop/);
   });
 
@@ -629,7 +639,7 @@ describe('capacity-scale — the designed size, for a component with no `capacit
 
   test('a `venue:` deck gets the venue finding, not this one as well', () => {
     const found = run(`<!-- _class: list-tabular -->\n\n## H.\n\n${rows(ceil + 1)}\n`, 'venue: huddle\n');
-    assert.ok(found.every((f) => !/at the designed size; this slide/.test(f.message)));
+    assert.ok(found.every((f) => !/at laptop size; this slide/.test(f.message)));
   });
 
   test('a specimen slide says nothing', () => {
@@ -651,7 +661,7 @@ describe('capacity-scale — the designed size, for a component whose `hard` sit
     const cap = core.SCALE_CAPACITY.premise['14'][0];
     assert.equal(run(`<!-- _class: premise -->\n\n## H.\n\n${premiseRows(cap)}\n`).length, 0);
     const [f] = run(`<!-- _class: premise -->\n\n## H.\n\n${premiseRows(cap + 1)}\n`);
-    assert.match(f.message, new RegExp(`'premise' holds about ${cap} items`));
+    assert.match(f.message, new RegExp(`'premise' fits about ${cap} items`));
   });
 
   test('past `hard` the capacity-overflow rule speaks, not this one', () => {
@@ -677,11 +687,11 @@ describe('a list or card slide is judged by the LINES its text wraps to (Amendme
     const out = run('hall', 'list takeaway', `## Five signs a problem is hard.\n\n${nested(5)}\n`);
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'warning');
-    assert.match(out[0].message, /at 1\.5x the 'list takeaway' slide's text runs about \d+% past what the slide holds, counted in wrapped lines/);
+    assert.match(out[0].message, /At hall size this 'list takeaway' slide's text runs about \d+% too long/);
     // The room it offers is the largest whose lines hold the slide, read off the same geometry.
     const at = core.rowsAt('list', ['list', 'takeaway'], `## Five signs a problem is hard.\n\n${nested(5)}\n`);
     const fits = [2, 1, 0].find((r) => !at(r).over);
-    assert.match(out[0].fix, new RegExp(`set \`venue: ${['laptop', 'huddle', 'conference'][fits]}\` for the whole deck`));
+    assert.match(out[0].fix, new RegExp(`set \`venue: ${['laptop', 'huddle', 'conference'][fits]}\``));
   });
 
   test('a 720-high deck forgives what the export forgives: 12 layout px, 36 of a 2160 slide', () => {
@@ -870,16 +880,16 @@ describe('a list or card slide is judged by the LINES its text wraps to (Amendme
   test('the deck-wide class and front matter reach the choice: a `class: sketch` or `meta:` deck keeps its count row', () => {
     const slide = `<!-- _class: list takeaway -->\n\n## H.\n\n${nested(6)}\n`;
     const find = (fm) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: hall\n${fm}---\n\n${slide}`, v).filter((f) => f.rule === 'capacity-scale');
-    assert.match(find('')[0].message, /counted in wrapped lines/);
+    assert.match(find('')[0].message, /text runs about \d+% too long/);
     for (const fm of ['class: sketch\n', 'meta: "Q3 review"\n', 'logo: logo.svg\n', 'preset: brand\n']) {
-      assert.ok(find(fm).every((f) => !/counted in wrapped lines/.test(f.message)), `${fm.trim()} keeps the count row`);
+      assert.ok(find(fm).every((f) => !/text runs about \d+% too long/.test(f.message)), `${fm.trim()} keeps the count row`);
     }
-    assert.match(find('theme: indaco\npaginate: true\nheader: "H"\n')[0].message, /counted in wrapped lines/, 'inert keys ride along');
+    assert.match(find('theme: indaco\npaginate: true\nheader: "H"\n')[0].message, /text runs about \d+% too long/, 'inert keys ride along');
   });
 
   test('the generated table: rows per component, one shared frame, `ordered` carrying only what differs', () => {
     const V = require('../../../lib/authoring/venue-capacity.generated.js');
-    assert.deepEqual(Object.keys(V.rows).sort(), ['cards-grid', 'list', 'list-steps']);
+    assert.deepEqual(Object.keys(V.rows).sort(), ['cards-grid', 'compare-prose', 'cycle', 'list', 'list-steps']);
     assert.ok(V.rowFrame.heading && V.rowFrame.eyebrow && V.rowFrame.callout);
     assert.deepEqual(Object.keys(V.rows['cards-grid'].regs[''].ordered.nested), ['row'], 'a numbered card differs only in its row cost');
     assert.equal(V.rows['cards-grid'].regs[''].cols, 2);
@@ -925,7 +935,7 @@ describe('a count row reads the slide a real deck writes (#2361 P2, 2026-10-05)'
     assert.equal(core.elementLength(tabular10, 'item', 'list-tabular'), 13);
     assert.equal(core.SCALE_CAPACITY['list-tabular']['13'][2], 3);
     const [f] = run('conference', tabular10);
-    assert.match(f.message, /'list-tabular with its eyebrow' holds about 3 items of up to 13 words/);
+    assert.match(f.message, /'list-tabular with its eyebrow' fits about 3 items of up to 13 words/);
   });
 
   test('a callout under an eyebrow reads the row measured with both, not the sum of two costs', () => {
@@ -968,7 +978,7 @@ test('list-tabular `fixed` reads its own measured row: its track holds fewer row
   const rows = [['ID', 'Two letters, a track sized for twenty.'], ['Extraordinarily long row label that will not fit', 'Wraps three lines.'], ['Mid', 'The same waste again.'], ['Governance and control framework alignment', 'And again.']]
     .map(([t, d], i) => `${i + 1}. ${t}\n   - ${d}`).join('\n');
   const run = (cls) => core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: ${cls} -->\n\n## Before: every label paid for the longest one.\n\n${rows}\n`, v).filter((f) => f.rule === 'capacity-scale');
-  assert.match(run('list-tabular fixed')[0].message, /'list-tabular fixed' holds about 3 items/);
+  assert.match(run('list-tabular fixed')[0].message, /'list-tabular fixed' fits about 3 items/);
   assert.deepEqual(run('list-tabular'), []);
 });
 
@@ -986,4 +996,119 @@ test('a comparison and an autolink count as the text they show', () => {
   assert.equal(core.elementLength(cmp, 'item', 'glossary'), core.elementLength(cmp.replace(/[<>]/g, ' '), 'item', 'glossary'));
   const auto = '- A\n  - See <https://example.com/a/rather/long/path/to/the/page>.\n';
   assert.ok(core.elementLength(auto, 'item', 'glossary') >= 8);
+});
+
+describe('compare-prose and cycle are judged by lines, and glossary on the strict basis (Amendment (9))', () => {
+  const v = {
+    names: new Set(['compare-prose', 'cycle', 'glossary']),
+    modifiers: new Set(['chosen', 'vertical', 'insight-so-what']),
+    capacity: { cycle: { axis: 'item', min: 3, sweet: 4, soft: 5, hard: 6 } },
+  };
+  const run = (venue, body, size = '4k') => core.lintTextWith(`---\nmarp: true\nsize: ${size}\nvenue: ${venue}\n---\n\n${body}`, v).filter((f) => f.rule === 'capacity-scale');
+  const V = require('../../../lib/authoring/venue-capacity.generated.js');
+  const kaizenRing = '<!-- _class: cycle -->\n\n## A ring.\n\n- Plan\n  - State what you expect.\n- Do\n  - Try it small.\n- Study\n  - Name the gap.\n';
+  // The talk's (PR #2399) slide 5: two cards under an eyebrow, with a callout. It clips at
+  // conference and fits at huddle; the count row (2 items, holds 3 at conference) was silent.
+  const floor = `<!-- _class: compare-prose insight-so-what -->\n\n\`Your role · Floor and ceiling\`\n\n## AI raises your floor, but only you can raise your ceiling.\n\n- The floor\n  - Anyone can now produce working-looking code in minutes. That part got cheap, for everyone.\n- The ceiling\n  - Knowing what to build, spotting what is wrong, deciding when it is good enough. That part is still yours.\n\n> Everyone has a camera and a crew now. Not everyone makes a film.\n`;
+
+  test('a compare-prose slide is judged by its wrapped lines (talk slide 5)', () => {
+    assert.deepEqual(run('huddle', floor), []);
+    const [f] = run('conference', floor);
+    assert.match(f.message, /'compare-prose' slide's text runs about \d+% too long/);
+    assert.match(f.fix, /set `venue: huddle`/);
+  });
+
+  test('a corner-tag title costs no height: the tag sits in the line the card reserves for it', () => {
+    const at = (title) => core.rowsAt('compare-prose', ['compare-prose'], floor.replace('- The floor', `- ${title}`))(2).pct;
+    assert.equal(at('The floor'), at('A floor title long enough to wrap the corner tag to three lines at conference'));
+    assert.equal(V.rows['compare-prose'].regs[''].tag, 1);
+    assert.equal(V.rows['compare-prose'].regs[''].nested.title, undefined);
+  });
+
+  test('a register measured the same as another is baked as its key, and reads that geometry', () => {
+    assert.equal(V.rows['compare-prose'].regs.chosen, '');
+    assert.equal(V.rows['compare-prose'].regs['chosen vertical'], 'vertical');
+    const pct = (cls) => core.rowsAt('compare-prose', cls, floor)(2).pct;
+    assert.equal(pct(['compare-prose', 'chosen']), pct(['compare-prose']));
+    assert.notEqual(pct(['compare-prose', 'chosen', 'vertical']), pct(['compare-prose']));
+  });
+
+  // gallery.md slide 12: two cards and a closing note. It clips at hall; the note was a paragraph
+  // the line model did not describe, so the slide went unjudged.
+  const note = `<!-- _class: compare-prose -->\n\n## Scoring model: before and after the calibration loop.\n\n- Before Calibration\n  - Equal weights, 33% each. Simple, consistent, and blind to what the market rewards — which nobody minded until the market did.\n- After Calibration\n  - Weights track your historical accuracy; weak predictors get downweighted. The model becomes a record of what you have learned.\n\nThe shift from equal weights to calibrated weights takes two retrospective cycles — roughly 60 days from adoption, both of which must occur.\n`;
+
+  test('a closing note is a measured role: its lines and its block cost (gallery slide 12 at hall)', () => {
+    const at = core.rowsAt('compare-prose', ['compare-prose'], note);
+    assert.equal(typeof at, 'function');
+    assert.ok(at(3).over);
+    assert.ok(at(3).pct > core.rowsAt('compare-prose', ['compare-prose'], note.replace(/\n\nThe shift[^\n]*\n$/, '\n'))(3).pct, 'the note adds its lines');
+    assert.equal(run('hall', note).length, 1);
+    // A second paragraph, or a list after the note, is a slide the model does not describe.
+    assert.equal(core.rowsAt('compare-prose', ['compare-prose'], `${note}\nA second paragraph.\n`), null);
+    assert.equal(core.rowsAt('compare-prose', ['compare-prose'], `${note}\n- One more card\n`), null);
+    assert.equal(core.rowsAt('compare-prose', ['compare-prose'], `${note}- One more card\n`), null, 'items straight after the note');
+  });
+
+  test('a note pays its measured block cost, past its lines', () => {
+    const g = V.rows['compare-prose'].regs[''].nested;
+    // The px a slide uses, exactly: the slack at which `over` flips (over ⇔ used > budget + slack).
+    const used = (src) => {
+      let lo = -5000;
+      let hi = 5000;
+      while (hi - lo > 0.5) {
+        const mid = (lo + hi) / 2;
+        if (core.rowsAt('compare-prose', ['compare-prose'], src, mid)(3).over) lo = mid; else hi = mid;
+      }
+      return g.budget[3] + hi;
+    };
+    const lines = core.wrapLines(core.lineText(note.match(/\n\n(The shift[^\n]*)\n$/)[1], true), g.note[3][0], true) * g.note[3][1];
+    const without = note.replace(/\n\nThe shift[^\n]*\n$/, '\n');
+    assert.ok(Math.abs(used(note) - used(without) - (lines + g.noteAt)) <= 1, 'the note adds its lines and noteAt');
+    assert.ok(g.noteAt > 0);
+  });
+
+  test('a note on a register with no measured note keeps the count row, and never crashes', () => {
+    // Stacked, the note costs more than the one-row model charges (the checker's probe), so
+    // `vertical` stores none and a stacked slide with a note keeps its count row, as on main.
+    assert.equal(V.rows['compare-prose'].regs.vertical.nested.note, undefined);
+    assert.equal(core.rowsAt('compare-prose', ['compare-prose', 'vertical'], note), null);
+    assert.equal(core.rowsAt('cycle', ['cycle'], `${kaizenRing}\nA paragraph after the ring.\n`), null);
+  });
+
+  // The talk's slide 3: four short stages and a callout. It clips at huddle by 12 px, because the
+  // ring is centered and its mark hangs below it; kaizen-craftsmanship slide 8 fits at huddle.
+  const loop = `<!-- _class: cycle insight-takeaway -->\n\n\`How an agent works\`\n\n## A coding agent loops until it thinks it is done.\n\n- Read\n  - It takes in what's in front of it.\n- Plan\n  - It decides the next step.\n- Act\n  - It changes code or runs a tool.\n- Check\n  - Done? It reports back. If not, it loops.\n\n> Every practice today makes "thinks it is done" match "is done."\n`;
+  const kaizen = `<!-- _class: cycle -->\n\n\`Kaizen · The loop\`\n\n## Improvement is a loop you never stop running.\n\n- Plan\n  - State what you expect to happen, and why you expect it.\n- Do\n  - Try it small. One bench, one batch, one week.\n- Study\n  - Hold what happened against what you predicted, and name the gap.\n- Act\n  - Make it the new standard, or drop it and plan again.\n`;
+
+  test('a cycle is judged by lines against the budget its centered ring and mark leave (talk slide 3)', () => {
+    assert.equal(run('huddle', loop).length, 1);
+    assert.deepEqual(run('huddle', kaizen), []);
+    assert.equal(run('conference', kaizen).length, 1);
+  });
+
+  test('a cycle written `1.`, or with six stages, keeps its count row', () => {
+    assert.equal(core.rowsAt('cycle', ['cycle'], kaizen.replace(/^- /gm, '1. ')), null);
+    const six = kaizen.replace('- Act', '- Five\n  - A fifth stage.\n- Six\n  - A sixth stage.\n- Act');
+    assert.equal(core.rowsAt('cycle', ['cycle'], six), null);
+    assert.equal(V.rows.cycle.regs[''].ul, 1);
+  });
+
+  // The talk's slide 75: six one-line terms under an eyebrow. On a 4k deck it clips at conference by
+  // 16 px against a 12 px tolerance; the row measured on the 720-high basis (36 px) held 6.
+  const terms = `<!-- _class: glossary -->\n\n\`Starter kit · Glossary, 2 of 3\`\n\n## More terms, in plain words.\n\n${[
+    ['Flaky test', 'A test that passes or fails without the code changing.'],
+    ['Hook', 'A script the agent tool runs at a fixed moment.'],
+    ['Jank', 'Sloppy work that still passes, and spreads when copied.'],
+    ['Linter', 'A tool that flags style slips and simple mistakes without running the code.'],
+    ['Merge', 'Fold an approved change into the main line of the code.'],
+    ['Pull request', 'A proposed change, waiting for review before it merges.'],
+  ].map(([t, d]) => `- ${t}\n  - ${d}`).join('\n')}\n`;
+
+  test('glossary under an eyebrow reads its strict row on a 4k deck only (talk slide 75)', () => {
+    assert.match(run('conference', terms)[0].message, /'glossary with its eyebrow' fits about 5 items/);
+    assert.deepEqual(run('huddle', terms), []);
+    // On a 720-high deck the export forgives 36 px of 2160, and the same slide fits (the checker's
+    // render: 21 px over). The 720-basis row holds 6 there.
+    assert.deepEqual(run('conference', terms, '16:9'), []);
+  });
 });

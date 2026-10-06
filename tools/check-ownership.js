@@ -5317,18 +5317,23 @@ function checkRenderNature(manifests, errors) {
 // that, and the arm below fails loudly if one starts, which is the right way to
 // find out.
 //
-// It also enforces the two conventions the `kernel` block stopped declaring once
-// `module`/`entry` were dropped as redundant: the kernel is at
-// `<name>/<name>.transform.js` and exports `transformSection`.
+// It also enforces the two facts the `kernel` block does not declare: the kernel is at
+// `<name>/<name>.transform.js` and exports `transformSection`. Since phase F the plugin that
+// offers the slot declares both, once, for every filler (its `role` and `entry`).
 // engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md.
-const KERNEL_BUCKETS_GATED = new Set(['chart']);
+// The bucket, the module role and the entrypoint are the chart family plugin's `kernel` slot
+// (lib/plugins/chart-family, plugin-system §5 phase F), read from the plugin registry's data —
+// never a second hand-kept bucket list beside the loader's.
+const KERNEL_SLOT = require('../lib/plugins/extension-points.generated.json').kernel || null;
+const KERNEL_BUCKETS_GATED = new Set(KERNEL_SLOT ? [KERNEL_SLOT.bucket] : []);
+const kernelModuleRel = (bucket, name) => path.join('lib', 'components', bucket, name, `${name}.${KERNEL_SLOT.role}.js`);
 
 function checkChartKernels(manifests, errors) {
   for (const m of manifests) {
     if (!m.kernel) continue;
     const bucket = manifestBucket(m);
     if (!KERNEL_BUCKETS_GATED.has(bucket)) continue;  // the loader already rejected it
-    const rel = path.join('lib', 'components', bucket, m.name, `${m.name}.transform.js`);
+    const rel = kernelModuleRel(bucket, m.name);
     const abs = path.join(ROOT, rel);
     if (!fs.existsSync(abs)) {
       errors.push(
@@ -5342,11 +5347,12 @@ function checkChartKernels(manifests, errors) {
     // — a shorthand or keyed entry inside `module.exports = { … }`, or a direct
     // `exports.transformSection =`.
     const exportsBlock = src.match(/module\.exports\s*=\s*\{[\s\S]*?\}\s*;/);
-    const exported = /\bexports\.transformSection\s*=/.test(src)
-      || (exportsBlock && /(^|[{,\s])transformSection\s*(?:[,:}]|$)/m.test(exportsBlock[0]));
+    const entry = KERNEL_SLOT.entry;
+    const exported = new RegExp(`\\bexports\\.${entry}\\s*=`).test(src)
+      || (exportsBlock && new RegExp(`(^|[{,\\s])${entry}\\s*(?:[,:}]|$)`, 'm').test(exportsBlock[0]));
     if (!exported) {
       errors.push(
-        `${rel}: does not export \`transformSection\` — the family's one entrypoint. ` +
+        `${rel}: does not export \`${entry}\` — the family's one entrypoint. ` +
         `The generated registry would put \`undefined\` in the dispatch table and every ` +
         `${m.name} slide would throw at render time.`);
     }
@@ -5476,7 +5482,7 @@ function checkChartMarks(manifests, errors) {
     if (!m.kernel || !Array.isArray(m.kernel.marks)) continue;  // the loader reports a missing block
     const bucket = manifestBucket(m);
     if (!KERNEL_BUCKETS_GATED.has(bucket)) continue;
-    const rel = path.join('lib', 'components', bucket, m.name, `${m.name}.transform.js`);
+    const rel = kernelModuleRel(bucket, m.name);
     const abs = path.join(ROOT, rel);
     if (!fs.existsSync(abs)) continue;  // checkChartKernels reports the missing kernel
     const src = fs.readFileSync(abs, 'utf8');
@@ -5908,8 +5914,13 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'can FORGE either attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so ' +
       'neither adapter trusts any of it: its sanitizeModel rebuilds every structural field from a closed set ' +
       'or an integer range and drops the rest, and every author string is escaped where it is painted. ' +
-      'Pinned by test/unit/components/flowchart.test.js "a forged model cannot inject markup" and ' +
-      'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary".',
+      'A node\'s ICON (`icon=`, lib/components/chart/_chart-family/graph-icons.js) is read back out of the ' +
+      'HARNESS, which a deck can forge as well: Trama\'s `drawing` rebuilds it from six shape elements and ' +
+      'their geometry attributes, each value checked against the characters geometry is written in, and ' +
+      'keeps nothing else (no other element, style, href, event or paint). ' +
+      'Pinned by test/unit/components/flowchart.test.js "a forged model cannot inject markup", ' +
+      'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary" ' +
+      'and test/unit/components/graph-icons.test.js "a forged harness cannot inject markup".',
   },
   // Mermaid's two entries MOVED with its diagram pass, verbatim, from lib/runtime/index.js into the
   // plugin (phase D's browser half, `render.exec.hydrate: "pass"`): same sinks, same counts, same
@@ -12287,7 +12298,7 @@ function checkFollowups(errors) {
 //
 // SO WHAT THIS ARM BUYS is two things, and neither of them is "catching it at all":
 //   - TIMING. It moves the signal out of a ~108s unit suite and into the 13s gate that was
-//     making the false claim -- which at pre-push (lefthook.yml) is the difference between
+//     making the false claim -- which, when the suite runs locally, is the difference between
 //     a developer learning their dist/ is behind and a developer reading two unrelated
 //     unit failures as a defect in their own diff.
 //   - REACH. 18 of the 49 were pinned by nothing: dist/fonts' 17 embedded faces, and the

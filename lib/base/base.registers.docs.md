@@ -186,8 +186,8 @@ cause overflow are largely the ones it refuses to touch. See
 clipped" tag or the type-floor warning, and a trim records itself
 (`data-lattice-trim`) because the existing content-clipped probe can see a clamp
 but not a removal. A typo (`guards: strictt`) resolves to the baseline and is
-caught by `npm run lint:deck` as `unknown-guards` (`unknown-fit` for the new key),
-including one carrying a trailing `#` comment.
+caught by `npm run lint:deck` as a `guards-renamed` warning (`unknown-fit` for the new
+key), including one carrying a trailing `#` comment.
 
 **The Read view is not trimmed.** A `--player` export's Read/Article column scrolls
 and has no fit problem, so the clamp is lifted there and the reader gets the whole
@@ -260,9 +260,8 @@ paint `var(--accent)` as their field, so the accent would vanish there. Those co
 set `--field-accent: var(--on-accent)`, and a `cat-N` tinted cover sets
 `var(--cat-on-fill)`. A saved Studio finish reads the same slot, with `var(--accent)`
 as its fallback. `test/integration/invariants/finish-ink-matrix.test.js` holds every
-cover shape × mode × theme at 3:1 or better. `lint:deck`'s `bookend-finish-contrast`
-advice is a house preference for a bookend (`title`/`closing`/`divider`), not a split
-cover. Add `finish-none` to the authored slide to keep its whole run clean.
+cover shape × mode × theme at 3:1 or better. Add `finish-none` to the authored slide to
+keep its whole run clean.
 
 **Glyph-marks (the ghost monogram / numeral) are author-personalized and never
 appear by default.** A finish's `mark` layer carries the layer *type* (so the
@@ -997,7 +996,7 @@ layout. A placement class on the same slide wins over it (`decision banner-tag t
 foot tags), and a slide's own `banner-tag` wins over the deck's placement word (`tag: corner`
 leaves a `banner-tag` slide as a band). The list-steps `capsule` pill is the `inline` tag,
 centered, with a pill radius, in the categorical `--cat-N-mark` tier, so the `tag:` words
-restyle it too. `lint:deck` names the register words for both (`tag-alias`, advisory).
+restyle it too. `lint:deck` suggests `tag-band` in place of `banner-tag` (`tag-alias`, advisory).
 
 `large` costs room: every tagged card reserves the bigger tag's height above its body, and the
 capacity figures in each component's docs assume the regular size. On a dense slide at a large

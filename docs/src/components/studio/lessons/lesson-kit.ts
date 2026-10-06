@@ -18,6 +18,7 @@
 
 import { type RunContext, storyboard, type Target, type Walkthrough, wait, waitFor } from '../../../lib/vetrina/index.js';
 import type { StudioCommandId } from '../studio-commands';
+import { SHARED_LINES } from './lines';
 
 /** What a lesson may do to the Studio. Every member is bound to real state by `use-studio-lesson`. */
 export type LessonActions = {
@@ -29,6 +30,8 @@ export type LessonActions = {
 	setPalette: (name: string) => void;
 	/** Add a slide of Markdown after the last slide, and show it. */
 	appendSlide: (markdown: string) => void;
+	/** Type into a real text field (a search box) as if the user had. A no-op off screen. */
+	type: (target: Aim, text: string) => void;
 };
 
 /** What a lesson can read about where it is running, fixed when it starts. */
@@ -39,6 +42,9 @@ export type LessonEnv = {
 	palette: string;
 	/** Every palette a lesson may switch to. */
 	palettes: readonly string[];
+	/** Does the action list offer this command right now? (Fix all is listed only with something
+	 *  to fix.) Read live, so it answers for the moment a beat asks. */
+	can: (id: StudioCommandId) => boolean;
 };
 
 export type LessonCtx = RunContext<LessonActions>;
@@ -54,7 +60,7 @@ export const TURN_MS = 7000;
 const BACKSTOP_MS = 10_000;
 
 /** The line a lesson says when the user waited and it does the step itself. */
-export const TAKEOVER_LINE = 'No rush — I’ll do this one for you.';
+export const TAKEOVER_LINE: string = SHARED_LINES.takeover;
 
 /** Can a person see and press this element? A box is not enough: the pre-paint skeleton keeps an
  *  exact copy of the header (same label, same box) inside an `inert`, `aria-hidden` layer the
@@ -118,10 +124,10 @@ export function aimsAt(el: Element, e: Event): boolean {
 }
 
 /** Say a line and point at something. Nobody acts; the beat holds long enough to read. */
-export async function tell(ctx: LessonCtx, beat: { say: string; point?: Aim; circle?: Aim }): Promise<void> {
+export async function tell(ctx: LessonCtx, beat: { say: string; point?: Aim; circle?: Aim; act?: (a: LessonActions) => void }): Promise<void> {
 	const point = beat.point && resolve(beat.point) ? aim(beat.point) : undefined;
 	const circle = beat.circle && resolve(beat.circle) ? aim(beat.circle) : undefined;
-	await storyboard<LessonActions>('', [{ say: beat.say, read: true, point, circle, settle: 400 }])(ctx);
+	await storyboard<LessonActions>('', [{ say: beat.say, read: true, point, circle, act: beat.act, settle: 400 }])(ctx);
 }
 
 /**
@@ -171,6 +177,20 @@ export async function yourTurn(
 	return 'lesson';
 }
 
+/** A gallery card by component name. The label is `Insert <name> — <summary>`, and a search that
+ *  ranks the card below the top result adds a note BEFORE the dash (`Insert bar, 87% as close a
+ *  match as the top result — …`), so both shapes are listed. The dash or comma right after the
+ *  name is what keeps `bar` from matching `bar-…`. */
+export const card = (name: string): readonly string[] => [`[aria-label^="Insert ${name} —"]`, `[aria-label^="Insert ${name},"]`];
+
+/** A tab by its visible name inside a tab list — Radix tabs carry no stable id. */
+export function tabNamed(list: string, name: string): () => HTMLElement | null {
+	return () => {
+		for (const el of document.querySelectorAll<HTMLElement>(`${list} [role="tab"]`)) if (el.textContent?.trim() === name && usable(el)) return el;
+		return null;
+	};
+}
+
 /** Hold until the app is ready for the next beat. Gives up quietly after `timeout` and returns
  *  false, so a slow surface costs a pause rather than a stuck lesson. */
 export async function settle(ctx: LessonCtx, ready: () => boolean, timeout = 4000): Promise<boolean> {
@@ -195,4 +215,17 @@ export const SEL = {
 	share: ['[data-demo="share"]', '[aria-label="Share"]'],
 	sharePdf: '[data-demo="share-pdf"]',
 	pdfDownload: '[data-demo="pdf-download"]',
+	sharePptx: '[data-demo="share-pptx"]',
+	pptxDownload: '[data-demo="pptx-download"]',
+	shareHtml: '[data-demo="share-html"]',
+	htmlDownload: '[data-demo="html-download"]',
+	pickerSearch: 'input[aria-label="Search slides"]',
+	coach: '[aria-label="Toggle Coach"]',
+	coachRead: '[data-demo="coach-read"]',
+	fixAll: '[aria-label="Fix all issues"]',
+	reshape: '[aria-label="Reshape slide"]',
+	reshapeTile: '[aria-label^="Reshape to"][aria-pressed="false"]',
+	mode: '[data-demo="mode"]',
+	slideSettings: '[aria-label="Slide settings"]',
+	notesField: '[aria-label="Speaker note for this slide"]',
 } as const satisfies Record<string, Aim>;

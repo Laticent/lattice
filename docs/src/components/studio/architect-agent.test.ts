@@ -397,6 +397,30 @@ describe('the loop', () => {
 		expect(await tb.run('check_deck', '{}')).toContain('Fit was not measured');
 	});
 
+	// A diagram that had not drawn when the render was measured (a cold first check on a slow
+	// link: Mermaid still downloading) leaves its slide with no verdict. Decision note §11.
+	it('a slide whose diagram had not drawn is not measured: never "fits", never an error', async () => {
+		const rows = [1, 2, 3].map((slide) => ({ slide, overflows: slide === 3, clipped: false, illegible: false, undrawn: slide === 3 }));
+		const tb = toolbox({ check: async () => ({ findings: [], fit: rows }) });
+		const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Flow\n\n```mermaid\nflowchart LR\nA --> B\n```' }], summary: 's' }));
+		expect(out).toContain('0 errors');
+		expect(out).not.toContain('all 3 slides fit');
+		expect(out).not.toMatch(/slide 3 overflows/);
+		expect(out).toContain('the other 2 slides fit');
+		expect(out).toMatch(/Fit was not measured for slide 3: a diagram there had not drawn when[^\n]*Do not say it fits/);
+		expect(tb.settled()).toBe(true);
+		// A measured misfit beside it is still reported.
+		const both = toolbox({ check: async () => ({ findings: [], fit: rows.map((r) => (r.slide === 1 ? { ...r, overflows: true } : r)) }) });
+		const out2 = await both.run('check_deck', '{}');
+		expect(out2).toMatch(/slide 1 overflows its frame/);
+		expect(out2).toContain('Fit was not measured for slide 3');
+		// Nothing measured: no "the other 0 slides fit" (checker).
+		const none = toolbox({ check: async () => ({ findings: [], fit: rows.map((r) => ({ ...r, undrawn: true })) }) });
+		const out3 = await none.run('check_deck', '{}');
+		expect(out3).not.toContain('Fit, measured');
+		expect(out3).toContain('Fit was not measured for slides 1, 2, 3');
+	});
+
 	it('reports warnings only on the slides the turn wrote', async () => {
 		const check = vi.fn(async () => ({ findings: [{ slide: 1, severity: 'warning', message: 'old' }, { slide: 3, severity: 'warning', message: 'new one' }] }));
 		const tb = toolbox({ check });

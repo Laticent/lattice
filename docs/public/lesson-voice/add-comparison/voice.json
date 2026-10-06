@@ -1,0 +1,455 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 84240,
+	"lines": [
+		{
+			"key": "81bdd18a7ba6",
+			"text": "A comparison puts two options side by side and marks the one you recommend.",
+			"file": "81bdd18a7ba6.mp3",
+			"bytes": 26784,
+			"speechMs": 4407,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "A comparison puts two options side by side and marks the one you recommend.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 0,
+								"endMs": 200,
+								"charOffset": 0
+							},
+							{
+								"display": "comparison",
+								"spoken": "comparison",
+								"startMs": 200,
+								"endMs": 1000,
+								"charOffset": 2
+							},
+							{
+								"display": "puts",
+								"spoken": "puts",
+								"startMs": 1000,
+								"endMs": 1201,
+								"charOffset": 13
+							},
+							{
+								"display": "two",
+								"spoken": "two",
+								"startMs": 1201,
+								"endMs": 1401,
+								"charOffset": 18
+							},
+							{
+								"display": "options",
+								"spoken": "options",
+								"startMs": 1401,
+								"endMs": 1801,
+								"charOffset": 22
+							},
+							{
+								"display": "side",
+								"spoken": "side",
+								"startMs": 1801,
+								"endMs": 2001,
+								"charOffset": 30
+							},
+							{
+								"display": "by",
+								"spoken": "by",
+								"startMs": 2001,
+								"endMs": 2201,
+								"charOffset": 35
+							},
+							{
+								"display": "side",
+								"spoken": "side",
+								"startMs": 2201,
+								"endMs": 2401,
+								"charOffset": 38
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2401,
+								"endMs": 2601,
+								"charOffset": 43
+							},
+							{
+								"display": "marks",
+								"spoken": "marks",
+								"startMs": 2601,
+								"endMs": 2801,
+								"charOffset": 47
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2801,
+								"endMs": 3001,
+								"charOffset": 53
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 3001,
+								"endMs": 3202,
+								"charOffset": 57
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 3202,
+								"endMs": 3402,
+								"charOffset": 61
+							},
+							{
+								"display": "recommend.",
+								"spoken": "recommend.",
+								"startMs": 3402,
+								"endMs": 4031,
+								"charOffset": 65
+							}
+						],
+						"startMs": 0,
+						"endMs": 4407,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4407
+			}
+		},
+		{
+			"key": "dd4adc973399",
+			"text": "Click Add slide.",
+			"file": "dd4adc973399.mp3",
+			"bytes": 6336,
+			"speechMs": 1006,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click Add slide.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 200,
+								"charOffset": 0
+							},
+							{
+								"display": "Add",
+								"spoken": "Add",
+								"startMs": 200,
+								"endMs": 400,
+								"charOffset": 6
+							},
+							{
+								"display": "slide.",
+								"spoken": "slide.",
+								"startMs": 400,
+								"endMs": 630,
+								"charOffset": 10
+							}
+						],
+						"startMs": 0,
+						"endMs": 1006,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1006
+			}
+		},
+		{
+			"key": "d7aede9b9439",
+			"text": "I’ll open the slide gallery for you.",
+			"file": "d7aede9b9439.mp3",
+			"bytes": 11520,
+			"speechMs": 1858,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll open the slide gallery for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 155,
+								"charOffset": 0
+							},
+							{
+								"display": "open",
+								"spoken": "open",
+								"startMs": 155,
+								"endMs": 464,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 464,
+								"endMs": 618,
+								"charOffset": 10
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 618,
+								"endMs": 773,
+								"charOffset": 14
+							},
+							{
+								"display": "gallery",
+								"spoken": "gallery",
+								"startMs": 773,
+								"endMs": 1236,
+								"charOffset": 20
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1236,
+								"endMs": 1391,
+								"charOffset": 28
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 1391,
+								"endMs": 1568,
+								"charOffset": 32
+							}
+						],
+						"startMs": 0,
+						"endMs": 1858,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1858
+			}
+		},
+		{
+			"key": "6292d00f874e",
+			"text": "I’ll type compare in the search box.",
+			"file": "6292d00f874e.mp3",
+			"bytes": 11376,
+			"speechMs": 1826,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll type compare in the search box.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 182,
+								"charOffset": 0
+							},
+							{
+								"display": "type",
+								"spoken": "type",
+								"startMs": 182,
+								"endMs": 364,
+								"charOffset": 5
+							},
+							{
+								"display": "compare",
+								"spoken": "compare",
+								"startMs": 364,
+								"endMs": 729,
+								"charOffset": 10
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 729,
+								"endMs": 911,
+								"charOffset": 18
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 911,
+								"endMs": 1093,
+								"charOffset": 21
+							},
+							{
+								"display": "search",
+								"spoken": "search",
+								"startMs": 1093,
+								"endMs": 1275,
+								"charOffset": 25
+							},
+							{
+								"display": "box.",
+								"spoken": "box.",
+								"startMs": 1275,
+								"endMs": 1484,
+								"charOffset": 32
+							}
+						],
+						"startMs": 0,
+						"endMs": 1826,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1826
+			}
+		},
+		{
+			"key": "eb8078c8d01e",
+			"text": "Pick split compare.",
+			"file": "eb8078c8d01e.mp3",
+			"bytes": 7056,
+			"speechMs": 1114,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Pick split compare.",
+						"words": [
+							{
+								"display": "Pick",
+								"spoken": "Pick",
+								"startMs": 0,
+								"endMs": 185,
+								"charOffset": 0
+							},
+							{
+								"display": "split",
+								"spoken": "split",
+								"startMs": 185,
+								"endMs": 370,
+								"charOffset": 5
+							},
+							{
+								"display": "compare.",
+								"spoken": "compare.",
+								"startMs": 370,
+								"endMs": 767,
+								"charOffset": 11
+							}
+						],
+						"startMs": 0,
+						"endMs": 1114,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1114
+			}
+		},
+		{
+			"key": "7524c2522b19",
+			"text": "The second option gets the highlight. Put your recommendation there.",
+			"file": "7524c2522b19.mp3",
+			"bytes": 21168,
+			"speechMs": 3457,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "The second option gets the highlight.",
+						"words": [
+							{
+								"display": "The",
+								"spoken": "The",
+								"startMs": 0,
+								"endMs": 158,
+								"charOffset": 0
+							},
+							{
+								"display": "second",
+								"spoken": "second",
+								"startMs": 158,
+								"endMs": 475,
+								"charOffset": 4
+							},
+							{
+								"display": "option",
+								"spoken": "option",
+								"startMs": 475,
+								"endMs": 791,
+								"charOffset": 11
+							},
+							{
+								"display": "gets",
+								"spoken": "gets",
+								"startMs": 791,
+								"endMs": 949,
+								"charOffset": 18
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 949,
+								"endMs": 1107,
+								"charOffset": 23
+							},
+							{
+								"display": "highlight.",
+								"spoken": "highlight.",
+								"startMs": 1107,
+								"endMs": 1447,
+								"charOffset": 27
+							}
+						],
+						"startMs": 0,
+						"endMs": 1744,
+						"charOffset": 0
+					},
+					{
+						"display": "Put your recommendation there.",
+						"words": [
+							{
+								"display": "Put",
+								"spoken": "Put",
+								"startMs": 1871,
+								"endMs": 2029,
+								"charOffset": 38
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 2029,
+								"endMs": 2188,
+								"charOffset": 42
+							},
+							{
+								"display": "recommendation",
+								"spoken": "recommendation",
+								"startMs": 2188,
+								"endMs": 2979,
+								"charOffset": 47
+							},
+							{
+								"display": "there.",
+								"spoken": "there.",
+								"startMs": 2979,
+								"endMs": 3160,
+								"charOffset": 62
+							}
+						],
+						"startMs": 1871,
+						"endMs": 3457,
+						"charOffset": 38
+					}
+				],
+				"durationMs": 3457
+			}
+		}
+	]
+}
