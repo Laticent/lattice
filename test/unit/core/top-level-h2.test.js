@@ -212,6 +212,14 @@ test('agrees with a real HTML parser on every shape that has bitten this walk', 
     '<select></svg><table></tbody></select><h2>Real</h2>',
     '<svg><select></g>x<h2> </select><th>',
     '<table><tr><td><select><tr><h2>Out</h2>',
+    // Round 3: a table part's END tag closes an unclosed select in a cell, a keygen is void, and
+    // an HTML element named like an SVG/MathML integration point is no scope barrier.
+    '<table><tr><td><select><option>a</td></tr></table><h2>T</h2>',
+    '<table><tr><td><select><option>a</table><h2>T</h2>',
+    '<table><tr><th><select><option>a</tr></table><h2>T</h2>',
+    '<select><keygen><h2>T</h2>',
+    '<marquee><annotation-xml></marquee><h2>H</h2>',
+    '<div><desc></div><h2>H</h2>',
     // Case.
     '<H2>Deco</H2><h2>Real</h2>',
     '<H2>Up</H2>',
