@@ -144,6 +144,8 @@ jobs:
       # that surface, read from the group's own diff (the `mq` step).
       player: ${{ steps.filter.outputs.player == 'true' || steps.mq.outputs.player == 'true' }}
     steps:
+      - name: THROWAWAY (#2543 proof) — fail the path filter on purpose
+        run: exit 1
       - uses: actions/checkout@v4
         with:
           # The merge group's diff needs its base commit; a PR run needs one commit.
