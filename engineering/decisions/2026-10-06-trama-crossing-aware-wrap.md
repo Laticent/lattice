@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Crossing-aware placement for Trama's graph charts, judged on drawing quality. The 1,000-chart fuzz corpus behind CROSSING_BUDGET never wraps (every one of its 39 crossings is a dagre layout), so the follow-up's premise (the reading-order grid pays those crossings) was measured wrong, and the work split into two levers. On the dagre path, a layout that routes with a crossing is laid out again with dagre's two other rankers and the cleanest kept within 3% of the type (39 → 31). On the grid, a layout that crosses moves one line break by one shape, or turns to the other direction, and takes the move only if it routes spotless, keeping reading order (a new 100-machine wrap corpus 42 → 26; the shipped state-chart slides 9 → 4; the stress deck's real browser calls 5 → 0). The adversarial review caught a combinatorial blow-up in the first build (45 s for a 36-state chain), now linear and pinned by a work-count test. The cost: the stress deck's incident machine lays out in 93–152 ms instead of 47–66 ms. Coffman–Graham layering was not built.
+summary: Crossing-aware placement for Trama's graph charts, judged on drawing quality. The 1,000-chart fuzz corpus behind CROSSING_BUDGET never wraps (every one of its 39 crossings is a dagre layout), so the follow-up's premise (the reading-order grid pays those crossings) was measured wrong, and the work split into two levers. On the dagre path, a layout that routes with a crossing is laid out again with dagre's two other rankers and the cleanest kept within 3% of the type (39 → 31). On the grid the pick is unchanged; a picked grid that crosses tries moving one line break by one shape, then the other direction, and takes either only if it routes spotless (a new 100-machine wrap corpus 42 → 24; the shipped state-chart slides 9 → 4). Two review rounds and the real-Studio typing bench shaped it: the first build was combinatorial (45 s on a 36-state chain) and admitted new line counts; the shipped one calms only the pick, pins its line breaks while typing, and types level with main on the same machine. Coffman–Graham layering was not built.
 ---
 
 # Trama: crossing-aware placement, measured where the crossings are (2026-10-06)
@@ -52,15 +52,15 @@ lines back to its anchor then cut across the run between.
 
 ## 3. The pick: B + C + D, and not A
 
-B, C and D keep every existing rule: reading order, the hard-fault ranking, a candidate's
-bound, and the direction choice. B swaps a layout only for one with fewer crossings at no worse
-fault count. C and D swap a layout only for one that routes **spotless**: no fault and no
-crossing. Each change stays within 3% of the type. A layout that routes clean pays nothing,
-which is most of them. A needs the owner, because it changes what the grid means. Its payoff
-should also be measured on the wrap corpus this work adds, against the 26 crossings left
-there, before anyone builds it.
+B, C and D keep every existing rule: reading order, the hard-fault ranking, every
+candidate's bound, the direction choice and **the wrap pick itself**. B swaps a dagre layout
+only for one with fewer crossings at no worse fault count. C and D refine only the grid the
+pick already chose, and only to one that routes **spotless** (no fault, no crossing). Each
+stays within 3% of the type, and a layout that routes clean pays nothing. A needs the owner,
+because it changes what the grid means. Its payoff should be measured on the wrap corpus this
+work adds, against the 24 crossings left there, before anyone builds it.
 
-### What was built (`docs/src/lib/trama/kernel.ts`)
+### What was built (`docs/src/lib/trama/kernel.ts`, `pipeline.ts`)
 
 - **`reranked`** (B). When a direction's routed layout crosses, `layoutOnce` runs again with
   `ranker: 'tight-tree'` and `'longest-path'` (`LayoutOptions.ranker`, passed to dagre's
@@ -68,84 +68,88 @@ there, before anyone builds it.
   and its scale is at least 97% of the base and at most `reach`, the scale the direction was
   already judged by. That ceiling keeps the direction choice and `dagreCeil`'s bound exactly
   as they were. Without it the corpus reads 28, not 31. The 3 crossings it costs buy the
-  guarantee that a wrapped and an unwrapped call agree on the dagre candidate.
-- **`unevenSplits` and `opts.breaks`** (C). `placeFixed` now places by a list of line lengths.
-  With no list it places the even split exactly as before (the checker compared 122 grid
-  layouts byte for byte against HEAD). A near-even split is the even split with **one break
-  moved by one shape**, so a line count has at most 2 × (lines − 1) of them. A grid candidate
-  routes its even split first. When that crosses or faults, up to `SPLIT_TRIES` (2) splits are
-  routed, largest bound first, and one replaces it only when it routes spotless. Its scale is
-  held at or under the candidate's bound, which the pick reads as a ceiling.
-- **A line count the even split cannot draw**, because a line would hold a lone state, joins
-  only through a spotless split. If it would set the pick's floor and has none, it is dropped
-  before the floor is read, so it can never set a floor of 0. The first build let such a line
-  count join through its least-bad split, and the incident machine then won on type with
-  **three** crossings (3 lines at 1.05) where main had one (2 lines at 0.76).
-- **`calm`** (D). When the picked grid crosses, the grid with as many lines the other way is
-  routed and taken only if it routes spotless.
+  guarantee that a wrapped and an unwrapped call agree on the dagre candidate. A fixed
+  placement (a grid, or the caller's positions) is never reranked, because dagre does not
+  place it.
+- **`calm`** (C + D), at the pick's two return points only. When the picked grid crosses or
+  faults, `calm` bounds the near-even splits of that line count (`unevenSplits`: the even split
+  with **one break moved by one shape**, at most 2 × (lines − 1) of them). It routes the
+  largest one (`SPLIT_TRIES` = 1), then the grid with as many lines the other way, and returns
+  the first that routes spotless at 97% of the type or more. Otherwise the pick stands.
+- **`opts.breaks` and `Geometry.breaks`.** `placeFixed` places by a list of line lengths, and
+  places the even split exactly as before when the list is unset. A calmed pick names its
+  breaks.
+- **The live pin carries the breaks** (`pipeline.ts`). While the author types, the pipeline
+  does not search: it pins the last search's grid and lays that out. The pin held only lines
+  and direction, so a moved break drew the even split while typing and jumped back at every
+  pause. It now holds the breaks too, and a test checks that the pinned call reproduces the
+  searched drawing byte for byte, in one routing.
 
-### What the adversarial review changed
+### How review and measurement shaped it
 
-The tier-2 trio (red team, Munger inversion, independent checker) reviewed the first build
-and found real defects. All are fixed in this commit:
-
-| Finding | First build | Fix and result |
+| Round | Found | Changed |
 |---|---|---|
-| Split enumeration was combinatorial: every split within one shape of even, each bounded | 686,011 splits for 38 shapes; a 36-state chain took **45 s** (183 ms on main) for the same drawing | Move one break by one shape; bound the splits only when the even split routes badly. That chain now reads routed 2 / bounded 28 (main: 1 / 18), pinned by a work-count test |
-| `placeFixed` checked the even split before reading `breaks`, so a lone-state line count never got a candidate | the path was dead | `breaks` is checked first and on its own terms |
-| A split could route above its candidate's bound, which the pick treats as a ceiling | 11 of 300 held-out picks above their bound | The split is held at or under the bound |
-| Partial wins (fewer crossings, not none) flipped the layout as a name grew | layout changes 1 → 23 in 600 one-character edits | Spotless only. See the next paragraph for what remains |
+| Trio (red team, inversion, checker) on build 1 | Split enumeration was combinatorial: 686,011 splits for 38 shapes, **45 s** for a 36-state chain (183 ms on main). `placeFixed` checked the even split before reading `breaks`. A split could route above its candidate's bound. Partial wins flipped the layout while typing (1 → 23 per 600 one-character edits) | One break moved by one shape; `breaks` read first; a split held under the bound; spotless only |
+| Checker on build 2 | Long chains with markers still took 1.3–1.5 s (main: 0.5 s): every live candidate that crossed routed splits that never came out spotless | Calm only the pick |
+| Real-Studio typing bench on build 2 | The incident machine's 3-line pick, a line count the even split cannot draw admitted through a split, typed at 244 / 305 ms. Its pin could not hold the uneven split, so every key searched | No new line counts; the pin carries breaks; no rerank of a fixed grid |
 
-**Flips while typing.** As one state's name grows a character at a time, the layout's line
-breaks or direction now change in 24 of 600 steps (main: 1). Counting crossings that appear
-or vanish as changes too, main already changes 33 times in the same 600 steps, against 34 with
-this change. So the change mostly turns "a crossing appears" into "a box moves so it does
-not", rather than adding motion. A box moving is the bigger visual event, though. Holding the
-previous pick between keystrokes would need state carried across kernel calls, which an export
-from a fresh kernel would not share, so it is left as an open question for the owner.
+**Flips while typing.** The pin holds the pick between keystrokes, and the search runs on the
+settle after a pause, as it did on main. So a calmed pick moves the drawing only where a settle
+on main would have moved it anyway, on a new search. The first round's harness ran every key
+as a fresh search, which the Studio never does. Counted that way, main already changes its
+drawing in 33 of 600 steps once a crossing appearing counts as a change.
 
 ## 4. Measured
 
-Same machine, both arms built from this tree (`git stash` of the kernel):
+Same machine, both arms built from this tree:
 
 | Corpus | Before | After |
 |---|---|---|
 | fuzz, 1,000 charts, crossings (`CROSSING_BUDGET`) | 39 | **31** |
-| wrap corpus, 100 machines, grid only (`WRAP_CROSSING_BUDGET`, new) | 42 | **26** |
-| the same generator, 200 machines, with dagre | 56 | 44 |
-| the same generator, 200 machines, grid only | 79 | 45 |
+| wrap corpus, 100 machines, grid only (`WRAP_CROSSING_BUDGET`, new) | 42 | **24** |
+| the same generator, 200 machines, with dagre | 56 | 43 |
+| the same generator, 200 machines, grid only | 79 | 50 |
 | shipped state-chart slides, 100 layouts | 9 | **4** |
-| stress deck, real browser calls (bench fixture) | 5 | **0** |
+| stress deck, real browser calls (bench fixture) | 5 | **4** |
 | hard faults, every corpus above | 0 | 0 |
 
-The checker's held-out seeds put the gains in proportion. On wrap charts with other seeds, the
-grid gains hold (94 → 53). The second ranker gained nothing on four held-out 1,000-chart seeds
-(39 → 39), so `CROSSING_BUDGET`'s drop is real on its own corpus but should not be read as a
-general rate.
+The red team's held-out seeds put the gains in proportion. The grid gains held there, but the
+second ranker gained nothing on four other 1,000-chart seeds (39 → 39). So `CROSSING_BUDGET`'s
+drop is real on its own corpus, but it is not a general rate.
 
-On the rendered decks, only `examples/state-chart-stress.pdf` changes, on two slides. The
-wizard ("escape hatches") breaks 4/2 rather than 3/3 and loses its crossing at the same type.
-The incident machine goes from two cramped lines (scale 0.76–0.84) with a crossing to three
-columns (0.92–1.03) with none. No flowchart slide moves; none of the shipped ones routed with
-a crossing.
+**On the decks.** Every committed PDF that holds a graph chart was re-rendered and diffed.
+Only `examples/state-chart-stress.pdf` moves, on one slide: the wizard ("escape hatches")
+breaks 4/2 rather than 3/3 and loses its crossing at the same type, in light and dark. Its
+incident machine keeps main's layout: two lines, one crossing. Build 1 drew it in three
+crossing-free columns at larger type, which is what made it type at 244 ms (above). It is
+the case to take up again with A.
 
-**What it costs.** Nothing on a layout that routes clean. On one that crosses, at most two
-more dagre routings (B), two more grid routings per routed candidate (C), and the other
-direction's (D). Bench (`npm run bench`, GRAPH LAYOUT tier; the work counts are re-blessed in
-`test/benchmark/baseline.json`):
+**Live typing on the real Studio** (`tools/graph-typing-bench.mjs`, production build, headless
+Chromium, 3 runs a cell, median / p90 ms from key to drawn, both arms on this machine):
+
+| chart @ ms a key | main | this change |
+|---|---|---|
+| chain11 @600 | 77 / 114 | 80 / 105 |
+| chain11 @150 | 83 / 115 | 76 / 105 |
+| incident @600 | 221 / 287 | 233 / 294 |
+| incident @150 | 287 / 699 | 266 / 662 |
+| flow @600 | 63 / 98 | 58 / 75 |
+| flow @150 | 63 / 129 | 61 / 70 |
+
+Level with main, within the spread between runs. This machine is slower than the one the
+2026-10-05 note measured on, so compare within a table, not across notes.
+
+**The search's cost** (`npm run bench`, GRAPH LAYOUT; work counts re-blessed in
+`test/benchmark/baseline.json`). The replay runs every call as a full search, which the
+Studio does only on a settle or an export:
 
 | Replay | routed before → after | bounded before → after | ms before → after |
 |---|---|---|---|
-| flowchart demo deck page (10 calls) | 12 → 12 | 41 → 45 | 184 → 183–217 (noise) |
-| state chart stress deck page (17 calls) | 18 → 24 | 61 → 72 | 528 → 778–869 |
+| flowchart demo deck page (10 calls) | 12 → 12 | 41 → 41 | noise |
+| state chart stress deck page (17 calls) | 18 → 23 | 61 → 70 | 528 → 771–835 |
 
-The state chart's extra time is almost all the incident machine. Its four calls take 93–152 ms
-each in Node, against 47–66 ms on main. That is what proving its 3-column, crossing-free pick
-costs: a larger-type candidate now exists, so the pick routes more of the others to rule them
-out. `SPLIT_TRIES` does not move it (1, 2 and 3 tries time the same). On the live Studio,
-expect that chart's key → drawn to grow by roughly the same 50–90 ms. **UNVERIFIED on the
-real Studio**: `tools/graph-typing-bench.mjs` was not run for this change. The brief ranked
-drawing quality above speed. Whether this trade is right for live typing is the owner's call.
+The extra routings are `calm` on the incident machine, which crosses and has no spotless
+alternative. A 36-state chain reads routed 2, bounded 26 (main: 1, 18), and a test pins it.
 
 ## 5. What this does not do
 
@@ -157,4 +161,5 @@ drawing quality above speed. Whether this trade is right for live typing is the 
   apart rather than trading them for crossings, is not done. It is filed as
   `followups.d/2424-p3-trama-nudge-shared-runs.md`.
 - **Speed.** The follow-up's original done-when also asked for a faster GRAPH LAYOUT. The
-  brief replaced that with drawing quality, and §4 measures what this costs instead.
+  brief replaced that with drawing quality. §4 measures the cost instead: none on live typing,
+  and five more routings on the stress deck's search replay.
