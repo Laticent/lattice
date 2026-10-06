@@ -2,21 +2,33 @@
 origin: 2559
 priority: P3
 recorded: 2026-10-06
-source: https://github.com/Laticent/lattice/blob/main/tools/pixel-check.js
+source: https://github.com/Laticent/lattice/blob/main/engineering/gotchas/export.md
 ---
 
-# examples/system-design-foundations renders different pixels on each run of the same code
+# A 4K deck's PDF changes bytes from run to run on a busy machine: pin it, or accept it?
 
-why now   — Segno phase 3's byte-identical check (`tools/pixel-check.js`, 56 decks) found 55
-            decks pixel-clean and this one changed. Re-rendered on UNCHANGED main against the
-            same snapshot, it still differed, on other pages: run 1 pages 113 and 121, run 2 pages
-            104, 113, 180 and 196, main pages 113, 120 and 145. Page 113 differs by 3,674 px in all
-            three, so the snapshot render was the odd one there. The diff on page 121 sits in a
-            callout's label and the bottom-right footer marks, not in a diagram. A deck that renders
-            differently each time makes every pixel gate on it noise.
-where     — examples/system-design-foundations.md (234 pages); `node tools/pixel-check.js snapshot
-            a --decks system-design-foundations` then `diff a` twice on one commit reproduces it.
-done when — two renders of one commit are pixel-identical, or the note in engineering/gotchas/
-            names the source of the variance and why it cannot be pinned.
-evidence  — two clean `pixel-check diff` runs on one commit.
-verify    — tier 0: a measurement.
+status    — CAUSE FOUND (2026-10-06): the PDF writer's photo of a 4K slide is a Chrome
+            screenshot at deviceScaleFactor 0.667 (the 2560 px cap), and that screenshot varies
+            under CPU load. Content streams, fonts and vectors are identical; only the photo
+            differs, and every differing pixel matches within 5% color tolerance. Named in
+            engineering/gotchas/export.md, "A 4K deck's PDF changes bytes from run to run when the
+            machine is busy", and pipeline.md § 4a now states the exception. What is left is the
+            OWNER's choice below, because each fix changes the bytes of every 4K export.
+why now   — Segno phase 3's pixel check found examples/system-design-foundations (234 pages, 4K)
+            changing on unchanged code. A deck that renders differently each time makes every
+            pixel gate on it noise, and a re-blessed 4K golden churns in git.
+where     — lattice-emulator.js, the `__latticePdfPhoto` binding (setViewport with
+            deviceScaleFactor: scale); lib/core/pdf-compose/compose.mjs (`cap`, the 2560 px rule).
+options   — measured on this sandbox; each pinned six renders, three at a time, to one output:
+            A. photo at deviceScaleFactor 1, kept at 3840 px: +10% to +18% render time, +73% to
+               +83% file size (system-design-foundations 11.7 MB to 20.3 MB). Sharper photo.
+            B. photo at deviceScaleFactor 1 with the fast PNG encoder, downsampled to 2560 px in
+               the page (createImageBitmap, resizeQuality 'high'): today's file size, +63% to +73%
+               render time (gallery-jargon 18.1 s to 31.4 s; system-design-foundations 80 s to
+               130.5 s).
+            C. leave it: the drift is invisible, and only 4K decks rendered under load show it.
+               Run pixel gates on 4K decks on an idle machine (the gotcha says so).
+done when — the owner picks. A or B: the change lands with a dark and a light 4K demo render for
+            export sign-off, and two `pixel-check diff` runs of system-design-foundations under
+            load come back clean. C: this file is deleted, and the gotcha is the record.
+verify    — tier 1 maker-checker for A or B (export pipeline); none for C.

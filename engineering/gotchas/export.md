@@ -593,3 +593,31 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   chip test refuses (a shadow, a wrap, a cover, an undrawn word, a link underline) stays in the photo, counted
   as `chip-<why>`. `test/integration/export/pdf-inline-chip.test.js` checks the photo, since
   the CLI's camera never drifted and its page alone cannot tell the designs apart.
+
+## A 4K deck's PDF changes bytes from run to run when the machine is busy
+
+- **Symptom:** two CLI renders of one commit differ, by a few dozen bytes and a few thousand
+  pixels on one or a handful of pages, different pages each run. `tools/pixel-check.js diff`
+  reports a DIFF on `examples/system-design-foundations` (234 pages, `size: 4K`) with no code
+  change. Nothing is visible: every differing pixel matches within 5% color tolerance (one
+  pixel of 18,194 on the worst page measured). Seen only on 4K decks, and only under CPU load:
+  three concurrent renders of `gallery-jargon` (58 pages, 4K) gave three different PDFs, while
+  three of `split-envelope` (52 pages, portrait) were byte-identical.
+- **Cause:** the PDF writer photographs what it does not draw as vectors (pipeline.md § 4a0),
+  and caps a photo at 2560 px on the long edge. On a 4K slide the CLI's camera
+  (`lattice-emulator.js`, the `__latticePdfPhoto` binding) gets there by setting Chrome's
+  `deviceScaleFactor` to 0.667 and taking a screenshot. A screenshot at that fractional scale
+  is not deterministic when the machine is busy: content streams, fonts and vectors are
+  identical across runs, and only the page's photo XObject differs, in the anti-aliasing of
+  small separately painted pieces (a callout's mono label, a dashed rule, mask-drawn marks).
+  Waiting two animation frames after the scale change did not fix it (four distinct outputs in
+  six renders); waiting 150 ms only made it rarer (three in six).
+- **What pins it, measured (six renders, three at a time, all byte-identical):** take the photo
+  at `deviceScaleFactor` 1 instead. Kept at 3840 px, that costs +10% to +18% render time and
+  +73% to +83% file size (system-design-foundations 11.7 MB → 20.3 MB). Downsampled to 2560 px
+  in the page (`createImageBitmap` with `resizeQuality: 'high'`, the 1x photo taken with the fast
+  PNG encoder) it keeps today's file size and costs +63% to +73% render time (gallery-jargon
+  18.1 s → 31.4 s, system-design-foundations 80 s → 130.5 s). Either changes the bytes of every
+  4K export, so it waits on the owner (CLAUDE.md § Quality bar, export changes). Until then, run
+  a pixel gate on a 4K deck on an idle machine, and read a 4K DIFF whose pixels all vanish at
+  `compare -fuzz 5%` as this, not as a regression.
