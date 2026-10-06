@@ -407,3 +407,19 @@ Order of work, all in one PR (#2404):
   - The photo is Chrome's own raster, so the PDF is byte-reproducible on one machine but not
     across machines — the same as before for anything Chrome rasterized.
 
+
+## 8. The two cameras do not lay out the same (2026-10-06)
+
+The photo is only safe to composite under the vector layer where its layout matches the live
+page's. The CLI's camera is Chrome itself, so it always does. The Studio's is html-to-image,
+which re-lays the slide out in an SVG image, and its style copier rounds every `font-size` down
+to `floor(px) - 0.1`. Text that the photo hides still takes up its (smaller) room there, so a box
+placed after it by the text flow moves: a kpi pill drew over the end of its caption, about
+13px early (`engineering/gotchas/export.md`, "A Studio PDF drew a pill over the end of its
+caption").
+
+The fix is camera-independent: such a box, when its content is only drawn text, is drawn from
+the live geometry, fill and border, and hidden in the photo (`read-slide.mjs` › `chipOf`). The
+same drift still exists for anything else the photo keeps that sits after text in a flow; none
+was found on `examples/studio-present.md` or the gallery sweep for this change, and the chip
+test is the shape to widen if one turns up.
