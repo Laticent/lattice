@@ -112,6 +112,18 @@ export interface LayoutOptions {
   wrap?: boolean;
   /** Internal: lay out on the grid with this many lines. */
   grid?: number;
+  /**
+   * The order a wrapped chart's grid reads in. `'text'` (the default) keeps the authored order;
+   * `'graph'` orders the shapes by the graph instead (Coffman–Graham, each layer by its
+   * neighbors), so a side state sits beside the state it leaves, at the cost of reading order.
+   */
+  order?: 'text' | 'graph';
+  /** Internal: with `grid`, the shapes' ids in the order the grid places them (`order: 'graph'`). */
+  seq?: string[];
+  /** Internal: with `grid`, how many shapes each line holds, in order (the even split when unset). */
+  breaks?: number[];
+  /** Internal: dagre's ranker for this pass (its default, network-simplex, when unset). */
+  ranker?: 'network-simplex' | 'tight-tree' | 'longest-path';
   /** Internal: place each shape's centre here instead of asking dagre (see `route`). */
   positions?: Record<string, Point>;
 }
@@ -160,6 +172,10 @@ export interface Geometry {
   scale?: number;
   /** Set when the drawing is a reading-order grid: how many lines it runs on. */
   lines?: number;
+  /** Set when that grid breaks its lines unevenly: how many shapes each line holds, in order. */
+  breaks?: number[];
+  /** Set when that grid places the shapes in an order other than the authored one: their ids. */
+  seq?: string[];
 }
 
 /** The dagre build Trama is handed: it never imports one. */

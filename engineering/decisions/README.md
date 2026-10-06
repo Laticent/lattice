@@ -718,6 +718,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ☑ [2026-06-05-token-structure-audit.md](2026-06-05-token-structure-audit.md) — Splits the overloaded decorative --text-muted token into independent contrast-graded structural-text roles per theme
 - ☑ [2026-09-14-tour-caption-is-an-occluder.md](2026-09-14-tour-caption-is-an-occluder.md) — The unexplained half of the iPhone report has a mechanism, it is not iOS-specific, and it was measurable in the sandbox the whole time…
 - ☑ [2026-08-26-tracked-change-announcement.md](2026-08-26-tracked-change-announcement.md) — DO NOT add screen-reader labels to `<ins>`/`<del>`.
+- ☑ [2026-10-06-trama-crossing-aware-wrap.md](2026-10-06-trama-crossing-aware-wrap.md) — Crossing-aware placement for Trama's graph charts, judged on drawing quality.
 - ☑ [2026-09-27-trama-graph-chart-library.md](2026-09-27-trama-graph-chart-library.md) — Trama (`@laticent/trama`) is the graph-chart library.
 - ☑ [2026-10-05-trama-radial-layout.md](2026-10-05-trama-radial-layout.md) — Trama has a third way to arrange boxes, a radial layout (`radialLayoutKernel`), and hub-spoke is its first adapter.
 - ☑ [2026-07-13-tts-picker-ia.md](2026-07-13-tts-picker-ia.md) — The Studio TTS voice dropdown was a flat <Select> — fine for a 5-voice engine, unusable for Kokoro's 54 or Gemini's 30, with no curation…

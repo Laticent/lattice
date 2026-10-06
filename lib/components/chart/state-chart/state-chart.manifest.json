@@ -94,7 +94,8 @@
     "tb",
     "inline",
     "curved",
-    "unnumbered"
+    "unnumbered",
+    "rearrange"
   ],
   "slots": {
     "title": {
@@ -304,6 +305,11 @@
       "label": "Unnumbered",
       "summary": "No badges: the states show no place in the list.",
       "sample": "<!-- _class: state-chart unnumbered -->\n\n## unnumbered drops the badges.\n\n- Open `start`\n  - -assign-> Assigned\n- Assigned `live`\n  - -resolve-> Resolved\n- Resolved `end`\n"
+    },
+    "rearrange": {
+      "label": "Rearrange",
+      "summary": "States may leave their written order when that draws a cleaner chart.",
+      "sample": "<!-- _class: state-chart rearrange -->\n\n## rearrange lets a side state sit beside the state it leaves.\n\n- Intake `start`\n  - -triage-> Triage\n- Triage\n  - -start-> In Progress\n- In Progress `live`\n  - -review-> Code Review\n  - -block-> Blocked\n- Code Review\n  - -approve-> QA\n- QA `on-track`\n  - -stage-> Staging\n  - -fail-> In Progress\n- Staging\n  - -release-> Released\n- Released `done`\n  - -close-> Closed\n- Blocked `blocked`\n  - -unblock-> In Progress\n- Closed `end`\n"
     }
   },
   "commonMistakes": [
@@ -340,6 +346,10 @@
     {
       "variant": "unnumbered",
       "useWhen": "The list order means nothing to the audience, and the badges would suggest a sequence that is not there."
+    },
+    {
+      "variant": "rearrange",
+      "useWhen": "The chart wraps and its lines cross, and where each state sits matters more than the order you wrote them in: a side state written last (Blocked, Escalated) moves beside the state it leaves. The chart moves a state only when that draws a cleaner chart (fewer crossings, or a line no longer through a state), so with nothing to fix it draws as before. The badges still show each state's place in your list."
     }
   ],
   "specimenVoice": true,

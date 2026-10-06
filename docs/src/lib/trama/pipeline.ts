@@ -655,13 +655,13 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         const opts = m.args[2];
         // A pin holds only for the direction the chart asked for when the search chose it: an
         // author who changes the direction gets a search at once, not at the pause.
-        const held = search || !opts.wrap ? undefined : (D[key('Wrap')].get(fitKey) as { lines: number; dir: 'lr' | 'tb'; asked: unknown } | undefined);
+        const held = search || !opts.wrap ? undefined : (D[key('Wrap')].get(fitKey) as { lines: number; dir: 'lr' | 'tb'; breaks?: number[]; seq?: string[]; asked: unknown } | undefined);
         const pin = held && held.asked === opts.dir ? held : undefined;
         if (pin) m.pinned = true;
         // A pinned grid lays out that grid; a pinned dagre pick (lines 0) lays out dagre's layout
         // in that direction. Each is byte-identical to the search's pick (every recorded call).
         const args: typeof m.args = pin
-          ? [m.args[0], m.args[1], pin.lines ? { ...opts, wrap: false, dir: pin.dir, grid: pin.lines, grow: false } : { ...opts, wrap: false, dir: pin.dir }]
+          ? [m.args[0], m.args[1], pin.lines ? { ...opts, wrap: false, dir: pin.dir, grid: pin.lines, grow: false, ...(pin.breaks ? { breaks: pin.breaks } : {}), ...(pin.seq ? { seq: pin.seq } : {}) } : { ...opts, wrap: false, dir: pin.dir }]
           : m.args;
         // The newest drawing stands in while this round is in flight: the last keystroke's,
         // or this keystroke's own earlier round once it has painted (below).
@@ -770,10 +770,13 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       if (fig.getAttribute(`data-${P}-laid`) !== geo.dir) fig.setAttribute(`data-${P}-laid`, geo.dir);
       const kFit = applyFit(port0, box, geo.width * S, geo.height * S, portMin);
       if (kFit != null) D[key('Fit')].set(fitKey, kFit);
-      // A full search's choice is the pin: a grid (its lines and direction), or dagre's layout
-      // (lines 0) in its direction. Half-typed text often parses as a chart whose search picks
-      // dagre, and without a pin every key of it searched again: 3-4 rounds of 100-400 ms.
-      if (!m.pinned && m.args[2].wrap) D[key('Wrap')].set(fitKey, { lines: geo.lines ?? 0, dir: geo.dir, asked: m.args[2].dir });
+      // A full search's choice is the pin: a grid (its lines, direction and, when the pick moved
+      // a line break or reordered the shapes, its breaks and order), or dagre's layout (lines 0)
+      // in its direction. Half-typed text
+      // often parses as a chart whose search picks dagre, and without a pin every key of it
+      // searched again: 3-4 rounds of 100-400 ms. A pin without its breaks drew the even split
+      // while typing and jumped back to the searched split at every pause.
+      if (!m.pinned && m.args[2].wrap) D[key('Wrap')].set(fitKey, { lines: geo.lines ?? 0, dir: geo.dir, ...(geo.breaks ? { breaks: geo.breaks } : {}), ...(geo.seq ? { seq: geo.seq } : {}), asked: m.args[2].dir });
       // The signature of the state this draw LEFT (its own fit and type floor included), so
       // the resize observer and the next pass see nothing new and skip. A mid-chain paint
       // (`final` false) is rewritten by the next round in the same task, so its signature

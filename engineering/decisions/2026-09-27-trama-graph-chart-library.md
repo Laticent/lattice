@@ -384,3 +384,12 @@ Trama knows how to arrange boxes, never what they mean. Hub-spoke was the one gr
 holding its own geometry; its arrangement is radial, which neither dagre's ranks nor the
 reading-order grid can draw.
 
+## 11. Amendment: crossing-aware placement (2026-10-06)
+
+A layout that routes with a crossing now tries other placements. A dagre layout tries
+dagre's two other rankers and keeps the one with the fewest crossings. A grid layout tries
+moving one line break by one shape, or the same lines in the other direction, and takes the
+move only when it routes with no crossing and no fault. Every swap stays within 3% of the type.
+Reading order and the direction choice are unchanged. The measurements, the review's
+findings, the cost on the live path, and the Coffman–Graham rows this deliberately did not
+build are in `2026-10-06-trama-crossing-aware-wrap.md`.
