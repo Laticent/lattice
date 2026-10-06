@@ -133,6 +133,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [`pkill -f astro` kills the shell that's launching astro](gotchas/docs-site.md#pkill--f-astro-kills-the-shell-thats-launching-astro)
 - [An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish](gotchas/docs-site.md#an-astro-island-without-ssr-is-mounted-not-yet-wired--clicks-still-vanish)
 - [A spec is green after `npm run build:e2e` and red after `npm run build`](gotchas/docs-site.md#a-spec-is-green-after-npm-run-builde2e-and-red-after-npm-run-build)
+- [A timing spec re-downloads everything, because `page.route()` turns off the HTTP cache](gotchas/docs-site.md#a-timing-spec-re-downloads-everything-because-pageroute-turns-off-the-http-cache)
 
 ### [Export (PDF, PPTX, the HTML player)](gotchas/export.md)
 

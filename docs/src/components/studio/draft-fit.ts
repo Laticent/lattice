@@ -9,8 +9,10 @@ import { buildDeckRender, type ExtraTheme } from './share-export';
 
 export type SlideFit = { slide: number; overflows: boolean; clipped: boolean; illegible: boolean };
 
-/** How long a fit check may take before the checker reports fit as not measured. A first
- *  check loads the runtime and fonts; later ones hit the cache and take a second or two. */
+/** How long a fit check may take before the checker reports fit as not measured. Measured on
+ *  the built Studio, a session's FIRST check takes ~0.4 s, and 7.8 s at worst: a slow link, a 4×
+ *  slower CPU and a message sent before the page finished loading. The live preview has already
+ *  fetched the runtime and fonts the check needs (decision note §11). */
 export const DRAFT_FIT_TIMEOUT_MS = 15000;
 
 /** Per-slide fit for `draft`, or undefined when it could not be measured in time — never a
