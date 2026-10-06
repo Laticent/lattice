@@ -38,6 +38,13 @@ inside an HTML comment — a speaker note, a commented-out draft — is not a di
 | PDF, PNG, PPTX, an `.html` export, `--player` | a static `<div class="mermaid-svg">` | the plugin's bake, `mermaid.bake.js`, in a headless render worker |
 | Export to Marp | the diagram | Mermaid in the recipient's browser (the bundle ships the library) |
 
+**The library is the plugin's own copy.** `vendor/mermaid.min.js` (Mermaid 11.14.0, recorded with
+its SHA-256 in the manifest's `payload.vendored`) is what every row above uses — the pages stage it
+beside the runtime, the CLI bake draws with it, the Marp kit and the Export-to-Marp bundle carry it as
+`mermaid-v11-min.js`. Nobody downloads Mermaid, and `npm install` cannot change it: `package.json`
+pins the exact version and `node_modules` is only the source of `npm run vendor:plugins`. To
+upgrade: bump the pin, `npm install`, `npm run vendor:plugins`, look at the diagram gallery, commit.
+
 Each diagram is drawn for the band of **its own slide** — light, dark or print — and in the
 slide's look (a `mode: sketch` deck draws hand-drawn nodes). A portrait deck, or a tall pane,
 turns a left-to-right flowchart top-to-bottom.

@@ -27,7 +27,12 @@
     "--radius-md", "--text-heading"
   ],
   "payload": {
-    "mermaid": { "from": "npm:mermaid/dist/mermaid.min.js", "global": "mermaid", "when": "used" }
+    "mermaid": {
+      "from": "npm:mermaid/dist/mermaid.min.js",
+      "vendored": { "file": "vendor/mermaid.min.js", "version": "11.14.0", "sha256": "217b66ef4279c33c141b4afe22effad10a91c02558dc70917be2c0981e78ed87" },
+      "global": "mermaid",
+      "when": "used"
+    }
   },
   "render": {
     "exec": { "hydrate": "pass", "bake": "subprocess" },

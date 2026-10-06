@@ -194,6 +194,7 @@
     },
     "payload": {
       "type": "object",
+      "maxProperties": 1,
       "description": "Third-party files a browser surface loads for this plugin. `when: used` loads a file only for a deck that uses the plugin; the CLI export injects it, the runtime fetches it from beside itself by the file's basename.",
       "additionalProperties": {
         "type": "object",
@@ -203,7 +204,18 @@
           "from": {
             "type": "string",
             "pattern": "^npm:[@a-z0-9][a-z0-9._/@-]*\\.js$",
-            "description": "The file, as `npm:<package>/<path>` — the version package-lock.json locks, never a vendored copy."
+            "description": "Where the file comes from, as `npm:<package>/<path>`. With `vendored`, this is only the SOURCE the plugin's own copy is refreshed from (`npm run vendor:plugins`); without it, surfaces read the installed package."
+          },
+          "vendored": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "version", "sha256"],
+            "description": "The plugin OWNS a committed copy of the file, and every surface — the browser pages, the CLI bake, the Marp kit and the Export-to-Marp bundle — reads that copy, so no user ever fetches the library and an install cannot change what ships. The build fails when the copy stops matching `sha256`.",
+            "properties": {
+              "file": { "type": "string", "pattern": "^vendor/[a-z0-9][a-z0-9._-]*\\.js$", "description": "The copy, relative to the plugin folder." },
+              "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "description": "The package version the copy was taken from." },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The copy's SHA-256, checked by the build." }
+            }
           },
           "global": {
             "type": "string",

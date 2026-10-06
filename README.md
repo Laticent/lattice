@@ -315,7 +315,7 @@ marp kit) carry all three automatically.
 Both engines are vendored, not fetched: this snippet used to point Mermaid at
 jsdelivr, which is the CDN dependency
 `engineering/decisions/2026-09-03-self-hosted-runtime-deps.md` removed from the
-codebase — `mermaid-v11-min.js` ships in the repo root and in every export bundle.
+codebase — the Mermaid plugin owns a committed copy (`lib/plugins/mermaid/vendor/mermaid.min.js`), and every export bundle and the Marp kit carry it as `mermaid-v11-min.js`.
 
 Keep `dist/fonts/` beside `dist/lattice.css` — the `@font-face` srcs are
 stylesheet-relative, so moving the CSS without the directory drops the deck to

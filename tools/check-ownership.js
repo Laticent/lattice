@@ -1495,8 +1495,20 @@ function checkComponentCss(manifests, errors) {
 }
 
 // Recursively list every .css file under a directory.
+/**
+ * A plugin's `vendor/` folder: a third-party library the plugin OWNS a committed copy of
+ * (`payload.vendored`, lib/plugins/payload-path.js — Mermaid's minified build). It is not our
+ * source, so no source gate reads it, exactly as none read the repo-root copy it replaced: its
+ * integrity is held instead by the SHA-256 the plugin resolver checks against the manifest.
+ */
+function isVendoredLibraryDir(dir, entry) {
+  return entry.isDirectory() && entry.name === 'vendor'
+    && path.basename(path.dirname(dir)) === 'plugins' && path.basename(path.dirname(path.dirname(dir))) === 'lib';
+}
+
 function listCssFiles(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listCssFiles(p, out);
@@ -3960,6 +3972,7 @@ const US_SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', '.scra
 // generated/vendor trees and the dated engineering/decisions/ records.
 function listRepoTextFiles(dir = ROOT, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     const rel = path.relative(ROOT, p);
@@ -5998,6 +6011,7 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
 function listSourceFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (e.name === 'node_modules' || e.name === 'dist') continue;
     // Any DOT-prefixed entry, generalizing the `.astro` special case this replaces. Hidden
     // directories in a source tree are caches and staging areas, never source: `.astro`,
@@ -7476,6 +7490,7 @@ const CLASS_ATTR_EXTS = /\.(?:js|ts|tsx|mjs|cjs|astro)$/;
 function listClassAttrFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue; // hidden = cache/staging, never source
     const p = path.join(dir, e.name);
@@ -8586,6 +8601,7 @@ const TEST_FILE = /\.test\.(?:js|jsx|ts|tsx|mjs|cjs|mts|cts)$/;
 function listPackageSources(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.dist.tmp-')) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listPackageSources(p, out);
@@ -12362,7 +12378,8 @@ const DIST_VERBATIM_COPIES = Object.freeze([
   { copy: 'dist/marp-kit/Sample-Deck.md', source: 'kit/Sample-Deck.md', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/cuoio.css', source: 'themes/cuoio.css', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/cuoio-dark.css', source: 'themes/cuoio-dark.css', builder: 'tools/build-marp-kit.js' },
-  { copy: 'dist/marp-kit/mermaid-v11-min.js', source: 'mermaid-v11-min.js', builder: 'tools/build-marp-kit.js' },
+  // The kit's Mermaid is the mermaid plugin's own copy (payload.vendored), shipped under the kit's name.
+  { copy: 'dist/marp-kit/mermaid-v11-min.js', source: 'lib/plugins/mermaid/vendor/mermaid.min.js', builder: 'tools/build-marp-kit.js' },
 ]);
 
 /** One entry's problems. Split out so the unit suite can drive a synthetic table. */
@@ -12802,6 +12819,7 @@ function stripCodeComments(src) {
 function listFilesByExt(dir, exts, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
     if (isTransientProbe(e.name)) continue;
     const p = path.join(dir, e.name);

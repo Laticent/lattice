@@ -85,6 +85,9 @@ function walk(dir, out = []) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
     if (SKIP_DIRS.has(ent.name)) continue;
     const p = path.join(dir, ent.name);
+    // A plugin's vendored third-party library (lib/plugins/<name>/vendor/) is not our source: it
+    // reads its own variables (Mermaid's --mermaid-font-family), as the root copy did under `-min.js`.
+    if (ent.isDirectory() && ent.name === 'vendor' && path.basename(path.dirname(dir)) === 'plugins') continue;
     if (ent.isDirectory()) walk(p, out);
     else if (ent.isFile()) {
       const isCssOrJs = p.endsWith('.css') || p.endsWith('.js');

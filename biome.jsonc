@@ -111,8 +111,8 @@
 
       // vendor — minified third-party, in any location.
       "!**/*.min.js",
-      // vendor — the pinned Mermaid build.
-      "!mermaid-v11-min.js",
+      // vendor — a third-party library a plugin owns a copy of (Mermaid's build).
+      "!lib/plugins/*/vendor/**",
 
       // not-code — binaries that happen to sit beside source.
       "!**/*.pdf",

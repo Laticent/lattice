@@ -24,7 +24,8 @@
  *     STILL NOT covered, knowingly: dist/fonts/ (base64'd into the PDF) and the resolved Chromium
  *     binary — a font or browser swap reuses renders. `process.version` is keyed, but Node is not
  *     what lays the page out.
- *   - mermaid-v11-min.js
+ *   - the mermaid plugin's own Mermaid copy (lib/plugins/mermaid/vendor/mermaid.min.js), which the
+ *     CLI bake draws diagrams with
  *   - package-lock.json (catches dep upgrades)
  *   - palette argument
  *   - Node version
@@ -53,7 +54,7 @@ const ROOT       = path.join(__dirname, '..', '..');
 const EXAMPLES   = path.join(ROOT, 'examples');
 const THEME      = path.join(ROOT, 'dist', 'lattice.css');
 const EMULATOR   = path.join(ROOT, 'lattice-emulator.js');
-const MERMAID_JS = path.join(ROOT, 'mermaid-v11-min.js');
+const MERMAID_JS = path.join(ROOT, 'lib', 'plugins', 'mermaid', 'vendor', 'mermaid.min.js');
 const LOCKFILE   = path.join(ROOT, 'package-lock.json');
 const CACHE_DIR  = path.join(ROOT, '.scratch', 'test-cache');
 

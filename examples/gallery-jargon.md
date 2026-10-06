@@ -958,5 +958,5 @@ Four stages over eighteen months. The connective tissue is called "momentum."
      The build script (lattice-emulator.js) pre-renders Mermaid to SVG at build time
      so these scripts are a no-op in the PDF/HTML output. -->
 <!-- markdownlint-disable MD033 -->
-<script src="../mermaid-v11-min.js"></script>
+<script src="../lib/plugins/mermaid/vendor/mermaid.min.js"></script>
 <script src="../dist/lattice-runtime.js"></script>

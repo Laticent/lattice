@@ -1344,8 +1344,7 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   frame only by accident of folder and went silent: the section-box gate (`SECTION_BOX_ROOTS`), the
   edge-ownership test and the `:is([data-family` guard now walk `lib/plugins` too (the section-box
   arm mutation-proved), and `tools/affected-tests.js` routes a plugin stylesheet to
-  `test:components` and `test:plugins`. (3) The old module paths were importable through the
-  package's `./lib/*` export, so the changelog leads with **Breaking:**. The INVERSION lens: the
+  `test:components` and `test:plugins`. (3) The old module paths were importable through the package's `./lib/*` export; the owner (2026-10-06): pre-GA, no compatibility shims and no **Breaking:** marker — the changelog records the move. The INVERSION lens: the
   `dispatch.js` role is in-tree only and no host contract in api 1 (LPM §2 says so); stale
   `chart-family.js §X` pointers the rename had re-stamped now name the kernels that hold those
   symbols; and `tokens` listing the sheet's own custom properties is recorded for the 1.0 freeze
@@ -1411,6 +1410,35 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   forged markers reach its runtime, and its `mark-off.mjs` matches `language-<fence>` as a whole
   class word, so a raw block classed `language-mermaid-source` stays drawable there
   (`followups.d/2509-p4-marp-bundle-author-markers.md`).
+
+- **The Mermaid plugin owns its library (`2509-p5`, owner's decision 2026-10-06).** "We host
+  third-party libraries ourselves": the plugin owns a copy, every surface ships that copy, and
+  `node_modules` is only its source. The three builds §11 "Phase D's residue" left (the repo-root
+  `mermaid-v11-min.js`, the npm payload, the bake's unminified `mermaid.js`) are one:
+  `lib/plugins/mermaid/vendor/mermaid.min.js`, recorded in the manifest's new `payload.vendored`
+  (file, version, SHA-256; spec/LPM.md §3.4) and in a new in-tree plugin folder, `vendor/`
+  (`lib/packages/kinds.js`). Node readers resolve a plugin's library through one helper,
+  `lib/plugins/payload-path.js` — the CLI export page's hydrators, the docs site's staging, the bake's
+  render worker — and the Marp kit and Export-to-Marp bundle copy it (still named
+  `mermaid-v11-min.js` inside them, the name their decks load). The generated browser registries did
+  not change: the served file name was already `mermaid.min.js`. `npm run vendor:plugins` refreshes a
+  copy and its record together; the resolver fails a copy whose SHA-256 drifts; `package.json` pins
+  `mermaid` exactly, and a unit test fails when the installed build is not the vendored one.
+  Dependabot ignores `mermaid` (owner, 2026-10-06): its bump would fail that test and hold the
+  whole weekly group, so the library is upgraded on purpose (bump the pin, run
+  `npm run vendor:plugins`). The source gates skip a plugin's
+  `vendor/` (`isVendoredLibraryDir` in `tools/check-ownership.js`), as they skipped the root copy: it
+  is not our source, and its integrity is the hash. The root copy is gone, with its entries in
+  `lefthook.yml`, `ci.yml` and `publish-kits.yml` (each already covered by `lib/**`).
+  **Evidence.** The bake now draws with the minified build instead of the unminified one: both
+  diagram galleries' CLI PDFs, light and dark, are byte-identical to `main`'s (4 of 4; 25 diagrams
+  baked). The Marp kit and the Export-to-Marp admission tests through real marp-cli: 16 of 16. The
+  resolver's hash check mutation-proved (one appended byte fails the build by name); the ownership
+  test fails when a reader goes back to `node_modules`. Recorded, not built: the other plugin
+  libraries (function-plot, KaTeX, the bake's ZenUML and mermaid-cli page) —
+  `followups.d/2509-p5-plugin-libraries-owned-copies.md`. Also fixed on the way: the diagram
+  gallery's two `<script>` paths had pointed at files that no longer existed since the galleries moved
+  into bucket folders, so its VS Code preview drew no diagrams.
 
 ## References
 

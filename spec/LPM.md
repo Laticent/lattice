@@ -52,6 +52,8 @@ lib/plugins/<name>/
   <name>.styles.css       optional  token-only CSS (§4.4)
   shared/                 optional  IN-TREE ONLY: the plugin's own shared modules (.js/.cjs/.mjs
                                     and a README.md), imported by its role modules
+  vendor/                 optional  IN-TREE ONLY: a third-party library the plugin owns a copy of
+                                    (its `payload.vendored`, §3.4)
 ```
 
 - `<name>` MUST match `^[a-z][a-z0-9-]*$`, MUST equal the folder name and the manifest's `name`,
@@ -163,7 +165,7 @@ tracked deck.
 
 | Field | Value |
 |---|---|
-| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6) |
+| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", vendored?, global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6). `vendored: { file: "vendor/<name>.js", version, sha256 }` means the plugin OWNS a committed copy in its `vendor/` folder (in-tree only): every surface — browser pages, the CLI bake, exported bundles — reads that copy, so no user fetches the library and no install changes what ships; `from` is then only the source it is refreshed from, and the host fails a copy that does not match its `sha256`, and any file in `vendor/` that no payload names (the source gates skip that folder, so it holds only declared copies) |
 | `tokens` | every design token `styles.css` reads — exactly the set of its `var(--…)` reads |
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
@@ -426,6 +428,10 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, vendored payloads (2026-10-06).** `payload.vendored` (§3.4) and the in-tree
+  `vendor/` folder (§2): a plugin owns a committed copy of its library, checked by SHA-256, and
+  every surface reads it. Mermaid's is the first; its repo-root copy is retired.
 
 - **0.5-draft, author raw HTML (2026-10-06).** The host's figure marker names in an author's raw
   HTML are renamed, and an unadmitted drawn fence's `language-<fence>` class in raw HTML is defanged

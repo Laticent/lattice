@@ -31,7 +31,7 @@
       "class": "generated"
     },
     {
-      "path": "mermaid-v11-min.js",
+      "path": "lib/plugins/mermaid/vendor/mermaid.min.js",
       "class": "vendor"
     },
     {
