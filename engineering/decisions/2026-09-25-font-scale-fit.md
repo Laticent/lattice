@@ -1195,8 +1195,17 @@ All ten list-steps misses are gone, and five of the sixteen split-panel ones.
    `` `{S3, icon=bucket, c4}` `` as mono code pills of their source, so `examples/inline-icons.md`
    slide 3 read 10% over its points column at conference, where three pills set on one line and the
    slide renders whole. An icon now counts as one `m`, and a pill as its label, an `m` if it names an
-   icon, and a `tt` of padding. That false warning came from the sweep below; no scored deck carries
-   one.
+   icon, and a `tt` of padding — but only a span the engine's own dispatch rows resolve
+   (`inline-code-directives.js`, the `pill` and `icon` rows), and none on an `inline-code: literal`
+   deck or slide. The first cut matched any brace span: `` `{ id, name, email }` ``, `` `{"a": 1}` ``
+   and the retired `` `{X}:tag` `` render as mono code, and pricing them as short pills lost three
+   claim-panel clips `main` caught (the second checker's probe deck, 73 to 237 px over). That false
+   warning on `inline-icons` came from the sweep below; no scored deck carries one.
+4. **The points rig sums exact line heights.** It stores each role's line height to the whole px,
+   and it first summed a probe's text with those rounded values. A body line of 163.5 px read as
+   164 over ten lines a point, so 4 px a point leaked out of the solved per-point cost (11 px at hall
+   where the title's padding is 15). The per-point cost now reads the same at every venue (bare 15,
+   `steps` 89, `watermark` 161), and a four-point slide 25 px over at hall that read 0% reads 1%.
 
 **The independent checker** reproduced both tables and wrote its own probe decks for registers and
 shapes no committed deck uses (at 4k and 16:9). Its two must-fixes came from those probes, not from
@@ -1208,7 +1217,14 @@ comma (`{"Cost, excluding tax", c2}`) and an icon-only pill has no label. A pill
 allowlist and an `inline-code-literal` slide fails their token check, so neither is read this way;
 only a claim panel's lede on such a slide could be. On its probes the points model is within about
 ±8% for bare, `steps`, `metric` and `watermark`, and the list-steps registers within about ±8%
-(`capsule` the loosest). Two clips it found the export does not report, both older than this
+(`capsule` the loosest). A second, independent checker then reviewed those three fixes alone. It confirmed the `#` heading
+fix. It found the pill pricing too broad (item 3) and the header detection too loose: a `header:`
+directive anywhere in the deck switched the padding on for every slide, including slides before a
+later header and decks that reset it to `""`, which warned on four header-less shapes that fit. Lint
+now walks the header directives slide by slide, as Marp applies them: the deck's `header:`, each
+`<!-- header: … -->` from its slide on, a slide's own `_header` for that slide alone, and an empty
+value is no header. It also found the rounding leak in item 4. Every one has a test that fails
+without its fix. Two clips it found the export does not report, both older than this
 change, are logged in followups.d/2361-p3-split-panel-export-blind-spots.md: a `proof` signal row
 taller than its share spills under the cards with no OVERFLOW line (lint warns on those slides, and
 the scorer counts the warning false), and a `metric` slide's left panel clips by 17 to 38 px under a
@@ -1221,9 +1237,9 @@ deck's own size. Fifteen of the 30 are in the scored five (`gallery.md` 12, bloo
 1); the other 15 are `system-design-foundations` (5), `diagram.gallery.md` (3),
 `list-steps.gallery.md` (3), `accent-on-accent` (2) and `slide-edge` (2).
 
-**Bundle.** The Studio's eager JS grows by 1,808 bytes gz against `main` 9b46f54, measured the way
-CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:route-budget`); no other
-route moves. Given back first: `mirror` and `milestone lettered` are baked as their twins' keys, and
+**Bundle.** The Studio's eager JS grows by 1,783 bytes gz against `main` 9b46f54, measured the way
+CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:route-budget`); the
+playground reads +1 B of gzip noise, as on #2548. Given back first: `mirror` and `milestone lettered` are baked as their twins' keys, and
 `vertical compact` stores only the frame field that differs (`calloutAt`). Declared in
 `docs/route-budget.d/2361-venue-lint-steps-points.md`.
 

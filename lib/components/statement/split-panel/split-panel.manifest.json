@@ -359,9 +359,9 @@
         },
         "row": {
           "laptop": 15,
-          "huddle": 18,
-          "conference": 12,
-          "hall": 11
+          "huddle": 15,
+          "conference": 15,
+          "hall": 15
         },
         "budget": {
           "laptop": 1932,
@@ -386,15 +386,15 @@
         },
         "row": {
           "laptop": 15,
-          "huddle": 18,
-          "conference": 12,
-          "hall": 10
+          "huddle": 15,
+          "conference": 15,
+          "hall": 15
         },
         "budget": {
           "laptop": 1932,
           "huddle": 1932,
-          "conference": 1933,
-          "hall": 1932
+          "conference": 1932,
+          "hall": 1931
         },
         "ul": 1
       },
@@ -413,15 +413,15 @@
         },
         "row": {
           "laptop": 89,
-          "huddle": 92,
-          "conference": 87,
-          "hall": 84
+          "huddle": 89,
+          "conference": 89,
+          "hall": 89
         },
         "budget": {
           "laptop": 2100,
           "huddle": 2100,
           "conference": 2101,
-          "hall": 2100
+          "hall": 2099
         },
         "ordered": {
           "title": {
@@ -438,15 +438,15 @@
           },
           "row": {
             "laptop": 74,
-            "huddle": 77,
-            "conference": 72,
-            "hall": 69
+            "huddle": 74,
+            "conference": 74,
+            "hall": 74
           },
           "budget": {
             "laptop": 2100,
             "huddle": 2100,
             "conference": 2101,
-            "hall": 2100
+            "hall": 2099
           }
         }
       },
@@ -476,16 +476,16 @@
           "hall": [50.6, 164]
         },
         "row": {
-          "laptop": 163,
-          "huddle": 157,
+          "laptop": 161,
+          "huddle": 161,
           "conference": 161,
-          "hall": 165
+          "hall": 161
         },
         "budget": {
           "laptop": 2076,
           "huddle": 2075,
           "conference": 2076,
-          "hall": 2075
+          "hall": 2076
         },
         "subAt": {
           "laptop": 12,
@@ -495,9 +495,9 @@
         },
         "paraAt": {
           "laptop": 72,
-          "huddle": 73,
-          "conference": 70,
-          "hall": 70
+          "huddle": 72,
+          "conference": 72,
+          "hall": 72
         },
         "ordered": {
           "title": {
@@ -525,10 +525,10 @@
             "hall": [50.6, 164]
           },
           "row": {
-            "laptop": 98,
-            "huddle": 92,
+            "laptop": 96,
+            "huddle": 96,
             "conference": 96,
-            "hall": 100
+            "hall": 96
           },
           "budget": {
             "laptop": 2075,
@@ -544,9 +544,9 @@
           },
           "paraAt": {
             "laptop": 72,
-            "huddle": 73,
-            "conference": 71,
-            "hall": 69
+            "huddle": 72,
+            "conference": 72,
+            "hall": 72
           }
         }
       },
@@ -586,10 +586,10 @@
           "hall": 0
         },
         "budget": {
-          "laptop": 958,
-          "huddle": 961,
-          "conference": 970,
-          "hall": 956
+          "laptop": 959,
+          "huddle": 959,
+          "conference": 959,
+          "hall": 959
         },
         "grid": 1,
         "eq": 1,
@@ -610,9 +610,9 @@
         },
         "row": {
           "laptop": 15,
-          "huddle": 18,
-          "conference": 12,
-          "hall": 11
+          "huddle": 15,
+          "conference": 15,
+          "hall": 15
         },
         "budget": {
           "laptop": 1932,
@@ -648,16 +648,16 @@
           "hall": [50.6, 164]
         },
         "row": {
-          "laptop": 163,
-          "huddle": 157,
+          "laptop": 161,
+          "huddle": 161,
           "conference": 161,
-          "hall": 165
+          "hall": 161
         },
         "budget": {
           "laptop": 2076,
           "huddle": 2075,
           "conference": 2076,
-          "hall": 2075
+          "hall": 2076
         },
         "subAt": {
           "laptop": 12,
@@ -667,9 +667,9 @@
         },
         "paraAt": {
           "laptop": 72,
-          "huddle": 73,
-          "conference": 70,
-          "hall": 70
+          "huddle": 72,
+          "conference": 72,
+          "hall": 72
         },
         "subAtHeader": {
           "laptop": 147,
@@ -703,10 +703,10 @@
             "hall": [50.6, 164]
           },
           "row": {
-            "laptop": 98,
-            "huddle": 92,
+            "laptop": 96,
+            "huddle": 96,
             "conference": 96,
-            "hall": 100
+            "hall": 96
           },
           "budget": {
             "laptop": 2075,
@@ -722,12 +722,12 @@
           },
           "paraAt": {
             "laptop": 72,
-            "huddle": 73,
-            "conference": 71,
-            "hall": 69
+            "huddle": 72,
+            "conference": 72,
+            "hall": 72
           },
           "subAtHeader": {
-            "laptop": 146,
+            "laptop": 147,
             "huddle": 156,
             "conference": 178,
             "hall": 206

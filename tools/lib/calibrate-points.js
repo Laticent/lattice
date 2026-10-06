@@ -147,7 +147,10 @@ async function main() {
                 if (up) faces[name] = 'f';
                 else if (display.test(cs.fontFamily)) faces[name] = 'd';
               }
-              return lineCount(el) * geo[name][1];
+              // The exact line height, not the stored whole px: a probe's ~10 body lines a point at
+              // 163.5 px read as 164 put 4 px a point into the solved `row` (the second checker's
+              // dh.md slide 7, 25 px over at hall, read 0%).
+              return lineCount(el) * lh * unit;
             };
             // Each point's text height; a grid's first point reads its own geometry (`0` roles).
             const grid = getComputedStyle(list).display === 'grid';

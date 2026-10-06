@@ -1214,7 +1214,7 @@ describe('list-steps registers and the split-panel points column are judged by l
   const icons = '<!-- _class: split-panel -->\n\n## Framed by default, bare when a line needs it quiet.\n\n- Framed, the default\n  - Raw files land in `^{bucket, c4}` S3, a `^{function, c3}` Lambda reads each one, and `^{warehouse, c5}` Snowflake holds the model.\n  - `{S3, icon=bucket, c4}` `{Lambda, icon=function, c3}` `{Snowflake, icon=warehouse, c5}`\n- Bare, the same words, on request\n  - Raw files land in `^{bucket, c4, bare}` S3, a `^{function, c3, bare}` Lambda reads each one, and `^{warehouse, c5, bare}` Snowflake holds the model.\n  - `{S3, icon=bucket, c4}` `{Lambda, icon=function, c3}` `{Snowflake, icon=warehouse, c5}`\n';
 
   test('an icon is one word-sized glyph and a pill its label, not their source (inline-icons slide 3)', () => {
-    assert.equal(core.lineText('in `^{bucket, c4}` S3 `{S3, icon=bucket, c4}` `{Big Label}:pill`', true), 'in m S3 S3mtt BigiLabeltt');
+    assert.equal(core.lineText('in `^{bucket, c4}` S3 `{S3, icon=bucket, c4}` `{Big Label, c2}`', true), 'in m S3 S3mtt BigiLabeltt');
     assert.deepEqual(run('conference', icons, '16:9'), []);
   });
 
@@ -1236,6 +1236,25 @@ describe('list-steps registers and the split-panel points column are judged by l
   test('an `#` heading stays in the points column, so the slide keeps its count row', () => {
     assert.equal(typeof core.pointsAt('split-panel', ['split-panel', 'proof'], proof), 'function');
     assert.equal(core.pointsAt('split-panel', ['split-panel', 'proof'], proof.replace('## A sweep', '# A sweep')), null);
+  });
+
+  test('only a span the engine draws as a pill or an icon is priced as one; other braces stay mono code (the second checker)', () => {
+    const mono = (c) => `${c.replace(/./g, 'u')}t`;
+    for (const c of ['{ id, name, email }', '{"a": 1}', '{ color: red }', '{2,5}', '{X, c13}', '{BETA}:tag', '^{nope}']) {
+      assert.equal(core.lineText(`\`${c}\``, true), mono(c), c);
+    }
+    // On a literal deck every span renders as code, pills and icons included.
+    assert.equal(core.lineText('`{STABLE, c2}` `^{bucket}`', true, true), `${mono('{STABLE, c2}')} ${mono('^{bucket}')}`);
+  });
+
+  test('the header a slide renders follows Marp\'s directives, slide by slide', () => {
+    const mirrored = '<!-- _class: split-panel watermark mirror -->\n\n## Mirror\n\n### Sub heading line\n\n- Teams ship small changes\n  - Small changes behind flags and watch the metrics before widening the rollout so every regression is caught early by the.\n- Changes behind flags and\n  - Watch the metrics before widening the rollout so every regression is caught early by the people who wrote the code.\n- And watch the metrics\n  - The rollout so every regression is caught early by the people who wrote the code and can fix it quickly.\n';
+    const deck = (fm, ...bodies) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: conference\n${fm}---\n\n${bodies.join('\n---\n\n')}`, v).filter((f) => f.rule === 'capacity-scale').map((f) => f.slide);
+    assert.deepEqual(deck('header: "Deck"\n', mirrored), [1]);
+    // A reset to empty, a header that starts on a later slide, and an empty `header:` above `footer:`.
+    assert.deepEqual(deck('header: "Deck"\n', `<!-- header: "" -->\n${mirrored}`), []);
+    assert.deepEqual(deck('', mirrored, `<!-- header: "Late" -->\n${mirrored}`), [2]);
+    assert.deepEqual(deck('header:\nfooter: "F"\n', mirrored), []);
   });
 
   test('a quoted pill label keeps its comma, and an icon-only pill has no label', () => {
