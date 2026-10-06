@@ -70,7 +70,8 @@ async function frameFor(p: StudioCodePackage, frames: Map<string, Promise<Packag
 	next.catch((e: Error) => {
 		// Code that throws or does not parse at load will not load on the next keystroke either:
 		// remembered by digest. A load that only ran long is tried again.
-		if (/failed to load/.test(e.message)) unloadable.set(p.sha256, e.message);
+		// So will code the runner refuses before any frame opens (its syntax, its shape).
+		if (/failed to load|^code sandbox: /.test(e.message)) unloadable.set(p.sha256, e.message);
 	});
 	return next;
 }
