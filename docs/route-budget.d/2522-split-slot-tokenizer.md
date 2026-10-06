@@ -1,2 +1,0 @@
-studio: +3
-The split kernel's slots now come from the shared top-level tokenizer (lib/core/top-level-h2.mjs `topLevelElements`), which ships in the Studio's eager render path; the walk also gained the HTML spec's SVG/MathML breakout list. Given back first: the split kernel's own named-block mask (`maskTopLevel`, `blankComments`, `NESTING_BLOCKS`, the blockquote close walk) is deleted, which pays for all but these 3 bytes. parse5, the alternative, would have cost about 48 KB gzipped.

@@ -5,7 +5,7 @@
     "studio": {
       "html": "studio/index.html",
       "eagerJsGz": {
-        "soft": 636788,
+        "soft": 659716,
         "hard": 700467
       },
       "htmlRaw": {
@@ -16,18 +16,18 @@
     "playground": {
       "html": "playground/index.html",
       "eagerJsGz": {
-        "soft": 629388,
+        "soft": 631462,
         "hard": 692327
       },
       "htmlRaw": {
-        "soft": 544160,
+        "soft": 551935,
         "hard": 598576
       }
     },
     "home": {
       "html": "index.html",
       "eagerJsGz": {
-        "soft": 262124,
+        "soft": 264041,
         "hard": 288336
       },
       "htmlRaw": {
@@ -38,18 +38,18 @@
     "components": {
       "html": "components/index.html",
       "eagerJsGz": {
-        "soft": 167399,
+        "soft": 167908,
         "hard": 184139
       },
       "htmlRaw": {
-        "soft": 547870,
+        "soft": 555586,
         "hard": 602657
       }
     },
     "getting-started": {
       "html": "getting-started/index.html",
       "eagerJsGz": {
-        "soft": 149548,
+        "soft": 150057,
         "hard": 164503
       },
       "htmlRaw": {
