@@ -36,7 +36,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
-import { downloadBlob, downloadUrl, iosNeedsShareSheet, isIOSLike, namedFileUrl } from './download';
+import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
 import { splitSlides } from './lint';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
@@ -455,10 +455,10 @@ export function PrintOptionsPanel({
 		return url;
 	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, cachedForCurrent, imgCache, pdfFilename]);
 
-	// A non-Safari iOS browser drops the name on a link download, so the Download button
-	// hands it the bytes instead and download.js offers the share sheet (two taps).
+	// On iOS the Download button hands download.js the bytes, which a non-Safari browser
+	// needs for the share sheet (download-ios.js); Safari still gets the plain download.
 	const triggerDownload = React.useCallback((url: string) => {
-		if (!iosNeedsShareSheet()) return downloadUrl(url, pdfFilename());
+		if (!isIOSLike()) return downloadUrl(url, pdfFilename());
 		void fetch(url).then((r) => r.blob()).then((b) => downloadBlob(pdfFilename(), b));
 	}, [pdfFilename]);
 

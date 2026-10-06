@@ -1,11 +1,13 @@
 // The Studio's one download helper names every saved file on the `blob:` URL itself, not
-// only in the anchor's `download` attribute — a browser that drops that hint otherwise saves
-// the URL's UUID (`76f752a8-….html`, the owner's report from lattice.style in Firefox).
-// download.ts has the measurement; this pins the mechanism and that nothing routes around it.
+// only in the anchor's `download` attribute, and on a non-Safari iOS browser saves through
+// the share sheet — Firefox for iOS otherwise saves the URL's UUID (`76f752a8-….html`, the
+// owner's iPhone). download.js and download-ios.js say why; this pins both paths and that
+// nothing routes around them.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { armDownloadLink, downloadBlob, iosNeedsShareSheet, namedFileUrl } from './download';
+import { armDownloadLink, downloadBlob, namedFileUrl } from './download';
+import { iosNeedsShareSheet } from './download-ios';
 
 let made: Blob[];
 let revoked: string[];
@@ -95,14 +97,20 @@ describe('the two-tap save on Firefox for iOS', () => {
 		vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(UA.firefoxIPhone);
 		const shared: ShareData[] = [];
 		Object.assign(navigator, { canShare: () => true, share: vi.fn(async (d: ShareData) => void shared.push(d)) });
-		const notify = await import('../../lib/notify');
+		// The real listener in notify.ts shows the toast; capture what it was asked to show.
+		const { NOTIFY_ACTION_EVENT } = await import('../../lib/notify');
 		let tap: (() => void) | undefined;
-		vi.spyOn(notify, 'notifyAction').mockImplementation((_msg, opts) => {
-			tap = opts.onClick;
-			return 'n' as unknown as ReturnType<typeof notify.notifyAction>;
-		});
+		let message = '';
+		const grab = (e: Event) => {
+			const d = (e as CustomEvent).detail;
+			message = d.message;
+			tap = d.opts.onClick;
+		};
+		window.addEventListener(NOTIFY_ACTION_EVENT, grab);
 		downloadBlob('Q3-Board-Review.pdf', new Blob(['%PDF'], { type: 'application/pdf' }));
 		await vi.waitFor(() => expect(tap).toBeDefined());
+		window.removeEventListener(NOTIFY_ACTION_EVENT, grab);
+		expect(message).toBe('Q3-Board-Review.pdf is ready');
 		expect(clicked).toHaveLength(0);
 		tap?.();
 		const f = shared[0]?.files?.[0];

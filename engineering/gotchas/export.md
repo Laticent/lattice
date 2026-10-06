@@ -649,11 +649,15 @@ anchor's `download` attribute. Two separate paths lose it:
 
 - It builds the URL from a `File` named like the download (`namedFileUrl`), keeps the
   `download` attribute, and revokes the URL a minute later rather than in the click's tick.
-- On a **non-Safari iOS browser** (`iosNeedsShareSheet`) it clicks no link. It raises a
-  "<name> is ready · Save" toast, and the tap opens the share sheet with the named `File`;
-  "Save to Files" keeps the name. Two taps, because iOS opens the sheet only inside a tap and
-  an export finishes seconds after its tap — the same shape iOS Print uses. Safari honors the
-  `download` attribute, so it keeps the one-tap download.
+- On an iPhone or iPad it loads `download-ios.js`. On a **non-Safari iOS browser**
+  (`iosNeedsShareSheet`) that clicks no link: it raises a "<name> is ready · Save" toast, and
+  the tap opens the share sheet with the named `File`; "Save to Files" keeps the name. Two
+  taps, because iOS opens the sheet only inside a tap and an export finishes seconds after its
+  tap — the same shape iOS Print uses. Safari honors the `download` attribute, so it keeps the
+  one-tap download.
+- `download-ios.js` raises its toast through `notify.ts`'s `NOTIFY_ACTION_EVENT`, never by
+  importing `notify`: a lazy chunk that imports `notify` splits it into a first-paint chunk of
+  its own (measured +1,239 B gz on the Studio, +460 B on the Playground).
 - `download.test.ts` pins both paths against real iOS user agents, and two censuses fail if
   any other file under `docs/src` names a download or makes a `blob:` URL outside the known
   Worker/CSS sites. The bug lived in five hand-rolled copies of the anchor click.
