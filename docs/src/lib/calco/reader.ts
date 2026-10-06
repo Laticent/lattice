@@ -162,13 +162,17 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	};
 
 	// ── the color text appears as over the nearest opaque, image-free background.
-	const flatten = (el: Element, c: { r: number; g: number; b: number; a: number }): string | undefined => {
+	// `overGradient`: a gradient layer counts as its background color. Only letter-spaced
+	// text asks for that, because LibreOffice clips letter-spaced text drawn with opacity
+	// (its last letters vanish), so a near color beats a lost word. A url() image never does.
+	const flatten = (el: Element, c: { r: number; g: number; b: number; a: number }, overGradient = false): string | undefined => {
 		for (let p: Element | null = el; p; p = p.parentElement) {
 			const cs = win.getComputedStyle(p);
-			if (cs.backgroundImage && cs.backgroundImage !== 'none') return undefined;
+			const image = cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage : '';
+			if (image && (!overGradient || /url\(/i.test(image))) return undefined;
 			const bg = parseColor(cs.backgroundColor);
 			if (!bg || bg.a === 0) {
-				if (p === section) return undefined;
+				if (p === section || image) return undefined;
 				continue;
 			}
 			if (bg.a < 1) return undefined;
@@ -221,7 +225,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		if (!c || c.a === 0) return; // transparent text (gradient text, already hidden) stays put
 		// Two decimals: the canvas reads alpha back as a byte, so 0.5 returns as 128/255.
 		const alpha = Math.round(c.a * opacity * 100) / 100;
-		const flat = alpha < 1 ? flatten(el, { ...c, a: alpha }) : undefined;
+		const spaced = cs.letterSpacing !== 'normal' && Number.parseFloat(cs.letterSpacing) !== 0;
+		const flat = alpha < 1 ? flatten(el, { ...c, a: alpha }, spaced) : undefined;
 		const style: TextStyle = {
 			family: usedFamily(cs.fontFamily),
 			weight: Number(cs.fontWeight) || 400,
@@ -420,8 +425,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					const width = px - advance(' ', { ...like, size: 2, letterSpacing: 0 });
 					if (width > 0) runs.push({ text: '\u00A0', style: { ...like, size: 2, letterSpacing: width, underline: false, strike: false, transform: 'none' } });
 				};
-				// Below this a gap is kerning or rounding, not room something else took.
-				const minGap = (s: TextStyle) => Math.max(2, 0.15 * s.size);
+				// Below this a gap is kerning or rounding, not room something else took. Where the
+				// style changes (a padded code chip, a pill), the padding is often smaller than
+				// that, so the bar there is a pixel.
+				const minGap = (s: TextStyle, boundary = false) => (boundary ? 1 : Math.max(2, 0.15 * s.size));
 				if (!line.length) return runs;
 				if (align === 'left' && line[0].x - x > minGap(line[0].style)) spacer(line[0].x - x, line[0].style);
 				line.forEach((word, i) => {
@@ -433,7 +440,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 						if (sep) push(sep, before.style);
 						const expected = sep ? advance(' ', before.style) : 0;
 						const gap = rtl ? before.x - (word.x + word.w) : word.x - (before.x + before.w);
-						if (gap - expected > minGap(word.style)) spacer(gap - expected, word.style);
+						if (gap - expected > minGap(word.style, before.style !== word.style)) spacer(gap - expected, word.style);
 					}
 					push(word.text, word.style);
 				});

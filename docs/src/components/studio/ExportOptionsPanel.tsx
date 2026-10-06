@@ -9,7 +9,7 @@
 //     comments. engineering/decisions/2026-10-05-reopenable-exports.md.
 //   · EDITABLE TEXT (PowerPoint, LibreOffice) — every paragraph a real text box instead of
 //     one picture per slide. Off by default: the picture is exact, and editable text depends
-//     on the reader's fonts (PowerPoint; the .odp embeds them).
+//     on the fonts the file embeds.
 //     engineering/decisions/2026-10-06-calco-office-export-library.md.
 // So tapping "PDF", "PowerPoint" or "LibreOffice" lands here first — pick what rides along,
 // then Download.
@@ -116,9 +116,7 @@ export function ExportOptionsPanel({
 								<span>
 									<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Editable text</span>
 									<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
-										{format === 'odp'
-											? 'Every paragraph becomes a text box you can edit, with the deck’s fonts built in. Charts and diagrams stay pictures.'
-											: 'Every paragraph becomes a text box you can edit. PowerPoint shows the deck’s fonts only where they are installed. Charts and diagrams stay pictures.'}
+										Every paragraph becomes a text box you can edit, with the deck’s fonts built in. Charts and diagrams stay pictures.
 									</span>
 								</span>
 							</span>

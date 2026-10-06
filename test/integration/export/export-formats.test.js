@@ -141,9 +141,12 @@ describe('export-formats', () => {
     const JSZip = require('jszip');
     const edited = path.join(tmpDir(), 'deck.pptx');
     assert.equal(run(edited, ['--editable']).status, 0);
-    const slide = await (await JSZip.loadAsync(fs.readFileSync(edited))).file('ppt/slides/slide1.xml').async('string');
+    const zip = await JSZip.loadAsync(fs.readFileSync(edited));
+    const slide = await zip.file('ppt/slides/slide1.xml').async('string');
     assert.match(slide, /<p:sp>/, 'a text box');
     assert.match(slide, /<a:t>[^<]+<\/a:t>/, 'with text in it');
+    assert.ok(Object.keys(zip.files).some((n) => /^ppt\/fonts\/.+\.fntdata$/.test(n)), 'fonts embedded as EOT');
+    assert.match(await zip.file('ppt/presentation.xml').async('string'), /<p:embeddedFontLst>/);
   });
 
   // The source CLI passed while the PUBLISHED bundle crashed: esbuild wrapped a default

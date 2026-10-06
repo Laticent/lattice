@@ -281,9 +281,8 @@ OPTIONS
                           box in the deck's own font, over a picture of the
                           slide with its text removed, so the file can be
                           edited in LibreOffice or PowerPoint. Charts, diagrams
-                          and equations stay part of the picture. The .odp
-                          embeds the fonts; the .pptx names them, so a reader
-                          without them sees a substitute.
+                          and equations stay part of the picture. Both
+                          embed the deck's fonts.
       --paper <size>      Fit each slide onto a standard sheet — auto | letter |
                           legal | a4 — instead of the default slide-sized page,
                           so the PDF prints correctly on office paper (baked
@@ -882,9 +881,6 @@ if (flags.raster && OUT_FORMAT !== 'pdf') {
 const EDITABLE = !!flags.editable && (OUT_FORMAT === 'odp' || OUT_FORMAT === 'pptx');
 if (flags.editable && !EDITABLE) {
   console.warn(`  ⚠ --editable applies only to .odp and .pptx output — ignoring.`);
-}
-if (EDITABLE && OUT_FORMAT === 'pptx' && !QUIET) {
-  console.warn('  ⚠ --editable .pptx names the deck\'s fonts but cannot embed them: PowerPoint shows them only where they are installed. A .odp embeds them.');
 }
 
 // --paper / --orientation: fit the deck onto a standard sheet (US Letter / Legal / A4)

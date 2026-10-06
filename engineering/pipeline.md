@@ -224,8 +224,9 @@ pinner. Two modes:
 - **Editable** (`--editable` on `.odp` or `.pptx`): Calco reads every paragraph off
   the rendered slide, hides that text, photographs the slide, and writes each
   paragraph back as a real text box in its own font, with the browser's line
-  breaks. The `.odp` embeds the fonts (each pinned to one weight, every character
-  kept); the `.pptx` names them, so a reader without them sees a substitute.
+  breaks. Both embed the fonts, each pinned to one weight with every character
+  kept: the `.odp` as TrueType, the `.pptx` as Embedded OpenType, one family
+  per weight.
   Charts, diagrams, equations, `::before`/`::after` text, rotated text and
   ellipsized lines stay in the picture.
 

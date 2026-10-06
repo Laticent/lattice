@@ -237,14 +237,14 @@ const faces = previewFontFaceCss();
 				<div class="beats">
 					<button class="beat" type="button" id="beatRead"><span class="n">1</span><span><span class="bt">Read</span><span class="bd">Every word, with the box and the font the browser gave it, grouped into paragraphs and lines where the browser broke them.</span><span class="api">readSlide(slide)</span></span></button>
 					<button class="beat" type="button" id="beatLift"><span class="n">2</span><span><span class="bt">Lift</span><span class="bd">Hide exactly that text, nothing else, and photograph the slide. Markers, pills and icons stay put.</span><span class="api">readSlide(slide, {"{"} hide: true {"}"})</span></span></button>
-					<button class="beat" type="button" id="beatWrite"><span class="n">3</span><span><span class="bt">Write</span><span class="bd">The picture underneath, a text box on top for every paragraph, the fonts embedded in the .odp.</span><span class="api">writeOdp(JSZip, deck) · writePptx(PptxGenJS, deck)</span></span></button>
+					<button class="beat" type="button" id="beatWrite"><span class="n">3</span><span><span class="bt">Write</span><span class="bd">The picture underneath, a text box on top for every paragraph, the fonts embedded in both.</span><span class="api">writeOdp(JSZip, deck) · writePptx(PptxGenJS, deck, 'uint8array', JSZip)</span></span></button>
 				</div>
 			</div>
 
 			<div class="limits">
 				<div><b>Stays a picture</b>Charts, diagrams, equations, and text Calco cannot place exactly: rotated, masked, or cut off by its box.</div>
 				<div><b>Lines do not reflow</b>Lines break where the browser broke them. Typing more text grows the box, not the layout.</div>
-				<div><b>PowerPoint names its fonts</b>The .pptx asks for the slide's fonts but does not carry them. The .odp does. PowerPoint itself is not yet tested.</div>
+				<div><b>Not yet opened in PowerPoint</b>The .pptx carries its fonts and opens right in LibreOffice. PowerPoint itself has not been tested yet.</div>
 			</div>
 
 			<p class="foot">
@@ -368,7 +368,7 @@ const faces = previewFontFaceCss();
 					statusEl.textContent = `Writing .${format}…`;
 					const bytes = format === 'odp'
 						? await writeOdp((await import('jszip')).default, deck, 'uint8array')
-						: await writePptx((await import('pptxgenjs')).default, deck, 'uint8array');
+						: await writePptx((await import('pptxgenjs')).default, deck, 'uint8array', (await import('jszip')).default);
 					const type = format === 'odp' ? 'application/vnd.oasis.opendocument.presentation' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 					const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
 					const a = document.createElement('a');
@@ -376,7 +376,7 @@ const faces = previewFontFaceCss();
 					setTimeout(() => URL.revokeObjectURL(url), 10000);
 					const name = document.createElement('b');
 					name.textContent = `calco-${current}.${format}`;
-					statusEl.replaceChildren(name, ` · ${read.frames.length} text boxes · ${format === 'odp' ? `${deck.fonts.length} fonts embedded` : 'fonts named'} · ${Math.round(bytes.byteLength / 1024)} KB`);
+					statusEl.replaceChildren(name, ` · ${read.frames.length} text boxes · ${deck.fonts.length} fonts embedded · ${Math.round(bytes.byteLength / 1024)} KB`);
 				} catch (e) {
 					statusEl.textContent = `Could not write the file: ${(e as Error)?.message || e}`;
 				} finally {

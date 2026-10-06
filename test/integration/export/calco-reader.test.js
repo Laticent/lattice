@@ -170,6 +170,11 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .rtl { left: 40px; top: 340px; width: 160px; direction: rtl; }
   .blank { left: 40px; top: 500px; font: 16px/22px monospace; }
   .wrapcode { left: 700px; top: 340px; width: 220px; font: 16px/22px monospace; white-space: pre-wrap; }
+  .chip { left: 40px; top: 600px; font-size: 28px; }
+  .chip code { font-size: 14px; padding: 0 4px; background: #eee; }
+  .grad { left: 700px; top: 560px; width: 400px; padding: 10px; background: #003366 linear-gradient(90deg, #00aa00 0 6px, transparent 6px); }
+  .grad p { margin: 0; color: rgba(255, 255, 255, 0.76); letter-spacing: 3px; font-size: 14px; }
+  .grad .plain { letter-spacing: normal; }
 </style></head><body>
 <section id="r">
   <p class="ws"><b>bold</b> <i>italic</i></p>
@@ -183,6 +188,8 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
 
 third</pre>
   <pre class="wrapcode">const value = "a long string that wraps";</pre>
+  <p class="chip"><code>render</code> is derived</p>
+  <div class="grad"><p>THE PREMISE</p><p class="plain">Not spaced</p></div>
 </section></body></html>`;
 
 describe('calco reader: the review cases', () => {
@@ -239,5 +246,16 @@ describe('calco reader: the review cases', () => {
     const code = find(/const value/);
     assert.ok(code.lines.length >= 2, `${code.lines.length} line(s)`);
     assert.equal(code.lines.map((l) => l.map((r) => r.text).join('')).join(''), 'const value = "a long string that wraps";');
+  });
+
+  test('a small padded code chip keeps its room even under the in-style threshold', () => {
+    const runs = find(/is derived/).lines[0];
+    const at = runs.findIndex((r) => r.text.includes('render'));
+    assert.ok(runs.slice(at + 1).some((r) => r.style.size === 2), JSON.stringify(runs.map((r) => [r.text, r.style.size])));
+  });
+
+  test('letter-spaced translucent text over a gradient is flattened (LibreOffice clips it otherwise)', () => {
+    assert.equal(find(/THE PREMISE/).lines[0][0].style.flatColor, '#c2ceda');
+    assert.equal(find(/Not spaced/).lines[0][0].style.flatColor, undefined, 'unspaced text keeps its opacity over a gradient');
   });
 });

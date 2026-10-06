@@ -2110,7 +2110,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		const bytes =
 			format === 'odp'
 				? await calco.writeOdp((await import('jszip')).default, deck, 'uint8array')
-				: await calco.writePptx((await import('pptxgenjs')).default, deck, 'uint8array');
+				: await calco.writePptx((await import('pptxgenjs')).default, deck, 'uint8array', (await import('jszip')).default);
 		let blob = new Blob([bytes], { type: kind.mime });
 		// Re-openable is a PowerPoint feature (embedded-source.ts writes an OPC part).
 		if (format === 'pptx') blob = await withEmbeddedSource(blob, 'pptx', opts?.embedSource, onStatus);

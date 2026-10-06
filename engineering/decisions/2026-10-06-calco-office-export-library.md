@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Calco (`@laticent/calco`) is the office-export library. It turns a rendered HTML slide into an OpenDocument (.odp) or PowerPoint (.pptx) file with real, editable text boxes over a picture of the slide with its text removed, in the deck's own fonts (embedded in the .odp). It is a TypeScript workspace in docs/src/lib/calco/ with no dependencies of its own; Lattice is its first user, through `.odp` and `--editable` in the CLI and the Studio. The note records how the output was checked (by eye, slide by slide, in LibreOffice 7, backed by a whole-slide pixel difference that cannot by itself show right text), the six LibreOffice behaviors the writer works around, and what the adversarial review of the first cut found and changed.
+summary: Calco (`@laticent/calco`) is the office-export library. It turns a rendered HTML slide into an OpenDocument (.odp) or PowerPoint (.pptx) file with real, editable text boxes over a picture of the slide with its text removed, in the deck's own fonts, embedded in both formats. It is a TypeScript workspace in docs/src/lib/calco/ with no dependencies of its own; Lattice is its first user, through `.odp` and `--editable` in the CLI and the Studio. The note records how the output was checked (by eye, slide by slide, in LibreOffice 7, backed by a whole-slide pixel difference that cannot by itself show right text), the six LibreOffice behaviors the writer works around, and what the adversarial review of the first cut found and changed.
 ---
 
 # Calco: rendered slides to editable office files (2026-10-06)
@@ -24,8 +24,12 @@ option:
 |---|---|---|
 | How to get editable text | Our own reader and writers | LibreOffice's PDF import (`soffice --infilter=impress_pdf_import`): needs LibreOffice on the exporting machine, cannot run in the Studio, and swaps the fonts (§3) |
 | Editable or picture by default | Picture stays the default; `--editable` opts in | Editable text depends on fonts the reader may not have; the picture is exact |
-| PPTX fonts | Named, with the suite's fallback | Embedding (unverifiable here: §6) |
+| PPTX fonts | Named, with the suite's fallback, if embedding is not possible | — (embedding was then built: see below and §6) |
 | The shipped picture `.pptx` | Untouched (`lib/export/pptx-export.js`) | Moving it into Calco would change shipped bytes and need a new sign-off |
+
+**PPTX fonts, revisited.** The owner then asked for the most look-parity achievable. The
+`.pptx` now embeds its fonts too (§6); naming remains the fallback, for a CFF face or a host
+that does not pass JSZip.
 
 The name: *calco* is Italian for a cast or a tracing taken from an original. The output is
 a faithful copy you can then rework.
@@ -155,7 +159,9 @@ The red team, a Munger inversion and an independent checker reviewed the first c
 | Text hidden by `filter`, `mask`, `clip`, `clip-path`, or stroked, became visible editable text | those subtrees stay in the picture |
 | A quote or control character in a font name or text broke the `.pptx` XML | escaped / stripped before PptxGenJS |
 | A restricted-license font would be embedded by a non-Lattice host | `fsType` bit 1 refuses it (`embeddingAllowed`); Lattice's faces are all OFL |
-| PowerPoint would re-wrap a line set in a wider substitute font | `.pptx` boxes do not wrap; the CLI says the fonts are named, not embedded |
+| A letter-spaced translucent eyebrow over a gradient lost its last letters in LibreOffice ("THE PREMI") | LibreOffice clips letter-spaced text drawn with opacity; such text is flattened over the gradient's base color (never over a `url()` image) |
+| The gap after a small padded code chip collapsed | at a style boundary a 1px difference already makes a spacer |
+| PowerPoint would re-wrap a line set in a wider substitute font | `.pptx` boxes do not wrap, and the fonts are now embedded (§6) |
 
 Recorded, not fixed: PowerPoint itself (§6), the AGPL license for a library meant for
 anyone (the owner's call), the `types` entry pointing at TypeScript source (as every sibling
@@ -168,14 +174,33 @@ cut by a clip, an ellipsized footer among them. A box cannot reproduce a cut wor
 
 ## 6. PowerPoint: what is and is not verified
 
-The editable `.pptx` places the same boxes through PptxGenJS. Three limits, stated in
-`pptx.ts`: fonts are named, not embedded; weight is bold or not (600+ is bold); and
-`text-transform` is baked into the text.
+The editable `.pptx` places the same boxes through PptxGenJS, then Calco adds the fonts to
+the package itself (`embedPptxFonts`, `pptx.ts`; `sfnt.ts`):
 
-**UNVERIFIED in PowerPoint itself** (HARD RULE #23): no PowerPoint runs here. The `.pptx`
-was rendered by LibreOffice, where every box lands in place (1.36–3.61% differ, the excess
-over the `.odp` being the substituted fonts on a machine without the deck's faces).
-PowerPoint's own line-spacing model may place baselines differently.
+- **Embedded OpenType, one family per weight.** PowerPoint's font model has four slots per
+  family (regular, bold, italic, bold italic), so Outfit 300, 500 and 600 have nowhere to go.
+  `renameFace` gives each pinned face its own family ("Outfit SemiBold"), as that family's
+  regular face, and its runs ask for it by that name with no synthetic bold or italic.
+  `toEot` wraps it as EOT 2.1, uncompressed and not XOR-ed, in `ppt/fonts/*.fntdata`, listed
+  in `p:embeddedFontLst` with `embedTrueTypeFonts="1"`, related by the `font` relationship
+  and typed `application/x-fontdata`. This is the shape PowerPoint itself writes.
+- **What is still named, not embedded:** a face with CFF outlines (Lattice ships none), and
+  any `writePptx` call without JSZip. Those runs fall back to the family plus bold at 600+.
+- `text-transform` is baked into the text.
+
+Checked: libeot (what LibreOffice links) decodes all nine `.fntdata` of
+`examples/muted-tier-and-syntax.md` with the right family names. LibreOffice 24.2 does not
+import PPTX embedded fonts at all; **LibreOffice 26.8.1 does**, and renders that deck in the
+embedded faces (`pdffonts` lists PlayfairDisplayBold, OutfitLight, OutfitMedium,
+JetBrainsMono and the rest). Per slide, 1.37–2.89% of pixels differ from the picture export,
+and the slides match side by side. A baseline check deck (hairlines drawn by Chrome under
+each baseline, text boxes over them) puts LibreOffice's body text within about 1px of
+Chrome's and code within about 2.5px.
+
+**UNVERIFIED in PowerPoint itself** (HARD RULE #23): no PowerPoint runs here. PowerPoint's
+rule for "exactly" line spacing is not published, so its baselines may sit a few pixels
+from LibreOffice's. The baseline check deck is the one-look test: open it in PowerPoint and
+see whether the letters stand on the red lines (`followups.d/2556-p2-verify-editable-pptx-in-powerpoint.md`).
 
 ## 7. How it is verified
 
@@ -190,6 +215,5 @@ PowerPoint's own line-spacing model may place baselines differently.
 ## 8. What this does not do
 
 - No native charts, diagrams or equations; no reflow; no editable speaker-note formatting.
-- No font embedding in `.pptx` (§6).
 - The `/calco` page and the brand mark are later commits in this PR.
 - No `.lattice` source inside an `.odp` (the re-openable switch is PowerPoint and PDF only).

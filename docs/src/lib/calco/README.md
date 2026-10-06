@@ -2,8 +2,8 @@
 
 **Rendered slides to office files you can edit.** Calco reads a laid-out HTML slide, keeps a
 picture of it with the text removed, and writes every paragraph back as a real text box in its
-own font: an OpenDocument Presentation (`.odp`, for LibreOffice Impress, fonts embedded) or a
-PowerPoint file (`.pptx`). Speaker notes and alt text come along. Or skip the text and write one
+own font: an OpenDocument Presentation (`.odp`, for LibreOffice Impress) or a
+PowerPoint file (`.pptx`), fonts embedded in both. Speaker notes and alt text come along. Or skip the text and write one
 picture per slide.
 
 *Calco* is Italian for a cast or a tracing: a faithful copy you can rework.
@@ -23,9 +23,9 @@ const deck = {
   width: read.width, height: read.height,
   slides: [{ image: background, frames: read.frames, notes: 'Say this', description: 'Title slide' }],
 };
-deck.fonts = await prepareFonts(deck, { load, pin }); // optional: embed the fonts (.odp)
+deck.fonts = await prepareFonts(deck, { load, pin }); // optional: embed the fonts
 const odp = await writeOdp(JSZip, deck);               // Uint8Array
-const pptx = await writePptx(PptxGenJS, deck);         // Uint8Array
+const pptx = await writePptx(PptxGenJS, deck, 'uint8array', JSZip); // fonts embedded
 ```
 
 ## What it reads, and what it leaves in the picture
@@ -51,9 +51,11 @@ Hiding the text does not touch anything else: colors that come from `currentColo
   pinned: an office suite draws a variable file at its default weight. HarfBuzz's subsetter
   does this (`hb_subset_input_pin_axis_location` plus an inverted, empty Unicode set).
 
-The `.odp` embeds the faces. The `.pptx` only names them (PowerPoint's own embedded-font format
-is not written), so a reader without them sees a substitute; Calco still uses their metrics to
-place the boxes.
+Both formats embed the faces. The `.odp` carries them as TrueType. The `.pptx` carries them as
+Embedded OpenType in `ppt/fonts/` when you pass JSZip as `writePptx`'s fourth argument; each
+weight becomes a family of its own ("Outfit SemiBold"), because PowerPoint's font slots are only
+regular, bold, italic and bold italic. Only TrueType-outline faces are embedded in a `.pptx`; a
+CFF face, or a call without JSZip, is named instead, so a reader without it sees a substitute.
 
 ## No dependencies
 
