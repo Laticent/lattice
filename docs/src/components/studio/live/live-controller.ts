@@ -55,7 +55,7 @@ const writeLink = (room: string, patch: Linked) => {
  *  lives in IndexedDB as a non-extractable CryptoKey (`putHostPrivateKey`), never in this record. */
 type HostSave = { room: string; sealed: string; pub: string; name: string; deckId: string; doc: string; startedAt: number };
 /** What `HostSave.sealed` opens to. Chat is in here because people paste things into chat. */
-type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[] };
+type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; sids?: Array<[sid: string, owner: string]> };
 const toB64 = (u: Uint8Array) => {
 	let s = '';
 	for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
@@ -82,7 +82,10 @@ const clearHostSave = () => {
  */
 type ChatLine = { seq: number; id: string; peer: string; name: string; color: LiveColor; text: string; at: number };
 /** A line this browser sent that the host has not echoed back yet ("Sending…"). */
-type Pending = { id: string; text: string; at: number };
+type Pending = { id: string; text: string; at: number; tries?: number };
+/** A waiting line given up on after this many resends (about 1.5 min), with a note: one the host can
+ *  never take (its id belongs to an old rejoin token) must not say "Sending…" forever. */
+const MAX_TRIES = 6;
 /**
  * Posts on Tavola's app channel. Chat goes THROUGH the host:
  *   member → host  `say`    a line, with an id the member chose (the host drops a repeat)
@@ -112,6 +115,20 @@ const PENDING_KEY = 'lattice-live-pending';
 /** A dropped member is remembered by name AND color: names repeat ("Guest"), and a rejoin by token
  *  keeps both (checker round 3, finding 4). */
 const awayKey = (m: { name: string; color: LiveColor }) => `${m.color}|${m.name}`;
+/** sessionStorage: every chat-id prefix this tab has used in a room, so "mine" survives a reload. */
+const MY_SIDS_KEY = 'lattice-live-sids';
+const sidOf = (id: string) => id.split(':')[0] ?? '';
+/** A fresh prefix for this page load, remembered so an earlier load's lines still read as mine. */
+const newSid = (room: string): { sid: string; mine: Set<string> } => {
+	const sid = Math.random().toString(36).slice(2, 10);
+	let sids: string[] = [];
+	try {
+		const saved = JSON.parse(sessionStorage.getItem(MY_SIDS_KEY) || 'null') as { room?: string; sids?: string[] } | null;
+		sids = saved?.room === room && Array.isArray(saved.sids) ? saved.sids.filter((x) => typeof x === 'string').slice(-20) : [];
+		sessionStorage.setItem(MY_SIDS_KEY, JSON.stringify({ room, sids: [...sids, sid] }));
+	} catch {}
+	return { sid, mine: new Set([...sids, sid]) };
+};
 /** A member re-sends waiting lines this often, whatever else happens (inversion round 3, item 3). */
 const RESEND_MS = 15_000;
 const enc = new TextEncoder();
@@ -120,7 +137,7 @@ const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 ||
 /** A history line from the host, kept only in the shape a line has. */
 const cleanLine = (x: unknown): ChatLine | null => {
 	const l = x as Partial<ChatLine> | null;
-	if (!l || typeof l !== 'object' || !Number.isSafeInteger(l.seq) || (l.seq as number) < 1 || typeof l.id !== 'string' || typeof l.peer !== 'string' || typeof l.name !== 'string' || typeof l.text !== 'string' || !isColor(l.color) || typeof l.at !== 'number') return null;
+	if (!l || typeof l !== 'object' || !Number.isSafeInteger(l.seq) || (l.seq as number) < 1 || typeof l.id !== 'string' || typeof l.peer !== 'string' || typeof l.name !== 'string' || typeof l.text !== 'string' || !isColor(l.color) || typeof l.at !== 'number' || !Number.isFinite(l.at) || Math.abs(l.at) > 1e14) return null;
 	return { seq: l.seq as number, id: l.id.slice(0, 120), peer: l.peer.slice(0, 120), name: cleanName(l.name), color: l.color, text: l.text.slice(0, CHAT_MAX), at: l.at };
 };
 
@@ -160,6 +177,8 @@ type Runtime = {
 	/** This browser's chat counter; a line's id is `<sid>:<n>`, `sid` random per session. */
 	chatN: number;
 	sid: string;
+	/** Every prefix this tab has used in this room (read once, at wire time). */
+	mine: Set<string>;
 	/** The host's document has arrived (a guest may not open the deck before it has). */
 	gotDoc: boolean;
 	disposers: Array<() => void>;
@@ -311,6 +330,13 @@ export class LiveController {
 	private pending: Pending[] = [];
 	/** Host: the last number given; member: the highest number held. */
 	private seq = 0;
+	/** Host: each chat-id prefix (`sid`) belongs to the member who first used it, by REJOIN TOKEN —
+	 *  the identity the host verified, which a name and color are not (red team round 3, finding 1). */
+	private sidOwner = new Map<string, string>();
+	/** Host: who already moved the numbering floor since their admission, and when each last asked. */
+	private floorFrom = new Set<string>();
+	private sinceAt = new Map<string, number>();
+	private sinceLater = new Set<string>();
 	/** Member: the host's session start (session time), from its `lines` / `tip`. */
 	private hostStartedAt: number | null = null;
 	private lastTypingPost = 0;
@@ -377,6 +403,7 @@ export class LiveController {
 				const key = await hostKeyFrom(priv, fromBase64Url(hosting.pub));
 				this.chat = (opened.chat ?? []).map(cleanLine).filter((l): l is ChatLine => !!l);
 				this.seq = this.chat.reduce((m, l) => Math.max(m, l.seq), 0);
+				this.sidOwner = new Map((opened.sids ?? []).filter((e) => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string'));
 				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc }, startedAt: hosting.startedAt, release });
 				this.bound = true;
 				this.boundDeck = hosting.deckId;
@@ -493,7 +520,7 @@ export class LiveController {
 		const fingerprint = key?.fingerprint ?? (args.hostFingerprint as string);
 		// The link is this page's address WITHOUT its query: a query can carry anything the host's
 		// address bar happened to hold (inversion round 2, item 6).
-		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, sid: Math.random().toString(36).slice(2, 10), gotDoc: !!args.host, disposers: [] };
+		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [] };
 		if (args.release) rt.disposers.push(args.release);
 		this.rt = rt;
 		const r = rt;
@@ -512,6 +539,8 @@ export class LiveController {
 						// first.
 						if (s.isHost) {
 							const to = m.id;
+							this.floorFrom.delete(to);
+							this.sinceAt.delete(to);
 							setTimeout(() => {
 								if (this.rt === r) this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt }, to);
 							}, 400);
@@ -525,7 +554,11 @@ export class LiveController {
 					}
 					// Someone left or was removed: the host saves now, not a second later, so a reload
 					// right after a removal cannot bring back the token it revoked (red-team round 2).
-					if (s.isHost && [...before.keys()].some((id) => !s.members.some((x) => x.id === id))) void this.saveHost();
+					// If that save fails, drop the old one: a stale save would bring a revoked token back.
+					if (s.isHost && [...before.keys()].some((id) => !s.members.some((x) => x.id === id)))
+						void this.saveHost().then((ok) => {
+							if (!ok) clearHostSave();
+						});
 					for (const [id, m] of before) {
 						if (s.members.some((x) => x.id === id) || id === s.selfId) continue;
 						this.typingAt.delete(id);
@@ -648,6 +681,12 @@ export class LiveController {
 		this.away.clear();
 		this.byes.clear();
 		this.removed.clear();
+		this.sidOwner.clear();
+		this.floorFrom.clear();
+		this.sinceAt.clear();
+		try {
+			sessionStorage.removeItem(MY_SIDS_KEY);
+		} catch {}
 		this.typingAt.clear();
 		this.pending = [];
 		try {
@@ -706,7 +745,7 @@ export class LiveController {
 		let sealed: string;
 		const seq = ++this.sealSeq;
 		try {
-			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat } satisfies HostSealed));
+			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat, sids: [...this.sidOwner] } satisfies HostSealed));
 		} catch {
 			return false;
 		}
@@ -915,7 +954,9 @@ export class LiveController {
 		const s = this.rt?.session.getState();
 		const me = s?.me;
 		// Mine: sent from this browser, or (after a reload, under a new peer id) under my name and color.
-		const lines: LiveChatLine[] = this.chat.map((l) => ({ kind: 'message', id: `c${l.seq}`, from: l.name, color: l.color, text: l.text, at: l.at, mine: l.peer === s?.selfId || (!!me && l.name === me.name && l.color === me.color) }));
+		// Mine: written under one of this tab's chat-id prefixes (this page's, or an earlier load's).
+		const mine = this.mySids();
+		const lines: LiveChatLine[] = this.chat.map((l) => ({ kind: 'message', id: `c${l.seq}`, from: l.name, color: l.color, text: l.text, at: l.at, mine: l.peer === s?.selfId || mine.has(sidOf(l.id)) }));
 		for (const p of this.pending) lines.push({ kind: 'message', id: `p${p.id}`, from: me?.name ?? '', color: me?.color ?? 1, text: p.text, at: p.at, mine: true, pending: true });
 		return lines;
 	}
@@ -941,10 +982,11 @@ export class LiveController {
 	 *  a second old can hand out a number again, and the second line must not be taken for a copy of
 	 *  the first (checker, 2026-10-06). */
 	private addLines(lines: ChatLine[]) {
-		// Ours: sent from this connection, or (after a reload, under a new one) under our name. A line
-		// we already hold still counts as a receipt — the host re-sends one when it drops our resend.
-		const st = this.rt?.session.getState();
-		const echoed = new Set(lines.filter((l) => l.peer === st?.selfId || l.name === st?.me?.name).map((l) => l.id));
+		// Ours: written under one of OUR chat-id prefixes — never "has my name", which anyone can take
+		// (red team round 3, finding 1). A line we already hold still counts as a receipt: the host
+		// re-sends one when it drops our resend.
+		const mine = this.mySids();
+		const echoed = new Set(lines.filter((l) => mine.has(sidOf(l.id))).map((l) => l.id));
 		if (echoed.size && this.pending.some((p) => echoed.has(p.id))) {
 			this.setPending(this.pending.filter((p) => !echoed.has(p.id)));
 			this.host.rerender();
@@ -957,6 +999,14 @@ export class LiveController {
 		this.seq = Math.max(this.seq, ...fresh.map((l) => l.seq));
 		this.saveHostSoon();
 		this.host.rerender();
+	}
+
+	/** This tab's chat-id prefixes for this room: this page load's, earlier loads' (sessionStorage), and
+	 *  those of lines still waiting. */
+	private mySids(): Set<string> {
+		const out = new Set<string>(this.rt?.mine ?? []);
+		for (const p of this.pending) out.add(sidOf(p.id));
+		return out;
 	}
 
 	/** Member: the lines waiting for the host, kept SEALED in this tab's sessionStorage so a reload
@@ -996,7 +1046,20 @@ export class LiveController {
 		const host = this.hostId();
 		if (!s || s.isHost || s.stage !== 'live' || s.hostAway || !host) return;
 		this.post({ k: 'since', seq: this.seq }, host);
-		for (const p of this.pending) this.post({ k: 'say', id: p.id, text: p.text, have: this.seq }, host);
+		const kept = this.pending.filter((p) => (p.tries ?? 0) < MAX_TRIES);
+		if (kept.length < this.pending.length) this.sys(`${this.pending.length - kept.length === 1 ? 'A message' : 'Some messages'} could not be sent.`);
+		const next = kept.map((p) => ({ ...p, tries: (p.tries ?? 0) + 1 }));
+		this.setPending(next);
+		for (const p of next) this.post({ k: 'say', id: p.id, text: p.text, have: this.seq }, host);
+	}
+
+	/** Host: a member holding a number past ours means our save was older than the session (a reload),
+	 *  so never hand those numbers out again. Once per member per admission, and bounded, so nobody can
+	 *  push the numbering far (red team round 3, finding 4). */
+	private raiseFloor(from: string, seq: number) {
+		if (seq <= this.seq || this.floorFrom.has(from)) return;
+		this.floorFrom.add(from);
+		this.seq = Math.min(seq, this.seq + CHAT_KEEP);
 	}
 
 	/** Host: number a line, keep it, and send it to everyone (the sender's copy is its receipt). */
@@ -1008,7 +1071,15 @@ export class LiveController {
 		// next id first and swallow their line. Each page load draws a fresh id prefix, so a NEW line
 		// after a reload can never match an old one (checker round 3, finding 1).
 		if (!r) return;
-		const taken = this.chat.find((l) => l.name === member.name && l.color === member.color && l.id === id);
+		// The id's prefix must belong to this member's token (first use binds it); anyone else's say
+		// under it is dropped, so nobody can claim another member's line or forge their receipt.
+		const owner = peer === r.session.getState().selfId ? 'host' : r.session.memberToken(peer);
+		const sid = sidOf(id);
+		if (!owner || !sid) return;
+		const held = this.sidOwner.get(sid);
+		if (held !== undefined && held !== owner) return;
+		if (held === undefined) this.sidOwner.set(sid, owner);
+		const taken = this.chat.find((l) => l.id === id);
 		if (taken) {
 			// Already numbered: send the sender its receipt again, so its "Sending…" clears.
 			if (peer !== r.session.getState().selfId) this.post({ k: 'line', line: taken }, peer);
@@ -1036,8 +1107,10 @@ export class LiveController {
 		if (!p || typeof p !== 'object') return;
 		const fromHost = sender.role === 'host';
 		if (p.k === 'typing' && sender.role !== 'view') {
+			// At most one redraw a second per typist, however fast the posts come.
+			const was = this.typingAt.get(from) ?? 0;
 			this.typingAt.set(from, Date.now());
-			this.host.rerender();
+			if (Date.now() - was > 1000) this.host.rerender();
 		} else if (p.k === 'bye') {
 			this.byes.add(from);
 		} else if (p.k === 'gone' && fromHost && typeof p.id === 'string' && typeof p.name === 'string') {
@@ -1056,12 +1129,29 @@ export class LiveController {
 				this.typingAt.delete(from);
 				// The sender's highest number is a floor too, so a host restored from an old save never
 				// numbers this line with a number the sender already holds.
-				if (Number.isSafeInteger(p.have) && (p.have as number) > this.seq) this.seq = Math.min(p.have as number, this.seq + CHAT_KEEP);
+				if (Number.isSafeInteger(p.have)) this.raiseFloor(from, p.have as number);
 				this.hostTake(p.id, from, sender, p.text);
 			} else if (p.k === 'since' && Number.isSafeInteger(p.seq)) {
+				// One answer per member every 2 s: a 30-byte ask must not buy a megabyte reply on demand.
+				// An ask inside the window is answered when it ends (once), not dropped — a member that
+				// asked twice for a real reason still gets its lines.
+				const wait = (this.sinceAt.get(from) ?? 0) + 2000 - Date.now();
+				if (sender.role !== 'view') this.raiseFloor(from, p.seq);
+				if (wait > 0) {
+					if (!this.sinceLater.has(from)) {
+						this.sinceLater.add(from);
+						setTimeout(() => {
+							this.sinceLater.delete(from);
+							if (this.rt !== r || !r.session.getState().members.some((m) => m.id === from)) return;
+							this.sinceAt.set(from, Date.now());
+							this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt }, from);
+						}, wait);
+					}
+					return;
+				}
+				this.sinceAt.set(from, Date.now());
 				// A member holding a number past ours means our save was older than the session (a
 				// reload): never hand those numbers out again. Bounded, so nobody can push it far.
-				if (p.seq > this.seq && sender.role !== 'view') this.seq = Math.min(p.seq, this.seq + CHAT_KEEP);
 				this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt }, from);
 			}
 		} else if (fromHost) {
@@ -1093,7 +1183,7 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS, mic: 'off' };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: 'off' };
 		});
 		for (const [k, a] of this.away) {
 			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role, slide: null, editing: false, mic: 'off', away: true });

@@ -94,6 +94,9 @@ export type Session = {
 	post(data: Uint8Array, to?: PeerId): void;
 	/** Host: the rejoin tokens, to hand to `HostOptions.tokens` after a reload. */
 	exportTokens(): TokenEntry[];
+	/** Host: the rejoin token of a member — the identity it keeps across reconnects and reloads, which
+	 *  a peer id does not. For the app to bind what a member owns (its chat ids) to who it is. */
+	memberToken(id: PeerId): string | undefined;
 	/** Host: end the session for everyone. */
 	end(): void;
 	/** Leave this session (a guest leaving, or a host closing without ending). */
@@ -628,6 +631,7 @@ export function createSession(opts: SessionOptions): Session {
 			} else for (const m of others()) send(m.id, f);
 		},
 		exportTokens: () => [...tokens.entries()],
+		memberToken: (id) => (isHost ? tokenOf.get(id) : undefined),
 		end() {
 			hostOnly(() => {
 				ending = true;

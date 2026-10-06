@@ -58,7 +58,13 @@ function sealingKey(): Promise<CryptoKey> {
 	return boxKey;
 }
 
-const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
+// Chunked: spreading a whole buffer into one call overflows the argument limit past ~125 KB, which
+// silently broke every save of a long chat (red team round 3, finding 2).
+const b64 = (u: Uint8Array) => {
+	let s = '';
+	for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
+	return btoa(s);
+};
 const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
 /** `text`, sealed: `s1.<iv>.<ciphertext>`. */

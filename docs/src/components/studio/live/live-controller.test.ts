@@ -47,6 +47,8 @@ const until = async (ok: () => boolean, ...ctls: Ctl[]) => {
 
 async function hostSession() {
 	const sh = shell();
+	// Each controller is its own browser tab: no chat-id prefixes inherited (jsdom shares storage).
+	sessionStorage.removeItem('lattice-live-sids');
 	const h = new LiveController(sh.host, deps('host-deck'));
 	h.actions.start('Sharmarke');
 	await until(() => h.view().status === 'live', h);
@@ -56,6 +58,7 @@ async function guestOf(h: Ctl, name: string) {
 	const sh = shell();
 	// Each guest is its own browser: no rejoin token left by the one before (jsdom shares storage).
 	localStorage.removeItem('lattice-live-links');
+	sessionStorage.removeItem('lattice-live-sids');
 	location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 	takeLiveIntent();
 	const g = new LiveController(sh.host, deps(`${name}-deck`));
@@ -331,11 +334,14 @@ describe('LiveController (second-round trio)', () => {
 		const { h } = await hostSession();
 		const { g: a } = await guestOf(h, 'Amina');
 		const { g: b } = await guestOf(h, 'Bo');
-		// biome-ignore lint/suspicious/noExplicitAny: read Amina's session id, as any member can from an echoed line.
-		const sid = (a as any).rt.sid as string;
+		// Amina speaks first; her line's id (which every member receives) shows her prefix.
+		a.actions.sendChat('a1');
+		await until(() => b.view().chat.some((l) => l.kind === 'message' && l.text === 'a1'), h, a, b);
+		// biome-ignore lint/suspicious/noExplicitAny: read the prefix off the echoed line, as Bo could.
+		const sid = ((b as any).chat.find((l: { text: string }) => l.text === 'a1').id as string).split(':')[0];
 		// biome-ignore lint/suspicious/noExplicitAny: Bo posts under Amina's next id.
 		const bp = b as any;
-		bp.post({ k: 'say', id: `${sid}:1`, text: 'squat' }, bp.hostId());
+		for (let n = 2; n <= 6; n++) bp.post({ k: 'say', id: `${sid}:${n}`, text: `squat${n}` }, bp.hostId());
 		await settle(h, a, b);
 		a.actions.sendChat('real line');
 		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'real line'), h, a, b);
@@ -362,12 +368,16 @@ describe('LiveController (second-round trio)', () => {
 		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'sent just before the reload'), h, g);
 		// biome-ignore lint/suspicious/noExplicitAny: the host's numbered line, as a reloaded tab would hold it in its sealed queue.
 		const taken = (h as any).chat.find((l: { text: string }) => l.text === 'sent just before the reload');
-		// The reloaded tab: the old page goes, then a NEW controller (new connection id) with that line
-		// still waiting.
+		// The reloaded tab: the old page goes, then a NEW controller (new connection id) that keeps the
+		// rejoin token (localStorage) and still holds that line in its waiting queue.
+		const link = (h.view().link ?? '').split('#live=')[1];
 		g.dispose();
 		await until(() => !h.view().people.some((p) => p.name === 'Amina' && !p.away), h);
-		localStorage.removeItem('lattice-live-links');
-		const { g: again } = await guestOf(h, 'Amina');
+		location.hash = `#live=${link}`;
+		takeLiveIntent();
+		const again = new LiveController(shell().host, deps('Amina-deck'));
+		await again.resume();
+		await until(() => again.view().status === 'live', h, again);
 		// biome-ignore lint/suspicious/noExplicitAny: seed the restored queue and resend it.
 		const ap = again as any;
 		ap.pending = [{ id: taken.id, text: taken.text, at: Date.now() }];
@@ -419,5 +429,63 @@ describe('LiveController (second-round trio)', () => {
 		net.current?.cut(id(h), id(b));
 		// Both dropped: two "Reconnecting…" rows, not one overwriting the other.
 		await until(() => h.view().people.filter((p) => p.name === 'Guest' && p.away).length === 2, h);
+	});
+
+	it('an impostor under the same name and color cannot take over a member\'s line ids (red team round 3)', async () => {
+		const { h } = await hostSession();
+		const { g: amina } = await guestOf(h, 'Amina');
+		amina.actions.sendChat('hi');
+		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'hi'), h, amina);
+		// biome-ignore lint/suspicious/noExplicitAny: read Amina's prefix off the echoed line.
+		const sid = ((h as any).chat.find((l: { text: string }) => l.text === 'hi').id as string).split(':')[0];
+		// A second "Amina" (different token) posts under Amina's next id.
+		const { g: fake } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: the impostor drives the post channel.
+		const fp = fake as any;
+		fp.post({ k: 'say', id: `${sid}:2`, text: 'Yes, approve the budget' }, fp.hostId());
+		await settle(h, amina, fake);
+		amina.actions.sendChat('NO, do not approve');
+		const texts = h.view.bind(h);
+		await until(() => texts().chat.some((l) => l.kind === 'message' && l.text === 'NO, do not approve'), h, amina, fake);
+		expect(h.view().chat.some((l) => l.kind === 'message' && l.text === 'Yes, approve the budget')).toBe(false);
+	});
+
+	it('a long chat (past 125 KB) still seals and saves', async () => {
+		const { h } = await hostSession();
+		for (let i = 0; i < 140; i++) h.actions.sendChat(`${i} ${'x'.repeat(990)}`);
+		// biome-ignore lint/suspicious/noExplicitAny: call the host save directly.
+		expect(await (h as any).saveHost()).toBe(true);
+	});
+
+	it('a burst of "since" asks gets at most one answer now and one later', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		await new Promise((res) => setTimeout(res, 2100));
+		let answers = 0;
+		// biome-ignore lint/suspicious/noExplicitAny: count the host's replies.
+		const hp = h as any;
+		const orig = hp.post.bind(hp);
+		hp.post = (p: { k: string }, to?: string) => {
+			if (p.k === 'lines') answers++;
+			orig(p, to);
+		};
+		// biome-ignore lint/suspicious/noExplicitAny: the guest floods asks.
+		const gp = g as any;
+		for (let n = 0; n < 10; n++) gp.post({ k: 'since', seq: 0 }, gp.hostId());
+		await settle(h, g);
+		await new Promise((res) => setTimeout(res, 2200));
+		await settle(h, g);
+		expect(answers).toBeLessThanOrEqual(2);
+	});
+
+	it('the numbering floor moves at most once per member per admission', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: the guest posts inflated numbers.
+		const gp = g as any;
+		for (let n = 0; n < 40; n++) gp.post({ k: 'say', id: `${gp.rt.sid}:${100 + n}`, text: 'x', have: 1_000_000 }, gp.hostId());
+		await settle(h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: read the host's number.
+		expect((h as any).seq).toBeLessThan(600);
 	});
 });
