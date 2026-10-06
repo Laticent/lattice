@@ -49,18 +49,18 @@ Three things changed since, and they are why this note exists:
 
 ## 3. What the Studio gives us today
 
-A scout pass mapped the Studio on 2026-10-06. The facts that shape the design:
+A scout pass mapped the Studio on 2026-10-06, and an independent fact-checker re-verified every pointer below against `main` after the rebase the same day. The facts that shape the design:
 
 | Fact | Where | Consequence |
 |---|---|---|
-| The left rail is one nullable enum, `activeAssistant: 'coach'\|'chat'\|'lenses'\|'library'\|null` — one open tool panel at a time | `StudioShell.tsx:588`, `ActivityRail` in `chrome-parts.tsx:272` | Collaborate is a fifth value. It toggles like Chat, and it closes when Coach opens |
-| The rail exists only on desktop in Craft; tablet uses the ⋯ menu and a left sheet; mobile uses a bottom bar that is **full at eight cells** with a protected set | `StudioShell.tsx:6312`, `:5603`, `:6240-6288` | The live session cannot depend on the panel being open, and mobile needs an entry point that is not a ninth cell (§5.6) |
-| Deck source is plain React state; CodeMirror receives it through a prefix/suffix diff, and those inbound dispatches land on the local undo stack | `StudioShell.tsx:414`, `Editor.tsx:854-884` | During a session the editor must bind to a shared `Y.Text` directly, and undo must become "undo **my** edits" (§6.1) |
-| The active slide is `activeSlide`; `goToSlide` and `onEditorCursorSlide` write it | `StudioShell.tsx:439`, `:2603`, `:2642` | Presence ("Amina is on slide 4") and follow mode hook in here |
+| The left rail is one nullable enum, `activeAssistant: 'coach'\|'chat'\|'lenses'\|'library'\|null` — one open tool panel at a time | `StudioShell.tsx:590`, `ActivityRail` in `chrome-parts.tsx:272` | Collaborate is a fifth value. It toggles like Chat, and it closes when Coach opens |
+| The rail exists only on desktop in Craft; tablet uses the ⋯ menu and a left sheet; mobile uses a bottom bar that is **full at eight cells** with a protected set | `StudioShell.tsx:6363`, `:5647-5650`, `:6283-6296` | The live session cannot depend on the panel being open, and mobile needs an entry point that is not a ninth cell (§5.6) |
+| Deck source is plain React state; CodeMirror receives it through a prefix/suffix diff, and those inbound dispatches land on the local undo stack | `StudioShell.tsx:416`, `Editor.tsx:859-889` | During a session the editor must bind to a shared `Y.Text` directly, and undo must become "undo **my** edits" (§6.1) |
+| The active slide is `activeSlide`; `goToSlide` and `onEditorCursorSlide` write it | `StudioShell.tsx:441`, `:2616`, `:2655` | Presence ("Amina is on slide 4") and follow mode hook in here |
 | Decks live in `localStorage` (`lattice-studio-src-<id>`) | `studio-store.ts:21` | A guest's copy of a shared deck is an ordinary deck entry (§5.5) |
 | No identity: the rail's account chip is a hard-coded "SA"; comment authors are "You" | `chrome-parts.tsx:309`, `slide-comments.ts:106` | Collaboration has to introduce a name and a color. The comments note already says identity "lands with collaboration" |
-| The Studio reads no hash; OpenRouter OAuth drops every query parameter on its round trip | `architect.ts:1944` | The link uses the hash fragment, and the Studio keeps the join intent in `sessionStorage` across OAuth (§4.1) |
-| No `yjs`, no WebRTC code, no Worker in the repo | `docs/package.json` | Greenfield; everything collab is lazy-loaded so solo users pay nothing |
+| The Studio reads no hash; OpenRouter OAuth drops every query parameter on its round trip | `architect.ts:1943` | The link uses the hash fragment, and the Studio keeps the join intent in `sessionStorage` across OAuth (§4.1) |
+| No `yjs` and no WebRTC code in the repo. Web Workers exist (PDF/PPTX export, Kokoro voice, the AI model), none for sync | `docs/package.json` | Greenfield; everything collab is lazy-loaded so solo users pay nothing |
 
 ## 4. The handshake — from link to editing together
 
@@ -291,7 +291,8 @@ The session must not depend on the panel being open — closing it is how you ge
 back for the editor.
 
 - **Presence pill in the header.** While live, the header shows an avatar stack and a mic
-  toggle next to Share. Clicking the stack opens the panel; the mic toggle works in place.
+  toggle next to Share on desktop and tablet. The mobile header has no Share (it is a bottom
+  bar cell, `StudioShell.tsx:6338`), so there the pill sits beside the menu trigger. Clicking the stack opens the panel; the mic toggle works in place.
   This is the always-visible surface on every width.
 - **Floating video.** If anyone has a camera on and the panel is closed, the tiles collapse
   into a small draggable strip over the preview's corner ("pop out" in §5.2 does the same
@@ -339,9 +340,13 @@ back for the editor.
   `yCollab` (from `y-codemirror.next`). The React `source` state becomes a mirror,
   updated from the `Y.Text` observer, so the preview, Coach, lint and every other reader
   of `source` keep working unchanged.
-- **Undo becomes "undo my edits".** `yCollab` brings a `Y.UndoManager` scoped to the local
-  user; CodeMirror's `history()` is swapped out through its existing `Compartment` while
-  live. Without this, the current inbound dispatch path (`Editor.tsx:854-884`) would put
+- **Undo becomes "undo my edits".** `yCollab` creates a `Y.UndoManager` on the `Y.Text` by
+  default (`y-codemirror.next` `src/index.js`), which tracks local changes only. CodeMirror's
+  `history()` is a plain extension (`Editor.tsx:646`), not in a `Compartment`, and
+  `Editor.tsx:622-631` records why reconfiguring it through one is a trap: the old stack
+  leaked back about 1 run in 10. So entering or leaving a session **rebuilds the
+  `EditorState`** with `yCollab` in place of `history()`, the way a deck switch already
+  does. Without this, the current inbound dispatch path (`Editor.tsx:859-889`) would put
   everyone's edits on your undo stack.
 - **Writers other than typing** — `ComposeView`, AI apply (`onApply`), `fixAll`,
   checkpoint restore — go through one `applySourceEdit(next)` helper that computes a
@@ -397,6 +402,29 @@ server sees IP addresses. The relays are run by people we do not know, so the lo
 says "Lattice has no server that sees them", which is true, and not "nobody relays them",
 which is not.
 
+**Measured (2026-10-06, Trystero 0.26.0, the default Nostr relay list).** A throwaway spike
+(`.scratch/collab-spike/`, not committed) ran the §4 handshake for real: two separate
+headless Chromium processes, a fresh random room and secret per trial, the host already in
+the room, the guest then opening the "link". The guest got the host's hello, knocked, was
+admitted, received the `Y.Text`, and edits then synced both ways. A third peer that held
+the link but never knocked pushed an edit straight at the host.
+
+| | Result |
+|---|---|
+| Trials that completed (hello → knock → admit → sync → edits both ways) | **5 / 5** |
+| Guest opens link → shared deck on screen, median of 5 | **973 ms** (min 756, max 1,037) |
+| Guest opens link → peer connection open, median of 5 | **604 ms** |
+| Edits from the never-admitted peer that landed on the host | **0 / 5** (all dropped by the roster check) |
+
+What that does and does not show. It shows the public relays matched peers fast and
+reliably on this day, the password-encrypted handshake works, the relays were reached
+through the sandbox's HTTPS proxy (so matchmaking survives an HTTP proxy), and the roster
+gate in §4.4 refuses an unadmitted peer. It does **not** show NAT traversal: both browsers
+ran on one machine and connected over local addresses. Two homes, a phone on cellular and
+a corporate network are still the owner's real-device check (§8). Note also that 0.26 changed
+the action API (`makeAction` now returns `{ send, onMessage }`), so the provider pins the
+Trystero version.
+
 **Reliability, honestly.** Public relays come and go. Trystero connects to several at once,
 so one dying does not stop a join, but a join can take a few seconds and no one we pay
 stands behind the uptime. If the Nostr strategy proves flaky in practice, the fallback is
@@ -416,7 +444,7 @@ use. It never ships.
 
 ## 8. What we can verify here, and what we cannot
 
-- **Can verify in the sandbox:** two to four headless Chromium contexts against the
+- **Can verify in the sandbox** (and §7's spike already did, for the handshake): two to four headless Chromium contexts against the
   local relay — the whole handshake, knock/admit/deny, roster refusal, live
   sync, carets, follow, chat, remove-with-rotation, reconnect. Real WebRTC data channels
   work between two Chromium contexts on one machine. Chromium's fake-media flags exercise
@@ -425,8 +453,9 @@ use. It never ships.
   in both color modes (Quality Bar).
 - **Cannot verify here, and will say UNVERIFIED:** call quality, echo, real cameras and
   microphones, NAT traversal across real home and corporate networks, iOS Safari. Those
-  need the owner on two real devices on two networks (HARD RULE #23). Join time and
-  reliability over the real public relays need the same real-world check.
+  need the owner on two real devices on two networks (HARD RULE #23). The spike in §7
+  measured join time over the real public relays, but from one machine; how it holds across
+  days and networks needs the same real-world check.
 
 ## 9. Slices
 
