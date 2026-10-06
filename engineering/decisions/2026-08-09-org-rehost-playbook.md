@@ -109,7 +109,7 @@ Hence: re-paste regardless.
 | **npm** | nothing published | Unaffected **today**. Once OIDC trusted publishers exist they bind `owner/repo` — so set them up *after* the move (see #1455) |
 | **Claude GitHub App** | org-level install | must be installed on the destination org. **Also carries the CI-green beacon** (`ci.yml:554-585`) that wakes subscribed agent sessions — it is `continue-on-error`, so if the App isn't reinstalled the beacon stops **silently** and sessions fall back to polling |
 | **`lattice.style` registrar** | wherever the domain is registered — **not inventoried anywhere in this repo** | Unaffected by the transfer, but if this move is part of a handover, the registrar account is the one asset whose loss is unrecoverable. Confirm who holds it. |
-| **The Tauri desktop app** (`README.md:373`) | a **separate repository** that wraps this engine | Not affected by the transfer itself, but it plausibly pins `github.com/slidewright/lattice`. Check and update it — it is the only external consumer this repo has, and it is not covered by the Phase 2 sweep because it lives elsewhere. |
+| **The Tauri desktop app** (`README.md:373`) | a **separate repository** that wraps this engine | Not affected by the transfer itself, but it plausibly pins `github.com/slidewright/lattice`. Check and update it — it is the only external consumer this repo has, and it is not covered by the Phase 2 sweep because it lives elsewhere. *(Corrected 2026-10-06: there is no separate desktop repo — the app will live in this repository and is not built yet. See `2026-05-10-tauri-exploration.md` §Repository structure.)* |
 
 ### Third-party actions — four, across five workflows
 

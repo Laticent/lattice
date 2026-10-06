@@ -262,7 +262,13 @@ license itself.
 
 ### Repository structure
 
-Separate repos under the `laticent/` GitHub organization:
+> **Superseded 2026-10-06 — the desktop app lives in `laticent/lattice`.** The plan
+> below gave it a repo of its own (`laticent/laticent`). That repo was never created,
+> and the owner ruled that the app is built in this repository instead. "The app repo"
+> below therefore means this one. Several later notes repeated the separate-repo plan
+> as fact; each carries a correction pointing here.
+
+Separate repos under the `laticent/` GitHub organization (original plan, superseded above):
 
 - `laticent/lattice` — engine layer (this repo)
 - `laticent/laticent` — desktop app
