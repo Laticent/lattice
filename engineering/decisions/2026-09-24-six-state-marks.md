@@ -219,7 +219,8 @@ Built on the same branch as the pricing fix that surfaced the question (PR #2327
   `deck-markdown.ts`), and two tools carried one each (`build-component-docs.js`,
   `audit-capacity-basis.js`). Every one now builds from `MARKER_CLASS`, and
   `test/unit/core/state-marks.test.js` fails on a private copy anywhere under `lib/`,
-  `tools/` or `docs/src`.
+  `tools/` or `docs/src`. *(Since then, the editor's three moved onto the Segno list-text
+  grammar: `engineering/decisions/2026-09-28-segno-unified-inline-notation.md` § Phase 3 as built.)*
 - **matrix-grid is the one named exception.** Its `[x]` `[-]` `[ ]` are a POSITIONAL
   grammar (filled / reachable / not applicable) parsed by `lib/core/matrix-grid-cells.js`,
   not status answers. It keeps its own parser, and the guard test names it.

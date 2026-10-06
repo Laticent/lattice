@@ -22,6 +22,7 @@ import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib
 import { notify } from '@/lib/notify';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { readEditMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import stateMarks from '../../../../lib/core/state-marks.js';
 import { CodeControls, FencePicker } from './code-controls';
@@ -30,7 +31,7 @@ import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
 
-const { MARKER_CLASS, stateClassesFor } = stateMarks;
+const { stateClassesFor } = stateMarks;
 
 // The slide divider borrows the deck's STRUCTURAL TRIM (`spectrum-trim:`) — the same
 // register that colors the rendered deck's `hr` rules, table rails, and timeline spine —
@@ -310,11 +311,11 @@ export function collapsePlugin() {
 // View-only badge chips for the six LFM state markers at the START of a table cell — the
 // signature obligation-matrix / roadmap grammar. The underlying text stays the literal marker
 // (so the round-trip is untouched and the marker is still editable); an inline decoration just
-// tints it to the engine's semantics. The marker class and each marker's meaning come from the
-// engine's own kernel (lib/core/state-marks.js), so the editor cannot drift from the render.
+// tints it to the engine's semantics. The marker is read by the engine's list-text grammar
+// (lib/core/cell-marker-edit.mjs) and each marker's meaning comes from lib/core/state-marks.js,
+// so the editor cannot drift from the render.
 // Recomputed from the doc each update (tables are small), the same view-only pattern as the
 // collapse decoration.
-const CELL_MARKER_RE = new RegExp(`^\\[(${MARKER_CLASS})\\]`);
 
 // The PIPE-TABLE components whose BODY cells carry LFM state markers the engine paints as stoplight
 // chips (`obligationMatrixBadges` / roadmap gate on `<td>`, spec LFM-1.0 §3.2). The other stateful
@@ -349,10 +350,10 @@ function stateMarkerPlugin() {
 					// Measure off the leading TEXT node: a leading inline atom (image) would offset the range.
 					const first = node.firstChild;
 					if (!first?.isText) return true;
-					const m = CELL_MARKER_RE.exec(first.text ?? '');
+					const m = readEditMarker(first.text ?? '');
 					if (m) {
 						const from = pos + 1; // inline content starts just inside the cell
-						decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${stateClassesFor(m[1])?.sem}` }));
+						decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${stateClassesFor(m.marker)?.sem}` }));
 					}
 					return true; // a cell can hold nested inline, but the marker is only ever at its start
 				});

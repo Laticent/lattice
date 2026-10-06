@@ -47,7 +47,7 @@ const libBanner = (from, readers) =>
   '// generator (docs/src/lib/segno/codegen.ts). DO NOT EDIT — change the grammar and run\n' +
   `// \`npm run segno-lib:build\`. ${readers}\n`;
 const ROW_BANNER = libBanner('flowchart-row-grammar.js', '`splitRow` in flowchart-grammar.js reads it.');
-const LIST_BANNER = libBanner('list-text-grammar.js', 'leading-marker.js, matrix-grid-cells.js and track-spec.js read it.');
+const LIST_BANNER = libBanner('list-text-grammar.js', 'leading-marker.js, matrix-grid-cells.js, track-spec.js and cell-marker-edit.mjs read it.');
 
 /** Segno's code generator and the Segno API, bundled from source and loaded in-process. */
 async function segnoSource() {

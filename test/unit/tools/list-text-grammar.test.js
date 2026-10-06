@@ -27,7 +27,7 @@ const FROZEN = require('./fixtures/list-text.frozen.json');
 describe('the list-text grammar reads as the regular expressions it replaced did', async () => {
   const { encode, FROZEN_BLOCK, listTextCorpus, listTextFuzz, quiet, shippedReaders, READERS } = await import('../../../tools/parser-bakeoff/list-text.mjs');
   const { listTextSpec } = makeListTextGrammar(S);
-  const shippedReader = shippedReaders();
+  const shippedReader = await shippedReaders();
   const shipped = (s) => encode(shippedReader, s);
 
   // compile()'s object tree, read into the same shapes as the kernels read the flat one. This is
@@ -74,16 +74,18 @@ describe('the list-text grammar reads as the regular expressions it replaced did
       }
       return { labels, current };
     },
-    spokenGrid: (s) => {
-      const t = String(s ?? '').trim();
-      const ks = kids(t, 'grid');
-      if (!ks) return null;
-      const mark = t[find(ks, 'mark').from];
-      return [mark, mark === 'x' ? t.slice(find(ks, 'rest').from) : ''];
-    },
     unbracket: (s) => {
       const ks = kids(s, 'any');
       return ks ? s.slice(find(ks, 'rest').from) : s;
+    },
+    edit: lead('edit', (_s, ks) => find(ks, 'rest').from),
+    editBare: (s) => {
+      const ks = kids(String(s), 'edit');
+      return ks ? s[find(ks, 'mark').from] : null;
+    },
+    unescape: (s) => {
+      const ks = kids(String(s), 'escaped');
+      return ks ? `[${s[find(ks, 'mark').from]}]${s.slice(find(ks, 'rest').from)}` : s;
     },
   };
   const interpreted = (s) => encode(interpretedReader, s);
@@ -117,7 +119,7 @@ describe('the list-text grammar reads as the regular expressions it replaced did
     assert.ok(FROZEN.corpus.length > 500, `only ${FROZEN.corpus.length} answered corpus inputs`);
     assert.ok(FROZEN.quiet.length > 1000, `only ${FROZEN.quiet.length} near misses`);
     READERS.forEach((name, i) => {
-      const read = (s, x) => (name === 'track' ? x.current >= 0 : name === 'unbracket' ? x !== s : x !== null && x !== false);
+      const read = (s, x) => (name === 'track' ? x.current >= 0 : name === 'unbracket' || name === 'unescape' ? x !== s : x !== null && x !== false);
       const hits = FROZEN.corpus.filter(([s, out]) => read(s, out[i])).length;
       assert.ok(hits >= 5, `${name}: only ${hits} corpus inputs it answers`);
     });

@@ -822,7 +822,7 @@ spans, escaped `\{literal}` spans and the name text around them.
 Nine hand-written readers of list text now walk one generated parser. The grammar is
 `lib/core/list-text-grammar.js`; `tools/build-segno-grammar.js` generates it into
 `lib/core/list-text.generated.js` (committed, held fresh by build:check), beside the flowchart row's.
-It shipped with nine entry rules, one per shape a reader used, each reading a whole string; eight remain since `spoken` folded into `grid` (below):
+It shipped with nine entry rules, one per shape a reader used, each reading a whole string. `spoken` has since folded into `grid`, and the editor added `edit` and `escaped` (below):
 
 | rule | shape | replaced | read by |
 |---|---|---|---|
@@ -843,7 +843,8 @@ Compose editor imports it on the docs dev server, whose CommonJS shim serves onl
 `require` of its own (the red team found the first cut, with the readers in `state-marks.js`, broke
 the Compose view there and failed `vite-cjs-lib-dev.test.ts`). Every consumer that
 called a regular expression now calls a function, so the old exports are gone (a `**Breaking:**`
-fragment). `MARKER_CLASS` stays, for the editor helpers below.
+fragment). `MARKER_CLASS` stays, for the three scanners below and the parser bake-off's other
+implementations (`tools/parser-bakeoff/shared.mjs`).
 
 - **Parity, not a cleanup.** The rules copy the expressions' quirks on purpose, so no deck changes:
   whitespace is JavaScript's `\s` (U+FEFF and the Unicode spaces included), text on a `line` stops at
@@ -888,10 +889,33 @@ fragment). `MARKER_CLASS` stays, for the editor helpers below.
   run, under 0.05 ms per render; three interleaved pairs against `main` stay inside the bench's
   ±10% noise. The 1.5x bar in § The engine is per inline span, and these are not inline spans; the
   owner accepted the same trade for flowchart rows (§ Phase 3b as built).
-- **Not moved: the Studio's editor.** Five Compose-editor patterns (`table-commands.ts`,
-  `deck-markdown.ts`, `deck-source.ts`, `ComposeView.tsx`) and two tools that count inline `[m]` spans still build
-  patterns from `MARKER_CLASS`. They rewrite or count source rather than read it for a render, so
-  they are recorded in `followups.d/` rather than folded in.
+- **The Studio's editor, moved after.** Phase 3 left seven patterns built from `MARKER_CLASS`: five
+  in the Compose editor and two in tools. A follow-up moved the four that READ a marker at the start
+  of a cell onto two new rules, `edit` (`[m]` and at most one whitespace character, the one the
+  picker inserts and replaces) and `escaped` (the serializer's `\[m\]`). The readers live in
+  `lib/core/cell-marker-edit.mjs`, an ES module that imports only the generated parser, so the docs
+  dev server's CommonJS shim still serves the chain and `state-marks.js` stays require-free. They
+  replace `table-commands.ts` `CELL_MARKER` and `CELL_MARKER_BARE`, `ComposeView.tsx`
+  `CELL_MARKER_RE` and `deck-markdown.ts` `ESCAPED_LEADING_MARKER_RE`. Their old outputs were frozen
+  first, as three oracle columns (`edit`, `editBare`, `unescape`); the `spokenGrid` column left,
+  since narration reads `grid` now. A fixed block of every marker, `X` and a non-marker in each
+  editor shape joined the fuzz, after a planted `\[X\]` passed the first freeze unnoticed; three
+  planted defects (`X` in `escaped`, `X` in `edit`, a space-only gap in `edit`) each fail it, and
+  the checker's brute force found no difference from the old patterns over 10,092,550 inputs.
+  `state-marks.test.js` now holds the grammar's marker set to `MARKERS`, since the editor no longer
+  builds from `MARKER_CLASS`.
+  `compose-state-markers.spec.ts` drives the real Compose editor: six badges, a pick that keeps the
+  cell's words, and a source that holds all six markers unescaped.
+- **Not moved, on purpose: three SCANNERS.** `deck-source.ts` locks a slide when any list line
+  in the whole slide leads with a marker. Its pattern is multi-line: `^` matches after every line
+  break, and its `\s` runs may cross one. It reads Markdown's list syntax and only then a marker.
+  `tools/build-component-docs.js` `DECK_MARKER_SPAN_RE` finds every backticked `` `[m]` `` span
+  and `tools/audit-capacity-basis.js` `STATE_MARKER_RE` every `[m]`, anywhere in text, and both
+  replace every match. A list-text rule reads one
+  WHOLE string from its start. Running one at every position would turn a single regex pass into a
+  parse at each offset, to re-derive what one character class already says. All three still take the
+  marker set from `MARKER_CLASS`, so the set cannot drift; only its placement differs, and that is
+  the scanner's own business.
 
 ## Open questions
 
