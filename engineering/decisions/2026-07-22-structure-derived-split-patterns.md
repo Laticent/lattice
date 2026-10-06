@@ -1035,7 +1035,8 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
      the lone cards-grid card 994px, the full stage.
   **The budget speaks again at authoring time.** `capacity-overflow` was suppressed outright
   on autosplit portrait decks, so an over-budget slide got NO signal — which is how the
-  badly-paced 14-item checklist shipped. It is replaced by `capacity-autosplit`, which
+  badly-paced 14-item checklist shipped. *(Superseded 2026-10-06: `capacity-autosplit` was
+  deleted; a split slide is the engine working as designed.)* It is replaced by `capacity-autosplit`, which
   reports what will actually happen ("14 items, so auto-split will divide it into 3 pages of
   5"). At the **advisory `info` tier**, deliberately: `lint:deck:all --strict` is a blocking
   CI gate and a pre-push hook, so a warning would red every deck that intends to split —

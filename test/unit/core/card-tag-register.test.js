@@ -299,7 +299,7 @@ test('lint: tag-budget follows the label lift — continuation lines, tab indent
   assert.equal(lintText(small).filter((f) => f.rule === 'tag-budget').length, 0);
 });
 
-test('lint: banner-tag and capsule get an advisory tag-alias hint; a placement word silences it', () => {
+test('lint: banner-tag gets an advisory tag-alias hint; a placement word silences it; capsule gets none', () => {
   const hints = (cls, body = '- A\n  - b\n- B\n  - c') =>
     lintText(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`).filter((f) => f.rule === 'tag-alias');
   const banner = hints('decision banner-tag');
@@ -308,9 +308,9 @@ test('lint: banner-tag and capsule get an advisory tag-alias hint; a placement w
   assert.match(banner[0].fix, /tag-band/);
   assert.equal(hints('decision banner-tag tag-foot').length, 0);
   assert.equal(hints('decision tag-band').length, 0);
-  const capsule = hints('list-steps capsule', '1. A\n   - b\n2. B\n   - c');
-  assert.equal(capsule.length, 1);
-  assert.match(capsule[0].message, /inline/);
+  // The capsule hint was reversed by the owner (2026-10-06): `capsule` is a documented
+  // current list-steps modifier, not an old name, so it lints clean.
+  assert.equal(hints('list-steps capsule', '1. A\n   - b\n2. B\n   - c').length, 0);
 });
 
 test('engine: banner-tag draws through the band placement rules', () => {

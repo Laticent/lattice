@@ -510,7 +510,8 @@ These are for the next note, not for authors:
    shared title row lines up across two panes.
 4. **The budget model one level down.** Extending `stageBox`'s line counting to the pane's own
    chrome, and pinning it in `test/unit/core/panes.test.js`.
-5. **The linter and the Studio.** No `pane-title` rule (titles are optional), but the `no-title` no-op warning, the
+5. **The linter and the Studio.** *(Superseded 2026-10-06: the `no-title` no-op warning and the
+   pane-title over-five-words suggestion were deleted; neither changed what renders.)* No `pane-title` rule (titles are optional), but the `no-title` no-op warning, the
    ignored component in `_class`, the two-Key-Insights warning, and the rewrite from the old
    syntax, all in `lib/authoring/lint-core.js` (HARD RULE #7).
 

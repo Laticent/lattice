@@ -1016,31 +1016,6 @@ if (flags['strip-say'] && retiredComments) {
   console.error(`note: --strip-say also removed ${retiredComments} retired \`caption:\` comment(s), including any that start with \`Caption:\`, from the shipped copies.`);
 }
 
-// AN EMPTY BOX WHOSE MEANING MOVED — the six-marker grammar (lib/core/state-marks.js,
-// engineering/decisions/2026-09-24-six-state-marks.md). A verdict-grid or pricing `[ ]`
-// drew the red "not met" / "missing" cross and now draws the open ring; an
-// obligation-matrix `[ ]` was keyed "exempt" and is now "undetermined". A deck written
-// before the change renders differently with a successful exit code, so the render says
-// so, on the same channel and for the same reason as the retired Form opt-outs above.
-// The detector is lint rule 16 (HARD RULE #7); it already stays silent on a slide that
-// uses `[!]` or `[?]`, so a deck written for the six markers is not warned.
-// The rule reads the deck with its heading splits baked into `---` (lint-core's
-// `bakeHeadingChunks`, the engine's own `headingSplitPoints`), so each chunk is one RENDERED
-// slide and these slide numbers match the PDF.
-const { findMovedEmptyBoxes, bakeHeadingChunks } = require('./lib/authoring/lint-core');
-const movedBoxes = findMovedEmptyBoxes(bakeHeadingChunks(md)?.baked ?? md).filter((f) => f.shapeChange);
-for (const f of movedBoxes.slice(0, RETIRED_FORM_SHOWN)) {
-  console.error(`warning: slide ${f.slide}: ${f.message} ${f.short}`);
-}
-if (movedBoxes.length > RETIRED_FORM_SHOWN) {
-  console.error(`warning: \u2026 and ${movedBoxes.length - RETIRED_FORM_SHOWN} more slide(s) with a moved \`[ ]\`.`);
-}
-if (movedBoxes.some((f) => f.autofixable)) {
-  // Only a repo checkout has `lint:deck` (tools/ is not in the published package), so the
-  // per-slide line above already says what to write; this names the shortcut for those who have it.
-  console.error('warning: in a Lattice checkout, `npm run lint:deck -- --fix <deck>` rewrites the verdict-grid and pricing ones as `[!]`.');
-}
-
 // A STATE CHART STILL IN THE v1 GRAMMAR. State chart v2 moved to the flowchart grammar
 // (`- -event-> Target` under a state), and a v1 `event => 2` pill now reads as part of a
 // name: the machine draws with no transitions and a successful exit code. Same channel and

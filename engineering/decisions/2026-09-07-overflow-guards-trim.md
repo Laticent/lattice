@@ -1163,7 +1163,7 @@ also surfaced a latent kernel bug nothing had hit: `querySelectorAll('')` throws
 
 **BUILT, as of this branch.** The kernel (`lib/core/guards-trim.js`), the register
 (`lib/core/resolve-guards.js`), both render-path call sites, the `unknown-guards`
-lint rule, the register docs and `examples/overflow-guards.md` have landed. What
+lint rule *(superseded 2026-10-06: folded into a `guards-renamed` warning)*, the register docs and `examples/overflow-guards.md` have landed. What
 the implementation added to this note's findings, both from real renders:
 
 - **The model is a prediction, not a measurement, and it was wrong on a real

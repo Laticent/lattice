@@ -192,14 +192,13 @@ test('an eyebrow pill above a pane title joins it as one label, above a pane and
   assert.doesNotMatch(narrow, /<code>Shortlist<\/code>/);
 });
 
-test('lint: a pill above a pane title, and a pane title past five words, are suggestions', () => {
+test('lint: a pill above a pane title is a suggestion; a long pane title is not a finding', () => {
   const f = lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n`Shortlist`\n### Cleared\n\n- a\n\n<!-- _pane: content -->\n### What we learned from the pilot\n\ny\n')
     .filter((x) => x.rule === 'pane-title');
-  assert.equal(f.length, 2);
-  assert.ok(f.every((x) => x.severity === 'suggestion'));
+  // The over-five-words branch was deleted (2026-10-06): a long pane title renders fine.
+  assert.equal(f.length, 1);
+  assert.equal(f[0].severity, 'suggestion');
   assert.match(f[0].fix, /### Shortlist · Cleared/);
-  assert.match(f[1].message, /6 words/);
-  // A hidden title is not read as a label, and five words is fine.
   assert.equal(lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content no-title -->\n### The Lisbon office in its opening week\n\nx\n\n<!-- _pane: content -->\n### Eleven weeks, lease to open\n\ny\n').filter((x) => x.rule === 'pane-title').length, 0);
 });
 
@@ -287,9 +286,10 @@ test('lint: the alias gets pane-syntax with the rewrite', () => {
   assert.match(f.fix, /<!-- _class: rows ratio-40-60 -->/);
 });
 
-test('lint: a layout with fewer than two panes, a no-title with no title, two insights, a component in the layout class', () => {
+test('lint: a layout with fewer than two panes, two insights, a component in the layout class', () => {
   assert.deepEqual(paneRules('<!-- _class: columns -->\n\n## T\n\n### Only one\n\nx\n'), ['pane-layout']);
-  assert.ok(lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content no-title -->\n\nx\n\n<!-- _pane: list -->\n\n- y\n').some((f) => /no-title/.test(f.message)));
+  // `no-title` on a pane with no title hides nothing and harms nothing: not a finding (2026-10-06).
+  assert.equal(lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content no-title -->\n\nx\n\n<!-- _pane: list -->\n\n- y\n').some((f) => /no-title/.test(f.message)), false);
   assert.ok(paneRules('<!-- _class: columns -->\n\n## T\n\n### A\n\n- a\n\n> One.\n\n### B\n\n- b\n\n> Two.\n').includes('pane-insight'));
   assert.ok(lintText('<!-- _class: columns table -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && f.classToken === 'table'));
 });

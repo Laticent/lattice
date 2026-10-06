@@ -262,6 +262,14 @@ describe('the fit: register in lint', () => {
     assert.match(f.fix, /fit: trim/);
   });
 
+  test('an unknown old guards: value is one guards-renamed warning (unknown-guards was folded in)', () => {
+    const out = rules(deck(null, '## x\n').replace('marp: true', 'marp: true\nguards: strct'));
+    assert.deepEqual(out.filter((x) => /guards/.test(x.rule)).map((x) => [x.rule, x.severity]), [['guards-renamed', 'warning']]);
+    // With `fit:` present, `fit:` decides, so the old line is only a note.
+    const both = rules(deck(null, '## x\n').replace('marp: true', 'marp: true\nfit: trim\nguards: strct'));
+    assert.equal(both.find((x) => x.rule === 'guards-renamed')?.severity, 'info');
+  });
+
   test('fit: report changes nothing about the scale finding: no fit level changes the size', () => {
     const row = core.SCALE_CAPACITY.cycle;
     const len = Math.max(...Object.keys(row).map(Number));
