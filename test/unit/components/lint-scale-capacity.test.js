@@ -54,7 +54,7 @@ describe('capacity-scale — a counted component', () => {
     assert.equal(out.length, 1);
     assert.equal(out[0].severity, 'info');
     assert.equal(out[0].classToken, 'cycle');
-    assert.match(out[0].message, new RegExp(`At conference size 'cycle' fits about ${ceilXl} items`));
+    assert.match(out[0].message, new RegExp(`At \`scale-xl\` 'cycle' fits about ${ceilXl} items`));
     assert.match(out[0].message, /so some may be cut off/);
     assert.match(out[0].fix, /(use `scale-l`|drop the `scale-\*` class)\./);
   });

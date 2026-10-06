@@ -169,7 +169,8 @@ because a titled pane states its intent and a reader scanning the slide finds it
 `no-title` hides a pane's title **visually**. The heading stays in the document, so screen
 readers, the Read view, the Studio's outline and the linter still see what the pane is for. The
 height the title would have used goes back to the pane's body. `no-title` on a pane with no
-`###` does nothing, and `lint:deck` says so.
+`###` does nothing, and `lint:deck` says so. *(Superseded 2026-10-06: that warning was
+deleted, since a `no-title` with nothing to hide changes nothing on the slide.)*
 
 It follows the house naming for hiding a slide element: `no-note`, `no-header`, `no-footer`,
 `no-paginate`, `no-rule`.
@@ -196,7 +197,8 @@ Two consequences, both chosen from options:
 
 Tracked capitals are for a short label (the runhead note in base.modifiers.css measured a long
 title set that way turning into a wall of letter-spaced capitals), so `lint:deck` suggests a pane
-title of five words or fewer. The smaller head gives each pane back height: the title row is
+title of five words or fewer. *(Superseded 2026-10-06: the five-word suggestion was deleted; a
+long pane title renders fine. The docs still advise a short label.)* The smaller head gives each pane back height: the title row is
 23.9px at 1280 against 36.8px before, and `PANE_HEAD` carries the re-measured figures.
 
 ### 2.6 `columns` and `rows` are host components (ruling, 2026-09-29)

@@ -50,7 +50,7 @@ export function chunkStartLines(src) {
  * @property {Set<string>} modifiers
  * @property {Record<string, { valid: Set<string>; names: string[] }>} [mapRegions]
  * @property {string[]} [finishNames] — the builder forwards EVERY `*Names` register list
- *   (`guardsNames`, `cardsNames`, …); only the ones a caller reads by name are declared
+ *   (`fitNames`, `cardsNames`, …); only the ones a caller reads by name are declared
  * @property {string[]} [modeNames]
  * @property {string[]} [splitNames]
  * @property {Record<string, { axis: string; hard: number }>} [capacity]
@@ -71,9 +71,9 @@ export function buildVocabSets(vocab) {
 			sets.mapRegions[which] = { valid: new Set(mv.valid || []), names: mv.names || [] };
 		}
 	}
-	// EVERY register value list (`finishNames`, `guardsNames`, `cardsNames`, the spectrum
+	// EVERY register value list (`finishNames`, `fitNames`, `cardsNames`, the spectrum
 	// family, …), by suffix rather than by name: each gates one `findUnknown*` rule in
-	// lint-core (`if (vocab.guardsNames) …`), so a list this builder drops turns that rule
+	// lint-core (`if (vocab.fitNames) …`), so a list this builder drops turns that rule
 	// off in the Studio while `lint:deck` still fires it. A hand-kept six of these once
 	// left fifteen rules dead in the editor and the Coach while the editor COMPLETED their
 	// values. Forwarding by suffix means a new register's list reaches the browser linter

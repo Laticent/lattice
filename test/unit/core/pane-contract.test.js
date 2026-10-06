@@ -229,6 +229,11 @@ test('lint: pane-arrange says when a slide will re-orient or split, and nothing 
   const turned = paneRules(slide({ cls: 'code', body: code }, { cls: 'content', body: 'x' }));
   assert.deepEqual(turned.map((f) => f.rule), ['pane-arrange']);
   assert.match(turned[0].message, /will show stacked, not as written/);
+  // A share change is offered only where a share would help: "at any share" means none does.
+  for (const f of [...frame, ...turned]) {
+    if (/at any share/.test(f.message)) assert.doesNotMatch(f.fix, /share/, f.fix);
+  }
+  assert.match(frame[0].fix, /different component.*own slide/);
   assert.deepEqual(paneRules(slide({ cls: 'list', body: items(2) }, { cls: 'table', body: '| A | B |\n|---|---|\n| 1 | 2 |' }, '35/65')), []);
   // A pane that splits into its own slide is held to that component's SLIDE capacity.
   const own = paneRules(slide({ cls: 'kpi', body: '1. 42%\n   - Margin' }, { cls: 'list', body: items(20) }, 'stack'));

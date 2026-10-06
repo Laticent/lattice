@@ -52,6 +52,39 @@ describe('lint-core: isKnownModifier', () => {
   });
 });
 
+describe('lint-core: message accuracy (2026-10-06 checker findings)', () => {
+  const { lintText } = require('../../../lib/authoring/lint');
+  const one = (src, rule) => lintText(src).find((f) => f.rule === rule);
+
+  test('label-set-unbound names the components that have a key as one sentence', () => {
+    const f = one('---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## U\n\n`[{[x], Met}]`\n', 'label-set-unbound');
+    assert.ok(f);
+    assert.match(f.fix, /^Delete it\. (No component has a key\.|Only \S+ has a key\.|Only .+ and \S+ have a key\.)$/);
+    assert.doesNotMatch(f.fix, /those are|that is|no component does/);
+  });
+
+  test('spark-literal keeps the instruction after the diagnosis', () => {
+    const src = (span) => `---\ntheme: indaco\n---\n\n## H\n\nA \`${span}\` here.\n`;
+    assert.match(one(src('~{1,200}'), 'spark-literal').fix, /No units, commas or currency signs/);
+    assert.match(one(src('~{5}'), 'spark-literal').fix, /Write a series of two or more/);
+  });
+
+  test('an unknown class or pane modifier is not claimed to do nothing — deck CSS may style it', () => {
+    const cls = one('---\ntheme: indaco\n---\n\n<!-- _class: content heroic -->\n\n## H\n', 'unknown-class');
+    assert.ok(cls);
+    assert.doesNotMatch(cls.message, /does nothing/);
+    const pane = lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list zzz -->\n### A\n\n- a\n\n<!-- _pane: content -->\n### B\n\ny\n')
+      .find((f) => f.rule === 'pane-layout' && /modifier/.test(f.message));
+    assert.ok(pane);
+    assert.doesNotMatch(pane.message, /does nothing/);
+  });
+
+  test('unterminated-comment scopes the leak to exports that carry the deck source', () => {
+    const f = one('---\ntheme: indaco\n---\n\n## H\n\n<!-- open\n', 'unterminated-comment');
+    assert.match(f.message, /export that includes the deck's source/);
+  });
+});
+
 describe('lint-core: unknown-split names the real fallback', () => {
   // followups.d/2327-p3: the message used to say an unknown value fell back to `rule`;
   // resolve-split.js resolves it to DEFAULT_SPLIT (`headings`). Pinned to the kernel.
@@ -110,7 +143,7 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
       const f = out.find((x) => x.rule === 'capacity-overflow');
       assert.ok(f, `expected capacity-overflow for ${JSON.stringify(fmExtra) || 'the default @size'}`);
       assert.equal(f.severity, 'warning', 'the author has to act — this is not advisory');
-      assert.match(f.message, /nothing splits a slide at a landscape size/, 'and it says why nothing will be split for them');
+      assert.match(f.message, /Landscape slides don't split/, 'and it says why nothing will be split for them');
       assert.match(f.message, /may be cut off/, 'and names the consequence without predicting fit from a count');
       assert.doesNotMatch(f.message, /expect it to overflow|will overflow/,
         'a COUNT may not predict FIT — that is the error this whole change removed from the splitter');
@@ -430,7 +463,7 @@ describe('lint-core: auto-fix', () => {
 
   test('a list with more members than axes is named: it prints as text, not as the axis', () => {
     const src = `${FM}<!-- _class: quadrant -->\n\n\`[Effort, Reach, Spend]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
-    assert.match(ruleFor(src, 'quadrant-axis-part').message, /3 members but a quadrant has two axes/);
+    assert.match(ruleFor(src, 'quadrant-axis-part').message, /3 items, but a quadrant has two axes, so it shows as text/);
   });
 
   test('quadrant-axis-part names a part the chart ignores', () => {
@@ -653,7 +686,7 @@ describe('lint-core: capacity rule', () => {
     const f = capRule(itemsSlide(8), 'capacity-overflow');
     assert.ok(f, 'expected a capacity-overflow finding at 8 items');
     assert.equal(f.severity, 'warning');
-    assert.match(f.message, /nothing splits a slide at a landscape size, so the extra ones may be cut off/);
+    assert.match(f.message, /Landscape slides don't split, so the extra ones may be cut off/);
     assert.match(f.fix, /list-tabular/, 'the escalateTo fix still leads');
     // overflow and crowd stay mutually exclusive per slide
     assert.equal(capRule(itemsSlide(8), 'capacity-crowd'), undefined);
@@ -952,7 +985,7 @@ describe('lint-core: unterminated comment', () => {
 		const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'unterminated-comment');
 		assert.ok(f, 'the unclosed comment is named');
 		assert.equal(f.severity, 'error');
-		assert.match(f.message, /ships inside exported files even with notes stripped/, 'and says why it matters on export, not just on screen');
+		assert.match(f.message, /ships inside any export that includes the deck's source, even with notes stripped/, 'and says why it matters on export, not just on screen');
 		// A plain containment check, not a regex: this asserts the fix TEXT names the
 		// terminator, and a `/-->/` literal here reads to a scanner (correctly) as an
 		// HTML-comment matcher that forgets `--!>` — the very bug fixed elsewhere on this
@@ -1019,7 +1052,7 @@ describe('lint-core: block-unsupported', () => {
     const f = bu('quote insight-key');
     assert.equal(f.length, 1);
     assert.equal(f[0].classToken, 'insight-key');
-    assert.match(f[0].message, /does nothing on a quote slide/);
+    assert.match(f[0].message, /does nothing here: quote doesn't show/);
   });
 
   test('flags no-note on a quote too', () => {

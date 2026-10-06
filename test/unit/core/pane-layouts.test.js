@@ -312,7 +312,7 @@ test('lint: the slide\'s eyebrow and Key Insight take height from a pane, and on
   const rows = (eyebrow) => ['<!-- _class: rows -->', '', ...(eyebrow ? ['`Q3 hiring`', ''] : []), '## Hiring kept pace with the plan through Q3.', '', ...progress, ...table, '> Sales is the one function still hiring into Q4.', ''].join('\n');
   const clipped = lintText(rows(true)).filter((f) => f.rule.startsWith('pane-'));
   assert.deepEqual(clipped.map((f) => [f.rule, f.classToken]), [['pane-overflow', 'table']]);
-  assert.match(clipped[0].message, /holds 1 row .* under the slide's eyebrow and Key Insight; this pane has 2/);
+  assert.match(clipped[0].message, /fits 1 row .* under the slide's eyebrow and Key Insight; this pane has 2/);
   assert.deepEqual(paneRules(rows(false)), []);
   const text = ['<!-- _class: columns -->', '', '`Support · after the migration`', '', '## The migration halved support tickets.', '', '### Before', '', '- 1,240 tickets a month', '- 31 hours to first reply', '- Four tools to answer one question', '', '### After', '', '- 610 tickets a month', '- 6 hours to first reply', '- One console for every question', ''].join('\n');
   assert.deepEqual(paneRules(text), []);
