@@ -104,7 +104,11 @@ flowchart row. Three never let a parse go back over what it read; `attempt()` go
   Elsewhere than an `alt` branch, a failed attempt is an ordinary parse error, and it reports why
   the attempt failed: what its body expected, a `next` character, or its end within `max`. Flowchart rows need
   it: at a word start `-x->` is an arrow and `-x` a word, and the two part only at the closing
-  shaft.
+  shaft. Lattice reads every flowchart and state-chart row this way: its grammar is
+  `lib/core/flowchart-row-grammar.js`, generated into `lib/core/flowchart-row.generated.js`.
+  So a change to the code generator (`codegen.ts`) regenerates a Lattice render kernel:
+  `npm run segno-lib:build` rewrites that file, and the change owes its tests
+  (`test/unit/tools/flow-row-grammar.test.js`) and a checker, as any render-path change does.
 - **`maxDepth`** on the spec raises the nesting cap for one grammar, up to `MAX_DEPTH_LIMIT`
   (1,000). If the JavaScript stack runs out first, the parse returns an error, `STACK_EXHAUSTED`,
   instead of throwing. That happens in `compile()`, which spends a stack frame per expression, on

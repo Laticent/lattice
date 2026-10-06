@@ -259,6 +259,9 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   depth = 0;
   err = null;
   top = 0;
+  // A tree that outgrew the first buffer is let go here rather than kept for the page's life: one
+  // hostile 3M-character flowchart row held 67 MB through every later parse (phase 3b's red team).
+  if (buf.length > 65536) buf = new Int32Array(256);
   ${maxDepth > MAX_DEPTH ? `let ok: boolean;
   try {
     ok = start();

@@ -2,7 +2,8 @@
  * parser-bakeoff flow spike — can a Segno grammar read flowchart rows (`Storefront -SEV1-> Payments`)?
  *
  * The question comes from followups.d/2462-p1-spike-flowchart-rows-in-segno-before-phase-2.md:
- * the kernel (`splitRow` / `readArrow` in lib/core/flowchart-grammar.js) tries an arrow at every
+ * the kernel (`splitRow` / `readArrow`, frozen in tools/segno-legacy/flowchart-row.js since Segno
+ * phase 3 replaced them with this arm's third grammar) tries an arrow at every
  * word start and falls back to text when none ends in time, which LL(1) over characters cannot
  * write. This arm answers it with three grammars, each checked against the kernel:
  *
@@ -22,7 +23,7 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { flowCorpus } from './corpus.mjs';
-import { flowFuzz, makeRowGrammar, rowFromFlat, rowFromNodes } from './flow-row-grammar.mjs';
+import { flowFuzz, makeRowGrammar, rowFromNodes } from './flow-row-grammar.mjs';
 import { reference } from './reference.mjs';
 
 const require = createRequire(import.meta.url);
@@ -33,7 +34,7 @@ const built = await esbuild.build({
   bundle: true, write: false, format: 'esm', platform: 'node', tsconfigRaw: '{}', logLevel: 'silent',
 });
 const S = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0].text).toString('base64')}`);
-const { alt, compile, generate, lint, many, many1, node, noneOf, chars, opt, ref, seq } = S;
+const { alt, compile, lint, many, many1, node, noneOf, chars, opt, ref, seq } = S;
 const JSON_OUT = process.argv.includes('--json');
 
 // ── the arrow and the row grammar (flow-row-grammar.mjs, shared with the unit test) ──
@@ -47,13 +48,12 @@ function segnoRow(s) {
   if (!r.ok) throw new Error(`row grammar refused ${JSON.stringify(s)}: ${JSON.stringify(r.error)}`);
   return rowFromNodes(s, r.node.kids);
 }
-const genSource = esbuild.transformSync(generate(rowSpec), { loader: 'ts', format: 'cjs' }).code;
-const genMod = { exports: {} };
-new Function('module', 'exports', genSource)(genMod, genMod.exports);
+// The generated runtime is the one that ships: `splitRow` walking lib/core/flowchart-row.generated.js
+// (Segno phase 3). Timing it through `splitRow` counts the tree walk, which is the real cost.
+const { splitRow } = require('../../lib/core/flowchart-grammar.js');
 function segnoRowGenerated(s) {
-  const r = genMod.exports.parse(s);
-  if (!r.ok) throw new Error(`generated row grammar refused ${JSON.stringify(s)}`);
-  return rowFromFlat(s, r.tree);
+  const { parts, arrows } = splitRow([{ kind: 'text', value: s }]);
+  return { parts: parts.map((p) => p.text), arrows };
 }
 
 // ── 1. the strict row grammar is refused ────────────────────────────────────

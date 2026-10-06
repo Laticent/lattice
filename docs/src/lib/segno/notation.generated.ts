@@ -325,6 +325,9 @@ export function parse(input: string, rule = "span"): { ok: true; tree: GenTree }
   depth = 0;
   err = null;
   top = 0;
+  // A tree that outgrew the first buffer is let go here rather than kept for the page's life: one
+  // hostile 3M-character flowchart row held 67 MB through every later parse (phase 3b's red team).
+  if (buf.length > 65536) buf = new Int32Array(256);
   const ok = start();
   if (ok && i < n) fail('end of input');
   const e = err as GenError | null;

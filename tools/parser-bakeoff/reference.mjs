@@ -6,7 +6,8 @@
  * The five targets, and the production function each one stands for:
  *
  *   axis   `[{Effort, 0..10, 5}, Reach]`   lib/core/bracket-list.js parseBracketList (cap 3 and uncapped)
- *   flow   `Storefront -SEV1-> Payments`   lib/core/flowchart-grammar.js splitRow (one text segment)
+ *   flow   `Storefront -SEV1-> Payments`   splitRow as it was before Segno phase 3 (one text segment;
+ *                                          tools/segno-legacy/flowchart-row.js)
  *   gantt  `2026 Q1..Q3`                    lib/core/gantt-time.js parseSpanToken + parseTimePoint
  *   value  `-$0.8M`  `1,25M`  `($1.2M)`     lib/core/chart-values.js isValuePill + signedValue
  *   inline `{BETA}:tag:c4`  `[x]`  `\{X}`   lib/core/inline-code-directives.js (state mark | pill | escape)
@@ -20,7 +21,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { parseBracketList } = require('../segno-legacy/bracket-list.js');
-const { splitRow } = require('../../lib/core/flowchart-grammar.js');
+const { splitRow } = require('../segno-legacy/flowchart-row.js');
 const { parseSpanToken, parseTimePoint } = require('../../lib/core/gantt-time.js');
 const { isValuePill, signedValue } = require('../segno-legacy/chart-values.js');
 const { parseInlineState } = require('../../lib/core/state-marks.js');
