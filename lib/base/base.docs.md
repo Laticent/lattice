@@ -1863,7 +1863,9 @@ opens a CSS attribute selector, an array index and a citation.
 
 Braces make a pill, so `` `{x}` `` would be a pill containing the letter `x`. The six
 markers are **reserved** inside `{}` and render literal, with a `lint:deck` suggestion
-pointing at `` `[x]` `` — the bracket form above.
+pointing at `` `[x]` `` — the bracket form above. With options after it (`` `{x, c2}` ``,
+`` `{x, icon=code}` ``) the span was meant as a pill, so `lint:deck` warns `pill-literal` instead:
+pick another label, or drop it for an icon-only pill (`` `{icon=code}` ``).
 
 ## Composition syntax
 

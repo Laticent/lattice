@@ -118,3 +118,23 @@ describe('author text in a string replacement — the sites followups.d/2519-p3 
     }
   });
 });
+
+describe('author text in a string replacement — a class escaped once, and the CLI `--size`', () => {
+  const engine = require('../../../lib/engine');
+  const render = (body) => engine.render(deck(body)).html;
+
+  test('a chart slide whose class words hold `$&` keeps one well-formed open tag', () => {
+    const html = render('<!-- _class: funnel x$&y -->\n\n## T\n\n- A `40`\n- B `20`');
+    const open = html.match(/<section\b[^>]*>/)[0];
+    assert.equal((open.match(/\sclass="/g) || []).length, 1, open);
+    // `$&` survives as written, and its `&` is escaped once (it used to be `&amp;amp;`: the
+    // family re-escaped a class value that arrived escaped).
+    assert.match(open, /\sclass="funnel x\$&amp;y[^"]* chart-frame"/, open);
+  });
+
+  test('the CLI `--size` rewrite keeps a `$&` or `$1` as typed, and a CRLF line ending', () => {
+    const { withSize } = require('../../../lib/engine/sizes.js');
+    assert.match(withSize('---\nsize: 4:3\n---\nx', 'a$&b$1'), /^size: a\$&b\$1$/m);
+    assert.match(withSize('---\r\nsize: 4:3\r\n---\r\nx', 'a$&b'), /size: a\$&b\r\n/);
+  });
+});

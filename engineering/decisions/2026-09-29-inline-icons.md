@@ -446,3 +446,55 @@ parameter on the core pill slot; an icon-only pill names itself (`role="img"`).
 
 Phase 2 (charts) and phase 3 (the Studio) follow, as § 10 planned.
 
+## 13. Phase 2 as built (2026-10-06)
+
+**Flowchart and state chart.** Both `segno` style slots gained `icon` (named-only text) and
+`icon-only` (a flag), and both manifests declare `"plugins": { "optional": ["icons"] }`. The shared
+grammar (`lib/core/flowchart-grammar.js`) resolves the name through the host's `known` service once
+every shape exists, so an alias lands as its canonical name. Four diagnostics coach what does not
+draw: `flowchart-unknown-icon` (the plugin's own `whyUnknown`, so `icon=lambda` points at
+`function`), `flowchart-icon-only-without-icon`, `flowchart-icon-on-group`, and the existing
+`flowchart-empty-name`, which names an icon-only row with no words. That last one is the § 5.3
+refusal: the node would have no name.
+
+**How the drawing reaches the picture.** Both charts lay out in the browser from a measuring
+harness (Trama). `lib/components/chart/_chart-family/graph-icons.js` asks the host for `drawHtml`
+and puts the `<svg>` in the node's harness tile, before the name. The harness CSS places it (a row,
+or a column under `data-*-dir="tb"`), so the measured box holds both and the layout reserves the
+room. The adapters read each icon's box and the name's box relative to the tile's center, as the
+state chart already did for its name and badge. That keeps both in place when the kernel grows a
+tile into a diamond or a circle. They repaint the drawing into the chart's SVG through a new Trama
+helper, `drawing(svgEl)`, which rebuilds it from the six shape elements and their geometry and
+keeps nothing else. The harness is markup the sanitizer kept, and a deck can forge one, so this is
+the post-sanitize shape of HARD RULE #22. The provenance note on Trama's sanctioned `svg.innerHTML`
+sink says so, and `test/unit/components/graph-icons.test.js` runs a forged harness through the
+real serialized pass.
+
+**Placement, § 11 q1.** The icon sits above the name when the chart is pinned `tb`, and before it
+otherwise, including the unpinned default. Sizes are measured before the layout picks a direction,
+so an unpinned chart cannot know where its icon goes until after it has been measured. Before the
+name is the shape a short, wide node already has.
+
+**Where the name is read.** Both charts paint into one `<svg role="img">`, so a nested `<title>`
+on an icon-only node gives the hover tooltip but is not what assistive technology reads. The
+spoken name comes from the chart's `<desc>`, which `describe()` builds from every shape's name in
+both transforms, icon-only nodes included.
+
+**Two paths that take no `off`.** The runtime's DOM build (`applyToDom`, for a page the engine did
+not render) has no plugin-off set, as the pill's runtime path has none (§ 12). It cannot draw an
+icon the deck switched off, because no such page carries the drawings: neither a raw Marp page nor
+an Export-to-Marp bundle loads `lattice-plugin-icons.js`, so `drawHtml` returns null and the node
+shows its name. `lint:deck` also parses without the deck's off set, so a deck with icons off still
+gets icon-name coaching. That matches the pill's `icon=` lint, and a coached name is harmless.
+
+**What did not change.** With no icon written, both galleries and the baseline gallery render
+byte-identical engine HTML and pixel-identical pages against `main`. With the plugin off, a chart
+that wrote icons is the same string as one that never did (pinned). An optional plugin reports no
+`plugin/component-needs-plugin`, as math's optional `function-plot` does not, so § 6a's line that
+the render reports it applies to required plugins only.
+
+**Not done: hub-spoke.** Hub-spoke has no Segno style slot. Its rows are read by
+`lib/core/hub-spoke-model.js`, where a bare `{icon=x}` span already reads as an icon-only PILL, and
+its server-built geometry carries label-placement invariants. Giving it `icon=` needs its own
+spelling decision, which is recorded in `followups.d/`.
+

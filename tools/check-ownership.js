@@ -5914,8 +5914,13 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'can FORGE either attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so ' +
       'neither adapter trusts any of it: its sanitizeModel rebuilds every structural field from a closed set ' +
       'or an integer range and drops the rest, and every author string is escaped where it is painted. ' +
-      'Pinned by test/unit/components/flowchart.test.js "a forged model cannot inject markup" and ' +
-      'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary".',
+      'A node\'s ICON (`icon=`, lib/components/chart/_chart-family/graph-icons.js) is read back out of the ' +
+      'HARNESS, which a deck can forge as well: Trama\'s `drawing` rebuilds it from six shape elements and ' +
+      'their geometry attributes, each value checked against the characters geometry is written in, and ' +
+      'keeps nothing else (no other element, style, href, event or paint). ' +
+      'Pinned by test/unit/components/flowchart.test.js "a forged model cannot inject markup", ' +
+      'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary" ' +
+      'and test/unit/components/graph-icons.test.js "a forged harness cannot inject markup".',
   },
   // Mermaid's two entries MOVED with its diagram pass, verbatim, from lib/runtime/index.js into the
   // plugin (phase D's browser half, `render.exec.hydrate: "pass"`): same sinks, same counts, same

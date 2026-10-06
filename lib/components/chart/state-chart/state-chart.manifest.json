@@ -1,6 +1,11 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "state-chart",
+  "plugins": {
+    "optional": [
+      "icons"
+    ]
+  },
   "focusAxes": [
     "mark"
   ],
@@ -111,7 +116,7 @@
     "states": {
       "selector": "ul > li",
       "required": true,
-      "description": "One list item per state, named by its text (matched case-insensitively; a `#id` at the lead of its span names it for long text or twins). Numbered and bulleted lists mean the same thing; the badge shows the state's place in the list. A trailing code span styles the state: `start` or `end` (the machine's entry and end), a status word (on-track, done, live, at-risk, warn, blocked, fail, pilot, decision, deferred), a palette slot `c1`…`c8`, one channel `fill=cN` `border=cN` `text=cN`, or a shape word such as `diamond`; several go in one record, in any order: `\\{#id, diamond, c2}`. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and wins over a slot on the same state, as on the flowchart; a state with neither is a neutral tile. With no `start`, the first state is the start; with no `end`, every state with no way out is an end."
+      "description": "One list item per state, named by its text (matched case-insensitively; a `#id` at the lead of its span names it for long text or twins). Numbered and bulleted lists mean the same thing; the badge shows the state's place in the list. A trailing code span styles the state: `start` or `end` (the machine's entry and end), a status word (on-track, done, live, at-risk, warn, blocked, fail, pilot, decision, deferred), a palette slot `c1`…`c8`, one channel `fill=cN` `border=cN` `text=cN`, or a shape word such as `diamond`; several go in one record, in any order: `\\{#id, diamond, c2}`. An icon from the icons plugin draws beside the name: `\\{on-track, icon=send}` (before the name, or above it when the chart is pinned `tb`); add `icon-only` to draw the icon alone, and the name stays as what a screen reader says and the hover title. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and wins over a slot on the same state, as on the flowchart; a state with neither is a neutral tile. With no `start`, the first state is the start; with no `end`, every state with no way out is an end."
     },
     "transitions": {
       "selector": "ul > li > ul > li (starts with an arrow)",
@@ -220,6 +225,14 @@
           "max": 8,
           "label": "a color",
           "named": true
+        },
+        "icon": {
+          "type": "text",
+          "named": true
+        },
+        "icon-only": {
+          "type": "flag",
+          "word": "icon-only"
         }
       }
     }

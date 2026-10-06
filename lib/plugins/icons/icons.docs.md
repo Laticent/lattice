@@ -47,6 +47,24 @@ An inline icon is an image with a name (`role="img"`), so a reader hears it wher
 that says "database". Inside a pill the icon is always bare, and it is decorative: the label
 says it. With the plugin off, the pill shows its label alone.
 
+## In a chart node: `icon=` and `icon-only`
+
+```markdown
+- API `{#api, diamond, c2, icon=gateway}`     flowchart: the icon beside the name
+- Bucket `{icon=bucket, icon-only, c4}`       the icon alone; the name is still its name
+- Paid `{on-track, icon=card}`                state chart: the same two words
+```
+
+The flowchart and the state chart read `icon=` and `icon-only` in the same record as a shape's
+other style words. The icon sits before the name, or above it when the chart is pinned `tb`; the
+author does not place it. Inside a node the icon is always bare, in the name's ink: the node is
+already the tile. `icon-only` draws the icon alone, and the name stays as the hover title and as
+what a screen reader and the chart's description say, so a row needs its words even then
+(`- \`{icon=database, icon-only}\`` with no name is refused). A name the set does not have is
+coached (`flowchart-unknown-icon`) and the node shows its text. A group's title draws no icon. With
+the plugin off, every node shows its text alone, exactly as if no icon were written. Hub-spoke
+does not take icons yet.
+
 ## The deck and the slide: `icon:` and `icon-*`
 
 ```yaml
@@ -113,7 +131,12 @@ Studio and the player agree. In the Studio the drawings arrive as their own scri
 (`lattice-plugin-icons.js`) before the first render of a deck that writes an icon. Until they
 arrive — and on a raw Marp preview, where no Lattice engine runs and the page has not loaded that
 script — an icon, and a pill that asks for one, stay code as written: nothing is drawn without
-the icon the author asked for. With the plugin switched off, a pill shows its label alone.
+the icon the author asked for. With the plugin switched off, a pill shows its label alone and a
+chart node its name.
+
+On a sketch slide (`mode: sketch`, or a slide's `sketch` class), a framed icon's tile is redrawn
+by hand in its own edge color, as a spark's is, so the two read as one hand. The drawing inside
+stays crisp, a bare icon has no tile to ink, and an icon in the header or footer stays clean.
 
 TeX is not an icon: `` `^{2}` `` and `` `\^{o}` `` stay exactly as written. Only `^{` followed by a
 name (two or more letters, digits or hyphens) opens one.

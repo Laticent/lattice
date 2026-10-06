@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "flowchart",
+  "plugins": { "optional": ["icons"] },
   "adapt": {
     "mode": "reflow",
     "priority": [
@@ -112,7 +113,9 @@
         "color": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color" },
         "fill": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color", "named": true },
         "border": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color", "named": true },
-        "text": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color", "named": true }
+        "text": { "type": "indexed", "prefix": "c", "max": 8, "label": "a color", "named": true },
+        "icon": { "type": "text", "named": true },
+        "icon-only": { "type": "flag", "word": "icon-only" }
       }
     }
   },
@@ -130,7 +133,7 @@
     "shapes": {
       "selector": "ul > li",
       "required": true,
-      "description": "One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`box` `square` `pill` `diamond` `circle` `cylinder` `io` `doc`), a color `c1`…`c8`, one channel `fill=cN` / `border=cN` / `text=cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. One word stands alone; several go in one record, in any order: `\\{#kyc, diamond, c2}`."
+      "description": "One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`box` `square` `pill` `diamond` `circle` `cylinder` `io` `doc`), a color `c1`…`c8`, one channel `fill=cN` / `border=cN` / `text=cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. One word stands alone; several go in one record, in any order: `\\{#kyc, diamond, c2}`. An icon from the icons plugin draws beside the name: `icon=gateway` (before the name, or above it when the chart is pinned `tb`); add `icon-only` to draw the icon alone, and the name stays as what a screen reader says and the hover title. A group draws no icon."
     },
     "groups": {
       "selector": "li > ul",

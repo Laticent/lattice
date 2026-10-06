@@ -144,3 +144,28 @@ section .lat-pill[role='img'] > .lat-pill-icon { padding-right:0; }
  * cancel the space letter-spacing leaves after a label's last letter, and with no label that
  * indent only pushed the drawing right. */
 section .lat-pill[role='img'] { text-indent:0; }
+
+/* ── On a sketch slide — the tile, drawn by hand ────────────────────────────
+ * An icon is enrolled as a rough-ink structure (`kind: 'icon'`,
+ * lib/core/rough-ink.js): the ink redraws a FRAMED icon's tile edge in its own `--icon-edge`, as
+ * a spark's, so the two siblings read as one hand. The drawing inside stays crisp, and a bare
+ * icon has no tile to ink. Header and footer icons stay clean, as sparks do (lib/core/rough-ink-dom.js;
+ * the spark's twin of these two rules is in lib/base/base.sketch.css). The ink frame is square, so an
+ * `icon-rounded` tile shows its rounded fill inside square ink, as a rounded spark does. */
+section.sketch .lat-icon {
+  --rough-ink-stroke: var(--icon-edge);
+  --rough-ink-width: 1.6;
+}
+/* PIGMENT, the default look, fills its tile with the edge's own color, so a thin line shows only
+ * where it wobbles past the fill: it takes the heavier 1.6 above. Etching and tone have a pale or
+ * clear tile, where the spark's 0.9 already reads. Written as plain compounds, never a nested
+ * `:not(:is(…))`: the Playground's first-paint snapshot (docs/src/playground/snapshot-cache.js)
+ * keeps any rule it cannot test against the captured slide, and it sits close to its size cap. */
+section.sketch .lat-icon[data-look='etching'],
+section.sketch .lat-icon[data-look='tone'],
+section.sketch.icon-etching .lat-icon:not([data-look]),
+section.sketch.icon-tone .lat-icon:not([data-look]) { --rough-ink-width: 0.9; }
+/* The handover: once the slide has ink, the crisp edge goes, except in the header and footer,
+ * which are not inked. */
+section.sketch:has(> svg[data-lattice-rough-ink]) .lat-icon::before { border-color: transparent; }
+section.sketch:has(> svg[data-lattice-rough-ink]) :is(header, footer) .lat-icon::before { border-color: var(--icon-edge); }
