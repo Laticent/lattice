@@ -154,11 +154,11 @@ describe('icons — a pill whose icon= names no icon (lint, beside #2537\'s pill
     assert.deepEqual(found.map((f) => f.span), ['`{X, icon=lambda}`', '`{S3, icon=nope}`', '`{icon=lambda}`']);
     assert.match(found[0].message, /"lambda" is a service, not an icon — use the role icon `function`/);
     assert.match(found[1].message, /"nope" is not an icon/);
-    for (const f of found) assert.doesNotMatch(f.fix, /Quote a label/);
+    for (const f of found) assert.doesNotMatch(f.fix, /in quotes/);
   });
   test('the reserved-character case still gets the quoting advice', () => {
     const [f] = lintCore.findLiteralPills(deck('- `{A|B, tag}`'));
-    assert.match(f.fix, /Quote a label/);
+    assert.match(f.fix, /in quotes/);
   });
 });
 
