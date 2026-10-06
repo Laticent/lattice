@@ -144,7 +144,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				});
 				// A degradation names a path to go and fix, so it stays up long enough to read.
 				// The plain "ready." stays transient — there is nothing in it to act on.
-				// A non-Safari iOS browser gets a "<file> is ready · Save" toast from download.js
+				// On iOS every browser gets a "<file> is ready · Save" toast from download.js
 				// instead of a download, so a plain "ready." beside it is a second toast saying the
 				// same thing (the owner's iPhone showed both). A degradation still speaks.
 				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });

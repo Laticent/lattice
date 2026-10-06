@@ -2,16 +2,15 @@
 
 import { iosNeedsShareSheet, setPendingSave } from './download.js';
 
-// FIREFOX (AND CHROME) ON iOS. Every iOS browser is Safari's engine underneath, and the
-// non-Safari ones save a page's download with their own script. Firefox for iOS's
-// DownloadHelper.js names a `blob:` download from a Content-Disposition header or else the
-// URL's last segment — the UUID — and never reads the `download` attribute it is handed
-// (the owner's iPhone 15 Pro, on the #2555 preview: still `<uuid>.<ext>`). No page-side
-// name survives that path, so those browsers get the share sheet with a named File
-// instead: "Save to Files" keeps the name. iOS opens the sheet only inside a tap, and an
-// export finishes seconds after its tap, so the sheet waits behind a "Save" toast — the
-// same two-tap shape iOS Print already uses (PrintOptionsPanel). Safari honors the
-// `download` attribute, so it keeps the one-tap download.
+// ONE NATIVE SAVE ON iOS. Every iOS browser is Safari's engine underneath, and the non-Safari
+// ones save a page's download with their own script. Firefox for iOS's DownloadHelper.js names
+// a `blob:` download from a Content-Disposition header or else the URL's last segment — the
+// UUID — and never reads the `download` attribute it is handed (the owner's iPhone 15 Pro:
+// `<uuid>.<ext>`). No page-side name survives that path. So on iOS every browser, Safari
+// included, gets the share sheet with a named File (the owner's call: one consistent, native
+// iOS save): "Save to Files" keeps the name. iOS opens the sheet only inside a tap, and an
+// export finishes seconds after its tap, so the sheet waits behind a "Save" toast — the same
+// two-tap shape iOS Print already uses (PrintOptionsPanel).
 const SAVE_TOAST_MS = 30_000;
 
 

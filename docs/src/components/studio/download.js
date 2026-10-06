@@ -58,13 +58,12 @@ export function armDownloadLink(a, filename, blob) {
 
 /** Save an already-made URL (from `namedFileUrl`) as `filename`. The caller owns the URL. */
 
-/** An iOS browser that is not Safari (Firefox `FxiOS`, Chrome `CriOS`, Edge `EdgiOS`, …).
- *  Safari is the one whose user agent carries `Version/… Safari/` and no other brand. */
+/** Every iPhone and iPad browser saves through the share sheet — Safari included. The owner's
+ *  call (2026-10-06): one native iOS save, the same in every iOS browser, rather than a
+ *  one-tap download in Safari and a share sheet everywhere else. Every iOS browser is Safari's
+ *  engine; the difference was only which ones drop the file name (Firefox does). */
 export function iosNeedsShareSheet(ua = nav()?.userAgent || '', platform = nav()?.platform || '', touchPoints = nav()?.maxTouchPoints || 0) {
-	if (!isIOSLike(ua, platform, touchPoints)) return false;
-	const brand = /\b(FxiOS|CriOS|EdgiOS|OPiOS|OPT|DuckDuckGo|Ddg|GSA|YaBrowser|Brave)\//.test(ua);
-	const safari = /\bVersion\/[\d.]+.*\bSafari\//.test(ua);
-	return brand || !safari;
+	return isIOSLike(ua, platform, touchPoints);
 }
 
 // The iOS "Save" toast a save is waiting on (download-ios.js), so a surface that moves on —

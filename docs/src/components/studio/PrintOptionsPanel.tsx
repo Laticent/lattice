@@ -455,8 +455,8 @@ export function PrintOptionsPanel({
 		return url;
 	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, cachedForCurrent, imgCache, pdfFilename]);
 
-	// On iOS the Download button hands download.js the bytes, which a non-Safari browser
-	// needs for the share sheet (download-ios.js); Safari still gets the plain download.
+	// On iOS the Download button hands download.js the bytes, which the share sheet needs
+	// (download-ios.js); every other device gets the plain download.
 	const triggerDownload = React.useCallback((url: string) => {
 		if (!isIOSLike()) return downloadUrl(url, pdfFilename());
 		void fetch(url).then((r) => r.blob()).then((b) => downloadBlob(pdfFilename(), b));

@@ -649,12 +649,15 @@ anchor's `download` attribute. Two separate paths lose it:
 
 - It builds the URL from a `File` named like the download (`namedFileUrl`), keeps the
   `download` attribute, and revokes the URL a minute later rather than in the click's tick.
-- On an iPhone or iPad it loads `download-ios.js`. On a **non-Safari iOS browser**
-  (`iosNeedsShareSheet`) that clicks no link: it raises a "<name> is ready · Save" toast, and
-  the tap opens the share sheet with the named `File`; "Save to Files" keeps the name. Two
-  taps, because iOS opens the sheet only inside a tap and an export finishes seconds after its
-  tap — the same shape iOS Print uses. Safari honors the `download` attribute, so it keeps the
-  one-tap download.
+- On an iPhone or iPad — **every iOS browser, Safari included** (the owner's call: one native
+  iOS save) — it loads `download-ios.js`, which clicks no link: it raises one
+  "<name> is ready · Save" toast, and the tap opens the share sheet with the named `File`
+  (files only — a `title` becomes a second "text" item in Save to Files); "Save to Files" keeps
+  the name. Two taps, because iOS opens the sheet only inside a tap and an export finishes
+  seconds after its tap — the same shape iOS Print uses. The Share sheet skips its own
+  "ready." toast there, and retires the Save toast when the author changes format or closes it.
+- The toaster sets `pointer-events: auto`: a Radix modal sets `pointer-events: none` on
+  `<body>`, so a toast over the Share sheet showed and ignored every tap.
 - `download-ios.js` raises its toast through `notify.ts`'s `NOTIFY_ACTION_EVENT`, never by
   importing `notify`: a lazy chunk that imports `notify` splits it into a first-paint chunk of
   its own (measured +1,239 B gz on the Studio, +460 B on the Playground).
@@ -665,8 +668,8 @@ anchor's `download` attribute. Two separate paths lose it:
 **Triggered by** — Share → any export; Library and workspace-backup downloads; the Print
 panel's Download button and its 2-up / 4-up / Notes tab.
 
-**Removable when** — the share-sheet branch, when Firefox for iOS names `blob:` downloads from
-the `download` attribute (and Chrome for iOS likewise). The `File` naming, never: it costs
-nothing.
+**Removable when** — never by default: the share sheet is the deliberate iOS save, not only a
+workaround. The `File` naming costs nothing. `docs/e2e/export-filenames.spec.ts` drives both
+paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome user agents).
 
 **Commits** — the commit that added this entry.

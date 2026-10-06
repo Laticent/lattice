@@ -1,5 +1,5 @@
 // The Studio's one download helper names every saved file on the `blob:` URL itself, not
-// only in the anchor's `download` attribute, and on a non-Safari iOS browser saves through
+// only in the anchor's `download` attribute, and on iOS (every browser) saves through
 // the share sheet — Firefox for iOS otherwise saves the URL's UUID (`76f752a8-….html`, the
 // owner's iPhone). download.js and download-ios.js say why; this pins both paths and that
 // nothing routes around them.
@@ -65,8 +65,8 @@ describe('the download helper', () => {
 });
 
 // Real user agents. Firefox for iOS names a blob: download from the URL's UUID whatever the
-// page asks (its DownloadHelper.js never reads the `download` attribute), so every non-Safari
-// iOS browser gets the share sheet; Safari and every desktop keep the one-tap download.
+// page asks (its DownloadHelper.js never reads the `download` attribute), so iOS saves through
+// the share sheet — in every iOS browser, for one native behavior; desktop keeps the download.
 const UA = {
 	firefoxIPhone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/132.0 Mobile/15E148 Safari/605.1.15',
 	chromeIPhone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0.6723.90 Mobile/15E148 Safari/604.1',
@@ -77,14 +77,12 @@ const UA = {
 };
 
 describe('which browsers save through the share sheet', () => {
-	it('every non-Safari iOS browser', () => {
+	it('every iOS browser, Safari included — one native save on iOS', () => {
 		expect(iosNeedsShareSheet(UA.firefoxIPhone)).toBe(true);
 		expect(iosNeedsShareSheet(UA.chromeIPhone)).toBe(true);
 		expect(iosNeedsShareSheet(UA.edgeIPhone)).toBe(true);
-	});
-	it('not Safari, on iPhone or on an iPad that reports as a Mac', () => {
-		expect(iosNeedsShareSheet(UA.safariIPhone)).toBe(false);
-		expect(iosNeedsShareSheet(UA.safariIPad, 'MacIntel', 5)).toBe(false);
+		expect(iosNeedsShareSheet(UA.safariIPhone)).toBe(true);
+		expect(iosNeedsShareSheet(UA.safariIPad, 'MacIntel', 5)).toBe(true);
 	});
 	it('not a desktop browser, a real Mac included', () => {
 		expect(iosNeedsShareSheet(UA.firefoxDesktop, 'MacIntel', 0)).toBe(false);
