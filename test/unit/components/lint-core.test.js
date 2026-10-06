@@ -1202,6 +1202,51 @@ describe('lint-core: author-script-defers (#1792)', () => {
   });
 });
 
+// A stray `]` right after a quoted part closes a bracketed list early, so the axis or key it
+// names silently renders as text (followup 2462-p3; the two inputs are #2462's red-team typos).
+describe('lint-core: a bracketed list closed early (bracket-list-closed-early)', () => {
+  const qvocab = { ...vocab, names: new Set([...vocab.names, 'quadrant']) };
+  const closed = (src) => core.lintTextWith(src, qvocab).filter((f) => f.rule === 'bracket-list-closed-early');
+  const deck = (body) => `${FM}<!-- _class: quadrant -->\n\n## Heading\n\n${body}\n\n- Top right\n  - a\n`;
+
+  test('the two red-team typos warn, and the fix is the list the author meant', () => {
+    const mid = closed(deck('`["Cost, excluding tax"]], Value]`'));
+    assert.equal(mid.length, 1);
+    assert.equal(mid[0].severity, 'warning');
+    assert.match(mid[0].fix, /`\["Cost, excluding tax", Value\]`/);
+    const end = closed(deck('`["Cost, excluding tax"]]`'));
+    assert.equal(end.length, 1);
+    assert.match(end[0].fix, /`\["Cost, excluding tax"\]`/);
+  });
+
+  test('a well-formed list, an unquoted `]]`, prose code and a code block stay silent', () => {
+    for (const body of [
+      '`["Cost, excluding tax", Value]`',
+      '`["Cost, excluding tax"]`',
+      '`[a]]`',
+      'The array `[["a"], ["b"]]` is nested.',
+      '```\n`["a"]], b]`\n```',
+    ]) {
+      assert.equal(closed(deck(body)).length, 0, body);
+    }
+  });
+
+  test('a plain slide stays silent, and an escaped quote does not end the quoted part', () => {
+    assert.equal(closed(`${FM}## Heading\n\n\`["a"]], b]\`\n`).length, 0, 'no component, no list position');
+    assert.equal(closed(deck('`["a\\"] z", {b]`')).length, 0, 'the `]` sits inside the quoted part');
+    const esc = closed(deck('`["a \\"b\\""]], c]`'));
+    assert.equal(esc.length, 1);
+    assert.match(esc[0].fix, /`\["a \\"b\\"", c\]`/);
+  });
+
+  test('linear on a long run of quotes and brackets', () => {
+    const span = `[${'"a"]'.repeat(20_000)}]`;
+    const start = process.hrtime.bigint();
+    core.findStrayBracketAfterQuote(`\`${span}\`\n`);
+    assert.ok(Number(process.hrtime.bigint() - start) / 1e6 < 500);
+  });
+});
+
 describe('lint-core: crowded circle / diamond pills (pill-shape-crowded)', () => {
   const crowded = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'pill-shape-crowded');
   const deck = (body) => `${FM}## Heading\n\n${body}\n`;
