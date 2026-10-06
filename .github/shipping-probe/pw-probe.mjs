@@ -26,6 +26,10 @@ const arms = {
   ctorimport: `(()=>{}).constructor('return ${imp('ctorimport')}')()`,
   asyncimport: `(async()=>{}).constructor('await ${imp('asyncimport')}')()`,
   timerimport: `setTimeout('${imp('timerimport')}',0)`,
+  // Parse differentials: acorn reads both as comments (the gate passes them), so an engine that ran
+  // either would show a request here, in every configuration.
+  htmlopen: `0 <!-- ${imp('htmlopen')}\n`,
+  htmlclose: `0\n--> ${imp('htmlclose')}\n`,
 };
 const wrap = (code) => `try{${code}}catch(e){}`;
 const pkgOf = (names) => `${names.map((n) => wrap(arms[n])).join(';')};function t(s){return "ran"}export{t as default};`;
