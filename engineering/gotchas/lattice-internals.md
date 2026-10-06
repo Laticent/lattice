@@ -1025,3 +1025,22 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   automated merge is needed again.
 - **Commits:** Fixed alongside the G-gen promotion commit in the
   `refactor(themes)` session on 2026-05-15.
+
+## An author's `$&` in a label turns into a piece of the slide
+
+- **Symptom:** a chart slide whose class words hold `$&` (`<!-- _class: funnel x$&y -->`)
+  renders a broken open tag (`class="funnel x class="funnel x…"…`), or a split-panel QR caption
+  holding `$&` or `$'` prints part of the surrounding markup inside the caption.
+- **Cause:** `String.prototype.replace` with a STRING replacement expands `$&`, `$'`, `` $` ``,
+  `$1` and `$$` in that string. When the replacement carries author text, the author's
+  characters become a command. HTML escaping does not help: `escAttr` keeps `$`.
+- **Fix:** pass a FUNCTION replacer whenever the replacement holds anything an author typed:
+  `s.replace(re, () => value)`, or `(_, a, b) => …` in place of `$1$2`. A function's return
+  value is never expanded.
+- **Where it was fixed:** #2533 and #2545 converted every site that carries deck text into markup
+  (the chart family's class rewrite, the split-panel QR caption, the code-package failure note and
+  the nine before them), and `test/unit/core/replacement-patterns.test.js` renders each with `$`
+  swapped for a stand-in. #2545's census found no other such site and added no gate: the rest
+  interpolate engine values. The CLI's `--size` rewrite (`lib/engine/sizes.js`, not deck text,
+  but typed by a person) is a function replacer too, pinned in
+  `test/unit/authoring/pill-literal.test.js`.
