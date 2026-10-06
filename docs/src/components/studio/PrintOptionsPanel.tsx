@@ -36,7 +36,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
-import { downloadUrl, namedFileUrl } from './download';
+import { downloadBlob, downloadUrl, iosNeedsShareSheet, isIOSLike, namedFileUrl } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
 import { splitSlides } from './lint';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
@@ -54,13 +54,6 @@ type Opts = { paper: Paper; orientation: Orient; color: Color; layout: Layout };
 const DEFAULT_OPTS: Opts = { paper: 'auto', orientation: 'auto', color: 'color', layout: '1' };
 
 const SHEET_LABEL: Record<Exclude<Paper, 'auto'>, string> = { letter: 'US Letter', legal: 'US Legal', a4: 'A4' };
-
-function isIOSLike(): boolean {
-	if (typeof navigator === 'undefined') return false;
-	const ua = navigator.userAgent || '';
-	// iPadOS 13+ reports as Mac; disambiguate with touch points.
-	return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
-}
 
 // Desktop print: mount the print-ready HTML in a hidden iframe and call its print().
 // HTML-in-iframe printing RELIABLY opens the browser's print dialog — unlike a PDF blob
@@ -462,7 +455,12 @@ export function PrintOptionsPanel({
 		return url;
 	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, cachedForCurrent, imgCache, pdfFilename]);
 
-	const triggerDownload = React.useCallback((url: string) => downloadUrl(url, pdfFilename()), [pdfFilename]);
+	// A non-Safari iOS browser drops the name on a link download, so the Download button
+	// hands it the bytes instead and download.js offers the share sheet (two taps).
+	const triggerDownload = React.useCallback((url: string) => {
+		if (!iosNeedsShareSheet()) return downloadUrl(url, pdfFilename());
+		void fetch(url).then((r) => r.blob()).then((b) => downloadBlob(pdfFilename(), b));
+	}, [pdfFilename]);
 
 	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the
 	// DESKTOP print path — desktop honors CSS @page, so this prints crisp + correct.

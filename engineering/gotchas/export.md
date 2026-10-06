@@ -625,29 +625,44 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 ## A Studio export saves as a UUID (`76f752a8-….html`) in Firefox
 
-**Symptom** — Every Studio export (PDF, PPTX, HTML, Markdown, zips) lands in the
-downloads folder named like `76f752a8-f837-4922-a860-7cda2b89453a.html`: the right
-extension, a UUID for a name. The Print panel's 2-up/4-up/handout PDF tab shows the same
-UUID in its title, and its Save button offers `document.pdf`. The owner hit this on
-lattice.style in Firefox; a clean Firefox 142 profile, local or production build, service
-worker on or off, named every export correctly.
+**Symptom** — An export lands named like `76f752a8-f837-4922-a860-7cda2b89453a.html`: the
+right extension, a UUID for a name. The owner hit it on an **iPhone 15 Pro in Firefox for
+iOS**, for every format. Desktop Firefox shows the same shape whenever a browser drops the
+`download` hint, and its PDF viewer titled the Print panel's 2-up/4-up/handout tab
+`… - <uuid>` and saved it as `document.pdf`.
 
-**Cause** — A `blob:` URL ends in a UUID. The exports named the file only through the
-anchor's `download` attribute. When a browser drops that hint — something in that
-Firefox profile does, and we never found what — it falls back to the URL's last segment
-plus an extension from the MIME type. Measured in Firefox 142 with no `download`
-attribute: a URL from a `Blob` gives no name, a URL from a `File` gives the File's name.
-Firefox's PDF viewer reads the same name for the tab title and its own Save.
+**Cause** — A `blob:` URL ends in a UUID, and the exports named the file only through the
+anchor's `download` attribute. Two separate paths lose it:
 
-**Mitigation** — Every save goes through `docs/src/components/studio/download.js`, which
-builds the URL from a `File` named like the download (`namedFileUrl`) and keeps the
-`download` attribute as well. The URL is revoked a minute later rather than in the
-click's tick. `download.test.ts` fails if any other file under `docs/src` assigns a
-`download` attribute — the bug lived in five hand-rolled copies of the anchor click.
+- **Firefox (and Chrome, Edge, …) on iOS.** Every iOS browser is Safari's engine, and the
+  non-Safari ones save a page's download with their own script. Firefox for iOS's
+  `DownloadHelper.js` (mozilla-mobile/firefox-ios) intercepts the click and, for a `blob:`
+  URL, takes the name from a `Content-Disposition` header or else
+  `url.split("/").pop()` — the UUID. Its click handler passes `event.target.download`, but
+  the function never reads that argument. **No page-side name survives this path**: a
+  `File`-backed URL did not help on the owner's iPhone.
+- **Desktop Firefox, whenever the hint is dropped.** Measured in a plain Firefox 142 writing
+  to its own download folder: hint dropped + `Blob` URL → `tmueBFT2.pptx`; hint dropped +
+  `File` URL → the File's name. Its PDF viewer reads the same name for the tab title and Save.
 
-**Triggered by** — Share → any export; Library and workspace-backup downloads; Print →
-2-up / 4-up / Notes, which opens the PDF in a tab.
+**Mitigation** — Every save goes through `docs/src/components/studio/download.js`:
 
-**Removable when** — never; naming the file on the URL costs nothing.
+- It builds the URL from a `File` named like the download (`namedFileUrl`), keeps the
+  `download` attribute, and revokes the URL a minute later rather than in the click's tick.
+- On a **non-Safari iOS browser** (`iosNeedsShareSheet`) it clicks no link. It raises a
+  "<name> is ready · Save" toast, and the tap opens the share sheet with the named `File`;
+  "Save to Files" keeps the name. Two taps, because iOS opens the sheet only inside a tap and
+  an export finishes seconds after its tap — the same shape iOS Print uses. Safari honors the
+  `download` attribute, so it keeps the one-tap download.
+- `download.test.ts` pins both paths against real iOS user agents, and two censuses fail if
+  any other file under `docs/src` names a download or makes a `blob:` URL outside the known
+  Worker/CSS sites. The bug lived in five hand-rolled copies of the anchor click.
+
+**Triggered by** — Share → any export; Library and workspace-backup downloads; the Print
+panel's Download button and its 2-up / 4-up / Notes tab.
+
+**Removable when** — the share-sheet branch, when Firefox for iOS names `blob:` downloads from
+the `download` attribute (and Chrome for iOS likewise). The `File` naming, never: it costs
+nothing.
 
 **Commits** — the commit that added this entry.
