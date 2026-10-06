@@ -658,5 +658,12 @@ narrower windows of the same host-id squat; each now has a test that fails witho
   server, most of it the Studio loading. The check now also reports which network path the
   connection took: `host→host (udp)` on every run here, which is what two browsers on one machine
   give and is no evidence about other networks.
+- Phone width (390 px, Chromium touch emulation, two browsers over the real relays): Menu → Live
+  → Start, the lobby, the knock toast with Admit, the header pill on both sides, and chat from
+  the phone reaching the host. This run found two phone defects, both fixed: Live had no entry
+  point on a phone (its pane bar is full; it is now a row in the phone drawer), and tapping
+  Start right after typing a name did nothing, because the shared phone sheet shrinks 54px when
+  a field loses focus and the click landed on the field (`followups.d/2547-p2-phone-sheet-shift-
+  misdirects-taps.md` covers the other sheets).
 - UNVERIFIED: two real devices on two networks, iOS Safari, and anything about calls.
 

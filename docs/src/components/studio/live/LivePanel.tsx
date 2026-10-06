@@ -133,7 +133,8 @@ function Composer({ onSend }: { onSend: (text: string) => void }) {
 				className={CHAT_COMPOSER_FIELD}
 			/>
 			<span className={CHAT_COMPOSER_TOOLS}>
-				<Button size="icon" className="size-7 rounded-lg" aria-label="Send" disabled={!draft.trim()} onClick={send}>
+				{/* Keeps the keyboard up for the next message (the field keeps focus through the tap). */}
+				<Button size="icon" className="size-7 rounded-lg" aria-label="Send" disabled={!draft.trim()} onMouseDown={(e) => e.preventDefault()} onClick={send}>
 					<ArrowUp className="size-4" />
 				</Button>
 			</span>
@@ -144,25 +145,41 @@ function Composer({ onSend }: { onSend: (text: string) => void }) {
 /** The panel body before a session: one card, your name, one action. */
 function StartCard({ actions, defaultName }: { actions: LiveActions; defaultName: string }) {
 	const [name, setName] = React.useState(defaultName);
+	// The button keeps the field's focus through the tap (`onMouseDown` preventDefault, the idiom
+	// table-controls uses). On a phone the sheet is 54px taller while a field has focus
+	// (`MOBILE_HEIGHT`); letting the tap blur the field shrank it BEFORE the click landed, so the click
+	// hit the field that slid under the finger and Start did nothing (found on a 390 px run).
+	const start = () => {
+		if (name.trim()) actions.start(name);
+	};
 	return (
-		<form
-			className="flex flex-col gap-3 px-3.5 py-4"
-			onSubmit={(e) => {
-				e.preventDefault();
-				if (name.trim()) actions.start(name);
-			}}
-		>
+		<div className="flex flex-col gap-3 px-3.5 py-4">
 			<div className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-[12px] leading-relaxed text-muted-foreground">
 				<UsersRound className="mx-auto mb-1.5 size-5 text-[var(--accent)]" />
 				Edit this deck together, live. Share a link; people knock, you let them in, and everyone sees the same deck, carets and slide.
 				<span className="mt-1.5 block">Up to 4 people. Edits go browser to browser.</span>
 			</div>
 			<label htmlFor="live-start-name" className="text-[11.5px] font-semibold text-foreground">Your name</label>
-			<Input id="live-start-name" value={name} maxLength={40} autoComplete="name" onChange={(e) => setName(e.target.value)} placeholder="How others will see you" className="h-8 text-[12.5px]" />
-			<Button type="submit" disabled={!name.trim()} className="w-full gap-1.5">
+			<Input
+				id="live-start-name"
+				value={name}
+				maxLength={40}
+				autoComplete="name"
+				enterKeyHint="go"
+				onChange={(e) => setName(e.target.value)}
+				onKeyDown={(e) => {
+					if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+						e.preventDefault();
+						start();
+					}
+				}}
+				placeholder="How others will see you"
+				className="h-8 text-[12.5px]"
+			/>
+			<Button type="button" disabled={!name.trim()} onMouseDown={(e) => e.preventDefault()} onClick={start} className="w-full gap-1.5">
 				<Link2 className="size-4" /> Start live session
 			</Button>
-		</form>
+		</div>
 	);
 }
 

@@ -31,7 +31,7 @@
 // None of the six protected controls (Present, Share, Coach, Chat, Settings, the pane
 // toggle) are here — they stay one tap on the Eight-Cell Bar. Neither is Slide settings
 // (the toolbar's Settings cell owns it) nor Workspace settings (promoted to the header).
-import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Plus, Search } from 'lucide-react';
+import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Plus, Search, UsersRound } from 'lucide-react';
 import * as React from 'react';
 import { MOBILE_HEIGHT, MOBILE_OFFSET, PanelBack, useKeyboardInset } from '@/components/ui/panel';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -183,6 +183,7 @@ export function StudioDrawer({
 	onFixAll,
 	onVersionHistory,
 	onLenses,
+	onLive,
 	demoActive,
 	tours,
 	onStartDemo,
@@ -225,6 +226,8 @@ export function StudioDrawer({
 	onFixAll: () => void;
 	onVersionHistory: () => void;
 	onLenses: () => void;
+	/** Open the Live panel: the phone's pane bar has no cell left for it. */
+	onLive: () => void;
 	demoActive: boolean;
 	tours: TourMeta[];
 	onStartDemo: (id: string) => void;
@@ -380,6 +383,7 @@ export function StudioDrawer({
 								<Row icon={<Search className="size-[18px]" />} label="Search / commands" onClick={go(onSearch)} />
 								<Row icon={<FileBox className="size-[18px]" />} label="Library" onClick={go(onLibrary)} />
 								<Row icon={<LensIcon className="size-[18px]" />} label="Reader views" onClick={go(onLenses)} />
+								<Row icon={<UsersRound className="size-[18px]" />} label="Live" onClick={go(onLive)} />
 								{/* Deck-level recovery — never pane-gated. Gating this on `effPane`
 								    once removed it from the Preview pane entirely. */}
 								<Row icon={<HistoryIcon className="size-[18px]" />} label="Version history" onClick={go(onVersionHistory)} />

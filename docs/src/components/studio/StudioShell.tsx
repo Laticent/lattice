@@ -6300,6 +6300,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						fixableIssues={fixableIssues}
 						onVersionHistory={() => setHistoryOpen(true)}
 						onLenses={() => setLensesOpen(true)}
+						onLive={openLive}
 						demoActive={demoActive}
 						tours={TOURS}
 						onStartDemo={startDemo}
