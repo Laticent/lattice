@@ -18,6 +18,9 @@ Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It
 - **posts** — `session.post(bytes, to?)` and `onPost(bytes, from)`, a channel for app messages
   (the Studio's chat) under the same gate, where `from` is the transport sender, so an app never
   has to believe an author field;
+- **the session clock** — `session.now()` is the host's time on every member, estimated by
+  Cristian's algorithm over a ping/pong (tightest round trip wins, re-measured every 30 s), so an
+  app never compares two device clocks;
 - **client binding** — each member knocks with its awareness `client` id and the host binds it in
   the roster (refusing one another member already holds), so an app can drop presence a member
   sends for anyone else.

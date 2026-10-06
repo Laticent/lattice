@@ -75,10 +75,31 @@ const clearHostSave = () => {
 	} catch {}
 };
 
-/** A chat line as every browser keeps it. `name` and `color` are the roster's when it arrived. */
-type ChatLine = { id: string; peer: string; name: string; color: LiveColor; text: string; at: number };
-/** Posts on Tavola's app channel: a line, a request for the history, and the host's answer. */
-type Post = { k: 'chat'; n: number; text: string } | { k: 'history?' } | { k: 'history'; lines: ChatLine[] } | { k: 'typing' } | { k: 'bye' };
+/**
+ * A chat line as the HOST ordered it. The host is the chat's one authority, as it is the session
+ * clock's (Tavola `now()`): `seq` is the session's order (1, 2, 3…, the same on every browser),
+ * `at` is session time, and `name` / `color` are the roster's when the host took the line in.
+ */
+type ChatLine = { seq: number; id: string; peer: string; name: string; color: LiveColor; text: string; at: number };
+/** A line this browser sent that the host has not echoed back yet ("Sending…"). */
+type Pending = { id: string; text: string; at: number };
+/**
+ * Posts on Tavola's app channel. Chat goes THROUGH the host:
+ *   member → host  `say`    a line, with an id the member chose (the host drops a repeat)
+ *   host → all     `line`   that line, numbered and stamped
+ *   member → host  `since`  "I have everything up to `seq`" — on admission, return, or a gap
+ *   host → member  `lines`  everything after it, plus the session's start time
+ *   host → member  `tip`    the latest number, so a returning member knows whether to ask
+ * plus `typing` and `bye`, which are not chat and go to everyone directly.
+ */
+type Post =
+	| { k: 'say'; id: string; text: string }
+	| { k: 'line'; line: ChatLine }
+	| { k: 'since'; seq: number }
+	| { k: 'lines'; lines: ChatLine[]; startedAt: number }
+	| { k: 'tip'; seq: number; startedAt: number }
+	| { k: 'typing' }
+	| { k: 'bye' };
 /** How long a dropped member shows as reconnecting before the chat says they left. A phone that
  *  backgrounds a tab drops its connection within seconds and comes back when the tab returns. */
 const AWAY_GRACE_MS = 60_000;
@@ -91,8 +112,8 @@ const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 ||
 /** A history line from the host, kept only in the shape a line has. */
 const cleanLine = (x: unknown): ChatLine | null => {
 	const l = x as Partial<ChatLine> | null;
-	if (!l || typeof l !== 'object' || typeof l.id !== 'string' || typeof l.peer !== 'string' || typeof l.name !== 'string' || typeof l.text !== 'string' || !isColor(l.color) || typeof l.at !== 'number') return null;
-	return { id: l.id.slice(0, 120), peer: l.peer.slice(0, 120), name: cleanName(l.name), color: l.color, text: l.text.slice(0, CHAT_MAX), at: l.at };
+	if (!l || typeof l !== 'object' || !Number.isSafeInteger(l.seq) || (l.seq as number) < 1 || typeof l.id !== 'string' || typeof l.peer !== 'string' || typeof l.name !== 'string' || typeof l.text !== 'string' || !isColor(l.color) || typeof l.at !== 'number') return null;
+	return { seq: l.seq as number, id: l.id.slice(0, 120), peer: l.peer.slice(0, 120), name: cleanName(l.name), color: l.color, text: l.text.slice(0, CHAT_MAX), at: l.at };
 };
 
 /** This tab's hold on hosting `room` (navigator.locks): a duplicated tab copies sessionStorage and
@@ -128,8 +149,9 @@ type Runtime = {
 	key: HostKey | null;
 	/** Awareness client id → the peer whose state we accepted for it (the roster bound them). */
 	owner: Map<number, string>;
-	/** This browser's chat counter (a line's id is `<sender peer>:<n>`). */
+	/** This browser's chat counter; a line's id is `<sid>:<n>`, `sid` random per session. */
 	chatN: number;
+	sid: string;
 	/** The host's document has arrived (a guest may not open the deck before it has). */
 	gotDoc: boolean;
 	disposers: Array<() => void>;
@@ -275,8 +297,12 @@ export class LiveController {
 	/** Peers that said goodbye (Leave), so their departure is news at once. */
 	private byes = new Set<string>();
 	private typingAt = new Map<string, number>();
-	/** Host: when it lost each member, by name — what a returning member is sent from. */
-	private lostAt = new Map<string, number>();
+	/** Member: lines sent but not yet echoed by the host. */
+	private pending: Pending[] = [];
+	/** Host: the last number given; member: the highest number held. */
+	private seq = 0;
+	/** Member: the host's session start (session time), from its `lines` / `tip`. */
+	private hostStartedAt: number | null = null;
 	private lastTypingPost = 0;
 	private lastSummon = 0;
 	private followJump = false;
@@ -340,6 +366,7 @@ export class LiveController {
 				if (!opened || !priv) throw new Error('nothing to resume');
 				const key = await hostKeyFrom(priv, fromBase64Url(hosting.pub));
 				this.chat = (opened.chat ?? []).map(cleanLine).filter((l): l is ChatLine => !!l);
+				this.seq = this.chat.reduce((m, l) => Math.max(m, l.seq), 0);
 				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc }, startedAt: hosting.startedAt, release });
 				this.bound = true;
 				this.boundDeck = hosting.deckId;
@@ -449,7 +476,7 @@ export class LiveController {
 		const fingerprint = key?.fingerprint ?? (args.hostFingerprint as string);
 		// The link is this page's address WITHOUT its query: a query can carry anything the host's
 		// address bar happened to hold (inversion round 2, item 6).
-		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, gotDoc: !!args.host, disposers: [] };
+		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, sid: Math.random().toString(36).slice(2, 10), gotDoc: !!args.host, disposers: [] };
 		if (args.release) rt.disposers.push(args.release);
 		this.rt = rt;
 		const r = rt;
@@ -462,20 +489,14 @@ export class LiveController {
 				if (prev.stage === 'live' && s.stage === 'live') {
 					for (const m of s.members) {
 						if (before.has(m.id) || m.id === s.selfId) continue;
-						// A member coming BACK (its tab was in the background, its link blipped) missed the
-						// lines sent while it was gone, and a quiet rejoin by token never changes its stage,
-						// so its own "history?" ask does not fire. The host sends just those lines: everything
-						// stamped since it lost that member, by the host's own clock (a line's `at` is local to
-						// each browser, so another device's clock is never compared). A first admission asks
-						// for the whole chat itself. A beat later, so the admission lands first; a line it
-						// already has is dropped by id, and the 5 s overlap covers a line in flight at the drop.
-						const lostAt = this.lostAt.get(m.name);
-						if (s.isHost && lostAt !== undefined) {
-							this.lostAt.delete(m.name);
+						// Every (re)admitted member learns the latest line number, and asks for what it lacks
+						// (`since`): a member whose tab was in the background comes back to exactly the lines
+						// it missed, by number — no clock is compared. A beat later, so the admission lands
+						// first.
+						if (s.isHost) {
 							const to = m.id;
 							setTimeout(() => {
-								const missed = this.chat.filter((l) => l.at >= lostAt - 5000);
-								if (this.rt === r && missed.length) this.post({ k: 'history', lines: missed }, to);
+								if (this.rt === r) this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt }, to);
 							}, 400);
 						}
 						// Back from a dropped link (a backgrounded phone tab, a blip): not news.
@@ -491,7 +512,6 @@ export class LiveController {
 					for (const [id, m] of before) {
 						if (s.members.some((x) => x.id === id) || id === s.selfId) continue;
 						this.typingAt.delete(id);
-						if (s.isHost) this.lostAt.set(m.name, Date.now());
 						if (this.byes.delete(id)) {
 							this.sys(`${m.name} left`);
 							continue;
@@ -513,6 +533,8 @@ export class LiveController {
 						if (was && was.role !== m.role) this.sys(`${m.name} ${m.role === 'view' ? 'can now only view' : 'can now edit'}`);
 					}
 				}
+				// The host is back (its link returned): catch up, and send what waited.
+				if (!s.isHost && s.stage === 'live' && prev.hostAway && !s.hostAway) this.catchUp();
 				if (s.token && s.token !== prev.token) {
 					const tok = s.token;
 					void seal(tok).then(
@@ -545,9 +567,10 @@ export class LiveController {
 		let lastEdit = 0;
 		const onLocalEdit = (_e: unknown, tr: Y.Transaction) => {
 			if (!tr.local) return;
-			const t = Date.now();
+			const t = session.now();
 			if (t - lastEdit < 1000) return;
 			lastEdit = t;
+			// Session time, so every browser compares it against the same clock.
 			aw.setLocalStateField('editingAt', t);
 		};
 		ytext.observe(onLocalEdit);
@@ -557,7 +580,7 @@ export class LiveController {
 		doc.on('update', onDocUpdate);
 		r.disposers.push(() => doc.off('update', onDocUpdate));
 		this.ticker = setInterval(() => {
-			this.now = Date.now();
+			this.now = this.rt ? this.rt.session.now() : Date.now();
 			if (this.rt?.session.getState().stage === 'live') this.host.rerender();
 		}, 1000);
 		this.host.rerender();
@@ -592,7 +615,9 @@ export class LiveController {
 		this.away.clear();
 		this.byes.clear();
 		this.typingAt.clear();
-		this.lostAt.clear();
+		this.pending = [];
+		this.seq = 0;
+		this.hostStartedAt = null;
 		this.following = null;
 		this.bound = false;
 		this.boundDeck = null;
@@ -625,7 +650,7 @@ export class LiveController {
 	}
 
 	private sys(text: string) {
-		this.systemLines = [...this.systemLines, { kind: 'system', id: `s${Math.random().toString(36).slice(2)}`, text, at: Date.now() }];
+		this.systemLines = [...this.systemLines, { kind: 'system', id: `s${Math.random().toString(36).slice(2)}`, text, at: this.rt?.session.now() ?? Date.now() }];
 	}
 
 	private saveHostSoon() {
@@ -669,8 +694,8 @@ export class LiveController {
 		// Our own teardown moves the session to `ended`; that is not the host ending it on us.
 		if (this.tearing) return;
 		if (s.stage === 'live' && !s.isHost) {
-			// Chat history lives with the host: ask for it on every admission (a reload included).
-			this.post({ k: 'history?' }, s.members.find((m) => m.role === 'host')?.id);
+			// The chat lives with the host: ask for what we lack on every admission (a reload, a rejoin).
+			this.catchUp();
 			this.maybeOpenShared();
 			return;
 		}
@@ -847,26 +872,70 @@ export class LiveController {
 		return { extension: r.ext, key: `${r.room}:${s.me.role === 'view' ? 'view' : 'edit'}`, readOnly: s.me.role === 'view', seed: () => r.ytext.toString() };
 	}
 
-	/** The chat: every line's author is the member its post ARRIVED from (Tavola's gate), as the
-	 *  roster named them then. */
+	/** The chat in the host's order. A line's author is the member its `say` ARRIVED from at the
+	 *  host (Tavola's gate), as the roster named them then; lines still waiting go last. */
 	private chatLines(): LiveChatLine[] {
 		const s = this.rt?.session.getState();
 		const me = s?.me;
-		// Mine: sent from this browser, or (history after a reload, under a new peer id) under my name and color.
-		return this.chat.map((l) => ({ kind: 'message', id: l.id, from: l.name, color: l.color, text: l.text, at: l.at, mine: l.peer === s?.selfId || (!!me && l.name === me.name && l.color === me.color) }));
+		// Mine: sent from this browser, or (after a reload, under a new peer id) under my name and color.
+		const lines: LiveChatLine[] = this.chat.map((l) => ({ kind: 'message', id: `c${l.seq}`, from: l.name, color: l.color, text: l.text, at: l.at, mine: l.peer === s?.selfId || (!!me && l.name === me.name && l.color === me.color) }));
+		for (const p of this.pending) lines.push({ kind: 'message', id: `p${p.id}`, from: me?.name ?? '', color: me?.color ?? 1, text: p.text, at: p.at, mine: true, pending: true });
+		return lines;
 	}
 
+	/** The host's lines in their numbered order, with this browser's own notes (joins, role changes)
+	 *  slotted in by session time, and lines still waiting at the end. */
+	private mergedChat(): LiveChatLine[] {
+		const lines = this.chatLines();
+		const sent = lines.filter((l) => !(l.kind === 'message' && l.pending));
+		const waiting = lines.filter((l) => l.kind === 'message' && l.pending);
+		const notes = [...this.systemLines].sort((a, b) => a.at - b.at);
+		const out: LiveChatLine[] = [];
+		let i = 0;
+		for (const l of sent) {
+			while (i < notes.length && notes[i].at <= l.at) out.push(notes[i++]);
+			out.push(l);
+		}
+		return [...out, ...notes.slice(i), ...waiting];
+	}
+
+	/** Take numbered lines in (from the host, or the host's own), in order, once each. */
 	private addLines(lines: ChatLine[]) {
-		const have = new Set(this.chat.map((l) => l.id));
-		const fresh = lines.filter((l) => !have.has(l.id));
+		const have = new Set(this.chat.map((l) => l.seq));
+		const fresh = lines.filter((l) => !have.has(l.seq));
 		if (!fresh.length) return;
-		this.chat = [...this.chat, ...fresh].sort((a, b) => a.at - b.at).slice(-CHAT_KEEP);
+		this.chat = [...this.chat, ...fresh].sort((a, b) => a.seq - b.seq).slice(-CHAT_KEEP);
+		this.seq = Math.max(this.seq, ...fresh.map((l) => l.seq));
+		const echoed = new Set(fresh.map((l) => l.id));
+		this.pending = this.pending.filter((p) => !echoed.has(p.id));
 		this.saveHostSoon();
 		this.host.rerender();
 	}
 
 	private post(p: Post, to?: string) {
 		this.rt?.session.post(enc.encode(JSON.stringify(p)), to);
+	}
+
+	private hostId(): string | undefined {
+		return this.rt?.session.getState().members.find((m) => m.role === 'host')?.id;
+	}
+
+	/** Member: ask the host for every line after the last one held, and (re)send what waits. */
+	private catchUp() {
+		const s = this.rt?.session.getState();
+		const host = this.hostId();
+		if (!s || s.isHost || s.stage !== 'live' || s.hostAway || !host) return;
+		this.post({ k: 'since', seq: this.seq }, host);
+		for (const p of this.pending) this.post({ k: 'say', id: p.id, text: p.text }, host);
+	}
+
+	/** Host: number a line, keep it, and send it to everyone (the sender's copy is its receipt). */
+	private hostTake(id: string, peer: string, member: { name: string; color: LiveColor }, text: string) {
+		const r = this.rt;
+		if (!r || this.chat.some((l) => l.id === id)) return; // a resent line already taken
+		const line: ChatLine = { seq: this.seq + 1, id, peer, name: member.name, color: member.color, text: text.slice(0, CHAT_MAX), at: r.session.now() };
+		this.addLines([line]);
+		this.post({ k: 'line', line });
 	}
 
 	/** A post from an admitted member (Tavola dropped everyone else's). */
@@ -882,18 +951,35 @@ export class LiveController {
 			return;
 		}
 		if (!p || typeof p !== 'object') return;
+		const fromHost = sender.role === 'host';
 		if (p.k === 'typing' && sender.role !== 'view') {
 			this.typingAt.set(from, Date.now());
 			this.host.rerender();
 		} else if (p.k === 'bye') {
 			this.byes.add(from);
-		} else if (p.k === 'chat' && typeof p.text === 'string' && Number.isSafeInteger(p.n) && sender.role !== 'view') {
-			this.typingAt.delete(from);
-			this.addLines([{ id: `${from}:${p.n}`, peer: from, name: sender.name, color: sender.color, text: p.text.slice(0, CHAT_MAX), at: Date.now() }]);
-		} else if (p.k === 'history?' && s.isHost) {
-			this.post({ k: 'history', lines: this.chat }, from);
-		} else if (p.k === 'history' && sender.role === 'host' && Array.isArray(p.lines)) {
-			this.addLines(p.lines.slice(-CHAT_KEEP).map(cleanLine).filter((l): l is ChatLine => !!l));
+		} else if (s.isHost) {
+			if (p.k === 'say' && sender.role !== 'view' && typeof p.id === 'string' && p.id.length <= 80 && typeof p.text === 'string') {
+				this.typingAt.delete(from);
+				this.hostTake(p.id, from, sender, p.text);
+			} else if (p.k === 'since' && Number.isSafeInteger(p.seq)) {
+				this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt }, from);
+			}
+		} else if (fromHost) {
+			if (p.k === 'line') {
+				const line = cleanLine(p.line);
+				if (!line) return;
+				const had = this.seq;
+				this.typingAt.delete(line.peer);
+				this.addLines([line]);
+				// A number skipped: lines went by while our link was down. Ask for them.
+				if (line.seq > had + 1) this.post({ k: 'since', seq: had }, from);
+			} else if (p.k === 'lines' && Array.isArray(p.lines)) {
+				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
+				this.addLines(p.lines.slice(-CHAT_KEEP).map(cleanLine).filter((l): l is ChatLine => !!l));
+			} else if (p.k === 'tip' && Number.isSafeInteger(p.seq)) {
+				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
+				if (p.seq > this.seq || this.pending.length) this.catchUp();
+			}
 		}
 	}
 
@@ -915,14 +1001,15 @@ export class LiveController {
 		return {
 			status: 'live',
 			isHost: s.isHost,
-			startedAt: r.startedAt,
+			// The session's start as the HOST stamped it, on the session clock.
+			startedAt: s.isHost ? r.startedAt : (this.hostStartedAt ?? r.startedAt),
 			link: r.link,
 			linkRole: s.linkRole,
 			autoAdmit: s.autoAdmit,
 			people,
 			waiting: s.waiting,
 			cap: s.cap,
-			chat: [...this.chatLines(), ...this.systemLines].sort((a, b) => a.at - b.at),
+			chat: this.mergedChat(),
 			following: this.following,
 			hostAway: s.hostAway,
 			audio: false,
@@ -1024,11 +1111,18 @@ export class LiveController {
 			const r = this.rt;
 			const s = r?.session.getState();
 			if (!r || !s?.me || s.me.role === 'view') return;
-			const n = ++r.chatN;
+			const id = `${r.sid}:${++r.chatN}`;
 			const line = text.slice(0, CHAT_MAX);
-			this.post({ k: 'chat', n, text: line });
 			this.lastTypingPost = 0;
-			this.addLines([{ id: `${s.selfId}:${n}`, peer: s.selfId, name: s.me.name, color: s.me.color, text: line, at: Date.now() }]);
+			if (s.isHost) {
+				this.hostTake(id, s.selfId, s.me, line);
+				return;
+			}
+			// Shown at once as "Sending…"; the host's echo replaces it. If the host is away, it waits.
+			this.pending = [...this.pending, { id, text: line, at: r.session.now() }];
+			this.host.rerender();
+			const host = this.hostId();
+			if (host && !s.hostAway) this.post({ k: 'say', id, text: line }, host);
 		},
 		chatTyping: () => {
 			const t = Date.now();

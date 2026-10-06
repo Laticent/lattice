@@ -28,7 +28,8 @@ export type LivePerson = {
 export type LiveKnock = { id: string; name: string; at: number };
 
 export type LiveChatLine =
-	| { kind: 'message'; id: string; from: string; color: LiveColor; text: string; at: number; mine: boolean }
+	/** `at` is session time (the host's clock, Tavola `now()`), shown in the viewer's own zone. */
+	| { kind: 'message'; id: string; from: string; color: LiveColor; text: string; at: number; mine: boolean; pending?: boolean }
 	| { kind: 'system'; id: string; text: string; at: number };
 
 export type LiveView = {

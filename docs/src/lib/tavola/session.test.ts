@@ -25,8 +25,8 @@ function yStream(doc: Y.Doc): Stream {
 }
 
 /** A clock the test advances by hand. */
-function fakeClock(): Clock & { advance(ms: number): void } {
-	let now = 0;
+function fakeClock(start = 0): Clock & { advance(ms: number): void } {
+	let now = start;
 	const timers = new Map<number, { at: number; fn: () => void }>();
 	let n = 0;
 	return {
@@ -809,5 +809,20 @@ describe('round 2 (red-team + checker, 2026-10-06)', () => {
 		a.text.insert(0, 'still here ');
 		await settle(net);
 		expect(h.text.toString()).toContain('still here');
+	});
+
+	it('the session clock: a member whose own clock is 90 s off reads the host\'s time', async () => {
+		const net = createMemoryNetwork();
+		const hostClock = fakeClock(1_000_000);
+		const guestClock = fakeClock(1_000_000 - 90_000);
+		const h = host(net, { clock: hostClock });
+		const g = await joined(net, h, 'Amina', { clock: guestClock });
+		await settle(net);
+		expect(g.s.getState().stage).toBe('live');
+		expect(g.s.now()).toBe(h.s.now());
+		// It keeps tracking as both clocks run.
+		hostClock.advance(5000);
+		guestClock.advance(5000);
+		expect(g.s.now()).toBe(h.s.now());
 	});
 });

@@ -100,25 +100,33 @@ function ChatText({ text, onSlide }: { text: string; onSlide: (i: number) => voi
  * One chat line, drawn as a bubble — the Architect chat's shape, so the two chats read as one
  * product: your own lines on the right in the primary color, everyone else's on the left on the
  * muted surface with their name in their session color. A run of lines from one person shows the
- * name once. System lines (joins, role changes) are small centered notes, not bubbles.
+ * name and the time once (session time, in the viewer's zone). A line the host has not echoed yet
+ * is dimmed with "Sending…". System lines (joins, role changes) are small centered notes.
  */
+/** A session time in the viewer's own zone and format ("2:05 PM", "14:05"). */
+const clock = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+
 function ChatLine({ line, prev, onSlide }: { line: LiveChatLine; prev: LiveChatLine | undefined; onSlide: (i: number) => void }) {
 	if (line.kind === 'system') return <li className="py-0.5 text-center text-[11px] text-muted-foreground">{line.text}</li>;
 	const run = prev?.kind === 'message' && prev.from === line.from && prev.mine === line.mine && line.at - prev.at < 120_000;
+	const time = <time className="font-normal tabular-nums text-muted-foreground" dateTime={new Date(line.at).toISOString()}>{clock.format(line.at)}</time>;
 	if (line.mine) {
 		return (
-			<li className={cn('flex justify-end', run ? 'pt-0.5' : 'pt-1.5')}>
-				<div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-3 py-1.5 text-[12.5px] leading-relaxed text-primary-foreground">
+			<li className={cn('flex flex-col items-end', run ? 'pt-0.5' : 'pt-1.5')}>
+				{!run && <span className="px-1 pb-0.5 text-[10.5px]">{time}</span>}
+				<div className={cn('max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-3 py-1.5 text-[12.5px] leading-relaxed text-primary-foreground', line.pending && 'opacity-60')}>
 					<ChatText text={line.text} onSlide={onSlide} />
 				</div>
+				{line.pending && <span className="px-1 pt-0.5 text-[10.5px] text-muted-foreground">Sending…</span>}
 			</li>
 		);
 	}
 	return (
 		<li className={cn('flex flex-col items-start', run ? 'pt-0.5' : 'pt-1.5')}>
 			{!run && (
-				<span className="px-1 pb-0.5 text-[11px] font-semibold" style={{ color: liveColor(line.color) }}>
-					{line.from}
+				<span className="flex items-baseline gap-1.5 px-1 pb-0.5 text-[11px]">
+					<span className="font-semibold" style={{ color: liveColor(line.color) }}>{line.from}</span>
+					<span className="text-[10.5px]">{time}</span>
 				</span>
 			)}
 			<div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-md border border-border bg-muted px-3 py-1.5 text-[12.5px] leading-relaxed text-foreground">

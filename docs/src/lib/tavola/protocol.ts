@@ -32,7 +32,11 @@ export type Control =
 	/** member → member: send me your full state (closes the roster race; see session.ts). */
 	| { t: 'sync' }
 	/** member → host: send me your roster (a member's link to me came back; is it still in?). */
-	| { t: 'roster?' };
+	| { t: 'roster?' }
+	/** member → host: what time is it? (the session clock, below) */
+	| { t: 'ping'; n: number }
+	/** host → member: the host's clock when the ping arrived. */
+	| { t: 'pong'; n: number; at: number };
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -79,6 +83,10 @@ export function decodeControl(payload: Uint8Array): Control | null {
 			return { t: 'sync' };
 		case 'roster?':
 			return { t: 'roster?' };
+		case 'ping':
+			return Number.isSafeInteger(m.n) ? { t: 'ping', n: m.n as number } : null;
+		case 'pong':
+			return Number.isSafeInteger(m.n) && typeof m.at === 'number' && Number.isFinite(m.at) ? { t: 'pong', n: m.n as number, at: m.at } : null;
 		default:
 			return null;
 	}

@@ -4,8 +4,11 @@
   **knocks**; you admit or deny them from a toast or the Live panel. Once in, everyone edits the
   same source with colored carets, the slide navigator shows who is on which slide, you can
   **follow** someone or **bring everyone to your slide**, and the panel carries the session's
-  chat — bubbles like the Architect chat, with "is typing…" — and someone whose connection
-  drops for a moment (a phone switching tabs) shows as reconnecting rather than "left". Up to
+  chat — bubbles like the Architect chat, with times and "is typing…", in one order for
+  everyone (the host numbers each line), so someone whose connection drops for a moment (a
+  phone switching tabs) shows as reconnecting rather than "left" and comes back to exactly the
+  lines they missed. The session runs on the host's clock, so a phone set to the wrong time
+  changes nothing. Up to
   **4 people**. Undo only undoes your own edits. A guest keeps a copy of the deck
   when the session ends, and reloading the same tab (host or guest) picks the session back up;
   closing the tab ends your part in it. Audio and video are not in this release.

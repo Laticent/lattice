@@ -322,11 +322,21 @@ back for the editor.
   muted surface, with their name in their session color once per run. "Amina is typing…" shows
   above the composer (a throttled post, at most one every 2 s, shown for 4 s). On a phone the
   invite and people block folds away while you type, so the composer stays above the keyboard.
-- **Nothing is lost across a dropped link.** Chat posts reach only who is connected, so the
-  host sends a returning member just the lines stamped since it lost that member (by the host's
-  own clock, with a 5 s overlap; duplicates drop by id) — a backgrounded phone tab comes back to
-  the lines it missed. A first admission asks for the whole chat itself. The one gap: lines two guests exchange while the HOST is away never reach
-  the host's copy, so a later newcomer will not see them.
+- **One clock, one order: the host's.** Device clocks drift by seconds or minutes, so nothing
+  compares two of them. Tavola keeps a **session clock**: each member estimates its offset to the
+  host's clock by Cristian's algorithm (ping, the host answers its time, offset = host time + half
+  the round trip − our time; the shortest round trip wins; three samples on joining, then one
+  every 30 s), and `session.now()` reads host time on every browser. Epoch milliseconds carry no
+  time zone; each viewer formats them in its own. The same rule as Cadenza and Suono: one owner of
+  time, and everyone rides it.
+- **Chat goes through the host.** A member sends `say` to the host, which numbers the line
+  (1, 2, 3…), stamps it with session time and sends it to everyone, so every browser shows one
+  order. A returning member asks for the lines after its last number (`since`) and gets exactly
+  those; a skipped number triggers the same ask; the host tells each (re)admitted member the
+  latest number (`tip`). A line sent while the host is away waits as *Sending…* and goes out when
+  the host is back; the host drops a resent line by its id. The cost is one extra hop per line.
+- **Times** show once per run of lines (*2:05 PM* in the viewer's zone and format), and a guest's
+  session timer counts from the host's start, not from its own join.
 - **"Left" means left.** A dropped connection (a phone that backgrounds the tab, a blip) shows the
   person dimmed as *Reconnecting…*; coming back within 60 s is not news, and only then does the
   chat say they left. Leave sends a goodbye first, so it says "left" at once.

@@ -223,18 +223,17 @@ describe('LiveController (second-round trio)', () => {
 		expect(g.view().chat.find((l) => l.kind === 'message' && l.text === 'done')).toMatchObject({ mine: true });
 	});
 
-	it('a member whose link was down gets the lines sent meanwhile when it comes back', async () => {
+	it('a member whose link was down gets exactly the lines it missed, by number', async () => {
 		const { h } = await hostSession();
 		const { g } = await guestOf(h, 'Mark');
 		h.actions.sendChat('before the drop');
 		await until(() => g.view().chat.some((l) => l.kind === 'message' && l.text === 'before the drop'), h, g);
-		await new Promise((res) => setTimeout(res, 5200));
 		// biome-ignore lint/suspicious/noExplicitAny: the test reaches the transports' ids.
 		const id = (c: Ctl) => (c as any).rt.session.getState().selfId as string;
 		net.current?.cut(id(h), id(g));
 		await until(() => h.view().people.some((p) => p.name === 'Mark' && p.away), h, g);
 		// Watch what the host posts from here on.
-		const posts: Array<{ k: string }> = [];
+		const posts: Array<{ k: string; lines?: Array<{ text: string; seq: number }> }> = [];
 		// biome-ignore lint/suspicious/noExplicitAny: the test spies on the private post channel.
 		const hp = h as any;
 		const orig = hp.post.bind(hp);
@@ -243,10 +242,63 @@ describe('LiveController (second-round trio)', () => {
 			orig(p, to);
 		};
 		h.actions.sendChat("what's up");
-		await settle(h, g);
+		h.actions.sendChat('what');
 		net.current?.heal(id(h), id(g));
-		await until(() => g.view().chat.some((l) => l.kind === 'message' && l.text === "what's up"), h, g);
-		// Only the missed line was sent, not the whole chat.
-		expect(posts.filter((p) => p.k === 'history').map((p) => (p as unknown as { lines: { text: string }[] }).lines.map((l) => l.text))).toEqual([["what's up"]]);
+		await until(() => g.view().chat.some((l) => l.kind === 'message' && l.text === 'what'), h, g);
+		const texts = (c: Ctl) => c.view().chat.flatMap((l) => (l.kind === 'message' ? [l.text] : []));
+		expect(texts(g)).toEqual(['before the drop', "what's up", 'what']);
+		// Only the two missed lines went back, not the whole chat.
+		expect(posts.filter((p) => p.k === 'lines').flatMap((p) => p.lines?.map((l) => l.text) ?? [])).toEqual(["what's up", 'what']);
+	});
+
+	it('everyone sees the chat in the same order, numbered by the host', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		a.actions.sendChat('a1');
+		b.actions.sendChat('b1');
+		h.actions.sendChat('h1');
+		a.actions.sendChat('a2');
+		const texts = (c: Ctl) => c.view().chat.flatMap((l) => (l.kind === 'message' && !l.pending ? [l.text] : []));
+		await until(() => [h, a, b].every((c) => texts(c).length === 4), h, a, b);
+		expect(texts(a)).toEqual(texts(h));
+		expect(texts(b)).toEqual(texts(h));
+	});
+
+	it('a line sent while the host is away waits as "Sending…" and goes out when the host is back', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: the test reaches the transports' ids.
+		const id = (c: Ctl) => (c as any).rt.session.getState().selfId as string;
+		net.current?.cut(id(h), id(g));
+		await until(() => g.view().hostAway, h, g);
+		g.actions.sendChat('while you were out');
+		expect(g.view().chat.find((l) => l.kind === 'message' && l.text === 'while you were out')).toMatchObject({ pending: true });
+		net.current?.heal(id(h), id(g));
+		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'while you were out'), h, g);
+		await until(() => g.view().chat.some((l) => l.kind === 'message' && l.text === 'while you were out' && !l.pending), h, g);
+		// Sent once, not twice.
+		expect(h.view().chat.filter((l) => l.kind === 'message' && l.text === 'while you were out')).toHaveLength(1);
+	});
+
+	it("a guest's session timer counts from the host's start, not from when it joined", async () => {
+		const { h } = await hostSession();
+		await new Promise((res) => setTimeout(res, 300));
+		const { g } = await guestOf(h, 'Amina');
+		await until(() => g.view().startedAt === h.view().startedAt, h, g);
+	});
+
+
+	it('a line resent after a blip is kept once (the host drops a repeat by its id)', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: the test drives the private post channel.
+		const gp = g as any;
+		const hostId = gp.hostId() as string;
+		gp.post({ k: 'say', id: 'x:1', text: 'once' }, hostId);
+		gp.post({ k: 'say', id: 'x:1', text: 'once' }, hostId);
+		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'once'), h, g);
+		await settle(h, g);
+		expect(h.view().chat.filter((l) => l.kind === 'message' && l.text === 'once')).toHaveLength(1);
 	});
 });

@@ -18,6 +18,13 @@
 // alongside the state closes that window: whoever learns LATER asks, and the other answers. A link
 // that forms late or comes back (onPeerJoin) exchanges state again for the same reason.
 //
+// THE SESSION CLOCK is the host's. Device clocks drift apart by seconds, sometimes minutes, so a
+// session never compares two of them: every member estimates its offset to the host's clock by
+// Cristian's algorithm — send `ping`, the host answers its time, offset = host time + half the
+// round trip − our time — keeping the sample with the SHORTEST round trip (the tightest bound),
+// and `now()` returns host time on every browser. Time zones never enter: the value is epoch ms;
+// each viewer formats it in its own zone.
+//
 // A PEER ID IS NOT AN IDENTITY. Transport ids are self-declared in signaling, so once a peer's link
 // drops, anyone holding the link can reconnect under its old id (red-team round 2, finding 1). So a
 // guest stops trusting the host's id the moment that link drops, and trusts it again only after a
@@ -90,6 +97,9 @@ export type Session = {
 	end(): void;
 	/** Leave this session (a guest leaving, or a host closing without ending). */
 	leave(): void;
+	/** The session clock: the host's time in epoch ms, on every member (see the header). Before
+	 *  the first sample, this browser's own clock. */
+	now(): number;
 	/** Resolves once this session's asynchronous work (signing, verifying, ordered control
 	 *  handling) has finished. For tests and tools that need a quiet point; the app never waits. */
 	idle(): Promise<void>;
@@ -97,6 +107,8 @@ export type Session = {
 
 export const DEFAULT_CAP = 4;
 const DEFAULT_LOBBY_TIMEOUT = 12_000;
+/** A member re-measures the session clock this often (and three times, quickly, on joining). */
+export const CLOCK_RESYNC_MS = 30_000;
 /** Bytes. A deck plus its history is far below this; anything larger is dropped unread. */
 export const MAX_MESSAGE = 4 * 1024 * 1024;
 /** Knocks the host holds at once. Past this, a knock is ignored until one is answered. */
@@ -167,6 +179,41 @@ export function createSession(opts: SessionOptions): Session {
 	 *  while (a hello being verified) can tell whether it still belongs to the link it came on. */
 	const epoch = new Map<PeerId, number>();
 	const bump = (id: PeerId) => epoch.set(id, (epoch.get(id) ?? 0) + 1);
+	/** Member: offset from our clock to the host's, from the tightest ping so far. */
+	let clockOffset = 0;
+	let bestRtt = Number.POSITIVE_INFINITY;
+	let pingN = 0;
+	const pingsOut = new Map<number, number>();
+	let pingTimer: unknown = null;
+	const ping = () => {
+		if (isHost || closed || !hostId || !hostTrusted || !isLive()) return;
+		const n = ++pingN;
+		pingsOut.set(n, clock.now());
+		if (pingsOut.size > 8) pingsOut.delete(pingsOut.keys().next().value as number);
+		sendControl(hostId, { t: 'ping', n });
+	};
+	/** Three quick samples now, then one every CLOCK_RESYNC_MS. A new host link starts afresh:
+	 *  the old best sample was taken over a route that is gone. */
+	const startClock = () => {
+		bestRtt = Number.POSITIVE_INFINITY;
+		if (pingTimer !== null) clock.clearTimeout(pingTimer);
+		let quick = 3;
+		const tick = () => {
+			ping();
+			pingTimer = clock.setTimeout(tick, --quick > 0 ? 300 : CLOCK_RESYNC_MS);
+		};
+		tick();
+	};
+	const onPong = (msg: Extract<Control, { t: 'pong' }>) => {
+		const sent = pingsOut.get(msg.n);
+		if (sent === undefined) return;
+		pingsOut.delete(msg.n);
+		const got = clock.now();
+		const rtt = got - sent;
+		if (rtt < 0 || rtt > bestRtt) return;
+		bestRtt = rtt;
+		clockOffset = msg.at + rtt / 2 - got;
+	};
 	/** Host: hellos being signed. */
 	const signing = new Set<Promise<unknown>>();
 
@@ -343,6 +390,7 @@ export function createSession(opts: SessionOptions): Session {
 				const before = new Set(state.members.map((m) => m.id));
 				set({ stage: 'live', token: msg.token, me, members: msg.members });
 				for (const m of msg.members) if (m.id !== t.selfId && !before.has(m.id)) syncWith(m.id);
+				startClock();
 				return;
 			}
 			case 'deny':
@@ -449,6 +497,13 @@ export function createSession(opts: SessionOptions): Session {
 				if (msg.t === 'knock') hostOnKnock(from, msg.name, msg.token, msg.client);
 				else if (msg.t === 'sync' && memberOf(from)) answerSync(from);
 				else if (msg.t === 'roster?' && memberOf(from)) sendControl(from, { t: 'roster', members: state.members });
+				else if (msg.t === 'ping' && memberOf(from)) sendControl(from, { t: 'pong', n: msg.n, at: clock.now() });
+				return;
+			}
+			// A pong is timed on ARRIVAL, ahead of the ordered chain: queueing it behind a hello being
+			// verified would add that wait to the round trip and skew the clock.
+			if (msg.t === 'pong') {
+				if (from === hostId && hostTrusted) onPong(msg);
 				return;
 			}
 			controlChain = controlChain.then(() => guestOnControl(from, msg)).catch(() => {});
@@ -479,6 +534,7 @@ export function createSession(opts: SessionOptions): Session {
 		if (closed) return;
 		closed = true;
 		if (lobbyTimer !== null) clock.clearTimeout(lobbyTimer);
+		if (pingTimer !== null) clock.clearTimeout(pingTimer);
 		unDoc();
 		unAw?.();
 		void t.leave();
@@ -585,6 +641,7 @@ export function createSession(opts: SessionOptions): Session {
 		leave() {
 			shutdown();
 		},
+		now: () => clock.now() + clockOffset,
 		async idle() {
 			await Promise.all([controlChain, ...signing]);
 		},
