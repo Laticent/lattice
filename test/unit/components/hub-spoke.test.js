@@ -647,3 +647,125 @@ describe('hub-spoke under a chart finish', () => {
     assert.match(m[1], /fill: var\(--text-heading\)/);
   });
 });
+
+// ── icons (`{icon=…}`, engineering/decisions/2026-09-29-inline-icons.md § 14) ─────────
+describe('hub-spoke — icons', () => {
+  // The engine registers the icons plugin's lazy data loader (lib/plugins/data.generated.js).
+  require('../../../lib/engine');
+  const OFF = new Set(['icons']);
+  const html = (hub, sats, hubPills = []) => `<h2>T</h2><ul>${ul(hub, sats, hubPills)}</ul>`;
+  const render = (hub, sats, cls = [], hubPills = [], off = null) =>
+    T.transformSection(html(hub, sats, hubPills), { classTokens: ['hub-spoke', ...cls], orientation: 'landscape', pluginsOff: off });
+  const SATS = [['Billing'], ['Web store'], ['Mobile app'], ['Call center', ['at-risk']], ['Partner feeds']];
+  const withIcons = (sats, rec) => sats.map(([l, p], i) => [l, [...(p || []), ...(rec[i] ? [rec[i]] : [])]]);
+
+  test('a record reads as the item\'s icon, aliases resolved, and leaves the other pills alone', () => {
+    const m = model('Warehouse', [['Billing', ['{icon=invoice}', '$4M', 'Retail']], ['Store', ['at-risk', '{icon=db, icon-only}']]], [], ['{icon=warehouse}']);
+    assert.equal(m.hub.icon, 'warehouse');
+    assert.equal(m.spokes[0].icon, 'invoice');
+    assert.equal(m.spokes[0].value, '$4M');
+    assert.equal(m.spokes[0].group, 'Retail', 'a record is never read as a group');
+    assert.equal(m.spokes[1].icon, 'database');
+    assert.equal(m.spokes[1].iconOnly, true);
+    assert.equal(m.spokes[1].status, 'at-risk');
+  });
+
+  test('every refusal is coached, and the item keeps its name', () => {
+    const md = '<!-- _class: hub-spoke -->\n\n## T\n\n- `{icon=building, icon-only}`\n  - Fn `{icon=lambda}`\n  - Store `{icon-only}`\n'
+      + '  - Risky `{icon=bucket, at-risk}`\n  - Two `{icon=bucket}` `{icon=cloud}`\n';
+    const r = rules(md);
+    for (const want of ['hub-spoke-icon-only-empty-name', 'hub-spoke-unknown-icon', 'hub-spoke-icon-only-without-icon', 'hub-spoke-bad-record', 'hub-spoke-extra-record']) {
+      assert.ok(r.includes(want), `${want} in ${r.join(', ')}`);
+    }
+    assert.match(lint(md).find((f) => f.rule === 'hub-spoke-unknown-icon').message, /function/);
+    const m = model('', [['Store', ['{icon-only}']], ['Fn', ['{icon=lambda}']]], [], ['{icon=building, icon-only}']);
+    assert.equal(m.hub.iconOnly, false, 'an icon-only item with no name is refused');
+    assert.equal(m.spokes[0].iconOnly, false);
+    assert.equal(m.spokes[1].icon, '');
+  });
+
+  test('with no icon written, and with the plugin off, the chart is the same string', () => {
+    const plain = render('Warehouse', SATS);
+    const offIcons = render('Warehouse', withIcons(SATS, ['{icon=invoice}', '{icon=cart, icon-only}', '{icon=mobile}']), [], ['{icon=warehouse}'], OFF);
+    assert.equal(offIcons, plain);
+    for (const cls of [['tiered'], ['sized']]) {
+      assert.doesNotMatch(render('Hub', [['A', ['10']], ['B', ['20']], ['C', ['30']]], cls), /hub-spoke-icon/);
+    }
+  });
+
+  test('an icon sits inside its disc; icon-only drops the label and keeps the name as title and description', () => {
+    const out = render('Warehouse', withIcons(SATS, ['{icon=invoice}', '{icon=cart, icon-only}', null, '{icon=headphones}']), [], ['{icon=warehouse}']);
+    const icons = [...out.matchAll(/<g class="hub-spoke-icon"([^>]*)>(<title>[^<]*<\/title>)?<svg x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)"/g)];
+    assert.equal(icons.length, 4, 'hub, Billing, Web store, Call center');
+    assert.match(icons[0][1], /data-hub/);
+    assert.match(out, /data-icon="cart" data-icon-only="" data-mark-for="1"><title>Web store<\/title>/);
+    assert.match(out, /data-icon="headphones" data-s="at-risk"/, 'a status icon carries the state for its ink');
+    assert.doesNotMatch(out, /<text class="hub-spoke-name"[^>]*data-mark-for="1"/, 'no label beside the icon-only disc');
+    assert.match(out, /<desc>[^<]*Web store/, 'the name is still in the description');
+    // Each satellite icon's square sits inside its disc: corner distance under the radius.
+    const discs = [...out.matchAll(/<path class="hub-spoke-node" data-mark="(\d+)"[^>]*d="M([-\d.]+),([-\d.]+)/g)];
+    for (const [, attrs, , x, y, w] of icons.slice(1)) {
+      const k = Number(attrs.match(/data-mark-for="(\d+)"/)[1]);
+      const cx = Number(x) + Number(w) / 2;
+      const cy = Number(y) + Number(w) / 2;
+      const d = discs.find((q) => Number(q[1]) === k);
+      // circlePath starts at the disc's leftmost point (cx - r, cy).
+      const r = cx - Number(d[2]);
+      assert.ok(Math.abs(Number(d[3]) - cy) < 0.05 && Number(w) / Math.SQRT2 < r * 0.8, `icon ${k} inside its disc (side ${w}, r ${r})`);
+    }
+  });
+
+  test('every geometry invariant holds with icons on, in each variant', () => {
+    const rec = ['{icon=invoice}', '{icon=cart, icon-only}', '{icon=mobile, icon-only}', '{icon=headphones}', '{icon=exchange}'];
+    for (const cls of [[], ['sized'], ['flow-out']]) {
+      const sats = withIcons(SATS.map(([l, p], i) => [l, [...(p || []), `${(i + 1) * 10}%`]]), rec);
+      const m = T.parseHubSpoke(ul('Hub', sats, ['{icon=warehouse, icon-only}']), ['hub-spoke', ...cls]);
+      const { meta } = T.buildHubSpoke(m, { orientation: 'landscape' });
+      assert.deepEqual(meta.bad, [], `${cls}: ${meta.bad}`);
+      assert.equal(meta.unresolved, 0, `${cls}: unresolved labels`);
+    }
+    const tiered = T.parseHubSpoke(ul('Org', [['Payments', ['{icon=payment}'], [['Card', ['{icon=credit-card, icon-only}']], ['Fraud']]], ['Data', ['{icon=database, icon-only}'], [['Lake'], ['ML']]]], ['{icon=building}']), ['hub-spoke', 'tiered']);
+    const t = T.buildHubSpoke(tiered, { orientation: 'landscape' });
+    assert.deepEqual(t.meta.bad, []);
+    assert.match(t.html, /data-icon="building" data-hub=""/);
+    assert.match(t.html, /data-icon="credit-card" data-icon-only=""/);
+  });
+
+  test('a hub with an icon fits it: the fit reserves a row, and icon-only reserves no name', () => {
+    const plain = HS.hubFit({ label: 'Channel revenue', value: '$120M' }, 60);
+    const iconed = HS.hubFit({ label: 'Channel revenue', value: '$120M', icon: 'coin' }, 60);
+    assert.ok(iconed.r > plain.r, `${iconed.r} > ${plain.r}`);
+    const only = HS.hubFit({ label: 'Channel revenue', value: '', icon: 'coin', iconOnly: true }, 60);
+    assert.deepEqual(only.lines, []);
+  });
+});
+
+describe('hub-spoke — the rows it owns, and nothing past them', () => {
+  require('../../../lib/engine');
+  const { render } = require('../../../lib/engine');
+  const deck = (body, cls = 'hub-spoke') => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${body}`;
+  const findings = (md) => require('../../../lib/authoring/lint-core').findLiteralPluginKinds(md).length;
+
+  test('a second list after a paragraph is prose: its pills, marks and icons render', () => {
+    const h = render(deck('- Hub\n  - A\n  - B\n\nSource: survey\n\n- Note `{NEW}` with `[x]` and `^{database}`\n')).html;
+    assert.match(h, /class="lat-pill"/);
+    assert.match(h, /class="lat-icon"/);
+    assert.doesNotMatch(h, /<code>\{NEW\}<\/code>/);
+  });
+
+  test('a span that draws elsewhere is coached on a row, never a group or raw text in a name', () => {
+    const md = deck('- Hub\n  - Web `^{database}` store\n  - Mobile `[x]`\n  - Call `Retail`\n');
+    const h = render(md).html;
+    assert.match(h, />Web store</);
+    assert.doesNotMatch(h, /\^\{database\}|\[x\]/);
+    assert.equal(rules(md.replace(/^---[\s\S]*?---\n\n/, '')).filter((r) => r === 'hub-spoke-inline-kind').length, 2);
+  });
+
+  test('lint counts depth the way markdown-it nests: loose lists and a three-space sibling', () => {
+    // A loose list keeps its depth across the blank lines: the detail span is linted.
+    assert.equal(findings(deck('- Hub\n\n  - Sat\n\n    - detail `^{awsfoo}`\n')), findings(deck('- Hub\n  - Sat\n    - detail `^{awsfoo}`\n')));
+    assert.ok(findings(deck('- Hub\n  - Sat\n    - detail `^{awsfoo}`\n')) >= 1);
+    // Three spaces under `  - ` is still a sibling (depth 2), so the span is the chart's.
+    assert.equal(findings(deck('- Hub\n  - Sat\n   - x `^{awsfoo}`\n')), 0);
+  });
+});

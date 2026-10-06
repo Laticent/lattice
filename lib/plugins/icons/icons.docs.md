@@ -62,8 +62,19 @@ already the tile. `icon-only` draws the icon alone, and the name stays as the ho
 what a screen reader and the chart's description say, so a row needs its words even then
 (`- \`{icon=database, icon-only}\`` with no name is refused). A name the set does not have is
 coached (`flowchart-unknown-icon`) and the node shows its text. A group's title draws no icon. With
-the plugin off, every node shows its text alone, exactly as if no icon were written. Hub-spoke
-does not take icons yet.
+the plugin off, every node shows its text alone, exactly as if no icon were written.
+
+```markdown
+- Warehouse `{icon=warehouse}`              hub-spoke: the icon inside the hub's disc
+  - Billing `{icon=invoice}` `$4M`          inside a satellite's disc, its name beside it
+  - Deploy `{icon=rocket, icon-only}`       the icon alone; the name is its title
+```
+
+Hub-spoke takes the same two words in a record of their own: a hub-spoke row already writes its
+value, status and group as separate pills, so its record carries `icon=` and `icon-only` and
+nothing else. The icon sits centered in its disc, sized from the disc's radius, in an ink
+measured to clear 3:1 against every neutral, group and status disc in all 14 palettes in both
+modes. On the hub it sits above the name; an `icon-only` hub with no value fills the disc.
 
 ## The deck and the slide: `icon:` and `icon-*`
 

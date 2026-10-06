@@ -496,5 +496,72 @@ the render reports it applies to required plugins only.
 **Not done: hub-spoke.** Hub-spoke has no Segno style slot. Its rows are read by
 `lib/core/hub-spoke-model.js`, where a bare `{icon=x}` span already reads as an icon-only PILL, and
 its server-built geometry carries label-placement invariants. Giving it `icon=` needs its own
-spelling decision, which is recorded in `followups.d/`.
+spelling decision, which is recorded in `followups.d/`. (Done the same day: § 14.)
 
+## 14. Hub-spoke as built (2026-10-06)
+
+**The spelling.** A hub-spoke row already writes its value, its status and its group as separate
+pills (`` - Billing `$4M` `at-risk` `Retail` ``), each told apart by what it looks like. The icon
+is one more: a Segno record, `{icon=invoice}` or `{icon=invoice, icon-only}`, read by the
+component's own `style` slot (`hub-spoke.manifest.json`), which takes `icon=` and `icon-only` and
+nothing else. Folding the status or the value into the record, as the state chart does, would
+give one row two ways to say `at-risk`; a record holding anything else is coached
+(`hub-spoke-bad-record`) and dropped. The two alternatives the followup named were weighed: a bare
+`{icon=x}` read as the generic icon-only PILL would have meant the opposite of `icon=` in every
+other chart (beside the name), and `icon=` as a bare pill word is not a record at all. Declaring
+the slot `sits: "list-rows"` makes hub-spoke own the spans on its rows, as the two graph charts
+do, so the inline pill resolver no longer renders them first. Unlike theirs, its ownership stops
+at the rows it reads: the first cut owned every depth, and a pill or `^{icon}` in a satellite's
+detail sublist (the Present popover) turned back into code. The slot now declares
+`rowDepth: { default: 2, tiered: 3 }`, and the three readers of ownership (the markdown-it pass,
+the runtime's `isOwnedElement`, and `lint:deck`) all count the depth (`ownedRowDepth`,
+`lib/core/resolve-inline-code.js`); a slot without it still owns every depth. A slot that declares
+`rowDepth` also owns only the slide's FIRST list, the one its kernel splices: the independent
+checker found that a second list after a paragraph had lost its pills too. Two more of its
+findings changed the lint. Its depth stack nests by content column, as CommonMark does (a
+three-space indent under `  - ` is a sibling), and a blank line no longer resets it, so a loose
+list's detail spans are still linted. And a row span that draws as something of its own elsewhere
+(a `[x]` mark, a `~{…}` spark, a `^{…}` icon), trailing or inside the name, is now coached
+(`hub-spoke-inline-kind`) and dropped. Before this change such a span vanished or printed as a
+group named `[x]`, with no warning either way. That also fixes what a record did
+before this: `{icon=invoice}` vanished from the row, and `{icon=invoice, icon-only}` printed
+"icon-only" into the satellite's name.
+
+**What it draws.** The model resolves the name through the host's `known` service, so an alias
+lands as its canonical name and a name the set lacks is coached (`hub-spoke-unknown-icon`, with
+the plugin's own `whyUnknown`). The kernel asks the host for `drawHtml` before it measures
+anything; an icon it cannot draw (the plugin off, the data not on this surface) is dropped there,
+so nothing reserves room for it. A satellite's, branch's or leaf's icon is a square of 1.1 × the
+disc's radius (at most 30 units), centered in the disc; under `sized`, a flagged disc's inner
+halo bounds it further. Satellites keep their names beside them, so a satellite icon touches no
+label placement and no geometry invariant. On the hub the icon is a row of the text block, above
+the name, and `hubFit` adds that row to the fit the linter and the kernel share; an `icon-only`
+hub fits no name, and with no value its icon fills 0.9 of the disc the layout chose.
+
+**`icon-only` keeps the name.** The label beside the disc is not placed (`blockFor` hands the
+solve and the placer an empty block), the name is the drawing's `<title>` for the hover, and the
+chart's `<desc>` still names every item, so the spoken description is unchanged. An `icon-only`
+item with no words is refused (`hub-spoke-icon-only-empty-name`), as § 5.3 requires.
+
+**The ink, measured.** The first cut painted each icon in its disc's own edge ink. Rendered, that
+read brown on brown on a status disc. Measured over the 14 flat-fill palettes in both modes, the
+edge ink cleared 1.47:1 at worst on a group disc and the state ink 1.30:1 on a status disc. The
+contrast of every candidate token against every disc fill, worst case per kind:
+
+| disc | light: chosen ink | worst | dark: chosen ink | worst |
+|---|---|---|---|---|
+| hub | `--bg` | 9.65:1 | `--bg` | 7.88:1 |
+| neutral satellite | `--text-heading`, L × 0.55 | 3.58:1 | `--text-heading` | 4.35:1 |
+| group | `--text-heading`, L × 0.55 | 3.14:1 | `--text-heading` | 4.12:1 |
+| status | `--text-heading`, L × 0.55 | 3.66:1 | `--bg` | 3.90:1 |
+
+No existing token clears 3:1 on a light group disc (the plain heading ink measured 2.68:1 on
+laguna), so the light arm takes the heading ink a step darker through `oklch(from …)`, which the
+group-disc rule above it already uses. Not measured: the three chart finishes, which repaint group
+discs, and `mode: sketch`.
+
+**What did not change.** With no icon written, the hub-spoke gallery, the baseline gallery, both
+graph-chart galleries, `examples/chart-icons.md` and `examples/gallery-jargon.md` render
+byte-identical engine HTML against `main`. With the plugin off, a chart that wrote icons is the
+same string as one that never did (pinned in `hub-spoke.test.js`). Every geometry invariant holds
+with icons on in the flat, `sized`, `flow-out` and `tiered` forms (pinned).

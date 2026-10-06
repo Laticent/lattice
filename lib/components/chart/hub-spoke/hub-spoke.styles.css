@@ -180,3 +180,30 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-hub-name { font-weight: 600; letter-spacing: 0.01em; }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-hub-value { font-weight: 720; font-variant-numeric: tabular-nums; }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-name[data-tier="branch"] { font-weight: 700; }
+
+/* ── an ICON in a disc (`{icon=…}`, engineering/decisions/2026-09-29-inline-icons.md § 14) ──
+ * The drawing sits bare inside its disc, in an ink measured against that disc's fill over the
+ * 14 flat-fill palettes in both modes (§ 14 has the table). The hub's canvas-colored type ink
+ * on the hub (at least 7.9:1). On a satellite, the heading ink, which on light is taken a step
+ * darker (L × 0.55): it is the one ink that clears 3:1 on every neutral, group and status disc
+ * there (3.14:1 at worst, a group on onyx). On dark the plain heading ink clears neutral and
+ * group discs (4.12:1 at worst), and a status disc, which is light on dark, takes the canvas
+ * ink (3.9:1 at worst). Its stroke is the drawing's own on its 24-unit grid, so it scales with
+ * the disc; a deck's `icon: etching` look thins it as it does every icon. `overflow: visible`
+ * lets a round cap at the grid's edge finish; the kernel holds the square inside the disc. */
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon-svg {
+  overflow: visible;
+  fill: none;
+  stroke: var(--hs-icon-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+section.icon-etching .hub-spoke-icon-svg { stroke-width: 1.5; }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon {
+  --hs-icon-ink: light-dark(oklch(from var(--text-heading) calc(l * 0.55) c h), var(--text-heading));
+}
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon[data-s] {
+  --hs-icon-ink: light-dark(oklch(from var(--text-heading) calc(l * 0.55) c h), var(--bg));
+}
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon[data-hub] { --hs-icon-ink: var(--bg); }

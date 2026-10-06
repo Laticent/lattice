@@ -1684,6 +1684,13 @@
         "sits": {
           "enum": ["list-rows"],
           "description": "Where this slot's spans sit, when the component owns them outright. `list-rows`: every inline-code span inside the component's list items is this slot's, so the slide-wide mark / pill / spark pass leaves it as code for the component to read (lib/core/resolve-inline-code.js `isOwnedElement`). Needed where the slot's records could also read as a pill: a flowchart's `{diamond, c2}` is a valid pill. Decision 3 of the Segno note: where a span sits decides what it means."
+        },
+        "rowDepth": {
+          "type": "object",
+          "description": "With `sits: list-rows`, the deepest list item the component reads (1 = the top level). `default` applies unless a modifier key present on the slide names its own depth (`{ \"default\": 2, \"tiered\": 3 }`). Rows deeper than that are not the component's: hub-spoke's detail sublists render their pills and icons as anywhere else. Absent, the component owns every depth (lib/core/resolve-inline-code.js `ownedRowDepth`).",
+          "required": ["default"],
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+          "additionalProperties": { "type": "integer", "minimum": 1 }
         }
       }
     },
