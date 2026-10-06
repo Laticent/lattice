@@ -159,7 +159,7 @@ pre-push:
     # `npm test` used to run here as a second safety net behind pre-commit's
     # affected-tests. It took 390s on the cloud sandbox (measured 2026-10-06),
     # paid on EVERY push, and CI's `unit` job runs the identical suite on every
-    # PR and again in the merge queue — so a regression it would catch still
+    # PR (whatever it touches, since PR #2554) and again in the merge queue — so a regression it would catch still
     # cannot reach `main`. Pre-commit's affected-tests keeps the fast local
     # signal (and falls back to the full suite for cross-cutting files). Run
     # `npm test` yourself before declaring work done (CLAUDE.md rule 5).

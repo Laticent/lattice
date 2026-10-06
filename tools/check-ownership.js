@@ -12240,7 +12240,7 @@ function checkFollowups(errors) {
 //
 // SO WHAT THIS ARM BUYS is two things, and neither of them is "catching it at all":
 //   - TIMING. It moves the signal out of a ~108s unit suite and into the 13s gate that was
-//     making the false claim -- which at pre-push (lefthook.yml) is the difference between
+//     making the false claim -- which, when the suite runs locally, is the difference between
 //     a developer learning their dist/ is behind and a developer reading two unrelated
 //     unit failures as a defect in their own diff.
 //   - REACH. 18 of the 49 were pinned by nothing: dist/fonts' 17 embedded faces, and the

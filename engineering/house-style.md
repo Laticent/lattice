@@ -218,7 +218,7 @@ Before you send a reply, open an issue, or write a doc:
 | Surface | Enforcement |
 |---|---|
 | Commit messages — spelling | **Warned, never blocked.** `tools/check-commit-msg.sh` via the commit-msg hook — the only check that reaches a commit message, and the only warn-only one. (The same script BLOCKS on the `area(scope):` format; that is #13, not spelling.) |
-| Tracked repo text — spelling | **Blocked**, over the walk's reach. Two arms of `test/unit/tools/us-english-stem-audit.test.js`, which `npm test` runs on the pre-push hook and in CI's `unit` job: one fails on a word whose stem lands in a British family `UK_TO_US` does not list, the other on a listed British form inside a multi-part identifier. Four sibling arms in the same file keep the map and its allowlists from going stale. The repo-wide ratchet is gone; what the walk cannot reach — `engineering/decisions/**`, `changelog.d/**`, the map's own files — is discipline. |
+| Tracked repo text — spelling | **Blocked**, over the walk's reach. Two arms of `test/unit/tools/us-english-stem-audit.test.js`, which `npm test` runs in CI's `unit` job on every PR and in the merge queue: one fails on a word whose stem lands in a British family `UK_TO_US` does not list, the other on a listed British form inside a multi-part identifier. Four sibling arms in the same file keep the map and its allowlists from going stale. The repo-wide ratchet is gone; what the walk cannot reach — `engineering/decisions/**`, `changelog.d/**`, the map's own files — is discipline. |
 | Chat, issues, PR bodies — spelling | **Discipline.** Nothing can reach them. |
 | Voice, plain words, concision | **Discipline**, everywhere. |
 
