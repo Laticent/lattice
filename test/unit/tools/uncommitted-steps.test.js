@@ -52,6 +52,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-concepts.js',
   'build-playground.js',
   'build-katex-provider.js',
+  // Measured 2026-10-05: writes only docs/public/playground/lattice-plugin-<name>.js, beside the
+  // KaTeX provider and covered by the same ignore rule.
+  'build-plugin-data-bundles.js',
   'build-hljs-languages.js',
   'build-theme-core.js',
   'build-layout-core.js',
@@ -106,6 +109,9 @@ const EXPECTED_PR_OWNED = new Set([
   // Measured 2026-09-27: writes exactly lib/plugins/grammar.generated.mjs and
   // lib/plugins/registry.generated.js, both tracked.
   'build-plugin-registry.js',
+  // Measured 2026-10-05: writes lib/plugins/icons/icons.{vocab,data}.generated.js, both tracked —
+  // the registry and the engine require them.
+  'build-icons-data.js',
   'build-projection-catalog.js', // lib/core/projection-catalog.generated.mjs
   // Measured 2026-09-28: writes exactly docs/src/lib/segno/notation.generated.ts, which git
   // tracks — the docs site and Vitest import it.

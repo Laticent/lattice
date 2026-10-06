@@ -28,6 +28,7 @@ import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
+import { ensurePluginData } from './ensure-plugin-data';
 import type { LatticePlaygroundEngine } from './playground-global';
 
 export type RenderMarkdownOpts = {
@@ -101,6 +102,9 @@ export async function renderMarkdown(
 	// once a deck HAS a fence — `scanFences` splits the source and builds a Set — but
 	// a fence-less deck short-circuits on an `indexOf` before allocating anything.
 	await ensureFenceLanguages(rendered).catch(() => []);
+	// A plugin's DATA (the icons plugin's drawings) is split out of the engine bundle the way KaTeX
+	// is, so a deck that writes an icon fetches it here, once, before it renders (ensure-plugin-data.ts).
+	await ensurePluginData(rendered);
 	// CODE PACKAGES (contract note §9): with none saved this is exactly `PG.render`; with some, the
 	// render runs twice around the registry's code-packages slot, and each package runs sandboxed
 	// after the user approved it (code-packages/door.ts). One chokepoint, so every Studio surface

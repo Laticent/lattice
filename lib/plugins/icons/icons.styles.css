@@ -1,0 +1,146 @@
+/* ── Inline icons — `^{database, c3, lg}` and a pill's `icon=` ──────────────────────────────
+ * Drawn by lib/plugins/icons/icons.kernel.js into
+ * `<span class="lat-icon" data-icon=… data-size=…><svg class="lat-icon-svg">…</svg></span>`,
+ * and inside a pill as `<svg class="lat-pill-icon">` before the label.
+ * Design: engineering/decisions/2026-09-29-inline-icons.md (§ 6 the axes, § 7 rendering).
+ *
+ * AN ICON IS A SPARK'S SIBLING. Its tile is a spark's tile height (1.25x a pill, in the pill's
+ * type size) and square, and it takes the same three axes with the same words and defaults:
+ * the icon's own `data-frame` / `data-look` / `data-corners`, then the slide's `icon-*` class,
+ * then the deck's `icon:` register (built by lib/core/register-factory.js from this plugin's
+ * manifest), then the default — framed, pigment, square.
+ *
+ * THE LOOK SPENDS ONE COLOR, as a spark's does, from the chart cycle's hue and its curated ink
+ * (`c1` when the icon names none):
+ *   pigment  the INK is the tile and the lines knock out to the page — the curated ink clears AA
+ *            on `--bg`, so the knocked-out line clears it on the ink
+ *   etching  a clear tile with an ink edge, and thinner ink lines
+ *   tone     a pale tint tile, a mid-value edge, the lines in the ink
+ * `bare` drops the tile: ink lines at the size of the text around them.
+ *
+ * LINE WEIGHT IS `--icon-stroke`, in the drawing's own 24-unit grid (Tabler draws at 2): each look
+ * sets it, so a theme or a finish can thin every icon at once. The frame is a ::before inside the
+ * span, as a spark's is: the outer padding is the gap to the neighbors (no margin, HARD RULE #20).
+ * Every color is a token (#3); no glyph is typed (#29) — the drawing is ours. */
+section .lat-icon {
+  --icon-scale:1;
+  --icon-u:calc(min(0.85em, max(var(--pill-fs), 0.5em)) * var(--icon-scale));
+  --icon-tile-h:calc(1.25 * (1.6 * var(--icon-u) + 2px));
+  --icon-pad-out:0.15em;
+  --icon-inset:calc(0.2 * var(--icon-tile-h));
+  --icon-stroke:2;
+  --icon-hue:var(--chart-cat1);
+  --icon-ink:var(--chart-cat1-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading)));
+  --icon-tile:var(--icon-ink);
+  --icon-edge:var(--icon-ink);
+  --icon-line:var(--bg);
+  position:relative;
+  display:inline-block;
+  box-sizing:content-box;
+  width:var(--icon-tile-h);
+  height:var(--icon-tile-h);
+  padding:0 var(--icon-pad-out);
+  vertical-align:middle;
+  line-height:0;
+  isolation:isolate;
+  color:var(--icon-line);
+}
+section .lat-icon[data-size='sm'] { --icon-scale:0.85; --icon-bare:0.9em; }
+section .lat-icon[data-size='lg'] { --icon-scale:1.6; --icon-bare:1.6em; }
+section .lat-icon::before {
+  content:'';
+  position:absolute;
+  inset:0 var(--icon-pad-out);
+  z-index:0;
+  box-sizing:border-box;
+  border:1px solid var(--icon-edge);
+  border-radius:0;
+  background:var(--icon-tile);
+}
+section .lat-icon > .lat-icon-svg {
+  position:relative;
+  z-index:1;
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  height:100%;
+  padding:var(--icon-inset);
+  overflow:visible;
+}
+:is(section .lat-icon-svg, section .lat-pill-icon) {
+  fill:none;
+  stroke:currentColor;
+  stroke-width:var(--icon-stroke);
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+/* `bare` — no tile: ink lines, as tall as the text's capitals and a little more (1.15em at md). */
+:is(section.icon-bare .lat-icon:not([data-frame='framed'], [data-corners]), section .lat-icon[data-icon][data-frame='bare']) {
+  --icon-tile-h:var(--icon-bare, 1.15em);
+  --icon-inset:0px;
+  --icon-line:var(--icon-ink);
+}
+:is(section.icon-bare .lat-icon:not([data-frame='framed'], [data-corners]), section .lat-icon[data-icon][data-frame='bare'])::before { content:none; }
+/* `etching` — the hue is the LINE: a clear tile, the edge and a thinner line in the ink. */
+:is(section.icon-etching .lat-icon:not([data-look]), section .lat-icon[data-icon][data-look='etching']) {
+  --icon-tile:transparent;
+  --icon-line:var(--icon-ink);
+  --icon-stroke:1.5;
+}
+/* `tone` — one hue by VALUE: a pale tint tile, a mid-value edge, the line in the ink. */
+:is(section.icon-tone .lat-icon:not([data-look]), section .lat-icon[data-icon][data-look='tone']) {
+  --icon-tile:color-mix(in oklab, var(--icon-hue) 16%, var(--bg));
+  --icon-edge:color-mix(in oklab, var(--icon-hue) 55%, var(--bg));
+  --icon-line:var(--icon-ink);
+}
+/* `rounded` — the theme's small radius, still clearly not a pill's capsule. */
+:is(section.icon-rounded .lat-icon:not([data-corners='square']), section .lat-icon[data-icon][data-corners='rounded'])::before { border-radius:var(--radius-sm); }
+
+/* A color slot: the chart cycle's hue and curated ink for 1–8, the pill mark for 9–12 (a line,
+ * never text, so the mark's 3:1 graphical floor is its contract) — the spark's recipe. */
+section .lat-icon[data-c='c1']   { --icon-hue:var(--chart-cat1); --icon-ink:var(--chart-cat1-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading))); }
+section .lat-icon[data-c='c2']   { --icon-hue:var(--chart-cat2); --icon-ink:var(--chart-cat2-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading))); }
+section .lat-icon[data-c='c3']   { --icon-hue:var(--chart-cat3); --icon-ink:var(--chart-cat3-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading))); }
+section .lat-icon[data-c='c4']   { --icon-hue:var(--chart-cat4); --icon-ink:var(--chart-cat4-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading))); }
+section .lat-icon[data-c='c5']   { --icon-hue:var(--chart-cat5); --icon-ink:var(--chart-cat5-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading))); }
+section .lat-icon[data-c='c6']   { --icon-hue:var(--chart-cat6); --icon-ink:var(--chart-cat6-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading))); }
+section .lat-icon[data-c='c7']   { --icon-hue:var(--chart-cat7); --icon-ink:var(--chart-cat7-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading))); }
+section .lat-icon[data-c='c8']   { --icon-hue:var(--chart-cat8); --icon-ink:var(--chart-cat8-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading))); }
+section .lat-icon[data-c='c9'] { --icon-hue:var(--cat-9-mark); --icon-ink:var(--cat-9-mark); }
+section .lat-icon[data-c='c10'] { --icon-hue:var(--cat-10-mark); --icon-ink:var(--cat-10-mark); }
+section .lat-icon[data-c='c11'] { --icon-hue:var(--cat-11-mark); --icon-ink:var(--cat-11-mark); }
+section .lat-icon[data-c='c12'] { --icon-hue:var(--cat-12-mark); --icon-ink:var(--cat-12-mark); }
+
+/* Inside a pill the icon leads the label, in the pill's own ink, drawn 1.15em square. The
+ * pill decides the frame (§ 6): an icon there is always bare.
+ *
+ * THE LAYOUT BOX IS THE CAPITALS, THE DRAWING IS SCALED UP FROM IT. A pill is one
+ * `line-height:1` line, cap-centered (base.modifiers.css § Optical centering). A 1.15em box
+ * in that line is taller than the line, so the line grew around it: measured in the export's
+ * Chrome 131, an icon pill was 28.2px beside a plain pill's 25.9px, with its label 1px low,
+ * and an icon-only pill sat 1.6px low. Here the box runs from the baseline to the cap height
+ * (`1cap` tall, `vertical-align:baseline`), so it is centered on the capitals by
+ * construction and never taller than the line. The `<svg>` carries
+ * `preserveAspectRatio="xMidYMid slice"` (icons.inline.js), so the drawing takes the box's
+ * WIDTH, 1.15em, centered on the box, and `overflow:visible` paints the part above and below
+ * it. Painting outside a box does not lay anything out, so the line, the pill's height and the
+ * label do not move. (Not a `scale()` transform: the ratio is `1.15em / 1cap`, and the export's
+ * Chrome 131 cannot divide one length by another.) */
+section .lat-pill > .lat-pill-icon {
+  display:inline-block;
+  box-sizing:content-box;
+  width:1.15em;
+  height:1cap;
+  padding-right:0.35em;
+  vertical-align:baseline;
+  overflow:visible;
+  --icon-stroke:2.25;
+}
+/* An icon-only pill (`{icon=database}`, which names itself with role="img") has no label to
+ * space from. Not `:last-child`: the label is a text node, which that selector never sees. */
+section .lat-pill[role='img'] > .lat-pill-icon { padding-right:0; }
+/* ...and no label tracking to balance either: the pill indents its line by `--pill-tracking` to
+ * cancel the space letter-spacing leaves after a label's last letter, and with no label that
+ * indent only pushed the drawing right. */
+section .lat-pill[role='img'] { text-indent:0; }

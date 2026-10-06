@@ -750,6 +750,22 @@ cannot read.
 reports each spelling an author used (`spellings` on every bind). Building the rule means every reader
 must hand those spellings to lint, which is its own change. It is open for the owner at the merge ask.
 
+**Decision 7, as built (2026-10-05, with inline icons phase 1).** `lint:deck` warns `mixed-spelling`
+and `--fix` rewrites each minority span to the deck's most-used spelling (a tie goes to the first),
+through Segno's own `consistency`, which the reader entry `@laticent/segno/read` now exports (it
+reads binds and builds nothing). A survey of the readers found only two that bind a word with other
+spellings today: the waterfall's markers (`total` / `subtotal` / `sum` / `level`, `step` / `delta` /
+`change`, now one kernel, `lib/core/waterfall-markers.js`, that the chart and lint share) and the
+icons plugin's names and aliases (`db` / `database`), whose inline row exports `spellings` — and the
+same names in a pill's `icon=`, which the pill kernel reports (`iconSpelling`), so `{Orders, icon=db}`
+competes with `^{database}`. A marker counts only where the chart reads one, a trailing pill on a
+waterfall's list row; `step` in the prose above the chart is the author's word. No slot
+declares a shortcut that a reader binds — the state slot's `[x]` → `{done}` shortcuts are declared,
+but marks are read by `lib/core/state-marks.js`, and no component reads `{done}` as a state — so the
+`[x]` / `{done}` pair in the example above has nothing to compare yet. A later reader joins by
+exporting its spellings; the rule reads the dispatch table, not a hand list. Every alias counts, by
+the decision's letter: a waterfall that writes `subtotal` mid-walk and `total` at the end is flagged.
+
 ## Open questions
 
 The three this note first carried — coordinates, journey sigils, color slots — are decisions 10 to 12.

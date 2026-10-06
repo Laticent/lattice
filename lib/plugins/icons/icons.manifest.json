@@ -1,0 +1,85 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "icons",
+  "api": 1,
+  "title": "Icons",
+  "description": "Drawn, single-color icons from a curated set of about 250 (Tabler, MIT, plus two of our own), written in inline code: `^{database, c3, lg}` on its own and `{S3, icon=bucket, c4}` inside a pill. They take the sparks' frame, look and corner axes and an `icon:` register. Cloud-provider neutral: no vendor logos; a service is a role icon beside its name. The drawings load only for a deck that writes an icon.",
+  "contributes": {
+    "inline": {
+      "icon": {
+        "sigil": "^"
+      }
+    },
+    "services": [
+      "known",
+      "whyUnknown",
+      "drawHtml",
+      "drawElement"
+    ],
+    "registers": {
+      "icon": {
+        "axes": {
+          "frame": [
+            "framed",
+            "bare"
+          ],
+          "look": [
+            "pigment",
+            "etching",
+            "tone"
+          ],
+          "corners": [
+            "square",
+            "rounded"
+          ]
+        }
+      }
+    },
+    "data": true,
+    "styles": true
+  },
+  "tokens": [
+    "--bg",
+    "--cat-10-mark",
+    "--cat-11-mark",
+    "--cat-12-mark",
+    "--cat-9-mark",
+    "--chart-cat1",
+    "--chart-cat1-ink",
+    "--chart-cat2",
+    "--chart-cat2-ink",
+    "--chart-cat3",
+    "--chart-cat3-ink",
+    "--chart-cat4",
+    "--chart-cat4-ink",
+    "--chart-cat5",
+    "--chart-cat5-ink",
+    "--chart-cat6",
+    "--chart-cat6-ink",
+    "--chart-cat7",
+    "--chart-cat7-ink",
+    "--chart-cat8",
+    "--chart-cat8-ink",
+    "--icon-bare",
+    "--icon-edge",
+    "--icon-hue",
+    "--icon-ink",
+    "--icon-inset",
+    "--icon-line",
+    "--icon-pad-out",
+    "--icon-scale",
+    "--icon-stroke",
+    "--icon-tile",
+    "--icon-tile-h",
+    "--icon-u",
+    "--pill-fs",
+    "--radius-sm",
+    "--text-heading"
+  ],
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  }
+}

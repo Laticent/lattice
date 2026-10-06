@@ -1298,6 +1298,19 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     assert.ok(stamps.includes('Proof'), 'the nameable card must still be named');
   });
 
+  test('a `$&` or `$\'` in a title stamps as written', () => {
+    // The stamp was spliced in with a string replacement, which reads `$&` as "the match"
+    // (`<section`) and `$'` as "everything after it".
+    const inner = mathInner(
+      "<blockquote><p><strong>Cost $& more.</strong> A first card.</p></blockquote>"
+      + "<blockquote><p><strong>Rate $' plan.</strong> A second card.</p></blockquote>",
+    );
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts) && parts.length >= 2);
+    const labels = parts.map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1] ?? null).filter(Boolean);
+    assert.deepEqual(labels, ['Cost $&amp; more', "Rate $' plan"]);
+  });
+
   test('a card is labeled by its LEADING strong, not by a bold word in its body', () => {
     // An unanchored `tag:strong` took the first `<strong>` anywhere in the member, so a card
     // written `> A theorem about **compactness**.` labeled its page — and the previous page's

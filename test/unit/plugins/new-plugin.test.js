@@ -53,6 +53,19 @@ describe('the plugin scaffold', () => {
         stylesSource: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`)) ? fs.readFileSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`), 'utf8') : '',
       },
     }));
+    // The inline kinds, services and data a shipped plugin contributes (inline-icons § 6a), read the
+    // way tools/build-plugin-registry.js reads them.
+    const pluginFile = (name, role) => path.join(__dirname, `../../../lib/plugins/${name}/${name}.${role}`);
+    for (const s of shipped) {
+      const name = s.manifest.name;
+      if (fs.existsSync(pluginFile(name, 'inline.js'))) {
+        const { inline } = require(pluginFile(name, 'inline.js'));
+        s.exports.inline = Object.keys(inline);
+        s.exports.inlineFns = Object.fromEntries(Object.entries(inline).map(([k, row]) => [k, Object.keys(row).filter((f) => typeof row[f] === 'function')]));
+      }
+      if (fs.existsSync(pluginFile(name, 'services.js'))) s.exports.services = Object.keys(require(pluginFile(name, 'services.js')).services);
+      s.exports.hasData = fs.existsSync(pluginFile(name, 'data.generated.js'));
+    }
     // Shipped hydrate modules carry their source for the require/import check.
     for (const s of shipped) if (s.exports.hasHydrate) s.exports.hydrateSource = fs.readFileSync(path.join(__dirname, `../../../lib/plugins/${s.manifest.name}/${s.manifest.name}.hydrate.js`), 'utf8');
     const scaffold = {

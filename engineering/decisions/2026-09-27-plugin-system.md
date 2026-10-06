@@ -297,7 +297,20 @@ about the whole plugin's CSS, not one render path.
 - `highlight` — Mermaid (phase D's browser half): a highlight.js grammar the host registers under
   the plugin's code fences, so the source a fence shows before it is drawn is colored.
 - `services` — a plugin calling another plugin's named function, declared in the manifest
-  (`contributes.services: ["tex"]`) so the one-to-one check covers it. v1 has no consumer (§6).
+  (`contributes.services: ["tex"]`) so the one-to-one check covers it. **Built 2026-10-05 with
+  the icons plugin**, whose `drawHtml` / `drawElement` / `known` / `whyUnknown` the core pill
+  calls for `icon=` through `lib/plugins/services.js` `service(plugin, name, off)` — null with
+  the plugin off, so a caller renders without it (`2026-09-29-inline-icons.md` § 12).
+- `inline` — an inline-code kind behind one Segno tag character (`^{…}`), a row in the host's
+  dispatch table (`lib/core/inline-code-directives.js`) after the host's marks, pills and sparks.
+  Built 2026-10-05 for icons; in-tree only, like `syntax`.
+- `registers` — a front-matter axis register declared as data (`icon: bare etching` → `icon-*`
+  slide classes), built by the host's register factory (`lib/core/register-factory.js`), which
+  `spark:` now uses too. Built 2026-10-05 for icons; data, so a later data plugin may declare one.
+- `data` — data a plugin's kernels read only through `lib/plugins/plugin-data.js`: a lazy loader
+  on Node, its own on-demand script in a browser (`lattice-plugin-<name>.js`), so a deck that does
+  not use the plugin never loads it. §4.8's "payload when used" for in-tree data. Built
+  2026-10-05 for icons.
 - `extensionPoints` — a plugin offering a slot others fill; the chart family is the consumer.
 - `providers` — declarative tables. **Templates and validated-id patterns only, never functions**:
   today's `lib/core/video-providers.mjs` rows are functions (`id`, `watch`, `oembed`, `embed`),
@@ -569,7 +582,7 @@ untouched. `lattice packages check <folder>` runs the schema, the resolver and t
 | **chart family** | `extensionPoints.kernel`, the chart frame, `styles` | parse-time | — | `KERNEL_BUCKETS` and its mirror `KERNEL_BUCKETS_GATED` |
 | **each chart** (23) | stays a **component**; its manifest's `kernel` block (+ #287's adapter) is the slot fill | parse-time | the family, by bucket | nothing moves; the plugin registry reads kernels as a second source |
 | **highlight.js languages** | `providers` (grammar files) | `browser` | — | the fourth loader idiom; code, so in-tree only |
-| **icons** | `inline` (the `^{…}` kind), `services.draw` (callers: the pill's `icon=`, chart kernels), `registers` (`icon:`), `styles`, `diagnostics`, payload (the curated Tabler data, `when: used`); flowchart, state-chart and hub-spoke declare `optional: ["icons"]` | parse-time | — | the inline-code dispatcher's hand list (it becomes a table). Design: `2026-09-29-inline-icons.md` § 6a |
+| **icons** | `inline` (the `^{…}` kind), `services` (`drawHtml`, `drawElement`, `known`, `whyUnknown`; callers: the pill's `icon=`, chart kernels next), `registers` (`icon:`), `data` (the curated Tabler drawings, loaded when used), `styles`; flowchart, state-chart and hub-spoke declare `optional: ["icons"]` in phase 2 | parse-time | — | the inline-code dispatcher's hand list (it is a table now). Design: `2026-09-29-inline-icons.md` § 6a; as built: § 12 |
 
 **#287 is not on this path.** The uniform `transformSection` adapter is a refactor inside
 `lib/components/chart/`. It needs no plugin system and can land first as its own PR; phase F then

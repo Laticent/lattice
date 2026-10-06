@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Icons join pills and sparks as a third thing an author writes in inline code, in Segno's record notation
   from day one: `^{database, c3}` on its own, `{S3, icon=bucket, c4}` inside a pill, and the same `icon=`
@@ -16,8 +16,9 @@ summary: >
 
 # Icons — drawn, themed, and written like sparks
 
-**Date:** 2026-09-29, revised 2026-10-04 · **Status:** proposed. The owner settled eight decisions in
-§ "Decided"; the three questions in § "Open questions" are small and wait for the build.
+**Date:** 2026-09-29, revised 2026-10-06 · **Status:** in progress — phase 1 (1a and 1b) is built; § 12
+says what landed and where it differs from the plan. The owner settled eight decisions in
+§ "Decided"; decision 7's pick from the phase 1b renders is `framed` (owner, 2026-10-06).
 **Follows:** `2026-09-28-inline-sparks.md` (the model this copies),
 `2026-09-28-segno-unified-inline-notation.md` (the notation this is written in),
 `2026-09-27-plugin-system.md` (the package and contribution model icons ship on, § 6a)
@@ -56,7 +57,7 @@ HARD RULE #29 already bars those for exactly this job.
 | 4 | **Design now, build on Segno.** This note lands first; the kernel and chart wiring land after Segno phase 2, so icons never need a codemod | owner |
 | 5 | **Icons are a full plugin**, `lib/plugins/icons/`: the syntax, renderer, styles and the Tabler data all live in the package, and the plugin host gains the three contribution points icons need (§ 6a) | owner, 2026-10-04, over a core feature with icon packs as plugins, and core now with a move later |
 | 6 | **Sparks and icons share Segno's record spelling.** `^{database, c3, lg}` and `~{12 14 17, bar, c3, lg}`: the sigil, then a record whose first item is the subject (a name, or the data) and whose other items are the shared option words. Sparks move in Segno phase 2's codemod, like every other grammar | owner, 2026-10-04, over colon style for both and records for icons only |
-| 7 | **The default look is chosen on renders.** Phase 1b renders framed and bare side by side, in prose, tables, pills and charts, in dark and light, and the owner picks from the images | owner, 2026-10-04 |
+| 7 | **The default look is chosen on renders.** Phase 1b renders framed and bare side by side, in prose, tables, pills and charts, in dark and light, and the owner picks from the images. **Picked: `framed`**, from the light and dark renders of `examples/inline-icons.md` | owner, 2026-10-04; picked 2026-10-06 |
 | 8 | **No short form.** `^{database}` already IS the unconfigured icon at its default look; a brace-less `^database` would only be a second spelling to learn and lint | owner, 2026-10-04 |
 
 ## 3. Which icon set, measured
@@ -249,7 +250,8 @@ lib/plugins/icons/
                            path) and DOM nodes (runtime path, HARD RULE #22)
   icons.data.generated.js  name → path data, generated from the curation list (§ 9)
   icons.curation.json      our name, the Tabler source, the category, aliases
-  icons.own/               the two icons we draw, stream and API gateway (§ 3)
+  icons.own/               the two icons we draw, stream and API gateway (§ 3) — as built, these
+                           sources live in lib/plugins/_icons-source/ (§ 12)
   icons.styles.css         the tile, the axes, `--icon-stroke`; tokens only
   icons.docs.md · icons.gallery.md · icons.fixtures.md
   LICENSE-tabler.md
@@ -307,7 +309,7 @@ for 250 it would put every icon in every deck's stylesheet whether it uses them 
 
 - A build step reads `icons.curation.json` (§ 9) and the pinned `@tabler/icons` dev dependency, and
   writes `lib/plugins/icons/icons.data.generated.js`: name → path data. Our own two icons come from
-  `icons.own/*.svg`. The generated file is committed like the plugin registry, and `build:check`
+  `own/*.svg` (as built, `lib/plugins/_icons-source/own/`, § 12). The generated file is committed like the plugin registry, and `build:check`
   catches a stale one.
 - `icons.render.js` is the kernel, shaped like `inline-sparks.js`: pure, no DOM, no fs.
   `resolve()` returns fields (name, paths, color, size, axes, accessible name), never markup.
@@ -376,9 +378,71 @@ Each has a recommendation; none blocks this note.
 1. **Where an icon sits in a chart node: before the text or above it.** Recommendation: before it in
    `lr` flowcharts and state charts, where nodes are short and wide, and above it in `tb` and in
    hub-spoke, where nodes are closer to square. The layout picks; the author does not.
-2. **The default frame** — settled as a method, not a value: decision 7. Phase 1b renders `framed`
-   and `bare` side by side and the owner picks. Until then § 6's table shows `framed`, the sparks'
-   default, as a placeholder.
+2. **The default frame** — settled as a method, not a value: decision 7. Phase 1b rendered `framed`
+   and `bare` side by side and the owner picked `framed` (2026-10-06), the sparks' default too, so
+   § 6's table stands as written.
 3. **Service-name coaching coverage.** How many service names § 4's lint table starts with.
    Recommendation: the three largest providers' 20 most-used compute, storage, data and network
    services each, about 60 rows, grown when an author trips on a missing one.
+
+## 12. Phase 1 as built (2026-10-05)
+
+**1a, the host.** `lib/core/inline-code-directives.js` is a table: the host's own rows (marks,
+pills, sparks) first, then each plugin's `contributes.inline` rows from
+`lib/plugins/inline.generated.js`. The host keeps the order and the escape; every row gets the
+deck's `off` set (the plugins it did not load, `md.latticePluginsOff` from the engine), so a
+plugin's row and the services a first-party row calls leave the render when the deck does not load
+the plugin. The runtime has no `off`, so the engine writes the answer into its markup, as #2525
+does for fences: a span left literal only because a plugin is not loaded (`^{database}`, and the icon-only
+pill `{icon=bucket}`, which has nothing to show without the drawing) is
+`<code data-lattice-off="<plugin>">` (`offPlugin`), and the runtime's pass skips it (spec/LPM.md
+§ 3.2.1). Marks, pills and sparks are byte-identical through the table over every inline-code
+span in the tracked corpus (`test/unit/core/inline-code-table.test.js`).
+
+The plugin host gained FOUR points, not three. The note's three (§ 6a):
+
+- **`inline`** — `{ "icon": { "sigil": "^" } }` and `<name>.inline.js` exporting
+  `{ resolve, html, element, diagnose }` per kind. The resolver refuses a sigil that is not a Segno
+  tag, the spark's `~`, or another plugin's, and a kind with no `detect`.
+- **`services`** — a list of names and `<name>.services.js`; callers use
+  `lib/plugins/services.js` `service(plugin, name, off)` and get null with the plugin off.
+- **`registers`** — `{ "icon": { "axes": { … } } }` as data. `lib/core/register-factory.js`
+  builds `spark:` and every plugin register; `lib/core/axis-registers.js` is the list both render
+  paths, the slide-class vocabulary and `lint:deck` walk. A slide's word evicts the deck's on
+  that axis of that register only (`icon:frame` never touches `spark:frame`).
+
+and a fourth the build needed, **`data`**: the drawings live in `<name>.data.generated.js`, which
+no kernel requires. Kernels read it through `lib/plugins/plugin-data.js`; the engine registers a
+lazy loader for it (`lib/plugins/data.generated.js`), so a Node render loads it on the first
+icon and a deck with none never does (pinned in `test/unit/plugins/contribution-points.test.js`).
+The playground bundle aliases `data.generated.js` to a stub, and the data ships as its own script,
+`lattice-plugin-icons.js` (`tools/build-plugin-data-bundles.js`), which
+`docs/src/lib/ensure-plugin-data.ts` fetches before the first render of a deck whose `detect`
+matches — the KaTeX provider's shape. The package spine (`lib/packages/kinds.js`) gained the
+roles `inline.js`, `services.js`, `data.generated.js` and `vocab.generated.js`; a plugin's
+generator SOURCES live outside the package, in `lib/plugins/_icons-source/`.
+
+**1b, the plugin.** `lib/plugins/icons/`: `icons.inline.js` is the kernel (§ 7), `icons.services.js`
+hands the pill `known`, `whyUnknown`, `drawHtml` and `drawElement`, `icons.syntax.mjs` is the
+`detect`, and `tools/build-icons-data.js` writes the vocabulary (names, aliases, the service-name
+coaching table; small, so the linter carries it) and the drawings (validated to six shape elements
+with geometry only) from `_icons-source/curation.json`, `coaching.json` and our two drawings in
+`own/`. The set is 265 icons in the eleven § 9 categories. The pill's `icon=` is a named-only
+parameter on the core pill slot; an icon-only pill names itself (`role="img"`).
+
+**Where it differs from the plan.**
+
+- `function` draws Tabler's `settings-bolt`, not `lambda`: λ is a letter (§ 3 "no lettering") and
+  reads as the AWS product.
+- `lint:deck` warns per kind (`icon-literal`, from the table, so a later plugin kind is linted
+  with no lint-core edit) and on a bad `icon:` word (`unknown-icon`, the generalized
+  `unknown-spark`). A pill's unknown `icon=` is `pill-literal`, with the same coaching.
+- On a raw Marp preview (no Lattice engine), an icon stays code unless the page has loaded
+  `lattice-plugin-icons.js`; the runtime host does not fetch it yet. Recorded in `followups.d/`.
+- Decision 7 is settled: the owner looked at the demo deck (`examples/inline-icons.md`, framed and bare
+  side by side in prose and pills, light and dark), signed off the export, and picked `framed`
+  (2026-10-06). It was already the base rule and the `icon:` register's first `frame` word, so no
+  rule changed.
+
+Phase 2 (charts) and phase 3 (the Studio) follow, as § 10 planned.
+

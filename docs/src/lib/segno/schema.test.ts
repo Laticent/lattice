@@ -343,3 +343,28 @@ describe('a word past an indexed ceiling names the limit', () => {
     expect(!r.ok && r.diagnostics[0].code).toBe('unknown-word');
   });
 });
+
+describe('a custom type that parses while a record binds', () => {
+  // The parser writes one REUSED flat buffer (flat.ts), so a reader that walked it lazily while
+  // binding would read garbage after a custom type parsed a span of its own. `parse` reads the
+  // whole tree into plain values before `bindItems` runs, so binding never touches the buffer.
+  // This pins that order: a type that parses a deeper, longer span on every read, then three
+  // more items after it.
+  it('binds every item after the nested parse', () => {
+    let parses = 0;
+    const base = text();
+    const greedy = {
+      ...base,
+      read(t: string, q: boolean) {
+        parses++;
+        const inner = record({ positional: [{ name: 'a', type: text() }], params: { b: named(text()) } }).read('{zz, b=[1, [2, {3}]], c=4}');
+        expect(inner.ok).toBe(false);
+        return base.read(t, q);
+      },
+    };
+    const slot = record({ positional: [{ name: 'label', type: greedy }], params: { size: oneOf(['sm', 'lg']), color: indexed('c', { max: 12 }), note: named(text()) } });
+    const r = slot.read('{BETA, lg, c4, note="kept, exactly"}');
+    expect(parses).toBe(1);
+    expect(ok(r)).toEqual({ label: 'BETA', size: 'lg', color: 4, note: 'kept, exactly' });
+  });
+});

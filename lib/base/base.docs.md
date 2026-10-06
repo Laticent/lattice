@@ -1638,14 +1638,28 @@ An unknown or repeated word fails back to literal rather than being ignored:
 pill the author did not ask for.
 
 To force the literal for a label that WOULD qualify, put a **backslash** in front:
-`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`.
+`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`. A broken pill escapes
+the same way and silences `pill-literal`: `` `\{A|B}` `` renders as `{A|B}`.
 
-The backslash is only an escape when what follows would actually have become a pill or
-a mark, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched and keep their
+The backslash is only an escape when what follows would have become a pill or a mark, or
+is a broken pill attempt, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched
+and keep their backslash. Braces that belong to another language are never a pill attempt —
+a span holding a backslash (LaTeX `` `\{a,b\}` ``, a regex `` `\{2,3\}` ``), a regex interval
+(`` `{2,5}` ``) or a template tag (`` `{{name}}` ``) — so they get no warning and keep every
 backslash.
 
 **Fenced and indented code blocks are never touched at all** — they are not inline code,
 so nothing in them is ever read as a directive.
+
+### An icon in a pill — `icon=`
+
+`{S3, icon=bucket, c4}` leads the label with a drawn icon, in the pill's own color, at any shape:
+`{Primary, icon=database, tag}`. `{icon=database}` is an icon with no label. `icon` is written by
+name, because a pill's first word is its label. The icons come from the **icons** plugin
+(`lib/plugins/icons/icons.docs.md`), which also draws an icon on its own in prose (`^{database}`);
+with that plugin off, the pill shows its label alone. A name the set does not have — or a vendor
+service name like `icon=lambda` — keeps the span literal, and `lint:deck` names the role icon to
+use instead.
 
 ### Where a pill can go
 

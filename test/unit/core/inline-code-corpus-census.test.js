@@ -56,6 +56,7 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/inline-pills.md', 'the demo deck for the pill and mark grammar (HARD RULE #9)'],
   ['examples/inline-sparks.md', 'the demo deck for the `~{…}` spark grammar (HARD RULE #9)'],
   ['examples/segno-phase-2.md', 'the demo deck for Segno phase 2: every record spelling on its slide (HARD RULE #9). Its flowchart `{diamond, c2}` is counted here but renders as a style, not a pill — the census reads spans without their slide, and the flowchart owns its rows (lib/core/resolve-inline-code.js)'],
+  ['examples/inline-icons.md', 'the demo deck for the icons plugin: `^{…}` and the pill\'s `icon=` (HARD RULE #9)'],
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
 ]);
 
