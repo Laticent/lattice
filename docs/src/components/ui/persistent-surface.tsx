@@ -53,6 +53,12 @@ export function usePersistentIds() {
  * own `hideOthers` follows for `aria-hidden`. The walk goes down only along the path to a kept node
  * and marks that path's siblings, so an element that merely CONTAINS a live region is not marked
  * whole. Returns what it marked, to be unmarked on close.
+ *
+ * A body child marked `data-modal-exempt` is skipped whole: an overlay that must stay usable ABOVE
+ * this surface. Vetrina's stage is the one today. Its narration is a live region, so without the
+ * opt-out the walk went down into the stage and marked that region's sibling, the Exit button,
+ * inert: a lesson that opened the Share sheet painted an Exit no click could reach, and the click
+ * fell through to the share row underneath (measured on the built Studio, 2026-10-06).
  */
 function inertOthers(keep: Element): Element[] {
   const kept = [keep, ...document.querySelectorAll("[aria-live]")].filter((el) => !keep.contains(el) || el === keep)
@@ -61,7 +67,7 @@ function inertOthers(keep: Element): Element[] {
   const marked: Element[] = []
   const walk = (parent: Element) => {
     for (const child of parent.children) {
-      if (kept.includes(child)) continue
+      if (kept.includes(child) || child.hasAttribute("data-modal-exempt")) continue
       if (onPath.has(child)) walk(child)
       else if (!child.hasAttribute("inert")) {
         child.setAttribute("inert", "")

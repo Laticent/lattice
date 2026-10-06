@@ -174,8 +174,25 @@ the glyphs hidden), correct as shipped 15%, distance to the target 15%, Exit siz
 On a phone `scrim` painted 34% of the screen and covered the control the lesson pointed at in two of
 three beats; `bar` covered none. `split` led desktop by 0.3, inside the method's noise, and its
 corner Exit chip sits on the header's More controls. **Ruling: `bar` everywhere**, one caption at
-every width. Two gaps every style shares are left for Vetrina: the Exit control is 27–32 px on a
+every width. Two gaps every style shares were left for Vetrina: the Exit control is 27–32 px on a
 phone (under the 44 px touch target) and the caption text is 13.5 px.
+
+**The phone floor (2026-10-06).** Both gaps are closed in Vetrina's default sheet, at ≤699px only.
+The caption's type size is a token, `--vt-caption-size` (13.5px, 15px on a phone), so every boxed
+style reads it and a host can still set its own. Exit keeps its drawn circle, so the bar does not
+grow, and takes a press anywhere in a 44px square through an invisible `::before`. Measured on the
+built Studio during the two Sharing lessons, nine beats per lesson across 1440, 820 and 390: at 390
+the hit area is 44×44, corners included, and the text 15px, with the one-line bar still 45px tall
+and 0% of each pointed-at control covered; at 1440 and 820 Exit is 27px and the text 13.5px, as
+before. One beat covers part of its target at 1440: the bar sits over the left 8% of Download
+webpage, with the label and icon clear.
+
+**Exit works over a sheet.** Measuring the Sharing lessons found that Exit took no clicks while the
+Share sheet was open: the sheet (`PersistentSurface`) inerts the rest of the page but keeps live
+regions reachable, and to do that it walked into Vetrina's stage and inerted the narration's sibling,
+Exit. A click on the drawn ✕ fell through to the share row underneath. The PDF lesson had the same
+defect, as does any beat that runs over a `PersistentSurface`. The stage now carries
+`data-modal-exempt`, which that walk skips whole; see Vetrina's README §Theming.
 
 ## Building, Polish, and the end of the long tours (slice 3)
 
