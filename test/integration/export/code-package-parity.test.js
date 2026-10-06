@@ -225,6 +225,26 @@ describe('code packages: every shipped transform runs in the locked page and mat
     }
   });
 
+  test('no import(): refused in the source, and no string becomes code that could hold one', async () => {
+    // `import()` is syntax, so no name wall reaches it (contract note §10): the runner refuses a
+    // package that holds one before any worker exists, and the wall removes every way to turn a
+    // string into code at run time, so the package cannot write one there either.
+    await assert.rejects(openPackageSandbox(browser, 'function t(s){import("https://example.com/x").catch(()=>{});return s.html}export{t as default};'), /holds a dynamic `import\(\)`/);
+    const built = 'function t(s){const tried={};const at=(k,f)=>{try{f();tried[k]="ran"}catch(e){tried[k]="refused"}};' +
+      'at("eval",()=>eval("1"));at("indirect eval",()=>(0,eval)("1"));at("Function",()=>Function("return 1")());' +
+      'at("constructor",()=>(()=>{}).constructor("return 1")());at("async constructor",()=>(async()=>{}).constructor("return 1"));' +
+      'at("generator constructor",()=>(function*(){}).constructor("yield 1"));at("async generator constructor",()=>(async function*(){}).constructor("yield 1"));' +
+      'at("string timer",()=>setTimeout("1",0));at("string interval",()=>clearInterval(setInterval("1",1000)));at("function timer",()=>setTimeout(()=>{},0));' +
+      'return JSON.stringify(tried)}export{t as default};';
+    const sandbox = await openPackageSandbox(browser, built);
+    try {
+      const tried = JSON.parse(await runPackage(sandbox, { html: '<section></section>', index: 0 }));
+      assert.deepEqual(tried, { eval: 'refused', 'indirect eval': 'refused', Function: 'refused', constructor: 'refused', 'async constructor': 'refused', 'generator constructor': 'refused', 'async generator constructor': 'refused', 'string timer': 'refused', 'string interval': 'refused', 'function timer': 'ran' });
+    } finally {
+      await sandbox.close();
+    }
+  });
+
   test('the bundle cannot reach the runner: it lives in another realm', async () => {
     // The first runner shared the page with the bundle, which could claim `__latticeRun` first (the
     // red team did). In the worker there is no such name to take, and a reply the bundle forges is

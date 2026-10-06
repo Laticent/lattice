@@ -183,6 +183,18 @@ function overridesMap(v: unknown): Record<string, { light?: string; dark?: strin
 const TYPES: readonly string[] = ['theme', 'component', 'finish', 'motion'];
 
 /**
+ * Why a code package is refused: its shape first (`refuseCode`, light, in the eager bundle), then its
+ * syntax (`codeSyntaxRefusal`, a dynamic `import()`), whose parser loads only when a zip holds code.
+ * The same two checks `lattice packages add` runs (lib/packages/gate.js).
+ */
+async function codeRefusal(pkg: Parameters<typeof refuseCode>[0], code: string | undefined): Promise<string | null> {
+	const shape = refuseCode(pkg);
+	if (shape) return shape;
+	const { codeSyntaxRefusal } = await import('../../../../lib/packages/code-syntax.mjs');
+	return codeSyntaxRefusal(String(code ?? ''));
+}
+
+/**
  * Every package folder in a zip: a directory holding a `*.manifest.json`, with an optional
  * leading `<type>/` segment. Files outside any such folder (a README, a showcase PDF) are
  * not package files and are skipped. `read` returns an entry's text and charges the caller's
@@ -224,7 +236,7 @@ export async function readPackagesFromZip(zip: Zip, read: (path: string) => Prom
 		// A component's images and data files (its assets) are not carried into the Studio's
 		// record yet, so they are named as left out rather than lost in silence.
 		const notes = [...r.renames, ...(r.pkg.dropped ?? []).map((f: string) => `left out ${f}`), ...(r.pkg.assets?.length ? [`left out ${r.pkg.assets.length} asset file(s): ${r.pkg.assets.join(', ')}`] : [])];
-		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, codeRefusal: norm.pkg.code ? refuseCode(norm.pkg) : null, notes });
+		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, codeRefusal: norm.pkg.code ? await codeRefusal(norm.pkg, roles['transform.js']) : null, notes });
 	}
 	return { packages, refused };
 }

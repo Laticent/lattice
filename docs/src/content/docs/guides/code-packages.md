@@ -43,7 +43,7 @@ imports it, and it says which line to add. When the facts change shape one day,
 Lattice will still hand your package the version it asked for, or refuse it in
 plain words. It never hands your package a shape it was not written for.
 
-Four more rules decide whether Lattice accepts the package at all:
+Five more rules decide whether Lattice accepts the package at all:
 
 - **Only a component carries code.** A theme, finish or motion package with a
   script in it is refused.
@@ -53,6 +53,9 @@ Four more rules decide whether Lattice accepts the package at all:
   `export { yourFunction as default };`, which is how esbuild writes a bundle
   in ES module format. A bundler is the easy way to get it; a file written by
   hand works too.
+- **No dynamic `import()`.** Lattice parses the file, and a package whose code
+  holds an `import(…)` call is refused, wherever it sits. The word in a string
+  or a comment is fine. Bundle what you would load into the file instead.
 - **At most 1,000,000 characters.** Bundle your helpers into the file; the
   package imports nothing at run time. Leave source maps out: a trailing
   `//# sourceMappingURL=` line means the file no longer ends in the export.
@@ -142,7 +145,7 @@ bundle brings every other helper it needs.
 ## Where the code runs
 
 Lattice runs your function in a **worker** inside a sandboxed page. The worker
-has no `document`, no `window` and no DOM, and two walls keep it off the
+has no `document`, no `window` and no DOM, and these walls keep it off the
 network:
 
 - The page's content-security policy allows no requests, and the worker
@@ -156,6 +159,12 @@ network:
   one back. This second wall exists because a browser does not always apply the
   inherited policy: Firefox let `EventSource` from a worker reach a local server
   that the policy should have blocked.
+- Nothing turns a string into code. `eval`, `Function` and `ShadowRealm` are
+  `undefined`, so is the `constructor` of every kind of function, and
+  `setTimeout` and `setInterval` take a function but throw on a string. A
+  dynamic `import()` is syntax, not a tool Lattice can remove, so the gate
+  refuses it in your file (above), and this keeps code built at run time from
+  writing one.
 
 A font load is a request, so your code cannot load a font in the worker, not
 even from bytes. `kit.measure` does not need one (see [The kit](#the-kit)).
