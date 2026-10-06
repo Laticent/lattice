@@ -210,6 +210,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ◐ [2026-09-20-gesture-audit.md](2026-09-20-gesture-audit.md) — The Guide points at slides by searching the live DOM for the sentence it hears.
 - ☐ [2026-06-14-github-project-management.md](2026-06-14-github-project-management.md) — Kanban-light project management keeping ADRs in markdown while adding GitHub Issues as a claimable queue mirrored to BACKLOG.md
 - ◐ [2026-08-18-golden-corpus-purpose-and-medium.md](2026-08-18-golden-corpus-purpose-and-medium.md) — Re-blessing 359 committed PDFs hurts, and the cause is NOT the artifact format — it is that the one tool capable of catching a stale golden…
+- ☐ [2026-10-06-goldens-bot-blessed.md](2026-10-06-goldens-bot-blessed.md) — Pull requests stop committing PDFs.
 - ◐ [2026-08-05-guide-gesture-vocabulary.md](2026-08-05-guide-gesture-vocabulary.md) — Guide points at the slide like a karaoke follower — one move per sentence, and a pointer whose only verb is "go somewhere".
 - ◐ [2026-09-27-guide-in-the-exported-player.md](2026-09-27-guide-in-the-exported-player.md) — The owner ruled on 2026-09-27 (video note §6, fork 8) that the Guide goes into the exported player, so a narrated HTML export and the video…
 - ◐ [2026-09-27-guide-storyboards.md](2026-09-27-guide-storyboards.md) — A fresh design for how a narrated deck presents itself with no author in the room.
