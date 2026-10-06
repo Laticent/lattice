@@ -276,8 +276,11 @@ export const CHROME = {
 export const SHARE_EXPORTS = {
 	/** Options step "Export PDF" (sticky-notes + re-openable toggles). → `.pdf` */
 	pdf: { row: /^PDF/, confirm: /^Download PDF/ },
-	/** Options step "Export PowerPoint" (re-openable toggle). → `.pptx` */
+	/** Options step "Export PowerPoint" (editable-text + re-openable toggles). → `.pptx` */
 	pptx: { row: /^PowerPoint/, confirm: /^Download PowerPoint/ },
+	/** Options step "Export LibreOffice" (editable-text toggle). → `.odp`. Driven on the real
+	 *  Share sheet at 1440/820/390 for the Calco PR; pinned by no spec yet. */
+	odp: { row: /^LibreOffice/, confirm: /^Download LibreOffice/ },
 	/** Options step "Export images" (format/size/thumbnails/SVGs). → `.zip`
 	 *  NOTE its color-mode segment has a button literally labeled "Print" —
 	 *  a loose /^(Download|Print)/ confirm locator grabs that, not the export. */
