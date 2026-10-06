@@ -188,6 +188,38 @@ test('agrees with a real HTML parser on every shape that has bitten this walk', 
     '<svg><foreignObject><h2>In</h2></foreignObject></svg><h2>Real</h2>',
     '<svg><desc><ul><li>x</li></ul></desc></svg>',
     '<svg><br><h2>After</h2></svg>',
+    // Foster parenting, a stray `</p>` and the adoption agency (followups.d/2478-p5, closed),
+    // with the scope rule the adoption agency obeys: a table open above the formatting element
+    // hides it, and the end tag is ignored (the checker, 2026-10-05).
+    '<table><h2>Fostered</h2><tr><td>c</td></tr></table>',
+    '<table><p>C.<tr><td><h2>Cell</h2></td></tr></table>',
+    '</p><h2>Real</h2>',
+    '<a><ul><li>x</li></a></ul><h2>Real</h2>',
+    '<b><table></b><h2>X</h2></table>',
+    '<a><table><tr><td></a><h2>Cell</h2></td></tr></table>',
+    '<b><marquee></b><h2>X</h2></marquee>',
+    // A second formatting element between the closed one and the block (the parser clones it
+    // around the block), and svg/math, which are not blocks to the adoption agency.
+    '<a><em><ul><li>x</li></a></ul><h2>Real</h2>',
+    '<em><svg></em><h2>Real</h2>',
+    '<b><math></b><h2>Real</h2>',
+    // Scope: an end tag whose element a barrier hides is ignored, `</li>` looks past lists, and
+    // a `<select>` keeps its contents to itself (the checker's fuzz, 2026-10-06).
+    '<p><svg><div><object></code></div></p>',
+    '<div><object></div><h2>In</h2>',
+    '<blockquote></span><li><select></strong>x<li><span></blockquote></p>',
+    '<li><th><section></th>x<ul></button><strong></li></p>',
+    '<select></svg><table></tbody></select><h2>Real</h2>',
+    '<svg><select></g>x<h2> </select><th>',
+    '<table><tr><td><select><tr><h2>Out</h2>',
+    // Round 3: a table part's END tag closes an unclosed select in a cell, a keygen is void, and
+    // an HTML element named like an SVG/MathML integration point is no scope barrier.
+    '<table><tr><td><select><option>a</td></tr></table><h2>T</h2>',
+    '<table><tr><td><select><option>a</table><h2>T</h2>',
+    '<table><tr><th><select><option>a</tr></table><h2>T</h2>',
+    '<select><keygen><h2>T</h2>',
+    '<marquee><annotation-xml></marquee><h2>H</h2>',
+    '<div><desc></div><h2>H</h2>',
     // Case.
     '<H2>Deco</H2><h2>Real</h2>',
     '<H2>Up</H2>',

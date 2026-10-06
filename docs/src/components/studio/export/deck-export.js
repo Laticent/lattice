@@ -1768,9 +1768,20 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		const strip = section.parentElement;
 		const clip = strip && { height: strip.style.height, overflow: strip.style.overflow };
 		if (strip) { strip.style.height = 'auto'; strip.style.overflow = 'visible'; }
+		// The camera's own fixups, applied for the read too (withCaptureFixups): no host keyline
+		// (`--slide-edge-k: 0`), and a PDF page squares a rounded corner. Read without them, a live
+		// keyline covered the slide's edge and a rounded clip refused it, so the reader left the
+		// spectrum bar and the dark hairline in the photo, soft at 4K (read-slide.mjs readSectionEdges).
+		const edgeK = section.style.getPropertyValue('--slide-edge-k');
+		section.style.setProperty('--slide-edge-k', '0');
+		const squared = section.classList.contains('corners-rounded') && !cornerSurvivesExport('pdf');
+		const radius = section.style.borderRadius;
+		if (squared) { section.classList.remove('corners-rounded'); section.style.borderRadius = '0'; }
 		try {
 			return fn();
 		} finally {
+			if (squared) { section.classList.add('corners-rounded'); section.style.borderRadius = radius; }
+			if (edgeK) section.style.setProperty('--slide-edge-k', edgeK); else section.style.removeProperty('--slide-edge-k');
 			if (strip) { strip.style.height = clip.height; strip.style.overflow = clip.overflow; }
 			section.style.transform = fit.transform;
 			section.style.transformOrigin = fit.origin;

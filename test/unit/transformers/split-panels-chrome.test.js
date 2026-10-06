@@ -376,3 +376,144 @@ describe('a slot inside a browser container or a raw-text element is not the slo
     assert.equal(str.querySelector('.verdict')?.textContent, 'V.');
   });
 });
+
+// Five raw-HTML shapes where the two paths read different slots, each a parser rule the
+// tokenizer did not model (followups.d/2478-p5-split-slot-parser-model-gaps.md, closed by this
+// suite). markdown-it emits none of them; an author's raw HTML can. Each arm compares the whole
+// rebuilt section on both paths, and pins the slot the parser puts the content in.
+describe('parser shapes: both paths read the slot the parser builds', () => {
+  const OPTS = '<ul><li><strong>A</strong></li><li><strong>B</strong></li></ul>';
+  const both = (html) => {
+    const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+    const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+    splitPanels.applyToDom(doc);
+    return { str, dom: doc.querySelector('section') };
+  };
+  const arm = (html, check) => {
+    const { str, dom } = both(html);
+    assert.equal(signature(str), signature(dom), html);
+    check(str);
+  };
+
+  test('a stray </p> is an empty paragraph, and it is the lede', () => {
+    for (const cls of ['split-panel', 'split-compare']) {
+      arm(`<section class="${cls}"><h2>H</h2></p><p>C.</p>${OPTS}</section>`, (s) => {
+        const left = s.querySelector('.panel-left, .compare-left');
+        assert.equal(left.querySelector('p')?.textContent, '', `${cls}: the empty paragraph is the lede`);
+        assert.equal(s.querySelector('.panel-right > p, .compare-right > p')?.textContent, 'C.');
+      });
+    }
+  });
+
+  test('foster parenting: a paragraph inside a table, before its rows, is a top-level paragraph', () => {
+    for (const cls of ['split-panel', 'split-compare']) {
+      arm(`<section class="${cls}"><h2>H</h2><table><p>C.</p><tr><td>t</td></tr></table>${OPTS}</section>`, (s) => {
+        assert.equal(s.querySelector('.panel-left > p, .compare-left > p')?.textContent, 'C.', cls);
+      });
+    }
+    // A table row ends what was fostered out of its table: the paragraph closes at `<tr>`.
+    arm(`<section class="split-panel"><h2>H</h2><table><p>C.<tr><td>t</td></tr></table><ul><li>one</li></ul></section>`, (s) => {
+      assert.equal(s.querySelector('.panel-left > p')?.textContent, 'C.');
+      assert.equal(s.querySelector('.panel-right td')?.textContent, 't');
+    });
+    // Fostered TEXT is carried into the panel on both paths, not stranded beside them.
+    arm(`<section class="split-panel"><h2>H</h2><p>C.<table>X<tr><td>t</td></tr></table><ul><li>one</li></ul></section>`, (s) => {
+      assert.equal(s.querySelector('.panel-left > p')?.textContent, 'C.');
+      assert.match(s.querySelector('.panel-right').textContent, /X/);
+    });
+  });
+
+  test('the adoption agency: `<a><ul>…</a></ul>` leaves the list, and the paragraph after it, top-level', () => {
+    arm('<section class="split-panel"><h2>H</h2><a><ul><li>x</li></a></ul><p>C.</p></section>', (s) => {
+      assert.equal(s.querySelector('.panel-left > p')?.textContent, 'C.');
+    });
+    arm(`<section class="split-compare"><h2>H</h2><a><div>x</a></div><p>C.</p>${OPTS}</section>`, (s) => {
+      assert.equal(s.querySelector('.compare-left > p')?.textContent, 'C.');
+    });
+    // NOT modelled, and not claimed: the clone of `<a>` the parser wraps the adopted block's
+    // children in. When the adopted block IS a slot (`<a><ul><li>A</li></a></ul>` as the option
+    // list), the DOM path finds `<a>` children where the kernel finds `<li>`s. Recorded in the
+    // tokenizer's header (lib/core/top-level-h2.mjs), with active-formatting reconstruction.
+  });
+
+  test('the lede stops at the first top-level h3-h6 on split-panel, and not on split-compare', () => {
+    arm('<section class="split-panel"><h2>H</h2><h3>sig</h3><p>C.</p><ul><li>one</li></ul></section>', (s) => {
+      assert.equal(s.querySelector('.panel-left > p'), null, 'a paragraph after the label is the right zone');
+      assert.equal(s.querySelector('.panel-right > p')?.textContent, 'C.');
+    });
+    arm('<section class="split-panel"><h2>H</h2><blockquote><h3>nested</h3></blockquote><p>C.</p><ul><li>one</li></ul></section>', (s) => {
+      assert.equal(s.querySelector('.panel-left > p')?.textContent, 'C.', 'a nested heading bounds nothing');
+    });
+    arm(`<section class="split-compare"><h2>H</h2><h6>eyebrow</h6><p>C.</p>${OPTS}</section>`, (s) => {
+      assert.equal(s.querySelector('.compare-left > p')?.textContent, 'C.');
+    });
+  });
+
+  test('an unclosed <li> ends at the next one, and an unclosed list at the end', () => {
+    for (const list of ['<ul><li><strong>A</strong><li><strong>B</strong></ul>', '<ul><li><strong>A</strong><li><strong>B</strong>']) {
+      arm(`<section class="split-compare"><h2>H</h2><p>C.</p>${list}</section>`, (s) => {
+        assert.deepEqual([...s.querySelectorAll('.option > strong')].map((e) => e.textContent), ['A', 'B'], list);
+      });
+      arm(`<section class="split-panel"><h2>H</h2><p>C.</p>${list}</section>`, (s) => {
+        assert.deepEqual([...s.querySelectorAll('.panel-right li')].map((e) => e.textContent), ['A', 'B'], list);
+      });
+    }
+  });
+
+  test('top-level text from raw HTML rides in the panel on both paths', () => {
+    for (const cls of ['split-panel', 'split-compare']) {
+      arm(`<section class="${cls}"><h2>H</h2><p>C.</p>stray${OPTS}</section>`, (s) => {
+        assert.match(s.querySelector('.panel-right, .compare-right').textContent, /stray/, cls);
+      });
+    }
+  });
+});
+
+// The checker's pass on the walk above (2026-10-05): three shapes the first cut got wrong.
+describe('parser shapes: the walk does not over-reach', () => {
+  const both = (html) => {
+    const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
+    const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+    splitPanels.applyToDom(doc);
+    return { str, dom: doc.querySelector('section') };
+  };
+  test('a formatting end tag with a table open above it is ignored: nothing leaves the table', () => {
+    const html = '<section class="split-compare"><h2>H</h2><p>C.</p><em><ul><table><tr><td>Keep me</td></tr></em></table></ul>Tail</section>';
+    const { str, dom } = both(html);
+    assert.equal(signature(str), signature(dom));
+    assert.match(str.textContent, /Keep me/);
+    const panel = '<section class="split-panel"><b><table></b><h2>X</h2><p>Lede</p></table><ul><li>one</li></ul></section>';
+    const p = both(panel);
+    assert.equal(signature(p.str), signature(p.dom));
+  });
+  test('a fostered paragraph closed by its table\'s </table> leaves the table its end tag', () => {
+    const html = '<section class="split-panel"><h2>H</h2><table><p>C.</table><ul><li>one</li></ul><p>after</p></section>';
+    const { str, dom } = both(html);
+    assert.equal(signature(str), signature(dom));
+    assert.equal(str.querySelector('.panel-left > p')?.textContent, 'C.');
+  });
+  test('text between two list items stays between them', () => {
+    const html = '<section class="split-panel"><h2>H</h2><p>C.</p><ul><li>A</li>stray<li>B</li></ul></section>';
+    const { str, dom } = both(html);
+    assert.equal(signature(str), signature(dom));
+  });
+});
+
+// split-panel `watermark`: the letter is the heading text's first character, on both paths. The
+// kernel reads the text through the tokenizer (an attribute value holding `>` is not text) and
+// writes the letter back escaped, keeping a leading character reference whole: CodeQL flagged the
+// old `/<[^>]+>/` strip as incomplete sanitization, and `&lt;b&gt;` gave `&` here and `<` there.
+describe('split-panel watermark: the same letter on both paths, written as safe markup', () => {
+  for (const h of ['<span title="a>b">Q</span>uote', '&lt;b&gt;', '&amp; co', '&#8220;Quoted', '<em>E</em>mph', '"Quote"', 'Plain']) {
+    test(h, () => {
+      const html = `<section class="split-panel watermark"><h2>${h}</h2><p>x</p></section>`;
+      const out = kernel.applyToRenderedHtml(html);
+      const str = new JSDOM(out).window.document.querySelector('div.watermark');
+      const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+      splitPanels.applyToDom(doc);
+      assert.equal(str.textContent, doc.querySelector('div.watermark').textContent);
+      assert.equal(str.children.length, 0, 'the letter is text, never an element');
+      assert.doesNotMatch(out.match(/<div class="watermark">([\s\S]*?)<\/div>/)[1], /[<>"]|&(?![a-z#][a-z0-9]*;)/i);
+    });
+  }
+});
