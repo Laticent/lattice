@@ -2352,6 +2352,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// behind after the demo (the newcomer walks away with it). A plain function (like
 	// `newDeck` above), so it can close over `notify` without a dep-array TDZ.
 	function createDemoFirstDeck() {
+		// The demo blanks the editor below; while live that would blank the SHARED deck for everyone.
+		if (!live.mayLeaveDeck()) return;
 		// Flush the deck we're switching away from first (as newDeck/switchDeck do) — a
 		// viewer who clicks "Watch demo" within the 400ms autosave debounce of an edit
 		// would otherwise lose that edit when we switch decks.

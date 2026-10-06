@@ -55,8 +55,8 @@ const LIVE_FRAGMENT = /(?:^#|&)live=([^&]*)/;
 let freshJoin: string | null = null;
 
 /**
- * If the address bar carries a `#live=` link, take it into memory and scrub it from the address
- * bar (screenshots, a shared screen), without loading any session code. Nothing is written in the
+ * If the address bar carries a `#live=` link, take it into memory, without loading any session code
+ * (`scrubLiveFragment` takes it out of the address bar once the session code has it). Nothing is written in the
  * clear: the session code seals it before it reaches sessionStorage. Returns whether this tab has
  * anything live to resume: a link, a carried join, or a session it was hosting.
  */
@@ -64,10 +64,25 @@ export function takeLiveIntent(): boolean {
 	if (typeof location === 'undefined') return false;
 	const m = LIVE_FRAGMENT.exec(location.hash);
 	if (m) {
-		freshJoin = decodeURIComponent(m[1]);
-		history.replaceState(history.state, '', location.pathname + location.search);
+		try {
+			freshJoin = decodeURIComponent(m[1]);
+		} catch {
+			freshJoin = m[1];
+		}
 	}
 	return !!(freshJoin || read(sessionStorage, JOIN_KEY) || read(sessionStorage, HOST_KEY));
+}
+
+/** Whether the address bar carries a `#live=` link right now (a link pasted into an open tab). */
+export const hasLiveFragment = (): boolean => typeof location !== 'undefined' && LIVE_FRAGMENT.test(location.hash);
+
+/** Take the `#live=` link out of the address bar. The session code calls this once the link is in
+ *  its memory, so a failed load leaves the link where a reload can find it. */
+export function scrubLiveFragment(): void {
+	if (typeof location === 'undefined' || !LIVE_FRAGMENT.test(location.hash)) return;
+	try {
+		history.replaceState(history.state, '', location.pathname + location.search);
+	} catch {}
 }
 
 /** The link taken this page load, once. */

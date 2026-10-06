@@ -5,12 +5,14 @@
   same source with colored carets, the slide navigator shows who is on which slide, you can
   **follow** someone or **bring everyone to your slide**, and the panel carries the session's
   chat. Up to **4 people**. Undo only undoes your own edits. A guest keeps a copy of the deck
-  when the session ends, and a reload (host or guest) picks the session back up. Audio and video
-  are not in this release.
+  when the session ends, and reloading the same tab (host or guest) picks the session back up;
+  closing the tab ends your part in it. Audio and video are not in this release.
 - **No server of ours is involved.** Edits travel browser to browser over WebRTC; peers find
   each other through public Nostr relays (Trystero 0.26.0), and the link's secret lives in the
   URL fragment, which browsers never send anywhere. The link also carries a fingerprint of the
-  host's signing key, so nobody else holding it can pose as the host. Office networks that block
+  host's signing key, so nobody else holding it can pose as the host. Treat the link like a
+  key: it works for as long as the session runs, from wherever it was pasted (an email, a chat
+  thread), and removing someone does not change it — they can knock again, and you decide. Office networks that block
   direct browser-to-browser traffic will not connect. (`docs/src/components/studio/live/`)
 - **New library: Tavola** (`docs/src/lib/tavola`, `@laticent/tavola`) — the invite link, the
   knock-and-admit handshake, the roster gate (only admitted members send or receive the

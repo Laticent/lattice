@@ -51,6 +51,10 @@ function sealingKey(): Promise<CryptoKey> {
 		await put('box', k);
 		return k;
 	})();
+	// A failure (IndexedDB blocked, a private window) is not cached: the next seal tries again.
+	boxKey.catch(() => {
+		boxKey = null;
+	});
 	return boxKey;
 }
 

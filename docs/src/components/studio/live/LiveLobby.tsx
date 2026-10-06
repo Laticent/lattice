@@ -15,7 +15,8 @@ const COPY: Record<LobbyView['stage'], { title: string; body: string } | null> =
 	denied: { title: "The host didn't let you in", body: 'Ask them to send the link again if this was a mistake.' },
 	'host-absent': { title: 'Nobody answered', body: "Either the host doesn't have the deck open right now, or your network blocks direct browser-to-browser connections (common on office networks). Ask the host to check, or try another network." },
 	full: { title: 'This session is full', body: 'A live session holds up to 4 people.' },
-	failed: { title: "Couldn't connect", body: 'Some office networks and mobile carriers block direct browser-to-browser connections. Try another network, or try again.' },
+	outdated: { title: 'Reload to join', body: "The host's Studio is a different version from yours. Reload this page, and ask the host to reload theirs." },
+	'bad-link': { title: "This link isn't complete", body: 'Part of the link is missing or changed, which often happens when an email or chat app breaks a long link across lines. Ask the host to send it again.' },
 };
 
 export function LiveLobby({ view, actions }: { view: LobbyView; actions: LobbyActions }) {
@@ -70,13 +71,19 @@ export function LiveLobby({ view, actions }: { view: LobbyView; actions: LobbyAc
 				<div className="flex justify-end gap-2">
 					{view.stage === 'ready' && <Button onClick={actions.knock} disabled={!canKnock}>Ask to join</Button>}
 					{(view.stage === 'connecting' || view.stage === 'waiting') && <Button variant="outline" onClick={actions.cancel}>Cancel</Button>}
-					{(view.stage === 'host-absent' || view.stage === 'failed') && (
+					{view.stage === 'host-absent' && (
 						<>
 							<Button variant="ghost" onClick={actions.cancel}>Open the Studio instead</Button>
 							<Button onClick={actions.retry}>Try again</Button>
 						</>
 					)}
-					{(view.stage === 'denied' || view.stage === 'full') && <Button onClick={actions.cancel}>Open the Studio</Button>}
+					{(view.stage === 'denied' || view.stage === 'full' || view.stage === 'bad-link') && <Button onClick={actions.cancel}>Open the Studio</Button>}
+					{view.stage === 'outdated' && (
+						<>
+							<Button variant="ghost" onClick={actions.cancel}>Open the Studio instead</Button>
+							<Button onClick={() => location.reload()}>Reload</Button>
+						</>
+					)}
 				</div>
 				<p className="mt-4 border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
 					Your edits and calls go directly between browsers. Lattice has no server that sees them.

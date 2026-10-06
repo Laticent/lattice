@@ -14,7 +14,18 @@ Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It
 - **the gate** — a document or awareness message is sent only to admitted members and applied only
   from them, and a document edit only from a member who may edit. A peer that has the link but was
   never admitted gets a connection and nothing over it;
-- **the cap** — four people, host included, and the four session colors.
+- **the cap** — four people, host included, and the four session colors;
+- **posts** — `session.post(bytes, to?)` and `onPost(bytes, from)`, a channel for app messages
+  (the Studio's chat) under the same gate, where `from` is the transport sender, so an app never
+  has to believe an author field;
+- **client binding** — each member knocks with its awareness `client` id and the host binds it in
+  the roster (refusing one another member already holds), so an app can drop presence a member
+  sends for anyone else.
+
+**A peer id is not an identity.** Transport ids are self-declared, so once a link drops, anyone with
+the link can reconnect under the old id. A guest stops trusting the host's id the moment its link
+drops and sends it nothing until a fresh signed hello; a member whose link drops leaves every
+roster at once and must be admitted again.
 
 It does **not** own the document. The app passes its own replicated streams in (`Stream`), so Yjs
 stays the app's dependency, and the transport is passed in too (`Transport`) — the way Trama takes
@@ -65,6 +76,10 @@ found.
 
 ## What it does not do (yet)
 
+- **Authenticate edits inside the document.** An admitted editor is trusted with the text: Yjs
+  updates carry no signatures, so an editor can write items under another member's client id
+  (and, by sending a forged item to one peer only, leave two copies that disagree for the rest of the session, since both then report the same state). Tavola gates
+  WHO may edit, not what an editor writes.
 - **Rotate the link** when someone is removed — removal blocks their peer id and revokes their
   token, but the old link still reaches the lobby, where the host sees a fresh knock.
 - **Hide members from link holders.** Every peer in the room gets a WebRTC connection to every

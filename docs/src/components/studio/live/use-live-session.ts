@@ -2,10 +2,10 @@ import * as React from 'react';
 import { notify, notifyAction } from '@/lib/notify';
 import type { LiveController } from './live-controller';
 import { IDLE_VIEW, type LiveActions, type LobbyActions } from './live-model';
-import { type LiveCollab, type LiveDeps, type LiveHost, takeLiveIntent } from './live-store';
+import { hasLiveFragment, type LiveCollab, type LiveDeps, type LiveHost, takeLiveIntent } from './live-store';
 
-// The always-loaded half of the Studio's live session. It does almost nothing on its own: it moves a
-// `#live=` link out of the address bar, and it loads the session code (live-controller.ts, with
+// The always-loaded half of the Studio's live session. It does almost nothing on its own: it takes a
+// `#live=` link into memory (on load, or pasted into an open tab), and it loads the session code (live-controller.ts, with
 // Yjs, Tavola and Trystero) only when there is something live — a link, a join carried across a
 // reload or OAuth, a session this tab was hosting, or the author pressing "Start live session".
 // A solo author's Studio never loads any of it. See
@@ -40,12 +40,28 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 			setCtl(c);
 			return c;
 		});
+		// A failed load (offline, or a chunk a deploy rotated away) is not final: forget it so the next
+		// try loads again, and say so. A link stays in the address bar until the code has it, so a
+		// reload also works (inversion round 2, item 1).
+		loading.current.catch(() => {
+			loading.current = null;
+			notify("Couldn't load the live session. Check your connection, or reload the page.");
+		});
 		return loading.current;
 	}, []);
 
 	// A link, a carried join, or a session this tab was hosting: load and resume it.
 	React.useEffect(() => {
-		if (takeLiveIntent()) void ensure().then((c) => c.resume());
+		const go = () => {
+			if (takeLiveIntent()) ensure().then((c) => c.resume(), NOOP);
+		};
+		go();
+		// A link pasted into a Studio tab that is already open (inversion round 2, item 2).
+		const onHash = () => {
+			if (hasLiveFragment()) go();
+		};
+		window.addEventListener('hashchange', onHash);
+		return () => window.removeEventListener('hashchange', onHash);
 	}, [ensure]);
 	React.useEffect(() => () => ctl?.dispose(), [ctl]);
 
@@ -67,7 +83,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 	}, [ctl]);
 
 	const actions: LiveActions = ctl?.actions ?? {
-		start: (name) => void ensure().then((c) => c.actions.start(name)),
+		start: (name) => void ensure().then((c) => c.actions.start(name), NOOP),
 		copyLink: NOOP,
 		setLinkRole: NOOP,
 		setAutoAdmit: NOOP,

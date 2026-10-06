@@ -31,7 +31,32 @@ const proxy = process.env.HTTPS_PROXY;
 // The cloud sandbox ships Chromium at /opt/pw-browsers; elsewhere Playwright finds its own.
 const executablePath = process.env.LIVE_CHROMIUM ?? (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
 const launch = () => chromium.launch({ ...(executablePath ? { executablePath } : {}), args: [...(proxy ? [`--proxy-server=${proxy}`, '--proxy-bypass-list=127.0.0.1;localhost'] : []), '--disable-features=WebRtcHideLocalIpsWithMdns'] });
-const seedFn = (m) => { localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' })); localStorage.setItem('lattice-docs-mode', m); };
+const seedFn = (m) => {
+  localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' }));
+  localStorage.setItem('lattice-docs-mode', m);
+  // Keep every RTCPeerConnection the page makes, so the check can report which network path the
+  // connection actually took (host / srflx / relay) instead of only that it worked.
+  const Native = window.RTCPeerConnection;
+  window.__livePcs = [];
+  // biome-ignore lint/complexity/useArrowFunction: it is called with `new`, which an arrow cannot be.
+  window.RTCPeerConnection = function (...a) { const pc = new Native(...a); window.__livePcs.push(pc); return pc; };
+  window.RTCPeerConnection.prototype = Native.prototype;
+};
+/** The candidate types of every connected pair on `page`, e.g. ["srflx→srflx (udp)"]. */
+const pathsOf = (page) => page.evaluate(async () => {
+  const out = [];
+  for (const pc of window.__livePcs ?? []) {
+    if (pc.connectionState !== 'connected') continue;
+    const stats = [...(await pc.getStats()).values()];
+    const byId = new Map(stats.map((s) => [s.id, s]));
+    const pair = stats.find((s) => s.type === 'candidate-pair' && s.state === 'succeeded' && s.nominated);
+    if (!pair) continue;
+    const l = byId.get(pair.localCandidateId);
+    const r = byId.get(pair.remoteCandidateId);
+    out.push(`${l?.candidateType}→${r?.candidateType} (${l?.protocol})`);
+  }
+  return out;
+});
 const t0 = Date.now();
 const log = (m) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${m}`);
 const mode = process.argv[2] === 'dark' ? 'dark' : 'light';
@@ -69,6 +94,7 @@ await host.screenshot({ path: `${OUT}real-knock-${mode}.png` });
 await host.locator('button[aria-label="Admit Amina"]').click();
 await guest.waitForSelector('[data-live-pill]', { timeout: 30000 });
 log(`guest admitted and bound after ${Date.now() - tOpen} ms from opening the link`);
+log(`network path (guest's connections): ${JSON.stringify(await pathsOf(guest))}`);
 await guest.waitForTimeout(1500);
 
 // Guest types in the editor; the host must see it.

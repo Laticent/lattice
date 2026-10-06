@@ -3,8 +3,8 @@ import * as Y from 'yjs';
 import { createHostKey, type HostKey, signHello } from './hostkey';
 import { formatLink, mintLink, parseFragment, toBase64Url } from './link';
 import { createMemoryNetwork, type MemoryNetwork } from './memory';
-import { encodeControl, frame, TAG_DOC } from './protocol';
-import { createSession, type Session, type SessionOptions } from './session';
+import { cleanName, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_DOC, TAG_POST } from './protocol';
+import { createSession, MAX_WAITING, type Session, type SessionOptions } from './session';
 import type { Clock, Stream, Transport } from './types';
 
 // Every test runs whole sessions over the in-memory network, with a real Yjs document as the
@@ -589,5 +589,143 @@ describe('the host is whoever holds the key (red-team, 2026-10-06)', () => {
 		a.text.insert(0, 'fine ');
 		await settle(net);
 		expect(h.text.toString()).toContain('fine');
+	});
+});
+
+describe('round 2 (red-team + checker, 2026-10-06)', () => {
+	/** A raw transport that answers nothing: a link holder with its own code. */
+	const raw = (net: MemoryNetwork, id?: string) => {
+		const t = net.join(LINK.room, LINK.secret, id);
+		const got: Uint8Array[] = [];
+		t.onMessage((d) => got.push(d));
+		t.onPeerJoin(() => {});
+		t.onPeerLeave(() => {});
+		return { t, got };
+	};
+	const text = (s: string) => new TextEncoder().encode(s);
+
+	it("a link holder reconnecting under the host's old id is obeyed in nothing until a fresh signed hello", async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const g = await joined(net, h, 'Amina');
+		const hostId = h.t.selfId;
+		net.drop(hostId);
+		await settle(net);
+		const squat = raw(net, hostId);
+		await settle(net);
+		const evil = new Y.Doc();
+		Y.applyUpdate(evil, Y.encodeStateAsUpdate(g.doc));
+		evil.getText('source').insert(0, 'PWNED ');
+		squat.t.send(frame(TAG_DOC, Y.encodeStateAsUpdate(evil)), g.t.selfId);
+		squat.t.send(encodeControl({ t: 'roster', members: [{ id: hostId, name: 'Sharmarke', role: 'host', color: 1 }, { id: g.t.selfId, name: 'Amina', role: 'view', color: 2 }] }), g.t.selfId);
+		squat.t.send(encodeControl({ t: 'sync' }), g.t.selfId);
+		squat.t.send(encodeControl({ t: 'removed' }), g.t.selfId);
+		await settle(net);
+		const st = g.s.getState();
+		expect(st.stage).toBe('live');
+		expect(st.me?.role).toBe('edit');
+		expect(g.text.toString()).not.toContain('PWNED');
+		g.text.insert(0, 'typed while the host is away ');
+		await settle(net);
+		// The guest's deck never went to the squatter.
+		expect(squat.got.some((d) => d[0] === TAG_DOC)).toBe(false);
+	});
+
+	it('a link holder reconnecting under a departed MEMBER id gets nothing from the others', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		const b = await joined(net, h, 'Bo');
+		const aId = a.t.selfId;
+		net.drop(aId);
+		await settle(net);
+		expect(b.s.getState().members.some((m) => m.id === aId)).toBe(false);
+		const squat = raw(net, aId);
+		await settle(net);
+		squat.t.send(encodeControl({ t: 'sync' }), b.t.selfId);
+		await settle(net);
+		b.text.insert(0, 'secret ');
+		await settle(net);
+		expect(squat.got.some((d) => d[0] === TAG_DOC)).toBe(false);
+	});
+
+	it('a member whose seat was taken while its link was down is told so, not left editing into nothing', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net, { cap: 2 });
+		const a = await joined(net, h, 'Amina');
+		net.cut(h.t.selfId, a.t.selfId);
+		await settle(net);
+		await joined(net, h, 'Bo');
+		net.heal(h.t.selfId, a.t.selfId);
+		await settle(net);
+		expect(a.s.getState().stage).toBe('full');
+		expect(a.s.getState().members).toEqual([]);
+	});
+
+	it('a hello from another protocol version says so instead of timing out as a network problem', async () => {
+		const net = createMemoryNetwork();
+		const g = guest(net);
+		const r = raw(net);
+		await settle(net);
+		r.t.send(encodeControl({ t: 'hello', v: PROTOCOL_VERSION + 1, invite: { title: '', hostName: '' }, key: '', sig: '' }), g.t.selfId);
+		await settle(net);
+		expect(g.s.getState().stage).toBe('outdated');
+		// A real host of this version still takes the guest on.
+		host(net);
+		await settle(net);
+		expect(g.s.getState().stage).toBe('lobby');
+	});
+
+	it(`the host holds at most ${MAX_WAITING} knocks at once`, async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		for (let i = 0; i < MAX_WAITING + 3; i++) guest(net, { autoKnockName: `G${i}` });
+		await settle(net);
+		expect(h.s.getState().waiting.length).toBe(MAX_WAITING);
+	});
+
+	it('names lose bidi overrides and zero-width characters', () => {
+		expect(cleanName('Ann\u202Eeb\u200B')).toBe('Anneb');
+		expect(cleanName('\u200B\u200F')).toBe('Guest');
+	});
+
+	it('the roster binds each member to the client id it knocked with, and refuses a taken one', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net, { client: 111 });
+		const a = await joined(net, h, 'Amina', { client: 222 });
+		const m = await joined(net, h, 'Mallory', { client: 111 });
+		const byName = Object.fromEntries(a.s.getState().members.map((x) => [x.name, x.client]));
+		expect(byName).toEqual({ Sharmarke: 111, Amina: 222, Mallory: undefined });
+		expect(m.s.getState().stage).toBe('live');
+	});
+
+	it('posts reach members only, with the transport sender, never from a stranger', async () => {
+		const net = createMemoryNetwork();
+		const posts: Array<[string, string]> = [];
+		const h = host(net, { onPost: (d, from) => posts.push([new TextDecoder().decode(d), from]) });
+		const a = await joined(net, h, 'Amina');
+		const r = raw(net);
+		await settle(net);
+		a.s.post(text('hi'));
+		r.t.send(frame(TAG_POST, text('spam')), h.t.selfId);
+		await settle(net);
+		expect(posts).toEqual([['hi', a.t.selfId]]);
+		// ...and a stranger is never sent one.
+		h.s.post(text('to all'));
+		await settle(net);
+		expect(r.got.some((d) => d[0] === TAG_POST)).toBe(false);
+	});
+
+	it('awareness bytes are gated like the document', async () => {
+		const net = createMemoryNetwork();
+		const seen: string[] = [];
+		const hDoc = new Y.Doc();
+		const t = net.join(LINK.room, LINK.secret);
+		track(createSession({ transport: t, doc: yStream(hDoc), awareness: { encodeAll: () => new Uint8Array(), applyRemote: (_u, from) => seen.push(from), onLocal: () => () => {} }, host: { name: 'H', invite: { title: 'T', hostName: 'H' }, key: KEY } }));
+		const r = raw(net);
+		await settle(net);
+		r.t.send(frame(TAG_AWARENESS, new Uint8Array([0])), t.selfId);
+		await settle(net);
+		expect(seen).toEqual([]);
 	});
 });

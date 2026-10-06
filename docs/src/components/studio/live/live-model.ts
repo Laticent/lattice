@@ -70,7 +70,7 @@ export type LiveActions = {
 
 /** What the guest sees before the host lets them in (§4.2). */
 export type LobbyView = {
-	stage: 'connecting' | 'ready' | 'waiting' | 'denied' | 'host-absent' | 'full' | 'failed';
+	stage: 'connecting' | 'ready' | 'waiting' | 'denied' | 'host-absent' | 'outdated' | 'full' | 'bad-link';
 	title: string | null;
 	hostName: string | null;
 	slides: number | null;

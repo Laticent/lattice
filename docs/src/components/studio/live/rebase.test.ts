@@ -46,13 +46,17 @@ describe('rebase', () => {
 		expect(rebase(base, next, cur)).toBeNull();
 	});
 
-	it('still lands a pure insertion whose surroundings are gone', () => {
-		const base = 'one two three';
-		const next = 'one two three four';
-		const cur = 'completely different';
-		const out = apply(cur, rebase(base, next, cur));
-		// Nothing deleted: every character of `cur` survives, plus the insertion.
-		expect(out.length).toBe(cur.length + ' four'.length);
-		expect(out.replace(' four', '')).toBe(cur);
+	it('refuses an insertion whose surroundings are gone, rather than landing it mid-sentence (red-team round 2)', () => {
+		const base = 'Intro paragraph\n\nRevenue line\n';
+		const next = 'Intro paragraph\nUp 12% on Q2\n\nRevenue line\n';
+		const cur = 'Intro paragraph written by a peer, longer now\n\nRevenue line\n';
+		expect(rebase(base, next, cur)).toBeNull();
+	});
+
+	it('still lands an insertion whose surroundings survived the remote edit', () => {
+		const base = 'alpha\n\nbeta\n\ngamma\n';
+		const next = 'alpha\n\nbeta\nNEW\n\ngamma\n';
+		const cur = 'remote\nalpha\n\nbeta\n\ngamma\n';
+		expect(apply(cur, rebase(base, next, cur))).toBe('remote\nalpha\n\nbeta\nNEW\n\ngamma\n');
 	});
 });

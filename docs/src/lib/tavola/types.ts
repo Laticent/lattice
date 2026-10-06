@@ -10,7 +10,9 @@ export type Role = 'host' | 'edit' | 'view';
 /** One of the four session colors, by admission order. The app maps it to a token. */
 export type Color = 1 | 2 | 3 | 4;
 
-export type Member = { id: PeerId; name: string; role: Role; color: Color };
+/** `client` is the awareness client id the member speaks for, bound by the host from its knock:
+ *  presence for any other client id is not theirs to send. */
+export type Member = { id: PeerId; name: string; role: Role; color: Color; client?: number };
 
 /**
  * Bytes between browsers. Tavola multiplexes its own channels on top, so a transport only
@@ -52,9 +54,11 @@ export type Invite = { title: string; hostName: string; slides?: number; theme?:
  *  - `waiting`     — knocked; the host has not answered.
  *  - `live`        — in the session (the host is always live).
  *  - `host-absent` — nobody answered within the lobby timeout.
- *  - `denied` / `full` / `removed` / `ended` — terminal for this join.
+ *  - `outdated`    — a host answered in another protocol version (a stale tab on one side).
+ *  - `denied` / `full` / `removed` / `ended` — terminal for this join. A member whose rejoin is
+ *    refused (its seat was taken while its link was down) lands in `denied` / `full` too.
  */
-export type Stage = 'connecting' | 'lobby' | 'waiting' | 'live' | 'host-absent' | 'denied' | 'full' | 'removed' | 'ended';
+export type Stage = 'connecting' | 'lobby' | 'waiting' | 'live' | 'host-absent' | 'outdated' | 'denied' | 'full' | 'removed' | 'ended';
 
 export type Knock = { id: PeerId; name: string; at: number };
 

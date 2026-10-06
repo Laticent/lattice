@@ -15,7 +15,9 @@ type Peer = {
 };
 
 export type MemoryNetwork = {
-	join(room: string, secret: string): Transport;
+	/** `id` reuses a peer id whose owner is gone — what a link holder can do on a real transport,
+	 *  where ids are self-declared (the squat tests). */
+	join(room: string, secret: string, id?: PeerId): Transport;
 	/** Run every queued delivery, including ones queued while draining. */
 	settle(): Promise<void>;
 	/** Deliveries still queued. */
@@ -44,8 +46,9 @@ export function createMemoryNetwork(): MemoryNetwork {
 	};
 
 	return {
-		join(room, secret) {
-			const id = `peer${++n}`;
+		join(room, secret, reuse) {
+			if (reuse !== undefined && peers.some((q) => q.id === reuse && !q.gone)) throw new Error(`memory: ${reuse} is still connected`);
+			const id = reuse ?? `peer${++n}`;
 			const key = `${room}\u0000${secret}`;
 			const me: Peer = { id, key, onMessage: () => {}, onJoin: () => {}, onLeave: () => {}, gone: false };
 			// Peers see each other once both have registered handlers, so announce on the next tick.

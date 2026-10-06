@@ -319,8 +319,11 @@ back for the editor.
   to that slide.
 - **System lines** for joins, leaves, role changes, and applied AI edits ("Amina applied an
   AI edit to slide 3"), so a change that landed under you has a visible cause.
-- **Lifetime:** the chat is a `Y.Array` in the session document, so late joiners see the
-  history. It ends with the session; it is not saved into the deck. (Turning a message
+- **Lifetime:** the chat rides Tavola's post channel, not the document, so a line's author is
+  the member it arrived from and nothing an editor writes into the deck can forge one (red-team
+  round 2). Every browser keeps the lines it saw, the host hands its copy to each newcomer, and a
+  reloading host keeps it in its sealed save, so late joiners see the history. It ends with the
+  session; it is not saved into the deck. (Turning a message
   into a slide comment is a later slice, when comments sync.)
 
 ### 5.8 Calls
@@ -367,10 +370,9 @@ back for the editor.
 | Yjs type | Content |
 |---|---|
 | `Y.Text('source')` | the deck markdown |
-| `Y.Array('chat')` | chat messages and system lines |
 | awareness (not persisted) | name, color, role, active slide, caret, mic/cam/speaking, following |
 
-Comments stay local for now; syncing them as a `Y.Array` is the comments note's planned
+Chat is not in the document: it travels as Tavola posts (§5.7). Comments stay local for now; syncing them as a `Y.Array` is the comments note's planned
 path and a later slice.
 
 ## 7. Transport and infrastructure
@@ -568,40 +570,72 @@ real-browser check.
 | Finding | Severity | Now |
 |---|---|---|
 | A link holder could pose as the host to a newcomer, or take over a guest while the host was away, and collect its rejoin token | high | fixed: signed hello + fingerprint in the link (`hostkey.ts`) |
-| End and Leave closed the connection before `end` was delivered | high | fixed: `end()` owns its delayed shutdown |
+| End and Leave closed the connection before `end` was delivered | high | fixed in Tavola in round 1; the Studio still closed at once through its own stage listener until round 2 (below) |
 | A promoted viewer's later edits were stranded (Yjs pending forever) | high | fixed: role changes resync; viewers cannot post chat |
-| Presence was keyed by a self-claimed field: fake summons, spoofed names, CSS injection into caret styles | high | fixed: awareness owned by the arriving peer, rebuilt from the roster (`sanitizeAwareness`) |
+| Presence was keyed by a self-claimed field: fake summons, spoofed names, CSS injection into caret styles | high | fixed: awareness rebuilt from the roster (`sanitizeAwareness`); ownership moved from first arrival to a roster binding in round 2 |
 | Late-forming or blipping member links left guests out of sync for good | high | fixed: resync on peer join; re-admit by token on a hello while live |
 | A token replay evicted the real member and bypassed the cap | medium | fixed: refused while the member is connected; cap and color checked |
 | A deck switch while live pushed the other deck into the shared text | medium | fixed: the switch is handled before any push, and asks first |
 | A guest's first sync could rebase its previous deck into everyone's text | medium | fixed: the rebase base is seeded with the shared text |
 | An overlapping outside rewrite doubled the text | medium | fixed: refused with a notice instead |
 | Denied or removed peers could knock again at once | medium | fixed: per-session block list |
-| Chat authors were self-declared | medium | fixed: the author is the client that wrote the line |
+| Chat authors were self-declared | medium | fixed in round 1 by reading the Yjs client id; that proved forgeable (round 2), so chat now rides Tavola posts |
 | A host reload killed the session; a guest reload did not rejoin | medium | fixed: host resumes from its saved key, tokens and document; guest rejoins by token |
 | A network that blocks WebRTC showed "the session isn't live" | medium | fixed: the lobby names the network as a possible cause |
 | The startup JavaScript grew past the per-PR allowance | CI | fixed: all session code loads on demand |
 | CodeQL: the host's session save held the room secret (and its signing key) in clear text | high | fixed: secrets and rejoin tokens are sealed with a non-extractable AES key kept in IndexedDB, the host's private key is a non-extractable CryptoKey there too, and a `#live=` link is held in memory until sealed; the real-browser check asserts the secret is absent from both browsers' storage |
 
+**The second adversarial round** (same three lenses, on the hardened code) found these; each
+has a test that fails when its guard is removed, except where noted.
+
+| Finding | Severity | Now |
+|---|---|---|
+| After the host's link dropped, a link holder could reconnect under the host's old peer id (ids are self-declared) and be obeyed: forged roster, document, removal, and a `sync` that handed it the deck | critical | fixed: a guest stops trusting the host's id when its link drops, sends it nothing and accepts nothing from it until a fresh signed hello; a member whose link drops leaves every roster at once |
+| Chat lines could be forged under another member's name by writing Yjs items under their client id | high | fixed: chat moved to Tavola's post channel; the author is the transport sender |
+| Presence: the first peer to mention a client id owned it, so a member could hijack the host's summon and others' carets; a truncated update kept its claim | high | fixed: the host binds each member's client id in the roster from its knock; awareness counts only for the bound id; undecodable bytes are dropped whole |
+| Watch demo while live blanked the shared deck for everyone | high | fixed: it asks first, and a yes ends or leaves the session before the editor is touched (`mayLeaveDeck` now tears down itself) |
+| End in the Studio still closed the connection at once, and the host got the guest's toast | high | fixed: stage changes during a teardown are ignored |
+| A member whose seat was taken during a blip stayed "live" with edits going nowhere | high | fixed: a refused rejoin moves it to `full` / `denied`, with a toast |
+| With IndexedDB unavailable the session ran behind a "Couldn't start" toast; a failed key load was cached | medium | fixed: the session starts and says it cannot survive a reload; a failed load is retried |
+| StrictMode resumed twice and opened two sessions | medium | fixed: `resume()` is single-flight and re-checks before wiring (the second check alone also holds, so removing the memo does not fail the test) |
+| An insert whose surroundings were gone landed mid-sentence | medium | fixed: refused like a delete |
+| One malformed caret turned off everyone's remote carets | low | fixed: carets are shape-checked |
+| A failed load of the session code was silent and final; a link pasted into an open tab did nothing; a cut-off link was blamed on the network; a version mismatch timed out as "nobody answered"; a duplicated tab became a second host | medium | fixed: retry with a notice and the link kept until loaded; `hashchange`; a `bad-link` and an `outdated` lobby card; a `navigator.locks` host lock |
+| Names kept bidi overrides and zero-width characters; the waiting queue had no limit; a removal could be undone by a reload in the next second | low | fixed: stripped; 8 knocks at most; the host reseals at once on a removal and an unload writes the last sealed save synchronously |
+| The invite link carried the host page's query string | low | fixed: origin + path only |
+
 **Known limits that remain.**
+- **An admitted editor is trusted with the text.** Yjs updates carry no signatures, so an editor
+  can write items under another member's client id, and by sending them to one peer only leave
+  two copies that disagree for the rest of the session. Tavola gates who may edit, not what an
+  editor writes; an editor can already delete the whole deck.
 - **No TURN.** Networks that block direct browser-to-browser traffic (many offices, some mobile
   carriers) cannot connect. A free third-party TURN in the slot would fix most of these; it is
   the owner's call (it puts a third party in the media path).
 - **Link holders learn members' IP addresses**, because every peer in the room gets a WebRTC
   connection to every other before admission (§4.4).
-- **Names are self-asserted**, and an editor can delete chat lines (it is a shared document).
+- **Names are self-asserted.** The knock is where the host checks who is asking.
+- **A reload resumes only in the same tab** with IndexedDB working; closing the tab ends your
+  part. The link works for as long as the session runs, wherever it was pasted.
 - **Cross-network joins are untested** here: every real-browser run had both browsers on one
   machine.
 
 **How it was verified.**
-- Tavola: 33 tests over the in-memory network with a real Yjs document. Weakening the gate, the
-  signature check or the replay check fails exactly the tests that cover them.
-- Studio: rebase and awareness-sanitizer unit tests; the Studio shell and controls suites.
+- Tavola: 42 tests over the in-memory network with a real Yjs document (the memory network can
+  now reconnect a peer under a departed id, which is how the squat tests run). Weakening the gate,
+  the signature check, the replay check, host-id trust, the refused-rejoin stage or the waiting
+  limit fails the tests that cover them.
+- Studio: the controller over the in-memory network (7 tests: End timing, single-flight resume,
+  chat authorship and history, no IndexedDB, a cut-off link, a link without query, the
+  duplicate-tab lock), the rebase and awareness-sanitizer tests, and the whole docs suite
+  (5,983 tests).
 - Real surface: `tools/live-session-check.mjs`, two Chromium processes over the public Nostr
   relays and real WebRTC, in light and dark: start, lobby, knock, admit, edits both ways,
   carets, per-person undo, chat, remove, a second guest, a host reload (session resumes in
   about 5.5 s with the guest still in), a guest reload (rejoins without a knock in about 5.6 s),
   and End reaching the guest. Opening the link to editing took about 8 s on the unoptimized dev
-  server, most of it the Studio loading.
+  server, most of it the Studio loading. The check now also reports which network path the
+  connection took: `host→host (udp)` on every run here, which is what two browsers on one machine
+  give and is no evidence about other networks.
 - UNVERIFIED: two real devices on two networks, iOS Safari, and anything about calls.
 

@@ -17,10 +17,16 @@
 // arrive before the second knows the first is a member — and is dropped. Sending a `sync` request
 // alongside the state closes that window: whoever learns LATER asks, and the other answers. A link
 // that forms late or comes back (onPeerJoin) exchanges state again for the same reason.
+//
+// A PEER ID IS NOT AN IDENTITY. Transport ids are self-declared in signaling, so once a peer's link
+// drops, anyone holding the link can reconnect under its old id (red-team round 2, finding 1). So a
+// guest stops trusting the host's id the moment that link drops, and trusts it again only after a
+// fresh signed hello on the new link; and a member whose link drops is dropped from every roster
+// at once, so a squatter under its id is a stranger until the host admits it again.
 
 import { type HostKey, signHello, verifyHello } from './hostkey';
 import { randomBytes, toBase64Url } from './link';
-import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_CONTROL, TAG_DOC } from './protocol';
+import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_CONTROL, TAG_DOC, TAG_POST } from './protocol';
 import type { Clock, Color, Invite, Knock, Member, PeerId, Role, SessionState, Stream, Transport } from './types';
 
 /** A rejoin token and the member it re-admits — what a host carries across its own reload. */
@@ -47,6 +53,11 @@ export type SessionOptions = {
 	awareness?: Stream;
 	/** Guest: a token from an earlier admission, so a rejoin skips the knock. */
 	token?: string;
+	/** The awareness client id this browser speaks for. The host binds each member's client id in
+	 *  the roster, so an app can drop presence a member sends for anyone else's id. */
+	client?: number;
+	/** App posts (chat, say): bytes from an admitted member, with its peer id. Never from a stranger. */
+	onPost?: (data: Uint8Array, from: PeerId) => void;
 	/** Guest: knock automatically under this name as soon as the host says hello. */
 	autoKnockName?: string;
 	/** Most people in a session, host included. The owner's number: 4 (and never more than 4). */
@@ -71,6 +82,8 @@ export type Session = {
 	setAutoAdmit(on: boolean): void;
 	setLinkRole(role: 'edit' | 'view'): void;
 	setInvite(invite: Invite): void;
+	/** Send app bytes to every member, or to one. Nothing is sent before this browser is live. */
+	post(data: Uint8Array, to?: PeerId): void;
 	/** Host: the rejoin tokens, to hand to `HostOptions.tokens` after a reload. */
 	exportTokens(): TokenEntry[];
 	/** Host: end the session for everyone. */
@@ -86,6 +99,8 @@ export const DEFAULT_CAP = 4;
 const DEFAULT_LOBBY_TIMEOUT = 12_000;
 /** Bytes. A deck plus its history is far below this; anything larger is dropped unread. */
 export const MAX_MESSAGE = 4 * 1024 * 1024;
+/** Knocks the host holds at once. Past this, a knock is ignored until one is answered. */
+export const MAX_WAITING = 8;
 
 const realClock: Clock = {
 	now: () => Date.now(),
@@ -103,13 +118,15 @@ export function createSession(opts: SessionOptions): Session {
 	if (!isHost && !opts.hostFingerprint) throw new Error("tavola: a guest needs the link's host fingerprint");
 	const listeners = new Set<() => void>();
 	const hostName = cleanName(opts.host?.name ?? '');
+	const client = opts.client;
+	const self = (role: Role): Member => ({ id: t.selfId, name: hostName, role, color: 1, ...(client !== undefined ? { client } : {}) });
 
 	let state: SessionState = {
 		isHost,
 		stage: isHost ? 'live' : 'connecting',
 		selfId: t.selfId,
-		me: isHost ? { id: t.selfId, name: hostName, role: 'host', color: 1 } : null,
-		members: isHost ? [{ id: t.selfId, name: hostName, role: 'host', color: 1 }] : [],
+		me: isHost ? self('host') : null,
+		members: isHost ? [self('host')] : [],
 		waiting: [],
 		invite: isHost ? (opts.host?.invite ?? null) : null,
 		hostAway: false,
@@ -132,8 +149,13 @@ export function createSession(opts: SessionOptions): Session {
 	const tokenOf = new Map<PeerId, string>();
 	/** Host: peers denied or removed this session. Their knocks are ignored. */
 	const blocked = new Set<PeerId>();
+	/** Host: the client id each waiting knocker claimed, bound when it is admitted. */
+	const claims = new Map<PeerId, number | undefined>();
 	/** Guest: the peer whose signed hello made it the host. */
 	let hostId: PeerId | null = null;
+	/** Guest: the hello from `hostId` was verified on its CURRENT link. False from the moment that
+	 *  link drops, so a squatter under the host's old id is obeyed in nothing. */
+	let hostTrusted = false;
 	let pendingName: string | null = opts.autoKnockName ?? null;
 	let lobbyTimer: unknown = null;
 	let closed = false;
@@ -147,7 +169,8 @@ export function createSession(opts: SessionOptions): Session {
 	const memberOf = (id: PeerId) => state.members.find((m) => m.id === id);
 	const isLive = () => state.stage === 'live';
 	const send = (to: PeerId, data: Uint8Array) => {
-		if (!closed && connected.has(to)) t.send(data, to);
+		// Nothing goes to the host's id while it is unverified: whoever is on it may not be the host.
+		if (!closed && connected.has(to) && (isHost || to !== hostId || hostTrusted)) t.send(data, to);
 	};
 	const sendControl = (to: PeerId, msg: Control) => send(to, encodeControl(msg));
 	const others = () => state.members.filter((m) => m.id !== t.selfId);
@@ -197,15 +220,18 @@ export function createSession(opts: SessionOptions): Session {
 		const msg: Control = { t: 'roster', members: state.members };
 		for (const m of others()) sendControl(m.id, msg);
 	};
-	const admitAs = (id: PeerId, name: string, role: Exclude<Role, 'host'>, color: Color, token: string) => {
+	const admitAs = (id: PeerId, name: string, role: Exclude<Role, 'host'>, color: Color, token: string, claimed?: number) => {
 		tokens.set(token, { name, role, color });
 		tokenOf.set(id, token);
-		set({ members: [...state.members, { id, name, role, color }], waiting: state.waiting.filter((w) => w.id !== id) });
+		// A client id another member already speaks for is not bound: the newcomer's presence is
+		// then dropped everywhere, which is safer than letting it speak as someone else.
+		const bound = claimed !== undefined && !state.members.some((m) => m.client === claimed) ? { client: claimed } : {};
+		set({ members: [...state.members, { id, name, role, color, ...bound }], waiting: state.waiting.filter((w) => w.id !== id) });
 		sendControl(id, { t: 'admit', role, color, token, members: state.members });
 		broadcastRoster();
 		syncWith(id);
 	};
-	const hostOnKnock = (from: PeerId, name: string, token?: string) => {
+	const hostOnKnock = (from: PeerId, name: string, token?: string, claimed?: number) => {
 		if (memberOf(from) || blocked.has(from)) return;
 		const known = token ? tokens.get(token) : undefined;
 		if (known && token) {
@@ -229,7 +255,7 @@ export function createSession(opts: SessionOptions): Session {
 				forget(stale.id);
 			}
 			const color = state.members.some((m) => m.color === known.color) ? nextColor() : known.color;
-			admitAs(from, known.name, known.role, color, token);
+			admitAs(from, known.name, known.role, color, token, claimed);
 			return;
 		}
 		if (state.members.length >= cap) {
@@ -237,10 +263,11 @@ export function createSession(opts: SessionOptions): Session {
 			return;
 		}
 		if (state.autoAdmit) {
-			admitAs(from, name, state.linkRole, nextColor(), newToken());
+			admitAs(from, name, state.linkRole, nextColor(), newToken(), claimed);
 			return;
 		}
-		if (state.waiting.some((w) => w.id === from)) return;
+		if (state.waiting.some((w) => w.id === from) || state.waiting.length >= MAX_WAITING) return;
+		claims.set(from, claimed);
 		set({ waiting: [...state.waiting, { id: from, name, at: clock.now() } satisfies Knock] });
 	};
 
@@ -255,14 +282,21 @@ export function createSession(opts: SessionOptions): Session {
 	/** Knock. `quietly` keeps a live member on screen while it re-knocks after the host came back. */
 	const sendKnock = (name: string, quietly = false) => {
 		if (!hostId) return;
-		sendControl(hostId, { t: 'knock', name: cleanName(name), ...(state.token ? { token: state.token } : {}) });
+		sendControl(hostId, { t: 'knock', name: cleanName(name), ...(state.token ? { token: state.token } : {}), ...(client !== undefined ? { client } : {}) });
 		if (!quietly) set({ stage: 'waiting' });
 	};
 	const guestOnHello = async (from: PeerId, msg: Extract<Control, { t: 'hello' }>) => {
-		if (msg.v !== PROTOCOL_VERSION) return;
+		// Another version's hello cannot be checked, so it proves nothing; but staying on "Connecting…"
+		// until the lobby gives up would blame the network for a stale tab. Say so, and keep listening:
+		// a hello this version can verify still takes the guest on.
+		if (msg.v !== PROTOCOL_VERSION) {
+			if (state.stage === 'connecting' || state.stage === 'host-absent') set({ stage: 'outdated' });
+			return;
+		}
 		if (!(await verifyHello(opts.hostFingerprint as string, msg.key, msg.sig, from, t.selfId))) return;
 		if (closed) return;
 		hostId = from;
+		hostTrusted = true;
 		set({ invite: msg.invite, hostAway: false });
 		if (lobbyTimer !== null) {
 			clock.clearTimeout(lobbyTimer);
@@ -275,30 +309,38 @@ export function createSession(opts: SessionOptions): Session {
 			if (state.token) sendKnock(state.me?.name ?? pendingName ?? 'Guest', true);
 			return;
 		}
-		if (state.stage === 'connecting' || state.stage === 'host-absent') {
+		if (state.stage === 'connecting' || state.stage === 'host-absent' || state.stage === 'outdated') {
 			if (pendingName || state.token) sendKnock(pendingName ?? 'Guest');
 			else set({ stage: 'lobby' });
 		}
 	};
 	const guestOnControl = async (from: PeerId, msg: Control) => {
 		if (msg.t === 'hello') return guestOnHello(from, msg);
-		if (from !== hostId) {
+		if (from !== hostId || !hostTrusted) {
 			// Members may ask each other for state; nothing else is accepted from a non-host.
-			if (msg.t === 'sync' && isLive() && memberOf(from)) answerSync(from);
+			if (msg.t === 'sync' && isLive() && memberOf(from) && from !== hostId) answerSync(from);
 			return;
 		}
 		switch (msg.t) {
 			case 'admit': {
 				// The member list rides on the admission, so the gate knows the host (and everyone else)
 				// from the first message on — a document that arrives right behind it is not dropped.
-				const me: Member = msg.members.find((m) => m.id === t.selfId) ?? { id: t.selfId, name: cleanName(state.me?.name ?? pendingName ?? 'Guest'), role: msg.role, color: msg.color };
+				const me: Member = msg.members.find((m) => m.id === t.selfId) ?? { id: t.selfId, name: cleanName(state.me?.name ?? pendingName ?? 'Guest'), role: msg.role, color: msg.color, ...(client !== undefined ? { client } : {}) };
 				const before = new Set(state.members.map((m) => m.id));
 				set({ stage: 'live', token: msg.token, me, members: msg.members });
 				for (const m of msg.members) if (m.id !== t.selfId && !before.has(m.id)) syncWith(m.id);
 				return;
 			}
 			case 'deny':
-				if (isLive()) return; // a refused quiet re-knock: stay as we are
+				if (isLive()) {
+					// A refused quiet re-knock: the host no longer counts us (our seat was taken while our
+					// link was down, or our token was refused). Staying "live" would edit into a void —
+					// checker round 2, finding 3 — so say so and stop.
+					for (const m of others()) forget(m.id);
+					set({ stage: msg.reason === 'full' ? 'full' : 'denied', members: [], me: null, token: null });
+					shutdown();
+					return;
+				}
 				set({ stage: msg.reason === 'full' ? 'full' : 'denied' });
 				return;
 			case 'roster': {
@@ -347,20 +389,23 @@ export function createSession(opts: SessionOptions): Session {
 	t.onPeerLeave((id) => {
 		connected.delete(id);
 		if (isHost) {
+			claims.delete(id);
 			if (state.waiting.some((w) => w.id === id)) set({ waiting: state.waiting.filter((w) => w.id !== id) });
 			if (memberOf(id)) {
 				set({ members: state.members.filter((m) => m.id !== id) });
 				broadcastRoster();
 			}
 		} else if (id === hostId) {
+			hostTrusted = false;
 			if (isLive()) set({ hostAway: true });
 			else if (state.stage === 'lobby' || state.stage === 'waiting') {
 				// The host left before letting us in. Say so, and accept the next signed hello.
 				hostId = null;
 				set({ stage: 'host-absent' });
 			}
-		} else if (memberOf(id) && state.hostAway) {
-			// With the host away nobody sends a roster, so drop the leaver here.
+		} else if (memberOf(id)) {
+			// Drop the leaver here, without waiting for the host's roster: until the host admits it
+			// again, whoever next connects under this id is a stranger.
 			set({ members: state.members.filter((m) => m.id !== id) });
 		}
 		forget(id);
@@ -374,7 +419,7 @@ export function createSession(opts: SessionOptions): Session {
 			if (!msg) return;
 			if (isHost) {
 				if (ending) return;
-				if (msg.t === 'knock') hostOnKnock(from, msg.name, msg.token);
+				if (msg.t === 'knock') hostOnKnock(from, msg.name, msg.token, msg.client);
 				else if (msg.t === 'sync' && memberOf(from)) answerSync(from);
 				return;
 			}
@@ -385,8 +430,11 @@ export function createSession(opts: SessionOptions): Session {
 		if (!isLive()) return;
 		const sender = memberOf(from);
 		if (!sender) return;
+		if (!isHost && from === hostId && !hostTrusted) return;
 		try {
-			if (tag === TAG_DOC) {
+			if (tag === TAG_POST) {
+				opts.onPost?.(body, from);
+			} else if (tag === TAG_DOC) {
 				if (sender.role === 'view') return;
 				opts.doc.applyRemote(body, from);
 			} else if (tag === TAG_AWARENESS) {
@@ -432,18 +480,21 @@ export function createSession(opts: SessionOptions): Session {
 			hostOnly(() => {
 				const k = state.waiting.find((w) => w.id === id);
 				if (!k) return;
+				const claimed = claims.get(id);
+				claims.delete(id);
 				if (state.members.length >= cap) {
 					set({ waiting: state.waiting.filter((w) => w.id !== id) });
 					sendControl(id, { t: 'deny', reason: 'full' });
 					return;
 				}
-				admitAs(id, k.name, state.linkRole, nextColor(), newToken());
+				admitAs(id, k.name, state.linkRole, nextColor(), newToken(), claimed);
 			})();
 		},
 		deny(id) {
 			hostOnly(() => {
 				if (!state.waiting.some((w) => w.id === id)) return;
 				blocked.add(id);
+				claims.delete(id);
 				set({ waiting: state.waiting.filter((w) => w.id !== id) });
 				sendControl(id, { t: 'deny', reason: 'denied' });
 			})();
@@ -481,6 +532,13 @@ export function createSession(opts: SessionOptions): Session {
 		},
 		setInvite(invite) {
 			hostOnly(() => set({ invite }))();
+		},
+		post(data, to) {
+			if (closed || ending || !isLive()) return;
+			const f = frame(TAG_POST, data);
+			if (to !== undefined) {
+				if (memberOf(to) && to !== t.selfId) send(to, f);
+			} else for (const m of others()) send(m.id, f);
 		},
 		exportTokens: () => [...tokens.entries()],
 		end() {
