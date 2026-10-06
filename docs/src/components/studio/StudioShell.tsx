@@ -91,8 +91,6 @@ import { LESSONS } from './lessons/catalog';
 import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
-import { LiveAvatar } from './live/LiveAvatar';
-import { LivePill } from './live/LivePill';
 import { liveColor } from './live/live-model';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
 import { MotionTargets } from './MotionTargets';
@@ -125,7 +123,7 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import type { StudioCommand } from './studio-commands';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveLobbyPanel, livePanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
+import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -2321,6 +2319,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const toggleDeckRail = () => settingsWrite(deckRail ? 'Section rail off' : 'Section rail on', (s) => (deckRail ? mergeClassTokens(s, 'no-progress') : removeClassTokens(s, 'no-progress')));
 
 	function loadDeck(d: StudioDeck) {
+		if (d.id !== deck.id && !live.mayLeaveDeck()) return;
 		// Flush the current deck's edits before leaving it (the debounce may not
 		// have fired), then restore the target deck's saved source.
 		flushActiveDeck();
@@ -2336,6 +2335,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// New / rename / delete — all persisted via the store, then reflected in the
 	// live deck list and switcher.
 	function newDeck() {
+		// A live session is bound to this deck: leaving it ends (host) or leaves (guest) — ask first.
+		if (!live.mayLeaveDeck()) return;
 		flushActiveDeck();
 		const d = createDeck();
 		setDecks(loadDeckList());
@@ -2415,6 +2416,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// restored onto the NEW deck id so they travel with the file. Returns nothing;
 	// notifies on success.
 	function openImportedDeck(rawText: string, title: string, comments?: unknown) {
+		// A live session is bound to this deck: leaving it ends (host) or leaves (guest) — ask first.
+		if (!live.mayLeaveDeck()) return;
 		// THE STUDIO'S DECK-IMPORT LINE-ENDING BOUNDARY, and it belongs HERE — at the funnel —
 		// not in a caller. Deck source reaches this function from every format `deck-import.ts`
 		// reads — a plain `.md`, a `.lattice` zip's `deck.md`, a webpage envelope, the `.lattice`
@@ -2567,6 +2570,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (t != null) renameActiveDeck(t);
 	};
 	function removeDeck(id: string) {
+		if (id === deck.id && !live.mayLeaveDeck()) return;
 		deleteDeckStore(id);
 		const list = loadDeckList();
 		setDecks(list);
@@ -5319,11 +5323,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<span className="flex-1" />
 				{/* Live: who else is looking at THIS slide (§5.3) — a change could land under you. */}
 				{(liveBySlide.get(activeFullIndex)?.length ?? 0) > 0 && (
-					<Tip label={`Also here: ${(liveBySlide.get(activeFullIndex) ?? []).map((p) => p.name).join(', ')}`}>
-						<span className="flex shrink-0 -space-x-1.5 normal-case tracking-normal" role="img" aria-label={`Also on this slide: ${(liveBySlide.get(activeFullIndex) ?? []).map((p) => p.name).join(', ')}`}>
-							{(liveBySlide.get(activeFullIndex) ?? []).slice(0, 3).map((p) => <LiveAvatar key={p.id} person={p} size={20} ring={p.mic === 'speaking'} className="border-2 border-[var(--bg)]" />)}
-						</span>
-					</Tip>
+					<PanelLoader panel={liveCornerPanel} shell={() => null}>
+						{(LiveCorner) => <LiveCorner people={liveBySlide.get(activeFullIndex) ?? []} />}
+					</PanelLoader>
 				)}
 				{/* The zoom's only chrome, and it earns its place twice: it tells a reader
 				    who zoomed by accident WHY the slide is cropped, and it is the pointer-free
@@ -6239,7 +6241,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    the identity band beside the deck (2026-08-16) — the note is on its new site.
 				    What stayed behind is the rule, which now reads as "utilities end, actions
 				    begin" instead of "…and now a mode control". */}
-				<LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />
+				{live.view.status === 'live' && (
+					<PanelLoader panel={livePillPanel} shell={() => null}>
+						{(LivePill) => <LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />}
+					</PanelLoader>
+				)}
 				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width

@@ -46,6 +46,8 @@ export type LiveView = {
 	hostAway: boolean;
 	/** Whether calls exist yet (S4). False hides every mic control rather than showing dead ones. */
 	audio: boolean;
+	/** View-only members read the chat but cannot post (their document changes are never sent). */
+	canChat: boolean;
 };
 
 export type LiveActions = {
@@ -97,6 +99,7 @@ export const IDLE_VIEW: LiveView = {
 	following: null,
 	hostAway: false,
 	audio: false,
+	canChat: true,
 };
 
 /** The CSS color for a session color. The chart categorical hues are the palette's own, so a

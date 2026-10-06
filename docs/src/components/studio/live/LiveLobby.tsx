@@ -13,7 +13,7 @@ const COPY: Record<LobbyView['stage'], { title: string; body: string } | null> =
 	ready: null,
 	waiting: { title: 'Waiting for the host', body: '' },
 	denied: { title: "The host didn't let you in", body: 'Ask them to send the link again if this was a mistake.' },
-	'host-absent': { title: "This session isn't live right now", body: 'The host needs to have the deck open. Ask them to open it, then try again.' },
+	'host-absent': { title: 'Nobody answered', body: "Either the host doesn't have the deck open right now, or your network blocks direct browser-to-browser connections (common on office networks). Ask the host to check, or try another network." },
 	full: { title: 'This session is full', body: 'A live session holds up to 4 people.' },
 	failed: { title: "Couldn't connect", body: 'Some office networks and mobile carriers block direct browser-to-browser connections. Try another network, or try again.' },
 };

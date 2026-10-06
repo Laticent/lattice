@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { rebase } from './use-live-session';
+import { rebase } from './live-controller';
 
 // `rebase` places an outside write (Compose, AI apply, settings) onto a shared text that may have
 // moved on since the writer read it. Applying its result to `cur` must keep the remote change AND
 // carry the local one.
-const apply = (cur: string, e: { from: number; to: number; insert: string }) => cur.slice(0, e.from) + e.insert + cur.slice(e.to);
+const apply = (cur: string, e: { from: number; to: number; insert: string } | null) => {
+	if (!e) throw new Error('refused');
+	return cur.slice(0, e.from) + e.insert + cur.slice(e.to);
+};
 
 describe('rebase', () => {
 	it('is a plain diff when nothing moved', () => {
@@ -35,12 +38,21 @@ describe('rebase', () => {
 		expect(apply(cur, rebase(base, next, cur))).toBe(`remote\n${block}---\n\n## Slide\n\nTEXT\n`);
 	});
 
-	it('never deletes text it did not see when its surroundings are gone', () => {
+	it('refuses a replacement whose surroundings are gone, rather than doubling the text (inversion 3)', () => {
+		// An AI rewrite of most of the deck while someone else typed inside the same range.
+		const base = 'slide one\n\nslide two\n\nslide three\n';
+		const next = 'REWRITTEN DECK\n';
+		const cur = 'slide one — edited by Amina\n\nslide two\n\nslide three\n';
+		expect(rebase(base, next, cur)).toBeNull();
+	});
+
+	it('still lands a pure insertion whose surroundings are gone', () => {
 		const base = 'one two three';
-		const next = 'one 2 three';
+		const next = 'one two three four';
 		const cur = 'completely different';
 		const out = apply(cur, rebase(base, next, cur));
-		expect(out).toContain('completely different'.slice(0, 4));
-		expect(out.length).toBeGreaterThanOrEqual(cur.length);
+		// Nothing deleted: every character of `cur` survives, plus the insertion.
+		expect(out.length).toBe(cur.length + ' four'.length);
+		expect(out.replace(' four', '')).toBe(cur);
 	});
 });

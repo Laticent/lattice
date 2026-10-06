@@ -45,7 +45,7 @@ await host.locator('#live-start-name').fill('Sharmarke');
 await host.getByRole('button', { name: 'Start live session' }).click();
 await host.waitForSelector('text=In this session (1/4)', { timeout: 30000 });
 const link = await host.evaluate(() => navigator.clipboard.readText());
-log(`host live; link ${link.replace(/\.[A-Za-z0-9_-]{43}$/, '.<secret>')}`);
+log(`host live; link ${link.replace(/(#live=[^.]+)\.[^.]+\./, '$1.<secret>.')}`);
 await host.screenshot({ path: `${OUT}real-host-start-${mode}.png` });
 
 const gb = await launch();
@@ -114,6 +114,39 @@ await host.locator('button[aria-label="Options for Amina"]').click();
 await host.getByRole('menuitem', { name: /Remove from session/ }).click();
 await guest.waitForFunction(() => !document.querySelector('[data-live-pill]'), null, { timeout: 15000 });
 log('guest removed; its deck copy stays: ' + (await guest.evaluate(() => document.querySelector('.cm-content')?.textContent?.includes('reply from Sharmarke'))));
+
+// A second guest, then the host RELOADS: the session must resume with the guest still in, and
+// then the host's End must reach the guest (red-team finding 2).
+const g2ctx = await gb.newContext({ viewport: { width: 1440, height: 900 } });
+await g2ctx.addInitScript(seedFn, mode);
+const guest2 = await g2ctx.newPage();
+await guest2.goto(link, { waitUntil: 'networkidle' });
+await guest2.waitForSelector('#live-lobby-name', { timeout: 60000 });
+await guest2.locator('#live-lobby-name').fill('Chen');
+await guest2.getByRole('button', { name: 'Ask to join' }).click();
+await host.waitForSelector('button[aria-label="Admit Chen"]', { timeout: 30000 });
+await host.locator('button[aria-label="Admit Chen"]').click();
+await guest2.waitForSelector('[data-live-pill]', { timeout: 30000 });
+log('second guest in');
+const tReload = Date.now();
+await host.reload({ waitUntil: 'networkidle' });
+await host.waitForSelector('[data-live-pill]', { timeout: 60000 });
+await host.waitForFunction(() => document.querySelector('[data-live-pill] button')?.getAttribute('aria-label')?.includes('Chen'), null, { timeout: 60000 });
+log(`host reloaded and the session resumed with Chen in, after ${Date.now() - tReload} ms`);
+await host.locator('.cm-content').first().click();
+await host.keyboard.press('Control+Home');
+await host.keyboard.type('<!-- after reload -->\n');
+await guest2.waitForFunction(() => document.querySelector('.cm-content')?.textContent?.includes('after reload'), null, { timeout: 20000 });
+log('guest sees the reloaded host typing');
+const tGuestReload = Date.now();
+await guest2.reload({ waitUntil: 'networkidle' });
+await guest2.waitForSelector('[data-live-pill]', { timeout: 60000 });
+log(`guest reloaded and rejoined without a knock, after ${Date.now() - tGuestReload} ms`);
+await host.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Live"]').last().click();
+await host.locator('button[aria-label="Session options"]').click();
+await host.getByRole('menuitem', { name: /End session for everyone/ }).click();
+await guest2.waitForFunction(() => !document.querySelector('[data-live-pill]'), null, { timeout: 15000 });
+log('host ended the session and the guest left it');
 await hb.close();
 await gb.close();
 log('done');

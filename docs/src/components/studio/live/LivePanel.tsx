@@ -228,6 +228,15 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 										</DropdownMenuContent>
 									</DropdownMenu>
 								</div>
+								{view.link && (
+									<input
+										readOnly
+										value={view.link}
+										aria-label="Invite link"
+										onFocus={(e) => e.currentTarget.select()}
+										className="w-full truncate rounded-md border border-border bg-background px-2 py-1 font-mono text-[10.5px] text-muted-foreground"
+									/>
+								)}
 								<div className="flex items-center justify-between gap-2 text-[11.5px] text-muted-foreground">
 									<label htmlFor="live-auto-admit">Let people in automatically</label>
 									<Switch id="live-auto-admit" checked={view.autoAdmit} onCheckedChange={actions.setAutoAdmit} />
@@ -273,7 +282,7 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 							<li ref={chatEnd} aria-hidden />
 						</ul>
 						<div className="border-t border-border p-2.5">
-							<Composer onSend={actions.sendChat} />
+							{view.canChat ? <Composer onSend={actions.sendChat} /> : <p className="px-1 text-[11.5px] text-muted-foreground">You can view this session, so you can read the chat but not post.</p>}
 						</div>
 					</div>
 				</>

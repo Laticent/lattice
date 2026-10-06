@@ -2,7 +2,7 @@ import { Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { LiveAvatar } from './LiveAvatar';
-import { type LiveView, liveColor } from './live-model';
+import { type LivePerson, type LiveView, liveColor } from './live-model';
 
 // The header presence pill (§5.6): while a session is live it is the one surface visible at
 // every width, so closing the Live panel never hides who is here or whether you are on air.
@@ -38,5 +38,15 @@ export function LivePill({ view, onOpen, onToggleMic }: { view: LiveView; onOpen
 				{onAir ? <Mic className="size-3.5" /> : <MicOff className="size-3.5 text-muted-foreground" />}
 			</Button>}
 		</div>
+	);
+}
+
+/** The preview's corner (§5.3): who else is looking at THIS slide, since a change could land under you. */
+export function LiveCorner({ people }: { people: LivePerson[] }) {
+	const names = people.map((p) => p.name).join(', ');
+	return (
+		<span className="flex shrink-0 -space-x-1.5 normal-case tracking-normal" role="img" title={`Also here: ${names}`} aria-label={`Also on this slide: ${names}`}>
+			{people.slice(0, 3).map((p) => <LiveAvatar key={p.id} person={p} size={20} ring={p.mic === 'speaking'} className="border-2 border-[var(--bg)]" />)}
+		</span>
 	);
 }
