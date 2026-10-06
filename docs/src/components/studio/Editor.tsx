@@ -12,6 +12,7 @@ import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, type CompletionVocab, type InlineNext, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
+import { iconPreviewOption } from './icon-preview';
 import { slideEditableOffset, slideIndexAt } from './lint';
 import { tourChromeMargin } from './tour-chrome';
 
@@ -422,7 +423,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const measuredRef = React.useRef(measuredSparks);
 	measuredRef.current = measuredSparks;
 	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext })], activateOnTyping: true, icons: false, maxRenderedOptions: 300 });
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext })], activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] });
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {

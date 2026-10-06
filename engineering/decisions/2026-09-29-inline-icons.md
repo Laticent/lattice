@@ -582,3 +582,24 @@ graph-chart galleries, `examples/chart-icons.md` and `examples/gallery-jargon.md
 byte-identical engine HTML against `main`. With the plugin off, a chart that wrote icons is the
 same string as one that never did (pinned in `hub-spoke.test.js`). Every geometry invariant holds
 with icons on in the flat, `sized`, `flow-out` and `tiered` forms (pinned).
+
+## 15. Phase 3 as built (2026-10-06)
+
+**Autocomplete.** `lint-core.js` `inlineCodeCompletions` answers an open `^{da`, and an open
+`icon=da` inside a pill or a chart record, with the names the icon kind's new `names(prefix)`
+returns (`icons.inline.js`): canonical names that start with the prefix, then the name of every
+alias that does (`db` → `database`, with `for "db"` as its info). The vocabulary is the one the
+linter already ships (`icons.vocab.generated.js`); no drawing is read to answer. The Studio's
+completion source (`editor-complete.ts`) shows that list exactly (`filter: false`) and asks again
+on every keystroke, so the menu never offers a name that will not draw.
+
+**The picker is the menu.** Rather than a second control, each icon row draws its icon
+(`icon-preview.ts`, CodeMirror's `addToOptions`), built as DOM from the plugin's data. The data
+script loads the first time the menu opens with an icon in it, through the same
+`ensurePluginData` the render uses. Measured on `npm run build:e2e` at 1440, 820 and 390 wide and
+in dark: no request for `lattice-plugin-icons.js` before the menu opened, one after, and every row
+drawn. At 1.25em the drawings measured about 10px and read as blots, so they draw at 1.6em.
+
+**Not done.** A browsable grid of all 265 icons, for an author who does not know a name to start
+from. Typing `` `^{ `` alone lists all of them, with drawings, which covers it for now.
+

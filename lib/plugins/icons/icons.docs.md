@@ -149,6 +149,14 @@ On a sketch slide (`mode: sketch`, or a slide's `sketch` class), a framed icon's
 by hand in its own edge color, as a spark's is, so the two read as one hand. The drawing inside
 stays crisp, a bare icon has no tile to ink, and an icon in the header or footer stays clean.
 
+## Picking a name in the Studio
+
+Type `` `^{ `` or `icon=` inside a pill or a chart record, and the editor offers the icon names
+that start with what you have typed: `` `^{da `` offers `database`, `dashboard`, `dataset` and the
+rest, and an alias offers the name it stands for (`db` → `database`). Each row shows its drawing.
+The names come with the editor's lint core; the drawings load the first time the menu opens with
+an icon in it, so a deck that never writes an icon never fetches them.
+
 TeX is not an icon: `` `^{2}` `` and `` `\^{o}` `` stay exactly as written. Only `^{` followed by a
 name (two or more letters, digits or hyphens) opens one.
 
