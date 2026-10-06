@@ -4,7 +4,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/lint';
-import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
+import { ChangeSet, Compartment, EditorState, type Extension } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { followDeckAdmission } from '@/lib/plugin-admission';
@@ -327,10 +327,20 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  slide at `slideIndex`. Lint cannot see a layout, so these arrive from the preview and
 	 *  join the lint pass as `spark-too-big` warnings with a one-click resize. */
 	measuredSparks?: { slideIndex: number; reports: SparkFitReport[] } | null;
+	/** A live-collaboration binding (live/use-live-session.ts). While present, the editor is bound
+	 *  to the shared text: it rebuilds with `extension` IN PLACE OF its own undo history (which
+	 *  would put everyone's edits on your stack), seeds its document from `seed()` — the shared
+	 *  text, which may be ahead of `value` — and stops syncing from `value`, because the binding
+	 *  already carries every change and a second copy would apply it twice. `key` changes when the
+	 *  binding must be rebuilt (a role change makes it read-only). */
+	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onCursorText, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, carryKey, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onCursorText, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, carryKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
+	const collabRef = React.useRef(collab);
+	collabRef.current = collab;
+	const collabKey = collab?.key ?? null;
 	const onChangeRef = React.useRef(onChange);
 	onChangeRef.current = onChange;
 	const onCursorSlideRef = React.useRef(onCursorSlide);
@@ -633,19 +643,19 @@ export const Editor = React.forwardRef<EditorHandle, {
 	//
 	// The Compose carry below is unaffected: a deck-switch rebuild stores a `carried` whose doc
 	// is the OLD deck's, so `carryApplies` rejects it on the document half.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `known`/`carryKey`; `value` seeds the doc and is synced separately.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `known`/`carryKey`/`collabKey`; `value` seeds the doc and is synced separately, and `collab` is read at build time through its key.
 	React.useEffect(() => {
 		if (viewRef.current || !hostRef.current) return;
 		try {
 			const seed = {
 					// Canonicalized here because `EditorState.create` runs NO transaction filter — a
 					// deck stored with a BOM before this landed would otherwise keep it on screen.
-					doc: stripBom(value),
+					doc: collab ? collab.seed() : stripBom(value),
 					extensions: [
 						lineNumbers(),
 						noLeadingBom,
-						history(),
-						keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
+						...(collab ? [collab.extension, EditorState.readOnly.of(collab.readOnly), EditorView.editable.of(!collab.readOnly)] : [history()]),
+						keymap.of([...defaultKeymap, ...(collab ? [] : historyKeymap), ...completionKeymap]),
 						// `yamlFrontmatter` WRAPS the Markdown language rather than sitting beside it, and
 						// without it a deck's front matter is parsed as a CommonMark SETEXT HEADING — the
 						// closing `---` reads as the underline — so `marp: true / theme: … ` rendered bold
@@ -732,7 +742,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 			};
 			// Consume the carry here, not in the cleanup: a carry that does not match is
 			// dropped rather than kept for some later mount that might match by accident.
-			const restored = carryApplies(carried, carryKey, value) ? carried : null;
+			// A bound editor never restores a carried history: the binding owns undo while live.
+			const restored = !collab && carryApplies(carried, carryKey, value) ? carried : null;
 			carried = null;
 			const view = new EditorView({
 				parent: hostRef.current,
@@ -799,7 +810,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// then hold whichever render happened to build it). It depends on `carryKey` now, so
 			// the closure is exactly the deck in question and the ref is the wrong answer.
 			const key = carryKey;
-			if (v && key) carried = { key, doc: v.state.doc.toString(), state: v.state.toJSON({ history: historyField }) };
+			if (v && key && !collab) carried = { key, doc: v.state.doc.toString(), state: v.state.toJSON({ history: historyField }) };
 			v?.destroy();
 			viewRef.current = null;
 			// This editor's lint answers die with it. Withdraw them, so a consumer holding a
@@ -816,7 +827,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			lastHasSelRef.current = false;
 			onSelectionChangeRef.current?.(false);
 		};
-	}, [known, carryKey]);
+	}, [known, carryKey, collabKey]);
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.
@@ -859,6 +870,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// already seeded with the new deck's text and it returns at the guard below.
 	React.useEffect(() => {
 		const v = viewRef.current;
+		// Bound to a live session: the binding carries every change (see `collab`).
+		if (collabRef.current) return;
 		if (!v || value === v.state.doc.toString()) return;
 		const old = v.state.doc.toString();
 		// Minimal diff — the common prefix/suffix the two docs share.

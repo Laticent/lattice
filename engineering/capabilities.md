@@ -514,6 +514,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
 | `tools/graph-typing-bench.mjs` | graph-typing-bench — time each stage of a graph chart's live redraw, key by key, in the real Studio. |
 | `tools/jank-census.js` | jank-census — run check-jank's `--anchors` discovery across the WHOLE catalog and rank what moves. |
+| `tools/live-session-check.mjs` | Live-session check: drives a REAL two-browser Live session in the Studio, end to end. |
 | `tools/manifest-schemas.js` | The ONE declaration of which manifest families exist, which schema governs |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
 | `tools/measure-cue-profile.mjs` | measure-cue-profile.mjs — the listenability of an emitted caption track, measured. |
