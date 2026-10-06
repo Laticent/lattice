@@ -5,10 +5,10 @@ recorded: 2026-10-05
 source: https://github.com/Laticent/lattice/pull/2538
 ---
 
-# 35 committed goldens already drift from main's own render
+# 33 committed goldens already drift from main's own render
 
 #2538 re-blessed the 247 goldens whose only drift was its own change (the slide edge drawn as a
-vector). The regression gate (`npm run regress`) flags 35 more, and each was checked against a
+vector). The regression gate (`npm run regress`) flags 33 more, and each was checked against a
 render with main's writer (`dist/lattice-pdf-compose-min.js` built from main at 7b0ebbb): these
 drift on main too (the worst page matches or comes within a few tenths of a percent), so the drift predates #2538. They were left as
 committed, so #2538's diff carries only its own pixels. Each one will also show #2538's edge
@@ -32,7 +32,6 @@ The list (gate name, worst page on #2538's branch / on main where measured):
   examples/one-reading-size-per-venue — branch 1.15%, main 0.96%
   examples/overflow-fix-me — branch 3.27%, main 3.27%
   examples/pane-layouts — branch 0.27%, main 0.08%
-  examples/panes-row-labels — branch 0.96%, main 0.96%
   examples/read-article-chart-paints — branch 2.56%, main 2.56%
   examples/split-structure — branch 5.43%, main 5.43%
   examples/stage-console-split — branch 1.19%, main 1.01%
@@ -51,11 +50,10 @@ The list (gate name, worst page on #2538's branch / on main where measured):
   exemplars/nonprofit/fundraising-capital-campaign — branch 0.27%, main 0.27%
   layout — branch 0.27%, main 0.08%
   rows — branch 0.27%, main 0.09%
-  test/integration/baseline-decks/gallery — branch 1.71%, main 1.61%
 ```
 
 ```text
-  P2 · Rebuild the 35 goldens that drift on main, after reviewing each drift
+  P2 · Rebuild the 33 goldens that drift on main, after reviewing each drift
        why now   — a golden that no longer shows what the engine renders hides the next real
                    regression on its pages.
        where     — the list above; `node tools/regression-gate.mjs --scope decks --only <path>`
