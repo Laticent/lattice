@@ -170,10 +170,21 @@ const WORD = /^[\w-]*$/;
 export function inlineCodeCompletion(
 	before: string,
 	next: ((span: string) => InlineNext | null) | null,
-): { typed: string; options: Completion[]; validFor: (text: string) => boolean } | null {
+): { typed: string; options: Completion[]; validFor: (text: string) => boolean; filter?: false } | null {
 	if (((before.match(/`/g) || []).length & 1) === 0) return null;
 	const inside = before.slice(before.lastIndexOf('`') + 1);
 	if (/^~\{?$/.test(inside)) return { typed: inside, options: SPARK_TEMPLATES, validFor: (t) => /^~\{?[^`]*$/.test(t) };
+	// An icon NAME: `^{da`, or `icon=da` inside a pill or a chart record. The lint core answers
+	// with the names that START with what is typed (aliases too: `db` offers `database`), so the
+	// menu is that list exactly (`filter: false`) and is asked again on every keystroke. Each row
+	// is `detail: 'icon'`, which the editor's picker (icon-preview.ts) draws.
+	if (/^\^\{[\w-]*$/.test(inside) || /^\{(?:[^{}`]*,)?\s*icon\s*=\s*[\w-]*$/.test(inside)) {
+		const got = next ? next(inside) : null;
+		if (!got) return null;
+		const typed = /[\w-]*$/.exec(inside)?.[0] ?? '';
+		const options = got.words.map((w, i): Completion => ({ label: w.label, type: 'keyword', detail: 'icon', info: w.info || undefined, boost: 99 - Math.min(i, 198) }));
+		return { typed, options, validFor: () => false, filter: false };
+	}
 	// The record so far, up to the last comma: its first item, then complete words. The kernel
 	// is asked about that record CLOSED (`{LIVE, tag}`), which is what it can judge.
 	const m = /^(~?\{[^{}`,]+(?:,\s*[\w-]+)*),\s*([\w-]*)$/.exec(inside);
@@ -254,7 +265,7 @@ export function makeStudioCompletion(
 
 		// 0. Inside a spark (`` `~{12 14 17, bar, lg` ``) or a pill (`` `{LIVE, tag, c4` ``).
 		const inline = inlineCodeCompletion(before, opts.inlineNext ?? null);
-		if (inline) return { from: context.pos - inline.typed.length, options: inline.options, validFor: inline.validFor };
+		if (inline) return { from: context.pos - inline.typed.length, options: inline.options, validFor: inline.validFor, ...(inline.filter === false ? { filter: false } : {}) };
 
 		// 1. A `_class:` directive token, completed by POSITION like a shell command
 		// line: the first word is a component, and every later word is only what THAT

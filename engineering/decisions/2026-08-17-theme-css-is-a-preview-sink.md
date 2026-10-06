@@ -788,3 +788,81 @@ CSSOM rules (`rule.cssText` / `rule.style.cssText`, which normalize the escape) 
 does not parse markup — so it is safe by the choice of one line rather than by anything this
 change built. That is the CSSOM twin of the css-tree re-wrap, and the next person to reach for
 `insertAdjacentHTML` there makes it live.
+
+---
+
+## 10. The plain `.html` keeps the deck's own HTML live, by design (2026-10-06)
+
+§9 guarded the stylesheet channel of the CLI export. It left the markup channel of the plain
+`.html` as written, and #2558's brief asked whether that was a hole or a decision: a slide
+holding `<img src=x onerror="top.p=1">` exports to a file that runs the handler.
+
+**Measured on the real surface.** `node lattice-emulator.js deck.md out.html`, the file opened in
+Chromium 131.0.6778.204 from `file://`, with an `onerror` image and an inline
+`<script>window.q=1</script>` on one slide:
+
+| artifact | `window.p` (onerror) | `window.q` (script) | `[onerror]` left in the DOM |
+|---|---|---|---|
+| plain `.html` | **1** | **1** | 1 |
+| `--player` | null | null | 0 |
+
+**The decision: by design, and now said out loud.** The plain `.html` is the page the export
+renders from. The PDF, PPTX and PNG are captured from this same file
+(`page.goto('file://' + outHtml)`), and design/skill.md § "Raw HTML in a deck" documents author
+`<script>` as a feature whose `requestAnimationFrame` output lands in the PDF. Stripping script
+from it would break that documented feature and make the `.html` differ from the PDF it sits
+beside. The artifact built for a recipient is `--player`: it sanitizes the slide DOM through
+`createSlideSanitizer` under a `default-src 'none'` CSP, pinned by
+`test/unit/export/html-player.test.js` ("hostile onerror is stripped"). That matches the Studio's
+share export, which also produces the player. So no export bytes change, and this is not an
+export change that needs sign-off.
+
+**What was wrong was the silence.** The CLI wrote a file that runs code and said nothing, and its
+own comments and two records called that file "emailable". It now warns, once per run, whenever
+the file it leaves carries executable HTML of the deck's (`lib/core/live-author-html.js`, called
+where the emulator applies the live document's CSP, on the final bytes):
+
+```
+  ⚠ deck.html keeps the deck's own HTML live: 1 <script> and 1 on… handler. Whoever opens the file runs them.
+      To hand the deck to someone, export with --player: it sanitizes the slides and runs under a strict CSP.
+```
+
+It counts executable `<script>` elements without the engine's `data-lattice-script` marker,
+`on…=` attributes, `srcdoc` frames and `javascript:` URLs. It is text matching, not a parse, and
+it errs toward warning: an attribute value that contains ` onclick=` counts once too many.
+It warns for the `.html` sidecar written beside every PDF, PPTX and PNG too. That was the
+inversion pass's strongest objection: an author who asked only for `deck.pdf` also gets a live
+`deck.html` they never asked for. Because it reads the file the run leaves, `--player` and
+`--read` (both sanitized) print nothing, and a `--player` whose assembly failed, which leaves
+the plain render in place, does warn; the first cut counted before the raster and got both of
+those wrong (the independent checker). A deck with no raw HTML prints nothing. The three galleries
+that carry a Mermaid loader `<script src=…>` for the editor preview print one line, which is
+true: that tag is live in their exported `.html`.
+
+**What the plain `.html`'s CSP does and does not do.** `lib/core/subresource-csp.mjs` blocks a
+remote image and outgoing `connect-src`. It sets no `script-src` and no `default-src`, so it does
+not contain a deck's own script: a kept `<script>` can still navigate the page or open a window.
+That is consistent with this decision, and is the reason the warning names `--player` and not
+the CSP.
+
+**The PDF render gives a deck's script nothing an opened page lacks.** The red team checked the
+launch: `--no-sandbox` plus the offline set (`lib/core/offline-chromium.js`), with no
+`--allow-file-access-from-files` and no `--disable-web-security`. The three functions the page
+can call are fenced to the deck folder and the Lattice install by real path, and return only
+images and fonts (`lib/export/pdf-asset-reader.js`). `--allow-remote` drops the offline set,
+which is the exporter's own choice.
+
+**Found on the way, not decided here (both in `followups.d/`):**
+
+- **Export-to-Marp ships a recipient a renderer told to run the deck's HTML with local file
+  access.** `lib/core/marp-bundle.js` writes `html: true, allowLocalFiles: true` into the
+  bundle's `marp.config.cjs`, and the Studio's Share sheet offers the bundle from the editor
+  source unsanitized. The Studio preview sanitizes, so a deck whose script came from an AI edit
+  or an import can ship a payload its author never saw run. Measured afterwards with real marp-cli 4.3 on the bundle's own `npm run pdf`: with `html: true`
+  a deck's `<script>` and `onerror` both run in its headless Chrome and a beacon image reaches the
+  network; with `html: false` all of it prints as text. Reading a local file failed (`fetch` and XHR
+  of `file://` both blocked), so that part of the red team's reasoning does not hold. A bundle's
+  `marp.config.cjs` is already code the recipient runs, so the real gap is the Studio path, where the
+  author never saw the script. The fix changes an exported artifact, so it waits for the owner.
+- **Whether the sidecar should be written at all** when nobody asked for an `.html`. Changing the
+  default changes what every PDF export leaves on disk, so that is the owner's call too.

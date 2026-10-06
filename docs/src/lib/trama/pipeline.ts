@@ -53,6 +53,8 @@ export interface GraphContext {
   textLines(el: Element): string[];
   /** A harness icon's shapes, rebuilt from a closed vocabulary for the chart's SVG ('' for none). */
   drawing(svgEl: Element | null): string;
+  /** The clipping wrapper's x / y / width / height for a drawing at (x, y), `side` wide. */
+  iconBox(x: number, y: number, side: number): string;
   r1(v: number): number;
   esc(t: unknown): string;
   outline(kind: string, x: number, y: number, w: number, h: number, attrs: string, rimAttrs: string): string;
@@ -266,7 +268,8 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
    * A node's DRAWING — an icon the server put in the harness (lib/components/chart/_chart-family/
    * graph-icons.js) — as markup for the chart's SVG, rebuilt from a closed vocabulary: the six
    * shape elements an icon is drawn with and only their geometry attributes, every value
-   * checked against the characters geometry is written in. The harness is markup the sanitizer
+   * checked against the characters geometry is written in and every number in it bounded
+   * (GEO_MAX). The harness is markup the sanitizer
    * kept and a deck can forge one in raw HTML, so nothing else of it survives: no other element,
    * no style, no href, no event attribute, no paint (HARD RULE #22). The caller wraps the result
    * in its own `<svg viewBox="0 0 24 24">`, the icons' grid.
@@ -279,6 +282,13 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     };
     const NUM = /^[-+0-9.eE,\s]{1,4000}$/;
     const PATH = /^[-+0-9.eE,\sMmLlHhVvCcSsQqTtAaZz]{1,4000}$/;
+    // Every number in the value, bounded: a value past GEO_MAX, or one that is not finite, drops
+    // the shape (the shipped set never passes 23). This is hygiene, not the bound on where a shape
+    // paints: a relative path can walk off the grid in many small steps. That bound is the
+    // adapters' wrapper, which clips two units past the 24-unit grid (`overflow="hidden"`).
+    const GEO_MAX = 1e4;
+    const NUMBER = /[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
+    const bounded = (v: string) => (v.match(NUMBER) || []).every((n) => Math.abs(Number(n)) <= GEO_MAX);
     let out = '';
     const kids = Array.from(svgEl.children || []).slice(0, 64);
     for (const el of kids) {
@@ -290,12 +300,25 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       for (const k of allowed) {
         const v = el.getAttribute(k);
         if (v == null) continue;
-        if (!(k === 'd' ? PATH : NUM).test(v)) { ok = false; break; }
+        if (!(k === 'd' ? PATH : NUM).test(v) || !bounded(v)) { ok = false; break; }
         a += ` ${k}="${esc(v)}"`;
       }
       if (ok && a) out += `<${tag}${a}/>`;
     }
     return out;
+  }
+
+  /**
+   * The wrapper for a node's drawing at (x, y), `side` wide: the 24-unit grid lands exactly where
+   * a plain `viewBox="0 0 24 24"` box would put it, and the box reaches two grid units past it on
+   * every side, with `overflow="hidden"`. That is the bound on where a forged shape can paint:
+   * `drawing()` checks each number, but a relative path can still walk off in small steps.
+   * Pair it with `viewBox="-2 -2 28 28" overflow="hidden"` on the same `<svg>`.
+   */
+  function iconBox(x: number, y: number, side: number): string {
+    const m = side / 12;
+    const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
+    return `x="${r4(x - m)}" y="${r4(y - m)}" width="${r4(side + 2 * m)}" height="${r4(side + 2 * m)}"`;
   }
 
   /** The lines the browser actually broke `el`'s text into, read with Range rects. */
@@ -589,7 +612,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     readMins();
     readVis(sec);
     const S = sec && sec.offsetWidth > 0 ? sec.offsetWidth / HD : 1;
-    const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, drawing, r1, esc, outline, grow, toOutline, cut, rounded, head, lines, groups };
+    const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, drawing, iconBox, r1, esc, outline, grow, toOutline, cut, rounded, head, lines, groups };
 
     // Measure with the harness laid out and the box unscaled.
     const unlay = () => {

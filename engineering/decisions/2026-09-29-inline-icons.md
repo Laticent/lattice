@@ -470,6 +470,23 @@ the post-sanitize shape of HARD RULE #22. The provenance note on Trama's sanctio
 sink says so, and `test/unit/components/graph-icons.test.js` runs a forged harness through the
 real serialized pass.
 
+**The red team's probe, pinned (#2558's P3).** The red team attacked `drawing()` by hand and it
+held, but nothing pinned what it tried. `graph-icons.test.js` now runs each case through both
+charts' real serialized pass: an `<animate>` or `<set>` inside a kept shape, an entity-encoded
+quote in a coordinate, a value past the 4000-character cap, prefixed and uppercase tags, tags
+named `__proto__`, `constructor` and `toString`, and a `</title>` in an icon-only name. One case
+was not held: a forged `<circle r="1e308">` was kept, and because the icon's wrapper was
+`overflow="visible"` it painted over the whole chart. The first fix capped every number at 1e4;
+the independent checker showed that is no bound at all, since a relative path (`l9999 0` four
+hundred times, under the 4000-character cap) or a single 1e4 coordinate still draws a line
+thousands of pixels long. So the bound is now geometric: both adapters wrap the drawing in an
+`<svg viewBox="-2 -2 28 28" overflow="hidden">` scaled so the 24-unit grid lands where it did,
+which clips a shape two units past the icon's box whatever its numbers say. The per-number cap
+stays as hygiene. The shipped set's coordinates run from 2 to 22.5, so nothing real is clipped,
+and the test renders all 265 shipped icons through the pass and requires every shape back. Each
+guard was shown to bite: with the value checks removed six arms fail, with the cap removed two,
+with the shape copied whole two, and with the tag looked up off the prototype two.
+
 **Placement, § 11 q1.** The icon sits above the name when the chart is pinned `tb`, and before it
 otherwise, including the unpinned default. Sizes are measured before the layout picks a direction,
 so an unpinned chart cannot know where its icon goes until after it has been measured. Before the
@@ -496,5 +513,111 @@ the render reports it applies to required plugins only.
 **Not done: hub-spoke.** Hub-spoke has no Segno style slot. Its rows are read by
 `lib/core/hub-spoke-model.js`, where a bare `{icon=x}` span already reads as an icon-only PILL, and
 its server-built geometry carries label-placement invariants. Giving it `icon=` needs its own
-spelling decision, which is recorded in `followups.d/`.
+spelling decision, which is recorded in `followups.d/`. (Done the same day: § 14.)
+
+## 14. Hub-spoke as built (2026-10-06)
+
+**The spelling.** A hub-spoke row already writes its value, its status and its group as separate
+pills (`` - Billing `$4M` `at-risk` `Retail` ``), each told apart by what it looks like. The icon
+is one more: a Segno record, `{icon=invoice}` or `{icon=invoice, icon-only}`, read by the
+component's own `style` slot (`hub-spoke.manifest.json`), which takes `icon=` and `icon-only` and
+nothing else. Folding the status or the value into the record, as the state chart does, would
+give one row two ways to say `at-risk`; a record holding anything else is coached
+(`hub-spoke-bad-record`) and dropped. The two alternatives the followup named were weighed: a bare
+`{icon=x}` read as the generic icon-only PILL would have meant the opposite of `icon=` in every
+other chart (beside the name), and `icon=` as a bare pill word is not a record at all. Declaring
+the slot `sits: "list-rows"` makes hub-spoke own the spans on its rows, as the two graph charts
+do, so the inline pill resolver no longer renders them first. Unlike theirs, its ownership stops
+at the rows it reads: the first cut owned every depth, and a pill or `^{icon}` in a satellite's
+detail sublist (the Present popover) turned back into code. The slot now declares
+`rowDepth: { default: 2, tiered: 3 }`, and the three readers of ownership (the markdown-it pass,
+the runtime's `isOwnedElement`, and `lint:deck`) all count the depth (`ownedRowDepth`,
+`lib/core/resolve-inline-code.js`); a slot without it still owns every depth. A slot that declares
+`rowDepth` also owns only the slide's FIRST list, the one its kernel splices: the independent
+checker found that a second list after a paragraph had lost its pills too. Two more of its
+findings changed the lint. Its depth stack nests by content column, as CommonMark does (a
+three-space indent under `  - ` is a sibling), and a blank line no longer resets it, so a loose
+list's detail spans are still linted. And a row span that draws as something of its own elsewhere
+(a `[x]` mark, a `~{…}` spark, a `^{…}` icon), trailing or inside the name, is now coached
+(`hub-spoke-inline-kind`) and dropped. Before this change such a span vanished or printed as a
+group named `[x]`, with no warning either way. That also fixes what a record did
+before this: `{icon=invoice}` vanished from the row, and `{icon=invoice, icon-only}` printed
+"icon-only" into the satellite's name.
+
+**What it draws.** The model resolves the name through the host's `known` service, so an alias
+lands as its canonical name and a name the set lacks is coached (`hub-spoke-unknown-icon`, with
+the plugin's own `whyUnknown`). The kernel asks the host for `drawHtml` before it measures
+anything; an icon it cannot draw (the plugin off, the data not on this surface) is dropped there,
+so nothing reserves room for it. A satellite's, branch's or leaf's icon is a square of 1.1 × the
+disc's radius (at most 30 units), centered in the disc; under `sized`, a flagged disc's inner
+halo bounds it further. Satellites keep their names beside them, so a satellite icon touches no
+label placement and no geometry invariant. On the hub the icon is a row of the text block, above
+the name, and `hubFit` adds that row to the fit the linter and the kernel share; an `icon-only`
+hub fits no name, and with no value its icon fills 0.9 of the disc the layout chose.
+
+**`icon-only` keeps the name.** The label beside the disc is not placed (`blockFor` hands the
+solve and the placer an empty block), the name is the drawing's `<title>` for the hover, and the
+chart's `<desc>` still names every item, so the spoken description is unchanged. An `icon-only`
+item with no words is refused (`hub-spoke-icon-only-empty-name`), as § 5.3 requires.
+
+**The ink, measured.** The first cut painted each icon in its disc's own edge ink. Rendered, that
+read brown on brown on a status disc. Measured over the 14 flat-fill palettes in both modes, the
+edge ink cleared 1.47:1 at worst on a group disc and the state ink 1.30:1 on a status disc. The
+contrast of every candidate token against every disc fill, worst case per kind:
+
+| disc | light: chosen ink | worst | dark: chosen ink | worst |
+|---|---|---|---|---|
+| hub | `--bg` | 9.65:1 | `--bg` | 7.88:1 |
+| neutral satellite | `--text-heading`, L × 0.55 | 3.58:1 | `--text-heading` | 4.35:1 |
+| group | `--text-heading`, L × 0.55 | 3.14:1 | `--text-heading` | 4.12:1 |
+| status | `--text-heading`, L × 0.55 | 3.66:1 | `--bg` | 3.90:1 |
+
+No existing token clears 3:1 on a light group disc (the plain heading ink measured 2.68:1 on
+laguna), so the light arm takes the heading ink a step darker through `oklch(from …)`, which the
+group-disc rule above it already uses.
+
+**Under a chart finish, measured afterwards.** A finish repaints the group and status discs, and
+the fixed inks above did not hold: a pigment group disc 2.27:1 (onyx dark), a tone group disc
+2.27:1 (carbone dark), an etching status disc 1.62:1 (onyx dark). `mode: sketch` held (3.14:1 at
+worst). So `tools/build-chart-finish-css.js` now gives `.hub-spoke-icon` the ink the finish's own
+disc body clears: `inkOn`, black above OKLCH L 0.565 and white below, computed from the same body
+expression the generator gives the disc, behind the same `@supports` as every text ink there.
+Worst case after, all 14 palettes in both modes: pigment 4.38:1, etching 7.03:1, tone 3.48:1.
+Every figure in this section is re-derivable: `2026-09-29-inline-icons/probe-hub-spoke-icon-ink.cjs`
+renders the demo deck under every palette, mode, finish and sketch, and prints the worst icon-on-disc
+ratio per disc kind; its output on the commit that shipped this is beside it (`.out.txt`).
+
+**On an engine without relative color** (the independent checker's finding on the finish fix), a
+custom property holding an `oklch(from …)` such an engine cannot parse would leave the stroke unset
+and the icon undrawn. The icon's base inks are therefore plain tokens (the heading ink; the canvas
+ink on a dark status disc), and the measured `oklch(from …)` inks replace them behind
+`@supports`, as the finish inks already were. `hub-spoke.test.js` also now reads the disc's finish
+body and the icon's ink out of the generated sheet and requires the ink to derive from that exact
+body, so a finish level edited without the icon fails there (shown to fail on a 1% drift).
+
+**What did not change.** With no icon written, the hub-spoke gallery, the baseline gallery, both
+graph-chart galleries, `examples/chart-icons.md` and `examples/gallery-jargon.md` render
+byte-identical engine HTML against `main`. With the plugin off, a chart that wrote icons is the
+same string as one that never did (pinned in `hub-spoke.test.js`). Every geometry invariant holds
+with icons on in the flat, `sized`, `flow-out` and `tiered` forms (pinned).
+
+## 15. Phase 3 as built (2026-10-06)
+
+**Autocomplete.** `lint-core.js` `inlineCodeCompletions` answers an open `^{da`, and an open
+`icon=da` inside a pill or a chart record, with the names the icon kind's new `names(prefix)`
+returns (`icons.inline.js`): canonical names that start with the prefix, then the name of every
+alias that does (`db` → `database`, with `for "db"` as its info). The vocabulary is the one the
+linter already ships (`icons.vocab.generated.js`); no drawing is read to answer. The Studio's
+completion source (`editor-complete.ts`) shows that list exactly (`filter: false`) and asks again
+on every keystroke, so the menu never offers a name that will not draw.
+
+**The picker is the menu.** Rather than a second control, each icon row draws its icon
+(`icon-preview.ts`, CodeMirror's `addToOptions`), built as DOM from the plugin's data. The data
+script loads the first time the menu opens with an icon in it, through the same
+`ensurePluginData` the render uses. Measured on `npm run build:e2e` at 1440, 820 and 390 wide and
+in dark: no request for `lattice-plugin-icons.js` before the menu opened, one after, and every row
+drawn. At 1.25em the drawings measured about 10px and read as blots, so they draw at 1.6em.
+
+**Not done.** A browsable grid of all 265 icons, for an author who does not know a name to start
+from. Typing `` `^{ `` alone lists all of them, with drawings, which covers it for now.
 
