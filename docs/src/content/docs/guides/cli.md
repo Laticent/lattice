@@ -165,6 +165,11 @@ Slides and Read Article.
 npx lattice deck.md deck.html --player
 ```
 
+Send the player, not a plain `.html`. A plain `.html` (and the one written
+beside every PDF) keeps any `<script>` or `onerror=` in your deck live, so it
+runs in whoever opens it, and the CLI warns when a deck has any. The player
+drops both.
+
 Your speaker notes travel with the player so that you can present from it. If
 you are sending it to someone else, strip them first:
 

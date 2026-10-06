@@ -228,6 +228,14 @@ export keeps your `<script>` live in the file, so the recipient's browser runs i
 Every captured format (PDF, PPTX, PNG, image set) and `--player` freeze the DOM as
 it stands.
 
+**A plain `.html` runs your HTML in whoever opens it.** That holds for the `.html`
+you ask for and for the sidecar written beside every PDF, PPTX and PNG: both keep
+your `<script>` and `on…` handlers as written, and the CLI warns when a deck carries
+any. This is deliberate, because the PDF is captured from that same page. To send a
+deck to someone, export it with `--player`, which drops script and `on…` handlers
+and runs under a strict CSP. Record:
+[2026-08-17-theme-css-is-a-preview-sink.md § 10](../engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md).
+
 Design record:
 [2026-08-16-render-format-cost-assessment.md § 2a-ter](../engineering/decisions/2026-08-16-render-format-cost-assessment.md).
 
