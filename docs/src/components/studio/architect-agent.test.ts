@@ -414,6 +414,11 @@ describe('the loop', () => {
 		const out2 = await both.run('check_deck', '{}');
 		expect(out2).toMatch(/slide 1 overflows its frame/);
 		expect(out2).toContain('Fit was not measured for slide 3');
+		// Nothing measured: no "the other 0 slides fit" (checker).
+		const none = toolbox({ check: async () => ({ findings: [], fit: rows.map((r) => ({ ...r, undrawn: true })) }) });
+		const out3 = await none.run('check_deck', '{}');
+		expect(out3).not.toContain('Fit, measured');
+		expect(out3).toContain('Fit was not measured for slides 1, 2, 3');
 	});
 
 	it('reports warnings only on the slides the turn wrote', async () => {

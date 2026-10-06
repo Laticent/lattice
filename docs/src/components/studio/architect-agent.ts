@@ -558,8 +558,9 @@ export function createToolbox(opts: {
 		const unit = fitMapped ? 'slide' : 'section';
 		if (res.fit === undefined) out.push('Fit was not measured: the draft could not be rendered. Do not say the slides fit.');
 		else if (!misfits.length && !undrawn.length) out.push(`Fit, measured from a real render of the draft: all ${res.fit.length} slide${res.fit.length === 1 ? '' : 's'} fit.`);
-		else if (!misfits.length) out.push(`Fit, measured from a real render of the draft: the other ${measured.length} ${unit}${measured.length === 1 ? '' : 's'} fit.`);
-		else {
+		else if (!misfits.length) {
+			if (measured.length) out.push(`Fit, measured from a real render of the draft: the other ${measured.length} ${unit}${measured.length === 1 ? '' : 's'} fit.`);
+		} else {
 			const say = (f: { overflows: boolean; clipped: boolean; illegible: boolean }) => [f.overflows && 'overflows its frame', f.clipped && 'has text cut off', f.illegible && 'has type below the legibility floor'].filter(Boolean).join(', ');
 			if (fitMapped) out.push(`Fit, measured from a real render of the draft:\n${misfits.map((f) => `- slide ${f.slide} ${say(f)}${mine(f.slide) ? ' (you changed this slide: an error — cut words, split the slide, or pick a roomier layout)' : ''}`).join('\n')}`);
 			else out.push(`Fit, measured from a real render of the draft, which renders ${res.fit.length} sections for its ${now.length} slides (a split or stepped slide), so these are rendered sections, not slide numbers:\n${misfits.map((f) => `- section ${f.slide} ${say(f)}`).join('\n')}`);
