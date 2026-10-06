@@ -1,0 +1,31 @@
+{
+  "name": "@laticent/calco",
+  "version": "0.1.0",
+  "description": "Rendered slides to office documents you can edit. A reader turns a laid-out HTML slide into text frames (font, size, color, line breaks as the browser drew them) and hides that text for a clean background photo; writers turn the result into an OpenDocument Presentation (.odp, fonts embedded) or a PowerPoint (.pptx) with real text boxes over each slide's picture, plus speaker notes and alt text. No dependencies: JSZip, PptxGenJS and the font pinner are passed in.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "types": "./index.ts",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "README.md"
+  ]
+}

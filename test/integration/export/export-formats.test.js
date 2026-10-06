@@ -31,8 +31,8 @@ describe('export-formats', () => {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-export-'));
   }
 
-  function run(out) {
-    return spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet'], {
+  function run(out, extra = []) {
+    return spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', ...extra], {
       cwd: ROOT,
       encoding: 'utf8',
       env: { ...process.env },
@@ -121,6 +121,36 @@ describe('export-formats', () => {
     const pictures = Object.keys(zip.files).filter((n) => /^Pictures\/slide\d+\.png$/.test(n));
     assert.equal(content.match(/<draw:page /g).length, 3, 'expected 3 pages');
     assert.equal(pictures.length, 3, `expected 3 pictures, got ${pictures.length}`);
+  });
+
+  test('--editable .odp: real text boxes over text-free pictures, fonts embedded', { timeout: TIMEOUT }, async () => {
+    const out = path.join(tmpDir(), 'deck.odp');
+    const r = run(out, ['--editable']);
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const content = await zip.file('content.xml').async('string');
+    assert.equal(content.match(/<draw:page /g).length, 3);
+    assert.ok((content.match(/<draw:text-box>/g) || []).length >= 3, 'every slide has text boxes');
+    const fonts = Object.keys(zip.files).filter((n) => n.startsWith('Fonts/'));
+    assert.ok(fonts.length >= 1, 'the deck fonts are embedded');
+    assert.match(content, /style:font-name="/, 'runs name an embedded face');
+  });
+
+  test('--editable .pptx: text boxes over each picture; plain .pptx stays image-only', { timeout: TIMEOUT }, async () => {
+    const JSZip = require('jszip');
+    const edited = path.join(tmpDir(), 'deck.pptx');
+    assert.equal(run(edited, ['--editable']).status, 0);
+    const slide = await (await JSZip.loadAsync(fs.readFileSync(edited))).file('ppt/slides/slide1.xml').async('string');
+    assert.match(slide, /<p:sp>/, 'a text box');
+    assert.match(slide, /<a:t>[^<]+<\/a:t>/, 'with text in it');
+  });
+
+  test('--editable on another format warns and is ignored', { timeout: TIMEOUT }, () => {
+    const out = path.join(tmpDir(), 'deck.png');
+    const r = run(out, ['--editable']);
+    assert.equal(r.status, 0);
+    assert.match(r.stderr + r.stdout, /--editable applies only to \.odp and \.pptx/);
   });
 
   // Parse a poppler P6 .ppm (raw RGB) into { w, h, data }.

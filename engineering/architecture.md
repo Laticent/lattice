@@ -182,7 +182,7 @@ versa:
 |------|-----------|------|
 | **Component transform** | one component's CSS/manifest | `lib/components/<bucket>/<name>/<name>.transform.js` (roadmap, journey, word-cloud, the chart layouts) |
 | **Bucket-family transform** | one bucket | `lib/components/<bucket>/_<bucket>-family/` (`_chart-family`) |
-| **Workspace library** | nothing in Lattice — spin-off-able, gated by a boundary check | `docs/src/lib/<name>/` (Cadenza, LTT, Lente, Suono, Vetrina, and **Trama**, the graph-chart layout library the flowchart, the state chart and hub-spoke draw through: `2026-09-27-trama-graph-chart-library.md`, and for its radial kernel `2026-10-05-trama-radial-layout.md`) |
+| **Workspace library** | nothing in Lattice — spin-off-able, gated by a boundary check | `docs/src/lib/<name>/` (Cadenza, LTT, Lente, Suono, Vetrina, **Calco**, the office-export library behind `.odp` and editable `.pptx`: `2026-10-06-calco-office-export-library.md`, and **Trama**, the graph-chart layout library the flowchart, the state chart and hub-spoke draw through: `2026-09-27-trama-graph-chart-library.md`, and for its radial kernel `2026-10-05-trama-radial-layout.md`) |
 | **Structural primitive** | nothing — any component opts in | `lib/core/` (coda, split-panels, split-slides, below-note, slot-label-lift, match-section, resolve-palette, html-lists, section-walk) |
 | **Registry + render adapters** | the wiring across render paths | `lib/transformers/` |
 

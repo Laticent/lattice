@@ -86,6 +86,7 @@ const {
   checkVetrinaBoundary,
   checkAnimaBoundary,
   checkCadenzaBoundary,
+  checkCalcoBoundary,
   checkLttBoundary,
   ANIMA_DIR,
   ANIMA_ADAPTER_DEPS,
@@ -1936,6 +1937,22 @@ describe('check-ownership', () => {
       // JSX text is text, and a doc comment at the end of a file is still a comment.
       assert.match(stripJsComments("const j = <b>// x</b>; import q from 'evil';"), /import q from 'evil'/);
       assert.doesNotMatch(stripJsComments("export {};\n/** import x from 'y' */"), /import x/);
+    });
+
+    test('Calco admits no dependency at all: JSZip and PptxGenJS are passed in', () => {
+      const live = [];
+      checkCalcoBoundary(live);
+      assert.deepEqual(live, [], live.join('\n'));
+      assert.deepEqual(run(checkCalcoBoundary, "import type { Deck } from './types';\nexport { readSlide } from './reader';"), []);
+      for (const src of [
+        "import JSZip from 'jszip';",
+        "import PptxGenJS from 'pptxgenjs';",
+        "import fs from 'node:fs';",
+        "import { x } from '@laticent/trama';",
+        "import { TEXT_FACES } from '../../../../lib/fonts/text-faces.js';",
+      ]) {
+        assert.equal(run(checkCalcoBoundary, src).length, 1, `not caught: ${src}`);
+      }
     });
 
     test('Cadenza admits @laticent/ltt by exact name, and no subpath or sibling reach', () => {

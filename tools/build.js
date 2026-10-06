@@ -154,6 +154,9 @@ const STEPS = [
   // ahead of the runtime and the emulator, which both bundle `@laticent/trama` from this
   // dist/: as a background step it would be joined only at player-core, far too late.
   { label: 'Trama library dist (CJS + .d.ts)', script: 'build-trama-lib.js', uncommitted: true },
+  // Calco, the office-export library (2026-10-06-calco-office-export-library.md). FOREGROUND
+  // and ahead of the emulator, which bundles `@laticent/calco` from this dist/.
+  { label: 'Calco library dist (CJS + .d.ts)', script: 'build-calco-lib.js', uncommitted: true },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
   // The shared PDF writer the CLI injects into its own Chrome (the Studio imports the same

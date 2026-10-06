@@ -70,6 +70,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-ltt-lib.js',
   'build-cadenza-lib.js',
   'build-trama-lib.js',
+  // Calco's write set is docs/src/lib/calco/dist/, covered by docs/.gitignore's `dist/`.
+  'build-calco-lib.js',
   'build-vetrina-lib.js',
   'build-lente-lib.js',
   // Measured 2026-09-28: its whole write set is docs/src/lib/segno/dist/ (docs/.gitignore's

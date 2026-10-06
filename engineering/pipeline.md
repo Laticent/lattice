@@ -210,19 +210,31 @@ reference: run the script with no args, or read its header comment.
 Both rasterize through the same screenshot path the PDF's `--raster` flag
 uses — one full-bleed image per slide, selectable text is lost (PPTX has
 always been image slides; `--raster` opts a PDF into the same trade for
-maximum viewer compatibility). If a recipient needs an *editable* PPTX
-(real text boxes, not an image), that's out of scope for this exporter —
-Lattice's PPTX output is a presentation artifact, not an authoring one.
+maximum viewer compatibility).
 
-**ODP is the PPTX's LibreOffice twin.** `lib/export/odp-export.js` packages the
-same PNGs, speaker notes (on each page's notes view) and `describe:` alt text
-(each picture's `svg:desc`) as an OpenDocument Presentation. It writes the zip
-itself with jszip, so no `soffice` is needed to export — LibreOffice is only the
-reader. Two package rules a reader enforces: `mimetype` is the first entry and
-stored uncompressed, and the manifest lists every part. Rounded corners square,
-as on the PPTX: the page sets no fill, so a transparent corner would show the
-reader's own template (`lib/core/corner-export-capability.mjs`). The Studio does
-not offer `.odp` yet — the CLI is the only producer.
+**`.odp` and `--editable` go through Calco.** Calco (`@laticent/calco`,
+`docs/src/lib/calco/`) is the office-export library; `lib/export/office-export.js`
+is the Lattice host that hands it JSZip, PptxGenJS, the deck's fonts and the HarfBuzz
+pinner. Two modes:
+
+- **Picture** (every `.odp` without the flag): one full-bleed PNG per page, the
+  speaker notes on each page's notes view, the `describe:` text as each picture's
+  alt text. The PPTX twin is the plain `.pptx`, which stays on
+  `lib/export/pptx-export.js`.
+- **Editable** (`--editable` on `.odp` or `.pptx`): Calco reads every paragraph off
+  the rendered slide, hides that text, photographs the slide, and writes each
+  paragraph back as a real text box in its own font, with the browser's line
+  breaks. The `.odp` embeds the fonts (each pinned to one weight, every character
+  kept); the `.pptx` names them, so a reader without them sees a substitute.
+  Charts, diagrams, equations, `::before`/`::after` text, rotated text and
+  ellipsized lines stay in the picture.
+
+Calco writes the zip itself, so no `soffice` is needed to export — LibreOffice is
+only the reader. Rounded corners square on both, as on the PPTX: the page sets no
+fill, so a transparent corner would show the reader's own template
+(`lib/core/corner-export-capability.mjs`). How it was built and measured, and the six
+LibreOffice behaviors the writer works around:
+`engineering/decisions/2026-10-06-calco-office-export-library.md`.
 
 **The Studio's browser PDF is the exception, and only its worker lane.** It
 rasterizes like the above, then writes every word back over the page image
