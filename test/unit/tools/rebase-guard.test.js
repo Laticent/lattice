@@ -130,6 +130,24 @@ describe('rebase-guard', () => {
     assert.equal(r.status, 0, r.stderr);
   });
 
+  test('allows a rebase that also rewrote the PR history (squash a fixup across a newer main)', () => {
+    // Checker finding on PR #2561: `git rebase -i origin/main` to fold a fixup is
+    // history cleanup that happens to cross a newer main, not a needless catch-up.
+    const r0 = repo();
+    r0.git('checkout', '-q', '-b', 'feat');
+    r0.commit('feat.txt', 'x\n', 'feature work');
+    const oldHead = r0.commit('feat.txt', 'x\ny\n', 'fixup! feature work');
+    r0.git('checkout', '-q', 'main');
+    r0.commit('other.txt', 'y\n', 'main moves');
+    r0.git('update-ref', 'refs/remotes/origin/main', 'main');
+    r0.git('checkout', '-q', 'feat');
+    r0.git('reset', '-q', '--soft', 'main');
+    r0.git('commit', '-q', '-m', 'feature work (squashed)');
+    const newHead = r0.git('rev-parse', 'HEAD');
+    const r = guard(r0.dir, `refs/heads/feat ${newHead} refs/heads/feat ${oldHead}`);
+    assert.equal(r.status, 0, r.stderr);
+  });
+
   test('LATTICE_REBASE_REASON lets a needed-commit catch-up through and prints it', () => {
     const s = scenario({ featFile: 'feat.txt', featBody: 'x\n', mainFile: 'other.txt', mainBody: 'y\n' });
     const r = guard(s.dir, s.line, { LATTICE_REBASE_REASON: 'needs abc123: the fix' });

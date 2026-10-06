@@ -39,7 +39,7 @@ landed on 09-29 (#2500, #2480). Both fixes held.
 | | Catch-ups |
 |---|---|
 | All | **28**, on 21 PRs |
-| Clean on GitHub's terms, so needless | **9**: 2 are the backlog bot's nightly re-sync (#2499), 7 are agent sessions |
+| Clean on GitHub's terms | **9**: 7 agent-session catch-ups, which were needless; 2 backlog-bot re-syncs (#2499), which carry new content and are not waste |
 | Real conflicts | **19** |
 | …only in committed PDFs or generated JS | 5 |
 | …in those and in hand-written source | 6 |
@@ -67,30 +67,44 @@ branch onto a newer main, it asks `queue-precheck.sh --head=<remote head>
 the guard refuses the push and prints how to undo the catch-up.
 
 - **It refuses only on proof.** It lets through a new branch, a deletion, a push to
-  `main`, an amend or ordinary push on the same main, an old head this clone does not
-  have, and anything queue-precheck cannot decide (its exit 3).
-- **The rule's own exception has an escape.** When you need a specific commit from
-  main: `LATTICE_REBASE_REASON="needs <sha>: <why>" git push`. The guard prints the
-  reason and allows the push.
+  `main`, an amend or ordinary push on the same main, a rebase that also rewrote the
+  PR's own commits (a squash, reword or drop, compared by `git patch-id`), an old head
+  this clone does not have, and anything queue-precheck cannot decide (its exit 3).
+- **The rule's own exceptions have an escape.** When you need a specific commit from
+  main, or the queue ejected the PR: `LATTICE_REBASE_REASON="<why>" git push`. The
+  guard prints the reason and allows the push.
+- **It reads the local `origin/main`.** Rebasing onto a main newer than that ref can
+  make a real conflict look clean. `git fetch origin main && git rebase origin/main`,
+  the usual sequence, keeps them equal.
+- **A refusal stops the hook.** Without `piped: true`, lefthook ran every remaining
+  pre-push job after the guard failed (reproduced with the real binary), so a refused
+  push still paid for lint and `build:check`. `pre-push` is now `piped`, which also
+  makes its existing "fail-fast" description true.
 - **The bot is not affected.** `sync-backlog.yml` pushes from CI, where no hook runs.
   Its re-sync carries new content, so it is not waste.
 - **Cost.** One `merge-tree` per catch-up push; nothing on any other push.
 - **Tests.** `test/unit/tools/rebase-guard.test.js` builds real throwaway repos and
-  covers seven cases: a needless rebase, a needless merge from main, a real conflict,
-  a `merge=union` clash that only GitHub sees, the escape, an amend, and the four
-  pass-through cases. Two deliberately broken guards each fail it (2 and 3 failures).
+  covers eight cases: a needless rebase, a needless merge from main, a real conflict,
+  a `merge=union` clash that only GitHub sees, a squash across a newer main, the
+  escape, an amend, and the four pass-through cases. Deliberately broken guards fail
+  it: always-exit-0 (2 failures), never-call-precheck (3), no patch-id check (1).
+- **Checker (tier 1)** found the squash case, the missing queue-ejection escape, the
+  non-piped hook and the count errors fixed here. It also showed a rebase of a stacked
+  branch onto its rebased parent is refused; that happens only when the parent's own
+  rebase was needless, so it is left as is.
 
 `queue-precheck.sh` gained `--head=<rev>` and `--onto=<rev>` (defaults `HEAD` and
 `origin/main`), so the guard reuses its GitHub-terms merge rather than copying it.
 
 ## 3. Committed generated JS under `lib/`: deferred
 
-34 `lib/**/*.generated.*` files are still committed, although the 2026-08-17 decision
+40 `lib/**/*.generated.*` files are still committed, although the 2026-08-17 decision
 stopped committing `dist/` for the same reason. They were in 6 of the 19 real conflicts.
 
 **Uncommitting is feasible.** Every CI workflow that loads them runs root `npm ci`, and
-`npm ci` runs `prepare` (`tools/build.js --only-uncommitted`). The two workflows that skip
-it import none of them. It would add up to ~27s to `npm install`: the full build takes 39s,
+`npm ci` runs `prepare` (`tools/build.js --only-uncommitted`). The workflows that skip it either
+run no repo code or run scripts that import none of them (`labels.yml` and
+`sync-backlog.yml` run `tools/*`; three more run `.github/scripts/*.js`). It would add up to ~27s to `npm install`: the full build takes 39s,
 against 12.5s for the steps already uncommitted.
 
 **The owner deferred it until the Tauri desktop app lands.** That app embeds the engine,

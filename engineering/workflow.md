@@ -1221,8 +1221,9 @@ it passes, that exact tree becomes `main`.
   (`mergeable_state: dirty` — rebase) or a check that is not `ci`.
 - **The pre-push hook refuses a needless catch-up.** `rebase-guard` blocks a push
   that rebases or merges `main` into a branch whose remote head merged cleanly on
-  GitHub's terms. If you need a specific commit from `main`, push with
-  `LATTICE_REBASE_REASON="needs <sha>: <why>"` and name the commit in the commit message.
+  GitHub's terms. If you need a specific commit from `main` or the queue ejected the
+  PR, push with `LATTICE_REBASE_REASON="needs <sha>: <why>"` (or `="queue ejected:
+  <check>"`) and say so in the commit message.
 - **The queue cannot fix a real conflict.** A textual conflict, most often a
   committed generated file (a gallery PDF, a showcase WebP, a bundle, a golden),
   keeps the PR out of the queue or ejects it. That is the one case that needs a

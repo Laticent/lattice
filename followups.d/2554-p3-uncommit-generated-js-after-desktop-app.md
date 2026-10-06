@@ -8,7 +8,7 @@ source: engineering/decisions/2026-10-06-conflict-reduction.md
 # Uncommit the lib/**/*.generated.* files once the desktop app's engine intake is known
 
 ```text
-  P3 · [no ticket] Stop committing the 34 lib/**/*.generated.* files — owner: after the
+  P3 · [no ticket] Stop committing the 40 lib/**/*.generated.* files — owner: after the
        Tauri desktop app lands.
        why now   — committed generated JS was in 6 of 19 real conflicts (2026-09-30..10-06).
                    Each resolves mechanically with `npm run build`, but each still costs a
@@ -19,7 +19,7 @@ source: engineering/decisions/2026-10-06-conflict-reduction.md
        blocked   — the owner deferred it until the desktop app lands, because how that app
                    takes in the engine is not visible from this repo. If it uses a git
                    checkout without `npm install`, these imports would break there.
-       done when — none of the 34 files is tracked; a fresh clone + `npm ci` builds them;
+       done when — none of the 40 files is tracked; a fresh clone + `npm ci` builds them;
                    every workflow that imports one runs root `npm ci` first; the desktop
                    app's build is confirmed to run the engine's `prepare` (or `prepack`).
        evidence  — `git ls-files '*.generated.*'` empty under lib/; the added `npm install`

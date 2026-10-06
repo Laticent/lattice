@@ -108,13 +108,20 @@ pre-push:
   # so overlapping them risks file contention. Per-component / bucket-gallery
   # PDF freshness (58 + 18 rebuilds, ~30 min) still lives in CI only — see
   # pre-push-disabled above.
+  #
+  # `piped: true` is what makes "fail-fast" true: without it lefthook runs every
+  # remaining job after one fails, so a refused push still paid for lint,
+  # lint-deck and build:check (checker finding on PR #2561, reproduced with the
+  # real binary).
+  piped: true
   jobs:
     - name: rebase-guard
       # Refuses a rebase (or merge from main) that the PR did not need: the head
       # it replaces merged cleanly with the newer main on GitHub's terms (HARD
       # RULE #16). ~1s, and only does work when the push moves the branch onto a
-      # newer main. Escape for the rule's own exception (you need a specific
-      # commit from main): LATTICE_REBASE_REASON="needs <sha>: <why>" git push.
+      # newer main. Escape for the rule's own exceptions (you need a specific
+      # commit from main, or the queue ejected the PR):
+      # LATTICE_REBASE_REASON="needs <sha>: <why>" git push.
       # See tools/rebase-guard.sh and
       # engineering/decisions/2026-10-06-conflict-reduction.md.
       use_stdin: true
