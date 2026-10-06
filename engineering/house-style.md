@@ -227,3 +227,4 @@ one — nothing in the tree can tell a load-bearing sentence from a plausible
 filler one. The test a reviewer can actually apply: **point at a paragraph and
 ask what it would cost to delete.** If the answer is "nothing," it should not
 have shipped.
+
