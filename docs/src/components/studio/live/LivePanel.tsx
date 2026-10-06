@@ -2,6 +2,7 @@ import { ArrowUp, Check, Crown, Eye, Link2, LogOut, Mic, MicOff, MoreHorizontal,
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -52,7 +53,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 					{following ? `Following · ${whereLabel(p)}` : whereLabel(p)}
 				</div>
 			</div>
-			<MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'off' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'off' ? 'Muted' : 'Mic on'} />
+			{view.audio && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'off' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'off' ? 'Muted' : 'Mic on'} />}
 			{!p.me && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -152,23 +153,32 @@ function Composer({ onSend }: { onSend: (text: string) => void }) {
 	);
 }
 
-/** The panel body before a session: one card, one action. */
-function StartCard({ actions }: { actions: LiveActions }) {
+/** The panel body before a session: one card, your name, one action. */
+function StartCard({ actions, defaultName }: { actions: LiveActions; defaultName: string }) {
+	const [name, setName] = React.useState(defaultName);
 	return (
-		<div className="flex flex-col gap-3 px-3.5 py-4">
+		<form
+			className="flex flex-col gap-3 px-3.5 py-4"
+			onSubmit={(e) => {
+				e.preventDefault();
+				if (name.trim()) actions.start(name);
+			}}
+		>
 			<div className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-[12px] leading-relaxed text-muted-foreground">
 				<UsersRound className="mx-auto mb-1.5 size-5 text-[var(--accent)]" />
 				Edit this deck together, live. Share a link; people knock, you let them in, and everyone sees the same deck, carets and slide.
 				<span className="mt-1.5 block">Up to 4 people. Edits go browser to browser.</span>
 			</div>
-			<Button onClick={actions.start} className="w-full gap-1.5">
+			<label htmlFor="live-start-name" className="text-[11.5px] font-semibold text-foreground">Your name</label>
+			<Input id="live-start-name" value={name} maxLength={40} autoComplete="name" onChange={(e) => setName(e.target.value)} placeholder="How others will see you" className="h-8 text-[12.5px]" />
+			<Button type="submit" disabled={!name.trim()} className="w-full gap-1.5">
 				<Link2 className="size-4" /> Start live session
 			</Button>
-		</div>
+		</form>
 	);
 }
 
-export function LivePanel({ view, actions, title, now }: { view: LiveView; actions: LiveActions; title?: string; now: number }) {
+export function LivePanel({ view, actions, title, now, defaultName = '' }: { view: LiveView; actions: LiveActions; title?: string; now: number; defaultName?: string }) {
 	const chatEnd = React.useRef<HTMLLIElement>(null);
 	const chatCount = view.chat.length;
 	React.useEffect(() => {
@@ -208,7 +218,7 @@ export function LivePanel({ view, actions, title, now }: { view: LiveView; actio
 				</div>
 			)}
 			{!live ? (
-				<StartCard actions={actions} />
+				<StartCard actions={actions} defaultName={defaultName} />
 			) : (
 				<>
 					<div className="shrink-0 overflow-y-auto">
@@ -248,7 +258,7 @@ export function LivePanel({ view, actions, title, now }: { view: LiveView; actio
 									{view.waiting.map((k) => (
 										<li key={k.id} className="flex items-center gap-2 rounded-lg border border-[var(--accent)] bg-background px-2 py-1.5">
 											<span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-foreground">{k.name}</span>
-											<Button size="xs" variant="ghost" onClick={() => actions.deny(k.id)} aria-label={`Deny ${k.name}`}><X /> Deny</Button>
+											<Button size="icon" variant="ghost" className="size-6" onClick={() => actions.deny(k.id)} aria-label={`Deny ${k.name}`} title="Deny"><X className="size-3.5" /></Button>
 											<Button size="xs" onClick={() => actions.admit(k.id)} disabled={full} aria-label={`Admit ${k.name}`}><Check /> Admit</Button>
 										</li>
 									))}
@@ -261,13 +271,13 @@ export function LivePanel({ view, actions, title, now }: { view: LiveView; actio
 						<ul className="flex flex-col px-1.5">
 							{view.people.map((p) => <PersonRow key={p.id} p={p} view={view} actions={actions} />)}
 						</ul>
-						<div className="px-3.5 pt-1 pb-2">
+						{view.audio && <div className="px-3.5 pt-1 pb-2">
 							<Button size="sm" variant="ghost" onClick={actions.toggleMic} className="h-7 gap-1.5 px-2 text-[11.5px]">
 								{view.people.find((p) => p.me)?.mic === 'off' ? <><Mic className="size-3.5" /> Join with audio</> : <><MicOff className="size-3.5" /> Mute</>}
 							</Button>
-						</div>
+						</div>}
 					</div>
-					<div className="flex min-h-0 flex-1 flex-col border-t border-border">
+					<div className="mt-1.5 flex min-h-0 flex-1 flex-col border-t border-border">
 						<div className={SECTION}>Chat</div>
 						<ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3.5 py-1.5" aria-label="Session chat" aria-live="polite">
 							{view.chat.length === 0 && <li className="text-[11.5px] text-muted-foreground">Messages go to everyone in the session. Type “slide 4” to link a slide.</li>}

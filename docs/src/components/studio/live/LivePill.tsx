@@ -1,5 +1,6 @@
 import { Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { LiveAvatar } from './LivePanel';
 import { type LiveView, liveColor } from './live-model';
 
@@ -17,7 +18,7 @@ export function LivePill({ view, onOpen, onToggleMic }: { view: LiveView; onOpen
 			<button
 				type="button"
 				onClick={onOpen}
-				className="flex items-center gap-1.5 rounded-l-full py-0.5 pr-1.5 pl-1 hover:bg-accent"
+				className={cn('flex items-center gap-1.5 py-0.5 pr-1.5 pl-1 hover:bg-accent', view.audio ? 'rounded-l-full' : 'rounded-full')}
 				aria-label={`Live session with ${others.length === 0 ? 'nobody else yet' : others.map((p) => p.name).join(', ')}${view.waiting.length ? `; ${view.waiting.length} waiting` : ''}. Open the Live panel`}
 			>
 				<span className="flex -space-x-1.5">
@@ -25,7 +26,7 @@ export function LivePill({ view, onOpen, onToggleMic }: { view: LiveView; onOpen
 				</span>
 				{view.waiting.length > 0 && <span className="grid h-4 min-w-4 place-items-center rounded-full bg-[var(--accent)] px-1 text-[10px] font-bold text-[var(--on-accent)]">{view.waiting.length}</span>}
 			</button>
-			<Button
+			{view.audio && <Button
 				variant="ghost"
 				size="icon"
 				onClick={onToggleMic}
@@ -35,7 +36,7 @@ export function LivePill({ view, onOpen, onToggleMic }: { view: LiveView; onOpen
 				style={onAir && me ? { color: liveColor(me.color) } : undefined}
 			>
 				{onAir ? <Mic className="size-3.5" /> : <MicOff className="size-3.5 text-muted-foreground" />}
-			</Button>
+			</Button>}
 		</div>
 	);
 }

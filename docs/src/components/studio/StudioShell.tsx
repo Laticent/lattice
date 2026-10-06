@@ -94,8 +94,8 @@ import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides,
 import { LiveLobby } from './live/LiveLobby';
 import { LiveAvatar, LivePanel } from './live/LivePanel';
 import { LivePill } from './live/LivePill';
-import { readLiveDemoMode, useLiveDemo } from './live/live-demo';
 import { liveColor } from './live/live-model';
+import { storedLiveName, useLiveSession } from './live/use-live-session';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
@@ -3528,8 +3528,49 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const activeFullIndex = composeLens === 'full' ? slideNo - 1 : Math.max(0, slides.indexOf(viewSlides[slideNo - 1]));
 
 	// ── Live session (PROTOTYPE driver until Tavola lands — live/live-demo.ts) ──
-	const liveDemoMode = React.useMemo(() => (typeof location === 'undefined' ? null : readLiveDemoMode(location.search)), []);
-	const live = useLiveDemo(liveDemoMode, { myName: 'Sharmarke', activeSlide: activeFullIndex, goToSlide });
+	// The Live session (engineering/decisions/2026-10-06-studio-live-collaboration.md). People's
+	// slides are FULL-deck indices; the navigator speaks the reader-lens view, so map between them.
+	const goToFullSlide = (full: number) => {
+		const v = composeLens === 'full' ? full : viewSlides.indexOf(slides[full]);
+		if (v >= 0) goToSlide(v);
+		else notify('That slide is hidden by the current reader view.');
+	};
+	const live = useLiveSession({
+		source,
+		setSource: setSourceFromEditor,
+		deckId: deck.id,
+		deckTitle: titleFromSource(source, deck.title),
+		slideCount: slides.length,
+		theme: palette,
+		activeSlide: activeFullIndex,
+		goToSlide: goToFullSlide,
+		openSharedDeck: ({ deckId, title, source: shared }) => {
+			flushActiveDeck();
+			const existing = deckId ? loadDeckList().find((d) => d.id === deckId) : undefined;
+			const d = existing ?? createDeck(title, shared);
+			if (existing) saveSource(d.id, shared);
+			setDecks(loadDeckList());
+			setDeck(d);
+			setSourceFromEditor(shared);
+			setActiveSlide(0);
+			setView('compose');
+			return d.id;
+		},
+	});
+	// Open the Live panel from anywhere (the header pill, the Share sheet): below Craft the docked
+	// slot does not exist, so reveal the Craft dock first, the way Reader views does.
+	const openLive = () => {
+		if (desktop) revealCraftDock();
+		setActiveAssistant('live');
+	};
+	// The editor's own writes are already in the shared text; tell the session so it never re-applies them.
+	const onLiveEditorChange = React.useCallback(
+		(next: string) => {
+			live.noteEditorWrite(next);
+			setSourceFromEditor(next);
+		},
+		[live.noteEditorWrite],
+	);
 	// Who else is on each slide (full-deck index → people), for the navigator and preview corner.
 	const liveBySlide = React.useMemo(() => {
 		const m = new Map<number, typeof live.view.people>();
@@ -5222,7 +5263,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={setSourceFromEditor} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={live.collab ? onLiveEditorChange : setSourceFromEditor} collab={live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>
@@ -6193,7 +6234,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    the identity band beside the deck (2026-08-16) — the note is on its new site.
 				    What stayed behind is the rule, which now reads as "utilities end, actions
 				    begin" instead of "…and now a mode control". */}
-				<LivePill view={live.view} onOpen={() => setActiveAssistant('live')} onToggleMic={live.actions.toggleMic} />
+				<LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />
 				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
@@ -6479,7 +6520,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{chatOpen && chatBodyWith('Chat')}
-									{liveOpen && <LivePanel title="Live" view={live.view} actions={live.actions} now={live.now} />}
+									{liveOpen && <LivePanel title="Live" view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} />}
 									{lensesOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
@@ -6554,7 +6595,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</PanelSheet>
 					<PanelSheet open={liveOpen} onOpenChange={(v) => setActiveAssistant((p) => (v ? 'live' : p === 'live' ? null : p))} side="left" width="sm">
 						<PanelHeader icon={<UsersRound />} title="Live" srDescription="Who is in this live session, the invite link, and the session chat." />
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden"><LivePanel view={live.view} actions={live.actions} now={live.now} /></div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden"><LivePanel view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} /></div>
 					</PanelSheet>
 					{/* Reader views — its own compact sheet, a peer of the Architect.
 					    Titled "Reader views", NOT "Lenses": every entry point into this panel
@@ -6607,7 +6648,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			{shareMounted && (
 				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
-					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />}
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} onCollaborate={openLive} />}
 				</PanelLoader>
 			)}
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />

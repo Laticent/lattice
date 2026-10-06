@@ -44,10 +44,12 @@ export type LiveView = {
 	following: string | null;
 	/** The host dropped; guests keep editing but nobody new can join. */
 	hostAway: boolean;
+	/** Whether calls exist yet (S4). False hides every mic control rather than showing dead ones. */
+	audio: boolean;
 };
 
 export type LiveActions = {
-	start: () => void;
+	start: (name: string) => void;
 	copyLink: () => void;
 	setLinkRole: (r: 'edit' | 'view') => void;
 	setAutoAdmit: (on: boolean) => void;
@@ -94,12 +96,21 @@ export const IDLE_VIEW: LiveView = {
 	chat: [],
 	following: null,
 	hostAway: false,
+	audio: false,
 };
 
 /** The CSS color for a session color. The chart categorical hues are the palette's own, so a
  *  person's color re-themes with the deck's palette and mode (HARD RULE #3). */
 const LIVE_COLOR_VAR: Record<LiveColor, string> = { 1: 'var(--chart-cat1)', 2: 'var(--chart-cat2)', 3: 'var(--chart-cat3)', 4: 'var(--chart-cat4)' };
 export const liveColor = (c: LiveColor) => LIVE_COLOR_VAR[c];
+/** The same color washed for a selection highlight behind text. */
+const LIVE_COLOR_LIGHT: Record<LiveColor, string> = {
+	1: 'color-mix(in srgb, var(--chart-cat1) 28%, transparent)',
+	2: 'color-mix(in srgb, var(--chart-cat2) 28%, transparent)',
+	3: 'color-mix(in srgb, var(--chart-cat3) 28%, transparent)',
+	4: 'color-mix(in srgb, var(--chart-cat4) 28%, transparent)',
+};
+export const liveColorLight = (c: LiveColor) => LIVE_COLOR_LIGHT[c];
 
 /** "Sharmarke" → "S", "Amina Hassan" → "AH". */
 export function initials(name: string): string {
