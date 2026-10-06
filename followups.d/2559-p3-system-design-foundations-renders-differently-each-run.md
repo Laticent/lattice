@@ -1,5 +1,5 @@
 ---
-origin: 2546
+origin: 2559
 priority: P3
 recorded: 2026-10-06
 source: https://github.com/Laticent/lattice/blob/main/tools/pixel-check.js
