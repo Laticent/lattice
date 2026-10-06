@@ -267,7 +267,13 @@ the photo and drops it from the photo, so the edge is exact at any size: at 4K, 
 downsampled photo wrote the dark hairline 86 levels off Chrome's print, it is now within 1.
 A gradient whose stops are not legacy sRGB colors (the `mono` style's `color-mix`) is sampled
 through the browser's own `color-mix` in the gradient's interpolation space. Only a strip flush with one side, the side's full length and at
-most 1% of the slide thick, counts as an edge. The edge stays in
+most 1% of the slide thick, counts as an edge. The edge is drawn straight over the photo, before the slide's
+images and shapes, because a section's background and border paint under everything on it. A
+background edge (the hairline, a rail) is checked twice before it is drawn: by geometry in the
+reader, and then by the photo itself. With the edge hidden, the band must show nothing but the
+slide's own color (`bandIsClear`, `compose.mjs`); anything else drops the vector edge and retakes
+that slide's photo with the edge in it (`edge-ink`). A border bar needs neither, since the section
+clips its content inside the bar. The edge stays in
 the photo when anything's ink can reach it (a finish's pseudo-element layer, an inset shadow over
 the hairline, an outer shadow, a list marker, a full-bleed image), when the slide is clipped or rounded (`corners-rounded`), or
 when its geometry is not one the reader models; `LATTICE_PDF_REPORT` names the reason

@@ -385,7 +385,15 @@ Order of work, all in one PR (#2404):
     its geometry is not one the reader models. A background layer counts only when it is an
     edge: flush with one side, the side's full length, at most 1% of the slide wide. The Studio
     reads the slide under the camera's own fixups (no host keyline, a squared corner), so it
-    draws the same edges. Pinned by the 4K arm of
+    draws the same edges.
+    **Three checker rounds** found ink the geometry still missed (a scaled shadow, an SVG stroke,
+    a text stroke, a pseudo inside a scaled parent), so the photo has the last word on a
+    background edge: taken with the edge hidden, its band must show only the slide's color, or
+    the edge goes back into the photo (`bandIsClear`, `edge-ink`). The edge is also drawn before
+    the slide's own images and shapes, as the browser paints a section's background under its
+    content; drawn with them, it buried a chart line crossing a divider's rail. On the 4K gallery
+    the photo check refuses nothing (83 edges drawn, 1 refused by geometry under a full-bleed
+    image); on the checkers' 17 attack slides, the PDF's band matches the screen's on every one. Pinned by the 4K arm of
     `test/integration/export/pdf-photo-hairline.test.js`.
   - The other 1 px rules a FINISH paints at the slide's edge (the `frame` keyline's inset
     box-shadow ring, `--fin-frame`, in `lib/base/base.finish.css`) are still in the photo, so
