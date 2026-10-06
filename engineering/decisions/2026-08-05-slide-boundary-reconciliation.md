@@ -370,6 +370,10 @@ JavaScript. The `stripFencedCode` fix stays: the typed-glyph gate reads fences t
 and it now agrees with markdown-it on every tracked file where the two used to differ. The
 corpus test pins the bake to `bakeSplits`, text by text.
 
+*(Superseded 2026-10-06: `moved-empty-box` and its slide-scoped `rewriteSlide` fix were deleted,
+so `chunkLeadLines` went with them. The leading-separator `--fix` tests now use the gantt
+delimiter fix.)*
+
 **Closed since (the panes-continuation PR, 2026-09-27).** An empty-box `--fix` failed when the
 body opened with a separator: `splitTopLevel` drops the empty leading group and its separator
 line, the line walk `applyFix` uses merges both into slide one, and the rule reported its lines in

@@ -1,0 +1,2 @@
+- `lint:deck` warnings now read as plain author advice: each message says what is wrong on the slide and what the reader will see, and each fix names the exact edit, without engine terms, internal file paths or CLI flags. Unknown front-matter values share one shape ("`'x'` isn't a valid `key:` value — the deck ignores it and uses …"), and the typed-glyph advice is one sentence per glyph.
+- `unknown-split` now names the real fallback, `headings`; it used to say the deck fell back to `rule`.

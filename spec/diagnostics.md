@@ -88,7 +88,7 @@ below are the canonical v1 identifiers the reference implementation emits, and
 | `split-compare-option-count` | warning | — | `split-compare` without exactly two top-level options — the layout assumes a two-up and highlights the 2nd as preferred. |
 | `number-slot-bodyless-item` | warning | — | A `kpi`/`stats` number item with no nested label — the number won't render in display type. |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
-| `unknown-finish` | warning | — | A front-matter `finish:` value that isn't a known register — the deck would silently render the boardroom baseline. |
+| `unknown-finish` | warning | — | A front-matter `finish:` value that isn't a known register — the deck ignores it and draws no backdrop. |
 | `unknown-plugin` | warning | — | A name in the front-matter `plugins:` import list that no plugin has — the list only adds, so the deck would silently load nothing for it. |
 | `lexicon-single-letter-key` | warning | — | A single-letter/digit `lexicon:` key (`e:`, `2:`) — read-aloud rewrites every embedded occurrence, not just the standalone token, garbling the deck's narration. A single glyph (`→`, `×`) is safe. |
 

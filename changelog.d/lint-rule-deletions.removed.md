@@ -1,0 +1,9 @@
+- The deck lint no longer reports eight findings that flagged slides which render correctly:
+  - `unknown-guards`: it duplicated `guards-renamed`. An unknown old `guards:` value with no `fit:` now raises `guards-renamed` as a warning instead.
+  - `capacity-autosplit`: it described the engine splitting an over-full slide at a portrait, square or strip size, which is the engine working as designed.
+  - `tag-alias` on `list-steps capsule`: `capsule` is a documented current modifier, not an old name. The `banner-tag` hint stays.
+  - `retired-form-key` for `form: standard` and other values that were already no-ops, and `retired-form-token` for a bare `form` token. `form: off` and `no-form` still warn, because they change the render.
+  - `pane-title` for a pane label past five words.
+  - `pane-layout` for `no-title` on a pane that has no title.
+  - `moved-empty-box`, with its render-time warning and `--fix` rewrite: `[ ]` is a valid answer on every layout.
+  - `deprecated-class-color-mode`: a deck-wide `class: dark` / `class: light` still works.

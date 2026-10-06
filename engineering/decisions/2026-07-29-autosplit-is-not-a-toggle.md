@@ -210,6 +210,9 @@ The splitter now reads `capacity` for **pacing only** — how many members ride 
 *once a cut has been decided*. The decision itself is a fact about glyphs in a box, and
 only the measured pass knows it. `autoSplitDeck` is deleted rather than left as a no-op.
 
+*(Superseded 2026-10-06: `capacity-autosplit` was deleted — it described the engine working as
+designed and gave the author nothing to do.)*
+
 **The advisory had to become conditional to stay true.** `capacity-autosplit` used to say
 "auto-split will divide it into 4 pages of 4"; it now says "**if it does not fit**, …4 **or
 more** pages of 4". Both edits are forced: a fitting slide is not divided at all, and when

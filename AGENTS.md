@@ -69,8 +69,8 @@ escalation target beside it; `components.json` carries the same as
 `{ axis, sweet, soft, hard, escalateTo }`). `sweet` is the
 ideal count; past `soft` it crowds; past `hard` it overflows. If your count
 exceeds `hard`, **don't pick that component** — use one of its `escalateTo`
-targets or split the content across slides. `lint:deck` warns when a slide
-exceeds capacity (rules `capacity-crowd` / `capacity-overflow`), but choosing
+targets or split the content across slides. `lint:deck` flags a slide past
+capacity (`capacity-crowd` suggests, `capacity-overflow` warns), but choosing
 by capacity up front is the fix; the warning is the backstop. See
 `engineering/decisions/2026-06-17-content-capacity-contract.md`.
 

@@ -616,7 +616,7 @@ ${m.description}`,
     const footer = specimen && stress.summary ? `${base} — ${stress.summary}` : base;
     let md = injectFooter(stress.sample, footer);
     // Specimen stress slides sit in the crowd band by contract; the marker
-    // tells lint-core to hold the capacity-crowd warning (overflow still
+    // tells lint-core to hold the capacity-crowd suggestion (overflow still
     // fires). Gated on specimenVoice so unmigrated decks stay byte-identical.
     if (specimen) {
       md = md.replace(

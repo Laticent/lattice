@@ -279,6 +279,10 @@ found these, and each is fixed on the branch with a test that fails without it:
 
 ### 10.2 The transition, for decks we do not ship
 
+*(Superseded 2026-10-06: the `moved-empty-box` lint, its render warning and its `--fix` rewrite
+were deleted. `[ ]` is a valid answer on every layout, so the rule flagged slides that rendered
+correctly. `guides/status/upgrading.md` now tells authors how to find the slides by hand.)*
+
 `lint:deck` alone was not enough. An author re-rendering an old deck gets a PDF that
 changed meaning with a successful exit code, and never runs the linter. Three layers:
 

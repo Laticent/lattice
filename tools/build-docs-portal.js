@@ -1384,8 +1384,8 @@ the render reports it — and \`optional x\` is one it uses when present. Empty 
 **\`capacity\`** is \`axis:sweet/soft/hard\` — the ideal count, the count past which it
 crowds, and the count past which it overflows. **Count your content before committing
 to a component**: if your count exceeds \`hard\`, pick something from *escalates to* or
-split across slides. \`npm run lint:deck\` warns after the fact (\`capacity-crowd\` /
-\`capacity-overflow\`); this column is how you avoid the rework.
+split across slides. \`npm run lint:deck\` flags it after the fact (\`capacity-crowd\`
+suggests, \`capacity-overflow\` warns); this column is how you avoid the rework.
 
 **A \`*\` means the budget VARIES BY DECK SIZE**, and the number shown is the wide
 (16:9) one. A \`mobile\`/\`strip\` deck holds fewer, a \`tall\` deck often more — \`list\` is

@@ -121,8 +121,8 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   reach the pane as a slide's `_class` would carry them.
 - **The pane title is optional**, but write one: it says what the pane is for. It is set in the
   eyebrow's voice, as a label: the slide's `##` makes the point, and each pane names what it holds
-  ("Revenue by line", "Findings by vendor"). Keep it to five words or fewer; `lint:deck` suggests a
-  shorter one past that (`pane-title`). A pane shows one label, so an eyebrow pill written above
+  ("Revenue by line", "Findings by vendor"). Keep it short: a label reads best at five words or
+  fewer. A pane shows one label, so an eyebrow pill written above
   its `###` joins it: `` `Shortlist` `` over `### Cleared` renders "Shortlist · Cleared", and
   `lint:deck` suggests writing it that way. Side by side, the two titles share a row, so both
   bodies start on one line even when one title wraps.
@@ -154,8 +154,8 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
 - `lint:deck` names each problem before you render: `pane-arrange` (the slide will re-orient or
   split), `pane-overflow` (past the budget), `pane-crowd` (past the comfortable count),
   `pane-layout` (a ratio off the grid, a third pane, fewer than two, a modifier the component does
-  not know, a deck-wide `class: columns`), `pane-title` (a pill above a pane title, a title past
-  five words) and `pane-insight`. It warns and never blocks; the Studio's editor shows the same
+  not know, a deck-wide `class: columns`), `pane-title` (a pill above a pane title) and
+  `pane-insight`. It warns and never blocks; the Studio's editor shows the same
   warnings as you type. At export, a pane that really clips is marked like any clipped slide.
 - **On a square, portrait, story or mobile deck the panes split** into one slide per pane.
   Those sizes set type about twice as large, so two components do not share one frame there.

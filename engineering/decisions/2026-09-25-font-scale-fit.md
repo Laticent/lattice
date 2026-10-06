@@ -176,7 +176,8 @@ components (agenda at xl: formula 4, measured 3). `floor(ceiling / s²)` still o
 on glossary and team-profile, whose layouts change shape at a scale.
 
 **Why `info` and a budget, not a `warning` and a forecast.** The engine acts on the slide
-by itself and loses nothing, which is the case `capacity-autosplit` is `info` for. And the
+by itself and loses nothing, which is the case `capacity-autosplit` was `info` for (deleted
+2026-10-06). And the
 forecast is weak, for the reason 2026-07-28 recorded. Scored against the engine's SCALE
 line over the 70 galleries and the repro deck at scale-xl:
 

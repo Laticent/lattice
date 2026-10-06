@@ -62,18 +62,18 @@ describe('retired-form-warning', () => {
 
       // Each shape is named on its own line, because each is a separate edit the
       // author has to make.
-      assert.match(out, /`form: off` is retired/, 'the deck key');
-      assert.match(out, /this deck-wide class opted EVERY slide out/, 'the deck-wide class token');
-      assert.match(out, /a slide cannot opt out of Form/, 'the per-slide token');
+      assert.match(out, /`form: off` no longer works/, 'the deck key');
+      assert.match(out, /`no-form` no longer works; every slide now shows/, 'the deck-wide class token');
+      assert.match(out, /`no-form` no longer works; this slide now shows/, 'the per-slide token');
 
       // The consequence, not just the fact — this is what makes it actionable.
-      assert.match(out, /masthead band/);
+      assert.match(out, /title band and progress bar/);
       // And where to go for the fix.
       assert.match(out, /lattice lint/);
 
       // The per-slide finding carries its slide number; a bare list of identical
       // lines would not tell the author which slide to open.
-      assert.match(out, /warning: slide \d+: `no-form` is retired/);
+      assert.match(out, /warning: slide \d+: `no-form` no longer works/);
     });
 
   test('a deck carrying only INERT retired shapes is not nagged',
