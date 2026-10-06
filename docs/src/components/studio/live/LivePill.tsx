@@ -1,0 +1,41 @@
+import { Mic, MicOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { LiveAvatar } from './LivePanel';
+import type { LiveView } from './live-model';
+
+// The header presence pill (§5.6): while a session is live it is the one surface visible at
+// every width, so closing the Live panel never hides who is here or whether you are on air.
+
+export function LivePill({ view, onOpen, onToggleMic }: { view: LiveView; onOpen: () => void; onToggleMic: () => void }) {
+	if (view.status !== 'live') return null;
+	const me = view.people.find((p) => p.me);
+	const others = view.people.filter((p) => !p.me);
+	const shown = view.people.slice(0, 4);
+	const onAir = me && me.mic !== 'off';
+	return (
+		<div className="flex items-center rounded-full border border-border bg-background" data-live-pill>
+			<button
+				type="button"
+				onClick={onOpen}
+				className="flex items-center gap-1.5 rounded-l-full py-0.5 pr-1.5 pl-1 hover:bg-accent"
+				aria-label={`Live session with ${others.length === 0 ? 'nobody else yet' : others.map((p) => p.name).join(', ')}${view.waiting.length ? `; ${view.waiting.length} waiting` : ''}. Open the Live panel`}
+			>
+				<span className="flex -space-x-1.5">
+					{shown.map((p) => <LiveAvatar key={p.id} person={p} size={22} ring={p.mic === 'speaking'} className="border-2 border-[var(--bg)]" />)}
+				</span>
+				{view.waiting.length > 0 && <span className="grid h-4 min-w-4 place-items-center rounded-full bg-[var(--accent)] px-1 text-[10px] font-bold text-[var(--on-accent)]">{view.waiting.length}</span>}
+			</button>
+			<Button
+				variant="ghost"
+				size="icon"
+				onClick={onToggleMic}
+				aria-pressed={!!onAir}
+				aria-label={onAir ? 'Mute your microphone' : 'Join with audio'}
+				className="size-7 rounded-l-none rounded-r-full"
+				style={onAir && me ? { color: `var(--chart-cat${me.color})` } : undefined}
+			>
+				{onAir ? <Mic className="size-3.5" /> : <MicOff className="size-3.5 text-muted-foreground" />}
+			</Button>
+		</div>
+	);
+}

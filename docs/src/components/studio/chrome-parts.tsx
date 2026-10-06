@@ -11,7 +11,7 @@
 // Keep these PURE and browser-API-free: they are rendered at build time, where there is no
 // `window`. Props only, no hooks that read the DOM.
 
-import { BookOpen, FileBox, FileSliders, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal } from 'lucide-react';
+import { BookOpen, FileBox, FileSliders, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal, UsersRound } from 'lucide-react';
 import type * as React from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Tip } from '@/components/ui/tooltip';
@@ -255,13 +255,13 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 // can never light a panel the app is about to close.
 //
 // The accessible names are the e2e/demo contract — 'Toggle Coach', 'Toggle Chat', 'Deck
-// scope', 'Slide settings', 'Open Library', 'Workspace settings' (studio-fixture.ts CHROME
+// scope', 'Slide settings', 'Open Library', 'Workspace settings', 'Toggle Live' (studio-fixture.ts CHROME
 // map + tour-kit SEL) — keep them stable.
 
 /** Which panel each of the rail's two exclusive slots is showing (null = closed). */
 export type ActivityRailState = {
-	/** The assistant slot: Coach · Chat · Library · Reader views. */
-	assistant: 'coach' | 'chat' | 'library' | 'lenses' | null;
+	/** The assistant slot: Coach · Chat · Live · Library · Reader views. */
+	assistant: 'coach' | 'chat' | 'live' | 'library' | 'lenses' | null;
 	/** The settings slot: the slide Inspector or the deck one. */
 	settings: 'slide' | 'deck' | null;
 };
@@ -295,6 +295,7 @@ export function ActivityRail({
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
 			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={state.assistant === 'coach'} onClick={() => onAssistant('coach')}><Gauge className="size-[18px]" /></BarIcon>
 			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={state.assistant === 'chat'} onClick={() => onAssistant('chat')}><ChatIcon className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Live" hint="Live — edit together: invite, people, session chat" caption="Live" active={state.assistant === 'live'} onClick={() => onAssistant('live')}><UsersRound className="size-[18px]" /></BarIcon>
 			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={state.assistant === 'library'} onClick={() => onAssistant('library')}><FileBox className="size-[18px]" /></BarIcon>
 			<BarIcon label="Toggle Reader views" hint="Reader views — a subset of the deck for one kind of reader" caption="Views" active={state.assistant === 'lenses'} onClick={() => onAssistant('lenses')}><LensIcon className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />

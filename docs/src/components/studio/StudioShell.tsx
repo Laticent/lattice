@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X, 
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -91,6 +91,10 @@ import { LESSONS } from './lessons/catalog';
 import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
+import { LiveLobby } from './live/LiveLobby';
+import { LiveAvatar, LivePanel } from './live/LivePanel';
+import { LivePill } from './live/LivePill';
+import { readLiveDemoMode, useLiveDemo } from './live/live-demo';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
@@ -587,7 +591,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// group), sharing one grid track — the layout can't fit three docked columns
 	// beside editor+preview (#721). Settings/Inspector is a SEPARATE independent slot,
 	// so a tool panel + settings can be open together (the coach↔tune loop).
-	const [activeAssistant, setActiveAssistant] = React.useState<'coach' | 'chat' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Craft shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
+	const [activeAssistant, setActiveAssistant] = React.useState<'coach' | 'chat' | 'live' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Craft shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
 	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
@@ -600,13 +604,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const architectOpen = coachOpen || chatOpen;
 	const lensesOpen = activeAssistant === 'lenses';
 	const libraryOpen = activeAssistant === 'library';
+	// Live — the collaboration portal (engineering/decisions/2026-10-06-studio-live-collaboration.md §5).
+	const liveOpen = activeAssistant === 'live';
 	const inspectorOpen = activeSettings !== null;
 	const inspectorScope: 'slide' | 'deck' = activeSettings ?? 'slide';
 	// Whether any Craft-only panel is docked — read by the `[view]`-only Fabricate
 	// restore (which can't list panel state as a dep) to avoid re-revealing Craft with
 	// nothing open.
 	const panelsOpenRef = React.useRef(false);
-	panelsOpenRef.current = architectOpen || lensesOpen || libraryOpen || inspectorOpen;
+	panelsOpenRef.current = architectOpen || liveOpen || lensesOpen || libraryOpen || inspectorOpen;
 	// A transient Craft reveal recedes once the faculties it was summoned for all
 	// close — mirroring `quietened`'s auto-clear. The summon batches revealCraft + the
 	// panel-open in one commit, so on the opening render a panel is already open and
@@ -615,8 +621,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// coach paints one frame of empty Craft chrome (activity bar, no panel) + a 52px
 	// layout jump before the passive effect clears it (red-team/checker finding).
 	React.useLayoutEffect(() => {
-		if (revealCraft && !architectOpen && !lensesOpen && !libraryOpen && !inspectorOpen) setRevealCraft(false);
-	}, [revealCraft, architectOpen, lensesOpen, libraryOpen, inspectorOpen]);
+		if (revealCraft && !architectOpen && !liveOpen && !lensesOpen && !libraryOpen && !inspectorOpen) setRevealCraft(false);
+	}, [revealCraft, architectOpen, liveOpen, lensesOpen, libraryOpen, inspectorOpen]);
 	// Compatibility setters — the demo hook's prop interface and a handful of simple
 	// call sites still speak the old open/scope API; these adapt it onto the enums.
 	// The COMPOUND toggles (the bar's scope icons, the mobile/tablet settings toggle)
@@ -1474,7 +1480,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// panelBudget / archEff / setEff clamps) is retired. The Assistant slot holds ONE
 	// of Architect / Lenses / Library (mutually exclusive); Library docks wider
 	// (asset cards) so it carries its own default + min.
-	const assistantOpen = architectOpen || lensesOpen || libraryOpen;
+	const assistantOpen = architectOpen || liveOpen || lensesOpen || libraryOpen;
 	const assistantMin = libraryOpen ? LIB_MIN : ARCH_MIN;
 	const assistantDefault = libraryOpen ? LIB_DEFAULT : ARCH_DEFAULT;
 
@@ -3520,6 +3526,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The full-deck index of the slide currently in view (for handing off to Present).
 	const activeFullIndex = composeLens === 'full' ? slideNo - 1 : Math.max(0, slides.indexOf(viewSlides[slideNo - 1]));
 
+	// ── Live session (PROTOTYPE driver until Tavola lands — live/live-demo.ts) ──
+	const liveDemoMode = React.useMemo(() => (typeof location === 'undefined' ? null : readLiveDemoMode(location.search)), []);
+	const live = useLiveDemo(liveDemoMode, { myName: 'Sharmarke', activeSlide: activeFullIndex, goToSlide });
+	// Who else is on each slide (full-deck index → people), for the navigator and preview corner.
+	const liveBySlide = React.useMemo(() => {
+		const m = new Map<number, typeof live.view.people>();
+		for (const p of live.view.people) if (!p.me && p.slide !== null) m.set(p.slide, [...(m.get(p.slide) ?? []), p]);
+		return m;
+	}, [live.view.people]);
+
+	// The knock (§4.3): a toast with Admit that never steals focus from the editor; Deny lives on
+	// the panel row. One toast per new knock.
+	const knocksSeen = React.useRef(new Set<string>());
+	React.useEffect(() => {
+		if (!live.view.isHost) return;
+		for (const k of live.view.waiting) {
+			if (knocksSeen.current.has(k.id)) continue;
+			knocksSeen.current.add(k.id);
+			notifyAction(`${k.name} wants to join`, { label: 'Admit', description: 'Deny from the Live panel.', onClick: () => live.actions.admit(k.id) });
+		}
+	}, [live.view.waiting, live.view.isHost, live.actions]);
+
+
 	// The preview card's aspect follows the deck's selected Size (not a fixed 16:9);
 	// The preview box CONTAINS the slide (whole slide visible, never cropped) at the deck's
 	// aspect ratio, letterboxing the pane's spare axis.
@@ -5241,6 +5270,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
 				<span className="flex-1" />
+				{/* Live: who else is looking at THIS slide (§5.3) — a change could land under you. */}
+				{(liveBySlide.get(activeFullIndex)?.length ?? 0) > 0 && (
+					<Tip label={`Also here: ${(liveBySlide.get(activeFullIndex) ?? []).map((p) => p.name).join(', ')}`}>
+						<span className="flex shrink-0 -space-x-1.5 normal-case tracking-normal" role="img" aria-label={`Also on this slide: ${(liveBySlide.get(activeFullIndex) ?? []).map((p) => p.name).join(', ')}`}>
+							{(liveBySlide.get(activeFullIndex) ?? []).slice(0, 3).map((p) => <LiveAvatar key={p.id} person={p} size={20} ring={p.mic === 'speaking'} className="border-2 border-[var(--bg)]" />)}
+						</span>
+					</Tip>
+				)}
 				{/* The zoom's only chrome, and it earns its place twice: it tells a reader
 				    who zoomed by accident WHY the slide is cropped, and it is the pointer-free
 				    way back to fit (a middle-click also resets, but a trackpad has no middle
@@ -5262,6 +5299,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Tip label="Collapse preview — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse preview" onClick={() => collapseFromHeader('b')}><PanelRightClose className="size-4" /></Button></Tip>
 				)}
 			</div>
+			)}
+			{live.view.following && (
+				<div className="flex items-center gap-2 border-b border-border bg-[var(--accent-soft)] px-3.5 py-1 text-[12px] text-foreground" data-live-follow>
+					<span className="size-2 rounded-full" style={{ background: `var(--chart-cat${live.view.people.find((p) => p.id === live.view.following)?.color ?? 1})` }} aria-hidden />
+					<span className="min-w-0 flex-1 truncate">Following {live.view.people.find((p) => p.id === live.view.following)?.name ?? 'someone'}</span>
+					<Button size="xs" variant="ghost" onClick={() => live.actions.follow(null)}>Stop</Button>
+				</div>
 			)}
 			<WebImagesNotice summary={webSummary} allowed={webAllowed} onLoad={allowWebOrigins} onBlock={blockWebOrigins} />
 			{codeStamp && (
@@ -5413,6 +5457,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						>
 							<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{i + 1}</span>
 							<span className={cn('text-[11px]', effectiveStop === 'read' ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{label}</span>
+							{/* Live presence: who else is on this slide (§5.3). Decorative — the Live panel lists it in words. */}
+							{liveBySlide.has(composeLens === 'full' ? i : slides.indexOf(s)) && (
+								<span aria-hidden className="flex -space-x-1">
+									{(liveBySlide.get(composeLens === 'full' ? i : slides.indexOf(s)) ?? []).slice(0, 3).map((p) => (
+										<span key={p.id} className="size-2.5 rounded-full border border-[var(--bg)]" style={{ background: `var(--chart-cat${p.color})` }} />
+									))}
+								</span>
+							)}
 						</button>
 					);
 				})}
@@ -5648,6 +5700,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<>
 							<DropdownMenuItem onSelect={fromOverflow(() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach')))}><Gauge className="size-4" />Coach</DropdownMenuItem>
 							<DropdownMenuItem onSelect={fromOverflow(() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat')))}><ChatIcon className="size-4" />Chat</DropdownMenuItem>
+							<DropdownMenuItem onSelect={fromOverflow(() => setActiveAssistant((p) => (p === 'live' ? null : 'live')))}><UsersRound className="size-4" />Live</DropdownMenuItem>
 							<DropdownMenuItem onSelect={fromOverflow(() => setActiveSettings((p) => (p ? null : 'deck')))}><SlidersHorizontal className="size-4" />Settings — deck &amp; slide</DropdownMenuItem>
 							<DropdownMenuItem onSelect={fromOverflow(() => setLibraryOpen(true))}><FileBox className="size-4" />Library</DropdownMenuItem>
 							{/* "Reader views", not "Lenses — reader views": this row is an entry point into the panel, and
@@ -6139,6 +6192,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    the identity band beside the deck (2026-08-16) — the note is on its new site.
 				    What stayed behind is the rule, which now reads as "utilities end, actions
 				    begin" instead of "…and now a mode control". */}
+				<LivePill view={live.view} onOpen={() => setActiveAssistant('live')} onToggleMic={live.actions.toggleMic} />
 				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
@@ -6424,6 +6478,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{chatOpen && chatBodyWith('Chat')}
+									{liveOpen && <LivePanel title="Live" view={live.view} actions={live.actions} now={live.now} />}
 									{lensesOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
@@ -6495,6 +6550,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							actions={<span ref={setChatCostSlot} className="flex items-center" />}
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(undefined, chatCostSlot)}</div>
+					</PanelSheet>
+					<PanelSheet open={liveOpen} onOpenChange={(v) => setActiveAssistant((p) => (v ? 'live' : p === 'live' ? null : p))} side="left" width="sm">
+						<PanelHeader icon={<UsersRound />} title="Live" srDescription="Who is in this live session, the invite link, and the session chat." />
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden"><LivePanel view={live.view} actions={live.actions} now={live.now} /></div>
 					</PanelSheet>
 					{/* Reader views — its own compact sheet, a peer of the Architect.
 					    Titled "Reader views", NOT "Lenses": every entry point into this panel
@@ -6653,6 +6712,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<input ref={importInputRef} type="file" accept={DECK_IMPORT_ACCEPT} onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 
 			{/* The one toast surface. What lands here is `lib/notify.ts`'s three kinds. */}
+			{live.lobby && <LiveLobby view={live.lobby} actions={live.lobbyActions} />}
 			<Toaster />
 		</div>
 		</PanelNav>
