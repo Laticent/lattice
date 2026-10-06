@@ -243,6 +243,7 @@
     "parser:bakeoff:languages": "node tools/parser-bakeoff/languages.mjs",
     "parser:bakeoff:versus": "node tools/parser-bakeoff/versus.mjs",
     "parser:bakeoff:flow": "node tools/parser-bakeoff/flow-segno.mjs",
+    "parser:bakeoff:list-text": "node tools/parser-bakeoff/list-text-speed.mjs",
     "dom:bakeoff:chromium": "node tools/dom-bakeoff/chromium.mjs",
     "bench:bless": "node test/benchmark/engine-bench.mjs --bless",
     "bench:check": "node test/benchmark/engine-bench.mjs --check",

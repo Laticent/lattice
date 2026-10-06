@@ -1297,11 +1297,13 @@ foreground tokens meet WCAG AA on body backgrounds. The `.heat` modifier remaps
 hollow rings neutral.
 
 **Implementation contract:** the marker grammar AND its meaning live in one
-kernel, `lib/core/state-marks.js` — `MARKER_CLASS`, `LEADING_MARKER_RE` and
-`stateClassesFor`. Every consumer builds its pattern from that kernel: the
-engine (`lib/integrations/markdown-it/plugins.js`), the VS Code / export-to-Marp
-runtime (`lib/runtime/index.js`), roadmap's transform, the table row-label
-heuristic, and the docs-site Compose editor. Each strips the marker and adds
+pair of kernels: `lib/core/leading-marker.js` reads it (`readLeadingMarker`, the
+Segno list-text grammar in `lib/core/list-text-grammar.js`) and
+`lib/core/state-marks.js` says what it means (`stateClassesFor`). Every consumer
+reads through them: the engine (`lib/integrations/markdown-it/plugins.js`),
+the VS Code / export-to-Marp runtime (`lib/runtime/index.js`), roadmap's
+transform, the table row-label heuristic, and chart narration. The docs-site
+Compose editor still builds its patterns from the kernel's `MARKER_CLASS`. Each strips the marker and adds
 `class="state {sem} {shape}"` (a `badge` span on verdict-grid and pricing rows).
 A unit test fails on a private copy of the marker class. Two consumers cannot
 import the kernel and are pinned to it by test instead: the linter
