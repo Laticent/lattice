@@ -477,5 +477,5 @@ test('lint: a folded marker, columns with rows, a ### above the title, a bare ##
 });
 
 test('lint: a deck-wide class: columns lays out nothing, and says so', () => {
-  assert.ok(lintText('---\nclass: columns\n---\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && /deck-wide/.test(f.message)));
+  assert.ok(lintText('---\nclass: columns\n---\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && /front matter/.test(f.message)));
 });
