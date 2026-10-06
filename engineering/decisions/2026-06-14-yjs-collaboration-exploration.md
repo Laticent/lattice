@@ -1,12 +1,13 @@
 ---
-status: proposed
+status: superseded
+superseded-by: 2026-10-06-studio-live-collaboration.md
 summary: A zero-hosting-cost Yjs model for Google-Docs-style real-time collaboration on the static-hosted Drawing Board
 ---
 
 # Real-time collaboration on the Drawing Board — a zero-cost Yjs model
 
 **Date:** 2026-06-14
-**Status:** Proposed (design model / exploration). No code yet.
+**Status:** Superseded on 2026-10-06 by [`2026-10-06-studio-live-collaboration.md`](2026-10-06-studio-live-collaboration.md), which retargets this to the Studio. The analysis below is still the transport reference.
 **Decision owner:** Sharmarke
 **Supersedes nothing.** Adds a multiplayer layer over the existing client-only
 Drawing Board.
