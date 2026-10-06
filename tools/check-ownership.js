@@ -8542,6 +8542,15 @@ const VETRINA_ADAPTER_DEPS = new Set(['react', 'react-dom']);
 // relative `../ltt/` escape still fails.
 const VETRINA_SANCTIONED_DEP = '@laticent/ltt';
 
+// Is `spec`, imported from `file`, a relative path that stays inside `dir`? `./../x` starts with
+// `./` and lands outside, so a prefix test is not enough: resolve it and look at where it lands.
+// Shared by the Vetrina, Suono, Lente and Segno gates; the strict package walker below has its own.
+function staysInFolder(dir, file, spec) {
+  if (!spec.startsWith('./')) return false;
+  const rel = path.relative(dir, path.resolve(path.dirname(file), spec));
+  return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+}
+
 // `dir` defaults to the real library; the unit test points it at a scratch folder to prove the
 // gate bites.
 function checkVetrinaBoundary(errors, dir = VETRINA_DIR) {
@@ -8554,7 +8563,7 @@ function checkVetrinaBoundary(errors, dir = VETRINA_DIR) {
     const src = fs.readFileSync(file, 'utf8');
     for (const m of src.matchAll(VETRINA_IMPORT)) {
       const spec = m[1];
-      if (spec.startsWith('./')) continue; // in-folder relative — fine
+      if (staysInFolder(dir, file, spec)) continue; // in-folder relative — fine
       if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
       if (isAdapter && VETRINA_ADAPTER_DEPS.has(spec)) continue; // the sanctioned peer-dep seam
       if (spec === VETRINA_SANCTIONED_DEP) continue; // the LTT format — its one dependency (see above)
@@ -8857,9 +8866,9 @@ const SUONO_SPEC_PATTERNS = [
   /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/g,                    // dynamic import('x') / require('x')
 ];
 
-function checkSuonoBoundary(errors) {
-  if (!fs.existsSync(SUONO_DIR)) return; // library not present — nothing to guard
-  for (const file of listSourceFiles(SUONO_DIR)) {
+function checkSuonoBoundary(errors, dir = SUONO_DIR) {
+  if (!fs.existsSync(dir)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(dir)) {
     const rel = path.relative(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
@@ -8868,7 +8877,7 @@ function checkSuonoBoundary(errors) {
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
         const spec = m[1];
-        if (spec.startsWith('./')) continue; // in-folder relative — fine
+        if (staysInFolder(dir, file, spec)) continue; // in-folder relative — fine
         if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
         if (seen.has(spec)) continue; // don't double-report a spec two patterns both matched
         seen.add(spec);
@@ -9032,9 +9041,9 @@ function checkAjvBoundary(errors, dirs = [LIB_DIR, path.join(ROOT, 'docs', 'src'
   }
 }
 
-function checkLenteBoundary(errors) {
-  if (!fs.existsSync(LENTE_DIR)) return; // library not present — nothing to guard
-  for (const file of listSourceFiles(LENTE_DIR)) {
+function checkLenteBoundary(errors, dir = LENTE_DIR) {
+  if (!fs.existsSync(dir)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(dir)) {
     const rel = path.relative(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
@@ -9043,7 +9052,7 @@ function checkLenteBoundary(errors) {
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
         const spec = m[1];
-        if (spec.startsWith('./')) continue; // in-folder relative — fine
+        if (staysInFolder(dir, file, spec)) continue; // in-folder relative — fine
         if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
         if (seen.has(spec)) continue;
         seen.add(spec);
@@ -9068,9 +9077,9 @@ function checkLenteBoundary(errors) {
 // way the engine does today.
 const SEGNO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'segno');
 
-function checkSegnoBoundary(errors) {
-  if (!fs.existsSync(SEGNO_DIR)) return;
-  for (const file of listSourceFiles(SEGNO_DIR)) {
+function checkSegnoBoundary(errors, dir = SEGNO_DIR) {
+  if (!fs.existsSync(dir)) return;
+  for (const file of listSourceFiles(dir)) {
     const rel = path.relative(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue;
@@ -9079,8 +9088,7 @@ function checkSegnoBoundary(errors) {
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
         const spec = m[1];
-        // `./x` stays in the folder; `./../x` starts with `./` and does not, so resolve it.
-        if (spec.startsWith('./') && !path.relative(SEGNO_DIR, path.resolve(path.dirname(file), spec)).startsWith('..')) continue;
+        if (staysInFolder(dir, file, spec)) continue; // `./x` stays; `./../x` does not
         if (seen.has(spec)) continue;
         seen.add(spec);
         errors.push(

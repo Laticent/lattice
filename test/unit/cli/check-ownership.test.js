@@ -84,6 +84,9 @@ const {
   checkDensityCoverage,
   SANCTIONED_DENSITY_EXEMPT,
   checkVetrinaBoundary,
+  checkSuonoBoundary,
+  checkLenteBoundary,
+  checkSegnoBoundary,
   checkAnimaBoundary,
   checkCadenzaBoundary,
   checkLttBoundary,
@@ -1803,6 +1806,29 @@ describe('check-ownership', () => {
       assert.deepEqual(specs, ['lodash']);
       assert.ok(!'lodash'.startsWith('./') && !'lodash'.startsWith('node:'), 'bare dep would fail');
     });
+  });
+
+  // `./../x` starts with `./` and lands outside the folder. Every library gate resolves the path
+  // rather than trusting the prefix (followup 2462-p3, first fixed in the Segno gate).
+  describe('library boundary gates resolve a `./` path before admitting it', () => {
+    const gates = { checkVetrinaBoundary, checkSuonoBoundary, checkLenteBoundary, checkSegnoBoundary };
+    for (const [name, gate] of Object.entries(gates)) {
+      test(`${name} reports \`./../x\` and \`./a/../../x\`, and admits \`./x\` and \`./a/../x\``, () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'boundary-gate-'));
+        try {
+          const run = (spec) => {
+            fs.writeFileSync(path.join(dir, 'x.ts'), `import y from '${spec}';\n`);
+            const errors = [];
+            gate(errors, dir);
+            return errors.length;
+          };
+          for (const spec of ['./../y', './a/../../y', './..']) assert.equal(run(spec), 1, spec);
+          for (const spec of ['./y', './a/../y', './a/b']) assert.equal(run(spec), 0, spec);
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      });
+    }
   });
 
   // The LTT format package imports nothing, and Cadenza's one sanctioned dependency is that
