@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, tmp/ci-proof-base]
   # The merge queue runs CI on the PR tentatively rebased onto current main
   # (plus any PRs ahead of it). THIS aggregate `ci` check is the required gate
   # the queue waits on, so it must fire on merge_group. See
