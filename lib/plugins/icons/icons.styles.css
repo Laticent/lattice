@@ -154,11 +154,18 @@ section .lat-pill[role='img'] { text-indent:0; }
  * `icon-rounded` tile shows its rounded fill inside square ink, as a rounded spark does. */
 section.sketch .lat-icon {
   --rough-ink-stroke: var(--icon-edge);
-  --rough-ink-width: 0.9;
+  --rough-ink-width: 1.6;
 }
-/* PIGMENT fills its tile with the edge's own color, so a 0.9 line shows only where it wobbles past
- * the fill and the tile still reads crisp beside a spark. A heavier hand makes the drawn edge
- * visible; etching and tone have a pale or clear tile, where 0.9 already reads. */
-section.sketch .lat-icon:not([data-look]):not(:is(section.icon-etching, section.icon-tone) .lat-icon) { --rough-ink-width: 1.6; }
-section.sketch .lat-icon[data-look='pigment'] { --rough-ink-width: 1.6; }
-section.sketch:has(> svg[data-lattice-rough-ink]) .lat-icon:not(:is(header, footer) .lat-icon)::before { border-color: transparent; }
+/* PIGMENT, the default look, fills its tile with the edge's own color, so a thin line shows only
+ * where it wobbles past the fill: it takes the heavier 1.6 above. Etching and tone have a pale or
+ * clear tile, where the spark's 0.9 already reads. Written as plain compounds, never a nested
+ * `:not(:is(…))`: the Playground's first-paint snapshot (docs/src/playground/snapshot-cache.js)
+ * keeps any rule it cannot test against the captured slide, and it sits close to its size cap. */
+section.sketch .lat-icon[data-look='etching'],
+section.sketch .lat-icon[data-look='tone'],
+section.sketch.icon-etching .lat-icon:not([data-look]),
+section.sketch.icon-tone .lat-icon:not([data-look]) { --rough-ink-width: 0.9; }
+/* The handover: once the slide has ink, the crisp edge goes, except in the header and footer,
+ * which are not inked. */
+section.sketch:has(> svg[data-lattice-rough-ink]) .lat-icon::before { border-color: transparent; }
+section.sketch:has(> svg[data-lattice-rough-ink]) :is(header, footer) .lat-icon::before { border-color: var(--icon-edge); }
