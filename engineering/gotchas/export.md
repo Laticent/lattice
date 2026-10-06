@@ -618,6 +618,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   in the page (`createImageBitmap` with `resizeQuality: 'high'`, the 1x photo taken with the fast
   PNG encoder) it keeps today's file size and costs +63% to +73% render time (gallery-jargon
   18.1 s → 31.4 s, system-design-foundations 80 s → 130.5 s). Either changes the bytes of every
-  4K export, so it waits on the owner (CLAUDE.md § Quality bar, export changes). Until then, run
-  a pixel gate on a 4K deck on an idle machine, and read a 4K DIFF whose pixels all vanish at
-  `compare -fuzz 5%` as this, not as a regression.
+  4K export, and the owner chose neither (2026-10-06, PR #2563): the drift is invisible, and the
+  cost lands on every 4K export to fix what only a pixel gate sees. So run a pixel gate on a 4K
+  deck on an idle machine, and read a 4K DIFF whose pixels all vanish at `compare -fuzz 5%` as
+  this, not as a regression.
