@@ -1,7 +1,7 @@
 import { Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LiveAvatar } from './LivePanel';
+import { LiveAvatar } from './LiveAvatar';
 import { type LiveView, liveColor } from './live-model';
 
 // The header presence pill (§5.6): while a session is live it is the one surface visible at

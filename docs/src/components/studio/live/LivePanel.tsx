@@ -7,7 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS } from '../panel-shells';
-import { elapsed, initials, type LiveActions, type LiveChatLine, type LivePerson, type LiveView, liveColor, SLIDE_REF } from './live-model';
+import { LiveAvatar } from './LiveAvatar';
+import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type LiveView, liveColor, SLIDE_REF } from './live-model';
 
 // The Live panel — the collaboration PORTAL, not the workspace (§5.2 of
 // engineering/decisions/2026-10-06-studio-live-collaboration.md). It is narrow on purpose:
@@ -16,19 +17,6 @@ import { elapsed, initials, type LiveActions, type LiveChatLine, type LivePerson
 // present), then text. The call section lands with S4.
 
 const SECTION = 'px-3.5 pt-3 pb-1 font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground';
-
-/** A person's round initials badge in their session color. `ring` marks the speaker. */
-export function LiveAvatar({ person, size = 24, ring = false, className }: { person: Pick<LivePerson, 'name' | 'color'>; size?: number; ring?: boolean; className?: string }) {
-	return (
-		<span
-			aria-hidden
-			className={cn('grid shrink-0 place-items-center rounded-full font-bold leading-none', ring && 'outline-2 outline-offset-2', className)}
-			style={{ width: size, height: size, fontSize: Math.round(size * 0.42), background: liveColor(person.color), color: 'var(--bg)', outlineColor: ring ? liveColor(person.color) : undefined, outlineStyle: ring ? 'solid' : undefined }}
-		>
-			{initials(person.name)}
-		</span>
-	);
-}
 
 function whereLabel(p: LivePerson): string {
 	if (p.slide === null) return 'Arriving…';

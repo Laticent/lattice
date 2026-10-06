@@ -13,6 +13,9 @@ export const slideSettingsPanel = lazyPanel('Slide settings', () => import('./Sl
 export const chatPanel = lazyPanel('Chat', () => import('./ArchitectChat').then((m) => m.ArchitectChat));
 export const libraryPanel = lazyPanel('The Library', () => import('./Library').then((m) => m.Library));
 export const lensesPanel = lazyPanel('Reader views', () => import('./LensesPanel').then((m) => m.LensesPanel));
+/** The Live panel and the guest's lobby (live/): drawn only during a session or a join. */
+export const livePanel = lazyPanel('Live', () => import('./live/LivePanel').then((m) => m.LivePanel));
+export const liveLobbyPanel = lazyPanel('Live lobby', () => import('./live/LiveLobby').then((m) => m.LiveLobby));
 /** In warm-up order: Share first, as the panel most likely wanted offline. */
 export const STUDIO_PANELS = [sharePanel, workspacePanel, slideSettingsPanel, chatPanel, libraryPanel, lensesPanel];
 

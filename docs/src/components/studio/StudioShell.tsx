@@ -91,8 +91,7 @@ import { LESSONS } from './lessons/catalog';
 import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
-import { LiveLobby } from './live/LiveLobby';
-import { LiveAvatar, LivePanel } from './live/LivePanel';
+import { LiveAvatar } from './live/LiveAvatar';
 import { LivePill } from './live/LivePill';
 import { liveColor } from './live/live-model';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
@@ -126,7 +125,7 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import type { StudioCommand } from './studio-commands';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
+import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveLobbyPanel, livePanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -4435,6 +4434,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// A FACTORY, not one element: the docked column wants the chat to render its own header
 	// row (title left, cost right — see ChatCost), while the mobile sheet already has
 	// PanelHeader and only wants the cost.
+	// The Live panel, lazy like its peers: it costs nothing until someone opens it.
+	const liveBodyWith = (title?: string) => (
+		<PanelLoader panel={livePanel} shell={() => <div className="flex min-h-0 flex-1 flex-col">{title && <div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</div>}</div>}>
+			{(LivePanel) => <LivePanel title={title} view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} />}
+		</PanelLoader>
+	);
 	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
 		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
 			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
@@ -6520,7 +6525,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{chatOpen && chatBodyWith('Chat')}
-									{liveOpen && <LivePanel title="Live" view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} />}
+									{liveOpen && liveBodyWith('Live')}
 									{lensesOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
@@ -6595,7 +6600,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</PanelSheet>
 					<PanelSheet open={liveOpen} onOpenChange={(v) => setActiveAssistant((p) => (v ? 'live' : p === 'live' ? null : p))} side="left" width="sm">
 						<PanelHeader icon={<UsersRound />} title="Live" srDescription="Who is in this live session, the invite link, and the session chat." />
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden"><LivePanel view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} /></div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith()}</div>
 					</PanelSheet>
 					{/* Reader views — its own compact sheet, a peer of the Architect.
 					    Titled "Reader views", NOT "Lenses": every entry point into this panel
@@ -6754,7 +6759,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<input ref={importInputRef} type="file" accept={DECK_IMPORT_ACCEPT} onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 
 			{/* The one toast surface. What lands here is `lib/notify.ts`'s three kinds. */}
-			{live.lobby && <LiveLobby view={live.lobby} actions={live.lobbyActions} />}
+			{live.lobby && (
+				<PanelLoader panel={liveLobbyPanel} shell={() => <div className="fixed inset-0 z-50 bg-background/85 backdrop-blur-sm" aria-hidden />}>
+					{(LiveLobby) => <LiveLobby view={live.lobby as NonNullable<typeof live.lobby>} actions={live.lobbyActions} />}
+				</PanelLoader>
+			)}
 			<Toaster />
 		</div>
 		</PanelNav>
