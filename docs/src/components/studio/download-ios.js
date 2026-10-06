@@ -38,7 +38,9 @@ function offerShareSheet(filename, blob, saveWithAnchor) {
 		label: 'Save',
 		duration: SAVE_TOAST_MS,
 		onClick: () => {
-			sharer.share({ files: [file], title: filename }).catch((err) => {
+			// Files only: a `title` rides along as a second item, and Save to Files wrote it out as
+			// a 19-byte "text" file beside the PDF on the owner's iPhone.
+			sharer.share({ files: [file] }).catch((err) => {
 				// AbortError = the user closed the sheet; anything else, save the old way.
 				if (err?.name !== 'AbortError') saveWithAnchor(filename, blob);
 			});

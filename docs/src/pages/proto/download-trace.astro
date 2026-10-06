@@ -1,0 +1,74 @@
+---
+// ISOLATED PROTOTYPE — temporary trace for PR #2555 (export file names on iOS). Delete this
+// one file to revert; it must not merge. Route: /proto/download-trace/
+//
+// Runs the Studio's REAL save path (download.js → download-ios.js → notify's event) on a
+// device, after the same kind of delay an export has, and logs every branch it takes: the
+// share-sheet check, the "Save" event and whether notify handled it, any link click, and
+// the share call. The owner's Firefox for iOS took the plain-download fallback in the Studio
+// while a bare share call on the same phone kept the file name.
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Download trace</title>
+<style>
+	:root { color-scheme: light dark; --bg: #fff; --fg: #111; --muted: #555; --line: #ccc; --accent: #2b6cb0; }
+	@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #111; --fg: #eee; --muted: #aaa; --line: #333; --accent: #7fb3ff; } }
+	body { background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, sans-serif; padding: 16px; max-width: 40rem; }
+	h1 { font-size: 1.2rem; }
+	button { display: block; width: 100%; padding: 14px; margin: 10px 0; font-size: 1rem; border-radius: 10px; border: 1px solid var(--line); background: var(--accent); color: var(--bg); }
+	#save { display: none; background: #2f855a; }
+	#log { white-space: pre-wrap; font: 0.8rem/1.4 ui-monospace, monospace; border-top: 1px solid var(--line); padding-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Download trace</h1>
+<p>Tap <b>Run</b>. If a green <b>Save</b> button appears, tap it. Then screenshot the log.</p>
+<button id="run" type="button">Run the Studio's save (3 s delay, 86 KB PDF)</button>
+<button id="save" type="button">Save (stands in for the toast's button)</button>
+<div id="log"></div>
+<script>
+	import { downloadBlob } from '@/components/studio/download';
+	import { NOTIFY_ACTION_EVENT } from '@/lib/notify';
+
+	const out = document.getElementById('log') as HTMLElement;
+	const saveBtn = document.getElementById('save') as HTMLButtonElement;
+	const t0 = performance.now();
+	const log = (m: string) => { out.textContent += `${((performance.now() - t0) / 1000).toFixed(2)}s  ${m}\n`; };
+	log(`ua: ${navigator.userAgent}`);
+	log(`share: ${typeof navigator.share}, canShare: ${typeof navigator.canShare}`);
+
+	// Watch every branch without changing download.js.
+	const origCanShare = navigator.canShare?.bind(navigator);
+	if (origCanShare) navigator.canShare = (d?: ShareData) => { const r = origCanShare(d); log(`canShare(${d?.files ? `files: ${d.files.map((f) => `${f.name} ${f.size}B ${f.type}`).join(', ')}` : 'other'}) → ${r}`); return r; };
+	const origShare = navigator.share?.bind(navigator);
+	if (origShare) navigator.share = (d?: ShareData) => { log(`share() called with ${d?.files?.map((f) => f.name).join(', ')}`); return origShare(d).then((v) => { log('share() resolved'); return v; }, (e) => { log(`share() rejected: ${e?.name} — ${e?.message}`); throw e; }); };
+	const origClick = HTMLAnchorElement.prototype.click;
+	HTMLAnchorElement.prototype.click = function () { log(`LINK CLICK (plain-download fallback): download="${this.download}" href=${this.href.slice(0, 40)}…`); return origClick.call(this); };
+	const origDispatch = window.dispatchEvent.bind(window);
+	window.dispatchEvent = (e: Event) => { const r = origDispatch(e); if (e.type === NOTIFY_ACTION_EVENT) log(`"${(e as CustomEvent).detail?.message}" event → handled by notify: ${!r}`); return r; };
+	window.addEventListener(NOTIFY_ACTION_EVENT, (e) => {
+		const d = (e as CustomEvent).detail;
+		saveBtn.style.display = 'block';
+		saveBtn.onclick = () => { log('Save tapped'); d.opts.onClick(); };
+	});
+	addEventListener('error', (e) => log(`error: ${e.message}`));
+	addEventListener('unhandledrejection', (e) => log(`unhandled rejection: ${e.reason?.message ?? e.reason}`));
+
+	document.getElementById('run')?.addEventListener('click', async () => {
+		log('Run tapped; waiting 3 s like an export render…');
+		await new Promise((r) => setTimeout(r, 3000));
+		const bytes = new Uint8Array(86 * 1024).fill(32);
+		bytes.set(new TextEncoder().encode('%PDF-1.4\n'));
+		log('calling downloadBlob("markdown-for-the-boardroom.pdf")');
+		try { downloadBlob('markdown-for-the-boardroom.pdf', new Blob([bytes], { type: 'application/pdf' })); } catch (e) { log(`downloadBlob threw: ${(e as Error).message}`); }
+		setTimeout(() => log('(1.5 s after downloadBlob)'), 1500);
+	});
+</script>
+</body>
+</html>
