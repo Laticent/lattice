@@ -15,6 +15,10 @@
       "class": "generated"
     },
     {
+      "path": "lib/core/list-text.generated.js",
+      "class": "generated"
+    },
+    {
       "path": "lib/export/anima-player-bundle.generated.mjs",
       "class": "generated"
     },

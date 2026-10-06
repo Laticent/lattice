@@ -89,6 +89,20 @@ function literals(src) {
   return out;
 }
 
+/** Every deck and component doc the corpus reads: the decks we ship, then the docs. */
+export function deckFiles() {
+  return [...decks(), ...walk(join(ROOT, 'lib/components'), (p) => p.endsWith('.docs.md'))];
+}
+
+/** String literals in the named test files (paths from the repo root), up to 200 characters. */
+export function testLiterals(files) {
+  const out = [];
+  for (const f of files) {
+    try { out.push(...literals(readFileSync(join(ROOT, f), 'utf8')).filter((s) => s.length <= 200)); } catch { /* file moved */ }
+  }
+  return out;
+}
+
 function decks() {
   return [
     ...walk(join(ROOT, 'examples'), (p) => p.endsWith('.md')),

@@ -215,7 +215,8 @@ So `{BETA, tag, c4}`, `{BETA, c4, tag}` and `{BETA, shape=tag, color=c4}` are th
 
 Out of scope for the first cut, because they live in list TEXT rather than inside backticks: flowchart
 arrows (`A -> B`), leading `- [x]` markers, the matrix-grid cell marker, and `_track`. They are Segno's
-second grammar, not its first.
+second grammar, not its first. Phase 3b moved the arrows and phase 3 the other three (§ Phase 3b as
+built, § Phase 3 as built: list text).
 
 ## The engine
 
@@ -680,8 +681,8 @@ its own mark and palette.
 | 1b | `greedy()`, `until()`, per-grammar `maxDepth` (decision 21) | one |
 | 2 | Lattice on Segno: the 27 slot schemas plus sparks (row 28, decision 19) in the manifests, binding straight off the flat tree, the dispatcher, lint rules (including per-deck alias consistency), a codemod over every shipped deck and doc, the old parsers deleted, component docs updated, a `**Breaking:**` changelog fragment | one |
 | 3a | `attempt()` in both runtimes, and the flowchart-row grammar that uses it, in the bake-off (§ Flowchart rows need a bounded attempt, "Built") | #2519's follow-up |
-| 3b | Flowchart rows on Segno: `splitRow` walks a parser generated from 3a's row grammar, and the hand-written scan is deleted (§ Phase 3b as built) | this PR |
-| 3 | The remaining list-text grammars (leading markers, `_track`) | one |
+| 3b | Flowchart rows on Segno: `splitRow` walks a parser generated from 3a's row grammar, and the hand-written scan is deleted (§ Phase 3b as built) | #2545 |
+| 3 | The remaining list-text grammars: leading markers, the matrix-grid cell, `_track` (§ Phase 3 as built: list text) | this PR |
 
 Phase 2 changes what every chart reads, which is high blast radius and genuinely novel, so it gets the
 full adversarial trio before merge (HARD RULE #25).
@@ -815,6 +816,75 @@ spans, escaped `\{literal}` spans and the name text around them.
   inline span, a hot path every code span in every deck takes. A flowchart row is under a
   microsecond either way, and only flowchart and state-chart slides read one, so the owner accepted
   the measured 1.4x to 1.7x per row for flowchart rows. The inline-span bar is unchanged.
+
+### Phase 3 as built: list text
+
+Nine hand-written readers of list text now walk one generated parser. The grammar is
+`lib/core/list-text-grammar.js`; `tools/build-segno-grammar.js` generates it into
+`lib/core/list-text.generated.js` (committed, held fresh by build:check), beside the flowchart row's.
+It has nine entry rules, one per shape a reader used, and each reads a whole string:
+
+| rule | shape | replaced | read by |
+|---|---|---|---|
+| `line` | `[m]`, whitespace, text on one line | `LEADING_MARKER_RE` | verdict-grid and pricing badges, status cells (`readLeadingMarker`) |
+| `lead` | `[m]`, whitespace, anything | `LEADING_MARKER_PREFIX_RE` | list-item state classes, speech of table cells (`leadingMarkerPrefix`) |
+| `cell` | `line` after one opening tag | chart narration's `MARKED_CELL` | `readMarkedCell` |
+| `tagged` | `lead` after whitespace and one tag, the tag kept | the roadmap's two `CELL_MARKER` patterns | `cellMarkerPrefix` |
+| `bare` | only a marker, `[X]` included | `MARKER_CELL` (with its `i` flag) | the row-label bet (`isMarkerCell`) |
+| `grid` | matrix-grid's three markers, a gap of up to 8 | `CELL_MARKER` | `parseCell` |
+| `spoken` | the same, any gap, untrimmed | narration's own matrix-grid pattern | `readGridMarker` |
+| `any` | any one character in brackets | narration's bracket strip | `leadingBracketPrefix` |
+| `track` | items between pipes | `parseTrackSpec`'s split | `parseTrackSpec` |
+
+The kernels are `leading-marker.js` (new: the six marker readers), `matrix-grid-cells.js` and
+`track-spec.js`; the engine, the runtime mirror, narration, speech, lint and the roadmap transform
+call them. `state-marks.js` keeps what a marker MEANS and stays require-free, because the Studio's
+Compose editor imports it on the docs dev server, whose CommonJS shim serves only a module with no
+`require` of its own (the red team found the first cut, with the readers in `state-marks.js`, broke
+the Compose view there and failed `vite-cjs-lib-dev.test.ts`). Every consumer that
+called a regular expression now calls a function, so the old exports are gone (a `**Breaking:**`
+fragment). `MARKER_CLASS` stays, for the editor helpers below.
+
+- **Parity, not a cleanup.** The rules copy the expressions' quirks on purpose, so no deck changes:
+  whitespace is JavaScript's `\s` (U+FEFF and the Unicode spaces included), text on a `line` stops at
+  the four characters `.` refuses, `bare` takes `[X]` and nothing else does, `grid` bounds the gap at 8
+  and `spoken` does not. `spoken` and `grid` differ only on untrimmed text and a gap past 8, and
+  narration trims every cell and label first, so folding them would change nothing a listener hears
+  (the inversion review measured 300,000 trimmed cells with no difference). They stay two rules here
+  only because this PR's oracle compares each reader's raw output; the fold is a small follow-up.
+- **`_track`'s current item.** An item is current when, trimmed, it opens with `[` and closes with
+  `]`, and the close is only known at the item's end. Rather than an `attempt()` (bounded at 256
+  characters, so a long bracketed label would read differently), the grammar marks every run of `]`
+  and whitespace after an opening `[` as a `shut` node, each `]` an `rb`; the item is current when its
+  last `shut` ends it. That stays strict LL(1) with one greedy loop, and needs no window.
+- **The oracle, frozen first.** Before the swap, `tools/parser-bakeoff/freeze-list-text.mjs` recorded
+  what the expressions returned, read from a verbatim copy in `tools/segno-legacy/list-text.js`: every
+  candidate string in the shipped decks and docs and in the readers' own tests that some reader
+  answered (609, all nine outputs in full), every near miss that leads with a bracket or a tag and no
+  reader answered (1,760, input only), and a digest per 100 inputs of a seeded fuzz (20,000 random
+  inputs plus 104 at each matrix-grid gap from 0 to 12).
+  `test/unit/tools/list-text-grammar.test.js` holds the shipped kernels and, through a second walk of
+  its own, `compile()` to it on every PR. Nine planted defects each fail it: U+2028 read as text, a gap
+  of 9, U+FEFF not whitespace, `bare` without `[X]`, an empty tag, a `_track` item current on any
+  `shut`, its label cut at the first `]`, the roadmap dropping its tag, and `spoken` bounded at 8.
+- **Pixels.** `tools/pixel-check.js` on the 56 example decks that carry a marker, a status cell, a
+  roadmap, a matrix-grid, a pricing or verdict grid, or `_track`, snapshotted before the swap: 55 are
+  byte- or pixel-identical. The 56th, `system-design-foundations`, also differs from its own
+  snapshot when rendered with the UNCHANGED code, on different pages each run, so it is a flaky deck
+  and not this change (recorded in `followups.d/`).
+- **Speed.** Per call, the expression against the generated parser (`npm run
+  parser:bakeoff:list-text`, each side in its own process, best of seven): 50 to 100 ns against 80 to
+  330 ns for the marker rules (2x to 5x), 0.8 to 1.2 µs against 1.1 to 1.9 µs for `_track` (1.35x to
+  1.56x), and level for narration's two. Most of the gap is the generated parser's fixed cost per
+  call, which an expression that fails on its first character does not pay. A whole `npm run bench`
+  run makes about 16,400 of these calls across all its datasets, so the gap is about 3 ms per bench
+  run, under 0.05 ms per render; three interleaved pairs against `main` stay inside the bench's
+  ±10% noise. The 1.5x bar in § The engine is per inline span, and these are not inline spans; the
+  owner accepted the same trade for flowchart rows (§ Phase 3b as built).
+- **Not moved: the Studio's editor.** Five Compose-editor patterns (`table-commands.ts`,
+  `deck-markdown.ts`, `deck-source.ts`, `ComposeView.tsx`) and two tools that count inline `[m]` spans still build
+  patterns from `MARKER_CLASS`. They rewrite or count source rather than read it for a render, so
+  they are recorded in `followups.d/` rather than folded in.
 
 ## Open questions
 

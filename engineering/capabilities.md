@@ -312,6 +312,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `followups` | List followups.d/ — every pending item with no issue, one line each (contract: followups.d/README.md). |
+| `parser:bakeoff:list-text` | **TODO: describe `parser:bakeoff:list-text` in tools/build-capabilities.js (SCRIPT_META).** |
 | `prepare` | npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
