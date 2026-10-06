@@ -160,7 +160,10 @@ progress  — 2026-10-06 (2) (font-scale-fit.md Amendment (10)): `list-steps` is
             `metric` 2, seven-steps 5 and 10 at conference, gallery 97 at huddle), compare-prose 6,
             roadmap / list-tabular / image / content 5 each, table and matrix-2x2 4. Not measured:
             `capstone`'s points (its quotation overlaps the row below instead of pushing it). Next:
-            a `pullquote` quote-panel line model, the largest split-panel miss left.
+            a `pullquote` quote-panel line model, the largest split-panel miss left. Then measure a
+            pill's rendered width: `lineText` prices `{Name, cN}` as its label plus `tt`, and three
+            pill-heavy `watermark` points that clip at hall by ~200 px read 14% under (the fourth
+            checker's .scratch probe; `main` misses them too).
 where     — lib/authoring/lint-core.js (the `capacity-scale` rule and its "even at the designed
             size" branch); tools/lib/calibrate-core.js (measure with a trailing insight callout, and
             the `list takeaway` register); the manifests' `venueCapacity`.

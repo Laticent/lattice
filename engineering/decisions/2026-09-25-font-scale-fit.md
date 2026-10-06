@@ -1234,9 +1234,19 @@ value is no header. It also found the rounding leak in item 4. A third checker, 
 alone, found the rest: a code slide's `##` heading on a literal deck still priced its pills (`main`
 priced them as code and caught the clip), the rounding fix had only moved the error (item 4), and
 the header read took `header: "" # none yet`, `~` and `null` as a header and a `<!-- header: -->`
-quoted in a code fence as a directive. The header value is now read as YAML reads it, through the
-same front-matter reader the engine's other registers use, and fenced code is stripped before the
-directive scan. Every one has a test that fails without its fix. Two clips it found the export does not report, both older than this
+quoted in a code fence as a directive. A fourth checker, on those fixes alone, found the YAML
+reading wrong in the other direction: the engine draws `header: ~` and `header: null` as the text
+`~` and `null`, so treating them as no header missed 12 clips on its probe deck. It also found a
+directive written in inline code read as real, and a nested `header:` read as absent. Lint now
+reads the header with the engine's own parsers (`parseFrontMatter` and `parseCommentDirectives`,
+lib/engine/directives.js), over only the comments that stand as their own block outside a fence,
+which is what the engine's markdown-it pass collects. On all seven of the checkers' header probe
+decks it matches the export slide for slide, but for one slide whose class directive follows a
+fence, a shape `pointsAt` does not describe. Every one has a test that fails without its fix. The fourth checker also measured a gap this change leaves: a pill in a points column is priced
+light. Three `watermark` points each holding one to eight `{Name, cN}` pills clip at hall by 188 and
+207 px and read 14% under, while the same text as plain words fits. The `tt` of padding under-prices
+a pill's chrome. `main` misses those slides too; measuring a pill's width is logged as the next step
+in followups.d/2361-p2-venue-lint-accuracy-on-real-decks.md. Two clips it found the export does not report, both older than this
 change, are logged in followups.d/2361-p3-split-panel-export-blind-spots.md: a `proof` signal row
 taller than its share spills under the cards with no OVERFLOW line (lint warns on those slides, and
 the scorer counts the warning false), and a `metric` slide's left panel clips by 17 to 38 px under a
@@ -1249,7 +1259,7 @@ deck's own size. Fifteen of the 30 are in the scored five (`gallery.md` 12, bloo
 1); the other 15 are `system-design-foundations` (5), `diagram.gallery.md` (3),
 `list-steps.gallery.md` (3), `accent-on-accent` (2) and `slide-edge` (2).
 
-**Bundle.** The Studio's eager JS grows by 1,818 bytes gz against `main` 9b46f54, measured the way
+**Bundle.** The Studio's eager JS grows by 2,331 bytes gz against `main` 9b46f54 (about 500 of them lib/engine/directives.js, which lint now imports to read headers the engine's way), measured the way
 CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:route-budget`); the
 playground reads +1 B of gzip noise, as on #2548. Given back first: `mirror` and `milestone lettered` are baked as their twins' keys, and
 `vertical compact` stores only the frame field that differs (`calloutAt`). Declared in

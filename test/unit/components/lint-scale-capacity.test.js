@@ -1255,9 +1255,13 @@ describe('list-steps registers and the split-panel points column are judged by l
     assert.deepEqual(deck('header: "Deck"\n', `<!-- header: "" -->\n${mirrored}`), []);
     assert.deepEqual(deck('', mirrored, `<!-- header: "Late" -->\n${mirrored}`), [2]);
     assert.deepEqual(deck('header:\nfooter: "F"\n', mirrored), []);
-    // YAML's empty values, a trailing comment, and a directive quoted in a code fence.
-    for (const fm of ['header: "" # none yet\n', 'header: ~\n', 'header: null\n']) assert.deepEqual(deck(fm, mirrored), [], fm);
+    // As the engine reads it (the fourth checker): an empty value with a trailing comment is none,
+    // but `~` and `null` render as that text; a nested key counts; a directive in a fence or in
+    // inline code is text, not a directive.
+    assert.deepEqual(deck('header: "" # none yet\n', mirrored), []);
+    for (const fm of ['header: ~\n', 'header: null\n', 'glossary:\n  header: Nested\n']) assert.deepEqual(deck(fm, mirrored), [1], fm);
     assert.deepEqual(deck('', '<!-- _class: title -->\n\n# T\n\n```md\n<!-- header: "x" -->\n```\n', mirrored), []);
+    assert.deepEqual(deck('', '<!-- _class: title -->\n\n# T\n\nWrite `<!-- header: Band -->` to set it.\n', mirrored), []);
   });
 
   test('a literal deck prices pills as code in a claim panel and a code heading too (the third checker)', () => {
