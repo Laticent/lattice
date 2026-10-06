@@ -1255,6 +1255,18 @@ describe('list-steps registers and the split-panel points column are judged by l
     assert.deepEqual(deck('header: "Deck"\n', `<!-- header: "" -->\n${mirrored}`), []);
     assert.deepEqual(deck('', mirrored, `<!-- header: "Late" -->\n${mirrored}`), [2]);
     assert.deepEqual(deck('header:\nfooter: "F"\n', mirrored), []);
+    // YAML's empty values, a trailing comment, and a directive quoted in a code fence.
+    for (const fm of ['header: "" # none yet\n', 'header: ~\n', 'header: null\n']) assert.deepEqual(deck(fm, mirrored), [], fm);
+    assert.deepEqual(deck('', '<!-- _class: title -->\n\n# T\n\n```md\n<!-- header: "x" -->\n```\n', mirrored), []);
+  });
+
+  test('a literal deck prices pills as code in a claim panel and a code heading too (the third checker)', () => {
+    const lede = 'Ship `{Orders, c2}` `{Billing, c3}` `{Payments, c4}` `{Shipping, c5}` `{Returns, c6}` `{Refunds, c7}` `{Ledger, c8}` and `{Audit, c1}` tonight, then';
+    const panel = (lit) => core.panelOver('split-panel', ['split-panel'], `## Claim\n\n${lede}.\n\n- A\n  - b.\n`, 3, 0, lit).pct;
+    assert.ok(panel(true) > panel(false));
+    const code = (fm) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: hall\n${fm}---\n\n<!-- _class: code -->\n\n## Ship \`{Orders, c2}\` and \`{Billing, c3}\` tonight\n\n\`\`\`js\n${'x();\n'.repeat(7)}\`\`\`\n`, { names: new Set(['code']), modifiers: new Set(), capacity: {} }).filter((f) => f.rule === 'capacity-scale');
+    assert.equal(code('inline-code: literal\n').length, 1, 'the heading wraps to two lines as code');
+    assert.deepEqual(code(''), [], 'as two pills it sets on one line');
   });
 
   test('a quoted pill label keeps its comma, and an icon-only pill has no label', () => {

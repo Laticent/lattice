@@ -1201,11 +1201,18 @@ All ten list-steps misses are gone, and five of the sixteen split-panel ones.
    and the retired `` `{X}:tag` `` render as mono code, and pricing them as short pills lost three
    claim-panel clips `main` caught (the second checker's probe deck, 73 to 237 px over). That false
    warning on `inline-icons` came from the sweep below; no scored deck carries one.
-4. **The points rig sums exact line heights.** It stores each role's line height to the whole px,
-   and it first summed a probe's text with those rounded values. A body line of 163.5 px read as
-   164 over ten lines a point, so 4 px a point leaked out of the solved per-point cost (11 px at hall
-   where the title's padding is 15). The per-point cost now reads the same at every venue (bare 15,
-   `steps` 89, `watermark` 161), and a four-point slide 25 px over at hall that read 0% reads 1%.
+4. **The points rig stores line heights to a tenth of a px.** It first stored them to the whole px
+   and solved the per-point cost with those rounded values. A body line of 163.5 px read as 164 over
+   a probe's ten lines a point, so 4 px a point leaked into the solved cost (11 px at hall where the
+   title's padding is 15), and a slide with a different line count read it back wrong: a four-point
+   slide 25 px over at hall read 0%. Solving with exact heights and storing whole px moved the error
+   the other way (the third checker's `watermark` probes read 12 px light). Stored to a tenth, the
+   solve and lint multiply the same number: the per-point cost reads the same at every venue (bare
+   15, `steps` 89, `watermark` 161), and on the checker's 4k `watermark` probes the model is within
+   2 px of the export (202, 23 and 587 px over, read as 192, 12 and 576 past a budget that holds the
+   12 px tolerance). On the same probes at 16:9 two slides render 16 px fuller than at 4k and clip
+   (39 and 42 px against a 36 px tolerance) while the model, measured at 4k, reads them inside it: the
+   720-high basis gap Amendments (7) and (8) describe. `main` misses both too.
 
 **The independent checker** reproduced both tables and wrote its own probe decks for registers and
 shapes no committed deck uses (at 4k and 16:9). Its two must-fixes came from those probes, not from
@@ -1223,8 +1230,13 @@ directive anywhere in the deck switched the padding on for every slide, includin
 later header and decks that reset it to `""`, which warned on four header-less shapes that fit. Lint
 now walks the header directives slide by slide, as Marp applies them: the deck's `header:`, each
 `<!-- header: … -->` from its slide on, a slide's own `_header` for that slide alone, and an empty
-value is no header. It also found the rounding leak in item 4. Every one has a test that fails
-without its fix. Two clips it found the export does not report, both older than this
+value is no header. It also found the rounding leak in item 4. A third checker, on those fixes
+alone, found the rest: a code slide's `##` heading on a literal deck still priced its pills (`main`
+priced them as code and caught the clip), the rounding fix had only moved the error (item 4), and
+the header read took `header: "" # none yet`, `~` and `null` as a header and a `<!-- header: -->`
+quoted in a code fence as a directive. The header value is now read as YAML reads it, through the
+same front-matter reader the engine's other registers use, and fenced code is stripped before the
+directive scan. Every one has a test that fails without its fix. Two clips it found the export does not report, both older than this
 change, are logged in followups.d/2361-p3-split-panel-export-blind-spots.md: a `proof` signal row
 taller than its share spills under the cards with no OVERFLOW line (lint warns on those slides, and
 the scorer counts the warning false), and a `metric` slide's left panel clips by 17 to 38 px under a
@@ -1237,7 +1249,7 @@ deck's own size. Fifteen of the 30 are in the scored five (`gallery.md` 12, bloo
 1); the other 15 are `system-design-foundations` (5), `diagram.gallery.md` (3),
 `list-steps.gallery.md` (3), `accent-on-accent` (2) and `slide-edge` (2).
 
-**Bundle.** The Studio's eager JS grows by 1,783 bytes gz against `main` 9b46f54, measured the way
+**Bundle.** The Studio's eager JS grows by 1,818 bytes gz against `main` 9b46f54, measured the way
 CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:route-budget`); the
 playground reads +1 B of gzip noise, as on #2548. Given back first: `mirror` and `milestone lettered` are baked as their twins' keys, and
 `vertical compact` stores only the frame field that differs (`calloutAt`). Declared in

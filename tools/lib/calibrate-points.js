@@ -143,14 +143,15 @@ async function main() {
                 cv.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
                 const bs = getComputedStyle(box);
                 const width = box.clientWidth - parseFloat(bs.paddingLeft) - parseFloat(bs.paddingRight);
-                geo[name] = [Math.round((width / (cv.measureText(t).width / t.length + (parseFloat(cs.letterSpacing) || 0))) * 10) / 10, Math.round(lh * unit)];
+                geo[name] = [Math.round((width / (cv.measureText(t).width / t.length + (parseFloat(cs.letterSpacing) || 0))) * 10) / 10, Math.round(lh * unit * 10) / 10];
                 if (up) faces[name] = 'f';
                 else if (display.test(cs.fontFamily)) faces[name] = 'd';
               }
-              // The exact line height, not the stored whole px: a probe's ~10 body lines a point at
-              // 163.5 px read as 164 put 4 px a point into the solved `row` (the second checker's
-              // dh.md slide 7, 25 px over at hall, read 0%).
-              return lineCount(el) * lh * unit;
+              // The line height as stored, to a tenth of a px, so the solve and lint multiply the
+              // same number. Stored to the whole px, a probe's ~10 body lines a point at 163.5 px read
+              // as 164 put 4 px a point into the solved `row`, and a slide with a different line count
+              // read it back wrong either way (the second and third checkers' dh.md and q-wm.md).
+              return lineCount(el) * geo[name][1];
             };
             // Each point's text height; a grid's first point reads its own geometry (`0` roles).
             const grid = getComputedStyle(list).display === 'grid';
