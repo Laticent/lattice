@@ -811,10 +811,10 @@ spans, escaped `\{literal}` spans and the name text around them.
   which first read as a 6% gap the other way). Only the hostile
   `-y ` ladder would gain. The rest of the cost is the generated parser's per-character loop,
   which every Segno grammar pays.
-- **Open: the 1.5x bar.** The bar in § The engine is per inline span, a hot path every code span
-  in every deck takes. A flowchart row is under a microsecond either way, and only flowchart and
-  state-chart slides read one. The 1.4x to 1.7x above is put to the owner with the PR rather than
-  taken as met.
+- **The 1.5x bar: accepted by the owner (2026-10-06, on #2545).** The bar in § The engine is per
+  inline span, a hot path every code span in every deck takes. A flowchart row is under a
+  microsecond either way, and only flowchart and state-chart slides read one, so the owner accepted
+  the measured 1.4x to 1.7x per row for flowchart rows. The inline-span bar is unchanged.
 
 ## Open questions
 
