@@ -27,6 +27,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { codePackages, bundleCodePackage } = require('../../../lib/packages/code-bundle.js');
 const { launchSandboxBrowser, openPackageSandbox, workerScript, runPackage } = require('../../../lib/core/code-sandbox.js');
+const { WORKER_NETWORK } = require('../../../lib/packages/code-shape.mjs');
 const { splitSections } = require('../../../lib/core/split-sections.js');
 const { enterSlideIds, renderIdPrefix } = require('../../../lib/core/render-ids.js');
 const { LAYOUTS } = require('../../../lib/components/chart/_chart-family/chart-registry.generated.js');
@@ -209,10 +210,16 @@ describe('code packages: every shipped transform runs in the locked page and mat
   test('the worker has no network constructors, and the bundle cannot put them back', async () => {
     // The second wall (code-door-core.mjs WORKER_NETWORK): the policy's inheritance is each engine's
     // to get right, and Firefox let EventSource out of a worker the policy covered.
-    const probe = 'try{delete self.EventSource}catch(e){}try{Object.defineProperty(self,"fetch",{value:()=>1})}catch(e){}try{self.WebSocket=function(){}}catch(e){}function t(s){return JSON.stringify(["fetch","XMLHttpRequest","WebSocket","EventSource","WebTransport","importScripts","Worker"].map((n)=>typeof self[n]))}export{t as default};';
+    // Every name is checked on `self` AND on each prototype above it: Chromium defines `fetch`,
+    // `importScripts`, `indexedDB` and `fonts` on WorkerGlobalScope.prototype, not on `self`, so a
+    // wall on `self` alone only shadowed them and `.call(self, …)` walked around it.
+    const probe = 'try{delete self.EventSource}catch(e){}try{Object.defineProperty(self,"fetch",{value:()=>1})}catch(e){}try{self.WebSocket=function(){}}catch(e){}' +
+      'try{Object.defineProperty(WorkerGlobalScope.prototype,"fetch",{value:()=>1})}catch(e){}try{delete WorkerGlobalScope.prototype.fonts}catch(e){}' +
+      `function t(s,kit){const reach=[];for(const n of ${JSON.stringify(WORKER_NETWORK)})for(let o=self;o;o=Object.getPrototypeOf(o)){const d=Object.getOwnPropertyDescriptor(o,n);if(d&&(d.get||d.value!=null)){reach.push(n);break}}` +
+      'let font="refused";try{new FontFace("x","url(data:,)");font="made"}catch(e){}return JSON.stringify({reach,font,measured:kit.measure("Wide text","16px sans-serif")>0})}export{t as default};';
     const sandbox = await openPackageSandbox(browser, probe);
     try {
-      assert.equal(await runPackage(sandbox, { html: '<section></section>', index: 0 }), JSON.stringify(Array(7).fill('undefined')));
+      assert.deepEqual(JSON.parse(await runPackage(sandbox, { html: '<section></section>', index: 0 })), { reach: [], font: 'refused', measured: true });
     } finally {
       await sandbox.close();
     }

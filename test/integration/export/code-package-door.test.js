@@ -64,6 +64,11 @@ function tally(slide, kit) {
   try { new Image().src = "${H}/image"; } catch (e) {}
   try { new WebSocket("ws://127.0.0.1:${P}/websocket"); } catch (e) {}
   try { navigator.sendBeacon("${H}/beacon", slide.html); } catch (e) {}
+  // A font load is a fetch, and the wall must cover the global's prototypes, not only self. Defense
+  // in depth: Chromium's policy stops both arms anyway, so the wall's own proof is the parity test's
+  // probe; these can only fire on an engine whose policy fails, as Gecko's did for EventSource.
+  try { var ff = new FontFace("x", "url(${H}/fontface)"); ff.load().catch(function(){}); self.fonts.add(ff); } catch (e) {}
+  try { for (var o = self; o; o = Object.getPrototypeOf(o)) { var d = Object.getOwnPropertyDescriptor(o, "fonts"); if (d && d.get) d.get.call(self).load("12px x").catch(function(){}); if (typeof o.fetch === "function") o.fetch.call(self, "${H}/protofetch").catch(function(){}); } } catch (e) {}
   var n = Number((/<li>(\\d+)<\\/li>/.exec(slide.html) || [])[1] || 0);
   var marks = "";
   for (var i = 0; i < n; i++) marks += '<span class="tally-mark">' + (i + 1) + "</span>";

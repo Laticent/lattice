@@ -150,10 +150,15 @@ network:
 - Before your code starts, Lattice removes the worker's network tools:
   `fetch`, `XMLHttpRequest`, `WebSocket`, `WebSocketStream`, `EventSource`,
   `WebTransport`, `importScripts`, `Worker`, `SharedWorker`, `BroadcastChannel`,
-  `Request`, `caches` and `indexedDB`. Each is `undefined`, and your code cannot
-  put one back. This second wall exists because a browser does not always
-  apply the inherited policy: Firefox let `EventSource` from a worker reach a
-  local server that the policy should have blocked.
+  `Request`, `caches`, `indexedDB`, `FontFace`, `FontFaceSet` and `fonts`, and
+  `navigator.storage` and `navigator.storageBuckets`. Each is `undefined`, on
+  the worker's global (or its `navigator`) and on every prototype above it, and your code cannot put
+  one back. This second wall exists because a browser does not always apply the
+  inherited policy: Firefox let `EventSource` from a worker reach a local server
+  that the policy should have blocked.
+
+A font load is a request, so your code cannot load a font in the worker, not
+even from bytes. `kit.measure` does not need one (see [The kit](#the-kit)).
 
 Build your markup as a string. Plain JavaScript (strings, arrays, regular
 expressions, `Math`, `Intl`) is all there, and so is `OffscreenCanvas`, which
