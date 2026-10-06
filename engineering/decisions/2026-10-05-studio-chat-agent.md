@@ -127,6 +127,8 @@ on-device tiers keep the one-shot path unchanged.
 | `tools` / `tool_choice` / streamed `tool_calls` on the OpenRouter backend | `ai/architect-model.js` |
 | `check` — the Coach's assessment + Mermaid parse, run over the draft | `StudioShell.tsx` (`checkDraft`) |
 | Activity trail, live tool line, front-matter rows in the review card | `ArchitectChat.tsx` |
+| `fit` — the draft rendered off-screen, the runtime's overflow verdict per slide | `draft-fit.ts`, `export/deck-export.js` (`measureDeckFit`), `chat-agent.ts` (`withFit`) |
+| The `≈ $` readout: a question and an edit, priced from the measured turn shape | `ChatCost.tsx`, `chat-agent.ts` (`agentTurnUsd`, forwarded by `architect.ts`) |
 
 Choices worth knowing before changing any of it:
 
@@ -208,6 +210,46 @@ newest message, so each tool round reads the earlier rounds from cache. The cold
 write is smaller too: the agent's 10.9K-token prefix against the old 37.9K, about 3.5x less
 to write after every hour-long lull (derived from the token counts, not measured cold).
 
+**Edit cost parity, the follow-up** (`followups.d/2518-p2`, closed here). The table above left
+an edit at ~1.5x the old one-shot. Three changes, re-measured with the same harness rebuilt
+from this section (`.scratch/bench/`, HARD RULE #24), the same six asks on a five-slide board
+deck, Sonnet 5.5, the prefix warmed first so no column pays the one-time write, and a nonce in
+each run's deck so no run reads another's tail from cache. Two runs each; cost from
+`usage.cost`.
+
+| Ask | Old one-shot | Agent on main | Agent, this change |
+|---|---|---|---|
+| Who is it for; weakest slide? | $0.021 | $0.014 | $0.013 · 1 call |
+| What is missing for a board? | $0.026 | $0.020 | $0.016 · 1 call |
+| Add a KPI slide | $0.021 | $0.030 · 3 calls | $0.022 · 2 calls |
+| Fix the word budget | $0.026 | $0.088 · 7 calls | $0.023 · 2 calls |
+| Slide 3 → timeline | $0.019 | $0.024 · 3 calls | $0.018 · 2 calls |
+| Savile finish + dark mode | $0.028 (cannot set front matter) | $0.027 · 3 calls | $0.020 · 2 calls |
+
+"Agent on main" is the first run of each ask (the second run of main's agent read the first
+run's tails from cache, which a real author does not get). Every applied edit linted with 0
+errors. Across the four edit asks the agent now costs $0.083 against the old $0.093, 11% less;
+questions cost 40% less. One ask is still over: the KPI edit, by about $0.001 (5%), the price of
+reading the layout's contract before writing it. What changed:
+
+- **An edit that checks clean ends the turn.** `edit_slides` and `set_front_matter` take a
+  `summary` for the author. When every call in a round was an edit that applied whole and the
+  checker found no errors, `runAgentLoop` ends the turn with that summary instead of re-sending
+  the whole conversation for the model to say it is done. That round was a third of an edit's
+  cost. An error or a refused edit still gets its round. The prompt alone did not do this: told
+  to write its summary beside the edit, Sonnet called the tool with no prose every time, so the
+  summary is a required argument. Warnings on slides the turn wrote are appended to the reply,
+  because the model never saw them.
+- **`read_component` returns the doc's core, not all of it.** The contract (capacity, slots,
+  the variant decision rule, common mistakes), when to use it and when not, and the skeleton.
+  A worked example per variant made up most of `kpi`'s ~4K tokens; those sections are listed by
+  name, one `section` call away. The doc's own Authoring example is dropped when the catalog's
+  skeleton already rides in the same result.
+- **A long guide returns its table of contents.** The cap fell from 24,000 characters to
+  12,000. The "fix the word budget" turn read the whole 21K-character speaker-notes guide for
+  the comment syntax: 7.6K tokens written to the cache for one line. The syntax is now one line
+  of the always-on prompt.
+
 **The real Studio**, built and driven in headless Chromium at 1440 / 820 / 390: one turn
 asking for the `savile` finish plus a KPI slide streamed a live "Reading a component…" line,
 ended with the trail "Read the finish key · Read kpi · Set finish · Edited slides · Checked
@@ -270,12 +312,98 @@ request, a 401, and the notice "OpenRouter rejected the connection — reconnect
 AI. (OpenRouter said: User not found.)" The same request on production with a working key
 built a 7-slide deck with 0 lint errors.
 
+**The second checker pass, over the self-reviewed commits** (`followups.d/2518-p1`, closed
+here). An independent checker read `withCheck`, `withCachedTail`, the transport's tools
+handling and #2531's error routing, and reproduced each finding against the real wiring. All
+fixed and pinned in `architect-agent.chat.test.ts` / `architect-agent.test.ts`:
+
+- **An error inside a 200 stream was dropped.** OpenRouter reports a provider that drops
+  mid-reply as an `error` object in the stream, after a 200. The parser never read it, so the
+  turn ended as "No reply came back", and a half-streamed tool call ran on cut-off arguments.
+  On a request with tools it now throws `OpenRouter error <code>`, which names the cause.
+  Callers without tools keep their partial prose, as before.
+- **A context-length 400 fell back to the one-shot.** `isToolRefusal` matched any 400 that
+  mentioned "tool", and OpenRouter's overflow message counts "tool input" tokens. The one-shot
+  then sent the larger old prompt, which overflowed too, and said "Nothing came back". The
+  match now needs the refusal's own words and the transport's status prefix; a context-length
+  error says the deck and attachments are too long for the model.
+- **A failure after round one always read "the connection dropped".** A 429 between tool
+  rounds, the likeliest case, now says it is rate-limiting; any OpenRouter status names its
+  cause and remedy.
+- **A Stop during a round that streamed only a tool call recorded $0** and skipped the
+  exact-cost lookup. A round in flight is now estimated from its prompt and reconciled by its
+  generation id whether or not prose streamed.
+- **A 403 for flagged input said "reconnect".** It now says moderation flagged the request.
+- **"Diagrams were not checked" was silent.** When Mermaid's parser did not run, the check
+  now says so, so the model cannot claim the diagrams parse.
+- **A retired model id no longer self-heals on the chat**, and the transport's comment said it
+  did. Kept as a decision: the chat shows "pick another model" with OpenRouter's words rather
+  than moving the author onto the default model without saying so. Comment and test corrected.
+- **Answered, not changed:** the checker suspected Google models would refuse the tool schemas
+  (a `type` array, an empty `properties`). One live turn on `google/gemini-2.5-flash` took the
+  tools with a 200. And it could not tell whether the rolling cache mark on a `tool` message
+  reaches Anthropic; the benchmark above shows it does, since each round's `cached_tokens`
+  include the previous round's tool results.
+
+**A checker over the follow-ups themselves** (tier 1, the same pass the brief asked of each
+item). It reproduced four defects in the new code, all fixed and pinned in
+`architect-agent.test.ts` / `architect.test.ts`:
+
+- **A malformed edit inherited the previous edit's clean verdict.** A round of a clean edit
+  plus an edit whose arguments were cut off ended the turn, the second edit silently dropped.
+  An edit whose arguments do not parse now counts as refused.
+- **Fit rows are rendered sections, not source slides.** `split: headings` renders three
+  sections for two slides, so section N named the wrong slide and charged an untouched one.
+  Continuation pages (`N.k`) now fold into slide N, and a deck that still renders more sections
+  than slides has its fit reported by section and charged to nothing.
+- **A front-matter change that broke fit everywhere read as clean.** "Mine" was decided by
+  slide text, which a `size:` or `finish:` change does not touch. Once the turn changes front
+  matter, every slide is the turn's.
+- **An old error on an untouched slide held every turn open**, undoing the saving above on any
+  deck that already had one. The turn now answers for errors on the slides it changed (and
+  deck-level ones once it changed front matter), and the check tells the model the rest were
+  already there.
+
+Also fixed: the readout priced a deck past the inline limit by its whole text, though the turn
+carries an outline; and a stream error now releases the response body. Left as they are: fit
+is measured in the live deck's theme and mode, not one the agent just set on the draft; and a
+slide rewritten to match another original slide's text counts as untouched. Both are rare and
+named here so nobody mistakes them for coverage.
+
+**Startup JavaScript, again.** Both follow-ups first put code where startup pays for it, and
+it only showed once `main` gained the plugin split (#2525): measured on the branch alone the
+Studio grew 29–38 B, on the PR merged into `main` (what CI builds) 361 B. Bisected by merging
+`main` into each commit: the fit check's `import('./draft-fit')` in StudioShell cost ~172 B
+(every chunk the export renderer needs went into the shell's preload map), and the readout's
+`agentTurnUsd` in `architect.ts` ~170 B. The fix is the rule §6 already states: the shell hands
+the render settings to the agent as data, the lazy `chat-agent.ts` imports `draft-fit`, and
+`agentTurnUsd` lives in `chat-agent.ts` behind a five-line forwarder (the readout shows nothing
+until the agent module lands, then re-prices). Merged into `main`: −15 B, nothing to declare.
+
 ## 10. What this does NOT do
 
-- **It cannot see the slides.** `check_deck` is lint, review and Mermaid's parser; no tool
-  renders or rasterizes. A visual check would need the preview frame's own measurements, a
-  separate piece of work.
+- **It sees fit, not looks.** Since the follow-up (`followups.d/2518-p3-agent-cannot-see-slides`),
+  every check renders the draft off-screen the way export does (`draft-fit.ts` →
+  `measureDeckFit`, imported by the lazy agent from settings the shell hands over as plain
+  data, `fitRender`) and reads back the runtime's own per-slide verdict: `.overflow`,
+  `.clip-marked`, `.illegible`. A slide the turn wrote that overflows or cuts text counts as an
+  error and holds the turn open; the same on an untouched slide is reported, not charged. It
+  does not judge how a slide looks, and the prompt says so. The render uses the live deck's
+  palette and mode, not a theme the agent just set — fit barely depends on them. Proven on the
+  real Studio with a mocked model (`docs/e2e/chat-agent-fit.spec.ts`): a 28-item slide comes
+  back "slide 2 overflows its frame, has text cut off", and the turn takes a second round. And
+  with a live model on the real Studio (Sonnet 5.5, a real key, `.scratch/` only): asked to put
+  22 sentence-long items on one slide, it wrote them all, got that verdict back, read the `list`
+  layout, and split them 6/6/5/5 across four slides before the turn ended clean. A render that
+  cannot finish within 15 seconds reports fit as not measured, never as fine.
 - **The on-device tiers are unchanged** — still the one-shot path, short canon, and fenced
   edit blocks.
-- **The `≈ $/turn` readout prices round one.** A turn's tool rounds are not knowable before
-  it runs; the authoritative per-round cost still lands in the spend tally from `usage.cost`.
+- **The `≈ $` readout is an estimate of a typical turn.** It shows a range, a question to an
+  edit (`agentTurnUsd`), from the turn shapes measured above: a question is one call that
+  writes ~1,000 tokens; an edit is two, the second re-reading the prompt from cache plus ~2,500
+  tokens of layout docs and writing ~700. On the bench deck it reads $0.014–0.020 warm against
+  $0.015 and $0.021 measured, and $0.053 for a cold first question against $0.049. It replaced
+  one figure priced at the 4,096-token output ceiling, which quoted every turn at ~3x a
+  question's real cost (the follow-up had guessed it under-quoted). The ceiling still prices the
+  budget GATE, which must hold the worst case. Long turns, like a whole new deck, cost more than
+  the range; the spend tally records the exact cost from `usage.cost`.

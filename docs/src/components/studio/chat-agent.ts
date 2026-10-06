@@ -14,8 +14,8 @@
 // chunks and cost more. So everything the startup code already holds is passed in through
 // `init(deps)` by `architect.ts`, and only this feature's own modules are imported.
 import { agentLibrary } from './agent-library';
-import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ProposedEdit } from './architect';
-import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, bindKernel, buildAgentSystem, createToolbox, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
+import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
+import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
@@ -118,7 +118,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		catalog: (grounding?.catalog ?? []) as AgentComponent[],
 		frontMatterKeys: FRONT_MATTER_KEYS,
 		library: agentLibrary,
-		check: grounding?.check,
+		check: withFit(grounding),
 		slideWordBudget: agentBudget(grounding).slideWordBudget,
 	});
 	const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
@@ -130,6 +130,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	let streamed = '';
 	let roundPrompt = '';
 	let genId: string | null = null;
+	// A request is in flight: set when a round is sent, cleared when it returns. A Stop
+	// prices only an open round — a finished one already reported its exact cost.
+	let roundOpen = false;
 	let rounds = 0;
 	let blockedNote: string | null = null;
 	const soFar = () => [...done, streamed].map((t) => t.trim()).filter(Boolean).join('\n\n');
@@ -153,6 +156,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		}
 		let calls: ToolCall[] = [];
 		let finish: string | null = null;
+		roundOpen = true;
 		const text = await model.complete({
 			messages: msgs as { role: string; content: MsgContent }[],
 			plugins: ground.plugins,
@@ -178,6 +182,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			signal: opts?.signal,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
+		roundOpen = false;
 		rounds++;
 		return { text, toolCalls: calls.filter((c) => c?.function?.name), truncated: finish === 'length' };
 	};
@@ -195,6 +200,10 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		reply = turn.reply;
 		if (turn.truncated) notes.push(TRUNCATION_NOTE);
 		if (turn.hitRoundCap) notes.push('I hit this turn’s limit on tool calls before finishing — ask me to continue.');
+		// A turn that ended on a clean edit never showed the model the warnings, so the author
+		// gets them here rather than not at all.
+		const warn = turn.endedOnEdit ? (toolbox.verdict?.warnings ?? []) : [];
+		if (warn.length) notes.push(checkerNote(warn));
 	} catch (e) {
 		const name = (e as { name?: string })?.name;
 		if (name === 'BudgetBlock') {
@@ -206,7 +215,12 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// Stop keeps what streamed AND what was staged — the author can still review it.
 			// Same estimate-then-reconcile as the one-shot path (the usage chunk never came).
 			reply = soFar();
-			if (streamed) {
+			// Priced whenever a round was in flight, not only when prose streamed: a round that
+			// streams only a tool call (a whole slide in `edit_slides`) streams no prose, and was
+			// recorded as $0 with the exact-cost lookup skipped (checker). The estimate covers the
+			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
+			// exact figure.
+			if (roundOpen && (streamed || genId)) {
 				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
@@ -234,12 +248,88 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			return { status: 'blocked', reply: describeModelError(msg) };
 		}
 		else {
+			// A failure after a finished round. A status from OpenRouter (a 429 between rounds
+			// is the likeliest) gets its own cause and remedy; anything else is a dropped
+			// connection, with the error's own words when it was not the network.
 			reply = soFar();
-			notes.push('The model connection dropped partway through this turn.');
+			const msg = String((e as { message?: string })?.message ?? e ?? '');
+			if (/OpenRouter error \d{3}/.test(msg)) notes.push(`This turn stopped partway. ${describeModelError(msg)}`);
+			else if (!msg || /fetch|network|load failed/i.test(msg)) notes.push('The model connection dropped partway through this turn.');
+			else notes.push(`This turn stopped partway with an error: ${msg.slice(0, 140)}`);
 		}
 	}
 	return finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
 }
+
+/** The checker's warnings on a draft the turn ended on: no errors, but worth a look. */
+export function checkerNote(warnings: string[]): string {
+	const shown = warnings.slice(0, 3).map((w) => w.replace(/\s+/g, ' ').trim().slice(0, 120));
+	const more = warnings.length - shown.length;
+	return `The checker found no errors in this change, and ${warnings.length} warning${warnings.length === 1 ? '' : 's'}: ${shown.join('; ')}${more ? `; and ${more} more in the Coach` : ''}.`;
+}
+
+/** The host's check plus fit from a real render of the draft (draft-fit.ts). The render path
+ *  is imported HERE, from the lazy agent, and never from the shell: an `import()` in
+ *  StudioShell lists every chunk the export renderer needs in the shell's preload map, which
+ *  cost +361 B of startup JavaScript once main's plugin split (#2525) added chunks to it. */
+function withFit(grounding?: ChatGrounding): ((source: string) => Promise<DeckCheck>) | undefined {
+	const check = grounding?.check;
+	const fr = grounding?.fitRender;
+	if (!check) return undefined;
+	if (!fr) return check;
+	return async (source) => {
+		const [base, fit] = await Promise.all([
+			check(source),
+			import('./draft-fit').then((m) => m.measureDraftFit(fr.options, source, fr.palette, fr.mode, fr.extra, fr.extraCss)).catch(() => undefined),
+		]);
+		return fit ? { ...base, fit } : base;
+	};
+}
+
+/**
+ * What an agent turn costs, for the "≈ $/turn" readout: a QUESTION and an EDIT, because the
+ * two differ by half and one figure cannot honestly stand for both. The shape is measured
+ * (decision note §7, the matched benchmark, Sonnet 5.5 on OpenRouter, 2026-10-05):
+ *
+ * - a question is one call that writes ~1,000 tokens;
+ * - an edit is two calls: a short one that asks for the layout (~80 tokens out), then one
+ *   that re-reads the whole prompt from cache, writes ~2,500 tokens of layout docs to it,
+ *   and writes the slide and its summary (~700 tokens out).
+ *
+ * `estTokens` (4 characters a token) counts this prompt ~1.45x low against OpenRouter's own
+ * count (10.2K cached tokens against 7.1K estimated for the prefix and tools), so the input
+ * side carries that factor. Priced this way the bench deck reads question ≈ $0.014 and edit ≈
+ * $0.020 warm, against $0.015 and $0.021 measured, and a cold first question ≈ $0.052 against
+ * $0.049 measured (§7: the one-time write of the prefix). It replaced a single figure priced at the
+ * 4,096-token output CEILING, which is the budget gate's worst case and quoted every turn at
+ * ~3x a question's real cost. The ceiling stays in the gate; this is the typical turn.
+ */
+export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0): { question: number; edit: number } | null {
+	if (!price || price.promptPerM == null || price.completionPerM == null) return null;
+	const inUsd = price.promptPerM / 1e6;
+	const outUsd = price.completionPerM / 1e6;
+	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding);
+	// The tool schemas lead every request, so they sit in the cached prefix with the system core.
+	const stat = (estTokens(staticPrefix) + estTokens(JSON.stringify(AGENT_TOOLS))) * AGENT_TOKEN_SCALE;
+	// The turn carries the deck whole, or past INLINE_DECK_CHARS an outline (deckForTurn).
+	const rest = (estTokens(dynamicTail) + estTokens(deckForTurn(source)) + extraTokens) * AGENT_TOKEN_SCALE;
+	// Round one: the static prefix at the cache-read rate once a turn has written it, and
+	// at the 1-hour write rate (2x) on the turn that writes it; the rest is written to the
+	// 5-minute cache for the next round (1.25x).
+	const firstIn = stat * (primed ? CACHE_READ_RATE : CACHE_WRITE_1H_RATE) + rest * CACHE_WRITE_RATE;
+	const question = firstIn * inUsd + AGENT_TURN.questionOut * outUsd;
+	const second = ((stat + rest) * CACHE_READ_RATE + AGENT_TURN.editDocTokens * CACHE_WRITE_RATE) * inUsd + AGENT_TURN.editOut * outUsd;
+	const edit = firstIn * inUsd + AGENT_TURN.editFirstOut * outUsd + second;
+	return { question, edit };
+}
+const AGENT_TURN = { questionOut: 1000, editFirstOut: 80, editDocTokens: 2500, editOut: 700 };
+/** OpenRouter's token count over `estTokens` for the agent's prompt (see agentTurnUsd). */
+const AGENT_TOKEN_SCALE = 1.45;
+/** A 5-minute cache write, as a fraction of base input; the chat's prefix is a 1-hour one. */
+const CACHE_WRITE_RATE = 1.25;
+const CACHE_WRITE_1H_RATE = 2;
+/** What a cached prompt-prefix read costs, as a fraction of base input (architect.ts). */
+const CACHE_READ_RATE = 0.1;
 
 /** What the transcript says while a tool runs. */
 const TOOL_ACTIVITY: Record<string, string> = {
@@ -272,7 +362,12 @@ export function finalizeAgent(source: string, reply: string, raw: AgentRawEdit[]
  *  chat can still serve. OpenRouter answers 404 "No endpoints found that support tool use",
  *  or names a tool parameter it cannot route. */
 export function isToolRefusal(message: string): boolean {
-	return /\b(404|400)\b/.test(message) && /tool|requested parameters/i.test(message);
+	// The status is anchored to the transport's prefix, and the refusal named by its own
+	// words: a context-length 400 mentions "tool input" in its token breakdown, and matching
+	// a bare "tool" sent it down the one-shot path, which overflowed too and said nothing.
+	if (!/^OpenRouter error (400|404)\b/.test(message)) return false;
+	if (/context length|maximum context|too many tokens/i.test(message)) return false;
+	return /support tool|tool use|tool_choice|tool calling|requested parameters/i.test(message);
 }
 
 /** An author-facing sentence for a failed model request, from the transport's
@@ -290,8 +385,11 @@ export function describeModelError(message: string): string {
 	}
 	detail = detail.replace(/\s+/g, ' ').trim().slice(0, 140);
 	const tail = detail ? ` (OpenRouter said: ${detail})` : '';
+	// OpenRouter also uses 403 for input a moderated model flagged — reconnecting does not help.
+	if (status === 403 && /moderation|flagged/i.test(detail)) return `The selected model's moderation flagged this request — rephrase it, or pick another model in Workspace → AI.${tail}`;
 	if (status === 401 || status === 403) return `OpenRouter rejected the connection — reconnect in Workspace → AI.${tail}`;
 	if (status === 402) return `Your OpenRouter account is out of credits — add credits at openrouter.ai, or switch to On-device in Workspace → AI.${tail}`;
+	if (status === 400 && /context length|maximum context|too many tokens/i.test(detail || raw)) return `The deck and its attachments are too long for this model — detach a reference document, or pick a model with a longer context in Workspace → AI.${tail}`;
 	if (status === 404 || status === 400) return `The selected model could not take this request — pick another model in Workspace → AI.${tail}`;
 	if (status === 429) return `OpenRouter is rate-limiting this key — wait a moment and send again.${tail}`;
 	if (status >= 500) return `OpenRouter or the model's provider had an error — send again in a moment.${tail}`;

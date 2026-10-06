@@ -1287,6 +1287,10 @@ export type ChatGrounding = {
 	 *  over its draft, so an edit is checked before the author sees it. The host supplies it
 	 *  because only the host holds the lint vocabulary and the author's local components. */
 	check?: (source: string) => Promise<DeckCheck>;
+	/** What a real render of a draft needs — the agent's fit check (draft-fit.ts). Plain data,
+	 *  not a callback: the render path is imported by the LAZY chat agent, never by the shell,
+	 *  whose preload map would otherwise list every chunk the export renderer needs. */
+	fitRender?: { options: import('@/lib/single-slide-render').SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extra?: import('./share-export').ExtraTheme; extraCss?: string };
 };
 
 /**
@@ -1695,6 +1699,18 @@ export function chatSystemTokens(generation: string, grounding?: ChatGrounding, 
 	const { staticPrefix, dynamicTail } = generation === 'openrouter' && chatAgentMod ? chatAgentMod.agentSystemParts(source, grounding) : buildChatSystem(generation, grounding);
 	const stat = estTokens(staticPrefix);
 	return (cached ? Math.ceil(stat * CACHE_READ_RATE) : stat) + estTokens(dynamicTail);
+}
+
+/** What an agent turn costs, for the readout: a question and an edit. The measured model
+ *  lives with the agent (chat-agent.ts `agentTurnUsd`), not in startup JavaScript; until that
+ *  module lands this returns null and starts loading it, and the readout re-prices on
+ *  `lattice-chat-agent-ready`. */
+export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0): { question: number; edit: number } | null {
+	if (!chatAgentMod) {
+		loadChatAgent().catch(() => {});
+		return null;
+	}
+	return chatAgentMod.agentTurnUsd(price, grounding, primed, source, extraTokens);
 }
 
 /** Estimate a cloud call's USD cost: prompt tokens × in-price + an output ceiling ×

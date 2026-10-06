@@ -441,9 +441,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         // the user) → retry ONCE with the rot-proof latest alias, and drop the
         // cached catalog so the picker refetches fresh next open.
         // Never on a request that carries TOOLS. A "no endpoints" answer there is far more
-        // likely the model refusing tools (or a tool parameter) than a retired id, and the
-        // caller — the chat agent — has the right fallback: the same turn without tools, on the
-        // author's own model. If the id really is retired, THAT request self-heals here.
+        // likely the model refusing tools (or a tool parameter) than a retired id, and
+        // swapping in the default model would move the author onto a pricier model without a
+        // word. The chat agent re-sends a tools refusal without tools on the author's own
+        // model; any other failure, a retired id included, it shows with its cause ("pick
+        // another model") instead of healing silently. Callers without tools still heal here.
         if (isDeadModelError(res.status, errText) && body.model !== defaultModel && !body.tools) {
           catalogCache = null;
           writeLS(OR_CATALOG_LS, null);
@@ -477,6 +479,10 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // Streamed tool calls arrive as fragments keyed by `index`: the first carries the id
       // and name, the rest append to `function.arguments` (a JSON string, split anywhere).
       const calls = [];
+      // An error OpenRouter sends INSIDE a 200 stream (the provider dropped mid-reply). Its
+      // HTTP status was already 200, so nothing above saw it; read, it used to end the turn as
+      // an empty reply and run any half-streamed tool call on cut-off arguments.
+      let streamError = null;
       const reportUsage = () => {
         if (onUsage && usage) { try { onUsage(usage); } catch {} }
         reportFinish(finish);
@@ -512,7 +518,15 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
             const fr = obj.choices?.[0]?.finish_reason || obj.choices?.[0]?.native_finish_reason;
             if (fr) finish = fr;
             if (obj.usage) usage = obj.usage;
+            if (obj.error) streamError = obj.error;
           } catch {}
+          // Thrown only to a caller that sent TOOLS (the chat agent), which turns it into the
+          // cause and a remedy. Every other caller keeps the partial prose it had before.
+          if (streamError && body.tools) {
+            if (onUsage && usage) { try { onUsage(usage); } catch {} }
+            try { reader.cancel(); } catch {} // release the body rather than leave it open
+            throw new Error('OpenRouter error ' + (Number(streamError.code) >= 400 ? streamError.code : 502) + ': ' + JSON.stringify({ error: streamError }).slice(0, 300));
+          }
         }
       }
       reportUsage();

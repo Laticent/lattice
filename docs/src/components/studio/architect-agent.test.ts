@@ -233,6 +233,7 @@ describe('draft → reviewable edits', () => {
 });
 
 describe('the loop', () => {
+	const fitFor = (n: number) => [1, 2, 3].map((slide) => ({ slide, overflows: slide === n, clipped: false, illegible: false }));
 	const call = (id: string, name: string, args: unknown): ToolCall => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } });
 
 	it('runs tool rounds until the model answers in prose, feeding results back', async () => {
@@ -264,6 +265,144 @@ describe('the loop', () => {
 		const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: toolbox(), maxRounds: 3 });
 		expect(toolsFlags).toEqual([true, true, false]);
 		expect(turn.reply).toBe('Out of budget.');
+	});
+
+	it('ends the turn on a clean edit that already carries its summary — no summary-only round', async () => {
+		const check = vi.fn(async () => ({ findings: [] }));
+		const tb = toolbox({ check });
+		let n = 0;
+		const complete: AgentComplete = async (_m, { onToken }) => {
+			n++;
+			onToken('Tightened slide 3.');
+			return { text: 'Tightened slide 3.', toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }] })], truncated: false };
+		};
+		const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
+		expect(n).toBe(1);
+		expect(turn).toMatchObject({ rounds: 1, endedOnEdit: true, reply: 'Tightened slide 3.' });
+		expect(tb.proposal()).toHaveLength(1);
+	});
+
+	it('answers with the summary the edit call carried when the model wrote no prose beside it', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [] }) });
+		const tokens: string[] = [];
+		const complete: AgentComplete = async () => ({
+			text: '',
+			toolCalls: [call('a', 'set_front_matter', { key: 'finish', value: 'atrium', summary: 'Set the atrium finish.' }), call('b', 'set_front_matter', { key: 'mode', value: 'dark', summary: 'Opened it dark.' })],
+			truncated: false,
+		});
+		const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb, onToken: (t) => tokens.push(t) });
+		expect(turn).toMatchObject({ rounds: 1, endedOnEdit: true, reply: 'Set the atrium finish. Opened it dark.' });
+		expect(tokens.join('')).toBe(turn.reply);
+	});
+
+	it('keeps going after an edit when the checker finds an error, the edit was refused, or no summary was written', async () => {
+		const cases: { check: () => Promise<{ findings: { slide: number; severity: string; message: string }[] }>; text: string; body?: string; slide?: number }[] = [
+			{ check: async () => ({ findings: [{ slide: 3, severity: 'error', message: 'bad nesting' }] }), text: 'Edited.' },
+			{ check: async () => ({ findings: [] }), text: 'Edited.', slide: 99 },
+			{ check: async () => ({ findings: [] }), text: '' },
+		];
+		for (const c of cases) {
+			const tb = toolbox({ check: c.check });
+			let n = 0;
+			const complete: AgentComplete = async () => {
+				n++;
+				if (n > 1) return { text: 'Done.', toolCalls: [], truncated: false };
+				return { text: c.text, toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: c.slide ?? 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }] })], truncated: false };
+			};
+			const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
+			expect(n).toBe(2);
+			expect(turn.endedOnEdit).toBe(false);
+		}
+	});
+
+	it('does not end on a round that mixed an edit with a read, or two edits where one was refused', async () => {
+		const check = vi.fn(async () => ({ findings: [] }));
+		for (const calls of [
+			[call('a', 'edit_slides', { edits: [{ action: 'delete', slide: 3 }] }), call('b', 'read_slides', { from: 1 })],
+			[call('a', 'set_front_matter', { key: 'not a key', value: 'x' }), call('b', 'set_front_matter', { key: 'finish', value: 'atrium' })],
+		]) {
+			let n = 0;
+			const complete: AgentComplete = async () => {
+				n++;
+				return n > 1 ? { text: 'Done.', toolCalls: [], truncated: false } : { text: 'Changing it.', toolCalls: calls, truncated: false };
+			};
+			const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: toolbox({ check }) });
+			expect(n).toBe(2);
+			expect(turn.endedOnEdit).toBe(false);
+		}
+	});
+
+	it('fit from a real render: an overflowing slide the turn wrote holds the turn open; an old one is only reported', async () => {
+		const body = '<!-- _class: content -->\n## Next\n\n- Hire';
+		const mineOver = toolbox({ check: async () => ({ findings: [], fit: fitFor(3) }) });
+		const out = await mineOver.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body }], summary: 's' }));
+		expect(out).toContain('1 error');
+		expect(out).toMatch(/slide 3 overflows its frame \(you changed this slide: an error/);
+		expect(mineOver.settled()).toBe(false);
+		const oldOver = toolbox({ check: async () => ({ findings: [], fit: fitFor(1) }) });
+		const out2 = await oldOver.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body }], summary: 's' }));
+		expect(out2).toContain('0 errors');
+		expect(out2).toMatch(/slide 1 overflows its frame\n|slide 1 overflows its frame$/m);
+		expect(oldOver.settled()).toBe(true);
+		const clean = toolbox({ check: async () => ({ findings: [], fit: fitFor(0) }) });
+		expect(await clean.run('check_deck', '{}')).toContain('all 3 slides fit');
+	});
+
+	// The second checker's findings on the follow-ups (decision note §9).
+	it('a malformed edit after a clean one does not end the turn on the clean one’s verdict', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [], fit: fitFor(0) }) });
+		let n = 0;
+		const complete: AgentComplete = async () => {
+			n++;
+			if (n > 1) return { text: 'Resent.', toolCalls: [], truncated: false };
+			return {
+				text: '',
+				toolCalls: [
+					call('a', 'edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 'Changed hires.' }),
+					{ id: 'b', type: 'function', function: { name: 'edit_slides', arguments: '{"edits":[{"action":"delete","slide":1}],"summary":"Dropped title' } },
+				],
+				truncated: false,
+			};
+		};
+		const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
+		expect(n).toBe(2);
+		expect(turn.endedOnEdit).toBe(false);
+	});
+
+	it('a deck that renders more sections than slides reports fit by section and charges none of it', async () => {
+		const rows = [1, 2, 3, 4].map((slide) => ({ slide, overflows: slide === 3, clipped: false, illegible: false }));
+		const tb = toolbox({ check: async () => ({ findings: [], fit: rows }) });
+		const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(out).toMatch(/renders 4 sections for its 3 slides/);
+		expect(out).toContain('- section 3 overflows its frame');
+		expect(tb.settled()).toBe(true);
+	});
+
+	it('a front-matter change owns every slide, so an overflow it causes holds the turn open', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [], fit: fitFor(1) }) });
+		const out = await tb.run('set_front_matter', JSON.stringify({ key: 'size', value: '4:3', summary: 's' }));
+		expect(out).toMatch(/slide 1 overflows its frame[^\n]*an error/);
+		expect(tb.settled()).toBe(false);
+	});
+
+	it('an error already on a slide the turn left alone does not hold the turn open', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [{ slide: 1, severity: 'error', message: 'old' }], fit: fitFor(0) }) });
+		const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }], summary: 's' }));
+		expect(out).toContain('0 of the errors are on slides this turn changed');
+		expect(tb.settled()).toBe(true);
+	});
+
+	it('says fit was not measured rather than implying the slides fit', async () => {
+		const tb = toolbox({ check: async () => ({ findings: [] }) });
+		expect(await tb.run('check_deck', '{}')).toContain('Fit was not measured');
+	});
+
+	it('reports warnings only on the slides the turn wrote', async () => {
+		const check = vi.fn(async () => ({ findings: [{ slide: 1, severity: 'warning', message: 'old' }, { slide: 3, severity: 'warning', message: 'new one' }] }));
+		const tb = toolbox({ check });
+		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- _class: content -->\n## Next\n\n- Hire' }] }));
+		expect(tb.settled()).toBe(true);
+		expect(tb.verdict?.warnings).toEqual(['slide 3: new one']);
 	});
 
 	it('stops when aborted', async () => {

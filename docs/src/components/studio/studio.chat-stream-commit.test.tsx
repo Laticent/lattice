@@ -46,6 +46,7 @@ vi.mock('./architect', () => ({
 	estimateUsd: () => 0.004,
 	CHAT_OUTPUT_EST: 4096,
 	chatSystemTokens: () => 0,
+	agentTurnUsd: () => null,
 	CHAT_MAX_TOKENS: 16384,
 	architectSpend: () => ({ total: 0, session: 0, totalTokens: 0, sessionTokens: 0, cap: 0, mode: 'alert', status: { level: 'ok', blocked: false, message: null } }),
 }));

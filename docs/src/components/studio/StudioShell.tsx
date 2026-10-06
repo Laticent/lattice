@@ -4304,9 +4304,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, options?.runtimeUrl],
 	);
+	// And the agent's fit check renders the draft the way export does (draft-fit.ts). The shell
+	// hands over only what that render needs; the lazy agent imports the render path itself.
+	const fitRender = React.useMemo(
+		() => ({ options: deckOptions, palette: preview.paletteOverride ?? palette, mode: (preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')) as 'light' | 'dark', extra: preview.extraTheme, extraCss: previewExtraCss }),
+		[deckOptions, preview, palette, mode, previewExtraCss],
+	);
 	const chatGrounding = React.useMemo(
-		() => ({ scorecard, findings, catalog: components, check: checkDraft, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
-		[scorecard, findings, components, diagramErrors, checkDraft],
+		() => ({ scorecard, findings, catalog: components, check: checkDraft, fitRender, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
+		[scorecard, findings, components, diagramErrors, checkDraft, fitRender],
 	);
 	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
 	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.
