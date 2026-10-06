@@ -11,6 +11,6 @@ The owner ruled on 2026-09-27 (video note §6, fork 10): the desktop (Tauri) app
 capture code next. A web page cannot capture its own DOM without a screen-capture prompt, so the
 browser Studio does not get a video button.
 
-where     — the Tauri wrapper (its own Laticent repo) calling lib/export/video.mjs.
+where     — the Tauri desktop app, in this repository once it is built, calling lib/export/video.mjs.
 done when — a video button in the desktop app writes the same MP4 the CLI does for the same export.
 evidence  — an MP4 made from the desktop app, and the owner's playback check.

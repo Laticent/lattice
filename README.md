@@ -410,11 +410,11 @@ publishes tools for crafting deck-quality documents. The repositories
 (current and planned) live at
 [github.com/Laticent](https://github.com/Laticent):
 
-- **lattice** — this repo. The deck rendering engine + default palette.
-- **Laticent** — the desktop app (Tauri). Wraps the Lattice engine
-  with a markdown editor, live preview, theme picker, and PDF export.
-  Aims to make Lattice approachable for people who don't run `node`
-  from a terminal. (Under development.)
+- **lattice** — this repo. The deck rendering engine + default palette,
+  and the home of the **Laticent desktop app** (Tauri), which will wrap
+  the engine with a markdown editor, live preview, theme picker, and PDF
+  export, for people who don't run `node` from a terminal. The app is not
+  built yet, and it does not get a repository of its own.
 - **themes** — additional palette packs that can drop into Lattice.
   (Future.)
 
