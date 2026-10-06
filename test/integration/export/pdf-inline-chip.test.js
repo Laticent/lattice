@@ -80,7 +80,7 @@ describe('pdf-inline-chip', () => {
     execFileSync('pdftoppm', ['-gray', '-r', '96', '-f', '1', '-l', '1', pdf, path.join(dir, 'p')]);
     const page = readPnm(path.join(dir, fs.readdirSync(dir).find((n) => n.startsWith('p') && n.endsWith('.pgm'))));
 
-    for (const [x0, y0, x1, y1] of pills) {
+    for (const [x0, y0, , y1] of pills) {
       // The pill's box reaches ~12px past its word on each side and ~6px above and below; the
       // band just LEFT of the word (inside the pill, outside the glyphs) is where its border and
       // fill sit and no letter does.
