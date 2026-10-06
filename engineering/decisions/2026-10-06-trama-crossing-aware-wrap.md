@@ -84,6 +84,13 @@ work adds, against the 24 crossings left there, before anyone builds it.
   and direction, so a moved break drew the even split while typing and jumped back at every
   pause. It now holds the breaks too, and a test checks that the pinned call reproduces the
   searched drawing byte for byte, in one routing.
+  **Seen on the real Studio, with a control.** I instrumented two production builds (the
+  pipeline logged each key's pin) and typed into the stress deck's wizard one key at a time.
+  The builds include the runtime bundle (`dist/lattice-runtime.js`), which carries its own copy
+  of the pipeline; an earlier control that rebuilt only the docs site never ran its change.
+  Every key consulted the pin, `{ lines: 2, dir: 'lr', breaks: [4, 2] }`. With the breaks
+  passed on, the drawing held 4/2 through every key and at rest. With them dropped (the
+  control), it jumped to 3/3 on the first key and back to 4/2 at the pause.
 
 ### How review and measurement shaped it
 
