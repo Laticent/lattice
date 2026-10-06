@@ -19,6 +19,7 @@ import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type Liv
 const SECTION = 'px-3.5 pt-3 pb-1 font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground';
 
 function whereLabel(p: LivePerson): string {
+	if (p.away) return 'Reconnecting…';
 	if (p.slide === null) return 'Arriving…';
 	return `Slide ${p.slide + 1}${p.editing ? ' · editing' : ''}`;
 }
@@ -28,7 +29,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 	const canManage = view.isHost && !p.me && p.role !== 'host';
 	const following = view.following === p.id;
 	return (
-		<li className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent">
+		<li className={cn('group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent', p.away && 'opacity-55')}>
 			<LiveAvatar person={p} size={26} ring={p.mic === 'speaking'} />
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-1 truncate text-[12.5px] font-semibold text-foreground">
@@ -42,7 +43,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 				</div>
 			</div>
 			{view.audio && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'off' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'off' ? 'Muted' : 'Mic on'} />}
-			{!p.me && (
+			{!p.me && !p.away && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button variant="ghost" size="icon" className="size-6" aria-label={`Options for ${p.name}`}>
@@ -95,17 +96,55 @@ function ChatText({ text, onSlide }: { text: string; onSlide: (i: number) => voi
 	return <>{parts}</>;
 }
 
-function ChatLine({ line, onSlide }: { line: LiveChatLine; onSlide: (i: number) => void }) {
-	if (line.kind === 'system') return <li className="px-1 text-[11px] italic text-muted-foreground">{line.text}</li>;
+/**
+ * One chat line, drawn as a bubble — the Architect chat's shape, so the two chats read as one
+ * product: your own lines on the right in the primary color, everyone else's on the left on the
+ * muted surface with their name in their session color. A run of lines from one person shows the
+ * name once. System lines (joins, role changes) are small centered notes, not bubbles.
+ */
+function ChatLine({ line, prev, onSlide }: { line: LiveChatLine; prev: LiveChatLine | undefined; onSlide: (i: number) => void }) {
+	if (line.kind === 'system') return <li className="py-0.5 text-center text-[11px] text-muted-foreground">{line.text}</li>;
+	const run = prev?.kind === 'message' && prev.from === line.from && prev.mine === line.mine && line.at - prev.at < 120_000;
+	if (line.mine) {
+		return (
+			<li className={cn('flex justify-end', run ? 'pt-0.5' : 'pt-1.5')}>
+				<div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-3 py-1.5 text-[12.5px] leading-relaxed text-primary-foreground">
+					<ChatText text={line.text} onSlide={onSlide} />
+				</div>
+			</li>
+		);
+	}
 	return (
-		<li className="text-[12.5px] leading-[1.45] text-foreground">
-			<span className="font-semibold" style={{ color: liveColor(line.color) }}>{line.from}</span>{' '}
-			<ChatText text={line.text} onSlide={onSlide} />
+		<li className={cn('flex flex-col items-start', run ? 'pt-0.5' : 'pt-1.5')}>
+			{!run && (
+				<span className="px-1 pb-0.5 text-[11px] font-semibold" style={{ color: liveColor(line.color) }}>
+					{line.from}
+				</span>
+			)}
+			<div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-md border border-border bg-muted px-3 py-1.5 text-[12.5px] leading-relaxed text-foreground">
+				<ChatText text={line.text} onSlide={onSlide} />
+			</div>
 		</li>
 	);
 }
 
-function Composer({ onSend }: { onSend: (text: string) => void }) {
+/** "Amina is typing…" — under the last line, above the composer. */
+function TypingNote({ names }: { names: string[] }) {
+	if (names.length === 0) return null;
+	const who = names.length === 1 ? `${names[0]} is` : names.length === 2 ? `${names[0]} and ${names[1]} are` : 'Several people are';
+	return (
+		<p className="flex items-center gap-1.5 px-3.5 pb-1 text-[11px] text-muted-foreground" aria-live="polite">
+			<span className="flex gap-0.5" aria-hidden>
+				{[0, 1, 2].map((i) => (
+					<span key={i} className="size-1 animate-pulse rounded-full bg-current" style={{ animationDelay: `${i * 160}ms` }} />
+				))}
+			</span>
+			{who} typing…
+		</p>
+	);
+}
+
+function Composer({ onSend, onTyping }: { onSend: (text: string) => void; onTyping: () => void }) {
 	const [draft, setDraft] = React.useState('');
 	const send = () => {
 		const t = draft.trim();
@@ -120,9 +159,12 @@ function Composer({ onSend }: { onSend: (text: string) => void }) {
 				maxRows={4}
 				rows={1}
 				value={draft}
-				onChange={(e) => setDraft(e.target.value)}
+				onChange={(e) => {
+					setDraft(e.target.value);
+					if (e.target.value.trim()) onTyping();
+				}}
 				onKeyDown={(e) => {
-					if (e.key === 'Enter' && !e.shiftKey) {
+					if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
 						e.preventDefault();
 						send();
 					}
@@ -192,7 +234,7 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 	const live = view.status === 'live';
 	const full = view.people.length >= view.cap;
 	return (
-		<div className="flex min-h-0 flex-1 flex-col" data-live-panel>
+		<div className="group/live flex min-h-0 flex-1 flex-col" data-live-panel>
 			{title && (
 				<div className="flex items-center gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 					<span>{title}</span>
@@ -226,7 +268,10 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 				<StartCard actions={actions} defaultName={defaultName} />
 			) : (
 				<>
-					<div className="shrink-0 overflow-y-auto">
+					{/* The session block scrolls rather than pushing the chat off the sheet, and on a phone it
+					    folds away while you type a message: with the keyboard up there is room for the chat or
+					    the roster, not both, and the composer must never sit under the keyboard. */}
+					<div className="max-h-[55%] min-h-0 shrink-0 overflow-y-auto max-[699px]:group-has-[textarea:focus]/live:hidden">
 						{view.isHost && (
 							<div className="flex flex-col gap-2 px-3.5 pt-3">
 								<div className="flex items-stretch">
@@ -291,15 +336,16 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 							</Button>
 						</div>}
 					</div>
-					<div className="mt-1.5 flex min-h-0 flex-1 flex-col border-t border-border">
+					<div className="mt-1.5 flex min-h-0 flex-1 flex-col border-t border-border max-[699px]:group-has-[textarea:focus]/live:mt-0 max-[699px]:group-has-[textarea:focus]/live:border-t-0">
 						<div className={SECTION}>Chat</div>
-						<ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3.5 py-1.5" aria-label="Session chat" aria-live="polite">
+						<ul className="min-h-0 flex-1 overflow-y-auto px-3.5 py-1.5" aria-label="Session chat" aria-live="polite">
 							{view.chat.length === 0 && <li className="text-[11.5px] text-muted-foreground">Messages go to everyone in the session. Type “slide 4” to link a slide.</li>}
-							{view.chat.map((line) => <ChatLine key={line.id} line={line} onSlide={actions.goToSlide} />)}
+							{view.chat.map((line, i) => <ChatLine key={line.id} line={line} prev={view.chat[i - 1]} onSlide={actions.goToSlide} />)}
 							<li ref={chatEnd} aria-hidden />
 						</ul>
-						<div className="border-t border-border p-2.5">
-							{view.canChat ? <Composer onSend={actions.sendChat} /> : <p className="px-1 text-[11.5px] text-muted-foreground">You can view this session, so you can read the chat but not post.</p>}
+						<TypingNote names={view.typing} />
+						<div className="shrink-0 border-t border-border p-2.5">
+							{view.canChat ? <Composer onSend={actions.sendChat} onTyping={actions.chatTyping} /> : <p className="px-1 text-[11.5px] text-muted-foreground">You can view this session, so you can read the chat but not post.</p>}
 						</div>
 					</div>
 				</>

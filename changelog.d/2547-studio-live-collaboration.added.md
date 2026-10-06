@@ -4,7 +4,9 @@
   **knocks**; you admit or deny them from a toast or the Live panel. Once in, everyone edits the
   same source with colored carets, the slide navigator shows who is on which slide, you can
   **follow** someone or **bring everyone to your slide**, and the panel carries the session's
-  chat. Up to **4 people**. Undo only undoes your own edits. A guest keeps a copy of the deck
+  chat — bubbles like the Architect chat, with "is typing…" — and someone whose connection
+  drops for a moment (a phone switching tabs) shows as reconnecting rather than "left". Up to
+  **4 people**. Undo only undoes your own edits. A guest keeps a copy of the deck
   when the session ends, and reloading the same tab (host or guest) picks the session back up;
   closing the tab ends your part in it. Audio and video are not in this release.
 - **No server of ours is involved.** Edits travel browser to browser over WebRTC; peers find

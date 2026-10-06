@@ -317,6 +317,14 @@ back for the editor.
   `panel-shells.tsx`) but not the AI message model.
 - **Slide chips.** "slide 6" or "#6" in a message renders as a chip that jumps your preview
   to that slide.
+- **Bubbles, like the Architect chat.** Your lines sit on the right in the primary color, the
+  same bubble the Architect chat gives your messages; everyone else's sit on the left on the
+  muted surface, with their name in their session color once per run. "Amina is typing…" shows
+  above the composer (a throttled post, at most one every 2 s, shown for 4 s). On a phone the
+  invite and people block folds away while you type, so the composer stays above the keyboard.
+- **"Left" means left.** A dropped connection (a phone that backgrounds the tab, a blip) shows the
+  person dimmed as *Reconnecting…*; coming back within 60 s is not news, and only then does the
+  chat say they left. Leave sends a goodbye first, so it says "left" at once.
 - **System lines** for joins, leaves, role changes, and applied AI edits ("Amina applied an
   AI edit to slide 3"), so a change that landed under you has a visible cause.
 - **Lifetime:** the chat rides Tavola's post channel, not the document, so a line's author is

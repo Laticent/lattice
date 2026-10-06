@@ -78,7 +78,13 @@ const clearHostSave = () => {
 /** A chat line as every browser keeps it. `name` and `color` are the roster's when it arrived. */
 type ChatLine = { id: string; peer: string; name: string; color: LiveColor; text: string; at: number };
 /** Posts on Tavola's app channel: a line, a request for the history, and the host's answer. */
-type Post = { k: 'chat'; n: number; text: string } | { k: 'history?' } | { k: 'history'; lines: ChatLine[] };
+type Post = { k: 'chat'; n: number; text: string } | { k: 'history?' } | { k: 'history'; lines: ChatLine[] } | { k: 'typing' } | { k: 'bye' };
+/** How long a dropped member shows as reconnecting before the chat says they left. A phone that
+ *  backgrounds a tab drops its connection within seconds and comes back when the tab returns. */
+const AWAY_GRACE_MS = 60_000;
+/** A "typing" post counts for this long; the typist re-sends at most every TYPING_POST_MS. */
+const TYPING_SHOW_MS = 4000;
+const TYPING_POST_MS = 2000;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 || c === 4;
@@ -264,6 +270,12 @@ export class LiveController {
 	private prevSource: string;
 	private boundDeck: string | null = null;
 	private ticker: ReturnType<typeof setInterval> | null = null;
+	/** Members whose link dropped and who have not come back, by name (a rejoin by token keeps it). */
+	private away = new Map<string, { color: LiveColor; role: SessionState['members'][number]['role']; timer: ReturnType<typeof setTimeout> }>();
+	/** Peers that said goodbye (Leave), so their departure is news at once. */
+	private byes = new Set<string>();
+	private typingAt = new Map<string, number>();
+	private lastTypingPost = 0;
 	private lastSummon = 0;
 	private followJump = false;
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -446,11 +458,37 @@ export class LiveController {
 				const s = session.getState();
 				const before = new Map(prev.members.map((m) => [m.id, m]));
 				if (prev.stage === 'live' && s.stage === 'live') {
-					for (const m of s.members) if (!before.has(m.id) && m.id !== s.selfId) this.sys(`${m.name} joined${m.role === 'view' ? ' · can view' : ''}`);
+					for (const m of s.members) {
+						if (before.has(m.id) || m.id === s.selfId) continue;
+						// Back from a dropped link (a backgrounded phone tab, a blip): not news.
+						const back = this.away.get(m.name);
+						if (back) {
+							clearTimeout(back.timer);
+							this.away.delete(m.name);
+						} else this.sys(`${m.name} joined${m.role === 'view' ? ' · can view' : ''}`);
+					}
 					// Someone left or was removed: the host saves now, not a second later, so a reload
 					// right after a removal cannot bring back the token it revoked (red-team round 2).
 					if (s.isHost && [...before.keys()].some((id) => !s.members.some((x) => x.id === id))) void this.saveHost();
-					for (const [id, m] of before) if (!s.members.some((x) => x.id === id) && id !== s.selfId) this.sys(`${m.name} left`);
+					for (const [id, m] of before) {
+						if (s.members.some((x) => x.id === id) || id === s.selfId) continue;
+						this.typingAt.delete(id);
+						if (this.byes.delete(id)) {
+							this.sys(`${m.name} left`);
+							continue;
+						}
+						// A dropped link, not a goodbye: show them as reconnecting, and say "left" only if
+						// they are still gone after the grace period.
+						const prevAway = this.away.get(m.name);
+						if (prevAway) clearTimeout(prevAway.timer);
+						const timer = setTimeout(() => {
+							if (this.away.get(m.name)?.timer !== timer) return;
+							this.away.delete(m.name);
+							this.sys(`${m.name} left`);
+							this.host.rerender();
+						}, AWAY_GRACE_MS);
+						this.away.set(m.name, { color: m.color, role: m.role, timer });
+					}
 					for (const m of s.members) {
 						const was = before.get(m.id);
 						if (was && was.role !== m.role) this.sys(`${m.name} ${m.role === 'view' ? 'can now only view' : 'can now edit'}`);
@@ -506,21 +544,23 @@ export class LiveController {
 		this.host.rerender();
 	}
 
-	private teardown(how: 'leave' | 'end') {
+	private teardown(how: 'leave' | 'end', opts: { linger?: boolean } = {}) {
 		const r = this.rt;
 		if (!r) return;
 		this.tearing = true;
 		try {
-			this.teardownNow(r, how);
+			this.teardownNow(r, how, opts.linger ?? false);
 		} finally {
 			this.tearing = false;
 		}
 	}
 
-	private teardownNow(r: Runtime, how: 'leave' | 'end') {
+	private teardownNow(r: Runtime, how: 'leave' | 'end', linger: boolean) {
 		// `end()` owns its own shutdown (it leaves the transport a beat later so the `end` messages get
 		// out). Running `leave()` here too would close the connections first — red-team finding 2.
 		if (how === 'end') r.session.end();
+		// `linger`: a goodbye was just posted; close a beat later so it gets out (as `end()` does).
+		else if (linger) setTimeout(() => r.session.leave(), 300);
 		else r.session.leave();
 		for (const d of r.disposers) d();
 		r.aw.destroy();
@@ -529,6 +569,10 @@ export class LiveController {
 		this.fromY.clear();
 		this.chat = [];
 		this.lastSealed = null;
+		for (const a of this.away.values()) clearTimeout(a.timer);
+		this.away.clear();
+		this.byes.clear();
+		this.typingAt.clear();
 		this.following = null;
 		this.bound = false;
 		this.boundDeck = null;
@@ -786,7 +830,10 @@ export class LiveController {
 	/** The chat: every line's author is the member its post ARRIVED from (Tavola's gate), as the
 	 *  roster named them then. */
 	private chatLines(): LiveChatLine[] {
-		return this.chat.map((l) => ({ kind: 'message', id: l.id, from: l.name, color: l.color, text: l.text, at: l.at }));
+		const s = this.rt?.session.getState();
+		const me = s?.me;
+		// Mine: sent from this browser, or (history after a reload, under a new peer id) under my name and color.
+		return this.chat.map((l) => ({ kind: 'message', id: l.id, from: l.name, color: l.color, text: l.text, at: l.at, mine: l.peer === s?.selfId || (!!me && l.name === me.name && l.color === me.color) }));
 	}
 
 	private addLines(lines: ChatLine[]) {
@@ -815,7 +862,13 @@ export class LiveController {
 			return;
 		}
 		if (!p || typeof p !== 'object') return;
-		if (p.k === 'chat' && typeof p.text === 'string' && Number.isSafeInteger(p.n) && sender.role !== 'view') {
+		if (p.k === 'typing' && sender.role !== 'view') {
+			this.typingAt.set(from, Date.now());
+			this.host.rerender();
+		} else if (p.k === 'bye') {
+			this.byes.add(from);
+		} else if (p.k === 'chat' && typeof p.text === 'string' && Number.isSafeInteger(p.n) && sender.role !== 'view') {
+			this.typingAt.delete(from);
 			this.addLines([{ id: `${from}:${p.n}`, peer: from, name: sender.name, color: sender.color, text: p.text.slice(0, CHAT_MAX), at: Date.now() }]);
 		} else if (p.k === 'history?' && s.isHost) {
 			this.post({ k: 'history', lines: this.chat }, from);
@@ -834,6 +887,11 @@ export class LiveController {
 			const me = m.id === s.selfId;
 			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS, mic: 'off' };
 		});
+		for (const [name, a] of this.away) {
+			if (!people.some((p) => p.name === name)) people.push({ id: `away:${name}`, name, color: a.color, role: a.role, slide: null, editing: false, mic: 'off', away: true });
+		}
+		const now = Date.now();
+		const typing = s.members.filter((m) => m.id !== s.selfId && now - (this.typingAt.get(m.id) ?? 0) < TYPING_SHOW_MS).map((m) => m.name);
 		return {
 			status: 'live',
 			isHost: s.isHost,
@@ -849,6 +907,7 @@ export class LiveController {
 			hostAway: s.hostAway,
 			audio: false,
 			canChat: s.me?.role !== 'view',
+			typing,
 		};
 	}
 
@@ -936,7 +995,9 @@ export class LiveController {
 			this.host.notify('Live session ended. The deck stays as it is.');
 		},
 		leave: () => {
-			this.teardown('leave');
+			// Say goodbye first, so the others show "left" at once instead of "reconnecting".
+			this.post({ k: 'bye' });
+			this.teardown('leave', { linger: true });
 			this.host.notify('You left the live session. Your copy of the deck stays.');
 		},
 		sendChat: (text) => {
@@ -946,7 +1007,14 @@ export class LiveController {
 			const n = ++r.chatN;
 			const line = text.slice(0, CHAT_MAX);
 			this.post({ k: 'chat', n, text: line });
+			this.lastTypingPost = 0;
 			this.addLines([{ id: `${s.selfId}:${n}`, peer: s.selfId, name: s.me.name, color: s.me.color, text: line, at: Date.now() }]);
+		},
+		chatTyping: () => {
+			const t = Date.now();
+			if (t - this.lastTypingPost < TYPING_POST_MS || this.rt?.session.getState().me?.role === 'view') return;
+			this.lastTypingPost = t;
+			this.post({ k: 'typing' });
 		},
 		goToSlide: (i) => this.host.goToSlide(i),
 	};

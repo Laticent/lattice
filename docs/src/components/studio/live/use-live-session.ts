@@ -106,6 +106,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 		end: NOOP,
 		leave: NOOP,
 		sendChat: NOOP,
+		chatTyping: NOOP,
 		goToSlide: (i) => depsRef.current.goToSlide(i),
 	};
 	const lobbyActions: LobbyActions = ctl?.lobbyActions ?? { setName: NOOP, knock: NOOP, cancel: NOOP, retry: NOOP };

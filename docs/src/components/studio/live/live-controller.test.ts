@@ -191,4 +191,35 @@ describe('LiveController (second-round trio)', () => {
 		await g.resume();
 		await until(() => g.lobby()?.stage === 'ready', h, g);
 	});
+
+	it('a dropped link shows as reconnecting, and coming back is not news: no "left" / "joined" churn', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: the test reaches the transports' ids.
+		const id = (c: Ctl) => (c as any).rt.session.getState().selfId as string;
+		net.current?.cut(id(h), id(g));
+		await until(() => h.view().people.some((p) => p.name === 'Amina' && p.away), h, g);
+		net.current?.heal(id(h), id(g));
+		await until(() => h.view().people.some((p) => p.name === 'Amina' && !p.away), h, g);
+		const system = h.view().chat.flatMap((l) => (l.kind === 'system' ? [l.text] : []));
+		expect(system).toEqual(['Amina joined']);
+	});
+
+	it('Leave says goodbye, so the others show "left" at once', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.leave();
+		await until(() => h.view().chat.some((l) => l.kind === 'system' && l.text === 'Amina left'), h);
+		expect(h.view().people.some((p) => p.away)).toBe(false);
+	});
+
+	it('typing in the chat shows on the other side, and clears when the line arrives', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.chatTyping();
+		await until(() => h.view().typing.includes('Amina'), h, g);
+		g.actions.sendChat('done');
+		await until(() => h.view().typing.length === 0 && h.view().chat.some((l) => l.kind === 'message' && l.text === 'done' && !l.mine), h, g);
+		expect(g.view().chat.find((l) => l.kind === 'message' && l.text === 'done')).toMatchObject({ mine: true });
+	});
 });

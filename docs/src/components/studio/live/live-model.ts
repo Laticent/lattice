@@ -1,5 +1,5 @@
 // The view model the Live panel, lobby and header pill draw from. Pure data, so the same
-// components render a real Tavola session or the scripted prototype (`live-demo.ts`).
+// components can render a real Tavola session or a test fixture.
 // See engineering/decisions/2026-10-06-studio-live-collaboration.md §4–§5.
 
 /** A person's role. `host` is the one who shared the link. */
@@ -20,12 +20,15 @@ export type LivePerson = {
 	/** Typed in the last couple of seconds. */
 	editing: boolean;
 	mic: 'off' | 'on' | 'speaking';
+	/** Their connection dropped a moment ago and they have not come back yet (a phone that
+	 *  backgrounded the tab, a network blip). Shown dimmed, not removed: "left" is for leaving. */
+	away?: boolean;
 };
 
 export type LiveKnock = { id: string; name: string; at: number };
 
 export type LiveChatLine =
-	| { kind: 'message'; id: string; from: string; color: LiveColor; text: string; at: number }
+	| { kind: 'message'; id: string; from: string; color: LiveColor; text: string; at: number; mine: boolean }
 	| { kind: 'system'; id: string; text: string; at: number };
 
 export type LiveView = {
@@ -48,6 +51,8 @@ export type LiveView = {
 	audio: boolean;
 	/** View-only members read the chat but cannot post (their document changes are never sent). */
 	canChat: boolean;
+	/** Names of the people typing a chat message right now (never this browser). */
+	typing: string[];
 };
 
 export type LiveActions = {
@@ -65,6 +70,8 @@ export type LiveActions = {
 	end: () => void;
 	leave: () => void;
 	sendChat: (text: string) => void;
+	/** The chat draft changed: tells the others you are typing (throttled by the controller). */
+	chatTyping: () => void;
 	goToSlide: (index: number) => void;
 };
 
@@ -100,6 +107,7 @@ export const IDLE_VIEW: LiveView = {
 	hostAway: false,
 	audio: false,
 	canChat: true,
+	typing: [],
 };
 
 /** The CSS color for a session color. The chart categorical hues are the palette's own, so a
