@@ -163,6 +163,10 @@ export function createSession(opts: SessionOptions): Session {
 	let ending = false;
 	/** Guest: control messages are handled strictly in order, because a hello is verified asynchronously. */
 	let controlChain: Promise<void> = Promise.resolve();
+	/** Every link's generation: bumped on each join and leave of a peer, so an answer that took a
+	 *  while (a hello being verified) can tell whether it still belongs to the link it came on. */
+	const epoch = new Map<PeerId, number>();
+	const bump = (id: PeerId) => epoch.set(id, (epoch.get(id) ?? 0) + 1);
 	/** Host: hellos being signed. */
 	const signing = new Set<Promise<unknown>>();
 
@@ -293,8 +297,18 @@ export function createSession(opts: SessionOptions): Session {
 			if (state.stage === 'connecting' || state.stage === 'host-absent') set({ stage: 'outdated' });
 			return;
 		}
+		const link = epoch.get(from);
 		if (!(await verifyHello(opts.hostFingerprint as string, msg.key, msg.sig, from, t.selfId))) return;
-		if (closed) return;
+		// The link the hello came on dropped while we verified: whoever is on that id now may not be
+		// the host (checker round 3, finding 2).
+		if (closed || epoch.get(from) !== link || !connected.has(from)) return;
+		if (hostId !== null && hostId !== from) {
+			// The host came back under a new id (it reloaded). Its OLD id is nobody now: drop it, or a
+			// squatter on it would be a trusted member (checker round 3, finding 1).
+			const old = hostId;
+			if (memberOf(old)) set({ members: state.members.filter((m) => m.id !== old) });
+			forget(old);
+		}
 		hostId = from;
 		hostTrusted = true;
 		set({ invite: msg.invite, hostAway: false });
@@ -378,16 +392,29 @@ export function createSession(opts: SessionOptions): Session {
 	// ── transport wiring ────────────────────────────────────────────────────
 	t.onPeerJoin((id) => {
 		connected.add(id);
+		bump(id);
 		if (isHost) {
-			if (!memberOf(id) && !ending) sayHello(id);
+			if (ending) return;
+			if (memberOf(id)) {
+				// A join for a member we still count: the transport replaced the link without telling us
+				// it left. Treat it as a fresh link — the member re-knocks with its token on our hello.
+				set({ members: state.members.filter((m) => m.id !== id) });
+				broadcastRoster();
+				forget(id);
+			}
+			sayHello(id);
 			return;
 		}
 		// A member's link formed late or came back: whatever either side sent before it existed
 		// was dropped, so exchange full state now (the roster-time sync only covers a NEW member).
 		if (isLive() && memberOf(id) && id !== hostId) syncWith(id);
+		// A peer we dropped when its link to us went down (below) came back: the host says whether it
+		// is still a member, and the roster that answers re-adds and resyncs it.
+		else if (isLive() && hostTrusted && hostId && id !== hostId) sendControl(hostId, { t: 'roster?' });
 	});
 	t.onPeerLeave((id) => {
 		connected.delete(id);
+		bump(id);
 		if (isHost) {
 			claims.delete(id);
 			if (state.waiting.some((w) => w.id === id)) set({ waiting: state.waiting.filter((w) => w.id !== id) });
@@ -404,8 +431,8 @@ export function createSession(opts: SessionOptions): Session {
 				set({ stage: 'host-absent' });
 			}
 		} else if (memberOf(id)) {
-			// Drop the leaver here, without waiting for the host's roster: until the host admits it
-			// again, whoever next connects under this id is a stranger.
+			// Drop the leaver here, without waiting for the host's roster: until the host vouches for it
+			// again (`roster?` on its return), whoever next connects under this id is a stranger.
 			set({ members: state.members.filter((m) => m.id !== id) });
 		}
 		forget(id);
@@ -421,6 +448,7 @@ export function createSession(opts: SessionOptions): Session {
 				if (ending) return;
 				if (msg.t === 'knock') hostOnKnock(from, msg.name, msg.token, msg.client);
 				else if (msg.t === 'sync' && memberOf(from)) answerSync(from);
+				else if (msg.t === 'roster?' && memberOf(from)) sendControl(from, { t: 'roster', members: state.members });
 				return;
 			}
 			controlChain = controlChain.then(() => guestOnControl(from, msg)).catch(() => {});

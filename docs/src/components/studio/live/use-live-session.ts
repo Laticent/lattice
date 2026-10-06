@@ -26,7 +26,8 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 	const loading = React.useRef<Promise<LiveController> | null>(null);
 
 	const ensure = React.useCallback((): Promise<LiveController> => {
-		loading.current ??= import('./live-controller').then(({ LiveController: C }) => {
+		if (loading.current) return loading.current;
+		loading.current = import('./live-controller').then(({ LiveController: C }) => {
 			const host: LiveHost = {
 				setSource: (s) => depsRef.current.setSource(s),
 				goToSlide: (i) => depsRef.current.goToSlide(i),
@@ -71,6 +72,14 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 	});
 
 	// Hosting others: ask before the tab goes.
+	// The tab is going away: unmount effects do not run on a real unload, so save here.
+	React.useEffect(() => {
+		if (!ctl) return;
+		const h = () => ctl.flushSave();
+		window.addEventListener('pagehide', h);
+		return () => window.removeEventListener('pagehide', h);
+	}, [ctl]);
+
 	React.useEffect(() => {
 		if (!ctl) return;
 		const h = (e: BeforeUnloadEvent) => {

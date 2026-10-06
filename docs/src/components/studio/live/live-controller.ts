@@ -8,7 +8,7 @@ import * as Y from 'yjs';
 import { cleanName, createHostKey, createSession, formatLink, fromBase64Url, type HostKey, hostKeyFrom, mintLink, parseFragment, type Session, type SessionState, type TokenEntry, toBase64Url } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
-import { clearJoinIntent, HOST_KEY, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
+import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
 
 // The Studio's side of a live session, loaded only when a session starts or a link is opened
@@ -275,6 +275,8 @@ export class LiveController {
 	/** A teardown is running: stage changes it causes are not news (checker round 2, finding 2). */
 	private tearing = false;
 	private resuming: Promise<void> | null = null;
+	/** Seals finish out of order; only the newest one becomes the save. */
+	private sealSeq = 0;
 	now = Date.now();
 
 	constructor(
@@ -290,7 +292,11 @@ export class LiveController {
 	 *  Safe to call twice at once (StrictMode runs the effect twice — checker round 2, finding 5), and
 	 *  again later for a link pasted into this tab (`hashchange`). */
 	resume(): Promise<void> {
-		this.resuming ??= this.doResume().finally(() => {
+		this.resuming ??= (async () => {
+			// A link pasted while a resume runs is picked up by another pass, not dropped.
+			do await this.doResume();
+			while (hasFreshJoin());
+		})().finally(() => {
 			this.resuming = null;
 		});
 		return this.resuming;
@@ -298,6 +304,7 @@ export class LiveController {
 
 	private async doResume(): Promise<void> {
 		const fresh = takeFreshJoin();
+		if (fresh) this.badLink = false;
 		// The link is in memory now; only now is it safe to take it out of the address bar (a failed
 		// load before this point leaves it there, so a reload still works — inversion round 2, item 1).
 		scrubLiveFragment();
@@ -390,7 +397,7 @@ export class LiveController {
 			},
 		};
 		const awStream = {
-			encodeAll: () => encodeAwarenessUpdate(aw, [doc.clientID]),
+			encodeAll: () => encodeAwarenessUpdate(aw, [aw.clientID]),
 			applyRemote: (u: Uint8Array, from: string) => {
 				const clean = sanitizeAwareness(u, from, ownerOf, memberOf(from));
 				if (!clean) return;
@@ -400,7 +407,7 @@ export class LiveController {
 			onLocal(cb: (u: Uint8Array) => void) {
 				const h = ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => {
 					if (origin !== 'local') return;
-					const mine = [...added, ...updated, ...removed].filter((c) => c === doc.clientID);
+					const mine = [...added, ...updated, ...removed].filter((c) => c === aw.clientID);
 					if (mine.length) cb(encodeAwarenessUpdate(aw, mine));
 				};
 				aw.on('update', h);
@@ -537,6 +544,11 @@ export class LiveController {
 	}
 
 	/** Unmount (a reload is coming, or the Studio is going away): keep the host save, then go. */
+	/** The page is going away (pagehide): write the host save now, from the last sealed blob. */
+	flushSave(): void {
+		if (this.rt) this.writeHostSave(this.rt);
+	}
+
 	dispose(): void {
 		const r = this.rt;
 		if (!r) return;
@@ -566,12 +578,13 @@ export class LiveController {
 		const s = r?.session.getState();
 		if (!r?.key || !s?.isHost || s.stage !== 'live') return true;
 		let sealed: string;
+		const seq = ++this.sealSeq;
 		try {
 			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat } satisfies HostSealed));
 		} catch {
 			return false;
 		}
-		if (this.rt !== r) return true;
+		if (this.rt !== r || seq !== this.sealSeq) return true;
 		this.lastSealed = { room: r.room, sealed };
 		return this.writeHostSave(r);
 	}
@@ -698,7 +711,7 @@ export class LiveController {
 		const r = this.rt;
 		if (!r) return m;
 		for (const [client, st] of r.aw.getStates()) {
-			if (client === r.doc.clientID) continue;
+			if (client === r.aw.clientID) continue;
 			const peer = r.owner.get(client);
 			if (peer && (st as AwState).peer === peer) m.set(peer, st as AwState);
 		}

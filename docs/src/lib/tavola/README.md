@@ -25,7 +25,8 @@ Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It
 **A peer id is not an identity.** Transport ids are self-declared, so once a link drops, anyone with
 the link can reconnect under the old id. A guest stops trusting the host's id the moment its link
 drops and sends it nothing until a fresh signed hello; a member whose link drops leaves every
-roster at once and must be admitted again.
+roster at once, and comes back only when the host vouches for it (`roster?`). The host's word is a
+vouch, not a proof: per-member signing keys would make it one, and are not built yet.
 
 It does **not** own the document. The app passes its own replicated streams in (`Stream`), so Yjs
 stays the app's dependency, and the transport is passed in too (`Transport`) — the way Trama takes

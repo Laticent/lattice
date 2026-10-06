@@ -91,6 +91,8 @@ export const takeFreshJoin = (): string | null => {
 	freshJoin = null;
 	return j;
 };
+/** Whether a link taken from the address bar is still waiting for the session code. */
+export const hasFreshJoin = (): boolean => freshJoin !== null;
 /** A sealed join carried from an earlier page load (OAuth, a reload). */
 export const readSealedJoin = (): string | null => (typeof sessionStorage === 'undefined' ? null : read(sessionStorage, JOIN_KEY));
 export const storeSealedJoin = (sealed: string) => {

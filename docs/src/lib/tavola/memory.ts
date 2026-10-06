@@ -28,6 +28,9 @@ export type MemoryNetwork = {
 	cut(a: PeerId, b: PeerId): void;
 	/** Restore a cut link: each sees the other join again, under the SAME ids (a network blip). */
 	heal(a: PeerId, b: PeerId): void;
+	/** Tell `to` alone that `peer` joined or left, with no matching event on the other side — what a
+	 *  real transport does when it replaces a link (Trystero's "peer replaced" fires a join only). */
+	announce(to: PeerId, peer: PeerId, kind: 'join' | 'leave'): void;
 };
 
 export function createMemoryNetwork(): MemoryNetwork {
@@ -102,12 +105,12 @@ export function createMemoryNetwork(): MemoryNetwork {
 		},
 		pending: () => queue.length,
 		drop(id) {
-			const p = peers.find((q) => q.id === id);
+			const p = peers.find((q) => q.id === id && !q.gone);
 			if (p) depart(p);
 		},
 		cut(a, b) {
-			const pa = peers.find((q) => q.id === a);
-			const pb = peers.find((q) => q.id === b);
+			const pa = peers.find((q) => q.id === a && !q.gone);
+			const pb = peers.find((q) => q.id === b && !q.gone);
 			if (!pa || !pb || cuts.has(pair(a, b))) return;
 			cuts.add(pair(a, b));
 			later(() => {
@@ -115,9 +118,13 @@ export function createMemoryNetwork(): MemoryNetwork {
 				pb.onLeave(a);
 			});
 		},
+		announce(to, peer, kind) {
+			const p = peers.find((q) => q.id === to && !q.gone);
+			if (p) later(() => (kind === 'join' ? p.onJoin(peer) : p.onLeave(peer)));
+		},
 		heal(a, b) {
-			const pa = peers.find((q) => q.id === a);
-			const pb = peers.find((q) => q.id === b);
+			const pa = peers.find((q) => q.id === a && !q.gone);
+			const pb = peers.find((q) => q.id === b && !q.gone);
 			if (!pa || !pb || !cuts.delete(pair(a, b))) return;
 			later(() => {
 				if (pa.gone || pb.gone) return;

@@ -604,7 +604,27 @@ has a test that fails when its guard is removed, except where noted.
 | Names kept bidi overrides and zero-width characters; the waiting queue had no limit; a removal could be undone by a reload in the next second | low | fixed: stripped; 8 knocks at most; the host reseals at once on a removal and an unload writes the last sealed save synchronously |
 | The invite link carried the host page's query string | low | fixed: origin + path only |
 
+**A third check** (an independent checker on the round-2 fixes) found five more, two of them
+narrower windows of the same host-id squat; each now has a test that fails without its guard.
+
+| Finding | Severity | Now |
+|---|---|---|
+| After a host RELOAD (new peer id), the host's OLD id stayed a trusted member, so a squatter on it got the guest's edits and could write to it | high | fixed: a verified hello from a new host id drops the old one from the roster |
+| A link that dropped while its hello was being verified left the id trusted for whoever took it next | high | fixed: each link has a generation; a hello is believed only if its link is unchanged after verifying |
+| Round 2's "drop a member the moment its link drops" split two guests whose own link blipped, for good | high (regression) | fixed: on that peer's return the guest asks the host for its roster (`roster?`), which re-adds and resyncs it |
+| A cut-off link followed by a good one in the same tab stayed on "This link isn't complete" | medium | fixed: a fresh link clears it |
+| A forged Yjs item under a member's client id renames that member's document client, and presence keyed on the document id then threw | medium | fixed: presence keys on the awareness id everywhere |
+| A host that saw a member's link replaced without a leave (Trystero "peer replaced") never said hello again | medium | fixed: a join for a counted member is treated as a fresh link |
+| Out-of-order seals, a link pasted mid-resume, no save on a real unload, a repeated load-failure toast | low | fixed: newest seal wins; resume loops while a link waits; `pagehide` writes the save; one toast |
+
 **Known limits that remain.**
+- **A member's id is vouched for by the host, not proven.** When two guests' own link blips, each
+  re-admits the other on the host's word that the id is still a member. A link holder who takes
+  that id at exactly that moment, while the real member is still connected to the host, would be
+  let in by the other guest. Closing it needs a signing key per member (the host's scheme,
+  extended); it is a follow-up.
+- **Any link holder can show a waiting guest "Reload to join"**: a hello from another protocol
+  version cannot be signature-checked. A real host's hello still takes the guest on.
 - **An admitted editor is trusted with the text.** Yjs updates carry no signatures, so an editor
   can write items under another member's client id, and by sending them to one peer only leave
   two copies that disagree for the rest of the session. Tavola gates who may edit, not what an
@@ -621,11 +641,12 @@ has a test that fails when its guard is removed, except where noted.
   machine.
 
 **How it was verified.**
-- Tavola: 42 tests over the in-memory network with a real Yjs document (the memory network can
-  now reconnect a peer under a departed id, which is how the squat tests run). Weakening the gate,
+- Tavola: 46 tests over the in-memory network with a real Yjs document (the memory network can
+  now reconnect a peer under a departed id, and deliver a lone join or leave the way a replaced
+  link does, which is how the squat and replace tests run). Weakening the gate,
   the signature check, the replay check, host-id trust, the refused-rejoin stage or the waiting
   limit fails the tests that cover them.
-- Studio: the controller over the in-memory network (7 tests: End timing, single-flight resume,
+- Studio: the controller over the in-memory network (8 tests: a good link after a cut-off one, End timing, single-flight resume,
   chat authorship and history, no IndexedDB, a cut-off link, a link without query, the
   duplicate-tab lock), the rebase and awareness-sanitizer tests, and the whole docs suite
   (5,983 tests).

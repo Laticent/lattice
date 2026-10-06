@@ -30,7 +30,9 @@ export type Control =
 	/** host → every member: the session is over. */
 	| { t: 'end' }
 	/** member → member: send me your full state (closes the roster race; see session.ts). */
-	| { t: 'sync' };
+	| { t: 'sync' }
+	/** member → host: send me your roster (a member's link to me came back; is it still in?). */
+	| { t: 'roster?' };
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -75,6 +77,8 @@ export function decodeControl(payload: Uint8Array): Control | null {
 			return { t: 'end' };
 		case 'sync':
 			return { t: 'sync' };
+		case 'roster?':
+			return { t: 'roster?' };
 		default:
 			return null;
 	}

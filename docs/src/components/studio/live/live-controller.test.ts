@@ -178,4 +178,17 @@ describe('LiveController (second-round trio)', () => {
 			delete navigator.locks;
 		}
 	});
+
+	it('a good link pasted after a cut-off one in the same tab gets to the lobby', async () => {
+		const { h } = await hostSession();
+		location.hash = '#live=AAAAAAAAAAAAAAAAAAAAAA.BBBB';
+		takeLiveIntent();
+		const g = new LiveController(shell().host, deps('g'));
+		await g.resume();
+		expect(g.lobby()?.stage).toBe('bad-link');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+	});
 });

@@ -728,4 +728,86 @@ describe('round 2 (red-team + checker, 2026-10-06)', () => {
 		await settle(net);
 		expect(seen).toEqual([]);
 	});
+
+	it("after a host reload, the host's OLD id is nobody: a squatter on it gets nothing and is obeyed in nothing", async () => {
+		const net = createMemoryNetwork();
+		const h1 = host(net);
+		const g = await joined(net, h1, 'Amina');
+		const oldId = h1.t.selfId;
+		net.drop(oldId);
+		await settle(net);
+		// The host reloads WITHOUT the guest's token (its save was older than the admission).
+		const h2 = host(net);
+		await settle(net);
+		expect(g.s.getState().members.some((m) => m.id === oldId)).toBe(false);
+		const squat = raw(net, oldId);
+		await settle(net);
+		const evil = new Y.Doc();
+		Y.applyUpdate(evil, Y.encodeStateAsUpdate(g.doc));
+		evil.getText('source').insert(0, 'PWNED ');
+		squat.t.send(frame(TAG_DOC, Y.encodeStateAsUpdate(evil)), g.t.selfId);
+		g.text.insert(0, 'secret ');
+		await settle(net);
+		expect(g.text.toString()).not.toContain('PWNED');
+		expect(squat.got.some((d) => d[0] === TAG_DOC)).toBe(false);
+		expect(h2.s.getState().waiting.map((w) => w.name)).toEqual(['Amina']);
+	});
+
+	it('a hello whose link dropped while it was being verified is not trusted', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const g = await joined(net, h, 'Amina');
+		const hostId = h.t.selfId;
+		net.drop(hostId);
+		await settle(net);
+		// The real host's link comes back and says hello, then drops before the guest has verified it…
+		const back = raw(net, hostId);
+		await net.settle();
+		const sig = await signHello(KEY, hostId, g.t.selfId);
+		// Sent and dropped in the same turn: the guest is still verifying when the leave lands.
+		back.t.send(encodeControl({ t: 'hello', v: PROTOCOL_VERSION, invite: { title: 'T', hostName: 'H' }, key: toBase64Url(KEY.publicRaw), sig }), g.t.selfId);
+		net.drop(hostId);
+		await settle(net);
+		// …and a squatter takes the id.
+		const squat = raw(net, hostId);
+		await settle(net);
+		squat.t.send(encodeControl({ t: 'removed' }), g.t.selfId);
+		await settle(net);
+		expect(g.s.getState().stage).toBe('live');
+		expect(g.s.getState().hostAway).toBe(true);
+	});
+
+	it('two guests whose own link blips converge again, vouched for by the host', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		const b = await joined(net, h, 'Bo');
+		net.cut(a.t.selfId, b.t.selfId);
+		await settle(net);
+		net.heal(a.t.selfId, b.t.selfId);
+		await settle(net);
+		b.text.insert(0, 'from Bo ');
+		await settle(net);
+		expect(a.text.toString()).toBe(b.text.toString());
+		expect(a.s.getState().members.map((m) => m.name).sort()).toEqual(['Amina', 'Bo', 'Sharmarke']);
+	});
+
+	it('a host that sees a member join again without a leave treats it as a fresh link', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		// Trystero's "peer replaced": the guest saw the host's link go and come back, but the host
+		// gets only a join for a member it still counts — so without handling it, nobody would ever
+		// say hello again and the guest would stay "host away" for good.
+		net.announce(a.t.selfId, h.t.selfId, 'leave');
+		net.announce(a.t.selfId, h.t.selfId, 'join');
+		net.announce(h.t.selfId, a.t.selfId, 'join');
+		await settle(net);
+		expect(a.s.getState().hostAway).toBe(false);
+		expect(a.s.getState().stage).toBe('live');
+		expect(h.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina']);
+		a.text.insert(0, 'still here ');
+		await settle(net);
+		expect(h.text.toString()).toContain('still here');
+	});
 });
