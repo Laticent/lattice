@@ -25,7 +25,9 @@ import { cn } from '@/lib/utils';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import stateMarks from '../../../../lib/core/state-marks.js';
 import { CodeControls, FencePicker } from './code-controls';
+import { composeFindPlugin, EMPTY_QUERY, type FindQuery, findCount, findState, queryValid, replaceAllTr, replaceOneTr, setQueryTr, stepTr } from './compose-find';
 import { registerValue } from './deck-preset';
+import { FindBar, type FindTarget } from './find-bar';
 import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
@@ -1598,11 +1600,146 @@ export type ComposeHandle = {
 	/** Undo that pick, but only while nothing has been written since (the token is the document
 	 *  the pick produced): an Undo toast must never undo the author's later typing. */
 	undoPane: (token: unknown) => boolean;
+	/** Open the find bar (Ctrl+F's twin for the header button and the command palette).
+	 *  `replace` also opens the replace row. */
+	openFind: (opts?: { replace?: boolean }) => void;
 };
 
 export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
+	// FIND (compose-find.ts). The query lives here, outside the plugin, because Compose
+	// rebuilds its EditorState when an external change lands, and the open bar's query must
+	// survive that. `findTick` re-renders the bar after each transaction while it is open.
+	const findQueryRef = React.useRef<FindQuery>(EMPTY_QUERY);
+	const [findUi, setFindUi] = React.useState<{ open: boolean; replaceOpen: boolean }>({ open: false, replaceOpen: false });
+	const findOpenRef = React.useRef(false);
+	findOpenRef.current = findUi.open;
+	const [, setFindTick] = React.useState(0);
+	const openFindRef = React.useRef<(replace: boolean) => void>(() => {});
+	openFindRef.current = (replace: boolean) => {
+		// Seed the query from a one-line selection, as the Markdown editor does.
+		const v = viewRef.current;
+		if (v && !v.state.selection.empty) {
+			const picked = v.state.doc.textBetween(v.state.selection.from, v.state.selection.to, '\n');
+			if (picked && !picked.includes('\n') && picked.length <= 200) {
+				findQueryRef.current = { ...findQueryRef.current, search: picked };
+				v.dispatch(setQueryTr(v.state, findQueryRef.current, false));
+			}
+		}
+		findOpenRef.current = true;
+		setFindUi((u) => ({ open: true, replaceOpen: replace || (u.open && u.replaceOpen) }));
+		// The highlights read `findOpenRef`; an empty transaction repaints them.
+		v?.dispatch(v.state.tr);
+		// A second Ctrl+F while the bar is open puts focus back in its field.
+		requestAnimationFrame(() => {
+			const field = surfaceRef.current?.querySelector<HTMLInputElement>('.cs-findbar [main-field]');
+			field?.focus();
+			field?.select();
+		});
+	};
+	const closeFindRef = React.useRef<() => boolean>(() => false);
+	closeFindRef.current = () => {
+		if (!findOpenRef.current) return false;
+		findOpenRef.current = false;
+		setFindUi({ open: false, replaceOpen: false });
+		const v = viewRef.current;
+		v?.dispatch(v.state.tr); // repaint: the highlights go with the bar
+		v?.focus();
+		return true;
+	};
+	const surfaceRef = React.useRef<HTMLDivElement>(null);
+	// Bring the current match into the page. The HOST scrolls, not ProseMirror's
+	// `scrollIntoView`, which leaves `.cs-host` where it is (see `revealSlide`).
+	const scrollToFound = (view: EditorView) => {
+		const st = findState(view.state);
+		const host = hostRef.current;
+		if (!st || st.current < 0 || !host) return;
+		try {
+			const at = view.coordsAtPos(st.matches[st.current].from).top - host.getBoundingClientRect().top;
+			if (at < 48 || at > host.clientHeight - 48) host.scrollTop += at - host.clientHeight / 2;
+		} catch {
+			/* a position inside a collapsed slide has no box; the count still moves */
+		}
+	};
+	const step = (view: EditorView, dir: 1 | -1) => {
+		const tr = stepTr(view.state, dir);
+		if (!tr) return false;
+		view.dispatch(tr);
+		scrollToFound(view);
+		return true;
+	};
+	const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+	// FIRST in the plugin list, so these keys win over everything below them.
+	const findPlugins = () => [
+		composeFindPlugin(
+			() => findQueryRef.current,
+			() => findOpenRef.current,
+		),
+		keymap({
+			'Mod-f': () => {
+				openFindRef.current(false);
+				return true;
+			},
+			[isMac ? 'Mod-Alt-f' : 'Mod-h']: () => {
+				openFindRef.current(true);
+				return true;
+			},
+			F3: (_s, _d, v) => !!v && step(v, 1),
+			'Shift-F3': (_s, _d, v) => !!v && step(v, -1),
+			'Mod-g': (_s, _d, v) => !!v && findOpenRef.current && step(v, 1),
+			'Shift-Mod-g': (_s, _d, v) => !!v && findOpenRef.current && step(v, -1),
+			Escape: () => closeFindRef.current(),
+		}),
+	];
+	const lockedNote = (n: number) => `${n === 1 ? 'One match is' : `${n} matches are`} in a slide Compose can't edit. Change ${n === 1 ? 'it' : 'them'} in Markdown.`;
+	const composeTarget = (view: EditorView): FindTarget => {
+		const q = findState(view.state)?.query ?? findQueryRef.current;
+		return {
+			query: { ...q, valid: queryValid(q) },
+			count: findCount(view.state),
+			replaceOpen: findUi.replaceOpen,
+			setQuery(patch, jump) {
+				const next = { ...findQueryRef.current, ...patch };
+				findQueryRef.current = next;
+				view.dispatch(setQueryTr(view.state, next, !!jump && queryValid(next)));
+				if (jump) scrollToFound(view);
+			},
+			next: () => void step(view, 1),
+			prev: () => void step(view, -1),
+			replaceOne() {
+				const { tr, skipped } = replaceOneTr(view.state);
+				if (tr) {
+					view.dispatch(tr);
+					scrollToFound(view);
+				}
+				if (skipped) notify(lockedNote(1));
+			},
+			replaceAll() {
+				const { tr, replaced, skipped } = replaceAllTr(view.state);
+				if (tr) view.dispatch(tr);
+				if (skipped) notify(replaced ? `Replaced ${replaced}. ${lockedNote(skipped)}` : lockedNote(skipped));
+			},
+			setReplaceOpen: (open) => setFindUi((u) => ({ ...u, replaceOpen: open })),
+			close: () => void closeFindRef.current(),
+			// The bar's own keys: what Compose's keymap answers when the editor has focus.
+			barKey(e) {
+				const mod = isMac ? e.metaKey : e.ctrlKey;
+				if (e.key === 'Escape') return closeFindRef.current();
+				if (e.key === 'F3') return step(view, e.shiftKey ? -1 : 1) || true;
+				if (mod && e.key.toLowerCase() === 'g') return step(view, e.shiftKey ? -1 : 1) || true;
+				if (mod && !e.altKey && e.key.toLowerCase() === 'f') {
+					openFindRef.current(false);
+					return true;
+				}
+				if ((isMac ? mod && e.altKey && e.code === 'KeyF' : mod && e.key.toLowerCase() === 'h')) {
+					setFindUi((u) => ({ ...u, replaceOpen: true }));
+					return true;
+				}
+				return false;
+			},
+		};
+	};
 	const onChangeRef = React.useRef(onChange);
 	onChangeRef.current = onChange;
 	const lastEmittedRef = React.useRef(source);
@@ -1803,6 +1940,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			}
 			if (opts?.focus) v.focus();
 		},
+		openFind(opts?: { replace?: boolean }) {
+			openFindRef.current(!!opts?.replace);
+		},
 		revealTail() {
 			const v = viewRef.current;
 			const host = hostRef.current;
@@ -1981,7 +2121,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
-				state: EditorState.create({ doc, plugins: buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined)) }),
+				state: EditorState.create({ doc, plugins: [...findPlugins(), ...buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined))] }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
 						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current),
@@ -2039,6 +2179,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						lastSlideRef.current = slideIdx;
 						if (!isRestore) onCursorSlideRef.current?.(slideIdx);
 					}
+					if (findOpenRef.current) setFindTick((t) => t + 1);
 					// Selection-bar geometry LAST and guarded — a throw in coordsAtPos must never
 					// abort the transaction and swallow the emit above.
 					try {
@@ -2131,8 +2272,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		);
 	}
 	return (
-		<div className={cn('cs-surface', !visible && 'cs-paused', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
+		<div ref={surfaceRef} className={cn('cs-surface', !visible && 'cs-paused', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
 			<ComposeStyles />
+			{findUi.open && viewRef.current && (
+				<div className="cs-findbar">
+					<FindBar target={composeTarget(viewRef.current)} />
+				</div>
+			)}
 			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
 			    (context-sensitive). Just the writing surface. */}
 			<div className="cs-frame">
@@ -2174,8 +2320,14 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 function ComposeStyles() {
 	return (
 		<style>{`
-			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff)}
-			.cs-frame{display:flex;height:100%}
+			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff);display:flex;flex-direction:column}
+			.cs-frame{display:flex;flex:1;min-height:0}
+			/* Find (compose-find.ts): the bar sits above the page like the Markdown editor's,
+			   and matches take the same wash; the CURRENT one adds an accent outline, so it is
+			   found by shape as well as by fill. */
+			.cs-findbar{flex:none;background:var(--bg-alt);border-bottom:1px solid var(--border)}
+			.cs-find-match{background:color-mix(in srgb, var(--accent) 16%, transparent);border-radius:2px}
+			.cs-find-current{background:color-mix(in srgb, var(--accent) 26%, transparent);outline:1.5px solid var(--accent)}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 			/* The bottom give — the Compose twin of the markdown editor's scrollPastEnd

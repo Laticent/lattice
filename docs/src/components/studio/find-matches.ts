@@ -30,7 +30,7 @@ export function countMatches(state: EditorState, query: SearchQuery, cap = MATCH
 }
 
 /** The readout text. Empty when there is no query, so the bar shows nothing rather than "0 of 0". */
-export function matchLabel(query: SearchQuery, count: MatchCount): string {
+export function matchLabel(query: { search: string; valid: boolean }, count: MatchCount): string {
 	if (!query.search) return '';
 	if (!query.valid) return 'Invalid pattern';
 	if (count.total === 0) return 'No results';
