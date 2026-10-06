@@ -50,6 +50,13 @@
       "nsis": {
         "installMode": "currentUser"
       }
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "xdg-utils"
+        ]
+      }
     }
   }
 }
