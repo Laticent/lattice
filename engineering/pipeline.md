@@ -1,4 +1,4 @@
-# Rendering pipeline — running PDF / PPTX / PNG / HTML
+# Rendering pipeline — running PDF / PPTX / ODP / PNG / HTML
 
 <!-- Output-format table below: keep in sync with `lattice-emulator.js` --help and
      the format switch (`OUT_FORMAT`). Cost figures come from
@@ -19,11 +19,12 @@ Lattice deck, this is the tool, full stop.
 ## 1. Run it
 
 ```bash
-node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip|.html> [palette]
+node lattice-emulator.js <source.md> <output.pdf|.pptx|.odp|.png|.zip|.html> [palette]
 ```
 
 The output extension picks the format — `.pdf` (vector, selectable text),
-`.pptx` (one full-bleed slide image per slide), `.png` (one file
+`.pptx` (one full-bleed slide image per slide), `.odp` (the same, as a
+LibreOffice Impress / OpenDocument deck), `.png` (one file
 per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5), `.html`
 (the rendered HTML *as* the deliverable, no PDF). For every format except
 `.html`, an HTML sidecar is written alongside; with `.html` that sidecar **is**
@@ -49,6 +50,8 @@ Nothing is mislabeled when nothing is labeled.
 | `.html` | 6.77s | You want the HTML itself — `--player`/`--fluid` viewers, or anything reading markup or structure |
 | `.pdf` | 8.24s | Sharing, review, goldens. **The cheapest artifact we commit** — 3–12× smaller than any image golden |
 | `.pptx` / `.png` / `.zip` | 58–74s | You genuinely need pixels. ~860 ms/slide to rasterize |
+
+`.odp` runs the same raster loop as `.pptx`; it was not in the measured set.
 
 The vector PDF is **not** the expensive option — every image format costs 7–9×
 more and 3–12× more bytes. To review a PDF as images, rasterize it
@@ -202,7 +205,7 @@ limit — low-DPI rasterization (what this script does) keeps vector edges
 sharp at a smaller pixel count; naive downscaling blurs them. Full option
 reference: run the script with no args, or read its header comment.
 
-## 4. PPTX / PNG specifics
+## 4. PPTX / ODP / PNG specifics
 
 Both rasterize through the same screenshot path the PDF's `--raster` flag
 uses — one full-bleed image per slide, selectable text is lost (PPTX has
@@ -210,6 +213,16 @@ always been image slides; `--raster` opts a PDF into the same trade for
 maximum viewer compatibility). If a recipient needs an *editable* PPTX
 (real text boxes, not an image), that's out of scope for this exporter —
 Lattice's PPTX output is a presentation artifact, not an authoring one.
+
+**ODP is the PPTX's LibreOffice twin.** `lib/export/odp-export.js` packages the
+same PNGs, speaker notes (on each page's notes view) and `describe:` alt text
+(each picture's `svg:desc`) as an OpenDocument Presentation. It writes the zip
+itself with jszip, so no `soffice` is needed to export — LibreOffice is only the
+reader. Two package rules a reader enforces: `mimetype` is the first entry and
+stored uncompressed, and the manifest lists every part. Rounded corners square,
+as on the PPTX: the page sets no fill, so a transparent corner would show the
+reader's own template (`lib/core/corner-export-capability.mjs`). The Studio does
+not offer `.odp` yet — the CLI is the only producer.
 
 **The Studio's browser PDF is the exception, and only its worker lane.** It
 rasterizes like the above, then writes every word back over the page image

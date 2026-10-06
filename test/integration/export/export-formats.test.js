@@ -5,6 +5,7 @@
  * extension and asserts each artifact is real and well-formed:
  *   - .pdf  : the original vector path still works (regression guard).
  *   - .pptx : a valid OOXML zip with one slide part + one media image per slide.
+ *   - .odp  : a valid OpenDocument package with one page + one picture per slide.
  *   - .png  : one PNG per slide (`<base>.NNN.png`) at the 2× raster size.
  * No marp-cli — this is the marp-free export path. Slow tier (spawns Chromium);
  * kept tight with the same no-Mermaid fixture the screenshot suite uses.
@@ -102,6 +103,24 @@ describe('export-formats', () => {
     const media  = names.filter((n) => /^ppt\/media\/.+\.png$/i.test(n));
     assert.equal(slides.length, 3, `expected 3 slides, got ${slides.length}`);
     assert.equal(media.length, 3, `expected 3 images, got ${media.length}`);
+  });
+
+  test('renders an OpenDocument .odp with one page + picture per slide', { timeout: TIMEOUT }, async () => {
+    const out = path.join(tmpDir(), 'deck.odp');
+    const r = run(out);
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const bytes = fs.readFileSync(out);
+    assert.equal(bytes.subarray(0, 4).toString('hex'), '504b0304', 'odp is not a zip');
+    // ODF identifies itself by a STORED `mimetype` as the first entry.
+    assert.equal(bytes.subarray(30, 38).toString(), 'mimetype');
+
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(bytes);
+    assert.equal(await zip.file('mimetype').async('string'), 'application/vnd.oasis.opendocument.presentation');
+    const content = await zip.file('content.xml').async('string');
+    const pictures = Object.keys(zip.files).filter((n) => /^Pictures\/slide\d+\.png$/.test(n));
+    assert.equal(content.match(/<draw:page /g).length, 3, 'expected 3 pages');
+    assert.equal(pictures.length, 3, `expected 3 pictures, got ${pictures.length}`);
   });
 
   // Parse a poppler P6 .ppm (raw RGB) into { w, h, data }.
@@ -1320,7 +1339,7 @@ describe('export-formats', () => {
       assert.match(r.stderr, /unsupported output extension '\.webp'/);
       // The supported set is named IN the message — a bare "unsupported" makes the
       // caller go read the source to find out what is supported.
-      for (const ext of ['.pdf', '.pptx', '.png', '.zip', '.html']) {
+      for (const ext of ['.pdf', '.pptx', '.odp', '.png', '.zip', '.html']) {
         assert.ok(r.stderr.includes(ext), `error should name ${ext} as supported`);
       }
     });

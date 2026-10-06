@@ -7,7 +7,7 @@
 
 # Lattice
 
-A Markdown slide-deck engine for boardroom-quality decks — PDF, HTML, PPTX, or PNG sets.
+A Markdown slide-deck engine for boardroom-quality decks — PDF, HTML, PPTX, ODP, or PNG sets.
 
 Lattice produces decks where every slide is a deliberate component
 (title, diagram, verdict-grid, and dozens more), all themed through a
@@ -51,7 +51,7 @@ and what the name means — is at
 
 ## What you get
 
-- **A renderer.** The bundled `lattice-emulator.js` emits PDF, PPTX, and PNG
+- **A renderer.** The bundled `lattice-emulator.js` emits PDF, PPTX, ODP, and PNG
   sets (plus an HTML sidecar) from the same source — the output extension picks
   the format, and PPTX/PNG rasterize from the same render as the PDF. Mermaid diagrams pre-render
   as inline SVG. Code blocks syntax-highlight. Slides are 1280×720.
@@ -157,7 +157,7 @@ source, `dist/`, `themes/`, and the authoring docs. Regression-baseline
 PDFs and per-bucket galleries stay in git but are excluded from the
 package.
 
-### Render to PDF, PPTX, or PNG
+### Render to PDF, PPTX, ODP, or PNG
 
 The bundled `lattice` bin (the emulator) emits all of them from one source —
 the **output extension picks the format** — plus an HTML sidecar:
@@ -165,21 +165,24 @@ the **output extension picks the format** — plus an HTML sidecar:
 ```sh
 lattice deck.md deck.pdf     # vector PDF, selectable text
 lattice deck.md deck.pptx    # PowerPoint, one full-bleed image per slide
+lattice deck.md deck.odp     # LibreOffice Impress (OpenDocument), same image slides
 lattice deck.md deck.png     # one PNG per slide → deck.001.png, deck.002.png, …
 ```
 
-PPTX and PNG rasterize from the same headless-Chromium render as the PDF, so
+PPTX, ODP and PNG rasterize from the same headless-Chromium render as the PDF, so
 every format is pixel-identical. Rendering needs Chromium — set `CHROME_PATH`
 if no system Chrome is found.
 
-The recognized extensions are `.pdf`, `.pptx`, `.png`, `.zip` (an image set) and
+The recognized extensions are `.pdf`, `.pptx`, `.odp`, `.png`, `.zip` (an image set) and
 `.html`; anything else is a usage error rather than a silent PDF under the wrong
 name. (An output path with no extension at all still renders the PDF — nothing is
 mislabeled when nothing is labeled.) For per-slide JPEG or WebP, render a `.zip`
 with `--image-format jpeg|webp`.
 
-> **PPTX note.** Slides export as one full-bleed *image* per slide (not editable
-> text/shapes). Editable PPTX export (which needs LibreOffice) is not included.
+> **PPTX / ODP note.** Slides export as one full-bleed *image* per slide (not
+> editable text/shapes), with speaker notes and alt text carried along. Lattice
+> writes the `.odp` itself, so exporting needs no LibreOffice install. Editable
+> PPTX export (which needs LibreOffice) is not included.
 
 Pass `--present` to mark the PDF to **open straight into full-screen
 presentation mode** with a subtle cross-fade between slides:

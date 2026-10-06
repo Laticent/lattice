@@ -128,7 +128,7 @@ function showHelp() {
   console.log(`lattice-emulator — PDF / PPTX / PNG / HTML renderer for Lattice decks
 
 USAGE
-  node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip|.html> [palette]
+  node lattice-emulator.js <source.md> <output.pdf|.pptx|.odp|.png|.zip|.html> [palette]
   node lattice-emulator.js <source.md> <custom.css> <output> [palette]
 
 ARGUMENTS
@@ -140,6 +140,8 @@ ARGUMENTS
                        .pdf   vector PDF, selectable text (+ HTML sidecar; or one
                               image per page with --raster)
                        .pptx  PowerPoint, one full-bleed slide image per slide
+                       .odp   LibreOffice Impress (OpenDocument), one full-bleed
+                              slide image per slide; written without soffice
                        .png   one PNG per slide, written as <output>.NNN.png
                        .zip   an IMAGE SET — a zip of one raster per slide
                               (PNG/JPEG/WebP) plus opt-in thumbnails and
@@ -396,6 +398,7 @@ VIDEO
 EXAMPLES
   node lattice-emulator.js deck.md out.pdf
   node lattice-emulator.js deck.md out.pptx          # PowerPoint (image slides)
+  node lattice-emulator.js deck.md out.odp           # LibreOffice Impress (image slides)
   node lattice-emulator.js deck.md out.png           # → out.001.png, out.002.png, …
   node lattice-emulator.js deck.md out.zip           # image set (PNG + thumbs + SVGs)
   node lattice-emulator.js deck.md out.zip --image-format webp --image-size 1x
@@ -793,6 +796,7 @@ const OUT_EXT = path.extname(outFile).toLowerCase();
 const OUT_FORMATS = Object.freeze({
   '.pdf': 'pdf',
   '.pptx': 'pptx',
+  '.odp': 'odp',
   '.png': 'png',
   '.zip': 'imageset',
   '.html': 'html',
@@ -2953,7 +2957,7 @@ ${ENGINE_SCRIPT_OPEN}
 // (red-team, this PR). Case-insensitive filesystems hide it; CI does not.
 const outHtml = OUT_FORMAT === 'html'
   ? outFile
-  : outFile.replace(/\.(pdf|pptx|png|zip|html)$/i, '') + '.html';
+  : outFile.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + '.html';
 // Strip the live-preview runtime (lattice-runtime.js) from the export HTML.
 // A deck may embed `<script src="…/lattice-runtime.js">` for the VS Code / web
 // preview; that runtime runs the overflow watcher, which CREATES the red
@@ -3121,7 +3125,7 @@ async function renderBody(browser, g, closeBrowser) {
   // an OOM (same trade-off the browser exporter makes). The largest integer
   // factor whose long edge stays ≤ 3840: HD (1280) → 2×, 4K (3840) → 1×, and any
   // custom @size is capped rather than left to blow up.
-  const RASTER = OUT_FORMAT === 'pptx' || OUT_FORMAT === 'png' || OUT_FORMAT === 'imageset' || RASTER_PDF;
+  const RASTER = OUT_FORMAT === 'pptx' || OUT_FORMAT === 'odp' || OUT_FORMAT === 'png' || OUT_FORMAT === 'imageset' || RASTER_PDF;
   // The image set honors its `--image-size` preset (shared with the Studio via the
   // kernel's resolveRasterScale); every other raster path keeps the historical
   // long-edge-capped 2× (HD → 2×, 4K → 1×).
@@ -4543,7 +4547,7 @@ async function renderBody(browser, g, closeBrowser) {
     }
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else {
-    // PNG / PPTX: rasterize one image per slide from the SAME rendered page.
+    // PNG / PPTX / ODP: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
     // so an element screenshot yields a clean full-bleed slide image.
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
@@ -4565,6 +4569,19 @@ async function renderBody(browser, g, closeBrowser) {
         fs.writeFileSync(`${base}.${String(i + 1).padStart(pad, '0')}.png`, buf);
       });
       if (!QUIET) console.log(`PNG: ${pngBuffers.length} slides → ${base}.NNN.png`);
+    } else if (OUT_FORMAT === 'odp') {
+      // ODP — the LibreOffice Impress sibling of the PPTX below (lib/export/odp-export.js):
+      // the same images, notes and alt text, packaged as OpenDocument without `soffice`.
+      // materializedNotes for the same reason as the PPTX: Impress shows the notes page to
+      // anyone who opens the file, so `--strip-notes` must reach it.
+      const { writeOdp } = require('./lib/export/odp-export');
+      const count = await writeOdp(outFile, pngBuffers, {
+        title: path.basename(outFile).replace(/\.odp$/i, ''),
+        company: `Lattice · ${paletteName}`,
+        width: slideW,
+        height: slideH,
+      }, materializedNotes, slideDescriptions);
+      if (!QUIET) console.log(`ODP: ${count} slides → ${outFile}`);
     } else {
       // PPTX — image-per-slide via the shared writer (lib/export/pptx-export.js).
       const { writePptx } = require('./lib/export/pptx-export');
@@ -5582,7 +5599,7 @@ function writeNotesSidecar(outPath, notes) {
   // Strip whichever output extension we were given, not just `.pdf` — an `.html`
   // deliverable should get `deck.notes.txt` like every other format, not
   // `deck.html.notes.txt`.
-  const sidecar = outPath.replace(/\.(pdf|pptx|png|zip|html)$/i, '') + '.notes.txt';
+  const sidecar = outPath.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + '.notes.txt';
   fs.writeFileSync(sidecar, blocks.length ? blocks.join('\n') : '(no speaker notes in this deck)\n');
   if (!QUIET) console.log(`Notes: ${blocks.length} slide${blocks.length === 1 ? '' : 's'} → ${sidecar}`);
 }
@@ -6231,7 +6248,7 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
 // narrate content, so the two flags are independent.
 async function writeCaptionsSidecar(outPath, slideCount, sayLines = [], script = []) {
   const { readAlongProblems, readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
-  const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
+  const base = outPath.replace(/\.(pdf|html?|pptx|odp|png|zip)$/i, '');
   const { readAlong } = await resolveReadAlong(slideCount, sayLines, script);
   if (!readAlong.slides.length) {
     if (!QUIET) console.log('Captions: nothing to narrate (no say lines, no projectable slide prose) — no .vtt written');
