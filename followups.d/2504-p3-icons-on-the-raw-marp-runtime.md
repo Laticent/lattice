@@ -14,6 +14,9 @@ why now   — the engine draws icons everywhere it runs, but on a raw Marp previ
 where     — lib/plugins/host-browser.mjs (fetch lattice-plugin-<name>.js for a data plugin whose
             `detect` matches the page's inline code), docs/scripts/sync-playground-assets.mjs (stage
             it beside the runtime too), lib/runtime/index.js (re-run the inline pass when it lands).
+            When the bundle does carry the drawings, lib/plugins/mark-off.mjs (#2541, which marks an
+            unadmitted plugin's fences and chart sections from the bundle's `pluginsOff`) must also
+            mark inline spans: the engine's `offPlugin` stamp on `<code>` never reaches a Marp render.
 done when — a marp-cli render of examples/inline-icons.md with the runtime draws every icon.
 evidence  — the marp-cli HTML screenshotted.
 verify    — tier 1 checker.
