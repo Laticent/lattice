@@ -198,6 +198,20 @@ test('agrees with a real HTML parser on every shape that has bitten this walk', 
     '<b><table></b><h2>X</h2></table>',
     '<a><table><tr><td></a><h2>Cell</h2></td></tr></table>',
     '<b><marquee></b><h2>X</h2></marquee>',
+    // A second formatting element between the closed one and the block (the parser clones it
+    // around the block), and svg/math, which are not blocks to the adoption agency.
+    '<a><em><ul><li>x</li></a></ul><h2>Real</h2>',
+    '<em><svg></em><h2>Real</h2>',
+    '<b><math></b><h2>Real</h2>',
+    // Scope: an end tag whose element a barrier hides is ignored, `</li>` looks past lists, and
+    // a `<select>` keeps its contents to itself (the checker's fuzz, 2026-10-06).
+    '<p><svg><div><object></code></div></p>',
+    '<div><object></div><h2>In</h2>',
+    '<blockquote></span><li><select></strong>x<li><span></blockquote></p>',
+    '<li><th><section></th>x<ul></button><strong></li></p>',
+    '<select></svg><table></tbody></select><h2>Real</h2>',
+    '<svg><select></g>x<h2> </select><th>',
+    '<table><tr><td><select><tr><h2>Out</h2>',
     // Case.
     '<H2>Deco</H2><h2>Real</h2>',
     '<H2>Up</H2>',
