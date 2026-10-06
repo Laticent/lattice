@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // The six-marker cell-state picker in Compose (obligation-matrix / roadmap tables).
 // engineering/decisions/2026-09-24-six-state-marks.md §10.
@@ -61,4 +61,30 @@ test('@crosswidth the table menu offers all six markers and writes the one picke
 	await page.getByRole('menuitem', { name: 'No', exact: true }).click();
 	// The caret cell held `[?]`; the menu replaces the marker at its start.
 	await expect(page.locator('.cs-host td').nth(4)).toHaveText('[!]');
+});
+
+// The editor reads a cell's marker through the engine's list-text grammar
+// (lib/core/cell-marker-edit.mjs; the Segno phase-3 follow-up), in three places: the badge on
+// each marker cell, the length the picker replaces, and the serializer un-escaping `\[!\]`.
+test('every marker cell is badged, a pick keeps the cell\'s words, and the source keeps all six', async ({ page }) => {
+	await openTableCell(page);
+	const badges = page.locator('.cs-host td .cs-cellmark');
+	await expect(badges).toHaveCount(6);
+	const sems = await badges.evaluateAll((els) => els.map((e) => [...e.classList].find((c) => c.startsWith('cs-cellmark-'))));
+	expect(sems.sort()).toEqual(['fail', 'pass', 'skip', 'todo', 'unknown', 'warn'].map((s) => `cs-cellmark-${s}`));
+
+	// A marker followed by words: the pick replaces the marker and ONE space, never the words.
+	await page.locator('.cs-host td').nth(1).click(); // GDPR · Notice, `[x]`
+	await page.keyboard.press('End');
+	await page.keyboard.type(' Signal taxonomy');
+	await page.getByRole('button', { name: 'Table actions' }).first().click();
+	await page.getByRole('menuitem', { name: 'Unknown', exact: true }).click();
+	await expect(page.locator('.cs-host td').nth(1)).toHaveText('[?] Signal taxonomy');
+
+	// The serializer escapes a leading `[!]` and the editor restores it: the source holds every
+	// marker as typed, none as `\[…\]`.
+	await expect.poll(() => persistedSource(page)).toContain('| GDPR | [?] Signal taxonomy | [!] |');
+	const source = await persistedSource(page);
+	for (const row of ['| CCPA | [?] | [ ] |', '| LGPD | [-] | [/] |']) expect(source).toContain(row);
+	expect(source).not.toMatch(/\\\[/);
 });

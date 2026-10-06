@@ -156,6 +156,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The PDF's embedded source was scrubbed under a cut measured on a different document](gotchas/export.md#the-pdfs-embedded-source-was-scrubbed-under-a-cut-measured-on-a-different-document)
 - [A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format](gotchas/export.md#a-tier--galleryauthored-pragma-shipped-as-the-speaker-note-in-every-format)
 - [A Studio PDF drew a pill over the end of its caption](gotchas/export.md#a-studio-pdf-drew-a-pill-over-the-end-of-its-caption)
+- [A 4K deck's PDF changes bytes from run to run when the machine is busy](gotchas/export.md#a-4k-decks-pdf-changes-bytes-from-run-to-run-when-the-machine-is-busy)
 
 ### [Fonts and emoji](gotchas/fonts.md)
 

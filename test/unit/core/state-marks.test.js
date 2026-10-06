@@ -108,6 +108,13 @@ describe('state-marks — what stays literal', () => {
   test('the marker set is exactly six, and nothing has crept in', () => {
     assert.deepEqual([...marks.MARKERS].sort(), [' ', '!', '-', '/', '?', 'x']);
   });
+
+  // Every reader of a leading marker, the Compose editor's included, walks the list-text grammar,
+  // which spells the set as its own string: a seventh marker added here must reach it too.
+  test('the list-text grammar reads exactly these markers', () => {
+    const grammar = require('../../../lib/core/list-text-grammar.js');
+    assert.deepEqual([...grammar.MARKERS].sort(), [...marks.MARKERS].sort());
+  });
 });
 
 describe('state-marks — one kernel, no duplicate decision', () => {
