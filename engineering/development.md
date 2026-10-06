@@ -115,7 +115,7 @@ absent, and fires only under `--check` because a plain `npm run build` is the re
 `agent-kit-structure.test.js` and `marp-kit.test.js` already byte-pin 31 of the 49 in the
 unit tier. What this arm adds is the other 18 (the embedded fonts and the agent kit's
 LICENSE files, which nothing compared) and, more usefully, the ~95 seconds between a 13s
-gate and a 108s suite — which at pre-push is the difference between being told your `dist/`
+gate and a 108s suite — which, when you run the suite yourself, is the difference between being told your `dist/`
 is behind and reading two unrelated unit failures as a defect in your own diff. On CI it is
 close to decorative: the freshness job runs `build:uncommitted` first, so the copies are
 regenerated moments before they are compared, and what survives that is a BUILDER that
@@ -303,7 +303,10 @@ Configuration in `lefthook.yml`.
   tripping this guard; CI's `docs` paths-filter (which also lists `lib/` and
   `themes/`) still covers that. Widening the guard to match would put ~36s on
   nearly every engine push.
-- `unit-tests` — full unit suite
+- **No full unit suite.** `npm test` took 390s here (measured 2026-10-06) on
+  every push, and CI's `unit` job runs the same suite on every PR, whatever it
+  touches, and again in the merge queue. Pre-commit's `affected-tests` keeps the fast local signal;
+  run `npm test` yourself before you call work done.
 - `integration-tests` — full cross-renderer parity + PDF page-count tier.
   Skipped when a push touches no render-relevant files (the job mirrors CI's
   `code` paths-filter in `.github/workflows/ci.yml`; keep the two in sync).
@@ -335,8 +338,8 @@ unknown lib/<X>.js      → full unit suite        (safe fallback)
 ```
 
 When a staged file isn't recognized, the script falls back to the full
-suite. Better to be slow than miss a regression. Pre-push runs the full
-suite regardless as a second safety net.
+suite. Better to be slow than miss a regression. The full suite always
+runs in CI, on every PR and in the merge queue.
 
 ## Coverage (c8)
 
@@ -355,17 +358,21 @@ integration tests, not unit tests.
 `concurrency` group cancels superseded runs on the same ref.
 
 - **`changes`** — classifies the diff (`dorny/paths-filter`). `code` is
-  true unless EVERY changed file is prose markdown; decks
-  (`examples/**.md`, `baseline-decks/**.md`, `**.gallery.md`) count as
-  code. **A docs-only change runs lint only** — `unit` and `integration`
-  are skipped.
+  true when any changed file is under the filter's path list (`lib/`,
+  `tools/`, `test/`, `themes/`, `examples/`, `exemplars/`, `package.json`,
+  … — the list in `ci.yml` is canonical); decks under those roots count as
+  code. **A prose- or docs-only change runs lint and unit only** —
+  `integration` is skipped.
 - **`lint`** — ALWAYS runs, single Node, browser-free
   (`PUPPETEER_SKIP_DOWNLOAD=1`). `npm run lint` + `npm run lint:deck:all`.
-- **`unit`** — code changes only. Matrix Node 22/24, `fail-fast: false`,
-  browser-free. `npm test`, plus `npm run build:check` once (on 22) — the
-  render-free artifact-freshness gate (css, default bundle, runtime +
-  emulator bundles, component docs, portal, dist README).
-- **`integration`** — code changes only, `needs: unit`, single Node (22).
+- **`unit`** — ALWAYS runs, on every PR, because unit tests read prose and
+  config too (the US-English audit walks every `.md`). Matrix Node 22/24, `fail-fast: false`,
+  browser-free. `npm run build`, then `npm run build:check:all`, then
+  `npm test` on 22 (an engine subset on 24). The committed-artifact
+  freshness gate (`build:check`) lives in `lint`. Costs ~12 runner-minutes
+  a run (457s + 260s, measured on PR #2554).
+- **`integration`** — code changes only, `needs: changes` (it runs beside
+  `unit`, not after it), single Node (22).
   The only tier that renders, so the only one that downloads Chromium —
   **cached** via `actions/cache` on `~/.cache/puppeteer` (keyed on the
   lockfile). Installs `poppler-utils` (for `pdfinfo`), runs

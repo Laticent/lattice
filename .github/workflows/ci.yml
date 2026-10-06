@@ -121,12 +121,13 @@ concurrency:
 jobs:
   # ── Change classifier ──────────────────────────────────────────────────
   # Splits a change into two independent tiers:
-  #   code  — affects rendering or the test suite → unit + integration
+  #   code  — affects rendering or the test suite → integration (+ golden-diff)
   #   docs  — affects the docs site (Astro) → docs-build
-  # An allowlist of roots, NOT "everything that isn't prose": a docs-site-only
-  # change (docs/**) no longer drags the whole engine unit+integration
-  # pipeline, and prose (README, design/, engineering/, *.md) runs only the
-  # always-on lint. Decks count as code (they affect rendering) and live inside
+  # `lint` and `unit` are always on (see the note above `unit` for why unit
+  # left this filter). An allowlist of roots, NOT "everything that isn't
+  # prose": a docs-site-only change (docs/**) no longer drags the engine
+  # integration pipeline, and prose (README, design/, engineering/, *.md) runs
+  # only the always-on lint and unit. Decks count as code (they affect rendering) and live inside
   # the listed roots — examples/, plus the gallery/baseline .md under lib/ and
   # test/. An engine change (lib/, themes/, dist/, …) sets BOTH, because the
   # docs build also reads the engine (loadAll + staged dist/ + themes/).
@@ -266,7 +267,7 @@ jobs:
       - name: Artifact freshness gate (committed artifacts, no render)
         run: npm run build:check
 
-  # ── Unit — code changes only ────────────────────────────────────────────
+  # ── Unit — every PR, whatever it touches ────────────────────────────────
   # The engines claim is `>=22`. The FULL unit suite runs on 22; on 24 a
   # representative engine smoke subset (core/engine/parsing/
   # transformers) confirms cross-version compat without paying 2× the whole
@@ -276,9 +277,17 @@ jobs:
   # `code`; it moved to the ALWAYS-ON `lint` job so a stale generated file can't
   # slip past a docs/prose-only PR and then eject it from the merge queue (see the
   # lint job + engineering/decisions/2026-07-22-freshness-gate-always-on.md).
+  # NOT gated on the `code` filter, unlike `integration`. Unit tests read far
+  # more than code: the US-English audit walks every .md, changelog-fragments
+  # reads changelog.d/, workflows-meta reads .github/, ~84 files read docs/src.
+  # Gated on `code`, a prose/docs/config-only PR (10 of 42 PR branches,
+  # 2026-09-30..10-06) first ran these tests in the merge queue, where a failure
+  # ejects the PR and re-tests its whole group. Pre-push used to cover that gap
+  # until PR #2554 dropped `npm test` from it (390s per push). Running here
+  # costs ~12 runner-minutes per run on those PRs (whole jobs incl. install and
+  # build, measured on PR #2554: node 22 457s + node 24 260s), and a prose-only
+  # PR now waits ~7.5 min for `ci` instead of ~1 min.
   unit:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -851,7 +860,7 @@ jobs:
         run: |
           echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} player-webkit=${{ needs.player-webkit.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
-          # tier that didn't apply — e.g. docs-only skips unit/integration); or
+          # tier that didn't apply — e.g. docs-only skips integration); or
           # cancelled. NOTE THE SPELLING: 'cancelled' is GitHub's own enum value
           # (check-run conclusion / needs.<job>.result), not house prose, so HARD
           # RULE #21 does not reach it — a US-English sweep here makes both

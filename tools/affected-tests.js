@@ -3,7 +3,7 @@
  * Map staged file paths → the npm test scripts that cover them.
  * Spawns each matching script in turn and exits non-zero on the first
  * failure. Used by the lefthook pre-commit hook for fast inner-loop
- * iteration; the full unit suite still runs in pre-push and CI.
+ * iteration; the full unit suite runs in CI (every PR and the merge queue).
  *
  * Safety: when a staged file isn't recognized, falls back to running
  * the full unit suite (`npm test`). Better to be slow than to miss a
