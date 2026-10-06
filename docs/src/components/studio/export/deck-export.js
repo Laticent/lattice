@@ -556,6 +556,13 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
 	return stranded.length;
 }
 
+// A figure that had not drawn when the frame was measured: still pending, or released to its
+// source text (`unavailable`) because its library had not arrived. Its slide was measured with
+// the source in the diagram's place, so its fit is unknown. On a slow link, a session's first
+// diagram can miss the 4 s wait while Mermaid downloads (decision note §11). `error` is not
+// here: a parse error draws its error box, which is what the author sees.
+const UNDRAWN_FIGURES = '[data-lattice-hydrate]:is([data-lattice-settle="pending"], [data-lattice-settle="hydrating"], [data-lattice-settle="unavailable"])';
+
 /**
  * Measure whether each slide of a rendered deck FITS — the verdict the Studio chat agent's
  * checker returns for its draft (2026-10-05-studio-chat-agent.md). The engine runtime in
@@ -569,8 +576,9 @@ export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } =
  * than it has slides, and the caller must not read row N as source slide N.
  *
  * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl }`
- * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean }[] | null>}
- *   one row per source slide, or null when the frame held no slides
+ * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean, undrawn: boolean }[] | null>}
+ *   one row per source slide, or null when the frame held no slides. `undrawn` marks a slide
+ *   holding a figure that had not drawn when it was measured: its other flags are not a verdict.
  */
 export async function measureDeckFit(render) {
 	const { frame, dispose } = await createCaptureFrame(render);
@@ -587,10 +595,11 @@ export async function measureDeckFit(render) {
 		sections.forEach((sec, i) => {
 			// A continuation page is stamped `N.k` (auto-split.js); it belongs to slide N.
 			const n = Math.floor(Number.parseFloat(sec.getAttribute('data-lattice-slide') ?? '')) || i + 1;
-			const row = bySlide.get(n) || { slide: n, overflows: false, clipped: false, illegible: false };
+			const row = bySlide.get(n) || { slide: n, overflows: false, clipped: false, illegible: false, undrawn: false };
 			row.overflows ||= sec.classList.contains('overflow');
 			row.clipped ||= sec.classList.contains('clip-marked');
 			row.illegible ||= sec.classList.contains('illegible');
+			row.undrawn ||= !!sec.querySelector(UNDRAWN_FIGURES);
 			bySlide.set(n, row);
 		});
 		return [...bySlide.values()].sort((a, b) => a.slide - b.slide);

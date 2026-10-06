@@ -7,13 +7,15 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { measureDeckFit } from './export/deck-export.js';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 
-export type SlideFit = { slide: number; overflows: boolean; clipped: boolean; illegible: boolean };
+/** `undrawn`: a diagram on the slide had not drawn when it was measured, so its fit is unknown. */
+export type SlideFit = { slide: number; overflows: boolean; clipped: boolean; illegible: boolean; undrawn?: boolean };
 
 /** How long a fit check may take before the checker reports fit as not measured. Measured on
  *  the built Studio, a session's FIRST check takes ~0.4 s, because the live preview has already
  *  fetched the runtime and fonts. The worst case is a draft that adds the deck's first diagram,
- *  so the check downloads Mermaid itself: ≤10.4 s on a slow link with a 4× slower CPU (decision
- *  note §11). */
+ *  so the check downloads Mermaid itself: ≤10.4 s on a slow link with a 4× slower CPU. Below
+ *  ~0.8 Mbps that diagram misses the frame's own wait, and its slide comes back `undrawn`, not as
+ *  a verdict (decision note §11). */
 export const DRAFT_FIT_TIMEOUT_MS = 15000;
 
 /** Per-slide fit for `draft`, or undefined when it could not be measured in time — never a
