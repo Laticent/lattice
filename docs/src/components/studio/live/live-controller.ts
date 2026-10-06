@@ -5,10 +5,11 @@ import * as encoding from 'lib0/encoding';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { createHostKey, createSession, formatLink, type HostKey, loadHostKey, mintLink, parseFragment, type SavedHostKey, type Session, type SessionState, saveHostKey, type TokenEntry } from '@/lib/tavola';
+import { createHostKey, createSession, formatLink, fromBase64Url, type HostKey, hostKeyFrom, mintLink, parseFragment, type Session, type SessionState, type TokenEntry, toBase64Url } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
-import { clearJoinIntent, HOST_KEY, type LiveCollab, type LiveDeps, type LiveHost, readJoinIntent, saveName, storedLiveName } from './live-store';
+import { clearJoinIntent, HOST_KEY, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
+import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
 
 // The Studio's side of a live session, loaded only when a session starts or a link is opened
 // (use-live-session.ts holds the tiny always-loaded half). It turns a Tavola session plus a Yjs
@@ -25,7 +26,8 @@ import { clearJoinIntent, HOST_KEY, type LiveCollab, type LiveDeps, type LiveHos
 // the host's roster, a "summon" counts only from the host, and a chat line's author is the peer
 // whose document client wrote it — never the `from` field it carries.
 
-/** localStorage: room → { deckId, token }, so a guest's linked copy and rejoin token survive a reload. */
+/** localStorage: room → { deckId, token }, so a guest's linked copy and rejoin token survive a
+ *  reload. The token is a credential, so it is stored SEALED (secret-box.ts). */
 const LINKS_KEY = 'lattice-live-links';
 const TYPING_MS = 2500;
 const CHAT_MAX = 1000;
@@ -46,7 +48,9 @@ const writeLink = (room: string, patch: Linked) => {
 	} catch {}
 };
 
-type HostSave = { room: string; secret: string; name: string; deckId: string; tokens: TokenEntry[]; doc: string; startedAt: number; key: SavedHostKey };
+/** What a hosting tab keeps in sessionStorage. The secret and the tokens are sealed; the signing key
+ *  lives in IndexedDB as a non-extractable CryptoKey (`putHostPrivateKey`), never in this record. */
+type HostSave = { room: string; sealed: string; pub: string; name: string; deckId: string; doc: string; startedAt: number };
 const toB64 = (u: Uint8Array) => {
 	let s = '';
 	for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
@@ -207,8 +211,11 @@ export class LiveController {
 		const hosting = readHostSave();
 		if (hosting && hosting.deckId === this.deps.deckId) {
 			try {
-				const key = await loadHostKey(hosting.key);
-				this.wire({ room: hosting.room, secret: hosting.secret, key, host: { name: hosting.name, tokens: hosting.tokens, doc: hosting.doc }, startedAt: hosting.startedAt });
+				const opened = JSON.parse((await unseal(hosting.sealed)) ?? 'null') as { secret: string; tokens: TokenEntry[] } | null;
+				const priv = await getHostPrivateKey(hosting.room);
+				if (!opened || !priv) throw new Error('nothing to resume');
+				const key = await hostKeyFrom(priv, fromBase64Url(hosting.pub));
+				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc }, startedAt: hosting.startedAt });
 				this.bound = true;
 				this.boundDeck = hosting.deckId;
 				this.host.notify('Your live session is back. People who were in rejoin without knocking.');
@@ -219,8 +226,13 @@ export class LiveController {
 			return;
 		}
 		if (hosting) clearHostSave();
-		const raw = readJoinIntent();
-		if (!raw) return;
+		const fresh = takeFreshJoin();
+		const raw = fresh ?? (await unseal(readSealedJoin()));
+		if (fresh) storeSealedJoin(await seal(fresh));
+		if (!raw) {
+			clearJoinIntent();
+			return;
+		}
 		const parts = parseFragment(`live=${raw}`);
 		this.lobbyOpen = true;
 		if (!parts) {
@@ -229,7 +241,7 @@ export class LiveController {
 			this.host.rerender();
 			return;
 		}
-		this.wire({ room: parts.room, secret: parts.secret, hostFingerprint: parts.host, token: readLinks()[parts.room]?.token });
+		this.wire({ room: parts.room, secret: parts.secret, hostFingerprint: parts.host, token: (await unseal(readLinks()[parts.room]?.token)) ?? undefined });
 		this.host.rerender();
 	}
 
@@ -312,7 +324,10 @@ export class LiveController {
 						if (was && was.role !== m.role) this.sys(`${m.name} ${m.role === 'view' ? 'can now only view' : 'can now edit'}`);
 					}
 				}
-				if (s.token) writeLink(r.room, { token: s.token });
+				if (s.token && s.token !== prev.token) {
+					const tok = s.token;
+					void seal(tok).then((sealed) => writeLink(r.room, { token: sealed }));
+				}
 				if (prev.stage !== s.stage) this.onStage(prev.stage, s);
 				prev = s;
 				this.saveHostSoon();
@@ -381,6 +396,7 @@ export class LiveController {
 		if (this.saveTimer) clearTimeout(this.saveTimer);
 		this.saveTimer = null;
 		clearHostSave();
+		void deleteHostPrivateKey(r.room).catch(() => {});
 		clearJoinIntent();
 		this.host.rerender();
 	}
@@ -410,7 +426,8 @@ export class LiveController {
 		const r = this.rt;
 		const s = r?.session.getState();
 		if (!r?.key || !s?.isHost || s.stage !== 'live') return;
-		const save: HostSave = { room: r.room, secret: r.secret, name: s.me?.name ?? 'Host', deckId: this.boundDeck ?? this.deps.deckId, tokens: r.session.exportTokens(), doc: toB64(Y.encodeStateAsUpdate(r.doc)), startedAt: r.startedAt, key: await saveHostKey(r.key) };
+		const sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens() }));
+		const save: HostSave = { room: r.room, sealed, pub: toBase64Url(r.key.publicRaw), name: s.me?.name ?? 'Host', deckId: this.boundDeck ?? this.deps.deckId, doc: toB64(Y.encodeStateAsUpdate(r.doc)), startedAt: r.startedAt };
 		if (this.rt !== r) return;
 		try {
 			sessionStorage.setItem(HOST_KEY, JSON.stringify(save));
@@ -657,8 +674,10 @@ export class LiveController {
 			saveName(n);
 			void (async () => {
 				try {
-					const key = await createHostKey();
+					// The private key never leaves WebCrypto: non-extractable, stored as a CryptoKey object.
+					const key = await createHostKey({ extractable: false });
 					const parts = mintLink(key.fingerprint);
+					await putHostPrivateKey(parts.room, key.privateKey).catch(() => {});
 					this.wire({ room: parts.room, secret: parts.secret, key, host: { name: n } });
 					this.bound = true;
 					this.boundDeck = this.deps.deckId;

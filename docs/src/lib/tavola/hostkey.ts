@@ -27,10 +27,19 @@ export async function fingerprintOf(publicRaw: Uint8Array): Promise<string> {
 	return toBase64Url(h.subarray(0, 16));
 }
 
-export async function createHostKey(): Promise<HostKey> {
-	const pair = await subtle().generateKey(ALG, true, ['sign', 'verify']);
+/**
+ * A new host key. Pass `extractable: false` to keep the private key inside WebCrypto: it can sign
+ * and can be stored as a CryptoKey object (IndexedDB), but no script can read its bytes out.
+ */
+export async function createHostKey({ extractable = true }: { extractable?: boolean } = {}): Promise<HostKey> {
+	const pair = await subtle().generateKey(ALG, extractable, ['sign', 'verify']);
 	const publicRaw = new Uint8Array(await subtle().exportKey('raw', pair.publicKey));
 	return { privateKey: pair.privateKey, publicRaw, fingerprint: await fingerprintOf(publicRaw) };
+}
+
+/** Rebuild a HostKey from a stored private CryptoKey and its raw public key. */
+export async function hostKeyFrom(privateKey: CryptoKey, publicRaw: Uint8Array): Promise<HostKey> {
+	return { privateKey, publicRaw, fingerprint: await fingerprintOf(publicRaw) };
 }
 
 export async function saveHostKey(k: HostKey): Promise<SavedHostKey> {

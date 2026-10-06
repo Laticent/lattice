@@ -581,6 +581,7 @@ real-browser check.
 | A host reload killed the session; a guest reload did not rejoin | medium | fixed: host resumes from its saved key, tokens and document; guest rejoins by token |
 | A network that blocks WebRTC showed "the session isn't live" | medium | fixed: the lobby names the network as a possible cause |
 | The startup JavaScript grew past the per-PR allowance | CI | fixed: all session code loads on demand |
+| CodeQL: the host's session save held the room secret (and its signing key) in clear text | high | fixed: secrets and rejoin tokens are sealed with a non-extractable AES key kept in IndexedDB, the host's private key is a non-extractable CryptoKey there too, and a `#live=` link is held in memory until sealed; the real-browser check asserts the secret is absent from both browsers' storage |
 
 **Known limits that remain.**
 - **No TURN.** Networks that block direct browser-to-browser traffic (many offices, some mobile

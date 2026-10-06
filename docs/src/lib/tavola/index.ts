@@ -3,7 +3,7 @@
 // passed in (the way Trama takes dagre), so the core has no dependencies.
 // Design: engineering/decisions/2026-10-06-studio-live-collaboration.md (§4, §7.1).
 
-export { createHostKey, fingerprintOf, type HostKey, loadHostKey, type SavedHostKey, saveHostKey } from './hostkey';
+export { createHostKey, fingerprintOf, fromBase64Url, type HostKey, hostKeyFrom, loadHostKey, type SavedHostKey, saveHostKey } from './hostkey';
 export { FRAGMENT_KEY, formatFragment, formatLink, type LinkParts, mintLink, parseFragment, randomBytes, toBase64Url } from './link';
 export { createMemoryNetwork, type MemoryNetwork } from './memory';
 export { cleanName, PROTOCOL_VERSION } from './protocol';

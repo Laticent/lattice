@@ -131,6 +131,11 @@ await host.waitForSelector('button[aria-label="Admit Chen"]', { timeout: 30000 }
 await host.locator('button[aria-label="Admit Chen"]').click();
 await guest2.waitForSelector('[data-live-pill]', { timeout: 30000 });
 log('second guest in');
+// No secret at rest: the link's secret must not appear in either browser's storage (CodeQL).
+const secret = link.split('#live=')[1].split('.')[1];
+const leaks = async (page) => page.evaluate((sec) => [localStorage, sessionStorage].some((st) => Object.keys(st).some((k) => (st.getItem(k) ?? '').includes(sec))), secret);
+log(`secret in storage: host=${await leaks(host)} guest=${await leaks(guest2)}`);
+if ((await leaks(host)) || (await leaks(guest2))) throw new Error('the link secret is stored in the clear');
 const tReload = Date.now();
 await host.reload({ waitUntil: 'networkidle' });
 await host.waitForSelector('[data-live-pill]', { timeout: 60000 });

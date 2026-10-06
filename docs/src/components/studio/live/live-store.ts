@@ -5,7 +5,7 @@ import type { Extension } from '@codemirror/state';
 // tiny — everything here ships with the Studio's first paint (docs/route-budget, check-route-budget).
 
 const NAME_KEY = 'lattice-live-name';
-/** sessionStorage: the raw `live=` value from a link, so a join survives OAuth and a reload. */
+/** sessionStorage: the link's `live=` value, SEALED (secret-box.ts), so a join survives OAuth and a reload. */
 export const JOIN_KEY = 'lattice-live-join';
 /** sessionStorage: a hosting session, so a reload resumes it (live-controller.ts writes it). */
 export const HOST_KEY = 'lattice-live-host';
@@ -51,24 +51,38 @@ export const saveName = (name: string) => {
 
 const LIVE_FRAGMENT = /(?:^#|&)live=([^&]*)/;
 
+/** A link taken from the address bar this page load, held in memory until the session code seals it. */
+let freshJoin: string | null = null;
+
 /**
- * If the address bar carries a `#live=` link, move it into sessionStorage and scrub it from the
- * address bar (screenshots, a shared screen), without loading any session code. Returns whether
- * this tab has anything live to resume: a link, a carried join, or a session it was hosting.
+ * If the address bar carries a `#live=` link, take it into memory and scrub it from the address
+ * bar (screenshots, a shared screen), without loading any session code. Nothing is written in the
+ * clear: the session code seals it before it reaches sessionStorage. Returns whether this tab has
+ * anything live to resume: a link, a carried join, or a session it was hosting.
  */
 export function takeLiveIntent(): boolean {
 	if (typeof location === 'undefined') return false;
 	const m = LIVE_FRAGMENT.exec(location.hash);
 	if (m) {
-		try {
-			sessionStorage.setItem(JOIN_KEY, decodeURIComponent(m[1]));
-		} catch {}
+		freshJoin = decodeURIComponent(m[1]);
 		history.replaceState(history.state, '', location.pathname + location.search);
 	}
-	return !!(read(sessionStorage, JOIN_KEY) || read(sessionStorage, HOST_KEY));
+	return !!(freshJoin || read(sessionStorage, JOIN_KEY) || read(sessionStorage, HOST_KEY));
 }
 
-export const readJoinIntent = (): string | null => (typeof sessionStorage === 'undefined' ? null : read(sessionStorage, JOIN_KEY));
+/** The link taken this page load, once. */
+export const takeFreshJoin = (): string | null => {
+	const j = freshJoin;
+	freshJoin = null;
+	return j;
+};
+/** A sealed join carried from an earlier page load (OAuth, a reload). */
+export const readSealedJoin = (): string | null => (typeof sessionStorage === 'undefined' ? null : read(sessionStorage, JOIN_KEY));
+export const storeSealedJoin = (sealed: string) => {
+	try {
+		sessionStorage.setItem(JOIN_KEY, sealed);
+	} catch {}
+};
 export const clearJoinIntent = () => {
 	try {
 		sessionStorage.removeItem(JOIN_KEY);
