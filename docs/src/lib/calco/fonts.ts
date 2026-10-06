@@ -181,3 +181,39 @@ export function faceFor(style: Pick<TextStyle, 'family' | 'weight' | 'italic'>, 
 export function faceKey(family: string, weight: number, italic: boolean): string {
 	return `${family}|${weight}|${italic ? 'i' : 'n'}`;
 }
+
+const WEIGHT_NAMES: Record<number, string> = { 100: 'Thin', 200: 'ExtraLight', 300: 'Light', 400: '', 500: 'Medium', 600: 'SemiBold', 700: 'Bold', 800: 'ExtraBold', 900: 'Black' };
+
+/**
+ * The family name an embedded face is written under: the family itself for a plain regular,
+ * else the family with its weight and slant ("Outfit SemiBold", "Playfair Display Bold
+ * Italic"). Every face is its own family's regular, so a reader never has to resolve a
+ * weight: PowerPoint has only four slots per family, and iOS (CoreText) matches by the
+ * names inside the font. A pinned variable face still carries the variable font's names
+ * ("Outfit Thin" for every Outfit weight), so the file is renamed to match (sfnt.ts).
+ */
+export function faceFamilyName(face: { family: string; weight: number; italic: boolean }, numeric = false): string {
+	const family =
+		Array.from(String(face.family))
+			.filter((ch) => ch.charCodeAt(0) >= 0x20 && !`"'<>&\\`.includes(ch))
+			.join('')
+			.trim() || 'sans-serif';
+	const w = numeric ? String(face.weight) : (WEIGHT_NAMES[Math.round(face.weight / 100) * 100] ?? String(face.weight));
+	return [family, w, face.italic ? 'Italic' : ''].filter(Boolean).join(' ');
+}
+
+/** A unique family name per face: two weights that round to one name keep their number ("Outfit 720"). */
+export function uniqueFaceNames<F extends { family: string; weight: number; italic: boolean }>(faces: F[]): Map<F, string> {
+	const out = new Map<F, string>();
+	const taken = new Set<string>();
+	for (const face of faces) {
+		let name = faceFamilyName(face);
+		if (taken.has(name)) name = faceFamilyName(face, true);
+		let n = 2;
+		const base = name;
+		while (taken.has(name)) name = `${base} ${n++}`;
+		taken.add(name);
+		out.set(face, name);
+	}
+	return out;
+}

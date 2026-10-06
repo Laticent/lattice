@@ -15,21 +15,14 @@
  * uppercase label is stored in capitals.
  */
 
-import { type FontMetrics, faceFor, faceKey, facesUsed } from './fonts';
+import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts';
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame } from './layout';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt';
 import type { Deck, EmbeddedFont, JSZipClass, TextRun } from './types';
 
-const WEIGHT_NAMES: Record<number, string> = { 100: 'Thin', 200: 'ExtraLight', 300: 'Light', 400: '', 500: 'Medium', 600: 'SemiBold', 700: 'Bold', 800: 'ExtraBold', 900: 'Black' };
-
-/**
- * The family name PowerPoint sees for an embedded face: the family itself for a plain
- * regular, else the family with its weight and slant ("Outfit SemiBold", "Playfair Display
- * Italic"), so every face has a regular slot of its own.
- */
+/** The family name PowerPoint sees for an embedded face (`faceFamilyName`, with the PPTX-safe family). */
 export function pptxFaceName(face: { family: string; weight: number; italic: boolean }): string {
-	const w = WEIGHT_NAMES[Math.round(face.weight / 100) * 100] ?? String(face.weight);
-	return [safeFamily(face.family), w, face.italic ? 'Italic' : ''].filter(Boolean).join(' ');
+	return faceFamilyName({ ...face, family: safeFamily(face.family) });
 }
 
 const PX_PER_IN = 96;
@@ -197,20 +190,16 @@ export interface EmbeddingPlan {
 export function planEmbedding(deck: Deck): EmbeddingPlan {
 	const fonts = deck.fonts || [];
 	const plan: EmbeddingPlan = { faces: [], byKey: new Map() };
-	const taken = new Set<string>();
+	const exact = new Map<string, EmbeddedFont>();
 	for (const use of facesUsed(deck)) {
 		const face = faceFor(use, fonts);
-		if (!face || face.weight !== use.weight || !canEmbedAsEot(face.bytes)) continue;
-		let entry = plan.faces.find((f) => f.face === face);
-		if (!entry) {
-			let name = pptxFaceName(face);
-			if (taken.has(name)) name = [safeFamily(face.family), String(face.weight), face.italic ? 'Italic' : ''].filter(Boolean).join(' ');
-			if (taken.has(name)) continue;
-			taken.add(name);
-			entry = { face, name };
-			plan.faces.push(entry);
-		}
-		plan.byKey.set(faceKey(use.family, use.weight, use.italic), entry.name);
+		if (face && face.weight === use.weight && canEmbedAsEot(face.bytes)) exact.set(faceKey(use.family, use.weight, use.italic), face);
+	}
+	const names = uniqueFaceNames([...new Set(exact.values())].map((face) => ({ ...face, family: safeFamily(face.family), face })));
+	for (const [entry, name] of names) plan.faces.push({ face: entry.face, name });
+	for (const [key, face] of exact) {
+		const hit = plan.faces.find((f) => f.face === face);
+		if (hit) plan.byKey.set(key, hit.name);
 	}
 	return plan;
 }

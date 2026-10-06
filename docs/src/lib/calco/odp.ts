@@ -13,8 +13,9 @@
  *   - `styles.xml` needs an `<office:styles>` element, even an empty one, or LibreOffice
  *     ignores the page layout and falls back to its own 28 × 15.75 cm page.
  */
-import { type FontMetrics, faceFor, facesUsed, readFontMetrics } from './fonts';
+import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts';
 import { dominantStyle, metricsFor, placeFrame } from './layout';
+import { renameFace } from './sfnt';
 import type { Deck, EmbeddedFont, JSZipClass, TextStyle } from './types';
 
 export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation';
@@ -113,13 +114,28 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		if (face && !used.includes(face)) used.push(face);
 	}
 	const fontPath = (i: number) => `Fonts/face${String(i + 1).padStart(2, '0')}.ttf`;
+	// Each face is written as a family of its own ("Outfit SemiBold"), renamed inside the file
+	// to match. A pinned variable face still carries the variable font's names (every Outfit
+	// weight says "Outfit Thin"), and a reader that goes by the font's own names, as iOS
+	// does, then finds no "Outfit" at all and substitutes a wider font (measured, Collabora
+	// Office on iOS). A face that cannot be renamed keeps its family and weight.
+	const names = uniqueFaceNames(used);
+	const embedded = used.map((f) => {
+		const name = names.get(f) as string;
+		try {
+			return { face: f, name, bytes: renameFace(f.bytes, name), renamed: true };
+		} catch {
+			return { face: f, name: faceDeclName(f), bytes: f.bytes, renamed: false };
+		}
+	});
+	const entryOf = (f: EmbeddedFont) => embedded.find((e) => e.face === f);
 	const faceDecls =
 		'<office:font-face-decls>' +
-		used
+		embedded
 			.map(
-				(f, i) =>
-					`<style:font-face style:name="${xmlEscape(faceDeclName(f))}" svg:font-family="${xmlEscape(`'${familyName(f.family)}'`)}" ` +
-					`svg:font-weight="${f.weight}" svg:font-style="${f.italic ? 'italic' : 'normal'}">` +
+				({ face: f, name, renamed }, i) =>
+					`<style:font-face style:name="${xmlEscape(name)}" svg:font-family="${xmlEscape(`'${renamed ? name : familyName(f.family)}'`)}" ` +
+					`svg:font-weight="${renamed ? 'normal' : f.weight}" svg:font-style="${renamed || !f.italic ? 'normal' : 'italic'}">` +
 					`<svg:font-face-src><svg:font-face-uri xlink:href="${fontPath(i)}" xlink:type="simple">` +
 					`<svg:font-face-format svg:string="truetype"/></svg:font-face-uri></svg:font-face-src></style:font-face>`,
 			)
@@ -144,12 +160,17 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		// survives when there is no solid background to blend over.
 		const color = s.alpha < 1 && s.flatColor ? s.flatColor : s.color;
 		const opacity = s.alpha < 1 && !s.flatColor ? ` loext:opacity="${Math.round(s.alpha * 100)}%"` : '';
+		const entry = face ? entryOf(face) : undefined;
+		// A renamed face IS its weight and slant; asking for them again would synthesize a
+		// second bold. Only a nearest-weight stand-in lighter than a bold run is made bold.
+		const weight = entry?.renamed ? (s.weight >= 600 && (face as EmbeddedFont).weight < 600 ? 'bold' : 'normal') : String(s.weight);
+		const italic = entry?.renamed ? s.italic && !(face as EmbeddedFont).italic : s.italic;
 		const attrs = [
-			face ? `style:font-name="${xmlEscape(faceDeclName(face))}"` : `fo:font-family="${xmlEscape(familyName(s.family))}"`,
+			entry ? `style:font-name="${xmlEscape(entry.name)}"` : `fo:font-family="${xmlEscape(familyName(s.family))}"`,
 			`fo:font-size="${pt(s.size)}"`,
 			`fo:color="${color}"${opacity}`,
-			`fo:font-weight="${s.weight}"`,
-			`fo:font-style="${s.italic ? 'italic' : 'normal'}"`,
+			`fo:font-weight="${weight}"`,
+			`fo:font-style="${italic ? 'italic' : 'normal'}"`,
 			s.letterSpacing ? `fo:letter-spacing="${cm(s.letterSpacing)}"` : '',
 			TRANSFORMS.has(s.transform) ? `fo:text-transform="${s.transform}"` : '',
 			s.underline ? 'style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"' : '',
@@ -266,8 +287,8 @@ ${parts.map(([p, t]) => `<manifest:file-entry manifest:full-path="${p}" manifest
 		// PNG is compressed already; deflating it again costs time and saves nothing.
 		zip.file(`Pictures/slide${pad3(i)}.png`, slide.image, { ...NO_DIRS, compression: 'STORE' });
 	});
-	used.forEach((f, i) => {
-		zip.file(fontPath(i), f.bytes, NO_DIRS);
+	embedded.forEach((e, i) => {
+		zip.file(fontPath(i), e.bytes, NO_DIRS);
 	});
 	return zip;
 }

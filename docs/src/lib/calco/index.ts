@@ -6,7 +6,7 @@
  * Design: engineering/decisions/2026-10-06-calco-office-export-library.md.
  */
 export type { FaceUse, FontHost, FontMetrics } from './fonts';
-export { embeddingAllowed, faceFor, facesUsed, nearestFace, pinFeatures, prepareFonts, readFontMetrics } from './fonts';
+export { embeddingAllowed, faceFamilyName, faceFor, facesUsed, nearestFace, pinFeatures, prepareFonts, readFontMetrics, uniqueFaceNames } from './fonts';
 export type { PlacedBox } from './layout';
 export { applyTransform, placeFrame } from './layout';
 export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp';

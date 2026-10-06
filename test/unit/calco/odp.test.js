@@ -135,7 +135,7 @@ describe('calco odp — editable text', () => {
     for (const a of ['start', 'center', 'end']) assert.match(content, new RegExp(`fo:text-align="${a}"`));
   });
 
-  test('fonts a run uses are embedded, declared per weight, and listed in the manifest', async () => {
+  test('fonts a run uses are embedded, each as a family of its own, and listed in the manifest', async () => {
     const deck = picture(1);
     const bytes = await ttf('outfit-400');
     deck.fonts = [
@@ -148,9 +148,13 @@ describe('calco odp — editable text', () => {
     const fonts = Object.keys(zip.files).filter((n) => n.startsWith('Fonts/'));
     assert.equal(fonts.length, 2, 'only faces a run draws with');
     const content = await read(zip, 'content.xml');
-    assert.match(content, /style:name="Outfit 400" svg:font-family="'Outfit'" svg:font-weight="400"/);
-    assert.match(content, /style:name="Outfit 700" svg:font-family="'Outfit'" svg:font-weight="700"/);
-    assert.match(content, /style:font-name="Outfit 700"/);
+    assert.match(content, /style:name="Outfit" svg:font-family="'Outfit'" svg:font-weight="normal"/);
+    assert.match(content, /style:name="Outfit Bold" svg:font-family="'Outfit Bold'" svg:font-weight="normal"/);
+    assert.match(content, /style:font-name="Outfit Bold"[^/]*fo:font-weight="normal"/, 'the face is the weight: no synthetic bold');
+    // iOS matches by the names INSIDE the font, so the file carries the declared family.
+    const { familyNameOf } = require('@laticent/calco');
+    const families = await Promise.all(fonts.map(async (f) => familyNameOf(new Uint8Array(await zip.file(f).async('uint8array')))));
+    assert.deepEqual(families.sort(), ['Outfit', 'Outfit Bold']);
     const manifest = await read(zip, 'META-INF/manifest.xml');
     for (const f of fonts) assert.match(manifest, new RegExp(`full-path="${f}" manifest:media-type="application/x-font-ttf"`));
     assert.match(await read(zip, 'settings.xml'), /"EmbedFonts" config:type="boolean">true/);
