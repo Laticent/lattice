@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isDesktop, saveFile } from './platform';
+import { DESKTOP_SIGN_IN_CALLBACK, signIn } from './sign-in';
 
 // The platform seam's two hosts. The web half pins the property the whole design rests
 // on: the download link is clicked SYNCHRONOUSLY, inside the caller's user gesture. The
@@ -92,6 +93,56 @@ describe('saveFile — desktop host', () => {
 		expect(await first).toBe('cancelled');
 		expect(await second).toBe('saved');
 		expect(invoke).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('signIn — the Studio never leaves the screen on desktop', () => {
+	const invoke = vi.fn();
+	beforeEach(() => {
+		invoke.mockReset();
+		(window as W).__TAURI_INTERNALS__ = { invoke };
+	});
+	afterEach(() => {
+		delete (window as W).__TAURI_INTERNALS__;
+	});
+
+	it('builds the URL for the localhost callback and hands both to the sign-in window', async () => {
+		invoke.mockResolvedValue(`${DESKTOP_SIGN_IN_CALLBACK}?code=abc`);
+		const begin = vi.fn(async (cb: string) => `https://openrouter.ai/auth?callback_url=${encodeURIComponent(cb)}`);
+		const back = await signIn(begin, 'https://lattice.example/studio/');
+		expect(begin).toHaveBeenCalledWith(DESKTOP_SIGN_IN_CALLBACK);
+		expect(invoke).toHaveBeenCalledWith('sign_in', {
+			url: `https://openrouter.ai/auth?callback_url=${encodeURIComponent(DESKTOP_SIGN_IN_CALLBACK)}`,
+			callback: DESKTOP_SIGN_IN_CALLBACK,
+		});
+		expect(back).toBe(`${DESKTOP_SIGN_IN_CALLBACK}?code=abc`);
+	});
+
+	it('resolves null when the user closes the sign-in window', async () => {
+		invoke.mockResolvedValue(null);
+		expect(await signIn(async () => 'https://openrouter.ai/auth', 'x')).toBeNull();
+	});
+
+	it('opens no window when there is no URL to open', async () => {
+		expect(await signIn(async () => null, 'x')).toBeNull();
+		expect(invoke).not.toHaveBeenCalled();
+	});
+});
+
+describe('signIn — web host', () => {
+	it('sends the page itself to the service, with the web callback', async () => {
+		const assign = vi.fn();
+		const original = window.location;
+		Object.defineProperty(window, 'location', { configurable: true, value: { ...original, set href(v: string) { assign(v); } } });
+		try {
+			const begin = vi.fn(async (cb: string) => `https://openrouter.ai/auth?cb=${cb}`);
+			void signIn(begin, 'https://lattice.example/studio/');
+			await new Promise((r) => setTimeout(r, 0));
+			expect(begin).toHaveBeenCalledWith('https://lattice.example/studio/');
+			expect(assign).toHaveBeenCalledWith('https://openrouter.ai/auth?cb=https://lattice.example/studio/');
+		} finally {
+			Object.defineProperty(window, 'location', { configurable: true, value: original });
+		}
 	});
 });
 

@@ -494,11 +494,13 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	const connect = async () => {
 		setConnecting(true);
 		try {
-			await connectOpenRouter(); // navigates away to the OAuth page
+			// On the web this navigates away to OpenRouter. In the desktop app a sign-in window
+			// does the round trip and this returns, so the button has to settle here.
+			await connectOpenRouter();
 		} catch (e) {
 			notify(`Connect failed: ${(e as Error)?.message || 'unavailable here'}`);
-			setConnecting(false);
 		}
+		setConnecting(false);
 	};
 	const disconnect = async () => {
 		await disconnectOpenRouter();

@@ -17,5 +17,17 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+tauri-plugin-opener = "~2.5"   # 2.6+ pulls Tauri 2.12; this app is on 2.11
+tokio = { version = "1", features = ["sync"] }
 serde = { version = "1", features = ["derive"] }
 percent-encoding = "2"
+
+# The WebView2 settings Tauri does not expose (browser shortcuts off). Same versions Tauri's
+# own webview layer (wry) links, so this adds no second copy.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows = "0.61"
+
+# WebKitGTK's context-menu signal, for the same right-click trim. Same version wry links.
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "=2.0.2"

@@ -88,3 +88,4 @@ async function saveDesktop(host, filename, data) {
 		return 'failed';
 	}
 }
+
