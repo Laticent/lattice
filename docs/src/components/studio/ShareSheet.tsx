@@ -25,7 +25,7 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // paths download/print the Markdown; the artifact paths run the engine export
 // pipeline (image PDF/PPTX, vector Print, the Marp ZIP) — see share-export.ts.
 
-export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; initialView?: 'menu' | 'pdf' }) {
+export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; initialView?: 'menu' | 'pdf' | 'print' }) {
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
 	// a real per-artifact decision: PDF (comments as sticky notes; re-openable),

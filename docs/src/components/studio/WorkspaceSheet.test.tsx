@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { notify as notifyModule } from '@/lib/notify';
 import type { ArchitectStatus } from './architect';
 import * as readAloud from './read-aloud';
-import { loadSettings } from './studio-store';
+import { lastBackupAt, loadSettings } from './studio-store';
 import { WorkspaceSheet } from './WorkspaceSheet';
 
 vi.mock('@/lib/notify', async (orig) => ({ ...(await orig<object>()), notify: vi.fn() }));
@@ -84,6 +84,15 @@ vi.mock('./read-aloud', () => ({
 	loadTtsKokoro: vi.fn(async () => true),
 	previewTtsVoice: vi.fn(async () => ({ ok: true })),
 	stopTtsPreview: vi.fn(async () => {}),
+}));
+
+// The backup's save, held so a test can play the desktop dialog: 'saved', or 'cancelled'
+// when the author dismisses it. Pack is stubbed; the real one reads IndexedDB.
+const saveBlobSpy = vi.hoisted(() => vi.fn(async () => 'saved' as 'saved' | 'cancelled' | 'failed'));
+vi.mock('./workspace-backup', async (orig) => ({
+	...(await orig<object>()),
+	packWorkspace: vi.fn(async () => new Blob(['zip'])),
+	saveBlob: saveBlobSpy,
 }));
 
 const noop = () => {};
@@ -574,5 +583,32 @@ describe('WorkspaceSheet — narration in Present', () => {
 		expect(sw).toHaveAttribute('aria-checked', 'true');
 		await user.click(sw);
 		expect(localStorage.getItem('lattice-present-narration-cache')).toBe('0');
+	});
+});
+
+describe('WorkspaceSheet — the backup is recorded only once its file exists', () => {
+	async function clickBackup() {
+		const { user, sheet } = openSheet();
+		await user.click(sheet.getByRole('tab', { name: 'Data' }));
+		await user.click(sheet.getByRole('button', { name: /Download backup/ }));
+		await waitFor(() => expect(saveBlobSpy).toHaveBeenCalled());
+		return sheet;
+	}
+
+	it('a saved backup is recorded and announced', async () => {
+		localStorage.clear();
+		saveBlobSpy.mockResolvedValueOnce('saved');
+		await clickBackup();
+		await waitFor(() => expect(lastBackupAt()).not.toBeNull());
+		expect(vi.mocked(notifyModule)).toHaveBeenCalledWith(expect.stringMatching(/^Backup downloaded/));
+	});
+
+	it('a dismissed desktop save dialog records nothing, so the backup nudge keeps working', async () => {
+		localStorage.clear();
+		saveBlobSpy.mockResolvedValueOnce('cancelled');
+		const sheet = await clickBackup();
+		await waitFor(() => expect(sheet.getByRole('button', { name: /Download backup/ })).toBeEnabled());
+		expect(lastBackupAt()).toBeNull();
+		expect(vi.mocked(notifyModule)).not.toHaveBeenCalledWith(expect.stringMatching(/^Backup downloaded/));
 	});
 });

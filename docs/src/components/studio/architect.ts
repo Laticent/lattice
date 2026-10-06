@@ -11,6 +11,7 @@ import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
+import { notify } from '@/lib/notify';
 import { deckCanon, deckProfiles } from '@/playground/authoring-core.generated.js';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
@@ -1937,13 +1938,25 @@ export async function architectAccount(): Promise<ORAccount | null> {
 	}
 }
 
-/** Start the OpenRouter one-click OAuth (PKCE) — navigates to the auth page. */
-export async function connectOpenRouter(): Promise<void> {
+/**
+ * Start the OpenRouter one-click OAuth (PKCE). On the web the page goes to OpenRouter and
+ * comes back with `?code=` (resumePendingAuth finishes it). In the desktop app a separate
+ * sign-in window does the round trip and the code is exchanged here, so the Studio never
+ * leaves the screen (lib/platform.js, `signIn`). Resolves `false` when the user closed the
+ * sign-in window.
+ */
+export async function connectOpenRouter(): Promise<boolean> {
 	const m = await architectModel();
 	if (!m) throw new Error('AI model unavailable in this environment.');
-	const callback = location.href.split('?')[0];
-	const url = await m.beginOpenRouterAuth(callback);
-	if (url) location.href = url;
+	// Loaded on click: the seam stays out of the Studio's startup bundle.
+	const { signIn } = await import('@/lib/sign-in');
+	const back = await signIn((callback) => m.beginOpenRouterAuth(callback), location.href.split('?')[0]);
+	if (!back) return false;
+	const code = new URL(back).searchParams.get('code');
+	if (!code) throw new Error('OpenRouter did not return a sign-in code.');
+	await m.resumeOpenRouterAuth(code);
+	notify('OpenRouter connected — the Architect can now edit your deck.');
+	return true;
 }
 
 /** On return from OAuth (`?code=`), exchange the code and clean the URL. */

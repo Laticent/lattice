@@ -36,6 +36,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
+import { downloadBlob } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
 import { splitSlides } from './lint';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
@@ -245,6 +246,8 @@ export function PrintOptionsPanel({
 	// click reuses it when the key still matches, else rebuilds. Cleared implicitly by the
 	// key check when any setting changes.
 	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; layout: Layout; url: string; blob: Blob } | null>(null);
+	// Blob by object URL for every PDF built here, so a save never has to read a URL back (see triggerDownload).
+	const pdfBlobs = React.useRef(new Map<string, Blob>());
 	// The rasterized slide IMAGES, keyed by `render` identity only — NOT paper/orientation,
 	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
 	// jsPDF geometry) with no re-rasterize; a color/source/theme change makes a new `render`
@@ -419,15 +422,27 @@ export function PrintOptionsPanel({
 	// config change — and only ever in the FOREGROUND (no tab is open during the build, so
 	// the rasterizer never freezes). Revokes a superseded URL after a grace period (a tab
 	// opened from it may still be loading — revoking the string won't unload a loaded blob).
+	// The rasterized slide images, shared by Download PDF and Print (2-up, 4-up, notes).
+	// Reused when only paper/orientation/layout moved (render unchanged): N-up and the notes
+	// handout change only placement, so they ride the cache. Otherwise rasterize once.
+	const ensureImages = React.useCallback(
+		async (imageFailures?: unknown) => {
+			if (!render) throw new Error('deck not ready');
+			if (imgCache && imgCache.render === render) return imgCache;
+			const ex = await import('@/components/studio/export/deck-export.js');
+			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, { imageFailures });
+			const imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
+			if (mountedRef.current) setImgCache(imgs);
+			return imgs;
+		},
+		[render, imgCache],
+	);
+
 	const buildPdf = React.useCallback(async (): Promise<string> => {
 		if (!render) throw new Error('deck not ready');
 		if (builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout) return builtPdf.url;
 		const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
 		const ex = await import('@/components/studio/export/deck-export.js');
-		// Reuse the rasterized slide images when only paper/orientation/layout moved (render
-		// unchanged) — the assemble below re-places them, no re-rasterize. N-up and the notes
-		// handout change only placement, so they too ride the cache. Otherwise rasterize once.
-		let imgs = imgCache && imgCache.render === render ? imgCache : null;
 		// An image the capture cannot fetch no longer fails the build — it is simply left
 		// out. That must not be silent here either: this drawer's own status line is
 		// transient, so the reason goes to the toast, exactly as the Share sheet does it.
@@ -435,11 +450,7 @@ export function PrintOptionsPanel({
 		// would otherwise tell the author their print deck was "ready" and immediately that
 		// it could not be built.
 		const imageFailures = ex.createImageFailureLog();
-		if (!imgs) {
-			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, { imageFailures });
-			imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
-			if (mountedRef.current) setImgCache(imgs);
-		}
+		const imgs = await ensureImages(imageFailures);
 		const blob = await ex.assembleSheetPdf(imgs.images, imgs.geom, name, { deck: name, engine: 'lattice' }, {
 			sheet: { pageW: s.pageW, pageH: s.pageH }, pageFormat: imgs.pageFormat, nup, handout,
 			notes: handout ? slideNotes.map((n) => n || '') : undefined,
@@ -449,20 +460,23 @@ export function PrintOptionsPanel({
 		if (missing) notify(`Print deck built — but ${missing}.`, { duration: DEGRADED_TOAST_MS });
 		const url = URL.createObjectURL(blob);
 		const prevUrl = builtPdf?.url;
-		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
+		if (prevUrl && prevUrl !== url) { setTimeout(() => { pdfBlobs.current.delete(prevUrl); try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
+		pdfBlobs.current.set(url, blob);
 		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, url, blob });
 		return url;
-	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache]);
+	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, ensureImages]);
 
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 
+	// Through the platform seam like every other save. Every PDF this panel builds is also
+	// kept as a Blob by its URL, so the save itself starts synchronously: when `openPdfTab`
+	// falls back to a save inside the tap, nothing awaits first. (The Download button and the
+	// share-sheet fallback reach here after an await either way, exactly as before the seam.)
+	// A URL leaves the map only when it is revoked, so a miss means the PDF is gone.
 	const triggerDownload = React.useCallback((url: string) => {
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = pdfFilename();
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
+		const blob = pdfBlobs.current.get(url);
+		if (blob) downloadBlob(pdfFilename(), blob);
+		else notify('Could not save the PDF. Build it again.');
 	}, [pdfFilename]);
 
 	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the
@@ -566,14 +580,32 @@ export function PrintOptionsPanel({
 				printHtmlDoc(printDoc(), printFrameRef, () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } }, () => activeRef.current);
 				return;
 			}
-			// Desktop, N-up / handout: the one-slide-per-page vector path can't grid or add a
-			// notes band, so build the PDF and open it in a tab to print from the viewer (falls
-			// back to a download if blocked).
+			// N-up / handout, every host but iOS: the one-slide-per-page vector path can't grid or add a
+			// notes band, so print the PDF's own sheets (the same images in the same cells,
+			// export/print-sheets.js) through the same hidden frame. Print opens the print
+			// dialog on every host; only Download PDF saves a file. It used to open the PDF in
+			// a new tab, which the desktop app turned into a save (owner's Windows run,
+			// 2026-10-05).
 			setBuilding('print');
-			buildPdf()
-				.then((url) => { if (mountedRef.current && activeRef.current) openPdfTab(url); })
-				.catch((e) => notify(messageForFailure(e, 'Could not build the PDF.')))
-				.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
+			const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
+			const done = () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } };
+			// An image the capture cannot fetch is left out, and says so, as buildPdf does.
+			import('@/components/studio/export/deck-export.js')
+				.then(async (ex) => {
+					const imageFailures = ex.createImageFailureLog();
+					const [imgs, { buildSheetPrintHtml }] = await Promise.all([ensureImages(imageFailures), import('@/components/studio/export/print-sheets.js')]);
+					if (mountedRef.current) setStatus('Preparing print…');
+					const doc = buildSheetPrintHtml(imgs.images, imgs.geom, { pageW: s.pageW, pageH: s.pageH }, { nup, handout, notes: handout ? slideNotes : undefined, title: name || 'Lattice deck' });
+					// The drawer may have closed while the images were captured: print nothing then.
+					if (!activeRef.current) { done(); return; }
+					printHtmlDoc(doc, printFrameRef, done, () => activeRef.current);
+					const missing = ex.missingImageReason(imageFailures);
+					if (missing) notify(`Printing — but ${missing}.`, { duration: DEGRADED_TOAST_MS });
+				})
+				.catch((e) => {
+					notify(messageForFailure(e, 'Could not prepare the print.'));
+					done();
+				});
 			return;
 		}
 		// iOS, tap 2 — the PDF for these settings is already built: hand it to the OS in-gesture.
@@ -585,7 +617,7 @@ export function PrintOptionsPanel({
 			.then(() => { if (mountedRef.current && activeRef.current) notify('PDF ready — tap “Open PDF” to print.'); })
 			.catch((e) => notify(messageForFailure(e, 'Could not build the PDF.')))
 			.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
-	}, [render, building, ios, nup, handout, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, openPdfToPrint]);
+	}, [render, building, ios, nup, handout, paper, orientation, slideNotes, name, cachedForCurrent, builtPdf, printDoc, buildPdf, ensureImages, openPdfToPrint]);
 
 	// A fresh render (no re-render in flight) is all either action needs to START — the PDF
 	// is built on click, not up front. Both drop the instant a color change begins.

@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X, 
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, TextSearch, Trash2, Upload, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -142,6 +142,10 @@ const DECK_IMPORT_ACCEPT = [
 	'text/markdown', 'text/plain', 'text/html', 'application/pdf',
 	'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 ].join(',');
+
+/** Whether the platform's shortcut key is Cmd (a Mac) rather than Ctrl. */
+const MAC_KEYS = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
 // self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest
@@ -662,12 +666,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Compose surface (Option B continuous note). Both read/write the same `source`,
 	// so flipping never loses work and the preview tracks either. (2026-07-17 Compose.)
 	const [editMode, setEditMode] = React.useState<'markdown' | 'compose'>('markdown');
+	const editModeRef = React.useRef(editMode);
+	editModeRef.current = editMode;
 	const viewRef = React.useRef(view);
 	viewRef.current = view;
 	const [shareOpen, setShareOpen] = React.useState(false);
 	// Which step the Share sheet opens on. "Export as PDF…" opens it straight on the PDF step;
 	// every other opener gets the menu, so this falls back to 'menu' whenever the sheet closes.
-	const [shareStart, setShareStart] = React.useState<'menu' | 'pdf'>('menu');
+	const [shareStart, setShareStart] = React.useState<'menu' | 'pdf' | 'print'>('menu');
 	React.useEffect(() => {
 		if (!shareOpen) setShareStart('menu');
 	}, [shareOpen]);
@@ -5115,8 +5121,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    pre-paint shell came to draw ONE control here against this row's twelve without any
 			    spec noticing (reported on an iPad Air 4). */}
 			{!mobile && (
-			<div data-slot="edit-bar" className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-				Edit
+			<div data-slot="edit-bar" className="flex items-center gap-1 @[36rem]:gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+				{/* The eyebrow is the first thing to go on a narrow pane (a portrait tablet's 377px
+				    editor): the row's controls already name the pane, and without this the row overflowed
+				    by 22px whenever a selection added Refine. */}
+				<span className="hidden @[26rem]:inline">Edit</span>
 				<span className="flex-1" />
 				{issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)]"><AlertTriangle className="size-3" />{issues} issue{issues > 1 ? 's' : ''}</span>}
 				{hasSelection && (
@@ -5124,7 +5133,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<DropdownMenuTrigger asChild>
-									<button type="button" disabled={refineBusy} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-40" aria-label="Refine selection"><Wand2 className="size-3" /><span className="hidden @[36rem]:inline">Refine</span></button>
+									<button type="button" disabled={refineBusy} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-40" aria-label="Refine selection"><Wand2 className="size-3" /><span className="hidden @[44rem]:inline">Refine</span></button>
 								</DropdownMenuTrigger>
 							</TooltipTrigger>
 							<TooltipContent>Refine selection</TooltipContent>
@@ -5160,7 +5169,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    grew 46.19px → 61.38px). "Add" is SHORTER than the "Insert" it replaces, so the
 				    row now has more slack than before, and the accessible name still contains the
 				    visible text (WCAG 2.5.3). */}
-				{insertComponents.length > 0 && <Tip label="Add slide"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Add slide"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Add</span></button></Tip>}
+				{insertComponents.length > 0 && <Tip label="Add slide"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Add slide"><Plus className="size-3" /><span className="hidden @[44rem]:inline">Add</span></button></Tip>}
 				{/* ALWAYS RENDERED, inert when the slide's component offers no looks. It used to be
 				    gated on `reshapeVariants.length > 0`, which made this toolbar's control set a
 				    function of the ACTIVE SLIDE — the row's shape changed as you arrowed through the
@@ -5168,7 +5177,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    boot slide's component against the catalog. `disabled` is what "Fix all issues"
 				    two lines down already does. */}
 				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={deckOptions} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} />
-				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
+				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[44rem]:inline">Fix all</span></button></Tip>
+				{/* Find and replace. Always rendered (like Fix all above) so the row keeps one shape;
+				    inert in Compose, which has no source editor to search. Icon-only for the width
+				    budget (2026-07-04-studio-toolbar-budget.md); the accessible name carries the verb. */}
+				<Tip label="Find and replace (Ctrl+F or ⌘F)"><Button variant="ghost" size="icon-sm" onClick={() => openStudioFind()} aria-label="Find and replace"><TextSearch className="size-[18px]" /></Button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
 				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>
@@ -5778,6 +5791,56 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `cmdPalette` the overlay every other tier uses. They are MUTUALLY EXCLUSIVE — desktop
 	// renders only the inline one, compact only the overlay — so `⌘K` never has two homes
 	// and the command list has exactly one definition (CommandPalette.tsx).
+	// Find and replace from anywhere (the header button, the ⌘K palette, Ctrl+F outside an
+	// editor): open it in the editor the author is using. Compose has its own find bar
+	// (compose-find.ts); from Read, the Markdown source comes up first. Switching panes or
+	// leaving Read MOUNTS the editor, so this waits for its ref a frame at a time (bounded).
+	const openStudioFind = (replace = false) => {
+		if (mobile) setMobilePane('edit');
+		if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); }
+		let frames = 0;
+		const tryOpen = () => {
+			if (editModeRef.current === 'compose' && composeRef.current) composeRef.current.openFind({ replace });
+			else if (editModeRef.current !== 'compose' && editorRef.current) editorRef.current.openFind({ replace });
+			else if (++frames < 30) requestAnimationFrame(tryOpen);
+		};
+		requestAnimationFrame(tryOpen);
+	};
+	const openStudioFindRef = React.useRef(openStudioFind);
+	openStudioFindRef.current = openStudioFind;
+	// THE STUDIO OWNS Ctrl+F AND Ctrl+P, on every host. Inside an editor its own keymap has
+	// already answered (and prevented the default); anywhere else (the preview, the filmstrip,
+	// a panel) Ctrl+F opens the Studio's find and Ctrl+P its Print deck panel, instead of the
+	// browser's find bar or a print of the Studio's own chrome. In the desktop app the
+	// engine's shortcuts are off (desktop/src-tauri/src/lib.rs), so this is the only answer.
+	React.useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			// Cmd on a Mac, Ctrl elsewhere. On a Mac, Ctrl+F and Ctrl+P are the text fields' own
+			// caret keys (forward a character, up a line), so they are left alone there.
+			const mod = MAC_KEYS ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+			if (e.defaultPrevented || e.altKey || e.shiftKey || !mod) return;
+			// Present owns the screen; neither panel opens behind it (the keys still do nothing
+			// there rather than reaching the engine).
+			if (presentOpenRef.current) {
+				if (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'p') e.preventDefault();
+				return;
+			}
+			// A dialog is in front: switching panes or opening a panel behind it would be lost.
+			if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+			const k = e.key.toLowerCase();
+			if (k === 'f') {
+				e.preventDefault();
+				openStudioFindRef.current(false);
+			} else if (k === 'p') {
+				e.preventDefault();
+				setShareStart('print');
+				setShareOpen(true);
+			}
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, []);
+
 	// THE ACTION LIST (studio-commands.ts) — every palette verb, defined once. The palette renders
 	// its Actions rows from it and a lesson runs a verb by id through it, so a lesson's "I'll do it
 	// for you" is exactly the row. A command is left out while it would do nothing, so the palette
@@ -5798,6 +5861,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		{ id: 'reshape', group: 'actions', label: 'Reshape for a reader', icon: Sparkles, run: () => { revealCraftDock(); setLensesOpen(true); } },
 		...(insertComponents.length > 0 ? [{ id: 'insert', group: 'actions', label: 'Add a slide…', icon: Plus, keywords: ['insert', 'new slide', 'layout'], run: () => setInsertOpen(true) } satisfies StudioCommand] : []),
+		// Find and replace from anywhere: switches to the Markdown source first (findInSource).
+		{ id: 'find', group: 'actions', label: 'Find and replace', icon: TextSearch, keywords: ['search', 'replace', 'source'], run: () => openStudioFind() },
 		...(posture === 'craft' ? [{ id: 'focus', group: 'actions', label: 'Focus mode — just editor & preview', icon: Focus, run: () => setQuietened(true) } satisfies StudioCommand] : []),
 		// Coach, Fix all, light/dark and slide settings each had a button and no row: a learner who
 		// searched "check", "fix", "dark" or "notes" found nothing, and their lessons had no verb to

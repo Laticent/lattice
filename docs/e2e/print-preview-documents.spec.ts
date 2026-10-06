@@ -62,7 +62,8 @@ test('paging the Print drawer and reprinting build no new preview documents', as
 	await expect(dialog.getByRole('img', { name: 'Print preview slide 8' })).toBeVisible();
 	expect(await documentsMade(page), 'two sheet flips at 4-up re-point the four pooled frames').toBe(before);
 
-	// Only 1-up prints through the offscreen frame; N-up builds a PDF instead.
+	// 1-up prints the vector deck through the offscreen frame; N-up prints its sheets through
+	// the same frame (print-every-layout.spec.ts).
 	await dialog.getByRole('radio', { name: '1-up', exact: true }).click();
 	const print = dialog.getByRole('button', { name: 'Print', exact: true });
 	await print.click();

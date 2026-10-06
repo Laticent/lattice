@@ -53,7 +53,7 @@ import {
 import { TtsSettings } from './TtsSettings';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 import type { PackReport } from './workspace-backup';
-import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
+import { isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
@@ -419,7 +419,10 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const rows = await listStoredScenes();
 			const valid = rows.filter((r) => r.valid).map((r) => r.scene);
 			const unreadable = rows.length - valid.length;
-			downloadBlob('lattice-motion-scenes.zip', await packBundle([], [], [], valid));
+			// Loaded on click, like the backup below: this sheet is in the Studio's eager bundle.
+			const { saveBlob } = await import('./download');
+			// Tell the author only about a file that exists: the desktop dialog can be dismissed.
+			if ((await saveBlob('lattice-motion-scenes.zip', await packBundle([], [], [], valid))) !== 'saved') return;
 			notify(unreadable ? `Downloaded ${valid.length} scene(s). ${unreadable} could not be read — they stay in your library and in every backup.` : `Downloaded ${valid.length} scene(s).`);
 		} catch (e) {
 			notify(`Scene export failed: ${(e as Error)?.message || 'unknown error'}`);
@@ -433,9 +436,11 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		try {
 			const now = Date.now();
 			// Loaded on click: pack and restore are off the Studio's eager path.
-			const { backupRestoreGaps, packWorkspace } = await import('./workspace-backup');
+			const { backupRestoreGaps, packWorkspace, saveBlob } = await import('./workspace-backup');
 			const report: PackReport = { refdocsBytes: 0 };
-			downloadBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report));
+			// Record the backup only once the file exists. On the desktop the save dialog can be
+			// dismissed or the write can fail, and a recorded backup turns off the backup nudge.
+			if ((await saveBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report))) !== 'saved') return;
 			markBackupTaken(now);
 			setBackupAt(now);
 			// Still downloaded: a backup you hold beats none. But it must not look like one that will
@@ -489,11 +494,13 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	const connect = async () => {
 		setConnecting(true);
 		try {
-			await connectOpenRouter(); // navigates away to the OAuth page
+			// On the web this navigates away to OpenRouter. In the desktop app a sign-in window
+			// does the round trip and this returns, so the button has to settle here.
+			await connectOpenRouter();
 		} catch (e) {
 			notify(`Connect failed: ${(e as Error)?.message || 'unavailable here'}`);
-			setConnecting(false);
 		}
+		setConnecting(false);
 	};
 	const disconnect = async () => {
 		await disconnectOpenRouter();
