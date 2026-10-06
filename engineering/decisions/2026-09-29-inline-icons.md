@@ -470,6 +470,23 @@ the post-sanitize shape of HARD RULE #22. The provenance note on Trama's sanctio
 sink says so, and `test/unit/components/graph-icons.test.js` runs a forged harness through the
 real serialized pass.
 
+**The red team's probe, pinned (#2558's P3).** The red team attacked `drawing()` by hand and it
+held, but nothing pinned what it tried. `graph-icons.test.js` now runs each case through both
+charts' real serialized pass: an `<animate>` or `<set>` inside a kept shape, an entity-encoded
+quote in a coordinate, a value past the 4000-character cap, prefixed and uppercase tags, tags
+named `__proto__`, `constructor` and `toString`, and a `</title>` in an icon-only name. One case
+was not held: a forged `<circle r="1e308">` was kept, and because the icon's wrapper was
+`overflow="visible"` it painted over the whole chart. The first fix capped every number at 1e4;
+the independent checker showed that is no bound at all, since a relative path (`l9999 0` four
+hundred times, under the 4000-character cap) or a single 1e4 coordinate still draws a line
+thousands of pixels long. So the bound is now geometric: both adapters wrap the drawing in an
+`<svg viewBox="-2 -2 28 28" overflow="hidden">` scaled so the 24-unit grid lands where it did,
+which clips a shape two units past the icon's box whatever its numbers say. The per-number cap
+stays as hygiene. The shipped set's coordinates run from 2 to 22.5, so nothing real is clipped,
+and the test renders all 265 shipped icons through the pass and requires every shape back. Each
+guard was shown to bite: with the value checks removed six arms fail, with the cap removed two,
+with the shape copied whole two, and with the tag looked up off the prototype two.
+
 **Placement, § 11 q1.** The icon sits above the name when the chart is pinned `tb`, and before it
 otherwise, including the unpinned default. Sizes are measured before the layout picks a direction,
 so an unpinned chart cannot know where its icon goes until after it has been measured. Before the
