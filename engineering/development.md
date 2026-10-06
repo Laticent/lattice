@@ -291,6 +291,12 @@ Configuration in `lefthook.yml`.
   scoped scripts; runs only what's affected. See *Affected tests* below.
 
 **pre-push** (serial, fail-fast cheap-first):
+- `rebase-guard` — refuses a push that rebases or merges `main` into a branch
+  whose remote head would have merged cleanly on GitHub's terms (HARD RULE #16).
+  It does work only when the push moves the branch onto a newer `main`. When you
+  need a specific commit from `main`, push with
+  `LATTICE_REBASE_REASON="needs <sha>: <why>"`. `tools/rebase-guard.sh`;
+  `engineering/decisions/2026-10-06-conflict-reduction.md`.
 - `lint` — full tree
 - `lint-deck` — repo-wide strict author-facing footgun sweep
 - `build-check` — the CI/stale-artifact gate (regen + byte-diff of `dist/`)
