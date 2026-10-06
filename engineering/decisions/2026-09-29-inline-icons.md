@@ -583,6 +583,17 @@ worst). So `tools/build-chart-finish-css.js` now gives `.hub-spoke-icon` the ink
 disc body clears: `inkOn`, black above OKLCH L 0.565 and white below, computed from the same body
 expression the generator gives the disc, behind the same `@supports` as every text ink there.
 Worst case after, all 14 palettes in both modes: pigment 4.38:1, etching 7.03:1, tone 3.48:1.
+Every figure in this section is re-derivable: `2026-09-29-inline-icons/probe-hub-spoke-icon-ink.cjs`
+renders the demo deck under every palette, mode, finish and sketch, and prints the worst icon-on-disc
+ratio per disc kind; its output on the commit that shipped this is beside it (`.out.txt`).
+
+**On an engine without relative color** (the independent checker's finding on the finish fix), a
+custom property holding an `oklch(from …)` such an engine cannot parse would leave the stroke unset
+and the icon undrawn. The icon's base inks are therefore plain tokens (the heading ink; the canvas
+ink on a dark status disc), and the measured `oklch(from …)` inks replace them behind
+`@supports`, as the finish inks already were. `hub-spoke.test.js` also now reads the disc's finish
+body and the icon's ink out of the generated sheet and requires the ink to derive from that exact
+body, so a finish level edited without the icon fails there (shown to fail on a 1% drift).
 
 **What did not change.** With no icon written, the hub-spoke gallery, the baseline gallery, both
 graph-chart galleries, `examples/chart-icons.md` and `examples/gallery-jargon.md` render

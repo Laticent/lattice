@@ -783,4 +783,37 @@ describe('hub-spoke — icon ink under a chart finish', () => {
       assert.match(css, new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-s\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*var\\(--hs-state-hue\\)`), `${finish} status`);
     }
   });
+
+  test('the icon picks its ink from the very body the finish gives its disc', () => {
+    // Read both rules out of the generated sheet: the disc's `fill` and the icon's ink. Each arm of
+    // the disc's body must appear as the `oklch(from <arm> …)` the ink is computed from, so an edit
+    // to a finish's disc level that forgets the icon fails here.
+    const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/chart-finish.generated.css'), 'utf8');
+    const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const decl = (sel, prop) => {
+      const m = css.match(new RegExp(`${esc(sel)}[^{]*\\{[^}]*?${prop}: ([^;]*?) !important;`));
+      assert.ok(m, `no ${prop} under ${sel}`);
+      return m[1];
+    };
+    const arms = (v) => {
+      if (!v.startsWith('light-dark(')) return [v];
+      let depth = 0;
+      const inner = v.slice('light-dark('.length, -1);
+      for (let i = 0; i < inner.length; i++) {
+        if (inner[i] === '(') depth++;
+        else if (inner[i] === ')') depth--;
+        else if (inner[i] === ',' && depth === 0) return [inner.slice(0, i).trim(), inner.slice(i + 1).trim()];
+      }
+      return [v];
+    };
+    for (const finish of ['pigment', 'etching', 'tone']) {
+      const pairs = [[1, 8].map((n) => [`chart-finish-${finish} :where(:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="fill"]`, `chart-finish-${finish} :where(.hub-spoke-icon[data-hue="${n}"])`])].flat();
+      pairs.push([`chart-finish-${finish} :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s])`, `chart-finish-${finish} :where(.hub-spoke-icon[data-s])`]);
+      for (const [disc, icon] of pairs) {
+        const body = decl(disc, 'fill');
+        const ink = decl(icon, '--hs-icon-ink');
+        for (const arm of arms(body)) assert.ok(ink.includes(`oklch(from ${arm} clamp(`), `${icon}: ${ink} does not derive from ${arm}`);
+      }
+    }
+  });
 });
