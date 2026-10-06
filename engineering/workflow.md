@@ -1204,7 +1204,7 @@ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
 | `min_entries_to_merge_wait_minutes` | 5 | The queue waits up to 5 minutes to fill a group |
 | `check_response_timeout_minutes` | 60 | A `ci` run that has not reported in 60 minutes fails the entry |
 | Required check | `ci` (the aggregate job in `ci.yml`) | The only check the queue waits on — CodeQL is not in it |
-| `strict_required_status_checks_policy` | `true` (the owner planned to turn it off) | "Require branches to be up to date". It does **not** stop a behind PR entering the queue: 12 of the last 15 queue entries up to 2026-09-28 were behind `main` (by 1–8 commits) and 11 merged green. It only makes GitHub label behind PRs "out-of-date". **Ignore that label either way** |
+| `strict_required_status_checks_policy` | `false` (turned off by the owner 2026-10-06; it was `true` when read on 2026-09-28) | "Require branches to be up to date". Even when it was on, it did **not** stop a behind PR entering the queue: 12 of the last 15 queue entries up to 2026-09-28 were behind `main` (by 1–8 commits) and 11 merged green. It only made GitHub label behind PRs "out-of-date". The queue tests every PR against current `main`, so the setting added nothing. **Ignore an "out-of-date" label if it ever comes back** |
 
 **What the queue does.** It creates a temporary `gh-readonly-queue/main/pr-<N>-*`
 branch holding current `main`, every non-failing PR ahead of yours, and your PR.
