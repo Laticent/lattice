@@ -458,7 +458,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-plugin-registry.js` | Freezes the in-tree plugins (lib/plugins/) into the registries every render path reads, |
 | `tools/build-projection-catalog.js` | build-projection-catalog.js — freeze every component manifest's `projection` |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |
-| `tools/build-segno-grammar.js` | build-segno-grammar — write Segno's generated notation parser. |
+| `tools/build-segno-grammar.js` | build-segno-grammar — write the parsers Segno's code generator makes from a grammar. |
 | `tools/build-segno-lib.js` | Build the Segno library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-showcase-galleries.js` | build-showcase-galleries — GENERATED consolidated cross-bucket showcase decks. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |

@@ -235,6 +235,21 @@ describe('attempt(): what it reads', () => {
   });
 });
 
+describe('attempt(): the generated parser', () => {
+  // x_K explains why a BARE attempt failed; an attempt in a choice hands its character on instead
+  // and never reads it. Emitting it anyway left four unused functions in the committed flowchart
+  // row parser (PR #2545's code-quality scan).
+  it('writes the failure explanation only for an attempt used bare', () => {
+    const arrow = () => attempt(node('a', seq('-', '>')), { max: 4, next: ' ' });
+    const inChoice = generate({ start: 'r', rules: { r: many(alt(arrow(), chars('-> x', 'c'))) } });
+    const bare = generate({ start: 'r', rules: { r: seq(arrow(), many(chars('x', 'x'))) } });
+    expect(inChoice).toMatch(/function t_0\(/);
+    expect(inChoice).not.toMatch(/function x_0\(/);
+    expect(bare).toMatch(/function x_0\(/);
+    expect(bare).toMatch(/err = x_0\(\)/);
+  });
+});
+
 describe('attempt(): the linear bound', () => {
   // Every word start opens an attempt that reads its whole window and fails: the worst case.
   const spec = row(alt(attempt(arrow, { max: 64, next: SP }), word));

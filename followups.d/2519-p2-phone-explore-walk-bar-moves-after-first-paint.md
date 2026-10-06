@@ -13,6 +13,10 @@ status    — CAUSE FOUND AND FIXED on claude/segno-attempt-phase2-m5hc7y: the d
             now takes no box until `.pg-split` is parsed, and a deterministic @smoke case holds
             that parser state still (measured failing without the rule, passing with it). What is
             left is the CI count in "done when": 20 dispatch runs of the spec with no flaky result.
+            2026-10-06 (#2545): restarted on main after #2537 merged, one dispatch at a time:
+            37406264360 and 37408409966 green by conclusion, a third queued. With the three on
+            #2537's branch that is 5 of 20 green, but a retried pass is green too: the e2e job's
+            log says whether a test was flaky, and these two logs are not yet read.
 
 why now   — PR #2519 re-ran docs/e2e/playground-first-paint.spec.ts many times in CI to count
             its first-paint fix. In run 37298787347 (head d53ca06), `on a phone › the Explore

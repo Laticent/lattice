@@ -1,0 +1,1 @@
+- A `$&`, `` $` ``, `$'`, `$1` or `$$` in an author's text now renders as written in three more places: a chart slide's `_class:` token (where a `` $` `` pasted the tag's own prefix into `class="…"`, so the rest of the token became an attribute of the `<section>`), a QR card's caption in a split panel, and a code package's failure note.

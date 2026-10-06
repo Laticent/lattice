@@ -1351,6 +1351,27 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
 });
 
 
+// A split page's class list carries the author's `_class:` tokens, and four paths rebuild it
+// (nativeSliceSplit, redlineBlockSplit, mathMemberPages, splitCodeCards). Each passes a function to
+// replace(), so a `$&` or `` $` `` in a token is text. Every strategy is run twice: with the
+// replacement patterns in the class, and with each `$` swapped for `§`, which nothing treats
+// differently; swapping back must give the same pages (test/unit/core/replacement-patterns.test.js
+// has the reasoning; PR #2545's checker found three of these paths unexercised there).
+describe('core: carousel — an author class token is never a replacement pattern', () => {
+  const TOKEN = 'QZ$&$`$\'$1$$QQ';
+  const withToken = (tag, t) => tag.replace(/\sclass="([^"]*)"/, (_m, c) => ` class="${c} ${t.replaceAll('&', '&amp;')}"`);
+  for (const [name, tag, inner, rec] of STRATEGY_CASES) {
+    test(`${name}: the class token survives every page as written`, () => {
+      const run = (t) => {
+        const parts = carouselize(withToken(tag, t), inner, rec, 2, name);
+        return Array.isArray(parts) ? parts.join('\n') : String(parts);
+      };
+      const standIn = run(TOKEN.replaceAll('$', '§'));
+      assert.equal(run(TOKEN), standIn.replaceAll('§', '$'));
+    });
+  }
+});
+
 describe('core: carousel — every strategy emits a role-stamped envelope (§8 rule 9)', () => {
   for (const [name, tag, inner, rec] of STRATEGY_CASES) {
     test(`${name}: every emitted page carries a valid role, cover first, closing last`, () => {

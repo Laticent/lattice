@@ -11,6 +11,10 @@
       "class": "not-code"
     },
     {
+      "path": "lib/core/flowchart-row.generated.js",
+      "class": "generated"
+    },
+    {
       "path": "lib/export/anima-player-bundle.generated.mjs",
       "class": "generated"
     },
