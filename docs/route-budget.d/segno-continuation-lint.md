@@ -1,2 +1,2 @@
-playground: +4
-The Playground ships lint-core for its live lint, and lint-core gained the `bracket-list-closed-early` rule (a stray `]` after a quoted name in an axis or key list): +1 B gz against main measured locally, +4 to cover gzip variation as earlier declarations here do. The Studio carries the same rule and came out 25 B smaller after compression.
+studio: +355
+The Studio ships lint-core eagerly for its live lint, and lint-core gained the `bracket-list-closed-early` rule: one scan of a lone bracketed span, plus its message and fix text (+355 B gz against main as CI measures it). The rule is what tells an author that a stray `]` after a quoted name dropped their chart's axis to plain text, which is why it runs while they type rather than only in `lint:deck`. The Playground, which bundles the same rule, measured -2 B.
