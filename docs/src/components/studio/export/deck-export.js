@@ -204,7 +204,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -347,7 +347,8 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 
 	// generated text files (the shared bundle spec).
 	const themesList = ['lattice.css', ...bundledThemes];
-	dir.file('marp.config.cjs', MARP_CONFIG_CJS);
+	// Marp typesets math itself; with the math plugin off for this deck, its config turns that off too.
+	dir.file('marp.config.cjs', marpConfigCjs({ math: !pluginsOff.includes('math') }));
 	dir.file('package.json', `${JSON.stringify(packageJson(slug), null, 2)}\n`);
 	dir.file('.vscode/settings.json', vscodeSettings(themesList));
 	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk }));

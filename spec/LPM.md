@@ -117,7 +117,8 @@ that loads its plugin would differ between the preview and the export. The Expor
 does not run the engine, so the PRODUCER records the plugins its admission left off in the bundle's
 export-settings block (`pluginsOff`), and the bundled runtime writes the marker from that list
 before any pass runs — on the `<pre>` of a drawn fence and on an extension-point filler's
-`<section>` — so Marp's render honors the deck's admission as the engine's does. The CLI admits once per run and hands the
+`<section>` — and, because Marp typesets math itself, the bundle's Marp config turns Marp's math
+off when the math plugin is off — so Marp's render honors the deck's admission as the engine's does. The CLI admits once per run and hands the
 result to the engine, the `bake` and its boundary parser (whose block rules follow `off`, so a
 plugin's block body is opaque only where the engine admits it). The `highlight` grammars stay
 registered for every installed plugin, on purpose: an unadmitted plugin's fence is exactly the one

@@ -31,6 +31,8 @@ theme: indaco
 
 # Admission
 
+Inline $x^2$ math.
+
 \`\`\`mermaid
 flowchart LR
   A[Deck] --> B[Bundle]
@@ -97,6 +99,7 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
     assert.ok(!md.includes('pluginsOff'), 'a default-set bundle carries no pluginsOff');
     await page.waitForFunction(() => document.querySelector('[data-lattice-figure] svg') !== null, { timeout: 30000 });
     assert.equal(await page.$$eval('section.chart-frame .bar-figure', (e) => e.length), 1);
+    assert.ok(await page.$$eval('mjx-container, .katex', (e) => e.length) > 0, 'Marp typesets the math');
     assert.equal(await page.$$eval('[data-lattice-off]', (e) => e.length), 0);
   });
 
@@ -111,6 +114,10 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
     assert.match(await page.$eval('[data-lattice-off="mermaid"] code', (e) => e.textContent), /flowchart LR/);
     assert.equal(await page.$$eval('section.bar[data-lattice-off="chart-family"]', (e) => e.length), 1, 'the bar section is marked');
     assert.equal(await page.$$eval('.bar-figure, section.chart-frame', (e) => e.length), 0, 'no chart built');
+    // Marp's own math is off in the bundle's config, so the TeX stays as the author wrote it.
+    assert.match(fs.readFileSync(path.join(OUT_ROOT, 'none', 'out', 'admission', 'marp.config.cjs'), 'utf8'), /options: \{ math: false \}/);
+    assert.equal(await page.$$eval('mjx-container, .katex', (e) => e.length), 0, 'no math typeset');
+    assert.match(await page.$eval('section', (e) => e.textContent), /\$x\^2\$/);
     if (process.env.ADMISSION_EVIDENCE) {
       fs.mkdirSync(process.env.ADMISSION_EVIDENCE, { recursive: true });
       for (const [arm, p] of Object.entries(pages)) {

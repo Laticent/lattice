@@ -39,8 +39,8 @@
  * the deck is admitted under them (lib/plugins/host-grammar.mjs `admitPlugins`) and the plugins left
  * off ride in the bundle's settings block (`pluginsOff`), which the bundled runtime reads before it
  * draws anything — Marp renders the deck, so the engine's own marker is never written. Marp draws
- * MATH itself (marp-core's own math), which no marker reaches: a bundle with math off still
- * typesets it (followups.d/2509-p3-admission-marp-and-studio-source-readers.md).
+ * MATH itself (marp-core's own math), which no marker reaches, so with math off the bundle's
+ * marp.config.cjs turns Marp's math off too (`marpConfigCjs`).
  *
  * `--overflow-marker` decides who the overflow signal in the rendered bundle is
  * addressed to — see lib/core/resolve-overflow-marker.js. It is an EXPORT setting,
@@ -78,7 +78,7 @@ const { liftImageBgImages } = require('../lib/core/bg-image');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const {
-  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
+  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScripts, packageJson,
   safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
 } = require('../lib/core/marp-bundle');
 
@@ -423,7 +423,7 @@ function main(argv) {
   // 5) generated text files (from the shared bundle spec): marp-cli config,
   //    package.json, .vscode/settings.json (Marp VS Code theme registration),
   //    and the README.
-  fs.writeFileSync(path.join(dest, 'marp.config.cjs'), MARP_CONFIG_CJS);
+  fs.writeFileSync(path.join(dest, 'marp.config.cjs'), marpConfigCjs({ math: !admission.off.includes('math') }));
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify(packageJson(name), null, 2) + '\n');
   fs.mkdirSync(path.join(dest, '.vscode'), { recursive: true });
   fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList));

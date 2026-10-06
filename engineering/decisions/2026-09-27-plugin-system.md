@@ -1233,8 +1233,7 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   path uses code packages yet).
 
 - **Admission reaches Export-to-Marp and the Studio's own readers (`2509-p3`).** Two readers that do
-  not run the engine now follow a narrowed set, for every plugin whose output they draw (Marp's own
-  math excepted, below). **The Marp bundle:** Marp renders it, so no marker is
+  not run the engine now follow a narrowed set, for every plugin whose output they draw. **The Marp bundle:** Marp renders it, so no marker is
   ever written; the producer (`tools/export-marp.js`, which gains `--default-plugins=` and
   `--disable-plugin=`; the Studio's Share → Marp) admits the deck and records the plugins left off
   in the bundle's export-settings block, `pluginsOff`, and the bundled runtime writes the engine's
@@ -1260,8 +1259,10 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   chunk, so the lint copy is imported statically, not adopted when the editor's lint loads, which
   left earlier readers on the default grammar); the rail re-reads on the defaults event;
   `export-marp` sets the boundary parser before its split bake and refuses an empty
-  `--default-plugins=`. **Not covered, and recorded:** Marp typesets math itself, so a bundle with
-  math off still typesets it (its slide splits are right); an author's raw-HTML Mermaid block and
+  `--default-plugins=`. **Marp's own math** (found by the checker: marp-core typesets `$…$` itself,
+  which no runtime marker reaches): with math off, the bundle's `marp.config.cjs` passes Marp
+  `options: { math: false }` (`marpConfigCjs`; a default-set bundle's config is byte-identical), and
+  the real-marp-cli test shows the TeX as written. **Not covered, and recorded:** an author's raw-HTML Mermaid block and
   forged `data-lattice-*` markers; the Playground page's own lint (`2509-p3` followup, narrowed).
 
 - **Phase D's residue, decided (`2509-p5`).** The list #2509 left, item by item; the followup is

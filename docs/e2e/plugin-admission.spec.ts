@@ -164,7 +164,8 @@ $$
 # Last
 `;
 
-test('under defaults: [] the rail splits a `$$` block as the engine does; the Marp bundle records it', async ({ page }) => {
+// @gecko: the admission switch is browser-agnostic JavaScript, so this one also runs on Firefox.
+test('under defaults: [] the rail splits a `$$` block as the engine does; the Marp bundle records it @gecko', async ({ page }) => {
 	test.setTimeout(EVIDENCE ? 300_000 : 180_000);
 	await gotoStudio(page);
 	await setDefaults(page, []);
@@ -193,6 +194,9 @@ test('under defaults: [] the rail splits a `$$` block as the engine does; the Ma
 	const zip = await JSZip.loadAsync(fs.readFileSync(zipPath as string));
 	const md = await Object.values(zip.files).find((f) => /\.md$/.test(f.name) && !/README|AGENTS/i.test(f.name))!.async('string');
 	expect(md).toContain('"pluginsOff":["anima","chart-family","function-plot","math","mermaid"]');
+	// Marp typesets math itself, so the bundle's own config turns it off for this deck.
+	const cfg = await Object.values(zip.files).find((f) => /marp\.config\.cjs$/.test(f.name))!.async('string');
+	expect(cfg).toContain('options: { math: false }');
 	await page.keyboard.press('Escape');
 
 	// Listed, math loads: the `$$` block is whole again in the rail.

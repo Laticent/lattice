@@ -12,7 +12,7 @@ const { markPluginsOff } = require('../../../lib/plugins/mark-off.mjs');
 const { RUNTIME_DRAWN, RUNTIME_DRAWN_FENCE_CODE } = require('../../../lib/plugins/drawn.generated.mjs');
 const { TRANSFORMERS } = require('../../../lib/transformers/registry');
 const chartFamily = require('../../../lib/transformers/chart-family');
-const { withRuntimeScripts } = require('../../../lib/core/marp-bundle');
+const { withRuntimeScripts, marpConfigCjs, MARP_CONFIG_CJS } = require('../../../lib/core/marp-bundle');
 const { readExportSettings } = require('../../../lib/core/export-settings');
 
 // What Marp writes for a Mermaid fence and a bar slide: no engine marker anywhere.
@@ -60,5 +60,10 @@ describe('the Marp bundle carries the producer\'s admission', () => {
   });
   test('nothing off writes the block exactly as before', () => {
     assert.equal(withRuntimeScripts('# Hi\n', { overflowMarker: 'reader', pluginsOff: [] }), withRuntimeScripts('# Hi\n', { overflowMarker: 'reader' }));
+  });
+  test('the marp config turns Marp\'s own math off only when the deck\'s admission did', () => {
+    assert.equal(marpConfigCjs(), MARP_CONFIG_CJS, 'math on writes the config every default-set bundle always had');
+    assert.ok(!MARP_CONFIG_CJS.includes('options'));
+    assert.match(marpConfigCjs({ math: false }), /module\.exports = \{ themeSet, allowLocalFiles: true, html: true, options: \{ math: false \} \};/);
   });
 });
