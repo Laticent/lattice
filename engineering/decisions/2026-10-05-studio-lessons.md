@@ -289,5 +289,8 @@ Slices 2–4 shipped together in one PR, one commit each.
 
 ## Open questions
 
-- None blocking. Still to come, recorded in `followups.d/`: locking in the Studio's smaller startup
-  bundle with a route-budget rebaseline, and a listen on a real iPhone.
+- None blocking. Still to come, recorded in `followups.d/`: a listen on a real iPhone, and the
+  Studio's route budget. On that second one, §Building's "18,500 B gzip smaller" was a delta against
+  `main`, not a position against the budget: measured on `main` at 281e9e0, the Studio's eager JS is
+  654,240 B against a soft target of 636,788 B. There is no saving to bank, so a reset would be a
+  raise, and that is the owner's call.
