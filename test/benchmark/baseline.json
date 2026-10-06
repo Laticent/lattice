@@ -171,30 +171,30 @@
     "flowchart · demo deck page (10 calls)": {
       "calls": 10,
       "routed": 12,
-      "bounded": 41,
+      "bounded": 45,
       "hits": 1,
-      "ms": 208.46
+      "ms": 216.9
     },
     "flowchart · same calls, no cache": {
       "calls": 10,
       "routed": 14,
-      "bounded": 44,
+      "bounded": 49,
       "hits": 0,
-      "ms": 193.86
+      "ms": 172.4
     },
     "state chart · stress deck page (17 calls)": {
       "calls": 17,
-      "routed": 18,
-      "bounded": 61,
+      "routed": 24,
+      "bounded": 72,
       "hits": 0,
-      "ms": 606.28
+      "ms": 777.5
     },
     "state chart · same calls, no cache": {
       "calls": 17,
-      "routed": 18,
-      "bounded": 61,
+      "routed": 24,
+      "bounded": 72,
       "hits": 0,
-      "ms": 660.57
+      "ms": 850.7
     }
   }
 }

@@ -112,6 +112,10 @@ export interface LayoutOptions {
   wrap?: boolean;
   /** Internal: lay out on the grid with this many lines. */
   grid?: number;
+  /** Internal: with `grid`, how many shapes each line holds, in order (the even split when unset). */
+  breaks?: number[];
+  /** Internal: dagre's ranker for this pass (its default, network-simplex, when unset). */
+  ranker?: 'network-simplex' | 'tight-tree' | 'longest-path';
   /** Internal: place each shape's centre here instead of asking dagre (see `route`). */
   positions?: Record<string, Point>;
 }
