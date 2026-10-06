@@ -12,12 +12,13 @@ export const TAG_AWARENESS = 2;
 export const PROTOCOL_VERSION = 1;
 
 export type Control =
-	/** host → a peer that is not a member: who is hosting and what (§4.2). */
-	| { t: 'hello'; v: number; invite: Invite }
+	/** host → a peer that is not a member: who is hosting and what (§4.2), signed with the key the
+	 *  link names (`key` is the raw public key, `sig` signs host id → recipient id; hostkey.ts). */
+	| { t: 'hello'; v: number; invite: Invite; key: string; sig: string }
 	/** guest → host: let me in. `token` re-admits a member who dropped. */
 	| { t: 'knock'; name: string; token?: string }
-	/** host → guest: you are in. */
-	| { t: 'admit'; role: Exclude<Role, 'host'>; color: Color; token: string }
+	/** host → guest: you are in, and here is who else is. */
+	| { t: 'admit'; role: Exclude<Role, 'host'>; color: Color; token: string; members: Member[] }
 	/** host → guest: no. */
 	| { t: 'deny'; reason: 'denied' | 'full' }
 	/** host → every member, on any change: who is in. Accepted only from the host. */
@@ -55,11 +56,11 @@ export function decodeControl(payload: Uint8Array): Control | null {
 	const m = msg as Record<string, unknown>;
 	switch (m.t) {
 		case 'hello':
-			return typeof m.v === 'number' && isInvite(m.invite) ? { t: 'hello', v: m.v, invite: m.invite } : null;
+			return typeof m.v === 'number' && isInvite(m.invite) && typeof m.key === 'string' && typeof m.sig === 'string' ? { t: 'hello', v: m.v, invite: cleanInvite(m.invite), key: m.key, sig: m.sig } : null;
 		case 'knock':
 			return typeof m.name === 'string' && (m.token === undefined || typeof m.token === 'string') ? { t: 'knock', name: cleanName(m.name), token: m.token as string | undefined } : null;
 		case 'admit':
-			return (m.role === 'edit' || m.role === 'view') && isColor(m.color) && typeof m.token === 'string' ? { t: 'admit', role: m.role, color: m.color, token: m.token } : null;
+			return (m.role === 'edit' || m.role === 'view') && isColor(m.color) && typeof m.token === 'string' && Array.isArray(m.members) && m.members.every(isMember) ? { t: 'admit', role: m.role, color: m.color, token: m.token, members: m.members as Member[] } : null;
 		case 'deny':
 			return m.reason === 'denied' || m.reason === 'full' ? { t: 'deny', reason: m.reason } : null;
 		case 'roster':
@@ -79,6 +80,11 @@ export function decodeControl(payload: Uint8Array): Control | null {
 export function cleanName(name: string): string {
 	const n = name.replace(/\s+/g, ' ').trim().slice(0, 40);
 	return n || 'Guest';
+}
+
+/** The invite is shown in a stranger's lobby before anything is verified about them: keep it short. */
+function cleanInvite(i: Invite): Invite {
+	return { title: i.title.slice(0, 120), hostName: cleanName(i.hostName), ...(typeof i.slides === 'number' && Number.isFinite(i.slides) ? { slides: Math.max(0, Math.floor(i.slides)) } : {}), ...(typeof i.theme === 'string' ? { theme: i.theme.slice(0, 40) } : {}) };
 }
 
 const isColor = (c: unknown): c is Color => c === 1 || c === 2 || c === 3 || c === 4;

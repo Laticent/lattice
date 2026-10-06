@@ -1,39 +1,55 @@
-// A Tavola session: the handshake (hello → knock → admit / deny), the roster, and the gate
+// A Tavola session: the handshake (signed hello → knock → admit / deny), the roster, and the gate
 // that decides who may send and receive the document and awareness streams.
 // See engineering/decisions/2026-10-06-studio-live-collaboration.md §4.
 //
-// THE GATE, in one sentence: a stream message is sent only to admitted members and applied
-// only from admitted members, and a document update is applied only from a member who may edit.
-// Every honest browser enforces it, so a peer that holds the link but was never admitted gets a
+// THE GATE, in one sentence: a stream message is sent only to admitted members and applied only
+// from admitted members, and a document update is applied only from a member who may edit. Every
+// honest browser enforces it, so a peer that holds the link but was never admitted gets a
 // connection and nothing over it, and a view-only member's edits land nowhere.
+//
+// THE HOST is whoever signs a hello with the key whose fingerprint is in the link (hostkey.ts).
+// Nothing else makes a peer the host: not answering first, not answering while the real host is
+// away. A host that reloads keeps its key, so its new peer id is accepted and members re-admit by
+// token without a knock.
 //
 // SYNC, and why there is a `sync` request: when two members learn of each other they each send
 // their full state. Roster updates reach them at different moments, so the first one's state can
 // arrive before the second knows the first is a member — and is dropped. Sending a `sync` request
-// alongside the state closes that window: whoever learns LATER asks, and the other answers.
+// alongside the state closes that window: whoever learns LATER asks, and the other answers. A link
+// that forms late or comes back (onPeerJoin) exchanges state again for the same reason.
 
+import { type HostKey, signHello, verifyHello } from './hostkey';
 import { randomBytes, toBase64Url } from './link';
 import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_CONTROL, TAG_DOC } from './protocol';
 import type { Clock, Color, Invite, Knock, Member, PeerId, Role, SessionState, Stream, Transport } from './types';
 
+/** A rejoin token and the member it re-admits — what a host carries across its own reload. */
+export type TokenEntry = [token: string, member: { name: string; role: Exclude<Role, 'host'>; color: Color }];
+
 export type HostOptions = {
 	name: string;
 	invite: Invite;
+	/** The host's signing key; its fingerprint is the link's third part. */
+	key: HostKey;
 	autoAdmit?: boolean;
 	linkRole?: 'edit' | 'view';
+	/** Tokens from `exportTokens()` before a reload: the members they name walk back in without a knock. */
+	tokens?: TokenEntry[];
 };
 
 export type SessionOptions = {
 	transport: Transport;
-	/** Present → this browser hosts. Absent → it joins as a guest. */
+	/** Present → this browser hosts. Absent → it joins as a guest, and `hostFingerprint` is required. */
 	host?: HostOptions;
+	/** Guest: the link's host fingerprint. Only a hello signed by that key is believed. */
+	hostFingerprint?: string;
 	doc: Stream;
 	awareness?: Stream;
-	/** Guest: a token from an earlier admission, so a reload rejoins without a new knock. */
+	/** Guest: a token from an earlier admission, so a rejoin skips the knock. */
 	token?: string;
 	/** Guest: knock automatically under this name as soon as the host says hello. */
 	autoKnockName?: string;
-	/** Most people in a session, host included. The owner's number: 4. */
+	/** Most people in a session, host included. The owner's number: 4 (and never more than 4). */
 	cap?: number;
 	/** Guest: how long to wait for the host's hello before `host-absent`. */
 	lobbyTimeoutMs?: number;
@@ -55,14 +71,21 @@ export type Session = {
 	setAutoAdmit(on: boolean): void;
 	setLinkRole(role: 'edit' | 'view'): void;
 	setInvite(invite: Invite): void;
+	/** Host: the rejoin tokens, to hand to `HostOptions.tokens` after a reload. */
+	exportTokens(): TokenEntry[];
 	/** Host: end the session for everyone. */
 	end(): void;
 	/** Leave this session (a guest leaving, or a host closing without ending). */
 	leave(): void;
+	/** Resolves once this session's asynchronous work (signing, verifying, ordered control
+	 *  handling) has finished. For tests and tools that need a quiet point; the app never waits. */
+	idle(): Promise<void>;
 };
 
 export const DEFAULT_CAP = 4;
 const DEFAULT_LOBBY_TIMEOUT = 12_000;
+/** Bytes. A deck plus its history is far below this; anything larger is dropped unread. */
+export const MAX_MESSAGE = 4 * 1024 * 1024;
 
 const realClock: Clock = {
 	now: () => Date.now(),
@@ -74,16 +97,19 @@ export function createSession(opts: SessionOptions): Session {
 	const t = opts.transport;
 	const clock = opts.clock ?? realClock;
 	const newToken = opts.newToken ?? (() => toBase64Url(randomBytes(18)));
-	const cap = opts.cap ?? DEFAULT_CAP;
+	// Four session colors, so never more than four people, whatever a caller asks for.
+	const cap = Math.min(opts.cap ?? DEFAULT_CAP, 4);
 	const isHost = !!opts.host;
+	if (!isHost && !opts.hostFingerprint) throw new Error("tavola: a guest needs the link's host fingerprint");
 	const listeners = new Set<() => void>();
+	const hostName = cleanName(opts.host?.name ?? '');
 
 	let state: SessionState = {
 		isHost,
 		stage: isHost ? 'live' : 'connecting',
 		selfId: t.selfId,
-		me: isHost ? { id: t.selfId, name: cleanName(opts.host?.name ?? ''), role: 'host', color: 1 } : null,
-		members: isHost ? [{ id: t.selfId, name: cleanName(opts.host?.name ?? ''), role: 'host', color: 1 }] : [],
+		me: isHost ? { id: t.selfId, name: hostName, role: 'host', color: 1 } : null,
+		members: isHost ? [{ id: t.selfId, name: hostName, role: 'host', color: 1 }] : [],
 		waiting: [],
 		invite: isHost ? (opts.host?.invite ?? null) : null,
 		hostAway: false,
@@ -101,13 +127,22 @@ export function createSession(opts: SessionOptions): Session {
 	const connected = new Set<PeerId>();
 	/** Host: token → the member it re-admits (name, role, color survive a reconnect). */
 	const tokens = new Map<string, { name: string; role: Exclude<Role, 'host'>; color: Color }>();
+	for (const [tok, m] of opts.host?.tokens ?? []) tokens.set(tok, m);
 	/** Host: member id → its token. */
 	const tokenOf = new Map<PeerId, string>();
-	/** Guest: the peer that said hello. */
+	/** Host: peers denied or removed this session. Their knocks are ignored. */
+	const blocked = new Set<PeerId>();
+	/** Guest: the peer whose signed hello made it the host. */
 	let hostId: PeerId | null = null;
 	let pendingName: string | null = opts.autoKnockName ?? null;
 	let lobbyTimer: unknown = null;
 	let closed = false;
+	/** Host: `end()` was called; the transport leaves a beat later, and nobody new gets in meanwhile. */
+	let ending = false;
+	/** Guest: control messages are handled strictly in order, because a hello is verified asynchronously. */
+	let controlChain: Promise<void> = Promise.resolve();
+	/** Host: hellos being signed. */
+	const signing = new Set<Promise<unknown>>();
 
 	const memberOf = (id: PeerId) => state.members.find((m) => m.id === id);
 	const isLive = () => state.stage === 'live';
@@ -119,12 +154,11 @@ export function createSession(opts: SessionOptions): Session {
 
 	/** Send our full state to `peer`, and ask for theirs. */
 	const syncWith = (peer: PeerId) => {
-		send(peer, frame(TAG_DOC, opts.doc.encodeAll()));
-		if (opts.awareness) send(peer, frame(TAG_AWARENESS, opts.awareness.encodeAll()));
+		answerSync(peer);
 		sendControl(peer, { t: 'sync' });
 	};
 	const answerSync = (peer: PeerId) => {
-		send(peer, frame(TAG_DOC, opts.doc.encodeAll()));
+		if (state.me?.role !== 'view') send(peer, frame(TAG_DOC, opts.doc.encodeAll()));
 		if (opts.awareness) send(peer, frame(TAG_AWARENESS, opts.awareness.encodeAll()));
 	};
 	const forget = (peer: PeerId) => {
@@ -145,6 +179,16 @@ export function createSession(opts: SessionOptions): Session {
 	});
 
 	// ── host ────────────────────────────────────────────────────────────────
+	const sayHello = (to: PeerId) => {
+		const key = opts.host?.key;
+		if (!key) return;
+		const p = signHello(key, t.selfId, to).then((sig) => {
+			if (closed || ending || memberOf(to) || !connected.has(to)) return;
+			sendControl(to, { t: 'hello', v: PROTOCOL_VERSION, invite: state.invite as Invite, key: toBase64Url(key.publicRaw), sig });
+		});
+		signing.add(p);
+		void p.finally(() => signing.delete(p));
+	};
 	const nextColor = (): Color => {
 		const used = new Set(state.members.map((m) => m.color));
 		return ([1, 2, 3, 4] as const).find((c) => !used.has(c)) ?? 4;
@@ -157,22 +201,35 @@ export function createSession(opts: SessionOptions): Session {
 		tokens.set(token, { name, role, color });
 		tokenOf.set(id, token);
 		set({ members: [...state.members, { id, name, role, color }], waiting: state.waiting.filter((w) => w.id !== id) });
-		sendControl(id, { t: 'admit', role, color, token });
+		sendControl(id, { t: 'admit', role, color, token, members: state.members });
 		broadcastRoster();
 		syncWith(id);
 	};
 	const hostOnKnock = (from: PeerId, name: string, token?: string) => {
-		if (memberOf(from)) return;
+		if (memberOf(from) || blocked.has(from)) return;
 		const known = token ? tokens.get(token) : undefined;
 		if (known && token) {
-			// A member reconnecting under a new peer id: same name, role and color. Drop the old id.
+			// A member reconnecting (under a new peer id, or the same one after a blip): same name and
+			// role. A token whose member is STILL connected is a replay, not a reconnect — refused, so
+			// a copied token cannot evict the real member. It counts against the cap, and its old color
+			// is reused only if still free.
 			const stale = state.members.find((m) => tokenOf.get(m.id) === token);
+			if (stale && connected.has(stale.id)) {
+				sendControl(from, { t: 'deny', reason: 'denied' });
+				return;
+			}
+			const rest = state.members.filter((m) => m.id !== stale?.id);
+			if (rest.length >= cap) {
+				sendControl(from, { t: 'deny', reason: 'full' });
+				return;
+			}
 			if (stale) {
 				tokenOf.delete(stale.id);
-				set({ members: state.members.filter((m) => m.id !== stale.id) });
+				set({ members: rest });
 				forget(stale.id);
 			}
-			admitAs(from, known.name, known.role, known.color, token);
+			const color = state.members.some((m) => m.color === known.color) ? nextColor() : known.color;
+			admitAs(from, known.name, known.role, color, token);
 			return;
 		}
 		if (state.members.length >= cap) {
@@ -195,34 +252,36 @@ export function createSession(opts: SessionOptions): Session {
 			if (state.stage === 'connecting') set({ stage: 'host-absent' });
 		}, opts.lobbyTimeoutMs ?? DEFAULT_LOBBY_TIMEOUT);
 	};
-	const sendKnock = (name: string) => {
+	/** Knock. `quietly` keeps a live member on screen while it re-knocks after the host came back. */
+	const sendKnock = (name: string, quietly = false) => {
 		if (!hostId) return;
 		sendControl(hostId, { t: 'knock', name: cleanName(name), ...(state.token ? { token: state.token } : {}) });
-		set({ stage: 'waiting' });
+		if (!quietly) set({ stage: 'waiting' });
 	};
-	const guestOnControl = (from: PeerId, msg: Control) => {
-		if (msg.t === 'hello') {
-			if (msg.v !== PROTOCOL_VERSION) return;
-			// The first hello names the host. A second host-looking peer is ignored, except that
-			// after the host dropped, a hello is the host coming back.
-			if (hostId && hostId !== from && !state.hostAway) return;
-			const returning = hostId !== null && hostId !== from && state.hostAway;
-			hostId = from;
-			set({ invite: msg.invite, hostAway: false });
-			if (lobbyTimer !== null) {
-				clock.clearTimeout(lobbyTimer);
-				lobbyTimer = null;
-			}
-			if (returning && state.token) {
-				sendKnock(state.me?.name ?? pendingName ?? 'Guest');
-				return;
-			}
-			if (state.stage === 'connecting' || state.stage === 'host-absent') {
-				if (pendingName || state.token) sendKnock(pendingName ?? 'Guest');
-				else set({ stage: 'lobby' });
-			}
+	const guestOnHello = async (from: PeerId, msg: Extract<Control, { t: 'hello' }>) => {
+		if (msg.v !== PROTOCOL_VERSION) return;
+		if (!(await verifyHello(opts.hostFingerprint as string, msg.key, msg.sig, from, t.selfId))) return;
+		if (closed) return;
+		hostId = from;
+		set({ invite: msg.invite, hostAway: false });
+		if (lobbyTimer !== null) {
+			clock.clearTimeout(lobbyTimer);
+			lobbyTimer = null;
+		}
+		// A hello while live means the host no longer counts us as a member: it reloaded, or the link
+		// between us blipped (Trystero keeps the same ids). The signature proved it is the host, so
+		// re-knock with the token, staying on screen; the host re-admits without asking.
+		if (isLive()) {
+			if (state.token) sendKnock(state.me?.name ?? pendingName ?? 'Guest', true);
 			return;
 		}
+		if (state.stage === 'connecting' || state.stage === 'host-absent') {
+			if (pendingName || state.token) sendKnock(pendingName ?? 'Guest');
+			else set({ stage: 'lobby' });
+		}
+	};
+	const guestOnControl = async (from: PeerId, msg: Control) => {
+		if (msg.t === 'hello') return guestOnHello(from, msg);
 		if (from !== hostId) {
 			// Members may ask each other for state; nothing else is accepted from a non-host.
 			if (msg.t === 'sync' && isLive() && memberOf(from)) answerSync(from);
@@ -230,20 +289,32 @@ export function createSession(opts: SessionOptions): Session {
 		}
 		switch (msg.t) {
 			case 'admit': {
-				const me: Member = { id: t.selfId, name: cleanName(pendingName ?? state.me?.name ?? 'Guest'), role: msg.role, color: msg.color };
-				set({ stage: 'live', token: msg.token, me });
-				syncWith(from);
+				// The member list rides on the admission, so the gate knows the host (and everyone else)
+				// from the first message on — a document that arrives right behind it is not dropped.
+				const me: Member = msg.members.find((m) => m.id === t.selfId) ?? { id: t.selfId, name: cleanName(state.me?.name ?? pendingName ?? 'Guest'), role: msg.role, color: msg.color };
+				const before = new Set(state.members.map((m) => m.id));
+				set({ stage: 'live', token: msg.token, me, members: msg.members });
+				for (const m of msg.members) if (m.id !== t.selfId && !before.has(m.id)) syncWith(m.id);
 				return;
 			}
 			case 'deny':
+				if (isLive()) return; // a refused quiet re-knock: stay as we are
 				set({ stage: msg.reason === 'full' ? 'full' : 'denied' });
 				return;
 			case 'roster': {
-				const before = new Set(state.members.map((m) => m.id));
+				const before = new Map(state.members.map((m) => [m.id, m]));
 				const me = msg.members.find((m) => m.id === t.selfId) ?? state.me;
+				const wasRole = state.me?.role;
 				set({ members: msg.members, me });
-				for (const m of msg.members) if (m.id !== t.selfId && m.id !== hostId && !before.has(m.id)) syncWith(m.id);
-				for (const id of before) if (!msg.members.some((m) => m.id === id)) forget(id);
+				for (const m of msg.members) {
+					if (m.id === t.selfId) continue;
+					const was = before.get(m.id);
+					// A new member, or one whose role changed (a promoted viewer's edits were never
+					// sent and later ones depend on them): exchange full state.
+					if ((!was && m.id !== hostId) || (was && was.role !== m.role)) syncWith(m.id);
+				}
+				if (me && wasRole && wasRole !== me.role) for (const m of msg.members) if (m.id !== t.selfId) syncWith(m.id);
+				for (const id of before.keys()) if (!msg.members.some((m) => m.id === id)) forget(id);
 				return;
 			}
 			case 'removed':
@@ -265,7 +336,13 @@ export function createSession(opts: SessionOptions): Session {
 	// ── transport wiring ────────────────────────────────────────────────────
 	t.onPeerJoin((id) => {
 		connected.add(id);
-		if (isHost && !memberOf(id)) sendControl(id, { t: 'hello', v: PROTOCOL_VERSION, invite: state.invite as Invite });
+		if (isHost) {
+			if (!memberOf(id) && !ending) sayHello(id);
+			return;
+		}
+		// A member's link formed late or came back: whatever either side sent before it existed
+		// was dropped, so exchange full state now (the roster-time sync only covers a NEW member).
+		if (isLive() && memberOf(id) && id !== hostId) syncWith(id);
 	});
 	t.onPeerLeave((id) => {
 		connected.delete(id);
@@ -277,6 +354,11 @@ export function createSession(opts: SessionOptions): Session {
 			}
 		} else if (id === hostId) {
 			if (isLive()) set({ hostAway: true });
+			else if (state.stage === 'lobby' || state.stage === 'waiting') {
+				// The host left before letting us in. Say so, and accept the next signed hello.
+				hostId = null;
+				set({ stage: 'host-absent' });
+			}
 		} else if (memberOf(id) && state.hostAway) {
 			// With the host away nobody sends a roster, so drop the leaver here.
 			set({ members: state.members.filter((m) => m.id !== id) });
@@ -284,29 +366,34 @@ export function createSession(opts: SessionOptions): Session {
 		forget(id);
 	});
 	t.onMessage((data, from) => {
-		if (closed || data.length === 0) return;
+		if (closed || data.length === 0 || data.length > MAX_MESSAGE) return;
 		const tag = data[0];
 		const body = data.subarray(1);
 		if (tag === TAG_CONTROL) {
 			const msg = decodeControl(body);
 			if (!msg) return;
 			if (isHost) {
+				if (ending) return;
 				if (msg.t === 'knock') hostOnKnock(from, msg.name, msg.token);
 				else if (msg.t === 'sync' && memberOf(from)) answerSync(from);
 				return;
 			}
-			guestOnControl(from, msg);
+			controlChain = controlChain.then(() => guestOnControl(from, msg)).catch(() => {});
 			return;
 		}
 		// THE GATE.
 		if (!isLive()) return;
 		const sender = memberOf(from);
 		if (!sender) return;
-		if (tag === TAG_DOC) {
-			if (sender.role === 'view') return;
-			opts.doc.applyRemote(body, from);
-		} else if (tag === TAG_AWARENESS) {
-			opts.awareness?.applyRemote(body, from);
+		try {
+			if (tag === TAG_DOC) {
+				if (sender.role === 'view') return;
+				opts.doc.applyRemote(body, from);
+			} else if (tag === TAG_AWARENESS) {
+				opts.awareness?.applyRemote(body, from);
+			}
+		} catch {
+			// A malformed update from a member is dropped; the session carries on.
 		}
 	});
 
@@ -322,7 +409,7 @@ export function createSession(opts: SessionOptions): Session {
 	}
 
 	const hostOnly = (fn: () => void) => () => {
-		if (isHost && !closed) fn();
+		if (isHost && !closed && !ending) fn();
 	};
 
 	return {
@@ -356,6 +443,7 @@ export function createSession(opts: SessionOptions): Session {
 		deny(id) {
 			hostOnly(() => {
 				if (!state.waiting.some((w) => w.id === id)) return;
+				blocked.add(id);
 				set({ waiting: state.waiting.filter((w) => w.id !== id) });
 				sendControl(id, { t: 'deny', reason: 'denied' });
 			})();
@@ -367,6 +455,7 @@ export function createSession(opts: SessionOptions): Session {
 				const tok = tokenOf.get(id);
 				if (tok) tokens.delete(tok);
 				tokenOf.delete(id);
+				blocked.add(id);
 				sendControl(id, { t: 'removed' });
 				set({ members: state.members.filter((x) => x.id !== id) });
 				broadcastRoster();
@@ -381,6 +470,7 @@ export function createSession(opts: SessionOptions): Session {
 				if (tok) tokens.set(tok, { name: m.name, role, color: m.color });
 				set({ members: state.members.map((x) => (x.id === id ? { ...x, role } : x)) });
 				broadcastRoster();
+				syncWith(id);
 			})();
 		},
 		setAutoAdmit(on) {
@@ -392,10 +482,13 @@ export function createSession(opts: SessionOptions): Session {
 		setInvite(invite) {
 			hostOnly(() => set({ invite }))();
 		},
+		exportTokens: () => [...tokens.entries()],
 		end() {
 			hostOnly(() => {
+				ending = true;
+				for (const w of state.waiting) sendControl(w.id, { t: 'deny', reason: 'denied' });
 				for (const m of others()) sendControl(m.id, { t: 'end' });
-				set({ stage: 'ended' });
+				set({ stage: 'ended', waiting: [] });
 				// Leave a beat later: closing the connections at once can drop the `end` messages
 				// still in flight, and then guests never learn the session is over.
 				unDoc();
@@ -405,6 +498,9 @@ export function createSession(opts: SessionOptions): Session {
 		},
 		leave() {
 			shutdown();
+		},
+		async idle() {
+			await Promise.all([controlChain, ...signing]);
 		},
 	};
 }

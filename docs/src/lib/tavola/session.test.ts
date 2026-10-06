@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { formatLink, mintLink, parseFragment } from './link';
+import { createHostKey, type HostKey, signHello } from './hostkey';
+import { formatLink, mintLink, parseFragment, toBase64Url } from './link';
 import { createMemoryNetwork, type MemoryNetwork } from './memory';
 import { encodeControl, frame, TAG_DOC } from './protocol';
 import { createSession, type Session, type SessionOptions } from './session';
@@ -48,48 +49,72 @@ function fakeClock(): Clock & { advance(ms: number): void } {
 }
 
 type Peer = { s: Session; doc: Y.Doc; text: Y.Text; t: Transport };
+/** Every session a test made, so `settle` can wait for their async work (signing, verifying). */
+const made: Session[] = [];
+const track = (s: Session) => {
+	made.push(s);
+	return s;
+};
+/** Deliver everything and let every session finish its async work, until nothing moves. */
+async function settle(net: MemoryNetwork) {
+	for (let i = 0; i < 100; i++) {
+		await net.settle();
+		await Promise.all(made.map((s) => s.idle()));
+		if (net.pending() === 0) {
+			await new Promise((r) => setTimeout(r, 0));
+			await Promise.all(made.map((s) => s.idle()));
+			if (net.pending() === 0) return;
+		}
+	}
+}
 const LINK = { room: 'room', secret: 'secret' };
+let KEY: HostKey;
+let OTHER: HostKey;
+beforeAll(async () => {
+	KEY = await createHostKey();
+	OTHER = await createHostKey();
+});
 
 function host(net: MemoryNetwork, extra: Partial<SessionOptions> = {}, link = LINK): Peer {
 	const doc = new Y.Doc();
 	const text = doc.getText('source');
 	text.insert(0, '# Q3 Board Review\n');
 	const t = net.join(link.room, link.secret);
-	const s = createSession({ transport: t, host: { name: 'Sharmarke', invite: { title: 'Q3 Board Review', hostName: 'Sharmarke', slides: 12 } }, doc: yStream(doc), ...extra });
+	const s = track(createSession({ transport: t, doc: yStream(doc), ...extra, host: { name: 'Sharmarke', invite: { title: 'Q3 Board Review', hostName: 'Sharmarke', slides: 12 }, key: KEY, ...extra.host } }));
 	return { s, doc, text, t };
 }
 
 function guest(net: MemoryNetwork, extra: Partial<SessionOptions> = {}, link = LINK): Peer {
 	const doc = new Y.Doc();
 	const t = net.join(link.room, link.secret);
-	const s = createSession({ transport: t, doc: yStream(doc), ...extra });
+	const s = track(createSession({ transport: t, doc: yStream(doc), hostFingerprint: KEY.fingerprint, ...extra }));
 	return { s, doc, text: doc.getText('source'), t };
 }
 
 async function joined(net: MemoryNetwork, h: Peer, name: string, extra: Partial<SessionOptions> = {}): Promise<Peer> {
 	const g = guest(net, extra);
-	await net.settle();
+	await settle(net);
 	g.s.knock(name);
-	await net.settle();
+	await settle(net);
 	const k = h.s.getState().waiting.find((w) => w.name === name);
 	if (k) h.s.admit(k.id);
-	await net.settle();
+	await settle(net);
 	return g;
 }
 
 describe('link', () => {
 	it('round-trips a minted link through the fragment', () => {
-		const parts = mintLink();
+		const parts = mintLink(KEY.fingerprint);
 		const url = formatLink('https://laticent.github.io/lattice/studio/?x=1#old', parts);
 		expect(url.startsWith('https://laticent.github.io/lattice/studio/?x=1#live=')).toBe(true);
 		expect(parseFragment(new URL(url).hash)).toEqual(parts);
 	});
 	it('rejects anything that is not exactly a Tavola fragment', () => {
-		const { room, secret } = mintLink();
-		for (const bad of ['', '#', '#live=', `#live=${room}`, `#live=${room}.${secret}.x`, `#live=${room}.short`, `#live=${room.slice(1)}.${secret}`, `#live=${room}.${secret.slice(0, -1)}!`, `#other=${room}.${secret}`]) {
+		const { room, secret, host } = mintLink(KEY.fingerprint);
+		for (const bad of ['', '#', '#live=', `#live=${room}`, `#live=${room}.${secret}`, `#live=${room}.${secret}.${host}.x`, `#live=${room}.short.${host}`, `#live=${room.slice(1)}.${secret}.${host}`, `#live=${room}.${secret}.${host.slice(1)}`, `#live=${room}.${secret.slice(0, -1)}!.${host}`, `#other=${room}.${secret}.${host}`]) {
 			expect(parseFragment(bad), bad).toBeNull();
 		}
-		expect(parseFragment(`#live=${room}.${secret}`)).toEqual({ room, secret });
+		expect(parseFragment(`#live=${room}.${secret}.${host}`)).toEqual({ room, secret, host });
 	});
 });
 
@@ -99,17 +124,17 @@ describe('handshake', () => {
 		const h = host(net);
 		const g = guest(net);
 		expect(g.s.getState().stage).toBe('connecting');
-		await net.settle();
+		await settle(net);
 		expect(g.s.getState().stage).toBe('lobby');
 		expect(g.s.getState().invite).toEqual({ title: 'Q3 Board Review', hostName: 'Sharmarke', slides: 12 });
 		// Nothing of the deck reaches the lobby.
 		expect(g.text.toString()).toBe('');
 		g.s.knock('  Amina  ');
-		await net.settle();
+		await settle(net);
 		expect(g.s.getState().stage).toBe('waiting');
 		expect(h.s.getState().waiting.map((w) => w.name)).toEqual(['Amina']);
 		h.s.admit(h.s.getState().waiting[0].id);
-		await net.settle();
+		await settle(net);
 		expect(g.s.getState().stage).toBe('live');
 		expect(g.s.getState().me).toMatchObject({ name: 'Amina', role: 'edit', color: 2 });
 		expect(g.text.toString()).toBe('# Q3 Board Review\n');
@@ -122,10 +147,10 @@ describe('handshake', () => {
 		const h = host(net);
 		const g = await joined(net, h, 'Amina');
 		g.text.insert(g.text.length, 'guest edit\n');
-		await net.settle();
+		await settle(net);
 		expect(h.text.toString()).toContain('guest edit');
 		h.text.insert(h.text.length, 'host edit\n');
-		await net.settle();
+		await settle(net);
 		expect(g.text.toString()).toContain('host edit');
 	});
 
@@ -133,11 +158,11 @@ describe('handshake', () => {
 		const net = createMemoryNetwork();
 		const h = host(net);
 		const g = guest(net);
-		await net.settle();
+		await settle(net);
 		g.s.knock('Mallory');
-		await net.settle();
+		await settle(net);
 		h.s.deny(h.s.getState().waiting[0].id);
-		await net.settle();
+		await settle(net);
 		expect(g.s.getState().stage).toBe('denied');
 		expect(g.text.toString()).toBe('');
 		expect(h.s.getState().waiting).toEqual([]);
@@ -145,11 +170,11 @@ describe('handshake', () => {
 
 	it('auto-admit lets people in without a click, under the link role', async () => {
 		const net = createMemoryNetwork();
-		const h = host(net, { host: { name: 'Sharmarke', invite: { title: 'T', hostName: 'Sharmarke' }, autoAdmit: true, linkRole: 'view' } });
+		const h = host(net, { host: { name: 'Sharmarke', invite: { title: 'T', hostName: 'Sharmarke' }, key: KEY, autoAdmit: true, linkRole: 'view' } });
 		const g = guest(net);
-		await net.settle();
+		await settle(net);
 		g.s.knock('Chen');
-		await net.settle();
+		await settle(net);
 		expect(g.s.getState().stage).toBe('live');
 		expect(g.s.getState().me?.role).toBe('view');
 		expect(h.s.getState().waiting).toEqual([]);
@@ -159,7 +184,7 @@ describe('handshake', () => {
 		const net = createMemoryNetwork();
 		const h = host(net);
 		const g = guest(net, { autoKnockName: 'Amina' });
-		await net.settle();
+		await settle(net);
 		expect(g.s.getState().stage).toBe('waiting');
 		expect(h.s.getState().waiting[0].name).toBe('Amina');
 	});
@@ -168,13 +193,13 @@ describe('handshake', () => {
 		const net = createMemoryNetwork();
 		const clock = fakeClock();
 		const g = guest(net, { clock, lobbyTimeoutMs: 5000 });
-		await net.settle();
+		await settle(net);
 		clock.advance(5000);
 		expect(g.s.getState().stage).toBe('host-absent');
 		g.s.retry();
 		expect(g.s.getState().stage).toBe('connecting');
 		host(net);
-		await net.settle();
+		await settle(net);
 		expect(g.s.getState().stage).toBe('lobby');
 	});
 });
@@ -183,17 +208,17 @@ describe('the gate', () => {
 	it('drops stream bytes from a peer that holds the link but never knocked', async () => {
 		const net = createMemoryNetwork();
 		const h = host(net);
-		await net.settle();
+		await settle(net);
 		// A raw intruder: joins with the link and pushes an edit straight at the host.
 		const intruder = net.join(LINK.room, LINK.secret);
 		const ids: string[] = [];
 		intruder.onPeerJoin((id) => ids.push(id));
 		intruder.onMessage(() => {});
-		await net.settle();
+		await settle(net);
 		const evil = new Y.Doc();
 		evil.getText('source').insert(0, 'INTRUDER ');
 		for (const id of ids) intruder.send(frame(TAG_DOC, Y.encodeStateAsUpdate(evil)), id);
-		await net.settle();
+		await settle(net);
 		expect(h.text.toString()).not.toContain('INTRUDER');
 	});
 
@@ -201,13 +226,13 @@ describe('the gate', () => {
 		const net = createMemoryNetwork();
 		const h = host(net);
 		const g = guest(net);
-		await net.settle();
+		await settle(net);
 		g.s.knock('Mallory');
-		await net.settle();
+		await settle(net);
 		const evil = new Y.Doc();
 		evil.getText('source').insert(0, 'EARLY ');
 		g.t.send(frame(TAG_DOC, Y.encodeStateAsUpdate(evil)), h.t.selfId);
-		await net.settle();
+		await settle(net);
 		expect(h.text.toString()).not.toContain('EARLY');
 	});
 
@@ -217,18 +242,18 @@ describe('the gate', () => {
 		const a = await joined(net, h, 'Amina');
 		const c = await joined(net, h, 'Chen');
 		h.s.setRole(c.s.getState().selfId, 'view');
-		await net.settle();
+		await settle(net);
 		expect(c.s.getState().me?.role).toBe('view');
 		// Even a modified client that sends anyway is refused by host and members.
 		const evil = new Y.Doc();
 		evil.getText('source').insert(0, 'VIEWER ');
 		for (const target of [h, a]) c.t.send(frame(TAG_DOC, Y.encodeStateAsUpdate(evil)), target.t.selfId);
-		await net.settle();
+		await settle(net);
 		expect(h.text.toString()).not.toContain('VIEWER');
 		expect(a.text.toString()).not.toContain('VIEWER');
 		// And the honest client does not even send.
 		c.text.insert(0, 'LOCAL ');
-		await net.settle();
+		await settle(net);
 		expect(h.text.toString()).not.toContain('LOCAL');
 	});
 
@@ -239,7 +264,7 @@ describe('the gate', () => {
 		const c = await joined(net, h, 'Chen');
 		// Chen forges a roster that removes the host.
 		c.t.send(encodeControl({ t: 'roster', members: [{ id: c.t.selfId, name: 'Chen', role: 'host', color: 1 }] }), a.t.selfId);
-		await net.settle();
+		await settle(net);
 		expect(a.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina', 'Chen']);
 	});
 });
@@ -253,9 +278,9 @@ describe('the cap', () => {
 		await joined(net, h, 'C');
 		expect(h.s.getState().members).toHaveLength(4);
 		const e = guest(net);
-		await net.settle();
+		await settle(net);
 		e.s.knock('E');
-		await net.settle();
+		await settle(net);
 		expect(e.s.getState().stage).toBe('full');
 		expect(h.s.getState().waiting).toEqual([]);
 	});
@@ -267,7 +292,7 @@ describe('the cap', () => {
 		await joined(net, h, 'B');
 		expect(h.s.getState().members.map((m) => m.color)).toEqual([1, 2, 3]);
 		h.s.remove(a.s.getState().selfId);
-		await net.settle();
+		await settle(net);
 		await joined(net, h, 'C');
 		expect(h.s.getState().members.map((m) => [m.name, m.color])).toEqual([
 			['Sharmarke', 1],
@@ -285,7 +310,7 @@ describe('mesh', () => {
 		a.text.insert(a.text.length, 'from amina\n');
 		const c = await joined(net, h, 'Chen');
 		c.text.insert(c.text.length, 'from chen\n');
-		await net.settle();
+		await settle(net);
 		for (const p of [h, a, c]) {
 			expect(p.text.toString()).toContain('from amina');
 			expect(p.text.toString()).toContain('from chen');
@@ -299,10 +324,10 @@ describe('mesh', () => {
 		const a = await joined(net, h, 'Amina');
 		const c = await joined(net, h, 'Chen');
 		net.drop(h.t.selfId);
-		await net.settle();
+		await settle(net);
 		expect(a.s.getState().hostAway).toBe(true);
 		a.text.insert(0, 'while away ');
-		await net.settle();
+		await settle(net);
 		expect(c.text.toString()).toContain('while away');
 	});
 });
@@ -315,12 +340,12 @@ describe('management', () => {
 		const c = await joined(net, h, 'Chen');
 		const chenId = c.s.getState().selfId;
 		h.s.remove(chenId);
-		await net.settle();
+		await settle(net);
 		expect(c.s.getState().stage).toBe('removed');
 		expect(a.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina']);
 		// Its old token no longer re-admits it.
 		const back = guest(net, { token: 'whatever', autoKnockName: 'Chen' });
-		await net.settle();
+		await settle(net);
 		expect(back.s.getState().stage).toBe('waiting');
 	});
 
@@ -331,9 +356,9 @@ describe('management', () => {
 		const token = a.s.getState().token;
 		expect(token).toBeTruthy();
 		net.drop(a.t.selfId);
-		await net.settle();
+		await settle(net);
 		const again = guest(net, { token: token as string });
-		await net.settle();
+		await settle(net);
 		expect(again.s.getState().stage).toBe('live');
 		expect(again.s.getState().me).toMatchObject({ name: 'Amina', color: 2, role: 'edit' });
 		expect(h.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina']);
@@ -345,7 +370,7 @@ describe('management', () => {
 		const h = host(net);
 		const a = await joined(net, h, 'Amina');
 		h.s.end();
-		await net.settle();
+		await settle(net);
 		expect(a.s.getState().stage).toBe('ended');
 		expect(h.s.getState().stage).toBe('ended');
 	});
@@ -354,7 +379,215 @@ describe('management', () => {
 		const net = createMemoryNetwork();
 		host(net);
 		const other = guest(net, {}, { room: 'room', secret: 'different' });
-		await net.settle();
+		await settle(net);
 		expect(other.s.getState().stage).toBe('connecting');
+	});
+});
+
+describe('links that come and go (checker findings, 2026-10-06)', () => {
+	it('a member link that forms late still syncs both ways', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net, { host: { name: 'H', invite: { title: 'T', hostName: 'H' }, key: KEY, autoAdmit: true } });
+		const a = guest(net, { autoKnockName: 'A' });
+		await settle(net);
+		// B arrives with its link to A cut, so the roster sync between them is lost.
+		const b = guest(net, { autoKnockName: 'B' });
+		net.cut(a.t.selfId, b.t.selfId);
+		await settle(net);
+		a.text.insert(0, 'A1 ');
+		await settle(net);
+		net.heal(a.t.selfId, b.t.selfId);
+		await settle(net);
+		a.text.insert(0, 'A2 ');
+		await settle(net);
+		expect(b.text.toString()).toBe(h.text.toString());
+		expect(b.text.toString()).toContain('A2 A1');
+	});
+
+	it('a blip that keeps the same ids re-admits the guest instead of splitting the session', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const g = await joined(net, h, 'Amina');
+		net.cut(h.t.selfId, g.t.selfId);
+		await settle(net);
+		net.heal(h.t.selfId, g.t.selfId);
+		await settle(net);
+		expect(h.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina']);
+		expect(g.s.getState().stage).toBe('live');
+		g.text.insert(0, 'after ');
+		h.text.insert(h.text.length, ' host');
+		await settle(net);
+		expect(g.text.toString()).toBe(h.text.toString());
+	});
+
+	it('a rejoin token never breaks the cap or doubles a color', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net, { cap: 2 });
+		const a = await joined(net, h, 'A');
+		const token = a.s.getState().token as string;
+		net.drop(a.t.selfId);
+		await settle(net);
+		await joined(net, h, 'B');
+		const back = guest(net, { token });
+		await settle(net);
+		expect(back.s.getState().stage).toBe('full');
+		expect(h.s.getState().members).toHaveLength(2);
+		const colors = h.s.getState().members.map((m) => m.color);
+		expect(new Set(colors).size).toBe(colors.length);
+	});
+
+	it('a guest waiting at the door learns the host left', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const g = guest(net);
+		await settle(net);
+		g.s.knock('Amina');
+		await settle(net);
+		net.drop(h.t.selfId);
+		await settle(net);
+		expect(g.s.getState().stage).toBe('host-absent');
+	});
+
+	it('an ending host lets nobody in', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net, { host: { name: 'H', invite: { title: 'T', hostName: 'H' }, key: KEY, autoAdmit: true } });
+		const g = guest(net);
+		await settle(net);
+		h.s.end();
+		g.s.knock('Late');
+		await settle(net);
+		expect(g.s.getState().stage).not.toBe('live');
+		expect(h.s.getState().members).toHaveLength(1);
+	});
+});
+
+describe('host reload', () => {
+	it('a host that reloads with its tokens re-admits members without a knock', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		const tokens = h.s.exportTokens();
+		net.drop(h.t.selfId);
+		await settle(net);
+		expect(a.s.getState().hostAway).toBe(true);
+		// The reloaded host: a new peer id, the same room, its tokens and its document state.
+		const doc = new Y.Doc();
+		Y.applyUpdate(doc, Y.encodeStateAsUpdate(h.doc));
+		const t = net.join(LINK.room, LINK.secret);
+		const h2 = track(createSession({ transport: t, host: { name: 'Sharmarke', invite: { title: 'T', hostName: 'Sharmarke' }, key: KEY, tokens }, doc: yStream(doc) }));
+		await settle(net);
+		expect(h2.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina']);
+		expect(a.s.getState()).toMatchObject({ stage: 'live', hostAway: false });
+		// Same document lineage, so nothing doubles.
+		expect(doc.getText('source').toString()).toBe('# Q3 Board Review\n');
+		expect(a.text.toString()).toBe('# Q3 Board Review\n');
+	});
+});
+
+describe('the host is whoever holds the key (red-team, 2026-10-06)', () => {
+	/** A link holder posing as host: a session signed with a DIFFERENT key, same room and secret. */
+	const impostor = (net: MemoryNetwork) => {
+		const doc = new Y.Doc();
+		doc.getText('source').insert(0, 'PWNED');
+		const t = net.join(LINK.room, LINK.secret);
+		const s = track(createSession({ transport: t, host: { name: 'Sharmarke', invite: { title: 'Q3 Board Review', hostName: 'Sharmarke' }, key: OTHER, autoAdmit: true }, doc: yStream(doc) }));
+		return { s, doc, t };
+	};
+
+	it('a fake host in the lobby is never believed', async () => {
+		const net = createMemoryNetwork();
+		impostor(net);
+		const g = guest(net, { autoKnockName: 'Amina' });
+		await settle(net);
+		expect(g.s.getState().stage).toBe('connecting');
+		const h = host(net);
+		await settle(net);
+		expect(g.s.getState().stage).toBe('waiting');
+		expect(h.s.getState().waiting.map((w) => w.name)).toEqual(['Amina']);
+	});
+
+	it('a fake host cannot take over while the real host is away, and never sees the token', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const g = await joined(net, h, 'Amina');
+		net.drop(h.t.selfId);
+		await settle(net);
+		expect(g.s.getState().hostAway).toBe(true);
+		const fake = impostor(net);
+		const seen: string[] = [];
+		fake.t.onMessage((d) => seen.push(new TextDecoder().decode(d.subarray(1))));
+		await settle(net);
+		expect(g.s.getState().hostAway).toBe(true);
+		expect(g.text.toString()).not.toContain('PWNED');
+		expect(seen.some((m) => m.includes('token'))).toBe(false);
+	});
+
+	it('a hello signed for someone else is refused (no replay across recipients)', async () => {
+		const net = createMemoryNetwork();
+		const g = guest(net, { autoKnockName: 'Amina' });
+		const raw = net.join(LINK.room, LINK.secret);
+		raw.onMessage(() => {});
+		raw.onPeerJoin(() => {});
+		await settle(net);
+		const sig = await signHello(KEY, raw.selfId, 'somebody-else');
+		raw.send(encodeControl({ t: 'hello', v: 1, invite: { title: 'T', hostName: 'H' }, key: toBase64Url(KEY.publicRaw), sig }), g.t.selfId);
+		await settle(net);
+		expect(g.s.getState().stage).toBe('connecting');
+	});
+
+	it('a copied token cannot evict a member who is still connected', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		const thief = guest(net, { token: a.s.getState().token as string });
+		await settle(net);
+		expect(thief.s.getState().stage).toBe('denied');
+		expect(h.s.getState().members.map((m) => m.id)).toContain(a.t.selfId);
+		a.text.insert(0, 'still here ');
+		await settle(net);
+		expect(h.text.toString()).toContain('still here');
+	});
+
+	it('a denied peer cannot knock its way back into the waiting room', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const g = guest(net);
+		await settle(net);
+		g.s.knock('Mallory');
+		await settle(net);
+		h.s.deny(h.s.getState().waiting[0].id);
+		await settle(net);
+		for (let i = 0; i < 5; i++) g.t.send(encodeControl({ t: 'knock', name: 'Mallory' }), h.t.selfId);
+		await settle(net);
+		expect(h.s.getState().waiting).toEqual([]);
+	});
+
+	it('a promoted viewer resyncs, so its later edits are not stranded', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const v = await joined(net, h, 'Chen');
+		h.s.setRole(v.t.selfId, 'view');
+		await settle(net);
+		// While view-only, Chen's local changes go nowhere (here: a stray local edit).
+		v.text.insert(0, 'while viewing ');
+		await settle(net);
+		h.s.setRole(v.t.selfId, 'edit');
+		await settle(net);
+		v.text.insert(0, 'after promotion ');
+		await settle(net);
+		expect(h.text.toString()).toContain('after promotion');
+		expect(h.text.toString()).toBe(v.text.toString());
+	});
+
+	it('malformed or oversized stream bytes from a member are dropped without breaking the session', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		a.t.send(frame(TAG_DOC, new Uint8Array([1, 2, 3])), h.t.selfId);
+		a.t.send(frame(TAG_DOC, new Uint8Array(4 * 1024 * 1024 + 1)), h.t.selfId);
+		await settle(net);
+		a.text.insert(0, 'fine ');
+		await settle(net);
+		expect(h.text.toString()).toContain('fine');
 	});
 });
