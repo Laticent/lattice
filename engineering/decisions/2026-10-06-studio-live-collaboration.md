@@ -14,7 +14,7 @@ companion:
 **Decision owner:** Sharmarke
 **Surfaces:** `docs/src/components/studio/` — `StudioShell.tsx`, `chrome-parts.tsx`
 (`ActivityRail`), `Editor.tsx`, `studio-panels.ts`, `panel-shells.tsx`,
-`StudioChromeSkeleton.tsx`; a new `collab/` folder. No server.
+`StudioChromeSkeleton.tsx`; a new sibling library, **Tavola** (`docs/src/lib/tavola/`, §7.1). No server.
 
 ## 1. The ask
 
@@ -391,10 +391,51 @@ ordinary WebRTC connections, with media track support.
 **Why our own thin provider on Trystero instead of `y-webrtc`.** `y-webrtc` syncs the
 document to any peer that holds the room password the moment it connects. There is no step
 where a host decides. The knock in §4.3 and the roster rule in §4.4 need an application
-layer that sends nothing until the host admits. A ~300-line provider of our own carries the
+layer that sends nothing until the host admits. Tavola (§7.1) is that layer: it carries the
 `y-protocols` sync and awareness messages (the same ones `y-webrtc` uses) over Trystero's
 data actions, gated by the roster. Document sync and media then share one connection per
 pair of peers, as the June A/V note wanted.
+
+### 7.1 Tavola — the collaboration library
+
+The owner chose (2026-10-06) to build the engine as a sibling library, **Tavola**
+(`@laticent/tavola`, Italian for the table people gather around), alongside Vetrina,
+Cadenza, Trama, Lente, Suono and Anima. The split follows one line: **Tavola knows peers
+and bytes; the Studio knows screens.**
+
+| Tavola (`docs/src/lib/tavola/`, no UI, no React) | The Studio |
+|---|---|
+| Link codec: mint and parse `#live=<room>.<secret>`, rotation | Live panel, lobby card, knock toast, header pill |
+| Handshake protocol: hello, knock, admit, deny, roster, remove, end | Editor carets, navigator avatars, follow bar |
+| Roster gate: send and accept only for admitted ids; the 4-person cap | Binding the `Y.Text` into CodeMirror (§6.1) |
+| Sync and awareness messages (`y-protocols` shapes) over the transport | Where presence is drawn on each width (§5.6) |
+| Presence model: name, color, role, slide, mic, speaking, following | Chat rendering, slide chips |
+
+**Everything outside is passed in, the way Trama takes dagre.** The core has no runtime
+dependencies:
+
+- **A transport** — a small interface: `join(room, secret)`, `send(bytes, peer)`,
+  `onMessage`, `onPeerJoin`, `onPeerLeave`, and media `addTrack`/`onTrack`. The Trystero
+  adapter (`@laticent/tavola/trystero`, `adapters/trystero.ts`) is the only file allowed to
+  import a third-party package, and it pins the Trystero version (§7 measured 0.26.0).
+- **A document** — the app hands Tavola its `Y.Doc` and the `y-protocols` encoders, so Yjs is
+  a peer dependency the Studio already owns, not a copy Tavola bundles.
+- **A clock and randomness** — injected, so tests are deterministic.
+
+**What that buys.** The security-relevant half (knock, roster, rotation, cap) gets one
+boundary and a standalone test suite, run against an **in-memory transport** of a few
+lines. That replaces the local WebSocket relay this note first planned for tests: protocol
+tests never open a socket, and only the real-browser Playwright tier uses Trystero. The
+Tauri desktop wrapper can embed Tavola the same way the Studio does.
+
+**Contract it inherits from its siblings** (`2026-07-08-library-shape-cadenza-vetrina.md`):
+a `package.json` with `exports` and types, a README, standalone tests, and a boundary gate
+in `tools/check-ownership.js` — a proposed `checkTavolaBoundary` that rejects any import
+escaping the folder, with one sanctioned exception for `adapters/trystero.ts` →
+`trystero/nostr`. Adding a gate function is a rule in an existing gate, not a new CI job
+(CLAUDE.md's second filter, row 2). Tavola also owes a family mark (`tavola-mark.svg`,
+`-mark-min`, `-lockup`) per `2026-07-18-sibling-brand-system.md`; that is a later slice and
+does not block S1.
 
 **What third parties see.** The public relays see an opaque room topic and the timing and
 size of encrypted offers. They never see the deck, the chat, names or media. The STUN
@@ -438,14 +479,15 @@ not connect" state names that cause. A free public TURN service can go in the TU
 later; it would be a third party that relays media while it is in use.
 
 **Local development and tests** must not depend on public relays (flaky, and outbound
-traffic from CI). Trystero's self-hosted WebSocket relay strategy points the same code at
-a small local relay (`tools/collab-signal-dev.mjs`) that only tests and `npm run dev`
-use. It never ships.
+traffic from CI). Tavola's protocol tests run on the in-memory transport (§7.1). The
+real-browser tier runs two to four Chromium contexts on one machine; if the public relays
+are unwanted there too, Trystero's self-hosted WebSocket strategy points the same adapter
+at a throwaway local relay started by the test itself. Nothing of it ships.
 
 ## 8. What we can verify here, and what we cannot
 
-- **Can verify in the sandbox** (and §7's spike already did, for the handshake): two to four headless Chromium contexts against the
-  local relay — the whole handshake, knock/admit/deny, roster refusal, live
+- **Can verify in the sandbox** (and §7's spike already did, for the handshake): Tavola's protocol suite on the in-memory transport,
+  then two to four headless Chromium contexts — the whole handshake, knock/admit/deny, roster refusal, live
   sync, carets, follow, chat, remove-with-rotation, reconnect. Real WebRTC data channels
   work between two Chromium contexts on one machine. Chromium's fake-media flags exercise
   the call plumbing and the tile UI.
@@ -464,12 +506,13 @@ One branch and PR per independent slice (HARD RULE #17). Each lands working.
 | # | Slice | Delivers | Depends on |
 |---|---|---|---|
 | S0 | **This note** | the design, signed off | — |
-| S1 | **Transport** | the Trystero-backed provider, roster gating, the local test relay, protocol tests | — |
+| S1 | **Tavola core** | `docs/src/lib/tavola/`: link codec, handshake and roster protocol, 4-person cap, sync and awareness over an injected transport, the in-memory test transport, the Trystero adapter, `package.json`/README, `checkTavolaBoundary` | — |
 | S2 | **Session core — "Europa"** | link, lobby, knock/admit/deny, roster, live co-editing, carets, navigator presence, follow, Live panel (People + Invite), header pill, linked guest copy | S1 |
 | S3 | **Chat** | session chat, slide chips, system lines | S2 |
 | S4 | **Audio** | join call, mute, speaking ring, device picker | S2 |
 | S5 | **Video** | camera, tiles, pop-out strip | S4 |
 | S6 | **Management hardening** | remove-with-rotation, stop link, host-away state, end session, auto-admit | S2 (may fold into S2 if small) |
+| S7 | **Tavola mark** | the three family SVGs per the sibling brand system | S1 |
 | later | Present together, host handoff, synced comments, TURN | | |
 
 S2 is the "I share a link, they click, we are collaborating" moment and gets the
@@ -486,6 +529,7 @@ clause).
 | Infrastructure | **No server, no account, no cost, nothing stored by us.** GitHub Pages was the hoped-for middleman; it cannot relay (§7), so matchmaking uses public relays through Trystero |
 | Session size | **4 people, hard cap** |
 | Guest copy | **Keep a linked copy** after the session |
+| Where the engine lives | **A sibling library, Tavola**, with the transport and document passed in (§7.1) |
 
 ## 11. What this replaces
 
