@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Live peer-to-peer collaboration in the Studio. One link starts it - the host shares it, the guest opens it, knocks, the host admits, and both edit the same deck with live carets, presence on the slide navigator, follow mode, text chat, and audio/video in a new Collaborate panel on the left rail. Edits and media travel browser to browser; our only server is a stateless signaling relay that sees encrypted blobs. Retargets the two June notes from the removed Drawing Board to the Studio and replaces their open questions with a concrete experience.
+summary: Live peer-to-peer collaboration in the Studio. One link starts it - the host shares it, the guest opens it, knocks, the host admits, and both edit the same deck with live carets, presence on the slide navigator, follow mode, text chat, and audio/video in a new Collaborate panel on the left rail. Edits and media travel browser to browser. Peers find each other over public Nostr relays through Trystero, so Lattice runs no server, pays nothing and stores nothing. Retargets the two June notes from the removed Drawing Board to the Studio and replaces their open questions with a concrete experience.
 companion:
   - ./2026-06-14-yjs-collaboration-exploration.md
   - ./2026-06-15-webrtc-av-collaboration.md
@@ -14,7 +14,7 @@ companion:
 **Decision owner:** Sharmarke
 **Surfaces:** `docs/src/components/studio/` — `StudioShell.tsx`, `chrome-parts.tsx`
 (`ActivityRail`), `Editor.tsx`, `studio-panels.ts`, `panel-shells.tsx`,
-`StudioChromeSkeleton.tsx`; a new `collab/` folder; a new signaling Worker.
+`StudioChromeSkeleton.tsx`; a new `collab/` folder. No server.
 
 ## 1. The ask
 
@@ -43,8 +43,9 @@ Three things changed since, and they are why this note exists:
    and stop. Nothing covers who is in the room, how they got in, or what the host can do
    about it — the three things this ask puts first.
 3. **The June Yjs note's update recommended a server relay** (Cloudflare Durable Objects)
-   over peer-to-peer, for corporate firewalls. This ask is explicitly peer to peer. §7
-   keeps P2P as the path and keeps the relay as the fallback, behind the same interface.
+   over peer-to-peer, for corporate firewalls. This ask is explicitly peer to peer, and
+   the owner ruled out any server or account of ours (§10). §7 uses public relays for
+   matchmaking and accepts the corporate-network cost that comes with that.
 
 ## 3. What the Studio gives us today
 
@@ -99,13 +100,13 @@ the guest path is open → "Ask to join".
 https://laticent.github.io/lattice/studio#live=<room>.<secret>
 ```
 
-- **`room`** — 128 random bits, base64url. It names the meeting place on the signaling
-  relay.
-- **`secret`** — 256 random bits, base64url. Both browsers derive an AES-GCM key from it
-  with WebCrypto and encrypt every signaling message with that key.
+- **`room`** — 128 random bits, base64url. It names the meeting place on the public
+  relays.
+- **`secret`** — 256 random bits, base64url. It is Trystero's room `password`: Trystero
+  encrypts every connection offer and answer with an AES-GCM key derived from it, so a
+  relay carries only ciphertext.
 - **It lives in the fragment** (after `#`). Browsers never send the fragment to any
-  server, so neither GitHub Pages nor our relay ever sees the secret. The relay only ever
-  sees `SHA-256(room)` and encrypted blobs.
+  server, so neither GitHub Pages nor any relay ever sees the secret.
 - **Survives OAuth.** On load the Studio moves the fragment into `sessionStorage` and
   scrubs it from the address bar (so it does not leak into a screenshot or a history
   sync). If the guest connects OpenRouter mid-lobby, the join resumes on return.
@@ -132,15 +133,15 @@ before they arrive.
 │                                              │
 │               [ Ask to join ]                │
 │  Your edits and calls go directly between    │
-│  browsers. Lattice's servers never see them. │
+│  browsers. Lattice has no server that sees them. │
 └──────────────────────────────────────────────┘
 ```
 
 (The glyphs in these sketches stand for lucide icons; nothing ships a typed glyph —
 HARD RULE #29.)
 
-- **Deck title and host name** come from the host's encrypted beacon on the relay, so the
-  card can show them before admission without exposing the deck.
+- **Deck title and host name** come from the host over the peer connection, as the first
+  message after it opens. The host sends nothing else until it admits the guest (§4.4).
 - **States the card must draw:** connecting; waiting for the host ("Sharmarke has been
   asked to let you in"); denied ("The host didn't admit you"); host not here ("This
   session isn't live right now — ask Sharmarke to open it"); link revoked; session full;
@@ -164,12 +165,15 @@ HARD RULE #29.)
 
 ### 4.4 What admission does
 
-1. The host's browser opens a WebRTC connection to the guest (the relay carries only the
-   encrypted offer, answer and network candidates).
-2. Over that connection the host sends the Yjs document state and the **roster**: each
+1. Trystero has already opened a WebRTC connection between the host and the guest when
+   the guest entered the lobby (the relays carried only the encrypted offer and answer).
+   Until admission, the host sends only the title and host name over it, and the guest's
+   knock comes back the same way.
+2. On admission, over that connection the host sends the Yjs document state and the **roster**: each
    admitted peer's id, name, color and role.
-3. Peers connect to each other in a mesh, but **only to ids on the host's roster**. A peer
-   that holds the link but was not admitted cannot get anyone to open a connection to it.
+3. Every peer in the room reaches every other (Trystero builds a mesh), but **a peer sends
+   document, awareness, chat or media only to ids on the host's roster**. A peer that holds
+   the link but was not admitted gets a connection and nothing over it.
 4. The guest's Studio opens the shared deck, jumps to the host's slide, and the panel
    opens on the People section so the guest sees who is here.
 
@@ -367,37 +371,53 @@ Everything except signaling is peer to peer:
 | Document, awareness, chat | Yjs sync messages (`y-protocols`) over an `RTCDataChannel` | browsers |
 | Audio / video | media tracks on the **same** `RTCPeerConnection` | browsers |
 | Encryption | DTLS / SRTP between peers (always on in WebRTC); AES-GCM on signaling with the link secret | browsers |
-| Signaling | a stateless Cloudflare Worker + Durable Object that relays encrypted blobs between sockets in one room, stores nothing | us (free tier) |
+| Signaling (matchmaking) | [Trystero](https://github.com/dmotz/trystero) (MIT) over its default Nostr strategy — public relays, no account; BitTorrent trackers as the second strategy | third parties, free |
 | STUN | a public STUN server | third party, free |
-| TURN | a config slot, off by default | us, only if needed |
+| TURN | a config slot, off by default | nobody, unless a free public TURN is configured later |
 
-**Why our own thin provider instead of `y-webrtc`.** `y-webrtc` syncs the document to any
-peer that holds the room password the moment it connects. There is no step where a host
-decides. The knock in §4.3 needs signaling to carry a hello, wait for the host, and only
-then open a connection — and the roster rule in §4.4 needs peers to refuse unknown ids.
-Both are easier in a ~400-line provider of our own on `y-protocols` (the same sync and
-awareness messages `y-webrtc` uses) than as patches to `y-webrtc`. It also puts document
-sync and media on one connection per pair of peers, as the June A/V note wanted.
+**Why GitHub Pages cannot be the middleman.** Pages serves static files. It cannot hold a
+connection open or pass a message from one browser to another, and two browsers need
+exactly that once, to exchange connection offers, before they can talk directly. Some
+server has to carry that first exchange. With no server of ours, the remaining choice is a
+public one, and Trystero is the library built for it: it publishes the encrypted offers on
+public relays that already exist (Nostr relays by default, hundreds of them) and hands back
+ordinary WebRTC connections, with media track support.
 
-**What the relay sees:** the hashed room name, connection IP addresses, and the timing and
-size of encrypted messages. It never sees the deck, the chat, names, or media. The lobby
-copy says so in one line.
+**Why our own thin provider on Trystero instead of `y-webrtc`.** `y-webrtc` syncs the
+document to any peer that holds the room password the moment it connects. There is no step
+where a host decides. The knock in §4.3 and the roster rule in §4.4 need an application
+layer that sends nothing until the host admits. A ~300-line provider of our own carries the
+`y-protocols` sync and awareness messages (the same ones `y-webrtc` uses) over Trystero's
+data actions, gated by the roster. Document sync and media then share one connection per
+pair of peers, as the June A/V note wanted.
+
+**What third parties see.** The public relays see an opaque room topic and the timing and
+size of encrypted offers. They never see the deck, the chat, names or media. The STUN
+server sees IP addresses. The relays are run by people we do not know, so the lobby copy
+says "Lattice has no server that sees them", which is true, and not "nobody relays them",
+which is not.
+
+**Reliability, honestly.** Public relays come and go. Trystero connects to several at once,
+so one dying does not stop a join, but a join can take a few seconds and no one we pay
+stands behind the uptime. If the Nostr strategy proves flaky in practice, the fallback is
+another Trystero strategy (BitTorrent trackers, MQTT), not a server.
 
 **Limits, stated up front.** A mesh means every peer connects to every other peer.
-Proposed caps: **6 people per session**, and a soft warning when a **fourth camera**
-turns on. Corporate networks that block UDP will fail to connect without TURN; the lobby's
-"could not connect" state names that cause. The Durable Object relay from the June Yjs
-note remains the fallback if real users hit it often, and it is the same provider
-interface.
+Cap: **4 people per session, hard** (owner's call). The fifth knock gets "This session
+is full". Corporate networks that block UDP, and some mobile carriers, will fail to connect
+without TURN, and with no server of ours there is no TURN by default. The lobby's "could
+not connect" state names that cause. A free public TURN service can go in the TURN slot
+later; it would be a third party that relays media while it is in use.
 
-**Local development and tests** run a ~40-line Node signaling server
-(`tools/collab-signal-dev.mjs`) with the same protocol, so no test or dev loop needs the
-deployed Worker.
+**Local development and tests** must not depend on public relays (flaky, and outbound
+traffic from CI). Trystero's self-hosted WebSocket relay strategy points the same code at
+a small local relay (`tools/collab-signal-dev.mjs`) that only tests and `npm run dev`
+use. It never ships.
 
 ## 8. What we can verify here, and what we cannot
 
-- **Can verify in the sandbox:** two (or three) headless Chromium contexts against the
-  local signaling server — the whole handshake, knock/admit/deny, roster refusal, live
+- **Can verify in the sandbox:** two to four headless Chromium contexts against the
+  local relay — the whole handshake, knock/admit/deny, roster refusal, live
   sync, carets, follow, chat, remove-with-rotation, reconnect. Real WebRTC data channels
   work between two Chromium contexts on one machine. Chromium's fake-media flags exercise
   the call plumbing and the tile UI.
@@ -405,7 +425,8 @@ deployed Worker.
   in both color modes (Quality Bar).
 - **Cannot verify here, and will say UNVERIFIED:** call quality, echo, real cameras and
   microphones, NAT traversal across real home and corporate networks, iOS Safari. Those
-  need the owner on two real devices on two networks (HARD RULE #23).
+  need the owner on two real devices on two networks (HARD RULE #23). Join time and
+  reliability over the real public relays need the same real-world check.
 
 ## 9. Slices
 
@@ -414,29 +435,28 @@ One branch and PR per independent slice (HARD RULE #17). Each lands working.
 | # | Slice | Delivers | Depends on |
 |---|---|---|---|
 | S0 | **This note** | the design, signed off | — |
-| S1 | **Signaling** | the Worker + Durable Object, the dev server, protocol tests | owner: Cloudflare account and deploy route (§10) |
+| S1 | **Transport** | the Trystero-backed provider, roster gating, the local test relay, protocol tests | — |
 | S2 | **Session core — "Europa"** | link, lobby, knock/admit/deny, roster, live co-editing, carets, navigator presence, follow, Live panel (People + Invite), header pill, linked guest copy | S1 |
 | S3 | **Chat** | session chat, slide chips, system lines | S2 |
 | S4 | **Audio** | join call, mute, speaking ring, device picker | S2 |
-| S5 | **Video** | camera, tiles, pop-out strip, fourth-camera warning | S4 |
+| S5 | **Video** | camera, tiles, pop-out strip | S4 |
 | S6 | **Management hardening** | remove-with-rotation, stop link, host-away state, end session, auto-admit | S2 (may fold into S2 if small) |
 | later | Present together, host handoff, synced comments, TURN | | |
 
 S2 is the "I share a link, they click, we are collaborating" moment and gets the
-adversarial trio before merge (HARD RULE #25: novel, security-relevant, new external
-service). S2 also owes a short demo of the experience — a recorded two-browser walkthrough
+adversarial trio before merge (HARD RULE #25: novel, security-relevant, new third
+parties in the path). S2 also owes a short demo of the experience — a recorded two-browser walkthrough
 — in place of a slide deck, because it renders no slide surface (HARD RULE #9's evidence
 clause).
 
-## 10. Decisions for the owner
+## 10. Decisions — settled 2026-10-06
 
-1. **Admission default** — knock (recommended) or auto-admit.
-2. **Infrastructure** — a Cloudflare account for the signaling Worker, and whether deploys
-   are a manual `wrangler deploy` (recommended for S1) or a CI job (a new CI job is the
-   owner's call).
-3. **Caps** — 6 people per session, warning at the fourth camera.
-4. **Guest copy** — keep a linked copy after the session (recommended) or leave nothing
-   behind.
+| Question | Owner's answer |
+|---|---|
+| Admission default | **Knock; the host admits.** Auto-admit is a per-session toggle |
+| Infrastructure | **No server, no account, no cost, nothing stored by us.** GitHub Pages was the hoped-for middleman; it cannot relay (§7), so matchmaking uses public relays through Trystero |
+| Session size | **4 people, hard cap** |
+| Guest copy | **Keep a linked copy** after the session |
 
 ## 11. What this replaces
 
