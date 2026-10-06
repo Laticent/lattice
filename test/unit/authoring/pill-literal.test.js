@@ -103,13 +103,18 @@ describe('author text in a string replacement — the sites followups.d/2519-p3 
     }
   });
 
-  test('a roadmap status cell and a horizons card holding `$&` keep it', () => {
+  test('a roadmap status cell and a horizons card holding a replacement token keep it', () => {
     const table = (cell) => `<table><thead><tr><th>W</th><th>Phase 01</th><th>Phase 02</th></tr></thead><tbody><tr><td>Intake</td><td>${cell}</td><td>Two</td></tr></tbody></table>`;
-    const status = roadmap.applyStatusMarkers(table('[x] Pay $& now'));
-    assert.match(status, /Pay \$& now/);
-    assert.equal((status.match(/<tbody/g) || []).length, 1, status);
-    const horizons = roadmap.applyHorizons(table('Pay $& now'));
-    assert.match(horizons, /Pay \$& now/);
-    assert.doesNotMatch(horizons, /<table/, horizons);
+    for (const q of TOKENS) {
+      // `$&` splices the whole matched row back into the cell, and the cell still reads
+      // "Pay $& now" around it, so the text alone is no guard: the cell must hold no markup.
+      const status = roadmap.applyStatusMarkers(table(`[x] Pay ${q} now`));
+      const cell = status.match(/<span class="cell-state-text">([\s\S]*?)<\/span>/)[1];
+      assert.equal(cell, `Pay ${q} now`, `${q}: ${status}`);
+      assert.equal((status.match(/<tr\b/g) || []).length, 2, `${q}: ${status}`);
+      const horizons = roadmap.applyHorizons(table(`Pay ${q} now`));
+      assert.ok(horizons.includes(`Pay ${q} now`), `${q}: ${horizons}`);
+      assert.doesNotMatch(horizons, /<table/, `${q}: ${horizons}`);
+    }
   });
 });
