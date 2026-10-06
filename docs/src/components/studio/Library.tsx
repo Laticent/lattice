@@ -12,6 +12,7 @@ import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { DeleteBtn } from './delete-btn';
+import { downloadBlob } from './download';
 import { generateSwatch } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
@@ -33,14 +34,7 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 type Filter = LibraryFilter;
 
 function download(blob: Blob, filename: string) {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	setTimeout(() => URL.revokeObjectURL(url), 1000);
+	downloadBlob(filename, blob);
 }
 
 // Rebuild a Blob from a `data:…;base64,…` URL (a stored PDF's original bytes).

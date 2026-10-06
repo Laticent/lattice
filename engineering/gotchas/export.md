@@ -622,3 +622,32 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   cost lands on every 4K export to fix what only a pixel gate sees. So run a pixel gate on a 4K
   deck on an idle machine, and read a 4K DIFF whose pixels all vanish at `compare -fuzz 5%` as
   this, not as a regression.
+
+## A Studio export saves as a UUID (`76f752a8-….html`) in Firefox
+
+**Symptom** — Every Studio export (PDF, PPTX, HTML, Markdown, zips) lands in the
+downloads folder named like `76f752a8-f837-4922-a860-7cda2b89453a.html`: the right
+extension, a UUID for a name. The Print panel's 2-up/4-up/handout PDF tab shows the same
+UUID in its title, and its Save button offers `document.pdf`. The owner hit this on
+lattice.style in Firefox; a clean Firefox 142 profile, local or production build, service
+worker on or off, named every export correctly.
+
+**Cause** — A `blob:` URL ends in a UUID. The exports named the file only through the
+anchor's `download` attribute. When a browser drops that hint — something in that
+Firefox profile does, and we never found what — it falls back to the URL's last segment
+plus an extension from the MIME type. Measured in Firefox 142 with no `download`
+attribute: a URL from a `Blob` gives no name, a URL from a `File` gives the File's name.
+Firefox's PDF viewer reads the same name for the tab title and its own Save.
+
+**Mitigation** — Every save goes through `docs/src/components/studio/download.js`, which
+builds the URL from a `File` named like the download (`namedFileUrl`) and keeps the
+`download` attribute as well. The URL is revoked a minute later rather than in the
+click's tick. `download.test.ts` fails if any other file under `docs/src` assigns a
+`download` attribute — the bug lived in five hand-rolled copies of the anchor click.
+
+**Triggered by** — Share → any export; Library and workspace-backup downloads; Print →
+2-up / 4-up / Notes, which opens the PDF in a tab.
+
+**Removable when** — never; naming the file on the URL costs nothing.
+
+**Commits** — the commit that added this entry.

@@ -36,6 +36,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
+import { downloadUrl, namedFileUrl } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
 import { splitSlides } from './lint';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
@@ -244,7 +245,7 @@ export function PrintOptionsPanel({
 	// button can flip to "Open PDF" the moment a build for the current settings exists; a
 	// click reuses it when the key still matches, else rebuilds. Cleared implicitly by the
 	// key check when any setting changes.
-	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; layout: Layout; url: string; blob: Blob } | null>(null);
+	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; layout: Layout; file: string; url: string; blob: Blob } | null>(null);
 	// The rasterized slide IMAGES, keyed by `render` identity only — NOT paper/orientation,
 	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
 	// jsPDF geometry) with no re-rasterize; a color/source/theme change makes a new `render`
@@ -412,7 +413,11 @@ export function PrintOptionsPanel({
 
 	const { paper, orientation, layout } = opts;
 	// Does the built PDF match the CURRENT settings? Drives the iOS button (build vs open).
-	const cachedForCurrent = !!builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout;
+	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
+
+	// The file name is part of the key: the built PDF carries its name on its URL (download.js),
+	// so a rename after a build must rebuild, or the tab and its Save keep the old name.
+	const cachedForCurrent = !!builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout && builtPdf.file === pdfFilename();
 
 	// Build the per-slide PDF for the current settings, or return the cached one when the
 	// key still matches. The ONLY place rasterization happens — driven by a click, not a
@@ -421,7 +426,7 @@ export function PrintOptionsPanel({
 	// opened from it may still be loading — revoking the string won't unload a loaded blob).
 	const buildPdf = React.useCallback(async (): Promise<string> => {
 		if (!render) throw new Error('deck not ready');
-		if (builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout) return builtPdf.url;
+		if (cachedForCurrent && builtPdf) return builtPdf.url;
 		const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
 		const ex = await import('@/components/studio/export/deck-export.js');
 		// Reuse the rasterized slide images when only paper/orientation/layout moved (render
@@ -447,23 +452,17 @@ export function PrintOptionsPanel({
 		});
 		const missing = ex.missingImageReason(imageFailures);
 		if (missing) notify(`Print deck built — but ${missing}.`, { duration: DEGRADED_TOAST_MS });
-		const url = URL.createObjectURL(blob);
+		// Named on the URL itself, so the PDF opened in a tab shows and saves under the deck's
+		// name instead of the blob's UUID (download.js).
+		const file = pdfFilename();
+		const url = namedFileUrl(blob, file);
 		const prevUrl = builtPdf?.url;
 		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
-		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, url, blob });
+		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, file, url, blob });
 		return url;
-	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache]);
+	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, cachedForCurrent, imgCache, pdfFilename]);
 
-	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
-
-	const triggerDownload = React.useCallback((url: string) => {
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = pdfFilename();
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-	}, [pdfFilename]);
+	const triggerDownload = React.useCallback((url: string) => downloadUrl(url, pdfFilename()), [pdfFilename]);
 
 	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the
 	// DESKTOP print path — desktop honors CSS @page, so this prints crisp + correct.
