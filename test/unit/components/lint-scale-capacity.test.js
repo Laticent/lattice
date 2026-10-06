@@ -1014,7 +1014,7 @@ describe('compare-prose and cycle are judged by lines, and glossary on the stric
   test('a compare-prose slide is judged by its wrapped lines (talk slide 5)', () => {
     assert.deepEqual(run('huddle', floor), []);
     const [f] = run('conference', floor);
-    assert.match(f.message, /'compare-prose' slide's text runs about \d+% past what the slide holds, counted in wrapped lines/);
+    assert.match(f.message, /'compare-prose' slide's text runs about \d+% too long/);
     assert.match(f.fix, /set `venue: huddle`/);
   });
 
@@ -1105,7 +1105,7 @@ describe('compare-prose and cycle are judged by lines, and glossary on the stric
   ].map(([t, d]) => `- ${t}\n  - ${d}`).join('\n')}\n`;
 
   test('glossary under an eyebrow reads its strict row on a 4k deck only (talk slide 75)', () => {
-    assert.match(run('conference', terms)[0].message, /'glossary with its eyebrow' holds about 5 items/);
+    assert.match(run('conference', terms)[0].message, /'glossary with its eyebrow' fits about 5 items/);
     assert.deepEqual(run('huddle', terms), []);
     // On a 720-high deck the export forgives 36 px of 2160, and the same slide fits (the checker's
     // render: 21 px over). The 720-basis row holds 6 there.
