@@ -143,7 +143,7 @@ export const MOBILE_OFFSET = 'bottom-[var(--kb)]';
 // height over the Studio on the owner's iPhone (Firefox for iOS, after a Webpage export,
 // PR #2555); the Share sheet has no text field, so it has no reason to make room for one.
 // Written out, not `${MOBILE_OFFSET}`: inside a variant it must be a literal for the scan.
-const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus)]:bottom-[var(--kb)] rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]';
+const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus,select:focus)]:bottom-[var(--kb)] rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]';
 
 /**
  * THE height for every mobile panel — see the block above for why there is one.
@@ -181,6 +181,9 @@ const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus)]:bott
  * cannot disagree with the device, and — unlike the `--kb` path — it is verifiable in a
  * headless browser, because focus is real there even when a keyboard is not.
  *
+ * `select` counts too: iOS raises its picker from the bottom like a keyboard (the Coach
+ * body's native select, flagged in the #2555 review).
+ *
  * Scoped to text fields on purpose. A bare `focus-within` would also fire when a tapped
  * ROW keeps focus, and the sheet growing 54px because you touched a list item is worse
  * than the band it removes.
@@ -193,7 +196,7 @@ const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus)]:bott
  * keyboard while every other sheet lifted clear). See that declaration's comment.
  */
 export const MOBILE_HEIGHT =
-	'h-[calc(100dvh-3.375rem)] [&:has(input:focus,textarea:focus)]:h-[var(--vvh)]';
+	'h-[calc(100dvh-3.375rem)] [&:has(input:focus,textarea:focus,select:focus)]:h-[var(--vvh)]';
 
 /**
  * Publishes the on-screen keyboard's height as `--kb`, and the VISIBLE height as

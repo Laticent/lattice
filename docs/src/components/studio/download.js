@@ -56,8 +56,6 @@ export function armDownloadLink(a, filename, blob) {
 	return url;
 }
 
-/** Save an already-made URL (from `namedFileUrl`) as `filename`. The caller owns the URL. */
-
 /** Every iPhone and iPad browser saves through the share sheet — Safari included. The owner's
  *  call (2026-10-06): one native iOS save, the same in every iOS browser, rather than a
  *  one-tap download in Safari and a share sheet everywhere else. Every iOS browser is Safari's
@@ -81,10 +79,23 @@ export function dismissPendingSave() {
 	pendingSave = null;
 }
 
-/** Record the toast a new iOS save is waiting on; one replaces the last. @param {unknown} handle */
+/** Record the toast a new iOS save is waiting on. A raise into notify's still-live action slot
+ *  reuses its id, so the handle can be the SAME toast: retiring it then would remove the toast
+ *  just raised (the second export in a row showed nothing at all). Only a different toast is
+ *  retired. @param {unknown} handle */
 export function setPendingSave(handle) {
-	dismissPendingSave();
+	if (handle !== pendingSave) dismissPendingSave();
 	pendingSave = handle;
+}
+
+/** Whether a Save toast is waiting (download-ios.js starts a new batch when none is). */
+export function hasPendingSave() {
+	return pendingSave !== null;
+}
+
+/** Forget the waiting toast without retiring it — it closed itself on the tap. */
+export function clearPendingSave() {
+	pendingSave = null;
 }
 
 /** iPhone, iPod or iPad — iPadOS 13+ reports as a Mac, so touch points disambiguate. */
@@ -92,7 +103,8 @@ export function isIOSLike(ua = nav()?.userAgent || '', platform = nav()?.platfor
 	return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && touchPoints > 1);
 }
 
-/** @param {string} url @param {string} filename */
+/** Save an already-made URL (from `namedFileUrl`) as `filename`. The caller owns the URL.
+ *  @param {string} url @param {string} filename */
 export function downloadUrl(url, filename) {
 	if (typeof document === 'undefined') return;
 	const a = document.createElement('a');
@@ -110,23 +122,33 @@ function saveWithAnchor(filename, blob) {
 	revokeLater(url);
 }
 
-/** Save a Blob as `filename`: a one-tap download, or on a non-Safari iOS browser the
- *  two-tap share sheet (download-ios.js). Browser-only; a no-op-safe guard keeps it from
- *  throwing in a non-DOM environment (tests). */
-/** @param {string} filename @param {Blob} blob */
-export function downloadBlob(filename, blob) {
+/** Save a Blob as `filename`: a one-tap download, or on iOS (every browser) the two-tap share
+ *  sheet (download-ios.js). `onSaved` runs once the file is actually handed over — at once for
+ *  a download, after the share sheet for iOS — so a caller that records a save (the workspace
+ *  backup's "last backup") never records one the author has not made yet. Browser-only; a
+ *  no-op-safe guard keeps it from throwing in a non-DOM environment (tests).
+ *  @param {string} filename @param {Blob} blob @param {{ onSaved?: () => void }} [opts] */
+export function downloadBlob(filename, blob, opts = {}) {
 	if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return;
 	if (isIOSLike()) {
-		import('./download-ios.js').then((ios) => ios.saveOnIOS(filename, blob, saveWithAnchor));
+		import('./download-ios.js').then(
+			(ios) => ios.saveOnIOS(filename, blob, saveWithAnchor, opts.onSaved),
+			// The iOS chunk failed to load (a stale tab after a deploy): still save, the old way.
+			() => {
+				saveWithAnchor(filename, blob);
+				opts.onSaved?.();
+			},
+		);
 		return;
 	}
 	saveWithAnchor(filename, blob);
+	opts.onSaved?.();
 }
 
 // Trigger a client-side file download for a text blob (the Share "hand off the
 // source" path). Guarded so it stays a no-op in a non-DOM environment (tests).
-/** @param {string} filename @param {string} text @param {string} [mime] */
-export function downloadText(filename, text, mime = 'text/markdown') {
+/** @param {string} filename @param {string} text @param {string} [mime] @param {{ onSaved?: () => void }} [opts] */
+export function downloadText(filename, text, mime = 'text/markdown', opts = {}) {
 	if (typeof Blob === 'undefined') return;
-	downloadBlob(filename, new Blob([text], { type: `${mime};charset=utf-8` }));
+	downloadBlob(filename, new Blob([text], { type: `${mime};charset=utf-8` }), opts);
 }

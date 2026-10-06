@@ -459,7 +459,10 @@ export function PrintOptionsPanel({
 	// (download-ios.js); every other device gets the plain download.
 	const triggerDownload = React.useCallback((url: string) => {
 		if (!isIOSLike()) return downloadUrl(url, pdfFilename());
-		void fetch(url).then((r) => r.blob()).then((b) => downloadBlob(pdfFilename(), b));
+		void fetch(url)
+			.then((r) => r.blob())
+			.then((b) => downloadBlob(pdfFilename(), b))
+			.catch(() => downloadUrl(url, pdfFilename()));
 	}, [pdfFilename]);
 
 	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the
@@ -527,7 +530,7 @@ export function PrintOptionsPanel({
 	// navigate the Studio away. Used as the non-iOS / no-Web-Share fallback.
 	const openPdfTab = React.useCallback((url: string) => {
 		const w = window.open(url, '_blank');
-		if (!w) { triggerDownload(url); notify('Pop-up blocked — the PDF was saved. Open it, then Share → Print.'); }
+		if (!w) { triggerDownload(url); notify(isIOSLike() ? 'Pop-up blocked — tap Save to keep the PDF, then open it and Print.' : 'Pop-up blocked — the PDF was saved. Open it, then Share → Print.'); }
 	}, [triggerDownload]);
 
 	// iOS tap 2 — hand the built PDF to the OS. `navigator.share({ files })` opens the native
@@ -539,17 +542,17 @@ export function PrintOptionsPanel({
 		const nav = navigator as Navigator & { canShare?: (d: { files?: File[] }) => boolean };
 		const file = new File([entry.blob], pdfFilename(), { type: 'application/pdf' });
 		if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
-			nav.share({ files: [file], title: name || 'Lattice deck' }).catch((err: unknown) => {
+			nav.share({ files: [file] }).catch((err: unknown) => {
 				// AbortError = the user dismissed the sheet — not a failure. Otherwise the file is
 				// still in Download (a post-await window.open would be pop-up-blocked here).
 				if ((err as { name?: string } | null)?.name === 'AbortError') return;
 				triggerDownload(entry.url);
-				notify('Could not open the share sheet — the PDF was saved. Open it, then Print.');
+				notify(isIOSLike() ? 'Could not open the share sheet — tap Save to keep the PDF, then open it and Print.' : 'Could not open the share sheet — the PDF was saved. Open it, then Print.');
 			});
 			return;
 		}
 		openPdfTab(entry.url);
-	}, [pdfFilename, name, triggerDownload, openPdfTab]);
+	}, [pdfFilename, triggerDownload, openPdfTab]);
 
 	const doPrint = React.useCallback(() => {
 		if (!render || building) return;

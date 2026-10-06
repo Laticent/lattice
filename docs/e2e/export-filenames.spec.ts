@@ -28,7 +28,7 @@ const IOS_AGENTS = {
 	chrome: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0.7390.41 Mobile/15E148 Safari/604.1',
 };
 
-const saveToast = (page: Page) => page.locator('[data-sonner-toast]', { hasText: /is ready/ });
+const saveToast = (page: Page) => page.locator('[data-sonner-toast]:not([data-removed="true"])', { hasText: /is ready/ });
 
 async function openExport(page: Page, row: RegExp) {
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
@@ -54,8 +54,12 @@ async function iosPage(browser: Browser, userAgent: string): Promise<Page> {
 	const context = await browser.newContext({ ...use, userAgent, hasTouch: true, isMobile: browser.browserType().name() !== 'firefox' });
 	const page = await context.newPage();
 	await page.addInitScript(() => {
-		const w = window as unknown as { __shared: { names: string[]; keys: string[] }[] };
+		const w = window as unknown as { __shared: { names: string[]; keys: string[] }[]; __saveToasts: number };
 		w.__shared = [];
+		// Each iOS save raises its toast through this event (download-ios.js), so the count is
+		// the signal that a save has reached the toast — no guessed sleep.
+		w.__saveToasts = 0;
+		window.addEventListener('lattice:notify-action', () => { w.__saveToasts += 1; });
 		Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
 		Object.defineProperty(navigator, 'share', {
 			configurable: true,
@@ -98,6 +102,15 @@ for (const [name, ua] of Object.entries(IOS_AGENTS)) {
 			document.documentElement.style.removeProperty('--kb');
 			document.documentElement.style.removeProperty('--vvh');
 		});
+
+		// 1c · Exporting the same file again before tapping Save keeps ONE live toast. The second
+		// export used to retire its own toast (notify reuses a live slot's id), leaving nothing.
+		await page.getByRole('dialog').getByRole('button', { name: /^Download PDF/ }).click();
+		await expect
+			.poll(() => page.evaluate(() => (window as unknown as { __saveToasts: number }).__saveToasts), { timeout: 150_000 })
+			.toBe(2);
+		await expect(saveToast(page), 'a second export in a row left no Save toast').toHaveCount(1);
+		await expect(saveToast(page)).toContainText(/\.pdf is ready/);
 
 		// 2 · Save takes a TAP over the open, modal Share sheet, and shares one named file, no title.
 		await saveToast(page).getByRole('button', { name: 'Save' }).tap();

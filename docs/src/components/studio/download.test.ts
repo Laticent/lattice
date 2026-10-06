@@ -6,7 +6,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { armDownloadLink, dismissPendingSave, downloadBlob, namedFileUrl } from './download';
+import { armDownloadLink, dismissPendingSave, downloadBlob, downloadText, namedFileUrl } from './download';
 import { iosNeedsShareSheet } from './download-ios';
 
 let made: Blob[];
@@ -138,6 +138,73 @@ describe('the two-tap save on Firefox for iOS', () => {
 		expect(dismissed).toEqual([raised]);
 		Reflect.deleteProperty(navigator, 'canShare');
 		Reflect.deleteProperty(navigator, 'share');
+	});
+});
+
+describe('saves that land while a Save toast waits', () => {
+	type Raise = { message: string; opts: { onClick: () => void } };
+	async function harness() {
+		vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(UA.firefoxIPhone);
+		const shared: string[][] = [];
+		let resolveShare: () => void = () => {};
+		Object.assign(navigator, {
+			canShare: () => true,
+			share: vi.fn((d: ShareData) => {
+				shared.push((d.files ?? []).map((f) => f.name));
+				return new Promise<void>((r) => (resolveShare = r));
+			}),
+		});
+		const { NOTIFY_ACTION_EVENT, NOTIFY_DISMISS_EVENT } = await import('../../lib/notify');
+		dismissPendingSave();
+		const raises: Raise[] = [];
+		const dismissed: unknown[] = [];
+		const onRaise = (e: Event) => raises.push((e as CustomEvent).detail);
+		const onDismiss = (e: Event) => dismissed.push((e as CustomEvent).detail.handle);
+		window.addEventListener(NOTIFY_ACTION_EVENT, onRaise);
+		window.addEventListener(NOTIFY_DISMISS_EVENT, onDismiss);
+		const done = () => {
+			window.removeEventListener(NOTIFY_ACTION_EVENT, onRaise);
+			window.removeEventListener(NOTIFY_DISMISS_EVENT, onDismiss);
+			Reflect.deleteProperty(navigator, 'canShare');
+			Reflect.deleteProperty(navigator, 'share');
+		};
+		return { raises, dismissed, shared, resolve: () => resolveShare(), done };
+	}
+
+	it('a second export of the same file keeps ONE live toast (it used to retire its own)', async () => {
+		const h = await harness();
+		downloadBlob('deck.pdf', new Blob(['1'], { type: 'application/pdf' }));
+		await vi.waitFor(() => expect(h.raises).toHaveLength(1));
+		downloadBlob('deck.pdf', new Blob(['2'], { type: 'application/pdf' }));
+		await vi.waitFor(() => expect(h.raises).toHaveLength(2));
+		expect(h.dismissed, 'the live toast was retired by its own replacement').toEqual([]);
+		expect(h.raises[1].message).toBe('deck.pdf is ready');
+		h.raises[1].opts.onClick();
+		expect(h.shared).toEqual([['deck.pdf']]);
+		h.done();
+	});
+
+	it('different files join one batch, and one tap shares them all (Fabricate\'s multi-file export)', async () => {
+		const h = await harness();
+		for (const n of ['theme.css', 'theme.json', 'README.md']) downloadText(n, 'x');
+		await vi.waitFor(() => expect(h.raises).toHaveLength(3));
+		expect(h.raises[2].message).toBe('3 files are ready');
+		h.raises[2].opts.onClick();
+		expect(h.shared).toEqual([['theme.css', 'theme.json', 'README.md']]);
+		h.done();
+	});
+
+	it('onSaved waits for the share sheet, so a backup is recorded only once it is handed over', async () => {
+		const h = await harness();
+		const saved = vi.fn();
+		downloadBlob('lattice-workspace.zip', new Blob(['PK'], { type: 'application/zip' }), { onSaved: saved });
+		await vi.waitFor(() => expect(h.raises).toHaveLength(1));
+		expect(saved, 'recorded before the author tapped Save').not.toHaveBeenCalled();
+		h.raises[0].opts.onClick();
+		expect(saved).not.toHaveBeenCalled();
+		h.resolve();
+		await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+		h.done();
 	});
 });
 
