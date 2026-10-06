@@ -116,9 +116,11 @@ export type LatticeImport = { source: string; title: string; comments: SlideComm
  * message when the zip is missing either required part, so the caller can surface a
  * clean toast rather than a stack trace.
  */
-export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
+export async function readLatticeFile(file: Blob | Uint8Array): Promise<LatticeImport> {
 	// Reject an oversized archive before touching it (cheap, catches the obvious case).
-	if (file.size > MAX_ZIP_BYTES) {
+	// Bytes as well as a Blob: `deck-import.ts` has already read the file (or pulled the
+	// `.lattice` out of a PDF / PowerPoint) and hands the bytes straight on.
+	if ((file instanceof Uint8Array ? file.byteLength : file.size) > MAX_ZIP_BYTES) {
 		throw new Error('That .lattice file is too large to open.');
 	}
 	const { default: JSZip } = await import('jszip');

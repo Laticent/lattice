@@ -43,8 +43,10 @@ async function exportPptx(page: Parameters<typeof gotoStudio>[0]) {
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog).toBeVisible();
-	const download = page.waitForEvent('download', { timeout: 180_000 });
+	// PowerPoint lands on an options step ("Re-openable in Lattice"), like PDF.
 	await dialog.getByRole('button', { name: /^PowerPoint/ }).click();
+	const download = page.waitForEvent('download', { timeout: 180_000 });
+	await dialog.getByRole('button', { name: /^Download PowerPoint/ }).click();
 	const file = await download;
 	const path = await file.path();
 	expect(path).toBeTruthy();

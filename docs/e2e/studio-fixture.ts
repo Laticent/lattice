@@ -274,10 +274,10 @@ export const CHROME = {
 // `CHROME.versionHistory` does — but note those entries are verified-by-sweep, not
 // pinned by any spec, so they can rot without failing anything.
 export const SHARE_EXPORTS = {
-	/** Options step "Export PDF" (comments-as-sticky-notes toggle). → `.pdf` */
+	/** Options step "Export PDF" (sticky-notes + re-openable toggles). → `.pdf` */
 	pdf: { row: /^PDF/, confirm: /^Download PDF/ },
-	/** One click. → `.pptx` */
-	pptx: { row: /^PowerPoint/, confirm: null },
+	/** Options step "Export PowerPoint" (re-openable toggle). → `.pptx` */
+	pptx: { row: /^PowerPoint/, confirm: /^Download PowerPoint/ },
 	/** Options step "Export images" (format/size/thumbnails/SVGs). → `.zip`
 	 *  NOTE its color-mode segment has a button literally labeled "Print" —
 	 *  a loose /^(Download|Print)/ confirm locator grabs that, not the export. */

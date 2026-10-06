@@ -290,6 +290,29 @@ rewrite only the `title:` line itself — your other directives keep their order
 their values, comments you've left in the block survive, and a Windows-authored deck
 keeps its line endings.
 
+## Sharing a deck someone else can edit
+
+To hand a deck to someone who will **edit** it, send one of these. They open it from
+the deck switcher with **Import deck…**, right under **New deck** (also in ⌘K), and
+get your deck exactly as you wrote it, as a new deck of their own.
+
+| Send | What they get |
+|---|---|
+| **Share → Lattice project (.lattice)** | The deck, its review comments, and the saved themes, components and finishes it uses. The complete handoff. |
+| **Share → PDF** or **PowerPoint**, with **Re-openable in Lattice** on | A normal PDF or PowerPoint that also carries the deck. Anyone can view it; anyone with Lattice can import it and edit. |
+| **Share → Webpage (.html)** | The self-contained player, which always carries the deck. |
+| **Share → Markdown** | The source, and nothing else. |
+
+**Re-openable in Lattice is off by default**, because the deck it carries includes
+your speaker notes and any hidden slides. The switch is remembered per deck: turn it
+on for a deck you pass between collaborators, and leave it off for the board PDF you
+send outside. Review comments never ride in a PDF or PowerPoint this way. To pass
+comments along, send the `.lattice` file.
+
+A PDF or PowerPoint exported **without** the switch (or from before it existed) holds
+only pictures of the slides. Import says so and doesn't guess. Ask the sender for the
+`.lattice` file, or for a copy exported with the switch on.
+
 ## Deck setup (front matter without the YAML)
 
 The [Playground](/playground/)'s **Deck setup** drawer — the sliders button

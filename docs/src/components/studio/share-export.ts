@@ -21,6 +21,7 @@ import type { StudioComponent } from './component-library';
 import type { StudioFinish } from './finish-library';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { BakeVoice } from './read-aloud';
+import type { SlideComment } from './slide-comments';
 import type { OverflowMarker } from './studio-store';
 import type { StudioTheme } from './theme-library';
 
@@ -906,14 +907,30 @@ export async function shareMarkdown(options: SingleSlideOptions, source: string,
  *  so comments travel with the deck (re-import restores both). `now` is stamped by
  *  the caller (app code) into the manifest; the download name gets a `.lattice` ext. */
 export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number, packages?: DeckPackages): Promise<void> {
-	const [{ exportLatticeBlob }, { listComments }, pz] = await Promise.all([import('./lattice-file'), import('./slide-comments'), import('./package-zip')]);
-	const comments = deckId ? listComments(deckId) : [];
+	const { listComments } = await import('./slide-comments');
+	const blob = await latticeBlob(source, deckTitle, deckId ? listComments(deckId) : [], now, packages);
+	const { downloadBlob } = await import('./download');
+	downloadBlob(`${name}.lattice`, blob);
+}
+
+/** ONE builder for the `.lattice` zip — the project download and the copy a re-openable
+ *  PDF / PowerPoint carries — so the two can never disagree about what a deck is. */
+async function latticeBlob(source: string, deckTitle: string, comments: SlideComment[], now: number, packages?: DeckPackages): Promise<Blob> {
+	const [{ exportLatticeBlob }, pz] = await Promise.all([import('./lattice-file'), import('./package-zip')]);
 	// The user packages the deck uses ride inside the project file, as package folders, so
 	// it opens on a machine that has never seen this Library (portable-packages §4).
 	const pkgs = packages ? [...packages.themes.map(pz.themePackage), ...packages.components.map(pz.componentPackage), ...packages.finishes.map(pz.finishPackage)] : [];
-	const blob = await exportLatticeBlob(source, deckTitle, comments, now, pkgs);
-	const { downloadBlob } = await import('./download');
-	downloadBlob(`${name}.lattice`, blob);
+	return exportLatticeBlob(source, deckTitle, comments, now, pkgs);
+}
+
+/**
+ * The `.lattice` a re-openable PDF / PowerPoint carries (embedded-source.ts). Built from the
+ * author's SOURCE — not the export's artifact source, which has a finish and components baked
+ * in — so the recipient edits what the author wrote. COMMENTS ARE NEVER IN IT: an empty list
+ * is passed whatever the deck holds (2026-10-05-reopenable-exports.md).
+ */
+export async function embeddableLattice(source: string, deckTitle: string, now: number, packages?: DeckPackages): Promise<Uint8Array> {
+	return new Uint8Array(await (await latticeBlob(source, deckTitle, [], now, packages)).arrayBuffer());
 }
 
 /** The self-contained Marp ZIP bundle (renders anywhere). */
@@ -939,13 +956,14 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
  *  (PNG lossless / JPEG fast) is the Workspace › General preference. `annotations`
  *  (opt-in via the export panel) is the per-page comment sticky-note payload —
  *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
-export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][]): Promise<string | undefined> {
+export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][], embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
 	const { loadSettings } = await import('./studio-store');
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
 	// an image it could not load. The caller folds it into the toast; see ShareSheet.
-	return ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations });
+	// `embedSource` — the `.lattice` to carry when the author chose "Re-openable in Lattice".
+	return ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource });
 }
 
 /** PowerPoint (image-slides, full-bleed). Each image's alt text is the slide's
@@ -953,10 +971,10 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
  *  a screen reader nothing. `exportPptx` reads the description from the SAME rendered
  *  section it rasterizes, so the alt stays index-locked to its slide even on
  *  front-matter or auto-split (`split: headings`) decks — no source re-split here. */
-export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<string | undefined> {
+export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
-	return ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' });
+	return ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource });
 }
 
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
