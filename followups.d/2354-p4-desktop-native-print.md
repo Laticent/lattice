@@ -12,7 +12,11 @@ why now   — the Studio's vector print path is iframe.print() (deck-export.js ~
             already works on WebKitGTK (verified in #2354), so this is about VECTOR output.
 where     — docs/src/components/studio/export/deck-export.js; PrintOptionsPanel.tsx;
             a print seam in docs/src/lib/platform.js + lib.rs (WebKitGTK print operation).
-done when — Print deck on desktop yields a vector PDF with selectable text.
+            Also: WebKitGTK ignores `@page size` and prints on the dialog's paper, so on
+            Linux a 16:9 slide prints on A4/Letter with margins (every layout, older than
+            #2354). A native print operation can set the page size.
+done when — Print deck on desktop yields a vector PDF with selectable text, on the slide's
+            own page size on Linux too.
 evidence  — the PDF itself (pdffonts shows embedded fonts, text is selectable). This changes
             EXPORT BYTES, so it stops for the owner's sign-off with dark and light decks.
 verify    — maker-checker.

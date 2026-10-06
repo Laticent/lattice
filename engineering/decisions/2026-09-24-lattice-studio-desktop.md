@@ -62,7 +62,8 @@ It is the right call here for three reasons:
   would be a surface no spec reaches.
 
 A **seam** is a place where the Studio asks its host to do something only the OS can.
-Every seam's JavaScript half lives in `docs/src/lib/platform.js`, and its Rust half lives
+Every seam's JavaScript half lives in `docs/src/lib/platform.js` (or a sibling in
+`docs/src/lib/` when it must load lazily, as `sign-in.js` does), and its Rust half lives
 in `desktop/src-tauri/src/lib.rs`. A call site never branches on `isDesktop()` by itself;
 a second, private seam is the one the next port misses.
 
@@ -74,8 +75,11 @@ a second, private seam is the one the next port misses.
 | **Window frame** | n/a | Native decorations. A custom title bar is deferred (see below) | Shipped |
 | **Decks as files** | `localStorage` | Real `.md`/`.lattice` files: Save, Save As, a dirty mark, and opening from the file manager | Planned |
 | **AI key** | `localStorage` | The OS keychain (Secret Service on Linux), behind a main-frame-only check (see below) | Planned |
-| **OpenRouter sign-in** | Full-page redirect back to `location.href` | Loopback or deep-link callback; `tauri://` is not a valid return address | Planned |
+| **OpenRouter sign-in** | Full-page redirect back to `location.href` | `sign_in`: a separate app window shows OpenRouter's page; Rust stops it at the callback address, hands the URL back and closes it. JavaScript half: `docs/src/lib/sign-in.js`, loaded on the click | **Shipped here** |
+| **Leave the app** | Links navigate the tab | The main window never leaves the Studio: `on_navigation` allows only the app's own pages and sends http(s) and `mailto:` links to the default browser; new windows are refused the same way | **Shipped here** |
+| **Browser chrome** | The browser's own | WebView2's browser shortcuts are off, and both engines' right-click menus keep only the editing items (cut, copy, paste, select all, spelling) | **Shipped here** |
 | **Present audience window** | `window.open` + `getScreenDetails` (Chromium only) | A second native window placed with Tauri's monitor API | Planned |
+| **Print** | `iframe.print()` for every layout | Same: 1-up, 2-up, 4-up and Notes all print an HTML document through the hidden print frame | **Shipped here** |
 | **Vector print / PDF** | `iframe.print()` | Native print. `print_to_pdf` exists only in WebView2 | Planned |
 | **Light/dark** | `prefers-color-scheme` | Same query; confirm WebKitGTK follows the GTK theme on a real desktop | To verify |
 
@@ -213,8 +217,8 @@ the usual folders (`-CheckOnly` re-runs just those checks).
 > is there at all. [...] lets think about how we make the studio the focal point, leverage
 > edge for those things that need external website like authz/authn only.
 
-Decided with the owner the same day, for the next desktop PR (this one merges as the
-preview it is):
+Decided with the owner the same day. A first plan deferred it to the next PR; the owner
+asked for high confidence before merge instead, so all of it shipped in this one:
 
 | Leak | Decision |
 |---|---|
@@ -228,6 +232,50 @@ preview it is):
 
 Markdown import (finding 4) is a separate PR, because changing it changes exported bytes
 and needs the owner's export sign-off.
+
+### What shipped, and how it was checked
+
+- **Navigation.** `run()` builds the main window in Rust (`"create": false` in
+  `tauri.conf.json`) so it can attach `on_navigation` and `on_new_window`. Only `tauri://`,
+  `http(s)://tauri.localhost`, `about:`, `blob:`, `data:` and, in a debug build, the dev
+  server load in the main window. Anything else on http(s) or `mailto:` goes to the default
+  browser through `tauri-plugin-opener`, pinned to `~2.5` because 2.6 needs Tauri 2.12.
+- **Sign-in window.** `sign_in(url, callback)` opens a window labeled `sign-in`. Its
+  navigation handler stops the window at the callback (same origin and path, loopback only),
+  sends that URL down a one-shot channel and closes the window; closing it by hand returns
+  nothing and leaves the Connect button ready. One sign-in runs at a time: a second Connect click brings
+  the open window to the front. A provider's own popup (`window.open`) loads in the same
+  window instead of a bare engine window. The callback is
+  `http://localhost:3000/lattice-studio/oauth`, an address nothing serves: the window never
+  loads it.
+- **The engine stays hidden.** On Windows, `with_webview` turns off
+  `AreBrowserAcceleratorKeysEnabled` and filters `ContextMenuRequested`; on Linux,
+  WebKitGTK's `context-menu` signal does the same filtering. The Studio itself answers Ctrl+F
+  (its find bar, in the Markdown editor or Compose) and Ctrl+P (the Print deck panel).
+- **Find in Compose.** `compose-find.ts` is a ProseMirror plugin with the Markdown editor's
+  behavior: match case, whole word, regular expressions with `$1`, "n of m", replace one,
+  replace all in one undo step. Slides Compose has locked are searched but never edited, and
+  the bar says how many matches it skipped. Both editors render one bar, `find-bar.tsx`.
+- **Print.** `export/print-sheets.js` lays out the PDF's slide images on the same geometry
+  (`nUpCells`, `handoutRegions`) as an HTML page per sheet, and the panel prints it through
+  the hidden frame that 1-up already used.
+
+Checked on the installed Linux `.deb` (Xvfb, WebKitGTK): right-click shows no menu on the
+preview and only editing items in the editor; Ctrl+F from the preview opens the Studio's
+bar; Ctrl+P opens the Print deck panel; 2-up Print opens the GTK print dialog and Print to
+File wrote a 4-page PDF for an 8-slide deck; the mouse back button does nothing; Connect
+opens OpenRouter's page in a second window and closing it leaves the Studio as it was. A
+throwaway build whose sign-in URL redirected straight to the callback showed the full loop:
+the window opened, closed itself 0.6 s later and handed the code back, and the main window
+never moved. The e2e suite covers find in Compose (3 specs), N-up/Notes printing (2 specs,
+both failing on the old code) and Ctrl+P (1 spec). An independent checker reviewed the
+round; its fixes are in: one sign-in at a time, regex replacements that keep their
+lookaround context, unreachable images reported on Print, Cmd-not-Ctrl on a Mac. **The Windows halves (WebView2's shortcuts and menu, and the
+sign-in window on WebView2) are unverified until the owner's next Windows run.**
+
+One Linux caveat, older than this PR: WebKitGTK prints on the print dialog's paper and
+ignores `@page size`, so a 16:9 slide prints on A4 or Letter with margins. Chromium and
+WebView2 honor `@page size`. It is logged on the native-print follow-up.
 
 ## Corrections to the May note
 

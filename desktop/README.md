@@ -55,8 +55,8 @@ packages build, not that they boot.
 
 | Path | What |
 |---|---|
-| `src-tauri/src/lib.rs` | The Rust half of every seam, one command each (today: `save_file`) |
-| `docs/src/lib/platform.js` | The JavaScript half. Studio code calls this, never Tauri directly |
+| `src-tauri/src/lib.rs` | The Rust half of every seam, one command each (today: `save_file`, `sign_in`), plus the main window's navigation policy and the code that hides the engine's own shortcuts and menus |
+| `docs/src/lib/platform.js` | The JavaScript half. Studio code calls this, never Tauri directly. A seam that only a click reaches gets a sibling module that loads on demand (`docs/src/lib/sign-in.js`) |
 | `src-tauri/tauri.conf.json` | Window, bundle and identity (`com.laticent.studio`) |
 | `src-tauri/icons/` | Generated from `docs/public/icons/icon-512.png` (`npm run icons`) |
 
@@ -64,3 +64,7 @@ packages build, not that they boot.
 
 Everything inside the window is the Studio's own UI. Add Rust only for a job a web page
 cannot do, and add its JavaScript half to `docs/src/lib/platform.js` in the same change.
+
+The engine (WebKitGTK, WebView2) shows itself only where an outside website needs it:
+OpenRouter's sign-in, in its own window. The main window never navigates away from the
+Studio, and the engine's own find bar, print shortcut and right-click menu stay hidden.
