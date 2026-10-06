@@ -10,6 +10,10 @@
 // follow-ons. See engineering/decisions/2026-06-16-lattice-export-format.md and
 // 2026-07-04-comments-layer.md (comments travel in the `.lattice` manifest).
 
+// The WRITE half — manifest shape, part names, zip assembly — is shared with the CLI's
+// `--reopenable` export (lib/core/reopenable.js, HARD RULE #1), so a `.lattice` from either
+// tool is the same file. A DEFAULT import: it is a CommonJS leaf (vite-cjs-lib-dev.mjs).
+import reopenable from '../../../../lib/core/reopenable.js';
 import type { ParsedBundle } from './asset-bundle';
 import type { PackageFiles } from './package-zip';
 import type { SlideComment } from './slide-comments';
@@ -35,20 +39,13 @@ export type LatticeManifest = {
 	comments: SlideComment[];
 };
 
-export const LATTICE_VERSION = 1;
-const MANIFEST_FILE = 'manifest.json';
-const DECK_FILE = 'deck.md';
+export const LATTICE_VERSION: number = reopenable.LATTICE_VERSION;
+const MANIFEST_FILE: string = reopenable.LATTICE_MANIFEST_FILE;
+const DECK_FILE: string = reopenable.LATTICE_DECK_FILE;
 
 /** Build the manifest object for a deck (pure — `now` is injected, never read here). */
 export function buildLatticeManifest(title: string, comments: SlideComment[], now = 0): LatticeManifest {
-	return {
-		format: 'lattice',
-		version: LATTICE_VERSION,
-		title: String(title || 'Untitled deck'),
-		engine: 'lattice',
-		generatedAt: now,
-		comments: Array.isArray(comments) ? comments : [],
-	};
+	return reopenable.buildLatticeManifest(title, comments, now) as LatticeManifest;
 }
 
 /**
@@ -98,14 +95,11 @@ export function parseLatticeManifest(json: string): LatticeManifest {
  */
 export async function exportLatticeBlob(source: string, title: string, comments: SlideComment[], now = 0, packages: readonly PackageFiles[] = []): Promise<Blob> {
 	const { default: JSZip } = await import('jszip');
-	const zip = new JSZip();
-	zip.file(DECK_FILE, source);
-	zip.file(MANIFEST_FILE, `${JSON.stringify(buildLatticeManifest(title, comments, now), null, 2)}\n`);
-	for (const p of packages) for (const [f, text] of Object.entries(p.files)) zip.file(`${PACKAGES_DIR}${p.type}/${p.name}/${f}`, text);
-	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+	const bytes = await reopenable.buildLatticeZip(JSZip, { source, title, comments, now, packages });
+	return new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'application/zip' });
 }
 
-const PACKAGES_DIR = 'packages/';
+const PACKAGES_DIR: string = reopenable.LATTICE_PACKAGES_DIR;
 
 /** The result of reading a `.lattice`: the deck source + its manifest fields + the packages
  *  it carries (empty for a file written before packages rode along). */

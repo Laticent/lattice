@@ -110,6 +110,7 @@ npx lattice deck.md deck.html --player --no-player-motion
 npx lattice deck.md article.html --read                 # the deck as a web article
 npx lattice deck.md deck.html --fluid                   # phone-friendly viewer
 npx lattice deck.md deck.pdf --embed-source --strip-notes
+npx lattice deck.md deck.pptx --reopenable --strip-notes  # the Studio's Import deck reopens it
 
 # Images
 npx lattice deck.md slides.zip                                  # PNG + thumbnails + chart SVGs
@@ -199,7 +200,7 @@ npx lattice deck.md slides.zip --image-format webp --image-size 1x --no-svg
 - [ ] The render printed no `OVERFLOW`, placeholder or palette warning.
 - [ ] The output format matches what the recipient will do with it.
 - [ ] Anything that leaves the author's hands carries `--strip-notes`.
-- [ ] `--embed-source` appears only when someone asked for the source.
+- [ ] `--embed-source` / `--reopenable` appear only when someone asked for the source or an editable file.
 - [ ] You opened the result and looked at it.
 - [ ] You told the person which file is the deliverable, and whether the `.html`
       sidecar matters.

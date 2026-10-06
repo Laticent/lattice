@@ -111,8 +111,7 @@ An imported PDF or PPTX is a file from anyone.
 
 ## 6. Not done here (and why)
 
-- **CLI exports** (`lattice export --pdf/--pptx`) do not embed. The Studio is where people share
-  and re-open decks. The CLI is the build path. Recorded in `followups.d/`.
+- ~~**CLI exports** do not embed.~~ Done in §8: `--reopenable`.
 - **Drag a file onto the Studio** to import it: the user asked for the menu, and a drop target
   on the whole shell is its own UX question.
 - **A webpage export carries the artifact copy** of the source, with a saved finish's class
@@ -129,3 +128,57 @@ An imported PDF or PPTX is a file from anyone.
   stored source byte-for-byte. A plain PDF is refused.
 - Export sign-off (QUALITY BAR, export-bytes change): the owner inspects dark and light demo
   exports before merge.
+
+## 8. The CLI half: `--reopenable` (2026-10-06)
+
+The same deck was re-openable or not depending on which tool exported it. `lattice deck.md
+out.pdf --reopenable` (and `out.pptx`) now carries the same `.lattice`.
+
+**One kernel.** The write half moved out of the Studio into `lib/core/reopenable.js`: the part
+names, the manifest (`buildLatticeManifest`), the `.lattice` zip (`buildLatticeZip`), the PDF
+attach (`embedInPdfBytes`) and the PPTX repack (`embedInPptxBytes`). The Studio's
+`lattice-file.ts` and `embedded-source.ts` are now Blob adapters over it, and the CLI calls it
+directly (HARD RULE #1). It is a CommonJS leaf that takes pdf-lib and JSZip as arguments: the
+Studio bundles its own copies from `docs/node_modules`, and a `require` inside a `lib/` file
+would have shipped the root copy beside them. The READ half (extract, caps) stays in the Studio,
+the only reader.
+
+**What the CLI puts in it.**
+
+- *Source:* the file as read (BOM and CRLF normalized, as every CLI read is), before the Mermaid
+  pre-render and before `--size` / `--print` rewrite its front matter for the run. The recipient
+  edits the deck, not this export's settings. `--strip-notes` / `--strip-say` scrub it with the
+  same measured cut `--embed-source` uses (`attachableSource`, shared by both flags).
+- *Comments:* none, as in the Studio (§3.5).
+- *Packages:* the installed theme and the installed components this render used, read from the
+  package store as folders. The Studio's import gates them exactly as it gates a Studio
+  `.lattice`.
+- *Clock:* the manifest's `generatedAt` and every zip entry date come from the pinned PDF epoch
+  (`SOURCE_DATE_EPOCH`, else 1970, clamped to 1980 because a zip date cannot be earlier). So
+  an unchanged deck still re-renders to the same PDF bytes, the property
+  `lib/core/pdf-timestamps.js` exists for. Tested: two renders seconds apart write identical
+  files, and `SOURCE_DATE_EPOCH` sets the entry dates and `generatedAt`. (JSZip writes zip
+  dates in UTC, so the time zone never entered.)
+- *Known gap:* `-p` / `--palette` picks this render's theme without editing the deck. The
+  payload carries the deck as written, so a deck with no `theme:` line re-opens in the default
+  theme, not the one the PDF shows, even though an installed `-p` theme rides along as a
+  package. Same for `--size` / `--print`, deliberately. Put the theme in the deck's front matter
+  to make it travel.
+
+**Failure is loud.** `--embed-source` warns and writes the PDF without its attachment, because a
+provenance note must not cost the deck. `--reopenable` exits 1 and writes nothing instead: the
+author asked for a file someone can edit, and a plain one under that promise is found out by the
+recipient, too late. On `.png`, `.zip` and `.html` the flag is named in a warning, never
+dropped silently.
+
+**PPTX write.** `lib/export/pptx-export.js` calls `pptx.write({ outputType: 'nodebuffer' })`
+and writes the file itself, instead of `writeFile`, which is the same call followed by
+`fs.writeFile`. A plain export's bytes do not change shape; the payload is added before the file
+exists.
+
+**Verified on** the real CLI (`test/integration/export/reopenable.test.js`: source byte for
+byte, PDF and PPTX payloads identical, `--strip-notes` scrubs it, a pinned payload clock, an
+installed component rides along, `--strip-notes --strip-say` scrub a PPTX payload, a warning
+on `.png`) and in the real Studio
+(`docs/e2e/deck-import-roundtrip.spec.ts`: the CLI renders a PDF and a PPTX, the built Studio
+imports both through the deck switcher and stores the exact source).

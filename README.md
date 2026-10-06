@@ -206,6 +206,7 @@ Three more PDF delivery options:
 ```sh
 lattice deck.md deck.pdf --raster              # one full-page image per slide
 lattice deck.md deck.pdf --embed-source        # attach the .md inside the PDF
+lattice deck.md deck.pdf --reopenable          # carry a .lattice the Studio can import (also .pptx)
 lattice deck.md deck.pdf --keep-vector-images  # keep SVG images as vectors
 lattice deck.md deck.pdf --chrome-pdf          # print with Chrome instead of Lattice's writer
 ```
