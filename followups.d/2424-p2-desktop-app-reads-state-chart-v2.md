@@ -28,5 +28,10 @@ recorded: 2026-10-04
        blocked   — 2026-10-05: still unreachable. The session's GitHub account lists only
                    Laticent/lattice, and attaching the desktop repo was refused. The
                    owner, or a session started with that repository selected, can run it.
+                   2026-10-06: still unreachable. list_repos for this account shows only
+                   Laticent/lattice among Laticent's repositories, and add_repo for
+                   Laticent/laticent (the README's name for the app) was refused: no access.
+                   The README links no repository URL, so the repo's real name is also
+                   unknown here. Needs the owner: grant this account access, or name the repo.
        verify    — tier 1.
 ```
