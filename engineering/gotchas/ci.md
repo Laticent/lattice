@@ -499,3 +499,33 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   showed them red from the day each landed.
 - **So "is the nightly green again?" is not answerable from the run list.** Check #1705 for a
   comment on the SHA you care about; no comment for that night is the pass.
+
+## The `ci` check is green on a PR whose test tiers never ran
+
+- **Symptom:** the required `ci` check passes, and the run page shows `unit`, `integration`
+  and `docs-build` all `skipped` on a diff that touches `lib/` or `tools/`. The CI-green
+  beacon lists them under "skipped by the path filter"; nothing else says so.
+- **Cause:** every test tier `needs: changes`. When `changes` does not succeed, GitHub skips
+  its dependents, and the Verify gate read each `skipped` as "the path filter said no".
+  Seen when `changes` got no runner at all (`runner_id: 0` in the jobs API, no log, canceled
+  after 15-19 minutes queued): both attempts of #2524's PR run, and the queue groups for
+  #2525 and #2535, both of which merged with no test tier run.
+- **Now:** the `ci` job needs `changes` and fails unless it succeeded (2026-10-05).
+- **The same gate passed a `cancelled` tier in the merge queue.** It accepts `cancelled`
+  because `concurrency: cancel-in-progress` cancels a superseded PR run. A queue group runs
+  on its own `gh-readonly-queue/…` ref, so nothing supersedes it, and there `cancelled` is a
+  timeout or a hand cancel. In the 39 completed queue runs from 2026-09-29 to 2026-10-05,
+  11 merged with `integration` cut off at its 25-minute cap. The gate now fails a
+  `cancelled` tier when `github.event_name == 'merge_group'`; a PR run still passes one, and
+  the queue run is the backstop. `integration`'s cap went to 45 minutes in the same change,
+  because the suite had outgrown 25 (the numbers are in `ci.yml`'s timeout block).
+- **How to read a green `ci` you doubt:** list the run's jobs and look at `changes` first. A
+  `changes` that did not succeed means every `skipped` below it is unproven.
+- **What it costs:** a PR run superseded by a push while its `changes` is still queued now
+  goes red on the old SHA. With `changes` waiting 15-19 minutes for a runner, that window is
+  real. It brings back a little of the red-webhook noise
+  `decisions/2026-06-14-drift-watch-rebase-thrash.md` removed, and the gate cannot tell the
+  two apart: a supersession cancel and a no-runner cancel both read `cancelled`. It is
+  accepted because the alternative is a green check over no tests.
+- **Triggered by:** #2524 (`followups.d/2524-p1-ci-path-filter-skipped-tiers-on-rerun.md`).
+- **Removable when:** never; this documents the gate's contract.

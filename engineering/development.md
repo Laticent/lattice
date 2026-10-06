@@ -382,7 +382,11 @@ integration tests, not unit tests.
 - **`ci`** — the single gate job (`if: always()`). **Set this as the only
   required status check** in branch protection: it passes when lint
   succeeds and the test tiers passed or were skipped, so the conditional
-  jobs never leave a PR stuck on a pending required check.
+  jobs never leave a PR stuck on a pending required check. A skip counts
+  only when the path filter made it: the gate fails unless `changes`
+  succeeded, and in the merge queue it fails a `cancelled` tier, which
+  there means a timeout rather than a superseded run
+  (`engineering/gotchas/ci.md`).
 
 Integration runs once because the emulator/Puppeteer pipeline
 doesn't vary with Node version; matrix-testing the slow tier is paranoia,
@@ -395,7 +399,8 @@ this only `studio-smoke` had a cap. `npm ci` on node 24 wedges: **four times in 
 run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
 *cancelled* rather than finishing, against 16–19s for node 22 in those same runs. Six
 hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
-Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 · `golden-diff` 25 ·
+Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 45 (raised from 25 on
+2026-10-05; `ci.yml` has the re-sample) · `golden-diff` 25 ·
 `docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5.
 
 **A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on

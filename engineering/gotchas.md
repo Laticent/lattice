@@ -91,6 +91,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [An integration test that asks the export to BEAT a timer ejects PRs from the merge queue](gotchas/ci.md#an-integration-test-that-asks-the-export-to-beat-a-timer-ejects-prs-from-the-merge-queue)
 - [Every Dependabot PR in a directory is red, and `npm ci` blames a package none of them touched](gotchas/ci.md#every-dependabot-pr-in-a-directory-is-red-and-npm-ci-blames-a-package-none-of-them-touched)
 - [The Studio E2E nightly is GREEN while specs fail — the signal is issue #1705, not the badge](gotchas/ci.md#the-studio-e2e-nightly-is-green-while-specs-fail--the-signal-is-issue-1705-not-the-badge)
+- [The `ci` check is green on a PR whose test tiers never ran](gotchas/ci.md#the-ci-check-is-green-on-a-pr-whose-test-tiers-never-ran)
 
 ### [CSS](gotchas/css.md)
 
