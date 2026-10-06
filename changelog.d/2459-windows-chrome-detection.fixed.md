@@ -1,0 +1,1 @@
+- **A render on Windows no longer warns "No Chrome binary detected" before rendering with Chrome.** The browser lookup read only `HOME`, which Windows does not set, and knew no Windows build of puppeteer's Chrome. It now reads the user's home on every platform and finds `chrome-win64`.
