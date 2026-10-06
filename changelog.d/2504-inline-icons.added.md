@@ -1,6 +1,6 @@
 - **Inline icons**, as a plugin (`lib/plugins/icons/`, on by default). `^{database, c3, lg}` draws
   one of 265 curated icons (Tabler, MIT, plus two of ours) at the size of the text around it,
-  framed or bare, in the sparks' three looks, with the deck's chart colors; `{S3, icon=bucket, c4}`
+  framed by default or bare, in the sparks' three looks, with the deck's chart colors; `{S3, icon=bucket, c4}`
   leads a pill with one. An `icon:` front-matter register and `icon-*` slide classes set the frame,
   look and corners, axis by axis. No vendor logos: `lint:deck` coaches `^{s3}` to `^{bucket}`
   beside the service's name (`icon-literal`). The drawings load only for a deck that writes an

@@ -31,12 +31,12 @@ Written like a spark, colored by the deck, and never a font glyph or an emoji.
 
 <!-- _class: split-panel -->
 
-## Framed or bare: the default is yours to pick.
+## Framed by default, bare when a line needs it quiet.
 
-- Framed, the placeholder default
+- Framed, the default
   - Raw files land in `^{bucket, c4}` S3, a `^{function, c3}` Lambda reads each one, and `^{warehouse, c5}` Snowflake holds the model.
   - `{S3, icon=bucket, c4}` `{Lambda, icon=function, c3}` `{Snowflake, icon=warehouse, c5}`
-- Bare, the same words
+- Bare, the same words, on request
   - Raw files land in `^{bucket, c4, bare}` S3, a `^{function, c3, bare}` Lambda reads each one, and `^{warehouse, c5, bare}` Snowflake holds the model.
   - `{S3, icon=bucket, c4}` `{Lambda, icon=function, c3}` `{Snowflake, icon=warehouse, c5}`
 

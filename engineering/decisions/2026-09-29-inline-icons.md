@@ -16,9 +16,9 @@ summary: >
 
 # Icons — drawn, themed, and written like sparks
 
-**Date:** 2026-09-29, revised 2026-10-04 · **Status:** in progress — phase 1 (1a and 1b) is built; § 12
+**Date:** 2026-09-29, revised 2026-10-06 · **Status:** in progress — phase 1 (1a and 1b) is built; § 12
 says what landed and where it differs from the plan. The owner settled eight decisions in
-§ "Decided"; decision 7 (the default frame) waits on the owner's pick from the phase 1b renders.
+§ "Decided"; decision 7's pick from the phase 1b renders is `framed` (owner, 2026-10-06).
 **Follows:** `2026-09-28-inline-sparks.md` (the model this copies),
 `2026-09-28-segno-unified-inline-notation.md` (the notation this is written in),
 `2026-09-27-plugin-system.md` (the package and contribution model icons ship on, § 6a)
@@ -57,7 +57,7 @@ HARD RULE #29 already bars those for exactly this job.
 | 4 | **Design now, build on Segno.** This note lands first; the kernel and chart wiring land after Segno phase 2, so icons never need a codemod | owner |
 | 5 | **Icons are a full plugin**, `lib/plugins/icons/`: the syntax, renderer, styles and the Tabler data all live in the package, and the plugin host gains the three contribution points icons need (§ 6a) | owner, 2026-10-04, over a core feature with icon packs as plugins, and core now with a move later |
 | 6 | **Sparks and icons share Segno's record spelling.** `^{database, c3, lg}` and `~{12 14 17, bar, c3, lg}`: the sigil, then a record whose first item is the subject (a name, or the data) and whose other items are the shared option words. Sparks move in Segno phase 2's codemod, like every other grammar | owner, 2026-10-04, over colon style for both and records for icons only |
-| 7 | **The default look is chosen on renders.** Phase 1b renders framed and bare side by side, in prose, tables, pills and charts, in dark and light, and the owner picks from the images | owner, 2026-10-04 |
+| 7 | **The default look is chosen on renders.** Phase 1b renders framed and bare side by side, in prose, tables, pills and charts, in dark and light, and the owner picks from the images. **Picked: `framed`**, from the light and dark renders of `examples/inline-icons.md` | owner, 2026-10-04; picked 2026-10-06 |
 | 8 | **No short form.** `^{database}` already IS the unconfigured icon at its default look; a brace-less `^database` would only be a second spelling to learn and lint | owner, 2026-10-04 |
 
 ## 3. Which icon set, measured
@@ -378,9 +378,9 @@ Each has a recommendation; none blocks this note.
 1. **Where an icon sits in a chart node: before the text or above it.** Recommendation: before it in
    `lr` flowcharts and state charts, where nodes are short and wide, and above it in `tb` and in
    hub-spoke, where nodes are closer to square. The layout picks; the author does not.
-2. **The default frame** — settled as a method, not a value: decision 7. Phase 1b renders `framed`
-   and `bare` side by side and the owner picks. Until then § 6's table shows `framed`, the sparks'
-   default, as a placeholder.
+2. **The default frame** — settled as a method, not a value: decision 7. Phase 1b rendered `framed`
+   and `bare` side by side and the owner picked `framed` (2026-10-06), the sparks' default too, so
+   § 6's table stands as written.
 3. **Service-name coaching coverage.** How many service names § 4's lint table starts with.
    Recommendation: the three largest providers' 20 most-used compute, storage, data and network
    services each, about 60 rows, grown when an author trips on a missing one.
@@ -439,8 +439,10 @@ parameter on the core pill slot; an icon-only pill names itself (`role="img"`).
   `unknown-spark`). A pill's unknown `icon=` is `pill-literal`, with the same coaching.
 - On a raw Marp preview (no Lattice engine), an icon stays code unless the page has loaded
   `lattice-plugin-icons.js`; the runtime host does not fetch it yet. Recorded in `followups.d/`.
-- Decision 7 is open: the demo deck (`examples/inline-icons.md`) renders framed and bare side by side
-  in prose and pills, and § 6's `framed` stays the default until the owner picks.
+- Decision 7 is settled: the owner looked at the demo deck (`examples/inline-icons.md`, framed and bare
+  side by side in prose and pills, light and dark), signed off the export, and picked `framed`
+  (2026-10-06). It was already the base rule and the `icon:` register's first `frame` word, so no
+  rule changed.
 
 Phase 2 (charts) and phase 3 (the Studio) follow, as § 10 planned.
 
