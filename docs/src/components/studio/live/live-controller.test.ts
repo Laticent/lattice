@@ -301,4 +301,56 @@ describe('LiveController (second-round trio)', () => {
 		await settle(h, g);
 		expect(h.view().chat.filter((l) => l.kind === 'message' && l.text === 'once')).toHaveLength(1);
 	});
+
+	it('a host that came back from a save a second old never hands a number out twice', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		h.actions.sendChat('one');
+		g.actions.sendChat('two');
+		const texts = (c: Ctl) => c.view().chat.flatMap((l) => (l.kind === 'message' && !l.pending ? [l.text] : []));
+		await until(() => texts(g).length === 2 && texts(h).length === 2, h, g);
+		// The host's restored state: the save missed line 2.
+		// biome-ignore lint/suspicious/noExplicitAny: the test sets the host's private chat state.
+		const hp = h as any;
+		hp.chat = hp.chat.filter((l: { seq: number }) => l.seq === 1);
+		hp.seq = 1;
+		// The guest tells the host what it holds (as it does on every re-admission).
+		// biome-ignore lint/suspicious/noExplicitAny: drive the guest's catch-up directly.
+		(g as any).catchUp();
+		await settle(h, g);
+		g.actions.sendChat('three');
+		await until(() => texts(g).includes('three'), h, g);
+		expect(texts(g)).toEqual(['one', 'two', 'three']);
+		expect(g.view().chat.some((l) => l.kind === 'message' && l.pending)).toBe(false);
+		// Numbered 3, not 2 again: the host took the guest's higher number as its floor.
+		expect(g.view().chat.find((l) => l.kind === 'message' && l.text === 'three')?.id).toBe('c3');
+	});
+
+	it("nobody can claim another member's next line id and swallow it", async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		// biome-ignore lint/suspicious/noExplicitAny: read Amina's session id, as any member can from an echoed line.
+		const sid = (a as any).rt.sid as string;
+		// biome-ignore lint/suspicious/noExplicitAny: Bo posts under Amina's next id.
+		const bp = b as any;
+		bp.post({ k: 'say', id: `${sid}:1`, text: 'squat' }, bp.hostId());
+		await settle(h, a, b);
+		a.actions.sendChat('real line');
+		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'real line'), h, a, b);
+		await until(() => !a.view().chat.some((l) => l.kind === 'message' && l.pending), h, a, b);
+	});
+
+	it('made view-only with a line waiting: the line is dropped with a note, not stuck on "Sending…"', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// A line the host has not taken yet (as if sent while it was away).
+		// biome-ignore lint/suspicious/noExplicitAny: seed the guest's waiting line directly.
+		(g as any).pending = [{ id: 'w:1', text: 'waiting', at: Date.now() }];
+		const amina = h.view().people.find((p) => p.name === 'Amina');
+		if (amina) h.actions.setRole(amina.id, 'view');
+		await until(() => g.view().chat.some((l) => l.kind === 'system' && l.text.includes('unsent messages were not sent')), h, g);
+		expect(g.view().chat.some((l) => l.kind === 'message' && l.pending)).toBe(false);
+	});
+
 });

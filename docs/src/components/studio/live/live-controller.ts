@@ -106,6 +106,8 @@ const AWAY_GRACE_MS = 60_000;
 /** A "typing" post counts for this long; the typist re-sends at most every TYPING_POST_MS. */
 const TYPING_SHOW_MS = 4000;
 const TYPING_POST_MS = 2000;
+/** sessionStorage: a member's lines still waiting for the host, sealed, so a reload keeps them. */
+const PENDING_KEY = 'lattice-live-pending';
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 || c === 4;
@@ -400,8 +402,15 @@ export class LiveController {
 			return;
 		}
 		const token = (await unseal(readLinks()[parts.room]?.token).catch(() => null)) ?? undefined;
+		let waiting: Pending[] = [];
+		try {
+			const saved = JSON.parse((await unseal(sessionStorage.getItem(PENDING_KEY)).catch(() => null)) ?? 'null') as { room?: string; pending?: Pending[] } | null;
+			if (saved?.room === parts.room && Array.isArray(saved.pending)) waiting = saved.pending.filter((p) => typeof p?.id === 'string' && typeof p.text === 'string' && typeof p.at === 'number').slice(0, 50);
+		} catch {}
 		if (this.rt) return;
 		this.wire({ room: parts.room, secret: parts.secret, hostFingerprint: parts.host, token });
+		// Lines that were waiting when this tab reloaded go out on admission (catchUp).
+		this.pending = waiting;
 		this.host.rerender();
 	}
 
@@ -533,6 +542,11 @@ export class LiveController {
 						if (was && was.role !== m.role) this.sys(`${m.name} ${m.role === 'view' ? 'can now only view' : 'can now edit'}`);
 					}
 				}
+				// Made view-only with lines still waiting: they can no longer be sent. Say so once.
+				if (!s.isHost && prev.me && prev.me.role !== 'view' && s.me?.role === 'view' && this.pending.length) {
+					this.setPending([]);
+					this.sys('You can now only view, so your unsent messages were not sent.');
+				}
 				// The host is back (its link returned): catch up, and send what waited.
 				if (!s.isHost && s.stage === 'live' && prev.hostAway && !s.hostAway) this.catchUp();
 				if (s.token && s.token !== prev.token) {
@@ -616,6 +630,9 @@ export class LiveController {
 		this.byes.clear();
 		this.typingAt.clear();
 		this.pending = [];
+		try {
+			sessionStorage.removeItem(PENDING_KEY);
+		} catch {}
 		this.seq = 0;
 		this.hostStartedAt = null;
 		this.following = null;
@@ -830,7 +847,7 @@ export class LiveController {
 				if (first && !this.bound) return;
 				const myEdit = (r.aw.getLocalState() as AwState | null)?.editingAt ?? 0;
 				const slide = summon.slide;
-				if (Date.now() - myEdit < TYPING_MS) this.host.notifyAction(`The host is on slide ${slide + 1}`, { label: 'Go', onClick: () => this.host.goToSlide(slide) });
+				if (r.session.now() - myEdit < TYPING_MS) this.host.notifyAction(`The host is on slide ${slide + 1}`, { label: 'Go', onClick: () => this.host.goToSlide(slide) });
 				else {
 					this.host.goToSlide(slide);
 					this.host.notify(`The host brought everyone to slide ${slide + 1}.`);
@@ -899,17 +916,46 @@ export class LiveController {
 		return [...out, ...notes.slice(i), ...waiting];
 	}
 
-	/** Take numbered lines in (from the host, or the host's own), in order, once each. */
+	/** Take numbered lines in (from the host, or the host's own), in order, once each. A line is
+	 *  the same line only when its number, sender and id all match: a host that reloaded from a save
+	 *  a second old can hand out a number again, and the second line must not be taken for a copy of
+	 *  the first (checker, 2026-10-06). */
 	private addLines(lines: ChatLine[]) {
-		const have = new Set(this.chat.map((l) => l.seq));
-		const fresh = lines.filter((l) => !have.has(l.seq));
+		const key = (l: ChatLine) => `${l.seq}|${l.peer}|${l.id}`;
+		const have = new Set(this.chat.map(key));
+		const fresh = lines.filter((l) => !have.has(key(l)));
 		if (!fresh.length) return;
-		this.chat = [...this.chat, ...fresh].sort((a, b) => a.seq - b.seq).slice(-CHAT_KEEP);
+		this.chat = [...this.chat, ...fresh].sort((a, b) => a.seq - b.seq || a.at - b.at).slice(-CHAT_KEEP);
 		this.seq = Math.max(this.seq, ...fresh.map((l) => l.seq));
-		const echoed = new Set(fresh.map((l) => l.id));
-		this.pending = this.pending.filter((p) => !echoed.has(p.id));
+		// Only a line WE sent is our receipt: another member cannot clear our "Sending…" with our id.
+		const self = this.rt?.session.getState().selfId;
+		const echoed = new Set(fresh.filter((l) => l.peer === self).map((l) => l.id));
+		if (echoed.size) this.setPending(this.pending.filter((p) => !echoed.has(p.id)));
 		this.saveHostSoon();
 		this.host.rerender();
+	}
+
+	/** Member: the lines waiting for the host, kept SEALED in this tab's sessionStorage so a reload
+	 *  does not drop them (checker, 2026-10-06). */
+	private setPending(next: Pending[]) {
+		this.pending = next;
+		const r = this.rt;
+		if (!r) return;
+		if (next.length === 0) {
+			try {
+				sessionStorage.removeItem(PENDING_KEY);
+			} catch {}
+			return;
+		}
+		void seal(JSON.stringify({ room: r.room, pending: next })).then(
+			(sealed) => {
+				if (this.rt !== r || this.pending !== next) return;
+				try {
+					sessionStorage.setItem(PENDING_KEY, sealed);
+				} catch {}
+			},
+			() => {},
+		);
 	}
 
 	private post(p: Post, to?: string) {
@@ -932,10 +978,14 @@ export class LiveController {
 	/** Host: number a line, keep it, and send it to everyone (the sender's copy is its receipt). */
 	private hostTake(id: string, peer: string, member: { name: string; color: LiveColor }, text: string) {
 		const r = this.rt;
-		if (!r || this.chat.some((l) => l.id === id)) return; // a resent line already taken
+		// A resend of a line already taken — the same SENDER and id. Keyed by sender, so nobody can
+		// claim another member's next id first and swallow their line (checker, 2026-10-06).
+		if (!r || this.chat.some((l) => l.peer === peer && l.id === id)) return;
 		const line: ChatLine = { seq: this.seq + 1, id, peer, name: member.name, color: member.color, text: text.slice(0, CHAT_MAX), at: r.session.now() };
 		this.addLines([line]);
 		this.post({ k: 'line', line });
+		// Seal now, not a second later: a reload restores the numbering from this save.
+		void this.saveHost();
 	}
 
 	/** A post from an admitted member (Tavola dropped everyone else's). */
@@ -962,6 +1012,9 @@ export class LiveController {
 				this.typingAt.delete(from);
 				this.hostTake(p.id, from, sender, p.text);
 			} else if (p.k === 'since' && Number.isSafeInteger(p.seq)) {
+				// A member holding a number past ours means our save was older than the session (a
+				// reload): never hand those numbers out again. Bounded, so nobody can push it far.
+				if (p.seq > this.seq) this.seq = Math.min(p.seq, this.seq + CHAT_KEEP);
 				this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt }, from);
 			}
 		} else if (fromHost) {
@@ -1119,7 +1172,7 @@ export class LiveController {
 				return;
 			}
 			// Shown at once as "Sending…"; the host's echo replaces it. If the host is away, it waits.
-			this.pending = [...this.pending, { id, text: line, at: r.session.now() }];
+			this.setPending([...this.pending, { id, text: line, at: r.session.now() }]);
 			this.host.rerender();
 			const host = this.hostId();
 			if (host && !s.hostAway) this.post({ k: 'say', id, text: line }, host);

@@ -21,7 +21,8 @@
 // THE SESSION CLOCK is the host's. Device clocks drift apart by seconds, sometimes minutes, so a
 // session never compares two of them: every member estimates its offset to the host's clock by
 // Cristian's algorithm — send `ping`, the host answers its time, offset = host time + half the
-// round trip − our time — keeping the sample with the SHORTEST round trip (the tightest bound),
+// round trip − our time — keeping, of the last five samples, the one with the SHORTEST round trip
+// (the tightest bound),
 // and `now()` returns host time on every browser. Time zones never enter: the value is epoch ms;
 // each viewer formats it in its own zone.
 //
@@ -181,7 +182,9 @@ export function createSession(opts: SessionOptions): Session {
 	const bump = (id: PeerId) => epoch.set(id, (epoch.get(id) ?? 0) + 1);
 	/** Member: offset from our clock to the host's, from the tightest ping so far. */
 	let clockOffset = 0;
-	let bestRtt = Number.POSITIVE_INFINITY;
+	/** The last few samples; the offset is the one with the shortest round trip among them. A window,
+	 *  not one best-ever sample, so a lucky early sample cannot pin the clock for good. */
+	let samples: Array<{ rtt: number; offset: number }> = [];
 	let pingN = 0;
 	const pingsOut = new Map<number, number>();
 	let pingTimer: unknown = null;
@@ -195,7 +198,7 @@ export function createSession(opts: SessionOptions): Session {
 	/** Three quick samples now, then one every CLOCK_RESYNC_MS. A new host link starts afresh:
 	 *  the old best sample was taken over a route that is gone. */
 	const startClock = () => {
-		bestRtt = Number.POSITIVE_INFINITY;
+		samples = [];
 		if (pingTimer !== null) clock.clearTimeout(pingTimer);
 		let quick = 3;
 		const tick = () => {
@@ -210,9 +213,9 @@ export function createSession(opts: SessionOptions): Session {
 		pingsOut.delete(msg.n);
 		const got = clock.now();
 		const rtt = got - sent;
-		if (rtt < 0 || rtt > bestRtt) return;
-		bestRtt = rtt;
-		clockOffset = msg.at + rtt / 2 - got;
+		if (rtt < 0) return;
+		samples = [...samples, { rtt, offset: msg.at + rtt / 2 - got }].slice(-5);
+		clockOffset = samples.reduce((a, b) => (b.rtt < a.rtt ? b : a)).offset;
 	};
 	/** Host: hellos being signed. */
 	const signing = new Set<Promise<unknown>>();
