@@ -5,12 +5,13 @@ companion:
   - ./2026-06-14-yjs-collaboration-exploration.md
   - ./2026-06-15-webrtc-av-collaboration.md
   - ./2026-07-04-comments-layer.md
+  - ./2026-10-06-live-collaboration-roadmap.md
 ---
 
 # Live collaboration in the Studio — share a link, and you are in
 
 **Date:** 2026-10-06
-**Status:** In progress. S1 (Tavola) and S2 (live sessions in the Studio) are built on PR #2547 and hardened by an adversarial review; §12 records what shipped and how it was verified. S3 onward are not started.
+**Status:** In progress. S1 (Tavola) and S2 (live sessions in the Studio) are built on PR #2547 and hardened by three rounds of adversarial review; §12 records what shipped and how it was verified, §13 what it is built from. S3 onward are not started; the road ahead is in `2026-10-06-live-collaboration-roadmap.md`.
 **Decision owner:** Sharmarke
 **Surfaces:** `docs/src/components/studio/` — `StudioShell.tsx`, `chrome-parts.tsx`
 (`ActivityRail`), `Editor.tsx`, `studio-panels.ts`, `panel-shells.tsx`,
@@ -694,3 +695,38 @@ narrower windows of the same host-id squat; each now has a test that fails witho
   misdirects-taps.md` covers the other sheets).
 - UNVERIFIED: two real devices on two networks, iOS Safari, and anything about calls.
 
+
+## 13. Implementation reference — what it is built from, and why
+
+The road ahead (voice and video, a server path, firewalls, screen share, the open decisions) is
+in the companion proposal, `2026-10-06-live-collaboration-roadmap.md`.
+
+**How it works, in one paragraph.** Start makes a signing key and a random link: room, secret, and
+a fingerprint of the host's key, all after the `#`, which browsers never send to a server. A
+guest's browser finds the host through public Nostr relays; the two exchange connection offers
+the secret encrypts, then talk directly over WebRTC. The host proves who it is by signing a
+hello with the key the link names. The guest knocks; the host admits. Deck edits go browser to
+browser as Yjs updates; chat goes through the host, which numbers each line; the host's clock is
+the session clock. No Lattice server is involved.
+
+**Libraries.**
+
+| Library | Role | Why this one |
+|---|---|---|
+| Trystero 0.26.0 | Peer discovery over Nostr relays, then WebRTC connections | No server and no cost; pinned exactly, since 0.26 changed its API |
+| Yjs 13.6 | The shared deck text, as a CRDT (edits merge automatically, even concurrent or offline ones) | The standard for collaborative editing |
+| y-protocols (awareness) | Carets and who is on which slide | Yjs's own presence channel |
+| y-codemirror.next 0.3 | Binds Yjs to the editor; per-person undo | The official binding |
+| lib0 | Yjs's binary encoding | Required by Yjs |
+| Tavola (ours) | Knock and admit, the roster gate, rejoin tokens, the cap, the session clock, the post channel | What no library does; the transport plugs in |
+
+Built into the browser: WebCrypto, IndexedDB, Web Locks.
+
+**Standards.**
+- **WebRTC:** ICE and STUN find a path, DTLS encrypts every connection, SCTP data channels carry
+  the data. STUN servers: Google's and Cloudflare's public ones (Trystero's default).
+- **Nostr** relays (NIP-01) carry only the encrypted connection offers.
+- **WebCrypto:** ECDSA P-256 signs the host's hello; SHA-256 fingerprints the host key into the
+  link; AES-GCM, with a non-extractable key in IndexedDB, seals secrets at rest.
+- **URL fragment** (RFC 3986): the part after `#` never leaves the browser.
+- **Cristian's algorithm** for the session clock; **YATA**, the CRDT algorithm inside Yjs.
