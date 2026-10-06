@@ -1006,3 +1006,113 @@ loss on the talk itself: glossary slide 76 at conference, whose term `Tautologic
 the term column, which the rig's one-word terms never test. The talk's three remaining false
 warnings are gone. `gallery.md` keeps its three at conference and one at huddle, and bloom its one
 premise slide at huddle, all false on `main` too.
+
+## Amendment 2026-10-06 (9) — compare-prose and cycle are judged by lines, and glossary on the strict basis
+
+**Lint now catches 3 more clips at huddle, 14 at conference and 5 at hall on the five scored decks,
+with no new false warning.** Scored by `tools/score-venue-lint.js` on the same five decks as
+Amendment (8) (the talk from `claude/agentic-practices-talk-tl7qum` bbaf27b, `gallery.md`, bloom,
+seven-steps, kaizen), each forced to each venue. Right, false and missed, on `main` df6e3f5 and on
+this change:
+
+| venue | before | after |
+|---|---|---|
+| huddle | 25 / 1 / 23 | 28 / 1 / 20 |
+| conference | 61 / 3 / 55 | 75 / 3 / 41 |
+| hall | 114 / 0 / 50 | 119 / 0 / 45 |
+
+(Amendment (8) quoted huddle 25 / 2 / 23 on 4ce0d29; `main` has moved since, and df6e3f5 has one
+false warning fewer there.)
+
+**What changed, each with its measured cause.**
+
+1. **`compare-prose` has line geometry.** Its two cards are a title over a body, and its count row
+   could not see either: two cards at 20 words "hold 3 at conference", so no two-card slide was
+   ever warned, and 21 of them clipped across the venues. `calibrate-capacity compare-prose --rows`
+   measures it as a one-row register (`cols: 0`, the list-steps shape, at two cards). Three things
+   the rig found:
+   - **The title is a corner tag, and it costs no height.** The transform wraps the card's lead in
+     `<strong>`, which `base.card-tag.css` draws as an uppercase label placed absolutely in the one
+     tag line the card's top padding reserves. A 24-word title wraps to five tag lines and moves the
+     body not at all. The first measurement counted those lines at the item's line height and read
+     a budget that grew with the venue (1,606 px at laptop to 2,150 at hall). The register now
+     stores `tag: 1` and no `title`, and lint charges the lead nothing.
+   - **Five registers are one geometry.** `bare`, `transition`, `mirror`, `chosen` and
+     `mirror chosen` measure the same; `decision` has a narrower body; `vertical` and
+     `chosen vertical` are one column with a row cost. `build-stage-catalog.js` now bakes a register
+     measured the same as an earlier one as that one's key (`"chosen": ""`), and `rowsAt` follows
+     the string. `banner-tag`, `rejected` and `axis` are not measured and keep their count rows.
+   - **A closing note is a role.** Six of `gallery.md`'s compare-prose slides close on a paragraph
+     under the cards (`:is(ul, ol) + p`), which the line model treated as a slide it does not
+     describe. The rig measures the note's line geometry and its block cost (24 to 25 px; the table
+     bakes 25, the largest).
+     It reads that cost with the export's own `probeSectionOverflow`: under the squeezed cards the
+     stage's scroll height takes the larger of the cards' overflow and the note's bottom, where the
+     export measures the cards against the note's top, which is the sum the model adds.
+     `rowsAt` reads one paragraph after the list; a second paragraph or more items after it is a
+     slide the model does not describe.
+2. **`cycle` has line geometry, and its budget gives back the mark's overhang.** The ring is one row
+   of stages, measured at two to five (at six a hall column is narrower than the probe's longest
+   word, so a six-stage ring keeps its count row). An overflowing probe hid two costs:
+   - **The ring's bottom.** The probe's text runs out of its card, so the card's bottom padding,
+     the arc band the ring reserves (`padding-bottom: --sp-xl`) and the ↻ mark sat inside the text's
+     overflow. The rig now lets the list grow to its content before it measures (`GROW`), which
+     lowered the budget from 1,373 px to about 1,120.
+   - **The centering.** The stage centers the ring (`justify-content: safe center`), and the mark
+     hangs half its height (53 px at huddle) below it. So on a slide near the edge the export flags
+     the ring once `overhang − (stage − ring) / 2` passes the 12 px tolerance: the ring overflows at
+     half the slope the grown probe sees. The budget gives back `overhang − tolerance` (41 px at
+     huddle, 48 at conference). The model then agrees with every rendered cycle on the five decks:
+     talk slide 3 clips at huddle by 12 px with four short stages and reads 0.6% over.
+   cycle is measured unordered only (`ul: 1`): its styles target `ul > li`, so a `1.` ring renders
+   as a plain list and keeps its count row.
+3. **`compare-prose` is not grown.** Its stage does not center, and its card's bottom padding is
+   squeezable: the export flags nothing until text leaves the card. Grown, the budget fell 50 px
+   and warned on kaizen slide 10 at huddle, which sits 25 px into that padding and renders whole.
+4. **`glossary` under an eyebrow reads a strict row on a 4k deck.** The talk's glossary slides 75
+   and 76 set every definition on one line and still clip at conference, by 16 px. Amendment (8)
+   put the cause in the term column, a two-word term the rig's one-word terms never test. The term
+   does not wrap (`white-space: nowrap`); measured, a longer term narrows the definition column by
+   about one character per character, which no scored slide reaches. The clip is the deck size.
+   The rows were measured on the 720-high deck, where the export forgives 12 layout px, which is
+   36 px of a 2160-high slide. The talk is a 4k deck, where it forgives 12, and the rig's own six
+   terms under that eyebrow and heading overflow there by the same 16 px. Measured at `--size 4k`,
+   with an eyebrow conference holds 5 (6 on the 720-high deck) up to 12 words, and huddle 3 (4) at
+   14 and 16 words. Hall does not move. That row is stored as `eyebrow.strict` and read only on a
+   deck whose tolerance is that strict (`lineSlack` 0): a first cut replaced the eyebrow row
+   outright, and the checker rendered six one-line terms on a 720-high deck at conference that fit
+   (21 px over, against 36) and were warned. Only 19 of the 348 committed decks are 4k. Bare, huddle
+   also measures 7 on a 4k deck (stored 8) up to 13 words. That row stays as it is:
+   `lib/core/glossary-auto.mjs` mirrors it to paginate `glossary: auto`, so moving it re-pages such
+   exports, which waits for the owner's sign-off
+   (followups.d/2361-p3-glossary-bare-huddle-strict-basis.md). No scored slide needs it.
+5. **A stacked `compare-prose` with a note keeps its count row.** The checker rendered a
+   `vertical` slide with a closing note that clips at conference by 62 px and that `main` warned
+   on. With the note geometry copied from the side-by-side registers, the line model read it 1%
+   under: stacked, the note costs about 238 px where the model charges about 168. The rig now
+   measures the note on the one-row registers only, so a `vertical` slide with a note is not
+   described and keeps its count row.
+
+**Out of sample.** `node tools/score-venue-lint.js --sweep origin/main` lints all 348 committed
+examples, component galleries and baseline decks on both trees and renders every changed verdict:
+23 new catches, 0 new false warnings, 1 false warning gone (`compare-prose.gallery.md` slide 7 at
+conference), 0 lost catches, and no change at a deck's own size. Twelve of the 23 are in the
+scored five (`gallery.md` 9, kaizen 3); the other 11 are `system-design-foundations` (5),
+`contrast-floor-dimming` (2), `cycle` (2), `drawn-not-typed` and `shared-deck-voice`. The glossary
+rows moved no committed deck's verdict. The independent checker reproduced both tables and the
+sweep, and its two must-fixes (items 4 and 5 above) came from slides it wrote to probe the edges,
+not from the committed decks: a sweep over committed decks cannot see a register no deck uses. Its
+three untested branches (the note guard that stops a crash on a cycle with a trailing paragraph,
+the note's block cost, items straight after a note) each have a test now that fails without them.
+
+**Bundle.** The Studio's eager JS grows by 551 bytes gz against `main` df6e3f5, measured the way
+CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:route-budget`); no other
+route moves. The geometry is most of it. Given back first: the five compare-prose registers that
+measure the same are baked as one register's key, and the tag title stores no geometry. Declared in
+`docs/route-budget.d/2361-venue-lint-lines-2.md`.
+
+**Still missed, by component, on the five decks** (at all three venues): split-panel 16,
+list-steps 10, compare-prose 6 (bloom's `axis` slide at every venue, which is not measured;
+`gallery.md` 63, a `transition` slide whose code-span subtitle sits under the heading; `gallery.md`
+12 at conference, which the model reads 4% under), roadmap, list-tabular, image and content 5 each,
+table and matrix-2x2 4. cycle and glossary miss nothing.
