@@ -188,7 +188,7 @@ export async function importedThemeNames(css) {
  * @param {string} palette theme name
  * @param {string} themeBase hashed `…/playground/v/<hash>/themes/` URL
  * @param {{includeAgent?: boolean, version?: string,
- *          overflowMarker?: 'author'|'reader'|'off',
+ *          overflowMarker?: 'author'|'reader'|'off', pluginsOff?: string[],
  *          extraTheme?: {name: string, css: string},
  *          components?: Array<{name: string, css: string}>}} [opts]
  *   `overflowMarker` is the EXPORT setting (lib/core/resolve-overflow-marker.js) —
@@ -200,11 +200,11 @@ export async function importedThemeNames(css) {
  *   bundle writes its CSS directly. `components` are the saved components the deck
  *   uses, embedded as `<style>` blocks exactly as the Markdown export embeds them.
  */
-export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [] } = {}) {
+export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [], pluginsOff = [] } = {}) {
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -239,7 +239,9 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
 			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(source, components)))), undefined),
-			{ localAssets: false, overflowMarker },
+			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
+			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
+			{ localAssets: false, overflowMarker, pluginsOff },
 		),
 	);
 
@@ -345,7 +347,8 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 
 	// generated text files (the shared bundle spec).
 	const themesList = ['lattice.css', ...bundledThemes];
-	dir.file('marp.config.cjs', MARP_CONFIG_CJS);
+	// Marp typesets math itself; with the math plugin off for this deck, its config turns that off too.
+	dir.file('marp.config.cjs', marpConfigCjs({ math: !pluginsOff.includes('math') }));
 	dir.file('package.json', `${JSON.stringify(packageJson(slug), null, 2)}\n`);
 	dir.file('.vscode/settings.json', vscodeSettings(themesList));
 	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk }));

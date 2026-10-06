@@ -7,6 +7,7 @@ import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/l
 import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
+import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, type CompletionVocab, type InlineNext, makeStudioCompletion, registerValueLists } from './editor-complete';
@@ -438,7 +439,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					}
 					let findings: Array<{ autofixable?: boolean }>;
 					try {
-						findings = core.lintTextWith(view.state.doc.toString(), vocabSets);
+						const doc = view.state.doc.toString();
+						// Under a host that narrowed its plugin set, parse as the engine does (math off →
+						// a `---` inside `$$` is a slide break here too). A no-op on the default set.
+						followDeckAdmission(doc);
+						findings = core.lintTextWith(doc, vocabSets);
 					} catch {
 						// The lint threw, so this pass knows NOTHING. Say so rather than reporting
 						// zero, which would read as "clean" and disable Fix all over a real issue.

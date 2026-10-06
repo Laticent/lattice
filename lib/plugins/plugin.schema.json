@@ -75,6 +75,14 @@
           "const": true,
           "description": "`<name>.highlight.js` exports `highlight(hljs)`, a highlight.js language definition. The host registers it on the engine's highlight.js under each of the plugin's code fences (`as: \"code\"`), so the source a fence shows before it is drawn — or when it cannot be — is syntax-colored. Requires at least one code fence."
         },
+        "extensionPoints": {
+          "type": "object",
+          "description": "Slots this plugin OFFERS and components FILL — the chart family's `kernel`. Keyed by the SLOT name, the plugin's own. A component fills a slot by declaring the slot's BLOCK in its manifest (`block`, default the slot name: a chart's `\"kernel\": { … }`), an object-typed block the component manifest schema already defines; one plugin reads a block. In api 1 a slot is filled only by IN-TREE COMPONENTS, with code: every component in `bucket` that declares the block fills it, and its `<component>.<role>.js` exports `entry`, called with the signature the offering plugin's `api` and `description` fix. Filling a slot is REQUIRING the plugin (it is loaded for a deck that uses the class, and a slide reports `plugin/component-needs-plugin` when it is not running), so the component writes no `plugins` block for it. A block two plugins read, a bucket two slots claim, or a block declared outside its slot's bucket fails the build by name. Reserved for a later version, as an additive field: a slot that PLUGINS fill (data, such as an icon pack) rather than components. In-tree only: neither offering nor filling a slot travels by zip (spec/LPM.md §10).",
+          "minProperties": 1,
+          "maxProperties": 1,
+          "propertyNames": {"pattern": "^[a-z][a-zA-Z0-9]*$"},
+          "additionalProperties": {"$ref": "#/$defs/extensionPoint"}
+        },
         "styles": {
           "const": true,
           "description": "`<name>.styles.css` exists: token-only CSS, bundled into the plugin slot of dist/lattice.css in dependency order. Every `var(--token)` it reads must be listed in `tokens`, and every listed token read."
@@ -195,6 +203,34 @@
           "type": "boolean",
           "description": "block only: the rule's body renders no inline Markdown, so lint-core skips it as it skips a code fence. (Every block rule, opaque or not, is also installed in the boundary parser, so the source-side slide splitter agrees with the render about where a slide starts.)"
         }
+      }
+    },
+    "extensionPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "role", "entry", "description"],
+      "properties": {
+        "block": {
+          "type": "string",
+          "pattern": "^[a-z][a-zA-Z0-9]*$",
+          "description": "The component manifest block a filler declares. Default: the slot name. Name it when the slot's own name should not claim a block word for good."
+        },
+        "bucket": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "The component bucket whose members fill the slot (`chart`). One slot per bucket."
+        },
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "The role of the filler's module, by the spine's `<name>.<role>.js` rule (`transform` → `bar/bar.transform.js`)."
+        },
+        "entry": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "The function that module exports and the plugin calls (`transformSection`)."
+        },
+        "description": {"type": "string", "minLength": 1, "description": "What a filler supplies, the entry's signature, and what the plugin does with it."}
       }
     },
     "fence": {

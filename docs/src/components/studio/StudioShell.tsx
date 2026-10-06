@@ -33,6 +33,7 @@ import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
+import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
@@ -1486,7 +1487,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// single slide the preview renders so its directives (e.g. `size`) take effect.
 	const fm = React.useMemo(() => frontMatterBlock(source), [source]);
 	const body = React.useMemo(() => stripFrontMatter(source), [source]);
-	const slides = React.useMemo(() => splitSlides(body), [body]);
+	// THE DECK'S PLUGIN ADMISSION, decided on the WHOLE source — every reader below parses the body
+	// alone, which has lost the front matter's `plugins:` list — and before any of them parses. A
+	// no-op on the shipped default set; under a host that narrowed it, every source-side reader
+	// splits slides where the engine does (docs/src/lib/plugin-admission.ts).
+	// The host may narrow its defaults after the deck loaded (the playground bundle loads late), so
+	// the split re-reads when it says so, not only on an edit (checker).
+	const [pluginDefaultsTick, setPluginDefaultsTick] = React.useState(0);
+	React.useEffect(() => {
+		const bump = () => setPluginDefaultsTick((n) => n + 1);
+		window.addEventListener(PLUGIN_DEFAULTS_EVENT, bump);
+		return () => window.removeEventListener(PLUGIN_DEFAULTS_EVENT, bump);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: pluginDefaultsTick is the re-read signal, not an input.
+	const slides = React.useMemo(() => {
+		followDeckAdmission(source);
+		return splitSlides(body);
+	}, [source, body, pluginDefaultsTick]);
 	// The deck's reader-lens registry (front-matter `lenses:` block). Empty (just the implicit
 	// `full`) for a deck with no block → the picker shows just "Full deck" (a static label + an
 	// "＋ Reader view" entry to the Lenses panel).

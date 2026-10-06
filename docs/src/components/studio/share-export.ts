@@ -949,7 +949,10 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	// bundle writes its CSS itself; a saved component rides as an embedded `<style>`,
 	// the same block the Markdown export uses. Without both, the bundle fell back to
 	// `indaco` and dropped the component's styling without a word.
-	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components] });
+	// The plugins this deck's admission leaves off under the playground bundle's host (none on the
+	// shipped default set), so the bundle's runtime draws no more than the Studio's preview does.
+	const { deckPluginsOff } = await import('@/lib/plugin-admission');
+	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format

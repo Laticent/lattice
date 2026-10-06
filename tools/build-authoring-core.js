@@ -67,7 +67,12 @@ import deckProfiles from './deck-profiles.js';
 // door's default import is undefined and the bundle throws at load.
 import { splitSections as splitSectionsCore } from '../core/split-sections.mjs';
 
-export { lintCore, reviewCore, scorecard, notesCore, deckCanon, deckProfiles, splitSectionsCore };
+// This bundle's OWN copy of the boundary parser's admission switch, so a host that narrowed its
+// plugin set can point the lint's parser at the deck's admission (docs/src/lib/plugin-admission.ts).
+// The same module lint-core reaches through the CommonJS door, so esbuild keeps one copy.
+import { boundaryRulesGeneration, setBoundaryPluginsOff } from '../core/boundary-parser.mjs';
+
+export { lintCore, reviewCore, scorecard, notesCore, deckCanon, deckProfiles, splitSectionsCore, setBoundaryPluginsOff, boundaryRulesGeneration };
 `;
 
 const BUILD_OPTIONS = {

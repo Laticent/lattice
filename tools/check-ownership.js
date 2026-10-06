@@ -5317,18 +5317,23 @@ function checkRenderNature(manifests, errors) {
 // that, and the arm below fails loudly if one starts, which is the right way to
 // find out.
 //
-// It also enforces the two conventions the `kernel` block stopped declaring once
-// `module`/`entry` were dropped as redundant: the kernel is at
-// `<name>/<name>.transform.js` and exports `transformSection`.
+// It also enforces the two facts the `kernel` block does not declare: the kernel is at
+// `<name>/<name>.transform.js` and exports `transformSection`. Since phase F the plugin that
+// offers the slot declares both, once, for every filler (its `role` and `entry`).
 // engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md.
-const KERNEL_BUCKETS_GATED = new Set(['chart']);
+// The bucket, the module role and the entrypoint are the chart family plugin's `kernel` slot
+// (lib/plugins/chart-family, plugin-system §5 phase F), read from the plugin registry's data —
+// never a second hand-kept bucket list beside the loader's.
+const KERNEL_SLOT = require('../lib/plugins/extension-points.generated.json').kernel || null;
+const KERNEL_BUCKETS_GATED = new Set(KERNEL_SLOT ? [KERNEL_SLOT.bucket] : []);
+const kernelModuleRel = (bucket, name) => path.join('lib', 'components', bucket, name, `${name}.${KERNEL_SLOT.role}.js`);
 
 function checkChartKernels(manifests, errors) {
   for (const m of manifests) {
     if (!m.kernel) continue;
     const bucket = manifestBucket(m);
     if (!KERNEL_BUCKETS_GATED.has(bucket)) continue;  // the loader already rejected it
-    const rel = path.join('lib', 'components', bucket, m.name, `${m.name}.transform.js`);
+    const rel = kernelModuleRel(bucket, m.name);
     const abs = path.join(ROOT, rel);
     if (!fs.existsSync(abs)) {
       errors.push(
@@ -5342,11 +5347,12 @@ function checkChartKernels(manifests, errors) {
     // — a shorthand or keyed entry inside `module.exports = { … }`, or a direct
     // `exports.transformSection =`.
     const exportsBlock = src.match(/module\.exports\s*=\s*\{[\s\S]*?\}\s*;/);
-    const exported = /\bexports\.transformSection\s*=/.test(src)
-      || (exportsBlock && /(^|[{,\s])transformSection\s*(?:[,:}]|$)/m.test(exportsBlock[0]));
+    const entry = KERNEL_SLOT.entry;
+    const exported = new RegExp(`\\bexports\\.${entry}\\s*=`).test(src)
+      || (exportsBlock && new RegExp(`(^|[{,\\s])${entry}\\s*(?:[,:}]|$)`, 'm').test(exportsBlock[0]));
     if (!exported) {
       errors.push(
-        `${rel}: does not export \`transformSection\` — the family's one entrypoint. ` +
+        `${rel}: does not export \`${entry}\` — the family's one entrypoint. ` +
         `The generated registry would put \`undefined\` in the dispatch table and every ` +
         `${m.name} slide would throw at render time.`);
     }
@@ -5476,7 +5482,7 @@ function checkChartMarks(manifests, errors) {
     if (!m.kernel || !Array.isArray(m.kernel.marks)) continue;  // the loader reports a missing block
     const bucket = manifestBucket(m);
     if (!KERNEL_BUCKETS_GATED.has(bucket)) continue;
-    const rel = path.join('lib', 'components', bucket, m.name, `${m.name}.transform.js`);
+    const rel = kernelModuleRel(bucket, m.name);
     const abs = path.join(ROOT, rel);
     if (!fs.existsSync(abs)) continue;  // checkChartKernels reports the missing kernel
     const src = fs.readFileSync(abs, 'utf8');
