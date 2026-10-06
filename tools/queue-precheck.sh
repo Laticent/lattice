@@ -27,9 +27,10 @@
 # 3 could not check (the fetch failed, no origin/main ref, a shallow clone without
 # the merge base, or a git too old for --attr-source) · 64 unknown argument.
 #
-# --head=<rev> and --onto=<rev> replace HEAD and origin/main. The pre-push rebase
-# guard (tools/rebase-guard.sh) uses them to ask whether the head a rebase
-# REPLACED would have merged cleanly with the main it was rebased onto. Output is one
+# --head=<rev> and --onto=<rev> replace HEAD and origin/main. The rebase guard
+# (tools/rebase-guard.sh, run from the pre-rebase and pre-merge-commit hooks) uses
+# them to ask whether the branch merges cleanly with the target it is about to
+# catch up to. Output is one
 # line for humans; --json prints one {"systemMessage": …} object instead, for the
 # Stop hook, and nothing when the branch is clean.
 #

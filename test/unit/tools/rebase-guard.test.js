@@ -1,10 +1,18 @@
 /**
- * tools/rebase-guard.sh refuses a push that rebases (or merges main into) a branch
- * whose remote head would have merged cleanly with that newer main on GitHub's
- * terms — HARD RULE #16's "rebase only on a real conflict", made blocking at
- * pre-push. It must NEVER refuse a catch-up that was needed, so every case here
- * builds a real throwaway repo and feeds the guard the exact stdin git gives a
- * pre-push hook: `<local ref> <local sha> <remote ref> <remote sha>`.
+ * tools/rebase-guard.sh refuses a rebase onto, or a merge of, a newer main that the
+ * branch merges cleanly with on GitHub's terms — HARD RULE #16, checked at the
+ * moment of the catch-up through git's `pre-rebase` and `pre-merge-commit` hooks.
+ *
+ * It must NEVER refuse a catch-up that was needed, and a refusal must change nothing.
+ * So every case builds a throwaway repo and drives REAL git through the REAL lefthook
+ * binary, with the two hook sections copied out of this repo's own lefthook.yml: the
+ * way lefthook passes git's arguments (`{0}`) is part of the contract (HARD RULE #23).
+ *
+ * The first version ran at pre-push. The adversarial trio on PR #2561 showed that a
+ * push-time check judged the remote head instead of the local one (refusing a needed
+ * merge when an unpushed commit was what conflicted, with undo advice that deleted
+ * that commit), refused rewords, and let "rebase, then commit" through. Cases 3, 4
+ * and the stacked-branch case below pin those.
  */
 
 const { test, describe } = require('node:test');
@@ -13,22 +21,28 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const YAML = require('yaml');
 
 // A git hook exports GIT_DIR / GIT_INDEX_FILE; inherited, the scratch repos below
 // would act on the REAL repo (see staged-pdf-glob.test.js). Clear them for this file.
 for (const k of Object.keys(process.env)) if (k.startsWith('GIT_')) delete process.env[k];
 
-const GUARD = path.join(__dirname, '..', '..', '..', 'tools', 'rebase-guard.sh');
-const PRECHECK = path.join(__dirname, '..', '..', '..', 'tools', 'queue-precheck.sh');
-const ZERO = '0'.repeat(40);
+const ROOT = path.join(__dirname, '..', '..', '..');
+const LEFTHOOK = path.join(ROOT, 'node_modules', '.bin', 'lefthook');
+const CONFIG = YAML.parse(fs.readFileSync(path.join(ROOT, 'lefthook.yml'), 'utf8'));
+const HOOKS = { 'pre-rebase': CONFIG['pre-rebase'], 'pre-merge-commit': CONFIG['pre-merge-commit'] };
 
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rebase-guard-'));
   fs.mkdirSync(path.join(dir, 'tools'));
-  fs.copyFileSync(GUARD, path.join(dir, 'tools', 'rebase-guard.sh'));
-  fs.copyFileSync(PRECHECK, path.join(dir, 'tools', 'queue-precheck.sh'));
+  for (const f of ['rebase-guard.sh', 'queue-precheck.sh']) {
+    fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(dir, 'tools', f));
+  }
+  fs.writeFileSync(path.join(dir, 'lefthook.yml'), YAML.stringify(HOOKS));
+  const run = (cmd, args, env = {}) =>
+    spawnSync(cmd, args, { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env } });
   const git = (...args) => {
-    const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
+    const r = run('git', args);
     if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
     return r.stdout.trim();
   };
@@ -36,140 +50,160 @@ function repo() {
   git('config', 'user.email', 't@t');
   git('config', 'user.name', 't');
   git('config', 'commit.gpgsign', 'false');
-  const write = (f, s) => fs.writeFileSync(path.join(dir, f), s);
   const commit = (f, s, msg) => {
-    write(f, s);
+    fs.writeFileSync(path.join(dir, f), s);
     git('add', f);
     git('commit', '-q', '-m', msg);
     return git('rev-parse', 'HEAD');
   };
-  commit('a.txt', 'one\ntwo\nthree\n', 'base');
-  return { dir, git, commit };
+  // tools/ and lefthook.yml are committed on main, so every branch carries them.
+  fs.writeFileSync(path.join(dir, 'a.txt'), 'one\ntwo\nthree\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'base');
+  const inst = run(LEFTHOOK, ['install']);
+  if (inst.status !== 0) throw new Error(`lefthook install: ${inst.stderr}${inst.stdout}`);
+  return { dir, run, git, commit };
 }
 
-function guard(dir, line, env = {}) {
-  return spawnSync('bash', ['tools/rebase-guard.sh'], {
-    cwd: dir,
-    input: `${line}\n`,
-    encoding: 'utf8',
-    env: { ...process.env, ...env },
-  });
-}
-
-/** main moves on with `mainChange`; feature changed `featChange`; then feature is
- *  caught up with main by `how` ('rebase' | 'merge'). Returns the pre-push line. */
-function scenario({ featFile, featBody, mainFile, mainBody, how = 'rebase' }) {
+/** feat changes `featFile`; main then changes `mainFile`; origin/main = main. */
+function scenario({ featFile = 'feat.txt', featBody = 'x\n', mainFile = 'other.txt', mainBody = 'y\n' } = {}) {
   const r = repo();
-  const { git, commit } = r;
-  git('checkout', '-q', '-b', 'feat');
-  const oldHead = commit(featFile, featBody, 'feature work');
-  git('checkout', '-q', 'main');
-  commit(mainFile, mainBody, 'main moves');
-  git('update-ref', 'refs/remotes/origin/main', 'main');
-  git('checkout', '-q', 'feat');
-  if (how === 'rebase') {
-    const rb = spawnSync('git', ['rebase', '-q', 'main'], { cwd: r.dir, encoding: 'utf8' });
-    if (rb.status !== 0) {
-      // A real conflict: resolve by taking the feature side, as a session would.
-      git('checkout', '--theirs', '--', '.');
-      git('add', '-A');
-      spawnSync('git', ['-c', 'core.editor=true', 'rebase', '--continue'], { cwd: r.dir });
-    }
-  } else {
-    const mg = spawnSync('git', ['merge', '-q', '--no-edit', 'main'], { cwd: r.dir, encoding: 'utf8' });
-    if (mg.status !== 0) {
-      git('checkout', '--ours', '--', '.');
-      git('add', '-A');
-      git('commit', '-q', '--no-edit');
-    }
-  }
-  const newHead = git('rev-parse', 'HEAD');
-  return { ...r, line: `refs/heads/feat ${newHead} refs/heads/feat ${oldHead}`, oldHead, newHead };
+  r.git('checkout', '-q', '-b', 'feat');
+  r.commit(featFile, featBody, 'feature work');
+  r.git('checkout', '-q', 'main');
+  r.commit(mainFile, mainBody, 'main moves');
+  r.git('update-ref', 'refs/remotes/origin/main', 'main');
+  r.git('checkout', '-q', 'feat');
+  return r;
 }
 
-describe('rebase-guard', () => {
-  test('refuses a rebase the branch did not need (clean on GitHub terms)', () => {
-    const s = scenario({ featFile: 'feat.txt', featBody: 'x\n', mainFile: 'other.txt', mainBody: 'y\n' });
-    const r = guard(s.dir, s.line);
-    assert.equal(r.status, 1, r.stderr);
-    assert.match(r.stderr, /refusing to push feat/);
-    assert.match(r.stderr, /HARD RULE #16/);
+const refused = (res) => /refusing the/.test(`${res.stdout}${res.stderr}`);
+
+describe('rebase-guard at pre-rebase', () => {
+  test('1. refuses a needless rebase onto main, and changes nothing', () => {
+    const r = scenario();
+    const before = r.git('rev-parse', 'HEAD');
+    const res = r.run('git', ['rebase', 'origin/main']);
+    assert.notEqual(res.status, 0);
+    assert.ok(refused(res), res.stderr);
+    assert.equal(r.git('rev-parse', 'HEAD'), before);
   });
 
-  test('refuses a merge from main the branch did not need', () => {
-    const s = scenario({ featFile: 'feat.txt', featBody: 'x\n', mainFile: 'other.txt', mainBody: 'y\n', how: 'merge' });
-    assert.equal(guard(s.dir, s.line).status, 1);
+  test('2. allows a rebase that has a real conflict to resolve', () => {
+    const r = scenario({ featFile: 'a.txt', featBody: 'one\nFEAT\nthree\n', mainFile: 'a.txt', mainBody: 'one\nMAIN\nthree\n' });
+    const res = r.run('git', ['rebase', 'origin/main']);
+    assert.ok(!refused(res), res.stderr);
+    assert.match(`${res.stdout}${res.stderr}`, /CONFLICT/);
   });
 
-  test('allows a rebase that resolved a real conflict', () => {
-    const s = scenario({
-      featFile: 'a.txt',
-      featBody: 'one\nFEATURE\nthree\n',
-      mainFile: 'a.txt',
-      mainBody: 'one\nMAIN\nthree\n',
-    });
-    const r = guard(s.dir, s.line);
-    assert.equal(r.status, 0, r.stderr);
+  test('3. judges the LOCAL head: an unpushed commit that conflicts makes the rebase needed', () => {
+    const r = scenario();
+    r.git('update-ref', 'refs/remotes/origin/feat', 'feat'); // the pushed head merges cleanly...
+    r.commit('a.txt', 'one\nLOCAL\nthree\n', 'unpushed work'); // ...this unpushed commit does not
+    r.git('checkout', '-q', 'main');
+    r.commit('a.txt', 'one\nMAIN\nthree\n', 'main edits a.txt');
+    r.git('update-ref', 'refs/remotes/origin/main', 'main');
+    r.git('checkout', '-q', 'feat');
+    const res = r.run('git', ['rebase', 'origin/main']);
+    assert.ok(!refused(res), res.stderr);
   });
 
-  test('a conflict GitHub sees but a merge=union driver hides is still a conflict', () => {
-    // GitHub ignores .gitattributes merge drivers (decisions/2026-09-28 §4b), so a
-    // union-merged file that clashes is a REAL conflict and the rebase was needed.
-    const r0 = repo();
-    r0.commit('.gitattributes', 'index.md merge=union\n', 'attrs');
-    r0.commit('index.md', 'row a\n', 'index');
-    r0.git('checkout', '-q', '-b', 'feat');
-    const oldHead = r0.commit('index.md', 'row a\nrow feat\n', 'add feat row');
-    r0.git('checkout', '-q', 'main');
-    r0.commit('index.md', 'row a\nrow main\n', 'add main row');
-    r0.git('update-ref', 'refs/remotes/origin/main', 'main');
-    r0.git('checkout', '-q', 'feat');
-    r0.git('rebase', '-q', 'main'); // the union driver makes this succeed locally
-    const newHead = r0.git('rev-parse', 'HEAD');
-    const r = guard(r0.dir, `refs/heads/feat ${newHead} refs/heads/feat ${oldHead}`);
-    assert.equal(r.status, 0, r.stderr);
+  test('4. allows history cleanup on the branch own merge base (reword, squash)', () => {
+    const r = scenario();
+    r.commit('feat2.txt', 'z\n', 'fixup! feature work');
+    const base = r.git('merge-base', 'HEAD', 'origin/main');
+    const res = r.run('git', ['rebase', '-i', '--autosquash', base], { GIT_SEQUENCE_EDITOR: 'true' });
+    assert.equal(res.status, 0, res.stderr);
+    assert.ok(!refused(res));
   });
 
-  test('allows a rebase that also rewrote the PR history (squash a fixup across a newer main)', () => {
-    // Checker finding on PR #2561: `git rebase -i origin/main` to fold a fixup is
-    // history cleanup that happens to cross a newer main, not a needless catch-up.
-    const r0 = repo();
-    r0.git('checkout', '-q', '-b', 'feat');
-    r0.commit('feat.txt', 'x\n', 'feature work');
-    const oldHead = r0.commit('feat.txt', 'x\ny\n', 'fixup! feature work');
-    r0.git('checkout', '-q', 'main');
-    r0.commit('other.txt', 'y\n', 'main moves');
-    r0.git('update-ref', 'refs/remotes/origin/main', 'main');
-    r0.git('checkout', '-q', 'feat');
-    r0.git('reset', '-q', '--soft', 'main');
-    r0.git('commit', '-q', '-m', 'feature work (squashed)');
-    const newHead = r0.git('rev-parse', 'HEAD');
-    const r = guard(r0.dir, `refs/heads/feat ${newHead} refs/heads/feat ${oldHead}`);
-    assert.equal(r.status, 0, r.stderr);
+  test('5. allows a rebase onto the branch own remote (pull --rebase), which brings no main', () => {
+    const r = scenario();
+    // A local branch stands in for origin/feat (the scratch repo has no remote);
+    // the guard resolves @{upstream} the same way for either.
+    r.git('branch', '-q', 'pushed', 'feat');
+    r.git('branch', '-q', '--set-upstream-to=pushed');
+    r.commit('more.txt', 'm\n', 'more work');
+    const res = r.run('git', ['rebase']);
+    assert.equal(res.status, 0, res.stderr);
+    assert.ok(!refused(res));
   });
 
-  test('LATTICE_REBASE_REASON lets a needed-commit catch-up through and prints it', () => {
-    const s = scenario({ featFile: 'feat.txt', featBody: 'x\n', mainFile: 'other.txt', mainBody: 'y\n' });
-    const r = guard(s.dir, s.line, { LATTICE_REBASE_REASON: 'needs abc123: the fix' });
-    assert.equal(r.status, 0, r.stderr);
-    assert.match(r.stdout, /allowed: needs abc123: the fix/);
+  test('6. allows a stacked branch rebased onto its parent when the parent brings no newer main', () => {
+    const r = repo();
+    r.git('update-ref', 'refs/remotes/origin/main', 'main');
+    r.git('checkout', '-q', '-b', 'parent');
+    r.commit('p.txt', 'p\n', 'parent work');
+    r.git('checkout', '-q', '-b', 'child');
+    r.commit('c.txt', 'c\n', 'child work');
+    r.git('checkout', '-q', 'parent');
+    r.commit('p2.txt', 'p2\n', 'more parent work');
+    r.git('checkout', '-q', 'child');
+    const res = r.run('git', ['rebase', 'parent']);
+    assert.equal(res.status, 0, res.stderr);
   });
 
-  test('ignores an amend or new work on the same main', () => {
-    const r0 = repo();
-    r0.git('update-ref', 'refs/remotes/origin/main', 'main');
-    r0.git('checkout', '-q', '-b', 'feat');
-    const oldHead = r0.commit('f.txt', '1\n', 'work');
-    r0.git('commit', '-q', '--amend', '-m', 'work, amended');
-    const newHead = r0.git('rev-parse', 'HEAD');
-    assert.equal(guard(r0.dir, `refs/heads/feat ${newHead} refs/heads/feat ${oldHead}`).status, 0);
+  test('7. a clash that only GitHub sees (merge=union) is a real conflict, so the rebase is allowed', () => {
+    const r = repo();
+    r.commit('.gitattributes', 'index.md merge=union\n', 'attrs');
+    r.commit('index.md', 'row a\n', 'index');
+    r.git('checkout', '-q', '-b', 'feat');
+    r.commit('index.md', 'row a\nrow feat\n', 'add feat row');
+    r.git('checkout', '-q', 'main');
+    r.commit('index.md', 'row a\nrow main\n', 'add main row');
+    r.git('update-ref', 'refs/remotes/origin/main', 'main');
+    r.git('checkout', '-q', 'feat');
+    const res = r.run('git', ['rebase', 'origin/main']);
+    assert.ok(!refused(res), res.stderr);
+  });
+});
+
+describe('rebase-guard at pre-merge-commit', () => {
+  test('8. refuses a needless merge of main, and creates no merge commit', () => {
+    const r = scenario();
+    const before = r.git('rev-parse', 'HEAD');
+    const res = r.run('git', ['merge', '--no-edit', 'origin/main']);
+    assert.notEqual(res.status, 0);
+    assert.ok(refused(res), res.stderr);
+    r.run('git', ['merge', '--abort']);
+    assert.equal(r.git('rev-parse', 'HEAD'), before);
   });
 
-  test('ignores a new branch, a deletion, a push to main, and an unknown old head', () => {
-    const s = scenario({ featFile: 'feat.txt', featBody: 'x\n', mainFile: 'other.txt', mainBody: 'y\n' });
-    assert.equal(guard(s.dir, `refs/heads/feat ${s.newHead} refs/heads/feat ${ZERO}`).status, 0);
-    assert.equal(guard(s.dir, `(delete) ${ZERO} refs/heads/feat ${s.oldHead}`).status, 0);
-    assert.equal(guard(s.dir, `refs/heads/main ${s.newHead} refs/heads/main ${s.oldHead}`).status, 0);
-    assert.equal(guard(s.dir, `refs/heads/feat ${s.newHead} refs/heads/feat ${'1'.repeat(40)}`).status, 0);
+  test('9. a conflicting merge is never refused (git stops before the hook)', () => {
+    const r = scenario({ featFile: 'a.txt', featBody: 'one\nFEAT\nthree\n', mainFile: 'a.txt', mainBody: 'one\nMAIN\nthree\n' });
+    const res = r.run('git', ['merge', '--no-edit', 'origin/main']);
+    assert.ok(!refused(res), res.stderr);
+    assert.match(`${res.stdout}${res.stderr}`, /CONFLICT/);
+  });
+});
+
+describe('rebase-guard escape (LATTICE_REBASE_REASON)', () => {
+  test('10. "needs <sha>" passes only for a commit in the target that the branch lacks', () => {
+    const r = scenario();
+    const mainSha = r.git('rev-parse', 'origin/main');
+    const featSha = r.git('rev-parse', 'HEAD');
+    const ok = r.run('git', ['rebase', 'origin/main'], { LATTICE_REBASE_REASON: `needs ${mainSha.slice(0, 10)}` });
+    assert.equal(ok.status, 0, ok.stderr);
+    assert.match(ok.stderr, /allowed — needs/);
+    const r2 = scenario();
+    const bad = r2.run('git', ['rebase', 'origin/main'], { LATTICE_REBASE_REASON: `needs ${featSha}` });
+    assert.notEqual(bad.status, 0);
+    assert.match(bad.stderr, /not a commit in the target/);
+    // A commit already in BOTH (the shared base) is not a need either.
+    const r3 = scenario();
+    const shared = r3.git('merge-base', 'HEAD', 'origin/main');
+    const stale = r3.run('git', ['rebase', 'origin/main'], { LATTICE_REBASE_REASON: `needs ${shared}` });
+    assert.notEqual(stale.status, 0);
+    assert.match(stale.stderr, /not a commit in the target/);
+  });
+
+  test('11. "queue ejected: <why>" passes; free text does not', () => {
+    const r = scenario();
+    const ok = r.run('git', ['rebase', 'origin/main'], { LATTICE_REBASE_REASON: 'queue ejected: unit failed on the group' });
+    assert.equal(ok.status, 0, ok.stderr);
+    const r2 = scenario();
+    const bad = r2.run('git', ['rebase', 'origin/main'], { LATTICE_REBASE_REASON: 'x' });
+    assert.notEqual(bad.status, 0);
+    assert.match(bad.stderr, /must be "needs <sha>" or "queue ejected/);
   });
 });

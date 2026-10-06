@@ -5,7 +5,7 @@ summary: >
   GitHub's terms: 28 catch-ups, 19 real conflicts, 9 clean. 2 of the 9 were the backlog bot's
   nightly re-sync, so 7 of 26 agent catch-ups were needless. The decision index and route
   budget, fixed on 09-29, caused none. Of the 19 real conflicts, 11 touched committed PDFs, 6
-  committed generated JS, 14 hand-written source. A pre-push guard now refuses a needless catch-up.
+  committed generated JS, 14 hand-written source. Git hooks now refuse a needless catch-up before it happens.
 ---
 
 # Conflict reduction: what still conflicts, and what each fix buys
@@ -57,44 +57,87 @@ lines of work that ran in parallel: the plugin system (`lib/plugins/*`,
 **Re-derive.** The scripts are not committed; the method above is the whole of it.
 The replay needs the force-pushed heads, which `git fetch origin <sha>` still returns.
 
-## 2. Fix 1 (shipped): refuse a needless catch-up at pre-push
+## 2. Fix 1: refuse a needless catch-up at the moment it happens
 
 HARD RULE #16 already says to rebase only on a real conflict, and 7 of 26 agent
-catch-ups broke it anyway. `tools/rebase-guard.sh` runs first in lefthook's
-`pre-push` stage, with `use_stdin: true`. For each branch update that moves the
-branch onto a newer main, it asks `queue-precheck.sh --head=<remote head>
---onto=<new merge base>` whether the head being replaced merged cleanly. If it did,
-the guard refuses the push and prints how to undo the catch-up.
+catch-ups were clean anyway. **They are an upper bound on waste, now classified.**
+The replay sees "clean on text", not intent, so each clean catch-up was checked for a
+reason (6 of the 7 still had their heads after a container restart). None followed a
+queue ejection. One merged `main` to bring in a named fix (#2518, "bring in ed97ec9 …
+fixes studio-smoke's … flake"), which #16 allows. The other five gave no reason.
+**About five needless catch-ups a week is the number this targets.** Each re-ran the
+PR's CI, plus its queue run if it was already queued.
 
-- **It refuses only on proof.** It lets through a new branch, a deletion, a push to
-  `main`, an amend or ordinary push on the same main, a rebase that also rewrote the
-  PR's own commits (a squash, reword or drop, compared by `git patch-id`), an old head
-  this clone does not have, and anything queue-precheck cannot decide (its exit 3).
-- **The rule's own exceptions have an escape.** When you need a specific commit from
-  main, or the queue ejected the PR: `LATTICE_REBASE_REASON="<why>" git push`. The
-  guard prints the reason and allows the push.
-- **It reads the local `origin/main`.** Rebasing onto a main newer than that ref can
-  make a real conflict look clean. `git fetch origin main && git rebase origin/main`,
-  the usual sequence, keeps them equal.
-- **A refusal stops the hook.** Without `piped: true`, lefthook ran every remaining
-  pre-push job after the guard failed (reproduced with the real binary), so a refused
-  push still paid for lint and `build:check`. `pre-push` is now `piped`, which also
-  makes its existing "fail-fast" description true.
-- **The bot is not affected.** `sync-backlog.yml` pushes from CI, where no hook runs.
-  Its re-sync carries new content, so it is not waste.
-- **Cost.** One `merge-tree` per catch-up push; nothing on any other push.
-- **Tests.** `test/unit/tools/rebase-guard.test.js` builds real throwaway repos and
-  covers eight cases: a needless rebase, a needless merge from main, a real conflict,
-  a `merge=union` clash that only GitHub sees, a squash across a newer main, the
-  escape, an amend, and the four pass-through cases. Deliberately broken guards fail
-  it: always-exit-0 (2 failures), never-call-precheck (3), no patch-id check (1).
-- **Checker (tier 1)** found the squash case, the missing queue-ejection escape, the
-  non-piped hook and the count errors fixed here. It also showed a rebase of a stacked
-  branch onto its rebased parent is refused; that happens only when the parent's own
-  rebase was needless, so it is left as is.
+### 2.1 The design that shipped
 
-`queue-precheck.sh` gained `--head=<rev>` and `--onto=<rev>` (defaults `HEAD` and
-`origin/main`), so the guard reuses its GitHub-terms merge rather than copying it.
+`tools/rebase-guard.sh` runs as two git hooks through lefthook: `pre-rebase` (also hit
+by `git pull --rebase`) and `pre-merge-commit`. It refuses only when both hold:
+
+1. **The target brings in `main` commits the branch lacks.** Rebasing onto the branch's
+   own remote, onto a stacked parent that is not ahead of `main`, or onto the branch's
+   own merge base is never checked.
+2. **`queue-precheck.sh --head=HEAD --onto=<target>` reports the merge clean on
+   GitHub's terms** (merge drivers off). A real conflict, including one only GitHub
+   sees through a `merge=union` file, is allowed.
+
+The details that make it safe:
+
+- **It sees the real local head before anything changes.** Unpushed commits count, and
+  a refusal leaves the branch exactly as it was.
+- **A merge that conflicts never reaches `pre-merge-commit`.** Git stops first, so a
+  needed merge cannot be refused.
+- **Merge targets come from `/proc`.** Git 2.43 does not write `MERGE_HEAD` before an
+  automatic merge commit, so the guard reads the `git merge` command line of an
+  ancestor process. Where `/proc` is missing (macOS), the merge is allowed unchecked.
+- **History cleanup has a stated path:** `git rebase -i "$(git merge-base HEAD
+  origin/main)"`, which does not move the base and is never checked.
+- **The escape accepts exactly two forms**, and the reason is printed on every use:
+  - `LATTICE_REBASE_REASON="needs <sha>"` passes only if that commit is in the
+    target and not yet in the branch.
+  - `LATTICE_REBASE_REASON="queue ejected: <why>"` covers a rebase after an ejection.
+
+  Free text is rejected, so the variable cannot quietly become the default.
+- **Cost.** About 0.2s, and only when the target brings in newer `main`.
+- **`pre-push` is now `piped: true`.** Without it, lefthook ran every remaining job
+  after one failed (reproduced with the real binary). This is independent of the guard,
+  and it makes the hook's "fail-fast" description true.
+
+**Tests.** `test/unit/tools/rebase-guard.test.js` drives real git through the real
+lefthook binary, using the hook sections read from this repo's `lefthook.yml`. It
+covers 11 cases:
+
+- needless rebase refused, with the branch unchanged;
+- real-conflict rebase allowed;
+- unpushed local commit that conflicts → allowed;
+- cleanup on the branch's own merge base;
+- rebase onto the branch's own upstream;
+- stacked branch onto its parent;
+- `merge=union` clash allowed;
+- needless merge refused, with no merge commit created;
+- conflicting merge allowed;
+- `needs <sha>` validation;
+- `queue ejected:` accepted, free text rejected.
+
+Six deliberately broken guards each fail it: never refuse, drop the "brings `main`"
+test, ignore precheck, skip the `needs` validation, accept free text, and skip the
+`/proc` merge detection.
+
+### 2.2 The design it replaced, and why
+
+The first version ran at `pre-push` and judged each pushed branch update. The
+adversarial trio on PR #2561 refuted it. A push-time check has to reconstruct the
+head from before the catch-up, and it reconstructed it wrong:
+
+- **It judged the remote head, not the local one.** When an unpushed local commit was
+  what conflicted with `main`, it refused the needed merge. Its undo advice
+  (`git reset --hard <remote head>`) would have deleted that unpushed commit.
+- **Its patch-id comparison hashed the whole range as one patch.** So it refused a
+  squash across files, and it refused rewords, which patch-id cannot see at all.
+- **"Rebase, then commit, then push" slipped through.**
+- **The escape took free text.**
+
+Checking at rebase and merge time removes the reconstruction, and with it every one of
+these.
 
 ## 3. Committed generated JS under `lib/`: deferred
 

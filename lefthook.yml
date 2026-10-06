@@ -110,22 +110,10 @@ pre-push:
   # pre-push-disabled above.
   #
   # `piped: true` is what makes "fail-fast" true: without it lefthook runs every
-  # remaining job after one fails, so a refused push still paid for lint,
-  # lint-deck and build:check (checker finding on PR #2561, reproduced with the
-  # real binary).
+  # remaining job after one fails, so a failing push still paid for every later
+  # job (checker finding on PR #2561, reproduced with the real binary).
   piped: true
   jobs:
-    - name: rebase-guard
-      # Refuses a rebase (or merge from main) that the PR did not need: the head
-      # it replaces merged cleanly with the newer main on GitHub's terms (HARD
-      # RULE #16). ~1s, and only does work when the push moves the branch onto a
-      # newer main. Escape for the rule's own exceptions (you need a specific
-      # commit from main, or the queue ejected the PR):
-      # LATTICE_REBASE_REASON="needs <sha>: <why>" git push.
-      # See tools/rebase-guard.sh and
-      # engineering/decisions/2026-10-06-conflict-reduction.md.
-      use_stdin: true
-      run: bash tools/rebase-guard.sh
     - name: lint
       run: npm run lint
     - name: lint-deck
@@ -213,6 +201,27 @@ pre-push:
           command -v pdfinfo >/dev/null 2>&1 || echo "  ⚠ pdfinfo missing (poppler-utils) — the integration gate that re-checks it was skipped"
           echo "integration-tests: skipped — no render-relevant changes vs origin/main (docs/config only)"
         fi
+
+
+# ── Refuse a needless catch-up with main, before it happens (HARD RULE #16) ───
+# A rebase onto, or a merge of, a newer main that the branch merges cleanly with
+# on GitHub's terms re-runs CI for nothing. These two hooks see the real local
+# head (unpushed commits included) BEFORE anything changes, so a refusal costs
+# nothing and loses nothing. A merge that conflicts never reaches
+# pre-merge-commit, so it is allowed by construction. Escape for #16's own
+# exceptions: LATTICE_REBASE_REASON="needs <sha>" or "queue ejected: <why>".
+# See tools/rebase-guard.sh and engineering/decisions/2026-10-06-conflict-reduction.md.
+# `{0}` is git's own arguments (upstream, then branch when given); `{2}` would
+# stay literal when absent, which is why the script takes `{0}` and splits it.
+pre-rebase:
+  jobs:
+    - name: rebase-guard
+      run: bash tools/rebase-guard.sh pre-rebase {0}
+
+pre-merge-commit:
+  jobs:
+    - name: rebase-guard
+      run: bash tools/rebase-guard.sh pre-merge-commit
 
 commit-msg:
   jobs:

@@ -291,13 +291,6 @@ Configuration in `lefthook.yml`.
   scoped scripts; runs only what's affected. See *Affected tests* below.
 
 **pre-push** (serial, fail-fast cheap-first):
-- `rebase-guard` — refuses a push that rebases or merges `main` into a branch
-  whose remote head would have merged cleanly on GitHub's terms (HARD RULE #16).
-  It does work only when the push moves the branch onto a newer `main`, and lets a
-  rebase that also rewrote the PR's own commits through. For #16's exceptions (you
-  need a specific commit from `main`, or the queue ejected the PR), push with
-  `LATTICE_REBASE_REASON="needs <sha>: <why>"` or `="queue ejected: <check>"`. `tools/rebase-guard.sh`;
-  `engineering/decisions/2026-10-06-conflict-reduction.md`.
 - `lint` — full tree
 - `lint-deck` — repo-wide strict author-facing footgun sweep
 - `build-check` — the CI/stale-artifact gate (regen + byte-diff of `dist/`)
@@ -314,6 +307,18 @@ Configuration in `lefthook.yml`.
 - `integration-tests` — full cross-renderer parity + PDF page-count tier.
   Skipped when a push touches no render-relevant files (the job mirrors CI's
   `code` paths-filter in `.github/workflows/ci.yml`; keep the two in sync).
+
+**pre-rebase** and **pre-merge-commit** (~0.2s, only when the target brings in newer `main`):
+- `rebase-guard` — refuses a rebase onto, or a merge of, a newer `main` that the
+  branch merges cleanly with on GitHub's terms (HARD RULE #16). It judges the real
+  local head, unpushed commits included, before anything changes, so a refusal
+  costs nothing. A real conflict is allowed, and a merge that conflicts never
+  reaches the hook. To clean up history without moving the base:
+  `git rebase -i "$(git merge-base HEAD origin/main)"`. For #16's exceptions, set
+  `LATTICE_REBASE_REASON="needs <sha>"` (checked: the commit must be in the target
+  and not in the branch) or `="queue ejected: <why>"`. Merge targets are read from
+  `/proc`, so on a host without it a merge is allowed unchecked.
+  `tools/rebase-guard.sh`; `engineering/decisions/2026-10-06-conflict-reduction.md`.
 
 **commit-msg** (~0.01s):
 - `format` — `tools/check-commit-msg.sh` validates `area(scope): summary`.

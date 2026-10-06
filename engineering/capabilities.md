@@ -527,7 +527,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/reader-extraction-probe.mjs` | Reader-mode extraction probe — re-derive the numbers behind the reader-mode work |
-| `tools/rebase-guard.sh` | Pre-push guard: refuse a rebase (or a merge from main) that the PR did not need. |
+| `tools/rebase-guard.sh` | Refuse a rebase or merge of main that the branch does not need — BEFORE it happens. |
 | `tools/record-lesson-voice.mjs` | Record the voice of every Studio lesson: one mp3 per line, plus the line's word track. |
 | `tools/score-variance.js` | Score variance — which scorecard categories actually MOVE a deck's grade, and what a draft model is really perturbing. |
 | `tools/score-venue-lint.js` | score-venue-lint — score lint's `capacity-scale` warnings against the export's clips, per venue. |
