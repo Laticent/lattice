@@ -21,14 +21,14 @@ import { yaml } from '@codemirror/lang-yaml';
 import { bracketMatching, HighlightStyle, indentOnInput, LanguageDescription, LanguageSupport, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { linter, lintGutter, lintKeymap } from '@codemirror/lint';
-import { Compartment, EditorState } from '@codemirror/state';
+import { Compartment, EditorState, StateEffect } from '@codemirror/state';
 import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { editorChrome, editorChromeCoarse } from '../lib/editor-chrome.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../lib/lint-theme.js';
 import { latticeAutocomplete } from './complete.js';
 import { readFrontMatter } from './deck-config.js';
-import { buildVocabSets, findingsToDiagnostics } from './editor-diagnostics.js';
+import { buildVocabSets, deckPluginsOffFor, findingsToDiagnostics } from './editor-diagnostics.js';
 import { MERMAID_KEYWORDS } from './grammar-vocab.js';
 import { typeaheadContext } from './slide-context.js';
 
@@ -545,19 +545,39 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 	// demand so editor surfaces that never validate don't pull the authoring-core
 	// bundle. The source is async — CodeMirror's linter awaits the returned promise.
 	let lintCoreMod = null;
+	// Dispatched when the host changes its plugin defaults: the lint's `needsRefresh` reads it.
+	const admissionChanged = StateEffect.define();
+	// The bundle the lint runs in, and the `off` set its boundary parser was last pointed at.
+	let authoringCore = null;
+	let offApplied = '';
+	// THE DECK'S PLUGIN ADMISSION, for the lint's own parser copy (spec/LPM.md §3.2.1). A host that
+	// narrowed the playground's default set (`LatticePlayground.setPluginDefaults`) renders a deck
+	// without math, so a `---` inside `$$` splits a slide there; the lint must split it the same way
+	// or its findings land on the wrong slide. The Studio does this through plugin-admission.ts;
+	// that module imports this bundle eagerly, so the Playground editor, which loads it lazily, does
+	// the same here. On the default set the admission is null and nothing is off.
+	const followAdmission = (src) => {
+		const off = deckPluginsOffFor(src, globalThis.window?.LatticePlayground?.pluginAdmission, authoringCore.PLUGIN_NAMES || []);
+		const key = off.join(',');
+		if (key === offApplied) return;
+		offApplied = key;
+		authoringCore.setBoundaryPluginsOff(off);
+	};
 	const lintSource = async (view) => {
 		if (!vocab) return [];
 		const src = view.state.doc.toString();
 		if (!readFrontMatter(src).validate) return []; // deck opted out via front matter
 		if (!lintCoreMod) {
 			try {
-				lintCoreMod = (await import('./authoring-core.generated.js')).lintCore;
+				authoringCore = await import('./authoring-core.generated.js');
+				lintCoreMod = authoringCore.lintCore;
 			} catch {
 				return [];
 			}
 		}
 		let findings;
 		try {
+			followAdmission(src);
 			findings = lintCoreMod.lintTextWith(src, buildVocabSets(vocab));
 		} catch {
 			return [];
@@ -566,7 +586,9 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 			// Quick fix for the autofixable footguns — lint-core computes the rewrite,
 			// applied as one undoable change (which re-renders + re-lints).
 			onFix: (v, f) => {
-				const out = lintCoreMod.applyFix(v.state.doc.toString(), f);
+				const cur = v.state.doc.toString();
+				followAdmission(cur);
+				const out = lintCoreMod.applyFix(cur, f);
 				if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out } });
 			},
 		});
@@ -580,7 +602,8 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 		(async () => {
 			if (!lintCoreMod) {
 				try {
-					lintCoreMod = (await import('./authoring-core.generated.js')).lintCore;
+					authoringCore = await import('./authoring-core.generated.js');
+					lintCoreMod = authoringCore.lintCore;
 				} catch {
 					return;
 				}
@@ -589,6 +612,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 			// the await, so compute the fix against the CURRENT document, not a stale one.
 			const cur = view.state.doc.toString();
 			if (!readFrontMatter(cur).validate) return;
+			followAdmission(cur);
 			const out = lintCoreMod.applyAllFixes(cur, buildVocabSets(vocab));
 			if (out != null && out !== cur) {
 				view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: out } });
@@ -685,7 +709,12 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 				// Inline validation (deck-grammar findings as underlines + hover) + a
 				// severity gutter (click a marker for the same tooltip + quick-fix). Inert
 				// without a vocab; self-gated per deck by the `validate:` front-matter key.
-				vocab ? [linter(lintSource, { delay: 350 }), lintGutter()] : [],
+				// `needsRefresh`: the host changing its plugin defaults is a reason to re-lint with no
+				// edit (see `relint` below) — CodeMirror's `forceLinting` only flushes a lint an edit
+				// already scheduled, so on its own it re-ran nothing (the real page showed it).
+				vocab
+					? [linter(lintSource, { delay: 350, needsRefresh: (u) => u.transactions.some((tr) => tr.effects.some((e) => e.is(admissionChanged))) }), lintGutter()]
+					: [],
 				latticeTheme,
 				...(autoHeight ? [autoHeightTheme] : []),
 				// lintKeymap: F8 / Shift-F8 cycle findings, Ctrl-Shift-M opens the lint
@@ -712,11 +741,21 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 	// and that rule is itself gone now: this editor draws no selection at all, so
 	// there is no band for a base theme to win. See the note where the selection rule
 	// used to be.)
+	// A host that changes the playground's plugin defaults with NO edit
+	// (`LatticePlayground.setPluginDefaults` fires this event) changes where the lint splits a
+	// deck, so the lint re-runs then too — as the Studio's rail re-reads on the same event.
+	const relint = () => {
+		if (vocab) view.dispatch({ effects: admissionChanged.of(null) });
+	};
+	globalThis.addEventListener?.('lattice:plugin-defaults', relint);
 	return {
 		getValue: () => view.state.doc.toString(),
 		setValue: (text) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }),
 		focus: () => view.focus(),
-		destroy: () => view.destroy(),
+		destroy: () => {
+			globalThis.removeEventListener?.('lattice:plugin-defaults', relint);
+			view.destroy();
+		},
 		// Toggle deck-grammar autocomplete live (workspace preference). Reconfigures
 		// the compartment to the built extension or nothing.
 		setAutocomplete: (on) => view.dispatch({ effects: autocompleteComp.reconfigure(on ? autocompleteExt : []) }),

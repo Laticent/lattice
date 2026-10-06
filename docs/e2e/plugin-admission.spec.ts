@@ -210,3 +210,64 @@ test('under defaults: [] the rail splits a `$$` block as the engine does; the Ma
 	}
 	await setDefaults(page, null);
 });
+
+// THE PLAYGROUND PAGE'S OWN LINT (`docs/src/playground/editor.js`), which loads the lint bundle
+// lazily and so is not reached by the Studio's plugin-admission.ts. A crowded pill written inside
+// a `$$` block is inert while math loads (the block is a display equation), and a finding once the
+// host leaves math off — on slide 2, because with math off the `---` inside `$$` is a slide break,
+// as in the engine. Driven by the host's door with no edit (the editor re-lints on the event), and
+// in both directions, so neither the finding nor its absence is vacuous.
+const PILL_DECK = `---
+color-mode: light
+---
+
+# One
+
+$$
+x
+
+---
+
+\`{ABCDEFG, circle}\` y
+$$
+
+---
+
+# Two
+`;
+
+test('the Playground page lint follows the host\'s admission: a pill inside `$$` is linted only with math off', async ({ page }) => {
+	test.setTimeout(EVIDENCE ? 300_000 : 120_000);
+	await page.addInitScript(
+		([k, s]) => {
+			try {
+				localStorage.setItem(k as string, s as string);
+			} catch {
+				/* a blocked store just means the draft does not seed */
+			}
+		},
+		['lattice-docs-pg-source', PILL_DECK],
+	);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.cm-content').first()).toContainText('ABCDEFG', { timeout: 40_000 });
+	const crowded = page.locator('.cm-lintRange');
+	await setDefaults(page, []);
+	await expect(crowded).toHaveCount(1, { timeout: 30_000 });
+	// The underline is on the pill, in the slide the engine renders it on.
+	await expect(crowded.first()).toContainText('{ABCDEFG, circle}');
+	const slides = await page.evaluate((src) => {
+		const pg = (window as unknown as { LatticePlayground: { render: (s: string, t?: string, o?: { pluginDefaults?: string[] }) => { html: string }; pluginAdmission: (d: string) => string[] } }).LatticePlayground;
+		return (pg.render(src, 'indaco', { pluginDefaults: pg.pluginAdmission(src) }).html.match(/<section[\s>]/g) || []).length;
+	}, PILL_DECK);
+	expect(slides).toBe(3);
+	if (EVIDENCE) {
+		fs.mkdirSync(EVIDENCE, { recursive: true });
+		await page.screenshot({ path: path.join(EVIDENCE, 'playground-lint-math-off.png') });
+	}
+	await setDefaults(page, null);
+	await expect(crowded).toHaveCount(0, { timeout: 30_000 });
+	if (EVIDENCE) await page.screenshot({ path: path.join(EVIDENCE, 'playground-lint-math-on.png') });
+	await setDefaults(page, []);
+	await expect(crowded).toHaveCount(1, { timeout: 30_000 });
+	await setDefaults(page, null);
+});

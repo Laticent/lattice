@@ -19,14 +19,14 @@
 // parse before it has been switched (checker: an adopt-on-load registry left the readers that load
 // it before the editor's lint on the default grammar).
 import { setBoundaryPluginsOff as setLintBoundaryPluginsOff } from '@/playground/authoring-core.generated.js';
+import { deckPluginsOffFor } from '@/playground/editor-diagnostics.js';
 import { setBoundaryPluginsOff } from '../../../lib/core/boundary-parser.mjs';
 import { PLUGIN_NAMES } from '../../../lib/plugins/blocks.generated.mjs';
 
 /** The plugins the playground bundle's host admission leaves off for this whole deck, sorted. */
 export function deckPluginsOff(deck: string): string[] {
 	const pg = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
-	const active = pg?.pluginAdmission?.(deck);
-	return active ? PLUGIN_NAMES.filter((n) => !active.includes(n)).sort() : [];
+	return deckPluginsOffFor(deck, pg?.pluginAdmission, PLUGIN_NAMES);
 }
 
 /** The event `LatticePlayground.setPluginDefaults` fires: the answer can change with no edit. */

@@ -1358,6 +1358,60 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   by name.
 
 
+- **Admission reaches an author's raw HTML, and the Playground page's lint (`2509-p3`).** The
+  engine reads every raw-HTML token an author wrote, in a core rule straight after the inline
+  parse (before any engine rule synthesizes markup — the checker dumped the rule order and
+  censused every token creator), and holds it to the host's channel (`lib/plugins/author-markup.js`):
+  every host figure marker NAME it spells — `data-lattice-hydrate`, `-config`, `-settle`, `-final`,
+  `-off` — becomes `data-author-lattice-…`, always; and when a drawn plugin is not
+  admitted, its `language-<fence>` becomes `language-off-<fence>`, so no pass, probe or capture
+  reads the author's `<pre><code>` as that fence.
+  **`data-lattice-figure` is NOT refused, and CI is why.** The CLI's Mermaid bake draws each figure
+  INTO the deck's Markdown and stamps it `data-lattice-figure`; the engine then reads that markup as
+  raw HTML like any author's and cannot tell the two apart. Refusing the marker erased it from every
+  baked diagram (7 integration arms: `--disable-plugin`, the HTML player's sanitizer and toggle,
+  `--read`) — the engine-only byte-identity corpus never ran a bake, so it could not see it.
+  `BAKE_WRITTEN` names it, with the reason, and a unit census fails when a `*.bake.js` writes a marker
+  that list lacks. A forged figure marker only makes the author's own markup count as drawn in their
+  own export; the forgery that matters, a pending figure hydrated from an author-packed config, needs
+  `hydrate`, `config` and `settle`, which stay refused.
+  **Two first cuts, both caught.** (1) Refusing the whole `data-lattice-` prefix, as the
+  code-package door does: the byte-identity run caught it, because `examples/motion-asset.md`
+  authors `data-lattice-motion` — vocabulary, not a host marker. The list is exactly the host's
+  channel, and a unit arm fails if `host.js` or `host-browser.mjs` writes a marker it lacks.
+  (2) A start-tag walker that removed the attributes and stamped `data-lattice-off` on a `<pre>`:
+  the tier 1 checker broke it seven ways (a quote or `<!--` inside a value, `--!>`, a `<script>`
+  end tag with an attribute — each put the regex and the browser's tokenizer out of step) and
+  measured it quadratic (a 160 KB deck of unclosed `<script ` rendered in 48 s); and the `<pre>`
+  marking missed a second `<code>`, a `<pre>` mid-paragraph and a one-line `<marp-pre>`. Renaming
+  BY NAME needs no tokenizer: an attribute selector matches a name exactly, so a renamed one cannot
+  be read as the marker wherever it sits. The cost, accepted: raw HTML that spells a marker name as
+  TEXT shows the renamed word (no tracked deck does). **The Playground page**
+  (`docs/src/playground/editor.js`, which loads the lint bundle lazily and so was not reached by the
+  Studio's `plugin-admission.ts`) points that bundle's parser at the deck's `off` set before each
+  lint, quick fix and Fix-all, and re-lints on `lattice:plugin-defaults` (through the linter's
+  `needsRefresh`: `forceLinting` alone flushes only a lint an edit scheduled, which the real page
+  showed); `deckPluginsOffFor`
+  (`editor-diagnostics.js`) is the one copy both callers use, and the lint bundle exports
+  `PLUGIN_NAMES` so the page needs no eager import of the registry.
+  **Evidence.** Engine byte identity over the same 1,010 renders: only edited docs differ; the
+  checker separately hashed 363 decks × 4 plugin configurations against an engine with the rule
+  stubbed out, 0 differences. `test/unit/plugins/author-markup.test.js` judges the engine's output
+  with jsdom: every one of the checker's bypass shapes reaches no element with a host marker, no
+  raw-HTML Mermaid shape is selectable by the pass under `defaults: []`, `data-lattice-motion`
+  survives, and the hostile inputs run in milliseconds; with the rule uninstalled, 22 of 31 arms
+  fail. `hydrate-host.test.js`'s "author element marked pending" arm now injects the element into
+  the page, because the engine no longer lets one through — the browser-side defense it tests still
+  matters on a page the engine did not render. The real Playground page, built site, desktop
+  Chromium (`docs/e2e/plugin-admission.spec.ts`, 5 of 5): with math off the pill inside `$$` is
+  underlined on the slide the engine renders it on, and the underline goes and comes back as the
+  host switches its defaults with no edit. Not covered and recorded: the page's PREVIEW does not
+  re-render on that event (`followups.d/2509-p5-playground-preview-follows-defaults.md`).
+  **Not covered, and recorded:** an Export-to-Marp bundle is rendered by Marp with `html: true`, so
+  forged markers reach its runtime, and its `mark-off.mjs` matches `language-<fence>` as a whole
+  class word, so a raw block classed `language-mermaid-source` stays drawable there
+  (`followups.d/2509-p4-marp-bundle-author-markers.md`).
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.

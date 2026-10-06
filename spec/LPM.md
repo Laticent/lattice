@@ -133,6 +133,19 @@ that stays code, and it should read as code. A Studio's own source-side readers 
 slide mapping) point their boundary parser at the deck's `off` set before they parse (every bundle
 holds its own copy, and each is switched), so they split where the engine splits.
 
+**An author's raw HTML cannot speak the host's channel.** The engine reads every raw-HTML token an
+author wrote, before any engine rule adds markup of its own, and (a) renames every host figure
+marker NAME it spells — `data-lattice-hydrate`, `-config`, `-settle`, `-final`, `-off` become
+`data-author-lattice-…`, wherever they appear — so a deck cannot forge a pending figure or mark a
+fence off (other `data-lattice-*` attributes are author vocabulary and are kept; so is
+`data-lattice-figure`, because a `bake` writes it into the Markdown the engine reads, and a forged
+one only makes the author's own markup count as drawn); and (b) when a
+plugin that draws a fence from its code block is not admitted, renames its `language-<fence>` to
+`language-off-<fence>`, so no pass or probe reads an author's raw `<pre><code>` as that fence. By
+name rather than by tag, because an attribute selector matches a name exactly: no tokenizer
+disagreement can smuggle one through. On the default set (b) never fires, and (a) changes no
+tracked deck.
+
 ### 3.3 Contributions — `contributes`
 
 | Key | Declares | Needs |
@@ -413,6 +426,10 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, author raw HTML (2026-10-06).** The host's figure marker names in an author's raw
+  HTML are renamed, and an unadmitted drawn fence's `language-<fence>` class in raw HTML is defanged
+  (§3.2.1). The Playground page's own lint follows the deck's admission, as the Studio's does.
 
 - **0.5-draft, the dispatch role (2026-10-06).** `<name>.dispatch.js` (§2, §3.3): a plugin that
   offers an extension point ships the module that calls its fillers, and only such a plugin ships

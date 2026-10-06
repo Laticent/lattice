@@ -69,7 +69,13 @@ draws nothing of that plugin. Admission is deck-wide, so the Studio's one-slide 
 whole deck's answer (`LatticePlayground.pluginAdmission`). Two readers that do not run the engine follow it too: an Export-to-Marp bundle (Marp renders it)
 records the plugins its producer left off in its settings block, `pluginsOff`, and the bundled
 runtime marks them before any pass (`mark-off.mjs`); the Studio's lint and slide mapping point their
-boundary parser at the deck's `off` set first (`docs/src/lib/plugin-admission.ts`). The CLI admits once per run and hands the answer to the engine, `bakeDeck`
+boundary parser at the deck's `off` set first (`docs/src/lib/plugin-admission.ts`), and so does the
+Playground page's lint (`docs/src/playground/editor.js`), which re-lints when the host changes its
+defaults. An author's raw HTML is held to the same answer (`author-markup.js`): the host's figure
+marker names (`data-lattice-hydrate`, `-config`, `-settle`, `-final`, `-off`) are renamed
+`data-author-…` wherever author markup spells them, so a deck cannot forge a pending figure
+(`data-lattice-figure` is kept: a bake writes it into the Markdown the engine reads); and the `language-<fence>` class of an unloaded plugin becomes `language-off-<fence>`, so a
+raw `<pre><code class="language-mermaid">` stays code like the fence. The CLI admits once per run and hands the answer to the engine, `bakeDeck`
 and the boundary parser (`setBoundaryPluginsOff`). A host narrows the set with
 `createEngine({ plugins: { defaults } })`, `--default-plugins` on the CLI, or
 `LatticePlayground.setPluginDefaults` in a browser.
