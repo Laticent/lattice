@@ -537,8 +537,26 @@ from `claude/sandbox-probe-run`), in four configurations per engine:
 | Gecko | 0 | **3** (`FontFace`, `self.fonts`, `EventSource`) | 1 (`import()`) | 8 of 8 |
 | WebKit | 0 | 0 | 1 (`import()`) | 6 of 8 (its worker loads no font even unwalled) |
 
-So the policy did NOT hold for a font load on Gecko, as it had not for `EventSource`: before this
-change a package could send a slide out of Firefox with a font address. `WORKER_NETWORK` now takes
+So the policy did NOT hold for a font load in Playwright's Gecko build (Firefox 142.0.1), as it had
+not for `EventSource`: in that build, before this change, a package could send a slide out with a font
+address.
+
+Then the same frame in SHIPPING browsers, each through its own WebDriver (stock Chrome and Firefox on
+Ubuntu, Safari on macOS). The host page builds the frame exactly as the Studio's runner does
+(`docs/src/lib/code-packages/runner.ts`: `FRAME_BOOTSTRAP` allowed by hash, `sandboxCsp`, the
+`load`/`run` messages), and the package reports the wall and `kit.measure` from inside its worker.
+10 arms: the eight above minus `Function`, plus XMLHttpRequest, WebSocket and `importScripts`:
+
+| Browser | Shipped | Policy alone | Neither (control) |
+|---|---|---|---|
+| Chrome 154.0.8037.57 | 0 (`wall=none measure=yes`) | 0 | 10 of 10 |
+| Firefox 156.0 | 0 (`wall=none measure=yes`) | 0 | 10 of 10 |
+| Safari 26.6.2 | 0 (`wall=none measure=yes`) | 0 | 8 of 10 (no font load even unwalled) |
+
+Stock Firefox 156 held the policy for a font load and `EventSource` where Playwright's Firefox 142
+build did not. Whether the difference is the version or Playwright's patched build is not measured.
+The wall is written for exactly that gap: it removes the names whether or not a given Gecko applies
+the policy. `WORKER_NETWORK` now takes
 `FontFace`, `FontFaceSet` and `fonts` too. Measuring where each name lives found the second hole:
 Chromium defines `fetch`, `importScripts`, `indexedDB` and the `fonts` getter on
 `WorkerGlobalScope.prototype`, not on `self`, so the old wall only shadowed them and
