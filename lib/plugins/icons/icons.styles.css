@@ -144,3 +144,21 @@ section .lat-pill[role='img'] > .lat-pill-icon { padding-right:0; }
  * cancel the space letter-spacing leaves after a label's last letter, and with no label that
  * indent only pushed the drawing right. */
 section .lat-pill[role='img'] { text-indent:0; }
+
+/* ── On a sketch slide — the tile, drawn by hand ────────────────────────────
+ * An icon is enrolled as a rough-ink structure (`kind: 'icon'`,
+ * lib/core/rough-ink.js): the ink redraws a FRAMED icon's tile edge in its own `--icon-edge`, as
+ * a spark's, so the two siblings read as one hand. The drawing inside stays crisp, and a bare
+ * icon has no tile to ink. Header and footer icons stay clean, as sparks do (lib/core/rough-ink-dom.js;
+ * the spark's twin of these two rules is in lib/base/base.sketch.css). The ink frame is square, so an
+ * `icon-rounded` tile shows its rounded fill inside square ink, as a rounded spark does. */
+section.sketch .lat-icon {
+  --rough-ink-stroke: var(--icon-edge);
+  --rough-ink-width: 0.9;
+}
+/* PIGMENT fills its tile with the edge's own color, so a 0.9 line shows only where it wobbles past
+ * the fill and the tile still reads crisp beside a spark. A heavier hand makes the drawn edge
+ * visible; etching and tone have a pale or clear tile, where 0.9 already reads. */
+section.sketch .lat-icon:not([data-look]):not(:is(section.icon-etching, section.icon-tone) .lat-icon) { --rough-ink-width: 1.6; }
+section.sketch .lat-icon[data-look='pigment'] { --rough-ink-width: 1.6; }
+section.sketch:has(> svg[data-lattice-rough-ink]) .lat-icon:not(:is(header, footer) .lat-icon)::before { border-color: transparent; }

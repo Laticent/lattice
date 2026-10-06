@@ -134,6 +134,10 @@ script — an icon, and a pill that asks for one, stay code as written: nothing 
 the icon the author asked for. With the plugin switched off, a pill shows its label alone and a
 chart node its name.
 
+On a sketch slide (`mode: sketch`, or a slide's `sketch` class), a framed icon's tile is redrawn
+by hand in its own edge color, as a spark's is, so the two read as one hand. The drawing inside
+stays crisp, a bare icon has no tile to ink, and an icon in the header or footer stays clean.
+
 TeX is not an icon: `` `^{2}` `` and `` `\^{o}` `` stay exactly as written. Only `^{` followed by a
 name (two or more letters, digits or hyphens) opens one.
 

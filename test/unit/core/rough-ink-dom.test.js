@@ -233,6 +233,26 @@ describe('measureRoughInk — the section border', () => {
   });
 });
 
+describe('measureRoughInk — icons', () => {
+  const ICON = [{ id: 'icon', kind: 'icon', sel: 'section.sketch .lat-icon' }];
+
+  test('an icon is measured for its tile and never for its drawing', () => {
+    // The drawing holds a curve, which the spark's M/L/H/V reader would turn into a wrong line.
+    mount(`<section ${SECTION}><span class="lat-icon" style="${INK}" data-geom="100,55,30,30">` +
+      '<svg viewBox="0 0 24 24" data-geom="104,59,22,22"><path d="M4 12C4 4 20 4 20 12L20 20" style="stroke: rgb(1, 1, 1)"/>' +
+      '<rect x="2" y="2" width="4" height="4" style="fill: rgb(2, 2, 2)"/></svg></span></section>');
+    const [plan] = measureRoughInk(ICON);
+    assert.equal(plan.kind, 'icon');
+    assert.deepEqual(plan.marks, []);
+    assert.equal(plan.stroke, 'rgb(20,20,20)');
+  });
+
+  test('an icon in the running header or footer is not inked', () => {
+    mount(`<section ${SECTION}><footer><span class="lat-icon" style="${INK}" data-geom="10,10,30,30"></span></footer></section>`);
+    assert.deepEqual(measureRoughInk(ICON), []);
+  });
+});
+
 describe('measureRoughInk — sparks', () => {
   const SPARK = [{ id: 'spark', kind: 'spark', sel: 'section.sketch .lat-spark' }];
   // A 100x30 viewBox drawn into a 50x15 box at (110,60): every unit is half a pixel.

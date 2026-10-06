@@ -95,6 +95,16 @@ A deck sets the same thing for every slide with `icon: bare` in its front matter
 
 ---
 
+<!-- _class: sketch -->
+
+## On a sketch slide, the tile is drawn by hand.
+
+Framed icons `^{database, c1}` `^{bucket, c4, etching}` `^{shield, c3, tone}` and a spark `~{12 14 13 17 16 21 24}` share one hand.
+
+The drawing inside stays crisp, and a bare icon `^{rocket, c5, bare}` has no tile to ink. `mode: sketch` does the same for a whole deck.
+
+---
+
 <!-- _class: table table-fill -->
 
 ## A name that is not in the set stays code, and lint says why.
