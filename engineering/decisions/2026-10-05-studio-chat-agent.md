@@ -412,7 +412,8 @@ until the agent module lands, then re-prices). Merged into `main`: −15 B, noth
 ## 11. The first fit check on a cold page (follow-up `2539-p3-fit-check-cold-start`)
 
 **Result: the 15-second limit (`DRAFT_FIT_TIMEOUT_MS`) holds, so nothing changed: no new
-timeout and no pre-warm.** The worst cold first check took 7.8 s, and it was always measured.
+timeout and no pre-warm.** The worst cold first check took 10.4 s, on a draft that adds the
+deck's first diagram, and every check was measured.
 
 The worry was arithmetic. `createCaptureFrame` bounds its waits at 10 s (load), 8 s (fonts),
 0.5 s (paint) and 4 s (diagrams), which can add up past 15 s, so the first edit of a session
@@ -449,7 +450,19 @@ measure re-downloads that a real author's browser does not make. Mocking `window
 init script leaves the cache alone (304s in the log). See `engineering/gotchas/docs-site.md`
 §"A timing spec re-downloads everything".
 
-**What would change the answer:** a check on a deck whose first diagram or font appears only
-in the agent's draft, so the live preview never fetched it. That deck's first check pays for
-the download itself, like the unsettled column. Watch for "Fit was not measured" in a real
-transcript before raising the limit.
+**The case the preview cannot pre-fetch: a draft that adds the deck's FIRST diagram.** The
+deck on screen has no diagram, so Mermaid (877 KB) has never been downloaded, and the agent's
+edit inserts a Mermaid slide. The edit's own check has to fetch Mermaid (a full `200` in every
+run) before the frame can draw the diagram. The mock sends `edit_slides` and `check_deck` in one
+round, because a round of edits alone ends the turn without another request. So each time
+below covers the cold edit check PLUS a warm `check_deck`, and overstates the cold check alone:
+
+| Condition | Studio settled before the first message | First message sent while the page is still loading |
+|---|---|---|
+| Unthrottled | 1,111 · 1,128 · 974 | 1,552 · 1,208 · 1,208 |
+| Slow link and 4× CPU | 10,042 · 9,827 · 9,853 | 9,853 · 10,446 · 9,690 |
+
+All 12 runs returned "Fit, measured" for the edit and for `check_deck`. The worst case anywhere
+is 10.4 s, under the 15 s limit with 4.6 s to spare. A slower link than the one emulated here
+could still cross it. If a real transcript shows "Fit was not measured" on a first diagram,
+the fix is to warm Mermaid when the chat opens, not to raise the limit.
