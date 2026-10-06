@@ -93,7 +93,8 @@ type Pending = { id: string; text: string; at: number };
  * plus `typing` and `bye`, which are not chat and go to everyone directly.
  */
 type Post =
-	| { k: 'say'; id: string; text: string }
+	| { k: 'say'; id: string; text: string; have?: number }
+	| { k: 'gone'; id: string; name: string }
 	| { k: 'line'; line: ChatLine }
 	| { k: 'since'; seq: number }
 	| { k: 'lines'; lines: ChatLine[]; startedAt: number }
@@ -108,6 +109,22 @@ const TYPING_SHOW_MS = 4000;
 const TYPING_POST_MS = 2000;
 /** sessionStorage: a member's lines still waiting for the host, sealed, so a reload keeps them. */
 const PENDING_KEY = 'lattice-live-pending';
+/** sessionStorage: this tab's line-id prefix for a room, so a line resent after a reload carries the
+ *  id the host may already have taken (the host drops it as a repeat). Not a secret. */
+const SID_KEY = 'lattice-live-sid';
+const sidFor = (room: string): string => {
+	try {
+		const saved = JSON.parse(sessionStorage.getItem(SID_KEY) || 'null') as { room?: string; sid?: string } | null;
+		if (saved?.room === room && typeof saved.sid === 'string') return saved.sid;
+		const sid = Math.random().toString(36).slice(2, 10);
+		sessionStorage.setItem(SID_KEY, JSON.stringify({ room, sid }));
+		return sid;
+	} catch {
+		return Math.random().toString(36).slice(2, 10);
+	}
+};
+/** A member re-sends waiting lines this often, whatever else happens (inversion round 3, item 3). */
+const RESEND_MS = 15_000;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 || c === 4;
@@ -298,6 +315,8 @@ export class LiveController {
 	private away = new Map<string, { color: LiveColor; role: SessionState['members'][number]['role']; timer: ReturnType<typeof setTimeout> }>();
 	/** Peers that said goodbye (Leave), so their departure is news at once. */
 	private byes = new Set<string>();
+	/** Members the host removed: their departure is final at once. */
+	private removed = new Set<string>();
 	private typingAt = new Map<string, number>();
 	/** Member: lines sent but not yet echoed by the host. */
 	private pending: Pending[] = [];
@@ -485,7 +504,7 @@ export class LiveController {
 		const fingerprint = key?.fingerprint ?? (args.hostFingerprint as string);
 		// The link is this page's address WITHOUT its query: a query can carry anything the host's
 		// address bar happened to hold (inversion round 2, item 6).
-		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, sid: Math.random().toString(36).slice(2, 10), gotDoc: !!args.host, disposers: [] };
+		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, sid: sidFor(args.room), gotDoc: !!args.host, disposers: [] };
 		if (args.release) rt.disposers.push(args.release);
 		this.rt = rt;
 		const r = rt;
@@ -521,6 +540,10 @@ export class LiveController {
 					for (const [id, m] of before) {
 						if (s.members.some((x) => x.id === id) || id === s.selfId) continue;
 						this.typingAt.delete(id);
+						if (this.removed.delete(id)) {
+							this.sys(`${m.name} was removed`);
+							continue;
+						}
 						if (this.byes.delete(id)) {
 							this.sys(`${m.name} left`);
 							continue;
@@ -593,8 +616,15 @@ export class LiveController {
 		const onDocUpdate = () => this.saveHostSoon();
 		doc.on('update', onDocUpdate);
 		r.disposers.push(() => doc.off('update', onDocUpdate));
+		let resendIn = RESEND_MS;
 		this.ticker = setInterval(() => {
 			this.now = this.rt ? this.rt.session.now() : Date.now();
+			// "Sending…" never waits on an event that may not come: retry on a timer too.
+			resendIn -= 1000;
+			if (resendIn <= 0) {
+				resendIn = RESEND_MS;
+				if (this.pending.length) this.catchUp();
+			}
 			if (this.rt?.session.getState().stage === 'live') this.host.rerender();
 		}, 1000);
 		this.host.rerender();
@@ -628,6 +658,7 @@ export class LiveController {
 		for (const a of this.away.values()) clearTimeout(a.timer);
 		this.away.clear();
 		this.byes.clear();
+		this.removed.clear();
 		this.typingAt.clear();
 		this.pending = [];
 		try {
@@ -921,16 +952,20 @@ export class LiveController {
 	 *  a second old can hand out a number again, and the second line must not be taken for a copy of
 	 *  the first (checker, 2026-10-06). */
 	private addLines(lines: ChatLine[]) {
+		// Ours: sent from this connection, or (after a reload, under a new one) under our name. A line
+		// we already hold still counts as a receipt — the host re-sends one when it drops our resend.
+		const st = this.rt?.session.getState();
+		const echoed = new Set(lines.filter((l) => l.peer === st?.selfId || l.name === st?.me?.name).map((l) => l.id));
+		if (echoed.size && this.pending.some((p) => echoed.has(p.id))) {
+			this.setPending(this.pending.filter((p) => !echoed.has(p.id)));
+			this.host.rerender();
+		}
 		const key = (l: ChatLine) => `${l.seq}|${l.peer}|${l.id}`;
 		const have = new Set(this.chat.map(key));
 		const fresh = lines.filter((l) => !have.has(key(l)));
 		if (!fresh.length) return;
 		this.chat = [...this.chat, ...fresh].sort((a, b) => a.seq - b.seq || a.at - b.at).slice(-CHAT_KEEP);
 		this.seq = Math.max(this.seq, ...fresh.map((l) => l.seq));
-		// Only a line WE sent is our receipt: another member cannot clear our "Sending…" with our id.
-		const self = this.rt?.session.getState().selfId;
-		const echoed = new Set(fresh.filter((l) => l.peer === self).map((l) => l.id));
-		if (echoed.size) this.setPending(this.pending.filter((p) => !echoed.has(p.id)));
 		this.saveHostSoon();
 		this.host.rerender();
 	}
@@ -972,15 +1007,23 @@ export class LiveController {
 		const host = this.hostId();
 		if (!s || s.isHost || s.stage !== 'live' || s.hostAway || !host) return;
 		this.post({ k: 'since', seq: this.seq }, host);
-		for (const p of this.pending) this.post({ k: 'say', id: p.id, text: p.text }, host);
+		for (const p of this.pending) this.post({ k: 'say', id: p.id, text: p.text, have: this.seq }, host);
 	}
 
 	/** Host: number a line, keep it, and send it to everyone (the sender's copy is its receipt). */
 	private hostTake(id: string, peer: string, member: { name: string; color: LiveColor }, text: string) {
 		const r = this.rt;
-		// A resend of a line already taken — the same SENDER and id. Keyed by sender, so nobody can
-		// claim another member's next id first and swallow their line (checker, 2026-10-06).
-		if (!r || this.chat.some((l) => l.peer === peer && l.id === id)) return;
+		// A resend of a line already taken: the same MEMBER and id. Keyed by the member's name, not its
+		// connection id, because a reload gives the tab a new connection but keeps its line ids
+		// (`sidFor`) — and by member at all, so nobody can claim another member's next id first and
+		// swallow their line (checker and inversion, 2026-10-06).
+		if (!r) return;
+		const taken = this.chat.find((l) => l.name === member.name && l.id === id);
+		if (taken) {
+			// Already numbered: send the sender its receipt again, so its "Sending…" clears.
+			if (peer !== r.session.getState().selfId) this.post({ k: 'line', line: taken }, peer);
+			return;
+		}
 		const line: ChatLine = { seq: this.seq + 1, id, peer, name: member.name, color: member.color, text: text.slice(0, CHAT_MAX), at: r.session.now() };
 		this.addLines([line]);
 		this.post({ k: 'line', line });
@@ -1007,9 +1050,22 @@ export class LiveController {
 			this.host.rerender();
 		} else if (p.k === 'bye') {
 			this.byes.add(from);
+		} else if (p.k === 'gone' && fromHost && typeof p.id === 'string' && typeof p.name === 'string') {
+			this.removed.add(p.id);
+			// The roster may have beaten it here: turn a "Reconnecting…" row into the removal it was.
+			const a = this.away.get(p.name);
+			if (a) {
+				clearTimeout(a.timer);
+				this.away.delete(p.name);
+				this.sys(`${p.name} was removed`);
+				this.host.rerender();
+			}
 		} else if (s.isHost) {
 			if (p.k === 'say' && sender.role !== 'view' && typeof p.id === 'string' && p.id.length <= 80 && typeof p.text === 'string') {
 				this.typingAt.delete(from);
+				// The sender's highest number is a floor too, so a host restored from an old save never
+				// numbers this line with a number the sender already holds.
+				if (Number.isSafeInteger(p.have) && (p.have as number) > this.seq) this.seq = Math.min(p.have as number, this.seq + CHAT_KEEP);
 				this.hostTake(p.id, from, sender, p.text);
 			} else if (p.k === 'since' && Number.isSafeInteger(p.seq)) {
 				// A member holding a number past ours means our save was older than the session (a
@@ -1055,7 +1111,8 @@ export class LiveController {
 			status: 'live',
 			isHost: s.isHost,
 			// The session's start as the HOST stamped it, on the session clock.
-			startedAt: s.isHost ? r.startedAt : (this.hostStartedAt ?? r.startedAt),
+			// Unknown (null, so no timer shows) until the host's start arrives, rather than 0:00 then a jump.
+			startedAt: s.isHost ? r.startedAt : this.hostStartedAt,
 			link: r.link,
 			linkRole: s.linkRole,
 			autoAdmit: s.autoAdmit,
@@ -1134,7 +1191,16 @@ export class LiveController {
 		setAutoAdmit: (on) => this.rt?.session.setAutoAdmit(on),
 		admit: (id) => this.rt?.session.admit(id),
 		deny: (id) => this.rt?.session.deny(id),
-		remove: (id) => this.rt?.session.remove(id),
+		remove: (id) => {
+			const r = this.rt;
+			const m = r?.session.getState().members.find((x) => x.id === id);
+			if (!r || !m) return;
+			// Tell the others first (same channel, so it lands before the roster), so everyone shows
+			// "was removed" at once instead of 60 s of "Reconnecting…" (inversion round 3, item 2).
+			this.removed.add(id);
+			this.post({ k: 'gone', id, name: m.name });
+			r.session.remove(id);
+		},
 		setRole: (id, role) => this.rt?.session.setRole(id, role),
 		follow: (id) => {
 			this.following = id;
@@ -1175,7 +1241,7 @@ export class LiveController {
 			this.setPending([...this.pending, { id, text: line, at: r.session.now() }]);
 			this.host.rerender();
 			const host = this.hostId();
-			if (host && !s.hostAway) this.post({ k: 'say', id, text: line }, host);
+			if (host && !s.hostAway) this.post({ k: 'say', id, text: line, have: this.seq }, host);
 		},
 		chatTyping: () => {
 			const t = Date.now();

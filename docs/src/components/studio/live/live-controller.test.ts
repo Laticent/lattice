@@ -353,4 +353,42 @@ describe('LiveController (second-round trio)', () => {
 		expect(g.view().chat.some((l) => l.kind === 'message' && l.pending)).toBe(false);
 	});
 
+
+	it('a line resent after a reload (new connection, same line id) is not posted twice, and its "Sending…" clears', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.sendChat('sent just before the reload');
+		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'sent just before the reload'), h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: the host's numbered line, as a reloaded tab would hold it in its sealed queue.
+		const taken = (h as any).chat.find((l: { text: string }) => l.text === 'sent just before the reload');
+		// The reloaded tab: a NEW controller (new connection id) with that line still waiting.
+		localStorage.removeItem('lattice-live-links');
+		const { g: again } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: seed the restored queue and resend it.
+		const ap = again as any;
+		ap.pending = [{ id: taken.id, text: taken.text, at: Date.now() }];
+		ap.catchUp();
+		await until(() => !again.view().chat.some((l) => l.kind === 'message' && l.pending), h, again);
+		expect(h.view().chat.filter((l) => l.kind === 'message' && l.text === 'sent just before the reload')).toHaveLength(1);
+	});
+
+	it('removing someone reads "was removed" at once, for the host and the others, not "Reconnecting…"', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: b } = await guestOf(h, 'Bo');
+		const amina = h.view().people.find((p) => p.name === 'Amina');
+		if (amina) h.actions.remove(amina.id);
+		const removedNote = (c: Ctl) => c.view().chat.some((l) => l.kind === 'system' && l.text === 'Amina was removed');
+		await until(() => removedNote(h) && removedNote(b), h, a, b);
+		expect(h.view().people.some((p) => p.away)).toBe(false);
+		expect(b.view().people.some((p) => p.away)).toBe(false);
+	});
+
+	it("a guest's timer shows nothing until the host's start arrives (no 0:00 then a jump)", async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: forget the start, as before the first answer.
+		(g as any).hostStartedAt = null;
+		expect(g.view().startedAt).toBeNull();
+	});
 });

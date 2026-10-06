@@ -6,9 +6,10 @@
   **follow** someone or **bring everyone to your slide**, and the panel carries the session's
   chat — bubbles like the Architect chat, with times and "is typing…", in one order for
   everyone (the host numbers each line), so someone whose connection drops for a moment (a
-  phone switching tabs) shows as reconnecting rather than "left" and comes back to exactly the
-  lines they missed. The session runs on the host's clock, so a phone set to the wrong time
-  changes nothing. Up to
+  phone switching tabs) shows as reconnecting rather than "left" and comes back to the lines
+  they missed (the last 500 at most). A line sent while the host is away waits as "Sending…"
+  and goes out when it is back. The session runs on the host's clock, so once a phone has
+  synced (within a second of joining) its own clock setting does not matter. Up to
   **4 people**. Undo only undoes your own edits. A guest keeps a copy of the deck
   when the session ends, and reloading the same tab (host or guest) picks the session back up;
   closing the tab ends your part in it. Audio and video are not in this release.

@@ -333,8 +333,12 @@ back for the editor.
   (1, 2, 3…), stamps it with session time and sends it to everyone, so every browser shows one
   order. A returning member asks for the lines after its last number (`since`) and gets exactly
   those; a skipped number triggers the same ask; the host tells each (re)admitted member the
-  latest number (`tip`). A line sent while the host is away waits as *Sending…* and goes out when
-  the host is back; the host drops a resent line by its id. The cost is one extra hop per line.
+  latest number (`tip`). A line sent while the host is away waits as *Sending…* (sealed in the
+  tab, so a reload keeps it; re-sent every 15 s and on every return) and goes out when the host is
+  back. The host drops a resent line by its member and id, and sends that member its receipt
+  again; every `say` carries the sender's highest number, which the host takes as a floor, so a
+  host restored from an old save never reuses a number. Removing someone posts a `gone` first, so
+  the room reads "was removed" at once. The cost is one extra hop per line.
 - **Times** show once per run of lines (*2:05 PM* in the viewer's zone and format), and a guest's
   session timer counts from the host's start, not from its own join.
 - **"Left" means left.** A dropped connection (a phone that backgrounds the tab, a blip) shows the
