@@ -226,13 +226,27 @@ describe('LiveController (second-round trio)', () => {
 	it('a member whose link was down gets the lines sent meanwhile when it comes back', async () => {
 		const { h } = await hostSession();
 		const { g } = await guestOf(h, 'Mark');
+		h.actions.sendChat('before the drop');
+		await until(() => g.view().chat.some((l) => l.kind === 'message' && l.text === 'before the drop'), h, g);
+		await new Promise((res) => setTimeout(res, 5200));
 		// biome-ignore lint/suspicious/noExplicitAny: the test reaches the transports' ids.
 		const id = (c: Ctl) => (c as any).rt.session.getState().selfId as string;
 		net.current?.cut(id(h), id(g));
 		await until(() => h.view().people.some((p) => p.name === 'Mark' && p.away), h, g);
+		// Watch what the host posts from here on.
+		const posts: Array<{ k: string }> = [];
+		// biome-ignore lint/suspicious/noExplicitAny: the test spies on the private post channel.
+		const hp = h as any;
+		const orig = hp.post.bind(hp);
+		hp.post = (p: { k: string }, to?: string) => {
+			posts.push(p);
+			orig(p, to);
+		};
 		h.actions.sendChat("what's up");
 		await settle(h, g);
 		net.current?.heal(id(h), id(g));
 		await until(() => g.view().chat.some((l) => l.kind === 'message' && l.text === "what's up"), h, g);
+		// Only the missed line was sent, not the whole chat.
+		expect(posts.filter((p) => p.k === 'history').map((p) => (p as unknown as { lines: { text: string }[] }).lines.map((l) => l.text))).toEqual([["what's up"]]);
 	});
 });

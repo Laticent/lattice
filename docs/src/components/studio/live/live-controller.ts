@@ -275,6 +275,8 @@ export class LiveController {
 	/** Peers that said goodbye (Leave), so their departure is news at once. */
 	private byes = new Set<string>();
 	private typingAt = new Map<string, number>();
+	/** Host: when it lost each member, by name — what a returning member is sent from. */
+	private lostAt = new Map<string, number>();
 	private lastTypingPost = 0;
 	private lastSummon = 0;
 	private followJump = false;
@@ -460,14 +462,20 @@ export class LiveController {
 				if (prev.stage === 'live' && s.stage === 'live') {
 					for (const m of s.members) {
 						if (before.has(m.id) || m.id === s.selfId) continue;
-						// The host hands every (re)admitted member the chat so far: a member whose tab was in
-						// the background missed every line sent meanwhile, and a quiet rejoin by token never
-						// changes its stage, so its own "history?" ask on admission does not fire. A beat
-						// later, so the admission lands first; duplicates are dropped by id.
-						if (s.isHost) {
+						// A member coming BACK (its tab was in the background, its link blipped) missed the
+						// lines sent while it was gone, and a quiet rejoin by token never changes its stage,
+						// so its own "history?" ask does not fire. The host sends just those lines: everything
+						// stamped since it lost that member, by the host's own clock (a line's `at` is local to
+						// each browser, so another device's clock is never compared). A first admission asks
+						// for the whole chat itself. A beat later, so the admission lands first; a line it
+						// already has is dropped by id, and the 5 s overlap covers a line in flight at the drop.
+						const lostAt = this.lostAt.get(m.name);
+						if (s.isHost && lostAt !== undefined) {
+							this.lostAt.delete(m.name);
 							const to = m.id;
 							setTimeout(() => {
-								if (this.rt === r) this.post({ k: 'history', lines: this.chat }, to);
+								const missed = this.chat.filter((l) => l.at >= lostAt - 5000);
+								if (this.rt === r && missed.length) this.post({ k: 'history', lines: missed }, to);
 							}, 400);
 						}
 						// Back from a dropped link (a backgrounded phone tab, a blip): not news.
@@ -483,6 +491,7 @@ export class LiveController {
 					for (const [id, m] of before) {
 						if (s.members.some((x) => x.id === id) || id === s.selfId) continue;
 						this.typingAt.delete(id);
+						if (s.isHost) this.lostAt.set(m.name, Date.now());
 						if (this.byes.delete(id)) {
 							this.sys(`${m.name} left`);
 							continue;
@@ -583,6 +592,7 @@ export class LiveController {
 		this.away.clear();
 		this.byes.clear();
 		this.typingAt.clear();
+		this.lostAt.clear();
 		this.following = null;
 		this.bound = false;
 		this.boundDeck = null;
