@@ -67,6 +67,27 @@ export function iosNeedsShareSheet(ua = nav()?.userAgent || '', platform = nav()
 	return brand || !safari;
 }
 
+// The iOS "Save" toast a save is waiting on (download-ios.js), so a surface that moves on —
+// the Share sheet switching format or closing — can retire it. Kept here, not in the lazy iOS
+// chunk, so ShareSheet can call it without loading that chunk. The handle comes back from
+// notify.ts's NOTIFY_ACTION_EVENT listener; the dismissal goes out as its NOTIFY_DISMISS_EVENT.
+/** @type {unknown} */
+let pendingSave = null;
+
+/** Retire the waiting iOS Save toast, if there is one. */
+export function dismissPendingSave() {
+	if (pendingSave && typeof window !== 'undefined') {
+		window.dispatchEvent(new CustomEvent('lattice:notify-dismiss', { detail: { handle: pendingSave } }));
+	}
+	pendingSave = null;
+}
+
+/** Record the toast a new iOS save is waiting on; one replaces the last. @param {unknown} handle */
+export function setPendingSave(handle) {
+	dismissPendingSave();
+	pendingSave = handle;
+}
+
 /** iPhone, iPod or iPad — iPadOS 13+ reports as a Mac, so touch points disambiguate. */
 export function isIOSLike(ua = nav()?.userAgent || '', platform = nav()?.platform || '', touchPoints = nav()?.maxTouchPoints || 0) {
 	return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && touchPoints > 1);

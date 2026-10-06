@@ -211,12 +211,18 @@ export function notifyAction(message: string, opts: ActionOptions): NoticeHandle
  * notice, so the sender can fall back when no page code is listening.
  */
 export const NOTIFY_ACTION_EVENT = 'lattice:notify-action';
+export const NOTIFY_DISMISS_EVENT = 'lattice:notify-dismiss';
 if (typeof window !== 'undefined') {
 	window.addEventListener(NOTIFY_ACTION_EVENT, (e) => {
 		const d = (e as CustomEvent<{ message?: string; opts?: ActionOptions }>).detail;
 		if (!d?.message || !d.opts) return;
 		e.preventDefault();
-		notifyAction(d.message, d.opts);
+		(d as { handle?: NoticeHandle }).handle = notifyAction(d.message, d.opts);
+	});
+	// Its pair: retire a notice raised that way, by the handle the listener wrote back.
+	window.addEventListener(NOTIFY_DISMISS_EVENT, (e) => {
+		const h = (e as CustomEvent<{ handle?: NoticeHandle }>).detail?.handle;
+		if (h) dismissNotice(h);
 	});
 }
 

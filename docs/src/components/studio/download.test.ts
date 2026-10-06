@@ -6,7 +6,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { armDownloadLink, downloadBlob, namedFileUrl } from './download';
+import { armDownloadLink, dismissPendingSave, downloadBlob, namedFileUrl } from './download';
 import { iosNeedsShareSheet } from './download-ios';
 
 let made: Blob[];
@@ -116,6 +116,28 @@ describe('the two-tap save on Firefox for iOS', () => {
 		const f = shared[0]?.files?.[0];
 		expect(f?.name).toBe('Q3-Board-Review.pdf');
 		expect(f?.type).toBe('application/pdf');
+		Reflect.deleteProperty(navigator, 'canShare');
+		Reflect.deleteProperty(navigator, 'share');
+	});
+
+	it('retires the waiting Save toast when the surface moves on', async () => {
+		vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(UA.firefoxIPhone);
+		Object.assign(navigator, { canShare: () => true, share: vi.fn(async () => {}) });
+		const { NOTIFY_ACTION_EVENT, NOTIFY_DISMISS_EVENT } = await import('../../lib/notify');
+		dismissPendingSave(); // the test above left its own Save toast waiting; a new save would retire it
+		let raised: unknown;
+		const onRaise = (e: Event) => queueMicrotask(() => (raised = (e as CustomEvent).detail.handle));
+		const dismissed: unknown[] = [];
+		const onDismiss = (e: Event) => dismissed.push((e as CustomEvent).detail.handle);
+		window.addEventListener(NOTIFY_ACTION_EVENT, onRaise);
+		window.addEventListener(NOTIFY_DISMISS_EVENT, onDismiss);
+		downloadBlob('Q3-Board-Review.pptx', new Blob(['PK'], { type: 'application/zip' }));
+		await vi.waitFor(() => expect(raised).toBeTruthy());
+		dismissPendingSave();
+		dismissPendingSave(); // a second call has nothing left to retire
+		window.removeEventListener(NOTIFY_ACTION_EVENT, onRaise);
+		window.removeEventListener(NOTIFY_DISMISS_EVENT, onDismiss);
+		expect(dismissed).toEqual([raised]);
 		Reflect.deleteProperty(navigator, 'canShare');
 		Reflect.deleteProperty(navigator, 'share');
 	});

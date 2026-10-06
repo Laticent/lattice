@@ -1,6 +1,6 @@
 // Saving a file on iOS — loaded by download.js only on an iPhone or iPad.
 
-import { iosNeedsShareSheet } from './download.js';
+import { iosNeedsShareSheet, setPendingSave } from './download.js';
 
 // FIREFOX (AND CHROME) ON iOS. Every iOS browser is Safari's engine underneath, and the
 // non-Safari ones save a page's download with their own script. Firefox for iOS's
@@ -12,7 +12,7 @@ import { iosNeedsShareSheet } from './download.js';
 // export finishes seconds after its tap, so the sheet waits behind a "Save" toast — the
 // same two-tap shape iOS Print already uses (PrintOptionsPanel). Safari honors the
 // `download` attribute, so it keeps the one-tap download.
-const SAVE_TOAST_MS = 60_000;
+const SAVE_TOAST_MS = 30_000;
 
 
 /** Offer `blob` through the share sheet, behind a "Save" toast the user taps. */
@@ -40,7 +40,8 @@ function offerShareSheet(filename, blob, saveWithAnchor) {
 	// cancels the event when it shows the toast; uncancelled, nobody did, so save plainly.
 	const detail = { message: `${filename} is ready`, opts };
 	const shown = !window.dispatchEvent(new CustomEvent('lattice:notify-action', { cancelable: true, detail }));
-	if (!shown) saveWithAnchor(filename, blob);
+	if (shown) setPendingSave(/** @type {{ handle?: unknown }} */ (detail).handle ?? null);
+	else saveWithAnchor(filename, blob);
 }
 
 /** Save on an iPhone or iPad: the share sheet where the browser drops the name, else the
