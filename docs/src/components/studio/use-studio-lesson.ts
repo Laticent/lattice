@@ -153,7 +153,10 @@ export function useStudioLesson(rootRef: React.RefObject<HTMLElement | null>, bi
 			// Window scope, so a press inside a portalled menu or sheet counts as the user's turn
 			// rather than passing unseen.
 			takeover: { scope: 'window' },
-			theme: { accent: 'var(--accent, #2b6ef2)', caption: b.mobile ? 'scrim' : 'bar' },
+			// `bar` at every width. Measured on the real Studio (2026-10-06, decision record §Caption): the
+			// phone's former `scrim` painted 34% of the screen and covered the control the lesson was
+			// pointing at in two of three beats (Add slide, the gallery card); `bar` covered none.
+			theme: { accent: 'var(--accent, #2b6ef2)', caption: 'bar' },
 			onStop: (reason: StopReason) => {
 				// Only a finished lesson earns a toast. A take-over is the user getting on with it, and
 				// a toast then would interrupt the very thing the lesson taught.

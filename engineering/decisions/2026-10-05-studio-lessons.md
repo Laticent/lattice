@@ -153,6 +153,30 @@ contract asks. A page that uses both has two contexts, well under Chromium's per
 | **Polish** (slice 3) | Coach · Fix all · Reshape · Light and dark |
 | **Sharing** | The HTML player · PowerPoint |
 
+## Caption: `bar` at every width (owner ruling 2026-10-06)
+
+Lessons used `bar` on desktop and `scrim` on a phone, inherited from the tours. On review the owner
+asked which caption container fits best, so every Vetrina style was measured on the built Studio:
+7 options (`bar`, `bar` as a pill, `split`, `scrim`, `progress`, `cursor`, `bar` at the top) × 1440,
+820 and 390 × 3 lesson beats aimed at different parts of the screen (Share in the header, Add slide in
+the phone's slide strip, a gallery card). Rubric fixed before the data: occlusion 35% (the target
+hidden zeroes the beat), legibility 25% (WCAG contrast against the backdrop sampled from pixels with
+the glyphs hidden), correct as shipped 15%, distance to the target 15%, Exit size 10%.
+
+| | 1440 | 820 | 390 |
+|---|---|---|---|
+| `bar` (and the pill, identical on every axis) | 7.8 | 7.6 | **7.5** |
+| `split` (`cursor` is `split` once voiced) | **8.1** | **7.9** | 7.1 |
+| `progress` (reads "1/1": lessons report no beat count) | 7.2 | 7.0 | 5.9 |
+| `bar`, top placement | 6.5 | 6.5 | 5.5 |
+| `scrim` | 5.2 | 4.8 | 5.1 |
+
+On a phone `scrim` painted 34% of the screen and covered the control the lesson pointed at in two of
+three beats; `bar` covered none. `split` led desktop by 0.3, inside the method's noise, and its
+corner Exit chip sits on the header's More controls. **Ruling: `bar` everywhere**, one caption at
+every width. Two gaps every style shares are left for Vetrina: the Exit control is 27–32 px on a
+phone (under the 44 px touch target) and the caption text is 13.5 px.
+
 ## Building, Polish, and the end of the long tours (slice 3)
 
 **Nine lessons, two tracks.** `lessons/building.ts` and `lessons/polish.ts` load on demand like
