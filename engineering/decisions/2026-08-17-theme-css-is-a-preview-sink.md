@@ -858,9 +858,11 @@ which is the exporter's own choice.
   access.** `lib/core/marp-bundle.js` writes `html: true, allowLocalFiles: true` into the
   bundle's `marp.config.cjs`, and the Studio's Share sheet offers the bundle from the editor
   source unsanitized. The Studio preview sanitizes, so a deck whose script came from an AI edit
-  or an import can ship a payload its author never saw run. The red team showed the payload
-  survives into the zip; it could not run marp-cli here, so what it does on the recipient's
-  machine is reasoned, not measured. The fix changes an exported artifact, so it waits for the
-  owner.
+  or an import can ship a payload its author never saw run. Measured afterwards with real marp-cli 4.3 on the bundle's own `npm run pdf`: with `html: true`
+  a deck's `<script>` and `onerror` both run in its headless Chrome and a beacon image reaches the
+  network; with `html: false` all of it prints as text. Reading a local file failed (`fetch` and XHR
+  of `file://` both blocked), so that part of the red team's reasoning does not hold. A bundle's
+  `marp.config.cjs` is already code the recipient runs, so the real gap is the Studio path, where the
+  author never saw the script. The fix changes an exported artifact, so it waits for the owner.
 - **Whether the sidecar should be written at all** when nobody asked for an `.html`. Changing the
   default changes what every PDF export leaves on disk, so that is the owner's call too.
