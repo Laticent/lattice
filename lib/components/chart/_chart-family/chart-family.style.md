@@ -6,7 +6,7 @@ three curated themes (cuoio, onyx, indaco) read as **different yet similar**.
 This is the *design rationale*. For the mechanical contract — the override
 hooks, the token tables, the assessment method — see
 `design/theming.md` › **Chart-family palette**. For the token definitions and
-the canvas-aware fallback spectrum, see `chart-family.css`.
+the canvas-aware fallback spectrum, see `chart-family.styles.css`.
 
 ## One recipe, three expressions
 
@@ -152,7 +152,7 @@ current pie/quadrant — is the reference baseline that variant would toggle off
 
 - `design/theming.md` › **Chart-family palette** — the hooks, token tables, and
   the full assessment procedure (the *how*).
-- `chart-family.css` — the `--catN-*` / `--state-*` token definitions and the
+- `chart-family.styles.css` — the `--catN-*` / `--state-*` token definitions and the
   canvas-aware fallback spectrum (the *defaults*).
 - `themes/palette-audit.md` — ranked candidate values per theme.
 - `themes/cuoio.css`, `themes/onyx.css`, `themes/indaco.css` — the three

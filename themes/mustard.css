@@ -265,7 +265,7 @@
 
 /* ── Chart-family palette ───────────────────────────────────────────────
  * Mustard's curation of the chart-family's two color spectrums (defined in
- * lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Mustard overrides
  * both spectrums with its audited Brand-triad pigments so charts read native to
  * the "apothecary archive" brand instead of borrowing the cool system palette.
@@ -274,7 +274,7 @@
  * chart-family expects: on parchment the value is a saturated pigment (it
  * drives the wedge/bar border at full strength and a 24% tint for the fill);
  * on deep sepia it lifts toward white via color-mix so the mark stays vivid.
- * See design/theming.md (chart palette) and chart-family.css for the contract. */
+ * See design/theming.md (chart palette) and chart-family.styles.css for the contract. */
 :root {
   /* Categorical spectrum — mustard's audited "Brand triad" pigments, ordered
    * most-distinct-first. Light side = audited pigment; dark side = same hue

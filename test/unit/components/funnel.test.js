@@ -2,7 +2,7 @@
  * Unit: lib/components/chart/funnel/funnel.transform.js — kernel for the
  * `funnel` chart-family member.
  *
- * Section dispatch + chart-frame wrapping live in chart-family.js (funnel is
+ * Section dispatch + chart-frame wrapping live in chart-family.dispatch.js (funnel is
  * one of CHART_LAYOUTS); this kernel just produces the figure HTML. Tests
  * here cover the layers chart-family delegates to:
  *

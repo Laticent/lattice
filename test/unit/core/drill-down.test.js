@@ -193,7 +193,7 @@ describe('domWordCount', () => {
     return new JSDOM(`<div id="card">${html}</div>`).window.document.getElementById('card');
   }
 
-  // chart-family (lib/components/chart/_chart-family/chart-family.js) builds
+  // chart-family (lib/plugins/chart-family/chart-family.dispatch.js) builds
   // markup by STRING CONCATENATION with no whitespace between adjacent
   // sibling tags — `.textContent` on such a tree glues the last word of one
   // element straight onto the first word of the next ("Argo" + "at-risk" +

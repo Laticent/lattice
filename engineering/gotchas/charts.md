@@ -66,7 +66,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   re-bases every container unit below it. The quadrant SVG carried
   `max-height: 50cqh` written when the slide `section` was the only query
   container ("cap at half the slide"). The Form work later made
-  `.chart-body` a size container (`chart-family.css` §IN-FORM — needed so
+  `.chart-body` a size container (`chart-family.styles.css` §IN-FORM — needed so
   in-form SVGs can size off the real available area), and the same `50cqh`
   became "half the chart-body" ≈ a sixth of the slide. The cohort variant
   was already on the Form-aware `100cqh` pattern and never shrank — the
@@ -104,7 +104,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   never lifted into `.chart-caption`, and it survives as a bare
   `<section>`-level paragraph (full content width, left-aligned).
 - **Mitigation:** `wrapChartFrame`
-  (`lib/components/chart/_chart-family/chart-family.js`) peels a
+  (`lib/plugins/chart-family/chart-family.dispatch.js`) peels a
   trailing `<footer>…</footer>` off before matching the caption, then
   re-appends it so footer order is preserved. The fix is single-source
   — the emulator and runtime bundle the same kernel, so all three
@@ -120,7 +120,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 ## Charts export black/unstyled from the Studio image PDF or PPTX
 
 - **Symptom:** A deck exported through the browser's one-click image PDF (or PPTX) renders every CSS-only slide perfectly, but SVG **chart** slides come out corrupted: radar/pie shapes solid black, gradient fills gone, the chart drawn at the wrong scale, axis/label text huge and overlapping in default black. The same deck renders the charts perfectly in the live preview AND through lattice-emulator.
-- **Cause:** html-to-image (the export rasterizer's clone step) inlines computed styles onto **HTMLElements only** — nested `SVGElement`s keep just their classes/attributes. Chart styling lives in the stylesheet (`chart-family.css`) and gradient `<stop>`s carry raw `var()` expressions, so the serialized clone loses all of it: unspecified `fill` paints SVG-default black, unresolvable `var()` stops go black, the CSS-sized root (viewBox, no width/height attributes) rescales, and label font-sizes vanish. Mermaid/function-plot survive because they embed their own `<style>` **inside** the svg, which `cloneNode` keeps.
+- **Cause:** html-to-image (the export rasterizer's clone step) inlines computed styles onto **HTMLElements only** — nested `SVGElement`s keep just their classes/attributes. Chart styling lives in the stylesheet (`chart-family.styles.css`) and gradient `<stop>`s carry raw `var()` expressions, so the serialized clone loses all of it: unspecified `fill` paints SVG-default black, unresolvable `var()` stops go black, the CSS-sized root (viewBox, no width/height attributes) rescales, and label font-sizes vanish. Mermaid/function-plot survive because they embed their own `<style>` **inside** the svg, which `cloneNode` keeps.
 - **Mitigation:** `flattenChartSvgs` (studio/export/deck-export.js `sectionsOf`) bakes every stylesheet-styled chart `<svg>` in the capture frame with `flattenSvgStyles` — the "download chart as SVG" kernel (`standalone-svg.js`): computed paint/text inlined, gradient stops probe-resolved to literal rgb — and pins the root's layout box. Skips svgs that carry their own `<style>`. If you add a NEW way for deck content to depend on document-level CSS from inside an `<svg>` (or a new svg-emitting component), it must either self-style or be covered by this flatten; the `chart-export` e2e journey pins the mechanism. For any export-pipeline change, eyeball `test/fixtures/export-coverage-deck.md` through the real Share → PDF (see `engineering/visual-review.md` § The export surface).
 - **Triggered by:** Any stylesheet-styled inline `<svg>` (the chart family) in a deck exported via the browser image pipeline. Found exporting the jargon gallery on an iPhone — masked until the export-crash fix (#709) let large decks finish; pre-existing all along.
 - **Removable when:** html-to-image inlines computed styles for SVGElements too (upstream), or the capture pipeline is replaced by something that carries the document stylesheet.

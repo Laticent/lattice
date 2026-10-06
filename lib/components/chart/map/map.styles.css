@@ -33,7 +33,7 @@
    * map scales to the room it's actually given (it was pinned small at 56cqi).
    * height:auto lets the aspect ratio set the height; max-height guards a tall
    * two-line subtitle. This BASE rule governs hero/bleed maps only — the Form and
-   * non-form non-hero maps container-fill via the shared rules in chart-family.css. */
+   * non-form non-hero maps container-fill via the shared rules in chart-family.styles.css. */
   width: 100%;
   max-width: 100%;
   height: auto;
@@ -86,7 +86,7 @@
 
 /* ── Legend ───────────────────────────────────────────────────────────────
  * The key is now SVG-native (svg-legend.js → `.chart-key-*`, styled in
- * _chart-family/chart-family.css): the kernel emits swatch <rect>s whose fills
+ * lib/plugins/chart-family/chart-family.styles.css): the kernel emits swatch <rect>s whose fills
  * mirror the region fills (highlight hue / choropleth ramp), group headings as
  * `.chart-key-head` rows, and unmatched names as a hollow `?` chip. The old HTML
  * `.map-legend` / `.map-swatch` rules are retired with it; the `.map-region-*`

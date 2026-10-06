@@ -117,7 +117,7 @@ describe('check-chart-responsiveness — findViolations', () => {
 
 describe('check-chart-responsiveness — guard', () => {
   test('every chart component CSS file is clean (no unsanctioned fixed-px layout lengths)', () => {
-    const files = execSync('ls lib/components/chart/*/*.css', { cwd: ROOT, encoding: 'utf8' })
+    const files = execSync('ls lib/components/chart/*/*.css lib/plugins/chart-family/chart-family.styles.css', { cwd: ROOT, encoding: 'utf8' })
       .trim().split('\n').filter(Boolean);
     const offenders = [];
     for (const rel of [...new Set(files)]) {

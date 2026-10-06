@@ -434,7 +434,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-axis-dom-catalog.js` | Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup |
 | `tools/build-cadenza-lib.js` | Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-chart-finish-css.js` | Generates lib/components/chart/_chart-family/chart-finish.generated.css — the chart finishes' rules. |
-| `tools/build-chart-registry.js` | Generates lib/components/chart/_chart-family/chart-registry.generated.js — |
+| `tools/build-chart-registry.js` | Generates lib/plugins/chart-family/shared/chart-registry.generated.js — |
 | `tools/build-dagre-bundle.js` | Build the dagre layout bundle the state-chart's browser pass uses. |
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |

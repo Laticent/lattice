@@ -3,7 +3,7 @@
  *
  * The kernel (bar.transform.js) emits a <div class="bar-figure"> holding one
  * <svg>: the shared Cartesian chrome (grid, axis rule, ticks, category labels —
- * all painted by chart-family.css § Cartesian chrome, never restyled here) plus
+ * all painted by chart-family.styles.css § Cartesian chrome, never restyled here) plus
  * this component's own marks, the bars.
  *
  * COLOR SPLIT. The bar's FILL is the family's canonical rectangular wash, minted

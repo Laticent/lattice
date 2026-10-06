@@ -21,7 +21,7 @@
  * matrixGridCells plugin, lib/integrations/markdown-it/plugins.js) — by the
  * time this file's selectors see the DOM, `<td>` content is already
  * `<span class="cell cell-filled|cell-outlined|cell-empty">`. The chart-
- * family builder (buildMatrixGridSection, chart-family.js) only wraps the
+ * family builder (matrix-grid.transform.js) only wraps the
  * table in `.matrix-grid-figure` and splits the two-part eyebrow so the row-
  * axis half can render as the rotated side label below.
  *

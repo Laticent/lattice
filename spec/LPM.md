@@ -1,6 +1,6 @@
 # LPM — the Lattice Plugin Model
 
-**Version:** 0.5-draft · **Status:** Draft · **Date:** 2026-10-05 · **Host API:** `api: 1`
+**Version:** 0.5-draft · **Status:** Draft · **Date:** 2026-10-06 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block
 (` ```functionplot `), the browser code that draws it and the CSS that paints it — as one folder
@@ -9,9 +9,10 @@ design, and the reasons behind each rule, are
 [`engineering/decisions/2026-09-27-plugin-system.md`](../engineering/decisions/2026-09-27-plugin-system.md);
 the working guide is [`lib/plugins/README.md`](../lib/plugins/README.md).
 
-**It stays a draft (0.x) until Mermaid and the chart family run on it** (the note's phases D and
-F). Freezing it after two easy plugins would freeze a contract two easy cases shaped. Until then a
-field may change in a minor version, and every change is recorded in §12.
+**It stays a draft (0.x) until the npm door** (the note's phase G). Freezing it after two easy
+plugins would have frozen a contract two easy cases shaped, so it waited for Mermaid and the chart
+family to run on it (phases D and F, both done); 1.0 comes with the door that lets a plugin ship
+outside the tree. Until then a field may change in a minor version, and every change is recorded in §12.
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -44,6 +45,10 @@ lib/plugins/<name>/
   <name>.hydrate.js       optional  the browser half: hydrate(el, ctx), or createPass(ctx) (§4.3)
   <name>.bake.js          optional  the CLI half: bake(source, ctx), Node-side (§4.5)
   <name>.highlight.js     optional  a highlight.js grammar for its code fences (§4.6)
+  <name>.dispatch.js      optional  IN-TREE ONLY in api 1: the module that calls an extension
+                                    point's fillers, present exactly when the plugin offers one
+                                    (§3.3). The host never loads it by role and api 1 fixes no
+                                    exports: a first-party section transform requires it
   <name>.styles.css       optional  token-only CSS (§4.4)
   shared/                 optional  IN-TREE ONLY: the plugin's own shared modules (.js/.cjs/.mjs
                                     and a README.md), imported by its role modules
@@ -138,7 +143,7 @@ holds its own copy, and each is switched), so they split where the engine splits
 | `hydrate` | a browser half: `{ budgetMs? }` — an integer 100–30000, default 4000 (ignored by a pass) | `hydrate.js` exporting `hydrate` — or, with `render.exec.hydrate: "pass"`, exporting `createPass` |
 | `highlight` | `true` — a highlight.js grammar for the plugin's code fences | `highlight.js` exporting `highlight`, and at least one fence `as: "code"` |
 | `styles` | `true` | `styles.css` |
-| `extensionPoints` | slots the plugin OFFERS and components FILL, keyed by the plugin's own slot name: `{ block?, bucket, role, entry, description }`. At most one slot per plugin in api 1. A component fills a slot by declaring its BLOCK (`block`, default the slot name: the chart family's `kernel`), which MUST be an object block the component manifest schema defines, and which only one plugin reads. Every component in `bucket` that declares the block fills the slot: it ships `<name>.<role>.js` exporting `entry`, called with the signature the offering plugin's `api` fixes, and by filling it REQUIRES the plugin (§3.2.1), with no `plugins` block. Not running, the plugin passes every filler's section through as authored and marks it (and a pane of it) `data-lattice-off="<plugin>"`, which a browser pass MUST skip as it skips a marked fence. In api 1 a slot is filled only by in-tree components; a slot filled by PLUGINS (data, such as an icon pack) is reserved for a later version as an additive field | — (the plugin's own code calls the fillers; the registry records the slot in `extension-points.generated.json`, keyed by block) |
+| `extensionPoints` | slots the plugin OFFERS and components FILL, keyed by the plugin's own slot name: `{ block?, bucket, role, entry, description }`. At most one slot per plugin in api 1. A component fills a slot by declaring its BLOCK (`block`, default the slot name: the chart family's `kernel`), which MUST be an object block the component manifest schema defines, and which only one plugin reads. Every component in `bucket` that declares the block fills the slot: it ships `<name>.<role>.js` exporting `entry`, called with the signature the offering plugin's `api` fixes, and by filling it REQUIRES the plugin (§3.2.1), with no `plugins` block. Not running, the plugin passes every filler's section through as authored and marks it (and a pane of it) `data-lattice-off="<plugin>"`, which a browser pass MUST skip as it skips a marked fence. In api 1 a slot is filled only by in-tree components; a slot filled by PLUGINS (data, such as an icon pack) is reserved for a later version as an additive field | `<name>.dispatch.js`, the plugin's own module that calls the fillers (§2; in-tree only, no host contract in api 1); the registry records the slot in `extension-points.generated.json`, keyed by block |
 | `diagnostics` | `{ "<name>/<id>": "message" }` — every ID reported on the plugin's behalf. **In api 1 only the HOST reports**, and only `<name>/deprecated-alias` (a deprecated fence alias was used); a plugin module has no `ctx.report` yet | — |
 
 ### 3.4 `payload`, `tokens`, `render`
@@ -247,7 +252,7 @@ names one figure), `keptWhy` / `keptFix` / `failedWhy` (the warnings' plugin-spe
 attribute carrying each one's index), `bakedBand(idx)`, and `render(idx, { band, palette })` →
 `{ markup, kept }` (the figure re-rendered, its element carrying `data-look-idx`; `kept` when
 author-fixed colors survive), `{ kept: true }`, `{ failed: true }` or null. Mermaid's bake publishes
-one; the chart family (phase F) is its expected second user.
+one; the chart family (phase F) shipped without needing it.
 
 On the CLI a bake that throws or returns a non-string FAILS THE EXPORT, naming the plugin (§8).
 
@@ -408,6 +413,12 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, the dispatch role (2026-10-06).** `<name>.dispatch.js` (§2, §3.3): a plugin that
+  offers an extension point ships the module that calls its fillers, and only such a plugin ships
+  one. In-tree only, and a build check rather than a host contract: the host loads no role module
+  by this name, and api 1 fixes none of its exports. The chart family's section dispatch and chart frame moved into it, and the chart frame's
+  stylesheet became the family's `styles` contribution.
 
 - **0.5-draft, admission on Export-to-Marp and the Studio's readers (2026-10-05).** An exported
   Marp bundle carries `pluginsOff` and its runtime marks from it (§3.2.1); the Studio's lint and

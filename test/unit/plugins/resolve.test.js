@@ -133,7 +133,7 @@ describe('resolvePlugins — extension points (phase F)', () => {
       type: 'plugin', format: 1, name, api: 1, title: name, description: name,
       contributes: { extensionPoints: { [slot]: { ...(block ? { block } : {}), bucket, role: 'transform', entry: 'transformSection', description: 'x' } } },
     },
-    exports: {},
+    exports: { hasDispatch: true },
   });
   const blocks = new Set(['kernel', 'name', 'plugins']);
   test('filling a slot is requiring its plugin: fills come back per component', () => {
@@ -153,6 +153,13 @@ describe('resolvePlugins — extension points (phase F)', () => {
     expectError([family('a'), family('b', 'renderer', 'chart', 'plugins')], /extension points "a.kernel" and "b.renderer" both claim the "chart" bucket/, { componentBlocks: blocks });
     // Two plugins may both call their slot `kernel` when they read different blocks.
     assert.deepEqual(resolvePlugins([family('a'), family('b', 'kernel', 'diagram', 'plugins')], { componentBlocks: blocks }).errors, []);
+  });
+  test('the plugin that offers a slot ships the dispatch that calls its fillers, and no other plugin does', () => {
+    const lone = family('charts');
+    lone.exports = {};
+    expectError([lone], /plugin "charts" offers an extension point but has no charts\.dispatch\.js holding the code that calls its fillers/, { componentBlocks: blocks });
+    const stray = plugin('a', { exports: { rules: ['a_tok'], renderers: ['a_tok'], detect: true, hasDispatch: true } });
+    expectError([stray], /plugin "a" ships a\.dispatch\.js but offers no extension point/);
   });
   test('a slot\'s block must be an object block the component schema defines, or nothing could fill it', () => {
     expectError([family('a', 'renderer')], /extension point "renderer" is filled by the `renderer` block, which is not an object block the component manifest schema defines/, { componentBlocks: blocks });

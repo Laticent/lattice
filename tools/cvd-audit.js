@@ -223,7 +223,7 @@ function tokenGroups() {
     { label: 'categorical fills', tokens: fills },
     { label: 'categorical marks', tokens: marks },
     // The chart-family spectrum override hooks (design/theming.md). Untuned
-    // brand themes inherit these from chart-family.css and so resolve to
+    // brand themes inherit these from chart-family.styles.css and so resolve to
     // nothing here (group skipped); a curated palette — including the a11y
     // palettes — declares them and is measured.
     { label: 'chart spectrum', tokens: chart },

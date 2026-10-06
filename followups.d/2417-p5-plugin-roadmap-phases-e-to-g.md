@@ -4,7 +4,7 @@ priority: P5
 recorded: 2026-09-27
 ---
 
-# Plugin roadmap, phases E–G: the data layer, the chart family, the npm door
+# Plugin roadmap, phases E and G: the data layer and the npm door
 
 why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §7. Each phase
             ships on its own and deletes what it replaces. `checkPluginMigration` in
@@ -14,14 +14,11 @@ why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §
             `2509-p5-mermaid-library-copies.md`.
             E: the data layer, zip import and export of plugins in the CLI and the Studio
                (§4.10); this lifts the `plugin` refusal in `lib/packages/gate.js`.
-            F: the chart family — `extensionPoints.kernel` and the registry reading chart
-               kernels SHIPPED (the plugin-system note §11, "Phase F, the slot"). Left of F:
-               the family's own code and the chart-frame stylesheet move into
-               `lib/plugins/chart-family/` (a `styles` contribution and the dispatch as the
-               plugin's module). The "renderer libraries → `optionalDependencies`" step has
-               nothing to move (measured 2026-10-05: chart kernels import only the in-repo
-               workspace libraries `@laticent/trama` and `@laticent/segno`, no npm dependency),
-               so it is dropped from F. #287 separately.
+            F: the chart family — DONE (the plugin-system note §11, "Phase F, the slot" and
+               "Phase F, the family's code"): the dispatch is `chart-family.dispatch.js` and the
+               chart frame is the plugin's `styles` contribution. Kept in
+               `lib/components/chart/_chart-family/`: the kernels' shared helpers and the generated
+               `chart-finish.generated.css` (built from the members' manifests, not the family's).
             G: the npm door, after the LICENSE-EXCEPTIONS grant; `spec/LPM.md` goes to 1.0.
             PHASE E's FOUR DECISIONS ARE SETTLED (owner, 2026-10-04 — the plugin note §9, decisions
             6–8). Asked because they are trust calls, hard to reverse:
@@ -57,5 +54,4 @@ done when — each phase lands as its own PR with the ratchet still at 0, and th
             split or deleted as each phase is promoted to an issue.
 evidence  — per phase: byte identity or export sign-off (dark and light renders via
             SendUserFile) where a render changes, as phase A and B did.
-verify    — tier 2 adversarial trio for F (render-path and install changes), tier 1 for
-            E and G, because trust and packaging decisions are hard to reverse.
+verify    — tier 1 for E and G, because trust and packaging decisions are hard to reverse.

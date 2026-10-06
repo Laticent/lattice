@@ -2066,6 +2066,9 @@ const SECTION_BOX_ROOTS = [
   path.join(LIB_DIR, 'components'),
   path.join(LIB_DIR, 'base'),
   path.join(LIB_DIR, 'forms'),
+  // A plugin's stylesheet is bundled with the rest: the chart frame (the chart family plugin's
+  // `styles`) holds 70 `section.chart-frame` rules.
+  path.join(LIB_DIR, 'plugins'),
   path.join(ROOT, 'themes'),
 ];
 
@@ -3303,7 +3306,7 @@ function offendingBodyPadding(css) {
         // The exits are unchanged and are the whole of the exception: a body that
         // PAINTS a surface (`.canvas`) or has no stage to own anything (the
         // Read·Article `figure` projection) earns its own padding. See the
-        // `--chart-panel-y` note in chart-family.css.
+        // `--chart-panel-y` note in chart-family.styles.css.
         if (/^\s*padding(?:-(?:inline|block|top|right|bottom|left))?(?:-(?:start|end))?\s*$/.test(prop)
           && value && !/^0(?:px|em|rem|%)?$/.test(value)) {
           out.push({ prop: prop.trim(), value: `${value} (on \`${selector}\`)` });
@@ -5083,7 +5086,7 @@ function checkAdaptDeclarations(manifests, errors) {
   // maker-checker caught). Union it in for chart-bucket components, the way
   // checkVariantDeclaration unions base.modifiers.
   const chartFamilyCss = (() => {
-    const p = path.join(COMPONENTS_DIR, 'chart', '_chart-family', 'chart-family.css');
+    const p = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.styles.css');
     return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
   })();
   for (const m of manifests) {
@@ -5607,7 +5610,7 @@ const SANCTIONED_MARK_IDENTITY = [
   // built with a raw substring search and carried three rows that were COMMENTS —
   // `_chart-family/label-drops.js`, `_chart-family/svg-label.js` and `word-cloud.transform.js`
   // each merely name `data-label` in prose. Two more named a DIFFERENT attribute whose name starts
-  // the same way — `_chart-family/chart-family.js` writes `data-label-drops`, `journey.transform.js`
+  // the same way — `lib/plugins/chart-family/chart-family.dispatch.js` writes `data-label-drops`, `journey.transform.js`
   // writes `data-label-len`. All five are out; `writesMarkIdentity` strips comments and bounds the
   // attribute name, so none can come back. Thirteen files wrote a mark identity then, not
   // eighteen. (`word-cloud.transform.js` has since started writing one for real — its words
@@ -9350,11 +9353,11 @@ function checkDensityCoverage(manifests, errors) {
 // those are ungated and stay on human review. Green ≠ "the whole categorical canon
 // is fresh"; it means the gated skill facts are.
 // Count the categorical chart-hue slots the chart family actually declares
-// (`--chart-cat-N-hue:` declarations in chart-family.css). This is the source of
+// (`--chart-cat-N-hue:` declarations in chart-family.styles.css). This is the source of
 // chart-component.md's "`--chart-cat1..8`" claim. Returns null on a structural
 // change so the caller can fail closed rather than silently miscount.
 function chartCatSlotCount() {
-  const p = path.join(COMPONENTS_DIR, 'chart', '_chart-family', 'chart-family.css');
+  const p = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.styles.css');
   if (!fs.existsSync(p)) return null;
   const css = fs.readFileSync(p, 'utf8');
   const slots = new Set();
@@ -9442,7 +9445,7 @@ function skillFreshnessAssertions() {
       marker: /--chart-cat1\.\.(\d+)/,
       actual: chartCats,
       what: 'chart categorical slot count',
-      source: '--chart-cat-N-hue declarations (chart-family.css)',
+      source: '--chart-cat-N-hue declarations (chart-family.styles.css)',
     },
   ];
 }

@@ -510,7 +510,7 @@ describe('line kernel', () => {
 
     test('the stylesheet declares NO font size — the shared cart-* rules own it', () => {
       // The kernel wraps its labels to `cart-series` / `cart-value` / `cart-cat`
-      // sizes, which chart-family.css paints and cartesian.test.js pins. A size
+      // sizes, which chart-family.styles.css paints and cartesian.test.js pins. A size
       // declared here would silently break lines to a width the glyphs do not
       // occupy.
       assert.equal(/font-size/.test(css), false);

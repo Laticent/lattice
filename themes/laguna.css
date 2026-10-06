@@ -262,7 +262,7 @@
 
 /* ── Chart-family palette ───────────────────────────────────────────────
  * Laguna's curation of the chart-family's two color spectrums (defined in
- * lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Laguna overrides
  * both spectrums with its coastal-teal pigments so charts read native to the
  * "teal on warm sand" brand instead of borrowing the cool system palette.
@@ -272,7 +272,7 @@
  * (it drives the wedge/bar border at full strength and a 24% tint for the
  * fill); on deep-sea canvas it lifts to a brighter same-hue sibling via
  * color-mix(in oklab, <pigment>, white 30%). See design/theming.md
- * (chart palette) and chart-family.css for the full contract. */
+ * (chart palette) and chart-family.styles.css for the full contract. */
 :root {
   /* Categorical spectrum — laguna's audited Brand-triad pigments, ordered
    * most-distinct-first so adjacent bars/wedges stay legible.

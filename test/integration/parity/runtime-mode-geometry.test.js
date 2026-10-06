@@ -37,7 +37,7 @@ const path = require('path');
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
-const engine = require('../../../lib/components/chart/_chart-family/chart-family');
+const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
 const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
 
 const RUNTIME_SRC = fs.readFileSync(

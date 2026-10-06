@@ -15,13 +15,13 @@ and `journey` is `structure`, yet both render through the frame, and
 `word-cloud` (`series`) was folded in when its bespoke frame-mirroring CSS
 was retired in favor of the real skeleton.
 
-**Files in this folder:**
+**Files of the family** (the first three live in the chart family plugin, `lib/plugins/chart-family/`; the rest in this folder):
 
 | File | What it implements |
 |---|---|
-| `chart-family.css` | The `.chart-frame` skeleton + `.chart-status` pill vocabulary that every chart component wraps its content in. |
-| `chart-family.js` | The dispatcher and the `.chart-frame` wrap, and nothing per-chart: no layout list, no kernel `require`, no adapter, no figure-class alternation. Every chart's kernel lives in its own component folder. |
-| `chart-registry.generated.js` | The frozen dispatch table — layout tokens, figure classes, kernel entrypoints — generated from every chart manifest's `kernel` block by `tools/build-chart-registry.js`. Never hand-edited. |
+| `lib/plugins/chart-family/chart-family.styles.css` (the chart family plugin's `styles`) | The `.chart-frame` skeleton + `.chart-status` pill vocabulary that every chart component wraps its content in. |
+| `lib/plugins/chart-family/chart-family.dispatch.js` (the plugin's module) | The dispatcher and the `.chart-frame` wrap, and nothing per-chart: no layout list, no kernel `require`, no adapter, no figure-class alternation. Every chart's kernel lives in its own component folder. |
+| `lib/plugins/chart-family/shared/chart-registry.generated.js` | The frozen dispatch table — layout tokens, figure classes, kernel entrypoints — generated from every chart manifest's `kernel` block by `tools/build-chart-registry.js`. Never hand-edited. |
 | `transform-utils.js` | The shared string/list toolkit each kernel imports, plus the section-kernel helpers (`spliceFirstList`, `stripTrailingPills`, `readsHandBody`) and the family's `CHART_STATUS` vocabulary. |
 
 The dispatcher runs in both render paths:
@@ -90,7 +90,7 @@ caption, it stamps `data-prose` on a caption that mixes a code span with
 prose, so the eyebrow rule (`p:has(> code:only-child)`) never restyles its
 chip.
 
-CSS in `chart-family.css` styles the skeleton (header padding, body
+CSS in `chart-family.styles.css` styles the skeleton (header padding, body
 flex layout, status pill chrome). Per-component CSS in
 `lib/components/<chart-layout>/<chart-layout>.styles.css` styles the
 chart's interior.
@@ -329,7 +329,7 @@ of the word "chart", plus a fourth for the bucket folder; `design/design-system.
 **A chart's DISPATCH AND FRAMING are a folder drop.** Create
 `lib/components/chart/<name>/` with a manifest carrying a `kernel` block and a
 `<name>.transform.js` exporting `transformSection`, then `npm run build`. No
-edit to `chart-family.js`, no array entry, no adapter, no figure-class
+edit to the dispatch, no array entry, no adapter, no figure-class
 alternation. `test/unit/components/chart-folder-drop.test.js` performs exactly
 that drop against a scratch copy of `lib/` and renders it through the real
 engine, so the claim is executed rather than asserted.
@@ -352,7 +352,7 @@ A kernel rewrites the list (or the table) in place and leaves the `<h2>` for the
 chart-frame wrap to lift into the header. The body container it emits
 (`.journey-board`, `.word-cloud-canvas`, …) is found through the manifest's
 `kernel.figureClass` — the wrap builds its matcher from the declared set. That
-used to be a literal alternation in `chart-family.js`, and it was the hand edit
+used to be a literal alternation in `chart-family.js` (now the plugin's `chart-family.dispatch.js`), and it was the hand edit
 whose omission failed SILENTLY: the kernel ran, the figure was built, and the
 slide rendered it full-bleed with no frame.
 
@@ -620,7 +620,7 @@ takes off the finished picture rather than about fitting boxes.
 **A name that had to travel is joined back to its mark by a hairline.**
 `leaderLine` in the same module emits it and takes its class from the caller;
 `scatter` and `quadrant` both draw `.chart-leader`, painted once in
-`chart-family.css` § Label leaders. It is drawn only when the label is further
+`chart-family.styles.css` § Label leaders. It is drawn only when the label is further
 from its mark than a first-ring seat, because a connector between two things
 that are visibly together is noise. The reason it is not optional: on a crowded
 plot ADJACENT stops meaning NEAREST — six of the fourteen names on the quadrant
@@ -673,7 +673,7 @@ another; a plot is the opposite case.
 | `buildFillDefs` | the canonical rectangular fill, as SVG `<defs>` |
 | `buildSvgRoot` | the one `<svg>` root, so the `role="img"` contract cannot be dropped |
 
-It owns **no color and no marks**. Paint lives in `chart-family.css`
+It owns **no color and no marks**. Paint lives in `chart-family.styles.css`
 § Cartesian chrome (the `.cart-*` classes); the marks are each member's own
 geometry.
 

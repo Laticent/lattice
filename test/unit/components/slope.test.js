@@ -2,7 +2,7 @@
  * Unit: lib/components/chart/slope/slope.transform.js — kernel for the `slope`
  * chart-family member (the slopegraph, and its `dumbbell` variant).
  *
- * Section dispatch and the chart-frame wrap live in chart-family.js; this
+ * Section dispatch and the chart-frame wrap live in chart-family.dispatch.js; this
  * kernel only produces the figure HTML. The substrate it consumes
  * (_chart-family/cartesian.js) has its own suite — nothing here re-tests ticks,
  * scales or the series DSL. What IS tested here is everything the slope decides
@@ -445,7 +445,7 @@ describe('slope kernel', () => {
     const rules = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
     test('the stylesheet declares NO font-size — the shared chrome owns every label size', () => {
-      // The kernel wraps to `cartesian.FS`, which mirrors chart-family.css
+      // The kernel wraps to `cartesian.FS`, which mirrors chart-family.styles.css
       // § Cartesian chrome and is gated there. A size declared HERE too would be
       // a second source of truth, and drift would wrap text to a width the
       // glyphs do not occupy.

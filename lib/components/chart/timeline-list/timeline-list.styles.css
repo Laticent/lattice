@@ -7,7 +7,7 @@
  * Date pill sits above the dot; title + status pill + body sit below.
  * Items distribute evenly along the spine. */
 /* THE OUTER INSET, timeline-list's tuning of it (#1598) — re-homed from
- * `.chart-body` to the family's inset TOKENS (chart-family.css), values moved
+ * `.chart-body` to the family's inset TOKENS (chart-family.styles.css), values moved
  * verbatim. A parent's padding cannot be overridden by a child, so the tuning has
  * to travel with the inset it tunes; as a token it reaches BOTH holders
  * (`.cell-stage` under the Form, the section on the unwrapped path) from one
@@ -132,7 +132,7 @@ figure.timeline-list.chart-frame .chart-body {
   /* In em of the pill's own --fs-meta text, so the box grows with a `venue:` (at hall the
    * "Q1" text overflowed a fixed 1.875cqi box). Old cqi / 1.17, the landscape meta
    * coefficient, so laptop landscape is unchanged — the .chart-status recipe in
-   * chart-family.css. */
+   * chart-family.styles.css. */
   height: calc(1.875em / 1.17);
   padding: 0 calc(0.78125em / 1.17);
   /* pill→title spacing moved to .timeline-title's padding-top (the pill is a

@@ -36,7 +36,7 @@
  * dispatcher lifts the h2 into .chart-header, the intro paragraph into the
  * .chart-subtitle, and wraps the table (or transposed .horizons grid) in
  * .roadmap-figure inside .chart-body — so the section layout, h2 chrome, and
- * the opt-in `.canvas` surface panel all come from chart-family.css. The
+ * the opt-in `.canvas` surface panel all come from chart-family.styles.css. The
  * figure fills the body height; the table/grid fills the figure. */
 :is(section.roadmap, figure.roadmap) .roadmap-figure {
   display:flex; flex-direction:column; width:100%; flex:1; min-height:0;
@@ -230,7 +230,7 @@
   font-family:var(--font-label);
 }
 /* The intro paragraph and any trailing caption are lifted by the chart-frame
- * wrap into .chart-subtitle / .chart-caption (styled in chart-family.css), so
+ * wrap into .chart-subtitle / .chart-caption (styled in chart-family.styles.css), so
  * roadmap no longer styles a bare `section.roadmap > p`. */
 
 /* ── ROADMAP STATE MARKERS — the universal six per cell ───────────────
@@ -698,7 +698,7 @@ section.roadmap.roadmap:where([data-family="square"], [data-family="tall"], [dat
 /* ── Box-local portrait (placed AFTER the base horizon rules so it wins on
  * source order at equal specificity) ────────────────────────────────────────
  * A wide table letterboxes, so on a tall box the kernel auto-selects horizons
- * (chart-family.js) and the phase cards STACK into a single column down the
+ * (roadmap.transform.js) and the phase cards STACK into a single column down the
  * page, filling the height. The header collapses to one row (eyebrow · title)
  * and the workstream rows tighten so a 3–4 phase roadmap fits without overflow.
  * Keyed on the deck's `data-family` stamp; landscape (N-across) untouched.
@@ -731,7 +731,7 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
  * mostly empty: measured, a 314.8px card in an 835.6px stage. The height is
  * held by the `.viz-frame` pin —
  * `section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) >
- * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.css).
+ * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.styles.css).
  *
  * The obvious move — flip the body to `flex: 1 1 0` so it fills — is WRONG,
  * and measuring the frame says why. `.chart-body` is `overflow: hidden`, so

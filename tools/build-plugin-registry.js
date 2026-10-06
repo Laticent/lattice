@@ -169,6 +169,9 @@ async function readExports(folder, name, manifest) {
   // its export and never imported by anything the engine or a browser loads.
   const bakePath = path.join(dir, `${name}.bake.js`);
   if (fs.existsSync(bakePath)) out.hasBake = typeof require(bakePath).bake === 'function';
+  // The dispatch (a plugin that offers an extension point) is read for its presence only: it loads
+  // every filler, and the resolver's question is only whether the plugin's folder holds it.
+  out.hasDispatch = fs.existsSync(path.join(dir, `${name}.dispatch.js`));
   const stylesPath = path.join(dir, `${name}.styles.css`);
   if (fs.existsSync(stylesPath)) {
     out.hasStyles = true;

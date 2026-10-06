@@ -2,7 +2,7 @@
  * Unit: lib/components/chart/bar/bar.transform.js — kernel for the `bar`
  * chart-family member.
  *
- * Section dispatch and the chart-frame wrap live in chart-family.js; the shared
+ * Section dispatch and the chart-frame wrap live in chart-family.dispatch.js; the shared
  * plot substrate (ticks, scales, gutters, chrome) is covered by
  * test/unit/components/cartesian.test.js. What is tested HERE is the part this
  * kernel decides for itself:

@@ -136,7 +136,7 @@ const KPI = 'lib/components/evidence/kpi/kpi.styles.css';
 const SPLITPANEL = 'lib/components/statement/split-panel/split-panel.styles.css';
 const SPLITCOMPARE = 'lib/components/comparison/split-compare/split-compare.styles.css';
 const CHECKLIST = 'lib/components/inventory/checklist/checklist.styles.css';
-const CHARTFAMILY = 'lib/components/chart/_chart-family/chart-family.css';
+const CHARTFAMILY = 'lib/plugins/chart-family/chart-family.styles.css';
 const KANBAN   = 'lib/components/chart/kanban/kanban.styles.css';
 const STATECHART = 'lib/components/chart/state-chart/state-chart.styles.css';
 const STATECHART_JS = 'lib/components/chart/state-chart/state-chart.layout.js';
@@ -507,7 +507,7 @@ const SURFACES = [
   //
   // MODELING NOTE, because getting this wrong is silent. `--state-{s}-fill` and
   // `--chart-state-*` are declared on `section.chart-frame`, not `:root`, so `mergedVars()`
-  // cannot see them and they are seeded here from chart-family.css. And the card must stay a
+  // cannot see them and they are seeded here from chart-family.styles.css. And the card must stay a
   // TOKEN (`--kanban-card`) rather than being inlined: `resolveTokenExpr` reduces a
   // `color-mix()` nested directly inside another `color-mix()`'s argument to a WRONG hex
   // rather than returning its input verbatim, which is the contract the rest of this file
@@ -569,7 +569,7 @@ const SURFACES = [
   })),
   // ── kanban · the inline-code chip inside a card ──────────────────────────
   // Reached WITHOUT any status markup: the card transform consumes a trailing <code>
-  // only when it is a SIZE (chart-family.js KB_SIZE) and reads a status only off a
+  // only when it is a SIZE (`kanbanSize`, lib/core/kanban-sizes.js) and reads a status only off a
   // SUB-BULLET, so `- Pilot retro pack \`done\`` on one line survives verbatim as a raw
   // chip (test/integration/baseline-decks/gallery.md, the kanban slide). Rendered at
   // 12.7px / weight 600, so the bar is 4.5 rather than 3.
@@ -945,7 +945,7 @@ function bundleVars() {
  * Component tokens `mergedVars` cannot see, seeded so a surface can NAME them.
  *
  * `--state-{s}-hue` / `--state-{s}-fill` are declared on `section.chart-frame`
- * (lib/components/chart/_chart-family/chart-family.css:394-416), not on `:root`, so the
+ * (lib/plugins/chart-family/chart-family.styles.css:394-416), not on `:root`, so the
  * `:root`-block parser below never collects them. A surface that needs one had to inline its
  * definition instead — and inlining puts a `color-mix()` inside another `color-mix()`'s
  * argument, which `resolveTokenExpr` reduces to a WRONG hex rather than returning verbatim.

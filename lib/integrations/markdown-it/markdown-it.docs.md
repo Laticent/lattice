@@ -90,7 +90,7 @@ lattice.css         (bundled output) declares @theme lattice via lib/_theme.css
                                                   ↓
                     contains all of: lib/base/, lib/shared/,
                                      lib/integrations/{mermaid,highlight-js,marp}/,
-                                     lib/components/chart/_chart-family/chart-family.css,
+                                     lib/plugins/chart-family/chart-family.styles.css,
                                      and every lib/components/<bucket>/<name>/<name>.styles.css
 ```
 

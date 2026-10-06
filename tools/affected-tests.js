@@ -28,6 +28,7 @@ const SCRIPT_FOR_LIB = {
   'palette.js':           'test:palette',
   'resolve-palette.js':   'test:palette',
   'chart-family.js':      'test:components',
+  'chart-family.dispatch.js': 'test:components',
   'match-section.js':     'test:parsing',
   'slot-label-lift.js':   'test:parsing',
   'split-slides.js':      'test:parsing',
@@ -142,6 +143,15 @@ for (const f of process.argv.slice(2)) {
     const script = SCRIPT_FOR_LIB[path.basename(rel)];
     if (script) scripts.add(script);
     else runAll = true;  // unknown lib file → safe default
+    continue;
+  }
+
+  // A plugin's stylesheet — the chart frame (the chart family plugin) styles every chart, and the
+  // chart-contrast, mark-edge and chart-finish tests read it, as they did when it lived under
+  // lib/components/chart/.
+  if (rel.startsWith('lib/plugins/') && rel.endsWith('.css')) {
+    scripts.add('test:components');
+    scripts.add('test:plugins');
     continue;
   }
 

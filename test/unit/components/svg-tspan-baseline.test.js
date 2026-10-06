@@ -132,7 +132,9 @@ function chartSources(dir, out = []) {
 
 describe('the tspan-builder census', () => {
   test('no builder appears or disappears unlisted', () => {
-    const found = chartSources('lib/components/chart').filter((f) => BUILDS_TSPAN.test(read(f)));
+    // The chart bucket AND the chart family plugin, whose dispatch builds the chart frame.
+    const found = [...chartSources('lib/components/chart'), ...chartSources('lib/plugins/chart-family')]
+      .filter((f) => BUILDS_TSPAN.test(read(f)));
     const listed = TSPAN_BUILDERS.map((b) => b.file);
     assert.deepEqual(found.sort(), listed.sort(),
       'A <tspan> builder in lib/components/chart is not on TSPAN_BUILDERS (or a listed ' +
@@ -187,7 +189,7 @@ describe('the tspan-builder census', () => {
  * stylesheet gives a baseline needs a companion rule reaching its tspans.
  */
 const CHART_CSS = [
-  'lib/components/chart/_chart-family/chart-family.css',
+  'lib/plugins/chart-family/chart-family.styles.css',
   'lib/components/chart/funnel/funnel.styles.css',
   'lib/components/chart/word-cloud/word-cloud.styles.css',
 ];
@@ -266,7 +268,9 @@ function compounds(sel) {
 
 describe('the stylesheet companion rules', () => {
   test('every chart stylesheet that sets a baseline is in the list', () => {
-    const found = chartCssFiles().filter((f) => read(f).includes('dominant-baseline'));
+    // The chart bucket AND the chart family plugin's stylesheet (the chart frame).
+    const found = [...chartCssFiles(), ...chartCssFiles('lib/plugins/chart-family')]
+      .filter((f) => read(f).includes('dominant-baseline'));
     assert.deepEqual(found.sort(), [...CHART_CSS].sort(),
       'A chart stylesheet sets dominant-baseline and is not covered here.');
   });

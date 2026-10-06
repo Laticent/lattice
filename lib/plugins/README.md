@@ -27,6 +27,8 @@ lib/plugins/<name>/
                           runtime drives (Mermaid's), bundled and never serialized
   <name>.bake.js          the CLI half: bake(source, ctx) draws the figures into the Markdown. Node-side
   <name>.highlight.js     highlight(hljs): a highlight.js grammar for the plugin's code fences
+  <name>.dispatch.js      the module that calls an extension point's fillers (the chart family's
+                          section dispatch and chart frame). Shipped exactly when the plugin offers a slot
   <name>.styles.css       token-only CSS, bundled into the plugin slot of dist/lattice.css
   shared/                 the plugin's own shared modules (.js/.cjs/.mjs, and a README.md) that its
                           role modules import — Mermaid's init directive, render worker, reorientation
@@ -141,7 +143,7 @@ a chart class loads the family on a narrowed host and reports `plugin/component-
 the family is switched off. Switched off, the family passes each chart section through as written
 and marks it `data-lattice-off="chart-family"`; the runtime's DOM pass skips a marked section.
 
-The resolver fails a block two plugins read, a bucket two slots claim, a block that is not an
+The resolver fails a slot whose plugin ships no `<name>.dispatch.js` (and a dispatch with no slot), a block two plugins read, a bucket two slots claim, a block that is not an
 object block of the component schema, and a component that declares the block outside the slot's
 bucket. In api 1 only in-tree components fill a slot; a slot that plugins fill (an icon pack) is
 reserved as a later, additive field.

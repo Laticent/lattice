@@ -131,7 +131,7 @@ cartMod.buildCategoryLabels = function patchedCategoryLabels(o) {
   return svg;
 };
 
-const { transformChartSection } = require(P('lib/components/chart/_chart-family/chart-family.js'));
+const { transformChartSection } = require(P('lib/plugins/chart-family/chart-family.dispatch.js'));
 const { shippedDecks } = require(P('test/helpers/decks.js'));
 
 // A PLAIN parser. The transform reads the `<ul>` / `<li>` tree, and the

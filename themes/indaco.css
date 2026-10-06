@@ -340,13 +340,13 @@
   --c-on-subcontainer:    light-dark(#0A1628, #E4EDF5);
 
   /* ── Chart palette — indaco's curation of the chart-family's two color
-   * spectrums (defined in lib/components/chart/_chart-family/chart-family.css).
+   * spectrums (defined in lib/plugins/chart-family/chart-family.styles.css).
    * Ported from indaco's own --cN pigment spectrum (cool-blue lead) + its
    * living status palette, so charts read native to the theme instead of
    * the engine's generic fallback. Light side = the saturated pigment (drives
    * the wedge/bar border at full strength + a 24% tint for the fill); dark
    * side lifts the same hue toward white so it stays vivid on the navy canvas.
-   * Categorical and status share the family's recipe; see the chart-family.css
+   * Categorical and status share the family's recipe; see the chart-family.styles.css
    * token block for the contract. AA-verified both canvases (border ≥3:1,
    * label text ≥4.5:1). */
   --chart-cat1: light-dark(#006398, color-mix(in oklab, #006398, white 30%));  /* blue    */

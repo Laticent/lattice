@@ -89,7 +89,7 @@ const DECKS = [{ file: path.join(ROOT, 'lib', 'components', 'chart', 'chart.gall
 // moment one of them carries type on the canvas it is a text ink and needs 4.5,
 // and nothing else in the tree checks that: `checkCatContrast` reads the
 // engine-wide `--cat-*` tokens from themes/, never the chart palette derived in
-// chart-family.css. That gap shipped a quadrant name at 3.04:1 on `concrete`
+// chart-family.styles.css. That gap shipped a quadrant name at 3.04:1 on `concrete`
 // light, down from 10.56:1.
 //
 // Add a selector here when a chart starts painting text on the canvas. It is an
