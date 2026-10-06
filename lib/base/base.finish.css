@@ -419,11 +419,10 @@ section.finish {
  * undefined — a fabricated finish (lib/finishes/finish-generate.js) emits the same
  * `var(--fin-canvas)` and may be applied before the base class lands.
  *
- * This is also why the house pattern was `finish-none` on bookends, and why the
- * deck lint (`bookend-finish-contrast`) told authors to add it by hand: the
- * workaround existed because the backdrop had no way to know the slide was
- * inverse. It does now — so that rule's advice is a preference ("keep the bookend
- * clean"), not a repair for an unreadable slide. */
+ * This is also why authors once had to add `finish-none` to inverse bookends by
+ * hand: the backdrop had no way to know the slide was inverse. It does now, so a
+ * finish on a title or closing slide reads correctly and the deck lint no longer
+ * asks for the opt-out. */
 section {
   --fin-canvas: var(--bg);
   --field-accent: var(--accent);

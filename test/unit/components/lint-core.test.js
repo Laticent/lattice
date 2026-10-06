@@ -862,69 +862,14 @@ describe('lint-core: big-number-hero-heading', () => {
   });
 });
 
-describe('lint-core: bookend-finish-contrast', () => {
-  // A deck-wide `finish:` paints a backdrop over title/closing bookends. That used
-  // to WASH OUT their inverse display text, and the rule reported it as a defect;
-  // since #1656 the finish composites against `--fin-canvas` (the slide's own
-  // surface), so the bookend stays legible. The rule survives as an EDITORIAL note
-  // at `info` — the house pattern is still a clean bookend
-  // (examples/finish-backdrops.md) — and must no longer claim a contrast failure.
-  const beVocab = {
-    names: new Set(['title', 'closing', 'content']),
-    modifiers: new Set(['silent']),
-    // Only a registered finish paints a backdrop; the rule gates on this vocab.
-    finishNames: ['none', 'atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery'],
-  };
-  const FMF = (fin) => `---\nmarp: true\ntheme: indaco\n${fin ? `finish: ${fin}\n` : ''}---\n\n`;
-  const be = (fin, cls) => core.lintTextWith(`${FMF(fin)}<!-- _class: ${cls} -->\n\n# H\n`, beVocab)
-    .find((f) => f.rule === 'bookend-finish-contrast');
-
-  test('notes a title bookend under a deck finish with no opt-out', () => {
-    const f = be('atrium', 'title silent');
-    assert.ok(f, 'title under a deck finish should be noted');
-    assert.equal(f.severity, 'info');
-    assert.equal(f.classToken, 'title');
-  });
-
-  test('notes a closing bookend too', () => {
-    assert.ok(be('ledger', 'closing silent'), 'closing under a deck finish should be noted');
-  });
-
-  test('no longer claims the display text washes out — that defect is fixed (#1656)', () => {
-    const f = be('atrium', 'title silent');
-    assert.ok(f, 'expected the editorial note');
-    assert.doesNotMatch(f.message, /wash(es)? out|contrast/i, 'the message must not describe a contrast failure the engine no longer has');
-    assert.doesNotMatch(f.fix, /keep its own surface/i, 'the fix is a preference now, not a repair');
-  });
-
-  test('clean when the bookend opts out with finish-none', () => {
-    assert.equal(be('atrium', 'title silent finish-none'), undefined);
-  });
-
-  test('clean when the bookend makes an explicit finish choice', () => {
-    assert.equal(be('atrium', 'title silent finish-halo'), undefined);
-  });
-
-  test('clean when the deck has no finish', () => {
-    assert.equal(be(null, 'title silent'), undefined);
-    assert.equal(be('none', 'title silent'), undefined);
-  });
-
-  test('does not fire on non-bookend slides under a finish', () => {
-    assert.equal(be('atrium', 'content'), undefined);
-  });
-
-  test('does NOT fire on an unknown/typo finish (no backdrop renders — unknown-finish owns that)', () => {
-    // `atriumm` is not a registered finish, so the engine paints no backdrop;
-    // this rule must not contradict the `unknown-finish` warning.
-    assert.equal(be('atriumm', 'title silent'), undefined);
-    // The per-slide opt-out spelling written at deck level is also not a backdrop.
-    assert.equal(be('finish-none', 'title silent'), undefined);
-  });
-
-  test('a body-level `finish:` (inside a code fence) is not read as the deck finish', () => {
-    const src = '---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: title silent -->\n\n# H\n\n```yaml\nfinish: atrium\n```\n';
-    assert.equal(core.lintTextWith(src, beVocab).find((f) => f.rule === 'bookend-finish-contrast'), undefined);
+describe('lint-core: a deck finish on a bookend is not a finding', () => {
+  // `bookend-finish-contrast` was deleted: the wash-out it guarded is fixed in the
+  // engine (#1656), and the "keep a bookend clean" note it was left as contradicted our
+  // own presets, which put a finish behind the title slide on purpose.
+  test('a title under a deck-wide finish lints clean', () => {
+    const vocab = { names: new Set(['title']), modifiers: new Set(['silent']), finishNames: ['none', 'nimbus'] };
+    const src = '---\nmarp: true\ntheme: indaco\nfinish: nimbus\n---\n\n<!-- _class: title silent -->\n\n# H\n';
+    assert.equal(core.lintTextWith(src, vocab).find((f) => /bookend/.test(f.rule)), undefined);
   });
 });
 

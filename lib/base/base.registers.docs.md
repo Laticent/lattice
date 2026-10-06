@@ -260,9 +260,8 @@ paint `var(--accent)` as their field, so the accent would vanish there. Those co
 set `--field-accent: var(--on-accent)`, and a `cat-N` tinted cover sets
 `var(--cat-on-fill)`. A saved Studio finish reads the same slot, with `var(--accent)`
 as its fallback. `test/integration/invariants/finish-ink-matrix.test.js` holds every
-cover shape × mode × theme at 3:1 or better. `lint:deck`'s `bookend-finish-contrast`
-advice is a house preference for a bookend (`title`/`closing`/`divider`), not a split
-cover. Add `finish-none` to the authored slide to keep its whole run clean.
+cover shape × mode × theme at 3:1 or better. Add `finish-none` to the authored slide to
+keep its whole run clean.
 
 **Glyph-marks (the ghost monogram / numeral) are author-personalized and never
 appear by default.** A finish's `mark` layer carries the layer *type* (so the

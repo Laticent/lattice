@@ -150,7 +150,8 @@ dark title slide) is fixed at the root by `--fin-canvas`, which every mask alrea
 This register reuses those masks, so a deck-wide `backdrop: clear` on an inverse or accent
 bookend paints the bookend's own canvas, not the deck's. The demo deck (§6) renders a title,
 a closing and a `finish-none` divider bookend in both modes to prove it rather than assume it. The `bookend-finish-contrast`
-lint stays as it is.
+lint stays as it is. *(Superseded 2026-10-06: the rule was deleted — it flagged a slide that
+rendered correctly, and the presets contradict its "clean bookend" advice.)*
 
 ### 4.6 What "clear" clears: the content box, not an ellipse
 
