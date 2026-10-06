@@ -1638,10 +1638,14 @@ An unknown or repeated word fails back to literal rather than being ignored:
 pill the author did not ask for.
 
 To force the literal for a label that WOULD qualify, put a **backslash** in front:
-`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`.
+`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`. A broken pill escapes
+the same way and silences `pill-literal`: `` `\{A|B}` `` renders as `{A|B}`.
 
-The backslash is only an escape when what follows would actually have become a pill or
-a mark, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched and keep their
+The backslash is only an escape when what follows would have become a pill or a mark, or
+is a broken pill attempt, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched
+and keep their backslash. Braces that belong to another language are never a pill attempt —
+a span holding a backslash (LaTeX `` `\{a,b\}` ``, a regex `` `\{2,3\}` ``), a regex interval
+(`` `{2,5}` ``) or a template tag (`` `{{name}}` ``) — so they get no warning and keep every
 backslash.
 
 **Fenced and indented code blocks are never touched at all** — they are not inline code,
