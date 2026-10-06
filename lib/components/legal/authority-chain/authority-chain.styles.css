@@ -128,6 +128,48 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:firs
   white-space:nowrap;
 }
 
+/* ── One rail for the whole chain ─────────────────────────────────────────
+ * Each row above is its own flex line, so the label's `flex:0 0 14cqi` is a floor, not a
+ * width: a flex item never shrinks below its longest word (min-width:auto). ENFORCEMENT at
+ * 0.14em tracking is 174px against a 161px rail at 1280px, so that row's citation started
+ * 12.6px right of every other row and the text column zig-zagged.
+ *
+ * The list owns the columns and each row is a subgrid, so one rail is shared by every row
+ * (same move as list-tabular). The rail track is `min-content` and the label carries the
+ * 14cqi floor as min-width, so the rail is 14cqi as before, widened to the LONGEST WORD in
+ * any label when that word is wider. The floor sits on the label, not in the track: a
+ * subgrid row's padding and border count toward its edge track, so a `minmax(14cqi, …)`
+ * track handed the label 28px less than the flex rail did. min-content, not max-content, so
+ * a two-word label (Agency guidance) still wraps in the rail instead of widening it for the
+ * whole chain. `1fr` rows keep the flex chain's behavior: equal shares of the stage,
+ * floored at each row's content.
+ *
+ * Only the variants whose rows carry the side rail. pyramid rows have different widths, so
+ * their citations cannot share an x anyway; branching and the tall/strip reflow put the
+ * label on its own line; trail is columns. Those keep the flex row above. */
+section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) {
+  display:grid;
+  grid-template-columns:min-content minmax(0, 1fr);
+  grid-auto-rows:1fr;
+  align-content:safe center;
+}
+section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
+  display:grid;
+  grid-column:1 / -1;
+  grid-template-columns:subgrid;
+}
+/* The row's FIRST child is the rail: the lifted label, or in a loose list (blank lines between
+ * items) the label's own paragraph, which the lift leaves as a <p>. Everything after it is
+ * body, so a loose tier's trailing paragraph stacks under the gloss instead of auto-placing
+ * into the next rail cell and wrapping a word a line. */
+section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :first-child {
+  grid-column:1;
+  min-width:14cqi;
+}
+section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :not(:first-child) {
+  grid-column:2;
+}
+
 /* .pyramid — top is widest, each tier narrower. */
 section.authority-chain.pyramid > .cell-stage > :is(ol, ul) {
   align-items:center;
@@ -207,7 +249,15 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) {
 }
 section.authority-chain.trail > .cell-stage > :is(ol, ul) > li {
   flex:1;
-  display:flex; flex-direction:column; gap:var(--sp-xs);
+  /* nowrap: the base row wraps (for .branching), and in a COLUMN that wrap starts a second
+   * column whenever the body is taller than the card, so at conference and hall the citation
+   * and gloss moved beside the label and clipped at the card's right edge. */
+  display:flex; flex-direction:column; flex-wrap:nowrap; gap:var(--sp-xs);
+  /* A stretched card is the stage's height whatever its text: at `venue: hall` a four-tier
+   * trail's first gloss ran 31px out of its card, over the border, and nothing reported it.
+   * The content floor lets that card run long instead, past the stage, where the overflow
+   * probe sees it, the same rule the chain's rows follow. */
+  min-height:min-content;
   align-items:flex-start;
   border-left:none;
   border-top:4px solid var(--tier-hue, var(--accent));
@@ -220,6 +270,9 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::after {
   content:'';
   display:block;
   position:absolute;
+  /* left/bottom reset: the base chain's connector sets them, and `left` beat `right`, so the
+   * arrow drew 7cqi into each card instead of on the boundary between two. */
+  left:auto; bottom:auto;
   right:calc(-0.5 * var(--sp-md)); top:50%;
   transform:translateY(-50%);
   /* `font-size` is kept as the `em` BASIS for the box, not to set a glyph. */
@@ -232,11 +285,20 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::after {
 }
 section.authority-chain.trail > .cell-stage > :is(ol, ul) > li:last-child::after { display:none; }
 section.authority-chain.trail > .cell-stage > :is(ol, ul) > li > strong:first-child {
+  /* The base rail's `flex:0 0 14cqi` is a WIDTH in a row and a HEIGHT in this column: it
+   * made every trail label 161px tall at 1280, an empty band above the citation. */
+  flex:none;
   font-size:var(--fs-meta);
   letter-spacing:0.10em;
 }
 section.authority-chain.trail > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
   font-size:var(--fs-meta);
+  /* A trail column is a quarter of the stage, not the chain's full body width: at
+   * `venue: hall` four columns hold 13 characters of citation, and `16 C.F.R. Part 312` is 18.
+   * One-line citations clipped the last column off the slide, so here a citation wraps at its
+   * spaces. Never inside a word: a word longer than its column still overflows, and lint's
+   * `trail-budget` names it first (lib/authoring/lint-core.js). */
+  white-space:normal;
 }
 section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
   content:counter(auth, decimal-leading-zero);

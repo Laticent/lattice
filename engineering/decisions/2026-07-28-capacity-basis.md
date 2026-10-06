@@ -240,3 +240,15 @@ four. Re-derive:
 
     node tools/calibrate-capacity.js authority-chain --family wide --words 6    # ceiling 5
     node tools/calibrate-capacity.js authority-chain --family wide --words 14   # ceiling 5
+
+## Amendment 2026-10-05 (2) — the `trail` limit is a word length, not a tier count
+
+`calibrate-capacity` grows the tier count, so it cannot see the `trail` variant's limit: the
+trail lays its tiers out as columns, and what clips is a word wider than its column. Its
+budget is therefore a separate measurement, the longest unbroken word a column holds, per
+venue and tier count, in the label face and the `sketch` hand face. The tables, the method
+and where the browser breaks a citation live beside the rule that reads them,
+`trail-budget` in `lib/authoring/lint-core.js`. A trail citation now wraps at its spaces, so
+the word, not the citation, is the unit. The capacity numbers above still bound the tier
+count, which at hall is the tighter limit: a four-tier trail with full glosses runs past the
+stage there, and `capacity-scale` warns before the per-column rule would.

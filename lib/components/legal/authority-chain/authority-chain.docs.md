@@ -27,18 +27,19 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 - **default (no modifier).** A plain descent from statute to case — the base look for a straightforward, single-line chain.
 - **`branching`.** The authority forks — several regulations, guidance, or cases all trace back to the SAME originating statute — shown as one tier with multiple citations instead of a strict one-to-one descent.
-- **`trail`.** The descent should read as a lightweight breadcrumb rather than a heavier, chrome-forward chain.
+- **`trail`.** The descent should read as a lightweight breadcrumb rather than a heavier, chrome-forward chain. Each tier gets a column, so keep citations short or breakable at spaces; a large venue narrows the column (13 characters a word at hall with four tiers).
 - **`pyramid`.** The tiers carry different legal weight and that hierarchy of force should be visually apparent, not just their order — tier width narrows from statute down to case.
 - **`bracket`.** The tiers should read as one clamped, continuous block — a tighter, seamless rail (zero gap, squared corners, a doubled outer edge) instead of the default's separated cards.
 
 ### Common mistakes
 
 - **Reversing the order of the nested citation and gloss lines, or writing the citation as plain text instead of inline code.** The citation chip is matched by `li:first-child:has(> code:only-child)` — it must be the FIRST nested item and contain ONLY inline code; a citation written second, or as plain text, doesn't get the citation-chip treatment.
+- **A `trail` citation or tier label with a word longer than its column.** A trail column is the stage split by the tier count, so its limit is the longest WORD. A citation wraps at its spaces, after a hyphen and around a dash (`16 C.F.R.` / `Part 312`); a word between those cannot break. Four tiers hold a 26-character citation word at laptop, 23 at huddle, 17 at conference and 13 at hall, and a tier label two to four characters fewer (it is bold and tracked). A longer word widens its column, squeezes the others, and past their slack pushes the last column off the slide. `lint:deck` names it as `trail-budget`. Break the citation at a space, or use the default chain, whose body runs the full width.
 
 ## When to use
 
 - **Provenance is the argument.** Use when the audience needs to see exactly where a rule comes from and how it has been interpreted. The chain itself is the evidence that the obligation is grounded, not invented.
-- **Tier labels carry the read.** Statute, regulation, guidance, case — each tier has a different legal weight. The left-rail label tells the audience what kind of source they are looking at before they read the citation.
+- **Tier labels carry the read.** Statute, regulation, guidance, case — each tier has a different legal weight. The left-rail label tells the audience what kind of source they are looking at before they read the citation. Every row shares one rail: it is the same width down the chain and widens to the longest single word in any label (Enforcement), so every citation starts at the same left edge.
 - **Three to five tiers; six only without glosses.** The chain reads top-to-bottom on a single canvas. A full row — a one-word tier label, its citation and a one-line gloss — holds five tiers on a laptop slide, and the sixth clips. Six tiers fit only as label-and-citation rows with no gloss. Keep each label to one word, or a short pair like Case law: a label that wraps in the left rail (Agency guidance) costs every row a line, and the chain then holds four. Past that, group sub-cases into the parent row's gloss or split into two slides. A chain that does not fit runs long at its tail and is reported as clipped; a row never shrinks below its own text, so one card never draws over the next.
 
 ## When NOT to use

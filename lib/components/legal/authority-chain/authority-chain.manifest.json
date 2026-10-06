@@ -86,7 +86,7 @@
     },
     {
       "title": "Tier labels carry the read",
-      "body": "Statute, regulation, guidance, case — each tier has a different legal weight. The left-rail label tells the audience what kind of source they are looking at before they read the citation."
+      "body": "Statute, regulation, guidance, case — each tier has a different legal weight. The left-rail label tells the audience what kind of source they are looking at before they read the citation. Every row shares one rail: it is the same width down the chain and widens to the longest single word in any label (Enforcement), so every citation starts at the same left edge."
     },
     {
       "title": "Three to five tiers; six only without glosses",
@@ -147,6 +147,10 @@
     {
       "mistake": "Reversing the order of the nested citation and gloss lines, or writing the citation as plain text instead of inline code.",
       "fix": "The citation chip is matched by `li:first-child:has(> code:only-child)` — it must be the FIRST nested item and contain ONLY inline code; a citation written second, or as plain text, doesn't get the citation-chip treatment."
+    },
+    {
+      "mistake": "A `trail` citation or tier label with a word longer than its column.",
+      "fix": "A trail column is the stage split by the tier count, so its limit is the longest WORD. A citation wraps at its spaces, after a hyphen and around a dash (`16 C.F.R.` / `Part 312`); a word between those cannot break. Four tiers hold a 26-character citation word at laptop, 23 at huddle, 17 at conference and 13 at hall, and a tier label two to four characters fewer (it is bold and tracked). A longer word widens its column, squeezes the others, and past their slack pushes the last column off the slide. `lint:deck` names it as `trail-budget`. Break the citation at a space, or use the default chain, whose body runs the full width."
     }
   ],
   "variantDecisionRule": [
@@ -160,7 +164,7 @@
     },
     {
       "variant": "trail",
-      "useWhen": "The descent should read as a lightweight breadcrumb rather than a heavier, chrome-forward chain."
+      "useWhen": "The descent should read as a lightweight breadcrumb rather than a heavier, chrome-forward chain. Each tier gets a column, so keep citations short or breakable at spaces; a large venue narrows the column (13 characters a word at hall with four tiers)."
     },
     {
       "variant": "pyramid",
