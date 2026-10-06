@@ -203,26 +203,6 @@ pre-push:
         fi
 
 
-# ── Refuse a needless catch-up with main, before it happens (HARD RULE #16) ───
-# A rebase onto, or a merge of, a newer main that the branch merges cleanly with
-# on GitHub's terms re-runs CI for nothing. These two hooks see the real local
-# head (unpushed commits included) BEFORE anything changes, so a refusal costs
-# nothing and loses nothing. A merge that conflicts never reaches
-# pre-merge-commit, so it is allowed by construction. Escape for #16's own
-# exceptions: LATTICE_REBASE_REASON="needs <sha>" or "queue ejected: <why>".
-# See tools/rebase-guard.sh and engineering/decisions/2026-10-06-conflict-reduction.md.
-# `{0}` is git's own arguments (upstream, then branch when given); `{2}` would
-# stay literal when absent, which is why the script takes `{0}` and splits it.
-pre-rebase:
-  jobs:
-    - name: rebase-guard
-      run: bash tools/rebase-guard.sh pre-rebase {0}
-
-pre-merge-commit:
-  jobs:
-    - name: rebase-guard
-      run: bash tools/rebase-guard.sh pre-merge-commit
-
 commit-msg:
   jobs:
     - name: format

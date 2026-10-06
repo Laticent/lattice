@@ -25,12 +25,7 @@
 #
 # Exit codes: 0 clean (behind is fine, do not rebase) · 1 conflict — rebase ·
 # 3 could not check (the fetch failed, no origin/main ref, a shallow clone without
-# the merge base, or a git too old for --attr-source) · 64 unknown argument.
-#
-# --head=<rev> and --onto=<rev> replace HEAD and origin/main. The rebase guard
-# (tools/rebase-guard.sh, run from the pre-rebase and pre-merge-commit hooks) uses
-# them to ask whether the branch merges cleanly with the target it is about to
-# catch up to. Output is one
+# the merge base, or a git too old for --attr-source) · 64 unknown argument. Output is one
 # line for humans; --json prints one {"systemMessage": …} object instead, for the
 # Stop hook, and nothing when the branch is clean.
 #
@@ -41,15 +36,11 @@ set -euo pipefail
 
 fetch=1
 json=0
-head=HEAD
-onto=origin/main
 for arg in "$@"; do
   case "$arg" in
     --no-fetch) fetch=0 ;;
     --json) json=1 ;;
-    --head=*) head="${arg#--head=}" ;;
-    --onto=*) onto="${arg#--onto=}" ;;
-    -h|--help) sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "queue-precheck: unknown argument: $arg" >&2; exit 64 ;;
   esac
 done
@@ -67,38 +58,32 @@ say() {
 
 clean_names() { tr -d '"\\' | awk 'NR<=5' | paste -sd ',' - | sed 's/,/, /g'; }
 
-if [ "$head" = HEAD ]; then
-  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
-else
-  branch=$head
-fi
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
 branch=$(printf '%s' "$branch" | tr -d '"\\')
 
 if [ "$fetch" -eq 1 ]; then
   git fetch -q origin main 2>/dev/null || say 3 "queue-precheck: could not fetch origin/main; nothing was checked."
 fi
-git rev-parse --verify -q "$onto^{commit}" >/dev/null 2>&1 \
-  || say 3 "queue-precheck: no $onto ref; nothing was checked."
-git rev-parse --verify -q "$head^{commit}" >/dev/null 2>&1 \
-  || say 3 "queue-precheck: no $head commit; nothing was checked."
+git rev-parse --verify -q origin/main >/dev/null 2>&1 \
+  || say 3 "queue-precheck: no origin/main ref; nothing was checked."
 
-behind=$(git rev-list --count "$head..$onto" 2>/dev/null || echo 0)
-[ "${behind:-0}" -gt 0 ] || say 0 "queue-precheck: $branch is up to date with $onto."
+behind=$(git rev-list --count "HEAD..origin/main" 2>/dev/null || echo 0)
+[ "${behind:-0}" -gt 0 ] || say 0 "queue-precheck: $branch is up to date with origin/main."
 
 # An empty tree as the attribute source = "no .gitattributes merge drivers",
 # which is how GitHub merges. `hash-object -w` makes sure the object exists.
 empty=$(git hash-object -w -t tree /dev/null 2>/dev/null || true)
 
 set +e
-out=$(git --attr-source="$empty" merge-tree --write-tree --name-only --no-messages "$head" "$onto" 2>/dev/null)
+out=$(git --attr-source="$empty" merge-tree --write-tree --name-only --no-messages HEAD origin/main 2>/dev/null)
 status=$?
 set -e
 
 case "$status" in
-  0) say 0 "queue-precheck: $branch is $behind commit(s) behind $onto and merges cleanly on GitHub's terms — no rebase needed." ;;
+  0) say 0 "queue-precheck: $branch is $behind commit(s) behind origin/main and merges cleanly on GitHub's terms — no rebase needed." ;;
   1)
     files=$(printf '%s\n' "$out" | awk 'NR>1' | clean_names)
-    say 1 "Branch $branch conflicts with $onto on GitHub's terms ($files) — rebase before the next push: git fetch origin main && git rebase origin/main. (Behind-but-clean needs nothing; the merge queue handles it.)" ;;
+    say 1 "Branch $branch conflicts with origin/main on GitHub's terms ($files) — rebase before the next push: git fetch origin main && git rebase origin/main. (Behind-but-clean needs nothing; the merge queue handles it.)" ;;
   *)
-    say 3 "Could not test $branch for conflicts with $onto (shallow clone, or a git too old for --attr-source). Before pushing, check the PR shows no conflict, or run: git fetch --deepen=200 origin main" ;;
+    say 3 "Could not test $branch for conflicts with origin/main (shallow clone, or a git too old for --attr-source). Before pushing, check the PR shows no conflict, or run: git fetch --deepen=200 origin main" ;;
 esac

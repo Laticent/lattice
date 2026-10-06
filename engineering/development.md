@@ -308,18 +308,6 @@ Configuration in `lefthook.yml`.
   Skipped when a push touches no render-relevant files (the job mirrors CI's
   `code` paths-filter in `.github/workflows/ci.yml`; keep the two in sync).
 
-**pre-rebase** and **pre-merge-commit** (~0.2s, only when the target brings in newer `main`):
-- `rebase-guard` — refuses a rebase onto, or a merge of, a newer `main` that the
-  branch merges cleanly with on GitHub's terms (HARD RULE #16). It judges the real
-  local head, unpushed commits included, before anything changes, so a refusal
-  costs nothing. A real conflict is allowed, and a merge that conflicts never
-  reaches the hook. To clean up history without moving the base:
-  `git rebase -i "$(git merge-base HEAD origin/main)"`. For #16's exceptions, set
-  `LATTICE_REBASE_REASON="needs <sha>"` (checked: the commit must be in the target
-  and not in the branch) or `="queue ejected: <why>"`. Merge targets are read from
-  `/proc`, so on a host without it a merge is allowed unchecked.
-  `tools/rebase-guard.sh`; `engineering/decisions/2026-10-06-conflict-reduction.md`.
-
 **commit-msg** (~0.01s):
 - `format` — `tools/check-commit-msg.sh` validates `area(scope): summary`.
   Pass-through for git's machine-generated messages
@@ -562,6 +550,17 @@ an open file descriptor, and children inherit descriptors.** The job this tool
 runs must therefore be started with `9>&-` to close the lock fd, or it keeps the
 lock held after the waiter itself is killed — reintroducing precisely the stale
 lock flock was adopted to delete.
+
+**A second PreToolUse hook warns before a needless catch-up.**
+`.claude/hooks/warn-needless-catchup.sh` fires when a Bash command is about to
+rebase onto, merge, or pull `main`. It runs `tools/queue-precheck.sh --no-fetch`, and
+if the branch merges cleanly with `main` on GitHub's terms, it says the catch-up is
+not needed (HARD RULE #16). It never blocks, and it stays quiet on a real conflict,
+on a branch already level with `main`, and on cleanup against the branch's own merge
+base. It matches the command text coarsely, so a command that only mentions such a
+rebase can draw the warning too. It cannot see GitHub's "Update branch" button, so the
+message names it. `engineering/decisions/2026-10-06-conflict-reduction.md` §2 records
+why this warns instead of blocking.
 
 **A hook nudges you if you forget.** `.claude/hooks/warn-unbounded-wait.sh` runs
 on every Bash call, spots the loop shape above, and prints a one-line pointer at

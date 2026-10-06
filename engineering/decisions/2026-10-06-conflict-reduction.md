@@ -5,7 +5,7 @@ summary: >
   GitHub's terms: 28 catch-ups, 19 real conflicts, 9 clean. 2 of the 9 were the backlog bot's
   nightly re-sync, so 7 of 26 agent catch-ups were needless. The decision index and route
   budget, fixed on 09-29, caused none. Of the 19 real conflicts, 11 touched committed PDFs, 6
-  committed generated JS, 14 hand-written source. Git hooks now refuse a needless catch-up before it happens.
+  committed generated JS, 14 hand-written source. A Claude Code hook now warns before a needless catch-up; two blocking designs were refuted.
 ---
 
 # Conflict reduction: what still conflicts, and what each fix buys
@@ -57,7 +57,7 @@ lines of work that ran in parallel: the plugin system (`lib/plugins/*`,
 **Re-derive.** The scripts are not committed; the method above is the whole of it.
 The replay needs the force-pushed heads, which `git fetch origin <sha>` still returns.
 
-## 2. Fix 1: refuse a needless catch-up at the moment it happens
+## 2. Fix 1: warn before a needless catch-up; two blocking designs refuted
 
 HARD RULE #16 already says to rebase only on a real conflict, and 7 of 26 agent
 catch-ups were clean anyway. **They are an upper bound on waste, now classified.**
@@ -68,76 +68,88 @@ fixes studio-smoke's … flake"), which #16 allows. The other five gave no reaso
 **About five needless catch-ups a week is the number this targets.** Each re-ran the
 PR's CI, plus its queue run if it was already queued.
 
-### 2.1 The design that shipped
+### 2.1 What shipped: a warning, before git starts
 
-`tools/rebase-guard.sh` runs as two git hooks through lefthook: `pre-rebase` (also hit
-by `git pull --rebase`) and `pre-merge-commit`. It refuses only when both hold:
+`.claude/hooks/warn-needless-catchup.sh` is a Claude Code `PreToolUse(Bash)` hook,
+next to `warn-unbounded-wait.sh`. It works in three steps:
 
-1. **The target brings in `main` commits the branch lacks.** Rebasing onto the branch's
-   own remote, onto a stacked parent that is not ahead of `main`, or onto the branch's
-   own merge base is never checked.
-2. **`queue-precheck.sh --head=HEAD --onto=<target>` reports the merge clean on
-   GitHub's terms** (merge drivers off). A real conflict, including one only GitHub
-   sees through a `merge=union` file, is allowed.
+1. **It matches the command.** A command that rebases onto, merges, or pulls `main`
+   triggers it. The match is coarse: one pipeline segment holding `git`, one of
+   `rebase|merge|pull`, and `main`. It never fires on `merge-base`.
+2. **It runs the same check as the Stop hook.** That is `tools/queue-precheck.sh
+   --no-fetch`, so the two cannot disagree.
+3. **It warns only when the branch is behind and merges cleanly** on GitHub's terms.
+   The warning says the catch-up is not needed, lists the cases #16 allows, names
+   GitHub's "Update branch" as the same cost, and gives the cleanup command that
+   does not move the base.
 
-The details that make it safe:
+The properties that make it safe:
 
-- **It sees the real local head before anything changes.** Unpushed commits count, and
-  a refusal leaves the branch exactly as it was.
-- **A merge that conflicts never reaches `pre-merge-commit`.** Git stops first, so a
-  needed merge cannot be refused.
-- **Merge targets come from `/proc`.** Git 2.43 does not write `MERGE_HEAD` before an
-  automatic merge commit, so the guard reads the `git merge` command line of an
-  ancestor process. Where `/proc` is missing (macOS), the merge is allowed unchecked.
-- **History cleanup has a stated path:** `git rebase -i "$(git merge-base HEAD
-  origin/main)"`, which does not move the base and is never checked.
-- **The escape accepts exactly two forms**, and the reason is printed on every use:
-  - `LATTICE_REBASE_REASON="needs <sha>"` passes only if that commit is in the
-    target and not yet in the branch.
-  - `LATTICE_REBASE_REASON="queue ejected: <why>"` covers a rebase after an ejection.
+- **It never blocks.** It exits 0 on every input, garbage included.
+- **It acts before git starts,** so it can strand no stash, merge state or rebase.
+- **It does not affect git state or shells,** and ref names are never evaluated.
+- **It is cheap.** About 5.5 ms on a non-matching command, the same as the existing
+  `warn-unbounded-wait.sh` measured the same way. About 80 ms when it runs the precheck.
 
-  Free text is rejected, so the variable cannot quietly become the default.
-- **Cost.** About 0.2s, and only when the target brings in newer `main`.
-- **`pre-push` is now `piped: true`.** Without it, lefthook ran every remaining job
-  after one failed (reproduced with the real binary). This is independent of the guard,
-  and it makes the hook's "fail-fast" description true.
+**Its limits, stated.**
 
-**Tests.** `test/unit/tools/rebase-guard.test.js` drives real git through the real
-lefthook binary, using the hook sections read from this repo's `lefthook.yml`. It
-covers 11 cases:
+- It sees only agent sessions' Bash commands. A human at a terminal and GitHub's
+  "Update branch" button are out of its reach.
+- A warning can be ignored.
+- The coarse match can fire on a command that only mentions such a rebase. It did
+  exactly that, live, on this PR's own benchmark command. That costs one ignorable
+  line.
 
-- needless rebase refused, with the branch unchanged;
-- real-conflict rebase allowed;
-- unpushed local commit that conflicts → allowed;
-- cleanup on the branch's own merge base;
-- rebase onto the branch's own upstream;
-- stacked branch onto its parent;
-- `merge=union` clash allowed;
-- needless merge refused, with no merge commit created;
-- conflicting merge allowed;
-- `needs <sha>` validation;
-- `queue ejected:` accepted, free text rejected.
+**Tests.** `test/unit/tools/warn-needless-catchup.test.js` has 18 cases, driving the
+hook with real payloads against real scratch repos:
 
-Six deliberately broken guards each fail it: never refuse, drop the "brings `main`"
-test, ignore precheck, skip the `needs` validation, accept free text, and skip the
-`/proc` merge detection.
+- **Warns on six command forms:** rebase, fetch-then-rebase, merge, pull,
+  `pull --rebase`, and `git -C`.
+- **Stays quiet on eight others:** a real conflict, a branch already level with
+  `main`, cleanup on the branch's own merge base, `merge-base`, `status`, `log`,
+  a rebase onto another branch, and two separate commands.
+- **Exits 0 on bad input:** empty input, input that isn't JSON, and running outside
+  a repo.
+- **Is registered** in `.claude/settings.json`.
 
-### 2.2 The design it replaced, and why
+Five deliberately broken hooks each fail it.
 
-The first version ran at `pre-push` and judged each pushed branch update. The
-adversarial trio on PR #2561 refuted it. A push-time check has to reconstruct the
-head from before the catch-up, and it reconstructed it wrong:
+**Also shipped:** `pre-push` is now `piped: true`. Without it, lefthook ran every
+remaining job after one failed (reproduced with the real binary). This is independent
+of the catch-up work, and it makes the hook's "fail-fast" description true.
+
+### 2.2 Why not block: two designs, two trio rounds
+
+The owner asked for a blocking guard first. Both versions were built, tested, and then
+refuted by the adversarial trio (red team, Munger inversion, checker) on PR #2561.
+
+**At pre-push.** It judged each pushed branch update after the fact.
 
 - **It judged the remote head, not the local one.** When an unpushed local commit was
   what conflicted with `main`, it refused the needed merge. Its undo advice
-  (`git reset --hard <remote head>`) would have deleted that unpushed commit.
+  (`git reset --hard <remote head>`) would have deleted that commit.
 - **Its patch-id comparison hashed the whole range as one patch.** So it refused a
-  squash across files, and it refused rewords, which patch-id cannot see at all.
+  squash across files, and it refused rewords, which patch-id cannot see.
 - **"Rebase, then commit, then push" slipped through.**
-- **The escape took free text.**
 
-Checking at rebase and merge time removes the reconstruction, and with it every one of
-these.
+**At pre-rebase and pre-merge-commit.** It judged the catch-up as it started.
+
+- **Git had already acted when the hook refused.**
+  - `--autostash` had stashed uncommitted edits. They were stranded in
+    `.git/rebase-merge/autostash`, and git's printed advice (`rm -fr`) deleted them.
+  - A refused merge stayed half-done, and git's own hint, `git commit`, finished it
+    with no check.
+- **Lefthook's `{0}` passed ref names to `sh -c`.** A branch named
+  `y$(touch PWNED)` ran code, and an ordinary `fix(ui)` could not be rebased.
+- **Syncing with your own PR was refused** when someone had used "Update branch".
+- **Several forms got through unchecked:** `git rebase --root` broke outright, macOS
+  bash 3.2 would likely refuse every merge, and `--onto`, `git -C`, `--no-commit` and
+  `--squash` bypassed it.
+
+**The lesson.** A git hook that refuses runs *inside* a git operation that may already
+have changed state. Making it safe means handling every partial state git can leave
+behind, and every round of fixes added surface for the next round to break. All of it
+to save about five CI runs a week. The owner chose the warning.
 
 ## 3. Committed generated JS under `lib/`: deferred
 
