@@ -94,11 +94,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 ## A generated `dist/` artifact goes "stale" after a rebase, and that is not a defect
 
 - **Symptom:** You rebase on `origin/main` (HARD RULE #16 asks for it when
-  the branch conflicts with `main`), the pre-push hook runs the unit suite, and a test fails
+  the branch conflicts with `main`), run the unit suite, and a test fails
   saying an artifact is stale — naming a subsystem you never touched. Meanwhile
   `npm run build:check` says every artifact is up to date, so two gates appear to
-  contradict each other over the same file. `--no-verify` is banned (HARD RULE
-  #14), so the push is genuinely stuck until you work out what happened.
+  contradict each other over the same file. (Pre-push ran the unit suite until
+  2026-10-06, so this used to block the push itself, and `--no-verify` is banned
+  by HARD RULE #14.)
 - **Cause:** `dist/` has been gitignored since #1742, so everything in it is
   whatever your last local build wrote. The SessionStart hook builds once, at
   session start. Any source that arrives afterwards — a rebase, a `git pull`,

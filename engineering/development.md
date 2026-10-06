@@ -303,7 +303,10 @@ Configuration in `lefthook.yml`.
   tripping this guard; CI's `docs` paths-filter (which also lists `lib/` and
   `themes/`) still covers that. Widening the guard to match would put ~36s on
   nearly every engine push.
-- `unit-tests` — full unit suite
+- **No full unit suite.** `npm test` took 390s here (measured 2026-10-06) on
+  every push, and CI's `unit` job runs the same suite on every PR and again in
+  the merge queue. Pre-commit's `affected-tests` keeps the fast local signal;
+  run `npm test` yourself before you call work done.
 - `integration-tests` — full cross-renderer parity + PDF page-count tier.
   Skipped when a push touches no render-relevant files (the job mirrors CI's
   `code` paths-filter in `.github/workflows/ci.yml`; keep the two in sync).
@@ -335,8 +338,8 @@ unknown lib/<X>.js      → full unit suite        (safe fallback)
 ```
 
 When a staged file isn't recognized, the script falls back to the full
-suite. Better to be slow than miss a regression. Pre-push runs the full
-suite regardless as a second safety net.
+suite. Better to be slow than miss a regression. The full suite always
+runs in CI, on every PR and in the merge queue.
 
 ## Coverage (c8)
 

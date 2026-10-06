@@ -17,7 +17,7 @@ pre-commit:
       # Maps staged files → scoped test scripts and runs only those.
       # Falls back to the full unit suite for cross-cutting changes
       # (lattice-emulator.js, lattice.css, package.json, …). The full
-      # suite still runs in pre-push as a safety net.
+      # suite runs in CI on every PR and in the merge queue, not in pre-push.
       run: node tools/affected-tests.js {staged_files}
     - name: lint-deck
       # Author-facing footgun checks on staged decks (--strict): card-style
@@ -131,8 +131,8 @@ pre-push:
       # engineering/gotchas/ci.md § "A docs test passes in declaration order".
       #
       # Placed here on purpose: ~36-40s, so it runs after the cheap deterministic
-      # gates (lint 3s, lint-deck 1s, build:check 13s) and before the ~108s unit
-      # suite, keeping this hook fail-fast cheap-first.
+      # gates (lint 3s, lint-deck 1s, build:check 13s), keeping this hook
+      # fail-fast cheap-first.
       #
       # Path guard — same shape as integration-tests below, deliberately scoped to
       # docs/ ONLY: this is worth ~36s when you actually touched docs/, not on an
@@ -155,10 +155,15 @@ pre-push:
         else
           echo "docs-typecheck: skipped — no docs/ changes vs origin/main"
         fi
-    - name: unit-tests
-      # Safety net: full unit suite runs before push regardless of what
-      # pre-commit's affected-tests ran.
-      run: npm test
+    # ── No full unit suite here, on purpose ─────────────────────────────────
+    # `npm test` used to run here as a second safety net behind pre-commit's
+    # affected-tests. It took 390s on the cloud sandbox (measured 2026-10-06),
+    # paid on EVERY push, and CI's `unit` job runs the identical suite on every
+    # PR and again in the merge queue — so a regression it would catch still
+    # cannot reach `main`. Pre-commit's affected-tests keeps the fast local
+    # signal (and falls back to the full suite for cross-cutting files). Run
+    # `npm test` yourself before declaring work done (CLAUDE.md rule 5).
+    # See engineering/development.md § Hooks.
     - name: integration-tests
       # The FULL integration tier (every suite — both the PR slice CI blocks on
       # AND the nightly render-regression slice). CI's REQUIRED merge gate now runs
@@ -168,7 +173,7 @@ pre-push:
       # regression before it reaches `main`, a slice CI no longer blocks on per-PR.
       # It costs ~4.5 min warm, so locally it's OPT-IN, not a gatekeeper: it runs
       # only when LATTICE_FULL_PUSH=1. The cheap deterministic gates above (lint,
-      # lint:deck:all, build:check, full unit suite) ALWAYS run, so a push is
+      # lint:deck:all, build:check, docs-typecheck) ALWAYS run, so a push is
       # never unverified — CI still blocks merge on the PR slice regardless. This
       # is strictly safer than the `--no-verify` an agent reaches for when a gate
       # is too slow. Set LATTICE_FULL_PUSH=1 to run it locally before pushing.
