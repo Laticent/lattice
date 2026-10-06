@@ -16,7 +16,7 @@ describe('ExportOptionsPanel', () => {
 		// never leaks review notes unless the author opts in.
 		expect(screen.getByRole('switch', { name: /add comments as sticky notes/i })).toHaveAttribute('aria-checked', 'false');
 		fireEvent.click(screen.getByRole('button', { name: /download pdf/i }));
-		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: false });
+		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: false, editable: false });
 	});
 
 	it('opting in exports with comments and the chosen scope', () => {
@@ -27,7 +27,7 @@ describe('ExportOptionsPanel', () => {
 		// Scope control appears once comments are on; pick "Open only".
 		fireEvent.click(screen.getByRole('radio', { name: 'Open only' }));
 		fireEvent.click(screen.getByRole('button', { name: /download pdf/i }));
-		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: true, commentScope: 'open', embedSource: false });
+		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: true, commentScope: 'open', embedSource: false, editable: false });
 	});
 
 	it('with no comments, the toggle is disabled and export carries none', () => {
@@ -36,7 +36,7 @@ describe('ExportOptionsPanel', () => {
 		expect(screen.getByRole('switch', { name: /add comments as sticky notes/i })).toBeDisabled();
 		expect(screen.getByText(/no comments on this deck yet/i)).toBeTruthy();
 		fireEvent.click(screen.getByRole('button', { name: /download pdf/i }));
-		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: false });
+		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: false, editable: false });
 	});
 
 	it('re-openable is OFF by default, and opting in is remembered for THIS deck only', () => {
@@ -47,7 +47,7 @@ describe('ExportOptionsPanel', () => {
 		expect(sw).toHaveAttribute('aria-checked', 'false');
 		fireEvent.click(sw);
 		fireEvent.click(screen.getByRole('button', { name: /download pdf/i }));
-		expect(onExport).toHaveBeenLastCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: true });
+		expect(onExport).toHaveBeenLastCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: true, editable: false });
 		first.unmount();
 		// The same deck opens the step with the switch on…
 		const again = render(<ExportOptionsPanel deckId={DECK} onBack={() => {}} onExport={onExport} />);
@@ -58,14 +58,40 @@ describe('ExportOptionsPanel', () => {
 		expect(screen.getByRole('switch', { name: /re-openable in lattice/i })).toHaveAttribute('aria-checked', 'false');
 	});
 
-	it('PowerPoint shows only the re-openable switch, and never asks for comments', () => {
+	it('PowerPoint offers editable text and re-openable, and never asks for comments', () => {
 		addComment(DECK, 1, 'A private review note');
 		const onExport = vi.fn();
 		render(<ExportOptionsPanel format="pptx" deckId={DECK} onBack={() => {}} onExport={onExport} />);
 		expect(screen.queryByRole('switch', { name: /sticky notes/i })).toBeNull();
 		fireEvent.click(screen.getByRole('switch', { name: /re-openable in lattice/i }));
 		fireEvent.click(screen.getByRole('button', { name: /download powerpoint/i }));
-		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: true });
+		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: true, editable: false });
+	});
+
+	it('PowerPoint: editable text is OFF by default and rides into the export when switched on', () => {
+		const onExport = vi.fn();
+		render(<ExportOptionsPanel format="pptx" deckId={DECK} onBack={() => {}} onExport={onExport} />);
+		const sw = screen.getByRole('switch', { name: /editable text/i });
+		expect(sw.getAttribute('aria-checked')).toBe('false');
+		fireEvent.click(sw);
+		fireEvent.click(screen.getByRole('button', { name: /download powerpoint/i }));
+		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: false, editable: true });
+	});
+
+	it('LibreOffice offers editable text but not re-openable (an .odp cannot carry the source) or comments', () => {
+		addComment(DECK, 1, 'A private review note');
+		const onExport = vi.fn();
+		render(<ExportOptionsPanel format="odp" deckId={DECK} onBack={() => {}} onExport={onExport} />);
+		expect(screen.queryByRole('switch', { name: /sticky notes/i })).toBeNull();
+		expect(screen.queryByRole('switch', { name: /re-openable/i })).toBeNull();
+		fireEvent.click(screen.getByRole('switch', { name: /editable text/i }));
+		fireEvent.click(screen.getByRole('button', { name: /download libreoffice/i }));
+		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: false, editable: true });
+	});
+
+	it('a PDF never offers editable text', () => {
+		render(<ExportOptionsPanel deckId={DECK} onBack={() => {}} onExport={() => {}} />);
+		expect(screen.queryByRole('switch', { name: /editable text/i })).toBeNull();
 	});
 
 	it('Back returns to the format list', () => {

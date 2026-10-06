@@ -37,6 +37,8 @@ export function readFontMetrics(bytes: Uint8Array): FontMetrics | null {
 		tables[name] = view.getUint32(rec + 8);
 	}
 	if (tables.head === undefined || tables.hhea === undefined) return null;
+	// Every read below stays inside the buffer; a hostile offset returns null, never throws.
+	if (tables.head + 20 > bytes.length || tables.hhea + 8 > bytes.length) return null;
 	const upm = view.getUint16(tables.head + 18);
 	if (!upm) return null;
 	let ascent = view.getInt16(tables.hhea + 4);
@@ -50,6 +52,27 @@ export function readFontMetrics(bytes: Uint8Array): FontMetrics | null {
 		}
 	}
 	return { ascent: ascent / upm, descent: Math.abs(descent) / upm };
+}
+
+/**
+ * May this face be embedded in a document? The OS/2 `fsType` field says: bit 1 (value 2)
+ * is RESTRICTED license embedding, which forbids it. Anything else — installable,
+ * preview & print, editable, or a face with no OS/2 table — may be embedded. A face
+ * that cannot be read is not embedded.
+ */
+export function embeddingAllowed(bytes: Uint8Array): boolean {
+	if (bytes.length < 12) return false;
+	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	const numTables = view.getUint16(4);
+	for (let i = 0; i < numTables; i++) {
+		const rec = 12 + i * 16;
+		if (rec + 16 > bytes.length) return false;
+		if (String.fromCharCode(bytes[rec], bytes[rec + 1], bytes[rec + 2], bytes[rec + 3]) !== 'OS/2') continue;
+		const at = view.getUint32(rec + 8);
+		if (at + 10 > bytes.length) return false;
+		return (view.getUint16(at + 8) & 0x000f) !== 0x0002;
+	}
+	return readFontMetrics(bytes) !== null;
 }
 
 /** One face a deck draws with, and whether any run of it keeps ligatures. */
@@ -100,7 +123,9 @@ export interface FontHost {
 
 /**
  * Load and pin every face the deck uses. A face the host cannot load is skipped: its runs
- * still name the family, and the reader's office suite substitutes.
+ * still name the family, and the reader's office suite substitutes. So is a face whose
+ * license forbids embedding (`embeddingAllowed`): Calco never puts a restricted font in a
+ * file someone else will open.
  */
 export async function prepareFonts(deck: Deck, host: FontHost): Promise<EmbeddedFont[]> {
 	const out: EmbeddedFont[] = [];
@@ -108,9 +133,37 @@ export async function prepareFonts(deck: Deck, host: FontHost): Promise<Embedded
 		const raw = await host.load(face);
 		if (!raw) continue;
 		const bytes = await host.pin(raw, { weight: face.weight, ligatures: face.ligatures });
+		if (!embeddingAllowed(bytes)) continue;
 		out.push({ family: face.family, weight: face.weight, italic: face.italic, bytes });
 	}
 	return out;
+}
+
+/**
+ * The OpenType layout features a pinned face should keep. Ligatures (`liga`, `clig`,
+ * `calt`) go when the page turned them off for some run in the face, as code does.
+ * Every host's `pin` uses this list, so the CLI and a browser embed the same face.
+ */
+export function pinFeatures(ligatures: boolean): string[] {
+	const base = ['kern', 'tnum', 'lnum', 'onum', 'pnum', 'case', 'zero', 'ss01', 'ss02'];
+	return ligatures ? [...base, 'liga', 'clig', 'calt'] : base;
+}
+
+/**
+ * The nearest face in a host's font list: same family and slant, nearest weight. A list
+ * entry gives its slant as `italic` or as a CSS `style` (`normal` / `italic`).
+ */
+export function nearestFace<T extends { family: string; weight: number; italic?: boolean; style?: string }>(
+	list: readonly T[],
+	want: { family: string; weight: number; italic: boolean },
+): T | null {
+	let best: T | null = null;
+	for (const f of list) {
+		const italic = f.italic ?? f.style === 'italic';
+		if (f.family !== want.family || italic !== want.italic) continue;
+		if (!best || Math.abs(f.weight - want.weight) < Math.abs(best.weight - want.weight)) best = f;
+	}
+	return best;
 }
 
 /** The embedded face a style draws with: same family and slant, nearest weight. */

@@ -2028,6 +2028,122 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	} finally { dispose(); }
 }
 
+// ── Office through Calco: .odp (both modes) and the editable .pptx ─────────────
+// The browser sibling of the CLI's lib/export/office-export.js: the same library, the
+// same deck model, the same writers, so the two emit the same kind of file. Calco
+// (`@laticent/calco`, engineering/decisions/2026-10-06-calco-office-export-library.md)
+// reads each slide's paragraphs and hides them INSIDE the capture fixups — the one
+// moment the slide is laid out at its own size and visible, the same moment the PDF
+// text layer measures — so html-to-image photographs the slide without its text. The
+// plain `.pptx` stays on `exportPptx` above.
+
+/** Calco's FontHost in the browser: the engine faces the Studio bundles (font-embed.js),
+ *  pinned to one weight by the HarfBuzz subsetter the composed PDF already loads. */
+async function calcoFontHost() {
+	const [{ FACES }, { createFontSubsetter }, { default: hbUrl }, { nearestFace, pinFeatures }] = await Promise.all([
+		loadFontEmbed(),
+		import('../../../../../lib/core/pdf-compose/font-subset.mjs'),
+		import('harfbuzzjs/hb-subset.wasm?url'),
+		import('@/lib/calco'),
+	]);
+	let subset = null;
+	return {
+		async load(face) {
+			const hit = nearestFace(FACES, face);
+			if (!hit) return null;
+			const res = await fetch(hit.url);
+			return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
+		},
+		async pin(bytes, { weight, ligatures }) {
+			if (!subset) subset = await createFontSubsetter(await (await fetch(hbUrl)).arrayBuffer());
+			return subset(bytes, null, { wght: weight }, pinFeatures(ligatures));
+		},
+	};
+}
+
+const OFFICE = {
+	odp: { label: 'LibreOffice', ext: 'odp', mime: 'application/vnd.oasis.opendocument.presentation' },
+	pptx: { label: 'PowerPoint', ext: 'pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
+};
+
+/**
+ * Export through Calco. `format` is 'odp' or 'pptx'; `opts.editable` turns every paragraph
+ * into a text box; `opts.embedSource` (PowerPoint only) carries the `.lattice`.
+ */
+export async function exportOffice(format, render, name, onStatus, meta, opts) {
+	const kind = OFFICE[format];
+	if (!kind) throw new Error(`Unknown office format: ${format}`);
+	const editable = !!opts?.editable;
+	if (onStatus) onStatus(`Preparing ${kind.label}…`);
+	const log = createImageFailureLog();
+	// Notes and descriptions come from the ENGINE render, before the capture frame
+	// sanitizes the comments they live in away (see exportPptx).
+	const record = await slideChannelRecord(render.html);
+	const { frame, dispose } = await createCaptureFrame(render);
+	try {
+		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		await recordUnreachableAssets(sections, log);
+		if (record.length !== sections.length) {
+			console.warn(`[deck-export] slide record/slide mismatch (${record.length} vs ${sections.length}); exporting without notes and descriptions rather than risk mis-binding them.`);
+			record.length = 0;
+		}
+		const [calco, { toCanvas }] = await Promise.all([import('@/lib/calco'), import('html-to-image')]);
+		const slides = [];
+		for (let i = 0; i < sections.length; i++) {
+			if (onStatus) onStatus(`Rendering slide ${i + 1} of ${sections.length}…`, { current: i, total: sections.length });
+			const section = sections[i];
+			let shot;
+			try {
+				shot = await withCaptureFixups(section, async (w, h, pixelRatio) => {
+					// A slide the reader cannot read still exports — as a picture. The picture is
+					// the deliverable; the text boxes are the improvement.
+					let frames = [];
+					if (editable) {
+						try {
+							frames = calco.readSlide(section, { hide: true }).frames;
+						} catch (e) {
+							console.warn(`[deck-export] slide ${i + 1} exports as a picture: ${e?.message || e}`);
+							calco.restoreSlide(section);
+							frames = [];
+						}
+					}
+					try {
+						const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+						const blob = await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
+						return { bytes: new Uint8Array(await blob.arrayBuffer()), frames };
+					} finally {
+						calco.restoreSlide(section);
+					}
+				}, undefined, format);
+			} catch (e) {
+				throw captureError(e);
+			}
+			slides.push({ image: shot.bytes, frames: shot.frames, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null });
+			// Yield so the progress paints and input stays live between slides.
+			await new Promise((r) => setTimeout(r));
+		}
+		const { eng, summary } = provenance(meta, sections.length);
+		const { w, h } = slideGeom(sections[0]);
+		const deck = { width: w, height: h, slides, title: (name || 'deck').trim(), subject: summary, author: 'Lattice Studio', company: `Lattice · ${eng}` };
+		if (editable) {
+			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
+			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost());
+		}
+		if (onStatus) onStatus(`Building .${kind.ext}…`, { current: sections.length, total: sections.length });
+		const bytes =
+			format === 'odp'
+				? await calco.writeOdp((await import('jszip')).default, deck, 'uint8array')
+				: await calco.writePptx((await import('pptxgenjs')).default, deck, 'uint8array');
+		let blob = new Blob([bytes], { type: kind.mime });
+		// Re-openable is a PowerPoint feature (embedded-source.ts writes an OPC part).
+		if (format === 'pptx') blob = await withEmbeddedSource(blob, 'pptx', opts?.embedSource, onStatus);
+		download(blob, `${safeName(name)}.${kind.ext}`);
+		return missingImageReason(log);
+	} finally {
+		dispose();
+	}
+}
+
 // ── Print (vector, selectable — the browser's own PDF engine) ─────────────────
 export function exportPrint(frame, meta) {
 	const win = frame?.contentWindow;

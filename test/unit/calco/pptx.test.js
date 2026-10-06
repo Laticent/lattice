@@ -57,3 +57,22 @@ describe('calco pptx', () => {
     assert.deepEqual(pptxPageSize(1080, 1920), { w: 7.5, h: 13.333, wide: false });
   });
 });
+
+describe('calco pptx — what PptxGenJS does not escape', () => {
+  test('a hostile font family and control characters still give well-formed XML', async () => {
+    const evil = style({ family: 'Ev"il<b>&x' });
+    const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, notes: 'bell\u0001note', frames: [frame([[{ text: 'ctrl\u0001text', style: evil }]])] }] };
+    const { zip, xml } = await slideXml(deck);
+    assert.match(xml, /<a:latin typeface="Evilbx"/);
+    assert.match(xml, /<a:t>ctrltext<\/a:t>/);
+    assert.ok(![...xml].some((c) => c.charCodeAt(0) < 9), 'no control characters in the slide');
+    const notes = Object.keys(zip.files).find((n) => /notesSlide\d+\.xml$/.test(n));
+    assert.ok(![...(await zip.file(notes).async('string'))].some((c) => c.charCodeAt(0) < 9), 'none in the notes');
+  });
+
+  test('boxes do not re-wrap: lines are already broken where the browser broke them', async () => {
+    const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'one', style: style() }]])] }] };
+    const { xml } = await slideXml(deck);
+    assert.match(xml, /wrap="none"/);
+  });
+});

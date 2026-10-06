@@ -1,13 +1,14 @@
 ---
 status: in-progress
-summary: Calco (`@laticent/calco`) is the office-export library. It turns a rendered HTML slide into an OpenDocument (.odp) or PowerPoint (.pptx) file with real, editable text boxes over a picture of the slide with its text removed, in the deck's own fonts (embedded in the .odp). It is a TypeScript workspace in docs/src/lib/calco/ with no dependencies of its own; Lattice is its first user, through `.odp` and `--editable`. Measured on LibreOffice 7: 0.4–2.9% of pixels differ from the original render, against 1.5–4.2% for LibreOffice's own PDF import, and six LibreOffice behaviors the writer has to work around are recorded here.
+summary: Calco (`@laticent/calco`) is the office-export library. It turns a rendered HTML slide into an OpenDocument (.odp) or PowerPoint (.pptx) file with real, editable text boxes over a picture of the slide with its text removed, in the deck's own fonts (embedded in the .odp). It is a TypeScript workspace in docs/src/lib/calco/ with no dependencies of its own; Lattice is its first user, through `.odp` and `--editable` in the CLI and the Studio. The note records how the output was checked (by eye, slide by slide, in LibreOffice 7, backed by a whole-slide pixel difference that cannot by itself show right text), the six LibreOffice behaviors the writer works around, and what the adversarial review of the first cut found and changed.
 ---
 
 # Calco: rendered slides to editable office files (2026-10-06)
 
-**Status: in progress.** The CLI path is built and measured: every `.odp`, and
-`--editable` on `.odp` and `.pptx`. The Studio rows, the `/calco` page and the brand mark
-land in the same PR as later commits.
+**Status: in progress.** Built and checked: the CLI (every `.odp`, and `--editable` on
+`.odp` and `.pptx`) and the Studio (a LibreOffice row and an Editable-text switch for
+PowerPoint and LibreOffice). The `/calco` page and the brand mark land as later commits in
+the same PR.
 
 ## 1. Why
 
@@ -69,6 +70,16 @@ On two denser dark-mode decks (indaco-dark), the editable `.odp` measures 0.63�
 (`chart-lead-blocks`, 7 slides, 63 boxes, 9 faces) and 0.97–2.87% (`muted-tier-and-syntax`,
 8 slides, 67 boxes, 9 faces), with tables, lists, cards, tags and highlighted code.
 
+**What this number does and does not show.** A whole-slide pixel difference catches a box in
+the wrong place or the wrong font. It cannot tell a right word from a wrong one, it scores a
+paragraph left in the picture as perfect, and LibreOffice's PDF import (every serif heading
+turned sans) scores inside the same range. So it is a regression alarm, not the proof. The
+proof is looking: every slide of the decks above, `examples/gallery-jargon.md` (58 slides,
+622 boxes, 13 faces) and the Studio's welcome deck were compared side by side with the
+original, by eye, after the review fixes in §5a. The full 123-section gallery
+(`test/integration/baseline-decks/gallery.md`) exports in both modes (120 slides, 1,184
+boxes, 17 faces).
+
 ## 4. The package
 
 Shaped like Trama (`2026-09-27-trama-graph-chart-library.md` §3):
@@ -113,13 +124,43 @@ Each was found by rendering the output in LibreOffice and looking, and each has 
    `style` attribute lazily, so a `removeAttribute('style')` straight after one comes back as
    an empty attribute. The restore reads the attribute first. (`calco-reader.test.js`)
 
-And one design choice the first attempt got wrong: **hiding text with `color: transparent`
-alone erases things that are not text.** A code pill's background mixed from `currentColor`,
-an SVG icon filled with `currentColor`, and a slide number drawn by `::after` all vanished.
-The reader freezes every color that hangs off `currentColor` first (inline, on each element,
-its pseudo-elements and each SVG root), then hides. The first spike used the CSS Custom
-Highlight API instead, which is cleaner in a headless browser but invisible to the Studio's
-html-to-image capture; freezing works for both, which keeps one mechanism (HARD RULE #1).
+**How text is hidden, and the two designs that failed first.** Hiding with
+`color: transparent` alone erases what is not text: a code pill whose background mixes
+`currentColor`, an SVG icon filled with it, a slide number drawn by `::after`. The first
+spike used the CSS Custom Highlight API, which is clean in a headless browser and invisible
+to the Studio's html-to-image capture. The second design FROZE every `currentColor`-derived
+color and then made the text-bearing elements transparent; it passed every CLI check and
+failed on the real Studio, because html-to-image clones neither `::marker` nor document
+stylesheets, so bullets and pseudo-element labels inherited the transparent color. The
+shipped design WRAPS each text node it read in an inline `<calco-hide>` that is itself
+transparent, so no element's own color changes; it then measures every word again, and if a
+wrapper moved anything (a `> *` or `:first-child` selector) it unwraps and falls back to the
+freeze. Both paths restore the DOM byte for byte.
+
+## 5a. What the adversarial review changed
+
+The red team, a Munger inversion and an independent checker reviewed the first cut
+(commit 2fef869). Every finding below was reproduced, fixed and given a test:
+
+| Finding | Fix |
+|---|---|
+| `--editable` crashed in the PUBLISHED CLI bundle (`decompress is not a function`) | `font-subset.mjs` unwraps esbuild's CJS default import; a test runs the bundle |
+| Every `.odp` past ~60 slides died at the 90 s render watchdog (one guard round the whole loop) | the watchdog guards each slide, as the raster loop does |
+| A line pushed right by a `::before` marker (agendas, counters) was drawn on the marker | a left-aligned box starts at its earliest line; later lines get a SPACER |
+| Text after a padded inline pill overlapped the pill | a gap wider than a space becomes a spacer: a 2px no-break space whose letter-spacing is the gap |
+| `<b>a</b> <i>b</i>` lost its space | whitespace-only nodes carry the separator to the next word |
+| A plain `# Title` slide never made its heading editable (its glyph box overhangs the clipping stage) | the vertical clip test allows a quarter of the glyph box |
+| Blank lines in code were dropped, and the pitch was averaged over them | the pitch is the smallest line step; blank lines go back in as empty lines |
+| Soft-wrapped `pre-wrap` code sat on its first line; RTL never split into lines | preformatted words keep their spaces; the wrap test reads the direction |
+| Text hidden by `filter`, `mask`, `clip`, `clip-path`, or stroked, became visible editable text | those subtrees stay in the picture |
+| A quote or control character in a font name or text broke the `.pptx` XML | escaped / stripped before PptxGenJS |
+| A restricted-license font would be embedded by a non-Lattice host | `fsType` bit 1 refuses it (`embeddingAllowed`); Lattice's faces are all OFL |
+| PowerPoint would re-wrap a line set in a wider substitute font | `.pptx` boxes do not wrap; the CLI says the fonts are named, not embedded |
+
+Recorded, not fixed: PowerPoint itself (§6), the AGPL license for a library meant for
+anyone (the owner's call), the `types` entry pointing at TypeScript source (as every sibling
+does), and the Studio's CSS counters rendering as `0` in BOTH the picture and the editable
+export, a pre-existing html-to-image limit (logged in `followups.d/`).
 
 What the reader deliberately leaves in the picture: SVG and MathML, `::before`/`::after`
 text, rotated or vertical text, transparent (gradient) text, and any paragraph with a word
@@ -150,4 +191,5 @@ PowerPoint's own line-spacing model may place baselines differently.
 
 - No native charts, diagrams or equations; no reflow; no editable speaker-note formatting.
 - No font embedding in `.pptx` (§6).
-- The Studio, the `/calco` page and the brand mark are later commits in this PR.
+- The `/calco` page and the brand mark are later commits in this PR.
+- No `.lattice` source inside an `.odp` (the re-openable switch is PowerPoint and PDF only).

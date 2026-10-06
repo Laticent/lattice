@@ -101,8 +101,8 @@ describe('calco reader in Chromium', () => {
       const cs = (sel, pseudo) => getComputedStyle(document.querySelector(sel), pseudo);
       return {
         pillBg: cs('code.pill').backgroundColor,
-        pillColor: cs('code.pill').color,
-        h1: cs('h1').color,
+        pillInk: document.querySelector('code.pill calco-hide') ? cs('code.pill calco-hide').color : cs('code.pill').color,
+        h1: document.querySelector('h1 calco-hide') ? cs('h1 calco-hide').color : cs('h1').color,
         svgFill: getComputedStyle(document.querySelector('svg rect')).fill,
         after: cs('#s', '::after').color,
         ell: cs('.ell').color,
@@ -114,7 +114,7 @@ describe('calco reader in Chromium', () => {
     assert.equal(res.hidden, true);
     const hidden = await page.evaluate(probe);
     assert.equal(hidden.h1, 'rgba(0, 0, 0, 0)', 'read text is hidden');
-    assert.equal(hidden.pillColor, 'rgba(0, 0, 0, 0)');
+    assert.equal(hidden.pillInk, 'rgba(0, 0, 0, 0)');
     assert.equal(hidden.pillBg, shown.pillBg, 'the pill background survives');
     assert.equal(hidden.svgFill, shown.svgFill, 'the SVG icon keeps its currentColor');
     assert.equal(hidden.after, shown.after, 'the ::after number keeps its color');
@@ -123,5 +123,121 @@ describe('calco reader in Chromium', () => {
     await s.evaluate(restoreSlide);
     assert.equal(await page.evaluate(() => document.documentElement.outerHTML), before, 'the DOM is back exactly');
     await s.evaluate(restoreSlide); // a second restore is a no-op
+  });
+
+  test('a list marker keeps its color: the owner is never recolored (html-to-image clones no ::marker)', { timeout: 60000 }, async () => {
+    await page.setContent('<section id="m" style="width:600px;height:300px;color:#123456"><ul><li>Item one</li></ul></section>');
+    const m = await page.$('#m');
+    await m.evaluate(readSlide, { hide: true });
+    const after = await page.evaluate(() => ({ li: getComputedStyle(document.querySelector('li')).color, marker: getComputedStyle(document.querySelector('li'), '::marker').color, ink: getComputedStyle(document.querySelector('li calco-hide')).color }));
+    assert.deepEqual(after, { li: 'rgb(18, 52, 86)', marker: 'rgb(18, 52, 86)', ink: 'rgba(0, 0, 0, 0)' });
+    await m.evaluate(restoreSlide);
+    assert.equal(await page.evaluate(() => document.querySelector('li').innerHTML), 'Item one');
+  });
+
+  test('a wrapper that would move text falls back to freezing colors, and still restores exactly', { timeout: 60000 }, async () => {
+    // `p > :first-child` gets a margin: wrapping the text node makes the wrapper that child.
+    await page.setContent('<style>p > :first-child { margin-left: 40px; }</style><section id="f" style="width:600px;height:300px"><p>Shifted text</p></section>');
+    const f = await page.$('#f');
+    const before = await page.evaluate(() => document.body.innerHTML);
+    const res = await f.evaluate(readSlide, { hide: true });
+    assert.equal(res.hidden, true);
+    const state = await page.evaluate(() => ({ wrapped: !!document.querySelector('calco-hide'), color: getComputedStyle(document.querySelector('p')).color }));
+    assert.deepEqual(state, { wrapped: false, color: 'rgba(0, 0, 0, 0)' }, 'fell back to the color freeze');
+    await f.evaluate(restoreSlide);
+    assert.equal(await page.evaluate(() => document.body.innerHTML), before);
+  });
+});
+
+// The cases the adversarial review of the first cut found (decision note §5): each one
+// shipped a wrong box or a wrong word before its fix.
+const REVIEW_FIXTURE = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; color: #000; }
+  section > * { position: absolute; margin: 0; font-size: 20px; line-height: 28px; }
+  .ws { left: 40px; top: 20px; }
+  .agenda { left: 40px; top: 70px; list-style: none; padding: 0; }
+  .agenda li::before { content: "01"; display: inline-block; width: 60px; }
+  .pill { left: 40px; top: 120px; }
+  .pill code { padding: 0 16px; background: #eee; }
+  .stage { left: 40px; top: 180px; width: 600px; height: 120px; overflow: clip; }
+  .stage h1 { position: static; margin: 0; font-size: 72px; line-height: 0.8; }
+  .fx1 { left: 700px; top: 20px; filter: opacity(0); }
+  .fx2 { left: 700px; top: 60px; clip-path: inset(50%); }
+  .fx3 { left: 700px; top: 100px; -webkit-mask-image: linear-gradient(transparent, transparent); mask-image: linear-gradient(transparent, transparent); }
+  .fx4 { left: 700px; top: 140px; clip: rect(0 0 0 0); }
+  .stroke { left: 700px; top: 180px; -webkit-text-stroke: 1px red; }
+  .rtl { left: 40px; top: 340px; width: 160px; direction: rtl; }
+  .blank { left: 40px; top: 500px; font: 16px/22px monospace; }
+  .wrapcode { left: 700px; top: 340px; width: 220px; font: 16px/22px monospace; white-space: pre-wrap; }
+</style></head><body>
+<section id="r">
+  <p class="ws"><b>bold</b> <i>italic</i></p>
+  <ol class="agenda"><li>Why</li></ol>
+  <p class="pill">A <code>pill</code> after</p>
+  <div class="stage"><h1>Overhang</h1></div>
+  <p class="fx1">filtered away</p><p class="fx2">clipped away</p><p class="fx3">masked away</p><p class="fx4">rect away</p>
+  <p class="stroke">stroked</p>
+  <p class="rtl">שלום עולם זה טקסט ארוך שעובר כמה שורות</p>
+  <pre class="blank">first
+
+third</pre>
+  <pre class="wrapcode">const value = "a long string that wraps";</pre>
+</section></body></html>`;
+
+describe('calco reader: the review cases', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(REVIEW_FIXTURE, { waitUntil: 'load' });
+    res = await (await page.$('#r')).evaluate(readSlide);
+  });
+  after(async () => {
+    await browser?.close();
+  });
+  const plain = (f) => f.lines.map((l) => l.map((r) => r.text).join('')).join('\n');
+  const find = (re) => res.frames.find((f) => re.test(plain(f)));
+
+  test('the space between two inline elements survives', () => {
+    assert.equal(plain(find(/bold/)).replace(/ /g, ''), 'bold italic');
+  });
+
+  test('a line pushed right by a ::before marker starts after the marker', () => {
+    const why = find(/Why/);
+    assert.ok(why.x >= 40 + 55, `the box starts at ${why.x}, on top of the 60px marker`);
+  });
+
+  test('a padded inline pill keeps its room as a spacer run', () => {
+    const runs = find(/pill/).lines[0];
+    const spacers = runs.filter((r) => r.text === ' ');
+    assert.ok(spacers.length >= 1, 'a spacer stands in for the padding');
+    assert.ok(spacers.every((r) => r.style.letterSpacing > 8), JSON.stringify(spacers.map((r) => r.style.letterSpacing)));
+  });
+
+  test('a heading whose glyph box overhangs a clipping stage is still read', () => {
+    assert.ok(find(/Overhang/), 'the heading became a text box');
+  });
+
+  test('filtered, clip-path, masked, clip and stroked text stays in the picture', () => {
+    for (const re of [/filtered/, /clipped/, /masked/, /rect away/, /stroked/]) assert.equal(find(re), undefined, `${re} was read`);
+  });
+
+  test('right-to-left text splits into its lines', () => {
+    assert.ok(find(/שלום/).lines.length >= 2);
+  });
+
+  test('a blank line in code comes back as an empty line, so the next keeps its place', () => {
+    const code = find(/first/);
+    assert.deepEqual(code.lines.map((l) => l.map((r) => r.text).join('')), ['first', '', 'third']);
+    assert.ok(Math.abs(code.lineHeight - 22) < 0.5, `pitch ${code.lineHeight}`);
+  });
+
+  test('soft-wrapped preformatted code keeps every character, split where it wrapped', () => {
+    const code = find(/const value/);
+    assert.ok(code.lines.length >= 2, `${code.lines.length} line(s)`);
+    assert.equal(code.lines.map((l) => l.map((r) => r.text).join('')).join(''), 'const value = "a long string that wraps";');
   });
 });

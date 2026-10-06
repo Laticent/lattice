@@ -146,6 +146,19 @@ describe('export-formats', () => {
     assert.match(slide, /<a:t>[^<]+<\/a:t>/, 'with text in it');
   });
 
+  // The source CLI passed while the PUBLISHED bundle crashed: esbuild wrapped a default
+  // import (woff2-encoder) so that `--editable` died on "decompress is not a function".
+  test('the published CLI bundle writes an editable .odp too', { timeout: TIMEOUT }, async (t) => {
+    const bundle = path.join(ROOT, 'dist', 'lattice-emulator.js');
+    if (!fs.existsSync(bundle)) return t.skip('dist/lattice-emulator.js not built');
+    const out = path.join(tmpDir(), 'deck.odp');
+    const r = spawnSync(process.execPath, [bundle, FIXTURE, out, '--quiet', '--editable'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `bundled CLI failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    assert.ok(Object.keys(zip.files).some((n) => n.startsWith('Fonts/')), 'fonts embedded by the bundle');
+  });
+
   test('--editable on another format warns and is ignored', { timeout: TIMEOUT }, () => {
     const out = path.join(tmpDir(), 'deck.png');
     const r = run(out, ['--editable']);

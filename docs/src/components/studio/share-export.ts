@@ -977,6 +977,15 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 	return ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource });
 }
 
+/** LibreOffice (.odp) or an EDITABLE PowerPoint, through Calco (`exportOffice`): one
+ *  picture per slide, or with `editable` every paragraph as a real text box over a picture
+ *  of the slide with its text removed. Notes and alt text ride as in the CLI. */
+export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
+	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+	const ex = await exporters();
+	return ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource });
+}
+
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
  *  vocabulary. All fields optional; the kernel fills perfect-fidelity defaults. */
 export type ImageSetOptions = {

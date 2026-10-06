@@ -78,9 +78,16 @@ function noteParagraphs(note: string): string {
 
 const pad3 = (i: number) => String(i + 1).padStart(3, '0');
 
+/** A family name as it may appear inside a quoted CSS-style attribute value. */
+function familyName(family: string): string {
+	return String(family).replace(/["'<>&\\]/g, '').trim() || 'sans-serif';
+}
+
+const TRANSFORMS = new Set(['uppercase', 'lowercase', 'capitalize']);
+
 /** The face-declaration name for an embedded face: unique per family + weight + slant. */
 function faceDeclName(f: { family: string; weight: number; italic: boolean }): string {
-	return `${f.family} ${f.weight}${f.italic ? ' Italic' : ''}`;
+	return `${familyName(f.family)} ${f.weight}${f.italic ? ' Italic' : ''}`;
 }
 
 /**
@@ -111,7 +118,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		used
 			.map(
 				(f, i) =>
-					`<style:font-face style:name="${xmlEscape(faceDeclName(f))}" svg:font-family="${xmlEscape(`'${f.family}'`)}" ` +
+					`<style:font-face style:name="${xmlEscape(faceDeclName(f))}" svg:font-family="${xmlEscape(`'${familyName(f.family)}'`)}" ` +
 					`svg:font-weight="${f.weight}" svg:font-style="${f.italic ? 'italic' : 'normal'}">` +
 					`<svg:font-face-src><svg:font-face-uri xlink:href="${fontPath(i)}" xlink:type="simple">` +
 					`<svg:font-face-format svg:string="truetype"/></svg:font-face-uri></svg:font-face-src></style:font-face>`,
@@ -138,13 +145,13 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		const color = s.alpha < 1 && s.flatColor ? s.flatColor : s.color;
 		const opacity = s.alpha < 1 && !s.flatColor ? ` loext:opacity="${Math.round(s.alpha * 100)}%"` : '';
 		const attrs = [
-			face ? `style:font-name="${xmlEscape(faceDeclName(face))}"` : `fo:font-family="${xmlEscape(s.family)}"`,
+			face ? `style:font-name="${xmlEscape(faceDeclName(face))}"` : `fo:font-family="${xmlEscape(familyName(s.family))}"`,
 			`fo:font-size="${pt(s.size)}"`,
 			`fo:color="${color}"${opacity}`,
 			`fo:font-weight="${s.weight}"`,
 			`fo:font-style="${s.italic ? 'italic' : 'normal'}"`,
 			s.letterSpacing ? `fo:letter-spacing="${cm(s.letterSpacing)}"` : '',
-			s.transform && s.transform !== 'none' ? `fo:text-transform="${s.transform}"` : '',
+			TRANSFORMS.has(s.transform) ? `fo:text-transform="${s.transform}"` : '',
 			s.underline ? 'style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"' : '',
 			s.strike ? 'style:text-line-through-style="solid"' : '',
 		].filter(Boolean);

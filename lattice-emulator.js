@@ -883,6 +883,9 @@ const EDITABLE = !!flags.editable && (OUT_FORMAT === 'odp' || OUT_FORMAT === 'pp
 if (flags.editable && !EDITABLE) {
   console.warn(`  ⚠ --editable applies only to .odp and .pptx output — ignoring.`);
 }
+if (EDITABLE && OUT_FORMAT === 'pptx' && !QUIET) {
+  console.warn('  ⚠ --editable .pptx names the deck\'s fonts but cannot embed them: PowerPoint shows them only where they are installed. A .odp embeds them.');
+}
 
 // --paper / --orientation: fit the deck onto a standard sheet (US Letter / Legal / A4)
 // instead of the default slide-sized MediaBox, keeping the PDF VECTOR (selectable text).
@@ -4576,7 +4579,7 @@ async function renderBody(browser, g, closeBrowser) {
     // hides and restores each slide's text around the screenshot (lib/export/office-export.js).
     if (OUT_FORMAT === 'odp' || EDITABLE) {
       const office = require('./lib/export/office-export');
-      const captured = await g(() => office.captureSlides(handles, pngShot, EDITABLE), 'capture slides for office export');
+      const captured = await office.captureSlides(handles, pngShot, EDITABLE, g);
       await closeBrowser();
       const ext = OUT_FORMAT === 'odp' ? /\.odp$/i : /\.pptx$/i;
       const res = await office.writeOffice(outFile, OUT_FORMAT, captured, {

@@ -35,6 +35,20 @@ export interface PptxGenJSLike {
 }
 export type PptxGenJSClass = new () => PptxGenJSLike;
 
+/**
+ * Text PptxGenJS writes into XML as-is: characters XML 1.0 forbids would make the part
+ * unreadable, so they go. (It escapes `<>&` in run text itself.)
+ */
+function xmlSafe(text: string): string {
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point.
+	return String(text).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '');
+}
+
+/** A font family as an attribute value PptxGenJS will NOT escape: no quotes or markup. */
+export function safeFamily(family: string): string {
+	return xmlSafe(family).replace(/["'<>&]/g, '').trim() || 'sans-serif';
+}
+
 /** Base64 for PNG bytes, in Node or a browser, without a dependency. */
 function toBase64(bytes: Uint8Array): string {
 	const B = (globalThis as { Buffer?: { from(b: Uint8Array): { toString(enc: string): string } } }).Buffer;
@@ -89,7 +103,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck): PptxGenJSLike 
 	const runOptions = (run: TextRun, breakLine: boolean) => {
 		const s = run.style;
 		const opts: Record<string, unknown> = {
-			fontFace: s.family,
+			fontFace: safeFamily(s.family),
 			fontSize: points(s.size),
 			color: bareHex(s.alpha < 1 && s.flatColor ? s.flatColor : s.color),
 			bold: s.weight >= 600,
@@ -100,7 +114,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck): PptxGenJSLike 
 		if (s.underline) opts.underline = { style: 'sng' };
 		if (s.strike) opts.strike = 'sngStrike';
 		if (breakLine) opts.breakLine = true;
-		return { text: applyTransform(run.text, s.transform), options: opts };
+		return { text: xmlSafe(applyTransform(run.text, s.transform)), options: opts };
 	};
 
 	deck.slides.forEach((slide, i) => {
@@ -108,13 +122,18 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck): PptxGenJSLike 
 		const s = pptx.addSlide();
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
-		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: page.w, h: page.h, altText: (slide.description || '').trim() || `Slide ${i + 1}` });
+		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: page.w, h: page.h, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
 		for (const frame of slide.frames || []) {
-			const lines = frame.lines.filter((l) => l.length);
-			if (!lines.length) continue;
-			const lead = dominantStyle(lines[0]);
-			const box = placeFrame({ ...frame, lines }, W, metricsFor(lead, fonts, metricsCache), lead.size);
-			const runs = lines.flatMap((line, li) => line.map((run, ri) => runOptions(run, ri === line.length - 1 && li < lines.length - 1)));
+			const lines = frame.lines;
+			if (!lines.some((l) => l.length)) continue;
+			const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
+			const box = placeFrame(frame, W, metricsFor(lead, fonts, metricsCache), lead.size);
+			// An empty line (a blank line in code) is an empty paragraph in the lead style.
+			const runs = lines.flatMap((line, li) => {
+				const last = li < lines.length - 1;
+				if (!line.length) return [runOptions({ text: '', style: lead }, last)];
+				return line.map((run, ri) => runOptions(run, ri === line.length - 1 && last));
+			});
 			s.addText(runs, {
 				x: inch(box.x),
 				y: inch(box.y),
@@ -127,10 +146,13 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck): PptxGenJSLike 
 				paraSpaceBefore: 0,
 				paraSpaceAfter: 0,
 				fit: 'none',
-				wrap: true,
+				// Lines are already broken where the browser broke them. Without wrapping, a
+				// substitute font that runs wider overhangs the box instead of adding a line that
+				// lands on the next paragraph.
+				wrap: false,
 			});
 		}
-		if (slide.notes) s.addNotes(slide.notes);
+		if (slide.notes) s.addNotes(xmlSafe(slide.notes));
 	});
 	return pptx;
 }

@@ -14,7 +14,7 @@ import { SHEET_EXIT_MS } from './lazy-panel';
 import { splitSlides } from './lint';
 import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
-import { type DeckPackages, embeddableLattice, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
+import { type DeckPackages, embeddableLattice, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, shareOffice, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { SHARE_HEADER, SHARE_MENU, ShareRow, type ShareRowId } from './share-menu';
 import { loadSettings, type OverflowMarker } from './studio-store';
 import { DEGRADED_TOAST_MS } from './toast-duration';
@@ -43,7 +43,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// reset in the render that OPENS the sheet (or that changes `initialView` while it is open), so
 	// the kept sheet never shows the last view for a frame; the other options steps are dropped
 	// once the sheet has slid out, as they were when the sheet unmounted on close.
-	const [view, setView] = React.useState<'menu' | 'pdf' | 'pptx' | 'html' | 'print' | 'imageset' | 'marp'>(initialView);
+	const [view, setView] = React.useState<'menu' | 'pdf' | 'pptx' | 'odp' | 'html' | 'print' | 'imageset' | 'marp'>(initialView);
 	const shows = useShowCount(open);
 	const [seen, setSeen] = React.useState({ shows, initialView });
 	if (seen.shows !== shows || (open && seen.initialView !== initialView)) {
@@ -172,7 +172,17 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// PowerPoint from its options step — re-openable is its only choice (no sticky notes).
 	const exportPptx = (opts: ExportOptions) => {
 		run('pptx', 'PowerPoint', async (onStatus, onDegraded) => {
-			const reason = await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, await embedPayload(opts));
+			// Editable goes through Calco; the plain picture deck keeps its own exporter.
+			const reason = opts.editable
+				? await shareOffice('pptx', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, true, await embedPayload(opts))
+				: await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, await embedPayload(opts));
+			if (reason) onDegraded(reason);
+		});
+	};
+	// LibreOffice (.odp) from its options step: editable text is its one choice.
+	const exportOdp = (opts: ExportOptions) => {
+		run('odp', 'LibreOffice', async (onStatus, onDegraded) => {
+			const reason = await shareOffice('odp', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, opts.editable);
 			if (reason) onDegraded(reason);
 		});
 	};
@@ -246,6 +256,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		present: { onClick: () => { close(); onPresent(); } },
 		pdf: { busy: busy === 'pdf', progress: true, onClick: () => setView('pdf') },
 		pptx: { busy: busy === 'pptx', progress: true, onClick: () => setView('pptx') },
+		odp: { busy: busy === 'odp', progress: true, onClick: () => setView('odp') },
 		images: { busy: busy === 'images', progress: true, onClick: () => setView('imageset') },
 		print: { onClick: () => setView('print') },
 		html: { busy: busy === 'html', progress: true, onClick: () => setView('html') },
@@ -272,6 +283,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'pptx' ? (
 						<ExportOptionsPanel format="pptx" deckId={deckId} slideCount={slideCount} busy={busy === 'pptx'} status={progress} onBack={() => setView('menu')} onExport={exportPptx} />
+					) : view === 'odp' ? (
+						<ExportOptionsPanel format="odp" deckId={deckId} slideCount={slideCount} busy={busy === 'odp'} status={progress} onBack={() => setView('menu')} onExport={exportOdp} />
 					) : view === 'html' ? (
 						<WebpageOptionsPanel
 							busy={busy === 'html'}

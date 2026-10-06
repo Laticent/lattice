@@ -39,7 +39,7 @@ describe('calco fonts', () => {
     const deck = { width: 1, height: 1, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'a', style: style() }, { text: 'b', style: style() }, { text: 'c', style: style({ family: 'System Only' }) }]])] }] };
     const fonts = await prepareFonts(deck, {
       load: (f) => (f.family === 'Outfit' ? new Uint8Array([7]) : null),
-      pin: (_bytes, opts) => { calls.push(opts); return new Uint8Array([9]); },
+      pin: (_bytes, opts) => { calls.push(opts); return synthFont(); },
     });
     assert.equal(fonts.length, 1);
     assert.deepEqual(calls, [{ weight: 400, ligatures: true }]);
@@ -79,5 +79,64 @@ describe('calco layout', () => {
     assert.equal(applyTransform('Every Slide', 'lowercase'), 'every slide');
     assert.equal(applyTransform('every slide', 'capitalize'), 'Every Slide');
     assert.equal(applyTransform('as is', 'none'), 'as is');
+  });
+});
+
+/**
+ * A minimal sfnt with only head, hhea and OS/2 — enough for the metric and license reads.
+ * `hhea` and the typographic metrics DIFFER, so a read from the wrong table (or offset)
+ * fails the test, which the real Outfit face (hhea == typo) could not show.
+ */
+function synthFont({ useTypo = true, fsType = 0, headAt, hheaAt } = {}) {
+  const tables = { head: 54, hhea: 36, 'OS/2': 78 };
+  const names = Object.keys(tables);
+  const dirLen = 12 + names.length * 16;
+  const offsets = {};
+  let at = dirLen;
+  for (const n of names) { offsets[n] = at; at += tables[n]; }
+  const buf = new Uint8Array(at);
+  const v = new DataView(buf.buffer);
+  v.setUint32(0, 0x00010000);
+  v.setUint16(4, names.length);
+  names.forEach((n, i) => {
+    const rec = 12 + i * 16;
+    for (let k = 0; k < 4; k++) buf[rec + k] = n.charCodeAt(k);
+    const off = n === 'head' && headAt !== undefined ? headAt : n === 'hhea' && hheaAt !== undefined ? hheaAt : offsets[n];
+    v.setUint32(rec + 8, off);
+    v.setUint32(rec + 12, tables[n]);
+  });
+  v.setUint16(offsets.head + 18, 2000); // unitsPerEm
+  v.setInt16(offsets.hhea + 4, 1800); // hhea ascent  → 0.9
+  v.setInt16(offsets.hhea + 6, -400); // hhea descent → 0.2
+  v.setUint16(offsets['OS/2'] + 8, fsType);
+  v.setUint16(offsets['OS/2'] + 62, useTypo ? 0x80 : 0); // fsSelection USE_TYPO_METRICS
+  v.setInt16(offsets['OS/2'] + 68, 1600); // typo ascender  → 0.8
+  v.setInt16(offsets['OS/2'] + 70, -600); // typo descender → 0.3
+  return buf;
+}
+
+describe('calco fonts — table reads', () => {
+  const { embeddingAllowed } = require('@laticent/calco');
+
+  test('USE_TYPO_METRICS picks the OS/2 typographic metrics; without it, hhea', () => {
+    assert.deepEqual(readFontMetrics(synthFont()), { ascent: 0.8, descent: 0.3 });
+    assert.deepEqual(readFontMetrics(synthFont({ useTypo: false })), { ascent: 0.9, descent: 0.2 });
+  });
+
+  test('a hostile table offset returns null instead of throwing', () => {
+    assert.equal(readFontMetrics(synthFont({ headAt: 0x7ffffff0 })), null);
+    assert.equal(readFontMetrics(synthFont({ hheaAt: 0x7ffffff0 })), null);
+  });
+
+  test('fsType: restricted-license faces are refused, every other kind embeds', () => {
+    assert.equal(embeddingAllowed(synthFont({ fsType: 0x0002 })), false, 'restricted');
+    for (const fsType of [0x0000, 0x0004, 0x0008]) assert.equal(embeddingAllowed(synthFont({ fsType })), true, `fsType ${fsType}`);
+    assert.equal(embeddingAllowed(new Uint8Array(4)), false, 'unreadable');
+  });
+
+  test('prepareFonts drops a face whose license forbids embedding', async () => {
+    const deck = { width: 1, height: 1, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'a', style: style() }]])] }] };
+    const fonts = await prepareFonts(deck, { load: () => new Uint8Array([1]), pin: () => synthFont({ fsType: 0x0002 }) });
+    assert.deepEqual(fonts, []);
   });
 });
