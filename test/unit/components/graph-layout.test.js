@@ -320,12 +320,16 @@ describe('graph-layout — the reading-order grid (wrap ratchet)', () => {
         for (const h of HARD) assert.equal(geo.quality[h] || 0, 0, `${h} on seed ${seed0} chart ${t}`);
         crossed += geo.crossings;
         if ((geo.lines || 1) > 1) wrapped++;
-        // `order: 'graph'` (the `rearrange` modifier) on the same chart: never a hard fault,
-        // never MORE crossings than the authored order, since it only replaces a pick that
-        // crosses with one that crosses less.
+        // `order: 'graph'` (the `rearrange` modifier) on the same chart: it only replaces a pick
+        // with one that has fewer faults, then fewer crossings, so never more faults, and never
+        // more crossings at the same faults. (Across faults it may: the checker found a 19-state
+        // machine, no dagre, that traded two lines through shapes for 9 more crossings, which
+        // is the kernel's ranking everywhere: a line through a shape outranks any crossings.)
         const byGraph = K.layout({ shapes, groups: [], edges }, sizes, { wrap: true, labelSizes, stage, maxScale: 1.25, order: 'graph' }, null);
         for (const h of HARD) assert.equal(byGraph.quality[h] || 0, 0, `${h} with order graph on seed ${seed0} chart ${t}`);
-        assert.ok(byGraph.crossings <= geo.crossings, `order graph crossed more on seed ${seed0} chart ${t}: ${byGraph.crossings} > ${geo.crossings}`);
+        const faults = (g) => Object.values(g.quality).reduce((a, b) => a + b, 0);
+        assert.ok(faults(byGraph) <= faults(geo), `order graph added a fault on seed ${seed0} chart ${t}`);
+        if (faults(byGraph) === faults(geo)) assert.ok(byGraph.crossings <= geo.crossings, `order graph crossed more at equal faults on seed ${seed0} chart ${t}: ${byGraph.crossings} > ${geo.crossings}`);
         crossedByGraph += byGraph.crossings;
       }
     }

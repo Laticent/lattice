@@ -2318,9 +2318,11 @@ export function graphLayoutKernel(): GraphKernel {
         const better = (alt: Geometry | null) => !!alt && spotless(alt) && (alt.scale ?? 0) >= floor;
         // THE GRAPH'S ORDER, ASKED FOR (`order: 'graph'`, an author's opt-in, never the default):
         // the same lines in the order `graphOrder` reads the graph, kept when it has fewer faults
-        // and then fewer crossings. Fewer, not spotless, because the author asked for the states
-        // to move; and only as an alternative to the pick, never as the pick's own order, because
-        // measured as the order of every candidate it crossed MORE (the wrap corpus 43 -> 64).
+        // and then fewer crossings (the kernel's ranking everywhere: a line through a shape
+        // outranks any number of crossings, so it may trade one for more crossings). Fewer, not
+        // spotless, because the author asked for the states to move; and only as an alternative
+        // to the pick, never as the pick's own order, because measured as the order of every
+        // candidate it crossed MORE (the wrap corpus 43 -> 64).
         if (byGraph) {
           const seq = seqFor(c.lines);
           const alt = seq ? routeGrid({ ...c, seq }, null) : null;

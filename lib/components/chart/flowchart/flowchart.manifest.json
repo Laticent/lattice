@@ -243,7 +243,7 @@
     },
     {
       "variant": "rearrange",
-      "useWhen": "A long flow wraps and its lines cross, and where each shape sits matters more than the order you wrote them in: a detour written last moves beside the step it leaves. The chart moves a shape only when that crosses fewer lines, so with nothing to fix it draws as before."
+      "useWhen": "A long flow wraps and its lines cross, and where each shape sits matters more than the order you wrote them in: a detour written last moves beside the step it leaves. The chart moves a shape only when that draws a cleaner chart (fewer crossings, or a line no longer through a shape), so with nothing to fix it draws as before."
     }
   ],
   "variantDocs": {
@@ -264,7 +264,7 @@
     },
     "rearrange": {
       "label": "Rearrange",
-      "summary": "Shapes may leave their written order when that crosses fewer lines.",
+      "summary": "Shapes may leave their written order when that draws a cleaner chart.",
       "sample": "<!-- _class: flowchart rearrange -->\n\n## rearrange lets a detour sit beside the step it leaves.\n\n- Lead `pill` => Qualify => Demo => Proposal => Negotiate => Sign => Onboard => Renew\n- Renew `pill`\n- Negotiate -legal review-> Legal\n- Legal -cleared-> Sign\n- Demo -needs trial-> Trial\n- Trial -converted-> Proposal\n"
     }
   },

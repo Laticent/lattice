@@ -184,9 +184,17 @@ Measured that way, it crossed MORE than the written order: on the wrap generator
 So the pick is still made in written order, and `calm` adds one alternative: the same line
 count in the graph's order. It is kept when it has fewer faults and then fewer crossings, which
 is a lower bar than the spotless one the default holds, because the author asked for the
-states to move. The written-order alternatives (`calm` above) still run after it, so turning
-`rearrange` on never adds a crossing to a chart. A test holds this chart by chart on the wrap
-corpus.
+states to move. The written-order alternatives (`calm` above) still run after it. So turning
+`rearrange` on never adds a fault, and never adds a crossing to a chart with the same faults.
+A test holds this chart by chart on the wrap corpus. Across faults it can add crossings: the
+checker found one machine in 290 (19 states, no dagre) where the graph's order removed two lines
+through shapes at the cost of 13 → 22 crossings. That follows the kernel's ranking everywhere, where
+a line through a shape outranks any number of crossings.
+
+A pin is checked against the chart's direction only. An author who adds or removes `rearrange`
+while typing keeps the old order on screen until the settle after the pause, which searches
+again, as for any other edit that leaves the direction alone. This was reasoned from the code and
+not driven in the Studio.
 
 | Corpus | off | `rearrange` |
 |---|---|---|

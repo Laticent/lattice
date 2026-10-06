@@ -82,7 +82,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 ---
 
 <!-- _class: flowchart rearrange -->
-<!-- _footer: "Rearrange · flowchart rearrange — Shapes may leave their written order when that crosses fewer lines." -->
+<!-- _footer: "Rearrange · flowchart rearrange — Shapes may leave their written order when that draws a cleaner chart." -->
 
 ## rearrange lets a detour sit beside the step it leaves.
 

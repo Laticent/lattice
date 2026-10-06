@@ -126,7 +126,7 @@ How a draft moves from author to publication.
 ---
 
 <!-- _class: state-chart rearrange -->
-<!-- _footer: "Rearrange · state-chart rearrange — States may leave their written order when that crosses fewer lines." -->
+<!-- _footer: "Rearrange · state-chart rearrange — States may leave their written order when that draws a cleaner chart." -->
 
 ## rearrange lets a side state sit beside the state it leaves.
 

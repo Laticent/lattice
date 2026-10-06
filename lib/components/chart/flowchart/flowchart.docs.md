@@ -33,7 +33,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 - **`lr`.** The flow must read left to right whatever the stage shape (a pipeline, a data flow). On a portrait deck `lr` falls back to `tb`, because a row cannot fit a tall box.
 - **`tb`.** The flow must read top to bottom (an org chart, a decision tree).
 - **`curved`.** Softer, generously rounded corners fit the deck's tone better than tight elbows. A paint setting only: the lines are still the router's, and never cross a shape.
-- **`rearrange`.** A long flow wraps and its lines cross, and where each shape sits matters more than the order you wrote them in: a detour written last moves beside the step it leaves. The chart moves a shape only when that crosses fewer lines, so with nothing to fix it draws as before.
+- **`rearrange`.** A long flow wraps and its lines cross, and where each shape sits matters more than the order you wrote them in: a detour written last moves beside the step it leaves. The chart moves a shape only when that draws a cleaner chart (fewer crossings, or a line no longer through a shape), so with nothing to fix it draws as before.
 
 ### Common mistakes
 
@@ -137,7 +137,7 @@ Generously rounded corners on the router's lines.
 
 ### `rearrange` — Rearrange
 
-Shapes may leave their written order when that crosses fewer lines.
+Shapes may leave their written order when that draws a cleaner chart.
 
 ```markdown
 <!-- _class: flowchart rearrange -->

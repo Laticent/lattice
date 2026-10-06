@@ -15,7 +15,7 @@ acronyms:
 
 # A chart may move a state to cross fewer lines.
 
-`rearrange` lets a wrapped state chart or flowchart leave the written order when that crosses fewer lines. It is off unless you ask.
+`rearrange` lets a wrapped state chart or flowchart leave the written order when that draws a cleaner chart. It is off unless you ask.
 
 ---
 
@@ -119,7 +119,7 @@ acronyms:
 - Demo -needs trial-> Trial
 - Trial -converted-> Proposal
 
-*The chart moves a shape only when that crosses fewer lines.*
+*The chart moves a shape only when that draws a cleaner chart.*
 
 ---
 

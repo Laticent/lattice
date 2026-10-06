@@ -34,7 +34,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 - **`inline`.** The chart needs to sit directly beside its explanatory prose rather than take the full canvas.
 - **`curved`.** Softer, generously rounded corners fit the deck's visual tone better than tight elbows. The lines are still the router's: they never cross a state.
 - **`unnumbered`.** The list order means nothing to the audience, and the badges would suggest a sequence that is not there.
-- **`rearrange`.** The chart wraps and its lines cross, and where each state sits matters more than the order you wrote them in: a side state written last (Blocked, Escalated) moves beside the state it leaves. The chart moves a state only when that crosses fewer lines, so with nothing to fix it draws as before. The badges still show each state's place in your list.
+- **`rearrange`.** The chart wraps and its lines cross, and where each state sits matters more than the order you wrote them in: a side state written last (Blocked, Escalated) moves beside the state it leaves. The chart moves a state only when that draws a cleaner chart (fewer crossings, or a line no longer through a state), so with nothing to fix it draws as before. The badges still show each state's place in your list.
 
 ### Common mistakes
 
@@ -194,7 +194,7 @@ No badges: the states show no place in the list.
 
 ### `rearrange` — Rearrange
 
-States may leave their written order when that crosses fewer lines.
+States may leave their written order when that draws a cleaner chart.
 
 ```markdown
 <!-- _class: state-chart rearrange -->
