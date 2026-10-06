@@ -1,0 +1,2 @@
+studio: +16
+No startup code grew. The PR changes `chat-agent` and `deck-export`, which the Studio loads on demand; neither file's new code (`undrawn`, "had not drawn") appears in any of the 113 chunks the Studio page loads at startup. The one link is the eager `architect` chunk, which names `chat-agent` by its content hash in a lazy `import()`. Swapping only that 8-character hash for 200 random ones moved the chunk's gzipped size by −6 to 0 B. CI measured +4 B. Declared with a 16 B margin, because the noise moves with every rebuilt hash.

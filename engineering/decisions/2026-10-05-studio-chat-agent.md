@@ -395,7 +395,9 @@ until the agent module lands, then re-prices). Merged into `main`: −15 B, noth
   with a live model on the real Studio (Sonnet 5.5, a real key, `.scratch/` only): asked to put
   22 sentence-long items on one slide, it wrote them all, got that verdict back, read the `list`
   layout, and split them 6/6/5/5 across four slides before the turn ended clean. A render that
-  cannot finish within 15 seconds reports fit as not measured, never as fine.
+  cannot finish within 15 seconds reports fit as not measured, never as fine, and so does a slide
+  whose diagram had not drawn when it was measured. The FIRST check on a cold page fits inside
+  that limit (§11).
 - **The on-device tiers are unchanged** — still the one-shot path, short canon, and fenced
   edit blocks.
 - **The `≈ $` readout is an estimate of a typical turn.** It shows a range, a question to an
@@ -407,3 +409,98 @@ until the agent module lands, then re-prices). Merged into `main`: −15 B, noth
   question's real cost (the follow-up had guessed it under-quoted). The ceiling still prices the
   budget GATE, which must hold the worst case. Long turns, like a whole new deck, cost more than
   the range; the spend tally records the exact cost from `usage.cost`.
+
+## 11. The first fit check on a cold page (follow-up `2539-p3-fit-check-cold-start`)
+
+**Result: the 15-second limit (`DRAFT_FIT_TIMEOUT_MS`) holds, so it stays, and no pre-warm
+was added. One defect turned up on the way and is fixed:** on a slow link, the first diagram
+of a session could be MEASURED BEFORE IT DREW, and the checker reported that slide as fitting.
+It now reports the slide's fit as not measured (below, "A diagram that has not drawn has no
+verdict").
+
+The worry was arithmetic. `createCaptureFrame` bounds its waits at 10 s (load), 8 s (fonts),
+0.5 s (paint) and 4 s (diagrams), which can add up past 15 s, so the first edit of a session
+might get "fit not measured". In practice, the first check is fast. The live preview has
+already fetched the files the fit check needs (`lattice-runtime.js`, the theme fonts, and
+Mermaid when the deck has a diagram). The fit check's own new download is one 350-byte chunk
+(`draft-fit`), and none of its waits gets near its limit.
+
+**How it was measured.** The real Studio from `npm run build:e2e`, then re-run after
+`inject-modulepreload.mjs` + `hoist-stylesheets.mjs` to make it production-shaped (same
+numbers). Every run used a fresh browser context, so the HTTP cache started empty, and a
+3-slide deck with one Mermaid diagram. A mocked model calls `check_deck` (no key spent, HARD
+RULE #24). The time runs from handing back that tool call to the model's next request, which
+carries the checker's verdict. That covers the lint, the Mermaid parse and the fit render,
+running side by side as in `withFit`. Three runs per row, in milliseconds:
+
+| Condition | Studio settled before the first message | First message sent while the page is still loading |
+|---|---|---|
+| Unthrottled | 416 · 398 · 378 | 392 · 409 · 356 |
+| 4× CPU slowdown | 1,646 · 1,605 · 1,677 | — |
+| Slow link (1.6 Mbps, 150 ms latency) | 2,628 · 2,168 · 2,178 | 6,372 · 6,356 · 6,358 |
+| Slow link and 4× CPU | 3,496 · 3,515 · 3,354 | 7,800 · 7,688 · 7,436 |
+
+All 27 runs reported "Fit, measured from a real render of the draft: all 3 slides fit". The
+throttled rows come from Chrome DevTools emulation and model a slow machine and a slow link.
+They are not a device measurement.
+
+**One trap in the method, recorded so the next timing spec avoids it.** The first attempt
+mocked the model with Playwright's `page.route()`. While any route is installed, that call
+makes every request in the page skip the HTTP cache, so the fit frame re-downloaded the
+runtime (347 KB) and Mermaid (877 KB) that the page already held. That produced 12.5 s
+settled and 20.5 s (timed out) unsettled on the slow link. Those figures are wrong: they
+measure re-downloads that a real author's browser does not make. Mocking `window.fetch` from an
+init script leaves the cache alone (304s in the log). See `engineering/gotchas/docs-site.md`
+§"A timing spec re-downloads everything".
+
+**The case the preview cannot pre-fetch: a draft that adds the deck's FIRST diagram.** The
+deck on screen has no diagram, so Mermaid (877 KB) has never been downloaded, and the agent's
+edit inserts a Mermaid slide. The edit's own check has to fetch Mermaid (a full `200` in every
+run) before the frame can draw the diagram. The mock sends `edit_slides` and `check_deck` in one
+round, because a round of edits alone ends the turn without another request. So each time
+below covers the cold edit check PLUS a warm `check_deck`, and overstates the cold check alone:
+
+| Condition | Studio settled before the first message | First message sent while the page is still loading |
+|---|---|---|
+| Unthrottled | 1,111 · 1,128 · 974 | 1,552 · 1,208 · 1,208 |
+| Slow link and 4× CPU | 10,042 · 9,827 · 9,853 | 9,853 · 10,446 · 9,690 |
+
+All 12 runs returned "Fit, measured" for the edit and for `check_deck`, and in every one the
+diagram had drawn before the frame was measured.
+
+**Against the real deployed site, and finding the cut-off.** The same spec ran against this
+branch's Cloudflare Pages preview, with its real hosting, brotli compression and caching
+(Mermaid transfers 831 KB there, 3.2 MB uncompressed), through the sandbox's proxy. Unthrottled,
+the first-diagram case took 3.8–4.1 s on that real network path. To find where it breaks, the
+link was throttled only AFTER the Studio settled, isolating the check's own downloads, with a 4×
+slower CPU. A probe in the page recorded each capture frame's diagram state just before the frame
+was measured and disposed:
+
+| Link | Turn time | Edit check's diagram when measured |
+|---|---|---|
+| 1.6 Mbps | 10.2–11.7 s | drawn |
+| 1.2 Mbps | 11.8 s | drawn |
+| 1.0 Mbps | 13.4–14.2 s | drawn |
+| 0.85 Mbps | 15.5 s | drawn |
+| 0.7 Mbps | 16.8–17.3 s | **not drawn** (`unavailable`) |
+| 0.5 Mbps | 23.2 s | not measured by the probe |
+
+The turn time passes 15 s below ~0.9 Mbps without the fit check timing out. The slow part is
+the Studio's Mermaid PARSE check (`checkDraft` → `mermaid-parse`), which has no time limit and
+waits for the whole download. That costs latency, never a wrong answer, so it stays.
+
+**A diagram that has not drawn has no verdict.** At 0.7 Mbps the fit frame's 4 s diagram wait
+(`waitForDiagrams`) expired while Mermaid was still downloading. The frame released the figure
+to its source text and measured the slide with that text in the diagram's place, and the
+checker told the model "all 3 slides fit". That was a guess dressed as a measurement, which the
+fit check's contract forbids. `measureDeckFit` now flags a slide holding a figure that is still
+pending or was released (`undrawn`), and the checker leaves it out of the verdict: "the other 2
+slides fit. Fit was not measured for slide 3: a diagram there had not drawn …". It is not
+charged as an error, because the model cannot fix a download. A parse error is not `undrawn`: it
+draws its error box, which is what the author sees. Re-run on the real Studio after the fix:
+0.7 Mbps returns that sentence, and 1.6 Mbps still returns "all 3 slides fit".
+
+Not done, and why: warming Mermaid when the chat opens would let the first diagram draw on
+slower links, but it would spend 831 KB on every chat session, with or without diagrams. The
+idle warm-up (`studio-warm.ts`) deliberately warms Mermaid only for a browser that has already
+shown a diagram. Below ~0.8 Mbps, the honest "not measured" is the answer.
