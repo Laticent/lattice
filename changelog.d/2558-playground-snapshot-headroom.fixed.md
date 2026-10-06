@@ -1,0 +1,1 @@
+- The Playground's first-paint snapshot of the default Edit deck drops from 245,584 to 55,829 units against its 245,760 cap: the rule filter now reads nested selectors like `:not(:is(…))` instead of keeping every rule it could not evaluate. A snapshot too large to store is now logged, and an end-to-end test keeps the default deck under half the cap.

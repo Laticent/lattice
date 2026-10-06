@@ -56,7 +56,7 @@ import { applyDebug } from '@/playground/debug-overlay.js';
 import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
 import { adoptBake } from '@/playground/newcomer-bake';
-import { captureFirstSectionFromFrame, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';
+import { captureFirstSectionFromFrame, MAX_UNITS, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';
 import { createVideoOverlay } from '@/playground/video-overlay.js';
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
 import { ComponentPicker } from './ComponentPicker';
@@ -987,7 +987,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// A slide it could not capture is worth another try; one captured but too large to
 			// store is not (it will be as large next time).
 			if (!snap) return 'the capture refused the slide (unfitted, a placeholder, or no CSS)';
-			savePlaygroundSnapshot(snap);
+			// Too large to store is not retried, but it is SAID: the next CSS change that pushes the
+			// default deck past the cap otherwise shows up only as a first-paint test timing out.
+			if (!savePlaygroundSnapshot(snap)) console.warn(`[playground] first-slide snapshot not stored (${JSON.stringify(snap).length} units, cap MAX_UNITS ${MAX_UNITS}; or storage refused it) — snapshot-cache.js`);
 			return true;
 		} catch (e) {
 			/* best-effort — a failed capture just means the next visit uses the skeleton */
