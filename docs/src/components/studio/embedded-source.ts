@@ -26,15 +26,20 @@
 // the result still goes through `readLatticeFile`'s own caps.
 
 import type JSZipType from 'jszip';
+// The WRITE half — part names, payload format, the PDF attach and the PPTX repack — is the
+// shared kernel (lib/core/reopenable.js), which the CLI's `--reopenable` export calls too
+// (HARD RULE #1). This file adapts it to Blobs and keeps the untrusted READ half, which only
+// the Studio needs. A DEFAULT import: it is a CommonJS leaf (vite-cjs-lib-dev.mjs).
+import reopenable from '../../../../lib/core/reopenable.js';
 import { MAX_ZIP_BYTES, readBytesBudget } from './zip-limits';
 
 /** The attachment's file name in a PDF, and the payload format either way. */
-export const EMBED_FILENAME = 'deck.lattice';
-export const EMBED_MIME = 'application/vnd.lattice+zip';
+export const EMBED_FILENAME: string = reopenable.EMBED_FILENAME;
+export const EMBED_MIME: string = reopenable.EMBED_MIME;
 /** Where the payload lives inside a `.pptx` package. */
-export const PPTX_EMBED_PART = 'lattice/deck.lattice';
+export const PPTX_EMBED_PART: string = reopenable.PPTX_EMBED_PART;
 /** Our package-relationship type. A URI is all OPC asks for; nothing fetches it. */
-export const PPTX_EMBED_REL = 'https://github.com/Laticent/lattice/relationships/deck-source';
+export const PPTX_EMBED_REL: string = reopenable.PPTX_EMBED_REL;
 
 /** The largest PDF or PPTX the importer will parse to look for a payload. A 60-slide
  *  photo-per-page export measures in the tens of MB; this leaves room above that without
@@ -48,14 +53,9 @@ const TOO_LARGE = 'That file is too large to open.';
 /** Attach the `.lattice` payload to a finished PDF. Metadata the export already wrote
  *  (title, producer, keywords) is left exactly as it was. */
 export async function embedInPdf(pdf: Blob, lattice: Uint8Array): Promise<Blob> {
-	const { PDFDocument, AFRelationship } = await import('pdf-lib');
-	const doc = await PDFDocument.load(await pdf.arrayBuffer(), { updateMetadata: false });
-	await doc.attach(lattice, EMBED_FILENAME, {
-		mimeType: EMBED_MIME,
-		description: 'Lattice deck source — open this PDF in Lattice Studio to edit the deck',
-		afRelationship: AFRelationship.Source,
-	});
-	return new Blob([(await doc.save({ useObjectStreams: true })) as Uint8Array<ArrayBuffer>], { type: 'application/pdf' });
+	const pdfLib = await import('pdf-lib');
+	const bytes: Uint8Array = await reopenable.embedInPdfBytes(pdfLib, new Uint8Array(await pdf.arrayBuffer()), lattice);
+	return new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'application/pdf' });
 }
 
 /**
@@ -163,39 +163,8 @@ export async function inflateCapped(raw: Uint8Array, max: number): Promise<Uint8
 /** Add the payload part, its content type and the package relationship to a `.pptx`. */
 export async function embedInPptx(pptx: Blob, lattice: Uint8Array): Promise<Blob> {
 	const { default: JSZip } = await import('jszip');
-	const zip = await JSZip.loadAsync(await pptx.arrayBuffer());
-	// STORE: the payload is a zip already, so deflating it again buys nothing. No folder
-	// entry: OPC packages hold parts, not directories, and a strict reader flags a `lattice/`
-	// entry (JSZip adds one by default).
-	zip.file(PPTX_EMBED_PART, lattice, { compression: 'STORE', createFolders: false });
-	const types = await zip.file('[Content_Types].xml')?.async('string');
-	const rels = await zip.file('_rels/.rels')?.async('string');
-	if (!types || !rels) throw new Error('The PowerPoint file is missing its package parts.');
-	// Each edit must LAND: a writer that closes the root differently (a prefix, a space)
-	// would leave the part with no content type, and PowerPoint offers to "repair" that.
-	// Failing the export loudly beats shipping a file that opens with a warning.
-	const edit = (xml: string, close: string, add: string) => {
-		const at = xml.lastIndexOf(close);
-		if (at < 0) throw new Error('The PowerPoint file has a package layout this version cannot extend.');
-		return xml.slice(0, at) + add + xml.slice(at);
-	};
-	if (!/Extension="lattice"/i.test(types)) {
-		zip.file('[Content_Types].xml', edit(types, '</Types>', `<Default Extension="lattice" ContentType="${EMBED_MIME}"/>`));
-	}
-	// Compare each relationship's Type EXACTLY. A substring test would also match the URI
-	// sitting inside some other attribute or a longer type, and skip the relationship we need.
-	// A Set of whole values: membership is equality, never a substring of a URL.
-	const attrs = (name: string) => new Set([...rels.matchAll(new RegExp(`\\b${name}="([^"]*)"`, 'g'))].map((m) => m[1]));
-	if (!attrs('Type').has(PPTX_EMBED_REL)) {
-		const ids = attrs('Id');
-		let n = 1;
-		while (ids.has(`rIdLattice${n}`)) n++;
-		zip.file('_rels/.rels', edit(rels, '</Relationships>', `<Relationship Id="rIdLattice${n}" Type="${PPTX_EMBED_REL}" Target="${PPTX_EMBED_PART}"/>`));
-	}
-	// STORE, as pptxgenjs writes every part: the repack changes the two XML parts and adds
-	// one, and leaves the rest of the package exactly as the exporter made it. (DEFLATE here
-	// recompressed all ~66 parts of a 10-slide deck, measured.)
-	return zip.generateAsync({ type: 'blob', compression: 'STORE', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+	const bytes: Uint8Array = await reopenable.embedInPptxBytes(JSZip, new Uint8Array(await pptx.arrayBuffer()), lattice);
+	return new Blob([bytes as Uint8Array<ArrayBuffer>], { type: reopenable.PPTX_MIME });
 }
 
 /** Find the payload in an already-opened `.pptx` package; null when it carries none. */

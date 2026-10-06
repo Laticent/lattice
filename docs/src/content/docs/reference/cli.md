@@ -70,6 +70,7 @@ error also prints the `.zip` command to use instead.
 | `--paper <size>` | Fit each slide onto `auto`, `letter`, `legal` or `a4` paper with a 9 mm margin. Text is not selectable |
 | `--orientation <o>` | `auto`, `landscape` or `portrait` for `--paper`. On its own, implies `--paper auto` |
 | `--embed-source` | Attach the deck's Markdown to the PDF. Includes speaker notes unless you add `--strip-notes` |
+| `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes` |
 | `--chrome-pdf` | Print with Chrome's PDF printer instead of Lattice's writer |
 | `--keep-vector-images` | Keep SVG images as vectors. By default they become 2x PNG, because some viewers mishandle clipped SVG |
 
