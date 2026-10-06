@@ -88,7 +88,7 @@ describe('deck linter', () => {
     const f = lintText(three, { vocab }).find((x) => x.rule === 'split-compare-option-count');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
-    assert.match(f.message, /found 3/);
+    assert.match(f.message, /this slide has 3/);
   });
 
   test('accepts a well-formed split-compare two-up', () => {
@@ -204,7 +204,7 @@ describe('deck linter', () => {
     const refused = half.find((x) => x.rule === 'deck-wide-component');
     assert.ok(refused, 'a superseded alias is flagged');
     assert.equal(refused.severity, 'warning');
-    assert.match(refused.message, /superseded by `color-mode: light`/);
+    assert.match(refused.message, /ignored because `color-mode: light` is set/);
   });
 
   test('warns when the deck-wide `class:` names a COMPONENT — every slide would be that layout', () => {
@@ -232,7 +232,7 @@ describe('deck linter', () => {
       .find((x) => x.rule === 'deck-wide-component');
     assert.ok(found, 'the superseded print token is flagged');
     assert.equal(found.classToken, 'print');
-    assert.match(found.message, /dropped, not merged/);
+    assert.match(found.message, /`print` is ignored because `color-mode: dark` is set/);
     // Without the key, `class: print` is the supported legacy spelling — silent.
     assert.equal(lintText('---\ntheme: indaco\nclass: print\n---\n\n## H.\n', { vocab })
       .filter((x) => x.rule === 'deck-wide-component').length, 0);
@@ -377,7 +377,7 @@ describe('deck linter', () => {
     }
     const off = lintText('---\ntheme: indaco\nform: off\n---\n\n## H.\n', { vocab })
       .find((x) => x.rule === 'retired-form-key');
-    assert.match(off.message, /cannot be disabled/);
+    assert.match(off.message, /title band and progress bar/);
     // A deck with no `form:` key earns nothing.
     assert.equal(
       lintText('---\ntheme: indaco\n---\n\n## H.\n', { vocab }).filter((x) => x.rule === 'retired-form-key').length,
@@ -420,7 +420,7 @@ describe('deck linter', () => {
     assert.equal(out.length, 1);
     assert.equal(out[0].classToken, 'no-form');
     assert.equal(out[0].severity, 'warning');
-    assert.match(out[0].fix, /sovereign component/);
+    assert.match(out[0].fix, /a layout like/);
     // The bare `form` token never changed the render, so it is not reported (2026-10-06).
     const optIn = lintText('---\ntheme: indaco\n---\n\n<!-- _class: content form -->\n\n## H.\n', { vocab })
       .filter((x) => x.rule === 'retired-form-token');
@@ -460,7 +460,7 @@ describe('deck linter', () => {
       '---\ntheme: indaco\nclass: no-form\n---\n\n## H.\n', { vocab },
     ).filter((x) => x.rule === 'retired-form-token');
     assert.equal(deckWide.length, 1, 'a deck-wide `class: no-form` warns');
-    assert.match(deckWide[0].message, /EVERY slide/);
+    assert.match(deckWide[0].message, /every slide now shows/);
 
     // (d) A TRAILING YAML COMMENT. `form: off  # legacy` read as the literal value
     // `off  # legacy`, so the one deck whose render actually changes was told the key
@@ -468,7 +468,7 @@ describe('deck linter', () => {
     const commented = lintText(
       '---\ntheme: indaco\nform: off  # legacy deck\n---\n\n## H.\n', { vocab },
     ).find((x) => x.rule === 'retired-form-key');
-    assert.match(commented.message, /cannot be disabled/, 'the comment does not hide the value');
+    assert.match(commented.message, /no longer works/, 'the comment does not hide the value');
   });
 
   test('a token quoted inside a fence is not warned on', () => {

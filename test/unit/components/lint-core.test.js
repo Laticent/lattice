@@ -52,6 +52,19 @@ describe('lint-core: isKnownModifier', () => {
   });
 });
 
+describe('lint-core: unknown-split names the real fallback', () => {
+  // followups.d/2327-p3: the message used to say an unknown value fell back to `rule`;
+  // resolve-split.js resolves it to DEFAULT_SPLIT (`headings`). Pinned to the kernel.
+  test('a mistyped `split:` is told the deck uses the default, from resolve-split.js', () => {
+    const { SPLIT_NAMES, DEFAULT_SPLIT, resolveSplitMode } = require('../../../lib/core/resolve-split');
+    const src = '---\nmarp: true\nsplit: rules\n---\n\n## H\n';
+    const f = core.lintTextWith(src, { ...vocab, splitNames: [...SPLIT_NAMES] }).find((x) => x.rule === 'unknown-split');
+    assert.ok(f);
+    assert.match(f.message, new RegExp(`uses \`${DEFAULT_SPLIT}\``));
+    assert.equal(resolveSplitMode(src), DEFAULT_SPLIT, 'the deck really does resolve to it');
+  });
+});
+
 describe('lint-core: unknown-debug-facet', () => {
   const facetTokens = (src) =>
     core.lintTextWith(src, vocab).filter((f) => f.rule === 'unknown-debug-facet').map((f) => f.classToken);
@@ -97,8 +110,8 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
       const f = out.find((x) => x.rule === 'capacity-overflow');
       assert.ok(f, `expected capacity-overflow for ${JSON.stringify(fmExtra) || 'the default @size'}`);
       assert.equal(f.severity, 'warning', 'the author has to act — this is not advisory');
-      assert.match(f.fix, /Nothing will divide it for you/, 'and it says why nothing will be split for them');
-      assert.match(f.fix, /Content clipped/, 'and names what the export actually shows');
+      assert.match(f.message, /nothing splits a slide at a landscape size/, 'and it says why nothing will be split for them');
+      assert.match(f.message, /may be cut off/, 'and names the consequence without predicting fit from a count');
       assert.doesNotMatch(f.message, /expect it to overflow|will overflow/,
         'a COUNT may not predict FIT — that is the error this whole change removed from the splitter');
     }
@@ -127,16 +140,15 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
       .find((x) => x.rule === 'autosplit-retired');
     assert.ok(f, 'expected autosplit-retired');
     assert.equal(f.severity, 'error');
-    assert.match(f.message, /WILL paginate/);
+    assert.match(f.message, /still split into more pages/);
 
     const wide = core.lintTextWith(overflowDeck('autosplit: off\n'), capVocab)
       .find((x) => x.rule === 'autosplit-retired');
     assert.equal(wide.severity, 'suggestion', 'nothing splits at a landscape size, so the line is only stale');
-    assert.doesNotMatch(wide.message, /WILL paginate/,
-      'at a landscape @size nothing paginates, so the message must not claim it does');
-    assert.match(wide.message, /does not run there/);
+    assert.doesNotMatch(wide.message, /still split|split automatically/,
+      'at a landscape @size nothing splits, so the message must not claim it does');
+    assert.match(wide.message, /no longer does anything/);
     assert.match(f.fix, /stress-slide/, 'points at the per-slide replacement');
-    assert.match(f.fix, /--no-split/, 'and at the tool flag for measurement rigs');
   });
 
   test('autosplit: on is a SUGGESTION — it asks for what already happens', () => {
@@ -641,7 +653,7 @@ describe('lint-core: capacity rule', () => {
     const f = capRule(itemsSlide(8), 'capacity-overflow');
     assert.ok(f, 'expected a capacity-overflow finding at 8 items');
     assert.equal(f.severity, 'warning');
-    assert.match(f.message, /does not paginate — so if it does not fit, it is clipped/);
+    assert.match(f.message, /nothing splits a slide at a landscape size, so the extra ones may be cut off/);
     assert.match(f.fix, /list-tabular/, 'the escalateTo fix still leads');
     // overflow and crowd stay mutually exclusive per slide
     assert.equal(capRule(itemsSlide(8), 'capacity-crowd'), undefined);
@@ -843,7 +855,7 @@ describe('paginate: skip / hold are flagged rather than silently downgraded', ()
     assert.ok(f, 'expected paginate-unsupported-value');
     assert.equal(f.severity, 'suggestion'); // the render is legitimate; only the renumbering is absent
     assert.equal(f.slide, 2);
-    assert.match(f.message, /STILL counted/);
+    assert.match(f.message, /later slides still count it/);
     assert.match(f.fix, /_paginate: false/);
   });
 
@@ -851,7 +863,7 @@ describe('paginate: skip / hold are flagged rather than silently downgraded', ()
     const f = find('---\npaginate: hold\n---\n\n# A\n');
     assert.ok(f);
     assert.equal(f.slide, 1); // front matter is deck-level, so it reports against slide 1
-    assert.match(f.message, /repeat the previous number/);
+    assert.match(f.message, /does not repeat the previous one/);
   });
 
   test('`false` is NOT flagged — hiding the badge is exactly what it means', () => {
@@ -896,7 +908,7 @@ describe('lint-core: stray overflow-marker (an export setting, not a deck key)',
     const f = core.lintTextWith(fm('overflow-marker: off\n'), vocab).find((x) => x.rule === 'stray-overflow-marker');
     assert.ok(f, 'the dead key is named');
     assert.equal(f.severity, 'warning', 'a deletion, not a broken render');
-    assert.match(f.fix, /--overflow-marker=/, 'and it says where the setting actually lives');
+    assert.match(f.fix, /when you export/, 'and it says where the setting actually lives');
   });
 
   // A same-named key nested under a mapping is different config, not this register.
@@ -915,8 +927,8 @@ describe('lint-core: stray overflow-marker (an export setting, not a deck key)',
     const src = `${fm('')}\n<script type="application/lattice-export-settings">{"overflowMarker":"off"}</script>\n`;
     const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'stray-export-settings');
     assert.ok(f, 'the planted block is named');
-    assert.match(f.message, /not a setting for this deck/);
-    assert.match(f.fix, /Marp bundle/, 'and says why it still matters after the strip');
+    assert.match(f.message, /copied from another export/);
+    assert.match(f.fix, /Marp export/, 'and says why it still matters after the strip');
   });
 
   test('both shapes at once produce both findings', () => {
@@ -940,7 +952,7 @@ describe('lint-core: unterminated comment', () => {
 		const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'unterminated-comment');
 		assert.ok(f, 'the unclosed comment is named');
 		assert.equal(f.severity, 'error');
-		assert.match(f.message, /strip-notes/, 'and says why it matters on export, not just on screen');
+		assert.match(f.message, /ships inside exported files even with notes stripped/, 'and says why it matters on export, not just on screen');
 		// A plain containment check, not a regex: this asserts the fix TEXT names the
 		// terminator, and a `/-->/` literal here reads to a scanner (correctly) as an
 		// HTML-comment matcher that forgets `--!>` — the very bug fixed elsewhere on this
@@ -1055,7 +1067,7 @@ describe('lint-core: author-script-defers (#1792)', () => {
     assert.ok(f, 'a deferring inline script must be flagged');
     assert.equal(f.slide, 2, 'slide numbering follows the file convention, not a raw chunk index');
     assert.match(f.line, /setTimeout/);
-    assert.match(f.message, /MISSING from the PDF/);
+    assert.match(f.message, /output will be missing/);
     assert.equal(f.severity, 'warning');
   });
 
@@ -1336,7 +1348,8 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
 
   test('a slide that already decodes cells is not told to add the modifier', () => {
     const [found] = glyphs(slide('cards-grid state-cells', '| Speed | ✓ |'));
-    assert.match(found.fix, /already decodes/);
+    assert.match(found.fix, /already reads them/);
+    assert.doesNotMatch(found.fix, /add `state-cells`/);
   });
 
   test('a retired quadrant arrow eyebrow IS flagged — the carve-out is gone', () => {
@@ -1354,7 +1367,7 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
 
   test('prose falls back to the table\'s own per-glyph coaching', () => {
     const [found] = glyphs(slide('cards-grid', '- The plan → the outcome'));
-    assert.match(found.fix, /write the word/i);
+    assert.match(found.fix, /write (a|the) word/i);
   });
 
   test('the arrow coaching does NOT promise ASCII `->`', () => {
@@ -1465,8 +1478,8 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     const src = `${FM}<!-- _class: topic fact -->\n<!-- _track: A | [B] -->\n\n## Alpha\n\nA claim.\n`;
     const f = rule(src, 'track-directive');
     assert.ok(f, 'expected a finding');
-    assert.match(f.message, /draws nothing on `topic fact`/);
-    assert.match(f.fix, /Drop the directive/);
+    assert.match(f.message, /shows nothing on `topic fact`/);
+    assert.match(f.fix, /Remove `_track`/);
   });
 
   test('flags `_track` on a slide that is not a topic anchor', () => {
@@ -2039,8 +2052,8 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     const src = `${FM}<!-- _class: divider -->\n<!-- track: Alpha | [Beta] -->\n\n## S\n`;
     const f = rule(src, 'track-directive');
     assert.ok(f, 'expected a finding');
-    assert.match(f.message, /DECK-WIDE/);
-    assert.match(f.fix, /underscore/);
+    assert.match(f.message, /every slide after it/);
+    assert.match(f.fix, /`_track:`/);
   });
 
   test('the rule fires exactly where the ENGINE applies the directive', () => {
@@ -2105,7 +2118,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
       .filter((f) => f.rule === 'label-set-above-body');
     assert.equal(hits.length, 1);
     assert.equal(hits[0].severity, 'warning', 'never an error — the deck still renders');
-    assert.match(hits[0].message, /ABOVE the table/);
+    assert.match(hits[0].message, /above the table/);
     assert.match(hits[0].fix, /below the table/);
     // The axis position names come from the CATALOG, never a literal here.
     assert.match(hits[0].fix, /column, row/);
@@ -2182,7 +2195,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
     const src = ['<!-- _class: matrix-grid -->', '', '`[{[-], within reach}, {[x], met}, {[ ], out}]`', '', '## R', '',
       '| Verb | Self |', '| --- | :--: |', '| N | [x] |'].join('\n');
     const [hit] = core.lintTextWith(src, vocab).filter((f) => f.rule === 'label-set-above-body');
-    assert.match(hit.message, /neither the axis nor the key/);
+    assert.match(hit.message, /too many items for axes, so it shows as text/);
   });
 
   test('a blockquoted list is the body, as markdown-it emits its <ul>', () => {

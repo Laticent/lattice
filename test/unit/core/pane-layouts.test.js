@@ -236,7 +236,7 @@ test('a host with fewer than two panes still renders as content; a host inside a
   assert.equal(sectionTags(inPane).length, 1);
   const f = lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: columns -->\n### A\n\nx\n\n### B\n\ny\n').filter((x) => x.rule.startsWith('pane-'));
   assert.deepEqual(f.map((x) => x.rule), ['pane-layout']);
-  assert.match(f[0].message, /cannot be a pane's component/);
+  assert.match(f[0].message, /is a slide layout, not a component/);
 });
 
 test('lint: a host in a class: run, or deck-wide, is one warning that says it lays out nothing', () => {
@@ -469,8 +469,8 @@ test('a pane pill renders through the host\'s inline rules, as a slide pill does
 
 test('lint: a folded marker, columns with rows, a ### above the title, a bare ###', () => {
   const folded = lintText('<!-- _class: columns -->\n\n## X\n\n<!-- _pane: content -->\n### Plan\n\n- a\n\n### Risks\n\n- r\n\n<!-- _pane: bar -->\n### Revenue\n\n- Q1 `10`\n').find((f) => f.rule === 'pane-layout');
-  assert.match(folded.message, /renders as its text, not as 'bar'/);
-  assert.match(folded.message, /####/);
+  assert.match(folded.message, /shows as text, not as 'bar'/);
+  assert.match(folded.fix, /####/);
   assert.ok(lintText('<!-- _class: columns rows -->\n\n## X\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => /both `columns` and `rows`/.test(f.message)));
   assert.ok(lintText('<!-- _class: columns -->\n\n### Kicker\n\n## X\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => /above the slide's `##`/.test(f.message)));
   assert.doesNotMatch(render('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content -->\n###\n\nx\n\n### B\n\ny\n'), /<h3><\/h3>/);

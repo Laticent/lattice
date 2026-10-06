@@ -224,11 +224,11 @@ test('arrangePanes: as written, re-oriented, or split — from each component\'s
 test('lint: pane-arrange says when a slide will re-orient or split, and nothing when it renders as written', () => {
   const frame = paneRules(slide({ cls: 'title', body: '# Big' }, { cls: 'list', body: items(2) }));
   assert.deepEqual(frame.map((f) => f.rule), ['pane-arrange']);
-  assert.match(frame[0].message, /splits into one slide per pane/);
+  assert.match(frame[0].message, /will split into one slide per pane/);
   const code = '```js\nconst x = 1;\n```';
   const turned = paneRules(slide({ cls: 'code', body: code }, { cls: 'content', body: 'x' }));
   assert.deepEqual(turned.map((f) => f.rule), ['pane-arrange']);
-  assert.match(turned[0].message, /render stacked/);
+  assert.match(turned[0].message, /will show stacked, not as written/);
   assert.deepEqual(paneRules(slide({ cls: 'list', body: items(2) }, { cls: 'table', body: '| A | B |\n|---|---|\n| 1 | 2 |' }, '35/65')), []);
   // A pane that splits into its own slide is held to that component's SLIDE capacity.
   const own = paneRules(slide({ cls: 'kpi', body: '1. 42%\n   - Margin' }, { cls: 'list', body: items(20) }, 'stack'));

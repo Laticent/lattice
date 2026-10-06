@@ -112,8 +112,8 @@ test('lint: an unknown word and a doubled axis warn; a clean value is silent', (
   assert.equal(found(['tag: plain none']).length, 1);
   const twoPlaces = found(['tag: foot notch']);
   assert.equal(twoPlaces.length, 1);
-  assert.match(twoPlaces[0].message, /second placement/);
-  assert.match(found(['tag: start end'])[0].message, /second text alignment/);
+  assert.match(twoPlaces[0].message, /two placement values/);
+  assert.match(found(['tag: start end'])[0].message, /two text alignment values/);
 });
 
 test('lint: `tag-*` classes are a closed vocabulary', () => {
@@ -246,7 +246,7 @@ test('lint: the one-line budget follows the card count and the tag size', () => 
   assert.equal(tagLineBudget(6, 1), 16, 'a wider row scales the 4-card figure down');
   const long = 'Why not buy from either shortlisted vendor';   // 42 characters, the owner's screenshot
   assert.equal(overBudget('decision', ['Build', long, 'Why not delay']).length, 1, '3 cards: 33 fit, 42 wraps');
-  assert.match(overBudget('decision', ['Build', long, 'Why not delay'])[0].message, /one line holds 33 with 3 cards/);
+  assert.match(overBudget('decision', ['Build', long, 'Why not delay'])[0].message, /over 33 it wraps/);
   assert.equal(overBudget('decision', ['Build', long]).length, 0, '2 cards: 49 fit');
   assert.equal(overBudget('decision tag-large', ['Build', 'x'.repeat(28), 'y']).length, 1, 'tag-large: 27 fit');
   assert.equal(overBudget('decision', ['Build', 'x'.repeat(28), 'y'], ['tag: large']).length, 1, 'the deck tag: size counts');
