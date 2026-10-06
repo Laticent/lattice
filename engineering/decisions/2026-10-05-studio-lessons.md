@@ -151,7 +151,7 @@ contract asks. A page that uses both has two contexts, well under Chromium's per
 | **Basics** (slice 1) | Start a new deck · Write a slide · Add a slide · Change the theme · Present · Export a PDF |
 | **Building** (slice 3) | Charts · Tables · Comparisons · Images · Speaker notes |
 | **Polish** (slice 3) | Coach · Fix all · Reshape · Light and dark |
-| **Sharing** | The HTML player · PowerPoint |
+| **Sharing** (slice 5) | The HTML player · PowerPoint |
 
 ## Caption: `bar` at every width (owner ruling 2026-10-06)
 
@@ -174,8 +174,25 @@ the glyphs hidden), correct as shipped 15%, distance to the target 15%, Exit siz
 On a phone `scrim` painted 34% of the screen and covered the control the lesson pointed at in two of
 three beats; `bar` covered none. `split` led desktop by 0.3, inside the method's noise, and its
 corner Exit chip sits on the header's More controls. **Ruling: `bar` everywhere**, one caption at
-every width. Two gaps every style shares are left for Vetrina: the Exit control is 27–32 px on a
+every width. Two gaps every style shares were left for Vetrina: the Exit control is 27–32 px on a
 phone (under the 44 px touch target) and the caption text is 13.5 px.
+
+**The phone floor (2026-10-06).** Both gaps are closed in Vetrina's default sheet, at ≤699px only.
+The caption's type size is a token, `--vt-caption-size` (13.5px, 15px on a phone), so every boxed
+style reads it and a host can still set its own. Exit keeps its drawn circle, so the bar does not
+grow, and takes a press anywhere in a 44px square through an invisible `::before`. Measured on the
+built Studio during the two Sharing lessons, nine beats per lesson across 1440, 820 and 390: at 390
+the hit area is 44×44, corners included, and the text 15px, with the one-line bar still 45px tall
+and 0% of each pointed-at control covered; at 1440 and 820 Exit is 27px and the text 13.5px, as
+before. One beat covers part of its target at 1440: the bar sits over the left 8% of Download
+webpage, with the label and icon clear.
+
+**Exit works over a sheet.** Measuring the Sharing lessons found that Exit took no clicks while the
+Share sheet was open: the sheet (`PersistentSurface`) inerts the rest of the page but keeps live
+regions reachable, and to do that it walked into Vetrina's stage and inerted the narration's sibling,
+Exit. A click on the drawn ✕ fell through to the share row underneath. The PDF lesson had the same
+defect, as does any beat that runs over a `PersistentSurface`. The stage now carries
+`data-modal-exempt`, which that walk skips whole; see Vetrina's README §Theming.
 
 ## Building, Polish, and the end of the long tours (slice 3)
 
@@ -242,6 +259,23 @@ for panels whose lesson copes with the panel already being open. Share and the s
 left out for that reason: their lessons start by pointing at the button that opens them, which the
 open sheet covers.
 
+## Sharing (slice 5)
+
+**Two lessons, one shape.** `lessons/sharing.ts` answers "How do I share a deck that plays in a
+browser?" (the Webpage player) and "How do I get a PowerPoint file?". Each takes the PDF lesson's
+path: Share, the format's row, its options step, and a turn at the Download button that has no
+`perform`. So a learner who waits sees the lesson open Share and the format for them, and then stop:
+the file is theirs to make, and the e2e test fails if a download fires while either lesson runs.
+
+**The lines say what the file is.** The webpage lesson says the file plays offline and needs no
+Lattice to open. The PowerPoint lesson says each slide arrives as a picture (the export is one
+image per slide), so edits belong in the Studio and a fresh export. A learner who expected
+editable PowerPoint text finds out before sending the file, not after.
+
+**New anchors.** The PowerPoint step shares the PDF step's panel, so its Download button now reads
+`data-demo="pptx-download"` (PDF keeps `pdf-download`), and the webpage step's button is
+`html-download`. The rows already carried `share-pptx` and `share-html`.
+
 ## Slices
 
 1. **This PR.** The action list, the lesson kit, the Learn group in the palette, six Basics lessons,
@@ -249,11 +283,14 @@ open sheet covers.
 2. **Voice.** Shipped: see §Voice above.
 3. **Retire the long tours.** Shipped: see §Building, Polish, and the end of the long tours.
 4. **Reach.** Shipped: see §Reach.
+5. **Sharing.** Shipped: see §Sharing.
 
 Slices 2–4 shipped together in one PR, one commit each.
 
 ## Open questions
 
-- None blocking. Still to come, recorded in `followups.d/`: the Sharing track (the HTML player,
-  PowerPoint), locking in the Studio's smaller startup bundle with a route-budget rebaseline, and a
-  listen on a real iPhone.
+- None blocking. Still to come, recorded in `followups.d/`: a listen on a real iPhone, and the
+  Studio's route budget. On that second one, §Building's "18,500 B gzip smaller" was a delta against
+  `main`, not a position against the budget: measured on `main` at 281e9e0, the Studio's eager JS is
+  654,240 B against a soft target of 636,788 B. There is no saving to bank, so a reset would be a
+  raise, and that is the owner's call.

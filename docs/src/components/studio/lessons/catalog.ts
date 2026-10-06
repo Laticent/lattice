@@ -7,7 +7,7 @@
 
 import type { LessonBuild } from './lesson-kit';
 
-export type LessonTrack = 'basics' | 'building' | 'polish';
+export type LessonTrack = 'basics' | 'building' | 'polish' | 'sharing';
 
 export type LessonMeta = {
 	/** Stable id: the palette row's `data-lesson`, and the key in its track's module. */
@@ -35,12 +35,15 @@ export const LESSONS: readonly LessonMeta[] = [
 	{ id: 'fix-all', question: 'How do I fix every issue at once?', keywords: ['fix', 'fix all', 'repair', 'clean up', 'issues'], track: 'polish' },
 	{ id: 'reshape', question: 'How do I change a slide’s layout?', keywords: ['reshape', 'layout', 'look', 'variant', 'rearrange'], track: 'polish' },
 	{ id: 'light-dark', question: 'How do I switch light or dark?', keywords: ['dark', 'light', 'mode', 'night', 'contrast'], track: 'polish' },
+	{ id: 'share-html', question: 'How do I share a deck that plays in a browser?', keywords: ['html', 'webpage', 'web page', 'player', 'browser', 'offline', 'link', 'share'], track: 'sharing' },
+	{ id: 'share-pptx', question: 'How do I get a PowerPoint file?', keywords: ['powerpoint', 'pptx', 'ppt', 'microsoft', 'office', 'keynote', 'export'], track: 'sharing' },
 ];
 
 const TRACKS: Record<LessonTrack, () => Promise<Record<string, LessonBuild>>> = {
 	basics: () => import('./basics').then((m) => m.BASICS),
 	building: () => import('./building').then((m) => m.BUILDING),
 	polish: () => import('./polish').then((m) => m.POLISH),
+	sharing: () => import('./sharing').then((m) => m.SHARING),
 };
 
 /** Fetch one lesson's script. Null for an unknown id, so a stale link degrades to nothing. */

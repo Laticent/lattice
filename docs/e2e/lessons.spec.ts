@@ -109,6 +109,26 @@ test('"Speaker notes" opens the notes field of the slide when the user waits', a
 	await expect(page.locator(STAGE)).toContainText('saves with the deck', { timeout: 20_000 });
 });
 
+// SHARING. The oracle is the format's own options step, opened by the lesson, and a Download
+// button left unpressed: no download event fires while the lesson runs to its end.
+for (const [query, question, anchor, words] of [
+	['webpage', 'How do I share a deck that plays in a browser?', 'html-download', 'Download webpage'],
+	['powerpoint', 'How do I get a PowerPoint file?', 'pptx-download', 'Download PowerPoint'],
+] as const) {
+	test(`"${question}" opens its export step when the user waits, and leaves the download to them @crosswidth`, async ({ page }) => {
+		let downloads = 0;
+		page.on('download', () => downloads++);
+		await search(page, query);
+		await page.getByRole('option', { name: question, exact: true }).click();
+		await expect(page.locator(STAGE)).toContainText('Click Share', { timeout: 20_000 });
+		await expect(page.locator(`[data-demo="${anchor}"]`)).toBeVisible({ timeout: 40_000 });
+		await expect(page.locator(STAGE)).toContainText(words, { timeout: 20_000 });
+		await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 40_000 });
+		await expect(page.locator(`[data-demo="${anchor}"]`)).toBeEnabled();
+		expect(downloads).toBe(0);
+	});
+}
+
 // REACH (P3 of the lessons work): lessons are found from the whole site, finished ones are
 // remembered, and a panel offers its lesson the first time someone opens it.
 
@@ -207,6 +227,60 @@ test.describe('on an iPhone, by touch @webkit-phone', () => {
 		// "…under Share. Click Share." is recorded at 3.0s; the clip, not the 1-sample unlock, played.
 		expect(first.sec).toBeGreaterThan(2);
 		expect(first.state).toBe('running');
+	});
+
+	// THE PHONE FLOOR ON SAFARI'S ENGINE (2026-10-05-studio-lessons.md §Caption). Exit keeps a 27px
+	// drawn circle and takes a press anywhere in a 44px square through an invisible ::before, inside a
+	// media query nested in an @layer. Measured from the page (every axis and corner of the square hits
+	// Exit), then proved by a real tap OFF the drawn circle, in the square's corner, that ends the lesson.
+	async function exitFloor(page: import('@playwright/test').Page) {
+		return page.evaluate(() => {
+			const exit = document.querySelector('.vetrina-exit') as HTMLElement;
+			const r = exit.getBoundingClientRect();
+			const cx = r.left + r.width / 2;
+			const cy = r.top + r.height / 2;
+			const hits = (x: number, y: number) => {
+				const el = document.elementFromPoint(x, y);
+				return !!el && (el === exit || exit.contains(el));
+			};
+			const probes = [[-21, 0], [21, 0], [0, -21], [0, 21], [-21, -21], [21, -21], [-21, 21], [21, 21]];
+			return {
+				drawn: Math.round(r.width),
+				hit: probes.filter(([dx, dy]) => hits(cx + dx, cy + dy)).length,
+				font: Number.parseFloat(getComputedStyle(document.querySelector('.vetrina-narration') as HTMLElement).fontSize),
+				corner: { x: cx + 19, y: cy + 19 },
+			};
+		});
+	}
+
+	test('Exit takes a tap anywhere in a 44px square, and the caption is 15px', async ({ page }) => {
+		await tapSearch(page, 'present');
+		await page.getByRole('option', { name: 'How do I present?', exact: true }).tap();
+		await expect(page.locator(STAGE)).toContainText('Click Present');
+		const m = await exitFloor(page);
+		expect(m.drawn).toBeLessThan(44); // the circle stays small; only the hit area grows
+		expect(m.hit, 'every axis and corner of the 44px square hits Exit').toBe(8);
+		expect(m.font).toBe(15);
+		await page.touchscreen.tap(m.corner.x, m.corner.y); // off the drawn circle
+		await expect(page.locator(STAGE)).toHaveCount(0);
+		await expect(page.getByRole('dialog', { name: 'Present' })).toHaveCount(0);
+	});
+
+	test('Exit works over the open Share sheet, and the tap does not reach the sheet', async ({ page }) => {
+		let downloads = 0;
+		page.on('download', () => downloads++);
+		await tapSearch(page, 'webpage');
+		await page.getByRole('option', { name: 'How do I share a deck that plays in a browser?', exact: true }).tap();
+		await expect(page.locator('[data-demo="share-html"]')).toBeVisible({ timeout: 30_000 });
+		await expect(page.locator(STAGE)).toContainText('Click Webpage', { timeout: 20_000 });
+		const m = await exitFloor(page);
+		expect(m.hit, 'the sheet left Exit usable').toBe(8);
+		await page.touchscreen.tap(m.corner.x, m.corner.y);
+		await expect(page.locator(STAGE)).toHaveCount(0);
+		// The tap ended the lesson and nothing else: the sheet is still on its menu.
+		await expect(page.locator('[data-demo="share-html"]')).toBeVisible();
+		await expect(page.locator('[data-demo="html-download"]')).toHaveCount(0);
+		expect(downloads).toBe(0);
 	});
 
 	test('a tap on the control the lesson points at is the user’s turn, not a take-over', async ({ page }) => {

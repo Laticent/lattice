@@ -96,6 +96,35 @@ describe('caption styles — every dock keeps the a11y + take-over contract', ()
 	});
 });
 
+describe('the phone floor and the host modal (2026-10-06)', () => {
+	it('every boxed style reads its type size from --vt-caption-size, so a phone can raise it', () => {
+		for (const caption of ['bar', 'split', 'progress'] as const) {
+			const { layer } = mount(caption);
+			expect((layer.querySelector('.vetrina-narration') as HTMLElement).style.fontSize).toBe('var(--vt-caption-size,13.5px)');
+			active?.destroy();
+			active = null;
+		}
+	});
+
+	it('the default sheet gives Exit a 44px hit area and 15px text at ≤699px, and nothing above it', () => {
+		mount('bar');
+		const css = document.getElementById('vetrina-token-defaults')?.textContent ?? '';
+		expect(css).toContain('--vt-caption-size:13.5px');
+		const phone = css.slice(css.indexOf('@media (max-width:699px)'));
+		expect(phone).toContain('--vt-caption-size:15px');
+		expect(phone).toMatch(/\.vetrina-exit::before\{[^}]*width:max\(44px,100%\);height:max\(44px,100%\)/);
+		// A square, not a disc: a rounded hit area leaves its corners dead (found by review).
+		expect(phone.slice(phone.indexOf('.vetrina-exit::before'))).not.toContain('border-radius');
+		// The hit area is anchored to the button, not to whatever positioned ancestor is nearest.
+		expect((document.querySelector('.vetrina-exit') as HTMLElement).style.position).toBe('relative');
+	});
+
+	it('the stage is marked data-modal-exempt, so a host modal leaves Exit usable', () => {
+		const { layer } = mount();
+		expect(layer.hasAttribute('data-modal-exempt')).toBe(true);
+	});
+});
+
 describe('resolveTheme — caption', () => {
 	it('defaults to bar and passes an explicit style through', () => {
 		expect(resolveTheme().caption).toBe('bar');

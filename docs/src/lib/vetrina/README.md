@@ -522,7 +522,22 @@ always-reachable **Exit** icon. It sits at the bottom by default; move it with
 Every style keeps Exit inside `.vetrina-caption` (so the take-over guard reads it
 as chrome) and keeps one narration live region. The boxed styles' corner **shape**
 is the `--vt-caption-radius` token (CSS-only, default `16px`; raise to `999px` for
-a stadium pill). Backgrounds are deliberately translucent (with a backdrop blur) so
+a stadium pill). The caption's **type size** is `--vt-caption-size` (default
+`13.5px`; the `'scrim'` subtitle sets its own 15px).
+
+**On a phone** (`max-width: 699px`) the default sheet raises `--vt-caption-size` to
+`15px` and gives Exit a **44px hit area**: the drawn circle keeps its size, so the
+bar does not grow, and an invisible `::before` on `.vetrina-exit` takes the press.
+Set `--vt-caption-size` un-layered to choose your own size at every width.
+
+**Over a host modal.** The stage carries `data-modal-exempt`. A host modal that
+makes the rest of the page `inert` should skip any `<body>` child with that
+attribute; otherwise Exit is drawn over the modal and takes no clicks. That is
+what happens with a walk that keeps live regions reachable: the narration is one,
+so the walk goes into the stage and marks its sibling, Exit, inert. The docs
+site's `PersistentSurface` skips it.
+
+Backgrounds are deliberately translucent (with a backdrop blur) so
 the deck shows through; retint via `--vt-caption-bg`. The `'progress'` ring is fed
 by the storyboard interpreter (`stage.progress(beat, total)`); a raw `Walkthrough`
 that never reports progress just leaves the ring empty.

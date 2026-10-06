@@ -1,0 +1,688 @@
+{
+	"voice": {
+		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
+		"voice": "af_heart",
+		"dtype": "q8",
+		"speed": 1,
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 141984,
+	"lines": [
+		{
+			"key": "bcade7392b36",
+			"text": "A webpage is one file that plays your deck in any browser, even offline. Nobody needs Lattice to open it.",
+			"file": "bcade7392b36.mp3",
+			"bytes": 40896,
+			"speechMs": 6754,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "A webpage is one file that plays your deck in any browser, even offline.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 0,
+								"endMs": 193,
+								"charOffset": 0
+							},
+							{
+								"display": "webpage",
+								"spoken": "webpage",
+								"startMs": 193,
+								"endMs": 579,
+								"charOffset": 2
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 579,
+								"endMs": 772,
+								"charOffset": 10
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 772,
+								"endMs": 966,
+								"charOffset": 13
+							},
+							{
+								"display": "file",
+								"spoken": "file",
+								"startMs": 966,
+								"endMs": 1159,
+								"charOffset": 17
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 1159,
+								"endMs": 1352,
+								"charOffset": 22
+							},
+							{
+								"display": "plays",
+								"spoken": "plays",
+								"startMs": 1352,
+								"endMs": 1545,
+								"charOffset": 27
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 1545,
+								"endMs": 1738,
+								"charOffset": 33
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 1738,
+								"endMs": 1931,
+								"charOffset": 38
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 1931,
+								"endMs": 2124,
+								"charOffset": 43
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 2124,
+								"endMs": 2510,
+								"charOffset": 46
+							},
+							{
+								"display": "browser,",
+								"spoken": "browser,",
+								"startMs": 2510,
+								"endMs": 2925,
+								"charOffset": 50
+							},
+							{
+								"display": "even",
+								"spoken": "even",
+								"startMs": 3113,
+								"endMs": 3499,
+								"charOffset": 59
+							},
+							{
+								"display": "offline.",
+								"spoken": "offline.",
+								"startMs": 3499,
+								"endMs": 3914,
+								"charOffset": 64
+							}
+						],
+						"startMs": 0,
+						"endMs": 4277,
+						"charOffset": 0
+					},
+					{
+						"display": "Nobody needs Lattice to open it.",
+						"words": [
+							{
+								"display": "Nobody",
+								"spoken": "Nobody",
+								"startMs": 4432,
+								"endMs": 5011,
+								"charOffset": 73
+							},
+							{
+								"display": "needs",
+								"spoken": "needs",
+								"startMs": 5011,
+								"endMs": 5204,
+								"charOffset": 80
+							},
+							{
+								"display": "Lattice",
+								"spoken": "Lattice",
+								"startMs": 5204,
+								"endMs": 5591,
+								"charOffset": 86
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 5591,
+								"endMs": 5784,
+								"charOffset": 94
+							},
+							{
+								"display": "open",
+								"spoken": "open",
+								"startMs": 5784,
+								"endMs": 6170,
+								"charOffset": 97
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 6170,
+								"endMs": 6391,
+								"charOffset": 102
+							}
+						],
+						"startMs": 4432,
+						"endMs": 6754,
+						"charOffset": 73
+					}
+				],
+				"durationMs": 6754
+			}
+		},
+		{
+			"key": "a4017336ff8c",
+			"text": "It lives under Share. Click Share.",
+			"file": "a4017336ff8c.mp3",
+			"bytes": 11088,
+			"speechMs": 1789,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "It lives under Share.",
+						"words": [
+							{
+								"display": "It",
+								"spoken": "It",
+								"startMs": 0,
+								"endMs": 139,
+								"charOffset": 0
+							},
+							{
+								"display": "lives",
+								"spoken": "lives",
+								"startMs": 139,
+								"endMs": 418,
+								"charOffset": 3
+							},
+							{
+								"display": "under",
+								"spoken": "under",
+								"startMs": 418,
+								"endMs": 696,
+								"charOffset": 9
+							},
+							{
+								"display": "Share.",
+								"spoken": "Share.",
+								"startMs": 696,
+								"endMs": 855,
+								"charOffset": 15
+							}
+						],
+						"startMs": 0,
+						"endMs": 1117,
+						"charOffset": 0
+					},
+					{
+						"display": "Click Share.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 1229,
+								"endMs": 1368,
+								"charOffset": 22
+							},
+							{
+								"display": "Share.",
+								"spoken": "Share.",
+								"startMs": 1368,
+								"endMs": 1528,
+								"charOffset": 28
+							}
+						],
+						"startMs": 1229,
+						"endMs": 1789,
+						"charOffset": 22
+					}
+				],
+				"durationMs": 1789
+			}
+		},
+		{
+			"key": "d24c94c20592",
+			"text": "I’ll open Share for you.",
+			"file": "d24c94c20592.mp3",
+			"bytes": 8064,
+			"speechMs": 1278,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll open Share for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 159,
+								"charOffset": 0
+							},
+							{
+								"display": "open",
+								"spoken": "open",
+								"startMs": 159,
+								"endMs": 478,
+								"charOffset": 5
+							},
+							{
+								"display": "Share",
+								"spoken": "Share",
+								"startMs": 478,
+								"endMs": 637,
+								"charOffset": 10
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 637,
+								"endMs": 796,
+								"charOffset": 16
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 796,
+								"endMs": 979,
+								"charOffset": 20
+							}
+						],
+						"startMs": 0,
+						"endMs": 1278,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1278
+			}
+		},
+		{
+			"key": "45de26c9d038",
+			"text": "Click Webpage.",
+			"file": "45de26c9d038.mp3",
+			"bytes": 6192,
+			"speechMs": 975,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click Webpage.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 194,
+								"charOffset": 0
+							},
+							{
+								"display": "Webpage.",
+								"spoken": "Webpage.",
+								"startMs": 194,
+								"endMs": 611,
+								"charOffset": 6
+							}
+						],
+						"startMs": 0,
+						"endMs": 975,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 975
+			}
+		},
+		{
+			"key": "a04f521514c1",
+			"text": "I’ll open the webpage options for you.",
+			"file": "a04f521514c1.mp3",
+			"bytes": 11952,
+			"speechMs": 1933,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "I’ll open the webpage options for you.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 0,
+								"endMs": 161,
+								"charOffset": 0
+							},
+							{
+								"display": "open",
+								"spoken": "open",
+								"startMs": 161,
+								"endMs": 482,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 482,
+								"endMs": 643,
+								"charOffset": 10
+							},
+							{
+								"display": "webpage",
+								"spoken": "webpage",
+								"startMs": 643,
+								"endMs": 965,
+								"charOffset": 14
+							},
+							{
+								"display": "options",
+								"spoken": "options",
+								"startMs": 965,
+								"endMs": 1286,
+								"charOffset": 22
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1286,
+								"endMs": 1447,
+								"charOffset": 30
+							},
+							{
+								"display": "you.",
+								"spoken": "you.",
+								"startMs": 1447,
+								"endMs": 1631,
+								"charOffset": 34
+							}
+						],
+						"startMs": 0,
+						"endMs": 1933,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1933
+			}
+		},
+		{
+			"key": "38865eb841f3",
+			"text": "Choose light or dark, and whether your speaker notes come along, then click Download webpage.",
+			"file": "38865eb841f3.mp3",
+			"bytes": 32256,
+			"speechMs": 5312,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Choose light or dark, and whether your speaker notes come along, then click Download webpage.",
+						"words": [
+							{
+								"display": "Choose",
+								"spoken": "Choose",
+								"startMs": 0,
+								"endMs": 210,
+								"charOffset": 0
+							},
+							{
+								"display": "light",
+								"spoken": "light",
+								"startMs": 210,
+								"endMs": 420,
+								"charOffset": 7
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 420,
+								"endMs": 631,
+								"charOffset": 13
+							},
+							{
+								"display": "dark,",
+								"spoken": "dark,",
+								"startMs": 631,
+								"endMs": 872,
+								"charOffset": 16
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 1077,
+								"endMs": 1287,
+								"charOffset": 22
+							},
+							{
+								"display": "whether",
+								"spoken": "whether",
+								"startMs": 1287,
+								"endMs": 1707,
+								"charOffset": 26
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 1707,
+								"endMs": 1918,
+								"charOffset": 34
+							},
+							{
+								"display": "speaker",
+								"spoken": "speaker",
+								"startMs": 1918,
+								"endMs": 2338,
+								"charOffset": 39
+							},
+							{
+								"display": "notes",
+								"spoken": "notes",
+								"startMs": 2338,
+								"endMs": 2759,
+								"charOffset": 47
+							},
+							{
+								"display": "come",
+								"spoken": "come",
+								"startMs": 2759,
+								"endMs": 2969,
+								"charOffset": 53
+							},
+							{
+								"display": "along,",
+								"spoken": "along,",
+								"startMs": 2969,
+								"endMs": 3420,
+								"charOffset": 58
+							},
+							{
+								"display": "then",
+								"spoken": "then",
+								"startMs": 3625,
+								"endMs": 3835,
+								"charOffset": 65
+							},
+							{
+								"display": "click",
+								"spoken": "click",
+								"startMs": 3835,
+								"endMs": 4046,
+								"charOffset": 70
+							},
+							{
+								"display": "Download",
+								"spoken": "Download",
+								"startMs": 4046,
+								"endMs": 4466,
+								"charOffset": 76
+							},
+							{
+								"display": "webpage.",
+								"spoken": "webpage.",
+								"startMs": 4466,
+								"endMs": 4917,
+								"charOffset": 85
+							}
+						],
+						"startMs": 0,
+						"endMs": 5312,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 5312
+			}
+		},
+		{
+			"key": "59aa62f3461a",
+			"text": "Send that file like any other. Whoever opens it can page through the slides or press Present.",
+			"file": "59aa62f3461a.mp3",
+			"bytes": 31536,
+			"speechMs": 5207,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Send that file like any other.",
+						"words": [
+							{
+								"display": "Send",
+								"spoken": "Send",
+								"startMs": 0,
+								"endMs": 187,
+								"charOffset": 0
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 187,
+								"endMs": 374,
+								"charOffset": 5
+							},
+							{
+								"display": "file",
+								"spoken": "file",
+								"startMs": 374,
+								"endMs": 561,
+								"charOffset": 10
+							},
+							{
+								"display": "like",
+								"spoken": "like",
+								"startMs": 561,
+								"endMs": 748,
+								"charOffset": 15
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 748,
+								"endMs": 1122,
+								"charOffset": 20
+							},
+							{
+								"display": "other.",
+								"spoken": "other.",
+								"startMs": 1122,
+								"endMs": 1523,
+								"charOffset": 24
+							}
+						],
+						"startMs": 0,
+						"endMs": 1874,
+						"charOffset": 0
+					},
+					{
+						"display": "Whoever opens it can page through the slides or press Present.",
+						"words": [
+							{
+								"display": "Whoever",
+								"spoken": "Whoever",
+								"startMs": 2024,
+								"endMs": 2398,
+								"charOffset": 31
+							},
+							{
+								"display": "opens",
+								"spoken": "opens",
+								"startMs": 2398,
+								"endMs": 2772,
+								"charOffset": 39
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 2772,
+								"endMs": 2959,
+								"charOffset": 45
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 2959,
+								"endMs": 3146,
+								"charOffset": 48
+							},
+							{
+								"display": "page",
+								"spoken": "page",
+								"startMs": 3146,
+								"endMs": 3333,
+								"charOffset": 52
+							},
+							{
+								"display": "through",
+								"spoken": "through",
+								"startMs": 3333,
+								"endMs": 3520,
+								"charOffset": 57
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3520,
+								"endMs": 3707,
+								"charOffset": 65
+							},
+							{
+								"display": "slides",
+								"spoken": "slides",
+								"startMs": 3707,
+								"endMs": 4081,
+								"charOffset": 69
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 4081,
+								"endMs": 4268,
+								"charOffset": 76
+							},
+							{
+								"display": "press",
+								"spoken": "press",
+								"startMs": 4268,
+								"endMs": 4455,
+								"charOffset": 79
+							},
+							{
+								"display": "Present.",
+								"spoken": "Present.",
+								"startMs": 4455,
+								"endMs": 4856,
+								"charOffset": 85
+							}
+						],
+						"startMs": 2024,
+						"endMs": 5207,
+						"charOffset": 31
+					}
+				],
+				"durationMs": 5207
+			}
+		}
+	]
+}

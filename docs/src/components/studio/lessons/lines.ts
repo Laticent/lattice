@@ -129,6 +129,25 @@ export const LESSON_LINES = {
 		missing: 'On this screen the switch is in the menu. I’ll flip it for you.',
 		done: 'Only the colors changed. Press it again to switch back.',
 	},
+	// SHARING — handing the finished deck to someone who does not use Lattice.
+	'share-html': {
+		what: 'A webpage is one file that plays your deck in any browser, even offline. Nobody needs Lattice to open it.',
+		share: 'It lives under Share. Click Share.',
+		shareMissing: 'I’ll open Share for you.',
+		html: 'Click Webpage.',
+		htmlMissing: 'I’ll open the webpage options for you.',
+		download: 'Choose light or dark, and whether your speaker notes come along, then click Download webpage.',
+		next: 'Send that file like any other. Whoever opens it can page through the slides or press Present.',
+	},
+	'share-pptx': {
+		what: 'Lattice can save your deck as a PowerPoint file, one slide per page.',
+		share: 'It lives under Share. Click Share.',
+		shareMissing: 'I’ll open Share for you.',
+		pptx: 'Click PowerPoint.',
+		pptxMissing: 'I’ll open the PowerPoint options for you.',
+		download: 'Re-openable in Lattice lets you edit this deck here again later. Then click Download PowerPoint.',
+		next: 'Each slide arrives as a picture, so make changes here and export again.',
+	},
 } as const satisfies Record<string, Record<string, string>>;
 
 export type LessonId = keyof typeof LESSON_LINES;
