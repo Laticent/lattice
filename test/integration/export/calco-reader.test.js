@@ -188,6 +188,10 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .grad p { margin: 0; color: rgba(255, 255, 255, 0.76); letter-spacing: 3px; font-size: 14px; }
   .grad .plain { letter-spacing: normal; }
   .tall { left: 40px; top: 20px; width: 600px; font: 20px/1.5 sans-serif; }
+  .vpill { left: 700px; top: 640px; width: 120px; text-align: center; font-size: 14px; }
+  .vpill::before { content: ""; display: inline-block; width: 24px; height: 12px; background: #063; }
+  .rpill { left: 900px; top: 640px; width: 200px; text-align: right; font-size: 14px; }
+  .rpill::after { content: ""; display: inline-block; width: 30px; height: 12px; background: #600; }
 </style></head><body>
 <section id="r">
   <p class="ws"><b>bold</b> <i>italic</i></p>
@@ -203,6 +207,8 @@ third</pre>
   <pre class="wrapcode">const value = "a long string that wraps";</pre>
   <p class="chip"><code>render</code> is derived</p>
   <div class="grad"><p>THE PREMISE</p><p class="plain">Not spaced</p></div>
+  <p class="vpill">Speed</p>
+  <p class="rpill">Ends early</p>
   <p class="tall">one two three four five<br>six <span style="font-size: 40px">BIG</span> seven<br>eight nine ten</p>
 </section></body></html>`;
 
@@ -275,5 +281,18 @@ describe('calco reader: the review cases', () => {
 
   test('a taller inline in prose never adds a blank line', () => {
     assert.deepEqual(find(/BIG/).lines.map((l) => l.map((r) => r.text).join('')), ['one two three four five', 'six BIG seven', 'eight nine ten']);
+  });
+
+  test('a centered label beside a ::before icon is centered on its text, not under the icon', () => {
+    const f = find(/^Speed$/);
+    const word = f.lines[0][0];
+    assert.equal(word.text, 'Speed');
+    // The box is symmetric around the word, so centering it in an office file puts the word back.
+    assert.ok(f.x >= 700 + 20, `the box starts at ${f.x}, over the 24px icon`);
+  });
+
+  test('a right-aligned line that ends before a ::after icon keeps its end', () => {
+    const f = find(/Ends early/);
+    assert.ok(f.x + f.w <= 900 + 200 - 25, `the box ends at ${f.x + f.w}, over the 30px icon`);
   });
 });

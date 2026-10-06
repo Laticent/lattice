@@ -389,6 +389,25 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				x = start;
 			}
 		}
+		// A centered box is centered on its TEXT, not on its block. An icon or marker drawn by
+		// `::before` / `::after` (which stays in the picture) takes room on one side, so the
+		// words sit off the block's middle; centering them on the block in the office file
+		// slides them under the icon (measured: verdict pills, "peed" under a check mark).
+		// When every line shares one center, the box is narrowed around that center.
+		if (align === 'center') {
+			const centers = lines.filter((l) => l.length).map((l) => (Math.min(...l.map((wd) => wd.x)) + Math.max(...l.map((wd) => wd.x + wd.w))) / 2);
+			const c = centers.reduce((a, b) => a + b, 0) / centers.length;
+			if (centers.every((v) => Math.abs(v - c) <= 1) && Math.abs(c - (x + w / 2)) > 1) {
+				const half = Math.min(c - x, x + w - c);
+				x = c - half;
+				w = 2 * half;
+			}
+		}
+		// A right-aligned box ends where its lines end, for the same reason on the other side.
+		if (align === 'right' && !rtl) {
+			const end = Math.max(...lines.filter((l) => l.length).map((l) => Math.max(...l.map((wd) => wd.x + wd.w))));
+			if (end < x + w - 1) w = end - x;
+		}
 		// The line pitch is the SMALLEST step between two lines; a step of several pitches is
 		// blank lines (an empty line in code has no word to read), which go back in as empty
 		// lines so everything after them keeps its place.

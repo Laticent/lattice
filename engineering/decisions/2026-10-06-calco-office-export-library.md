@@ -170,6 +170,7 @@ finding below was reproduced, fixed and given a test:
 | A taller inline in prose became a blank line inside the paragraph | blank lines are inserted for preformatted text only |
 | A wrapper flipped `:first-child` and changed paint without moving a word | the hide also compares the paint of the parents and siblings, and falls back to the color freeze |
 | On iOS (Collabora Office) the `.odp` drew Outfit in a system font, and the wider text ran out of its cards | a pinned variable face kept the variable font's names (every Outfit weight said "Outfit Thin", with one PostScript name), and iOS matches by those; the `.odp` now writes each face as a family of its own, renamed inside the file, as the `.pptx` does |
+| A centered pill label beside a `::before` icon lost its first letter under the icon ("peed"); a right-aligned line ending before an `::after` icon would slide the same way | a centered box is centered on its text, not its block; a right-aligned box ends where its lines end |
 | PowerPoint would re-wrap a line set in a wider substitute font | `.pptx` boxes do not wrap, and the fonts are now embedded (§6) |
 
 Recorded, not fixed: PowerPoint itself (§6), the AGPL license for a library meant for
