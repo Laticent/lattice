@@ -58,6 +58,15 @@ export function armDownloadLink(a, filename, blob) {
 
 /** Save an already-made URL (from `namedFileUrl`) as `filename`. The caller owns the URL. */
 
+/** An iOS browser that is not Safari (Firefox `FxiOS`, Chrome `CriOS`, Edge `EdgiOS`, …).
+ *  Safari is the one whose user agent carries `Version/… Safari/` and no other brand. */
+export function iosNeedsShareSheet(ua = nav()?.userAgent || '', platform = nav()?.platform || '', touchPoints = nav()?.maxTouchPoints || 0) {
+	if (!isIOSLike(ua, platform, touchPoints)) return false;
+	const brand = /\b(FxiOS|CriOS|EdgiOS|OPiOS|OPT|DuckDuckGo|Ddg|GSA|YaBrowser|Brave)\//.test(ua);
+	const safari = /\bVersion\/[\d.]+.*\bSafari\//.test(ua);
+	return brand || !safari;
+}
+
 /** iPhone, iPod or iPad — iPadOS 13+ reports as a Mac, so touch points disambiguate. */
 export function isIOSLike(ua = nav()?.userAgent || '', platform = nav()?.platform || '', touchPoints = nav()?.maxTouchPoints || 0) {
 	return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && touchPoints > 1);

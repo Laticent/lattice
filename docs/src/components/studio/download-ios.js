@@ -1,6 +1,6 @@
 // Saving a file on iOS — loaded by download.js only on an iPhone or iPad.
 
-import { isIOSLike } from './download.js';
+import { iosNeedsShareSheet } from './download.js';
 
 // FIREFOX (AND CHROME) ON iOS. Every iOS browser is Safari's engine underneath, and the
 // non-Safari ones save a page's download with their own script. Firefox for iOS's
@@ -14,17 +14,6 @@ import { isIOSLike } from './download.js';
 // `download` attribute, so it keeps the one-tap download.
 const SAVE_TOAST_MS = 60_000;
 
-
-const nav = () => (typeof navigator === 'undefined' ? null : navigator);
-
-/** An iOS browser that is not Safari (Firefox `FxiOS`, Chrome `CriOS`, Edge `EdgiOS`, …).
- *  Safari is the one whose user agent carries `Version/… Safari/` and no other brand. */
-export function iosNeedsShareSheet(ua = nav()?.userAgent || '', platform = nav()?.platform || '', touchPoints = nav()?.maxTouchPoints || 0) {
-	if (!isIOSLike(ua, platform, touchPoints)) return false;
-	const brand = /\b(FxiOS|CriOS|EdgiOS|OPiOS|OPT|DuckDuckGo|Ddg|GSA|YaBrowser|Brave)\//.test(ua);
-	const safari = /\bVersion\/[\d.]+.*\bSafari\//.test(ua);
-	return brand || !safari;
-}
 
 /** Offer `blob` through the share sheet, behind a "Save" toast the user taps. */
 function offerShareSheet(filename, blob, saveWithAnchor) {
@@ -56,6 +45,8 @@ function offerShareSheet(filename, blob, saveWithAnchor) {
 
 /** Save on an iPhone or iPad: the share sheet where the browser drops the name, else the
  *  ordinary link download (`saveWithAnchor`, handed in so this module stays leaf-only). */
+export { iosNeedsShareSheet };
+
 export function saveOnIOS(filename, blob, saveWithAnchor) {
 	if (iosNeedsShareSheet()) offerShareSheet(filename, blob, saveWithAnchor);
 	else saveWithAnchor(filename, blob);

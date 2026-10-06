@@ -6,6 +6,7 @@ import { deckColorMode } from '@/lib/deck-theme';
 import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
+import { iosNeedsShareSheet } from './download';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
@@ -131,7 +132,11 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				});
 				// A degradation names a path to go and fix, so it stays up long enough to read.
 				// The plain "ready." stays transient — there is nothing in it to act on.
-				notify(degraded ? `${label} ready — but ${degraded}.` : `${label} ready.`, degraded ? { duration: DEGRADED_TOAST_MS } : undefined);
+				// A non-Safari iOS browser gets a "<file> is ready · Save" toast from download.js
+				// instead of a download, so a plain "ready." beside it is a second toast saying the
+				// same thing (the owner's iPhone showed both). A degradation still speaks.
+				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });
+				else if (!iosNeedsShareSheet()) notify(`${label} ready.`);
 			} catch (e) {
 				// Every share row funnels through here, and each one lazy-imports its exporter.
 				// A stale tab or a dropped connection failed BEFORE the export began, so echoing
