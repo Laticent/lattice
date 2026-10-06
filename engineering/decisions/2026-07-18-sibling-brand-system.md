@@ -147,3 +147,23 @@ stay byte-consistent in construction, remains a follow-up (not a blocker).
 Not a full brand book (typography scales, spacing tokens, usage rules beyond the mark). Not touching
 the Lattice mark. Not building **Anima's** mark yet (WIP — it lands with its build). This doc locks
 the *system* + the *Suono reference*; the Lente/Vetrina/Cadenza marks were then built on it.
+
+## Calco — the cast (built 2026-10-06)
+
+Calco (the office-export library, `docs/src/lib/calco`) joined the family with its build.
+*Calco* is Italian for a **cast or a tracing** taken from an original, and its job is to
+take a finished slide and hand back a copy you can rework. The mark says that:
+
+- **the original, traced**: a DOTTED slide outline, top-left, the tracing;
+- **the copy**: a solid slide outline, bottom-right, carrying two lines of text, the last in
+  the warm accent with a text caret beside it, the editable line;
+- **the ringed hub** sits where the two frames cross, the registration pin that aligns a
+  tracing to its copy, and the family tie.
+
+Palette: ink blue `#1f5f8b` / `#7db8e2` with a vermilion live accent `#d4553a` / `#f08a6e`,
+chosen apart from Trama's sienna and gold, Suono's green and Cadenza's indigo. The min mark
+drops the dotted tracing to one faint corner and keeps the copy, its warm line and the hub,
+so it reads at 16px. Assets: `docs/public/calco-mark.svg`, `calco-mark-min.svg` (favicon),
+`calco-lockup.svg`; the `/calco` header draws the same geometry inline so it follows the
+page's theme toggle. The generator was kept out of tree (`.scratch/calco-brand/gen.py`).
+

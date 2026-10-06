@@ -2037,30 +2037,6 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 // text layer measures — so html-to-image photographs the slide without its text. The
 // plain `.pptx` stays on `exportPptx` above.
 
-/** Calco's FontHost in the browser: the engine faces the Studio bundles (font-embed.js),
- *  pinned to one weight by the HarfBuzz subsetter the composed PDF already loads. */
-async function calcoFontHost() {
-	const [{ FACES }, { createFontSubsetter }, { default: hbUrl }, { nearestFace, pinFeatures }] = await Promise.all([
-		loadFontEmbed(),
-		import('../../../../../lib/core/pdf-compose/font-subset.mjs'),
-		import('harfbuzzjs/hb-subset.wasm?url'),
-		import('@/lib/calco'),
-	]);
-	let subset = null;
-	return {
-		async load(face) {
-			const hit = nearestFace(FACES, face);
-			if (!hit) return null;
-			const res = await fetch(hit.url);
-			return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
-		},
-		async pin(bytes, { weight, ligatures }) {
-			if (!subset) subset = await createFontSubsetter(await (await fetch(hbUrl)).arrayBuffer());
-			return subset(bytes, null, { wght: weight }, pinFeatures(ligatures));
-		},
-	};
-}
-
 const OFFICE = {
 	odp: { label: 'LibreOffice', ext: 'odp', mime: 'application/vnd.oasis.opendocument.presentation' },
 	pptx: { label: 'PowerPoint', ext: 'pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
@@ -2127,6 +2103,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		const deck = { width: w, height: h, slides, title: (name || 'deck').trim(), subject: summary, author: 'Lattice Studio', company: `Lattice · ${eng}` };
 		if (editable) {
 			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
+			const { calcoFontHost } = await import('./calco-font-host.js');
 			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost());
 		}
 		if (onStatus) onStatus(`Building .${kind.ext}…`, { current: sections.length, total: sections.length });

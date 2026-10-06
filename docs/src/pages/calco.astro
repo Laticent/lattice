@@ -1,0 +1,392 @@
+---
+// Calco — a standalone, framework-free showcase driven by the REAL library
+// (docs/src/lib/calco, the `@laticent/calco` workspace). The slides on this page are plain
+// hand-written HTML and CSS: no slide engine renders them, which is the honest proof that
+// Calco reads any laid-out page, not only Lattice's. readSlide() reads the slide you pick and
+// the page outlines every paragraph it found; "Lift the text" runs the same hide the export
+// uses; the two downloads write a real .odp (fonts embedded) and .pptx in the browser, with
+// JSZip and PptxGenJS passed in, exactly as the README says. Reached at /calco.
+import { previewFontFaceCss } from '../playground/font-embed.js';
+
+const faces = previewFontFaceCss();
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Calco — slides you can edit</title>
+		<link rel="icon" href="/calco-mark-min.svg" type="image/svg+xml" />
+		<style is:inline set:html={faces}></style>
+		<!-- Global (unscoped): the outlines, the read list and the beats are built in JS. -->
+		<style is:global>
+			:root {
+				--paper: #f6f4ef; --stage: #ecebe6; --ink: #1c2430; --muted: #5f6b78; --line: #d9dde2;
+				--accent: #1f5f8b; --accent-ink: #fff; --glow: #d4553a; --glow-ink: #b23f26; --glow-bg: #fbe7e1;
+				--panel: #fdfcfa; --ring: #0b2a40; --shadow: 0 1px 2px rgba(28,36,48,.06), 0 8px 24px rgba(28,36,48,.06);
+				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+				color-scheme: light;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-theme="light"]) {
+					--paper: #111316; --stage: #171a1e; --ink: #e4e9ef; --muted: #98a3b0; --line: #2a3038;
+					--accent: #7db8e2; --accent-ink: #0a1c2a; --glow: #f08a6e; --glow-ink: #f08a6e; --glow-bg: #2c1a15;
+					--panel: #15181c; --ring: #0a1c2a; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+					color-scheme: dark;
+				}
+			}
+			:root[data-theme="dark"] {
+				--paper: #111316; --stage: #171a1e; --ink: #e4e9ef; --muted: #98a3b0; --line: #2a3038;
+				--accent: #7db8e2; --accent-ink: #0a1c2a; --glow: #f08a6e; --glow-ink: #f08a6e; --glow-bg: #2c1a15;
+				--panel: #15181c; --ring: #0a1c2a; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				color-scheme: dark;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 1080px; margin: 0 auto; }
+			header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			.logo .c-pri { stroke: var(--accent); }
+			.logo .c-warm { stroke: var(--glow); }
+			.logo .c-hub { fill: var(--accent); }
+			.logo .c-halo { fill: var(--paper); }
+			.logo .c-ring { stroke: var(--ring); }
+			.home { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+			.home:hover { color: var(--accent); }
+			.home svg, .theme svg { width: 12px; height: 12px; }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+			.sub { color: var(--muted); font-size: 14px; max-width: 72ch; margin: 6px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px;
+				padding: 5px 11px; cursor: pointer; font-family: var(--sans); display: inline-flex; align-items: center; gap: 6px; }
+			.theme:hover { color: var(--accent); border-color: var(--accent); }
+
+			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(14px, 3vw, 26px); display: flex; flex-direction: column; gap: 12px; }
+			.controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+			.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); padding: 3px; gap: 2px; }
+			.seg button { border: 0; background: none; color: var(--muted); font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+				border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+			.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+			.switch { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--panel);
+				color: var(--ink); font-family: var(--sans); font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 6px 13px 6px 7px; cursor: pointer; }
+			.switch .knob { width: 28px; height: 16px; border-radius: 999px; background: var(--line); position: relative; flex-shrink: 0; transition: background .15s ease; }
+			.switch .knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
+				background: var(--panel); transition: transform .15s ease; }
+			.switch[aria-pressed="true"] .knob { background: var(--accent); }
+			.switch[aria-pressed="true"] .knob::after { transform: translateX(12px); }
+			.spacer { flex: 1; }
+			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
+				font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: transform .08s ease; white-space: nowrap;
+				display: inline-flex; align-items: center; gap: 6px; }
+			.btn svg { width: 13px; height: 13px; }
+			.btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+			.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.btn[disabled] { opacity: .6; cursor: progress; transform: none; }
+
+			/* The slide: a fixed 1280×720 page, scaled to fit its frame. */
+			.frame { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;
+				border: 1px solid var(--line); background: var(--panel); }
+			.scaler { position: absolute; top: 0; left: 0; width: 1280px; height: 720px; transform-origin: 0 0; }
+			.overlay { position: absolute; inset: 0; pointer-events: none; }
+			.overlay .box { position: absolute; border: 2px solid var(--glow); border-radius: 3px; background: color-mix(in srgb, var(--glow) 8%, transparent); }
+			.overlay .box span { position: absolute; top: -2px; right: calc(100% + 3px); background: var(--glow); color: #fff; font: 600 11px/1 var(--sans);
+				padding: 3px 5px; border-radius: 4px; white-space: nowrap; }
+			@media (max-width: 640px) { .overlay .box span { font-size: 9px; padding: 2px 3px; } }
+			.status { display: flex; gap: 8px 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+			.status b { color: var(--ink); font-weight: 600; }
+
+			/* The sample slides. Plain HTML and CSS, in the faces the site bundles. */
+			.slide { width: 1280px; height: 720px; position: relative; overflow: hidden; font-family: Outfit, sans-serif; }
+			.slide[hidden] { display: none !important; }
+			.slide.title { background: #12202e; color: #eef3f8; display: flex; flex-direction: column; justify-content: center; padding: 0 120px; }
+			.slide.title .eyebrow { font: 600 16px JetBrains Mono, monospace; letter-spacing: .2em; text-transform: uppercase; color: rgba(238,243,248,.7); margin: 0 0 18px; }
+			.slide.title h2 { font: 700 82px/1.05 "Playfair Display", serif; margin: 0; max-width: 900px; }
+			.slide.title p { font: 300 28px/1.4 Outfit, sans-serif; color: #b9c8d6; margin: 26px 0 0; max-width: 760px; }
+			.slide.title .rule { position: absolute; left: 120px; bottom: 90px; width: 120px; height: 6px; border-radius: 3px; background: #d4553a; }
+			.slide.cards { background: #f8f6f1; color: #1c2430; padding: 70px 90px; }
+			.slide.cards h2 { font: 700 46px/1.15 "Playfair Display", serif; margin: 0 0 40px; }
+			.slide.cards ol { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+			.slide.cards li { background: #fff; border: 1px solid #dfe3e8; border-radius: 14px; padding: 26px 26px 30px; }
+			.slide.cards li h3 { font: 600 24px/1.25 Outfit, sans-serif; margin: 0 0 12px; color: #1f5f8b; }
+			.slide.cards li h3 .num { display: inline-block; width: 46px; font: 600 22px JetBrains Mono, monospace; color: #d4553a; }
+			.slide.cards li p { font: 400 20px/1.5 Outfit, sans-serif; margin: 0; color: #3b4652; }
+			.slide.cards code { font: 500 17px JetBrains Mono, monospace; background: color-mix(in srgb, currentColor 12%, transparent); padding: 2px 9px; border-radius: 6px; }
+			.slide.code { background: #0f1b26; color: #e6edf3; padding: 70px 90px; }
+			.slide.code h2 { font: 700 44px/1.15 "Playfair Display", serif; margin: 0 0 30px; color: #fff; }
+			.slide.code pre { margin: 0; background: #16283a; border-radius: 16px; padding: 30px 34px; font: 400 21px/1.6 JetBrains Mono, monospace; }
+			.slide.code .k { color: #f08a6e; } .slide.code .s { color: #9fd3a7; } .slide.code .c { color: #7d8d9c; font-style: italic; }
+
+			.read { margin-top: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+			.read-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+			.read-head h2 { font-family: var(--stage-serif); font-size: 17px; margin: 0; font-weight: 600; }
+			.read-head .sum { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+			.frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; }
+			.fr { border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font-size: 12.5px; min-width: 0; }
+			.fr .t { color: var(--ink); white-space: pre-line; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+			.fr .m { margin-top: 3px; font-family: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+
+			.rail { margin-top: 26px; }
+			.rail-head h2 { font-family: var(--stage-serif); font-size: 18px; margin: 0 0 12px; font-weight: 600; }
+			.beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+			.beat { text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 15px;
+				cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .12s ease, transform .08s ease; font-family: var(--sans); color: inherit; }
+			.beat:hover { transform: translateY(-2px); border-color: var(--accent); }
+			.beat .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--stage); border: 1px solid var(--line);
+				color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+			.beat .bt { display: block; font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; }
+			.beat .bd { display: block; font-size: 12.5px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; }
+			.beat .api { display: block; font-family: var(--mono); font-size: 11px; color: var(--accent); overflow-wrap: anywhere; }
+
+			.limits { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+			.limits div { border: 1px dashed var(--line); border-radius: 12px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
+			.limits b { display: block; color: var(--ink); font-size: 13.5px; margin-bottom: 3px; }
+			.foot { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+			.foot code { overflow-wrap: anywhere; font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+			.foot a { color: var(--accent); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (max-width: 640px) { .spacer { display: none; } .controls .btn { flex: 1; justify-content: center; } }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<div class="brand">
+					<!-- The mark, inline so it follows this page's theme toggle as well as the OS
+					     (docs/public/calco-mark.svg is the same geometry). -->
+					<svg class="logo" viewBox="0 0 128 128" fill="none" aria-hidden="true">
+						<rect x="10" y="16" width="72" height="54" rx="9" class="c-pri" stroke-width="4.6" stroke-dasharray="0.01 9" stroke-linecap="round" opacity="0.8" />
+						<path d="M22 34 L52 34" class="c-pri" stroke-width="4.6" stroke-dasharray="0.01 9" stroke-linecap="round" opacity="0.8" />
+						<rect x="46" y="58" width="72" height="54" rx="9" class="c-pri" stroke-width="5.5" />
+						<path d="M60 82 L98 82" class="c-pri" stroke-width="5.5" stroke-linecap="round" />
+						<path d="M60 98 L84 98" class="c-warm" stroke-width="5.5" stroke-linecap="round" />
+						<path d="M92 91 L92 105" class="c-warm" stroke-width="3" stroke-linecap="round" />
+						<circle cx="64" cy="64" r="15" class="c-halo" /><circle cx="64" cy="64" r="12.2" class="c-hub" />
+						<circle cx="64" cy="64" r="7.6" class="c-ring" stroke-width="1.8" opacity="0.6" />
+					</svg>
+					<h1>Calco</h1><span class="tag">office files</span>
+				</div>
+				<div style="display:flex; gap:14px; align-items:center;">
+					<a class="home" href="/"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7.5 2.5 L4 6 L7.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>Lattice</a>
+					<button class="theme" id="themeBtn" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3" /><path d="M6 1.2 A4.8 4.8 0 0 1 6 10.8 Z" fill="currentColor" /></svg>theme</button>
+				</div>
+			</header>
+			<p class="sub">
+				Calco turns a finished slide into an office file you can <b>edit</b>. It reads every paragraph off the page, keeps a picture of the slide with the text lifted out, and writes the text back as <b>real text boxes</b> in the slide's own fonts: an <b>.odp</b> for LibreOffice Impress, fonts built in, or a <b>.pptx</b> for PowerPoint. The slides below are plain HTML. Pick one, see what Calco reads, lift the text, then download what the real library writes.
+			</p>
+
+			<div class="stage">
+				<div class="controls">
+					<div class="seg" role="group" aria-label="Slide" id="slideSeg">
+						<button type="button" data-slide="title" aria-pressed="true">Title</button>
+						<button type="button" data-slide="cards" aria-pressed="false">Cards</button>
+						<button type="button" data-slide="code" aria-pressed="false">Code</button>
+					</div>
+					<button class="switch" id="showBtn" type="button" aria-pressed="true"><span class="knob"></span>Show what it reads</button>
+					<button class="switch" id="liftBtn" type="button" aria-pressed="false"><span class="knob"></span>Lift the text</button>
+					<span class="spacer"></span>
+					<button class="btn primary" id="odpBtn" type="button"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M6 1.5 V8 M3 5.5 L6 8.5 L9 5.5 M2 10.5 H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>.odp</button>
+					<button class="btn" id="pptxBtn" type="button"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M6 1.5 V8 M3 5.5 L6 8.5 L9 5.5 M2 10.5 H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>.pptx</button>
+				</div>
+				<div class="frame" id="frame">
+					<div class="scaler" id="scaler">
+						<div class="slide title" data-slide="title">
+							<p class="eyebrow">Q3 board review</p>
+							<h2>Revenue held while costs fell</h2>
+							<p>Three decisions for the board, and the one we are asking you to make today.</p>
+							<div class="rule"></div>
+						</div>
+						<div class="slide cards" data-slide="cards" hidden>
+							<h2>What changes next quarter</h2>
+							<ol>
+								<li><h3><span class="num">01</span>Price</h3><p>List prices move with the index, capped at <code>4%</code> a year.</p></li>
+								<li><h3><span class="num">02</span>Supply</h3><p>Two suppliers per part, so no single plant can stop a line.</p></li>
+								<li><h3><span class="num">03</span>Hiring</h3><p>Every new role needs a <b>named</b> owner before it is posted.</p></li>
+							</ol>
+						</div>
+						<div class="slide code" data-slide="code" hidden>
+							<h2>The rule, in four lines</h2>
+<pre><span class="c"># Cap the yearly change at four percent</span>
+<span class="k">def</span> next_price(price, index):
+
+    change = index - <span class="s">1.0</span>
+    <span class="k">return</span> price * (<span class="s">1</span> + clamp(change, -<span class="s">0.04</span>, <span class="s">0.04</span>))</pre>
+						</div>
+					</div>
+					<div class="overlay" id="overlay"></div>
+				</div>
+				<div class="status" id="status" role="status" aria-live="polite"></div>
+			</div>
+
+			<section class="read" aria-label="What Calco read">
+				<div class="read-head"><h2>What Calco read</h2><span class="sum" id="sum"></span></div>
+				<div class="frames" id="frames"></div>
+			</section>
+
+			<div class="rail">
+				<div class="rail-head"><h2>How it works</h2></div>
+				<div class="beats">
+					<button class="beat" type="button" id="beatRead"><span class="n">1</span><span><span class="bt">Read</span><span class="bd">Every word, with the box and the font the browser gave it, grouped into paragraphs and lines where the browser broke them.</span><span class="api">readSlide(slide)</span></span></button>
+					<button class="beat" type="button" id="beatLift"><span class="n">2</span><span><span class="bt">Lift</span><span class="bd">Hide exactly that text, nothing else, and photograph the slide. Markers, pills and icons stay put.</span><span class="api">readSlide(slide, {"{"} hide: true {"}"})</span></span></button>
+					<button class="beat" type="button" id="beatWrite"><span class="n">3</span><span><span class="bt">Write</span><span class="bd">The picture underneath, a text box on top for every paragraph, the fonts embedded in the .odp.</span><span class="api">writeOdp(JSZip, deck) · writePptx(PptxGenJS, deck)</span></span></button>
+				</div>
+			</div>
+
+			<div class="limits">
+				<div><b>Stays a picture</b>Charts, diagrams, equations, and text Calco cannot place exactly: rotated, masked, or cut off by its box.</div>
+				<div><b>Lines do not reflow</b>Lines break where the browser broke them. Typing more text grows the box, not the layout.</div>
+				<div><b>PowerPoint names its fonts</b>The .pptx asks for the slide's fonts but does not carry them. The .odp does. PowerPoint itself is not yet tested.</div>
+			</div>
+
+			<p class="foot">
+				Driven by the real library (<code>@laticent/calco</code>, <code>docs/src/lib/calco</code>): <code>readSlide(element, {"{"} hide {"}"})</code> reads a laid-out element and can lift its text, <code>restoreSlide(element)</code> puts it back, <code>prepareFonts(deck, host)</code> gets fonts ready to embed, and <code>writeOdp</code> / <code>writePptx</code> write the file. It has no dependencies: JSZip, PptxGenJS and the font pinner are passed in, so the reader can ship into any page. This page captures with html-to-image and pins fonts with HarfBuzz. Calco is AGPL-3.0, like Lattice. <a href="https://github.com/Laticent/lattice/tree/main/docs/src/lib/calco">Read the README</a>.
+			</p>
+		</div>
+
+		<script>
+			import { readSlide, restoreSlide, prepareFonts, writeOdp, writePptx, type Deck, type TextFrame } from '@/lib/calco';
+
+			const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector(s) as T;
+			const root = document.documentElement;
+			const frameEl = $('#frame'), scaler = $('#scaler'), overlay = $('#overlay');
+			const statusEl = $('#status'), framesEl = $('#frames'), sumEl = $('#sum');
+			const showBtn = $('#showBtn'), liftBtn = $('#liftBtn');
+
+			// ── Theme (the key the docs site uses; `system` follows the OS) ──
+			const THEME_LS = 'lattice-docs-mode';
+			const osDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
+			const applyTheme = (t: string | null) => { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); };
+			try { const t = localStorage.getItem(THEME_LS); applyTheme(t === 'light' || t === 'dark' ? t : osDark() ? 'dark' : 'light'); } catch { /* storage blocked */ }
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme') || (osDark() ? 'dark' : 'light');
+				const next = cur === 'dark' ? 'light' : 'dark';
+				applyTheme(next);
+				try { localStorage.setItem(THEME_LS, next); } catch { /* storage blocked */ }
+			});
+
+			// ── The slide, scaled to its frame ──
+			let current = 'title';
+			let frames: TextFrame[] = [];
+			let lifted = false;
+			const slideEl = () => scaler.querySelector<HTMLElement>(`.slide[data-slide="${current}"]`)!;
+			const fit = () => {
+				const k = frameEl.clientWidth / 1280;
+				scaler.style.transform = `scale(${k})`;
+				drawOverlay();
+			};
+			new ResizeObserver(fit).observe(frameEl);
+
+			// ── Read, and show what was read ──
+			const describe = (f: TextFrame) => {
+				const s = f.lines.find((l) => l.length)?.[0]?.style;
+				return s ? `${s.family} ${s.weight}${s.italic ? ' italic' : ''} · ${Math.round(s.size)}px · ${f.lines.length} line${f.lines.length === 1 ? '' : 's'} · ${f.align}` : '';
+			};
+			const plain = (f: TextFrame) => f.lines.map((l) => l.map((r) => r.text).join('').replace(/ /g, ' ')).join('\n');
+			function read() {
+				if (lifted) setLift(false);
+				frames = readSlide(slideEl()).frames;
+				framesEl.replaceChildren(...frames.map((f, i) => {
+					const el = document.createElement('div');
+					el.className = 'fr';
+					const t = document.createElement('div'); t.className = 't'; t.textContent = `${i + 1}. ${plain(f)}`;
+					const m = document.createElement('div'); m.className = 'm'; m.textContent = describe(f);
+					el.append(t, m);
+					return el;
+				}));
+				const families = new Set(frames.flatMap((f) => f.lines.flat().map((r) => r.style.family)));
+				sumEl.textContent = `${frames.length} text boxes · ${families.size} font${families.size === 1 ? '' : 's'}`;
+				drawOverlay();
+			}
+			function drawOverlay() {
+				overlay.replaceChildren();
+				if (showBtn.getAttribute('aria-pressed') !== 'true') return;
+				const k = frameEl.clientWidth / 1280;
+				frames.forEach((f, i) => {
+					const b = document.createElement('div');
+					b.className = 'box';
+					Object.assign(b.style, { left: `${f.x * k - 3}px`, top: `${f.y * k - 3}px`, width: `${f.w * k + 6}px`, height: `${f.h * k + 6}px` });
+					const label = document.createElement('span');
+					label.textContent = String(i + 1);
+					b.append(label);
+					overlay.append(b);
+				});
+			}
+			function setLift(on: boolean) {
+				lifted = on;
+				liftBtn.setAttribute('aria-pressed', String(on));
+				if (on) readSlide(slideEl(), { hide: true });
+				else restoreSlide(slideEl());
+			}
+
+			$('#slideSeg').addEventListener('click', (e) => {
+				const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-slide]');
+				if (!btn) return;
+				if (lifted) setLift(false);
+				current = btn.dataset.slide!;
+				for (const b of $('#slideSeg').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b === btn));
+				for (const s of scaler.querySelectorAll<HTMLElement>('.slide')) s.hidden = s.dataset.slide !== current;
+				read();
+			});
+			showBtn.addEventListener('click', () => { showBtn.setAttribute('aria-pressed', String(showBtn.getAttribute('aria-pressed') !== 'true')); drawOverlay(); });
+			liftBtn.addEventListener('click', () => setLift(!lifted));
+			$('#beatRead').addEventListener('click', () => { showBtn.setAttribute('aria-pressed', 'true'); read(); });
+			$('#beatLift').addEventListener('click', () => setLift(true));
+			$('#beatWrite').addEventListener('click', () => download('odp'));
+
+			// ── Write: the same three steps the Studio's export takes ──
+			async function capture(el: HTMLElement): Promise<Uint8Array> {
+				const { toBlob } = await import('html-to-image');
+				// html-to-image clones the element at its own size: the scale lives on the parent.
+				const blob = await toBlob(el, { width: 1280, height: 720, pixelRatio: 2, cacheBust: true });
+				if (!blob) throw new Error('capture failed');
+				return new Uint8Array(await blob.arrayBuffer());
+			}
+			async function download(format: 'odp' | 'pptx') {
+				const btns = [$<HTMLButtonElement>('#odpBtn'), $<HTMLButtonElement>('#pptxBtn')];
+				btns.forEach((b) => { b.disabled = true; });
+				try {
+					if (lifted) setLift(false);
+					await document.fonts.ready;
+					statusEl.textContent = 'Reading and lifting the text…';
+					const el = slideEl();
+					const read = readSlide(el, { hide: true });
+					let image: Uint8Array;
+					try { image = await capture(el); } finally { restoreSlide(el); }
+					const deck: Deck = { width: read.width, height: read.height, title: 'Calco demo', author: 'Calco', company: 'Calco demo', slides: [{ image, frames: read.frames, description: el.querySelector('h2')?.textContent?.trim() || 'Slide 1' }] };
+					statusEl.textContent = 'Embedding fonts…';
+					const { calcoFontHost } = await import('../components/studio/export/calco-font-host.js');
+					deck.fonts = await prepareFonts(deck, await calcoFontHost());
+					statusEl.textContent = `Writing .${format}…`;
+					const bytes = format === 'odp'
+						? await writeOdp((await import('jszip')).default, deck, 'uint8array')
+						: await writePptx((await import('pptxgenjs')).default, deck, 'uint8array');
+					const type = format === 'odp' ? 'application/vnd.oasis.opendocument.presentation' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+					const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
+					const a = document.createElement('a');
+					a.href = url; a.download = `calco-${current}.${format}`; a.click();
+					setTimeout(() => URL.revokeObjectURL(url), 10000);
+					const name = document.createElement('b');
+					name.textContent = `calco-${current}.${format}`;
+					statusEl.replaceChildren(name, ` · ${read.frames.length} text boxes · ${format === 'odp' ? `${deck.fonts.length} fonts embedded` : 'fonts named'} · ${Math.round(bytes.byteLength / 1024)} KB`);
+				} catch (e) {
+					statusEl.textContent = `Could not write the file: ${(e as Error)?.message || e}`;
+				} finally {
+					btns.forEach((b) => { b.disabled = false; });
+				}
+			}
+			$('#odpBtn').addEventListener('click', () => download('odp'));
+			$('#pptxBtn').addEventListener('click', () => download('pptx'));
+
+			document.fonts.ready.then(() => { fit(); read(); statusEl.textContent = 'Pick a slide, then download it as an editable file.'; });
+		</script>
+	</body>
+</html>
