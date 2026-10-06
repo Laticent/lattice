@@ -98,7 +98,8 @@ export const IDLE_VIEW: LiveView = {
 
 /** The CSS color for a session color. The chart categorical hues are the palette's own, so a
  *  person's color re-themes with the deck's palette and mode (HARD RULE #3). */
-export const liveColor = (c: LiveColor) => `var(--chart-cat${c})`;
+const LIVE_COLOR_VAR: Record<LiveColor, string> = { 1: 'var(--chart-cat1)', 2: 'var(--chart-cat2)', 3: 'var(--chart-cat3)', 4: 'var(--chart-cat4)' };
+export const liveColor = (c: LiveColor) => LIVE_COLOR_VAR[c];
 
 /** "Sharmarke" → "S", "Amina Hassan" → "AH". */
 export function initials(name: string): string {

@@ -86,6 +86,7 @@ const {
   checkVetrinaBoundary,
   checkAnimaBoundary,
   checkCadenzaBoundary,
+  checkTavolaBoundary,
   checkLttBoundary,
   ANIMA_DIR,
   ANIMA_ADAPTER_DEPS,
@@ -1949,6 +1950,26 @@ describe('check-ownership', () => {
       ]) {
         assert.equal(run(checkCadenzaBoundary, src).length, 1, `not caught: ${src}`);
       }
+    });
+
+    // Tavola: the core takes its transport and document as arguments, and ONE file — the Trystero
+    // adapter — may import `trystero/nostr` (2026-10-06-studio-live-collaboration.md §7.1).
+    const tavola = (errors, dir) => checkTavolaBoundary(errors, dir, path.join(dir, 'adapters', 'trystero.ts'));
+
+    test('Tavola: the live tree is clean', () => {
+      const errors = [];
+      checkTavolaBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('Tavola admits trystero/nostr in the adapter only, and nothing else anywhere', () => {
+      assert.deepEqual(run(tavola, { 'adapters/trystero.ts': "import { joinRoom } from 'trystero/nostr';", 'session.ts': "import { frame } from './protocol';" }), []);
+      assert.equal(run(tavola, { 'session.ts': "import { joinRoom } from 'trystero/nostr';" }).length, 1, 'the core may not import the transport');
+      for (const src of ["import * as Y from 'yjs';", "import { x } from '../vetrina';", "import 'trystero';", "const t = await import('trystero/torrent');", "import { readFileSync } from 'node:fs';"]) {
+        assert.equal(run(tavola, { 'session.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      // A test file may use its runner and Yjs.
+      assert.deepEqual(run(tavola, { 'session.test.ts': "import * as Y from 'yjs';\nimport { it } from 'vitest';" }), []);
     });
   });
 

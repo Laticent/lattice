@@ -1,7 +1,7 @@
 import { Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LiveAvatar } from './LivePanel';
-import type { LiveView } from './live-model';
+import { type LiveView, liveColor } from './live-model';
 
 // The header presence pill (§5.6): while a session is live it is the one surface visible at
 // every width, so closing the Live panel never hides who is here or whether you are on air.
@@ -32,7 +32,7 @@ export function LivePill({ view, onOpen, onToggleMic }: { view: LiveView; onOpen
 				aria-pressed={!!onAir}
 				aria-label={onAir ? 'Mute your microphone' : 'Join with audio'}
 				className="size-7 rounded-l-none rounded-r-full"
-				style={onAir && me ? { color: `var(--chart-cat${me.color})` } : undefined}
+				style={onAir && me ? { color: liveColor(me.color) } : undefined}
 			>
 				{onAir ? <Mic className="size-3.5" /> : <MicOff className="size-3.5 text-muted-foreground" />}
 			</Button>

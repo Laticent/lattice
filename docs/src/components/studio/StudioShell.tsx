@@ -95,6 +95,7 @@ import { LiveLobby } from './live/LiveLobby';
 import { LiveAvatar, LivePanel } from './live/LivePanel';
 import { LivePill } from './live/LivePill';
 import { readLiveDemoMode, useLiveDemo } from './live/live-demo';
+import { liveColor } from './live/live-model';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
@@ -5302,7 +5303,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{live.view.following && (
 				<div className="flex items-center gap-2 border-b border-border bg-[var(--accent-soft)] px-3.5 py-1 text-[12px] text-foreground" data-live-follow>
-					<span className="size-2 rounded-full" style={{ background: `var(--chart-cat${live.view.people.find((p) => p.id === live.view.following)?.color ?? 1})` }} aria-hidden />
+					<span className="size-2 rounded-full" style={{ background: liveColor(live.view.people.find((p) => p.id === live.view.following)?.color ?? 1) }} aria-hidden />
 					<span className="min-w-0 flex-1 truncate">Following {live.view.people.find((p) => p.id === live.view.following)?.name ?? 'someone'}</span>
 					<Button size="xs" variant="ghost" onClick={() => live.actions.follow(null)}>Stop</Button>
 				</div>
@@ -5461,7 +5462,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							{liveBySlide.has(composeLens === 'full' ? i : slides.indexOf(s)) && (
 								<span aria-hidden className="flex -space-x-1">
 									{(liveBySlide.get(composeLens === 'full' ? i : slides.indexOf(s)) ?? []).slice(0, 3).map((p) => (
-										<span key={p.id} className="size-2.5 rounded-full border border-[var(--bg)]" style={{ background: `var(--chart-cat${p.color})` }} />
+										<span key={p.id} className="size-2.5 rounded-full border border-[var(--bg)]" style={{ background: liveColor(p.color) }} />
 									))}
 								</span>
 							)}

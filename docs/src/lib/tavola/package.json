@@ -1,0 +1,34 @@
+{
+  "name": "@laticent/tavola",
+  "version": "0.1.0",
+  "description": "Live collaboration on one document, browser to browser: an invite link in the URL fragment, a knock-and-admit handshake, a roster gate that sends and accepts the document only for admitted members (and document edits only from members who may edit), a cap, and rejoin by token. The transport and the document are passed in, so the core has no dependencies; a Trystero adapter (public Nostr relays, then WebRTC) ships beside it.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    },
+    "./trystero": {
+      "types": "./adapters/trystero.ts",
+      "default": "./adapters/trystero.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "trystero": "0.26.0"
+  },
+  "peerDependenciesMeta": {
+    "trystero": {
+      "optional": true
+    }
+  },
+  "files": [
+    "*.ts",
+    "adapters/*.ts",
+    "!*.test.ts",
+    "README.md"
+  ]
+}

@@ -8773,6 +8773,41 @@ function checkTramaBoundary(errors, dir = TRAMA_DIR) {
   });
 }
 
+// ── Tavola (docs/src/lib/tavola) — the live-collaboration engine ────────────
+// Tavola knows peers and bytes; the Studio knows screens. The transport and the document are
+// passed in, the way Trama takes dagre, so the core imports nothing outside its folder
+// (engineering/decisions/2026-10-06-studio-live-collaboration.md §7.1). ONE sanctioned third-party
+// import, by exact name and exact file: the Trystero adapter's `trystero/nostr`. Anywhere else in the
+// folder that specifier is a violation too, or the core would quietly grow a network dependency.
+const TAVOLA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'tavola');
+const TAVOLA_ADAPTER = path.join(TAVOLA_DIR, 'adapters', 'trystero.ts');
+const TAVOLA_SANCTIONED_BARE = 'trystero/nostr';
+function checkTavolaBoundary(errors, dir = TAVOLA_DIR, adapter = TAVOLA_ADAPTER) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set([TAVOLA_SANCTIONED_BARE]),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Tavola folder. Tavola takes its transport and ` +
+      `document as arguments, so every import must resolve inside docs/src/lib/tavola/ ` +
+      `(engineering/decisions/2026-10-06-studio-live-collaboration.md §7.1).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file) || path.resolve(file) === path.resolve(adapter)) continue;
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        if (m[1] !== TAVOLA_SANCTIONED_BARE) continue;
+        errors.push(
+          `${path.relative(ROOT, file)} imports '${TAVOLA_SANCTIONED_BARE}'. Only ` +
+          `${path.relative(ROOT, adapter)} may: the Tavola core stays transport-free, and the adapter ` +
+          `is the one sanctioned exception (2026-10-06-studio-live-collaboration.md §7.1).`,
+        );
+      }
+    }
+  }
+}
+
 // ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
 // The same self-containment antibody as Cadenza, plus a HARDER security invariant
 // baked into the design (engineering/decisions/2026-07-12-suono-audio-library.md):
@@ -13239,6 +13274,7 @@ function run() {
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
   checkTramaBoundary(errors);
+  checkTavolaBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
   checkLttBoundary(errors);
@@ -13301,6 +13337,7 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  checkTavolaBoundary,
   checkReadingRole,
   readingRoleCountsIn,
   readingRoleFindings,
