@@ -553,12 +553,17 @@ lock flock was adopted to delete.
 
 **A second PreToolUse hook warns before a needless catch-up.**
 `.claude/hooks/warn-needless-catchup.sh` fires when a Bash command is about to
-rebase onto, merge, or pull `main`. It runs `tools/queue-precheck.sh --no-fetch`, and
-if the branch merges cleanly with `main` on GitHub's terms, it says the catch-up is
-not needed (HARD RULE #16). It never blocks, and it stays quiet on a real conflict,
-on a branch already level with `main`, and on cleanup against the branch's own merge
-base. It matches the command text coarsely, so a command that only mentions such a
-rebase can draw the warning too. It cannot see GitHub's "Update branch" button, so the
+rebase onto, merge, or pull `main`, or run a bare `git pull` on a branch that tracks
+`origin/main`. It runs `tools/queue-precheck.sh --no-fetch` in the command's own
+directory. If the branch merges cleanly with `main` on GitHub's terms, it says the
+catch-up is not needed (HARD RULE #16).
+
+- **It never blocks.**
+- **It stays quiet** on a real conflict, on a branch already level with `main`, and
+  on cleanup against the branch's own merge base.
+- **It matches coarsely.** It reads only the payload's `command` field, segment by
+  segment, so a command that only mentions such a rebase (in a commit message, say)
+  can draw the warning too. It cannot see GitHub's "Update branch" button, so the
 message names it. `engineering/decisions/2026-10-06-conflict-reduction.md` §2 records
 why this warns instead of blocking.
 

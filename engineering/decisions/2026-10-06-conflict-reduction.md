@@ -73,23 +73,29 @@ PR's CI, plus its queue run if it was already queued.
 `.claude/hooks/warn-needless-catchup.sh` is a Claude Code `PreToolUse(Bash)` hook,
 next to `warn-unbounded-wait.sh`. It works in three steps:
 
-1. **It matches the command.** A command that rebases onto, merges, or pulls `main`
-   triggers it. The match is coarse: one pipeline segment holding `git`, one of
-   `rebase|merge|pull`, and `main`. It never fires on `merge-base`.
+1. **It matches the command.** It reads only the payload's `command` field and looks,
+   one shell segment at a time, for either form:
+   - `git … rebase|merge|pull` that names `main`;
+   - a bare `git pull` (or `git pull --rebase`) on a branch that tracks `origin/main`.
+
+   A segment using `merge-base` is skipped.
 2. **It runs the same check as the Stop hook.** That is `tools/queue-precheck.sh
-   --no-fetch`, so the two cannot disagree.
+   --no-fetch`, run in the directory the command runs in (the payload's `cwd`). The two
+   cannot disagree.
 3. **It warns only when the branch is behind and merges cleanly** on GitHub's terms.
    The warning says the catch-up is not needed, lists the cases #16 allows, names
-   GitHub's "Update branch" as the same cost, and gives the cleanup command that
-   does not move the base.
+   GitHub's "Update branch" as the same cost, and gives the cleanup command that does
+   not move the base.
 
 The properties that make it safe:
 
 - **It never blocks.** It exits 0 on every input, garbage included.
 - **It acts before git starts,** so it can strand no stash, merge state or rebase.
 - **It does not affect git state or shells,** and ref names are never evaluated.
-- **It is cheap.** About 5.5 ms on a non-matching command, the same as the existing
-  `warn-unbounded-wait.sh` measured the same way. About 80 ms when it runs the precheck.
+- **It is cheap.** About 5 ms on a command that names none of rebase/merge/pull, which
+  is nearly all of them. That is the same as the existing `warn-unbounded-wait.sh`,
+  measured the same way. About 14 ms when a keyword appears but no catch-up matches,
+  and about 80 ms when it runs the precheck.
 
 **Its limits, stated.**
 
@@ -100,19 +106,28 @@ The properties that make it safe:
   exactly that, live, on this PR's own benchmark command. That costs one ignorable
   line.
 
-**Tests.** `test/unit/tools/warn-needless-catchup.test.js` has 18 cases, driving the
+**Tests.** `test/unit/tools/warn-needless-catchup.test.js` has 24 cases, driving the
 hook with real payloads against real scratch repos:
 
 - **Warns on six command forms:** rebase, fetch-then-rebase, merge, pull,
   `pull --rebase`, and `git -C`.
-- **Stays quiet on eight others:** a real conflict, a branch already level with
-  `main`, cleanup on the branch's own merge base, `merge-base`, `status`, `log`,
+- **Stays quiet on nine others:** a real conflict, a branch already level with
+  `main`, cleanup on the branch's own merge base (two spellings), `merge-base`,
+  `status`, `log`,
   a rebase onto another branch, and two separate commands.
 - **Exits 0 on bad input:** empty input, input that isn't JSON, and running outside
   a repo.
+- **Covers the final checker's gaps (five cases):**
+  - a bare `git pull` while tracking `origin/main` warns;
+  - a bare pull while tracking the branch's own remote stays quiet;
+  - a description mentioning merge and main does not trigger it;
+  - `merge-base` in one segment does not silence a rebase in the next;
+  - the payload's `cwd` is the repo judged.
 - **Is registered** in `.claude/settings.json`.
 
-Five deliberately broken hooks each fail it.
+Six deliberately broken hooks each fail it: ignore the precheck, drop the cleanup
+skip, drop bare-pull detection, drop the upstream check, ignore the payload's `cwd`,
+and drop the level-branch silence.
 
 **Also shipped:** `pre-push` is now `piped: true`. Without it, lefthook ran every
 remaining job after one failed (reproduced with the real binary). This is independent

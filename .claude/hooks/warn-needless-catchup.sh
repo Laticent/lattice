@@ -18,11 +18,16 @@
 # repo made for warn-unbounded-wait.sh and check-commit-msg.sh: coach, don't block,
 # because HARD RULE #14 bars `--no-verify` as the escape.
 #
-# Detection is deliberately coarse: a `git` invocation of rebase, merge or pull
-# that names main, and not `git merge-base` (history cleanup on the branch's own
-# base). Only on a match does it run tools/queue-precheck.sh --no-fetch, the same
-# check the Stop hook runs, so the two cannot disagree. It compares with the LOCAL
-# origin/main; a command that fetches first is judged on the last fetch.
+# Detection is deliberately coarse. It reads only the payload's `command` field and
+# looks, segment by segment, for `git ... rebase|merge|pull` that names main, or a
+# bare `git pull` on a branch whose upstream is origin/main. A segment using
+# `git merge-base` (history cleanup on the branch's own base) is skipped. A command
+# that only MENTIONS such a rebase, e.g. inside a commit message, can still match;
+# that costs one ignorable line. Only on a match does it run
+# tools/queue-precheck.sh --no-fetch, the same check the Stop hook runs, in the
+# command's own directory (the payload's `cwd`), so the two cannot disagree. It
+# compares with the LOCAL origin/main; a command that fetches first is judged on
+# the last fetch.
 #
 # It cannot see GitHub's "Update branch" button or `gh pr update-branch`, which
 # re-run CI the same way. The message names them.
@@ -37,24 +42,45 @@ case "$payload" in
   *rebase*|*merge*|*pull*) ;;
   *) exit 0 ;;
 esac
-case "$payload" in
-  *main*) ;;
-  *) exit 0 ;;
-esac
-# History cleanup on the branch's own base, or plain merge-base queries.
-case "$payload" in
-  *merge-base*) exit 0 ;;
-esac
-# A real catch-up: `git ... rebase|merge|pull ... main` inside one command. The
-# match is on the raw JSON payload; `[^;&|]*` keeps it to one pipeline segment.
-printf '%s' "$payload" | grep -Eq 'git[^;&|]*[[:space:]](rebase|merge|pull)[[:space:]][^;&|]*main' || exit 0
 
-cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
+# Judge the COMMAND only, not the description or other fields. A JSON string is
+# matched up to its first unescaped quote; good enough for a warning.
+cmd=$(printf '%s' "$payload" | grep -o '"command"[[:space:]]*:[[:space:]]*"\([^"\\]\|\\.\)*"' | head -1)
+[ -n "$cmd" ] || exit 0
+# Strip the JSON wrapper so a segment ends where the command does.
+cmd=${cmd#*:}; cmd=${cmd#"${cmd%%[![:space:]]*}"}; cmd=${cmd#\"}; cmd=${cmd%\"}
+# The directory the command runs in, when the harness says; else the project.
+dir=$(printf '%s' "$payload" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*:[[:space:]]*"//; s/"$//')
+[ -n "$dir" ] && [ -d "$dir" ] || dir=${CLAUDE_PROJECT_DIR:-.}
+
+# A catch-up is one shell segment (split on ; & |) that runs `git ... rebase|merge|pull`
+# and either names main, or is a bare `git pull` (checked against the upstream below).
+# A segment using `merge-base` is history cleanup on the branch's own base: skip it.
+hit=0
+bare_pull=0
+while IFS= read -r seg; do
+  case "$seg" in *merge-base*) continue ;; esac
+  printf '%s' "$seg" | grep -Eq 'git([[:space:]][^[:space:]]+)*[[:space:]](rebase|merge|pull)([[:space:]]|$)' || continue
+  if printf '%s' "$seg" | grep -Eq '(^|[[:space:]/])main([[:space:]]|$|\\)'; then
+    hit=1; break
+  fi
+  # `git pull` / `git pull --rebase` with no ref: it pulls the branch's upstream.
+  if printf '%s' "$seg" | grep -Eq 'git([[:space:]][^[:space:]]+)*[[:space:]]pull([[:space:]]+-[^[:space:]]+)*[[:space:]]*(\\|$)'; then
+    bare_pull=1
+  fi
+done < <(printf '%s\n' "$cmd" | tr ';&|' '\n\n\n')
+[ "$hit" = 1 ] || [ "$bare_pull" = 1 ] || exit 0
+
+cd "$dir" 2>/dev/null || exit 0
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
 [ "$branch" = "main" ] && exit 0
 [ "$branch" = "HEAD" ] && exit 0
 [ -f tools/queue-precheck.sh ] || exit 0
 git rev-parse --verify -q origin/main >/dev/null 2>&1 || exit 0
+if [ "$hit" != 1 ]; then
+  # A bare pull only catches up with main when the branch tracks it.
+  [ "$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)" = "origin/main" ] || exit 0
+fi
 
 # 0 = behind (or level) and clean on GitHub's terms → the catch-up is not needed.
 # 1 = real conflict → needed, stay quiet. 3 = could not decide → stay quiet.

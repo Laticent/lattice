@@ -202,7 +202,6 @@ pre-push:
           echo "integration-tests: skipped — no render-relevant changes vs origin/main (docs/config only)"
         fi
 
-
 commit-msg:
   jobs:
     - name: format

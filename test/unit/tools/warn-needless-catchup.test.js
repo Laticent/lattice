@@ -28,7 +28,7 @@ for (const k of Object.keys(process.env)) if (k.startsWith('GIT_')) delete proce
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const HOOK = path.join(REPO, '.claude', 'hooks', 'warn-needless-catchup.sh');
-const bash = (command) => JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
+const bash = (command, extra = {}) => JSON.stringify({ tool_name: 'Bash', tool_input: { command, ...extra.input }, ...extra.top });
 
 /** A scratch repo with tools/queue-precheck.sh, feat one commit ahead, main one ahead. */
 function repo({ conflict = false, level = false } = {}) {
@@ -60,6 +60,16 @@ function repo({ conflict = false, level = false } = {}) {
   }
   git('update-ref', 'refs/remotes/origin/main', 'main');
   return dir;
+}
+
+/** Point feat's upstream at `ref` (a local ref stands in for a remote one). */
+function track(dir, remoteRef) {
+  const run = (...a) => spawnSync('git', a, { cwd: dir, encoding: 'utf8' });
+  run('config', 'branch.feat.remote', 'origin');
+  run('config', 'branch.feat.merge', `refs/heads/${remoteRef}`);
+  run('config', 'remote.origin.url', dir);
+  run('config', 'remote.origin.fetch', '+refs/heads/*:refs/remotes/origin/*');
+  if (remoteRef !== 'main') run('update-ref', `refs/remotes/origin/${remoteRef}`, 'feat');
 }
 
 const fire = (payload, dir = REPO) => {
@@ -107,6 +117,7 @@ describe('warn-needless-catchup — stays quiet when the catch-up is fine or unr
   });
   const quiet = {
     'history cleanup on the branch base': 'git rebase -i "$(git merge-base HEAD origin/main)"',
+    'history cleanup, spaced form': 'git rebase -i $( git merge-base HEAD origin/main )',
     'a merge-base query': 'git merge-base HEAD origin/main',
     'a status': 'git status',
     'a log of main': 'git log --oneline origin/main',
@@ -120,6 +131,42 @@ describe('warn-needless-catchup — stays quiet when the catch-up is fine or unr
       assert.equal(out, '', `should not warn on: ${command}`);
     });
   }
+});
+
+describe('warn-needless-catchup — gaps the final checker found on PR #2561', () => {
+  test('a bare `git pull` warns when the branch tracks origin/main', () => {
+    const dir = repo();
+    track(dir, 'main');
+    for (const command of ['git pull', 'git pull --rebase']) {
+      const { out } = fire(bash(command), dir);
+      assert.match(out, /HARD RULE #16/, command);
+    }
+  });
+  test('a bare `git pull` stays quiet when the branch tracks its own remote', () => {
+    const dir = repo();
+    track(dir, 'feat');
+    assert.equal(fire(bash('git pull --rebase'), dir).out, '');
+  });
+  test('only the command is read: a description that mentions merge and main does not warn', () => {
+    const { out } = fire(bash('git log --oneline', { input: { description: 'Show merge commits on main' } }), repo());
+    assert.equal(out, '');
+  });
+  test('merge-base in one segment does not silence a rebase in the next', () => {
+    const { out } = fire(bash('git merge-base --is-ancestor HEAD origin/main && git rebase origin/main'), repo());
+    assert.match(out, /HARD RULE #16/);
+  });
+  test('it judges the directory the command runs in (the payload cwd)', () => {
+    const level = repo({ level: true });
+    const behind = repo();
+    // The project is level (would stay quiet); the command runs in a behind clone.
+    const r = spawnSync(HOOK, {
+      input: bash('git rebase origin/main', { top: { cwd: behind } }),
+      encoding: 'utf8',
+      cwd: level,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: level },
+    });
+    assert.match(r.stdout, /HARD RULE #16/);
+  });
 });
 
 describe('warn-needless-catchup — never blocks', () => {
