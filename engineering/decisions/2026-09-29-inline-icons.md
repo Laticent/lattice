@@ -574,8 +574,15 @@ contrast of every candidate token against every disc fill, worst case per kind:
 
 No existing token clears 3:1 on a light group disc (the plain heading ink measured 2.68:1 on
 laguna), so the light arm takes the heading ink a step darker through `oklch(from …)`, which the
-group-disc rule above it already uses. Not measured: the three chart finishes, which repaint group
-discs, and `mode: sketch`.
+group-disc rule above it already uses.
+
+**Under a chart finish, measured afterwards.** A finish repaints the group and status discs, and
+the fixed inks above did not hold: a pigment group disc 2.27:1 (onyx dark), a tone group disc
+2.27:1 (carbone dark), an etching status disc 1.62:1 (onyx dark). `mode: sketch` held (3.14:1 at
+worst). So `tools/build-chart-finish-css.js` now gives `.hub-spoke-icon` the ink the finish's own
+disc body clears: `inkOn`, black above OKLCH L 0.565 and white below, computed from the same body
+expression the generator gives the disc, behind the same `@supports` as every text ink there.
+Worst case after, all 14 palettes in both modes: pigment 4.38:1, etching 7.03:1, tone 3.48:1.
 
 **What did not change.** With no icon written, the hub-spoke gallery, the baseline gallery, both
 graph-chart galleries, `examples/chart-icons.md` and `examples/gallery-jargon.md` render

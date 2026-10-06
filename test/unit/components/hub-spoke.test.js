@@ -769,3 +769,18 @@ describe('hub-spoke — the rows it owns, and nothing past them', () => {
     assert.equal(findings(deck('- Hub\n  - Sat\n   - x `^{awsfoo}`\n')), 0);
   });
 });
+
+describe('hub-spoke — icon ink under a chart finish', () => {
+  test('each finish gives the icon the ink its disc body clears, for every slot and for a status', () => {
+    // A finish repaints the disc; a fixed ink measured 1.62:1 on an etching status disc. The
+    // generator derives the icon's ink from the same body it gives the disc (inkOn).
+    const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/chart-finish.generated.css'), 'utf8');
+    for (const finish of ['pigment', 'etching', 'tone']) {
+      for (let n = 1; n <= 8; n++) {
+        const re = new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*clamp\\(0, \\(0\\.565 - l\\)`);
+        assert.match(css, re, `${finish} slot ${n}`);
+      }
+      assert.match(css, new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-s\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*var\\(--hs-state-hue\\)`), `${finish} status`);
+    }
+  });
+});
