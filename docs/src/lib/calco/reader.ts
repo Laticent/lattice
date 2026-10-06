@@ -189,6 +189,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		h: number;
 		text: string;
 		lead: boolean;
+		/** The lead space is the trailing space of the PREVIOUS text node, drawn in its font. */
+		leadFromPrev?: boolean;
 		/** Preformatted: the word carries its own spaces and never gets a separator. */
 		pre: boolean;
 		/** Offsets in `node`, to measure the word again after hiding. */
@@ -238,8 +240,12 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			transform: cs.textTransform || 'none',
 			underline: (cs.textDecorationLine || '').includes('underline'),
 			strike: (cs.textDecorationLine || '').includes('line-through'),
-			ligatures: cs.fontVariantLigatures !== 'none',
+			// Chrome draws letter-spaced text without ligatures (CSS Text 3 §8.2), so an "fi"
+			// in a tracked heading is two letters, and the office file must not join them.
+			ligatures: cs.fontVariantLigatures !== 'none' && !(cs.letterSpacing !== 'normal' && Number.parseFloat(cs.letterSpacing) !== 0),
 		};
+		const caps = cs.fontVariantCaps || '';
+		if (caps === 'small-caps' || caps === 'all-small-caps' || /small-caps/.test(cs.fontVariant || '')) style.smallCaps = true;
 		if (flat) style.flatColor = flat;
 		const pre = isPre(cs);
 		const value = node.nodeValue || '';
@@ -351,7 +357,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const lower = !!prev && w.y > prev.y + prev.h * 0.5;
 			const back = !!prev && (rtl ? w.x + w.w > prev.x + 1 : w.x < prev.x + prev.w - 1);
 			if (!prev || (lower && back)) lines.push([]);
-			else if (!w.pre && !w.lead && prev.node !== w.node && /\s$/.test(prev.node.nodeValue || '')) w.lead = true;
+			else if (!w.pre && !w.lead && prev.node !== w.node && /\s$/.test(prev.node.nodeValue || '')) {
+				w.lead = true;
+				w.leadFromPrev = true;
+			}
 			lines[lines.length - 1].push(w);
 			prev = w;
 		}
@@ -435,6 +444,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			align,
 			lines: lines.map((line) => {
 				const runs: TextRun[] = [];
+				// One undecorated copy per style, so consecutive spaces merge into one run.
+				const plain = new Map<TextStyle, TextStyle>();
+				const plainOf = (st: TextStyle) => {
+					let hit = plain.get(st);
+					if (!hit) plain.set(st, (hit = { ...st, underline: false, strike: false }));
+					return hit;
+				};
 				const push = (text: string, style: TextStyle) => {
 					const tail = runs[runs.length - 1];
 					if (tail && tail.style === style) tail.text += text;
@@ -455,11 +471,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				line.forEach((word, i) => {
 					if (i) {
 						const before = line[i - 1];
-						// The separator belongs to the run BEFORE it, so an underlined link that
-						// starts a phrase is not underlined under its leading space.
+						// The separator is drawn in the font of the text node it came from: a space
+						// that starts " now render" is the body font, not the code chip's before it
+						// (a monospace space is twice as wide: "roadmap  now"). It never carries an
+						// underline or strike, so a link is not underlined under its outer space.
 						const sep = word.lead ? ' ' : '';
-						if (sep) push(sep, before.style);
-						const expected = sep ? advance(' ', before.style) : 0;
+						const from = word.leadFromPrev ? before.style : word.style;
+						const sepStyle = from.underline || from.strike ? plainOf(from) : from;
+						if (sep) push(sep, sepStyle);
+						const expected = sep ? advance(' ', sepStyle) : 0;
 						const gap = rtl ? before.x - (word.x + word.w) : word.x - (before.x + before.w);
 						if (gap - expected > minGap(word.style, before.style !== word.style)) spacer(gap - expected, word.style);
 					}

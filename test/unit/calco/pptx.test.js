@@ -52,6 +52,16 @@ describe('calco pptx', () => {
     assert.match(await zip.file(notes[0]).async('string'), /Say this/);
   });
 
+  test('small caps ride as cap="small"; the picture spans the exact slide width', async () => {
+    const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'Pain', style: style({ smallCaps: true }) }, { text: ' plain', style: style() }]])] }] };
+    const { zip, xml } = await slideXml(deck);
+    assert.match(xml, /<a:rPr lang="en-US" cap="small"[^>]*>(?:(?!<\/a:r>).)*<a:t>Pain<\/a:t>/s);
+    assert.equal((xml.match(/cap="small"/g) || []).length, 1, 'only the small-caps run');
+    const pres = await zip.file('ppt/presentation.xml').async('string');
+    const slideCx = pres.match(/<p:sldSz cx="(\d+)"/)[1];
+    assert.equal(xml.match(/<p:pic>.*?<a:ext cx="(\d+)"/s)[1], slideCx, 'no 1px sliver at the right edge');
+  });
+
   test('pptxPageSize: 16:9 is LAYOUT_WIDE, other aspects keep a 13.333in longest edge', () => {
     assert.deepEqual(pptxPageSize(1280, 720), { w: 13.333, h: 7.5, wide: true });
     assert.deepEqual(pptxPageSize(1080, 1920), { w: 7.5, h: 13.333, wide: false });

@@ -160,6 +160,12 @@ describe('calco odp — editable text', () => {
     assert.match(await read(zip, 'settings.xml'), /"EmbedFonts" config:type="boolean">true/);
   });
 
+  test('small caps become fo:font-variant', async () => {
+    const deck = picture(1);
+    deck.slides[0].frames = [frame([[{ text: 'Pain', style: style({ smallCaps: true }) }]])];
+    assert.match(await read((await open(deck)).zip, 'content.xml'), /fo:font-variant="small-caps"/);
+  });
+
   test('a run with no embedded face names its family instead', async () => {
     const deck = picture(1);
     deck.slides[0].frames = [frame([[{ text: 'x', style: style({ family: 'Georgia' }) }]])];

@@ -188,6 +188,10 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .grad p { margin: 0; color: rgba(255, 255, 255, 0.76); letter-spacing: 3px; font-size: 14px; }
   .grad .plain { letter-spacing: normal; }
   .tall { left: 40px; top: 20px; width: 600px; font: 20px/1.5 sans-serif; }
+  .sc { left: 40px; top: 680px; font-size: 18px; }
+  .sc .k { font-variant: small-caps; }
+  .sc code { font: 14px monospace; padding: 0 3px; }
+  .lig { left: 400px; top: 680px; font-size: 22px; letter-spacing: 0.5px; }
   .vpill { left: 700px; top: 640px; width: 120px; text-align: center; font-size: 14px; }
   .vpill::before { content: ""; display: inline-block; width: 24px; height: 12px; background: #063; }
   .rpill { left: 900px; top: 640px; width: 200px; text-align: right; font-size: 14px; }
@@ -207,6 +211,8 @@ third</pre>
   <pre class="wrapcode">const value = "a long string that wraps";</pre>
   <p class="chip"><code>render</code> is derived</p>
   <div class="grad"><p>THE PREMISE</p><p class="plain">Not spaced</p></div>
+  <p class="sc"><span class="k">Pain</span> scale <code>roadmap</code> now render</p>
+  <p class="lig">office first</p>
   <p class="vpill">Speed</p>
   <p class="rpill">Ends early</p>
   <p class="tall">one two three four five<br>six <span style="font-size: 40px">BIG</span> seven<br>eight nine ten</p>
@@ -294,5 +300,22 @@ describe('calco reader: the review cases', () => {
   test('a right-aligned line that ends before a ::after icon keeps its end', () => {
     const f = find(/Ends early/);
     assert.ok(f.x + f.w <= 900 + 200 - 25, `the box ends at ${f.x + f.w}, over the 30px icon`);
+  });
+
+  test('small caps are read, and tracked text is read without ligatures (as Chrome draws it)', () => {
+    const sc = find(/scale/).lines[0];
+    assert.equal(sc.find((r) => r.text.includes('Pain')).style.smallCaps, true);
+    assert.equal(sc.find((r) => r.text.includes('scale')).style.smallCaps, undefined);
+    assert.equal(find(/office first/).lines[0][0].style.ligatures, false);
+  });
+
+  test('a space after a code chip is drawn in the body font, not the chip font', () => {
+    const runs = find(/now render/).lines[0];
+    const i = runs.findIndex((r) => r.text.includes('roadmap'));
+    const code = runs[i].style;
+    assert.ok(!/\s$/.test(runs[i].text), `the chip run "${runs[i].text}" carries no trailing space`);
+    const space = runs.slice(i + 1).find((r) => r.text.startsWith(' ') || r.text === ' ');
+    assert.ok(space, JSON.stringify(runs.map((r) => r.text)));
+    assert.notEqual(space.style.family, code.family);
   });
 });

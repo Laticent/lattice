@@ -92,7 +92,11 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 	const H = deck.height > 0 ? deck.height : 720;
 	const page = pptxPageSize(W, H);
 	// The deck's px map onto the page's inches; font sizes scale the same way.
-	const inPerPx = page.w / W;
+	// LAYOUT_WIDE is 12192000 EMU, a hair over the 13.333in PptxGenJS names it by; the picture
+	// and the px→in scale use the exact width, or a 1px sliver of slide shows at the right edge.
+	const slideW = page.wide ? 12192000 / 914400 : page.w;
+	const slideH = page.wide ? 6858000 / 914400 : page.h;
+	const inPerPx = slideW / W;
 	const ptScale = (inPerPx * PX_PER_IN) * PT_PER_PX;
 	const inch = (px: number) => Math.round(px * inPerPx * 10000) / 10000;
 	const points = (px: number) => Math.round(px * ptScale * 100) / 100;
@@ -127,6 +131,10 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		};
 		if (s.alpha < 1 && !s.flatColor) opts.transparency = Math.round((1 - s.alpha) * 100);
 		if (s.letterSpacing) opts.charSpacing = points(s.letterSpacing);
+		// PptxGenJS has no small-caps option, but writes `lang` into <a:rPr> unescaped, so the
+		// attribute rides in it: `lang="en-US" cap="small"`. A constant, never page text.
+		// (pptx.test.js pins the output, so a PptxGenJS that starts escaping it fails loudly.)
+		if (s.smallCaps) opts.lang = 'en-US" cap="small';
 		if (s.underline) opts.underline = { style: 'sng' };
 		if (s.strike) opts.strike = 'sngStrike';
 		if (breakLine) opts.breakLine = true;
@@ -138,7 +146,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		const s = pptx.addSlide();
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
-		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: page.w, h: page.h, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
+		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
 		for (const frame of slide.frames || []) {
 			const lines = frame.lines;
 			if (!lines.some((l) => l.length)) continue;

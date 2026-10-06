@@ -150,7 +150,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const textStyles = new Map<string, string>();
 	const textStyle = (s: TextStyle): string => {
 		const face = faceFor(s, used);
-		const key = JSON.stringify([face ? used.indexOf(face) : s.family, s.weight, s.italic, s.size, s.color, s.alpha, s.flatColor, s.letterSpacing, s.transform, s.underline, s.strike]);
+		const key = JSON.stringify([face ? used.indexOf(face) : s.family, s.weight, s.italic, s.size, s.color, s.alpha, s.flatColor, s.letterSpacing, s.transform, s.underline, s.strike, !!s.smallCaps]);
 		const hit = textStyles.get(key);
 		if (hit) return hit;
 		const name = `T${textStyles.size + 1}`;
@@ -173,6 +173,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			`fo:font-style="${italic ? 'italic' : 'normal'}"`,
 			s.letterSpacing ? `fo:letter-spacing="${cm(s.letterSpacing)}"` : '',
 			TRANSFORMS.has(s.transform) ? `fo:text-transform="${s.transform}"` : '',
+			s.smallCaps ? 'fo:font-variant="small-caps"' : '',
 			s.underline ? 'style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"' : '',
 			s.strike ? 'style:text-line-through-style="solid"' : '',
 		].filter(Boolean);

@@ -34,6 +34,8 @@ export interface TextStyle {
 	strike: boolean;
 	/** False when the page turned ligatures off (`font-variant-ligatures: none`), as code does. */
 	ligatures: boolean;
+	/** CSS `font-variant-caps: small-caps` (or `all-small-caps`). */
+	smallCaps?: boolean;
 }
 
 /** A stretch of text in one style. `text` is the SOURCE text, before `transform`. */

@@ -171,6 +171,10 @@ finding below was reproduced, fixed and given a test:
 | A wrapper flipped `:first-child` and changed paint without moving a word | the hide also compares the paint of the parents and siblings, and falls back to the color freeze |
 | On iOS (Collabora Office) the `.odp` drew Outfit in a system font, and the wider text ran out of its cards | a pinned variable face kept the variable font's names (every Outfit weight said "Outfit Thin", with one PostScript name), and iOS matches by those; the `.odp` now writes each face as a family of its own, renamed inside the file, as the `.pptx` does |
 | A centered pill label beside a `::before` icon lost its first letter under the icon ("peed"); a right-aligned line ending before an `::after` icon would slide the same way | a centered box is centered on its text, not its block; a right-aligned box ends where its lines end |
+| Small caps came out as mixed case ("Pain" for PAIN on journey legends) | `smallCaps` is read and written: `fo:font-variant="small-caps"` in the `.odp`, `cap="small"` in the `.pptx` |
+| The space after a code chip took the chip's monospace width ("roadmap  now") | a separator takes the font of the text node it came from, and never an underline or strike |
+| "fi"/"fl" joined into ligatures in letter-spaced headings, where Chrome draws two letters | letter-spaced text is read with ligatures off, which strips `liga` from that face |
+| A 1px sliver of slide showed at the right edge of every dark `.pptx` slide | the picture spans LAYOUT_WIDE's exact 12192000 EMU, not 13.333in |
 | PowerPoint would re-wrap a line set in a wider substitute font | `.pptx` boxes do not wrap, and the fonts are now embedded (§6) |
 
 Recorded, not fixed: PowerPoint itself (§6), the AGPL license for a library meant for
@@ -211,6 +215,19 @@ Chrome's and code within about 2.5px.
 rule for "exactly" line spacing is not published, so its baselines may sit a few pixels
 from LibreOffice's. The baseline check deck is the one-look test: open it in PowerPoint and
 see whether the letters stand on the red lines (`followups.d/2556-p2-verify-editable-pptx-in-powerpoint.md`).
+
+**The hard-deck sweep (2026-10-06).** Seven decks (every chart family, hybrid SVG/HTML
+charts, Mermaid, pane layouts, and the 58-slide jargon gallery; 121 slides) were exported
+both ways and rendered by LibreOffice 26.8, and four independent reviewers compared every
+slide with Chrome. No text was missing, doubled or cut anywhere. Their export defects are the
+last rows of §5a. What they found that the export does not cause: hairlines and dashed
+borders come out lighter, and a tab's corner differs where it meets its card, because the
+picture is a screenshot and Chrome's PDF is printed; the picture `.pptx` has always had the
+same pixels (compared byte for byte in the rule rows). One measured gap remains: the `.pptx`
+opened in LibreOffice sits 0.2–2pt lower than Chrome, varying with font and size, while the
+`.odp` lands on Chrome. Placement is NOT tuned to LibreOffice's `.pptx` import, because the
+`.pptx` is for PowerPoint and Google Slides, which LibreOffice is not; that call waits on
+PowerPoint (`followups.d/2556-p2-verify-editable-pptx-in-powerpoint.md`).
 
 ## 7. How it is verified
 
