@@ -1262,6 +1262,11 @@ describe('list-steps registers and the split-panel points column are judged by l
     for (const fm of ['header: ~\n', 'header: null\n', 'glossary:\n  header: Nested\n']) assert.deepEqual(deck(fm, mirrored), [1], fm);
     assert.deepEqual(deck('', '<!-- _class: title -->\n\n# T\n\n```md\n<!-- header: "x" -->\n```\n', mirrored), []);
     assert.deepEqual(deck('', '<!-- _class: title -->\n\n# T\n\nWrite `<!-- header: Band -->` to set it.\n', mirrored), []);
+    // The engine's directive walk (the fifth checker): a multi-line comment is one directive, a
+    // blockquoted one applies, and a comment with text after it on its line is not a directive.
+    assert.deepEqual(deck('', `<!--\nheader: Q3\n-->\n${mirrored}`), [1]);
+    assert.deepEqual(deck('', '<!-- _class: title -->\n\n> <!-- header: Q3 -->\n\n# T\n', mirrored), [2]);
+    assert.deepEqual(deck('', `<!-- header: Q3 --> trailing text\n${mirrored}`), []);
   });
 
   test('a literal deck prices pills as code in a claim panel and a code heading too (the third checker)', () => {
@@ -1271,6 +1276,16 @@ describe('list-steps registers and the split-panel points column are judged by l
     const code = (fm) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: hall\n${fm}---\n\n<!-- _class: code -->\n\n## Ship \`{Orders, c2}\` and \`{Billing, c3}\` tonight\n\n\`\`\`js\n${'x();\n'.repeat(7)}\`\`\`\n`, { names: new Set(['code']), modifiers: new Set(), capacity: {} }).filter((f) => f.rule === 'capacity-scale');
     assert.equal(code('inline-code: literal\n').length, 1, 'the heading wraps to two lines as code');
     assert.deepEqual(code(''), [], 'as two pills it sets on one line');
+  });
+
+  test('the header walk stays linear on a closed comment before many unclosed openers (#22)', () => {
+    const src = (n) => `---\nmarp: true\nvenue: hall\n---\n\n<!-- -->${'<!--'.repeat(n)}\n`;
+    const time = (n) => { const t = Date.now(); core.lintTextWith(src(n), v); return Date.now() - t; };
+    time(1000);
+    // Quadratic, a 4x input took 16x the time (9.6 s at 250 KB, the fifth checker); linear it is ~4x.
+    const a = time(25000);
+    const b = time(100000);
+    assert.ok(b < 12 * Math.max(a, 20), `25k openers ${a} ms, 100k openers ${b} ms`);
   });
 
   test('a quoted pill label keeps its comma, and an icon-only pill has no label', () => {

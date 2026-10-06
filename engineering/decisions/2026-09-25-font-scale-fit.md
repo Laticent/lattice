@@ -1237,12 +1237,19 @@ the header read took `header: "" # none yet`, `~` and `null` as a header and a `
 quoted in a code fence as a directive. A fourth checker, on those fixes alone, found the YAML
 reading wrong in the other direction: the engine draws `header: ~` and `header: null` as the text
 `~` and `null`, so treating them as no header missed 12 clips on its probe deck. It also found a
-directive written in inline code read as real, and a nested `header:` read as absent. Lint now
-reads the header with the engine's own parsers (`parseFrontMatter` and `parseCommentDirectives`,
-lib/engine/directives.js), over only the comments that stand as their own block outside a fence,
-which is what the engine's markdown-it pass collects. On all seven of the checkers' header probe
-decks it matches the export slide for slide, but for one slide whose class directive follows a
-fence, a shape `pointsAt` does not describe. Every one has a test that fails without its fix. The fourth checker also measured a gap this change leaves: a pill in a points column is priced
+directive written in inline code read as real, and a nested `header:` read as absent. A fifth
+checker found the next cut, which ran the engine's `parseCommentDirectives` over each comment line,
+quadratic on one line holding a closed comment and many unclosed openers (9.6 s at 250 KB, against
+51 ms on `main`), and blind to a multi-line `<!--\nheader: X\n-->`, which the engine applies.
+`parseCommentDirectives` is not the engine's production path either: the engine reads each
+`html_block` and `html_inline` token with `readDirectiveComment`. Lint now reads the deck's
+`header:` with the engine's `parseFrontMatter` (any indent, the last key wins) and each slide with
+the walk the `track` rule already trusts, generalized to any vocabulary (`scanSlideDirective`): a
+multi-line block read whole, `readDirectiveComment` on each, an indented or in-markup comment
+declined, a comment with text after it on its line not a directive, and a blockquoted one read
+without its quote markers. On the checkers' 27 header shape decks the headed verdict matches the
+engine's `<header>` on every slide, and the adversarial line lints in 114 ms at 500 KB. Every one has
+a test that fails without its fix. The fourth checker also measured a gap this change leaves: a pill in a points column is priced
 light. Three `watermark` points each holding one to eight `{Name, cN}` pills clip at hall by 188 and
 207 px and read 14% under, while the same text as plain words fits. The `tt` of padding under-prices
 a pill's chrome. `main` misses those slides too; measuring a pill's width is logged as the next step
@@ -1259,7 +1266,7 @@ deck's own size. Fifteen of the 30 are in the scored five (`gallery.md` 12, bloo
 1); the other 15 are `system-design-foundations` (5), `diagram.gallery.md` (3),
 `list-steps.gallery.md` (3), `accent-on-accent` (2) and `slide-edge` (2).
 
-**Bundle.** The Studio's eager JS grows by 2,331 bytes gz against `main` 9b46f54 (about 500 of them lib/engine/directives.js, which lint now imports to read headers the engine's way), measured the way
+**Bundle.** The Studio's eager JS grows by 2,424 bytes gz against `main` 9b46f54 (about 500 of them lib/engine/directives.js, whose `parseFrontMatter` lint now imports to read a deck's header the engine's way), measured the way
 CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:route-budget`); the
 playground reads +1 B of gzip noise, as on #2548. Given back first: `mirror` and `milestone lettered` are baked as their twins' keys, and
 `vertical compact` stores only the frame field that differs (`calloutAt`). Declared in
