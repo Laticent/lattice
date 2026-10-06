@@ -102,6 +102,9 @@ Exit (an invisible hit area around a drawn shape), so nothing visible grows.
 
 ## Slices — one PR, one commit each, after #2553 merges
 
+0. **Pre-warm on intent** (owner aligned 2026-10-06): fetch the walkthrough engine and the lesson kit when
+   Learn rows appear, a track and its `voice.json` on row highlight, everything at once on a `?lesson=` link;
+   nothing under Save-Data. `followups.d/2553-p2-lesson-intent-prewarm.md`.
 1. **Reach**: ☰ opens the palette; menu rows as its empty state.
 2. **Action rows**: Source and Preview rows; Slide settings rename; strip cluster moves.
 3. **44px floor**: header, chips, strip.
