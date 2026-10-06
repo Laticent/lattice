@@ -1,0 +1,52 @@
+# THROWAWAY: the code-package worker (the Studio's frame, FRAME_BOOTSTRAP, the policy, the wall,
+# the import() gate) in four configurations: Playwright's three engines, and SHIPPING Chrome,
+# Firefox (Ubuntu) and Safari (macOS) via their own WebDriver. From claude/sandbox-probe-run only.
+name: sandbox probe (throwaway)
+on:
+  push:
+    branches: [claude/sandbox-probe-run]
+permissions:
+  contents: read
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+        working-directory: .github/shipping-probe
+      - run: npm install --no-audit --no-fund --no-save acorn@8.17.0
+      - run: npx playwright install --with-deps chromium firefox webkit
+        working-directory: .github/shipping-probe
+      - run: node pw-probe.mjs
+        working-directory: .github/shipping-probe
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+        working-directory: .github/shipping-probe
+      - run: npm install --no-audit --no-fund --no-save acorn@8.17.0
+      - run: google-chrome --version; firefox --version
+      - run: node probe.mjs
+        working-directory: .github/shipping-probe
+        env: { BROWSERS: 'chrome,firefox' }
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+        working-directory: .github/shipping-probe
+      - run: npm install --no-audit --no-fund --no-save acorn@8.17.0
+      - run: sudo safaridriver --enable; defaults read /Applications/Safari.app/Contents/Info CFBundleShortVersionString
+      - run: node probe.mjs
+        working-directory: .github/shipping-probe
+        env: { BROWSERS: 'safari' }
