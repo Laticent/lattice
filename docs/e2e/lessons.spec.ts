@@ -109,6 +109,26 @@ test('"Speaker notes" opens the notes field of the slide when the user waits', a
 	await expect(page.locator(STAGE)).toContainText('saves with the deck', { timeout: 20_000 });
 });
 
+// SHARING. The oracle is the format's own options step, opened by the lesson, and a Download
+// button left unpressed: no download event fires while the lesson runs to its end.
+for (const [query, question, anchor, words] of [
+	['webpage', 'How do I share a deck that plays in a browser?', 'html-download', 'Download webpage'],
+	['powerpoint', 'How do I get a PowerPoint file?', 'pptx-download', 'Download PowerPoint'],
+] as const) {
+	test(`"${question}" opens its export step when the user waits, and leaves the download to them @crosswidth`, async ({ page }) => {
+		let downloads = 0;
+		page.on('download', () => downloads++);
+		await search(page, query);
+		await page.getByRole('option', { name: question, exact: true }).click();
+		await expect(page.locator(STAGE)).toContainText('Click Share', { timeout: 20_000 });
+		await expect(page.locator(`[data-demo="${anchor}"]`)).toBeVisible({ timeout: 40_000 });
+		await expect(page.locator(STAGE)).toContainText(words, { timeout: 20_000 });
+		await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 40_000 });
+		await expect(page.locator(`[data-demo="${anchor}"]`)).toBeEnabled();
+		expect(downloads).toBe(0);
+	});
+}
+
 // REACH (P3 of the lessons work): lessons are found from the whole site, finished ones are
 // remembered, and a panel offers its lesson the first time someone opens it.
 

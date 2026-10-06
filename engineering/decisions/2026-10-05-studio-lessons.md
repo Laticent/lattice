@@ -151,7 +151,7 @@ contract asks. A page that uses both has two contexts, well under Chromium's per
 | **Basics** (slice 1) | Start a new deck · Write a slide · Add a slide · Change the theme · Present · Export a PDF |
 | **Building** (slice 3) | Charts · Tables · Comparisons · Images · Speaker notes |
 | **Polish** (slice 3) | Coach · Fix all · Reshape · Light and dark |
-| **Sharing** | The HTML player · PowerPoint |
+| **Sharing** (slice 5) | The HTML player · PowerPoint |
 
 ## Caption: `bar` at every width (owner ruling 2026-10-06)
 
@@ -242,6 +242,23 @@ for panels whose lesson copes with the panel already being open. Share and the s
 left out for that reason: their lessons start by pointing at the button that opens them, which the
 open sheet covers.
 
+## Sharing (slice 5)
+
+**Two lessons, one shape.** `lessons/sharing.ts` answers "How do I share a deck that plays in a
+browser?" (the Webpage player) and "How do I get a PowerPoint file?". Each takes the PDF lesson's
+path: Share, the format's row, its options step, and a turn at the Download button that has no
+`perform`. So a learner who waits sees the lesson open Share and the format for them, and then stop:
+the file is theirs to make, and the e2e test fails if a download fires while either lesson runs.
+
+**The lines say what the file is.** The webpage lesson says the file plays offline and needs no
+Lattice to open. The PowerPoint lesson says each slide arrives as a picture (the export is one
+image per slide), so edits belong in the Studio and a fresh export. A learner who expected
+editable PowerPoint text finds out before sending the file, not after.
+
+**New anchors.** The PowerPoint step shares the PDF step's panel, so its Download button now reads
+`data-demo="pptx-download"` (PDF keeps `pdf-download`), and the webpage step's button is
+`html-download`. The rows already carried `share-pptx` and `share-html`.
+
 ## Slices
 
 1. **This PR.** The action list, the lesson kit, the Learn group in the palette, six Basics lessons,
@@ -249,11 +266,11 @@ open sheet covers.
 2. **Voice.** Shipped: see §Voice above.
 3. **Retire the long tours.** Shipped: see §Building, Polish, and the end of the long tours.
 4. **Reach.** Shipped: see §Reach.
+5. **Sharing.** Shipped: see §Sharing.
 
 Slices 2–4 shipped together in one PR, one commit each.
 
 ## Open questions
 
-- None blocking. Still to come, recorded in `followups.d/`: the Sharing track (the HTML player,
-  PowerPoint), locking in the Studio's smaller startup bundle with a route-budget rebaseline, and a
-  listen on a real iPhone.
+- None blocking. Still to come, recorded in `followups.d/`: locking in the Studio's smaller startup
+  bundle with a route-budget rebaseline, and a listen on a real iPhone.
