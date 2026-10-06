@@ -163,3 +163,48 @@ alternative. A 36-state chain reads routed 2, bounded 26 (main: 1, 18), and a te
 - **Speed.** The follow-up's original done-when also asked for a faster GRAPH LAYOUT. The
   brief replaced that with drawing quality. §4 measures the cost instead: none on live typing,
   and five more routings on the stress deck's search replay.
+
+## 6. Amendment: A as an opt-in, `rearrange` (2026-10-06, the owner's call)
+
+The owner's pick on A: **an option an author enables, never the default.** Kernel option
+`order: 'graph'`; the author's word is the `rearrange` modifier on `state-chart` and
+`flowchart` (`data-sc-order` / `data-fc-order` on the figure). Off, every result is the
+same as before, byte for byte.
+
+**What it does.** `graphOrder` orders the shapes by the graph. It runs Coffman–Graham on the
+reversed graph, so the layers fill from the sources down, and it orders each layer by the
+mean position of the shapes it comes from. A side state written last (Blocked) lands in
+the layer after the state it leaves (In Progress), beside that state's other successor (Code
+Review). The textbook run from the sinks up sank every sink, Blocked included, to the end
+ring's layer, so it was reversed. A chain comes back in its own order, so it draws as written.
+
+**Where it applies, and why there.** The graph order is not the order of every grid candidate.
+Measured that way, it crossed MORE than the written order: on the wrap generator's 200 charts,
+50 → 74 grid only and 43 → 64 with dagre, because layers did not line up with the grid's lines.
+So the pick is still made in written order, and `calm` adds one alternative: the same line
+count in the graph's order. It is kept when it has fewer faults and then fewer crossings, which
+is a lower bar than the spotless one the default holds, because the author asked for the
+states to move. The written-order alternatives (`calm` above) still run after it, so turning
+`rearrange` on never adds a crossing to a chart. A test holds this chart by chart on the wrap
+corpus.
+
+| Corpus | off | `rearrange` |
+|---|---|---|
+| wrap ratchet, 100 machines, grid only | 24 | **12** (`WRAP_GRAPH_BUDGET`) |
+| wrap generator, 200 machines, with dagre | 43 | 28 |
+| wrap generator, 200 machines, grid only | 50 | 34 |
+| shipped state-chart slides, 100 layouts | 4 | **2** |
+| hard faults | 0 | 0 |
+
+**The pin carries the order.** `Geometry.seq` names the order a drawing used, and the live
+pin replays it (`pipeline.ts`), as it does `breaks`. A `seq` that does not name every shape
+exactly once is refused (`placeFixed` returns null), and the pipeline's existing branch for a
+stale pin searches again.
+
+**Seen on the real export** (`examples/graph-chart-rearrange.md`, light and dark): the stress
+deck's ten-step pipeline goes from Blocked at the end to Blocked beside Code Review. An
+eight-step sales flowchart with a trial and a legal detour goes from 2 crossings to 0 at the
+same type size. A chain with `rearrange` draws exactly as without it. The badges keep
+numbering states by their place in the list, so a rearranged chart still shows the written
+order.
+

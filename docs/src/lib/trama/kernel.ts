@@ -267,7 +267,16 @@ export function graphLayoutKernel(): GraphKernel {
         return true;
       }
       const lines = opts.grid as number;
-      const N = shapes.length;
+      // The order the grid reads in: the authored one, or `seq` (the shapes' ids in another
+      // order, `graphOrder`'s for a chart that asked for `order: 'graph'`), which must name every
+      // shape exactly once.
+      let seq = shapes;
+      if (opts.seq) {
+        const byId = new Map(shapes.map((x) => [x.id, x]));
+        if (opts.seq.length !== shapes.length || new Set(opts.seq).size !== shapes.length || !opts.seq.every((id) => byId.has(id))) return false;
+        seq = opts.seq.map((id) => must(byId, id));
+      }
+      const N = seq.length;
       if (!(lines >= 1) || N < 2) return false;
       // Line li holds shapes [cut[li], cut[li + 1]): the even split, or `breaks` when given
       // (a near-even split, see `unevenSplits`), every line of which holds two shapes or more.
@@ -293,7 +302,7 @@ export function graphLayoutKernel(): GraphKernel {
       // line of one state and the ring, which read as a stray state hanging off the chain.
       if (nLines > 1) {
         for (let li = 0; li < nLines; li++) {
-          const real = shapes.slice(cut[li], cut[li + 1]).filter((x) => x.shape !== 'start' && x.shape !== 'end').length;
+          const real = seq.slice(cut[li], cut[li + 1]).filter((x) => x.shape !== 'start' && x.shape !== 'end').length;
           if (real < 2) return false;
         }
       }
@@ -305,7 +314,7 @@ export function graphLayoutKernel(): GraphKernel {
       const along = (n: DagreNode) => (lr ? n.width : n.height);
       const across = (n: DagreNode) => (lr ? n.height : n.width);
       const colA: number[] = new Array(per).fill(0), lineC: number[] = new Array(nLines).fill(0);
-      shapes.forEach((s, i) => {
+      seq.forEach((s, i) => {
         const n = nodeOf(s.id);
         colA[colOf[i]] = Math.max(colA[colOf[i]], along(n));
         lineC[lineOf[i]] = Math.max(lineC[lineOf[i]], across(n));
@@ -315,7 +324,7 @@ export function graphLayoutKernel(): GraphKernel {
       for (let j = 0; j < per; j++) { colStart.push(acc); acc += colA[j] + flowGap; }
       acc = 0;
       for (let j = 0; j < nLines; j++) { lineStart.push(acc); acc += lineC[j] + lineGap; }
-      shapes.forEach((s, i) => {
+      seq.forEach((s, i) => {
         const n = nodeOf(s.id);
         // A machine's markers hug the state they lead into or out of: centered in a column
         // as wide as the state under it, an entry dot stood a column's width from its line.
@@ -2211,7 +2220,7 @@ export function graphLayoutKernel(): GraphKernel {
       const chain = isChain(model);
       const st = opts.stage;
       const pref: 'lr' | 'tb' = dirs.length === 1 ? dirs[0] : st && st.h > st.w ? 'tb' : 'lr';
-      type Cand = { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null; dagre?: boolean; ceil?: number };
+      type Cand = { lines: number; dir: 'lr' | 'tb'; bound: number; geo: Geometry | null; dagre?: boolean; ceil?: number; seq?: string[] };
       const cands: Cand[] = [];
       // A machine that branches keeps dagre's layout as its one-line candidate. Its bound is
       // its routed scale; until routed, only its ceiling is known (see dagreCeil).
@@ -2233,6 +2242,15 @@ export function graphLayoutKernel(): GraphKernel {
         if (!d) { cands.splice(cands.indexOf(dCand), 1); dCand = null; return true; }
         dCand.geo = d.geo; dCand.dir = d.geo.dir; dCand.bound = d.geo.scale ?? 0;
         return true;
+      };
+      const byGraph = opts.order === 'graph';
+      const seqs = new Map<number, string[] | undefined>();
+      const seqFor = (L: number) => {
+        if (!seqs.has(L)) {
+          const o = graphOrder(model, Math.ceil(shapes.length / L));
+          seqs.set(L, o.every((id, i) => id === shapes[i].id) ? undefined : o);
+        }
+        return seqs.get(L);
       };
       for (const d of dirs) {
         for (let L = chain ? 1 : 2; L <= Math.ceil(shapes.length / 2); L++) {
@@ -2259,11 +2277,12 @@ export function graphLayoutKernel(): GraphKernel {
       if (!cands.length) { const d = dagreNow(); return failed ? null : d ? d.geo : null; }
       cands.sort((a, b) => (a.lines - b.lines) || ((a.dir === pref ? 0 : 1) - (b.dir === pref ? 0 : 1)));
       const routeGrid = (c: Cand, breaks: number[] | null): Geometry | null => {
-        const g = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false, ...(breaks ? { breaks } : {}) }, dagre) as Geometry | null;
+        const g = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false, ...(breaks ? { breaks } : {}), ...(c.seq ? { seq: c.seq } : {}) }, dagre) as Geometry | null;
         if (!g) return null;
         const geo = scaled(g);
         geo.lines = c.lines;
         if (breaks) geo.breaks = breaks;
+        if (c.seq) geo.seq = c.seq;
         return geo;
       };
       const route = (c: Cand) => {
@@ -2291,14 +2310,32 @@ export function graphLayoutKernel(): GraphKernel {
        */
       const SPLIT_TRIES = 1;
       const spotless = (g: Geometry) => !hard(g) && !soft(g) && g.crossings === 0;
+      const fewer = (a: Geometry, b: Geometry) => cmp([hard(a), soft(a), a.crossings], [hard(b), soft(b), b.crossings]) < 0;
       const calm = (c: Cand): Geometry | null => {
         const g = c.geo;
         if (!g || c.dagre || spotless(g)) return g;
         const floor = (g.scale ?? 0) * 0.97;
         const better = (alt: Geometry | null) => !!alt && spotless(alt) && (alt.scale ?? 0) >= floor;
+        // THE GRAPH'S ORDER, ASKED FOR (`order: 'graph'`, an author's opt-in, never the default):
+        // the same lines in the order `graphOrder` reads the graph, kept when it has fewer faults
+        // and then fewer crossings. Fewer, not spotless, because the author asked for the states
+        // to move; and only as an alternative to the pick, never as the pick's own order, because
+        // measured as the order of every candidate it crossed MORE (the wrap corpus 43 -> 64).
+        if (byGraph) {
+          const seq = seqFor(c.lines);
+          const alt = seq ? routeGrid({ ...c, seq }, null) : null;
+          if (alt && fewer(alt, g) && (alt.scale ?? 0) >= floor) {
+            if (spotless(alt)) return alt;
+            const rest = calmText(c, g, floor, better);
+            return rest !== g ? rest : alt;
+          }
+        }
+        return calmText(c, g, floor, better);
+      };
+      const calmText = (c: Cand, g: Geometry, floor: number, better: (alt: Geometry | null) => boolean): Geometry => {
         const splits: { breaks: number[]; bound: number }[] = [];
         for (const breaks of unevenSplits(shapes.length, c.lines)) {
-          const b = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false, boundsOnly: true, breaks }, dagre);
+          const b = layoutOnce(model, sizes, { ...opts, dir: c.dir, grid: c.lines, grow: false, boundsOnly: true, breaks, ...(c.seq ? { seq: c.seq } : {}) }, dagre);
           if (b) splits.push({ breaks, bound: Math.round(scaleOf(b.width, b.height) * 1000) / 1000 });
         }
         splits.sort((x, y) => y.bound - x.bound);
@@ -2400,6 +2437,89 @@ export function graphLayoutKernel(): GraphKernel {
       }
     }
     return out;
+  }
+
+  /**
+   * THE GRAPH'S OWN ORDER (`order: 'graph'`), for a wrapped grid: the shapes' ids in the order a
+   * width-bounded layering reads them, so the grid places a state beside the states it is
+   * joined to rather than where the text happened to list it (a side state such as Blocked,
+   * written last, lands beside the state it leaves). Coffman–Graham, deterministic:
+   *  1. The lines, forward: a back edge (`back`) reversed, a loop and a loose line dropped. If
+   *     that still holds a cycle, every line runs from the earlier-written shape to the later.
+   *  2. Labels from the sinks up (Coffman–Graham run on the reversed graph): the next label
+   *     goes to a shape whose successors are all labeled, the one whose successors' labels,
+   *     highest first, compare least; ties go to the shape written later.
+   *  3. Layers from the top: the highest-labeled shape whose predecessors all sit in an earlier
+   *     layer joins the current layer, which holds at most `width`.
+   *  4. Inside a layer, each shape sits at the mean position of the shapes it comes from
+   *     (barycenter); a source keeps its written position, and ties keep written order.
+   * A chain comes back in its own order, so a chain draws as it always did.
+   */
+  function graphOrder(model: GraphModel, width: number): string[] {
+    const shapes = model.shapes || [];
+    const n = shapes.length;
+    const at = new Map(shapes.map((x, i) => [x.id, i]));
+    const build = (byText: boolean) => {
+      const succ: Set<number>[] = shapes.map(() => new Set<number>()), pred: Set<number>[] = shapes.map(() => new Set<number>());
+      for (const e of model.edges || []) {
+        if (e.style?.loose || e.from === e.to) continue;
+        const a = at.get(e.from), b = at.get(e.to);
+        if (a == null || b == null) continue;
+        let u = a, v = b;
+        if (byText) { u = Math.min(a, b); v = Math.max(a, b); } else if (e.back) { u = b; v = a; }
+        if (u === v) continue;
+        succ[u].add(v); pred[v].add(u);
+      }
+      return { succ, pred };
+    };
+    let g = build(false);
+    {
+      // Kahn: does the forward graph hold a cycle?
+      const deg = g.pred.map((p) => p.size), q: number[] = [];
+      deg.forEach((d, i) => { if (!d) q.push(i); });
+      let seen = 0;
+      while (q.length) { const u = q.pop() as number; seen++; for (const v of g.succ[u]) if (!--deg[v]) q.push(v); }
+      if (seen < n) g = build(true);
+    }
+    const { succ, pred } = g;
+    // Coffman–Graham on the REVERSED graph, so the layers fill from the sources down: run from
+    // the sinks up, as the textbook does, every sink sank to the last layer, and a side state
+    // (Blocked) landed beside the end ring instead of beside the state it leaves.
+    const label = new Array(n).fill(0);
+    for (let k = 1; k <= n; k++) {
+      let best = -1, bestKey: number[] | null = null;
+      for (let i = n - 1; i >= 0; i--) {
+        if (label[i] || [...succ[i]].some((v) => !label[v])) continue;
+        const key = [...succ[i]].map((v) => label[v]).sort((x, y) => y - x);
+        let c = 0;
+        if (bestKey) for (let j = 0; j < Math.max(key.length, bestKey.length) && !c; j++) c = (key[j] ?? -1) - (bestKey[j] ?? -1);
+        if (!bestKey || c < 0) { best = i; bestKey = key; }
+      }
+      label[best] = k;
+    }
+    const layerOf = new Array(n).fill(-1);
+    const layers: number[][] = [[]];
+    for (let placed = 0; placed < n;) {
+      const cur = layers.length - 1;
+      let pick = -1;
+      for (let i = 0; i < n; i++) {
+        if (layerOf[i] >= 0 || [...pred[i]].some((u) => layerOf[u] < 0 || layerOf[u] >= cur)) continue;
+        if (pick < 0 || label[i] > label[pick]) pick = i;
+      }
+      if (pick < 0 || layers[cur].length >= Math.max(1, width)) { layers.push([]); continue; }
+      layers[cur].push(pick); layerOf[pick] = cur; placed++;
+    }
+    const out: number[] = [];
+    const pos = new Array(n).fill(-1);
+    for (const layer of layers) {
+      const bary = (i: number) => {
+        const ps = [...pred[i]].filter((p) => pos[p] >= 0);
+        return ps.length ? ps.reduce((a, p) => a + pos[p], 0) / ps.length : i;
+      };
+      const ranked = layer.map((i) => ({ i, b: bary(i) })).sort((x, y) => x.b - y.b || x.i - y.i);
+      for (const { i } of ranked) { pos[i] = out.length; out.push(i); }
+    }
+    return out.map((i) => shapes[i].id);
   }
 
   /**

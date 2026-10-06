@@ -81,6 +81,21 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
+<!-- _class: flowchart rearrange -->
+<!-- _footer: "Rearrange · flowchart rearrange — Shapes may leave their written order when that crosses fewer lines." -->
+
+## rearrange lets a detour sit beside the step it leaves.
+
+- Lead `pill` => Qualify => Demo => Proposal => Negotiate => Sign => Onboard => Renew
+- Renew `pill`
+- Negotiate -legal review-> Legal
+- Legal -cleared-> Sign
+- Demo -needs trial-> Trial
+- Trial -converted-> Proposal
+
+
+---
+
 <!-- _class: flowchart -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · flowchart — Three groups, a group-to-shape line and a disconnected shape." -->

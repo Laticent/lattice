@@ -127,7 +127,7 @@ describe('state chart — the figure through the real engine', () => {
 
 describe('state chart — variants', () => {
   test('the declared modifiers', () => {
-    assert.deepEqual(STATE_CHART_VARIANTS, ['lr', 'tb', 'inline', 'curved', 'unnumbered']);
+    assert.deepEqual(STATE_CHART_VARIANTS, ['lr', 'tb', 'inline', 'curved', 'unnumbered', 'rearrange']);
   });
 
   test('no direction token lets the fit choose; `lr` / `tb` pin; portrait turns `lr` to `tb`', () => {
@@ -136,6 +136,11 @@ describe('state chart — variants', () => {
     assert.match(render('- A\n  - -> B\n- B', 'state-chart tb'), /data-sc-dir="tb"/);
     const inner = '<h2>T</h2><ul><li>A<ul><li>-&gt; B</li></ul></li><li>B</li></ul>';
     assert.match(transformSection(inner, { classTokens: ['state-chart', 'lr'], orientation: 'portrait' }), /data-sc-dir="tb"/);
+  });
+
+  test('`rearrange` asks the layout for the graph\'s order; without it the figure says nothing', () => {
+    assert.match(render('- A\n  - -> B\n- B', 'state-chart rearrange'), /data-sc-order="graph"/);
+    assert.doesNotMatch(render('- A\n  - -> B\n- B'), /data-sc-order/);
   });
 
   test('`curved` is a paint setting; `unnumbered` drops the badges', () => {

@@ -63,6 +63,11 @@ const CROSSING_BUDGET = 31;
 // the other direction, and keeps either only if it routes with no crossing and no fault
 // (decision note 2026-10-06-trama-crossing-aware-wrap.md).
 const WRAP_CROSSING_BUDGET = 24;
+// The same corpus with `order: 'graph'` (the charts' `rearrange` modifier, an author's opt-in):
+// 12 when it was added. Used as the order of every candidate instead, the graph's order crossed
+// MORE (the same generator's 200 charts, grid only: 50 -> 74), so it only ever stands in for a
+// pick that crosses.
+const WRAP_GRAPH_BUDGET = 12;
 
 /** The probe's sizing: a stand-in for the painter's measurement, fixed so tests are exact. */
 function model(src) {
@@ -281,7 +286,7 @@ describe('graph-layout — the reading-order grid (wrap ratchet)', () => {
   test(`100 state machines on the grid: hard counts zero; crossings ≤ ${WRAP_CROSSING_BUDGET}`, () => {
     const words = ['Draft', 'Review', 'Approved', 'Queued', 'Running', 'Blocked', 'Paused', 'Failed', 'Retrying', 'Shipped', 'Closed', 'Archived', 'Triage', 'Staging'];
     const HARD = ['linesThroughShapes', 'linesThroughEnds', 'shapeOverlaps', 'labelsOffLine', 'endsOffBox'];
-    let crossed = 0, wrapped = 0;
+    let crossed = 0, wrapped = 0, crossedByGraph = 0;
     for (const seed0 of [3, 17]) {
       let seed = seed0;
       const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
@@ -315,10 +320,70 @@ describe('graph-layout — the reading-order grid (wrap ratchet)', () => {
         for (const h of HARD) assert.equal(geo.quality[h] || 0, 0, `${h} on seed ${seed0} chart ${t}`);
         crossed += geo.crossings;
         if ((geo.lines || 1) > 1) wrapped++;
+        // `order: 'graph'` (the `rearrange` modifier) on the same chart: never a hard fault,
+        // never MORE crossings than the authored order, since it only replaces a pick that
+        // crosses with one that crosses less.
+        const byGraph = K.layout({ shapes, groups: [], edges }, sizes, { wrap: true, labelSizes, stage, maxScale: 1.25, order: 'graph' }, null);
+        for (const h of HARD) assert.equal(byGraph.quality[h] || 0, 0, `${h} with order graph on seed ${seed0} chart ${t}`);
+        assert.ok(byGraph.crossings <= geo.crossings, `order graph crossed more on seed ${seed0} chart ${t}: ${byGraph.crossings} > ${geo.crossings}`);
+        crossedByGraph += byGraph.crossings;
       }
     }
     assert.ok(wrapped >= 90, `${wrapped} of 100 wrapped: the corpus must exercise the grid`);
     assert.ok(crossed <= WRAP_CROSSING_BUDGET, `${crossed} line crossings (budget ${WRAP_CROSSING_BUDGET})`);
+    assert.ok(crossedByGraph <= WRAP_GRAPH_BUDGET, `${crossedByGraph} line crossings with order graph (budget ${WRAP_GRAPH_BUDGET})`);
+  });
+
+  // The stress deck's ten-step pipeline: Blocked is written last but leaves In Progress.
+  const PIPELINE = (() => {
+    const names = ['Intake', 'Triage', 'Assigned', 'In Progress', 'Code Review', 'QA', 'Staging', 'Released', 'Blocked', 'Closed'];
+    const shapes = [{ id: 'start', name: '', parent: null, shape: 'start' }, ...names.map((n) => ({ id: n, name: n, parent: null, shape: 'box' })), { id: 'end', name: '', parent: null, shape: 'end' }];
+    const E = (from, to, label, back) => ({ from, to, dir: 'out', style: {}, label, back });
+    const edges = [E('start', 'Intake'), E('Intake', 'Triage'), E('Triage', 'Assigned'), E('Assigned', 'In Progress'), E('In Progress', 'Code Review'),
+      E('In Progress', 'Blocked', 'block'), E('Code Review', 'QA'), E('Code Review', 'In Progress', 'reject', true), E('QA', 'Staging'),
+      E('QA', 'In Progress', 'fail', true), E('Staging', 'Released'), E('Released', 'Closed'), E('Blocked', 'In Progress', 'unblock', true), E('Closed', 'end')];
+    const sizes = Object.create(null);
+    for (const x of shapes) sizes[x.id] = x.shape === 'start' ? { w: 14, h: 14 } : x.shape === 'end' ? { w: 20, h: 20 } : { w: 9 * x.name.length + 46, h: 40 };
+    const labelSizes = Object.create(null);
+    edges.forEach((e, i) => { if (e.label) labelSizes[i] = { w: 7 * e.label.length + 12, h: 16 }; });
+    return { model: { shapes, groups: [], edges }, sizes, opts: { wrap: true, labelSizes, stage: { w: 1072, h: 440 }, maxScale: 1.25 } };
+  })();
+
+  test('rearrange: a side state written last moves beside the state it leaves, and the crossings go', () => {
+    const { model, sizes, opts } = PIPELINE;
+    const text = K.layout(model, sizes, opts, null);
+    const graph = K.layout(model, sizes, { ...opts, order: 'graph' }, null);
+    assert.ok(text.crossings > 0, 'the written order still crosses, so this test still means something');
+    assert.equal(graph.crossings, 0);
+    assert.equal(text.seq, undefined, 'the default never reorders');
+    assert.ok(graph.seq, 'the rearranged drawing names its order');
+    const at = (id) => graph.seq.indexOf(id);
+    assert.equal(at('Blocked'), at('Code Review') + 1, `Blocked beside Code Review: ${graph.seq.join(' > ')}`);
+    // The live pin replays the pick: its lines, direction, breaks and order, in one routing.
+    const k = graphLayoutKernel();
+    const pinned = k.layout(model, sizes, { ...opts, order: 'graph', wrap: false, dir: graph.dir, grid: graph.lines, grow: false, seq: graph.seq, ...(graph.breaks ? { breaks: graph.breaks } : {}) }, null);
+    assert.deepEqual(JSON.parse(JSON.stringify(pinned.nodes)), JSON.parse(JSON.stringify(graph.nodes)));
+    assert.equal(k.stats.routed, 1);
+  });
+
+  test('rearrange leaves a chain alone, byte for byte', () => {
+    const shapes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].map((id) => ({ id, name: `State ${id}`, parent: null, shape: 'box' }));
+    const edges = shapes.slice(1).map((x, i) => ({ from: shapes[i].id, to: x.id, dir: 'out', style: {}, label: 'go' }));
+    const sizes = Object.create(null);
+    for (const x of shapes) sizes[x.id] = { w: 110, h: 40 };
+    const labelSizes = Object.create(null);
+    edges.forEach((_e, i) => { labelSizes[i] = { w: 24, h: 14 }; });
+    const opts = { wrap: true, labelSizes, stage: { w: 1152, h: 480 } };
+    assert.deepEqual(JSON.parse(JSON.stringify(K.layout({ shapes, groups: [], edges }, sizes, { ...opts, order: 'graph' }, null))),
+      JSON.parse(JSON.stringify(K.layout({ shapes, groups: [], edges }, sizes, opts, null))));
+  });
+
+  test('a seq that does not name every shape once is refused, not half-placed', () => {
+    const { model, sizes, opts } = PIPELINE;
+    const ids = model.shapes.map((x) => x.id);
+    for (const seq of [ids.slice(1), [...ids, ids[0]], [...ids.slice(0, -1), 'nobody']]) {
+      assert.equal(K.layoutOnce(model, sizes, { ...opts, dir: 'lr', grid: 3, grow: false, seq }, null), null);
+    }
   });
 
   test('a long machine pays a bounded amount of work for the near-even splits (work counts)', () => {
