@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: Live peer-to-peer collaboration in the Studio. One link starts it - the host shares it, the guest opens it, knocks, the host admits, and both edit the same deck with live carets, presence on the slide navigator, follow mode, text chat, and audio/video in a new Collaborate panel on the left rail. Edits and media travel browser to browser. Peers find each other over public Nostr relays through Trystero, so Lattice runs no server, pays nothing and stores nothing. Retargets the two June notes from the removed Drawing Board to the Studio and replaces their open questions with a concrete experience.
 companion:
   - ./2026-06-14-yjs-collaboration-exploration.md
@@ -10,7 +10,7 @@ companion:
 # Live collaboration in the Studio — share a link, and you are in
 
 **Date:** 2026-10-06
-**Status:** Proposed. Design only; no code yet.
+**Status:** In progress. S1 (Tavola) and S2 (live sessions in the Studio) are built on PR #2547 and hardened by an adversarial review; §12 records what shipped and how it was verified. S3 onward are not started.
 **Decision owner:** Sharmarke
 **Surfaces:** `docs/src/components/studio/` — `StudioShell.tsx`, `chrome-parts.tsx`
 (`ActivityRail`), `Editor.tsx`, `studio-panels.ts`, `panel-shells.tsx`,
@@ -97,7 +97,7 @@ the guest path is open → "Ask to join".
 ### 4.1 The link
 
 ```
-https://laticent.github.io/lattice/studio#live=<room>.<secret>
+https://laticent.github.io/lattice/studio#live=<room>.<secret>.<host>
 ```
 
 - **`room`** — 128 random bits, base64url. It names the meeting place on the public
@@ -105,11 +105,17 @@ https://laticent.github.io/lattice/studio#live=<room>.<secret>
 - **`secret`** — 256 random bits, base64url. It is Trystero's room `password`: Trystero
   encrypts every connection offer and answer with an AES-GCM key derived from it, so a
   relay carries only ciphertext.
+- **`host`** — the fingerprint (128 bits of SHA-256) of the host's ECDSA P-256 public key.
+  Every hello is signed over the host's and the recipient's peer ids, and a guest believes a
+  host only if the key matches this fingerprint. Added after the red team showed that, without
+  it, anyone holding the link could answer a newcomer first or step in while the host was away
+  (§12).
 - **It lives in the fragment** (after `#`). Browsers never send the fragment to any
   server, so neither GitHub Pages nor any relay ever sees the secret.
 - **Survives OAuth.** On load the Studio moves the fragment into `sessionStorage` and
-  scrubs it from the address bar (so it does not leak into a screenshot or a history
-  sync). If the guest connects OpenRouter mid-lobby, the join resumes on return.
+  scrubs it from the address bar (so it does not show in a screenshot or a shared screen).
+  If the guest connects OpenRouter mid-lobby, or reloads, the join resumes. The browser's
+  own history may still hold the original URL, like any link a person opens.
 - **Link role.** The host picks "Can edit" (default) or "Can view" when copying. The role
   rides in the encrypted hello, not in the URL.
 
@@ -506,8 +512,8 @@ One branch and PR per independent slice (HARD RULE #17). Each lands working.
 | # | Slice | Delivers | Depends on |
 |---|---|---|---|
 | S0 | **This note** | the design, signed off | — |
-| S1 | **Tavola core** | `docs/src/lib/tavola/`: link codec, handshake and roster protocol, 4-person cap, sync and awareness over an injected transport, the in-memory test transport, the Trystero adapter, `package.json`/README, `checkTavolaBoundary` | — |
-| S2 | **Session core — "Europa"** | link, lobby, knock/admit/deny, roster, live co-editing, carets, navigator presence, follow, Live panel (People + Invite), header pill, linked guest copy | S1 |
+| S1 ✔ | **Tavola core** | `docs/src/lib/tavola/`: link codec, handshake and roster protocol, 4-person cap, sync and awareness over an injected transport, the in-memory test transport, the Trystero adapter, `package.json`/README, `checkTavolaBoundary` | — |
+| S2 ✔ | **Session core — "Europa"** (chat from S3 and most of S6 came with it) | link, lobby, knock/admit/deny, roster, live co-editing, carets, navigator presence, follow, Live panel (People + Invite), header pill, linked guest copy | S1 |
 | S3 | **Chat** | session chat, slide chips, system lines | S2 |
 | S4 | **Audio** | join call, mute, speaking ring, device picker | S2 |
 | S5 | **Video** | camera, tiles, pop-out strip | S4 |
@@ -535,3 +541,66 @@ clause).
 
 This note supersedes both June notes as the plan of record. Their transport, NAT and cost
 analysis stays the reference for §7, and they stay in the tree, marked superseded.
+
+## 12. What shipped (2026-10-06, PR #2547)
+
+**Built.** Tavola (`docs/src/lib/tavola/`) and the Studio's Live slot
+(`docs/src/components/studio/live/`): Start live session, the invite link (visible in the panel
+and copied), the lobby, knock / admit / deny, auto-admit, the roster and the 4-person cap, live
+co-editing with carets and per-person undo, presence on the navigator and the preview corner,
+follow, bring-everyone, session chat, role changes, remove, end, a guest's linked copy, guest
+and host reloads, and the Share sheet's *Collaborate live* row. Calls (S4, S5) are not built, so
+every mic control is hidden rather than shown dead.
+
+**Deviations from the design above.**
+- The guest's copy is an ordinary deck with the host's title; the "Shared by" tag in the deck
+  switcher (§5.5) is not drawn yet.
+- Removing someone blocks their peer id and revokes their token, but does not rotate the link
+  secret (§5.4); a removed person who reopens the link reaches the lobby as a new knock.
+- The link gained a third part, the host key fingerprint (§4.1).
+- Tests do not run against a local relay; Tavola takes its transport as an argument, and its
+  suite runs on an in-memory network (§7.1).
+
+**The adversarial review** (red team, Munger inversion, independent checker, all on Opus)
+found real defects; every one marked fixed below has a test that failed first or a step in the
+real-browser check.
+
+| Finding | Severity | Now |
+|---|---|---|
+| A link holder could pose as the host to a newcomer, or take over a guest while the host was away, and collect its rejoin token | high | fixed: signed hello + fingerprint in the link (`hostkey.ts`) |
+| End and Leave closed the connection before `end` was delivered | high | fixed: `end()` owns its delayed shutdown |
+| A promoted viewer's later edits were stranded (Yjs pending forever) | high | fixed: role changes resync; viewers cannot post chat |
+| Presence was keyed by a self-claimed field: fake summons, spoofed names, CSS injection into caret styles | high | fixed: awareness owned by the arriving peer, rebuilt from the roster (`sanitizeAwareness`) |
+| Late-forming or blipping member links left guests out of sync for good | high | fixed: resync on peer join; re-admit by token on a hello while live |
+| A token replay evicted the real member and bypassed the cap | medium | fixed: refused while the member is connected; cap and color checked |
+| A deck switch while live pushed the other deck into the shared text | medium | fixed: the switch is handled before any push, and asks first |
+| A guest's first sync could rebase its previous deck into everyone's text | medium | fixed: the rebase base is seeded with the shared text |
+| An overlapping outside rewrite doubled the text | medium | fixed: refused with a notice instead |
+| Denied or removed peers could knock again at once | medium | fixed: per-session block list |
+| Chat authors were self-declared | medium | fixed: the author is the client that wrote the line |
+| A host reload killed the session; a guest reload did not rejoin | medium | fixed: host resumes from its saved key, tokens and document; guest rejoins by token |
+| A network that blocks WebRTC showed "the session isn't live" | medium | fixed: the lobby names the network as a possible cause |
+| The startup JavaScript grew past the per-PR allowance | CI | fixed: all session code loads on demand |
+
+**Known limits that remain.**
+- **No TURN.** Networks that block direct browser-to-browser traffic (many offices, some mobile
+  carriers) cannot connect. A free third-party TURN in the slot would fix most of these; it is
+  the owner's call (it puts a third party in the media path).
+- **Link holders learn members' IP addresses**, because every peer in the room gets a WebRTC
+  connection to every other before admission (§4.4).
+- **Names are self-asserted**, and an editor can delete chat lines (it is a shared document).
+- **Cross-network joins are untested** here: every real-browser run had both browsers on one
+  machine.
+
+**How it was verified.**
+- Tavola: 33 tests over the in-memory network with a real Yjs document. Weakening the gate, the
+  signature check or the replay check fails exactly the tests that cover them.
+- Studio: rebase and awareness-sanitizer unit tests; the Studio shell and controls suites.
+- Real surface: `tools/live-session-check.mjs`, two Chromium processes over the public Nostr
+  relays and real WebRTC, in light and dark: start, lobby, knock, admit, edits both ways,
+  carets, per-person undo, chat, remove, a second guest, a host reload (session resumes in
+  about 5.5 s with the guest still in), a guest reload (rejoins without a knock in about 5.6 s),
+  and End reaching the guest. Opening the link to editing took about 8 s on the unoptimized dev
+  server, most of it the Studio loading.
+- UNVERIFIED: two real devices on two networks, iOS Safari, and anything about calls.
+

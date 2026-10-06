@@ -13,7 +13,9 @@
  * (engineering/decisions/2026-10-06-studio-live-collaboration.md §8).
  *
  * Usage (start the docs dev server first: `cd docs && npm run dev`):
- *   node tools/live-session-check.mjs [light|dark] [--out .scratch/live-check] [--base http://127.0.0.1:4321/studio/]
+ *   node tools/live-session-check.mjs [light|dark] [--out .scratch/live-check] [--base http://127.0.0.1:4321/studio/] [--video]
+ *
+ * `--video` records each browser to a .webm in the output directory (the walkthrough evidence).
  */
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -33,9 +35,10 @@ const seedFn = (m) => { localStorage.setItem('lattice-studio-settings', JSON.str
 const t0 = Date.now();
 const log = (m) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${m}`);
 const mode = process.argv[2] === 'dark' ? 'dark' : 'light';
+const video = process.argv.includes('--video') ? { recordVideo: { dir: OUT, size: { width: 1440, height: 900 } } } : {};
 
 const hb = await launch();
-const hctx = await hb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
+const hctx = await hb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'], ...video });
 await hctx.addInitScript(seedFn, mode);
 const host = await hctx.newPage();
 host.on('pageerror', (e) => log(`host pageerror ${e.message}`));
@@ -49,7 +52,7 @@ log(`host live; link ${link.replace(/(#live=[^.]+)\.[^.]+\./, '$1.<secret>.')}`)
 await host.screenshot({ path: `${OUT}real-host-start-${mode}.png` });
 
 const gb = await launch();
-const gctx = await gb.newContext({ viewport: { width: 1440, height: 900 } });
+const gctx = await gb.newContext({ viewport: { width: 1440, height: 900 }, ...video });
 await gctx.addInitScript(seedFn, mode);
 const guest = await gctx.newPage();
 guest.on('pageerror', (e) => log(`guest pageerror ${e.message}`));
@@ -147,6 +150,9 @@ await host.locator('button[aria-label="Session options"]').click();
 await host.getByRole('menuitem', { name: /End session for everyone/ }).click();
 await guest2.waitForFunction(() => !document.querySelector('[data-live-pill]'), null, { timeout: 15000 });
 log('host ended the session and the guest left it');
+await hctx.close();
+await gctx.close();
+await g2ctx.close();
 await hb.close();
 await gb.close();
 log('done');

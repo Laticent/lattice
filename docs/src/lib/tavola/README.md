@@ -6,8 +6,9 @@ document together — browser to browser, with no server of yours in the middle.
 Tavola (Italian for the table people gather around) is the collaboration engine behind the Lattice
 Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It owns:
 
-- **the link** — `#live=<room>.<secret>` in the URL *fragment*, which browsers never send to a
-  server (`link.ts`);
+- **the link** — `#live=<room>.<secret>.<host>` in the URL *fragment*, which browsers never send
+  to a server (`link.ts`); `host` fingerprints the host's signing key (`hostkey.ts`), and only a
+  hello signed with that key is believed;
 - **the handshake** — hello → knock → admit / deny, the lobby the guest sees first, and rejoin by
   token after a dropped connection (`session.ts`);
 - **the gate** — a document or awareness message is sent only to admitted members and applied only
@@ -26,7 +27,7 @@ dagre. The core imports nothing outside this folder.
 
 ```ts
 import * as Y from 'yjs';
-import { createSession, formatLink, mintLink, parseFragment } from '@laticent/tavola';
+import { createHostKey, createSession, formatLink, mintLink, parseFragment } from '@laticent/tavola';
 import { trysteroTransport } from '@laticent/tavola/trystero';
 
 const doc = new Y.Doc();
@@ -36,12 +37,13 @@ const stream = {
   onLocal: (cb) => { const h = (u, o) => o !== 'remote' && cb(u); doc.on('update', h); return () => doc.off('update', h); },
 };
 
-// Host: mint a link and open the room.
-const link = mintLink();
+// Host: make a signing key, mint a link for it, and open the room.
+const key = await createHostKey();
+const link = mintLink(key.fingerprint);
 share(formatLink(location.href, link));
 const host = createSession({
   transport: trysteroTransport(link.room, link.secret),
-  host: { name: 'Sharmarke', invite: { title: 'Q3 Board Review', hostName: 'Sharmarke' } },
+  host: { name: 'Sharmarke', key, invite: { title: 'Q3 Board Review', hostName: 'Sharmarke' } },
   doc: stream,
 });
 host.subscribe(() => render(host.getState()));   // waiting knocks, members…
@@ -49,21 +51,23 @@ host.subscribe(() => render(host.getState()));   // waiting knocks, members…
 
 // Guest: the link is in the fragment.
 const parts = parseFragment(location.hash);
-const guest = createSession({ transport: trysteroTransport(parts.room, parts.secret), doc: stream });
+const guest = createSession({ transport: trysteroTransport(parts.room, parts.secret), hostFingerprint: parts.host, doc: stream });
 // stage: connecting → lobby (guest.getState().invite) → guest.knock('Amina') → waiting → live
 ```
 
 ## Testing without a network
 
 `createMemoryNetwork()` gives transports that reach each other in memory, with queued delivery so
-ordering hazards still show; `await net.settle()` drains it. The test suite (`session.test.ts`)
-runs whole sessions over it with a real Yjs document.
+ordering hazards still show; `await net.settle()` drains it, and `session.idle()` waits out a
+session's own async work (signing and verifying hellos). The test suite (`session.test.ts`) runs
+whole sessions over it with a real Yjs document, including the attacks the 2026-10-06 red team
+found.
 
 ## What it does not do (yet)
 
-- **Rotate the link** when someone is removed — removal stops every honest peer trusting them, but
-  the old link still reaches the lobby, where the host sees a fresh knock.
-- **Prove who the host is.** Anyone holding the link could answer a newcomer's lobby first and pose
-  as the host. The knock still has to be answered, and the lobby shows the host's name, but nothing
-  cryptographic binds that name. Host keys are a later slice.
+- **Rotate the link** when someone is removed — removal blocks their peer id and revokes their
+  token, but the old link still reaches the lobby, where the host sees a fresh knock.
+- **Hide members from link holders.** Every peer in the room gets a WebRTC connection to every
+  other before admission, so a link holder learns members' IP addresses. Nothing is sent over it.
+- **Prove guests' names.** A guest's name is whatever they typed; the knock is where the host checks.
 - **Carry media.** Audio and video ride the same connection in a later slice.
