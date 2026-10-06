@@ -94,7 +94,7 @@ type Pending = { id: string; text: string; at: number };
  */
 type Post =
 	| { k: 'say'; id: string; text: string; have?: number }
-	| { k: 'gone'; id: string; name: string }
+	| { k: 'gone'; id: string; name: string; color: LiveColor }
 	| { k: 'line'; line: ChatLine }
 	| { k: 'since'; seq: number }
 	| { k: 'lines'; lines: ChatLine[]; startedAt: number }
@@ -109,20 +109,9 @@ const TYPING_SHOW_MS = 4000;
 const TYPING_POST_MS = 2000;
 /** sessionStorage: a member's lines still waiting for the host, sealed, so a reload keeps them. */
 const PENDING_KEY = 'lattice-live-pending';
-/** sessionStorage: this tab's line-id prefix for a room, so a line resent after a reload carries the
- *  id the host may already have taken (the host drops it as a repeat). Not a secret. */
-const SID_KEY = 'lattice-live-sid';
-const sidFor = (room: string): string => {
-	try {
-		const saved = JSON.parse(sessionStorage.getItem(SID_KEY) || 'null') as { room?: string; sid?: string } | null;
-		if (saved?.room === room && typeof saved.sid === 'string') return saved.sid;
-		const sid = Math.random().toString(36).slice(2, 10);
-		sessionStorage.setItem(SID_KEY, JSON.stringify({ room, sid }));
-		return sid;
-	} catch {
-		return Math.random().toString(36).slice(2, 10);
-	}
-};
+/** A dropped member is remembered by name AND color: names repeat ("Guest"), and a rejoin by token
+ *  keeps both (checker round 3, finding 4). */
+const awayKey = (m: { name: string; color: LiveColor }) => `${m.color}|${m.name}`;
 /** A member re-sends waiting lines this often, whatever else happens (inversion round 3, item 3). */
 const RESEND_MS = 15_000;
 const enc = new TextEncoder();
@@ -312,7 +301,7 @@ export class LiveController {
 	private boundDeck: string | null = null;
 	private ticker: ReturnType<typeof setInterval> | null = null;
 	/** Members whose link dropped and who have not come back, by name (a rejoin by token keeps it). */
-	private away = new Map<string, { color: LiveColor; role: SessionState['members'][number]['role']; timer: ReturnType<typeof setTimeout> }>();
+	private away = new Map<string, { name: string; color: LiveColor; role: SessionState['members'][number]['role']; timer: ReturnType<typeof setTimeout> }>();
 	/** Peers that said goodbye (Leave), so their departure is news at once. */
 	private byes = new Set<string>();
 	/** Members the host removed: their departure is final at once. */
@@ -504,7 +493,7 @@ export class LiveController {
 		const fingerprint = key?.fingerprint ?? (args.hostFingerprint as string);
 		// The link is this page's address WITHOUT its query: a query can carry anything the host's
 		// address bar happened to hold (inversion round 2, item 6).
-		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, sid: sidFor(args.room), gotDoc: !!args.host, disposers: [] };
+		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, sid: Math.random().toString(36).slice(2, 10), gotDoc: !!args.host, disposers: [] };
 		if (args.release) rt.disposers.push(args.release);
 		this.rt = rt;
 		const r = rt;
@@ -528,10 +517,10 @@ export class LiveController {
 							}, 400);
 						}
 						// Back from a dropped link (a backgrounded phone tab, a blip): not news.
-						const back = this.away.get(m.name);
+						const back = this.away.get(awayKey(m));
 						if (back) {
 							clearTimeout(back.timer);
-							this.away.delete(m.name);
+							this.away.delete(awayKey(m));
 						} else this.sys(`${m.name} joined${m.role === 'view' ? ' · can view' : ''}`);
 					}
 					// Someone left or was removed: the host saves now, not a second later, so a reload
@@ -550,15 +539,15 @@ export class LiveController {
 						}
 						// A dropped link, not a goodbye: show them as reconnecting, and say "left" only if
 						// they are still gone after the grace period.
-						const prevAway = this.away.get(m.name);
+						const prevAway = this.away.get(awayKey(m));
 						if (prevAway) clearTimeout(prevAway.timer);
 						const timer = setTimeout(() => {
-							if (this.away.get(m.name)?.timer !== timer) return;
-							this.away.delete(m.name);
+							if (this.away.get(awayKey(m))?.timer !== timer) return;
+							this.away.delete(awayKey(m));
 							this.sys(`${m.name} left`);
 							this.host.rerender();
 						}, AWAY_GRACE_MS);
-						this.away.set(m.name, { color: m.color, role: m.role, timer });
+						this.away.set(awayKey(m), { name: m.name, color: m.color, role: m.role, timer });
 					}
 					for (const m of s.members) {
 						const was = before.get(m.id);
@@ -1013,12 +1002,13 @@ export class LiveController {
 	/** Host: number a line, keep it, and send it to everyone (the sender's copy is its receipt). */
 	private hostTake(id: string, peer: string, member: { name: string; color: LiveColor }, text: string) {
 		const r = this.rt;
-		// A resend of a line already taken: the same MEMBER and id. Keyed by the member's name, not its
-		// connection id, because a reload gives the tab a new connection but keeps its line ids
-		// (`sidFor`) — and by member at all, so nobody can claim another member's next id first and
-		// swallow their line (checker and inversion, 2026-10-06).
+		// A resend of a line already taken: the same MEMBER and id. Keyed by the member (name and
+		// color), not its connection id, because a reload gives the tab a new connection while the
+		// lines it restores keep their ids; and by member at all, so nobody can claim another member's
+		// next id first and swallow their line. Each page load draws a fresh id prefix, so a NEW line
+		// after a reload can never match an old one (checker round 3, finding 1).
 		if (!r) return;
-		const taken = this.chat.find((l) => l.name === member.name && l.id === id);
+		const taken = this.chat.find((l) => l.name === member.name && l.color === member.color && l.id === id);
 		if (taken) {
 			// Already numbered: send the sender its receipt again, so its "Sending…" clears.
 			if (peer !== r.session.getState().selfId) this.post({ k: 'line', line: taken }, peer);
@@ -1053,10 +1043,11 @@ export class LiveController {
 		} else if (p.k === 'gone' && fromHost && typeof p.id === 'string' && typeof p.name === 'string') {
 			this.removed.add(p.id);
 			// The roster may have beaten it here: turn a "Reconnecting…" row into the removal it was.
-			const a = this.away.get(p.name);
-			if (a) {
+			const k = Number.isInteger((p as { color?: unknown }).color) ? awayKey({ name: p.name, color: (p as { color: LiveColor }).color }) : null;
+			const a = k ? this.away.get(k) : undefined;
+			if (k && a) {
 				clearTimeout(a.timer);
-				this.away.delete(p.name);
+				this.away.delete(k);
 				this.sys(`${p.name} was removed`);
 				this.host.rerender();
 			}
@@ -1070,7 +1061,7 @@ export class LiveController {
 			} else if (p.k === 'since' && Number.isSafeInteger(p.seq)) {
 				// A member holding a number past ours means our save was older than the session (a
 				// reload): never hand those numbers out again. Bounded, so nobody can push it far.
-				if (p.seq > this.seq) this.seq = Math.min(p.seq, this.seq + CHAT_KEEP);
+				if (p.seq > this.seq && sender.role !== 'view') this.seq = Math.min(p.seq, this.seq + CHAT_KEEP);
 				this.post({ k: 'lines', lines: this.chat.filter((l) => l.seq > p.seq), startedAt: r.startedAt }, from);
 			}
 		} else if (fromHost) {
@@ -1087,7 +1078,9 @@ export class LiveController {
 				this.addLines(p.lines.slice(-CHAT_KEEP).map(cleanLine).filter((l): l is ChatLine => !!l));
 			} else if (p.k === 'tip' && Number.isSafeInteger(p.seq)) {
 				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
-				if (p.seq > this.seq || this.pending.length) this.catchUp();
+				// Ahead OR behind: a host whose number is below ours came back from an old save, and our
+				// `since` is what raises its floor (checker round 3, finding 2).
+				if (p.seq !== this.seq || this.pending.length) this.catchUp();
 			}
 		}
 	}
@@ -1102,8 +1095,8 @@ export class LiveController {
 			const me = m.id === s.selfId;
 			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS, mic: 'off' };
 		});
-		for (const [name, a] of this.away) {
-			if (!people.some((p) => p.name === name)) people.push({ id: `away:${name}`, name, color: a.color, role: a.role, slide: null, editing: false, mic: 'off', away: true });
+		for (const [k, a] of this.away) {
+			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role, slide: null, editing: false, mic: 'off', away: true });
 		}
 		const now = Date.now();
 		const typing = s.members.filter((m) => m.id !== s.selfId && now - (this.typingAt.get(m.id) ?? 0) < TYPING_SHOW_MS).map((m) => m.name);
@@ -1198,7 +1191,7 @@ export class LiveController {
 			// Tell the others first (same channel, so it lands before the roster), so everyone shows
 			// "was removed" at once instead of 60 s of "Reconnecting…" (inversion round 3, item 2).
 			this.removed.add(id);
-			this.post({ k: 'gone', id, name: m.name });
+			this.post({ k: 'gone', id, name: m.name, color: m.color });
 			r.session.remove(id);
 		},
 		setRole: (id, role) => this.rt?.session.setRole(id, role),

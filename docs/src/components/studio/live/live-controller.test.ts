@@ -314,11 +314,12 @@ describe('LiveController (second-round trio)', () => {
 		const hp = h as any;
 		hp.chat = hp.chat.filter((l: { seq: number }) => l.seq === 1);
 		hp.seq = 1;
-		// The guest tells the host what it holds (as it does on every re-admission).
-		// biome-ignore lint/suspicious/noExplicitAny: drive the guest's catch-up directly.
-		(g as any).catchUp();
+		// The host's re-admission note (`tip`) carries its stale number; the guest, being AHEAD, must
+		// answer with what it holds — the real path, not a direct call.
+		hp.post({ k: 'tip', seq: hp.seq, startedAt: Date.now() }, hp.rt.session.getState().members.find((m: { name: string }) => m.name === 'Amina').id);
 		await settle(h, g);
-		g.actions.sendChat('three');
+		// The HOST speaks first after its reload — no `have` from a guest's line to lean on.
+		h.actions.sendChat('three');
 		await until(() => texts(g).includes('three'), h, g);
 		expect(texts(g)).toEqual(['one', 'two', 'three']);
 		expect(g.view().chat.some((l) => l.kind === 'message' && l.pending)).toBe(false);
@@ -361,7 +362,10 @@ describe('LiveController (second-round trio)', () => {
 		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'sent just before the reload'), h, g);
 		// biome-ignore lint/suspicious/noExplicitAny: the host's numbered line, as a reloaded tab would hold it in its sealed queue.
 		const taken = (h as any).chat.find((l: { text: string }) => l.text === 'sent just before the reload');
-		// The reloaded tab: a NEW controller (new connection id) with that line still waiting.
+		// The reloaded tab: the old page goes, then a NEW controller (new connection id) with that line
+		// still waiting.
+		g.dispose();
+		await until(() => !h.view().people.some((p) => p.name === 'Amina' && !p.away), h);
 		localStorage.removeItem('lattice-live-links');
 		const { g: again } = await guestOf(h, 'Amina');
 		// biome-ignore lint/suspicious/noExplicitAny: seed the restored queue and resend it.
@@ -390,5 +394,30 @@ describe('LiveController (second-round trio)', () => {
 		// biome-ignore lint/suspicious/noExplicitAny: forget the start, as before the first answer.
 		(g as any).hostStartedAt = null;
 		expect(g.view().startedAt).toBeNull();
+	});
+
+	it('the first line after a reload is a new line, never mistaken for an old one', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		g.actions.sendChat('before reload');
+		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'before reload'), h, g);
+		g.dispose();
+		await until(() => !h.view().people.some((p) => p.name === 'Amina' && !p.away), h);
+		localStorage.removeItem('lattice-live-links');
+		const { g: again } = await guestOf(h, 'Amina');
+		again.actions.sendChat('after reload');
+		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'after reload'), h, again);
+	});
+
+	it('two people with the same name keep their own "Reconnecting…"', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Guest');
+		const { g: b } = await guestOf(h, 'Guest');
+		// biome-ignore lint/suspicious/noExplicitAny: the test reaches the transports' ids.
+		const id = (c: Ctl) => (c as any).rt.session.getState().selfId as string;
+		net.current?.cut(id(h), id(a));
+		net.current?.cut(id(h), id(b));
+		// Both dropped: two "Reconnecting…" rows, not one overwriting the other.
+		await until(() => h.view().people.filter((p) => p.name === 'Guest' && p.away).length === 2, h);
 	});
 });
