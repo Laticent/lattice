@@ -852,7 +852,7 @@ can call are fenced to the deck folder and the Lattice install by real path, and
 images and fonts (`lib/export/pdf-asset-reader.js`). `--allow-remote` drops the offline set,
 which is the exporter's own choice.
 
-**Found on the way, not decided here (both in `followups.d/`):**
+**Found on the way, not decided here (both in `followups.d/`; the first is now §11):**
 
 - **Export-to-Marp ships a recipient a renderer told to run the deck's HTML with local file
   access.** `lib/core/marp-bundle.js` writes `html: true, allowLocalFiles: true` into the
@@ -866,3 +866,113 @@ which is the exporter's own choice.
   author never saw the script. The fix changes an exported artifact, so it waits for the owner.
 - **Whether the sidecar should be written at all** when nobody asked for an `.html`. Changing the
   default changes what every PDF export leaves on disk, so that is the owner's call too.
+
+## 11. The Export-to-Marp bundle drops the deck's own executable HTML (2026-10-07)
+
+§10 left one hole open for the owner: the Export-to-Marp bundle's `marp.config.cjs` sets
+`html: true`, so the recipient's `npm run pdf` ran the deck's own `<script>` and `on…` handlers in
+marp-cli's headless Chrome. The flag has to stay: the runtime arrives as `<script>` tags at the
+end of the deck. The gap is the Studio path, where the preview sanitizes, so a script an AI edit
+or an import put in the source never ran in front of its author.
+
+**What ships (pending the owner's sign-off on the PR).** `withRuntimeScripts`, the one function
+both producers (the CLI's `tools/export-marp.js` and the Studio's Share sheet) end with, now
+passes the deck through `withoutLiveAuthorHtml` (`lib/core/live-author-html.js`). It removes what
+the §10 warning counts: `<script>` elements that run (not data scripts, not the engine's marked
+ones), `on…=` attributes, `srcdoc`, `javascript:` URLs (entity-encoded and whitespace-split
+ones too), `vbscript:` URLs, and a `data:` URL that is not an image (in a frame, not an SVG
+image either: CodeQL's incomplete-scheme check flagged the first cut, which knew only
+`javascript:` and `data:` frames). It also removes a `<base href>`, which would
+re-point the bundle's relative runtime `<script src>` tags at another host, and a
+`<meta http-equiv=refresh>`, which navigates the render away (the inversion pass found the
+first). It runs after the previous runtime block comes off
+and before the new one goes on, so Lattice's own three tags stay. Fenced, indented and inline
+code stay byte-identical: they render as escaped text. `withRuntimeScriptsReport` returns what
+it removed, counted after the previous export's runtime block comes off, so a re-export does not
+report Lattice's own tags. The CLI prints it, the Studio's Share sheet puts it in the toast, and
+the bundle's README says the trailing tags are the only scripts.
+
+**How the strip knows it worked.** Finding inline code spans in raw markdown is a parse, and a
+hand-rolled one can disagree with markdown-it, which would hide a live tag inside a "code span".
+So the strip renders its own output with markdown-it and counts what is still live, with the same
+detector the strip uses. If anything is, it runs again with inline spans read as live text, and
+then over fences too. The fallbacks over-strip a code sample, which is the safe direction. The
+check renders with plain markdown-it, not marp-core: the red team found the two agree on raw-HTML
+passthrough for every probe it ran (about 45, through real marp-core 4.4 in Chrome 131, none of
+which executed), but a future marpit change that passes through HTML markdown-it escapes would
+not be seen by the check. The hand-copied inline-HTML regex is pinned to markdown-it's own in
+`test/unit/core/live-author-html.test.js`.
+
+**Measured with real marp-cli 4.3.1** on the bundle's own `npm run pdf` command, a local listener
+on port 8765, and a probe deck carrying an inline `<script>`, an `<img onerror>`, a `javascript:`
+link, a `srcdoc` frame, an inline code span and a fenced sample:
+
+| bundle | beacons that reached the listener | quoted code |
+|---|---|---|
+| before (`main`) | 4 (`/script`, `/onerror`, `/srcdoc` ×2) | kept |
+| after | **0** | kept, byte-identical |
+
+The listener was re-checked as a control in the same run: the `main` bundle hit it four times
+again.
+
+**Cost, measured over every shipped deck.** Of the 418 tracked decks with `marp: true` in their
+front matter, 415 bundle unchanged. The other three (`examples/gallery-jargon.md`,
+`lib/components/diagram/diagram/diagram.gallery.md` and the baseline `gallery.md`) lose only their
+editor-preview loader tags: `<script src="../dist/lattice-runtime.js">` and its Mermaid sibling.
+Those tags pointed outside the bundle, which carries its own runtime block. (`kit/Sample-Deck.md`
+carries the runtime block itself, which the bundle already strips and re-appends, so it reports
+nothing.) The strip takes 148 ms over all 418 decks. The documented feature in design/skill.md §
+"Raw HTML in a deck" (author script painting into the PDF) still works in the CLI's own PDF and
+`.html`. It no longer works in a Marp bundle, which is the point of the change.
+
+**What the independent checker changed.** Two defects in the first cut, both fixed before commit:
+
+- *A cut could join its neighbors into new live HTML.* `<scr<script>x</script>ipt>` came out as
+  `<script>`. The strip now repeats on its own output until a round changes nothing (at most 8
+  rounds), and a deck that still renders live HTML after that has every `<` escaped to `&lt;`, so
+  its HTML shows as text. No shipped deck reaches that last step. Pinned with the checker's three
+  inputs.
+- *The tag regexes were quadratic on raw markdown.* They rescanned to the end of the input from
+  every `<`, so 128 KB of `<a b` took 8.6 s and 1 MB did not finish in nine minutes: a hostile
+  deck froze the CLI export or the Studio tab. Before this change those regexes only ever read
+  markdown-it's escaped output. The strip now reads tags in one forward pass, the way the browser's
+  tokenizer does (`scanTags`). The same inputs at 1 MB take 0.4–0.8 s, pinned by a timing arm.
+
+**Checked against the renderer that ships, not a stand-in (2026-10-07, raising the merge card).**
+The strip's self-check renders with plain markdown-it, and the pre-merge card named that as the one
+caveat touching the core claim. So every one of the 418 shipped decks' bundled markdown, and 16
+attack inputs (the probe, the red team's and checkers' cases), went through real marp-core 4.4
+with `html: true`, the bundle's own setting, and were counted with the strip's own detector after
+subtracting marp-core's own helper script: **0 live in all 434**. The sweep found one real bypass
+on the way: `<svg><style><img src=x onerror=…></style></svg>`. The scan skipped a `<style>` body as
+raw text, as HTML does, but inside SVG or MathML it is markup, and Chromium ran the handler
+(measured). Raw-text bodies are now skipped only outside foreign content. It also found that the
+scan read `<scr<script>` as the browser would, one tag named `scr<script`, where markdown-it
+renders the text `<scr` and a real `<script>`; on deck source the scan now follows markdown-it's
+tag-name rule. And the fallback order changed: each pass kind runs to its own fixed point before
+the strip reads inline code as live, so a joined tag no longer costs the deck its code samples.
+
+**Pinned against the real thing.** `test/integration/export/marp-bundle-author-script.test.js`
+builds the bundle with `tools/export-marp.js`, renders it with marp-cli (`npx`, the
+`MARP_CLI_RANGE` pin, failing in CI rather than skipping, as `marp-admission.test.js` does),
+opens it in Chromium and asserts that no payload ran, the runtime loaded with no `<base>` in the
+page, and quoted code still shows. With the strip disabled it fails: four payloads ran
+(`script`, `onerror`, `srcdoc`, the `<svg><style>` breakout) and the `<base>` kept the runtime
+from loading.
+
+**What it does not do.** A plain remote image (`<img src="https://…">`, or markdown's
+`![](https://…)`) still loads in marp-cli. That is a web image, a feature, and the same in any
+Marp deck. Stripping it would break decks rather than close a hole. For the same reason an
+`<iframe src="https://…">`, `<object data="https://…">` or `<embed>` pointing at a remote page
+stays: the page it loads runs in its own origin, not the deck's. That is network reach, as a
+remote image is, and not the deck's own script. An SVG `<animate>` that sets
+`href` to `javascript:` is caught (`values`, `to` and `from` are URL attributes here). The strip
+is text matching backed by a render check, not a DOM sanitizer, because its output is markdown.
+
+**The stronger design, not taken here.** The inversion pass's steelman: this is a denylist, and
+a tag nobody remembered (as `<base>` nearly was) breaks it quietly. An allowlist removes the
+class: load the runtime through a marp-cli `engine:` plugin in `marp.config.cjs` instead of raw
+`<script>` tags, then set marp-core's `html` option to an allowlist of the tags and attributes
+Lattice decks use. It costs every deck that uses unusual HTML, and the allowlist needs keeping.
+Logged in `followups.d/` rather than built in this PR.
+

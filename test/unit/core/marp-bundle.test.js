@@ -493,11 +493,26 @@ describe('marp bundle — the overflow-marker export setting', () => {
     assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 1, 'one trailer, not two');
   });
 
-  // The strip must recognize OUR tags, not any tag: a deck may legitimately carry the
-  // author's own script, and eating it would silently delete their content.
-  test('an author\'s own script tag survives a re-export', () => {
-    const deck = '---\nmarp: true\n---\n\n# A\n\n<script src="my-own-widget.js"></script>\n';
-    assert.match(withRuntimeScripts(deck), /<script src="my-own-widget\.js"><\/script>/);
+  // The runtime-block strip must recognize OUR tags, not any tag: a deck may carry its own
+  // script-shaped DATA, and eating it would silently delete their content. (An author's
+  // EXECUTABLE script is stripped on purpose, by the live-HTML boundary — tested below.)
+  test('an author\'s own data script survives a re-export', () => {
+    const deck = '---\nmarp: true\n---\n\n# A\n\n<script type="application/json" id="my-data">{}</script>\n';
+    assert.match(withRuntimeScripts(deck), /<script type="application\/json" id="my-data">\{\}<\/script>/);
+  });
+
+  // THE EXPORT BOUNDARY for the deck's own executable HTML (theme-css-is-a-preview-sink.md § 11):
+  // `html: true` in the bundle's config passed it to the recipient's marp-cli, which ran it.
+  test('the deck\'s own script, handlers, srcdoc and javascript: URLs do not reach the bundle', () => {
+    const deck = ['---', 'marp: true', '---', '', '# A', '',
+      '<script src="my-own-widget.js"></script>', '',
+      '<img src="x.png" onerror="beacon()" alt="kept">', '',
+      '<a href="javascript:go()">a</a> <iframe srcdoc="<b>x</b>"></iframe>', ''].join('\n');
+    const out = withRuntimeScripts(deck);
+    assert.doesNotMatch(out, /my-own-widget|onerror|javascript:|srcdoc/);
+    assert.match(out, /<img src="x\.png"\s+alt="kept">/, 'the element stays; only what runs goes');
+    assert.equal((out.match(/<script src="[^"]+-min\.js"><\/script>/g) || []).length, 3, 'Lattice\'s runtime tags stay');
+    assert.equal(withRuntimeScripts(out), out, 'and re-exporting is still idempotent');
   });
 
   // A DECK MAY QUOTE OUR OWN TAG BLOCK, and the kit's "how to wire the runtime"

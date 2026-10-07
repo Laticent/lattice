@@ -933,8 +933,10 @@ export async function embeddableLattice(source: string, deckTitle: string, now: 
 	return new Uint8Array(await (await latticeBlob(source, deckTitle, [], now, packages)).arrayBuffer());
 }
 
-/** The self-contained Marp ZIP bundle (renders anywhere). */
-export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker, extra?: ExtraTheme, components: ReadonlyArray<LocalComponentCss> = []): Promise<void> {
+/** The self-contained Marp ZIP bundle (renders anywhere). Resolves to a reason for the toast
+ *  when the bundle dropped the deck's own executable HTML, which marp-cli would otherwise run on
+ *  the recipient's machine (theme-css-is-a-preview-sink.md § 11). */
+export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker, extra?: ExtraTheme, components: ReadonlyArray<LocalComponentCss> = []): Promise<string | undefined> {
 	await ensureReady(options); // PG.marp must be present
 	const ex = await exporters();
 	// Same finish-embed as the Markdown handoff so the ZIP renders the custom finish.
@@ -952,7 +954,10 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	// The plugins this deck's admission leaves off under the playground bundle's host (none on the
 	// shipped default set), so the bundle's runtime draws no more than the Studio's preview does.
 	const { deckPluginsOff } = await import('@/lib/plugin-admission');
-	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
+	const removed = await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
+	if (removed?.escaped) return "the deck's HTML could not be separated from its script, so the bundle shows all of it as text";
+	const n = removed ? removed.scripts + removed.handlers + removed.urls : 0;
+	return n ? `it left out the deck's own script (${n} ${n === 1 ? 'piece' : 'pieces'}), which Marp would run on the recipient's machine` : undefined;
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format

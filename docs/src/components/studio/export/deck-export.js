@@ -200,7 +200,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -229,17 +229,17 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// deck got the red ring and the "FIX ME" overlays, the exact defect the setting
 	// exists to fix, on the export path a non-CLI user actually uses. The caller
 	// resolves it from the workspace setting (share-export.ts).
-	dir.file(
-		`${slug}.md`,
-		withRuntimeScripts(
+	// `withRuntimeScriptsReport` also drops the deck's own executable HTML (marp-cli would run it on the
+	// recipient's machine) and says what it dropped; this function returns that for the toast.
+	const bundled = withRuntimeScriptsReport(
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
 			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(source, components)))), undefined),
 			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
 			{ localAssets: false, overflowMarker, pluginsOff },
-		),
-	);
+		);
+	dir.file(`${slug}.md`, bundled.markdown);
 
 	// palette CSS (+ dark), fetched from the staged theme dir — or, for a SAVED
 	// library theme, written from its own CSS, since the site has no file for it.
@@ -351,6 +351,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 
 	const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 	download(blob, `${slug}.zip`);
+	return { ...bundled.removed, escaped: bundled.escaped };
 }
 
 // ── Dedicated capture host ─────────────────────────────────────────────────────
