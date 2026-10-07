@@ -311,10 +311,8 @@
 
 		<script>
 			import {
-				alt, any, charRange, chars, compile, consistency, flag, generate, GrammarError, indexed, lit, list, many, many1, named, node, noneOf, number,
-				oneOf, opt, parse, range, record, ref, seq, text, time,
+				consistency, flag, indexed, list, named, number, oneOf, parse, range, record, text, time,
 			} from '@/lib/segno';
-			import { GrammarSourceError, readGrammarSource } from '@/lib/segno-playground-grammar';
 
 			const $ = (s) => document.querySelector(s);
 			const root = document.documentElement;
@@ -528,10 +526,8 @@
 
 			// ── Write a grammar, parse with it ──
 			// The grammar box holds the same code a user writes against the library: helper consts,
-			// then `return { start, rules }`. It is READ, never run: readGrammarSource
-			// (docs/src/lib/segno-playground-grammar.ts) builds the spec from the helper calls, so a
-			// `for (;;) {}` is a syntax error with a line number, not a frozen tab.
-			const DSL = { alt, any, charRange, chars, lit, many, many1, node, noneOf, opt, ref, seq };
+			// then `return { start, rules }`. It is READ, never run (docs/src/lib/segno-playground-grammar.ts),
+			// and read, compiled and parsed in a worker, because some grammars are slow to build.
 			const G = [
 				{
 					name: 'Settings line',
@@ -625,7 +621,7 @@ return {
 			const gramCode = $('#gramCode'), gramInput = $('#gramInput'), gramVerdict = $('#gramVerdict'), gramTree = $('#gramTree'), gramGen = $('#gramGen');
 			const gramPresets = $('#gramPresets');
 			let gramCurrent = 0;
-			let parser = null, spec = null;
+			let hasParser = false;
 
 			function el(tag, cls, textIn) { const e = document.createElement(tag); if (cls) e.className = cls; if (textIn != null) e.textContent = textIn; return e; }
 			function renderTree(n, textIn) {
@@ -642,38 +638,72 @@ return {
 			}
 			function verdict(ok, lines) { gramVerdict.dataset.ok = String(ok); gramVerdict.replaceChildren(...lines); }
 
-			function compileGrammar() {
-				buildGrammar();
-				// The sample inputs only make sense while a parser exists.
-				const samples = $('#gramSamples');
-				if (samples) samples.hidden = !parser;
+			// The grammar is read, compiled and parsed in a worker (docs/src/lib/segno-playground-worker.ts):
+			// Segno's compiler is not linear in every grammar (a 3,000-literal alt() took ~10 s), so a slow
+			// one blocks the worker, not this tab. GRAMMAR_LIMIT_MS of silence after the latest request
+			// means the build did not finish: terminate, say so, start fresh.
+			const GRAMMAR_LIMIT_MS = 1500;
+			let worker = null, workerReady = false, queued = null, limitTimer = 0, lastId = 0, lastCompileId = 0, lastText = '';
+			function startWorker() {
+				workerReady = false;
+				worker = new Worker(new URL('../lib/segno-playground-worker.ts', import.meta.url), { type: 'module' });
+				worker.onmessage = (event) => onWorker(event.data);
 			}
-			function buildGrammar() {
-				parser = null; spec = null;
-				try {
-					spec = readGrammarSource(gramCode.value, DSL);
-				} catch (e) {
-					const what = e instanceof GrammarSourceError ? 'Your grammar does not read' : 'Your grammar does not build';
-					verdict(false, [`${what}: ${e.message}`]);
-					gramTree.replaceChildren(); gramGen.textContent = '';
+			function post(req) {
+				if (!workerReady) { queued = req; return; }
+				worker.postMessage(req);
+				clearTimeout(limitTimer);
+				limitTimer = setTimeout(stopRunaway, GRAMMAR_LIMIT_MS);
+			}
+			function stopRunaway() {
+				worker.terminate();
+				hasParser = false;
+				verdict(false, [`Segno took longer than ${GRAMMAR_LIMIT_MS / 1000} s to build this grammar, so it was stopped. A very long alt() is the usual cause: split it into rules joined with ref().`]);
+				gramTree.replaceChildren(el('p', 'note', 'The build ran in a separate worker, so only that worker was stopped; this page kept running. Nothing was parsed.'));
+				gramGen.textContent = '';
+				renderSamples();
+				startWorker();
+			}
+			function onWorker(msg) {
+				if (msg.kind === 'ready') {
+					workerReady = true;
+					if (queued) { const req = queued; queued = null; post(req); }
 					return;
 				}
-				try {
-					parser = compile(spec);
-				} catch (e) {
-					if (!(e instanceof GrammarError)) { verdict(false, [`Your grammar does not build: ${e.message}`]); gramTree.replaceChildren(); gramGen.textContent = ''; return; }
-					verdict(false, ['Refused — this grammar would have to guess:', ...e.problems.map((p) => `\n  ${p}`)]);
+				if (msg.id === lastId) clearTimeout(limitTimer);
+				const latest = msg.id === lastId;
+				if (msg.kind === 'parsed') { if (latest && hasParser) drawParse(msg.parse); return; }
+				// A compile answer that a newer COMPILE overtook is dropped; one that only a newer parse
+				// overtook still sets the grammar's state, and the parse answer draws the tree.
+				if (msg.id !== lastCompileId) return;
+				hasParser = msg.kind === 'compiled';
+				renderSamples();
+				if (msg.kind === 'unreadable' || msg.kind === 'broken') {
+					verdict(false, [`Your grammar does not ${msg.kind === 'unreadable' ? 'read' : 'build'}: ${msg.message}`]);
+					gramTree.replaceChildren(); gramGen.textContent = '';
+				} else if (msg.kind === 'refused') {
+					verdict(false, ['Refused — this grammar would have to guess:', ...msg.problems.map((p) => `\n  ${p}`)]);
 					gramTree.replaceChildren(el('p', 'note', 'No parser was built, so there is nothing to parse with. Every parser Segno does build reads in one pass.'));
 					gramGen.textContent = '// Nothing is generated for a grammar the compiler refuses.';
-					return;
+				} else {
+					gramGen.textContent = msg.generated;
+					if (latest) drawParse(msg.parse);
 				}
-				try { gramGen.textContent = generate(spec); } catch { gramGen.textContent = ''; }
-				parseInput();
+			}
+			function compileGrammar() {
+				lastText = gramInput.value;
+				lastId += 1; lastCompileId = lastId;
+				post({ id: lastId, kind: 'compile', code: gramCode.value, text: lastText });
 			}
 			function parseInput() {
-				if (!parser) return;
-				const t = gramInput.value;
-				const r = parser.parse(t);
+				if (!hasParser) return;
+				lastText = gramInput.value;
+				lastId += 1;
+				post({ id: lastId, kind: 'parse', text: lastText });
+			}
+			function drawParse(r) {
+				if (!r) return;
+				const t = lastText;
 				if (r.ok) {
 					verdict(true, ['Compiles, and this text parses.']);
 					gramTree.replaceChildren(renderTree(r.node, t));
@@ -695,7 +725,7 @@ return {
 			}
 			function renderSamples() {
 				const box = $('#gramSamples');
-				box.hidden = !parser;
+				box.hidden = !hasParser;
 				box.replaceChildren(...G[gramCurrent].inputs.map((t) => {
 					const b = el('button', 'try', t);
 					b.type = 'button';
@@ -714,6 +744,7 @@ return {
 			let codeTimer = 0;
 			gramCode.addEventListener('input', () => { clearTimeout(codeTimer); codeTimer = setTimeout(compileGrammar, 150); });
 			gramInput.addEventListener('input', parseInput);
+			startWorker();
 			showGrammar(0);
 
 			// ── The ladder ──
