@@ -324,11 +324,20 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 									<label htmlFor="live-auto-admit">Let people in automatically</label>
 									<Switch id="live-auto-admit" checked={view.autoAdmit} onCheckedChange={actions.setAutoAdmit} />
 								</div>
+								{view.heir && view.heir !== 'you' && (
+									<p className="text-[11px] leading-snug text-muted-foreground" data-live-heir>
+										If you're disconnected for about half a minute, {view.heir} hosts until you're back.
+									</p>
+								)}
 							</div>
 						)}
 						{view.hostAway && (
-							<p className="mx-3.5 mt-3 rounded-lg border border-border bg-background px-2.5 py-2 text-[11.5px] text-muted-foreground">
-								The host is away. You can keep editing; new people can't join until they return.
+							<p className="mx-3.5 mt-3 rounded-lg border border-border bg-background px-2.5 py-2 text-[11.5px] text-muted-foreground" data-live-away-note>
+								{view.heir === 'you'
+									? "The host is away. You can keep editing. If they aren't back in about half a minute, you host until they return."
+									: view.heir
+										? `The host is away. You can keep editing. If they aren't back in about half a minute, ${view.heir} hosts until they return.`
+										: "The host is away. You can keep editing; new people can't join until they return."}
 							</p>
 						)}
 						{view.isHost && view.waiting.length > 0 && (

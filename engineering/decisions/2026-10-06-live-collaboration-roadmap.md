@@ -128,7 +128,7 @@ after audio. Tracked by `followups.d/2547-p4-screen-share.md`.
 |---|---|
 | Real cross-network test | `2547-p1-verify-live-on-two-real-networks.md` |
 | TURN default | `2547-p2-decide-a-turn-default.md` |
-| Host handoff when the host leaves | `2547-p2-live-host-handoff.md` |
+| Host handoff when the host leaves | built 2026-10-07 (design note §12.1) |
 | Sessions that outlive the host's tab | `2547-p2-live-sessions-outlive-host.md` |
 | Who sees IP addresses (members, relays, STUN) | `2547-p2-live-privacy-note.md` |
 | Per-member signing keys | `2547-p2-per-member-signing-keys.md` |

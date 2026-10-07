@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { createHostKey, type HostKey, signHello } from './hostkey';
+import { createHostKey, type HostKey, signCert, signHello, tokenId, verifyChain } from './hostkey';
 import { formatLink, mintLink, parseFragment, toBase64Url } from './link';
 import { createMemoryNetwork, type MemoryNetwork } from './memory';
-import { cleanName, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_DOC, TAG_POST } from './protocol';
-import { createSession, MAX_WAITING, type Session, type SessionOptions } from './session';
+import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_DOC, TAG_POST } from './protocol';
+import { createSession, HANDOFF_GRACE_MS, HOST_POLL_MS, MAX_POLL_ROUNDS, MAX_WAITING, type Session, type SessionOptions } from './session';
 import { type Clock, linkKind, type Stream, type Transport } from './types';
 
 // Every test runs whole sessions over the in-memory network, with a real Yjs document as the
@@ -263,7 +263,7 @@ describe('the gate', () => {
 		const a = await joined(net, h, 'Amina');
 		const c = await joined(net, h, 'Chen');
 		// Chen forges a roster that removes the host.
-		c.t.send(encodeControl({ t: 'roster', members: [{ id: c.t.selfId, name: 'Chen', role: 'host', color: 1 }] }), a.t.selfId);
+		c.t.send(encodeControl({ t: 'roster', members: [{ id: c.t.selfId, name: 'Chen', role: 'host', color: 1 }], term: 0 }), a.t.selfId);
 		await settle(net);
 		expect(a.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina', 'Chen']);
 	});
@@ -530,7 +530,7 @@ describe('the host is whoever holds the key (red-team, 2026-10-06)', () => {
 		raw.onPeerJoin(() => {});
 		await settle(net);
 		const sig = await signHello(KEY, raw.selfId, 'somebody-else');
-		raw.send(encodeControl({ t: 'hello', v: 1, invite: { title: 'T', hostName: 'H' }, key: toBase64Url(KEY.publicRaw), sig }), g.t.selfId);
+		raw.send(encodeControl({ t: 'hello', v: PROTOCOL_VERSION, invite: { title: 'T', hostName: 'H' }, chain: [], key: toBase64Url(KEY.publicRaw), sig }), g.t.selfId);
 		await settle(net);
 		expect(g.s.getState().stage).toBe('connecting');
 	});
@@ -617,7 +617,7 @@ describe('round 2 (red-team + checker, 2026-10-06)', () => {
 		Y.applyUpdate(evil, Y.encodeStateAsUpdate(g.doc));
 		evil.getText('source').insert(0, 'PWNED ');
 		squat.t.send(frame(TAG_DOC, Y.encodeStateAsUpdate(evil)), g.t.selfId);
-		squat.t.send(encodeControl({ t: 'roster', members: [{ id: hostId, name: 'Sharmarke', role: 'host', color: 1 }, { id: g.t.selfId, name: 'Amina', role: 'view', color: 2 }] }), g.t.selfId);
+		squat.t.send(encodeControl({ t: 'roster', members: [{ id: hostId, name: 'Sharmarke', role: 'host', color: 1 }, { id: g.t.selfId, name: 'Amina', role: 'view', color: 2 }], term: 0 }), g.t.selfId);
 		squat.t.send(encodeControl({ t: 'sync' }), g.t.selfId);
 		squat.t.send(encodeControl({ t: 'removed' }), g.t.selfId);
 		await settle(net);
@@ -667,7 +667,7 @@ describe('round 2 (red-team + checker, 2026-10-06)', () => {
 		const g = guest(net);
 		const r = raw(net);
 		await settle(net);
-		r.t.send(encodeControl({ t: 'hello', v: PROTOCOL_VERSION + 1, invite: { title: '', hostName: '' }, key: '', sig: '' }), g.t.selfId);
+		r.t.send(encodeControl({ t: 'hello', v: PROTOCOL_VERSION + 1, invite: { title: '', hostName: '' }, key: '', chain: [], sig: '' }), g.t.selfId);
 		await settle(net);
 		expect(g.s.getState().stage).toBe('outdated');
 		// A real host of this version still takes the guest on.
@@ -765,7 +765,7 @@ describe('round 2 (red-team + checker, 2026-10-06)', () => {
 		await net.settle();
 		const sig = await signHello(KEY, hostId, g.t.selfId);
 		// Sent and dropped in the same turn: the guest is still verifying when the leave lands.
-		back.t.send(encodeControl({ t: 'hello', v: PROTOCOL_VERSION, invite: { title: 'T', hostName: 'H' }, key: toBase64Url(KEY.publicRaw), sig }), g.t.selfId);
+		back.t.send(encodeControl({ t: 'hello', v: PROTOCOL_VERSION, invite: { title: 'T', hostName: 'H' }, chain: [], key: toBase64Url(KEY.publicRaw), sig }), g.t.selfId);
 		net.drop(hostId);
 		await settle(net);
 		// …and a squatter takes the id.
@@ -843,5 +843,270 @@ describe('connection paths (two-network check)', () => {
 		expect(linkKind(paths.peer2)).toBe('direct');
 		expect(linkKind({ local: 'host', remote: 'host', protocol: 'udp' })).toBe('local');
 		expect(linkKind({ local: 'srflx', remote: 'relay', protocol: 'udp' })).toBe('relay');
+	});
+});
+
+describe('succession: a regency while the host is away (2026-10-07)', () => {
+	/** Advance in 500 ms steps, settling between, so timers set by timers fire too. */
+	const until = async (net: MemoryNetwork, clock: ReturnType<typeof fakeClock>, ms: number) => {
+		for (let left = ms; left > 0; left -= 500) {
+			clock.advance(Math.min(500, left));
+			await settle(net);
+		}
+	};
+	const ROUND = HANDOFF_GRACE_MS + HOST_POLL_MS;
+	const hostOf = (p: Peer) => p.s.getState().members.find((m) => m.role === 'host');
+	/** Host + Amina (edit, so the heir) + Chen, all on one fake clock. */
+	async function trio(extra: Partial<SessionOptions> = {}) {
+		const net = createMemoryNetwork();
+		const clock = fakeClock(1_000_000);
+		const h = host(net, { clock, ...extra });
+		const a = await joined(net, h, 'Amina', { clock });
+		const c = await joined(net, h, 'Chen', { clock });
+		await settle(net);
+		return { net, clock, h, a, c };
+	}
+	/** A hello from a raw transport, signed by `key` at the end of `chain`. */
+	const helloFrom = async (raw: Transport, key: HostKey, chain: Awaited<ReturnType<typeof signCert>>[], to: string) =>
+		raw.send(encodeControl({ t: 'hello', v: PROTOCOL_VERSION, invite: { title: 'T', hostName: 'H' }, chain, key: toBase64Url(KEY.publicRaw), sig: await signHello(key, raw.selfId, to) }), to);
+
+	it('the host names the first editor as heir, and everyone sees who it is', async () => {
+		const { h, a, c } = await trio();
+		for (const p of [h, a, c]) expect(p.s.getState().heir).toBe(a.t.selfId);
+	});
+
+	it('after the grace period the heir hosts: members rejoin it by token, edits flow, and a newcomer can knock', async () => {
+		const { net, clock, h, a, c } = await trio();
+		net.drop(h.t.selfId);
+		await settle(net);
+		expect(a.s.getState().hostAway).toBe(true);
+		await until(net, clock, HANDOFF_GRACE_MS - 1000);
+		expect(a.s.getState().isHost).toBe(false);
+		await until(net, clock, 1000 + HOST_POLL_MS);
+		expect(a.s.getState()).toMatchObject({ isHost: true, stage: 'live', hostAway: false });
+		expect(a.s.getState().me).toMatchObject({ name: 'Amina', role: 'host', color: 2 });
+		expect(c.s.getState().members.map((m) => [m.name, m.role])).toEqual([['Amina', 'host'], ['Chen', 'edit']]);
+		expect(c.s.getState().me).toMatchObject({ name: 'Chen', role: 'edit', color: 3 });
+		c.text.insert(0, 'C ');
+		a.text.insert(0, 'A ');
+		await settle(net);
+		expect(a.text.toString()).toBe(c.text.toString());
+		const d = guest(net, { clock });
+		await settle(net);
+		d.s.knock('Dana');
+		await settle(net);
+		a.s.admit(a.s.getState().waiting[0].id);
+		await settle(net);
+		expect(d.s.getState().stage).toBe('live');
+		expect(d.text.toString()).toBe(a.text.toString());
+		expect(a.s.getState().heir).toBe(c.t.selfId);
+	});
+
+	it('the first host coming back from a reload takes the session back; the regent hands back the people it let in', async () => {
+		const { net, clock, h, a, c } = await trio();
+		const saved = h.s.succession();
+		const tokens = h.s.exportTokens();
+		net.drop(h.t.selfId);
+		await settle(net);
+		await until(net, clock, ROUND);
+		expect(a.s.getState().isHost).toBe(true);
+		// Amina's regency lets Dana in.
+		const d = guest(net, { clock });
+		await settle(net);
+		d.s.knock('Dana');
+		await settle(net);
+		a.s.admit(a.s.getState().waiting[0].id);
+		await settle(net);
+		expect(d.s.getState().stage).toBe('live');
+		// The first host's tab returns from its save.
+		const { key: _k, selfToken, ...succession } = saved as NonNullable<typeof saved>;
+		const back = host(net, { clock, host: { name: 'Sharmarke', invite: { title: 'Q3', hostName: 'Sharmarke' }, key: KEY, tokens, selfToken, succession } });
+		await settle(net);
+		await until(net, clock, 2000);
+		expect(back.s.getState().isHost).toBe(true);
+		expect(a.s.getState()).toMatchObject({ isHost: false, stage: 'live' });
+		expect(back.s.getState().members.map((m) => m.name).sort()).toEqual(['Amina', 'Chen', 'Dana', 'Sharmarke']);
+		for (const p of [a, c, d]) expect(hostOf(p)?.id).toBe(back.t.selfId);
+		// Dana walked back in by the token Amina gave her: no knock waiting.
+		expect(back.s.getState().waiting).toEqual([]);
+		back.text.insert(0, 'S ');
+		await settle(net);
+		for (const p of [a, c, d]) expect(p.text.toString()).toBe(back.text.toString());
+	});
+
+	it('a first host whose tab was frozen (links come back, no reload) takes the session back the same way', async () => {
+		const { net, clock, h, a, c } = await trio();
+		net.cut(h.t.selfId, a.t.selfId);
+		net.cut(h.t.selfId, c.t.selfId);
+		await settle(net);
+		await until(net, clock, ROUND);
+		expect(a.s.getState().isHost).toBe(true);
+		expect(hostOf(c)?.id).toBe(a.t.selfId);
+		net.heal(h.t.selfId, a.t.selfId);
+		net.heal(h.t.selfId, c.t.selfId);
+		await settle(net);
+		await until(net, clock, 2000);
+		expect(h.s.getState().isHost).toBe(true);
+		expect(a.s.getState().isHost).toBe(false);
+		expect(hostOf(a)?.id).toBe(h.t.selfId);
+		expect(hostOf(c)?.id).toBe(h.t.selfId);
+	});
+
+	it('an heir cut off from the host alone waits while an editor still reaches it, for a bounded number of rounds', async () => {
+		const { net, clock, h, a } = await trio();
+		net.cut(h.t.selfId, a.t.selfId);
+		await settle(net);
+		await until(net, clock, ROUND);
+		expect(a.s.getState().isHost).toBe(false);
+		expect(h.s.getState().isHost).toBe(true);
+		// The cut lasts: after MAX_POLL_ROUNDS she hosts anyway; the first host takes it back on healing.
+		await until(net, clock, ROUND * MAX_POLL_ROUNDS);
+		expect(a.s.getState().isHost).toBe(true);
+		net.heal(h.t.selfId, a.t.selfId);
+		await settle(net);
+		await until(net, clock, 2000);
+		expect(h.s.getState().isHost).toBe(true);
+		expect(a.s.getState()).toMatchObject({ isHost: false, stage: 'live' });
+	});
+
+	it("a viewer's word that the host is still here does not hold the handoff off", async () => {
+		const net = createMemoryNetwork();
+		const clock = fakeClock(1_000_000);
+		const h = host(net, { clock });
+		const a = await joined(net, h, 'Amina', { clock });
+		h.s.setLinkRole('view');
+		const v = await joined(net, h, 'Vik', { clock });
+		expect(v.s.getState().me?.role).toBe('view');
+		net.cut(h.t.selfId, a.t.selfId);
+		await settle(net);
+		await until(net, clock, ROUND);
+		// Vik still reaches the host and says so, but a viewer's word does not count.
+		expect(a.s.getState().isHost).toBe(true);
+	});
+
+	it('a withdrawn heir never wins, even by certifying itself past its range', async () => {
+		const { net, clock, h, a, c } = await trio();
+		h.s.remove(a.t.selfId);
+		await settle(net);
+		expect(h.s.getState().heir).toBe(c.t.selfId);
+		const termAfter = c.s.getState().minTerm;
+		expect(termAfter).toBeGreaterThan(1);
+		// A copy of a withdrawn cert (a range at the start), and the same key certifying itself far above it.
+		const ex = await createHostKey();
+		const pub = toBase64Url(ex.publicRaw);
+		const first = await signCert(KEY, pub, 1, termAfter - 1);
+		const chains = [[first], [first, await signCert(ex, pub, termAfter + 1000, termAfter + 1000)]];
+		const raw = net.join(LINK.room, LINK.secret);
+		await settle(net);
+		for (const chain of chains) {
+			await helloFrom(raw, ex, chain, c.t.selfId);
+			await helloFrom(raw, ex, chain, h.t.selfId);
+		}
+		await settle(net);
+		expect(h.s.getState().isHost).toBe(true);
+		expect(hostOf(c)?.id).toBe(h.t.selfId);
+		await until(net, clock, 2000);
+		expect(h.s.getState().isHost).toBe(true);
+	});
+
+	it('an heir that challenges a first host still here is followed for a moment, then the host takes it back and never names it again', async () => {
+		const { net, h, a, c } = await trio();
+		const raw = net.join(LINK.room, LINK.secret);
+		await settle(net);
+		// A cert in the first heir range: what Amina's own cert looks like.
+		const ex = await createHostKey();
+		const chain = [await signCert(KEY, toBase64Url(ex.publicRaw), 1, 1 << 20)];
+		await helloFrom(raw, ex, chain, c.t.selfId);
+		await helloFrom(raw, ex, chain, h.t.selfId);
+		await settle(net);
+		expect(h.s.getState().isHost).toBe(true);
+		expect(hostOf(c)?.id).toBe(h.t.selfId);
+		expect(c.s.getState().minTerm).toBeGreaterThan(1 << 20);
+		expect(h.s.getState().heir).toBe(a.t.selfId);
+	});
+
+	it('a real heir that challenges a first host still here loses the session back and is never heir again', async () => {
+		const net = createMemoryNetwork();
+		const clock = fakeClock(1_000_000);
+		const h = host(net, { clock, host: { name: 'Sharmarke', invite: { title: 'Q3', hostName: 'Sharmarke' }, key: KEY, autoAdmit: true } });
+		// Mallory: a raw transport speaking the protocol, admitted first, so she is the heir.
+		const raw = net.join(LINK.room, LINK.secret);
+		const got: Control[] = [];
+		raw.onMessage((d) => {
+			const m = d[0] === 0 ? decodeControl(d.subarray(1)) : null;
+			if (m) got.push(m);
+		});
+		raw.onPeerJoin(() => {});
+		raw.onPeerLeave(() => {});
+		await settle(net);
+		const mk = await createHostKey();
+		raw.send(encodeControl({ t: 'knock', name: 'Mallory' }), h.t.selfId);
+		await settle(net);
+		raw.send(encodeControl({ t: 'heir-key', pub: toBase64Url(mk.publicRaw) }), h.t.selfId);
+		await settle(net);
+		const heir = got.find((m): m is Extract<Control, { t: 'heir' }> => m.t === 'heir');
+		expect(heir).toBeDefined();
+		const c = await joined(net, h, 'Chen', { clock });
+		await settle(net);
+		// With Chen still connected to the host, Mallory uses her real cert to take over.
+		await helloFrom(raw, mk, (heir as Extract<Control, { t: 'heir' }>).chain, h.t.selfId);
+		await settle(net);
+		expect(h.s.getState().isHost).toBe(true);
+		expect(h.s.getState().heir).toBe(c.t.selfId);
+		expect(hostOf(c)?.id).toBe(h.t.selfId);
+	});
+
+	it('the host keeps rejoin tokens only by id, so the heir it hands them to cannot knock with one', async () => {
+		const { h, c } = await trio();
+		const tok = c.s.getState().token as string;
+		const ids = h.s.exportTokens().map(([id]) => id);
+		expect(ids).not.toContain(tok);
+		expect(ids).toContain(tokenId(tok));
+	});
+
+	it('a host back from a save with a cert still out withdraws it before its first hello', async () => {
+		const { net, clock, h } = await trio();
+		const saved = h.s.succession() as NonNullable<ReturnType<Session['succession']>>;
+		expect(saved.top).toBeGreaterThanOrEqual(1);
+		const { key: _k, selfToken, ...succession } = saved;
+		h.s.leave();
+		await settle(net);
+		const back = host(net, { clock, host: { name: 'Sharmarke', invite: { title: 'Q3', hostName: 'Sharmarke' }, key: KEY, tokens: h.s.exportTokens(), selfToken, succession } });
+		await settle(net);
+		const chain = (back.s.succession() as NonNullable<ReturnType<Session['succession']>>).chain;
+		expect(chain.at(-1)?.term).toBeGreaterThan(saved.top);
+	});
+
+	it('a view-only member is never heir, and a session with no other editor waits for its host', async () => {
+		const net = createMemoryNetwork();
+		const clock = fakeClock(1_000_000);
+		const h = host(net, { clock, host: { name: 'Sharmarke', invite: { title: 'Q3', hostName: 'Sharmarke' }, key: KEY, linkRole: 'view' } });
+		const v = await joined(net, h, 'Vik', { clock });
+		expect(h.s.getState().heir).toBeNull();
+		net.drop(h.t.selfId);
+		await settle(net);
+		await until(net, clock, ROUND);
+		expect(v.s.getState()).toMatchObject({ isHost: false, hostAway: true });
+	});
+});
+
+describe('cert chains (hostkey.ts)', () => {
+	it('start at the link key, rise in term, and never leave the range of the key before them', async () => {
+		const root = toBase64Url(KEY.publicRaw);
+		const a = await createHostKey();
+		const pa = toBase64Url(a.publicRaw);
+		const ok = [await signCert(KEY, pa, 5, 100), await signCert(a, pa, 50, 100)];
+		expect(await verifyChain(KEY.fingerprint, root, ok)).toEqual({ pub: pa, term: 50, max: 100 });
+		expect(await verifyChain(KEY.fingerprint, root, [])).toMatchObject({ pub: root, term: 0 });
+		// Wrong link, falling term, a ceiling raised, a term past its own ceiling, a bad signature.
+		expect(await verifyChain(OTHER.fingerprint, root, ok)).toBeNull();
+		expect(await verifyChain(KEY.fingerprint, root, [ok[0], await signCert(a, pa, 5, 100)])).toBeNull();
+		expect(await verifyChain(KEY.fingerprint, root, [ok[0], await signCert(a, pa, 50, 101)])).toBeNull();
+		expect(await verifyChain(KEY.fingerprint, root, [await signCert(KEY, pa, 101, 100)])).toBeNull();
+		expect(await verifyChain(KEY.fingerprint, root, [await signCert(OTHER, pa, 5, 100)])).toBeNull();
+	});
+	it('tokenId is SHA-256', () => {
+		expect(tokenId('abc')).toBe('ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0');
+		expect(tokenId('')).toBe('47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU');
 	});
 });

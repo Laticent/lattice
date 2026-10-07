@@ -5,7 +5,7 @@ import * as encoding from 'lib0/encoding';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { cleanName, createHostKey, createSession, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type TokenEntry, toBase64Url } from '@/lib/tavola';
+import { cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
@@ -36,7 +36,9 @@ const CHAT_MAX = 1000;
 /** Lines a browser keeps, and the host hands a newcomer. */
 const CHAT_KEEP = 500;
 
-type Linked = { deckId?: string; token?: string };
+/** `minTerm`: the lowest host term this browser follows (Tavola `SessionState.minTerm`), kept so a
+ *  reload is not caught by a withdrawn heir before the host says hello. Not a secret. */
+type Linked = { deckId?: string; token?: string; minTerm?: number };
 const readLinks = (): Record<string, Linked> => {
 	try {
 		return JSON.parse(localStorage.getItem(LINKS_KEY) || '{}');
@@ -56,7 +58,7 @@ const writeLink = (room: string, patch: Linked) => {
  *  lives in IndexedDB as a non-extractable CryptoKey (`putHostPrivateKey`), never in this record. */
 type HostSave = { room: string; sealed: string; pub: string; name: string; deckId: string; doc: string; startedAt: number };
 /** What `HostSave.sealed` opens to. Chat is in here because people paste things into chat. */
-type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; sids?: Array<[sid: string, owner: string]> };
+type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; sids?: Array<[sid: string, owner: string]>; succession?: Succession; selfToken?: string };
 const toB64 = (u: Uint8Array) => {
 	let s = '';
 	for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
@@ -104,7 +106,13 @@ type Post =
 	| { k: 'lines'; lines: ChatLine[]; startedAt: number }
 	| { k: 'tip'; seq: number; startedAt: number }
 	| { k: 'typing' }
-	| { k: 'bye' };
+	| { k: 'bye' }
+	/** host → its heir: who owns each chat-id prefix, by rejoin token, so the chat keeps its owners
+	 *  when the heir takes over (the host's own lines under its own rejoin token). */
+	| { k: 'sids'; sids: Array<[sid: string, owner: string]> }
+	/** a regent that stepped down → the host that took the session back: the lines it numbered
+	 *  meanwhile, and the chat-id owners it learned. Taken only from a member that host certified. */
+	| { k: 'handback'; lines: ChatLine[]; sids: Array<[sid: string, owner: string]> };
 /** How long a dropped member shows as reconnecting before the chat says they left. A phone that
  *  backgrounds a tab drops its connection within seconds and comes back when the tab returns. */
 const AWAY_GRACE_MS = 60_000;
@@ -185,6 +193,8 @@ type Runtime = {
 	/** The host's document has arrived (a guest may not open the deck before it has). */
 	gotDoc: boolean;
 	disposers: Array<() => void>;
+	/** The host lock (`navigator.locks`), held while this tab hosts. */
+	release: (() => void) | null;
 };
 
 /**
@@ -358,6 +368,14 @@ export class LiveController {
 	private sealSeq = 0;
 	/** The network path to each member, re-read every few seconds (the two-network check reads it). */
 	private paths: Record<string, LinkPath> = {};
+	/** Heir: the chat-id owners the host handed over, for when this browser takes over. */
+	private heirSids: Array<[string, string]> = [];
+	/** Host: what was last handed to the heir, so it is sent once per change. */
+	private sentSids = '';
+	/** A regency just ended here: hand the chat back once the returning host admits us. */
+	private handbackDue = false;
+	/** The id of the rejoin token this browser hosted under (its owner id for its own chat lines). */
+	private lastSelfId: string | null = null;
 	now = Date.now();
 
 	constructor(
@@ -409,7 +427,7 @@ export class LiveController {
 				this.chat = (opened.chat ?? []).map(cleanLine).filter((l): l is ChatLine => !!l);
 				this.seq = this.chat.reduce((m, l) => Math.max(m, l.seq), 0);
 				this.sidOwner = new Map((opened.sids ?? []).filter((e) => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string'));
-				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc }, startedAt: hosting.startedAt, release });
+				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc, succession: opened.succession, selfToken: opened.selfToken }, startedAt: hosting.startedAt, release });
 				this.bound = true;
 				this.boundDeck = hosting.deckId;
 				this.host.notify('Your live session is back. People who were in rejoin without knocking.');
@@ -448,13 +466,14 @@ export class LiveController {
 			if (saved?.room === parts.room && Array.isArray(saved.pending)) waiting = saved.pending.filter((p) => typeof p?.id === 'string' && typeof p.text === 'string' && typeof p.at === 'number').slice(0, 50);
 		} catch {}
 		if (this.rt) return;
-		this.wire({ room: parts.room, secret: parts.secret, hostFingerprint: parts.host, token });
+		const minTerm = readLinks()[parts.room]?.minTerm;
+		this.wire({ room: parts.room, secret: parts.secret, hostFingerprint: parts.host, token, ...(Number.isSafeInteger(minTerm) ? { minTerm } : {}) });
 		// Lines that were waiting when this tab reloaded go out on admission (catchUp).
 		this.pending = waiting;
 		this.host.rerender();
 	}
 
-	private wire(args: { room: string; secret: string; key?: HostKey; hostFingerprint?: string; host?: { name: string; tokens?: TokenEntry[]; doc?: string }; token?: string; startedAt?: number; release?: () => void }) {
+	private wire(args: { room: string; secret: string; key?: HostKey; hostFingerprint?: string; host?: { name: string; tokens?: TokenEntry[]; doc?: string; succession?: Succession; selfToken?: string }; token?: string; minTerm?: number; startedAt?: number; release?: () => void }) {
 		const d = this.deps;
 		const doc = new Y.Doc();
 		const ytext = doc.getText('source');
@@ -514,19 +533,24 @@ export class LiveController {
 			transport: trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN }),
 			doc: docStream,
 			awareness: awStream,
-			...(args.host && key ? { host: { name: args.host.name, key, tokens: args.host.tokens, invite: { title: d.deckTitle, hostName: args.host.name, slides: d.slideCount, theme: d.theme } } } : { hostFingerprint: args.hostFingerprint }),
+			...(args.host && key ? { host: { name: args.host.name, key, tokens: args.host.tokens, ...(args.host.succession ? { succession: args.host.succession } : {}), ...(args.host.selfToken ? { selfToken: args.host.selfToken } : {}), invite: { title: d.deckTitle, hostName: args.host.name, slides: d.slideCount, theme: d.theme } } } : { hostFingerprint: args.hostFingerprint }),
 			...(args.token ? { token: args.token } : {}),
+			...(args.minTerm !== undefined ? { minTerm: args.minTerm } : {}),
 			client: aw.clientID,
 			onPost: (data, from) => this.onPost(data, from),
 		});
 		// The binding brings its own undo manager, scoped to THIS browser's changes, in place of
 		// CodeMirror's history (which would put everyone's edits on your undo stack).
 		const ext = [yCollab(ytext, aw, { undoManager: new Y.UndoManager(ytext) }), keymap.of(yUndoManagerKeymap)];
-		const fingerprint = key?.fingerprint ?? (args.hostFingerprint as string);
+		// The LINK's fingerprint: a host that took over signs with its own key, certified by the link's.
+		const fingerprint = args.host?.succession?.fingerprint ?? key?.fingerprint ?? (args.hostFingerprint as string);
 		// The link is this page's address WITHOUT its query: a query can carry anything the host's
 		// address bar happened to hold (inversion round 2, item 6).
-		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [] };
-		if (args.release) rt.disposers.push(args.release);
+		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [], release: args.release ?? null };
+		rt.disposers.push(() => {
+			rt?.release?.();
+			if (rt) rt.release = null;
+		});
 		this.rt = rt;
 		const r = rt;
 
@@ -589,7 +613,11 @@ export class LiveController {
 					}
 					for (const m of s.members) {
 						const was = before.get(m.id);
-						if (was && was.role !== m.role) this.sys(`${m.name} ${m.role === 'view' ? 'can now only view' : 'can now edit'}`);
+						if (!was || was.role === m.role || was.role === 'host') continue;
+						// The heir took over: its own browser says so in `onTookOver`.
+						if (m.role === 'host') {
+							if (m.id !== s.selfId) this.sys(`${m.name} is hosting now`);
+						} else this.sys(`${m.name} ${m.role === 'view' ? 'can now only view' : 'can now edit'}`);
 					}
 				}
 				// Made view-only with lines still waiting: they can no longer be sent. Say so once.
@@ -606,6 +634,20 @@ export class LiveController {
 						() => {},
 					);
 				}
+				if (prev.stage === 'live' && s.stage === 'live') {
+					if (!prev.isHost && s.isHost) this.onTookOver(r);
+					else if (prev.isHost && !s.isHost) this.onSteppedDown(r);
+				}
+				if (!s.isHost && s.minTerm !== prev.minTerm) writeLink(r.room, { minTerm: s.minTerm });
+				if (this.handbackDue && !s.isHost && s.stage === 'live' && !s.hostAway) {
+					const to = s.members.find((m) => m.role === 'host')?.id;
+					if (to) {
+						this.handbackDue = false;
+						this.post({ k: 'handback', lines: this.chat, sids: [...this.sidOwner].map(([sid, owner]): [string, string] => [sid, owner === 'host' ? (this.lastSelfId ?? owner) : owner]) }, to);
+					}
+				}
+				if (s.isHost && s.heir !== prev.heir) this.sentSids = '';
+				if (s.isHost) this.sendSids();
 				if (prev.stage !== s.stage) this.onStage(prev.stage, s);
 				prev = s;
 				this.saveHostSoon();
@@ -706,6 +748,10 @@ export class LiveController {
 		} catch {}
 		this.seq = 0;
 		this.paths = {};
+		this.heirSids = [];
+		this.sentSids = '';
+		this.handbackDue = false;
+		this.lastSelfId = null;
 		this.hostStartedAt = null;
 		this.following = null;
 		this.bound = false;
@@ -758,7 +804,11 @@ export class LiveController {
 		let sealed: string;
 		const seq = ++this.sealSeq;
 		try {
-			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat, sids: [...this.sidOwner] } satisfies HostSealed));
+			// Certs still being signed would leave the saved term behind the roster's (checker, 2026-10-07).
+			await r.session.idle();
+			const succ = r.session.succession();
+			const succession = succ ? { root: succ.root, fingerprint: succ.fingerprint, chain: succ.chain, base: succ.base, top: succ.top } : undefined;
+			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat, sids: [...this.sidOwner], succession, selfToken: succ?.selfToken } satisfies HostSealed));
 		} catch {
 			return false;
 		}
@@ -776,6 +826,69 @@ export class LiveController {
 		} catch {
 			return false;
 		}
+	}
+
+	// ── succession: the host role moved (Tavola, "SUCCESSION") ──────────────
+	/** Host: hand the heir the chat-id owners, once per change. The host's own lines are owned by
+	 *  'host' here; the heir gets them under the host's rejoin token, which the host rejoins with. */
+	private sendSids() {
+		const r = this.rt;
+		const s = r?.session.getState();
+		const selfToken = r?.session.succession()?.selfToken;
+		if (!r || !s?.isHost || !s.heir || !selfToken) return;
+		const self = tokenId(selfToken);
+		const sids = [...this.sidOwner].map(([sid, owner]): [string, string] => [sid, owner === 'host' ? self : owner]);
+		const key = `${s.heir}|${JSON.stringify(sids)}`;
+		if (key === this.sentSids) return;
+		this.sentSids = key;
+		this.post({ k: 'sids', sids }, s.heir);
+	}
+
+	/** This browser took the host role over: it numbers the chat from here, keeps the session's
+	 *  start, holds the host lock and saves the session like any host (with its own key). */
+	private onTookOver(r: Runtime) {
+		const succ = r.session.succession();
+		if (!succ) return;
+		r.key = succ.key;
+		r.startedAt = this.hostStartedAt ?? r.startedAt;
+		// Our own lines were owned by our rejoin token's id (now `selfToken`'s); a host's own are 'host'.
+		const mine = tokenId(succ.selfToken);
+		this.lastSelfId = mine;
+		this.sidOwner = new Map(this.heirSids.map(([sid, owner]): [string, string] => [sid, owner === mine ? 'host' : owner]));
+		this.heirSids = [];
+		const waiting = this.pending;
+		this.setPending([]);
+		for (const p of waiting) this.hostTake(p.id, r.session.getState().selfId, r.session.getState().me as { name: string; color: LiveColor }, p.text);
+		void putHostPrivateKey(r.room, succ.key.privateKey).catch(() => {});
+		void holdHostLock(r.room).then((release) => {
+			if (this.rt === r && r.session.getState().isHost) r.release = release;
+			else release?.();
+		});
+		clearJoinIntent();
+		void this.saveHost();
+		this.sys('The host left, so you are hosting now');
+		this.host.notify('The host left, so you are hosting the session now.');
+	}
+
+	/** A regency ended: the session's first host (or a later regent) took over from this browser.
+	 *  Rejoin it as a member and hand the chat back. A reload now rejoins by link and token, in this
+	 *  same deck, instead of resuming as host. */
+	private onSteppedDown(r: Runtime) {
+		r.release?.();
+		r.release = null;
+		r.key = null;
+		this.hostStartedAt = r.startedAt;
+		clearHostSave();
+		void deleteHostPrivateKey(r.room).catch(() => {});
+		const fp = parseFragment(new URL(r.link).hash)?.host;
+		if (fp) {
+			const raw = formatFragment({ room: r.room, secret: r.secret, host: fp }).slice('live='.length);
+			void seal(raw).then(storeSealedJoin, () => {});
+		}
+		if (this.boundDeck) writeLink(r.room, { deckId: this.boundDeck });
+		this.handbackDue = true;
+		this.sys('The host is back, so you are no longer hosting');
+		this.host.notify('The host is back, so you are no longer hosting. You are still in the session.');
 	}
 
 	// ── stage transitions that need the Studio (guests) ─────────────────────
@@ -1137,6 +1250,11 @@ export class LiveController {
 				this.sys(`${p.name} was removed`);
 				this.host.rerender();
 			}
+		} else if (s.isHost && p.k === 'handback' && r.session.wasHeir(from) && Array.isArray(p.lines) && Array.isArray(p.sids)) {
+			// The regent's lines and owners: the session's chat stays whole across the regency.
+			this.addLines(p.lines.slice(-CHAT_KEEP).map(cleanLine).filter((l): l is ChatLine => !!l));
+			for (const e of p.sids.slice(0, 2000)) if (Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string' && !this.sidOwner.has(e[0])) this.sidOwner.set(e[0], e[1]);
+			void this.saveHost();
 		} else if (s.isHost) {
 			if (p.k === 'say' && sender.role !== 'view' && typeof p.id === 'string' && p.id.length <= 80 && typeof p.text === 'string') {
 				this.typingAt.delete(from);
@@ -1179,6 +1297,9 @@ export class LiveController {
 			} else if (p.k === 'lines' && Array.isArray(p.lines)) {
 				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
 				this.addLines(p.lines.slice(-CHAT_KEEP).map(cleanLine).filter((l): l is ChatLine => !!l));
+			} else if (p.k === 'sids' && Array.isArray(p.sids)) {
+				// Kept whether or not we know yet that we are the heir: it can arrive before the roster.
+				this.heirSids = p.sids.filter((e): e is [string, string] => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string').slice(0, 2000);
 			} else if (p.k === 'tip' && Number.isSafeInteger(p.seq)) {
 				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
 				// Ahead OR behind: a host whose number is below ours came back from an old save, and our
@@ -1199,7 +1320,7 @@ export class LiveController {
 			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: 'off', ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
-			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role, slide: null, editing: false, mic: 'off', away: true });
+			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role === 'host' && s.members.some((m) => m.role === 'host') ? 'edit' : a.role, slide: null, editing: false, mic: 'off', away: true });
 		}
 		const now = Date.now();
 		const typing = s.members.filter((m) => m.id !== s.selfId && now - (this.typingAt.get(m.id) ?? 0) < TYPING_SHOW_MS).map((m) => m.name);
@@ -1209,6 +1330,7 @@ export class LiveController {
 			// The session's start as the HOST stamped it, on the session clock.
 			// Unknown (null, so no timer shows) until the host's start arrives, rather than 0:00 then a jump.
 			startedAt: s.isHost ? r.startedAt : this.hostStartedAt,
+			heir: s.heir ? (s.heir === s.selfId ? 'you' : (s.members.find((m) => m.id === s.heir)?.name ?? null)) : null,
 			link: r.link,
 			linkRole: s.linkRole,
 			autoAdmit: s.autoAdmit,

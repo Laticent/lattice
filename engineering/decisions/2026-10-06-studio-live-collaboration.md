@@ -723,6 +723,77 @@ narrower windows of the same host-id squat; each now has a test that fails witho
 - UNVERIFIED: two real devices on two networks, iOS Safari, and anything about calls.
 
 
+### 12.1 Host handoff, as a regency (2026-10-07)
+
+**What it does.** If the host's connection stays down, the next editor hosts **until the host is
+back**: members rejoin the regent by token without knocking, chat keeps flowing (numbered by the
+regent), and new people can knock again. When the host returns, from a reload or from a phone
+tab that was frozen, it takes the session back; the regent hands back the chat lines it numbered
+and the rejoin tokens it issued, so the people it let in stay in. The Live panel names the heir:
+the host reads *If you're disconnected for about half a minute, Amina hosts until you're back*,
+and while the host is away every member reads who hosts meanwhile.
+
+**Why a regency and not a handover.** The first design moved the role for good: the old host
+rejoined as a member. The inversion review ran it and found that what happened then depended on
+whether the browser froze the tab or threw it away. A reloaded host stepped down. A resumed tab
+took the session back, dropped the regent's chat and showed the regent a false "you were away".
+Making the creator always reclaim turns that accident into the rule. It also keeps what a host had
+before: the person who shared the link can always end the session. *This is a product choice the
+owner can reverse:* a final handover is the same mechanism with the reclaim turned off.
+
+**How the authority moves.** The host's key cannot move: in the Studio it is a non-extractable
+CryptoKey. So the host certifies the heir's own key: a cert says "this key may host at term N,
+and never above M", signed by the key that hosts now, and a hello carries the chain of certs back
+to the key the link names (`hostkey.ts`, `verifyChain`). Terms only rise, a cert can only narrow
+its issuer's range, and the highest term wins:
+
+- a guest follows a strictly higher term, and never one below its floor (the roster's term, which
+  the Studio persists with the rejoin token, so a reload is not caught by a withdrawn heir);
+- a regent that hears a higher term steps down (`moved`), rejoins with its own token, and hands back;
+- the first host never steps down: it certifies itself above the challenger's whole range;
+- when the heir changes (it left, was removed or made view-only), the host certifies itself above
+  the withdrawn range, and the range's ceiling binds every key the withdrawn heir could sign;
+- an heir that challenges a first host which still has members is never heir again.
+
+**What the heir holds.** The chain, the blocked ids, the settings, and the rejoin tokens **by id**
+(SHA-256). It can check a knock by hashing it, but cannot knock with anyone's token. A removed
+heir therefore cannot come back as another member (red team, 2026-10-07).
+
+**Waiting before taking over.** WebRTC takes about 13 s to notice a dead link (measured below),
+and a host reload is back in about 6 s, so the grace is 20 s. Then the heir asks the other
+editors whether they still reach the host. If one does, the heir is the one cut off, and it waits
+again, for at most three rounds; after that it hosts anyway, and the first host takes the session
+back when the cut heals. A viewer's answer does not count, so a viewer cannot hold the handoff off.
+
+**What the Studio does around it.** The regent keeps the session's start time and the chat
+numbering, takes over the chat-id owners the host handed it, sends its own waiting lines, holds
+the host lock and saves the session with its own key and chain. A host waits for any cert still
+being signed before it saves, and withdraws a cert it had out when it resumes from a save.
+
+**Measured on the real surface** (`tools/live-session-check.mjs`, two Chromium processes, the
+public relays, real WebRTC): the host's tab closed; the heir saw *The host is away… you host
+until they return* about 13 s later; it hosted 32.9 s after the close; a third person knocked,
+the regent admitted them, and they received its edits; the regent ended the session. The return
+of the first host (reload or frozen tab) and the handback ran over the in-memory network in
+Tavola's and the Studio's tests, not over real WebRTC: UNVERIFIED on the real surface.
+
+**The adversarial review** (red team, inversion, independent checker; all on Opus) found, before
+merge, and each now has a test that fails without its guard:
+
+| Finding | Severity | Now |
+|---|---|---|
+| A cert holder could certify itself at any term, so a withdrawn heir out-ranked the host | critical | ceilings: a cert can only narrow its issuer's range |
+| After a host reload, a cert still out was never withdrawn; an ex-heir could make the host step down | critical | a resumed host withdraws before its first hello; the first host never steps down |
+| A removed heir kept every rejoin token and walked back in as another member | high | the heir gets token ids only |
+| A reloading member could be caught by a withdrawn heir before the host's hello | high | the floor persists with the token |
+| A returning host's fate depended on whether its tab froze or reloaded; the regent's chat was lost | high | regency: the first host always reclaims, and the regent hands back lines and tokens |
+| One viewer answering "the host is here" held the handoff off forever | medium | only editors' answers count, and at most three rounds |
+| A save could seal the chain before a cert finished signing | medium | the save waits for signing |
+| An heir could keep a cert below the floor and take over into a void | low | dropped on the roster and before promotion |
+| The first chat-id handover to a new heir could be dropped | low | kept from the host whenever it arrives |
+
+**Protocol.** Version 2. A tab still on version 1 shows *Reload to join* rather than timing out.
+
 ## 13. Implementation reference — what it is built from, and why
 
 The road ahead (voice and video, a server path, firewalls, screen share, the open decisions) is

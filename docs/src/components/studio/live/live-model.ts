@@ -49,8 +49,12 @@ export type LiveView = {
 	chat: LiveChatLine[];
 	/** The id this browser is following, if any. */
 	following: string | null;
-	/** The host dropped; guests keep editing but nobody new can join. */
+	/** The host dropped; guests keep editing but nobody new can join until it returns or the heir
+	 *  takes over. */
 	hostAway: boolean;
+	/** Who hosts while the host's connection is down (until the host is back): a name, 'you', or
+	 *  null (nobody can: no other member may edit). */
+	heir: string | null;
 	/** Whether calls exist yet (S4). False hides every mic control rather than showing dead ones. */
 	audio: boolean;
 	/** View-only members read the chat but cannot post (their document changes are never sent). */
@@ -109,6 +113,7 @@ export const IDLE_VIEW: LiveView = {
 	chat: [],
 	following: null,
 	hostAway: false,
+	heir: null,
 	audio: false,
 	canChat: true,
 	typing: [],

@@ -6,7 +6,9 @@
  * Nostr relays and real WebRTC — no mocks. The host starts a session and copies the link; the
  * guest opens it, waits in the lobby, knocks; the host admits; both type in the editor and see
  * each other's edits and carets; the guest undoes only its own edit; chat crosses; the host
- * removes the guest, whose copy of the deck stays. Each step logs its elapsed time, and the
+ * removes the guest, whose copy of the deck stays; a second guest joins, both sides reload; then the
+ * host's tab closes and the second guest takes over as host after the grace period, lets a third
+ * person in, and ends the session. Each step logs its elapsed time, and the
  * screenshots land in the output directory.
  *
  * It reaches third-party relays, so it is ON-DEMAND only and never part of the test suite or CI
@@ -185,12 +187,38 @@ const tGuestReload = Date.now();
 await guest2.reload({ waitUntil: 'networkidle' });
 await guest2.waitForSelector('[data-live-pill]', { timeout: 60000 });
 log(`guest reloaded and rejoined without a knock, after ${Date.now() - tGuestReload} ms`);
-await host.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Live"]').last().click();
-await host.locator('button[aria-label="Session options"]').click();
-await host.getByRole('menuitem', { name: /End session for everyone/ }).click();
-await guest2.waitForFunction(() => !document.querySelector('[data-live-pill]'), null, { timeout: 15000 });
-log('host ended the session and the guest left it');
+// Host handoff: the host's tab closes for good. Chen is the heir (the first editor); after the grace
+// period Chen hosts, and a newcomer can knock and be let in by Chen.
+await guest2.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Live"]').last().click();
+await guest2.waitForSelector('[data-live-panel]', { timeout: 15000 });
+const tClose = Date.now();
 await hctx.close();
+await guest2.waitForSelector('[data-live-away-note]', { timeout: 30000 });
+log(`host tab closed; Chen sees: ${JSON.stringify(await guest2.locator('[data-live-away-note]').textContent())}`);
+await guest2.screenshot({ path: `${OUT}real-host-away-${mode}.png` });
+await guest2.waitForSelector('input[aria-label="Invite link"]', { timeout: 60000 });
+log(`Chen hosts now, ${Date.now() - tClose} ms after the host's tab closed`);
+await guest2.screenshot({ path: `${OUT}real-took-over-${mode}.png` });
+const g3ctx = await gb.newContext({ viewport: { width: 1440, height: 900 } });
+await g3ctx.addInitScript(seedFn, mode);
+const guest3 = await g3ctx.newPage();
+await guest3.goto(link, { waitUntil: 'networkidle' });
+await guest3.waitForSelector('#live-lobby-name', { timeout: 60000 });
+await guest3.locator('#live-lobby-name').fill('Dana');
+await guest3.getByRole('button', { name: 'Ask to join' }).click();
+await guest2.waitForSelector('button[aria-label="Admit Dana"]', { timeout: 30000 });
+await guest2.locator('button[aria-label="Admit Dana"]').click();
+await guest3.waitForSelector('[data-live-pill]', { timeout: 30000 });
+await guest2.locator('.cm-content').first().click();
+await guest2.keyboard.press('Control+Home');
+await guest2.keyboard.type('<!-- Chen hosting -->\n');
+await guest3.waitForFunction(() => document.querySelector('.cm-content')?.textContent?.includes('Chen hosting'), null, { timeout: 20000 });
+log('a newcomer knocked at the new host, was let in, and sees its edits');
+await guest2.locator('button[aria-label="Session options"]').click();
+await guest2.getByRole('menuitem', { name: /End session for everyone/ }).click();
+await guest3.waitForFunction(() => !document.querySelector('[data-live-pill]'), null, { timeout: 15000 });
+log('the new host ended the session and the newcomer left it');
+await g3ctx.close();
 await gctx.close();
 await g2ctx.close();
 await hb.close();

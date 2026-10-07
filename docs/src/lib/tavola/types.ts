@@ -100,6 +100,11 @@ export type SessionState = {
 	cap: number;
 	/** Guest only: the token that lets this browser rejoin without knocking again. */
 	token: string | null;
+	/** Who becomes host if the host's link stays down (the host names it in the roster). */
+	heir: PeerId | null;
+	/** Guest: the lowest host term this browser follows. Persist it with the rejoin token and pass
+	 *  it back as `SessionOptions.minTerm` after a reload. */
+	minTerm: number;
 };
 
 export type Clock = {
