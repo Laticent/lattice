@@ -123,3 +123,60 @@ test('on the real corpus, every component directory maps to its OWN gallery (not
   }
   assert.deepEqual(missing, [], `component directories with no gallery: ${missing.join(', ')}`);
 });
+
+// #2583: a one-line `scripts` edit read as a dependency change, widened the render to every
+// gallery, and skipped the base render, so the PR comment listed 46 slides the PR never moved.
+describe('golden-affected — a package.json edit is a dependency change only when it touches a render input', () => {
+  const PKG = { name: 'lattice', version: '1.0.0', scripts: { build: 'node tools/build.js' }, dependencies: { 'markdown-it': '14.1.0' } };
+  const text = (o) => JSON.stringify(o, null, 2);
+  const withKey = (k, v) => text({ ...PKG, [k]: v });
+  let packageJsonMovesRenders;
+  let renderRelevantChanges;
+  const loadPkg = async () => {
+    ({ packageJsonMovesRenders, renderRelevantChanges } = await import('../../../tools/lib/golden-affected.mjs'));
+  };
+
+  test('a scripts-only edit drops package.json, so the scope is none and nothing reads it as a dependency', async () => {
+    await load();
+    await loadPkg();
+    const head = withKey('scripts', { ...PKG.scripts, 'parser:bakeoff': 'node tools/parser-bakeoff/run.mjs' });
+    const changed = renderRelevantChanges(['package.json', 'tools/parser-bakeoff/segno.mjs'], () => text(PKG), () => head);
+    assert.deepEqual(changed, ['tools/parser-bakeoff/segno.mjs']);
+    // golden-diff's depChange is this same test over the filtered list.
+    assert.equal(changed.some((f) => /^package(-lock)?\.json$/.test(f)), false);
+    assert.equal(run(changed).scope, 'none');
+  });
+  for (const [what, key, value] of [
+    ['a dependency bump', 'dependencies', { 'markdown-it': '14.2.0' }],
+    ['a devDependency added', 'devDependencies', { mermaid: '11.0.0' }],
+    ['a version bump (lattice-emulator.js reads it)', 'version', '1.0.1'],
+    ['a key nobody listed', 'exports', { '.': './index.js' }],
+  ]) {
+    test(`${what} keeps package.json, so every gallery renders`, async () => {
+      await load();
+      await loadPkg();
+      const changed = renderRelevantChanges(['package.json'], () => text(PKG), () => withKey(key, value));
+      assert.deepEqual(changed, ['package.json']);
+      assert.equal(run(changed, 100).scope, 'shared');
+    });
+  }
+  test('a lockfile change still counts whatever package.json did', async () => {
+    await load();
+    await loadPkg();
+    const head = withKey('scripts', { ...PKG.scripts, x: 'y' });
+    const changed = renderRelevantChanges(['package.json', 'package-lock.json'], () => text(PKG), () => head);
+    assert.deepEqual(changed, ['package-lock.json']);
+    assert.equal(run(changed, 100).scope, 'shared');
+  });
+  test('a package.json missing or unparsable on either side is not proven inert', async () => {
+    await loadPkg();
+    assert.equal(packageJsonMovesRenders(null, text(PKG)), true);
+    assert.equal(packageJsonMovesRenders(text(PKG), '{ not json'), true);
+    assert.equal(packageJsonMovesRenders(text(PKG), text(PKG)), false);
+  });
+  test('package.json is not read when it did not change', async () => {
+    await loadPkg();
+    const boom = () => { throw new Error('read'); };
+    assert.deepEqual(renderRelevantChanges(['lib/core/fit.js'], boom, boom), ['lib/core/fit.js']);
+  });
+});

@@ -29,6 +29,13 @@ import { reference } from './reference.mjs';
 
 const require = createRequire(import.meta.url);
 const esbuild = require('esbuild');
+// The dispatcher Lattice SHIPS, as the markdown-it path asks it per span: the escape first,
+// then "does any kind render this?" (lib/integrations/markdown-it/plugins.js). The arm's own
+// `segnoInline` below is a copy written for the race, and the kernel column is the retired
+// pre-Segno kernel; neither says how fast the shipped path is. Building the HTML is not timed,
+// so the column is the same job as the other two: decide what the span is.
+const shipped = require('../../lib/core/inline-code-directives.js');
+const shippedInline = (s) => shipped.escapedText(s) !== null || shipped.dispatches(s, null);
 // SEGNO_LIB points the arm at another copy of the library — a checkout of the previous commit —
 // so a before/after pair runs in one session on one machine (HARD RULE #19's same-machine rule).
 const LIB = process.env.SEGNO_LIB || path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../docs/src/lib/segno');
@@ -102,7 +109,7 @@ function time(fn, inputs, target = 2e6) {
 }
 
 const rows = [];
-const row = (job, n, kernel, segno) => rows.push({ job, n, kernel, segno });
+const row = (job, n, kernel, segno, live = NaN) => rows.push({ job, n, kernel, segno, shipped: live });
 {
   const { real } = inputsFor('inline');
   const segnoInputs = real.map(translatePill);
@@ -122,15 +129,15 @@ const row = (job, n, kernel, segno) => rows.push({ job, n, kernel, segno });
   const sameJob = both.filter(([s, b]) => !(reference.inline(s) === null && segnoInline(b) !== null));
   const marks = accepted.filter(([a]) => SHORTCUTS.has(a));
   const pills = accepted.filter(([a]) => a.startsWith('{'));
-  row('inline dispatch, every span both read alike', sameJob.length, time(reference.inline, sameJob.map(([a]) => a)), time(segnoInline, sameJob.map(([, b]) => b)));
-  row('  ordinary code (code to both)', ordinary.length, time(reference.inline, ordinary.map(([a]) => a)), time(segnoInline, ordinary.map(([, b]) => b)));
-  row(`  directives (${agree}/${accepted.length} agree)`, accepted.length, time(reference.inline, accepted.map(([a]) => a)), time(segnoInline, accepted.map(([, b]) => b)));
-  row('  state marks [x]', marks.length, time(reference.inline, marks.map(([a]) => a)), time(segnoInline, marks.map(([, b]) => b)));
-  row('  pills {BETA, tag, c4}', pills.length, time(reference.inline, pills.map(([a]) => a)), time(segnoInline, pills.map(([, b]) => b)));
+  row('inline dispatch, every span both read alike', sameJob.length, time(reference.inline, sameJob.map(([a]) => a)), time(segnoInline, sameJob.map(([, b]) => b)), time(shippedInline, sameJob.map(([, b]) => b)));
+  row('  ordinary code (code to both)', ordinary.length, time(reference.inline, ordinary.map(([a]) => a)), time(segnoInline, ordinary.map(([, b]) => b)), time(shippedInline, ordinary.map(([, b]) => b)));
+  row(`  directives (${agree}/${accepted.length} agree)`, accepted.length, time(reference.inline, accepted.map(([a]) => a)), time(segnoInline, accepted.map(([, b]) => b)), time(shippedInline, accepted.map(([, b]) => b)));
+  row('  state marks [x]', marks.length, time(reference.inline, marks.map(([a]) => a)), time(segnoInline, marks.map(([, b]) => b)), time(shippedInline, marks.map(([, b]) => b)));
+  row('  pills {BETA, tag, c4}', pills.length, time(reference.inline, pills.map(([a]) => a)), time(segnoInline, pills.map(([, b]) => b)), time(shippedInline, pills.map(([, b]) => b)));
   const p = pills.map(([, b]) => b);
   row('    stage: grammar (flat tree)', p.length, NaN, time((s) => parseFlat(s), p));
   row('    stage: + tree to values', p.length, NaN, time((s) => parseTree(s), p));
-  row('  Segno syntax the kernel reads as code', segnoOnly.length, NaN, time(segnoInline, segnoOnly.map(([, b]) => b)));
+  row('  Segno syntax the kernel reads as code', segnoOnly.length, NaN, time(segnoInline, segnoOnly.map(([, b]) => b)), time(shippedInline, segnoOnly.map(([, b]) => b)));
 }
 {
   const lists = inputsFor('axis').real.filter((s) => s.trim().startsWith('['));
@@ -176,8 +183,10 @@ if (process.argv.includes('--json')) {
   console.log(JSON.stringify({ rows, ladder }, null, 2));
 } else {
   const ns = (v) => (Number.isNaN(v) ? '' : v >= 1000 ? `${(v / 1000).toFixed(2)} us` : `${v.toFixed(0)} ns`);
-  console.log('per span: kernel | segno | segno/kernel   (best of seven long rounds)');
-  for (const r of rows) console.log(`  ${r.job.padEnd(50)} n=${String(r.n).padStart(5)}  ${ns(r.kernel).padStart(9)} | ${ns(r.segno).padStart(9)} | ${Number.isNaN(r.kernel) ? '' : `${(r.segno / r.kernel).toFixed(2)}x`}`);
+  const x = (a, b) => (Number.isNaN(a) || Number.isNaN(b) ? '' : `${(a / b).toFixed(2)}x`);
+  console.log('per span: kernel | segno | shipped | segno/kernel | shipped/kernel   (best of seven long rounds)');
+  console.log('  kernel = the retired pre-Segno kernel; segno = this arm\'s dispatcher; shipped = lib/core/inline-code-directives.js');
+  for (const r of rows) console.log(`  ${r.job.padEnd(50)} n=${String(r.n).padStart(5)}  ${ns(r.kernel).padStart(9)} | ${ns(r.segno).padStart(9)} | ${ns(r.shipped).padStart(9)} | ${x(r.segno, r.kernel).padStart(6)} | ${x(r.shipped, r.kernel).padStart(6)}`);
   console.log('\nhostile ladder, Segno (ms at 2k / 8k / 32k chars; 32k/8k near 4 is linear)');
   for (const l of ladder) console.log(`  ${l.target.padEnd(7)} ${l.shape.padEnd(20)} ${l.ms.map((m) => m.toFixed(2)).join(' / ')}  x${l.ratio.toFixed(1)}`);
 }

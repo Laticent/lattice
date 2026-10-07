@@ -261,10 +261,27 @@ bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best o
 | bracket lists, split into parts (the kernel's job) | 767 ns | 828 ns | 1.1x |
 | quadrant axes, typed numbers and ranges | 721 ns | 1.02 µs | 1.4x |
 
-Re-run on 2026-10-07 in a cloud sandbox, ordinary code is 1.9x (39 vs 76 ns) and pills 4.0x (214
-vs 854 ns). That run excludes the spans that are already written in Segno's notation, which the
-retired kernel reads as plain code, and times them on a row of their own. Its pill also declares
-`icon`, as the shipped slot does.
+**Against the dispatcher Lattice ships.** The table above times the arm's own copy of the
+dispatcher. Lattice renders with `lib/core/inline-code-directives.js`, which asks each kind in
+turn (state mark, pill, spark, then the icons plugin's row), so the arm now times that too. Run
+2026-10-07 on Node 22 in a cloud sandbox, so the absolute figures are about half what a laptop
+gives:
+
+| job | kernel (retired) | arm's dispatcher | shipped | shipped/kernel |
+|---|---|---|---|---|
+| inline dispatch, every span both read alike | 35 ns | 72 ns | 181 ns | 5.2x |
+| &nbsp;&nbsp;ordinary code (code to both) | 31 ns | 67 ns | 136 ns | 4.4x |
+| &nbsp;&nbsp;state marks `[x]` | 62 ns | 39 ns | 91 ns | 1.5x |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 217 ns | 802 ns | 734 ns | 3.4x |
+| Segno syntax the kernel reads as code (386 spans) | — | 1.15 µs | 3.54 µs | — |
+
+The shipped dispatcher misses the design note's 1.5x target. Ordinary code costs it about twice
+what it costs the arm's copy, because every row runs its own check where the arm parses once.
+That gap is a followup (`followups.d/2593-p1-inline-dispatch-asks-every-row.md`). The last row
+covers spans that the decks already write in Segno's notation (`{icon=mail}`, chart points).
+The retired kernel reads them as plain code, so they have no kernel figure. The shipped column
+times what the engine asks per span, the escape and then "does any kind render this?". It does
+not include building the HTML.
 
 Two things to know when reading it. The kernel's axis figure returns strings, which each chart
 then re-reads; Segno's returns typed numbers and ranges, so the axis row undercounts today's cost.

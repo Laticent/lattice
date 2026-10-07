@@ -138,8 +138,14 @@ render differs from the base render. That doubles the cost only for goldens that
 **Except when the PR changes dependencies.** The base render shares the PR's
 `node_modules` and Chromium, so a dependency bump renders the same on both sides and
 attribution would call everything it moved "stale on main", with no picture. On a PR that
-changes `package.json` or `package-lock.json`, a golden that differs from `main`'s PDF is
-shown as changed, with a note saying why.
+changes `package-lock.json`, or changes a `package.json` key outside a short inert list, a
+golden that differs from `main`'s PDF is shown as changed, with a note saying why. The inert
+list (`scripts`, `description`, `keywords` and the other metadata keys in
+`tools/lib/golden-affected.mjs` `PACKAGE_JSON_INERT_KEYS`) exists because #2583 added one
+npm script and its comment listed 46 changed slides the PR could not have moved. A
+`scripts`-only edit is not a render input at all, so it neither widens the render scope nor
+skips the base render. The list is an allowlist, so `version` (which `lattice-emulator.js`
+reads) and any key nobody listed still count.
 
 **Feature decks (HARD RULE #9).** CI renders a PR's new or changed decks and publishes the
 PDFs to the existing `ci-drift-images` orphan branch, which already hosts the montages. The
