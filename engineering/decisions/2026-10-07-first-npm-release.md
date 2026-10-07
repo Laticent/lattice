@@ -31,7 +31,7 @@ what the owner decided.
 | Pending changelog fragments | 915 files, 1.26 MB (195 added, 226 changed, 454 fixed, 10 removed, 29 security), 62 marked `**Breaking:**` | `ls changelog.d`, `wc -c` |
 | GitHub Release body cap | 125,000 characters, so the pending notes are 10× over it | `RELEASE.md` |
 | Root tarball | 1,350 files, **28.1 MB packed, 92.7 MB unpacked** | `npm pack --dry-run` |
-| Installed CLI | exits with `Cannot find module '@laticent/segno/read'` | `followups.d/2577-p1-installed-cli-misses-workspace-libs.md` |
+| Installed CLI | exits with `Cannot find module '@laticent/segno/read'`. **Fixed after this survey:** the CLI bundle now inlines Segno, LTT and Cadenza, `lattice packages` and `lattice video` run from their own bundles, and a clean-room install renders the math and diagram galleries pixel-identical to the in-tree render. `--player` still needs `jsdom` (`2248-p3`) | the plugin-system note §11, "The installed CLI starts" |
 | Workspace libraries | 9 (ltt, cadenza, vetrina, segno, trama, calco, lente, suono, tavola), all `0.1.0`, all `AGPL-3.0-only`; `tavola` is not in `workspaces` and has no build | each `package.json` |
 
 The largest files in the tarball: `dist/lattice-emulator.js` 18.9 MB,

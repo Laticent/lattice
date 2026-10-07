@@ -119,6 +119,14 @@ const DESCRIPTIONS = {
     purpose: 'Minified `lattice-emulator.js` — the same CLI bundle compressed, shebang + executable bit preserved. Leaner install footprint; the bin/main stays the unminified file.',
     consume: '`@laticent/lattice/min`',
   },
+  'lattice-packages.js': {
+    purpose: 'The `lattice packages` subcommand (`lib/packages/cli.js`), bundled with the workspace libraries it reaches inlined. The bin runs it as a child process; it is not an entry point of its own.',
+    consume: '`lattice packages …`',
+  },
+  'lattice-video.mjs': {
+    purpose: 'The `lattice video` subcommand (`lib/export/video-cli.mjs`), bundled as ESM with the workspace libraries it reaches inlined. The bin runs it as a child process; it is not an entry point of its own.',
+    consume: '`lattice video …`',
+  },
   'docs/components.json': {
     purpose: 'Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component.',
     consume: 'load as JSON / `@laticent/lattice/dist/docs/components.json`',

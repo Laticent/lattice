@@ -431,8 +431,16 @@ EXAMPLES
 // below is top-level code, so an async `main()` started in-process would race the argv parse,
 // which exits on an unknown option. `spawnSync` blocks until the child is done, and we exit
 // with its code before the render path runs. The cost is one Node startup (~40 ms).
+//
+// Run from the bundle (dist/, the package bin), the child is the subcommand's own bundle beside it,
+// which inlines the workspace libraries as this file does. The raw lib/ entry resolves
+// `@laticent/segno` and `@laticent/ltt` only inside this repo, so an install that spawned it died
+// with `Cannot find module`. Run from the loose source, the child is the lib/ entry, so an edit
+// there needs no rebuild. tools/build-emulator.js SUBCOMMAND_BUNDLES builds both.
+const subcommandEntry = (bundle, source) =>
+  path.basename(__dirname) === 'dist' ? path.join(__dirname, bundle) : path.join(PKG_ROOT, source);
 if (process.argv[2] === 'packages') {
-  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/packages/cli.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  const r = require('node:child_process').spawnSync(process.execPath, [subcommandEntry('lattice-packages.js', 'lib/packages/cli.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
 }
@@ -440,7 +448,7 @@ if (process.argv[2] === 'packages') {
 // `lattice video <export.html>` — a narrated HTML export to MP4 + .vtt (lib/export/video-cli.mjs).
 // Dispatched as a child for the same reason as `packages` above; the subcommand owns its --help.
 if (process.argv[2] === 'video') {
-  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/export/video-cli.mjs'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  const r = require('node:child_process').spawnSync(process.execPath, [subcommandEntry('lattice-video.mjs', 'lib/export/video-cli.mjs'), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
 }
