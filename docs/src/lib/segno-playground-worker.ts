@@ -4,14 +4,15 @@
 // the box as data. The worker is here for a different reason — Segno's compiler and code
 // generator are not linear in every grammar. A pasted `alt(...)` of 3,000 literals is 26 KB and
 // took about 10 s to compile and 14 s to generate; on the main thread that froze the tab. In here
-// it only blocks this worker: the page (docs/src/pages/segno.astro) waits a fixed time after its
-// latest request, then terminates the worker, says the grammar took too long, and starts a fresh
-// one. The reader's size cap answers the common blowup (a name reused until it doubles) at once;
-// this time limit answers every other one, including shapes nobody has found yet.
+// it only blocks this worker: the page (docs/src/pages/segno.astro) keeps one request in flight,
+// waits a fixed time for its answer, then terminates the worker, says the grammar took too long,
+// and starts a fresh one. The reader's size cap answers the common blowups (a name reused until it
+// doubles, a long literal reused everywhere) at once; this time limit answers every other one,
+// including shapes nobody has found yet.
 //
 // The compiled parser stays in here, because a function cannot cross postMessage. The page sends
 // `compile` with the code and the text, and `parse` with new text; every reply carries the
-// request's `id`, so the page can drop an answer that a newer request has overtaken.
+// request's `id`, so the page can drop an answer about a grammar a newer compile replaced.
 import { alt, any, charRange, chars, compile, GrammarError, generate, lit, many, many1, node, noneOf, opt, ref, seq } from '@/lib/segno';
 import { GrammarSourceError, readGrammarSource } from './segno-playground-grammar';
 
@@ -28,8 +29,20 @@ function parseText(text: string) {
   return r.ok ? { ok: true, node: r.node } : { ok: false, error: { at: r.error.at, expected: r.error.expected, found: r.error.found } };
 }
 
+// Every request gets a reply. A throw nobody caught would leave the page waiting out its time
+// limit and then blaming a slow build for what was a crash (a numeric `start` is one: compile
+// accepts it, parse throws), so the whole handler answers `broken` instead.
 self.onmessage = (event: MessageEvent<Request>) => {
   const req = event.data;
+  try {
+    answer(req);
+  } catch (e) {
+    parser = null;
+    self.postMessage({ id: req.id, kind: 'broken', message: (e as Error)?.message ?? String(e) });
+  }
+};
+
+function answer(req: Request) {
   if (req.kind === 'parse') {
     self.postMessage({ id: req.id, kind: 'parsed', parse: parseText(req.text) });
     return;
@@ -53,7 +66,7 @@ self.onmessage = (event: MessageEvent<Request>) => {
   let generated = '';
   try { generated = generate(spec as Parameters<typeof generate>[0]); } catch {}
   self.postMessage({ id: req.id, kind: 'compiled', generated, parse: parseText(req.text) });
-};
+}
 
 // The page starts its time limit only once this arrives, so a slow first load of the worker
 // script is never mistaken for a grammar that is slow to build.

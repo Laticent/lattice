@@ -643,42 +643,84 @@ return {
 			// one blocks the worker, not this tab. GRAMMAR_LIMIT_MS of silence after the latest request
 			// means the build did not finish: terminate, say so, start fresh.
 			const GRAMMAR_LIMIT_MS = 1500;
-			let worker = null, workerReady = false, queued = null, limitTimer = 0, lastId = 0, lastCompileId = 0, lastText = '';
+			// One request is in flight at a time, so the limit times that request alone: a backlog of quick
+			// edits is never mistaken for one slow build, and typing cannot keep re-arming the timer while a
+			// build runs away. A newer request waits in `waiting`; a waiting compile is never replaced by a
+			// parse — the parse's text rides along with it instead.
+			let worker = null, workerReady = false, inFlight = null, waiting = null, limitTimer = 0, lastId = 0, lastCompileId = 0, lastText = '';
 			function startWorker() {
-				workerReady = false;
-				worker = new Worker(new URL('../lib/segno-playground-worker.ts', import.meta.url), { type: 'module' });
-				worker.onmessage = (event) => onWorker(event.data);
+				workerReady = false; inFlight = null;
+				const w = new Worker(new URL('../lib/segno-playground-worker.ts', import.meta.url), { type: 'module' });
+				// Each handler answers only for its own worker, so nothing a stopped worker sent is ever read.
+				w.onmessage = (event) => { if (w === worker) onWorker(event.data); };
+				w.onerror = (event) => { if (w === worker) { event.preventDefault(); onWorkerError(event.message); } };
+				w.onmessageerror = () => { if (w === worker) onWorkerError('a reply could not be read'); };
+				worker = w;
 			}
 			function post(req) {
-				if (!workerReady) { queued = req; return; }
+				if (!workerReady || inFlight) {
+					waiting = req.kind === 'parse' && waiting?.kind === 'compile' ? { ...waiting, id: req.id, text: req.text } : req;
+					if (waiting.kind === 'compile') lastCompileId = waiting.id;
+					return;
+				}
+				inFlight = req;
 				worker.postMessage(req);
-				clearTimeout(limitTimer);
 				limitTimer = setTimeout(stopRunaway, GRAMMAR_LIMIT_MS);
 			}
-			function stopRunaway() {
+			function sendWaiting() {
+				if (!waiting) return;
+				const req = waiting; waiting = null; post(req);
+			}
+			// The worker is gone: stop it, show why, and drop a waiting parse (a fresh worker has no parser
+			// to parse with). A waiting compile is newer than what failed, so it still goes.
+			function dropWorker(lines, note) {
+				clearTimeout(limitTimer);
 				worker.terminate();
+				if (waiting?.kind === 'parse') waiting = null;
 				hasParser = false;
-				verdict(false, [`Segno took longer than ${GRAMMAR_LIMIT_MS / 1000} s to build this grammar, so it was stopped. A very long alt() is the usual cause: split it into rules joined with ref().`]);
-				gramTree.replaceChildren(el('p', 'note', 'The build ran in a separate worker, so only that worker was stopped; this page kept running. Nothing was parsed.'));
+				verdict(false, lines);
+				gramTree.replaceChildren(...(note ? [el('p', 'note', note)] : []));
 				gramGen.textContent = '';
 				renderSamples();
+			}
+			function stopRunaway() {
+				const what = inFlight?.kind === 'parse' ? 'parse this text' : 'build this grammar';
+				dropWorker([`Segno took longer than ${GRAMMAR_LIMIT_MS / 1000} s to ${what}, so it was stopped. A very long alt() is the usual cause: split it into rules joined with ref().`], 'The work ran in a separate worker, so only that worker was stopped; this page kept running. Nothing was parsed.');
+				startWorker();
+			}
+			// A crash is not a slow build, so it says so. A worker that never started (its script failed to
+			// load) is not restarted, which would only fail again in a loop.
+			function onWorkerError(message) {
+				if (!workerReady) {
+					dropWorker(['The grammar playground could not start its worker, so nothing can be built here. Reload the page to try again.']);
+					return;
+				}
+				dropWorker([`Segno's worker stopped with an error: ${message || 'no detail given'}. It was restarted; edit the grammar to try again.`]);
 				startWorker();
 			}
 			function onWorker(msg) {
 				if (msg.kind === 'ready') {
 					workerReady = true;
-					if (queued) { const req = queued; queued = null; post(req); }
+					sendWaiting();
 					return;
 				}
-				if (msg.id === lastId) clearTimeout(limitTimer);
+				if (msg.id === inFlight?.id) { clearTimeout(limitTimer); inFlight = null; }
+				showReply(msg);
+				sendWaiting();
+			}
+			function showReply(msg) {
+				// A reply about a grammar that a newer compile has replaced is dropped. One that only a newer
+				// parse overtook still sets the grammar's state, and that parse's answer draws the tree.
+				if (msg.id < lastCompileId) return;
 				const latest = msg.id === lastId;
 				if (msg.kind === 'parsed') { if (latest && hasParser) drawParse(msg.parse); return; }
-				// A compile answer that a newer COMPILE overtook is dropped; one that only a newer parse
-				// overtook still sets the grammar's state, and the parse answer draws the tree.
-				if (msg.id !== lastCompileId) return;
 				hasParser = msg.kind === 'compiled';
 				renderSamples();
-				if (msg.kind === 'unreadable' || msg.kind === 'broken') {
+				if (msg.kind === 'broken' && msg.id !== lastCompileId) {
+					// Only a parse reply carries a later id than the grammar's compile.
+					verdict(false, [`Segno stopped with an error while parsing this text: ${msg.message}`]);
+					gramTree.replaceChildren(); gramGen.textContent = '';
+				} else if (msg.kind === 'unreadable' || msg.kind === 'broken') {
 					verdict(false, [`Your grammar does not ${msg.kind === 'unreadable' ? 'read' : 'build'}: ${msg.message}`]);
 					gramTree.replaceChildren(); gramGen.textContent = '';
 				} else if (msg.kind === 'refused') {

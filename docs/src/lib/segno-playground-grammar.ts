@@ -21,7 +21,11 @@ const MAX_NESTING = 64;
 // the code generator walk it in full each time. Without this, `const c1 = seq(c0, c0);` repeated
 // 28 times is under 1 KB of text and 2^28 pieces, and compiling it froze the tab for seconds.
 // The presets are under 100; 10,000 compiles and generates in milliseconds.
+// A string costs one piece per STRING_PIECE characters (and at least one), because the generator
+// writes a literal out again at every use: counted as one piece, a 20,000-character literal used
+// 2,500 times passed the cap and generated 100 MB, which the page then put in the DOM.
 export const MAX_EXPANDED = 10_000;
+export const STRING_PIECE = 64;
 const MAX_DIGITS = 9;
 
 type Token =
@@ -127,7 +131,11 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
   function value(depth: number): unknown {
     const t = toks[p];
     if (depth > MAX_NESTING) fail(t, `the grammar nests deeper than ${MAX_NESTING} levels`);
-    if (t.kind === 'string' || t.kind === 'number') { grow(t, 1); p++; return t.value; }
+    if (t.kind === 'string' || t.kind === 'number') {
+      grow(t, t.kind === 'string' ? 1 + Math.floor(t.value.length / STRING_PIECE) : 1);
+      p++;
+      return t.value;
+    }
     if (t.kind === 'punct' && t.value === '{') return object(depth + 1);
     if (t.kind === 'ident') {
       p++;

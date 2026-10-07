@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { alt, any, charRange, chars, compile, generate, lit, many, many1, node, noneOf, opt, ref, seq } from './segno';
-import { GrammarSourceError, MAX_EXPANDED, readGrammarSource } from './segno-playground-grammar';
+import { GrammarSourceError, MAX_EXPANDED, readGrammarSource, STRING_PIECE } from './segno-playground-grammar';
 
 const DSL = { alt, any, charRange, chars, lit, many, many1, node, noneOf, opt, ref, seq };
 const page = readFileSync(resolve(__dirname, '../pages/segno.astro'), 'utf8');
@@ -79,6 +79,21 @@ describe('readGrammarSource', () => {
     generate(spec as Parameters<typeof generate>[0]);
     expect(performance.now() - t0).toBeLessThan(500);
     expect(MAX_EXPANDED).toBe(10_000);
+  });
+
+  it('charges a string by its length, so a long literal reused everywhere cannot generate megabytes', () => {
+    // The checker's case: a 20,000-character literal used 2,500 times was ~5,000 pieces when a
+    // string cost one, and generate() wrote 100 MB that the page then put in the DOM.
+    const big = `const s = lit('${'x'.repeat(20_000)}');\nreturn { start: 'r', rules: { r: seq(${'s, '.repeat(2_500)}s) } };`;
+    expect(() => readGrammarSource(big, DSL)).toThrow(/expands to more than 10,000 pieces/);
+    // The worst grammar that still fits: literals just under one piece's worth, reused to the cap.
+    // What it generates stays small enough to draw.
+    const chunk = 'x'.repeat(STRING_PIECE - 1);
+    const uses = Math.floor(MAX_EXPANDED / 2) - 10;
+    const fits = `const s = lit('${chunk}');\nreturn { start: 'r', rules: { r: seq(${'s, '.repeat(uses)}s) } };`;
+    const spec = readGrammarSource(fits, DSL);
+    compile(spec as Parameters<typeof compile>[0]);
+    expect(generate(spec as Parameters<typeof generate>[0]).length).toBeLessThan(4_000_000);
   });
 
   it('a shorthand key with no const says it is not defined; a huge number is refused', () => {
