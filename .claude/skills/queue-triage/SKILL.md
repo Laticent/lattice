@@ -44,7 +44,7 @@ gh issue list --state open --limit 1000 \
   overflow and get written to disk, which is convenient; the last, short page does not.
   The first pass lost 17 of 317 bodies to exactly this and could not run
   `audit:queue` as a result. Capture every page, including the short one.
-- **Confirm the count against `BACKLOG.md`'s own header and the API's `totalCount`**
+- **Confirm the count against the number of files in `backlog.d/` (`npm run backlog -- --issues` prints it) and the API's `totalCount`**
   before analysing anything. Three sources agreeing is cheap; discovering a truncated
   fetch after you have classified 300 cards is not.
 
@@ -196,7 +196,7 @@ Then, once approved:
   the body's headings. A label-only fetch cannot feed it.
 - **Regenerate `engineering/decisions/README.md`** (`npm run decisions:index`) and add a
   `changelog.d/<slug>.added.md` fragment (#10) in the same change.
-- **The note is a dated snapshot, not a second mirror.** `BACKLOG.md` is the living
+- **The note is a dated snapshot, not a second mirror.** `backlog.d/` is the living
   view, regenerated nightly by `sync-backlog.yml`. Say so in the note, or the next
   reader will treat a month-old table as current.
 

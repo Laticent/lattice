@@ -21,6 +21,13 @@ and the harvest window starts 2026-07-22. 33 merged PRs ever used the tag: 29 ga
 #1775 only defines it, and on #2229, #2269 and #2300 a later brief on the same PR replaced the untracked items.
 Deferred work mentioned in free prose before the brief existed is not harvested.
 
+`area`, `severity` and `swimlane` were added on 2026-10-07, and one pass filled them in on all
+215 items. It found one duplicate, the Studio export's CSS counters on both #2321 and #2556,
+which #2587 then fixed, so both files are gone. The pass read each item's title, `why now` and
+`where`, and took the swimlane from the decision doc the origin PR changed. It did not
+re-check any item against `main`. A severity from that pass is a starting point, so change it
+when the work shows it is wrong.
+
 ## The contract
 
 One file per item:
@@ -42,6 +49,9 @@ queue on a conflict.
 origin: 2311
 priority: P1
 recorded: 2026-09-22
+area: chart
+severity: high
+swimlane: engineering/decisions/2026-09-24-six-state-marks.md §3
 source: https://github.com/Laticent/lattice/pull/2311#issuecomment-…
 ---
 
@@ -55,12 +65,35 @@ verify    — …
 ```
 
 The five fields are the brief's own (`engineering/workflow.md` §The continuation brief),
-so copy the item across as the brief states it. `origin` and `priority` (both matching
-the file name), `recorded`, a `#` title outside any code fence, and a line starting
-`done when —` are required. A `backfill: true` file is exempt from the `done when` line,
-because one backfilled brief predates that field and the copy is kept verbatim. `checkFollowups` in
-`tools/check-ownership.js`, via `build:check`, fails on a missing one. `source` is
-optional.
+so copy the item across as the brief states it.
+
+The front matter says where an item sits and how much it matters, so a reader can pick it
+without opening the PR that left it:
+
+| Field | Required | What it holds |
+|---|---|---|
+| `origin` | yes | The PR whose brief left the item. Must match the file name. |
+| `priority` | yes | `P<n>`, the item's position in that brief. Must match the file name. It ranks items within one brief, so a P1 from a two-item brief and a P1 from a ten-item brief are not comparable. `severity` is the field that compares across briefs. |
+| `recorded` | yes | `YYYY-MM-DD`. |
+| `area` | yes | One `area:*` label name from `.github/labels.json`, without the prefix (`engine`, `chart`, `website`, …). The same word the issue would carry. |
+| `severity` | yes | `high`, `medium` or `low`: the `priority:*` words an issue uses, so promotion maps 1:1. `critical` is refused. "Drop everything" needs a board column and an owner, so file an issue instead. |
+| `swimlane` | yes | The governing doc, as the repo path of a file that must exist, optionally followed by a section: `engineering/decisions/x.md §8.1`. Without it, "the runbook is note §8.1" leaves the reader nothing to find. Renaming or deleting a doc that an item names fails `build:check` until the item is updated, which is the point: the pointer must not go stale. |
+| `source` | no | A link to the brief. |
+
+How to pick `severity`:
+
+- **high** — a defect on a shipped surface a user reaches, something broken on `main`, a
+  security exposure, or the one unverified claim a shipped feature rests on.
+- **medium** — a real defect on a narrow path, a missing gate on code that has already
+  regressed, or a verification gap on a secondary surface.
+- **low** — polish, refactors with no user-visible change, decisions nobody is blocked on,
+  and feature ideas.
+
+The file also needs a `#` title outside any code fence and a line starting `done when —`.
+A `backfill: true` file is exempt from the `done when` line, because one backfilled brief
+predates that field and the copy is kept verbatim. `checkFollowups` in
+`tools/check-ownership.js`, via `build:check`, fails on a missing or invalid field. The
+format is defined once, in `tools/followups.js`.
 
 ## The lifecycle
 
@@ -71,10 +104,13 @@ optional.
 - **Promote** an item to an issue when it needs a board column, an owner or a
   discussion. Delete the file in the same PR and tag the brief `[#N]` from then on.
 
-`npm run followups` lists every item, one line each. Read it at the start of a session,
-next to `BACKLOG.md`.
+`npm run followups` lists every item, one line each, grouped by area and sorted by
+severity. `npm run backlog` lists these together with the open issues in
+[`backlog.d/`](../backlog.d/README.md), and filters by `--area` and `--min <severity>`.
+Run it at the start of a session.
 
 ## What the gate cannot do
 
-It checks the shape of the files that exist. It cannot read a chat, so it cannot tell
+It checks the shape of the files that exist, and that `area` and `swimlane` name real
+things. It cannot tell whether a severity is right. It cannot read a chat, so it cannot tell
 that a brief left an item out. That half is still discipline, on the author of the brief.

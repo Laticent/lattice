@@ -2,6 +2,9 @@
 origin: 2343
 priority: P3
 recorded: 2026-09-24
+area: statement
+severity: low
+swimlane: lib/components/statement/premise/premise.docs.md
 source: https://github.com/Laticent/lattice/pull/2343
 ---
 

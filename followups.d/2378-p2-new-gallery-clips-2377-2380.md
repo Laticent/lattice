@@ -2,6 +2,9 @@
 origin: 2378
 priority: P2
 recorded: 2026-09-25
+area: chart
+severity: medium
+swimlane: engineering/decisions/2026-06-22-the-fit-spine.md
 ---
 
 # Two galleries clip on main after #2377 and #2380, and the overflow baseline now records them

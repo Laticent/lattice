@@ -2,6 +2,9 @@
 origin: 2547
 priority: P2
 recorded: 2026-10-06
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-10-06-live-collaboration-roadmap.md
 source: https://github.com/Laticent/lattice/pull/2547
 ---
 

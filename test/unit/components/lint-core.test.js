@@ -14,6 +14,7 @@ const assert = require('node:assert/strict');
 const core = require('../../../lib/authoring/lint-core');
 
 const { splitTopLevel } = require('../../../lib/authoring/slide-split');
+const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
 const FM = '---\nmarp: true\ntheme: indaco\n---\n\n';
 // A fixed, manifest-independent vocab — every component name used below so the
 // unknown-class rule (rule 1) doesn't add noise to the targeted assertions.
@@ -2393,7 +2394,7 @@ describe('lint-core: the heading split lint reads agrees with the engine', () =>
     const { bakeSplits } = require('../../../lib/core/bake-splits');
     const ROOT = path.resolve(__dirname, '../../..');
     const fmCount = (src) => (/^---\n[\s\S]*?\n---/.test(src) ? 2 : 0);
-    const files = execSync("git ls-files '*.md'", { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 })
+    const files = execSync(`git ls-files '*.md' ${EXCLUDE_MIRRORS_SHELL}`, { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 })
       .split('\n').filter(Boolean);
     const off = [];
     for (const f of files) {

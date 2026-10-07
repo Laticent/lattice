@@ -2,6 +2,9 @@
 origin: 2348
 priority: P2
 recorded: 2026-09-24
+area: chart
+severity: medium
+swimlane: lib/components/chart/progress/progress.docs.md
 ---
 
 # An unknown status word draws silently in progress and timeline-list

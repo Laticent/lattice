@@ -2,6 +2,9 @@
 origin: 2533
 priority: P3
 recorded: 2026-10-05
+area: theming
+severity: low
+swimlane: engineering/decisions/2026-09-28-segno-unified-inline-notation.md
 source: https://github.com/Laticent/lattice/pull/2533
 ---
 

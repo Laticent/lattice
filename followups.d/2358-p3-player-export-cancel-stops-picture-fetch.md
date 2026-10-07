@@ -2,6 +2,9 @@
 origin: 2358
 priority: P3
 recorded: 2026-09-29
+area: website
+severity: low
+swimlane: engineering/decisions/2026-07-08-studio-html-player-export.md
 source: https://github.com/Laticent/lattice/pull/2495
 ---
 

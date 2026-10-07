@@ -2,6 +2,9 @@
 origin: 2417
 priority: P5
 recorded: 2026-09-27
+area: engine
+severity: low
+swimlane: engineering/decisions/2026-09-27-plugin-system.md §7
 ---
 
 # Plugin roadmap, phases E and G: the data layer and the npm door

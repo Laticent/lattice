@@ -2,6 +2,9 @@
 origin: 2361
 priority: P2
 recorded: 2026-09-26
+area: docs
+severity: low
+swimlane: engineering/decisions/2026-09-25-font-scale-fit.md
 ---
 
 # Decide whether the agentic-practices talk presents at a venue, and trim for it

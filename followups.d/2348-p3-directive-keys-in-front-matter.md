@@ -2,6 +2,9 @@
 origin: 2348
 priority: P3
 recorded: 2026-09-24
+area: engine
+severity: low
+swimlane: lib/base/base.docs.md
 ---
 
 # Per-slide directive keys behave oddly in front matter

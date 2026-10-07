@@ -2,6 +2,9 @@
 origin: 2222
 priority: P2
 recorded: 2026-09-22
+area: infra
+severity: low
+swimlane: engineering/workflow.md §The handoff issue
 source: https://github.com/Laticent/lattice/pull/2222#issuecomment-5673131987
 ---
 

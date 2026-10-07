@@ -2,6 +2,9 @@
 origin: 2348
 priority: P1
 recorded: 2026-09-24
+area: docs
+severity: high
+swimlane: engineering/house-style.md
 ---
 
 # Document the author features the site never mentions

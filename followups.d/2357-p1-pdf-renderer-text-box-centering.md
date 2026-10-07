@@ -2,6 +2,9 @@
 origin: 2357
 priority: P1
 recorded: 2026-09-25
+area: engine
+severity: medium
+swimlane: engineering/pipeline.md
 source: https://github.com/Laticent/lattice/pull/2357
 ---
 # Let exported PDFs center pill labels exactly: a renderer Chrome with `text-box`

@@ -2,6 +2,9 @@
 origin: 2219
 priority: P3
 recorded: 2026-09-22
+area: docs
+severity: low
+swimlane: engineering/decisions/2026-09-01-autosplit-splits-on-structure.md
 source: https://github.com/Laticent/lattice/pull/2219#issuecomment-5673123505
 ---
 

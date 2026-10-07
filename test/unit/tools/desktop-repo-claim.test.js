@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { EXCLUDE_MIRRORS } = require('../../helpers/generated-mirrors.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 
@@ -29,7 +30,7 @@ const MARKER = '2026-10-06';
 const SELF = 'test/unit/tools/desktop-repo-claim.test.js';
 
 test('no tracked doc says the desktop app has a repository of its own', () => {
-	const files = execFileSync('git', ['ls-files', '*.md'], { cwd: ROOT, encoding: 'utf8' })
+	const files = execFileSync('git', ['ls-files', '*.md', ...EXCLUDE_MIRRORS], { cwd: ROOT, encoding: 'utf8' })
 		.split('\n')
 		.filter((f) => f && f !== SELF && !f.startsWith('changelog/'));
 	const hits = [];

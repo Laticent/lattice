@@ -2,6 +2,9 @@
 origin: 2540
 priority: P1
 recorded: 2026-10-05
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-10-05-studio-lessons.md
 source: https://github.com/Laticent/lattice/pull/2540
 ---
 

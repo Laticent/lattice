@@ -2,6 +2,9 @@
 origin: 2422
 priority: P3
 recorded: 2026-09-27
+area: infra
+severity: medium
+swimlane: engineering/development.md
 ---
 
 # flowchart worker "burst" arm waits a fixed 60 ms for two layouts

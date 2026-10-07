@@ -2,6 +2,9 @@
 origin: 2577
 priority: P1
 recorded: 2026-10-07
+area: engine
+severity: high
+swimlane: engineering/decisions/2026-09-27-plugin-system.md
 ---
 
 # The published `lattice` CLI fails at start: it requires three workspace packages no install provides

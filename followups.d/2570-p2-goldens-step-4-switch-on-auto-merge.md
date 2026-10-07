@@ -2,6 +2,9 @@
 origin: 2570
 priority: P2
 recorded: 2026-10-07
+area: infra
+severity: medium
+swimlane: engineering/decisions/2026-10-06-goldens-bot-blessed.md
 source: engineering/decisions/2026-10-06-goldens-bot-blessed.md
 ---
 

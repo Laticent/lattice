@@ -19,6 +19,7 @@ const {
 	indentedKeyLines,
 } = require('../../../lib/core/render-target-keys');
 const { lintTextWith } = require('../../../lib/authoring/lint-core');
+const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
 
 const REPO = join(__dirname, '..', '..', '..');
 const deck = (fm) => `---\n${fm}\n---\n\n# Slide\n\nBody.\n`;
@@ -511,7 +512,7 @@ test('THE COMMITTED CORPUS IS CLEAN — every tracked deck, through the shipped 
 	// sweep stayed green. So prove the rule is wired through the same call the sweep makes,
 	// on a deck that is not in the corpus.
 	assert.equal(findings(deck('a:\n  fluid: true')).length, 1, 'the rule is not reachable through the call this sweep makes');
-	const files = execSync('git ls-files "*.md"', { cwd: REPO, maxBuffer: 1 << 28 }).toString().trim().split('\n');
+	const files = execSync(`git ls-files "*.md" ${EXCLUDE_MIRRORS_SHELL}`, { cwd: REPO, maxBuffer: 1 << 28 }).toString().trim().split('\n');
 	const offenders = [];
 	let withFrontMatter = 0;
 	for (const rel of files) {

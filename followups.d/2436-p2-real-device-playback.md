@@ -2,6 +2,9 @@
 origin: 2436
 priority: P2
 recorded: 2026-09-28
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-09-27-guide-in-the-exported-player.md
 source: https://github.com/Laticent/lattice/pull/2436
 ---
 

@@ -2,6 +2,9 @@
 origin: 2361
 priority: P3
 recorded: 2026-10-06
+area: engine
+severity: low
+swimlane: engineering/development.md
 ---
 
 # `lintTextWith` is quadratic on many blockquoted unclosed comments

@@ -2,6 +2,9 @@
 origin: 2331
 priority: P3
 recorded: 2026-09-24
+area: infra
+severity: medium
+swimlane: engineering/decisions/2026-09-22-canvas-ownership-declare-what-you-mean.md
 source: https://github.com/Laticent/lattice/pull/2331
 ---
 

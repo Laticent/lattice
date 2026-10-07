@@ -2,6 +2,9 @@
 origin: 2527
 priority: P2
 recorded: 2026-10-06
+area: infra
+severity: high
+swimlane: engineering/development.md
 ---
 
 # CI's integration (node 22) job runs at its 25-minute cap, and a capped run reads green

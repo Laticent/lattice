@@ -2,6 +2,9 @@
 origin: 2264
 priority: P5
 recorded: 2026-09-22
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-20-reader-mode-text-extraction.md
 source: https://github.com/Laticent/lattice/pull/2264#issuecomment-5767264630
 ---
 

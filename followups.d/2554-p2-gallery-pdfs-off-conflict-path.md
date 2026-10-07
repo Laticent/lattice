@@ -2,6 +2,9 @@
 origin: 2554
 priority: P2
 recorded: 2026-10-06
+area: infra
+severity: medium
+swimlane: engineering/decisions/2026-10-06-conflict-reduction.md
 source: engineering/decisions/2026-10-06-conflict-reduction.md
 ---
 

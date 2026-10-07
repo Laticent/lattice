@@ -2,6 +2,9 @@
 origin: 2348
 priority: P2
 recorded: 2026-09-24
+area: engine
+severity: high
+swimlane: engineering/architecture.md
 ---
 
 # `style:` front matter applies on the CLI render path only

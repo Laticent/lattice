@@ -2,6 +2,9 @@
 origin: 2422
 priority: P4
 recorded: 2026-09-27
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-07-29-front-matter-lossless-writers.md
 ---
 
 # Loose front-matter readers outside `frontMatterValue` still read `style: |` lines

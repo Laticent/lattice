@@ -2,6 +2,9 @@
 origin: 2547
 priority: P3
 recorded: 2026-10-06
+area: docs
+severity: low
+swimlane: engineering/decisions/2026-07-04-comments-layer.md
 ---
 
 # The comments note calls the .lattice container unbuilt and shipped

@@ -2,6 +2,9 @@
 origin: 2361
 priority: P2
 recorded: 2026-09-27
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-09-25-font-scale-fit.md
 ---
 
 # `capacity-scale` on a real deck: half its warnings miss, and it claims clips that do not happen

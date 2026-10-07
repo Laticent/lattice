@@ -2,6 +2,9 @@
 origin: 2357
 priority: P2
 recorded: 2026-09-25
+area: theming
+severity: low
+swimlane: lib/base/base.docs.md
 source: https://github.com/Laticent/lattice/pull/2357
 ---
 # `!` and `?` in a `diamond` pill sit about 0.3–0.4px high

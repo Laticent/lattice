@@ -1,6 +1,9 @@
 ---
 origin: 2456
 recorded: 2026-09-28
+area: engine
+severity: low
+swimlane: engineering/decisions/2026-09-28-playground-virtual-filmstrip.md
 source: https://github.com/Laticent/lattice/pull/2456
 priority: P3
 ---

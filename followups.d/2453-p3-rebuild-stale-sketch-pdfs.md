@@ -2,6 +2,9 @@
 origin: 2453
 priority: P3
 recorded: 2026-09-28
+area: infra
+severity: medium
+swimlane: engineering/decisions/2026-09-28-inline-sparks.md
 source: https://github.com/Laticent/lattice/pull/2453
 ---
 

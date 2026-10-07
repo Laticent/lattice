@@ -2,6 +2,9 @@
 origin: 2399
 priority: P3
 recorded: 2026-09-27
+area: infra
+severity: low
+swimlane: engineering/workflow.md §Performance
 ---
 
 # The bench's math rows count 16 slides; the gallery has 17

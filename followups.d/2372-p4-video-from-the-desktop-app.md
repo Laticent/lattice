@@ -2,6 +2,9 @@
 origin: 2372
 priority: P4
 recorded: 2026-09-27
+area: engine
+severity: low
+swimlane: engineering/decisions/2026-09-25-video-export.md
 source: https://github.com/Laticent/lattice/pull/2372
 ---
 

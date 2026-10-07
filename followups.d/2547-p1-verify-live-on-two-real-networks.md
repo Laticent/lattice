@@ -2,6 +2,9 @@
 origin: 2547
 priority: P1
 recorded: 2026-10-06
+area: website
+severity: high
+swimlane: engineering/decisions/2026-10-06-studio-live-collaboration.md §8.1
 source: https://github.com/Laticent/lattice/pull/2547
 ---
 

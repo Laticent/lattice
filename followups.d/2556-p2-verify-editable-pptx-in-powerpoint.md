@@ -2,6 +2,9 @@
 origin: 2556
 priority: P2
 recorded: 2026-10-06
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-10-06-calco-office-export-library.md
 source: https://github.com/Laticent/lattice/pull/2556
 ---
 

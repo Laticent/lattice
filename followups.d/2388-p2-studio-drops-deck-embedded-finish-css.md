@@ -2,6 +2,9 @@
 origin: 2388
 priority: P2
 recorded: 2026-09-26
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-26-backdrop-register.md
 source: https://github.com/Laticent/lattice/pull/2388
 ---
 

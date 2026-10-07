@@ -24,6 +24,7 @@ const { execFileSync } = require('node:child_process');
 const bg = require('../../../lib/core/bg-image');
 const remoteRef = require('../../../lib/core/remote-ref');
 const engine = require('../../../lib/engine');
+const { isGeneratedMirror } = require('../../helpers/generated-mirrors.js');
 
 const ROOT = path.join(__dirname, '../../..');
 const SAMPLES_DIR = path.join(ROOT, 'lib', 'samples');
@@ -184,7 +185,8 @@ describe('sample: — every reference the repo ships names a real file', () => {
   const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' }).split('\0')
     .filter((f) => /\.(md|json|js|mjs|ts|tsx|code-snippets)$/.test(f))
     .filter((f) => !/^(engineering\/decisions\/|CHANGELOG\.md|changelog|node_modules\/|dist\/)/.test(f))
-    .filter((f) => !f.endsWith('sample-images.test.js'));
+    .filter((f) => !f.endsWith('sample-images.test.js'))
+    .filter((f) => !isGeneratedMirror(f));
   const REF = /sample:([A-Za-z0-9][A-Za-z0-9._-]*\.(?:svg|png|jpe?g|webp|gif))/g;
 
   test('lib/samples/ holds only pictures', () => {

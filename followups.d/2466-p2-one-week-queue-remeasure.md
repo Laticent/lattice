@@ -2,6 +2,9 @@
 origin: 2466
 priority: P2
 recorded: 2026-09-29
+area: infra
+severity: low
+swimlane: engineering/decisions/2026-09-28-rebase-only-on-conflict.md §3
 source: https://github.com/Laticent/lattice/pull/2466
 ---
 

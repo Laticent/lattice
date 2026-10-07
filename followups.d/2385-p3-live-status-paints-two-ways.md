@@ -2,6 +2,9 @@
 origin: 2385
 priority: P3
 recorded: 2026-09-26
+area: chart
+severity: medium
+swimlane: engineering/decisions/2026-09-25-flowchart-authoring.md
 source: https://github.com/Laticent/lattice/pull/2385
 ---
 # The `live` status paints as pass in the chart family and as info in the state chart and gantt

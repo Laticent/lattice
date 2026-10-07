@@ -2,6 +2,9 @@
 origin: 2393
 priority: P2
 recorded: 2026-09-26
+area: website
+severity: low
+swimlane: engineering/decisions/2026-09-25-vetrina-delivery-presets.md
 source: https://github.com/Laticent/lattice/pull/2393
 ---
 
