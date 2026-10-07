@@ -1016,8 +1016,9 @@ it is the record of what was wrong.
   slide path. The prototype was built so the choice rests on numbers, and it is **not published**:
   nothing in `package.json` `exports` or `dist/` changed.
   - **The candidate.** Two files, both built from functions `lib/engine/css.js` already exports.
-    `slides.css` is `scaffold()` + `packTheme(dist/lattice.css)` + the 16:9 geometry stamp, the
-    same sheet `composeCss` writes minus the palette (1.15 MB, comments stripped). Each
+    `slides.css` is `scaffold()` + `packTheme(dist/lattice.css)` + the 16:9 geometry stamp, run
+    through `hoistImports`: the sheet `composeCss` writes for a 16:9 deck without panes, minus the
+    palette (1.15 MB, the base's comments stripped). Each
     `palette/<name>.slides.css` is `packTheme(dist/palettes/<name>.css)`, the palette's tokens
     moved from `:root` onto every slide (353 KB for all 33). A consumer links `slides.css` once and
     swaps a palette file to change palette.
@@ -1035,7 +1036,7 @@ it is the record of what was wrong.
     Every match is 0 px over the fuzz. The `story` row stops at slide 7 because the CLI splits
     that deck into 12 slides and `render()` does not, so later slides compare different content.
   - **What the two failures are.** A panes slide loses its component styling: the list cards and
-    the table's header rule are gone, because `composeCss` adds a `lat-pane` twin for each rule
+    the table's styling (header labels, row rules, row tint) are gone, because `composeCss` adds a `lat-pane` twin for each rule
     that reaches a pane's body (`widenForPanes`, decided per deck), and a published sheet cannot
     know the deck. A `story` slide keeps the 16:9 box, because the scaffold writes one size. Both
     are fixed by construction, so a published form would be documented as "16:9, no panes", with
@@ -1044,8 +1045,10 @@ it is the record of what was wrong.
     above), two `exports` entries, a unit test beside `test/unit/tools/palette-bundle.test.js`,
     1.5 MB unpacked in the package, and a public contract that must keep matching the CLI.
   - **Whose slides it serves.** The packed pair styles markup; it does not make any. The only
-    sources of `<article class="lattice">` markup are `render()` and the CLI, and `render()`
-    already returns a stylesheet that matches 51 of 51. So (a) helps a consumer that renders once
+    source of `<article class="lattice">` markup is `render()`. The CLI renders through the same
+    engine but writes flat `<section data-lattice-slide>` HTML with its own stylesheet. So the
+    packed pair's only real input is `render()`'s markup, and `render()` already returns a
+    stylesheet that matches 51 of 51. So (a) helps a consumer that renders once
     (at build time or on a server) and then changes palette in the browser without rendering again,
     or that ships many decks and wants one cached engine sheet instead of a sheet per render (1.16
     MB for the quote gallery in indaco).

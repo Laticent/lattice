@@ -48,10 +48,12 @@ packed palette form, prototyped and measured").
   public contract that must keep matching the CLI. Limits, both by construction: 16:9 only, and
   no panes (their per-deck `lat-pane` twins cannot live in a fixed sheet). Buys: a page that
   renders once and swaps palette in the browser without rendering again.
-- **(b) keep `render()` as the one slide path and delete this file.** Costs nothing. Every slide
-  source in the package (`render()`, the CLI) already returns a stylesheet that matches the CLI on
-  51 of 51 slides, so the packed pair styles markup that only arrives with a working stylesheet.
+- **(b) keep `render()` as the one slide path and delete this file.** Costs nothing. The one
+  source of `article.lattice` slide markup in the package, `render()`, already returns a
+  stylesheet that matches the CLI on 51 of 51 slides (the CLI writes its own flat HTML), so the
+  packed pair styles markup that only arrives with a working stylesheet.
 
 **Recommendation: (b)**, unless the owner names a consumer that needs the in-browser palette swap.
 If (a) is picked, the build is the two loops in `buildPacked()` in the harness, moved into
-`tools/build-default-bundle.js`; then rerun the harness with the `packed` arm pointed at `dist/`.
+`tools/build-default-bundle.js`; then change the harness's `packed` arm to link the files in
+`dist/` and rerun it.

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // palette-slide-parity — does a stylesheet a web app can import draw a slide the way the CLI does?
 //
-// The measurement behind followups.d/2580-p3-packed-palette-form.md and the 2026-10-07 entries in
-// engineering/decisions/2026-09-23-portable-packages.md §10. For each deck and palette it renders
+// The measurement behind followups.d/2580-p3-packed-palette-form.md and the 2026-10-07 packed
+// palette entry in engineering/decisions/2026-09-23-portable-packages.md §10. For each deck and palette it renders
 // the deck with the CLI to HTML (the reference), screenshots every slide at its own size, then puts
 // engine.render()'s slide markup in a plain page under each candidate stylesheet and diffs every
 // slide against the reference with `compare -metric AE -fuzz 3%` (the regression gate's threshold).
@@ -11,8 +11,9 @@
 //   render  engine.render()'s own `css` — the documented slide path.
 //   packed  slides.css + palette/<name>.slides.css — the UNPUBLISHED candidate, built here into
 //           the output folder: the engine scaffold + `packTheme(dist/lattice.css)` + the 16:9
-//           geometry stamp, and `packTheme(dist/palettes/<name>.css)` per palette. Nothing in
-//           the package ships these files; this arm is what publishing them would give a consumer.
+//           geometry stamp (through `hoistImports`), and `packTheme(dist/palettes/<name>.css)`
+//           per palette. Nothing in the package ships these files; this arm is what publishing
+//           them would give a consumer.
 //   pair    dist/lattice.css + dist/palettes/<name>.css — what the package publishes today.
 //
 // Usage:
