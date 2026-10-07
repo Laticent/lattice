@@ -62,6 +62,12 @@ three schema errors PptxGenJS 3.12 writes (a paragraph's properties repeated bef
 the notes master listed out of order, and a slide master declared per slide). Without JSZip the
 file is exactly what PptxGenJS wrote.
 
+A `.pptx` you built with PptxGenJS yourself (pictures only, say) can take the same mending:
+`await tidyPptxPackage(JSZip, bytes)` returns the package with those errors fixed and nothing
+else changed. Pass its notes, alt text and document properties through `xmlSafe(text)` first:
+PptxGenJS escapes markup but writes control characters as they come, and one makes its XML
+part unreadable.
+
 ## No dependencies
 
 JSZip, PptxGenJS and the font pinner are passed in. `readSlide` and `restoreSlide` close over

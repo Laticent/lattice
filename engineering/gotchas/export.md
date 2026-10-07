@@ -678,3 +678,20 @@ workaround. The `File` naming costs nothing. `docs/e2e/export-filenames.spec.ts`
 paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome user agents).
 
 **Commits** — the commit that added this entry.
+
+## A Studio export numbered every step, agenda line and tag `0`
+
+- **Symptom:** in a Studio image export (PDF, PowerPoint, LibreOffice, Images), every number
+  a slide draws with a CSS counter reads `0` or `00`: timeline discs, agenda and step numbers,
+  card tags, and lettered milestones (`MILESTONE 0` where the slide says `MILESTONE A`). The
+  live preview and every CLI export are right. On `examples/gallery-jargon.md`, 15 of 56 pages.
+- **Cause:** html-to-image copies a node's computed style by walking the property names the
+  browser LISTS for it, and Chrome's list of 384 leaves out `counter-reset`,
+  `counter-increment` and `counter-set`. Its clone carried `content: counter(x)` with no
+  counter ever reset or incremented, so each one read 0. It was never `content` being copied
+  as a string.
+- **Fix:** `deck-export.js` › `captureStyleProperties` passes html-to-image the browser's list
+  plus the three counter properties, as `includeStyleProperties`, on every capture. html-to-image
+  keeps the list from its FIRST call for the whole page, so every capture must pass the same
+  one: route a new capture through `captureOptions`, never a bare `toPng`/`toCanvas`.
+  Native list markers (`<ol start="3">`) are unaffected, measured.

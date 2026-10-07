@@ -74,13 +74,23 @@ describe('calco pptx', () => {
 describe('calco pptx — what PptxGenJS does not escape', () => {
   test('a hostile font family and control characters still give well-formed XML', async () => {
     const evil = style({ family: 'Ev"il<b>&x' });
-    const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, notes: 'bell\u0001note', frames: [frame([[{ text: 'ctrl\u0001text', style: evil }]])] }] };
+    const deck = { width: 1280, height: 720, title: 'Deck\u0001 name', subject: 'Sub\u0003', slides: [{ image: ONE_PX_PNG, notes: 'bell\u0001note', frames: [frame([[{ text: 'ctrl\u0001text', style: evil }]])] }] };
     const { zip, xml } = await slideXml(deck);
+    const core = await zip.file('docProps/core.xml').async('string');
+    assert.ok(![...core].some((c) => c.charCodeAt(0) < 9), 'none in the document properties');
+    assert.match(core, /Deck name/);
     assert.match(xml, /<a:latin typeface="Evilbx"/);
     assert.match(xml, /<a:t>ctrltext<\/a:t>/);
     assert.ok(![...xml].some((c) => c.charCodeAt(0) < 9), 'no control characters in the slide');
     const notes = Object.keys(zip.files).find((n) => /notesSlide\d+\.xml$/.test(n));
     assert.ok(![...(await zip.file(notes).async('string'))].some((c) => c.charCodeAt(0) < 9), 'none in the notes');
+  });
+
+  test('xmlSafe turns a missing value into an empty string, not the word', async () => {
+    const { xmlSafe } = require('@laticent/calco');
+    assert.equal(xmlSafe(undefined), '');
+    assert.equal(xmlSafe(null), '');
+    assert.equal(xmlSafe('a\u0001b'), 'ab');
   });
 
   test('boxes do not re-wrap: lines are already broken where the browser broke them', async () => {

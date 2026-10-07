@@ -158,6 +158,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A Studio PDF drew a pill over the end of its caption](gotchas/export.md#a-studio-pdf-drew-a-pill-over-the-end-of-its-caption)
 - [A 4K deck's PDF changes bytes from run to run when the machine is busy](gotchas/export.md#a-4k-decks-pdf-changes-bytes-from-run-to-run-when-the-machine-is-busy)
 - [A Studio export saves as a UUID (`76f752a8-….html`) in Firefox](gotchas/export.md#a-studio-export-saves-as-a-uuid-76f752a8-html-in-firefox)
+- [A Studio export numbered every step, agenda line and tag `0`](gotchas/export.md#a-studio-export-numbered-every-step-agenda-line-and-tag-0)
 
 ### [Fonts and emoji](gotchas/fonts.md)
 

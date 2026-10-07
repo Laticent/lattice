@@ -19,3 +19,7 @@ done when — a design note picks which boxes become shapes (solid fill, border,
 evidence  — card-tags and muted-tier exported both ways, opened in LibreOffice, Collabora on
             iOS and Google Slides, with a shape resized in each.
 verify    — tier 1 checker, because the reader and both writers change.
+status    — (2026-10-07) the design note is written:
+            engineering/decisions/2026-10-07-calco-native-shapes.md. It measures three decks and
+            recommends option A (a pill or tag becomes one shape that carries its own text).
+            Waiting on the owner's pick; no code before it.

@@ -29,7 +29,9 @@
 // 56 multi-megabyte images, and an ArrayBuffer transfers to this thread for free
 // while a data-URL string would be copied whole.
 
+import JSZip from 'jszip';
 import PptxGenJS from 'pptxgenjs';
+import { tidyPptxPackage, xmlSafe } from '@/lib/calco/pptx';
 
 let pptx = null;
 let slides = [];
@@ -47,10 +49,12 @@ async function handle(m) {
 	if (m.type === 'init') {
 		pptx = new PptxGenJS();
 		slides = [];
-		pptx.title = m.props.title;
-		pptx.subject = m.props.subject;
-		pptx.author = m.props.author;
-		pptx.company = m.props.company;
+		// Control characters (in a deck name, an alt text) would make an XML part unreadable;
+		// PptxGenJS escapes markup only.
+		pptx.title = xmlSafe(m.props.title).trim() || 'deck';
+		pptx.subject = xmlSafe(m.props.subject);
+		pptx.author = xmlSafe(m.props.author);
+		pptx.company = xmlSafe(m.props.company);
 		// Slide aspect from the deck's own geometry, resolved by the caller — 16:9 keeps
 		// the built-in LAYOUT_WIDE; anything else gets a custom layout at the same aspect.
 		if (m.layout.custom) {
@@ -62,7 +66,7 @@ async function handle(m) {
 		return;
 	}
 	if (m.type === 'slide') {
-		slides[m.index] = { data: `image/png;base64,${toBase64(new Uint8Array(m.bytes))}`, altText: m.altText };
+		slides[m.index] = { data: `image/png;base64,${toBase64(new Uint8Array(m.bytes))}`, altText: xmlSafe(m.altText).trim() || `Slide ${m.index + 1}` };
 		self.postMessage({ type: 'progress', index: m.index });
 		return;
 	}
@@ -71,7 +75,9 @@ async function handle(m) {
 			pptx.addSlide().addImage({ data: slide.data, x: 0, y: 0, w: '100%', h: '100%', altText: slide.altText });
 		}
 		const blob = await pptx.write({ outputType: 'blob' });
-		const bytes = await blob.arrayBuffer();
+		// Calco's schema tidy (notes master in order, no phantom slide-master overrides). It
+		// re-zips the package, so it runs here rather than on the main thread.
+		const bytes = await tidyPptxPackage(JSZip, new Uint8Array(await blob.arrayBuffer()), 'arraybuffer');
 		self.postMessage({ type: 'done', bytes }, [bytes]);
 	}
 }

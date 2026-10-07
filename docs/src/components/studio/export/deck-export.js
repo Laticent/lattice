@@ -1138,6 +1138,20 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 // handler resolves instead: the image is simply absent from the page, and the run
 // records the failure so the author is told rather than shipping a hole they did not
 // see. (A missing picture in a file you have beats a file you do not.)
+// The properties html-to-image copies onto its clone. By default it copies whatever the
+// browser LISTS for a computed style, and Chrome's list leaves out `counter-reset`,
+// `counter-increment` and `counter-set`. So no counter was ever reset or incremented in the
+// clone, and every `counter()` on a slide (timeline discs, agenda numbers) exported as 0.
+// html-to-image keeps the list from its first call, so every capture passes this one.
+let captureStyleProps = null;
+export function captureStyleProperties() {
+	if (!captureStyleProps) {
+		const listed = Array.from(getComputedStyle(document.documentElement));
+		captureStyleProps = [...listed, ...['counter-reset', 'counter-increment', 'counter-set'].filter((p) => !listed.includes(p))];
+	}
+	return captureStyleProps;
+}
+
 function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 	return {
 		width: w,
@@ -1145,6 +1159,7 @@ function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 		pixelRatio,
 		cacheBust: true,
 		fontEmbedCSS,
+		includeStyleProperties: captureStyleProperties(),
 		onImageErrorHandler: (event) => {
 			if (log) log.count += 1;
 			// HIDE the failed `<img>` in the clone. Resolving alone is not "the picture is
@@ -2030,12 +2045,13 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 			console.warn('[lattice-export] PPTX worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 		}
 	}
-	const { default: PptxGenJS } = await import('pptxgenjs');
+	const [{ default: PptxGenJS }, { tidyPptxPackage, xmlSafe }, { default: JSZip }] = await Promise.all([import('pptxgenjs'), import('@/lib/calco'), import('jszip')]);
 	const pptx = new PptxGenJS();
-	pptx.title = props.title;
-	pptx.subject = props.subject;
-	pptx.author = props.author;
-	pptx.company = props.company;
+	// Control characters would make an XML part unreadable; PptxGenJS escapes markup only.
+	pptx.title = xmlSafe(props.title).trim() || 'deck';
+	pptx.subject = xmlSafe(props.subject);
+	pptx.author = xmlSafe(props.author);
+	pptx.company = xmlSafe(props.company);
 	if (layout.custom) {
 		pptx.defineLayout({ name: 'LATTICE', width: layout.w, height: layout.h });
 		pptx.layout = 'LATTICE';
@@ -2055,7 +2071,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
-		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: altTextFor(i) });
+		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: xmlSafe(altTextFor(i)).trim() || `Slide ${i + 1}` });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
 		await new Promise((r) => setTimeout(r));
@@ -2065,7 +2081,9 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	// re-openable step first, and both lanes then save the same way.
 	// Typed as a PowerPoint: pptxgenjs's `write` hands back JSZip's default `application/zip`,
 	// where `writeFile` used to wrap it in the presentation type before saving.
-	const built = new Blob([await pptx.write({ outputType: 'blob' })], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+	// Calco's schema tidy, as the worker lane runs it (pptx-assemble-worker.js).
+	const tidy = await tidyPptxPackage(JSZip, new Uint8Array(await pptx.write({ outputType: 'arraybuffer' })), 'uint8array');
+	const built = new Blob([tidy], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 	download(await withEmbeddedSource(built, 'pptx', opts?.embedSource, onStatus), safeName(name) + '.pptx');
 	// Same contract as exportPdf: a picture the capture could not load costs the image,
 	// never the export — and the author is told, because a silent hole is worse than a

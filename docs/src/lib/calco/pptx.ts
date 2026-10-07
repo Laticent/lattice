@@ -58,9 +58,9 @@ export type PptxGenJSClass = new () => PptxGenJSLike;
  * Text PptxGenJS writes into XML as-is: characters XML 1.0 forbids would make the part
  * unreadable, so they go. (It escapes `<>&` in run text itself.)
  */
-function xmlSafe(text: string): string {
+export function xmlSafe(text: string | null | undefined): string {
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point.
-	return String(text).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '');
+	return (text == null ? '' : String(text)).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '');
 }
 
 /** A font family as an attribute value PptxGenJS will NOT escape: no quotes or markup. */
@@ -111,10 +111,11 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 	const points = (px: number) => Math.round(px * ptScale * 100) / 100;
 
 	const pptx = new PptxGenJS();
-	pptx.title = (deck.title || 'deck').trim();
-	if (deck.subject) pptx.subject = deck.subject;
-	pptx.author = deck.author || 'Calco';
-	pptx.company = deck.company || 'Calco';
+	// PptxGenJS escapes markup in the document properties, but not control characters.
+	pptx.title = xmlSafe(deck.title || '').trim() || 'deck';
+	if (deck.subject) pptx.subject = xmlSafe(deck.subject);
+	pptx.author = xmlSafe(deck.author || 'Calco');
+	pptx.company = xmlSafe(deck.company || 'Calco');
 	if (page.wide) pptx.layout = 'LAYOUT_WIDE';
 	else {
 		pptx.defineLayout({ name: 'CALCO', width: page.w, height: page.h });
@@ -322,6 +323,25 @@ export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: U
 	pres = `${pres.slice(0, after)}<p:embeddedFontLst>${entries.join('')}</p:embeddedFontLst>${pres.slice(after)}`;
 	zip.file('ppt/presentation.xml', pres);
 	// JSZip writes every output type PptxGenJS does (uint8array, nodebuffer, blob, arraybuffer, base64, binarystring).
+	return (await zip.generateAsync({ type: outputType, mimeType: PPTX_MIMETYPE, compression: 'DEFLATE' })) as T;
+}
+
+/**
+ * Mend PptxGenJS 3.12's schema errors in a `.pptx` it wrote, and nothing else: the same
+ * `tidyPptx` the editable export runs, for a package Calco did not build (Lattice's
+ * picture-only `.pptx` writes through PptxGenJS directly). `outputType` is JSZip's.
+ *
+ * The pictures in `ppt/media/` are copied as they were stored, and only the XML is
+ * deflated: a slide picture is a PNG or JPEG, compressed already, and deflating 58 of them
+ * again took 1.4 s to save a tenth of the file. Copied, the tidy takes about 0.1 s.
+ */
+export async function tidyPptxPackage<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, outputType = 'uint8array'): Promise<T> {
+	const zip = (await (JSZip as unknown as { loadAsync(b: Uint8Array): Promise<ZipLike> }).loadAsync(bytes)) as ZipLike;
+	if (outputType === 'STREAM') outputType = 'nodebuffer';
+	await tidyPptx(zip);
+	for (const [name, entry] of Object.entries(zip.files)) {
+		if (name.startsWith('ppt/media/')) (entry as { options: { compression?: string } }).options.compression = 'STORE';
+	}
 	return (await zip.generateAsync({ type: outputType, mimeType: PPTX_MIMETYPE, compression: 'DEFLATE' })) as T;
 }
 
