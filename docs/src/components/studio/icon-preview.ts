@@ -20,7 +20,9 @@ function drawings(): Record<string, Shape[]> | null {
 	return data?.icons?.icons ?? null;
 }
 
-function paint(host: HTMLElement, name: string): boolean {
+/** Draw icon `name` into `host` from the loaded data; false when the data is not here yet. The grid
+ *  (IconGrid.tsx) draws with it too. */
+export function paintIcon(host: HTMLElement, name: string): boolean {
 	const shapes = drawings()?.[name];
 	if (!shapes) return false;
 	const svg = document.createElementNS(SVG_NS, 'svg');
@@ -45,14 +47,14 @@ export const iconPreviewOption = {
 		if (completion.detail !== 'icon') return null;
 		const host = document.createElement('span');
 		host.className = 'cm-completionIconPreview';
-		if (!paint(host, completion.label)) {
+		if (!paintIcon(host, completion.label)) {
 			// First open: fetch the drawings once, then fill every row still showing. The loader never
 			// rejects (no engine script yet, a failed fetch), so a load that brought nothing is
 			// forgotten and the next open tries again rather than leaving blank rows for the session.
 			loading ??= ensurePluginData('`^{icon}`').finally(() => {
 				if (!drawings()) loading = null;
 			});
-			void loading.then(() => paint(host, completion.label));
+			void loading.then(() => paintIcon(host, completion.label));
 		}
 		return host;
 	},

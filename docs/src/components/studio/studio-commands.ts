@@ -14,6 +14,7 @@ export type StudioCommandId =
 	| 'export-pdf'
 	| 'reshape'
 	| 'insert'
+	| 'insert-icon'
 	| 'focus'
 	| 'fabricate'
 	| 'read-article'

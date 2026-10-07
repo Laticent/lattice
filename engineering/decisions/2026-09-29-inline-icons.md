@@ -620,7 +620,8 @@ in dark: no request for `lattice-plugin-icons.js` before the menu opened, one af
 drawn. At 1.25em the drawings measured about 10px and read as blots, so they draw at 1.6em.
 
 **Not done.** A browsable grid of all 265 icons, for an author who does not know a name to start
-from. Typing `` `^{ `` alone lists all of them, with drawings, which covers it for now.
+from. Typing `` `^{ `` alone lists all of them, with drawings, which covers it for now. (Done in
+§ 17.)
 
 ## 16. Icons on a raw Marp render (2026-10-07)
 
@@ -659,3 +660,30 @@ drawings with only a copyright line. The data script now carries Tabler's MIT no
 (`tools/build-icons-data.js` reads `assets/licenses/MIT-tabler-icons.txt`), so every copy has it:
 the docs site, the bundle and the kit. That added 583 B gzipped to the file. The kit's
 `NOTICE.md`, `THIRD-PARTY-LICENSES.txt` and README file table name it too.
+
+## 17. The icon grid (2026-10-07)
+
+**Where.** The Studio's command palette (⌘K) has **Insert an icon…**. It opens a panel with every
+icon the deck can write, drawn, grouped by category in the curation's order. On a phone it is the
+same bottom sheet as every other Studio panel, with the search docked above the keyboard.
+
+**Search.** Each word of the query has to start a name part, an alias or the category: `db` finds
+`database`, `serverless` finds `function`, `storage` lists the storage group, `data exp` finds
+`database-export`. The aliases come from the lint core's completion words, the same list the
+editor's menu shows (`also db`), so the two pickers cannot disagree.
+
+**What a pick inserts** (`icon-grid-model.ts` `iconInsertion`, read from the caret's line): the
+whole `` `^{name}` `` span in prose; `^{name}` when the caret is already inside an inline code
+span; the rest of the name when the caret sits in a half-typed `^{da` (the typed part is replaced,
+and a `}` added unless one follows); and `icon=name` inside an open record in the caret's own code
+span, a pill's `{S3, ` or a chart node's `{…}`, with a comma when the record already holds
+something. A spark's `~{` is not a record, a `{` in prose or in an earlier span is not one either,
+and an escaped backtick opens no span (the independent checker found all three). When the editor
+is not on screen (Compose, the phone's Preview pane, the Read stop: mounted, but hidden or inert)
+nothing is written where the author cannot see it; the span goes to the clipboard and a toast says
+so.
+
+**Cost.** `IconGrid.tsx` loads through `React.lazy`, and the drawings come from the same
+`lattice-plugin-icons.js` the render uses, fetched the first time the grid opens
+(`ensurePluginData`). Each drawing is built as DOM from the data (`icon-preview.ts` `paintIcon`),
+never parsed from a string.
