@@ -47,7 +47,10 @@ function die(msg) {
 const ROWS = {
   list: { bare: ['flat'], takeaway: ['flat', 'nested'], 'takeaway numbered': ['flat', 'nested'] },
   'cards-grid': { bare: ['nested'], three: ['nested'], four: ['nested'] },
-  'list-steps': { bare: ['nested'] },
+  // The badge registers (`phase`, `milestone`, `milestone lettered`) rename the STEP badge; `vertical`
+  // stacks the steps (one column, a row cost); `capsule` centers a row of cards with a pill badge
+  // and a display-face title (Amendment (10)).
+  'list-steps': { bare: ['nested'], vertical: ['nested'], 'vertical compact': ['nested'], phase: ['nested'], milestone: ['nested'], 'milestone lettered': ['nested'], capsule: ['nested'] },
   // Two cards in one row, a title over a body (Amendment (9)); `vertical` stacks them, one column.
   'compare-prose': { bare: ['nested'], transition: ['nested'], mirror: ['nested'], chosen: ['nested'], decision: ['nested'], vertical: ['nested'], 'mirror chosen': ['nested'], 'chosen vertical': ['nested'] },
   // A ring of stages in one row, each a name over one clause (Amendment (9)).
@@ -57,7 +60,7 @@ const ROWS = {
 // stage's shared by the step count, so each role's characters are measured per count (ONE_ROW).
 // At six steps the columns reach their minimum width and the row stops sharing (the budget drops by
 // a line), so a longer row keeps its count row.
-const COLS = { 'cards-grid': 2, 'cards-grid three': 3, 'cards-grid four': 4, 'list-steps': 0, 'compare-prose': 0, 'compare-prose transition': 0, 'compare-prose mirror': 0, 'compare-prose chosen': 0, 'compare-prose decision': 0, 'compare-prose mirror chosen': 0, cycle: 0 };
+const COLS = { 'cards-grid': 2, 'cards-grid three': 3, 'cards-grid four': 4, 'list-steps': 0, 'list-steps phase': 0, 'list-steps milestone': 0, 'list-steps milestone lettered': 0, 'list-steps capsule': 0, 'compare-prose': 0, 'compare-prose transition': 0, 'compare-prose mirror': 0, 'compare-prose chosen': 0, 'compare-prose decision': 0, 'compare-prose mirror chosen': 0, cycle: 0 };
 // The item counts a one-row register is measured at, from two (lint reads a count's characters at
 // index `count - 2`). compare-prose is two cards by contract. cycle documents three to six stages,
 // but at six a hall column is narrower than the probe's longest word (every role reads 10.7 there,
@@ -70,6 +73,9 @@ const ORDERED_ONLY = new Set(['list-steps']);
 // in `axis`, which this rig does not measure: both are measured unordered only, and the row is
 // stored with `ul: 1` so lint keeps an ordered slide on its count row.
 const UNORDERED_ONLY = new Set(['compare-prose', 'cycle']);
+// Universal modifiers a register may be measured with that restyle the masthead as well as the
+// stage (`compact` tightens both): such a register stores its own `frame`.
+const OWN_FRAME = ['compact'];
 // A ring the stage CENTERS (cycle: `justify-content: safe center`). An overflowing probe's text runs
 // out of its card, so the card's bottom padding, the ring's reserved arc band and its ↻ mark (drawn
 // half below the ring) sit inside the text's overflow and never reach the overhead. On a real slide
@@ -79,8 +85,10 @@ const UNORDERED_ONLY = new Set(['compare-prose', 'cycle']);
 // tolerance, twice halved: talk slide 3 (four short stages) clips at huddle by 12 px and read 20%
 // under without it (Amendment (9)). compare-prose is NOT grown: its stage does not center, and its
 // card's bottom padding is squeezable — the export flags nothing until text leaves the card
-// (kaizen slide 10 at huddle, 25 px into the padding, renders whole).
-const GROW = new Set(['cycle']);
+// (kaizen slide 10 at huddle, 25 px into the padding, renders whole). `list-steps capsule` centers
+// its row of cards the same way (`justify-content: safe center`), with no mark below it: grown, its
+// cards' bottom padding is counted (Amendment (10)). Keyed by the slide's classes.
+const GROW = ['cycle', 'list-steps capsule'];
 
 const SAMPLE = 'you recall syntax patterns and standards so the path is known and the job is to follow it without error while the team learns what a real answer should look like before anyone writes code'.split(' ');
 const prose = (n, from = 0) => cap(Array.from({ length: n }, (_, i) => SAMPLE[(i + from) % SAMPLE.length]).join(' '));
@@ -156,7 +164,7 @@ async function main() {
         await page.goto(`file://${r.out}`, { waitUntil: 'load', timeout: 120_000 });
         await page.evaluate(() => document.fonts.ready);
         await page.addScriptTag({ content: `window.__probeSectionOverflow = ${probeSectionOverflow.toString()};` });
-        const got = await page.evaluate((sample, grow, probed) => {
+        const got = await page.evaluate((sample, growing, probed) => {
           const cv = document.createElement('canvas').getContext('2d');
           // The line boxes of a range: its client rects grouped by top (a run in another font sits
           // a few px off the line it shares).
@@ -173,6 +181,7 @@ async function main() {
           };
           return [...document.querySelectorAll('section')].filter((s) => s.querySelector('.cell-stage')).map((sec) => {
             const unit = 2160 / sec.clientHeight;
+            const grow = growing.some((g) => g.split(' ').every((c) => sec.classList.contains(c)));
             const stage = sec.querySelector('.cell-stage');
             const list = stage.querySelector(':scope > ul, :scope > ol');
             if (grow) list.style.minHeight = 'auto';
@@ -259,7 +268,7 @@ async function main() {
               geo: Object.fromEntries(Object.entries(geo).map(([role, g]) => [role, [Math.round((g.width / g.advance) * 10) / 10, Math.round(g.lh * unit)]])),
             };
           });
-        }, SAMPLE.join(' '), GROW.has(comp), PROBED.has(comp) && [CLIP_CELL_SELECTOR, FRAME_TOLERANCE, IGNORED_CLIP_SELECTOR]);
+        }, SAMPLE.join(' '), GROW, PROBED.has(comp) && [CLIP_CELL_SELECTOR, FRAME_TOLERANCE, IGNORED_CLIP_SELECTOR]);
         await page.close();
         if (got.length !== probes.length) die(`${venue}: ${got.length} measured sections for ${probes.length} probes.`);
         const by = {};
@@ -276,9 +285,13 @@ async function main() {
             // One row: nothing to separate a row's cost from the budget's, so it stays in the budget.
             const row = t.B ? (t.B.k - t.A.k) / (t.B.rows - t.A.rows) : 0;
             const f = { eyebrow: t.A.geo.eyebrow, heading: t.A.geo.heading, callout: t.A.geo.callout, eyebrowAt: Math.round(t.A.k - t.E.k), calloutAt: Math.round(t.A.k - t.C.k) };
+            // A register measured with a universal modifier that tightens the masthead too (`compact`)
+            // keeps its own frame (Amendment (10)); every other register shares the component's.
+            const own = OWN_FRAME.some((t) => reg.split(' ').includes(t));
+            const fr = own ? (R.frame ||= {}) : frame;
             for (const [k, v] of Object.entries(f)) {
-              const had = frame[k]?.[venue];
-              if (had == null) (frame[k] ||= {})[venue] = v;
+              const had = fr[k]?.[venue];
+              if (had == null) (fr[k] ||= {})[venue] = v;
               // Half a character a line, or 4 px: past either, the frame is not the same frame.
               else if ([had].flat().some((x, j) => Math.abs(x - [v].flat()[j]) > (Array.isArray(v) && !j ? 0.5 : 4))) die(`${reg} ${shape} at ${venue}: the frame's ${k} reads ${JSON.stringify(v)}, not ${JSON.stringify(had)} — the frame is not shared, so one row cannot hold it.`);
             }
@@ -291,10 +304,14 @@ async function main() {
               (g.budget ||= {})[venue] = budget(t.A);
               R.cols = t.A.cols;
             } else {
-              // One row: a role's characters for 2, 3, … steps; the budget is the least any count reads.
+              // One row: a role's characters for 2, 3, … steps. The budget is one number where every count
+              // reads it within 2 px, and one per count where it does not: a badge that wraps at five
+              // narrow steps (`list-steps milestone`, `MILESTONE 05`) costs a line at five steps only,
+              // and the least of them would charge a three-step slide for it (Amendment (10)).
               const ONE_ROW = ONE_ROW_AT[comp];
               for (const role of ['title', 'body']) if (t.A.geo[role] && !(role === 'title' && t.A.tagged)) (g[role] ||= {})[venue] = [ONE_ROW.map((n) => t[`A${n}`].geo[role][0]), t.A.geo[role][1]];
-              (g.budget ||= {})[venue] = Math.min(...ONE_ROW.map((n) => budget(t[`A${n}`])));
+              const per = ONE_ROW.map((n) => budget(t[`A${n}`]));
+              (g.budget ||= {})[venue] = Math.max(...per) - Math.min(...per) <= 2 ? Math.min(...per) : per;
               R.cols = 0;
             }
             (g.row ||= {})[venue] = Math.round(row);

@@ -43,8 +43,13 @@
  *              `proof` and `capstone` registers at all four venues in one run (tools/lib/
  *              calibrate-panel.js). It is the manifest's `venueCapacity.panel.lines`; only `--json`
  *              applies (`--variant`, `--scale` and `--max` are refused).
+ *   --points   measures the POINTS COLUMN of `split-panel` (its `.panel-right`) by line geometry:
+ *              each register's point roles, the cost of a point and the column's budget, at all four
+ *              venues in one run (tools/lib/calibrate-points.js). It is the manifest's
+ *              `venueCapacity.points`; only `--json` applies.
  *   --rows     measures the LINE GEOMETRY of a list or card component (list, cards-grid,
- *              list-steps, compare-prose, cycle) instead of its element count: each register's item roles (title, body)
+ *              list-steps and its badge, `vertical` and `capsule` registers, compare-prose, cycle)
+ *              instead of its element count: each register's item roles (title, body)
  *              in characters a line and px a line, the cost of a row, and the slide's budget, at
  *              all four venues in one run (tools/lib/calibrate-rows.js). It is the manifest's
  *              `venueCapacity.rows`; only `--json` applies.
@@ -155,6 +160,16 @@ if (has('panel')) {
   if (named !== 'split-panel') die('--panel measures split-panel only (its claim panel is the fixed box).');
   if (VARIANT || SCALE || has('max')) die('--panel measures every register at every venue in one run; drop --variant / --scale / --max.');
   const r = require('node:child_process').spawnSync(process.execPath, [require('node:path').join(__dirname, 'lib', 'calibrate-panel.js'), ...(JSON_OUT ? ['--json'] : [])], { stdio: 'inherit' });
+  process.exit(r.status ?? 1);
+}
+
+// ── POINTS MODE ──────────────────────────────────────────────────────────────────
+// A split-panel slide's other clipping box, its points column, had only a count row (Amendment
+// (10)). `--points` measures its line geometry per register — tools/lib/calibrate-points.js.
+if (has('points')) {
+  if (named !== 'split-panel') die('--points measures split-panel only (its points column is the box).');
+  if (VARIANT || SCALE || has('max')) die('--points measures every register at every venue in one run; drop --variant / --scale / --max.');
+  const r = require('node:child_process').spawnSync(process.execPath, [require('node:path').join(__dirname, 'lib', 'calibrate-points.js'), ...(JSON_OUT ? ['--json'] : [])], { stdio: 'inherit' });
   process.exit(r.status ?? 1);
 }
 

@@ -587,10 +587,12 @@ describe('a claim panel is judged by the LINES its text wraps to (split-panel, A
   });
 
   test('a panel over its column is reported beside an over-full list, not hidden by it', () => {
-    const long = Array.from({ length: 4 }, (_, i) => `- Point ${i}\n  - ${w(14)}.`).join('\n');
+    // The points column is judged by its own lines since Amendment (10): five points of 14 words
+    // run past it at hall (four sit on its budget).
+    const long = Array.from({ length: 5 }, (_, i) => `- Point ${i}\n  - ${w(14)}.`).join('\n');
     const found = raw('hall', 'split-panel', `## ${w(12)}.\n\n${w(40)}.\n\n${long}\n`);
     assert.equal(found.length, 2);
-    assert.ok(found.some((f) => /claim panel/.test(f.message)) && found.some((f) => /items/.test(f.message)));
+    assert.ok(found.some((f) => /claim panel/.test(f.message)) && found.some((f) => /points column/.test(f.message)));
   });
 
   test('wrapLines is a greedy word wrap on characters', () => {
@@ -1110,5 +1112,156 @@ describe('compare-prose and cycle are judged by lines, and glossary on the stric
     // On a 720-high deck the export forgives 36 px of 2160, and the same slide fits (the checker's
     // render: 21 px over). The 720-basis row holds 6 there.
     assert.deepEqual(run('conference', terms, '16:9'), []);
+  });
+});
+
+describe('list-steps registers and the split-panel points column are judged by lines (Amendment (10))', () => {
+  const v = {
+    names: new Set(['list-steps', 'split-panel']),
+    modifiers: new Set(['phase', 'milestone', 'lettered', 'vertical', 'capsule', 'compact', 'watermark', 'mirror', 'proof', 'capstone', 'metric', 'cat-5']),
+    capacity: { 'list-steps': { axis: 'item', min: 3, sweet: 4, soft: 5, hard: 5 } },
+  };
+  const run = (venue, body, size = '4k') => core.lintTextWith(`---\nmarp: true\nsize: ${size}\nvenue: ${venue}\n---\n\n${body}`, v).filter((f) => f.rule === 'capacity-scale');
+  const V = require('../../../lib/authoring/venue-capacity.generated.js');
+  const steps = (cls, n = 3) => `<!-- _class: list-steps ${cls} -->\n\n\`Rollout · Three Phases\`\n\n## Three phases stand between the decision and the habit.\n\n${[
+    ['Architecture', 'Scope what we build, buy, and defer. Output: a decision record the platform owner signs.'],
+    ['Pilot', 'One team, one workload, one quarter. Done when production holds and on-call covers it.'],
+    ['Rollout', 'Five teams in two months. Done when nobody needs handholding and incidents hold baseline.'],
+    ['Review', 'One retro a team.'],
+    ['Repeat', 'Again next quarter.'],
+  ].slice(0, n).map(([t, b], i) => `${i + 1}. ${t}\n   - ${b}`).join('\n')}\n`;
+
+  test('a badge register is judged by lines: gallery.md slide 46 (`phase`) clips at conference and fits at huddle', () => {
+    assert.deepEqual(run('huddle', steps('phase')), []);
+    assert.match(run('conference', steps('phase'))[0].message, /'list-steps phase' slide's text runs about \d+% too long/);
+  });
+
+  test('a badge that wraps at five narrow steps costs a line at five steps only: the budget is one per count', () => {
+    const b = V.rows['list-steps'].regs.milestone.ordered.nested.budget[3];
+    assert.ok(Array.isArray(b) && b[3] < b[1], 'milestone at hall: five steps hold less than three');
+    // Three steps read bare's budget, five the wrapped badge's.
+    const pct = (cls, n) => core.rowsAt('list-steps', ['list-steps', ...cls], steps(cls.join(' '), n))(3).pct;
+    assert.equal(pct(['milestone'], 3), pct([], 3));
+    assert.ok(pct(['milestone'], 5) > pct([], 5));
+  });
+
+  test('`milestone lettered` is a measured register; another format word keeps the count row', () => {
+    assert.equal(typeof core.rowsAt('list-steps', ['list-steps', 'milestone', 'lettered'], steps('milestone lettered')), 'function');
+    assert.equal(core.rowsAt('list-steps', ['list-steps', 'phase', 'lettered'], steps('phase lettered')), null);
+  });
+
+  // bloom-engineering-journey slide 12: three capsule cards, clipped at conference, whole at huddle.
+  const capsule = `<!-- _class: list-steps capsule -->\n\n## How to use this tomorrow.\n\n1. Place yourself\n   - Name the verb you own and how far it reaches today. Be honest — most of us straddle two.\n2. Pick your next move\n   - A deeper verb, or the same verb carried wider — concrete, time-bound, tied to real work.\n3. Collect the evidence\n   - Design docs, ADRs, before/after metrics, postmortems — artifacts that prove the shift happened.\n`;
+
+  test('`capsule` reads its centered cards grown to their content (bloom slide 12)', () => {
+    assert.deepEqual(run('huddle', capsule, '16:9'), []);
+    assert.equal(run('conference', capsule, '16:9').length, 1);
+    assert.ok(V.rows['list-steps'].regs.capsule.ordered.nested.budget[0] < V.rows['list-steps'].regs[''].ordered.nested.budget[0], 'the grown card counts its bottom padding');
+  });
+
+  // gallery.md slide 48: three stacked steps under `compact`, clipped at huddle by 127 px.
+  const stacked = `<!-- _class: list-steps vertical compact -->\n\n## Sense, score, decide — the loop in three verbs.\n\n1. Sense\n   - Observed, never invented — write what you see.\n2. Score\n   - A signal becomes data once it carries a number.\n3. Decide\n   - A signal plus a deadline; without it, an opinion.\n`;
+
+  test('`vertical compact` carries its own frame; `compact` on an unmeasured register keeps the count row', () => {
+    assert.equal(run('huddle', stacked).length, 1);
+    assert.ok(V.rows['list-steps'].regs['vertical compact'].frame, 'compact tightens the masthead too');
+    assert.equal(V.rows['list-steps'].regs.vertical.frame, undefined);
+    assert.ok(V.rows['list-steps'].of.includes('compact'));
+    assert.equal(core.rowsAt('list-steps', ['list-steps', 'compact'], steps('compact')), null);
+  });
+
+  // gallery.md slide 18: a `watermark` column with a sub-heading, a paragraph and three numbered
+  // points. It clips there at conference by 81 px and fits at huddle; the count row was silent.
+  const watermark = `<!-- _class: split-panel watermark -->\n\n## Scoring Model Deep Dive\n\n\`Section 02\`\n\n### What this section covers\n\nThe scoring model is the most configurable component, and therefore the most argued about. This section covers the three dimensions, how weights are set initially, and how calibration updates them over time.\n\n1. Confidence\n   - How many independent sources corroborate the signal. Ranges 1–5.\n1. Recency\n   - Time-decay applied from signal date to scoring date. Half-life is team-configurable.\n1. Strategic Relevance\n   - Manual score from the signal owner. Ranges 1–5. Requires justification above 4.\n`;
+
+  test('a points column is judged by its lines (gallery slide 18)', () => {
+    assert.deepEqual(run('huddle', watermark), []);
+    const [f] = run('conference', watermark);
+    assert.match(f.message, /'split-panel watermark' points column's text runs about \d+% too long/);
+    assert.match(f.fix, /^Shorten or cut the points, or set `venue: huddle`/);
+  });
+
+  test('the sub-heading and the paragraph each pay their lines and block cost', () => {
+    const pct = (src) => core.pointsAt('split-panel', ['split-panel', 'watermark'], src)(2).pct;
+    const noPara = watermark.replace(/\nThe scoring model[^\n]*\n/, '');
+    const noSub = noPara.replace(/\n### [^\n]*\n/, '');
+    assert.ok(pct(watermark) > pct(noPara) && pct(noPara) > pct(noSub));
+    // A second paragraph in the column is a slide the model does not describe.
+    assert.equal(core.pointsAt('split-panel', ['split-panel', 'watermark'], watermark.replace('\n1. Confidence', '\nA second paragraph.\n\n1. Confidence')), null);
+  });
+
+  test('`mirror` measures the same as the bare column and is baked as its key', () => {
+    assert.equal(V.points['split-panel'].regs.mirror, '');
+    assert.equal(V.points['split-panel'].regs['watermark mirror'], 'watermark');
+    const noSub = watermark.replace(/\n### [^\n]*\n/, '');
+    assert.equal(core.pointsAt('split-panel', ['split-panel', 'watermark', 'mirror'], noSub)(2).pct, core.pointsAt('split-panel', ['split-panel', 'watermark'], noSub)(2).pct);
+  });
+
+  test('a `mirror` column that opens on a `###` keeps its count row: a running header pads it', () => {
+    // `.mirror:has(> header) .panel-right > h3:first-child` adds 147 to 207 px under a header, and
+    // which slides render one is the engine's directive walk to decide. Six checker rounds each found
+    // a shape a lint-side reader got wrong, so lint does not guess (Amendment (10)).
+    assert.equal(core.pointsAt('split-panel', ['split-panel', 'watermark', 'mirror'], watermark), null);
+    assert.equal(typeof core.pointsAt('split-panel', ['split-panel', 'watermark'], watermark), 'function');
+  });
+
+  // system-design-foundations slide 209: a `proof` grid whose last card outgrows its `1fr` share.
+  const proof = `<!-- _class: split-panel proof cat-5 -->\n\n\`Parking · rung one, what the sweep does\`\n\n## A sweep is a second writer.\n\nAsk the provider what happened and write the answer down.\n\n- The tell\n  - A row has sat waiting fifteen minutes — far longer than a payment takes, even on a bad signal — and nobody has told the driver anything.\n- Write only if it is still waiting\n  - The same guard the webhook needs, for the same reason: two writers on one row, and the later must not bury what the earlier learned.\n- To free a bay, cancel first\n  - A timeout is not the same answer as nothing was taken. An open payment can still complete, so cancel it at the provider before writing the row off — or you free the bay and take the money afterwards.\n`;
+
+  test('a `proof` grid is as tall as its tallest row: its rows are equal `1fr` shares', () => {
+    const at = core.pointsAt('split-panel', ['split-panel', 'proof', 'cat-5'], proof);
+    assert.ok(at(2).over, 'slide 209 clips in its points column at conference');
+    assert.ok(!at(0).over);
+    // Shortening the card that is not the tallest moves nothing.
+    const short = proof.replace('The same guard the webhook needs, for the same reason: two writers on one row, and the later must not bury what the earlier learned.', 'The same guard.');
+    assert.equal(core.pointsAt('split-panel', ['split-panel', 'proof'], short)(2).pct, at(2).pct);
+    assert.equal(V.points['split-panel'].regs.proof.eq, 1);
+  });
+
+  // examples/inline-icons.md slide 3: icons and pills in the points. It renders whole at conference;
+  // priced as their source in the mono face, the three pills read as two lines and the slide 10% long.
+  const icons = '<!-- _class: split-panel -->\n\n## Framed by default, bare when a line needs it quiet.\n\n- Framed, the default\n  - Raw files land in `^{bucket, c4}` S3, a `^{function, c3}` Lambda reads each one, and `^{warehouse, c5}` Snowflake holds the model.\n  - `{S3, icon=bucket, c4}` `{Lambda, icon=function, c3}` `{Snowflake, icon=warehouse, c5}`\n- Bare, the same words, on request\n  - Raw files land in `^{bucket, c4, bare}` S3, a `^{function, c3, bare}` Lambda reads each one, and `^{warehouse, c5, bare}` Snowflake holds the model.\n  - `{S3, icon=bucket, c4}` `{Lambda, icon=function, c3}` `{Snowflake, icon=warehouse, c5}`\n';
+
+  test('an icon is one word-sized glyph and a pill its label, not their source (inline-icons slide 3)', () => {
+    assert.equal(core.lineText('in `^{bucket, c4}` S3 `{S3, icon=bucket, c4}` `{Big Label, c2}`', true), 'in m S3 S3mtt BigiLabeltt');
+    assert.deepEqual(run('conference', icons, '16:9'), []);
+  });
+
+  test('an `#` heading stays in the points column, so the slide keeps its count row', () => {
+    assert.equal(typeof core.pointsAt('split-panel', ['split-panel', 'proof'], proof), 'function');
+    assert.equal(core.pointsAt('split-panel', ['split-panel', 'proof'], proof.replace('## A sweep', '# A sweep')), null);
+  });
+
+  test('only a span the engine draws as a pill or an icon is priced as one; other braces stay mono code (the second checker)', () => {
+    const mono = (c) => `${c.replace(/./g, 'u')}t`;
+    for (const c of ['{ id, name, email }', '{"a": 1}', '{ color: red }', '{2,5}', '{X, c13}', '{BETA}:tag', '^{nope}']) {
+      assert.equal(core.lineText(`\`${c}\``, true), mono(c), c);
+    }
+    // On a literal deck every span renders as code, pills and icons included.
+    assert.equal(core.lineText('`{STABLE, c2}` `^{bucket}`', true, true), `${mono('{STABLE, c2}')} ${mono('^{bucket}')}`);
+  });
+
+  test('a literal deck prices pills as code in a claim panel and a code heading too (the third checker)', () => {
+    const lede = 'Ship `{Orders, c2}` `{Billing, c3}` `{Payments, c4}` `{Shipping, c5}` `{Returns, c6}` `{Refunds, c7}` `{Ledger, c8}` and `{Audit, c1}` tonight, then';
+    const panel = (lit) => core.panelOver('split-panel', ['split-panel'], `## Claim\n\n${lede}.\n\n- A\n  - b.\n`, 3, 0, lit).pct;
+    assert.ok(panel(true) > panel(false));
+    const code = (fm) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: hall\n${fm}---\n\n<!-- _class: code -->\n\n## Ship \`{Orders, c2}\` and \`{Billing, c3}\` tonight\n\n\`\`\`js\n${'x();\n'.repeat(7)}\`\`\`\n`, { names: new Set(['code']), modifiers: new Set(), capacity: {} }).filter((f) => f.rule === 'capacity-scale');
+    assert.equal(code('inline-code: literal\n').length, 1, 'the heading wraps to two lines as code');
+    assert.deepEqual(code(''), [], 'as two pills it sets on one line');
+  });
+
+  test('a quoted pill label keeps its comma, and an icon-only pill has no label', () => {
+    assert.equal(core.lineText('`{"Cost, excluding tax", c2}`', true), 'Cost,iexcludingitaxtt');
+    assert.equal(core.lineText('`{icon=gateway, c2}`', true), 'mtt');
+  });
+
+  test('a slide the points geometry does not describe keeps its count row', () => {
+    const P = (cls, src) => core.pointsAt('split-panel', ['split-panel', ...cls], src);
+    assert.equal(P(['proof'], `${proof}- A fourth card\n  - More.\n`), null, 'a grid is judged at its three points');
+    assert.equal(P(['capstone'], proof), null, 'capstone is not measured');
+    assert.equal(P([], proof.replace(/^- /gm, '1. ')), null, 'the bare column styles `-` only');
+    assert.equal(P([], `${proof}\n> A quote.\n`), null);
+    assert.equal(P([], proof.replace('- The tell', '| a | b |\n|---|---|\n\n- The tell')), null);
+    assert.equal(P(['proof', 'sketch'], proof), null, 'an unknown modifier');
   });
 });

@@ -433,7 +433,10 @@ function buildVenueLint() {
   const panel = {};
   const panelNot = {};
   const rows = {};
+  const points = {};
   let rowFrame = null;
+  // Universal modifiers a `venueCapacity.rows` register may be measured with (Amendment (10)).
+  const ROW_MODIFIERS = ['compact'];
   // The count axis of a row whose component has no `capacity` block (lint's venue-only path).
   const axis = {};
   let codeRows = null;
@@ -493,19 +496,32 @@ function buildVenueLint() {
       // Collapsed toward a warning: the least of a budget, the most of a cost.
       const rungs = (g) => Object.fromEntries(Object.entries(g).map(([k, r]) => {
         const a = row(r);
-        return [k, typeof a[0] === 'number' && Math.max(...a) - Math.min(...a) <= 2 ? (k === 'budget' ? Math.min(...a) : Math.max(...a)) : a];
+        // A one-row budget may be a list per item count at a rung (calibrate-rows.js), which stays as is.
+        return [k, a.every((x) => typeof x === 'number') && Math.max(...a) - Math.min(...a) <= 2 ? (k === 'budget' ? Math.min(...a) : Math.max(...a)) : a];
       }));
       const regs = {};
       for (const [reg, g] of Object.entries(vc.rows)) {
         if (reg === 'frame') continue;
         // lint finds a register by joining the slide's variant tokens in the manifest's `variants`
         // order, so a key in any other order would never be read.
-        const want = (m.variants || []).filter((v) => reg.split(' ').includes(v)).join(' ');
+        // A universal modifier that changes the geometry (`compact`) may close a key, after the variants.
+        const want = [...(m.variants || []), ...ROW_MODIFIERS].filter((v) => reg.split(' ').includes(v)).join(' ');
         if (reg !== 'bare' && reg !== want) throw new Error(`${m.name}: venueCapacity.rows key '${reg}' must name its variants in the manifest's order ('${want}').`);
         const out = {};
         for (const [k, v] of Object.entries(g)) {
-          if (k === 'ordered') continue;
+          if (k === 'ordered' || k === 'frame') continue;
           out[k] = typeof v === 'object' ? rungs(v) : v;
+        }
+        // A register's own frame (`compact`) keeps only what the shared frame gets wrong: a px cost more
+        // than 2 px off either way, or a line holding fewer characters. A line that holds more reads
+        // the shared frame's fewer, which errs toward a warning by a fraction of a line (Amendment (10)).
+        if (g.frame) {
+          const base = rungs(vc.rows.frame);
+          const own = Object.entries(rungs(g.frame)).filter(([k, v]) => [v].flat().some((x, j) => {
+            const b = [base[k]].flat()[j];
+            return Array.isArray(x) ? x[0] < b[0] - 0.05 || x[1] > b[1] : Math.abs(x - b) > 2;
+          }));
+          if (own.length) out.frame = Object.fromEntries(own);
         }
         for (const [shape, o] of Object.entries(g.ordered || {})) {
           // The same 2 px as across the rungs: a budget measured 1542 bare and 1543 numbered is one
@@ -528,7 +544,34 @@ function buildVenueLint() {
       // baked once as `rowFrame`, and per component only where it differs.
       const frame = rungs(vc.rows.frame);
       rowFrame ||= frame;
-      rows[m.name] = { of: m.variants || [], regs, ...(JSON.stringify(frame) === JSON.stringify(rowFrame) ? {} : { frame }) };
+      // `of` gains a universal modifier only where a register is measured with it, so lint reads a
+      // `compact` slide by that register and keeps any other `compact` slide on its count row.
+      const mods = ROW_MODIFIERS.filter((t) => Object.keys(vc.rows).some((k) => k.split(' ').includes(t)));
+      rows[m.name] = { of: [...(m.variants || []), ...mods], regs, ...(JSON.stringify(frame) === JSON.stringify(rowFrame) ? {} : { frame }) };
+    }
+    // `points`: component → its split-panel POINTS COLUMN's line geometry per register (Amendment
+    // (10)), compacted the way `rows` is: a rung-equal px value is one number, `ordered` keeps what
+    // differs, and a register measured the same as an earlier one is that one's key.
+    if (vc.points) {
+      const rungs = (g) => Object.fromEntries(Object.entries(g).map(([k, r]) => {
+        const a = row(r);
+        return [k, a.every((x) => typeof x === 'number') && Math.max(...a) - Math.min(...a) <= 2 ? (k === 'budget' ? Math.min(...a) : Math.max(...a)) : a];
+      }));
+      const regs = {};
+      for (const [reg, g] of Object.entries(vc.points)) {
+        const want = (m.variants || []).filter((v) => reg.split(' ').includes(v)).join(' ');
+        if (reg !== 'bare' && reg !== want) throw new Error(`${m.name}: venueCapacity.points key '${reg}' must name its variants in the manifest's order ('${want}').`);
+        const out = {};
+        for (const [k, v] of Object.entries(g)) if (k !== 'ordered') out[k] = v && typeof v === 'object' && v.laptop != null ? rungs({ [k]: v })[k] : v;
+        if (g.ordered) {
+          const o = rungs(g.ordered);
+          const own = Object.entries(o).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(out[k]));
+          if (own.length) out.ordered = Object.fromEntries(own);
+        }
+        const twin = Object.keys(regs).find((k) => typeof regs[k] !== 'string' && JSON.stringify(regs[k]) === JSON.stringify(out));
+        regs[reg === 'bare' ? '' : reg] = twin != null ? twin : out;
+      }
+      points[m.name] = { of: m.variants || [], regs };
     }
   }
   const source =
@@ -536,9 +579,10 @@ function buildVenueLint() {
     "   Source: every component manifest's `venueCapacity` (lib/components/). items: element count\n" +
     '   per words-per-element, as [laptop, huddle, conference, hall]; code: pane lines, bare and\n' +
     '   under an eyebrow, and `headed` under a 2- or 3-line heading; variants: "<component> <token>" rows; insight: rows with a trailing\n' +
-    '   insight callout; panel: claim-panel line geometry; rows: list and card line geometry. Rebuild:\n' +
+    '   insight callout; panel: claim-panel line geometry; rows: list and card line geometry; points: the\n' +
+    '   split-panel points column\'s line geometry. Rebuild:\n' +
     '   node tools/build-stage-catalog.js */\n' +
-    'module.exports = ' + JSON.stringify({ items, code: codeRows, compareCode, variants, insight, insightVariants, eyebrow, eyebrowStrict, insightEyebrow, axis, panel, panelNot, rows, rowFrame }) + ';\n';
+    'module.exports = ' + JSON.stringify({ items, code: codeRows, compareCode, variants, insight, insightVariants, eyebrow, eyebrowStrict, insightEyebrow, axis, panel, panelNot, rows, rowFrame, points }) + ';\n';
   return { source, count: Object.keys(items).length + (codeRows ? 1 : 0) + (compareCode ? 1 : 0) };
 }
 

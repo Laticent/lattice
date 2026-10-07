@@ -1281,21 +1281,10 @@
         },
         "rows": {
           "type": "object",
-          "description": "For a list or card component on the standard frame: the LINE GEOMETRY lint wraps a slide's own text into, measured with `tools/calibrate-capacity.js <component> --rows --json` (2026-09-25-font-scale-fit.md, Amendment (7)). `frame` holds the masthead and coda roles every register shares (`eyebrow`, `heading`, `callout`, each per venue [characters a line holds, px a line takes of a 2160-high slide]) and the px an eyebrow or a callout block adds past its lines (`eyebrowAt`, `calloutAt`). Every other key is a register (`bare`, or the component's variant tokens, space-separated): its columns (`cols`), the width a lone last card takes in columns (`span`, when it spans), and per SHAPE (and again under `ordered` for a `1.` list where that differs) (`flat` one-line items, `nested` a title over body items) the item roles (`title`, `body`), the px a row of items adds (`row`) and the px the slide holds (`budget`, FRAME_TOLERANCE included). A slide whose variant tokens name no register here keeps its count row.",
+          "description": "For a list or card component on the standard frame: the LINE GEOMETRY lint wraps a slide's own text into, measured with `tools/calibrate-capacity.js <component> --rows --json` (2026-09-25-font-scale-fit.md, Amendment (7)). `frame` holds the masthead and coda roles every register shares (`eyebrow`, `heading`, `callout`, each per venue [characters a line holds, px a line takes of a 2160-high slide]) and the px an eyebrow or a callout block adds past its lines (`eyebrowAt`, `calloutAt`). Every other key is a register (`bare`, or the component's variant tokens, space-separated): its columns (`cols`), the width a lone last card takes in columns (`span`, when it spans), and per SHAPE (and again under `ordered` for a `1.` list where that differs) (`flat` one-line items, `nested` a title over body items) the item roles (`title`, `body`), the px a row of items adds (`row`) and the px the slide holds (`budget`, FRAME_TOLERANCE included). A register key may close on the universal `compact` modifier (`vertical compact`, Amendment (10)). A slide whose variant tokens name no register here keeps its count row.",
           "required": ["frame"],
           "properties": {
-            "frame": {
-              "type": "object",
-              "required": ["eyebrow", "heading", "callout", "eyebrowAt", "calloutAt"],
-              "additionalProperties": false,
-              "properties": {
-                "eyebrow": { "$ref": "#/$defs/venueLineRow" },
-                "heading": { "$ref": "#/$defs/venueLineRow" },
-                "callout": { "$ref": "#/$defs/venueLineRow" },
-                "eyebrowAt": { "$ref": "#/$defs/venuePx" },
-                "calloutAt": { "$ref": "#/$defs/venuePx" }
-              }
-            }
+            "frame": { "$ref": "#/$defs/venueRowFrame" }
           },
           "additionalProperties": {
             "type": "object",
@@ -1303,6 +1292,7 @@
             "additionalProperties": false,
             "properties": {
               "cols": { "type": "integer", "minimum": 0, "description": "Items a row holds; 0 is one row of every item (list-steps, cycle, compare-prose), whose item roles list their characters per item count from two." },
+              "frame": { "$ref": "#/$defs/venueRowFrame", "description": "The register's own masthead and coda, where it is measured with a universal modifier that restyles them too (`list-steps vertical compact`, Amendment (10)); every other register reads the component's `frame`." },
               "span": { "type": "number", "exclusiveMinimum": 1 },
               "ul": { "type": "integer", "minimum": 1, "maximum": 1, "description": "Measured unordered only (cycle styles only `ul > li`; compare-prose writes `1.` only in `axis`): lint keeps a `1.` slide on its count row." },
               "tag": { "type": "integer", "minimum": 1, "maximum": 1, "description": "The item's lead is a corner tag, placed absolutely in the one tag line the card reserves (compare-prose, base.card-tag.css), so it costs no height: the shapes carry no `title`, and lint charges the lead nothing (Amendment (9))." },
@@ -1317,6 +1307,32 @@
                   "nested": { "$ref": "#/$defs/venueRowShape" }
                 }
               }
+            }
+          }
+        },
+        "points": {
+          "type": "object",
+          "description": "For `split-panel`: the LINE GEOMETRY of its points column (`.panel-right`), measured with `tools/calibrate-capacity.js split-panel --points --json` (2026-09-25-font-scale-fit.md, Amendment (10)). Each key is a register (`bare`, or variant tokens in the manifest's order). A flex column is judged by the sum of its points' lines plus `row` a point; a `grid` register (`proof`) is measured at its three points, and an `eq` one, whose rows are equal `1fr` shares, by its tallest row. A slide whose variant tokens name no register here keeps its count row.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["title", "body", "row", "budget"],
+            "additionalProperties": false,
+            "properties": {
+              "title": { "$ref": "#/$defs/venueLineRow" },
+              "body": { "$ref": "#/$defs/venueLineRow" },
+              "title0": { "$ref": "#/$defs/venueLineRow", "description": "A grid register's first point (the `proof` signal), which spans the column at its own size." },
+              "body0": { "$ref": "#/$defs/venueLineRow" },
+              "sub": { "$ref": "#/$defs/venueLineRow" },
+              "para": { "$ref": "#/$defs/venueLineRow" },
+              "row": { "$ref": "#/$defs/venuePx" },
+              "budget": { "$ref": "#/$defs/venuePx" },
+              "subAt": { "$ref": "#/$defs/venuePx" },
+              "paraAt": { "$ref": "#/$defs/venuePx" },
+              "ordered": { "$ref": "#/$defs/venuePointsRole" },
+              "faces": { "type": "object", "description": "The face lint weighs a role in, where it is not the body face: `f` flat (an uppercase label), `d` the display face.", "additionalProperties": { "enum": ["f", "d"] } },
+              "grid": { "type": "integer", "minimum": 1, "maximum": 1 },
+              "eq": { "type": "integer", "minimum": 1, "maximum": 1 },
+              "ul": { "type": "integer", "minimum": 1, "maximum": 1, "description": "The register styles `.panel-right > ul` only: lint keeps a `1.` slide on its count row." }
             }
           }
         },
@@ -1737,9 +1753,52 @@
         "title": { "$ref": "#/$defs/venueItemRow", "description": "Absent only on a `tag` register, whose lead costs no height." },
         "body": { "$ref": "#/$defs/venueItemRow" },
         "row": { "$ref": "#/$defs/venuePx" },
-        "budget": { "$ref": "#/$defs/venuePx" },
+        "budget": { "$ref": "#/$defs/venueBudget" },
         "note": { "$ref": "#/$defs/venueLineRow", "description": "A closing paragraph under the list inside the stage (compare-prose `:is(ul, ol) + p`), per venue [characters a line holds, px a line takes]; a slide with a note is judged only where this is present." },
         "noteAt": { "$ref": "#/$defs/venuePx", "description": "The px a note block adds past its lines." }
+      }
+    },
+    "venueRowFrame": {
+      "type": "object",
+      "description": "The standard frame's masthead and coda roles (`eyebrow`, `heading`, `callout`, each per venue [characters a line holds, px a line takes of a 2160-high slide]) and the px an eyebrow or a callout block adds past its lines (`eyebrowAt`, `calloutAt`).",
+      "required": ["eyebrow", "heading", "callout", "eyebrowAt", "calloutAt"],
+      "additionalProperties": false,
+      "properties": {
+        "eyebrow": { "$ref": "#/$defs/venueLineRow" },
+        "heading": { "$ref": "#/$defs/venueLineRow" },
+        "callout": { "$ref": "#/$defs/venueLineRow" },
+        "eyebrowAt": { "$ref": "#/$defs/venuePx" },
+        "calloutAt": { "$ref": "#/$defs/venuePx" }
+      }
+    },
+    "venueBudget": {
+      "type": "object",
+      "description": "The px a register's text and costs may reach, per venue: one number, or on a one-row register (`cols: 0`) one per item count from two where the counts differ by more than 2 px (a `list-steps milestone` badge wraps at five narrow steps and costs a line there only, Amendment (10)).",
+      "required": ["laptop", "huddle", "conference", "hall"],
+      "additionalProperties": false,
+      "properties": {
+        "laptop": { "$ref": "#/$defs/budgetPx" },
+        "huddle": { "$ref": "#/$defs/budgetPx" },
+        "conference": { "$ref": "#/$defs/budgetPx" },
+        "hall": { "$ref": "#/$defs/budgetPx" }
+      }
+    },
+    "budgetPx": { "anyOf": [{ "type": "number" }, { "type": "array", "minItems": 2, "items": { "type": "number" } }] },
+    "venuePointsRole": {
+      "type": "object",
+      "description": "A `points` register written as an ordered list (`1.`), where that differs from the unordered one: the roles' [characters a line holds, px a line takes] per venue, the px each point adds past its lines (`row`), the px the column holds (`budget`), and the `###` sub-heading's and paragraph's roles and block costs (`subAt`, `paraAt`).",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "$ref": "#/$defs/venueLineRow" },
+        "body": { "$ref": "#/$defs/venueLineRow" },
+        "title0": { "$ref": "#/$defs/venueLineRow", "description": "A grid register's first point (the `proof` signal), which spans the column at its own size." },
+        "body0": { "$ref": "#/$defs/venueLineRow" },
+        "sub": { "$ref": "#/$defs/venueLineRow" },
+        "para": { "$ref": "#/$defs/venueLineRow" },
+        "row": { "$ref": "#/$defs/venuePx" },
+        "budget": { "$ref": "#/$defs/venuePx" },
+        "subAt": { "$ref": "#/$defs/venuePx" },
+        "paraAt": { "$ref": "#/$defs/venuePx" }
       }
     },
     "venuePx": {
