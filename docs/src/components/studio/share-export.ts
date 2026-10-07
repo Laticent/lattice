@@ -17,6 +17,7 @@ import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../..
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { samplesBaseFor } from '../../lib/samples-base';
 import type { StudioComponent } from './component-library';
 import type { StudioFinish } from './finish-library';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
@@ -119,7 +120,7 @@ export async function buildDeckRender(
 ): Promise<DeckRender> {
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme, styles === 'flat' ? { styles } : undefined);
+	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(styles === 'flat' ? { styles } : {}) });
 	const { previewFontFaceCss } = await loadDeckRenderFonts();
 	return {
 		html: out.html,
@@ -401,7 +402,7 @@ export async function shareHtmlPlayer(
 	// `styles: 'flat'`: the player is a document that shows slide content outside a slide, so it
 	// asks for the flat mode and ships `out.flatCss`. `out.css` stays the scoped preview shape
 	// for the diagram bake's capture frame below.
-	let out = await renderMarkdown(PG, source, theme, { styles: 'flat' });
+	let out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase) });
 
 	onStatus?.('Embedding fonts…');
 	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
@@ -501,7 +502,7 @@ export async function shareHtmlPlayer(
 			// The same embed + placeholder passes, so the candidate compares like-for-like with
 			// `recordSections`. The cache means it fetches nothing the first pass already did, and
 			// the notes cut changes no picture, so the first pass's report stands for it.
-			(src) => renderMarkdown(PG, src, theme, { styles: 'flat' }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
+			(src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase) }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -1125,7 +1126,7 @@ export async function shareCaptions(
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme);
+	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase) });
 
 	onStatus?.('Reading notes + projecting slides…');
 	const [authoringMod, readAlongCore, projectionMod, resolveNarrationMod, narrationResolve, lintMod, bookendsMod] = await Promise.all([

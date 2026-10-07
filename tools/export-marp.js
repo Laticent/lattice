@@ -75,6 +75,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { bakeSplits, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image');
+const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const {
@@ -132,7 +133,10 @@ function localizeOne(url, deckDir, destDir, copied) {
   // half-written bundle behind. An undecodable ref is treated as authored.
   let decoded;
   try { decoded = decodeURI(url); } catch (_e) { decoded = url; }
-  const abs = path.resolve(deckDir, decoded);
+  // `sample:<name>` is Lattice's own sample art (lib/samples/), wherever the deck sits.
+  // Marp cannot read the prefix, so the file is copied in like any other local picture.
+  const sample = sampleName(url);
+  const abs = sample ? path.join(ROOT, 'lib', 'samples', sample) : path.resolve(deckDir, decoded);
   // `isFile` rather than `existsSync`: `logo: .` resolved to a DIRECTORY and
   // `copyFileSync` threw EISDIR, same half-written-bundle outcome.
   if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return null;

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 color-mode: system
-logo: ./acme-logo.svg
+logo: sample:logo-acme-mark.svg
 ---
 
 # The receiver decides

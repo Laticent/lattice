@@ -298,7 +298,7 @@ describe('export-formats', () => {
   const NOTE_MARKER   = 'Raster note marker 9c1d';
   function writeSvgFixture(dir) {
     fs.copyFileSync(
-      path.join(ROOT, 'examples', 'assets', 'sample-photo-wide.svg'),
+      path.join(ROOT, 'lib', 'samples', 'photo-wide.svg'),
       path.join(dir, 'photo.svg'),
     );
     const src = path.join(dir, 'deck.md');

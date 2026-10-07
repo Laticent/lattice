@@ -587,7 +587,7 @@ for signal in calibrator.intake.unscored():
 
 Think deeper, plan longer, decide once — the mandate fit on a napkin, so the venue got two days. The lake was booked for inspiration and used mostly for phone calls.
 
-![bg](assets/sample-photo-wide.jpg)
+![bg](sample:photo-wide.jpg)
 
 ---
 
@@ -600,7 +600,7 @@ Think deeper, plan longer, decide once — the mandate fit on a napkin, so the v
 
 Same lake, same mandate, opposite wall — the afternoon was the morning, flipped, which was also true of the discussion.
 
-![bg left](assets/sample-photo-wide.jpg)
+![bg left](sample:photo-wide.jpg)
 
 ---
 
@@ -613,7 +613,7 @@ Same lake, same mandate, opposite wall — the afternoon was the morning, flippe
 
 Shown whole, on a matte, with a placard — evidence handling for a whiteboard that held the four framework parts and one org chart nobody claims to have drawn.
 
-![bg](assets/sample-photo-square.jpg)
+![bg](sample:photo-square.jpg)
 
 ---
 
@@ -625,7 +625,7 @@ Shown whole, on a matte, with a placard — evidence handling for a whiteboard t
 
 The grounds, edge to edge — we will reference this view in three consecutive planning cycles and visit it in none. The card keeps the arithmetic legible over the scenery.
 
-![bg](assets/sample-photo-pano.jpg)
+![bg](sample:photo-pano.jpg)
 
 ---
 
@@ -638,7 +638,7 @@ The grounds, edge to edge — we will reference this view in three consecutive p
 
 The climb produced two insights and one signed waiver. The photo runs taller than the argument beside it, which the facilitator called a metaphor.
 
-![bg](assets/sample-photo-tall.jpg)
+![bg](sample:photo-tall.jpg)
 
 ---
 
@@ -650,7 +650,7 @@ The climb produced two insights and one signed waiver. The photo runs taller tha
 
 The line the room will repeat, set over the view that produced it. This one made the T-shirts before it made the plan.
 
-![bg](assets/sample-photo-wide.jpg)
+![bg](sample:photo-wide.jpg)
 
 ---
 
@@ -686,7 +686,7 @@ Ownership of the weights, the CSV retirement date, and who carries the pager —
 
 The mandate, projected after dinner, stayed legible — the room got darker and the words did not.
 
-![bg](assets/sample-photo-pano.jpg)
+![bg](sample:photo-pano.jpg)
 
 ---
 
@@ -884,7 +884,7 @@ The struck card stays on the slide — the framework logs its rejected options t
 
 Same lake, opposite bank, one session earlier than scheduled. The image card crosses to the left and the text pads to match — `![bg left]` still works, for the traditionalists. The lake is unchanged.
 
-![bg left](assets/sample-photo-wide.jpg)
+![bg left](sample:photo-wide.jpg)
 
 ---
 
@@ -1869,28 +1869,28 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ## Eight source systems already feed the intake — seven willingly.
 
-- ![Acme](../../../lib/components/inventory/logo-wall/acme.svg)
+- ![Acme](sample:logo-acme.svg)
   - Acme
   - `API`
-- ![Globex](../../../lib/components/inventory/logo-wall/globex.svg)
+- ![Globex](sample:logo-globex.svg)
   - Globex
   - `CSV`
-- ![Vantage](../../../lib/components/inventory/logo-wall/vantage.svg)
+- ![Vantage](sample:logo-vantage.svg)
   - Vantage
   - `API`
-- ![Umbra](../../../lib/components/inventory/logo-wall/umbra.svg)
+- ![Umbra](sample:logo-umbra.svg)
   - Umbra
   - `Webhook`
-- ![Meridian](../../../lib/components/inventory/logo-wall/meridian.svg)
+- ![Meridian](sample:logo-meridian.svg)
   - Meridian
   - `CSV`
-- ![Helios](../../../lib/components/inventory/logo-wall/helios.svg)
+- ![Helios](sample:logo-helios.svg)
   - Helios
   - `API`
-- ![Northwind](../../../lib/components/inventory/logo-wall/northwind.svg)
+- ![Northwind](sample:logo-northwind.svg)
   - Northwind
   - `Manual`
-- ![Cobalt](../../../lib/components/inventory/logo-wall/cobalt.svg)
+- ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
   - `API`
 

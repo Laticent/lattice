@@ -11,4 +11,4 @@ theme: indaco
 
 Think deeper, plan longer, decide once — the mandate fit on a napkin, so the venue got two days.
 
-![bg](../integration/baseline-decks/assets/sample-photo-wide.jpg)
+![bg](sample:photo-wide.jpg)

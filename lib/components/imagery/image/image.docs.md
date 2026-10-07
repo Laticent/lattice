@@ -16,7 +16,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 | Slot | Selector | Required | Description |
 |---|---|---|---|
-| `image` | `.lattice-bg` | yes | Marp background image syntax: `![bg](path)` or `![bg right](path)` — rendered as a CSS background-image on the `.lattice-bg` panel (no `<img>`). |
+| `image` | `.lattice-bg` | yes | Marp background image syntax: `![bg](path)` or `![bg right](path)` — rendered as a CSS background-image on the `.lattice-bg` panel (no `<img>`). To try a composition before you have the photo, use a sample: `![bg](sample:photo-wide.svg)`, or `photo-tall`, `photo-pano` and `photo-square` (the full set is in `lib/samples/README.md`). |
 | `heading` | `h2` | no | Optional heading in the text slot. |
 | `body` | `p` | no | Optional caption or body text. |
 
@@ -55,7 +55,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 Swap the bg image below for your own asset — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.
 
-![bg](sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 ```
 
 ## Anatomy
@@ -87,7 +87,7 @@ Drops the caption chrome.
 
 Two-thirds of trials that reach the first generated report convert; the ones that stall almost never do.
 
-![bg](sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 ```
 
 ### `split` — split
@@ -101,7 +101,7 @@ A portrait gets its full column.
 
 A portrait photo wants its full height. We give it a column and let the argument run alongside.
 
-![bg](sample-photo-tall.svg)
+![bg](sample:photo-tall.svg)
 ```
 
 ### `spotlight` — spotlight
@@ -115,7 +115,7 @@ A panorama owns the frame.
 
 When the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.
 
-![bg](sample-photo-pano.svg)
+![bg](sample:photo-pano.svg)
 ```
 
 ### `gallery` — gallery
@@ -129,7 +129,7 @@ The exhibit on a matte with a placard.
 
 The whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.
 
-![bg](sample-photo-square.svg)
+![bg](sample:photo-square.svg)
 ```
 
 ### `statement` — statement
@@ -143,7 +143,7 @@ The title rides the photo on a scrim.
 
 The title rides the photo on a scrim — a deliberate, editorial choice.
 
-![bg](sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 ```
 
 ### `mirror` — mirror
@@ -157,7 +157,7 @@ The image lands on the left.
 
 Text leads from the right; image anchors from the left.
 
-![bg left](sample-photo-wide.svg)
+![bg left](sample:photo-wide.svg)
 ```
 
 ## Universal modifiers

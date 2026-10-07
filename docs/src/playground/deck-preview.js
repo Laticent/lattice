@@ -486,7 +486,8 @@ export function buildSrcdoc({
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
 	// (drawing-board-export.js); the in-repo renderDeck path also pre-sanitizes
 	// for its innerHTML patch, so this is a no-op there.
-	const web = remoteRef.blockWebImages(html, webOrigins);
+	// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
+	const web = remoteRef.blockWebImages(html, remoteRef.withOwnOrigin(webOrigins));
 	html = sanitizeSlideHtml(web.html);
 	const gw = (geom?.w) || 1280;
 	const gh = (geom?.h) || 720;

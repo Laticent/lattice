@@ -18,7 +18,7 @@ Ninety seconds, unscripted: a first-day admin goes from signup to a published bo
 
 - https://www.youtube.com/watch?v=aqz-KE-bpKQ
 - Ree A., Head of Ops at Northwind `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 
 ---
 
@@ -30,7 +30,7 @@ Two minutes on why the category needed rebuilding from the data layer up — the
 
 - https://vimeo.com/1084537
 - The 2-minute director's cut `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 
 ---
 
@@ -40,7 +40,7 @@ Two minutes on why the category needed rebuilding from the data layer up — the
 
 - https://vimeo.com/1084537
 - The reference onboarding walkthrough, contained on its matte. `caption`
-- video-poster.svg `poster`
+- sample:video-poster.svg `poster`
 
 ---
 

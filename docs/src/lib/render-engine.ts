@@ -33,6 +33,8 @@ import type { LatticePlaygroundEngine } from './playground-global';
 
 export type RenderMarkdownOpts = {
 	baseUrl?: string;
+	/** Where `sample:<name>` images resolve — the staged lib/samples/ (./samples-base.ts). */
+	samplesUrl?: string;
 	stats?: boolean;
 	/** Caller-supplied DECK POSITION for a document holding only part of the deck:
 	 *  `offset` slides precede it, the deck holds `total`. Lets a preview render the

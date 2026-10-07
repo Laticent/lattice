@@ -21,7 +21,7 @@ export interface LatticePlaygroundEngine {
 		/** `page` supplies the DECK POSITION of a partial-deck document ({ offset, total }),
 		 *  so a single-slide render numbers itself truthfully without a whole-deck parse.
 		 *  Omitted on every full-deck and export path, where numbering is already right. */
-		opts?: { baseUrl?: string; stats?: boolean; page?: { offset: number; total?: number; deckSection?: { index: number; total: number } }; styles?: 'scoped' | 'flat'; pluginDefaults?: string[] },
+		opts?: { baseUrl?: string; samplesUrl?: string; stats?: boolean; page?: { offset: number; total?: number; deckSection?: { index: number; total: number } }; styles?: 'scoped' | 'flat'; pluginDefaults?: string[] },
 	) => { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 	/** Narrow the default plugin set every later render loads from; `null` restores every shipped
 	 *  plugin (lib/playground/index.js). The Studio ships on the default set. */

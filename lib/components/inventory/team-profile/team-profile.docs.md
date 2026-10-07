@@ -23,7 +23,7 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 | `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — a short label in backticks, e.g. `Your account team`. |
 | `title` | `h2` | no | Optional headline above the roster. A claim earns its place ('Six people own this program end to end'); a bare label ('The team') does not. |
 | `people` | `ul > li` | yes | One top-level bullet per person, and the bullet IS their name. Everything about them nests under it. |
-| `portrait` | `ul > li > ul > li > img` | no | The person's photo, nested under their name as `- ![](photo.jpg)`. Leave the alt empty — the name beside it is the accessible label. Omit it entirely and the engine draws a monogram from the initials instead. |
+| `portrait` | `ul > li > ul > li > img` | no | The person's photo, nested under their name as `- ![](photo.jpg)`. Leave the alt empty — the name beside it is the accessible label. Omit it entirely and the engine draws a monogram from the initials instead. To try the layout before you have the photos, use Lattice's sample portraits: `![](sample:portrait-ada.svg)` (the full set is in `lib/samples/README.md`). |
 | `role` | `ul > li > ul > li > code` | no | The one backticked nested line is the role, set as a small tracked label under the name — `` `Head of Delivery` ``. Deliberately not a pill: a boxed chip under every one of twelve faces competes with the portraits it is meant to caption. |
 | `note` | `ul > li > ul > li` | no | Any remaining plain nested line is the note: one short line on what this person owns. |
 | `side` | `h3` | no | `sides` only. Two `### ` subheadings, each followed by its own list, label the two rosters ('Your team' / 'Our team'). |
@@ -55,11 +55,11 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 ## The claim the roster backs up.
 
 - First person
-  - ![](portrait.jpg)
+  - ![](sample:portrait-ada.svg)
   - `Their role`
   - One line on what they own.
 - Second person
-  - ![](portrait-2.jpg)
+  - ![](sample:portrait-marcus.svg)
   - `Their role`
   - One line on what they own.
 - Third person
@@ -99,20 +99,20 @@ The first person takes a hero cell; the rest rank beneath.
 ## lead gives the first person the hero cell and ranks the rest beneath.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Signs the scope and owns the outcome.
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
 - Nia Bello
-  - ![](nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
 ```
 
@@ -128,34 +128,34 @@ The long roster, packed to a face, a name and a role.
 ## bench packs the long roster down to a face, a name, and a role.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
 - Hana Suzuki
   - `Field Engineer`
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
 - Owen Adeyemi
   - `Revenue Ops`
 - Nia Bello
-  - ![](nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
 - Jonah Reyes
-  - ![](jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
 - Clara Nunes
   - `Quality Lead`
 - Sofia Marchetti
-  - ![](sofia.svg)
+  - ![](sample:portrait-sofia.svg)
   - `Security Lead`
 - Kenji Sato
-  - ![](kenji.svg)
+  - ![](sample:portrait-kenji.svg)
   - `Support Manager`
 - Idris Khan
   - `Release Manager`
@@ -203,19 +203,19 @@ One person per row, with room for a real sentence.
 ## bio turns the grid on its side and gives the note a line of its own.
 
 - Ada Okafor
-  - ![](ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Fifteen years running operations across forty sites.
 - Marcus Vale
-  - ![](marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Landed this migration twice under a regulator.
 - Priya Raman
-  - ![](priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Owns the pods and the board date.
 - Tomas Lindqvist
-  - ![](tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Wrote the spec the plan hangs from.
 ```

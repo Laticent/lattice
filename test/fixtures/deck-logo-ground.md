@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco-dark
-logo: ./acme-logo.svg
+logo: sample:logo-acme-mark.svg
 ---
 
 # Dark theme, unpinned

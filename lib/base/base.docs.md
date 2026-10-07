@@ -1526,7 +1526,9 @@ deck FILE is. `logo: ./acme-logo.svg` resolves for the CLI, which knows the
 `.md`'s directory; in the Studio and the Playground there is no file, so the
 same line 404s — and a failed image load stops the PDF export outright (it
 says so now). For your own mark on a web surface, give a URL the viewer can
-fetch, or a `data:` URI.
+fetch, or a `data:` URI. To try the feature with a placeholder mark, write
+`logo: sample:logo-acme-mark.svg`: a `sample:` name is one of Lattice's own
+sample pictures (`lib/samples/README.md`), and it resolves on every surface.
 
 A real DOM element (rather than a `::before` pseudo) is what lets
 the logo compose with every treatment — tints

@@ -4,7 +4,7 @@ theme: indaco
 paginate: true
 header: "Lattice · Deck logo on every canvas"
 meta: "Deck logo · the canvas decides the flip"
-logo: ../lib/base/_logo/acme-logo.svg
+logo: sample:logo-acme-mark.svg
 ---
 
 <!-- _class: title silent -->

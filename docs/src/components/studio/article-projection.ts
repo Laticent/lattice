@@ -234,7 +234,8 @@ export async function projectDeckArticle(
 	// the reader chose. Rewritten three times: the render before the bake, the flat CSS the page
 	// takes in, and the projected article after it (a baked Mermaid diagram can add an image).
 	const { default: remoteRef } = (await loadRemoteRef()) as unknown as { default: typeof import('../../../../lib/core/remote-ref.js') };
-	const allowed = options.webOrigins ?? [];
+	// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
+	const allowed = remoteRef.withOwnOrigin(options.webOrigins ?? []);
 	const render: DeckRender = {
 		...built,
 		html: remoteRef.blockWebImages(built.html, allowed).html,
