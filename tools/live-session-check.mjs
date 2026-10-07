@@ -42,8 +42,10 @@ const seedFn = (m) => {
   // connection actually took (host / srflx / relay) instead of only that it worked.
   const Native = window.RTCPeerConnection;
   window.__livePcs = [];
+  // `__rtcBlocked` stands in for a phone losing its network: a connection made meanwhile finds no
+  // route (no ICE servers, relay-only), so it fails the way it would offline, and the library retries.
   // biome-ignore lint/complexity/useArrowFunction: it is called with `new`, which an arrow cannot be.
-  window.RTCPeerConnection = function (...a) { const pc = new Native(...a); window.__livePcs.push(pc); return pc; };
+  window.RTCPeerConnection = function (...a) { if (window.__rtcBlocked) a[0] = { ...(a[0] ?? {}), iceServers: [], iceTransportPolicy: 'relay' }; const pc = new Native(...a); window.__livePcs.push(pc); return pc; };
   window.RTCPeerConnection.prototype = Native.prototype;
 };
 /** The candidate types of every connected pair on `page`, e.g. ["srflx→srflx (udp)"]. */
@@ -76,7 +78,8 @@ await host.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Li
 await host.locator('#live-start-name').fill('Sharmarke');
 await host.getByRole('button', { name: 'Start live session' }).click();
 await host.waitForSelector('text=In this session (1/4)', { timeout: 30000 });
-const link = await host.evaluate(() => navigator.clipboard.readText());
+// The clipboard read in headless Chromium sometimes comes back empty; the panel shows the same link.
+const link = (await host.evaluate(() => navigator.clipboard.readText()).catch(() => '')) || (await host.locator('input[aria-label="Invite link"]').inputValue());
 log(`host live; link ${link.replace(/(#live=[^.]+)\.[^.]+\./, '$1.<secret>.')}`);
 await host.screenshot({ path: `${OUT}real-host-start-${mode}.png` });
 
@@ -163,7 +166,7 @@ log(`audio: both in the call; playing elements host=${await host.locator('audio[
 // The ring on the OTHER person's row: a remote stream measured here, not this page's own microphone.
 const ringOn = (page, name) => page.waitForFunction((n) => [...document.querySelectorAll('[data-live-panel] li[data-live-speaking="true"]')].some((li) => li.textContent?.includes(n) && !li.textContent.includes('(you)')), name, { timeout: 15000 }).then(() => true, () => false);
 log(`speaking ring on the other person's row: host sees Amina's=${await ringOn(host, 'Amina')} guest sees Sharmarke's=${await ringOn(guest, 'Sharmarke')}`);
-const micOf = (page, name) => page.evaluate((n) => [...document.querySelectorAll('[data-live-panel] li')].find((li) => li.textContent?.includes(n) && !li.textContent.includes('(you)'))?.querySelector('[aria-label="Mic on"], [aria-label="Mic off"]')?.getAttribute('aria-label') ?? null, name);
+const micOf = (page, name) => page.evaluate((n) => [...document.querySelectorAll('[data-live-panel] li')].find((li) => li.textContent?.includes(n) && !li.textContent.includes('(you)'))?.querySelector('[aria-label="Mic on"], [aria-label="Muted"]')?.getAttribute('aria-label') ?? 'not on the call', name);
 log(`tab title while on air: ${JSON.stringify(await host.title())}`);
 await host.screenshot({ path: `${OUT}real-call-host-${mode}.png` });
 await guest.screenshot({ path: `${OUT}real-call-guest-${mode}.png` });
@@ -178,7 +181,7 @@ const b1 = await audioBytes(host);
 log(`audio bitrate, host to guest: ${(((b1 - b0) * 8) / 10 / 1000).toFixed(1)} kbit/s (${(((b1 - b0) / 10) * 3600 / 1e6).toFixed(1)} MB per hour per stream, payload + RTP headers)`);
 log(`before mute, the host shows Amina's mic as: ${await micOf(host, 'Amina')}`);
 await panel(guest).getByRole('button', { name: 'Mute', exact: true }).click();
-await host.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Amina') && li.querySelector('[aria-label="Mic off"]')), null, { timeout: 15000 });
+await host.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Amina') && li.querySelector('[aria-label="Muted"]')), null, { timeout: 15000 });
 log(`guest muted; the host now shows Amina's mic as: ${await micOf(host, 'Amina')}`);
 await guest.getByRole('button', { name: 'Call options' }).click();
 await guest.getByRole('menuitem', { name: /Leave audio/ }).click();
@@ -224,6 +227,28 @@ const tGuestReload = Date.now();
 await guest2.reload({ waitUntil: 'networkidle' });
 await guest2.waitForSelector('[data-live-pill]', { timeout: 60000 });
 log(`guest reloaded and rejoined without a knock, after ${Date.now() - tGuestReload} ms`);
+// Regency: the host's network drops (its connections close, and no new one can form), so Chen, the
+// heir, hosts; a line is written meanwhile; the network comes back and the host takes the session
+// back, with the line.
+await host.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Live"]').last().click();
+await host.waitForSelector('[data-live-heir]', { timeout: 30000 });
+await host.evaluate(() => { window.__rtcBlocked = true; for (const pc of window.__livePcs ?? []) pc.close(); });
+const tDrop = Date.now();
+await guest2.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Live"]').last().click();
+await guest2.waitForSelector('input[aria-label="Invite link"]', { timeout: 90000 });
+log(`regency: host's network down; Chen hosts ${Date.now() - tDrop} ms later`);
+await guest2.locator('textarea[aria-label="Message everyone"]').fill('said during the regency');
+await guest2.keyboard.press('Enter');
+await guest2.waitForTimeout(1000);
+await host.evaluate(() => { window.__rtcBlocked = false; });
+const tBack = Date.now();
+await guest2.waitForFunction(() => !document.querySelector('input[aria-label="Invite link"]') && document.body.textContent.includes('no longer hosting'), null, { timeout: 150000 });
+await host.waitForSelector('text=said during the regency', { timeout: 30000 });
+log(`regency: the host is back and hosting ${Date.now() - tBack} ms after its network returned, with the regency's chat line`);
+await host.screenshot({ path: `${OUT}real-reclaim-host-${mode}.png` });
+await guest2.screenshot({ path: `${OUT}real-reclaim-guest-${mode}.png` });
+await guest2.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Live"]').last().click();
+
 // Host handoff: the host's tab closes for good. Chen is the heir (the first editor); after the grace
 // period Chen hosts, and a newcomer can knock and be let in by Chen.
 await guest2.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Live"]').last().click();

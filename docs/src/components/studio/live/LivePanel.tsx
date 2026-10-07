@@ -30,7 +30,7 @@ function whereLabel(p: LivePerson): string {
 }
 
 function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; actions: LiveActions }) {
-	const MicGlyph = p.mic === 'off' ? MicOff : Mic;
+	const MicGlyph = p.mic === 'muted' ? MicOff : Mic;
 	const canManage = view.isHost && !p.me && p.role !== 'host';
 	const following = view.following === p.id;
 	const LinkGlyph = p.link && !p.away ? LINK_ICON[p.link.kind] : null;
@@ -49,7 +49,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 					{LinkGlyph && p.link && <LinkGlyph className="size-3 shrink-0 text-muted-foreground/70" role="img" aria-label={`${LINK_LABEL[p.link.kind]} (${p.link.detail})`} data-live-link={p.link.kind} />}
 				</div>
 			</div>
-			{view.audio && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'off' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'off' ? 'Mic off' : 'Mic on'} />}
+			{view.audio && p.mic !== 'off' && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'muted' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'muted' ? 'Muted' : 'Mic on'} />}
 			{!p.me && !p.away && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>

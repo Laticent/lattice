@@ -12,7 +12,8 @@ export function LivePill({ view, onOpen, onToggleMic }: { view: LiveView; onOpen
 	const me = view.people.find((p) => p.me);
 	const others = view.people.filter((p) => !p.me);
 	const shown = view.people.slice(0, 4);
-	const onAir = me && me.mic !== 'off';
+	const onAir = !!me && (me.mic === 'on' || me.mic === 'speaking');
+	const muted = me?.mic === 'muted';
 	return (
 		<div className="flex items-center rounded-full border border-border bg-background" data-live-pill>
 			<button
@@ -31,7 +32,7 @@ export function LivePill({ view, onOpen, onToggleMic }: { view: LiveView; onOpen
 				size="icon"
 				onClick={onToggleMic}
 				aria-pressed={!!onAir}
-				aria-label={onAir ? 'Mute your microphone' : 'Join with audio'}
+				aria-label={onAir ? 'Mute your microphone' : muted ? 'Unmute your microphone' : 'Join with audio'}
 				className="size-7 rounded-l-none rounded-r-full"
 				style={onAir && me ? { color: liveColor(me.color) } : undefined}
 			>

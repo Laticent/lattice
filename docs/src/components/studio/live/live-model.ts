@@ -19,7 +19,8 @@ export type LivePerson = {
 	slide: number | null;
 	/** Typed in the last couple of seconds. */
 	editing: boolean;
-	mic: 'off' | 'on' | 'speaking';
+	/** `off`: not on the call (no mic shown). `muted`: on the call, muted. */
+	mic: 'off' | 'muted' | 'on' | 'speaking';
 	/** Their connection dropped a moment ago and they have not come back yet (a phone that
 	 *  backgrounded the tab, a network blip). Shown dimmed, not removed: "left" is for leaving. */
 	away?: boolean;

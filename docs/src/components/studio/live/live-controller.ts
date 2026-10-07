@@ -855,11 +855,13 @@ export class LiveController {
 	}
 
 	// ── the call (S4) ───────────────────────────────────────────────────────
-	private micOf(peer: string, me: boolean): 'off' | 'on' | 'speaking' {
+	private micOf(peer: string, me: boolean): 'off' | 'muted' | 'on' | 'speaking' {
 		const a = this.audio;
 		if (!a) return 'off';
-		if (me) return !a.inCall || a.isMuted ? 'off' : this.speakingNow.has('self') ? 'speaking' : 'on';
-		if (!a.hasStream(peer) || !this.remoteMic.get(peer)) return 'off';
+		if (me) return !a.inCall ? 'off' : a.isMuted ? 'muted' : this.speakingNow.has('self') ? 'speaking' : 'on';
+		const said = this.remoteMic.get(peer);
+		if (!a.hasStream(peer) || said === undefined) return 'off';
+		if (!said) return 'muted';
 		return this.speakingNow.has(peer) ? 'speaking' : 'on';
 	}
 

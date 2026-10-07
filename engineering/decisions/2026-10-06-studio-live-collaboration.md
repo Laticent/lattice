@@ -773,9 +773,17 @@ being signed before it saves, and withdraws a cert it had out when it resumes fr
 **Measured on the real surface** (`tools/live-session-check.mjs`, two Chromium processes, the
 public relays, real WebRTC): the host's tab closed; the heir saw *The host is away… you host
 until they return* about 13 s later; it hosted 32.9 s after the close; a third person knocked,
-the regent admitted them, and they received its edits; the regent ended the session. The return
-of the first host (reload or frozen tab) and the handback ran over the in-memory network in
-Tavola's and the Studio's tests, not over real WebRTC: UNVERIFIED on the real surface.
+the regent admitted them, and they received its edits; the regent ended the session.
+
+**The first host's return, on the real surface** (the same check, light and dark, plus two runs of a
+two-browser variant). The check drops the host's network the way a phone loses signal: its
+connections close, and any connection made meanwhile finds no route, so it fails as it would
+offline. Chen, the heir, hosted 20.2–20.5 s after the drop; a chat line and an edit were written
+during the regency; when the host's network returned, it took the session back 22–48 s later
+(seven runs, all of them), with the regency's edit and chat line, and the chat in the same order on
+both sides. Most of that wait is the connection library's own retry. A *frozen* tab could not be
+reproduced here (headless Chromium does not freeze a visible page); it ends in the same reclaim, and
+Tavola's and the Studio's tests run it.
 
 **The adversarial review** (red team, inversion, independent checker; all on Opus) found, before
 merge, and each now has a test that fails without its guard:
@@ -818,7 +826,7 @@ until the host admits them (`session.setMedia`, Tavola). A removed member's stre
 **Measured on the real surface** (`tools/live-session-check.mjs`, Chromium's fake microphone, real
 WebRTC; the run's log is kept with its screenshots): both joined; each side played one remote
 stream; each side showed the speaking ring on the OTHER person's row; the host showed the guest's
-mic as *Mic on*, then *Mic off* after the guest muted; the tab title read *On air · …*; the
+mic as *Mic on*, then *Muted* after the guest muted; the tab title read *On air · …*; the
 measured send rate was 8.7–9.9 kbit/s over two runs. The fake source is a short beep over silence,
 so Opus sends little; ordinary speech runs at roughly 25–40 kbit/s. UNVERIFIED: real
 microphones, echo between two real devices, call quality, and iOS Safari.
@@ -831,7 +839,8 @@ that ends lets go of every stream at once; mic state is re-sent to a peer whose 
 Also fixed: remote streams play through a muted `<audio>` element until you join (Chromium
 meters a remote stream only while an element plays it), the audio context resumes inside the
 join click, a permission prompt answered after the session closed leaks nothing, and a person not
-on the call reads *Mic off* rather than *Muted*.
+on the call shows no mic at all (*Muted* is only for someone on the call, which also stopped the
+row from truncating names).
 
 ## 13. Implementation reference — what it is built from, and why
 
