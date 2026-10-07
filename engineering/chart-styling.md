@@ -378,7 +378,7 @@ assumes hue is available breaks there and nowhere else.
   path — where nothing carries `non-scaling-stroke` — every one of those extra
   declarations is a no-op.
 - **An INHERITED custom property loses to the element's own declaration**, and no
-  specificity beats that. A palette declares in `:root`; `chart-family.css` declares
+  specificity beats that. A palette declares in `:root`; `chart-family.styles.css` declares
   the fill wash on `.chart-frame` itself, so a palette setting `--chart-fill-top-l`
   looks like an override and does nothing. The wash is read through
   `var(--palette-fill-*, <default>)` for that reason. Note what this is NOT: a

@@ -45,7 +45,7 @@
 /* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
  * two touching marks apart, so its correct weight follows what it has to
  * separate, not the family's outline weight. It is deliberately excluded
- * from the shared `--chart-edge` rule — see chart-family.css. */
+ * from the shared `--chart-edge` rule — see chart-family.styles.css. */
 :is(section.funnel, figure.chart-frame) .funnel-band {
   fill: var(--chart-cat-1-body);
   stroke: var(--bg);

@@ -51,6 +51,8 @@ import { collectGalleryAssets } from '../src/playground/galleries.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
+// Where a plugin's library lives: its own committed copy when it vendors one (lib/plugins/payload-path.js).
+const libraryPath = (name) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'payload-path.js')).payloadPath(name, repoRoot);
 // Per-palette themes: the MINIFIED dist build (same bytes the Export-to-Marp
 // bundle ships), staged under the readable <name>.css dest.
 const distThemesDir = join(repoRoot, 'dist', 'themes');
@@ -88,13 +90,14 @@ const assets = [
   // deck without a plot never fetches it.
   ...createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'hydrate.generated.js')).HYDRATORS
     .filter((h) => h.payload)
-    .map((h) => [h.payload.file, createRequire(import.meta.url).resolve(h.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
+    .map((h) => [h.payload.file, libraryPath(h.name)]),
   // …and each RUNTIME-drawn plugin's library (Mermaid), from the same registry
   // (lib/plugins/drawn.generated.mjs), beside the runtime for the same reason: the runtime's
   // diagram pass asks the plugin host for it (`ensureLibrary`), so no page threads its URL.
-  ...Object.values((await import(pathToFileURL(join(repoRoot, 'lib', 'plugins', 'drawn.generated.mjs')).href)).RUNTIME_DRAWN)
-    .filter((d) => d.payload)
-    .map((d) => [d.payload.file, createRequire(import.meta.url).resolve(d.payload.from.replace(/^npm:/, ''), { paths: [repoRoot] })]),
+  // The plugin's OWN copy when it vendors one (Mermaid), so the site serves what every other surface ships.
+  ...Object.entries((await import(pathToFileURL(join(repoRoot, 'lib', 'plugins', 'drawn.generated.mjs')).href)).RUNTIME_DRAWN)
+    .filter(([, d]) => d.payload)
+    .map(([name, d]) => [d.payload.file, libraryPath(name)]),
   ['lattice-playground.js', engineJs],
   ['lattice-katex.js', katexProviderJs],
   // Each plugin's data script (the icons plugin's drawings), split out of the engine bundle like

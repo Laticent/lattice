@@ -26,7 +26,7 @@
     "themes/**",
     "spec/**",
     "assets/**",
-    "mermaid-v11-min.js"
+    "lib/plugins/*/vendor/**"
   ],
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": []

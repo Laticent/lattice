@@ -98,7 +98,9 @@ const UNMINIFIED_PAIRS = [
 ];
 
 const ASSETS = [
-  ...STATIC_ASSETS.map(({ from }) => ({ from, to: path.basename(from) })),
+  // Our own `dist/` builds keep their `-min` basename (see above); a third-party copy (Mermaid,
+  // from the plugin that owns it) keeps the name the export gives it, which the kit's deck loads.
+  ...STATIC_ASSETS.map(({ from, to }) => ({ from, to: from.startsWith('dist/') ? path.basename(from) : to })),
   { from: `dist/themes/${THEME}-min.css`, to: `${THEME}-min.css` },
   { from: `dist/themes/${THEME}-dark-min.css`, to: `${THEME}-dark-min.css` },
   ...UNMINIFIED_PAIRS,

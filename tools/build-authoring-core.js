@@ -71,8 +71,12 @@ import { splitSections as splitSectionsCore } from '../core/split-sections.mjs';
 // plugin set can point the lint's parser at the deck's admission (docs/src/lib/plugin-admission.ts).
 // The same module lint-core reaches through the CommonJS door, so esbuild keeps one copy.
 import { boundaryRulesGeneration, setBoundaryPluginsOff } from '../core/boundary-parser.mjs';
+// Every installed plugin's name, so a host that loads this bundle lazily (the Playground editor)
+// can turn the playground's admission (the plugins a deck loads) into the set left off, without
+// pulling the registry into its own eager chunk. Already in the bundle: the parser imports it.
+import { PLUGIN_NAMES } from '../plugins/blocks.generated.mjs';
 
-export { lintCore, reviewCore, scorecard, notesCore, deckCanon, deckProfiles, splitSectionsCore, setBoundaryPluginsOff, boundaryRulesGeneration };
+export { lintCore, reviewCore, scorecard, notesCore, deckCanon, deckProfiles, splitSectionsCore, setBoundaryPluginsOff, boundaryRulesGeneration, PLUGIN_NAMES };
 `;
 
 const BUILD_OPTIONS = {

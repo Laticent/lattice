@@ -230,7 +230,7 @@
    * in user units too — 14-unit type, 8-unit dagre margins, 1-unit strokes — so a
    * user-space radius stays proportional to the box it rounds and to the label
    * inside it at every scale the diagram is fitted to. It is the same choice the
-   * chart transforms already make (`barRx: 3`, chart-family.js).
+   * chart transforms already make (`barRx: 3`, gantt.transform.js).
    *
    * 7 is `--radius-md` rendered: the diagram SVGs on examples/containment-tier.md
    * are fitted at 1.40x-2.17x (median 1.64), and 7 x 1.64 = 11.5px against
@@ -504,7 +504,7 @@
    * "in-progress" tone is not a "warn").
    *
    * NOT THE STATUS PILL'S TOKENS. `.chart-status[data-s]` and every chart's
-   * status arm read the chart family's `--state-*` set (chart-family.css,
+   * status arm read the chart family's `--state-*` set (chart-family.styles.css,
    * `--state-{pass,warn,fail,info,mute}-{hue,fill,ink}`), and no engine rule reads
    * these five. They survive anyway, on purpose: they are published vocabulary
    * that an author's own CSS may use, test/unit/palette/universal-token-

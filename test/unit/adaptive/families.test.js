@@ -60,7 +60,7 @@ test('orientation → families derivation covers all four', () => {
 });
 
 // ── Walk every stylesheet under lib/, not just components: the shared chart-frame
-// rules live in `_chart-family/chart-family.css` and base rules in `lib/base`, and
+// rules live in `lib/plugins/chart-family/chart-family.styles.css` and base rules in `lib/base`, and
 // a violation in either would slip past a components-only walk exactly as one in
 // chart-family once did (gap caught in maker-checker review, 2026-06-19).
 function libCss() {

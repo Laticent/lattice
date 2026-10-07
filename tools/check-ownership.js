@@ -1495,8 +1495,20 @@ function checkComponentCss(manifests, errors) {
 }
 
 // Recursively list every .css file under a directory.
+/**
+ * A plugin's `vendor/` folder: a third-party library the plugin OWNS a committed copy of
+ * (`payload.vendored`, lib/plugins/payload-path.js — Mermaid's minified build). It is not our
+ * source, so no source gate reads it, exactly as none read the repo-root copy it replaced: its
+ * integrity is held instead by the SHA-256 the plugin resolver checks against the manifest.
+ */
+function isVendoredLibraryDir(dir, entry) {
+  return entry.isDirectory() && entry.name === 'vendor'
+    && path.basename(path.dirname(dir)) === 'plugins' && path.basename(path.dirname(path.dirname(dir))) === 'lib';
+}
+
 function listCssFiles(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listCssFiles(p, out);
@@ -2066,6 +2078,9 @@ const SECTION_BOX_ROOTS = [
   path.join(LIB_DIR, 'components'),
   path.join(LIB_DIR, 'base'),
   path.join(LIB_DIR, 'forms'),
+  // A plugin's stylesheet is bundled with the rest: the chart frame (the chart family plugin's
+  // `styles`) holds 70 `section.chart-frame` rules.
+  path.join(LIB_DIR, 'plugins'),
   path.join(ROOT, 'themes'),
 ];
 
@@ -3303,7 +3318,7 @@ function offendingBodyPadding(css) {
         // The exits are unchanged and are the whole of the exception: a body that
         // PAINTS a surface (`.canvas`) or has no stage to own anything (the
         // Read·Article `figure` projection) earns its own padding. See the
-        // `--chart-panel-y` note in chart-family.css.
+        // `--chart-panel-y` note in chart-family.styles.css.
         if (/^\s*padding(?:-(?:inline|block|top|right|bottom|left))?(?:-(?:start|end))?\s*$/.test(prop)
           && value && !/^0(?:px|em|rem|%)?$/.test(value)) {
           out.push({ prop: prop.trim(), value: `${value} (on \`${selector}\`)` });
@@ -3957,6 +3972,7 @@ const US_SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', '.scra
 // generated/vendor trees and the dated engineering/decisions/ records.
 function listRepoTextFiles(dir = ROOT, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     const rel = path.relative(ROOT, p);
@@ -5083,7 +5099,7 @@ function checkAdaptDeclarations(manifests, errors) {
   // maker-checker caught). Union it in for chart-bucket components, the way
   // checkVariantDeclaration unions base.modifiers.
   const chartFamilyCss = (() => {
-    const p = path.join(COMPONENTS_DIR, 'chart', '_chart-family', 'chart-family.css');
+    const p = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.styles.css');
     return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
   })();
   for (const m of manifests) {
@@ -5607,7 +5623,7 @@ const SANCTIONED_MARK_IDENTITY = [
   // built with a raw substring search and carried three rows that were COMMENTS —
   // `_chart-family/label-drops.js`, `_chart-family/svg-label.js` and `word-cloud.transform.js`
   // each merely name `data-label` in prose. Two more named a DIFFERENT attribute whose name starts
-  // the same way — `_chart-family/chart-family.js` writes `data-label-drops`, `journey.transform.js`
+  // the same way — `lib/plugins/chart-family/chart-family.dispatch.js` writes `data-label-drops`, `journey.transform.js`
   // writes `data-label-len`. All five are out; `writesMarkIdentity` strips comments and bounds the
   // attribute name, so none can come back. Thirteen files wrote a mark identity then, not
   // eighteen. (`word-cloud.transform.js` has since started writing one for real — its words
@@ -5997,6 +6013,7 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
 function listSourceFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (e.name === 'node_modules' || e.name === 'dist') continue;
     // Any DOT-prefixed entry, generalizing the `.astro` special case this replaces. Hidden
     // directories in a source tree are caches and staging areas, never source: `.astro`,
@@ -7475,6 +7492,7 @@ const CLASS_ATTR_EXTS = /\.(?:js|ts|tsx|mjs|cjs|astro)$/;
 function listClassAttrFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue; // hidden = cache/staging, never source
     const p = path.join(dir, e.name);
@@ -8585,6 +8603,7 @@ const TEST_FILE = /\.test\.(?:js|jsx|ts|tsx|mjs|cjs|mts|cts)$/;
 function listPackageSources(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.dist.tmp-')) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listPackageSources(p, out);
@@ -9387,11 +9406,11 @@ function checkDensityCoverage(manifests, errors) {
 // those are ungated and stay on human review. Green ≠ "the whole categorical canon
 // is fresh"; it means the gated skill facts are.
 // Count the categorical chart-hue slots the chart family actually declares
-// (`--chart-cat-N-hue:` declarations in chart-family.css). This is the source of
+// (`--chart-cat-N-hue:` declarations in chart-family.styles.css). This is the source of
 // chart-component.md's "`--chart-cat1..8`" claim. Returns null on a structural
 // change so the caller can fail closed rather than silently miscount.
 function chartCatSlotCount() {
-  const p = path.join(COMPONENTS_DIR, 'chart', '_chart-family', 'chart-family.css');
+  const p = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.styles.css');
   if (!fs.existsSync(p)) return null;
   const css = fs.readFileSync(p, 'utf8');
   const slots = new Set();
@@ -9479,7 +9498,7 @@ function skillFreshnessAssertions() {
       marker: /--chart-cat1\.\.(\d+)/,
       actual: chartCats,
       what: 'chart categorical slot count',
-      source: '--chart-cat-N-hue declarations (chart-family.css)',
+      source: '--chart-cat-N-hue declarations (chart-family.styles.css)',
     },
   ];
 }
@@ -12396,7 +12415,8 @@ const DIST_VERBATIM_COPIES = Object.freeze([
   { copy: 'dist/marp-kit/Sample-Deck.md', source: 'kit/Sample-Deck.md', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/cuoio.css', source: 'themes/cuoio.css', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/cuoio-dark.css', source: 'themes/cuoio-dark.css', builder: 'tools/build-marp-kit.js' },
-  { copy: 'dist/marp-kit/mermaid-v11-min.js', source: 'mermaid-v11-min.js', builder: 'tools/build-marp-kit.js' },
+  // The kit's Mermaid is the mermaid plugin's own copy (payload.vendored), shipped under the kit's name.
+  { copy: 'dist/marp-kit/mermaid-v11-min.js', source: 'lib/plugins/mermaid/vendor/mermaid.min.js', builder: 'tools/build-marp-kit.js' },
 ]);
 
 /** One entry's problems. Split out so the unit suite can drive a synthetic table. */
@@ -12836,6 +12856,7 @@ function stripCodeComments(src) {
 function listFilesByExt(dir, exts, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
     if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
     if (isTransientProbe(e.name)) continue;
     const p = path.join(dir, e.name);

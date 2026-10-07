@@ -115,7 +115,7 @@ const PATTERNS = Object.freeze({
     /^themes\//,
     /^lattice-emulator\.js$/,
     /^dist\/lattice-runtime\.js$/,
-    /^lib\/components\/chart\/_chart-family\/chart-family\.js$/,
+    /^lib\/plugins\/chart-family\/chart-family\.dispatch\.js$/,
     /^lib\/match-section\.js$/,
     /^lib\/slot-label-lift\.js$/,
     /^lib\/split-(panels|slides)\.js$/,

@@ -63,7 +63,7 @@ describe('chart caption — the lift keeps the prose mark', () => {
 });
 
 describe('chart caption — the CSS keeps it one inline formatting context', () => {
-  const family = read('lib/components/chart/_chart-family/chart-family.css');
+  const family = read('lib/plugins/chart-family/chart-family.styles.css');
   const rule = (css, sel) => {
     const at = css.indexOf(`${sel} {`);
     assert.ok(at >= 0, `${sel} exists`);
@@ -141,7 +141,7 @@ describe('chart lead — every paragraph before the figure renders', () => {
   });
 
   test('a lead is hidden at claim-hero with the subtitle, as the chart fills the slide', () => {
-    assert.match(read('lib/components/chart/_chart-family/chart-family.css'),
+    assert.match(read('lib/plugins/chart-family/chart-family.styles.css'),
       /:is\(\.claim-hero, \.claim-bleed\) \.chart-subtitle,\s*section\.chart-frame:is\(\.claim-hero, \.claim-bleed\) \.chart-lead,\s*section\.chart-frame:is\(\.claim-hero, \.claim-bleed\) \.chart-lead-block \{\s*display: none;/);
   });
 });

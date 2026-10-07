@@ -236,6 +236,22 @@ section[data-guide] svg :is(rect, path, circle, polygon, polyline, line, ellipse
   stroke-width: 10;
   paint-order: stroke;
 }
+/* THE CHART FRAME. The frame's own text rules (`section.chart-frame .chart-subtitle`, `.chart-caption`
+   — (0,2,1)) used to come BEFORE this file and lost to the Guide's (0,2,1) by order. The frame is the
+   chart family plugin's stylesheet now, bundled in the plugin slot AFTER this file (plugin-system
+   note §11, "Phase F, the family's code"), so they would win, and a focused subtitle would keep its
+   secondary ink while its peers dim (the HARD RULE #25 red team caught it). These two restore EXACTLY
+   the old precedence inside the frame: one specificity step above the rules they mirror (focus
+   (0,2,2), highlight (0,2,3) — the extra `:not(svg *)` / `:not(tr)` is that step; a row keeps the general rule, and the
+   `:where()` keeps the frame scoping free), so they win the ties the frame used to lose and nothing
+   that out-ranked the Guide before (a dark slide's eyebrow `<code>`, (0,2,5)). Measured: every
+   element of every chart, in each Guide state, paints as it did before the move. */
+section:where(.chart-frame)[data-guide] .lat-guide-focus:not(svg *) { color: var(--guide-ink); }
+section:where(.chart-frame)[data-guide] .lat-guide-highlight:not(svg *):not(tr) {
+  background-color: var(--accent-soft);
+  color: var(--on-accent-soft);
+  box-shadow: 0 0 0 0.25em var(--accent-soft);
+}
 /* ring */
 section[data-guide] .lat-guide-ring:not(svg *) { outline: 2px solid var(--guide-ink); outline-offset: 2px; }
 section[data-guide] svg :is(rect, path, circle, polygon, polyline, line, ellipse).lat-guide-ring {

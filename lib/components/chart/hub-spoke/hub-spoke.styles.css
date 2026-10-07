@@ -83,7 +83,7 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="pilot"], [data-s="decision"]) { --hs-state-hue: var(--state-info-hue); --hs-state-ink: var(--state-info-ink); }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg [data-s="deferred"] { --hs-state-hue: var(--state-mute-hue); --hs-state-ink: var(--state-mute-ink); }
 
-/* ── bodies. The EDGE WIDTH is the family's (chart-family.css, the shared
+/* ── bodies. The EDGE WIDTH is the family's (chart-family.styles.css, the shared
  *    --chart-edge rule every declared fill mark joins); this file sets only paint. ── */
 :is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-node, .hub-spoke-leaf) {
   fill: var(--hs-neutral-body);

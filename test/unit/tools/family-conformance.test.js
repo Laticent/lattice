@@ -185,6 +185,9 @@ describe('tools: descopeFamily — the wide-baseline selector', () => {
       }
     };
     walk(cssDir);
+    // And the plugins' stylesheets, which the bundle carries beside the components' — the chart
+    // frame (the chart family plugin) scopes family rules too.
+    walk(path.join(cssDir, '..', 'plugins'));
     assert.deepEqual(offenders, [],
       'a component scopes a family rule with `:is([data-family…])`, which carries specificity — '
       + 'descopeFamily strips it and the conformance baseline would then read a different cascade. '

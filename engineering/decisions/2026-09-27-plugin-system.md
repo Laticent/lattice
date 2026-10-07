@@ -658,9 +658,10 @@ recording exactly what is left.
   (§11, "Phase D's residue, decided"), and what is still open is
   `followups.d/2509-p5-mermaid-library-copies.md`.
 - **E. The data layer** — zip import/export of plugins in the CLI and the Studio (§4.10).
-- **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels. **The slot
-  is done** (§11, "Phase F, the slot"); the family's code and the chart-frame stylesheet moving into
-  the plugin folder are left. The renderer-library step has nothing to move: chart kernels import
+- **F. The chart family** — `extensionPoints.kernel`; the registry reads chart kernels. **Done**:
+  the slot (§11, "Phase F, the slot"), then the family's code and stylesheet (§11, "Phase F, the
+  family's code"): the dispatch is the plugin's `chart-family.dispatch.js` and the chart frame is
+  its `styles` contribution. The renderer-library step has nothing to move: chart kernels import
   only the in-repo workspace libraries (`@laticent/trama`, `@laticent/segno`), no npm dependency.
 - **G. The npm door**, after the legal grant; version ranges switch on. `spec/LPM.md` → 1.0.
 
@@ -1306,6 +1307,138 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   the diagram gallery's CLI PDFs (`diagram.gallery.md` and the member gallery) byte-identical
   before and after. The one byte change that ships is the runtime bundle's bootstrap
   `console.log` payload (passes now nested under `passes`), which draws nothing.
+
+- **Phase F, the family's code.** The plugin folder now holds the family's code: the section dispatch
+  and the chart frame are `lib/plugins/chart-family/chart-family.dispatch.js` (moved from
+  `lib/components/chart/_chart-family/chart-family.js`), the generated dispatch table is the plugin's
+  `shared/chart-registry.generated.js` (`tools/build-chart-registry.js` writes it into whichever
+  plugin offers the slot), and the chart-frame stylesheet is `chart-family.styles.css`, the plugin's
+  `styles` contribution, whose 104 token reads the manifest's `tokens` lists (the resolver checks
+  the two agree). `dispatch.js` is a new plugin ROLE (`lib/packages/kinds.js`, spec/LPM.md §2): a
+  plugin ships one exactly when it offers an extension point, and the resolver fails either half
+  of that alone. The section transformer `lib/transformers/chart-family.js` stays where it is
+  (§4.3: section transforms stay first-party and hand-ordered) and requires the plugin's module.
+  **Kept in `_chart-family/`, deliberately:** the kernels' shared helpers (`cartesian.js`,
+  `svg-label.js`, `svg-legend.js`, `transform-utils.js`, …) are the members' library, not the
+  family's dispatch, and `chart-finish.generated.css` is generated from the members' manifests.
+  **The cascade.** `build-css.js` used to place the frame sheet by hand, before the treatments; it
+  now sits in the plugin slot (§4.9), after the forms and the accent finishes — every rule it held
+  moved later. Measured, not argued: every tracked gallery, example and baseline deck (363) rendered
+  through the real emulator twice, once with `main`'s bundle and once with this branch's, and every
+  element's computed style (and pseudo-elements') plus its box compared in Chromium — 221,733
+  elements, 0 differences beyond the render's own nondeterminism (function-plot's random clip ids,
+  Mermaid's git-graph commit ids). The harness was mutation-proved first: one added declaration on
+  a frame rule changes 49 elements of the line gallery. The chart gallery's CLI PDFs, light and
+  dark, are pixel-identical to `main`'s (50 of 50 pages). Every test and tool that walked
+  `lib/components/chart/**` for CSS or JS — and so covered the frame sheet by accident of folder —
+  now names the plugin too (the tspan census, the responsiveness gate, the webkit inherit census).
+  **Found by the tier 2 trio, and fixed.** (1) The RED TEAM drove the Guide's runtime states, which
+  no static sweep can reach: `base.focus.css`'s focus and highlight rules (0,2,1)/(0,2,2) used to beat
+  the frame's subtitle, caption and eyebrow `<code>` rules by ORDER, and lost once the frame came
+  after them — a focused gantt subtitle kept its secondary ink while its peers dimmed. Bumping the
+  Guide's rules a whole attribute OVER-corrected (391 elements took the Guide ink where `main`'s
+  higher-specificity dark-slide rules had kept their own); the fix is two frame-scoped rules exactly
+  one specificity step above the ones they mirror. Measured: all 24 charts concatenated (20,670
+  elements) × five Guide states (none, focus, highlight, ring, dim), `main`'s bundle against this
+  one — 0 differences; without the fix, 74 (focus) and 71 (highlight). (2) Three gates covered the
+  frame only by accident of folder and went silent: the section-box gate (`SECTION_BOX_ROOTS`), the
+  edge-ownership test and the `:is([data-family` guard now walk `lib/plugins` too (the section-box
+  arm mutation-proved), and `tools/affected-tests.js` routes a plugin stylesheet to
+  `test:components` and `test:plugins`. (3) The old module paths were importable through the package's `./lib/*` export; the owner (2026-10-06): pre-GA, no compatibility shims and no **Breaking:** marker — the changelog records the move. The INVERSION lens: the
+  `dispatch.js` role is in-tree only and no host contract in api 1 (LPM §2 says so); stale
+  `chart-family.js §X` pointers the rename had re-stamped now name the kernels that hold those
+  symbols; and `tokens` listing the sheet's own custom properties is recorded for the 1.0 freeze
+  (`followups.d/2417-p5-lpm-tokens-own-declarations.md`). The CHECKER: wrong historical rewrites
+  restored, LPM's "draft until F" line moved to G.
+  **Evidence.** Engine byte identity: 505 tracked Markdown files × the default and `defaults: []`
+  engines, against a clean `origin/main` worktree at `281e9e0` — 1,010 renders, every deck
+  identical; the only differences are Markdown docs this phase edits. `checkPluginMigration` stays
+  at 0 on every arm. Mutation-proved: removing `chart-family.dispatch.js` fails the registry build
+  by name.
+
+
+- **Admission reaches an author's raw HTML, and the Playground page's lint (`2509-p3`).** The
+  engine reads every raw-HTML token an author wrote, in a core rule straight after the inline
+  parse (before any engine rule synthesizes markup — the checker dumped the rule order and
+  censused every token creator), and holds it to the host's channel (`lib/plugins/author-markup.js`):
+  every host figure marker NAME it spells — `data-lattice-hydrate`, `-config`, `-settle`, `-final`,
+  `-off` — becomes `data-author-lattice-…`, always; and when a drawn plugin is not
+  admitted, its `language-<fence>` becomes `language-off-<fence>`, so no pass, probe or capture
+  reads the author's `<pre><code>` as that fence.
+  **`data-lattice-figure` is NOT refused, and CI is why.** The CLI's Mermaid bake draws each figure
+  INTO the deck's Markdown and stamps it `data-lattice-figure`; the engine then reads that markup as
+  raw HTML like any author's and cannot tell the two apart. Refusing the marker erased it from every
+  baked diagram (7 integration arms: `--disable-plugin`, the HTML player's sanitizer and toggle,
+  `--read`) — the engine-only byte-identity corpus never ran a bake, so it could not see it.
+  `BAKE_WRITTEN` names it, with the reason, and a unit census fails when a `*.bake.js` writes a marker
+  that list lacks. A forged figure marker only makes the author's own markup count as drawn in their
+  own export; the forgery that matters, a pending figure hydrated from an author-packed config, needs
+  `hydrate`, `config` and `settle`, which stay refused.
+  **Two first cuts, both caught.** (1) Refusing the whole `data-lattice-` prefix, as the
+  code-package door does: the byte-identity run caught it, because `examples/motion-asset.md`
+  authors `data-lattice-motion` — vocabulary, not a host marker. The list is exactly the host's
+  channel, and a unit arm fails if `host.js` or `host-browser.mjs` writes a marker it lacks.
+  (2) A start-tag walker that removed the attributes and stamped `data-lattice-off` on a `<pre>`:
+  the tier 1 checker broke it seven ways (a quote or `<!--` inside a value, `--!>`, a `<script>`
+  end tag with an attribute — each put the regex and the browser's tokenizer out of step) and
+  measured it quadratic (a 160 KB deck of unclosed `<script ` rendered in 48 s); and the `<pre>`
+  marking missed a second `<code>`, a `<pre>` mid-paragraph and a one-line `<marp-pre>`. Renaming
+  BY NAME needs no tokenizer: an attribute selector matches a name exactly, so a renamed one cannot
+  be read as the marker wherever it sits. The cost, accepted: raw HTML that spells a marker name as
+  TEXT shows the renamed word (no tracked deck does). **The Playground page**
+  (`docs/src/playground/editor.js`, which loads the lint bundle lazily and so was not reached by the
+  Studio's `plugin-admission.ts`) points that bundle's parser at the deck's `off` set before each
+  lint, quick fix and Fix-all, and re-lints on `lattice:plugin-defaults` (through the linter's
+  `needsRefresh`: `forceLinting` alone flushes only a lint an edit scheduled, which the real page
+  showed); `deckPluginsOffFor`
+  (`editor-diagnostics.js`) is the one copy both callers use, and the lint bundle exports
+  `PLUGIN_NAMES` so the page needs no eager import of the registry.
+  **Evidence.** Engine byte identity over the same 1,010 renders: only edited docs differ; the
+  checker separately hashed 363 decks × 4 plugin configurations against an engine with the rule
+  stubbed out, 0 differences. `test/unit/plugins/author-markup.test.js` judges the engine's output
+  with jsdom: every one of the checker's bypass shapes reaches no element with a host marker, no
+  raw-HTML Mermaid shape is selectable by the pass under `defaults: []`, `data-lattice-motion`
+  survives, and the hostile inputs run in milliseconds; with the rule uninstalled, 22 of 31 arms
+  fail. `hydrate-host.test.js`'s "author element marked pending" arm now injects the element into
+  the page, because the engine no longer lets one through — the browser-side defense it tests still
+  matters on a page the engine did not render. The real Playground page, built site, desktop
+  Chromium (`docs/e2e/plugin-admission.spec.ts`, 5 of 5): with math off the pill inside `$$` is
+  underlined on the slide the engine renders it on, and the underline goes and comes back as the
+  host switches its defaults with no edit. Not covered and recorded: the page's PREVIEW does not
+  re-render on that event (`followups.d/2509-p5-playground-preview-follows-defaults.md`).
+  **Not covered, and recorded:** an Export-to-Marp bundle is rendered by Marp with `html: true`, so
+  forged markers reach its runtime, and its `mark-off.mjs` matches `language-<fence>` as a whole
+  class word, so a raw block classed `language-mermaid-source` stays drawable there
+  (`followups.d/2509-p4-marp-bundle-author-markers.md`).
+
+- **The Mermaid plugin owns its library (`2509-p5`, owner's decision 2026-10-06).** "We host
+  third-party libraries ourselves": the plugin owns a copy, every surface ships that copy, and
+  `node_modules` is only its source. The three builds §11 "Phase D's residue" left (the repo-root
+  `mermaid-v11-min.js`, the npm payload, the bake's unminified `mermaid.js`) are one:
+  `lib/plugins/mermaid/vendor/mermaid.min.js`, recorded in the manifest's new `payload.vendored`
+  (file, version, SHA-256; spec/LPM.md §3.4) and in a new in-tree plugin folder, `vendor/`
+  (`lib/packages/kinds.js`). Node readers resolve a plugin's library through one helper,
+  `lib/plugins/payload-path.js` — the CLI export page's hydrators, the docs site's staging, the bake's
+  render worker — and the Marp kit and Export-to-Marp bundle copy it (still named
+  `mermaid-v11-min.js` inside them, the name their decks load). The generated browser registries did
+  not change: the served file name was already `mermaid.min.js`. `npm run vendor:plugins` refreshes a
+  copy and its record together; the resolver fails a copy whose SHA-256 drifts; `package.json` pins
+  `mermaid` exactly, and a unit test fails when the installed build is not the vendored one.
+  Dependabot ignores `mermaid` (owner, 2026-10-06): its bump would fail that test and hold the
+  whole weekly group, so the library is upgraded on purpose (bump the pin, run
+  `npm run vendor:plugins`). The source gates skip a plugin's
+  `vendor/` (`isVendoredLibraryDir` in `tools/check-ownership.js`), as they skipped the root copy: it
+  is not our source, and its integrity is the hash. The root copy is gone, with its entries in
+  `lefthook.yml`, `ci.yml` and `publish-kits.yml` (each already covered by `lib/**`).
+  **Evidence.** The bake now draws with the minified build instead of the unminified one: both
+  diagram galleries' CLI PDFs, light and dark, are byte-identical to `main`'s (4 of 4; 25 diagrams
+  baked). The Marp kit and the Export-to-Marp admission tests through real marp-cli: 16 of 16. The
+  resolver's hash check mutation-proved (one appended byte fails the build by name); the ownership
+  test fails when a reader goes back to `node_modules`. Recorded, not built: the other plugin
+  libraries (function-plot, KaTeX, the bake's ZenUML and mermaid-cli page) —
+  `followups.d/2509-p5-plugin-libraries-owned-copies.md`. Also fixed on the way: the diagram
+  gallery's two `<script>` paths had pointed at files that no longer existed since the galleries moved
+  into bucket folders, so its VS Code preview drew no diagrams.
 
 ## References
 

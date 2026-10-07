@@ -67,7 +67,7 @@ section.title h1 + p:has(> code:only-child):not(:where([data-prose])) > code {
  *      not a fallback (empirically confirmed: the bar vanished entirely).
  *      `--chart-catN` (the theme's OWN input to that scoped var, indaco:
  *      themes/indaco.css) is what's actually declared at `:root`, so this
- *      reads that directly with the SAME literal fallback chart-family.css
+ *      reads that directly with the SAME literal fallback chart-family.styles.css
  *      itself falls back to for a theme that sets no chart palette at all
  *      — `var(--token, #fallback)` is the documented hex-literal-gate
  *      exemption (HARD RULE #3), not a hand-rolled color.

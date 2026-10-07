@@ -1,4 +1,5 @@
-/* _chart-family.css — shared chart frame for list-and-pill chart layouts.
+/* chart-family.styles.css — the chart family plugin's stylesheet: the shared chart frame for
+ * list-and-pill chart layouts (was _chart-family.css, then _chart-family/chart-family.css).
  *
  * Extracted from lib/_legacy.css in Phase 7 cleanup. Provides the
  * .chart-frame skeleton used by gantt, radar, quadrant, progress,

@@ -86,7 +86,7 @@ const PROBE = () => {
   //
   // AND THEN A GENERAL FALLBACK, because enumerating serializations is a losing
   // game: `color-mix(in oklab, …)` computes to `oklab(0.199 … / 0.62)`, and this
-  // engine ships three text-bearing rules in that form (chart-family.css,
+  // engine ships three text-bearing rules in that form (chart-family.styles.css,
   // matrix-grid, kanban — a kanban column header drops 2 real runs). `display-p3`
   // is a fourth shape. Each new one would silently drop runs exactly as `color(srgb
   // …)` did, so the last resort hands the string to a 1x1 canvas and reads the

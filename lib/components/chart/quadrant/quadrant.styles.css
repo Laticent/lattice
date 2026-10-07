@@ -102,7 +102,7 @@
 }
 
 /* The COHORT variant is excluded — it ships the SVG-native key (diagram + spine +
- * key in one viewBox) and is sized by the shared rule in chart-family.css, so the
+ * key in one viewBox) and is sized by the shared rule in chart-family.styles.css, so the
  * old square-ish `aspect-ratio:420/348` + `50cqh` cap (which would letterbox the
  * now-wider unit) must not reach it. */
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-svg:not(.quadrant-svg--cohort) {
@@ -126,12 +126,12 @@
 }
 /* IN-FORM (section.form) — the pie's proven fill-the-parent pattern
  * (piechart.styles.css §IN-FORM, 2026-06-15-form-chart-clip.md), which the
- * cohort variant already inherited via chart-family.css §IN-FORM. Under the
+ * cohort variant already inherited via chart-family.styles.css §IN-FORM. Under the
  * Form, `.chart-body` is a size-query container, which RE-BASES `cqh` from
  * the slide to the chart-body's content box — so the slide-based
  * `max-height:50cqh` above silently became "half the body" and shrank the
  * common quadrant to a thumbnail. Mirror the pie exactly:
- *   · `.chart-body` is already `container-type:size` (chart-family.css);
+ *   · `.chart-body` is already `container-type:size` (chart-family.styles.css);
  *   · collapse the figure's box with `display:contents` so the SVG sizes
  *     straight off the chart-body (a flex figure can't mediate the height
  *     of a replaced <svg> in print);
@@ -268,7 +268,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
 /* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
  * two touching marks apart, so its correct weight follows what it has to
  * separate, not the family's outline weight. It is deliberately excluded
- * from the shared `--chart-edge` rule — see chart-family.css. */
+ * from the shared `--chart-edge` rule — see chart-family.styles.css. */
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-dot {
   fill: var(--cell-ink);
   stroke: var(--bg);
@@ -320,7 +320,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
 /* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
  * two touching marks apart, so its correct weight follows what it has to
  * separate, not the family's outline weight. It is deliberately excluded
- * from the shared `--chart-edge` rule — see chart-family.css. Here it also
+ * from the shared `--chart-edge` rule — see chart-family.styles.css. Here it also
  * keeps the endpoint dot at the same 1.5 as `.quadrant-trail-before`, the
  * line it terminates. */
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-trail-after {
@@ -352,7 +352,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
   text-transform: uppercase;
 }
 /* The cohort key is now SVG-native (svg-legend.js → `.chart-key-*`, styled in
- * _chart-family/chart-family.css); the old HTML `.quadrant-legend` rules are
+ * lib/plugins/chart-family/chart-family.styles.css); the old HTML `.quadrant-legend` rules are
  * retired with it. See 2026-06-13-svg-native-legend.md. */
 
 /* ── Threshold variant: target badges at the axis crossings ───────────── */

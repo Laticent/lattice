@@ -190,7 +190,7 @@ test('every rule that moves or drops the spectrum bar says which edge it now own
 	// so a selector inside `:is()`, a rule inside `@media`, `border-top: 0` and a bar painted
 	// as a section BACKGROUND are all seen — the shapes an earlier regex version missed.
 	const csstree = require('css-tree');
-	const files = [...walk('lib/base'), ...walk('lib/components'), ...walk('lib/shared'), ...walk('lib/forms'), ...walk('lib/integrations'), ...walk('themes')].filter((f) => f.endsWith('.css'));
+	const files = [...walk('lib/base'), ...walk('lib/components'), ...walk('lib/shared'), ...walk('lib/forms'), ...walk('lib/integrations'), ...walk('lib/plugins'), ...walk('themes')].filter((f) => f.endsWith('.css'));
 	const offenders = [];
 	let rulesSeen = 0;
 	const targetsSection = (sel) => {

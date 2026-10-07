@@ -5,7 +5,7 @@
  * outside its `section`.
  *
  * The plot chrome — grid, axis rule, ticks, the category register — is painted
- * once in chart-family.css § Cartesian chrome and is NOT restyled here. This
+ * once in chart-family.styles.css § Cartesian chrome and is NOT restyled here. This
  * file owns the three marks only: the qualitative band, the measure, the target.
  *
  * px inside a viewBox is a USER UNIT, not a CSS pixel, so the font sizes below
@@ -15,7 +15,7 @@
  */
 
 /* The figure fills the chart body so the plot scales with the slide rather than
- * sitting at the SVG's intrinsic size. `.cart-svg` (chart-family.css § Cartesian
+ * sitting at the SVG's intrinsic size. `.cart-svg` (chart-family.styles.css § Cartesian
  * chrome) sizes the root inside it; this is the box that root fills. */
 :is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-figure {
   display: flex;

@@ -141,6 +141,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `theme-core:check` | Freshness gate for the theme-core bundle. |
 | `trama-lib:build` | Build the Trama graph-chart library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require('@laticent/trama') resolves for the runtime, the emulator and the tests. |
 | `trama-lib:check` | Freshness gate for the Trama library dist/ (stale vs docs/src/lib/trama/*.ts). |
+| `vendor:plugins` | Refresh each plugin's vendored library copy (lib/plugins/<name>/vendor/) from node_modules and rewrite its manifest record (version, sha256); --check verifies copy, record and installed build agree. |
 | `vetrina-lib:build` | Build the Vetrina library dist/ (two ESM + two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine. |
 | `vetrina-lib:check` | Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts). |
 
@@ -434,7 +435,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-axis-dom-catalog.js` | Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup |
 | `tools/build-cadenza-lib.js` | Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-chart-finish-css.js` | Generates lib/components/chart/_chart-family/chart-finish.generated.css — the chart finishes' rules. |
-| `tools/build-chart-registry.js` | Generates lib/components/chart/_chart-family/chart-registry.generated.js — |
+| `tools/build-chart-registry.js` | Generates lib/plugins/chart-family/shared/chart-registry.generated.js — |
 | `tools/build-dagre-bundle.js` | Build the dagre layout bundle the state-chart's browser pass uses. |
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
@@ -540,6 +541,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/state-chart-label-probe.js` | state-chart-label-probe — does any state-chart edge label touch another label, a line, a node, or the edge of its drawing? |
 | `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
 | `tools/us-english.js` | The house US-English word list: a curated British-to-American map, used by the commit-msg hook to warn on British spellings (HARD RULE #21). |
+| `tools/vendor-plugin-libs.js` | Refresh the third-party libraries plugins OWN a copy of (`payload.vendored` in a plugin |
 | `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
 | `tools/verify-code-sandbox.mjs` | A guided check, run by a tester, that the CLI sandboxes code packages on Linux, macOS or Windows. |
 | `tools/verify-code-sandbox.sh` | Start the code-package sandbox check on Linux or macOS. |

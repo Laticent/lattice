@@ -11,6 +11,21 @@
 // objects, returns plain diagnostic objects) so it unit-tests without a DOM and
 // without the authoring-core bundle.
 
+// THE PLUGINS A DECK LEAVES OFF, from a host's admission (`LatticePlayground.pluginAdmission`, the
+// plugins a whole deck loads under the host's defaults; null on the shipped default set) and every
+// installed plugin's name. Sorted, so a caller can key a cache on it. The one copy: the Studio's
+// readers (docs/src/lib/plugin-admission.ts) and the Playground editor's lint both call it.
+/**
+ * @param {string} deck
+ * @param {((deck: string) => string[] | null) | undefined} admission
+ * @param {readonly string[]} names
+ * @returns {string[]}
+ */
+export function deckPluginsOffFor(deck, admission, names) {
+	const active = typeof admission === 'function' ? admission(deck) : null;
+	return active ? names.filter((n) => !active.includes(n)).sort() : [];
+}
+
 // 1-based source line where each REAL slide begins, indexed by the HUMAN slide
 // number (front matter skipped) — so `starts[slide]` maps a finding to its line,
 // matching lint-core / review-core's numbering. `starts[0]` = 1 (deck top) for

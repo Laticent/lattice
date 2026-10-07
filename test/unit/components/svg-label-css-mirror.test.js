@@ -292,7 +292,7 @@ describe('heatmap: kernel font sizes mirror the rules that paint them', () => {
   for (const [key, file, selector] of [
     ['col', 'lib/components/chart/heatmap/heatmap.styles.css',
       ':is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-col-label'],
-    ['row', 'lib/components/chart/_chart-family/chart-family.css',
+    ['row', 'lib/plugins/chart-family/chart-family.styles.css',
       ':is(section.chart-frame, figure.chart-frame) .cart-cat'],
     // The printed value. Its SIZE is mirrored here; its INK is per-stop and per
     // palette, gated by heatmap.test.js and derive-chart-cat-ink.js --check.

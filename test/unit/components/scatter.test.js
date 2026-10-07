@@ -2,7 +2,7 @@
  * Unit: lib/components/chart/scatter/scatter.transform.js — kernel for the
  * `scatter` chart-family member.
  *
- * Section dispatch and chart-frame wrapping live in chart-family.js; this
+ * Section dispatch and chart-frame wrapping live in chart-family.dispatch.js; this
  * kernel produces the figure HTML. The shared plot substrate has its own suite
  * (test/unit/components/cartesian.test.js) — nothing here re-tests ticks,
  * scales or the grid. What is covered is what this kernel decides:
@@ -551,7 +551,7 @@ describe('scatter kernel', () => {
     // stylesheets paint them. Silent drift wraps text to a width the glyphs do
     // not occupy, and hands the placement pass a box narrower than the paint.
     test('FS.point matches the .cart-series size the family paints', () => {
-      const css = fs.readFileSync(path.join(ROOT, '_chart-family/chart-family.css'), 'utf8');
+      const css = fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/chart-family.styles.css'), 'utf8');
       const rule = css.match(/chart-frame\) \.cart-series \{[^}]*\}/)[0];
       const size = Number(rule.match(/font-size:\s*([\d.]+)px/)[1]);
       assert.equal(FS.point, size,
@@ -706,7 +706,7 @@ describe('scatter — the dense cluster keeps every name reachable', () => {
 // Position is the authority, so an empty first member names the SECOND axis
 // only. The parser used to drop the blank, which moved the name onto x.
 describe('scatter — an empty member holds its axis position', () => {
-  const { transformChartSection } = require('../../../lib/components/chart/_chart-family/chart-family');
+  const { transformChartSection } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
   test('[, Teams adopting] names y and leaves x unnamed', () => {
     const { html } = transformChartSection('<p><code>[, Teams adopting]</code></p><h2>X</h2>' +
       '<ul><li>A <code>{1, 2}</code></li><li>B <code>{3, 4}</code></li><li>C <code>{5, 1}</code></li></ul>', 'scatter');

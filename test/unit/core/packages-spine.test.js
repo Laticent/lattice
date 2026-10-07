@@ -43,8 +43,8 @@ describe('kinds', () => {
   test('a transform.js is a component\'s one code role', () => {
     assert.deepEqual(KINDS.component.code, ['transform.js']);
   });
-  test('a plugin\'s code roles are its grammar, its renderers, its browser half, its bake, its highlight grammar, its inline-code kinds and its services (plugin-system §4.1, inline-icons § 6a)', () => {
-    assert.deepEqual(KINDS.plugin.code, ['syntax.mjs', 'render.js', 'hydrate.js', 'bake.js', 'highlight.js', 'inline.js', 'services.js']);
+  test('a plugin\'s code roles are its grammar, its renderers, its browser half, its bake, its highlight grammar, its dispatch, its inline-code kinds and its services (plugin-system §4.1, inline-icons § 6a)', () => {
+    assert.deepEqual(KINDS.plugin.code, ['syntax.mjs', 'render.js', 'hydrate.js', 'bake.js', 'highlight.js', 'dispatch.js', 'inline.js', 'services.js']);
     assert.ok(KINDS.plugin.optional.includes('styles.css'), 'a plugin may ship token-only CSS');
     assert.deepEqual(KINDS.plugin.required, ['manifest.json', 'docs.md', 'fixtures.md']);
   });
@@ -335,8 +335,13 @@ describe('plugin shared/ — the one subfolder a plugin may carry, in-tree only'
     return discoverPackages({ root, types: ['plugin'] })[0].result;
   }
 
-  test('the kind declares shared/ and nothing else', () => {
-    assert.deepEqual(KINDS.plugin.codeDirs, ['shared']);
+  test('the kind declares shared/ and vendor/ and nothing else', () => {
+    assert.deepEqual(KINDS.plugin.codeDirs, ['shared', 'vendor']);
+  });
+
+  test('a vendor/ holding the plugin\'s library copy reads clean', () => {
+    const r = repoWith({ 'vendor/lib.min.js': '/* a library */' });
+    assert.equal(r.ok, true, JSON.stringify(r.errors));
   });
 
   test('a shared/ of modules and a README reads clean', () => {
@@ -345,7 +350,7 @@ describe('plugin shared/ — the one subfolder a plugin may carry, in-tree only'
   });
 
   test('THE FAILING ARMS: another folder, or a non-module in shared/, fails the walk', () => {
-    assert.match(repoWith({ 'lib/x.js': '' }).errors.join('\n'), /lib\/ is not a plugin folder \(a plugin may carry shared\/\)/);
+    assert.match(repoWith({ 'lib/x.js': '' }).errors.join('\n'), /lib\/ is not a plugin folder \(a plugin may carry shared\/, vendor\/\)/);
     assert.match(repoWith({ 'shared/data.json': '{}' }).errors.join('\n'), /shared\/data\.json is not a module/);
     assert.match(repoWith({ 'shared/deep/x.js': '' }).errors.join('\n'), /shared\/deep is not a module/);
     assert.match(repoWith({ 'shared/_huge.png': '' }).errors.join('\n'), /shared\/_huge\.png is not a module/);

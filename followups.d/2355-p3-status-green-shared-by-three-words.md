@@ -13,7 +13,7 @@ recorded: 2026-09-24
                    pass, so a deck with a state chart and a kanban names one word in two
                    colors. state-chart's legend merges same-tone words into one chip, so
                    the duplicate-key symptom is gone there.
-       where     — chart-family.css `.chart-status` table; kanban.styles.css,
+       where     — chart-family.styles.css `.chart-status` table; kanban.styles.css,
                    progress.styles.css, slope.styles.css `live` rows;
                    base.print-textures.css (the `live` shape glyph).
        done when — the owner decides whether `live` takes info family-wide (the

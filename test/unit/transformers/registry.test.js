@@ -19,7 +19,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const registry = require('../../../lib/transformers/registry');
 const splitEngine = require('../../../lib/core/split-panels');
-const chartEngine = require('../../../lib/components/chart/_chart-family/chart-family');
+const chartEngine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
 
 describe('transformer registry', () => {
   test('TRANSFORMERS is a non-empty array', () => {

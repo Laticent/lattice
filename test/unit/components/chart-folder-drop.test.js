@@ -5,7 +5,7 @@
  * The claim the manifest-driven dispatch makes is: adding a chart is a folder
  * drop. Drop `lib/components/chart/<name>/` carrying a manifest with a `kernel`
  * block and a `<name>.transform.js`, rebuild, and the chart renders — with no
- * edit to chart-family.js, no entry in a layout array, no adapter, and no line
+ * edit to chart-family.dispatch.js, no entry in a layout array, no adapter, and no line
  * in a figure-class alternation. Before this change all four of those were hand
  * edits to one file, and the fourth failed SILENTLY: the kernel ran, the figure
  * was built, and the section rendered it unframed.
@@ -143,9 +143,9 @@ test('a chart added by folder-drop alone', async (t) => {
   assert.equal(gen.status, 0, `generator failed:\n${gen.stderr}`);
 
   const registry = require(
-    path.join(SCRATCH, 'lib', 'components', 'chart', '_chart-family', 'chart-registry.generated.js'));
+    path.join(SCRATCH, 'lib', 'plugins', 'chart-family', 'shared', 'chart-registry.generated.js'));
   const family = require(
-    path.join(SCRATCH, 'lib', 'components', 'chart', '_chart-family', 'chart-family.js'));
+    path.join(SCRATCH, 'lib', 'plugins', 'chart-family', 'chart-family.dispatch.js'));
 
   await t.test('the manifest alone put it in the dispatch table', () => {
     assert.ok(registry.LAYOUTS.includes(DROP_NAME),
@@ -306,16 +306,16 @@ test('a chart added by folder-drop alone', async (t) => {
   await t.test('no central file was edited to get any of that', () => {
     // The diff between the shipped tree and the one that renders a chart it has
     // never heard of is the drop itself, plus the generated registry.
-    const real = path.join(ROOT, 'lib', 'components', 'chart', '_chart-family', 'chart-family.js');
-    const copy = path.join(SCRATCH, 'lib', 'components', 'chart', '_chart-family', 'chart-family.js');
+    const real = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.dispatch.js');
+    const copy = path.join(SCRATCH, 'lib', 'plugins', 'chart-family', 'chart-family.dispatch.js');
     assert.equal(fs.readFileSync(copy, 'utf8'), fs.readFileSync(real, 'utf8'),
-      'chart-family.js differs between the shipped tree and the one carrying the new chart');
+      'chart-family.dispatch.js differs between the shipped tree and the one carrying the new chart');
     // And it holds no chart name at all — the property that makes the claim
     // durable rather than true-by-luck on this one drop.
     const src = fs.readFileSync(real, 'utf8');
     for (const layout of registry.LAYOUTS) {
       assert.ok(!src.includes(`'${layout}'`) && !src.includes(`"${layout}"`),
-        `chart-family.js still names the ${layout} layout — the dispatch is not fully manifest-driven`);
+        `chart-family.dispatch.js still names the ${layout} layout — the dispatch is not fully manifest-driven`);
     }
   });
 });

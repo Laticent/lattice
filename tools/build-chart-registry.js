@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Generates lib/components/chart/_chart-family/chart-registry.generated.js —
+ * Generates lib/plugins/chart-family/shared/chart-registry.generated.js —
  * the frozen dispatch table the chart family runs on.
  *
  * WHY A GENERATED FILE AND NOT A DIRECTORY SCAN. Discovery is an authoring-time
- * convenience, never a render-time cost (LPM § Performance): chart-family.js is
+ * convenience, never a render-time cost (LPM § Performance): chart-family.dispatch.js is
  * bundled by esbuild into dist/lattice-runtime.js, dist/lattice-emulator.js and
  * five docs-site bundles, and a bundler cannot resolve `require(templateLiteral)`
  * — a scan would leave every kernel out of every bundle. So the scan runs HERE,
@@ -25,7 +25,7 @@
  * kernel itself is `<name>/<name>.<role>.js` (`transform`) and its entrypoint is
  * the slot's `entry` (`transformSection`), declared once by the plugin for every fill. That is the whole contract: a chart's
  * DISPATCH AND FRAMING are a folder-drop plus a rebuild, with no edit to
- * chart-family.js. (Not the whole component — see the decision note's
+ * chart-family.dispatch.js. (Not the whole component — see the decision note's
  * "What a folder drop does NOT get you".) See
  * engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md.
  *
@@ -64,8 +64,10 @@ if (!SLOT) {
   console.error(`[build-chart-registry] no \`kernel\` extension point in ${path.relative(ROOT, SLOT_FILE)} — run node tools/build-plugin-registry.js first (the chart family plugin offers the slot)`);
   process.exit(1);
 }
+// Written into the plugin that offers the slot, beside its dispatch (`<plugin>.dispatch.js`), in
+// the plugin's `shared/` folder — the dispatch is the one module that reads it.
 const OUT_FILE = path.join(
-  COMPONENTS_DIR, SLOT.bucket, '_chart-family', 'chart-registry.generated.js');
+  ROOT, 'lib', 'plugins', SLOT.plugin, 'shared', 'chart-registry.generated.js');
 
 const check = argv.includes('--check');
 const silent = argv.includes('--silent') || check;
@@ -170,12 +172,12 @@ function build() {
   lines.push(`   Source: the ${SLOT.plugin} plugin's \`kernel\` extension point (lib/plugins/extension-points.generated.json)`);
   lines.push(`   and its fills, the \`kernel\` block of every ${SLOT.bucket}-bucket component manifest.`);
   lines.push('   Rebuild: node tools/build-chart-registry.js */');
-  // `../<name>/<name>.transform` is the kernel's address relative to the generated
-  // file in `_chart-family/`. The loader restricts `kernel` to the `chart` bucket,
+  // `../../../components/<bucket>/<name>/<name>.transform` is the kernel's address relative to
+  // the generated file in `lib/plugins/<plugin>/shared/`. The loader restricts `kernel` to the slot's bucket,
   // so the folder layout that makes this path right is the one the validator
   // enforces — not an assumption this script makes on its own.
   for (const c of charts) {
-    lines.push(`const ${localName(c.name)} = require('../${c.name}/${c.name}.${SLOT.role}');`);
+    lines.push(`const ${localName(c.name)} = require('../../../components/${SLOT.bucket}/${c.name}/${c.name}.${SLOT.role}');`);
   }
   lines.push('');
   lines.push('// Layout tokens in DISPATCH order — the class list a chart section is matched');
@@ -214,7 +216,7 @@ function main() {
   if (check) {
     const current = fs.existsSync(OUT_FILE) ? fs.readFileSync(OUT_FILE, 'utf8') : '';
     if (current !== out) {
-      console.error('[build-chart-registry] STALE — run `node tools/build-chart-registry.js` and commit lib/components/chart/_chart-family/chart-registry.generated.js');
+      console.error('[build-chart-registry] STALE — run `node tools/build-chart-registry.js` and commit lib/plugins/chart-family/shared/chart-registry.generated.js');
       process.exit(1);
     }
     if (!silent) console.log('[build-chart-registry] up to date.');

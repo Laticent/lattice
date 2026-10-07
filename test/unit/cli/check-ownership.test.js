@@ -2802,7 +2802,7 @@ describe('no-safe-default token gate (#1457)', () => {
     // contract — the --cat-N-ink defect. `var(--x, color-mix(… var(--text-heading)))` has no
     // hop: the fallback is the value, written at the read, with no second token to drift
     // onto. Requiring a ledger row for the second would tax the safest form of the pattern.
-    // Live example of the second: --chart-catN-ink (chart-family.css).
+    // Live example of the second: --chart-catN-ink (chart-family.styles.css).
     test('an inline-EXPRESSION fallback with no token hop is not ledger population', () => {
       const expr = new Map([['c-container', [{ where: 'lib/x.css:1', kind: 'css', rootRead: false, chain: [], endsLiteral: true }]]]);
       assert.deepEqual(fallbackOnlyTokens(inputs({ bareReads: expr })), [],

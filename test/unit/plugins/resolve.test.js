@@ -125,6 +125,30 @@ describe('resolvePlugins — components that depend on plugins, and diagnostics'
   });
 });
 
+describe('resolvePlugins — vendored library copies', () => {
+  /** A plugin owning one library copy, with the reader's facts about its vendor/ folder. */
+  const owner = (exports) => {
+    const p = plugin('lib', { exports: { rules: ['lib_tok'], renderers: ['lib_tok'], detect: true, ...exports } });
+    p.manifest.payload = { lib: { from: 'npm:lib/dist/lib.min.js', vendored: { file: 'vendor/lib.min.js', version: '1.0.0', sha256: 'a'.repeat(64) }, global: 'lib', when: 'used' } };
+    return p;
+  };
+  test('the copy the manifest records resolves', () => {
+    // (The fixture carries no hydrate, which the resolver reports separately; this arm asks only
+    // whether the copy's record holds.)
+    const { errors } = resolvePlugins([owner({ vendored: { lib: 'a'.repeat(64) }, vendorFiles: ['vendor/lib.min.js'] })]);
+    assert.deepEqual(errors.filter((e) => /vendor/.test(e)), []);
+  });
+  test('a missing copy is an error naming the refresh', () => {
+    expectError([owner({ vendored: { lib: '' }, vendorFiles: [] })], /plugin "lib" vendors vendor\/lib\.min\.js, which is missing — run npm run vendor:plugins/);
+  });
+  test('a copy whose bytes drifted from the record is an error', () => {
+    expectError([owner({ vendored: { lib: 'b'.repeat(64) }, vendorFiles: ['vendor/lib.min.js'] })], /plugin "lib"'s vendor\/lib\.min\.js does not match its manifest's sha256/);
+  });
+  test('a file in vendor/ that no payload names is an error: the source gates skip the folder', () => {
+    expectError([owner({ vendored: { lib: 'a'.repeat(64) }, vendorFiles: ['vendor/lib.min.js', 'vendor/helper.js'] })], /plugin "lib" has vendor\/helper\.js, which no payload in its manifest vendors/);
+  });
+});
+
 describe('resolvePlugins — extension points (phase F)', () => {
   /** A plugin offering one slot, with no syntax: what the chart family is. */
   const family = (name, slot = 'kernel', bucket = 'chart', block) => ({
@@ -133,7 +157,7 @@ describe('resolvePlugins — extension points (phase F)', () => {
       type: 'plugin', format: 1, name, api: 1, title: name, description: name,
       contributes: { extensionPoints: { [slot]: { ...(block ? { block } : {}), bucket, role: 'transform', entry: 'transformSection', description: 'x' } } },
     },
-    exports: {},
+    exports: { hasDispatch: true },
   });
   const blocks = new Set(['kernel', 'name', 'plugins']);
   test('filling a slot is requiring its plugin: fills come back per component', () => {
@@ -153,6 +177,13 @@ describe('resolvePlugins — extension points (phase F)', () => {
     expectError([family('a'), family('b', 'renderer', 'chart', 'plugins')], /extension points "a.kernel" and "b.renderer" both claim the "chart" bucket/, { componentBlocks: blocks });
     // Two plugins may both call their slot `kernel` when they read different blocks.
     assert.deepEqual(resolvePlugins([family('a'), family('b', 'kernel', 'diagram', 'plugins')], { componentBlocks: blocks }).errors, []);
+  });
+  test('the plugin that offers a slot ships the dispatch that calls its fillers, and no other plugin does', () => {
+    const lone = family('charts');
+    lone.exports = {};
+    expectError([lone], /plugin "charts" offers an extension point but has no charts\.dispatch\.js holding the code that calls its fillers/, { componentBlocks: blocks });
+    const stray = plugin('a', { exports: { rules: ['a_tok'], renderers: ['a_tok'], detect: true, hasDispatch: true } });
+    expectError([stray], /plugin "a" ships a\.dispatch\.js but offers no extension point/);
   });
   test('a slot\'s block must be an object block the component schema defines, or nothing could fill it', () => {
     expectError([family('a', 'renderer')], /extension point "renderer" is filled by the `renderer` block, which is not an object block the component manifest schema defines/, { componentBlocks: blocks });
