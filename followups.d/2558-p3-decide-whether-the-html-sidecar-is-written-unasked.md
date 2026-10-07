@@ -18,3 +18,20 @@ done when — the owner picks: keep the sidecar (the warning stays the guard), w
             default changes what every export leaves on disk, so the number of files is the owner's call.
 evidence  — the files an export leaves, before and after; a script that read the sidecar still finds it.
 verify    — tier 1 checker.
+
+measured  — 2026-10-07, for the owner's pick (no behavior changed yet):
+            · what a PDF export leaves today: `node lattice-emulator.js deck.md out.pdf` → `out.pdf` and
+              `out.html`, two files; the live-HTML warning fires only when the deck carries script.
+            · who reads the sidecar: 46 files in the tree render through the emulator and then open the
+              `.html` beside the PDF (17 in tools/, 22 under test/integration/, the rest in lib/ and
+              test/helpers). Temp-and-delete breaks every one of them until each passes `--keep-html`.
+            · sanitizing the sidecar BEFORE the raster changes the PDF of any deck whose script paints
+              (design/skill.md § "Raw HTML in a deck"); sanitizing it AFTER the raster keeps the PDF and the
+              file count, and changes only the sidecar of a deck that carries script.
+options   — (a) keep, the warning is the guard: no change, nothing breaks.
+            (b) temp-and-delete, `--keep-html` to keep: one file fewer per export; 46 callers to update.
+            (c) keep but sanitize after the raster (the `--player` sanitizer, no CSP rewrite): file count
+                and PDF unchanged; the file that travels runs nothing. Recommended: it closes the travel
+                risk at the lowest blast radius. UNVERIFIED: whether any of the 46 readers depends on a deck
+                script having run in the sidecar; a deck with no script gets a byte-identical sidecar.
+
