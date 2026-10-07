@@ -697,3 +697,8 @@ paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome 
   html-to-image keeps the list from its FIRST call for the whole page, so every capture must
   pass the same one: route a new capture through that helper, never a bare `toPng`/`toCanvas`.
   Native list markers (`<ol start="3">`) are unaffected, measured.
+- **Engines:** the fix holds outside Chromium. On 2026-10-07 the built Studio exported
+  `examples/card-tags.md` in Firefox 142 and WebKit 26 (Playwright, the driver in
+  `tools/bench-pdf-export.mjs`): the PDF and the picture `.pptx` draw the corner tags 1–4
+  and `STEP 01`–`04`, and the editable `.odp` carries the same shapes as Chromium's. WebKit
+  does not need a separate code path.
