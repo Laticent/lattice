@@ -11,12 +11,16 @@
  * face is not embedded names its family and is bold at 600 or heavier, as OOXML has no
  * numeric weight.
  *
+ * LINE SPACING is proportional (`spcPct`), the browser's pitch over the face's natural line,
+ * because Google Slides reads an exact `spcPts` as a multiple of the font size and spreads
+ * every line by the face's own line height. A paragraph stays one box, editable as one.
+ *
  * `text-transform` is applied to the text itself: PptxGenJS exposes no all-caps flag, so an
  * uppercase label is stored in capitals.
  */
 
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts';
-import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame } from './layout';
+import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt';
 import type { Deck, EmbeddedFont, JSZipClass, TextRun } from './types';
 
@@ -151,7 +155,8 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 			const lines = frame.lines;
 			if (!lines.some((l) => l.length)) continue;
 			const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
-			const box = placeFrame(frame, W, metricsFor(lead, fonts, metricsCache), lead.size);
+			const metrics = metricsFor(lead, fonts, metricsCache);
+			const box = placeFrame(frame, W, metrics, lead.size, 'proportional');
 			// An empty line (a blank line in code) is an empty paragraph in the lead style.
 			const runs = lines.flatMap((line, li) => {
 				const last = li < lines.length - 1;
@@ -166,7 +171,11 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				margin: 0,
 				valign: 'top',
 				align: frame.align,
-				lineSpacing: points(frame.lineHeight),
+				// Proportional, not exact: Google Slides reads an exact `spcPts` as a multiple of
+				// the font size and applies it to the face's own, taller line, so every line ran
+				// ~26% apart and paragraphs spilled out of their cards. A multiple of the face's
+				// natural line height reads the same in Google Slides and LibreOffice.
+				lineSpacingMultiple: spacingMultiple(frame, metrics, lead.size),
 				paraSpaceBefore: 0,
 				paraSpaceAfter: 0,
 				fit: 'none',

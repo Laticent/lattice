@@ -15,6 +15,8 @@ export interface FontMetrics {
 	ascent: number;
 	/** Distance from the baseline down to the bottom of the glyph box (positive). */
 	descent: number;
+	/** The extra leading the face asks for between lines (0 when it asks for none). */
+	lineGap?: number;
 }
 
 /**
@@ -43,15 +45,17 @@ export function readFontMetrics(bytes: Uint8Array): FontMetrics | null {
 	if (!upm) return null;
 	let ascent = view.getInt16(tables.hhea + 4);
 	let descent = view.getInt16(tables.hhea + 6);
+	let gap = tables.hhea + 10 <= bytes.length ? view.getInt16(tables.hhea + 8) : 0;
 	const os2 = tables['OS/2'];
-	if (os2 !== undefined && os2 + 72 <= bytes.length) {
+	if (os2 !== undefined && os2 + 74 <= bytes.length) {
 		const useTypo = (view.getUint16(os2 + 62) & 0x80) !== 0;
 		if (useTypo) {
 			ascent = view.getInt16(os2 + 68);
 			descent = view.getInt16(os2 + 70);
+			gap = view.getInt16(os2 + 72);
 		}
 	}
-	return { ascent: ascent / upm, descent: Math.abs(descent) / upm };
+	return { ascent: ascent / upm, descent: Math.abs(descent) / upm, lineGap: Math.max(0, gap) / upm };
 }
 
 /**

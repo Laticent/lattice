@@ -40,7 +40,10 @@ describe('calco pptx', () => {
     const { xml } = await slideXml(deck);
     assert.match(xml, /one/);
     assert.match(xml, /two/);
-    assert.match(xml, /<a:lnSpc><a:spcPts val="\d+"\/><\/a:lnSpc>/);
+    // Proportional, not exact: Google Slides reads an exact spcPts as a multiple of the size
+    // and spreads every line ~26% (measured on the owner's device).
+    assert.match(xml, /<a:lnSpc><a:spcPct val="\d+"\/><\/a:lnSpc>/);
+    assert.doesNotMatch(xml, /<a:spcPts/);
   });
 
   test('notes are written; the alt text never falls back to the file name', async () => {

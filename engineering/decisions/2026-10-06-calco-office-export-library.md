@@ -211,9 +211,9 @@ and the slides match side by side. A baseline check deck (hairlines drawn by Chr
 each baseline, text boxes over them) puts LibreOffice's body text within about 1px of
 Chrome's and code within about 2.5px.
 
-**UNVERIFIED in PowerPoint itself** (HARD RULE #23): no PowerPoint runs here. PowerPoint's
-rule for "exactly" line spacing is not published, so its baselines may sit a few pixels
-from LibreOffice's. The baseline check deck is the one-look test: open it in PowerPoint and
+**UNVERIFIED in PowerPoint itself** (HARD RULE #23): no PowerPoint runs here. PowerPoint may
+read the proportional line spacing against its own notion of a line (1.2 em is commonly
+reported), which would set lines a few percent tighter than Chrome; never looser. The baseline check deck is the one-look test: open it in PowerPoint and
 see whether the letters stand on the red lines (`followups.d/2556-p2-verify-editable-pptx-in-powerpoint.md`).
 
 **The hard-deck sweep (2026-10-06).** Seven decks (every chart family, hybrid SVG/HTML
@@ -223,11 +223,19 @@ slide with Chrome. No text was missing, doubled or cut anywhere. Their export de
 last rows of §5a. What they found that the export does not cause: hairlines and dashed
 borders come out lighter, and a tab's corner differs where it meets its card, because the
 picture is a screenshot and Chrome's PDF is printed; the picture `.pptx` has always had the
-same pixels (compared byte for byte in the rule rows). One measured gap remains: the `.pptx`
-opened in LibreOffice sits 0.2–2pt lower than Chrome, varying with font and size, while the
-`.odp` lands on Chrome. Placement is NOT tuned to LibreOffice's `.pptx` import, because the
-`.pptx` is for PowerPoint and Google Slides, which LibreOffice is not; that call waits on
-PowerPoint (`followups.d/2556-p2-verify-editable-pptx-in-powerpoint.md`).
+same pixels (compared byte for byte in the rule rows). **Line spacing in the `.pptx` is proportional, not exact (2026-10-07).** On the owner's
+device, Google Slides opened the editable `.pptx` with every multi-line paragraph spilling
+out of its card and code panel. Google Slides reads an exact `spcPts` as a multiple of the
+font size and applies it to the face's own natural line (1.26 em for Outfit), so each line
+ran about 26% apart. The `.pptx` now states the pitch as `spcPct`, the browser's pitch over
+the face's natural line height (ascent + descent + line gap), and places the box from
+the baseline by that multiple × the ascent. The owner checked the jargon gallery in Google
+Slides with it ("looks good"). In LibreOffice 26.8 body text now lands within 0.5pt of
+Chrome; monospace and the large Playfair titles sit 1–2pt high. Paragraphs stay one box:
+a box per line would sidestep spacing in every app, and the owner rejected it because nobody
+edits a paragraph line by line. PowerPoint, which reads `spcPct` against its own notion of a
+line, is the one reader not yet checked
+(`followups.d/2556-p2-verify-editable-pptx-in-powerpoint.md`).
 
 ## 7. How it is verified
 

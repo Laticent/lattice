@@ -8,7 +8,7 @@
 export type { FaceUse, FontHost, FontMetrics } from './fonts';
 export { embeddingAllowed, faceFamilyName, faceFor, facesUsed, nearestFace, pinFeatures, prepareFonts, readFontMetrics, uniqueFaceNames } from './fonts';
 export type { PlacedBox } from './layout';
-export { applyTransform, placeFrame } from './layout';
+export { applyTransform, placeFrame, spacingMultiple } from './layout';
 export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp';
 
 export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx';

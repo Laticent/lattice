@@ -11,7 +11,7 @@ const { ONE_PX_PNG, style, frame, ttf } = require('./_fixtures');
 describe('calco fonts', () => {
   test('readFontMetrics reads the typographic metrics a USE_TYPO_METRICS face declares', async () => {
     // Outfit: typo ascender 1000, descender -260, 1000 units per em.
-    assert.deepEqual(readFontMetrics(await ttf('outfit-400')), { ascent: 1, descent: 0.26 });
+    assert.deepEqual(readFontMetrics(await ttf('outfit-400')), { ascent: 1, descent: 0.26, lineGap: 0 });
     assert.equal(readFontMetrics(new Uint8Array([1, 2, 3])), null);
     assert.equal(readFontMetrics(new TextEncoder().encode('not a font at all, really')), null);
   });
@@ -55,6 +55,16 @@ describe('calco layout', () => {
     const box = placeFrame(f, 1280, metrics, 28);
     const baseline = 400 + 28;
     assert.ok(Math.abs(box.y - (baseline - (47.6 - 0.26 * 28))) < 1e-9);
+    assert.equal(box.h, 47.6 * 2);
+  });
+
+  test('proportional spacing: the multiple is pitch over the natural line, and the box top is baseline minus multiple × ascent', () => {
+    const { spacingMultiple } = require('@laticent/calco');
+    const f = frame([[{ text: 'x', style: style() }], [{ text: 'y', style: style() }]], { y: 400, firstLineHeight: 35.28, lineHeight: 47.6 });
+    const m = spacingMultiple(f, metrics, 28);
+    assert.ok(Math.abs(m - 47.6 / (1.26 * 28)) < 1e-9);
+    const box = placeFrame(f, 1280, metrics, 28, 'proportional');
+    assert.ok(Math.abs(box.y - (400 + 28 - m * 28)) < 1e-9, `top ${box.y}`);
     assert.equal(box.h, 47.6 * 2);
   });
 
@@ -119,8 +129,8 @@ describe('calco fonts — table reads', () => {
   const { embeddingAllowed } = require('@laticent/calco');
 
   test('USE_TYPO_METRICS picks the OS/2 typographic metrics; without it, hhea', () => {
-    assert.deepEqual(readFontMetrics(synthFont()), { ascent: 0.8, descent: 0.3 });
-    assert.deepEqual(readFontMetrics(synthFont({ useTypo: false })), { ascent: 0.9, descent: 0.2 });
+    assert.deepEqual(readFontMetrics(synthFont()), { ascent: 0.8, descent: 0.3, lineGap: 0 });
+    assert.deepEqual(readFontMetrics(synthFont({ useTypo: false })), { ascent: 0.9, descent: 0.2, lineGap: 0 });
   });
 
   test('a hostile table offset returns null instead of throwing', () => {

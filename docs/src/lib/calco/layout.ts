@@ -44,14 +44,30 @@ export function metricsFor(style: TextStyle, fonts: EmbeddedFont[], cache: Map<E
 }
 
 /**
+ * Line spacing as a multiple of the face's natural line height (ascent + descent + line
+ * gap): the pitch the browser used, in the unit a proportional `spcPct` is read in.
+ */
+export function spacingMultiple(frame: TextFrame, metrics: FontMetrics, size: number): number {
+	const natural = (metrics.ascent + metrics.descent + (metrics.lineGap || 0)) * size;
+	return natural > 0 ? frame.lineHeight / natural : 1;
+}
+
+/**
  * Place one frame. `slideW` bounds the spare width; `metrics` is the first line's
  * dominant face.
+ *
+ * `spacing` is how the writer states line spacing, because it moves the first baseline:
+ *  - `exact` (the .odp's fixed line height): the suite puts all the leading ABOVE the
+ *    text, so the box top is the baseline minus (pitch − descent);
+ *  - `proportional` (the .pptx's spcPct): the line is the face's natural line scaled by the
+ *    multiple, glyphs at its top, so the box top is the baseline minus multiple × ascent.
+ *    (Measured in LibreOffice 26.8; Google Slides reads the multiple the same way.)
  */
-export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetrics, size: number): PlacedBox {
+export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetrics, size: number, spacing: 'exact' | 'proportional' = 'exact'): PlacedBox {
 	const { ascent, descent } = metrics;
 	// The browser's baseline: the glyph box splits ascent : descent.
 	const baseline = frame.y + (frame.firstLineHeight * ascent) / (ascent + descent);
-	const y = baseline - (frame.lineHeight - descent * size);
+	const y = spacing === 'proportional' ? baseline - spacingMultiple(frame, metrics, size) * (ascent + (metrics.lineGap || 0) / 2) * size : baseline - (frame.lineHeight - descent * size);
 	const maxSize = Math.max(...frame.lines.flat().map((r) => r.style.size));
 	const room =
 		frame.align === 'center'

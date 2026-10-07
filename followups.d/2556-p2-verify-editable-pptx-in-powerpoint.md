@@ -17,8 +17,9 @@ done when — a deck exported with `--editable` opens in desktop PowerPoint with
             prompt, and its boxes sit on the picture's text within a few px on 3 decks.
 first look — `lattice test/fixtures/calco/baseline-check.md check.pptx --editable`, open it in
             PowerPoint: the flat letters should stand on the red lines, as in LibreOffice 26.8.
-measured  — LibreOffice 26.8 puts the .pptx text 0.2–2pt below Chrome (rising with size to about
-            2pt, varying by font; per-box numbers from gallery-jargon). The .odp lands on
-            Chrome. If PowerPoint shows the same offset, give the .pptx its own placement rule.
+measured  — the .pptx states line spacing as spcPct over the face's natural line (Google
+            Slides spread exact spcPts ~26%). LibreOffice 26.8 then lands body text within
+            0.5pt of Chrome. If PowerPoint measures a line as 1.2em, its lines run a few
+            percent tight: check a multi-line card on gallery-jargon slide 12.
 evidence  — screenshots from PowerPoint side by side with the PDF of the same deck.
 verify    — needs a machine with PowerPoint; the decision note §6 says UNVERIFIED until then.
