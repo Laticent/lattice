@@ -18,6 +18,12 @@
  * `text-transform` is applied to the text itself: PptxGenJS exposes no all-caps flag, so an
  * uppercase label is stored in capitals.
  *
+ * SHAPES (a slide's `shapes`) are PptxGenJS presets where the outline is one (`rect`,
+ * `roundRect`, `line`) and custom geometry where it is not (per-corner radii, a rule that
+ * wraps a corner); a label is one `addText` with the shape's fill and outline. PptxGenJS has
+ * no group API, so a group's members are written adjacent under a tagged name and
+ * `tidyPptx` wraps them in a `p:grpSp` (`groupShapes`).
+ *
  * SCHEMA: PptxGenJS 3.12 writes three things the OOXML schema forbids, and `tidyPptx` mends
  * them whenever the caller passes JSZip: a `<a:pPr>` before EVERY run of a paragraph (the
  * schema allows one, first), `p:notesMasterIdLst` after `p:sldIdLst` (it belongs before),
@@ -27,7 +33,8 @@
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
-import type { Deck, EmbeddedFont, JSZipClass, TextRun } from './types.js';
+import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
+import type { Deck, EmbeddedFont, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
 
 /** The family name PowerPoint sees for an embedded face (`faceFamilyName`, with the PPTX-safe family). */
 export function pptxFaceName(face: { family: string; weight: number; italic: boolean }): string {
@@ -35,6 +42,8 @@ export function pptxFaceName(face: { family: string; weight: number; italic: boo
 }
 
 const PX_PER_IN = 96;
+/** The name prefix that marks a group's members until tidyPptx groups them (never page text). */
+const GROUP_TAG = 'calco-group-';
 const PT_PER_PX = 0.75;
 
 /** The minimal PptxGenJS surface Calco uses. */
@@ -48,6 +57,7 @@ export interface PptxGenJSLike {
 	addSlide(): {
 		addImage(options: Record<string, unknown>): unknown;
 		addText(text: Array<{ text: string; options?: Record<string, unknown> }>, options: Record<string, unknown>): unknown;
+		addShape(shape: string, options: Record<string, unknown>): unknown;
 		addNotes(notes: string): unknown;
 	};
 	write(options: { outputType: string }): Promise<unknown>;
@@ -92,8 +102,9 @@ export function pptxPageSize(width: number, height: number): { w: number; h: num
 
 /**
  * Build the presentation. Returns the PptxGenJS instance; call `write({ outputType })`.
+ * `groups`: tag each card's members so `tidyPptx` can group them (the caller then runs it).
  */
-export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { embedded?: EmbeddingPlan }): PptxGenJSLike {
+export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { embedded?: EmbeddingPlan; groups?: boolean }): PptxGenJSLike {
 	if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
 		throw new Error('calco: no slides to write');
 	}
@@ -151,45 +162,94 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		return { text: xmlSafe(applyTransform(run.text, s.transform)), options: opts };
 	};
 
+	// A frame's runs and the options that place them where the browser drew them.
+	const textOf = (frame: TextFrame) => {
+		const lines = frame.lines;
+		const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
+		const metrics = metricsFor(lead, fonts, metricsCache);
+		const box = placeFrame(frame, W, metrics, lead.size, 'proportional');
+		// An empty line (a blank line in code) is an empty paragraph in the lead style.
+		const runs = lines.flatMap((line, li) => {
+			const last = li < lines.length - 1;
+			if (!line.length) return [runOptions({ text: '', style: lead }, last)];
+			return line.map((run, ri) => runOptions(run, ri === line.length - 1 && last));
+		});
+		const options: Record<string, unknown> = {
+			valign: 'top',
+			align: frame.align,
+			// Proportional, not exact: Google Slides reads an exact `spcPts` as a multiple of
+			// the font size and applies it to the face's own, taller line, so every line ran
+			// ~26% apart and paragraphs spilled out of their cards. A multiple of the face's
+			// natural line height reads the same in Google Slides and LibreOffice.
+			lineSpacingMultiple: spacingMultiple(frame, metrics, lead.size),
+			paraSpaceBefore: 0,
+			paraSpaceAfter: 0,
+			fit: 'none',
+			// Lines are already broken where the browser broke them. Without wrapping, a
+			// substitute font that runs wider overhangs the box instead of adding a line that
+			// lands on the next paragraph.
+			wrap: false,
+		};
+		return { runs, box, options };
+	};
+	const alphaOf = (a: number) => Math.round((1 - a) * 100);
+	// A shape's outline and paint, as PptxGenJS options: a preset where the outline is one
+	// (a resized rounded rectangle keeps its corners), else custom geometry.
+	const shapeOf = (shape: Shape, geom: ShapeGeometry): { kind: string; options: Record<string, unknown> } => {
+		const options: Record<string, unknown> = { x: inch(geom.x), y: inch(geom.y), w: inch(geom.w), h: inch(geom.h) };
+		const stroke = shape.stroke;
+		options.line = stroke ? { color: bareHex(stroke.color), width: points(stroke.width), transparency: alphaOf(stroke.alpha) } : { type: 'none' };
+		if (shape.fill && geom.closed) options.fill = { color: bareHex(shape.fill.color), transparency: alphaOf(shape.fill.alpha) };
+		if (shape.shadow) {
+			const { x, y, blur } = shape.shadow;
+			const angle = (((Math.atan2(y, x) * 180) / Math.PI) % 360 + 360) % 360;
+			// PptxGenJS reads 0 as "unset" for each of these, so a zero is written as a hair.
+			options.shadow = { type: 'outer', color: bareHex(shape.shadow.color), opacity: shape.shadow.alpha, blur: points(blur) || 0.01, offset: points(Math.hypot(x, y)) || 0.01, angle: angle || 0.01 };
+		}
+		if (geom.preset === 'line') return { kind: 'line', options };
+		if (geom.preset === 'rect') {
+			if (geom.radius) options.rectRadius = inch(geom.radius);
+			return { kind: geom.radius ? 'roundRect' : 'rect', options };
+		}
+		options.points = geom.path.map((c) => {
+			if (c[0] === 'Z') return { close: true };
+			if (c[0] === 'C') return { x: inch(c[5]), y: inch(c[6]), curve: { type: 'cubic', x1: inch(c[1]), y1: inch(c[2]), x2: inch(c[3]), y2: inch(c[4]) } };
+			return c[0] === 'M' ? { x: inch(c[1]), y: inch(c[2]), moveTo: true } : { x: inch(c[1]), y: inch(c[2]) };
+		});
+		return { kind: 'custGeom', options };
+	};
+	// Where a label's text sits inside its shape (null: it cannot, see labelInsets).
+	const insetsOf = (shape: Shape, frame: TextFrame) => labelInsets(shapeGeometry(shape), textOf(frame).box, frame.align);
+
 	deck.slides.forEach((slide, i) => {
 		if (!slide.image?.length) throw new Error(`calco: slide ${i + 1} has no image`);
 		const s = pptx.addSlide();
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
 		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
-		for (const frame of slide.frames || []) {
-			const lines = frame.lines;
-			if (!lines.some((l) => l.length)) continue;
-			const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
-			const metrics = metricsFor(lead, fonts, metricsCache);
-			const box = placeFrame(frame, W, metrics, lead.size, 'proportional');
-			// An empty line (a blank line in code) is an empty paragraph in the lead style.
-			const runs = lines.flatMap((line, li) => {
-				const last = li < lines.length - 1;
-				if (!line.length) return [runOptions({ text: '', style: lead }, last)];
-				return line.map((run, ri) => runOptions(run, ri === line.length - 1 && last));
-			});
-			s.addText(runs, {
-				x: inch(box.x),
-				y: inch(box.y),
-				w: inch(box.w),
-				h: inch(box.h),
-				margin: 0,
-				valign: 'top',
-				align: frame.align,
-				// Proportional, not exact: Google Slides reads an exact `spcPts` as a multiple of
-				// the font size and applies it to the face's own, taller line, so every line ran
-				// ~26% apart and paragraphs spilled out of their cards. A multiple of the face's
-				// natural line height reads the same in Google Slides and LibreOffice.
-				lineSpacingMultiple: spacingMultiple(frame, metrics, lead.size),
-				paraSpaceBefore: 0,
-				paraSpaceAfter: 0,
-				fit: 'none',
-				// Lines are already broken where the browser broke them. Without wrapping, a
-				// substitute font that runs wider overhangs the box instead of adding a line that
-				// lands on the next paragraph.
-				wrap: false,
-			});
+		const n = i + 1;
+		for (const { group, items } of drawOrder(slide, (shape, frame) => !!insetsOf(shape, frame))) {
+			// A group's members carry its number in their names; tidyPptx wraps them in a p:grpSp.
+			// Only when the package will be tidied (`groups`); otherwise the members stay loose.
+			const tag = group === undefined || !options?.groups ? '' : `${GROUP_TAG}${group + 1}|`;
+			for (const item of items) {
+				if ('frame' in item) {
+					const { runs, box, options } = textOf(item.frame);
+					s.addText(runs, { ...options, x: inch(box.x), y: inch(box.y), w: inch(box.w), h: inch(box.h), margin: 0, objectName: `${tag}Text ${n}.${item.index + 1}` });
+					continue;
+				}
+				const geom = shapeGeometry(item.shape);
+				const { kind, options } = shapeOf(item.shape, geom);
+				const name = `${tag}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : 'Shape'} ${n}.${item.index + 1}`;
+				if (!item.label) {
+					s.addShape(kind, { ...options, objectName: name });
+					continue;
+				}
+				const text = textOf(item.label);
+				const ins = labelInsets(geom, text.box, item.label.align) as NonNullable<ReturnType<typeof labelInsets>>;
+				// Insets in points: PptxGenJS's margin is [left, right, bottom, top].
+				s.addText(text.runs, { ...text.options, ...options, shape: kind, margin: [points(ins.l), points(ins.r), 0, points(ins.t)], objectName: name });
+			}
 		}
 		if (slide.notes) s.addNotes(xmlSafe(slide.notes));
 	});
@@ -246,17 +306,66 @@ function onePPrPerParagraph(xml: string): string {
 }
 
 /**
+ * Wrap each run of shapes named with the same group tag (`GROUP_TAG` + number + `|`) in a
+ * `p:grpSp`, and take the tag out of their names. PptxGenJS 3.12 has no group API; it writes
+ * a slide's objects in the order they were added, so a group's members are adjacent
+ * `<p:sp>` elements. The group's frame is its members' bounding box, and its child frame is
+ * the same box, so every member keeps the slide coordinates PptxGenJS gave it.
+ */
+export function groupShapes(xml: string): string {
+	if (!xml.includes(GROUP_TAG)) return xml;
+	let nextId = Math.max(1, ...Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (m) => Number(m[1]))) + 1;
+	const tagged = new RegExp(`(<p:cNvPr id="\\d+" name=")${GROUP_TAG}(\\d+)\\|`);
+	const wrap = (group: string, members: string[]) => {
+		const boxes = members.map((sp) => {
+			const off = sp.match(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/);
+			const ext = sp.match(/<a:ext cx="(\d+)" cy="(\d+)"\/>/);
+			if (!off || !ext) throw new Error('calco: a grouped shape has no position');
+			return [Number(off[1]), Number(off[2]), Number(off[1]) + Number(ext[1]), Number(off[2]) + Number(ext[2])];
+		});
+		const x = Math.min(...boxes.map((b) => b[0]));
+		const y = Math.min(...boxes.map((b) => b[1]));
+		const cx = Math.max(...boxes.map((b) => b[2])) - x;
+		const cy = Math.max(...boxes.map((b) => b[3])) - y;
+		const frame = `<a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/><a:chOff x="${x}" y="${y}"/><a:chExt cx="${cx}" cy="${cy}"/>`;
+		return (
+			`<p:grpSp><p:nvGrpSpPr><p:cNvPr id="${nextId++}" name="Group ${group}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
+			`<p:grpSpPr><a:xfrm>${frame}</a:xfrm></p:grpSpPr>${members.join('')}</p:grpSp>`
+		);
+	};
+	return xml.replace(/(?:<p:sp>[\s\S]*?<\/p:sp>)+/g, (run) => {
+		let out = '';
+		let current: string | null = null;
+		let members: string[] = [];
+		for (const sp of run.match(/<p:sp>[\s\S]*?<\/p:sp>/g) as string[]) {
+			const m = sp.match(tagged);
+			const group = m ? m[2] : null;
+			if (group !== current && current !== null) {
+				out += wrap(current, members);
+				members = [];
+			}
+			current = group;
+			if (m) members.push(sp.replace(tagged, '$1'));
+			else out += sp;
+		}
+		if (current !== null) out += wrap(current, members);
+		return out;
+	});
+}
+
+/**
  * Mend what PptxGenJS 3.12 writes against the OOXML schema (see the header): one `<a:pPr>`
  * per paragraph in every slide and notes slide, `p:notesMasterIdLst` straight after
  * `p:sldMasterIdLst`, and no content-type override for a part the package does not hold.
  * The repeated `<a:pPr>` are identical (paragraph options are the box's), so nothing renders
- * differently; a strict reader no longer has an invalid part to repair.
+ * differently; a strict reader no longer has an invalid part to repair. It also wraps each
+ * card's tagged members in a `p:grpSp` (`groupShapes`), which PptxGenJS cannot write.
  */
 async function tidyPptx(zip: ZipLike): Promise<void> {
 	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
 	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/(slides|notesSlides)\/[^/]+\.xml$/.test(n))) {
 		const xml = await text(name);
-		const tidy = onePPrPerParagraph(xml);
+		const tidy = groupShapes(onePPrPerParagraph(xml));
 		if (tidy !== xml) zip.file(name, tidy);
 	}
 	if (zip.file('ppt/presentation.xml')) {
@@ -347,12 +456,13 @@ export async function tidyPptxPackage<T = Uint8Array>(JSZip: JSZipClass, bytes: 
 
 /**
  * Build and serialize in one call. `outputType` is PptxGenJS's (`uint8array`, `blob`, …).
- * Pass `JSZip` to embed the deck's fonts and mend PptxGenJS's schema errors (`tidyPptx`);
- * without it the runs name their families only and the package is as PptxGenJS wrote it.
+ * Pass `JSZip` to embed the deck's fonts, mend PptxGenJS's schema errors and group each card
+ * with its contents (`tidyPptx`); without it the runs name their families only, the shapes
+ * are loose, and the package is as PptxGenJS wrote it.
  */
 export async function writePptx<T = Uint8Array>(PptxGenJS: PptxGenJSClass, deck: Deck, outputType = 'uint8array', JSZip?: JSZipClass): Promise<T> {
 	if (!JSZip) return (await buildPptx(PptxGenJS, deck).write({ outputType })) as T;
 	const plan = planEmbedding(deck);
-	const raw = (await buildPptx(PptxGenJS, deck, plan.faces.length ? { embedded: plan } : undefined).write({ outputType: 'uint8array' })) as Uint8Array;
+	const raw = (await buildPptx(PptxGenJS, deck, { ...(plan.faces.length ? { embedded: plan } : {}), groups: true }).write({ outputType: 'uint8array' })) as Uint8Array;
 	return embedPptxFonts<T>(JSZip, raw, plan.faces, outputType);
 }
