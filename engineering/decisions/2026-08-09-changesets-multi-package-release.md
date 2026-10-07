@@ -1,6 +1,6 @@
 ---
-status: blocked
-summary: DEFERRED (2026-08-24) until immediately before the first npm publish — npm is still clean, so nothing degrades by waiting. The repo is already a five-package monorepo that has published nothing — @laticent/lattice plus cadenza, lente, suono and vetrina, with npm `workspaces` declared and all four siblings publish-shaped (exports, dist, files allowlist, README). tools/release.js physically cannot release them: it only knows the root package.json. Adopts Changesets for versioning across the five, keeping the parts of the flow merged in #1443 that Changesets does not do — the ~100 MB showcase zip, the GitHub Release that carries it, and the PR-through-the-merge-queue shape. Corrects #1437 on two points: pnpm is not required (Changesets works with the npm workspaces already declared) and its release.yml block would clobber #1443. Also settles npm auth (OIDC trusted publishing — no NPM_TOKEN exists at all), the canary channel (@next on engine changes only, not every merge), the tag scheme (per-package `@scope/name@x.y.z`, replacing `v<x.y.z>`), the fate of a 17,000-line `## Unreleased` (closed under a dated pre-publish `## 1.0.0`, Changesets accumulates from there), and the HARD RULE #10 change from "edit ## Unreleased" to "add a changeset".
+status: proposed
+summary: PICKED UP (2026-10-07) by 2026-10-07-first-npm-release.md, which makes this migration a prerequisite of 1.0.0 (all nine libraries publish). Was DEFERRED (2026-08-24) until immediately before the first npm publish — npm is still clean, so nothing degrades by waiting. The repo is already a five-package monorepo that has published nothing — @laticent/lattice plus cadenza, lente, suono and vetrina, with npm `workspaces` declared and all four siblings publish-shaped (exports, dist, files allowlist, README). tools/release.js physically cannot release them: it only knows the root package.json. Adopts Changesets for versioning across the five, keeping the parts of the flow merged in #1443 that Changesets does not do — the ~100 MB showcase zip, the GitHub Release that carries it, and the PR-through-the-merge-queue shape. Corrects #1437 on two points: pnpm is not required (Changesets works with the npm workspaces already declared) and its release.yml block would clobber #1443. Also settles npm auth (OIDC trusted publishing — no NPM_TOKEN exists at all), the canary channel (@next on engine changes only, not every merge), the tag scheme (per-package `@scope/name@x.y.z`, replacing `v<x.y.z>`), the fate of a 17,000-line `## Unreleased` (closed under a dated pre-publish `## 1.0.0`, Changesets accumulates from there), and the HARD RULE #10 change from "edit ## Unreleased" to "add a changeset".
 ---
 
 # Changesets, and a release pipeline for five packages
@@ -298,3 +298,16 @@ age them well:
 
 **Status is `blocked` rather than `proposed`** because the dependency is now
 explicit: the first npm publish. #1437 stays open and tracks it.
+
+## Picked up (2026-10-07)
+
+The first npm publish is now planned, so the deferral above has ended. The
+owner ruled that all nine workspace libraries publish with `@laticent/lattice`
+1.0.0, each versioning independently, which makes this migration slice C of
+`2026-10-07-first-npm-release.md`. That note records what changed since this
+plan was written: there are nine libraries rather than four, the pending
+fragment pile is 915 rather than 119, the `@laticent` npm scope does not exist
+yet, and the August `v1.0.0` tag is retired to `v0.9.0` so the recut 1.0.0 can
+use it. The design in this note (Changesets, OIDC trusted publishing,
+per-package tags) is unchanged. Canary `@next` (decision 5) is left out of 1.0
+in favor of weekly releases.

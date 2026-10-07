@@ -44,3 +44,9 @@ still loads). The bundles in `dist/` inline it, but the `./engine` and `./lib/*`
 `@laticent/lattice` publishes, Trama must ship with it (a dependency or inside `files`), or a
 hub-spoke slide rendered through `./engine` throws `Cannot find module '@laticent/trama/radial'`.
 The flowchart's browser pass has the same need.
+
+**Owner ruling, 2026-10-07: publish all nine.** The "not now" above has ended. All nine
+libraries (now including segno, calco, lente and tavola) publish alongside `@laticent/lattice`
+1.0.0, each on its own version line. The plan and its order are in
+`engineering/decisions/2026-10-07-first-npm-release.md`: slice B makes the libraries
+publishable, slice C brings in Changesets, and slice E is the first publish.
