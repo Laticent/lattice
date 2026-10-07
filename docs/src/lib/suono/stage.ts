@@ -247,12 +247,15 @@ export function createStage(opts: StageOptions = {}): Stage {
 	// MUTES — so playback succeeds yet nothing is heard. Promote to 'playback' (Safari 16.4+,
 	// guarded) so audio goes through the media channel that ignores the mute switch. Then resume +
 	// tick a 1-sample buffer to bless the context. Call SYNCHRONOUSLY from the gesture. Idempotent.
+	// Never downgrade 'play-and-record': the Audio Session spec ENDS a microphone track under any
+	// other explicit type, so read-aloud started during a Studio live call would cut that call's mic.
+	// 'play-and-record' also plays through the media channel, so the silent switch still can't mute us.
 	function unlock(): void {
 		const ctx = getCtx();
 		if (!ctx) return;
 		try {
 			const s = typeof navigator !== 'undefined' && (navigator as unknown as { audioSession?: { type: string } }).audioSession;
-			if (s) s.type = 'playback';
+			if (s && s.type !== 'play-and-record') s.type = 'playback';
 		} catch {
 			/* best-effort */
 		}

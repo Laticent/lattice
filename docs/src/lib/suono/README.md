@@ -95,8 +95,9 @@ WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`
 
 - One owned context, never per-utterance, never closed. Decoded-buffer cache + byte cache + in-flight
   dedup. Bounded synth-ahead, **pause-gated** (a pause can't produce — or bill — the rest of the run).
-- iOS/Safari: gesture-sync unlock, `audioSession = 'playback'` silent-switch fix, callback-form decode,
-  fresh-`ArrayBuffer` replay safety.
+- iOS/Safari: gesture-sync unlock, `audioSession = 'playback'` silent-switch fix (left at
+  `'play-and-record'` when a page is recording, since any other type ends the microphone),
+  callback-form decode, fresh-`ArrayBuffer` replay safety.
 - Never rejects: a produce/decode failure degrades to silence and reports via `onState.error`.
   Barge-in via `AbortController`; a watchdog skips a hung producer.
 - Latency-compensated clock so a caption tracks the ear, not the buffer.
